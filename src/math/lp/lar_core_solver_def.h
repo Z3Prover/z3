@@ -40,7 +40,6 @@ void lar_core_solver::prefix_r() {
     if (m_r_solver.m_settings.simplex_strategy() != simplex_strategy_enum::tableau_rows) {
         m_r_solver.m_costs.resize(m_r_solver.m_n());
         m_r_solver.m_d.resize(m_r_solver.m_n());
-        m_r_solver.set_using_infeas_costs(true);
     }
 }
 

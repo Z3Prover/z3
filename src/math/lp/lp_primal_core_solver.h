@@ -334,28 +334,12 @@ public:
   void update_x_tableau_rows(unsigned entering, unsigned leaving,
                              const X &delta) {
     this->add_delta_to_x(entering, delta);
-    if (!this->using_infeas_costs()) {
-      for (const auto &c : this->m_A.m_columns[entering]) {
-        if (leaving != this->m_basis[c.var()]) {
-          this->add_delta_to_x_and_track_feasibility(
-              this->m_basis[c.var()], -delta * this->m_A.get_val(c));
-        }
-      }
-    } else { // using_infeas_costs() == true
-      lp_assert(this->column_is_feasible(entering));
-      lp_assert(this->m_costs[entering] == zero_of_type<T>());
-      // m_d[entering] can change because of the cost change for basic columns.
-      for (const auto &c : this->m_A.m_columns[entering]) {
-        unsigned j = this->m_basis[c.var()];
-        if (j != leaving)
-          this->add_delta_to_x(j, -delta * this->m_A.get_val(c));
-        update_inf_cost_for_column_tableau(j);
-        if (is_zero(this->m_costs[j]))
-          this->remove_column_from_inf_set(j);
-        else
-          this->insert_column_into_inf_set(j);
-      }
-    }
+    for (const auto &c : this->m_A.m_columns[entering]) {
+       if (leaving != this->m_basis[c.var()]) {
+         this->add_delta_to_x_and_track_feasibility(
+         this->m_basis[c.var()], -delta * this->m_A.get_val(c));
+       }
+    }    
   }
 
   void update_basis_and_x_tableau_rows(int entering, int leaving, X const &tt) {
@@ -437,7 +421,6 @@ public:
   }
 
   void decide_on_status_when_cannot_find_entering() {
-    lp_assert(!need_to_switch_costs());
     this->set_status(this->current_x_is_feasible() ? lp_status::OPTIMAL
                                                    : lp_status::INFEASIBLE);
   }
@@ -628,11 +611,6 @@ public:
 
   bool column_is_benefitial_for_entering_basis(unsigned j) const;
   void init_infeasibility_costs();
-
-  void init_infeasibility_cost_for_column(unsigned j);
-  T get_infeasibility_cost_for_column(unsigned j) const;
-  void init_infeasibility_costs_for_changed_basis_only();
-
   void print_column(unsigned j, std::ostream &out);
 
   void print_bound_info_and_x(unsigned j, std::ostream &out);
@@ -652,8 +630,6 @@ public:
 
   void init_run_tableau();
   void update_x_tableau(unsigned entering, const X &delta);
-  void update_inf_cost_for_column_tableau(unsigned j);
-
   // the delta is between the old and the new cost (old - new)
   void update_reduced_cost_for_basic_column_cost_change(const T &delta,
                                                         unsigned j) {

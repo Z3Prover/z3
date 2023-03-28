@@ -96,7 +96,7 @@ unsigned lp_primal_core_solver<T, X>::solve() {
     }
         
     do {
-        if (this->print_statistics_with_iterations_and_nonzeroes_and_cost_and_check_that_the_time_is_over((this->using_infeas_costs()? "inf t" : "feas t"), * this->m_settings.get_message_ostream())) {
+        if (this->print_statistics_with_iterations_and_nonzeroes_and_cost_and_check_that_the_time_is_over( "feas t", * this->m_settings.get_message_ostream())) {
             return this->total_iterations();
         }
         if (this->m_settings.use_tableau_rows()) {
@@ -107,28 +107,12 @@ unsigned lp_primal_core_solver<T, X>::solve() {
         TRACE("lar_solver", tout << "one iteration tableau " << this->get_status() << "\n";);
         switch (this->get_status()) {
         case lp_status::OPTIMAL:  // check again that we are at optimum
-        case lp_status::INFEASIBLE:
-            if (this->m_look_for_feasible_solution_only && this->current_x_is_feasible())
-                break;
-             { // precise case
-                if ((!this->infeasibility_costs_are_correct())) {
-                    init_reduced_costs_tableau(); // forcing recalc
-                    if (choose_entering_column_tableau() == -1) {
-                        decide_on_status_when_cannot_find_entering();
-                        break;
-                    }
-                    this->set_status(lp_status::UNKNOWN);
-                }
-            }
             break;
         case lp_status::TENTATIVE_UNBOUNDED:
            UNREACHABLE();
             break;
         case lp_status::UNBOUNDED:
-            if (this->current_x_is_infeasible()) {
-                init_reduced_costs_tableau();
-                this->set_status(lp_status::UNKNOWN);
-            }
+            lp_assert (this->current_x_is_feasible());            
             break;
 
         case lp_status::UNSTABLE:
@@ -169,7 +153,7 @@ template <typename T, typename X>void lp_primal_core_solver<T, X>::advance_on_en
     lp_assert((this->m_settings.simplex_strategy() ==
                 simplex_strategy_enum::tableau_rows) ||
                 m_non_basis_list.back() == static_cast<unsigned>(entering));
-    lp_assert(this->using_infeas_costs() || !is_neg(t));
+    lp_assert(!is_neg(t));
     lp_assert(entering != leaving || !is_zero(t)); // otherwise nothing changes
     if (entering == leaving) {
         advance_on_entering_equal_leaving_tableau(entering, t);
@@ -191,11 +175,6 @@ template <typename T, typename X>void lp_primal_core_solver<T, X>::advance_on_en
         return;
 
     if (this->m_settings.simplex_strategy() != simplex_strategy_enum::tableau_rows) {
-        if (need_to_switch_costs()) {
-            this->init_reduced_costs_tableau();
-        }
-        
-        lp_assert(!need_to_switch_costs());
         std::list<unsigned>::iterator it = m_non_basis_list.end();
         it--;
         * it = static_cast<unsigned>(leaving);
@@ -208,9 +187,7 @@ void lp_primal_core_solver<T, X>::advance_on_entering_equal_leaving_tableau(int 
     if (this->m_look_for_feasible_solution_only && this->current_x_is_feasible())
         return;
     
-    if (need_to_switch_costs()) {
-        init_reduced_costs_tableau();
-    }
+    
     this->iters_with_no_cost_growing() = 0;
 }
 template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_and_t_tableau(unsigned entering, X & t) {
@@ -299,54 +276,19 @@ update_basis_and_x_tableau(int entering, int leaving, X const & tt) {
     this->change_basis(entering, leaving);
     return true;
 }
+
 template <typename T, typename X> void lp_primal_core_solver<T, X>::
 update_x_tableau(unsigned entering, const X& delta) {
     this->add_delta_to_x(entering, delta);
-    if (!this->using_infeas_costs()) {
-        for (const auto & c : this->m_A.m_columns[entering]) {
-            unsigned i = c.var();
-            this->add_delta_to_x_and_track_feasibility(this->m_basis[i], -  delta * this->m_A.get_val(c));
-        }
-    } else { // using_infeas_costs() == true
-        lp_assert(this->column_is_feasible(entering));
-        lp_assert(this->m_costs[entering] == zero_of_type<T>());
-        // m_d[entering] can change because of the cost change for basic columns.
-        for (const auto & c : this->m_A.m_columns[entering]) {
-            unsigned i = c.var();
-            unsigned j = this->m_basis[i];
-            this->add_delta_to_x(j, -delta * this->m_A.get_val(c));
-            update_inf_cost_for_column_tableau(j);
-            if (is_zero(this->m_costs[j]))
-                this->remove_column_from_inf_set(j);
-            else
-                this->insert_column_into_inf_set(j);
-        }
+    for (const auto & c : this->m_A.m_columns[entering]) {
+         unsigned i = c.var();
+         this->add_delta_to_x_and_track_feasibility(this->m_basis[i], -  delta * this->m_A.get_val(c));
     }
 }
 
-template <typename T, typename X> void lp_primal_core_solver<T, X>::
-update_inf_cost_for_column_tableau(unsigned j) {
-    lp_assert(this->m_settings.simplex_strategy() != simplex_strategy_enum::tableau_rows);
-    
-    lp_assert(this->using_infeas_costs());
-
-    T new_cost = get_infeasibility_cost_for_column(j);
-    T delta = this->m_costs[j] - new_cost;
-    if (is_zero(delta))
-        return;
-    this->m_costs[j] = new_cost;
-    update_reduced_cost_for_basic_column_cost_change(delta, j);
-}
 
 template <typename T, typename X> void lp_primal_core_solver<T, X>::init_reduced_costs_tableau() {
-    if (this->current_x_is_infeasible() && !this->using_infeas_costs()) {
-        init_infeasibility_costs();
-    } else if (this->current_x_is_feasible() && this->using_infeas_costs()) {
-        if (this->m_look_for_feasible_solution_only)
-            return;
-        this->m_costs = m_costs_backup;
-        this->set_using_infeas_costs(false);
-    }
+    
     unsigned size = this->m_basis_heading.size();
     for (unsigned j = 0; j < size; j++) {
         if (this->m_basis_heading[j] >= 0)

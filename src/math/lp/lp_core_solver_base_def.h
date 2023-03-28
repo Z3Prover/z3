@@ -43,7 +43,6 @@ lp_core_solver_base(static_matrix<T, X> & A,
     m_iters_with_no_cost_growing(0),
     m_status(lp_status::FEASIBLE),
     m_inf_set(A.column_count()),
-    m_using_infeas_costs(false),
     m_pivot_row(A.column_count()),
     m_A(A),
     m_basis(basis),
@@ -91,8 +90,6 @@ pivot_to_reduced_costs_tableau(unsigned i, unsigned j) {
     }
     a = zero_of_type<T>(); // zero the pivot column's m_d finally
 }
-
-
 
 
 
@@ -431,59 +428,6 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::remove_from_ba
             return true;
     }
     return false;
-}
-
-
-template <typename T, typename X> bool 
-lp_core_solver_base<T, X>::infeasibility_costs_are_correct() const {
-    if (! this->m_using_infeas_costs)
-        return true;
-    lp_assert(costs_on_nbasis_are_zeros());
-    for (unsigned j :this->m_basis) {
-        if (!infeasibility_cost_is_correct_for_column(j)) {
-            TRACE("lar_solver", tout << "incorrect cost for column " << j << std::endl;);
-            return false;
-        }
-        if (!is_zero(m_d[j])) {
-            TRACE("lar_solver", tout << "non zero inf cost for basis j = " << j << std::endl;);
-            return false;
-        }
-    }
-    return true;
-}
-
-template <typename T, typename X> bool
-lp_core_solver_base<T, X>::infeasibility_cost_is_correct_for_column(unsigned j)  const {
-    T r =  -one_of_type<T>();
-        
-    switch (this->m_column_types[j]) {
-    case column_type::fixed:
-    case column_type::boxed:
-        if (this->x_above_upper_bound(j)) {
-            return (this->m_costs[j] == r);
-        }
-        if (this->x_below_low_bound(j)) {
-            return (this->m_costs[j] == -r);
-        }
-        return is_zero(this->m_costs[j]);
-
-    case column_type::lower_bound:
-        if (this->x_below_low_bound(j)) {
-            return this->m_costs[j] == -r;
-        }
-        return is_zero(this->m_costs[j]);
-
-    case column_type::upper_bound:
-        if (this->x_above_upper_bound(j)) {
-            return this->m_costs[j] == r;
-        }
-        return is_zero(this->m_costs[j]);
-    case column_type::free_column:
-        return is_zero(this->m_costs[j]);
-    default:
-        UNREACHABLE();
-        return true;
-    }
 }
 
 

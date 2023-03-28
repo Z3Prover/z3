@@ -33,6 +33,5 @@ template unsigned lp_primal_core_solver<mpq, mpq>::solve();
 template unsigned lp_primal_core_solver<mpq, numeric_pair<mpq> >::solve();
 template bool lp::lp_primal_core_solver<lp::mpq, lp::mpq>::update_basis_and_x_tableau(int, int, lp::mpq const&);
 template bool lp::lp_primal_core_solver<lp::mpq, lp::numeric_pair<lp::mpq> >::update_basis_and_x_tableau(int, int, lp::numeric_pair<lp::mpq> const&);
-template void lp::lp_primal_core_solver<rational, lp::numeric_pair<rational> >::update_inf_cost_for_column_tableau(unsigned);
 
 }
