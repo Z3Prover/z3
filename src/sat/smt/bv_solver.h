@@ -68,18 +68,16 @@ namespace bv {
             kind_t     m_kind;
             union {
                 // for eq2bit, ne2bit, bit2eq, bit2ne, bv2int:
+                sat::literal m_consequent;
+                sat::literal m_antecedent;
                 struct {
                     unsigned   m_idx;
                     theory_var m_v1;
                     theory_var m_v2;
-                    sat::literal m_consequent;
-                    sat::literal m_antecedent;
                     euf::enode* a, *b, *c;
                 };
                 // for bvext:
                 struct {
-                    // sat::literal     m_consequent; // literal consequent for propagations
-                    // euf::enode_pair  m_eq;         // equality consequent for propagations
                     unsigned         m_num_literals;
                     unsigned         m_num_eqs;        
                     sat::literal*    m_literals;
