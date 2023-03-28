@@ -322,6 +322,14 @@ namespace polysat {
         return any_of(c, [&](sat::literal lit) { return m_bvars.scope(lit) > 0; });        
     }
 
+    void solver::push_reinit_stack(clause& c) {
+        if (c.on_reinit_stack())
+            return;
+        c.set_on_reinit_stack(true);
+        m_clauses_to_reinit.push_back(&c);
+    }
+
+
     // TODO
     // pop_levels is called from pop and backjump
     // backjump invoked a few places.
@@ -339,6 +347,7 @@ namespace polysat {
         unsigned j = old_sz;
         for (unsigned i = old_sz; i < sz; i++) {
             clause& c = *m_clauses_to_reinit[i];
+            SASSERT(c.on_reinit_stack());
             bool reinit = false;
 #if 0
             // todo, private methods to constraint_manager
@@ -702,6 +711,7 @@ namespace polysat {
 
     void solver::push_level() {
         ++m_level;
+        m_reinit_heads.push_back(m_clauses_to_reinit.size());
         m_trail.push_back(trail_instr_t::inc_level_i);
     }
 
@@ -746,6 +756,8 @@ namespace polysat {
             case trail_instr_t::inc_level_i: {
                 --m_level;
                 --num_levels;
+                m_reinit_head = m_reinit_heads.back();
+                m_reinit_heads.pop_back();
                 break;
             }
             case trail_instr_t::viable_add_i: {
@@ -794,6 +806,9 @@ namespace polysat {
             m_trail.pop_back();
         }
         m_constraints.release_level(m_level + 1);
+
+        // todo:
+        // reinit_clauses(m_reinit_head);
 
         SASSERT(m_level == target_level);
     }
