@@ -36,6 +36,7 @@ namespace polysat {
         unsigned m_ref_count = 0;  // TODO: remove refcount once we confirm it's not needed anymore
         bool m_redundant = redundant_default;
         bool m_active = false;  // clause is active iff it has been added to the solver and boolean watchlists
+        bool m_on_reinit_stack = false;
         sat::literal_vector m_literals;
         char const* m_name = "";
 
@@ -84,6 +85,9 @@ namespace polysat {
 
         void set_name(char const* name) { m_name = name; }
         char const* name() const { return m_name; }
+
+        void set_on_reinit_stack(bool f) { m_on_reinit_stack = f; }
+        bool on_reinit_stack() const { return m_on_reinit_stack; }
     };
 
     inline std::ostream& operator<<(std::ostream& out, clause const& c) { return c.display(out); }

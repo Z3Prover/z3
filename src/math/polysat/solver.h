@@ -200,6 +200,7 @@ namespace polysat {
         sat::literal_set         m_ptrue_lits;
         sat::literal_vector      m_ptrue_lits_trail;
         unsigned_vector          m_ptrue_lits_size_trail;
+        
 
         void push_qhead() {
             m_trail.push_back(trail_instr_t::qhead_i);
@@ -343,6 +344,13 @@ namespace polysat {
         sat::literal try_eval(signed_constraint c) { return try_eval(c.blit()); }
 
         signed_constraint lit2cnstr(sat::literal lit) const { return m_constraints.lookup(lit); }
+
+
+        // clause reinitialization
+        ptr_vector<clause>       m_clauses_to_reinit;
+        void push_reinit_stack(clause& c);
+        void reinit_clauses(unsigned old_sz);
+        bool has_variables_to_reinit(clause const& c) const;
 
         bool inc() { return m_lim.inc(); }
 

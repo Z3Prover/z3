@@ -17,13 +17,14 @@ Author:
 
 namespace polysat {
 
-    sat::bool_var bool_var_manager::new_var() {
+    sat::bool_var bool_var_manager::new_var(unsigned scope) {
         sat::bool_var var;
         if (m_unused.empty()) {
             var = size();
             m_value.push_back(l_undef);
             m_value.push_back(l_undef);
             m_level.push_back(UINT_MAX);
+            m_scope.push_back(scope);
             m_deps.push_back(null_dependency);
             m_kind.push_back(kind_t::unassigned);
             m_reason.push_back(nullptr);
@@ -34,6 +35,7 @@ namespace polysat {
             var = m_unused.back();
             m_unused.pop_back();
             auto lit = sat::literal(var);
+            m_scope[var] = scope;
             SASSERT_EQ(m_value[lit.index()], l_undef);
             SASSERT_EQ(m_value[(~lit).index()], l_undef);
             SASSERT_EQ(m_level[var], UINT_MAX);
@@ -52,6 +54,7 @@ namespace polysat {
         m_value[lit.index()]    = l_undef;
         m_value[(~lit).index()] = l_undef;
         m_level[var] = UINT_MAX;
+        m_scope[var] = UINT_MAX;
         m_kind[var] = kind_t::unassigned;
         m_reason[var] = nullptr;
         m_deps[var] = null_dependency;

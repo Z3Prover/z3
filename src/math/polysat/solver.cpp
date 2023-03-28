@@ -318,6 +318,58 @@ namespace polysat {
         }
     }
 
+    bool solver::has_variables_to_reinit(clause const& c) const {
+        return any_of(c, [&](sat::literal lit) { return m_bvars.scope(lit) > 0; });        
+    }
+
+    // TODO
+    // pop_levels is called from pop and backjump
+    // backjump invoked a few places.
+    // the logic for propagating clauses after a pop or backjump
+    // is different. pop_levels inserts into repropagate
+    // pop_levels should end with a call to reinit_clauses where
+    // old_sz is the current trail head for clauses created within the scope.
+    //
+    // pop-levels can also update the scope of variables created below the pop level.
+    // the scope of variables would be set to the new level for clauses surviving a pop.
+    
+    void solver::reinit_clauses(unsigned old_sz) {
+        unsigned sz = m_clauses_to_reinit.size();
+        SASSERT(old_sz <= sz);
+        unsigned j = old_sz;
+        for (unsigned i = old_sz; i < sz; i++) {
+            clause& c = *m_clauses_to_reinit[i];
+            bool reinit = false;
+#if 0
+            // todo, private methods to constraint_manager
+            m_constraints.unwatch(c);
+            reinit = m_constraints.watch(c);
+#endif
+
+            // reinit <- true if clause is used for propagation
+
+            // has_variables_to_reinit:
+            // = clause contains literal that was created above base level.
+            
+            // Each Boolean has a "scope". The scope is initialized to the scope where
+            // the Boolean is created.
+            
+            // TODO
+            // The scope is updated on pop to be the new level where the clause resides.
+            // the reinit-stack is also 
+
+            if (reinit && !at_base_level()) 
+                // clause propagated literal, must keep it in the reinit stack.
+                m_clauses_to_reinit[j++] = &c;            
+            else if (has_variables_to_reinit(c) && !at_base_level())
+                m_clauses_to_reinit[j++] = &c;
+            else 
+                c.set_on_reinit_stack(false);
+        }
+        m_clauses_to_reinit.shrink(j);
+    }
+
+
     bool solver::can_repropagate() {
         return !m_repropagate_lits.empty() && !is_conflict();
     }
@@ -742,6 +794,7 @@ namespace polysat {
             m_trail.pop_back();
         }
         m_constraints.release_level(m_level + 1);
+
         SASSERT(m_level == target_level);
     }
 

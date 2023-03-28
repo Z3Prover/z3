@@ -46,7 +46,7 @@ namespace polysat {
 
     void constraint_manager::ensure_bvar(constraint* c) {
         if (!c->has_bvar())
-            assign_bv2c(s.m_bvars.new_var(), c);
+            assign_bv2c(s.m_bvars.new_var(s.m_level), c);
     }
 
     void constraint_manager::erase_bvar(constraint* c) {
@@ -130,16 +130,16 @@ namespace polysat {
         SASSERT(std::all_of(cl.begin() + 1, cl.end(), [&](auto lit) { return get_watch_level(lit) <= get_watch_level(cl[1]); }));
     }
 
-    void constraint_manager::watch(clause& cl) {
+    bool constraint_manager::watch(clause& cl) {
         if (cl.empty())
-            return;
+            return false;
 
         if (cl.size() == 1) {
             if (s.m_bvars.is_false(cl[0]))
                 s.set_conflict(cl);
             else if (!s.m_bvars.is_assigned(cl[0]))
                 s.assign_propagate(cl[0], cl);
-            return;
+            return true;
         }
 
         normalize_watch(cl);
@@ -148,16 +148,17 @@ namespace polysat {
         s.m_bvars.watch(cl[1]).push_back(&cl);
 
         if (s.m_bvars.is_true(cl[0]))
-            return;
+            return false;
         SASSERT(!s.m_bvars.is_true(cl[1]));
         if (!s.m_bvars.is_false(cl[1])) {
             SASSERT(!s.m_bvars.is_assigned(cl[0]) && !s.m_bvars.is_assigned(cl[1]));
-            return;
+            return false;
         }
         if (s.m_bvars.is_false(cl[0]))
             s.set_conflict(cl);
         else
             s.assign_propagate(cl[0], cl);
+        return true;
     }
 
     void constraint_manager::unwatch(clause& cl) {

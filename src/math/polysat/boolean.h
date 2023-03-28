@@ -34,6 +34,7 @@ namespace polysat {
         svector<sat::bool_var>      m_unused;   // previously deleted variables that can be reused by new_var();
         svector<lbool>              m_value;    // current value (indexed by literal)
         unsigned_vector             m_level;    // level of assignment (indexed by variable)
+        unsigned_vector             m_scope;    // scope where variable is active
         dependency_vector           m_deps;     // dependencies of external asserts
         svector<kind_t>             m_kind;     // decision or propagation?
         ptr_vector<clause>          m_reason;   // reasons for bool-propagated literals
@@ -49,7 +50,7 @@ namespace polysat {
         // allocated size (not the number of active variables)
         unsigned size() const { return m_level.size(); }
 
-        sat::bool_var new_var();
+        sat::bool_var new_var(unsigned scope);
         void del_var(sat::bool_var var);
 
         bool is_assigned(sat::bool_var var) const { SASSERT(invariant(var)); return value(var) != l_undef; }
@@ -69,6 +70,9 @@ namespace polysat {
         bool is_undef(sat::literal lit) const { return value(lit) == l_undef; }
         unsigned level(sat::bool_var var) const { SASSERT(is_assigned(var)); return m_level[var]; }
         unsigned level(sat::literal lit) const { return level(lit.var()); }
+        unsigned scope(sat::literal lit) const { return scope(lit.var()); }
+        unsigned scope(sat::bool_var var) const { return m_scope[var]; }
+        void set_scope(sat::bool_var var, unsigned scope) { m_scope[var] = scope; }
         clause* reason(sat::bool_var var) const { SASSERT(is_assigned(var)); SASSERT(is_bool_propagation(var) == !!m_reason[var]); return m_reason[var]; }
         clause* reason(sat::literal lit) const { return reason(lit.var()); }
         dependency dep(sat::bool_var var) const { return var == sat::null_bool_var ? null_dependency : m_deps[var]; }
