@@ -66,10 +66,10 @@ namespace bv {
         struct bv_justification {
             enum kind_t { eq2bit, ne2bit, bit2eq, bit2ne, bv2int, bvext };
             kind_t     m_kind;
+            sat::literal m_consequent;
+            sat::literal m_antecedent;
             union {
                 // for eq2bit, ne2bit, bit2eq, bit2ne, bv2int:
-                sat::literal m_consequent;
-                sat::literal m_antecedent;
                 struct {
                     unsigned   m_idx;
                     theory_var m_v1;
@@ -87,13 +87,13 @@ namespace bv {
                     
                     
             bv_justification(theory_var v1, theory_var v2, sat::literal c, sat::literal a) :
-                m_kind(bv_justification::kind_t::eq2bit), m_idx(UINT_MAX), m_v1(v1), m_v2(v2), m_consequent(c), m_antecedent(a) {}
+                m_kind(bv_justification::kind_t::eq2bit), m_consequent(c), m_antecedent(a), m_idx(UINT_MAX), m_v1(v1), m_v2(v2) {}
             bv_justification(theory_var v1, theory_var v2):
                 m_kind(bv_justification::kind_t::bit2eq), m_idx(UINT_MAX), m_v1(v1), m_v2(v2) {}
             bv_justification(unsigned idx, sat::literal c) :
-                m_kind(bv_justification::kind_t::bit2ne), m_idx(idx), m_consequent(c) {}
+                m_kind(bv_justification::kind_t::bit2ne), m_consequent(c), m_idx(idx) {}
             bv_justification(unsigned idx, theory_var v1, theory_var v2, sat::literal c, sat::literal a) :
-                m_kind(bv_justification::kind_t::ne2bit), m_idx(idx), m_v1(v1), m_v2(v2), m_consequent(c), m_antecedent(a) {}
+                m_kind(bv_justification::kind_t::ne2bit), m_consequent(c), m_antecedent(a), m_idx(idx), m_v1(v1), m_v2(v2){}
             bv_justification(theory_var v1, theory_var v2, euf::enode* a, euf::enode* b, euf::enode* c):
                 m_kind(bv_justification::kind_t::bv2int), m_idx(UINT_MAX), m_v1(v1), m_v2(v2), a(a), b(b), c(c) {}
             bv_justification(sat::literal_vector const& lits, euf::enode_pair_vector const& eqs);
