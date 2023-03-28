@@ -24,6 +24,7 @@ Notes:
 #include "ast/recfun_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/datatype_decl_plugin.h"
+#include "ast/seq_decl_plugin.h"
 #include "tactic/core/collect_occs.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/ast_ll_pp.h"
@@ -44,6 +45,7 @@ class elim_uncnstr_tactic : public tactic {
         bv_util                m_bv_util;
         array_util             m_ar_util;
         datatype_util          m_dt_util;
+        seq_util               m_seq_util;
         app_ref_vector         m_fresh_vars;
         obj_map<app, app*>     m_cache;
         app_ref_vector         m_cache_domain;
@@ -60,6 +62,7 @@ class elim_uncnstr_tactic : public tactic {
             m_bv_util(m),
             m_ar_util(m),
             m_dt_util(m),
+            m_seq_util(m),
             m_fresh_vars(m),
             m_cache_domain(m),
             m_max_memory(max_memory),
@@ -792,6 +795,43 @@ class elim_uncnstr_tactic : public tactic {
             }
             return nullptr;
         }
+
+        // x ++ y -> z, x -> z, y -> eps
+        app * process_seq_app(func_decl * f, unsigned num, expr * const * args) {
+            switch (f->get_decl_kind()) {
+            case _OP_STRING_CONCAT:
+            case OP_SEQ_CONCAT: {
+                app * r = nullptr;
+                expr* x, *y;
+                if (uncnstr(args[0]) && num == 2 &&
+                    m_seq_util.str.is_concat(args[1], x, y) &&
+                    uncnstr(x)) {
+                    if (!mk_fresh_uncnstr_var_for(f, num, args, r))
+                        return r;
+
+                    if (m_mc) {
+                        add_def(args[0], r);
+                        add_def(x, m_seq_util.str.mk_empty(args[0]->get_sort()));
+                    }
+                    r = m_seq_util.str.mk_concat(r, y);                        
+                    return r;
+
+                }
+                if (!uncnstr(num, args))
+                    return nullptr;
+                if (!mk_fresh_uncnstr_var_for(f, num, args, r))
+                    return r;
+
+                expr_ref id(m_seq_util.str.mk_empty(args[0]->get_sort()), m());
+                add_defs(num, args, r, id);
+                
+                return r;
+            }
+            default:
+                return nullptr;
+            }            
+        }
+
         
         br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
             if (num == 0)
@@ -817,7 +857,8 @@ class elim_uncnstr_tactic : public tactic {
                 u = process_array_app(f, num, args);
             else if (fid == m_dt_util.get_family_id())
                 u = process_datatype_app(f, num, args);
-            
+            else if (fid == m_seq_util.get_family_id())
+                u = process_seq_app(f, num, args);
             if (u == nullptr)
                 return BR_FAILED;
             

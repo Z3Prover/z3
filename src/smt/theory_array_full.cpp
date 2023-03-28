@@ -834,8 +834,8 @@ namespace smt {
         }
         for (enode* n : m_lambdas) 
             for (enode* p : n->get_parents())
-                if (!ctx.is_beta_redex(p, n)) {
-                    TRACE("array", tout << "not a beta redex " << enode_pp(p, ctx) << "\n");
+                if (!is_default(p) && !ctx.is_beta_redex(p, n)) {
+                    TRACE("array", tout << "lambda is not a beta redex " << enode_pp(p, ctx) << "\n");
                     return true;
                 }
         return false;

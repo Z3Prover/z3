@@ -276,6 +276,7 @@ update_basis_and_x_tableau(int entering, int leaving, X const & tt) {
     this->change_basis(entering, leaving);
     return true;
 }
+
 template <typename T, typename X> void lp_primal_core_solver<T, X>::
 update_x_tableau(unsigned entering, const X& delta) {
     this->add_delta_to_x(entering, delta);
@@ -283,7 +284,6 @@ update_x_tableau(unsigned entering, const X& delta) {
          unsigned i = c.var();
          this->add_delta_to_x_and_track_feasibility(this->m_basis[i], -  delta * this->m_A.get_val(c));
     }
-    
 }
 
 

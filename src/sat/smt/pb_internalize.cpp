@@ -119,7 +119,7 @@ namespace pb {
         else {
             bool_var v = s().add_var(true);
             literal lit(v, sign);
-            add_pb_ge(v, sign, wlits, k.get_unsigned());
+            add_pb_ge(v, false, wlits, k.get_unsigned());
             TRACE("ba", tout << "root: " << root << " lit: " << lit << "\n";);
             return lit;
         }
@@ -146,7 +146,7 @@ namespace pb {
         else {
             sat::bool_var v = s().add_var(true);
             sat::literal lit(v, sign);
-            add_pb_ge(v, sign, wlits, k.get_unsigned());
+            add_pb_ge(v, false, wlits, k.get_unsigned());
             TRACE("goal2sat", tout << "root: " << root << " lit: " << lit << "\n";);
             return lit;
         }

@@ -635,7 +635,7 @@ namespace q {
         if (m_model)
             return;
         m_model = alloc(model, m);
-        ctx.update_model(m_model);
+        ctx.update_model(m_model, false);
     }
 
     void mbqi::init_solver() {

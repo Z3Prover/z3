@@ -987,7 +987,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
     void update_model(model_ref& mdl) {
         auto* ext = dynamic_cast<euf::solver*>(m_solver.get_extension());
         if (ext)
-            ext->update_model(mdl);
+            ext->update_model(mdl, true);
     }
 
     void user_push() {

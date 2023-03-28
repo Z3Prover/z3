@@ -495,7 +495,7 @@ namespace euf {
 
         // model construction
         void save_model(model_ref& mdl);
-        void update_model(model_ref& mdl);
+        void update_model(model_ref& mdl, bool validate);
         obj_map<expr, enode*> const& values2root();
         void model_updated(model_ref& mdl);
         expr* node2value(enode* n) const;

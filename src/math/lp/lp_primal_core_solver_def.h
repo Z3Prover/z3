@@ -258,8 +258,6 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::find_feas
     solve();
 }
 
-
-
 template <typename T, typename X>
 void lp_primal_core_solver<T, X>::init_infeasibility_costs() {
     lp_assert(this->m_x.size() >= this->m_n());

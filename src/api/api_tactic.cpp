@@ -24,7 +24,7 @@ Revision History:
 #include "util/scoped_ctrl_c.h"
 #include "util/cancel_eh.h"
 #include "util/scoped_timer.h"
-#include "ast/simplifiers/seq_simplifier.h"
+#include "ast/simplifiers/then_simplifier.h"
 
 Z3_apply_result_ref::Z3_apply_result_ref(api::context& c, ast_manager & m): api::object(c) {
 }
@@ -589,7 +589,7 @@ extern "C" {
         auto fac1 = *to_simplifier_ref(t1);
         auto fac2 = *to_simplifier_ref(t2);
         auto new_s = [fac1, fac2](auto& m, auto& p, auto& st) {
-            auto* r = alloc(seq_simplifier, m, p, st);
+            auto* r = alloc(then_simplifier, m, p, st);
             r->add_simplifier(fac1(m, p, st));
             r->add_simplifier(fac2(m, p, st));
             return r;

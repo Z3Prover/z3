@@ -151,6 +151,7 @@ namespace z3 {
     }
 
 
+
     /**
        \brief A Context manages all other Z3 objects, global configuration options, etc.
     */
@@ -750,6 +751,7 @@ namespace z3 {
         func_decl_vector recognizers();
     };
 
+
     /**
        \brief Function declaration (aka function definition). It is the signature of interpreted and uninterpreted functions in Z3.
        The basic building block in Z3 is the function application.
@@ -770,6 +772,8 @@ namespace z3 {
         sort range() const { Z3_sort r = Z3_get_range(ctx(), *this); check_error(); return sort(ctx(), r); }
         symbol name() const { Z3_symbol s = Z3_get_decl_name(ctx(), *this); check_error(); return symbol(ctx(), s); }
         Z3_decl_kind decl_kind() const { return Z3_get_decl_kind(ctx(), *this); }
+        unsigned num_parameters() const { return Z3_get_decl_num_parameters(ctx(), *this); }
+
 
         func_decl transitive_closure(func_decl const&) {
             Z3_func_decl tc = Z3_mk_transitive_closure(ctx(), *this); check_error(); return func_decl(ctx(), tc); 
@@ -2686,6 +2690,43 @@ namespace z3 {
         else out << "unknown";
         return out;
     }
+
+    /**
+        \brief class for auxiliary parameters associated with func_decl 
+        The class is initialized with a func_decl or application expression and an index
+        The accessor get_expr, get_sort, ... is available depending on the value of kind().
+        The caller is responsible to check that the kind of the parameter aligns with the call (get_expr etc).
+
+        Parameters are available on some declarations to contain additional information that is not passed as
+        arguments when a function is applied to arguments. For example, bit-vector extraction has two 
+        integer parameters. Array map has a function parameter.
+    */
+    class parameter {
+        Z3_parameter_kind m_kind;
+        func_decl         m_decl;
+        unsigned          m_index;
+        context& ctx() const { return m_decl.ctx(); }
+        void check_error() const { ctx().check_error(); }
+    public:
+        parameter(func_decl const& d, unsigned idx) : m_decl(d), m_index(idx) { 
+            if (ctx().enable_exceptions() && idx >= d.num_parameters())
+                Z3_THROW(exception("parameter index is out of bounds"));
+            m_kind = Z3_get_decl_parameter_kind(ctx(), d, idx); 
+        }
+        parameter(expr const& e, unsigned idx) : m_decl(e.decl()), m_index(idx) {
+            if (ctx().enable_exceptions() && idx >= m_decl.num_parameters())
+                Z3_THROW(exception("parameter index is out of bounds"));
+            m_kind = Z3_get_decl_parameter_kind(ctx(), m_decl, idx);
+        }
+        Z3_parameter_kind kind() const { return m_kind; }
+        expr get_expr() const { Z3_ast a = Z3_get_decl_ast_parameter(ctx(), m_decl, m_index); check_error(); return expr(ctx(), a); }
+        sort get_sort() const { Z3_sort s = Z3_get_decl_sort_parameter(ctx(), m_decl, m_index); check_error(); return sort(ctx(), s); }
+        func_decl get_decl() const { Z3_func_decl f = Z3_get_decl_func_decl_parameter(ctx(), m_decl, m_index); check_error(); return func_decl(ctx(), f); }
+        symbol get_symbol() const { Z3_symbol s = Z3_get_decl_symbol_parameter(ctx(), m_decl, m_index); check_error(); return symbol(ctx(), s); }
+        std::string get_rational() const { Z3_string s = Z3_get_decl_rational_parameter(ctx(), m_decl, m_index); check_error(); return s; }
+        double get_double() const { double d = Z3_get_decl_double_parameter(ctx(), m_decl, m_index); check_error(); return d; }
+        int get_int() const { int i = Z3_get_decl_int_parameter(ctx(), m_decl, m_index); check_error(); return i; }
+    };
 
 
     class solver : public object {

@@ -196,6 +196,7 @@ namespace smt {
         void internalize_ext_rotate_right(app * n);
         void internalize_and(app * n);
         void internalize_or(app * n);
+        void internalize_neg(app * n);
         void internalize_not(app * n);
         void internalize_nand(app * n);
         void internalize_nor(app * n);

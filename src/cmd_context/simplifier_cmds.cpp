@@ -21,7 +21,7 @@ Author:
 #include "cmd_context/parametric_cmd.h"
 #include "model/model_smt2_pp.h"
 #include "ast/ast_smt2_pp.h"
-#include "ast/simplifiers/seq_simplifier.h"
+#include "ast/simplifiers/then_simplifier.h"
 #include "solver/simplifier_solver.h"
 
 typedef dependent_expr_simplifier simplifier;
@@ -37,7 +37,7 @@ static simplifier_factory mk_and_then(cmd_context & ctx, sexpr * n) {
     for (unsigned i = 1; i < num_children; i++)
         args.push_back(sexpr2simplifier(ctx, n->get_child(i)));
     simplifier_factory result = [args](ast_manager& m, const params_ref& p, dependent_expr_state& st) {
-        scoped_ptr<seq_simplifier> s = alloc(seq_simplifier, m, p, st);
+        scoped_ptr<then_simplifier> s = alloc(then_simplifier, m, p, st);
         for (auto &  simp : args)
             s->add_simplifier(simp(m, p, st));
         return s.detach();

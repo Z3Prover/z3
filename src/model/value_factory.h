@@ -60,8 +60,9 @@ public:
 };
 
 class basic_factory : public value_factory {
+    random_gen m_rand;
 public:
-    basic_factory(ast_manager & m);
+    basic_factory(ast_manager & m, unsigned seed);
     
     expr * get_some_value(sort * s) override;
 

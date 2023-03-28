@@ -93,8 +93,6 @@ pivot_to_reduced_costs_tableau(unsigned i, unsigned j) {
 
 
 
-
-
 // template <typename T, typename X> void lp_core_solver_base<T, X>::
 // update_index_of_ed() {
 //     m_index_of_ed.clear();

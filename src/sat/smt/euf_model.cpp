@@ -67,7 +67,7 @@ namespace euf {
         m_qmodel = mdl;
     }
 
-    void solver::update_model(model_ref& mdl) {
+    void solver::update_model(model_ref& mdl, bool validate) {
         TRACE("model", tout << "create model\n";);
         if (m_qmodel) {
             mdl = m_qmodel;
@@ -87,7 +87,8 @@ namespace euf {
         for (auto* mb : m_solvers)
             mb->finalize_model(*mdl);
         TRACE("model", tout << "created model " << *mdl << "\n";);
-        validate_model(*mdl);
+        if (validate)
+            validate_model(*mdl);
     }
 
     bool solver::include_func_interp(func_decl* f) {

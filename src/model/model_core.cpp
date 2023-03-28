@@ -81,7 +81,7 @@ void model_core::register_decl(func_decl * d, func_interp * fi) {
 }
 
 func_interp* model_core::update_func_interp(func_decl* d, func_interp* fi) {
-    TRACE("model", tout << "register " << d->get_name() << "\n";);
+    TRACE("model_verbose", tout << "register " << d->get_name() << "\n";);
 
     SASSERT(d->get_arity() > 0);
     SASSERT(&fi->m() == &m);

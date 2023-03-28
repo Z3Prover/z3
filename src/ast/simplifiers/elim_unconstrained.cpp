@@ -52,9 +52,9 @@ monotonicity or reflexivity rules.
 #include "ast/simplifiers/elim_unconstrained.h"
 
 elim_unconstrained::elim_unconstrained(ast_manager& m, dependent_expr_state& fmls) :
-    dependent_expr_simplifier(m, fmls), m_inverter(m), m_lt(*this), m_heap(1024, m_lt), m_trail(m) {
+    dependent_expr_simplifier(m, fmls), m_inverter(m), m_lt(*this), m_heap(1024, m_lt), m_trail(m), m_args(m) {
     std::function<bool(expr*)> is_var = [&](expr* e) {
-        return is_uninterp_const(e) && !m_fmls.frozen(e) && get_node(e).m_refcount <= 1;
+        return is_uninterp_const(e) && !m_fmls.frozen(e) && is_node(e) && get_node(e).m_refcount <= 1;
     };
     m_inverter.set_is_var(is_var);
 }
@@ -73,7 +73,7 @@ void elim_unconstrained::eliminate() {
         node& n = get_node(v);
         if (n.m_refcount == 0)
             continue;
-        if (n.m_refcount > 1)
+        if (n.m_refcount > 1) 
             return;
 
         if (n.m_parents.empty()) {
@@ -90,10 +90,10 @@ void elim_unconstrained::eliminate() {
         unsigned sz = m_args.size();
         for (expr* arg : *to_app(t))
             m_args.push_back(reconstruct_term(get_node(arg)));
-        bool inverted = m_inverter(t->get_decl(), to_app(t)->get_num_args(), m_args.data() + sz, r);
+        bool inverted = m_inverter(t->get_decl(), t->get_num_args(), m_args.data() + sz, r);
         proof_ref pr(m);
         if (inverted && m_enable_proofs) {
-            expr * s    = m.mk_app(t->get_decl(), to_app(t)->get_num_args(), m_args.data() + sz);
+            expr * s    = m.mk_app(t->get_decl(), t->get_num_args(), m_args.data() + sz);
             expr * eq   = m.mk_eq(s, r);
             proof * pr1 = m.mk_def_intro(eq);
             proof * pr  = m.mk_apply_def(s, r, pr1);
@@ -114,7 +114,7 @@ void elim_unconstrained::eliminate() {
         gc(e);
         invalidate_parents(e);
         freeze_rec(r);
-
+        
         m_root.setx(r->get_id(), e->get_id(), UINT_MAX);
         get_node(e).m_term = r;
         get_node(e).m_proof = pr;
@@ -291,7 +291,7 @@ expr_ref elim_unconstrained::reconstruct_term(node& n0) {
         unsigned sz0 = todo.size();
         if (is_app(t)) {            
             for (expr* arg : *to_app(t)) 
-                if (get_node(arg).m_dirty)
+                if (get_node(arg).m_dirty || !get_node(arg).m_term)
                     todo.push_back(arg);
             if (todo.size() != sz0)
                 continue;
@@ -300,18 +300,20 @@ expr_ref elim_unconstrained::reconstruct_term(node& n0) {
             for (expr* arg : *to_app(t)) 
                 m_args.push_back(get_node(arg).m_term);            
             n.m_term = m.mk_app(to_app(t)->get_decl(), to_app(t)->get_num_args(), m_args.data() + sz);
+
             m_args.shrink(sz);
         }
         else if (is_quantifier(t)) {
             expr* body = to_quantifier(t)->get_expr();
             node& n2 = get_node(body);
-            if (n2.m_dirty) {
+            if (n2.m_dirty || !n2.m_term) {
                 todo.push_back(body);
                 continue;
             }
             n.m_term = m.update_quantifier(to_quantifier(t), n2.m_term);            
         }
         m_trail.push_back(n.m_term);
+        m_root.setx(n.m_term->get_id(), n.m_term->get_id(), UINT_MAX);
         todo.pop_back();
         n.m_dirty = false;
     }

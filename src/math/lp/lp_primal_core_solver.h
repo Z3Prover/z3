@@ -611,9 +611,6 @@ public:
 
   bool column_is_benefitial_for_entering_basis(unsigned j) const;
   void init_infeasibility_costs();
-
-  void init_infeasibility_cost_for_column(unsigned j);
-  
   void print_column(unsigned j, std::ostream &out);
 
   void print_bound_info_and_x(unsigned j, std::ostream &out);
@@ -633,7 +630,6 @@ public:
 
   void init_run_tableau();
   void update_x_tableau(unsigned entering, const X &delta);
-  
   // the delta is between the old and the new cost (old - new)
   void update_reduced_cost_for_basic_column_cost_change(const T &delta,
                                                         unsigned j) {

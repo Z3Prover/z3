@@ -45,7 +45,7 @@ Notes:
 #include "solver/solver_preprocess.h"
 #include "qe/lite/qe_lite_tactic.h"
 
-void init_preprocess(ast_manager& m, params_ref const& p, seq_simplifier& s, dependent_expr_state& st) {
+void init_preprocess(ast_manager& m, params_ref const& p, then_simplifier& s, dependent_expr_state& st) {
 
     smt_params smtp(p);
     s.add_simplifier(alloc(rewriter_simplifier, m, p, st));

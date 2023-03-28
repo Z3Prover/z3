@@ -3,7 +3,7 @@ Copyright (c) 2022 Microsoft Corporation
 
 Module Name:
 
-    seq_simplifier.h
+    then_simplifier.h
 
 Abstract:
 
@@ -21,7 +21,7 @@ Author:
 #include "ast/simplifiers/dependent_expr_state.h"
 
 
-class seq_simplifier : public dependent_expr_simplifier {
+class then_simplifier : public dependent_expr_simplifier {
     scoped_ptr_vector<dependent_expr_simplifier> m_simplifiers;
 
     struct collect_stats {
@@ -53,7 +53,7 @@ class seq_simplifier : public dependent_expr_simplifier {
 
 public:
     
-    seq_simplifier(ast_manager& m, params_ref const& p, dependent_expr_state& fmls):
+    then_simplifier(ast_manager& m, params_ref const& p, dependent_expr_state& fmls):
         dependent_expr_simplifier(m, fmls) {
     }
 
