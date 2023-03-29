@@ -1908,8 +1908,7 @@ namespace {
 
     bool viable::resolve_interval(pvar v, conflict& core) {
         DEBUG_CODE( log(v); );
-        if (has_viable(v))
-            return false;
+        VERIFY(!has_viable(v));  // does a pass over interval refinement, making sure the intervals actually exist
 
 #if 0
         // Prefer bit information as justifications
@@ -1981,10 +1980,15 @@ namespace {
                 n = n1;
             }
 
-            // verbose_stream() << e->interval << " " << e->side_cond << " " << e->src << ";\n";
-
             signed_constraint c = s.m_constraints.elem(e->interval.hi(), n->interval.symbolic());
-            lemma.insert_try_eval(~c);
+            // lemma.insert_try_eval(~c);
+            VERIFY(c.is_currently_true(s));
+            if (c.bvalue(s) == l_false) {
+                core.reset();
+                core.init(~c);
+                return false;
+            }
+            lemma.insert_eval(~c);
 
             for (auto sc : e->side_cond)
                 lemma.insert_eval(~sc);
@@ -1997,8 +2001,25 @@ namespace {
         }
         while (e != first);
 
-        // TODO: violated in bench27
-        SASSERT(all_of(lemma, [this](sat::literal lit) { return s.m_bvars.value(lit) != l_true; }));
+        // TODO: violated in 5133-min.smt2:
+        //
+        //              viable lemma:
+        //             35: -31 <= -1*v17 + -1*v11*v0 + -1*v5*v2 + 32  [ b:l_true  p:l_false bprop@0 idx:28 pwatched ]
+        //            -22: v17 + v11*v0 + v6 + v5*v2 != 0  [ b:l_false p:l_undef assert@0 idx:8 pwatched dep:16 ]
+        //             36: v17 + v11*v0 + v5*v2 + 1 == 0   [ b:l_false p:l_false eval@39 idx:75 ]
+        //             -7: -31 > v6 + 32                   [ b:l_false p:l_undef assert@0 idx:17 pwatched dep:33 ]
+        //      ASSERTION VIOLATION
+        //      File: /Users/jakob/projects/z3/src/math/polysat/viable.cpp
+        //      Line: 2036
+        //      all_of(lemma, [this](sat::literal lit) { return s.m_bvars.value(lit) != l_true; })
+        //
+        //  Reason: there is an eval/bool conflict that we didn't discover before,
+        //          because not-yet-assigned variables are watched but the constraint already evaluates due to cancellation of some terms.
+        //
+        // verbose_stream() << "viable lemma:\n";
+        // for (auto lit : lemma)
+        //     verbose_stream() << "    " << lit_pp(s, lit) << "\n";
+        VERIFY(all_of(lemma, [this](sat::literal lit) { return s.m_bvars.value(lit) != l_true; }));
 
         core.add_lemma("viable", lemma.build());
         core.logger().log(inf_fi(*this, v));
