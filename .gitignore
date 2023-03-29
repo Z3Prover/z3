@@ -9,9 +9,12 @@ callgrind.out.*
 .z3-trace
 # OCaml generated files
 *.a
+*.o
 *.cma
 *.cmo
 *.cmi
+*.cmx
+*.byte
 *.cmxa
 ocamlz3
 # Java generated files
