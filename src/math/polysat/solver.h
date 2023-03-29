@@ -319,6 +319,8 @@ namespace polysat {
         void report_unsat();
         void backjump(unsigned new_level);
 
+        void push_reinit_stack(clause& c);
+
         void add_clause(clause_ref clause);
         void add_clause(clause& clause);
         void add_clause(signed_constraint c1, bool is_redundant);
@@ -352,7 +354,6 @@ namespace polysat {
         ptr_vector<clause>       m_clauses_to_reinit;
         unsigned_vector          m_reinit_heads;
         unsigned                 m_reinit_head = 0;
-        void push_reinit_stack(clause& c);
         void reinit_clauses(unsigned old_sz);
         bool has_variables_to_reinit(clause const& c) const;
 

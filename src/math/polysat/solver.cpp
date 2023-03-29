@@ -28,6 +28,8 @@ Author:
 // Lemmas are written into the folder "dbg-lemmas", and only if that folder already exists.
 #define ENABLE_LEMMA_VALIDITY_CHECK 0
 
+#define ENABLE_REINIT_STACK 0
+
 namespace polysat {
 
     solver::solver(reslimit& lim):
@@ -301,7 +303,7 @@ namespace polysat {
             sat::literal lit = cl[0];
             LOG("Repropagate unit: " << lit_pp(*this, lit));
             switch (m_bvars.value(lit)) {
-            case l_undef:
+            case l_undef:                
                 assign_propagate(lit, cl);
                 break;
             case l_false:
@@ -323,6 +325,8 @@ namespace polysat {
     }
 
     void solver::push_reinit_stack(clause& c) {
+        if (!ENABLE_REINIT_STACK)
+            return;
         if (c.on_reinit_stack())
             return;
         c.set_on_reinit_stack(true);
@@ -352,7 +356,7 @@ namespace polysat {
             m_constraints.unwatch(c);
             reinit = m_constraints.watch(c);
 
-            // reinit <- true if clause is used for propagation
+            // reinit <- true if clause is used for propagation, watch lists not updated.
 
             // has_variables_to_reinit:
             // = clause contains literal that was created above base level.
@@ -360,10 +364,6 @@ namespace polysat {
             // Each Boolean has a "scope". The scope is initialized to the scope where
             // the Boolean is created.
             
-            // TODO
-            // The scope is updated on pop to be the new level where the clause resides.
-            // the reinit-stack is also 
-
             if (reinit && !at_base_level()) 
                 // clause propagated literal, must keep it in the reinit stack.
                 m_clauses_to_reinit[j++] = &c;            
@@ -772,7 +772,7 @@ namespace polysat {
             case trail_instr_t::assign_i: {
                 auto v = m_search.back().var();
                 LOG_V(20, "Undo assign_i: v" << v);
-                if (get_level(v) <= target_level)
+                if (get_level(v) <= target_level && !ENABLE_REINIT_STACK)
                     for (signed_constraint c : m_viable.get_constraints(v))
                         m_repropagate_lits.push_back(c.blit());
                 m_free_pvars.unassign_var_eh(v);
@@ -790,9 +790,8 @@ namespace polysat {
                     // Unit clauses are not stored in watch lists and must be re-propagated separately.
                     m_repropagate_units.push_back(reason);
                 }
-                else {
+                else if (!ENABLE_REINIT_STACK) 
                     m_repropagate_lits.push_back(lit);
-                }
                 m_bvars.unassign(lit);
                 m_search.pop();
                 break;
@@ -804,8 +803,7 @@ namespace polysat {
         }
         m_constraints.release_level(m_level + 1);
 
-        // todo:
-        // reinit_clauses(m_reinit_head);
+        reinit_clauses(m_reinit_head);
 
         SASSERT(m_level == target_level);
     }
@@ -1187,6 +1185,7 @@ namespace polysat {
 
         for (auto it = lemmas.begin(); it != lemmas.end(); ++it) {
             clause& lemma = **it;
+            push_reinit_stack(lemma);
             if (!lemma.is_active())
                 add_clause(lemma);
             else
@@ -1229,6 +1228,8 @@ namespace polysat {
 
     // Explicit boolean propagation over the given clause, without relying on watch lists.
     void solver::propagate_clause(clause& cl) {
+        if (ENABLE_REINIT_STACK)
+            return;
         LOG("propagate_clause: " << cl);
         for (sat::literal lit : cl) {
             LOG("    " << lit_pp(*this, lit));
@@ -1483,8 +1484,10 @@ namespace polysat {
             // TODO: currently we forget all new lemmas at this point.
             //       (but anything that uses popped assumptions cannot be used anymore.)
             for (clause* lemma : lemmas)
-                if (lemma->is_active())
+                if (lemma->is_active()) {
+                    push_reinit_stack(*lemma);
                     propagate_clause(*lemma);
+                }
         }
 
         m_base_levels.shrink(m_base_levels.size() - num_scopes);

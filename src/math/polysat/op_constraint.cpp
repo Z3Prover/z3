@@ -131,8 +131,10 @@ namespace polysat {
         if (first)
             activate(s);
 
-        if (clause_ref lemma = produce_lemma(s, s.get_assignment()))
+        if (clause_ref lemma = produce_lemma(s, s.get_assignment())) {
             s.add_clause(*lemma);
+            s.push_reinit_stack(*lemma);
+        }
 
         if (!s.is_conflict() && is_currently_false(s, is_positive))
             s.set_conflict(signed_constraint(this, is_positive));

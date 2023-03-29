@@ -164,8 +164,8 @@ namespace polysat {
     void constraint_manager::unwatch(clause& cl) {
         if (cl.size() <= 1)
             return;
-        s.m_bvars.watch(~cl[0]).erase(&cl);
-        s.m_bvars.watch(~cl[1]).erase(&cl);
+        s.m_bvars.watch(cl[0]).erase(&cl);
+        s.m_bvars.watch(cl[1]).erase(&cl);
     }
 
     constraint_manager::~constraint_manager() {
@@ -458,7 +458,7 @@ namespace polysat {
         SASSERT(!m_dedup.op_constraint_by_result_var.contains(r.var()));
         m_dedup.op_constraint_by_result_var.insert(r.var(), c);
 
-        s.add_clause(c, false);
+        s.add_clause(c, false);
         return r;
     }
 
