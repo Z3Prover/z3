@@ -608,12 +608,12 @@ namespace {
         do {
             rational coeff_val = mod(e->coeff * val, mod_value);
             if (e->interval.currently_contains(coeff_val)) {
-                IF_LOGGING(
-                    verbose_stream() << "refine-equal-lin for v" << v << " in src: ";
-                    for (const auto& src : e->src)
-                        verbose_stream() << lit_pp(s, src) << "\n";
-                );
-                LOG("forbidden interval v" << v << " " << num_pp(s, v, val) << "    " << num_pp(s, v, e->coeff, true) << " * " << e->interval);
+                // IF_LOGGING(
+                //     verbose_stream() << "refine-equal-lin for v" << v << " in src: ";
+                //     for (const auto& src : e->src)
+                //         verbose_stream() << lit_pp(s, src) << "\n";
+                // );
+                // LOG("forbidden interval v" << v << " " << num_pp(s, v, val) << "    " << num_pp(s, v, e->coeff, true) << " * " << e->interval);
 
                 if (mod(e->interval.hi_val() + 1, mod_value) == e->interval.lo_val()) {
                     // We have an equation:  a * v == b
@@ -735,11 +735,12 @@ namespace {
         m_diseq_lin[v] = m_diseq_lin[v]->next();
 
         do {
-            IF_LOGGING(
-                    verbose_stream() << "refine-disequal-lin for v" << v << " in src: ";
-                    for (const auto& src : e->src)
-                        verbose_stream() << lit_pp(s, src) << "\n";
-            );
+            // IF_LOGGING(
+            //         verbose_stream() << "refine-disequal-lin for v" << v << " in src: ";
+            //         for (const auto& src : e->src)
+            //             verbose_stream() << lit_pp(s, src) << "\n";
+            // );
+
             // We compute an interval if the concrete value 'val' violates the constraint:
             //      p*val + q >  r*val + s  if e->src.is_positive()
             //      p*val + q >= r*val + s  if e->src.is_negative()
