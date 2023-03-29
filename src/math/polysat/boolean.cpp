@@ -135,18 +135,22 @@ namespace polysat {
     }
 
     /**
-     * A literal may be watched if there is no unwatched literal that has been assigned later,
-     * where true and unassigned literals are considered at infinite level.
-     * We prefer true literals to unassigned literals.
+     * Priority for watching literals:
+     * 1. true literal, prefer lower search index to keep clause inactive for as long as possible.
+     * 2. unassigned literal
+     * 3. false literal, prefer higher search index (otherwise we might miss boolean propagations)
      */
     uint64_t bool_var_manager::get_watch_level(sat::literal lit) const {
         switch (value(lit)) {
-            case l_false:
-                return s.m_search.get_bool_index(lit);
-            case l_true:
-                return std::numeric_limits<uint64_t>::max();
-            case l_undef:
-                return std::numeric_limits<uint64_t>::max() - 1;
+        case l_true:
+            // 0xFFFF'FFFF'****'****
+            return 0xFFFF'FFFF'FFFF'FFFFull - s.m_search.get_bool_index(lit);
+        case l_undef:
+            // 0x0FFF'FFFF'FFFF'FFFF
+            return 0x0FFF'FFFF'FFFF'FFFFull;
+        case l_false:
+            // 0x0000'0000'****'****
+            return s.m_search.get_bool_index(lit);
         }
         UNREACHABLE();
         return 0;
