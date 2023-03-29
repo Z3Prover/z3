@@ -1881,8 +1881,14 @@ sig
   (** create string sort *)
   val mk_string_sort : context -> Sort.sort
 
+  (** create char sort *)
+  val mk_char_sort : context -> Sort.sort
+
   (** test if sort is a string sort (a sequence of 8-bit bit-vectors) *)
   val is_string_sort : context -> Sort.sort -> bool 
+
+  (** test if sort is a char sort *)
+  val is_char_sort : context -> Sort.sort -> bool
 
   (** create a string literal *)
   val mk_string : context -> string -> Expr.expr
@@ -1936,6 +1942,7 @@ sig
   (** retrieve integer expression encoded in string *)
   val mk_str_to_int : context -> Expr.expr -> Expr.expr
 
+
   (** compare strings less-than-or-equal *)
   val mk_str_le : context -> Expr.expr -> Expr.expr -> Expr.expr
 
@@ -1944,6 +1951,18 @@ sig
 
   (** convert an integer expression to a string *)
   val mk_int_to_str : context -> Expr.expr -> Expr.expr 
+
+  (** [mk_string_to_code ctx s] convert a unit length string [s] to integer code *)
+  val mk_string_to_code : context -> Expr.expr -> Expr.expr
+
+  (** [mk_string_from_code ctx c] convert code [c] to a string *)
+  val mk_string_from_code : context -> Expr.expr -> Expr.expr
+
+  (** [mk_ubv_to_str ctx ubv] convert a unsigned bitvector [ubv] to a string  *)
+  val mk_ubv_to_str : context -> Expr.expr -> Expr.expr
+
+  (** [mk_sbv_to_str ctx sbv] convert a signed bitvector [sbv] to a string  *)
+  val mk_sbv_to_str : context -> Expr.expr -> Expr.expr
 
   (** create regular expression that accepts the argument sequence *)
   val mk_seq_to_re : context -> Expr.expr -> Expr.expr 
@@ -1983,6 +2002,24 @@ sig
 
   (** the regular expression that accepts all sequences *)
   val mk_re_full : context -> Sort.sort -> Expr.expr 
+
+  (** [mk_char ctx i] converts an integer to a character *)
+  val mk_char : context -> int -> Expr.expr
+
+  (** [mk_char_le ctx lc rc] compares two characters *)
+  val mk_char_le : context -> Expr.expr -> Expr.expr -> Expr.expr
+
+  (** [mk_char_to_int ctx c] converts the character [c] to an integer *)
+  val mk_char_to_int : context -> Expr.expr -> Expr.expr
+
+  (** [mk_char_to_bv ctx c] converts the character [c] to a bitvector *)
+  val mk_char_to_bv : context -> Expr.expr -> Expr.expr
+
+  (** [mk_char_from_bv ctx bv] converts the bitvector [bv] to a character *)
+  val mk_char_from_bv : context -> Expr.expr -> Expr.expr
+
+  (** [mk_char_is_digit ctx c] checks if the character [c] is a digit *)
+  val mk_char_is_digit: context -> Expr.expr -> Expr.expr
 
 end
 
