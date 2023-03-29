@@ -327,6 +327,8 @@ namespace polysat {
         void add_clause(signed_constraint c1, signed_constraint c2, signed_constraint c3, signed_constraint c4, bool is_redundant);
         void add_clause(std::initializer_list<signed_constraint> cs, bool is_redundant);
         void add_clause(unsigned n, signed_constraint const* cs, bool is_redundant);
+        void add_clause(char const* name, std::initializer_list<signed_constraint> cs, bool is_redundant);
+        void add_clause(char const* name, unsigned n, signed_constraint const* cs, bool is_redundant);
 
         // Create a clause without adding it to the solver.
         clause_ref mk_clause(signed_constraint c1, bool is_redundant);

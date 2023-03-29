@@ -1395,10 +1395,18 @@ namespace polysat {
             enqueue_pwatch(lit2cnstr(lit).get());
     }
 
-    void solver::add_clause(unsigned n, signed_constraint const* cs, bool is_redundant) {
-        clause_ref clause = mk_clause(n, cs, is_redundant);
+    void solver::add_clause(char const* name, unsigned n, signed_constraint const* cs, bool is_redundant) {
+        clause_ref clause = mk_clause(name, n, cs, is_redundant);
         if (clause)
             add_clause(*clause);
+    }
+
+    void solver::add_clause(char const* name, std::initializer_list<signed_constraint> cs, bool is_redundant) {
+        add_clause(name, static_cast<unsigned>(cs.size()), std::data(cs), is_redundant);
+    }
+
+    void solver::add_clause(unsigned n, signed_constraint const* cs, bool is_redundant) {
+        add_clause("", n, cs, is_redundant);
     }
 
     void solver::add_clause(std::initializer_list<signed_constraint> cs, bool is_redundant) {

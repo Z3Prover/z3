@@ -397,12 +397,12 @@ namespace polysat {
         //      b = 0  ==>  q = -1
         // TODO: when a,b become evaluable, can we actually propagate q,r? doesn't seem like it.
         //       Maybe we need something like an op_constraint for better propagation.
-        s.add_clause(eq(b * q + r - a), false);
-        s.add_clause(~umul_ovfl(b, q), false);
+        s.add_clause("[axiom] quot_rem 1", { eq(b * q + r - a) }, false);
+        s.add_clause("[axiom] quot_rem 2", { ~umul_ovfl(b, q)  }, false);
         // r <= b*q+r
         //  { apply equivalence:  p <= q  <=>  q-p <= -p-1 }
         // b*q <= -r-1
-        s.add_clause(ule(b*q, -r-1), false);
+        s.add_clause("[axiom] quot_rem 3", { ule(b*q, -r-1)    }, false);
 #if 0
         // b*q <= b*q+r
         //  { apply equivalence:  p <= q  <=>  q-p <= -p-1 }
@@ -411,8 +411,8 @@ namespace polysat {
 #endif
 
         auto c_eq = eq(b);
-        s.add_clause(c_eq, ult(r, b), false);
-        s.add_clause(~c_eq, eq(q + 1), false);
+        s.add_clause("[axiom] quot_rem 4", {  c_eq, ult(r, b)  }, false);
+        s.add_clause("[axiom] quot_rem 5", { ~c_eq, eq(q + 1)  }, false);
 
         return {std::move(q), std::move(r)};
     }
