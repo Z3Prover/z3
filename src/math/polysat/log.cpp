@@ -25,7 +25,7 @@ Other:
 */
 
 /*
-  TODO: add "conditional" logs, i.e., the messages are held back and only printed when a non-conditional message is logged.
+  TODO: add deferred logs, i.e., the messages are held back and only printed when a non-conditional message is logged.
         Purpose: reduce noise, e.g., when printing prerequisites for transformations that do not always apply.
 */
 

@@ -114,7 +114,10 @@ polysat_log(LogLevel msg_level, std::string fn, std::string pretty_fn);
 
 inline void set_log_enabled(bool) {}
 inline bool get_log_enabled() { return false; }
-class scoped_set_log_enabled {};
+class scoped_set_log_enabled {
+public:
+    scoped_set_log_enabled(bool) {}
+};
 
 #define LOG_(vlvl, lvl, x)  \
   do {                      \
