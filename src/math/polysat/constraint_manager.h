@@ -77,8 +77,6 @@ namespace polysat {
         void gc_clauses();
 
         void normalize_watch(clause& cl);
-        bool watch(clause& cl);
-        void unwatch(clause& cl);
 
         void register_clause(clause* cl);
 
@@ -102,6 +100,9 @@ namespace polysat {
         /// Garbage-collect temporary constraints (i.e., those that do not have a boolean variable).
         void gc();
         bool should_gc();
+
+        bool watch(clause& cl);
+        void unwatch(clause& cl);
 
         constraint* lookup(sat::bool_var var) const;
         signed_constraint lookup(sat::literal lit) const;

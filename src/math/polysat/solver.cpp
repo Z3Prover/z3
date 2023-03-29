@@ -349,11 +349,8 @@ namespace polysat {
             clause& c = *m_clauses_to_reinit[i];
             SASSERT(c.on_reinit_stack());
             bool reinit = false;
-#if 0
-            // todo, private methods to constraint_manager
             m_constraints.unwatch(c);
             reinit = m_constraints.watch(c);
-#endif
 
             // reinit <- true if clause is used for propagation
 
