@@ -45,6 +45,7 @@ namespace polysat {
         default:
             break;
         }
+        VERIFY(r.is_var());
     }
 
     lbool op_constraint::eval() const {
@@ -342,12 +343,12 @@ namespace polysat {
                 rational const& q_val = qv.val();
                 if (q_val >= N)
                     // q >= N ==> r = 0
-                    return s.mk_clause(~shl, ~s.ule(N, q()), s.eq(r()), true);
+                    return s.mk_clause("shl forward 1", {~shl, ~s.ule(N, q()), s.eq(r())}, true);
                 if (pv.is_val()) {
                     SASSERT(q_val.is_unsigned());
                     // p = p_val & q = q_val ==> r = p_val * 2^q_val
                     rational const r_val = pv.val() * rational::power_of_two(q_val.get_unsigned());
-                    return s.mk_clause(~shl, ~s.eq(p(), pv), ~s.eq(q(), qv), s.eq(r(), r_val), true);
+                    return s.mk_clause("shl forward 2", {~shl, ~s.eq(p(), pv), ~s.eq(q(), qv), s.eq(r(), r_val)}, true);
                 }
             }
         }

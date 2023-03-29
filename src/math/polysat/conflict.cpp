@@ -276,9 +276,10 @@ namespace polysat {
         SASSERT(!s.is_assigned(v));
         m_level = s.m_level;
         logger().begin_conflict(header_with_var("viable_interval v", v));
-        VERIFY(s.m_viable.resolve_interval(v, *this));
+        if (s.m_viable.resolve_interval(v, *this)) {
+            revert_pvar(v);  // at this point, v is not assigned
+        }
         SASSERT(!empty());
-        revert_pvar(v);  // at this point, v is not assigned
     }
 
     void conflict::init_by_viable_fallback(pvar v, univariate_solver& us) {
@@ -319,6 +320,7 @@ namespace polysat {
     }
 
     bool conflict::insert_or_replace(signed_constraint c) {
+        // TODO: what if we have already passed c in the trail in resolve_conflict? should check that. (probably restart the resolve_conflict loop with the new conflict?)
         switch (c.bvalue(s)) {
         case l_true:
             // regular case

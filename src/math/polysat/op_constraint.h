@@ -27,21 +27,21 @@ namespace polysat {
     class op_constraint final : public constraint {
     public:
         enum class code {
-            /// r is the logical right shift of p by q
+            /// r is the logical right shift of p by q.
             lshr_op,
-            /// r is the arithmetic right shift of p by q
+            /// r is the arithmetic right shift of p by q.
             ashr_op,
-            /// r is the left shift of p by q
+            /// r is the left shift of p by q.
             shl_op,
-            /// r is the bit-wise 'and' of p and q
+            /// r is the bit-wise 'and' of p and q.
             and_op,
             /// r is the smallest multiplicative pseudo-inverse of p;
             /// by definition we set r == 0 when p == 0.
             /// Note that in general, there are 2^parity(p) many pseudo-inverses of p.
             inv_op,
-            // r is the quotient of dividing p by q 
+            // r is the quotient of unsigned division of p by q.
             udiv_op,
-            // r is the remainder of dividing p by q
+            // r is the remainder of unsigned division of p by q.
             urem_op,
         };
     protected:

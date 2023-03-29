@@ -934,9 +934,7 @@ namespace polysat {
         unsigned lvl = 0;
         for (signed_constraint c : m_viable.get_constraints(v)) {
             LOG("due to: " << lit_pp(*this, c));
-            if (!m_bvars.is_assigned(c.blit()))   // side condition, irrelevant because all vars are already in the main condition
-                continue;
-            SASSERT(m_bvars.is_assigned(c.blit()));
+            VERIFY(m_bvars.is_assigned(c.blit()));
             lvl = std::max(lvl, m_bvars.level(c.blit()));
             for (pvar w : c->vars())
                 if (is_assigned(w))  // TODO: question of which variables are relevant. e.g., v1 > v0 implies v1 > 0 without dependency on v0. maybe add a lemma v1 > v0 --> v1 > 0 on the top level to reduce false variable dependencies? instead of handling such special cases separately everywhere.
@@ -1053,7 +1051,7 @@ namespace polysat {
         unsigned max_level = 0;             // highest level in lemma
         unsigned lits_at_max_level = 0;     // how many literals at the highest level in lemma
         unsigned snd_level = 0;             // second-highest level in lemma
-        unsigned num_undef = 0;        // whether there is an unassigned literal (at most one)
+        unsigned num_undef = 0;             // number of unassigned literals
         for (sat::literal lit : lemma) {
             switch (m_bvars.value(lit)) {
             case l_true:
@@ -1061,6 +1059,8 @@ namespace polysat {
             case l_false:
                 break;
             default:
+                // TODO: Entering this case means we used clause_builder::insert at some point where it should have been clause_builder::insert_eval?
+                //       Maybe we should just get rid of the insert/insert_eval distinction and evaluate everything here.
                 switch (lit2cnstr(lit).eval(*this)) {
                 case l_true:
                     return std::nullopt;
@@ -1069,15 +1069,11 @@ namespace polysat {
                     break;
                 case l_undef:
                     ++num_undef;
-                    // NSB: we used to not return null here.
-                    // Lemmas that were not false under evaluation are now skipped
-                    // with this change. 
                     if (num_undef > 1)
                         return std::nullopt;
                     continue;
                 }
             }
-
             unsigned const lit_level = m_bvars.level(lit);
             if (lit_level > max_level) {
                 snd_level = max_level;
@@ -1102,8 +1098,8 @@ namespace polysat {
         //                       backjump to max_level so we can propagate
         unsigned jump_level;
         unsigned branching_factor = lits_at_max_level;
-        if (num_undef == 1)
-            jump_level = max_level, branching_factor = 1;
+        if (num_undef >= 1)
+            jump_level = max_level, branching_factor = num_undef;
         else if (lits_at_max_level <= 1)
             jump_level = snd_level;
         else
@@ -1315,12 +1311,6 @@ namespace polysat {
         return lit;
     }
 
-    /**
-    * Activate constraint immediately
-    * Activation and de-activation of constraints follows the scope controlled by push/pop.
-    * constraints activated within the linear solver are de-activated when the linear
-    * solver is popped.
-    */
     void solver::activate_constraint(signed_constraint c) {
         SASSERT(c);
         LOG("Activating constraint: " << c);
@@ -1392,10 +1382,18 @@ namespace polysat {
             enqueue_pwatch(lit2cnstr(lit).get());
     }
 
-    void solver::add_clause(unsigned n, signed_constraint const* cs, bool is_redundant) {
-        clause_ref clause = mk_clause(n, cs, is_redundant);
+    void solver::add_clause(char const* name, unsigned n, signed_constraint const* cs, bool is_redundant) {
+        clause_ref clause = mk_clause(name, n, cs, is_redundant);
         if (clause)
             add_clause(*clause);
+    }
+
+    void solver::add_clause(char const* name, std::initializer_list<signed_constraint> cs, bool is_redundant) {
+        add_clause(name, static_cast<unsigned>(cs.size()), std::data(cs), is_redundant);
+    }
+
+    void solver::add_clause(unsigned n, signed_constraint const* cs, bool is_redundant) {
+        add_clause("", n, cs, is_redundant);
     }
 
     void solver::add_clause(std::initializer_list<signed_constraint> cs, bool is_redundant) {
