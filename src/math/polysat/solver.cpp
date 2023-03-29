@@ -937,9 +937,7 @@ namespace polysat {
         unsigned lvl = 0;
         for (signed_constraint c : m_viable.get_constraints(v)) {
             LOG("due to: " << lit_pp(*this, c));
-            if (!m_bvars.is_assigned(c.blit()))   // side condition, irrelevant because all vars are already in the main condition
-                continue;
-            SASSERT(m_bvars.is_assigned(c.blit()));
+            VERIFY(m_bvars.is_assigned(c.blit()));
             lvl = std::max(lvl, m_bvars.level(c.blit()));
             for (pvar w : c->vars())
                 if (is_assigned(w))  // TODO: question of which variables are relevant. e.g., v1 > v0 implies v1 > 0 without dependency on v0. maybe add a lemma v1 > v0 --> v1 > 0 on the top level to reduce false variable dependencies? instead of handling such special cases separately everywhere.
