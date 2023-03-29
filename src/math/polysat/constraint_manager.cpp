@@ -523,9 +523,15 @@ namespace polysat {
     }
 
     pdd constraint_manager::bor(pdd const& p, pdd const& q) {
+#if 1
         // From "Hacker's Delight", section 2-2. Addition Combined with Logical Operations;
         // found via Int-Blasting paper; see https://doi.org/10.1007/978-3-030-94583-1_24
         return (p + q) - band(p, q);
+#else
+        // Alternatively, de Morgan:
+        // (advantage: only one occurrence of p, q)
+        return bnot(band(bnot(p), bnot(q)));
+#endif
     }
 
     pdd constraint_manager::bxor(pdd const& p, pdd const& q) {
