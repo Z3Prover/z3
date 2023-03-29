@@ -64,7 +64,9 @@ The following forms are equivalent:
 
 Useful lemmas:
 
-    - p <= q    ==>   p == 0  ||  -q <= -p
+    p <= q  &&  q+1 != 0    ==>  p+1 <= q+1
+
+    p <= q  &&  p != 0      ==>   -q <= -p
 
 --*/
 
@@ -104,19 +106,6 @@ namespace {
             return;
         }
 
-#if 0
-        // simple version that we had for a long time, subsumed by rule in #else
-
-        // p + 1 <= p  -->  p + 1 <= 0
-        // p <= p - 1  -->  p <= 0
-        //
-        // p + k <= p       -->  p + k <= k - 1
-        // p     <= p - k   -->  p     <= k - 1
-        if ((lhs - rhs).is_val()) {
-            pdd k = lhs - rhs;
-            rhs = k - 1;
-        }
-#else
         // Try to reduce the number of variables on one side using one of these rules:
         //
         //      p <= q  -->  p <= p - q - 1
@@ -144,11 +133,11 @@ namespace {
                 // verbose_stream() << "OUT: " << ule_pp(to_lbool(is_positive), lhs, rhs) << "\n";
             }
         }
-#endif
 
 #if 0
-        // TODO: maybe enable this later to make some constraints more "readable"
+        // TODO: maybe enable this later to make some constraints more readable
         // p - k <= -k - 1  -->  k <= p
+        // ALTERNATIVE: p > k-1  to keep the polynomial on the lhs?  allows us to have boolean conflicts between x <= k and x > k ? (otherwise it is x <= k and k+1 <= x.)
         if (rhs.is_val() && !rhs.is_zero() && lhs.offset() == (rhs + 1).val()) {
             // verbose_stream() << "IN:  " << ule_pp(to_lbool(is_positive), lhs, rhs) << "\n";
             std::abort();
@@ -171,16 +160,6 @@ namespace {
             rhs = 0;
             is_positive = !is_positive;
         }
-
-#if 0
-        // TODO: enabling this rule leads to unsoundness in 1041-minimized (but the rule itself is correct)
-        // k <= p   -->   p - k <= - k - 1
-        if (lhs.is_val()) {
-            pdd k = lhs;
-            lhs = rhs - k;
-            rhs = - k - 1;
-        }
-#endif
 
         // p >  -2   -->   p + 1 <= 0
         // p <= -2   -->   p + 1 >  0
