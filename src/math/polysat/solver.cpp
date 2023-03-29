@@ -1054,7 +1054,7 @@ namespace polysat {
         unsigned max_level = 0;             // highest level in lemma
         unsigned lits_at_max_level = 0;     // how many literals at the highest level in lemma
         unsigned snd_level = 0;             // second-highest level in lemma
-        unsigned num_undef = 0;        // whether there is an unassigned literal (at most one)
+        unsigned num_undef = 0;             // number of unassigned literals
         for (sat::literal lit : lemma) {
             switch (m_bvars.value(lit)) {
             case l_true:
@@ -1062,6 +1062,8 @@ namespace polysat {
             case l_false:
                 break;
             default:
+                // TODO: Entering this case means we used clause_builder::insert at some point where it should have been clause_builder::insert_eval?
+                //       Maybe we should just get rid of the insert/insert_eval distinction and evaluate everything here.
                 switch (lit2cnstr(lit).eval(*this)) {
                 case l_true:
                     return std::nullopt;
@@ -1070,15 +1072,11 @@ namespace polysat {
                     break;
                 case l_undef:
                     ++num_undef;
-                    // NSB: we used to not return null here.
-                    // Lemmas that were not false under evaluation are now skipped
-                    // with this change. 
                     if (num_undef > 1)
                         return std::nullopt;
                     continue;
                 }
             }
-
             unsigned const lit_level = m_bvars.level(lit);
             if (lit_level > max_level) {
                 snd_level = max_level;
@@ -1103,8 +1101,8 @@ namespace polysat {
         //                       backjump to max_level so we can propagate
         unsigned jump_level;
         unsigned branching_factor = lits_at_max_level;
-        if (num_undef == 1)
-            jump_level = max_level, branching_factor = 1;
+        if (num_undef >= 1)
+            jump_level = max_level, branching_factor = num_undef;
         else if (lits_at_max_level <= 1)
             jump_level = snd_level;
         else
@@ -1316,12 +1314,6 @@ namespace polysat {
         return lit;
     }
 
-    /**
-    * Activate constraint immediately
-    * Activation and de-activation of constraints follows the scope controlled by push/pop.
-    * constraints activated within the linear solver are de-activated when the linear
-    * solver is popped.
-    */
     void solver::activate_constraint(signed_constraint c) {
         SASSERT(c);
         LOG("Activating constraint: " << c);
