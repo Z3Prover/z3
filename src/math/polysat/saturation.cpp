@@ -1275,7 +1275,7 @@ namespace polysat {
                 m_lemma.reset();
                 m_lemma.insert(~c);
                 if (propagate(x, core, a_l_b, s.eq(i.lhs() - i.rhs()))) {
-                    verbose_stream() << "infer equality " << s.eq(i.lhs() - i.rhs()) << "\n";
+                    IF_VERBOSE(1, verbose_stream() << "infer equality " << s.eq(i.lhs() - i.rhs()) << "\n");
                     return true;
                 }
             }
@@ -1865,7 +1865,7 @@ namespace polysat {
         // IF_VERBOSE(0, verbose_stream() << "min-max: x := v" << x << " [" << x_min << "," << x_max << "] y := v" << y << " [" << y_min << ", " << y_max << "] y0 " << y0 << "\n");
         if (!update_bounds_for_xs(x_sp2, x_max,   y_min, y_max, y0, a1, b1, c1, d1, a2, b2, c2, d2, M, a_l_b))
             return false;
-        IF_VERBOSE(0, verbose_stream() << "min-max: x := v" << x << " [" << x_min << "," << x_max << "] y := v" << y << " [" << y_min << ", " << y_max << "] y0 " << y0 << "\n");
+        IF_VERBOSE(1, verbose_stream() << "min-max: x := v" << x << " [" << x_min << "," << x_max << "] y := v" << y << " [" << y_min << ", " << y_max << "] y0 " << y0 << "\n");
 
         SASSERT(y_min <= y0 && y0 <= y_max);
         VERIFY(y_min <= y0 && y0 <= y_max);
@@ -1917,7 +1917,7 @@ namespace polysat {
         if (k == N)
             return false;
         if (rational::power_of_two(k) > p_val) {
-            verbose_stream() << k << " " << p_val << " " << a_l_b << "\n";
+            // verbose_stream() << k << " " << p_val << " " << a_l_b << "\n";
             m_lemma.reset();
             for (auto const& c : at_least_k)
                 m_lemma.insert_eval(~c);

@@ -334,22 +334,12 @@ namespace polysat {
     }
 
 
-    // TODO
-    // pop_levels is called from pop and backjump
-    // backjump invoked a few places.
-    // the logic for propagating clauses after a pop or backjump
-    // is different. pop_levels inserts into repropagate
-    // pop_levels should end with a call to reinit_clauses where
-    // old_sz is the current trail head for clauses created within the scope.
-    //
-    // pop-levels can also update the scope of variables created below the pop level.
-    // the scope of variables would be set to the new level for clauses surviving a pop.
     
     void solver::reinit_clauses(unsigned old_sz) {
         unsigned sz = m_clauses_to_reinit.size();
         SASSERT(old_sz <= sz);
         unsigned j = old_sz;
-        for (unsigned i = old_sz; i < sz; i++) {
+        for (unsigned i = old_sz; i < sz; ++i) {
             clause& c = *m_clauses_to_reinit[i];
             SASSERT(c.on_reinit_stack());
             bool reinit = false;
@@ -364,17 +354,42 @@ namespace polysat {
             // Each Boolean has a "scope". The scope is initialized to the scope where
             // the Boolean is created.
             
-            if (reinit && !at_base_level()) 
+            if (reinit) 
                 // clause propagated literal, must keep it in the reinit stack.
                 m_clauses_to_reinit[j++] = &c;            
-            else if (has_variables_to_reinit(c) && !at_base_level())
+            else if (has_variables_to_reinit(c) && false)
                 m_clauses_to_reinit[j++] = &c;
             else 
                 c.set_on_reinit_stack(false);
+            for (auto lit : c)
+                m_literals_to_reinit.push_back(lit);
         }
         m_clauses_to_reinit.shrink(j);
+        for (auto lit : m_literals_to_reinit)
+            reinit_literal(lit);
+        m_literals_to_reinit.reset();
     }
 
+    void solver::reinit_literal(sat::literal lit) {
+        // check for missed lower evaluations
+        if (m_bvars.is_undef(lit)) {
+            switch (lit2cnstr(lit).eval(*this)) {
+            case l_true:
+                assign_eval(lit);
+                break;
+            case l_false:
+                assign_eval(~lit);
+                break;
+            default:
+                break;
+            }
+        }
+        // put the interval back into viable if we lost it
+        if (m_bvars.is_assigned(lit)) {
+            signed_constraint sc = m_bvars.is_true(lit) ? lit2cnstr(lit) : ~lit2cnstr(lit);
+            sc.narrow(*this, false);
+        }
+    }
 
     bool solver::can_repropagate() {
         return !m_repropagate_lits.empty() && !is_conflict();
@@ -405,24 +420,8 @@ namespace polysat {
             LOG("Repropagate lit " << lit);
             // check for missed lower boolean propagations
             repropagate(lit);
-            // check for missed lower evaluations
-            if (m_bvars.is_undef(lit)) {
-                switch (lit2cnstr(lit).eval(*this)) {
-                case l_true:
-                    assign_eval(lit);
-                    break;
-                case l_false:
-                    assign_eval(~lit);
-                    break;
-                default:
-                    break;
-                }
-            }
-            // put the interval back into viable if we lost it
-            if (m_bvars.is_assigned(lit)) {
-                signed_constraint sc = m_bvars.is_true(lit) ? lit2cnstr(lit) : ~lit2cnstr(lit);
-                sc.narrow(*this, false);
-            }
+
+            reinit_literal(lit);
         }
     }
 
@@ -790,7 +789,9 @@ namespace polysat {
                     // Unit clauses are not stored in watch lists and must be re-propagated separately.
                     m_repropagate_units.push_back(reason);
                 }
-                else if (!ENABLE_REINIT_STACK) 
+                else if (ENABLE_REINIT_STACK)
+                    m_literals_to_reinit.push_back(lit);
+                else 
                     m_repropagate_lits.push_back(lit);
                 m_bvars.unassign(lit);
                 m_search.pop();
@@ -1139,6 +1140,7 @@ namespace polysat {
             appraise_lemma(lemmas.back());
         }
         if (!best_lemma) {
+            display(verbose_stream());
             verbose_stream() << "conflict: " << m_conflict << "\n";
             verbose_stream() << "no lemma\n";
             for (clause* cl: lemmas) {
@@ -1146,6 +1148,7 @@ namespace polysat {
                 for (sat::literal lit : *cl)
                     verbose_stream() << "    " << lit_pp(*this, lit) << "\n";
             }
+            
         }
         SASSERT(best_score < lemma_score::max());
         VERIFY(best_lemma);

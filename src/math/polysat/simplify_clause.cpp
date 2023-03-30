@@ -560,6 +560,9 @@ namespace polysat {
                 return args->hash();
             }
         };
+
+        if (!s.inc())
+            return false;
         
         ptr_vector<pdd_info> info_list;
         map<optional<pdd>, pdd_info*, optional_pdd_hash, default_eq<optional<pdd>>> info_table;

@@ -74,6 +74,7 @@ namespace polysat {
         register_clause(cl);
         watch(*cl);
         cl->set_active();
+        s.push_reinit_stack(*cl);
     }
 
     // Release constraints at the given level and above.

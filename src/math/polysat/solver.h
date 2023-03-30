@@ -352,10 +352,12 @@ namespace polysat {
 
         // clause reinitialization
         ptr_vector<clause>       m_clauses_to_reinit;
+        sat::literal_vector      m_literals_to_reinit;
         unsigned_vector          m_reinit_heads;
         unsigned                 m_reinit_head = 0;
         void reinit_clauses(unsigned old_sz);
         bool has_variables_to_reinit(clause const& c) const;
+        void reinit_literal(sat::literal lit);
 
         bool inc() { return m_lim.inc(); }
 

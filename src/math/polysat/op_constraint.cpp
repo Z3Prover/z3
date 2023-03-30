@@ -131,10 +131,8 @@ namespace polysat {
         if (first)
             activate(s);
 
-        if (clause_ref lemma = produce_lemma(s, s.get_assignment())) {
+        if (clause_ref lemma = produce_lemma(s, s.get_assignment())) 
             s.add_clause(*lemma);
-            s.push_reinit_stack(*lemma);
-        }
 
         if (!s.is_conflict() && is_currently_false(s, is_positive))
             s.set_conflict(signed_constraint(this, is_positive));
@@ -552,8 +550,8 @@ namespace polysat {
 
         pdd prod = p() * r();
         rational prodv = (pv * rv).val();
-        if (prodv != rational::power_of_two(parity_pv))
-            verbose_stream() << prodv << " " << rational::power_of_two(parity_pv) << " " << parity_pv << " " << pv << " " << rv << "\n";
+//        if (prodv != rational::power_of_two(parity_pv))
+//            verbose_stream() << prodv << " " << rational::power_of_two(parity_pv) << " " << parity_pv << " " << pv << " " << rv << "\n";
         unsigned lower = 0, upper = m.power_of_2();
         // binary search for the parity (otw. we would have justifications like "parity_at_most(k) && parity_at_least(k)" for at most "k" widths
         while (lower + 1 < upper) {
