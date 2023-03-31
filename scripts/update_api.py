@@ -1825,6 +1825,7 @@ if _lib is None:
   else:
     print("    import builtins")
     print("    builtins.Z3_LIB_DIRS = [ '/path/to/libz3.%s' ] " % _ext)
+  print(_failures)
   raise Z3Exception("libz3.%s not found." % _ext)
 
 
