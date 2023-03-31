@@ -440,7 +440,7 @@ app* pattern_inference_cfg::mk_pattern(app* candidate) {
             m_args.push_back(to_app(e));
         }
     }
-    return m.mk_pattern(m_args.size(), (app* const*)m_args.data());
+    return m.mk_pattern(m_args.size(), m_args.data());
 }
 
 /**
