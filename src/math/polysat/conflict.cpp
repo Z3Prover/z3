@@ -234,6 +234,16 @@ namespace polysat {
         // TODO: check uses of logger().begin_conflict(). sometimes we call it before adding constraints, sometimes after...
     }
 
+    void conflict::init(dependency dep, signed_constraint c) {
+        SASSERT(empty());
+        m_level = s.m_level;
+        m_dep = dep;
+        SASSERT(!empty());
+        insert_vars(c);
+        logger().begin_conflict();
+    }
+
+
     void conflict::init(signed_constraint c) {
         LOG("Conflict: constraint " << lit_pp(s, c));
         SASSERT(empty());

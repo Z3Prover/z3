@@ -139,6 +139,11 @@ namespace polysat {
         /** conflict because there is no viable value for the variable v, by fallback solver */
         void init_by_viable_fallback(pvar v, univariate_solver& us);
 
+        /** conflict depends on dep and free variables in c **/
+        /** c evaluates to false but is assigned to true by dep **/
+        void init(dependency dep, signed_constraint c);
+
+
         bool contains(signed_constraint c) const { SASSERT(c); return contains(c.blit()); }
         bool contains(sat::literal lit) const;
         bool contains_pvar(pvar v) const { return m_vars.contains(v); }

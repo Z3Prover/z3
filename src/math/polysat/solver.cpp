@@ -184,8 +184,10 @@ namespace polysat {
         m_bvars.assumption(lit, m_level, dep);
         m_trail.push_back(trail_instr_t::assign_bool_i);
         m_search.push_boolean(lit);
-        if (c.is_currently_false(*this))
-            set_conflict(c);
+
+        if (c.is_currently_false(*this)) 
+            // conflict depends on dep, and free variables in c
+            set_conflict(dep, c);
     }
 
     bool solver::can_propagate() {
