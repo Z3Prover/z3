@@ -2185,7 +2185,7 @@ public class Context implements AutoCloseable {
     /**
      * Check for regular expression membership.
      */
-    public final <R extends Sort> BoolExpr mkInRe(Expr<SeqSort<R>> s, Expr<ReSort<R>> re)
+    public final <R extends Sort> BoolExpr mkInRe(Expr<SeqSort<R>> s, ReExpr<SeqSort<R>> re)
     {
         checkContextMatch(s, re);
         return (BoolExpr) Expr.create(this, Native.mkSeqInRe(nCtx(), s.getNativeObject(), re.getNativeObject()));
