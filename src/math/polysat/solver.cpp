@@ -1611,6 +1611,7 @@ namespace polysat {
         if (ok)
             log_lemma_smt2(*cb.build());  // check the unsat core
 #endif
+        m_conflict.reset();                
     }
 
     std::ostream& solver::display_search(std::ostream& out) const {
