@@ -405,6 +405,12 @@ namespace smt {
                 TRACE("special_relations", tout << "already: " << a.v2() << " <= " << a.v1() << "\n";);
                 continue;
             }
+            if (a.v1() == a.v2()) {
+                r.m_explanation.reset();
+                r.m_explanation.push_back(a.explanation());
+                set_conflict(r);                
+                return l_false;
+            }
             // the nodes visited from v1 become target for v2
             if (r.m_graph.reachable(a.v2(), visited, target, w)) {
                 //
