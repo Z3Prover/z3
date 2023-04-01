@@ -36,7 +36,16 @@ bool assertions_enabled() {
     return g_enable_assertions;
 }
 
+static atomic<bool> g_enable_notify_assertion_violation(true);
+
+void disable_notify_assertion_violation() {
+    g_enable_notify_assertion_violation = false;
+}
+
+
 void notify_assertion_violation(const char * fileName, int line, const char * condition) {
+    if (!g_enable_notify_assertion_violation)
+        return;
     std::cerr << "ASSERTION VIOLATION\n"
                  "File: " << fileName << "\n"
                  "Line: " << line << '\n'

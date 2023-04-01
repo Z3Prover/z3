@@ -67,6 +67,7 @@ void invoke_gdb();
 #endif
 
 void notify_assertion_violation(const char * file_name, int line, const char * condition);
+void disable_notify_assertion_violation();
 void enable_debug(const char * tag);
 void disable_debug(const char * tag);
 bool is_debug_enabled(const char * tag);

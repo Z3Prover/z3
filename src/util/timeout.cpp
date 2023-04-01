@@ -25,6 +25,7 @@ Revision History:
 
 #include "util/event_handler.h"
 #include "util/scoped_timer.h"
+#include "util/debug.h"
 
 static scoped_timer * g_timeout = nullptr;
 static void (* g_on_timeout)() = nullptr;
@@ -36,6 +37,7 @@ public:
         m_caller_id = caller_id;
         std::cout << "timeout\n";
         std::cout.flush();
+        disable_notify_assertion_violation();
         if (g_on_timeout)
             g_on_timeout();
         throw z3_error(ERR_TIMEOUT);
