@@ -28,7 +28,7 @@ Author:
 // Lemmas are written into the folder "dbg-lemmas", and only if that folder already exists.
 #define ENABLE_LEMMA_VALIDITY_CHECK 0
 
-#define ENABLE_REINIT_STACK 0
+#define ENABLE_REINIT_STACK 1
 
 namespace polysat {
 

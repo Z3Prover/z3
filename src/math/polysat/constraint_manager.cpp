@@ -148,8 +148,9 @@ namespace polysat {
         s.m_bvars.watch(cl[0]).push_back(&cl);
         s.m_bvars.watch(cl[1]).push_back(&cl);
 
-        if (s.m_bvars.is_true(cl[0]))
-            return false;
+        if (s.m_bvars.is_true(cl[0])) 
+            return !is_chronological(cl);
+        
         SASSERT(!s.m_bvars.is_true(cl[1]));
         if (!s.m_bvars.is_false(cl[1])) {
             SASSERT(!s.m_bvars.is_assigned(cl[0]) && !s.m_bvars.is_assigned(cl[1]));
@@ -167,6 +168,20 @@ namespace polysat {
             return;
         s.m_bvars.watch(cl[0]).erase(&cl);
         s.m_bvars.watch(cl[1]).erase(&cl);
+    }
+
+    // return false if the level of cl[0] is above the level of all 
+    // other literals in cl. In this case cl[0] is obtained by unit propagation
+    // at a lower level.
+    bool constraint_manager::is_chronological(clause const& cl) const {
+        unsigned level = s.m_bvars.level(cl[0]);
+        for (unsigned i = 1; i < cl.size(); ++i) {
+            if (!s.m_bvars.is_false(cl[i]))
+                return true;
+            if (level <= s.m_bvars.level(cl[i]))
+                return true;
+        }
+        return false;
     }
 
     constraint_manager::~constraint_manager() {

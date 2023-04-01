@@ -253,7 +253,7 @@ namespace dd {
     }
 
     pdd_manager::PDD pdd_manager::apply(PDD arg1, PDD arg2, pdd_op op) {
-        bool first = true;
+        unsigned count = 0;
         SASSERT(well_formed());
         scoped_push _sp(*this);
         while (true) {
@@ -262,8 +262,9 @@ namespace dd {
             }
             catch (const mem_out &) {
                 try_gc();
-                if (!first) throw;
-                first = false;
+                if (count > 0)
+                    m_max_num_nodes *= 2;
+                count++;
             }
         }
         SASSERT(well_formed());
@@ -514,7 +515,7 @@ namespace dd {
         if (m_semantics == mod2_e) {
             return a;
         }
-        bool first = true;
+        unsigned count = 0;
         SASSERT(well_formed());
         scoped_push _sp(*this);
         while (true) {
@@ -523,8 +524,9 @@ namespace dd {
             }
             catch (const mem_out &) {
                 try_gc();
-                if (!first) throw;
-                first = false;
+                if (count > 0)
+                    m_max_num_nodes *= 2;
+                ++count;                
             }
         }
         SASSERT(well_formed());        
@@ -572,7 +574,7 @@ namespace dd {
             return true;
         }
         SASSERT(c.is_int());
-        bool first = true;
+        unsigned count = 0;
         SASSERT(well_formed());
         scoped_push _sp(*this);
         while (true) {
@@ -585,8 +587,9 @@ namespace dd {
             }
             catch (const mem_out &) {
                 try_gc();
-                if (!first) throw;
-                first = false;
+                if (count > 0)
+                    m_max_num_nodes *= 2;
+                ++count;
             }
         }
     }
@@ -1363,9 +1366,8 @@ namespace dd {
             e->get_data().m_refcount = 0;      
         }
         if (do_gc) {
-            if (m_nodes.size() > m_max_num_nodes) {
-                throw mem_out();
-            }
+            if (m_nodes.size() > m_max_num_nodes) 
+                throw mem_out();            
             alloc_free_nodes(m_nodes.size()/2);
         }
         SASSERT(e->get_data().m_lo == n.m_lo);
