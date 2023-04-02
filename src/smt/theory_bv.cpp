@@ -946,6 +946,9 @@ namespace smt {
                 internalize_bv2int(term); 
             }
             return params().m_bv_enable_int2bv2int;
+        case OP_BSREM:        return false;
+        case OP_BUREM:        return false;
+        case OP_BSMOD:        return false;
         default:
             TRACE("bv_op", tout << "unsupported operator: " << mk_ll_pp(term, m) << "\n";);
             UNREACHABLE();
