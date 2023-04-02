@@ -211,7 +211,7 @@ namespace polysat {
     bool conflict::is_valid() const {
         SASSERT(!empty());
         // If m_dep is set, the corresponding constraint was asserted at m_level and is not valid earlier.
-        if (!m_dep.is_null() && m_level >= s.m_level)
+        if (!m_dep.is_null() && m_level > s.m_level)
             return false;
         // All conflict constraints must be bool-assigned.
         for (unsigned lit_idx : m_literals)
