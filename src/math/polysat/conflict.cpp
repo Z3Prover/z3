@@ -211,8 +211,8 @@ namespace polysat {
     bool conflict::is_valid() const {
         SASSERT(!empty());
         // If m_dep is set, the corresponding constraint was asserted at m_level and is not valid earlier.
-        if (!m_dep.is_null())
-            return m_level <= s.m_level;
+        if (!m_dep.is_null() && m_level >= s.m_level)
+            return false;
         // All conflict constraints must be bool-assigned.
         for (unsigned lit_idx : m_literals)
             if (!s.m_bvars.is_assigned(sat::to_literal(lit_idx)))
@@ -636,8 +636,8 @@ namespace polysat {
                 if (s.m_bvars.is_assumption(lit)) {
                     // only assumptions have external dependencies
                     dependency const d = s.m_bvars.dep(lit);
-                    if (!d.is_null())
-                        deps.insert(d.val());
+                    if (!d.is_null()) 
+                        deps.insert(d.val());                    
                 }
                 else if (s.m_bvars.is_bool_propagation(lit)) {
                     IF_VERBOSE(11, verbose_stream() << "    reason " << *s.m_bvars.reason(lit) << "\n";);

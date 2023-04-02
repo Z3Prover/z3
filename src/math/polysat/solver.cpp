@@ -95,10 +95,33 @@ namespace polysat {
     }
 
     lbool solver::unit_propagate() {
+#if 1
         return l_undef;
-        // disabled to allow debugging unsoundness for watched literals
+#elif 1
+
+        unsigned level = m_level;
+        SASSERT(!m_is_solving);
+        backjump(base_level());
+        if (!is_conflict())
+            propagate();
+        VERIFY(level == m_level);
+        if (is_conflict()) {
+            ++m_stats.m_num_conflicts;
+            return l_false;
+        }
+        
+        return l_undef;
+#else
         flet<uint64_t> _max_d(m_config.m_max_conflicts, m_stats.m_num_conflicts + 2);
-        return check_sat();
+        unsigned level = m_level;
+        lbool r = check_sat();
+        if (r != l_false) {
+            backjump(level);
+            m_conflict.reset();
+        }
+        SASSERT(level == m_level);
+        return r;
+#endif
     }
 
     dd::pdd_manager& solver::sz2pdd(unsigned sz) const {

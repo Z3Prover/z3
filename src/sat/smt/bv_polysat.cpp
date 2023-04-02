@@ -220,7 +220,7 @@ namespace bv {
         force_push();
         pdd p = var2pdd(v1);
         pdd q = var2pdd(v2);
-        auto sc = m_polysat.eq(p, q);
+        auto sc = m_polysat.eq(p, q);        
         m_var_eqs.setx(m_var_eqs_head, std::make_pair(v1, v2), std::make_pair(v1, v2));
         ctx.push(value_trail<unsigned>(m_var_eqs_head));        
         m_polysat.assign_eh(sc, polysat::dependency(2 * m_var_eqs_head)); 
@@ -266,11 +266,13 @@ namespace bv {
         sat::literal_vector core;
         euf::enode_pair_vector eqs;
         m_polysat.unsat_core(deps);
-        for (auto n : deps) {
+        for (auto n : deps) {            
             if (0 != (n.val() & 1))
                 core.push_back(sat::to_literal(n.val() / 2));
-            else {
+            else {                
                 auto [v1, v2] = m_var_eqs[n.val() / 2];
+                VERIFY(var2enode(v1)->get_root() == var2enode(v2)->get_root());
+                VERIFY(n.val() <= 2 * m_var_eqs_head);
                 eqs.push_back(euf::enode_pair(var2enode(v1), var2enode(v2)));
             }
         }
