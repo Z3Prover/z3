@@ -232,6 +232,7 @@ namespace polysat {
     void constraint_manager::gc_clauses() {
         LOG_H3("gc_clauses");
         // place to gc redundant clauses
+        // clauses on_reinit_stack() cannot be gc'ed
     }
 
     void constraint_manager::gc_constraints() {

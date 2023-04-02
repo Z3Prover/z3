@@ -106,6 +106,13 @@ namespace polysat {
         bool watch(clause& cl);
         void unwatch(clause& cl);
 
+        unsigned num_clauses() const {
+            unsigned n = 0;
+            for (auto const& lvl : m_clauses)
+                n += lvl.size();
+            return n;
+        }
+
         constraint* lookup(sat::bool_var var) const;
         signed_constraint lookup(sat::literal lit) const;
 
