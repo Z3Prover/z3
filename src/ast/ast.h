@@ -161,7 +161,7 @@ public:
     bool is_zstring() const { return get_kind() == PARAM_ZSTRING; }
 
     bool is_int(int & i) const { return is_int() && (i = get_int(), true); }
-    bool is_ast(ast * & a) const { return is_ast() && (a = get_ast(), true); }
+    bool is_ast(ast * & a) const { return is_ast() && (a = get_ast(), a && true); }
     bool is_symbol(symbol & s) const { return is_symbol() && (s = get_symbol(), true); }
     bool is_rational(rational & r) const { return is_rational() && (r = get_rational(), true); }
     bool is_double(double & d) const { return is_double() && (d = get_double(), true); }
@@ -180,13 +180,13 @@ public:
     */
     void del_eh(ast_manager & m, family_id fid);
 
-    int get_int() const { return std::get<int>(m_val); }
-    ast * get_ast() const { return std::get<ast*>(m_val); }
-    symbol get_symbol() const { return std::get<symbol>(m_val); }
-    rational const & get_rational() const { return *std::get<rational*>(m_val); }
-    zstring const& get_zstring() const { return *std::get<zstring*>(m_val); }
-    double get_double() const { return std::get<double>(m_val); }
-    unsigned get_ext_id() const { return std::get<unsigned>(m_val); }
+    int get_int() const { SASSERT(is_int()); return std::get<int>(m_val); }
+    ast * get_ast() const { SASSERT(is_ast()); return std::get<ast*>(m_val); }
+    symbol get_symbol() const { SASSERT(is_symbol()); return std::get<symbol>(m_val); }
+    rational const & get_rational() const { SASSERT(is_rational()); return *std::get<rational*>(m_val); }
+    zstring const& get_zstring() const { SASSERT(is_zstring()); return *std::get<zstring*>(m_val); }
+    double get_double() const { SASSERT(is_double()); return std::get<double>(m_val); }
+    unsigned get_ext_id() const { SASSERT(is_external()); return std::get<unsigned>(m_val); }
 
     bool operator==(parameter const & p) const;
     bool operator!=(parameter const & p) const { return !operator==(p); }

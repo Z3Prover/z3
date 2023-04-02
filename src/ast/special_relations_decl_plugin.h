@@ -71,11 +71,13 @@ class special_relations_util {
     ast_manager& m;
     mutable family_id    m_fid;
     func_decl* mk_rel_decl(func_decl* f, decl_kind k) {
+        SASSERT(f);
         parameter p(f); SASSERT(f->get_arity() == 2); 
         return m.mk_func_decl(fid(), k, 1, &p, 2, f->get_domain(), f->get_range()); 
     }    
     family_id fid() const {        
-        if (null_family_id == m_fid) m_fid = m.get_family_id("specrels");
+        if (null_family_id == m_fid) 
+            m_fid = m.get_family_id("specrels");
         return m_fid;
     }
 public:
