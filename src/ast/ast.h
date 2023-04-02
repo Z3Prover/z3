@@ -161,7 +161,7 @@ public:
     bool is_zstring() const { return get_kind() == PARAM_ZSTRING; }
 
     bool is_int(int & i) const { return is_int() && (i = get_int(), true); }
-    bool is_ast(ast * & a) const { return is_ast() && (a = get_ast(), a && true); }
+    bool is_ast(ast * & a) const { return is_ast() && (a = get_ast(), true); }
     bool is_symbol(symbol & s) const { return is_symbol() && (s = get_symbol(), true); }
     bool is_rational(rational & r) const { return is_rational() && (r = get_rational(), true); }
     bool is_double(double & d) const { return is_double() && (d = get_double(), true); }
