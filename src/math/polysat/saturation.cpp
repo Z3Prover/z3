@@ -569,9 +569,11 @@ namespace polysat {
 
     /**
      * [y] z' <= y /\ yx <= zx  ==>  Ω*(x,y) \/ z'x <= zx
-     * [y] z' <= y /\ yx < zx   ==>  Ω*(x,y) \/ z'x < zx
-     * [y] z' < y  /\ yx <= zx  ==>  Ω*(x,y) \/ z'x < zx
-     * [y] z' < y  /\ yx < zx   ==>  Ω*(x,y) \/ z'x < zx       TODO: could strengthen the conclusion to z'x + 1 < zx
+     * [y] z' <= y /\ yx <  zx  ==>  Ω*(x,y) \/ z'x <  zx
+     * [y] z' <  y /\ yx <= zx  ==>  Ω*(x,y) \/ z'x <= zx
+     * [y] z' <  y /\ yx <  zx  ==>  Ω*(x,y) \/ z'x <  zx
+     * [y] z' <  y /\ yx <  zx  ==>  Ω*(x,y) \/ z'x + 1 < zx     (TODO?)
+     * [y] z' <  y /\ yx <  zx  ==>  Ω*(x,y) \/ (z' + 1)x < zx   (TODO?)
      */
     bool saturation::try_ugt_y(pvar v, conflict& core, inequality const& yx_l_zx) {
         set_rule("[y] z' <= y & yx <= zx");
@@ -605,7 +607,7 @@ namespace polysat {
         pdd const& z_prime = l_y.lhs();
         m_lemma.reset();
         m_lemma.insert_eval(~non_ovfl);
-        return add_conflict(v, core, l_y, yx_l_zx, ineq(yx_l_zx.is_strict() || l_y.is_strict(), z_prime * x, z * x));
+        return add_conflict(v, core, l_y, yx_l_zx, ineq(yx_l_zx.is_strict(), z_prime * x, z * x));
     }
 
     /**
