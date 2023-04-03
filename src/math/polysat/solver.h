@@ -187,7 +187,6 @@ namespace polysat {
         constraints              m_pwatch_trail;
 #endif
         ptr_vector<clause>       m_repropagate_units;
-        sat::literal_vector      m_repropagate_lits;
 
         ptr_vector<clause const> m_lemmas;  ///< the non-asserting lemmas
         unsigned                 m_lemmas_qhead = 0;
@@ -276,11 +275,6 @@ namespace polysat {
         void repropagate_units();
         bool can_propagate_search();
         void propagate_search();
-        bool can_repropagate();
-        void repropagate();
-        void repropagate(sat::literal lit);
-        bool repropagate(sat::literal lit, clause& cl);
-        void propagate_clause(clause& cl);
 
         void set_conflict(dependency dep, signed_constraint c) { m_conflict.init(dep, c); }
         void set_conflict_at_base_level(dependency dep) { m_conflict.init_at_base_level(dep); }

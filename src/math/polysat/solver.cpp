@@ -28,8 +28,6 @@ Author:
 // Lemmas are written into the folder "dbg-lemmas", and only if that folder already exists.
 #define ENABLE_LEMMA_VALIDITY_CHECK 0
 
-#define ENABLE_REINIT_STACK 1
-
 namespace polysat {
 
     solver::solver(reslimit& lim):
@@ -214,7 +212,7 @@ namespace polysat {
     }
 
     bool solver::can_propagate() {
-        return can_repropagate_units() || should_add_pwatch() || can_propagate_search() || can_repropagate();
+        return can_repropagate_units() || should_add_pwatch() || can_propagate_search();
     }
 
     void solver::propagate() {
@@ -222,7 +220,6 @@ namespace polysat {
             if (can_repropagate_units()) repropagate_units();
             else if (should_add_pwatch()) add_pwatch();
             else if (can_propagate_search()) propagate_search();
-            else if (can_repropagate()) repropagate();
         }
         VERIFY(bool_watch_invariant());
     }
@@ -350,16 +347,12 @@ namespace polysat {
     }
 
     void solver::push_reinit_stack(clause& c) {
-        if (!ENABLE_REINIT_STACK)
-            return;
         if (c.on_reinit_stack())
             return;
         c.set_on_reinit_stack(true);
         m_clauses_to_reinit.push_back(&c);
     }
 
-
-    
     void solver::reinit_clauses(unsigned old_sz) {
         unsigned sz = m_clauses_to_reinit.size();
         SASSERT(old_sz <= sz);
@@ -416,40 +409,6 @@ namespace polysat {
         }
     }
 
-    bool solver::can_repropagate() {
-        return !m_repropagate_lits.empty() && !is_conflict();
-    }
-
-    // Repropagate:
-    // Consider the following case:
-    // 1. Literal L is decision@2
-    // 2. We are at level 10, add a clause C := A & B ==> L where A@0, B@0 (i.e., L should be propagation@0 now)
-    // 3. For whatever reason we now backtrack to 0 or 1.
-    //    We have unassigned L but the unit propagation for C does not trigger.
-    // 4. To fix that situation we explicitly "repropagate" C after backtracking.
-    // NOTE: the same may happen if L is a propagation/evaluation/assumption, and there now exists a new clause that propagates L at an earlier level.
-    // TODO: for assumptions this isn't implemented yet. If we can bool-propagate an assumption from other literals,
-    //       it means that the external dependency on the assumed literal is unnecessary and a resulting unsat core may be smaller.
-
-    // Z3 (and maybe other SMT solvers) remembers new clauses added under a decision level.
-    // It uses the function solver::reinit_clauses(unsigned old_sz)
-    // to re-initialize clauses on the stack. They are detached from watch lists then re-inserted.
-    // Nadel's SAT paper describes a different scheme.
-    // Just using clause detach and re-initialization after pop should allow using the same code
-    // paths for propagation.
-    
-    void solver::repropagate() {
-        while (can_repropagate() && !can_propagate_search()) {
-            sat::literal lit = m_repropagate_lits.back();
-            m_repropagate_lits.pop_back();
-            LOG("Repropagate lit " << lit);
-            // check for missed lower boolean propagations
-            repropagate(lit);
-
-            reinit_literal(lit);
-        }
-    }
-
     /**
      * Propagate assignment to a Boolean variable
      */
@@ -462,34 +421,6 @@ namespace polysat {
         for (; i < sz && !is_conflict(); ++i)
             if (!propagate(lit, *wlist[i]))
                 wlist[j++] = wlist[i];
-        for (; i < sz; ++i)
-            wlist[j++] = wlist[i];
-        wlist.shrink(j);
-    }
-
-    /**
-     * Trigger boolean watchlists for the given literal
-     */
-    void solver::repropagate(sat::literal lit) {
-        LOG_H2("Re-propagate " << lit_pp(*this, lit));
-#ifndef NDEBUG
-        SASSERT(!m_is_propagating);
-        flet<bool> save_(m_is_propagating, true);
-#endif
-        if (m_bvars.is_true(lit))
-            return;
-        auto& wlist = m_bvars.watch(lit);
-        unsigned i = 0, j = 0, sz = wlist.size();
-        if (m_bvars.is_false(lit)) {
-            // Here we can fall back to the regular propagation which assumes that ~lit was set to true.
-            for (; i < sz && !is_conflict(); ++i)
-                if (!propagate(~lit, *wlist[i]))
-                    wlist[j++] = wlist[i];
-        } else {
-            for (; i < sz && !is_conflict(); ++i)
-                if (!repropagate(lit, *wlist[i]))
-                    wlist[j++] = wlist[i];
-        }
         for (; i < sz; ++i)
             wlist[j++] = wlist[i];
         wlist.shrink(j);
@@ -624,39 +555,6 @@ namespace polysat {
             assign_propagate(cl[idx], cl);
         return updated_watch;
     }
-
-    /**
-     * Check if clause propagation is triggered by literal lit.
-     * Return true if a new watch was found; or false to keep the existing one.
-     */
-    bool solver::repropagate(sat::literal lit, clause& cl) {
-        LOG("Re-propagate " << lit << " in " << cl);
-        if (!m_bvars.is_undef(lit))
-            return false;
-        SASSERT(cl.size() >= 2);
-        unsigned idx = (cl[0] == lit) ? 1 : 0;
-        SASSERT(cl[1 - idx] == lit);
-        if (m_bvars.is_true(cl[idx]))
-            return false;
-        if (m_bvars.is_undef(cl[idx]))
-            return false;
-        SASSERT(m_bvars.is_false(cl[idx]));
-        // lit is undef, other_lit is false.
-        for (unsigned i = 2; i < cl.size(); ++i) {
-            // must be assigned, or we should have watched it instead of other_lit.
-            VERIFY(m_bvars.is_assigned(cl[i]));
-            // there may still be a true literal in the tail; if so, watch it instead.
-            if (m_bvars.is_true(cl[i])) {
-                m_bvars.watch(cl[i]).push_back(&cl);
-                std::swap(cl[1 - idx], cl[i]);
-                return true;
-            }
-        }
-        // all literals other than lit are false
-        assign_propagate(lit, cl);
-        return false;
-    }
-
 
     /** Enqueue constraint c to perform add_pwatch(c) on the next solver iteration */
     void solver::enqueue_pwatch(constraint* c) {
@@ -796,9 +694,6 @@ namespace polysat {
             case trail_instr_t::assign_i: {
                 auto v = m_search.back().var();
                 LOG_V(20, "Undo assign_i: v" << v);
-                if (get_level(v) <= target_level && !ENABLE_REINIT_STACK)
-                    for (signed_constraint c : m_viable.get_constraints(v))
-                        m_repropagate_lits.push_back(c.blit());
                 m_free_pvars.unassign_var_eh(v);
                 m_justification[v] = justification::unassigned();
                 m_search.pop();
@@ -814,10 +709,8 @@ namespace polysat {
                     // Unit clauses are not stored in watch lists and must be re-propagated separately.
                     m_repropagate_units.push_back(reason);
                 }
-                else if (ENABLE_REINIT_STACK)
+                else
                     m_literals_to_reinit.push_back(lit);
-                else 
-                    m_repropagate_lits.push_back(lit);
                 m_bvars.unassign(lit);
                 m_search.pop();
                 break;
@@ -1216,8 +1109,6 @@ namespace polysat {
             push_reinit_stack(lemma);
             if (!lemma.is_active())
                 add_clause(lemma);
-            else
-                propagate_clause(lemma);
             // NOTE: currently, the backjump level is an overapproximation,
             //       since the level of evaluated constraints may not be exact (see TODO in assign_eval).
             // For this reason, we may actually get a conflict at this point
@@ -1253,18 +1144,6 @@ namespace polysat {
             }
         }
     }  // backjump_and_learn
-
-    // Explicit boolean propagation over the given clause, without relying on watch lists.
-    void solver::propagate_clause(clause& cl) {
-        if (ENABLE_REINIT_STACK)
-            return;
-        LOG("propagate_clause: " << cl);
-        for (sat::literal lit : cl) {
-            LOG("    " << lit_pp(*this, lit));
-            // will be repropagated in reverse order, so the tail literals are assigned before trying the watched ones.
-            m_repropagate_lits.push_back(lit);
-        }
-    }
 
     unsigned solver::level(sat::literal lit0, clause const& cl) {
         unsigned lvl = 0;
@@ -1512,10 +1391,8 @@ namespace polysat {
             // TODO: currently we forget all new lemmas at this point.
             //       (but anything that uses popped assumptions cannot be used anymore.)
             for (clause* lemma : lemmas)
-                if (lemma->is_active()) {
+                if (lemma->is_active())
                     push_reinit_stack(*lemma);
-                    propagate_clause(*lemma);
-                }
         }
 
         m_base_levels.shrink(m_base_levels.size() - num_scopes);
