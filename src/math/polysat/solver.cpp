@@ -212,13 +212,12 @@ namespace polysat {
     }
 
     bool solver::can_propagate() {
-        return can_repropagate_units() || should_add_pwatch() || can_propagate_search();
+        return should_add_pwatch() || can_propagate_search();
     }
 
     void solver::propagate() {
         while (can_propagate()) {
-            if (can_repropagate_units()) repropagate_units();
-            else if (should_add_pwatch()) add_pwatch();
+            if (should_add_pwatch()) add_pwatch();
             else if (can_propagate_search()) propagate_search();
         }
         VERIFY(bool_watch_invariant());
@@ -309,37 +308,7 @@ namespace polysat {
             }
         }  // while (can_propagate_search())
         SASSERT(wlist_invariant());
-        // VERIFY(bool_watch_invariant());
         SASSERT(eval_invariant());
-    }
-
-    bool solver::can_repropagate_units() {
-        return !m_repropagate_units.empty() && !is_conflict();
-    }
-
-    void solver::repropagate_units() {
-        while (can_repropagate_units()) {
-            clause& cl = *m_repropagate_units.back();
-            m_repropagate_units.pop_back();
-            VERIFY_EQ(cl.size(), 1);
-            sat::literal lit = cl[0];
-            LOG("Repropagate unit: " << lit_pp(*this, lit));
-            switch (m_bvars.value(lit)) {
-            case l_undef:                
-                assign_propagate(lit, cl);
-                break;
-            case l_false:
-                m_repropagate_units.push_back(&cl);
-                set_conflict(cl);
-                break;
-            case l_true:
-                /* ok */
-                break;
-            default:
-                UNREACHABLE();
-                break;
-            }
-        }
     }
 
     bool solver::has_variables_to_reinit(clause const& c) const {
@@ -706,8 +675,6 @@ namespace polysat {
                 if (reason && reason->size() == 1) {
                     SASSERT(m_bvars.is_bool_propagation(lit));
                     SASSERT_EQ(lit, (*reason)[0]);
-                    // Unit clauses are not stored in watch lists and must be re-propagated separately.
-                    m_repropagate_units.push_back(reason);
                 }
                 else
                     m_literals_to_reinit.push_back(lit);

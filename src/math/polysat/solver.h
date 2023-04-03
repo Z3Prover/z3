@@ -186,7 +186,6 @@ namespace polysat {
 #if 0
         constraints              m_pwatch_trail;
 #endif
-        ptr_vector<clause>       m_repropagate_units;
 
         ptr_vector<clause const> m_lemmas;  ///< the non-asserting lemmas
         unsigned                 m_lemmas_qhead = 0;
@@ -271,8 +270,6 @@ namespace polysat {
 
         bool can_propagate();
         void propagate();
-        bool can_repropagate_units();
-        void repropagate_units();
         bool can_propagate_search();
         void propagate_search();
 
