@@ -1546,36 +1546,36 @@ namespace polysat {
      * 
      * If y == null_var, chooses some variable y != x from p (if one exists).
      */
-    bool saturation::extract_bilinear_form(pvar x, pdd const& p, pvar& y, rational& a, rational& b, rational& c, rational& d) {
+    bool saturation::extract_bilinear_form(pvar x, pdd const& p, pvar& y, bilinear& b) {
         auto& m = s.var2pdd(x);
         rational const& M = m.two_to_N();
         switch (p.degree(x)) {
         case 0:
-            if (!s.try_eval(p, d))
+            if (!s.try_eval(p, b.d))
                 return false;
-            a = b = c = 0;
+            b.a = b.b = b.c = 0;
             return true;
         case 1: {
             pdd q = p, r = p, u = p, v = p;
             p.factor(x, 1, q, r);
-            if (!extract_linear_form(q, y, a, b))
+            if (!extract_linear_form(q, y, b.a, b.b))
                 return false;
-            if (a == 0) {
-                c = 0;
-                return eval_round(M, r, d);
+            if (b.a == 0) {
+                b.c = 0;
+                return eval_round(M, r, b.d);
             }
             SASSERT(y != null_var);
             switch (r.degree(y)) {
             case 0:
-                if (!eval_round(M, r, d))
+                if (!eval_round(M, r, b.d))
                     return false;
-                c = 0;
+                b.c = 0;
                 return true;
             case 1:
                 r.factor(y, 1, u, v);
-                if (!eval_round(M, u, c))
+                if (!eval_round(M, u, b.c))
                     return false;
-                if (!eval_round(M, v, d))
+                if (!eval_round(M, v, b.d))
                     return false;
                 return true;
             default:
@@ -1592,10 +1592,11 @@ namespace polysat {
      * Update d such that -M < a*x*y0 + b*x + c*y0 + d < M for every value x_min <= x <= x_max, return x_split such that [x_min,x_split[ and [x_split,x_max] can fit into [0,M[
      * return false if there is no such d.
      */
-    bool saturation::adjust_bound(rational const& x_min, rational const& x_max, rational const& y0, rational const& M, rational const& a, rational const& b, rational const& c, rational& d, rational* x_split) {
+    bool saturation::adjust_bound(rational const& x_min, rational const& x_max, rational const& y0, rational const& M,
+                                  bilinear& b, rational* x_split) {
         SASSERT(x_min <= x_max);
-        rational A = a*y0 + b;
-        rational B = c*y0 + d;
+        rational A = b.a*y0 + b.b;
+        rational B = b.c*y0 + b.d;
         rational max = A >= 0 ? x_max * A + B : x_min * A + B;
         rational min = A >= 0 ? x_min * A + B : x_max * A + B;
         VERIFY(min <= max);
@@ -1610,7 +1611,7 @@ namespace polysat {
         rational offset = rational::zero();
         if (max < 0 || max >= M)
             offset = -M * floor(max / M);
-        d += offset;
+        b.d += offset;
 
         // If min + offset < 0, then [min,max] contains a multiple of M.
         if (min + offset < 0) {
@@ -1622,25 +1623,25 @@ namespace polysat {
                 rational x = ceil((-offset-B) / A);
                 // [x_min; x_split-1] maps to interval < 0
                 // [x_split; x_max] maps to interval >= 0
-                VERIFY(a*x*y0 + b*x + c*y0 + d >= 0);
-                VERIFY(a*(x-1)*y0 + b*(x-1) + c*y0 + d < 0);
+                VERIFY(b.eval(x, y0) >= 0);
+                VERIFY(b.eval(x-1, y0) < 0);
                 VERIFY(x_min <= x && x <= x_max);
                 *x_split = x;
             } else {
                 rational x = floor((-offset-B) / A) + 1;
                 // [x_min; x_split-1] maps to interval >= 0
                 // [x_split; x_max] maps to interval < 0
-                VERIFY(a*x*y0 + b*x + c*y0 + d < 0);
-                VERIFY(a*(x-1)*y0 + b*(x-1) + c*y0 + d >= 0);
+                VERIFY(b.eval(x, y0) < 0);
+                VERIFY(b.eval(x-1, y0) >= 0);
                 VERIFY(x_min <= x && x <= x_max);
                 *x_split = x;
             }
         }
 
-        VERIFY(-M < a*x_min*y0 + b*x_min + c*y0 + d);
-        VERIFY(a*x_min*y0 + b*x_min + c*y0 + d < M);
-        VERIFY(-M < a*x_max*y0 + b*x_max + c*y0 + d);
-        VERIFY(a*x_max*y0 + b*x_max + c*y0 + d < M);
+        VERIFY(-M < b.eval(x_min, y0));
+        VERIFY(b.eval(x_min, y0) < M);
+        VERIFY(-M < b.eval(x_max, y0));
+        VERIFY(b.eval(x_max, y0) < M);
         return true;
     }
     
@@ -1648,14 +1649,15 @@ namespace polysat {
      * Based on a*x*y + b*x + c*y + d >= 0
      * update lower bound for y
      */
-    bool saturation::update_min(rational& y_min, rational const& x_min, rational const& x_max, rational const& a, rational const& b, rational const& c, rational const& d) {
-        if (a == 0 && c == 0)
+    bool saturation::update_min(rational& y_min, rational const& x_min, rational const& x_max,
+                                bilinear const& b) {
+        if (b.a == 0 && b.c == 0)
             return true;
 
         rational x_bound;
-        if (a >= 0 && b >= 0) 
+        if (b.a >= 0 && b.b >= 0) 
             x_bound = x_min;
-        else if (a <= 0 && b <= 0)
+        else if (b.a <= 0 && b.b <= 0)
             x_bound = x_max;
         else
             return false;
@@ -1663,23 +1665,24 @@ namespace polysat {
         // a*x_bound*y + b*x_bound + c*y + d >= 0
         // (a*x_bound + c)*y >= -d - b*x_bound
         // if a*x_bound + c > 0
-        rational A = a*x_bound + c;
+        rational A = b.a*x_bound + b.c;
         if (A <= 0)
             return true;
-        rational y1 = ceil((- d - b*x_bound)/A);
+        rational y1 = ceil((- b.d - b.b*x_bound)/A);
         if (y1 > y_min)
             y_min = y1;
         return true;
     }
 
-    bool saturation::update_max(rational& y_max, rational const& x_min, rational const& x_max, rational const& a, rational const& b, rational const& c, rational const& d) {
-        if (a == 0 && c == 0)
+    bool saturation::update_max(rational& y_max, rational const& x_min, rational const& x_max,
+                                bilinear const& b) {
+        if (b.a == 0 && b.c == 0)
             return true;
 
         rational x_bound;
-        if (a >= 0 && b >= 0) 
+        if (b.a >= 0 && b.b >= 0) 
             x_bound = x_min;
-        else if (a <= 0 && b <= 0)
+        else if (b.a <= 0 && b.b <= 0)
             x_bound = x_max;
         else
             return false;
@@ -1687,10 +1690,10 @@ namespace polysat {
         // a*x_bound*y + b*x_bound + c*y + d >= 0
         // (a*x_bound + c)*y >= -d - b*x_bound
         // if a*x_bound + c < 0
-        rational A = a*x_bound + c;
+        rational A = b.a*x_bound + b.c;
         if (A >= 0)
             return true;
-        rational y1 = floor((- d - b*x_bound)/A);
+        rational y1 = floor((- b.d - b.b*x_bound)/A);
         if (y1 < y_max)
             y_max = y1;
         return true;
@@ -1721,57 +1724,57 @@ namespace polysat {
         }
     }
 
-    bool saturation::update_bounds_for_xs(rational const& x_min, rational const& x_max, rational& y_min, rational& y_max, rational const& y0, rational const& a1, rational const& b1, rational const& c1, rational const& dd1, rational const& a2, rational const& b2, rational const& c2, rational const& dd2, rational const& M, inequality const& a_l_b) {
+    bool saturation::update_bounds_for_xs(rational const& x_min, rational const& x_max, rational& y_min, rational& y_max, rational const& y0, bilinear const& b1, bilinear const& b2, rational const& M, inequality const& a_l_b) {
 
         VERIFY(x_min <= x_max);
 
-        rational d1 = dd1;
-        if (a1*x_min*y0 + b1*x_min + c1*y0 + d1 < 0)
+        rational d1 = b1.d;
+        if (b1.eval(x_min, y0) < 0)
             d1 += M;
-        rational d2 = dd2;
-        if (a2*x_min*y0 + b2*x_min + c2*y0 + d2 < 0)
+        rational d2 = b2.d;        
+        if (b2.eval(x_min, y0) < 0)
             d2 += M;
 
         IF_VERBOSE(2,
                    verbose_stream() << "Adjusted for x in [" << x_min << "; " << x_max << "]\n";
-                   verbose_stream() << "p ... " << a1 << " " << b1 << " " << c1 << " " << d1 << "\n";
-                   verbose_stream() << "q ... " << a2 << " " << b2 << " " << c2 << " " << d2 << "\n";
+                   verbose_stream() << "p ... " << b1 << "\n";
+                   verbose_stream() << "q ... " << b2 << "\n";
                    );
 
         // Precondition: forall x . x_min <= x <= x_max ==> p(x,y0) > q(x,y0)
         // check the endpoints
-        VERIFY(a1*x_min*y0 + b1*x_min + c1*y0 + d1 >= a2*x_min*y0 + b2*x_min + c2*y0 + d2 + (a_l_b.is_strict() ? 0 : 1));
-        VERIFY(a1*x_max*y0 + b1*x_max + c1*y0 + d1 >= a2*x_max*y0 + b2*x_max + c2*y0 + d2 + (a_l_b.is_strict() ? 0 : 1));
+        VERIFY(b1.eval(x_min, y0) >= b2.eval(x_min, y0) + (a_l_b.is_strict() ? 0 : 1));
+        VERIFY(b1.eval(x_max, y0) >= b2.eval(x_max, y0) + (a_l_b.is_strict() ? 0 : 1));
 
-        if (!update_min(y_min, x_min, x_max, a1, b1, c1, d1))
+        if (!update_min(y_min, x_min, x_max, b1))
             return false;
-        if (!update_min(y_min, x_min, x_max, a2, b2, c2, d2))
+        if (!update_min(y_min, x_min, x_max, b2))
             return false;
         //verbose_stream() << "min-max: x := v" << x << " [" << x_min << "," << x_max << "] y := v" << y << " [" << y_min << ", " << y_max << "] y0 " << y0 << "\n";
         VERIFY(y_min <= y0 && y0 <= y_max);
-        if (!update_max(y_max, x_min, x_max, a1, b1, c1, d1))
+        if (!update_max(y_max, x_min, x_max, b1))
             return false;
-        if (!update_max(y_max, x_min, x_max, a2, b2, c2, d2))
+        if (!update_max(y_max, x_min, x_max, b2))
             return false;
         //verbose_stream() << "min-max: x := v" << x << " [" << x_min << "," << x_max << "] y := v" << y << " [" << y_min << ", " << y_max << "] y0 " << y0 << "\n";
         VERIFY(y_min <= y0 && y0 <= y_max);
         // p < M iff -p > -M iff -p + M - 1 >= 0
-        if (!update_min(y_min, x_min, x_max, -a1, -b1, -c1, -d1 + M - 1))
+        if (!update_min(y_min, x_min, x_max, -b1 + (M - 1)))
             return false;
-        if (!update_min(y_min, x_min, x_max, -a2, -b2, -c2, -d2 + M - 1))
+        if (!update_min(y_min, x_min, x_max, -b2 + (M - 1)))
             return false;
-        if (!update_max(y_max, x_min, x_max, -a1, -b1, -c1, -d1 + M - 1))
+        if (!update_max(y_max, x_min, x_max, -b1 + (M - 1)))
             return false;
-        if (!update_max(y_max, x_min, x_max, -a2, -b2, -c2, -d2 + M - 1))
+        if (!update_max(y_max, x_min, x_max, -b2 + (M - 1)))
             return false;
         VERIFY(y_min <= y0 && y0 <= y_max);
         // p <= q or p < q is false
         // so p > q or p >= q
         // p - q - 1 >= 0 or p - q >= 0
         // min-max for p - q - 1 or p - q are non-negative
-        if (!update_min(y_min, x_min, x_max, a1 - a2, b1 - b2, c1 - c2, d1 - d2 - (a_l_b.is_strict() ? 0 : 1)))
+        if (!update_min(y_min, x_min, x_max, b1 - b2 - (a_l_b.is_strict() ? 0 : 1)))
             return false;
-        if (!update_max(y_max, x_min, x_max, a1 - a2, b1 - b2, c1 - c2, d1 - d2 - (a_l_b.is_strict() ? 0 : 1)))
+        if (!update_max(y_max, x_min, x_max, b1 - b2 - (a_l_b.is_strict() ? 0 : 1)))
             return false;
         return true;
     }
@@ -1791,10 +1794,10 @@ namespace polysat {
             return false;
 
         pvar y = null_var;
-        rational a1, a2, b1, b2, c1, c2, d1, d2;
-        if (!extract_bilinear_form(x, p, y, a1, b1, c1, d1))
+        bilinear b1, b2;
+        if (!extract_bilinear_form(x, p, y, b1))
             return false;
-        if (!extract_bilinear_form(x, q, y, a2, b2, c2, d2))
+        if (!extract_bilinear_form(x, q, y, b2))
             return false;
         if (y == null_var)
             return false;
@@ -1835,15 +1838,15 @@ namespace polysat {
                    verbose_stream() << "\n";
                    verbose_stream() << "x_min " << x_min << " x_max " << x_max << "\n";
                    verbose_stream() << "v" << y << " " << y0 << "\n";
-                   verbose_stream() << p << " ... " << a1 << " " << b1 << " " << c1 << " " << d1 << "\n";
-                   verbose_stream() << q << " ... " << a2 << " " << b2 << " " << c2 << " " << d2 << "\n");
+                   verbose_stream() << p << " ... " << b1 << "\n";
+                   verbose_stream() << q << " ... " << b2 << "\n");
 
         rational x_sp1 = x_min;
         rational x_sp2 = x_min;
 
-        if (!adjust_bound(x_min, x_max, y0, M, a1, b1, c1, d1, &x_sp1))
+        if (!adjust_bound(x_min, x_max, y0, M, b1, &x_sp1))
             return false;
-        if (!adjust_bound(x_min, x_max, y0, M, a2, b2, c2, d2, &x_sp2))
+        if (!adjust_bound(x_min, x_max, y0, M, b2, &x_sp2))
             return false;
 
         if (x_sp1 > x_sp2)
@@ -1852,8 +1855,8 @@ namespace polysat {
 
         IF_VERBOSE(2,
                    verbose_stream() << "Adjusted\n";
-                   verbose_stream() << p << " ... " << a1 << " " << b1 << " " << c1 << " " << d1 << "\n";
-                   verbose_stream() << q << " ... " << a2 << " " << b2 << " " << c2 << " " << d2 << "\n";
+                   verbose_stream() << p << " ... " << b1 << "\n";
+                   verbose_stream() << q << " ... " << b2 << "\n";
                    // verbose_stream() << "p(x_min,y0) = " << (a1*x_min*y0 + b1*x_min + c1*y0 + d1) << "\n";
                    // verbose_stream() << "q(x_min,y0) = " << (a2*x_min*y0 + b2*x_min + c2*y0 + d2) << "\n";
                    // verbose_stream() << "p(x_max,y0) = " << (a1*x_max*y0 + b1*x_max + c1*y0 + d1) << "\n";
@@ -1861,13 +1864,13 @@ namespace polysat {
                    );
 
         rational y_min(0), y_max(M-1);
-        if (x_min != x_sp1 && !update_bounds_for_xs(x_min, x_sp1-1, y_min, y_max, y0, a1, b1, c1, d1, a2, b2, c2, d2, M, a_l_b))
+        if (x_min != x_sp1 && !update_bounds_for_xs(x_min, x_sp1-1, y_min, y_max, y0, b1, b2, M, a_l_b))
             return false;
         // IF_VERBOSE(0, verbose_stream() << "min-max: x := v" << x << " [" << x_min << "," << x_max << "] y := v" << y << " [" << y_min << ", " << y_max << "] y0 " << y0 << "\n");
-        if (x_sp1 != x_sp2 && !update_bounds_for_xs(x_sp1, x_sp2-1, y_min, y_max, y0, a1, b1, c1, d1, a2, b2, c2, d2, M, a_l_b))
+        if (x_sp1 != x_sp2 && !update_bounds_for_xs(x_sp1, x_sp2-1, y_min, y_max, y0, b1, b2, M, a_l_b))
             return false;
         // IF_VERBOSE(0, verbose_stream() << "min-max: x := v" << x << " [" << x_min << "," << x_max << "] y := v" << y << " [" << y_min << ", " << y_max << "] y0 " << y0 << "\n");
-        if (!update_bounds_for_xs(x_sp2, x_max,   y_min, y_max, y0, a1, b1, c1, d1, a2, b2, c2, d2, M, a_l_b))
+        if (!update_bounds_for_xs(x_sp2, x_max,   y_min, y_max, y0, b1, b2, M, a_l_b))
             return false;
         IF_VERBOSE(1, verbose_stream() << "min-max: x := v" << x << " [" << x_min << "," << x_max << "] y := v" << y << " [" << y_min << ", " << y_max << "] y0 " << y0 << "\n");
 

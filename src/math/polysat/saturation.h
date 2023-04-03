@@ -18,6 +18,55 @@ Author:
 
 namespace polysat {
 
+    struct bilinear {
+        rational a, b, c, d;
+
+
+        rational eval(rational const& x, rational const& y) const {
+            return a*x*y + b*x + c*y + d;
+        }
+
+        bilinear operator-() const {
+            bilinear r(*this);
+            r.a = -r.a;
+            r.b = -r.b;
+            r.c = -r.c;
+            r.d = -r.d;
+            return r;
+        }
+
+        bilinear operator-(bilinear const& other) const {
+            bilinear r(*this);
+            r.a -= other.a;
+            r.b -= other.b;
+            r.c -= other.c;
+            r.d -= other.d;
+            return r;
+        }
+
+        bilinear operator+(rational const& d) const {
+            bilinear r(*this);
+            r.d += d;
+            return r;
+        }
+        
+        bilinear operator-(rational const& d) const {
+            bilinear r(*this);
+            r.d -= d;
+            return r;
+        }
+
+        bilinear operator-(int d) const {
+            bilinear r(*this);
+            r.d -= d;
+            return r;
+        }
+};
+
+    inline std::ostream& operator<<(std::ostream& out, bilinear const& b) {
+        return out << b.a << "*x*y + " << b.b << "*x + " << b.c << "*y + " << b.d;
+    }
+
     /**
      * Introduce lemmas that derive new (simpler) constraints from the current conflict and partial model.
      */
@@ -75,11 +124,16 @@ namespace polysat {
         rational round(rational const& M, rational const& x);
         bool eval_round(rational const& M, pdd const& p, rational& r);
         bool extract_linear_form(pdd const& q, pvar& y, rational& a, rational& b);
-        bool extract_bilinear_form(pvar x, pdd const& p, pvar& y, rational& a, rational& b, rational& c, rational& d);
-        bool adjust_bound(rational const& x_min, rational const& x_max, rational const& y0, rational const& M, rational const& a, rational const& b, rational const& c, rational& d, rational* x_split);
-        bool update_min(rational& y_min, rational const& x_min, rational const& x_max, rational const& a, rational const& b, rational const& c, rational const& d);
-        bool update_max(rational& y_max, rational const& x_min, rational const& x_max, rational const& a, rational const& b, rational const& c, rational const& d);
-        bool update_bounds_for_xs(rational const& x_min, rational const& x_max, rational& y_min, rational& y_max, rational const& y0, rational const& a1, rational const& b1, rational const& c1, rational const& d1, rational const& a2, rational const& b2, rational const& c2, rational const& d2, rational const& M, inequality const& a_l_b);
+        bool extract_bilinear_form(pvar x, pdd const& p, pvar& y, bilinear& b);
+        bool adjust_bound(rational const& x_min, rational const& x_max, rational const& y0, rational const& M,
+                          bilinear& b, rational* x_split);
+        bool update_min(rational& y_min, rational const& x_min, rational const& x_max,
+                        bilinear const& b);
+        bool update_max(rational& y_max, rational const& x_min, rational const& x_max,
+                        bilinear const& b);
+        bool update_bounds_for_xs(rational const& x_min, rational const& x_max, rational& y_min, rational& y_max,
+                                  rational const& y0, bilinear const& b1, bilinear const& b2,
+                                  rational const& M, inequality const& a_l_b);
         void fix_values(pvar x, pvar y, pdd const& p);
         void fix_values(pvar y, pdd const& p);
         
