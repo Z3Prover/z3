@@ -1724,16 +1724,15 @@ namespace polysat {
         }
     }
 
-    bool saturation::update_bounds_for_xs(rational const& x_min, rational const& x_max, rational& y_min, rational& y_max, rational const& y0, bilinear const& b1, bilinear const& b2, rational const& M, inequality const& a_l_b) {
+    bool saturation::update_bounds_for_xs(rational const& x_min, rational const& x_max, rational& y_min, rational& y_max, rational const& y0, bilinear b1, bilinear b2, rational const& M, inequality const& a_l_b) {
 
         VERIFY(x_min <= x_max);
 
-        rational d1 = b1.d;
         if (b1.eval(x_min, y0) < 0)
-            d1 += M;
+            b1.d += M;
         rational d2 = b2.d;        
         if (b2.eval(x_min, y0) < 0)
-            d2 += M;
+            b2.d += M;
 
         IF_VERBOSE(2,
                    verbose_stream() << "Adjusted for x in [" << x_min << "; " << x_max << "]\n";
@@ -1788,6 +1787,11 @@ namespace polysat {
 
         auto& m = s.var2pdd(x);    
         pdd p = a_l_b.lhs(), q = a_l_b.rhs();
+#if 0
+        // add this filter to remove useless bounds
+        if (q.is_zero())
+            return false;
+#endif
         if (p.degree(x) > 1 || q.degree(x) > 1)
             return false;
         if (p.degree(x) == 0 && q.degree(x) == 0)
