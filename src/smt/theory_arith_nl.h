@@ -2264,8 +2264,10 @@ typename theory_arith<Ext>::gb_result theory_arith<Ext>::compute_grobner(svector
             return GB_FAIL;
         if (get_gb_eqs_and_look_for_conflict(eqs, gb))
             return GB_PROGRESS;
+        if (scan_for_linear(eqs, gb))
+            return GB_NEW_EQ;
     }
-    while(scan_for_linear(eqs, gb) && m_params.m_nl_arith_gb_perturbate && 
+    while(m_params.m_nl_arith_gb_perturbate && 
           (!m_nl_gb_exhausted) && try_to_modify_eqs(eqs, gb, next_weight));
     return GB_FAIL;
 }
