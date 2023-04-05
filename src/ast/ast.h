@@ -1924,6 +1924,8 @@ public:
         return mk_fresh_func_decl(symbol(prefix), symbol::null, arity, domain, range, skolem);
     }
 
+    bool is_parametric_function(func_decl* f, func_decl *& g) const;
+
     app * mk_fresh_const(char const * prefix, sort * s, bool skolem = true) { 
         return mk_const(mk_fresh_func_decl(prefix, 0, nullptr, s, skolem)); 
     }

@@ -2322,6 +2322,14 @@ func_decl * ast_manager::mk_fresh_func_decl(symbol const & prefix, symbol const 
     return d;
 }
 
+bool ast_manager::is_parametric_function(func_decl* f, func_decl *& g) const {
+    // is-as-array
+    // is-map
+    // is-transitive-closure
+    return false;
+}
+
+
 sort * ast_manager::mk_fresh_sort(char const * prefix) {
     string_buffer<32> buffer;
     buffer << prefix << "!" << m_fresh_id;
