@@ -1592,8 +1592,8 @@ namespace polysat {
      * Update d such that -M < a*x*y0 + b*x + c*y0 + d < M for every value x_min <= x <= x_max, return x_split such that [x_min,x_split[ and [x_split,x_max] can fit into [0,M[
      * return false if there is no such d.
      */
-    bool saturation::adjust_bound(rational const& x_min, rational const& x_max, rational const& y0, rational const& M,
-                                  bilinear& b, rational* x_split) {
+    bool saturation::adjust_bound(rational const& x_min, rational const& x_max, rational const& y0,
+                                  rational const& M, bilinear& b, rational& x) {
         SASSERT(x_min <= x_max);
         rational A = b.a*y0 + b.b;
         rational B = b.c*y0 + b.d;
@@ -1615,26 +1615,23 @@ namespace polysat {
 
         // If min + offset < 0, then [min,max] contains a multiple of M.
         if (min + offset < 0) {
-            if (!x_split)
-                return false;
             // A*x_split + B + offset = 0
             // x_split = -(B+offset)/A
             if (A >= 0) {
-                rational x = ceil((-offset-B) / A);
+                x = ceil((-offset - B) / A);
                 // [x_min; x_split-1] maps to interval < 0
                 // [x_split; x_max] maps to interval >= 0
                 VERIFY(b.eval(x, y0) >= 0);
                 VERIFY(b.eval(x-1, y0) < 0);
                 VERIFY(x_min <= x && x <= x_max);
-                *x_split = x;
-            } else {
-                rational x = floor((-offset-B) / A) + 1;
+            }
+            else {
+                x = floor((-offset - B) / A) + 1;
                 // [x_min; x_split-1] maps to interval >= 0
                 // [x_split; x_max] maps to interval < 0
                 VERIFY(b.eval(x, y0) < 0);
                 VERIFY(b.eval(x-1, y0) >= 0);
                 VERIFY(x_min <= x && x <= x_max);
-                *x_split = x;
             }
         }
 
@@ -1848,9 +1845,9 @@ namespace polysat {
         rational x_sp1 = x_min;
         rational x_sp2 = x_min;
 
-        if (!adjust_bound(x_min, x_max, y0, M, b1, &x_sp1))
+        if (!adjust_bound(x_min, x_max, y0, M, b1, x_sp1))
             return false;
-        if (!adjust_bound(x_min, x_max, y0, M, b2, &x_sp2))
+        if (!adjust_bound(x_min, x_max, y0, M, b2, x_sp2))
             return false;
 
         if (x_sp1 > x_sp2)

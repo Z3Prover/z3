@@ -126,7 +126,7 @@ namespace polysat {
         bool extract_linear_form(pdd const& q, pvar& y, rational& a, rational& b);
         bool extract_bilinear_form(pvar x, pdd const& p, pvar& y, bilinear& b);
         bool adjust_bound(rational const& x_min, rational const& x_max, rational const& y0, rational const& M,
-                          bilinear& b, rational* x_split);
+                          bilinear& b, rational& x_split);
         bool update_min(rational& y_min, rational const& x_min, rational const& x_max,
                         bilinear const& b);
         bool update_max(rational& y_max, rational const& x_min, rational const& x_max,
