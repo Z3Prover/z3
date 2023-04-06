@@ -1727,21 +1727,26 @@ namespace polysat {
 
         if (b1.eval(x_min, y0) < 0)
             b1.d += M;
-        rational d2 = b2.d;        
         if (b2.eval(x_min, y0) < 0)
             b2.d += M;
 
         IF_VERBOSE(2,
                    verbose_stream() << "Adjusted for x in [" << x_min << "; " << x_max << "]\n";
-                   verbose_stream() << "p ... " << b1 << "\n";
-                   verbose_stream() << "q ... " << b2 << "\n";
+                   verbose_stream() << "p ... " << b1 << " " << b1.eval(x_min, y0) << "\n";
+                   verbose_stream() << "q ... " << b2 << " " << b2.eval(x_min, y0) << "\n";
                    );
 
         // Precondition: forall x . x_min <= x <= x_max ==> p(x,y0) > q(x,y0)
         // check the endpoints
-        VERIFY(b1.eval(x_min, y0) >= b2.eval(x_min, y0) + (a_l_b.is_strict() ? 0 : 1));
-        VERIFY(b1.eval(x_max, y0) >= b2.eval(x_max, y0) + (a_l_b.is_strict() ? 0 : 1));
-
+        //
+        // the pre-condition could be false if the interval x_min..x_max 
+        // is not defined by a_l_b, but different constraints.
+        //
+        if (b1.eval(x_min, y0) < b2.eval(x_min, y0) + (a_l_b.is_strict() ? 0 : 1))
+            return false;
+        if (b1.eval(x_max, y0) < b2.eval(x_max, y0) + (a_l_b.is_strict() ? 0 : 1))
+            return false;
+        
         if (!update_min(y_min, x_min, x_max, b1))
             return false;
         if (!update_min(y_min, x_min, x_max, b2))
@@ -1784,11 +1789,9 @@ namespace polysat {
 
         auto& m = s.var2pdd(x);    
         pdd p = a_l_b.lhs(), q = a_l_b.rhs();
-#if 0
         // add this filter to remove useless bounds
         if (q.is_zero())
             return false;
-#endif
         if (p.degree(x) > 1 || q.degree(x) > 1)
             return false;
         if (p.degree(x) == 0 && q.degree(x) == 0)
@@ -1858,22 +1861,22 @@ namespace polysat {
                    verbose_stream() << "Adjusted\n";
                    verbose_stream() << p << " ... " << b1 << "\n";
                    verbose_stream() << q << " ... " << b2 << "\n";
-                   // verbose_stream() << "p(x_min,y0) = " << (a1*x_min*y0 + b1*x_min + c1*y0 + d1) << "\n";
-                   // verbose_stream() << "q(x_min,y0) = " << (a2*x_min*y0 + b2*x_min + c2*y0 + d2) << "\n";
-                   // verbose_stream() << "p(x_max,y0) = " << (a1*x_max*y0 + b1*x_max + c1*y0 + d1) << "\n";
-                   // verbose_stream() << "q(x_max,y0) = " << (a2*x_max*y0 + b2*x_max + c2*y0 + d2) << "\n";
+                   // verbose_stream() << "p(x_min,y0) = " << b1.eval(x_min, y0) << "\n";
+                   // verbose_stream() << "q(x_min,y0) = " << b2.eval(x_min, y0) << "\n";
+                   // verbose_stream() << "p(x_max,y0) = " << b1.eval(x_max, y0) << "\n";
+                   // verbose_stream() << "q(x_max,y0) = " << b2.eval(x_max, y0) << "\n";
                    );
 
         rational y_min(0), y_max(M-1);
         if (x_min != x_sp1 && !update_bounds_for_xs(x_min, x_sp1-1, y_min, y_max, y0, b1, b2, M, a_l_b))
             return false;
-        // IF_VERBOSE(0, verbose_stream() << "min-max: x := v" << x << " [" << x_min << "," << x_max << "] y := v" << y << " [" << y_min << ", " << y_max << "] y0 " << y0 << "\n");
+        IF_VERBOSE(11, verbose_stream() << "min-max: x := v" << x << " [" << x_min << "," << x_max << "] y := v" << y << " [" << y_min << ", " << y_max << "] y0 " << y0 << "\n");
         if (x_sp1 != x_sp2 && !update_bounds_for_xs(x_sp1, x_sp2-1, y_min, y_max, y0, b1, b2, M, a_l_b))
             return false;
-        // IF_VERBOSE(0, verbose_stream() << "min-max: x := v" << x << " [" << x_min << "," << x_max << "] y := v" << y << " [" << y_min << ", " << y_max << "] y0 " << y0 << "\n");
+        IF_VERBOSE(11, verbose_stream() << "min-max: x := v" << x << " [" << x_min << "," << x_max << "] y := v" << y << " [" << y_min << ", " << y_max << "] y0 " << y0 << "\n");
         if (!update_bounds_for_xs(x_sp2, x_max,   y_min, y_max, y0, b1, b2, M, a_l_b))
             return false;
-        IF_VERBOSE(1, verbose_stream() << "min-max: x := v" << x << " [" << x_min << "," << x_max << "] y := v" << y << " [" << y_min << ", " << y_max << "] y0 " << y0 << "\n");
+        IF_VERBOSE(11, verbose_stream() << "min-max: x := v" << x << " [" << x_min << "," << x_max << "] y := v" << y << " [" << y_min << ", " << y_max << "] y0 " << y0 << "\n");
 
         SASSERT(y_min <= y0 && y0 <= y_max);
         VERIFY(y_min <= y0 && y0 <= y_max);
