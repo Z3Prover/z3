@@ -1314,7 +1314,6 @@ public:
             expr_ref abs_q(m.mk_ite(a.mk_ge(q, zero), q, a.mk_uminus(q)), m);
             expr_ref mone(a.mk_int(-1), m);
             expr_ref modmq(a.mk_sub(mod, abs_q), m);
-            ctx().get_rewriter()(modmq);
             literal eqz = mk_literal(m.mk_eq(q, zero));
             literal mod_ge_0 = mk_literal(a.mk_ge(mod, zero));
             literal mod_lt_q = mk_literal(a.mk_le(modmq, mone));
