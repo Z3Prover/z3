@@ -349,6 +349,20 @@ namespace euf {
         si.uncache(literal(v, true));
     }
 
+    bool solver::decide(bool_var& var, lbool& phase) {
+        for (auto const& th : m_solvers)
+            if (th->decide(var, phase))
+                return true;
+        return false;
+    }
+
+    bool solver::get_case_split(bool_var& var, lbool& phase) {
+        for (auto const& th : m_solvers)
+            if (th->get_case_split(var, phase))
+                return true;
+        return false;
+    }
+
     void solver::asserted(literal l) {
         m_relevancy.asserted(l);
         if (!m_relevancy.is_relevant(l))

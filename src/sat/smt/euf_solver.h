@@ -369,6 +369,8 @@ namespace euf {
         void add_explain(size_t* p) { m_explain.push_back(p); }
         void reset_explain() { m_explain.reset(); }
         void set_eliminated(bool_var v) override;
+        bool decide(bool_var& var, lbool& phase) override;
+        bool get_case_split(bool_var& var, lbool& phase) override;
         void asserted(literal l) override;
         sat::check_result check() override;
         void push() override;
@@ -539,6 +541,10 @@ namespace euf {
         void user_propagate_register_created(user_propagator::created_eh_t& ceh) {
             check_for_user_propagator();
             m_user_propagator->register_created(ceh);
+        }
+        void user_propagate_register_decide(user_propagator::decide_eh_t& ceh) {
+            check_for_user_propagator();
+            m_user_propagator->register_decide(ceh);
         }
         void user_propagate_register_expr(expr* e) {
             check_for_user_propagator();

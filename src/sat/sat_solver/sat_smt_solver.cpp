@@ -568,6 +568,10 @@ public:
         ensure_euf()->user_propagate_register_created(r);
     }
 
+    void user_propagate_register_decide(user_propagator::decide_eh_t& r) override {
+        ensure_euf()->user_propagate_register_decide(r);
+    }
+
 private:
 
     void add_assumption(expr* a) {
