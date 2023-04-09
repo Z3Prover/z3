@@ -87,6 +87,7 @@ namespace smt {
         expr_mark m_visited;
         bool contains_model_value(expr * e);
         void add_instance(quantifier * q, expr_ref_vector const & bindings, unsigned max_generation, expr * def);
+        bool is_safe_for_mbqi(quantifier * q) const;
 
     public:
         model_checker(ast_manager & m, qi_params const & p, model_finder & mf);
