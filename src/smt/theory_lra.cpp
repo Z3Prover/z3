@@ -1138,6 +1138,17 @@ public:
             expr_ref zero(a.mk_real(0), m);
             mk_axiom(~mk_literal(a.mk_le(p, zero)));
         }
+        bool can_be_underspecified = false;
+        if (a.is_numeral(x, r) && r == 0 && (!a.is_numeral(y, r) || r == 0))
+            can_be_underspecified = true;
+        if (!a.is_extended_numeral(x, r) && 
+            !a.is_extended_numeral(y, r)) 
+            can_be_underspecified = true;
+        if (can_be_underspecified) {
+            literal lit = th.mk_eq(p, a.mk_power0(x, y), false);
+            ctx().mark_as_relevant(lit);
+            ctx().assign(lit, nullptr);
+        }
     }
 
     //  n < 0 || rem(a, n) =  mod(a, n)
@@ -1303,7 +1314,6 @@ public:
             expr_ref abs_q(m.mk_ite(a.mk_ge(q, zero), q, a.mk_uminus(q)), m);
             expr_ref mone(a.mk_int(-1), m);
             expr_ref modmq(a.mk_sub(mod, abs_q), m);
-            ctx().get_rewriter()(modmq);
             literal eqz = mk_literal(m.mk_eq(q, zero));
             literal mod_ge_0 = mk_literal(a.mk_ge(mod, zero));
             literal mod_lt_q = mk_literal(a.mk_le(modmq, mone));
@@ -1622,6 +1632,8 @@ public:
     final_check_status eval_unsupported(expr* e) {
         if (a.is_power(e)) 
             return eval_power(e);        
+        if (a.is_power0(e)) 
+            return FC_DONE;
         return FC_GIVEUP;
     }
 
@@ -1681,6 +1693,7 @@ public:
                     st = FC_CONTINUE;
                     break;
                 case FC_GIVEUP:
+                    TRACE("arith", tout << "give up " << mk_pp(e, m) << "\n");
                     if (st != FC_CONTINUE) 
                         st = FC_GIVEUP;
                     break;

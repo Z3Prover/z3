@@ -37,6 +37,7 @@ class special_relations_decl_plugin : public decl_plugin {
     symbol m_plo;
     symbol m_to;
     symbol m_tc;
+    bool   m_has_special_relation = false;
 public:
     special_relations_decl_plugin();
 
@@ -50,6 +51,8 @@ public:
     void get_op_names(svector<builtin_name> & op_names, symbol const & logic) override;
     
     sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) override { return nullptr; }
+
+    bool has_special_relation() const { return m_has_special_relation; }
 };
 
 enum sr_property {
@@ -82,6 +85,8 @@ class special_relations_util {
     }
 public:
     special_relations_util(ast_manager& m) : m(m), m_fid(null_family_id) { }
+
+    bool has_special_relation() const { return static_cast<special_relations_decl_plugin*>(m.get_plugin(m.mk_family_id("specrels")))->has_special_relation(); }
     
     bool is_special_relation(func_decl* f) const { return f->get_family_id() == fid(); }
     bool is_special_relation(app* e) const { return is_special_relation(e->get_decl()); }

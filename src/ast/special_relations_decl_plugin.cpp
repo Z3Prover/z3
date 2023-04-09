@@ -47,6 +47,7 @@ func_decl * special_relations_decl_plugin::mk_func_decl(
     if (!m_manager->is_bool(range)) {
         m_manager->raise_exception("range type is expected to be Boolean for special relations");
     }
+    m_has_special_relation = true;
     func_decl_info info(m_family_id, k, num_parameters, parameters);
     symbol name;
     switch(k) {
