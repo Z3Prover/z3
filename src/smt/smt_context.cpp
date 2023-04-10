@@ -2330,10 +2330,8 @@ namespace smt {
 
                     if (get_assignment(l1) == l_false)
                         set_conflict(b_justification(cls));
-                    else if (get_assignment(l2) == l_false) {
-                        mark_as_relevant(l1);
+                    else if (get_assignment(l2) == l_false)
                         assign(l1, b_justification(cls));
-                    }
 
                     TRACE("reinit_clauses", tout << "reinit clause:\n"; display_clause_detail(tout, cls); tout << "\n";
                           tout << "activity: " << cls->get_activity() << ", num_bool_vars: " << num_bool_vars << ", scope_lvl: "
