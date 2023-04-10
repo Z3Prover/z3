@@ -276,11 +276,16 @@ struct goal2sat::imp : public sat::sat_internalizer {
         m_cache_trail.push_back(t);
     }
 
+    sat::literal get_cached(app* t) const override {
+        sat::literal lit = sat::null_literal;
+        m_app2lit.find(t, lit);
+        return lit;
+    }
+
     bool is_cached(app* t, sat::literal l) const override {
-        if (!m_app2lit.contains(t))
-            return false;
-        SASSERT(m_app2lit[t] == l);
-        return true;
+        sat::literal lit = get_cached(t);
+        SASSERT(lit == sat::null_literal || l == lit);
+        return l == lit;
     }
     
     void convert_atom(expr * t, bool root, bool sign) {       

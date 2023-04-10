@@ -41,6 +41,11 @@ namespace pb {
         SASSERT(m_pb.is_pb(e));
         app* t = to_app(e);
         rational k = m_pb.get_k(t);
+        if (!root && is_app(e)) {
+            sat::literal lit = si.get_cached(to_app(e));
+            if (lit != sat::null_literal)
+                return sign ? ~lit : lit;
+        }
         switch (t->get_decl_kind()) {
         case OP_AT_MOST_K:
             return convert_at_most_k(t, k, root, sign);
