@@ -1237,6 +1237,9 @@ bool cmd_context::try_mk_pdecl_app(symbol const & s, unsigned num_args, expr * c
     if (num_args != 1)
         return false;
 
+    if (!dt.is_datatype(args[0]->get_sort()))
+        return false;
+
     for (auto* a : dt.plugin().get_accessors(s)) {        
         fn = a->instantiate(args[0]->get_sort());
         r = m().mk_app(fn, num_args, args);
