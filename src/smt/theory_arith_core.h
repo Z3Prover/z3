@@ -154,7 +154,6 @@ namespace smt {
             case OP_MOD:
             case OP_DIV0:
             case OP_IDIV0:
-            case OP_REM0:
             case OP_MOD0:
                 return true;
             default:
