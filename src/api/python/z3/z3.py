@@ -3173,12 +3173,8 @@ def _to_int_str(val):
             return "1"
         else:
             return "0"
-    elif _is_int(val):
+    else:
         return str(val)
-    elif isinstance(val, str):
-        return val
-    if z3_debug():
-        _z3_assert(False, "Python value cannot be used as a Z3 integer")
 
 
 def IntVal(val, ctx=None):
