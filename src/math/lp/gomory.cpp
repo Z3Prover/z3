@@ -377,10 +377,20 @@ bool gomory::is_gomory_cut_target(const row_strip<mpq>& row) {
 }
 
 int gomory::find_basic_var() {
-    int result = -1;
     unsigned n = 0;
+    int result = -1;
     unsigned min_row_size = UINT_MAX;
-    // Prefer smaller row size
+
+#if 0
+    result = lia.select_int_infeasible_var();
+
+    if (result == -1)
+        return result;
+
+    const row_strip<mpq>& row = lra.get_row(lia.row_of_basic_column(result));
+    if (is_gomory_cut_target(row)) 
+        return result;
+#endif
 
     for (unsigned j : lra.r_basis()) {
         if (!lia.column_is_int_inf(j))
@@ -389,6 +399,7 @@ int gomory::find_basic_var() {
         if (!is_gomory_cut_target(row)) 
             continue;
         IF_VERBOSE(20, lia.display_row_info(verbose_stream(), lia.row_of_basic_column(j)));
+        // Prefer smaller row size
         if (min_row_size == UINT_MAX || 
             2*row.size() < min_row_size || 
             (4*row.size() < 5*min_row_size && lia.random() % (++n) == 0)) {

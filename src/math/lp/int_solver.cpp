@@ -632,4 +632,73 @@ bool int_solver::non_basic_columns_are_at_bounds() const {
     return true;
 }
 
+int int_solver::select_int_infeasible_var() {
+    int result = -1;
+    mpq range;
+    mpq new_range;
+    mpq small_value(1024);
+    unsigned n = 0;
+    lar_core_solver & lcs = lra.m_mpq_lar_core_solver;
+    unsigned prev_usage = 0; // to quiet down the compile
+    unsigned k = 0;
+    unsigned usage;
+    unsigned j;
+
+    enum state { small_box, is_small_value,  any_value, not_found };
+    state st = not_found;
+
+    // 1. small box
+    // 2. small value
+    // 3. any value
+    for (; k < lra.r_basis().size(); k++) {
+        j = lra.r_basis()[k];
+        if (!column_is_int_inf(j))
+            continue;
+        usage = lra.usage_in_terms(j);
+        if (is_boxed(j) && (new_range = lcs.m_r_upper_bounds()[j].x - lcs.m_r_lower_bounds()[j].x - rational(2*usage)) <= small_value) {
+            SASSERT(!is_fixed(j));
+            if (st != small_box) {
+                n = 0;
+                st = small_box;
+            }
+            if (n == 0 || new_range < range) {
+                result = j;
+                range = new_range;
+                n = 1;
+            }
+            else if (new_range == range && (random() % (++n) == 0)) {
+                result = j;
+            }
+            continue;
+        }
+        if (st == small_box)
+            continue;
+        impq const& value = get_value(j);
+        if (abs(value.x) < small_value ||
+            (has_upper(j) && small_value > upper_bound(j).x - value.x) ||
+            (has_lower(j) && small_value > value.x - lower_bound(j).x)) {
+            if (st != is_small_value) {
+                n = 0;
+                st = is_small_value;
+            }
+            if (random() % (++n) == 0)
+                result = j;
+        }
+        if (st == is_small_value)
+            continue;
+        SASSERT(st == not_found || st == any_value);
+        st = any_value;
+        if (n == 0 /*|| usage > prev_usage*/) {
+            result = j;
+            prev_usage = usage;
+            n = 1;
+        } 
+        else if (usage > 0 && /*usage == prev_usage && */ (random() % (++n) == 0)) 
+            result = j;
+    }
+    
+    return result;
+}
+
+
 }

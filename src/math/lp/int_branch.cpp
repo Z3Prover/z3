@@ -52,16 +52,22 @@ lia_move int_branch::create_branch_on_column(int j) {
 
 
 int int_branch::find_inf_int_base_column() {
+
+#if 0
+    return lia.select_int_infeasible_var();
+#endif
+
     int result = -1;
     mpq range;
     mpq new_range;
-    mpq small_range_thresold(1024);
+    mpq small_value(1024);
     unsigned n = 0;
     lar_core_solver & lcs = lra.m_mpq_lar_core_solver;
     unsigned prev_usage = 0; // to quiet down the compile
     unsigned k = 0;
     unsigned usage;
     unsigned j;
+
     // this loop looks for a column with the most usages, but breaks when
     // a column with a small span of bounds is found
     for (; k < lra.r_basis().size(); k++) {
@@ -69,12 +75,13 @@ int int_branch::find_inf_int_base_column() {
         if (!lia.column_is_int_inf(j))
             continue;
         usage = lra.usage_in_terms(j);
-        if (lia.is_boxed(j) &&  (range = lcs.m_r_upper_bounds()[j].x - lcs.m_r_lower_bounds()[j].x - rational(2*usage)) <= small_range_thresold) {
+        if (lia.is_boxed(j) &&  (range = lcs.m_r_upper_bounds()[j].x - lcs.m_r_lower_bounds()[j].x - rational(2*usage)) <= small_value) {
             result = j;
             k++;            
             n = 1;
             break;
         }
+
         if (n == 0 || usage > prev_usage) {
             result = j;
             prev_usage = usage;

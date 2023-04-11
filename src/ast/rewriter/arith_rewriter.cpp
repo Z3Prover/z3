@@ -16,6 +16,7 @@ Author:
 Notes:
 
 --*/
+
 #include "params/arith_rewriter_params.hpp"
 #include "ast/rewriter/arith_rewriter.h"
 #include "ast/rewriter/poly_rewriter_def.h"
@@ -1046,19 +1047,21 @@ br_status arith_rewriter::mk_idiv_core(expr * arg1, expr * arg2, expr_ref & resu
     set_curr_sort(arg1->get_sort());
     numeral v1, v2;
     bool is_int;
-    if (m_util.is_numeral(arg1, v1, is_int) && m_util.is_numeral(arg2, v2, is_int) && !v2.is_zero()) {
+    bool is_num1 = m_util.is_numeral(arg1, v1, is_int);
+    bool is_num2 = m_util.is_numeral(arg2, v2, is_int);
+    if (is_num1 && is_num2 && !v2.is_zero()) {
         result = m_util.mk_numeral(div(v1, v2), is_int);
         return BR_DONE;
     }
-    if (m_util.is_numeral(arg2, v2, is_int) && v2.is_one()) {
+    if (is_num2 && v2.is_one()) {
         result = arg1; 
         return BR_DONE; 
     } 
-    if (m_util.is_numeral(arg2, v2, is_int) && v2.is_minus_one()) {
+    if (is_num2 && v2.is_minus_one()) {
         result = m_util.mk_mul(m_util.mk_int(-1), arg1); 
         return BR_REWRITE1; 
     }
-    if (m_util.is_numeral(arg2, v2, is_int) && v2.is_zero()) { 
+    if (is_num2 && v2.is_zero()) { 
         return BR_FAILED; 
     } 
     if (arg1 == arg2) { 
@@ -1066,7 +1069,7 @@ br_status arith_rewriter::mk_idiv_core(expr * arg1, expr * arg2, expr_ref & resu
         result = m.mk_ite(m.mk_eq(arg1, zero), m_util.mk_idiv(zero, zero), m_util.mk_int(1)); 
         return BR_REWRITE3; 
     } 
-    if (m_util.is_numeral(arg2, v2, is_int) && v2.is_pos() && m_util.is_add(arg1)) { 
+    if (is_num2 && v2.is_pos() && m_util.is_add(arg1)) { 
         expr_ref_buffer args(m);
         bool change = false;
         rational add(0);
@@ -1092,7 +1095,14 @@ br_status arith_rewriter::mk_idiv_core(expr * arg1, expr * arg2, expr_ref & resu
         expr_ref zero(m_util.mk_int(0), m); 
         result = m.mk_ite(m.mk_eq(zero, arg2), m_util.mk_idiv(arg1, zero), result);
         return BR_REWRITE_FULL; 
-    } 
+    }
+#if 0
+    expr* x = nullptr, *y = nullptr, *z = nullptr;
+    if (is_num2 && m_util.is_idiv(arg1, x, y) && m_util.is_numeral(y, v1) && v1 > 0 && v2 > 0) {
+        result = m_util.mk_idiv(x, m_util.mk_numeral(v1*v2, is_int));
+        return BR_DONE;
+    }
+#endif
     return BR_FAILED;
 }
 

@@ -514,9 +514,11 @@ namespace smt {
         // SASSERT(m_value[x_i].is_rational()); // infinitesimals are not used for integer variables
         SASSERT(!m_value[x_i].is_int());     // the base variable is not assigned to an integer value.
 
-        if (constrain_free_vars(r) || !is_gomory_cut_target(r)) {
+        bool cfv = constrain_free_vars(r);
+
+        if (cfv || !is_gomory_cut_target(r)) {
             TRACE("gomory_cut", tout << "failed to apply gomory cut:\n";
-                  tout << "constrain_free_vars(r):  " << constrain_free_vars(r) << "\n";);
+                  tout << "constrain_free_vars(r):  " << cfv << "\n";);
             return false;
         }
 
