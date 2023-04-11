@@ -372,8 +372,8 @@ namespace smt2 {
                     return true;
                 }
                 catch (scanner_exception & ex) {
-                    SASSERT(ex.has_pos());
-                    error(ex.line(), ex.pos(), ex.msg());
+                    if (ex.has_pos())
+                        error(ex.line(), ex.pos(), ex.msg());
                     ++num_errors;
                 }
             }
