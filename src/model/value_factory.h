@@ -194,9 +194,8 @@ public:
         while (!is_new) {
             result = mk_value(next, s, is_new);
             next++;
-            if (has_max && next > max_size + start) {
-                return nullptr;
-            }
+            if (has_max && next > max_size + start)
+                return nullptr;            
         }
         SASSERT(result != 0);
         return result;
