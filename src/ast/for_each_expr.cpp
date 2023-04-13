@@ -44,6 +44,60 @@ unsigned get_num_exprs(expr * n) {
     return get_num_exprs(n, visited);
 }
 
+
+static void get_num_internal_exprs(unsigned_vector& counts, sbuffer<expr*>& todo, expr * n) {
+    counts.reserve(n->get_id() + 1);
+    unsigned& rc = counts[n->get_id()];
+    if (rc > 0) {
+        --rc;
+        return;
+    }
+    rc = n->get_ref_count() - 1;
+    unsigned i = todo.size();
+    todo.push_back(n);
+    unsigned count = 0;
+    for (; i < todo.size(); ++i) {
+        n = todo[i];
+        if (!is_app(n))
+            continue;
+        for (expr* arg : *to_app(n)) {
+            unsigned id = arg->get_id();
+            counts.reserve(id + 1);
+            unsigned& rc = counts[id];
+            if (rc > 0) {
+                --rc;
+                continue;
+            }
+            rc = arg->get_ref_count() - 1;
+            todo.push_back(arg);
+        }
+    }
+}
+
+unsigned get_num_internal_exprs(expr * n) {
+    unsigned_vector counts;
+    sbuffer<expr*> todo;
+    unsigned internal_nodes = 0;
+    get_num_internal_exprs(counts, todo, n);
+    for (expr* t : todo) 
+        if (counts[t->get_id()] == 0)
+            ++internal_nodes;
+    return internal_nodes;
+}
+
+unsigned get_num_internal_exprs(unsigned sz, expr * const * args) {
+    unsigned_vector counts;
+    sbuffer<expr*> todo;
+    unsigned internal_nodes = 0;
+    for (unsigned i = 0; i < sz; ++i)
+        get_num_internal_exprs(counts, todo, args[i]);
+    for (expr* t : todo) 
+        if (counts[t->get_id()] == 0)
+            ++internal_nodes;
+    return internal_nodes;
+}
+
+
 namespace has_skolem_functions_ns {
     struct found {};
     struct proc {

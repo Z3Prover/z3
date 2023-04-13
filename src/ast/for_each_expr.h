@@ -163,6 +163,8 @@ struct for_each_expr_proc : public EscapeProc {
 unsigned get_num_exprs(expr * n);
 unsigned get_num_exprs(expr * n, expr_mark & visited);
 unsigned get_num_exprs(expr * n, expr_fast_mark1 & visited);
+unsigned get_num_internal_exprs(expr * n);
+unsigned get_num_internal_exprs(unsigned sz, expr * const * args);
 
 bool has_skolem_functions(expr * n);
 

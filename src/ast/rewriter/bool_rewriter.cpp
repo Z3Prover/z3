@@ -20,6 +20,7 @@ Notes:
 #include "params/bool_rewriter_params.hpp"
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/ast_lt.h"
+#include "ast/for_each_expr.h"
 #include <algorithm>
 
 void bool_rewriter::updt_params(params_ref const & _p) {
@@ -268,14 +269,18 @@ br_status bool_rewriter::mk_nflat_or_core(unsigned num_args, expr * const * args
                 return BR_DONE;
         }
 
-#if 1
         br_status st;
         st = m_hoist.mk_or(buffer.size(), buffer.data(), result);
+        if (st != BR_FAILED) {
+            unsigned count1 = get_num_internal_exprs(result);
+            unsigned count2 = get_num_internal_exprs(buffer.size(), buffer.data());
+            if (count1 > count2)
+                st = BR_FAILED;
+        }
         if (st == BR_DONE)
             return BR_REWRITE1;
         if (st != BR_FAILED)
             return st;
-#endif
 
         if (s) {
             ast_lt lt;
