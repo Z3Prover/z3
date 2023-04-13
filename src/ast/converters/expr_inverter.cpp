@@ -757,6 +757,7 @@ public:
             expr* x, *y;
             
             if (uncnstr(args[0]) && num == 2 &&
+                args[1]->get_ref_count() == 1 && 
                 seq.str.is_concat(args[1], x, y) &&
                 uncnstr(x)) {
                 mk_fresh_uncnstr_var_for(f, r);
