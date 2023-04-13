@@ -1,5 +1,5 @@
 /*++
-Copyright (c) 2017 Microsoft Corporation
+Copyright (c) 2023 Microsoft Corporation
 
 Module Name:
 
@@ -18,6 +18,8 @@ Notes:
     Distribution class works by pushing identifiers with associated scores.
     After they have been pushed, you can access a random element using choose
     or you can enumerate the elements in random order, sorted by the score probability.
+    Only one iterator can be active at a time because the iterator reshuffles the registered elements.
+    The requirement is not checked or enforced.
 
 --*/
 #pragma once
@@ -32,10 +34,12 @@ class distribution {
 
     unsigned choose(unsigned sum) {
         unsigned s = m_random(sum);
+        unsigned idx = 0;
         for (auto const& [j, score] : m_elems) {
             if (s < score)
-                return j;
+                return idx;
             s -= score;
+            ++idx;
         }
         UNREACHABLE();
         return 0;
@@ -76,9 +80,8 @@ public:
         unsigned m_sum = 0;
         unsigned m_index = 0;
         void next_index() {
-            if (0 == m_sz)
-                return;
-            m_index = d.choose(m_sum);
+            if (0 != m_sz)
+                m_index = d.choose(m_sum);
         }
     public:
         iterator(distribution& d, bool start): d(d), m_sz(start?d.m_elems.size():0), m_sum(d.m_sum) {
@@ -88,8 +91,9 @@ public:
         iterator operator++() {
             m_sum -= d.m_elems[m_index].second;
             --m_sz;
-            std::swap(d.m_elems[m_index], d.m_elems[d.m_elems.size() - 1]);
+            std::swap(d.m_elems[m_index], d.m_elems[m_sz]);
             next_index();
+            return *this;
         }
         bool operator==(iterator const& other) const { return m_sz == other.m_sz; }
         bool operator!=(iterator const& other) const { return m_sz != other.m_sz; }
