@@ -45,7 +45,7 @@ unsigned get_num_exprs(expr * n) {
 }
 
 
-static void get_num_internal_exprs(unsigned_vector& counts, sbuffer<expr*>& todo, expr * n) {
+void get_num_internal_exprs(unsigned_vector& counts, ptr_vector<expr>& todo, expr * n) {
     counts.reserve(n->get_id() + 1);
     unsigned& rc = counts[n->get_id()];
     if (rc > 0) {
@@ -55,7 +55,6 @@ static void get_num_internal_exprs(unsigned_vector& counts, sbuffer<expr*>& todo
     rc = n->get_ref_count() - 1;
     unsigned i = todo.size();
     todo.push_back(n);
-    unsigned count = 0;
     for (; i < todo.size(); ++i) {
         n = todo[i];
         if (!is_app(n))
@@ -74,27 +73,17 @@ static void get_num_internal_exprs(unsigned_vector& counts, sbuffer<expr*>& todo
     }
 }
 
-unsigned get_num_internal_exprs(expr * n) {
-    unsigned_vector counts;
-    sbuffer<expr*> todo;
+unsigned count_internal_nodes(unsigned_vector& counts, ptr_vector<expr>& todo) {
     unsigned internal_nodes = 0;
-    get_num_internal_exprs(counts, todo, n);
-    for (expr* t : todo) 
+    for (expr* t : todo) {
         if (counts[t->get_id()] == 0)
             ++internal_nodes;
+        else
+            counts[t->get_id()] = 0;
+    }
+    todo.reset();
     return internal_nodes;
-}
-
-unsigned get_num_internal_exprs(unsigned sz, expr * const * args) {
-    unsigned_vector counts;
-    sbuffer<expr*> todo;
-    unsigned internal_nodes = 0;
-    for (unsigned i = 0; i < sz; ++i)
-        get_num_internal_exprs(counts, todo, args[i]);
-    for (expr* t : todo) 
-        if (counts[t->get_id()] == 0)
-            ++internal_nodes;
-    return internal_nodes;
+    
 }
 
 
