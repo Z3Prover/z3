@@ -2039,7 +2039,7 @@ namespace pb {
             for (unsigned sz = m_constraints.size(), i = 0; i < sz; ++i) simplify(*m_constraints[i]);
             for (unsigned sz = m_learned.size(), i = 0; i < sz; ++i) simplify(*m_learned[i]);
             init_use_lists();
-            remove_unused_defs();
+            // remove_unused_defs();
             set_non_external();
             elim_pure();
             for (unsigned sz = m_constraints.size(), i = 0; i < sz; ++i) subsumption(*m_constraints[i]);
@@ -2528,8 +2528,13 @@ namespace pb {
     }
 
     void solver::remove_unused_defs() {
-        if (incremental_mode()) return;
+        if (incremental_mode()) 
+            return;
         // remove constraints where indicator literal isn't used.
+        NOT_IMPLEMENTED_YET();
+        // TODO: #6675
+        // need to add this inequality to the model reconstruction
+        // stack in order to produce correct models.
         for (constraint* cp : m_constraints) {
             constraint& c = *cp;
             literal lit = c.lit();
