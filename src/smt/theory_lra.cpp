@@ -315,11 +315,13 @@ class theory_lra::imp {
         else if (a.is_idiv(n, x, y)) {                
             e = a.mk_idiv0(x, y);
         }
-        else if (a.is_rem(n, x, y)) {                
-            e = a.mk_rem0(x, y);
+        else if (a.is_rem(n, x, y)) {
+            n = a.mk_rem(x, a.mk_int(0));
+            e = a.mk_rem0(x, a.mk_int(0));
         }
         else if (a.is_mod(n, x, y)) {                
-            e = a.mk_mod0(x, y);
+            n = a.mk_mod(x, a.mk_int(0));
+            e = a.mk_mod0(x, a.mk_int(0));
         }
         else if (a.is_power(n, x, y)) {                
             e = a.mk_power0(x, y);
