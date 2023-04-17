@@ -259,6 +259,14 @@ namespace polysat {
                 // - When building the viable lemma, one of the linking constraints happens to be L
                 // - L is bool-true but eval-false --> we actually have a bool/eval conflict that we didn't detect
                 // - the viable lemma is problematic because L is bool-true
+
+                // NSB comment:
+                // It seems the core of the issue is that conflict resolution should have identified
+                // L as the top-most literal that the conflict depends on instead of using L'.
+                // The conflict state includes the propagation of values that could be triggered by L.
+                // Take the SAT solver analogy, conflict resolution walks the assignment stack to find the
+                // youngest assignment that is part of the conflict. It then starts resolving against the youngest
+                // literal assignment.
                 auto const& item = m_search[eval_qhead++];
                 if (item.is_assignment()) {
                     // LOG_H1("P2: eval pvar v" << item.var());
