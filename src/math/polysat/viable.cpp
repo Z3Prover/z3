@@ -2075,11 +2075,15 @@ namespace {
             out << e->side_cond << " ";
         else
             out << e->side_cond.size() << " side-conditions ";
-        if (e->src.size() <= 5)
-            for (const auto& src : e->src)
-                out << src << "; ";
-        else
-            out << e->src.size() << " sources";
+        unsigned count = 0;
+        for (const auto& src : e->src) {
+            ++count;
+            out << src << "; ";
+            if (count > 10) {
+                out << " ...";
+                break;
+            }                
+        }
         return out;
     }
 
@@ -2087,9 +2091,15 @@ namespace {
         if (!e)
             return out;
         entry const* first = e;
+        unsigned count = 0;
         do {
             display_one(out, v, e) << delimiter;
             e = e->next();
+            ++count;
+            if (count > 10) {
+                out << " ...";
+                break;
+            }                
         }
         while (e != first);
         return out;
