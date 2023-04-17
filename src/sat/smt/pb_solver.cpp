@@ -2858,19 +2858,20 @@ namespace pb {
 
     void solver::subsumes(pbc& p1, literal lit) {
         for (constraint* c : m_cnstr_use_list[lit.index()]) {
-            if (c == &p1 || c->was_removed()) continue;
-            bool s = false;
+            if (c == &p1 || c->was_removed() || c->lit() != sat::null_literal)
+                continue;
+            bool sub = false;
             switch (c->tag()) {
             case pb::tag_t::card_t:
-                s = subsumes(p1, c->to_card()); 
+                sub = subsumes(p1, c->to_card()); 
                 break;
             case pb::tag_t::pb_t:
-                s = subsumes(p1, c->to_pb()); 
+                sub = subsumes(p1, c->to_pb()); 
                 break;
             default: 
                 break;
             }
-            if (s) {
+            if (sub) {
                 ++m_stats.m_num_pb_subsumes;                
                 set_non_learned(p1);
                 remove_constraint(*c, "subsumed");
