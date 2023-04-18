@@ -47,11 +47,15 @@ namespace smt {
         else if (m_util.is_idiv(n)) {                
             e = m_util.mk_idiv0(n->get_arg(0), n->get_arg(1));
         }
-        else if (m_util.is_rem(n)) {                
-            e = m_util.mk_rem0(n->get_arg(0), n->get_arg(1));
+        else if (m_util.is_rem(n)) {
+            expr* z = m_util.mk_int(0);
+            e = m_util.mk_rem0(n->get_arg(0), z);
+            n = m_util.mk_rem(n->get_arg(0), z);
         }
-        else if (m_util.is_mod(n)) {                
-            e = m_util.mk_mod0(n->get_arg(0), n->get_arg(1));
+        else if (m_util.is_mod(n)) {
+            expr* z = m_util.mk_int(0);
+            e = m_util.mk_mod0(n->get_arg(0), z);
+            n = m_util.mk_mod(n->get_arg(0), z);
         }
         else if (m_util.is_power(n)) {                
             e = m_util.mk_power0(n->get_arg(0), n->get_arg(1));
