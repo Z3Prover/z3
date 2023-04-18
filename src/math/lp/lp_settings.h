@@ -121,6 +121,7 @@ struct statistics {
     unsigned m_grobner_calls;
     unsigned m_grobner_conflicts;
     unsigned m_offset_eqs;
+    unsigned m_fixed_eqs;
     statistics() { reset(); }
     void reset() { memset(this, 0, sizeof(*this)); }
     void collect_statistics(::statistics& st) const {
@@ -142,6 +143,7 @@ struct statistics {
         st.update("arith-grobner-calls", m_grobner_calls);
         st.update("arith-grobner-conflicts", m_grobner_conflicts);
         st.update("arith-offset-eqs", m_offset_eqs);
+        st.update("arith-fixed-eqs", m_fixed_eqs);
 
     }
 };
