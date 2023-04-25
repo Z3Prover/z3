@@ -794,7 +794,6 @@ namespace smt {
         unsigned imply_bound_for_all_monomials(row const & r, bool lower);
         void explain_bound(row const & r, int idx, bool lower, inf_numeral & delta, 
                            antecedents & antecedents);
-        bool m_validating = false;
         unsigned mk_implied_bound(row const & r, unsigned idx, bool lower, theory_var v, bound_kind kind, inf_numeral const & k);
         void assign_bound_literal(literal l, row const & r, unsigned idx, bool lower, inf_numeral & delta);
         void propagate_bounds();
