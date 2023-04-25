@@ -1735,7 +1735,6 @@ namespace smt {
         m_util(m),
         m_arith_eq_solver(m),
         m_arith_eq_adapter(*this, m_util),
-        m_asserted_qhead(0),
         m_row_vars_top(0),
         m_to_patch(1024),
         m_blands_rule(false),
