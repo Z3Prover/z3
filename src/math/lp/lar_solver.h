@@ -161,28 +161,23 @@ class lar_solver : public column_namer {
     bool sizes_are_correct() const;
     bool implied_bound_is_correctly_explained(implied_bound const & be, const vector<std::pair<mpq, unsigned>> & explanation) const;
     
-    template <typename T>
-    void analyze_new_bounds_on_row_tableau(
-        unsigned row_index,
-        lp_bound_propagator<T> & bp ) {
-        
-        if (A_r().m_rows[row_index].size() > settings().max_row_length_for_bound_propagation
-            || row_has_a_big_num(row_index))
-            return;
-        
-        bound_analyzer_on_row<row_strip<mpq>, lp_bound_propagator<T>>::analyze_row(A_r().m_rows[row_index],
-                                                                                   null_ci,
-                                                                                   zero_of_type<numeric_pair<mpq>>(),
-                                                                                   row_index,
-                                                                                   bp
-                                                                                   );
-    }
 
     void substitute_basis_var_in_terms_for_row(unsigned i);
+    
     template <typename T>
-    void calculate_implied_bounds_for_row(unsigned i, lp_bound_propagator<T> & bp) {
-        analyze_new_bounds_on_row_tableau(i, bp);
+    unsigned calculate_implied_bounds_for_row(unsigned row_index, lp_bound_propagator<T> & bp) {
+        
+        if (A_r().m_rows[row_index].size() > settings().max_row_length_for_bound_propagation  || row_has_a_big_num(row_index))
+            return 0;
+        
+        return bound_analyzer_on_row<row_strip<mpq>, lp_bound_propagator<T>>::analyze_row(
+            A_r().m_rows[row_index],
+            null_ci,
+            zero_of_type<numeric_pair<mpq>>(),
+            row_index,
+            bp);
     }
+    
     static void clean_popped_elements(unsigned n, u_set& set);
     bool maximize_term_on_tableau(const lar_term & term,
                                   impq &term_max);
@@ -339,8 +334,9 @@ public:
     void mark_rows_for_bound_prop(lpvar j);
     template <typename T>
     void propagate_bounds_for_touched_rows(lp_bound_propagator<T> & bp) {
+        unsigned num_prop = 0;
         for (unsigned i : m_rows_with_changed_bounds) {
-            calculate_implied_bounds_for_row(i, bp);
+            num_prop += calculate_implied_bounds_for_row(i, bp);
             if (settings().get_cancel_flag())
                 return;
         }
@@ -359,6 +355,15 @@ public:
             }
         }
         m_rows_with_changed_bounds.clear();
+    }
+
+    template <typename T>
+    void check_missed_propagations(lp_bound_propagator<T> & bp) {
+        for (unsigned i = 0; i < A_r().row_count(); i++) 
+            if (!m_rows_with_changed_bounds.contains(i))                
+                if (0 < calculate_implied_bounds_for_row(i, bp)) {
+                    verbose_stream() << i << ": " << get_row(i) << "\n";
+                }
     }
     
     bool is_fixed(column_index const& j) const { return column_is_fixed(j); }
