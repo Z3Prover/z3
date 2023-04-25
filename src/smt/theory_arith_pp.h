@@ -37,6 +37,7 @@ namespace smt {
         st.update("arith assume eqs", m_stats.m_assume_eqs);
         st.update("arith offset eqs", m_stats.m_offset_eqs);
         st.update("arith gcd tests", m_stats.m_gcd_tests);
+        st.update("arith gcd conflicts", m_stats.m_gcd_conflicts);
         st.update("arith ineq splits", m_stats.m_branches);
         st.update("arith gomory cuts", m_stats.m_gomory_cuts);
         st.update("arith branch int", m_stats.m_branch_infeasible_int);
@@ -82,8 +83,9 @@ namespace smt {
 
     template<typename Ext>
     void theory_arith<Ext>::display_row(std::ostream & out, row const & r, bool compact) const {
-        
-        out << "(v" << r.get_base_var() << ") : ";
+
+        column const & c   = m_columns[r.get_base_var()];
+        out << "(v" << r.get_base_var() << " r" << c[0].m_row_id << ") : ";
         bool first = true;
         for (auto const& e : r) {
             if (!e.is_dead()) {
