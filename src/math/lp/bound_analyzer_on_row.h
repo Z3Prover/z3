@@ -54,32 +54,40 @@ public :
     {}
 
     
-    static void analyze_row(const C & row,
+    static unsigned analyze_row(const C & row,
                             unsigned bj, // basis column for the row
                             const numeric_pair<mpq>& rs,
                             unsigned row_or_term_index,
                             B & bp) {
         bound_analyzer_on_row a(row, bj, rs, row_or_term_index, bp);
-        a.analyze();
+        return a.analyze();
     }
 
 private:
 
-    void analyze() {
+    unsigned analyze() {
+        unsigned num_prop = 0;
         for (const auto & c : m_row) {
             if ((m_column_of_l == -2) && (m_column_of_u == -2))
-                return;
+                return 0;
             analyze_bound_on_var_on_coeff(c.var(), c.coeff());
         }
+        ++num_prop;
         if (m_column_of_u >= 0)
             limit_monoid_u_from_below();
         else if (m_column_of_u == -1)
             limit_all_monoids_from_below();
+        else
+            --num_prop;
 
+        ++num_prop;
         if (m_column_of_l >= 0)
             limit_monoid_l_from_above();
         else if (m_column_of_l == -1)
             limit_all_monoids_from_above();
+        else
+            --num_prop;
+        return num_prop;
     }
 
     bool bound_is_available(unsigned j, bool lower_bound) {
