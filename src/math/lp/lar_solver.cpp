@@ -1378,6 +1378,15 @@ namespace lp {
         return m_mpq_lar_core_solver.column_is_free(j);
     }
 
+    // column is at lower or upper bound, lower and upper bound are different.
+    // the lower/upper bound is not strict.
+    // the LP obtained by making the bound strict is infeasible
+    // -> the column has to be fixed
+    bool is_fixed_at_bound(column_index const& j) {
+        NOT_IMPLEMENTED_YET();
+        return false;
+    }
+
     // below is the initialization functionality of lar_solver
 
     bool lar_solver::strategy_is_undecided() const {

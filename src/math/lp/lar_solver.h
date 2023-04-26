@@ -365,8 +365,10 @@ public:
                     verbose_stream() << i << ": " << get_row(i) << "\n";
                 }
     }
+
+    bool is_fixed_at_bound(column_index const& j);
     
-    bool is_fixed(column_index const& j) const { return column_is_fixed(j); }
+    bool is_fixed(column_index const& j) const { return column_is_fixed(j); }    
     inline column_index to_column_index(unsigned v) const { return column_index(external_to_column_index(v)); }
     bool external_is_used(unsigned) const;
     void pop(unsigned k);

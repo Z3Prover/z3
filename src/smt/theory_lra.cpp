@@ -1595,8 +1595,10 @@ public:
             CTRACE("arith", 
                    is_eq(v1, v2) && n1->get_root() != n2->get_root(),
                    tout << "assuming eq: v" << v1 << " = v" << v2 << "\n";);
-            if (is_eq(v1, v2) &&  n1->get_root() != n2->get_root() && th.assume_eq(n1, n2)) 
+            if (is_eq(v1, v2) &&  n1->get_root() != n2->get_root() && th.assume_eq(n1, n2)) {
+                ++m_stats.m_assume_eqs;
                 return true;
+            }
         }
         return false;
     }
@@ -1690,13 +1692,12 @@ public:
                 
                 switch (m_final_check_idx) {
                 case 0:
-                    if (assume_eqs()) {
-                        ++m_stats.m_assume_eqs;
-                        st = FC_CONTINUE;
-                    }
+                    st = check_lia();
                     break;
                 case 1:
-                    st = check_lia();
+                    if (assume_eqs()) 
+                        st = FC_CONTINUE;
+                    
                     break;
                 case 2:
                     switch (check_nla()) {
