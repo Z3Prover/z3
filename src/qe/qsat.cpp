@@ -530,11 +530,14 @@ namespace qe {
         ast_manager& m;
         params_ref   m_params;
         ref<solver>  m_solver;
+
+        expr_ref m_last_assert;
         
     public:
         kernel(ast_manager& m):
             m(m),
-            m_solver(nullptr)
+            m_solver(nullptr),
+            m_last_assert(m)
         {
             m_params.set_bool("model", true);
             m_params.set_uint("relevancy", 0);
@@ -562,7 +565,23 @@ namespace qe {
         void clear() {
             m_solver = nullptr;
         }
-        void assert_expr(expr* e) {
+
+      void assert_expr(expr *e) {
+        if (!m.is_true(e)) 
+          m_solver->assert_expr(e);
+      }
+        void assert_blocking_fml(expr* e) {
+          if (m.is_true(e)) return;
+          if (m_last_assert) {
+            if (e == m_last_assert) {
+              verbose_stream() << "Asserting this expression twice in a row:\n " << m_last_assert << "\n";
+              SASSERT(false);
+              std::exit(3);
+            }
+            
+          }
+          m_last_assert = e;
+
             m_solver->assert_expr(e);
         }
         
@@ -619,7 +638,9 @@ namespace qe {
         lbool check_sat() {        
             while (true) {
                 ++m_stats.m_num_rounds;
-                IF_VERBOSE(3, verbose_stream() << "(check-qsat level: " << m_level << " round: " << m_stats.m_num_rounds << ")\n";);
+                IF_VERBOSE(1, verbose_stream() << "(check-qsat level: " << m_level << " round: " << m_stats.m_num_rounds << ")\n";);
+                TRACE("qe",
+                      tout << "level: " << m_level << " round: " << m_stats.m_num_rounds << "\n");
                 check_cancel();
                 expr_ref_vector asms(m_asms);
                 m_pred_abs.get_assumptions(m_model.get(), asms);
@@ -952,7 +973,8 @@ namespace qe {
             }
             else {
                 fml = m_pred_abs.mk_abstract(fml);
-                get_kernel(m_level).assert_expr(fml);
+                TRACE("qe_block", tout << "Blocking fml at level: " << m_level << "\n" << fml << "\n";);
+                get_kernel(m_level).assert_blocking_fml(fml);
             }
             SASSERT(!m_model.get());
             return true;
@@ -1241,7 +1263,6 @@ namespace qe {
                 q.set_bool("use_qel", false);
                 m_mbp.updt_params(q);
             }
-
         
         ~qsat() override {
             clear();
