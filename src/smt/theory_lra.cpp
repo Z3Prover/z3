@@ -1661,7 +1661,7 @@ public:
         }
         bool giveup = false;
         final_check_status st = FC_DONE;
-        // m_final_check_idx = 0; // remove to experiment.
+        m_final_check_idx = 0; // remove to experiment.
         unsigned old_idx = m_final_check_idx;
         switch (is_sat) {
         case l_true:
@@ -1713,11 +1713,11 @@ public:
                 
                 switch (m_final_check_idx) {
                 case 0:
-                    st = check_lia();
-                    break;
-                case 1:
                     if (assume_eqs()) 
                         st = FC_CONTINUE;                    
+                    break;
+                case 1:
+                    st = check_lia();
                     break;
                 case 2:
                     st = check_nla();
