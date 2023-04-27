@@ -1382,10 +1382,61 @@ namespace lp {
     // the lower/upper bound is not strict.
     // the LP obtained by making the bound strict is infeasible
     // -> the column has to be fixed
-    bool is_fixed_at_bound(column_index const& j) {
-        NOT_IMPLEMENTED_YET();
+    bool lar_solver::is_fixed_at_bound(column_index const& j) {
+        if (column_is_fixed(j))
+            return false;
+        mpq val;
+        if (!has_value(j, val))
+            return false;
+        lp::lconstraint_kind k;
+        if (column_has_upper_bound(j) &&
+            get_upper_bound(j).x == val) {
+            verbose_stream() << "check upper " << j << "\n";
+            push();
+            if (column_is_int(j))
+                k = LE, val -= 1;
+            else
+                k = LT;
+            auto ci = mk_var_bound(j, k, val);
+            update_column_type_and_bound(j, k, val, ci);
+            auto st = find_feasible_solution();
+            pop(1);
+            return st == lp_status::INFEASIBLE;            
+        }
+        if (column_has_lower_bound(j) &&
+            get_lower_bound(j).x == val) {
+            verbose_stream() << "check lower " << j << "\n";
+            push();
+            if (column_is_int(j))
+                k = GE, val += 1;
+            else
+                k = GT;
+            auto ci = mk_var_bound(j, k, val);
+            update_column_type_and_bound(j, k, val, ci);
+            auto st = find_feasible_solution();
+            pop(1);
+            return st == lp_status::INFEASIBLE;                        
+        }
+        
         return false;
     }
+
+    bool lar_solver::has_fixed_at_bound() {
+        verbose_stream() << "has-fixed-at-bound\n";
+        unsigned num_fixed = 0;
+        for (unsigned j = 0; j < A_r().m_columns.size(); ++j) {
+            auto ci = column_index(j);
+            if (is_fixed_at_bound(ci)) {
+                ++num_fixed;
+                verbose_stream() << "fixed " << j << "\n";
+            }
+        }
+        verbose_stream() << "num fixed " << num_fixed << "\n";
+        if (num_fixed > 0)
+            find_feasible_solution();
+        return num_fixed > 0;
+    }
+
 
     // below is the initialization functionality of lar_solver
 

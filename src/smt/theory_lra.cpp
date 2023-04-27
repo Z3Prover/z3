@@ -45,6 +45,7 @@
 #include "ast/ast_ll_pp.h"
 #include "util/cancel_eh.h"
 #include "util/scoped_timer.h"
+#include "util/distribution.h"
 
 typedef lp::var_index lpvar;
 
@@ -1646,6 +1647,7 @@ public:
     }
 
     unsigned m_final_check_idx = 0;
+    distribution m_dist { 0 };
     
     final_check_status final_check_eh() {
         if (propagate_core())
@@ -1657,34 +1659,53 @@ public:
         if (!lp().is_feasible() || lp().has_changed_columns()) {
             is_sat = make_feasible();
         }
-        final_check_status st = FC_DONE, result = FC_DONE;
-        m_final_check_idx = 0; // remove to experiment.
+        bool giveup = false;
+        final_check_status st = FC_DONE;
+        // m_final_check_idx = 0; // remove to experiment.
         unsigned old_idx = m_final_check_idx;
-        
         switch (is_sat) {
         case l_true:
             TRACE("arith", display(tout));
 
+            // if (lp().has_fixed_at_bound()) // explain and propagate.
+
 #if 0
-            distribution dist(++m_final_check_idx);
+            m_dist.reset();
+            m_dist.push(0, 1);
+            m_dist.push(1, 1);
+            m_dist.push(2, 1);
 
-            dist.add(0, 2);
-            dist.add(1, 1);
-            dist.add(1, 1);
-
-            for (auto idx : dist) {
+            for (auto idx : m_dist) {
                 if (!m.inc())
                     return FC_GIVEUP;
 
                 switch (idx) {
                 case 0:
+                    if (assume_eqs()) 
+                        st = FC_CONTINUE;                    
+                    break;
                 case 1:
+                    st = check_nla();
+                    break;
                 case 2:
+                    st = check_lia();
+                    break;
                 default:
-                    
+                    UNREACHABLE();
+                    break;                    
+                }
+                switch (st) {
+                case FC_DONE:
+                    break;
+                case FC_CONTINUE:
+                    return st;
+                case FC_GIVEUP:
+                    giveup = true;
+                    break;
                 }
             }
-#endif
+
+#else
             
             do {
                 if (!m.inc())
@@ -1696,22 +1717,10 @@ public:
                     break;
                 case 1:
                     if (assume_eqs()) 
-                        st = FC_CONTINUE;
-                    
+                        st = FC_CONTINUE;                    
                     break;
                 case 2:
-                    switch (check_nla()) {
-                    case l_true:
-                        st = FC_DONE;
-                        break;
-                    case l_false:
-                        st = FC_CONTINUE;
-                        break;
-                    case l_undef:
-                        TRACE("arith", tout << "check-nra giveup\n";);
-                        st = FC_GIVEUP;
-                        break;
-                    }
+                    st = check_nla();
                     break;
                 }
                 m_final_check_idx = (m_final_check_idx + 1) % 3;
@@ -1721,14 +1730,15 @@ public:
                 case FC_CONTINUE:
                     return st;
                 case FC_GIVEUP:
-                    result = st;
+                    giveup = true;
                     break;
                 }
             }
             while (old_idx != m_final_check_idx);
+#endif
 
-            if (result == FC_GIVEUP)
-                return result;
+            if (giveup)
+                return FC_GIVEUP;
             for (expr* e : m_not_handled) {
                 if (!ctx().is_relevant(e))
                     continue;
@@ -1963,14 +1973,12 @@ public:
             TRACE("arith", tout << "canceled\n";);
             return FC_CONTINUE;
         }
-        final_check_status lia_check = FC_GIVEUP;
         auto cr = m_lia->check(&m_explanation);
         if (cr != lp::lia_move::sat && ctx().get_fparams().m_arith_ignore_int) 
             return FC_GIVEUP;
 
         switch (cr) {
         case lp::lia_move::sat:
-            lia_check = FC_DONE;
             break;
 
         case lp::lia_move::branch: {
@@ -1993,9 +2001,8 @@ public:
             // TBD: ctx().force_phase(ctx().get_literal(b));
             // at this point we have a new unassigned atom that the 
             // SAT core assigns a value to
-            lia_check = FC_CONTINUE;
             ++m_stats.m_branch;
-            break;
+            return FC_CONTINUE;
         }
         case lp::lia_move::cut: {
             if (ctx().get_fparams().m_arith_ignore_int) 
@@ -2021,8 +2028,7 @@ public:
                   ctx().display_lemma_as_smt_problem(tout << "new cut:\n", m_core.size(), m_core.data(), m_eqs.size(), m_eqs.data(), lit);
                   display(tout););
             assign(lit, m_core, m_eqs, m_params);
-            lia_check = FC_CONTINUE;
-            break;
+            return FC_CONTINUE;
         }
         case lp::lia_move::conflict:
             TRACE("arith", tout << "conflict\n";);
@@ -2031,18 +2037,19 @@ public:
             return FC_CONTINUE;
         case lp::lia_move::undef:
             TRACE("arith", tout << "lia undef\n";);
-            lia_check = FC_CONTINUE;
-            break;
+            return FC_CONTINUE;
         case lp::lia_move::continue_with_check:
-            lia_check = FC_CONTINUE;
-            break;
+            return FC_CONTINUE;
         default:
             UNREACHABLE();
         }
-        if (lia_check != l_false && !check_idiv_bounds()) 
+        if (!check_idiv_bounds())
             return FC_CONTINUE;
 
-        return lia_check;
+        if (assume_eqs())
+            return FC_CONTINUE;
+        
+        return FC_DONE;
     }
 
     nla::lemma m_lemma;
@@ -2079,36 +2086,31 @@ public:
         set_conflict_or_lemma(core, false);
     }
     
-    lbool check_nla_continue() {
+    final_check_status check_nla_continue() {
         m_a1 = nullptr; m_a2 = nullptr;
         lbool r = m_nla->check(m_nla_lemma_vector);
         switch (r) {
-        case l_false: {
+        case l_false: 
             for (const nla::lemma & l : m_nla_lemma_vector) 
-                false_case_of_check_nla(l);            
-            break;
-        }
+                false_case_of_check_nla(l);
+            return FC_CONTINUE;
         case l_true:
-            if (assume_eqs()) {
-                return l_false;
-            }
-            break;
-        case l_undef:
-            break;
+            return assume_eqs()? FC_CONTINUE: FC_DONE;
+        default:
+            return FC_GIVEUP;
         }
-        return r;
     }
 
-    lbool check_nla() {
+    final_check_status check_nla() {
         if (!m.inc()) {
             TRACE("arith", tout << "canceled\n";);
-            return l_undef;
+            return FC_GIVEUP;            
         }
         CTRACE("arith",!m_nla, tout << "no nla\n";);
         if (!m_nla)            
-            return l_true;        
+            return FC_DONE;        
         if (!m_nla->need_check()) 
-            return l_true;
+            return FC_DONE;
         return check_nla_continue();
     }
 
