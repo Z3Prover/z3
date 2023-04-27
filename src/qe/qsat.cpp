@@ -165,8 +165,9 @@ namespace qe {
         TRACE("qe_assumptions", model_v2_pp(tout, *mdl););
 
         expr_ref val(m);
-        for (unsigned j = 0; j < m_preds[level - 1].size(); ++j) {
-            app* p = m_preds[level - 1][j].get();            
+        for (unsigned i = 0; i <= level-1; ++i) {
+          for (unsigned j = 0; j < m_preds[i].size(); ++j) {
+            app* p = m_preds[i][j].get();            
             eval(p, val); 
             if (!m.inc())
                 return;
@@ -177,6 +178,7 @@ namespace qe {
                 SASSERT(m.is_true(val));
                 m_asms.push_back(p);
             }
+          }
         }
         asms.append(m_asms);
         
