@@ -199,6 +199,10 @@ br_status bv_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
         return mk_bvsmul_no_overflow(num_args, args, false, result);
     case OP_BUMUL_NO_OVFL:
         return mk_bvumul_no_overflow(num_args, args, result);
+    case OP_BSMUL_OVFL:
+        return mk_bvsmul_overflow(num_args, args, result);
+    case OP_BUMUL_OVFL:
+        return mk_bvumul_overflow(num_args, args, result);
     default:
         return BR_FAILED;
     }
@@ -2919,6 +2923,21 @@ br_status bv_rewriter::mk_distinct(unsigned num_args, expr * const * args, expr_
         return BR_FAILED;
     result = m.mk_false();
     return BR_DONE;     
+}
+
+br_status bv_rewriter::mk_bvsmul_overflow(unsigned num, expr * const * args, expr_ref & result) {
+    SASSERT(num == 2);
+    result = m.mk_or(
+            m.mk_not(m_util.mk_bvsmul_no_ovfl(args[0], args[1])),
+            m.mk_not(m_util.mk_bvsmul_no_udfl(args[0], args[1]))
+    );
+    return BR_REWRITE_FULL;
+}
+
+br_status bv_rewriter::mk_bvumul_overflow(unsigned num, expr * const * args, expr_ref & result) {
+    SASSERT(num == 2);
+    result = m.mk_not(m_util.mk_bvumul_no_ovfl(args[0], args[1]));
+    return BR_REWRITE2;
 }
 
 br_status bv_rewriter::mk_bvsmul_no_overflow(unsigned num, expr * const * args, bool is_overflow, expr_ref & result) {
