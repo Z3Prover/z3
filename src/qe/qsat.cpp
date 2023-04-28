@@ -550,7 +550,7 @@ namespace qe {
         solver const& s() const { return *m_solver; }
 
         void init() {
-            m_solver = mk_smt_solver(m, m_params, symbol::null);
+           m_solver = mk_smt2_solver(m, m_params, symbol::null);
         }
         void collect_statistics(statistics & st) const {
             if (m_solver) 
