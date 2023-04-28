@@ -189,9 +189,9 @@ protected:
     ptr_vector<func_decl>  m_bv_redand;
     ptr_vector<func_decl>  m_bv_comp;
 
-    ptr_vector<func_decl>  m_bv_mul_ovfl;
-    ptr_vector<func_decl>  m_bv_smul_ovfl;
-    ptr_vector<func_decl>  m_bv_smul_udfl;
+    ptr_vector<func_decl>  m_bv_mul_no_ovfl;
+    ptr_vector<func_decl>  m_bv_smul_no_ovfl;
+    ptr_vector<func_decl>  m_bv_smul_no_udfl;
 
     ptr_vector<func_decl>  m_bv_shl;
     ptr_vector<func_decl>  m_bv_lshr;

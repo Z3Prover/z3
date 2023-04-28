@@ -118,9 +118,9 @@ void bv_decl_plugin::finalize() {
     DEC_REF(m_bv_redand);
     DEC_REF(m_bv_comp);
 
-    DEC_REF(m_bv_mul_ovfl);
-    DEC_REF(m_bv_smul_ovfl);
-    DEC_REF(m_bv_smul_udfl);
+    DEC_REF(m_bv_mul_no_ovfl);
+    DEC_REF(m_bv_smul_no_ovfl);
+    DEC_REF(m_bv_smul_no_udfl);
 
     DEC_REF(m_bv_shl);
     DEC_REF(m_bv_lshr);
@@ -327,9 +327,9 @@ func_decl * bv_decl_plugin::mk_func_decl(decl_kind k, unsigned bv_size) {
     case OP_BREDOR:   return mk_reduction(m_bv_redor, k, "bvredor", bv_size);
     case OP_BREDAND:  return mk_reduction(m_bv_redand, k, "bvredand", bv_size);
     case OP_BCOMP:    return mk_comp(bv_size);
-    case OP_BUMUL_NO_OVFL: return mk_pred(m_bv_mul_ovfl, k, "bvumul_noovfl", bv_size);
-    case OP_BSMUL_NO_OVFL: return mk_pred(m_bv_smul_ovfl, k, "bvsmul_noovfl", bv_size);
-    case OP_BSMUL_NO_UDFL: return mk_pred(m_bv_smul_udfl, k, "bvsmul_noudfl", bv_size);
+    case OP_BUMUL_NO_OVFL: return mk_pred(m_bv_mul_no_ovfl, k, "bvumul_noovfl", bv_size);
+    case OP_BSMUL_NO_OVFL: return mk_pred(m_bv_smul_no_ovfl, k, "bvsmul_noovfl", bv_size);
+    case OP_BSMUL_NO_UDFL: return mk_pred(m_bv_smul_no_udfl, k, "bvsmul_noudfl", bv_size);
 
     case OP_BSHL:     return mk_binary(m_bv_shl, k, "bvshl", bv_size, false);
     case OP_BLSHR:    return mk_binary(m_bv_lshr, k, "bvlshr", bv_size, false);
