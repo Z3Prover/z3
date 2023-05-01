@@ -107,6 +107,15 @@ void theory_user_propagator::register_cb(expr* e) {
         add_expr(e, true);
 }
 
+lbool theory_user_propagator::get_boolean_assignment_cb(expr* e, unsigned idx) {
+    SASSERT(e);
+    enode* n = get_enode(expr2var(e));
+    bool_var var = enode_to_bool(n, idx);
+    if (var == null_bool_var)
+        return l_undef;
+    return ctx.get_assignment(var);
+}
+
 void theory_user_propagator::next_split_cb(expr* e, unsigned idx, lbool phase) {
     if (e == nullptr) { // clear
         m_next_split_expr = nullptr;
@@ -174,18 +183,15 @@ void theory_user_propagator::new_fixed_eh(theory_var v, expr* value, unsigned nu
      }
 }
 
-bool_var theory_user_propagator::enode_to_bool(enode* n, unsigned bit) {
+bool_var theory_user_propagator::enode_to_bool(enode* n, unsigned idx) {
     if (n->is_bool()) {
         // expression is a boolean
-        bool_var new_var = ctx.enode2bool_var(n);
-        if (ctx.get_assignment(new_var) == l_undef)
-            return new_var;
-        return null_bool_var;
+        return ctx.enode2bool_var(n);
     }
     // expression is a bit-vector
     bv_util bv(m);
     auto th_bv = (theory_bv*)ctx.get_theory(bv.get_fid());
-    return th_bv->get_first_unassigned(bit, n);
+    return th_bv->get_bit(idx, n);
 }
 
 void theory_user_propagator::decide(bool_var& var, bool& is_pos) {
@@ -240,7 +246,7 @@ void theory_user_propagator::decide(bool_var& var, bool& is_pos) {
     
     expr* e = var2expr(v);
     m_decide_eh(m_user_context, this, &e, &new_bit, &phase);
-    enode* new_enode = ctx.get_enode(e);
+    enode* new_enode = get_enode(expr2var(e));
 
     // check if the callback changed something
     if (original_enode == new_enode && (new_enode->is_bool() || original_bit == new_bit)) {
@@ -253,7 +259,7 @@ void theory_user_propagator::decide(bool_var& var, bool& is_pos) {
     // get unassigned variable from enode
     var = enode_to_bool(new_enode, new_bit);
     
-    if (var == null_bool_var)
+    if (ctx.get_assignment(var) != l_undef)
         // selected variable is already assigned
         throw default_exception("expression in \"decide\" is already assigned");
     

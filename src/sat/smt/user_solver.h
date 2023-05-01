@@ -136,6 +136,7 @@ namespace user_solver {
 
         void propagate_cb(unsigned num_fixed, expr* const* fixed_ids, unsigned num_eqs, expr* const* lhs, expr* const* rhs, expr* conseq) override;
         void register_cb(expr* e) override;
+        lbool get_boolean_assignment_cb(expr* e, unsigned idx) override;
         void next_split_cb(expr* e, unsigned idx, lbool phase) override;
 
         void new_fixed_eh(euf::theory_var v, expr* value, unsigned num_lits, sat::literal const* jlits);

@@ -1103,6 +1103,14 @@ extern "C" {
         Z3_CATCH;        
     }
 
+    Z3_lbool Z3_API Z3_solver_get_boolean_assignment(Z3_context c, Z3_solver_callback s, Z3_ast e, unsigned idx) {
+        Z3_TRY;
+        LOG_Z3_solver_get_boolean_assignment(c, s, e, idx);
+        RESET_ERROR_CODE();
+        return (Z3_lbool)reinterpret_cast<user_propagator::callback*>(s)->get_boolean_assignment_cb(to_expr(e), idx);
+        Z3_CATCH_RETURN(Z3_L_UNDEF);
+    }
+
     void Z3_API Z3_solver_propagate_created(Z3_context c, Z3_solver s, Z3_created_eh created_eh) {
         Z3_TRY;
         RESET_ERROR_CODE();

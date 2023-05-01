@@ -7156,6 +7156,14 @@ extern "C" {
     void Z3_API Z3_solver_propagate_consequence(Z3_context c, Z3_solver_callback cb, unsigned num_fixed, Z3_ast const* fixed, unsigned num_eqs, Z3_ast const* eq_lhs, Z3_ast const* eq_rhs, Z3_ast conseq);
 
     /**
+       \brief gets truth-value of the given expression. In case it it a bit-vector, the index represents the bit
+
+       def_API('Z3_solver_get_boolean_assignment', LBOOL, (_in(CONTEXT), _in(SOLVER_CALLBACK), _in(AST), _in(UINT)))
+    */
+
+    Z3_lbool Z3_API Z3_solver_get_boolean_assignment(Z3_context c, Z3_solver_callback cb, Z3_ast e, unsigned idx);
+
+    /**
        \brief Check whether the assertions in a given solver are consistent or not.
 
        The function #Z3_solver_get_model retrieves a model if the

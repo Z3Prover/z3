@@ -4453,6 +4453,11 @@ namespace z3 {
         
         virtual void decide(expr& /*val*/, unsigned& /*bit*/, Z3_lbool& /*is_pos*/) {}
 
+        Z3_lbool get_boolean_assignment(expr const & e, unsigned idx) {
+            assert(cb);
+            return Z3_solver_get_boolean_assignment(ctx(), cb, e, idx);
+        }
+
         void next_split(expr const & e, unsigned idx, Z3_lbool phase) {
             assert(cb);
             Z3_solver_next_split(ctx(), cb, e, idx, phase);

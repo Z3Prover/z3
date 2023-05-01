@@ -56,6 +56,14 @@ namespace user_solver {
     void solver::register_cb(expr* e) {
         add_expr(e);
     }
+
+    lbool solver::get_boolean_assignment_cb(expr* e, unsigned idx) {
+        SASSERT(e);
+        euf::enode* n = expr2enode(e);
+        if (!is_attached_to_var(n) || n->bool_var() == sat::null_bool_var)
+            return l_undef;
+        return ctx.value(n);
+    }
     
     void solver::next_split_cb(expr* e, unsigned idx, lbool phase) {
         if (e == nullptr) {
