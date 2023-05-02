@@ -192,9 +192,9 @@ namespace recfun {
 
             void get_op_names(svector<builtin_name> & op_names, symbol const & logic) override;
             
-            promise_def mk_def(symbol const& name, unsigned n, sort *const * params, sort * range, bool is_generated = false);
+            promise_def mk_def(symbol const& name, unsigned n, sort *const * params, sort * range, bool is_generated);
 
-            promise_def ensure_def(symbol const& name, unsigned n, sort *const * params, sort * range, bool is_generated = false);
+            promise_def ensure_def(symbol const& name, unsigned n, sort *const * params, sort * range, bool is_generated);
             
             void set_definition(replace& r, promise_def & d, bool is_macro, unsigned n_vars, var * const * vars, expr * rhs);
             
@@ -248,6 +248,7 @@ namespace recfun {
         bool is_defined(expr * e) const { return is_app_of(e, m_fid, OP_FUN_DEFINED); }
         bool is_defined(func_decl* f) const { return is_decl_of(f, m_fid, OP_FUN_DEFINED); }
         bool is_generated(func_decl* f) const { return is_defined(f) && f->get_parameter(0).get_int() == 1; }
+        bool is_macro(func_decl* f) { return is_defined(f) && get_def(f).is_macro(); }
         bool is_num_rounds(expr * e) const { return is_app_of(e, m_fid, OP_NUM_ROUNDS); }
         bool owns_app(app * e) const { return e->get_family_id() == m_fid; }
 
