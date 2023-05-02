@@ -2006,7 +2006,6 @@ void cmd_context::complete_model(model_ref& md) const {
                 md->register_decl(f, body);
         }
     }
-    verbose_stream() << *md << "\n";
 }
 
 /**
