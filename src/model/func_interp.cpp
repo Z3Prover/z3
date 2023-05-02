@@ -146,7 +146,8 @@ void func_interp::set_else(expr * e) {
 
     ptr_vector<expr> args;
     while (e && is_fi_entry_expr(e, args)) {
-        insert_entry(args.data(), to_app(e)->get_arg(1));
+        if (!get_entry(args.data()))
+            insert_entry(args.data(), to_app(e)->get_arg(1));
         e = to_app(e)->get_arg(2);
     }
 
