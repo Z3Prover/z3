@@ -248,6 +248,16 @@ func_decl * bv_decl_plugin::mk_bv2int(unsigned bv_size, unsigned num_parameters,
     return m_bv2int[bv_size];
 }
 
+func_decl * bv_decl_plugin::mk_unary_pred(ptr_vector<func_decl> & decls, decl_kind k, char const * name, unsigned bv_size) {
+    force_ptr_array_size(decls, bv_size+1);
+
+    if (decls[bv_size] == 0) {
+        decls[bv_size] = m_manager->mk_func_decl(symbol(name), get_bv_sort(bv_size), m_manager->mk_bool_sort(), func_decl_info(m_family_id, k));
+        m_manager->inc_ref(decls[bv_size]);
+    }
+    return decls[bv_size];
+}
+
 func_decl * bv_decl_plugin::mk_pred(ptr_vector<func_decl> & decls, decl_kind k, char const * name, unsigned bv_size) {
     force_ptr_array_size(decls, bv_size + 1);
 

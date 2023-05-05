@@ -219,6 +219,7 @@ protected:
     func_decl * mk_unary(ptr_vector<func_decl> & decls, decl_kind k, char const * name, unsigned bv_size);
     func_decl * mk_pred(ptr_vector<func_decl> & decls, decl_kind k,
                         char const * name, unsigned bv_size);
+    func_decl * mk_unary_pred(ptr_vector<func_decl> & decls, decl_kind k, char const * name, unsigned bv_size);
     func_decl * mk_reduction(ptr_vector<func_decl> & decls, decl_kind k, char const * name, unsigned bv_size);
     func_decl * mk_comp(unsigned bv_size);
     bool get_bv_size(sort * t, int & result);
