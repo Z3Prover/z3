@@ -125,6 +125,8 @@ void bv_decl_plugin::finalize() {
     DEC_REF(m_bv_mul_ovfl);
     DEC_REF(m_bv_smul_ovfl);
 
+    DEC_REF(m_bv_neg_ovfl);
+
     DEC_REF(m_bv_shl);
     DEC_REF(m_bv_lshr);
     DEC_REF(m_bv_ashr);
@@ -302,6 +304,7 @@ func_decl * bv_decl_plugin::mk_comp(unsigned bv_size) {
 func_decl * bv_decl_plugin::mk_func_decl(decl_kind k, unsigned bv_size) {
     switch (k) {
     case OP_BNEG:     return mk_unary(m_bv_neg, k, "bvneg", bv_size);
+    case OP_BNEG_OVFL: return mk_unary_pred(m_bv_neg_ovfl, k, "bvnego", bv_size);
     case OP_BADD:     return mk_binary(m_bv_add, k, "bvadd", bv_size, true);
     case OP_BSUB:     return mk_binary(m_bv_sub, k, "bvsub", bv_size, false);
     case OP_BMUL:     return mk_binary(m_bv_mul, k, "bvmul", bv_size, true);
@@ -696,6 +699,7 @@ void bv_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const
     op_names.push_back(builtin_name("bit1",OP_BIT1));
     op_names.push_back(builtin_name("bit0",OP_BIT0));
     op_names.push_back(builtin_name("bvneg",OP_BNEG));
+    op_names.push_back(builtin_name("bvnego", OP_BNEG_OVFL));
     op_names.push_back(builtin_name("bvadd",OP_BADD));
     op_names.push_back(builtin_name("bvsub",OP_BSUB));
     op_names.push_back(builtin_name("bvmul",OP_BMUL));

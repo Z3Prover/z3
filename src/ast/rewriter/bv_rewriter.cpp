@@ -93,6 +93,10 @@ br_status bv_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
     case OP_BNEG:
         SASSERT(num_args == 1);
         return mk_uminus(args[0], result);
+    case OP_BNEG_OVFL:
+        SASSERT(num_args == 1);
+        return mk_bvneg_overflow(args[0], result);
+
     case OP_BSHL:
         SASSERT(num_args == 2);
         return mk_bv_shl(args[0], args[1], result);
@@ -2999,5 +3003,11 @@ br_status bv_rewriter::mk_bvumul_no_overflow(unsigned num, expr * const * args, 
     return BR_FAILED;
 }
 
+br_status bv_rewriter::mk_bvneg_overflow(expr * const arg, expr_ref & result) {
+    unsigned int sz = get_bv_size(arg);
+    auto maxUnsigned = mk_numeral(rational::power_of_two(sz)-1, sz);
+    result = m.mk_eq(arg, maxUnsigned);
+    return BR_REWRITE3;
+}
 
 template class poly_rewriter<bv_rewriter_core>;
