@@ -689,6 +689,8 @@ void bv_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const
     op_names.push_back(builtin_name("bvadd",OP_BADD));
     op_names.push_back(builtin_name("bvsub",OP_BSUB));
     op_names.push_back(builtin_name("bvmul",OP_BMUL));
+    op_names.push_back(builtin_name("bvumulo",OP_BUMUL_OVFL));
+    op_names.push_back(builtin_name("bvsmulo",OP_BSMUL_OVFL));
     op_names.push_back(builtin_name("bvsdiv",OP_BSDIV));
     op_names.push_back(builtin_name("bvudiv",OP_BUDIV));
     op_names.push_back(builtin_name("bvsrem",OP_BSREM));
@@ -729,9 +731,6 @@ void bv_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const
         op_names.push_back(builtin_name("bvumul_noovfl",OP_BUMUL_NO_OVFL));
         op_names.push_back(builtin_name("bvsmul_noovfl",OP_BSMUL_NO_OVFL));
         op_names.push_back(builtin_name("bvsmul_noudfl",OP_BSMUL_NO_UDFL));
-
-        op_names.push_back(builtin_name("bvumulo",OP_BUMUL_OVFL));
-        op_names.push_back(builtin_name("bvsmulo",OP_BSMUL_OVFL));
 
         op_names.push_back(builtin_name("bvsdiv0", OP_BSDIV0));
         op_names.push_back(builtin_name("bvudiv0", OP_BUDIV0));
