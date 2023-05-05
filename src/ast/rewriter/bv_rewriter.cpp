@@ -207,6 +207,8 @@ br_status bv_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
         return mk_bvsmul_overflow(num_args, args, result);
     case OP_BUMUL_OVFL:
         return mk_bvumul_overflow(num_args, args, result);
+    case OP_BUADD_OVFL:
+        return mk_bvuadd_overflow(num_args, args, result);
     default:
         return BR_FAILED;
     }
@@ -3008,6 +3010,18 @@ br_status bv_rewriter::mk_bvneg_overflow(expr * const arg, expr_ref & result) {
     auto maxUnsigned = mk_numeral(rational::power_of_two(sz)-1, sz);
     result = m.mk_eq(arg, maxUnsigned);
     return BR_REWRITE3;
+}
+
+br_status bv_rewriter::mk_bvuadd_overflow(unsigned num, expr * const * args, expr_ref & result) {
+    SASSERT(num == 2);
+    SASSERT(get_bv_size(args[0]) == get_bv_size(args[1]));
+    unsigned sz = get_bv_size(args[0]);
+    auto a1 = mk_zero_extend(1, args[0]);
+    auto a2 = mk_zero_extend(1, args[1]);
+    auto r = mk_bv_add(a1, a2);
+    auto extract = m_mk_extract(sz, sz, r);
+    result = m.mk_eq(extract, mk_one(1));
+    return BR_REWRITE_FULL;
 }
 
 template class poly_rewriter<bv_rewriter_core>;

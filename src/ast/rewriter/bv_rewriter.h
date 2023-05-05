@@ -145,6 +145,8 @@ class bv_rewriter : public poly_rewriter<bv_rewriter_core> {
 
     br_status mk_bvneg_overflow(expr * const arg, expr_ref & result);
 
+    br_status mk_bvuadd_overflow(unsigned num, expr * const * args, expr_ref & result);
+
     bool is_minus_one_times_t(expr * arg);
     void mk_t1_add_t2_eq_c(expr * t1, expr * t2, expr * c, expr_ref & result);
 
