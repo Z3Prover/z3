@@ -496,6 +496,7 @@ public:
 
     app * mk_bv2int(expr* e);
 
+    // TODO: all these binary ops commute (right?) but it'd be more logical to swap `n` & `m` in the `return`
     app * mk_bvsmul_no_ovfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BSMUL_NO_OVFL, n, m); }
     app * mk_bvsmul_no_udfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BSMUL_NO_UDFL, n, m); }
     app * mk_bvumul_no_ovfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BUMUL_NO_OVFL, n, m); }
