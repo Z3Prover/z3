@@ -698,4 +698,51 @@ describe('high-level', () => {
       expect(m.eval(f.call(0, 0)).eqIdentity(Int.val(0))).toBeTruthy();
     });
   });
+
+  describe('optimize', () => {
+    it("maximization problem over reals", async () => {
+      const { Real, Optimize } = api.Context('main');
+
+      const opt = new Optimize();
+      const x = Real.const('x');
+      const y = Real.const('y');
+      const z = Real.const('z');
+
+      opt.add(x.ge(0), y.ge(0), z.ge(0));
+      opt.add(x.le(1), y.le(1), z.le(1));
+      opt.maximize(x.mul(7).add(y.mul(9)).sub(z.mul(3)))
+
+      const result = await opt.check()
+      expect(result).toStrictEqual('sat');
+      const model = opt.model();
+      expect(model.eval(x).eqIdentity(Real.val(1))).toBeTruthy();
+      expect(model.eval(y).eqIdentity(Real.val(1))).toBeTruthy();
+      expect(model.eval(z).eqIdentity(Real.val(0))).toBeTruthy();
+    });
+
+    it("minimization problem over integers using addSoft", async () => {
+      const { Int, Optimize } = api.Context('main');
+
+      const opt = new Optimize();
+      const x = Int.const('x');
+      const y = Int.const('y');
+      const z = Int.const('z');
+
+      opt.add(x.ge(0), y.ge(0));
+      opt.add(x.le(1), y.le(1));
+      opt.addSoft(x.eq(1), 2);
+      opt.addSoft(y.eq(1), 1);
+      opt.add(z.eq(x.mul(5).add(y.mul(5))));
+      opt.add(z.le(5));
+      opt.minimize(z);
+
+      const result = await opt.check()
+      expect(result).toStrictEqual('sat');
+      const model = opt.model();
+      expect(model.eval(x).eqIdentity(Int.val(1))).toBeTruthy();
+      expect(model.eval(y).eqIdentity(Int.val(0))).toBeTruthy();
+      expect(model.eval(z).eqIdentity(Int.val(5))).toBeTruthy();
+    });
+  });
+
 });

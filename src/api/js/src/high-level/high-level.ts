@@ -35,6 +35,7 @@ import {
   Z3_app,
   Z3_params,
   Z3_func_entry,
+  Z3_optimize,
 } from '../low-level';
 import {
   AnyAst,
@@ -68,6 +69,7 @@ import {
   FuncInterp,
   IntNum,
   Model,
+  Optimize,
   Pattern,
   Probe,
   Quantifier,
@@ -1326,6 +1328,102 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         throwIfError();
       }
     }
+
+    class OptimizeImpl implements Optimize<Name> {
+      declare readonly __typename: Optimize['__typename'];
+
+      readonly ptr: Z3_optimize;
+      readonly ctx: Context<Name>;
+
+      constructor(ptr: Z3_optimize = Z3.mk_optimize(contextPtr)) {
+        this.ctx = ctx;
+        let myPtr: Z3_optimize;
+        myPtr = ptr;
+        this.ptr = myPtr;
+        Z3.optimize_inc_ref(contextPtr, myPtr);
+        cleanup.register(this, () => Z3.optimize_dec_ref(contextPtr, myPtr));
+      }
+
+      set(key: string, value: any): void {
+        Z3.optimize_set_params(contextPtr, this.ptr, _toParams(key, value));
+      }
+
+      push() {
+        Z3.optimize_push(contextPtr, this.ptr);
+      }
+
+      pop() {
+        Z3.optimize_pop(contextPtr, this.ptr);
+      }
+
+      add(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]) {
+        _flattenArgs(exprs).forEach(expr => {
+          _assertContext(expr);
+          check(Z3.optimize_assert(contextPtr, this.ptr, expr.ast));
+        });
+      }
+
+      addSoft(expr: Bool<Name>, weight: number | bigint | string | CoercibleRational, id: number | string = "") {
+        if (isCoercibleRational(weight)) {
+          weight = `${weight.numerator}/${weight.denominator}`;
+        }
+        check(Z3.optimize_assert_soft(contextPtr, this.ptr, expr.ast, weight.toString(), _toSymbol(id)))
+      }
+
+      addAndTrack(expr: Bool<Name>, constant: Bool<Name> | string) {
+        if (typeof constant === 'string') {
+          constant = Bool.const(constant);
+        }
+        assert(isConst(constant), 'Provided expression that is not a constant to addAndTrack');
+        check(Z3.optimize_assert_and_track(contextPtr, this.ptr, expr.ast, constant.ast));
+      }
+
+      assertions(): AstVector<Name, Bool<Name>> {
+        return new AstVectorImpl(check(Z3.optimize_get_assertions(contextPtr, this.ptr)));
+      }
+
+      maximize(expr: Arith<Name>) {
+        check(Z3.optimize_maximize(contextPtr, this.ptr, expr.ast));
+      }
+
+      minimize(expr: Arith<Name>) {
+        check(Z3.optimize_minimize(contextPtr, this.ptr, expr.ast));
+      }
+
+      async check(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): Promise<CheckSatResult> {
+        const assumptions = _flattenArgs(exprs).map(expr => {
+          _assertContext(expr);
+          return expr.ast;
+        });
+        const result = await asyncMutex.runExclusive(() =>
+          check(Z3.optimize_check(contextPtr, this.ptr, assumptions)),
+        );
+        switch (result) {
+          case Z3_lbool.Z3_L_FALSE:
+            return 'unsat';
+          case Z3_lbool.Z3_L_TRUE:
+            return 'sat';
+          case Z3_lbool.Z3_L_UNDEF:
+            return 'unknown';
+          default:
+            assertExhaustive(result);
+        }
+      }
+
+      model() {
+        return new ModelImpl(check(Z3.optimize_get_model(contextPtr, this.ptr)));
+      }
+
+      toString() {
+        return check(Z3.optimize_to_string(contextPtr, this.ptr));
+      }
+
+      fromString(s: string) {
+        Z3.optimize_from_string(contextPtr, this.ptr, s);
+        throwIfError();
+      }
+    }
+
 
     class ModelImpl implements Model<Name> {
       declare readonly __typename: Model['__typename'];
@@ -2671,6 +2769,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       // Classes //
       /////////////
       Solver: SolverImpl,
+      Optimize: OptimizeImpl,
       Model: ModelImpl,
       Tactic: TacticImpl,
       AstVector: AstVectorImpl as AstVectorCtor<Name>,
