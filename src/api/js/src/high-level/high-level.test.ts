@@ -707,12 +707,10 @@ describe('high-level', () => {
       const x = Real.const('x');
       const y = Real.const('y');
       const z = Real.const('z');
-      const t = Real.const('t');
 
       opt.add(x.ge(0), y.ge(0), z.ge(0));
       opt.add(x.le(1), y.le(1), z.le(1));
-      opt.add(t.eq((x.mul(7)).add(y.mul(9)).sub(z.mul(3))))
-      opt.maximize(t);
+      opt.maximize(x.mul(7).add(y.mul(9)).sub(z.mul(3)))
 
       const result = await opt.check()
       expect(result).toStrictEqual('sat');
@@ -720,7 +718,6 @@ describe('high-level', () => {
       expect(model.eval(x).eqIdentity(Real.val(1))).toBeTruthy();
       expect(model.eval(y).eqIdentity(Real.val(1))).toBeTruthy();
       expect(model.eval(z).eqIdentity(Real.val(0))).toBeTruthy();
-      expect(model.eval(t).eqIdentity(Real.val(16))).toBeTruthy();
     });
 
     it("minimization problem over integers using addSoft", async () => {

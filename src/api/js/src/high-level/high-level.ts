@@ -1383,16 +1383,10 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
 
       maximize(expr: Arith<Name>) {
-        if (!isConst(expr)) {
-          throw new Error('Expr must be a constant');
-        }
         check(Z3.optimize_maximize(contextPtr, this.ptr, expr.ast));
       }
 
       minimize(expr: Arith<Name>) {
-        if (!isConst(expr)) {
-          throw new Error('Expr must be a constant');
-        }
         check(Z3.optimize_minimize(contextPtr, this.ptr, expr.ast));
       }
 
