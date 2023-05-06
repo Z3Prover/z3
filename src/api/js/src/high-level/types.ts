@@ -674,16 +674,13 @@ export interface Optimize<Name extends string = 'main'> {
 
   set(key: string, value: any): void;
 
-  /* TODO(ritave): Decide on how to discern between integer and float parameters
-      set(params: Record<string, any>): void;
-      */
   push(): void;
 
   pop(num?: number): void;
 
   add(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): void;
 
-  addSoft(expr: Bool<Name>, weight: number | bigint | string | CoercibleRational, id: number | string): void;
+  addSoft(expr: Bool<Name>, weight: number | bigint | string | CoercibleRational, id?: number | string): void;
 
   addAndTrack(expr: Bool<Name>, constant: Bool<Name> | string): void;
 

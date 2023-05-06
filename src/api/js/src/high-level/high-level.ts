@@ -1335,11 +1335,10 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       readonly ptr: Z3_optimize;
       readonly ctx: Context<Name>;
 
-      constructor(ptr: Z3_optimize /*| string */ = Z3.mk_optimize(contextPtr)) {
+      constructor(ptr: Z3_optimize = Z3.mk_optimize(contextPtr)) {
         this.ctx = ctx;
         let myPtr: Z3_optimize;
         myPtr = ptr;
-        //}
         this.ptr = myPtr;
         Z3.optimize_inc_ref(contextPtr, myPtr);
         cleanup.register(this, () => Z3.optimize_dec_ref(contextPtr, myPtr));
