@@ -209,6 +209,8 @@ br_status bv_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
         return mk_bvumul_overflow(num_args, args, result);
     case OP_BUADD_OVFL:
         return mk_bvuadd_overflow(num_args, args, result);
+    case OP_BSADD_OVFL:
+        return mk_bvsadd_over_underflow(num_args, args, result);
     default:
         return BR_FAILED;
     }
@@ -3021,6 +3023,47 @@ br_status bv_rewriter::mk_bvuadd_overflow(unsigned num, expr * const * args, exp
     auto r = mk_bv_add(a1, a2);
     auto extract = m_mk_extract(sz, sz, r);
     result = m.mk_eq(extract, mk_one(1));
+    return BR_REWRITE_FULL;
+}
+
+br_status bv_rewriter::mk_bvsadd_overflow(unsigned num, expr * const * args, expr_ref & result) {
+    SASSERT(num == 2);
+    SASSERT(get_bv_size(args[0]) == get_bv_size(args[1]));
+    unsigned sz = get_bv_size(args[0]);
+    auto zero = mk_zero(sz);
+    auto r = mk_bv_add(args[0], args[1]);
+    auto l1 = m_util.mk_slt(zero, args[0]);
+    auto l2 = m_util.mk_slt(zero, args[1]);
+    auto args_pos = m.mk_and(l1, l2);
+    auto non_pos_sum = m_util.mk_sle(r, zero);
+    result = m.mk_and(args_pos, non_pos_sum);
+    return BR_REWRITE_FULL;
+}
+
+br_status bv_rewriter::mk_bvsadd_underflow(unsigned num, expr * const * args, expr_ref & result) {
+    SASSERT(num == 2);
+    SASSERT(get_bv_size(args[0]) == get_bv_size(args[1]));
+    unsigned sz = get_bv_size(args[0]);
+    auto zero = mk_zero(sz);
+    auto r = mk_bv_add(args[0], args[1]);
+    auto l1 = m_util.mk_slt(args[0], zero);
+    auto l2 = m_util.mk_slt(args[1], zero);
+    auto args_neg = m.mk_and(l1, l2);
+    expr_ref non_neg_sum{m};
+    auto res_rewrite = mk_sge(r, zero, non_neg_sum);
+    SASSERT(res_rewrite != BR_FAILED); (void)res_rewrite;
+    result = m.mk_and(args_neg, non_neg_sum);
+    return BR_REWRITE_FULL;
+}
+
+br_status bv_rewriter::mk_bvsadd_over_underflow(unsigned num, expr * const * args, expr_ref & result) {
+    SASSERT(num == 2);
+    SASSERT(get_bv_size(args[0]) == get_bv_size(args[1]));
+    expr_ref l1{m};
+    expr_ref l2{m};
+    (void)mk_bvsadd_overflow(2, args, l1);
+    (void)mk_bvsadd_underflow(2, args, l2);
+    result = m.mk_or(l1, l2);
     return BR_REWRITE_FULL;
 }
 
