@@ -211,6 +211,8 @@ br_status bv_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
         return mk_bvuadd_overflow(num_args, args, result);
     case OP_BSADD_OVFL:
         return mk_bvsadd_over_underflow(num_args, args, result);
+    case OP_BUSUB_OVFL:
+        return mk_bvusub_underflow(num_args, args, result);
     default:
         return BR_FAILED;
     }
@@ -3065,6 +3067,14 @@ br_status bv_rewriter::mk_bvsadd_over_underflow(unsigned num, expr * const * arg
     (void)mk_bvsadd_underflow(2, args, l2);
     result = m.mk_or(l1, l2);
     return BR_REWRITE_FULL;
+}
+
+br_status bv_rewriter::mk_bvusub_underflow(unsigned num, expr * const * args, expr_ref & result) {
+    SASSERT(num == 2);
+    SASSERT(get_bv_size(args[0]) == get_bv_size(args[1]));
+    br_status status = mk_ult(args[0], args[1], result);
+    SASSERT(status != BR_FAILED);
+    return status;
 }
 
 template class poly_rewriter<bv_rewriter_core>;
