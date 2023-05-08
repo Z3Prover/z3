@@ -143,6 +143,8 @@ class bv_rewriter : public poly_rewriter<bv_rewriter_core> {
     br_status mk_bvsmul_overflow(unsigned num, expr * const * args, expr_ref & result);
     br_status mk_bvumul_overflow(unsigned num, expr * const * args, expr_ref & result);
 
+    br_status mk_bvsdiv_overflow(unsigned num, expr * const * args, expr_ref & result);
+
     br_status mk_bvneg_overflow(expr * const arg, expr_ref & result);
 
     br_status mk_bvuadd_overflow(unsigned num, expr * const * args, expr_ref & result);

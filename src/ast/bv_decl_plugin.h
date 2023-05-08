@@ -96,6 +96,8 @@ enum bv_op_kind {
     OP_BUMUL_OVFL, // unsigned multiplication overflow predicate (negation of OP_BUMUL_NO_OVFL)
     OP_BSMUL_OVFL, // signed multiplication over/underflow predicate
 
+    OP_BSDIV_OVFL, // signed division overflow perdicate
+
     OP_BNEG_OVFL, // negation overflow predicate
 
     OP_BUADD_OVFL, // unsigned addition overflow predicate
@@ -206,6 +208,8 @@ protected:
 
     ptr_vector<func_decl> m_bv_mul_ovfl;
     ptr_vector<func_decl> m_bv_smul_ovfl;
+
+    ptr_vector<func_decl> m_bv_sdiv_ovfl;
 
     ptr_vector<func_decl> m_bv_neg_ovfl;
 
@@ -519,6 +523,7 @@ public:
     app * mk_bvumul_no_ovfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BUMUL_NO_OVFL, n, m); }
     app * mk_bvsmul_ovfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BSMUL_OVFL, n, m); }
     app * mk_bvumul_ovfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BUMUL_OVFL, n, m); }
+    app * mk_bvsdiv_ovfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BSDIV_OVFL, m, n); }
     app * mk_bvneg_ovfl(expr* m) { return m_manager.mk_app(get_fid(), OP_BNEG_OVFL, m); }
     app * mk_bvuadd_ovfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BUADD_OVFL, n, m); }
     app * mk_bvsadd_ovfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BSADD_OVFL, n, m); }

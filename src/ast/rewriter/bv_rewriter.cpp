@@ -207,6 +207,8 @@ br_status bv_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
         return mk_bvsmul_overflow(num_args, args, result);
     case OP_BUMUL_OVFL:
         return mk_bvumul_overflow(num_args, args, result);
+    case OP_BSDIV_OVFL:
+        return mk_bvsdiv_overflow(num_args, args, result);
     case OP_BUADD_OVFL:
         return mk_bvuadd_overflow(num_args, args, result);
     case OP_BSADD_OVFL:
@@ -3090,6 +3092,15 @@ br_status bv_rewriter::mk_bvssub_overflow(unsigned num, expr * const * args, exp
     SASSERT(bvsaddo_stat != BR_FAILED); (void)bvsaddo_stat;
     auto first_arg_ge_zero = m_util.mk_sle(mk_zero(sz), args[0]);
     result = m.mk_ite(m.mk_eq(args[1], minSigned), first_arg_ge_zero, bvsaddo);
+    return BR_REWRITE_FULL;
+}
+br_status bv_rewriter::mk_bvsdiv_overflow(unsigned num, expr * const * args, expr_ref & result) {
+    SASSERT(num == 2);
+    SASSERT(get_bv_size(args[0]) == get_bv_size(args[1]));
+    auto sz = get_bv_size(args[1]);
+    auto minSigned = mk_numeral(-rational::power_of_two(sz-1), sz);
+    auto minusOne = mk_numeral(rational::power_of_two(sz) - 1, sz);
+    result = m.mk_and(m.mk_eq(args[0], minSigned), m.mk_eq(args[1], minusOne));
     return BR_REWRITE_FULL;
 }
 
