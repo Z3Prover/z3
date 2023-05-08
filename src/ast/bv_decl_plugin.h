@@ -102,6 +102,7 @@ enum bv_op_kind {
     OP_BSADD_OVFL, // signed addition overflow predicate
 
     OP_BUSUB_OVFL, // unsigned subtraction overflow predicate
+    OP_BSSUB_OVFL, // signed subtraction overflow predicate
 
     OP_BIT2BOOL, // predicate
     OP_MKBV,     // bools to bv
@@ -212,6 +213,7 @@ protected:
     ptr_vector<func_decl> m_bv_sadd_ovfl;
 
     ptr_vector<func_decl> m_bv_usub_ovfl;
+    ptr_vector<func_decl> m_bv_ssub_ovfl;
 
     ptr_vector<func_decl>  m_bv_shl;
     ptr_vector<func_decl>  m_bv_lshr;
@@ -521,6 +523,7 @@ public:
     app * mk_bvuadd_ovfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BUADD_OVFL, n, m); }
     app * mk_bvsadd_ovfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BSADD_OVFL, n, m); }
     app * mk_bvusub_ovfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BUSUB_OVFL, m, n); }
+    app * mk_bvssub_ovfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BSSUB_OVFL, m, n); }
 
     app * mk_bit2bool(expr* e, unsigned idx) { parameter p(idx); return m_manager.mk_app(get_fid(), OP_BIT2BOOL, 1, &p, 1, &e); }
 

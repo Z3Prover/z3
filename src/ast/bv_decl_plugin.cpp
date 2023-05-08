@@ -131,6 +131,7 @@ void bv_decl_plugin::finalize() {
     DEC_REF(m_bv_sadd_ovfl);
 
     DEC_REF(m_bv_usub_ovfl);
+    DEC_REF(m_bv_ssub_ovfl);
 
     DEC_REF(m_bv_shl);
     DEC_REF(m_bv_lshr);
@@ -356,6 +357,7 @@ func_decl * bv_decl_plugin::mk_func_decl(decl_kind k, unsigned bv_size) {
     case OP_BUADD_OVFL: return mk_pred(m_bv_uadd_ovfl, k, "bvuaddo", bv_size);
     case OP_BSADD_OVFL: return mk_pred(m_bv_sadd_ovfl, k, "bvsaddo", bv_size);
     case OP_BUSUB_OVFL: return mk_pred(m_bv_usub_ovfl, k, "bvusubo", bv_size);
+    case OP_BSSUB_OVFL: return mk_pred(m_bv_ssub_ovfl, k, "bvssubo", bv_size);
 
     case OP_BSHL:     return mk_binary(m_bv_shl, k, "bvshl", bv_size, false);
     case OP_BLSHR:    return mk_binary(m_bv_lshr, k, "bvlshr", bv_size, false);
@@ -713,6 +715,7 @@ void bv_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const
     op_names.push_back(builtin_name("bvsaddo",OP_BSADD_OVFL));
     op_names.push_back(builtin_name("bvsub",OP_BSUB));
     op_names.push_back(builtin_name("bvusubo",OP_BUSUB_OVFL));
+    op_names.push_back(builtin_name("bvssubo",OP_BSSUB_OVFL));
     op_names.push_back(builtin_name("bvmul",OP_BMUL));
     op_names.push_back(builtin_name("bvumulo",OP_BUMUL_OVFL));
     op_names.push_back(builtin_name("bvsmulo",OP_BSMUL_OVFL));

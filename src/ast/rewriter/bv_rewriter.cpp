@@ -213,6 +213,8 @@ br_status bv_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
         return mk_bvsadd_over_underflow(num_args, args, result);
     case OP_BUSUB_OVFL:
         return mk_bvusub_underflow(num_args, args, result);
+    case OP_BSSUB_OVFL:
+        return mk_bvssub_overflow(num_args, args, result);
     default:
         return BR_FAILED;
     }
@@ -3075,6 +3077,20 @@ br_status bv_rewriter::mk_bvusub_underflow(unsigned num, expr * const * args, ex
     br_status status = mk_ult(args[0], args[1], result);
     SASSERT(status != BR_FAILED);
     return status;
+}
+
+br_status bv_rewriter::mk_bvssub_overflow(unsigned num, expr * const * args, expr_ref & result) {
+    SASSERT(num == 2);
+    SASSERT(get_bv_size(args[0]) == get_bv_size(args[1]));
+    auto sz = get_bv_size(args[0]);
+    auto minSigned = mk_numeral(-rational::power_of_two(sz-1), sz);
+    expr_ref bvsaddo {m};
+    expr * args2[2] = { args[0], m_util.mk_bv_neg(args[1]) };
+    auto bvsaddo_stat = mk_bvsadd_overflow(2, args2, bvsaddo);
+    SASSERT(bvsaddo_stat != BR_FAILED); (void)bvsaddo_stat;
+    auto first_arg_ge_zero = m_util.mk_sle(mk_zero(sz), args[0]);
+    result = m.mk_ite(m.mk_eq(args[1], minSigned), first_arg_ge_zero, bvsaddo);
+    return BR_REWRITE_FULL;
 }
 
 template class poly_rewriter<bv_rewriter_core>;
