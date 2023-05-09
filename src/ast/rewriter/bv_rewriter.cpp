@@ -93,6 +93,10 @@ br_status bv_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
     case OP_BNEG:
         SASSERT(num_args == 1);
         return mk_uminus(args[0], result);
+    case OP_BNEG_OVFL:
+        SASSERT(num_args == 1);
+        return mk_bvneg_overflow(args[0], result);
+
     case OP_BSHL:
         SASSERT(num_args == 2);
         return mk_bv_shl(args[0], args[1], result);
@@ -199,6 +203,20 @@ br_status bv_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
         return mk_bvsmul_no_overflow(num_args, args, false, result);
     case OP_BUMUL_NO_OVFL:
         return mk_bvumul_no_overflow(num_args, args, result);
+    case OP_BSMUL_OVFL:
+        return mk_bvsmul_overflow(num_args, args, result);
+    case OP_BUMUL_OVFL:
+        return mk_bvumul_overflow(num_args, args, result);
+    case OP_BSDIV_OVFL:
+        return mk_bvsdiv_overflow(num_args, args, result);
+    case OP_BUADD_OVFL:
+        return mk_bvuadd_overflow(num_args, args, result);
+    case OP_BSADD_OVFL:
+        return mk_bvsadd_over_underflow(num_args, args, result);
+    case OP_BUSUB_OVFL:
+        return mk_bvusub_underflow(num_args, args, result);
+    case OP_BSSUB_OVFL:
+        return mk_bvssub_overflow(num_args, args, result);
     default:
         return BR_FAILED;
     }
@@ -2921,6 +2939,21 @@ br_status bv_rewriter::mk_distinct(unsigned num_args, expr * const * args, expr_
     return BR_DONE;     
 }
 
+br_status bv_rewriter::mk_bvsmul_overflow(unsigned num, expr * const * args, expr_ref & result) {
+    SASSERT(num == 2);
+    result = m.mk_or(
+            m.mk_not(m_util.mk_bvsmul_no_ovfl(args[0], args[1])),
+            m.mk_not(m_util.mk_bvsmul_no_udfl(args[0], args[1]))
+    );
+    return BR_REWRITE_FULL;
+}
+
+br_status bv_rewriter::mk_bvumul_overflow(unsigned num, expr * const * args, expr_ref & result) {
+    SASSERT(num == 2);
+    result = m.mk_not(m_util.mk_bvumul_no_ovfl(args[0], args[1]));
+    return BR_REWRITE2;
+}
+
 br_status bv_rewriter::mk_bvsmul_no_overflow(unsigned num, expr * const * args, bool is_overflow, expr_ref & result) {
     SASSERT(num == 2);
     unsigned bv_sz;
@@ -2980,5 +3013,95 @@ br_status bv_rewriter::mk_bvumul_no_overflow(unsigned num, expr * const * args, 
     return BR_FAILED;
 }
 
+br_status bv_rewriter::mk_bvneg_overflow(expr * const arg, expr_ref & result) {
+    unsigned int sz = get_bv_size(arg);
+    auto maxUnsigned = mk_numeral(rational::power_of_two(sz)-1, sz);
+    result = m.mk_eq(arg, maxUnsigned);
+    return BR_REWRITE3;
+}
+
+br_status bv_rewriter::mk_bvuadd_overflow(unsigned num, expr * const * args, expr_ref & result) {
+    SASSERT(num == 2);
+    SASSERT(get_bv_size(args[0]) == get_bv_size(args[1]));
+    unsigned sz = get_bv_size(args[0]);
+    auto a1 = mk_zero_extend(1, args[0]);
+    auto a2 = mk_zero_extend(1, args[1]);
+    auto r = mk_bv_add(a1, a2);
+    auto extract = m_mk_extract(sz, sz, r);
+    result = m.mk_eq(extract, mk_one(1));
+    return BR_REWRITE_FULL;
+}
+
+br_status bv_rewriter::mk_bvsadd_overflow(unsigned num, expr * const * args, expr_ref & result) {
+    SASSERT(num == 2);
+    SASSERT(get_bv_size(args[0]) == get_bv_size(args[1]));
+    unsigned sz = get_bv_size(args[0]);
+    auto zero = mk_zero(sz);
+    auto r = mk_bv_add(args[0], args[1]);
+    auto l1 = m_util.mk_slt(zero, args[0]);
+    auto l2 = m_util.mk_slt(zero, args[1]);
+    auto args_pos = m.mk_and(l1, l2);
+    auto non_pos_sum = m_util.mk_sle(r, zero);
+    result = m.mk_and(args_pos, non_pos_sum);
+    return BR_REWRITE_FULL;
+}
+
+br_status bv_rewriter::mk_bvsadd_underflow(unsigned num, expr * const * args, expr_ref & result) {
+    SASSERT(num == 2);
+    SASSERT(get_bv_size(args[0]) == get_bv_size(args[1]));
+    unsigned sz = get_bv_size(args[0]);
+    auto zero = mk_zero(sz);
+    auto r = mk_bv_add(args[0], args[1]);
+    auto l1 = m_util.mk_slt(args[0], zero);
+    auto l2 = m_util.mk_slt(args[1], zero);
+    auto args_neg = m.mk_and(l1, l2);
+    expr_ref non_neg_sum{m};
+    auto res_rewrite = mk_sge(r, zero, non_neg_sum);
+    SASSERT(res_rewrite != BR_FAILED); (void)res_rewrite;
+    result = m.mk_and(args_neg, non_neg_sum);
+    return BR_REWRITE_FULL;
+}
+
+br_status bv_rewriter::mk_bvsadd_over_underflow(unsigned num, expr * const * args, expr_ref & result) {
+    SASSERT(num == 2);
+    SASSERT(get_bv_size(args[0]) == get_bv_size(args[1]));
+    expr_ref l1{m};
+    expr_ref l2{m};
+    (void)mk_bvsadd_overflow(2, args, l1);
+    (void)mk_bvsadd_underflow(2, args, l2);
+    result = m.mk_or(l1, l2);
+    return BR_REWRITE_FULL;
+}
+
+br_status bv_rewriter::mk_bvusub_underflow(unsigned num, expr * const * args, expr_ref & result) {
+    SASSERT(num == 2);
+    SASSERT(get_bv_size(args[0]) == get_bv_size(args[1]));
+    br_status status = mk_ult(args[0], args[1], result);
+    SASSERT(status != BR_FAILED);
+    return status;
+}
+
+br_status bv_rewriter::mk_bvssub_overflow(unsigned num, expr * const * args, expr_ref & result) {
+    SASSERT(num == 2);
+    SASSERT(get_bv_size(args[0]) == get_bv_size(args[1]));
+    auto sz = get_bv_size(args[0]);
+    auto minSigned = mk_numeral(-rational::power_of_two(sz-1), sz);
+    expr_ref bvsaddo {m};
+    expr * args2[2] = { args[0], m_util.mk_bv_neg(args[1]) };
+    auto bvsaddo_stat = mk_bvsadd_overflow(2, args2, bvsaddo);
+    SASSERT(bvsaddo_stat != BR_FAILED); (void)bvsaddo_stat;
+    auto first_arg_ge_zero = m_util.mk_sle(mk_zero(sz), args[0]);
+    result = m.mk_ite(m.mk_eq(args[1], minSigned), first_arg_ge_zero, bvsaddo);
+    return BR_REWRITE_FULL;
+}
+br_status bv_rewriter::mk_bvsdiv_overflow(unsigned num, expr * const * args, expr_ref & result) {
+    SASSERT(num == 2);
+    SASSERT(get_bv_size(args[0]) == get_bv_size(args[1]));
+    auto sz = get_bv_size(args[1]);
+    auto minSigned = mk_numeral(-rational::power_of_two(sz-1), sz);
+    auto minusOne = mk_numeral(rational::power_of_two(sz) - 1, sz);
+    result = m.mk_and(m.mk_eq(args[0], minSigned), m.mk_eq(args[1], minusOne));
+    return BR_REWRITE_FULL;
+}
 
 template class poly_rewriter<bv_rewriter_core>;

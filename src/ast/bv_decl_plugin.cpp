@@ -118,9 +118,22 @@ void bv_decl_plugin::finalize() {
     DEC_REF(m_bv_redand);
     DEC_REF(m_bv_comp);
 
+    DEC_REF(m_bv_mul_no_ovfl);
+    DEC_REF(m_bv_smul_no_ovfl);
+    DEC_REF(m_bv_smul_no_udfl);
+
     DEC_REF(m_bv_mul_ovfl);
     DEC_REF(m_bv_smul_ovfl);
-    DEC_REF(m_bv_smul_udfl);
+
+    DEC_REF(m_bv_neg_ovfl);
+
+    DEC_REF(m_bv_uadd_ovfl);
+    DEC_REF(m_bv_sadd_ovfl);
+
+    DEC_REF(m_bv_usub_ovfl);
+    DEC_REF(m_bv_ssub_ovfl);
+
+    DEC_REF(m_bv_sdiv_ovfl);
 
     DEC_REF(m_bv_shl);
     DEC_REF(m_bv_lshr);
@@ -245,6 +258,16 @@ func_decl * bv_decl_plugin::mk_bv2int(unsigned bv_size, unsigned num_parameters,
     return m_bv2int[bv_size];
 }
 
+func_decl * bv_decl_plugin::mk_unary_pred(ptr_vector<func_decl> & decls, decl_kind k, char const * name, unsigned bv_size) {
+    force_ptr_array_size(decls, bv_size+1);
+
+    if (decls[bv_size] == 0) {
+        decls[bv_size] = m_manager->mk_func_decl(symbol(name), get_bv_sort(bv_size), m_manager->mk_bool_sort(), func_decl_info(m_family_id, k));
+        m_manager->inc_ref(decls[bv_size]);
+    }
+    return decls[bv_size];
+}
+
 func_decl * bv_decl_plugin::mk_pred(ptr_vector<func_decl> & decls, decl_kind k, char const * name, unsigned bv_size) {
     force_ptr_array_size(decls, bv_size + 1);
 
@@ -289,6 +312,7 @@ func_decl * bv_decl_plugin::mk_comp(unsigned bv_size) {
 func_decl * bv_decl_plugin::mk_func_decl(decl_kind k, unsigned bv_size) {
     switch (k) {
     case OP_BNEG:     return mk_unary(m_bv_neg, k, "bvneg", bv_size);
+    case OP_BNEG_OVFL: return mk_unary_pred(m_bv_neg_ovfl, k, "bvnego", bv_size);
     case OP_BADD:     return mk_binary(m_bv_add, k, "bvadd", bv_size, true);
     case OP_BSUB:     return mk_binary(m_bv_sub, k, "bvsub", bv_size, false);
     case OP_BMUL:     return mk_binary(m_bv_mul, k, "bvmul", bv_size, true);
@@ -327,9 +351,16 @@ func_decl * bv_decl_plugin::mk_func_decl(decl_kind k, unsigned bv_size) {
     case OP_BREDOR:   return mk_reduction(m_bv_redor, k, "bvredor", bv_size);
     case OP_BREDAND:  return mk_reduction(m_bv_redand, k, "bvredand", bv_size);
     case OP_BCOMP:    return mk_comp(bv_size);
-    case OP_BUMUL_NO_OVFL: return mk_pred(m_bv_mul_ovfl, k, "bvumul_noovfl", bv_size);
-    case OP_BSMUL_NO_OVFL: return mk_pred(m_bv_smul_ovfl, k, "bvsmul_noovfl", bv_size);
-    case OP_BSMUL_NO_UDFL: return mk_pred(m_bv_smul_udfl, k, "bvsmul_noudfl", bv_size);
+    case OP_BUMUL_NO_OVFL: return mk_pred(m_bv_mul_no_ovfl, k, "bvumul_noovfl", bv_size);
+    case OP_BSMUL_NO_OVFL: return mk_pred(m_bv_smul_no_ovfl, k, "bvsmul_noovfl", bv_size);
+    case OP_BSMUL_NO_UDFL: return mk_pred(m_bv_smul_no_udfl, k, "bvsmul_noudfl", bv_size);
+    case OP_BUMUL_OVFL: return mk_pred(m_bv_mul_ovfl, k, "bvumulo", bv_size);
+    case OP_BSMUL_OVFL: return mk_pred(m_bv_smul_ovfl, k, "bvsmulo", bv_size);
+    case OP_BSDIV_OVFL: return mk_pred(m_bv_sdiv_ovfl, k, "bvsdivo", bv_size);
+    case OP_BUADD_OVFL: return mk_pred(m_bv_uadd_ovfl, k, "bvuaddo", bv_size);
+    case OP_BSADD_OVFL: return mk_pred(m_bv_sadd_ovfl, k, "bvsaddo", bv_size);
+    case OP_BUSUB_OVFL: return mk_pred(m_bv_usub_ovfl, k, "bvusubo", bv_size);
+    case OP_BSSUB_OVFL: return mk_pred(m_bv_ssub_ovfl, k, "bvssubo", bv_size);
 
     case OP_BSHL:     return mk_binary(m_bv_shl, k, "bvshl", bv_size, false);
     case OP_BLSHR:    return mk_binary(m_bv_lshr, k, "bvlshr", bv_size, false);
@@ -681,10 +712,18 @@ void bv_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const
     op_names.push_back(builtin_name("bit1",OP_BIT1));
     op_names.push_back(builtin_name("bit0",OP_BIT0));
     op_names.push_back(builtin_name("bvneg",OP_BNEG));
+    op_names.push_back(builtin_name("bvnego", OP_BNEG_OVFL));
     op_names.push_back(builtin_name("bvadd",OP_BADD));
+    op_names.push_back(builtin_name("bvuaddo",OP_BUADD_OVFL));
+    op_names.push_back(builtin_name("bvsaddo",OP_BSADD_OVFL));
     op_names.push_back(builtin_name("bvsub",OP_BSUB));
+    op_names.push_back(builtin_name("bvusubo",OP_BUSUB_OVFL));
+    op_names.push_back(builtin_name("bvssubo",OP_BSSUB_OVFL));
     op_names.push_back(builtin_name("bvmul",OP_BMUL));
+    op_names.push_back(builtin_name("bvumulo",OP_BUMUL_OVFL));
+    op_names.push_back(builtin_name("bvsmulo",OP_BSMUL_OVFL));
     op_names.push_back(builtin_name("bvsdiv",OP_BSDIV));
+    op_names.push_back(builtin_name("bvsdivo",OP_BSDIV_OVFL));
     op_names.push_back(builtin_name("bvudiv",OP_BUDIV));
     op_names.push_back(builtin_name("bvsrem",OP_BSREM));
     op_names.push_back(builtin_name("bvurem",OP_BUREM));

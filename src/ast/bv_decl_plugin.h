@@ -93,6 +93,19 @@ enum bv_op_kind {
     OP_BSMUL_NO_OVFL, // no signed multiplication overflow predicate
     OP_BSMUL_NO_UDFL, // no signed multiplication underflow predicate
 
+    OP_BUMUL_OVFL, // unsigned multiplication overflow predicate (negation of OP_BUMUL_NO_OVFL)
+    OP_BSMUL_OVFL, // signed multiplication over/underflow predicate
+
+    OP_BSDIV_OVFL, // signed division overflow perdicate
+
+    OP_BNEG_OVFL, // negation overflow predicate
+
+    OP_BUADD_OVFL, // unsigned addition overflow predicate
+    OP_BSADD_OVFL, // signed addition overflow predicate
+
+    OP_BUSUB_OVFL, // unsigned subtraction overflow predicate
+    OP_BSSUB_OVFL, // signed subtraction overflow predicate
+
     OP_BIT2BOOL, // predicate
     OP_MKBV,     // bools to bv
     OP_INT2BV,
@@ -189,9 +202,22 @@ protected:
     ptr_vector<func_decl>  m_bv_redand;
     ptr_vector<func_decl>  m_bv_comp;
 
-    ptr_vector<func_decl>  m_bv_mul_ovfl;
-    ptr_vector<func_decl>  m_bv_smul_ovfl;
-    ptr_vector<func_decl>  m_bv_smul_udfl;
+    ptr_vector<func_decl>  m_bv_mul_no_ovfl;
+    ptr_vector<func_decl>  m_bv_smul_no_ovfl;
+    ptr_vector<func_decl>  m_bv_smul_no_udfl;
+
+    ptr_vector<func_decl> m_bv_mul_ovfl;
+    ptr_vector<func_decl> m_bv_smul_ovfl;
+
+    ptr_vector<func_decl> m_bv_sdiv_ovfl;
+
+    ptr_vector<func_decl> m_bv_neg_ovfl;
+
+    ptr_vector<func_decl> m_bv_uadd_ovfl;
+    ptr_vector<func_decl> m_bv_sadd_ovfl;
+
+    ptr_vector<func_decl> m_bv_usub_ovfl;
+    ptr_vector<func_decl> m_bv_ssub_ovfl;
 
     ptr_vector<func_decl>  m_bv_shl;
     ptr_vector<func_decl>  m_bv_lshr;
@@ -213,6 +239,7 @@ protected:
     func_decl * mk_unary(ptr_vector<func_decl> & decls, decl_kind k, char const * name, unsigned bv_size);
     func_decl * mk_pred(ptr_vector<func_decl> & decls, decl_kind k,
                         char const * name, unsigned bv_size);
+    func_decl * mk_unary_pred(ptr_vector<func_decl> & decls, decl_kind k, char const * name, unsigned bv_size);
     func_decl * mk_reduction(ptr_vector<func_decl> & decls, decl_kind k, char const * name, unsigned bv_size);
     func_decl * mk_comp(unsigned bv_size);
     bool get_bv_size(sort * t, int & result);
@@ -490,9 +517,19 @@ public:
 
     app * mk_bv2int(expr* e);
 
+    // TODO: all these binary ops commute (right?) but it'd be more logical to swap `n` & `m` in the `return`
     app * mk_bvsmul_no_ovfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BSMUL_NO_OVFL, n, m); }
     app * mk_bvsmul_no_udfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BSMUL_NO_UDFL, n, m); }
     app * mk_bvumul_no_ovfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BUMUL_NO_OVFL, n, m); }
+    app * mk_bvsmul_ovfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BSMUL_OVFL, n, m); }
+    app * mk_bvumul_ovfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BUMUL_OVFL, n, m); }
+    app * mk_bvsdiv_ovfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BSDIV_OVFL, m, n); }
+    app * mk_bvneg_ovfl(expr* m) { return m_manager.mk_app(get_fid(), OP_BNEG_OVFL, m); }
+    app * mk_bvuadd_ovfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BUADD_OVFL, n, m); }
+    app * mk_bvsadd_ovfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BSADD_OVFL, n, m); }
+    app * mk_bvusub_ovfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BUSUB_OVFL, m, n); }
+    app * mk_bvssub_ovfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BSSUB_OVFL, m, n); }
+
     app * mk_bit2bool(expr* e, unsigned idx) { parameter p(idx); return m_manager.mk_app(get_fid(), OP_BIT2BOOL, 1, &p, 1, &e); }
 
     private:
