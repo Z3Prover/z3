@@ -345,7 +345,6 @@ void proto_model::compress() {
 void proto_model::complete_partial_func(func_decl * f, bool use_fresh) {
     func_interp * fi = get_func_interp(f);
     if (fi && fi->is_partial()) {
-        verbose_stream() << "complete " << f->get_name() << " " << use_fresh << "\n";
         expr * else_value;
         if (use_fresh) {
             else_value = get_fresh_value(f->get_range());
