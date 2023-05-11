@@ -558,7 +558,7 @@ stages:
 
   # Enable on release:
   - job: PyPIPublish
-    condition: eq(1,1)
+    condition: eq(1,0)
     displayName: "Publish to PyPI"
     pool:
       vmImage: "ubuntu-latest"
