@@ -27,6 +27,10 @@ Version 4.12.2
   and `elim-predicates` that go beyond incremental pre-processing used internally. The advantage of using `solve-eqs` during pre-processing
   can be significant. Incremental pre-processing simplification using `solve-eqs` and other simplifiers that change interpretations 
   was not possible before.
+- Optimize added to JS API, thanks to gbagan
+- SMTLIB2 proposal for bit-vector overflow predicates added, thanks to aehyvari 
+- bug fixes, thanks to Clemens Eisenhofer, hgvk94, Lev Nachmanson, and others
+
 
 Version 4.12.1
 ==============
