@@ -19,6 +19,7 @@ Revision History:
 
 #pragma once
 
+#include <cstdint>
 #include "util/machine.h"
 
 #define TAG_SHIFT        PTR_ALIGNMENT
