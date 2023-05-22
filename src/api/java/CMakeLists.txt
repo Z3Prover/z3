@@ -179,7 +179,6 @@ set(Z3_JAVA_JAR_SOURCE_FILES
   Tactic.java
   TupleSort.java
   UninterpretedSort.java
-  UserPropagator.java
   Version.java
   Z3Exception.java
   Z3Object.java
