@@ -633,7 +633,18 @@ def mk_java(java_src, java_dir, package_name):
     java_native.write('      }\n')
     java_native.write('    }\n')
     java_native.write('  }\n')
-
+    java_native.write("""
+  public static native void propagateInit(Object o, long ctx, long solver);
+  public static native void propagateRegisterCreated(Object o, long ctx, long solver);
+  public static native void propagateRegisterFixed(Object o, long ctx, long solver);
+  public static native void propagateRegisterEq(Object o, long ctx, long solver);
+  public static native void propagateRegisterDecide(Object o, long ctx, long solver);
+  public static native void propagateRegisterFinal(Object o, long ctx, long solver);
+  public static native void propagateConflict(Object o, long ctx, long solver, int num_fixed, long[] fixed, long num_eqs, long[] eq_lhs, long[] eq_rhs, long conseq);
+  public static native void propagateAdd(Object o, long ctx, long solver, long e);
+  public static native void propagateNextSplit(Object o, long ctx, long solver, long e, long idx, long phase);
+  public static native void propagateDestroy(Object o, long ctx, long solver);
+    """)
     java_native.write('\n')
     for name, result, params in _dotnet_decls:
         java_native.write('  protected static native %s INTERNAL%s(' % (type2java(result), java_method_name(name)))
