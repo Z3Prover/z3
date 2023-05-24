@@ -3,42 +3,34 @@ package com.microsoft.z3;
 import com.microsoft.z3.Context;
 import com.microsoft.z3.enumerations.Z3_lbool;
 
-public abstract class UserPropagatorBase {
-  private Context ctx;
+public abstract class UserPropagatorBase extends Native.UserPropagatorBase {
+    private Context ctx;
     private Solver solver;
 
     public UserPropagatorBase(Context _ctx, Solver _solver) {
+        super(_ctx.nCtx(), _solver.getNativeObject());   
         ctx = _ctx;
-        solver = _solver;
-        Native.propagateInit(this, ctx.nCtx(), solver.getNativeObject());
+        solver = _solver; 
     }
 
-    public final void destroy() {
-        Native.propagateDestroy(this, ctx.nCtx(), solver.getNativeObject());
-    }
-
-    public final Context nCtx() {
+    public final Context getCtx() {
         return ctx;
     }
 
-    protected final void registerCreated() {
-        Native.propagateRegisterCreated(this, ctx.nCtx(), solver.getNativeObject());
+    public final Solver getSolver() {
+        return solver;
     }
 
-    protected final void registerFixed() {
-        Native.propagateRegisterFixed(this, ctx.nCtx(), solver.getNativeObject());
+    protected final void pushWrapper() {
+        push();
     }
 
-    protected final void registerEq() {
-        Native.propagateRegisterEq(this, ctx.nCtx(), solver.getNativeObject());
+    protected final void popWrapper(int number) {
+        pop(number);
     }
 
-    protected final void registerDecide() {
-        Native.propagateRegisterDecide(this, ctx.nCtx(), solver.getNativeObject());
-    }
-
-    protected final void registerFinal() {
-        Native.propagateRegisterFinal(this, ctx.nCtx(), solver.getNativeObject());
+    protected final void finWrapper() {
+        fin();
     }
 
     protected final void eqWrapper(long lx, long ly) {
@@ -76,7 +68,7 @@ public abstract class UserPropagatorBase {
     public void fin() {}
 
     public final <R extends Sort> void add(Expr<R> expr) {
-        Native.propagateAdd(this, ctx.nCtx(), solver.getNativeObject(), expr.getNativeObject());
+        Native.propagateAdd(this, ctx.nCtx(), solver.getNativeObject(), javainfo, expr.getNativeObject());
     }
 
     public final <R extends Sort> void conflict(Expr<R>[] fixed) {
@@ -86,13 +78,13 @@ public abstract class UserPropagatorBase {
     public final <R extends Sort> void conflict(Expr<R>[] fixed, Expr<R>[] lhs, Expr<R>[] rhs) {
         AST conseq = ctx.mkBool(false);
         Native.propagateConflict(
-            this, ctx.nCtx(), solver.getNativeObject(), 
+            this, ctx.nCtx(), solver.getNativeObject(), javainfo,
             fixed.length, AST.arrayToNative(fixed), lhs.length, AST.arrayToNative(lhs), AST.arrayToNative(rhs), conseq.getNativeObject());
     }
 
     public final <R extends Sort> void nextSplit(Expr<R> e, long idx, Z3_lbool phase) {
         Native.propagateNextSplit(
-            this, ctx.nCtx(), solver.getNativeObject(),
+            this, ctx.nCtx(), solver.getNativeObject(), javainfo,
             e.getNativeObject(), idx, phase.toInt());
     }
 }
