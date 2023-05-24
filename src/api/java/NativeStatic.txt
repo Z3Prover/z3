@@ -2,7 +2,6 @@
 #include<jni.h>
 #include<stdlib.h>
 #include"z3.h"
-#include<unordered_map>
 #ifdef __cplusplus
 extern "C" {
 #endif
