@@ -81,17 +81,16 @@ DLL_VIS JNIEXPORT void JNICALL Java_com_microsoft_z3_Native_setInternalErrorHand
 #include <assert.h>
 
 struct JavaInfo {
-  JNIEnv *jenv;
-  jclass jcls;
-  jobject jobj;
+  JNIEnv *jenv = nullptr;
+  jobject jobj = nullptr;
 
-  jmethodID push;
-  jmethodID pop;
-  jmethodID fresh;
-  jmethodID created;
-  jmethodID fixed;
-  jmethodID eq;
-  jmethodID final;
+  jmethodID push = nullptr;
+  jmethodID pop = nullptr;
+  jmethodID fresh = nullptr;
+  jmethodID created = nullptr;
+  jmethodID fixed = nullptr;
+  jmethodID eq = nullptr;
+  jmethodID final = nullptr;
 
   Z3_solver_callback cb = nullptr;
 };
@@ -157,8 +156,6 @@ static void decide_eh(void* _p, Z3_solver_callback cb, Z3_ast* _val, unsigned* b
 DLL_VIS JNIEXPORT jlong JNICALL Java_com_microsoft_z3_Native_propagateInit(JNIEnv *jenv, jclass cls, jobject jobj, jlong ctx, jlong solver) {
   JavaInfo *info = new JavaInfo;
 
-  Z3_solver_propagate_init((Z3_context)ctx, (Z3_solver)solver, info, push_eh, pop_eh, fresh_eh);
-
   info->jenv = jenv;
   info->jobj = jenv->NewGlobalRef(jobj);
   jclass jcls = jenv->GetObjectClass(info->jobj);
@@ -169,6 +166,12 @@ DLL_VIS JNIEXPORT jlong JNICALL Java_com_microsoft_z3_Native_propagateInit(JNIEn
   info->fixed = jenv->GetMethodID(jcls, "fixedWrapper", "(JJ)V");
   info->eq = jenv->GetMethodID(jcls, "eqWrapper", "(JJ)V");
   info->final = jenv->GetMethodID(jcls, "finWrapper", "()V");
+  
+  if (!info->push || !info->pop || !info->fresh || !info->created || !info->fixed || !info->eq || !info->final) {
+    assert(false);
+  }
+
+  Z3_solver_propagate_init((Z3_context)ctx, (Z3_solver)solver, info, push_eh, pop_eh, fresh_eh);
 
   return (jlong)info;
 }
