@@ -645,7 +645,7 @@ def mk_java(java_src, java_dir, package_name):
   public static native void propagateNextSplit(Object o, long ctx, long solver, long javainfo, long e, long idx, long phase);
   public static native void propagateDestroy(Object o, long ctx, long solver, long javainfo);
 
-  public static abstract class UserPropagatorBase {
+  public static abstract class UserPropagatorBase implements AutoCloseable {
     protected long ctx;
     protected long solver;
     protected long javainfo;
@@ -656,7 +656,8 @@ def mk_java(java_src, java_dir, package_name):
         javainfo = propagateInit(this, ctx, solver);
     }
 
-    public final void close() {
+    @Override
+    public void close() {
         Native.propagateDestroy(this, ctx, solver, javainfo);
         javainfo = 0;
         solver = 0;
