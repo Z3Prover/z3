@@ -21,32 +21,39 @@ public abstract class UserPropagatorBase extends Native.UserPropagatorBase {
         return solver;
     }
 
+    @Override
     protected final void pushWrapper() {
         push();
     }
 
+    @Override
     protected final void popWrapper(int number) {
         pop(number);
     }
 
+    @Override
     protected final void finWrapper() {
         fin();
     }
 
+    @Override
     protected final void eqWrapper(long lx, long ly) {
         Expr x = new Expr(ctx, lx);
         Expr y = new Expr(ctx, ly);
         eq(x, y);
     }
 
+    @Override
     protected final UserPropagatorBase freshWrapper(long lctx) {
         return fresh(new Context(lctx));
     }
 
+    @Override
     protected final void createdWrapper(long last) {
         created(new Expr(ctx, last));
     }
 
+    @Override
     protected final void fixedWrapper(long lvar, long lvalue) {
         Expr var = new Expr(ctx, lvar);
         Expr value = new Expr(ctx, lvalue);
