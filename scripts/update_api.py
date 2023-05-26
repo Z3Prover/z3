@@ -633,7 +633,72 @@ def mk_java(java_src, java_dir, package_name):
     java_native.write('      }\n')
     java_native.write('    }\n')
     java_native.write('  }\n')
+    java_native.write("""
+  public static native long propagateInit(Object o, long ctx, long solver);
+  public static native void propagateRegisterCreated(Object o, long ctx, long solver);
+  public static native void propagateRegisterFixed(Object o, long ctx, long solver);
+  public static native void propagateRegisterEq(Object o, long ctx, long solver);
+  public static native void propagateRegisterDecide(Object o, long ctx, long solver);
+  public static native void propagateRegisterFinal(Object o, long ctx, long solver);
+  public static native void propagateConflict(Object o, long ctx, long solver, long javainfo, int num_fixed, long[] fixed, long num_eqs, long[] eq_lhs, long[] eq_rhs, long conseq);
+  public static native void propagateAdd(Object o, long ctx, long solver, long javainfo, long e);
+  public static native void propagateNextSplit(Object o, long ctx, long solver, long javainfo, long e, long idx, long phase);
+  public static native void propagateDestroy(Object o, long ctx, long solver, long javainfo);
 
+  public static abstract class UserPropagatorBase implements AutoCloseable {
+    protected long ctx;
+    protected long solver;
+    protected long javainfo;
+
+    public UserPropagatorBase(long _ctx, long _solver) {
+        ctx = _ctx;
+        solver = _solver;
+        javainfo = propagateInit(this, ctx, solver);
+    }
+
+    @Override
+    public void close() {
+        Native.propagateDestroy(this, ctx, solver, javainfo);
+        javainfo = 0;
+        solver = 0;
+        ctx = 0;
+    }
+
+    protected final void registerCreated() {
+        Native.propagateRegisterCreated(this, ctx, solver);
+    }
+
+    protected final void registerFixed() {
+        Native.propagateRegisterFixed(this, ctx, solver);
+    }
+
+    protected final void registerEq() {
+        Native.propagateRegisterEq(this, ctx, solver);
+    }
+
+    protected final void registerDecide() {
+        Native.propagateRegisterDecide(this, ctx, solver);
+    }
+
+    protected final void registerFinal() {
+        Native.propagateRegisterFinal(this, ctx, solver);
+    }
+
+    protected abstract void pushWrapper();
+
+    protected abstract void popWrapper(int number);
+
+    protected abstract void finWrapper();
+
+    protected abstract void eqWrapper(long lx, long ly);
+
+    protected abstract UserPropagatorBase freshWrapper(long lctx);
+
+    protected abstract void createdWrapper(long le);
+
+    protected abstract void fixedWrapper(long lvar, long lvalue);
+  }
+    """)
     java_native.write('\n')
     for name, result, params in _dotnet_decls:
         java_native.write('  protected static native %s INTERNAL%s(' % (type2java(result), java_method_name(name)))
@@ -1825,6 +1890,7 @@ if _lib is None:
   else:
     print("    import builtins")
     print("    builtins.Z3_LIB_DIRS = [ '/path/to/libz3.%s' ] " % _ext)
+  print(_failures)
   raise Z3Exception("libz3.%s not found." % _ext)
 
 
@@ -1836,14 +1902,14 @@ if sys.version < '3':
 else:
   def _str_to_bytes(s):
     if isinstance(s, str):
-        enc = sys.stdout.encoding
+        enc = sys.getdefaultencoding()
         return s.encode(enc if enc != None else 'latin-1')
     else:
         return s
 
   def _to_pystr(s):
      if s != None:
-        enc = sys.stdout.encoding
+        enc = sys.getdefaultencoding()
         return s.decode(enc if enc != None else 'latin-1')
      else:
         return ""

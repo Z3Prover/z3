@@ -72,6 +72,7 @@ public:
     void set_upper_is_open(interval & a, bool v) { a.m_upper_open = v; }
     void set_lower_is_inf(interval & a, bool v) { a.m_lower_inf = v; }
     void set_upper_is_inf(interval & a, bool v) { a.m_upper_inf = v; }
+
     
     // Reference to numeral manager
     numeral_manager & m() const { return m_manager; }
@@ -184,6 +185,14 @@ public:
     bool upper_is_open(interval const & a) const { return m_c.upper_is_open(a); }
     bool lower_is_inf(interval const & a) const { return m_c.lower_is_inf(a); }
     bool upper_is_inf(interval const & a) const { return m_c.upper_is_inf(a); }
+    bool is_empty(interval const& a) const {
+        if (lower_is_inf(a) || upper_is_inf(a))
+            return false;
+        ext_numeral_kind lk = lower_kind(a), uk = upper_kind(a);
+        if (lower_is_open(a) || upper_is_open(a))
+            return !(::lt(m(), lower(a), lk, upper(a), uk));
+        return ::lt(m(), upper(a), uk, lower(a), lk);
+    }
     
     bool lower_is_neg(interval const & a) const { return ::is_neg(m(), lower(a), lower_kind(a)); }
     bool lower_is_pos(interval const & a) const { return ::is_pos(m(), lower(a), lower_kind(a)); }

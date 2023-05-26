@@ -129,5 +129,8 @@ public:
     void find_feasible_solution();
     lia_move hnf_cut();
     void patch_nbasic_column(unsigned j) { m_patcher.patch_nbasic_column(j); }
+
+    int select_int_infeasible_var();
+
   };
 }

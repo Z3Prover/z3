@@ -40,7 +40,7 @@ function spawnSync(command: string, opts: SpawnOptions = {}) {
 }
 
 function exportedFuncs(): string[] {
-  const extras = ['_set_throwy_error_handler', '_set_noop_error_handler', ...asyncFuncs.map(f => '_async_' + f)];
+  const extras = ['_malloc', '_set_throwy_error_handler', '_set_noop_error_handler', ...asyncFuncs.map(f => '_async_' + f)];
 
   // TODO(ritave): This variable is unused in original script, find out if it's important
   const fns: any[] = (functions as any[]).filter(f => !asyncFuncs.includes(f.name));

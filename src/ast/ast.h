@@ -180,13 +180,13 @@ public:
     */
     void del_eh(ast_manager & m, family_id fid);
 
-    int get_int() const { return std::get<int>(m_val); }
-    ast * get_ast() const { return std::get<ast*>(m_val); }
-    symbol get_symbol() const { return std::get<symbol>(m_val); }
-    rational const & get_rational() const { return *std::get<rational*>(m_val); }
-    zstring const& get_zstring() const { return *std::get<zstring*>(m_val); }
-    double get_double() const { return std::get<double>(m_val); }
-    unsigned get_ext_id() const { return std::get<unsigned>(m_val); }
+    int get_int() const { SASSERT(is_int()); return std::get<int>(m_val); }
+    ast * get_ast() const { SASSERT(is_ast()); return std::get<ast*>(m_val); }
+    symbol get_symbol() const { SASSERT(is_symbol()); return std::get<symbol>(m_val); }
+    rational const & get_rational() const { SASSERT(is_rational()); return *std::get<rational*>(m_val); }
+    zstring const& get_zstring() const { SASSERT(is_zstring()); return *std::get<zstring*>(m_val); }
+    double get_double() const { SASSERT(is_double()); return std::get<double>(m_val); }
+    unsigned get_ext_id() const { SASSERT(is_external()); return std::get<unsigned>(m_val); }
 
     bool operator==(parameter const & p) const;
     bool operator!=(parameter const & p) const { return !operator==(p); }
@@ -1924,6 +1924,8 @@ public:
         return mk_fresh_func_decl(symbol(prefix), symbol::null, arity, domain, range, skolem);
     }
 
+    bool is_parametric_function(func_decl* f, func_decl *& g) const;
+
     app * mk_fresh_const(char const * prefix, sort * s, bool skolem = true) { 
         return mk_const(mk_fresh_func_decl(prefix, 0, nullptr, s, skolem)); 
     }
@@ -2335,7 +2337,7 @@ public:
     proof * mk_th_assumption_add(proof* pr, expr* e);
     proof * mk_th_lemma_add(proof* pr, expr* e);
     proof * mk_redundant_del(expr* e);
-    proof * mk_clause_trail(unsigned n, proof* const* ps);
+    proof * mk_clause_trail(unsigned n, expr* const* ps);
 
     proof * mk_def_axiom(expr * ax);
     proof * mk_unit_resolution(unsigned num_proofs, proof * const * proofs);

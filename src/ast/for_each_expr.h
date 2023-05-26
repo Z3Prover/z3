@@ -163,10 +163,13 @@ struct for_each_expr_proc : public EscapeProc {
 unsigned get_num_exprs(expr * n);
 unsigned get_num_exprs(expr * n, expr_mark & visited);
 unsigned get_num_exprs(expr * n, expr_fast_mark1 & visited);
+void get_num_internal_exprs(unsigned_vector& counts, ptr_vector<expr>& todo, expr * n);
+unsigned count_internal_nodes(unsigned_vector& counts, ptr_vector<expr>& todo);
 
 bool has_skolem_functions(expr * n);
 
 // pre-order traversal of subterms
+
 class subterms {
     bool            m_include_bound = false;
     expr_ref_vector m_es;

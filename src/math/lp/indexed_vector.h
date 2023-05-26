@@ -99,47 +99,9 @@ public:
         return m_data[i];
     }
 
-    void clean_up() {
-#if 0==1
-        for (unsigned k = 0; k < m_index.size(); k++) {
-            unsigned i = m_index[k];
-            T & v = m_data[i];
-            if (lp_settings::is_eps_small_general(v, 1e-14)) {
-                v = zero_of_type<T>();
-                m_index.erase(m_index.begin() + k--);
-            }
-        }
-#endif
-       vector<unsigned> index_copy;
-       for (unsigned i : m_index) {
-           T & v = m_data[i];
-           if (!lp_settings::is_eps_small_general(v, 1e-14)) {
-               index_copy.push_back(i);
-           } else if (!numeric_traits<T>::is_zero(v)) {
-               v = zero_of_type<T>();
-           }
-       }
-       m_index = index_copy;
-    }
-
     
     void erase_from_index(unsigned j);
-
-    void add_value_at_index_with_drop_tolerance(unsigned j, const T& val_to_add) {
-        T & v = m_data[j];
-        bool was_zero = is_zero(v);
-        v += val_to_add;
-        if (lp_settings::is_eps_small_general(v, 1e-14)) {
-            v = zero_of_type<T>();
-            if (!was_zero) {
-                erase_from_index(j);
-            }
-        } else {
-            if (was_zero)
-                m_index.push_back(j);
-        }
-    }
-
+    
     void add_value_at_index(unsigned j, const T& val_to_add) {
         T & v = m_data[j];
         bool was_zero = is_zero(v);
@@ -150,18 +112,6 @@ public:
         } else {
             if (was_zero)
                 m_index.push_back(j);
-        }
-    }
-
-    void restore_index_and_clean_from_data() {
-        m_index.resize(0);
-        for (unsigned i = 0; i < m_data.size(); i++) {
-            T & v = m_data[i];
-            if (lp_settings::is_eps_small_general(v, 1e-14)) {
-                v = zero_of_type<T>();
-            } else {
-                m_index.push_back(i);
-            }
         }
     }
 
@@ -215,9 +165,6 @@ public:
     }
 
     
-#ifdef Z3DEBUG
-    bool is_OK() const;
-#endif
     void print(std::ostream & out);
 };
 }

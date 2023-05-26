@@ -1253,7 +1253,9 @@ struct
   let mk_re_sort = Z3native.mk_re_sort
   let is_re_sort = Z3native.is_re_sort
   let mk_string_sort = Z3native.mk_string_sort
+  let mk_char_sort = Z3native.mk_char_sort
   let is_string_sort = Z3native.is_string_sort
+  let is_char_sort = Z3native.is_char_sort
   let mk_string = Z3native.mk_string
   let is_string = Z3native.is_string
   let get_string = Z3native.get_string
@@ -1274,6 +1276,10 @@ struct
   let mk_str_le = Z3native.mk_str_le
   let mk_str_lt = Z3native.mk_str_lt
   let mk_int_to_str = Z3native.mk_int_to_str
+  let mk_string_to_code = Z3native.mk_string_to_code
+  let mk_string_from_code = Z3native.mk_string_from_code
+  let mk_ubv_to_str = Z3native.mk_ubv_to_str
+  let mk_sbv_to_str = Z3native.mk_sbv_to_str
   let mk_seq_to_re = Z3native.mk_seq_to_re
   let mk_seq_in_re = Z3native.mk_seq_in_re
   let mk_re_plus = Z3native.mk_re_plus
@@ -1287,6 +1293,12 @@ struct
   let mk_re_complement = Z3native.mk_re_complement
   let mk_re_empty = Z3native.mk_re_empty
   let mk_re_full = Z3native.mk_re_full
+  let mk_char = Z3native.mk_char
+  let mk_char_le = Z3native.mk_char_le
+  let mk_char_to_int = Z3native.mk_char_to_int
+  let mk_char_to_bv = Z3native.mk_char_to_bv
+  let mk_char_from_bv = Z3native.mk_char_from_bv
+  let mk_char_is_digit = Z3native.mk_char_is_digit
 end
 
 module FloatingPoint =
@@ -1542,7 +1554,7 @@ struct
 
       let to_string (x:func_entry) =
         let a = get_args x in
-        let f c p = (p ^ (Expr.to_string c) ^ ", ") in
+        let f c p = ((Expr.to_string c) ^ ", " ^ p) in
         "[" ^ List.fold_right f a ((Expr.to_string (get_value x)) ^ "]")
     end
 

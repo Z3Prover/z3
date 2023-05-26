@@ -45,7 +45,7 @@ inline std::string lia_move_to_string(lia_move m) {
     case lia_move::unsat:
         return "unsat";
     default:
-        lp_assert(false);
+        UNREACHABLE();
     };
     return "strange";
 }

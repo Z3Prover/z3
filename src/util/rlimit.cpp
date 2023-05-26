@@ -87,6 +87,8 @@ void reslimit::push_child(reslimit* r) {
 
 void reslimit::pop_child() {
     lock_guard lock(*g_rlimit_mux);
+    m_count += m_children.back()->m_count;
+    m_children.back()->m_count = 0;
     m_children.pop_back();    
 }
 

@@ -1,10 +1,7 @@
 z3_add_component(lp
   SOURCES
-    binary_heap_priority_queue.cpp
-    binary_heap_upair_queue.cpp
     core_solver_pretty_printer.cpp
     dense_matrix.cpp
-    eta_matrix.cpp
     emonics.cpp
     factorization.cpp
     factorization_factory_imp.cpp
@@ -19,14 +16,8 @@ z3_add_component(lp
     lar_solver.cpp
     lar_core_solver.cpp
     lp_core_solver_base.cpp
-    lp_dual_core_solver.cpp
-    lp_dual_simplex.cpp
     lp_primal_core_solver.cpp
-    lp_primal_simplex.cpp
     lp_settings.cpp
-    lp_solver.cpp
-    lu.cpp
-    lp_utils.cpp
     matrix.cpp
     mon_eq.cpp
     monomial_bounds.cpp
@@ -45,10 +36,6 @@ z3_add_component(lp
     nra_solver.cpp    
     permutation_matrix.cpp
     random_updater.cpp      
-    row_eta_matrix.cpp
-    scaler.cpp
-    square_dense_submatrix.cpp
-    square_sparse_matrix.cpp
     static_matrix.cpp
   COMPONENT_DEPENDENCIES
     util

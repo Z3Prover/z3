@@ -78,7 +78,7 @@ zstring::zstring(char const* s) {
             m_buffer.push_back(ch);
         }
         else {
-            m_buffer.push_back(*s);
+            m_buffer.push_back((unsigned char)*s);
             ++s;
         }
     }

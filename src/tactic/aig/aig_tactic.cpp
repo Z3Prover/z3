@@ -103,6 +103,7 @@ public:
                 new_f = conj;
             g->assert_expr(new_f);                       
         }
+        g->elim_true();
     }
     
     void operator()(goal_ref const & g, goal_ref_buffer & result) override {

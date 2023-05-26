@@ -18,6 +18,7 @@ Author:
 
 #include "util/top_sort.h"
 #include "sat/smt/sat_smt.h"
+#include "sat/sat_ddfw.h"
 #include "ast/euf/euf_egraph.h"
 #include "model/model.h"
 #include "smt/params/smt_params.h"
@@ -135,6 +136,17 @@ namespace euf {
         virtual bool is_beta_redex(euf::enode* p, euf::enode* n) const { return false; }
 
         sat::status status() const { return sat::status::th(false, get_id()); }
+
+        /**
+        * Local search interface
+        */
+        virtual void set_bool_search(sat::ddfw* ddfw) {}
+
+        virtual void set_bounds_begin() {}
+
+        virtual void set_bounds_end(unsigned num_literals) {}
+
+        virtual void set_bounds(enode* n) {}
 
     };
 

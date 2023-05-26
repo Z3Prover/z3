@@ -47,13 +47,13 @@ public:
 };
 
 class ac_rewriter {
-    ast_manager& m_manager;
+    ast_manager& m;
 public:
-    ac_rewriter(ast_manager& m): m_manager(m) {}
+    ac_rewriter(ast_manager& m): m(m) {}
 
     br_status mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
         if ((f->is_associative() && f->is_commutative()) ||
-            m_manager.is_distinct(f)) {
+            m.is_distinct(f)) {
             ptr_buffer<expr> buffer;
             buffer.append(num_args, args);
             std::sort(buffer.begin(), buffer.end(), ast_lt_proc());
@@ -62,13 +62,13 @@ public:
                 change = (args[i] != buffer[i]);
             }
             if (change) {
-                result = m().mk_app(f, num_args, buffer.begin());
+                result = m.mk_app(f, num_args, buffer.begin());
                 return BR_DONE;
             }
         }
         else if (f->is_commutative() && num_args == 2 && args[0]->get_id() > args[1]->get_id()) {
             expr* args2[2] = { args[1], args[0] };
-            result = m().mk_app(f, num_args, args2);
+            result = m.mk_app(f, num_args, args2);
             return BR_DONE;
         }
         return BR_FAILED;
@@ -76,10 +76,8 @@ public:
 
     void mk_app(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
         if (mk_app_core(f, num_args, args, result) == BR_FAILED)
-            result = m().mk_app(f, num_args, args);
+            result = m.mk_app(f, num_args, args);
     }
-private:
-    ast_manager& m() const { return m_manager; }
 };
 
 
@@ -110,13 +108,12 @@ class symmetry_reduce_tactic::imp {
     typedef ptr_vector<app>     term_set;
     typedef obj_map<app, unsigned> app_map;
     typedef u_map<ptr_vector<app> > inv_app_map;
-    ast_manager&                m_manager;
+    ast_manager&                m;
     ac_rewriter_star            m_rewriter;
     scoped_ptr<expr_replacer>   m_replace;
     
-    ast_manager& m() const { return m_manager; }
 public:
-    imp(ast_manager& m) : m_manager(m), m_rewriter(m) {
+    imp(ast_manager& m) : m(m), m_rewriter(m) {
         m_replace = mk_default_expr_replacer(m, false);
     }
 
@@ -124,10 +121,10 @@ public:
 
     void operator()(goal & g) {
         if (g.inconsistent())
-            return;
+            return;        
         tactic_report report("symmetry-reduce", g);
         vector<ptr_vector<app> > P;    
-        expr_ref fml(m());
+        expr_ref fml(m);
         to_formula(g, fml);
         app_map occs;
         compute_occurrences(fml, occs);
@@ -149,11 +146,13 @@ public:
                     app* c = select_const(consts, cts);
                     if (!c) break;
                     cts.push_back(c);
-                    expr* mem = mk_member(t, cts);
+                    expr_ref mem = mk_member(t, cts);
                     g.assert_expr(mem); 
                     num_sym_break_preds++;
-                    TRACE("symmetry_reduce", tout << "member predicate: " << mk_pp(mem, m()) << "\n";);
-                    fml = m().mk_and(fml.get(), mem);
+
+                    TRACE("symmetry_reduce", tout << "member predicate: " << mem << "\n";);
+                    
+                    fml = m.mk_and(fml.get(), mem);
                     normalize(fml);
                 }
             }
@@ -167,7 +166,7 @@ private:
         for (unsigned i = 0; i < g.size(); ++i) {
             conjs.push_back(g.form(i));
         }
-        fml = m().mk_and(conjs.size(), conjs.data());
+        fml = m.mk_and(conjs.size(), conjs.data());
         normalize(fml);
     }
 
@@ -184,28 +183,17 @@ private:
         // compute_siblings(fml, coloring);
         compute_inv_app(coloring, inv_color);
         
-        inv_app_map::iterator it = inv_color.begin(), end = inv_color.end();
-        for (; it != end; ++it) {
-            if (it->m_value.size() < 2) {
+        for (auto const& [k, v] : inv_color) {
+            if (v.size() < 2)
                 continue;
-            }
-            VERIFY(occs.find(it->m_value[0], num_occs));
-            if (num_occs < 2) {
+            VERIFY(occs.find(v[0], num_occs));
+            if (num_occs < 2)
                 continue;
-            }
-            bool is_const = true;
-            for (unsigned j = 0; is_const && j < it->m_value.size(); ++j) {
-                is_const = it->m_value[j]->get_num_args() == 0;
-            }
-            if (!is_const) {
+            bool is_const = all_of(v, [&](app* a) { return a->get_num_args() == 0; });
+            if (!is_const) 
                 continue;
-            }
-            P.push_back(it->m_value);
-            TRACE("symmetry_reduce",
-                for (unsigned i = 0; i < it->m_value.size(); ++i) {
-                    tout << mk_pp(it->m_value[i], m()) << " ";
-                }
-            tout << "\n";);
+            P.push_back(v);
+            TRACE("symmetry_reduce", for (app * a : v) tout << mk_pp(a, m) << " "; tout << "\n";);            
         }
     }
 
@@ -426,14 +414,14 @@ private:
                   tout << "Not symmetric: ";
               }
               for (unsigned i = 0; i < p.size(); ++i) {
-                  tout << mk_pp(p[i], m()) << " ";
+                  tout << mk_pp(p[i], m) << " ";
               }
               tout << "\n";);
         return result;
     }
 
     bool check_swap(expr* fml, app* t1, app* t2) {
-        expr_substitution sub(m());
+        expr_substitution sub(m);
         sub.insert(t1, t2);
         sub.insert(t2, t1);
         m_replace->set_substitution(&sub);
@@ -441,7 +429,7 @@ private:
     }
 
     bool check_cycle(expr* fml, permutation& p) {
-        expr_substitution sub(m());
+        expr_substitution sub(m);
         for (unsigned i = 0; i + 1 < p.size(); ++i) {
             sub.insert(p[i], p[i+1]);
         }
@@ -451,15 +439,15 @@ private:
     }
 
     bool check_substitution(expr* t) {
-        expr_ref r(m());
+        expr_ref r(m);
         (*m_replace)(t, r);
         normalize(r);
         return t == r.get();
     }
 
     void normalize(expr_ref& r) {
-        proof_ref pr(m());
-        expr_ref  result(m());
+        proof_ref pr(m);
+        expr_ref  result(m);
         m_rewriter(r.get(), result, pr);
         r = result;
     }
@@ -473,7 +461,7 @@ private:
         while (!todo.empty()) {
             fml = todo.back();
             todo.pop_back();
-            if (m().is_and(fml)) {
+            if (m.is_and(fml)) {
                 todo.append(to_app(fml)->get_num_args(), to_app(fml)->get_args());               
             }
             else if (is_range_restriction(fml, p, t)) {
@@ -482,13 +470,13 @@ private:
         }
     }
     bool is_range_restriction(expr* form, term_set const& C, app*& t) {
-        if (!m().is_or(form)) return false;
+        if (!m.is_or(form)) return false;
         unsigned sz = to_app(form)->get_num_args();
         t = nullptr;
         for (unsigned i = 0; i < sz; ++i) {
             expr* e = to_app(form)->get_arg(i);
             expr* e1, *e2;
-            if (!m().is_eq(e, e1, e2)) return false;
+            if (!m.is_eq(e, e1, e2)) return false;
             if (!is_app(e1) || !is_app(e2)) return false;
             app* a1 = to_app(e1), *a2 = to_app(e2);
             if (C.contains(a1) && (t == nullptr || t == a2)) {
@@ -515,13 +503,9 @@ private:
         num_occurrences(app_map& occs): m_occs(occs) {}
         void operator()(app* n) {
             m_occs.insert_if_not_there(n, 0);
-            unsigned sz = n->get_num_args();
-            for (unsigned i = 0; i < sz; ++i) {
-                expr* arg = n->get_arg(i);
-                if (is_app(arg)) {
-                    m_occs.insert_if_not_there(to_app(arg), 0)++;
-                }
-            }
+            for (expr* arg : *n) 
+                if (is_app(arg)) 
+                    m_occs.insert_if_not_there(to_app(arg), 0)++;                            
         }
         void operator()(quantifier * n) {}
         void operator()(var * n) {}
@@ -540,7 +524,7 @@ private:
         unsigned weight = 0, weight1 = 0;
         VERIFY(occs.find(t, weight));
         unsigned cts_delta = compute_cts_delta(t, cts, consts);
-        TRACE("symmetry_reduce", tout << mk_pp(t, m()) << " " << weight << " " << cts_delta << "\n";);
+        TRACE("symmetry_reduce", tout << mk_pp(t, m) << " " << weight << " " << cts_delta << "\n";);
         for (unsigned i = 1; i < T.size(); ++i) {
             app* t1 = T[i];
             VERIFY(occs.find(t1, weight1));
@@ -548,7 +532,7 @@ private:
                 continue;
             }
             unsigned cts_delta1 = compute_cts_delta(t1, cts, consts);
-            TRACE("symmetry_reduce", tout << mk_pp(t1, m()) << " " << weight1 << " " << cts_delta1 << "\n";);
+            TRACE("symmetry_reduce", tout << mk_pp(t1, m) << " " << weight1 << " " << cts_delta1 << "\n";);
             if ((t->get_num_args() == t1->get_num_args() && (weight1 > weight || cts_delta1 < cts_delta)) || 
                 t->get_num_args() > t1->get_num_args()) {
                 cts_delta = cts_delta1;
@@ -577,15 +561,15 @@ private:
         member_of mem(consts, cts);
         for_each_expr(mem, t);
         TRACE("symmetry_reduce",
-              tout << "Term: " << mk_pp(t, m()) << "\n";
+              tout << "Term: " << mk_pp(t, m) << "\n";
               tout << "Support set: ";
               for (unsigned i = 0; i < consts.size(); ++i) {
-                  tout << mk_pp(consts[i], m()) << " ";
+                  tout << mk_pp(consts[i], m) << " ";
               }
               tout << "\n";
               tout << "Constants: ";
               for (unsigned i = 0; i < cts.size(); ++i) {
-                  tout << mk_pp(cts[i], m()) << " ";
+                  tout << mk_pp(cts[i], m) << " ";
               }
               tout << "\n";
               );
@@ -606,15 +590,14 @@ private:
     app* select_const(term_set const& A, term_set const& B) {
         unsigned j;
         for (j = 0; j < A.size() && B.contains(A[j]); ++j);
-        return (j == A.size())?0:A[j];
+        return (j == A.size())? nullptr:A[j];
     }
 
-    expr* mk_member(app* t, term_set const& C) {
-        expr_ref_vector eqs(m());
-        for (unsigned i = 0; i < C.size(); ++i) {
-            eqs.push_back(m().mk_eq(t, C[i]));
-        }
-        return mk_or(m(), eqs.size(), eqs.data());
+    expr_ref mk_member(app* t, term_set const& C) {
+        expr_ref_vector eqs(m);
+        for (expr* e : C) 
+            eqs.push_back(m.mk_eq(t, e));        
+        return mk_or(eqs);
     }
 };
 

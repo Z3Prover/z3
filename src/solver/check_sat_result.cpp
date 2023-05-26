@@ -41,8 +41,10 @@ void check_sat_result::set_reason_unknown(event_handler& eh) {
 
 proof* check_sat_result::get_proof() {
     if (!m_log.empty() && !m_proof) {
-        app* last = m_log.back();
-        m_log.push_back(to_app(m.get_fact(last)));
+        SASSERT(is_app(m_log.back()));
+        app* last = to_app(m_log.back());
+        expr* fact = m.get_fact(last);
+        m_log.push_back(fact);
         m_proof = m.mk_clause_trail(m_log.size(), m_log.data());            
     }
     if (m_proof)

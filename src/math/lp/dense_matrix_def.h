@@ -150,17 +150,6 @@ template <typename T, typename X> void dense_matrix<T, X>::apply_from_left_to_X(
     }
 }
 
-// This method pivots row i to row i0 by muliplying row i by
-//   alpha and adding it to row i0.
-template <typename T, typename X> void dense_matrix<T, X>::pivot_row_to_row(unsigned i, const T& alpha, unsigned i0,
-                                                                            const double & pivot_epsilon) {
-    for (unsigned j = 0; j < m_n; j++) {
-        m_values[i0 * m_n + j] += m_values[i * m_n + j] * alpha;
-        if (fabs(m_values[i0 + m_n + j]) < pivot_epsilon) {
-            m_values[i0 + m_n + j] = numeric_traits<T>::zero();;
-        }
-    }
-}
 
 template <typename T, typename X> void dense_matrix<T, X>::swap_columns(unsigned a, unsigned b) {
     for (unsigned i = 0; i < m_m; i++) {

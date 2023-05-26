@@ -188,6 +188,9 @@ class pattern_inference_cfg :  public default_rewriter_cfg {
     ptr_vector<pre_pattern>      m_pre_patterns;
     expr_pattern_match           m_database;
 
+    ptr_buffer<app> m_args;
+    app* mk_pattern(app* candidate);
+
     void candidates2unary_patterns(ptr_vector<app> const & candidate_patterns,
                                    ptr_vector<app> & remaining_candidate_patterns,
                                    app_ref_buffer & result);

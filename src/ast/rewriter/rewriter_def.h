@@ -641,10 +641,6 @@ rewriter_tpl<Config>::rewriter_tpl(ast_manager & m, bool proof_gen, Config & cfg
 }
 
 template<typename Config>
-rewriter_tpl<Config>::~rewriter_tpl() {
-}
-
-template<typename Config>
 void rewriter_tpl<Config>::reset() {
     m_cfg.reset();
     rewriter_core::reset();

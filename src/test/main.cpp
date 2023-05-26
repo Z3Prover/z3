@@ -268,4 +268,5 @@ int main(int argc, char ** argv) {
     TST(mod_interval);
     TST(viable);
     TST(totalizer);
+    TST(distribution);
 }

@@ -174,14 +174,6 @@ std::set<std::pair<unsigned, unsigned>>  static_matrix<T, X>::get_domain() {
     return ret;
 }
 
-template <typename T, typename X> void static_matrix<T, X>::copy_column_to_indexed_vector (unsigned j, indexed_vector<T> & v) const {
-    lp_assert(j < m_columns.size());
-    for (auto & it : m_columns[j]) {
-        const T& val = get_val(it);
-        if (!is_zero(val))
-            v.set_value(val, it.var());
-    }
-}
 
 template <typename T, typename X> T static_matrix<T, X>::get_max_abs_in_row(unsigned row) const {
     T ret = numeric_traits<T>::zero();

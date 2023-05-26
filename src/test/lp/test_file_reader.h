@@ -27,7 +27,6 @@ Revision History:
 #include <iostream>
 #include <fstream>
 #include "math/lp/lp_utils.h"
-#include "math/lp/lp_solver.h"
 
 namespace lp {
 

@@ -24,6 +24,7 @@ Revision History:
 #include "util/debug.h"
 #include "util/rlimit.h"
 #include <iostream>
+#include <sstream>
 
 template class interval_manager<im_default_config>;
 typedef im_default_config::interval interval;
@@ -199,16 +200,12 @@ static void mk_random_interval(T & cfg, interval & a, unsigned magnitude) {
 
 #define BUFFER_SZ 256
 static int g_problem_id = 0;
-static char g_buffer[BUFFER_SZ];
 
-char const * get_next_file_name() {
-#ifdef _WINDOWS
-    sprintf_s(g_buffer, BUFFER_SZ, "interval_lemma_%d.smt2", g_problem_id);
-#else
-    sprintf(g_buffer, "interval_lemma_%d.smt2", g_problem_id);
-#endif
+std::string get_next_file_name() {
+    std::stringstream ous;
+    ous << "interval_lemma_" << g_problem_id << ".smt2";
     g_problem_id++;
-    return g_buffer;
+    return ous.str();
 }
 
 static void display_lemmas(unsynch_mpq_manager & nm, char const * result_term,

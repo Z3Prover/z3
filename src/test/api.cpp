@@ -88,7 +88,7 @@ void test_bvneg() {
 
 static bool cb_called = false;
 static void my_cb(Z3_context, Z3_error_code) {
-  cb_called = true;
+    cb_called = true;
 }
 
 static void test_mk_distinct() {
@@ -101,6 +101,7 @@ static void test_mk_distinct() {
     Z3_ast args[] = { Z3_mk_int64(ctx, 0, bv8), Z3_mk_int64(ctx, 0, bv32) };
     Z3_ast d = Z3_mk_distinct(ctx, 2, args);
     ENSURE(cb_called);
+    VERIFY(!d);
     Z3_del_config(cfg);
     Z3_del_context(ctx);    
     

@@ -41,7 +41,7 @@ class dominator_simplifier : public dependent_expr_simplifier {
     bool is_subexpr(expr * a, expr * b);
 
     expr_ref get_cached(expr* t) { expr* r = nullptr; if (!m_result.find(t, r)) r = t; return expr_ref(r, m); }
-    void cache(expr *t, expr* r) { m_result.insert(t, r); m_trail.push_back(r); }
+    void cache(expr *t, expr* r) { m_result.insert(t, r); m_trail.push_back(r); m_trail.push_back(t); }
     void reset_cache() { m_result.reset(); }
 
     ptr_vector<expr> const & tree(expr * e);

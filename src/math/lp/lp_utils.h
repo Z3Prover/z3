@@ -141,7 +141,6 @@ inline void throw_exception(std::string && str) {
 typedef z3_exception exception;
 
 #define lp_assert(_x_) { SASSERT(_x_); }
-inline void lp_unreachable() { lp_assert(false); }
 template <typename X> inline X zero_of_type() { return numeric_traits<X>::zero(); }
 template <typename X> inline X one_of_type() { return numeric_traits<X>::one(); }
 template <typename X> inline bool is_zero(const X & v) { return numeric_traits<X>::is_zero(v); }
@@ -151,9 +150,6 @@ template <typename X> inline bool is_integer(const X & v) { return numeric_trait
 
 template <typename X> inline X ceil_ratio(const X & a, const X & b) { return numeric_traits<X>::ceil_ratio(a, b); }
 template <typename X> inline X floor_ratio(const X & a, const X & b) { return numeric_traits<X>::floor_ratio(a, b); }
-
-
-template <typename X> inline bool precise() { return numeric_traits<X>::precise(); }
 
 
 // returns true if a factor of b

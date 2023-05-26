@@ -315,13 +315,13 @@ func_decl * array_decl_plugin::mk_store(unsigned arity, sort * const * domain) {
 
 func_decl * array_decl_plugin::mk_array_ext(unsigned arity, sort * const * domain, unsigned i) {
     if (arity != 2 || domain[0] != domain[1]) {
-        UNREACHABLE();
+        m_manager->raise_exception("incorrect arguments passed to array-ext");        
         return nullptr;
     }
     sort * s = domain[0];
     unsigned num_parameters = s->get_num_parameters();
     if (num_parameters == 0 || i >= num_parameters - 1) {
-        UNREACHABLE();
+        m_manager->raise_exception("incorrect arguments passed to array-ext");        
         return nullptr;
     }
     sort * r = to_sort(s->get_parameter(i).get_ast());

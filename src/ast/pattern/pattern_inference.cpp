@@ -405,6 +405,44 @@ bool pattern_inference_cfg::pattern_weight_lt::operator()(expr * n1, expr * n2) 
     return num_free_vars1 > num_free_vars2 || (num_free_vars1 == num_free_vars2 && i1.m_size < i2.m_size);
 }
 
+
+app* pattern_inference_cfg::mk_pattern(app* candidate) {
+    auto has_var_arg = [&](expr* e) {
+        if (!is_app(e))
+            return false;
+        for (expr* arg : *to_app(e))
+            if (is_var(arg))
+                return true;
+        return false;
+    };
+    if (has_var_arg(candidate))
+        return m.mk_pattern(candidate);
+    m_args.reset();
+    for (expr* arg : *candidate) {
+        if (!is_app(arg))
+            return m.mk_pattern(candidate);
+        m_args.push_back(to_app(arg));
+    }
+    for (unsigned i = 0; i < m_args.size(); ++i) {
+        app* arg = m_args[i];
+        if (has_var_arg(arg))
+            continue;
+        m_args[i] = m_args.back();
+        --i;
+        m_args.pop_back();
+
+        if (is_ground(arg))
+            continue;
+
+        for (expr* e : *to_app(arg)) {
+            if (!is_app(e))
+                return m.mk_pattern(candidate);
+            m_args.push_back(to_app(e));
+        }
+    }
+    return m.mk_pattern(m_args.size(), m_args.data());
+}
+
 /**
    \brief Create unary patterns (single expressions that contain all
    bound variables).  If a candidate does not contain all bound
@@ -418,7 +456,7 @@ void pattern_inference_cfg::candidates2unary_patterns(ptr_vector<app> const & ca
         expr2info::obj_map_entry * e = m_candidates_info.find_core(candidate);
         info const & i = e->get_data().m_value;
         if (i.m_free_vars.num_elems() == m_num_bindings) {
-            app * new_pattern = m.mk_pattern(candidate);
+            app * new_pattern = mk_pattern(candidate);
             result.push_back(new_pattern);
         }
         else {

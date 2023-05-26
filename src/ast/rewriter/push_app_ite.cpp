@@ -18,6 +18,7 @@ Revision History:
 
 --*/
 #include "ast/rewriter/push_app_ite.h"
+#include "ast/rewriter/rewriter_def.h"
 #include "ast/ast_pp.h"
 
 

@@ -577,6 +577,7 @@ namespace datalog {
             m_rule_properties.check_uninterpreted_free();
             m_rule_properties.check_nested_free();
             m_rule_properties.check_infinite_sorts();
+            m_rule_properties.check_background_free();
             break;
         case SPACER_ENGINE:
             m_rule_properties.collect(r);
@@ -584,6 +585,7 @@ namespace datalog {
             m_rule_properties.check_for_negated_predicates();
             m_rule_properties.check_uninterpreted_free();
             m_rule_properties.check_quantifier_free(exists_k);
+            m_rule_properties.check_background_free();
             break;
         case BMC_ENGINE:
             m_rule_properties.collect(r);
@@ -598,13 +600,16 @@ namespace datalog {
             m_rule_properties.collect(r);
             m_rule_properties.check_existential_tail();
             m_rule_properties.check_for_negated_predicates();
+            m_rule_properties.check_background_free();
             break;
         case CLP_ENGINE:
             m_rule_properties.collect(r);
             m_rule_properties.check_existential_tail();
             m_rule_properties.check_for_negated_predicates();
+            m_rule_properties.check_background_free();
             break;
         case DDNF_ENGINE:
+            m_rule_properties.check_background_free();
             break;
         case LAST_ENGINE:
         default:

@@ -357,8 +357,7 @@ namespace q {
                     return expr_ref(m);                    
             }
             else if (!(*p)(*m_model, vars, fmls)) {
-                TRACE("q", tout << "theory projection failed\n");
-                return expr_ref(m);
+                TRACE("q", tout << "theory projection failed - use value\n");
             }
         }
         for (app* v : vars) {
@@ -636,7 +635,7 @@ namespace q {
         if (m_model)
             return;
         m_model = alloc(model, m);
-        ctx.update_model(m_model);
+        ctx.update_model(m_model, false);
     }
 
     void mbqi::init_solver() {

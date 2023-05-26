@@ -252,6 +252,8 @@ namespace smt {
         else if (m.is_lambda_def(n->get_decl())) {
             instantiate_default_lambda_def_axiom(n);
             d->m_lambdas.push_back(n);
+            m_lambdas.push_back(n);
+            ctx.push_trail(push_back_vector(m_lambdas));
         }
         return r;
     }
@@ -830,6 +832,12 @@ namespace smt {
                     return true;
                 }
         }
+        for (enode* n : m_lambdas) 
+            for (enode* p : n->get_parents())
+                if (!is_default(p) && !ctx.is_beta_redex(p, n)) {
+                    TRACE("array", tout << "lambda is not a beta redex " << enode_pp(p, ctx) << "\n");
+                    return true;
+                }
         return false;
     }
 

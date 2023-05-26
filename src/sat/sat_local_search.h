@@ -133,21 +133,21 @@ namespace sat {
         vector<constraint>  m_constraints;               // all constraints
         literal_vector      m_assumptions;               // temporary assumptions
         literal_vector      m_prop_queue;                // propagation queue
-        unsigned            m_num_non_binary_clauses;       
-        bool                m_is_pb; 
-        bool                m_is_unsat;                                
+        unsigned            m_num_non_binary_clauses = 0;
+        bool                m_is_pb = false;
+        bool                m_is_unsat = false;
         unsigned_vector     m_unsat_stack;               // store all the unsat constraints
         unsigned_vector     m_index_in_unsat_stack;      // which position is a constraint in the unsat_stack
         
         // configuration changed decreasing variables (score>0 and conf_change==true)
         bool_var_vector  m_goodvar_stack;
-        bool             m_initializing;
+        bool             m_initializing = false;
 
 
         // information about solution
-        unsigned         m_best_unsat;
-        double           m_best_unsat_rate;
-        double           m_last_best_unsat_rate;
+        unsigned         m_best_unsat = 0;
+        double           m_best_unsat_rate = 0;
+        double           m_last_best_unsat_rate = 0;
                                                        // for non-known instance, set as maximal
         int              m_best_known_value = INT_MAX; // best known value for this instance
         
@@ -159,7 +159,7 @@ namespace sat {
 
         reslimit    m_limit;
         random_gen  m_rand;
-        parallel*   m_par;
+        parallel* m_par = nullptr;
         model       m_model;
 
         inline int score(bool_var v) const { return m_vars[v].m_score; }
@@ -248,7 +248,7 @@ namespace sat {
 
         void set_seed(unsigned n) override { config().set_random_seed(n); }
 
-        void reinit(solver& s) override;
+        void reinit(solver& s, bool_vector const& phase) override;
 
         // used by unit-walk
         void set_phase(bool_var v, bool f);

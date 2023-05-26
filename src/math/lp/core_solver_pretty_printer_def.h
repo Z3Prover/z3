@@ -37,9 +37,8 @@ core_solver_pretty_printer<T, X>::core_solver_pretty_printer(const lp_core_solve
     m_signs(core_solver.m_A.row_count(), vector<string>(core_solver.m_A.column_count(), " ")),
     m_costs(ncols(), ""),
     m_cost_signs(ncols(), " "),
-    m_rs(ncols(), zero_of_type<X>()),
-    m_w_buff(core_solver.m_w),
-    m_ed_buff(core_solver.m_ed) {
+    m_rs(ncols(), zero_of_type<X>())
+     {
     m_lower_bounds_title = "low";
     m_upp_bounds_title = "upp";
     m_exact_norm_title = "exact cn";
@@ -59,22 +58,13 @@ core_solver_pretty_printer<T, X>::core_solver_pretty_printer(const lp_core_solve
 }
 
 template <typename T, typename X> void core_solver_pretty_printer<T, X>::init_costs() {
-    if (!m_core_solver.use_tableau()) {
-        vector<T> local_y(m_core_solver.m_m());
-        m_core_solver.solve_yB(local_y);
-        for (unsigned i = 0; i < ncols(); i++) {
-            if (m_core_solver.m_basis_heading[i] < 0) {
-                T t = m_core_solver.m_costs[i] - m_core_solver.m_A.dot_product_with_column(local_y, i);
-                set_coeff(m_costs, m_cost_signs, i, t, m_core_solver.column_name(i));
-            }
-        }
-    } else {
+     
         for (unsigned i = 0; i < ncols(); i++) {
             if (m_core_solver.m_basis_heading[i] < 0) {
                 set_coeff(m_costs, m_cost_signs, i, m_core_solver.m_d[i], m_core_solver.column_name(i));
             }
         }
-    }
+    
 }
 
 template <typename T, typename X> core_solver_pretty_printer<T, X>::~core_solver_pretty_printer() {
@@ -89,15 +79,7 @@ template <typename T, typename X> void core_solver_pretty_printer<T, X>::init_rs
     }
 }
 
-template <typename T, typename X> T core_solver_pretty_printer<T, X>::current_column_norm() {
-    T ret = zero_of_type<T>();
-    for (auto i : m_core_solver.m_ed.m_index)
-        ret += m_core_solver.m_ed[i] * m_core_solver.m_ed[i];
-    return ret;
-}
-
 template <typename T, typename X> void core_solver_pretty_printer<T, X>::init_m_A_and_signs() { 
-    if (numeric_traits<T>::precise() && m_core_solver.m_settings.use_tableau()) {
         for (unsigned column = 0; column < ncols(); column++) {
             vector<T> t(nrows(), zero_of_type<T>());
             for (const auto & c : m_core_solver.m_A.m_columns[column]){
@@ -124,24 +106,7 @@ template <typename T, typename X> void core_solver_pretty_printer<T, X>::init_m_
                           name);
                 m_rs[row] += t[row] * m_core_solver.m_x[column];
             }
-        }
-    } else {
-        for (unsigned column = 0; column < ncols(); column++) {
-            m_core_solver.solve_Bd(column, m_ed_buff, m_w_buff); // puts the result into m_core_solver.m_ed
-            string name = m_core_solver.column_name(column);
-            for (unsigned row = 0; row < nrows(); row ++) {
-                set_coeff(
-                          m_A[row],
-                          m_signs[row],
-                          column,
-                          m_ed_buff[row],
-                          name);
-                m_rs[row] += m_ed_buff[row] * m_core_solver.m_x[column];
-            }
-            if (!m_core_solver.use_tableau())
-                m_exact_column_norms.push_back(current_column_norm() + T(1)); // a conversion missing 1 -> T
-        }
-    }
+        }     
 }
 
 template <typename T, typename X> void core_solver_pretty_printer<T, X>::init_column_widths() {
@@ -174,7 +139,7 @@ template <typename T, typename X> void core_solver_pretty_printer<T, X>::adjust_
     case column_type::free_column:
         break;
     default:
-        lp_assert(false);
+        UNREACHABLE();
         break;
     }
 }
@@ -190,20 +155,9 @@ template <typename T, typename X> unsigned core_solver_pretty_printer<T, X>:: ge
             w = cellw;
         }
     }
-    if (!m_core_solver.use_tableau()) {
-        w = std::max(w, (unsigned)T_to_string(m_exact_column_norms[column]).size());
-        if (!m_core_solver.m_column_norms.empty())
-            w = std::max(w, (unsigned)T_to_string(m_core_solver.m_column_norms[column]).size());
-    }
+    
     return w;
 }
-
-template <typename T, typename X> std::string core_solver_pretty_printer<T, X>::regular_cell_string(unsigned row, unsigned /* column */, std::string name) {
-    T t = fabs(m_core_solver.m_ed[row]);
-    if ( t == 1) return name;
-    return T_to_string(t) + name;
-}
-
 
 template <typename T, typename X> void core_solver_pretty_printer<T, X>::set_coeff(vector<string>& row, vector<string> & row_signs, unsigned col, const T & t, string name) {
     if (numeric_traits<T>::is_zero(t)) {
@@ -315,41 +269,15 @@ template <typename T, typename X> void core_solver_pretty_printer<T, X>::print_u
     m_out << std::endl;
 }
 
-template <typename T, typename X> void core_solver_pretty_printer<T, X>::print_exact_norms() {
-    if (m_core_solver.use_tableau()) return;
-    int blanks = m_title_width + 1 - static_cast<int>(m_exact_norm_title.size());
-    m_out << m_exact_norm_title;
-    print_blanks_local(blanks, m_out);
-    for (unsigned i = 0; i < ncols(); i++) {
-        string s = get_exact_column_norm_string(i);
-        int blanks = m_column_widths[i] - static_cast<int>(s.size());
-        print_blanks_local(blanks, m_out);
-        m_out << s << "   ";
-    }
-    m_out << std::endl;
-}
 
 template <typename T, typename X> void core_solver_pretty_printer<T, X>::print_approx_norms() {
-    if (m_core_solver.use_tableau()) return;
-    int blanks = m_title_width + 1 - static_cast<int>(m_approx_norm_title.size());
-    m_out << m_approx_norm_title;
-    print_blanks_local(blanks, m_out);
-    for (unsigned i = 0; i < ncols(); i++) {
-        string s = T_to_string(m_core_solver.m_column_norms[i]);
-        int blanks = m_column_widths[i] - static_cast<int>(s.size());
-        print_blanks_local(blanks, m_out);
-        m_out << s << "   ";
-    }
-    m_out << std::endl;
+    return;
 }
 
 template <typename T, typename X> void core_solver_pretty_printer<T, X>::print() {
     for (unsigned i = 0; i < nrows(); i++) {
         print_row(i);
     }
-    print_exact_norms();
-    if (!m_core_solver.m_column_norms.empty())
-        print_approx_norms();
     m_out << std::endl;
     if (m_core_solver.inf_set().size()) {
         m_out << "inf columns: ";

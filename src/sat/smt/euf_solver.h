@@ -100,6 +100,14 @@ namespace euf {
             scope(unsigned l) : m_var_lim(l) {}
         };
 
+        struct local_search_config {
+            double cb = 0.0;
+            unsigned L = 20;
+            unsigned t = 45;
+            unsigned max_no_improve = 500000;
+            double sp = 0.0003;
+        };
+
 
         size_t* to_ptr(sat::literal l) { return TAG(size_t*, reinterpret_cast<size_t*>((size_t)(l.index() << 4)), 1); }
         size_t* to_ptr(size_t jst) { return TAG(size_t*, reinterpret_cast<size_t*>(jst), 2); }
@@ -119,6 +127,7 @@ namespace euf {
         sat::sat_internalizer&           si;
         relevancy                        m_relevancy;
         smt_params                       m_config;
+        local_search_config              m_ls_config;
         euf::egraph                      m_egraph;
         trail_stack                      m_trail;
         stats                            m_stats;
@@ -251,7 +260,7 @@ namespace euf {
         constraint& mk_constraint(constraint*& c, constraint::kind_t k);
         constraint& conflict_constraint() { return mk_constraint(m_conflict, constraint::kind_t::conflict); }
         constraint& eq_constraint() { return mk_constraint(m_eq, constraint::kind_t::eq); }
-        constraint& lit_constraint(enode* n);
+        constraint& lit_constraint(enode* n);        
 
         // user propagator
         void check_for_user_propagator() {
@@ -339,6 +348,7 @@ namespace euf {
         void add_assumptions(sat::literal_set& assumptions) override;
         bool tracking_assumptions() override;
         std::string reason_unknown() override { return m_reason_unknown; }
+        lbool local_search(bool_vector& phase) override;
 
         void propagate(literal lit, ext_justification_idx idx);
         bool propagate(enode* a, enode* b, ext_justification_idx idx);
@@ -359,6 +369,8 @@ namespace euf {
         void add_explain(size_t* p) { m_explain.push_back(p); }
         void reset_explain() { m_explain.reset(); }
         void set_eliminated(bool_var v) override;
+        bool decide(bool_var& var, lbool& phase) override;
+        bool get_case_split(bool_var& var, lbool& phase) override;
         void asserted(literal l) override;
         sat::check_result check() override;
         void push() override;
@@ -486,7 +498,7 @@ namespace euf {
 
         // model construction
         void save_model(model_ref& mdl);
-        void update_model(model_ref& mdl);
+        void update_model(model_ref& mdl, bool validate);
         obj_map<expr, enode*> const& values2root();
         void model_updated(model_ref& mdl);
         expr* node2value(enode* n) const;
@@ -531,6 +543,10 @@ namespace euf {
             check_for_user_propagator();
             m_user_propagator->register_created(ceh);
         }
+        void user_propagate_register_decide(user_propagator::decide_eh_t& ceh) {
+            check_for_user_propagator();
+            m_user_propagator->register_decide(ceh);
+        }
         void user_propagate_register_expr(expr* e) {
             check_for_user_propagator();
             m_user_propagator->add_expr(e);
@@ -552,4 +568,3 @@ namespace euf {
 inline std::ostream& operator<<(std::ostream& out, euf::solver const& s) {
     return s.display(out);
 }
-

@@ -33,16 +33,12 @@
 #include <stdlib.h>
 #include <utility>
 #include "math/lp/lp_utils.h"
-#include "math/lp/lp_primal_simplex.h"
-#include "math/lp/mps_reader.h"
 #include "test/lp/smt_reader.h"
-#include "math/lp/binary_heap_priority_queue.h"
 #include "test/lp/argument_parser.h"
 #include "test/lp/test_file_reader.h"
 #include "math/lp/indexed_value.h"
 #include "math/lp/lar_solver.h"
 #include "math/lp/numeric_pair.h"
-#include "math/lp/binary_heap_upair_queue.h"
 #include "util/stacked_value.h"
 #include "math/lp/u_set.h"
 #include "util/stopwatch.h"
@@ -50,8 +46,6 @@
 #include "test/lp/gomory_test.h"
 #include "math/lp/matrix.h"
 #include "math/lp/hnf.h"
-#include "math/lp/square_sparse_matrix_def.h"
-#include "math/lp/lu_def.h"
 #include "math/lp/general_matrix.h"
 #include "math/lp/lp_bound_propagator.h"
 #include "math/lp/nla_solver.h"
@@ -59,6 +53,72 @@
 #include "math/lp/cross_nested.h"
 #include "math/lp/int_cube.h"
 #include "math/lp/emonics.h"
+#include "math/lp/static_matrix.h"
+
+bool my_white_space(const char & a) {
+    return a == ' ' || a == '\t';
+}
+size_t number_of_whites(const std::string & s)  {
+    size_t i = 0;
+    for(;i < s.size(); i++)
+        if (!my_white_space(s[i])) return i;
+    return i;
+}
+size_t number_of_whites_from_end(const std::string & s)  {
+    size_t ret = 0;
+    for(int i = static_cast<int>(s.size()) - 1;i >= 0; i--)
+        if (my_white_space(s[i])) ret++;else break;
+    
+    return ret;
+}
+
+
+std::string &ltrim(std::string &s) {
+    s.erase(0, number_of_whites(s));
+    return s;
+}
+
+
+
+
+    // trim from end
+inline std::string &rtrim(std::string &s) {
+    //       s.erase(std::find_if(s.rbegin(), s.rend(), std::not1(std::ptr_fun<int, int>(std::isspace))).base(), s.end());
+    s.erase(s.end() - number_of_whites_from_end(s), s.end());
+    return s;
+}
+    // trim from both ends
+inline std::string &trim(std::string &s) {
+    return ltrim(rtrim(s));
+}
+
+
+vector<std::string> string_split(const std::string &source, const char *delimiter, bool keep_empty)  {
+    vector<std::string> results;
+    size_t prev = 0;
+    size_t next = 0;
+    while ((next = source.find_first_of(delimiter, prev)) != std::string::npos) {
+        if (keep_empty || (next - prev != 0)) {
+            results.push_back(source.substr(prev, next - prev));
+        }
+        prev = next + 1;
+    }
+    if (prev < source.size()) {
+        results.push_back(source.substr(prev));
+    }
+    return results;
+}
+
+vector<std::string> split_and_trim(const std::string &line) {
+    auto split = string_split(line, " \t", false);
+    vector<std::string> ret;
+    for (auto s : split) {
+        ret.push_back(trim(s));
+    }
+    return ret;
+}
+
+
 namespace nla {
 void test_horner();
 void test_monics();
@@ -326,122 +386,6 @@ struct simple_column_namer:public column_namer
 };
 
 
-template <typename T, typename X>
-void test_matrix(square_sparse_matrix<T, X> & a) {
-    auto m = a.dimension();
-
-    // copy a to b in the reversed order
-    square_sparse_matrix<T, X> b(m, m);
-    std::cout << "copy b to a"<< std::endl;
-    for (int row = m - 1; row >= 0; row--)
-        for (int col = m - 1; col >= 0; col --) {
-            b(row, col) = (T const&) a(row, col);
-        }
-
-
-    std::cout << "zeroing b in the reverse order"<< std::endl;
-    for (int row = m - 1; row >= 0; row--)
-        for (int col = m - 1; col >= 0; col --)
-            b.set(row, col, T(0));
-
-
-
-    for (unsigned row = 0; row < m; row ++)
-        for (unsigned col = 0; col < m; col ++)
-            a.set(row, col, T(0));
-
-
-    unsigned i = my_random() % m;
-    unsigned j = my_random() % m;
-
-    auto t = T(1);
-
-    a.set(i, j, t);
-
-    lp_assert(a.get(i, j) == t);
-
-    unsigned j1;
-    if (j < m - 1) {
-        j1 = m - 1;
-        a.set(i, j1, T(2));
-    }
-}
-
-void tst1() {
-    std::cout << "testing the minimal matrix with 1 row and 1 column" << std::endl;
-    square_sparse_matrix<double, double> m0(1, 1);
-    m0.set(0, 0, 1);
-    // print_matrix(m0);
-    m0.set(0, 0, 0);
-    // print_matrix(m0);
-    test_matrix(m0);
-
-    unsigned rows = 2;
-    square_sparse_matrix<double, double> m(rows, rows);
-    std::cout << "setting m(0,1)=" << std::endl;
-
-    m.set(0, 1,  11);
-    m.set(0, 0,  12);
-
-    // print_matrix<double>(m);
-
-    test_matrix(m);
-
-    square_sparse_matrix<double, double> m1(2, 2);
-    m1.set(0, 0, 2);
-    m1.set(1, 0, 3);
-    // print_matrix(m1);
-    std::cout << " zeroing matrix 2 by 2" << std::endl;
-    m1.set(0, 0, 0);
-    m1.set(1, 0, 0);
-    // print_matrix(m1);
-
-    test_matrix(m1);
-
-
-    std::cout << "printing zero matrix 3 by 1" << std::endl;
-    square_sparse_matrix<double, double> m2(3, 3);
-    // print_matrix(m2);
-
-    m2.set(0, 0, 1);
-    m2.set(2, 0, 2);
-    std::cout << "printing  matrix 3 by 1 with a gap" << std::endl;
-    // print_matrix(m2);
-
-    test_matrix(m2);
-
-    square_sparse_matrix<double, double> m10by9(10, 10);
-    m10by9.set(0, 1, 1);
-
-    m10by9(0, 1) = 4;
-
-    double test = m10by9(0, 1);
-
-    std::cout << "got " << test << std::endl;
-
-
-    m10by9.set(0, 8, 8);
-    m10by9.set(3, 4, 7);
-    m10by9.set(3, 2, 5);
-    m10by9.set(3, 8, 99);
-    m10by9.set(3, 2, 6);
-    m10by9.set(1, 8, 9);
-    m10by9.set(4, 0, 40);
-    m10by9.set(0, 0, 10);
-
-    std::cout << "printing  matrix 10 by 9" << std::endl;
-    // print_matrix(m10by9);
-
-
-    test_matrix(m10by9);
-    std::cout <<"zeroing m10by9\n";
-#ifdef Z3DEBUG
-    for (unsigned int i = 0; i < m10by9.dimension(); i++)
-        for (unsigned int j = 0; j < m10by9.column_count(); j++)
-            m10by9.set(i, j, 0);
-#endif
-    // print_matrix(m10by9);
-}
 
 vector<int> allocate_basis_heading(unsigned count) { // the rest of initialization will be handled by lu_QR
     vector<int> basis_heading(count, -1);
@@ -484,861 +428,7 @@ void change_basis(unsigned entering, unsigned leaving, vector<unsigned>& basis, 
     nbasis[place_in_non_basis] = leaving;
 }
 
-
-
-#ifdef Z3DEBUG
-void test_small_lu(lp_settings & settings) {
-    std::cout << " test_small_lu" << std::endl;
-    static_matrix<double, double> m(3, 6);
-    vector<unsigned> basis(3);
-    basis[0] = 0;
-    basis[1] = 1;
-    basis[2] = 3;
-
-    m(0, 0) = 1; m(0, 2)= 3.9; m(2, 3) = 11; m(0, 5) = -3;
-    m(1, 1) = 4; m(1, 4) = 7;
-    m(2, 0) = 1.8; m(2, 2) = 5; m(2, 4) = 2; m(2, 5) = 8;
-
-#ifdef Z3DEBUG
-    print_matrix(m, std::cout);
-#endif
-    vector<int> heading = allocate_basis_heading(m.column_count());
-    vector<unsigned> non_basic_columns;
-    init_basis_heading_and_non_basic_columns_vector(basis, heading, non_basic_columns);
-    lu<static_matrix<double, double>> l(m, basis, settings);
-    lp_assert(l.is_correct(basis));
-    indexed_vector<double> w(m.row_count());
-    std::cout << "entering 2, leaving 0" << std::endl;
-    l.prepare_entering(2, w); // to init vector w
-    l.replace_column(0, w, heading[0]);
-    change_basis(2, 0, basis, non_basic_columns, heading);
-    // #ifdef Z3DEBUG
-    // std::cout << "we were factoring " << std::endl;
-    // print_matrix(get_B(l));
-    // #endif
-    lp_assert(l.is_correct(basis));
-    std::cout << "entering 4, leaving 3" << std::endl;
-    l.prepare_entering(4, w); // to init vector w
-    l.replace_column(0, w, heading[3]);
-    change_basis(4, 3, basis, non_basic_columns, heading);
-    std::cout << "we were factoring " << std::endl;
-#ifdef Z3DEBUG
-    {
-        auto bl = get_B(l, basis);
-        print_matrix(&bl, std::cout);
-    }
-#endif
-    lp_assert(l.is_correct(basis));
-
-    std::cout << "entering 5, leaving 1" << std::endl;
-    l.prepare_entering(5, w); // to init vector w
-    l.replace_column(0, w, heading[1]);
-    change_basis(5, 1, basis, non_basic_columns, heading);
-    std::cout << "we were factoring " << std::endl;
-#ifdef Z3DEBUG
-    {
-        auto bl = get_B(l, basis);
-        print_matrix(&bl, std::cout);
-    }
-#endif
-    lp_assert(l.is_correct(basis));
-    std::cout << "entering 3, leaving 2" << std::endl;
-    l.prepare_entering(3, w); // to init vector w
-    l.replace_column(0, w, heading[2]);
-    change_basis(3, 2, basis, non_basic_columns, heading);
-    std::cout << "we were factoring " << std::endl;
-#ifdef Z3DEBUG
-    {
-        auto bl = get_B(l, basis);
-        print_matrix(&bl, std::cout);
-    }
-#endif
-    lp_assert(l.is_correct(basis));
-
-    m.add_row();
-    m.add_column();
-    m.add_row();
-    m.add_column();
-    for (unsigned i = 0; i < m.column_count(); i++) {
-        m(3, i) = i;
-        m(4, i) = i * i; // to make the rows linearly independent
-    }
-    unsigned j = m.column_count() ;
-    basis.push_back(j-2);
-    heading.push_back(basis.size() - 1);
-    basis.push_back(j-1);
-    heading.push_back(basis.size() - 1);
-    
-    auto columns_to_replace = l.get_set_of_columns_to_replace_for_add_last_rows(heading);
-    l.add_last_rows_to_B(heading, columns_to_replace);
-    lp_assert(l.is_correct(basis));
-}
-
-#endif
-
-void fill_long_row(square_sparse_matrix<double, double> &m, int i) {
-    int n = m.dimension();
-    for (int j = 0; j < n; j ++) {
-        m (i, (j + i) % n) = j * j;
-    }
-}
-
-void fill_long_row(static_matrix<double, double> &m, int i) {
-    int n = m.column_count();
-    for (int j = 0; j < n; j ++) {
-        m (i, (j + i) % n) = j * j;
-    }
-}
-
-
-void fill_long_row_exp(square_sparse_matrix<double, double> &m, int i) {
-    int n = m.dimension();
-
-    for (int j = 0; j < n; j ++) {
-        m(i, j) = my_random() % 20;
-    }
-}
-
-void fill_long_row_exp(static_matrix<double, double> &m, int i) {
-    int n = m.column_count();
-
-    for (int j = 0; j < n; j ++) {
-        m(i, j) = my_random() % 20;
-    }
-}
-
-void fill_larger_square_sparse_matrix_exp(square_sparse_matrix<double, double> & m){
-    for ( unsigned i = 0; i < m.dimension(); i++ )
-        fill_long_row_exp(m, i);
-}
-
-void fill_larger_square_sparse_matrix_exp(static_matrix<double, double> & m){
-    for ( unsigned i = 0; i < m.row_count(); i++ )
-        fill_long_row_exp(m, i);
-}
-
-
-void fill_larger_square_sparse_matrix(square_sparse_matrix<double, double> & m){
-    for ( unsigned i = 0; i < m.dimension(); i++ )
-        fill_long_row(m, i);
-}
-
-void fill_larger_square_sparse_matrix(static_matrix<double, double> & m){
-    for ( unsigned i = 0; i < m.row_count(); i++ )
-        fill_long_row(m, i);
-}
-
-
 int perm_id = 0;
-
-#ifdef Z3DEBUG
-void test_larger_lu_exp(lp_settings & settings) {
-    std::cout << " test_larger_lu_exp" << std::endl;
-    static_matrix<double, double> m(6, 12);
-    vector<unsigned> basis(6);
-    basis[0] = 1;
-    basis[1] = 3;
-    basis[2] = 0;
-    basis[3] = 4;
-    basis[4] = 5;
-    basis[5] = 6;
-
-
-    fill_larger_square_sparse_matrix_exp(m);
-    // print_matrix(m);
-    vector<int> heading = allocate_basis_heading(m.column_count());
-    vector<unsigned> non_basic_columns;
-    init_basis_heading_and_non_basic_columns_vector(basis, heading, non_basic_columns);
-    lu<static_matrix<double, double>> l(m, basis, settings);
-
-    dense_matrix<double, double> left_side = l.get_left_side(basis);
-    dense_matrix<double, double> right_side = l.get_right_side();
-    lp_assert(left_side == right_side);
-    int leaving = 3;
-    int entering = 8;
-    for (unsigned i = 0; i < m.row_count(); i++) {
-        std::cout << static_cast<double>(m(i, entering)) << std::endl;
-    }
-
-    indexed_vector<double> w(m.row_count());
-
-    l.prepare_entering(entering, w);
-    l.replace_column(0, w, heading[leaving]);
-    change_basis(entering, leaving, basis, non_basic_columns, heading);
-    lp_assert(l.is_correct(basis));
-
-    l.prepare_entering(11, w); // to init vector w
-    l.replace_column(0, w, heading[0]);
-    change_basis(11, 0, basis, non_basic_columns, heading);
-    lp_assert(l.is_correct(basis));
-}
-
-void test_larger_lu_with_holes(lp_settings & settings) {
-    std::cout << " test_larger_lu_with_holes" << std::endl;
-    static_matrix<double, double> m(8, 9);
-    vector<unsigned> basis(8);
-    for (unsigned i = 0; i < m.row_count(); i++) {
-        basis[i] = i;
-    }
-    m(0, 0) = 1; m(0, 1) = 2; m(0, 2) = 3; m(0, 3) = 4; m(0, 4) = 5; m(0, 8) = 99;
-    /*        */ m(1, 1) =- 6; m(1, 2) = 7; m(1, 3) = 8; m(1, 4) = 9;
-    /*                     */ m(2, 2) = 10;
-    /*                     */ m(3, 2) = 11; m(3, 3) = -12;
-    /*                     */ m(4, 2) = 13; m(4, 3) = 14; m(4, 4) = 15;
-    // the rest of the matrix is denser
-    m(5, 4) = 28; m(5, 5) = -18; m(5, 6) = 19; m(5, 7) = 25;
-    /*        */  m(6, 5) = 20; m(6, 6) = -21;
-    /*        */  m(7, 5) = 22; m(7, 6) = 23; m(7, 7) = 24; m(7, 8) = 88;
-    print_matrix(m, std::cout);
-    vector<int> heading = allocate_basis_heading(m.column_count());
-    vector<unsigned> non_basic_columns;
-    init_basis_heading_and_non_basic_columns_vector(basis, heading, non_basic_columns);
-    lu<static_matrix<double, double>> l(m, basis, settings);
-    std::cout << "printing factorization" << std::endl;
-    for (int i = l.tail_size() - 1; i >=0; i--) {
-        auto lp = l.get_lp_matrix(i);
-        lp->set_number_of_columns(m.row_count());
-        lp->set_number_of_rows(m.row_count());
-        print_matrix( *lp, std::cout);
-    }
-
-    dense_matrix<double, double> left_side = l.get_left_side(basis);
-    dense_matrix<double, double> right_side = l.get_right_side();
-    if (!(left_side == right_side)) {
-        std::cout << "different sides" << std::endl;
-    }
-
-    indexed_vector<double> w(m.row_count());
-    l.prepare_entering(8, w); // to init vector w
-    l.replace_column(0, w, heading[0]);
-    change_basis(8, 0, basis, non_basic_columns, heading);
-    lp_assert(l.is_correct(basis));
-}
-
-
-void test_larger_lu(lp_settings& settings) {
-    std::cout << " test_larger_lu" << std::endl;
-    static_matrix<double, double> m(6, 12);
-    vector<unsigned> basis(6);
-    basis[0] = 1;
-    basis[1] = 3;
-    basis[2] = 0;
-    basis[3] = 4;
-    basis[4] = 5;
-    basis[5] = 6;
-
-
-    fill_larger_square_sparse_matrix(m);
-    print_matrix(m, std::cout);
-
-    vector<int> heading = allocate_basis_heading(m.column_count());
-    vector<unsigned> non_basic_columns;
-    init_basis_heading_and_non_basic_columns_vector(basis, heading, non_basic_columns);
-    auto l = lu<static_matrix<double, double>> (m, basis, settings);
-    // std::cout << "printing factorization" << std::endl;
-    // for (int i = lu.tail_size() - 1; i >=0; i--) {
-    //     auto lp = lu.get_lp_matrix(i);
-    //     lp->set_number_of_columns(m.row_count());
-    //     lp->set_number_of_rows(m.row_count());
-    //     print_matrix(* lp);
-    // }
-
-    dense_matrix<double, double> left_side = l.get_left_side(basis);
-    dense_matrix<double, double> right_side = l.get_right_side();
-    if (!(left_side == right_side)) {
-        std::cout << "left side" << std::endl;
-        print_matrix(&left_side, std::cout);
-        std::cout << "right side" << std::endl;
-        print_matrix(&right_side, std::cout);
-
-        std::cout << "different sides" << std::endl;
-        std::cout << "initial factorization is incorrect" << std::endl;
-        exit(1);
-    }
-    indexed_vector<double> w(m.row_count());
-    l.prepare_entering(9, w); // to init vector w
-    l.replace_column(0, w, heading[0]);
-    change_basis(9, 0, basis, non_basic_columns, heading);
-    lp_assert(l.is_correct(basis));
-}
-
-
-void test_lu(lp_settings & settings) {
-    test_small_lu(settings);
-    test_larger_lu(settings);
-    test_larger_lu_with_holes(settings);
-    test_larger_lu_exp(settings);
-}
-#endif
-
-
-
-
-
-
-void init_b(vector<double> & b, square_sparse_matrix<double, double> & m, vector<double>& x) {
-    for (unsigned i = 0; i < m.dimension(); i++) {
-        b.push_back(m.dot_product_with_row(i, x));
-    }
-}
-
-void init_b(vector<double> & b, static_matrix<double, double> & m, vector<double> & x) {
-    for (unsigned i = 0; i < m.row_count(); i++) {
-        b.push_back(m.dot_product_with_row(i, x));
-    }
-}
-
-
-void test_lp_0() {
-    std::cout << " test_lp_0 " << std::endl;
-    static_matrix<double, double> m_(3, 7);
-    m_(0, 0) = 3; m_(0, 1) = 2; m_(0, 2) = 1; m_(0, 3) = 2; m_(0, 4) = 1;
-    m_(1, 0) = 1; m_(1, 1) = 1; m_(1, 2) = 1; m_(1, 3) = 1; m_(1, 5) = 1;
-    m_(2, 0) = 4; m_(2, 1) = 3; m_(2, 2) = 3; m_(2, 3) = 4; m_(2, 6) = 1;
-    vector<double> x_star(7);
-    x_star[0] = 225; x_star[1] = 117; x_star[2] = 420;
-    x_star[3] = x_star[4] = x_star[5] = x_star[6] = 0;
-    vector<double> b;
-    init_b(b, m_, x_star);
-    vector<unsigned> basis(3);
-    basis[0] = 0; basis[1] = 1; basis[2] = 2;
-    vector<double> costs(7);
-    costs[0] = 19;
-    costs[1] = 13;
-    costs[2] = 12;
-    costs[3] = 17;
-    costs[4] = 0;
-    costs[5] = 0;
-    costs[6] = 0;
-    
-    vector<column_type> column_types(7, column_type::lower_bound);
-    vector<double>  upper_bound_values;
-    lp_settings settings;
-    simple_column_namer cn;
-    vector<unsigned> nbasis;
-    vector<int>  heading;
-
-    lp_primal_core_solver<double, double> lpsolver(m_, b, x_star, basis, nbasis, heading, costs, column_types, upper_bound_values, settings, cn);
-
-    lpsolver.solve();
-}
-
-void test_lp_1() {
-    std::cout << " test_lp_1 " << std::endl;
-    static_matrix<double, double> m(4, 7);
-    m(0, 0) =  1;  m(0, 1) = 3;  m(0, 2) = 1;  m(0, 3) = 1;
-    m(1, 0) = -1;                m(1, 2) = 3;  m(1, 4) = 1;
-    m(2, 0) =  2;  m(2, 1) = -1; m(2, 2) = 2;  m(2, 5) = 1;
-    m(3, 0) =  2;  m(3, 1) =  3; m(3, 2) = -1; m(3, 6) = 1;
-#ifdef Z3DEBUG
-    print_matrix(m, std::cout);
-#endif
-    vector<double> x_star(7);
-    x_star[0] = 0; x_star[1] = 0; x_star[2] = 0;
-    x_star[3] = 3; x_star[4] = 2; x_star[5] = 4; x_star[6] = 2;
-
-    vector<unsigned> basis(4);
-    basis[0] = 3; basis[1] = 4; basis[2] = 5; basis[3] = 6;
-
-    vector<double> b;
-    b.push_back(3);
-    b.push_back(2);
-    b.push_back(4);
-    b.push_back(2);
-
-    vector<double> costs(7);
-    costs[0] = 5;
-    costs[1] = 5;
-    costs[2] = 3;
-    costs[3] = 0;
-    costs[4] = 0;
-    costs[5] = 0;
-    costs[6] = 0;
-
-
-
-    vector<column_type> column_types(7, column_type::lower_bound);
-    vector<double>  upper_bound_values;
-
-    std::cout << "calling lp\n";
-    lp_settings settings;
-    simple_column_namer cn;
-
-    vector<unsigned> nbasis;
-    vector<int>  heading;
-
-    lp_primal_core_solver<double, double> lpsolver(m, b,
-                                                   x_star,
-                                                   basis,
-                                                   nbasis, heading,
-                                                   costs,
-                                                   column_types, upper_bound_values, settings, cn);
-    
-    lpsolver.solve();
-}
-
-
-void test_lp_primal_core_solver() {
-    test_lp_0();
-    test_lp_1();
-}
-
-
-#ifdef Z3DEBUG
-template <typename T, typename X>
-void test_swap_rows_with_permutation(square_sparse_matrix<T, X>& m){
-    std::cout << "testing swaps" << std::endl;
-    unsigned dim = m.row_count();
-    dense_matrix<double, double> original(&m);
-    permutation_matrix<double, double> q(dim);
-    print_matrix(m, std::cout);
-    lp_assert(original == q * m);
-    for (int i = 0; i < 100; i++) {
-        unsigned row1 = my_random() % dim;
-        unsigned row2 = my_random() % dim;
-        if (row1 == row2) continue;
-        std::cout << "swap " << row1 << " " << row2 << std::endl;
-        m.swap_rows(row1, row2);
-        q.transpose_from_left(row1, row2);
-        lp_assert(original == q * m);
-        print_matrix(m, std::cout);
-        std::cout << std::endl;
-    }
-}
-#endif
-template <typename T, typename X>
-void fill_matrix(square_sparse_matrix<T, X>& m); // forward definition
-#ifdef Z3DEBUG
-template <typename T, typename X>
-void test_swap_cols_with_permutation(square_sparse_matrix<T, X>& m){
-    std::cout << "testing swaps" << std::endl;
-    unsigned dim = m.row_count();
-    dense_matrix<double, double> original(&m);
-    permutation_matrix<double, double> q(dim);
-    print_matrix(m, std::cout);
-    lp_assert(original == q * m);
-    for (int i = 0; i < 100; i++) {
-        unsigned row1 = my_random() % dim;
-        unsigned row2 = my_random() % dim;
-        if (row1 == row2) continue;
-        std::cout << "swap " << row1 << " " << row2 << std::endl;
-        m.swap_rows(row1, row2);
-        q.transpose_from_right(row1, row2);
-        lp_assert(original == q * m);
-        print_matrix(m, std::cout);
-        std::cout << std::endl;
-    }
-}
-
-
-template <typename T, typename X>
-void test_swap_rows(square_sparse_matrix<T, X>& m, unsigned i0, unsigned i1){
-    std::cout << "test_swap_rows(" << i0 << "," << i1 << ")" << std::endl;
-    square_sparse_matrix<T, X> mcopy(m.dimension(), 0);
-    for (unsigned i = 0; i  < m.dimension(); i++)
-        for (unsigned j = 0; j < m.dimension(); j++) {
-            mcopy(i, j)= m(i, j);
-        }
-    std::cout << "swapping rows "<< i0 << "," << i1 << std::endl;
-    m.swap_rows(i0, i1);
-
-    for (unsigned j = 0; j < m.dimension(); j++) {
-        lp_assert(mcopy(i0, j) == m(i1, j));
-        lp_assert(mcopy(i1, j) == m(i0, j));
-    }
-}
-template <typename T, typename X>
-void test_swap_columns(square_sparse_matrix<T, X>& m, unsigned i0, unsigned i1){
-    std::cout << "test_swap_columns(" << i0 << "," << i1 << ")" << std::endl;
-    square_sparse_matrix<T, X> mcopy(m.dimension(), 0); // the second argument does not matter
-    for (unsigned i = 0; i  < m.dimension(); i++)
-        for (unsigned j = 0; j < m.dimension(); j++) {
-            mcopy(i, j)= m(i, j);
-        }
-    m.swap_columns(i0, i1);
-
-    for (unsigned j = 0; j < m.dimension(); j++) {
-        lp_assert(mcopy(j, i0) == m(j, i1));
-        lp_assert(mcopy(j, i1) == m(j, i0));
-    }
-
-    for (unsigned i = 0; i  < m.dimension(); i++) {
-        if (i == i0 || i == i1)
-            continue;
-        for (unsigned j = 0; j < m.dimension(); j++) {
-            lp_assert(mcopy(j, i)== m(j, i));
-        }
-    }
-}
-#endif
-
-template <typename T, typename X>
-void fill_matrix(square_sparse_matrix<T, X>& m){
-    int v = 0;
-    for (int i = m.dimension() - 1; i >= 0; i--) {
-        for (int j = m.dimension() - 1; j >=0; j--){
-            m(i, j) = v++;
-        }
-    }
-}
-
-void test_pivot_like_swaps_and_pivot(){
-    square_sparse_matrix<double, double> m(10, 10);
-    fill_matrix(m);
-    // print_matrix(m);
-    // pivot at 2,7
-    m.swap_columns(0, 7);
-    // print_matrix(m);
-    m.swap_rows(2, 0);
-    // print_matrix(m);
-    for (unsigned i = 1; i < m.dimension(); i++) {
-        m(i, 0) = 0;
-    }
-    // print_matrix(m);
-
-    // say pivot at 3,4
-    m.swap_columns(1, 4);
-    // print_matrix(m);
-    m.swap_rows(1, 3);
-    // print_matrix(m);
-
-    vector<double> row;
-    double alpha = 2.33;
-    unsigned pivot_row = 1;
-    unsigned target_row = 2;
-    unsigned pivot_row_0 = 3;
-    double beta = 3.1;
-    m(target_row, 3) = 0;
-    m(target_row, 5) = 0;
-    m(pivot_row, 6) = 0;
-#ifdef Z3DEBUG
-    print_matrix(m, std::cout);
-#endif
-
-    for (unsigned j = 0; j < m.dimension(); j++) {
-        row.push_back(m(target_row, j) + alpha * m(pivot_row, j) + beta * m(pivot_row_0, j));
-    }
-
-    for (auto & t : row) {
-        std::cout << t << ",";
-    }
-    std::cout << std::endl;
-    lp_settings settings;
-    m.pivot_row_to_row(pivot_row, alpha, target_row, settings);
-    m.pivot_row_to_row(pivot_row_0, beta, target_row, settings);
-    //  print_matrix(m);
-    for (unsigned j = 0; j < m.dimension(); j++) {
-        lp_assert(abs(row[j] - m(target_row, j)) < 0.00000001);
-    }
-}
-
-#ifdef Z3DEBUG
-void test_swap_rows() {
-    square_sparse_matrix<double, double> m(10, 10);
-    fill_matrix(m);
-    // print_matrix(m);
-    test_swap_rows(m, 3, 5);
-
-    test_swap_rows(m, 1, 3);
-
-
-    test_swap_rows(m, 1, 3);
-
-    test_swap_rows(m, 1, 7);
-
-    test_swap_rows(m, 3, 7);
-
-    test_swap_rows(m, 0, 7);
-
-    m(0, 4) = 1;
-    // print_matrix(m);
-    test_swap_rows(m, 0, 7);
-
-    // go over some corner cases
-    square_sparse_matrix<double, double> m0(2, 2);
-    test_swap_rows(m0, 0, 1);
-    m0(0, 0) = 3;
-    test_swap_rows(m0, 0, 1);
-    m0(1, 0) = 3;
-    test_swap_rows(m0, 0, 1);
-
-
-    square_sparse_matrix<double, double> m1(10, 10);
-    test_swap_rows(m1, 0, 1);
-    m1(0, 0) = 3;
-    test_swap_rows(m1, 0, 1);
-    m1(1, 0) = 3;
-    m1(0, 3) = 5;
-    m1(1, 3) = 4;
-    m1(1, 8) = 8;
-    m1(1, 9) = 8;
-
-    test_swap_rows(m1, 0, 1);
-
-    square_sparse_matrix<double, double> m2(3, 3);
-    test_swap_rows(m2, 0, 1);
-    m2(0, 0) = 3;
-    test_swap_rows(m2, 0, 1);
-    m2(2, 0) = 3;
-    test_swap_rows(m2, 0, 2);
-}
-
-void fill_uniformly(square_sparse_matrix<double, double> & m, unsigned dim) {
-    int v = 0;
-    for (unsigned i = 0; i < dim; i++) {
-        for (unsigned j = 0; j < dim; j++) {
-            m(i, j) = v++;
-        }
-    }
-}
-
-void fill_uniformly(dense_matrix<double, double> & m, unsigned dim) {
-    int v = 0;
-    for (unsigned i = 0; i < dim; i++) {
-        for (unsigned j = 0; j < dim; j++) {
-            m.set_elem(i, j, v++);
-        }
-    }
-}
-
-void square_sparse_matrix_with_permutations_test() {
-    unsigned dim = 4;
-    square_sparse_matrix<double, double> m(dim, dim);
-    fill_uniformly(m, dim);
-    dense_matrix<double, double> dm(dim, dim);
-    fill_uniformly(dm, dim);
-    dense_matrix<double, double> dm0(dim, dim);
-    fill_uniformly(dm0, dim);
-    permutation_matrix<double, double> q0(dim);
-    q0[0] = 1;
-    q0[1] = 0;
-    q0[2] = 3;
-    q0[3] = 2;
-    permutation_matrix<double, double> q1(dim);
-    q1[0] = 1;
-    q1[1] = 2;
-    q1[2] = 3;
-    q1[3] = 0;
-    permutation_matrix<double, double> p0(dim);
-    p0[0] = 1;
-    p0[1] = 0;
-    p0[2] = 3;
-    p0[3] = 2;
-    permutation_matrix<double, double> p1(dim);
-    p1[0] = 1;
-    p1[1] = 2;
-    p1[2] = 3;
-    p1[3] = 0;
-
-    m.multiply_from_left(q0);
-    for (unsigned i = 0; i < dim; i++) {
-        for (unsigned j = 0; j < dim; j++) {
-            lp_assert(m(i, j) == dm0.get_elem(q0[i], j));
-        }
-    }
-
-    auto q0_dm = q0 * dm;
-    lp_assert(m == q0_dm);
-
-    m.multiply_from_left(q1);
-    for (unsigned i = 0; i < dim; i++) {
-        for (unsigned j = 0; j < dim; j++) {
-            lp_assert(m(i, j) == dm0.get_elem(q0[q1[i]], j));
-        }
-    }
-
-
-    auto q1_q0_dm = q1 * q0_dm;
-
-    lp_assert(m == q1_q0_dm);
-
-    m.multiply_from_right(p0);
-
-    for (unsigned i = 0; i < dim; i++) {
-        for (unsigned j = 0; j < dim; j++) {
-            lp_assert(m(i, j) == dm0.get_elem(q0[q1[i]], p0[j]));
-        }
-    }
-
-    auto q1_q0_dm_p0 = q1_q0_dm * p0;
-
-    lp_assert(m == q1_q0_dm_p0);
-
-    m.multiply_from_right(p1);
-
-    for (unsigned i = 0; i < dim; i++) {
-        for (unsigned j = 0; j < dim; j++) {
-            lp_assert(m(i, j) == dm0.get_elem(q0[q1[i]], p1[p0[j]]));
-        }
-    }
-
-    auto q1_q0_dm_p0_p1 = q1_q0_dm_p0 * p1;
-    lp_assert(m == q1_q0_dm_p0_p1);
-
-    m.multiply_from_right(p1);
-    for (unsigned i = 0; i < dim; i++) {
-        for (unsigned j = 0; j < dim; j++) {
-            lp_assert(m(i, j) == dm0.get_elem(q0[q1[i]], p1[p1[p0[j]]]));
-        }
-    }
-    auto q1_q0_dm_p0_p1_p1 = q1_q0_dm_p0_p1 * p1;
-
-    lp_assert(m == q1_q0_dm_p0_p1_p1);
-}
-
-void test_swap_columns() {
-    square_sparse_matrix<double, double> m(10, 10);
-    fill_matrix(m);
-    // print_matrix(m);
-
-    test_swap_columns(m, 3, 5);
-
-    test_swap_columns(m, 1, 3);
-
-    test_swap_columns(m, 1, 3);
-
-    // print_matrix(m);
-    test_swap_columns(m, 1, 7);
-
-    test_swap_columns(m, 3, 7);
-
-    test_swap_columns(m, 0, 7);
-
-    test_swap_columns(m, 0, 7);
-
-    // go over some corner cases
-    square_sparse_matrix<double, double> m0(2, 2);
-    test_swap_columns(m0, 0, 1);
-    m0(0, 0) = 3;
-    test_swap_columns(m0, 0, 1);
-    m0(0, 1) = 3;
-    test_swap_columns(m0, 0, 1);
-
-
-    square_sparse_matrix<double, double> m1(10, 10);
-    test_swap_columns(m1, 0, 1);
-    m1(0, 0) = 3;
-    test_swap_columns(m1, 0, 1);
-    m1(0, 1) = 3;
-    m1(3, 0) = 5;
-    m1(3, 1) = 4;
-    m1(8, 1) = 8;
-    m1(9, 1) = 8;
-
-    test_swap_columns(m1, 0, 1);
-
-    square_sparse_matrix<double, double> m2(3, 3);
-    test_swap_columns(m2, 0, 1);
-    m2(0, 0) = 3;
-    test_swap_columns(m2, 0, 1);
-    m2(0, 2) = 3;
-    test_swap_columns(m2, 0, 2);
-}
-
-
-
-void test_swap_operations() {
-    test_swap_rows();
-    test_swap_columns();
-}
-
-void test_dense_matrix() {
-    dense_matrix<double, double> d(3, 2);
-    d.set_elem(0, 0, 1);
-    d.set_elem(1, 1, 2);
-    d.set_elem(2, 0, 3);
-    // print_matrix(d);
-
-    dense_matrix<double, double> unit(2, 2);
-    d.set_elem(0, 0, 1);
-    d.set_elem(1, 1, 1);
-
-    dense_matrix<double, double> c = d * unit;
-
-    // print_matrix(d);
-
-    dense_matrix<double, double> perm(3, 3);
-    perm.set_elem(0, 1, 1);
-    perm.set_elem(1, 0, 1);
-    perm.set_elem(2, 2, 1);
-    auto c1 = perm * d;
-    // print_matrix(c1);
-
-
-    dense_matrix<double, double> p2(2, 2);
-    p2.set_elem(0, 1, 1);
-    p2.set_elem(1, 0, 1);
-    auto c2 = d * p2;
-}
-#endif
-
-
-
-vector<permutation_matrix<double, double>> vector_of_permutations() {
-    vector<permutation_matrix<double, double>> ret;
-    {
-        permutation_matrix<double, double> p0(5);
-        p0[0] = 1; p0[1] = 2; p0[2] = 3; p0[3] = 4;
-        p0[4] = 0;
-        ret.push_back(p0);
-    }
-    {
-        permutation_matrix<double, double> p0(5);
-        p0[0] = 2; p0[1] = 0; p0[2] = 1; p0[3] = 4;
-        p0[4] = 3;
-        ret.push_back(p0);
-    }
-    return ret;
-}
-
-void test_apply_reverse_from_right_to_perm(permutation_matrix<double, double> & l) {
-    permutation_matrix<double, double> p(5);
-    p[0] = 4; p[1] = 2; p[2] = 0; p[3] = 3;
-    p[4] = 1;
-
-    permutation_matrix<double, double> pclone(5);
-    pclone[0] = 4; pclone[1] = 2; pclone[2] = 0; pclone[3] = 3;
-    pclone[4] = 1;
-
-    p.multiply_by_reverse_from_right(l);
-#ifdef Z3DEBUG
-    auto rev = l.get_inverse();
-    auto rs = pclone * rev;
-    lp_assert(p == rs)
-#endif
-        }
-
-void test_apply_reverse_from_right() {
-    auto vec = vector_of_permutations();
-    for (unsigned i = 0; i < vec.size(); i++) {
-        test_apply_reverse_from_right_to_perm(vec[i]);
-    }
-}
-
-void test_permutations() {
-    std::cout << "test permutations" << std::endl;
-    test_apply_reverse_from_right();
-    vector<double> v; v.resize(5, 0);
-    v[1] = 1;
-    v[3] = 3;
-    permutation_matrix<double, double> p(5);
-    p[0] = 4; p[1] = 2; p[2] = 0; p[3] = 3;
-    p[4] = 1;
-
-    indexed_vector<double> vi(5);
-    vi.set_value(1, 1);
-    vi.set_value(3, 3);
-
-    p.apply_reverse_from_right_to_T(v);
-    p.apply_reverse_from_right_to_T(vi);
-    lp_assert(vectors_are_equal(v, vi.m_data));
-    lp_assert(vi.is_OK());
-}
-
-void lp_solver_test() {
-    // lp_revised_solver<double> lp_revised;
-    // lp_revised.get_minimal_solution();
-}
 
 bool get_int_from_args_parser(const char * option, argument_parser & args_parser, unsigned & n) {
     std::string s = args_parser.get_option_value(option);
@@ -1359,320 +449,15 @@ bool get_double_from_args_parser(const char * option, argument_parser & args_par
 }
 
 
-void update_settings(argument_parser & args_parser, lp_settings& settings) {
-    unsigned n;
-    settings.m_simplex_strategy = simplex_strategy_enum::lu;
-    if (get_int_from_args_parser("--rep_frq", args_parser, n))
-        settings.report_frequency = n;
-    else
-        settings.report_frequency = args_parser.option_is_used("--mpq")? 80: 1000;
-
-    settings.print_statistics = true;
-
-    if (get_int_from_args_parser("--percent_for_enter", args_parser, n))
-        settings.percent_of_entering_to_check = n;
-    if (get_int_from_args_parser("--partial_pivot", args_parser, n)) {
-        std::cout << "setting partial pivot constant to " << n << std::endl;
-        settings.c_partial_pivoting = n;
-    }
-    if (get_int_from_args_parser("--density", args_parser, n)) {
-        double density = static_cast<double>(n) / 100.0;
-        std::cout << "setting density to " << density << std::endl;
-        settings.density_threshold = density;
-    }
-    if (get_int_from_args_parser("--maxng", args_parser, n))
-        settings.max_number_of_iterations_with_no_improvements = n;
-    double d;
-    if (get_double_from_args_parser("--harris_toler", args_parser, d)) {
-        std::cout << "setting harris_feasibility_tolerance to " << d << std::endl;
-        settings.harris_feasibility_tolerance = d;
-    }
-    if (get_int_from_args_parser("--random_seed", args_parser, n)) {
-        settings.set_random_seed(n);
-    }
-    if (get_int_from_args_parser("--simplex_strategy", args_parser, n)) {
-        settings.set_simplex_strategy(static_cast<simplex_strategy_enum>(n));
-    }
-}
-
-template <typename T, typename X>
-void setup_solver(unsigned time_limit, bool look_for_min, argument_parser & args_parser, lp_solver<T, X> * solver) {
-    if (time_limit > 0)
-        solver->set_time_limit(time_limit);
-
-    if (look_for_min)
-        solver->flip_costs();
-
-    update_settings(args_parser, solver->settings());
-}
-
-bool values_are_one_percent_close(double a, double b);
-
-void print_x(mps_reader<double, double> & reader, lp_solver<double, double> * solver) {
-    for (const auto & name : reader.column_names()) {
-        std::cout << name << "=" << solver->get_column_value_by_name(name) << ' ';
-    }
-    std::cout << std::endl;
-}
-
-void compare_solutions(mps_reader<double, double> & reader, lp_solver<double, double> * solver, lp_solver<double, double> * solver0) {
-    for (const auto & name : reader.column_names()) {
-        double a = solver->get_column_value_by_name(name);
-        double b = solver0->get_column_value_by_name(name);
-        if (!values_are_one_percent_close(a, b)) {
-            std::cout << "different values for " << name << ":" << a << " and "  << b << std::endl;
-        }
-    }
-}
 
 
-void solve_mps_double(std::string file_name, bool look_for_min, unsigned time_limit, bool dual, bool compare_with_primal, argument_parser & args_parser) {
-    mps_reader<double, double> reader(file_name);
-    reader.read();
-    if (!reader.is_ok()) {
-        std::cout << "cannot process " << file_name << std::endl;
-        return;
-    }
-    
-    lp_solver<double, double> * solver =  reader.create_solver(dual);
-    setup_solver(time_limit, look_for_min, args_parser, solver);
-    stopwatch sw;
-    sw.start();
-    if (dual) {
-        std::cout << "solving for dual" << std::endl;
-    }
-    solver->find_maximal_solution();
-    sw.stop();
-    double span = sw.get_seconds(); 
-    std::cout << "Status: " << lp_status_to_string(solver->get_status()) << std::endl;
-    if (solver->get_status() == lp_status::OPTIMAL) {
-        if (reader.column_names().size() < 20) {
-            print_x(reader, solver);
-        }
-        double cost = solver->get_current_cost();
-        if (look_for_min) {
-            cost = -cost;
-        }
-        std::cout << "cost = " << cost << std::endl;
-    }
-    std::cout << "processed in " << span / 1000.0  << " seconds, running for " << solver->m_total_iterations << " iterations" << "  one iter for " << (double)span/solver->m_total_iterations << " ms" << std::endl;
-    if (compare_with_primal) {
-        auto * primal_solver = reader.create_solver(false);
-        setup_solver(time_limit, look_for_min, args_parser, primal_solver);
-        primal_solver->find_maximal_solution();
-        if (solver->get_status() != primal_solver->get_status()) {
-            std::cout << "statuses are different: dual " << lp_status_to_string(solver->get_status()) << " primal = " << lp_status_to_string(primal_solver->get_status()) << std::endl;
-        } else {
-            if (solver->get_status() == lp_status::OPTIMAL) {
-                double cost = solver->get_current_cost();
-                if (look_for_min) {
-                    cost = -cost;
-                }
-                double primal_cost = primal_solver->get_current_cost();
-                if (look_for_min) {
-                    primal_cost = -primal_cost;
-                }
-                std::cout << "primal cost = " << primal_cost << std::endl;
-                if (!values_are_one_percent_close(cost, primal_cost)) {
-                    compare_solutions(reader, primal_solver, solver);
-                    print_x(reader, primal_solver);
-                    std::cout << "dual cost is " << cost << ", but primal cost is " << primal_cost << std::endl;
-                    lp_assert(false);
-                }
-            }
-        }
-        delete primal_solver;
-    }
-    delete solver;
-}
 
-void solve_mps_rational(std::string file_name, bool look_for_min, unsigned time_limit, bool dual, argument_parser & args_parser) {
-    mps_reader<lp::mpq, lp::mpq> reader(file_name);
-    reader.read();
-    if (reader.is_ok()) {
-        auto * solver =  reader.create_solver(dual);
-        setup_solver(time_limit, look_for_min, args_parser, solver);
-        stopwatch sw;
-        sw.start();
-        solver->find_maximal_solution();
-        std::cout << "Status: " << lp_status_to_string(solver->get_status()) << std::endl;
-
-        if (solver->get_status() == lp_status::OPTIMAL) {
-            // for (auto name: reader.column_names()) {
-            //  std::cout << name << "=" << solver->get_column_value_by_name(name) << ' ';
-            // }
-            lp::mpq cost = solver->get_current_cost();
-            if (look_for_min) {
-                cost = -cost;
-            }
-            std::cout << "cost = " << cost.get_double() << std::endl;
-        }
-        std::cout << "processed in " << sw.get_current_seconds() / 1000.0 << " seconds, running for " << solver->m_total_iterations << " iterations" << std::endl;
-        delete solver;
-    } else {
-        std::cout << "cannot process " << file_name << std::endl;
-    }
-}
 void get_time_limit_and_max_iters_from_parser(argument_parser & args_parser, unsigned & time_limit); // forward definition
 
-void solve_mps(std::string file_name, bool look_for_min, unsigned time_limit, bool solve_for_rational, bool dual, bool compare_with_primal, argument_parser & args_parser) {
-    if (!solve_for_rational) {
-        std::cout << "solving " << file_name << std::endl;
-        solve_mps_double(file_name, look_for_min, time_limit, dual, compare_with_primal, args_parser);
-    }
-    else {
-        std::cout << "solving " << file_name << " in rationals " << std::endl;
-        solve_mps_rational(file_name, look_for_min, time_limit, dual, args_parser);
-    }
-}
-
-void solve_mps(std::string file_name, argument_parser & args_parser) {
-    bool look_for_min = args_parser.option_is_used("--min");
-    unsigned time_limit;
-    bool solve_for_rational = args_parser.option_is_used("--mpq");
-    bool dual = args_parser.option_is_used("--dual");
-    bool compare_with_primal = args_parser.option_is_used("--compare_with_primal");
-    get_time_limit_and_max_iters_from_parser(args_parser, time_limit);
-    solve_mps(file_name, look_for_min, time_limit, solve_for_rational, dual, compare_with_primal, args_parser);
-}
-
-void solve_mps_in_rational(std::string file_name, bool dual, argument_parser & /*args_parser*/) {
-    std::cout << "solving " << file_name << std::endl;
-
-    mps_reader<lp::mpq, lp::mpq> reader(file_name);
-    reader.read();
-    if (reader.is_ok()) {
-        auto * solver =  reader.create_solver(dual);
-        solver->find_maximal_solution();
-        std::cout << "status is " << lp_status_to_string(solver->get_status()) << std::endl;
-        if (solver->get_status() == lp_status::OPTIMAL) {
-            if (reader.column_names().size() < 20) {
-                for (const auto & name : reader.column_names()) {
-                    std::cout << name << "=" << solver->get_column_value_by_name(name).get_double() << ' ';
-                }
-            }
-            std::cout << std::endl << "cost = " << numeric_traits<lp::mpq>::get_double(solver->get_current_cost()) << std::endl;
-        }
-        delete solver;
-    } else {
-        std::cout << "cannot process " << file_name << std::endl;
-    }
-}
-
-void test_upair_queue() {
-    int n = 10;
-    binary_heap_upair_queue<int> q(2);
-    std::unordered_map<upair, int> m;
-    for (int k = 0; k < 100; k++) {
-        int i = my_random()%n;
-        int j = my_random()%n;
-        q.enqueue(i, j, my_random()%n);
-    }
-
-    q.remove(5, 5);
-
-    while (!q.is_empty()) {
-        unsigned i, j;
-        q.dequeue(i, j);
-    }
-}
-
-void test_binary_priority_queue() {
-    std::cout << "testing binary_heap_priority_queue...";
-    auto q = binary_heap_priority_queue<int>(10);
-    q.enqueue(2, 2);
-    q.enqueue(1, 1);
-    q.enqueue(9, 9);
-    q.enqueue(8, 8);
-    q.enqueue(5, 25);
-    q.enqueue(3, 3);
-    q.enqueue(4, 4);
-    q.enqueue(7, 30);
-    q.enqueue(6, 6);
-    q.enqueue(0, 0);
-    q.enqueue(5, 5);
-    q.enqueue(7, 7);
-
-    for (unsigned i = 0; i < 10; i++) {
-        unsigned de = q.dequeue();
-        lp_assert(i == de);
-        std::cout << de << std::endl;
-    }
-    q.enqueue(2, 2);
-    q.enqueue(1, 1);
-    q.enqueue(9, 9);
-    q.enqueue(8, 8);
-    q.enqueue(5, 5);
-    q.enqueue(3, 3);
-    q.enqueue(4, 4);
-    q.enqueue(7, 2);
-    q.enqueue(0, 1);
-    q.enqueue(6, 6);
-    q.enqueue(7, 7);
-    q.enqueue(33, 1000);
-    q.enqueue(20, 0);
-    q.dequeue();
-    q.remove(33);
-    q.enqueue(0, 0);
-#ifdef Z3DEBUG
-    unsigned t = 0;
-    while (q.size() > 0) {
-        unsigned d =q.dequeue();
-        lp_assert(t++ == d);
-        std::cout << d << std::endl;
-    }
-#endif
-    test_upair_queue();
-    std::cout << " done" << std::endl;
-}
-
-bool solution_is_feasible(std::string file_name, const std::unordered_map<std::string, double> & solution) {
-    mps_reader<double, double> reader(file_name);
-    reader.read();
-    if (reader.is_ok()) {
-        lp_primal_simplex<double, double> * solver = static_cast<lp_primal_simplex<double, double> *>(reader.create_solver(false));
-        return solver->solution_is_feasible(solution);
-    }
-    return false;
-}
 
 
-void solve_mps_with_known_solution(std::string file_name, std::unordered_map<std::string, double> * solution, lp_status status, bool dual) {
-    std::cout << "solving " << file_name << std::endl;
-    mps_reader<double, double> reader(file_name);
-    reader.read();
-    if (reader.is_ok()) {
-        auto * solver =  reader.create_solver(dual);
-        solver->find_maximal_solution();
-        std::cout << "status is " << lp_status_to_string(solver->get_status()) << std::endl;
-        if (status != solver->get_status()){
-            std::cout << "status should be " << lp_status_to_string(status) << std::endl;
-            lp_assert(status == solver->get_status());
-            throw "status is wrong";
-        }
-        if (solver->get_status() == lp_status::OPTIMAL) {
-            std::cout << "cost = " << solver->get_current_cost() << std::endl;
-            if (solution != nullptr) {
-                for (auto it : *solution) {
-                    if (fabs(it.second - solver->get_column_value_by_name(it.first)) >= 0.000001) {
-                        std::cout << "expected:" << it.first << "=" <<
-                            it.second <<", got " << solver->get_column_value_by_name(it.first) << std::endl;
-                    }
-                    lp_assert(fabs(it.second - solver->get_column_value_by_name(it.first)) < 0.000001);
-                }
-            }
-            if (reader.column_names().size() < 20) {
-                for (const auto & name : reader.column_names()) {
-                    std::cout << name << "=" << solver->get_column_value_by_name(name) << ' ';
-                }
-                std::cout << std::endl;
-            }
-        }
-        delete solver;
-    } else {
-        std::cout << "cannot process " << file_name << std::endl;
-    }
-}
+
+
 
 int get_random_rows() {
     return 5 + my_random() % 2;
@@ -1684,55 +469,6 @@ int get_random_columns() {
 
 int get_random_int() {
     return -1 + my_random() % 2; // (1.0 + RAND_MAX);
-}
-
-void add_random_row(lp_primal_simplex<double, double> * solver, int cols, int row) {
-    solver->add_constraint(lp_relation::Greater_or_equal, 1, row);
-    for (int i = 0; i < cols; i++) {
-        solver->set_row_column_coefficient(row, i, get_random_int());
-    }
-}
-
-void add_random_cost(lp_primal_simplex<double, double> * solver, int cols) {
-    for (int i = 0; i < cols; i++) {
-        solver->set_cost_for_column(i, get_random_int());
-    }
-}
-
-lp_primal_simplex<double, double> * generate_random_solver() {
-    int rows = get_random_rows();
-    int cols = get_random_columns();
-    auto * solver = new lp_primal_simplex<double, double>();
-    for (int i = 0; i < rows; i++) {
-        add_random_row(solver, cols, i);
-    }
-    add_random_cost(solver, cols);
-    return solver;
-}
-
-
-
-void random_test_on_i(unsigned i) {
-    if (i % 1000 == 0) {
-        std::cout << ".";
-    }
-    srand(i);
-    auto *solver = generate_random_solver();
-    solver->find_maximal_solution();
-    //    std::cout << lp_status_to_string(solver->get_status()) << std::endl;
-    delete solver;
-}
-
-void random_test() {
-    for (unsigned i = 0; i < std::numeric_limits<unsigned>::max(); i++) {
-        try {
-            random_test_on_i(i);
-        }
-        catch (const char * error) {
-            std::cout << "i = " << i << ", throwing at ' " << error << "'" << std::endl;
-            break;
-        }
-    }
 }
 
 #ifndef _WINDOWS
@@ -1896,140 +632,9 @@ void find_dir_and_file_name(std::string a, std::string & dir, std::string& fn) {
     //    std::cout << "fn = " << fn << std::endl;
 }
 
-void process_test_file(std::string test_dir, std::string test_file_name, argument_parser & args_parser, std::string out_dir, unsigned max_iters, unsigned time_limit, unsigned & successes, unsigned & failures, unsigned & inconclusives);
 
-void solve_some_mps(argument_parser & args_parser) {
-    unsigned max_iters = UINT_MAX, time_limit = UINT_MAX;
-    get_time_limit_and_max_iters_from_parser(args_parser, time_limit);
-    unsigned successes = 0;
-    unsigned failures = 0;
-    unsigned inconclusives = 0;
-    std::set<std::string> minimums;
-    vector<std::string> file_names;
-    fill_file_names(file_names, minimums);
-    bool solve_for_rational = args_parser.option_is_used("--mpq");
-    bool dual = args_parser.option_is_used("--dual");
-    bool compare_with_primal = args_parser.option_is_used("--compare_with_primal");
-    bool compare_with_glpk = args_parser.option_is_used("--compare_with_glpk");
-    if (compare_with_glpk) {
-        std::string out_dir = args_parser.get_option_value("--out_dir");
-        if (out_dir.size() == 0) {
-            out_dir = "/tmp/test";
-        }
-        test_out_dir(out_dir);
-        for (auto& a : file_names) {
-            try {
-                std::string file_dir;
-                std::string file_name;
-                find_dir_and_file_name(a, file_dir, file_name);
-                process_test_file(file_dir, file_name, args_parser, out_dir, max_iters, time_limit, successes, failures, inconclusives);
-            }
-            catch(const char *s){
-                std::cout<< "exception: "<< s << std::endl;
-            }
-        }
-        std::cout << "comparing with glpk: successes " << successes << ", failures " << failures << ", inconclusives " << inconclusives << std::endl;
-        return;
-    }
-    if (!solve_for_rational) {
-        solve_mps(file_names[6], false, time_limit, false, dual, compare_with_primal, args_parser);
-        solve_mps_with_known_solution(file_names[3], nullptr, lp_status::INFEASIBLE, dual); // chvatal: 135(d)
-        std::unordered_map<std::string, double> sol;
-        sol["X1"] = 0;
-        sol["X2"] = 6;
-        sol["X3"] = 0;
-        sol["X4"] = 15;
-        sol["X5"] = 2;
-        sol["X6"] = 1;
-        sol["X7"] = 1;
-        sol["X8"] = 0;
-        solve_mps_with_known_solution(file_names[9], &sol, lp_status::OPTIMAL, dual);
-        solve_mps_with_known_solution(file_names[0], &sol, lp_status::OPTIMAL, dual);
-        sol.clear();
-        sol["X1"] = 25.0/14.0;
-        // sol["X2"] = 0;
-        // sol["X3"] = 0;
-        // sol["X4"] = 0;
-        // sol["X5"] = 0;
-        // sol["X6"] = 0;
-        // sol["X7"] = 9.0/14.0;
-        solve_mps_with_known_solution(file_names[5], &sol, lp_status::OPTIMAL, dual); // chvatal: 135(e)
-        solve_mps_with_known_solution(file_names[4], &sol, lp_status::OPTIMAL, dual); // chvatal: 135(e)
-        solve_mps_with_known_solution(file_names[2], nullptr, lp_status::UNBOUNDED, dual); // chvatal: 135(c)
-        solve_mps_with_known_solution(file_names[1], nullptr, lp_status::UNBOUNDED, dual); // chvatal: 135(b)
-        solve_mps(file_names[8], false, time_limit, false, dual, compare_with_primal, args_parser);
-        // return;
-        for (auto& s : file_names) {
-            try {
-                solve_mps(s, minimums.find(s) != minimums.end(),  time_limit, false, dual, compare_with_primal, args_parser);
-            }
-            catch(const char *s){
-                std::cout<< "exception: "<< s << std::endl;
-            }
-        }
-    } else {
-        //        unsigned i = 0;
-        for (auto& s : file_names) {
-            // if (i++ > 9) return;
-            try {
-                solve_mps_in_rational(s, dual, args_parser);
-            }
-            catch(const char *s){
-                std::cout<< "exception: "<< s << std::endl;
-            }
-        }
-    }
-}
 #endif
 
-void solve_rational() {
-    lp_primal_simplex<lp::mpq, lp::mpq> solver;
-    solver.add_constraint(lp_relation::Equal, lp::mpq(7), 0);
-    solver.add_constraint(lp_relation::Equal, lp::mpq(-3), 1);
-
-    // setting the cost
-    int cost[] = {-3, -1, -1, 2, -1, 1, 1, -4};
-    std::string var_names[8] = {"x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8"};
-
-    for (unsigned i = 0; i < 8; i++) {
-        solver.set_cost_for_column(i, lp::mpq(cost[i]));
-        solver.give_symbolic_name_to_column(var_names[i], i);
-    }
-
-    int row0[] = {1, 0, 3, 1, -5, -2 , 4, -6};
-    for (unsigned i = 0; i < 8; i++) {
-        solver.set_row_column_coefficient(0, i, lp::mpq(row0[i]));
-    }
-
-    int row1[] = {0, 1, -2, -1, 4, 1, -3, 5};
-    for (unsigned i = 0; i < 8; i++) {
-        solver.set_row_column_coefficient(1, i, lp::mpq(row1[i]));
-    }
-
-    int bounds[] = {8, 6, 4, 15, 2, 10, 10, 3};
-    for (unsigned i = 0; i < 8; i++) {
-        solver.set_lower_bound(i, lp::mpq(0));
-        solver.set_upper_bound(i, lp::mpq(bounds[i]));
-    }
-
-    std::unordered_map<std::string, lp::mpq>  expected_sol;
-    expected_sol["x1"] = lp::mpq(0);
-    expected_sol["x2"] = lp::mpq(6);
-    expected_sol["x3"] = lp::mpq(0);
-    expected_sol["x4"] = lp::mpq(15);
-    expected_sol["x5"] = lp::mpq(2);
-    expected_sol["x6"] = lp::mpq(1);
-    expected_sol["x7"] = lp::mpq(1);
-    expected_sol["x8"] = lp::mpq(0);
-    solver.find_maximal_solution();
-    lp_assert(solver.get_status() == lp_status::OPTIMAL);
-#ifdef Z3DEBUG
-    for (const auto & it : expected_sol) {
-        (void)it;
-        lp_assert(it.second == solver.get_column_value_by_name(it.first));
-    }
-#endif
-}
 
 
 std::string read_line(bool & end, std::ifstream & file) {
@@ -2044,102 +649,6 @@ std::string read_line(bool & end, std::ifstream & file) {
 
 bool contains(std::string const & s, char const * pattern) {
     return s.find(pattern) != std::string::npos;
-}
-
-
-std::unordered_map<std::string, double> * get_solution_from_glpsol_output(std::string & file_name) {
-    std::ifstream file(file_name);
-    if (!file.is_open()){
-        std::cerr << "cannot  open " << file_name << std::endl;
-        return nullptr;
-    }
-    std::string s;
-    bool end;
-    do {
-        s = read_line(end, file);
-        if (end) {
-            std::cerr << "unexpected file end " << file_name << std::endl;
-            return nullptr;
-        }
-        if (contains(s, "Column name")){
-            break;
-        }
-    } while (true);
-
-    read_line(end, file);
-    if (end) {
-        std::cerr << "unexpected file end " << file_name << std::endl;
-        return nullptr;
-    }
-
-    auto ret = new std::unordered_map<std::string, double>();
-
-    do {
-        s = read_line(end, file);
-        if (end) {
-            std::cerr << "unexpected file end " << file_name << std::endl;
-            return nullptr;
-        }
-        auto split = string_split(s, " \t", false);
-        if (split.empty()) {
-            return ret;
-        }
-
-        lp_assert(split.size() > 3);
-        (*ret)[split[1]] = atof(split[3].c_str());
-    } while (true);
-}
-
-
-
-void test_init_U() {
-    static_matrix<double, double> m(3, 7);
-    m(0, 0) = 10; m(0, 1) = 11; m(0, 2) = 12; m(0, 3) = 13; m(0, 4) = 14;
-    m(1, 0) = 20; m(1, 1) = 21; m(1, 2) = 22; m(1, 3) = 23; m(1, 5) = 24;
-    m(2, 0) = 30; m(2, 1) = 31; m(2, 2) = 32; m(2, 3) = 33; m(2, 6) = 34;
-#ifdef Z3DEBUG
-    print_matrix(m, std::cout);
-#endif
-    vector<unsigned> basis(3);
-    basis[0] = 1;
-    basis[1] = 2;
-    basis[2] = 4;
-
-    square_sparse_matrix<double, double> u(m, basis);
-
-    for (unsigned i = 0; i < 3; i++) {
-        for (unsigned j = 0; j < 3; j ++) {
-            lp_assert(m(i, basis[j]) == u(i, j));
-        }
-    }
-
-    // print_matrix(m);
-    // print_matrix(u);
-}
-
-void test_replace_column() {
-    square_sparse_matrix<double, double> m(10, 10);
-    fill_matrix(m);
-    m.swap_columns(0, 7);
-    m.swap_columns(6, 3);
-    m.swap_rows(2, 0);
-    for (unsigned i = 1; i < m.dimension(); i++) {
-        m(i, 0) = 0;
-    }
-
-    indexed_vector<double> w(m.dimension());
-    for (unsigned i = 0; i < m.dimension(); i++) {
-        w.set_value(i % 3, i);
-    }
-
-    lp_settings settings;
-
-    for (unsigned column_to_replace = 0;  column_to_replace < m.dimension(); column_to_replace ++) {
-        m.replace_column(column_to_replace, w, settings);
-        for (unsigned i = 0; i < m.dimension(); i++) {
-            lp_assert(abs(w[i] - m(i, column_to_replace)) < 0.00000001);
-        }
-    }
 }
 
 
@@ -2162,12 +671,6 @@ void setup_args_parser(argument_parser & parser) {
     parser.add_option_with_help_string("-gomory", "gomory");
     parser.add_option_with_help_string("-intd", "test integer_domain");
     parser.add_option_with_help_string("-xyz_sample", "run a small interactive scenario");
-    parser.add_option_with_after_string_with_help("--density", "the percentage of non-zeroes in the matrix below which it is not dense");
-    parser.add_option_with_after_string_with_help("--harris_toler", "harris tolerance");
-    parser.add_option_with_help_string("--test_swaps", "test row swaps with a permutation");
-    parser.add_option_with_help_string("--test_perm", "test permutations");
-    parser.add_option_with_after_string_with_help("--checklu", "the file name for lu checking");
-    parser.add_option_with_after_string_with_help("--partial_pivot", "the partial pivot constant, a number somewhere between 10 and 100");
     parser.add_option_with_after_string_with_help("--percent_for_enter", "which percent of columns check for entering column");
     parser.add_option_with_help_string("--totalinf", "minimizes the total infeasibility  instead of diminishing infeasibility of the rows");
     parser.add_option_with_after_string_with_help("--rep_frq", "the report frequency, in how many iterations print the cost and other info ");
@@ -2182,20 +685,14 @@ void setup_args_parser(argument_parser & parser) {
     parser.add_option_with_after_string_with_help("--time_limit", "time limit in seconds");
     parser.add_option_with_help_string("--mpq", "solve for rational numbers");
     parser.add_option_with_after_string_with_help("--simplex_strategy", "sets simplex strategy for rational number");
-    parser.add_option_with_help_string("--test_lu", "test the work of the factorization");
-    parser.add_option_with_help_string("--test_small_lu", "test the work of the factorization on a smallish matrix");
-    parser.add_option_with_help_string("--test_larger_lu", "test the work of the factorization");
-    parser.add_option_with_help_string("--test_larger_lu_with_holes", "test the work of the factorization");
     parser.add_option_with_help_string("--test_lp_0", "solve a small lp");
     parser.add_option_with_help_string("--solve_some_mps", "solves a list of mps problems");
     parser.add_option_with_after_string_with_help("--test_file_directory", "loads files from the directory for testing");
-    parser.add_option_with_help_string("--compare_with_glpk", "compares the results by running glpsol");
     parser.add_option_with_after_string_with_help("--out_dir", "setting the output directory for tests, if not set /tmp is used");
     parser.add_option_with_help_string("--dual", "using the dual simplex solver");
     parser.add_option_with_help_string("--compare_with_primal", "using the primal simplex solver for comparison");
     parser.add_option_with_help_string("--lar", "test lar_solver");
     parser.add_option_with_after_string_with_help("--maxng", "max iterations without progress");
-    parser.add_option_with_help_string("-tbq", "test binary queue");
     parser.add_option_with_help_string("--randomize_lar", "test randomize functionality");
     parser.add_option_with_help_string("--smap", "test stacked_map");
     parser.add_option_with_help_string("--term", "simple term test");
@@ -2360,237 +857,9 @@ std::string get_status(std::string file_name) {
     throw 0;
 }
 
-// returns true if the costs should be compared too
-bool compare_statuses(std::string glpk_out_file_name, std::string lp_out_file_name, unsigned & successes, unsigned & failures) {
-    std::string glpk_status = get_status(glpk_out_file_name);
-    std::string lp_tst_status = get_status(lp_out_file_name);
-
-    if (glpk_status != lp_tst_status) {
-        if (glpk_status == "UNDEFINED"  && (lp_tst_status == "UNBOUNDED" || lp_tst_status == "INFEASIBLE")) {
-            successes++;
-            return false;
-        } else {
-            std::cout << "glpsol and lp_tst disagree: glpsol status is " << glpk_status;
-            std::cout << " but lp_tst status is " << lp_tst_status << std::endl;
-            failures++;
-            return false;
-        }
-    }
-    return lp_tst_status == "OPTIMAL";
-}
-
-double get_glpk_cost(std::string file_name) {
-    std::ifstream f(file_name);
-    if (!f.is_open()) {
-        std::cout << "cannot open " << file_name << std::endl;
-        throw 0;
-    }
-    std::string str;
-    while (getline(f, str)) {
-        if (str.find("Objective") != std::string::npos) {
-            vector<std::string> tokens = split_and_trim(str);
-            if (tokens.size() != 5) {
-                std::cout << "unexpected Objective std::string " << str << std::endl;
-                throw 0;
-            }
-            return atof(tokens[3].c_str());
-        }
-    }
-    std::cout << "cannot find the Objective line in " << file_name << std::endl;
-    throw 0;
-}
-
-double get_lp_tst_cost(std::string file_name) {
-    std::ifstream f(file_name);
-    if (!f.is_open()) {
-        std::cout << "cannot open " << file_name << std::endl;
-        throw 0;
-    }
-    std::string str;
-    std::string cost_string;
-    while (getline(f, str)) {
-        if (str.find("cost") != std::string::npos) {
-            cost_string = str;
-        }
-    }
-    if (cost_string.empty()) {
-        std::cout << "cannot find the cost line in " << file_name << std::endl;
-        throw 0;
-    }
-
-    vector<std::string> tokens = split_and_trim(cost_string);
-    if (tokens.size() != 3) {
-        std::cout << "unexpected cost string " << cost_string << std::endl;
-        throw 0;
-    }
-    return atof(tokens[2].c_str());
-}
-
-bool values_are_one_percent_close(double a, double b) {
-    double maxval = std::max(fabs(a), fabs(b));
-    if (maxval < 0.000001) {
-        return true;
-    }
-
-    double one_percent = maxval / 100;
-    return fabs(a - b) <= one_percent;
-}
-
-// returns true if both are optimal
-void compare_costs(std::string glpk_out_file_name,
-                   std::string lp_out_file_name,
-                   unsigned & successes,
-                   unsigned & failures) {
-    double a = get_glpk_cost(glpk_out_file_name);
-    double b = get_lp_tst_cost(lp_out_file_name);
-
-    if (values_are_one_percent_close(a, b)) {
-        successes++;
-    } else {
-        failures++;
-        std::cout << "glpsol cost is " << a << " lp_tst cost is " << b << std::endl;
-    }
-}
 
 
 
-void compare_with_glpk(std::string glpk_out_file_name, std::string lp_out_file_name, unsigned & successes, unsigned & failures, std::string /*lp_file_name*/) {
-#ifdef CHECK_GLPK_SOLUTION
-    std::unordered_map<std::string, double> * solution_table =  get_solution_from_glpsol_output(glpk_out_file_name);
-    if (solution_is_feasible(lp_file_name, *solution_table)) {
-        std::cout << "glpk solution is feasible" << std::endl;
-    } else {
-        std::cout << "glpk solution is infeasible" << std::endl;
-    }
-    delete solution_table;
-#endif
-    if (compare_statuses(glpk_out_file_name, lp_out_file_name, successes, failures)) {
-        compare_costs(glpk_out_file_name, lp_out_file_name, successes, failures);
-    }
-}
-void test_lar_on_file(std::string file_name, argument_parser & args_parser);
-
-void process_test_file(std::string test_dir, std::string test_file_name, argument_parser & args_parser, std::string out_dir, unsigned max_iters, unsigned time_limit, unsigned & successes, unsigned & failures, unsigned & inconclusives) {
-    bool use_mpq = args_parser.option_is_used("--mpq");
-    bool minimize = args_parser.option_is_used("--min");
-    std::string full_lp_tst_out_name = out_dir + "/" + create_output_file_name(minimize, test_file_name, use_mpq);
-
-    std::string input_file_name = test_dir + "/" + test_file_name;
-    if (input_file_name[input_file_name.size() - 1] == '~') {
-        //        std::cout << "ignoring " << input_file_name << std::endl;
-        return;
-    }
-    std::cout <<"processing " <<  input_file_name << std::endl;
-
-    std::ofstream out(full_lp_tst_out_name);
-    if (!out.is_open()) {
-        std::cout << "cannot open file " << full_lp_tst_out_name << std::endl;
-        throw 0;
-    }
-    std::streambuf *coutbuf = std::cout.rdbuf(); // save old buffer
-    std::cout.rdbuf(out.rdbuf()); // redirect std::cout to dir_entry->d_name!
-    bool dual = args_parser.option_is_used("--dual");
-    try {
-        if (args_parser.option_is_used("--lar"))
-            test_lar_on_file(input_file_name, args_parser);
-        else
-            solve_mps(input_file_name, minimize, time_limit, use_mpq, dual, false, args_parser);
-    }
-    catch(...) {
-        std::cout << "catching the failure" << std::endl;
-        failures++;
-        std::cout.rdbuf(coutbuf); // reset to standard output again
-        return;
-    }
-    std::cout.rdbuf(coutbuf); // reset to standard output again
-
-    if (args_parser.option_is_used("--compare_with_glpk")) {
-        std::string glpk_out_file_name =  out_dir + "/" + create_output_file_name_for_glpsol(minimize, std::string(test_file_name));
-        int glpk_exit_code = run_glpk(input_file_name, glpk_out_file_name, minimize, time_limit);
-        if (glpk_exit_code != 0) {
-            std::cout << "glpk failed" << std::endl;
-            inconclusives++;
-        } else {
-            compare_with_glpk(glpk_out_file_name, full_lp_tst_out_name, successes, failures, input_file_name);
-        }
-    }
-}
-/*
-  int my_readdir(DIR *dirp, struct dirent *
-  #ifndef LEAN_WINDOWS
-  entry
-  #endif
-  , struct dirent **result) {
-  #ifdef LEAN_WINDOWS
-  *result = readdir(dirp); // NOLINT
-  return *result != nullptr? 0 : 1;
-  #else
-  return readdir_r(dirp, entry, result);
-  #endif
-  }
-*/
-/*
-  vector<std::pair<std::string, int>> get_file_list_of_dir(std::string test_file_dir) {
-  DIR *dir;
-  if ((dir  = opendir(test_file_dir.c_str())) == nullptr) {
-  std::cout << "Cannot open directory " << test_file_dir << std::endl;
-  throw 0;
-  }
-  vector<std::pair<std::string, int>> ret;
-  struct dirent entry;
-  struct dirent* result;
-  int return_code;
-  for (return_code = my_readdir(dir, &entry, &result);
-  #ifndef LEAN_WINDOWS
-  result != nullptr &&
-  #endif
-  return_code == 0;
-  return_code = my_readdir(dir, &entry, &result)) {
-  DIR *tmp_dp = opendir(result->d_name);
-  struct stat file_record;
-  if (tmp_dp == nullptr) {
-  std::string s = test_file_dir+ "/" + result->d_name;
-  int stat_ret = stat(s.c_str(), & file_record);
-  if (stat_ret!= -1) {
-  ret.push_back(make_pair(result->d_name, file_record.st_size));
-  } else {
-  perror("stat");
-  exit(1);
-  }
-  } else  {
-  closedir(tmp_dp);
-  }
-  }
-  closedir(dir);
-  return ret;
-  }
-*/
-/*
-  struct file_size_comp {
-  unordered_map<std::string, int>& m_file_sizes;
-  file_size_comp(unordered_map<std::string, int>& fs) :m_file_sizes(fs) {}
-  int operator()(std::string a, std::string b) {
-  std::cout << m_file_sizes.size() << std::endl;
-  std::cout << a << std::endl;
-  std::cout << b << std::endl;
-
-  auto ls = m_file_sizes.find(a);
-  std::cout << "fa" << std::endl;
-  auto rs = m_file_sizes.find(b);
-  std::cout << "fb" << std::endl;
-  if (ls != m_file_sizes.end() && rs != m_file_sizes.end()) {
-  std::cout << "fc " << std::endl;
-  int r = (*ls < *rs? -1: (*ls > *rs)? 1 : 0);
-  std::cout << "calc r " << std::endl;
-  return r;
-  } else {
-  std::cout << "sc " << std::endl;
-  return 0;
-  }
-  }
-  };
-
-*/
 struct sort_pred {
     bool operator()(const std::pair<std::string, int> &left, const std::pair<std::string, int> &right) {
         return left.second < right.second;
@@ -2598,121 +867,11 @@ struct sort_pred {
 };
 
 
-void test_files_from_directory(std::string test_file_dir, argument_parser & args_parser) {
-    /*
-      std::cout << "loading files from directory \"" << test_file_dir << "\"" << std::endl;
-      std::string out_dir = args_parser.get_option_value("--out_dir");
-      if (out_dir.size() == 0) {
-      out_dir = "/tmp/test";
-      }
-      DIR *out_dir_p = opendir(out_dir.c_str());
-      if (out_dir_p == nullptr) {
-      std::cout << "Cannot open output directory \"" << out_dir << "\"" << std::endl;
-      return;
-      }
-      closedir(out_dir_p);
-      vector<std::pair<std::string, int>> files = get_file_list_of_dir(test_file_dir);
-      std::sort(files.begin(), files.end(), sort_pred());
-      unsigned max_iters, time_limit;
-      get_time_limit_and_max_iters_from_parser(args_parser, time_limit);
-      unsigned successes = 0, failures = 0, inconclusives = 0;
-      for  (auto & t : files) {
-      process_test_file(test_file_dir, t.first, args_parser, out_dir, max_iters, time_limit, successes, failures, inconclusives);
-      }
-      std::cout << "comparing with glpk: successes " << successes << ", failures " << failures << ", inconclusives " << inconclusives << std::endl;
-    */
-}
 
 
-std::unordered_map<std::string, lp::mpq> get_solution_map(lp_solver<lp::mpq, lp::mpq> * lps, mps_reader<lp::mpq, lp::mpq> & reader) {
-    std::unordered_map<std::string, lp::mpq> ret;
-    for (const auto & it : reader.column_names()) {
-        ret[it] = lps->get_column_value_by_name(it);
-    }
-    return ret;
-}
 
-void run_lar_solver(argument_parser & args_parser, lar_solver * solver, mps_reader<lp::mpq, lp::mpq> * reader) {
-    std::string maxng = args_parser.get_option_value("--maxng");
-    if (!maxng.empty()) {
-        solver->settings().max_number_of_iterations_with_no_improvements = atoi(maxng.c_str());
-    }
-    if (args_parser.option_is_used("-pd")){
-        solver->settings().presolve_with_double_solver_for_lar = true;
-    }
-    
-    if (args_parser.option_is_used("--compare_with_primal")){
-        if (reader == nullptr) {
-            std::cout << "cannot compare with primal, the reader is null " << std::endl;
-            return;
-        }
-        auto * lps = reader->create_solver(false);
-        lps->find_maximal_solution();
-        std::unordered_map<std::string, lp::mpq> sol = get_solution_map(lps, *reader);
-        std::cout << "status = " << lp_status_to_string(solver->get_status()) <<  std::endl;
-        return;
-    }
-    stopwatch sw;
-    sw.start();
-    lp_status status = solver->solve();
-    std::cout << "status is " <<  lp_status_to_string(status) << ", processed for " << sw.get_current_seconds() <<" seconds, and " << solver->get_total_iterations() << " iterations" << std::endl;
-    if (solver->get_status() == lp_status::INFEASIBLE) {
-        explanation evidence;
-        solver->get_infeasibility_explanation(evidence);
-    }
-    if (args_parser.option_is_used("--randomize_lar")) {
-        if (solver->get_status() != lp_status::OPTIMAL) {
-            std::cout << "cannot check randomize on an infeazible  problem" << std::endl;
-            return;
-        }
-        std::cout << "checking randomize" << std::endl;
-        vector<var_index> all_vars;
-        for (unsigned j = 0; j < solver->number_of_vars(); j++)
-            all_vars.push_back(j);
-        
-        unsigned m = all_vars.size();
-        if (m > 100)
-            m = 100;
-        
-        var_index *vars = new var_index[m];
-        for (unsigned i = 0; i < m; i++)
-            vars[i]=all_vars[i];
-        
-        solver->random_update(m, vars);
-        delete []vars;
-    }
-}
 
-lar_solver * create_lar_solver_from_file(std::string file_name, argument_parser & args_parser) {
-    if (args_parser.option_is_used("--smt")) {
-        smt_reader reader(file_name);
-        reader.read();
-        if (!reader.is_ok()){
-            std::cout << "cannot process " << file_name << std::endl;
-            return nullptr;
-        }
-        return reader.create_lar_solver();
-    }
-    mps_reader<lp::mpq, lp::mpq> reader(file_name);
-    reader.read();
-    if (!reader.is_ok()) {
-        std::cout << "cannot process " << file_name << std::endl;
-        return nullptr;
-    }
-    return reader.create_lar_solver();
-}
 
-void test_lar_on_file(std::string file_name, argument_parser & args_parser) {
-    lar_solver * solver = create_lar_solver_from_file(file_name, args_parser);
-    mps_reader<lp::mpq, lp::mpq> reader(file_name);
-    mps_reader<lp::mpq, lp::mpq> * mps_reader = nullptr;
-    reader.read();
-    if (reader.is_ok()) {
-        mps_reader = & reader;
-        run_lar_solver(args_parser, solver, mps_reader);
-    }
-    delete solver;
-}
 
 vector<std::string> get_file_names_from_file_list(std::string filelist) {
     std::ifstream file(filelist);
@@ -2733,23 +892,6 @@ vector<std::string> get_file_names_from_file_list(std::string filelist) {
     return ret;
 }
 
-void test_lar_solver(argument_parser & args_parser) {
-
-    std::string file_name = args_parser.get_option_value("--file");
-    if (!file_name.empty()) {
-        test_lar_on_file(file_name, args_parser);
-        return;
-    }
-
-    std::string file_list = args_parser.get_option_value("--filelist");
-    if (!file_list.empty()) {
-        for (const std::string & fn : get_file_names_from_file_list(file_list))
-            test_lar_on_file(fn, args_parser);
-        return;
-    }
-
-    std::cout << "give option --file or --filelist to test_lar_solver\n";
-}
 
 void test_numeric_pair() {
     numeric_pair<lp::mpq> a;
@@ -2786,131 +928,6 @@ void get_matrix_dimensions(std::ifstream & f, unsigned & m, unsigned & n) {
     r = split_and_trim(line);
     n = atoi(r[1].c_str());
 }
-
-void read_row_cols(unsigned i, static_matrix<double, double>& A, std::ifstream & f) {
-    do {
-        std::string line;
-        getline(f, line);
-        if (line== "row_end")
-            break;
-        auto r = split_and_trim(line);
-        lp_assert(r.size() == 4);
-        unsigned j = atoi(r[1].c_str());
-        double v = atof(r[3].c_str());
-        A.set(i, j, v);
-    } while (true);
-}
-
-bool read_row(static_matrix<double, double> & A, std::ifstream & f) {
-    std::string line;
-    getline(f, line);
-    if (static_cast<int>(line.find("row")) == -1)
-        return false;
-    auto r = split_and_trim(line);
-    if (r[0] != "row")
-        std::cout << "wrong row line" << line << std::endl;
-    unsigned i = atoi(r[1].c_str());
-    read_row_cols(i, A, f);
-    return true;
-}
-
-void read_rows(static_matrix<double, double>& A, std::ifstream & f) {
-    while (read_row(A, f)) {}
-}
-
-void read_basis(vector<unsigned> & basis, std::ifstream & f) {
-    std::cout << "reading basis" << std::endl;
-    std::string line;
-    getline(f, line);
-    lp_assert(line == "basis_start");
-    do {
-        getline(f, line);
-        if (line == "basis_end")
-            break;
-        unsigned j = atoi(line.c_str());
-        basis.push_back(j);
-    } while (true);
-}
-
-void read_indexed_vector(indexed_vector<double> & v, std::ifstream & f) {
-    std::string line;
-    getline(f, line);
-    lp_assert(line == "vector_start");
-    do {
-        getline(f, line);
-        if (line == "vector_end") break;
-        auto r = split_and_trim(line);
-        unsigned i = atoi(r[0].c_str());
-        double val = atof(r[1].c_str());
-        v.set_value(val, i);
-        std::cout << "setting value " << i << " = " << val << std::endl;
-    } while (true);
-}
-
-void check_lu_from_file(std::string lufile_name) {
-    std::ifstream f(lufile_name);
-    if (!f.is_open()) {
-        std::cout << "cannot open file " << lufile_name << std::endl;
-    }
-    unsigned m, n;
-    get_matrix_dimensions(f, m, n);
-    std::cout << "init matrix " << m << " by " << n << std::endl;
-    static_matrix<double, double> A(m, n);
-    read_rows(A, f);
-    vector<unsigned> basis;
-    read_basis(basis, f);
-    indexed_vector<double> v(m);
-    //    read_indexed_vector(v, f);
-    f.close();
-    vector<int> basis_heading;
-    lp_settings settings;
-    vector<unsigned> non_basic_columns;
-    lu<static_matrix<double, double>> lsuhl(A, basis, settings);
-    indexed_vector<double>  d(A.row_count());
-    unsigned entering = 26;
-    lsuhl.solve_Bd(entering, d, v);
-#ifdef Z3DEBUG
-    auto B = get_B(lsuhl, basis);
-    vector<double>  a(m);
-    A.copy_column_to_vector(entering, a);
-    indexed_vector<double> cd(d);
-    B.apply_from_left(cd.m_data, settings);
-    lp_assert(vectors_are_equal(cd.m_data , a));
-#endif
-}
-
-void test_square_dense_submatrix() {
-    std::cout << "testing square_dense_submatrix" << std::endl;
-    unsigned parent_dim = 7;
-    square_sparse_matrix<double, double> parent(parent_dim, 0);
-    fill_matrix(parent);
-    unsigned index_start = 3;
-    square_dense_submatrix<double, double> d;
-    d.init(&parent, index_start);
-    for (unsigned i = index_start; i < parent_dim; i++)
-        for (unsigned j = index_start; j < parent_dim; j++)
-            d[i][j] = i*3+j*2;
-#ifdef Z3DEBUG
-    unsigned dim = parent_dim - index_start;
-    dense_matrix<double, double> m(dim, dim);
-    for (unsigned i = index_start; i < parent_dim; i++)
-        for (unsigned j = index_start; j < parent_dim; j++)
-            m[i-index_start][j-index_start] = d[i][j];
-    print_matrix(&m, std::cout);
-#endif
-    for (unsigned i = index_start; i < parent_dim; i++)
-        for (unsigned j = index_start; j < parent_dim; j++)
-            d[i][j] = d[j][i];
-#ifdef Z3DEBUG
-    for (unsigned i = index_start; i < parent_dim; i++)
-        for (unsigned j = index_start; j < parent_dim; j++)
-            m[i-index_start][j-index_start] = d[i][j];
-
-    print_matrix(&m, std::cout);
-    std::cout << std::endl;
-#endif
-}
-
 
 
 void print_st(lp_status status) {
@@ -3348,7 +1365,7 @@ void test_gomory_cut_0() {
             if (j == 2)
                 return zero_of_type<mpq>();
             if (j == 3) return mpq(3);
-            lp_assert(false);
+            UNREACHABLE();
             return zero_of_type<mpq>();
         },
         [](unsigned j) { // at_low_p
@@ -3358,7 +1375,7 @@ void test_gomory_cut_0() {
                 return true;
             if (j == 3)
                 return true;
-            lp_assert(false);
+            UNREACHABLE();
             return false;
         },
         [](unsigned j) { // at_upper
@@ -3368,31 +1385,31 @@ void test_gomory_cut_0() {
                 return true;
             if (j == 3)
                 return false;
-            lp_assert(false);
+            UNREACHABLE();
             return false;
         },
         [](unsigned j) { // lower_bound
             if (j == 1) {
-                lp_assert(false); //unlimited from below
+                UNREACHABLE(); //unlimited from below
                 return impq(0);
             }
             if (j == 2)
                 return impq(0);
             if (j == 3)
                 return impq(3);
-            lp_assert(false);
+            UNREACHABLE();
             return impq(0);
         },
         [](unsigned j) { // upper
             if (j == 1) {
-                lp_assert(false); //unlimited from above
+                UNREACHABLE(); //unlimited from above
                 return impq(0);
             }
             if (j == 2)
                 return impq(0);
             if (j == 3)
                 return impq(10);
-            lp_assert(false);
+            UNREACHABLE();
             return impq(0);
         },
         [] (unsigned) { return 0; },
@@ -3420,7 +1437,7 @@ void test_gomory_cut_1() {
                 return mpq(4363334, 2730001);
             if (j == 3)
                 return mpq(1);
-            lp_assert(false);
+            UNREACHABLE();
             return zero_of_type<mpq>();
         },
         [](unsigned j) { // at_low_p
@@ -3430,7 +1447,7 @@ void test_gomory_cut_1() {
                 return false;
             if (j == 3)
                 return true;
-            lp_assert(false);
+            UNREACHABLE();
             return false;
         },
         [](unsigned j) { // at_upper
@@ -3440,19 +1457,19 @@ void test_gomory_cut_1() {
                 return false;
             if (j == 3)
                 return true;
-            lp_assert(false);
+            UNREACHABLE();
             return false;
         },
         [](unsigned j) { // lower_bound
             if (j == 1) {
-                lp_assert(false); //unlimited from below
+                UNREACHABLE(); //unlimited from below
                 return impq(0);
             }
             if (j == 2)
                 return impq(1);
             if (j == 3)
                 return impq(1);
-            lp_assert(false);
+            UNREACHABLE();
             return impq(0);
         },
         [](unsigned j) { // upper
@@ -3463,7 +1480,7 @@ void test_gomory_cut_1() {
                 return impq(3333);
             if (j == 3)
                 return impq(10000);
-            lp_assert(false);
+            UNREACHABLE();
             return impq(0);
         },
         [] (unsigned) { return 0; },
@@ -3934,22 +1951,6 @@ void test_lp_local(int argn, char**argv) {
         return finalize(0);
     }
 
-    if (args_parser.option_is_used("--test_mpq")) {
-        test_rationals();
-        return finalize(0);
-    }
-
-    if (args_parser.option_is_used("--test_mpq_np")) {
-        test_rationals_no_numeric_pairs();
-        return finalize(0);
-    }
-
-    if (args_parser.option_is_used("--test_mpq_np_plus")) {
-        test_rationals_no_numeric_pairs_plus();
-        return finalize(0);
-    }
-
-  
     
     if (args_parser.option_is_used("--test_int_set")) {
         test_int_set();
@@ -3959,146 +1960,10 @@ void test_lp_local(int argn, char**argv) {
         test_bound_propagation();
         return finalize(0);
     }
-        
     
-    std::string lufile = args_parser.get_option_value("--checklu");
-    if (!lufile.empty()) {
-        check_lu_from_file(lufile);
-        return finalize(0);
-    }
-
-#ifdef Z3DEBUG
-    if (args_parser.option_is_used("--test_swaps")) {
-        square_sparse_matrix<double, double> m(10, 0);
-        fill_matrix(m);
-        test_swap_rows_with_permutation(m);
-        test_swap_cols_with_permutation(m);
-        return finalize(0);
-    }
-#endif
-    if (args_parser.option_is_used("--test_perm")) {
-        test_permutations();
-        return finalize(0);
-    }
-    if (args_parser.option_is_used("--test_file_directory")) {
-        test_files_from_directory(args_parser.get_option_value("--test_file_directory"), args_parser);
-        return finalize(0);
-    }
-    std::string file_list = args_parser.get_option_value("--filelist");
-    if (!file_list.empty()) {
-        for (const std::string & fn : get_file_names_from_file_list(file_list))
-            solve_mps(fn, args_parser);
-        return finalize(0);
-    }
-
-    if (args_parser.option_is_used("-tbq")) {
-        test_binary_priority_queue();
-        ret = 0;
-        return finalize(ret);
-    }
-
-#ifdef Z3DEBUG
-    lp_settings settings;
-    update_settings(args_parser, settings);
-    if (args_parser.option_is_used("--test_lu")) {
-        test_lu(settings);
-        ret = 0;
-        return finalize(ret);
-    }
-
-    if (args_parser.option_is_used("--test_small_lu")) {
-        test_small_lu(settings);
-        ret = 0;
-        return finalize(ret);
-    }
-
-    if (args_parser.option_is_used("--lar")){
-        std::cout <<"calling test_lar_solver" << std::endl;
-        test_lar_solver(args_parser);
-        return finalize(0);
-    }
-
-
-    
-    if (args_parser.option_is_used("--test_larger_lu")) {
-        test_larger_lu(settings);
-        ret = 0;
-        return finalize(ret);
-    }
-
-    if (args_parser.option_is_used("--test_larger_lu_with_holes")) {
-        test_larger_lu_with_holes(settings);
-        ret = 0;
-        return finalize(ret);
-    }
-#endif
-    if (args_parser.option_is_used("--eti")) {
-        test_evidence_for_total_inf_simple(args_parser);
-        ret = 0;
-        return finalize(ret);
-    }
-
-    if (args_parser.option_is_used("--maximize_term")) {
-        test_maximize_term();
-        ret = 0;
-        return finalize(ret);
-    }
-    
-    if (args_parser.option_is_used("--test_lp_0")) {
-        test_lp_0();
-        ret = 0;
-        return finalize(ret);
-    }
-
-    if (args_parser.option_is_used("--smap")) {
-        test_stacked();
-        ret = 0;
-        return finalize(ret);
-    }
-    if (args_parser.option_is_used("--term")) {
-        test_term();
-        ret = 0;
-        return finalize(ret);
-    }
-    unsigned time_limit;
-    get_time_limit_and_max_iters_from_parser(args_parser, time_limit);
-    bool dual = args_parser.option_is_used("--dual");
-    bool solve_for_rational = args_parser.option_is_used("--mpq");
-    std::string file_name = args_parser.get_option_value("--file");
-    if (!file_name.empty()) {
-        solve_mps(file_name, args_parser.option_is_used("--min"), time_limit, solve_for_rational, dual, args_parser.option_is_used("--compare_with_primal"), args_parser);
-        ret = 0;
-        return finalize(ret);
-    }
-    
-    if (args_parser.option_is_used("--solve_some_mps")) {
-#ifndef _WINDOWS
-        solve_some_mps(args_parser);
-#endif
-        ret = 0;
-        return finalize(ret);
-    }
-    //  lp::ccc = 0;
-    return finalize(0);
-    test_init_U();
-    test_replace_column();
-#ifdef Z3DEBUG
-    square_sparse_matrix_with_permutations_test();
-    test_dense_matrix();
-    test_swap_operations();
-    test_permutations();
-    test_pivot_like_swaps_and_pivot();
-#endif
-    tst1();
-    std::cout << "done with LP tests\n";
     return finalize(0); // has_violations() ? 1 : 0);
 }
 }
 void tst_lp(char ** argv, int argc, int& i) {
     lp::test_lp_local(argc - 2, argv + 2);
 }
-#ifdef Z3DEBUG
-namespace lp {
-template void print_matrix<general_matrix>(general_matrix&, std::ostream&);
-}
-#endif

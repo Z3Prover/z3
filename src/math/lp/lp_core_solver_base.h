@@ -25,11 +25,21 @@ Revision History:
 #include "math/lp/core_solver_pretty_printer.h"
 #include "math/lp/numeric_pair.h"
 #include "math/lp/static_matrix.h"
-#include "math/lp/lu.h"
 #include "math/lp/permutation_matrix.h"
 #include "math/lp/column_namer.h"
+#include "math/lp/u_set.h"
+
 
 namespace lp {
+template <typename T, typename X>
+X dot_product(const vector<T> & a, const vector<X> & b) {
+    lp_assert(a.size() == b.size());
+    auto r = zero_of_type<X>();
+    for (unsigned i = 0; i < a.size(); i++) {
+        r += a[i] * b[i];
+    }
+    return r;
+}
 
 template <typename T, typename X> // X represents the type of the x variable and the bounds
 class lp_core_solver_base {    
@@ -53,44 +63,31 @@ public:
     bool current_x_is_infeasible() const { return m_inf_set.size() != 0; }
 private:
     u_set m_inf_set;
-    bool m_using_infeas_costs;
 public:
     const u_set& inf_set() const { return m_inf_set; }
     u_set& inf_set() { return m_inf_set; }
     void inf_set_increase_size_by_one() { m_inf_set.increase_size_by_one(); }
     bool inf_set_contains(unsigned j) const { return m_inf_set.contains(j); }
-    unsigned inf_set_size() const { return m_inf_set.size(); }
-    bool using_infeas_costs() const { return m_using_infeas_costs; }
-    void set_using_infeas_costs(bool val)  { m_using_infeas_costs = val; }
-    vector<unsigned>      m_columns_nz; // m_columns_nz[i] keeps an approximate value of non zeroes the i-th column
-    vector<unsigned>      m_rows_nz; // m_rows_nz[i] keeps an approximate value of non zeroes in the i-th row
-    indexed_vector<T>     m_pivot_row_of_B_1;  // the pivot row of the reverse of B
+    unsigned inf_set_size() const { return m_inf_set.size(); }    
     indexed_vector<T>     m_pivot_row; // this is the real pivot row of the simplex tableu
     static_matrix<T, X> & m_A; // the matrix A
-    vector<X> &           m_b; // the right side
+    // vector<X> const &           m_b; // the right side
     vector<unsigned> &    m_basis;
     vector<unsigned>&     m_nbasis;
     vector<int>&          m_basis_heading;
-    vector<X> &           m_x; // a feasible solution, the fist time set in the constructor
+    vector<X> &           m_x; // a feasible solution, the first time set in the constructor
     vector<T> &           m_costs;
     lp_settings &         m_settings;
-    lu<static_matrix<T, X>> * m_factorization = nullptr;
-    vector<T>             m_y; // the buffer for yB = cb
-    // a device that is able to solve Bx=c, xB=d, and change the basis
+    
     const column_namer &  m_column_names;
-    indexed_vector<T>     m_w; // the vector featuring in 24.3 of the Chvatal book
     vector<T>             m_d; // the vector of reduced costs
-    indexed_vector<T>     m_ed; // the solution of B*m_ed = a
     const vector<column_type> & m_column_types;
     const vector<X> &     m_lower_bounds;
-    const vector<X> &     m_upper_bounds;
-    vector<T>             m_column_norms; // the approximate squares of column norms that help choosing a profitable column
-    vector<X>             m_copy_of_xB;
+    const vector<X> &     m_upper_bounds; 
     unsigned              m_basis_sort_counter;
-    vector<T>             m_steepest_edge_coefficients;
     vector<unsigned>      m_trace_of_basis_change_vector; // the even positions are entering, the odd positions are leaving
     bool                  m_tracing_basis_changes;
-    u_set*              m_pivoted_rows;
+    u_set*                m_pivoted_rows;
     bool                  m_look_for_feasible_solution_only;
 
     void start_tracing_basis_changes() {
@@ -118,7 +115,7 @@ public:
     unsigned m_n() const { return m_A.column_count(); } // the number of columns in the matrix m_A
 
     lp_core_solver_base(static_matrix<T, X> & A,
-                        vector<X> & b, // the right side vector
+                        //vector<X> & b, // the right side vector
                         vector<unsigned> & basis,
                         vector<unsigned> & nbasis,
                         vector<int> & heading,
@@ -134,7 +131,7 @@ public:
     void init();
 
     virtual ~lp_core_solver_base() {
-        delete m_factorization;
+        
     }
 
     vector<unsigned> & non_basis() {
@@ -149,45 +146,11 @@ public:
     lp_status get_status() const{
         return m_status;
     }
-
-    void fill_cb(T * y) const;
-
-    void fill_cb(vector<T> & y) const;
-
-    void solve_yB(vector<T> & y) const;
-    
-    void solve_Bd(unsigned entering, indexed_vector<T> & d_buff, indexed_vector<T>& w_buff) const;
-
-    void solve_Bd(unsigned entering);
-
-    void solve_Bd(unsigned entering, indexed_vector<T> & column);
-
     void pretty_print(std::ostream & out);
-
-    void save_state(T * w_buffer, T * d_buffer);
-
-    void restore_state(T * w_buffer, T * d_buffer);
 
     X get_cost() const {
         return dot_product(m_costs, m_x);
     }
-
-    void copy_m_w(T * buffer);
-
-    void restore_m_w(T * buffer);
-
-    // needed for debugging
-    void copy_m_ed(T * buffer);
-
-    void restore_m_ed(T * buffer);
-
-    bool A_mult_x_is_off() const;
-
-    bool A_mult_x_is_off_on_index(const vector<unsigned> & index) const;
-    // from page 182 of Istvan Maros's book
-    void calculate_pivot_row_of_B_1(unsigned pivot_row);
-
-    void calculate_pivot_row_when_pivot_row_of_B1_is_ready(unsigned pivot_row);
 
     void add_delta_to_entering(unsigned entering, const X & delta);
 
@@ -207,12 +170,9 @@ public:
 
     void set_total_iterations(unsigned s) { m_total_iterations = s; }
 
-    void set_non_basic_x_to_correct_bounds();
-
     bool at_bound(const X &x, const X & bound) const {
         return !below_bound(x, bound) && !above_bound(x, bound);
     }
-
 
     bool need_to_pivot_to_basis_tableau() const {
         unsigned m = m_A.row_count();
@@ -235,11 +195,7 @@ public:
         if (m_settings.simplex_strategy() == simplex_strategy_enum::tableau_rows)
             return true;
         CASSERT("check_static_matrix", m_A.is_correct());
-        if (m_using_infeas_costs) {
-            if (infeasibility_costs_are_correct() == false) {
-                return false;
-            }
-        }
+        
             
         unsigned n = m_A.column_count();
         for (unsigned j = 0; j < n; j++) {
@@ -262,19 +218,17 @@ public:
     }
     
     bool below_bound(const X & x, const X & bound) const {
-        return precise()? x < bound : below_bound_numeric<X>(x, bound, m_settings.primal_feasibility_tolerance);
+        return x < bound ;
     }
 
     bool above_bound(const X & x, const X & bound) const {
-        return precise()? x > bound : above_bound_numeric<X>(x, bound, m_settings.primal_feasibility_tolerance);
+        return x > bound ;
     }
 
     bool x_below_low_bound(unsigned p) const {
         return below_bound(m_x[p], m_lower_bounds[p]);
     }
 
-    bool infeasibility_costs_are_correct() const;
-    bool infeasibility_cost_is_correct_for_column(unsigned j) const;
     
     bool x_above_lower_bound(unsigned p) const {
         return above_bound(m_x[p], m_lower_bounds[p]);
@@ -283,7 +237,6 @@ public:
     bool x_below_upper_bound(unsigned p) const {
         return below_bound(m_x[p], m_upper_bounds[p]);
     }
-
 
     bool x_above_upper_bound(unsigned p) const {
         return above_bound(m_x[p], m_upper_bounds[p]);
@@ -310,14 +263,9 @@ public:
 
     bool d_is_not_positive(unsigned j) const;
 
-
     bool time_is_over();
 
     void rs_minus_Anx(vector<X> & rs);
-
-    bool find_x_by_solving();
-
-    bool update_basis_and_x(int entering, int leaving, X const & tt);
 
     bool basis_has_no_doubles() const;
 
@@ -328,78 +276,18 @@ public:
 
     bool basis_heading_is_correct() const;
 
-    void restore_x_and_refactor(int entering, int leaving, X const & t);
-
-    void restore_x(unsigned entering, X const & t);
-
-    void fill_reduced_costs_from_m_y_by_rows();
-
-    void copy_rs_to_xB(vector<X> & rs);
     virtual bool lower_bounds_are_set() const { return false; }
     X lower_bound_value(unsigned j) const { return m_lower_bounds[j]; }
     X upper_bound_value(unsigned j) const { return m_upper_bounds[j]; }
 
     column_type get_column_type(unsigned j) const {return m_column_types[j]; }
 
-    bool pivot_row_element_is_too_small_for_ratio_test(unsigned j) {
-        return m_settings.abs_val_is_smaller_than_pivot_tolerance(m_pivot_row[j]);
-    }
-
+    
     X bound_span(unsigned j) const {
         return m_upper_bounds[j] - m_lower_bounds[j];
     }
 
     std::string column_name(unsigned column) const;
-
-    void copy_right_side(vector<X> & rs);
-
-    void add_delta_to_xB(vector<X> & del);
-
-    void find_error_in_BxB(vector<X>& rs);
-
-    // recalculates the projection of x to B, such that Ax = b, whereab is the right side
-    void solve_Ax_eq_b();
-
-    bool snap_non_basic_x_to_bound() {
-        bool ret = false;
-        for (unsigned j : non_basis())
-            ret = snap_column_to_bound(j) || ret;
-        return ret;
-    }
-
-    
-    
-    bool snap_column_to_bound(unsigned j) {
-        switch (m_column_types[j]) {
-        case column_type::fixed:
-            if (x_is_at_bound(j))
-                break;
-            m_x[j] = m_lower_bounds[j];
-            return true;
-        case column_type::boxed:
-            if (x_is_at_bound(j))
-                break; // we should preserve x if possible
-            // snap randomly
-            if (m_settings.random_next() % 2 == 1) 
-                m_x[j] = m_lower_bounds[j];
-            else
-                m_x[j] = m_upper_bounds[j];
-            return true;
-        case column_type::lower_bound:
-            if (x_is_at_lower_bound(j))
-                break;
-            m_x[j] = m_lower_bounds[j];
-            return true;
-        case column_type::upper_bound:
-            if (x_is_at_upper_bound(j))
-                break;
-            m_x[j] = m_upper_bounds[j];
-            return true;
-        default:
-            break;
-        }
-        return false;
-    }
 
     bool make_column_feasible(unsigned j, numeric_pair<mpq> & delta) {
         bool ret = false;
@@ -445,21 +333,7 @@ public:
         
     }
 
-    
-    void snap_non_basic_x_to_bound_and_free_to_zeroes();
-    void snap_xN_to_bounds_and_fill_xB();
-
-    void snap_xN_to_bounds_and_free_columns_to_zeroes();
-
-    void init_reduced_costs_for_one_iteration();
-
-    non_basic_column_value_position get_non_basic_column_value_position(unsigned j) const;
-
-    void init_lu();
-    int pivots_in_column_and_row_are_different(int entering, int leaving) const;
-    void pivot_fixed_vars_from_basis();
     bool remove_from_basis(unsigned j);
-    bool remove_from_basis(unsigned j, const impq&);
     bool pivot_column_general(unsigned j, unsigned j_basic, indexed_vector<T> & w);
     void init_basic_part_of_basis_heading() {
         unsigned m = m_basis.size();
@@ -531,31 +405,6 @@ public:
         change_basis_unconditionally(leaving, entering);
     }
 
-    bool non_basic_column_is_set_correctly(unsigned j) const {
-        if (j >= this->m_n())
-            return false;
-        switch (this->m_column_types[j]) {
-        case column_type::fixed:
-        case column_type::boxed:
-            if (!this->x_is_at_bound(j))
-                return false;
-            break;
-        case column_type::lower_bound:
-            if (!this->x_is_at_lower_bound(j))
-                return false;
-            break;
-        case column_type::upper_bound:
-            if (!this->x_is_at_upper_bound(j))
-                return false;
-            break;
-        case column_type::free_column:
-            break;
-        default:
-            lp_assert(false);
-            break;
-        }
-        return true;
-    }
     bool non_basic_columns_are_set_correctly() const {
         for (unsigned j : this->m_nbasis)
             if (!column_is_feasible(j)) {
@@ -615,12 +464,10 @@ public:
             out << "[-oo, oo]";
             break;
         default:
-            lp_assert(false);
+            UNREACHABLE();
         }
         return out << "\n";
     }
-
-    bool column_is_free(unsigned j) const { return this->m_column_types[j] == column_type::free_column; }
 
     bool column_is_fixed(unsigned j) const { return this->m_column_types[j] == column_type::fixed; }
 
@@ -654,16 +501,6 @@ public:
         }
     }
 
-    // only check for basic columns
-    bool calc_current_x_is_feasible() const {
-        unsigned i = this->m_m();
-        while (i--) {
-            if (!column_is_feasible(m_basis[i]))
-                return false;
-        }
-        return true;
-    }
-
     void transpose_rows_tableau(unsigned i, unsigned ii);
     
     void pivot_to_reduced_costs_tableau(unsigned i, unsigned j);
@@ -671,13 +508,10 @@ public:
     bool pivot_column_tableau(unsigned j, unsigned row_index);
     bool divide_row_by_pivot(unsigned pivot_row, unsigned pivot_col);
     
-    bool precise() const { return numeric_traits<T>::precise(); }
-
     simplex_strategy_enum simplex_strategy() const { return
             m_settings.simplex_strategy();
     }
 
-    bool use_tableau() const { return m_settings.use_tableau(); }
     
     template <typename K>
     static void swap(vector<K> &v, unsigned i, unsigned j) {
@@ -767,7 +601,7 @@ public:
         return m_iters_with_no_cost_growing;
     }
 
-    void calculate_pivot_row(unsigned i);
+    
     unsigned get_base_column_in_row(unsigned row_index) const {
         return m_basis[row_index];
     }

@@ -90,6 +90,37 @@ CFLAGS="-m32" CXXFLAGS="-m32" CC=gcc CXX=g++ cmake ../
 Note like with the ``CC`` and ``CXX`` flags this must be done on the very first invocation
 to CMake in the build directory.
 
+### Adding Z3 as a dependency to a CMAKE Project
+
+CMake's [FetchContent](https://cmake.org/cmake/help/latest/module/FetchContent.html) allows
+the fetching and populating of an external project. This is useful when a certain version
+of z3 is required that may not match with the system version. With the following code in the 
+cmake file of your project, z3 version 4.12.1 is downloaded to the build directory and the
+cmake targets are added to the project:
+
+```
+FetchContent_Declare(z3
+        GIT_REPOSITORY https://github.com/Z3Prover/z3
+        GIT_TAG        z3-4.12.1
+)
+FetchContent_MakeAvailable(z3)
+```
+
+The header files can be added to the included directories as follows:
+
+```
+include_directories( ${z3_SOURCE_DIR}/src/api )
+```
+
+Finally, the z3 library can be linked to a `yourTarget` using
+
+```
+target_link_libraries(yourTarget libz3)
+```
+Note that this is `libz3` not `z3` (`libz3` refers to the library target from `src/CMakeLists.txt`).
+
+
+
 ### Ninja
 
 [Ninja](https://ninja-build.org/) is a simple build system that is built for speed.

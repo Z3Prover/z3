@@ -28,6 +28,7 @@ Revision History:
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/ast_pp.h"
 #include "ast/array_decl_plugin.h"
+#include "ast/special_relations_decl_plugin.h"
 #include "ast/ast_smt2_pp.h"
 #include "smt/smt_model_checker.h"
 #include "smt/smt_context.h"
@@ -358,7 +359,7 @@ namespace smt {
         
         TRACE("model_checker", tout << "[complete] model-checker result: " << to_sat_str(r) << "\n";);
         if (r != l_true) {
-            return r == l_false; // quantifier is satisfied by m_curr_model
+            return is_safe_for_mbqi(q) && r == l_false; // quantifier is satisfied by m_curr_model
         }
 
         model_ref complete_cex;
@@ -397,6 +398,26 @@ namespace smt {
 
         return false;
     }
+
+    bool model_checker::is_safe_for_mbqi(quantifier * q) const {
+        special_relations_util sp(m);
+        if (!sp.has_special_relation())
+            return true;
+        ast_fast_mark1 visited;
+        struct proc {
+            special_relations_util& sp;
+            bool found = false;
+            proc(special_relations_util& sp):sp(sp) {}
+            void operator()(app* f) {
+                found |= sp.is_special_relation(f);
+            }
+            void operator()(expr* e) {}
+        };
+        proc p(sp);
+        quick_for_each_expr(p, visited, q);
+        return !p.found;
+    }
+
 
     void model_checker::init_aux_context() {
         if (!m_fparams) {

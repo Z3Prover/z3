@@ -1604,7 +1604,7 @@ namespace smt {
             std::cout << B << "\n";
         }
 #endif
-        SASSERT(is_sat != l_true);
+        VERIFY(is_sat != l_true);
         return true;
     }
 

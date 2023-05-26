@@ -1,7 +1,7 @@
 variables:
   Major: '4'
   Minor: '12'
-  Patch: '2'
+  Patch: '3'
   AssemblyVersion: $(Major).$(Minor).$(Patch).$(Build.BuildId)
   NightlyVersion: $(AssemblyVersion)-$(Build.DefinitionName)
 
@@ -33,6 +33,20 @@ stages:
     - task: PublishPipelineArtifact@1
       inputs:
         artifactName: 'MacArm64'
+        targetPath: $(Build.ArtifactStagingDirectory)
+
+  - job: Ubuntu20
+    displayName: "Ubuntu20 build"
+    pool:
+      vmImage: "ubuntu-20.04"
+    steps:
+    - script: python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
+    - script: git clone https://github.com/z3prover/z3test z3test
+    - script: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2    
+    - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
+    - task: PublishPipelineArtifact@0
+      inputs:
+        artifactName: 'Ubuntu-20.04'
         targetPath: $(Build.ArtifactStagingDirectory)
 
   - job: Ubuntu
@@ -511,6 +525,11 @@ stages:
       displayName: "Download Ubuntu"
       inputs:
         artifactName: 'Ubuntu'
+        targetPath: tmp
+    - task: DownloadPipelineArtifact@2
+      displayName: "Download Ubuntu-20.04"
+      inputs:
+        artifactName: 'Ubuntu-20.04'
         targetPath: tmp
     - task: DownloadPipelineArtifact@2
       displayName: "Download Doc"

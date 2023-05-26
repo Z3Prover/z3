@@ -704,14 +704,20 @@ namespace smt {
         for (clause* cp : m_lemmas)
             if (cp->get_num_literals() == 2)
                 ++bin_lemmas;
+        auto num_units = [&]() {
+            if (m_scopes.empty())
+                return m_assigned_literals.size();
+            else
+                return m_scopes[0].m_assigned_literals_lim;
+        };
         std::stringstream strm;
         strm << "(smt.stats " 
              << std::setw(4) << m_stats.m_num_restarts << " "
              << std::setw(6) << m_stats.m_num_conflicts << " "
              << std::setw(6) << m_stats.m_num_decisions << " " 
              << std::setw(6) << m_stats.m_num_propagations << " "
-             << std::setw(5) << (m_aux_clauses.size() + bin_clauses) << "/" << bin_clauses << " "
-             << std::setw(5) << m_lemmas.size(); if (bin_lemmas > 0) strm << "/" << bin_lemmas << " ";
+             << std::setw(5) << (m_aux_clauses.size() + bin_clauses) << "/" << bin_clauses << "/" << num_units()
+             << std::setw(7) << m_lemmas.size(); if (bin_lemmas > 0) strm << "/" << bin_lemmas << " ";
         strm << std::setw(5) << m_stats.m_num_simplifications << " "
              << std::setw(4) << m_stats.m_num_del_clauses << " "
              << std::setw(7) << mem_stat() << ")\n";
@@ -739,8 +745,8 @@ namespace smt {
             m_last_position_log = m_stats.m_num_restarts;
             // restarts       decisions      clauses    simplifications  memory
             //      conflicts       propagations    lemmas       deletions
-            int adjust[9] = { -3, -3, -3, -3, -3, -3, -4, -4, -1 };
-            char const* tag[9] = { ":restarts ", ":conflicts ", ":decisions ", ":propagations ", ":clauses/bin ", ":lemmas ", ":simplify ", ":deletions", ":memory" };
+            int adjust[9] = { -3, -3, -3, -3, -3, -4, -4, -4, -1 };
+            char const* tag[9] = { ":restarts ", ":conflicts ", ":decisions ", ":propagations ", ":clauses/bin/units ", ":lemmas ", ":simplify ", ":deletions", ":memory" };
 
             std::stringstream l1, l2;
             l1 << "(smt.stats ";

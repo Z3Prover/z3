@@ -141,6 +141,7 @@ class tseitin_cnf_tactic : public tactic {
                 sign = !sign;
                 goto start;
             case OP_OR:
+            // case OP_AND:
                 l = nullptr;
                 m_cache.find(to_app(n), l);
                 SASSERT(l != 0);
@@ -187,6 +188,7 @@ class tseitin_cnf_tactic : public tactic {
                     goto start;
                 }
             case OP_OR:
+            // case OP_AND:
                 visited = false;
                 push_frame(to_app(n));
                 return;
@@ -197,10 +199,10 @@ class tseitin_cnf_tactic : public tactic {
                     push_frame(to_app(n));
                 }
                 return;
-            case OP_AND:
             case OP_XOR:
             case OP_IMPLIES:
             case OP_DISTINCT:
+            case OP_AND:
                 throw_op_not_handled();
             default:
                 return;
@@ -617,6 +619,43 @@ class tseitin_cnf_tactic : public tactic {
             }
             return DONE;
         }
+
+        mres match_and(app * t, bool first, bool root) {
+            if (!m.is_and(t))
+                return NO;
+            if (first) {
+                bool visited = true;
+                for (expr* a : *t) 
+                    visit(a, visited);
+                if (!visited)
+                    return CONT;
+            }
+            expr_ref_buffer lits(m); 
+            expr_ref l(m), nl(m);
+            app_ref k(m), nk(m);
+            if (root) {
+                for (expr* arg : *t) {
+                    get_lit(arg, false, l);
+                    expr* lits[1] = { l };
+                    mk_clause(1, lits);
+                }
+            }
+            else {
+                k = mk_fresh();
+                nk = m.mk_not(k);
+                cache_result(t, k);
+                
+                for (expr* arg : *t) {
+                    get_lit(arg, false, l);
+                    mk_clause(nk, l);
+                    inv(l, nl);
+                    lits.push_back(nl);
+                }
+                lits.push_back(k);
+                mk_clause(lits.size(), lits.data());
+            }
+            return DONE;               
+        }
         
         mres match_or(app * t, bool first, bool root) {
             if (!m.is_or(t))
@@ -778,6 +817,7 @@ class tseitin_cnf_tactic : public tactic {
                 fr.m_first = false;
                 TRY(match_or_3and);
                 TRY(match_or);
+                TRY(match_and);
                 TRY(match_iff3);
                 // TRY(match_iff_or);
                 TRY(match_iff);

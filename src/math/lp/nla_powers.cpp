@@ -79,7 +79,10 @@ am().set(rval, am_value(r));
 namespace nla {
     
     lbool powers::check(lpvar r, lpvar x, lpvar y, vector<lemma>& lemmas) {
+        TRACE("nla", tout << r << " == " << x << "^" << y << "\n");
         if (x == null_lpvar || y == null_lpvar || r == null_lpvar)
+            return l_undef;
+        if (lp::tv::is_term(x) || lp::tv::is_term(y) || lp::tv::is_term(r))
             return l_undef;
 
         core& c = m_core;        
@@ -143,17 +146,24 @@ namespace nla {
             auto r2val = power(xval, yval.get_unsigned());
             if (rval == r2val)
                 return l_true;
-            if (xval > 0 && r2val < rval) {
-                SASSERT(yval > 0);
+            if (c.random() % 2 == 0) {
+                new_lemma lemma(c, "x == x0, y == y0 => r = x0^y0");
+                lemma |= ineq(x, llc::NE, xval);
+                lemma |= ineq(y, llc::NE, yval);
+                lemma |= ineq(r, llc::EQ, r2val);
+                return l_false;
+            }
+            if (yval > 0 && r2val > rval) {
                 new_lemma lemma(c, "x >= x0 > 0, y >= y0 > 0 => r >= x0^y0");
                 lemma |= ineq(x, llc::LT, xval);
                 lemma |= ineq(y, llc::LT, yval);
                 lemma |= ineq(r, llc::GE, r2val);
                 return l_false;
             }
-            if (xval > 0 && r2val < rval) {
-                new_lemma lemma(c, "x >= x0 > 0, y <= y0 => r <= x0^y0");
-                lemma |= ineq(x, llc::LT, xval);
+            if (r2val < rval) {
+                new_lemma lemma(c, "0 < x <= x0, y <= y0 => r <= x0^y0");
+                lemma |= ineq(x, llc::LE, rational::zero());
+                lemma |= ineq(x, llc::GT, xval);
                 lemma |= ineq(y, llc::GT, yval);
                 lemma |= ineq(r, llc::LE, r2val);
                 return l_false;

@@ -49,6 +49,7 @@ struct preprocessor_params : public pattern_inference_params,
     bool            m_max_bv_sharing = true;
     bool            m_pre_simplifier = true;
     bool            m_nlquant_elim = false;
+    bool            m_bound_simplifier = true;
 
 public:
     preprocessor_params(params_ref const & p = params_ref()):

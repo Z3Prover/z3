@@ -349,6 +349,20 @@ namespace euf {
         si.uncache(literal(v, true));
     }
 
+    bool solver::decide(bool_var& var, lbool& phase) {
+        for (auto const& th : m_solvers)
+            if (th->decide(var, phase))
+                return true;
+        return false;
+    }
+
+    bool solver::get_case_split(bool_var& var, lbool& phase) {
+        for (auto const& th : m_solvers)
+            if (th->get_case_split(var, phase))
+                return true;
+        return false;
+    }
+
     void solver::asserted(literal l) {
         m_relevancy.asserted(l);
         if (!m_relevancy.is_relevant(l))
@@ -478,8 +492,13 @@ namespace euf {
             m_ackerman->cg_conflict_eh(a, b);
         switch (s().value(lit)) {
         case l_true:
-            if (n->merge_tf() && !m.is_value(n->get_root()->get_expr())) 
-                m_egraph.merge(n, ante, to_ptr(lit));
+            if (!n->merge_tf())
+                break;
+            if (m.is_value(n->get_root()->get_expr()))
+                break;
+            if (!ante)
+                ante = mk_true();
+            m_egraph.merge(n, ante, to_ptr(lit));
             break;
         case l_undef:
         case l_false:

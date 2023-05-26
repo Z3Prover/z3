@@ -58,7 +58,7 @@ namespace sat {
         clause_vector    m_clause_db;     
         svector<clause_info> m_clauses;
         bool_vector    m_values, m_best_values;
-        unsigned         m_best_min_unsat{ 0 };
+        unsigned         m_best_min_unsat = 0;
         vector<unsigned_vector> m_use_list;
         unsigned_vector  m_flat_use_list;
         unsigned_vector  m_use_list_index;
@@ -67,9 +67,9 @@ namespace sat {
         indexed_uint_set m_unsat;
         random_gen       m_rand;
         unsigned_vector  m_breaks;
-        uint64_t         m_flips{ 0 };
-        uint64_t         m_next_restart{ 0 };
-        unsigned         m_restart_count{ 0 };
+        uint64_t         m_flips = 0;
+        uint64_t         m_next_restart = 0;
+        unsigned         m_restart_count = 0;
         stopwatch        m_stopwatch;
         model            m_model;
 
@@ -139,6 +139,8 @@ namespace sat {
         void add(solver const& s) override;
 
         model const& get_model() const override { return m_model; }
+
+        double get_priority(bool_var v) const override { return 0; }
        
         std::ostream& display(std::ostream& out) const;
 
@@ -148,7 +150,7 @@ namespace sat {
 
         void collect_statistics(statistics& st) const override {} 
 
-        void reinit(solver& s) override { UNREACHABLE(); }
+        void reinit(solver& s, bool_vector const& phase) override { UNREACHABLE(); }
 
     };
 }

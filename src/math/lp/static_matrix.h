@@ -12,7 +12,6 @@ Author:
 #include <set>
 #include <unordered_map>
 #include <utility>
-#include "math/lp/sparse_vector.h"
 #include "math/lp/indexed_vector.h"
 #include "math/lp/permutation_matrix.h"
 #include <stack>
@@ -169,8 +168,6 @@ public:
 
     std::set<std::pair<unsigned, unsigned>>  get_domain();
 
-    void copy_column_to_indexed_vector(unsigned j, indexed_vector<T> & v) const;
-
     T get_max_abs_in_row(unsigned row) const;
     void add_column_to_vector (const T & a, unsigned j, T * v) const {
         for (const auto & it : m_columns[j]) {
@@ -223,7 +220,7 @@ public:
     virtual void set_number_of_columns(unsigned /*n*/) { }
 #endif
 
-    T get_max_val_in_row(unsigned /* i */) const { lp_unreachable();   }
+    T get_max_val_in_row(unsigned /* i */) const { UNREACHABLE();   }
 
     T get_balance() const;
 
@@ -344,7 +341,6 @@ public:
     void fill_last_row_with_pivoting(const term& row,
                                      unsigned bj, // the index of the basis column
                                      const vector<int> & basis_heading) {
-        lp_assert(numeric_traits<T>::precise());
         lp_assert(row_count() > 0);
         m_work_vector.resize(column_count());
         T a;
@@ -360,7 +356,6 @@ public:
         for (auto p : row) {
             fill_last_row_with_pivoting_loop_block(p.column().index(), basis_heading);
         }
-        lp_assert(m_work_vector.is_OK());
         unsigned last_row = row_count() - 1;
     
         for (unsigned j : m_work_vector.m_index) {

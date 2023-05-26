@@ -151,6 +151,7 @@ namespace z3 {
     }
 
 
+
     /**
        \brief A Context manages all other Z3 objects, global configuration options, etc.
     */
@@ -360,11 +361,19 @@ namespace z3 {
         func_decl function(char const * name, sort const & d1, sort const & d2, sort const & d3, sort const & d4, sort const & d5, sort const & range);
 
         func_decl recfun(symbol const & name, unsigned arity, sort const * domain, sort const & range);
+        func_decl recfun(symbol const & name, const sort_vector& domain, sort const & range);
+        func_decl recfun(char const * name, sort_vector const& domain, sort const & range);
         func_decl recfun(char const * name, unsigned arity, sort const * domain, sort const & range);
         func_decl recfun(char const * name, sort const & domain, sort const & range);
         func_decl recfun(char const * name, sort const & d1, sort const & d2, sort const & range);
 
-        void      recdef(func_decl, expr_vector const& args, expr const& body);
+        /**
+         * \brief add function definition body to declaration decl. decl needs to be declared using context::<recfun>.
+         * @param decl
+         * @param args
+         * @param body
+         */
+        void      recdef(func_decl decl, expr_vector const& args, expr const& body);
         func_decl user_propagate_function(symbol const& name, sort_vector const& domain, sort const& range);
 
         /**
@@ -742,6 +751,7 @@ namespace z3 {
         func_decl_vector recognizers();
     };
 
+
     /**
        \brief Function declaration (aka function definition). It is the signature of interpreted and uninterpreted functions in Z3.
        The basic building block in Z3 is the function application.
@@ -762,6 +772,8 @@ namespace z3 {
         sort range() const { Z3_sort r = Z3_get_range(ctx(), *this); check_error(); return sort(ctx(), r); }
         symbol name() const { Z3_symbol s = Z3_get_decl_name(ctx(), *this); check_error(); return symbol(ctx(), s); }
         Z3_decl_kind decl_kind() const { return Z3_get_decl_kind(ctx(), *this); }
+        unsigned num_parameters() const { return Z3_get_decl_num_parameters(ctx(), *this); }
+
 
         func_decl transitive_closure(func_decl const&) {
             Z3_func_decl tc = Z3_mk_transitive_closure(ctx(), *this); check_error(); return func_decl(ctx(), tc); 
@@ -2679,6 +2691,43 @@ namespace z3 {
         return out;
     }
 
+    /**
+        \brief class for auxiliary parameters associated with func_decl 
+        The class is initialized with a func_decl or application expression and an index
+        The accessor get_expr, get_sort, ... is available depending on the value of kind().
+        The caller is responsible to check that the kind of the parameter aligns with the call (get_expr etc).
+
+        Parameters are available on some declarations to contain additional information that is not passed as
+        arguments when a function is applied to arguments. For example, bit-vector extraction has two 
+        integer parameters. Array map has a function parameter.
+    */
+    class parameter {
+        Z3_parameter_kind m_kind;
+        func_decl         m_decl;
+        unsigned          m_index;
+        context& ctx() const { return m_decl.ctx(); }
+        void check_error() const { ctx().check_error(); }
+    public:
+        parameter(func_decl const& d, unsigned idx) : m_decl(d), m_index(idx) { 
+            if (ctx().enable_exceptions() && idx >= d.num_parameters())
+                Z3_THROW(exception("parameter index is out of bounds"));
+            m_kind = Z3_get_decl_parameter_kind(ctx(), d, idx); 
+        }
+        parameter(expr const& e, unsigned idx) : m_decl(e.decl()), m_index(idx) {
+            if (ctx().enable_exceptions() && idx >= m_decl.num_parameters())
+                Z3_THROW(exception("parameter index is out of bounds"));
+            m_kind = Z3_get_decl_parameter_kind(ctx(), m_decl, idx);
+        }
+        Z3_parameter_kind kind() const { return m_kind; }
+        expr get_expr() const { Z3_ast a = Z3_get_decl_ast_parameter(ctx(), m_decl, m_index); check_error(); return expr(ctx(), a); }
+        sort get_sort() const { Z3_sort s = Z3_get_decl_sort_parameter(ctx(), m_decl, m_index); check_error(); return sort(ctx(), s); }
+        func_decl get_decl() const { Z3_func_decl f = Z3_get_decl_func_decl_parameter(ctx(), m_decl, m_index); check_error(); return func_decl(ctx(), f); }
+        symbol get_symbol() const { Z3_symbol s = Z3_get_decl_symbol_parameter(ctx(), m_decl, m_index); check_error(); return symbol(ctx(), s); }
+        std::string get_rational() const { Z3_string s = Z3_get_decl_rational_parameter(ctx(), m_decl, m_index); check_error(); return s; }
+        double get_double() const { double d = Z3_get_decl_double_parameter(ctx(), m_decl, m_index); check_error(); return d; }
+        int get_int() const { int i = Z3_get_decl_int_parameter(ctx(), m_decl, m_index); check_error(); return i; }
+    };
+
 
     class solver : public object {
         Z3_solver m_solver;
@@ -2712,6 +2761,16 @@ namespace z3 {
         void set(char const * k, double v) { params p(ctx()); p.set(k, v); set(p); }
         void set(char const * k, symbol const & v) { params p(ctx()); p.set(k, v); set(p); }
         void set(char const * k, char const* v) { params p(ctx()); p.set(k, v); set(p); }
+        /**
+           \brief Create a backtracking point.
+
+           The solver contains a stack of assertions.
+
+           \sa Z3_solver_get_num_scopes
+           \sa Z3_solver_pop
+
+           def_API('Z3_solver_push', VOID, (_in(CONTEXT), _in(SOLVER)))
+        */
         void push() { Z3_solver_push(ctx(), m_solver); check_error(); }
         void pop(unsigned n = 1) { Z3_solver_pop(ctx(), m_solver, n); check_error(); }
         void reset() { Z3_solver_reset(ctx(), m_solver); check_error(); }
@@ -3601,6 +3660,19 @@ namespace z3 {
         Z3_func_decl f = Z3_mk_rec_func_decl(m_ctx, name, arity, args.ptr(), range);
         check_error();
         return func_decl(*this, f);
+
+    }
+
+    inline func_decl context::recfun(symbol const & name, sort_vector const& domain, sort const & range) {
+        check_context(domain, range);
+        array<Z3_sort> domain1(domain);
+        Z3_func_decl f = Z3_mk_rec_func_decl(m_ctx, name, domain1.size(), domain1.ptr(), range);
+        check_error();
+        return func_decl(*this, f);
+    }
+
+    inline func_decl context::recfun(char const * name, sort_vector const& domain, sort const & range) {
+        return recfun(str_symbol(name), domain, range);
 
     }
 

@@ -5024,12 +5024,14 @@ br_status seq_rewriter::mk_re_star(expr* a, expr_ref& result) {
  * (re.range c_1 c_n) 
  */
 br_status seq_rewriter::mk_re_range(expr* lo, expr* hi, expr_ref& result) {
-    zstring s;
+    zstring slo, shi;
     unsigned len = 0;
     bool is_empty = false;
-    if (str().is_string(lo, s) && s.length() != 1) 
+    if (str().is_string(lo, slo) && slo.length() != 1) 
         is_empty = true;
-    if (str().is_string(hi, s) && s.length() != 1) 
+    if (str().is_string(hi, shi) && shi.length() != 1) 
+        is_empty = true;
+    if (slo.length() == 1 && shi.length() == 1 && slo[0] > shi[0])
         is_empty = true;
     len = min_length(lo).second;
     if (len > 1)
@@ -5246,7 +5248,17 @@ br_status seq_rewriter::reduce_re_is_empty(expr* r, expr_ref& result) {
     else if (re().is_range(r, r1, r2) && 
              str().is_string(r1, s1) && str().is_string(r2, s2) && 
              s1.length() == 1 && s2.length() == 1) {
-        result = m().mk_bool_val(s1[0] <= s2[0]);
+        result = m().mk_bool_val(s1[0] > s2[0]);
+        return BR_DONE;
+    }
+    else if (re().is_range(r, r1, r2) && 
+             str().is_string(r1, s1) && s1.length() != 1) {
+        result = m().mk_true();
+        return BR_DONE;
+    }
+    else if (re().is_range(r, r1, r2) && 
+             str().is_string(r2, s2) && s2.length() != 1) {
+        result = m().mk_true();
         return BR_DONE;
     }
     else if ((re().is_loop(r, r1, lo) ||
@@ -5307,6 +5319,7 @@ br_status seq_rewriter::mk_le_core(expr * l, expr * r, expr_ref & result) {
 }
 
 br_status seq_rewriter::mk_eq_core(expr * l, expr * r, expr_ref & result) {
+    TRACE("seq", tout << mk_pp(l, m()) << " == " << mk_pp(r, m()) << "\n");
     expr_ref_vector res(m());
     expr_ref_pair_vector new_eqs(m());
     if (m_util.is_re(l)) {
@@ -5518,6 +5531,7 @@ bool seq_rewriter::reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_
         reduce_front(ls, rs, eqs) &&
         reduce_itos(ls, rs, eqs) &&
         reduce_itos(rs, ls, eqs) &&
+        reduce_value_clash(ls, rs, eqs) && 
         reduce_by_length(ls, rs, eqs) &&
         reduce_subsequence(ls, rs, eqs) &&
         reduce_non_overlap(ls, rs, eqs) && 
@@ -5941,6 +5955,47 @@ bool seq_rewriter::reduce_non_overlap(expr_ref_vector& ls, expr_ref_vector& rs, 
     if (!pattern.empty() && non_overlap(pattern, rs))
         return false;
     return true;
+}
+
+
+/**
+ * partial check for value clash.
+ * checks that elements that do not occur in 
+ * other sequence are non-values.
+ * The check could be extended to take non-value 
+ * characters (units) into account.
+ */
+bool seq_rewriter::reduce_value_clash(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& eqs) {
+    ptr_buffer<expr> es;
+
+    if (ls.empty() || rs.empty())
+        return true;
+    es.append(ls.size(), ls.data());
+    auto remove = [&](expr* r) {
+        for (unsigned i = 0; i < es.size(); ++i) {
+            if (r == es[i]) {
+                es[i] = es.back();
+                es.pop_back();
+                return true;
+            }
+        }
+        return false;                
+    };
+    auto is_unit_value = [&](expr* r) {
+        return m().is_value(r) && str().is_unit(r);
+    };
+    for (expr* r : rs) {
+        if (remove(r))
+            continue;
+        if (!is_unit_value(r))
+            return true;
+    }
+    if (es.empty())
+        return true;
+    for (expr* e : es)
+        if (!is_unit_value(e))
+            return true;
+    return false;
 }
 
 bool seq_rewriter::reduce_subsequence(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& eqs) {

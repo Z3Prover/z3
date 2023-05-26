@@ -2259,6 +2259,24 @@ class JavaExample
         System.out.println(e1.equals(e3));
     }
 
+    public void stringExample() {
+	System.out.println("String example");
+	Context ctx = new Context();
+	Expr a = ctx.mkToRe(ctx.mkString("abcd"));
+	Expr b = ctx.mkFullRe(ctx.mkReSort(ctx.mkStringSort()));
+	System.out.println(a);
+	System.out.println(b);
+	System.out.println(a.getSort());
+	System.out.println(b.getSort());
+	Expr c = ctx.mkConcat(ctx.mkToRe(ctx.mkString("abc")),
+			     ctx.mkFullRe(ctx.mkReSort(ctx.mkStringSort())),
+			     ctx.mkEmptyRe(ctx.mkReSort(ctx.mkStringSort())),
+			     ctx.mkAllcharRe(ctx.mkReSort(ctx.mkStringSort())),
+			     ctx.mkToRe(ctx.mkString("d")));
+	System.out.println(c);
+	
+    }    
+
     public static void main(String[] args)
     {
         JavaExample p = new JavaExample();
@@ -2274,12 +2292,15 @@ class JavaExample
             System.out.print("Z3 Full Version String: ");
             System.out.println(Version.getFullVersion());
 
+	    p.stringExample();
+
             p.simpleExample();
 
             { // These examples need model generation turned on.
                 HashMap<String, String> cfg = new HashMap<String, String>();
                 cfg.put("model", "true");
                 Context ctx = new Context(cfg);
+
         
                 p.optimizeExample(ctx);
                 p.basicTests(ctx);

@@ -45,7 +45,6 @@ template <typename T> class numeric_traits {};
 
 template <>  class numeric_traits<unsigned> {
 public:
-    static bool precise() { return true; }
     static unsigned zero() { return 0; }
     static unsigned one() { return 1; }
     static bool is_zero(unsigned v) { return v == 0; }
@@ -56,7 +55,6 @@ public:
 
 template <>  class numeric_traits<int> {
 public:
-    static bool precise() { return true; }
     static int zero() { return 0; }
     static int one() { return 1; }
     static bool is_zero(int v) { return v == 0; }
@@ -71,7 +69,6 @@ public:
 
 template <>  class numeric_traits<double> {
 public:
-    static bool precise() { return false; }
     static double g_zero;
     static double const &zero() { return g_zero;  }
     static double g_one;
@@ -88,7 +85,6 @@ public:
 template<>
 class numeric_traits<rational> {
 public:
-    static bool precise() { return true; }
     static rational const & zero() { return rational::zero(); }
     static rational const & one() { return rational::one(); }
     static bool is_zero(const rational & v) { return v.is_zero(); }
@@ -111,21 +107,8 @@ public:
 template <typename X, typename Y>
 struct convert_struct {
     static X convert(const Y & y){ return X(y);}
-    static bool is_epsilon_small(const X & x,  const double & y) { return std::abs(numeric_traits<X>::get_double(x)) < y; }
-    static bool below_bound_numeric(const X &, const X &, const Y &) { /*lp_unreachable();*/ return false;}
-    static bool above_bound_numeric(const X &, const X &, const Y &) { /*lp_unreachable();*/ return false; }
-};
-
-
-template <>
-struct convert_struct<double, mpq> {
-    static double convert(const mpq & q) {return q.get_double();}
-};
-
-
-template <>
-struct convert_struct<mpq, unsigned> {
-    static mpq convert(unsigned q) {return mpq(q);}
+    static bool below_bound_numeric(const X &, const X &, const Y &) { /*UNREACHABLE();*/ return false;}
+    static bool above_bound_numeric(const X &, const X &, const Y &) { /*UNREACHABLE();*/ return false; }
 };
 
 
@@ -207,7 +190,7 @@ struct numeric_pair {
     }
 
     numeric_pair operator/(const numeric_pair &) const {
-        // lp_unreachable();
+        // UNREACHABLE();
     }
 
 
@@ -216,7 +199,7 @@ struct numeric_pair {
     }
 
     numeric_pair operator*(const numeric_pair & /*a*/) const  {
-        // lp_unreachable();
+        // UNREACHABLE();
     }
 
     numeric_pair&  operator+=(const numeric_pair & a) {
@@ -250,8 +233,6 @@ struct numeric_pair {
     numeric_pair operator-() const {
         return numeric_pair(-x, -y);
     }
-
-    static bool precize() { return lp::numeric_traits<T>::precize();}
 
     bool is_zero() const { return x.is_zero() && y.is_zero(); }
 
@@ -294,16 +275,14 @@ numeric_pair<T> operator/(const numeric_pair<T> & r, const X & a) {
     return numeric_pair<T>(r.x / a,  r.y / a);
 }
 
-// template <numeric_pair, typename T>  bool precise() { return numeric_traits<T>::precise();}
-template <typename T> double get_double(const lp::numeric_pair<T> & ) { /* lp_unreachable(); */ return 0;}
+template <typename T> double get_double(const lp::numeric_pair<T> & ) { /* UNREACHABLE(); */ return 0;}
 template <typename T>
 class numeric_traits<lp::numeric_pair<T>> {
 public:
-    static bool precise() { return numeric_traits<T>::precise();}
     static lp::numeric_pair<T> zero() { return lp::numeric_pair<T>(numeric_traits<T>::zero(), numeric_traits<T>::zero()); }
     static bool is_zero(const lp::numeric_pair<T> & v) { return numeric_traits<T>::is_zero(v.x) && numeric_traits<T>::is_zero(v.y); }
     static double get_double(const lp::numeric_pair<T> & v){ return numeric_traits<T>::get_double(v.x); } // just return the double of the first coordinate
-    static double one() { /*lp_unreachable();*/ return 0;}
+    static double one() { /*UNREACHABLE();*/ return 0;}
     static bool is_pos(const numeric_pair<T> &p) {
         return numeric_traits<T>::is_pos(p.x) ||
             (numeric_traits<T>::is_zero(p.x) && numeric_traits<T>::is_pos(p.y));
@@ -317,83 +296,8 @@ public:
     }
 };
 
-template <>
-struct convert_struct<double, numeric_pair<double>> {
-    static double convert(const numeric_pair<double> & q) {return q.x;}
-};
-
 typedef numeric_pair<mpq> impq;
 
-template <typename X> bool is_epsilon_small(const X & v, const double& eps);   // forward definition { return convert_struct<X, double>::is_epsilon_small(v, eps);}
-
-template <typename T>
-struct convert_struct<numeric_pair<T>, double> {
-    static numeric_pair<T> convert(const double & q) {
-        return numeric_pair<T>(convert_struct<T, double>::convert(q), numeric_traits<T>::zero());
-    }
-    static bool is_epsilon_small(const numeric_pair<T> & p, const double & eps) {
-        return convert_struct<T, double>::is_epsilon_small(p.x, eps) && convert_struct<T, double>::is_epsilon_small(p.y, eps);
-    }
-    static bool below_bound_numeric(const numeric_pair<T> &, const numeric_pair<T> &, const double &) {
-        // lp_unreachable();
-        return false;
-    }
-    static bool above_bound_numeric(const numeric_pair<T> &, const numeric_pair<T> &, const double &) {
-        // lp_unreachable();
-        return false;
-    }
-};
-template <>
-struct convert_struct<numeric_pair<double>, double> {
-    static numeric_pair<double> convert(const double & q) {
-        return numeric_pair<double>(q, 0.0);
-    }
-    static bool is_epsilon_small(const numeric_pair<double> & p, const double & eps) {
-        return std::abs(p.x) < eps && std::abs(p.y) < eps;
-    }
-
-    static int compare_on_coord(const double & x, const double & bound, const double eps) {
-        if (bound == 0) return (x < - eps)? -1: (x > eps? 1 : 0); // it is an important special case
-        double relative = (bound > 0)? - eps: eps;
-        return (x < bound * (1.0 + relative) - eps)? -1 : ((x > bound * (1.0 - relative) + eps)? 1 : 0);
-    }
-
-    static bool below_bound_numeric(const numeric_pair<double> & x, const numeric_pair<double> & bound, const double & eps) {
-        int r = compare_on_coord(x.x, bound.x, eps);
-        if (r == 1) return false;
-        if (r == -1) return true;
-        // the first coordinates are almost the same
-        return compare_on_coord(x.y, bound.y, eps) == -1;
-    }
-
-    static bool above_bound_numeric(const numeric_pair<double> & x, const numeric_pair<double> & bound, const double & eps) {
-        int r = compare_on_coord(x.x, bound.x, eps);
-        if (r == -1) return false;
-        if (r ==  1) return true;
-        // the first coordinates are almost the same
-        return compare_on_coord(x.y, bound.y, eps) == 1;
-    }
-};
-
-template <>
-struct convert_struct<double, double> {
-    static bool is_epsilon_small(const double& x, const double & eps) {
-        return x < eps && x > -eps;
-    }
-    static double convert(const double & y){ return y;}
-    static bool below_bound_numeric(const double & x, const double & bound, const double & eps) {
-        if (bound == 0) return x < - eps;
-        double relative = (bound > 0)? - eps: eps;
-        return x < bound * (1.0 + relative) - eps;
-    }
-    static bool above_bound_numeric(const double & x, const double & bound, const double & eps) {
-        if (bound == 0) return x > eps;
-        double relative = (bound > 0)?  eps: - eps;
-        return x > bound * (1.0 + relative) + eps;
-    }
-};
-
-template <typename X> bool is_epsilon_small(const X & v, const double &eps) { return convert_struct<X, double>::is_epsilon_small(v, eps);}
 template <typename X> bool below_bound_numeric(const X & x, const X & bound, const double& eps) { return convert_struct<X, double>::below_bound_numeric(x, bound, eps);}
 template <typename X> bool above_bound_numeric(const X & x, const X & bound, const double& eps) { return convert_struct<X, double>::above_bound_numeric(x, bound, eps);}
 template  <typename T>  T floor(const numeric_pair<T> & r) {

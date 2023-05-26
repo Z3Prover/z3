@@ -92,6 +92,9 @@ void theory_user_propagator::propagate_cb(
 
     expr_ref _conseq(conseq, m);
     ctx.get_rewriter()(conseq, _conseq);
+    if (!ctx.get_manager().is_true(_conseq) && !ctx.get_manager().is_false(_conseq))
+        ctx.mark_as_relevant((expr*)_conseq);
+
     if (ctx.lit_internalized(_conseq) && ctx.get_assignment(ctx.get_literal(_conseq)) == l_true) 
         return;
     m_prop.push_back(prop_info(num_fixed, fixed_ids, num_eqs, eq_lhs, eq_rhs, _conseq));    

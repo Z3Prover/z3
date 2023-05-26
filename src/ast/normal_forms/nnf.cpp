@@ -149,7 +149,7 @@ class skolemizer {
         p = nullptr;
         if (m_proofs_enabled) {
             if (q->get_kind() == forall_k) 
-                p = m.mk_skolemization(mk_not(m, q), mk_not(m, r));
+                p = m.mk_skolemization(mk_not(m, q), m.mk_not(r));
             else
                 p = m.mk_skolemization(q, r);
         }

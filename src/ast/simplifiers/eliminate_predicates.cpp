@@ -174,7 +174,7 @@ bool eliminate_predicates::can_be_quasi_macro_head(expr* _head, unsigned num_bou
 // then replace (f x y z) by (if (= z (+ x y)) s (f' x y z))
 //
 
-void eliminate_predicates::insert_quasi_macro(app* head, expr* body, clause const& cl) {
+void eliminate_predicates::insert_quasi_macro(app* head, expr* body, clause& cl) {
     expr_ref _body(body, m);
     uint_set indices;
     expr_ref_vector args(m), eqs(m);
@@ -205,9 +205,10 @@ void eliminate_predicates::insert_quasi_macro(app* head, expr* body, clause cons
     
     // forall vars . f(args) = if eqs then body else f'(args)
     f1 = m.mk_fresh_func_decl(f->get_name(), symbol::null, sorts.size(), sorts.data(), f->get_range());
+
     lhs = m.mk_app(f, args);
     rhs = m.mk_ite(mk_and(eqs), body, m.mk_app(f1, args));
-    insert_macro(lhs, rhs, cl.m_dep);
+    insert_macro(lhs, rhs, cl);
 }
 
 
@@ -310,6 +311,12 @@ bool eliminate_predicates::is_macro_safe(expr* e) {
     return true;
 }
 
+void eliminate_predicates::insert_macro(app* head, expr* def, clause& cl) {
+    insert_macro(head, def, cl.m_dep);
+    TRACE("elim_predicates", tout << "remove " << cl << "\n");
+    cl.m_alive = false;
+}
+
 void eliminate_predicates::insert_macro(app* head, expr* def, expr_dependency* dep) {
     unsigned num = head->get_num_args();
     ptr_buffer<expr> vars, subst_args;
@@ -334,7 +341,7 @@ void eliminate_predicates::insert_macro(app* head, expr* def, expr_dependency* d
     auto* info = alloc(macro_def, _head, _def, _dep);
     m_macros.insert(head->get_decl(), info);
     m_fmls.model_trail().push(head->get_decl(), _def, _dep, {}); // augment with definition for head
-    m_is_macro.mark(head->get_decl(), true);
+    m_is_macro.mark(head->get_decl(), true);    
     TRACE("elim_predicates", tout << "insert " << _head << " " << _def << "\n");
     ++m_stats.m_num_macros;
 }
@@ -367,26 +374,22 @@ void eliminate_predicates::try_find_macro(clause& cl) {
     // (= (f x) t)
     if (cl.is_unit() && !cl.sign(0) && m.is_eq(cl.atom(0), x, y)) {
         if (can_be_def(x, y)) {
-            insert_macro(to_app(x), y, cl.m_dep);
-            cl.m_alive = false;
+            insert_macro(to_app(x), y, cl);
             return;
         }
         if (can_be_def(y, x)) {
-            insert_macro(to_app(y), x, cl.m_dep);
-            cl.m_alive = false;
+            insert_macro(to_app(y), x, cl);
             return;
         }
     }
     // not (= (p x) t) -> (p x) = (not t)
     if (cl.is_unit() && cl.sign(0) && m.is_iff(cl.atom(0), x, y)) {
         if (can_be_def(x, y)) {
-            insert_macro(to_app(x), m.mk_not(y), cl.m_dep);
-            cl.m_alive = false;
+            insert_macro(to_app(x), m.mk_not(y), cl);
             return;
         }
         if (can_be_def(y, x)) {
-            insert_macro(to_app(y), m.mk_not(x), cl.m_dep);
-            cl.m_alive = false;
+            insert_macro(to_app(y), m.mk_not(x), cl);
             return;
         }
     }
@@ -413,8 +416,7 @@ void eliminate_predicates::try_find_macro(clause& cl) {
         m_fmls.model_trail().hide(fn); // hide definition of fn
         k = m.mk_app(fn, f->get_num_args(), f->get_args());        
         def = m.mk_ite(cond, t, k);
-        insert_macro(f, def, cl.m_dep);
-        cl.m_alive = false;
+        insert_macro(f, def, cl);
         fml = m.mk_not(m.mk_eq(k, t));
         clause* new_cl = init_clause(fml, cl.m_dep, UINT_MAX);
         add_use_list(*new_cl);
@@ -531,8 +533,7 @@ void eliminate_predicates::try_find_macro(clause& cl) {
                 expr_ref y1 = subtract(y, to_app(x), i);
                 if (inv) 
                     y1 = uminus(y1);                
-                insert_macro(to_app(arg), y1, cl.m_dep);
-                cl.m_alive = false;
+                insert_macro(to_app(arg), y1, cl);
                 return true;
             }
         next:
@@ -572,7 +573,7 @@ void eliminate_predicates::try_find_macro(clause& cl) {
             !occurs(x->get_decl(), y);
     };
 
-    if (cl.is_unit() && m.is_eq(cl.atom(0), x, y)) {
+    if (cl.is_unit() && m.is_eq(cl.atom(0), x, y) && !cl.m_bound.empty()) {
         if (!cl.sign(0) && can_be_qdef(x, y)) {
             insert_quasi_macro(to_app(x), y, cl);
             return;
@@ -590,7 +591,7 @@ void eliminate_predicates::try_find_macro(clause& cl) {
             return;
         }
     }
-    if (cl.is_unit()) {
+    if (cl.is_unit() && !cl.m_bound.empty()) {
         expr* body = cl.sign(0) ? m.mk_false() : m.mk_true();
         expr* x = cl.atom(0);
         if (can_be_qdef(x, body)) {
@@ -736,6 +737,7 @@ void eliminate_predicates::update_model(func_decl* p) {
     }
 
     rewrite(def);
+    TRACE("elim_predicates", tout << "insert " << p->get_name() << " " << def << "\n");
     m_fmls.model_trail().push(p, def, dep, deleted);
 }
 
@@ -1008,8 +1010,6 @@ void eliminate_predicates::reset() {
 
 
 void eliminate_predicates::reduce() {
-    if (!m_fmls.has_quantifiers())
-        return;
     reset();
     init_clauses();
     find_definitions();

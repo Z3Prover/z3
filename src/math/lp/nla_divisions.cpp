@@ -58,10 +58,11 @@ namespace nla {
 
         auto monotonicity1 = [&](auto x1, auto& x1val, auto y1, auto& y1val, auto& q1, auto& q1val,
             auto x2, auto& x2val, auto y2, auto& y2val, auto& q2, auto& q2val) {
-                if (y1val >= y2val && y2val > 0 && x1val <= x2val && q1val > q2val) {
-                    new_lemma lemma(c, "y1 >= y2 > 0 & x1 <= x2 => x1/y1 <= x2/y2");
+                if (y1val >= y2val && y2val > 0 && 0 <= x1val && x1val <= x2val && q1val > q2val) {
+                    new_lemma lemma(c, "y1 >= y2 > 0 & 0 <= x1 <= x2 => x1/y1 <= x2/y2");
                     lemma |= ineq(term(y1, rational(-1), y2), llc::LT, 0);
                     lemma |= ineq(y2, llc::LE, 0);
+                    lemma |= ineq(x1, llc::LT, 0);
                     lemma |= ineq(term(x1, rational(-1), x2), llc::GT, 0);
                     lemma |= ineq(term(q1, rational(-1), q2), llc::LE, 0);
                     return true;

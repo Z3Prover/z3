@@ -120,10 +120,8 @@ extern "C" {
         RESET_ERROR_CODE();
         // 
         recfun::promise_def def = 
-            mk_c(c)->recfun().get_plugin().mk_def(to_symbol(s),                                      
-                                          domain_size,
-                                          to_sorts(domain),
-                                          to_sort(range));
+            mk_c(c)->recfun().get_plugin().mk_def(
+                to_symbol(s), domain_size, to_sorts(domain), to_sort(range), false);
         func_decl* d = def.get_def()->get_decl();
         mk_c(c)->save_ast_trail(d);
         RETURN_Z3(of_func_decl(d));

@@ -9,9 +9,12 @@ callgrind.out.*
 .z3-trace
 # OCaml generated files
 *.a
+*.o
 *.cma
 *.cmo
 *.cmi
+*.cmx
+*.byte
 *.cmxa
 ocamlz3
 # Java generated files
@@ -22,6 +25,7 @@ ocamlz3
 # Directories with generated code and documentation
 release/*
 build/*
+trace/*
 build-dist/*
 dist/*
 src/out/*

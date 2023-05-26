@@ -3173,12 +3173,8 @@ def _to_int_str(val):
             return "1"
         else:
             return "0"
-    elif _is_int(val):
+    else:
         return str(val)
-    elif isinstance(val, str):
-        return val
-    if z3_debug():
-        _z3_assert(False, "Python value cannot be used as a Z3 integer")
 
 
 def IntVal(val, ctx=None):
@@ -11343,7 +11339,7 @@ def Range(lo, hi, ctx=None):
     return ReRef(Z3_mk_re_range(lo.ctx_ref(), lo.ast, hi.ast), lo.ctx)
 
 def Diff(a, b, ctx=None):
-    """Create the difference regular epression
+    """Create the difference regular expression
     """
     return ReRef(Z3_mk_re_diff(a.ctx_ref(), a.ast, b.ast), a.ctx)
 

@@ -43,11 +43,11 @@ void ast_pp_util::display_decls(std::ostream& out) {
     for (unsigned i = m_sorts; i < n; ++i) 
         pp.display_sort_decl(out, coll.get_sorts()[i], seen);
     m_sorts = n;
-    
+
     n = coll.get_num_decls();
     for (unsigned i = m_decls; i < n; ++i) {
         func_decl* f = coll.get_func_decls()[i];
-        if (f->get_family_id() == null_family_id && !m_removed.contains(f)) 
+        if (coll.should_declare(f) && !m_removed.contains(f)) 
             ast_smt2_pp(out, f, m_env) << "\n";
     }
     m_decls = n;
@@ -80,7 +80,7 @@ void ast_pp_util::display_skolem_decls(std::ostream& out) {
     unsigned n = coll.get_num_decls();
     for (unsigned i = m_decls; i < n; ++i) {
         func_decl* f = coll.get_func_decls()[i];
-        if (f->get_family_id() == null_family_id && !m_removed.contains(f) && f->is_skolem()) 
+        if (coll.should_declare(f) && !m_removed.contains(f) && f->is_skolem()) 
             ast_smt2_pp(out, f, m_env) << "\n";
     }
     m_decls = n;    

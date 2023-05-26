@@ -59,7 +59,7 @@ class core_solver_pretty_printer {
     unsigned m_artificial_start;
     indexed_vector<T> m_w_buff;
     indexed_vector<T> m_ed_buff;
-    vector<T> m_exact_column_norms;
+    
 
 public:
     core_solver_pretty_printer(const lp_core_solver_base<T, X > & core_solver, std::ostream & out);
@@ -85,14 +85,7 @@ public:
     }
 
     unsigned get_column_width(unsigned column);
-
-    unsigned regular_cell_width(unsigned row, unsigned column, const std::string & name) {
-        return regular_cell_string(row, column, name).size();
-    }
-
-    std::string regular_cell_string(unsigned row, unsigned column, std::string name);
-
-
+    
     void set_coeff(vector<string>& row, vector<string> & row_signs, unsigned col, const T & t, string name);
 
     void print_x();
@@ -105,13 +98,7 @@ public:
     void print_lows();
 
     void print_upps();
-
-    string get_exact_column_norm_string(unsigned col) {
-        return T_to_string(m_exact_column_norms[col]);
-    }
-
-    void print_exact_norms();
-
+    
     void print_approx_norms();
 
     void print();

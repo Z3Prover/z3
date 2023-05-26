@@ -185,7 +185,7 @@ namespace bv {
                     m_args.push_back(arg);
                     continue;
                 }
-                if (!m_bv.is_extract(arg) && m_bound.find(arg, b)) {
+                if (!m_bv.is_extract(arg) && m_bound.find(arg, b) && b.lo() <= b.hi()) {
                     unsigned num_bits = b.hi().get_num_bits();
                     unsigned bv_size = m_bv.get_bv_size(arg);
                     if (0 < num_bits && num_bits < bv_size) {
@@ -202,6 +202,7 @@ namespace bv {
 
             if (simplified) {
                 result = m.mk_app(to_app(t)->get_decl(), m_args);
+                TRACE("bv", tout << mk_pp(t, m) << " -> " << result << "\n");
                 return true;
             }
 

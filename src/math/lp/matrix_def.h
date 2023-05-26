@@ -32,16 +32,9 @@ bool matrix<T, X>::is_equal(const matrix<T, X>& other) {
         for (unsigned j = 0; j < column_count(); j++) {
             auto a = get_elem(i, j);
             auto b = other.get_elem(i, j);
-            if (numeric_traits<T>::precise()) {
-                if (a != b) return false;
-            } else if (fabs(numeric_traits<T>::get_double(a - b)) > 0.000001) {
-                // cout << "returning false from operator== of matrix comparison" << endl;
-                // cout << "this matrix is " << endl;
-                // print_matrix(*this);
-                // cout << "other matrix is " << endl;
-                // print_matrix(other);
-                return false;
-            }
+            
+            if (a != b) return false;
+            
         }
     }
     return true;

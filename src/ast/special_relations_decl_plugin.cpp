@@ -47,6 +47,7 @@ func_decl * special_relations_decl_plugin::mk_func_decl(
     if (!m_manager->is_bool(range)) {
         m_manager->raise_exception("range type is expected to be Boolean for special relations");
     }
+    m_has_special_relation = true;
     func_decl_info info(m_family_id, k, num_parameters, parameters);
     symbol name;
     switch(k) {
@@ -54,7 +55,11 @@ func_decl * special_relations_decl_plugin::mk_func_decl(
     case OP_SPECIAL_RELATION_LO: name = m_lo; break;
     case OP_SPECIAL_RELATION_PLO: name = m_plo; break;
     case OP_SPECIAL_RELATION_TO: name = m_to; break;
-    case OP_SPECIAL_RELATION_TC: name = m_tc; break;
+    case OP_SPECIAL_RELATION_TC: 
+        name = m_tc; 
+        if (num_parameters != 1 || !parameters[0].is_ast() || !is_func_decl(parameters[0].get_ast()))
+            m_manager->raise_exception("parameter to transitive closure should be a function declaration");
+        break;
     }
     return m_manager->mk_func_decl(name, arity, domain, range, info);
 }

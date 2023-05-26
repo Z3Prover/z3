@@ -21,7 +21,7 @@ Author:
 namespace user_solver {
 
     solver::solver(euf::solver& ctx) :
-        th_euf_solver(ctx, symbol("user"), ctx.get_manager().mk_family_id("user"))
+        th_euf_solver(ctx, symbol(user_propagator::plugin::name()), ctx.get_manager().mk_family_id(user_propagator::plugin::name()))
     {}
 
     solver::~solver() {
@@ -92,24 +92,24 @@ namespace user_solver {
         
         euf::enode* original_enode = bool_var2enode(var);
         
-        if (!is_attached_to_var(original_enode))
+        if (!original_enode || !is_attached_to_var(original_enode))
             return false;
         
         unsigned new_bit = 0; // ignored; currently no bv-support
-        expr* e = bool_var2expr(var);
+        expr* e = original_enode->get_expr();
         
         m_decide_eh(m_user_context, this, &e, &new_bit, &phase);
         
         euf::enode* new_enode = ctx.get_enode(e);
     
-        if (original_enode == new_enode)
+        if (original_enode == new_enode || new_enode->bool_var() == sat::null_bool_var)
             return false;
         
         var = new_enode->bool_var();
         return true;
     }
     
-    bool solver::get_case_split(sat::bool_var& var, lbool &phase){
+    bool solver::get_case_split(sat::bool_var& var, lbool& phase){
         if (!m_next_split_expr)
             return false;
         
@@ -123,9 +123,12 @@ namespace user_solver {
     void solver::asserted(sat::literal lit) {
         if (!m_fixed_eh)
             return;
-        force_push();
         auto* n = bool_var2enode(lit.var());
         euf::theory_var v = n->get_th_var(get_id());
+        if (!m_id2justification.get(v, sat::literal_vector()).empty())
+            // the core merged variables. We already issued the respective fixed callback for an equated variable
+            return;
+        force_push();
         sat::literal_vector lits;
         lits.push_back(lit);
         m_id2justification.setx(v, lits, sat::literal_vector());

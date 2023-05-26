@@ -121,8 +121,10 @@ format * smt2_pp_environment::pp_fdecl_params(format * fname, func_decl * f) {
             std::string str = f->get_parameter(i).get_rational().to_string();
             fs.push_back(mk_string(get_manager(), str));
         }
-        else
-            fs.push_back(pp_fdecl_ref(to_func_decl(f->get_parameter(i).get_ast())));
+        else {
+            unsigned len;
+            fs.push_back(pp_fdecl_name(to_func_decl(f->get_parameter(i).get_ast()), len));
+        }
     }
     return mk_seq1(get_manager(), fs.begin(), fs.end(), f2f(), "_");
 }

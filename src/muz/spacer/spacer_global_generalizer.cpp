@@ -170,14 +170,14 @@ void lemma_global_generalizer::subsumer::mk_col_names(const lemma_cluster &lc) {
 
     m_col_names.reserve(sub.get_num_bindings());
     for (unsigned j = 0, sz = sub.get_num_bindings(); j < sz; j++) {
-        // get var id (sub is in reverse order)
-        sub.get_binding(sz - 1 - j, v, r);
+        sub.get_binding(j, v, r);
         auto *sort = r.get_expr()->get_sort();
-
-        if (!m_col_names.get(j) || m_col_names.get(j)->get_sort() != sort) {
+        auto i = v.first;
+        SASSERT(0 <= i && i < sz);
+        if (!m_col_names.get(i) || m_col_names.get(i)->get_sort() != sort) {
             // create a fresh skolem constant for the jth variable
             // reuse variables if they are already here and have matching sort
-            m_col_names[j] = m.mk_fresh_const("mrg_cvx!!", sort);
+            m_col_names[i] = m.mk_fresh_const("mrg_cvx!!", sort);
         }
     }
 
@@ -210,10 +210,13 @@ void lemma_global_generalizer::subsumer::setup_cvx_closure(
             is_first = false;
         }
 
+        unsigned i;
         for (unsigned j = 0; j < n_vars; j++) {
-            sub.get_binding(n_vars - 1 - j, v, r);
+            sub.get_binding(j, v, r);
+            i = v.first;
+            SASSERT(0 <= i && i < n_vars);
             if (is_numeral(r.get_expr(), num)) {
-                m_col_lcm[j] = lcm(m_col_lcm.get(j), abs(denominator(num)));
+                m_col_lcm[i] = lcm(m_col_lcm.get(i), abs(denominator(num)));
             }
         }
     }
@@ -229,14 +232,17 @@ void lemma_global_generalizer::subsumer::setup_cvx_closure(
         cc.set_col_var(j, mk_rat_mul(m_col_lcm.get(j), m_col_names.get(j)));
 
     vector<rational> row;
+    unsigned i;
     for (const auto &lemma : lemmas) {
         row.reset();
+        row.reserve(n_vars);
 
         const substitution &sub = lemma.get_sub();
         for (unsigned j = 0, sz = sub.get_num_bindings(); j < sz; j++) {
-            sub.get_binding(sz - 1 - j, v, r);
+            sub.get_binding(j, v, r);
+            i = v.first;
             VERIFY(is_numeral(r.get_expr(), num));
-            row.push_back(m_col_lcm.get(j) * num);
+            row[i] = m_col_lcm.get(i) * num;
         }
 
         // -- add normalized row to convex closure

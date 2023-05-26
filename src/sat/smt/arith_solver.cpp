@@ -24,6 +24,7 @@ namespace arith {
     solver::solver(euf::solver& ctx, theory_id id) :
         th_euf_solver(ctx, symbol("arith"), id),
         m_model_eqs(DEFAULT_HASHTABLE_INITIAL_CAPACITY, var_value_hash(*this), var_value_eq(*this)),
+        m_local_search(*this),
         m_resource_limit(*this),
         m_bp(*this),
         a(m),
@@ -100,8 +101,7 @@ namespace arith {
             return false;
 
         switch (lbl) {
-        case l_false:
-            TRACE("arith", tout << "propagation conflict\n";);
+        case l_false:            
             get_infeasibility_explanation_and_set_conflict();
             break;
         case l_true:
@@ -381,9 +381,9 @@ namespace arith {
 
 
     void solver::assert_bound(bool is_true, api_bound& b) {
-        TRACE("arith", tout << b << "\n";);
         lp::constraint_index ci = b.get_constraint(is_true);
         lp().activate(ci);
+        TRACE("arith", tout << b << " " << is_infeasible() << "\n";);
         if (is_infeasible()) 
             return;
         lp::lconstraint_kind k = bound2constraint_kind(b.is_int(), b.get_bound_kind(), is_true);
@@ -1065,6 +1065,7 @@ namespace arith {
         TRACE("pcs", tout << lp().constraints(););
         auto status = lp().find_feasible_solution();
         TRACE("arith_verbose", display(tout););
+        TRACE("arith", tout << status << "\n");
         switch (status) {
         case lp::lp_status::INFEASIBLE:
             return l_false;
@@ -1201,7 +1202,7 @@ namespace arith {
         
         TRACE("arith",
             tout << "Lemma - " << (is_conflict ? "conflict" : "propagation") << "\n";
-            for (literal c : m_core) tout << literal2expr(c) << "\n";
+            for (literal c : m_core) tout << c << ": " << literal2expr(c) << "\n";
             for (auto p : m_eqs) tout << ctx.bpp(p.first) << " == " << ctx.bpp(p.second) << "\n";);
 
         if (is_conflict) {

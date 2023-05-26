@@ -19,9 +19,7 @@ Author:
 #include "util/obj_pair_set.h"
 #include "ast/ast_trail.h"
 #include "ast/arith_decl_plugin.h"
-#include "math/lp/lp_solver.h"
-#include "math/lp/lp_primal_simplex.h"
-#include "math/lp/lp_dual_simplex.h"
+
 #include "math/lp/indexed_value.h"
 #include "math/lp/lar_solver.h"
 #include "math/lp/nla_solver.h"
@@ -30,6 +28,8 @@ Author:
 #include "math/polynomial/algebraic_numbers.h"
 #include "math/polynomial/polynomial.h"
 #include "sat/smt/sat_th.h"
+#include "sat/smt/arith_sls.h"
+#include "sat/sat_ddfw.h"
 
 namespace euf {
     class solver;
@@ -78,12 +78,7 @@ namespace arith {
             m_eq_tail++; 
         }
     public:
-        void set_type(euf::solver& ctx, hint_type ty) { 
-            ctx.push(value_trail<unsigned>(m_eq_tail)); 
-            ctx.push(value_trail<unsigned>(m_lit_tail)); 
-            m_ty = ty; 
-            reset(); 
-        }
+        void set_type(euf::solver& ctx, hint_type ty);
         void set_num_le(unsigned n) { m_num_le = n; }
         void add_eq(euf::enode* a, euf::enode* b) { add(a, b, true); }
         void add_diseq(euf::enode* a, euf::enode* b) { add(a, b, false); }
@@ -96,15 +91,13 @@ namespace arith {
         }
         std::pair<rational, literal> const& lit(unsigned i) const { return m_literals[i]; }
         std::tuple<enode*, enode*, bool> const& eq(unsigned i) const { return m_eqs[i]; }
-        arith_proof_hint* mk(euf::solver& s) { 
-            return new (s.get_region()) arith_proof_hint(m_ty, m_num_le, m_lit_head, m_lit_tail, m_eq_head, m_eq_tail);
-        }
+        arith_proof_hint* mk(euf::solver& s);
     };
-
 
     class solver : public euf::th_euf_solver {
 
         friend struct arith_proof_hint;
+        friend class sls;
 
         struct scope {
             unsigned m_bounds_lim;
@@ -144,7 +137,7 @@ namespace arith {
         };
         int_hashtable<var_value_hash, var_value_eq>   m_model_eqs;
 
-        bool                m_new_eq { false };
+        bool                m_new_eq = false;
 
 
         // temporary values kept during internalization
@@ -197,6 +190,8 @@ namespace arith {
                 coeffs().pop_back();
             }
         };
+   
+        sls m_local_search;
 
         typedef vector<std::pair<rational, lpvar>> var_coeffs;
         vector<rational>         m_columns;
@@ -233,10 +228,10 @@ namespace arith {
         unsigned               m_asserted_qhead = 0;
 
         svector<std::pair<theory_var, theory_var> >       m_assume_eq_candidates;
-        unsigned                                          m_assume_eq_head{ 0 };
+        unsigned                                          m_assume_eq_head = 0;
         lp::u_set                                         m_tmp_var_set;
 
-        unsigned                                          m_num_conflicts{ 0 };
+        unsigned                                          m_num_conflicts = 0;
         lp_api::stats                                     m_stats;
         svector<scope>                                    m_scopes;
 
@@ -515,6 +510,8 @@ namespace arith {
         bool enable_ackerman_axioms(euf::enode* n) const override { return !a.is_add(n->get_expr()); }
         bool has_unhandled() const override { return m_not_handled != nullptr; }
 
+        void set_bool_search(sat::ddfw* ddfw) override { m_local_search.set(ddfw); }
+
         // bounds and equality propagation callbacks
         lp::lar_solver& lp() { return *m_solver; }
         lp::lar_solver const& lp() const { return *m_solver; }
@@ -523,4 +520,7 @@ namespace arith {
         void consume(rational const& v, lp::constraint_index j);
         bool bound_is_interesting(unsigned vi, lp::lconstraint_kind kind, const rational& bval) const;
     };
+
+
+
 }

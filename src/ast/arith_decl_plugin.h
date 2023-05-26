@@ -50,7 +50,6 @@ enum arith_op_kind {
     OP_IDIVIDES,
     OP_REM,
     OP_MOD,
-    OP_REM0,
     OP_MOD0,
     OP_TO_REAL,
     OP_TO_INT,
@@ -216,7 +215,6 @@ public:
         case OP_U_ACOS:
         case OP_DIV0:
         case OP_IDIV0:
-        case OP_REM0:
         case OP_MOD0:
         case OP_POWER0:
             return true;
@@ -270,7 +268,7 @@ public:
 
     bool is_div0(func_decl const * n) const { return is_decl_of(n, arith_family_id, OP_DIV0); }
     bool is_idiv0(func_decl const * n) const { return is_decl_of(n, arith_family_id, OP_IDIV0); }
-    bool is_rem0(func_decl const * n) const { return is_decl_of(n, arith_family_id, OP_REM0); }
+    bool is_rem0(func_decl const * n) const { return is_decl_of(n, arith_family_id, OP_MOD0); }
     bool is_mod0(func_decl const * n) const { return is_decl_of(n, arith_family_id, OP_MOD0); }
     bool is_power0(func_decl const * n) const { return is_decl_of(n, arith_family_id, OP_POWER0); }
     bool is_power(func_decl const * n) const { return is_decl_of(n, arith_family_id, OP_POWER); }
@@ -296,7 +294,7 @@ public:
     bool is_mod(expr const * n) const { return is_app_of(n, arith_family_id, OP_MOD); }
     bool is_rem(expr const * n) const { return is_app_of(n, arith_family_id, OP_REM); }
     bool is_mod0(expr const * n) const { return is_app_of(n, arith_family_id, OP_MOD0); }
-    bool is_rem0(expr const * n) const { return is_app_of(n, arith_family_id, OP_REM0); }
+    bool is_rem0(expr const * n) const { return is_app_of(n, arith_family_id, OP_MOD0); }
     bool is_to_real(expr const * n) const { return is_app_of(n, arith_family_id, OP_TO_REAL); }
     bool is_to_int(expr const * n) const { return is_app_of(n, arith_family_id, OP_TO_INT); }
     bool is_is_int(expr const * n) const { return is_app_of(n, arith_family_id, OP_IS_INT); }
@@ -355,7 +353,7 @@ public:
     MATCH_BINARY(is_div);
     MATCH_BINARY(is_idiv);
     MATCH_BINARY(is_mod0);
-    MATCH_BINARY(is_rem0);
+    // MATCH_BINARY(is_rem0);
     MATCH_BINARY(is_div0);
     MATCH_BINARY(is_idiv0);
     MATCH_BINARY(is_power);
@@ -465,7 +463,7 @@ public:
     app * mk_mod(expr * arg1, expr * arg2) { return m_manager.mk_app(arith_family_id, OP_MOD, arg1, arg2); }
     app * mk_div0(expr * arg1, expr * arg2) { return m_manager.mk_app(arith_family_id, OP_DIV0, arg1, arg2); }
     app * mk_idiv0(expr * arg1, expr * arg2) { return m_manager.mk_app(arith_family_id, OP_IDIV0, arg1, arg2); }
-    app * mk_rem0(expr * arg1, expr * arg2) { return m_manager.mk_app(arith_family_id, OP_REM0, arg1, arg2); }
+    app * mk_rem0(expr * arg1, expr * arg2) { return m_manager.mk_app(arith_family_id, OP_MOD0, arg1, arg2); }
     app * mk_mod0(expr * arg1, expr * arg2) { return m_manager.mk_app(arith_family_id, OP_MOD0, arg1, arg2); }
     app * mk_to_real(expr * arg1) { return m_manager.mk_app(arith_family_id, OP_TO_REAL, arg1); }
     app * mk_to_int(expr * arg1) { return m_manager.mk_app(arith_family_id, OP_TO_INT, arg1); }

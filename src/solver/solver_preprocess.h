@@ -19,7 +19,7 @@ Author:
 
 #pragma once
 
-#include "ast/simplifiers/seq_simplifier.h"
+#include "ast/simplifiers/then_simplifier.h"
 
-void init_preprocess(ast_manager& m, params_ref const& p, seq_simplifier& s, dependent_expr_state& st);
+void init_preprocess(ast_manager& m, params_ref const& p, then_simplifier& s, dependent_expr_state& st);
 

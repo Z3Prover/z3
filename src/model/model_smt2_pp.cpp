@@ -195,12 +195,10 @@ static void pp_funs(std::ostream & out, ast_printer_context & ctx, model_core co
     ptr_buffer<func_decl> func_decls;
     sort_fun_decls(m, md, func_decls);
     for (func_decl * f : func_decls) {
-        if (recfun_util.is_defined(f) && !recfun_util.is_generated(f)) {
+        if (recfun_util.is_defined(f) && !recfun_util.is_generated(f)) 
             continue;
-        }
-        if (!m.is_considered_uninterpreted(f)) {
+        if (!m.is_considered_uninterpreted(f)) 
             continue;            
-        }
         func_interp * f_i = md.get_func_interp(f);
         SASSERT(f->get_arity() == f_i->get_arity());
         format_ref body(fm(m));

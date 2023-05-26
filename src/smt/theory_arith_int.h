@@ -514,9 +514,11 @@ namespace smt {
         // SASSERT(m_value[x_i].is_rational()); // infinitesimals are not used for integer variables
         SASSERT(!m_value[x_i].is_int());     // the base variable is not assigned to an integer value.
 
-        if (constrain_free_vars(r) || !is_gomory_cut_target(r)) {
+        bool cfv = constrain_free_vars(r);
+
+        if (cfv || !is_gomory_cut_target(r)) {
             TRACE("gomory_cut", tout << "failed to apply gomory cut:\n";
-                  tout << "constrain_free_vars(r):  " << constrain_free_vars(r) << "\n";);
+                  tout << "constrain_free_vars(r):  " << cfv << "\n";);
             return false;
         }
 
@@ -752,6 +754,7 @@ namespace smt {
         if (!(consts / gcds).is_int()) {
             TRACE("gcd_test", tout << "row failed the GCD test:\n"; display_row_info(tout, r););
             antecedents ante(*this);
+            m_stats.m_gcd_conflicts++;
             collect_fixed_var_justifications(r, ante);
             context & ctx         = get_context();
             ctx.set_conflict(
@@ -831,6 +834,7 @@ namespace smt {
         numeral u1 = floor(u/gcds);
         
         if (u1 < l1) {
+            m_stats.m_gcd_conflicts++;
             TRACE("gcd_test", tout << "row failed the extended GCD test:\n"; display_row_info(tout, r););
             collect_fixed_var_justifications(r, ante);
             context & ctx         = get_context();

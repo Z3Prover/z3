@@ -311,7 +311,6 @@ struct expr2subpaving::imp {
         case OP_REM:
         case OP_IRRATIONAL_ALGEBRAIC_NUM:
         case OP_DIV0:
-        case OP_REM0:
         case OP_MOD0:
         case OP_IDIV0:
             throw default_exception("you must apply arithmetic purifier before internalizing expressions into the subpaving module.");

@@ -340,6 +340,7 @@ class seq_rewriter {
     bool is_sequence(expr* e, expr_ref_vector& seq);
     bool is_sequence(eautomaton& aut, expr_ref_vector& seq);
     bool get_lengths(expr* e, expr_ref_vector& lens, rational& pos);
+    bool reduce_value_clash(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& new_eqs);
     bool reduce_back(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& new_eqs);
     bool reduce_front(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& new_eqs);
     void remove_empty_and_concats(expr_ref_vector& es);

@@ -190,8 +190,8 @@ namespace seq {
             expr_ref digit = m_ax.sk().mk_digit2int(u);
             add_consequence(m_ax.mk_ge(digit, 1));
         }
-	    expr_ref y(seq.str.mk_concat(es, es[0]->get_sort()), m);
-	    ctx.add_solution(seq.str.mk_itos(n), y);
+        expr_ref y(seq.str.mk_concat(es, es[0]->get_sort()), m);
+        ctx.add_solution(seq.str.mk_itos(n), y);
         return true;
     }
 

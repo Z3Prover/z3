@@ -31,6 +31,7 @@ Notes:
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/rewriter/var_subst.h"
+#include "ast/rewriter/der.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/expr_substitution.h"
 #include "ast/ast_smt2_pp.h"
@@ -54,6 +55,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
     recfun_rewriter     m_rec_rw;
     arith_util          m_a_util;
     bv_util             m_bv_util;
+    der                 m_der;
     expr_safe_replace   m_rep;
     expr_ref_vector     m_pinned;
       // substitution support
@@ -821,6 +823,26 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
 
         TRACE("reduce_quantifier", tout << "after elim_unused_vars:\n" << result << " " << result_pr << "\n" ;);
 
+        proof_ref p2(m());
+        expr_ref r(m());
+
+        bool der_change = false;
+        if (is_quantifier(result) && to_quantifier(result)->get_num_patterns() == 0) {
+            m_der(to_quantifier(result), r, p2);
+            der_change = result.get() != r.get();
+            if (m().proofs_enabled() && der_change)
+                result_pr = m().mk_transitivity(result_pr, p2);            
+            result = r;
+        }
+
+        if (der_change) {
+            th_rewriter rw(m());
+            rw(result, r, p2);
+            if (m().proofs_enabled() && result.get() != r.get()) 
+                result_pr = m().mk_transitivity(result_pr, p2);
+            result = r;
+        }
+
         SASSERT(old_q->get_sort() == result->get_sort());
         return true;
     }
@@ -839,6 +861,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         m_rec_rw(m),
         m_a_util(m),
         m_bv_util(m),
+        m_der(m),
         m_rep(m),
         m_pinned(m),
         m_used_dependencies(m) {
@@ -944,17 +967,41 @@ void th_rewriter::reset() {
 }
 
 void th_rewriter::operator()(expr_ref & term) {
-    expr_ref result(term.get_manager());
-    m_imp->operator()(term, result);
-    term = std::move(result);
+    expr_ref result(term.get_manager());    
+    try {
+        m_imp->operator()(term, result);
+        term = std::move(result);
+    }
+    catch (...) {
+        if (!term.get_manager().inc())
+            return;
+        throw;
+    }
 }
 
 void th_rewriter::operator()(expr * t, expr_ref & result) {
-    m_imp->operator()(t, result);
+    try {
+        m_imp->operator()(t, result);
+    }
+    catch (...) {
+        result = t;
+        if (!result.get_manager().inc())
+            return;
+        throw;
+    }
 }
 
 void th_rewriter::operator()(expr * t, expr_ref & result, proof_ref & result_pr) {
-    m_imp->operator()(t, result, result_pr);
+    try {
+        m_imp->operator()(t, result, result_pr);
+    }
+    catch (...) {
+        result = t;
+        result_pr = nullptr;
+        if (!result.get_manager().inc())
+            return;
+        throw;
+    }
 }
 
 expr_ref th_rewriter::operator()(expr * n, unsigned num_bindings, expr * const * bindings) {

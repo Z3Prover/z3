@@ -233,7 +233,7 @@ namespace smt {
         TRACE("context", tout << "get-proof " << ctx.get_fparams().m_clause_proof << "\n";);
         if (!ctx.get_fparams().m_clause_proof) 
             return proof_ref(m);
-        proof_ref_vector ps(m);
+        expr_ref_vector ps(m);
         for (auto& info : m_trail) {
             expr_ref fact = mk_or(info.m_clause);
             proof* pr = info.m_proof;

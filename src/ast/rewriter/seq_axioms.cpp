@@ -513,8 +513,8 @@ namespace seq {
 
        !contains(t, s) => i = -1   
        |t| = 0 => |s| = 0 or i = -1
-       |t| = 0 & |s| = 0 => i = 0
        |t| != 0 & contains(t, s) => t = xsy & i = len(x) 
+       |s| = 0 => i = len(t)
        |s| = 0 or s = s_head*s_tail
        |s| = 0 or !contains(s_tail*y, s)
 
@@ -540,7 +540,7 @@ namespace seq {
 
         add_clause(cnt, i_eq_m1);
         add_clause(~t_eq_empty, s_eq_empty, i_eq_m1);
-        add_clause(~t_eq_empty, ~s_eq_empty, i_eq_0);
+        add_clause(~s_eq_empty, mk_eq(i, mk_len(t)));
         add_clause(t_eq_empty, ~cnt, mk_seq_eq(t, xsy));
         add_clause(t_eq_empty, ~cnt, mk_eq(i, mk_len(x)));
         add_clause(s_eq_empty, mk_eq(s, mk_concat(s_head, s_tail)));
@@ -928,7 +928,6 @@ namespace seq {
        e1 < e2 => prefix(e1, e2) or e1 = xcy 
        e1 < e2 => prefix(e1, e2) or c < d 
        e1 < e2 => prefix(e1, e2) or e2 = xdz 
-       e1 < e2 => e1 != e2
        !(e1 < e2) => prefix(e2, e1) or e2 = xdz 
        !(e1 < e2) => prefix(e2, e1) or d < c 
        !(e1 < e2) => prefix(e2, e1) or e1 = xcy 
@@ -938,6 +937,7 @@ namespace seq {
        e1 < e2 or e1 = e2 or e2 < e1 
        !(e1 = e2) or !(e2 < e1) 
        !(e1 < e2) or !(e2 < e1)
+
     */
     void axioms::lt_axiom(expr* n) {
         expr* _e1 = nullptr, *_e2 = nullptr;
@@ -948,6 +948,7 @@ namespace seq {
         sort* char_sort = nullptr;
         VERIFY(seq.is_seq(s, char_sort));
         expr_ref lt = expr_ref(n, m);
+        expr_ref gt = expr_ref(seq.str.mk_lex_lt(e2, e1), m);
         expr_ref x = m_sk.mk("str.<.x", e1, e2);
         expr_ref y = m_sk.mk("str.<.y", e1, e2);
         expr_ref z = m_sk.mk("str.<.z", e1, e2);
@@ -969,6 +970,7 @@ namespace seq {
         add_clause(lt, pref21, ltdc);
         add_clause(lt, pref21, e2xdz);
         add_clause(~eq, ~lt);
+        add_clause(eq, lt, gt); 
     }
 
     /**
@@ -1235,7 +1237,7 @@ namespace seq {
             seq.str.is_string(x)) {
             expr_ref len(n, m);
             m_rewrite(len);
-            SASSERT(n != len);
+            SASSERT(m.limit().is_canceled() || n != len);
             add_clause(mk_eq(len, n));
         }
         else {
