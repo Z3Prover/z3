@@ -3024,7 +3024,8 @@ namespace smt {
         SASSERT(is_well_sorted(m, e));
         TRACE("begin_assert_expr", tout << mk_pp(e, m) << " " << mk_pp(pr, m) << "\n";);
         TRACE("begin_assert_expr_ll", tout << mk_ll_pp(e, m) << "\n";);
-        pop_to_base_lvl();
+        if (!m_searching)
+            pop_to_base_lvl();
         if (pr == nullptr)
             m_asserted_formulas.assert_expr(e);
         else
