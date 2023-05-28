@@ -7136,6 +7136,13 @@ class Solver(Z3PPObject):
         """Import model converter from other into the current solver"""
         Z3_solver_import_model_converter(self.ctx.ref(), other.solver, self.solver)
 
+    def interrupt(self):
+        """Interrupt the execution of the solver object.
+        Remarks: This ensures that the interrupt applies only
+        to the given solver object and it applies only if it is running.
+        """
+        Z3_solver_interrupt(self.ctx.ref(), self.solver)
+
     def unsat_core(self):
         """Return a subset (as an AST vector) of the assumptions provided to the last check().
 
