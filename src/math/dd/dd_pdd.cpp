@@ -1825,6 +1825,14 @@ namespace dd {
         return *this;
     }
 
+    /* Reset pdd to 0. Allows re-assigning the pdd manager. */
+    void pdd::reset(pdd_manager& new_m) {
+        m->dec_ref(root);
+        root = 0;
+        m = &new_m;
+        SASSERT(is_zero());
+    }
+
     rational const& pdd::leading_coefficient() const {
         pdd p = *this;
         while (!p.is_val())

@@ -413,6 +413,7 @@ namespace dd {
         pdd& operator=(rational const& k);
         // TODO: pdd& operator=(pdd&& other);  (just swap like move constructor?)
         ~pdd() { m->dec_ref(root); }
+        void reset(pdd_manager& new_m);
         pdd lo() const { return pdd(m->lo(root), m); }
         pdd hi() const { return pdd(m->hi(root), m); }
         unsigned index() const { return root; }
