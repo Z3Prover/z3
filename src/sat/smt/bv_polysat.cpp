@@ -323,14 +323,15 @@ namespace bv {
     }
 
     void solver::polysat_set(euf::theory_var v, pdd const& p) {
+#ifndef NDEBUG
+        expr* e = var2enode(v)->get_expr();
+        verbose_stream() << "polysat_set: " << expr_ref(e, m) << " -> " << p << std::endl;
+#endif
         m_var2pdd.reserve(get_num_vars(), p);
         m_var2pdd_valid.reserve(get_num_vars(), false);
         ctx.push(set_bitvector_trail(m_var2pdd_valid, v));
+        m_var2pdd[v].reset(p.manager());
         m_var2pdd[v] = p;
-#ifndef NDEBUG
-        // expr* e = var2enode(v)->get_expr();
-        // std::cerr << "polysat_set: " << mk_ismt2_pp(e, m) << " -> " << p << std::endl;
-#endif
     }
 
     void solver::polysat_pop(unsigned n) {
