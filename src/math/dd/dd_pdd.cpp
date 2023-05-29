@@ -1797,31 +1797,31 @@ namespace dd {
     }
 
     pdd& pdd::operator=(pdd const& other) { 
-        if (&m != &other.m) {
-            verbose_stream() << "pdd manager confusion: " << *this << " (mod 2^" << m.power_of_2() << ") := " << other << " (mod 2^" << other.power_of_2() << ")\n";
+        if (m != other.m) {
+            verbose_stream() << "pdd manager confusion: " << *this << " (mod 2^" << power_of_2() << ") := " << other << " (mod 2^" << other.power_of_2() << ")\n";
             // TODO: in the end, this operator should probably be changed to also update the manager. But for now I want to detect such confusions.
         }
-        SASSERT_EQ(m.power_of_2(), other.power_of_2());
-        VERIFY_EQ(m.power_of_2(), other.power_of_2());
-        VERIFY_EQ(&m, &other.m);
+        SASSERT_EQ(power_of_2(), other.power_of_2());
+        VERIFY_EQ(power_of_2(), other.power_of_2());
+        VERIFY_EQ(m, other.m);
         unsigned r1 = root; 
         root = other.root; 
-        m.inc_ref(root); 
-        m.dec_ref(r1); 
+        m->inc_ref(root); 
+        m->dec_ref(r1); 
         return *this; 
     }
 
     pdd& pdd::operator=(unsigned k) {
-        m.dec_ref(root);
-        root = m.mk_val(k).root;
-        m.inc_ref(root);
+        m->dec_ref(root);
+        root = m->mk_val(k).root;
+        m->inc_ref(root);
         return *this;
     }
 
     pdd& pdd::operator=(rational const& k) {
-        m.dec_ref(root);
-        root = m.mk_val(k).root;
-        m.inc_ref(root);
+        m->dec_ref(root);
+        root = m->mk_val(k).root;
+        m->inc_ref(root);
         return *this;
     }
 
@@ -1849,7 +1849,7 @@ namespace dd {
     pdd pdd::subst_pdd(unsigned v, pdd const& r) const {
         if (is_val())
             return *this;
-        if (m.m_var2level[var()] < m.m_var2level[v])
+        if (m->m_var2level[var()] < m->m_var2level[v])
             return *this;
         pdd l = lo().subst_pdd(v, r);
         pdd h = hi().subst_pdd(v, r);
@@ -1858,7 +1858,7 @@ namespace dd {
         else if (l == lo() && h == hi())
             return *this;
         else
-            return m.mk_var(var())*h + l;
+            return m->mk_var(var())*h + l;
     }
 
     std::pair<unsigned_vector, pdd> pdd::var_factors() const {
@@ -1889,7 +1889,7 @@ namespace dd {
                     ++i;
                     ++j;
                 }
-                else if (m.m_var2level[lo_vars[i]] > m.m_var2level[hi_vars[j]]) 
+                else if (m->m_var2level[lo_vars[i]] > m->m_var2level[hi_vars[j]]) 
                     hi_vars[jr++] = hi_vars[j++];
                 else 
                     lo_vars[ir++] = lo_vars[i++];
@@ -1900,7 +1900,7 @@ namespace dd {
 
         auto mul = [&](unsigned_vector const& vars, pdd p) {
             for (auto v : vars)
-                p *= m.mk_var(v);
+                p *= m->mk_var(v);
             return p;
         };
 
@@ -1929,20 +1929,20 @@ namespace dd {
         auto& m = m_pdd.m;
         while (!m_nodes.empty()) {
             auto& p = m_nodes.back();
-            if (p.first && !m.is_val(p.second)) {
+            if (p.first && !m->is_val(p.second)) {
                 p.first = false;
                 m_mono.vars.pop_back();
-                unsigned n = m.lo(p.second);
-                if (m.is_val(n) && m.val(n).is_zero()) {
+                unsigned n = m->lo(p.second);
+                if (m->is_val(n) && m->val(n).is_zero()) {
                     m_nodes.pop_back();
                     continue;
                 }
-                while (!m.is_val(n)) {
+                while (!m->is_val(n)) {
                     m_nodes.push_back(std::make_pair(true, n));
-                    m_mono.vars.push_back(m.var(n));
-                    n = m.hi(n);
+                    m_mono.vars.push_back(m->var(n));
+                    n = m->hi(n);
                 }
-                m_mono.coeff = m.val(n);
+                m_mono.coeff = m->val(n);
                 break;
             }
             else {
@@ -1954,12 +1954,12 @@ namespace dd {
     void pdd_iterator::first() {
         unsigned n = m_pdd.root;
         auto& m = m_pdd.m;
-        while (!m.is_val(n)) {
+        while (!m->is_val(n)) {
             m_nodes.push_back(std::make_pair(true, n));
-            m_mono.vars.push_back(m.var(n));
-            n = m.hi(n);
+            m_mono.vars.push_back(m->var(n));
+            n = m->hi(n);
         }
-        m_mono.coeff = m.val(n);
+        m_mono.coeff = m->val(n);
     }
 
     pdd_iterator pdd::begin() const { return pdd_iterator(*this, true); }

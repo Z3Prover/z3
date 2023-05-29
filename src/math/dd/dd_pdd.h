@@ -401,106 +401,106 @@ namespace dd {
         friend class pdd_manager;
         friend class pdd_iterator;
         unsigned     root;
-        pdd_manager& m;
-        pdd(unsigned root, pdd_manager& m): root(root), m(m) { m.inc_ref(root); }
-        pdd(unsigned root, pdd_manager* _m): root(root), m(*_m) { m.inc_ref(root); }
+        pdd_manager* m;
+        pdd(unsigned root, pdd_manager& pm): root(root), m(&pm) { m->inc_ref(root); }
+        pdd(unsigned root, pdd_manager* pm): root(root), m(pm) { m->inc_ref(root); }
     public:
-        pdd(pdd_manager& pm): root(0), m(pm) { SASSERT(is_zero()); }
-        pdd(pdd const& other): root(other.root), m(other.m) { m.inc_ref(root); }
-        pdd(pdd && other) noexcept : root(0), m(other.m) { std::swap(root, other.root); }
+        pdd(pdd_manager& m): pdd(0, m) { SASSERT(is_zero()); }
+        pdd(pdd const& other): pdd(other.root, other.m) { m->inc_ref(root); }
+        pdd(pdd && other) noexcept : pdd(0, other.m) { std::swap(root, other.root); }
         pdd& operator=(pdd const& other);
         pdd& operator=(unsigned k);
         pdd& operator=(rational const& k);
         // TODO: pdd& operator=(pdd&& other);  (just swap like move constructor?)
-        ~pdd() { m.dec_ref(root); }
-        pdd lo() const { return pdd(m.lo(root), m); }
-        pdd hi() const { return pdd(m.hi(root), m); }
+        ~pdd() { m->dec_ref(root); }
+        pdd lo() const { return pdd(m->lo(root), m); }
+        pdd hi() const { return pdd(m->hi(root), m); }
         unsigned index() const { return root; }
-        unsigned var() const { return m.var(root); }
-        rational const& val() const { SASSERT(is_val()); return m.val(root); }
+        unsigned var() const { return m->var(root); }
+        rational const& val() const { SASSERT(is_val()); return m->val(root); }
         rational const& leading_coefficient() const;
-        rational const& offset() const { return m.offset(root); }
-        bool is_val() const { return m.is_val(root); }
-        bool is_one() const { return m.is_one(root); }
-        bool is_zero() const { return m.is_zero(root); }
-        bool is_linear() const { return m.is_linear(root); }
-        bool is_var() const { return m.is_var(root); }
-        bool is_max() const { return m.is_max(root); }
+        rational const& offset() const { return m->offset(root); }
+        bool is_val() const { return m->is_val(root); }
+        bool is_one() const { return m->is_one(root); }
+        bool is_zero() const { return m->is_zero(root); }
+        bool is_linear() const { return m->is_linear(root); }
+        bool is_var() const { return m->is_var(root); }
+        bool is_max() const { return m->is_max(root); }
         /** Polynomial is of the form a * x + b for some numerals a, b. */
         bool is_unilinear() const { return !is_val() && lo().is_val() && hi().is_val(); }
         /** Polynomial is of the form a * x for some numeral a. */
         bool is_unary() const { return !is_val() && lo().is_zero() && hi().is_val(); }
         bool is_offset() const { return !is_val() && lo().is_val() && hi().is_one(); }
-        bool is_binary() const { return m.is_binary(root); }
-        bool is_monomial() const { return m.is_monomial(root); }
-        bool is_univariate() const { return m.is_univariate(root); }
-        bool is_univariate_in(unsigned v) const { return m.is_univariate_in(root, v); }
-        void get_univariate_coefficients(vector<rational>& coeff) const { m.get_univariate_coefficients(root, coeff); }
-        vector<rational> get_univariate_coefficients() const { vector<rational> coeff; m.get_univariate_coefficients(root, coeff); return coeff; }
-        bool is_never_zero() const { return m.is_never_zero(root); }
-        unsigned min_parity() const { return m.min_parity(root); }
-        bool var_is_leaf(unsigned v) const { return m.var_is_leaf(root, v); }
+        bool is_binary() const { return m->is_binary(root); }
+        bool is_monomial() const { return m->is_monomial(root); }
+        bool is_univariate() const { return m->is_univariate(root); }
+        bool is_univariate_in(unsigned v) const { return m->is_univariate_in(root, v); }
+        void get_univariate_coefficients(vector<rational>& coeff) const { m->get_univariate_coefficients(root, coeff); }
+        vector<rational> get_univariate_coefficients() const { vector<rational> coeff; m->get_univariate_coefficients(root, coeff); return coeff; }
+        bool is_never_zero() const { return m->is_never_zero(root); }
+        unsigned min_parity() const { return m->min_parity(root); }
+        bool var_is_leaf(unsigned v) const { return m->var_is_leaf(root, v); }
 
-        pdd operator-() const { return m.minus(*this); }
-        pdd operator+(pdd const& other) const { VERIFY_EQ(&m, &other.m); return m.add(*this, other); }
-        pdd operator-(pdd const& other) const { VERIFY_EQ(&m, &other.m); return m.sub(*this, other); }
-        pdd operator*(pdd const& other) const { VERIFY_EQ(&m, &other.m); return m.mul(*this, other); }
-        pdd operator&(pdd const& other) const { VERIFY_EQ(&m, &other.m); return m.mk_and(*this, other); }
-        pdd operator|(pdd const& other) const { VERIFY_EQ(&m, &other.m); return m.mk_or(*this, other); }
-        pdd operator^(pdd const& other) const { VERIFY_EQ(&m, &other.m); return m.mk_xor(*this, other); }
-        pdd operator^(unsigned other) const { return m.mk_xor(*this, m.mk_val(other)); }
+        pdd operator-() const { return m->minus(*this); }
+        pdd operator+(pdd const& other) const { VERIFY_EQ(m, other.m); return m->add(*this, other); }
+        pdd operator-(pdd const& other) const { VERIFY_EQ(m, other.m); return m->sub(*this, other); }
+        pdd operator*(pdd const& other) const { VERIFY_EQ(m, other.m); return m->mul(*this, other); }
+        pdd operator&(pdd const& other) const { VERIFY_EQ(m, other.m); return m->mk_and(*this, other); }
+        pdd operator|(pdd const& other) const { VERIFY_EQ(m, other.m); return m->mk_or(*this, other); }
+        pdd operator^(pdd const& other) const { VERIFY_EQ(m, other.m); return m->mk_xor(*this, other); }
+        pdd operator^(unsigned other) const { return m->mk_xor(*this, m->mk_val(other)); }
 
-        pdd operator*(rational const& other) const { return m.mul(other, *this); }
-        pdd operator+(rational const& other) const { return m.add(other, *this); }
-        pdd operator~() const { return m.mk_not(*this); }
+        pdd operator*(rational const& other) const { return m->mul(other, *this); }
+        pdd operator+(rational const& other) const { return m->add(other, *this); }
+        pdd operator~() const { return m->mk_not(*this); }
         pdd shl(unsigned n) const; 
-        pdd rev_sub(rational const& r) const { return m.sub(m.mk_val(r), *this); }
-        pdd div(rational const& other) const { return m.div(*this, other); }
-        bool try_div(rational const& other, pdd& out_result) const { VERIFY_EQ(&m, &out_result.m); return m.try_div(*this, other, out_result); }
-        pdd pow(unsigned j) const { return m.pow(*this, j); }
-        pdd reduce(pdd const& other) const { VERIFY_EQ(&m, &other.m); return m.reduce(*this, other); }
-        bool different_leading_term(pdd const& other) const { VERIFY_EQ(&m, &other.m); return m.different_leading_term(*this, other); }
-        void factor(unsigned v, unsigned degree, pdd& lc, pdd& rest) const { VERIFY_EQ(&m, &lc.m); VERIFY_EQ(&m, &rest.m); m.factor(*this, v, degree, lc, rest); }
-        bool factor(unsigned v, unsigned degree, pdd& lc) const { VERIFY_EQ(&m, &lc.m); return m.factor(*this, v, degree, lc); }
-        bool resolve(unsigned v, pdd const& other, pdd& result) { VERIFY_EQ(&m, &other.m); VERIFY_EQ(&m, &result.m); return m.resolve(v, *this, other, result); }
-        pdd reduce(unsigned v, pdd const& other) const { VERIFY_EQ(&m, &other.m); return m.reduce(v, *this, other); }
+        pdd rev_sub(rational const& r) const { return m->sub(m->mk_val(r), *this); }
+        pdd div(rational const& other) const { return m->div(*this, other); }
+        bool try_div(rational const& other, pdd& out_result) const { VERIFY_EQ(m, out_result.m); return m->try_div(*this, other, out_result); }
+        pdd pow(unsigned j) const { return m->pow(*this, j); }
+        pdd reduce(pdd const& other) const { VERIFY_EQ(m, other.m); return m->reduce(*this, other); }
+        bool different_leading_term(pdd const& other) const { VERIFY_EQ(m, other.m); return m->different_leading_term(*this, other); }
+        void factor(unsigned v, unsigned degree, pdd& lc, pdd& rest) const { VERIFY_EQ(m, lc.m); VERIFY_EQ(m, rest.m); m->factor(*this, v, degree, lc, rest); }
+        bool factor(unsigned v, unsigned degree, pdd& lc) const { VERIFY_EQ(m, lc.m); return m->factor(*this, v, degree, lc); }
+        bool resolve(unsigned v, pdd const& other, pdd& result) { VERIFY_EQ(m, other.m); VERIFY_EQ(m, result.m); return m->resolve(v, *this, other, result); }
+        pdd reduce(unsigned v, pdd const& other) const { VERIFY_EQ(m, other.m); return m->reduce(v, *this, other); }
 
         /**
          * \brief factor out variables
          */
         std::pair<unsigned_vector, pdd> var_factors() const;
 
-        pdd subst_val0(vector<std::pair<unsigned, rational>> const& s) const { return m.subst_val0(*this, s); }
-        pdd subst_val(pdd const& s) const { VERIFY_EQ(&m, &s.m); return m.subst_val(*this, s); }
-        pdd subst_val(unsigned v, rational const& val) const { return m.subst_val(*this, v, val); }
-        pdd subst_add(unsigned var, rational const& val) const { return m.subst_add(*this, var, val); }
-        bool subst_get(unsigned var, rational& out_val) const { return m.subst_get(*this, var, out_val); }
+        pdd subst_val0(vector<std::pair<unsigned, rational>> const& s) const { return m->subst_val0(*this, s); }
+        pdd subst_val(pdd const& s) const { VERIFY_EQ(m, s.m); return m->subst_val(*this, s); }
+        pdd subst_val(unsigned v, rational const& val) const { return m->subst_val(*this, v, val); }
+        pdd subst_add(unsigned var, rational const& val) const { return m->subst_add(*this, var, val); }
+        bool subst_get(unsigned var, rational& out_val) const { return m->subst_get(*this, var, out_val); }
 
         /**
          * \brief substitute variable v by r.
          */
         pdd subst_pdd(unsigned v, pdd const& r) const;
 
-        std::ostream& display(std::ostream& out) const { return m.display(out, *this); }
-        bool operator==(pdd const& other) const { return root == other.root && (&m == &other.m); }
+        std::ostream& display(std::ostream& out) const { return m->display(out, *this); }
+        bool operator==(pdd const& other) const { return root == other.root && m == other.m; }
         bool operator!=(pdd const& other) const { return !operator==(other); }
         unsigned hash() const { return root; }
 
-        unsigned power_of_2() const { return m.power_of_2(); }
+        unsigned power_of_2() const { return m->power_of_2(); }
 
-        unsigned dag_size() const { return m.dag_size(*this); }
-        double tree_size() const { return m.tree_size(*this); }
-        unsigned degree() const { return m.degree(*this); }
-        unsigned degree(unsigned v) const { return m.degree(root, v); }
-        unsigned max_pow2_divisor() const { return m.max_pow2_divisor(root); }
-        unsigned_vector const& free_vars() const { return m.free_vars(*this); }
+        unsigned dag_size() const { return m->dag_size(*this); }
+        double tree_size() const { return m->tree_size(*this); }
+        unsigned degree() const { return m->degree(*this); }
+        unsigned degree(unsigned v) const { return m->degree(root, v); }
+        unsigned max_pow2_divisor() const { return m->max_pow2_divisor(root); }
+        unsigned_vector const& free_vars() const { return m->free_vars(*this); }
 
-        void swap(pdd& other) { VERIFY_EQ(&m, &other.m); std::swap(root, other.root); }
+        void swap(pdd& other) { VERIFY_EQ(m, other.m); std::swap(root, other.root); }
 
         pdd_iterator begin() const;
         pdd_iterator end() const;
 
-        pdd_manager& manager() const { return m; }
+        pdd_manager& manager() const { return *m; }
     };
 
     inline pdd operator*(rational const& r, pdd const& b) { return b * r; }
