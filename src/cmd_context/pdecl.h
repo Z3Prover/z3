@@ -23,6 +23,7 @@ Revision History:
 #include "util/dictionary.h"
 #include "ast/format.h"
 #include "ast/datatype_decl_plugin.h"
+#include "ast/ast_smt2_pp.h"
 
 class pdecl_manager;
 
@@ -333,7 +334,7 @@ public:
     void save_info(sort * s, psort_decl * d, unsigned num_args, sort * const * args);
     void save_info(sort * s, psort_decl * d, unsigned num_indices, unsigned const * indices);
     void display(std::ostream & out, sort * s) const;
-    format_ns::format * pp(sort * s) const;
+    format_ns::format * pp(smt2_pp_environment& env, sort * s) const;
 };
 
 

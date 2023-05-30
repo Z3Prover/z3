@@ -785,7 +785,7 @@ struct pdecl_manager::sort_info {
     virtual unsigned obj_size() const { return sizeof(sort_info); }
     virtual void finalize(pdecl_manager & m) { m.dec_ref(m_decl); }
     virtual void display(std::ostream & out, pdecl_manager const & m) const = 0;
-    virtual format * pp(pdecl_manager const & m) const = 0;
+    virtual format * pp(smt2_pp_environment& env, pdecl_manager const & m) const = 0;
 };
 
 struct pdecl_manager::app_sort_info : public pdecl_manager::sort_info {
@@ -817,14 +817,14 @@ struct pdecl_manager::app_sort_info : public pdecl_manager::sort_info {
         }
     }
 
-    format * pp(pdecl_manager const & m) const override {
+    format * pp(smt2_pp_environment& env, pdecl_manager const & m) const override {
         if (m_args.empty()) {
             return mk_string(m.m(), m_decl->get_name().str());
         }
         else {
             ptr_buffer<format> b;
             for (auto arg : m_args)
-                b.push_back(m.pp(arg));
+                b.push_back(m.pp(env, arg));
             return mk_seq1(m.m(), b.begin(), b.end(), f2f(), m_decl->get_name().str());
         }
     }
@@ -853,7 +853,7 @@ struct pdecl_manager::indexed_sort_info : public pdecl_manager::sort_info {
         }
     }
 
-    format * pp(pdecl_manager const & m) const override {
+    format * pp(smt2_pp_environment& env, pdecl_manager const & m) const override {
         if (m_indices.empty()) {
             return mk_string(m.m(), m_decl->get_name().str());
         }
@@ -1072,27 +1072,10 @@ void pdecl_manager::display(std::ostream & out, sort * s) const {
     out << s->get_name();
 }
 
-format * pdecl_manager::pp(sort * s) const {
+format * pdecl_manager::pp(smt2_pp_environment& env, sort * s) const {
     sort_info * info = nullptr;
-    if (m_sort2info.find(s, info)) {
-        return info->pp(*this);
-    }
-    unsigned num_params = s->get_num_parameters();
-    if (s->get_family_id() != null_family_id && num_params > 0) {
-        // Small hack to display FP and BitVec sorts that were not explicitly referenced by the user.
-        unsigned i = 0;
-        for (i = 0; i < num_params; i++) {
-            if (!s->get_parameter(i).is_int())
-                break;
-        }
-        if (i == num_params) {
-            // all parameters are integer
-            ptr_buffer<format> b;
-            b.push_back(mk_string(m(), s->get_name().str()));
-            for (unsigned i = 0; i < num_params; i++)
-                b.push_back(mk_unsigned(m(), s->get_parameter(i).get_int()));
-            return mk_seq1(m(), b.begin(), b.end(), f2f(), "_");
-        }
-    }
-    return mk_string(m(), s->get_name().str());
+    if (m_sort2info.find(s, info)) 
+        return info->pp(env, *this);
+    else
+        return nullptr;
 }
