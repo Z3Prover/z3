@@ -147,10 +147,10 @@ static void final_eh(void* _p, Z3_solver_callback cb) {
   info->jenv->CallVoidMethod(info->jobj, info->final);
 }
 
-static bool decide_eh(void* _p, Z3_solver_callback cb, Z3_ast _val, unsigned bit, bool is_pos) {
+static void decide_eh(void* _p, Z3_solver_callback cb, Z3_ast _val, unsigned bit, bool is_pos) {
   JavaInfo *info = static_cast<JavaInfo*>(_p);
   ScopedCB scoped(info, cb);
-  return info->jenv->CallBooleanMethod(info->jobj, info->decide, (jlong)_val);
+  info->jenv->CallVoidMethod(info->jobj, info->decide, (jlong)_val);
 }
 
 DLL_VIS JNIEXPORT jlong JNICALL Java_com_microsoft_z3_Native_propagateInit(JNIEnv *jenv, jclass cls, jobject jobj, jlong ctx, jlong solver) {
@@ -166,7 +166,7 @@ DLL_VIS JNIEXPORT jlong JNICALL Java_com_microsoft_z3_Native_propagateInit(JNIEn
   info->fixed = jenv->GetMethodID(jcls, "fixedWrapper", "(JJ)V");
   info->eq = jenv->GetMethodID(jcls, "eqWrapper", "(JJ)V");
   info->final = jenv->GetMethodID(jcls, "finWrapper", "()V");
-  info->decide = jenv->GetMethodID(jcls, "decideWrapper", "(JII)Z");
+  info->decide = jenv->GetMethodID(jcls, "decideWrapper", "(JII)V");
 
   if (!info->push || !info->pop || !info->fresh || !info->created || !info->fixed || !info->eq || !info->final || !info->decide) {
     assert(false);

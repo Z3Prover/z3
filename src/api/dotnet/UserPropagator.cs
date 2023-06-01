@@ -58,7 +58,7 @@ namespace Microsoft.Z3
         public delegate void CreatedEh(Expr term);
 
         /// <summary>
-        /// Delegate type for callback into solver's branching. The values can be overriden by calling <see cref="NextSplit">.
+        /// Delegate type for callback into solver's branching. The values can be overriden by calling <see cref="NextSplit" />.
         /// </summary>
         /// <param name="term">A bit-vector or Boolean used for branching</param>
         /// <param name="idx">If the term is a bit-vector, then an index into the bit-vector being branched on</param>
