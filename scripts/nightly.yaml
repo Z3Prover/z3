@@ -1,7 +1,7 @@
 variables:
   Major: '4'
   Minor: '12'
-  Patch: '2'
+  Patch: '3'
   AssemblyVersion: $(Major).$(Minor).$(Patch).$(Build.BuildId)
   NightlyVersion: $(AssemblyVersion)-$(Build.DefinitionName)
 

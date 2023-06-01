@@ -892,6 +892,7 @@ bool theory_arith<Ext>::propagate_linear_monomial(theory_var v) {
           }
           tout << "\n";);
 
+
     return true;
 }
 

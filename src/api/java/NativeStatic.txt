@@ -77,3 +77,156 @@ DLL_VIS JNIEXPORT void JNICALL Java_com_microsoft_z3_Native_setInternalErrorHand
   Z3_set_error_handler((Z3_context)a0, Z3JavaErrorHandler);
 }
 
+
+#include <assert.h>
+
+struct JavaInfo {
+  JNIEnv *jenv = nullptr;
+  jobject jobj = nullptr;
+
+  jmethodID push = nullptr;
+  jmethodID pop = nullptr;
+  jmethodID fresh = nullptr;
+  jmethodID created = nullptr;
+  jmethodID fixed = nullptr;
+  jmethodID eq = nullptr;
+  jmethodID final = nullptr;
+
+  Z3_solver_callback cb = nullptr;
+};
+
+struct ScopedCB {
+  JavaInfo *info;
+  ScopedCB(JavaInfo *_info, Z3_solver_callback cb): info(_info) {
+    info->cb = cb;
+  }
+  ~ScopedCB() {
+    info->cb = nullptr;
+  }
+};
+
+static void push_eh(void* _p, Z3_solver_callback cb) {
+  JavaInfo *info = static_cast<JavaInfo*>(_p);
+  ScopedCB scoped(info, cb);
+  info->jenv->CallVoidMethod(info->jobj, info->push);
+}
+
+static void pop_eh(void* _p, Z3_solver_callback cb, unsigned int number) {
+  JavaInfo *info = static_cast<JavaInfo*>(_p);
+  ScopedCB scoped(info, cb);
+  info->jenv->CallVoidMethod(info->jobj, info->pop, number);
+}
+
+static void* fresh_eh(void* _p, Z3_context new_context) {
+  JavaInfo *info = static_cast<JavaInfo*>(_p);
+  return info->jenv->CallObjectMethod(info->jobj, info->fresh, (jlong)new_context); 
+}
+
+static void created_eh(void* _p, Z3_solver_callback cb, Z3_ast _e) {
+  JavaInfo *info = static_cast<JavaInfo*>(_p);
+  ScopedCB scoped(info, cb);
+  info->jenv->CallVoidMethod(info->jobj, info->created, (jlong)_e);
+}
+
+static void fixed_eh(void* _p, Z3_solver_callback cb, Z3_ast _var, Z3_ast _value) {
+  JavaInfo *info = static_cast<JavaInfo*>(_p);
+  ScopedCB scoped(info, cb);
+  info->jenv->CallVoidMethod(info->jobj, info->fixed, (jlong)_var, (jlong)_value);
+}
+
+static void eq_eh(void* _p, Z3_solver_callback cb, Z3_ast _x, Z3_ast _y) {
+  JavaInfo *info = static_cast<JavaInfo*>(_p);
+  ScopedCB scoped(info, cb);
+  info->jenv->CallVoidMethod(info->jobj, info->eq, (jlong)_x, (jlong)_y);
+}
+
+static void final_eh(void* _p, Z3_solver_callback cb) {
+  JavaInfo *info = static_cast<JavaInfo*>(_p);
+  ScopedCB scoped(info, cb);
+  info->jenv->CallVoidMethod(info->jobj, info->final);
+}
+
+// TODO: implement decide
+static void decide_eh(void* _p, Z3_solver_callback cb, Z3_ast* _val, unsigned* bit, Z3_lbool* is_pos) {
+  JavaInfo *info = static_cast<JavaInfo*>(_p);
+  ScopedCB scoped(info, cb);
+
+}
+
+DLL_VIS JNIEXPORT jlong JNICALL Java_com_microsoft_z3_Native_propagateInit(JNIEnv *jenv, jclass cls, jobject jobj, jlong ctx, jlong solver) {
+  JavaInfo *info = new JavaInfo;
+
+  info->jenv = jenv;
+  info->jobj = jenv->NewGlobalRef(jobj);
+  jclass jcls = jenv->GetObjectClass(info->jobj);
+  info->push = jenv->GetMethodID(jcls, "pushWrapper", "()V");
+  info->pop = jenv->GetMethodID(jcls, "popWrapper", "(I)V");
+  info->fresh = jenv->GetMethodID(jcls, "freshWrapper", "(J)Lcom/microsoft/z3/Native$UserPropagatorBase;");
+  info->created = jenv->GetMethodID(jcls, "createdWrapper", "(J)V");
+  info->fixed = jenv->GetMethodID(jcls, "fixedWrapper", "(JJ)V");
+  info->eq = jenv->GetMethodID(jcls, "eqWrapper", "(JJ)V");
+  info->final = jenv->GetMethodID(jcls, "finWrapper", "()V");
+  
+  if (!info->push || !info->pop || !info->fresh || !info->created || !info->fixed || !info->eq || !info->final) {
+    assert(false);
+  }
+
+  Z3_solver_propagate_init((Z3_context)ctx, (Z3_solver)solver, info, push_eh, pop_eh, fresh_eh);
+
+  return (jlong)info;
+}
+
+DLL_VIS JNIEXPORT void JNICALL Java_com_microsoft_z3_Native_propagateDestroy(JNIEnv *jenv, jclass cls, jobject jobj, jlong ctx, jlong solver, jlong javainfo) {
+  JavaInfo *info = (JavaInfo*)javainfo;
+  info->jenv->DeleteGlobalRef(info->jobj);
+  delete info;
+}
+
+DLL_VIS JNIEXPORT void JNICALL Java_com_microsoft_z3_Native_propagateRegisterCreated(JNIEnv * jenv, jclass cls, jobject jobj, jlong ctx, jlong solver) {
+  Z3_solver_propagate_created((Z3_context)ctx, (Z3_solver)solver, created_eh);
+}
+
+DLL_VIS JNIEXPORT void JNICALL Java_com_microsoft_z3_Native_propagateRegisterFinal(JNIEnv * jenv, jclass cls, jobject jobj, jlong ctx, jlong solver) {
+  Z3_solver_propagate_final((Z3_context)ctx, (Z3_solver)solver, final_eh);
+}
+
+DLL_VIS JNIEXPORT void JNICALL Java_com_microsoft_z3_Native_propagateRegisterFixed(JNIEnv * jenv, jclass cls, jobject jobj, jlong ctx, jlong solver) {
+  Z3_solver_propagate_fixed((Z3_context)ctx, (Z3_solver)solver, fixed_eh);
+}
+
+DLL_VIS JNIEXPORT void JNICALL Java_com_microsoft_z3_Native_propagateRegisterEq(JNIEnv * jenv, jclass cls, jobject jobj, jlong ctx, jlong solver) {
+  Z3_solver_propagate_eq((Z3_context)ctx, (Z3_solver)solver, eq_eh);
+}
+
+DLL_VIS JNIEXPORT void JNICALL Java_com_microsoft_z3_Native_propagateRegisterDecide(JNIEnv * jenv, jclass cls, jobject jobj, jlong ctx, jlong solver) {
+  Z3_solver_propagate_decide((Z3_context)ctx, (Z3_solver)solver, decide_eh);
+}
+
+DLL_VIS JNIEXPORT void JNICALL Java_com_microsoft_z3_Native_propagateConflict(JNIEnv * jenv, jclass cls, jobject jobj, jlong ctx, jlong solver, jlong javainfo, jlong num_fixed, jlongArray fixed, jlong num_eqs, jlongArray eq_lhs, jlongArray eq_rhs, jlong conseq) {
+  JavaInfo *info = (JavaInfo*)javainfo;
+  GETLONGAELEMS(Z3_ast, fixed, _fixed);
+  GETLONGAELEMS(Z3_ast, eq_lhs, _eq_lhs);
+  GETLONGAELEMS(Z3_ast, eq_rhs, _eq_rhs);
+  Z3_solver_propagate_consequence((Z3_context)ctx, info->cb, num_fixed, _fixed, num_eqs, _eq_lhs, _eq_rhs, (Z3_ast)conseq);
+  RELEASELONGAELEMS(fixed, _fixed);
+  RELEASELONGAELEMS(eq_lhs, _eq_lhs);
+  RELEASELONGAELEMS(eq_rhs, _eq_rhs);
+}
+
+DLL_VIS JNIEXPORT void JNICALL Java_com_microsoft_z3_Native_propagateAdd(JNIEnv * jenv, jclass cls, jobject jobj, jlong ctx, jlong solver, jlong javainfo, jlong e) {
+  JavaInfo *info = (JavaInfo*)javainfo;
+  Z3_solver_callback cb = info->cb;
+  if (cb)
+    Z3_solver_propagate_register_cb((Z3_context)ctx, cb, (Z3_ast)e);
+  else if (solver)
+    Z3_solver_propagate_register((Z3_context)ctx, (Z3_solver)solver, (Z3_ast)e);
+  else {
+    assert(false);
+  }
+}
+
+DLL_VIS JNIEXPORT void JNICALL Java_com_microsoft_z3_Native_propagateNextSplit(JNIEnv * jenv, jclass cls, jobject jobj, jlong ctx, jlong solver, jlong javainfo, long e, long idx, long phase) {
+  JavaInfo *info = (JavaInfo*)javainfo;
+  Z3_solver_callback cb = info->cb;
+  Z3_solver_next_split((Z3_context)ctx, cb, (Z3_ast)e, idx, Z3_lbool(phase));
+}

@@ -10,6 +10,7 @@ import {
   Z3_model,
   Z3_probe,
   Z3_solver,
+  Z3_optimize,
   Z3_sort,
   Z3_sort_kind,
   Z3_tactic,
@@ -317,6 +318,9 @@ export interface Context<Name extends string = 'main'> {
    * @category Classes
    */
   readonly Solver: new (logic?: string) => Solver<Name>;
+
+  readonly Optimize: new () => Optimize<Name>;
+
   /**
    * Creates an empty Model
    * @see {@link Solver.model} for common usage of Model
@@ -660,6 +664,39 @@ export interface Solver<Name extends string = 'main'> {
 
   model(): Model<Name>;
 }
+
+export interface Optimize<Name extends string = 'main'> {
+  /** @hidden */
+  readonly __typename: 'Optimize';
+
+  readonly ctx: Context<Name>;
+  readonly ptr: Z3_optimize;
+
+  set(key: string, value: any): void;
+
+  push(): void;
+
+  pop(num?: number): void;
+
+  add(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): void;
+
+  addSoft(expr: Bool<Name>, weight: number | bigint | string | CoercibleRational, id?: number | string): void;
+
+  addAndTrack(expr: Bool<Name>, constant: Bool<Name> | string): void;
+
+  assertions(): AstVector<Name, Bool<Name>>;
+
+  fromString(s: string): void;
+
+  maximize(expr: Arith<Name>): void;
+
+  minimize(expr: Arith<Name>): void;
+
+  check(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): Promise<CheckSatResult>;
+
+  model(): Model<Name>;
+}
+
 
 /** @hidden */
 export interface ModelCtor<Name extends string> {

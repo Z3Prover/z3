@@ -804,6 +804,7 @@ class elim_uncnstr_tactic : public tactic {
                 app * r = nullptr;
                 expr* x, *y;
                 if (uncnstr(args[0]) && num == 2 &&
+                    args[1]->get_ref_count() == 1 && 
                     m_seq_util.str.is_concat(args[1], x, y) &&
                     uncnstr(x)) {
                     if (!mk_fresh_uncnstr_var_for(f, num, args, r))

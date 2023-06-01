@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.4)
 
 set(CMAKE_USER_MAKE_RULES_OVERRIDE_CXX "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cxx_compiler_flags_overrides.cmake")
-project(Z3 VERSION 4.12.2.0 LANGUAGES CXX)
+project(Z3 VERSION 4.12.3.0 LANGUAGES CXX)
 
 ################################################################################
 # Project version

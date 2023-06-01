@@ -452,6 +452,21 @@ public class Context implements AutoCloseable {
         return new FuncDecl<>(this, name, domain, range);
     }
 
+    public final <R extends Sort> FuncDecl<R> mkPropagateFunction(Symbol name, Sort[] domain, R range)
+    {
+        checkContextMatch(name);
+        checkContextMatch(domain);
+        checkContextMatch(range);
+        long f = Native.solverPropagateDeclare(
+            this.nCtx(), 
+            name.getNativeObject(), 
+            AST.arrayLength(domain), 
+            AST.arrayToNative(domain),
+            range.getNativeObject());
+        return new FuncDecl<>(this, f);
+    }
+
+
     /**
      * Creates a new function declaration.
      **/
@@ -2018,11 +2033,11 @@ public class Context implements AutoCloseable {
     {
         StringBuilder buf = new StringBuilder();
         for (int i = 0; i < s.length(); ++i) {
-	    int code = s.codePointAt(i);
-	    if (code <= 32 || 127 < code) 
-	        buf.append(String.format("\\u{%x}", code));
-	    else
-	        buf.append(s.charAt(i));
+            int code = s.codePointAt(i);
+            if (code <= 32 || 127 < code) 
+                buf.append(String.format("\\u{%x}", code));
+            else
+                buf.append(s.charAt(i));
         }
         return (SeqExpr<CharSort>) Expr.create(this, Native.mkString(nCtx(), buf.toString()));
     }
@@ -2288,7 +2303,7 @@ public class Context implements AutoCloseable {
     public final <R extends Sort> ReExpr<R> mkDiff(Expr<ReSort<R>> a, Expr<ReSort<R>> b)
     {
         checkContextMatch(a, b);
-	return (ReExpr<R>) Expr.create(this, Native.mkReDiff(nCtx(), a.getNativeObject(), b.getNativeObject()));
+    return (ReExpr<R>) Expr.create(this, Native.mkReDiff(nCtx(), a.getNativeObject(), b.getNativeObject()));
     }
 
 

@@ -62,6 +62,8 @@ class bool_rewriter {
     unsigned       m_local_ctx_limit;
     unsigned       m_local_ctx_cost;
     bool           m_elim_ite;
+    ptr_vector<expr> m_todo1, m_todo2;
+    unsigned_vector m_counts1, m_counts2;
 
     br_status mk_flat_and_core(unsigned num_args, expr * const * args, expr_ref & result);
     br_status mk_flat_or_core(unsigned num_args, expr * const * args, expr_ref & result);

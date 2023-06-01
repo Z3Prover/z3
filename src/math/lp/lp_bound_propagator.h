@@ -578,8 +578,12 @@ public:
               );
         
         bool added = m_imp.add_eq(je, ke, exp, is_fixed);
-        if (added)
-            lp().stats().m_offset_eqs++;
+        if (added) {
+            if (is_fixed)
+                lp().stats().m_fixed_eqs++;
+            else
+                lp().stats().m_offset_eqs++;
+        }
         return added;
     }
 

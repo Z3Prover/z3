@@ -3173,12 +3173,8 @@ def _to_int_str(val):
             return "1"
         else:
             return "0"
-    elif _is_int(val):
+    else:
         return str(val)
-    elif isinstance(val, str):
-        return val
-    if z3_debug():
-        _z3_assert(False, "Python value cannot be used as a Z3 integer")
 
 
 def IntVal(val, ctx=None):
@@ -7139,6 +7135,13 @@ class Solver(Z3PPObject):
     def import_model_converter(self, other):
         """Import model converter from other into the current solver"""
         Z3_solver_import_model_converter(self.ctx.ref(), other.solver, self.solver)
+
+    def interrupt(self):
+        """Interrupt the execution of the solver object.
+        Remarks: This ensures that the interrupt applies only
+        to the given solver object and it applies only if it is running.
+        """
+        Z3_solver_interrupt(self.ctx.ref(), self.solver)
 
     def unsat_core(self):
         """Return a subset (as an AST vector) of the assumptions provided to the last check().

@@ -827,7 +827,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         expr_ref r(m());
 
         bool der_change = false;
-        if (is_quantifier(result)) {
+        if (is_quantifier(result) && to_quantifier(result)->get_num_patterns() == 0) {
             m_der(to_quantifier(result), r, p2);
             der_change = result.get() != r.get();
             if (m().proofs_enabled() && der_change)

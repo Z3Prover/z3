@@ -178,14 +178,14 @@ namespace opt {
     maxsmt::maxsmt(maxsat_context& c, unsigned index):
         m(c.get_manager()), m_c(c), m_index(index), m_answer(m) {}
 
-    lbool maxsmt::operator()() {
+    lbool maxsmt::operator()(bool committed) {
         lbool is_sat = l_undef;
         m_msolver = nullptr;
         opt_params optp(m_params);
         symbol const& maxsat_engine = m_c.maxsat_engine();
         IF_VERBOSE(1, verbose_stream() << "(maxsmt)\n";);
         TRACE("opt_verbose", s().display(tout << "maxsmt\n") << "\n";);
-        if (optp.maxlex_enable() && is_maxlex(m_soft)) 
+        if (!committed && optp.maxlex_enable() && is_maxlex(m_soft)) 
             m_msolver = mk_maxlex(m_c, m_index, m_soft);            
         else if (m_soft.empty() || maxsat_engine == symbol("maxres") || maxsat_engine == symbol::null)             
             m_msolver = mk_maxres(m_c, m_index, m_soft);            
@@ -213,7 +213,8 @@ namespace opt {
             try {
                 is_sat = (*m_msolver)();
             }
-            catch (z3_exception&) {
+            catch (z3_exception& ex) {
+                IF_VERBOSE(1, verbose_stream() << ex.msg() << "\n");
                 is_sat = l_undef;
             }
             if (is_sat != l_false) {
@@ -401,7 +402,7 @@ namespace opt {
         for (auto const& p : soft) {
             maxsmt.add(p.first, p.second);
         }
-        lbool r = maxsmt();
+        lbool r = maxsmt(true);
         if (r == l_true) {
             svector<symbol> labels;
             maxsmt.get_model(m_model, labels);

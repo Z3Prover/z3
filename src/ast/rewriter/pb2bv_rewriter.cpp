@@ -825,16 +825,17 @@ struct pb2bv_rewriter::imp {
             if (a->get_family_id() == au.get_family_id()) {
                 switch (a->get_decl_kind()) {
                 case OP_ADD:
-                    for (unsigned i = 0; i < sz; ++i) {
-                        if (!is_pb(a->get_arg(i), mul)) return false;
-                    }
+                    for (unsigned i = 0; i < sz; ++i) 
+                        if (!is_pb(a->get_arg(i), mul)) 
+                            return false;
                     return true;
                 case OP_SUB: {
-                    if (!is_pb(a->get_arg(0), mul)) return false;
+                    if (!is_pb(a->get_arg(0), mul)) 
+                        return false;
                     r = -mul;
-                    for (unsigned i = 1; i < sz; ++i) {
-                        if (!is_pb(a->get_arg(1), r)) return false;
-                    }
+                    for (unsigned i = 1; i < sz; ++i) 
+                        if (!is_pb(a->get_arg(i), r)) 
+                            return false;
                     return true;
                 }
                 case OP_UMINUS:

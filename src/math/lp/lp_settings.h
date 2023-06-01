@@ -121,6 +121,7 @@ struct statistics {
     unsigned m_grobner_calls;
     unsigned m_grobner_conflicts;
     unsigned m_offset_eqs;
+    unsigned m_fixed_eqs;
     statistics() { reset(); }
     void reset() { memset(this, 0, sizeof(*this)); }
     void collect_statistics(::statistics& st) const {
@@ -142,6 +143,7 @@ struct statistics {
         st.update("arith-grobner-calls", m_grobner_calls);
         st.update("arith-grobner-conflicts", m_grobner_conflicts);
         st.update("arith-offset-eqs", m_offset_eqs);
+        st.update("arith-fixed-eqs", m_fixed_eqs);
 
     }
 };
@@ -161,11 +163,11 @@ private:
     };
 
     default_lp_resource_limit m_default_resource_limit;
-    lp_resource_limit*        m_resource_limit;
+    lp_resource_limit*        m_resource_limit = nullptr;
     // used for debug output
-    std::ostream*             m_debug_out;
+    std::ostream*             m_debug_out = nullptr;
     // used for messages, for example, the computation progress messages
-    std::ostream*             m_message_out;
+    std::ostream*             m_message_out = nullptr;
 
     statistics                m_stats;
     random_gen                m_rand;
@@ -176,40 +178,40 @@ public:
     unsigned nlsat_delay() const { return m_nlsat_delay; }
     bool int_run_gcd_test() const { return m_int_run_gcd_test; }
     bool& int_run_gcd_test() { return m_int_run_gcd_test; }
-    unsigned      reps_in_scaler { 20 };
-    int           c_partial_pivoting { 10 }; // this is the constant c from page 410
-    unsigned      depth_of_rook_search { 4 };
-    bool          using_partial_pivoting { true };
+    unsigned      reps_in_scaler = 20;
+    int           c_partial_pivoting = 10; // this is the constant c from page 410
+    unsigned      depth_of_rook_search = 4;
+    bool          using_partial_pivoting = true;
     
-    unsigned     percent_of_entering_to_check { 5 }; // we try to find a profitable column in a percentage of the columns
-    bool         use_scaling { true };
-    unsigned     max_number_of_iterations_with_no_improvements { 2000000 };
+    unsigned     percent_of_entering_to_check = 5; // we try to find a profitable column in a percentage of the columns
+    bool         use_scaling = true;
+    unsigned     max_number_of_iterations_with_no_improvements = 2000000;
  double       time_limit; // the maximum time limit of the total run time in seconds
     // end of dual section
-    bool                   m_bound_propagation { true };
-    bool                   presolve_with_double_solver_for_lar { true };
+    bool                   m_bound_propagation = true;
+    bool                   presolve_with_double_solver_for_lar = true;
     simplex_strategy_enum  m_simplex_strategy;
     
-    int              report_frequency { 1000 };
-    bool             print_statistics { false };
-    unsigned         column_norms_update_frequency { 12000 };
-    bool             scale_with_ratio { true };
-    unsigned         max_row_length_for_bound_propagation { 300 };
-    bool             backup_costs { true };
-    unsigned         column_number_threshold_for_using_lu_in_lar_solver { 4000 };
-    unsigned         m_int_gomory_cut_period { 4 };
-    unsigned         m_int_find_cube_period { 4 };
+    int              report_frequency = 1000;
+    bool             print_statistics = false;
+    unsigned         column_norms_update_frequency = 12000;
+    bool             scale_with_ratio = true;
+    unsigned         max_row_length_for_bound_propagation = 300;
+    bool             backup_costs = true;
+    unsigned         column_number_threshold_for_using_lu_in_lar_solver = 4000;
+    unsigned         m_int_gomory_cut_period = 4;
+    unsigned         m_int_find_cube_period = 4;
 private:
-    unsigned         m_hnf_cut_period { 4 };
-    bool             m_int_run_gcd_test { true };
+    unsigned         m_hnf_cut_period = 4;
+    bool             m_int_run_gcd_test = true;
 public:
-    unsigned         limit_on_rows_for_hnf_cutter { 75 };
-    unsigned         limit_on_columns_for_hnf_cutter { 150 };
+    unsigned         limit_on_rows_for_hnf_cutter = 75;
+    unsigned         limit_on_columns_for_hnf_cutter = 150;
 private:
     unsigned         m_nlsat_delay;
-    bool             m_enable_hnf { true };
-    bool             m_print_external_var_name { false };
-    bool             m_propagate_eqs { false };
+    bool             m_enable_hnf = true;
+    bool             m_print_external_var_name = false;
+    bool             m_propagate_eqs = false;
 public:
     bool print_external_var_name() const { return m_print_external_var_name; }
     bool propagate_eqs() const { return m_propagate_eqs;}
@@ -242,25 +244,12 @@ public:
     std::ostream* get_debug_ostream() { return m_debug_out; }
     std::ostream* get_message_ostream() { return m_message_out; }
     statistics& stats() { return m_stats; }
-    statistics const& stats() const { return m_stats; }
-
-    
-
-    
+    statistics const& stats() const { return m_stats; }    
     
     // the method of lar solver to use
-    simplex_strategy_enum simplex_strategy() const {
-        return m_simplex_strategy;
-    }
-
-    void set_simplex_strategy(simplex_strategy_enum s) {
-        m_simplex_strategy = s;
-    }
-
-   
-    bool use_tableau_rows() const {
-        return m_simplex_strategy == simplex_strategy_enum::tableau_rows;
-    }
+    simplex_strategy_enum simplex_strategy() const { return m_simplex_strategy; }
+    void set_simplex_strategy(simplex_strategy_enum s) { m_simplex_strategy = s; }
+    bool use_tableau_rows() const { return m_simplex_strategy == simplex_strategy_enum::tableau_rows; }
     
 #ifdef Z3DEBUG
 static unsigned ddd; // used for debugging    

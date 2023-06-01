@@ -390,6 +390,7 @@ int gomory::find_basic_var() {
     const row_strip<mpq>& row = lra.get_row(lia.row_of_basic_column(result));
     if (is_gomory_cut_target(row)) 
         return result;
+    result = -1;
 #endif
 
     for (unsigned j : lra.r_basis()) {

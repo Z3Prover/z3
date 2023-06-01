@@ -1,10 +1,11 @@
-#include "math/lp/lar_solver.h"
-#include "smt/params/smt_params_helper.hpp"
-
 /*
   Copyright (c) 2017 Microsoft Corporation
   Author: Nikolaj Bjorner, Lev Nachmanson
 */
+
+#include "math/lp/lar_solver.h"
+#include "smt/params/smt_params_helper.hpp"
+
 
 namespace lp {
 
@@ -134,10 +135,9 @@ namespace lp {
 
 
     bool lar_solver::row_has_a_big_num(unsigned i) const {
-        for (const auto& c : A_r().m_rows[i]) {
+        for (const auto& c : A_r().m_rows[i]) 
             if (c.coeff().is_big())
                 return true;
-        }
         return false;
     }
 
@@ -601,15 +601,14 @@ namespace lp {
             else {
                 const lar_term& term = *m_terms[tv::unmask_term(t.second)];
 
-                for (auto p : term) {
+                for (auto p : term) 
                     register_monoid_in_map(coeffs, t.first * p.coeff(), p.column());
-                }
             }
         }
 
-        for (auto& p : coeffs)
-            if (!is_zero(p.second))
-                left_side.push_back(std::make_pair(p.second, p.first));
+        for (auto& [v, c] : coeffs)
+            if (!is_zero(c))
+                left_side.push_back(std::make_pair(c, v));        
     }
 
     void lar_solver::insert_row_with_changed_bounds(unsigned rid) {
@@ -633,8 +632,7 @@ namespace lp {
             r += c.coeff() * m_mpq_lar_core_solver.m_r_x[c.var()];
         }
         CTRACE("lar_solver", !is_zero(r), tout << "row = " << i << ", j = " << m_mpq_lar_core_solver.m_r_basis[i] << "\n";
-        print_row(A_r().m_rows[i], tout);  tout << " = " << r << "\n";
-        );
+               print_row(A_r().m_rows[i], tout);  tout << " = " << r << "\n");
         return is_zero(r);
     }
 
@@ -692,15 +690,11 @@ namespace lp {
         }
     }
 
-
     void lar_solver::detect_rows_with_changed_bounds_for_column(unsigned j) {
-        if (m_mpq_lar_core_solver.m_r_heading[j] >= 0) {
+        if (m_mpq_lar_core_solver.m_r_heading[j] >= 0) 
             insert_row_with_changed_bounds(m_mpq_lar_core_solver.m_r_heading[j]);
-            return;
-        }
-
-         detect_rows_of_bound_change_column_for_nbasic_column_tableau(j);
-        
+        else 
+            detect_rows_of_bound_change_column_for_nbasic_column_tableau(j);        
     }
 
     void lar_solver::detect_rows_with_changed_bounds() {
@@ -1384,6 +1378,66 @@ namespace lp {
         return m_mpq_lar_core_solver.column_is_free(j);
     }
 
+    // column is at lower or upper bound, lower and upper bound are different.
+    // the lower/upper bound is not strict.
+    // the LP obtained by making the bound strict is infeasible
+    // -> the column has to be fixed
+    bool lar_solver::is_fixed_at_bound(column_index const& j) {
+        if (column_is_fixed(j))
+            return false;
+        mpq val;
+        if (!has_value(j, val))
+            return false;
+        lp::lconstraint_kind k;
+        if (column_has_upper_bound(j) &&
+            get_upper_bound(j).x == val) {
+            verbose_stream() << "check upper " << j << "\n";
+            push();
+            if (column_is_int(j))
+                k = LE, val -= 1;
+            else
+                k = LT;
+            auto ci = mk_var_bound(j, k, val);
+            update_column_type_and_bound(j, k, val, ci);
+            auto st = find_feasible_solution();
+            pop(1);
+            return st == lp_status::INFEASIBLE;            
+        }
+        if (column_has_lower_bound(j) &&
+            get_lower_bound(j).x == val) {
+            verbose_stream() << "check lower " << j << "\n";
+            push();
+            if (column_is_int(j))
+                k = GE, val += 1;
+            else
+                k = GT;
+            auto ci = mk_var_bound(j, k, val);
+            update_column_type_and_bound(j, k, val, ci);
+            auto st = find_feasible_solution();
+            pop(1);
+            return st == lp_status::INFEASIBLE;                        
+        }
+        
+        return false;
+    }
+
+    bool lar_solver::has_fixed_at_bound() {
+        verbose_stream() << "has-fixed-at-bound\n";
+        unsigned num_fixed = 0;
+        for (unsigned j = 0; j < A_r().m_columns.size(); ++j) {
+            auto ci = column_index(j);
+            if (is_fixed_at_bound(ci)) {
+                ++num_fixed;
+                verbose_stream() << "fixed " << j << "\n";
+            }
+        }
+        verbose_stream() << "num fixed " << num_fixed << "\n";
+        if (num_fixed > 0)
+            find_feasible_solution();
+        return num_fixed > 0;
+    }
+
+
     // below is the initialization functionality of lar_solver
 
     bool lar_solver::strategy_is_undecided() const {
@@ -1442,8 +1496,7 @@ namespace lp {
         register_new_ext_var_index(ext_j, is_int);
         m_mpq_lar_core_solver.m_column_types.push_back(column_type::free_column);
         increase_by_one_columns_with_changed_bounds();
-        add_new_var_to_core_fields_for_mpq(false); // false for not adding a row
-        
+        add_new_var_to_core_fields_for_mpq(false); // false for not adding a row        
     }
     
     void lar_solver::add_new_var_to_core_fields_for_mpq(bool register_in_basis) {
@@ -1481,24 +1534,21 @@ namespace lp {
 #if Z3DEBUG_CHECK_UNIQUE_TERMS
     bool lar_solver::term_coeffs_are_ok(const vector<std::pair<mpq, var_index>>& coeffs) {
 
-        for (const auto& p : coeffs) {
+        for (const auto& p : coeffs) 
             if (column_is_real(p.second))
                 return true;
-        }
 
         mpq g;
         bool g_is_set = false;
         for (const auto& p : coeffs) {
-            if (!p.first.is_int()) {
+            if (!p.first.is_int()) 
                 return false;
-            }
             if (!g_is_set) {
                 g_is_set = true;
                 g = p.first;
             }
-            else {
+            else 
                 g = gcd(g, p.first);
-            }
         }
         if (g == one_of_type<mpq>())
             return true;
@@ -1524,20 +1574,17 @@ namespace lp {
         std::set<unsigned> seen_terms;
         for (auto p : *t) {
             auto j = p.column();
-            if (this->column_corresponds_to_term(j)) {
+            if (this->column_corresponds_to_term(j)) 
                 seen_terms.insert(j);
-            }
         }
         while (!seen_terms.empty()) {
             unsigned j = *seen_terms.begin();
             seen_terms.erase(j);
             auto tj = this->m_var_register.local_to_external(j);
             auto& ot = this->get_term(tj);
-            for (auto p : ot){
-                if (this->column_corresponds_to_term(p.column())) {
+            for (auto p : ot)
+                if (this->column_corresponds_to_term(p.column())) 
                     seen_terms.insert(p.column());
-                }   
-            }
             t->subst_by_term(ot, j);
         }
     }
@@ -1555,15 +1602,14 @@ namespace lp {
         SASSERT(m_terms.size() == m_term_register.size());
         unsigned adjusted_term_index = m_terms.size() - 1;
         var_index ret = tv::mask_term(adjusted_term_index);
-        if ( !coeffs.empty()) {
+        if (!coeffs.empty()) {
             add_row_from_term_no_constraint(m_terms.back(), ret);
             if (m_settings.bound_propagation())
                 insert_row_with_changed_bounds(A_r().row_count() - 1);
         }
         lp_assert(m_var_register.size() == A_r().column_count());
-        if (m_need_register_terms) {
+        if (m_need_register_terms) 
             register_normalized_term(*t, A_r().column_count() - 1);
-        }
         return ret;
     }
 
@@ -1585,12 +1631,10 @@ namespace lp {
         m_mpq_lar_core_solver.m_r_solver.update_x(j, get_basic_var_value_from_row(A_r().row_count() - 1));
         for (lar_term::ival c : *term) {
             unsigned j = c.column();
-            while (m_usage_in_terms.size() <= j) {
+            while (m_usage_in_terms.size() <= j) 
                 m_usage_in_terms.push_back(0);
-            }
             m_usage_in_terms[j] = m_usage_in_terms[j] + 1;
         }
-
     }
 
     void lar_solver::add_basic_var_to_core_fields() {
@@ -1603,9 +1647,7 @@ namespace lp {
     }
 
     bool lar_solver::bound_is_integer_for_integer_column(unsigned j, const mpq& right_side) const {
-        if (!column_is_int(j))
-            return true;
-        return right_side.is_int();
+        return !column_is_int(j) || right_side.is_int();
     }
 
     constraint_index lar_solver::add_var_bound_check_on_equal(var_index j, lconstraint_kind kind, const mpq& right_side, var_index& equal_var) {

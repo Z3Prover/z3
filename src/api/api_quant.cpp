@@ -249,7 +249,10 @@ extern "C" {
             expr_abstract(mk_c(c)->m(), 0, num_bound, bound_asts.data(), pat, result);
             SASSERT(result.get()->get_kind() == AST_APP);
             pinned.push_back(result.get());
-            SASSERT(mk_c(c)->m().is_pattern(result.get()));
+            if (!mk_c(c)->m().is_pattern(result.get())) {
+                SET_ERROR_CODE(Z3_INVALID_ARG, "invalid pattern");
+                RETURN_Z3(nullptr);
+            }                
             _patterns.push_back(of_pattern(result.get()));
         }
         svector<Z3_ast> _no_patterns;

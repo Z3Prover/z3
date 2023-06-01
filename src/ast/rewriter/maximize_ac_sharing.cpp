@@ -92,7 +92,7 @@ br_status maximize_ac_sharing::reduce_app(func_decl * f, unsigned num_args, expr
             else {
                 result = m.mk_app(f, numeral, _args[0]);
             }
-            TRACE("ac_sharing_detail", tout << "result: " << mk_pp(result, m) << "\n";);
+            TRACE("ac_sharing_detail", tout << "result: " << result << "\n";);
             return BR_DONE;
         }
     }

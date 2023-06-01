@@ -22,6 +22,7 @@ Revision History:
 
 #include "ast/used_vars.h"
 #include "util/obj_hashtable.h"
+#include "ast/rewriter/rewriter_def.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/rewriter/elim_bounds.h"
 #include "ast/ast_pp.h"

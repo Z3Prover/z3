@@ -81,7 +81,7 @@ void dependent_expr_state::freeze_recfun() {
     ast_mark visited;
     for (func_decl* f : rec.get_rec_funs()) {
         auto& d = rec.get_def(f);
-        if (!d.is_macro()) 
+        if (!d.is_macro() && d.get_rhs())
             freeze_terms(d.get_rhs(), false, visited);
     }
     m_trail.push(value_trail(m_num_recfun));

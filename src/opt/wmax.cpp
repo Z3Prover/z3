@@ -53,7 +53,7 @@ namespace opt {
             TRACE("opt", tout << "weighted maxsat\n";);
             scoped_ensure_theory wth(*this);
             reset();
-            if (init())
+            if (!init())
                 return l_undef;
             
             lbool is_sat = l_true;

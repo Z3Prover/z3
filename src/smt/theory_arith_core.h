@@ -47,11 +47,15 @@ namespace smt {
         else if (m_util.is_idiv(n)) {                
             e = m_util.mk_idiv0(n->get_arg(0), n->get_arg(1));
         }
-        else if (m_util.is_rem(n)) {                
-            e = m_util.mk_rem0(n->get_arg(0), n->get_arg(1));
+        else if (m_util.is_rem(n)) {
+            expr* z = m_util.mk_int(0);
+            e = m_util.mk_rem0(n->get_arg(0), z);
+            n = m_util.mk_rem(n->get_arg(0), z);
         }
-        else if (m_util.is_mod(n)) {                
-            e = m_util.mk_mod0(n->get_arg(0), n->get_arg(1));
+        else if (m_util.is_mod(n)) {
+            expr* z = m_util.mk_int(0);
+            e = m_util.mk_mod0(n->get_arg(0), z);
+            n = m_util.mk_mod(n->get_arg(0), z);
         }
         else if (m_util.is_power(n)) {                
             e = m_util.mk_power0(n->get_arg(0), n->get_arg(1));
@@ -154,7 +158,6 @@ namespace smt {
             case OP_MOD:
             case OP_DIV0:
             case OP_IDIV0:
-            case OP_REM0:
             case OP_MOD0:
                 return true;
             default:
@@ -1732,23 +1735,11 @@ namespace smt {
         m_util(m),
         m_arith_eq_solver(m),
         m_arith_eq_adapter(*this, m_util),
-        m_asserted_qhead(0),
-        m_row_vars_top(0),
         m_to_patch(1024),
-        m_blands_rule(false),
         m_random(ctx.get_fparams().m_arith_random_seed),
-        m_num_conflicts(0),
-        m_branch_cut_counter(0),
         m_eager_gcd(m_params.m_arith_eager_gcd),
-        m_final_check_idx(0),
         m_antecedents_index(0),
         m_var_value_table(DEFAULT_HASHTABLE_INITIAL_CAPACITY, var_value_hash(*this), var_value_eq(*this)),
-        m_liberal_final_check(true),
-        m_changed_assignment(false),
-        m_assume_eq_head(0),
-        m_model_depends_on_computed_epsilon(false),
-        m_nl_rounds(0),
-        m_nl_gb_exhausted(false),
         m_nl_new_exprs(m),
         m_bound_watch(null_bool_var) {
     }
@@ -2700,8 +2691,9 @@ namespace smt {
        Then this bound is used to produce a bound for the monomial variable.
     */
     template<typename Ext>
-    void theory_arith<Ext>::imply_bound_for_monomial(row const & r, int idx, bool is_lower) {
+    unsigned theory_arith<Ext>::imply_bound_for_monomial(row const & r, int idx, bool is_lower) {
         row_entry const & entry = r[idx];
+        unsigned count = 0;
         if (m_unassigned_atoms[entry.m_var] > 0) {
             inf_numeral implied_k;
             typename vector<row_entry>::const_iterator it  = r.begin_entries();
@@ -2723,7 +2715,7 @@ namespace smt {
                           tout << "implying lower bound for v" << entry.m_var << " " << implied_k << " using row:\n";
                           display_row_info(tout, r);
                           display_var(tout, entry.m_var););
-                    mk_implied_bound(r, idx, is_lower, entry.m_var, B_LOWER, implied_k);
+                    count += mk_implied_bound(r, idx, is_lower, entry.m_var, B_LOWER, implied_k);
                 }
             }
             else {
@@ -2734,10 +2726,11 @@ namespace smt {
                           tout << "implying upper bound for v" << entry.m_var << " " << implied_k << " using row:\n";
                           display_row_info(tout, r);
                           display_var(tout, entry.m_var););
-                    mk_implied_bound(r, idx, is_lower, entry.m_var, B_UPPER, implied_k);
+                    count += mk_implied_bound(r, idx, is_lower, entry.m_var, B_UPPER, implied_k);
                 }
             }
         }
+        return count;
     }
 
     /**
@@ -2748,7 +2741,7 @@ namespace smt {
        for the monomial variables.
     */
     template<typename Ext>
-    void theory_arith<Ext>::imply_bound_for_all_monomials(row const & r, bool is_lower) {
+    unsigned theory_arith<Ext>::imply_bound_for_all_monomials(row const & r, bool is_lower) {
         // Traverse the row once and compute
         // bb = (Sum_{a_i < 0} -a_i*lower(x_i)) + (Sum_{a_j > 0} -a_j * upper(x_j))  If is_lower = true
         // bb = (Sum_{a_i > 0} -a_i*lower(x_i)) + (Sum_{a_j < 0} -a_j * upper(x_j))  If is_lower = false
@@ -2761,6 +2754,7 @@ namespace smt {
             }
         }
 
+        unsigned count = 0;
         inf_numeral implied_k;
         typename vector<row_entry>::const_iterator it  = r.begin();
         typename vector<row_entry>::const_iterator end = r.end();
@@ -2784,7 +2778,7 @@ namespace smt {
                               tout << "implying lower bound for v" << it->m_var << " " << implied_k << " using row:\n";
                               display_row_info(tout, r);
                               display_var(tout, it->m_var););
-                        mk_implied_bound(r, idx, is_lower, it->m_var, B_LOWER, implied_k);
+                        count += mk_implied_bound(r, idx, is_lower, it->m_var, B_LOWER, implied_k);
                     }
                 }
                 else {
@@ -2796,11 +2790,12 @@ namespace smt {
                               tout << "implying upper bound for v" << it->m_var << " " << implied_k << " using row:\n";
                               display_row_info(tout, r);
                               display_var(tout, it->m_var););
-                        mk_implied_bound(r, idx, is_lower, it->m_var, B_UPPER, implied_k);
+                        count += mk_implied_bound(r, idx, is_lower, it->m_var, B_UPPER, implied_k);
                     }
                 }
             }
         }
+        return count;
     }
 
     /**
@@ -2922,10 +2917,11 @@ namespace smt {
     }
 
     template<typename Ext>
-    void theory_arith<Ext>::mk_implied_bound(row const & r, unsigned idx, bool is_lower, theory_var v, bound_kind kind, inf_numeral const & k) {
+    unsigned theory_arith<Ext>::mk_implied_bound(row const & r, unsigned idx, bool is_lower, theory_var v, bound_kind kind, inf_numeral const & k) {
         atoms const & as                 = m_var_occs[v];
         inf_numeral const & epsilon      = get_epsilon(v);
         inf_numeral delta;
+        unsigned count = 0;
         for (atom* a : as) {
             bool_var bv = a->get_bool_var();
             literal  l(bv);
@@ -2942,6 +2938,7 @@ namespace smt {
                         TRACE("propagate_bounds", tout << "v" << v << " >= " << k << ", v" << v << " >= " << k2 << ", delta: " << delta << "\n";
                               display_row(tout, r););
                         assign_bound_literal(l, r, idx, is_lower, delta);
+                        ++count;
                     }
                     // v <= k  k <  k2  |-  v < k2  |- not v >= k2
                     if (kind == B_UPPER && k <  k2) {
@@ -2958,6 +2955,7 @@ namespace smt {
                             TRACE("propagate_bounds", tout << "v" << v << " <= " << k << ", not v" << v << " >= " << k2 << ", delta: " << delta << "\n";
                                   display_row(tout, r););
                             assign_bound_literal(~l, r, idx, is_lower, delta);
+                            ++count;
                         }
                     }
                 }
@@ -2973,6 +2971,7 @@ namespace smt {
                             TRACE("propagate_bounds", tout << "v" << v << " >= " << k << ", not v" << v << " <= " << k2 << ", delta: " << delta << "\n";
                                   display_row(tout, r););
                             assign_bound_literal(~l, r, idx, is_lower, delta);
+                            ++count;
                         }
                     }
                     // v <= k  k <= k2 |-  v <= k2
@@ -2984,10 +2983,12 @@ namespace smt {
                         TRACE("propagate_bounds", tout << "v" << v << " <= " << k << ", v" << v << " <= " << k2 << ", delta: " << delta << "\n";
                               display_row(tout, r););
                         assign_bound_literal(l, r, idx, is_lower, delta);
+                        ++count;
                     }
                 }
             }
         }
+        return count;
     }
 
 
@@ -2998,10 +2999,16 @@ namespace smt {
         antecedents ante(*this);
         explain_bound(r, idx, is_lower, delta, ante);
 
+
         TRACE("propagate_bounds",
               ante.display(tout) << " --> ";
               ctx.display_detailed_literal(tout, l);
               tout << "\n";);
+
+
+
+        TRACE("arith", tout << ctx.get_scope_level() << "\n";
+              ctx.display_detailed_literal(tout, l) << "\n");
 
         if (ante.lits().size() < small_lemma_size() && ante.eqs().empty()) {
             literal_vector & lits = m_tmp_literal_vector2;
@@ -3031,6 +3038,7 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::propagate_bounds() {
         TRACE("propagate_bounds_detail", display(tout););
+        unsigned num_prop = 0, count = 0;
         for (unsigned r_idx : m_to_check) {
             row & r = m_rows[r_idx];
             if (r.get_base_var() != null_theory_var) {
@@ -3039,15 +3047,21 @@ namespace smt {
                     int upper_idx;
                     is_row_useful_for_bound_prop(r, lower_idx, upper_idx);
 
+                    ++num_prop;
                     if (lower_idx >= 0) 
-                        imply_bound_for_monomial(r, lower_idx, true);
+                        count += imply_bound_for_monomial(r, lower_idx, true);
                     else if (lower_idx == -1) 
-                        imply_bound_for_all_monomials(r, true);
-
+                        count += imply_bound_for_all_monomials(r, true);
+                    else
+                        --num_prop;
+                    
+                    ++num_prop;
                     if (upper_idx >= 0) 
-                        imply_bound_for_monomial(r, upper_idx, false);
+                        count += imply_bound_for_monomial(r, upper_idx, false);
                     else if (upper_idx == -1) 
-                        imply_bound_for_all_monomials(r, false);
+                        count += imply_bound_for_all_monomials(r, false);
+                    else
+                        --num_prop;
 
                     // sneaking cheap eq detection in this loop
                     propagate_cheap_eq(r_idx);
@@ -3063,6 +3077,7 @@ namespace smt {
 #endif
             }
         }
+
         TRACE("arith_eq", tout << "done\n";);
         m_to_check.reset();
         m_in_to_check.reset();
@@ -3377,7 +3392,7 @@ namespace smt {
     }
 
     template<typename Ext>
-    void theory_arith<Ext>::pop_scope_eh(unsigned num_scopes) {
+    void theory_arith<Ext>::pop_scope_eh(unsigned num_scopes) {        
         CASSERT("arith", wf_rows());
         CASSERT("arith", wf_columns());
         CASSERT("arith", valid_row_assignment());
@@ -3397,7 +3412,6 @@ namespace smt {
         restore_unassigned_atoms(s.m_unassigned_atoms_trail_lim);
         m_asserted_bounds.shrink(s.m_asserted_bounds_lim);
         m_asserted_qhead = s.m_asserted_qhead_old;
-        TRACE("arith_pop_scope_bug", tout << "num_vars: " << get_num_vars() << ", num_old_vars: " << get_old_num_vars(num_scopes) << "\n";);
         restore_nl_propagated_flag(s.m_nl_propagated_lim);
         m_nl_monomials.shrink(s.m_nl_monomials_lim);
         del_atoms(s.m_atoms_lim);

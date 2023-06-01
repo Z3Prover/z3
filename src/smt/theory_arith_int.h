@@ -754,6 +754,7 @@ namespace smt {
         if (!(consts / gcds).is_int()) {
             TRACE("gcd_test", tout << "row failed the GCD test:\n"; display_row_info(tout, r););
             antecedents ante(*this);
+            m_stats.m_gcd_conflicts++;
             collect_fixed_var_justifications(r, ante);
             context & ctx         = get_context();
             ctx.set_conflict(
@@ -833,6 +834,7 @@ namespace smt {
         numeral u1 = floor(u/gcds);
         
         if (u1 < l1) {
+            m_stats.m_gcd_conflicts++;
             TRACE("gcd_test", tout << "row failed the extended GCD test:\n"; display_row_info(tout, r););
             collect_fixed_var_justifications(r, ante);
             context & ctx         = get_context();

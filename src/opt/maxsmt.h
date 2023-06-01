@@ -137,7 +137,7 @@ namespace opt {
         params_ref       m_params;
     public:
         maxsmt(maxsat_context& c, unsigned id);
-        lbool operator()();
+        lbool operator()(bool committed);
         void updt_params(params_ref& p);
         void add(expr* f, rational const& w); 
         unsigned size() const { return m_soft.size(); }

@@ -288,42 +288,33 @@ bool proto_model::is_finite(sort * s) const {
 }
 
 expr * proto_model::get_some_value(sort * s) {
-    if (m.is_uninterp(s)) {
-        return m_user_sort_factory->get_some_value(s);
-    }
-    else if (value_factory * f = get_factory(s->get_family_id())) {
-        return f->get_some_value(s);
-    }
-    else {
+    if (m.is_uninterp(s)) 
+        return m_user_sort_factory->get_some_value(s);    
+    else if (value_factory * f = get_factory(s->get_family_id())) 
+        return f->get_some_value(s);    
+    else 
         // there is no factory for the family id, then assume s is uninterpreted.
-        return m_user_sort_factory->get_some_value(s);
-    }
+        return m_user_sort_factory->get_some_value(s);    
 }
 
 bool proto_model::get_some_values(sort * s, expr_ref & v1, expr_ref & v2) {
-    if (m.is_uninterp(s)) {
-        return m_user_sort_factory->get_some_values(s, v1, v2);
-    }
-    else if (value_factory * f = get_factory(s->get_family_id())) {
-        return f->get_some_values(s, v1, v2);
-    }
-    else {
-        return false;
-    }
+    if (m.is_uninterp(s)) 
+        return m_user_sort_factory->get_some_values(s, v1, v2);    
+    else if (value_factory * f = get_factory(s->get_family_id())) 
+        return f->get_some_values(s, v1, v2);    
+    else 
+        return false;    
 }
 
 expr * proto_model::get_fresh_value(sort * s) {
-    if (m.is_uninterp(s)) {
-        return m_user_sort_factory->get_fresh_value(s);
-    }
-    else if (value_factory * f = get_factory(s->get_family_id())) {
-        return f->get_fresh_value(s);
-    }
-    else {
+    if (m.is_uninterp(s)) 
+        return m_user_sort_factory->get_fresh_value(s);    
+    else if (value_factory * f = get_factory(s->get_family_id())) 
+        return f->get_fresh_value(s);    
+    else 
         // Use user_sort_factory if the theory has no support for model construnction.
         // This is needed when dummy theories are used for arithmetic or arrays.
-        return m_user_sort_factory->get_fresh_value(s);
-    }
+        return m_user_sort_factory->get_fresh_value(s);    
 }
 
 void proto_model::register_value(expr * n) {

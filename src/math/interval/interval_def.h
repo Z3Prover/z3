@@ -681,7 +681,7 @@ void interval_manager<C>::set(interval & t, interval const & s) {
     }
     set_lower_is_open(t, lower_is_open(s));
     set_upper_is_open(t, upper_is_open(s));
-    SASSERT(check_invariant(t));
+    SASSERT(is_empty(t) || check_invariant(t));
 }
 
 template<typename C>
@@ -813,7 +813,7 @@ void interval_manager<C>::add(interval const & a, interval const & b, interval &
     set_upper_is_inf(c, new_u_kind == EN_PLUS_INFINITY);
     set_lower_is_open(c, lower_is_open(a) || lower_is_open(b));
     set_upper_is_open(c, upper_is_open(a) || upper_is_open(b));
-    SASSERT(check_invariant(c));
+    SASSERT(is_empty(a) || is_empty(b) || check_invariant(c));
 }
 
 template<typename C>
