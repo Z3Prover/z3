@@ -147,10 +147,10 @@ static void final_eh(void* _p, Z3_solver_callback cb) {
   info->jenv->CallVoidMethod(info->jobj, info->final);
 }
 
-static void decide_eh(void* _p, Z3_solver_callback cb, Z3_ast _val, unsigned bit, Z3_lbool is_pos) {
+static bool decide_eh(void* _p, Z3_solver_callback cb, Z3_ast _val, unsigned bit, bool is_pos) {
   JavaInfo *info = static_cast<JavaInfo*>(_p);
   ScopedCB scoped(info, cb);
-  info->jenv->CallBooleanMethod(info->jobj, info->decide, (jlong)_val);
+  return info->jenv->CallBooleanMethod(info->jobj, info->decide, (jlong)_val);
 }
 
 DLL_VIS JNIEXPORT jlong JNICALL Java_com_microsoft_z3_Native_propagateInit(JNIEnv *jenv, jclass cls, jobject jobj, jlong ctx, jlong solver) {
