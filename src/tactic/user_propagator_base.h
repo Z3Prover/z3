@@ -11,8 +11,7 @@ namespace user_propagator {
         virtual ~callback() = default;
         virtual void propagate_cb(unsigned num_fixed, expr* const* fixed_ids, unsigned num_eqs, expr* const* eq_lhs, expr* const* eq_rhs, expr* conseq) = 0;
         virtual void register_cb(expr* e) = 0;
-        virtual lbool get_boolean_assignment_cb(expr* e, unsigned idx) = 0;
-        virtual void next_split_cb(expr* e, unsigned idx, lbool phase) = 0;
+        virtual bool next_split_cb(expr* e, unsigned idx, lbool phase) = 0;
     };
     
     class context_obj {
@@ -27,7 +26,7 @@ namespace user_propagator {
     typedef std::function<void(void*, callback*)>                            push_eh_t;
     typedef std::function<void(void*, callback*, unsigned)>                  pop_eh_t;
     typedef std::function<void(void*, callback*, expr*)>                     created_eh_t;
-    typedef std::function<void(void*, callback*, expr**, unsigned*, lbool*)> decide_eh_t;
+    typedef std::function<void(void*, callback*, expr*, unsigned, bool)>     decide_eh_t;
     typedef std::function<void(void*, expr*, unsigned, expr* const*)>        on_clause_eh_t;
 
     class plugin : public decl_plugin {

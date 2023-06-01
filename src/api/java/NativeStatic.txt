@@ -91,6 +91,7 @@ struct JavaInfo {
   jmethodID fixed = nullptr;
   jmethodID eq = nullptr;
   jmethodID final = nullptr;
+  jmethodID decide = nullptr;
 
   Z3_solver_callback cb = nullptr;
 };
@@ -146,11 +147,10 @@ static void final_eh(void* _p, Z3_solver_callback cb) {
   info->jenv->CallVoidMethod(info->jobj, info->final);
 }
 
-// TODO: implement decide
-static void decide_eh(void* _p, Z3_solver_callback cb, Z3_ast* _val, unsigned* bit, Z3_lbool* is_pos) {
+static void decide_eh(void* _p, Z3_solver_callback cb, Z3_ast _val, unsigned bit, Z3_lbool is_pos) {
   JavaInfo *info = static_cast<JavaInfo*>(_p);
   ScopedCB scoped(info, cb);
-
+  info->jenv->CallBooleanMethod(info->jobj, info->decide, (jlong)_val);
 }
 
 DLL_VIS JNIEXPORT jlong JNICALL Java_com_microsoft_z3_Native_propagateInit(JNIEnv *jenv, jclass cls, jobject jobj, jlong ctx, jlong solver) {
@@ -166,8 +166,9 @@ DLL_VIS JNIEXPORT jlong JNICALL Java_com_microsoft_z3_Native_propagateInit(JNIEn
   info->fixed = jenv->GetMethodID(jcls, "fixedWrapper", "(JJ)V");
   info->eq = jenv->GetMethodID(jcls, "eqWrapper", "(JJ)V");
   info->final = jenv->GetMethodID(jcls, "finWrapper", "()V");
-  
-  if (!info->push || !info->pop || !info->fresh || !info->created || !info->fixed || !info->eq || !info->final) {
+  info->decide = jenv->GetMethodID(jcls, "decideWrapper", "(JII)Z");
+
+  if (!info->push || !info->pop || !info->fresh || !info->created || !info->fixed || !info->eq || !info->final || !info->decide) {
     assert(false);
   }
 
@@ -225,8 +226,8 @@ DLL_VIS JNIEXPORT void JNICALL Java_com_microsoft_z3_Native_propagateAdd(JNIEnv 
   }
 }
 
-DLL_VIS JNIEXPORT void JNICALL Java_com_microsoft_z3_Native_propagateNextSplit(JNIEnv * jenv, jclass cls, jobject jobj, jlong ctx, jlong solver, jlong javainfo, long e, long idx, long phase) {
+DLL_VIS JNIEXPORT bool JNICALL Java_com_microsoft_z3_Native_propagateNextSplit(JNIEnv * jenv, jclass cls, jobject jobj, jlong ctx, jlong solver, jlong javainfo, long e, long idx, int phase) {
   JavaInfo *info = (JavaInfo*)javainfo;
   Z3_solver_callback cb = info->cb;
-  Z3_solver_next_split((Z3_context)ctx, cb, (Z3_ast)e, idx, Z3_lbool(phase));
+  return Z3_solver_next_split((Z3_context)ctx, cb, (Z3_ast)e, idx, Z3_lbool(phase));
 }

@@ -83,9 +83,8 @@ namespace smt {
         expr_ref_vector        m_to_add;
         unsigned_vector        m_to_add_lim;
         unsigned               m_to_add_qhead = 0;
-        expr*                  m_next_split_expr = nullptr;
-        unsigned               m_next_split_idx;
-        lbool                  m_next_split_phase;
+        bool_var               m_next_split_var = null_bool_var;
+        lbool                  m_next_split_phase = l_undef;
 
         expr* var2expr(theory_var v) { return m_var2expr.get(v); }
         theory_var expr2var(expr* e) { check_defined(e); return m_expr2var[e->get_id()]; }
@@ -133,8 +132,7 @@ namespace smt {
         
         void propagate_cb(unsigned num_fixed, expr* const* fixed_ids, unsigned num_eqs, expr* const* lhs, expr* const* rhs, expr* conseq) override;
         void register_cb(expr* e) override;
-        lbool get_boolean_assignment_cb(expr* e, unsigned idx) override;
-        void next_split_cb(expr* e, unsigned idx, lbool phase) override;
+        bool next_split_cb(expr* e, unsigned idx, lbool phase) override;
 
         void new_fixed_eh(theory_var v, expr* value, unsigned num_lits, literal const* jlits);
         void decide(bool_var& var, bool& is_pos);

@@ -15,8 +15,9 @@ Author:
 
 --*/
 
-#include "sat/smt/user_solver.h"
+#include "sat/smt/bv_solver.h"
 #include "sat/smt/euf_solver.h"
+#include "sat/smt/user_solver.h"
 
 namespace user_solver {
 
@@ -39,7 +40,7 @@ namespace user_solver {
         expr_ref r(m);
         sat::literal_vector explain;
         if (ctx.is_fixed(n, r, explain))
-            m_prop.push_back(prop_info(explain, v, r));        
+            m_prop.push_back(prop_info(explain, v, r));
     }
 
     void solver::propagate_cb(
@@ -57,24 +58,20 @@ namespace user_solver {
         add_expr(e);
     }
 
-    lbool solver::get_boolean_assignment_cb(expr* e, unsigned idx) {
-        SASSERT(e);
-        euf::enode* n = expr2enode(e);
-        if (!is_attached_to_var(n) || n->bool_var() == sat::null_bool_var)
-            return l_undef;
-        return ctx.value(n);
-    }
-    
-    void solver::next_split_cb(expr* e, unsigned idx, lbool phase) {
+    bool solver::next_split_cb(expr* e, unsigned idx, lbool phase) {
         if (e == nullptr) {
-            m_next_split_expr = nullptr;
-            return;
+            m_next_split_var = sat::null_bool_var;
+            return true;
         }
         force_push();
         ctx.internalize(e);
-        m_next_split_expr = e;
-        m_next_split_idx = idx;
+        sat::bool_var var = enode_to_bool(ctx.get_enode(e), idx);
         m_next_split_phase = phase;
+        if (var == sat::null_bool_var || s().value(var) != l_undef)
+            return false;
+        m_next_split_var = var;
+        m_next_split_phase = phase;
+        return true;
     }
 
     sat::check_result solver::check() {
@@ -92,39 +89,41 @@ namespace user_solver {
         m_id2justification.setx(v, sat::literal_vector(num_lits, jlits), sat::literal_vector());
         m_fixed_eh(m_user_context, this, var2expr(v), value);
     }
-    
+
     bool solver::decide(sat::bool_var& var, lbool& phase) {
-        
+
         if (!m_decide_eh)
             return false;
-        
+
         euf::enode* original_enode = bool_var2enode(var);
-        
+
         if (!original_enode || !is_attached_to_var(original_enode))
             return false;
-        
+
         unsigned new_bit = 0; // ignored; currently no bv-support
         expr* e = original_enode->get_expr();
-        
-        m_decide_eh(m_user_context, this, &e, &new_bit, &phase);
-        
-        euf::enode* new_enode = ctx.get_enode(e);
-    
-        if (original_enode == new_enode || new_enode->bool_var() == sat::null_bool_var)
+
+        m_decide_eh(m_user_context, this, e, new_bit, phase);
+        sat::bool_var new_var;
+        if (!get_case_split(new_var, phase) || new_var == var)
+            // The user did not interfere
             return false;
-        
-        var = new_enode->bool_var();
+        var = new_var;
+
+        // check if the new variable is unassigned
+        if (s().value(var) != l_undef)
+            throw default_exception("expression in \"decide\" is already assigned");
         return true;
     }
-    
-    bool solver::get_case_split(sat::bool_var& var, lbool& phase){
-        if (!m_next_split_expr)
+
+    bool solver::get_case_split(sat::bool_var& var, lbool& phase) {
+        if (m_next_split_var == sat::null_bool_var)
             return false;
-        
-        euf::enode* n = ctx.get_enode(m_next_split_expr);
-        var = n->bool_var();
+
+        var = m_next_split_var;
         phase = m_next_split_phase;
-        m_next_split_expr = nullptr;
+        m_next_split_var = sat::null_bool_var;
+        m_next_split_phase = l_undef;
         return true;
     }
 
@@ -142,14 +141,14 @@ namespace user_solver {
         m_id2justification.setx(v, lits, sat::literal_vector());
         m_fixed_eh(m_user_context, this, var2expr(v), lit.sign() ? m.mk_false() : m.mk_true());
     }
-    
+
     void solver::new_eq_eh(euf::th_eq const& eq) {
         if (!m_eq_eh)
             return;
         force_push();
         m_eq_eh(m_user_context, this, var2expr(eq.v1()), var2expr(eq.v2()));
     }
-    
+
     void solver::new_diseq_eh(euf::th_eq const& de) {
         if (!m_diseq_eh)
             return;
@@ -196,7 +195,7 @@ namespace user_solver {
                 propagate_consequence(prop);
             else
                 propagate_new_fixed(prop);
-        }       
+        }
         return np < m_stats.m_num_propagations;
     }
 
@@ -216,7 +215,7 @@ namespace user_solver {
         auto& j = justification::from_index(idx);
         auto const& prop = m_prop[j.m_propagation_index];
         for (unsigned id : prop.m_ids)
-            r.append(m_id2justification[id]);        
+            r.append(m_id2justification[id]);
         for (auto const& p : prop.m_eqs)
             ctx.add_antecedent(probing, expr2enode(p.first), expr2enode(p.second));
     }
@@ -251,7 +250,7 @@ namespace user_solver {
     }
 
     std::ostream& solver::display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const {
-        return display_justification(out, idx);     
+        return display_justification(out, idx);
     }
 
     euf::th_solver* solver::clone(euf::solver& dst_ctx) {
@@ -286,26 +285,35 @@ namespace user_solver {
             return true;
         }
         m_stack.push_back(sat::eframe(e));
-        return false;        
+        return false;
     }
-    
+
     bool solver::visited(expr* e) {
         euf::enode* n = expr2enode(e);
-        return n && n->is_attached_to(get_id());        
+        return n && n->is_attached_to(get_id());
     }
-    
+
     bool solver::post_visit(expr* e, bool sign, bool root) {
         euf::enode* n = expr2enode(e);
         SASSERT(!n || !n->is_attached_to(get_id()));
-        if (!n) 
-            n = mk_enode(e, false);        
+        if (!n)
+            n = mk_enode(e, false);
         add_expr(e);
         if (m_created_eh)
             m_created_eh(m_user_context, this, e);
         return true;
     }
 
-
+    sat::bool_var solver::enode_to_bool(euf::enode* n, unsigned idx) {
+        if (n->bool_var() != sat::null_bool_var) {
+            // expression is a boolean
+            return n->bool_var();
+        }
+        // expression is a bit-vector
+        bv_util bv(m);
+        th_solver* th = ctx.fid2solver(bv.get_fid());
+        return ((bv::solver*) th)->get_bit(idx, n);
+    }
 
 }
 
