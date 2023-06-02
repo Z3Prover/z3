@@ -2918,7 +2918,9 @@ namespace smt {
     bool context::has_split_candidate(bool_var& var, bool& is_pos) {
         if (!m_user_propagator)
             return false;
-        return m_user_propagator->get_case_split(var, is_pos);
+        if (!m_user_propagator->get_case_split(var, is_pos))
+            return false;
+        return get_assignment(var) == l_undef;
     }
     
     bool context::decide_user_interference(bool_var& var, bool& is_pos) {

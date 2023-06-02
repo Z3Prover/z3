@@ -11529,16 +11529,11 @@ def user_prop_diseq(ctx, cb, x, y):
     prop.diseq(x, y)
     prop.cb = None
 
-# TODO The decision callback is not fully implemented.
-# It needs to handle the ast*, unsigned* idx, and Z3_lbool* 
-def user_prop_decide(ctx, cb, t_ref, idx_ref, phase_ref):
+def user_prop_decide(ctx, cb, t, idx, phase):
     prop = _prop_closures.get(ctx)
     prop.cb = cb
     t = _to_expr_ref(to_Ast(t_ref), prop.ctx())
-    t, idx, phase = prop.decide(t, idx, phase)
-    t_ref = t
-    idx_ref = idx
-    phase_ref = phase
+    prop.decide(t, idx, phase)
     prop.cb = None
     
 
@@ -11685,7 +11680,7 @@ class UserPropagateBase:
     # split on. A phase of true = 1/false = -1/undef = 0 = let solver decide is the last argument.
     #
     def next_split(self, t, idx, phase):
-        Z3_solver_next_split(self.ctx_ref(), ctypes.c_void_p(self.cb), t.ast, idx, phase)
+        return Z3_solver_next_split(self.ctx_ref(), ctypes.c_void_p(self.cb), t.ast, idx, phase)
         
     #
     # Propagation can only be invoked as during a fixed or final callback.

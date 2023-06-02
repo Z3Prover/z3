@@ -1435,7 +1435,7 @@ Z3_DECLARE_CLOSURE(Z3_fixed_eh,   void, (void* ctx, Z3_solver_callback cb, Z3_as
 Z3_DECLARE_CLOSURE(Z3_eq_eh,      void, (void* ctx, Z3_solver_callback cb, Z3_ast s, Z3_ast t));
 Z3_DECLARE_CLOSURE(Z3_final_eh,   void, (void* ctx, Z3_solver_callback cb));
 Z3_DECLARE_CLOSURE(Z3_created_eh, void, (void* ctx, Z3_solver_callback cb, Z3_ast t));
-Z3_DECLARE_CLOSURE(Z3_decide_eh,  void, (void* ctx, Z3_solver_callback cb, Z3_ast* t, unsigned* idx, Z3_lbool* phase));
+Z3_DECLARE_CLOSURE(Z3_decide_eh,  void, (void* ctx, Z3_solver_callback cb, Z3_ast t, unsigned idx, bool phase));
 Z3_DECLARE_CLOSURE(Z3_on_clause_eh, void, (void* ctx, Z3_ast proof_hint, Z3_ast_vector literals));
 
 
@@ -7098,20 +7098,21 @@ extern "C" {
     
     /**
        \brief register a callback when the solver decides to split on a registered expression.
-       The callback may set the passed expression to another registered expression which will be selected instead.
-       In case the expression is a bitvector the bit to split on is determined by the bit argument and the 
-       truth-value to try first is given by is_pos. In case the truth value is undefined the solver will decide.
+       The callback may change the arguments by providing other values by calling \ref Z3_solver_next_split
 
        def_API('Z3_solver_propagate_decide', VOID, (_in(CONTEXT), _in(SOLVER), _fnptr(Z3_decide_eh)))
     */
     void Z3_API Z3_solver_propagate_decide(Z3_context c, Z3_solver s, Z3_decide_eh decide_eh);
 
     /**
-        Sets the next expression to split on
+        Sets the next (registered) expression to split on.
+        The function returns false and ignores the given expression in case the expression is already assigned internally
+        (due to relevancy propagation, this assignments might not have been reported yet by the fixed callback).
+        In case the function is called in the decide callback, it overrides the currently selected variable and phase.
      
-      def_API('Z3_solver_next_split', VOID, (_in(CONTEXT), _in(SOLVER_CALLBACK), _in(AST), _in(UINT), _in(LBOOL)))
+      def_API('Z3_solver_next_split', BOOL, (_in(CONTEXT), _in(SOLVER_CALLBACK), _in(AST), _in(UINT), _in(LBOOL)))
     */
-    void Z3_API Z3_solver_next_split(Z3_context c, Z3_solver_callback cb,  Z3_ast t, unsigned idx, Z3_lbool phase);
+    bool Z3_API Z3_solver_next_split(Z3_context c, Z3_solver_callback cb,  Z3_ast t, unsigned idx, Z3_lbool phase);
     
     /**
         Create uninterpreted function declaration for the user propagator.

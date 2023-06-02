@@ -321,7 +321,7 @@ namespace bv {
         
         // solving
         theory_var find(theory_var v) const { return m_find.find(v); }
-        void find_wpos(theory_var v);
+        bool find_wpos(theory_var v);
         void find_new_diseq_axioms(atom& a, theory_var v, unsigned idx);
         void mk_new_diseq_axiom(theory_var v1, theory_var v2, unsigned idx);
         bool get_fixed_value(theory_var v, numeral& result) const;
@@ -333,7 +333,6 @@ namespace bv {
         bool propagate_eq_occurs(eq_occurs const& occ);
         numeral const& power2(unsigned i) const;
         sat::literal mk_true();
-
 
         // invariants
         bool check_zero_one_bits(theory_var v);
@@ -391,6 +390,7 @@ namespace bv {
         euf::theory_var mk_var(euf::enode* n) override;
         void apply_sort_cnstr(euf::enode * n, sort * s) override;
 
+        bool_var get_bit(unsigned bit, euf::enode* n) const;
         
         void merge_eh(theory_var, theory_var, theory_var v1, theory_var v2);
         void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) { SASSERT(check_zero_one_bits(r1)); }
