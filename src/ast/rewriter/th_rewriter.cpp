@@ -74,6 +74,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
     bool                m_push_ite_bv = true;
     bool                m_ignore_patterns_on_ground_qbody = true;
     bool                m_rewrite_patterns = true;
+    bool                m_enable_der = true;
 
 
     ast_manager & m() const { return m_b_rw.m(); }
@@ -89,6 +90,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         m_push_ite_bv    = p.push_ite_bv();
         m_ignore_patterns_on_ground_qbody = p.ignore_patterns_on_ground_qbody();
         m_rewrite_patterns = p.rewrite_patterns();
+        m_enable_der     = p.enable_der();
     }
 
     void updt_params(params_ref const & p) {
@@ -827,11 +829,17 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         expr_ref r(m());
 
         bool der_change = false;
-        if (is_quantifier(result) && to_quantifier(result)->get_num_patterns() == 0) {
+        if (m_enable_der && is_quantifier(result) && to_quantifier(result)->get_num_patterns() == 0) {
             m_der(to_quantifier(result), r, p2);
             der_change = result.get() != r.get();
             if (m().proofs_enabled() && der_change)
-                result_pr = m().mk_transitivity(result_pr, p2);            
+                result_pr = m().mk_transitivity(result_pr, p2);
+
+            if (der_change) {
+                verbose_stream() << result << "\n";
+                verbose_stream() << "==>\n";
+                verbose_stream() << r << "\n";
+            }
             result = r;
         }
 
