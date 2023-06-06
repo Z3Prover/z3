@@ -835,11 +835,6 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             if (m().proofs_enabled() && der_change)
                 result_pr = m().mk_transitivity(result_pr, p2);
 
-            if (der_change) {
-                verbose_stream() << result << "\n";
-                verbose_stream() << "==>\n";
-                verbose_stream() << r << "\n";
-            }
             result = r;
         }
 
