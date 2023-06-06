@@ -131,6 +131,8 @@ namespace smt {
         // max_top_generation and min_top_generation are not available for computing inc_gen
         set_values(q, nullptr, generation, 0, 0, cost);
         float r = m_evaluator(m_new_gen_function, m_vals.size(), m_vals.data());
+        if (q->get_weight() > 0 || r > 0)
+            return static_cast<unsigned>(r);
         return std::max(generation + 1, static_cast<unsigned>(r));
     }
 
