@@ -3015,8 +3015,8 @@ br_status bv_rewriter::mk_bvumul_no_overflow(unsigned num, expr * const * args, 
 
 br_status bv_rewriter::mk_bvneg_overflow(expr * const arg, expr_ref & result) {
     unsigned int sz = get_bv_size(arg);
-    auto maxUnsigned = mk_numeral(rational::power_of_two(sz)-1, sz);
-    result = m.mk_eq(arg, maxUnsigned);
+    auto minSigned = mk_numeral(rational::power_of_two(sz - 1), sz);  // 0b1000...0
+    result = m.mk_eq(arg, minSigned);
     return BR_REWRITE3;
 }
 
@@ -3085,7 +3085,7 @@ br_status bv_rewriter::mk_bvssub_overflow(unsigned num, expr * const * args, exp
     SASSERT(num == 2);
     SASSERT(get_bv_size(args[0]) == get_bv_size(args[1]));
     auto sz = get_bv_size(args[0]);
-    auto minSigned = mk_numeral(-rational::power_of_two(sz-1), sz);
+    auto minSigned = mk_numeral(rational::power_of_two(sz-1), sz);
     expr_ref bvsaddo {m};
     expr * args2[2] = { args[0], m_util.mk_bv_neg(args[1]) };
     auto bvsaddo_stat = mk_bvsadd_overflow(2, args2, bvsaddo);
@@ -3098,7 +3098,7 @@ br_status bv_rewriter::mk_bvsdiv_overflow(unsigned num, expr * const * args, exp
     SASSERT(num == 2);
     SASSERT(get_bv_size(args[0]) == get_bv_size(args[1]));
     auto sz = get_bv_size(args[1]);
-    auto minSigned = mk_numeral(-rational::power_of_two(sz-1), sz);
+    auto minSigned = mk_numeral(rational::power_of_two(sz-1), sz);
     auto minusOne = mk_numeral(rational::power_of_two(sz) - 1, sz);
     result = m.mk_and(m.mk_eq(args[0], minSigned), m.mk_eq(args[1], minusOne));
     return BR_REWRITE_FULL;
