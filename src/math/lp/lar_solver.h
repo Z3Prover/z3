@@ -506,7 +506,7 @@ public:
     bool init_model() const;
     mpq get_value(column_index const& j) const;
     mpq get_tv_value(tv const& t) const;
-    impq get_tv_ivalue(tv const& t) const;
+    const impq & get_tv_ivalue(tv const& t) const;
     void get_model(std::unordered_map<var_index, mpq> & variable_values) const;
     void get_rid_of_inf_eps();
     void get_model_do_not_care_about_diff_vars(std::unordered_map<var_index, mpq> & variable_values) const;
