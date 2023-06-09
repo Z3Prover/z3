@@ -84,42 +84,54 @@ br_status bound_simplifier::reduce_app(func_decl* f, unsigned num_args, expr* co
         IF_VERBOSE(2, verbose_stream() << "potentially missed simplification: " << mk_pp(x, m) << " " << lo << " " << hi << " not reduced\n");
     }
 
-#if 0
-    expr* x = nullptr;
-    bool strict = false;
-    bool is_upper_bound =
-        (a.is_le(f) && a.is_numeral(args[1], N) && (x = args[0], true)) ||
-        (a.is_ge(f) && a.is_numeral(args[0], N) && (x = args[1], true));
+    expr_ref_buffer new_args(m);
+    expr_ref new_arg(m);
+    bool change = false;
+    for (unsigned i = 0; i < num_args; ++i) {
+        expr* arg = args[i];
+        change = reduce_arg(arg, new_arg) || change;
+        new_args.push_back(new_arg);
+    }
+    if (!change)
+        return BR_FAILED;
 
-    if (is_upper_bound) {
+    result = m.mk_app(f, num_args, new_args.data());
+
+    return BR_DONE;
+}
+
+bool bound_simplifier::reduce_arg(expr* arg, expr_ref& result) {
+    result = arg;
+    expr* x, *y;
+    rational N, lo, hi;
+    bool strict;
+    if ((a.is_le(arg, x, y) && a.is_numeral(y, N)) ||
+        (a.is_ge(arg, y, x) && a.is_numeral(y, N))) {
+
         if (has_upper(x, hi, strict) && !strict && N >= hi) {
             result = m.mk_true();
-            return BR_DONE;
+            return true;
         }
         if (has_lower(x, lo, strict) && !strict && N < lo) {
             result = m.mk_false();
-            return BR_DONE;
+            return true;
         }
-        return BR_FAILED;
+        return false;
     }
-    bool is_lower_bound =
-        (a.is_le(f) && a.is_numeral(args[0], N) && (x = args[1], true)) ||
-        (a.is_ge(f) && a.is_numeral(args[1], N) && (x = args[0], true));
-
-    if (is_lower_bound) {
+    
+    if ((a.is_le(arg, y, x) && a.is_numeral(y, N)) ||
+        (a.is_ge(arg, x, y) && a.is_numeral(y, N))) {
         if (has_lower(x, lo, strict) && !strict && N <= lo) {
             result = m.mk_true();
-            return BR_DONE;
+            return true;
         }
         if (has_upper(x, hi, strict) && !strict && N > hi) {
             result = m.mk_false();
-            return BR_DONE;
+            return true;
         }
-        return BR_FAILED;
-        
+        return false;
     }
-#endif
-    return BR_FAILED;
+    return false;
 }
 
 void bound_simplifier::reduce() {
