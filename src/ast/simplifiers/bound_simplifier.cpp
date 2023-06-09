@@ -58,9 +58,9 @@ struct bound_simplifier::rw : public rewriter_tpl<rw_cfg> {
 br_status bound_simplifier::reduce_app(func_decl* f, unsigned num_args, expr* const* args, expr_ref& result, proof_ref& pr) {
     rational N, hi, lo;
     if (a.is_mod(f) && num_args == 2 && a.is_numeral(args[1], N)) {
-        expr* x = args[0];
         auto& im = m_interval;
         scoped_dep_interval i(im);
+        expr* x = args[0];
         get_bounds(x, i);
         if (im.upper_is_inf(i) || im.lower_is_inf(i))
             return BR_FAILED;
@@ -82,6 +82,40 @@ br_status bound_simplifier::reduce_app(func_decl* f, unsigned num_args, expr* co
             return BR_DONE;
         }
         IF_VERBOSE(2, verbose_stream() << "potentially missed simplification: " << mk_pp(x, m) << " " << lo << " " << hi << " not reduced\n");
+    }
+
+    expr* x = nullptr;
+    bool strict = false;
+    bool is_upper_bound =
+        (a.is_le(f) && a.is_numeral(args[1], N) && (x = args[0], true)) ||
+        (a.is_ge(f) && a.is_numeral(args[0], N) && (x = args[1], true));
+
+    if (is_upper_bound) {
+        if (has_upper(x, hi, strict) && !strict && N >= hi) {
+            result = m.mk_true();
+            return BR_DONE;
+        }
+        if (has_lower(x, lo, strict) && !strict && N < lo) {
+            result = m.mk_false();
+            return BR_DONE;
+        }
+        return BR_FAILED;
+    }
+    bool is_lower_bound =
+        (a.is_le(f) && a.is_numeral(args[0], N) && (x = args[1], true)) ||
+        (a.is_ge(f) && a.is_numeral(args[1], N) && (x = args[0], true));
+
+    if (is_lower_bound) {
+        if (has_lower(x, lo, strict) && !strict && N <= lo) {
+            result = m.mk_true();
+            return BR_DONE;
+        }
+        if (has_upper(x, hi, strict) && !strict && N > hi) {
+            result = m.mk_false();
+            return BR_DONE;
+        }
+        return BR_FAILED;
+        
     }
     return BR_FAILED;
 }
