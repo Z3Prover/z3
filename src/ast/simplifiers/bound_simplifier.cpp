@@ -84,6 +84,7 @@ br_status bound_simplifier::reduce_app(func_decl* f, unsigned num_args, expr* co
         IF_VERBOSE(2, verbose_stream() << "potentially missed simplification: " << mk_pp(x, m) << " " << lo << " " << hi << " not reduced\n");
     }
 
+#if 0
     expr* x = nullptr;
     bool strict = false;
     bool is_upper_bound =
@@ -117,6 +118,7 @@ br_status bound_simplifier::reduce_app(func_decl* f, unsigned num_args, expr* co
         return BR_FAILED;
         
     }
+#endif
     return BR_FAILED;
 }
 
