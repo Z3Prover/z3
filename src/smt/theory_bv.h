@@ -291,7 +291,7 @@ namespace smt {
         bool is_fixed_propagated(theory_var v, expr_ref& val, literal_vector& explain) override;
 
         var_enode_pos get_bv_with_theory(bool_var v, theory_id id) const;
-        bool_var get_first_unassigned(unsigned start_bit, enode* n) const;
+        bool_var get_bit(unsigned bit, enode* n) const;
 
         bool check_assignment(theory_var v);
         bool check_invariant();

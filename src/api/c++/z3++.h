@@ -4240,7 +4240,7 @@ namespace z3 {
         typedef std::function<void(void)> final_eh_t;
         typedef std::function<void(expr const&, expr const&)> eq_eh_t;
         typedef std::function<void(expr const&)> created_eh_t;
-        typedef std::function<void(expr&, unsigned&, Z3_lbool&)> decide_eh_t;
+        typedef std::function<void(expr, unsigned, bool)> decide_eh_t;
 
         final_eh_t m_final_eh;
         eq_eh_t    m_eq_eh;
@@ -4309,13 +4309,11 @@ namespace z3 {
             p->m_created_eh(e);
         }
         
-        static void decide_eh(void* _p, Z3_solver_callback cb, Z3_ast* _val, unsigned* bit, Z3_lbool* is_pos) {
+        static void decide_eh(void* _p, Z3_solver_callback cb, Z3_ast _val, unsigned bit, bool is_pos) {
             user_propagator_base* p = static_cast<user_propagator_base*>(_p);
             scoped_cb _cb(p, cb);
-            expr val(p->ctx(), *_val);
-            p->m_decide_eh(val, *bit, *is_pos);
-            // TBD: life time of val is within the scope of this callback.
-            *_val = val;
+            expr val(p->ctx(), _val);
+            p->m_decide_eh(val, bit, is_pos);
         }
         
     public:
@@ -4435,7 +4433,7 @@ namespace z3 {
         }
 
         void register_decide() {
-            m_decide_eh = [this](expr& val, unsigned& bit, Z3_lbool& is_pos) {
+            m_decide_eh = [this](expr val, unsigned bit, bool is_pos) {
                 decide(val, bit, is_pos);
             };
             if (s) {
@@ -4451,11 +4449,11 @@ namespace z3 {
 
         virtual void created(expr const& /*e*/) {}
         
-        virtual void decide(expr& /*val*/, unsigned& /*bit*/, Z3_lbool& /*is_pos*/) {}
+        virtual void decide(expr const& /*val*/, unsigned /*bit*/, bool /*is_pos*/) {}
 
-        void next_split(expr const & e, unsigned idx, Z3_lbool phase) {
+        bool next_split(expr const& e, unsigned idx, Z3_lbool phase) {
             assert(cb);
-            Z3_solver_next_split(ctx(), cb, e, idx, phase);
+            return Z3_solver_next_split(ctx(), cb, e, idx, phase);
         }
 
         /**

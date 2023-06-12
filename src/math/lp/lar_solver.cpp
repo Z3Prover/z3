@@ -1034,14 +1034,10 @@ namespace lp {
             r += p.coeff() * get_value(p.column());
         return r;
     }
-
-    impq lar_solver::get_tv_ivalue(tv const& t) const {
-        if (t.is_var())
-            return get_column_value(t.column());
-        impq r;
-        for (lar_term::ival p : get_term(t)) 
-            r += p.coeff() * get_column_value(p.column());
-        return r;
+    //fetches the cached value of the term or the variable by the given index
+    const impq& lar_solver::get_tv_ivalue(tv const& t) const {
+        unsigned j = t.is_var()? (unsigned)t.column(): this->map_term_index_to_column_index(t.index());
+        return this->get_column_value(j);
     }
 
     void lar_solver::get_rid_of_inf_eps() {

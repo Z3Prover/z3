@@ -508,8 +508,12 @@ public:
             m_owner.m_func_decls.contains(s);
     }
     format_ns::format * pp_sort(sort * s) override {
-        return m_owner.pp(s);
+        auto * f = m_owner.try_pp(s);
+        if (f)
+            return f;
+        return smt2_pp_environment::pp_sort(s);
     }
+
     format_ns::format * pp_fdecl(func_decl * f, unsigned & len) override {
         symbol s = f->get_name();
         func_decls fs;
@@ -2261,8 +2265,12 @@ bool cmd_context::is_model_available(model_ref& md) const {
 }
 
 format_ns::format * cmd_context::pp(sort * s) const {
+    return get_pp_env().pp_sort(s);
+}
+
+format_ns::format* cmd_context::try_pp(sort* s) const {
     TRACE("cmd_context", tout << "pp(sort * s), s: " << mk_pp(s, m()) << "\n";);
-    return pm().pp(s);
+    return pm().pp(get_pp_env(), s);
 }
 
 cmd_context::pp_env & cmd_context::get_pp_env() const {

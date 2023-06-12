@@ -89,8 +89,8 @@ public abstract class UserPropagatorBase extends Native.UserPropagatorBase {
             fixed.length, AST.arrayToNative(fixed), lhs.length, AST.arrayToNative(lhs), AST.arrayToNative(rhs), conseq.getNativeObject());
     }
 
-    public final <R extends Sort> void nextSplit(Expr<R> e, long idx, Z3_lbool phase) {
-        Native.propagateNextSplit(
+    public final <R extends Sort> boolean nextSplit(Expr<R> e, long idx, Z3_lbool phase) {
+        return Native.propagateNextSplit(
             this, ctx.nCtx(), solver.getNativeObject(), javainfo,
             e.getNativeObject(), idx, phase.toInt());
     }

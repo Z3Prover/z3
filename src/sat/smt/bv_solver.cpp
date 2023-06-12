@@ -129,7 +129,7 @@ namespace bv {
     /**
        \brief Find an unassigned bit for m_wpos[v], if such bit cannot be found invoke fixed_var_eh
     */
-    void solver::find_wpos(theory_var v) {
+    bool solver::find_wpos(theory_var v) {
         literal_vector const& bits = m_bits[v];
         unsigned sz = bits.size();
         unsigned& wpos = m_wpos[v];
@@ -138,11 +138,12 @@ namespace bv {
             if (s().value(bits[idx]) == l_undef) {
                 wpos = idx;
                 TRACE("bv", tout << "moved wpos of v" << v << " to " << wpos << "\n";);
-                return;
+                return false;
             }
         }
         TRACE("bv", tout << "v" << v << " is a fixed variable.\n";);
         fixed_var_eh(v);
+        return true;
     }
 
     /**
@@ -919,7 +920,17 @@ namespace bv {
         values[n->get_root_id()] = bv.mk_numeral(val, m_bits[v].size());
     }
 
-    trail_stack& solver::get_trail_stack() {
+    sat::bool_var solver::get_bit(unsigned bit, euf::enode *n) const {
+        theory_var v = n->get_th_var(get_id());
+        if (v == euf::null_theory_var)
+            return sat::null_bool_var;
+        auto &bits = m_bits[v];
+        if (bit >= bits.size())
+            return sat::null_bool_var;
+        return bits[bit].var();
+    }
+
+    trail_stack &solver::get_trail_stack() {
         return ctx.get_trail_stack();
     }
 

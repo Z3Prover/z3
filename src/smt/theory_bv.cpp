@@ -1889,21 +1889,14 @@ namespace smt {
         return var_enode_pos(nullptr, UINT32_MAX);
     }
 
-    bool_var theory_bv::get_first_unassigned(unsigned start_bit, enode* n) const {
+    bool_var theory_bv::get_bit(unsigned bit, enode* n) const {
         theory_var v = n->get_th_var(get_family_id());
+        if (v == null_theory_var)
+            return null_bool_var;
         auto& bits = m_bits[v];
-        unsigned sz = bits.size();
-
-        for (unsigned i = start_bit; i < sz; ++i) {
-            if (ctx.get_assignment(bits[i].var()) == l_undef)
-                return bits[i].var();
-        }
-        for (unsigned i = 0; i < start_bit; ++i) {
-            if (ctx.get_assignment(bits[i].var()) == l_undef)
-                return bits[i].var();
-        }
-
-        return null_bool_var;
+        if (bit >= bits.size())
+            return null_bool_var;
+        return bits[bit].var();
     }
 
     bool theory_bv::check_assignment(theory_var v) {

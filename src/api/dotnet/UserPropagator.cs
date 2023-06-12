@@ -58,12 +58,12 @@ namespace Microsoft.Z3
         public delegate void CreatedEh(Expr term);
 
         /// <summary>
-        /// Delegate type for callback into solver's branching
+        /// Delegate type for callback into solver's branching. The values can be overriden by calling <see cref="NextSplit" />.
+        /// </summary>
         /// <param name="term">A bit-vector or Boolean used for branching</param>
         /// <param name="idx">If the term is a bit-vector, then an index into the bit-vector being branched on</param>
-        /// <param name="phase">Set phase to -1 (false) or 1 (true) to override solver's phase</param>
-        /// </summary>                
-        public delegate void DecideEh(ref Expr term, ref uint idx, ref int phase);
+        /// <param name="phase">The tentative truth-value</param>
+        public delegate void DecideEh(Expr term, uint idx, bool phase);
         
         // access managed objects through a static array.
         // thread safety is ignored for now.
@@ -168,16 +168,11 @@ namespace Microsoft.Z3
             prop.Callback(() => prop.created_eh(t), cb);
         }
 
-        static void _decide(voidp ctx, Z3_solver_callback cb, ref Z3_ast a, ref uint idx, ref int phase)
+        static void _decide(voidp ctx, Z3_solver_callback cb, Z3_ast a, uint idx, bool phase)
         {
             var prop = (UserPropagator)GCHandle.FromIntPtr(ctx).Target;
-            var t = Expr.Create(prop.ctx, a);
-            var u = t;
-            prop.callback = cb;
-            prop.decide_eh(ref t, ref idx, ref phase);
-            prop.callback = IntPtr.Zero;
-            if (u != t)
-                a = t.NativeObject;
+            using var t = Expr.Create(prop.ctx, a);
+            prop.Callback(() => prop.decide_eh(t, idx, phase), cb);
         }
 
         /// <summary>
@@ -352,10 +347,17 @@ namespace Microsoft.Z3
 
         /// <summary>
         /// Set the next decision
+        /// <param name="e">A bit-vector or Boolean used for branching. Use <see langword="null" /> to clear</param>
+        /// <param name="idx">If the term is a bit-vector, then an index into the bit-vector being branched on</param>
+        /// <param name="phase">The tentative truth-value (-1/false, 1/true, 0/let Z3 decide)</param>
         /// </summary>
-        public void NextSplit(Expr e, uint idx, int phase)
+        /// <returns>
+        /// <see langword="true" /> in case the value was successfully set;
+        /// <see langword="false" /> if the next split could not be set
+        /// </returns>
+        public bool NextSplit(Expr e, uint idx, int phase)
         {
-            Native.Z3_solver_next_split(ctx.nCtx, this.callback, e.NativeObject, idx, phase);
+            return Native.Z3_solver_next_split(ctx.nCtx, this.callback, e?.NativeObject ?? IntPtr.Zero, idx, phase) != 0;
         }
 
         /// <summary>

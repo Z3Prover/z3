@@ -77,7 +77,11 @@ class bound_simplifier : public dependent_expr_simplifier {
         return v;
     }
 
+    bool reduce_arg(expr* arg, expr_ref& result);
+
     br_status reduce_app(func_decl* f, unsigned num_args, expr* const* args, expr_ref& result, proof_ref& pr);
+
+    
 
     void assert_lower(expr* x, rational const& n, bool strict);
     void assert_upper(expr* x, rational const& n, bool strict);
