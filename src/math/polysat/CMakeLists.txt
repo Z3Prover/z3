@@ -13,6 +13,7 @@ z3_add_component(polysat
     justification.cpp
     linear_solver.cpp
     log.cpp
+    naming.cpp
     op_constraint.cpp
     polysat_ast.cpp
     restart.cpp
@@ -20,6 +21,7 @@ z3_add_component(polysat
     search_state.cpp
     simplify.cpp
     simplify_clause.cpp
+    slicing.cpp
     smul_fl_constraint.cpp
     solver.cpp
     superposition.cpp

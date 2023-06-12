@@ -41,6 +41,8 @@ namespace polysat {
         m_bvars(*this),
         m_free_pvars(m_activity),
         m_constraints(*this),
+        m_names(*this),
+        m_slicing(*this),
         m_search(*this) {
     }
 
@@ -134,7 +136,7 @@ namespace polysat {
     }
 
     unsigned solver::add_var(unsigned sz) {
-        pvar v = m_value.size();
+        pvar const v = m_value.size();
         m_value.push_back(rational::zero());
         m_justification.push_back(justification::unassigned());
         m_viable.push_var(sz);
@@ -145,6 +147,7 @@ namespace polysat {
         m_size.push_back(sz);
         m_trail.push_back(trail_instr_t::add_var_i);
         m_free_pvars.mk_var_eh(v);
+        m_names.push_var(var(v));  // needs m_vars
         return v;
     }
 
@@ -165,6 +168,7 @@ namespace polysat {
         m_vars.pop_back();
         m_size.pop_back();
         m_free_pvars.del_var_eh(v);
+        m_names.pop_var();
     }
 
     void solver::assign_eh(signed_constraint c, dependency dep) {

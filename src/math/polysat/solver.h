@@ -24,8 +24,10 @@ Author:
 #include "math/polysat/constraint.h"
 #include "math/polysat/constraint_manager.h"
 #include "math/polysat/clause_builder.h"
+#include "math/polysat/naming.h"
 #include "math/polysat/simplify_clause.h"
 #include "math/polysat/simplify.h"
+#include "math/polysat/slicing.h"
 #include "math/polysat/restart.h"
 #include "math/polysat/ule_constraint.h"
 #include "math/polysat/justification.h"
@@ -118,6 +120,7 @@ namespace polysat {
         friend class conflict_explainer;
         friend class simplify_clause;
         friend class simplify;
+        friend class slicing;
         friend class restart;
         friend class explainer;
         friend class inference_engine;
@@ -136,6 +139,7 @@ namespace polysat {
         friend class saturation;
         friend class parity_tracker;
         friend class constraint_manager;
+        friend class name_manager;
         friend class scoped_solverv;
         friend class test_polysat;
         friend class test_fi;
@@ -160,6 +164,8 @@ namespace polysat {
         config                   m_config;
         // Per constraint state
         constraint_manager       m_constraints;
+        name_manager             m_names;
+        slicing                  m_slicing;
 
         // Per variable information
         vector<rational>         m_value;         // assigned value
@@ -313,6 +319,9 @@ namespace polysat {
 
         void push_reinit_stack(clause& c);
 
+        /** Get variable representing v[hi:lo] */
+        pvar extract_var(pvar v, unsigned hi, unsigned lo);
+
         void add_clause(clause_ref clause);
         void add_clause(clause& clause);
         void add_clause(signed_constraint c1, bool is_redundant);
@@ -404,6 +413,12 @@ namespace polysat {
          * Create polynomial terms
          */
         pdd var(pvar v) { return m_vars[v]; }
+
+        /** Create expression for v[hi:lo] */
+        pdd extract(pvar v, unsigned hi, unsigned lo);
+
+        /** Create expression for p[hi:lo] */
+        pdd extract(pdd const& p, unsigned hi, unsigned lo);
 
         /**
         * Create terms for unsigned quot-rem
