@@ -50,7 +50,7 @@ namespace bv {
         typedef std::pair<numeral, unsigned> value_sort_pair;
         typedef pair_hash<obj_hash<numeral>, unsigned_hash> value_sort_pair_hash;
         typedef map<value_sort_pair, theory_var, value_sort_pair_hash, default_eq<value_sort_pair> > value2var;
-        typedef union_find<solver, euf::solver>  bv_union_find;
+        typedef union_find<solver>  bv_union_find;
         typedef std::pair<theory_var, unsigned> var_pos;
 
         friend class ackerman;

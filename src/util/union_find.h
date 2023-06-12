@@ -35,7 +35,7 @@ private:
     _trail_stack m_stack;
 };
 
-template<typename Ctx = union_find_default_ctx, typename StackCtx = Ctx>
+template<typename Ctx = union_find_default_ctx>
 class union_find {
     Ctx &                         m_ctx;
     trail_stack &                 m_trail_stack;
