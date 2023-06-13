@@ -1017,12 +1017,16 @@ public:
     }
         
     void internalize_eq_eh(app * atom, bool_var) {
+        if (!ctx().get_fparams().m_arith_eager_eq_axioms)
+            return;
         expr* lhs = nullptr, *rhs = nullptr;
         VERIFY(m.is_eq(atom, lhs, rhs));
         enode * n1 = get_enode(lhs);
         enode * n2 = get_enode(rhs);
-        TRACE("arith_verbose", tout << mk_pp(atom, m) << " " << is_arith(n1) << " " << is_arith(n2) << "\n";);
-        if (is_arith(n1) && is_arith(n2) && n1 != n2) 
+
+        if (is_arith(n1) && is_arith(n2) &&
+            n1->get_th_var(get_id()) != null_theory_var &&
+            n2->get_th_var(get_id()) != null_theory_var && n1 != n2) 
             m_arith_eq_adapter.mk_axioms(n1, n2);
     }
 
