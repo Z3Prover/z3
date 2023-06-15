@@ -42,7 +42,7 @@ namespace polysat {
         m_free_pvars(m_activity),
         m_constraints(*this),
         m_names(*this),
-        m_slicing(*this),
+        // m_slicing(*this),
         m_search(*this) {
     }
 
@@ -148,6 +148,7 @@ namespace polysat {
         m_trail.push_back(trail_instr_t::add_var_i);
         m_free_pvars.mk_var_eh(v);
         m_names.push_var(var(v));  // needs m_vars
+        m_slicing.add_var(sz);
         return v;
     }
 
@@ -612,6 +613,7 @@ namespace polysat {
     void solver::push_level() {
         ++m_level;
         m_reinit_heads.push_back(m_clauses_to_reinit.size());
+        m_slicing.push_scope();
         m_trail.push_back(trail_instr_t::inc_level_i);
     }
 
@@ -621,6 +623,7 @@ namespace polysat {
         SASSERT(m_level >= num_levels);
         unsigned const target_level = m_level - num_levels;
         LOG("Pop " << num_levels << " levels (lvl " << m_level << " -> " << target_level << ")");
+        m_slicing.pop_scope(num_levels);
         while (num_levels > 0) {
             switch (m_trail.back()) {
             case trail_instr_t::qhead_i: {

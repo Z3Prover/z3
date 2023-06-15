@@ -141,6 +141,7 @@ namespace polysat {
         friend class constraint_manager;
         friend class name_manager;
         friend class scoped_solverv;
+        friend class scoped_solver_slicing;
         friend class test_polysat;
         friend class test_fi;
         friend struct inf_resolve_evaluated;
