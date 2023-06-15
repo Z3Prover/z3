@@ -42,7 +42,7 @@ namespace polysat {
     }
 
     void slicing::add_var(unsigned bit_width) {
-        pvar const v = m_var2slice.size();
+        // pvar const v = m_var2slice.size();
         slice_idx const s = alloc_slice();
         m_slice_width[s] = bit_width;
         m_var2slice.push_back(s);
@@ -147,6 +147,7 @@ namespace polysat {
     }
 
     void slicing::merge(slice_idx s1, slice_idx s2) {
+        SASSERT_EQ(m_slice_width[s1], m_slice_width[s2]);
         SASSERT(!has_sub(s1));
         SASSERT(!has_sub(s2));
         slice_idx r1 = find(s1);
@@ -174,31 +175,40 @@ namespace polysat {
     }
 
     void slicing::merge(slice_vector& xs, slice_vector& ys) {
+        // LOG_H2("Merging " << xs << " with " << ys);
         while (!xs.empty()) {
             SASSERT(!ys.empty());
             slice x = xs.back();
             slice y = ys.back();
             xs.pop_back();
             ys.pop_back();
-            SASSERT_EQ(x.lo, y.lo);
             SASSERT(!has_sub(x));
             SASSERT(!has_sub(y));
-            if (x.hi == y.hi) {
+            if (x.width() == y.width()) {
+                // LOG("Match " << x << " and " << y);
                 merge(x.idx, y.idx);
             }
-            else if (x.hi > y.hi) {
+            else if (x.width() > y.width()) {
                 // need to split x according to y
-                mk_slice(x, y.hi, y.lo, xs);
+                // LOG("Splitting " << x << " to fit " << y);
+                mk_slice(x, y.hi - y.lo + x.lo, x.lo, xs, true);
                 ys.push_back(y);
             }
             else {
-                SASSERT(y.hi > x.hi);
+                SASSERT(y.width() > x.width());
                 // need to split y according to x
-                mk_slice(y, x.hi, x.lo, ys);
+                // LOG("Splitting " << y << " to fit " << x);
+                mk_slice(y, x.hi - x.lo + y.lo, y.lo, ys, true);
                 xs.push_back(x);
             }
         }
         SASSERT(ys.empty());
+    }
+
+    void slicing::merge(slice_vector& xs, slice y) {
+        slice_vector tmp;
+        tmp.push_back(y);
+        merge(xs, tmp);
     }
 
     void slicing::find_base(slice src, slice_vector& out_base) const {
@@ -224,7 +234,7 @@ namespace polysat {
         SASSERT(todo.empty());
     }
 
-    void slicing::mk_slice(slice src, unsigned const hi, unsigned const lo, slice_vector& out_base) {
+    void slicing::mk_slice(slice src, unsigned const hi, unsigned const lo, slice_vector& out_base, bool output_full_src) {
         // splits are only stored for the representative
         SASSERT_EQ(src.idx, find(src.idx));
         // extracted range must be fully contained inside the src slice
@@ -252,6 +262,8 @@ namespace polysat {
             // [src.hi, src.lo] has no subdivision yet
             if (src.hi > hi) {
                 split(src, hi);
+                if (output_full_src)
+                    out_base.push_back(sub_hi(src));
                 mk_slice(sub_lo(src), hi, lo, out_base);
                 return;
             }
@@ -263,6 +275,8 @@ namespace polysat {
                 SASSERT_EQ(s.hi, hi);
                 SASSERT_EQ(s.lo, lo);
                 out_base.push_back(s);
+                if (output_full_src)
+                    out_base.push_back(sub_lo(src));
                 return;
             }
         }
@@ -347,6 +361,19 @@ namespace polysat {
     }
 
     void slicing::propagate(pvar v) {
+    }
+
+    std::ostream& slicing::display(std::ostream& out) const {
+        slice_vector base;
+        for (pvar v = 0; v < m_var2slice.size(); ++v) {
+            out << "v" << v << ":";
+            base.reset();
+            find_base(var2slice(v), base);
+            for (slice s : base)
+                out << " {id:" << s.idx << ",w:" << s.width() << "}";
+            out << "\n";
+        }
+        return out;
     }
 
 }

@@ -97,8 +97,11 @@ namespace polysat {
             slice_idx idx = null_slice_idx;
             unsigned hi = UINT_MAX;
             unsigned lo = UINT_MAX;
+            unsigned width() const { return hi - lo + 1; }
         };
+        friend std::ostream& operator<<(std::ostream& out, slice const& s) { return out << "{id:" << s.idx << ",w:" << s.width() << "}"; }
         using slice_vector = svector<slice>;
+        // Return slice v[|v|-1..0]
         slice var2slice(pvar v) const;
         bool has_sub(slice_idx i) const { return m_slice_sub[i] != null_slice_idx; }
         bool has_sub(slice const& s) const { return has_sub(s.idx); }
@@ -111,7 +114,8 @@ namespace polysat {
         // Retrieve base slices s_1,...,s_n such that src == s_1 ++ ... + s_n
         void find_base(slice src, slice_vector& out_base) const;
         // Retrieve (or create) base slices s_1,...,s_n such that src[hi:lo] == s_1 ++ ... ++ s_n
-        void mk_slice(slice src, unsigned hi, unsigned lo, slice_vector& out_base);
+        // If output_full_src is true, returns the new base for src, i.e., src == s_1 ++ ... ++ s_n
+        void mk_slice(slice src, unsigned hi, unsigned lo, slice_vector& out_base, bool output_full_src = false);
 
         // Find representative
         slice_idx find(slice_idx i) const;
@@ -124,8 +128,8 @@ namespace polysat {
         // Precondition:
         // - sequence of base slices (equal total width)
         // - ordered from msb to lsb
-        // - slices have the same reference point
         void merge(slice_vector& xs, slice_vector& ys);
+        void merge(slice_vector& xs, slice y);
 
         void set_extract(pvar v, pvar src, unsigned hi_bit, unsigned lo_bit);
 
@@ -184,6 +188,10 @@ namespace polysat {
         // - fixed bits
         // - intervals ?????  -- that will also need changes in the viable algorithm
         void propagate(pvar v);
+
+        std::ostream& display(std::ostream& out) const;
     };
+
+    inline std::ostream& operator<<(std::ostream& out, slicing const& s) { return s.display(out); }
 
 }
