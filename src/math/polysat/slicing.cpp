@@ -43,7 +43,7 @@ namespace polysat {
 
     void slicing::add_var(unsigned bit_width) {
         // pvar const v = m_var2slice.size();
-        slice_idx const s = alloc_slice();
+        slice const s = alloc_slice();
         m_slice_width[s] = bit_width;
         m_var2slice.push_back(s);
     }
@@ -52,11 +52,11 @@ namespace polysat {
         m_var2slice.pop_back();
     }
 
-    slicing::slice_idx slicing::alloc_slice() {
-        slice_idx const s = m_slice_cut.size();
+    slicing::slice slicing::alloc_slice() {
+        slice const s = m_slice_cut.size();
         m_slice_width.push_back(0);
         m_slice_cut.push_back(null_cut);
-        m_slice_sub.push_back(null_slice_idx);
+        m_slice_sub.push_back(null_slice);
         m_find.push_back(s);
         m_size.push_back(1);
         m_next.push_back(s);
@@ -73,21 +73,21 @@ namespace polysat {
         m_next.pop_back();
     }
 
-    slicing::slice_idx slicing::find_sub_hi(slice_idx parent) const {
+    slicing::slice slicing::find_sub_hi(slice parent) const {
         SASSERT(has_sub(parent));
         return find(m_slice_sub[parent]);
     }
 
-    slicing::slice_idx slicing::find_sub_lo(slice_idx parent) const {
+    slicing::slice slicing::find_sub_lo(slice parent) const {
         SASSERT(has_sub(parent));
         return find(m_slice_sub[parent] + 1);
     }
 
-    void slicing::split(slice_idx s, unsigned cut) {
+    void slicing::split(slice s, unsigned cut) {
         SASSERT(!has_sub(s));
         SASSERT(width(s) - 1 >= cut + 1);
-        slice_idx const sub1 = alloc_slice();
-        slice_idx const sub2 = alloc_slice();
+        slice const sub1 = alloc_slice();
+        slice const sub2 = alloc_slice();
         m_slice_cut[s] = cut;
         m_slice_sub[s] = sub1;
         SASSERT_EQ(sub2, sub1 + 1);
@@ -98,28 +98,28 @@ namespace polysat {
     }
 
     void slicing::undo_split_slice() {
-        slice_idx i = m_split_trail.back();
+        slice s = m_split_trail.back();
         m_split_trail.pop_back();
-        m_slice_cut[i] = null_cut;
-        m_slice_sub[i] = null_slice_idx;
+        m_slice_cut[s] = null_cut;
+        m_slice_sub[s] = null_slice;
     }
 
-    slicing::slice_idx slicing::find(slice_idx i) const {
+    slicing::slice slicing::find(slice s) const {
         while (true) {
-            SASSERT(i < m_find.size());
-            slice_idx const new_i = m_find[i];
-            if (new_i == i)
-                return i;
-            i = new_i;
+            SASSERT(s < m_find.size());
+            slice const new_s = m_find[s];
+            if (new_s == s)
+                return s;
+            s = new_s;
         }
     }
 
-    void slicing::merge(slice_idx s1, slice_idx s2) {
+    void slicing::merge(slice s1, slice s2) {
         SASSERT_EQ(width(s1), width(s2));
         SASSERT(!has_sub(s1));
         SASSERT(!has_sub(s2));
-        slice_idx r1 = find(s1);
-        slice_idx r2 = find(s2);
+        slice r1 = find(s1);
+        slice r2 = find(s2);
         if (r1 == r2)
             return;
         if (m_size[r1] > m_size[r2])
@@ -133,21 +133,21 @@ namespace polysat {
     }
 
     void slicing::undo_merge_class() {
-        slice_idx r1 = m_merge_trail.back();
+        slice r1 = m_merge_trail.back();
         m_merge_trail.pop_back();
-        slice_idx r2 = m_find[r1];
+        slice r2 = m_find[r1];
         SASSERT(find(r2) == r2);
         m_find[r1] = r1;
         m_size[r2] -= m_size[r1];
         std::swap(m_next[r1], m_next[r2]);
     }
 
-    void slicing::merge(slice_idx_vector& xs, slice_idx_vector& ys) {
+    void slicing::merge(slice_vector& xs, slice_vector& ys) {
         // LOG_H2("Merging " << xs << " with " << ys);
         while (!xs.empty()) {
             SASSERT(!ys.empty());
-            slice_idx x = xs.back();
-            slice_idx y = ys.back();
+            slice x = xs.back();
+            slice y = ys.back();
             xs.pop_back();
             ys.pop_back();
             SASSERT(!has_sub(x));
@@ -173,24 +173,24 @@ namespace polysat {
         SASSERT(ys.empty());
     }
 
-    void slicing::merge(slice_idx_vector& xs, slice_idx y) {
-        slice_idx_vector tmp;
+    void slicing::merge(slice_vector& xs, slice y) {
+        slice_vector tmp;
         tmp.push_back(y);
         merge(xs, tmp);
     }
 
-    void slicing::find_base(slice_idx src, slice_idx_vector& out_base) const {
+    void slicing::find_base(slice src, slice_vector& out_base) const {
         // splits are only stored for the representative
         SASSERT_EQ(src, find(src));
         if (!has_sub(src)) {
             out_base.push_back(src);
             return;
         }
-        slice_idx_vector& todo = m_tmp1;
+        slice_vector& todo = m_tmp1;
         SASSERT(todo.empty());
         todo.push_back(src);
         while (!todo.empty()) {
-            slice_idx s = todo.back();
+            slice s = todo.back();
             todo.pop_back();
             if (!has_sub(s))
                 out_base.push_back(s);
@@ -202,7 +202,7 @@ namespace polysat {
         SASSERT(todo.empty());
     }
 
-    void slicing::mk_slice(slice_idx src, unsigned const hi, unsigned const lo, slice_idx_vector& out_base, bool output_full_src) {
+    void slicing::mk_slice(slice src, unsigned const hi, unsigned const lo, slice_vector& out_base, bool output_full_src) {
         SASSERT(hi >= lo);
         SASSERT_EQ(src, find(src));  // splits are only stored for the representative
         SASSERT(width(src) > hi);  // extracted range must be fully contained inside the src slice
@@ -257,7 +257,7 @@ namespace polysat {
     }
 
     pvar slicing::mk_extract_var(pvar src, unsigned hi, unsigned lo) {
-        slice_idx_vector slices;
+        slice_vector slices;
         mk_slice(var2slice(src), hi, lo, slices);
         // src[hi:lo] is the concatenation of the returned slices
         // TODO: for each slice, set_extract
@@ -337,19 +337,19 @@ namespace polysat {
     }
 
     std::ostream& slicing::display(std::ostream& out) const {
-        slice_idx_vector base;
+        slice_vector base;
         for (pvar v = 0; v < m_var2slice.size(); ++v) {
             out << "v" << v << ":";
             base.reset();
             find_base(var2slice(v), base);
-            for (slice_idx s : base)
+            for (slice s : base)
                 display(out << " ", s);
             out << "\n";
         }
         return out;
     }
 
-    std::ostream& slicing::display(std::ostream& out, slice_idx s) const {
+    std::ostream& slicing::display(std::ostream& out, slice s) const {
         return out << "{id:" << s << ",w:" << width(s) << "}";
     }
 

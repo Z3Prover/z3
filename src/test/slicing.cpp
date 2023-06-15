@@ -29,23 +29,23 @@ namespace polysat {
             pvar b = s.add_var(6);
 
             std::cout << sl << "\n";
-            slicing::slice_idx_vector x_7_3;
+            slicing::slice_vector x_7_3;
             sl.mk_slice(sl.var2slice(x), 7, 3, x_7_3);
             std::cout << sl << "\n";
-            slicing::slice_idx_vector a_4_0;
+            slicing::slice_vector a_4_0;
             sl.mk_slice(sl.var2slice(a), 4, 0, a_4_0);
             std::cout << sl << "\n";
             sl.merge(x_7_3, a_4_0);
             std::cout << sl << "\n";
 
-            slicing::slice_idx_vector y_5_0;
+            slicing::slice_vector y_5_0;
             sl.mk_slice(sl.var2slice(y), 5, 0, y_5_0);
             sl.merge(y_5_0, sl.var2slice(b));
             std::cout << sl << "\n";
 
-            slicing::slice_idx_vector x_base;
+            slicing::slice_vector x_base;
             sl.find_base(sl.var2slice(x), x_base);
-            slicing::slice_idx_vector y_base;
+            slicing::slice_vector y_base;
             sl.find_base(sl.var2slice(y), y_base);
             sl.merge(x_base, y_base);
             std::cout << sl << "\n";

@@ -68,9 +68,9 @@ namespace polysat {
         // need src -> [v] and v -> [src] for propagation?
 #endif
 
-        using slice_idx = unsigned;
-        using slice_idx_vector = unsigned_vector;
-        static constexpr slice_idx null_slice_idx =  std::numeric_limits<slice_idx>::max();
+        using slice = unsigned;
+        using slice_vector = unsigned_vector;
+        static constexpr slice null_slice =  std::numeric_limits<slice>::max();
 
         static constexpr unsigned null_cut = std::numeric_limits<unsigned>::max();
 
@@ -80,45 +80,45 @@ namespace polysat {
         // The cut point is relative to the parent slice (rather than a root variable, which might not be unique)
         // (UINT_MAX for leaf slices)
         unsigned_vector     m_slice_cut;
-        // The sub-slices are at indices sub and sub+1 (null_slice_idx if no subdivision)
-        slice_idx_vector    m_slice_sub;
-        slice_idx_vector    m_find;         // representative of equivalence class
-        slice_idx_vector    m_size;         // number of elements in equivalence class
-        slice_idx_vector    m_next;         // next element of the equivalence class
+        // The sub-slices are at indices sub and sub+1 (null_slice if no subdivision)
+        slice_vector    m_slice_sub;
+        slice_vector    m_find;         // representative of equivalence class
+        slice_vector    m_size;         // number of elements in equivalence class
+        slice_vector    m_next;         // next element of the equivalence class
 
-        slice_idx_vector    m_var2slice;    // pvar -> slice_idx
+        slice_vector    m_var2slice;    // pvar -> slice
 
-        slice_idx alloc_slice();
+        slice alloc_slice();
 
-        slice_idx var2slice(pvar v) const { return find(m_var2slice[v]); }
-        unsigned width(slice_idx s) const { return m_slice_width[s]; }
-        bool has_sub(slice_idx s) const { return m_slice_sub[s] != null_slice_idx; }
+        slice var2slice(pvar v) const { return find(m_var2slice[v]); }
+        unsigned width(slice s) const { return m_slice_width[s]; }
+        bool has_sub(slice s) const { return m_slice_sub[s] != null_slice; }
 
         /// Split slice s into s[|s|-1:cut+1] and s[cut:0]
-        void split(slice_idx s, unsigned cut);
+        void split(slice s, unsigned cut);
         /// Retrieve base slices s_1,...,s_n such that src == s_1 ++ ... + s_n
-        void find_base(slice_idx src, slice_idx_vector& out_base) const;
+        void find_base(slice src, slice_vector& out_base) const;
         // Retrieve (or create) base slices s_1,...,s_n such that src[hi:lo] == s_1 ++ ... ++ s_n
         // If output_full_src is true, returns the new base for src, i.e., src == s_1 ++ ... ++ s_n
-        void mk_slice(slice_idx src, unsigned hi, unsigned lo, slice_idx_vector& out_base, bool output_full_src = false);
+        void mk_slice(slice src, unsigned hi, unsigned lo, slice_vector& out_base, bool output_full_src = false);
 
         /// Find representative
-        slice_idx find(slice_idx s) const;
+        slice find(slice s) const;
         /// Find representative of upper subslice
-        slice_idx find_sub_hi(slice_idx s) const;
+        slice find_sub_hi(slice s) const;
         /// Find representative of lower subslice
-        slice_idx find_sub_lo(slice_idx s) const;
+        slice find_sub_lo(slice s) const;
 
         // Merge equivalence classes of two base slices
-        void merge(slice_idx s1, slice_idx s2);
+        void merge(slice s1, slice s2);
 
         // Merge equality x_1 ++ ... ++ x_n == y_1 ++ ... ++ y_k
         //
         // Precondition:
         // - sequence of base slices (equal total width)
         // - ordered from msb to lsb
-        void merge(slice_idx_vector& xs, slice_idx_vector& ys);
-        void merge(slice_idx_vector& xs, slice_idx y);
+        void merge(slice_vector& xs, slice_vector& ys);
+        void merge(slice_vector& xs, slice y);
 
         void set_extract(pvar v, pvar src, unsigned hi_bit, unsigned lo_bit);
 
@@ -130,8 +130,8 @@ namespace polysat {
             merge_class,
         };
         svector<trail_item> m_trail;
-        slice_idx_vector    m_split_trail;
-        slice_idx_vector    m_merge_trail;
+        slice_vector    m_split_trail;
+        slice_vector    m_merge_trail;
         unsigned_vector     m_scopes;
 
         void undo_add_var();
@@ -140,7 +140,7 @@ namespace polysat {
         void undo_merge_class();
 
 
-        mutable slice_idx_vector m_tmp1;
+        mutable slice_vector m_tmp1;
 
 
     public:
@@ -179,7 +179,7 @@ namespace polysat {
         void propagate(pvar v);
 
         std::ostream& display(std::ostream& out) const;
-        std::ostream& display(std::ostream& out, slice_idx s) const;
+        std::ostream& display(std::ostream& out, slice s) const;
     };
 
     inline std::ostream& operator<<(std::ostream& out, slicing const& s) { return s.display(out); }
