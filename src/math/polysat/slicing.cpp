@@ -73,60 +73,28 @@ namespace polysat {
         m_next.pop_back();
     }
 
-    slicing::slice slicing::var2slice(pvar v) const {
-        slice_idx const idx = find(m_var2slice[v]);
-        slice s;
-        s.idx = idx;
-        s.hi = m_slice_width[idx] - 1;
-        // s.hi = m_solver.size(v) - 1;
-        s.lo = 0;
-        return s;
+    slicing::slice_idx slicing::find_sub_hi(slice_idx parent) const {
+        SASSERT(has_sub(parent));
+        return find(m_slice_sub[parent]);
     }
 
-    slicing::slice slicing::sub_hi(slice const& parent) const {
+    slicing::slice_idx slicing::find_sub_lo(slice_idx parent) const {
         SASSERT(has_sub(parent));
-        SASSERT(parent.hi >= parent.lo);
-        slice s;
-        s.idx = find(m_slice_sub[parent.idx]);
-        // |parent|-1 ... cut+1    and   cut ............ 0
-        // hi ........... lo+cut+1       lo+cut ........ lo
-        s.hi = parent.hi;
-        s.lo = parent.lo + m_slice_cut[parent.idx] + 1;
-        SASSERT(s.hi >= s.lo);
-        SASSERT_EQ(m_slice_width[s.idx], s.hi - s.lo + 1);
-        return s;
-    }
-
-    slicing::slice slicing::sub_lo(slice const& parent) const {
-        SASSERT(has_sub(parent));
-        slice s;
-        s.idx = find(m_slice_sub[parent.idx] + 1);
-        // |parent|-1 ... cut+1    and   cut ............ 0
-        // hi ........... lo+cut+1       lo+cut ........ lo
-        s.hi = parent.lo + m_slice_cut[parent.idx];
-        s.lo = parent.lo;
-        SASSERT(s.hi >= s.lo);
-        SASSERT_EQ(m_slice_width[s.idx], s.hi - s.lo + 1);
-        return s;
+        return find(m_slice_sub[parent] + 1);
     }
 
     void slicing::split(slice_idx s, unsigned cut) {
         SASSERT(!has_sub(s));
+        SASSERT(width(s) - 1 >= cut + 1);
         slice_idx const sub1 = alloc_slice();
         slice_idx const sub2 = alloc_slice();
         m_slice_cut[s] = cut;
         m_slice_sub[s] = sub1;
         SASSERT_EQ(sub2, sub1 + 1);
-        m_slice_width[sub1] = m_slice_width[s] - cut - 1;
+        m_slice_width[sub1] = width(s) - cut - 1;
         m_slice_width[sub2] = cut + 1;
-
         m_trail.push_back(trail_item::split_slice);
         m_split_trail.push_back(s);
-    }
-
-    void slicing::split(slice const& s, unsigned const cut) {
-        SASSERT(s.hi > cut); SASSERT(cut >= s.lo);
-        split(s.idx, cut - s.lo);
     }
 
     void slicing::undo_split_slice() {
@@ -147,7 +115,7 @@ namespace polysat {
     }
 
     void slicing::merge(slice_idx s1, slice_idx s2) {
-        SASSERT_EQ(m_slice_width[s1], m_slice_width[s2]);
+        SASSERT_EQ(width(s1), width(s2));
         SASSERT(!has_sub(s1));
         SASSERT(!has_sub(s2));
         slice_idx r1 = find(s1);
@@ -174,109 +142,114 @@ namespace polysat {
         std::swap(m_next[r1], m_next[r2]);
     }
 
-    void slicing::merge(slice_vector& xs, slice_vector& ys) {
+    void slicing::merge(slice_idx_vector& xs, slice_idx_vector& ys) {
         // LOG_H2("Merging " << xs << " with " << ys);
         while (!xs.empty()) {
             SASSERT(!ys.empty());
-            slice x = xs.back();
-            slice y = ys.back();
+            slice_idx x = xs.back();
+            slice_idx y = ys.back();
             xs.pop_back();
             ys.pop_back();
             SASSERT(!has_sub(x));
             SASSERT(!has_sub(y));
-            if (x.width() == y.width()) {
+            if (width(x) == width(y)) {
                 // LOG("Match " << x << " and " << y);
-                merge(x.idx, y.idx);
+                merge(x, y);
             }
-            else if (x.width() > y.width()) {
+            else if (width(x) > width(y)) {
                 // need to split x according to y
                 // LOG("Splitting " << x << " to fit " << y);
-                mk_slice(x, y.hi - y.lo + x.lo, x.lo, xs, true);
+                mk_slice(x, width(y) - 1, 0, xs, true);
                 ys.push_back(y);
             }
             else {
-                SASSERT(y.width() > x.width());
+                SASSERT(width(y) > width(x));
                 // need to split y according to x
                 // LOG("Splitting " << y << " to fit " << x);
-                mk_slice(y, x.hi - x.lo + y.lo, y.lo, ys, true);
+                mk_slice(y, width(x) - 1, 0, ys, true);
                 xs.push_back(x);
             }
         }
         SASSERT(ys.empty());
     }
 
-    void slicing::merge(slice_vector& xs, slice y) {
-        slice_vector tmp;
+    void slicing::merge(slice_idx_vector& xs, slice_idx y) {
+        slice_idx_vector tmp;
         tmp.push_back(y);
         merge(xs, tmp);
     }
 
-    void slicing::find_base(slice src, slice_vector& out_base) const {
+    void slicing::find_base(slice_idx src, slice_idx_vector& out_base) const {
         // splits are only stored for the representative
-        SASSERT_EQ(src.idx, find(src.idx));
+        SASSERT_EQ(src, find(src));
         if (!has_sub(src)) {
             out_base.push_back(src);
             return;
         }
-        slice_vector& todo = m_tmp1;
+        slice_idx_vector& todo = m_tmp1;
         SASSERT(todo.empty());
         todo.push_back(src);
         while (!todo.empty()) {
-            slice s = todo.back();
+            slice_idx s = todo.back();
             todo.pop_back();
             if (!has_sub(s))
                 out_base.push_back(s);
             else {
-                todo.push_back(sub_lo(s));
-                todo.push_back(sub_hi(s));
+                todo.push_back(find_sub_lo(s));
+                todo.push_back(find_sub_hi(s));
             }
         }
         SASSERT(todo.empty());
     }
 
-    void slicing::mk_slice(slice src, unsigned const hi, unsigned const lo, slice_vector& out_base, bool output_full_src) {
-        // splits are only stored for the representative
-        SASSERT_EQ(src.idx, find(src.idx));
-        // extracted range must be fully contained inside the src slice
-        SASSERT(src.hi >= hi); SASSERT(hi >= lo); SASSERT(lo >= src.lo);
-        if (src.hi == hi && src.lo == lo) {
+    void slicing::mk_slice(slice_idx src, unsigned const hi, unsigned const lo, slice_idx_vector& out_base, bool output_full_src) {
+        SASSERT(hi >= lo);
+        SASSERT_EQ(src, find(src));  // splits are only stored for the representative
+        SASSERT(width(src) > hi);  // extracted range must be fully contained inside the src slice
+        if (lo == 0 && width(src) - 1 == hi) {
             find_base(src, out_base);
             return;
         }
         if (has_sub(src)) {
-            // src is split into [src.hi, cut+1] and [cut, src.lo]
-            unsigned const cut = m_slice_cut[src.idx] + src.lo;  // adjust cut to current bounds
-            if (lo >= cut + 1)
-                return mk_slice(sub_hi(src), hi, lo, out_base);
-            else if (cut >= hi)
-                return mk_slice(sub_lo(src), hi, lo, out_base);
+            // src is split into [src.width-1, cut+1] and [cut, 0]
+            unsigned const cut = m_slice_cut[src];
+            if (lo >= cut + 1) {
+                // target slice falls into upper subslice
+                mk_slice(find_sub_hi(src), hi - cut - 1, lo - cut - 1, out_base);
+                if (output_full_src)
+                    out_base.push_back(find_sub_lo(src));
+                return;
+            }
+            else if (cut >= hi) {
+                // target slice falls into lower subslice
+                if (output_full_src)
+                    out_base.push_back(find_sub_hi(src));
+                mk_slice(find_sub_lo(src), hi, lo, out_base);
+                return;
+            }
             else {
                 SASSERT(hi > cut && cut >= lo);
                 // desired range spans over the cutpoint, so we get multiple slices in the result
-                mk_slice(sub_hi(src), hi, cut + 1, out_base);
-                mk_slice(sub_lo(src), cut, lo, out_base);
+                mk_slice(find_sub_hi(src), hi - cut - 1, 0, out_base);
+                mk_slice(find_sub_lo(src), cut, lo, out_base);
                 return;
             }
         }
         else {
-            // [src.hi, src.lo] has no subdivision yet
-            if (src.hi > hi) {
+            // [src.width-1, 0] has no subdivision yet
+            if (width(src) - 1 > hi) {
                 split(src, hi);
                 if (output_full_src)
-                    out_base.push_back(sub_hi(src));
-                mk_slice(sub_lo(src), hi, lo, out_base);
+                    out_base.push_back(find_sub_hi(src));
+                mk_slice(find_sub_lo(src), hi, lo, out_base);  // recursive call to take care of case lo > 0
                 return;
             }
             else {
-                SASSERT(src.hi == hi);
-                SASSERT(lo > src.lo);
+                SASSERT(lo > 0);
                 split(src, lo - 1);
-                slice s = sub_hi(src);
-                SASSERT_EQ(s.hi, hi);
-                SASSERT_EQ(s.lo, lo);
-                out_base.push_back(s);
+                out_base.push_back(find_sub_hi(src));
                 if (output_full_src)
-                    out_base.push_back(sub_lo(src));
+                    out_base.push_back(find_sub_lo(src));
                 return;
             }
         }
@@ -284,7 +257,7 @@ namespace polysat {
     }
 
     pvar slicing::mk_extract_var(pvar src, unsigned hi, unsigned lo) {
-        slice_vector slices;
+        slice_idx_vector slices;
         mk_slice(var2slice(src), hi, lo, slices);
         // src[hi:lo] is the concatenation of the returned slices
         // TODO: for each slice, set_extract
@@ -364,16 +337,20 @@ namespace polysat {
     }
 
     std::ostream& slicing::display(std::ostream& out) const {
-        slice_vector base;
+        slice_idx_vector base;
         for (pvar v = 0; v < m_var2slice.size(); ++v) {
             out << "v" << v << ":";
             base.reset();
             find_base(var2slice(v), base);
-            for (slice s : base)
-                out << " {id:" << s.idx << ",w:" << s.width() << "}";
+            for (slice_idx s : base)
+                display(out << " ", s);
             out << "\n";
         }
         return out;
+    }
+
+    std::ostream& slicing::display(std::ostream& out, slice_idx s) const {
+        return out << "{id:" << s << ",w:" << width(s) << "}";
     }
 
 }

@@ -75,7 +75,6 @@ namespace polysat {
         static constexpr unsigned null_cut = std::numeric_limits<unsigned>::max();
 
         // number of bits in the slice
-        // TODO: slice width is useful for debugging but we can probably drop it in release mode?
         unsigned_vector     m_slice_width;
         // Cut point: if slice represents bit-vector x, then x has been sliced into x[|x|-1:cut+1] and x[cut:0].
         // The cut point is relative to the parent slice (rather than a root variable, which might not be unique)
@@ -91,34 +90,24 @@ namespace polysat {
 
         slice_idx alloc_slice();
 
-        // track slice range while traversing sub-slices
-        // (reference point of hi/lo is user-defined, e.g., relative to entry point of traversal)
-        struct slice {
-            slice_idx idx = null_slice_idx;
-            unsigned hi = UINT_MAX;
-            unsigned lo = UINT_MAX;
-            unsigned width() const { return hi - lo + 1; }
-        };
-        friend std::ostream& operator<<(std::ostream& out, slice const& s) { return out << "{id:" << s.idx << ",w:" << s.width() << "}"; }
-        using slice_vector = svector<slice>;
-        // Return slice v[|v|-1..0]
-        slice var2slice(pvar v) const;
-        bool has_sub(slice_idx i) const { return m_slice_sub[i] != null_slice_idx; }
-        bool has_sub(slice const& s) const { return has_sub(s.idx); }
-        slice sub_hi(slice const& s) const;
-        slice sub_lo(slice const& s) const;
-        // Split a slice into two; the cut is relative to |s|...0
+        slice_idx var2slice(pvar v) const { return find(m_var2slice[v]); }
+        unsigned width(slice_idx s) const { return m_slice_width[s]; }
+        bool has_sub(slice_idx s) const { return m_slice_sub[s] != null_slice_idx; }
+
+        /// Split slice s into s[|s|-1:cut+1] and s[cut:0]
         void split(slice_idx s, unsigned cut);
-        // Split a slice into two; NOTE: the cut point here is relative to hi/lo in s
-        void split(slice const& s, unsigned cut);
-        // Retrieve base slices s_1,...,s_n such that src == s_1 ++ ... + s_n
-        void find_base(slice src, slice_vector& out_base) const;
+        /// Retrieve base slices s_1,...,s_n such that src == s_1 ++ ... + s_n
+        void find_base(slice_idx src, slice_idx_vector& out_base) const;
         // Retrieve (or create) base slices s_1,...,s_n such that src[hi:lo] == s_1 ++ ... ++ s_n
         // If output_full_src is true, returns the new base for src, i.e., src == s_1 ++ ... ++ s_n
-        void mk_slice(slice src, unsigned hi, unsigned lo, slice_vector& out_base, bool output_full_src = false);
+        void mk_slice(slice_idx src, unsigned hi, unsigned lo, slice_idx_vector& out_base, bool output_full_src = false);
 
-        // Find representative
-        slice_idx find(slice_idx i) const;
+        /// Find representative
+        slice_idx find(slice_idx s) const;
+        /// Find representative of upper subslice
+        slice_idx find_sub_hi(slice_idx s) const;
+        /// Find representative of lower subslice
+        slice_idx find_sub_lo(slice_idx s) const;
 
         // Merge equivalence classes of two base slices
         void merge(slice_idx s1, slice_idx s2);
@@ -128,8 +117,8 @@ namespace polysat {
         // Precondition:
         // - sequence of base slices (equal total width)
         // - ordered from msb to lsb
-        void merge(slice_vector& xs, slice_vector& ys);
-        void merge(slice_vector& xs, slice y);
+        void merge(slice_idx_vector& xs, slice_idx_vector& ys);
+        void merge(slice_idx_vector& xs, slice_idx y);
 
         void set_extract(pvar v, pvar src, unsigned hi_bit, unsigned lo_bit);
 
@@ -151,7 +140,7 @@ namespace polysat {
         void undo_merge_class();
 
 
-        mutable slice_vector m_tmp1;
+        mutable slice_idx_vector m_tmp1;
 
 
     public:
@@ -190,6 +179,7 @@ namespace polysat {
         void propagate(pvar v);
 
         std::ostream& display(std::ostream& out) const;
+        std::ostream& display(std::ostream& out, slice_idx s) const;
     };
 
     inline std::ostream& operator<<(std::ostream& out, slicing const& s) { return s.display(out); }
