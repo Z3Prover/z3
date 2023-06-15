@@ -109,6 +109,7 @@ add_executable(test-z3
   simple_parser.cpp
   simplex.cpp
   simplifier.cpp
+  slicing.cpp
   small_object_allocator.cpp
   smt2print_parse.cpp
   smt_context.cpp

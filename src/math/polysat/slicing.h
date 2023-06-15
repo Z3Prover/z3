@@ -32,6 +32,8 @@ namespace polysat {
 
     class slicing final {
 
+        friend class test_slicing;
+
         // solver&     m_solver;
 
 #if 0
@@ -111,16 +113,16 @@ namespace polysat {
         // Retrieve (or create) base slices s_1,...,s_n such that src[hi:lo] == s_1 ++ ... ++ s_n
         void mk_slice(slice src, unsigned hi, unsigned lo, slice_vector& out_base);
 
-        // find representative
+        // Find representative
         slice_idx find(slice_idx i) const;
 
-        // merge equivalence classes of two base slices
+        // Merge equivalence classes of two base slices
         void merge(slice_idx s1, slice_idx s2);
 
-        // Equality x_1 ++ ... ++ x_n == y_1 ++ ... ++ y_k
+        // Merge equality x_1 ++ ... ++ x_n == y_1 ++ ... ++ y_k
         //
         // Precondition:
-        // - sequence of base slices without holes  (TODO: condition on holes probably not necessary? total widths have to match of course)
+        // - sequence of base slices (equal total width)
         // - ordered from msb to lsb
         // - slices have the same reference point
         void merge(slice_vector& xs, slice_vector& ys);

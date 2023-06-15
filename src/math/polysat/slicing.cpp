@@ -198,6 +198,7 @@ namespace polysat {
                 xs.push_back(x);
             }
         }
+        SASSERT(ys.empty());
     }
 
     void slicing::find_base(slice src, slice_vector& out_base) const {

@@ -267,6 +267,7 @@ int main(int argc, char ** argv) {
     TST(fixplex);
     TST(mod_interval);
     TST(viable);
+    TST(slicing);
     TST(totalizer);
     TST(distribution);
 }
