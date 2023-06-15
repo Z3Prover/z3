@@ -25,8 +25,6 @@ Notation:
 --*/
 #pragma once
 #include "math/polysat/types.h"
-#include "util/trail.h"
-#include "util/union_find.h"
 
 namespace polysat {
 
@@ -34,8 +32,9 @@ namespace polysat {
 
     class slicing final {
 
-        solver&     s;
+        // solver&     m_solver;
 
+#if 0
         /// If y := x[h:l], then m_src[y] = x, m_hi[y] = h, m_lo[y] = l.
         /// Otherwise m_src[y] = null_var.
         ///
@@ -46,7 +45,6 @@ namespace polysat {
         unsigned_vector m_hi;
         unsigned_vector m_lo;
 
-#if 0
         struct extract_key {
             pvar src;
             unsigned hi;
@@ -68,81 +66,116 @@ namespace polysat {
         // need src -> [v] and v -> [src] for propagation?
 #endif
 
-
-
-
-        trail_stack         m_stack;
-
         using slice_idx = unsigned;
-        static constexpr slice_idx null_slice_idx = UINT_MAX;
+        using slice_idx_vector = unsigned_vector;
+        static constexpr slice_idx null_slice_idx =  std::numeric_limits<slice_idx>::max();
 
-        struct slice {
-            // If sub != null_slice_idx, the bit-vector x has been sliced into x[|x|-1:cut+1] and x[cut:0]
-            unsigned  cut = UINT_MAX;
-            // If sub != null_slice_idx, the sub-slices are at indices sub and sub+1
-            slice_idx sub = null_slice_idx;
+        static constexpr unsigned null_cut = std::numeric_limits<unsigned>::max();
 
-            bool has_sub() const { return cut != 0; }
-            slice_idx sub_hi() const { return sub; }
-            slice_idx sub_lo() const { return sub + 1; }
-        };
-        svector<slice>      m_slices;       // slice_idx -> slice
-        svector<slice_idx>  m_var_slices;   // pvar -> slice_idx
+        // number of bits in the slice
+        // TODO: slice width is useful for debugging but we can probably drop it in release mode?
+        unsigned_vector     m_slice_width;
+        // Cut point: if slice represents bit-vector x, then x has been sliced into x[|x|-1:cut+1] and x[cut:0].
+        // The cut point is relative to the parent slice (rather than a root variable, which might not be unique)
+        // (UINT_MAX for leaf slices)
+        unsigned_vector     m_slice_cut;
+        // The sub-slices are at indices sub and sub+1 (null_slice_idx if no subdivision)
+        slice_idx_vector    m_slice_sub;
+        slice_idx_vector    m_find;         // representative of equivalence class
+        slice_idx_vector    m_size;         // number of elements in equivalence class
+        slice_idx_vector    m_next;         // next element of the equivalence class
 
-        // union_find over slices (union_find vars are indices into m_slices, i.e., slice_idx)
-        union_find<slicing> m_slices_uf;
+        slice_idx_vector    m_var2slice;    // pvar -> slice_idx
 
         slice_idx alloc_slice();
 
-        friend class alloc_slice_trail;
-        class alloc_slice_trail : public trail {
-            slicing& m_owner;
-        public:
-            alloc_slice_trail(slicing& o): m_owner(o) {}
-            void undo() override;
+        // track slice range while traversing sub-slices
+        // (reference point of hi/lo is user-defined, e.g., relative to entry point of traversal)
+        struct slice {
+            slice_idx idx = null_slice_idx;
+            unsigned hi = UINT_MAX;
+            unsigned lo = UINT_MAX;
         };
-        alloc_slice_trail m_alloc_slice_trail;
+        using slice_vector = svector<slice>;
+        slice var2slice(pvar v) const;
+        bool has_sub(slice_idx i) const { return m_slice_sub[i] != null_slice_idx; }
+        bool has_sub(slice const& s) const { return has_sub(s.idx); }
+        slice sub_hi(slice const& s) const;
+        slice sub_lo(slice const& s) const;
+        // Split a slice into two; the cut is relative to |s|...0
+        void split(slice_idx s, unsigned cut);
+        // Split a slice into two; NOTE: the cut point here is relative to hi/lo in s
+        void split(slice const& s, unsigned cut);
+        // Retrieve base slices s_1,...,s_n such that src == s_1 ++ ... + s_n
+        void find_base(slice src, slice_vector& out_base) const;
+        // Retrieve (or create) base slices s_1,...,s_n such that src[hi:lo] == s_1 ++ ... ++ s_n
+        void mk_slice(slice src, unsigned hi, unsigned lo, slice_vector& out_base);
+
+        // find representative
+        slice_idx find(slice_idx i) const;
+
+        // merge equivalence classes of two base slices
+        void merge(slice_idx s1, slice_idx s2);
+
+        // Equality x_1 ++ ... ++ x_n == y_1 ++ ... ++ y_k
+        //
+        // Precondition:
+        // - sequence of base slices without holes  (TODO: condition on holes probably not necessary? total widths have to match of course)
+        // - ordered from msb to lsb
+        // - slices have the same reference point
+        void merge(slice_vector& xs, slice_vector& ys);
 
         void set_extract(pvar v, pvar src, unsigned hi_bit, unsigned lo_bit);
 
-        struct slice_info {
-            slice_idx idx;
-            unsigned hi;
-            unsigned lo;
+
+        enum class trail_item {
+            add_var,
+            alloc_slice,
+            split_slice,
+            merge_class,
         };
-        slice_info var2slice(pvar v) const;
-        bool has_sub(slice_info const& si) const { return m_slices[si.idx].has_sub(); }
-        slice_info sub_hi(slice_info const& si) const;
-        slice_info sub_lo(slice_info const& si) const;
-        unsigned get_cut(slice_info const& si) const;
-        void split(slice_info const& si, unsigned cut);
-        void mk_slice(slice_info const& src, unsigned hi, unsigned lo, vector<slice_info>& out);
+        svector<trail_item> m_trail;
+        slice_idx_vector    m_split_trail;
+        slice_idx_vector    m_merge_trail;
+        unsigned_vector     m_scopes;
+
+        void undo_add_var();
+        void undo_alloc_slice();
+        void undo_split_slice();
+        void undo_merge_class();
+
+
+        mutable slice_vector m_tmp1;
+
 
     public:
-        slicing(solver& s):
-            s(s),
-            m_slices_uf(*this),
-            m_alloc_slice_trail(*this)
-        {}
+        // slicing(solver& s): m_solver(s) {}
 
-        trail_stack& get_trail_stack() { return m_stack; }
+        void push_scope();
+        void pop_scope(unsigned num_scopes = 1);
 
-        void push_var();
-        void pop_var();
+        void add_var(unsigned bit_width);
 
-        bool is_extract(pvar v) const { return m_src[v] != null_var; }
+
+
+
+
+
+
+
+        // bool is_extract(pvar v) const { return m_src[v] != null_var; }
 
         /** Get variable representing x[hi:lo] */
         pvar mk_extract_var(pvar x, unsigned hi, unsigned lo);
 
-        /** Create expression for x[hi:lo] */
-        pdd mk_extract(pvar x, unsigned hi, unsigned lo);
+        // /** Create expression for x[hi:lo] */
+        // pdd mk_extract(pvar x, unsigned hi, unsigned lo);
 
-        /** Create expression for p[hi:lo] */
-        pdd mk_extract(pdd const& p, unsigned hi, unsigned lo);
+        // /** Create expression for p[hi:lo] */
+        // pdd mk_extract(pdd const& p, unsigned hi, unsigned lo);
 
-        /** Create expression for p ++ q */
-        pdd mk_concat(pdd const& p, pdd const& q);
+        // /** Create expression for p ++ q */
+        // pdd mk_concat(pdd const& p, pdd const& q);
 
         // propagate:
         // - value assignments
