@@ -75,22 +75,24 @@ namespace polysat {
         static constexpr unsigned null_cut = std::numeric_limits<unsigned>::max();
 
         // number of bits in the slice
-        unsigned_vector     m_slice_width;
+        unsigned_vector m_slice_width;
         // Cut point: if slice represents bit-vector x, then x has been sliced into x[|x|-1:cut+1] and x[cut:0].
         // The cut point is relative to the parent slice (rather than a root variable, which might not be unique)
         // (UINT_MAX for leaf slices)
-        unsigned_vector     m_slice_cut;
+        unsigned_vector m_slice_cut;
         // The sub-slices are at indices sub and sub+1 (null_slice if no subdivision)
         slice_vector    m_slice_sub;
         slice_vector    m_find;         // representative of equivalence class
         slice_vector    m_size;         // number of elements in equivalence class
         slice_vector    m_next;         // next element of the equivalence class
 
+        unsigned_vector m_slice2var;    // slice -> pvar, or null_var if slice is not equivalent to a variable
         slice_vector    m_var2slice;    // pvar -> slice
 
         slice alloc_slice();
 
         slice var2slice(pvar v) const { return find(m_var2slice[v]); }
+        pvar slice2var(slice s) const { return m_slice2var[find(s)]; }
         unsigned width(slice s) const { return m_slice_width[s]; }
         bool has_sub(slice s) const { return m_slice_sub[s] != null_slice; }
 

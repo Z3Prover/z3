@@ -42,9 +42,10 @@ namespace polysat {
     }
 
     void slicing::add_var(unsigned bit_width) {
-        // pvar const v = m_var2slice.size();
+        pvar const v = m_var2slice.size();
         slice const s = alloc_slice();
         m_slice_width[s] = bit_width;
+        m_slice2var[s] = v;
         m_var2slice.push_back(s);
     }
 
@@ -60,6 +61,7 @@ namespace polysat {
         m_find.push_back(s);
         m_size.push_back(1);
         m_next.push_back(s);
+        m_slice2var.push_back(null_var);
         m_trail.push_back(trail_item::alloc_slice);
         return s;
     }
@@ -71,6 +73,7 @@ namespace polysat {
         m_find.pop_back();
         m_size.pop_back();
         m_next.pop_back();
+        m_slice2var.pop_back();
     }
 
     slicing::slice slicing::find_sub_hi(slice parent) const {
@@ -128,6 +131,12 @@ namespace polysat {
         m_find[r1] = r2;
         m_size[r2] += m_size[r1];
         std::swap(m_next[r1], m_next[r2]);
+        if (m_slice2var[r2] == null_var)
+            m_slice2var[r2] = m_slice2var[r1];
+        else {
+            // otherwise the classes should have been merged already
+            SASSERT(m_slice2var[r2] != m_slice2var[r1]);
+        }
         m_trail.push_back(trail_item::merge_class);
         m_merge_trail.push_back(r1);
     }
@@ -140,6 +149,8 @@ namespace polysat {
         m_find[r1] = r1;
         m_size[r2] -= m_size[r1];
         std::swap(m_next[r1], m_next[r2]);
+        if (m_slice2var[r2] == m_slice2var[r1])
+            m_slice2var[r2] = null_var;
     }
 
     void slicing::merge(slice_vector& xs, slice_vector& ys) {
