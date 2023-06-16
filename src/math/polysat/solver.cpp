@@ -42,7 +42,7 @@ namespace polysat {
         m_free_pvars(m_activity),
         m_constraints(*this),
         m_names(*this),
-        // m_slicing(*this),
+        m_slicing(*this),
         m_search(*this) {
     }
 

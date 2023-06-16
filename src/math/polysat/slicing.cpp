@@ -33,7 +33,7 @@ namespace polysat {
             case trail_item::add_var:       undo_add_var();     break;
             case trail_item::alloc_slice:   undo_alloc_slice(); break;
             case trail_item::split_slice:   undo_split_slice(); break;
-            case trail_item::merge_class:   undo_merge_class(); break;
+            case trail_item::merge_base:    undo_merge_base(); break;
             default: UNREACHABLE();
             }
             m_trail.pop_back();
@@ -117,7 +117,7 @@ namespace polysat {
         }
     }
 
-    void slicing::merge(slice s1, slice s2) {
+    void slicing::merge_base(slice s1, slice s2) {
         SASSERT_EQ(width(s1), width(s2));
         SASSERT(!has_sub(s1));
         SASSERT(!has_sub(s2));
@@ -137,11 +137,11 @@ namespace polysat {
             // otherwise the classes should have been merged already
             SASSERT(m_slice2var[r2] != m_slice2var[r1]);
         }
-        m_trail.push_back(trail_item::merge_class);
+        m_trail.push_back(trail_item::merge_base);
         m_merge_trail.push_back(r1);
     }
 
-    void slicing::undo_merge_class() {
+    void slicing::undo_merge_base() {
         slice r1 = m_merge_trail.back();
         m_merge_trail.pop_back();
         slice r2 = m_find[r1];
@@ -161,11 +161,21 @@ namespace polysat {
             slice y = ys.back();
             xs.pop_back();
             ys.pop_back();
+            if (has_sub(x)) {
+                find_base(x, xs);
+                x = xs.back();
+                xs.pop_back();
+            }
+            if (has_sub(y)) {
+                find_base(y, ys);
+                y = ys.back();
+                ys.pop_back();
+            }
             SASSERT(!has_sub(x));
             SASSERT(!has_sub(y));
             if (width(x) == width(y)) {
                 // LOG("Match " << x << " and " << y);
-                merge(x, y);
+                merge_base(x, y);
             }
             else if (width(x) > width(y)) {
                 // need to split x according to y
@@ -188,6 +198,15 @@ namespace polysat {
         slice_vector tmp;
         tmp.push_back(y);
         merge(xs, tmp);
+    }
+
+    void slicing::merge(slice x, slice y) {
+        if (!has_sub(x) && !has_sub(y))
+            return merge_base(x, y);
+        slice_vector tmpx, tmpy;
+        tmpx.push_back(x);
+        tmpy.push_back(y);
+        merge(tmpx, tmpy);
     }
 
     void slicing::find_base(slice src, slice_vector& out_base) const {
@@ -213,12 +232,18 @@ namespace polysat {
         SASSERT(todo.empty());
     }
 
-    void slicing::mk_slice(slice src, unsigned const hi, unsigned const lo, slice_vector& out_base, bool output_full_src) {
+    void slicing::mk_slice(slice src, unsigned const hi, unsigned const lo, slice_vector& out, bool output_full_src, bool output_base) {
         SASSERT(hi >= lo);
         SASSERT_EQ(src, find(src));  // splits are only stored for the representative
         SASSERT(width(src) > hi);  // extracted range must be fully contained inside the src slice
+        auto output_slice = [this, output_base, &out](slice s) {
+            if (output_base)
+                find_base(s, out);
+            else
+                out.push_back(s);
+        };
         if (lo == 0 && width(src) - 1 == hi) {
-            find_base(src, out_base);
+            output_slice(src);
             return;
         }
         if (has_sub(src)) {
@@ -226,23 +251,23 @@ namespace polysat {
             unsigned const cut = m_slice_cut[src];
             if (lo >= cut + 1) {
                 // target slice falls into upper subslice
-                mk_slice(find_sub_hi(src), hi - cut - 1, lo - cut - 1, out_base);
+                mk_slice(find_sub_hi(src), hi - cut - 1, lo - cut - 1, out, output_full_src, output_base);
                 if (output_full_src)
-                    out_base.push_back(find_sub_lo(src));
+                    output_slice(find_sub_lo(src));
                 return;
             }
             else if (cut >= hi) {
                 // target slice falls into lower subslice
                 if (output_full_src)
-                    out_base.push_back(find_sub_hi(src));
-                mk_slice(find_sub_lo(src), hi, lo, out_base);
+                    output_slice(find_sub_hi(src));
+                mk_slice(find_sub_lo(src), hi, lo, out, output_full_src, output_base);
                 return;
             }
             else {
                 SASSERT(hi > cut && cut >= lo);
                 // desired range spans over the cutpoint, so we get multiple slices in the result
-                mk_slice(find_sub_hi(src), hi - cut - 1, 0, out_base);
-                mk_slice(find_sub_lo(src), cut, lo, out_base);
+                mk_slice(find_sub_hi(src), hi - cut - 1, 0, out, output_full_src, output_base);
+                mk_slice(find_sub_lo(src), cut, lo, out, output_full_src, output_base);
                 return;
             }
         }
@@ -250,41 +275,42 @@ namespace polysat {
             // [src.width-1, 0] has no subdivision yet
             if (width(src) - 1 > hi) {
                 split(src, hi);
+                SASSERT(!has_sub(find_sub_hi(src)));
                 if (output_full_src)
-                    out_base.push_back(find_sub_hi(src));
-                mk_slice(find_sub_lo(src), hi, lo, out_base);  // recursive call to take care of case lo > 0
+                    out.push_back(find_sub_hi(src));
+                mk_slice(find_sub_lo(src), hi, lo, out, output_full_src, output_base);  // recursive call to take care of case lo > 0
                 return;
             }
             else {
                 SASSERT(lo > 0);
                 split(src, lo - 1);
-                out_base.push_back(find_sub_hi(src));
+                out.push_back(find_sub_hi(src));
+                SASSERT(!has_sub(find_sub_lo(src)));
                 if (output_full_src)
-                    out_base.push_back(find_sub_lo(src));
+                    out.push_back(find_sub_lo(src));
                 return;
             }
         }
         UNREACHABLE();
     }
 
-    pvar slicing::mk_extract_var(pvar src, unsigned hi, unsigned lo) {
+    pvar slicing::mk_slice_extract(slice src, unsigned hi, unsigned lo) {
         slice_vector slices;
-        mk_slice(var2slice(src), hi, lo, slices);
-        // src[hi:lo] is the concatenation of the returned slices
-        // TODO: for each slice, set_extract
-
-#if 0
-        extract_key key{src, hi, lo};
-        auto it = m_extracted.find_iterator(key);
-        if (it != m_extracted.end())
-            return it->m_value;
-        pvar v = s.add_var(hi - lo);
-        set_extract(v, src, hi, lo);
+        mk_slice(src, hi, lo, slices, false, true);
+        if (slices.size() == 1) {
+            slice s = slices[0];
+            if (slice2var(s) != null_var)
+                return slice2var(s);
+        }
+        pvar v = m_solver.add_var(hi - lo + 1);
+        merge(slices, var2slice(v));
         return v;
-#endif
     }
 
-#if 0
+    pvar slicing::mk_extract_var(pvar src, unsigned hi, unsigned lo) {
+        return mk_slice_extract(var2slice(src), hi, lo);
+    }
+
     pdd slicing::mk_extract(pvar src, unsigned hi, unsigned lo) {
         return m_solver.var(mk_extract_var(src, hi, lo));
     }
@@ -293,55 +319,27 @@ namespace polysat {
         if (!lo) {
             // TODO: we could push the extract down into variables of the term instead of introducing a name.
         }
+        return m_solver.var(mk_slice_extract(pdd2slice(p), hi, lo));
+    }
+
+    slicing::slice slicing::pdd2slice(pdd const& p) {
         pvar const v = m_solver.m_names.mk_name(p);
-        return mk_extract(v, hi, lo);
+        return var2slice(v);
     }
 
     pdd slicing::mk_concat(pdd const& p, pdd const& q) {
-#if 0
         // v := p ++ q      (new variable of size |p| + |q|)
         // v[:|q|] = p
         // v[|q|:] = q
         unsigned const p_sz = p.power_of_2();
         unsigned const q_sz = q.power_of_2();
         unsigned const v_sz = p_sz + q_sz;
-        // TODO: lookup to see if we can reuse a variable
-        //       either:
-        //          - table of concats
-        //          - check for variable with v[:|q|] = p and v[|q|:] = q in extract table  (probably better)
-        pvar const v = s.add_var(v_sz);
-
-        // TODO: probably wrong to use names for p, q.
-        //       we should rather check if there's already an extraction for v[...] and reuse that variable.
-        pvar const p_name = s.m_names.mk_name(p);
-        pvar const q_name = s.m_names.mk_name(q);
-        set_extract(p_name, v, v_sz, q_sz);
-        set_extract(q_name, v, q_sz, 0);
-#endif
-        NOT_IMPLEMENTED_YET();
-    }
-#endif
-
-    void slicing::set_extract(pvar v, pvar src, unsigned hi, unsigned lo) {
-#if 0
-        SASSERT(!is_extract(v));
-        SASSERT(lo < hi && hi <= s.size(src));
-        SASSERT_EQ(hi - lo + 1, s.size(v));
-        SASSERT(src < v);
-        SASSERT(!m_extracted.contains(extract_key{src, hi, lo}));
-#if 0  // try without this first
-        if (is_extract(src)) {
-            // y = (x[k:m])[h:l] = x[h+m:l+m]
-            unsigned const offset = m_lo[src];
-            set_extract(m_src[src], hi + offset, lo + offset);
-            return;
-        }
-#endif
-        m_extracted.insert({src, hi, lo}, v);
-        m_src[v] = src;
-        m_hi[v] = hi;
-        m_lo[v] = lo;
-#endif
+        pvar const v = m_solver.add_var(v_sz);
+        slice_vector tmp;
+        tmp.push_back(pdd2slice(p));
+        tmp.push_back(pdd2slice(q));
+        merge(tmp, var2slice(v));
+        return m_solver.var(v);
     }
 
     void slicing::propagate(pvar v) {
@@ -353,8 +351,14 @@ namespace polysat {
             out << "v" << v << ":";
             base.reset();
             find_base(var2slice(v), base);
-            for (slice s : base)
+            // unsigned hi = width(var2slice(v)) - 1;
+            for (slice s : base) {
+                // unsigned w = width(s);
+                // unsigned lo = hi - w + 1;
+                // out << " s" << s << "_[" << hi << ":" << lo << "]";
+                // hi -= w;
                 display(out << " ", s);
+            }
             out << "\n";
         }
         return out;

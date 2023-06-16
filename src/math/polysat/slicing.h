@@ -25,6 +25,7 @@ Notation:
 --*/
 #pragma once
 #include "math/polysat/types.h"
+#include <optional>
 
 namespace polysat {
 
@@ -34,19 +35,9 @@ namespace polysat {
 
         friend class test_slicing;
 
-        // solver&     m_solver;
+        solver&     m_solver;
 
 #if 0
-        /// If y := x[h:l], then m_src[y] = x, m_hi[y] = h, m_lo[y] = l.
-        /// Otherwise m_src[y] = null_var.
-        ///
-        /// Invariants:
-        ///     m_src[y] != null_var ==> m_src[y] < y  (at least as long as we always introduce new variables for extract terms.)
-        ///     m_lo[y] <= m_hi[y]
-        unsigned_vector m_src;
-        unsigned_vector m_hi;
-        unsigned_vector m_lo;
-
         struct extract_key {
             pvar src;
             unsigned hi;
@@ -98,11 +89,12 @@ namespace polysat {
 
         /// Split slice s into s[|s|-1:cut+1] and s[cut:0]
         void split(slice s, unsigned cut);
-        /// Retrieve base slices s_1,...,s_n such that src == s_1 ++ ... + s_n
+        /// Retrieve base slices s_1,...,s_n such that src == s_1 ++ ... ++ s_n
         void find_base(slice src, slice_vector& out_base) const;
-        // Retrieve (or create) base slices s_1,...,s_n such that src[hi:lo] == s_1 ++ ... ++ s_n
-        // If output_full_src is true, returns the new base for src, i.e., src == s_1 ++ ... ++ s_n
-        void mk_slice(slice src, unsigned hi, unsigned lo, slice_vector& out_base, bool output_full_src = false);
+        /// Retrieve (or create) base slices s_1,...,s_n such that src[hi:lo] == s_1 ++ ... ++ s_n.
+        /// If output_full_src is true, return the new base for src, i.e., src == s_1 ++ ... ++ s_n.
+        /// If output_base is false, return coarsest intermediate slices instead of only base slices.
+        void mk_slice(slice src, unsigned hi, unsigned lo, slice_vector& out, bool output_full_src = false, bool output_base = true);
 
         /// Find representative
         slice find(slice s) const;
@@ -112,67 +104,62 @@ namespace polysat {
         slice find_sub_lo(slice s) const;
 
         // Merge equivalence classes of two base slices
-        void merge(slice s1, slice s2);
+        void merge_base(slice s1, slice s2);
 
         // Merge equality x_1 ++ ... ++ x_n == y_1 ++ ... ++ y_k
         //
         // Precondition:
-        // - sequence of base slices (equal total width)
+        // - sequence of slices with equal total width
         // - ordered from msb to lsb
         void merge(slice_vector& xs, slice_vector& ys);
         void merge(slice_vector& xs, slice y);
-
-        void set_extract(pvar v, pvar src, unsigned hi_bit, unsigned lo_bit);
+        void merge(slice x, slice y);
 
 
         enum class trail_item {
             add_var,
             alloc_slice,
             split_slice,
-            merge_class,
+            merge_base,
         };
         svector<trail_item> m_trail;
-        slice_vector    m_split_trail;
-        slice_vector    m_merge_trail;
+        slice_vector        m_split_trail;
+        slice_vector        m_merge_trail;
         unsigned_vector     m_scopes;
 
         void undo_add_var();
         void undo_alloc_slice();
         void undo_split_slice();
-        void undo_merge_class();
+        void undo_merge_base();
 
 
         mutable slice_vector m_tmp1;
 
+        // get slice equivalent to the given pdd (may introduce new variable)
+        slice pdd2slice(pdd const& p);
+
+        /** Get variable representing src[hi:lo] */
+        pvar mk_slice_extract(slice src, unsigned hi, unsigned lo);
 
     public:
-        // slicing(solver& s): m_solver(s) {}
+        slicing(solver& s): m_solver(s) {}
 
         void push_scope();
         void pop_scope(unsigned num_scopes = 1);
 
         void add_var(unsigned bit_width);
 
-
-
-
-
-
-
-
-        // bool is_extract(pvar v) const { return m_src[v] != null_var; }
-
         /** Get variable representing x[hi:lo] */
         pvar mk_extract_var(pvar x, unsigned hi, unsigned lo);
 
-        // /** Create expression for x[hi:lo] */
-        // pdd mk_extract(pvar x, unsigned hi, unsigned lo);
+        /** Create expression for x[hi:lo] */
+        pdd mk_extract(pvar x, unsigned hi, unsigned lo);
 
-        // /** Create expression for p[hi:lo] */
-        // pdd mk_extract(pdd const& p, unsigned hi, unsigned lo);
+        /** Create expression for p[hi:lo] */
+        pdd mk_extract(pdd const& p, unsigned hi, unsigned lo);
 
-        // /** Create expression for p ++ q */
-        // pdd mk_concat(pdd const& p, pdd const& q);
+        /** Create expression for p ++ q */
+        pdd mk_concat(pdd const& p, pdd const& q);
 
         // propagate:
         // - value assignments
