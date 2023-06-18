@@ -260,6 +260,8 @@ public:
     void add_literal(expr* e) override {
         if (m.is_proof(e))
             m_proof_hint = to_app(e);
+        else if (!m.is_bool(e))
+            throw default_exception("literal should be either a Proof or Bool");
         else
             m_lits.push_back(e);
     }
