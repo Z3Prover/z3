@@ -1394,14 +1394,13 @@ void cmd_context::reset_macros() {
 }
 
 void cmd_context::reset_cmds() {
-    for (auto& kv : m_cmds) {
-        kv.m_value->reset(*this);
+    for (auto& [k,v] : m_cmds) {
+        v->reset(*this);
     }
 }
 
 void cmd_context::finalize_cmds() {
-    for (auto& kv : m_cmds) {
-        cmd * c = kv.m_value;
+    for (auto& [k,c] : m_cmds) {
         c->finalize(*this);
         dealloc(c);
     }
@@ -1433,6 +1432,7 @@ void cmd_context::reset(bool finalize) {
     m_builtin_decls.reset();
     m_extra_builtin_decls.reset();
     m_check_logic.reset();
+    m_proof_cmds = nullptr;
     reset_object_refs();
     reset_cmds();
     reset_psort_decls();
