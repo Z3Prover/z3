@@ -30,7 +30,7 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::one_iteratio
     else {
         advance_on_entering_tableau(entering);
     }
-    lp_assert(this->inf_set_is_correct());
+    lp_assert(this->inf_heap_is_correct());
 }
 
 template <typename T, typename X> void lp_primal_core_solver<T, X>::advance_on_entering_tableau(int entering) {
@@ -256,7 +256,7 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::init_run_tab
         this->m_basis_sort_counter = 0; // to initiate the sort of the basis
         //  this->set_total_iterations(0);
         this->iters_with_no_cost_growing() = 0;
-		lp_assert(this->inf_set_is_correct());
+		lp_assert(this->inf_heap_is_correct());
         if (this->current_x_is_feasible() && this->m_look_for_feasible_solution_only)
             return;
         if (this->m_settings.backup_costs)

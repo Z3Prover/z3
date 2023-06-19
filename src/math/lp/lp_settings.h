@@ -218,6 +218,8 @@ public:
     unsigned hnf_cut_period() const { return m_hnf_cut_period; }
     void set_hnf_cut_period(unsigned period) { m_hnf_cut_period = period;  }
     unsigned random_next() { return m_rand(); }
+    unsigned random_next(unsigned u ) { return m_rand(u); }
+    
     void set_random_seed(unsigned s) { m_rand.set_seed(s); }
 
     bool bound_progation() const { 

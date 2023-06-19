@@ -42,7 +42,7 @@ lp_core_solver_base(static_matrix<T, X> & A,
     m_total_iterations(0),
     m_iters_with_no_cost_growing(0),
     m_status(lp_status::FEASIBLE),
-    m_inf_set(A.column_count()),
+    m_inf_heap(std::max(static_cast<unsigned>(1024), A.column_count())),
     m_pivot_row(A.column_count()),
     m_A(A),
     m_basis(basis),
@@ -250,9 +250,9 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::calc_current_x
     return true;
 }
 
-template <typename T, typename X> bool lp_core_solver_base<T, X>::inf_set_is_correct() const {
+template <typename T, typename X> bool lp_core_solver_base<T, X>::inf_heap_is_correct() const {
     for (unsigned j = 0; j < this->m_n(); j++) {
-        bool belongs_to_set = m_inf_set.contains(j);
+        bool belongs_to_set = m_inf_heap.contains(j);
         bool is_feas = column_is_feasible(j);
         if (is_feas == belongs_to_set) {
             TRACE("lp_core", tout << "incorrectly set column in inf set "; print_column_info(j, tout) << "\n";);
