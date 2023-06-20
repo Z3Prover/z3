@@ -90,13 +90,11 @@ class theory_lra::imp {
         expr_ref_vector     m_terms;                     
         vector<rational>    m_coeffs;
         svector<theory_var> m_vars;
-        rational            m_offset;
         ptr_vector<expr>    m_to_ensure_enode, m_to_ensure_var;
         internalize_state(ast_manager& m): m_terms(m) {}
         void reset() {
             m_terms.reset();
             m_coeffs.reset();
-            m_offset.reset();
             m_vars.reset();
             m_to_ensure_enode.reset();
             m_to_ensure_var.reset();
@@ -123,7 +121,6 @@ class theory_lra::imp {
         expr_ref_vector&     terms() { return m_st.m_terms; }                     
         vector<rational>&    coeffs() { return m_st.m_coeffs; }
         svector<theory_var>& vars() { return m_st.m_vars; }
-        rational&            offset() { return m_st.m_offset; }
         ptr_vector<expr>&    to_ensure_enode() { return m_st.m_to_ensure_enode; }            
         ptr_vector<expr>&    to_ensure_var() { return m_st.m_to_ensure_var; }            
         void push(expr* e, rational c) { m_st.m_terms.push_back(e); m_st.m_coeffs.push_back(c); }
@@ -345,18 +342,33 @@ class theory_lra::imp {
         st.push(rhs, rational::minus_one());
         linearize(st);
     }
+
+    theory_var internalize_numeral(app* n, rational const& val) {
+
+        if (!ctx().e_internalized(n))
+            mk_enode(n);
+        theory_var v = mk_var(n);
+        lpvar vi = get_lpvar(v);
+        if (vi == UINT_MAX) {
+            vi = lp().add_var(v, a.is_int(n));
+            add_def_constraint_and_equality(vi, lp::GE, val);
+            add_def_constraint_and_equality(vi, lp::LE, val);
+            register_fixed_var(v, val);
+        }
+        return v;
+    }
+
         
     void linearize(scoped_internalize_state& st) { 
         expr_ref_vector & terms = st.terms();
         svector<theory_var>& vars = st.vars();
         vector<rational>& coeffs = st.coeffs();
-        rational& offset = st.offset();
         rational r;
         expr* n1, *n2;
         unsigned index = 0;
         while (index < terms.size()) {
             SASSERT(index >= vars.size());
-            expr* n = terms[index].get();
+            expr* n = terms.get(index);
             st.to_ensure_enode().push_back(n);
             if (a.is_add(n)) {
                 for (expr* arg : *to_app(n)) {
@@ -394,7 +406,9 @@ class theory_lra::imp {
                 ++index;
             }
             else if (a.is_numeral(n, r)) {
-                offset += coeffs[index]*r;
+                theory_var v = internalize_numeral(to_app(n), r);
+                coeffs[vars.size()] = coeffs[index];
+                vars.push_back(v);
                 ++index;
             }
             else if (a.is_uminus(n, n1)) {
@@ -781,16 +795,9 @@ class theory_lra::imp {
     }
        
     bool is_unit_var(scoped_internalize_state& st) {
-        return st.offset().is_zero() && st.vars().size() == 1 && st.coeffs()[0].is_one();
+        return st.vars().size() == 1 && st.coeffs()[0].is_one();
     }
 
-    bool is_one(scoped_internalize_state& st) {
-        return st.offset().is_one() && st.vars().empty();
-    }
-
-    bool is_zero(scoped_internalize_state& st) {
-        return st.offset().is_zero() && st.vars().empty();
-    }
 
     theory_var internalize_def(app* term, scoped_internalize_state& st) {
         TRACE("arith", tout << expr_ref(term, m) << "\n";);
@@ -841,46 +848,29 @@ class theory_lra::imp {
         theory_var v = mk_var(term);
         TRACE("arith", tout << mk_bounded_pp(term, m) << " v" << v << "\n";);
 
-        if (is_unit_var(st) && v == st.vars()[0]) {
+        if (is_unit_var(st) && v == st.vars()[0]) 
             return st.vars()[0];
-        }
-        else if (is_one(st) && a.is_numeral(term)) {
-            return lp().local_to_external(get_one(a.is_int(term)));
-        }
-        else if (is_zero(st) && a.is_numeral(term)) {
-            return lp().local_to_external(get_zero(a.is_int(term)));
-        }
-        else {
-            init_left_side(st);
-            lpvar vi = get_lpvar(v);
-            if (vi == UINT_MAX) {
-                if (m_left_side.empty()) {
-                    vi = lp().add_var(v, a.is_int(term));
-                    add_def_constraint_and_equality(vi, lp::GE, st.offset());
-                    add_def_constraint_and_equality(vi, lp::LE, st.offset());
-                    register_fixed_var(v, st.offset());
-                    return v;
-                }
-                if (!st.offset().is_zero()) {
-                    m_left_side.push_back(std::make_pair(st.offset(), get_one(a.is_int(term))));
-                }
-                if (m_left_side.empty()) {
-                    vi = lp().add_var(v, a.is_int(term));
-                    add_def_constraint_and_equality(vi, lp::GE, rational(0));
-                    add_def_constraint_and_equality(vi, lp::LE, rational(0));
-                }
-                else {
-                    vi = lp().add_term(m_left_side, v);
-                    SASSERT(lp::tv::is_term(vi));
-                    TRACE("arith_verbose", 
-                          tout << "v" << v << " := " << mk_pp(term, m) 
-                          << " slack: " << vi << " scopes: " << m_scopes.size() << "\n";
-                          lp().print_term(lp().get_term(lp::tv::raw(vi)), tout) << "\n";);
-                }
-            }
 
-            return v;
+        init_left_side(st);
+        lpvar vi = get_lpvar(v);
+        
+        if (vi == UINT_MAX) {
+            if (m_left_side.empty()) {
+                vi = lp().add_var(v, a.is_int(term));
+                add_def_constraint_and_equality(vi, lp::GE, rational(0));
+                add_def_constraint_and_equality(vi, lp::LE, rational(0));
+            }
+            else {
+                vi = lp().add_term(m_left_side, v);
+                SASSERT(lp::tv::is_term(vi));
+                TRACE("arith_verbose", 
+                      tout << "v" << v << " := " << mk_pp(term, m) 
+                      << " slack: " << vi << " scopes: " << m_scopes.size() << "\n";
+                      lp().print_term(lp().get_term(lp::tv::raw(vi)), tout) << "\n";);
+            }
         }
+
+        return v;
     }
         
 
@@ -3211,11 +3201,13 @@ public:
     void fixed_var_eh(theory_var v, lp::tv t, lp::constraint_index ci1, lp::constraint_index ci2, rational const& bound) {
         theory_var w = null_theory_var;
         enode* x = get_enode(v);
-        if (bound.is_zero()) 
+        if (m_value2var.find(bound, w)) 
+            ;
+        else if (bound.is_zero()) 
             w = lp().local_to_external(get_zero(a.is_int(x->get_expr())));
         else if (bound.is_one())
             w = lp().local_to_external(get_one(a.is_int(x->get_expr())));
-        else if (!m_value2var.find(bound, w))
+        else
             return;
         enode* y = get_enode(w);
         if (x->get_sort() != y->get_sort())
