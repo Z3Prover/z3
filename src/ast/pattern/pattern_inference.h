@@ -70,6 +70,7 @@ class pattern_inference_cfg :  public default_rewriter_cfg {
     expr * const *             m_no_patterns;
     bool                       m_nested_arith_only;
     bool                       m_block_loop_patterns;
+    bool                       m_decompose_patterns;
 
     struct info {
         uint_set m_free_vars;
