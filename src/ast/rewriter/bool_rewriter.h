@@ -53,6 +53,7 @@ class bool_rewriter {
     ast_manager &  m_manager;
     hoist_rewriter m_hoist;
     bool           m_flat_and_or = false;
+    bool           m_sort_disjunctions = true;
     bool           m_local_ctx = false;
     bool           m_elim_and = false;
     bool           m_blast_distinct = false;
