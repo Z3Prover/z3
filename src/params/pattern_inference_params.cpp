@@ -23,6 +23,7 @@ void pattern_inference_params::updt_params(params_ref const & _p) {
     pattern_inference_params_helper p(_p);
     m_pi_max_multi_patterns      = p.max_multi_patterns();
     m_pi_block_loop_patterns     = p.block_loop_patterns();
+    m_pi_decompose_patterns      = p.decompose_patterns();
     m_pi_arith                   = static_cast<arith_pattern_inference_kind>(p.arith());
     m_pi_use_database            = p.use_database();
     m_pi_arith_weight            = p.arith_weight();
@@ -36,6 +37,7 @@ void pattern_inference_params::updt_params(params_ref const & _p) {
 void pattern_inference_params::display(std::ostream & out) const {
     DISPLAY_PARAM(m_pi_max_multi_patterns);
     DISPLAY_PARAM(m_pi_block_loop_patterns);
+    DISPLAY_PARAM(m_pi_decompose_patterns);
     DISPLAY_PARAM(m_pi_arith);
     DISPLAY_PARAM(m_pi_use_database);
     DISPLAY_PARAM(m_pi_arith_weight);
