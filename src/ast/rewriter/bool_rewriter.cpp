@@ -184,7 +184,7 @@ br_status bool_rewriter::mk_flat_and_core(unsigned num_args, expr * const * args
 }
 
 br_status bool_rewriter::mk_nflat_or_core(unsigned num_args, expr * const * args, expr_ref & result) {
-    bool s = false;
+    bool s = false; // whether we have canceled some disjuncts or found some out or order
     ptr_buffer<expr> buffer;
     expr_fast_mark1 neg_lits;
     expr_fast_mark2 pos_lits;
@@ -292,9 +292,11 @@ br_status bool_rewriter::mk_nflat_or_core(unsigned num_args, expr * const * args
         if (st != BR_FAILED)
             return st;
 #endif
-        if (m_sort_disjunctions && s) {
-            ast_lt lt;
-            std::sort(buffer.begin(), buffer.end(), lt);       
+        if (s) {
+            if (m_sort_disjunctions) {
+                ast_lt lt;
+                std::sort(buffer.begin(), buffer.end(), lt);
+            }
             result = m().mk_or(sz, buffer.data());
             return BR_DONE;
         }
