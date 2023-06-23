@@ -45,7 +45,7 @@ namespace polysat {
     }
 
     bool eq_explain::try_explain1(pvar v, signed_constraint c, conflict& core) {
-        if (!c.is_eq())
+        if (!c.is_pos_eq())
             return false;
         if (!c.is_currently_false(s))
             return false;

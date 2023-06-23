@@ -279,9 +279,9 @@ namespace polysat {
         // find constraint that allows computing v from other variables
         // (currently, consider only equations that contain v with degree 1)
         for (signed_constraint c : core) {
-            if (!c.is_eq())
+            if (!c.is_pos_eq())
                 continue;
-            if (c.eq().degree(v) != 1)
+            if (c->to_eq().degree(v) != 1)
                 continue;
             find_lemma(v, c, core);
         }
@@ -289,7 +289,7 @@ namespace polysat {
     
     void free_variable_elimination::find_lemma(pvar v, signed_constraint c, conflict& core) {
         LOG_H3("Free Variable Elimination for v" << v << " using equation " << c);
-        pdd const& p = c.eq();
+        pdd const& p = c->to_eq();
         SASSERT_EQ(p.degree(v), 1);
         auto& m = p.manager();
         pdd fac = m.zero();

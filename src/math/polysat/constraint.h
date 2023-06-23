@@ -90,6 +90,7 @@ namespace polysat {
          */
         virtual clause_ref produce_lemma(solver& s, assignment const& a, bool is_positive) { return {}; }
 
+        pdd const& to_eq() const;
         ule_constraint& to_ule();
         ule_constraint const& to_ule() const;
         umul_ovfl_constraint& to_umul_ovfl();
@@ -180,10 +181,8 @@ namespace polysat {
         constraint& operator*() { return *m_constraint; }
         constraint const& operator*() const { return *m_constraint; }
 
-        bool is_eq() const;
-        bool is_diseq() const { return negated().is_eq(); }
-        pdd const& eq() const;
-        pdd const& diseq() const { return negated().eq(); }
+        bool is_pos_eq() const { return is_positive() && m_constraint->is_eq(); }
+        bool is_neg_eq() const { return is_negative() && m_constraint->is_eq(); }
 
         signed_constraint& operator=(std::nullptr_t) { m_constraint = nullptr; return *this; }
 

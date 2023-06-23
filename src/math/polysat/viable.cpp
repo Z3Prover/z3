@@ -985,8 +985,8 @@ namespace {
 					justifications[bit.position].clear();
 					justifications[bit.position].push_back(e1);
 				}
-				else if ((src->is_eq() || src.is_diseq()) &&
-					simplify_clause::get_lsb(s.subst(src->to_ule().lhs()), s.subst(src->to_ule().rhs()), p, lsb, src.is_positive()) && p.is_var()) {
+				else if (src->is_eq() &&
+                         simplify_clause::get_lsb(s.subst(src->to_ule().lhs()), s.subst(src->to_ule().rhs()), p, lsb, src.is_positive()) && p.is_var()) {
 					if (src.is_positive()) {
 						for (unsigned i = 0; i < lsb.length; i++) {
 							lbool prev = fixed[i];
@@ -1179,7 +1179,7 @@ namespace {
                 justifications[bit.position].clear();
                 justifications[bit.position].push_back(src);
             }
-            else if ((src->is_eq() || src.is_diseq()) &&
+            else if (src->is_eq() &&
                 simplify_clause::get_lsb(src->to_ule().lhs(), src->to_ule().rhs(), p, mask, src.is_positive()) && p.is_var()) {
                 if (src.is_positive()) {
                     for (unsigned i = 0; i < mask.length; i++) {

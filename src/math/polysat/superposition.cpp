@@ -37,8 +37,8 @@ namespace polysat {
         LOG_H3("Resolving upon v" << v);
         LOG("c1: " << lit_pp(s, c1));
         LOG("c2: " << lit_pp(s, c2));
-        pdd a = c1.eq();
-        pdd b = c2.eq();
+        pdd a = c1->to_eq();
+        pdd b = c2->to_eq();
         unsigned degree_a = a.degree();
         unsigned degree_b = b.degree();
         pdd r = a;
@@ -67,7 +67,7 @@ namespace polysat {
         for (auto c1 : s.m_viable.get_constraints(v)) {
             if (!c1->contains_var(v))  // side conditions do not contain v; skip them here
                 continue;
-            if (!c1.is_eq())
+            if (!c1.is_pos_eq())
                 continue;
             SASSERT(c1.is_currently_true(s));
             SASSERT(c2.is_currently_false(s));
@@ -102,7 +102,7 @@ namespace polysat {
     // true = done, false = abort, undef = continue
     lbool ex_polynomial_superposition::try_explain1(pvar v, conflict& core) {
         for (auto c2 : core) {
-            if (!c2.is_eq())
+            if (!c2.is_pos_eq())
                 continue;
             if (!c2->contains_var(v))
                 continue;
@@ -128,7 +128,7 @@ namespace polysat {
             for (auto c : core) {
                 if (!c->contains_var(v))
                     continue;
-                if (!c.is_eq())
+                if (!c.is_pos_eq())
                     continue;
 #if 0
                 if (!c.is_currently_true(s))
@@ -151,7 +151,7 @@ namespace polysat {
                 continue;
             if (!c->contains_var(v))
                 continue;
-            if (c.is_eq())
+            if (c.is_pos_eq())
                 continue;
             LOG("try-reduce: " << c << " " << c.is_currently_false(s));
             if (!c->is_ule())

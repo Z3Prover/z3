@@ -28,15 +28,6 @@ namespace polysat {
         return eval(s.get_assignment());
     }
 
-    bool signed_constraint::is_eq() const {
-        return is_positive() && m_constraint->is_eq();
-    }
-
-    pdd const& signed_constraint::eq() const {
-        SASSERT(is_eq());
-        return m_constraint->to_ule().lhs();
-    }
-
     inequality inequality::from_ule(signed_constraint src)
     {
         ule_constraint& c = src->to_ule();
@@ -89,6 +80,11 @@ namespace polysat {
         if (is_strict())
             swap(lhs, rhs);
         return { std::move(lhs), std::move(rhs), m_src };
+    }
+
+    pdd const& constraint::to_eq() const {
+        SASSERT(is_eq());
+        return to_ule().lhs();
     }
 
     ule_constraint& constraint::to_ule() {

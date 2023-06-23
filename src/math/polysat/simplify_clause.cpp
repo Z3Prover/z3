@@ -106,7 +106,7 @@ namespace polysat {
      */
     bool simplify_clause::try_remove_equations(clause& cl) {
         LOG_H2("Remove superfluous equations from: " << cl);
-        bool const has_eqn = any_of(cl, [&](sat::literal lit) { return s.lit2cnstr(lit).is_eq(); });
+        bool const has_eqn = any_of(cl, [&](sat::literal lit) { return !lit.sign() && s.lit2cnstr(lit)->is_eq(); });
         if (!has_eqn)
             return false;
         bool any_removed = false;
@@ -189,8 +189,8 @@ namespace polysat {
                     return false;
             }
             SASSERT(v != null_var);  // constraints without unassigned variables would be evaluated at this point
-            if (c.is_diseq() && c.diseq().is_unilinear()) {
-                pdd const& p = c.diseq();
+            if (c.is_negative() && c->is_eq() && c->to_eq().is_unilinear()) {
+                pdd const& p = c->to_eq();
                 if (p.hi().is_one()) {
                     eq = lit;
                     k = (-p.lo()).val();
@@ -589,7 +589,7 @@ namespace polysat {
             trailing_bits mask;
             single_bit bit;
             pdd p = c->to_ule().lhs();
-            if ((c.is_eq() || c.is_diseq()) && get_lsb(c->to_ule().lhs(), c->to_ule().rhs(), p, mask, c.is_positive())) {
+            if (c->is_eq() && get_lsb(c->to_ule().lhs(), c->to_ule().rhs(), p, mask, c.is_positive())) {
                 if (mask.bits.bitsize() > mask.length) {
                     removed[i] = true; // skip this constraint. e.g., 2^(k-3)*x = 9*2^(k-3) is false as 9 >= 2^3
                     continue;
