@@ -93,6 +93,8 @@ public:
 
     void solve();
 
+    void pivot(int entering, int leaving) { m_r_solver.pivot(entering, leaving); }
+    
     bool lower_bounds_are_set() const { return true; }
 
     const indexed_vector<mpq> & get_pivot_row() const {
