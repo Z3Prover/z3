@@ -53,7 +53,7 @@ namespace lp {
        // non_int_before = count_non_int();
 
 
-        unsigned num = lra.A_r().column_count();
+        // unsigned num = lra.A_r().column_count();
         for (unsigned j : lra.r_basis()) 
             if (!lra.get_value(j).is_int())
                 patch_basic_column(j);
@@ -118,10 +118,18 @@ namespace lp {
         rational g = gcd(a1, a2, X1, Y);
         VERIFY(g == 1);
         VERIFY((X1 < 0 && Y >= 0) || (X1 > 0 && Y <= 0));
-        VERIFY(g == a1*X1 + a2*Y);
-
-        auto sign_a = a > 0 ? 1 : -1;
-        auto delta = sign_a * (x1 * a2 / x2) * X1;
+        VERIFY(g == a1*X1 + a2*Y); // so we have 1 == a1*(X1 -k*a2) + a2*(Y+k*a1)
+        // now look for two adjacent integers k, k_ such that X1 is between k*a2, and k_*a2
+        auto sign = (X1 > 0 ? 1 : -1)*(a2 > 0 ? 1 : -1);
+        rational X1_a2 = floor(abs(X1/a2));
+        rational k = sign * X1_a2;
+        rational k_ = k + sign;
+        
+        VERIFY((k*a2 <= X1 && X1 <= k_*a2) || (k*a2 >= X1 && X1 >= k_*a2));
+        
+        auto deltaMultiplier = x1*(a2/x2);
+        auto delta = deltaMultiplier*(X1 - k*a2);
+        
         if (try_patch_column(v, c.var(), delta))
             return true;
 
@@ -138,13 +146,9 @@ namespace lp {
             exit(0);
         }
 
-        auto k = ceil(abs(X1)/a2);
-        auto X2 = X1 > 0 ? X1 - k*a2 : X1 + k*a2;
-        VERIFY(X1 < 0 || X2 <= 0);
-        VERIFY(X1 > 0 || X2 >= 0);
-        //verbose_stream() << "k " << k << " " << X1 << " " << X2 << "\n";
-        auto delta2 = sign_a * (x1 * a2 / x2) * X2;
-        if (try_patch_column(v, c.var(), delta2)) 
+        delta = deltaMultiplier*(X1 - k_*a2);
+
+        if (try_patch_column(v, c.var(), delta)) 
             return true;
 
         if (s_failed_to_patch) {
