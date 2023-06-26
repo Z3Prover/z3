@@ -67,6 +67,57 @@ namespace lp {
         return lia_move::undef;
     }
 
+    
+    static bool s_failed_to_patch = false;
+    // clang-format on
+    /**
+     * \brief find integral and minimal deltas such that x - alpha*delta is integral too.
+    */
+    void get_patching_deltas(const rational& x, const rational& alpha,
+                             rational& delta_0, rational& delta_1) {
+        // std::cout << "get_patching_deltas(" << x << ", " << alpha << ")"
+        //           << std::endl;
+        auto a1 = numerator(alpha);
+        auto a2 = denominator(alpha);
+        auto x1 = numerator(x);
+        auto x2 = denominator(x);
+        // delta has to be integral.
+        // We need to find delta such that x1/x2 + (a1/a2)*delta is integral (we are going to flip the delta sign later).
+        // Then a2*x1/x2 + a1*delta is integral, that means that t = a2/x2 is
+        // integral. We established that a2 = x2*t Then x1 + a1*delta*(x2/a2)  = x1
+        // + a1*(delta/t)  is integral. Taking into account that t and a1 are
+        // coprime we have delta = t*k, where k is an integer.
+        rational t = a2 / x2;
+        // std::cout << "t = " << t << std::endl;
+        // Now we have x1/x2 + (a1/x2)*k is integral, or (x1 + a1*k)/x2 is integral.
+        // It is equivalent to x1 + a1*k = x2*m, where m is an integer
+        // We know that a2 and a1 are coprime, and x2 divides a2, so x2 and a1 are
+        // coprime.
+        rational u, v;
+        auto g = gcd(a1, x2, u, v);
+        lp_assert(g.is_one() && u.is_int() && v.is_int() && g == u * a1 + v * x2);
+        // std::cout << "u = " << u << ", v = " << v << std::endl;
+        // std::cout << "x= " << (x1 / x2) << std::endl;
+        // std::cout << "x + (a1 / a2) * (-u * t) * x1 = "
+        //           << x + (a1 / a2) * (-u * t) * x1 << std::endl;
+        lp_assert((x + (a1 / a2) * (-u * t) * x1).is_int());
+        // 1 = (u- l*x2 ) * a1 + (v + l*a1)*x2, for every integer l.
+        rational l_low, l_high;
+        auto sign = u.is_pos() ? 1 : -1;
+        auto p = sign * floor(abs(u / x2));
+        auto p_ = p + sign;
+        lp_assert(p * x2 <= u && u <= p_ * x2 || p * x2 >= u && u >= p_ * x2);
+        // std::cout << "u = " << u << ", v = " << v << std::endl;
+        // std::cout << "p = " << p << ", p_ = " << p_ << std::endl;
+        // std::cout << "u - p*x2 = " << u - p * x2 << ", u - p_*x2 = " << u - p_ * x2
+        //           << std::endl;
+        delta_0 = (u - p * x2) * t * x1;
+        delta_1 = (u - p_ * x2) * t * x1;
+
+        // std::cout << "delta_0 = " << delta_0 << std::endl;
+        // std::cout << "delta_1 = " << delta_1 << std::endl;
+    }
+    // clang-format off
     /***
      * v + r + a*j = 0
      * val(v) is rational
@@ -96,8 +147,6 @@ namespace lp {
      * Initial experiment: use bare bones case x1/x2 = a1/a2, x1/x2 = 1 - a1/a2
      */
 
-    static bool s_failed_to_patch = false;
-
     bool int_solver::patcher::patch_basic_column_on_row_cell(unsigned v, row_cell<mpq> const& c) {
         if (v == c.var())
             return false;
@@ -113,24 +162,10 @@ namespace lp {
         auto x1 = numerator(r), x2 = denominator(r);
         if (!divides(x2, a2))
             return false;
-
-        rational X1, Y;
-        rational g = gcd(a1, a2, X1, Y);
-        VERIFY(g == 1);
-        VERIFY((X1 < 0 && Y >= 0) || (X1 > 0 && Y <= 0));
-        VERIFY(g == a1*X1 + a2*Y); // so we have 1 == a1*(X1 -k*a2) + a2*(Y+k*a1)
-        // now look for two adjacent integers k, k_ such that X1 is between k*a2, and k_*a2
-        auto sign = (X1 > 0 ? 1 : -1)*(a2 > 0 ? 1 : -1);
-        rational X1_a2 = floor(abs(X1/a2));
-        rational k = sign * X1_a2;
-        rational k_ = k + sign;
+        mpq delta_0, delta_1;
+        get_patching_deltas(r, a, delta_0, delta_1);
         
-        VERIFY((k*a2 <= X1 && X1 <= k_*a2) || (k*a2 >= X1 && X1 >= k_*a2));
-        
-        auto deltaMultiplier = x1*(a2/x2);
-        auto delta = deltaMultiplier*(X1 - k*a2);
-        
-        if (try_patch_column(v, c.var(), delta))
+        if (try_patch_column(v, c.var(), delta_0))
             return true;
 
         if (s_failed_to_patch) {
@@ -138,17 +173,14 @@ namespace lp {
             verbose_stream() << "coeff: " << c.coeff() << "\n";
             verbose_stream() << "f_x " << r << "\n";
             verbose_stream() << "a " << a << "\n";
-            verbose_stream() << g << " == " << a1 << "*" << X1 << " + " << a2 << "*" << Y << "\n";
-
+            
             const auto & A = lra.A_r();
             unsigned row_index = lra.row_of_basic_column(v);
             lia.display_row(verbose_stream(), A.m_rows[row_index]);
             exit(0);
         }
 
-        delta = deltaMultiplier*(X1 - k_*a2);
-
-        if (try_patch_column(v, c.var(), delta)) 
+        if (try_patch_column(v, c.var(), delta_1)) 
             return true;
 
         if (s_failed_to_patch) {
@@ -156,8 +188,7 @@ namespace lp {
             verbose_stream() << "coeff: " << c.coeff() << "\n";
             verbose_stream() << "f_x " << r << "\n";
             verbose_stream() << "a " << a << "\n";
-            verbose_stream() << g << " == " << a1 << "*" << X1 << " + " << a2 << "*" << Y << "\n";
-
+            
             const auto & A = lra.A_r();
             unsigned row_index = lra.row_of_basic_column(v);
             lia.display_row(verbose_stream(), A.m_rows[row_index]);
