@@ -267,6 +267,7 @@ namespace {
         };
 
         void get_unsat_core(expr_ref_vector & r) override {
+
             unsigned sz = m_context.get_unsat_core_size();
             for (unsigned i = 0; i < sz; i++) {
                 r.push_back(m_context.get_unsat_core_expr(i));

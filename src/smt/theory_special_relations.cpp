@@ -888,9 +888,14 @@ namespace smt {
 
         func_decl* memf, *nextf, *connectedf;
 
+        std::string member, next, connected_sym;
+        unsigned index = r.decl()->get_parameter(0).get_int();
+        member = "member" + std::to_string(index);
+        next = "next" + std::to_string(index);
+        connected_sym = "connected" + std::to_string(index);
         {
             sort* dom[2] = { s, listS };
-            recfun::promise_def mem = p.ensure_def(symbol("member"), 2, dom, m.mk_bool_sort(), true);
+            recfun::promise_def mem = p.ensure_def(symbol(member), 2, dom, m.mk_bool_sort(), true);
             memf = mem.get_def()->get_decl();
             
             var_ref xV(m.mk_var(1, s), m);
@@ -913,7 +918,7 @@ namespace smt {
 
         {
             sort* dom[5] = { s, s, listS, listS, tup };
-            recfun::promise_def nxt = p.ensure_def(symbol("next"), 5, dom, tup, true);
+            recfun::promise_def nxt = p.ensure_def(symbol(next), 5, dom, tup, true);
             nextf = nxt.get_def()->get_decl();
             
             expr_ref next_body(m);
@@ -934,7 +939,7 @@ namespace smt {
 
         {
             sort* dom[3] = { listS, s, listS };
-            recfun::promise_def connected = p.ensure_def(symbol("connected"), 3, dom, m.mk_bool_sort(), true);
+            recfun::promise_def connected = p.ensure_def(symbol(connected_sym), 3, dom, m.mk_bool_sort(), true);
             connectedf = connected.get_def()->get_decl();
             var_ref AV(m.mk_var(2, listS), m);
             var_ref dstV(m.mk_var(1, s), m);

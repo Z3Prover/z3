@@ -58,9 +58,9 @@ struct bound_simplifier::rw : public rewriter_tpl<rw_cfg> {
 br_status bound_simplifier::reduce_app(func_decl* f, unsigned num_args, expr* const* args, expr_ref& result, proof_ref& pr) {
     rational N, hi, lo;
     if (a.is_mod(f) && num_args == 2 && a.is_numeral(args[1], N)) {
-        expr* x = args[0];
         auto& im = m_interval;
         scoped_dep_interval i(im);
+        expr* x = args[0];
         get_bounds(x, i);
         if (im.upper_is_inf(i) || im.lower_is_inf(i))
             return BR_FAILED;
@@ -83,7 +83,55 @@ br_status bound_simplifier::reduce_app(func_decl* f, unsigned num_args, expr* co
         }
         IF_VERBOSE(2, verbose_stream() << "potentially missed simplification: " << mk_pp(x, m) << " " << lo << " " << hi << " not reduced\n");
     }
-    return BR_FAILED;
+
+    expr_ref_buffer new_args(m);
+    expr_ref new_arg(m);
+    bool change = false;
+    for (unsigned i = 0; i < num_args; ++i) {
+        expr* arg = args[i];
+        change = reduce_arg(arg, new_arg) || change;
+        new_args.push_back(new_arg);
+    }
+    if (!change)
+        return BR_FAILED;
+
+    result = m.mk_app(f, num_args, new_args.data());
+
+    return BR_DONE;
+}
+
+bool bound_simplifier::reduce_arg(expr* arg, expr_ref& result) {
+    result = arg;
+    expr* x, *y;
+    rational N, lo, hi;
+    bool strict;
+    if ((a.is_le(arg, x, y) && a.is_numeral(y, N)) ||
+        (a.is_ge(arg, y, x) && a.is_numeral(y, N))) {
+
+        if (has_upper(x, hi, strict) && !strict && N >= hi) {
+            result = m.mk_true();
+            return true;
+        }
+        if (has_lower(x, lo, strict) && !strict && N < lo) {
+            result = m.mk_false();
+            return true;
+        }
+        return false;
+    }
+    
+    if ((a.is_le(arg, y, x) && a.is_numeral(y, N)) ||
+        (a.is_ge(arg, x, y) && a.is_numeral(y, N))) {
+        if (has_lower(x, lo, strict) && !strict && N <= lo) {
+            result = m.mk_true();
+            return true;
+        }
+        if (has_upper(x, hi, strict) && !strict && N > hi) {
+            result = m.mk_false();
+            return true;
+        }
+        return false;
+    }
+    return false;
 }
 
 void bound_simplifier::reduce() {

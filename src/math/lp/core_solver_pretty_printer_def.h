@@ -279,9 +279,9 @@ template <typename T, typename X> void core_solver_pretty_printer<T, X>::print()
         print_row(i);
     }
     m_out << std::endl;
-    if (m_core_solver.inf_set().size()) {
+    if (m_core_solver.inf_heap().size()) {
         m_out << "inf columns: ";
-        print_vector(m_core_solver.inf_set(), m_out);
+        print_vector(m_core_solver.inf_heap(), m_out);
         m_out << std::endl;
     }
 }

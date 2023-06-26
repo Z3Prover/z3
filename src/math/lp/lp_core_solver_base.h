@@ -28,9 +28,13 @@ Revision History:
 #include "math/lp/permutation_matrix.h"
 #include "math/lp/column_namer.h"
 #include "math/lp/u_set.h"
-
+#include "util/heap.h"
 
 namespace lp {
+struct lpvar_lt {
+  bool operator()(lpvar v1, lpvar v2) const { return v1 < v2; }
+};
+typedef heap<lpvar_lt> lpvar_heap;
 template <typename T, typename X>
 X dot_product(const vector<T> & a, const vector<X> & b) {
     lp_assert(a.size() == b.size());
@@ -51,24 +55,24 @@ private:
 public:
     bool current_x_is_feasible() const {
         TRACE("feas",
-              if (m_inf_set.size()) {
-                  tout << "column " << *m_inf_set.begin() << " is infeasible" << std::endl;
-                  print_column_info(*m_inf_set.begin(), tout);
+              if (m_inf_heap.size()) {
+                  tout << "column " << *m_inf_heap.begin() << " is infeasible" << std::endl;
+                  print_column_info(*m_inf_heap.begin(), tout);
               } else {
                   tout << "x is feasible\n";
               }
               );
-        return m_inf_set.size() == 0;
+        return m_inf_heap.empty();
     }
-    bool current_x_is_infeasible() const { return m_inf_set.size() != 0; }
+    bool current_x_is_infeasible() const { return m_inf_heap.size() != 0; }
 private:
-    u_set m_inf_set;
+    lpvar_heap m_inf_heap;
 public:
-    const u_set& inf_set() const { return m_inf_set; }
-    u_set& inf_set() { return m_inf_set; }
-    void inf_set_increase_size_by_one() { m_inf_set.increase_size_by_one(); }
-    bool inf_set_contains(unsigned j) const { return m_inf_set.contains(j); }
-    unsigned inf_set_size() const { return m_inf_set.size(); }    
+    const lpvar_heap& inf_heap() const { return m_inf_heap; }
+    lpvar_heap& inf_heap() { return m_inf_heap; }
+    void inf_heap_increase_size_by_one() { m_inf_heap.reserve(m_inf_heap.size() + 1); }
+    bool inf_heap_contains(unsigned j) const { return m_inf_heap.contains(j); }
+    unsigned inf_heap_size() const { return m_inf_heap.size(); }    
     indexed_vector<T>     m_pivot_row; // this is the real pivot row of the simplex tableu
     static_matrix<T, X> & m_A; // the matrix A
     // vector<X> const &           m_b; // the right side
@@ -255,7 +259,7 @@ public:
 
     bool calc_current_x_is_feasible_include_non_basis() const;
 
-    bool inf_set_is_correct() const;
+    bool inf_heap_is_correct() const;
     
     bool column_is_dual_feasible(unsigned j) const;
 
@@ -526,8 +530,8 @@ public:
         swap(m_basis_heading, m_basis[i], m_basis[ii]);
     }
 
-    bool column_is_in_inf_set(unsigned j) const {
-        return m_inf_set.contains(j);
+    bool column_is_in_inf_heap(unsigned j) const {
+        return m_inf_heap.contains(j);
     }
 
     bool column_is_base(unsigned j) const {
@@ -560,29 +564,26 @@ public:
    
     void track_column_feasibility(unsigned j) {
         if (column_is_feasible(j))
-            remove_column_from_inf_set(j);
+            remove_column_from_inf_heap(j);
         else
-            insert_column_into_inf_set(j);
+            insert_column_into_inf_heap(j);
     }
-    void insert_column_into_inf_set(unsigned j) {
+    void insert_column_into_inf_heap(unsigned j) {
         TRACE("lar_solver", tout << "j = " << j << "\n";);
-        m_inf_set.insert(j);
+		if (!m_inf_heap.contains(j))
+	        m_inf_heap.insert(j);
         lp_assert(!column_is_feasible(j));
     }
-    void remove_column_from_inf_set(unsigned j) {
+    void remove_column_from_inf_heap(unsigned j) {
         TRACE("lar_solver", tout << "j = " << j << "\n";);
-        m_inf_set.erase(j);
+		if (m_inf_heap.contains(j))
+        	m_inf_heap.erase(j);
         lp_assert(column_is_feasible(j));
     }
 
-    void resize_inf_set(unsigned size) {
+    void clear_inf_heap() {
         TRACE("lar_solver",);
-        m_inf_set.resize(size);
-    }
-
-    void clear_inf_set() {
-        TRACE("lar_solver",);
-        m_inf_set.clear();
+        m_inf_heap.clear();
     }
     
     bool costs_on_nbasis_are_zeros() const {

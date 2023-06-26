@@ -3337,6 +3337,7 @@ namespace smt {
         reset_assumptions();
         m_literal2assumption.reset();
         m_unsat_core.reset();
+
         if (!asms.empty()) {
             // We must give a chance to the theories to propagate before we create a new scope...
             propagate();
@@ -3346,6 +3347,7 @@ namespace smt {
                 return;
             if (get_cancel_flag())
                 return;
+            del_inactive_lemmas();
             push_scope();
             vector<std::pair<expr*,expr_ref>> asm2proxy;
             internalize_proxies(asms, asm2proxy);

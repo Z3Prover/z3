@@ -969,7 +969,6 @@ namespace smt {
     }
 
     model_value_proc * theory_array_base::mk_value(enode * n, model_generator & mg) {
-        SASSERT(ctx.is_relevant(n));
         theory_var v       = n->get_th_var(get_id());
         SASSERT(v != null_theory_var);
         sort * s           = n->get_expr()->get_sort();

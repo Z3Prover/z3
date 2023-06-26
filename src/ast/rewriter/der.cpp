@@ -176,9 +176,9 @@ void der::reduce1(quantifier * q, expr_ref & r, proof_ref & pr) {
     var * v = nullptr;
     expr_ref t(m);
 
-    if (is_forall(q) && is_var_diseq(e, num_decls, v, t) && !occurs(v, t))
+    if (is_forall(q) && is_var_diseq(e, num_decls, v, t) && !has_quantifiers(t) && !occurs(v, t))
         r = m.mk_false();
-    else if (is_exists(q) && is_var_eq(e, num_decls, v, t) && !occurs(v, t))
+    else if (is_exists(q) && is_var_eq(e, num_decls, v, t) && !has_quantifiers(t) && !occurs(v, t))
         r = m.mk_true();
     else {
         expr_ref_vector literals(m);

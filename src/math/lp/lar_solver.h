@@ -94,7 +94,7 @@ class lar_solver : public column_namer {
     // these are basic columns with the value changed, so the corresponding row in the tableau
     // does not sum to zero anymore
     u_set                                               m_incorrect_columns;
-    // copy of m_r_solver.inf_set()
+    // copy of m_r_solver.inf_heap()
     unsigned_vector                                     m_inf_index_copy;
     stacked_value<unsigned>                             m_term_count;
     vector<lar_term*>                                   m_terms;
@@ -178,7 +178,9 @@ class lar_solver : public column_namer {
             bp);
     }
     
+    static void clean_popped_elements_for_heap(unsigned n, lpvar_heap& set);
     static void clean_popped_elements(unsigned n, u_set& set);
+    
     bool maximize_term_on_tableau(const lar_term & term,
                                   impq &term_max);
     bool costs_are_zeros_for_r_solver() const;
@@ -230,7 +232,7 @@ class lar_solver : public column_namer {
     void remove_last_column_from_basis_tableau(unsigned j);
     void remove_last_column_from_tableau();
     void pop_tableau();
-    void clean_inf_set_of_r_solver_after_pop();
+    void clean_inf_heap_of_r_solver_after_pop();
     inline bool column_value_is_integer(unsigned j) const { return get_column_value(j).is_int(); }
     bool model_is_int_feasible() const;
     
@@ -386,14 +388,15 @@ public:
         return tv::is_term(idx)?
             m_term_register.local_to_external(idx) : m_var_register.local_to_external(idx);
     }
+   
     bool column_corresponds_to_term(unsigned) const;
     inline unsigned row_count() const { return A_r().row_count(); }
     bool var_is_registered(var_index vj) const;
-    void clear_inf_set() {
-        m_mpq_lar_core_solver.m_r_solver.inf_set().clear();        
+    void clear_inf_heap() {
+        m_mpq_lar_core_solver.m_r_solver.inf_heap().clear();        
     }
-    inline void remove_column_from_inf_set(unsigned j) {
-        m_mpq_lar_core_solver.m_r_solver.remove_column_from_inf_set(j);
+    inline void remove_column_from_inf_heap(unsigned j) {
+        m_mpq_lar_core_solver.m_r_solver.remove_column_from_inf_heap(j);
     }
     template <typename ChangeReport>
     void change_basic_columns_dependend_on_a_given_nb_column_report(unsigned j,
@@ -506,7 +509,7 @@ public:
     bool init_model() const;
     mpq get_value(column_index const& j) const;
     mpq get_tv_value(tv const& t) const;
-    impq get_tv_ivalue(tv const& t) const;
+    const impq & get_tv_ivalue(tv const& t) const;
     void get_model(std::unordered_map<var_index, mpq> & variable_values) const;
     void get_rid_of_inf_eps();
     void get_model_do_not_care_about_diff_vars(std::unordered_map<var_index, mpq> & variable_values) const;

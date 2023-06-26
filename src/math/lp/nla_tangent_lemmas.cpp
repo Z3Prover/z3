@@ -75,8 +75,8 @@ private:
         c().negate_relation(lemma, m_jy, m_y.rat_sign()*pl.y);
 #if Z3DEBUG
         SASSERT(c().val(m_x) == m_xy.x && c().val(m_y) == m_xy.y);
-        int mult_sign = nla::rat_sign(pl.x - m_xy.x)*nla::rat_sign(pl.y - m_xy.y);
-        SASSERT((mult_sign == 1) == m_below);
+        // int mult_sign = nla::rat_sign(pl.x - m_xy.x)*nla::rat_sign(pl.y - m_xy.y);
+        SASSERT((nla::rat_sign(pl.x - m_xy.x)*nla::rat_sign(pl.y - m_xy.y) == 1) == m_below);
         // If "mult_sign is 1"  then (a - x)(b-y) > 0 and ab - bx - ay + xy > 0
         // or -ab + bx + ay < xy or -ay - bx + xy > -ab
         // val(j) stands for xy. So, finally we have  -ay - bx + j > - ab

@@ -37,6 +37,7 @@ void lp_primal_core_solver<T, X>::sort_non_basis() {
                 unsigned ca = this->m_A.number_of_non_zeroes_in_column(a);
                 unsigned cb = this->m_A.number_of_non_zeroes_in_column(b);
                 if (ca == 0 && cb != 0) return false;
+                if (ca != 0 && cb == 0) return true;
                 return ca < cb;
             });
      

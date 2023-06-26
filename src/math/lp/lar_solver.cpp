@@ -244,6 +244,14 @@ namespace lp {
             set.erase(j);
     }
 
+    void lar_solver::clean_popped_elements_for_heap(unsigned n, lpvar_heap& heap) {
+        vector<int> to_remove;
+        for (unsigned j : heap)
+            if (j >= n)
+                to_remove.push_back(j);
+        for (unsigned j : to_remove)
+            heap.erase(j);
+    }
     
 
     void lar_solver::pop(unsigned k) {
@@ -271,7 +279,7 @@ namespace lp {
 
         unsigned m = A_r().row_count();
         clean_popped_elements(m, m_rows_with_changed_bounds);
-        clean_inf_set_of_r_solver_after_pop();
+        clean_inf_heap_of_r_solver_after_pop();
         lp_assert(
             m_settings.simplex_strategy() == simplex_strategy_enum::undecided ||
             m_mpq_lar_core_solver.m_r_solver.reduced_costs_are_correct_tableau());
@@ -328,7 +336,7 @@ namespace lp {
 
     void lar_solver::set_costs_to_zero(const lar_term& term) {
         auto& rslv = m_mpq_lar_core_solver.m_r_solver;
-        auto& jset = m_mpq_lar_core_solver.m_r_solver.inf_set(); // hijack this set that should be empty right now
+        auto& jset = m_mpq_lar_core_solver.m_r_solver.inf_heap(); // hijack this set that should be empty right now
         lp_assert(jset.empty());
 
         for (lar_term::ival p : term) {
@@ -674,9 +682,9 @@ namespace lp {
     void lar_solver::update_x_and_inf_costs_for_column_with_changed_bounds(unsigned j) {
         if (m_mpq_lar_core_solver.m_r_heading[j] >= 0) {
             if (costs_are_used()) {
-                bool was_infeas = m_mpq_lar_core_solver.m_r_solver.inf_set_contains(j);
+                bool was_infeas = m_mpq_lar_core_solver.m_r_solver.inf_heap_contains(j);
                 m_mpq_lar_core_solver.m_r_solver.track_column_feasibility(j);
-                if (was_infeas != m_mpq_lar_core_solver.m_r_solver.inf_set_contains(j))
+                if (was_infeas != m_mpq_lar_core_solver.m_r_solver.inf_heap_contains(j))
                     m_basic_columns_with_changed_cost.insert(j);
             }
             else {
@@ -1034,14 +1042,10 @@ namespace lp {
             r += p.coeff() * get_value(p.column());
         return r;
     }
-
-    impq lar_solver::get_tv_ivalue(tv const& t) const {
-        if (t.is_var())
-            return get_column_value(t.column());
-        impq r;
-        for (lar_term::ival p : get_term(t)) 
-            r += p.coeff() * get_column_value(p.column());
-        return r;
+    //fetches the cached value of the term or the variable by the given index
+    const impq& lar_solver::get_tv_ivalue(tv const& t) const {
+        unsigned j = t.is_var()? (unsigned)t.column(): this->map_term_index_to_column_index(t.index());
+        return this->get_column_value(j);
     }
 
     void lar_solver::get_rid_of_inf_eps() {
@@ -1297,12 +1301,12 @@ namespace lp {
         lp_assert(m_mpq_lar_core_solver.m_r_solver.basis_heading_is_correct());
     }
 
-    void lar_solver::clean_inf_set_of_r_solver_after_pop() {
+    void lar_solver::clean_inf_heap_of_r_solver_after_pop() {
         vector<unsigned> became_feas;
-        clean_popped_elements(A_r().column_count(), m_mpq_lar_core_solver.m_r_solver.inf_set());
+        clean_popped_elements_for_heap(A_r().column_count(), m_mpq_lar_core_solver.m_r_solver.inf_heap());
         std::unordered_set<unsigned> basic_columns_with_changed_cost;
         m_inf_index_copy.reset();
-        for (auto j : m_mpq_lar_core_solver.m_r_solver.inf_set())
+        for (auto j : m_mpq_lar_core_solver.m_r_solver.inf_heap())
             m_inf_index_copy.push_back(j);
         for (auto j : m_inf_index_copy) {
             if (m_mpq_lar_core_solver.m_r_heading[j] >= 0) {
@@ -1320,16 +1324,16 @@ namespace lp {
             lp_assert(m_mpq_lar_core_solver.m_r_solver.m_basis_heading[j] < 0);
             m_mpq_lar_core_solver.m_r_solver.m_d[j] -= m_mpq_lar_core_solver.m_r_solver.m_costs[j];
             m_mpq_lar_core_solver.m_r_solver.m_costs[j] = zero_of_type<mpq>();
-            m_mpq_lar_core_solver.m_r_solver.remove_column_from_inf_set(j);
+            m_mpq_lar_core_solver.m_r_solver.remove_column_from_inf_heap(j);
         }
         became_feas.clear();
-        for (unsigned j : m_mpq_lar_core_solver.m_r_solver.inf_set()) {
+        for (unsigned j : m_mpq_lar_core_solver.m_r_solver.inf_heap()) {
             lp_assert(m_mpq_lar_core_solver.m_r_heading[j] >= 0);
             if (m_mpq_lar_core_solver.m_r_solver.column_is_feasible(j))
                 became_feas.push_back(j);
         }
         for (unsigned j : became_feas)
-            m_mpq_lar_core_solver.m_r_solver.remove_column_from_inf_set(j);
+            m_mpq_lar_core_solver.m_r_solver.remove_column_from_inf_heap(j);
 
     }
 
@@ -1508,7 +1512,7 @@ namespace lp {
         m_mpq_lar_core_solver.m_r_x.resize(j + 1);
         m_mpq_lar_core_solver.m_r_lower_bounds.increase_size_by_one();
         m_mpq_lar_core_solver.m_r_upper_bounds.increase_size_by_one();
-        m_mpq_lar_core_solver.m_r_solver.inf_set_increase_size_by_one();
+        m_mpq_lar_core_solver.m_r_solver.inf_heap_increase_size_by_one();
         m_mpq_lar_core_solver.m_r_solver.m_costs.resize(j + 1);
         m_mpq_lar_core_solver.m_r_solver.m_d.resize(j + 1);
         lp_assert(m_mpq_lar_core_solver.m_r_heading.size() == j); // as A().column_count() on the entry to the method

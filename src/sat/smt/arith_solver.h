@@ -145,13 +145,11 @@ namespace arith {
             expr_ref_vector     m_terms;
             vector<rational>    m_coeffs;
             svector<theory_var> m_vars;
-            rational            m_offset;
             ptr_vector<expr>    m_to_ensure_enode, m_to_ensure_var;
             internalize_state(ast_manager& m) : m_terms(m) {}
             void reset() {
                 m_terms.reset();
                 m_coeffs.reset();
-                m_offset.reset();
                 m_vars.reset();
                 m_to_ensure_enode.reset();
                 m_to_ensure_var.reset();
@@ -178,7 +176,6 @@ namespace arith {
             expr_ref_vector& terms() { return m_st.m_terms; }
             vector<rational>& coeffs() { return m_st.m_coeffs; }
             svector<theory_var>& vars() { return m_st.m_vars; }
-            rational& offset() { return m_st.m_offset; }
             ptr_vector<expr>& to_ensure_enode() { return m_st.m_to_ensure_enode; }
             ptr_vector<expr>& to_ensure_var() { return m_st.m_to_ensure_var; }
             void push(expr* e, rational c) { m_st.m_terms.push_back(e); m_st.m_coeffs.push_back(c); }
@@ -290,6 +287,7 @@ namespace arith {
         void ensure_arg_vars(app* t);
         theory_var internalize_power(app* t, app* n, unsigned p);
         theory_var internalize_mul(app* t);
+        theory_var internalize_numeral(app* t, rational const& v);
         theory_var internalize_def(expr* term);
         theory_var internalize_def(expr* term, scoped_internalize_state& st);
         theory_var internalize_linearized_def(expr* term, scoped_internalize_state& st);

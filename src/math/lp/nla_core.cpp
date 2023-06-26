@@ -166,7 +166,9 @@ bool core::check_monic(const monic& m) const {
     if (!is_relevant(m.var()))
         return true;
 #endif
-    SASSERT((!m_lar_solver.column_is_int(m.var())) || m_lar_solver.get_column_value(m.var()).is_int());
+    if (m_lar_solver.column_is_int(m.var()) && m_lar_solver.get_column_value(m.var()).is_int())
+        return true;
+    
     bool ret = product_value(m) == m_lar_solver.get_column_value(m.var()).x; 
     CTRACE("nla_solver_check_monic", !ret, print_monic(m, tout) << '\n';);
     return ret;
@@ -1436,7 +1438,7 @@ void core::patch_monomials() {
     } else {
         m_lar_solver.pop();
         restore_tableau();
-        m_lar_solver.clear_inf_set();
+        m_lar_solver.clear_inf_heap();
     }
     SASSERT(m_lar_solver.ax_is_correct());
 }
