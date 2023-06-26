@@ -25,6 +25,9 @@ Notes:
 #include "solver/tactic2solver.h"
 #include "solver/solver_na2as.h"
 #include "solver/mus.h"
+#include "smt/params/smt_params.h"
+#include "smt/params/smt_params_helper.hpp"
+
 
 /**
    \brief Simulates the incremental solver interface using a tactic.
@@ -48,6 +51,7 @@ class tactic2solver : public solver_na2as {
     bool                         m_produce_proofs;
     bool                         m_produce_unsat_cores;
     statistics                   m_stats;
+    bool                         m_minimizing = false;
     
 public:
     tactic2solver(ast_manager & m, tactic * t, params_ref const & p, bool produce_proofs, bool produce_models, bool produce_unsat_cores, symbol const & logic);
@@ -173,6 +177,7 @@ tactic2solver::~tactic2solver() {
 
 void tactic2solver::updt_params(params_ref const & p) {
     solver::updt_params(p);
+    m_produce_unsat_cores |= p.get_bool("unsat_core", false);
 }
 
 void tactic2solver::collect_param_descrs(param_descrs & r) {
@@ -309,6 +314,16 @@ void tactic2solver::collect_statistics(statistics & st) const {
 void tactic2solver::get_unsat_core(expr_ref_vector & r) {
     if (m_result.get()) {
         m_result->get_unsat_core(r);
+        if (!m_minimizing && smt_params_helper(get_params()).core_minimize()) {
+            flet<bool> minimizing(m_minimizing, true);
+            mus mus(*this);
+            mus.add_soft(r.size(), r.data());
+            expr_ref_vector r2(m);
+            if (l_true == mus.get_mus(r2)) {
+                r.reset();
+                r.append(r2);
+            }
+        }
     }
 }
 
