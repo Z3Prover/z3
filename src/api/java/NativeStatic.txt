@@ -226,6 +226,7 @@ DLL_VIS JNIEXPORT void JNICALL Java_com_microsoft_z3_Native_propagateAdd(JNIEnv 
   }
 }
 
+
 DLL_VIS JNIEXPORT bool JNICALL Java_com_microsoft_z3_Native_propagateNextSplit(JNIEnv * jenv, jclass cls, jobject jobj, jlong ctx, jlong solver, jlong javainfo, jlong e, long idx, int phase) {
   JavaInfo *info = (JavaInfo*)javainfo;
   Z3_solver_callback cb = info->cb;
