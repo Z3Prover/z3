@@ -111,8 +111,15 @@ namespace lp {
         // std::cout << "p = " << p << ", p_ = " << p_ << std::endl;
         // std::cout << "u - p*x2 = " << u - p * x2 << ", u - p_*x2 = " << u - p_ * x2
         //           << std::endl;
-        delta_0 = (u - p * x2) * t * x1;
-        delta_1 = (u - p_ * x2) * t * x1;
+        mpq d_0 = (u - p * x2) * t * x1;
+        mpq d_1 = (u - p_ * x2) * t * x1;
+        if (abs(d_0) < abs(d_1)) {
+            delta_0 = d_0;
+            delta_1 = d_1;
+        } else {
+            delta_0 = d_1;
+            delta_1 = d_0;
+        }
 
         // std::cout << "delta_0 = " << delta_0 << std::endl;
         // std::cout << "delta_1 = " << delta_1 << std::endl;
