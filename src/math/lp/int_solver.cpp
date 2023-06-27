@@ -174,10 +174,7 @@ namespace lp {
             if (old_val.is_int() && !new_val.is_int()){
                 return false; // do not waste resources on this case
             }
-            
             lp_assert(i != v || new_val.is_int())
-                
-            
         }
         
         lra.set_value_for_nbasic_column(j, lia.get_value(j) + impq(delta));
