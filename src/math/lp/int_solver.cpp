@@ -67,23 +67,23 @@ namespace lp {
         return lia_move::undef;
     }
 
-    
-    static bool s_failed_to_patch = false;
     // clang-format on
     /**
-     * \brief find integral and minimal deltas such that x - alpha*delta is integral too.
+     * \brief find integral and minimal, in the absolute values, deltas such that x - alpha*delta is integral too.
     */
-    void get_patching_deltas(const rational& x, const rational& alpha,
+    bool get_patching_deltas(const rational& x, const rational& alpha,
                              rational& delta_0, rational& delta_1) {
-        // std::cout << "get_patching_deltas(" << x << ", " << alpha << ")"
-        //           << std::endl;
         auto a1 = numerator(alpha);
         auto a2 = denominator(alpha);
         auto x1 = numerator(x);
         auto x2 = denominator(x);
+        if (!divides(x2, a2))
+            return false;
+
         // delta has to be integral.
         // We need to find delta such that x1/x2 + (a1/a2)*delta is integral (we are going to flip the delta sign later).
-        // Then a2*x1/x2 + a1*delta is integral, that means that t = a2/x2 is
+        // Then a2*x1/x2 + a1*delta is integral, but x2 and x1 are coprime:
+        // that means that t = a2/x2 is
         // integral. We established that a2 = x2*t Then x1 + a1*delta*(x2/a2)  = x1
         // + a1*(delta/t)  is integral. Taking into account that t and a1 are
         // coprime we have delta = t*k, where k is an integer.
@@ -92,10 +92,10 @@ namespace lp {
         // Now we have x1/x2 + (a1/x2)*k is integral, or (x1 + a1*k)/x2 is integral.
         // It is equivalent to x1 + a1*k = x2*m, where m is an integer
         // We know that a2 and a1 are coprime, and x2 divides a2, so x2 and a1 are
-        // coprime.
+        // coprime. We can find u and v such that u*a1 + v*x2 = 1.
         rational u, v;
-        auto g = gcd(a1, x2, u, v);
-        lp_assert(g.is_one() && u.is_int() && v.is_int() && g == u * a1 + v * x2);
+        gcd(a1, x2, u, v);
+        lp_assert(gcd(a1, x2, u, v).is_one());
         // std::cout << "u = " << u << ", v = " << v << std::endl;
         // std::cout << "x= " << (x1 / x2) << std::endl;
         // std::cout << "x + (a1 / a2) * (-u * t) * x1 = "
@@ -120,40 +120,14 @@ namespace lp {
             delta_0 = d_1;
             delta_1 = d_0;
         }
-
+        return true;
         // std::cout << "delta_0 = " << delta_0 << std::endl;
         // std::cout << "delta_1 = " << delta_1 << std::endl;
     }
     // clang-format off
-    /***
-     * v + r + a*j = 0
-     * val(v) is rational
-     * a is rational
-     * val(j) is integer
-     * find min delta > 0 such that frac(a*delta) = frac(val(v)) 
-     * then r + a*(j - delta) is an integer
-     * find min delta > 0 such that frac(a*-delta) = frac(val(v))
-     * then r + a*(j + delta) is an integer
-     * 
-     * Note: frac(a*delta) = frac(frac(a)*delta)
-     * Let x1/x2 = frac(val(v))
-     * let a1/a2 = frac(a)
-     *
-     * x1/x2 = frac(a1*delta/a2)
-     * requires that a2 | x2, otherwise not possible.
-     * 
-     * x2 = a2, 0 < x1 < a2 
-     *  -> x1 = a1*delta mod a2
-     *  -> x1 = a1*delta + a2*gamma
-     * let g, x, y = extended_gcd(a1, a2)
-     * a1*x + a2*y = g
-     * if g does not divide x1 then no solution.
-     * therefore assume g | x1
-     * Set delta = x*x1/g
-     * 
-     * Initial experiment: use bare bones case x1/x2 = a1/a2, x1/x2 = 1 - a1/a2
+    /**
+     * \brief try to patch the basic column v
      */
-
     bool int_solver::patcher::patch_basic_column_on_row_cell(unsigned v, row_cell<mpq> const& c) {
         if (v == c.var())
             return false;
@@ -163,52 +137,23 @@ namespace lp {
             return false;
         mpq a = fractional_part(c.coeff());
         mpq r = fractional_part(lra.get_value(v));
-        VERIFY(0 < r && r < 1);
-        VERIFY(0 < a && a < 1);
-        auto a1 = numerator(a), a2 = denominator(a);
-        auto x1 = numerator(r), x2 = denominator(r);
-        if (!divides(x2, a2))
-            return false;
+        lp_assert(0 < r && r < 1);
+        lp_assert(0 < a && a < 1);
         mpq delta_0, delta_1;
-        get_patching_deltas(r, a, delta_0, delta_1);
+        if (!get_patching_deltas(r, a, delta_0, delta_1))
+            return false;
         
         if (try_patch_column(v, c.var(), delta_0))
             return true;
 
-        if (s_failed_to_patch) {
-            verbose_stream() << "beta(x) " << lra.get_value(v) << "\n";
-            verbose_stream() << "coeff: " << c.coeff() << "\n";
-            verbose_stream() << "f_x " << r << "\n";
-            verbose_stream() << "a " << a << "\n";
-            
-            const auto & A = lra.A_r();
-            unsigned row_index = lra.row_of_basic_column(v);
-            lia.display_row(verbose_stream(), A.m_rows[row_index]);
-            exit(0);
-        }
-
         if (try_patch_column(v, c.var(), delta_1)) 
             return true;
-
-        if (s_failed_to_patch) {
-            verbose_stream() << "beta(x) " << lra.get_value(v) << "\n";
-            verbose_stream() << "coeff: " << c.coeff() << "\n";
-            verbose_stream() << "f_x " << r << "\n";
-            verbose_stream() << "a " << a << "\n";
-            
-            const auto & A = lra.A_r();
-            unsigned row_index = lra.row_of_basic_column(v);
-            lia.display_row(verbose_stream(), A.m_rows[row_index]);
-            exit(0);
-        }
-
        
         return false;
     }
 
     bool int_solver::patcher::try_patch_column(unsigned v, unsigned j, mpq const& delta) {
         const auto & A = lra.A_r();
-        unsigned make_count = 0, break_count = 0;
         if (delta < 0) {
             if (lia.has_lower(j) && lia.get_value(j) + impq(delta) < lra.get_lower_bound(j))
                 return false;
@@ -226,28 +171,18 @@ namespace lp {
                 return false;
             if (lia.has_upper(i) && new_val > lra.get_upper_bound(i))
                 return false;
-            if (old_val.is_int() && !new_val.is_int())
-                break_count++;
-            else if (!old_val.is_int() && new_val.is_int())
-                make_count++;
-            if (i == v && !new_val.is_int())
-                s_failed_to_patch = true;            
+            if (old_val.is_int() && !new_val.is_int()){
+                return false; // do not waste resources on this case
+            }
+            
+            lp_assert(i != v || new_val.is_int())
+                
             
         }
-        if (make_count > break_count) {
-#if 0
-            for (auto const& c : A.column(j)) {
-                unsigned row_index = c.var();
-                unsigned i = lrac.m_r_basis[row_index];
-                verbose_stream() << "basis " << i << "\n";
-            }
-            verbose_stream() << j << " delta " << delta << " make " << make_count << " break " << break_count << "\n";
-            lra.display(verbose_stream());
-#endif
-            lra.set_value_for_nbasic_column(j, lia.get_value(j) + impq(delta));
-            return true;
-        }
-        return false;
+        
+        lra.set_value_for_nbasic_column(j, lia.get_value(j) + impq(delta));
+         
+        return true;
     }
     
     void int_solver::patcher::patch_basic_column(unsigned v) {
