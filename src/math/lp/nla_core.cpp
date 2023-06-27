@@ -166,7 +166,7 @@ bool core::check_monic(const monic& m) const {
     if (!is_relevant(m.var()))
         return true;
 #endif
-    if (m_lar_solver.column_is_int(m.var()) && m_lar_solver.get_column_value(m.var()).is_int())
+    if (m_lar_solver.column_is_int(m.var()) && !m_lar_solver.get_column_value(m.var()).is_int())
         return true;
     
     bool ret = product_value(m) == m_lar_solver.get_column_value(m.var()).x; 
