@@ -26,6 +26,7 @@ Notes:
 
 #include "ast/ast.h"
 #include "ast/is_variable_test.h"
+#include "ast/expr_functors.h"
 #include "util/plugin_manager.h"
 #include "qe/mbp/mbp_solve_plugin.h"
 #include "model/model.h"
@@ -61,6 +62,16 @@ namespace mbp {
             }
         };
 
+        class is_non_core : public i_expr_pred {
+            std::function<bool(expr*)> *m_non_core;
+            public:
+            is_non_core(std::function<bool(expr*)> *nc): m_non_core(nc) {}
+            bool operator()(expr *n) override {
+                if (m_non_core == nullptr) return false;
+                return (*m_non_core)(n);
+            }
+        };
+
         struct term_hash { unsigned operator()(term const* t) const; };
         struct term_eq { bool operator()(term const* a, term const* b) const; };
         ast_manager &     m;
@@ -77,6 +88,7 @@ namespace mbp {
         vector<std::pair<term*,term*>> m_merge;
 
         term_graph::is_variable_proc m_is_var;
+
         void merge(term &t1, term &t2);
         void merge_flush();
 
@@ -108,6 +120,7 @@ namespace mbp {
         expr_ref mk_app(expr *a);
         void mk_equalities(term &t, expr_ref_vector &out);
         void mk_all_equalities(term &t, expr_ref_vector &out);
+        void mk_qe_lite_equalities(term &t, expr_ref_vector &out, check_pred& not_in_core);
         void display(std::ostream &out);
 
         bool is_pure_def(expr* atom, expr *& v);
@@ -137,6 +150,7 @@ namespace mbp {
         // deprecate?
         void to_lits(expr_ref_vector &lits, bool all_equalities = false,
                      bool repick_repr = true);
+        void to_lits_qe_lite(expr_ref_vector &lits, std::function<bool(expr*)> *non_core = nullptr);
         expr_ref to_expr(bool repick_repr = true);
 
         /**
