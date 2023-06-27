@@ -457,7 +457,34 @@ namespace mbp {
         }
     }
 
-    bool term_graph::is_internalized(expr *a) {
+  // collect expressions of all terms in the term graph
+  // optionally, exclude constructively ground nodes that are not equalities
+  // overwrites res
+  void term_graph::get_terms(expr_ref_vector& res, bool exclude_cground) {
+    std::function<bool(term*)> fil = nullptr;
+    if (exclude_cground) {
+      fil = [](term* t) {
+        return !t->is_neq_child() && (t->is_eq_or_peq() || !t->is_cgr());
+      };
+    }
+    else {
+      fil = [](term* t) {
+        return !t->is_neq_child();
+      };
+    }
+    auto terms = m_terms.filter_pure(fil);
+    res.resize(terms.size());
+    unsigned i = 0;
+    for (term* t : terms) res[i++] = t->get_expr();
+  }
+
+  bool term_graph::is_cgr(expr *e) {
+    if (!is_internalized(e)) return false;
+    term* t = get_term(e);
+    return (!t->is_eq_or_peq() && t->is_cgr());
+  }
+
+  bool term_graph::is_internalized(expr *a) {
         return m_app2term.contains(a->get_id());
     }
 
