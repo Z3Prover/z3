@@ -3,6 +3,7 @@ z3_add_component(ast
     act_cache.cpp
     arith_decl_plugin.cpp
     array_decl_plugin.cpp
+    array_peq.cpp
     ast.cpp
     ast_ll_pp.cpp
     ast_lt.cpp
