@@ -30,7 +30,7 @@ namespace sat {
 
     typedef svector<bool_var> bool_var_vector;
 
-    const bool_var null_bool_var  = UINT_MAX >> 1;
+    inline constexpr bool_var null_bool_var = UINT_MAX >> 1;
 
     /**
        \brief The literal b is represented by the value 2*b, and
@@ -39,8 +39,11 @@ namespace sat {
     class literal {
         unsigned  m_val;
     public:
-        literal():m_val(null_bool_var << 1) {
-            SASSERT(var() == null_bool_var && !sign());
+        constexpr literal(): m_val(null_bool_var << 1) {
+#ifdef Z3DEBUG
+            assert(var() == null_bool_var);
+            assert(!sign());
+#endif
         }
 
         explicit literal(bool_var v, bool _sign = false):
@@ -49,11 +52,11 @@ namespace sat {
             SASSERT(sign() == _sign);
         }
 
-        bool_var var() const {
+        constexpr bool_var var() const {
             return m_val >> 1;
         }
 
-        bool sign() const {
+        constexpr bool sign() const {
             return m_val & 1ul;
         }
 
@@ -86,7 +89,7 @@ namespace sat {
         friend bool operator!=(literal const & l1, literal const & l2);
     };
 
-    const literal null_literal;
+    inline constexpr literal null_literal;
     using literal_hash = obj_hash<literal>;
 
     inline literal to_literal(unsigned x) { literal l; l.m_val = x; return l; }

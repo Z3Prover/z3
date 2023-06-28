@@ -62,6 +62,8 @@ namespace polysat {
         m_size.push_back(1);
         m_next.push_back(s);
         m_slice2var.push_back(null_var);
+        m_proof_parent.push_back(null_slice);
+        m_proof_reason.push_back(null_dep);
         m_trail.push_back(trail_item::alloc_slice);
         return s;
     }
@@ -74,6 +76,8 @@ namespace polysat {
         m_size.pop_back();
         m_next.pop_back();
         m_slice2var.pop_back();
+        m_proof_parent.pop_back();
+        m_proof_reason.pop_back();
     }
 
     slicing::slice slicing::find_sub_hi(slice parent) const {
@@ -89,13 +93,13 @@ namespace polysat {
     void slicing::split(slice s, unsigned cut) {
         SASSERT(!has_sub(s));
         SASSERT(width(s) - 1 >= cut + 1);
-        slice const sub1 = alloc_slice();
-        slice const sub2 = alloc_slice();
+        slice const sub_hi = alloc_slice();
+        slice const sub_lo = alloc_slice();
         m_slice_cut[s] = cut;
-        m_slice_sub[s] = sub1;
-        SASSERT_EQ(sub2, sub1 + 1);
-        m_slice_width[sub1] = width(s) - cut - 1;
-        m_slice_width[sub2] = cut + 1;
+        m_slice_sub[s] = sub_hi;
+        SASSERT_EQ(sub_lo, sub_hi + 1);
+        m_slice_width[sub_hi] = width(s) - cut - 1;
+        m_slice_width[sub_lo] = cut + 1;
         m_trail.push_back(trail_item::split_slice);
         m_split_trail.push_back(s);
     }
@@ -117,16 +121,18 @@ namespace polysat {
         }
     }
 
-    void slicing::merge_base(slice s1, slice s2) {
+    bool slicing::merge_base(slice s1, slice s2, dep_t dep) {
         SASSERT_EQ(width(s1), width(s2));
         SASSERT(!has_sub(s1));
         SASSERT(!has_sub(s2));
         slice r1 = find(s1);
         slice r2 = find(s2);
         if (r1 == r2)
-            return;
-        if (m_size[r1] > m_size[r2])
+            return true;
+        if (m_size[r1] > m_size[r2]) {
             std::swap(r1, r2);
+            std::swap(s1, s2);
+        }
         // r2 becomes the representative of the merged class
         m_find[r1] = r2;
         m_size[r2] += m_size[r1];
@@ -137,8 +143,18 @@ namespace polysat {
             // otherwise the classes should have been merged already
             SASSERT(m_slice2var[r2] != m_slice2var[r1]);
         }
+        // Add justification 'dep' for s1 = s2
+        // NOTE: invariant: root of the proof tree is the representative
+        SASSERT(m_proof_parent[r1] == null_slice);
+        SASSERT(m_proof_parent[r2] == null_slice);
+        make_proof_root(s1);
+        SASSERT(m_proof_parent[s1] == null_slice);
+        m_proof_parent[s1] = s2;
+        m_proof_reason[s1] = dep;
+        SASSERT(m_proof_parent[r2] == null_slice);
         m_trail.push_back(trail_item::merge_base);
-        m_merge_trail.push_back(r1);
+        m_merge_trail.push_back({r1, s1});
+        return true;
     }
 
     void slicing::undo_merge_base() {
@@ -151,9 +167,41 @@ namespace polysat {
         std::swap(m_next[r1], m_next[r2]);
         if (m_slice2var[r2] == m_slice2var[r1])
             m_slice2var[r2] = null_var;
+        SASSERT(m_proof_parent[s1] == null_slice);
+        SASSERT(m_proof_parent[r2] == null_slice);
+        m_proof_parent[s1] = null_slice;
+        m_proof_reason[s1] = null_dep;
+        SASSERT(m_proof_parent[r1] == null_slice);
+        SASSERT(m_proof_parent[r2] == null_slice);
+        make_proof_root(r1);
     }
 
-    void slicing::merge(slice_vector& xs, slice_vector& ys) {
+    void slicing::make_proof_root(slice s) {
+        // s1 -> s2 -> s3 -> s4
+        //  r1    r2    r3
+        // =>
+        // s1 <- s2 <- s3 <- s4
+        //      r1    r2    r3
+        slice curr = s;
+        slice prev = null_slice;
+        dep_t prev_reason = null_dep;
+        while (curr != null_slice) {
+            slice const curr_parent = m_proof_parent[curr];
+            dep_t const curr_reason = m_proof_reason[curr];
+            m_proof_parent[curr] = prev;
+            m_proof_reason[curr] = prev_reason;
+            prev = curr;
+            prev_reason = curr_reason;
+            curr = curr_parent;
+        }
+    }
+
+    void slicing::explain(slice x, slice y, dep_vector& out_deps) {
+        SASSERT_EQ(find(x), find(y));
+        NOT_IMPLEMENTED_YET();
+    }
+
+    bool slicing::merge(slice_vector& xs, slice_vector& ys, dep_t dep) {
         // LOG_H2("Merging " << xs << " with " << ys);
         while (!xs.empty()) {
             SASSERT(!ys.empty());
@@ -175,7 +223,8 @@ namespace polysat {
             SASSERT(!has_sub(y));
             if (width(x) == width(y)) {
                 // LOG("Match " << x << " and " << y);
-                merge_base(x, y);
+                if (!merge_base(x, y, dep))
+                    return false;
             }
             else if (width(x) > width(y)) {
                 // need to split x according to y
@@ -192,21 +241,27 @@ namespace polysat {
             }
         }
         SASSERT(ys.empty());
+        return true;
     }
 
-    void slicing::merge(slice_vector& xs, slice y) {
-        slice_vector tmp;
-        tmp.push_back(y);
-        merge(xs, tmp);
+    bool slicing::merge(slice_vector& xs, slice y, dep_t dep) {
+        slice_vector& ys = m_tmp2;
+        SASSERT(ys.empty());
+        ys.push_back(y);
+        return merge(xs, ys, dep);  // will clear xs and ys
     }
 
-    void slicing::merge(slice x, slice y) {
+    bool slicing::merge(slice x, slice y, dep_t dep) {
         if (!has_sub(x) && !has_sub(y))
-            return merge_base(x, y);
-        slice_vector tmpx, tmpy;
-        tmpx.push_back(x);
-        tmpy.push_back(y);
-        merge(tmpx, tmpy);
+            return merge_base(x, y, dep);
+        slice_vector& xs = m_tmp2;
+        slice_vector& ys = m_tmp3;
+        SASSERT(xs.empty());
+        SASSERT(ys.empty());
+        xs.push_back(x);
+        ys.push_back(y);
+        return merge(xs, ys, dep);  // will clear xs and ys
+    }
     }
 
     void slicing::find_base(slice src, slice_vector& out_base) const {
@@ -303,7 +358,7 @@ namespace polysat {
                 return slice2var(s);
         }
         pvar v = m_solver.add_var(hi - lo + 1);
-        merge(slices, var2slice(v));
+        VERIFY(merge(slices, var2slice(v), null_dep));
         return v;
     }
 
@@ -338,7 +393,7 @@ namespace polysat {
         slice_vector tmp;
         tmp.push_back(pdd2slice(p));
         tmp.push_back(pdd2slice(q));
-        merge(tmp, var2slice(v));
+        VERIFY(merge(tmp, var2slice(v), null_dep));
         return m_solver.var(v);
     }
 
