@@ -2,8 +2,7 @@
   Copyright (c) 2017 Microsoft Corporation
   Author: Lev Nachmanson
 */
-
-#include <utility>
+// clang-format off
 #include "math/lp/int_solver.h"
 #include "math/lp/lar_solver.h"
 #include "math/lp/lp_utils.h"
@@ -14,56 +13,216 @@
 
 namespace lp {
 
-int_solver::patcher::patcher(int_solver& lia):
-    lia(lia),
-    lra(lia.lra),
-    lrac(lia.lrac),
-    m_num_nbasic_patches(0),
-    m_patch_cost(0),
-    m_next_patch(0),
-    m_delay(0)
-{}
+    int_solver::patcher::patcher(int_solver& lia):
+        lia(lia),
+        lra(lia.lra),
+        lrac(lia.lrac)
+    {}
+    
+    void int_solver::patcher::remove_fixed_vars_from_base() {
+        unsigned num = lra.A_r().column_count();
+        for (unsigned v = 0; v < num; v++) {
+            if (!lia.is_base(v) || !lia.is_fixed(v))
+                continue;
+            auto const & r = lra.basic2row(v);
+            for (auto const& c : r) {
+                if (c.var() != v && !lia.is_fixed(c.var())) {
+                    lra.pivot(c.var(), v); 
+                    break;
+                }
+            }        
+        }
+    }
 
-bool int_solver::patcher::should_apply() {
-#if 1
-    return true;
-#else
-    if (m_delay == 0) {
+
+    unsigned int_solver::patcher::count_non_int() {
+        unsigned non_int = 0;
+        for (auto j : lra.r_basis()) 
+            if (lra.column_is_int(j) && !lra.column_value_is_int(j))
+                ++non_int;
+        return non_int;
+    }
+
+    lia_move int_solver::patcher::patch_basic_columns() {
+        remove_fixed_vars_from_base();
+        lia.settings().stats().m_patches++;
+        lp_assert(lia.is_feasible());
+        
+       // unsigned non_int_before, non_int_after;
+
+       // non_int_before = count_non_int();
+
+
+        // unsigned num = lra.A_r().column_count();
+        for (unsigned j : lra.r_basis()) 
+            if (!lra.get_value(j).is_int())
+                patch_basic_column(j);
+        // non_int_after = count_non_int();
+        // verbose_stream() << non_int_before << " -> " << non_int_after << "\n";
+
+        if (!lia.has_inf_int()) {
+            lia.settings().stats().m_patches_success++;
+            return lia_move::sat;
+        }
+        return lia_move::undef;
+    }
+
+    // clang-format on
+    /**
+     * \brief find integral and minimal, in the absolute values, deltas such that x - alpha*delta is integral too.
+    */
+    bool get_patching_deltas(const rational& x, const rational& alpha,
+                             rational& delta_0, rational& delta_1) {
+        auto a1 = numerator(alpha);
+        auto a2 = denominator(alpha);
+        auto x1 = numerator(x);
+        auto x2 = denominator(x);
+        if (!divides(x2, a2))
+            return false;
+
+        // delta has to be integral.
+        // We need to find delta such that x1/x2 + (a1/a2)*delta is integral (we are going to flip the delta sign later).
+        // Then a2*x1/x2 + a1*delta is integral, but x2 and x1 are coprime:
+        // that means that t = a2/x2 is
+        // integral. We established that a2 = x2*t Then x1 + a1*delta*(x2/a2)  = x1
+        // + a1*(delta/t)  is integral. Taking into account that t and a1 are
+        // coprime we have delta = t*k, where k is an integer.
+        rational t = a2 / x2;
+        // std::cout << "t = " << t << std::endl;
+        // Now we have x1/x2 + (a1/x2)*k is integral, or (x1 + a1*k)/x2 is integral.
+        // It is equivalent to x1 + a1*k = x2*m, where m is an integer
+        // We know that a2 and a1 are coprime, and x2 divides a2, so x2 and a1 are
+        // coprime. We can find u and v such that u*a1 + v*x2 = 1.
+        rational u, v;
+        gcd(a1, x2, u, v);
+        lp_assert(gcd(a1, x2, u, v).is_one());
+        // std::cout << "u = " << u << ", v = " << v << std::endl;
+        // std::cout << "x= " << (x1 / x2) << std::endl;
+        // std::cout << "x + (a1 / a2) * (-u * t) * x1 = "
+        //           << x + (a1 / a2) * (-u * t) * x1 << std::endl;
+        lp_assert((x + (a1 / a2) * (-u * t) * x1).is_int());
+        // 1 = (u- l*x2 ) * a1 + (v + l*a1)*x2, for every integer l.
+        rational l_low, l_high;
+        auto sign = u.is_pos() ? 1 : -1;
+        auto p = sign * floor(abs(u / x2));
+        auto p_ = p + sign;
+        lp_assert(p * x2 <= u && u <= p_ * x2 || p * x2 >= u && u >= p_ * x2);
+        // std::cout << "u = " << u << ", v = " << v << std::endl;
+        // std::cout << "p = " << p << ", p_ = " << p_ << std::endl;
+        // std::cout << "u - p*x2 = " << u - p * x2 << ", u - p_*x2 = " << u - p_ * x2
+        //           << std::endl;
+        mpq d_0 = (u - p * x2) * t * x1;
+        mpq d_1 = (u - p_ * x2) * t * x1;
+        if (abs(d_0) < abs(d_1)) {
+            delta_0 = d_0;
+            delta_1 = d_1;
+        } else {
+            delta_0 = d_1;
+            delta_1 = d_0;
+        }
+        return true;
+        // std::cout << "delta_0 = " << delta_0 << std::endl;
+        // std::cout << "delta_1 = " << delta_1 << std::endl;
+    }
+    // clang-format off
+    /**
+     * \brief try to patch the basic column v
+     */
+    bool int_solver::patcher::patch_basic_column_on_row_cell(unsigned v, row_cell<mpq> const& c) {
+        if (v == c.var())
+            return false;
+        if (!lra.column_is_int(c.var())) // could use real to patch integer
+            return false;
+        if (c.coeff().is_int())
+            return false;
+        mpq a = fractional_part(c.coeff());
+        mpq r = fractional_part(lra.get_value(v));
+        lp_assert(0 < r && r < 1);
+        lp_assert(0 < a && a < 1);
+        mpq delta_0, delta_1;
+        if (!get_patching_deltas(r, a, delta_0, delta_1))
+            return false;
+        
+        if (try_patch_column(v, c.var(), delta_0))
+            return true;
+
+        if (try_patch_column(v, c.var(), delta_1)) 
+            return true;
+       
+        return false;
+    }
+
+    bool int_solver::patcher::try_patch_column(unsigned v, unsigned j, mpq const& delta) {
+        const auto & A = lra.A_r();
+        if (delta < 0) {
+            if (lia.has_lower(j) && lia.get_value(j) + impq(delta) < lra.get_lower_bound(j))
+                return false;
+        }
+        else {
+            if (lia.has_upper(j) && lia.get_value(j) + impq(delta) > lra.get_upper_bound(j))
+                return false;
+        }
+        for (auto const& c : A.column(j)) {
+            unsigned row_index = c.var();
+            unsigned i = lrac.m_r_basis[row_index];
+            auto old_val = lia.get_value(i);
+            auto new_val = old_val - impq(c.coeff()*delta);
+            if (lia.has_lower(i) && new_val < lra.get_lower_bound(i))
+                return false;
+            if (lia.has_upper(i) && new_val > lra.get_upper_bound(i))
+                return false;
+            if (old_val.is_int() && !new_val.is_int()){
+                return false; // do not waste resources on this case
+            }
+            lp_assert(i != v || new_val.is_int())
+        }
+        
+        lra.set_value_for_nbasic_column(j, lia.get_value(j) + impq(delta));
+         
         return true;
     }
-    --m_delay;
-    return false;
-#endif
-}
+    
+    void int_solver::patcher::patch_basic_column(unsigned v) {
+        SASSERT(!lia.is_fixed(v));
+        for (auto const& c : lra.basic2row(v))
+            if (patch_basic_column_on_row_cell(v, c))
+                return;                                       
+    }
 
-lia_move int_solver::patcher::operator()() {
-    return patch_nbasic_columns();
-}
+    lia_move int_solver::patcher::patch_nbasic_columns() {
+        remove_fixed_vars_from_base();
+        lia.settings().stats().m_patches++;
+        lp_assert(lia.is_feasible());
+        m_patch_success = 0;
+        m_patch_fail = 0;
+        m_num_ones = 0;
+        m_num_divides = 0;
+        //unsigned non_int_before = count_non_int();
 
-lia_move int_solver::patcher::patch_nbasic_columns() {
-    lia.settings().stats().m_patches++;
-    lp_assert(lia.is_feasible());
-    m_num_nbasic_patches = 0;
-    m_patch_cost = 0;
-    for (unsigned j : lia.lrac.m_r_nbasis) {
-        patch_nbasic_column(j);
+        unsigned num = lra.A_r().column_count();
+        for (unsigned v = 0; v < num; v++) {
+            if (lia.is_base(v))
+                continue;
+            patch_nbasic_column(v);
+        }
+        unsigned num_fixed = 0;
+        for (unsigned v = 0; v < num; v++) 
+            if (lia.is_fixed(v))
+                ++num_fixed;
+            
+        lp_assert(lia.is_feasible());
+        //verbose_stream() << "patch " << m_patch_success << " fails " << m_patch_fail << " ones " << m_num_ones << " divides " << m_num_divides << " num fixed " << num_fixed << "\n";
+        //lra.display(verbose_stream());
+        //exit(0);
+        //unsigned non_int_after = count_non_int();
+
+        // verbose_stream() << non_int_before << " -> " << non_int_after << "\n";
+        if (!lia.has_inf_int()) {
+            lia.settings().stats().m_patches_success++;
+            return lia_move::sat;
+        }
+        return lia_move::undef;
     }
-    lp_assert(lia.is_feasible());
-    if (!lia.has_inf_int()) {
-        lia.settings().stats().m_patches_success++;
-        m_delay = 0;
-        m_next_patch = 0;
-        return lia_move::sat;
-    }
-    if (m_patch_cost > 0 && m_num_nbasic_patches * 10 < m_patch_cost) {
-        m_delay = std::min(20u, m_next_patch++);
-    }
-    else {
-        m_delay = 0;
-        m_next_patch = 0;
-    }
-    return lia_move::undef;
-}
 
 void int_solver::patcher::patch_nbasic_column(unsigned j) {
     impq & val = lrac.m_r_x[j];
@@ -71,17 +230,48 @@ void int_solver::patcher::patch_nbasic_column(unsigned j) {
     impq l, u;
     mpq m;
     bool has_free = lia.get_freedom_interval_for_column(j, inf_l, l, inf_u, u, m);
-    m_patch_cost += lra.A_r().number_of_non_zeroes_in_column(j);
-    if (!has_free) {
+    if (!has_free) 
         return;
-    }
     bool m_is_one = m.is_one();
     bool val_is_int = lia.value_is_int(j);
 
+#if 0
+const auto & A = lra.A_r();
+#endif
     // check whether value of j is already a multiple of m.
     if (val_is_int && (m_is_one || (val.x / m).is_int())) {
+        if (m_is_one)
+            ++m_num_ones;
+        else
+            ++m_num_divides;
+#if 0
+        for (auto c : A.column(j)) {
+            unsigned row_index = c.var();
+            unsigned i = lrac.m_r_basis[row_index];
+            if (!lia.get_value(i).is_int() ||
+                (lia.has_lower(i) && lia.get_value(i) < lra.get_lower_bound(i)) ||
+                (lia.has_upper(i) && lia.get_value(i) > lra.get_upper_bound(i))) {
+                verbose_stream() << "skip " << j << " " << m << ": ";
+                lia.display_row(verbose_stream(), A.m_rows[row_index]);
+                verbose_stream() << "\n";                    
+            }
+        }
+#endif
         return;
     }
+
+#if 0
+    if (!m_is_one) {
+        // lia.display_column(verbose_stream(), j);
+        for (auto c : A.column(j)) {
+            continue;
+            unsigned row_index = c.var();
+            lia.display_row(verbose_stream(), A.m_rows[row_index]);
+            verbose_stream() << "\n";
+        }
+    }
+#endif
+
     TRACE("patch_int",
           tout << "TARGET j" << j << " -> [";
           if (inf_l) tout << "-oo"; else tout << l;
@@ -89,9 +279,33 @@ void int_solver::patcher::patch_nbasic_column(unsigned j) {
           if (inf_u) tout << "oo"; else tout << u;
           tout << "]";
           tout << ", m: " << m << ", val: " << val << ", is_int: " << lra.column_is_int(j) << "\n";);
+
+#if 0
+    verbose_stream() << "path " << m << " ";
+    if (!inf_l) verbose_stream() << "infl " << l.x << " ";
+    if (!inf_u) verbose_stream() << "infu " << u.x << " ";
+    verbose_stream() << "\n";
     if (m.is_big() || (!inf_l && l.x.is_big()) || (!inf_u && u.x.is_big())) {
         return;
     }
+#endif
+
+#if 0
+    verbose_stream() << "TARGET v" << j << " -> [";
+    if (inf_l) verbose_stream() << "-oo"; else verbose_stream() << ceil(l.x) << " " << l << "\n";
+    verbose_stream() << ", ";
+    if (inf_u) verbose_stream() << "oo"; else verbose_stream() << floor(u.x) << " " << u << "\n";
+    verbose_stream() << "]";
+    verbose_stream() << ", m: " << m << ", val: " << val << ", is_int: " << lra.column_is_int(j) << "\n";
+#endif
+
+#if 0
+    if (!inf_l)
+        l = impq(ceil(l));
+    if (!inf_u)
+        u = impq(floor(u));
+#endif
+    
     if (!inf_l) {
         l = impq(m_is_one ? ceil(l) : m * ceil(l / m));
         if (inf_u || l <= u) {
@@ -99,8 +313,23 @@ void int_solver::patcher::patch_nbasic_column(unsigned j) {
             lra.set_value_for_nbasic_column(j, l);
         }
         else {
-            --m_num_nbasic_patches;
+            //verbose_stream() << "fail: " << j << " " << m << "\n";
+            ++m_patch_fail;
             TRACE("patch_int", tout << "not patching " << l << "\n";);
+#if 0
+            verbose_stream() << "not patched\n";
+            for (auto c : A.column(j)) {
+                unsigned row_index = c.var();
+                unsigned i = lrac.m_r_basis[row_index];
+                if (!lia.get_value(i).is_int() ||
+                    (lia.has_lower(i) && lia.get_value(i) < lra.get_lower_bound(i)) ||
+                    (lia.has_upper(i) && lia.get_value(i) > lra.get_upper_bound(i))) {
+                    lia.display_row(verbose_stream(), A.m_rows[row_index]);
+                    verbose_stream() << "\n";                    
+                }
+            }
+#endif
+            return;
         }
     }
     else if (!inf_u) {
@@ -112,7 +341,21 @@ void int_solver::patcher::patch_nbasic_column(unsigned j) {
         lra.set_value_for_nbasic_column(j, impq(0));
         TRACE("patch_int", tout << "patching with 0\n";);
     }
-    ++m_num_nbasic_patches;
+    ++m_patch_success;
+#if 0
+    verbose_stream() << "patched " << j << "\n";
+    for (auto c : A.column(j)) {
+        unsigned row_index = c.var();
+        unsigned i = lrac.m_r_basis[row_index];
+        if (!lia.get_value(i).is_int() ||
+            (lia.has_lower(i) && lia.get_value(i) < lra.get_lower_bound(i)) ||
+            (lia.has_upper(i) && lia.get_value(i) > lra.get_upper_bound(i))) {
+            lia.display_row(verbose_stream(), A.m_rows[row_index]);
+            verbose_stream() << "\n";                    
+        }
+    }
+#endif
+    
 }
 
 int_solver::int_solver(lar_solver& lar_slv) :
@@ -326,7 +569,7 @@ static void set_upper(impq & u, bool & inf_u, impq const & v) {
 
 // this function assumes that all basic columns dependend on j are feasible
 bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq & l, bool & inf_u, impq & u, mpq & m) {
-    if (lrac.m_r_heading[j] >= 0) // the basic var
+    if (lrac.m_r_heading[j] >= 0 || is_fixed(j)) // basic or fixed var
         return false;
 
     TRACE("random_update", display_column(tout, j) << ", is_int = " << column_is_int(j) << "\n";);
@@ -361,10 +604,9 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq 
         unsigned i = lrac.m_r_basis[row_index];
         impq const & xi = get_value(i);
         lp_assert(lrac.m_r_solver.column_is_feasible(i));
-        if (column_is_int(i) && !a.is_int())
+        if (column_is_int(i) && !a.is_int() && xi.is_int()) 
             m = lcm(m, denominator(a));
-
-
+        
         if (!inf_l && !inf_u) {
             if (l == u) 
                 continue;            
@@ -372,15 +614,15 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq 
 
         if (a.is_neg()) {
             if (has_lower(i)) 
-                set_lower(l, inf_l, delta(a, xi, lrac.m_r_lower_bounds()[i]));
+                set_lower(l, inf_l, delta(a, xi, lra.get_lower_bound(i)));
             if (has_upper(i)) 
-                set_upper(u, inf_u, delta(a, xi, lrac.m_r_upper_bounds()[i]));
+                set_upper(u, inf_u, delta(a, xi, lra.get_upper_bound(i)));
         }
         else {
             if (has_upper(i)) 
-                set_lower(l, inf_l, delta(a, xi, lrac.m_r_upper_bounds()[i]));
+                set_lower(l, inf_l, delta(a, xi, lra.get_upper_bound(i)));
             if (has_lower(i)) 
-                set_upper(u, inf_u, delta(a, xi, lrac.m_r_lower_bounds()[i]));
+                set_upper(u, inf_u, delta(a, xi, lra.get_lower_bound(i)));
         }
     }
 
@@ -479,14 +721,11 @@ bool int_solver::at_upper(unsigned j) const {
 }
 
 std::ostream & int_solver::display_row(std::ostream & out, lp::row_strip<rational> const & row) const {
-bool first = true;
+    bool first = true;
     auto & rslv = lrac.m_r_solver;
-for (const auto &c : row)
-    {
-        if (is_fixed(c.var()))
-        {
-            if (!get_value(c.var()).is_zero())
-            {
+    for (const auto &c : row) {
+        if (is_fixed(c.var())) {
+            if (!get_value(c.var()).is_zero()) {
                 impq val = get_value(c.var()) * c.coeff();
                 if (!first && val.is_pos())
                     out << "+";
@@ -505,17 +744,11 @@ for (const auto &c : row)
         }
         else if (c.coeff().is_minus_one())
             out << "-";
-        else
-        {
-            if (c.coeff().is_pos())
-            {
-                if (!first)
-                    out << "+";
-            }
+        else {
+            if (c.coeff().is_pos() && !first)
+                out << "+";
             if (c.coeff().is_big())
-            {
                 out << " b*";
-            }
             else
                 out << c.coeff();
         }
@@ -523,8 +756,7 @@ for (const auto &c : row)
         first = false;
     }
     out << "\n";
-    for (const auto &c : row)
-    {
+    for (const auto &c : row) {
         if (is_fixed(c.var()))
             continue;
         rslv.print_column_info(c.var(), out);
@@ -533,13 +765,12 @@ for (const auto &c : row)
     }
     return out;
 }
+    
 std::ostream& int_solver::display_row_info(std::ostream & out, unsigned row_index) const  {    
     auto & rslv = lrac.m_r_solver;
     auto const& row = rslv.m_A.m_rows[row_index];
     return display_row(out, row);
 }
-
-
 
 bool int_solver::shift_var(unsigned j, unsigned range) {
     if (is_fixed(j) || is_base(j))
@@ -549,11 +780,13 @@ bool int_solver::shift_var(unsigned j, unsigned range) {
     bool inf_l = false, inf_u = false;
     impq l, u;
     mpq m;
-    VERIFY(get_freedom_interval_for_column(j, inf_l, l, inf_u, u, m) || settings().get_cancel_flag());
+    if (!get_freedom_interval_for_column(j, inf_l, l, inf_u, u, m))
+        return false;
     if (settings().get_cancel_flag())
         return false;
     const impq & x = get_value(j);
     // x, the value of j column, might be shifted on a multiple of m
+
     if (inf_l && inf_u) {
         impq new_val = m * impq(random() % (range + 1)) + x;
         lra.set_value_for_nbasic_column(j, new_val);
@@ -569,6 +802,7 @@ bool int_solver::shift_var(unsigned j, unsigned range) {
     }
     if (!inf_l && !inf_u && l >= u)
         return false;
+
 
     if (inf_u) {
         SASSERT(!inf_l);
@@ -640,9 +874,6 @@ int int_solver::select_int_infeasible_var() {
     unsigned n = 0;
     lar_core_solver & lcs = lra.m_mpq_lar_core_solver;
     unsigned prev_usage = 0; // to quiet down the compile
-    unsigned k = 0;
-    unsigned usage;
-    unsigned j;
 
     enum state { small_box, is_small_value,  any_value, not_found };
     state st = not_found;
@@ -650,11 +881,10 @@ int int_solver::select_int_infeasible_var() {
     // 1. small box
     // 2. small value
     // 3. any value
-    for (; k < lra.r_basis().size(); k++) {
-        j = lra.r_basis()[k];
+    for (unsigned j : lra.r_basis()) {
         if (!column_is_int_inf(j))
             continue;
-        usage = lra.usage_in_terms(j);
+        unsigned usage = lra.usage_in_terms(j);
         if (is_boxed(j) && (new_range = lcs.m_r_upper_bounds()[j].x - lcs.m_r_lower_bounds()[j].x - rational(2*usage)) <= small_value) {
             SASSERT(!is_fixed(j));
             if (st != small_box) {
@@ -688,12 +918,12 @@ int int_solver::select_int_infeasible_var() {
             continue;
         SASSERT(st == not_found || st == any_value);
         st = any_value;
-        if (n == 0 /*|| usage > prev_usage*/) {
+        if (n == 0 || usage > prev_usage) {
             result = j;
             prev_usage = usage;
             n = 1;
         } 
-        else if (usage > 0 && /*usage == prev_usage && */ (random() % (++n) == 0)) 
+        else if (usage > 0 && usage == prev_usage && (random() % (++n) == 0)) 
             result = j;
     }
     

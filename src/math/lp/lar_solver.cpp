@@ -2,7 +2,7 @@
   Copyright (c) 2017 Microsoft Corporation
   Author: Nikolaj Bjorner, Lev Nachmanson
 */
-
+// clang-format off
 #include "math/lp/lar_solver.h"
 #include "smt/params/smt_params_helper.hpp"
 
@@ -41,7 +41,6 @@ namespace lp {
         for (auto t : m_terms)
             delete t;
     }
-
     
     bool lar_solver::sizes_are_correct() const {
         lp_assert(A_r().column_count() == m_mpq_lar_core_solver.m_r_solver.m_column_types.size());
@@ -49,7 +48,6 @@ namespace lp {
         lp_assert(A_r().column_count() == m_mpq_lar_core_solver.m_r_x.size());
         return true;
     }
-
 
     std::ostream& lar_solver::print_implied_bound(const implied_bound& be, std::ostream& out) const {
         out << "implied bound\n";
@@ -1354,8 +1352,8 @@ namespace lp {
     }
 
     bool lar_solver::term_is_int(const vector<std::pair<mpq, unsigned int>>& coeffs) const {
-        for (auto const& p : coeffs)
-            if (!(column_is_int(p.second) && p.first.is_int()))
+        for (auto const& [coeff, v] : coeffs)
+            if (!(column_is_int(v) && coeff.is_int()))
                 return false;
         return true;
     }
@@ -1386,7 +1384,7 @@ namespace lp {
     // the lower/upper bound is not strict.
     // the LP obtained by making the bound strict is infeasible
     // -> the column has to be fixed
-    bool lar_solver::is_fixed_at_bound(column_index const& j) {
+    bool lar_solver::is_fixed_at_bound(column_index const& j, vector<std::tuple<explanation, column_index, bool, mpq>>& bounds) {
         if (column_is_fixed(j))
             return false;
         mpq val;
@@ -1395,50 +1393,56 @@ namespace lp {
         lp::lconstraint_kind k;
         if (column_has_upper_bound(j) &&
             get_upper_bound(j).x == val) {
-            verbose_stream() << "check upper " << j << "\n";
-            push();
-            if (column_is_int(j))
-                k = LE, val -= 1;
-            else
-                k = LT;
-            auto ci = mk_var_bound(j, k, val);
-            update_column_type_and_bound(j, k, val, ci);
+            push();   
+            k = column_is_int(j) ? LE : LT;
+            auto ci = mk_var_bound(j, k, column_is_int(j) ? val - 1 : val);
+            update_column_type_and_bound(j, k, column_is_int(j) ? val - 1 : val, ci);
             auto st = find_feasible_solution();
+            bool infeasible = st == lp_status::INFEASIBLE;
+            if (infeasible) {
+                explanation exp;
+                get_infeasibility_explanation(exp);
+                unsigned_vector cis;
+                exp.remove(ci);
+                verbose_stream() << "tight upper bound " << j << " " << val << "\n";
+                bounds.push_back({exp, j, true, val});
+            }
             pop(1);
-            return st == lp_status::INFEASIBLE;            
+            return infeasible;            
         }
         if (column_has_lower_bound(j) &&
             get_lower_bound(j).x == val) {
-            verbose_stream() << "check lower " << j << "\n";
             push();
-            if (column_is_int(j))
-                k = GE, val += 1;
-            else
-                k = GT;
-            auto ci = mk_var_bound(j, k, val);
-            update_column_type_and_bound(j, k, val, ci);
+            k = column_is_int(j) ? GE : GT;
+            auto ci = mk_var_bound(j, k, column_is_int(j) ? val + 1 : val);
+            update_column_type_and_bound(j, k, column_is_int(j) ? val + 1 : val, ci);
             auto st = find_feasible_solution();
+            bool infeasible = st == lp_status::INFEASIBLE;
+            if (infeasible) {
+                explanation exp;
+                get_infeasibility_explanation(exp);
+                exp.remove(ci);
+                verbose_stream() << "tight lower bound " << j << " " << val << "\n";
+                bounds.push_back({exp, j, false, val});
+            }
             pop(1);
-            return st == lp_status::INFEASIBLE;                        
+            return infeasible;
         }
         
         return false;
     }
 
-    bool lar_solver::has_fixed_at_bound() {
+    bool lar_solver::has_fixed_at_bound(vector<std::tuple<explanation, column_index, bool, mpq>>& bounds) {
         verbose_stream() << "has-fixed-at-bound\n";
-        unsigned num_fixed = 0;
         for (unsigned j = 0; j < A_r().m_columns.size(); ++j) {
             auto ci = column_index(j);
-            if (is_fixed_at_bound(ci)) {
-                ++num_fixed;
+            if (is_fixed_at_bound(ci, bounds)) 
                 verbose_stream() << "fixed " << j << "\n";
-            }
         }
-        verbose_stream() << "num fixed " << num_fixed << "\n";
-        if (num_fixed > 0)
+        verbose_stream() << "num fixed " << bounds.size() << "\n";
+        if (!bounds.empty())
             find_feasible_solution();
-        return num_fixed > 0;
+        return !bounds.empty();
     }
 
 
@@ -1615,6 +1619,18 @@ namespace lp {
         if (m_need_register_terms) 
             register_normalized_term(*t, A_r().column_count() - 1);
         return ret;
+    }
+
+    /**
+    * \brief ensure there is a column index corresponding to vi
+    * If vi is already a column, just return vi
+    * If vi is for a term, then create a row that uses the term.
+    */
+    var_index lar_solver::ensure_column(var_index vi) {
+        if (lp::tv::is_term(vi))
+            return to_column(vi);
+        else
+            return vi;
     }
 
 
