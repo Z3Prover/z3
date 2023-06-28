@@ -82,14 +82,22 @@ namespace polysat {
         m_mark.pop_back();
     }
 
-    slicing::slice slicing::find_sub_hi(slice parent) const {
+    slicing::slice slicing::sub_hi(slice parent) const {
         SASSERT(has_sub(parent));
-        return find(m_slice_sub[parent]);
+        return m_slice_sub[parent];
+    }
+
+    slicing::slice slicing::sub_lo(slice parent) const {
+        SASSERT(has_sub(parent));
+        return m_slice_sub[parent] + 1;
+    }
+
+    slicing::slice slicing::find_sub_hi(slice parent) const {
+        return find(sub_hi(parent));
     }
 
     slicing::slice slicing::find_sub_lo(slice parent) const {
-        SASSERT(has_sub(parent));
-        return find(m_slice_sub[parent] + 1);
+        return find(sub_lo(parent));
     }
 
     void slicing::split(slice s, unsigned cut) {
@@ -198,13 +206,18 @@ namespace polysat {
         }
     }
 
-    void slicing::explain_base(slice x, slice y, dep_vector& out_deps) {
-        SASSERT(!has_sub(x));
-        SASSERT(!has_sub(y));
+    void slicing::push_reason(slice s, dep_vector& out_deps) {
+        dep_t reason = m_proof_reason[s];
+        if (reason == null_dep)
+            return;
+        out_deps.push_back(reason);
+    }
+
+    void slicing::explain_class(slice x, slice y, dep_vector& out_deps) {
+        SASSERT_EQ(find(x), find(y));
         //                   /-> ...
         // x -> x1 -> x2 -> lca <- y1 <- y
         //  r0   r1    r2         r4   r3
-        SASSERT_EQ(find(x), find(y));
         begin_mark();
         // mark ancestors of x in the proof forest
         slice s = x;
@@ -216,18 +229,62 @@ namespace polysat {
         // and collect deps from y to lca
         slice lca = y;
         while (!is_marked(lca)) {
-            out_deps.push_back(m_proof_reason[lca]);
+            push_reason(lca, out_deps);
             lca = m_proof_parent[lca];
             SASSERT(lca != null_slice);
         }
         // collect deps from x to lca
         s = x;
         while (s != lca) {
-            out_deps.push_back(m_proof_reason[s]);
+            push_reason(s, out_deps);
             s = m_proof_parent[s];
             SASSERT(s != null_slice);
         }
         end_mark();
+    }
+
+    void slicing::explain_equal(slice x, slice y, dep_vector& out_deps) {
+        // TODO: we currently get duplicates in out_deps (if parents are merged, the subslices are all merged due to the same reason)
+        SASSERT(is_equal(x, y));
+        slice_vector& xs = m_tmp2;
+        slice_vector& ys = m_tmp3;
+        SASSERT(xs.empty());
+        SASSERT(ys.empty());
+        xs.push_back(x);
+        ys.push_back(y);
+        while (!xs.empty()) {
+            SASSERT(!ys.empty());
+            slice const x = xs.back(); xs.pop_back();
+            slice const y = ys.back(); ys.pop_back();
+            if (x == y)
+                continue;
+            if (width(x) == width(y)) {
+                slice const rx = find(x);
+                slice const ry = find(y);
+                if (rx == ry)
+                    explain_class(x, y, out_deps);
+                else {
+                    xs.push_back(sub_hi(rx));
+                    xs.push_back(sub_lo(rx));
+                    ys.push_back(sub_hi(ry));
+                    ys.push_back(sub_lo(ry));
+                }
+            }
+            else if (width(x) > width(y)) {
+                slice const rx = find(x);
+                xs.push_back(sub_hi(rx));
+                xs.push_back(sub_lo(rx));
+                ys.push_back(y);
+            }
+            else {
+                SASSERT(width(x) < width(y));
+                xs.push_back(x);
+                slice const ry = find(y);
+                ys.push_back(sub_hi(ry));
+                ys.push_back(sub_lo(ry));
+            }
+        }
+        SASSERT(ys.empty());
     }
 
     bool slicing::merge(slice_vector& xs, slice_vector& ys, dep_t dep) {

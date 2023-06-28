@@ -98,17 +98,24 @@ namespace polysat {
             pdd d = sl.mk_concat(sl.mk_extract(x, 5, 4), sl.mk_extract(y, 3, 0));
             std::cout << d << " := v" << x << "[5:4] ++ v" << y << "[3:0]\n" << sl << "\n";
 
-            VERIFY(sl.merge(sl.var2slice(x), sl.var2slice(y), sat::literal(1)));
+            VERIFY(sl.merge(sl.var2slice(x), sl.var2slice(y), sat::literal(123)));
             std::cout << "v" << x << " = v" << y << "\n" << sl << "\n";
 
             std::cout << "v" << b << " = v" << c << "? " << sl.is_equal(sl.var2slice(b), sl.var2slice(c))
                       << "    find(v" << b << ") = " << sl.find(sl.var2slice(b))
                       << "    find(v" << c << ") = " << sl.find(sl.var2slice(c))
                       << "\n";
+            sat::literal_vector reason;
+            sl.explain_equal(sl.var2slice(b), sl.var2slice(c), reason);
+            std::cout << "    Reason: " << reason << "\n";
+
             std::cout << "v" << b << " = "  << d << "? " << sl.is_equal(sl.var2slice(b), sl.pdd2slice(d))
                       << "    find(v" << b << ") = " << sl.find(sl.var2slice(b))
                       << "    find("  << d << ") = " << sl.find(sl.pdd2slice(d))
                       << "\n";
+            reason.reset();
+            sl.explain_equal(sl.var2slice(b), sl.pdd2slice(d), reason);
+            std::cout << "    Reason: " << reason << "\n";
         }
 
     };

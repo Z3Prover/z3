@@ -99,7 +99,7 @@ namespace polysat {
             if (!m_mark_timestamp)
                 m_mark_timestamp++;
         }
-        void end_mark() { DEBUG_CODE({ SASSERT(!m_mark_active); m_mark_active = false; }); }
+        void end_mark() { DEBUG_CODE({ SASSERT(m_mark_active); m_mark_active = false; }); }
         bool is_marked(slice s) const { SASSERT(m_mark_active); return m_mark[s] == m_mark_timestamp; }
         void mark(slice s) { SASSERT(m_mark_active); m_mark[s] = m_mark_timestamp; }
 
@@ -122,6 +122,11 @@ namespace polysat {
         /// If output_base is false, return coarsest intermediate slices instead of only base slices.
         void mk_slice(slice src, unsigned hi, unsigned lo, slice_vector& out, bool output_full_src = false, bool output_base = true);
 
+        /// Upper subslice (direct child, not necessarily the representative)
+        slice sub_hi(slice s) const;
+        /// Lower subslice (direct child, not necessarily the representative)
+        slice sub_lo(slice s) const;
+
         /// Find representative
         slice find(slice s) const;
         /// Find representative of upper subslice
@@ -133,8 +138,14 @@ namespace polysat {
         // Returns true if merge succeeded without conflict.
         [[nodiscard]] bool merge_base(slice s1, slice s2, dep_t dep);
 
-        // Extract reason for equality of base slices
-        void explain_base(slice x, slice y, dep_vector& out_deps);
+        void push_reason(slice s, dep_vector& out_deps);
+
+        // Extract reason why slices x and y are in the same equivalence class
+        void explain_class(slice x, slice y, dep_vector& out_deps);
+
+        // Extract reason why slices x and y are equal
+        // (i.e., x and y have the same base, but are not necessarily in the same equivalence class)
+        void explain_equal(slice x, slice y, dep_vector& out_deps);
 
         // Merge equality x_1 ++ ... ++ x_n == y_1 ++ ... ++ y_k
         //
