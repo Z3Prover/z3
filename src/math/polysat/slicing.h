@@ -87,6 +87,22 @@ namespace polysat {
         pvar_vector     m_slice2var;    // slice -> pvar, or null_var if slice is not equivalent to a variable
         slice_vector    m_var2slice;    // pvar -> slice
 
+        unsigned_vector m_mark;
+        unsigned        m_mark_timestamp = 0;
+#if Z3DEBUG
+        bool            m_mark_active = false;
+#endif
+
+        void begin_mark() {
+            DEBUG_CODE({ SASSERT(!m_mark_active); m_mark_active = true; });
+            m_mark_timestamp++;
+            if (!m_mark_timestamp)
+                m_mark_timestamp++;
+        }
+        void end_mark() { DEBUG_CODE({ SASSERT(!m_mark_active); m_mark_active = false; }); }
+        bool is_marked(slice s) const { SASSERT(m_mark_active); return m_mark[s] == m_mark_timestamp; }
+        void mark(slice s) { SASSERT(m_mark_active); m_mark[s] = m_mark_timestamp; }
+
         slice alloc_slice();
 
         slice var2slice(pvar v) const { return find(m_var2slice[v]); }

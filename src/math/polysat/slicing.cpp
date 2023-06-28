@@ -64,6 +64,7 @@ namespace polysat {
         m_slice2var.push_back(null_var);
         m_proof_parent.push_back(null_slice);
         m_proof_reason.push_back(null_dep);
+        m_mark.push_back(0);
         m_trail.push_back(trail_item::alloc_slice);
         return s;
     }
@@ -78,6 +79,7 @@ namespace polysat {
         m_slice2var.pop_back();
         m_proof_parent.pop_back();
         m_proof_reason.pop_back();
+        m_mark.pop_back();
     }
 
     slicing::slice slicing::find_sub_hi(slice parent) const {
