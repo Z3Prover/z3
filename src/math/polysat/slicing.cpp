@@ -289,6 +289,29 @@ namespace polysat {
         ys.push_back(y);
         return merge(xs, ys, dep);  // will clear xs and ys
     }
+
+    bool slicing::is_equal(slice x, slice y) {
+        x = find(x);
+        y = find(y);
+        if (x == y)
+            return true;
+        slice_vector& xs = m_tmp2;
+        slice_vector& ys = m_tmp3;
+        SASSERT(xs.empty());
+        SASSERT(ys.empty());
+        find_base(x, xs);
+        find_base(y, ys);
+        SASSERT(all_of(xs, [this](slice s) { return s == find(s); }));
+        SASSERT(all_of(ys, [this](slice s) { return s == find(s); }));
+        bool result = (xs == ys);
+        xs.clear();
+        ys.clear();
+#if 0
+        if (result) {
+            // TODO: merge equivalence class of x, y (on upper level)? but can we always combine the sub-trees?
+        }
+#endif
+        return result;
     }
 
     void slicing::find_base(slice src, slice_vector& out_base) const {

@@ -148,6 +148,8 @@ namespace polysat {
         [[nodiscard]] bool merge(slice_vector& xs, slice y, dep_t dep);
         [[nodiscard]] bool merge(slice x, slice y, dep_t dep);
 
+        // Check whether two slices are known to be equal
+        bool is_equal(slice x, slice y);
 
         enum class trail_item {
             add_var,
