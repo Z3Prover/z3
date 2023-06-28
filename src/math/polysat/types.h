@@ -36,7 +36,8 @@ namespace polysat {
     typedef dd::bddv bddv;
     typedef dd::val_pp val_pp;
 
-    typedef unsigned pvar;
+    using pvar = unsigned;
+    using pvar_vector = unsigned_vector;
     inline const pvar null_var = UINT_MAX;
 
     class dependency {
@@ -49,7 +50,7 @@ namespace polysat {
     };
 
     inline const dependency null_dependency = dependency(UINT_MAX);
-    typedef svector<dependency> dependency_vector;
+    using dependency_vector = svector<dependency>;
 
     inline bool operator< (dependency const& d1, dependency const& d2) { return d1.val() <  d2.val(); }
     inline bool operator<=(dependency const& d1, dependency const& d2) { return d1.val() <= d2.val(); }

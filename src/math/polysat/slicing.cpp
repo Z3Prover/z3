@@ -168,9 +168,9 @@ namespace polysat {
     }
 
     void slicing::undo_merge_base() {
-        slice r1 = m_merge_trail.back();
+        auto const [r1, s1] = m_merge_trail.back();
         m_merge_trail.pop_back();
-        slice r2 = m_find[r1];
+        slice const r2 = m_find[r1];
         SASSERT(find(r2) == r2);
         m_find[r1] = r1;
         m_size[r2] -= m_size[r1];
