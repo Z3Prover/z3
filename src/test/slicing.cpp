@@ -35,19 +35,19 @@ namespace polysat {
             slicing::slice_vector a_4_0;
             sl.mk_slice(sl.var2slice(a), 4, 0, a_4_0);
             std::cout << sl << "\n";
-            sl.merge(x_7_3, a_4_0);
+            VERIFY(sl.merge(x_7_3, a_4_0, sat::literal(1)));
             std::cout << sl << "\n";
 
             slicing::slice_vector y_5_0;
             sl.mk_slice(sl.var2slice(y), 5, 0, y_5_0);
-            sl.merge(y_5_0, sl.var2slice(b));
+            VERIFY(sl.merge(y_5_0, sl.var2slice(b), sat::literal(2)));
             std::cout << sl << "\n";
 
             slicing::slice_vector x_base;
             sl.find_base(sl.var2slice(x), x_base);
             slicing::slice_vector y_base;
             sl.find_base(sl.var2slice(y), y_base);
-            sl.merge(x_base, y_base);
+            VERIFY(sl.merge(x_base, y_base, sat::literal(3)));
             std::cout << sl << "\n";
         }
 
@@ -64,11 +64,14 @@ namespace polysat {
             pvar a = sl.mk_extract_var(x, 7, 3);
             std::cout << sl << "\n";
 
-            sl.merge(sl.var2slice(x), sl.var2slice(y));
+            VERIFY(sl.merge(sl.var2slice(x), sl.var2slice(y), sat::literal(1)));
             std::cout << sl << "\n";
 
             pvar b = sl.mk_extract_var(y, 5, 0);
             std::cout << sl << "\n";
+
+            (void)a;
+            (void)b;
         }
 
         // x[7:3] = a
@@ -95,8 +98,11 @@ namespace polysat {
             pdd d = sl.mk_concat(sl.mk_extract(x, 5, 4), sl.mk_extract(y, 3, 0));
             std::cout << d << " := v" << x << "[5:4] ++ v" << y << "[3:0]\n" << sl << "\n";
 
-            sl.merge(sl.var2slice(x), sl.var2slice(y));
+            VERIFY(sl.merge(sl.var2slice(x), sl.var2slice(y), sat::literal(1)));
             std::cout << "v" << x << " = v" << y << "\n" << sl << "\n";
+
+            std::cout << "v" << b << " = v" << c << "? " << sl.is_equal(sl.var2slice(b), sl.var2slice(c)) << "\n";
+            std::cout << "v" << b << " = "  << d << "? " << sl.is_equal(sl.var2slice(b), sl.pdd2slice(d)) << "\n";
         }
 
     };
