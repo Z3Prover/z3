@@ -133,7 +133,8 @@ namespace polysat {
         // Returns true if merge succeeded without conflict.
         [[nodiscard]] bool merge_base(slice s1, slice s2, dep_t dep);
 
-        void explain(slice x, slice y, dep_vector& out_deps);
+        // Extract reason for equality of base slices
+        void explain_base(slice x, slice y, dep_vector& out_deps);
 
         // Merge equality x_1 ++ ... ++ x_n == y_1 ++ ... ++ y_k
         //

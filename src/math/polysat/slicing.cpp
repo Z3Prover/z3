@@ -198,7 +198,9 @@ namespace polysat {
         }
     }
 
-    void slicing::explain(slice x, slice y, dep_vector& out_deps) {
+    void slicing::explain_base(slice x, slice y, dep_vector& out_deps) {
+        SASSERT(!has_sub(x));
+        SASSERT(!has_sub(y));
         //                   /-> ...
         // x -> x1 -> x2 -> lca <- y1 <- y
         //  r0   r1    r2         r4   r3
