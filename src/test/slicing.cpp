@@ -101,8 +101,14 @@ namespace polysat {
             VERIFY(sl.merge(sl.var2slice(x), sl.var2slice(y), sat::literal(1)));
             std::cout << "v" << x << " = v" << y << "\n" << sl << "\n";
 
-            std::cout << "v" << b << " = v" << c << "? " << sl.is_equal(sl.var2slice(b), sl.var2slice(c)) << "\n";
-            std::cout << "v" << b << " = "  << d << "? " << sl.is_equal(sl.var2slice(b), sl.pdd2slice(d)) << "\n";
+            std::cout << "v" << b << " = v" << c << "? " << sl.is_equal(sl.var2slice(b), sl.var2slice(c))
+                      << "    find(v" << b << ") = " << sl.find(sl.var2slice(b))
+                      << "    find(v" << c << ") = " << sl.find(sl.var2slice(c))
+                      << "\n";
+            std::cout << "v" << b << " = "  << d << "? " << sl.is_equal(sl.var2slice(b), sl.pdd2slice(d))
+                      << "    find(v" << b << ") = " << sl.find(sl.var2slice(b))
+                      << "    find("  << d << ") = " << sl.find(sl.pdd2slice(d))
+                      << "\n";
         }
 
     };
