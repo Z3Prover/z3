@@ -199,8 +199,33 @@ namespace polysat {
     }
 
     void slicing::explain(slice x, slice y, dep_vector& out_deps) {
+        //                   /-> ...
+        // x -> x1 -> x2 -> lca <- y1 <- y
+        //  r0   r1    r2         r4   r3
         SASSERT_EQ(find(x), find(y));
-        NOT_IMPLEMENTED_YET();
+        begin_mark();
+        // mark ancestors of x in the proof forest
+        slice s = x;
+        while (s != null_slice) {
+            mark(s);
+            s = m_proof_parent[s];
+        }
+        // find lowest common ancestor of x and y
+        // and collect deps from y to lca
+        slice lca = y;
+        while (!is_marked(lca)) {
+            out_deps.push_back(m_proof_reason[lca]);
+            lca = m_proof_parent[lca];
+            SASSERT(lca != null_slice);
+        }
+        // collect deps from x to lca
+        s = x;
+        while (s != lca) {
+            out_deps.push_back(m_proof_reason[s]);
+            s = m_proof_parent[s];
+            SASSERT(s != null_slice);
+        }
+        end_mark();
     }
 
     bool slicing::merge(slice_vector& xs, slice_vector& ys, dep_t dep) {
