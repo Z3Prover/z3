@@ -15,6 +15,7 @@ Author:
 
 Revision History:
 --*/
+// clang-format off
 #pragma once
 #include "math/lp/lar_term.h"
 #include "math/lp/lia_move.h"

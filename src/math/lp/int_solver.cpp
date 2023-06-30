@@ -878,9 +878,6 @@ int int_solver::select_int_infeasible_var() {
     enum state { small_box, is_small_value,  any_value, not_found };
     state st = not_found;
 
-    // 1. small box
-    // 2. small value
-    // 3. any value
     for (unsigned j : lra.r_basis()) {
         if (!column_is_int_inf(j))
             continue;
