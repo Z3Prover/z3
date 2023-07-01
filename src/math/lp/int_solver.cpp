@@ -70,9 +70,9 @@ namespace lp {
     // clang-format on
     /**
      * \brief find integral and minimal, in the absolute values, deltas such that x - alpha*delta is integral too.
-    */
+     */
     bool get_patching_deltas(const rational& x, const rational& alpha,
-                             rational& delta_0, rational& delta_1) {
+                             rational& delta_plus, rational& delta_minus) {
         auto a1 = numerator(alpha);
         auto a2 = denominator(alpha);
         auto x1 = numerator(x);
@@ -102,36 +102,21 @@ namespace lp {
         //           << x + (a1 / a2) * (-u * t) * x1 << std::endl;
         lp_assert((x + (a1 / a2) * (-u * t) * x1).is_int());
         // 1 = (u- l*x2 ) * a1 + (v + l*a1)*x2, for every integer l.
-        rational l_low, l_high;
-        auto sign = u.is_pos() ? 1 : -1;
-        auto p = sign * floor(abs(u / x2));
-        auto p_ = p + sign;
-        lp_assert(p * x2 <= u && u <= p_ * x2 || p * x2 >= u && u >= p_ * x2);
-        // std::cout << "u = " << u << ", v = " << v << std::endl;
-        // std::cout << "p = " << p << ", p_ = " << p_ << std::endl;
-        // std::cout << "u - p*x2 = " << u - p * x2 << ", u - p_*x2 = " << u - p_ * x2
-        //           << std::endl;
-        mpq d_0 = (u - p * x2) * t * x1;
-        mpq d_1 = (u - p_ * x2) * t * x1;
-        if (abs(d_0) < abs(d_1)) {
-            delta_0 = d_0;
-            delta_1 = d_1;
-        } else {
-            delta_0 = d_1;
-            delta_1 = d_0;
-        }
+        rational d = u * t * x1;
+        delta_plus = mod(d, a2);
+        lp_assert(delta_plus > 0);
+        delta_minus = delta_plus - a2;
+        lp_assert(delta_minus < 0);
+
         return true;
-        // std::cout << "delta_0 = " << delta_0 << std::endl;
-        // std::cout << "delta_1 = " << delta_1 << std::endl;
     }
-    // clang-format off
     /**
      * \brief try to patch the basic column v
      */
     bool int_solver::patcher::patch_basic_column_on_row_cell(unsigned v, row_cell<mpq> const& c) {
         if (v == c.var())
             return false;
-        if (!lra.column_is_int(c.var())) // could use real to patch integer
+        if (!lra.column_is_int(c.var()))  // could use real to patch integer
             return false;
         if (c.coeff().is_int())
             return false;
@@ -139,19 +124,20 @@ namespace lp {
         mpq r = fractional_part(lra.get_value(v));
         lp_assert(0 < r && r < 1);
         lp_assert(0 < a && a < 1);
-        mpq delta_0, delta_1;
-        if (!get_patching_deltas(r, a, delta_0, delta_1))
+        mpq delta_plus, delta_minus;
+        if (!get_patching_deltas(r, a, delta_plus, delta_minus))
             return false;
-        
-        if (try_patch_column(v, c.var(), delta_0))
-            return true;
 
-        if (try_patch_column(v, c.var(), delta_1)) 
-            return true;
-       
-        return false;
+        if (lia.random() % 2) {
+            return try_patch_column(v, c.var(), delta_plus) ||
+                   try_patch_column(v, c.var(), delta_minus);
+        } else {
+            return try_patch_column(v, c.var(), delta_minus) ||
+                   try_patch_column(v, c.var(), delta_plus);
+        }
     }
-
+    // clang-format off
+    
     bool int_solver::patcher::try_patch_column(unsigned v, unsigned j, mpq const& delta) {
         const auto & A = lra.A_r();
         if (delta < 0) {
