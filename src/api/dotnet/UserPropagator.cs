@@ -252,21 +252,29 @@ namespace Microsoft.Z3
 
         /// <summary>
         /// Propagate consequence
+        /// <returns>
+        /// <see langword="true" /> if the propagated expression is new for the solver;
+        /// <see langword="false" /> if the propagation was ignored
+        /// </returns>
         /// </summary>
-        public void Propagate(IEnumerable<Expr> terms, Expr conseq)
+        public bool Propagate(IEnumerable<Expr> terms, Expr conseq)
         {
-            Propagate(terms, new EqualityPairs(), conseq);
+            return Propagate(terms, new EqualityPairs(), conseq);
         }
 
         /// <summary>
         /// Propagate consequence
+        /// <returns>
+        /// <see langword="true" /> if the propagated expression is new for the solver;
+        /// <see langword="false" /> if the propagation was ignored
+        /// </returns>
         /// </summary>
-        public void Propagate(IEnumerable<Expr> terms, EqualityPairs equalities, Expr conseq)
+        public bool Propagate(IEnumerable<Expr> terms, EqualityPairs equalities, Expr conseq)
         {
             var nTerms = Z3Object.ArrayToNative(terms.ToArray());
             var nLHS = Z3Object.ArrayToNative(equalities.LHS.ToArray());
             var nRHS = Z3Object.ArrayToNative(equalities.RHS.ToArray());
-            Native.Z3_solver_propagate_consequence(ctx.nCtx, this.callback, (uint)nTerms.Length, nTerms, (uint)equalities.Count, nLHS, nRHS, conseq.NativeObject);
+            return Native.Z3_solver_propagate_consequence(ctx.nCtx, this.callback, (uint)nTerms.Length, nTerms, (uint)equalities.Count, nLHS, nRHS, conseq.NativeObject) != 0;
         }
 
 

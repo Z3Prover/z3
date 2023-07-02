@@ -83,7 +83,7 @@ void theory_user_propagator::add_expr(expr* term, bool ensure_enode) {
     
 }
 
-void theory_user_propagator::propagate_cb(
+bool theory_user_propagator::propagate_cb(
     unsigned num_fixed, expr* const* fixed_ids, 
     unsigned num_eqs, expr* const* eq_lhs, expr* const* eq_rhs, 
     expr* conseq) {
@@ -95,9 +95,10 @@ void theory_user_propagator::propagate_cb(
     if (!ctx.get_manager().is_true(_conseq) && !ctx.get_manager().is_false(_conseq))
         ctx.mark_as_relevant((expr*)_conseq);
 
-    if (ctx.lit_internalized(_conseq) && ctx.get_assignment(ctx.get_literal(_conseq)) == l_true) 
-        return;
-    m_prop.push_back(prop_info(num_fixed, fixed_ids, num_eqs, eq_lhs, eq_rhs, _conseq));    
+    if (ctx.lit_internalized(_conseq) && ctx.get_assignment(ctx.get_literal(_conseq)) == l_true)
+        return false;
+    m_prop.push_back(prop_info(num_fixed, fixed_ids, num_eqs, eq_lhs, eq_rhs, _conseq));
+    return true;
 }
 
 void theory_user_propagator::register_cb(expr* e) {
@@ -386,7 +387,7 @@ bool theory_user_propagator::internalize_atom(app* atom, bool gate_ctx) {
     return internalize_term(atom);
 }
 
-bool theory_user_propagator::internalize_term(app* term)  { 
+bool theory_user_propagator::internalize_term(app* term) {
     for (auto arg : *term)
         ensure_enode(arg);
     if (term->get_family_id() == get_id() && !ctx.e_internalized(term)) 
