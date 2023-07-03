@@ -17,7 +17,7 @@ Revision History:
 
 --*/
 #pragma once
-
+// clang-format off
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_smt2_pp.h"
