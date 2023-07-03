@@ -18,7 +18,6 @@ Revision History:
 
 --*/
 // clang-format off
-// clang-format off
 #pragma once
 #include "math/lp/core_solver_pretty_printer.h"
 #include "math/lp/lp_core_solver_base.h"

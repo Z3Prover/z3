@@ -10,7 +10,6 @@ Revision History:
 
 --*/
 // clang-format off
-// clang-format off
 #pragma once
 
 #include <string>
