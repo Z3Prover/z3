@@ -1816,20 +1816,21 @@ void asserts_on_patching(const rational &x, const rational &alpha) {
     auto a2 = denominator(alpha);
     auto x1 = numerator(x);
     auto x2 = denominator(x);
-    lp_assert(!a1.is_zero());
+    lp_assert(a1.is_pos());
     lp_assert(abs(a1) < abs(a2));
     lp_assert(coprime(a1, a2));
-    lp_assert(!x1.is_zero());
-    lp_assert(abs(x1) < abs(x2));
+    lp_assert(x1.is_pos());
+    lp_assert(x1 < x2);
     lp_assert(coprime(x1, x2));
     lp_assert((a2 / x2).is_int());
 }
-bool get_patching_deltas(const rational &x, const rational &alpha, rational &delta_0, rational &delta_1) {
+void get_patching_deltas(const rational &x, const rational &alpha, rational &delta_0, rational &delta_1) {
     std::cout << "get_patching_deltas(" << x << ", " << alpha << ")" << std::endl;
     auto a1 = numerator(alpha);
     auto a2 = denominator(alpha);
     auto x1 = numerator(x);
     auto x2 = denominator(x);
+    lp_assert(divides(x2, a2));
     // delta has to be integral.
     // We need to find delta such that x1/x2 + (a1/a2)*delta is integral.
     // Then a2*x1/x2 + a1*delta is integral, that means that t = a2/x2 is integral.
@@ -1849,44 +1850,52 @@ bool get_patching_deltas(const rational &x, const rational &alpha, rational &del
     std::cout << "x + (a1 / a2) * (-u * t) * x1 = " << x + (a1 / a2) * (-u * t) * x1 << std::endl;
     lp_assert((x + (a1 / a2) * (-u * t) * x1).is_int());
     // 1 = (u- l*x2 ) * a1 + (v + l*a1)*x2, for every integer l.
-    rational l_low, l_high;
-    auto sign = u.is_pos() ? 1 : -1;
-    auto p = sign * floor(abs(u / x2));
-    auto p_ = p + sign;
-    lp_assert(p * x2 <= u && u <= p_ * x2 || p * x2 >= u && u >= p_ * x2);
-    std::cout << "u = " << u << ", v = " << v << std::endl;
-    std::cout << "p = " << p << ", p_ = " << p_ << std::endl;
-    std::cout << "u - p*x2 = " << u - p * x2 << ", u - p_*x2 = " << u - p_ * x2 << std::endl;
-    delta_0 = (u - p * x2) * t * x1;
-    delta_1 = (u - p_ * x2) * t * x1;
-
+    rational d = u * t * x1;
+    delta_0 = mod(d, a2);
+    lp_assert(delta_0 > 0);
+    delta_1 = delta_0 - a2;
+    lp_assert(delta_1 < 0);
     std::cout << "delta_0 = " << delta_0 << std::endl;
     std::cout << "delta_1 = " << delta_1 << std::endl;
-
-    return true;
 }
+
+void try_find_smaller_delta(const rational &x, const rational &alpha, rational &delta_0, rational &delta_1) {
+    auto a1 = numerator(alpha);
+    auto a2 = denominator(alpha);
+    auto x1 = numerator(x);
+    auto x2 = denominator(x);
+    rational delta_minus, delta_plus;
+    auto del_min = delta_0 < delta_1 ? delta_0 : delta_1;
+    auto del_plus = delta_0 < delta_1 ? delta_1 : delta_0;
+    for (auto i = del_min + rational(1); i < del_plus; i += 1) {
+        if ((x - alpha * i).is_int()) {
+            std::cout << "found smaller delta = " << i << std::endl;
+            std::cout << "i - del_min = " << i - del_min << std::endl;
+            std::cout << "x - alpha*i = " << x - alpha * i << std::endl;
+        }
+    }
+}
+
 void test_patching_alpha(const rational &x, const rational &alpha) {
     std::cout << "\nstart patching x = " << x << ", alpha = " << alpha << "\n";
     asserts_on_patching(x, alpha);
     rational delta_0, delta_1;
-    bool r = get_patching_deltas(x, alpha, delta_0, delta_1);
-    if (r) {
-        lp_assert(delta_0 * delta_1 <= 0);
+    get_patching_deltas(x, alpha, delta_0, delta_1);
 
-        lp_assert((x - alpha * delta_0).is_int());
-        lp_assert((x - alpha * delta_1).is_int());
+    lp_assert(delta_0 * delta_1 < 0);
 
-        std::cout << "success\n";
-        // std::cout << "delta_minus = " << delta_minus << ", delta_1 = " << delta_1 << "\n";
-        // std::cout << "x + alpha*delta_minus = " << x + alpha * delta_minus << "\n";
-        // std::cout << "x + alpha*delta_1 = " << x + alpha * delta_1 << "\n";
-    }
+    lp_assert((x - alpha * delta_0).is_int());
+    lp_assert((x - alpha * delta_1).is_int());
+    try_find_smaller_delta(x, alpha, delta_0, delta_1);
+    // std::cout << "delta_minus = " << delta_minus << ", delta_1 = " << delta_1 << "\n";
+    // std::cout << "x + alpha*delta_minus = " << x + alpha * delta_minus << "\n";
+    // std::cout << "x + alpha*delta_1 = " << x + alpha * delta_1 << "\n";
 }
 
 void find_a1_x1_x2_and_fix_a2(int &x1, int &x2, int &a1, int &a2) {
     x2 = (rand() % a2) + (int)(a2 / 3);
     auto g = gcd(rational(a2), rational(x2));
-    a2 *= (x2 / numerator(g).get_uint64());
+    a2 *= (x2 / numerator(g).get_int32());
     lp_assert(rational(a2, x2).is_int());
     do {
         x1 = rand() % (unsigned)x2 + 1;
@@ -1895,8 +1904,6 @@ void find_a1_x1_x2_and_fix_a2(int &x1, int &x2, int &a1, int &a2) {
     do {
         a1 = rand() % (unsigned)a2 + 1;
     } while (!coprime(a1, a2));
-    x1 *= (rand() % 2 == 0 ? 1 : -1);
-    a1 *= (rand() % 2 == 0 ? 1 : -1);
 }
 
 void test_patching() {
