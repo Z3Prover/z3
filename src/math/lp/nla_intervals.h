@@ -6,6 +6,7 @@
     Nikolaj Bjorner (nbjorner)
 
   --*/
+// clang-format off
 #pragma once
 #include "util/dependency.h"
 #include "util/region.h"

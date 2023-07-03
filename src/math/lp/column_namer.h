@@ -18,6 +18,7 @@ Revision History:
 
 
 --*/
+// clang-format off
 #include <string>
 #include "math/lp/static_matrix.h"
 namespace lp {

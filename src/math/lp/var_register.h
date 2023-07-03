@@ -16,6 +16,7 @@ Revision History:
 
 
 --*/
+// clang-format off
 #pragma once
 #include "math/lp/lp_types.h"
 namespace lp  {

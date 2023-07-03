@@ -18,6 +18,7 @@ Revision History:
 
 --*/
 // clang-format off
+// clang-format off
 #pragma once
 #include "math/lp/lp_settings.h"
 #include "math/lp/static_matrix.h"

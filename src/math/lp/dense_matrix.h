@@ -17,6 +17,7 @@ Revision History:
 
 
 --*/
+// clang-format off
 #pragma once
 #ifdef Z3DEBUG
 #include "util/vector.h"

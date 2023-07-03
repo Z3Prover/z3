@@ -6,6 +6,7 @@ Author:
     Lev Nachmanson (levnach)
 
 --*/
+// clang-format off
 
 #pragma once
 namespace nla {

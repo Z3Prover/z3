@@ -5,6 +5,7 @@
     Lev Nachmanson (levnach)
     Nikolaj Bjorner (nbjorner)
   --*/
+// clang-format off
 #include "math/lp/nla_solver.h"
 #include <map>
 #include "math/lp/monic.h"

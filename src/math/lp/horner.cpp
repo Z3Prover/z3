@@ -17,6 +17,7 @@
 
 
   --*/
+// clang-format off
 
 #include "math/lp/horner.h"
 #include "math/lp/nla_core.h"

@@ -17,6 +17,7 @@ Revision History:
 
 
 --*/
+// clang-format off
 #include <memory>
 #include "util/vector.h"
 #include <set>
