@@ -30,9 +30,10 @@ namespace sat {
 
     class proof_trim {
         solver         s;
-        literal_vector m_clause;
+        literal_vector m_clause, m_conflict;        
         uint_set       m_in_clause;
         uint_set       m_in_coi;
+        clause*        m_conflict_clause = nullptr;
         vector<std::tuple<unsigned, literal_vector, clause*, bool, bool>> m_trail;
         
         
@@ -70,10 +71,12 @@ namespace sat {
 
         uint_set m_units;
         bool unit_or_binary_occurs();
+        void set_conflict(literal_vector const& c, clause* cp) { m_conflict.reset(); m_conflict.append(c); m_conflict_clause = cp;}
         
     public:
 
         proof_trim(params_ref const& p, reslimit& lim);
+        ~proof_trim();
 
         bool_var mk_var() { return s.mk_var(true, true); }
         void init_clause() { m_clause.reset(); }

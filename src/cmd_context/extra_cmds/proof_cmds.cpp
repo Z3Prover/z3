@@ -63,6 +63,7 @@ class proof_trim {
     vector<expr_ref_vector> m_clauses;
     bool_vector             m_is_infer;
     symbol                  m_rup;
+    bool                    m_empty = false;
     
     void mk_clause(expr_ref_vector const& clause) {
         trim.init_clause();
@@ -121,24 +122,31 @@ public:
      */
     
     void infer(expr_ref_vector const& clause, app* hint) {
+        if (m_empty)
+            return;
+
         if (hint && !is_rup(hint) && m_checker.check(hint)) {
             auto clause1 = m_checker.clause(hint);
             if (clause1.size() != clause.size()) {
                 mk_clause(clause1);
-                trim.assume(m_clauses.size());
                 clause1.push_back(hint);
+                trim.assume(m_clauses.size());
                 m_clauses.push_back(clause1);                
-                m_is_infer.push_back(true);
-                mk_clause(clause);
-                trim.infer(m_clauses.size());
-                m_clauses.push_back(clause);
-                m_clauses.back().push_back(hint);
-                m_is_infer.push_back(true);
-                if (clause.empty()) 
+                m_is_infer.push_back(false);
+                
+                if (clause.empty()) {
+                    mk_clause(clause);
+                    trim.infer(m_clauses.size());                    
+                    m_clauses.push_back(clause);
+                    m_clauses.back().push_back(hint);
+                    m_is_infer.push_back(true);
+                    m_empty = true;
                     do_trim(std::cout);
+                }
                 return;
             }
         }
+
 
         mk_clause(clause);
         if (is_rup(hint))
@@ -149,8 +157,10 @@ public:
         if (hint)
             m_clauses.back().push_back(hint);
         m_is_infer.push_back(true);
-        if (clause.empty()) 
+        if (clause.empty()) {
+            m_empty = true;
             do_trim(std::cout);
+        }
     }
     
     void updt_params(params_ref const& p) {
