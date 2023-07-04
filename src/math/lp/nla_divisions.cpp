@@ -14,6 +14,7 @@ Description:
   Check divisions
 
 --*/
+// clang-format off
 #include "math/lp/nla_core.h"
 
 namespace nla {

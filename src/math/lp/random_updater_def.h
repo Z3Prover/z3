@@ -17,6 +17,7 @@ Revision History:
 
 
 --*/
+// clang-format off
 #pragma once
 
 #include "math/lp/random_updater.h"

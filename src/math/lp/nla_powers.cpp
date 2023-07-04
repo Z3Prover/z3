@@ -74,6 +74,7 @@ am().set(yval, am_value(y));
 am().set(rval, am_value(r));
 
 --*/
+// clang-format off
 #include "math/lp/nla_core.h"
 
 namespace nla {

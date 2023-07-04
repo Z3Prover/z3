@@ -5,6 +5,7 @@ Author:
     Lev Nachmanson (levnach)
 
 --*/
+// clang-format off
 #pragma once
 #include "util/vector.h"
 #include <string>
@@ -16,7 +17,7 @@ Author:
 #include "math/lp/stacked_vector.h"
 #include "util/stacked_value.h"
 namespace lp {
-
+// clang-format off
 class lar_core_solver  {
     vector<std::pair<mpq, unsigned>> m_infeasible_linear_combination;
     int m_infeasible_sum_sign; // todo: get rid of this field

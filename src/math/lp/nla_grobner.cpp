@@ -10,6 +10,7 @@ Author:
     Nikolaj Bjorner (nbjorner)
 
 --*/
+// clang-format off
 #include "util/uint_set.h"
 #include "math/lp/nla_core.h"
 #include "math/lp/factorization_factory_imp.h"

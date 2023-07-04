@@ -17,6 +17,7 @@ Revision History:
 
 
 --*/
+// clang-format off
 #pragma once
 
 #include "util/vector.h"
@@ -122,11 +123,6 @@ template <typename T, typename X> unsigned static_matrix<T, X>::lowest_row_in_co
         }
     }
     return ret;
-}
-
-template <typename T, typename X> void static_matrix<T, X>::add_columns_at_the_end(unsigned delta) {
-    for (unsigned i = 0; i < delta; i++)
-        add_column();
 }
 
 template <typename T, typename X> void static_matrix<T, X>::forget_last_columns(unsigned how_many_to_forget) {

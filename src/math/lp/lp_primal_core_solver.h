@@ -159,7 +159,7 @@ namespace lp {
     }
     return r;
   }
-    // clang-format on
+    // clang-format off
     int find_beneficial_entering_in_row_tableau_rows_bland_mode(int i, T &a_ent) {
         int j = -1;
         unsigned bj = this->m_basis[i];

@@ -17,6 +17,7 @@ Revision History:
 
 
 --*/
+// clang-format off
 #include "math/lp/lp_settings.h"
 #include "math/lp/dense_matrix_def.h"
 #ifdef Z3DEBUG
