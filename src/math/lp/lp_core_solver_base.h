@@ -310,8 +310,7 @@ public:
             if (x < m_lower_bounds[j]) {
                 delta = m_lower_bounds[j] - x;
                 ret = true;;
-            }
-            if (x > m_upper_bounds[j]) {
+            } else if (x > m_upper_bounds[j]) {
                 delta = m_upper_bounds[j] - x;
                 ret = true;
             }
@@ -554,31 +553,34 @@ public:
     }
 
     void update_x(unsigned j, const X & v) {
-        TRACE("lar_solver", tout << "j = " << j << ", v = " << v << "\n";);
         m_x[j] = v;
+        TRACE("lar_solver", tout << "j = " << j << ", v = " << v << (column_is_feasible(j)? " feas":" non-feas") << "\n";);
     }
-
-    void add_delta_to_x(unsigned j, const X & delta) {
-        TRACE("lar_solver", tout << "j = " << j << ", delta = " << delta << "\n";);
-        m_x[j] += delta;
-    }
-   
+        // clang-format on
+        void add_delta_to_x(unsigned j, const X& delta) {
+            m_x[j] += delta;
+            TRACE("lar_solver", tout << "j = " << j << " v = " << m_x[j] << " delta = " << delta << (column_is_feasible(j) ? " feas" : " non-feas") << "\n";);
+        }
+        // clang-format off
+    
     void track_column_feasibility(unsigned j) {
         if (column_is_feasible(j))
             remove_column_from_inf_heap(j);
         else
             insert_column_into_inf_heap(j);
     }
-    void insert_column_into_inf_heap(unsigned j) {
-        TRACE("lar_solver", tout << "j = " << j << "\n";);
-		if (!m_inf_heap.contains(j))
+    void insert_column_into_inf_heap(unsigned j) {        
+		if (!m_inf_heap.contains(j)) {
 	        m_inf_heap.insert(j);
+            TRACE("lar_solver", tout << "j = " << j << "\n";);
+        }
         lp_assert(!column_is_feasible(j));
     }
     void remove_column_from_inf_heap(unsigned j) {
-        TRACE("lar_solver", tout << "j = " << j << "\n";);
-		if (m_inf_heap.contains(j))
+		if (m_inf_heap.contains(j)) {
+            TRACE("lar_solver", tout << "j = " << j << "\n";);
         	m_inf_heap.erase(j);
+        }
         lp_assert(column_is_feasible(j));
     }
 
