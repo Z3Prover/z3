@@ -56,7 +56,7 @@ private:
 public:
     bool current_x_is_feasible() const {
         TRACE("feas",
-              if (m_inf_heap.size()) {
+              if (!m_inf_heap.empty()) {
                   tout << "column " << *m_inf_heap.begin() << " is infeasible" << std::endl;
                   print_column_info(*m_inf_heap.begin(), tout);
               } else {
