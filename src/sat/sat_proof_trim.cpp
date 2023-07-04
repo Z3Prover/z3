@@ -75,20 +75,6 @@ namespace sat {
         else 
             del(cl);
     }
-    
-    bool proof_trim::match_clause(literal_vector const& cl, literal l1, literal l2) const {
-        return cl.size() == 2 && ((l1 == cl[0] && l2 == cl[1]) || (l1 == cl[1] && l2 == cl[0]));
-    }
-    
-    bool proof_trim::match_clause(literal_vector const& cl, literal l1, literal l2, literal l3) const {
-        return cl.size() == 3 &&
-            ((l1 == cl[0] && l2 == cl[1] && l3 == cl[2]) ||
-             (l1 == cl[0] && l2 == cl[2] && l3 == cl[1]) ||
-             (l1 == cl[1] && l2 == cl[0] && l3 == cl[2]) ||
-             (l1 == cl[1] && l2 == cl[2] && l3 == cl[0]) ||
-             (l1 == cl[2] && l2 == cl[1] && l3 == cl[0]) ||
-             (l1 == cl[2] && l2 == cl[0] && l3 == cl[1]));
-    }
 
     /**
      * cl is on the trail if there is some literal l that is implied by cl
@@ -346,10 +332,6 @@ namespace sat {
         s.set_trim();
     }
 
-    proof_trim::~proof_trim() {
-    }
-
-
     void proof_trim::assume(unsigned id, bool is_initial) {
         std::sort(m_clause.begin(), m_clause.end());
         if (unit_or_binary_occurs())
@@ -393,7 +375,6 @@ namespace sat {
         else if (m_clause.size() > 2 && is_unit())
             s.propagate_clause(*cl, true, 0, s.cls_allocator().get_offset(cl));
         s.propagate(false);
-        // verbose_stream() << m_clause << " - " << s.inconsistent() << "\n";
         if (s.inconsistent() ||  all_of(m_clause, [&](sat::literal lit) { return s.value(lit) == l_false; }))
             set_conflict(m_clause, cl);
         

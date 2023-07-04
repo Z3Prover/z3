@@ -132,7 +132,7 @@ public:
                 clause1.push_back(hint);
                 trim.assume(m_clauses.size());
                 m_clauses.push_back(clause1);                
-                m_is_infer.push_back(false);
+                m_is_infer.push_back(true);
                 
                 if (clause.empty()) {
                     mk_clause(clause);
