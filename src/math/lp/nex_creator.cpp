@@ -4,6 +4,7 @@
   Author:
    Lev Nachmanson (levnach)
   --*/
+// clang-format off
 #include "util/lbool.h"
 #include "math/lp/nex_creator.h"
 #include <map>

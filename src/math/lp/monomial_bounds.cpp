@@ -6,6 +6,7 @@
   Lev Nachmanson (levnach)
 
   --*/
+// clang-format off
 
 #include "math/lp/monomial_bounds.h"
 #include "math/lp/nla_core.h"

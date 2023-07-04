@@ -17,6 +17,7 @@
 
 
   --*/
+// clang-format off
 #pragma once
 #include "math/lp/factorization.h"
 namespace nla {

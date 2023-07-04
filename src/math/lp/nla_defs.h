@@ -8,6 +8,7 @@
 
 
   --*/
+// clang-format off
 #pragma once
 #include "math/lp/lp_types.h"
 #include "math/lp/column_info.h"

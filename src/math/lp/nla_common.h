@@ -6,6 +6,7 @@
    Nikolaj Bjorner (nbjorner)
 
   --*/
+// clang-format off
 #pragma once
 #include "util/rational.h"
 #include "math/lp/nla_defs.h"

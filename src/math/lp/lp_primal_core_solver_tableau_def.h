@@ -17,6 +17,7 @@ Revision History:
 
 
 --*/
+// clang-format off
 #pragma once
 
 // this is a part of lp_primal_core_solver that deals with the tableau

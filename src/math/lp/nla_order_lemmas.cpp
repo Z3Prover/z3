@@ -5,6 +5,7 @@
     Nikolaj Bjorner (nbjorner)
     Lev Nachmanson (levnach)
   --*/
+// clang-format off
 
 #include "math/lp/nla_order_lemmas.h"
 #include "math/lp/nla_core.h"

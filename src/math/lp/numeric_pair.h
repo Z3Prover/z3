@@ -17,6 +17,7 @@
 
 
   --*/
+// clang-format off
 #pragma once
 #define lp_for_z3
 #include <string>
