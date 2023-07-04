@@ -35,7 +35,8 @@ namespace sat {
         uint_set       m_in_coi;
         clause*        m_conflict_clause = nullptr;
         vector<std::tuple<unsigned, literal_vector, clause*, bool, bool>> m_trail;
-                
+        vector<std::pair<unsigned, unsigned_vector>> m_result;
+        
         struct hash {
             unsigned operator()(literal_vector const& v) const {
                 return string_hash((char const*)v.begin(), v.size()*sizeof(literal), 3);
@@ -47,6 +48,7 @@ namespace sat {
             }
         };
         map<literal_vector, clause_vector, hash, eq> m_clauses;
+        map<literal_vector, unsigned, hash, eq>      m_clause2id;
 
         hashtable<literal_vector, hash, eq> m_core_literals;
         bool_vector                         m_propagated;
@@ -60,7 +62,7 @@ namespace sat {
         void add_dependency(justification j);
         void add_core(bool_var v);
         void add_core(literal l, justification j);
-        bool in_core(literal_vector const& cl, clause* cp) const;
+        bool in_core(literal_vector const& cl) const;
         void revive(literal_vector const& cl, clause* cp);        
         clause* del(literal_vector const& cl);
         void save(literal_vector const& lits, clause* cl);
@@ -83,7 +85,7 @@ namespace sat {
         void infer(unsigned id);
         void updt_params(params_ref const& p) { s.updt_params(p); }
 
-        unsigned_vector trim();
+        vector<std::pair<unsigned, unsigned_vector>> trim();
 
     };
 }

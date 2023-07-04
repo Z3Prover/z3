@@ -29,19 +29,20 @@ namespace sat {
        Output: reduced trail - result                                                                           
     */        
 
-    unsigned_vector proof_trim::trim() {
-        unsigned_vector result;
+    vector<std::pair<unsigned, unsigned_vector>> proof_trim::trim() {
+        m_result.reset();
         m_core_literals.reset();
         m_propagated.resize(num_vars(), false);  
         m_core_literals.insert(literal_vector());
         m_core_literals.insert(m_conflict);
-        conflict_analysis_core(m_conflict, m_conflict_clause);
+
 
         IF_VERBOSE(10, s.display(verbose_stream() << "trim\n"));
 
         auto const& [id, cl, clp, is_add, is_initial] = m_trail.back();
         SASSERT(cl.empty());
-        result.push_back(id);
+        m_result.push_back({id, unsigned_vector()});
+        conflict_analysis_core(m_conflict, m_conflict_clause);
         m_trail.pop_back();
         
 
@@ -55,17 +56,17 @@ namespace sat {
             prune_trail(cl, clp);
             IF_VERBOSE(10, s.display(verbose_stream() << "\n"));
             del(cl, clp);
-            if (!in_core(cl, clp)) 
+            if (!in_core(cl)) 
                 continue;
-            IF_VERBOSE(4, verbose_stream() << cl << " in-core " << in_core(cl, clp) << ": "; for (auto const& c : m_core_literals) verbose_stream() << "{" << c << "} "; verbose_stream() << "\n");
+            IF_VERBOSE(4, verbose_stream() << cl << " in-core " << in_core(cl) << ": "; for (auto const& c : m_core_literals) verbose_stream() << "{" << c << "} "; verbose_stream() << "\n");
 
-            result.push_back(id);
+            m_result.push_back({id, unsigned_vector()});
             if (is_initial)
                 continue;
             conflict_analysis_core(cl, clp);            
         }
-        result.reverse();
-        return result;
+        m_result.reverse();
+        return m_result;
     }
     
     void proof_trim::del(literal_vector const& cl, clause* cp) {
@@ -280,6 +281,9 @@ namespace sat {
         }
         std::sort(m_clause.begin(), m_clause.end());
         IF_VERBOSE(3, verbose_stream() << "add core " << m_clause << "\n");
+        unsigned id;
+        VERIFY(m_clause2id.find(m_clause, id));
+        m_result.back().second.push_back(id);
         m_core_literals.insert(m_clause);
         if (l != null_literal && s.lvl(l) == 0) {
             m_clause.reset();
@@ -288,7 +292,7 @@ namespace sat {
         }
     }
 
-    bool proof_trim::in_core(literal_vector const& cl, clause* cp) const {
+    bool proof_trim::in_core(literal_vector const& cl) const {
         return m_core_literals.contains(cl);
     }
 
@@ -342,6 +346,8 @@ namespace sat {
             return;        
 
         IF_VERBOSE(3, verbose_stream() << (is_initial?"assume ":"rup ") << m_clause << "\n");
+        std::sort(m_clause.begin(), m_clause.end());
+        m_clause2id.insert(m_clause, id);
         auto* cl = s.mk_clause(m_clause, status::redundant());
 
         auto is_unit2 = [&]() {
