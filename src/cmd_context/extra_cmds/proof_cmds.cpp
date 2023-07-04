@@ -43,6 +43,7 @@ Proof checker for clauses created during search.
 #include "util/small_object_allocator.h"
 #include "ast/ast_util.h"
 #include "ast/ast_ll_pp.h"
+#include "ast/arith_decl_plugin.h"
 #include "smt/smt_solver.h"
 #include "sat/sat_solver.h"
 #include "sat/sat_drat.h"
@@ -132,7 +133,7 @@ public:
                 clause1.push_back(hint);
                 trim.assume(m_clauses.size());
                 m_clauses.push_back(clause1);                
-                m_is_infer.push_back(false);
+                m_is_infer.push_back(true);
                 
                 if (clause.empty()) {
                     mk_clause(clause);
@@ -167,12 +168,22 @@ public:
         trim.updt_params(p);
     }
 
+    expr_ref mk_dep(unsigned id, unsigned_vector const& deps) {
+        arith_util a(m);
+        expr_ref_vector args(m);
+        args.push_back(a.mk_int(id));
+        for (auto d : deps)
+            args.push_back(a.mk_int(d));
+        return expr_ref(m.mk_app(symbol("deps"), args.size(), args.data(), m.mk_proof_sort()), m);
+    }
+
     void do_trim(std::ostream& out) {
         ast_pp_util pp(m);
         auto ids = trim.trim();
-        for (unsigned id : ids) {
-            auto const& clause = m_clauses[id];
+        for (auto const& [id, deps] : ids) {
+            auto& clause = m_clauses[id];
             bool is_infer = m_is_infer[id];
+            clause.push_back(mk_dep(id, deps));            
             for (expr* e : clause) 
                 pp.collect(e);
             
@@ -268,8 +279,10 @@ public:
     }
 
     void add_literal(expr* e) override {
-        if (m.is_proof(e))
-            m_proof_hint = to_app(e);
+        if (m.is_proof(e)) {
+            if (!m_proof_hint)
+                m_proof_hint = to_app(e);
+        }
         else if (!m.is_bool(e))
             throw default_exception("literal should be either a Proof or Bool");
         else
