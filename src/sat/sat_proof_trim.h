@@ -47,10 +47,16 @@ namespace sat {
                 return a == b;
             }
         };
-        map<literal_vector, clause_vector, hash, eq> m_clauses;
-        map<literal_vector, unsigned, hash, eq>      m_clause2id;
 
-        hashtable<literal_vector, hash, eq> m_core_literals;
+        
+        struct clause_info {
+            clause_vector m_clauses;
+            unsigned      m_id = 0;
+            bool          m_in_core = false;
+        };
+
+        
+        map<literal_vector, clause_info, hash, eq>   m_clauses;
         bool_vector                         m_propagated;
 
         void del(literal_vector const& cl, clause* cp);
@@ -65,7 +71,6 @@ namespace sat {
         bool in_core(literal_vector const& cl) const;
         void revive(literal_vector const& cl, clause* cp);        
         clause* del(literal_vector const& cl);
-        void save(literal_vector const& lits, clause* cl);
 
         uint_set m_units;
         bool unit_or_binary_occurs();
