@@ -103,6 +103,8 @@ namespace lp {
         lp_assert((x + (a1 / a2) * (-u * t) * x1).is_int());
         // 1 = (u- l*x2 ) * a1 + (v + l*a1)*x2, for every integer l.
         rational d = u * t * x1;
+        // We can prove that x+alpha*d is integral,
+        // and any other delta, satisfying x+alpha*delta, is equal to d modulo a2.
         delta_plus = mod(d, a2);
         lp_assert(delta_plus > 0);
         delta_minus = delta_plus - a2;
