@@ -11351,7 +11351,7 @@ def Range(lo, hi, ctx=None):
     """
     lo = _coerce_seq(lo, ctx)
     hi = _coerce_seq(hi, ctx)
-        if z3_debug():
+    if z3_debug():
         _z3_assert(is_expr(lo), "expression expected")
         _z3_assert(is_expr(hi), "expression expected")
     return ReRef(Z3_mk_re_range(lo.ctx_ref(), lo.ast, hi.ast), lo.ctx)
@@ -11359,7 +11359,7 @@ def Range(lo, hi, ctx=None):
 def Diff(a, b, ctx=None):
     """Create the difference regular expression
     """
-        if z3_debug():
+    if z3_debug():
         _z3_assert(is_expr(a), "expression expected")
         _z3_assert(is_expr(b), "expression expected")
     return ReRef(Z3_mk_re_diff(a.ctx_ref(), a.ast, b.ast), a.ctx)
