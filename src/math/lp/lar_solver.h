@@ -393,10 +393,6 @@ class lar_solver : public column_namer {
         m_mpq_lar_core_solver.m_r_solver.inf_heap().clear();
     }
 
-    inline void remove_column_from_inf_set(unsigned j) {
-        m_mpq_lar_core_solver.m_r_solver.remove_column_from_inf_heap(j);
-    }
-
     void pivot(int entering, int leaving) {
         m_mpq_lar_core_solver.pivot(entering, leaving);
     }

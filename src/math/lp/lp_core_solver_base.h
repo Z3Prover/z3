@@ -55,7 +55,7 @@ private:
     lp_status m_status;
 public:
     bool current_x_is_feasible() const {
-        TRACE("feas",
+        TRACE("feas_bug",
               if (!m_inf_heap.empty()) {
                   tout << "column " << *m_inf_heap.begin() << " is infeasible" << std::endl;
                   print_column_info(*m_inf_heap.begin(), tout);
@@ -572,13 +572,13 @@ public:
     void insert_column_into_inf_heap(unsigned j) {        
 		if (!m_inf_heap.contains(j)) {
 	        m_inf_heap.insert(j);
-            TRACE("lar_solver", tout << "j = " << j << "\n";);
+            TRACE("lar_solver_inf_heap", tout << "insert into heap j = " << j << "\n";);
         }
         lp_assert(!column_is_feasible(j));
     }
     void remove_column_from_inf_heap(unsigned j) {
 		if (m_inf_heap.contains(j)) {
-            TRACE("lar_solver", tout << "j = " << j << "\n";);
+            TRACE("lar_solver_inf_heap", tout << "insert into heap j = " << j << "\n";);
         	m_inf_heap.erase(j);
         }
         lp_assert(column_is_feasible(j));

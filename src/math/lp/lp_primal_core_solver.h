@@ -341,6 +341,7 @@ namespace lp {
     int find_smallest_inf_column() {
         if (this->inf_heap().empty())
             return -1;
+
         return this->inf_heap().min_value();
     }
 
@@ -393,7 +394,10 @@ namespace lp {
         const X &new_val_for_leaving = get_val_for_leaving(leaving);
         X theta = (this->m_x[leaving] - new_val_for_leaving) / a_ent;
         this->m_x[leaving] = new_val_for_leaving;
-        this->remove_column_from_inf_heap(leaving);
+        // this will remove the leaving from the heap
+        TRACE("lar_solver_inf_heap", tout << "leaving = " << leaving
+                                 << " removed from inf_heap()\n";);
+        this->inf_heap().erase_min();
         advance_on_entering_and_leaving_tableau_rows(entering, leaving, theta);
         if (this->current_x_is_feasible())
             this->set_status(lp_status::OPTIMAL);
