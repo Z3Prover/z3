@@ -139,7 +139,7 @@ def mk_z3consts_py_internal(api_files, output_dir):
                     assert False, "Invalid %s, line: %s" % (api_file, linenum)
             else:
                 assert mode == IN_ENUM
-                words = re.split('[^\-a-zA-Z0-9_]+', line)
+                words = re.split('[^-a-zA-Z0-9_]+', line)
                 m = closebrace_pat.match(line)
                 if m:
                     name = words[1]
@@ -227,7 +227,7 @@ def mk_z3consts_dotnet_internal(api_files, output_dir):
                     assert False, "Invalid %s, line: %s" % (api_file, linenum)
             else:
                 assert mode == IN_ENUM
-                words = re.split('[^\-a-zA-Z0-9_]+', line)
+                words = re.split('[^-a-zA-Z0-9_]+', line)
                 m = closebrace_pat.match(line)
                 if m:
                     name = words[1]
@@ -315,7 +315,7 @@ def mk_z3consts_java_internal(api_files, package_name, output_dir):
                     assert False, "Invalid %s, line: %s" % (api_file, linenum)
             else:
                 assert mode == IN_ENUM
-                words = re.split('[^\-a-zA-Z0-9_]+', line)
+                words = re.split('[^-a-zA-Z0-9_]+', line)
                 m = closebrace_pat.match(line)
                 if m:
                     name = words[1]
@@ -441,7 +441,7 @@ def mk_z3consts_ml_internal(api_files, output_dir):
                     assert False, "Invalid %s, line: %s" % (api_file, linenum)
             else:
                 assert mode == IN_ENUM
-                words = re.split('[^\-a-zA-Z0-9_]+', line)
+                words = re.split('[^-a-zA-Z0-9_]+', line)
                 m = closebrace_pat.match(line)
                 if m:
                     name = words[1]
@@ -574,7 +574,7 @@ def mk_def_file_internal(defname, dll_name, export_header_files):
         for line in api:
             m = pat1.match(line)
             if m:
-                words = re.split('\W+', line)
+                words = re.split(r'\W+', line)
                 i = 0
                 for w in words:
                     if w == 'Z3_API':
@@ -618,9 +618,9 @@ def mk_gparams_register_modules_internal(h_files_full_path, path):
     fout  = open(fullname, 'w')
     fout.write('// Automatically generated file.\n')
     fout.write('#include "util/gparams.h"\n')
-    reg_pat = re.compile('[ \t]*REG_PARAMS\(\'([^\']*)\'\)')
-    reg_mod_pat = re.compile('[ \t]*REG_MODULE_PARAMS\(\'([^\']*)\', *\'([^\']*)\'\)')
-    reg_mod_descr_pat = re.compile('[ \t]*REG_MODULE_DESCRIPTION\(\'([^\']*)\', *\'([^\']*)\'\)')
+    reg_pat = re.compile(r'[ \t]*REG_PARAMS\(\'([^\']*)\'\)')
+    reg_mod_pat = re.compile(r'[ \t]*REG_MODULE_PARAMS\(\'([^\']*)\', *\'([^\']*)\'\)')
+    reg_mod_descr_pat = re.compile(r'[ \t]*REG_MODULE_DESCRIPTION\(\'([^\']*)\', *\'([^\']*)\'\)')
     for h_file in sorted_headers_by_component(h_files_full_path):
         added_include = False
         with io.open(h_file, encoding='utf-8', mode='r') as fin:
@@ -698,9 +698,9 @@ def mk_install_tactic_cpp_internal(h_files_full_path, path):
     fout.write('#include "cmd_context/tactic_cmds.h"\n')
     fout.write('#include "cmd_context/simplifier_cmds.h"\n')
     fout.write('#include "cmd_context/cmd_context.h"\n')
-    tactic_pat   = re.compile('[ \t]*ADD_TACTIC\(.*\)')
-    probe_pat    = re.compile('[ \t]*ADD_PROBE\(.*\)')
-    simplifier_pat = re.compile('[ \t]*ADD_SIMPLIFIER\(.*\)')
+    tactic_pat   = re.compile(r'[ \t]*ADD_TACTIC\(.*\)')
+    probe_pat    = re.compile(r'[ \t]*ADD_PROBE\(.*\)')
+    simplifier_pat = re.compile(r'[ \t]*ADD_SIMPLIFIER\(.*\)')
     for h_file in sorted_headers_by_component(h_files_full_path):
         added_include = False
         try:
@@ -780,10 +780,10 @@ def mk_mem_initializer_cpp_internal(h_files_full_path, path):
     fullname = os.path.join(path, 'mem_initializer.cpp')
     fout  = open(fullname, 'w')
     fout.write('// Automatically generated file.\n')
-    initializer_pat      = re.compile('[ \t]*ADD_INITIALIZER\(\'([^\']*)\'\)')
+    initializer_pat      = re.compile(r'[ \t]*ADD_INITIALIZER\(\'([^\']*)\'\)')
     # ADD_INITIALIZER with priority
-    initializer_prio_pat = re.compile('[ \t]*ADD_INITIALIZER\(\'([^\']*)\',[ \t]*(-?[0-9]*)\)')
-    finalizer_pat        = re.compile('[ \t]*ADD_FINALIZER\(\'([^\']*)\'\)')
+    initializer_prio_pat = re.compile(r'[ \t]*ADD_INITIALIZER\(\'([^\']*)\',[ \t]*(-?[0-9]*)\)')
+    finalizer_pat        = re.compile(r'[ \t]*ADD_FINALIZER\(\'([^\']*)\'\)')
     for h_file in sorted_headers_by_component(h_files_full_path):
         added_include = False
         with io.open(h_file, encoding='utf-8', mode='r') as fin:
