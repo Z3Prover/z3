@@ -11286,6 +11286,8 @@ def Plus(re):
     >>> print(simplify(InRe("", re)))
     False
     """
+    if z3_debug():
+        _z3_assert(is_expr(re), "expression expected")
     return ReRef(Z3_mk_re_plus(re.ctx_ref(), re.as_ast()), re.ctx)
 
 
@@ -11299,6 +11301,8 @@ def Option(re):
     >>> print(simplify(InRe("aa", re)))
     False
     """
+    if z3_debug():
+        _z3_assert(is_expr(re), "expression expected")
     return ReRef(Z3_mk_re_option(re.ctx_ref(), re.as_ast()), re.ctx)
 
 
@@ -11317,6 +11321,8 @@ def Star(re):
     >>> print(simplify(InRe("", re)))
     True
     """
+    if z3_debug():
+        _z3_assert(is_expr(re), "expression expected")
     return ReRef(Z3_mk_re_star(re.ctx_ref(), re.as_ast()), re.ctx)
 
 
@@ -11330,6 +11336,8 @@ def Loop(re, lo, hi=0):
     >>> print(simplify(InRe("", re)))
     False
     """
+    if z3_debug():
+        _z3_assert(is_expr(re), "expression expected")
     return ReRef(Z3_mk_re_loop(re.ctx_ref(), re.as_ast(), lo, hi), re.ctx)
 
 
@@ -11343,11 +11351,17 @@ def Range(lo, hi, ctx=None):
     """
     lo = _coerce_seq(lo, ctx)
     hi = _coerce_seq(hi, ctx)
+    if z3_debug():
+        _z3_assert(is_expr(lo), "expression expected")
+        _z3_assert(is_expr(hi), "expression expected")
     return ReRef(Z3_mk_re_range(lo.ctx_ref(), lo.ast, hi.ast), lo.ctx)
 
 def Diff(a, b, ctx=None):
     """Create the difference regular expression
     """
+    if z3_debug():
+        _z3_assert(is_expr(a), "expression expected")
+        _z3_assert(is_expr(b), "expression expected")
     return ReRef(Z3_mk_re_diff(a.ctx_ref(), a.ast, b.ast), a.ctx)
 
 def AllChar(regex_sort, ctx=None):
