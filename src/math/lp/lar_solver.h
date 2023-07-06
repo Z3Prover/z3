@@ -364,9 +364,6 @@ class lar_solver : public column_namer {
                 }
     }
 
-    bool is_fixed_at_bound(column_index const& j, vector<std::tuple<explanation, column_index, bool, mpq>>& bounds);
-    bool has_fixed_at_bound(vector<std::tuple<explanation, column_index, bool, mpq>>& bounds);
-
     bool is_fixed(column_index const& j) const { return column_is_fixed(j); }
     inline column_index to_column_index(unsigned v) const { return column_index(external_to_column_index(v)); }
     bool external_is_used(unsigned) const;
