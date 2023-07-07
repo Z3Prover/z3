@@ -116,8 +116,8 @@ class APITypes:
         
     def def_Types(self, api_files):
         global Closures
-        pat1 = re.compile(" *def_Type\(\'(.*)\',[^\']*\'(.*)\',[^\']*\'(.*)\'\)[ \t]*")
-        pat2 = re.compile("Z3_DECLARE_CLOSURE\((.*),(.*), \((.*)\)\)")
+        pat1 = re.compile(r" *def_Type\(\'(.*)\',[^\']*\'(.*)\',[^\']*\'(.*)\'\)[ \t]*")
+        pat2 = re.compile(r"Z3_DECLARE_CLOSURE\((.*),(.*), \((.*)\)\)")
         for api_file in api_files:
             with open(api_file, 'r') as api:
                 for line in api:

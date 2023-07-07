@@ -395,7 +395,7 @@ def check_java():
     else:
         # Search for jni.h in the library directories...
         t = open('errout', 'r')
-        open_pat = re.compile("\[search path for class files: (.*)\]")
+        open_pat = re.compile(r"\[search path for class files: (.*)\]")
         cdirs = []
         for line in t:
             m = open_pat.match(line)
@@ -812,8 +812,8 @@ def parse_options():
 def extract_c_includes(fname):
     result = {}
     # We look for well behaved #include directives
-    std_inc_pat     = re.compile("[ \t]*#include[ \t]*\"(.*)\"[ \t]*")
-    system_inc_pat  = re.compile("[ \t]*#include[ \t]*\<.*\>[ \t]*")
+    std_inc_pat     = re.compile(r"[ \t]*#include[ \t]*\"(.*)\"[ \t]*")
+    system_inc_pat  = re.compile(r"[ \t]*#include[ \t]*\<.*\>[ \t]*")
     # We should generate and error for any occurrence of #include that does not match the previous pattern.
     non_std_inc_pat = re.compile(".*#include.*")
 
@@ -1720,7 +1720,7 @@ class DotNetDLLComponent(Component):
 
         print("Version output to csproj:", version)
 
-        core_csproj_str = """<Project Sdk="Microsoft.NET.Sdk">
+        core_csproj_str = r"""<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>netstandard1.4</TargetFramework>
@@ -2246,7 +2246,7 @@ class DotNetExampleComponent(ExampleComponent):
             else:
                 platform = 'x86'
 
-            dotnet_proj_str = """<Project Sdk="Microsoft.NET.Sdk">
+            dotnet_proj_str = r"""<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp2.0</TargetFramework>
@@ -3162,7 +3162,7 @@ def mk_vs_proj_property_groups(f, name, target_ext, type):
     f.write('    <Keyword>Win32Proj</Keyword>\n')
     f.write('    <PlatformToolset>%s</PlatformToolset>\n' % get_platform_toolset_str())
     f.write('  </PropertyGroup>\n')
-    f.write('  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />\n')
+    f.write('  <Import Project="$(VCTargetsPath)\\Microsoft.Cpp.Default.props" />\n')
     f.write('  <PropertyGroup Condition="\'$(Configuration)|$(Platform)\'==\'Debug|Win32\'" Label="Configuration">\n')
     f.write('    <ConfigurationType>%s</ConfigurationType>\n' % type)
     f.write('    <CharacterSet>Unicode</CharacterSet>\n')
@@ -3173,24 +3173,24 @@ def mk_vs_proj_property_groups(f, name, target_ext, type):
     f.write('    <CharacterSet>Unicode</CharacterSet>\n')
     f.write('    <UseOfMfc>false</UseOfMfc>\n')
     f.write('  </PropertyGroup>\n')
-    f.write('  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />\n')
+    f.write('  <Import Project="$(VCTargetsPath)\\Microsoft.Cpp.props" />\n')
     f.write('  <ImportGroup Label="ExtensionSettings" />\n')
     f.write('   <ImportGroup Label="PropertySheets">\n')
-    f.write('    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists(\'$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props\')" Label="LocalAppDataPlatform" />  </ImportGroup>\n')
+    f.write('    <Import Project="$(UserRootDir)\\Microsoft.Cpp.$(Platform).user.props" Condition="exists(\'$(UserRootDir)\\Microsoft.Cpp.$(Platform).user.props\')" Label="LocalAppDataPlatform" />  </ImportGroup>\n')
     f.write('  <PropertyGroup Label="UserMacros" />\n')
     f.write('  <PropertyGroup>\n')
-    f.write('    <OutDir Condition="\'$(Configuration)|$(Platform)\'==\'Debug|Win32\'">$(SolutionDir)\$(ProjectName)\$(Configuration)\</OutDir>\n')
+    f.write('    <OutDir Condition="\'$(Configuration)|$(Platform)\'==\'Debug|Win32\'">$(SolutionDir)\\$(ProjectName)\\$(Configuration)\\</OutDir>\n')
     f.write('    <TargetName Condition="\'$(Configuration)|$(Platform)\'==\'Debug|Win32\'">%s</TargetName>\n' % name)
     f.write('    <TargetExt Condition="\'$(Configuration)|$(Platform)\'==\'Debug|Win32\'">.%s</TargetExt>\n' % target_ext)
-    f.write('    <OutDir Condition="\'$(Configuration)|$(Platform)\'==\'Release|Win32\'">$(SolutionDir)\$(ProjectName)\$(Configuration)\</OutDir>\n')
+    f.write('    <OutDir Condition="\'$(Configuration)|$(Platform)\'==\'Release|Win32\'">$(SolutionDir)\\$(ProjectName)\\$(Configuration)\\</OutDir>\n')
     f.write('    <TargetName Condition="\'$(Configuration)|$(Platform)\'==\'Release|Win32\'">%s</TargetName>\n' % name)
     f.write('    <TargetExt Condition="\'$(Configuration)|$(Platform)\'==\'Release|Win32\'">.%s</TargetExt>\n' % target_ext)
     f.write('  </PropertyGroup>\n')
     f.write('  <PropertyGroup Condition="\'$(Configuration)|$(Platform)\'==\'Debug|Win32\'">\n')
-    f.write('        <IntDir>$(ProjectName)\$(Configuration)\</IntDir>\n')
+    f.write('        <IntDir>$(ProjectName)\\$(Configuration)\\</IntDir>\n')
     f.write('  </PropertyGroup>\n')
     f.write('  <PropertyGroup Condition="\'$(Configuration)|$(Platform)\'==\'Release|Win32\'">\n')
-    f.write('    <IntDir>$(ProjectName)\$(Configuration)\</IntDir>\n')
+    f.write('    <IntDir>$(ProjectName)\\$(Configuration)\\</IntDir>\n')
     f.write('  </PropertyGroup>\n')
 
 
@@ -3267,7 +3267,7 @@ def mk_vs_proj(name, components):
     mk_vs_proj_link_exe(f, name, debug=False)
     f.write('  </ItemDefinitionGroup>\n')
     mk_vs_proj_dep_groups(f, name, components)
-    f.write('  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />\n')
+    f.write('  <Import Project="$(VCTargetsPath)\\Microsoft.Cpp.targets" />\n')
     f.write('  <ImportGroup Label="ExtensionTargets">\n')
     f.write('  </ImportGroup>\n')
     f.write('</Project>\n')
@@ -3308,7 +3308,7 @@ def mk_vs_proj_dll(name, components):
     mk_vs_proj_link_dll(f, name, debug=False)
     f.write('  </ItemDefinitionGroup>\n')
     mk_vs_proj_dep_groups(f, name, components)
-    f.write('  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />\n')
+    f.write('  <Import Project="$(VCTargetsPath)\\Microsoft.Cpp.targets" />\n')
     f.write('  <ImportGroup Label="ExtensionTargets">\n')
     f.write('  </ImportGroup>\n')
     f.write('</Project>\n')
