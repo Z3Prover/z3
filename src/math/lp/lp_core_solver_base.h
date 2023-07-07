@@ -538,13 +538,6 @@ public:
         return m_basis_heading[j] >= 0;
     }
 
-    
-    void update_x_with_feasibility_tracking(unsigned j, const X & v) {
-        TRACE("lar_solver_feas_bug", tout << "j = " << j << ", v = " << v << "\n";);
-        m_x[j] = v;
-        track_column_feasibility(j);
-    }
-
     void add_delta_to_x_and_track_feasibility(unsigned j, const X & del) {
         TRACE("lar_solver_feas_bug", tout << "del = " << del << ", was x[" << j << "] = " << m_x[j] << "\n";);
         m_x[j] += del;
