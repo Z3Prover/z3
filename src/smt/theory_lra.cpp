@@ -1659,10 +1659,7 @@ public:
         unsigned old_idx = m_final_check_idx;
         switch (is_sat) {
         case l_true:
-            TRACE("arith", display(tout));
-
-            // if (lp().has_fixed_at_bound()) // explain and propagate.
-
+            TRACE("arith", display(tout));            
 #if 0
             m_dist.reset();
             m_dist.push(0, 1);
