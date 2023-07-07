@@ -399,7 +399,6 @@ namespace smt {
         TRACE("qi_queue", display_delayed_instances_stats(tout); tout << "lazy threshold: " << m_params.m_qi_lazy_threshold
               << ", scope_level: " << m_context.get_scope_level() << "\n";);
 
-        verbose_stream() << "delayed entries " << m_delayed_entries.size() << "\n";
         if (m_params.m_qi_conservative_final_check) {
             bool  init = false;
             float min_cost = 0.0;
