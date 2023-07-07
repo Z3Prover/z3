@@ -47,6 +47,9 @@ namespace user_solver {
             unsigned num_fixed, expr* const* fixed_ids,
             unsigned num_eqs, expr* const* eq_lhs, expr* const* eq_rhs,
             expr* conseq) {
+        auto* n = ctx.get_enode(conseq);
+        if (n && s().value(ctx.enode2literal(n)) == l_true)
+            return false;
         m_fixed_ids.reset();
         for (unsigned i = 0; i < num_fixed; ++i)
             m_fixed_ids.push_back(get_th_var(fixed_ids[i]));
