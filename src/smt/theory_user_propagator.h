@@ -130,7 +130,7 @@ namespace smt {
 
         bool has_fixed() const { return (bool)m_fixed_eh; }
         
-        void propagate_cb(unsigned num_fixed, expr* const* fixed_ids, unsigned num_eqs, expr* const* lhs, expr* const* rhs, expr* conseq) override;
+        bool propagate_cb(unsigned num_fixed, expr* const* fixed_ids, unsigned num_eqs, expr* const* lhs, expr* const* rhs, expr* conseq) override;
         void register_cb(expr* e) override;
         bool next_split_cb(expr* e, unsigned idx, lbool phase) override;
 
