@@ -136,9 +136,22 @@ namespace arith {
     arith_proof_hint const* solver::explain_conflict(sat::literal_vector const& core, euf::enode_pair_vector const& eqs) {
         arith_proof_hint* hint = nullptr;
         if (ctx.use_drat()) {
+            m_coeffs.reset();
+            for (auto const& e : m_explanation) {
+                if (inequality_source == m_constraint_sources[e.ci()])
+                    m_coeffs.push_back(e.coeff());
+            }
+                
             m_arith_hint.set_type(ctx, hint_type::farkas_h);
-            for (auto lit : core)
-                m_arith_hint.add_lit(rational::one(), lit);
+            if (m_coeffs.size() == core.size()) {
+                unsigned i = 0;
+                for (auto lit : core)
+                    m_arith_hint.add_lit(m_coeffs[i], lit), ++i;
+            }
+            else {
+                for (auto lit : core)
+                    m_arith_hint.add_lit(rational::one(), lit);
+            }
             for (auto const& [a,b] : eqs)
                 m_arith_hint.add_eq(a, b);
             hint = m_arith_hint.mk(ctx);
