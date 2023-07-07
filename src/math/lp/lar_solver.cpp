@@ -213,7 +213,7 @@ namespace lp {
 
     void lar_solver::fill_explanation_from_crossed_bounds_column(explanation& evidence) const {
         lp_assert(static_cast<int>(get_column_type(m_crossed_bounds_column)) >= static_cast<int>(column_type::boxed));
-        lp_assert(!m_mpq_lar_core_solver.m_r_solver.column_is_feasible(m_crossed_bounds_column));
+        lp_assert(!column_is_feasible(m_crossed_bounds_column));
 
         // this is the case when the lower bound is in conflict with the upper one
         const ul_pair& ul = m_columns_to_ul_pairs[m_crossed_bounds_column];
@@ -673,7 +673,7 @@ namespace lp {
            m_mpq_lar_core_solver.m_r_solver.add_delta_to_x_and_track_feasibility(bj, -A_r().get_val(c) * delta);
            TRACE("change_x_del",
               tout << "changed basis column " << bj << ", it is " <<
-              (m_mpq_lar_core_solver.m_r_solver.column_is_feasible(bj) ? "feas" : "inf") << std::endl;);
+              (column_is_feasible(bj) ? "feas" : "inf") << std::endl;);
         }
     }
 
@@ -1327,7 +1327,7 @@ namespace lp {
         became_feas.clear();
         for (unsigned j : m_mpq_lar_core_solver.m_r_solver.inf_heap()) {
             lp_assert(m_mpq_lar_core_solver.m_r_heading[j] >= 0);
-            if (m_mpq_lar_core_solver.m_r_solver.column_is_feasible(j))
+            if (column_is_feasible(j))
                 became_feas.push_back(j);
         }
         for (unsigned j : became_feas)
@@ -1738,16 +1738,18 @@ namespace lp {
         lconstraint_kind kind,
         const mpq& right_side,
         constraint_index constr_index) {
+        TRACE("lar_solver_feas", tout << "j = " << j << " was " << (this->column_is_feasible(j)?"feas":"non-feas") << std::endl;);
         m_constraints.activate(constr_index);
         if (column_has_upper_bound(j))
             update_column_type_and_bound_with_ub(j, kind, right_side, constr_index);
         else
             update_column_type_and_bound_with_no_ub(j, kind, right_side, constr_index);
+        TRACE("lar_solver_feas", tout << "j = " << j << " became " << (this->column_is_feasible(j)?"feas":"non-feas") << ", and " << (this->column_is_bounded(j)? "bounded":"non-bounded") << std::endl;);    
     }
     // clang-format on
     void lar_solver::insert_to_columns_with_changed_bounds(unsigned j) {
         m_columns_with_changed_bounds.insert(j);
-        TRACE("lar_solver", tout << "column " << j << (m_mpq_lar_core_solver.m_r_solver.column_is_feasible(j) ? " feas" : " non-feas") << "\n";);
+        TRACE("lar_solver", tout << "column " << j << (column_is_feasible(j) ? " feas" : " non-feas") << "\n";);
     }
     // clang-format off
     void lar_solver::update_column_type_and_bound_check_on_equal(unsigned j,
