@@ -7147,14 +7147,18 @@ extern "C" {
 
     /**
        \brief propagate a consequence based on fixed values.
-       This is a callback a client may invoke during the fixed_eh callback. 
+       This is a callback a client may invoke during the fixed_eh callback.
        The callback adds a propagation consequence based on the fixed values of the
-       \c ids. 
-       
-       def_API('Z3_solver_propagate_consequence', VOID, (_in(CONTEXT), _in(SOLVER_CALLBACK), _in(UINT), _in_array(2, AST), _in(UINT), _in_array(4, AST), _in_array(4, AST), _in(AST)))
+       \c ids.
+       The solver might discard the propagation in case it is true in the current state.
+       The function returns false in this case; otw. the function returns true.
+       At least one propagation in the final callback has to return true in order to
+       prevent the solver from finishing.
+
+       def_API('Z3_solver_propagate_consequence', BOOL, (_in(CONTEXT), _in(SOLVER_CALLBACK), _in(UINT), _in_array(2, AST), _in(UINT), _in_array(4, AST), _in_array(4, AST), _in(AST)))
     */
-    
-    void Z3_API Z3_solver_propagate_consequence(Z3_context c, Z3_solver_callback cb, unsigned num_fixed, Z3_ast const* fixed, unsigned num_eqs, Z3_ast const* eq_lhs, Z3_ast const* eq_rhs, Z3_ast conseq);
+
+    bool Z3_API Z3_solver_propagate_consequence(Z3_context c, Z3_solver_callback cb, unsigned num_fixed, Z3_ast const* fixed, unsigned num_eqs, Z3_ast const* eq_lhs, Z3_ast const* eq_rhs, Z3_ast conseq);
 
     /**
        \brief Check whether the assertions in a given solver are consistent or not.

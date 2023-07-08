@@ -539,31 +539,23 @@ public:
         return m_basis_heading[j] >= 0;
     }
 
-    
-    void update_x_with_feasibility_tracking(unsigned j, const X & v) {
-        TRACE("lar_solver", tout << "j = " << j << ", v = " << v << "\n";);
-        m_x[j] = v;
-        track_column_feasibility(j);
-    }
-
     void add_delta_to_x_and_track_feasibility(unsigned j, const X & del) {
-        TRACE("lar_solver", tout << "del = " << del << ", was x[" << j << "] = " << m_x[j] << "\n";);
+        TRACE("lar_solver_feas_bug", tout << "del = " << del << ", was x[" << j << "] = " << m_x[j] << "\n";);
         m_x[j] += del;
-        TRACE("lar_solver", tout << "became x[" << j << "] = " << m_x[j] << "\n";);
+        TRACE("lar_solver_feas_bug", tout << "became x[" << j << "] = " << m_x[j] << "\n";);
         track_column_feasibility(j);
     }
 
     void update_x(unsigned j, const X & v) {
         m_x[j] = v;
-        TRACE("lar_solver", tout << "j = " << j << ", v = " << v << (column_is_feasible(j)? " feas":" non-feas") << "\n";);
+        TRACE("lar_solver_feas", tout << "not tracking feas j = " << j << ", v = " << v << (column_is_feasible(j)? " feas":" non-feas") << "\n";);
     }
-        // clang-format on
-        void add_delta_to_x(unsigned j, const X& delta) {
-            m_x[j] += delta;
-            TRACE("lar_solver", tout << "j = " << j << " v = " << m_x[j] << " delta = " << delta << (column_is_feasible(j) ? " feas" : " non-feas") << "\n";);
-        }
-        // clang-format off
-    
+
+    void add_delta_to_x(unsigned j, const X& delta) {
+        m_x[j] += delta;
+        TRACE("lar_solver_feas", tout << "not tracking feas j = " << j << " v = " << m_x[j] << " delta = " << delta << (column_is_feasible(j) ? " feas" : " non-feas") << "\n";);
+    }
+        
     void track_column_feasibility(unsigned j) {
         if (column_is_feasible(j))
             remove_column_from_inf_heap(j);
@@ -573,7 +565,7 @@ public:
     void insert_column_into_inf_heap(unsigned j) {        
 		if (!m_inf_heap.contains(j)) {
 	        m_inf_heap.insert(j);
-            TRACE("lar_solver_inf_heap", tout << "insert into heap j = " << j << "\n";);
+            TRACE("lar_solver_inf_heap", tout << "insert into inf_heap j = " << j << "\n";);
         }
         lp_assert(!column_is_feasible(j));
     }
@@ -586,7 +578,7 @@ public:
     }
 
     void clear_inf_heap() {
-        TRACE("lar_solver",);
+        TRACE("lar_solver_feas",);
         m_inf_heap.clear();
     }
     
