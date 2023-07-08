@@ -24,6 +24,7 @@ Notation:
 
 --*/
 #pragma once
+#include "ast/euf/euf_egraph.h"
 #include "math/polysat/types.h"
 #include "math/polysat/constraint.h"
 #include <optional>
@@ -37,6 +38,14 @@ namespace polysat {
         friend class test_slicing;
 
         solver&     m_solver;
+
+        ast_manager m_ast;
+        euf::egraph m_egraph;
+
+        sort*                   m_slice_sort;
+        ptr_vector<func_decl>   m_concat_decls;
+
+        func_decl* get_concat_decl(unsigned arity);
 
         using dep_t = sat::literal;
         using dep_vector = sat::literal_vector;
@@ -214,7 +223,7 @@ namespace polysat {
         bool invariant() const;
 
     public:
-        slicing(solver& s): m_solver(s) {}
+        slicing(solver& s);
 
         void push_scope();
         void pop_scope(unsigned num_scopes = 1);

@@ -46,6 +46,28 @@ Recycle the z3 egraph?
 
 namespace polysat {
 
+    slicing::slicing(solver& s):
+        m_solver(s),
+        m_egraph(m_ast)
+    {
+        m_slice_sort = m_ast.mk_uninterpreted_sort(symbol("slice"));
+    }
+
+    func_decl* slicing::get_concat_decl(unsigned arity) {
+        SASSERT(arity >= 2);
+        func_decl* decl = m_concat_decls.get(arity, nullptr);
+        if (!decl) {
+            ptr_vector<sort> domain;
+            for (unsigned i = arity; i-- > 0; )
+                domain.push_back(m_slice_sort);
+            SASSERT_EQ(arity, domain.size());
+            // TODO: mk_fresh_func_decl("concat", ...) if overload doesn't work
+            func_decl* decl = m_ast.mk_func_decl(symbol("slice-concat"), arity, domain.data(), m_slice_sort);
+            m_concat_decls.setx(arity, decl, nullptr);
+        }
+        return decl;
+    }
+
     void slicing::push_scope() {
         m_scopes.push_back(m_trail.size());
     }
