@@ -102,6 +102,7 @@ namespace smt2 {
         symbol               m_declare_const;
         symbol               m_define_sort;
         symbol               m_declare_sort;
+        symbol               m_declare_type_var;
         symbol               m_declare_datatypes;
         symbol               m_declare_datatype;
         symbol               m_par;
@@ -855,6 +856,26 @@ namespace smt2 {
             }
             if (ct_decls.empty())
                 throw parser_exception("invalid datatype declaration, datatype does not have any constructors");
+        }
+
+        void parse_declare_type_var() {
+            SASSERT(curr_is_identifier());
+            SASSERT(curr_id() == m_declare_type_var);
+            next();
+
+            check_nonreserved_identifier("invalid sort declaration, symbol expected");
+            symbol id = curr_id();
+            if (m_ctx.find_psort_decl(id) != nullptr)
+                throw parser_exception("invalid sort declaration, sort already declared/defined");
+            next();
+            check_rparen("invalid sort declaration, ')' expected");
+            
+            psort_decl * decl = pm().mk_psort_type_var_decl(id);
+            m_ctx.insert(decl);
+            
+            m_ctx.print_success();
+            next();
+
         }
         
         void parse_declare_datatypes() {
@@ -2975,6 +2996,10 @@ namespace smt2 {
                 parse_declare_sort();
                 return;
             }
+            if (s == m_declare_type_var) {
+                parse_declare_type_var();
+                return;
+            }
             if (s == m_declare_datatypes) {
                 parse_declare_datatypes();
                 return;
@@ -3048,6 +3073,7 @@ namespace smt2 {
             m_declare_const("declare-const"),
             m_define_sort("define-sort"),
             m_declare_sort("declare-sort"),
+            m_declare_type_var("declare-type-var"),
             m_declare_datatypes("declare-datatypes"),
             m_declare_datatype("declare-datatype"),
             m_par("par"),

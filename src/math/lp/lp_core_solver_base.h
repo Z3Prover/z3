@@ -309,8 +309,9 @@ public:
         case column_type::boxed:
             if (x < m_lower_bounds[j]) {
                 delta = m_lower_bounds[j] - x;
-                ret = true;;
-            } else if (x > m_upper_bounds[j]) {
+                ret = true;
+            }
+            else if (x > m_upper_bounds[j]) {
                 delta = m_upper_bounds[j] - x;
                 ret = true;
             }

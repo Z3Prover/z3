@@ -62,7 +62,7 @@ class psort_inst_cache;
 */
 class psort : public pdecl {
 protected:
-    psort_inst_cache * m_inst_cache;
+    psort_inst_cache*  m_inst_cache;
     friend class pdecl_manager;
     psort(unsigned id, unsigned num_params):pdecl(id, num_params), m_inst_cache(nullptr) {}
     bool is_psort() const override { return true; }
@@ -86,7 +86,7 @@ typedef ptr_hashtable<psort, psort_hash_proc, psort_eq_proc> psort_table;
 
 #define PSORT_DECL_VAR_PARAMS UINT_MAX
 
-typedef enum { PSORT_BASE = 0, PSORT_USER, PSORT_BUILTIN, PSORT_DT } psort_decl_kind;
+typedef enum { PSORT_BASE = 0, PSORT_USER, PSORT_BUILTIN, PSORT_DT, PSORT_TV } psort_decl_kind;
 
 class psort_decl : public pdecl {
 protected:
@@ -123,7 +123,19 @@ public:
     sort * instantiate(pdecl_manager & m, unsigned n, sort * const * s) override;
     std::ostream& display(std::ostream & out) const override;
 };
- 
+
+class psort_type_var_decl : public psort_decl {
+protected:
+    friend class pdecl_manager;
+    psort * m_def;
+    psort_type_var_decl(unsigned id, pdecl_manager & m, symbol const & n);
+    size_t obj_size() const override { return sizeof(psort_type_var_decl); }
+    void finalize(pdecl_manager & m) override;
+public:
+    sort * instantiate(pdecl_manager & m, unsigned n, sort * const * s) override;
+    std::ostream& display(std::ostream & out) const override;
+};
+
 class psort_builtin_decl : public psort_decl {
 protected:
     friend class pdecl_manager;
@@ -304,6 +316,7 @@ public:
     psort_decl * mk_psort_dt_decl(unsigned num_params, symbol const & n);
     psort_decl * mk_psort_user_decl(unsigned num_params, symbol const & n, psort * def);
     psort_decl * mk_psort_builtin_decl(symbol const & n, family_id fid, decl_kind k);
+    psort_decl * mk_psort_type_var_decl(symbol const& n);
     paccessor_decl * mk_paccessor_decl(unsigned num_params, symbol const & s, ptype const & p);
     pconstructor_decl * mk_pconstructor_decl(unsigned num_params, symbol const & s, symbol const & r, unsigned num, paccessor_decl * const * as);
     pdatatype_decl * mk_pdatatype_decl(unsigned num_params, symbol const & s, unsigned num, pconstructor_decl * const * cs);
