@@ -25,6 +25,7 @@ Notation:
 --*/
 #pragma once
 #include "math/polysat/types.h"
+#include "math/polysat/constraint.h"
 #include <optional>
 
 namespace polysat {
@@ -37,28 +38,6 @@ namespace polysat {
 
         solver&     m_solver;
 
-#if 0
-        struct extract_key {
-            pvar src;
-            unsigned hi;
-            unsigned lo;
-
-            bool operator==(extract_key const& other) const {
-                return src == other.src && hi == other.hi && lo == other.lo;
-            }
-
-            unsigned hash() const {
-                return mk_mix(src, hi, lo);
-            }
-        };
-        using extract_hash = obj_hash<extract_key>;
-        using extract_eq = default_eq<extract_key>;
-        using extract_map = map<extract_key, pvar, extract_hash, extract_eq>;
-
-        extract_map m_extracted;  ///< src, hi, lo -> v
-        // need src -> [v] and v -> [src] for propagation?
-#endif
-
         using dep_t = sat::literal;
         using dep_vector = sat::literal_vector;
         static constexpr sat::literal null_dep = sat::null_literal;
@@ -69,11 +48,30 @@ namespace polysat {
 
         static constexpr unsigned null_cut = std::numeric_limits<unsigned>::max();
 
+        struct val2slice_key {
+            rational value;
+            unsigned bit_width;
+
+            val2slice_key() {}
+            val2slice_key(rational value, unsigned bit_width): value(std::move(value)), bit_width(bit_width) {}
+
+            bool operator==(val2slice_key const& other) const {
+                return bit_width == other.bit_width && value == other.value;
+            }
+
+            unsigned hash() const {
+                return combine_hash(value.hash(), bit_width);
+            }
+        };
+        using val2slice_hash = obj_hash<val2slice_key>;
+        using val2slice_eq = default_eq<val2slice_key>;
+        using val2slice_map = map<val2slice_key, slice, val2slice_hash, val2slice_eq>;
+
         // number of bits in the slice
         unsigned_vector m_slice_width;
         // Cut point: if slice represents bit-vector x, then x has been sliced into x[|x|-1:cut+1] and x[cut:0].
         // The cut point is relative to the parent slice (rather than a root variable, which might not be unique)
-        // (UINT_MAX for leaf slices)
+        // (null_cut for leaf slices)
         unsigned_vector m_slice_cut;
         // The sub-slices are at indices sub and sub+1 (or null_slice if there is no subdivision)
         slice_vector    m_slice_sub;
@@ -83,6 +81,15 @@ namespace polysat {
 
         slice_vector    m_proof_parent; // the proof forest
         dep_vector      m_proof_reason; // justification for merge of an element with its parent (in the proof forest)
+
+        // unsigned_vector m_value_id;     // slice -> value id
+        // vector<rational>    m_value;    // id -> value
+        // slice_vector    m_value_root;   // the slice representing the associated value, if any. NOTE: subslices will inherit this from their parents.
+        // TODO: value_root probably not necessary.
+        //       but we will need to create value slices for the sub-slices.
+        //       then the "reason" for that equality must be a marker "equality between parent and its value". explanation at that point must go up recursively.
+        vector<rational> m_slice2val;   // slice -> value (-1 if none)
+        val2slice_map   m_val2slice;    // (value, bit-width) -> slice
 
         pvar_vector     m_slice2var;    // slice -> pvar, or null_var if slice is not equivalent to a variable
         slice_vector    m_var2slice;    // pvar -> slice
@@ -109,6 +116,14 @@ namespace polysat {
         pvar slice2var(slice s) const { return m_slice2var[find(s)]; }
         unsigned width(slice s) const { return m_slice_width[s]; }
         bool has_sub(slice s) const { return m_slice_sub[s] != null_slice; }
+
+        // slice val2slice(rational const& val, unsigned bit_width) const;
+
+        // Retrieve (or create) a slice representing the given value.
+        slice mk_value_slice(rational const& val, unsigned bit_width);
+
+        bool has_value(slice s) const { SASSERT_EQ(s, find(s)); return m_slice2val[s].is_nonneg(); }
+        rational const& get_value(slice s) const { SASSERT(has_value(s)); return m_slice2val[s]; }
 
         // reverse all edges on the path from s to the root of its tree in the proof forest
         void make_proof_root(slice s);
@@ -137,6 +152,10 @@ namespace polysat {
         // Merge equivalence classes of two base slices.
         // Returns true if merge succeeded without conflict.
         [[nodiscard]] bool merge_base(slice s1, slice s2, dep_t dep);
+
+        // Merge equality s == val and propagate the value downward into sub-slices.
+        // Returns true if merge succeeded without conflict.
+        [[nodiscard]] bool merge_value(slice s, rational val, dep_t dep);
 
         void push_reason(slice s, dep_vector& out_deps);
 
@@ -168,17 +187,19 @@ namespace polysat {
             alloc_slice,
             split_slice,
             merge_base,
+            mk_value_slice,
         };
         svector<trail_item> m_trail;
         slice_vector        m_split_trail;
         svector<std::pair<slice, slice>>    m_merge_trail;  // pair of (representative, element)
+        vector<val2slice_key>               m_val2slice_trail;
         unsigned_vector     m_scopes;
 
         void undo_add_var();
         void undo_alloc_slice();
         void undo_split_slice();
         void undo_merge_base();
-
+        void undo_mk_value_slice();
 
         mutable slice_vector m_tmp1;
         mutable slice_vector m_tmp2;
@@ -217,8 +238,10 @@ namespace polysat {
         // - fixed bits
         // - intervals ?????  -- that will also need changes in the viable algorithm
         void propagate(pvar v);
+        void propagate(signed_constraint c);
 
         std::ostream& display(std::ostream& out) const;
+        std::ostream& display_tree(std::ostream& out, char const* name, slice s) const;
         std::ostream& display(std::ostream& out, slice s) const;
     };
 

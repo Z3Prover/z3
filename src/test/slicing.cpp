@@ -118,6 +118,65 @@ namespace polysat {
             std::cout << "    Reason: " << reason << "\n";
         }
 
+        // 1. a = b
+        // 2. d = c[1:0]
+        // 3. c = b[3:0]
+        // 4. e = a[1:0]
+        //
+        // Explain(d = e) should be {1, 2, 3, 4}
+        static void test4() {
+            std::cout << __func__ << "\n";
+            scoped_solver_slicing s;
+            slicing& sl = s.sl();
+            pvar a = s.add_var(8);
+            pvar b = s.add_var(8);
+            pvar c = s.add_var(4);
+            pvar d = s.add_var(2);
+            pvar e = s.add_var(2);
+
+            VERIFY(sl.merge(sl.var2slice(a), sl.var2slice(b), sat::literal(101)));
+            VERIFY(sl.merge(sl.var2slice(d), sl.var2slice(sl.mk_extract_var(c, 1, 0)), sat::literal(102)));
+            VERIFY(sl.merge(sl.var2slice(c), sl.var2slice(sl.mk_extract_var(b, 3, 0)), sat::literal(103)));
+            VERIFY(sl.merge(sl.var2slice(e), sl.var2slice(sl.mk_extract_var(a, 1, 0)), sat::literal(104)));
+
+            std::cout << "v" << d << " = v" << e << "? " << sl.is_equal(sl.var2slice(d), sl.var2slice(e))
+                      << "    find(v" << d << ") = " << sl.find(sl.var2slice(d))
+                      << "    find(v" << e << ") = " << sl.find(sl.var2slice(e))
+                      << "    slice(v" << d << ") = " << sl.var2slice(d)
+                      << "    slice(v" << e << ") = " << sl.var2slice(e)
+                      << "    slice(v" << d << ") = " << sl.m_var2slice[d]
+                      << "    slice(v" << e << ") = " << sl.m_var2slice[e]
+                      << "\n";
+            sat::literal_vector reason;
+            sl.explain_equal(sl.var2slice(d), sl.var2slice(e), reason);
+            std::cout << "    Reason: " << reason << "\n";
+            reason.reset();
+            sl.explain_equal(sl.m_var2slice[d], sl.m_var2slice[e], reason);
+            std::cout << "    Reason: " << reason << "\n";
+        }
+
+        // x[5:2] = y
+        // x[3:0] = z
+        // y = 0b1001
+        // z = 0b0111
+        static void test5() {
+            std::cout << __func__ << "\n";
+            scoped_solver_slicing s;
+            slicing& sl = s.sl();
+            pvar x = s.add_var(6);
+            std::cout << sl << "\n";
+
+            pvar y = sl.mk_extract_var(x, 5, 2);
+            std::cout << "v" << y << " := v" << x << "[5:2]\n" << sl << "\n";
+            pvar z = sl.mk_extract_var(x, 3, 0);
+            std::cout << "v" << z << " := v" << x << "[3:0]\n" << sl << "\n";
+
+            // VERIFY(sl.merge_value(sl.var2slice(y), rational(9)));
+            // std::cout << "v" << y << " = 9\n" << sl << "\n";
+            // VERIFY(sl.merge_value(sl.var2slice(z), rational(7)));
+            // std::cout << "v" << z << " = 7\n" << sl << "\n";
+        }
+
     };
 
 }
@@ -128,5 +187,7 @@ void tst_slicing() {
     test_slicing::test1();
     test_slicing::test2();
     test_slicing::test3();
+    test_slicing::test4();
+    // test_slicing::test5();
     std::cout << "ok\n";
 }

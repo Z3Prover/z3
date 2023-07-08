@@ -11,6 +11,35 @@ Author:
 
 --*/
 
+
+
+
+/*
+
+                (x=y)
+        x  <===========  y
+       /    \           / \
+      x[7:4] x[3:0]       y[3:0]
+                <==========
+                   (by x=y)
+
+Try later:
+  Congruence closure with "virtual concat" terms
+    x = x[7:4] ++ x[3:0]
+    y = y[7:4] ++ y[3:0]
+    x[7:4] = y[7:4]
+    x[3:0] = y[3:0]
+    => x = y
+
+Recycle the z3 egraph?
+    - x = x[7:4] ++ x[3:0]
+    - Add instance euf_egraph.h
+    - What do we need from the egraph?
+        - backtracking trail to check for new equalities
+
+*/
+
+
 #include "math/polysat/slicing.h"
 #include "math/polysat/solver.h"
 #include "math/polysat/log.h"
@@ -30,10 +59,11 @@ namespace polysat {
         unsigned const target_size = m_scopes[target_lvl];
         while (m_trail.size() > target_size) {
             switch (m_trail.back()) {
-            case trail_item::add_var:       undo_add_var();     break;
-            case trail_item::alloc_slice:   undo_alloc_slice(); break;
-            case trail_item::split_slice:   undo_split_slice(); break;
-            case trail_item::merge_base:    undo_merge_base(); break;
+            case trail_item::add_var:           undo_add_var();         break;
+            case trail_item::alloc_slice:       undo_alloc_slice();     break;
+            case trail_item::split_slice:       undo_split_slice();     break;
+            case trail_item::merge_base:        undo_merge_base();      break;
+            case trail_item::mk_value_slice:    undo_mk_value_slice();  break;
             default: UNREACHABLE();
             }
             m_trail.pop_back();
@@ -65,6 +95,8 @@ namespace polysat {
         m_proof_parent.push_back(null_slice);
         m_proof_reason.push_back(null_dep);
         m_mark.push_back(0);
+        // m_value_root.push_back(null_slice);
+        m_slice2val.push_back(rational(-1));
         m_trail.push_back(trail_item::alloc_slice);
         return s;
     }
@@ -80,6 +112,8 @@ namespace polysat {
         m_proof_parent.pop_back();
         m_proof_reason.pop_back();
         m_mark.pop_back();
+        // m_value_root.pop_back();
+        m_slice2val.pop_back();
     }
 
     slicing::slice slicing::sub_hi(slice parent) const {
@@ -112,6 +146,11 @@ namespace polysat {
         m_slice_width[sub_lo] = cut + 1;
         m_trail.push_back(trail_item::split_slice);
         m_split_trail.push_back(s);
+        if (has_value(s)) {
+            rational const& val = get_value(s);
+            // set_value(sub_lo, mod2k(val, cut + 1));
+            // set_value(sub_hi, machine_div2k(val, cut + 1));
+        }
     }
 
     void slicing::undo_split_slice() {
@@ -119,6 +158,27 @@ namespace polysat {
         m_split_trail.pop_back();
         m_slice_cut[s] = null_cut;
         m_slice_sub[s] = null_slice;
+    }
+
+    slicing::slice slicing::mk_value_slice(rational const& val, unsigned bit_width) {
+        SASSERT(0 <= val && val < rational::power_of_two(bit_width));
+        val2slice_key key(val, bit_width);
+        auto it = m_val2slice.find_iterator(key);
+        if (it != m_val2slice.end())
+            return it->m_value;
+        slice s = alloc_slice();
+        m_slice_width[s] = bit_width;
+        m_slice2val[s] = val;
+        // m_value_root[s] = s;
+        m_val2slice.insert(key, s);
+        m_val2slice_trail.push_back(std::move(key));
+        m_trail.push_back(trail_item::mk_value_slice);
+        return s;
+    }
+
+    void slicing::undo_mk_value_slice() {
+        m_val2slice.remove(m_val2slice_trail.back());
+        m_val2slice_trail.pop_back();
     }
 
     slicing::slice slicing::find(slice s) const {
@@ -142,6 +202,16 @@ namespace polysat {
         if (m_size[r1] > m_size[r2]) {
             std::swap(r1, r2);
             std::swap(s1, s2);
+        }
+        if (has_value(r1)) {
+            if (has_value(r2)) {
+                if (get_value(r1) != get_value(r2)) {
+                    NOT_IMPLEMENTED_YET();  // TODO: conflict
+                    return false;
+                }
+            }
+            // else
+            //     set_value(r2, get_value(r1));
         }
         // r2 becomes the representative of the merged class
         m_find[r1] = r2;
@@ -204,6 +274,39 @@ namespace polysat {
             prev_reason = curr_reason;
             curr = curr_parent;
         }
+    }
+
+    bool slicing::merge_value(slice s0, rational val0, dep_t dep) {
+        vector<std::pair<slice, rational>> todo;
+        todo.push_back({find(s0), std::move(val0)});
+        // check compatibility for sub-slices
+        for (unsigned i = 0; i < todo.size(); ++i) {
+            auto const& [s, val] = todo[i];
+            if (has_value(s)) {
+                if (get_value(s) != val) {
+                    // TODO: conflict
+                    NOT_IMPLEMENTED_YET();
+                    return false;
+                }
+                SASSERT_EQ(get_value(s), val);
+                continue;
+            }
+            if (has_sub(s)) {
+                // s is split into [s.width-1, cut+1] and [cut, 0]
+                unsigned const cut = m_slice_cut[s];
+                todo.push_back({find_sub_lo(s), mod2k(val, cut + 1)});
+                todo.push_back({find_sub_hi(s), machine_div2k(val, cut + 1)});
+            }
+        }
+        // all succeeded, so apply the values
+        for (auto const& [s, val] : todo) {
+            if (has_value(s)) {
+                SASSERT_EQ(get_value(s), val);
+                continue;
+            }
+            // set_value(s, val);
+        }
+        return true;
     }
 
     void slicing::push_reason(slice s, dep_vector& out_deps) {
@@ -295,6 +398,10 @@ namespace polysat {
             slice y = ys.back();
             xs.pop_back();
             ys.pop_back();
+            if (x == y) {
+                // merge upper level?
+                // but continue loop
+            }
             if (has_sub(x)) {
                 find_base(x, xs);
                 x = xs.back();
@@ -338,6 +445,7 @@ namespace polysat {
     }
 
     bool slicing::merge(slice x, slice y, dep_t dep) {
+        SASSERT_EQ(width(x), width(y));
         if (!has_sub(x) && !has_sub(y))
             return merge_base(x, y, dep);
         slice_vector& xs = m_tmp2;
@@ -350,6 +458,7 @@ namespace polysat {
     }
 
     bool slicing::is_equal(slice x, slice y) {
+        SASSERT_EQ(width(x), width(y));
         x = find(x);
         y = find(y);
         if (x == y)
@@ -480,6 +589,13 @@ namespace polysat {
     }
 
     pdd slicing::mk_extract(pdd const& p, unsigned hi, unsigned lo) {
+        SASSERT(hi >= lo);
+        SASSERT(p.power_of_2() > hi);
+        if (p.is_val()) {
+            // p[hi:lo] = (p >> lo) % 2^(hi - lo + 1)
+            rational q = mod2k(machine_div2k(p.val(), lo), hi - lo + 1);
+            return p.manager().mk_val(q);
+        }
         if (!lo) {
             // TODO: we could push the extract down into variables of the term instead of introducing a name.
         }
@@ -498,6 +614,14 @@ namespace polysat {
         unsigned const p_sz = p.power_of_2();
         unsigned const q_sz = q.power_of_2();
         unsigned const v_sz = p_sz + q_sz;
+        if (p.is_val() && q.is_val()) {
+            rational const val = p.val() * rational::power_of_two(q_sz) + q.val();
+            return m_solver.sz2pdd(v_sz).mk_val(val);
+        }
+        if (p.is_val()) {
+        }
+        if (q.is_val()) {
+        }
         pvar const v = m_solver.add_var(v_sz);
         slice_vector tmp;
         tmp.push_back(pdd2slice(p));
@@ -506,7 +630,48 @@ namespace polysat {
         return m_solver.var(v);
     }
 
+    void slicing::propagate(signed_constraint c) {
+        // TODO: evaluate under current assignment?
+        if (!c->is_eq())
+            return;
+        pdd const& p = c->to_eq();
+        auto& m = p.manager();
+        for (auto& [a, x] : p.linear_monomials()) {
+            if (a != 1 && a != m.max_value())
+                continue;
+            pdd body = a.is_one() ? (m.mk_var(x) - p) : (m.mk_var(x) + p);
+            // c is either x = body or x != body, depending on polarity
+            LOG("Equation from constraint " << c << ": v" << x << " = " << body);
+            slice const sx = var2slice(x);
+            if (body.is_val()) {
+                // Simple assignment x = value
+                // TODO: set fixed bits
+                continue;
+            }
+            pvar const y = m_solver.m_names.get_name(body);
+            if (y == null_var) {
+                // TODO: register name trigger (if a name for value 'body' is created later, then merge x=y at that time)
+                continue;
+            }
+            slice const sy = var2slice(y);
+            if (c.is_positive()) {
+                if (!merge(sx, sy, c.blit()))
+                    return;
+            }
+            else {
+                SASSERT(c.is_negative());
+                if (is_equal(sx, sy)) {
+                    // TODO: conflict
+                    NOT_IMPLEMENTED_YET();
+                    return;
+                }
+            }
+        }
+    }
+
     void slicing::propagate(pvar v) {
+        // go through all existing nodes, and evaluate v?
+        // can do that externally
     }
 
     std::ostream& slicing::display(std::ostream& out) const {
@@ -514,7 +679,8 @@ namespace polysat {
         for (pvar v = 0; v < m_var2slice.size(); ++v) {
             out << "v" << v << ":";
             base.reset();
-            find_base(var2slice(v), base);
+            slice const vs = var2slice(v);
+            find_base(vs, base);
             // unsigned hi = width(var2slice(v)) - 1;
             for (slice s : base) {
                 // unsigned w = width(s);
@@ -523,13 +689,49 @@ namespace polysat {
                 // hi -= w;
                 display(out << " ", s);
             }
+            if (has_value(vs)) {
+                out << "        -- (val:" << get_value(vs) << ")";
+            }
             out << "\n";
+        }
+        for (pvar v = 0; v < m_var2slice.size(); ++v) {
+            out << "v" << v << ":";
+            slice const s = m_var2slice[v];
         }
         return out;
     }
 
+    std::ostream& slicing::display_tree(std::ostream& out, char const* name, slice s) const {
+        // TODO
+    }
+
     std::ostream& slicing::display(std::ostream& out, slice s) const {
-        return out << "{id:" << s << ",w:" << width(s) << "}";
+        out << "{id:" << s << ",w:" << width(s);
+        if (has_value(s)) {
+            out << ",val:" << get_value(s);
+        }
+        out << "}";
+        return out;
+    }
+
+    bool slicing::invariant() const {
+        VERIFY(m_tmp1.empty());
+        VERIFY(m_tmp2.empty());
+        VERIFY(m_tmp3.empty());
+        for (slice s = 0; s < m_slice_cut.size(); ++s) {
+            // if the slice is equivalent to a variable, then the variable's slice is in the equivalence class
+            pvar const v = slice2var(s);
+            SASSERT_EQ(v != null_var, find(var2slice(v)) == find(s));
+            // properties below only matter for representatives
+            if (s != find(s))
+                continue;
+            // if slice has a value, it should be propagated to its sub-slices
+            if (has_value(s)) {
+                VERIFY(has_value(find_sub_hi(s)));
+                VERIFY(has_value(find_sub_lo(s)));
+            }
+        }
+        return true;
     }
 
 }
