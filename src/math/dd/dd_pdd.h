@@ -45,6 +45,7 @@ namespace dd {
     class pdd;
     class pdd_manager;
     class pdd_iterator;
+    class pdd_linear_iterator;
 
     class pdd_manager {
     public:
@@ -53,13 +54,14 @@ namespace dd {
         friend test;
         friend pdd;
         friend pdd_iterator;
+        friend pdd_linear_iterator;
 
         typedef unsigned PDD;
         typedef vector<std::pair<rational,unsigned_vector>> monomials_t;
 
-        const PDD null_pdd = UINT_MAX;
-        const PDD zero_pdd = 0;
-        const PDD one_pdd = 1;
+        static constexpr PDD null_pdd = UINT_MAX;
+        static constexpr PDD zero_pdd = 0;
+        static constexpr PDD one_pdd = 1;
 
         enum pdd_op {
             pdd_add_op = 2,
@@ -400,6 +402,7 @@ namespace dd {
         friend test;
         friend class pdd_manager;
         friend class pdd_iterator;
+        friend class pdd_linear_iterator;
         unsigned     root;
         pdd_manager* m;
         pdd(unsigned root, pdd_manager& pm): root(root), m(&pm) { m->inc_ref(root); }
@@ -501,6 +504,16 @@ namespace dd {
         pdd_iterator begin() const;
         pdd_iterator end() const;
 
+        class pdd_linear_monomials {
+            friend class pdd;
+            pdd const& m_pdd;
+            pdd_linear_monomials(pdd const& p): m_pdd(p) {}
+        public:
+            pdd_linear_iterator begin() const;
+            pdd_linear_iterator end() const;
+        };
+        pdd_linear_monomials linear_monomials() const { return pdd_linear_monomials(*this); }
+
         pdd_manager& manager() const { return *m; }
     };
 
@@ -556,6 +569,26 @@ namespace dd {
         pdd_iterator operator++(int) { auto tmp = *this; next(); return tmp; }
         bool operator==(pdd_iterator const& other) const { return m_nodes == other.m_nodes; }
         bool operator!=(pdd_iterator const& other) const { return m_nodes != other.m_nodes; }
+    };
+
+    class pdd_linear_iterator {
+        friend class pdd::pdd_linear_monomials;
+        pdd m_pdd;
+        std::pair<rational, unsigned> m_mono;
+        pdd_manager::PDD m_next = pdd_manager::null_pdd;
+        pdd_linear_iterator(pdd const& p, bool at_start): m_pdd(p) { if (at_start) first(); }
+        void first();
+        void next();
+    public:
+        using value_type = std::pair<rational, unsigned>;  // coefficient and variable
+        using reference = value_type const&;
+        using pointer = value_type const*;
+        reference operator*() const { return m_mono; }
+        pointer operator->() const { return &m_mono; }
+        pdd_linear_iterator& operator++() { next(); return *this; }
+        pdd_linear_iterator operator++(int) { auto tmp = *this; next(); return tmp; }
+        bool operator==(pdd_linear_iterator const& other) const { return m_next == other.m_next; }
+        bool operator!=(pdd_linear_iterator const& other) const { return m_next != other.m_next; }
     };
 
     class val_pp {

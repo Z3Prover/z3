@@ -1148,6 +1148,7 @@ namespace dd {
     unsigned pdd_manager::max_pow2_divisor(PDD p) {
         init_mark();
         unsigned min_j = UINT_MAX;
+        SASSERT(m_todo.empty());
         m_todo.push_back(p);
         while (!m_todo.empty()) {
             PDD r = m_todo.back();
@@ -1986,5 +1987,32 @@ namespace dd {
         return out;
     }
 
+    void pdd_linear_iterator::first() {
+        m_next = m_pdd.root;
+        next();
+    }
 
-}
+    void pdd_linear_iterator::next() {
+        SASSERT(m_next != pdd_manager::null_pdd);
+        auto& m = m_pdd.manager();
+        while (!m.is_val(m_next)) {
+            unsigned const var = m.var(m_next);
+            rational const val = m.offset(m.hi(m_next));
+            m_next = m.lo(m_next);
+            if (!val.is_zero()) {
+                m_mono = {val, var};
+                return;
+            }
+        }
+        m_next = pdd_manager::null_pdd;
+    }
+
+    pdd_linear_iterator pdd::pdd_linear_monomials::begin() const {
+        return pdd_linear_iterator(m_pdd, true);
+    }
+
+    pdd_linear_iterator pdd::pdd_linear_monomials::end() const {
+        return pdd_linear_iterator(m_pdd, false);
+    }
+
+}  // namespace dd
