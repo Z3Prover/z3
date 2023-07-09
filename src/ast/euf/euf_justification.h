@@ -16,7 +16,7 @@ Author:
 Notes:
 
 - congruence closure justifications are given a timestamp so it is easy to sort them.
-  See the longer descriptoin in euf_proof_checker.cpp
+  See the longer description in euf_proof_checker.cpp
 
 --*/
 

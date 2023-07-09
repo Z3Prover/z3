@@ -19,7 +19,7 @@ Notes:
     - data structures form the (legacy) SMT solver.
       - it still uses eager path compression.
 
-    NB. The worklist is in reality inheritied from the legacy SMT solver. 
+    NB. The worklist is in reality inherited from the legacy SMT solver. 
     It is claimed to have the same effect as delayed congruence table reconstruction from egg.
     Similar to the legacy solver, parents are partially deduplicated.
     

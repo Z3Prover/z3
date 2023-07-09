@@ -952,7 +952,7 @@ def mk_hpp_from_pyg(pyg_file, output_dir):
         'UINT_MAX' : UINT_MAX,
         'max_memory_param' : max_memory_param,
         'max_steps_param' : max_steps_param,
-        # Note that once this function is enterred that function
+        # Note that once this function is entered that function
         # executes with respect to the globals of this module and
         # not the globals defined here
         'def_module_params' : def_module_params,

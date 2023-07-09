@@ -22,7 +22,7 @@ A tactic for performing Ackermann reduction for bit-vector formulas
 ### Long Description
 
 The Ackermann reduction replaces uninterpreted functions $f(t_1), f(t_2)$
-by fresh variables $f_1, f_2$ and addes axioms $t_1 \simeq t_2 \implies f_1 \simeq f_2$.
+by fresh variables $f_1, f_2$ and adds axioms $t_1 \simeq t_2 \implies f_1 \simeq f_2$.
 The reduction has the effect of eliminating uninterpreted functions. When the reduction
 produces a pure bit-vector benchmark, it allows Z3 to use a specialized SAT solver.
 
