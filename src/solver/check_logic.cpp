@@ -38,7 +38,7 @@ struct check_logic::imp {
     datatype_util m_dt_util;
     pb_util       m_pb_util;
     bool          m_uf;        // true if the logic supports uninterpreted functions
-    bool          m_dt;        // true if the lgoic supports dattypes
+    bool          m_dt;        // true if the logic supports dattypes
     bool          m_arrays;    // true if the logic supports arbitrary arrays
     bool          m_bv_arrays; // true if the logic supports only bv arrays
     bool          m_reals;     // true if the logic supports reals

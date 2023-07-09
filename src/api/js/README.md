@@ -13,7 +13,7 @@ Then run `npm i` to install dependencies, `npm run build:ts` to build the TypeSc
 
 ### Build on your own
 
-Consult the file [build-wasm.ts](https://github.com/Z3Prover/z3/blob/master/src/api/js/scripts/build-wasm.ts) for configurations used for building  wasm.
+Consult the file [build-wasm.ts](https://github.com/Z3Prover/z3/blob/master/src/api/js/scripts/build-wasm.ts) for configurations used for building wasm.
 
 ## Tests
 

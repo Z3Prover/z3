@@ -3770,7 +3770,7 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
-        /// Create a simplifie that applies <paramref name="t1"/> and
+        /// Create a simplifier that applies <paramref name="t1"/> and
         /// then <paramref name="t2"/>.
         /// </summary>
         public Simplifier AndThen(Simplifier t1, Simplifier t2, params Simplifier[] ts)

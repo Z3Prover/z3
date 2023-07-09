@@ -5385,7 +5385,7 @@ def EnumSort(name, values, ctx=None):
     """
     if z3_debug():
         _z3_assert(isinstance(name, str), "Name must be a string")
-        _z3_assert(all([isinstance(v, str) for v in values]), "Eumeration sort values must be strings")
+        _z3_assert(all([isinstance(v, str) for v in values]), "Enumeration sort values must be strings")
         _z3_assert(len(values) > 0, "At least one value expected")
     ctx = _get_ctx(ctx)
     num = len(values)

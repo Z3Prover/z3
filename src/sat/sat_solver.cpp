@@ -3462,7 +3462,7 @@ namespace sat {
             }
         }
 
-        // can't eliminat FUIP
+        // can't eliminate FUIP
         SASSERT(is_marked_lit(m_lemma[0]));
 
         unsigned j = 0;

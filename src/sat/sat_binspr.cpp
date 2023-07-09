@@ -47,7 +47,7 @@ Marijn's version:
           if inconsistent():
              learn C (subsumes C or p)
           else:
-             candidates' := C union ~(consequencs of propagate(~C))
+             candidates' := C union ~(consequences of propagate(~C))
              candidates  := candidates' intersect candidates
           pop(1)
       for q in candidates:
@@ -77,7 +77,7 @@ Marijn's version:
           if inconsistent():
              learn C (subsumes C or p)
           else:
-             candidates := candicates union C union ~(consequencs of propagate(~C))
+             candidates := candidates union C union ~(consequences of propagate(~C))
           pop(1)
       for q in candidates:
           push(1)

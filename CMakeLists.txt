@@ -81,7 +81,7 @@ if (EXISTS "${GIT_DIR}")
       # This mimics the behaviour of the old build system.
       set(Z3_FULL_VERSION_STR "${Z3_FULL_VERSION_STR} ${Z3_GIT_DESCRIPTION}")
     else()
-      message(STATUS "Not including git descrption in version")
+      message(STATUS "Not including git description in version")
     endif()
   else()
     message(WARNING "Failed to add git dependency.")
@@ -462,7 +462,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}")
 # generate files used for Z3's build. Changes to these files will trigger
 # a rebuild of all the generated files.
 ################################################################################
-# Note: ``update_api.py`` is deliberately not here because it not used
+# Note: ``update_api.py`` is deliberately not here because it is not used
 # to generate every generated file. The targets that need it list it explicitly.
 set(Z3_GENERATED_FILE_EXTRA_DEPENDENCIES
   "${PROJECT_SOURCE_DIR}/scripts/mk_genfile_common.py"

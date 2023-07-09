@@ -292,7 +292,7 @@ if 'bdist_wheel' in sys.argv and '--plat-name' not in sys.argv:
         distos = RELEASE_METADATA[2]
         if distos in ('debian', 'ubuntu'):
             raise Exception(
-                "Linux binary distributions must be built on centos to conform to PEP 513 or alpine if targetting musl"
+                "Linux binary distributions must be built on centos to conform to PEP 513 or alpine if targeting musl"
             )
         elif distos == 'glibc':
             if arch == 'x64':
