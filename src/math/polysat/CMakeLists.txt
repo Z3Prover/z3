@@ -30,12 +30,13 @@ z3_add_component(polysat
     variable_elimination.cpp
     viable.cpp
   COMPONENT_DEPENDENCIES
-    util
-    dd
-    simplex
-    interval
     bigfix
+    dd
+    euf
+    interval
     polysat_univariate_solver
+    simplex
+    util
   PYG_FILES
     polysat_params.pyg
 )

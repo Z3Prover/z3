@@ -55,7 +55,7 @@ def init_project_def():
     add_lib('solver_assertions', ['pattern','smt_params','cmd_context','qe_lite'], 'solver/assertions')
     add_lib('bigfix',['util'], 'math/bigfix')
     add_lib('polysat_univariate_solver', ['util', 'solver'], 'math/polysat/univariate')
-    add_lib('polysat', ['bigfix','util','dd','simplex','interval','polysat_univariate_solver'], 'math/polysat')
+    add_lib('polysat', ['bigfix','dd','euf','interval','polysat_univariate_solver','simplex','util'], 'math/polysat')
     add_lib('subpaving_tactic', ['core_tactics', 'subpaving'], 'math/subpaving/tactic')
 
     add_lib('proto_model', ['model', 'rewriter', 'smt_params'], 'smt/proto_model')
