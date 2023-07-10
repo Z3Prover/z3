@@ -13,7 +13,6 @@ Description:
   Refines bounds on powers.
   
 --*/
-// clang-format off
 
 #include "math/lp/nla_types.h"
 

@@ -7,7 +7,6 @@ Author:
     Nikolaj Bjorner (nbjorner)
 
 --*/
-// clang-format off
 #pragma once
 
 #include "util/inf_rational.h"

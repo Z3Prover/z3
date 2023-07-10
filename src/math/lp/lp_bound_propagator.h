@@ -4,7 +4,6 @@
   Nikolaj Bjorner (nbjorner)
   Lev Nachmanson   (levnach)
 */
-//clang-format off
 #pragma once
 #include <utility>
 

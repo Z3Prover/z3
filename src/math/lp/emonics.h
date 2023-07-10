@@ -18,7 +18,6 @@
     to replace rooted_mons.h and rooted_mon, rooted_mon_tabled
 
   --*/
-// clang-format off
 
 #pragma once
 #include "math/lp/lp_utils.h"

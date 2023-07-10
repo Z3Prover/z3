@@ -18,7 +18,6 @@
   replaced rooted_mons.h and rooted_mon, rooted_mon_tabled
 
 --*/
-// clang-format off
 
 #include "math/lp/emonics.h"
 #include "math/lp/nla_defs.h"

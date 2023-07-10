@@ -13,7 +13,6 @@ Description:
   Types used for nla solver.
   
 --*/
-// clang-format off
 
 #pragma once
 

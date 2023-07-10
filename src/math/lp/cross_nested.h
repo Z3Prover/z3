@@ -17,7 +17,6 @@
 
 
   --*/
-// clang-format off
 #pragma once
 #include <functional>
 #include "math/lp/nex.h"

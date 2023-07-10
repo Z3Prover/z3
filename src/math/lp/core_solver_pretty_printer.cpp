@@ -17,7 +17,6 @@ Revision History:
 
 
 --*/
-// clang-format off
 #include "math/lp/numeric_pair.h"
 #include "math/lp/core_solver_pretty_printer_def.h"
 template lp::core_solver_pretty_printer<lp::mpq, lp::mpq>::core_solver_pretty_printer(const lp::lp_core_solver_base<lp::mpq, lp::mpq> &, std::ostream & out);

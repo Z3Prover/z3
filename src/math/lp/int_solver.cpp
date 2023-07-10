@@ -2,7 +2,6 @@
   Copyright (c) 2017 Microsoft Corporation
   Author: Lev Nachmanson
 */
-// clang-format off
 #include "math/lp/int_solver.h"
 #include "math/lp/lar_solver.h"
 #include "math/lp/lp_utils.h"
@@ -138,8 +137,7 @@ namespace lp {
                    try_patch_column(v, c.var(), delta_plus);
         }
     }
-    // clang-format off
-    
+        
     bool int_solver::patcher::try_patch_column(unsigned v, unsigned j, mpq const& delta) {
         const auto & A = lra.A_r();
         if (delta < 0) {

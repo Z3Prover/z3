@@ -6,7 +6,6 @@ Author:
     Nikolaj Bjorner (nbjorner)
 
 --*/
-// clang-format off
 #pragma once
 #include "util/vector.h"
 #include "math/lp/lp_settings.h"

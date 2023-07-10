@@ -10,7 +10,6 @@
     Nikolaj Bjorner (nbjorner)
 
 --*/
-// clang-format off
 #pragma once
 #include "math/lp/factorization.h"
 #include "math/lp/lp_types.h"

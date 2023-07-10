@@ -18,7 +18,6 @@ Revision History:
 TBD use indexed_uint_set from src/util/uint_set.h, 
 
 --*/
-// clang-format off
 #pragma once
 #include "util/vector.h"
 #include <ostream>

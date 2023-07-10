@@ -17,7 +17,6 @@ Revision History:
 
 
 --*/
-// clang-format off
 #include <utility>
 #include <memory>
 #include <string>

@@ -17,7 +17,6 @@
 
 
   --*/
-// clang-format off
 #include "math/lp/gomory.h"
 #include "math/lp/int_solver.h"
 #include "math/lp/lar_solver.h"

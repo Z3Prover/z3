@@ -14,7 +14,6 @@ Author:
     Lev Nachmanson (levnach)
 
 --*/
-// clang-format off
 
 #pragma once
 #include "math/lp/lar_term.h"

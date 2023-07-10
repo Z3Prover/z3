@@ -17,7 +17,6 @@ Revision History:
 
 
 --*/
-// clang-format off
 #pragma once
 #include "math/lp/core_solver_pretty_printer.h"
 #include "math/lp/lp_core_solver_base.h"
@@ -159,8 +158,7 @@ namespace lp {
     }
     return r;
   }
-    // clang-format off
-    int find_beneficial_entering_in_row_tableau_rows_bland_mode(int i, T &a_ent) {
+        int find_beneficial_entering_in_row_tableau_rows_bland_mode(int i, T &a_ent) {
         int j = -1;
         unsigned bj = this->m_basis[i];
         bool bj_needs_to_grow = needs_to_grow(bj);
@@ -183,8 +181,7 @@ namespace lp {
             m_inf_row_index_for_tableau = i;
         return j;
     }
-    //clang-format off
-    int find_beneficial_entering_tableau_rows(int i, T &a_ent) {
+        int find_beneficial_entering_tableau_rows(int i, T &a_ent) {
         if (m_bland_mode_tableau)
             return find_beneficial_entering_in_row_tableau_rows_bland_mode(i, a_ent);
         // a short row produces short infeasibility explanation and benefits at

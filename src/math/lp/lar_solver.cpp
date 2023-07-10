@@ -2,7 +2,6 @@
   Copyright (c) 2017 Microsoft Corporation
   Author: Nikolaj Bjorner, Lev Nachmanson
 */
-// clang-format off
 #include "math/lp/lar_solver.h"
 #include "smt/params/smt_params_helper.hpp"
 
@@ -696,7 +695,6 @@ namespace lp {
         }
     }
 
-    void lar_solver::detect_rows_with_changed_bounds_for_column(unsigned j) {
         if (m_mpq_lar_core_solver.m_r_heading[j] >= 0) 
             insert_row_with_changed_bounds(m_mpq_lar_core_solver.m_r_heading[j]);
         else 
@@ -1753,8 +1751,7 @@ namespace lp {
     }
     // clang-format off
     void lar_solver::update_column_type_and_bound_check_on_equal(unsigned j,
-        lconstraint_kind kind,
-        const mpq& right_side,
+                const mpq& right_side,
         constraint_index constr_index,
         unsigned& equal_to_j) {
         update_column_type_and_bound(j, kind, right_side, constr_index);
@@ -1897,8 +1894,7 @@ namespace lp {
     }
     // clang-format off
     void lar_solver::update_bound_with_no_ub_lb(var_index j, lconstraint_kind kind, const mpq& right_side, constraint_index ci) {
-        lp_assert(column_has_lower_bound(j) && !column_has_upper_bound(j));
-        lp_assert(m_mpq_lar_core_solver.m_column_types[j] == column_type::lower_bound);
+                lp_assert(m_mpq_lar_core_solver.m_column_types[j] == column_type::lower_bound);
 
         mpq y_of_bound(0);
         switch (kind) {
@@ -1946,8 +1942,7 @@ namespace lp {
     }
     // clang-format off
     void lar_solver::update_bound_with_ub_no_lb(var_index j, lconstraint_kind kind, const mpq& right_side, constraint_index ci) {
-        lp_assert(!column_has_lower_bound(j) && column_has_upper_bound(j));
-        lp_assert(m_mpq_lar_core_solver.m_column_types[j] == column_type::upper_bound);
+                lp_assert(m_mpq_lar_core_solver.m_column_types[j] == column_type::upper_bound);
         mpq y_of_bound(0);
         switch (kind) {
         case LT:
@@ -2033,8 +2028,7 @@ namespace lp {
     }
     // clang-format off
     bool lar_solver::column_corresponds_to_term(unsigned j) const {
-        return tv::is_term(m_var_register.local_to_external(j));
-    }
+            }
 
     var_index lar_solver::to_column(unsigned ext_j) const {
         return m_var_register.external_to_local(ext_j);

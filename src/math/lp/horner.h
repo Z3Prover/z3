@@ -17,7 +17,6 @@
 
 
   --*/
-// clang-format off
 #pragma once
 
 #include "math/lp/nla_common.h"

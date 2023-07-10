@@ -17,7 +17,6 @@ Revision History:
 
 
 --*/
-// clang-format off
 #pragma once
 #include <set>
 #include "util/vector.h"
@@ -291,8 +290,8 @@ public:
     X bound_span(unsigned j) const {
         return m_upper_bounds[j] - m_lower_bounds[j];
     }
-
-    std::string column_name(unsigned column) const;
+        // clang-format on       
+        std::string column_name(unsigned column) const;
 
     bool make_column_feasible(unsigned j, numeric_pair<mpq> & delta) {
         bool ret = false;
@@ -303,7 +302,7 @@ public:
             lp_assert(m_lower_bounds[j] == m_upper_bounds[j]);
             if (x != m_lower_bounds[j]) {
                 delta = m_lower_bounds[j] - x;
-                ret = true;;
+                ret = true;
             }
             break;
         case column_type::boxed:

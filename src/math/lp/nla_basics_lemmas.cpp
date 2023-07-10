@@ -6,7 +6,6 @@
     Nikolaj Bjorner (nbjorner)
 
 --*/
-// clang-format off
 
 #include "math/lp/nla_basics_lemmas.h"
 #include "math/lp/nla_core.h"

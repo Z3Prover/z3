@@ -17,7 +17,6 @@
 
 
   --*/
-// clang-format off
 #pragma once
 #include "math/lp/indexed_vector.h"
 #include "util/map.h"

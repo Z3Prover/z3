@@ -17,7 +17,6 @@ Revision History:
 
 
 --*/
-// clang-format off
 #pragma once
 #include "math/lp/lp_utils.h"
 #include "util/map.h"
