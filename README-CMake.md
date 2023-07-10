@@ -125,7 +125,7 @@ Note that this is `libz3` not `z3` (`libz3` refers to the library target from `s
 
 [Ninja](https://ninja-build.org/) is a simple build system that is built for speed.
 It can be significantly faster than "UNIX Makefile"s because it is not a recursive
-build system and thus doesn't create a new process everytime it traverses into a directory.
+build system and thus doesn't create a new process every time it traverses into a directory.
 Ninja is particularly appropriate if you want fast incremental building.
 
 Basic usage is as follows:
@@ -236,7 +236,7 @@ more interactive and allow you to change various options. In both these
 tools the basic steps to follow are:
 
 1. Configure.
-2. Change any options you wish. Everytime you change a set of options
+2. Change any options you wish. Every time you change a set of options
    You should configure again. This may cause new options to appear
 3. Generate.
 
@@ -348,7 +348,7 @@ These notes are help developers and packagers of Z3.
 ### Install/Uninstall
 
 Install and uninstall targets are supported. Use ``CMAKE_INSTALL_PREFIX`` to
-set the install prefix. If you also need need to control which directories are
+set the install prefix. If you also need to control which directories are
 used for install set the documented ``CMAKE_INSTALL_*`` options.
 
 To install run

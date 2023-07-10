@@ -17,6 +17,7 @@ Revision History:
 
 
 --*/
+// clang-format off
 #pragma once
 
 // this is a part of lp_primal_core_solver that deals with the tableau
@@ -30,7 +31,7 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::one_iteratio
     else {
         advance_on_entering_tableau(entering);
     }
-    lp_assert(this->inf_set_is_correct());
+    lp_assert(this->inf_heap_is_correct());
 }
 
 template <typename T, typename X> void lp_primal_core_solver<T, X>::advance_on_entering_tableau(int entering) {
@@ -59,6 +60,7 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::advance_on_e
     }
     unsigned j_nz = this->m_m() + 1; // this number is greater than the max column size
     std::list<unsigned>::iterator entering_iter = m_non_basis_list.end();
+    unsigned n = 0;
     for (auto non_basis_iter = m_non_basis_list.begin(); number_of_benefitial_columns_to_go_over && non_basis_iter != m_non_basis_list.end(); ++non_basis_iter) {
         unsigned j = *non_basis_iter;
         if (!column_is_benefitial_for_entering_basis(j))
@@ -71,8 +73,9 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::advance_on_e
             entering_iter = non_basis_iter;
             if (number_of_benefitial_columns_to_go_over)
                 number_of_benefitial_columns_to_go_over--;
+            n = 1;
         }
-        else if (t == j_nz && this->m_settings.random_next() % 2 == 0) {
+        else if (t == j_nz && this->m_settings.random_next(++n) == 0) {
             entering_iter = non_basis_iter;
         }
     }// while (number_of_benefitial_columns_to_go_over && initial_offset_in_non_basis != offset_in_nb);
@@ -166,7 +169,8 @@ template <typename T, typename X>void lp_primal_core_solver<T, X>::advance_on_en
         }
         this->update_basis_and_x_tableau(entering, leaving, t);
         this->iters_with_no_cost_growing() = 0;
-    } else {
+    }
+    else {
         this->pivot_column_tableau(entering, this->m_basis_heading[leaving]);
         this->change_basis(entering, leaving);
     }
@@ -256,7 +260,7 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::init_run_tab
         this->m_basis_sort_counter = 0; // to initiate the sort of the basis
         //  this->set_total_iterations(0);
         this->iters_with_no_cost_growing() = 0;
-		lp_assert(this->inf_set_is_correct());
+		lp_assert(this->inf_heap_is_correct());
         if (this->current_x_is_feasible() && this->m_look_for_feasible_solution_only)
             return;
         if (this->m_settings.backup_costs)

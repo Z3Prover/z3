@@ -17,6 +17,7 @@ Revision History:
 
 
 --*/
+// clang-format off
 #pragma once
 #include <string>
 #include "math/lp/numeric_pair.h"

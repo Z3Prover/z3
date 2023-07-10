@@ -58,7 +58,7 @@ namespace Microsoft.Z3
         public delegate void CreatedEh(Expr term);
 
         /// <summary>
-        /// Delegate type for callback into solver's branching. The values can be overriden by calling <see cref="NextSplit" />.
+        /// Delegate type for callback into solver's branching. The values can be overridden by calling <see cref="NextSplit" />.
         /// </summary>
         /// <param name="term">A bit-vector or Boolean used for branching</param>
         /// <param name="idx">If the term is a bit-vector, then an index into the bit-vector being branched on</param>
@@ -252,11 +252,29 @@ namespace Microsoft.Z3
 
         /// <summary>
         /// Propagate consequence
+        /// <returns>
+        /// <see langword="true" /> if the propagated expression is new for the solver;
+        /// <see langword="false" /> if the propagation was ignored
+        /// </returns>
         /// </summary>
-        public void Propagate(IEnumerable<Expr> terms, Expr conseq)
+        public bool Propagate(IEnumerable<Expr> terms, Expr conseq)
+        {
+            return Propagate(terms, new EqualityPairs(), conseq);
+        }
+
+        /// <summary>
+        /// Propagate consequence
+        /// <returns>
+        /// <see langword="true" /> if the propagated expression is new for the solver;
+        /// <see langword="false" /> if the propagation was ignored
+        /// </returns>
+        /// </summary>
+        public bool Propagate(IEnumerable<Expr> terms, EqualityPairs equalities, Expr conseq)
         {
             var nTerms = Z3Object.ArrayToNative(terms.ToArray());
-            Native.Z3_solver_propagate_consequence(ctx.nCtx, this.callback, (uint)nTerms.Length, nTerms, 0u, null, null, conseq.NativeObject);
+            var nLHS = Z3Object.ArrayToNative(equalities.LHS.ToArray());
+            var nRHS = Z3Object.ArrayToNative(equalities.RHS.ToArray());
+            return Native.Z3_solver_propagate_consequence(ctx.nCtx, this.callback, (uint)nTerms.Length, nTerms, (uint)equalities.Count, nLHS, nRHS, conseq.NativeObject) != 0;
         }
 
 
@@ -372,6 +390,74 @@ namespace Microsoft.Z3
             else
             {
                 Native.Z3_solver_propagate_register(ctx.nCtx, solver.NativeObject, term.NativeObject);
+            }
+        }
+    }
+
+    /// <summary>
+    /// A list of equalities used as justifications for propagation
+    /// </summary>
+    public class EqualityPairs {
+
+        readonly List<Expr> lhsList = new List<Expr>();
+        readonly List<Expr> rhsList = new List<Expr>();
+
+        /// <summary>
+        /// The left hand sides of the equalities
+        /// </summary>
+        public Expr[] LHS => lhsList.ToArray();
+
+        /// <summary>
+        /// The right hand sides of the equalities
+        /// </summary>
+        public Expr[] RHS => rhsList.ToArray();
+
+        /// <summary>
+        /// The number of equalities
+        /// </summary>
+        public int Count => lhsList.Count;
+
+        /// <summary>
+        /// Adds an equality to the list. The sorts of the arguments have to be the same.
+        /// <param name="lhs">The left hand side of the equality</param>
+        /// <param name="rhs">The right hand side of the equality</param>
+        /// </summary>
+        public void Add(Expr lhs, Expr rhs) {
+            lhsList.Add(lhs);
+            rhsList.Add(rhs);
+        }
+
+        /// <summary>
+        /// Checks if two equality lists are equal.
+        /// The function does not take symmetries, shuffling, or duplicates into account.
+        /// </summary>
+        public override bool Equals(object obj) {
+            if (ReferenceEquals(this, obj))
+                return true;
+            if (!(obj is EqualityPairs other))
+                return false;
+            if (lhsList.Count != other.lhsList.Count)
+                return false;
+            for (int i = 0; i < lhsList.Count; i++) {
+                if (!lhsList[i].Equals(other.lhsList[i]))
+                    return false;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// Gets a hash code for the list of equalities
+        /// </summary>
+        public override int GetHashCode() {
+            int hash = lhsList.Count;
+            unchecked {
+                for (int i = 0; i < lhsList.Count; i++) {
+                    hash ^= lhsList[i].GetHashCode();
+                    hash *= 17;
+                    hash ^= rhsList[i].GetHashCode();
+                    hash *= 29;
+                }
+                return hash;
             }
         }
     }

@@ -23,7 +23,7 @@ Revision History:
 
 /** \brief
    Information about how a formula is being converted into
-   a formula without  uninterpreted function symbols via ackermannization.
+   a formula without uninterpreted function symbols via ackermannization.
 
  The intended use is that new terms are added via set_abstr.
  Once all terms are abstracted, call seal.

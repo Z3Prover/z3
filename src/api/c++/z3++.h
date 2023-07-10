@@ -320,7 +320,7 @@ namespace z3 {
         /**
            \brief Create a recursive datatype over a single sort.
            \c name is the name of the recursive datatype
-           \c n - the numer of constructors of the datatype
+           \c n - the number of constructors of the datatype
            \c cs - the \c n constructors used to define the datatype
 
            References to the datatype can be created using \ref datatype_sort.
@@ -4496,14 +4496,14 @@ namespace z3 {
             Z3_solver_propagate_consequence(ctx(), cb, fixed.size(), _fixed.ptr(), lhs.size(), _lhs.ptr(), _rhs.ptr(), conseq);
         }
 
-        void propagate(expr_vector const& fixed, expr const& conseq) {
+        bool propagate(expr_vector const& fixed, expr const& conseq) {
             assert(cb);
             assert((Z3_context)conseq.ctx() == (Z3_context)ctx());
             array<Z3_ast> _fixed(fixed);
-            Z3_solver_propagate_consequence(ctx(), cb, _fixed.size(), _fixed.ptr(), 0, nullptr, nullptr, conseq);
+            return Z3_solver_propagate_consequence(ctx(), cb, _fixed.size(), _fixed.ptr(), 0, nullptr, nullptr, conseq);
         }
 
-        void propagate(expr_vector const& fixed,
+        bool propagate(expr_vector const& fixed,
                        expr_vector const& lhs, expr_vector const& rhs,
                        expr const& conseq) {
             assert(cb);
@@ -4513,7 +4513,7 @@ namespace z3 {
             array<Z3_ast> _lhs(lhs);
             array<Z3_ast> _rhs(rhs);
             
-            Z3_solver_propagate_consequence(ctx(), cb, _fixed.size(), _fixed.ptr(), lhs.size(), _lhs.ptr(), _rhs.ptr(), conseq);
+            return Z3_solver_propagate_consequence(ctx(), cb, _fixed.size(), _fixed.ptr(), lhs.size(), _lhs.ptr(), _rhs.ptr(), conseq);
         }
     };
 

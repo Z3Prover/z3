@@ -17,6 +17,7 @@ Revision History:
 
 
 --*/
+// clang-format off
 #pragma once
 #include <set>
 #include "util/vector.h"
@@ -28,9 +29,13 @@ Revision History:
 #include "math/lp/permutation_matrix.h"
 #include "math/lp/column_namer.h"
 #include "math/lp/u_set.h"
-
+#include "util/heap.h"
 
 namespace lp {
+struct lpvar_lt {
+  bool operator()(lpvar v1, lpvar v2) const { return v1 < v2; }
+};
+typedef heap<lpvar_lt> lpvar_heap;
 template <typename T, typename X>
 X dot_product(const vector<T> & a, const vector<X> & b) {
     lp_assert(a.size() == b.size());
@@ -50,25 +55,25 @@ private:
     lp_status m_status;
 public:
     bool current_x_is_feasible() const {
-        TRACE("feas",
-              if (m_inf_set.size()) {
-                  tout << "column " << *m_inf_set.begin() << " is infeasible" << std::endl;
-                  print_column_info(*m_inf_set.begin(), tout);
+        TRACE("feas_bug",
+              if (!m_inf_heap.empty()) {
+                  tout << "column " << *m_inf_heap.begin() << " is infeasible" << std::endl;
+                  print_column_info(*m_inf_heap.begin(), tout);
               } else {
                   tout << "x is feasible\n";
               }
               );
-        return m_inf_set.size() == 0;
+        return m_inf_heap.empty();
     }
-    bool current_x_is_infeasible() const { return m_inf_set.size() != 0; }
+    bool current_x_is_infeasible() const { return m_inf_heap.size() != 0; }
 private:
-    u_set m_inf_set;
+    lpvar_heap m_inf_heap;
 public:
-    const u_set& inf_set() const { return m_inf_set; }
-    u_set& inf_set() { return m_inf_set; }
-    void inf_set_increase_size_by_one() { m_inf_set.increase_size_by_one(); }
-    bool inf_set_contains(unsigned j) const { return m_inf_set.contains(j); }
-    unsigned inf_set_size() const { return m_inf_set.size(); }    
+    const lpvar_heap& inf_heap() const { return m_inf_heap; }
+    lpvar_heap& inf_heap() { return m_inf_heap; }
+    void inf_heap_increase_size_by_one() { m_inf_heap.reserve(m_inf_heap.size() + 1); }
+    bool inf_heap_contains(unsigned j) const { return m_inf_heap.contains(j); }
+    unsigned inf_heap_size() const { return m_inf_heap.size(); }    
     indexed_vector<T>     m_pivot_row; // this is the real pivot row of the simplex tableu
     static_matrix<T, X> & m_A; // the matrix A
     // vector<X> const &           m_b; // the right side
@@ -255,7 +260,7 @@ public:
 
     bool calc_current_x_is_feasible_include_non_basis() const;
 
-    bool inf_set_is_correct() const;
+    bool inf_heap_is_correct() const;
     
     bool column_is_dual_feasible(unsigned j) const;
 
@@ -304,9 +309,9 @@ public:
         case column_type::boxed:
             if (x < m_lower_bounds[j]) {
                 delta = m_lower_bounds[j] - x;
-                ret = true;;
+                ret = true;
             }
-            if (x > m_upper_bounds[j]) {
+            else if (x > m_upper_bounds[j]) {
                 delta = m_upper_bounds[j] - x;
                 ret = true;
             }
@@ -526,63 +531,55 @@ public:
         swap(m_basis_heading, m_basis[i], m_basis[ii]);
     }
 
-    bool column_is_in_inf_set(unsigned j) const {
-        return m_inf_set.contains(j);
+    bool column_is_in_inf_heap(unsigned j) const {
+        return m_inf_heap.contains(j);
     }
 
     bool column_is_base(unsigned j) const {
         return m_basis_heading[j] >= 0;
     }
 
-    
-    void update_x_with_feasibility_tracking(unsigned j, const X & v) {
-        TRACE("lar_solver", tout << "j = " << j << ", v = " << v << "\n";);
-        m_x[j] = v;
-        track_column_feasibility(j);
-    }
-
     void add_delta_to_x_and_track_feasibility(unsigned j, const X & del) {
-        TRACE("lar_solver", tout << "del = " << del << ", was x[" << j << "] = " << m_x[j] << "\n";);
+        TRACE("lar_solver_feas_bug", tout << "del = " << del << ", was x[" << j << "] = " << m_x[j] << "\n";);
         m_x[j] += del;
-        TRACE("lar_solver", tout << "became x[" << j << "] = " << m_x[j] << "\n";);
+        TRACE("lar_solver_feas_bug", tout << "became x[" << j << "] = " << m_x[j] << "\n";);
         track_column_feasibility(j);
     }
 
     void update_x(unsigned j, const X & v) {
-        TRACE("lar_solver", tout << "j = " << j << ", v = " << v << "\n";);
         m_x[j] = v;
+        TRACE("lar_solver_feas", tout << "not tracking feas j = " << j << ", v = " << v << (column_is_feasible(j)? " feas":" non-feas") << "\n";);
     }
 
-    void add_delta_to_x(unsigned j, const X & delta) {
-        TRACE("lar_solver", tout << "j = " << j << ", delta = " << delta << "\n";);
+    void add_delta_to_x(unsigned j, const X& delta) {
         m_x[j] += delta;
+        TRACE("lar_solver_feas", tout << "not tracking feas j = " << j << " v = " << m_x[j] << " delta = " << delta << (column_is_feasible(j) ? " feas" : " non-feas") << "\n";);
     }
-   
+        
     void track_column_feasibility(unsigned j) {
         if (column_is_feasible(j))
-            remove_column_from_inf_set(j);
+            remove_column_from_inf_heap(j);
         else
-            insert_column_into_inf_set(j);
+            insert_column_into_inf_heap(j);
     }
-    void insert_column_into_inf_set(unsigned j) {
-        TRACE("lar_solver", tout << "j = " << j << "\n";);
-        m_inf_set.insert(j);
+    void insert_column_into_inf_heap(unsigned j) {        
+		if (!m_inf_heap.contains(j)) {
+	        m_inf_heap.insert(j);
+            TRACE("lar_solver_inf_heap", tout << "insert into inf_heap j = " << j << "\n";);
+        }
         lp_assert(!column_is_feasible(j));
     }
-    void remove_column_from_inf_set(unsigned j) {
-        TRACE("lar_solver", tout << "j = " << j << "\n";);
-        m_inf_set.erase(j);
+    void remove_column_from_inf_heap(unsigned j) {
+		if (m_inf_heap.contains(j)) {
+            TRACE("lar_solver_inf_heap", tout << "insert into heap j = " << j << "\n";);
+        	m_inf_heap.erase(j);
+        }
         lp_assert(column_is_feasible(j));
     }
 
-    void resize_inf_set(unsigned size) {
-        TRACE("lar_solver",);
-        m_inf_set.resize(size);
-    }
-
-    void clear_inf_set() {
-        TRACE("lar_solver",);
-        m_inf_set.clear();
+    void clear_inf_heap() {
+        TRACE("lar_solver_feas",);
+        m_inf_heap.clear();
     }
     
     bool costs_on_nbasis_are_zeros() const {

@@ -15,7 +15,7 @@
 
   Revision History:
   --*/
-
+// clang-format off
 #include "math/lp/int_solver.h"
 #include "math/lp/lar_solver.h"
 #include "math/lp/int_branch.h"
@@ -63,7 +63,7 @@ int int_branch::find_inf_int_base_column() {
     mpq small_value(1024);
     unsigned n = 0;
     lar_core_solver & lcs = lra.m_mpq_lar_core_solver;
-    unsigned prev_usage = 0; // to quiet down the compile
+    unsigned prev_usage = 0; // to quiet down the compiler
     unsigned k = 0;
     unsigned usage;
     unsigned j;

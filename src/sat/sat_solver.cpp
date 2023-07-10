@@ -90,7 +90,7 @@ namespace sat {
 
     solver::~solver() {
         m_ext = nullptr;
-        SASSERT(m_config.m_num_threads > 1 || check_invariant());
+        SASSERT(m_config.m_num_threads > 1 || m_trim || check_invariant());
         CTRACE("sat", !m_clauses.empty(), tout << "Delete clauses\n";);
         del_clauses(m_clauses);
         CTRACE("sat", !m_learned.empty(), tout << "Delete learned\n";);
@@ -879,6 +879,7 @@ namespace sat {
         m_conflict = c;
         m_not_l    = not_l;
         TRACE("sat", display(display_justification(tout << "conflict " << not_l << " ", c) << "\n"));
+        TRACE("sat", display_watches(tout));
     }
 
     void solver::assign_core(literal l, justification j) {
@@ -3462,7 +3463,7 @@ namespace sat {
             }
         }
 
-        // can't eliminat FUIP
+        // can't eliminate FUIP
         SASSERT(is_marked_lit(m_lemma[0]));
 
         unsigned j = 0;

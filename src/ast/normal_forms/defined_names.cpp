@@ -207,7 +207,7 @@ void defined_names::impl::mk_definition(expr * e, app * n, sort_ref_buffer & var
         // the instantiation rules for store(a, i, v) are:
         //     store(a, i, v)[j] = if i = j then v else a[j] with patterns {a[j], store(a, i, v)} { store(a, i, v)[j] }
         // The first pattern is not included.
-        // TBD use a model-based scheme for exracting instantiations instead of
+        // TBD use a model-based scheme for extracting instantiations instead of
         // using multi-patterns.
         // 
 

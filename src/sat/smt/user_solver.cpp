@@ -43,15 +43,19 @@ namespace user_solver {
             m_prop.push_back(prop_info(explain, v, r));
     }
 
-    void solver::propagate_cb(
-        unsigned num_fixed, expr* const* fixed_ids,
-        unsigned num_eqs, expr* const* eq_lhs, expr* const* eq_rhs,
-        expr* conseq) {
+    bool solver::propagate_cb(
+            unsigned num_fixed, expr* const* fixed_ids,
+            unsigned num_eqs, expr* const* eq_lhs, expr* const* eq_rhs,
+            expr* conseq) {
+        auto* n = ctx.get_enode(conseq);
+        if (n && s().value(ctx.enode2literal(n)) == l_true)
+            return false;
         m_fixed_ids.reset();
         for (unsigned i = 0; i < num_fixed; ++i)
             m_fixed_ids.push_back(get_th_var(fixed_ids[i]));
         m_prop.push_back(prop_info(num_fixed, m_fixed_ids.data(), num_eqs, eq_lhs, eq_rhs, expr_ref(conseq, m)));
         DEBUG_CODE(validate_propagation(););
+        return true;
     }
 
     void solver::register_cb(expr* e) {
@@ -76,7 +80,7 @@ namespace user_solver {
 
     sat::check_result solver::check() {
         if (!(bool)m_final_eh)
-            return  sat::check_result::CR_DONE;
+            return sat::check_result::CR_DONE;
         unsigned sz = m_prop.size();
         m_final_eh(m_user_context, this);
         return sz == m_prop.size() ? sat::check_result::CR_DONE : sat::check_result::CR_CONTINUE;

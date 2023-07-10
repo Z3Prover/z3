@@ -160,7 +160,6 @@ namespace arith {
         expr_ref_vector& terms = st.terms();
         svector<theory_var>& vars = st.vars();
         vector<rational>& coeffs = st.coeffs();
-        rational& offset = st.offset();
         rational r;
         expr* n1, * n2;
         unsigned index = 0;
@@ -204,7 +203,9 @@ namespace arith {
                 ++index;
             }
             else if (a.is_numeral(n, r)) {
-                offset += coeffs[index] * r;
+                theory_var v = internalize_numeral(to_app(n), r);
+                coeffs[vars.size()] = coeffs[index];
+                vars.push_back(v);
                 ++index;
             }
             else if (a.is_uminus(n, n1)) {
@@ -457,6 +458,19 @@ namespace arith {
         return v;
     }
 
+    theory_var solver::internalize_numeral(app* n, rational const& val) {
+        theory_var v = mk_evar(n);
+        lpvar vi = get_lpvar(v);
+        if (vi == UINT_MAX) {
+            vi = lp().add_var(v, a.is_int(n));
+            add_def_constraint_and_equality(vi, lp::GE, val);
+            add_def_constraint_and_equality(vi, lp::LE, val);
+            register_fixed_var(v, val);
+        }
+        return v;
+    }
+
+
     theory_var solver::internalize_mul(app* t) {
         SASSERT(a.is_mul(t));
         internalize_args(t, true);
@@ -484,57 +498,32 @@ namespace arith {
         theory_var v = mk_evar(term);
         TRACE("arith", tout << mk_bounded_pp(term, m) << " v" << v << "\n";);
 
-        if (is_unit_var(st) && v == st.vars()[0]) {
+        if (is_unit_var(st) && v == st.vars()[0]) 
             return st.vars()[0];
-        }
-        else if (is_one(st) && a.is_numeral(term)) {
-            return lp().local_to_external(get_one(a.is_int(term)));
-        }
-        else if (is_zero(st) && a.is_numeral(term)) {
-            return lp().local_to_external(get_zero(a.is_int(term)));
-        }
-        else {
-            init_left_side(st);
-            lpvar vi = get_lpvar(v);
-            if (vi == UINT_MAX) {
-                if (m_left_side.empty()) {
-                    vi = lp().add_var(v, a.is_int(term));
-                    add_def_constraint_and_equality(vi, lp::GE, st.offset());
-                    add_def_constraint_and_equality(vi, lp::LE, st.offset());
-                    register_fixed_var(v, st.offset());
-                    return v;
-                }
-                if (!st.offset().is_zero()) {
-                    m_left_side.push_back(std::make_pair(st.offset(), get_one(a.is_int(term))));
-                }
-                if (m_left_side.empty()) {
-                    vi = lp().add_var(v, a.is_int(term));
-                    add_def_constraint_and_equality(vi, lp::GE, rational(0));
-                    add_def_constraint_and_equality(vi, lp::LE, rational(0));
-                }
-                else {
-                    vi = lp().add_term(m_left_side, v);
-                    SASSERT(lp::tv::is_term(vi));
-                    TRACE("arith_verbose",
-                        tout << "v" << v << " := " << mk_pp(term, m)
-                        << " slack: " << vi << " scopes: " << m_scopes.size() << "\n";
-                    lp().print_term(lp().get_term(lp::tv::raw(vi)), tout) << "\n";);
-                }
+
+        init_left_side(st);
+        lpvar vi = get_lpvar(v);
+        
+        if (vi == UINT_MAX) {
+            if (m_left_side.empty()) {
+                vi = lp().add_var(v, a.is_int(term));
+                add_def_constraint_and_equality(vi, lp::GE, rational(0));
+                add_def_constraint_and_equality(vi, lp::LE, rational(0));
             }
-            return v;
+            else {
+                vi = lp().add_term(m_left_side, v);
+                SASSERT(lp::tv::is_term(vi));
+                TRACE("arith_verbose", 
+                      tout << "v" << v << " := " << mk_pp(term, m) 
+                      << " slack: " << vi << " scopes: " << m_scopes.size() << "\n";
+                      lp().print_term(lp().get_term(lp::tv::raw(vi)), tout) << "\n";);
+            }
         }
+        return v;
     }
 
     bool solver::is_unit_var(scoped_internalize_state& st) {
-        return st.offset().is_zero() && st.vars().size() == 1 && st.coeffs()[0].is_one();
-    }
-
-    bool solver::is_one(scoped_internalize_state& st) {
-        return st.offset().is_one() && st.vars().empty();
-    }
-
-    bool solver::is_zero(scoped_internalize_state& st) {
-        return st.offset().is_zero() && st.vars().empty();
+        return st.vars().size() == 1 && st.coeffs()[0].is_one();
     }
 
     void solver::init_left_side(scoped_internalize_state& st) {

@@ -28,7 +28,7 @@ namespace sat {
     }
     
     // for nary clauses
-    static bool contains_watched(watch_list const & wlist, clause const & c, clause_offset cls_off) {
+    bool integrity_checker::contains_watched(watch_list const & wlist, clause const & c, clause_offset cls_off) const {
         for (watched const& w : wlist) {
             if (w.is_clause()) {
                 if (w.get_clause_offset() == cls_off) {
@@ -38,6 +38,8 @@ namespace sat {
                 }
             }
         }
+        TRACE("sat", tout << "clause " << c << " not found in watch-list\n");
+        TRACE("sat", s.display_watches(tout));
         UNREACHABLE();
         return false;
     }

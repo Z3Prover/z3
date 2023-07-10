@@ -2309,7 +2309,7 @@ public class Context implements AutoCloseable {
 
     /**
      * Create the empty regular expression.
-     * Coresponds to re.none
+     * Corresponds to re.none
      */
     public final <R extends Sort> ReExpr<R> mkEmptyRe(ReSort<R> s)
     {

@@ -26,6 +26,7 @@ Notes:
 void bool_rewriter::updt_params(params_ref const & _p) {
     bool_rewriter_params p(_p);
     m_flat_and_or          = p.flat_and_or();
+    m_sort_disjunctions    = p.sort_disjunctions();
     m_elim_and             = p.elim_and();
     m_elim_ite             = p.elim_ite();
     m_local_ctx            = p.local_ctx();
@@ -183,7 +184,7 @@ br_status bool_rewriter::mk_flat_and_core(unsigned num_args, expr * const * args
 }
 
 br_status bool_rewriter::mk_nflat_or_core(unsigned num_args, expr * const * args, expr_ref & result) {
-    bool s = false;
+    bool s = false; // whether we have canceled some disjuncts or found some out or order
     ptr_buffer<expr> buffer;
     expr_fast_mark1 neg_lits;
     expr_fast_mark2 pos_lits;
@@ -292,8 +293,10 @@ br_status bool_rewriter::mk_nflat_or_core(unsigned num_args, expr * const * args
             return st;
 #endif
         if (s) {
-            ast_lt lt;
-            std::sort(buffer.begin(), buffer.end(), lt);       
+            if (m_sort_disjunctions) {
+                ast_lt lt;
+                std::sort(buffer.begin(), buffer.end(), lt);
+            }
             result = m().mk_or(sz, buffer.data());
             return BR_DONE;
         }
@@ -329,7 +332,7 @@ br_status bool_rewriter::mk_flat_or_core(unsigned num_args, expr * const * args,
             }
         }
         if (mk_nflat_or_core(flat_args.size(), flat_args.data(), result) == BR_FAILED) {
-            if (!ordered) {
+            if (m_sort_disjunctions && !ordered) {
                 ast_lt lt;
                 std::sort(flat_args.begin(), flat_args.end(), lt);
             }
@@ -662,12 +665,19 @@ br_status bool_rewriter::try_ite_value(app * ite, app * val, expr_ref & result) 
     SASSERT(m().is_value(val));
 
     if (m().are_distinct(val, e)) {
-        mk_eq(t, val, result);
+        if (get_depth(t) < 500)
+            mk_eq(t, val, result);
+        else
+            result = m().mk_eq(t, val);
+        
         result = m().mk_and(result, cond);
         return BR_REWRITE2;
     }
     if (m().are_distinct(val, t)) {
-        mk_eq(e, val, result);
+        if (get_depth(e) < 500)
+            mk_eq(e, val, result);
+        else
+            result = m().mk_eq(e, val);
         result = m().mk_and(result, m().mk_not(cond));
         return BR_REWRITE2;
     }

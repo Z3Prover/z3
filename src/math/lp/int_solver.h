@@ -17,6 +17,7 @@ Revision History:
 
 
 --*/
+// clang-format off
 #pragma once
 #include "math/lp/lp_settings.h"
 #include "math/lp/static_matrix.h"
@@ -44,17 +45,23 @@ class int_solver {
         int_solver&         lia;
         lar_solver&         lra;
         lar_core_solver&    lrac;
-        unsigned            m_num_nbasic_patches;
-        unsigned            m_patch_cost;
-        unsigned            m_next_patch;
-        unsigned            m_delay;
+        unsigned            m_patch_success = 0;
+        unsigned            m_patch_fail = 0;
+        unsigned            m_num_ones = 0;
+        unsigned            m_num_divides = 0;
     public:
         patcher(int_solver& lia);
-        bool should_apply();
-        lia_move operator()();
+        bool should_apply() const { return true; }
+        lia_move operator()() { return patch_basic_columns(); }
         void patch_nbasic_column(unsigned j);
+        bool patch_basic_column_on_row_cell(unsigned v, row_cell<mpq> const& c);
+        void patch_basic_column(unsigned j);
+        bool try_patch_column(unsigned v, unsigned j, mpq const& delta);
+        unsigned count_non_int();
     private:
+        void remove_fixed_vars_from_base();
         lia_move patch_nbasic_columns();
+        lia_move patch_basic_columns();
     };
 
     lar_solver&         lra;

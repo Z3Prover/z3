@@ -17,11 +17,13 @@ Revision History:
 
 
 --*/
+// clang-format off
 #pragma once
 
 #include <sstream>
-
-
+// clang-format off
+#include <limits.h>
+#include "util/debug.h"
 namespace nla {
     class core;
 }

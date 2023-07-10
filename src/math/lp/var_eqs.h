@@ -17,6 +17,7 @@
 
 
   --*/
+// clang-format off
 
 #pragma once
 #include "util/union_find.h"

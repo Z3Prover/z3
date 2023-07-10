@@ -17,6 +17,7 @@ Revision History:
 
 
 --*/
+// clang-format off
 #include <memory>
 #include "util/vector.h"
 #include "smt/params/smt_params_helper.hpp"

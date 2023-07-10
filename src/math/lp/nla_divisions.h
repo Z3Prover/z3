@@ -13,6 +13,7 @@ Description:
   Check division constraints.
   
 --*/
+// clang-format off
 
 #include "math/lp/nla_types.h"
 

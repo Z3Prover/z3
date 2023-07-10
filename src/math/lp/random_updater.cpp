@@ -17,5 +17,6 @@ Revision History:
 
 
 --*/
+// clang-format off
 #include "math/lp/random_updater_def.h"
 

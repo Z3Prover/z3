@@ -17,6 +17,7 @@ Revision History:
 
 
 --*/
+// clang-format off
 #pragma once
 #include "math/lp/lp_utils.h"
 #include "util/map.h"
@@ -47,6 +48,15 @@ public:
     void push_back(constraint_index j) {
         SASSERT(m_vector.empty());
         m_set.insert(j);
+    }
+
+    void remove(constraint_index j) {
+        m_set.remove(j);
+        unsigned i = 0;
+        for (auto& p : m_vector) 
+            if (p.first != j)
+                m_vector[i++] = p;
+        m_vector.shrink(i);
     }
     
     void add_expl(const explanation& e) {

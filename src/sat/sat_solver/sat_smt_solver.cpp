@@ -47,7 +47,7 @@ class sat_smt_solver : public solver {
         ast_manager&                m;
         trail_stack&                m_trail;
         expr_ref_vector             m_refs;
-        obj_map<expr, expr*>        m_dep2orig; // map original dependency to uninterpeted literal
+        obj_map<expr, expr*>        m_dep2orig; // map original dependency to uninterpreted literal
 
         u_map<expr*>                m_lit2dep;  // map from literal assumption to original expression
         obj_map<expr, sat::literal> m_dep2lit;  // map uninterpreted literal to sat literal

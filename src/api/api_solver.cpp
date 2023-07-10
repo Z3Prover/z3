@@ -1092,15 +1092,15 @@ extern "C" {
         Z3_CATCH;
     }
 
-    void Z3_API Z3_solver_propagate_consequence(Z3_context c, Z3_solver_callback s, unsigned num_fixed, Z3_ast const* fixed_ids, unsigned num_eqs, Z3_ast const* eq_lhs, Z3_ast const* eq_rhs, Z3_ast conseq) {
+    bool Z3_API Z3_solver_propagate_consequence(Z3_context c, Z3_solver_callback s, unsigned num_fixed, Z3_ast const* fixed_ids, unsigned num_eqs, Z3_ast const* eq_lhs, Z3_ast const* eq_rhs, Z3_ast conseq) {
         Z3_TRY;
         LOG_Z3_solver_propagate_consequence(c, s, num_fixed, fixed_ids, num_eqs, eq_lhs, eq_rhs, conseq);
         RESET_ERROR_CODE();
         expr* const * _fixed_ids = (expr* const*) fixed_ids;
         expr* const * _eq_lhs = (expr*const*) eq_lhs;
         expr* const * _eq_rhs = (expr*const*) eq_rhs;
-        reinterpret_cast<user_propagator::callback*>(s)->propagate_cb(num_fixed, _fixed_ids, num_eqs, _eq_lhs, _eq_rhs, to_expr(conseq));
-        Z3_CATCH;        
+        return reinterpret_cast<user_propagator::callback*>(s)->propagate_cb(num_fixed, _fixed_ids, num_eqs, _eq_lhs, _eq_rhs, to_expr(conseq));
+        Z3_CATCH_RETURN(false);
     }
 
     void Z3_API Z3_solver_propagate_created(Z3_context c, Z3_solver s, Z3_created_eh created_eh) {

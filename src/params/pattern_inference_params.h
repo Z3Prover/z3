@@ -29,6 +29,7 @@ enum arith_pattern_inference_kind {
 struct pattern_inference_params {
     unsigned                      m_pi_max_multi_patterns; 
     bool                          m_pi_block_loop_patterns; 
+    bool                          m_pi_decompose_patterns;
     arith_pattern_inference_kind  m_pi_arith;
     bool                          m_pi_use_database;
     unsigned                      m_pi_arith_weight;

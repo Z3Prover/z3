@@ -5,6 +5,7 @@
    Lev Nachmanson (levnach)
    Nikolaj Bjorner (nbjorner)
   --*/
+// clang-format off
 #pragma once
 namespace nla {
 class core;

@@ -2172,7 +2172,7 @@ extern "C" {
        \brief Query constructor for declared functions.
 
        \param c logical context.
-       \param constr constructor container. The container must have been passed in to a #Z3_mk_datatype call.
+       \param constr constructor container. The container must have been passed into a #Z3_mk_datatype call.
        \param num_fields number of accessor fields in the constructor.
        \param constructor constructor function declaration, allocated by user.
        \param tester constructor test function declaration, allocated by user.
@@ -2317,7 +2317,7 @@ extern "C" {
        \param args constants that are used as arguments to the recursive function in the definition.
        \param body body of the recursive function
 
-       After declaring a recursive function or a collection of  mutually recursive functions, use 
+       After declaring a recursive function or a collection of mutually recursive functions, use 
        this function to provide the definition for the recursive function.
 
        \sa Z3_mk_rec_func_decl
@@ -3614,7 +3614,7 @@ extern "C" {
 
     /**
        \brief Retrieve the string constant stored in \c s.
-       Characters outside the basic printiable ASCII range are escaped.
+       Characters outside the basic printable ASCII range are escaped.
 
        \pre  Z3_is_string(c, s)
 
@@ -4897,7 +4897,7 @@ extern "C" {
     /**
        \brief Return a hash code for the given AST.
        The hash code is structural but two different AST objects can map to the same hash.
-       The result of \c Z3_get_ast_id returns an indentifier that is unique over the 
+       The result of \c Z3_get_ast_id returns an identifier that is unique over the 
        set of live AST objects.
 
        def_API('Z3_get_ast_hash', UINT, (_in(CONTEXT), _in(AST)))
@@ -5346,7 +5346,7 @@ extern "C" {
                                      Z3_ast const to[]);
 
     /**
-       \brief Substitute funcions in \c from with new expressions in \c to.
+       \brief Substitute functions in \c from with new expressions in \c to.
 
        The expressions in \c to can have free variables. The free variable in \c to at index 0
        refers to the first argument of \c from, the free variable at index 1 corresponds to the second argument.
@@ -7026,13 +7026,13 @@ extern "C" {
         Z3_on_clause_eh on_clause_eh);
 
     /**
-       \brief register a user-properator with the solver.
+       \brief register a user-propagator with the solver.
 
        \param c - context.
        \param s - solver object.
        \param user_context - a context used to maintain state for callbacks.
        \param push_eh - a callback invoked when scopes are pushed
-       \param pop_eh - a callback invoked when scopes are poped
+       \param pop_eh - a callback invoked when scopes are popped
        \param fresh_eh - a solver may spawn new solvers internally. This callback is used to produce a fresh user_context to be associated with fresh solvers. 
 
        def_API('Z3_solver_propagate_init', VOID, (_in(CONTEXT), _in(SOLVER), _in(VOID_PTR), _fnptr(Z3_push_eh), _fnptr(Z3_pop_eh), _fnptr(Z3_fresh_eh)))
@@ -7147,14 +7147,18 @@ extern "C" {
 
     /**
        \brief propagate a consequence based on fixed values.
-       This is a callback a client may invoke during the fixed_eh callback. 
+       This is a callback a client may invoke during the fixed_eh callback.
        The callback adds a propagation consequence based on the fixed values of the
-       \c ids. 
-       
-       def_API('Z3_solver_propagate_consequence', VOID, (_in(CONTEXT), _in(SOLVER_CALLBACK), _in(UINT), _in_array(2, AST), _in(UINT), _in_array(4, AST), _in_array(4, AST), _in(AST)))
+       \c ids.
+       The solver might discard the propagation in case it is true in the current state.
+       The function returns false in this case; otw. the function returns true.
+       At least one propagation in the final callback has to return true in order to
+       prevent the solver from finishing.
+
+       def_API('Z3_solver_propagate_consequence', BOOL, (_in(CONTEXT), _in(SOLVER_CALLBACK), _in(UINT), _in_array(2, AST), _in(UINT), _in_array(4, AST), _in_array(4, AST), _in(AST)))
     */
-    
-    void Z3_API Z3_solver_propagate_consequence(Z3_context c, Z3_solver_callback cb, unsigned num_fixed, Z3_ast const* fixed, unsigned num_eqs, Z3_ast const* eq_lhs, Z3_ast const* eq_rhs, Z3_ast conseq);
+
+    bool Z3_API Z3_solver_propagate_consequence(Z3_context c, Z3_solver_callback cb, unsigned num_fixed, Z3_ast const* fixed, unsigned num_eqs, Z3_ast const* eq_lhs, Z3_ast const* eq_rhs, Z3_ast conseq);
 
     /**
        \brief Check whether the assertions in a given solver are consistent or not.

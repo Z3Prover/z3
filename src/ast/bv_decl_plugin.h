@@ -96,7 +96,7 @@ enum bv_op_kind {
     OP_BUMUL_OVFL, // unsigned multiplication overflow predicate (negation of OP_BUMUL_NO_OVFL)
     OP_BSMUL_OVFL, // signed multiplication over/underflow predicate
 
-    OP_BSDIV_OVFL, // signed division overflow perdicate
+    OP_BSDIV_OVFL, // signed division overflow predicate
 
     OP_BNEG_OVFL, // negation overflow predicate
 

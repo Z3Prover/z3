@@ -16,6 +16,7 @@ Author:
 Revision History:
 
 --*/
+// clang-format off
 #pragma once
 
 #include "util/numeral_buffer.h"

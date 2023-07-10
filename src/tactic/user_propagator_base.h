@@ -9,7 +9,7 @@ namespace user_propagator {
     class callback {
     public:
         virtual ~callback() = default;
-        virtual void propagate_cb(unsigned num_fixed, expr* const* fixed_ids, unsigned num_eqs, expr* const* eq_lhs, expr* const* eq_rhs, expr* conseq) = 0;
+        virtual bool propagate_cb(unsigned num_fixed, expr* const* fixed_ids, unsigned num_eqs, expr* const* eq_lhs, expr* const* eq_rhs, expr* conseq) = 0;
         virtual void register_cb(expr* e) = 0;
         virtual bool next_split_cb(expr* e, unsigned idx, lbool phase) = 0;
     };

@@ -85,6 +85,7 @@ const family_id user_sort_family_id = 4;
 const family_id last_builtin_family_id = 4;
 
 const family_id arith_family_id = 5;
+const family_id poly_family_id = 6;
 
 // -----------------------------------
 //
@@ -622,6 +623,7 @@ public:
     sort_size const & get_num_elements() const { return get_info()->get_num_elements(); }
     void set_num_elements(sort_size const& s) { get_info()->set_num_elements(s); }
     unsigned get_size() const { return get_obj_size(); }
+    bool is_type_var() const { return get_family_id() == poly_family_id; }
 };
 
 // -----------------------------------
@@ -1708,6 +1710,8 @@ public:
     sort * mk_uninterpreted_sort(symbol const & name, unsigned num_parameters, parameter const * parameters);
 
     sort * mk_uninterpreted_sort(symbol const & name) { return mk_uninterpreted_sort(name, 0, nullptr); }
+
+    sort * mk_type_var(symbol const& name);
 
     sort * mk_sort(symbol const & name, sort_info const & info) {
         if (info.get_family_id() == null_family_id) {
