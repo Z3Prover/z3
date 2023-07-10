@@ -547,7 +547,7 @@ namespace opt {
         if (m_type == t_divides || m_type == t_mod || m_type == t_div)
             return *this;
         rational D(denominator(abs(m_coeff)));
-        if (D == 0)
+        if (D == 0)
             D = 1;
         for (auto const& [id, coeff] : m_vars)
             if (coeff != 0)

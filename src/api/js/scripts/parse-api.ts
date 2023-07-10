@@ -350,7 +350,7 @@ for (let fn of functions) {
       param.sizeIndex = defParams[idx].sizeIndex;
       if (!param.isArray && param.isPtr) {
         // not clear why some things are written as `int * x` and others `int x[]`
-        // but we can jsut cast
+        // but we can just cast
         param.isArray = true;
         param.isPtr = false;
       }

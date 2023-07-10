@@ -1121,7 +1121,7 @@ bool arith_rewriter::divides(expr* num, expr* den, expr_ref& result) {
         if (m_util.is_numeral(arg, num_r)) num_e = arg; 
     } 
     for (expr* arg : args2) { 
-        // dont remove divisor on (div (* -1 x) (* -1 y)) because rewriting would diverge. 
+        // don't remove divisor on (div (* -1 x) (* -1 y)) because rewriting would diverge. 
         if (mark.is_marked(arg) && (!m_util.is_numeral(arg, num_r) || !num_r.is_minus_one())) { 
             result = remove_divisor(arg, num, den); 
             return true; 
@@ -1619,7 +1619,7 @@ br_status arith_rewriter::mk_abs_core(expr * arg, expr_ref & result) {
 }
 
 
-// Return true if t is of the form  c*Pi where c is a numeral.
+// Return true if t is of the form c*Pi where c is a numeral.
 // Store c into k
 bool arith_rewriter::is_pi_multiple(expr * t, rational & k) {
     if (m_util.is_pi(t)) {
@@ -1630,7 +1630,7 @@ bool arith_rewriter::is_pi_multiple(expr * t, rational & k) {
     return m_util.is_mul(t, a, b) && m_util.is_pi(b) && m_util.is_numeral(a, k);
 }
 
-// Return true if t is of the form  (+ s c*Pi) where c is a numeral.
+// Return true if t is of the form (+ s c*Pi) where c is a numeral.
 // Store c into k, and c*Pi into m.
 bool arith_rewriter::is_pi_offset(expr * t, rational & k, expr * & m) {
     if (m_util.is_add(t)) {
@@ -1943,7 +1943,7 @@ br_status arith_rewriter::mk_tan_core(expr * arg, expr_ref & result) {
 br_status arith_rewriter::mk_asin_core(expr * arg, expr_ref & result) {
     // Remark: we assume that ForAll x : asin(-x) == asin(x).
     // Mathematica uses this as an axiom. Although asin is an underspecified function for x < -1 or x > 1.
-    // Actually, in Mathematica, asin(x) is a total function that returns a complex number fo x < -1 or x > 1.
+    // Actually, in Mathematica, asin(x) is a total function that returns a complex number for x < -1 or x > 1.
     rational k;
     if (is_numeral(arg, k)) {
         if (k.is_zero()) {

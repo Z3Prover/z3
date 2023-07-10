@@ -349,6 +349,26 @@ std::ostream& psort_user_decl::display(std::ostream & out) const {
 }
 
 // -------------------
+// psort_type_var_decl
+
+psort_type_var_decl::psort_type_var_decl(unsigned id, pdecl_manager & m, symbol const & n):
+    psort_decl(id, 0, m, n) {
+    m_psort_kind = PSORT_TV;
+}
+
+void psort_type_var_decl::finalize(pdecl_manager & m) {
+    psort_decl::finalize(m);
+}
+
+sort * psort_type_var_decl::instantiate(pdecl_manager & m, unsigned n, sort * const * s) {
+    return m.m().mk_type_var(m_name);
+}
+
+std::ostream& psort_type_var_decl::display(std::ostream & out) const {
+    return out << "(declare-type-var " << m_name << ")";
+}
+
+// -------------------
 // psort_dt_decl
 
 psort_dt_decl::psort_dt_decl(unsigned id, unsigned num_params, pdecl_manager & m, symbol const & n) :
@@ -967,6 +987,10 @@ psort_decl * pdecl_manager::mk_psort_user_decl(unsigned num_params, symbol const
 
 psort_decl * pdecl_manager::mk_psort_dt_decl(unsigned num_params, symbol const & n) {
     return new (a().allocate(sizeof(psort_dt_decl))) psort_dt_decl(m_id_gen.mk(), num_params, *this, n);    
+}
+
+psort_decl * pdecl_manager::mk_psort_type_var_decl(symbol const & n) {
+    return new (a().allocate(sizeof(psort_type_var_decl))) psort_type_var_decl(m_id_gen.mk(), *this, n);    
 }
 
 

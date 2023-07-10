@@ -223,7 +223,7 @@ correctly found by gcc.
 
 I specifically left the cygwin part of the code intact as I have no
 idea what the original author meant by this, neither do I use or
-tested this patch in the cygwin or mingw environemt. I think that this
+tested this patch in the cygwin or mingw environment. I think that this
 code is rather outdated and shouldn't really work. E.g., in the
 --staticlib mode adding z3linkdep (which is libz3-static.a) as an
 argument to `ocamlmklib` will yield the following broken archive

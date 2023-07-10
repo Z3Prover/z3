@@ -166,7 +166,7 @@ public class Quantifier extends BoolExpr
      * @param sorts Sorts of bound variables.
      * @param names Names of bound variables
      * @param body Body of quantifier
-     * @param weight Weight used to indicate priority for qunatifier instantiation
+     * @param weight Weight used to indicate priority for quantifier instantiation
      * @param patterns Nullable patterns
      * @param noPatterns Nullable noPatterns
      * @param quantifierID Nullable quantifierID

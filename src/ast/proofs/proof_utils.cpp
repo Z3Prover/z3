@@ -260,7 +260,7 @@ class reduce_hypotheses {
             { cls.push_back(cls_fact->get_arg(i)); }
         } else { cls.push_back(cls_fact); }
 
-        // construct new resovent
+        // construct new resolvent
         ptr_buffer<expr> new_fact_cls;
         bool found;
         // XXX quadratic
@@ -604,7 +604,7 @@ public:
                 // -- otherwise, the fact has not changed. nothing to simplify
                 SASSERT(m.get_fact(tmp) == m.get_fact(m.get_parent(p, i)));
                 parents.push_back(tmp);          
-                // remember that we have this derivation while we have not poped the trail
+                // remember that we have this derivation while we have not popped the trail
                 // but only if the proof is closed (i.e., a real unit)
                 if (is_closed(tmp) && !m_units.contains(m.get_fact(tmp))) {
                     m_units.insert(m.get_fact(tmp), tmp);

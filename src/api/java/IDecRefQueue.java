@@ -28,7 +28,7 @@ import java.util.Map;
  *
  * <p><b>Mechanics: </b>once an object is created, a metadata is stored for it in
  * {@code referenceMap}, and a {@link PhantomReference} is created with a
- * reference  to {@code referenceQueue}.
+ * reference to {@code referenceQueue}.
  * Once the object becomes strongly unreachable, the phantom reference gets
  * added by JVM to the {@code referenceQueue}.
  * After each object creation, we iterate through the available objects in

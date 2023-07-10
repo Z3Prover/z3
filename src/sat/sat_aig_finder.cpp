@@ -94,7 +94,7 @@ namespace sat {
     // from clause x, y, z
     // then         ~x, ~y -> z
     // look for     ~y, z -> ~x - contains ternary(y, ~z, ~x)
-    // look for     ~x, y -> u  - u is used in a ternary claues (~y, x)
+    // look for     ~x, y -> u  - u is used in a ternary clause (~y, x)
     // look for     y, u -> ~x  - contains ternary(~u, ~x, ~y)
     // then ~x = if ~y then z else u
 

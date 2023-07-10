@@ -1378,6 +1378,7 @@ void ast_manager::init() {
     ENSURE(model_value_family_id == mk_family_id("model-value"));
     ENSURE(user_sort_family_id   == mk_family_id("user-sort"));
     ENSURE(arith_family_id       == mk_family_id("arith"));
+    ENSURE(poly_family_id        == mk_family_id("polymorphic"));
     basic_decl_plugin * plugin = alloc(basic_decl_plugin);
     register_plugin(basic_family_id, plugin);
     m_bool_sort = plugin->mk_bool_sort();
@@ -2017,6 +2018,11 @@ sort * ast_manager::mk_uninterpreted_sort(symbol const & name, unsigned num_para
     user_sort_plugin * plugin = get_user_sort_plugin();
     decl_kind kind = plugin->register_name(name);
     return plugin->mk_sort(kind, num_parameters, parameters);
+}
+
+sort * ast_manager::mk_type_var(symbol const& name) {
+    sort_info si(poly_family_id, 0);
+    return mk_sort(name, &si);
 }
 
 func_decl * ast_manager::mk_func_decl(symbol const & name, unsigned arity, sort * const * domain, sort * range,

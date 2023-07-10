@@ -320,7 +320,7 @@ namespace z3 {
         /**
            \brief Create a recursive datatype over a single sort.
            \c name is the name of the recursive datatype
-           \c n - the numer of constructors of the datatype
+           \c n - the number of constructors of the datatype
            \c cs - the \c n constructors used to define the datatype
 
            References to the datatype can be created using \ref datatype_sort.

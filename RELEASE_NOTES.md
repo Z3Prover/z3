@@ -62,7 +62,7 @@ Version 4.12.0
     Clauses that are deduced by theories are marked by default 
     by 'smt', and when more detailed information
     is available with proof hints or proof objects. 
-    Instantations are considered useful to track so they
+    Instantiations are considered useful to track so they
     are logged using terms of the form 
 
          (inst (not (forall (x) body)) body[t/x] (bind t)), where
@@ -88,7 +88,7 @@ Version 4.12.0
               checker cannot check. It is mainly a limitation
               of the arithmetic solver not pulling relevant information. 
               Ensuring a tight coupling with proof hints and the validator
-              capabilites is open ended future work and good material for theses. 
+              capabilities is open ended future work and good material for theses. 
       - bit-vector inferences - are treated as trusted 
         (there is no validation, it always blindly succeeds)
       - arrays, datatypes - there is no custom validation for 
@@ -158,13 +158,13 @@ Version 4.11.2
   with SMT format that is extensible. The resulting format is a mild extension of SMTLIB with
   three extra commands assume, learn, del. They track input clauses, generated clauses and deleted clauses.
   They are optionally augmented by proof hints. Two proof hints are used in the current version: "rup" and "farkas".
-  "rup" is used whent the generated clause can be justified by reverse unit propagation. "farkas" is used when
+  "rup" is used when the generated clause can be justified by reverse unit propagation. "farkas" is used when
   the clause can be justified by a combination of Farkas cutting planes. There is a built-in proof checker for the
   format. Quantifier instantiations are also tracked as proof hints.
-  Other proof hints are to be added as the feature set is tested and developed. The fallback, buit-in,
+  Other proof hints are to be added as the feature set is tested and developed. The fallback, built-in,
   self-checker uses z3 to check that the generated clause is a consequence. Note that this is generally
   insufficient as generated clauses are in principle required to only be satisfiability preserving.
-  Proof checking and tranformation operations is overall open ended.
+  Proof checking and transformation operations is overall open ended.
   The log for the first commit introducing this change contains further information on the format.
 - fix to re-entrancy bug in user propagator (thanks to Clemens Eisenhofer).
 - handle _toExpr for quantified formulas in JS bindings
@@ -638,7 +638,7 @@ xor88, parno, gario, Bauna, GManNickG, hanwentao, dinu09, fhowar, Cici, chinissa
       (assert F)
       (check-sat a)
       (check-sat)
-  If 'F' is unstatisfiable independently of the assumption 'a', and 
+  If 'F' is unsatisfiable independently of the assumption 'a', and 
   the inconsistency can be detected by just performing propagation,
   Then, version <= 4.3.1 may return
       unsat
