@@ -255,7 +255,8 @@ func_decl_info::func_decl_info(family_id family_id, decl_kind k, unsigned num_pa
     m_injective(false),
     m_idempotent(false),
     m_skolem(false),
-    m_lambda(false) {
+    m_lambda(false),
+    m_polymorphic(false) {
 }
 
 bool func_decl_info::operator==(func_decl_info const & info) const {
@@ -283,6 +284,7 @@ std::ostream & operator<<(std::ostream & out, func_decl_info const & info) {
     if (info.is_idempotent()) out << " :idempotent ";
     if (info.is_skolem()) out << " :skolem ";
     if (info.is_lambda()) out << " :lambda ";
+    if (info.is_polymorphic()) out << " :polymorphic ";
     return out;
 }
 
@@ -1309,10 +1311,7 @@ ast_manager::ast_manager(proof_gen_mode m, char const * trace_file, bool is_form
     m_expr_array_manager(*this, m_alloc),
     m_expr_dependency_manager(*this, m_alloc),
     m_expr_dependency_array_manager(*this, m_alloc),
-    m_proof_mode(m),
-    m_trace_stream(nullptr),
-    m_trace_stream_owner(false),
-    m_lambda_def(":lambda-def") {
+    m_proof_mode(m) {
 
     if (trace_file) {
         m_trace_stream       = alloc(std::fstream, trace_file, std::ios_base::out);
@@ -1333,9 +1332,7 @@ ast_manager::ast_manager(proof_gen_mode m, std::fstream * trace_stream, bool is_
     m_expr_dependency_manager(*this, m_alloc),
     m_expr_dependency_array_manager(*this, m_alloc),
     m_proof_mode(m),
-    m_trace_stream(trace_stream),
-    m_trace_stream_owner(false),
-    m_lambda_def(":lambda-def") {
+    m_trace_stream(trace_stream) {
 
     if (!is_format_manager)
         m_format_manager = alloc(ast_manager, PGM_DISABLED, trace_stream, true);
@@ -1350,9 +1347,7 @@ ast_manager::ast_manager(ast_manager const & src, bool disable_proofs):
     m_expr_dependency_manager(*this, m_alloc),
     m_expr_dependency_array_manager(*this, m_alloc),
     m_proof_mode(disable_proofs ? PGM_DISABLED : src.m_proof_mode),
-    m_trace_stream(src.m_trace_stream),
-    m_trace_stream_owner(false),
-    m_lambda_def(":lambda-def") {
+    m_trace_stream(src.m_trace_stream) {
     SASSERT(!src.is_format_manager());
     m_format_manager = alloc(ast_manager, PGM_DISABLED, m_trace_stream, true);
     init();
@@ -1880,6 +1875,8 @@ void ast_manager::delete_node(ast * n) {
             break;
         case AST_FUNC_DECL: {
             func_decl* f = to_func_decl(n);
+            if (f->is_polymorphic())
+                m_poly_roots.erase(f);
             if (f->m_info != nullptr) {
                 func_decl_info * info = f->get_info();
                 if (info->is_lambda()) {
@@ -2020,10 +2017,6 @@ sort * ast_manager::mk_uninterpreted_sort(symbol const & name, unsigned num_para
     return plugin->mk_sort(kind, num_parameters, parameters);
 }
 
-sort * ast_manager::mk_type_var(symbol const& name) {
-    sort_info si(poly_family_id, 0);
-    return mk_sort(name, &si);
-}
 
 func_decl * ast_manager::mk_func_decl(symbol const & name, unsigned arity, sort * const * domain, sort * range,
                                       bool assoc, bool comm, bool inj) {
@@ -2035,13 +2028,30 @@ func_decl * ast_manager::mk_func_decl(symbol const & name, unsigned arity, sort 
 }
 
 func_decl * ast_manager::mk_func_decl(symbol const & name, unsigned arity, sort * const * domain, sort * range, func_decl_info * info) {
-    SASSERT(arity == 1 || info == 0 || !info->is_injective());
-    SASSERT(arity == 2 || info == 0 || !info->is_associative());
-    SASSERT(arity == 2 || info == 0 || !info->is_commutative());
+    SASSERT(arity == 1 || !info || !info->is_injective());
+    SASSERT(arity == 2 || !info || !info->is_associative());
+    SASSERT(arity == 2 || !info || !info->is_commutative());
     unsigned sz               = func_decl::get_obj_size(arity);
     void * mem                = allocate_node(sz);
-    func_decl * new_node = new (mem) func_decl(name, arity, domain, range, info);
-    return register_node(new_node);
+
+    // determine if function is a polymorphic root object.
+    // instances of polymorphic functions are automatically tagged as polymorphic and
+    // inserted into the m_poly_roots table.
+    bool is_polymorphic_root = false;
+    func_decl_info info0;
+    if (has_type_var(arity, domain, range)) {
+        if (!info)
+            info = &info0;
+        if (!info->is_polymorphic()) {
+            info->set_polymorphic(true);
+            is_polymorphic_root = true;
+        }
+    }
+    func_decl* new_node = new (mem) func_decl(name, arity, domain, range, info);
+    new_node = register_node(new_node);
+    if (is_polymorphic_root)
+        m_poly_roots.insert(new_node, new_node);    
+    return new_node;
 }
 
 void ast_manager::check_sort(func_decl const * decl, unsigned num_args, expr * const * args) const {
@@ -2306,9 +2316,10 @@ func_decl * ast_manager::mk_fresh_func_decl(symbol const & prefix, symbol const 
     func_decl_info info(null_family_id, null_decl_kind);
     info.m_skolem = skolem;
     SASSERT(skolem == info.is_skolem());
+    func_decl_info* infop = skolem ? &info : nullptr;
     func_decl * d;
     if (prefix == symbol::null && suffix == symbol::null) {
-        d = mk_func_decl(symbol(m_fresh_id), arity, domain, range, &info);
+        d = mk_func_decl(symbol(m_fresh_id), arity, domain, range, infop);
     }
     else {
         string_buffer<64> buffer;
@@ -2320,10 +2331,10 @@ func_decl * ast_manager::mk_fresh_func_decl(symbol const & prefix, symbol const 
         if (suffix != symbol::null)
             buffer << suffix << "!";
         buffer << m_fresh_id;
-        d = mk_func_decl(symbol(buffer.c_str()), arity, domain, range, &info);
+        d = mk_func_decl(symbol(buffer.c_str()), arity, domain, range, infop);
     }
     m_fresh_id++;
-    SASSERT(d->get_info());
+    SASSERT(!skolem || d->get_info());
     SASSERT(skolem == d->is_skolem());
     return d;
 }
@@ -2723,6 +2734,49 @@ bool ast_manager::is_fully_interp(sort * s) const {
     if (p != nullptr)
         return p->is_fully_interp(s);
     return false;
+}
+
+// -----------------------------------------
+// Polymorphism
+// -----------------------------------------
+sort * ast_manager::mk_type_var(symbol const& name) {
+    m_has_type_vars = true;
+    sort_info si(poly_family_id, 0);
+    return mk_sort(name, &si);
+}
+
+bool ast_manager::has_type_var(sort* s) const {
+    if (is_type_var(s))
+        return true;
+    for (parameter const& p : s->parameters()) 
+        if (p.is_ast() && is_sort(p.get_ast()) && has_type_var(to_sort(p.get_ast())))
+            return true;   
+    return false;
+}
+
+bool ast_manager::has_type_var(func_decl* f) const {
+    return has_type_var(f->get_arity(), f->get_domain(), f->get_range());
+}
+
+bool ast_manager::has_type_var(unsigned n, sort* const* domain, sort* range) const {
+    if (!has_type_vars())
+        return false;
+    for (unsigned i = n; i-- > 0; )
+        if (has_type_var(domain[i]))
+            return true;
+    return has_type_var(range);    
+}
+
+/**
+ * \brief create an instantiation of polymorphic function f.
+ */
+
+func_decl* ast_manager::instantiate_polymorphic(func_decl* f, unsigned arity, sort * const* domain, sort * range) {
+    SASSERT(f->is_polymorphic());
+    func_decl* g = mk_func_decl(f->get_name(), arity, domain, range, f->get_info());
+    m_poly_roots.insert(f, g);
+    SASSERT(g->is_polymorphic());
+    return g;
 }
 
 // -----------------------------------
