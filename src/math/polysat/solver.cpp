@@ -305,6 +305,18 @@ namespace polysat {
                         set_conflict(c);
                 }
             }
+            else if (slicing_qhead < m_search.size()) {
+                auto const& item = m_search[slicing_qhead++];
+                if (item.is_assignment()) {
+                    pvar const v = item.var();
+                    m_slicing.add_value(v, get_value(v));
+                }
+                else {
+                    SASSERT(item.is_boolean());
+                    signed_constraint const c = lit2cnstr(item.lit());
+                    m_slicing.add_constraint(c);
+                }
+            }
             else {
                 // Third priority: activate/narrow
                 auto const& item = m_search[m_qhead++];

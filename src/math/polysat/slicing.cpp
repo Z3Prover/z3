@@ -652,7 +652,7 @@ namespace polysat {
         return m_solver.var(v);
     }
 
-    void slicing::propagate(signed_constraint c) {
+    void slicing::add_constraint(signed_constraint c) {
         // TODO: evaluate under current assignment?
         if (!c->is_eq())
             return;
@@ -691,7 +691,7 @@ namespace polysat {
         }
     }
 
-    void slicing::propagate(pvar v) {
+    void slicing::add_value(pvar v, rational const& value) {
         // go through all existing nodes, and evaluate v?
         // can do that externally
     }

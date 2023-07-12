@@ -222,6 +222,9 @@ namespace polysat {
 
         bool invariant() const;
 
+        /** Get variable representing x[hi:lo] */
+        pvar mk_extract_var(pvar x, unsigned hi, unsigned lo);
+
     public:
         slicing(solver& s);
 
@@ -229,9 +232,6 @@ namespace polysat {
         void pop_scope(unsigned num_scopes = 1);
 
         void add_var(unsigned bit_width);
-
-        /** Get variable representing x[hi:lo] */
-        pvar mk_extract_var(pvar x, unsigned hi, unsigned lo);
 
         /** Create expression for x[hi:lo] */
         pdd mk_extract(pvar x, unsigned hi, unsigned lo);
@@ -242,12 +242,14 @@ namespace polysat {
         /** Create expression for p ++ q */
         pdd mk_concat(pdd const& p, pdd const& q);
 
-        // propagate:
-        // - value assignments
-        // - fixed bits
-        // - intervals ?????  -- that will also need changes in the viable algorithm
-        void propagate(pvar v);
-        void propagate(signed_constraint c);
+        // Track value assignments to variables (and propagate to subslices)
+        // (could generalize to fixed bits, then we need a way to merge interpreted enodes)
+        void add_value(pvar v, rational const& value);
+        void add_constraint(signed_constraint c);
+
+        // TODO:
+        // Query for a given variable v:
+        // - set of variables that share at least one slice with v (need variable, offset/width relative to v)
 
         std::ostream& display(std::ostream& out) const;
         std::ostream& display(std::ostream& out, slice s) const;
