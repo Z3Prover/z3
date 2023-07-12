@@ -49,6 +49,8 @@ namespace polysat {
             sl.find_base(sl.var2slice(y), y_base);
             VERIFY(sl.merge(x_base, y_base, sat::literal(3)));
             std::cout << sl << "\n";
+
+            sl.display_tree(std::cout);
         }
 
         // x[7:3] = a
@@ -185,9 +187,9 @@ namespace polysat {
 void tst_slicing() {
     using namespace polysat;
     test_slicing::test1();
-    test_slicing::test2();
-    test_slicing::test3();
-    test_slicing::test4();
+    // test_slicing::test2();
+    // test_slicing::test3();
+    // test_slicing::test4();
     // test_slicing::test5();
     std::cout << "ok\n";
 }

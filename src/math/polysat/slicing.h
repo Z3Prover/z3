@@ -250,8 +250,10 @@ namespace polysat {
         void propagate(signed_constraint c);
 
         std::ostream& display(std::ostream& out) const;
-        std::ostream& display_tree(std::ostream& out, char const* name, slice s) const;
         std::ostream& display(std::ostream& out, slice s) const;
+
+        std::ostream& display_tree(std::ostream& out) const;
+        std::ostream& display_tree(std::ostream& out, slice s, unsigned indent, unsigned hi, unsigned lo) const;
     };
 
     inline std::ostream& operator<<(std::ostream& out, slicing const& s) { return s.display(out); }

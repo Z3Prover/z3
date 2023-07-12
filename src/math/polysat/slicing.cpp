@@ -703,35 +703,46 @@ namespace polysat {
             base.reset();
             slice const vs = var2slice(v);
             find_base(vs, base);
-            // unsigned hi = width(var2slice(v)) - 1;
-            for (slice s : base) {
-                // unsigned w = width(s);
-                // unsigned lo = hi - w + 1;
-                // out << " s" << s << "_[" << hi << ":" << lo << "]";
-                // hi -= w;
+            for (slice s : base)
                 display(out << " ", s);
-            }
-            if (has_value(vs)) {
-                out << "        -- (val:" << get_value(vs) << ")";
-            }
+            // if (has_value(vs)) {
+            //     out << "        -- (val:" << get_value(vs) << ")";
+            // }
             out << "\n";
-        }
-        for (pvar v = 0; v < m_var2slice.size(); ++v) {
-            out << "v" << v << ":";
-            slice const s = m_var2slice[v];
         }
         return out;
     }
 
-    std::ostream& slicing::display_tree(std::ostream& out, char const* name, slice s) const {
-        // TODO
+    std::ostream& slicing::display_tree(std::ostream& out) const {
+        for (pvar v = 0; v < m_var2slice.size(); ++v) {
+            out << "v" << v << ":\n";
+            slice const s = var2slice(v);
+            display_tree(out, s, 4, width(s) - 1, 0);
+        }
+        return out;
+    }
+
+    std::ostream& slicing::display_tree(std::ostream& out, slice s, unsigned indent, unsigned hi, unsigned lo) const {
+        out << std::string(indent, ' ') << "[" << hi << ":" << lo << "]";
+        out << " id=" << s;
+        out << " w=" << width(s);
+        if (find(s) != s)
+            out << " root=" << find(s);
+        // if (has_value(s))
+        //     out << " value=" << get_value(s);
+        out << "\n";
+        if (has_sub(s)) {
+            unsigned cut = m_slice_cut[s];
+            display_tree(out, sub_hi(s), indent + 4, hi, cut + 1 + lo);
+            display_tree(out, sub_lo(s), indent + 4, cut + lo, lo);
+        }
+        return out;
     }
 
     std::ostream& slicing::display(std::ostream& out, slice s) const {
         out << "{id:" << s << ",w:" << width(s);
-        if (has_value(s)) {
-            out << ",val:" << get_value(s);
-        }
+        // if (has_value(s))
+        //     out << ",val:" << get_value(s);
         out << "}";
         return out;
     }
