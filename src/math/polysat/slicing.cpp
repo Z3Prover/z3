@@ -46,9 +46,27 @@ Recycle the z3 egraph?
 
 namespace polysat {
 
+    void* slicing::encode_dep(dep_t d) {
+        if (d == null_dep)
+            return nullptr;
+        else
+            return reinterpret_cast<void*>(static_cast<std::uintptr_t>(d.to_uint()) + 1);
+        static_assert( sizeof(void*) >= sizeof(std::uintptr_t) );
+        static_assert( sizeof(std::uintptr_t) > sizeof(decltype(d.to_uint())) );
+    }
+
+    slicing::dep_t slicing::decode_dep(void* d) {
+        if (!d)
+            return null_dep;
+        else
+            return sat::to_literal(reinterpret_cast<std::uintptr_t>(d) - 1);
+    }
+
     slicing::slicing(solver& s):
         m_solver(s),
-        m_egraph(m_ast)
+        m_egraph(m_ast),
+        // m_slice2app(m_ast),
+        m_expr_storage(m_ast)
     {
         m_slice_sort = m_ast.mk_uninterpreted_sort(symbol("slice"));
     }
@@ -70,6 +88,8 @@ namespace polysat {
 
     void slicing::push_scope() {
         m_scopes.push_back(m_trail.size());
+        m_expr_scopes.push_back(m_expr_storage.size());
+        m_egraph.push();
     }
 
     void slicing::pop_scope(unsigned num_scopes) {
@@ -79,24 +99,27 @@ namespace polysat {
         SASSERT(num_scopes <= lvl);
         unsigned const target_lvl = lvl - num_scopes;
         unsigned const target_size = m_scopes[target_lvl];
+        unsigned const target_expr_size = m_expr_scopes[target_lvl];
+        m_scopes.shrink(target_lvl);
+        m_expr_scopes.shrink(target_lvl);
         while (m_trail.size() > target_size) {
             switch (m_trail.back()) {
             case trail_item::add_var:           undo_add_var();         break;
             case trail_item::alloc_slice:       undo_alloc_slice();     break;
-            case trail_item::split_slice:       undo_split_slice();     break;
-            case trail_item::merge_base:        undo_merge_base();      break;
-            case trail_item::mk_value_slice:    undo_mk_value_slice();  break;
+            case trail_item::split_core:        undo_split_core();      break;
+            // case trail_item::merge_base:        undo_merge_base();      break;
+            // case trail_item::mk_value_slice:    undo_mk_value_slice();  break;
             default: UNREACHABLE();
             }
             m_trail.pop_back();
         }
-        m_scopes.shrink(target_lvl);
+        m_egraph.pop(num_scopes);
+        m_expr_storage.shrink(target_expr_size);
     }
 
     void slicing::add_var(unsigned bit_width) {
         pvar const v = m_var2slice.size();
-        slice const s = alloc_slice();
-        m_slice_width[s] = bit_width;
+        slice const s = alloc_slice(bit_width);
         m_slice2var[s] = v;
         m_var2slice.push_back(s);
     }
@@ -105,20 +128,20 @@ namespace polysat {
         m_var2slice.pop_back();
     }
 
-    slicing::slice slicing::alloc_slice() {
+    slicing::slice slicing::alloc_slice(unsigned width) {
+        SASSERT(width > 0);
         slice const s = m_slice_cut.size();
-        m_slice_width.push_back(0);
+        m_slice_width.push_back(width);
         m_slice_cut.push_back(null_cut);
         m_slice_sub.push_back(null_slice);
-        m_find.push_back(s);
-        m_size.push_back(1);
-        m_next.push_back(s);
         m_slice2var.push_back(null_var);
-        m_proof_parent.push_back(null_slice);
-        m_proof_reason.push_back(null_dep);
-        m_mark.push_back(0);
-        // m_value_root.push_back(null_slice);
-        m_slice2val.push_back(rational(-1));
+        // m_mark.push_back(0);
+        app* a = m_ast.mk_fresh_const("s", m_slice_sort, false);  // TODO: what's the effect of "skolem = true"?
+        m_expr_storage.push_back(a);
+        euf::enode* n = m_egraph.mk(a, 0, 0, nullptr);
+        m_slice2enode.push_back(n);
+        SASSERT(!m_enode2slice.contains(n));
+        m_enode2slice.insert(n, s);
         m_trail.push_back(trail_item::alloc_slice);
         return s;
     }
@@ -127,15 +150,12 @@ namespace polysat {
         m_slice_width.pop_back();
         m_slice_cut.pop_back();
         m_slice_sub.pop_back();
-        m_find.pop_back();
-        m_size.pop_back();
-        m_next.pop_back();
         m_slice2var.pop_back();
-        m_proof_parent.pop_back();
-        m_proof_reason.pop_back();
-        m_mark.pop_back();
-        // m_value_root.pop_back();
-        m_slice2val.pop_back();
+        euf::enode* n = m_slice2enode.back();
+        SASSERT_EQ(m_enode2slice[n], m_slice_cut.size());
+        m_enode2slice.remove(n);
+        m_slice2enode.pop_back();
+        // m_mark.pop_back();
     }
 
     slicing::slice slicing::sub_hi(slice parent) const {
@@ -148,6 +168,14 @@ namespace polysat {
         return m_slice_sub[parent] + 1;
     }
 
+    euf::enode* slicing::sub_hi(euf::enode* n) const {
+        return slice2enode(sub_hi(enode2slice(n)));
+    }
+
+    euf::enode* slicing::sub_lo(euf::enode* n) const {
+        return slice2enode(sub_lo(enode2slice(n)));
+    }
+
     slicing::slice slicing::find_sub_hi(slice parent) const {
         return find(sub_hi(parent));
     }
@@ -156,32 +184,61 @@ namespace polysat {
         return find(sub_lo(parent));
     }
 
-    void slicing::split(slice s, unsigned cut) {
+    // split a single slice without updating any equivalences
+    void slicing::split_core(slice s, unsigned cut) {
         SASSERT(!has_sub(s));
         SASSERT(width(s) - 1 >= cut + 1);
-        slice const sub_hi = alloc_slice();
-        slice const sub_lo = alloc_slice();
+        slice const sub_hi = alloc_slice(width(s) - cut - 1);
+        slice const sub_lo = alloc_slice(cut + 1);
         m_slice_cut[s] = cut;
         m_slice_sub[s] = sub_hi;
         SASSERT_EQ(sub_lo, sub_hi + 1);
-        m_slice_width[sub_hi] = width(s) - cut - 1;
-        m_slice_width[sub_lo] = cut + 1;
-        m_trail.push_back(trail_item::split_slice);
+        m_trail.push_back(trail_item::split_core);
         m_split_trail.push_back(s);
-        if (has_value(s)) {
-            rational const& val = get_value(s);
-            // set_value(sub_lo, mod2k(val, cut + 1));
-            // set_value(sub_hi, machine_div2k(val, cut + 1));
-        }
+        // if (has_value(s)) {
+        //     rational const& val = get_value(s);
+        //     // set_value(sub_lo, mod2k(val, cut + 1));
+        //     // set_value(sub_hi, machine_div2k(val, cut + 1));
+        // }
+
+        // // s = hi ++ lo     ... TODO: necessary??? probably not
+        // euf::enode* s_n = slice2enode(s);
+        // euf::enode* hi_n = slice2enode(sub_hi);
+        // euf::enode* lo_n = slice2enode(sub_lo);
+        // app* a = m_ast.mk_app(get_concat_decl(2), hi_n->get_expr(), lo_n->get_expr());
+        // auto args = {hi_n, lo_n};
+        // euf::enode* concat_n = m_egraph.mk(a, 0, args.size(), blup.begin());
+        // m_egraph.merge(s_n, concat_n, nullptr);
+        // SASSERT(!concat_n->is_root());  // else we have to register it in enode2slice
     }
 
-    void slicing::undo_split_slice() {
+    void slicing::undo_split_core() {
         slice s = m_split_trail.back();
         m_split_trail.pop_back();
         m_slice_cut[s] = null_cut;
         m_slice_sub[s] = null_slice;
     }
 
+    void slicing::split(slice s, unsigned cut) {
+        euf::enode* sn = slice2enode(s);
+        // split all slices in the equivalence class
+        for (euf::enode* n : euf::enode_class(sn)) {
+            split_core(enode2slice(n), cut);
+        }
+        // propagate the proper equivalences
+        for (euf::enode* n : euf::enode_class(sn)) {
+            euf::enode* target = n->get_target();
+            if (!target)
+                continue;
+            euf::justification j = n->get_justification();
+            SASSERT(j.is_external());  // cannot be a congruence since the slice wasn't split before.
+            m_egraph.merge(sub_hi(n), sub_hi(target), j.ext<void>());
+            m_egraph.merge(sub_lo(n), sub_lo(target), j.ext<void>());
+        }
+        m_egraph.propagate();  // TODO: could do this later
+    }
+
+#if 0
     slicing::slice slicing::mk_value_slice(rational const& val, unsigned bit_width) {
         SASSERT(0 <= val && val < rational::power_of_two(bit_width));
         val2slice_key key(val, bit_width);
@@ -202,102 +259,23 @@ namespace polysat {
         m_val2slice.remove(m_val2slice_trail.back());
         m_val2slice_trail.pop_back();
     }
+#endif
 
     slicing::slice slicing::find(slice s) const {
-        while (true) {
-            SASSERT(s < m_find.size());
-            slice const new_s = m_find[s];
-            if (new_s == s)
-                return s;
-            s = new_s;
-        }
+        return enode2slice(slice2enode(s)->get_root());
     }
 
+#if 1
     bool slicing::merge_base(slice s1, slice s2, dep_t dep) {
         SASSERT_EQ(width(s1), width(s2));
         SASSERT(!has_sub(s1));
         SASSERT(!has_sub(s2));
-        slice r1 = find(s1);
-        slice r2 = find(s2);
-        if (r1 == r2)
-            return true;
-        if (m_size[r1] > m_size[r2]) {
-            std::swap(r1, r2);
-            std::swap(s1, s2);
-        }
-        if (has_value(r1)) {
-            if (has_value(r2)) {
-                if (get_value(r1) != get_value(r2)) {
-                    NOT_IMPLEMENTED_YET();  // TODO: conflict
-                    return false;
-                }
-            }
-            // else
-            //     set_value(r2, get_value(r1));
-        }
-        // r2 becomes the representative of the merged class
-        m_find[r1] = r2;
-        m_size[r2] += m_size[r1];
-        std::swap(m_next[r1], m_next[r2]);
-        if (m_slice2var[r2] == null_var)
-            m_slice2var[r2] = m_slice2var[r1];
-        else {
-            // otherwise the classes should have been merged already
-            SASSERT(m_slice2var[r2] != m_slice2var[r1]);
-        }
-        // Add justification 'dep' for s1 = s2
-        // NOTE: invariant: root of the proof tree is the representative
-        SASSERT(m_proof_parent[r1] == null_slice);
-        SASSERT(m_proof_parent[r2] == null_slice);
-        make_proof_root(s1);
-        SASSERT(m_proof_parent[s1] == null_slice);
-        m_proof_parent[s1] = s2;
-        m_proof_reason[s1] = dep;
-        SASSERT(m_proof_parent[r2] == null_slice);
-        m_trail.push_back(trail_item::merge_base);
-        m_merge_trail.push_back({r1, s1});
-        return true;
+        m_egraph.merge(slice2enode(s1), slice2enode(s2), encode_dep(dep));
+        m_egraph.propagate();  // TODO: could do this later maybe
+        return !m_egraph.inconsistent();
     }
 
-    void slicing::undo_merge_base() {
-        auto const [r1, s1] = m_merge_trail.back();
-        m_merge_trail.pop_back();
-        slice const r2 = m_find[r1];
-        SASSERT(find(r2) == r2);
-        m_find[r1] = r1;
-        m_size[r2] -= m_size[r1];
-        std::swap(m_next[r1], m_next[r2]);
-        if (m_slice2var[r2] == m_slice2var[r1])
-            m_slice2var[r2] = null_var;
-        SASSERT(m_proof_parent[s1] == null_slice);
-        SASSERT(m_proof_parent[r2] == null_slice);
-        m_proof_parent[s1] = null_slice;
-        m_proof_reason[s1] = null_dep;
-        SASSERT(m_proof_parent[r1] == null_slice);
-        SASSERT(m_proof_parent[r2] == null_slice);
-        make_proof_root(r1);
-    }
-
-    void slicing::make_proof_root(slice s) {
-        // s1 -> s2 -> s3 -> s4
-        //  r1    r2    r3
-        // =>
-        // s1 <- s2 <- s3 <- s4
-        //      r1    r2    r3
-        slice curr = s;
-        slice prev = null_slice;
-        dep_t prev_reason = null_dep;
-        while (curr != null_slice) {
-            slice const curr_parent = m_proof_parent[curr];
-            dep_t const curr_reason = m_proof_reason[curr];
-            m_proof_parent[curr] = prev;
-            m_proof_reason[curr] = prev_reason;
-            prev = curr;
-            prev_reason = curr_reason;
-            curr = curr_parent;
-        }
-    }
-
+#if 0
     bool slicing::merge_value(slice s0, rational val0, dep_t dep) {
         vector<std::pair<slice, rational>> todo;
         todo.push_back({find(s0), std::move(val0)});
@@ -330,42 +308,14 @@ namespace polysat {
         }
         return true;
     }
+#endif
 
+#if 0
     void slicing::push_reason(slice s, dep_vector& out_deps) {
         dep_t reason = m_proof_reason[s];
         if (reason == null_dep)
             return;
         out_deps.push_back(reason);
-    }
-
-    void slicing::explain_class(slice x, slice y, dep_vector& out_deps) {
-        SASSERT_EQ(find(x), find(y));
-        //                   /-> ...
-        // x -> x1 -> x2 -> lca <- y1 <- y
-        //  r0   r1    r2         r4   r3
-        begin_mark();
-        // mark ancestors of x in the proof forest
-        slice s = x;
-        while (s != null_slice) {
-            mark(s);
-            s = m_proof_parent[s];
-        }
-        // find lowest common ancestor of x and y
-        // and collect deps from y to lca
-        slice lca = y;
-        while (!is_marked(lca)) {
-            push_reason(lca, out_deps);
-            lca = m_proof_parent[lca];
-            SASSERT(lca != null_slice);
-        }
-        // collect deps from x to lca
-        s = x;
-        while (s != lca) {
-            push_reason(s, out_deps);
-            s = m_proof_parent[s];
-            SASSERT(s != null_slice);
-        }
-        end_mark();
     }
 
     void slicing::explain_equal(slice x, slice y, dep_vector& out_deps) {
@@ -411,6 +361,7 @@ namespace polysat {
         }
         SASSERT(ys.empty());
     }
+#endif
 
     bool slicing::merge(slice_vector& xs, slice_vector& ys, dep_t dep) {
         // LOG_H2("Merging " << xs << " with " << ys);
@@ -496,11 +447,9 @@ namespace polysat {
         bool result = (xs == ys);
         xs.clear();
         ys.clear();
-#if 0
         if (result) {
             // TODO: merge equivalence class of x, y (on upper level)? but can we always combine the sub-trees?
         }
-#endif
         return result;
     }
 
@@ -596,6 +545,7 @@ namespace polysat {
             slice s = slices[0];
             if (slice2var(s) != null_var)
                 return slice2var(s);
+            // TODO: optimization: could save a slice-tree by directly assigning slice2var(s) = v for new var v.
         }
         pvar v = m_solver.add_var(hi - lo + 1);
         VERIFY(merge(slices, var2slice(v), null_dep));
@@ -759,12 +709,13 @@ namespace polysat {
             if (s != find(s))
                 continue;
             // if slice has a value, it should be propagated to its sub-slices
-            if (has_value(s)) {
-                VERIFY(has_value(find_sub_hi(s)));
-                VERIFY(has_value(find_sub_lo(s)));
-            }
+            // if (has_value(s)) {
+            //     VERIFY(has_value(find_sub_hi(s)));
+            //     VERIFY(has_value(find_sub_lo(s)));
+            // }
         }
         return true;
     }
+#endif
 
 }
