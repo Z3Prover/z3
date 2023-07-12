@@ -158,7 +158,12 @@ namespace polysat {
         void split(slice s, unsigned cut);
         void split_core(slice s, unsigned cut);
 
-        /// Retrieve base slices s_1,...,s_n such that src == s_1 ++ ... ++ s_n
+        template <bool should_find>
+        void get_base_core(slice src, slice_vector& out_base) const;
+
+        /// Retrieve base slices s_1,...,s_n such that src == s_1 ++ ... ++ s_n (actual descendant subslices)
+        void get_base(slice src, slice_vector& out_base) const;
+        /// Retrieve base slices s_1,...,s_n such that src == s_1 ++ ... ++ s_n (representatives of subslices)
         void find_base(slice src, slice_vector& out_base) const;
         /// Retrieve (or create) base slices s_1,...,s_n such that src[hi:lo] == s_1 ++ ... ++ s_n.
         /// If output_full_src is true, return the new base for src, i.e., src == s_1 ++ ... ++ s_n.
@@ -167,10 +172,6 @@ namespace polysat {
 
         /// Find representative
         slice find(slice s) const;
-        /// Find representative of upper subslice
-        slice find_sub_hi(slice s) const;
-        /// Find representative of lower subslice
-        slice find_sub_lo(slice s) const;
 
         // Merge equivalence classes of two base slices.
         // Returns true if merge succeeded without conflict.

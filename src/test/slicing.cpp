@@ -72,6 +72,8 @@ namespace polysat {
             pvar b = sl.mk_extract_var(y, 5, 0);
             std::cout << sl << "\n";
 
+            sl.display_tree(std::cout);
+
             (void)a;
             (void)b;
         }
@@ -187,7 +189,7 @@ namespace polysat {
 void tst_slicing() {
     using namespace polysat;
     test_slicing::test1();
-    // test_slicing::test2();
+    test_slicing::test2();
     // test_slicing::test3();
     // test_slicing::test4();
     // test_slicing::test5();

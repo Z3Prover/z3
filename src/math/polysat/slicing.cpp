@@ -37,6 +37,34 @@ Recycle the z3 egraph?
     - What do we need from the egraph?
         - backtracking trail to check for new equalities
 
+
+
+
+
+
+
+
+
+(1)     x = y
+(2)     z = y[3:0]
+(3)     explain(x[3:0] == z)? should be { (1), (2) }
+
+
+                    (1)
+        x ========================> y
+       / \                         / \          (2)
+  x[7:4] x[3:0]               y[7:4] y[3:0] ===========> z
+
+
+
+
+
+
+
+
+
+
+
 */
 
 
@@ -174,14 +202,6 @@ namespace polysat {
 
     euf::enode* slicing::sub_lo(euf::enode* n) const {
         return slice2enode(sub_lo(enode2slice(n)));
-    }
-
-    slicing::slice slicing::find_sub_hi(slice parent) const {
-        return find(sub_hi(parent));
-    }
-
-    slicing::slice slicing::find_sub_lo(slice parent) const {
-        return find(sub_lo(parent));
     }
 
     // split a single slice without updating any equivalences
@@ -371,17 +391,13 @@ namespace polysat {
             slice y = ys.back();
             xs.pop_back();
             ys.pop_back();
-            if (x == y) {
-                // merge upper level?
-                // but continue loop
-            }
             if (has_sub(x)) {
-                find_base(x, xs);
+                get_base(x, xs);
                 x = xs.back();
                 xs.pop_back();
             }
             if (has_sub(y)) {
-                find_base(y, ys);
+                get_base(y, ys);
                 y = ys.back();
                 ys.pop_back();
             }
@@ -453,36 +469,41 @@ namespace polysat {
         return result;
     }
 
-    void slicing::find_base(slice src, slice_vector& out_base) const {
-        // splits are only stored for the representative
-        SASSERT_EQ(src, find(src));
-        if (!has_sub(src)) {
-            out_base.push_back(src);
-            return;
-        }
+    template <bool should_find>
+    void slicing::get_base_core(slice src, slice_vector& out_base) const {
         slice_vector& todo = m_tmp1;
         SASSERT(todo.empty());
         todo.push_back(src);
         while (!todo.empty()) {
             slice s = todo.back();
             todo.pop_back();
+            if constexpr (should_find) {
+                s = find(s);
+            }
             if (!has_sub(s))
                 out_base.push_back(s);
             else {
-                todo.push_back(find_sub_lo(s));
-                todo.push_back(find_sub_hi(s));
+                todo.push_back(sub_lo(s));
+                todo.push_back(sub_hi(s));
             }
         }
         SASSERT(todo.empty());
     }
 
+    void slicing::get_base(slice src, slice_vector& out_base) const {
+        get_base_core<false>(src, out_base);
+    }
+
+    void slicing::find_base(slice src, slice_vector& out_base) const {
+        get_base_core<true>(src, out_base);
+    }
+
     void slicing::mk_slice(slice src, unsigned const hi, unsigned const lo, slice_vector& out, bool output_full_src, bool output_base) {
         SASSERT(hi >= lo);
-        SASSERT_EQ(src, find(src));  // splits are only stored for the representative
         SASSERT(width(src) > hi);  // extracted range must be fully contained inside the src slice
         auto output_slice = [this, output_base, &out](slice s) {
             if (output_base)
-                find_base(s, out);
+                get_base(s, out);
             else
                 out.push_back(s);
         };
@@ -495,23 +516,23 @@ namespace polysat {
             unsigned const cut = m_slice_cut[src];
             if (lo >= cut + 1) {
                 // target slice falls into upper subslice
-                mk_slice(find_sub_hi(src), hi - cut - 1, lo - cut - 1, out, output_full_src, output_base);
+                mk_slice(sub_hi(src), hi - cut - 1, lo - cut - 1, out, output_full_src, output_base);
                 if (output_full_src)
-                    output_slice(find_sub_lo(src));
+                    output_slice(sub_lo(src));
                 return;
             }
             else if (cut >= hi) {
                 // target slice falls into lower subslice
                 if (output_full_src)
-                    output_slice(find_sub_hi(src));
-                mk_slice(find_sub_lo(src), hi, lo, out, output_full_src, output_base);
+                    output_slice(sub_hi(src));
+                mk_slice(sub_lo(src), hi, lo, out, output_full_src, output_base);
                 return;
             }
             else {
                 SASSERT(hi > cut && cut >= lo);
                 // desired range spans over the cutpoint, so we get multiple slices in the result
-                mk_slice(find_sub_hi(src), hi - cut - 1, 0, out, output_full_src, output_base);
-                mk_slice(find_sub_lo(src), cut, lo, out, output_full_src, output_base);
+                mk_slice(sub_hi(src), hi - cut - 1, 0, out, output_full_src, output_base);
+                mk_slice(sub_lo(src), cut, lo, out, output_full_src, output_base);
                 return;
             }
         }
@@ -519,19 +540,19 @@ namespace polysat {
             // [src.width-1, 0] has no subdivision yet
             if (width(src) - 1 > hi) {
                 split(src, hi);
-                SASSERT(!has_sub(find_sub_hi(src)));
+                SASSERT(!has_sub(sub_hi(src)));
                 if (output_full_src)
-                    out.push_back(find_sub_hi(src));
-                mk_slice(find_sub_lo(src), hi, lo, out, output_full_src, output_base);  // recursive call to take care of case lo > 0
+                    out.push_back(sub_hi(src));
+                mk_slice(sub_lo(src), hi, lo, out, output_full_src, output_base);  // recursive call to take care of case lo > 0
                 return;
             }
             else {
                 SASSERT(lo > 0);
                 split(src, lo - 1);
-                out.push_back(find_sub_hi(src));
-                SASSERT(!has_sub(find_sub_lo(src)));
+                out.push_back(sub_hi(src));
+                SASSERT(!has_sub(sub_lo(src)));
                 if (output_full_src)
-                    out.push_back(find_sub_lo(src));
+                    out.push_back(sub_lo(src));
                 return;
             }
         }
