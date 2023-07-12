@@ -211,6 +211,9 @@ namespace euf {
         bool children_are_roots() const;
         enode* get_next() const { return m_next; }
 
+        enode* get_target() const { return m_target; }
+        justification get_justification() const { return m_justification; }
+
         bool has_lbl_hash() const { return m_lbl_hash >= 0; }
         unsigned char get_lbl_hash() const { 
             SASSERT(m_lbl_hash >= 0 && static_cast<unsigned>(m_lbl_hash) < approx_set_traits<unsigned long long>::capacity);
