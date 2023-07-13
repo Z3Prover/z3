@@ -36,6 +36,7 @@ Revision History:
 #include "smt/smt_quick_checker.h"
 #include "smt/uses_theory.h"
 #include "smt/theory_special_relations.h"
+#include "smt/theory_polymorphism.h"
 #include "smt/smt_for_each_relevant_expr.h"
 #include "smt/smt_model_generator.h"
 #include "smt/smt_model_checker.h"
@@ -3703,6 +3704,8 @@ namespace smt {
         m_phase_default                = false;
         m_case_split_queue             ->init_search_eh();
         m_next_progress_sample         = 0;
+        if (m.has_type_vars() && !m_theories.get_plugin(poly_family_id))
+            register_plugin(alloc(theory_polymorphism, *this));
         TRACE("literal_occ", display_literal_num_occs(tout););
     }
 
