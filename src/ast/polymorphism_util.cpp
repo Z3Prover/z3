@@ -283,8 +283,10 @@ namespace polymorphism {
         vector<parameter> params;
         for (unsigned i = 0; i < s->get_num_parameters(); ++i) {
             parameter p = s->get_parameter(i);
-            if (p.is_ast() && is_sort(p.get_ast()))
-                params.push_back(parameter(fresh(to_sort(p.get_ast()))));
+            if (p.is_ast() && is_sort(p.get_ast())) {
+                sort_ref fs = fresh(to_sort(p.get_ast()));
+                params.push_back(parameter(fs.get()));
+            }
             else
                 params.push_back(p);
         }
