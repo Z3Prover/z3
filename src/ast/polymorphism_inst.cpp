@@ -38,29 +38,30 @@ namespace polymorphism {
 
         if (!u.has_type_vars(e))
             return;
-            // insert e into the occurs list for polymorphic roots
-            ast_mark seen;
-            for (auto* f : inst.m_poly_fns) {
-                f = m.poly_root(f);
-                if (seen.is_marked(f))
-                    continue;
-                seen.mark(f, true);
-                if (!m_occurs.contains(f)) {
-                    m_occurs.insert(f, ptr_vector<expr>());
-                    t.push(insert_map(m_occurs, f));
-                }
-                auto& es = m_occurs.find(f);
-                es.push_back(e);
-                t.push(remove_back(m_occurs, f));
+        
+        // insert e into the occurs list for polymorphic roots
+        ast_mark seen;
+        for (auto* f : inst.m_poly_fns) {
+            f = m.poly_root(f);
+            if (seen.is_marked(f))
+                continue;
+            seen.mark(f, true);
+            if (!m_occurs.contains(f)) {
+                m_occurs.insert(f, ptr_vector<expr>());
+                t.push(insert_map(m_occurs, f));
             }
-            m_assertions.push_back(e);
-            t.push(push_back_vector(m_assertions));
-            u.collect_type_vars(e, inst.m_tvs);
-            inst.m_subst = alloc(substitutions);
-            inst.m_subst->insert(alloc(substitution, m));
-            m_instances.insert(e, inst);            
-            t.push(new_obj_trail(inst.m_subst));
-            t.push(insert_map(m_instances, e));        
+            auto& es = m_occurs.find(f);
+            es.push_back(e);
+            t.push(remove_back(m_occurs, f));
+        }
+        m_assertions.push_back(e);
+        t.push(push_back_vector(m_assertions));
+        u.collect_type_vars(e, inst.m_tvs);
+        inst.m_subst = alloc(substitutions);
+        inst.m_subst->insert(alloc(substitution, m));
+        m_instances.insert(e, inst);            
+        t.push(new_obj_trail(inst.m_subst));
+        t.push(insert_map(m_instances, e));        
     }
 
     void inst::collect_instantiations(expr* e) {

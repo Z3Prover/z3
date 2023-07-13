@@ -41,8 +41,10 @@ namespace polymorphism {
         vector<parameter> ps;
         for (unsigned i = 0; i < n; ++i) {
             auto p = s->get_parameter(i);
-            if (p.is_ast() && is_sort(p.get_ast()))
-                ps.push_back(parameter((*this)(to_sort(p.get_ast()))));
+            if (p.is_ast() && is_sort(p.get_ast())) {
+                sort_ref s = (*this)(to_sort(p.get_ast()));
+                ps.push_back(parameter(s.get()));
+            }
             else
                 ps.push_back(p);
         }
@@ -101,11 +103,11 @@ namespace polymorphism {
                 if (pending)
                     continue;
                 todo.pop_back();
-                ptr_buffer<sort> sorts;
+                domain.reset();
                 for (unsigned i = 0; i < q->get_num_decls(); ++i)
-                    sorts.push_back((*this)(q->get_decl_sort(i)));
+                    domain.push_back((*this)(q->get_decl_sort(i)));
                 quantifier* q2 = 
-                    m.mk_quantifier(q->get_kind(), q->get_num_decls(), sorts.data(), q->get_decl_names(), result.get(q->get_expr()->get_id()),
+                    m.mk_quantifier(q->get_kind(), q->get_num_decls(), domain.data(), q->get_decl_names(), result.get(q->get_expr()->get_id()),
                     q->get_weight(),
                     q->get_qid(), q->get_skid(), 
                     q->get_num_patterns(), patterns.data(), q->get_num_no_patterns(), no_patterns.data()
