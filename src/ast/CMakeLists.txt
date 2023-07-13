@@ -37,6 +37,8 @@ z3_add_component(ast
     num_occurs.cpp
     occurs.cpp
     pb_decl_plugin.cpp
+    polymorphism_inst.cpp
+    polymorphism_util.cpp
     pp.cpp
     quantifier_stat.cpp
     recfun_decl_plugin.cpp

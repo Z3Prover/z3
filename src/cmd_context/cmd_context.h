@@ -58,11 +58,12 @@ public:
     bool clash(func_decl * f) const;
     bool empty() const { return m_decls == nullptr; }
     func_decl * first() const;
-    func_decl * find(ast_manager & m, unsigned arity, sort * const * domain, sort * range) const;
-    func_decl * find(ast_manager & m, unsigned arity, expr * const * args, sort * range) const;
+    func_decl * find(ast_manager & m, unsigned arity, sort * const * domain, sort * range);
+    func_decl * find(ast_manager & m, unsigned arity, expr * const * args, sort * range);
     unsigned get_num_entries() const;
     func_decl * get_entry(unsigned inx);
     bool check_signature(ast_manager& m, func_decl* f, unsigned arityh, sort * const* domain, sort * range, bool& coerced) const;
+    bool check_poly_signature(ast_manager& m, func_decl* f, unsigned arity, sort* const* domain, sort* range, func_decl*& g);
 };
 
 struct macro_decl {
@@ -355,7 +356,7 @@ protected:
     bool contains_macro(symbol const& s, unsigned arity, sort *const* domain) const;
     void insert_macro(symbol const& s, unsigned arity, sort*const* domain, expr* t);
     void erase_macro(symbol const& s);
-    bool macros_find(symbol const& s, unsigned n, expr*const* args, expr_ref_vector& coerced_args, expr*& t) const;
+    bool macros_find(symbol const& s, unsigned n, expr*const* args, expr_ref_vector& coerced_args, expr_ref& t);
 
     recfun::decl::plugin& get_recfun_plugin();
 
@@ -449,22 +450,22 @@ public:
     void insert_rec_fun(func_decl* f, expr_ref_vector const& binding, svector<symbol> const& ids, expr* e);
     func_decl * find_func_decl(symbol const & s) const;
     func_decl * find_func_decl(symbol const & s, unsigned num_indices, unsigned const * indices,
-                               unsigned arity, sort * const * domain, sort * range) const;
+                               unsigned arity, sort * const * domain, sort * range);
     recfun::promise_def decl_rec_fun(const symbol &name, unsigned int arity, sort *const *domain, sort *range);
     psort_decl * find_psort_decl(symbol const & s) const;
     cmd * find_cmd(symbol const & s) const;
     sexpr * find_user_tactic(symbol const & s) const;
     object_ref * find_object_ref(symbol const & s) const;
-    void mk_const(symbol const & s, expr_ref & result) const;
+    void mk_const(symbol const & s, expr_ref & result);
     void mk_app(symbol const & s, unsigned num_args, expr * const * args, unsigned num_indices, parameter const * indices, sort * range,
-                expr_ref & r) const;
+                expr_ref & r);
     bool try_mk_macro_app(symbol const & s, unsigned num_args, expr * const * args, unsigned num_indices, parameter const * indices, sort * range,
-                expr_ref & r) const;
+                expr_ref & r);
     bool try_mk_builtin_app(symbol const & s, unsigned num_args, expr * const * args, unsigned num_indices, parameter const * indices, sort * range,
                 expr_ref & r) const;
     bool try_mk_declared_app(symbol const & s, unsigned num_args, expr * const * args, 
                              unsigned num_indices, parameter const * indices, sort * range,
-                             func_decls& fs, expr_ref & result) const;
+                             expr_ref & result);
     bool try_mk_pdecl_app(symbol const & s, unsigned num_args, expr * const * args, unsigned num_indices, parameter const * indices, expr_ref & r) const;
     void erase_cmd(symbol const & s);
     void erase_func_decl(symbol const & s);

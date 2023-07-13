@@ -151,6 +151,7 @@ typedef enum
     Z3_SEQ_SORT,
     Z3_RE_SORT,
     Z3_CHAR_SORT,
+    Z3_TYPE_VAR,
     Z3_UNKNOWN_SORT = 1000
 } Z3_sort_kind;
 
@@ -1882,6 +1883,17 @@ extern "C" {
        def_API('Z3_mk_uninterpreted_sort', SORT, (_in(CONTEXT), _in(SYMBOL)))
     */
     Z3_sort Z3_API Z3_mk_uninterpreted_sort(Z3_context c, Z3_symbol s);
+
+    /**
+       \brief Create a type variable.
+
+       Functions using type variables can be applied to instantiations that match the signature 
+       of the function. Assertions using type variables correspond to assertions over all possible
+       instantiations.
+
+       def_API('Z3_mk_type_variable', SORT, (_in(CONTEXT), _in(SYMBOL)))
+    */
+    Z3_sort Z3_API Z3_mk_type_variable(Z3_context c, Z3_symbol s);
 
     /**
        \brief Create the Boolean type.

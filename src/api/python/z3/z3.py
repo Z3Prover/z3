@@ -683,6 +683,8 @@ def _to_sort_ref(s, ctx):
         return SeqSortRef(s, ctx)
     elif k == Z3_CHAR_SORT:
         return CharSortRef(s, ctx)
+    elif k == Z3_TYPE_VAR:
+        return TypeVarRef(s, ctx)
     return SortRef(s, ctx)
 
 
@@ -707,6 +709,26 @@ def DeclareSort(name, ctx=None):
     """
     ctx = _get_ctx(ctx)
     return SortRef(Z3_mk_uninterpreted_sort(ctx.ref(), to_symbol(name, ctx)), ctx)
+
+class TypeVarRef(SortRef):
+    """Type variable reference"""
+
+    def subsort(self, other):
+        return True
+    
+    def cast(self, val):
+        return val
+    
+
+def DeclareTypeVar(name, ctx=None):
+    """Create a new type variable named `name`.
+
+    If `ctx=None`, then the new sort is declared in the global Z3Py context.
+
+    """
+    ctx = _get_ctx(ctx)
+    return TypeVarRef(Z3_mk_type_variable(ctx.ref(), to_symbol(name, ctx)), ctx)
+
 
 #########################################
 #

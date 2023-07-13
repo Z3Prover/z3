@@ -87,7 +87,7 @@ bool occurs(func_decl * d, expr * n) {
 bool occurs(sort* s1, sort* s2) {
     sort_proc p(s1);
     try {
-        for_each_ast(p, s2);
+        for_each_ast(p, s2, true);
     }
     catch (const found&) {
         return true;

@@ -2049,8 +2049,8 @@ func_decl * ast_manager::mk_func_decl(symbol const & name, unsigned arity, sort 
     }
     func_decl* new_node = new (mem) func_decl(name, arity, domain, range, info);
     new_node = register_node(new_node);
-    if (is_polymorphic_root)
-        m_poly_roots.insert(new_node, new_node);    
+    if (is_polymorphic_root) 
+        m_poly_roots.insert(new_node, new_node);
     return new_node;
 }
 
@@ -2774,8 +2774,8 @@ bool ast_manager::has_type_var(unsigned n, sort* const* domain, sort* range) con
 func_decl* ast_manager::instantiate_polymorphic(func_decl* f, unsigned arity, sort * const* domain, sort * range) {
     SASSERT(f->is_polymorphic());
     func_decl* g = mk_func_decl(f->get_name(), arity, domain, range, f->get_info());
-    m_poly_roots.insert(f, g);
-    SASSERT(g->is_polymorphic());
+    m_poly_roots.insert(g, f);
+    // SASSERT(g->is_polymorphic());
     return g;
 }
 
