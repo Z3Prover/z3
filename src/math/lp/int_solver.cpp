@@ -18,21 +18,7 @@ namespace lp {
         lrac(lia.lrac)
     {}
     
-    void int_solver::patcher::remove_fixed_vars_from_base() {
-        unsigned num = lra.A_r().column_count();
-        for (unsigned v = 0; v < num; v++) {
-            if (!lia.is_base(v) || !lia.is_fixed(v))
-                continue;
-            auto const & r = lra.basic2row(v);
-            for (auto const& c : r) {
-                if (c.var() != v && !lia.is_fixed(c.var())) {
-                    lra.pivot(c.var(), v); 
-                    break;
-                }
-            }        
-        }
-    }
-
+ 
 
     unsigned int_solver::patcher::count_non_int() {
         unsigned non_int = 0;
@@ -43,7 +29,7 @@ namespace lp {
     }
 
     lia_move int_solver::patcher::patch_basic_columns() {
-        remove_fixed_vars_from_base();
+        lra.remove_fixed_vars_from_base();
         lia.settings().stats().m_patches++;
         lp_assert(lia.is_feasible());
         
@@ -177,7 +163,7 @@ namespace lp {
     }
 
     lia_move int_solver::patcher::patch_nbasic_columns() {
-        remove_fixed_vars_from_base();
+        lra.remove_fixed_vars_from_base();
         lia.settings().stats().m_patches++;
         lp_assert(lia.is_feasible());
         m_patch_success = 0;
@@ -744,8 +730,8 @@ std::ostream & int_solver::display_row(std::ostream & out, lp::row_strip<rationa
     }
     out << "\n";
     for (const auto &c : row) {
-        if (is_fixed(c.var()))
-            continue;
+        // if (is_fixed(c.var()))
+        //     continue;
         rslv.print_column_info(c.var(), out);
         if (is_base(c.var()))
             out << "j" << c.var() << " base\n";
