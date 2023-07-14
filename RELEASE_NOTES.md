@@ -12,7 +12,16 @@ Version 4.next
 
 Version 4.12.3
 ==============
-
+- Alpha support for polymorphism.
+  - SMTLIB3-ish, C, Python
+  It adds the new command `(declare-type-var A)` that declares a symbol (in this case `A`) globally as a polymorphic type variable.
+  The C API contains a new function `Z3_mk_type_variable` and a new enumeration case `Z3_TYPE_VAR` as a kind associated with sorts.
+  All occurrences of `A` are treated as type variables. A function declaration whose signature uses `A` is treated as a shorthand
+  for declarations of all functions that use instances of `A`.
+  Assertions that use type variables are shorthands for assertions covering all instantiations.
+- Various (ongoing) performance fixes and improvements to smt.arith.solver=6
+- A working version of solver.proof.trim=true option. Proofs logs created when using sat.smt=true may be trimmed by running z3
+  on the generated proof log using the option solver.proof.trim=true. 
 
 Version 4.12.2
 ==============
