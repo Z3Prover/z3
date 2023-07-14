@@ -229,7 +229,7 @@ br_status bool_rewriter::mk_nflat_or_core(unsigned num_args, expr * const * args
             pos_lits.mark(arg);
         }
         buffer.push_back(arg);
-        s |= prev && arg->get_id() < prev->get_id();
+        s |= prev && lt(arg, prev);
         prev = arg;
     }
 
@@ -327,7 +327,7 @@ br_status bool_rewriter::mk_flat_or_core(unsigned num_args, expr * const * args,
             }
             else {
                 flat_args.push_back(arg);
-                ordered &= (!prev || arg->get_id() >= prev->get_id());
+                ordered &= (!prev || !lt(arg, prev));
                 prev = arg;
             }
         }
