@@ -171,6 +171,15 @@ namespace pb {
             wl.second.neg();
             k += rational(wl.first);
         }
+        if (k < 0) {
+            bool_var v = s().add_var(false);
+            literal l(v, false);
+            s().assign_unit(~l);
+            si.cache(t, l);
+            if (sign) l.neg();
+            return l;
+        }
+            
         check_unsigned(k);
         add_pb_ge(v2, false, wlits, k.get_unsigned());
         if (base_assert) {
