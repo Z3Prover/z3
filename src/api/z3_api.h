@@ -8,10 +8,8 @@ DEFINE_TYPE(Z3_symbol);
 DEFINE_TYPE(Z3_config);
 DEFINE_TYPE(Z3_context);
 DEFINE_TYPE(Z3_sort);
-#define Z3_sort_opt Z3_sort
 DEFINE_TYPE(Z3_func_decl);
 DEFINE_TYPE(Z3_ast);
-#define Z3_ast_opt Z3_ast
 DEFINE_TYPE(Z3_app);
 DEFINE_TYPE(Z3_pattern);
 DEFINE_TYPE(Z3_model);
@@ -31,7 +29,6 @@ DEFINE_TYPE(Z3_ast_vector);
 DEFINE_TYPE(Z3_ast_map);
 DEFINE_TYPE(Z3_apply_result);
 DEFINE_TYPE(Z3_func_interp);
-#define Z3_func_interp_opt Z3_func_interp
 DEFINE_TYPE(Z3_func_entry);
 DEFINE_TYPE(Z3_fixedpoint);
 DEFINE_TYPE(Z3_optimize);
@@ -2083,7 +2080,7 @@ extern "C" {
                                             Z3_symbol recognizer,
                                             unsigned num_fields,
                                             Z3_symbol const field_names[],
-                                            Z3_sort_opt const sorts[],
+                                            Z3_sort const sorts[],
                                             unsigned sort_refs[]
                                             );
 
@@ -5511,7 +5508,7 @@ extern "C" {
 
        def_API('Z3_model_get_const_interp', AST, (_in(CONTEXT), _in(MODEL), _in(FUNC_DECL)))
     */
-    Z3_ast_opt Z3_API Z3_model_get_const_interp(Z3_context c, Z3_model m, Z3_func_decl a);
+    Z3_ast Z3_API Z3_model_get_const_interp(Z3_context c, Z3_model m, Z3_func_decl a);
 
     /**
        \brief Test if there exists an interpretation (i.e., assignment) for \c a in the model \c m.
@@ -5532,7 +5529,7 @@ extern "C" {
 
        def_API('Z3_model_get_func_interp', FUNC_INTERP, (_in(CONTEXT), _in(MODEL), _in(FUNC_DECL)))
     */
-    Z3_func_interp_opt Z3_API Z3_model_get_func_interp(Z3_context c, Z3_model m, Z3_func_decl f);
+    Z3_func_interp Z3_API Z3_model_get_func_interp(Z3_context c, Z3_model m, Z3_func_decl f);
 
     /**
        \brief Return the number of constants assigned by the given model.
@@ -6033,7 +6030,6 @@ extern "C" {
 
     /** @name Error Handling */
     /**@{*/
-#ifndef SAFE_ERRORS
     /**
        \brief Return the error code for the last API call.
 
@@ -6059,7 +6055,6 @@ extern "C" {
        \sa Z3_get_error_code
     */
     void Z3_API Z3_set_error_handler(Z3_context c, Z3_error_handler h);
-#endif
 
     /**
        \brief Set an error.

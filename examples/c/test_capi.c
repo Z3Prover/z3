@@ -592,7 +592,7 @@ void display_function_interpretations(Z3_context c, FILE * out, Z3_model m)
         Z3_symbol name;
         Z3_ast func_else;
         unsigned num_entries = 0, j;
-        Z3_func_interp_opt finterp;
+        Z3_func_interp finterp;
 
         fdecl = Z3_model_get_func_decl(c, m, i);
         finterp = Z3_model_get_func_interp(c, m, fdecl);
