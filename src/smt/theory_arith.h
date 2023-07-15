@@ -788,7 +788,7 @@ namespace smt {
         //
         // -----------------------------------
         void mark_row_for_bound_prop(unsigned r1);
-        void mark_rows_for_bound_prop(theory_var v);
+        void add_column_rows_to_touched_rows(theory_var v);
         void is_row_useful_for_bound_prop(row const & r, int & lower_idx, int & upper_idx) const;
         unsigned imply_bound_for_monomial(row const & r, int idx, bool lower);
         unsigned imply_bound_for_all_monomials(row const & r, bool lower);

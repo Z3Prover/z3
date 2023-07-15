@@ -58,7 +58,7 @@ lp_core_solver_base(static_matrix<T, X> & A,
     m_upper_bounds(upper_bound_values),
     m_basis_sort_counter(0),
     m_tracing_basis_changes(false),
-    m_pivoted_rows(nullptr),
+    m_touched_rows(nullptr),
     m_look_for_feasible_solution_only(false) {
     lp_assert(bounds_for_boxed_are_set_correctly());    
     init();
@@ -324,8 +324,8 @@ pivot_column_tableau(unsigned j, unsigned piv_row_index) {
         if(! m_A.pivot_row_to_row_given_cell(piv_row_index, c, j)) {
             return false;
         }
-        if (m_pivoted_rows!= nullptr)
-            m_pivoted_rows->insert(c.var());
+        if (m_touched_rows!= nullptr)
+            m_touched_rows->insert(c.var());
     }
 
     if (m_settings.simplex_strategy() == simplex_strategy_enum::tableau_costs)
