@@ -2486,7 +2486,7 @@ namespace smt {
         set_bound(b, false);
 
         if (propagation_mode() != bound_prop_mode::BP_NONE)
-            mark_rows_for_bound_prop(v);
+            add_column_rows_to_touched_rows(v);
 
         return true;
     }
@@ -2534,7 +2534,7 @@ namespace smt {
         set_bound(b, true);
 
         if (propagation_mode() != bound_prop_mode::BP_NONE)
-            mark_rows_for_bound_prop(v);
+            add_column_rows_to_touched_rows(v);
 
         return true;
     }
@@ -2603,7 +2603,7 @@ namespace smt {
        \brief Mark all rows that contain v for bound propagation.
     */
     template<typename Ext>
-    void theory_arith<Ext>::mark_rows_for_bound_prop(theory_var v) {
+    void theory_arith<Ext>::add_column_rows_to_touched_rows(theory_var v) {
         for (col_entry const& ce : m_columns[v]) {
             if (!ce.is_dead())
                 mark_row_for_bound_prop(ce.m_row_id);
