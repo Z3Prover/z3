@@ -203,6 +203,12 @@ namespace lp {
             return m_status;
         }
         solve_with_core_solver();
+        if (m_status != lp_status::INFEASIBLE) {
+            if (m_settings.bound_propagation())
+                detect_rows_with_changed_bounds();
+        }
+
+        clear_columns_with_changed_bounds();
         return m_status;
     }
 
@@ -700,8 +706,6 @@ namespace lp {
     void lar_solver::update_x_and_inf_costs_for_columns_with_changed_bounds_tableau() {
         for (auto j : m_columns_with_changed_bounds)
             update_x_and_inf_costs_for_column_with_changed_bounds(j);
-        // whoever consumes this should clear it
-        m_columns_with_changed_bounds.clear();   
     }
 
 
