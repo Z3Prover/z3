@@ -2901,29 +2901,40 @@ proof * ast_manager::mk_transitivity(proof * p1, proof * p2) {
     SASSERT(has_fact(p2));
     SASSERT(is_app(get_fact(p1)));
     SASSERT(is_app(get_fact(p2)));
-    SASSERT(to_app(get_fact(p1))->get_num_args() == 2);
-    SASSERT(to_app(get_fact(p2))->get_num_args() == 2);
-    CTRACE("mk_transitivity", to_app(get_fact(p1))->get_decl() != to_app(get_fact(p2))->get_decl(),
-           tout << mk_pp(get_fact(p1), *this) << "\n\n" << mk_pp(get_fact(p2), *this) << "\n";
-           tout << mk_pp(to_app(get_fact(p1))->get_decl(), *this) << "\n";
-           tout << mk_pp(to_app(get_fact(p2))->get_decl(), *this) << "\n";);
-    SASSERT(to_app(get_fact(p1))->get_decl() == to_app(get_fact(p2))->get_decl() ||
-            ( (is_eq(get_fact(p1)) || is_oeq(get_fact(p1))) &&
-              (is_eq(get_fact(p2)) || is_oeq(get_fact(p2)))));
-    CTRACE("mk_transitivity", to_app(get_fact(p1))->get_arg(1) != to_app(get_fact(p2))->get_arg(0),
-           tout << mk_pp(get_fact(p1), *this) << "\n\n" << mk_pp(get_fact(p2), *this) << "\n";
+    app* fact1 = to_app(get_fact(p1));
+    app* fact2 = to_app(get_fact(p2));
+    SASSERT(fact1->get_num_args() == 2);
+    SASSERT(fact2->get_num_args() == 2);
+    CTRACE("mk_transitivity", fact1->get_decl() != fact2->get_decl(),
+           tout << mk_pp(fact1, *this) << "\n\n" << mk_pp(fact2, *this) << "\n";
+           tout << mk_pp(fact1->get_decl(), *this) << "\n";
+           tout << mk_pp(fact2->get_decl(), *this) << "\n";);
+    SASSERT(fact1->get_decl() == fact2->get_decl() ||
+            ( (is_eq(fact1) || is_oeq(fact1)) &&
+              (is_eq(fact2) || is_oeq(fact2))));
+    CTRACE("mk_transitivity", fact1->get_arg(1) != fact2->get_arg(0),
+           tout << mk_pp(fact1, *this) << "\n\n" << mk_pp(fact2, *this) << "\n";
            tout << p1->get_id() << ": " << mk_bounded_pp(p1, *this, 5) << "\n\n";
            tout << p2->get_id() << ": " << mk_bounded_pp(p2, *this, 5) << "\n\n";
     );
-    SASSERT(to_app(get_fact(p1))->get_arg(1) == to_app(get_fact(p2))->get_arg(0));
     if (is_reflexivity(p1))
         return p2;
     if (is_reflexivity(p2))
         return p1;
+    // local fixup to admit inline simplifications of not(not(e)) to e
+    expr* e;
+    if (is_not(fact1->get_arg(1), e) && is_not(e, e) && e == fact2->get_arg(0))
+        p1 = mk_transitivity(p1, mk_rewrite(fact1->get_arg(1), fact2->get_arg(0)));
+    else if (is_not(fact2->get_arg(0), e) && is_not(e, e) && e == fact1->get_arg(1))
+        p2 = mk_transitivity(p1, mk_rewrite(fact1->get_arg(1), fact2->get_arg(0)));
+    else {                                            
+        SASSERT(fact1->get_arg(1) == fact2->get_arg(0));
+    }
     // OEQ is compatible with EQ for transitivity.
-    func_decl* f = to_app(get_fact(p1))->get_decl();
-    if (is_oeq(get_fact(p2))) f = to_app(get_fact(p2))->get_decl();
-    return  mk_app(basic_family_id, PR_TRANSITIVITY, p1, p2, mk_app(f, to_app(get_fact(p1))->get_arg(0), to_app(get_fact(p2))->get_arg(1)));
+    func_decl* f = fact1->get_decl();
+    if (is_oeq(fact2))
+        f = fact2->get_decl();
+    return  mk_app(basic_family_id, PR_TRANSITIVITY, p1, p2, mk_app(f, fact1->get_arg(0), fact2->get_arg(1)));
 
 }
 
