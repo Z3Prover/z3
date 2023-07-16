@@ -2926,7 +2926,7 @@ proof * ast_manager::mk_transitivity(proof * p1, proof * p2) {
     if (is_not(fact1->get_arg(1), e) && is_not(e, e) && e == fact2->get_arg(0))
         p1 = mk_transitivity(p1, mk_rewrite(fact1->get_arg(1), fact2->get_arg(0)));
     else if (is_not(fact2->get_arg(0), e) && is_not(e, e) && e == fact1->get_arg(1))
-        p2 = mk_transitivity(p1, mk_rewrite(fact1->get_arg(1), fact2->get_arg(0)));
+        p1 = mk_transitivity(p1, mk_rewrite(fact1->get_arg(1), fact2->get_arg(0)));
     else {                                            
         SASSERT(fact1->get_arg(1) == fact2->get_arg(0));
     }
