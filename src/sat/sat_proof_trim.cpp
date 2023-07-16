@@ -278,10 +278,13 @@ namespace sat {
         auto& [clauses, id, in_core] = m_clauses.find(m_clause);
         in_core = true;
         m_result.back().second.push_back(id);
-        if (l != null_literal && s.lvl(l) == 0) {
+        if (l != null_literal && s.lvl(l) == 0 && m_clause.size() > 1) {
             m_clause.reset();
             m_clause.push_back(l);
-            m_clauses.insert_if_not_there(m_clause, {{}, 0, true }).m_in_core = true;
+            auto& [clauses, id, in_core] = m_clauses.insert_if_not_there(m_clause, {{}, 0, true });
+            in_core = true;
+            if (id != 0)
+                m_result.back().second.push_back(id);
         }
     }
 
