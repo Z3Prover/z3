@@ -86,7 +86,7 @@ class lar_solver : public column_namer {
     constraint_set m_constraints;
     // the set of column indices j such that bounds have changed for j
     u_set m_columns_with_changed_bounds;
-    u_set m_rows_with_changed_bounds;
+    u_set m_touched_rows;
     unsigned_vector m_row_bounds_to_replay;
 
     u_set m_basic_columns_with_changed_cost;
@@ -190,14 +190,12 @@ class lar_solver : public column_namer {
     void substitute_terms_in_linear_expression(const vector<std::pair<mpq, var_index>>& left_side_with_terms,
                                                vector<std::pair<mpq, var_index>>& left_side) const;
 
-    void detect_rows_of_bound_change_column_for_nbasic_column_tableau(unsigned j);
     bool use_tableau_costs() const;
     bool tableau_with_costs() const;
     bool costs_are_used() const;
     void change_basic_columns_dependend_on_a_given_nb_column(unsigned j, const numeric_pair<mpq>& delta);
     void update_x_and_inf_costs_for_column_with_changed_bounds(unsigned j);
-    unsigned num_changed_bounds() const { return m_rows_with_changed_bounds.size(); }
-    void insert_row_with_changed_bounds(unsigned rid);
+    void add_touched_row(unsigned rid);
     void detect_rows_with_changed_bounds_for_column(unsigned j);
     void detect_rows_with_changed_bounds();
 
@@ -328,11 +326,11 @@ class lar_solver : public column_namer {
     void activate_check_on_equal(constraint_index, var_index&);
     void activate(constraint_index);
     void random_update(unsigned sz, var_index const* vars);
-    void mark_rows_for_bound_prop(lpvar j);
+    void add_column_rows_to_touched_rows(lpvar j);
     template <typename T>
     void propagate_bounds_for_touched_rows(lp_bound_propagator<T>& bp) {
         unsigned num_prop = 0;
-        for (unsigned i : m_rows_with_changed_bounds) {
+        for (unsigned i : m_touched_rows) {
             num_prop += calculate_implied_bounds_for_row(i, bp);
             if (settings().get_cancel_flag())
                 return;
@@ -342,7 +340,7 @@ class lar_solver : public column_namer {
         // and add fixed columns this way
         if (settings().propagate_eqs()) {
             bp.clear_for_eq();
-            for (unsigned i : m_rows_with_changed_bounds) {
+            for (unsigned i : m_touched_rows) {
                 unsigned offset_eqs = stats().m_offset_eqs;
                 bp.cheap_eq_tree(i);
                 if (settings().get_cancel_flag())
@@ -351,13 +349,13 @@ class lar_solver : public column_namer {
                     m_row_bounds_to_replay.push_back(i);
             }
         }
-        m_rows_with_changed_bounds.clear();
+        m_touched_rows.clear();
     }
 
     template <typename T>
     void check_missed_propagations(lp_bound_propagator<T>& bp) {
         for (unsigned i = 0; i < A_r().row_count(); i++)
-            if (!m_rows_with_changed_bounds.contains(i))
+            if (!m_touched_rows.contains(i))
                 if (0 < calculate_implied_bounds_for_row(i, bp)) {
                     verbose_stream() << i << ": " << get_row(i) << "\n";
                 }
@@ -612,8 +610,8 @@ class lar_solver : public column_namer {
     bool term_is_used_as_row(unsigned term) const;
     bool tighten_term_bounds_by_delta(tv const& t, const impq&);
     lar_solver();
-    void set_track_pivoted_rows(bool v);
-    bool get_track_pivoted_rows() const;
+    void track_touched_rows(bool v);
+    bool touched_rows_are_tracked() const;
     ~lar_solver() override;
     const vector<impq>& r_x() const { return m_mpq_lar_core_solver.m_r_x; }
     bool column_is_int(unsigned j) const;

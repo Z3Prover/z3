@@ -16,7 +16,7 @@ namespace lp {
 
     void lar_solver::updt_params(params_ref const& _p) {
         smt_params_helper p(_p);
-        set_track_pivoted_rows(p.arith_bprop_on_pivoted_rows());
+        track_touched_rows(p.arith_bprop_on_pivoted_rows());
         set_cut_strategy(p.arith_branch_cut_ratio());
         m_settings.updt_params(_p);
     }
@@ -28,12 +28,14 @@ namespace lp {
         m_term_register(true),
         m_constraints(*this) {}
 
-    void lar_solver::set_track_pivoted_rows(bool v) {
-        m_mpq_lar_core_solver.m_r_solver.m_pivoted_rows = v ? (&m_rows_with_changed_bounds) : nullptr;
+    // start or ends tracking the rows that were changed by solve()
+    void lar_solver::track_touched_rows(bool v) {
+        m_mpq_lar_core_solver.m_r_solver.m_touched_rows = v ? (&m_touched_rows) : nullptr;
     }
-
-    bool lar_solver::get_track_pivoted_rows() const {
-        return m_mpq_lar_core_solver.m_r_solver.m_pivoted_rows != nullptr;
+   
+    // returns true iff the solver tracks the rows that were changed by solve()    
+    bool lar_solver::touched_rows_are_tracked() const {
+        return m_mpq_lar_core_solver.m_r_solver.m_touched_rows != nullptr;
     }
 
     lar_solver::~lar_solver() {
@@ -271,11 +273,11 @@ namespace lp {
         clean_popped_elements(n, m_incorrect_columns);
 
         for (auto rid : m_row_bounds_to_replay)
-            insert_row_with_changed_bounds(rid);
+            add_touched_row(rid);
         m_row_bounds_to_replay.reset();
 
         unsigned m = A_r().row_count();
-        clean_popped_elements(m, m_rows_with_changed_bounds);
+        clean_popped_elements(m, m_touched_rows);
         clean_inf_heap_of_r_solver_after_pop();
         lp_assert(
             m_settings.simplex_strategy() == simplex_strategy_enum::undecided ||
@@ -616,17 +618,11 @@ namespace lp {
                 left_side.push_back(std::make_pair(c, v));        
     }
 
-    void lar_solver::insert_row_with_changed_bounds(unsigned rid) {
-        m_rows_with_changed_bounds.insert(rid);
+    void lar_solver::add_touched_row(unsigned rid) {
+        m_touched_rows.insert(rid);
     }
 
-
-
-    void lar_solver::detect_rows_of_bound_change_column_for_nbasic_column_tableau(unsigned j) {
-        for (auto& rc : m_mpq_lar_core_solver.m_r_A.m_columns[j])
-            insert_row_with_changed_bounds(rc.var());
-    }
-
+   
     
     bool lar_solver::use_tableau_costs() const {
         return m_settings.simplex_strategy() == simplex_strategy_enum::tableau_costs;
@@ -697,9 +693,9 @@ namespace lp {
 
     void lar_solver::detect_rows_with_changed_bounds_for_column(unsigned j) {
         if (m_mpq_lar_core_solver.m_r_heading[j] >= 0) 
-            insert_row_with_changed_bounds(m_mpq_lar_core_solver.m_r_heading[j]);
+            add_touched_row(m_mpq_lar_core_solver.m_r_heading[j]);
         else 
-            detect_rows_of_bound_change_column_for_nbasic_column_tableau(j);        
+            add_column_rows_to_touched_rows(j);        
     }
 
     void lar_solver::detect_rows_with_changed_bounds() {
@@ -1170,10 +1166,10 @@ namespace lp {
         ru.update();
     }
 
-    void lar_solver::mark_rows_for_bound_prop(lpvar j) {
-        auto& column = A_r().m_columns[j];
+    void lar_solver::add_column_rows_to_touched_rows(lpvar j) {
+        const auto& column = A_r().m_columns[j];
         for (auto const& r : column) 
-            insert_row_with_changed_bounds(r.var());        
+            add_touched_row(r.var());        
     }
 
     void lar_solver::pop() {
@@ -1457,8 +1453,7 @@ namespace lp {
             A_r().add_row();
             m_mpq_lar_core_solver.m_r_heading.push_back(m_mpq_lar_core_solver.m_r_basis.size());
             m_mpq_lar_core_solver.m_r_basis.push_back(j);
-            if (m_settings.bound_propagation())
-                insert_row_with_changed_bounds(A_r().row_count() - 1);
+            add_touched_row(A_r().row_count() - 1);
         }
         else {
             m_mpq_lar_core_solver.m_r_heading.push_back(-static_cast<int>(m_mpq_lar_core_solver.m_r_nbasis.size()) - 1);
@@ -1545,8 +1540,7 @@ namespace lp {
         var_index ret = tv::mask_term(adjusted_term_index);
         if (!coeffs.empty()) {
             add_row_from_term_no_constraint(m_terms.back(), ret);
-            if (m_settings.bound_propagation())
-                insert_row_with_changed_bounds(A_r().row_count() - 1);
+            add_touched_row(A_r().row_count() - 1);
         }
         lp_assert(m_var_register.size() == A_r().column_count());
         if (m_need_register_terms) 
@@ -1594,7 +1588,7 @@ namespace lp {
         m_mpq_lar_core_solver.m_column_types.push_back(column_type::free_column);
         increase_by_one_columns_with_changed_bounds();
         m_incorrect_columns.increase_size_by_one();
-        m_rows_with_changed_bounds.increase_size_by_one();
+        m_touched_rows.increase_size_by_one();
         add_new_var_to_core_fields_for_mpq(true);
         
     }
@@ -1745,23 +1739,20 @@ namespace lp {
             update_column_type_and_bound_with_no_ub(j, kind, right_side, constr_index);
         TRACE("lar_solver_feas", tout << "j = " << j << " became " << (this->column_is_feasible(j)?"feas":"non-feas") << ", and " << (this->column_is_bounded(j)? "bounded":"non-bounded") << std::endl;);    
     }
-    // clang-format on
     void lar_solver::insert_to_columns_with_changed_bounds(unsigned j) {
         m_columns_with_changed_bounds.insert(j);
         TRACE("lar_solver", tout << "column " << j << (column_is_feasible(j) ? " feas" : " non-feas") << "\n";);
     }
-    // clang-format off
     void lar_solver::update_column_type_and_bound_check_on_equal(unsigned j,
-        lconstraint_kind kind,
-        const mpq& right_side,
-        constraint_index constr_index,
-        unsigned& equal_to_j) {
+                                                                 lconstraint_kind kind,
+                                                                 const mpq& right_side,
+                                                                 constraint_index constr_index,
+                                                                 unsigned& equal_to_j) {
         update_column_type_and_bound(j, kind, right_side, constr_index);
         equal_to_j = null_lpvar;
         if (column_is_fixed(j)) {
             register_in_fixed_var_table(j, equal_to_j);
         }
-
     }
 
     constraint_index lar_solver::add_var_bound_on_constraint_for_term(var_index j, lconstraint_kind kind, const mpq& right_side) {

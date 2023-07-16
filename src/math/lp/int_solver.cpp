@@ -358,14 +358,14 @@ int_solver::int_solver(lar_solver& lar_slv) :
 // this will allow to enable and disable tracking of the pivot rows
 struct check_return_helper {
     lar_solver&      lra;
-    bool             m_track_pivoted_rows;
+    bool             m_track_touched_rows;
     check_return_helper(lar_solver& ls) :
         lra(ls),
-        m_track_pivoted_rows(lra.get_track_pivoted_rows()) {
-        lra.set_track_pivoted_rows(false);
+        m_track_touched_rows(lra.touched_rows_are_tracked()) {
+        lra.track_touched_rows(false);
     }
     ~check_return_helper() {
-        lra.set_track_pivoted_rows(m_track_pivoted_rows);
+        lra.track_touched_rows(m_track_touched_rows);
     }
 };
 

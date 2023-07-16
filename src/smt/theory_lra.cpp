@@ -2989,7 +2989,7 @@ public:
         }
 #if 0
         if (should_propagate())
-            lp().mark_rows_for_bound_prop(b.tv().id());
+            lp().add_column_rows_to_touched_rows(b.tv().id());
 #endif
     }
 
