@@ -150,21 +150,22 @@ namespace lp {
         }
         for (auto const& c : A.column(j)) {
             unsigned row_index = c.var();
-            unsigned i = lrac.m_r_basis[row_index];
-            auto old_val = lia.get_value(i);
+            unsigned bj = lrac.m_r_basis[row_index];
+            auto old_val = lia.get_value(bj);
             auto new_val = old_val - impq(c.coeff()*delta);
-            if (lia.has_lower(i) && new_val < lra.get_lower_bound(i))
+            if (lia.has_lower(bj) && new_val < lra.get_lower_bound(bj))
                 return false;
-            if (lia.has_upper(i) && new_val > lra.get_upper_bound(i))
+            if (lia.has_upper(bj) && new_val > lra.get_upper_bound(bj))
                 return false;
             if (old_val.is_int() && !new_val.is_int()){
                 return false; // do not waste resources on this case
             }
-            lp_assert(i != v || new_val.is_int())
+            // if bj == v, then, because we are patching the lra.get_value(v),
+            // we just need to assert that the lra.get_value(v) would be integral.
+            lp_assert(bj != v || lra.from_model_in_impq_to_mpq(new_val).is_int());
         }
         
         lra.set_value_for_nbasic_column(j, lia.get_value(j) + impq(delta));
-         
         return true;
     }
     

@@ -497,6 +497,7 @@ class lar_solver : public column_namer {
     std::ostream& display(std::ostream& out) const;
 
     bool init_model() const;
+    mpq from_model_in_impq_to_mpq(const impq& v) const { return v.x + m_delta * v.y; }
     mpq get_value(column_index const& j) const;
     mpq get_tv_value(tv const& t) const;
     const impq& get_tv_ivalue(tv const& t) const;
