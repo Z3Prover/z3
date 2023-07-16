@@ -267,10 +267,8 @@ namespace mbp {
 
         bool all_children_ground() {
           SASSERT(deg() != 0);
-          for (auto c :m_children) {
-            if (!c->is_class_gr()) return false;
-          }
-          return true;
+          return all_of(m_children,
+                        [&](const term* t) { return t->is_class_gr(); });
         }
 
         void set_mark2_terms_class(bool v) { // TODO: remove
