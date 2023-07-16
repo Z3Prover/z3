@@ -21,20 +21,26 @@ Notes:
 br_status datatype_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
     SASSERT(f->get_family_id() == get_fid());
     switch(f->get_decl_kind()) {
-    // cons(head(x), tail(x)) --> x
     case OP_DT_CONSTRUCTOR: {
-        ptr_vector<func_decl> const *accessors = m_util.get_constructor_accessors(f);
+        // cons(head(x), tail(x)) --> x
+        ptr_vector<func_decl> const *accessors =
+            m_util.get_constructor_accessors(f);
+
         SASSERT(num_args == accessors->size());
-        if (num_args >= 1 && is_app(args[0]) && accessors->get(0) == to_app(args[0])->get_decl()) {
-            unsigned i = 1;
-            bool rew = true;
+        // -- all accessors must have exactly one argument
+        if (any_of(*accessors, [&](const func_decl* acc) { return acc->get_arity() != 1; })) {
+            return BR_FAILED;
+        }
+
+        if (num_args >= 1 && is_app(args[0]) && to_app(args[0])->get_decl() == accessors->get(0) ) {
+            bool is_all = true;
             expr* t = to_app(args[0])->get_arg(0);
-            for(; i < num_args && rew; i++) {
-                rew = rew && is_app(args[i]) && \
-                             accessors->get(i) == to_app(args[i])->get_decl() && \
-                                 to_app(args[i])->get_arg(0) == t;
+            for(unsigned i = 1; i < num_args && is_all; ++i) {
+                is_all &= (is_app(args[i]) &&
+                           to_app(args[i])->get_decl() == accessors->get(i) &&
+                           to_app(args[i])->get_arg(0) == t);
             }
-            if (rew) {
+            if (is_all) {
                 result = t;
                 return BR_DONE;
             }
