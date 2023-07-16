@@ -150,7 +150,7 @@ class skolemizer {
         p = nullptr;
         if (m_proofs_enabled) {
             if (q->get_kind() == forall_k) 
-                p = m.mk_skolemization(mk_not(m, q), m.mk_not(r));
+                p = m.mk_skolemization(mk_not(m, q), mk_not(m, r));
             else
                 p = m.mk_skolemization(q, r);
         }
@@ -645,7 +645,6 @@ struct nnf::imp {
             m_result_stack.push_back(n2);
             if (proofs_enabled()) {
                 if (!fr.m_pol) {
-                    verbose_stream() << mk_pp(t, m) << "\n";
                     proof * prs[1] = { pr2 };
                     pr2 = m.mk_oeq_congruence(m.mk_not(t), static_cast<app*>(n2.get()), 1, prs);
                 }
