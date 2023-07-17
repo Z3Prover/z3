@@ -619,11 +619,10 @@ namespace lp {
     }
 
     void lar_solver::add_touched_row(unsigned rid) {
-        m_touched_rows.insert(rid);
+        if (m_settings.bound_propagation())
+            m_touched_rows.insert(rid);
     }
 
-   
-    
     bool lar_solver::use_tableau_costs() const {
         return m_settings.simplex_strategy() == simplex_strategy_enum::tableau_costs;
     }
