@@ -185,24 +185,31 @@ namespace polysat {
     }
 
     slicing::enode* slicing::alloc_slice(unsigned width, pvar var) {
-        app* a = m_ast.mk_fresh_const("s", m_slice_sort, false);
+        app* a = m_ast.mk_fresh_const("s", m_bv->mk_sort(width), false);
+        // app* a = m_ast.mk_fresh_const("s", m_slice_sort, false);
         return alloc_enode(a, width, var);
     }
 
     // split a single slice without updating any equivalences
     void slicing::split_core(enode* s, unsigned cut) {
         SASSERT(!has_sub(s));
-        SASSERT(width(s) - 1 >= cut + 1);
-        enode* sub_hi = alloc_slice(width(s) - cut - 1);
-        enode* sub_lo = alloc_slice(cut + 1);
+        SASSERT(width(s) > cut + 1);
+        unsigned const width_hi = width(s) - cut - 1;
+        unsigned const width_lo = cut + 1;
+        enode* sub_hi;
+        enode* sub_lo;
+        if (has_value(s)) {
+            rational const val = get_value(s);
+            sub_hi = mk_value_slice(machine_div2k(val, width_lo), width_hi);
+            sub_lo = mk_value_slice(mod2k(val, width_lo), width_lo);
+        }
+        else {
+            sub_hi = alloc_slice(width_hi);
+            sub_lo = alloc_slice(width_lo);
+        }
         info(s).set_cut(cut, sub_hi, sub_lo);
         m_trail.push_back(trail_item::split_core);
         m_split_trail.push_back(s);
-        // if (has_value(s)) {
-        //     rational const& val = get_value(s);
-        //     // set_value(sub_lo, mod2k(val, cut + 1));
-        //     // set_value(sub_hi, machine_div2k(val, cut + 1));
-        // }
 
         // // s = hi ++ lo     ... TODO: necessary??? probably not
         // euf::enode* s_n = slice2enode(s);
@@ -265,41 +272,6 @@ namespace polysat {
         m_egraph.propagate();  // TODO: could do this later maybe
         return !m_egraph.inconsistent();
     }
-
-#if 0
-    bool slicing::merge_value(slice s0, rational val0, dep_t dep) {
-        vector<std::pair<slice, rational>> todo;
-        todo.push_back({s0->get_root(), std::move(val0)});
-        // check compatibility for sub-slices
-        for (unsigned i = 0; i < todo.size(); ++i) {
-            auto const& [s, val] = todo[i];
-            if (has_value(s)) {
-                if (get_value(s) != val) {
-                    // TODO: conflict
-                    NOT_IMPLEMENTED_YET();
-                    return false;
-                }
-                SASSERT_EQ(get_value(s), val);
-                continue;
-            }
-            if (has_sub(s)) {
-                // s is split into [s.width-1, cut+1] and [cut, 0]
-                unsigned const cut = m_slice_cut[s];
-                todo.push_back({sub_lo(s)->get_root(), mod2k(val, cut + 1)});
-                todo.push_back({sub_hi(s)->get_root(), machine_div2k(val, cut + 1)});
-            }
-        }
-        // all succeeded, so apply the values
-        for (auto const& [s, val] : todo) {
-            if (has_value(s)) {
-                SASSERT_EQ(get_value(s), val);
-                continue;
-            }
-            // set_value(s, val);
-        }
-        return true;
-    }
-#endif
 
     void slicing::begin_explain() {
         SASSERT(m_marked_deps.empty());
@@ -692,9 +664,9 @@ namespace polysat {
         out << " id=" << s->get_id();
         out << " w=" << width(s);
         if (!s->is_root())
-            out << " root=" << s->get_root_id();;
-        // if (has_value(s))
-        //     out << " value=" << get_value(s);
+            out << " root=" << s->get_root_id();
+        if (has_value(s->get_root()))
+            out << " root_value=" << get_value(s->get_root());
         out << "\n";
         if (has_sub(s)) {
             unsigned cut = info(s).cut;

@@ -174,10 +174,15 @@ namespace polysat {
             pvar z = sl.mk_extract_var(x, 3, 0);
             std::cout << "v" << z << " := v" << x << "[3:0]\n" << sl << "\n";
 
-            // VERIFY(sl.merge_value(sl.var2slice(y), rational(9)));
-            // std::cout << "v" << y << " = 9\n" << sl << "\n";
-            // VERIFY(sl.merge_value(sl.var2slice(z), rational(7)));
-            // std::cout << "v" << z << " = 7\n" << sl << "\n";
+            slicing::enode* nine = sl.mk_value_slice(rational(9), 4);
+            VERIFY(sl.merge(sl.var2slice(y), nine, sat::literal(109)));
+            std::cout << "v" << y << " = 9\n" << sl << "\n";
+
+            slicing::enode* seven = sl.mk_value_slice(rational(7), 4);
+            VERIFY(sl.merge(sl.var2slice(z), seven, sat::literal(107)));
+            std::cout << "v" << z << " = 7\n" << sl << "\n";
+
+            sl.display_tree(std::cout);
         }
 
     };
@@ -191,6 +196,6 @@ void tst_slicing() {
     test_slicing::test2();
     test_slicing::test3();
     test_slicing::test4();
-    // test_slicing::test5();
+    test_slicing::test5();
     std::cout << "ok\n";
 }
