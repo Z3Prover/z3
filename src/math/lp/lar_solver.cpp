@@ -623,6 +623,23 @@ namespace lp {
             m_touched_rows.insert(rid);
     }
 
+    void lar_solver::remove_fixed_vars_from_base() {
+        unsigned num = A_r().column_count();
+        for (unsigned v = 0; v < num; v++) {
+            if (!is_base(v) || !is_fixed(v))
+                continue;
+
+            auto const& r = basic2row(v);
+
+            for (auto const& c : r) {
+                if (c.var() != v && is_fixed(c.var())) {
+                    pivot(c.var(), v);
+                    break;
+                }
+            }
+        }
+    }
+
     bool lar_solver::use_tableau_costs() const {
         return m_settings.simplex_strategy() == simplex_strategy_enum::tableau_costs;
     }

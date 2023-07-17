@@ -317,53 +317,7 @@ class lar_solver : public column_namer {
 
     void set_value_for_nbasic_column(unsigned j, const impq& new_val);
 
-// if there are only two non fixed columns in the row returns a fixed column different from j,
-// if such exists, otherwise returns -1.
-    int confirm_two_non_fixed_and_return_fixed(const row_strip<mpq>& row, unsigned j) const {
-        unsigned n = 1;  // counting j is fixed already
-        int ret = -1;
-        lp_assert(is_fixed(j));
-        for (const auto& c : row) {
-            if (c.var() == j)
-                continue;
-            if (is_fixed(c.var())) {
-                n++;
-                if (n > 2)
-                    return -1;
-                if (ret == -1) {
-                    ret = c.var();
-                }
-            }
-        }
-        return n == 2 ? ret : -1;
-    }
-
-    void remove_fixed_vars_from_base(bool only_from_rows_with_two_non_fixed = false) {
-        unsigned num = A_r().column_count();
-        for (unsigned v = 0; v < num; v++) {
-            if (!is_base(v) || !is_fixed(v))
-                continue;
-
-            auto const& r = basic2row(v);
-
-            if (only_from_rows_with_two_non_fixed) {
-                int jp = confirm_two_non_fixed_and_return_fixed(r, v);
-                if (jp != -1) {
-                    lp_assert(is_fixed(jp));
-                    lp_assert(!is_base(jp));
-                    pivot(jp, v);
-                }
-
-            } else {
-                for (auto const& c : r) {
-                    if (c.var() != v && is_fixed(c.var())) {
-                        pivot(c.var(), v);
-                        break;
-                    }
-                }
-            }
-        }
-    }
+    void remove_fixed_vars_from_base();
 
     inline unsigned get_base_column_in_row(unsigned row_index) const {
         return m_mpq_lar_core_solver.m_r_solver.get_base_column_in_row(row_index);
@@ -377,7 +331,7 @@ class lar_solver : public column_namer {
     void add_column_rows_to_touched_rows(lpvar j);
     template <typename T>
     void propagate_bounds_for_touched_rows(lp_bound_propagator<T>& bp) {
-        remove_fixed_vars_from_base(true); // true means only from rows with two non fixed vars
+        remove_fixed_vars_from_base();
         unsigned num_prop = 0;
         for (unsigned i : m_touched_rows) {
             num_prop += calculate_implied_bounds_for_row(i, bp);
@@ -386,7 +340,8 @@ class lar_solver : public column_namer {
         }
         // the second loop has to run after the first one,
         // since the first loop might change column bounds
-        // and add fixed columns this way
+        // and add fixed columns this way     
+
         if (settings().propagate_eqs()) {
             bp.clear_for_eq();
             for (unsigned i : m_touched_rows) {
