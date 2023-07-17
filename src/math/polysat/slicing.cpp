@@ -68,6 +68,7 @@ Recycle the z3 egraph?
 */
 
 
+#include "ast/reg_decl_plugins.h"
 #include "math/polysat/slicing.h"
 #include "math/polysat/solver.h"
 #include "math/polysat/log.h"
@@ -96,6 +97,9 @@ namespace polysat {
         m_concat_decls(m_ast),
         m_egraph(m_ast)
     {
+        reg_decl_plugins(m_ast);
+        // m_ast.register_plugin(symbol("bv"), alloc(bv_decl_plugin));
+        m_bv = alloc(bv_util, m_ast);
         m_slice_sort = m_ast.mk_uninterpreted_sort(symbol("slice"));
         m_egraph.set_display_justification(display_dep);
     }
@@ -140,10 +144,7 @@ namespace polysat {
         while (m_trail.size() > target_size) {
             switch (m_trail.back()) {
             case trail_item::add_var:           undo_add_var();         break;
-            case trail_item::alloc_slice:       undo_alloc_slice();     break;
             case trail_item::split_core:        undo_split_core();      break;
-            // case trail_item::merge_base:        undo_merge_base();      break;
-            // case trail_item::mk_value_slice:    undo_mk_value_slice();  break;
             default: UNREACHABLE();
             }
             m_trail.pop_back();
@@ -153,8 +154,7 @@ namespace polysat {
 
     void slicing::add_var(unsigned bit_width) {
         pvar const v = m_var2slice.size();
-        enode* s = alloc_slice(bit_width);
-        info(s).var = v;
+        enode* s = alloc_slice(bit_width, v);
         m_var2slice.push_back(s);
     }
 
@@ -162,19 +162,31 @@ namespace polysat {
         m_var2slice.pop_back();
     }
 
-    slicing::enode* slicing::alloc_slice(unsigned width) {
+    slicing::enode* slicing::alloc_enode(expr* e, unsigned width, pvar var) {
         SASSERT(width > 0);
-        app* a = m_ast.mk_fresh_const("s", m_slice_sort, false);
-        euf::enode* n = m_egraph.mk(a, 0, 0, nullptr);  // NOTE: the egraph keeps a strong reference to "a"
+        SASSERT(!m_egraph.find(e));
+        euf::enode* n = m_egraph.mk(e, 0, 0, nullptr);  // NOTE: the egraph keeps a strong reference to 'e'
         m_info.reserve(n->get_id() + 1);
         slice_info& i = info(n);
         i.reset();
         i.width = width;
-        m_trail.push_back(trail_item::alloc_slice);
+        i.var = var;
         return n;
     }
 
-    void slicing::undo_alloc_slice() {
+    slicing::enode* slicing::find_or_alloc_enode(expr* e, unsigned width, pvar var) {
+        enode* n = m_egraph.find(e);
+        if (n) {
+            SASSERT_EQ(info(n).width, width);
+            SASSERT_EQ(info(n).var, var);
+            return n;
+        }
+        return alloc_enode(e, width, var);
+    }
+
+    slicing::enode* slicing::alloc_slice(unsigned width, pvar var) {
+        app* a = m_ast.mk_fresh_const("s", m_slice_sort, false);
+        return alloc_enode(a, width, var);
     }
 
     // split a single slice without updating any equivalences
@@ -226,28 +238,24 @@ namespace polysat {
         m_egraph.propagate();  // TODO: could do this later
     }
 
-#if 0
-    slicing::slice slicing::mk_value_slice(rational const& val, unsigned bit_width) {
+    slicing::enode* slicing::mk_value_slice(rational const& val, unsigned bit_width) {
         SASSERT(0 <= val && val < rational::power_of_two(bit_width));
-        val2slice_key key(val, bit_width);
-        auto it = m_val2slice.find_iterator(key);
-        if (it != m_val2slice.end())
-            return it->m_value;
-        slice s = alloc_slice();
-        m_slice_width[s] = bit_width;
-        m_slice2val[s] = val;
-        // m_value_root[s] = s;
-        m_val2slice.insert(key, s);
-        m_val2slice_trail.push_back(std::move(key));
-        m_trail.push_back(trail_item::mk_value_slice);
+        app* a = m_bv->mk_numeral(val, bit_width);
+        enode* s = find_or_alloc_enode(a, bit_width, null_var);
+        SASSERT(s->interpreted());
         return s;
     }
 
-    void slicing::undo_mk_value_slice() {
-        m_val2slice.remove(m_val2slice_trail.back());
-        m_val2slice_trail.pop_back();
+    rational slicing::get_value(enode* s) const {
+        SASSERT(s->interpreted());
+        rational val;
+        VERIFY(try_get_value(s, val));
+        return val;
     }
-#endif
+
+    bool slicing::try_get_value(enode* s, rational& val) const {
+        return m_bv->is_numeral(s->get_expr(), val);
+    }
 
     bool slicing::merge_base(enode* s1, enode* s2, dep_t dep) {
         SASSERT_EQ(width(s1), width(s2));

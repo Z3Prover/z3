@@ -25,6 +25,7 @@ Notation:
 --*/
 #pragma once
 #include "ast/euf/euf_egraph.h"
+#include "ast/bv_decl_plugin.h"
 #include "math/polysat/types.h"
 #include "math/polysat/constraint.h"
 #include <optional>
@@ -48,6 +49,8 @@ namespace polysat {
 
         struct slice_info {
             unsigned    width   = 0;            // number of bits in the slice
+            // Cut point: if not null_cut, the slice s has been subdivided into s[|s|-1:cut+1] and s[cut:0].
+            // The cut point is relative to the parent slice (rather than a root variable, which might not be unique)
             unsigned    cut     = null_cut;     // cut point, or null_cut if no subslices
             pvar        var     = null_var;     // slice is equivalent to this variable, if any (without dependencies)
             enode*      slice   = nullptr;      // if enode corresponds to a concat(...) expression, this field links to the represented slice.
@@ -65,6 +68,7 @@ namespace polysat {
         solver&                 m_solver;
 
         ast_manager             m_ast;
+        scoped_ptr<bv_util>     m_bv;
         sort_ref                m_slice_sort;
         func_decl_ref_vector    m_concat_decls;
 
@@ -82,41 +86,12 @@ namespace polysat {
         static dep_t decode_dep(void* d);
         static void display_dep(std::ostream& out, void* d);
 
-/*
-        struct val2slice_key {
-            rational value;
-            unsigned bit_width;
-
-            val2slice_key() {}
-            val2slice_key(rational value, unsigned bit_width): value(std::move(value)), bit_width(bit_width) {}
-
-            bool operator==(val2slice_key const& other) const {
-                return bit_width == other.bit_width && value == other.value;
-            }
-
-            unsigned hash() const {
-                return combine_hash(value.hash(), bit_width);
-            }
-        };
-        using val2slice_hash = obj_hash<val2slice_key>;
-        using val2slice_eq = default_eq<val2slice_key>;
-        using val2slice_map = map<val2slice_key, slice, val2slice_hash, val2slice_eq>;
-*/
-
-/*
-        unsigned_vector m_slice_width;  // number of bits in the slice
-        // Cut point: if slice represents bit-vector x, then x has been sliced into x[|x|-1:cut+1] and x[cut:0].
-        // The cut point is relative to the parent slice (rather than a root variable, which might not be unique)
-        // (null_cut for leaf slices)
-        unsigned_vector m_slice_cut;
-        // The sub-slices are at indices sub and sub+1 (or null_slice if there is no subdivision)
-        slice_vector    m_slice_sub;
-*/
-
         slice_info& info(euf::enode* n);
         slice_info const& info(euf::enode* n) const;
 
-        enode* alloc_slice(unsigned width);
+        enode* alloc_enode(expr* e, unsigned width, pvar var);
+        enode* find_or_alloc_enode(expr* e, unsigned width, pvar var);
+        enode* alloc_slice(unsigned width, pvar var = null_var);
 
         enode* var2slice(pvar v) const { return m_var2slice[v]; }
         pvar slice2var(enode* s) const { return info(s).var; }
@@ -131,16 +106,13 @@ namespace polysat {
         /// Lower subslice (direct child, not necessarily the representative)
         enode* sub_lo(enode* s) const { return info(s).sub_lo; }
 
-        // slice val2slice(rational const& val, unsigned bit_width) const;
-
         // Retrieve (or create) a slice representing the given value.
-        // slice mk_value_slice(rational const& val, unsigned bit_width);
+        enode* mk_value_slice(rational const& val, unsigned bit_width);
 
-        // bool has_value(slice s) const { SASSERT_EQ(s, find(s)); return m_slice2val[s].is_nonneg(); }
-        // rational const& get_value(slice s) const { SASSERT(has_value(s)); return m_slice2val[s]; }
+        bool has_value(enode* s) const { return s->interpreted(); }
 
-        // reverse all edges on the path from s to the root of its tree in the proof forest
-        // void make_proof_root(slice s);
+        rational get_value(enode* s) const;
+        bool try_get_value(enode* s, rational& val) const;
 
         /// Split slice s into s[|s|-1:cut+1] and s[cut:0]
         void split(enode* s, unsigned cut);
@@ -196,20 +168,14 @@ namespace polysat {
 
         enum class trail_item {
             add_var,
-            alloc_slice,
             split_core,
-            merge_base,
-            mk_value_slice,
         };
         svector<trail_item> m_trail;
         enode_vector        m_split_trail;
-        // vector<val2slice_key>               m_val2slice_trail;
         unsigned_vector     m_scopes;
 
         void undo_add_var();
-        void undo_alloc_slice();
         void undo_split_core();
-        void undo_mk_value_slice();
 
         mutable enode_vector m_tmp1;
         mutable enode_vector m_tmp2;
