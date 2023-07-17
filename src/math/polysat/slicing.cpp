@@ -249,7 +249,6 @@ namespace polysat {
     }
 #endif
 
-#if 1
     bool slicing::merge_base(enode* s1, enode* s2, dep_t dep) {
         SASSERT_EQ(width(s1), width(s2));
         SASSERT(!has_sub(s1));
@@ -262,7 +261,7 @@ namespace polysat {
 #if 0
     bool slicing::merge_value(slice s0, rational val0, dep_t dep) {
         vector<std::pair<slice, rational>> todo;
-        todo.push_back({find(s0), std::move(val0)});
+        todo.push_back({s0->get_root(), std::move(val0)});
         // check compatibility for sub-slices
         for (unsigned i = 0; i < todo.size(); ++i) {
             auto const& [s, val] = todo[i];
@@ -278,8 +277,8 @@ namespace polysat {
             if (has_sub(s)) {
                 // s is split into [s.width-1, cut+1] and [cut, 0]
                 unsigned const cut = m_slice_cut[s];
-                todo.push_back({find_sub_lo(s), mod2k(val, cut + 1)});
-                todo.push_back({find_sub_hi(s), machine_div2k(val, cut + 1)});
+                todo.push_back({sub_lo(s)->get_root(), mod2k(val, cut + 1)});
+                todo.push_back({sub_hi(s)->get_root(), machine_div2k(val, cut + 1)});
             }
         }
         // all succeeded, so apply the values
@@ -339,8 +338,8 @@ namespace polysat {
             if (x == y)
                 continue;
             if (width(x) == width(y)) {
-                enode* const rx = find(x);
-                enode* const ry = find(y);
+                enode* const rx = x->get_root();
+                enode* const ry = y->get_root();
                 if (rx == ry)
                     explain_class(x, y, out_deps);
                 else {
@@ -351,7 +350,7 @@ namespace polysat {
                 }
             }
             else if (width(x) > width(y)) {
-                enode* const rx = find(x);
+                enode* const rx = x->get_root();
                 xs.push_back(sub_hi(rx));
                 xs.push_back(sub_lo(rx));
                 ys.push_back(y);
@@ -359,7 +358,7 @@ namespace polysat {
             else {
                 SASSERT(width(x) < width(y));
                 xs.push_back(x);
-                enode* const ry = find(y);
+                enode* const ry = y->get_root();
                 ys.push_back(sub_hi(ry));
                 ys.push_back(sub_lo(ry));
             }
@@ -441,8 +440,8 @@ namespace polysat {
         enode_vector& ys = m_tmp3;
         SASSERT(xs.empty());
         SASSERT(ys.empty());
-        find_base(x, xs);
-        find_base(y, ys);
+        get_root_base(x, xs);
+        get_root_base(y, ys);
         SASSERT(all_of(xs, [](enode* s) { return s->is_root(); }));
         SASSERT(all_of(ys, [](enode* s) { return s->is_root(); }));
         bool result = (xs == ys);
@@ -454,7 +453,7 @@ namespace polysat {
         return result;
     }
 
-    template <bool should_find>
+    template <bool should_get_root>
     void slicing::get_base_core(enode* src, enode_vector& out_base) const {
         enode_vector& todo = m_tmp1;
         SASSERT(todo.empty());
@@ -462,7 +461,7 @@ namespace polysat {
         while (!todo.empty()) {
             enode* s = todo.back();
             todo.pop_back();
-            if constexpr (should_find) {
+            if constexpr (should_get_root) {
                 s = s->get_root();
             }
             if (!has_sub(s))
@@ -479,7 +478,7 @@ namespace polysat {
         get_base_core<false>(src, out_base);
     }
 
-    void slicing::find_base(enode* src, enode_vector& out_base) const {
+    void slicing::get_root_base(enode* src, enode_vector& out_base) const {
         get_base_core<true>(src, out_base);
     }
 
@@ -659,7 +658,7 @@ namespace polysat {
             out << "v" << v << ":";
             base.reset();
             enode* const vs = var2slice(v);
-            find_base(vs, base);
+            get_root_base(vs, base);
             for (enode* s : base)
                 display(out << " ", s);
             // if (has_value(vs)) {
@@ -722,12 +721,11 @@ namespace polysat {
             }
             // if slice has a value, it should be propagated to its sub-slices
             // if (has_value(s)) {
-            //     VERIFY(has_value(find_sub_hi(s)));
-            //     VERIFY(has_value(find_sub_lo(s)));
+            //     VERIFY(has_value(sub_hi(s)->get_root()));
+            //     VERIFY(has_value(sub_lo(s)->get_root()));
             // }
         }
         return true;
     }
-#endif
 
 }

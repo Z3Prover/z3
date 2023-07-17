@@ -49,7 +49,7 @@ namespace polysat {
         struct slice_info {
             unsigned    width   = 0;            // number of bits in the slice
             unsigned    cut     = null_cut;     // cut point, or null_cut if no subslices
-            pvar        var     = null_var;     // slice is equivalent to this variable, if any
+            pvar        var     = null_var;     // slice is equivalent to this variable, if any (without dependencies)
             enode*      slice   = nullptr;      // if enode corresponds to a concat(...) expression, this field links to the represented slice.
             enode*      sub_hi  = nullptr;      // upper subslice s[|s|-1:cut+1]
             enode*      sub_lo  = nullptr;      // lower subslice s[cut:0]
@@ -67,8 +67,6 @@ namespace polysat {
         ast_manager             m_ast;
         sort_ref                m_slice_sort;
         func_decl_ref_vector    m_concat_decls;
-        // expr_ref_vector         m_expr_storage;
-        // unsigned_vector         m_expr_scopes;
 
         euf::egraph             m_egraph;
         slice_info_vector       m_info;         // indexed by enode::get_id()
@@ -113,31 +111,7 @@ namespace polysat {
         unsigned_vector m_slice_cut;
         // The sub-slices are at indices sub and sub+1 (or null_slice if there is no subdivision)
         slice_vector    m_slice_sub;
-
-        pvar_vector     m_slice2var;    // slice -> pvar, or null_var if slice is not equivalent to a variable
-        slice_vector    m_var2slice;    // pvar -> slice
-
-        ptr_vector<euf::enode>  m_slice2enode;
-        ptr_addr_map<euf::enode, slice> m_enode2slice;
 */
-
-#if 0
-        unsigned_vector m_mark;
-        unsigned        m_mark_timestamp = 0;
-#if Z3DEBUG
-        bool            m_mark_active = false;
-#endif
-
-        void begin_mark() {
-            DEBUG_CODE({ SASSERT(!m_mark_active); m_mark_active = true; });
-            m_mark_timestamp++;
-            if (!m_mark_timestamp)
-                m_mark_timestamp++;
-        }
-        void end_mark() { DEBUG_CODE({ SASSERT(m_mark_active); m_mark_active = false; }); }
-        bool is_marked(slice s) const { SASSERT(m_mark_active); return m_mark[s] == m_mark_timestamp; }
-        void mark(slice s) { SASSERT(m_mark_active); m_mark[s] = m_mark_timestamp; }
-#endif
 
         slice_info& info(euf::enode* n);
         slice_info const& info(euf::enode* n) const;
@@ -172,21 +146,18 @@ namespace polysat {
         void split(enode* s, unsigned cut);
         void split_core(enode* s, unsigned cut);
 
-        template <bool should_find>
+        template <bool should_get_root>
         void get_base_core(enode* src, enode_vector& out_base) const;
 
         /// Retrieve base slices s_1,...,s_n such that src == s_1 ++ ... ++ s_n (actual descendant subslices)
         void get_base(enode* src, enode_vector& out_base) const;
         /// Retrieve base slices s_1,...,s_n such that src == s_1 ++ ... ++ s_n (representatives of subslices)
-        void find_base(enode* src, enode_vector& out_base) const;
+        void get_root_base(enode* src, enode_vector& out_base) const;
 
         /// Retrieve (or create) base slices s_1,...,s_n such that src[hi:lo] == s_1 ++ ... ++ s_n.
         /// If output_full_src is true, return the new base for src, i.e., src == s_1 ++ ... ++ s_n.
         /// If output_base is false, return coarsest intermediate slices instead of only base slices.
         void mk_slice(enode* src, unsigned hi, unsigned lo, enode_vector& out, bool output_full_src = false, bool output_base = true);
-
-        /// Find representative
-        enode* find(enode* s) const { return s->get_root(); }
 
         // Merge equivalence classes of two base slices.
         // Returns true if merge succeeded without conflict.
