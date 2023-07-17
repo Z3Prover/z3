@@ -43,4 +43,15 @@ Revision History:
 
 #define UNBOXINT(PTR) static_cast<int>(reinterpret_cast<uintptr_t>(PTR) >> PTR_ALIGNMENT)
 
+template <typename U, typename T>
+U unbox(T* ptr) {
+    return static_cast<U>(reinterpret_cast<std::uintptr_t>(ptr) >> PTR_ALIGNMENT);
+}
 
+template <typename T, typename U>
+T* box(U val) {
+    static_assert( sizeof(T*) >= sizeof(U) + PTR_ALIGNMENT );
+    T* ptr = reinterpret_cast<T*>(static_cast<std::uintptr_t>(val) << PTR_ALIGNMENT);
+    SASSERT_EQ(val, unbox<U>(ptr));  // roundtrip of conversion integer -> pointer -> integer is not actually guaranteed by the C++ standard (but seems fine in practice, as indicated by previous usage of BOXINT/UNBOXINT)
+    return ptr;
+}

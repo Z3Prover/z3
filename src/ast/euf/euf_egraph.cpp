@@ -919,6 +919,11 @@ namespace euf {
     }
 }
 
+template void euf::egraph::explain(ptr_vector<void>& justifications, cc_justification*);
+template void euf::egraph::explain_todo(ptr_vector<void>& justifications, cc_justification*);
+template void euf::egraph::explain_eq(ptr_vector<void>& justifications, cc_justification*, enode* a, enode* b);
+template unsigned euf::egraph::explain_diseq(ptr_vector<void>& justifications, cc_justification*, enode* a, enode* b);
+
 template void euf::egraph::explain(ptr_vector<int>& justifications, cc_justification*);
 template void euf::egraph::explain_todo(ptr_vector<int>& justifications, cc_justification*);
 template void euf::egraph::explain_eq(ptr_vector<int>& justifications, cc_justification*, enode* a, enode* b);

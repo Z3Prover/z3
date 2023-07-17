@@ -178,8 +178,8 @@ namespace euf {
         enode_vector           m_empty_enodes;
         unsigned               m_num_scopes = 0;
         bool                   m_inconsistent = false;
-        enode                  *m_n1 = nullptr;
-        enode                  *m_n2 = nullptr;
+        enode*                 m_n1 = nullptr;
+        enode*                 m_n2 = nullptr;
         justification          m_justification;
         unsigned               m_new_th_eqs_qhead = 0;
         svector<th_eq>         m_new_th_eqs;
@@ -305,8 +305,8 @@ namespace euf {
         void set_on_make(std::function<void(enode* n)>& on_make) { m_on_make = on_make; }
         void set_used_eq(std::function<void(expr*,expr*,expr*)>& used_eq) { m_used_eq = used_eq; }
         void set_used_cc(std::function<void(app*,app*)>& used_cc) { m_used_cc = used_cc; }
-        void set_display_justification(std::function<void (std::ostream&, void*)> & d) { m_display_justification = d; }
-        
+        void set_display_justification(std::function<void(std::ostream&, void*)> d) { m_display_justification = std::move(d); }
+
         void begin_explain();
         void end_explain();
         bool uses_congruence() const { return m_uses_congruence; }
