@@ -51,6 +51,7 @@ namespace polysat {
             std::cout << sl << "\n";
 
             sl.display_tree(std::cout);
+            VERIFY(sl.invariant());
         }
 
         // x[7:3] = a
@@ -73,6 +74,7 @@ namespace polysat {
             std::cout << sl << "\n";
 
             sl.display_tree(std::cout);
+            VERIFY(sl.invariant());
 
             (void)a;
             (void)b;
@@ -123,6 +125,8 @@ namespace polysat {
             reason.reset();
             sl.explain_equal(sl.var2slice(b), sl.pdd2slice(d), reason);
             std::cout << "    Reason: " << reason << "\n\n";
+
+            VERIFY(sl.invariant());
         }
 
         // 1. a = b
@@ -155,7 +159,9 @@ namespace polysat {
             sat::literal_vector reason;
             sl.explain_equal(sl.var2slice(d), sl.var2slice(e), reason);
             std::cout << "    Reason: " << reason << "\n";
+
             sl.display_tree(std::cout);
+            VERIFY(sl.invariant());
         }
 
         // x[5:2] = y
@@ -183,6 +189,7 @@ namespace polysat {
             std::cout << "v" << z << " = 7\n" << sl << "\n";
 
             sl.display_tree(std::cout);
+            VERIFY(sl.invariant());
         }
 
     };

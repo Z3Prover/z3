@@ -47,12 +47,17 @@ namespace polysat {
 
         static constexpr unsigned null_cut = std::numeric_limits<unsigned>::max();
 
+        // Kinds of slices:
+        // - proper (from variables)
+        // - values
+        // - virtual concat(...) expressions
         struct slice_info {
             unsigned    width   = 0;            // number of bits in the slice
             // Cut point: if not null_cut, the slice s has been subdivided into s[|s|-1:cut+1] and s[cut:0].
             // The cut point is relative to the parent slice (rather than a root variable, which might not be unique)
             unsigned    cut     = null_cut;     // cut point, or null_cut if no subslices
             pvar        var     = null_var;     // slice is equivalent to this variable, if any (without dependencies)
+            // enode*      parent  = nullptr;      // parent slice, only for proper slices (if not null: s == sub_hi(parent(s)) || s == sub_lo(parent(s)))
             enode*      slice   = nullptr;      // if enode corresponds to a concat(...) expression, this field links to the represented slice.
             enode*      sub_hi  = nullptr;      // upper subslice s[|s|-1:cut+1]
             enode*      sub_lo  = nullptr;      // lower subslice s[cut:0]

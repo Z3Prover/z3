@@ -153,8 +153,8 @@ namespace polysat {
         m_scopes.shrink(target_lvl);
         while (m_trail.size() > target_size) {
             switch (m_trail.back()) {
-            case trail_item::add_var:           undo_add_var();         break;
-            case trail_item::split_core:        undo_split_core();      break;
+            case trail_item::add_var:       undo_add_var();     break;
+            case trail_item::split_core:    undo_split_core();  break;
             default: UNREACHABLE();
             }
             m_trail.pop_back();
@@ -203,6 +203,7 @@ namespace polysat {
     // split a single slice without updating any equivalences
     void slicing::split_core(enode* s, unsigned cut) {
         SASSERT(!has_sub(s));
+        SASSERT(info(s).sub_hi == nullptr && info(s).sub_lo == nullptr);
         SASSERT(width(s) > cut + 1);
         unsigned const width_hi = width(s) - cut - 1;
         unsigned const width_lo = cut + 1;
@@ -216,6 +217,8 @@ namespace polysat {
         else {
             sub_hi = alloc_slice(width_hi);
             sub_lo = alloc_slice(width_lo);
+            // info(sub_hi).parent = s;
+            // info(sub_lo).parent = s;
         }
         info(s).set_cut(cut, sub_hi, sub_lo);
         m_trail.push_back(trail_item::split_core);
@@ -361,7 +364,6 @@ namespace polysat {
     }
 
     bool slicing::merge(enode_vector& xs, enode_vector& ys, dep_t dep) {
-        // LOG_H2("Merging " << xs << " with " << ys);
         while (!xs.empty()) {
             SASSERT(!ys.empty());
             enode* x = xs.back();
@@ -381,20 +383,17 @@ namespace polysat {
             SASSERT(!has_sub(x));
             SASSERT(!has_sub(y));
             if (width(x) == width(y)) {
-                // LOG("Match " << x << " and " << y);
                 if (!merge_base(x, y, dep))
                     return false;
             }
             else if (width(x) > width(y)) {
                 // need to split x according to y
-                // LOG("Splitting " << x << " to fit " << y);
                 mk_slice(x, width(y) - 1, 0, xs, true);
                 ys.push_back(y);
             }
             else {
                 SASSERT(width(y) > width(x));
                 // need to split y according to x
-                // LOG("Splitting " << y << " to fit " << x);
                 mk_slice(y, width(x) - 1, 0, ys, true);
                 xs.push_back(x);
             }
@@ -442,6 +441,8 @@ namespace polysat {
         ys.clear();
         if (result) {
             // TODO: merge equivalence class of x, y (on upper level)? but can we always combine the sub-trees?
+            //       need to add a congruence to track justification.
+            //       adding virtual concat terms for x,y will do that automatically.
         }
         return result;
     }
@@ -605,6 +606,7 @@ namespace polysat {
         // TODO: evaluate under current assignment?
         if (!c->is_eq())
             return;
+        dep_t const d = c.blit();
         pdd const& p = c->to_eq();
         auto& m = p.manager();
         for (auto& [a, x] : p.linear_monomials()) {
@@ -616,7 +618,12 @@ namespace polysat {
             enode* const sx = var2slice(x);
             if (body.is_val()) {
                 // Simple assignment x = value
-                // TODO: set fixed bits
+                enode* const sval = mk_value_slice(body.val(), body.power_of_2());
+                if (!merge(sx, sval, d)) {
+                    // TODO: conflict
+                    NOT_IMPLEMENTED_YET();
+                    return;
+                }
                 continue;
             }
             pvar const y = m_solver.m_names.get_name(body);
@@ -626,8 +633,11 @@ namespace polysat {
             }
             enode* const sy = var2slice(y);
             if (c.is_positive()) {
-                if (!merge(sx, sy, c.blit()))
+                if (!merge(sx, sy, d)) {
+                    // TODO: conflict
+                    NOT_IMPLEMENTED_YET();
                     return;
+                }
             }
             else {
                 SASSERT(c.is_negative());
@@ -654,9 +664,8 @@ namespace polysat {
             get_root_base(vs, base);
             for (enode* s : base)
                 display(out << " ", s);
-            // if (has_value(vs)) {
-            //     out << "        -- (val:" << get_value(vs) << ")";
-            // }
+            if (has_value(vs->get_root()))
+                out << "    [root_value: " << get_value(vs->get_root()) << "]";
             out << "\n";
         }
         return out;
@@ -690,10 +699,7 @@ namespace polysat {
     }
 
     std::ostream& slicing::display(std::ostream& out, enode* s) const {
-        out << "{id:" << s->get_id() << ",w:" << width(s);
-        // if (has_value(s))
-        //     out << ",val:" << get_value(s);
-        out << "}";
+        out << "{id:" << s->get_id() << ",w:" << width(s) << "}";
         return out;
     }
 
@@ -704,7 +710,17 @@ namespace polysat {
         for (enode* s : m_egraph.nodes()) {
             // if the slice is equivalent to a variable, then the variable's slice is in the equivalence class
             pvar const v = slice2var(s);
-            VERIFY_EQ(v != null_var, var2slice(v)->get_root() == s->get_root());
+            if (v != null_var) {
+                VERIFY_EQ(var2slice(v)->get_root(), s->get_root());
+            }
+            // if slice has a value, it should be propagated to its sub-slices
+            if (has_value(s)) {
+                VERIFY(s->is_root());
+                if (has_sub(s)) {
+                    VERIFY(has_value(sub_hi(s)));
+                    VERIFY(has_value(sub_lo(s)));
+                }
+            }
             // properties below only matter for representatives
             if (!s->is_root())
                 continue;
@@ -712,11 +728,6 @@ namespace polysat {
                 // equivalence class only contains slices of equal length
                 VERIFY_EQ(width(s), width(n));
             }
-            // if slice has a value, it should be propagated to its sub-slices
-            // if (has_value(s)) {
-            //     VERIFY(has_value(sub_hi(s)->get_root()));
-            //     VERIFY(has_value(sub_lo(s)->get_root()));
-            // }
         }
         return true;
     }
