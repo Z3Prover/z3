@@ -56,6 +56,7 @@ namespace sat {
             IF_VERBOSE(4, verbose_stream() << cl << " in-core " << in_core(cl) << ": "; for (auto const& [k,v] : m_clauses) verbose_stream() << "{" << v.m_clauses << "} "; verbose_stream() << "\n");
 
             m_result.push_back({id, unsigned_vector()});
+            m_in_deps.reset();
             if (is_initial)
                 continue;
             conflict_analysis_core(cl, clp);            
@@ -219,6 +220,7 @@ namespace sat {
     }
 
     void proof_trim::add_dependency(literal lit) {
+        IF_VERBOSE(3, verbose_stream() << "add dependency " << lit << "\n");
         bool_var v = lit.var();
         if (m_propagated[v]) { // literal was propagated after assuming ~C
             if (!s.is_marked(v))
@@ -253,6 +255,12 @@ namespace sat {
         add_core(lit, j);
     }
 
+    void proof_trim::insert_dep(unsigned dep) {
+        if (m_in_deps.contains(dep))
+            return;
+        m_in_deps.insert(dep);
+        m_result.back().second.push_back(dep);
+    }
 
     void proof_trim::add_core(literal l, justification j) {
         m_clause.reset();
@@ -277,14 +285,18 @@ namespace sat {
         IF_VERBOSE(3, verbose_stream() << "add core " << m_clause << "\n");
         auto& [clauses, id, in_core] = m_clauses.find(m_clause);
         in_core = true;
-        m_result.back().second.push_back(id);
-        if (l != null_literal && s.lvl(l) == 0 && m_clause.size() > 1) {
-            m_clause.reset();
-            m_clause.push_back(l);
-            auto& [clauses, id, in_core] = m_clauses.insert_if_not_there(m_clause, {{}, 0, true });
-            in_core = true;
-            if (id != 0)
-                m_result.back().second.push_back(id);
+        insert_dep(id);
+        if (m_clause.size() > 1 && l != null_literal && s.lvl(l) == 0) {
+            for (auto lit : m_clause) {
+                if (s.lvl(lit) != 0)
+                    continue;
+                m_clause2.reset();
+                m_clause2.push_back(s.value(lit) == l_false ? ~lit : lit);
+                auto& [clauses, id, in_core] = m_clauses.insert_if_not_there(m_clause2, {{}, UINT_MAX, true });
+                in_core = true;
+                if (id != UINT_MAX)
+                    insert_dep(id);
+            }
         }
     }
 

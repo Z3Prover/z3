@@ -30,7 +30,8 @@ namespace sat {
 
     class proof_trim {
         solver         s;
-        literal_vector m_clause, m_conflict;        
+        literal_vector m_clause, m_clause2, m_conflict;
+        uint_set       m_in_deps;
         uint_set       m_in_clause;
         uint_set       m_in_coi;
         clause*        m_conflict_clause = nullptr;
@@ -71,6 +72,8 @@ namespace sat {
         bool in_core(literal_vector const& cl) const;
         void revive(literal_vector const& cl, clause* cp);        
         clause* del(literal_vector const& cl);
+
+        void insert_dep(unsigned dep);
 
         uint_set m_units;
         bool unit_or_binary_occurs();
