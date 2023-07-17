@@ -619,11 +619,10 @@ namespace lp {
     }
 
     void lar_solver::add_touched_row(unsigned rid) {
-        m_touched_rows.insert(rid);
+        if (m_settings.bound_propagation())
+            m_touched_rows.insert(rid);
     }
 
-   
-    
     bool lar_solver::use_tableau_costs() const {
         return m_settings.simplex_strategy() == simplex_strategy_enum::tableau_costs;
     }
@@ -1019,7 +1018,7 @@ namespace lp {
         SASSERT(get_status() == lp_status::OPTIMAL || get_status() == lp_status::FEASIBLE);
         SASSERT(m_columns_with_changed_bounds.empty());
         numeric_pair<mpq> const& rp = get_column_value(j);
-        return rp.x + m_delta * rp.y;        
+        return from_model_in_impq_to_mpq(rp);        
     }
 
     mpq lar_solver::get_tv_value(tv const& t) const {
