@@ -94,6 +94,7 @@ namespace polysat {
     slicing::slicing(solver& s):
         m_solver(s),
         m_slice_sort(m_ast),
+        m_embed_decls(m_ast),
         m_concat_decls(m_ast),
         m_egraph(m_ast)
     {
@@ -113,6 +114,15 @@ namespace polysat {
         return i.is_slice() ? i : info(i.slice);
     }
 
+    func_decl* slicing::get_embed_decl(unsigned bit_width) {
+        func_decl* decl = m_embed_decls.get(bit_width, nullptr);
+        if (!decl) {
+            decl = m_ast.mk_func_decl(symbol("embed"), m_bv->mk_sort(bit_width), m_slice_sort);
+            m_embed_decls.setx(bit_width, decl);
+        }
+        return decl;
+    }
+
     func_decl* slicing::get_concat_decl(unsigned arity) {
         SASSERT(arity >= 2);
         func_decl* decl = m_concat_decls.get(arity, nullptr);
@@ -122,7 +132,7 @@ namespace polysat {
                 domain.push_back(m_slice_sort);
             SASSERT_EQ(arity, domain.size());
             // TODO: mk_fresh_func_decl("concat", ...) if overload doesn't work
-            func_decl* decl = m_ast.mk_func_decl(symbol("slice-concat"), arity, domain.data(), m_slice_sort);
+            decl = m_ast.mk_func_decl(symbol("slice-concat"), arity, domain.data(), m_slice_sort);
             m_concat_decls.setx(arity, decl);
         }
         return decl;
@@ -185,8 +195,8 @@ namespace polysat {
     }
 
     slicing::enode* slicing::alloc_slice(unsigned width, pvar var) {
-        app* a = m_ast.mk_fresh_const("s", m_bv->mk_sort(width), false);
-        // app* a = m_ast.mk_fresh_const("s", m_slice_sort, false);
+        // app* a = m_ast.mk_fresh_const("s", m_bv->mk_sort(width), false);
+        app* a = m_ast.mk_fresh_const("s", m_slice_sort, false);
         return alloc_enode(a, width, var);
     }
 
@@ -248,8 +258,11 @@ namespace polysat {
     slicing::enode* slicing::mk_value_slice(rational const& val, unsigned bit_width) {
         SASSERT(0 <= val && val < rational::power_of_two(bit_width));
         app* a = m_bv->mk_numeral(val, bit_width);
+        a = m_ast.mk_app(get_embed_decl(bit_width), a);  // adjust sort
         enode* s = find_or_alloc_enode(a, bit_width, null_var);
+        s->mark_interpreted();
         SASSERT(s->interpreted());
+        SASSERT_EQ(get_value(s), val);
         return s;
     }
 
@@ -261,7 +274,7 @@ namespace polysat {
     }
 
     bool slicing::try_get_value(enode* s, rational& val) const {
-        return m_bv->is_numeral(s->get_expr(), val);
+        return m_bv->is_numeral(s->get_app()->get_arg(0), val);
     }
 
     bool slicing::merge_base(enode* s1, enode* s2, dep_t dep) {

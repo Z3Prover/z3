@@ -70,6 +70,7 @@ namespace polysat {
         ast_manager             m_ast;
         scoped_ptr<bv_util>     m_bv;
         sort_ref                m_slice_sort;
+        func_decl_ref_vector    m_embed_decls;
         func_decl_ref_vector    m_concat_decls;
 
         euf::egraph             m_egraph;
@@ -80,6 +81,7 @@ namespace polysat {
 
 
 
+        func_decl* get_embed_decl(unsigned bit_width);
         func_decl* get_concat_decl(unsigned arity);
 
         static void* encode_dep(dep_t d);
@@ -131,14 +133,6 @@ namespace polysat {
         /// If output_base is false, return coarsest intermediate slices instead of only base slices.
         void mk_slice(enode* src, unsigned hi, unsigned lo, enode_vector& out, bool output_full_src = false, bool output_base = true);
 
-        // Merge equivalence classes of two base slices.
-        // Returns true if merge succeeded without conflict.
-        [[nodiscard]] bool merge_base(enode* s1, enode* s2, dep_t dep);
-
-        // Merge equality s == val and propagate the value downward into sub-slices.
-        // Returns true if merge succeeded without conflict.
-        [[nodiscard]] bool merge_value(enode* s, rational val, dep_t dep);
-
         void begin_explain();
         void end_explain();
         void push_dep(void* dp, dep_vector& out_deps);
@@ -149,6 +143,10 @@ namespace polysat {
         // Extract reason why slices x and y are equal
         // (i.e., x and y have the same base, but are not necessarily in the same equivalence class)
         void explain_equal(enode* x, enode* y, dep_vector& out_deps);
+
+        // Merge equivalence classes of two base slices.
+        // Returns true if merge succeeded without conflict.
+        [[nodiscard]] bool merge_base(enode* s1, enode* s2, dep_t dep);
 
         // Merge equality x_1 ++ ... ++ x_n == y_1 ++ ... ++ y_k
         //
