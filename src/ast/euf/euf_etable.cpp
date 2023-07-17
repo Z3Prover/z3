@@ -203,7 +203,7 @@ namespace euf {
         SASSERT(n->num_args() > 0);
         enode * n_prime;
         void * t = get_table(n); 
-        verbose_stream() << "insert " << n << "\n";
+        //verbose_stream() << "insert " << n << "\n";
         switch (static_cast<table_kind>(GET_TAG(t))) {
         case UNARY:
             n_prime = UNTAG(unary_table*, t)->insert_if_not_there(n);
@@ -225,10 +225,10 @@ namespace euf {
         SASSERT(n->num_args() > 0);
         void * t = get_table(n); 
         static unsigned count = 0;
-        verbose_stream() << "erase " << (++count) << " " << n << "\n";
-        if (count == 10398) {
-            verbose_stream() << "here\n";
-        }
+        //verbose_stream() << "erase " << (++count) << " " << n << "\n";
+        // if (count == 10398) {
+        //     verbose_stream() << "here\n";
+        // }
         switch (static_cast<table_kind>(GET_TAG(t))) {
         case UNARY:
             UNTAG(unary_table*, t)->erase(n);
