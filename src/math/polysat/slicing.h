@@ -37,37 +37,54 @@ namespace polysat {
 
         friend class test_slicing;
 
-        solver&     m_solver;
-
-        ast_manager m_ast;
-        euf::egraph m_egraph;
-
-        sort*                   m_slice_sort;
-        ptr_vector<func_decl>   m_concat_decls;
-
-        func_decl* get_concat_decl(unsigned arity);
-
         using dep_t = sat::literal;
         using dep_vector = sat::literal_vector;
         static constexpr sat::literal null_dep = sat::null_literal;
-        void* encode_dep(dep_t d);
-        dep_t decode_dep(void* d);
 
-        using slice = unsigned;
-        using slice_vector = unsigned_vector;
-        static constexpr slice null_slice = std::numeric_limits<slice>::max();
+        using enode = euf::enode;
+        using enode_vector = euf::enode_vector;
 
         static constexpr unsigned null_cut = std::numeric_limits<unsigned>::max();
 
         struct slice_info {
-            unsigned width = 0;
-            unsigned cut = null_cut;
-            euf::enode* sub_hi = nullptr;
-            euf::enode* sub_lo = nullptr;
+            unsigned    width   = 0;            // number of bits in the slice
+            unsigned    cut     = null_cut;     // cut point, or null_cut if no subslices
+            pvar        var     = null_var;     // slice is equivalent to this variable, if any
+            enode*      slice   = nullptr;      // if enode corresponds to a concat(...) expression, this field links to the represented slice.
+            enode*      sub_hi  = nullptr;      // upper subslice s[|s|-1:cut+1]
+            enode*      sub_lo  = nullptr;      // lower subslice s[cut:0]
+
+            void reset() { *this = slice_info(); }
+            bool is_slice() const { return !slice; }
+            bool has_sub() const { return !!sub_hi; }
+            void set_cut(unsigned cut, enode* sub_hi, enode* sub_lo) { this->cut = cut; this->sub_hi = sub_hi; this->sub_lo = sub_lo; }
         };
+        using slice_info_vector = svector<slice_info>;
 
-        // using enode = euf::enode<slice_extra>;
 
+        solver&                 m_solver;
+
+        ast_manager             m_ast;
+        sort_ref                m_slice_sort;
+        func_decl_ref_vector    m_concat_decls;
+        // expr_ref_vector         m_expr_storage;
+        // unsigned_vector         m_expr_scopes;
+
+        euf::egraph             m_egraph;
+        slice_info_vector       m_info;         // indexed by enode::get_id()
+        enode_vector            m_var2slice;    // pvar -> slice
+
+
+
+
+
+        func_decl* get_concat_decl(unsigned arity);
+
+        static void* encode_dep(dep_t d);
+        static dep_t decode_dep(void* d);
+        static void display_dep(std::ostream& out, void* d);
+
+/*
         struct val2slice_key {
             rational value;
             unsigned bit_width;
@@ -86,7 +103,9 @@ namespace polysat {
         using val2slice_hash = obj_hash<val2slice_key>;
         using val2slice_eq = default_eq<val2slice_key>;
         using val2slice_map = map<val2slice_key, slice, val2slice_hash, val2slice_eq>;
+*/
 
+/*
         unsigned_vector m_slice_width;  // number of bits in the slice
         // Cut point: if slice represents bit-vector x, then x has been sliced into x[|x|-1:cut+1] and x[cut:0].
         // The cut point is relative to the parent slice (rather than a root variable, which might not be unique)
@@ -98,13 +117,9 @@ namespace polysat {
         pvar_vector     m_slice2var;    // slice -> pvar, or null_var if slice is not equivalent to a variable
         slice_vector    m_var2slice;    // pvar -> slice
 
-        // app_ref_vector  m_slice2app;    // slice -> app*
-        // ptr_addr_map<app, slice> m_app2slice;
-
         ptr_vector<euf::enode>  m_slice2enode;
         ptr_addr_map<euf::enode, slice> m_enode2slice;
-        expr_ref_vector m_expr_storage;
-        unsigned_vector m_expr_scopes;
+*/
 
 #if 0
         unsigned_vector m_mark;
@@ -124,24 +139,23 @@ namespace polysat {
         void mark(slice s) { SASSERT(m_mark_active); m_mark[s] = m_mark_timestamp; }
 #endif
 
-        slice alloc_slice(unsigned width);
+        slice_info& info(euf::enode* n);
+        slice_info const& info(euf::enode* n) const;
 
-        slice var2slice(pvar v) const { return m_var2slice[v]; }
-        pvar slice2var(slice s) const { return m_slice2var[s]; }
-        // slice app2slice(app* a) const { return m_app2slice[a]; }
-        // app* slice2app(slice s) const { return m_slice2app[s]; }
-        slice enode2slice(euf::enode* n) const { return m_enode2slice[n]; }
-        euf::enode* slice2enode(slice s) const { return m_slice2enode[s]; }
+        enode* alloc_slice(unsigned width);
 
-        unsigned width(slice s) const { return m_slice_width[s]; }
+        enode* var2slice(pvar v) const { return m_var2slice[v]; }
+        pvar slice2var(enode* s) const { return info(s).var; }
 
-        bool has_sub(slice s) const { return m_slice_sub[s] != null_slice; }
+        unsigned width(enode* s) const { return info(s).width; }
+
+        bool has_sub(enode* s) const { return info(s).has_sub(); }
+
         /// Upper subslice (direct child, not necessarily the representative)
-        slice sub_hi(slice s) const;
-        euf::enode* sub_hi(euf::enode* n) const;
+        enode* sub_hi(enode* s) const { return info(s).sub_hi; }
+
         /// Lower subslice (direct child, not necessarily the representative)
-        slice sub_lo(slice s) const;
-        euf::enode* sub_lo(euf::enode* n) const;
+        enode* sub_lo(enode* s) const { return info(s).sub_lo; }
 
         // slice val2slice(rational const& val, unsigned bit_width) const;
 
@@ -155,40 +169,43 @@ namespace polysat {
         // void make_proof_root(slice s);
 
         /// Split slice s into s[|s|-1:cut+1] and s[cut:0]
-        void split(slice s, unsigned cut);
-        void split_core(slice s, unsigned cut);
+        void split(enode* s, unsigned cut);
+        void split_core(enode* s, unsigned cut);
 
         template <bool should_find>
-        void get_base_core(slice src, slice_vector& out_base) const;
+        void get_base_core(enode* src, enode_vector& out_base) const;
 
         /// Retrieve base slices s_1,...,s_n such that src == s_1 ++ ... ++ s_n (actual descendant subslices)
-        void get_base(slice src, slice_vector& out_base) const;
+        void get_base(enode* src, enode_vector& out_base) const;
         /// Retrieve base slices s_1,...,s_n such that src == s_1 ++ ... ++ s_n (representatives of subslices)
-        void find_base(slice src, slice_vector& out_base) const;
+        void find_base(enode* src, enode_vector& out_base) const;
+
         /// Retrieve (or create) base slices s_1,...,s_n such that src[hi:lo] == s_1 ++ ... ++ s_n.
         /// If output_full_src is true, return the new base for src, i.e., src == s_1 ++ ... ++ s_n.
         /// If output_base is false, return coarsest intermediate slices instead of only base slices.
-        void mk_slice(slice src, unsigned hi, unsigned lo, slice_vector& out, bool output_full_src = false, bool output_base = true);
+        void mk_slice(enode* src, unsigned hi, unsigned lo, enode_vector& out, bool output_full_src = false, bool output_base = true);
 
         /// Find representative
-        slice find(slice s) const;
+        enode* find(enode* s) const { return s->get_root(); }
 
         // Merge equivalence classes of two base slices.
         // Returns true if merge succeeded without conflict.
-        [[nodiscard]] bool merge_base(slice s1, slice s2, dep_t dep);
+        [[nodiscard]] bool merge_base(enode* s1, enode* s2, dep_t dep);
 
         // Merge equality s == val and propagate the value downward into sub-slices.
         // Returns true if merge succeeded without conflict.
-        [[nodiscard]] bool merge_value(slice s, rational val, dep_t dep);
+        [[nodiscard]] bool merge_value(enode* s, rational val, dep_t dep);
 
-        void push_reason(slice s, dep_vector& out_deps);
+        void begin_explain();
+        void end_explain();
+        void push_dep(void* dp, dep_vector& out_deps);
 
         // Extract reason why slices x and y are in the same equivalence class
-        void explain_class(slice x, slice y, dep_vector& out_deps);
+        void explain_class(enode* x, enode* y, dep_vector& out_deps);
 
         // Extract reason why slices x and y are equal
         // (i.e., x and y have the same base, but are not necessarily in the same equivalence class)
-        void explain_equal(slice x, slice y, dep_vector& out_deps);
+        void explain_equal(enode* x, enode* y, dep_vector& out_deps);
 
         // Merge equality x_1 ++ ... ++ x_n == y_1 ++ ... ++ y_k
         //
@@ -199,12 +216,12 @@ namespace polysat {
         // The argument vectors will be cleared.
         //
         // Returns true if merge succeeded without conflict.
-        [[nodiscard]] bool merge(slice_vector& xs, slice_vector& ys, dep_t dep);
-        [[nodiscard]] bool merge(slice_vector& xs, slice y, dep_t dep);
-        [[nodiscard]] bool merge(slice x, slice y, dep_t dep);
+        [[nodiscard]] bool merge(enode_vector& xs, enode_vector& ys, dep_t dep);
+        [[nodiscard]] bool merge(enode_vector& xs, enode* y, dep_t dep);
+        [[nodiscard]] bool merge(enode* x, enode* y, dep_t dep);
 
         // Check whether two slices are known to be equal
-        bool is_equal(slice x, slice y);
+        bool is_equal(enode* x, enode* y);
 
         enum class trail_item {
             add_var,
@@ -214,8 +231,8 @@ namespace polysat {
             mk_value_slice,
         };
         svector<trail_item> m_trail;
-        slice_vector        m_split_trail;
-        vector<val2slice_key>               m_val2slice_trail;
+        enode_vector        m_split_trail;
+        // vector<val2slice_key>               m_val2slice_trail;
         unsigned_vector     m_scopes;
 
         void undo_add_var();
@@ -223,20 +240,25 @@ namespace polysat {
         void undo_split_core();
         void undo_mk_value_slice();
 
-        mutable slice_vector m_tmp1;
-        mutable slice_vector m_tmp2;
-        mutable slice_vector m_tmp3;
+        mutable enode_vector m_tmp1;
+        mutable enode_vector m_tmp2;
+        mutable enode_vector m_tmp3;
+        ptr_vector<void>     m_tmp_justifications;
+        sat::literal_set     m_marked_deps;
 
         // get a slice that is equivalent to the given pdd (may introduce new variable)
-        slice pdd2slice(pdd const& p);
+        enode* pdd2slice(pdd const& p);
 
         /** Get variable representing src[hi:lo] */
-        pvar mk_slice_extract(slice src, unsigned hi, unsigned lo);
+        pvar mk_slice_extract(enode* src, unsigned hi, unsigned lo);
 
         bool invariant() const;
 
         /** Get variable representing x[hi:lo] */
         pvar mk_extract_var(pvar x, unsigned hi, unsigned lo);
+
+        std::ostream& display(std::ostream& out, enode* s) const;
+        std::ostream& display_tree(std::ostream& out, enode* s, unsigned indent, unsigned hi, unsigned lo) const;
 
     public:
         slicing(solver& s);
@@ -265,10 +287,7 @@ namespace polysat {
         // - set of variables that share at least one slice with v (need variable, offset/width relative to v)
 
         std::ostream& display(std::ostream& out) const;
-        std::ostream& display(std::ostream& out, slice s) const;
-
         std::ostream& display_tree(std::ostream& out) const;
-        std::ostream& display_tree(std::ostream& out, slice s, unsigned indent, unsigned hi, unsigned lo) const;
     };
 
     inline std::ostream& operator<<(std::ostream& out, slicing const& s) { return s.display(out); }
