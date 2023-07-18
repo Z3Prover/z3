@@ -243,6 +243,7 @@ namespace polysat {
         unsigned const qhead_init = m_qhead;
         unsigned bool_qhead = m_qhead;
         unsigned eval_qhead = m_qhead;
+        unsigned slicing_qhead = m_qhead;
         while (can_propagate_search()) {
             SASSERT(bool_qhead >= eval_qhead);
             SASSERT(eval_qhead >= m_qhead);
