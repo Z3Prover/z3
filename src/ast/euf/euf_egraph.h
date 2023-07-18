@@ -245,7 +245,7 @@ namespace euf {
         enode* find(expr* f, unsigned n, enode* const* args);
         enode* mk(expr* f, unsigned generation, unsigned n, enode *const* args);
         enode_vector const& enodes_of(func_decl* f);
-        void push() { if (!m_to_merge.empty()) propagate(); ++m_num_scopes; }
+        void push() { if (can_propagate()) propagate(); ++m_num_scopes; }
         void pop(unsigned num_scopes);
 
         /**
@@ -254,6 +254,7 @@ namespace euf {
         void merge(enode* n1, enode* n2, void* reason) { merge(n1, n2, justification::external(reason)); }        
         void new_diseq(enode* n);
 
+        bool can_propagate() const { return !m_to_merge.empty(); }
 
         /**
            \brief propagate set of merges. 

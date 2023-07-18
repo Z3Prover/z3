@@ -214,6 +214,7 @@ namespace polysat {
         pvar mk_slice_extract(enode* src, unsigned hi, unsigned lo);
 
         bool invariant() const;
+        bool invariant_needs_congruence() const;
 
         /** Get variable representing x[hi:lo] */
         pvar mk_extract_var(pvar x, unsigned hi, unsigned lo);
@@ -242,6 +243,8 @@ namespace polysat {
         // (could generalize to fixed bits, then we need a way to merge interpreted enodes)
         void add_value(pvar v, rational const& value);
         void add_constraint(signed_constraint c);
+
+        bool can_propagate() const;
 
         // update congruences, egraph
         void propagate();

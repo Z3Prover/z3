@@ -147,8 +147,11 @@ namespace polysat {
     }
 
     void slicing::push_scope() {
+        if (can_propagate())
+            propagate();
         m_scopes.push_back(m_trail.size());
         m_egraph.push();
+        SASSERT(m_needs_congruence.empty());
     }
 
     void slicing::pop_scope(unsigned num_scopes) {
@@ -168,6 +171,7 @@ namespace polysat {
             m_trail.pop_back();
         }
         m_egraph.pop(num_scopes);
+        m_needs_congruence.reset();
     }
 
     void slicing::add_var(unsigned bit_width) {
@@ -252,9 +256,25 @@ namespace polysat {
         info(s).set_cut(cut, sub_hi, sub_lo);
         m_trail.push_back(trail_item::split_core);
         m_split_trail.push_back(s);
-        for (enode* n = s; n != nullptr; n = parent(n))
-            if (slice2var(n) != null_var)
-                m_needs_congruence.insert(slice2var(n));
+        for (enode* n = s; n != nullptr; n = parent(n)) {
+            pvar const v = slice2var(n);
+            if (v == null_var)
+                continue;
+            if (m_needs_congruence.contains(v)) {
+                SASSERT(invariant_needs_congruence());
+                break;  // added parents already previously
+            }
+            m_needs_congruence.insert(v);
+        }
+    }
+
+    bool slicing::invariant_needs_congruence() const {
+        for (pvar v : m_needs_congruence)
+            for (enode* s = var2slice(v); s != nullptr; s = parent(s))
+                if (slice2var(s) != null_var) {
+                    VERIFY(m_needs_congruence.contains(slice2var(s)));
+                }
+        return true;
     }
 
     void slicing::undo_split_core() {
@@ -277,7 +297,6 @@ namespace polysat {
             m_egraph.merge(sub_hi(n), sub_hi(target), j.ext<void>());
             m_egraph.merge(sub_lo(n), sub_lo(target), j.ext<void>());
         }
-        // m_egraph.propagate();
     }
 
     void slicing::mk_slice(enode* src, unsigned const hi, unsigned const lo, enode_vector& out, bool output_full_src, bool output_base) {
@@ -467,6 +486,10 @@ namespace polysat {
         end_explain();
     }
 
+    bool slicing::can_propagate() const {
+        return !m_needs_congruence.empty() || m_egraph.can_propagate();
+    }
+
     void slicing::propagate() {
         // m_egraph.propagate();
         if (is_conflict())
@@ -480,7 +503,6 @@ namespace polysat {
         SASSERT(!has_sub(s1));
         SASSERT(!has_sub(s2));
         m_egraph.merge(s1, s2, encode_dep(dep));
-        // m_egraph.propagate();
         return !m_egraph.inconsistent();
     }
 
