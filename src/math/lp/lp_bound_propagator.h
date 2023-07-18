@@ -685,11 +685,93 @@ class lp_bound_propagator {
             try_add_equation_with_fixed_tables(row_index, e.target());
     }
 
+    // If the row has exactly two non fixed columns,
+    // and one of those is base, fill the base and nbase and return true.
+    // Otherwise return false.
+    bool get_two_nfixed(unsigned row_index, const row_cell<mpq>** base, const row_cell<mpq>** nbase) const {
+        unsigned n_of_nfixed = 0;
+        for (const auto& c : lp().get_row(row_index)) {
+            if (lp().column_is_fixed(c.var()))
+                continue;
+            n_of_nfixed++;
+            if (n_of_nfixed > 2)
+                return false;
+
+            if (lp().is_base(c.var())) {
+                *base = &c;
+            } else {
+                *nbase = &c;
+            }
+        }
+        return n_of_nfixed == 2;
+    }
+
+    // the row is of the form x + a*y + sum of fixed = 0, where x and y are     non fixed
+    struct row {
+        unsigned m_row_index;
+        const row_cell<mpq>& m_base_cell;
+        const row_cell<mpq>& m_non_base_cell;
+        row(unsigned row_index, const row_cell<mpq>& base_cell, const row_cell<mpq>& non_base_cell) :
+            m_row_index(row_index), m_base_cell(base_cell), m_non_base_cell(non_base_cell) {}
+    };
+    
+    void get_j_rows(unsigned j, vector<row> & rows_of_j) {
+        for (const column_cell& c : lp().get_column(j)) {
+            if(!check_insert(m_visited_rows, c.var())) {
+                continue;
+            }
+            const row_cell<mpq> * base_cell, *non_base_cell;
+            if (get_two_nfixed(c.var(), &base_cell, &non_base_cell)) {
+                if (non_base_cell->var() != j) {
+                    continue;
+                }
+                this->m_visited_rows.insert(c.var());
+                rows_of_j.push_back(row(c.var(), *base_cell, *non_base_cell));
+            }            
+        }
+    }
+
     void cheap_eq_tree(unsigned row_index) {
         reset_cheap_eq _reset(*this);
         TRACE("cheap_eq_det", tout << "row_index = " << row_index << "\n";);
         if (!check_insert(m_visited_rows, row_index))
             return;
+        const row_cell<mpq>*base_cell, *non_base_cell;
+        if (!get_two_nfixed(row_index, &base_cell, &non_base_cell))
+            return;
+        
+        vector<row> rows_of_j;
+        rows_of_j.push_back(row(row_index, *base_cell, *non_base_cell));
+        m_visited_rows.insert(row_index);
+        get_j_rows(non_base_cell->var(), rows_of_j);
+        if (rows_of_j.size() <= 1) {
+            return;
+        }
+        vector<unsigned> index;
+        for (unsigned i = 0; i < rows_of_j.size(); i++) {
+            index.push_back(i);
+        }
+        std::sort(index.begin(), index.end(), [&rows_of_j](unsigned i, unsigned j) {
+            return rows_of_j[i].m_non_base_cell.coeff() < rows_of_j[j].m_non_base_cell.coeff();
+        });
+        // the map of values of the base variable of the group with the same coefficient
+        map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>> val_to_index;
+        unsigned groupBegin = -1;
+        for (unsigned i = 0; i < index.size(); i++) {
+            const row& r = rows_of_j[index[i]];
+            if (i == 0 || r.m_non_base_cell.coeff() != rows_of_j[index[i - 1]].m_non_base_cell.coeff()) {
+                val_to_index.reset();
+                val_to_index.insert(val(r.m_base_cell.var()), index[i]);
+                groupBegin = index[i];
+            } else {
+                unsigned prev_j;
+                if (val_to_index.find(val(r.m_base_cell.var()), prev_j)) {
+                    std::cout << "need to report equality between" << groupBegin << " and " << index[i] << "\n";
+                    break;
+                }
+            }
+        }
+
         create_root(row_index);
         if (!m_root)
             return;
