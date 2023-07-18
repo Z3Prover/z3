@@ -707,9 +707,11 @@ namespace polysat {
         }
     }
 
-    void slicing::add_value(pvar v, rational const& value) {
-        // go through all existing nodes, and evaluate v?
-        // can do that externally
+    void slicing::add_value(pvar v, rational const& val) {
+        enode* const sv = var2slice(v);
+        enode* const sval = mk_value_slice(val, width(sv));
+        (void)merge(sv, sval, v);
+        // TODO: go through all existing nodes, and evaluate v? (no, better do that externally)
     }
 
     std::ostream& slicing::display(std::ostream& out) const {
