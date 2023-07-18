@@ -1437,7 +1437,7 @@ Z3_DECLARE_CLOSURE(Z3_eq_eh,      void, (void* ctx, Z3_solver_callback cb, Z3_as
 Z3_DECLARE_CLOSURE(Z3_final_eh,   void, (void* ctx, Z3_solver_callback cb));
 Z3_DECLARE_CLOSURE(Z3_created_eh, void, (void* ctx, Z3_solver_callback cb, Z3_ast t));
 Z3_DECLARE_CLOSURE(Z3_decide_eh,  void, (void* ctx, Z3_solver_callback cb, Z3_ast t, unsigned idx, bool phase));
-Z3_DECLARE_CLOSURE(Z3_on_clause_eh, void, (void* ctx, Z3_ast proof_hint, Z3_ast_vector literals));
+Z3_DECLARE_CLOSURE(Z3_on_clause_eh, void, (void* ctx, Z3_ast proof_hint, unsigned n, unsigned const* deps, Z3_ast_vector literals));
 
 
 /**

@@ -266,7 +266,8 @@ namespace sat {
         m_clause.reset();
         switch (j.get_kind()) {
         case justification::NONE:
-            m_clause.push_back(l);
+            if (l != null_literal)
+                m_clause.push_back(l);
             break;                
         case justification::BINARY:
             m_clause.push_back(l);
@@ -282,7 +283,7 @@ namespace sat {
             break;
         }
         std::sort(m_clause.begin(), m_clause.end());
-        IF_VERBOSE(3, verbose_stream() << "add core " << m_clause << "\n");
+        IF_VERBOSE(3, verbose_stream() << "add core {" << m_clause << "}\n");
         auto& [clauses, id, in_core] = m_clauses.find(m_clause);
         in_core = true;
         insert_dep(id);
@@ -337,7 +338,13 @@ namespace sat {
     }
 
     void proof_trim::assume(unsigned id, bool is_initial) {
-        std::sort(m_clause.begin(), m_clause.end());                
+        std::sort(m_clause.begin(), m_clause.end()); 
+        unsigned j = 0;
+        sat::literal prev = null_literal;
+        for (unsigned i = 0; i < m_clause.size(); ++i) 
+            if (m_clause[i] != prev)
+               prev = m_clause[j++] = m_clause[i];        
+        m_clause.shrink(j);
         if (unit_or_binary_occurs())
             return;        
         if (!m_conflict.empty() && m_clause.empty()) {

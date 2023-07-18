@@ -1919,7 +1919,7 @@ _error_handler_type  = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_uint)
 _lib.Z3_set_error_handler.restype  = None
 _lib.Z3_set_error_handler.argtypes = [ContextObj, _error_handler_type]
 
-Z3_on_clause_eh = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)
+Z3_on_clause_eh = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint, ctypes.POINTER(ctypes.c_uint), ctypes.c_void_p)
 Z3_push_eh  = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p)
 Z3_pop_eh   = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint)
 Z3_fresh_eh = ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)

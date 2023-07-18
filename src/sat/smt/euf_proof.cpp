@@ -312,7 +312,7 @@ namespace euf {
         for (unsigned i = 0; i < n; ++i) 
             m_clause.push_back(literal2expr(lits[i]));
         auto hint = status2proof_hint(st);
-        m_on_clause(m_on_clause_ctx, hint, m_clause.size(), m_clause.data());
+        m_on_clause(m_on_clause_ctx, hint, 0, nullptr, m_clause.size(), m_clause.data());
     }
 
     void solver::on_proof(unsigned n, literal const* lits, sat::status st) {

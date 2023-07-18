@@ -190,7 +190,7 @@ namespace smt {
         if (ctx.get_fparams().m_clause_proof)
             m_trail.push_back(info(st, v, p));
         if (m_on_clause_eh) 
-            m_on_clause_eh(m_on_clause_ctx, p, v.size(), v.data());        
+            m_on_clause_eh(m_on_clause_ctx, p, 0, nullptr, v.size(), v.data());        
         if (m_has_log) {
             init_pp_out();
             auto& out = *m_pp_out;

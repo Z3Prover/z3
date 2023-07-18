@@ -126,7 +126,7 @@ public:
         if (m_empty)
             return;
 
-        if (hint && !is_rup(hint) && m_checker.check(hint)) {
+        if (hint && !is_rup(hint)) {
             auto clause1 = m_checker.clause(hint);
             if (clause1.size() != clause.size()) {
                 mk_clause(clause1);
@@ -239,8 +239,10 @@ public:
 class proof_cmds_imp : public proof_cmds {
     cmd_context&    ctx;
     ast_manager&    m;
+    arith_util      m_arith;
     expr_ref_vector m_lits;
     app_ref         m_proof_hint;
+    unsigned_vector m_deps;
     bool            m_check  = true;
     bool            m_save   = false;
     bool            m_trim   = false;
@@ -266,11 +268,24 @@ class proof_cmds_imp : public proof_cmds {
             m_del = m.mk_app(symbol("del"), 0, nullptr, m.mk_proof_sort());
         return m_del;
     }
+
+    bool is_dep(expr* e) {
+        return m.is_proof(e) && symbol("deps") == to_app(e)->get_name();
+    }
+
+    void get_deps(expr* e) {
+        rational n;
+        bool is_int = false;
+        for (expr* arg : *to_app(e)) 
+            if (m_arith.is_numeral(arg, n, is_int) && n.is_unsigned())
+                m_deps.push_back(n.get_unsigned());
+    }
     
 public:
     proof_cmds_imp(cmd_context& ctx): 
         ctx(ctx), 
-        m(ctx.m()), 
+        m(ctx.m()),
+        m_arith(m),
         m_lits(m), 
         m_proof_hint(m), 
         m_assumption(m), 
@@ -280,7 +295,9 @@ public:
 
     void add_literal(expr* e) override {
         if (m.is_proof(e)) {
-            if (!m_proof_hint)
+            if (is_dep(e))
+                get_deps(e);
+            else if (!m_proof_hint)
                 m_proof_hint = to_app(e);
         }
         else if (!m.is_bool(e))
@@ -297,9 +314,10 @@ public:
         if (m_trim)
             trim().assume(m_lits);
         if (m_on_clause_eh)
-            m_on_clause_eh(m_on_clause_ctx, assumption(), m_lits.size(), m_lits.data());
+            m_on_clause_eh(m_on_clause_ctx, assumption(), m_deps.size(), m_deps.data(), m_lits.size(), m_lits.data());
         m_lits.reset();
         m_proof_hint.reset();
+        m_deps.reset();
     }
 
     void end_infer() override {
@@ -310,9 +328,10 @@ public:
         if (m_trim)
             trim().infer(m_lits, m_proof_hint);
         if (m_on_clause_eh)
-            m_on_clause_eh(m_on_clause_ctx, m_proof_hint, m_lits.size(), m_lits.data());
+            m_on_clause_eh(m_on_clause_ctx, m_proof_hint, m_deps.size(), m_deps.data(), m_lits.size(), m_lits.data());
         m_lits.reset();
         m_proof_hint.reset();
+        m_deps.reset();
     }
 
     void end_deleted() override {
@@ -323,9 +342,10 @@ public:
         if (m_trim)
             trim().del(m_lits);
         if (m_on_clause_eh)
-            m_on_clause_eh(m_on_clause_ctx, del(), m_lits.size(), m_lits.data());
+            m_on_clause_eh(m_on_clause_ctx, del(), m_deps.size(), m_deps.data(), m_lits.size(), m_lits.data());
         m_lits.reset();
         m_proof_hint.reset();
+        m_deps.reset();
     }
 
     void updt_params(params_ref const& p) override {
