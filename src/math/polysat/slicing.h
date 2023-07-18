@@ -253,9 +253,26 @@ namespace polysat {
         /** Extract reason for x == y */
         void explain_equal(pvar x, pvar y, sat::literal_vector& out_lits, unsigned_vector& out_vars);
 
-        // TODO:
-        // Query for a given variable v:
-        // - set of variables that share at least one slice with v (need variable, offset/width relative to v)
+        /// Example:
+        /// - assume query_var has segments 11122233 and var has segments 2224
+        /// - then the overlapping region "222" is given by width = 3, offset_var = 1, offset_query = 2.
+        /// (First version will probably only support offset 0.)
+        struct var_overlap {
+            pvar var;
+            /// number of overlapping bits
+            unsigned width;
+            /// offset of overlapping region in var
+            unsigned offset_var;
+            /// offset of overlapping region in query variable
+            unsigned offset_query;
+        };
+        using var_overlap_vector = svector<var_overlap>;
+
+        /** For a given variable v, find the set of variables that share at least one slice with v. */
+        void query_overlaps(pvar v, var_overlap_vector& out);
+
+        /** Query fixed portions of the variable v */
+        void query_fixed(pvar v, rational& mask, rational& value);
 
         std::ostream& display(std::ostream& out) const;
         std::ostream& display_tree(std::ostream& out) const;

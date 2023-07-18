@@ -16,39 +16,10 @@ Author:
 
 /*
 
-                (x=y)
-        x  <===========  y
-       /    \           / \
-      x[7:4] x[3:0]       y[3:0]
-                <==========
-                   (by x=y)
-
-Try later:
-  Congruence closure with "virtual concat" terms
-    x = x[7:4] ++ x[3:0]
-    y = y[7:4] ++ y[3:0]
-    x[7:4] = y[7:4]
-    x[3:0] = y[3:0]
-    => x = y
-
-Recycle the z3 egraph?
-    - x = x[7:4] ++ x[3:0]
-    - Add instance euf_egraph.h
-    - What do we need from the egraph?
-        - backtracking trail to check for new equalities
-
-
-
-
-
-
-
-
-
+Example:
 (1)     x = y
 (2)     z = y[3:0]
 (3)     explain(x[3:0] == z)? should be { (1), (2) }
-
 
                     (1)
         x ========================> y
@@ -56,14 +27,10 @@ Recycle the z3 egraph?
   x[7:4] x[3:0]               y[7:4] y[3:0] ===========> z
 
 
-
-
-
-
-
-
-
-
+TODO:
+- track fixed bits along with enodes
+- notify solver about equalities discovered by congruence
+- implement query functions
 
 */
 
