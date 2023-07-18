@@ -320,15 +320,6 @@ namespace polysat {
         return m_bv->is_numeral(s->get_app()->get_arg(0), val);
     }
 
-    bool slicing::merge_base(enode* s1, enode* s2, dep_t dep) {
-        SASSERT_EQ(width(s1), width(s2));
-        SASSERT(!has_sub(s1));
-        SASSERT(!has_sub(s2));
-        m_egraph.merge(s1, s2, encode_dep(dep));
-        m_egraph.propagate();  // TODO: could do this later maybe
-        return !m_egraph.inconsistent();
-    }
-
     void slicing::begin_explain() {
         SASSERT(m_marked_lits.empty());
         SASSERT(m_marked_vars.empty());
@@ -418,6 +409,28 @@ namespace polysat {
         begin_explain();
         explain_equal(var2slice(x), var2slice(y), out_lits, out_vars);
         end_explain();
+    }
+
+    void slicing::explain(sat::literal_vector& out_lits, unsigned_vector& out_vars) {
+        SASSERT(is_conflict());
+        begin_explain();
+        SASSERT(m_tmp_justifications.empty());
+        m_egraph.begin_explain();
+        m_egraph.explain(m_tmp_justifications, nullptr);
+        m_egraph.end_explain();
+        for (void* dp : m_tmp_justifications)
+            push_dep(dp, out_lits, out_vars);
+        m_tmp_justifications.reset();
+        end_explain();
+    }
+
+    bool slicing::merge_base(enode* s1, enode* s2, dep_t dep) {
+        SASSERT_EQ(width(s1), width(s2));
+        SASSERT(!has_sub(s1));
+        SASSERT(!has_sub(s2));
+        m_egraph.merge(s1, s2, encode_dep(dep));
+        // m_egraph.propagate();
+        return !m_egraph.inconsistent();
     }
 
     bool slicing::merge(enode_vector& xs, enode_vector& ys, dep_t dep) {
