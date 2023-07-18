@@ -128,6 +128,11 @@ namespace polysat {
             sl.explain_equal(sl.var2slice(b), sl.pdd2slice(d), reason_lits, reason_vars);
             std::cout << "    Reason: " << reason_lits << " vars " << reason_vars << "\n";
 
+            sl.display_tree(std::cout);
+            VERIFY(sl.invariant());
+
+            sl.propagate();
+            sl.display_tree(std::cout);
             VERIFY(sl.invariant());
         }
 

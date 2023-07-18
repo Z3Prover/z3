@@ -73,7 +73,7 @@ namespace polysat {
             // The cut point is relative to the parent slice (rather than a root variable, which might not be unique)
             unsigned    cut     = null_cut;     // cut point, or null_cut if no subslices
             pvar        var     = null_var;     // slice is equivalent to this variable, if any (without dependencies)
-            // enode*      parent  = nullptr;      // parent slice, only for proper slices (if not null: s == sub_hi(parent(s)) || s == sub_lo(parent(s)))
+            enode*      parent  = nullptr;      // parent slice, only for proper slices (if not null: s == sub_hi(parent(s)) || s == sub_lo(parent(s)))
             enode*      slice   = nullptr;      // if enode corresponds to a concat(...) expression, this field links to the represented slice.
             enode*      sub_hi  = nullptr;      // upper subslice s[|s|-1:cut+1]
             enode*      sub_lo  = nullptr;      // lower subslice s[cut:0]
@@ -97,10 +97,12 @@ namespace polysat {
         euf::egraph             m_egraph;
         slice_info_vector       m_info;         // indexed by enode::get_id()
         enode_vector            m_var2slice;    // pvar -> slice
+        tracked_uint_set        m_needs_congruence;     // set of pvars that need updated concat(...) expressions
 
-
-
-
+        // Add an equation v = concat(s1, ..., sn)
+        // for each variable v with base slices s1, ..., sn
+        void update_var_congruences();
+        void add_congruence(pvar v);
 
         func_decl* get_embed_decl(unsigned bit_width);
         func_decl* get_concat_decl(unsigned arity);
@@ -112,14 +114,16 @@ namespace polysat {
         slice_info& info(euf::enode* n);
         slice_info const& info(euf::enode* n) const;
 
-        enode* alloc_enode(expr* e, unsigned width, pvar var);
-        enode* find_or_alloc_enode(expr* e, unsigned width, pvar var);
+        enode* alloc_enode(expr* e, unsigned num_args, enode* const* args, unsigned width, pvar var);
+        enode* find_or_alloc_enode(expr* e, unsigned num_args, enode* const* args, unsigned width, pvar var);
         enode* alloc_slice(unsigned width, pvar var = null_var);
 
         enode* var2slice(pvar v) const { return m_var2slice[v]; }
         pvar slice2var(enode* s) const { return info(s).var; }
 
         unsigned width(enode* s) const { return info(s).width; }
+
+        enode* parent(enode* s) const { return info(s).parent; }
 
         bool has_sub(enode* s) const { return info(s).has_sub(); }
 
