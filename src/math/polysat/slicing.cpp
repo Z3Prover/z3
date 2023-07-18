@@ -28,9 +28,11 @@ Example:
 
 
 TODO:
+- track disequalities
 - track fixed bits along with enodes
 - notify solver about equalities discovered by congruence
 - implement query functions
+- when solver assigns value of a variable v, add equations with v substituted by its value?
 
 */
 
@@ -558,11 +560,6 @@ namespace polysat {
         bool result = (xs == ys);
         xs.clear();
         ys.clear();
-        if (result) {
-            // TODO: merge equivalence class of x, y (on upper level)? but can we always combine the sub-trees?
-            //       need to add a congruence to track justification.
-            //       adding virtual concat terms for x,y will do that automatically.
-        }
         return result;
     }
 
@@ -661,7 +658,6 @@ namespace polysat {
     }
 
     void slicing::add_constraint(signed_constraint c) {
-        // TODO: evaluate under current assignment? (no, do that externally)
         if (!c->is_eq())
             return;
         dep_t const d = c.blit();
@@ -711,7 +707,6 @@ namespace polysat {
         enode* const sv = var2slice(v);
         enode* const sval = mk_value_slice(val, width(sv));
         (void)merge(sv, sval, v);
-        // TODO: go through all existing nodes, and evaluate v? (no, better do that externally)
     }
 
     std::ostream& slicing::display(std::ostream& out) const {
