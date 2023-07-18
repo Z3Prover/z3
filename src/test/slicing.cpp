@@ -114,17 +114,19 @@ namespace polysat {
                       << "    root(v" << b << ") = " << sl.var2slice(b)->get_root_id()
                       << "    root(v" << c << ") = " << sl.var2slice(c)->get_root_id()
                       << "\n";
-            sat::literal_vector reason;
-            sl.explain_equal(sl.var2slice(b), sl.var2slice(c), reason);
-            std::cout << "    Reason: " << reason << "\n\n";
+            sat::literal_vector reason_lits;
+            unsigned_vector reason_vars;
+            sl.explain_equal(sl.var2slice(b), sl.var2slice(c), reason_lits, reason_vars);
+            std::cout << "    Reason: " << reason_lits << " vars " << reason_vars << "\n";
 
             std::cout << "v" << b << " = "  << d << "? " << sl.is_equal(sl.var2slice(b), sl.pdd2slice(d))
                       << "    root(v" << b << ") = " << sl.var2slice(b)->get_root_id()
                       << "    root("  << d << ") = " << sl.pdd2slice(d)->get_root_id()
                       << "\n";
-            reason.reset();
-            sl.explain_equal(sl.var2slice(b), sl.pdd2slice(d), reason);
-            std::cout << "    Reason: " << reason << "\n\n";
+            reason_lits.reset();
+            reason_vars.reset();
+            sl.explain_equal(sl.var2slice(b), sl.pdd2slice(d), reason_lits, reason_vars);
+            std::cout << "    Reason: " << reason_lits << " vars " << reason_vars << "\n";
 
             VERIFY(sl.invariant());
         }
@@ -156,9 +158,10 @@ namespace polysat {
                       << "    slice(v" << d << ") = " << sl.var2slice(d)->get_id()
                       << "    slice(v" << e << ") = " << sl.var2slice(e)->get_id()
                       << "\n";
-            sat::literal_vector reason;
-            sl.explain_equal(sl.var2slice(d), sl.var2slice(e), reason);
-            std::cout << "    Reason: " << reason << "\n";
+            sat::literal_vector reason_lits;
+            unsigned_vector reason_vars;
+            sl.explain_equal(sl.var2slice(d), sl.var2slice(e), reason_lits, reason_vars);
+            std::cout << "    Reason: " << reason_lits << " vars " << reason_vars << "\n";
 
             sl.display_tree(std::cout);
             VERIFY(sl.invariant());

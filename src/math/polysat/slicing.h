@@ -28,7 +28,7 @@ Notation:
 #include "ast/bv_decl_plugin.h"
 #include "math/polysat/types.h"
 #include "math/polysat/constraint.h"
-#include <optional>
+#include <variant>
 
 namespace polysat {
 
@@ -38,9 +38,25 @@ namespace polysat {
 
         friend class test_slicing;
 
-        using dep_t = sat::literal;
-        using dep_vector = sat::literal_vector;
-        static constexpr sat::literal null_dep = sat::null_literal;
+        class dep_t {
+            std::variant<std::monostate, sat::literal, pvar> m_data;
+        public:
+            dep_t() { SASSERT(is_null()); }
+            dep_t(sat::literal l): m_data(l) { SASSERT(l != sat::null_literal); SASSERT_EQ(l, lit()); }
+            dep_t(pvar v): m_data(v) { SASSERT(v != null_var); SASSERT_EQ(v, var()); }
+            bool is_null() const { return std::holds_alternative<std::monostate>(m_data); }
+            bool is_lit()  const { return std::holds_alternative<sat::literal>(m_data); }
+            bool is_var()  const { return std::holds_alternative<pvar>(m_data); }
+            sat::literal lit() const { SASSERT(is_lit()); return *std::get_if<sat::literal>(&m_data); }
+            pvar var() const { SASSERT(is_var()); return *std::get_if<pvar>(&m_data); }
+            bool operator==(dep_t other) const { return m_data == other.m_data; }
+            bool operator!=(dep_t other) const { return !operator==(other); }
+            std::ostream& display(std::ostream& out);
+            unsigned to_uint() const;
+            static dep_t from_uint(unsigned x);
+        };
+
+        friend std::ostream& operator<<(std::ostream&, slicing::dep_t);
 
         using enode = euf::enode;
         using enode_vector = euf::enode_vector;
@@ -140,14 +156,14 @@ namespace polysat {
 
         void begin_explain();
         void end_explain();
-        void push_dep(void* dp, dep_vector& out_deps);
+        void push_dep(void* dp, sat::literal_vector& out_lits, unsigned_vector& out_vars);
 
         // Extract reason why slices x and y are in the same equivalence class
-        void explain_class(enode* x, enode* y, dep_vector& out_deps);
+        void explain_class(enode* x, enode* y, sat::literal_vector& out_lits, unsigned_vector& out_vars);
 
         // Extract reason why slices x and y are equal
         // (i.e., x and y have the same base, but are not necessarily in the same equivalence class)
-        void explain_equal(enode* x, enode* y, dep_vector& out_deps);
+        void explain_equal(enode* x, enode* y, sat::literal_vector& out_lits, unsigned_vector& out_vars);
 
         // Merge equivalence classes of two base slices.
         // Returns true if merge succeeded without conflict.
@@ -184,7 +200,8 @@ namespace polysat {
         mutable enode_vector m_tmp2;
         mutable enode_vector m_tmp3;
         ptr_vector<void>     m_tmp_justifications;
-        sat::literal_set     m_marked_deps;
+        sat::literal_set     m_marked_lits;
+        uint_set             m_marked_vars;
 
         // get a slice that is equivalent to the given pdd (may introduce new variable)
         enode* pdd2slice(pdd const& p);
@@ -222,6 +239,16 @@ namespace polysat {
         void add_value(pvar v, rational const& value);
         void add_constraint(signed_constraint c);
 
+        // update congruences, egraph
+        void propagate();
+
+        bool is_conflict() const { return m_egraph.inconsistent(); }
+
+        /** Extract reason for conflict */
+        void explain(sat::literal_vector& out_lits, unsigned_vector& out_vars);
+        /** Extract reason for x == y */
+        void explain_equal(pvar x, pvar y, sat::literal_vector& out_lits, unsigned_vector& out_vars);
+
         // TODO:
         // Query for a given variable v:
         // - set of variables that share at least one slice with v (need variable, offset/width relative to v)
@@ -232,4 +259,5 @@ namespace polysat {
 
     inline std::ostream& operator<<(std::ostream& out, slicing const& s) { return s.display(out); }
 
+    inline std::ostream& operator<<(std::ostream& out, slicing::dep_t d) { return d.display(out); }
 }

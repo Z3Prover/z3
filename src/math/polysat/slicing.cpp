@@ -74,8 +74,48 @@ Recycle the z3 egraph?
 #include "math/polysat/log.h"
 #include "util/tptr.h"
 
+namespace {
+
+    template <typename>
+    [[maybe_unused]]
+    inline constexpr bool always_false_v = false;
+
+}
 
 namespace polysat {
+
+    unsigned slicing::dep_t::to_uint() const {
+        return std::visit([](auto arg) -> unsigned {
+            using T = std::decay_t<decltype(arg)>;
+            if constexpr (std::is_same_v<T, std::monostate>)
+                return UINT_MAX;
+            else if constexpr (std::is_same_v<T, sat::literal>)
+                return (arg.to_uint() << 1);
+            else if constexpr (std::is_same_v<T, pvar>)
+                return (arg << 1) + 1;
+            else
+                static_assert(always_false_v<T>, "non-exhaustive visitor!");
+        }, m_data);
+    }
+
+    slicing::dep_t slicing::dep_t::from_uint(unsigned x) {
+        if (x == UINT_MAX)
+            return dep_t();
+        else if ((x & 1) == 0)
+            return dep_t(sat::to_literal(x >> 1));
+        else
+            return dep_t(static_cast<pvar>(x >> 1));
+    }
+
+    std::ostream& slicing::dep_t::display(std::ostream& out) {
+        if (is_null())
+            out << "null";
+        else if (is_var())
+            out << "v" << var();
+        else if (is_lit())
+            out << "lit(" << lit() << ")";
+        return out;
+    }
 
     void* slicing::encode_dep(dep_t d) {
         void* p = box<void>(d.to_uint());
@@ -84,7 +124,7 @@ namespace polysat {
     }
 
     slicing::dep_t slicing::decode_dep(void* p) {
-        return sat::to_literal(unbox<unsigned>(p));
+        return dep_t::from_uint(unbox<unsigned>(p));
     }
 
     void slicing::display_dep(std::ostream& out, void* d) {
@@ -290,36 +330,48 @@ namespace polysat {
     }
 
     void slicing::begin_explain() {
-        SASSERT(m_marked_deps.empty());
+        SASSERT(m_marked_lits.empty());
+        SASSERT(m_marked_vars.empty());
     }
 
     void slicing::end_explain() {
-        m_marked_deps.reset();
+        m_marked_lits.reset();
+        m_marked_vars.reset();
     }
 
-    void slicing::push_dep(void* dp, dep_vector& out_deps) {
+    void slicing::push_dep(void* dp, sat::literal_vector& out_lits, unsigned_vector& out_vars) {
         dep_t d = decode_dep(dp);
-        if (d == sat::null_literal)
-            return;
-        if (m_marked_deps.contains(d))
-            return;
-        m_marked_deps.insert(d);
-        out_deps.push_back(d);
+        if (d.is_var()) {
+            pvar v = d.var();
+            if (m_marked_vars.contains(v))
+                return;
+            m_marked_vars.insert(v);
+            out_vars.push_back(v);
+        }
+        else if (d.is_lit()) {
+            sat::literal lit = d.lit();
+            if (m_marked_lits.contains(lit))
+                return;
+            m_marked_lits.insert(lit);
+            out_lits.push_back(lit);
+        }
+        else {
+            SASSERT(d.is_null());
+        }
     }
 
-    void slicing::explain_class(enode* x, enode* y, dep_vector& out_deps) {
+    void slicing::explain_class(enode* x, enode* y, sat::literal_vector& out_lits, unsigned_vector& out_vars) {
         SASSERT_EQ(x->get_root(), y->get_root());
         SASSERT(m_tmp_justifications.empty());
         m_egraph.begin_explain();
         m_egraph.explain_eq(m_tmp_justifications, nullptr, x, y);
         m_egraph.end_explain();
         for (void* dp : m_tmp_justifications)
-            push_dep(dp, out_deps);
+            push_dep(dp, out_lits, out_vars);
         m_tmp_justifications.reset();
     }
 
-    void slicing::explain_equal(enode* x, enode* y, dep_vector& out_deps) {
-        begin_explain();
+    void slicing::explain_equal(enode* x, enode* y, sat::literal_vector& out_lits, unsigned_vector& out_vars) {
         SASSERT(is_equal(x, y));
         enode_vector& xs = m_tmp2;
         enode_vector& ys = m_tmp3;
@@ -337,7 +389,7 @@ namespace polysat {
                 enode* const rx = x->get_root();
                 enode* const ry = y->get_root();
                 if (rx == ry)
-                    explain_class(x, y, out_deps);
+                    explain_class(x, y, out_lits, out_vars);
                 else {
                     xs.push_back(sub_hi(rx));
                     xs.push_back(sub_lo(rx));
@@ -360,6 +412,11 @@ namespace polysat {
             }
         }
         SASSERT(ys.empty());
+    }
+
+    void slicing::explain_equal(pvar x, pvar y, sat::literal_vector& out_lits, unsigned_vector& out_vars) {
+        begin_explain();
+        explain_equal(var2slice(x), var2slice(y), out_lits, out_vars);
         end_explain();
     }
 
@@ -548,7 +605,7 @@ namespace polysat {
         }
         pvar v = m_solver.add_var(hi - lo + 1);
         // TODO: can we use 'compressed' slice trees again if we store the source slice here as dependency?
-        VERIFY(merge(slices, var2slice(v), null_dep));
+        VERIFY(merge(slices, var2slice(v), dep_t()));
         return v;
     }
 
@@ -598,7 +655,7 @@ namespace polysat {
         enode_vector tmp;
         tmp.push_back(pdd2slice(p));
         tmp.push_back(pdd2slice(q));
-        VERIFY(merge(tmp, var2slice(v), null_dep));
+        VERIFY(merge(tmp, var2slice(v), dep_t()));
         return m_solver.var(v);
     }
 
