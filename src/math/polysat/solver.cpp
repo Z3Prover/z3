@@ -318,7 +318,11 @@ namespace polysat {
                     m_slicing.add_constraint(c);
                 }
             }
+            else if (m_slicing.can_propagate()) {
+                m_slicing.propagate();
+            }
             else {
+                SASSERT(m_qhead < m_search.size());
                 // Third priority: activate/narrow
                 auto const& item = m_search[m_qhead++];
                 if (item.is_assignment()) {
@@ -331,6 +335,19 @@ namespace polysat {
                     signed_constraint c = lit2cnstr(item.lit());
                     activate_constraint(c);
                 }
+            }
+            if (m_slicing.is_conflict()) {
+                SASSERT(!is_conflict());
+                sat::literal_vector lits;
+                unsigned_vector vars;
+                m_slicing.explain(lits, vars);
+                clause_builder cb(*this, "slicing");
+                for (sat::literal lit : lits)
+                    cb.insert(~lit);
+                for (pvar v : vars)
+                    cb.insert_eval(~eq(var(v), get_value(v)));
+                add_clause(cb.build());
+                SASSERT(is_conflict());
             }
         }  // while (can_propagate_search())
         SASSERT(wlist_invariant());
