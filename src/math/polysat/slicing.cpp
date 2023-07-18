@@ -311,6 +311,67 @@ namespace polysat {
         // m_egraph.propagate();
     }
 
+    void slicing::mk_slice(enode* src, unsigned const hi, unsigned const lo, enode_vector& out, bool output_full_src, bool output_base) {
+        SASSERT(hi >= lo);
+        SASSERT(width(src) > hi);  // extracted range must be fully contained inside the src slice
+        auto output_slice = [this, output_base, &out](enode* s) {
+            if (output_base)
+                get_base(s, out);
+            else
+                out.push_back(s);
+        };
+        if (lo == 0 && width(src) - 1 == hi) {
+            output_slice(src);
+            return;
+        }
+        if (has_sub(src)) {
+            // src is split into [src.width-1, cut+1] and [cut, 0]
+            unsigned const cut = info(src).cut;
+            if (lo >= cut + 1) {
+                // target slice falls into upper subslice
+                mk_slice(sub_hi(src), hi - cut - 1, lo - cut - 1, out, output_full_src, output_base);
+                if (output_full_src)
+                    output_slice(sub_lo(src));
+                return;
+            }
+            else if (cut >= hi) {
+                // target slice falls into lower subslice
+                if (output_full_src)
+                    output_slice(sub_hi(src));
+                mk_slice(sub_lo(src), hi, lo, out, output_full_src, output_base);
+                return;
+            }
+            else {
+                SASSERT(hi > cut && cut >= lo);
+                // desired range spans over the cutpoint, so we get multiple slices in the result
+                mk_slice(sub_hi(src), hi - cut - 1, 0, out, output_full_src, output_base);
+                mk_slice(sub_lo(src), cut, lo, out, output_full_src, output_base);
+                return;
+            }
+        }
+        else {
+            // [src.width-1, 0] has no subdivision yet
+            if (width(src) - 1 > hi) {
+                split(src, hi);
+                SASSERT(!has_sub(sub_hi(src)));
+                if (output_full_src)
+                    out.push_back(sub_hi(src));
+                mk_slice(sub_lo(src), hi, lo, out, output_full_src, output_base);  // recursive call to take care of case lo > 0
+                return;
+            }
+            else {
+                SASSERT(lo > 0);
+                split(src, lo - 1);
+                out.push_back(sub_hi(src));
+                SASSERT(!has_sub(sub_lo(src)));
+                if (output_full_src)
+                    out.push_back(sub_lo(src));
+                return;
+            }
+        }
+        UNREACHABLE();
+    }
+
     slicing::enode* slicing::mk_value_slice(rational const& val, unsigned bit_width) {
         SASSERT(0 <= val && val < rational::power_of_two(bit_width));
         app* a = m_bv->mk_numeral(val, bit_width);
@@ -565,67 +626,6 @@ namespace polysat {
 
     void slicing::get_root_base(enode* src, enode_vector& out_base) const {
         get_base_core<true>(src, out_base);
-    }
-
-    void slicing::mk_slice(enode* src, unsigned const hi, unsigned const lo, enode_vector& out, bool output_full_src, bool output_base) {
-        SASSERT(hi >= lo);
-        SASSERT(width(src) > hi);  // extracted range must be fully contained inside the src slice
-        auto output_slice = [this, output_base, &out](enode* s) {
-            if (output_base)
-                get_base(s, out);
-            else
-                out.push_back(s);
-        };
-        if (lo == 0 && width(src) - 1 == hi) {
-            output_slice(src);
-            return;
-        }
-        if (has_sub(src)) {
-            // src is split into [src.width-1, cut+1] and [cut, 0]
-            unsigned const cut = info(src).cut;
-            if (lo >= cut + 1) {
-                // target slice falls into upper subslice
-                mk_slice(sub_hi(src), hi - cut - 1, lo - cut - 1, out, output_full_src, output_base);
-                if (output_full_src)
-                    output_slice(sub_lo(src));
-                return;
-            }
-            else if (cut >= hi) {
-                // target slice falls into lower subslice
-                if (output_full_src)
-                    output_slice(sub_hi(src));
-                mk_slice(sub_lo(src), hi, lo, out, output_full_src, output_base);
-                return;
-            }
-            else {
-                SASSERT(hi > cut && cut >= lo);
-                // desired range spans over the cutpoint, so we get multiple slices in the result
-                mk_slice(sub_hi(src), hi - cut - 1, 0, out, output_full_src, output_base);
-                mk_slice(sub_lo(src), cut, lo, out, output_full_src, output_base);
-                return;
-            }
-        }
-        else {
-            // [src.width-1, 0] has no subdivision yet
-            if (width(src) - 1 > hi) {
-                split(src, hi);
-                SASSERT(!has_sub(sub_hi(src)));
-                if (output_full_src)
-                    out.push_back(sub_hi(src));
-                mk_slice(sub_lo(src), hi, lo, out, output_full_src, output_base);  // recursive call to take care of case lo > 0
-                return;
-            }
-            else {
-                SASSERT(lo > 0);
-                split(src, lo - 1);
-                out.push_back(sub_hi(src));
-                SASSERT(!has_sub(sub_lo(src)));
-                if (output_full_src)
-                    out.push_back(sub_lo(src));
-                return;
-            }
-        }
-        UNREACHABLE();
     }
 
     pvar slicing::mk_slice_extract(enode* src, unsigned hi, unsigned lo) {
