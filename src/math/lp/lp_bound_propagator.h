@@ -12,15 +12,7 @@
 namespace lp {
 template <typename T>
 class lp_bound_propagator {
-
 	hashtable<unsigned, u_hash, u_eq> m_visited_rows;
-    hashtable<unsigned, u_hash, u_eq> m_visited_columns;
-    // x[m_root->column()] - m_pol[j].pol()*x[j] == const;
-    // to bind polarity and the vertex in the table
-    u_map<int> m_pol;
-    // if m_pos.contains(j) then  x[j] = x[m_root->column()] + o
-    uint_set m_pos;
-
     // these maps map a column index to the corresponding index in ibounds
     std::unordered_map<unsigned, unsigned> m_improved_lower_bounds;
     std::unordered_map<unsigned, unsigned> m_improved_upper_bounds;
@@ -28,7 +20,7 @@ class lp_bound_propagator {
     T& m_imp;
     vector<implied_bound> m_ibounds;
 
-    map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>> m_val2fixed_row;
+    map<impq, unsigned, obj_hash<impq>, default_eq<impq>> m_val2fixed_row;
 
     bool is_fixed_row(unsigned r, unsigned& x) {
         x = UINT_MAX;
@@ -71,7 +63,10 @@ class lp_bound_propagator {
     static bool is_set(unsigned j) { return j != UINT_MAX; }
 
     void reset_cheap_eq_eh() {
-    
+        for (auto e : m_row2index) {
+            dealloc(e.m_key);
+        }
+        m_row2index.reset();   
     }
 
     struct reset_cheap_eq {
@@ -160,8 +155,8 @@ class lp_bound_propagator {
         m_imp.consume(a, ci);
     }
 
-    const mpq& val(unsigned j) const {
-        return lp().get_column_value(j).x;
+    const impq& val(unsigned j) const {
+        return lp().get_column_value(j);
     }
 
     unsigned column(unsigned row, unsigned index) {
@@ -175,8 +170,6 @@ class lp_bound_propagator {
 
     void clear_for_eq() {
         m_visited_rows.reset();
-        m_visited_columns.reset();
-        
     }
 
     std::ostream& print_expl(std::ostream& out, const explanation& exp) const {
@@ -227,6 +220,19 @@ class lp_bound_propagator {
                 explain_fixed_column(c.var(), ex);
     }
 
+    unsigned explain_fixed_in_row_and_get_base(unsigned row, explanation& ex) const {
+        unsigned base = UINT_MAX;
+        TRACE("cheap_eq", tout << lp().get_row(row) << std::endl);
+        for (const auto& c : lp().get_row(row)) {
+            if (lp().is_fixed(c.var())) {
+                explain_fixed_column(c.var(), ex);
+            } else if (lp().is_base(c.var())) {
+                base = c.var();
+            }
+        }
+        return base;
+    }
+
     void explain_fixed_column(unsigned j, explanation& ex) const {
         SASSERT(column_is_fixed(j));
         constraint_index lc, uc;
@@ -235,7 +241,6 @@ class lp_bound_propagator {
         ex.push_back(uc);
     }
 
-    
     // If the row has exactly two non fixed columns,
     // and one of those is base, fill the base and nbase and return true.
     // Otherwise return false.
@@ -258,31 +263,23 @@ class lp_bound_propagator {
         return n_of_nfixed == 2 && *base != nullptr;
     }
 
-    // the row is of the form x + a*y + sum of fixed = 0, where x and y are     non fixed
+    // the row is of the form x + a*y + sum of fixed = 0, where x and y are non fixed,
+    // x is a base, and y is not a base variable. The pair (value of x,a)
+    // is the key of the m_row2index. 
     struct row {
-        unsigned m_row_index;
-        const row_cell<mpq>& m_base;
-        const row_cell<mpq>& m_nbase;
-        row(unsigned row_index, const row_cell<mpq>& base_cell, const row_cell<mpq>& non_base_cell) :
-            m_row_index(row_index), m_base(base_cell), m_nbase(non_base_cell) {}
-    };
-    
-    void get_j_rows(unsigned j, vector<row> & rows_of_j) {
-        for (const column_cell& c : lp().get_column(j)) {
-            if(!check_insert(m_visited_rows, c.var())) {
-                continue;
-            }
-            const row_cell<mpq> * base_cell, *non_base_cell;
-            if (get_two_nfixed(c.var(), &base_cell, &non_base_cell)) {
-                if (non_base_cell->var() != j) {
-                    continue;
-                }
-                this->m_visited_rows.insert(c.var());
-                rows_of_j.push_back(row(c.var(), *base_cell, *non_base_cell));
-            }            
+        const impq* m_base_val;
+        const mpq* m_nbase_coeff;
+        row(const impq* base_val, const mpq* nbase_coeff) : m_base_val(base_val), m_nbase_coeff(nbase_coeff) {}
+        row() {}
+        row(const row& r) : m_base_val(r.m_base_val), m_nbase_coeff(r.m_nbase_coeff) {}
+        unsigned hash() const { return combine_hash(m_base_val->hash(), m_nbase_coeff->hash()); }
+        bool operator==(const row& r) const {
+            return *(r.m_base_val) == *m_base_val && *(r.m_nbase_coeff) == *m_nbase_coeff;
         }
-    }
+    };
 
+    map<row*, unsigned, obj_ptr_hash<row>, deref_eq<row>> m_row2index;
+    
     void cheap_eq_tree(unsigned row_index) {
         reset_cheap_eq _reset(*this);
         TRACE("cheap_eq_det", tout << "row_index = " << row_index << "\n";);
@@ -291,44 +288,66 @@ class lp_bound_propagator {
         const row_cell<mpq>*base_cell, *non_base_cell;
         if (!get_two_nfixed(row_index, &base_cell, &non_base_cell))
             return;
-
-        vector<row> rows_of_j;
-        rows_of_j.push_back(row(row_index, *base_cell, *non_base_cell));
-        m_visited_rows.insert(row_index);
-        get_j_rows(non_base_cell->var(), rows_of_j);
-        if (rows_of_j.size() <= 1) {
-            return;
-        }
-        vector<unsigned> index;
-        for (unsigned i = 0; i < rows_of_j.size(); i++) {
-            index.push_back(i);
-        }
-        std::sort(index.begin(), index.end(), [&](unsigned i, unsigned j) {
-            return rows_of_j[i].m_nbase.coeff() < rows_of_j[j].m_nbase.coeff();
-        });
-        // the map of values of the base variable of the group with the same coefficient
-        map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>> val_to_index;
-        const row* group_row;
-        
-        for (unsigned i = 0; i < index.size(); i++) {
-            const row& r = rows_of_j[index[i]];
-            TRACE("eq",  print_row(tout, r.m_row_index); tout << "r.m_base.var() = " << r.m_base.var() <<"\n";);
-            if (i == 0 || r.m_nbase.coeff() != rows_of_j[index[i - 1]].m_nbase.coeff()) {
-                val_to_index.reset();
-                val_to_index.insert(val(r.m_base.var()), index[i]);
-                group_row = &rows_of_j[index[i]];
+        unsigned j = non_base_cell->var();
+        for (const column_cell& c : lp().get_column(j)) {
+            unsigned i = c.var();  // the running index of the row
+            m_visited_rows.insert(i);
+            if (!get_two_nfixed(i, &base_cell, &non_base_cell))
+                continue;
+            row r(&val(base_cell->var()), &(non_base_cell->coeff()));
+            const auto* entry = m_row2index.find_core(&r);
+            if (entry == nullptr) {
+                row* nr = new row(r);
+                m_row2index.insert(nr, i);
             } else {
-                unsigned prev_j;
-                if (val_to_index.find(val(r.m_base.var()), prev_j)) {
-                    explanation ex;
-                    explain_fixed_in_row(group_row->m_row_index, ex);
-                    explain_fixed_in_row(r.m_row_index, ex);
-                    TRACE("eq", print_row(tout, group_row->m_row_index); print_row(tout, r.m_row_index); 
-                    tout << group_row->m_base.var() << " == " << r.m_base.var() << " = " << val(r.m_base.var()) << "\n");
-                    add_eq_on_columns(ex, group_row->m_base.var(), r.m_base.var(), false);
-                }
+                explanation ex;
+                unsigned found_i = entry->get_data().m_value;
+                unsigned j0 = explain_fixed_in_row_and_get_base(found_i, ex);
+                explain_fixed_in_row(i, ex);
+                TRACE("eq", { print_row(tout, i); print_row(tout, found_i) << "\n";
+                              lp().print_column_info(j0, tout);
+                              lp().print_column_info(base_cell->var(), tout) << "\n"; 
+                            });
+                add_eq_on_columns(ex, j0, base_cell->var(), false);
             }
         }
+
+        // rows_of_j.push_back(row(row_index, *base_cell, *non_base_cell));
+        // m_visited_rows.insert(row_index);
+        // get_j_rows(non_base_cell->var(), rows_of_j);
+        // if (rows_of_j.size() <= 1) {
+        //     return;
+        // }
+        // vector<unsigned> index;
+        // for (unsigned i = 0; i < rows_of_j.size(); i++) {
+        //     index.push_back(i);
+        // }
+        // std::sort(index.begin(), index.end(), [&](unsigned i, unsigned j) {
+        //     return rows_of_j[i].m_nbase.coeff() < rows_of_j[j].m_nbase.coeff();
+        // });
+        // // the map of values of the base variable of the group with the same coefficient
+        // map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>> val_to_index;
+        // const row* group_row;
+        
+        // for (unsigned i = 0; i < index.size(); i++) {
+        //     const row& r = rows_of_j[index[i]];
+        //     TRACE("eq",  print_row(tout, r.m_row_index); tout << "r.m_base.var() = " << r.m_base.var() <<"\n";);
+        //     if (i == 0 || r.m_nbase.coeff() != rows_of_j[index[i - 1]].m_nbase.coeff()) {
+        //         val_to_index.reset();
+        //         val_to_index.insert(val(r.m_base.var()), index[i]);
+        //         group_row = &rows_of_j[index[i]];
+        //     } else {
+        //         unsigned prev_j;
+        //         if (val_to_index.find(val(r.m_base.var()), prev_j)) {
+        //             explanation ex;
+        //             explain_fixed_in_row(group_row->m_row_index, ex);
+        //             explain_fixed_in_row(r.m_row_index, ex);
+        //             TRACE("eq", print_row(tout, group_row->m_row_index); print_row(tout, r.m_row_index); 
+        //             tout << group_row->m_base.var() << " == " << r.m_base.var() << " = " << val(r.m_base.var()) << "\n");
+        //             add_eq_on_columns(ex, group_row->m_base.var(), r.m_base.var(), false);
+        //         }
+        //     }
+        // }
     }
 
     std::ostream& print_row(std::ostream& out, unsigned row_index) const {
