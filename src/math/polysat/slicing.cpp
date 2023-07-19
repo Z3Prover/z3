@@ -28,7 +28,6 @@ Example:
 
 
 TODO:
-- track disequalities
 - track fixed bits along with enodes
 - notify solver about equalities discovered by congruence
 - implement query functions
@@ -107,6 +106,27 @@ namespace polysat {
         reg_decl_plugins(m_ast);
         m_bv = alloc(bv_util, m_ast);
         m_egraph.set_display_justification(display_dep);
+        std::function<void(enode* lit, enode* ante)> propagate_negation = [&](enode* lit, enode* ante) {
+            // LOG("lit: " << lit->get_id() << " value=" << lit->value());
+            // if (ante)
+            //     LOG("ante: " << ante->get_id() << " value=" << ante->value());
+            // else
+            //     LOG("ante: <null>");
+            // LOG(m_egraph);
+            // ante may be set when symmetric equality is added by congruence
+            if (ante)
+                return;
+            // on_propagate may be called before set_value
+            if (lit->value() == l_undef)
+                return;
+            SASSERT(lit->is_equality());
+            SASSERT_EQ(lit->value(), l_false);
+            SASSERT(lit->get_lit_justification().is_external());
+            // LOG("lit: id=" << lit->get_id() << " value=" << lit->value() << " dep=" << decode_dep(lit->get_lit_justification().ext<void>()));
+            m_disequality_conflict = lit;
+        };
+        m_egraph.set_on_propagate(propagate_negation);
+
     }
 
     slicing::slice_info& slicing::info(euf::enode* n) {
@@ -114,6 +134,7 @@ namespace polysat {
     }
 
     slicing::slice_info const& slicing::info(euf::enode* n) const {
+        SASSERT(!n->is_equality());
         slice_info const& i = m_info[n->get_id()];
         return i.is_slice() ? i : info(i.slice);
     }
@@ -131,6 +152,7 @@ namespace polysat {
     }
 
     void slicing::push_scope() {
+        SASSERT(!is_conflict());
         if (can_propagate())
             propagate();
         m_scopes.push_back(m_trail.size());
@@ -156,6 +178,7 @@ namespace polysat {
         }
         m_egraph.pop(num_scopes);
         m_needs_congruence.reset();
+        m_disequality_conflict = nullptr;
     }
 
     void slicing::add_var(unsigned bit_width) {
@@ -166,6 +189,21 @@ namespace polysat {
 
     void slicing::undo_add_var() {
         m_var2slice.pop_back();
+    }
+
+    slicing::enode* slicing::find_or_alloc_disequality(enode* x, enode* y, sat::literal lit) {
+        expr_ref eq(m_ast.mk_eq(x->get_expr(), y->get_expr()), m_ast);
+        enode* eqn = m_egraph.find(eq);
+        if (eqn)
+            return eqn;
+        auto args = {x, y};
+        eqn = m_egraph.mk(eq, 0, args.size(), args.begin());
+        auto j = euf::justification::external(encode_dep(lit));
+        LOG("calling set_value");
+        m_egraph.set_value(eqn, l_false, j);
+        SASSERT(eqn->is_equality());
+        SASSERT_EQ(eqn->value(), l_false);
+        return eqn;
     }
 
     slicing::enode* slicing::alloc_enode(expr* e, unsigned num_args, enode* const* args, unsigned width, pvar var) {
@@ -460,7 +498,20 @@ namespace polysat {
         begin_explain();
         SASSERT(m_tmp_justifications.empty());
         m_egraph.begin_explain();
-        m_egraph.explain(m_tmp_justifications, nullptr);
+        if (m_disequality_conflict) {
+            enode* eqn = m_disequality_conflict;
+            SASSERT(eqn->is_equality());
+            SASSERT_EQ(eqn->value(), l_false);
+            SASSERT(eqn->get_lit_justification().is_external());
+            SASSERT(m_ast.is_eq(eqn->get_expr()));
+            SASSERT_EQ(eqn->get_arg(0)->get_root(), eqn->get_arg(1)->get_root());
+            m_egraph.explain_eq(m_tmp_justifications, nullptr, eqn->get_arg(0), eqn->get_arg(1));
+            push_dep(eqn->get_lit_justification().ext<void>(), out_lits, out_vars);
+        }
+        else {
+            SASSERT(m_egraph.inconsistent());
+            m_egraph.explain(m_tmp_justifications, nullptr);
+        }
         m_egraph.end_explain();
         for (void* dp : m_tmp_justifications)
             push_dep(dp, out_lits, out_vars);
@@ -485,7 +536,7 @@ namespace polysat {
         SASSERT(!has_sub(s1));
         SASSERT(!has_sub(s2));
         m_egraph.merge(s1, s2, encode_dep(dep));
-        return !m_egraph.inconsistent();
+        return !is_conflict();
     }
 
     bool slicing::merge(enode_vector& xs, enode_vector& ys, dep_t dep) {
@@ -662,6 +713,7 @@ namespace polysat {
     }
 
     void slicing::add_constraint(signed_constraint c) {
+        SASSERT(!is_conflict());
         if (!c->is_eq())
             return;
         dep_t const d = c.blit();
@@ -672,9 +724,10 @@ namespace polysat {
                 continue;
             pdd body = a.is_one() ? (m.mk_var(x) - p) : (m.mk_var(x) + p);
             // c is either x = body or x != body, depending on polarity
-            LOG("Equation from constraint " << c << ": v" << x << " = " << body);
+            LOG("Equation from lit(" << c.blit() << ")  " << c << ":  v" << x << " = " << body);
             enode* const sx = var2slice(x);
-            if (body.is_val()) {
+            if (c.is_positive() && body.is_val()) {
+                LOG("    simple assignment");
                 // Simple assignment x = value
                 enode* const sval = mk_value_slice(body.val(), body.power_of_2());
                 if (!merge(sx, sval, d)) {
@@ -685,7 +738,10 @@ namespace polysat {
             }
             pvar const y = m_solver.m_names.get_name(body);
             if (y == null_var) {
+                LOG("    skip for now (unnamed body)");
                 // TODO: register name trigger (if a name for value 'body' is created later, then merge x=y at that time)
+                //      could also count how often 'body' was registered and introduce name when more than once.
+                //      maybe better: register x as an existing name for 'body'? question is how to track the dependency on c.
                 continue;
             }
             enode* const sy = var2slice(y);
@@ -697,17 +753,17 @@ namespace polysat {
             }
             else {
                 SASSERT(c.is_negative());
+                enode* n = find_or_alloc_disequality(sy, sx, c.blit());
                 if (is_equal(sx, sy)) {
-                    // TODO: conflict
-                    NOT_IMPLEMENTED_YET();
-                    SASSERT(is_conflict());
-                    return;
+                    SASSERT_EQ(m_disequality_conflict, n);  // already discovered by egraph in simple examples... TODO: probably not when we need the slice congruences
+                    // m_disequality_conflict = n;
                 }
             }
         }
     }
 
     void slicing::add_value(pvar v, rational const& val) {
+        SASSERT(!is_conflict());
         enode* const sv = var2slice(v);
         enode* const sval = mk_value_slice(val, width(sv));
         (void)merge(sv, sval, v);
@@ -766,6 +822,9 @@ namespace polysat {
         VERIFY(m_tmp2.empty());
         VERIFY(m_tmp3.empty());
         for (enode* s : m_egraph.nodes()) {
+            // we use equality enodes only to track disequalities
+            if (s->is_equality())
+                continue;
             // if the slice is equivalent to a variable, then the variable's slice is in the equivalence class
             pvar const v = slice2var(s);
             if (v != null_var) {
@@ -779,6 +838,8 @@ namespace polysat {
                     VERIFY(has_value(sub_lo(s)));
                 }
             }
+            // we don't need to store the width separately anymore
+            VERIFY_EQ(width(s), m_bv->get_bv_size(s->get_expr()));
             // properties below only matter for representatives
             if (!s->is_root())
                 continue;

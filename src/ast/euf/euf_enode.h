@@ -213,6 +213,7 @@ namespace euf {
 
         enode* get_target() const { return m_target; }
         justification get_justification() const { return m_justification; }
+        justification get_lit_justification() const { return m_lit_justification; }
 
         bool has_lbl_hash() const { return m_lbl_hash >= 0; }
         unsigned char get_lbl_hash() const { 

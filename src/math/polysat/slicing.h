@@ -63,10 +63,11 @@ namespace polysat {
 
         static constexpr unsigned null_cut = std::numeric_limits<unsigned>::max();
 
-        // Kinds of slices:
-        // - proper (from variables)
+        // We use the following kinds of enodes:
+        // - proper slices (of variables)
         // - values
         // - virtual concat(...) expressions
+        // - equalities between enodes (to track disequalities; currently not represented in slice_info)
         struct slice_info {
             unsigned    width   = 0;            // number of bits in the slice
             // Cut point: if not null_cut, the slice s has been subdivided into s[|s|-1:cut+1] and s[cut:0].
@@ -95,6 +96,7 @@ namespace polysat {
         slice_info_vector       m_info;         // indexed by enode::get_id()
         enode_vector            m_var2slice;    // pvar -> slice
         tracked_uint_set        m_needs_congruence;     // set of pvars that need updated concat(...) expressions
+        enode*                  m_disequality_conflict = nullptr;
 
         // Add an equation v = concat(s1, ..., sn)
         // for each variable v with base slices s1, ..., sn
@@ -113,6 +115,7 @@ namespace polysat {
         enode* alloc_enode(expr* e, unsigned num_args, enode* const* args, unsigned width, pvar var);
         enode* find_or_alloc_enode(expr* e, unsigned num_args, enode* const* args, unsigned width, pvar var);
         enode* alloc_slice(unsigned width, pvar var = null_var);
+        enode* find_or_alloc_disequality(enode* x, enode* y, sat::literal lit);
 
         enode* var2slice(pvar v) const { return m_var2slice[v]; }
         pvar slice2var(enode* s) const { return info(s).var; }
@@ -245,7 +248,7 @@ namespace polysat {
         // update congruences, egraph
         void propagate();
 
-        bool is_conflict() const { return m_egraph.inconsistent(); }
+        bool is_conflict() const { return m_disequality_conflict || m_egraph.inconsistent(); }
 
         /** Extract reason for conflict */
         void explain(sat::literal_vector& out_lits, unsigned_vector& out_vars);

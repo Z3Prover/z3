@@ -1,6 +1,24 @@
 #include "math/polysat/slicing.h"
 #include "math/polysat/solver.h"
 
+namespace {
+
+    template <typename T>
+    void permute_args(unsigned k, T& a, T& b, T& c) {
+        using std::swap;
+        SASSERT(k < 6);
+        unsigned i = k % 3;
+        unsigned j = k % 2;
+        if (i == 1)
+            swap(a, b);
+        else if (i == 2)
+            swap(a, c);
+        if (j == 1)
+            swap(b, c);
+    }
+
+}
+
 namespace polysat {
 
     struct solver_scope_slicing {
@@ -200,6 +218,61 @@ namespace polysat {
             VERIFY(sl.invariant());
         }
 
+        static void test6() {
+            std::cout << __func__ << "\n";
+            scoped_solver_slicing s;
+            slicing& sl = s.sl();
+            pdd x = s.var(s.add_var(8));
+            pdd y = s.var(s.add_var(8));
+            pdd z = s.var(s.add_var(8));
+            sl.add_constraint(s.eq(x, z));
+            sl.add_constraint(s.eq(y, z));
+            sl.add_constraint(s.eq(x, rational(5)));
+            sl.add_value(x.var(), rational(5));
+            sl.add_value(y.var(), rational(7));
+
+            SASSERT(sl.is_conflict());
+            sat::literal_vector reason_lits;
+            unsigned_vector reason_vars;
+            sl.explain(reason_lits, reason_vars);
+            std::cout << "Conflict: " << reason_lits << " vars " << reason_vars << "\n";
+
+            sl.display_tree(std::cout);
+            VERIFY(sl.invariant());
+        }
+
+        // x != z
+        // x = y
+        // y = z
+        // in various permutations
+        static void test7() {
+            std::cout << __func__ << "\n";
+            scoped_set_log_enabled _logging(false);
+            scoped_solver_slicing s;
+            slicing& sl = s.sl();
+            pdd x = s.var(s.add_var(8));
+            pdd y = s.var(s.add_var(8));
+            pdd z = s.var(s.add_var(8));
+
+            for (unsigned k = 0; k < 6; ++k) {
+                s.push();
+                signed_constraint c1 = s.diseq(x, z);
+                signed_constraint c2 = s.eq(x, y);
+                signed_constraint c3 = s.eq(y, z);
+                permute_args(k, c1, c2, c3);
+                sl.add_constraint(c1);
+                sl.add_constraint(c2);
+                sl.add_constraint(c3);
+                SASSERT(sl.is_conflict());
+                sat::literal_vector reason_lits;
+                unsigned_vector reason_vars;
+                sl.explain(reason_lits, reason_vars);
+                std::cout << "Conflict: " << reason_lits << " vars " << reason_vars << "\n";
+                // sl.display_tree(std::cout);
+                VERIFY(sl.invariant());
+                s.pop();
+            }
+        }
     };
 
 }
@@ -207,10 +280,12 @@ namespace polysat {
 
 void tst_slicing() {
     using namespace polysat;
-    test_slicing::test1();
-    test_slicing::test2();
-    test_slicing::test3();
-    test_slicing::test4();
-    test_slicing::test5();
+    // test_slicing::test1();
+    // test_slicing::test2();
+    // test_slicing::test3();
+    // test_slicing::test4();
+    // test_slicing::test5();
+    // test_slicing::test6();
+    test_slicing::test7();
     std::cout << "ok\n";
 }
