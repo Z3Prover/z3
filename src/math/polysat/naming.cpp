@@ -43,6 +43,8 @@ namespace polysat {
     }
 
     pvar name_manager::get_name(pdd const& t) const {
+        if (t.is_var())
+            return t.var();
         name_key key{t};
         auto it = m_names.find_iterator(key);
         if (it == m_names.end())
@@ -53,6 +55,7 @@ namespace polysat {
     pvar name_manager::mk_name(pdd const& t) {
         if (t.is_var())
             return t.var();
+        SASSERT(!t.is_val());  // we probably don't want names for constants
         pvar v = get_name(t);
         if (v != null_var)
             return v;
