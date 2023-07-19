@@ -191,11 +191,11 @@ namespace euf {
         uint64_t               m_congruence_timestamp = 0;
 
         std::vector<std::function<void(enode*,enode*)>> m_on_merge;
-        std::function<void(enode*, enode*)>    m_on_propagate_literal;
-        std::function<void(enode*)>            m_on_make;
-        std::function<void(expr*,expr*,expr*)> m_used_eq;
-        std::function<void(app*,app*)>         m_used_cc;  
-        std::function<void(std::ostream&, void*)>   m_display_justification;
+        std::function<void(enode*,enode*)>              m_on_propagate_literal;
+        std::function<void(enode*)>                     m_on_make;
+        std::function<void(expr*,expr*,expr*)>          m_used_eq;
+        std::function<void(app*,app*)>                  m_used_cc;
+        std::function<void(std::ostream&,void*)>        m_display_justification;
 
         void push_eq(enode* r1, enode* n1, unsigned r2_num_parents) {
             m_updates.push_back(update_record(r1, n1, r2_num_parents));
@@ -301,11 +301,11 @@ namespace euf {
         void set_relevant(enode* n);
         void set_default_relevant(bool b) { m_default_relevant = b; }
 
-        void set_on_merge(std::function<void(enode* root,enode* other)>& on_merge) { m_on_merge.push_back(on_merge); }
-        void set_on_propagate(std::function<void(enode* lit,enode* ante)>& on_propagate) { m_on_propagate_literal = on_propagate; }
-        void set_on_make(std::function<void(enode* n)>& on_make) { m_on_make = on_make; }
-        void set_used_eq(std::function<void(expr*,expr*,expr*)>& used_eq) { m_used_eq = used_eq; }
-        void set_used_cc(std::function<void(app*,app*)>& used_cc) { m_used_cc = used_cc; }
+        void set_on_merge(std::function<void(enode* root,enode* other)> on_merge) { m_on_merge.push_back(std::move(on_merge)); }
+        void set_on_propagate(std::function<void(enode* lit,enode* ante)> on_propagate) { m_on_propagate_literal = std::move(on_propagate); }
+        void set_on_make(std::function<void(enode* n)> on_make) { m_on_make = std::move(on_make); }
+        void set_used_eq(std::function<void(expr*,expr*,expr*)> used_eq) { m_used_eq = std::move(used_eq); }
+        void set_used_cc(std::function<void(app*,app*)> used_cc) { m_used_cc = std::move(used_cc); }
         void set_display_justification(std::function<void(std::ostream&, void*)> d) { m_display_justification = std::move(d); }
 
         void begin_explain();

@@ -106,27 +106,7 @@ namespace polysat {
         reg_decl_plugins(m_ast);
         m_bv = alloc(bv_util, m_ast);
         m_egraph.set_display_justification(display_dep);
-        std::function<void(enode* lit, enode* ante)> propagate_negation = [&](enode* lit, enode* ante) {
-            // LOG("lit: " << lit->get_id() << " value=" << lit->value());
-            // if (ante)
-            //     LOG("ante: " << ante->get_id() << " value=" << ante->value());
-            // else
-            //     LOG("ante: <null>");
-            // LOG(m_egraph);
-            // ante may be set when symmetric equality is added by congruence
-            if (ante)
-                return;
-            // on_propagate may be called before set_value
-            if (lit->value() == l_undef)
-                return;
-            SASSERT(lit->is_equality());
-            SASSERT_EQ(lit->value(), l_false);
-            SASSERT(lit->get_lit_justification().is_external());
-            // LOG("lit: id=" << lit->get_id() << " value=" << lit->value() << " dep=" << decode_dep(lit->get_lit_justification().ext<void>()));
-            m_disequality_conflict = lit;
-        };
-        m_egraph.set_on_propagate(propagate_negation);
-
+        m_egraph.set_on_propagate([&](enode* lit, enode* ante) { egraph_on_propagate(lit, ante); });
     }
 
     slicing::slice_info& slicing::info(euf::enode* n) {
@@ -518,6 +498,19 @@ namespace polysat {
             push_dep(dp, out_lits, out_vars);
         m_tmp_justifications.reset();
         end_explain();
+    }
+
+    void slicing::egraph_on_propagate(enode* lit, enode* ante) {
+        // ante may be set when symmetric equality is added by congruence
+        if (ante)
+            return;
+        // on_propagate may be called before set_value
+        if (lit->value() == l_undef)
+            return;
+        SASSERT(lit->is_equality());
+        SASSERT_EQ(lit->value(), l_false);
+        SASSERT(lit->get_lit_justification().is_external());
+        m_disequality_conflict = lit;
     }
 
     bool slicing::can_propagate() const {

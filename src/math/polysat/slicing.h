@@ -168,6 +168,8 @@ namespace polysat {
         // (i.e., x and y have the same base, but are not necessarily in the same equivalence class)
         void explain_equal(enode* x, enode* y, sat::literal_vector& out_lits, unsigned_vector& out_vars);
 
+        void egraph_on_propagate(enode* lit, enode* ante);
+
         // Merge equivalence classes of two base slices.
         // Returns true if merge succeeded without conflict.
         [[nodiscard]] bool merge_base(enode* s1, enode* s2, dep_t dep);
