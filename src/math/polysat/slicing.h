@@ -69,7 +69,6 @@ namespace polysat {
         // - virtual concat(...) expressions
         // - equalities between enodes (to track disequalities; currently not represented in slice_info)
         struct slice_info {
-            unsigned    width   = 0;            // number of bits in the slice
             // Cut point: if not null_cut, the slice s has been subdivided into s[|s|-1:cut+1] and s[cut:0].
             // The cut point is relative to the parent slice (rather than a root variable, which might not be unique)
             unsigned    cut     = null_cut;     // cut point, or null_cut if no subslices
@@ -112,15 +111,15 @@ namespace polysat {
         slice_info& info(euf::enode* n);
         slice_info const& info(euf::enode* n) const;
 
-        enode* alloc_enode(expr* e, unsigned num_args, enode* const* args, unsigned width, pvar var);
-        enode* find_or_alloc_enode(expr* e, unsigned num_args, enode* const* args, unsigned width, pvar var);
+        enode* alloc_enode(expr* e, unsigned num_args, enode* const* args, pvar var);
+        enode* find_or_alloc_enode(expr* e, unsigned num_args, enode* const* args, pvar var);
         enode* alloc_slice(unsigned width, pvar var = null_var);
         enode* find_or_alloc_disequality(enode* x, enode* y, sat::literal lit);
 
         enode* var2slice(pvar v) const { return m_var2slice[v]; }
         pvar slice2var(enode* s) const { return info(s).var; }
 
-        unsigned width(enode* s) const { return info(s).width; }
+        unsigned width(enode* s) const;
 
         enode* parent(enode* s) const { return info(s).parent; }
 

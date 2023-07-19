@@ -119,6 +119,11 @@ namespace polysat {
         return i.is_slice() ? i : info(i.slice);
     }
 
+    unsigned slicing::width(enode* s) const {
+        SASSERT(!s->is_equality());
+        return m_bv->get_bv_size(s->get_expr());
+    }
+
     func_decl* slicing::mk_concat_decl(ptr_vector<expr> const& args) {
         SASSERT(args.size() >= 2);
         ptr_vector<sort> domain;
@@ -186,31 +191,29 @@ namespace polysat {
         return eqn;
     }
 
-    slicing::enode* slicing::alloc_enode(expr* e, unsigned num_args, enode* const* args, unsigned width, pvar var) {
-        SASSERT(width > 0);
+    slicing::enode* slicing::alloc_enode(expr* e, unsigned num_args, enode* const* args, pvar var) {
         SASSERT(!m_egraph.find(e));
         euf::enode* n = m_egraph.mk(e, 0, num_args, args);  // NOTE: the egraph keeps a strong reference to 'e'
         m_info.reserve(n->get_id() + 1);
         slice_info& i = info(n);
         i.reset();
-        i.width = width;
         i.var = var;
         return n;
     }
 
-    slicing::enode* slicing::find_or_alloc_enode(expr* e, unsigned num_args, enode* const* args, unsigned width, pvar var) {
+    slicing::enode* slicing::find_or_alloc_enode(expr* e, unsigned num_args, enode* const* args, pvar var) {
         enode* n = m_egraph.find(e);
         if (n) {
-            SASSERT_EQ(info(n).width, width);
             SASSERT_EQ(info(n).var, var);
             return n;
         }
-        return alloc_enode(e, num_args, args, width, var);
+        return alloc_enode(e, num_args, args, var);
     }
 
     slicing::enode* slicing::alloc_slice(unsigned width, pvar var) {
+        SASSERT(width > 0);
         app* a = m_ast.mk_fresh_const("s", m_bv->mk_sort(width), false);
-        return alloc_enode(a, 0, nullptr, width, var);
+        return alloc_enode(a, 0, nullptr, var);
     }
 
     void slicing::add_congruence(pvar v) {
@@ -223,7 +226,7 @@ namespace polysat {
         for (enode* n : base)
             args.push_back(n->get_expr());
         app* a = m_ast.mk_app(mk_concat_decl(args), args);
-        enode* concat = find_or_alloc_enode(a, base.size(), base.data(), width(sv), null_var);
+        enode* concat = find_or_alloc_enode(a, base.size(), base.data(), null_var);
         info(concat).slice = sv;
         base.clear();
         m_egraph.merge(sv, concat, encode_dep(dep_t()));
@@ -365,7 +368,7 @@ namespace polysat {
     slicing::enode* slicing::mk_value_slice(rational const& val, unsigned bit_width) {
         SASSERT(0 <= val && val < rational::power_of_two(bit_width));
         app* a = m_bv->mk_numeral(val, bit_width);
-        enode* s = find_or_alloc_enode(a, 0, nullptr, bit_width, null_var);
+        enode* s = find_or_alloc_enode(a, 0, nullptr, null_var);
         s->mark_interpreted();
         SASSERT(s->interpreted());
         SASSERT_EQ(get_value(s), val);
@@ -832,8 +835,6 @@ namespace polysat {
                     VERIFY(has_value(sub_lo(s)));
                 }
             }
-            // we don't need to store the width separately anymore
-            VERIFY_EQ(width(s), m_bv->get_bv_size(s->get_expr()));
             // properties below only matter for representatives
             if (!s->is_root())
                 continue;
