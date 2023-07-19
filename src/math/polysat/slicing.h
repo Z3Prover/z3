@@ -90,9 +90,6 @@ namespace polysat {
 
         ast_manager             m_ast;
         scoped_ptr<bv_util>     m_bv;
-        sort_ref                m_slice_sort;
-        func_decl_ref_vector    m_embed_decls;
-        func_decl_ref_vector    m_concat_decls;
 
         euf::egraph             m_egraph;
         slice_info_vector       m_info;         // indexed by enode::get_id()
@@ -104,8 +101,7 @@ namespace polysat {
         void update_var_congruences();
         void add_congruence(pvar v);
 
-        func_decl* get_embed_decl(unsigned bit_width);
-        func_decl* get_concat_decl(unsigned arity);
+        func_decl* mk_concat_decl(ptr_vector<expr> const& args);
 
         static void* encode_dep(dep_t d);
         static dep_t decode_dep(void* d);
