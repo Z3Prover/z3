@@ -426,9 +426,10 @@ def mk_dotnet(dotnet):
     dotnet.write('    {\n\n')
 
     for name, ret, sig in Closures:
+        sig = sig.replace("unsigned const*","uint[]")
         sig = sig.replace("void*","voidp").replace("unsigned","uint")
         sig = sig.replace("Z3_ast*","ref IntPtr").replace("uint*","ref uint").replace("Z3_lbool*","ref int")
-        ret = ret.replace("void*","voidp").replace("unsigned","uint")
+        ret = ret.replace("void*","voidp").replace("unsigned","uint")        
         if "*" in sig or "*" in ret:
             continue
         dotnet.write('        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]\n')
