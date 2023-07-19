@@ -244,6 +244,7 @@ namespace polysat {
             args.push_back(n->get_expr());
         app* a = m_ast.mk_app(mk_concat_decl(args), args);
         enode* concat = find_or_alloc_enode(a, base.size(), base.data(), width(sv), null_var);
+        info(concat).slice = sv;
         base.clear();
         m_egraph.merge(sv, concat, encode_dep(dep_t()));
     }
