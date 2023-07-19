@@ -189,16 +189,32 @@ namespace polysat {
         // Check whether two slices are known to be equal
         bool is_equal(enode* x, enode* y);
 
-        enum class trail_item {
+        // deduplication of extract terms
+        struct extract_args {
+            pvar src;
+            unsigned hi;
+            unsigned lo;
+            bool operator==(extract_args const& other) const { return src == other.src && hi == other.hi && lo == other.lo; }
+            unsigned hash() const { return mk_mix(src, hi, lo); }
+        };
+        using extract_args_eq = default_eq<extract_args>;
+        using extract_args_hash = obj_hash<extract_args>;
+        using extract_map = map<extract_args, pvar, extract_args_hash, extract_args_eq>;
+        extract_map m_extract_dedup;
+
+        enum class trail_item : std::uint8_t {
             add_var,
             split_core,
+            mk_extract,
         };
         svector<trail_item> m_trail;
         enode_vector        m_split_trail;
+        svector<extract_args> m_extract_trail;
         unsigned_vector     m_scopes;
 
         void undo_add_var();
         void undo_split_core();
+        void undo_mk_extract();
 
         mutable enode_vector m_tmp1;
         mutable enode_vector m_tmp2;
@@ -207,17 +223,11 @@ namespace polysat {
         sat::literal_set     m_marked_lits;
         uint_set             m_marked_vars;
 
-        // get a slice that is equivalent to the given pdd (may introduce new variable)
-        enode* pdd2slice(pdd const& p);
-
         /** Get variable representing src[hi:lo] */
-        pvar mk_slice_extract(enode* src, unsigned hi, unsigned lo);
+        pvar mk_extract(enode* src, unsigned hi, unsigned lo);
 
         bool invariant() const;
         bool invariant_needs_congruence() const;
-
-        /** Get variable representing x[hi:lo] */
-        pvar mk_extract_var(pvar x, unsigned hi, unsigned lo);
 
         std::ostream& display(std::ostream& out, enode* s) const;
         std::ostream& display_tree(std::ostream& out, enode* s, unsigned indent, unsigned hi, unsigned lo) const;
@@ -230,14 +240,12 @@ namespace polysat {
 
         void add_var(unsigned bit_width);
 
-        /** Create expression for x[hi:lo] */
-        pdd mk_extract(pvar x, unsigned hi, unsigned lo);
+        /** Get or create variable representing x[hi:lo] */
+        pvar mk_extract(pvar x, unsigned hi, unsigned lo);
 
-        /** Create expression for p[hi:lo] */
-        pdd mk_extract(pdd const& p, unsigned hi, unsigned lo);
-
-        /** Create expression for p ++ q */
-        pdd mk_concat(pdd const& p, pdd const& q);
+        /** Get or create variable representing x1 ++ x2 ++ ... ++ xn */
+        pvar mk_concat(unsigned num_args, pvar const* args);
+        pvar mk_concat(std::initializer_list<pvar> args);
 
         // Track value assignments to variables (and propagate to subslices)
         // (could generalize to fixed bits, then we need a way to merge interpreted enodes)

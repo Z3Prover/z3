@@ -157,6 +157,7 @@ namespace polysat {
             switch (m_trail.back()) {
             case trail_item::add_var:       undo_add_var();     break;
             case trail_item::split_core:    undo_split_core();  break;
+            case trail_item::mk_extract:    undo_mk_extract();  break;
             default: UNREACHABLE();
             }
             m_trail.pop_back();
@@ -644,49 +645,56 @@ namespace polysat {
         get_base_core<true>(src, out_base);
     }
 
-    pvar slicing::mk_slice_extract(enode* src, unsigned hi, unsigned lo) {
-        enode_vector slices;
+    pvar slicing::mk_extract(enode* src, unsigned hi, unsigned lo) {
+        enode_vector& slices = m_tmp3;
+        SASSERT(slices.empty());
         mk_slice(src, hi, lo, slices, false, true);
+        pvar v = null_var;
+        // try to re-use variable of an existing slice
+        if (slices.size() == 1)
+            v = slice2var(slices[0]);
+        // allocate new variable if we cannot reuse it
+        if (v == null_var)
+            v = m_solver.add_var(hi - lo + 1);
+#if 0
+        // slice didn't have a variable yet; so we can re-use it for the new variable
+        // (we end up with a "phantom" enode that was first created for the variable)
         if (slices.size() == 1) {
             enode* s = slices[0];
-            if (slice2var(s) != null_var)
-                return slice2var(s);
-            // TODO: optimization: could save a slice-tree by directly assigning slice2var(s) = v for new var v.
+            SASSERT_EQ(info(s).var, null_var);
+            info(m_var2slice[v]).var = null_var;  // disconnect the "phantom" enode
+            info(s).var = v;
+            m_var2slice[v] = s;
         }
-        pvar v = m_solver.add_var(hi - lo + 1);
-        // TODO: can we use 'compressed' slice trees again if we store the source slice here as dependency?
+#endif
+        // connect new variable
         VERIFY(merge(slices, var2slice(v), dep_t()));
+        slices.reset();
         return v;
     }
 
-    pvar slicing::mk_extract_var(pvar src, unsigned hi, unsigned lo) {
-        return mk_slice_extract(var2slice(src), hi, lo);
+    pvar slicing::mk_extract(pvar src, unsigned hi, unsigned lo) {
+        extract_args args{src, hi, lo};
+        auto it = m_extract_dedup.find_iterator(args);
+        if (it != m_extract_dedup.end())
+            return it->m_value;
+        pvar const v = mk_extract(var2slice(src), hi, lo);
+        m_extract_dedup.insert(args, v);
+        m_extract_trail.push_back(args);
+        m_trail.push_back(trail_item::mk_extract);
+        return v;
     }
 
-    pdd slicing::mk_extract(pvar src, unsigned hi, unsigned lo) {
-        return m_solver.var(mk_extract_var(src, hi, lo));
+    void slicing::undo_mk_extract() {
+        extract_args args = m_extract_trail.back();
+        m_extract_trail.pop_back();
+        m_extract_dedup.remove(args);
     }
 
-    pdd slicing::mk_extract(pdd const& p, unsigned hi, unsigned lo) {
-        SASSERT(hi >= lo);
-        SASSERT(p.power_of_2() > hi);
-        if (p.is_val()) {
-            // p[hi:lo] = (p >> lo) % 2^(hi - lo + 1)
-            rational q = mod2k(machine_div2k(p.val(), lo), hi - lo + 1);
-            return p.manager().mk_val(q);
-        }
-        if (!lo) {
-            // TODO: we could push the extract down into variables of the term instead of introducing a name.
-        }
-        return m_solver.var(mk_slice_extract(pdd2slice(p), hi, lo));
-    }
-
-    slicing::enode* slicing::pdd2slice(pdd const& p) {
-        pvar const v = m_solver.m_names.mk_name(p);
-        return var2slice(v);
-    }
-
-    pdd slicing::mk_concat(pdd const& p, pdd const& q) {
+    pvar slicing::mk_concat(unsigned num_args, pvar const* args) {
+        NOT_IMPLEMENTED_YET();
+        return null_var;
+#if 0
         // v := p ++ q      (new variable of size |p| + |q|)
         // v[:|q|] = p
         // v[|q|:] = q
@@ -707,6 +715,11 @@ namespace polysat {
         tmp.push_back(pdd2slice(q));
         VERIFY(merge(tmp, var2slice(v), dep_t()));
         return m_solver.var(v);
+#endif
+    }
+
+    pvar slicing::mk_concat(std::initializer_list<pvar> args) {
+        return mk_concat(args.size(), args.begin());
     }
 
     void slicing::add_constraint(signed_constraint c) {
@@ -838,9 +851,18 @@ namespace polysat {
             // properties below only matter for representatives
             if (!s->is_root())
                 continue;
+            enode_vector s_base;
+            get_base(s, s_base);
             for (enode* n : euf::enode_class(s)) {
                 // equivalence class only contains slices of equal length
                 VERIFY_EQ(width(s), width(n));
+                // bases of equivalent nodes are equivalent
+                enode_vector n_base;
+                get_base(n, n_base);
+                VERIFY_EQ(s_base.size(), n_base.size());
+                for (unsigned i = s_base.size(); i-- > 0; ) {
+                    VERIFY_EQ(s_base[i]->get_root(), n_base[i]->get_root());
+                }
             }
         }
         return true;

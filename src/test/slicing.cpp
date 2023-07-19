@@ -82,13 +82,13 @@ namespace polysat {
             pvar x = s.add_var(8);
             pvar y = s.add_var(8);
 
-            pvar a = sl.mk_extract_var(x, 7, 3);
+            pvar a = sl.mk_extract(x, 7, 3);
             std::cout << sl << "\n";
 
             VERIFY(sl.merge(sl.var2slice(x), sl.var2slice(y), sat::literal(1)));
             std::cout << sl << "\n";
 
-            pvar b = sl.mk_extract_var(y, 5, 0);
+            pvar b = sl.mk_extract(y, 5, 0);
             std::cout << sl << "\n";
 
             sl.display_tree(std::cout);
@@ -113,17 +113,17 @@ namespace polysat {
             pvar y = s.add_var(8);
             std::cout << sl << "\n";
 
-            pvar a = sl.mk_extract_var(x, 7, 3);
+            pvar a = sl.mk_extract(x, 7, 3);
             std::cout << "v" << a << " := v" << x << "[7:3]\n" << sl << "\n";
-            pvar b = sl.mk_extract_var(y, 5, 0);
+            pvar b = sl.mk_extract(y, 5, 0);
             std::cout << "v" << b << " := v" << y << "[5:0]\n" << sl << "\n";
-            pvar c = sl.mk_extract_var(x, 5, 0);
+            pvar c = sl.mk_extract(x, 5, 0);
             std::cout << "v" << c << " := v" << x << "[5:0]\n" << sl << "\n";
-            pdd d = sl.mk_concat(sl.mk_extract(x, 5, 4), sl.mk_extract(y, 3, 0));
+            pvar d = sl.mk_concat({sl.mk_extract(x, 5, 4), sl.mk_extract(y, 3, 0)});
             std::cout << d << " := v" << x << "[5:4] ++ v" << y << "[3:0]\n" << sl << "\n";
 
             std::cout << "v" << b << " = v" << c << "? " << sl.is_equal(sl.var2slice(b), sl.var2slice(c)) << "\n\n";
-            std::cout << "v" << b << " = "  << d << "? " << sl.is_equal(sl.var2slice(b), sl.pdd2slice(d)) << "\n\n";
+            std::cout << "v" << b << " = v" << d << "? " << sl.is_equal(sl.var2slice(b), sl.var2slice(d)) << "\n\n";
 
             VERIFY(sl.merge(sl.var2slice(x), sl.var2slice(y), sat::literal(123)));
             std::cout << "v" << x << " = v" << y << "\n" << sl << "\n";
@@ -137,13 +137,13 @@ namespace polysat {
             sl.explain_equal(sl.var2slice(b), sl.var2slice(c), reason_lits, reason_vars);
             std::cout << "    Reason: " << reason_lits << " vars " << reason_vars << "\n";
 
-            std::cout << "v" << b << " = "  << d << "? " << sl.is_equal(sl.var2slice(b), sl.pdd2slice(d))
+            std::cout << "v" << b << " = v" << d << "? " << sl.is_equal(sl.var2slice(b), sl.var2slice(d))
                       << "    root(v" << b << ") = " << sl.var2slice(b)->get_root_id()
-                      << "    root("  << d << ") = " << sl.pdd2slice(d)->get_root_id()
+                      << "    root(v" << d << ") = " << sl.var2slice(d)->get_root_id()
                       << "\n";
             reason_lits.reset();
             reason_vars.reset();
-            sl.explain_equal(sl.var2slice(b), sl.pdd2slice(d), reason_lits, reason_vars);
+            sl.explain_equal(sl.var2slice(b), sl.var2slice(d), reason_lits, reason_vars);
             std::cout << "    Reason: " << reason_lits << " vars " << reason_vars << "\n";
 
             sl.display_tree(std::cout);
@@ -171,9 +171,13 @@ namespace polysat {
             pvar e = s.add_var(2);
 
             VERIFY(sl.merge(sl.var2slice(a), sl.var2slice(b), sat::literal(101)));
-            VERIFY(sl.merge(sl.var2slice(d), sl.var2slice(sl.mk_extract_var(c, 1, 0)), sat::literal(102)));
-            VERIFY(sl.merge(sl.var2slice(c), sl.var2slice(sl.mk_extract_var(b, 3, 0)), sat::literal(103)));
-            VERIFY(sl.merge(sl.var2slice(e), sl.var2slice(sl.mk_extract_var(a, 1, 0)), sat::literal(104)));
+            VERIFY(sl.merge(sl.var2slice(d), sl.var2slice(sl.mk_extract(c, 1, 0)), sat::literal(102)));
+            VERIFY(sl.merge(sl.var2slice(c), sl.var2slice(sl.mk_extract(b, 3, 0)), sat::literal(103)));
+            VERIFY(sl.merge(sl.var2slice(e), sl.var2slice(sl.mk_extract(a, 1, 0)), sat::literal(104)));
+
+            // sl.propagate();
+            sl.display_tree(std::cout);
+            VERIFY(sl.invariant());
 
             std::cout << "v" << d << " = v" << e << "? " << sl.is_equal(sl.var2slice(d), sl.var2slice(e))
                       << "    root(v" << d << ") = " << sl.var2slice(d)->get_root_id()
@@ -185,9 +189,6 @@ namespace polysat {
             unsigned_vector reason_vars;
             sl.explain_equal(sl.var2slice(d), sl.var2slice(e), reason_lits, reason_vars);
             std::cout << "    Reason: " << reason_lits << " vars " << reason_vars << "\n";
-
-            sl.display_tree(std::cout);
-            VERIFY(sl.invariant());
         }
 
         // x[5:2] = y
@@ -201,9 +202,9 @@ namespace polysat {
             pvar x = s.add_var(6);
             std::cout << sl << "\n";
 
-            pvar y = sl.mk_extract_var(x, 5, 2);
+            pvar y = sl.mk_extract(x, 5, 2);
             std::cout << "v" << y << " := v" << x << "[5:2]\n" << sl << "\n";
-            pvar z = sl.mk_extract_var(x, 3, 0);
+            pvar z = sl.mk_extract(x, 3, 0);
             std::cout << "v" << z << " := v" << x << "[3:0]\n" << sl << "\n";
 
             slicing::enode* nine = sl.mk_value_slice(rational(9), 4);
@@ -280,12 +281,12 @@ namespace polysat {
 
 void tst_slicing() {
     using namespace polysat;
-    // test_slicing::test1();
-    // test_slicing::test2();
+    test_slicing::test1();
+    test_slicing::test2();
     // test_slicing::test3();
-    // test_slicing::test4();
-    // test_slicing::test5();
-    // test_slicing::test6();
+    test_slicing::test4();
+    test_slicing::test5();
+    test_slicing::test6();
     test_slicing::test7();
     std::cout << "ok\n";
 }
