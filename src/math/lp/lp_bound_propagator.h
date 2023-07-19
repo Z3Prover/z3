@@ -311,43 +311,6 @@ class lp_bound_propagator {
                 add_eq_on_columns(ex, j0, base_cell->var(), false);
             }
         }
-
-        // rows_of_j.push_back(row(row_index, *base_cell, *non_base_cell));
-        // m_visited_rows.insert(row_index);
-        // get_j_rows(non_base_cell->var(), rows_of_j);
-        // if (rows_of_j.size() <= 1) {
-        //     return;
-        // }
-        // vector<unsigned> index;
-        // for (unsigned i = 0; i < rows_of_j.size(); i++) {
-        //     index.push_back(i);
-        // }
-        // std::sort(index.begin(), index.end(), [&](unsigned i, unsigned j) {
-        //     return rows_of_j[i].m_nbase.coeff() < rows_of_j[j].m_nbase.coeff();
-        // });
-        // // the map of values of the base variable of the group with the same coefficient
-        // map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>> val_to_index;
-        // const row* group_row;
-        
-        // for (unsigned i = 0; i < index.size(); i++) {
-        //     const row& r = rows_of_j[index[i]];
-        //     TRACE("eq",  print_row(tout, r.m_row_index); tout << "r.m_base.var() = " << r.m_base.var() <<"\n";);
-        //     if (i == 0 || r.m_nbase.coeff() != rows_of_j[index[i - 1]].m_nbase.coeff()) {
-        //         val_to_index.reset();
-        //         val_to_index.insert(val(r.m_base.var()), index[i]);
-        //         group_row = &rows_of_j[index[i]];
-        //     } else {
-        //         unsigned prev_j;
-        //         if (val_to_index.find(val(r.m_base.var()), prev_j)) {
-        //             explanation ex;
-        //             explain_fixed_in_row(group_row->m_row_index, ex);
-        //             explain_fixed_in_row(r.m_row_index, ex);
-        //             TRACE("eq", print_row(tout, group_row->m_row_index); print_row(tout, r.m_row_index); 
-        //             tout << group_row->m_base.var() << " == " << r.m_base.var() << " = " << val(r.m_base.var()) << "\n");
-        //             add_eq_on_columns(ex, group_row->m_base.var(), r.m_base.var(), false);
-        //         }
-        //     }
-        // }
     }
 
     std::ostream& print_row(std::ostream& out, unsigned row_index) const {
