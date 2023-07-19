@@ -63,10 +63,7 @@ class lp_bound_propagator {
     static bool is_set(unsigned j) { return j != UINT_MAX; }
 
     void reset_cheap_eq_eh() {
-        for (auto e : m_row2index) {
-            dealloc(e.m_key);
-        }
-        m_row2index.reset();   
+        m_row2index.reset();           
     }
 
     struct reset_cheap_eq {
@@ -263,6 +260,7 @@ class lp_bound_propagator {
         return n_of_nfixed == 2 && *base != nullptr;
     }
 
+    
     // the row is of the form x + a*y + sum of fixed = 0, where x and y are non fixed,
     // x is a base, and y is not a base variable. The pair (value of x,a)
     // is the key of the m_row2index. 
@@ -270,35 +268,38 @@ class lp_bound_propagator {
         const impq* m_base_val;
         const mpq* m_nbase_coeff;
         row(const impq* base_val, const mpq* nbase_coeff) : m_base_val(base_val), m_nbase_coeff(nbase_coeff) {}
-        row() {}
+        row():m_base_val(nullptr), m_nbase_coeff(nullptr) {}
         row(const row& r) : m_base_val(r.m_base_val), m_nbase_coeff(r.m_nbase_coeff) {}
         unsigned hash() const { return combine_hash(m_base_val->hash(), m_nbase_coeff->hash()); }
         bool operator==(const row& r) const {
-            return *(r.m_base_val) == *m_base_val && *(r.m_nbase_coeff) == *m_nbase_coeff;
+            return *r.m_base_val == *m_base_val && *r.m_nbase_coeff == *m_nbase_coeff;
         }
     };
 
-    map<row*, unsigned, obj_ptr_hash<row>, deref_eq<row>> m_row2index;
+    map<row, unsigned, obj_hash<row>, default_eq<row>> m_row2index;
     
     void cheap_eq_tree(unsigned row_index) {
         reset_cheap_eq _reset(*this);
         TRACE("cheap_eq_det", tout << "row_index = " << row_index << "\n";);
-        if (!check_insert(m_visited_rows, row_index))
+        if (m_visited_rows.contains(row_index))
             return;
         const row_cell<mpq>*base_cell, *non_base_cell;
         if (!get_two_nfixed(row_index, &base_cell, &non_base_cell))
             return;
         unsigned j = non_base_cell->var();
+        row initial_r(&val(base_cell->var()), &non_base_cell->coeff());
+        m_row2index.insert(initial_r, row_index);
+        m_visited_rows.insert(row_index);
         for (const column_cell& c : lp().get_column(j)) {
             unsigned i = c.var();  // the running index of the row
+            if (i == row_index) continue;
             m_visited_rows.insert(i);
             if (!get_two_nfixed(i, &base_cell, &non_base_cell))
                 continue;
-            row r(&val(base_cell->var()), &(non_base_cell->coeff()));
-            const auto* entry = m_row2index.find_core(&r);
+            row r(&val(base_cell->var()), &non_base_cell->coeff());
+            const auto* entry = m_row2index.find_core(r);
             if (entry == nullptr) {
-                row* nr = new row(r);
-                m_row2index.insert(nr, i);
+                m_row2index.insert(r, i);
             } else {
                 explanation ex;
                 unsigned found_i = entry->get_data().m_value;

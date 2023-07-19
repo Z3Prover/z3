@@ -331,17 +331,10 @@ class lar_solver : public column_namer {
     void add_column_rows_to_touched_rows(lpvar j);
     template <typename T>
     void propagate_bounds_for_touched_rows(lp_bound_propagator<T>& bp) {
+        bool touch_track_was = this->touched_rows_are_tracked();
+        this->track_touched_rows(true);
         remove_fixed_vars_from_base();
-        unsigned num_prop = 0;
-        for (unsigned i : m_touched_rows) {
-            num_prop += calculate_implied_bounds_for_row(i, bp);
-            if (settings().get_cancel_flag())
-                return;
-        }
-        // the second loop has to run after the first one,
-        // since the first loop might change column bounds
-        // and add fixed columns this way     
-
+        this->track_touched_rows(touch_track_was);
         if (settings().propagate_eqs()) {
             bp.clear_for_eq();
             for (unsigned i : m_touched_rows) {
@@ -353,6 +346,16 @@ class lar_solver : public column_namer {
                     m_row_bounds_to_replay.push_back(i);
             }
         }
+        for (unsigned i : m_touched_rows) {
+            calculate_implied_bounds_for_row(i, bp);
+            if (settings().get_cancel_flag())
+                return;
+        }
+        // the second loop has to run after the first one,
+        // since the first loop might change column bounds
+        // and add fixed columns this way     
+
+        
         m_touched_rows.clear();
     }
 
