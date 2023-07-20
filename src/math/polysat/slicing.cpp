@@ -115,8 +115,23 @@ namespace polysat {
 
     slicing::slice_info const& slicing::info(euf::enode* n) const {
         SASSERT(!n->is_equality());
+        SASSERT(m_bv->is_bv_sort(n->get_sort()));
         slice_info const& i = m_info[n->get_id()];
-        return i.is_slice() ? i : info(i.slice);
+        return i.slice ? info(i.slice) : i;
+    }
+
+    bool slicing::is_slice(enode* n) const {
+        if (n->is_equality())
+            return false;
+        SASSERT(m_bv->is_bv_sort(n->get_sort()));
+        slice_info const& i = m_info[n->get_id()];
+        return !i.slice;
+    }
+
+    bool slicing::is_concat(enode* n) const {
+        if (n->is_equality())
+            return false;
+        return !is_slice(n);
     }
 
     unsigned slicing::width(enode* s) const {
@@ -247,6 +262,7 @@ namespace polysat {
 
     // split a single slice without updating any equivalences
     void slicing::split_core(enode* s, unsigned cut) {
+        SASSERT(is_slice(s));  // this action only makes sense for slices
         SASSERT(!has_sub(s));
         SASSERT(info(s).sub_hi == nullptr && info(s).sub_lo == nullptr);
         SASSERT(width(s) > cut + 1);
@@ -254,7 +270,7 @@ namespace polysat {
         unsigned const width_lo = cut + 1;
         enode* sub_hi;
         enode* sub_lo;
-        if (has_value(s)) {
+        if (is_value(s)) {
             rational const val = get_value(s);
             sub_hi = mk_value_slice(machine_div2k(val, width_lo), width_hi);
             sub_lo = mk_value_slice(mod2k(val, width_lo), width_lo);
@@ -296,12 +312,16 @@ namespace polysat {
     }
 
     void slicing::split(enode* s, unsigned cut) {
+        // this action only makes sense for base slices.
+        // a base slice is never equivalent to a congruence node.
+        SASSERT(is_slice(s));
+        SASSERT(!has_sub(s));
         // split all slices in the equivalence class
-        for (euf::enode* n : euf::enode_class(s))
+        for (enode* n : euf::enode_class(s))
             split_core(n, cut);
         // propagate the proper equivalences
-        for (euf::enode* n : euf::enode_class(s)) {
-            euf::enode* target = n->get_target();
+        for (enode* n : euf::enode_class(s)) {
+            enode* target = n->get_target();
             if (!target)
                 continue;
             euf::justification j = n->get_justification();
@@ -797,7 +817,7 @@ namespace polysat {
             get_root_base(vs, base);
             for (enode* s : base)
                 display(out << " ", s);
-            if (has_value(vs->get_root()))
+            if (is_value(vs->get_root()))
                 out << "    [root_value: " << get_value(vs->get_root()) << "]";
             out << "\n";
         }
@@ -820,7 +840,7 @@ namespace polysat {
         out << " w=" << width(s);
         if (!s->is_root())
             out << " root=" << s->get_root_id();
-        if (has_value(s->get_root()))
+        if (is_value(s->get_root()))
             out << " root_value=" << get_value(s->get_root());
         out << "\n";
         if (has_sub(s)) {
@@ -850,12 +870,16 @@ namespace polysat {
                 VERIFY_EQ(var2slice(v)->get_root(), s->get_root());
             }
             // if slice has a value, it should be propagated to its sub-slices
-            if (has_value(s)) {
+            if (is_value(s)) {
                 VERIFY(s->is_root());
                 if (has_sub(s)) {
-                    VERIFY(has_value(sub_hi(s)));
-                    VERIFY(has_value(sub_lo(s)));
+                    VERIFY(is_value(sub_hi(s)));
+                    VERIFY(is_value(sub_lo(s)));
                 }
+            }
+            // a base slice is never equivalent to a congruence node
+            if (is_slice(s) && !has_sub(s)) {
+                VERIFY(all_of(euf::enode_class(s), [&](enode* n) { return is_slice(n); }));
             }
             // properties below only matter for representatives
             if (!s->is_root())

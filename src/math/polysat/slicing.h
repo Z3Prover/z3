@@ -65,7 +65,7 @@ namespace polysat {
 
         // We use the following kinds of enodes:
         // - proper slices (of variables)
-        // - values
+        // - value slices
         // - virtual concat(...) expressions
         // - equalities between enodes (to track disequalities; currently not represented in slice_info)
         struct slice_info {
@@ -79,12 +79,18 @@ namespace polysat {
             enode*      sub_lo  = nullptr;      // lower subslice s[cut:0]
 
             void reset() { *this = slice_info(); }
-            bool is_slice() const { return !slice; }
             bool has_sub() const { return !!sub_hi; }
             void set_cut(unsigned cut, enode* sub_hi, enode* sub_lo) { this->cut = cut; this->sub_hi = sub_hi; this->sub_lo = sub_lo; }
         };
         using slice_info_vector = svector<slice_info>;
 
+        // Return true iff n is either a proper slice or a value slice
+        bool is_slice(enode* n) const;
+
+        bool is_proper_slice(enode* n) const { return !is_value(n) && is_slice(n); }
+        bool is_value(enode* n) const { return n->interpreted(); }
+        bool is_concat(enode* n) const;
+        bool is_equality(enode* n) const { return n->is_equality(); }
 
         solver&                 m_solver;
 
@@ -134,8 +140,6 @@ namespace polysat {
 
         // Retrieve (or create) a slice representing the given value.
         enode* mk_value_slice(rational const& val, unsigned bit_width);
-
-        bool has_value(enode* s) const { return s->interpreted(); }
 
         rational get_value(enode* s) const;
         bool try_get_value(enode* s, rational& val) const;
