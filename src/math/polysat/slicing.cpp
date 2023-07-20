@@ -729,30 +729,29 @@ namespace polysat {
     }
 
     pvar slicing::mk_concat(unsigned num_args, pvar const* args) {
-        NOT_IMPLEMENTED_YET();
-        return null_var;
-#if 0
-        // v := p ++ q      (new variable of size |p| + |q|)
-        // v[:|q|] = p
-        // v[|q|:] = q
-        unsigned const p_sz = p.power_of_2();
-        unsigned const q_sz = q.power_of_2();
-        unsigned const v_sz = p_sz + q_sz;
-        if (p.is_val() && q.is_val()) {
-            rational const val = p.val() * rational::power_of_two(q_sz) + q.val();
-            return m_solver.sz2pdd(v_sz).mk_val(val);
+        enode_vector& slices = m_tmp3;
+        SASSERT(slices.empty());
+        unsigned total_width = 0;
+        for (unsigned i = 0; i < num_args; ++i) {
+            enode* s = var2slice(args[i]);
+            slices.push_back(s);
+            total_width += width(s);
         }
-        if (p.is_val()) {
-        }
-        if (q.is_val()) {
-        }
-        pvar const v = m_solver.add_var(v_sz);
-        enode_vector tmp;
-        tmp.push_back(pdd2slice(p));
-        tmp.push_back(pdd2slice(q));
-        VERIFY(merge(tmp, var2slice(v), dep_t()));
-        return m_solver.var(v);
-#endif
+        // NOTE: we use concat nodes to deduplicate (syntactically equal) concat expressions.
+        //       we might end up reusing variables that are not introduced by mk_concat (if we enable the variable re-use optimizatio in mk_extract),
+        //       but because such congruence nodes are only added over direct descendants, we do not get unwanted dependencies from this re-use.
+        //       (but note that the nodes from mk_concat are not only over direct descendants)
+        enode* concat = mk_concat_node(slices);
+        pvar v = slice2var(concat);
+        if (v != null_var)
+            return v;
+        v = m_solver.add_var(total_width);
+        enode* sv = var2slice(v);
+        VERIFY(merge(slices, sv, dep_t()));
+        // NOTE: add_concat_node must be done after merge to preserve the invariant: "a base slice is never equivalent to a congruence node".
+        add_concat_node(sv, concat);
+        slices.reset();
+        return v;
     }
 
     pvar slicing::mk_concat(std::initializer_list<pvar> args) {
