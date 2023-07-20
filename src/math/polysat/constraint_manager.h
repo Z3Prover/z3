@@ -157,6 +157,10 @@ namespace polysat {
         pdd udiv(pdd const& a, pdd const& b);
         pdd urem(pdd const& a, pdd const& b);
 
+        pdd extract(pdd const& p, unsigned hi, unsigned lo);
+        pdd concat(pdd const& p, pdd const& q);
+        pdd concat(unsigned num_args, pdd const* args);
+
         constraint* const* begin() const { return m_constraints.data(); }
         constraint* const* end() const { return m_constraints.data() + m_constraints.size(); }
 

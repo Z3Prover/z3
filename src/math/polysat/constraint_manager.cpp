@@ -440,7 +440,6 @@ namespace polysat {
 
     signed_constraint constraint_manager::find_op(op_constraint::code op, pdd const& p, pdd const& q) const {
         auto& m = p.manager();
-        unsigned sz = m.power_of_2();
 
         op_constraint_args const args(op, p, q);
         auto it = m_dedup.op_constraint_expr.find_iterator(args);
@@ -476,6 +475,7 @@ namespace polysat {
         m_dedup.op_constraint_by_result_var.insert(r.var(), c);
 
         s.add_clause(c, false);
+
         return r;
     }
 
@@ -588,10 +588,58 @@ namespace polysat {
         return div_rem_op_constraint(p, q).second;
     }
     
+    pdd constraint_manager::extract(pdd const& p, unsigned hi, unsigned lo) {
+        SASSERT(hi >= lo);
+        SASSERT(p.power_of_2() > hi);
+        if (p.is_val()) {
+            // p[hi:lo] = (p >> lo) % 2^(hi - lo + 1)
+            rational q = mod2k(machine_div2k(p.val(), lo), hi - lo + 1);
+            return p.manager().mk_val(q);
+        }
+        if (!lo) {
+            // TODO: we could push the extract down into variables of the term instead of introducing a name.
+        }
+        pvar const src = s.m_names.mk_name(p);
+        pvar const v = s.m_slicing.mk_extract(src, hi, lo);
+        return s.var(v);
+    }
+
+    pdd constraint_manager::concat(pdd const& p, pdd const& q) {
+        // v := p ++ q      (new variable of size |p| + |q|)
+        // v[:|q|] = p
+        // v[|q|:] = q
+        unsigned const p_sz = p.power_of_2();
+        unsigned const q_sz = q.power_of_2();
+        unsigned const v_sz = p_sz + q_sz;
+        if (p.is_val() && q.is_val()) {
+            rational const val = p.val() * rational::power_of_two(q_sz) + q.val();
+            return s.sz2pdd(v_sz).mk_val(val);
+        }
+        if (p.is_val()) {
+            // TODO
+        }
+        if (q.is_val()) {
+            // TODO
+        }
+        auto const args = {p, q};
+        return concat(args.size(), args.begin());
+    }
+
+    pdd constraint_manager::concat(unsigned num_args, pdd const* args) {
+        SASSERT(num_args > 0);
+        if (num_args == 1)
+            return args[0];
+        // TODO: special cases when args are values?
+        pvar_vector pvar_args;
+        for (unsigned i = 0; i < num_args; ++i)
+            pvar_args.push_back(s.m_names.mk_name(args[i]));
+        pvar const v = s.m_slicing.mk_concat(num_args, pvar_args.data());
+        return s.var(v);
+    }
+
     /** unsigned quotient/remainder */
     std::pair<pdd, pdd> constraint_manager::div_rem_op_constraint(pdd const& a, pdd const& b) {
         auto& m = a.manager();
-        unsigned sz = m.power_of_2();
         if (b.is_zero()) {
             // By SMT-LIB specification, b = 0 ==> q = -1, r = a.
             return {m.mk_val(m.max_value()), a};
