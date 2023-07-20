@@ -851,6 +851,8 @@ namespace polysat {
         out << " w=" << width(s);
         if (!s->is_root())
             out << " root=" << s->get_root_id();
+        if (parent(s))
+            out << " parent=" << parent(s)->get_id();
         if (is_value(s->get_root()))
             out << " root_value=" << get_value(s->get_root());
         out << "\n";
@@ -892,9 +894,13 @@ namespace polysat {
             if (is_slice(s) && !has_sub(s)) {
                 VERIFY(all_of(euf::enode_class(s), [&](enode* n) { return is_slice(n); }));
             }
-            // all concat nodes point to a variable slice
             if (is_concat(s)) {
+                // all concat nodes point to a variable slice
                 VERIFY(slice2var(s) != null_var);
+                enode* sv = var2slice(slice2var(s));  // the corresponding variable slice
+                VERIFY(s != sv);
+                VERIFY(is_slice(sv));
+                VERIFY(s->num_args() >= 2);
             }
             // properties below only matter for representatives
             if (!s->is_root())
