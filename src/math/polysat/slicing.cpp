@@ -769,6 +769,9 @@ namespace polysat {
                     // m_disequality_conflict = n;
                 }
             }
+            // without this check, when p = x - y we would handle both x = y and y = x separately
+            if (body.is_unary())
+                break;
         }
     }
 
