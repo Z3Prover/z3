@@ -101,6 +101,7 @@ namespace polysat {
         // for each variable v with base slices s1, ..., sn
         void update_var_congruences();
         void add_congruence(pvar v);
+        void add_congruence_if_needed(pvar v);
 
         func_decl* mk_concat_decl(ptr_vector<expr> const& args);
 

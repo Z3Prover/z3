@@ -185,7 +185,6 @@ namespace polysat {
         auto args = {x, y};
         eqn = m_egraph.mk(eq, 0, args.size(), args.begin());
         auto j = euf::justification::external(encode_dep(lit));
-        LOG("calling set_value");
         m_egraph.set_value(eqn, l_false, j);
         SASSERT(eqn->is_equality());
         SASSERT_EQ(eqn->value(), l_false);
@@ -231,6 +230,13 @@ namespace polysat {
         info(concat).slice = sv;
         base.clear();
         m_egraph.merge(sv, concat, encode_dep(dep_t()));
+    }
+
+    void slicing::add_congruence_if_needed(pvar v) {
+        if (!m_needs_congruence.contains(v))
+            return;
+        m_needs_congruence.remove(v);
+        add_congruence(v);
     }
 
     void slicing::update_var_congruences() {
@@ -764,9 +770,10 @@ namespace polysat {
             else {
                 SASSERT(c.is_negative());
                 enode* n = find_or_alloc_disequality(sy, sx, c.blit());
-                if (is_equal(sx, sy)) {
-                    SASSERT_EQ(m_disequality_conflict, n);  // already discovered by egraph in simple examples... TODO: probably not when we need the slice congruences
-                    // m_disequality_conflict = n;
+                if (!m_disequality_conflict && is_equal(sx, sy)) {
+                    add_congruence_if_needed(x);
+                    add_congruence_if_needed(y);
+                    m_disequality_conflict = n;
                 }
             }
             // without this check, when p = x - y we would handle both x = y and y = x separately

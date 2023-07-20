@@ -274,9 +274,44 @@ namespace polysat {
                 s.pop();
             }
         }
-    };
 
-}
+        // a = x[3:0]
+        // b = y[3:0]
+        // c = x[7:4]
+        // d = y[7:4]
+        // a = b
+        // c = d
+        // x != y
+        static void test8() {
+            std::cout << __func__ << "\n";
+            scoped_solver_slicing s;
+            slicing& sl = s.sl();
+            pvar x = s.add_var(8);
+            pvar y = s.add_var(8);
+            pvar a = sl.mk_extract(x, 3, 0);
+            pvar b = sl.mk_extract(y, 3, 0);
+            pvar c = sl.mk_extract(x, 7, 4);
+            pvar d = sl.mk_extract(y, 7, 4);
+            slicing::enode* sx = sl.var2slice(x);
+            slicing::enode* sy = sl.var2slice(y);
+            sl.add_constraint(s.eq(s.var(a), s.var(b)));
+            VERIFY(!sl.is_equal(sx, sy));
+            sl.add_constraint(s.eq(s.var(c), s.var(d)));
+            VERIFY(sl.is_equal(sx, sy));
+            sl.add_constraint(s.diseq(s.var(x), s.var(y)));
+            // sl.propagate();
+            VERIFY(sl.is_conflict());
+            sat::literal_vector reason_lits;
+            unsigned_vector reason_vars;
+            sl.explain(reason_lits, reason_vars);
+            std::cout << "Conflict: " << reason_lits << " vars " << reason_vars << "\n";
+            sl.display_tree(std::cout);
+            VERIFY(sl.invariant());
+        }
+
+    };  // test_slicing
+
+}  // namespace polysat
 
 
 void tst_slicing() {
@@ -288,5 +323,6 @@ void tst_slicing() {
     test_slicing::test5();
     test_slicing::test6();
     test_slicing::test7();
+    test_slicing::test8();
     std::cout << "ok\n";
 }
