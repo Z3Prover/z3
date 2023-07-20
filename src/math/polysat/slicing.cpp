@@ -581,6 +581,22 @@ namespace polysat {
             enode* y = ys.back();
             xs.pop_back();
             ys.pop_back();
+            if (x == y)
+                continue;
+            if (x->get_root() == y->get_root()) {
+                DEBUG_CODE({
+                    // parents merged => base slices merged
+                    enode_vector x_base;
+                    enode_vector y_base;
+                    get_base(x, x_base);
+                    get_base(y, y_base);
+                    SASSERT_EQ(x_base.size(), y_base.size());
+                    for (unsigned i = x_base.size(); i-- > 0; ) {
+                        SASSERT_EQ(x_base[i]->get_root(), y_base[i]->get_root());
+                    }
+                });
+                continue;
+            }
             if (has_sub(x)) {
                 get_base(x, xs);
                 x = xs.back();
