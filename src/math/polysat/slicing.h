@@ -110,6 +110,9 @@ namespace polysat {
         void add_congruence_if_needed(pvar v);
 
         func_decl* mk_concat_decl(ptr_vector<expr> const& args);
+        enode* mk_concat_node(enode_vector const& slices);
+        // Add s = concat(s1, ..., sn)
+        void add_concat_node(enode* s, enode* concat);
 
         static void* encode_dep(dep_t d);
         static dep_t decode_dep(void* d);

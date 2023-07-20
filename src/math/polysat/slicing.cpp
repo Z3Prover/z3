@@ -231,20 +231,31 @@ namespace polysat {
         return alloc_enode(a, 0, nullptr, var);
     }
 
+    slicing::enode* slicing::mk_concat_node(enode_vector const& slices) {
+        ptr_vector<expr> args;
+        for (enode* n : slices)
+            args.push_back(n->get_expr());
+        app_ref a(m_ast.mk_app(mk_concat_decl(args), args), m_ast);
+        return find_or_alloc_enode(a, slices.size(), slices.data(), null_var);
+    }
+
+    void slicing::add_concat_node(enode* s, enode* concat) {
+        SASSERT(slice2var(s) != null_var);  // all concat nodes should point to a variable node
+        SASSERT(is_app(concat->get_expr()));
+        slice_info& concat_info = m_info[concat->get_id()];
+        SASSERT(!concat_info.slice);  // not yet set
+        concat_info.slice = s;
+        m_egraph.merge(s, concat, encode_dep(dep_t()));
+    }
+
     void slicing::add_congruence(pvar v) {
         enode_vector& base = m_tmp2;
         SASSERT(base.empty());
         enode* sv = var2slice(v);
         get_base(sv, base);
         // Add equation v == concat(s1, ..., sn)
-        ptr_vector<expr> args;
-        for (enode* n : base)
-            args.push_back(n->get_expr());
-        app* a = m_ast.mk_app(mk_concat_decl(args), args);
-        enode* concat = find_or_alloc_enode(a, base.size(), base.data(), null_var);
-        info(concat).slice = sv;
+        add_concat_node(sv, mk_concat_node(base));
         base.clear();
-        m_egraph.merge(sv, concat, encode_dep(dep_t()));
     }
 
     void slicing::add_congruence_if_needed(pvar v) {
@@ -394,7 +405,7 @@ namespace polysat {
 
     slicing::enode* slicing::mk_value_slice(rational const& val, unsigned bit_width) {
         SASSERT(0 <= val && val < rational::power_of_two(bit_width));
-        app* a = m_bv->mk_numeral(val, bit_width);
+        app_ref a(m_bv->mk_numeral(val, bit_width), m_ast);
         enode* s = find_or_alloc_enode(a, 0, nullptr, null_var);
         s->mark_interpreted();
         SASSERT(s->interpreted());
@@ -880,6 +891,10 @@ namespace polysat {
             // a base slice is never equivalent to a congruence node
             if (is_slice(s) && !has_sub(s)) {
                 VERIFY(all_of(euf::enode_class(s), [&](enode* n) { return is_slice(n); }));
+            }
+            // all concat nodes point to a variable slice
+            if (is_concat(s)) {
+                VERIFY(slice2var(s) != null_var);
             }
             // properties below only matter for representatives
             if (!s->is_root())
