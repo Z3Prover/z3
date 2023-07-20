@@ -147,6 +147,8 @@ namespace euf {
         ptr_vector<expr>                 m_bool_var2expr;
         ptr_vector<size_t>               m_explain;
         euf::cc_justification            m_explain_cc;
+        enode_pair_vector                m_hint_eqs;
+        sat::literal_vector              m_hint_lits;
         unsigned                         m_num_scopes = 0;
         unsigned_vector                  m_var_trail;
         svector<scope>                   m_scopes;
@@ -228,7 +230,7 @@ namespace euf {
         void log_justification(literal l, th_explain const& jst);
 
 
-        eq_proof_hint* mk_hint(symbol const& th, literal lit, literal_vector const& r);
+        eq_proof_hint* mk_hint(symbol const& th, literal lit);
 
 
 

@@ -52,7 +52,7 @@ namespace euf {
      * We will here leave it to the EUF checker to perform resolution steps.
      */
     void solver::log_antecedents(literal l, literal_vector const& r, th_proof_hint* hint) {
-        TRACE("euf", log_antecedents(tout, l, r););
+        TRACE("euf", log_antecedents(tout, l, r); tout << mk_pp(hint->get_hint(*this), m) << "\n");
         if (!use_drat())
             return;
         literal_vector lits;
@@ -79,7 +79,7 @@ namespace euf {
         }
     }
 
-    eq_proof_hint* solver::mk_hint(symbol const& th, literal conseq, literal_vector const& r) {
+    eq_proof_hint* solver::mk_hint(symbol const& th, literal conseq) {
         if (!use_drat())
             return nullptr;
         push(value_trail(m_lit_tail));
@@ -87,7 +87,7 @@ namespace euf {
         push(restore_vector(m_proof_literals));
         if (conseq != sat::null_literal)
             m_proof_literals.push_back(~conseq);
-        m_proof_literals.append(r);
+        m_proof_literals.append(m_hint_lits);
         m_lit_head = m_lit_tail;
         m_cc_head  = m_cc_tail;
         m_lit_tail = m_proof_literals.size();

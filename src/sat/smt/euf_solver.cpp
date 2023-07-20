@@ -227,20 +227,25 @@ namespace euf {
     */
 
     void solver::get_antecedents(literal l, ext_justification_idx idx, literal_vector& r, bool probing) {
+        bool create_hint = use_drat() && !probing;
         m_egraph.begin_explain();
         m_explain.reset();
-        if (use_drat() && !probing) {
+        if (create_hint) {
             push(restore_vector(m_explain_cc));
+            m_hint_eqs.reset();
+            m_hint_lits.reset();
         }
         auto* ext = sat::constraint_base::to_extension(idx);
         th_proof_hint* hint = nullptr;
-        bool has_theory = false;
+
         if (ext == this)
             get_antecedents(l, constraint::from_idx(idx), r, probing);
         else {
             ext->get_antecedents(l, idx, r, probing);
-            has_theory = true;
         }
+        if (create_hint && ext != this)
+            ext->get_antecedents(l, idx, m_hint_lits, probing);
+
         for (unsigned qhead = 0; qhead < m_explain.size(); ++qhead) {
             size_t* e = m_explain[qhead];
             if (is_literal(e)) 
@@ -249,24 +254,43 @@ namespace euf {
                 size_t idx = get_justification(e);
                 auto* ext = sat::constraint_base::to_extension(idx);
                 SASSERT(ext != this);
+                auto& jst = th_explain::from_index(idx);
                 sat::literal lit = sat::null_literal;
                 ext->get_antecedents(lit, idx, r, probing);
-                has_theory = true;
+            }
+            if (create_hint) {
+                if (is_literal(e))
+                    m_hint_lits.push_back(get_literal(e));
+                else
+                    m_hint_eqs.push_back(th_explain::from_index(get_justification(e)).eq_consequent());
             }
         }
-        m_egraph.end_explain();  
-        if (use_drat() && !probing)         
-            hint = mk_hint(has_theory ? m_smt : m_euf, l, r);
+        m_egraph.end_explain();
+        unsigned nv = s().num_vars();
+        expr_ref_vector eqs(m);
+        if (create_hint)  {
+            // add negated equalities to hint.            
+            for (auto const& [a,b] : m_hint_eqs) {
+                eqs.push_back(m.mk_eq(a->get_expr(), b->get_expr()));
+                set_tmp_bool_var(nv, eqs.back());
+                m_hint_lits.push_back(literal(nv, false));
+                ++nv;
+            }
+            hint = mk_hint(m_euf, l);
+        }
         
         unsigned j = 0;
         for (sat::literal lit : r) 
             if (s().lvl(lit) > 0) r[j++] = lit;
         r.shrink(j);
         CTRACE("euf", probing, tout << "explain " << l << " <- " << r << "\n");
+        CTRACE("euf", create_hint, tout << "explain " << l << " <- " << m_hint_lits << "\n");
         DEBUG_CODE(for (auto lit : r) SASSERT(s().value(lit) == l_true););
 
         if (!probing)
             log_antecedents(l, r, hint);
+        for (unsigned v = s().num_vars(); v < nv; ++v)
+            set_tmp_bool_var(v, nullptr);
     }
 
     void solver::get_antecedents(literal l, th_explain& jst, literal_vector& r, bool probing) {
@@ -307,7 +331,7 @@ namespace euf {
             init_ackerman();
         if (!probing && use_drat())
             cc = &m_explain_cc;
-        
+
         switch (j.kind()) {
         case constraint::kind_t::conflict:
             SASSERT(m_egraph.inconsistent());
@@ -333,8 +357,8 @@ namespace euf {
                 bool_var v = ante->bool_var();
                 lbool val = ante->value();
                 SASSERT(val != l_undef);
-                literal ante(v, val == l_false);
-                m_explain.push_back(to_ptr(ante));
+                literal ante_lit(v, val == l_false);
+                m_explain.push_back(to_ptr(ante_lit));
             }
             break;
         }
@@ -510,7 +534,7 @@ namespace euf {
     bool solver::is_self_propagated(th_eq const& e) {
         if (!e.is_eq())
             return false;
-        
+
         m_egraph.begin_explain();
         m_explain.reset();
         m_egraph.explain_eq<size_t>(m_explain, nullptr, e.child(), e.root());
