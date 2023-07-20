@@ -475,7 +475,7 @@ namespace polysat {
         SASSERT(!m_dedup.op_constraint_by_result_var.contains(r.var()));
         m_dedup.op_constraint_by_result_var.insert(r.var(), c);
 
-        s.add_clause(c, false);
+        s.add_clause(c, false);
         return r;
     }
 
