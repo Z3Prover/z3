@@ -1,3 +1,22 @@
+/*++
+Copyright (c) 2022 Microsoft Corporation
+
+Module Name:
+
+    mbp_qel_util.h
+
+Abstract:
+
+    Utility methods for mbp_qel
+
+Author:
+
+    Hari Govind V K (hgvk94) 2023-03-07
+
+Revision History:
+
+--*/
+
 #include "qe/mbp/mbp_qel_util.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/ast.h"
@@ -9,7 +28,6 @@
 
 class check_uninterp_consts : public i_expr_pred {
     obj_hashtable<app> const &m_vars;
-    ast_manager &m;
     family_id m_fid;
     decl_kind m_decl_kind;
 
@@ -17,7 +35,7 @@ class check_uninterp_consts : public i_expr_pred {
     check_uninterp_consts(obj_hashtable<app> const &vars, ast_manager &man,
                           family_id fid = null_family_id,
                           decl_kind dk = null_decl_kind)
-        : m_vars(vars), m(man), m_fid(fid), m_decl_kind(dk) {}
+        : m_vars(vars), m_fid(fid), m_decl_kind(dk) {}
     bool operator()(expr *n) override {
         return (is_app(n) && is_uninterp_const(n) &&
                 m_vars.contains(to_app(n))) &&
@@ -67,16 +85,19 @@ struct proc {
     void operator()(expr *n) const {}
     void operator()(app *n) {
         if (m_array_util.is_select(n)) {
-            expr* idx = n->get_arg(1);
-            if (is_app(idx) && m_dt_util.is_accessor(to_app(idx)->get_decl())) return;
+            expr *idx = n->get_arg(1);
+            if (is_app(idx) && m_dt_util.is_accessor(to_app(idx)->get_decl()))
+                return;
             collect_uninterp_consts(idx, m_vars);
         }
         else if (m_array_util.is_store(n)) {
-            expr* idx = n->get_arg(1), *elem = n->get_arg(2);
-            if (!(is_app(idx) && m_dt_util.is_accessor(to_app(idx)->get_decl())))
+            expr *idx = n->get_arg(1), *elem = n->get_arg(2);
+            if (!(is_app(idx) &&
+                  m_dt_util.is_accessor(to_app(idx)->get_decl())))
                 collect_uninterp_consts(idx, m_vars);
-            if (!(is_app(elem) && m_dt_util.is_accessor(to_app(elem)->get_decl())))
-            collect_uninterp_consts(elem, m_vars);
+            if (!(is_app(elem) &&
+                  m_dt_util.is_accessor(to_app(elem)->get_decl())))
+                collect_uninterp_consts(elem, m_vars);
         }
     }
 };
