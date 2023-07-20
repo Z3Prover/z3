@@ -227,6 +227,8 @@ namespace polysat {
         /** Get variable representing src[hi:lo] */
         pvar mk_extract(enode* src, unsigned hi, unsigned lo);
 
+        bool add_equation(pvar x, pdd const& body, sat::literal lit);
+
         bool invariant() const;
         bool invariant_needs_congruence() const;
 

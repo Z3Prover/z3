@@ -732,54 +732,53 @@ namespace polysat {
         SASSERT(!is_conflict());
         if (!c->is_eq())
             return;
-        dep_t const d = c.blit();
         pdd const& p = c->to_eq();
         auto& m = p.manager();
         for (auto& [a, x] : p.linear_monomials()) {
             if (a != 1 && a != m.max_value())
                 continue;
-            pdd body = a.is_one() ? (m.mk_var(x) - p) : (m.mk_var(x) + p);
+            pdd const body = a.is_one() ? (m.mk_var(x) - p) : (m.mk_var(x) + p);
             // c is either x = body or x != body, depending on polarity
             LOG("Equation from lit(" << c.blit() << ")  " << c << ":  v" << x << " = " << body);
-            enode* const sx = var2slice(x);
-            if (c.is_positive() && body.is_val()) {
-                LOG("    simple assignment");
-                // Simple assignment x = value
-                enode* const sval = mk_value_slice(body.val(), body.power_of_2());
-                if (!merge(sx, sval, d)) {
-                    SASSERT(is_conflict());
-                    return;
-                }
-                continue;
-            }
-            pvar const y = m_solver.m_names.get_name(body);
-            if (y == null_var) {
-                LOG("    skip for now (unnamed body)");
-                // TODO: register name trigger (if a name for value 'body' is created later, then merge x=y at that time)
-                //      could also count how often 'body' was registered and introduce name when more than once.
-                //      maybe better: register x as an existing name for 'body'? question is how to track the dependency on c.
-                continue;
-            }
-            enode* const sy = var2slice(y);
-            if (c.is_positive()) {
-                if (!merge(sx, sy, d)) {
-                    SASSERT(is_conflict());
-                    return;
-                }
-            }
-            else {
-                SASSERT(c.is_negative());
-                enode* n = find_or_alloc_disequality(sy, sx, c.blit());
-                if (!m_disequality_conflict && is_equal(sx, sy)) {
-                    add_congruence_if_needed(x);
-                    add_congruence_if_needed(y);
-                    m_disequality_conflict = n;
-                }
+            if (!add_equation(x, body, c.blit())) {
+                SASSERT(is_conflict());
+                return;
             }
             // without this check, when p = x - y we would handle both x = y and y = x separately
             if (body.is_unary())
                 break;
         }
+    }
+
+    bool slicing::add_equation(pvar x, pdd const& body, sat::literal lit) {
+        enode* const sx = var2slice(x);
+        if (!lit.sign() && body.is_val()) {
+            LOG("    simple assignment");
+            // Simple assignment x = value
+            enode* const sval = mk_value_slice(body.val(), body.power_of_2());
+            return merge(sx, sval, lit);
+        }
+        pvar const y = m_solver.m_names.get_name(body);
+        if (y == null_var) {
+            LOG("    skip for now (unnamed body)");
+            // TODO: register name trigger (if a name for value 'body' is created later, then merge x=y at that time)
+            //      could also count how often 'body' was registered and introduce name when more than once.
+            //      maybe better: register x as an existing name for 'body'? question is how to track the dependency on c.
+            return true;
+        }
+        enode* const sy = var2slice(y);
+        if (!lit.sign())
+            return merge(sx, sy, lit);
+        else {
+            enode* n = find_or_alloc_disequality(sy, sx, lit);
+            if (!m_disequality_conflict && is_equal(sx, sy)) {
+                add_congruence_if_needed(x);
+                add_congruence_if_needed(y);
+                m_disequality_conflict = n;
+                return false;
+            }
+        }
+        return true;
     }
 
     void slicing::add_value(pvar v, rational const& val) {
