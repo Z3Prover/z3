@@ -240,9 +240,9 @@ namespace euf {
 
         if (ext == this)
             get_antecedents(l, constraint::from_idx(idx), r, probing);
-        else {
+        else 
             ext->get_antecedents(l, idx, r, probing);
-        }
+
         if (create_hint && ext != this)
             ext->get_antecedents(l, idx, m_hint_lits, probing);
 
@@ -254,7 +254,6 @@ namespace euf {
                 size_t idx = get_justification(e);
                 auto* ext = sat::constraint_base::to_extension(idx);
                 SASSERT(ext != this);
-                auto& jst = th_explain::from_index(idx);
                 sat::literal lit = sat::null_literal;
                 ext->get_antecedents(lit, idx, r, probing);
             }
@@ -278,12 +277,12 @@ namespace euf {
             }
             hint = mk_hint(m_euf, l);
         }
-        
+
+        CTRACE("euf", probing, tout << "explain " << l << " <- " << r << "\n");
         unsigned j = 0;
         for (sat::literal lit : r) 
             if (s().lvl(lit) > 0) r[j++] = lit;
         r.shrink(j);
-        CTRACE("euf", probing, tout << "explain " << l << " <- " << r << "\n");
         CTRACE("euf", create_hint, tout << "explain " << l << " <- " << m_hint_lits << "\n");
         DEBUG_CODE(for (auto lit : r) SASSERT(s().value(lit) == l_true););
 
