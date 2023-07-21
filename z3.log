@@ -792,7 +792,7 @@
 [inst-discovered] theory-solving 0000000000000000 arith#
 [instance] 0000000000000000 #224
 [end-of-instance]
-[mk-app] #224 = #211 #23
+[mk-app] #224 = #23 #211
 [inst-discovered] theory-solving 0000000000000000 arith#
 [instance] 0000000000000000 #224
 [end-of-instance]
@@ -1037,7 +1037,7 @@
 [inst-discovered] theory-solving 0000000000000000 arith#
 [instance] 0000000000000000 #225
 [end-of-instance]
-[mk-app] #225 = #211 #23
+[mk-app] #225 = #23 #211
 [inst-discovered] theory-solving 0000000000000000 arith#
 [instance] 0000000000000000 #225
 [end-of-instance]
@@ -1059,10 +1059,62 @@
 [assign] (not #171) decision axiom
 [assign] #170 clause 37 38
 [assign] (not #161) clause -36 38
-[push] 7
+[mk-app] #225 = #23 #144
+[inst-discovered] theory-solving 0000000000000000 arith#
+[instance] 0000000000000000 #225
+[end-of-instance]
+[mk-app] #225 = #28 #191
+[inst-discovered] theory-solving 0000000000000000 arith#
+[instance] 0000000000000000 #225
+[end-of-instance]
+[mk-app] #225 = #23 #172
+[inst-discovered] theory-solving 0000000000000000 arith#
+[instance] 0000000000000000 #225
+[end-of-instance]
+[assign] #154 justification -1: 30 24 41 65 42 66
+[resolve-lit] 0 #182
+[resolve-process] (not #182)
+[resolve-lit] 3 (not #181)
+[resolve-lit] 3 (not #176)
+[resolve-lit] 4 (not #148)
+[resolve-lit] 3 (not #178)
+[resolve-lit] 3 (not #212)
+[resolve-lit] 3 (not #173)
+[resolve-lit] 3 (not #213)
+[conflict] #182 (not #176) (not #148)
+[pop] 5 7
+[assign] #182 clause 46 -39 -24
+[push] 2
+[assign] (not #152) decision axiom
+[push] 3
+[assign] #142 decision axiom
+[assign] #133 clause 21 -22 -23
+[assign] (not #159) clause -32 -22 -14 2
+[mk-app] #225 = #141 #23
+[inst-discovered] theory-solving 0000000000000000 arith#
+[instance] 0000000000000000 #225
+[end-of-instance]
+[push] 4
+[assign] (not #187) decision axiom
+[push] 5
+[assign] (not #171) decision axiom
+[assign] #170 clause 37 38
+[assign] (not #161) clause -36 38
+[mk-app] #225 = #23 #172
+[inst-discovered] theory-solving 0000000000000000 arith#
+[instance] 0000000000000000 #225
+[end-of-instance]
+[mk-app] #225 = #28 #191
+[inst-discovered] theory-solving 0000000000000000 arith#
+[instance] 0000000000000000 #225
+[end-of-instance]
+[mk-app] #225 = #23 #144
+[inst-discovered] theory-solving 0000000000000000 arith#
+[instance] 0000000000000000 #225
+[end-of-instance]
+[assign] #154 justification -1: 30 24 39 24 41 42
+[push] 6
 [assign] (not #180) decision axiom
-[push] 8
-[assign] (not #154) decision axiom
 [mk-app] #225 <= #54 #23
 [assign] #225 justification -1: -28
 [mk-app] #226 not #225
@@ -1079,12 +1131,12 @@
 [instance] 0000000000000000 #228
 [end-of-instance]
 [resolve-process] true
-[resolve-lit] 8 (not #78)
-[resolve-lit] 5 (not #142)
+[resolve-lit] 6 (not #78)
+[resolve-lit] 3 (not #142)
 [resolve-lit] 0 (not #226)
-[resolve-lit] 8 (not #234)
+[resolve-lit] 6 (not #234)
 [conflict] (not #226) (not #78) (not #142) (not #234)
-[pop] 5 9
+[pop] 3 7
 [assign] #226 justification -1: -28
 [resolve-process] true
 [resolve-lit] 0 (not #226)
@@ -1099,18 +1151,21 @@
 [assign] (not #142) clause -22 -10 -58 -55
 [assign] (not #133) clause -21 22
 [push] 1
-[assign] #218 decision axiom
-[assign] #224 clause 56 -57 -26 -12
+[assign] #181 decision axiom
 [push] 2
-[assign] (not #179) decision axiom
-[assign] #176 clause 39 43
-[assign] #177 justification -1: 39
+[assign] #178 decision axiom
+[push] 3
+[assign] #182 decision axiom
+[push] 4
+[assign] #173 decision axiom
+[assign] #177 clause 40 -42 -41
+[assign] #176 justification -1: 40
 [mk-app] #200 = #38 #119
 [attach-meaning] #108 arith (- 1)
 [mk-app] #201 + #38 #117
 [mk-app] #202 <= #201 #23
 [mk-app] #203 >= #201 #23
-[assign] #200 justification -1: 39
+[assign] #200 justification -1: 40
 [attach-enode] #200 0
 [attach-enode] #201 0
 [assign] #202 justification -1: 59
@@ -1121,7 +1176,7 @@
 [mk-app] #206 + #130 #205
 [mk-app] #207 <= #206 #23
 [mk-app] #208 >= #206 #23
-[assign] #204 justification -1: 39 24
+[assign] #204 justification -1: 40 24
 [attach-enode] #204 0
 [attach-enode] #205 0
 [attach-enode] #206 0
@@ -1133,7 +1188,7 @@
 [mk-app] #211 + #144 #210
 [mk-app] #212 <= #211 #23
 [mk-app] #213 >= #211 #23
-[assign] #209 justification -1: 39 24
+[assign] #209 justification -1: 40 24
 [attach-enode] #209 0
 [attach-enode] #210 0
 [attach-enode] #211 0
@@ -1142,24 +1197,23 @@
 [mk-app] #214 = #183 #191
 [attach-meaning] #72 arith (- 1)
 [mk-app] #217 <= #216 #28
-[assign] #214 justification -1: 39 24
+[assign] #214 justification -1: 40 24
 [attach-enode] #214 0
 [assign] #217 justification -1: 68
+[assign] #218 justification -1: 68
 [mk-app] #219 = #40 #55
 [attach-meaning] #72 arith (- 1)
 [mk-app] #220 * #72 #55
 [mk-app] #221 + #40 #220
 [mk-app] #222 <= #221 #28
 [mk-app] #223 >= #221 #28
-[assign] #219 justification -1: 24 39
+[assign] #219 justification -1: 24 40
 [attach-enode] #219 0
 [attach-enode] #220 0
 [attach-enode] #221 0
 [assign] #222 justification -1: 70
 [assign] #223 justification -1: 70
-[assign] #178 clause 41 -40
-[assign] #173 clause 42 -40
-[assign] #181 clause 45 -42
+[assign] #224 clause 56 -57 -26 -12
 [mk-app] #225 = #201 #23
 [inst-discovered] theory-solving 0000000000000000 arith#
 [instance] 0000000000000000 #225
@@ -1176,25 +1230,36 @@
 [inst-discovered] theory-solving 0000000000000000 arith#
 [instance] 0000000000000000 #225
 [end-of-instance]
-[mk-app] #225 = #211 #23
+[mk-app] #225 = #23 #211
 [inst-discovered] theory-solving 0000000000000000 arith#
 [instance] 0000000000000000 #225
 [end-of-instance]
-[push] 3
-[assign] (not #152) decision axiom
-[push] 4
-[assign] (not #182) decision axiom
+[mk-app] #225 = #28 #191
+[inst-discovered] theory-solving 0000000000000000 arith#
+[instance] 0000000000000000 #225
+[end-of-instance]
+[mk-app] #225 = #23 #172
+[inst-discovered] theory-solving 0000000000000000 arith#
+[instance] 0000000000000000 #225
+[end-of-instance]
+[mk-app] #225 = #23 #144
+[inst-discovered] theory-solving 0000000000000000 arith#
+[instance] 0000000000000000 #225
+[end-of-instance]
+[assign] #154 justification -1: 30 24 40 24 41 42
 [push] 5
-[assign] (not #187) decision axiom
+[assign] (not #179) decision axiom
 [push] 6
+[assign] (not #152) decision axiom
+[push] 7
+[assign] (not #187) decision axiom
+[push] 8
 [assign] (not #171) decision axiom
 [assign] #170 clause 37 38
 [assign] (not #161) clause -36 38
-[push] 7
-[assign] (not #180) decision axiom
-[push] 8
-[assign] (not #154) decision axiom
 [push] 9
+[assign] (not #180) decision axiom
+[push] 10
 [assign] (not #159) decision axiom
 [mk-app] #225 = #36 #165
 [attach-enode] #225 0
@@ -1205,11 +1270,11 @@
 [mk-app] #230 >= #228 #23
 [attach-enode] #227 0
 [attach-enode] #228 0
-[push] 10
-[assign] #229 decision axiom
 [push] 11
+[assign] #230 decision axiom
+[push] 12
 [assign] #225 decision axiom
-[assign] #230 clause 75 -73
+[assign] #229 clause 74 -73
 [mk-app] #231 = #125 #183
 [attach-meaning] #72 arith (- 1)
 [mk-app] #232 * #72 #183
@@ -1233,20 +1298,18 @@
 [mk-app] #237 <= #156 #23
 [assign] #237 justification -1: 41 42
 [resolve-process] true
-[resolve-lit] 11 (not #82)
-[resolve-lit] 11 #67
-[resolve-lit] 11 (not #78)
-[resolve-lit] 9 (not #222)
+[resolve-lit] 12 (not #82)
+[resolve-lit] 12 #67
+[resolve-lit] 12 (not #78)
+[resolve-lit] 8 (not #222)
 [resolve-lit] 0 (not #237)
-[resolve-lit] 5 #171
+[resolve-lit] 4 #171
 [conflict] (not #237) (not #82) (not #222) #171
-[pop] 5 12
+[pop] 4 13
 [assign] (not #237) clause -73 38 -71 -14
-[push] 7
-[assign] (not #180) decision axiom
-[push] 8
-[assign] (not #154) decision axiom
 [push] 9
+[assign] (not #180) decision axiom
+[push] 10
 [assign] (not #159) decision axiom
 [mk-app] #225 >= #36 #23
 [mk-app] #227 not #225
@@ -1254,17 +1317,23 @@
 [inst-discovered] theory-solving 0000000000000000 arith#
 [instance] 0000000000000000 #228
 [end-of-instance]
-[push] 10
+[push] 11
 [assign] (not #225) decision axiom
 [resolve-process] true
-[resolve-lit] 10 (not #78)
+[resolve-lit] 11 (not #78)
 [resolve-lit] 0 #225
 [conflict] #225 (not #78)
-[pop] 10 11
+[pop] 11 12
 [attach-enode] #220 0
 [attach-enode] #221 0
 [assign] #225 clause 61 -10
 [push] 1
+[assign] #181 decision axiom
+[push] 2
+[assign] #178 decision axiom
+[push] 3
+[assign] #182 decision axiom
+[push] 4
 [assign] (not #171) decision axiom
 [assign] #170 clause 37 38
 [assign] (not #161) clause -36 38
@@ -1318,11 +1387,9 @@
 [attach-enode] #219 0
 [assign] #222 justification -1: 73
 [assign] #223 justification -1: 73
-[assign] #178 clause 41 -40
 [assign] #173 clause 42 -40
 [assign] #224 clause 56 -57 -26 -12
 [assign] (not #237) clause -59 -60 38 -14
-[assign] #181 clause 45 -42
 [mk-app] #227 = #201 #23
 [inst-discovered] theory-solving 0000000000000000 arith#
 [instance] 0000000000000000 #227
@@ -1339,53 +1406,46 @@
 [inst-discovered] theory-solving 0000000000000000 arith#
 [instance] 0000000000000000 #227
 [end-of-instance]
-[assign] (not #187) clause -47 38 -14 2 -54 -63
-[assign] (not #179) clause -43 -63 2 -54 -14
-[mk-app] #227 = #211 #23
+[mk-app] #227 = #23 #211
 [inst-discovered] theory-solving 0000000000000000 arith#
 [instance] 0000000000000000 #227
 [end-of-instance]
-[push] 2
-[assign] (not #152) decision axiom
-[push] 3
-[assign] (not #182) decision axiom
-[push] 4
-[assign] (not #180) decision axiom
+[assign] (not #187) clause -47 38 -14 2 -54 -63
+[assign] (not #179) clause -43 -63 2 -54 -14
 [push] 5
-[assign] (not #154) decision axiom
+[assign] (not #152) decision axiom
 [push] 6
+[assign] (not #180) decision axiom
+[push] 7
+[assign] #154 decision axiom
+[push] 8
 [assign] (not #159) decision axiom
-[mk-app] #227 = #36 #137
+[mk-app] #227 = #36 #122
 [attach-enode] #227 0
 [attach-meaning] #108 arith (- 1)
-[mk-app] #228 * #108 #137
+[mk-app] #228 * #108 #122
 [mk-app] #229 + #36 #228
 [mk-app] #230 <= #229 #23
 [mk-app] #231 >= #229 #23
 [attach-enode] #228 0
 [attach-enode] #229 0
-[push] 7
-[assign] #230 decision axiom
-[push] 8
-[assign] #231 decision axiom
-[assign] #227 clause 75 -77 -76
+[push] 9
+[assign] #227 decision axiom
+[assign] #230 clause 76 -75
+[assign] #231 clause 77 -75
 [mk-app] #232 = #125 #183
 [attach-meaning] #72 arith (- 1)
 [mk-app] #233 * #72 #183
 [mk-app] #235 + #125 #233
 [mk-app] #236 <= #235 #28
 [mk-app] #238 >= #235 #28
-[assign] #232 justification -1: 75 24 20 19
+[assign] #232 justification -1: 75 24 5 6
 [attach-enode] #232 0
 [attach-enode] #233 0
 [attach-enode] #235 0
 [assign] #236 justification -1: 78
 [assign] #238 justification -1: 78
 [mk-app] #239 = #229 #23
-[inst-discovered] theory-solving 0000000000000000 arith#
-[instance] 0000000000000000 #239
-[end-of-instance]
-[mk-app] #239 = #235 #125
 [inst-discovered] theory-solving 0000000000000000 arith#
 [instance] 0000000000000000 #239
 [end-of-instance]
@@ -1406,37 +1466,31 @@
 [instance] 0000000000000000 #241
 [end-of-instance]
 [resolve-process] true
-[resolve-lit] 0 (not #178)
+[resolve-lit] 2 (not #178)
 [resolve-lit] 0 (not #173)
 [resolve-lit] 0 #237
 [resolve-process] #237
 [resolve-lit] 0 (not #222)
 [resolve-lit] 0 #171
-[resolve-lit] 1 (not #82)
+[resolve-lit] 4 (not #82)
 [resolve-process] (not #173)
 [resolve-lit] 0 (not #177)
-[resolve-process] (not #178)
 [resolve-process] (not #222)
 [resolve-lit] 0 (not #219)
 [resolve-process] (not #219)
-[resolve-lit] 1 (not #148)
+[resolve-lit] 4 (not #148)
 [resolve-lit] 0 (not #176)
 [resolve-process] (not #177)
 [resolve-process] (not #176)
 [resolve-lit] 0 #161
 [resolve-process] #161
-[conflict] #171 (not #82)
-[pop] 8 9
+[conflict] #171 (not #178) (not #82)
+[pop] 7 10
 [attach-enode] #201 0
-[assign] #171 clause 38 -14
-[push] 1
-[assign] (not #237) decision axiom
-[push] 2
-[assign] #178 decision axiom
+[assign] #171 clause 38 -41 -14
 [push] 3
-[assign] #177 decision axiom
-[assign] #173 clause 42 -40
-[assign] #181 clause 45 -42
+[assign] #173 decision axiom
+[assign] #177 clause 40 -42 -41
 [assign] #176 justification -1: 40
 [mk-app] #200 = #38 #119
 [attach-meaning] #108 arith (- 1)
@@ -1487,8 +1541,18 @@
 [inst-discovered] theory-solving 0000000000000000 arith#
 [instance] 0000000000000000 #227
 [end-of-instance]
+[mk-app] #227 = #23 #172
+[inst-discovered] theory-solving 0000000000000000 arith#
+[instance] 0000000000000000 #227
+[end-of-instance]
+[mk-app] #227 = #28 #191
+[inst-discovered] theory-solving 0000000000000000 arith#
+[instance] 0000000000000000 #227
+[end-of-instance]
+[assign] #182 clause 46 -39 -24
 [assign] (not #179) clause -43 -62 -14 -54 2
 [assign] #224 clause 56 -57 -26 -12
+[assign] #154 justification -1: 30 24 40 24 41 42
 [mk-app] #227 = #201 #23
 [inst-discovered] theory-solving 0000000000000000 arith#
 [instance] 0000000000000000 #227
@@ -1505,22 +1569,18 @@
 [inst-discovered] theory-solving 0000000000000000 arith#
 [instance] 0000000000000000 #227
 [end-of-instance]
-[mk-app] #227 = #211 #23
-[inst-discovered] theory-solving 0000000000000000 arith#
-[instance] 0000000000000000 #227
-[end-of-instance]
-[assign] #154 justification -1: 30 24 41 42 70 69
-[assign] #182 justification -1: 45 40 40 24 41 42 70 69
 [push] 4
+[assign] (not #237) decision axiom
+[push] 5
 [assign] (not #161) decision axiom
 [assign] (not #170) clause -37 36 -38
-[push] 5
-[assign] (not #152) decision axiom
 [push] 6
-[assign] (not #187) decision axiom
+[assign] (not #152) decision axiom
 [push] 7
-[assign] (not #180) decision axiom
+[assign] (not #187) decision axiom
 [push] 8
+[assign] (not #180) decision axiom
+[push] 9
 [assign] (not #159) decision axiom
 [mk-app] #227 >= #36 #90
 [assign] (not #227) justification -1: 56
@@ -1533,25 +1593,13 @@
 [inst-discovered] theory-solving 0000000000000000 arith#
 [instance] 0000000000000000 #228
 [end-of-instance]
-[mk-app] #228 = #34 #128
+[mk-app] #228 = #28 #125
 [inst-discovered] theory-solving 0000000000000000 arith#
 [instance] 0000000000000000 #228
 [end-of-instance]
-[mk-app] #228 = #125 #183
-[attach-meaning] #72 arith (- 1)
-[mk-app] #229 * #72 #183
-[mk-app] #230 + #125 #229
-[mk-app] #231 <= #230 #28
-[mk-app] #232 >= #230 #28
-[assign] #228 justification -1: 24 -75 61
-[attach-enode] #228 0
-[attach-enode] #229 0
-[attach-enode] #230 0
-[assign] #231 justification -1: 76
-[assign] #232 justification -1: 76
-[mk-app] #233 = #230 #28
+[mk-app] #228 = #128 #34
 [inst-discovered] theory-solving 0000000000000000 arith#
-[instance] 0000000000000000 #233
+[instance] 0000000000000000 #228
 [end-of-instance]
 [attach-meaning] #108 arith (- 1)
 [attach-meaning] #108 arith (- 1)
@@ -1569,32 +1617,30 @@
 [attach-meaning] #72 arith (- 1)
 [attach-meaning] #108 arith (- 1)
 [attach-meaning] #108 arith (- 1)
+[mk-app] #228 Int
+[attach-meaning] #228 arith 2
+[mk-app] #229 Int
+[attach-meaning] #229 arith 3
+[mk-app] #230 Real
+[attach-meaning] #230 arith 2
+[mk-app] #231 Real
+[attach-meaning] #231 arith 3
+[mk-app] #232 Int
+[attach-meaning] #232 arith 4
 [mk-app] #233 Int
-[attach-meaning] #233 arith 2
+[attach-meaning] #233 arith 5
 [mk-app] #235 Int
-[attach-meaning] #235 arith 3
-[mk-app] #236 Real
-[attach-meaning] #236 arith 2
+[attach-meaning] #235 arith 6
+[mk-app] #236 Int
+[attach-meaning] #236 arith 7
 [mk-app] #238 Real
-[attach-meaning] #238 arith 3
-[mk-app] #239 Int
-[attach-meaning] #239 arith 4
+[attach-meaning] #238 arith 4
+[mk-app] #239 Real
+[attach-meaning] #239 arith 5
 [mk-app] #240 Int
-[attach-meaning] #240 arith 5
+[attach-meaning] #240 arith 8
 [mk-app] #241 Int
-[attach-meaning] #241 arith 6
-[mk-app] #242 Int
-[attach-meaning] #242 arith 7
-[mk-app] #243 Real
-[attach-meaning] #243 arith 4
-[mk-app] #244 Real
-[attach-meaning] #244 arith 5
-[mk-app] #245 Int
-[attach-meaning] #245 arith 8
-[mk-app] #246 Int
-[attach-meaning] #246 arith 9
-[mk-app] #247 Real
-[attach-meaning] #247 arith 6
+[attach-meaning] #241 arith 9
 [attach-meaning] #5 bv #b1
 [attach-meaning] #6 bv #b0
 [attach-meaning] #5 bv #b1
@@ -1611,7 +1657,7 @@
 [mk-app] #115 <= #96 #28
 [mk-app] #116 not #115
 [attach-meaning] #72 arith (- 1)
-[mk-app] #118 <= #236 #96
+[mk-app] #118 <= #230 #96
 [mk-app] #120 not #118
 [attach-meaning] #72 arith (- 1)
 [attach-meaning] #72 arith (- 1)

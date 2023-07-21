@@ -339,7 +339,7 @@ class lar_solver : public column_namer {
             bp.clear_for_eq();
             for (unsigned i : m_touched_rows) {
                 unsigned offset_eqs = stats().m_offset_eqs;
-                bp.cheap_eq_tree(i);
+                bp.cheap_eq_on_nbase(i);
                 if (settings().get_cancel_flag())
                     return;
                 if (stats().m_offset_eqs > offset_eqs)
