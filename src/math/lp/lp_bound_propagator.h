@@ -165,6 +165,10 @@ class lp_bound_propagator {
     const mpq& val(unsigned j) const {
         return lp().get_column_value(j).x; // figure out why it is safe to return .x
     }
+    
+    const impq& ival(unsigned j) const {
+        return lp().get_column_value(j); // figure out why it is safe to return .x
+    }
 
     unsigned column(unsigned row, unsigned index) {
         return lp().get_row(row)[index].var();
@@ -351,6 +355,8 @@ class lp_bound_propagator {
                 unsigned base_of_found = lp().get_base_column_in_row(found_i);
                 if (is_int(x) != is_int(base_of_found))
                     continue;
+                lp_assert(ival(x) == ival(base_of_found));
+
                 explain_fixed_in_row(found_i, ex);
                 explain_fixed_in_row(i, ex);
                 lp_assert(is_int(x) == is_int(base_of_found));
