@@ -321,7 +321,6 @@ class lp_bound_propagator {
         explain_fixed_column(j, ex);
         add_eq_on_columns(ex, j, v_j, true);
     }
-
     
     void cheap_eq_on_nbase(unsigned row_index) {
         reset_cheap_eq _reset(*this);
