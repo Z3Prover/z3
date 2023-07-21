@@ -39,6 +39,9 @@ TODO: better conflicts with pvar justification
 - when explaining a conflict that contains pvars:
   - single pvar x: the egraph has derived that x must have a different value c, learn literal x = c (instead of x != value(x) as is done now by the naive integration)
   - two pvars x, y: learn literal x = y
+  - (this is basically what Algorithm 1 of "Solving Bitvectors with MCSAT" does)
+
+- then check Algorithm 2 of "Solving Bitvectors with MCSAT"; what is the difference to what we are doing now?
 
 */
 
@@ -548,6 +551,10 @@ namespace polysat {
         end_explain();
     }
 
+    clause_ref slicing::conflict_clause() {
+        NOT_IMPLEMENTED_YET(); // TODO: call explain and build clause as described in notes at the top
+    }
+
     void slicing::egraph_on_propagate(enode* lit, enode* ante) {
         // ante may be set when symmetric equality is added by congruence
         if (ante)
@@ -842,6 +849,16 @@ namespace polysat {
         enode* const sv = var2slice(v);
         enode* const sval = mk_value_slice(val, width(sv));
         (void)merge(sv, sval, v);
+    }
+
+    void slicing::collect_overlaps(pvar v, var_overlap_vector& out) {
+        // - start at var2slice(v)
+        // - go into subslices, always starting at lowest ones
+        // - when we find multiple overlaps, we want to merge them: keep a map<pvar, var_overlap> for this.
+        //   (but note that there can be "holes" in the overlap. by starting at lsb, process overlaps in order low->high. so when we encounter a hole that should mean the overlap is "done" and replace it with the new one in the map.)
+        // - at each slice: iterate over equivalence class, check if it has a variable as parent (usually it would be the root of the parent-pointers. maybe we should cache a pointer to the next variable-enode, instead of keeping all the parents.)
+        // - use enode->mark1/2/3 to process each node only once
+        NOT_IMPLEMENTED_YET();
     }
 
     std::ostream& slicing::display(std::ostream& out) const {

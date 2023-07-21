@@ -1554,6 +1554,30 @@ namespace {
         if (!collect_bit_information(v, true, fixed, justifications))
             return l_false; // conflict already added
 
+        slicing::var_overlap_vector overlaps;
+        s.m_slicing.collect_overlaps(v, overlaps);
+        // TODO: (combining intervals across equivalence classes from slicing)
+        //
+        // When iterating over intervals:
+        // - instead of only intervals of v, go over intervals of each entry of overlaps
+        // - need a function to map interval from overlap into an interval over v
+        //
+        // Maybe combine only the "simple" overlaps in this method, and do the more comprehensive queries on demand, during conflict resolution (saturation.cpp).
+        // Here, we should handle at least:
+        // - direct equivalences (x = y); could just point one interval set to the other and store them together (may be annoying for bookkeeping)
+        // - lower bits extractions (x[h:0]) and equivalent slices;
+        //   (this is what Algorithm 3 in "Solving Bitvectors with MCSAT" does, and will also let us better handle even coefficients of inequalities).
+        //
+        // Problem:
+        // - we want to iterate intervals in order. do we then need to perform the mapping in advance? (monotonic mapping -> only first one needs to be mapped in advance)
+        // - should have some "cursor" class which abstracts the prev/next operation.
+        //
+        // (in addition to slices, some intervals may transfer by other operations. e.g. x = -y. but maybe it's better to handle these cases on demand by saturation.cpp)
+        //
+        // Refinement:
+        // - is done when we find a "feasible" point, so not directly affected by changes to the algorithm.
+        // - we don't know which constraint yields the "best" interval, so keep interleaving constraints
+
         // max number of interval refinements before falling back to the univariate solver
         unsigned const refinement_budget = 1000;
         unsigned refinements = refinement_budget;

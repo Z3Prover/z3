@@ -271,6 +271,8 @@ namespace polysat {
 
         /** Extract reason for conflict */
         void explain(sat::literal_vector& out_lits, unsigned_vector& out_vars);
+        /** Extract conflict clause */
+        clause_ref conflict_clause();
         /** Extract reason for x == y */
         void explain_equal(pvar x, pvar y, sat::literal_vector& out_lits, unsigned_vector& out_vars);
 
@@ -290,10 +292,10 @@ namespace polysat {
         using var_overlap_vector = svector<var_overlap>;
 
         /** For a given variable v, find the set of variables that share at least one slice with v. */
-        void query_overlaps(pvar v, var_overlap_vector& out);
+        void collect_overlaps(pvar v, var_overlap_vector& out);
 
-        /** Query fixed portions of the variable v */
-        void query_fixed(pvar v, rational& mask, rational& value);
+        /** Collect fixed portions of the variable v */
+        void collect_fixed(pvar v, rational& mask, rational& value);
 
         std::ostream& display(std::ostream& out) const;
         std::ostream& display_tree(std::ostream& out) const;
