@@ -1569,6 +1569,13 @@ namespace {
         //   (this is what Algorithm 3 in "Solving Bitvectors with MCSAT" does, and will also let us better handle even coefficients of inequalities).
         //
         // Problem:
+        // - the conflict clause will involve relations between different bit-widths
+        // - can we avoid introducing new extract-terms? (if not, can we at least avoid additional slices?)
+        // - NOTE: currently our clauses survive across backtracking points, but the slicing will be reset.
+        //         It is currently unsafe to create extract/concat terms internally.
+        //         (to be fixed when we re-internalize conflict clauses after backtracking)
+        //
+        // Problem:
         // - we want to iterate intervals in order. do we then need to perform the mapping in advance? (monotonic mapping -> only first one needs to be mapped in advance)
         // - should have some "cursor" class which abstracts the prev/next operation.
         //
@@ -1577,6 +1584,37 @@ namespace {
         // Refinement:
         // - is done when we find a "feasible" point, so not directly affected by changes to the algorithm.
         // - we don't know which constraint yields the "best" interval, so keep interleaving constraints
+
+        // Mapping intervals (by example):
+        //
+        // A) Removing/appending LSB:
+        //
+        //      easy enough on numerals (have to be careful with rounding);
+        //      using in conflict clause will probably involve new extract-terms...
+        //
+        //          x[6:0] \not\in [15;30[
+        //      ==> x[6:1] \not\in [8;15[
+        //      ==> x[6:2] \not\in [4;7[
+        //
+        //          x[6:2] \not\in [3;7[
+        //      ==> x[6:1] \not\in [6;14[
+        //      ==> x[6:0] \not\in [12;28[
+        //
+        // B) Removing/appending MSB:
+        //
+        //      When appending to the MSB, we get exponentially many copies
+        //      of the interval because the upper bits are arbitrary.
+        //      This is why the algorithm should support this case directly (i.e., lower-bits extractions of the query variable).
+        //
+        //          x[4:0] \not\in [3;7[
+        //      ==> x[5:0] \not\in [3;7[ + 2^4 {0,1}
+        //      ==> x[6:0] \not\in [3;7[ + 2^4 {0,1,2,3}
+        //
+        //      When shorting from the MSB side, we may not get an interval at all,
+        //      because the bit-patterns of the remaining (lower) bits are allowed in another part of the domain.
+        //
+        //          x[6:0] \not\in [15;30[
+        //      ==> x[5:0] \not\in \emptyset
 
         // max number of interval refinements before falling back to the univariate solver
         unsigned const refinement_budget = 1000;
