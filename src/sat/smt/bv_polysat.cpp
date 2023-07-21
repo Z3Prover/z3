@@ -93,8 +93,8 @@ namespace bv {
         case OP_EXTRACT:          polysat_extract(a); break;
         case OP_CONCAT:           polysat_concat(a); break;
 
-        case OP_ZERO_EXT:         polysat_zero_ext(a); break;
-        case OP_SIGN_EXT:
+        case OP_ZERO_EXT:         polysat_par_unary(a, [&](pdd const& p, unsigned sz) { return m_polysat.zero_ext(p, sz); }); break;
+        case OP_SIGN_EXT:         polysat_par_unary(a, [&](pdd const& p, unsigned sz) { return m_polysat.sign_ext(p, sz); }); break;
 
             // polysat::solver should also support at least:
         case OP_BREDAND: // x == 2^K - 1
@@ -197,11 +197,10 @@ namespace bv {
         polysat_set(e, p);
     }
 
-    void solver::polysat_zero_ext(app* e) {
-        pdd const arg = expr2pdd(e->get_arg(0));
+    void solver::polysat_par_unary(app* e, std::function<polysat::pdd(polysat::pdd,unsigned)> const& fn) {
+        pdd const p = expr2pdd(e->get_arg(0));
         unsigned const sz = e->get_parameter(0).get_int();
-        pdd const p = m_polysat.zero_ext(p, sz);
-        polysat_set(e, p);
+        polysat_set(e, fn(p, sz));
     }
 
     void solver::polysat_binary(app* e, std::function<polysat::pdd(polysat::pdd, polysat::pdd)> const& fn) {

@@ -42,15 +42,16 @@ namespace polysat {
         quot_rem_expr_map m_quot_rem_expr;
         vector<std::tuple<pdd, pdd, pvar, pvar>> m_div_rem_list;
 
-        using zext_args = std::pair<pvar, unsigned>;
-        using zext_args_eq = default_eq<zext_args>;
-        struct zext_args_hash {
-            unsigned operator()(zext_args const& args) const {
-                return combine_hash(args.first, args.second);
+        // zero_ext or sign_ext
+        using bv_ext_args = std::tuple<bool, pvar, unsigned>;
+        using bv_ext_args_eq = default_eq<bv_ext_args>;
+        struct bv_ext_args_hash {
+            unsigned operator()(bv_ext_args const& args) const {
+                return mk_mix(std::get<0>(args), std::get<1>(args), std::get<2>(args));
             }
         };
-        using zext_expr_map = map<zext_args, pvar, zext_args_hash, zext_args_eq>;
-        zext_expr_map m_zext_expr;
+        using bv_ext_expr_map = map<bv_ext_args, pvar, bv_ext_args_hash, bv_ext_args_eq>;
+        bv_ext_expr_map m_bv_ext_expr;
     };
 
     // Manage constraint lifetime, deduplication, and connection to boolean variables/literals.
@@ -172,6 +173,7 @@ namespace polysat {
         pdd concat(unsigned num_args, pdd const* args);
 
         pdd zero_ext(pdd const& p, unsigned bit_width);
+        pdd sign_ext(pdd const& p, unsigned bit_width);
 
         constraint* const* begin() const { return m_constraints.data(); }
         constraint* const* end() const { return m_constraints.data() + m_constraints.size(); }
