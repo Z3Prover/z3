@@ -553,6 +553,7 @@ namespace polysat {
 
     clause_ref slicing::conflict_clause() {
         NOT_IMPLEMENTED_YET(); // TODO: call explain and build clause as described in notes at the top
+        return {};
     }
 
     void slicing::egraph_on_propagate(enode* lit, enode* ante) {
