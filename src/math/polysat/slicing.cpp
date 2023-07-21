@@ -33,6 +33,13 @@ TODO:
 - implement query functions
 - when solver assigns value of a variable v, add equations with v substituted by its value?
 
+TODO: better conflicts with pvar justification
+- pvar justification is only introduced by add_value (when a variable is assigned in the model)
+- so there can be at most two pvar justifications in a single conflict
+- when explaining a conflict that contains pvars:
+  - single pvar x: the egraph has derived that x must have a different value c, learn literal x = c (instead of x != value(x) as is done now by the naive integration)
+  - two pvars x, y: learn literal x = y
+
 */
 
 
