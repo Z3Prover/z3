@@ -172,8 +172,8 @@ namespace polysat {
         pdd concat(pdd const& p, pdd const& q);
         pdd concat(unsigned num_args, pdd const* args);
 
-        pdd zero_ext(pdd const& p, unsigned bit_width);
-        pdd sign_ext(pdd const& p, unsigned bit_width);
+        pdd zero_ext(pdd const& p, unsigned extra_bits);
+        pdd sign_ext(pdd const& p, unsigned extra_bits);
 
         constraint* const* begin() const { return m_constraints.data(); }
         constraint* const* end() const { return m_constraints.data() + m_constraints.size(); }

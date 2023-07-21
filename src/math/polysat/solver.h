@@ -419,10 +419,10 @@ namespace polysat {
         pdd concat(unsigned num_args, pdd const* args) { return m_constraints.concat(num_args, args); }
 
         /** Create expression for zero-extension of p */
-        pdd zero_ext(pdd const& p, unsigned bit_width) { return m_constraints.zero_ext(p, bit_width); }
+        pdd zero_ext(pdd const& p, unsigned extra_bits) { return m_constraints.zero_ext(p, extra_bits); }
 
         /** Create expression for signed-extension of p */
-        pdd sign_ext(pdd const& p, unsigned bit_width) { return m_constraints.sign_ext(p, bit_width); }
+        pdd sign_ext(pdd const& p, unsigned extra_bits) { return m_constraints.sign_ext(p, extra_bits); }
 
         /**
         * Create terms for unsigned quot-rem

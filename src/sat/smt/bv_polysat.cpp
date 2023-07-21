@@ -89,10 +89,10 @@ namespace bv {
         case OP_BSREM0:           break;
         case OP_BUREM0:           break;
         case OP_BSMOD0:           break;
+        // TODO: what about those naked breaks above? is this handled elsewhere?
 
         case OP_EXTRACT:          polysat_extract(a); break;
         case OP_CONCAT:           polysat_concat(a); break;
-
         case OP_ZERO_EXT:         polysat_par_unary(a, [&](pdd const& p, unsigned sz) { return m_polysat.zero_ext(p, sz); }); break;
         case OP_SIGN_EXT:         polysat_par_unary(a, [&](pdd const& p, unsigned sz) { return m_polysat.sign_ext(p, sz); }); break;
 
@@ -199,8 +199,8 @@ namespace bv {
 
     void solver::polysat_par_unary(app* e, std::function<polysat::pdd(polysat::pdd,unsigned)> const& fn) {
         pdd const p = expr2pdd(e->get_arg(0));
-        unsigned const sz = e->get_parameter(0).get_int();
-        polysat_set(e, fn(p, sz));
+        unsigned const par = e->get_parameter(0).get_int();
+        polysat_set(e, fn(p, par));
     }
 
     void solver::polysat_binary(app* e, std::function<polysat::pdd(polysat::pdd, polysat::pdd)> const& fn) {

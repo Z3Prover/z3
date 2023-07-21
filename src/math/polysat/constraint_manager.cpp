@@ -640,14 +640,16 @@ namespace polysat {
         return s.var(v);
     }
 
-    pdd constraint_manager::zero_ext(pdd const& p, unsigned bit_width) {
-        SASSERT(bit_width > p.power_of_2());
+    pdd constraint_manager::zero_ext(pdd const& p, unsigned extra_bits) {
+        SASSERT(extra_bits > 0);
+        unsigned const p_sz = p.power_of_2();
+        unsigned const v_sz = p_sz + extra_bits;
         pdd const q = s.var(s.m_names.mk_name(p));
-        constraint_dedup::bv_ext_args const args = {false, q.var(), bit_width};
+        constraint_dedup::bv_ext_args const args = {false, q.var(), extra_bits};
         auto const it = m_dedup.m_bv_ext_expr.find_iterator(args);
         if (it != m_dedup.m_bv_ext_expr.end())
             return s.var(it->m_value);
-        pdd const v = s.var(s.add_var(bit_width));
+        pdd const v = s.var(s.add_var(v_sz));
         m_dedup.m_bv_ext_expr.insert(args, v.var());
         // (1)  v[|p|-1:0] = p
         s.add_eq(q, extract(v, p.power_of_2() - 1, 0));
@@ -656,20 +658,21 @@ namespace polysat {
         return v;
     }
 
-    pdd constraint_manager::sign_ext(pdd const& p, unsigned bit_width) {
+    pdd constraint_manager::sign_ext(pdd const& p, unsigned extra_bits) {
+        SASSERT(extra_bits > 0);
         unsigned const p_sz = p. power_of_2();
-        SASSERT(bit_width > p_sz);
+        unsigned const v_sz = p_sz + extra_bits;
         pdd const q = s.var(s.m_names.mk_name(p));
-        constraint_dedup::bv_ext_args const args = {true, q.var(), bit_width};
+        constraint_dedup::bv_ext_args const args = {true, q.var(), extra_bits};
         auto const it = m_dedup.m_bv_ext_expr.find_iterator(args);
         if (it != m_dedup.m_bv_ext_expr.end())
             return s.var(it->m_value);
-        pdd const v = s.var(s.add_var(bit_width));
+        pdd const v = s.var(s.add_var(v_sz));
         m_dedup.m_bv_ext_expr.insert(args, v.var());
         // (1)  v[|p|-1:0] = p
         s.add_eq(q, extract(v, p_sz - 1, 0));
-        // (2)  Let h := v[bit_width-1:|p|]
-        pdd const h = extract(v, bit_width - 1, p_sz);
+        // (2)  Let h := v[|v|-1:|p|]
+        pdd const h = extract(v, v_sz - 1, p_sz);
         signed_constraint p_negative = s.uge(p, rational::power_of_two(p_sz - 1));
         // (3)  p < 2^(|p|-1)   ==>  h = 0
         s.add_clause(p_negative, s.eq(h), false);
