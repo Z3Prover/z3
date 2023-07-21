@@ -596,6 +596,9 @@ namespace polysat {
             rational q = mod2k(machine_div2k(p.val(), lo), hi - lo + 1);
             return p.manager().mk_val(q);
         }
+        if (lo == hi) {
+            // could turn it into a single-bit constraint... unclear if that is useful
+        }
         if (!lo) {
             // TODO: we could push the extract down into variables of the term instead of introducing a name.
         }
@@ -635,6 +638,22 @@ namespace polysat {
             pvar_args.push_back(s.m_names.mk_name(args[i]));
         pvar const v = s.m_slicing.mk_concat(num_args, pvar_args.data());
         return s.var(v);
+    }
+
+    pdd constraint_manager::zero_ext(pdd const& p, unsigned bit_width) {
+        SASSERT(bit_width > p.power_of_2());
+        pdd const q = s.var(s.m_names.mk_name(p));
+        constraint_dedup::zext_args args = {q.var(), bit_width};
+        auto it = m_dedup.m_zext_expr.find_iterator(args);
+        if (it != m_dedup.m_zext_expr.end())
+            return s.var(it->m_value);
+        pdd const v = s.var(s.add_var(bit_width));
+        m_dedup.m_zext_expr.insert(args, v.var());
+        // v[|p|-1:0] = p
+        s.add_eq(q, extract(v, p.power_of_2() - 1, 0));
+        // v < 2^|p|
+        s.add_ule(q, p.manager().max_value());
+        return v;
     }
 
     /** unsigned quotient/remainder */

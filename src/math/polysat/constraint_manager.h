@@ -41,6 +41,16 @@ namespace polysat {
         using quot_rem_expr_map = map<quot_rem_args, std::pair<pvar, pvar>, quot_rem_args_hash, quot_rem_args_eq>;
         quot_rem_expr_map m_quot_rem_expr;
         vector<std::tuple<pdd, pdd, pvar, pvar>> m_div_rem_list;
+
+        using zext_args = std::pair<pvar, unsigned>;
+        using zext_args_eq = default_eq<zext_args>;
+        struct zext_args_hash {
+            unsigned operator()(zext_args const& args) const {
+                return combine_hash(args.first, args.second);
+            }
+        };
+        using zext_expr_map = map<zext_args, pvar, zext_args_hash, zext_args_eq>;
+        zext_expr_map m_zext_expr;
     };
 
     // Manage constraint lifetime, deduplication, and connection to boolean variables/literals.
@@ -160,6 +170,8 @@ namespace polysat {
         pdd extract(pdd const& p, unsigned hi, unsigned lo);
         pdd concat(pdd const& p, pdd const& q);
         pdd concat(unsigned num_args, pdd const* args);
+
+        pdd zero_ext(pdd const& p, unsigned bit_width);
 
         constraint* const* begin() const { return m_constraints.data(); }
         constraint* const* end() const { return m_constraints.data() + m_constraints.size(); }

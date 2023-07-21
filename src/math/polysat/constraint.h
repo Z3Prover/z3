@@ -17,7 +17,6 @@ Author:
 #include "math/polysat/interval.h"
 #include "math/polysat/assignment.h"
 #include "math/polysat/univariate/univariate_solver.h"
-#include "util/tbv.h"
 #include <iostream>
 
 namespace polysat {

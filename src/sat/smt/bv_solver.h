@@ -327,6 +327,7 @@ namespace bv {
         void polysat_binary(app* e, std::function<polysat::pdd(polysat::pdd, polysat::pdd)> const& fn);
         void polysat_extract(app* e);
         void polysat_concat(app* e);
+        void polysat_zero_ext(app* e);
         polysat::pdd expr2pdd(expr* e);
         void polysat_set(euf::theory_var v, polysat::pdd const& p);
         polysat::pdd var2pdd(euf::theory_var v);

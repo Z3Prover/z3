@@ -93,7 +93,7 @@ namespace bv {
         case OP_EXTRACT:          polysat_extract(a); break;
         case OP_CONCAT:           polysat_concat(a); break;
 
-        case OP_ZERO_EXT:
+        case OP_ZERO_EXT:         polysat_zero_ext(a); break;
         case OP_SIGN_EXT:
 
             // polysat::solver should also support at least:
@@ -194,6 +194,13 @@ namespace bv {
         for (unsigned i = 0; i < e->get_num_args(); ++i)
             args.push_back(expr2pdd(e->get_arg(i)));
         auto const p = m_polysat.concat(args.size(), args.data());
+        polysat_set(e, p);
+    }
+
+    void solver::polysat_zero_ext(app* e) {
+        pdd const arg = expr2pdd(e->get_arg(0));
+        unsigned const sz = e->get_parameter(0).get_int();
+        pdd const p = m_polysat.zero_ext(p, sz);
         polysat_set(e, p);
     }
 
