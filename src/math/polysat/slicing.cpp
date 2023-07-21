@@ -610,8 +610,11 @@ namespace polysat {
             SASSERT(!has_sub(x));
             SASSERT(!has_sub(y));
             if (width(x) == width(y)) {
-                if (!merge_base(x, y, dep))
+                if (!merge_base(x, y, dep)) {
+                    xs.clear();
+                    ys.clear();
                     return false;
+                }
             }
             else if (width(x) > width(y)) {
                 // need to split x according to y
@@ -785,7 +788,7 @@ namespace polysat {
                 continue;
             pdd const body = a.is_one() ? (m.mk_var(x) - p) : (m.mk_var(x) + p);
             // c is either x = body or x != body, depending on polarity
-            LOG("Equation from lit(" << c.blit() << ")  " << c << ":  v" << x << " = " << body);
+            LOG("Equation from lit(" << c.blit() << ")  " << c << ":  v" << x << (c.is_positive() ? " = " : " != ") << body);
             if (!add_equation(x, body, c.blit())) {
                 SASSERT(is_conflict());
                 return;
