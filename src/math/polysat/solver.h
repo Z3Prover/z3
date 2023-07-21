@@ -320,9 +320,6 @@ namespace polysat {
 
         void push_reinit_stack(clause& c);
 
-        /** Get variable representing v[hi:lo] */
-        pvar extract_var(pvar v, unsigned hi, unsigned lo);
-
         void add_clause(clause_ref clause);
         void add_clause(clause& clause);
         void add_clause(signed_constraint c1, bool is_redundant);
@@ -415,11 +412,11 @@ namespace polysat {
          */
         pdd var(pvar v) { return m_vars[v]; }
 
-        /** Create expression for v[hi:lo] */
-        pdd extract(pvar v, unsigned hi, unsigned lo);
-
         /** Create expression for p[hi:lo] */
-        pdd extract(pdd const& p, unsigned hi, unsigned lo);
+        pdd extract(pdd const& p, unsigned hi, unsigned lo) { return m_constraints.extract(p, hi, lo); }
+
+        /** Create expression for concatenation of args */
+        pdd concat(unsigned num_args, pdd const* args) { return m_constraints.concat(num_args, args); }
 
         /**
         * Create terms for unsigned quot-rem

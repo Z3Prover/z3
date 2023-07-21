@@ -32,9 +32,11 @@ namespace bv {
 
     void solver::internalize_polysat(app* a) {
 
+        // verbose_stream() << "internalize_polysat: " << mk_ismt2_pp(a, m) << "\n";
+
 #define if_unary(F) if (a->get_num_args() == 1) { polysat_unary(a, [&](pdd const& p) { return F(p); }); break; }
 
-        switch (to_app(a)->get_decl_kind()) {
+        switch (a->get_decl_kind()) {
         case OP_BMUL:             polysat_binary(a, [&](pdd const& p, pdd const& q) { return p * q; }); break;
         case OP_BADD:             polysat_binary(a, [&](pdd const& p, pdd const& q) { return p + q; }); break;
         case OP_BSUB:             polysat_binary(a, [&](pdd const& p, pdd const& q) { return p - q; }); break;
@@ -64,17 +66,35 @@ namespace bv {
         case OP_BUMUL_NO_OVFL:    polysat_binaryc(a, [&](pdd const& p, pdd const& q) { return m_polysat.umul_ovfl(p, q); }); break;
         case OP_BSMUL_NO_OVFL:    polysat_binaryc(a, [&](pdd const& p, pdd const& q) { return m_polysat.smul_ovfl(p, q); }); break;
         case OP_BSMUL_NO_UDFL:    polysat_binaryc(a, [&](pdd const& p, pdd const& q) { return m_polysat.smul_udfl(p, q); }); break;
-            
-        case OP_BUDIV_I:          polysat_div_rem_i(a, true); break;       
+
+        case OP_BUMUL_OVFL:
+        case OP_BSMUL_OVFL:
+        case OP_BSDIV_OVFL:
+        case OP_BNEG_OVFL:
+        case OP_BUADD_OVFL:
+        case OP_BSADD_OVFL:
+        case OP_BUSUB_OVFL:
+        case OP_BSSUB_OVFL:
+            // handled by bv_rewriter for now
+            UNREACHABLE();
+            break;
+
+        case OP_BUDIV_I:          polysat_div_rem_i(a, true); break;
         case OP_BUREM_I:          polysat_div_rem_i(a, false); break;
 
-        case OP_BUDIV:            polysat_div_rem(a, true); break;            
+        case OP_BUDIV:            polysat_div_rem(a, true); break;
         case OP_BUREM:            polysat_div_rem(a, false); break;
         case OP_BSDIV0:           break;
         case OP_BUDIV0:           break;
         case OP_BSREM0:           break;
         case OP_BUREM0:           break;
         case OP_BSMOD0:           break;
+
+        case OP_EXTRACT:          polysat_extract(a); break;
+        case OP_CONCAT:           polysat_concat(a); break;
+
+        case OP_ZERO_EXT:
+        case OP_SIGN_EXT:
 
             // polysat::solver should also support at least:
         case OP_BREDAND: // x == 2^K - 1
@@ -87,10 +107,6 @@ namespace bv {
         case OP_BSMOD_I:
         case OP_BASHR:
         case OP_BCOMP:
-        case OP_SIGN_EXT:
-        case OP_ZERO_EXT:
-        case OP_CONCAT:
-        case OP_EXTRACT:
             std::cout << mk_pp(a, m) << "\n";
             NOT_IMPLEMENTED_YET();
             return;
@@ -162,6 +178,23 @@ namespace bv {
             ctx.add_aux_equiv(lit, bit_i);
             ++i;
         }
+    }
+
+    void solver::polysat_extract(app* e) {
+        unsigned const hi = bv.get_extract_high(e);
+        unsigned const lo = bv.get_extract_low(e);
+        auto const src = expr2pdd(e->get_arg(0));
+        auto const p = m_polysat.extract(src, hi, lo);
+        polysat_set(e, p);
+    }
+
+    void solver::polysat_concat(app* e) {
+        SASSERT(bv.is_concat(e));
+        vector<pdd> args;
+        for (unsigned i = 0; i < e->get_num_args(); ++i)
+            args.push_back(expr2pdd(e->get_arg(i)));
+        auto const p = m_polysat.concat(args.size(), args.data());
+        polysat_set(e, p);
     }
 
     void solver::polysat_binary(app* e, std::function<polysat::pdd(polysat::pdd, polysat::pdd)> const& fn) {

@@ -59,6 +59,10 @@ namespace bv {
         m_bb.set_flat_and_or(false);
     }
 
+    void solver::updt_params(params_ref const& p) {
+        m_polysat.updt_params(p);
+    }
+
     bool solver::is_fixed(euf::theory_var v, expr_ref& val, sat::literal_vector& lits) {
         numeral n;
         if (!get_fixed_value(v, n))

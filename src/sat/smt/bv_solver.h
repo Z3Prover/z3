@@ -325,6 +325,8 @@ namespace bv {
         void polysat_pop(unsigned n);
         void polysat_unary(app* e, std::function<polysat::pdd(polysat::pdd)> const& fn);
         void polysat_binary(app* e, std::function<polysat::pdd(polysat::pdd, polysat::pdd)> const& fn);
+        void polysat_extract(app* e);
+        void polysat_concat(app* e);
         polysat::pdd expr2pdd(expr* e);
         void polysat_set(euf::theory_var v, polysat::pdd const& p);
         polysat::pdd var2pdd(euf::theory_var v);
@@ -404,6 +406,7 @@ namespace bv {
        
     public:
         solver(euf::solver& ctx, theory_id id);
+        void updt_params(params_ref const& p) override;
         void set_lookahead(sat::lookahead* s) override { }
         void init_search() override {}
         double get_reward(literal l, sat::ext_constraint_idx idx, sat::literal_occs_fun& occs) const override;
