@@ -308,7 +308,7 @@ namespace bv {
         case bv_justification::kind_t::eq2bit:
             SASSERT(s().value(c.m_antecedent) == l_true);
             r.push_back(c.m_antecedent);
-            ctx.add_antecedent(probing, var2enode(c.m_v1), var2enode(c.m_v2));
+            ctx.add_eq_antecedent(probing, var2enode(c.m_v1), var2enode(c.m_v2));
             break;
         case bv_justification::kind_t::ne2bit: {
             r.push_back(c.m_antecedent);
@@ -376,8 +376,8 @@ namespace bv {
             break;
         }
         case bv_justification::kind_t::bv2int: {
-            ctx.add_antecedent(probing, c.a, c.b);
-            ctx.add_antecedent(probing, c.a, c.c);
+            ctx.add_eq_antecedent(probing, c.a, c.b);
+            ctx.add_eq_antecedent(probing, c.a, c.c);
             break;
         }
         }

@@ -239,7 +239,7 @@ namespace euf {
         th_proof_hint* hint = nullptr;
 
         if (ext == this)
-            get_antecedents(l, constraint::from_idx(idx), r, probing);
+            get_euf_antecedents(l, constraint::from_idx(idx), r, probing);
         else 
             ext->get_antecedents(l, idx, r, probing);
 
@@ -260,8 +260,11 @@ namespace euf {
             if (create_hint) {
                 if (is_literal(e))
                     m_hint_lits.push_back(get_literal(e));
-                else
-                    m_hint_eqs.push_back(th_explain::from_index(get_justification(e)).eq_consequent());
+                else {
+                    auto const& eq = th_explain::from_index(get_justification(e)).eq_consequent();
+                    TRACE("euf", tout << "consequent " << bpp(eq.first) << " " << bpp(eq.second) << "\n"; );
+                    m_hint_eqs.push_back(eq);
+                }
             }
         }
         m_egraph.end_explain();
@@ -292,17 +295,17 @@ namespace euf {
             set_tmp_bool_var(v, nullptr);
     }
 
-    void solver::get_antecedents(literal l, th_explain& jst, literal_vector& r, bool probing) {
+    void solver::get_th_antecedents(literal l, th_explain& jst, literal_vector& r, bool probing) {
         for (auto lit : euf::th_explain::lits(jst))
             r.push_back(lit);
         for (auto eq : euf::th_explain::eqs(jst))
-            add_antecedent(probing, eq.first, eq.second);
+            add_eq_antecedent(probing, eq.first, eq.second);
         
         if (!probing && use_drat()) 
             log_justification(l, jst);
     }
 
-    void solver::add_antecedent(bool probing, enode* a, enode* b) {
+    void solver::add_eq_antecedent(bool probing, enode* a, enode* b) {
         cc_justification* cc = (!probing && use_drat()) ? &m_explain_cc : nullptr;
         m_egraph.explain_eq<size_t>(m_explain, cc, a, b);
     }
@@ -321,7 +324,7 @@ namespace euf {
         return true;
     }
 
-    void solver::get_antecedents(literal l, constraint& j, literal_vector& r, bool probing) {
+    void solver::get_euf_antecedents(literal l, constraint& j, literal_vector& r, bool probing) {
         expr* e = nullptr;
         euf::enode* n = nullptr;
         cc_justification* cc = nullptr;
@@ -357,6 +360,7 @@ namespace euf {
                 lbool val = ante->value();
                 SASSERT(val != l_undef);
                 literal ante_lit(v, val == l_false);
+                TRACE("euf", tout << "explain " << bpp(n) << " by " << bpp(ante) << "\n");
                 m_explain.push_back(to_ptr(ante_lit));
             }
             break;

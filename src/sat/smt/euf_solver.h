@@ -220,7 +220,7 @@ namespace euf {
         void propagate_literal(enode* n, enode* ante);
         void propagate_th_eqs();
         bool is_self_propagated(th_eq const& e);
-        void get_antecedents(literal l, constraint& j, literal_vector& r, bool probing);
+        void get_euf_antecedents(literal l, constraint& j, literal_vector& r, bool probing);
         void new_diseq(enode* a, enode* b, literal lit);
         bool merge_shared_bools();
 
@@ -365,8 +365,8 @@ namespace euf {
         void flush_roots() override;
 
         void get_antecedents(literal l, ext_justification_idx idx, literal_vector& r, bool probing) override;
-        void get_antecedents(literal l, th_explain& jst, literal_vector& r, bool probing);
-        void add_antecedent(bool probing, enode* a, enode* b);
+        void get_th_antecedents(literal l, th_explain& jst, literal_vector& r, bool probing);
+        void add_eq_antecedent(bool probing, enode* a, enode* b);
         void add_diseq_antecedent(ptr_vector<size_t>& ex, cc_justification* cc, enode* a, enode* b);
         void add_explain(size_t* p) { m_explain.push_back(p); }
         void reset_explain() { m_explain.reset(); }

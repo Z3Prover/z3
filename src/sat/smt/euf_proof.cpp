@@ -197,7 +197,6 @@ namespace euf {
                 if (!literal2expr(lits[i])) 
                     IF_VERBOSE(0, verbose_stream() << lits[i] << "\n"; display(verbose_stream()));
                 
-
                 SASSERT(literal2expr(lits[i]));
                 m_proof_literals.push_back(lits[i]);
             }
@@ -260,10 +259,7 @@ namespace euf {
             auto const& [a, b] = s.m_proof_deqs[i];
             args.push_back(m.mk_not(m.mk_eq(a, b)));
         }
-        for (auto * arg : args)
-            sorts.push_back(arg->get_sort());
-        func_decl* f = m.mk_func_decl(m_name, sorts.size(), sorts.data(), proof);
-        return m.mk_app(f, args);
+        return m.mk_app(m_name, args.size(), args.data(), proof);
     }
 
     void solver::set_tmp_bool_var(bool_var b, expr* e) {
@@ -298,7 +294,7 @@ namespace euf {
     }
 
     void solver::on_clause(unsigned n, literal const* lits, sat::status st) {
-        TRACE("euf", tout << "on-clause " << n << "\n");
+        TRACE("euf_verbose", tout << "on-clause " << n << "\n");
         on_lemma(n, lits, st);
         on_proof(n, lits, st);
         on_check(n, lits, st);
@@ -417,7 +413,7 @@ namespace euf {
         if (proof_hint)
             return display_expr(out << " ", proof_hint);
         else
-          return out;
+            return out;
     }
 
     app_ref solver::status2proof_hint(sat::status st) {

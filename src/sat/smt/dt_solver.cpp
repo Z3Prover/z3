@@ -757,7 +757,7 @@ namespace dt {
 
     void solver::get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector& r, bool probing) {
         auto& jst = euf::th_explain::from_index(idx);
-        ctx.get_antecedents(l, jst, r, probing);
+        ctx.get_th_antecedents(l, jst, r, probing);
     }
 
     void solver::add_value(euf::enode* n, model& mdl, expr_ref_vector& values) {
