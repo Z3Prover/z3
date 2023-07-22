@@ -28,8 +28,12 @@ Example:
 
 
 TODO:
-- track fixed bits along with enodes
+- replay mk_extract/mk_concat in pop_scope. (easiest solution until we have proper garbage collection / reinitialization in the solver)
 - notify solver about equalities discovered by congruence
+    - variable equalities x = y will be handled on-demand by the viable component
+    - but whenever we derive an equality between pvar and value we must propagate the value in the solver
+        -> need a way to store and retrieve justification for this propagation (explain_equal)
+- track fixed bits along with enodes
 - implement query functions
 - when solver assigns value of a variable v, add equations with v substituted by its value?
 
@@ -39,6 +43,10 @@ TODO: better conflicts with pvar justification
 - when explaining a conflict that contains pvars:
   - single pvar x: the egraph has derived that x must have a different value c, learn literal x = c (instead of x != value(x) as is done now by the naive integration)
   - two pvars x, y: learn literal x = y
+    Actually: it is an equality over slices x[h1:l1] = y[h2:l2], i.e., those slices that failed to merge.
+    -> how to get slice from egraph-explain? could store pointer to slice alongside pvar-dependencies.
+    -> we don't need to create a new slice since the equality will be over existing slices,
+       but (in general) we have to create a new variable for it.
   - (this is basically what Algorithm 1 of "Solving Bitvectors with MCSAT" does)
 
 - then check Algorithm 2 of "Solving Bitvectors with MCSAT"; what is the difference to what we are doing now?
