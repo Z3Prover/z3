@@ -199,6 +199,9 @@ namespace arith {
             name = "implied-eq";
             args.push_back(arith.mk_int(m_num_le));
             break;
+        default:
+            name = "unknown-arithmetic";
+            break;
         }
         rational lc(1);
         for (unsigned i = m_lit_head; i < m_lit_tail; ++i) 
