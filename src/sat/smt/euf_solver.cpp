@@ -268,18 +268,6 @@ namespace euf {
             }
         }
         m_egraph.end_explain();
-        unsigned nv = s().num_vars();
-        expr_ref_vector eqs(m);
-        if (create_hint)  {
-            // add negated equalities to hint.            
-            for (auto const& [a,b] : m_hint_eqs) {
-                eqs.push_back(m.mk_eq(a->get_expr(), b->get_expr()));
-                set_tmp_bool_var(nv, eqs.back());
-                m_hint_lits.push_back(literal(nv, false));
-                ++nv;
-            }
-            hint = mk_hint(m_euf, l);
-        }
 
         CTRACE("euf", probing, tout << "explain " << l << " <- " << r << "\n");
         unsigned j = 0;
@@ -289,10 +277,21 @@ namespace euf {
         CTRACE("euf", create_hint, tout << "explain " << l << " <- " << m_hint_lits << "\n");
         DEBUG_CODE(for (auto lit : r) SASSERT(s().value(lit) == l_true););
 
-        if (!probing)
+        if (create_hint)  {
+            unsigned nv = s().num_vars();
+            expr_ref_vector eqs(m);
+            // add equalities to hint.            
+            for (auto const& [a,b] : m_hint_eqs) {
+                eqs.push_back(m.mk_eq(a->get_expr(), b->get_expr()));
+                set_tmp_bool_var(nv, eqs.back());
+                m_hint_lits.push_back(literal(nv, false));
+                ++nv;
+            }
+            hint = mk_hint(m_euf, l);
             log_antecedents(l, r, hint);
-        for (unsigned v = s().num_vars(); v < nv; ++v)
-            set_tmp_bool_var(v, nullptr);
+            for (unsigned v = s().num_vars(); v < nv; ++v)
+                set_tmp_bool_var(v, nullptr);
+        }
     }
 
     void solver::get_th_antecedents(literal l, th_explain& jst, literal_vector& r, bool probing) {
