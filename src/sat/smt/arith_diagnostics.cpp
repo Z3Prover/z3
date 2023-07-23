@@ -213,7 +213,9 @@ namespace arith {
             args.push_back(s.literal2expr(lit));
         }
         for (unsigned i = m_eq_head; i < m_eq_tail; ++i) {
-            auto const& [x, y, is_eq] = a.m_arith_hint.eq(i);            
+            auto [x, y, is_eq] = a.m_arith_hint.eq(i);    
+            if (x->get_id() > y->get_id())
+                std::swap(x, y);
             expr_ref eq(m.mk_eq(x->get_expr(), y->get_expr()), m);
             if (!is_eq) eq = m.mk_not(eq);
             args.push_back(arith.mk_int(1));

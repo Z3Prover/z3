@@ -44,23 +44,88 @@ namespace euf {
     }
 
     /**
-     * \brief logs antecedents to a proof trail.
-     *
-     * NB with theories, this is not a pure EUF justification,
-     * It is true modulo EUF and previously logged certificates
-     * so it isn't necessarily an axiom over EUF,
-     * We will here leave it to the EUF checker to perform resolution steps.
-     */
+    * Log justifications.
+    * is_euf - true if l is justified by congruence closure. In this case create a congruence closure proof.
+    * explain_size - the relevant portion of premises for the congruence closure proof.
+    * The EUF solver manages equality propagation. Each propagated equality is justified by a congruence closure.
+    */
+    void solver::log_justifications(literal l, unsigned explain_size, bool is_euf) {
+
+        unsigned nv = s().num_vars();
+        expr_ref_vector eqs(m);
+
+        auto add_hint_literals = [&](unsigned sz) {
+            eqs.reset();
+            m_hint_lits.reset();
+            nv = s().num_vars();
+            for (unsigned i = 0; i < sz; ++i) {
+                size_t* e = m_explain[i];
+                if (is_literal(e))
+                    m_hint_lits.push_back(get_literal(e));
+                else {
+                    auto [x, y] = th_explain::from_index(get_justification(e)).eq_consequent();
+                    eqs.push_back(m.mk_eq(x->get_expr(), y->get_expr()));
+                    set_tmp_bool_var(nv, eqs.back());
+                    m_hint_lits.push_back(literal(nv, false));
+                    ++nv;
+                }
+            }
+        };
+
+        auto clear_hint_literals = [&]() {
+            for (unsigned v = s().num_vars(); v < nv; ++v)
+                set_tmp_bool_var(v, nullptr);
+        };
+
+        // log EUF justifications
+        if (is_euf) {
+            add_hint_literals(explain_size);
+            auto* hint = mk_hint(m_euf, l);
+            log_antecedents(l, m_hint_lits, hint);
+            clear_hint_literals();
+        }
+
+        // explain equalities
+        for (auto const& [a, b] : m_hint_eqs) {
+            m_egraph.begin_explain();
+            m_explain.reset();
+            m_egraph.explain_eq<size_t>(m_explain, &m_explain_cc, a, b);
+            m_egraph.end_explain();
+            // Detect shortcut if equality is explained directly by a theory
+            if (m_explain.size() == 1 && !is_literal(m_explain[0])) {
+                auto const& [x, y] = th_explain::from_index(get_justification(m_explain[0])).eq_consequent();
+                if (x == a && y == b)
+                    continue;
+            }
+            add_hint_literals(m_explain.size());
+            eqs.push_back(m.mk_eq(a->get_expr(), b->get_expr()));
+            set_tmp_bool_var(nv, eqs.back());
+            sat::literal eql = literal(nv, false);
+            ++nv;
+            auto* hint = mk_hint(m_euf, eql);
+            log_antecedents(eql, m_hint_lits, hint);
+            clear_hint_literals();
+        }
+    }
+
     void solver::log_antecedents(literal l, literal_vector const& r, th_proof_hint* hint) {
+        SASSERT(hint && use_drat());
         TRACE("euf", log_antecedents(tout, l, r); tout << mk_pp(hint->get_hint(*this), m) << "\n");
-        if (!use_drat())
-            return;
         literal_vector lits;
         for (literal lit : r) 
             lits.push_back(~lit);
         if (l != sat::null_literal)
             lits.push_back(l);
         get_drat().add(lits, sat::status::th(true, get_id(), hint));
+    }
+
+    void solver::log_rup(literal l, literal_vector const& r) {
+        literal_vector lits;
+        for (literal lit : r)
+            lits.push_back(~lit);
+        if (l != sat::null_literal)
+            lits.push_back(l);
+        get_drat().add(lits, sat::status::redundant());
     }
 
     void solver::log_antecedents(std::ostream& out, literal l, literal_vector const& r) {
@@ -159,6 +224,7 @@ namespace euf {
         };
         for (unsigned i = m_lit_head; i < m_lit_tail; ++i) 
             args.push_back(s.literal2expr(s.m_proof_literals[i]));
+        
         std::sort(s.m_explain_cc.data() + m_cc_head, s.m_explain_cc.data() + m_cc_tail, compare_ts);
         for (unsigned i = m_cc_head; i < m_cc_tail; ++i) {
             auto const& [a, b, ts, comm] = s.m_explain_cc[i];

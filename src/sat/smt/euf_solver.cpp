@@ -228,69 +228,52 @@ namespace euf {
 
     void solver::get_antecedents(literal l, ext_justification_idx idx, literal_vector& r, bool probing) {
         bool create_hint = use_drat() && !probing;
-        m_egraph.begin_explain();
-        m_explain.reset();
         if (create_hint) {
             push(restore_vector(m_explain_cc));
             m_hint_eqs.reset();
-            m_hint_lits.reset();
         }
         auto* ext = sat::constraint_base::to_extension(idx);
-        th_proof_hint* hint = nullptr;
+        bool is_euf = ext == this;
+        bool multiple_theories = false;
 
-        if (ext == this)
+        m_egraph.begin_explain();
+        m_explain.reset();
+        if (is_euf)
             get_euf_antecedents(l, constraint::from_idx(idx), r, probing);
         else 
             ext->get_antecedents(l, idx, r, probing);
 
-        if (create_hint && ext != this)
-            ext->get_antecedents(l, idx, m_hint_lits, probing);
+        unsigned ez = m_explain.size();
 
         for (unsigned qhead = 0; qhead < m_explain.size(); ++qhead) {
             size_t* e = m_explain[qhead];
             if (is_literal(e)) 
                 r.push_back(get_literal(e));            
             else {
+                multiple_theories = true;
                 size_t idx = get_justification(e);
                 auto* ext = sat::constraint_base::to_extension(idx);
                 SASSERT(ext != this);
                 sat::literal lit = sat::null_literal;
                 ext->get_antecedents(lit, idx, r, probing);
             }
-            if (create_hint) {
-                if (is_literal(e))
-                    m_hint_lits.push_back(get_literal(e));
-                else {
-                    auto const& eq = th_explain::from_index(get_justification(e)).eq_consequent();
-                    TRACE("euf", tout << "consequent " << bpp(eq.first) << " " << bpp(eq.second) << "\n"; );
-                    m_hint_eqs.push_back(eq);
-                }
-            }
         }
         m_egraph.end_explain();
 
         CTRACE("euf", probing, tout << "explain " << l << " <- " << r << "\n");
         unsigned j = 0;
-        for (sat::literal lit : r) 
-            if (s().lvl(lit) > 0) r[j++] = lit;
+        for (auto lit : r)
+            if (s().lvl(lit) > 0)
+                r[j++] = lit;
+        bool reduced = j < r.size();
         r.shrink(j);
-        CTRACE("euf", create_hint, tout << "explain " << l << " <- " << m_hint_lits << "\n");
+                        
         DEBUG_CODE(for (auto lit : r) SASSERT(s().value(lit) == l_true););
 
-        if (create_hint)  {
-            unsigned nv = s().num_vars();
-            expr_ref_vector eqs(m);
-            // add equalities to hint.            
-            for (auto const& [a,b] : m_hint_eqs) {
-                eqs.push_back(m.mk_eq(a->get_expr(), b->get_expr()));
-                set_tmp_bool_var(nv, eqs.back());
-                m_hint_lits.push_back(literal(nv, false));
-                ++nv;
-            }
-            hint = mk_hint(m_euf, l);
-            log_antecedents(l, r, hint);
-            for (unsigned v = s().num_vars(); v < nv; ++v)
-                set_tmp_bool_var(v, nullptr);
+        if (create_hint) {
+            log_justifications(l, ez, is_euf);
+            if (reduced || multiple_theories)
+                log_rup(l, r);
         }
     }
 
@@ -305,11 +288,12 @@ namespace euf {
     }
 
     void solver::add_eq_antecedent(bool probing, enode* a, enode* b) {
-        cc_justification* cc = (!probing && use_drat()) ? &m_explain_cc : nullptr;
-        m_egraph.explain_eq<size_t>(m_explain, cc, a, b);
+        if (!probing && use_drat())
+            m_hint_eqs.push_back({a, b});
+        m_egraph.explain_eq<size_t>(m_explain, nullptr, a, b);
     }
 
-    void solver::add_diseq_antecedent(ptr_vector<size_t>& ex, cc_justification* cc, enode* a, enode* b) {
+    void solver::explain_diseq(ptr_vector<size_t>& ex, cc_justification* cc, enode* a, enode* b) {
         sat::bool_var v = get_egraph().explain_diseq(ex, cc, a, b);
         SASSERT(v == sat::null_bool_var || s().value(v) == l_false);
         if (v != sat::null_bool_var) 

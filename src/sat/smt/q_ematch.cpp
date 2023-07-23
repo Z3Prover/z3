@@ -125,7 +125,7 @@ namespace q {
             if (a->get_root() == b->get_root())
                 ctx.get_egraph().explain_eq<size_t>(m_explain, cc, a, b);
             else
-                ctx.add_diseq_antecedent(m_explain, cc, a, b);
+                ctx.explain_diseq(m_explain, cc, a, b);
         }
         ctx.get_egraph().end_explain();
 
