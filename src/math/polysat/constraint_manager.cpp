@@ -614,28 +614,23 @@ namespace polysat {
         unsigned const p_sz = p.power_of_2();
         unsigned const q_sz = q.power_of_2();
         unsigned const v_sz = p_sz + q_sz;
-        if (p.is_val() && q.is_val()) {
-            rational const val = p.val() * rational::power_of_two(q_sz) + q.val();
-            return s.sz2pdd(v_sz).mk_val(val);
-        }
-        if (p.is_val()) {
-            // TODO
-        }
-        if (q.is_val()) {
-            // TODO
-        }
-        auto const args = {p, q};
-        return concat(args.size(), args.begin());
+        if (p.is_val() || q.is_val())
+            return zero_ext(p, q_sz) * rational::power_of_two(q_sz) + zero_ext(q, p_sz);
+        auto const args = {s.m_names.mk_name(p), s.m_names.mk_name(q)};
+        pvar const v = s.m_slicing.mk_concat(args.size(), args.begin());
+        return s.var(v);
     }
 
     pdd constraint_manager::concat(unsigned num_args, pdd const* args) {
         SASSERT(num_args > 0);
         if (num_args == 1)
             return args[0];
+        if (num_args == 2)
+            return concat(args[0], args[1]);
         // TODO: special cases when args are values?
         pvar_vector pvar_args;
         for (unsigned i = 0; i < num_args; ++i)
-            pvar_args.push_back(s.m_names.mk_name(args[i]));
+            pvar_args.push_back(s.m_names.mk_name_even_if_value(args[i]));
         pvar const v = s.m_slicing.mk_concat(num_args, pvar_args.data());
         return s.var(v);
     }
@@ -644,6 +639,8 @@ namespace polysat {
         SASSERT(extra_bits > 0);
         unsigned const p_sz = p.power_of_2();
         unsigned const v_sz = p_sz + extra_bits;
+        if (p.is_val())
+            return s.sz2pdd(v_sz).mk_val(p.val());
         pdd const q = s.var(s.m_names.mk_name(p));
         constraint_dedup::bv_ext_args const args = {false, q.var(), extra_bits};
         auto const it = m_dedup.m_bv_ext_expr.find_iterator(args);
@@ -660,8 +657,10 @@ namespace polysat {
 
     pdd constraint_manager::sign_ext(pdd const& p, unsigned extra_bits) {
         SASSERT(extra_bits > 0);
-        unsigned const p_sz = p. power_of_2();
+        unsigned const p_sz = p.power_of_2();
         unsigned const v_sz = p_sz + extra_bits;
+        if (p.is_val())
+            return s.sz2pdd(v_sz).mk_val(p.val_signed());
         pdd const q = s.var(s.m_names.mk_name(p));
         constraint_dedup::bv_ext_args const args = {true, q.var(), extra_bits};
         auto const it = m_dedup.m_bv_ext_expr.find_iterator(args);

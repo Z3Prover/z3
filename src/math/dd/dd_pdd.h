@@ -263,6 +263,7 @@ namespace dd {
         inline PDD lo(PDD p) const { return m_nodes[p].m_lo; }
         inline PDD hi(PDD p) const { return m_nodes[p].m_hi; }
         inline rational const& val(PDD p) const { SASSERT(is_val(p)); return m_values[lo(p)]; }
+        inline rational const& val_signed(PDD p) const { SASSERT(m_semantics == mod2_e || m_semantics == mod2N_e); rational const& a = val(p); return a.get_bit(power_of_2() - 1) ? a - two_to_N() : a; }
         inline void inc_ref(PDD p) { if (m_nodes[p].m_refcount != max_rc) m_nodes[p].m_refcount++; SASSERT(!m_free_nodes.contains(p)); }
         inline void dec_ref(PDD p) { if (m_nodes[p].m_refcount != max_rc) m_nodes[p].m_refcount--; SASSERT(!m_free_nodes.contains(p)); }
         inline PDD level2pdd(unsigned l) const { return m_var2pdd[m_level2var[l]]; }
@@ -421,7 +422,8 @@ namespace dd {
         pdd hi() const { return pdd(m->hi(root), m); }
         unsigned index() const { return root; }
         unsigned var() const { return m->var(root); }
-        rational const& val() const { SASSERT(is_val()); return m->val(root); }
+        rational const& val() const { return m->val(root); }
+        rational const& val_signed() const { return m->val_signed(root); }
         rational const& leading_coefficient() const;
         rational const& offset() const { return m->offset(root); }
         bool is_val() const { return m->is_val(root); }

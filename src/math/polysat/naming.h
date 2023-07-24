@@ -45,6 +45,8 @@ namespace polysat {
 
         void set_name(pvar v, pdd const& term);
 
+        pvar mk_name(pdd const& term, bool allow_values);
+
     public:
         name_manager(solver& s): s(s) {}
 
@@ -53,13 +55,15 @@ namespace polysat {
 
         /** Whether v is a definition for a term */
         bool is_name(pvar v) const { return !m_terms[v].is_var() || m_terms[v].var() != v; }
+        pdd const& get_definition(pvar v) const { SASSERT(is_name(v)); return m_terms[v]; }
 
         /** Return name for term, or null_var if none has been created yet */
         pvar get_name(pdd const& term) const;
         bool has_name(pdd const& term) const { return get_name(term) != null_var; }
 
         /** Return name for term, creating one if necessary */
-        pvar mk_name(pdd const& term);
+        pvar mk_name(pdd const& term) { return mk_name(term, false); }
+        pvar mk_name_even_if_value(pdd const& term) { return mk_name(term, true); }
     };
 
 }

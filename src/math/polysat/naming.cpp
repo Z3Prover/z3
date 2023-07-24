@@ -52,10 +52,10 @@ namespace polysat {
         return it->m_value;
     }
 
-    pvar name_manager::mk_name(pdd const& t) {
+    pvar name_manager::mk_name(pdd const& t, bool allow_values) {
         if (t.is_var())
             return t.var();
-        SASSERT(!t.is_val());  // we probably don't want names for constants
+        SASSERT(allow_values || !t.is_val());  // we probably don't want names for constants
         pvar v = get_name(t);
         if (v != null_var)
             return v;
