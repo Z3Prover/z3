@@ -71,6 +71,8 @@ namespace polysat {
 
     bool saturation::try_inequality(pvar v, inequality const& i, conflict& core) {
         bool prop = false;
+        if (s.size(v) != i.lhs().power_of_2())
+            return false;
         if (try_mul_bounds(v, core, i))
             prop = true;
         if (try_parity(v, core, i))
