@@ -14,6 +14,21 @@ Author:
     Nikolaj Bjorner (nbjorner) 2021-03-19
     Jakob Rath 2021-04-06
 
+Notes:
+
+
+TODO: at some point we should add proper garbage collection
+- currently solver::del_var is disabled because we may introduce helper variables during conflict resolution
+- each non-polynomial term (extract/concat/pseudo-inverse/...) is represented by a pvar ("special variable")
+- garbage collection:
+    - could go over trail to discover active variables/constraints
+    - could do reference counting, e.g., by counting the occurrences of special variables in constraints and clauses
+- alternatively, reinit clauses after backtracking:
+    - note all 'special' variables that have been used
+    - recreate them after backtracking
+    - replace the old variables by the newly created ones
+    - here, we would track clauses by the level they're created on, and reinit brings the clause to a lower level
+
 --*/
 
 #include "math/polysat/solver.h"

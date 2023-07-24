@@ -40,6 +40,14 @@ namespace polysat {
     using pvar_vector = unsigned_vector;
     inline const pvar null_var = UINT_MAX;
 
+    enum class pvar_kind : std::uint8_t {
+        external,           // regular variables (from the input formula)
+        name,               // name for a polynomial term
+        op,                 // result of an op_constraint
+        extract,            // result of an extract operation
+        concat,             // result of a concat operation
+    };
+
     class dependency {
         unsigned m_val;
     public:
