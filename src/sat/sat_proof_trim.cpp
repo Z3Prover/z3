@@ -40,7 +40,6 @@ namespace sat {
         conflict_analysis_core(m_conflict, m_conflict_clause);
         m_trail.pop_back();
         
-
         for (unsigned i = m_trail.size(); i-- > 0; ) {            
             auto const& [id, cl, clp, is_add, is_initial] = m_trail[i];
             if (!is_add) {
@@ -384,13 +383,17 @@ namespace sat {
             return false;
         };
 
+        if (all_of(m_clause, [&](sat::literal lit) { return s.value(lit) == l_false; }))
+            return;
         if (m_clause.size() == 2 && is_unit2())
             s.propagate_bin_clause(m_clause[0], m_clause[1]);
         else if (m_clause.size() > 2 && is_unit())
             s.propagate_clause(*cl, true, 0, s.cls_allocator().get_offset(cl));
         s.propagate(false);
-        if (s.inconsistent() ||  all_of(m_clause, [&](sat::literal lit) { return s.value(lit) == l_false; }))
-            set_conflict(m_clause, cl);       
+        if (s.inconsistent() || all_of(m_clause, [&](sat::literal lit) { return s.value(lit) == l_false; })) {
+            IF_VERBOSE(3, verbose_stream() << "conflict " << m_clause << "\n");
+            set_conflict(m_clause, cl);
+        }
     }
 
     /**

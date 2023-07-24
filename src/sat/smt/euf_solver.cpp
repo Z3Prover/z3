@@ -272,7 +272,7 @@ namespace euf {
 
         if (create_hint) {
             log_justifications(l, ez, is_euf);
-            if (reduced || multiple_theories)
+            if (l != sat::null_literal && (reduced || multiple_theories))
                 log_rup(l, r);
         }
     }
