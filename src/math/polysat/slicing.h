@@ -214,11 +214,21 @@ namespace polysat {
             add_var,
             split_core,
             mk_extract,
+            mk_concat,
         };
         svector<trail_item> m_trail;
         enode_vector        m_split_trail;
         svector<extract_args> m_extract_trail;
         unsigned_vector     m_scopes;
+
+        struct concat_info {
+            pvar v;
+            unsigned num_args;
+            unsigned args_idx;
+            unsigned next_args_idx() const { args_idx + num_args; }
+        };
+        svector<concat_info> m_concat_trail;
+        svector<pvar> m_concat_args;
 
         void undo_add_var();
         void undo_split_core();
@@ -232,7 +242,12 @@ namespace polysat {
         uint_set             m_marked_vars;
 
         /** Get variable representing src[hi:lo] */
-        pvar mk_extract(enode* src, unsigned hi, unsigned lo);
+        pvar mk_extract(enode* src, unsigned hi, unsigned lo, pvar replay_var = null_var);
+        /** Restore r = src[hi:lo] */
+        void replay_extract(extract_args const& args, pvar r);
+
+        pvar mk_concat(unsigned num_args, pvar const* args, pvar replay_var);
+        void replay_concat(unsigned num_args, pvar const* args, pvar r);
 
         bool add_equation(pvar x, pdd const& body, sat::literal lit);
 
@@ -254,7 +269,7 @@ namespace polysat {
         pvar mk_extract(pvar x, unsigned hi, unsigned lo);
 
         /** Get or create variable representing x1 ++ x2 ++ ... ++ xn */
-        pvar mk_concat(unsigned num_args, pvar const* args);
+        pvar mk_concat(unsigned num_args, pvar const* args) { return mk_concat(num_args, args, null_var); }
         pvar mk_concat(std::initializer_list<pvar> args);
 
         // Track value assignments to variables (and propagate to subslices)

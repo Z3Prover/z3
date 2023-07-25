@@ -616,8 +616,7 @@ namespace polysat {
         unsigned const v_sz = p_sz + q_sz;
         if (p.is_val() || q.is_val())
             return zero_ext(p, q_sz) * rational::power_of_two(q_sz) + zero_ext(q, p_sz);
-        auto const args = {s.m_names.mk_name(p), s.m_names.mk_name(q)};
-        pvar const v = s.m_slicing.mk_concat(args.size(), args.begin());
+        pvar const v = s.m_slicing.mk_concat({s.m_names.mk_name(p), s.m_names.mk_name(q)});
         return s.var(v);
     }
 
