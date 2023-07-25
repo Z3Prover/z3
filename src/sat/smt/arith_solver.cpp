@@ -1147,7 +1147,7 @@ namespace arith {
             app_ref b = mk_bound(m_lia->get_term(), m_lia->get_offset(), !m_lia->is_upper());
             IF_VERBOSE(4, verbose_stream() << "cut " << b << "\n");
             literal lit = expr2literal(b);
-            assign(lit, m_core, m_eqs, explain(hint_type::bound_h, lit));
+            assign(lit, m_core, m_eqs, explain(hint_type::cut_h, lit));
             lia_check = l_false;
             break;
         }

@@ -192,6 +192,9 @@ namespace arith {
         case hint_type::farkas_h:
             name = "farkas";
             break;
+        case hint_type::cut_h:
+            name = "cut";
+            break;
         case hint_type::bound_h:
             name = "bound";
             break;

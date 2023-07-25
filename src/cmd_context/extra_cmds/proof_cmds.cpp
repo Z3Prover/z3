@@ -350,9 +350,9 @@ public:
 
     void updt_params(params_ref const& p) override {
         solver_params sp(p);
-        m_check = sp.proof_check();
         m_save  = sp.proof_save();        
         m_trim  = sp.proof_trim();
+        m_check = sp.proof_check() && !m_trim && !m_save && !m_on_clause_eh;
         if (m_trim)
             trim().updt_params(p);
     }
@@ -360,6 +360,8 @@ public:
     void register_on_clause(void* ctx, user_propagator::on_clause_eh_t& on_clause_eh) override {
         m_on_clause_ctx = ctx;
         m_on_clause_eh = on_clause_eh;
+        if (m_on_clause_eh)
+            m_check = false;
     }
 
 };

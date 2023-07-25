@@ -383,14 +383,18 @@ namespace sat {
             return false;
         };
 
-        if (all_of(m_clause, [&](sat::literal lit) { return s.value(lit) == l_false; }))
+        if (all_of(m_clause, [&](sat::literal lit) { return s.value(lit) == l_false; })) {
+            IF_VERBOSE(3, verbose_stream() << "conflict " << m_clause << "\n");
+            set_conflict(m_clause, cl);
             return;
+        }
+
         if (m_clause.size() == 2 && is_unit2())
             s.propagate_bin_clause(m_clause[0], m_clause[1]);
         else if (m_clause.size() > 2 && is_unit())
             s.propagate_clause(*cl, true, 0, s.cls_allocator().get_offset(cl));
         s.propagate(false);
-        if (s.inconsistent() || all_of(m_clause, [&](sat::literal lit) { return s.value(lit) == l_false; })) {
+        if (s.inconsistent()) {
             IF_VERBOSE(3, verbose_stream() << "conflict " << m_clause << "\n");
             set_conflict(m_clause, cl);
         }
