@@ -255,7 +255,6 @@ namespace euf {
     smt_proof_hint* solver::mk_smt_hint(symbol const& n, unsigned nl, literal const* lits, unsigned ne, expr_pair const* eqs, unsigned nd, expr_pair const* deqs) {
         if (!use_drat())
             return nullptr;
-        TRACE("euf", tout << "SMT hint " << n << "\n");
         push(value_trail(m_lit_tail));
         push(restore_vector(m_proof_literals));
         
