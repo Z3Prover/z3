@@ -177,7 +177,8 @@ namespace sat {
         IF_VERBOSE(3, verbose_stream() << "core " << cl << "\n");
         
         unsigned trail_size0 = s.m_trail.size();
-        if (!cl.empty()) {
+        bool probe = !cl.empty() && !s.inconsistent();
+        if (probe) {
             SASSERT(!s.inconsistent());
             s.push();
             unsigned lvl = s.scope_lvl();
@@ -214,7 +215,7 @@ namespace sat {
             s.reset_mark(v);            
             add_dependency(s.get_justification(v));
         }
-        if (!cl.empty())
+        if (probe)
             s.pop(1);                
     }
 
@@ -384,7 +385,7 @@ namespace sat {
         };
 
         if (all_of(m_clause, [&](sat::literal lit) { return s.value(lit) == l_false; })) {
-            IF_VERBOSE(3, verbose_stream() << "conflict " << m_clause << "\n");
+            IF_VERBOSE(3, verbose_stream() << "false clause " << m_clause << "\n");
             set_conflict(m_clause, cl);
             return;
         }
