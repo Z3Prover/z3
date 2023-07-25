@@ -5,7 +5,6 @@
 #pragma once
 
 DEFINE_TYPE(Z3_symbol);
-DEFINE_TYPE(Z3_literals);
 DEFINE_TYPE(Z3_config);
 DEFINE_TYPE(Z3_context);
 DEFINE_TYPE(Z3_sort);
@@ -1398,7 +1397,6 @@ typedef enum
   def_Type('FUNC_DECL',        'Z3_func_decl',        'FuncDecl')
   def_Type('PATTERN',          'Z3_pattern',          'Pattern')
   def_Type('MODEL',            'Z3_model',            'ModelObj')
-  def_Type('LITERALS',         'Z3_literals',         'Literals')
   def_Type('CONSTRUCTOR',      'Z3_constructor',      'Constructor')
   def_Type('CONSTRUCTOR_LIST', 'Z3_constructor_list', 'ConstructorList')
   def_Type('SOLVER',           'Z3_solver',           'SolverObj')
