@@ -568,9 +568,144 @@ namespace polysat {
         m_egraph.end_explain();
     }
 
-    clause_ref slicing::conflict_clause() {
-        NOT_IMPLEMENTED_YET(); // TODO: call explain and build clause as described in notes at the top
-        return {};
+    clause_ref slicing::build_conflict_clause() {
+        SASSERT(is_conflict());
+        SASSERT(m_marked_lits.empty());
+        SASSERT(m_tmp_deps.empty());
+        explain(m_tmp_deps);
+        clause_builder cb(m_solver, "slicing");
+        pvar x = null_var; enode* sx = nullptr;
+        pvar y = null_var; enode* sy = nullptr;
+        for (void* dp : m_tmp_deps) {
+            dep_t const d = decode_dep(dp);
+            if (d.is_null())
+                continue;
+            if (d.is_lit()) {
+                sat::literal const lit = d.lit();
+                if (m_marked_lits.contains(lit))
+                    continue;
+                m_marked_lits.insert(lit);
+                cb.insert(~lit);
+            }
+            else {
+                SASSERT(d.is_var_idx());
+                pvar const v = get_dep_var(d);
+                enode* const sv = get_dep_slice(d);
+                if (x == null_var)
+                    x = v, sx = sv;
+                else if (y == null_var)
+                    y = v, sy = sv;
+                else {
+                    // pvar justifications are only introduced by add_value, i.e., when a variable is assigned in the solver.
+                    // thus there can be at most two pvar justifications in a single conflict.
+                    UNREACHABLE();
+                }
+            }
+        }
+        m_marked_lits.reset();
+        m_tmp_deps.reset();
+
+        signed_constraint c;
+        if (x == null_var) {
+            /* nothing to do */
+            SASSERT_EQ(y, null_var);
+        }
+        else if (y == null_var) {
+            SASSERT(is_value(sx->get_root()));
+            // the egraph has derived that x (or a sub-slice thereof) must have value b that differs from the currently assigned value of x.
+            // the explanation is:      lits ==> x[...] = b
+            enode* const xn = var2slice(x)->get_root();
+            if (false && is_value(xn)) {
+                // TODO: clause may be unsound if the premises only imply equality of subslices; may need a separate explain-query here.
+                c = m_solver.eq(m_solver.var(x), get_value(xn));
+            }
+            else {
+                // The conflict is only for a sub-slice x[hi:lo].
+                // We need to create some literal that sets the bits x[hi:lo] to b.
+                SASSERT(!is_value(xn));
+                unsigned hi, lo;
+                VERIFY(find_range_in_ancestor(sx, var2slice(x), hi, lo));
+                rational const b = get_value(sx->get_root());
+                if (!lo) {
+                    // x[hi:0] = b
+                    // <==>
+                    // 2^(N-1-hi) x = 2^(N-1-hi) b      where N = |x|
+                    unsigned const N = m_solver.var2pdd(x).power_of_2();
+                    rational const coeff = rational::power_of_two(N - 1 - hi);
+                    c = m_solver.eq(coeff * m_solver.var(x), coeff * b);
+                }
+                else {
+                    pvar const xx = mk_extract(x, hi, lo);
+                    SASSERT_EQ(sx->get_root(), var2slice(xx)->get_root());
+                    c = m_solver.eq(m_solver.var(xx), b);
+                    // TODO: how does this clause actually help with search?
+                    //      ==> need a constraint that will set the corresponding fixed bits of x.
+                    //          for this, we need to track/propagate fixed bits across equivalence classes.
+                    //          (could also introduce a constraint type that assigns a sub-range of a variable?)
+                    //          otherwise, we will generate tautologies in this branch.
+                }
+            }
+        }
+        else {
+            // the egraph has derived that x (or a subslice of x) must be equal to y (or a subslice of y),
+            // but the currently assigned values differ.
+            // the explanation is:      lits ==> x[...] = y[...]
+            if (false && is_equal(var2slice(x), var2slice(y))) {
+                // don't need to introduce subslices if the variables themselves are already equal
+                // TODO: but clause may be unsound if the premises only imply equality of subslices; may need a separate explain-query here.
+                c = m_solver.eq(m_solver.var(x), m_solver.var(y));
+            }
+            else {
+                unsigned x_hi, x_lo, y_hi, y_lo;
+                VERIFY(find_range_in_ancestor(sx, var2slice(x), x_hi, x_lo));
+                VERIFY(find_range_in_ancestor(sy, var2slice(y), y_hi, y_lo));
+                pvar const xx = mk_extract(x, x_hi, x_lo);
+                pvar const yy = mk_extract(y, y_hi, y_lo);
+                c = m_solver.eq(m_solver.var(xx), m_solver.var(yy));
+            }
+        }
+        SASSERT(x == null_var || c);
+        if (c)
+            cb.insert_eval(c);
+
+        return cb.build();
+    }
+
+    bool slicing::find_range_in_ancestor(enode* s, enode* a, unsigned& out_hi, unsigned& out_lo) {
+        out_hi = width(s) - 1;
+        out_lo = 0;
+        while (true) {
+            if (s == a)
+                return true;
+            enode* p = parent(s);
+            if (!p)
+                return false;
+            if (s == sub_hi(p)) {
+                unsigned offset = 1 + info(p).cut;
+                out_hi += offset;
+                out_lo += offset;
+            }
+            else {
+                SASSERT_EQ(s, sub_lo(p));
+                /* range stays unchanged */
+            }
+            s = p;
+        }
+    }
+
+    void slicing::egraph_on_merge(enode* root, enode* other) {
+        SASSERT(!is_value(other));  // by convention, interpreted nodes are always chosen as root
+        if (is_value(root)) {
+            for (enode* n : euf::enode_class(other)) {
+                pvar const v = slice2var(n);
+                if (v == null_var)
+                    continue;
+                LOG("on_merge: v" << v << " := " << get_value(root));
+                // TODO: notify solver about value
+                // TODO: congruence? what if all base slices of a variable are equivalent to values?
+                //          -> could track, for each slice, how many of its base slices are (not) equivalent to values. (update on split and merge)
+            }
+        }
     }
 
     void slicing::egraph_on_propagate(enode* lit, enode* ante) {

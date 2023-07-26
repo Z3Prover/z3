@@ -135,6 +135,9 @@ namespace polysat {
         enode* alloc_slice(unsigned width, pvar var = null_var);
         enode* find_or_alloc_disequality(enode* x, enode* y, sat::literal lit);
 
+        // Find hi, lo such that s = a[hi:lo]
+        bool find_range_in_ancestor(enode* s, enode* a, unsigned& out_hi, unsigned& out_lo);
+
         enode* var2slice(pvar v) const { return m_var2slice[v]; }
         pvar slice2var(enode* s) const { return info(s).var; }
 
