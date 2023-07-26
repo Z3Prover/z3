@@ -353,15 +353,7 @@ namespace polysat {
             }
             if (m_slicing.is_conflict()) {
                 SASSERT(!is_conflict());
-                sat::literal_vector lits;
-                unsigned_vector vars;
-                m_slicing.explain(lits, vars);
-                clause_builder cb(*this, "slicing");
-                for (sat::literal lit : lits)
-                    cb.insert(~lit);
-                for (pvar v : vars)
-                    cb.insert_eval(~eq(var(v), get_value(v)));
-                add_clause(cb.build());
+                add_clause(m_slicing.build_conflict_clause());
                 SASSERT(is_conflict());
             }
         }  // while (can_propagate_search())
