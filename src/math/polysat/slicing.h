@@ -38,28 +38,38 @@ namespace polysat {
 
         friend class test_slicing;
 
+        using enode = euf::enode;
+        using enode_vector = euf::enode_vector;
+
         class dep_t {
-            std::variant<std::monostate, sat::literal, pvar> m_data;
+            std::variant<std::monostate, sat::literal, unsigned> m_data;
         public:
             dep_t() { SASSERT(is_null()); }
             dep_t(sat::literal l): m_data(l) { SASSERT(l != sat::null_literal); SASSERT_EQ(l, lit()); }
-            dep_t(pvar v): m_data(v) { SASSERT(v != null_var); SASSERT_EQ(v, var()); }
+            explicit dep_t(unsigned vi): m_data(vi) { SASSERT_EQ(vi, var_idx()); }
             bool is_null() const { return std::holds_alternative<std::monostate>(m_data); }
             bool is_lit()  const { return std::holds_alternative<sat::literal>(m_data); }
-            bool is_var()  const { return std::holds_alternative<pvar>(m_data); }
+            bool is_var_idx()  const { return std::holds_alternative<unsigned>(m_data); }
             sat::literal lit() const { SASSERT(is_lit()); return *std::get_if<sat::literal>(&m_data); }
-            pvar var() const { SASSERT(is_var()); return *std::get_if<pvar>(&m_data); }
+            unsigned var_idx() const { SASSERT(is_var_idx()); return *std::get_if<unsigned>(&m_data); }
             bool operator==(dep_t other) const { return m_data == other.m_data; }
             bool operator!=(dep_t other) const { return !operator==(other); }
-            std::ostream& display(std::ostream& out);
             unsigned to_uint() const;
             static dep_t from_uint(unsigned x);
         };
 
-        friend std::ostream& operator<<(std::ostream&, slicing::dep_t);
+        using dep_vector = svector<dep_t>;
 
-        using enode = euf::enode;
-        using enode_vector = euf::enode_vector;
+        std::ostream& display(std::ostream& out, dep_t d);
+
+        dep_t mk_var_dep(pvar v, enode* s);
+
+        pvar_vector         m_dep_var;
+        ptr_vector<enode>   m_dep_slice;
+        unsigned_vector     m_dep_size_trail;
+
+        pvar get_dep_var(dep_t d) const { return m_dep_var[d.var_idx()]; }
+        enode* get_dep_slice(dep_t d) const { return m_dep_slice[d.var_idx()]; }
 
         static constexpr unsigned null_cut = std::numeric_limits<unsigned>::max();
 
@@ -116,7 +126,6 @@ namespace polysat {
 
         static void* encode_dep(dep_t d);
         static dep_t decode_dep(void* d);
-        static void display_dep(std::ostream& out, void* d);
 
         slice_info& info(euf::enode* n);
         slice_info const& info(euf::enode* n) const;
@@ -164,17 +173,20 @@ namespace polysat {
         /// If output_base is false, return coarsest intermediate slices instead of only base slices.
         void mk_slice(enode* src, unsigned hi, unsigned lo, enode_vector& out, bool output_full_src = false, bool output_base = true);
 
-        void begin_explain();
-        void end_explain();
-        void push_dep(void* dp, sat::literal_vector& out_lits, unsigned_vector& out_vars);
-
         // Extract reason why slices x and y are in the same equivalence class
-        void explain_class(enode* x, enode* y, sat::literal_vector& out_lits, unsigned_vector& out_vars);
+        void explain_class(enode* x, enode* y, ptr_vector<void>& out_deps);
 
         // Extract reason why slices x and y are equal
         // (i.e., x and y have the same base, but are not necessarily in the same equivalence class)
-        void explain_equal(enode* x, enode* y, sat::literal_vector& out_lits, unsigned_vector& out_vars);
+        void explain_equal(enode* x, enode* y, ptr_vector<void>& out_deps);
 
+        /** Extract reason for conflict */
+        void explain(ptr_vector<void>& out_deps);
+
+        /** Extract reason for x == y */
+        void explain_equal(pvar x, pvar y, ptr_vector<void>& out_deps);
+
+        void egraph_on_merge(enode* root, enode* other);
         void egraph_on_propagate(enode* lit, enode* ante);
 
         // Merge equivalence classes of two base slices.
@@ -237,9 +249,8 @@ namespace polysat {
         mutable enode_vector m_tmp1;
         mutable enode_vector m_tmp2;
         mutable enode_vector m_tmp3;
-        ptr_vector<void>     m_tmp_justifications;
+        ptr_vector<void>     m_tmp_deps;
         sat::literal_set     m_marked_lits;
-        uint_set             m_marked_vars;
 
         /** Get variable representing src[hi:lo] */
         pvar mk_extract(enode* src, unsigned hi, unsigned lo, pvar replay_var = null_var);
@@ -284,12 +295,8 @@ namespace polysat {
 
         bool is_conflict() const { return m_disequality_conflict || m_egraph.inconsistent(); }
 
-        /** Extract reason for conflict */
-        void explain(sat::literal_vector& out_lits, unsigned_vector& out_vars);
         /** Extract conflict clause */
-        clause_ref conflict_clause();
-        /** Extract reason for x == y */
-        void explain_equal(pvar x, pvar y, sat::literal_vector& out_lits, unsigned_vector& out_vars);
+        clause_ref build_conflict_clause();
 
         /// Example:
         /// - assume query_var has segments 11122233 and var has segments 2224
@@ -318,5 +325,4 @@ namespace polysat {
 
     inline std::ostream& operator<<(std::ostream& out, slicing const& s) { return s.display(out); }
 
-    inline std::ostream& operator<<(std::ostream& out, slicing::dep_t d) { return d.display(out); }
 }
