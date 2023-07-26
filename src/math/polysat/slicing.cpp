@@ -198,11 +198,12 @@ namespace polysat {
             case trail_item::split_core:
                 undo_split_core();
                 break;
-            case trail_item::mk_extract:
+            case trail_item::mk_extract: {
                 extract_args const& args = m_extract_trail.back();
                 replay_extract.push_back({args, m_extract_dedup[args]});
                 undo_mk_extract();
                 break;
+            }
             case trail_item::mk_concat:
                 num_replay_concat++;
                 break;
@@ -219,22 +220,25 @@ namespace polysat {
         unsigned concat_idx = m_concat_trail.size() - num_replay_concat;
         for (unsigned i = target_size; i < m_trail.size(); ++i) {
             switch (m_trail[i]) {
-            case trail_item::add_var:
+            case trail_item::add_var: {
                 unsigned const sz = replay_add_var[--add_var_idx];
-                add_var(replay_add_var[i]);
+                add_var(sz);
                 break;
+            }
             case trail_item::split_core:
                 /* do nothing */
                 break;
-            case trail_item::mk_extract:
+            case trail_item::mk_extract: {
                 auto const [args, v] = replay_extract[--extract_idx];
                 this->replay_extract(args, v);
                 break;
-            case trail_item::mk_concat:
-                auto ci = m_concat_trail[concat_idx++];
+            }
+            case trail_item::mk_concat: {
+                auto const ci = m_concat_trail[concat_idx++];
                 num_replay_concat++;
                 replay_concat(ci.num_args, &m_concat_args[ci.args_idx], ci.v);
                 break;
+            }
             default: UNREACHABLE();
             }
 
@@ -768,7 +772,7 @@ namespace polysat {
         get_base_core<true>(src, out_base);
     }
 
-    pvar slicing::mk_extract(enode* src, unsigned hi, unsigned lo, pvar replay_var = null_var) {
+    pvar slicing::mk_extract(enode* src, unsigned hi, unsigned lo, pvar replay_var) {
         enode_vector& slices = m_tmp3;
         SASSERT(slices.empty());
         mk_slice(src, hi, lo, slices, false, true);
