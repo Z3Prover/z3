@@ -677,6 +677,15 @@ namespace polysat {
         std::ostream& display(std::ostream& out) const;
     };
 
+    class clause_pp {
+        solver const& s;
+        clause const& cl;
+    public:
+        clause_pp(solver const& s, clause const& cl): s(s), cl(cl) {}
+        clause_pp(solver const& s, clause_ref const& cl): s(s), cl(*cl) {}
+        std::ostream& display(std::ostream& out) const;
+    };
+
     /** Format value 'val' as member of the domain of 'var' */
     class num_pp {
         solver const& s;
@@ -689,13 +698,10 @@ namespace polysat {
     };
 
     inline std::ostream& operator<<(std::ostream& out, solver const& s) { return s.display(out); }
-
     inline std::ostream& operator<<(std::ostream& out, num_pp const& v) { return v.display(out); }
-
     inline std::ostream& operator<<(std::ostream& out, lit_pp const& l) { return l.display(out); }
-
+    inline std::ostream& operator<<(std::ostream& out, clause_pp const& c) { return c.display(out); }
     inline std::ostream& operator<<(std::ostream& out, assignment_pp const& p) { return p.display(out); }
-
     inline std::ostream& operator<<(std::ostream& out, assignments_pp const& a) { return a.display(out); }
 
 }

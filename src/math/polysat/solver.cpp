@@ -1626,6 +1626,13 @@ namespace polysat {
         return out;
     }
 
+    std::ostream& clause_pp::display(std::ostream& out) const {
+        out << cl << "\n";
+        for (sat::literal lit : cl)
+            out << "    " << lit_pp(s, lit) << "\n";
+        return out;
+    }
+
     std::ostream& num_pp::display(std::ostream& out) const {
         return out << dd::val_pp(s.var2pdd(var), val, require_parens);
     }
