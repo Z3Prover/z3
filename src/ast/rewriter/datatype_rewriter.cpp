@@ -21,33 +21,8 @@ Notes:
 br_status datatype_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
     SASSERT(f->get_family_id() == get_fid());
     switch(f->get_decl_kind()) {
-    case OP_DT_CONSTRUCTOR: {
-        // cons(head(x), tail(x)) --> x
-        ptr_vector<func_decl> const *accessors =
-            m_util.get_constructor_accessors(f);
-
-        SASSERT(num_args == accessors->size());
-        // -- all accessors must have exactly one argument
-        if (any_of(*accessors, [&](const func_decl* acc) { return acc->get_arity() != 1; })) {
-            return BR_FAILED;
-        }
-
-        if (num_args >= 1 && is_app(args[0]) && to_app(args[0])->get_decl() == accessors->get(0) ) {
-            bool is_all = true;
-            expr* t = to_app(args[0])->get_arg(0);
-            for(unsigned i = 1; i < num_args && is_all; ++i) {
-                is_all &= (is_app(args[i]) &&
-                           to_app(args[i])->get_decl() == accessors->get(i) &&
-                           to_app(args[i])->get_arg(0) == t);
-            }
-            if (is_all) {
-                result = t;
-                return BR_DONE;
-            }
-            return BR_FAILED;
-        }
+    case OP_DT_CONSTRUCTOR:
         return BR_FAILED;
-    }
     case OP_DT_RECOGNISER:
         SASSERT(num_args == 1);
         result = m_util.mk_is(m_util.get_recognizer_constructor(f), args[0]);
