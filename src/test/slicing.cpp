@@ -34,6 +34,16 @@ namespace polysat {
     class test_slicing {
     public:
 
+        static std::ostream& display_reason(scoped_solver_slicing& s, std::ostream& out, ptr_vector<void> deps) {
+            char const* delim = "";
+            for (void* dp : deps) {
+                slicing::dep_t d = slicing::decode_dep(dp);
+                s.sl().display(out << delim, d);
+                delim = " ";
+            }
+            return out;
+        }
+
         // x[7:3] = a
         // y[5:0] = b
         // x = y
@@ -132,19 +142,17 @@ namespace polysat {
                       << "    root(v" << b << ") = " << sl.var2slice(b)->get_root_id()
                       << "    root(v" << c << ") = " << sl.var2slice(c)->get_root_id()
                       << "\n";
-            sat::literal_vector reason_lits;
-            unsigned_vector reason_vars;
-            sl.explain_equal(sl.var2slice(b), sl.var2slice(c), reason_lits, reason_vars);
-            std::cout << "    Reason: " << reason_lits << " vars " << reason_vars << "\n";
+            ptr_vector<void> reason;
+            sl.explain_equal(sl.var2slice(b), sl.var2slice(c), reason);
+            display_reason(s, std::cout << "    Reason: ", reason) << "\n";
 
             std::cout << "v" << b << " = v" << d << "? " << sl.is_equal(sl.var2slice(b), sl.var2slice(d))
                       << "    root(v" << b << ") = " << sl.var2slice(b)->get_root_id()
                       << "    root(v" << d << ") = " << sl.var2slice(d)->get_root_id()
                       << "\n";
-            reason_lits.reset();
-            reason_vars.reset();
-            sl.explain_equal(sl.var2slice(b), sl.var2slice(d), reason_lits, reason_vars);
-            std::cout << "    Reason: " << reason_lits << " vars " << reason_vars << "\n";
+            reason.reset();
+            sl.explain_equal(sl.var2slice(b), sl.var2slice(d), reason);
+            display_reason(s, std::cout << "    Reason: ", reason) << "\n";
 
             sl.display_tree(std::cout);
             VERIFY(sl.invariant());
@@ -185,10 +193,9 @@ namespace polysat {
                       << "    slice(v" << d << ") = " << sl.var2slice(d)->get_id()
                       << "    slice(v" << e << ") = " << sl.var2slice(e)->get_id()
                       << "\n";
-            sat::literal_vector reason_lits;
-            unsigned_vector reason_vars;
-            sl.explain_equal(sl.var2slice(d), sl.var2slice(e), reason_lits, reason_vars);
-            std::cout << "    Reason: " << reason_lits << " vars " << reason_vars << "\n";
+            ptr_vector<void> reason;
+            sl.explain_equal(sl.var2slice(d), sl.var2slice(e), reason);
+            display_reason(s, std::cout << "    Reason: ", reason) << "\n";
         }
 
         // x[5:2] = y
@@ -233,10 +240,9 @@ namespace polysat {
             sl.add_value(y.var(), rational(7));
 
             SASSERT(sl.is_conflict());
-            sat::literal_vector reason_lits;
-            unsigned_vector reason_vars;
-            sl.explain(reason_lits, reason_vars);
-            std::cout << "Conflict: " << reason_lits << " vars " << reason_vars << "\n";
+            ptr_vector<void> reason;
+            sl.explain(reason);
+            display_reason(s, std::cout << "Conflict: ", reason) << "\n";
 
             sl.display_tree(std::cout);
             VERIFY(sl.invariant());
@@ -265,10 +271,9 @@ namespace polysat {
                 sl.add_constraint(c2);
                 sl.add_constraint(c3);
                 SASSERT(sl.is_conflict());
-                sat::literal_vector reason_lits;
-                unsigned_vector reason_vars;
-                sl.explain(reason_lits, reason_vars);
-                std::cout << "Conflict: " << reason_lits << " vars " << reason_vars << "\n";
+                ptr_vector<void> reason;
+                sl.explain(reason);
+                display_reason(s, std::cout << "Conflict: ", reason) << "\n";
                 // sl.display_tree(std::cout);
                 VERIFY(sl.invariant());
                 s.pop();
@@ -301,10 +306,60 @@ namespace polysat {
             sl.add_constraint(s.diseq(s.var(x), s.var(y)));
             // sl.propagate();
             VERIFY(sl.is_conflict());
-            sat::literal_vector reason_lits;
-            unsigned_vector reason_vars;
-            sl.explain(reason_lits, reason_vars);
-            std::cout << "Conflict: " << reason_lits << " vars " << reason_vars << "\n";
+            ptr_vector<void> reason;
+            sl.explain(reason);
+            display_reason(s, std::cout << "    Conflict: ", reason) << "\n";
+            sl.display_tree(std::cout);
+            VERIFY(sl.invariant());
+        }
+
+        // y = x[5:2]
+        // y = b0111
+        // x := b10000000
+        static void test9() {
+            std::cout << __func__ << "\n";
+            scoped_solver_slicing s;
+            slicing& sl = s.sl();
+            pvar x = s.add_var(8);
+            pvar y = sl.mk_extract(x, 5, 2);
+            sl.add_constraint(s.eq(s.var(y), 7));
+            sl.add_value(x, 128);
+            VERIFY(sl.is_conflict());
+            ptr_vector<void> reason;
+            sl.explain(reason);
+            display_reason(s, std::cout << "Conflict: ", reason) << "\n";
+#if 0
+            clause_ref cl = sl.build_conflict_clause();  // fails on insert_eval because we don't update the solver state
+            std::cout << "Conflict Clause: " << clause_pp(s, cl) << "\n";
+            // NOTE: creates a tautology because with literal x[5:2] = 7 the solver should never assign x := 128
+#endif
+            sl.display_tree(std::cout);
+            VERIFY(sl.invariant());
+        }
+
+        // y = x[7:4]
+        // z = x[3:0]
+        // y = 1
+        // z = 2
+        // x := b10000000
+        static void test10() {
+            std::cout << __func__ << "\n";
+            scoped_solver_slicing s;
+            slicing& sl = s.sl();
+            pvar x = s.add_var(8);
+            pvar y = sl.mk_extract(x, 7, 4);
+            pvar z = sl.mk_extract(x, 3, 0);
+            sl.add_constraint(s.eq(s.var(y), 1));
+            sl.add_constraint(s.eq(s.var(z), 2));
+            sl.add_value(x, 128);
+            VERIFY(sl.is_conflict());
+            ptr_vector<void> reason;
+            sl.explain(reason);
+            display_reason(s, std::cout << "Conflict: ", reason) << "\n";
+#if 0
+            clause_ref cl = sl.build_conflict_clause();  // fails on insert_eval because we don't update the solver state
+            std::cout << "Conflict Clause: " << clause_pp(s, cl) << "\n";
+#endif
             sl.display_tree(std::cout);
             VERIFY(sl.invariant());
         }
@@ -324,5 +379,7 @@ void tst_slicing() {
     test_slicing::test6();
     test_slicing::test7();
     test_slicing::test8();
+    test_slicing::test9();
+    test_slicing::test10();
     std::cout << "ok\n";
 }

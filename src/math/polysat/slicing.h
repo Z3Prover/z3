@@ -289,6 +289,8 @@ namespace polysat {
         // Track value assignments to variables (and propagate to subslices)
         // (could generalize to fixed bits, then we need a way to merge interpreted enodes)
         void add_value(pvar v, rational const& value);
+        void add_value(pvar v, unsigned value) { add_value(v, rational(value)); }
+        void add_value(pvar v, int value) { add_value(v, rational(value)); }
         void add_constraint(signed_constraint c);
 
         bool can_propagate() const;
