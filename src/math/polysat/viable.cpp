@@ -1554,8 +1554,8 @@ namespace {
         if (!collect_bit_information(v, true, fixed, justifications))
             return l_false; // conflict already added
 
-        slicing::var_overlap_vector overlaps;
-        s.m_slicing.collect_overlaps(v, overlaps);
+        pvar_vector overlaps;
+        s.m_slicing.collect_simple_overlaps(v, overlaps);
         // TODO: (combining intervals across equivalence classes from slicing)
         //
         // When iterating over intervals:
@@ -1567,10 +1567,12 @@ namespace {
         // - direct equivalences (x = y); could just point one interval set to the other and store them together (may be annoying for bookkeeping)
         // - lower bits extractions (x[h:0]) and equivalent slices;
         //   (this is what Algorithm 3 in "Solving Bitvectors with MCSAT" does, and will also let us better handle even coefficients of inequalities).
+        // - intervals with coefficient 2^k*a to be treated as intervals over x[|x|-k:0] with coefficient a (with odd a)
         //
         // Problem:
         // - the conflict clause will involve relations between different bit-widths
         // - can we avoid introducing new extract-terms? (if not, can we at least avoid additional slices?)
+        //       e.g., multiply other terms by 2^k instead of introducing extract?
         // - NOTE: currently our clauses survive across backtracking points, but the slicing will be reset.
         //         It is currently unsafe to create extract/concat terms internally.
         //         (to be fixed when we re-internalize conflict clauses after backtracking)

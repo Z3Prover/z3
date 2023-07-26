@@ -38,6 +38,8 @@ namespace polysat {
             char const* delim = "";
             for (void* dp : deps) {
                 slicing::dep_t d = slicing::decode_dep(dp);
+                if (d.is_null())
+                    continue;
                 s.sl().display(out << delim, d);
                 delim = " ";
             }
@@ -130,7 +132,7 @@ namespace polysat {
             pvar c = sl.mk_extract(x, 5, 0);
             std::cout << "v" << c << " := v" << x << "[5:0]\n" << sl << "\n";
             pvar d = sl.mk_concat({sl.mk_extract(x, 5, 4), sl.mk_extract(y, 3, 0)});
-            std::cout << d << " := v" << x << "[5:4] ++ v" << y << "[3:0]\n" << sl << "\n";
+            std::cout << "v" << d << " := v" << x << "[5:4] ++ v" << y << "[3:0]\n" << sl << "\n";
 
             std::cout << "v" << b << " = v" << c << "? " << sl.is_equal(sl.var2slice(b), sl.var2slice(c)) << "\n\n";
             std::cout << "v" << b << " = v" << d << "? " << sl.is_equal(sl.var2slice(b), sl.var2slice(d)) << "\n\n";
@@ -160,6 +162,12 @@ namespace polysat {
             sl.propagate();
             sl.display_tree(std::cout);
             VERIFY(sl.invariant());
+
+            for (pvar v : {x, y, a, b, c, d}) {
+                pvar_vector vars;
+                sl.collect_simple_overlaps(v, vars);
+                std::cout << "Simple overlaps for v" << v << ": " << vars << "\n";
+            }
         }
 
         // 1. a = b

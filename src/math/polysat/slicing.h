@@ -303,23 +303,8 @@ namespace polysat {
         /** Extract conflict clause */
         clause_ref build_conflict_clause();
 
-        /// Example:
-        /// - assume query_var has segments 11122233 and var has segments 2224
-        /// - then the overlapping region "222" is given by width = 3, offset_var = 1, offset_query = 2.
-        /// (First version will probably only support offset 0.)
-        struct var_overlap {
-            pvar var;
-            /// number of overlapping bits
-            unsigned width;
-            /// offset of overlapping region in var
-            unsigned offset_var;
-            /// offset of overlapping region in query variable
-            unsigned offset_query;
-        };
-        using var_overlap_vector = svector<var_overlap>;
-
-        /** For a given variable v, find the set of variables that share at least one slice with v. */
-        void collect_overlaps(pvar v, var_overlap_vector& out);
+        /** For a given variable v, find the set of variables w such that w = v[|w|:0]. */
+        void collect_simple_overlaps(pvar v, pvar_vector& out);
 
         /** Collect fixed portions of the variable v */
         void collect_fixed(pvar v, rational& mask, rational& value);
