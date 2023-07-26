@@ -485,7 +485,7 @@ namespace polysat {
     }
 
     rational slicing::get_value(enode* s) const {
-        SASSERT(s->interpreted());
+        SASSERT(is_value(s));
         rational val;
         VERIFY(try_get_value(s, val));
         return val;
@@ -1164,6 +1164,28 @@ namespace polysat {
             n->unmark1();
         }
         SASSERT(all_of(m_egraph.nodes(), [](enode* n) { return !n->is_marked1(); }));
+    }
+
+    void slicing::collect_fixed(pvar v, rational& mask, rational& value) {
+        enode_vector& base = m_tmp2;
+        SASSERT(base.empty());
+        get_base(var2slice(v), base);
+        mask = 0;
+        value = 0;
+        rational a;
+        unsigned lo = 0;
+        for (auto it = base.rbegin(); it != base.rend(); ++it) {
+            enode* n = *it;
+            enode* r = n->get_root();
+            unsigned const w = width(n);
+            if (try_get_value(r, a)) {
+                rational const factor = rational::power_of_two(lo);
+                // TODO: probably better to return vector of {w, lo, a} instead
+                mask += (rational::power_of_two(w) - 1) * factor;
+                value += a * factor;
+            }
+            lo += w;
+        }
     }
 
     std::ostream& slicing::display(std::ostream& out) const {
