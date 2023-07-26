@@ -747,9 +747,7 @@ namespace smt {
         // Pivoting
         //
         // -----------------------------------
-        template<bool Lazy>
         void pivot(theory_var x_i, theory_var x_j, numeral const & a_ij, bool apply_gcd_test);
-        template<bool Lazy>
         void eliminate(theory_var x_i, bool apply_gcd_test);
         void update_and_pivot(theory_var x_i, theory_var x_j, numeral const & a_ij, inf_numeral const & x_i_new_val);
         int get_num_non_free_dep_vars(theory_var v, int best_so_far);

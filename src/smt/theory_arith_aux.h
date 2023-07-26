@@ -583,7 +583,7 @@ namespace smt {
                         // to a non-integer value even if all non-base variables are integer.
                         // So, v should not be "eliminated"
                         break; 
-                    eliminate<false>(v, m_eager_gcd);
+                    eliminate(v, m_eager_gcd);
                     break;
                 case NON_BASE: {
                     col_entry const * entry = get_row_for_eliminating(v);
@@ -591,7 +591,7 @@ namespace smt {
                         TRACE("move_unconstrained_to_base", tout << "moving v" << v << " to the base\n";);
                         row & r = m_rows[entry->m_row_id];
                         SASSERT(r[entry->m_row_idx].m_var == v);
-                        pivot<false>(r.get_base_var(), v, r[entry->m_row_idx].m_coeff, m_eager_gcd);
+                        pivot(r.get_base_var(), v, r[entry->m_row_idx].m_coeff, m_eager_gcd);
                         SASSERT(is_base(v));                    
                         set_var_kind(v, QUASI_BASE);
                         SASSERT(is_quasi_base(v));                    
@@ -636,7 +636,7 @@ namespace smt {
                     }
                 }
                 if (it != end) {
-                    pivot<true>(v, it->m_var, it->m_coeff, false);
+                    pivot(v, it->m_var, it->m_coeff, false);
                 }
             }
         }
@@ -725,7 +725,7 @@ namespace smt {
                 }
             }
             if (x_j != null_theory_var) 
-                pivot<true>(v, x_j, a_ij, false);
+                pivot(v, x_j, a_ij, false);
         }
     }
 
@@ -1704,7 +1704,7 @@ namespace smt {
                   tout << "value x_j: " << get_value(x_j) << "\n";
                   );
 
-            pivot<true>(x_i, x_j, a_ij, false);
+            pivot(x_i, x_j, a_ij, false);
                         
             SASSERT(is_non_base(x_i));
             SASSERT(is_base(x_j));

@@ -1962,7 +1962,6 @@ namespace smt {
        Where a_kj is the coefficient of x_j in row[other]
     */
     template<typename Ext>
-    template<bool Lazy>
     void theory_arith<Ext>::pivot(theory_var x_i, theory_var x_j, numeral const & a_ij, bool apply_gcd_test) {
         TRACE("arith_pivoting", tout << "pivoting: v" << x_i << ", v" << x_j << "\n";);
         m_stats.m_pivots++;
@@ -2002,7 +2001,7 @@ namespace smt {
         set_var_kind(x_i, NON_BASE);
         set_var_kind(x_j, BASE);
 
-        eliminate<Lazy>(x_j, apply_gcd_test);
+        eliminate(x_j, apply_gcd_test);
 
         CASSERT("arith", wf_rows());
         CASSERT("arith", wf_columns());
@@ -2021,11 +2020,8 @@ namespace smt {
 
     /**
        \brief Eliminate x_i from the rows different from get_var_row(x_i)
-
-       If Lazy = true, then x_i is only eliminated from base rows.
     */
     template<typename Ext>
-    template<bool Lazy>
     void theory_arith<Ext>::eliminate(theory_var x_i, bool apply_gcd_test) {
         SASSERT(is_base(x_i) || is_quasi_base(x_i));
         unsigned r_id = get_var_row(x_i);
@@ -2041,7 +2037,8 @@ namespace smt {
                 if (it->m_row_id != static_cast<int>(r_id)) {
                     row & r2      = m_rows[it->m_row_id];
                     theory_var s2 = r2.m_base_var;
-                    if (s2 != null_theory_var && (!Lazy || is_base(s2))) {
+                    if (s2 != null_theory_var) {
+                        SASSERT(is_base(s2));
                         a_kj = r2[it->m_row_idx].m_coeff;
                         a_kj.neg();
                         add_row(it->m_row_id, a_kj, r_id, apply_gcd_test);
@@ -2053,15 +2050,12 @@ namespace smt {
                 }
             }
         }
-        CTRACE("eliminate", !Lazy && c.size() != 1,
-               tout << "eliminating v" << x_i << ", Lazy: " << Lazy << ", c.size: " << c.size() << "\n";
+        CTRACE("eliminate", c.size() != 1,
+               tout << "eliminating v" << x_i <<  ", c.size: " << c.size() << "\n";
                display(tout););
-        SASSERT(Lazy || c.size() == 1);
-        if (c.size() == 1) {
-            // When lazy pivoting is used, then after pivoting c may
-            // not be a singleton
-            c.compress_singleton(m_rows, s_pos);
-        }
+        SASSERT(c.size() == 1);
+        c.compress_singleton(m_rows, s_pos);
+        
     }
 
     /**
@@ -2090,7 +2084,7 @@ namespace smt {
         SASSERT(get_value(x_i) == x_i_new_val);
         if (!m_to_patch.contains(x_j) && (below_lower(x_j) || above_upper(x_j)))
             m_to_patch.insert(x_j);
-        pivot<true>(x_i, x_j, a_ij, m_eager_gcd);
+        pivot(x_i, x_j, a_ij, m_eager_gcd);
         CASSERT("arith", valid_row_assignment());
     }
 
@@ -3456,7 +3450,7 @@ namespace smt {
             if (lazy_pivoting_lvl() > 2 && b == nullptr && is_base(v) && is_free(v)) {
                 SASSERT(!has_var_kind(get_var_row(v), BASE));
                 SASSERT(!has_var_kind(get_var_row(v), QUASI_BASE));
-                eliminate<false>(v, false);
+                eliminate(v, false);
                 SASSERT(m_columns[v].size() == 1);
                 SASSERT(!has_var_kind(get_var_row(v), BASE));
                 SASSERT(!has_var_kind(get_var_row(v), QUASI_BASE));
@@ -3525,7 +3519,7 @@ namespace smt {
                 case BASE:
                     SASSERT(lazy_pivoting_lvl() != 0 || m_columns[v].size() == 1);
                     if (lazy_pivoting_lvl() > 0)
-                        eliminate<false>(v, false);
+                        eliminate(v, false);
                     TRACE("arith_make_feasible", tout << "del row v" << v << "\n";);
                     del_row(get_var_row(v));
                     break;
@@ -3535,7 +3529,7 @@ namespace smt {
                         row & r = m_rows[entry->m_row_id];
                         SASSERT(is_base(r.get_base_var()));
                         SASSERT(r[entry->m_row_idx].m_var == v);
-                        pivot<false>(r.get_base_var(), v, r[entry->m_row_idx].m_coeff, false);
+                        pivot(r.get_base_var(), v, r[entry->m_row_idx].m_coeff, false);
                         SASSERT(is_base(v));
                         del_row(get_var_row(v));
                         TRACE("arith_make_feasible", tout << "del row v" << v << "\n";);
