@@ -225,7 +225,7 @@ namespace polysat {
             pvar v;
             unsigned num_args;
             unsigned args_idx;
-            unsigned next_args_idx() const { args_idx + num_args; }
+            unsigned next_args_idx() const { return args_idx + num_args; }
         };
         svector<concat_info> m_concat_trail;
         svector<pvar> m_concat_args;
