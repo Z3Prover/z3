@@ -875,7 +875,7 @@ namespace polysat {
     pvar slicing::mk_extract(enode* src, unsigned hi, unsigned lo, pvar replay_var) {
         enode_vector& slices = m_tmp3;
         SASSERT(slices.empty());
-        mk_slice(src, hi, lo, slices, false, true);
+        mk_slice(src, hi, lo, slices, false, false);  // TODO: we don't need a base if we can reuse some intermediary slice, do we?
         pvar v = null_var;
         // try to re-use variable of an existing slice
         if (slices.size() == 1)
@@ -892,7 +892,7 @@ namespace polysat {
         // allocate new variable if we cannot reuse it
         if (v == null_var)
             v = m_solver.add_var(hi - lo + 1);
-#if 0
+#if 1
         // slice didn't have a variable yet; so we can re-use it for the new variable
         // (we end up with a "phantom" enode that was first created for the variable)
         if (slices.size() == 1) {
