@@ -659,7 +659,7 @@ namespace polysat {
         unsigned const p_sz = p.power_of_2();
         unsigned const v_sz = p_sz + extra_bits;
         if (p.is_val())
-            return s.sz2pdd(v_sz).mk_val(p.val_signed());
+            return s.sz2pdd(v_sz).mk_val(p.get_signed_val());
         pdd const q = s.var(s.m_names.mk_name(p));
         constraint_dedup::bv_ext_args const args = {true, q.var(), extra_bits};
         auto const it = m_dedup.m_bv_ext_expr.find_iterator(args);
