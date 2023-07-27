@@ -225,6 +225,9 @@ namespace polysat {
         using extract_map = map<extract_args, pvar, extract_args_hash, extract_args_eq>;
         extract_map m_extract_dedup;
 
+        bool is_extract(pvar v) const;
+        bool is_extract(pvar v, pvar& out_src, pvar& out_hi, pvar& out_lo) const;
+
         enum class trail_item : std::uint8_t {
             add_var,
             split_core,
@@ -233,7 +236,7 @@ namespace polysat {
         };
         svector<trail_item> m_trail;
         enode_vector        m_split_trail;
-        svector<extract_args> m_extract_trail;
+        svector<extract_args> m_extract_trail;      // TODO: expand to pvar -> extract_args? 1. for dependency tracking when sharing subslice trees; 2. for easily checking if a variable is an extraction of another.
         unsigned_vector     m_scopes;
 
         struct concat_info {

@@ -34,7 +34,17 @@ TODO:
         -> need a way to store and retrieve justification for this propagation (explain_equal)
 - track fixed bits along with enodes
 - implement query functions
+- About the sub-slice sharing among equivalent nodes:
+  - When extracting a variable y := x[h:l], we always need to create a new slice for y.
+  - Merge slices for x[h:l] with y; store as dependency 'x[h:l]' (rather than 'null_dep' as we do now).
+    - when merging, we must avoid that the new variable becomes the root of the equivalence class,
+      because when finding dependencies for 'y := x[h:l]', such extraction-dependencies would be false/unnecessary.
+      (alternatively, just ignore them. but we never *have* to have them as root, so just don't do it. but add assertions for 1. new var is not root, 2. no extraction-dependency when walking from 'x' to 'x[h:l]'.)
+  - When encountering this dependency, need to start at slice for 'x' and walk towards 'x[h:l]',
+    collecting dependencies whenever we move to a representative.
 - when solver assigns value of a variable v, add equations with v substituted by its value?
+    - since we only track equations over variables/names, this might not lead to many further additions
+    - a question is how to track/handle the dependency on the assignment
 - check Algorithm 2 of "Solving Bitvectors with MCSAT"; what is the difference to what we are doing now?
 
 */
@@ -498,6 +508,10 @@ namespace polysat {
     void slicing::explain_class(enode* x, enode* y, ptr_vector<void>& out_deps) {
         SASSERT_EQ(x->get_root(), y->get_root());
         m_egraph.begin_explain();
+        // TODO: move the begin_explain/end_explain outside? to avoid duplicates from multiple calls.
+        //       Although that would not really help us, I think:
+        //       because we get the duplicates from traversing multiple sub-slices, which are different enodes.
+        //       What we could do is try and merge intermediate slices too (see TODO in merge).
         m_egraph.explain_eq(out_deps, nullptr, x, y);
         m_egraph.end_explain();
     }
