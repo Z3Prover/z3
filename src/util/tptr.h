@@ -21,7 +21,7 @@ Revision History:
 
 #include <cstdint>
 #include "util/machine.h"
-#include <cstdint>
+#include "util/debug.h"
 
 #define TAG_SHIFT        PTR_ALIGNMENT
 #define ALIGNMENT_VALUE  (1 << PTR_ALIGNMENT)
@@ -48,10 +48,17 @@ U unbox(T* ptr) {
     return static_cast<U>(reinterpret_cast<std::uintptr_t>(ptr) >> PTR_ALIGNMENT);
 }
 
+template <typename T>
+unsigned get_tag(T* ptr) {
+    return reinterpret_cast<std::uintptr_t>(ptr) & TAG_MASK;
+}
+
 template <typename T, typename U>
-T* box(U val) {
+T* box(U val, std::uintptr_t tag = 0) {
     static_assert( sizeof(T*) >= sizeof(U) + PTR_ALIGNMENT );
-    T* ptr = reinterpret_cast<T*>(static_cast<std::uintptr_t>(val) << PTR_ALIGNMENT);
+    SASSERT_EQ(tag & PTR_MASK, 0);
+    T* ptr = reinterpret_cast<T*>((static_cast<std::uintptr_t>(val) << PTR_ALIGNMENT) | tag);
     SASSERT_EQ(val, unbox<U>(ptr));  // roundtrip of conversion integer -> pointer -> integer is not actually guaranteed by the C++ standard (but seems fine in practice, as indicated by previous usage of BOXINT/UNBOXINT)
+    SASSERT_EQ(tag, get_tag(ptr));
     return ptr;
 }
