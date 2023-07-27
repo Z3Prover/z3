@@ -63,7 +63,7 @@ namespace polysat {
     }
 
     void viable::push_var(unsigned bit_width) {
-        m_units.push_back(nullptr);
+        m_units.push_back({});
         m_equal_lin.push_back(nullptr);
         m_diseq_lin.push_back(nullptr);
     }
@@ -86,13 +86,45 @@ namespace polysat {
         return e;
     }
 
+    unsigned viable::size(pvar v) const {
+        return s.size(v);
+    }
+
+    viable::layer& viable::layers::ensure_layer(unsigned bit_width) {
+        for (unsigned i = 0; i < m_layers.size(); ++i) {
+            layer& l = m_layers[i];
+            if (l.bit_width == bit_width)
+                return l;
+            else if (l.bit_width < bit_width) {
+                m_layers.push_back(layer(0));
+                for (unsigned j = m_layers.size(); --j > i; )
+                    m_layers[j] = m_layers[j - 1];
+                m_layers[i] = layer(bit_width);
+                return m_layers[i];
+            }
+        }
+        m_layers.push_back(layer(bit_width));
+        return m_layers.back();
+    }
+
+    viable::layer* viable::layers::get_layer(unsigned bit_width) {
+        return const_cast<layer*>(std::as_const(*this).get_layer(bit_width));
+    }
+
+    viable::layer const* viable::layers::get_layer(unsigned bit_width) const {
+        for (layer const& l : m_layers)
+            if (l.bit_width == bit_width)
+                return &l;
+        return nullptr;
+    }
+
     void viable::pop_viable() {
         auto const& [v, k, e] = m_trail.back();
         // display_one(verbose_stream() << "Pop entry:  ", v, e) << "\n";
         SASSERT(well_formed(m_units[v]));
         switch (k) {
         case entry_kind::unit_e:
-            entry::remove_from(m_units[v], e);
+            entry::remove_from(m_units[v].get_layer(e)->entries, e);
             SASSERT(well_formed(m_units[v]));
             break;
         case entry_kind::equal_e:
@@ -112,7 +144,8 @@ namespace polysat {
     void viable::push_viable() {
         auto& [v, k, e] = m_trail.back();
         // display_one(verbose_stream() << "Push entry: ", v, e) << "\n";
-        SASSERT(e->prev() != e || !m_units[v]);
+        entry*& entries = m_units[v].get_layer(e)->entries;
+        SASSERT(e->prev() != e || !entries);
         SASSERT(e->prev() != e || e->next() == e);
         SASSERT(k == entry_kind::unit_e);
         (void)k;
@@ -121,11 +154,11 @@ namespace polysat {
             entry* pos = e->prev();
             e->init(e);
             pos->insert_after(e);
-            if (e->interval.lo_val() < m_units[v]->interval.lo_val())
-                m_units[v] = e;
+            if (e->interval.lo_val() < entries->interval.lo_val())
+                entries = e;
         }
         else
-            m_units[v] = e;
+            entries = e;
         SASSERT(well_formed(m_units[v]));
         m_trail.pop_back();
     }
@@ -267,7 +300,8 @@ namespace polysat {
     bool viable::intersect(pvar v, entry* ne) {
         SASSERT(!s.is_assigned(v));
         SASSERT(!ne->src.empty());
-        entry* e = m_units[v];
+        entry*& entries = m_units[v].ensure_layer(ne->bit_width).entries;
+        entry* e = entries;
         if (e && e->interval.is_full()) {
             m_alloc.push_back(ne);
             return false;
@@ -288,18 +322,18 @@ namespace polysat {
         auto remove_entry = [&](entry* e) {
             m_trail.push_back({ v, entry_kind::unit_e, e });
             s.m_trail.push_back(trail_instr_t::viable_rem_i);
-            e->remove_from(m_units[v], e);
+            e->remove_from(entries, e);
         };
 
         if (ne->interval.is_full()) {
-            while (m_units[v])
-                remove_entry(m_units[v]);
-            m_units[v] = create_entry();
+            while (entries)
+                remove_entry(entries);
+            entries = create_entry();
             return true;
         }
 
         if (!e)
-            m_units[v] = create_entry();
+            entries = create_entry();
         else {
             entry* first = e;
             do {
@@ -310,8 +344,8 @@ namespace polysat {
                 while (ne->interval.currently_contains(e->interval)) {
                     entry* n = e->next();
                     remove_entry(e);
-                    if (!m_units[v]) {
-                        m_units[v] = create_entry();
+                    if (!entries) {
+                        entries = create_entry();
                         return true;
                     }
                     if (e == first)
@@ -326,7 +360,7 @@ namespace polysat {
                     }
                     e->insert_before(create_entry());
                     if (e == first)
-                        m_units[v] = e->prev();
+                        entries = e->prev();
                     SASSERT(well_formed(m_units[v]));
                     return true;
                 }
@@ -919,15 +953,14 @@ namespace {
     bool viable::collect_bit_information(pvar v, bool add_conflict, svector<lbool>& fixed, vector<ptr_vector<entry>>& justifications) {
 
         pdd p = s.var(v);
-        // maybe pass them as arguments rather than having them as fields...
         fixed.clear();
         justifications.clear();
         fixed.resize(p.power_of_2(), l_undef);
         justifications.resize(p.power_of_2(), ptr_vector<entry>());
 
-        auto* e1 = m_equal_lin[v];
-        auto* e2 = m_units[v];
-        auto* first = e1;
+        entry* e1 = m_equal_lin[v];
+        entry* e2 = m_units[v].get_entries(s.size(v));  // TODO: take other widths into account (will be done automatically by tracking fixed bits in the slicing egraph)
+        entry* first = e1;
         if (!e1 && !e2)
             return true;
 
@@ -1023,6 +1056,9 @@ namespace {
 				e1 = e1->next();
 			} while(e1 != first);
         }
+
+        // so far every bit is justified by a single constraint
+        SASSERT(all_of(justifications, [](auto const& vec) { return vec.size() <= 1; }));
 
 #if 0 // is the benefit enough?
         if (e2) {
@@ -1284,7 +1320,7 @@ namespace {
             return false;
 
         refined:
-        auto* e = m_units[v];
+        entry* e = m_units[v].get_entries(s.size(v));  // TODO: take other sizes into account
 
 #define CHECK_RETURN(val) { if (refine_viable<true>(v, val, fixed, justifications)) return true; else goto refined; }
 
@@ -1327,7 +1363,7 @@ namespace {
 
         if (!collect_bit_information(v, false, fixed, justifications))
             return false;
-        auto* e = m_units[v];
+        entry* e = m_units[v].get_entries(s.size(v));  // TODO: take other sizes into account
         if (!e)
             return refine_viable<true>(v, val, fixed, justifications);
         entry* first = e;
@@ -1374,7 +1410,7 @@ namespace {
     }
 
     bool viable::has_upper_bound(pvar v, rational& out_hi, vector<signed_constraint>& out_c) {
-        entry const* first = m_units[v];
+        entry const* first = m_units[v].get_entries(s.size(v));  // TODO: take other sizes into account
         entry const* e = first;
         bool found = false;
         out_c.reset();
@@ -1410,7 +1446,7 @@ namespace {
     }
 
     bool viable::has_lower_bound(pvar v, rational& out_lo, vector<signed_constraint>& out_c) {
-        entry const* first = m_units[v];
+        entry const* first = m_units[v].get_entries(s.size(v));  // TODO: take other sizes into account
         entry const* e = first;
         bool found = false;
         out_c.reset();
@@ -1451,7 +1487,7 @@ namespace {
         //      constraints over y are allowed if level(c) < level(y) (e.g., boolean propagated)
 
         out_c.reset();
-        entry const* first = m_units[v];
+        entry const* first = m_units[v].get_entries(s.size(v));  // TODO: take other sizes into account
         entry const* e = first;
         if (!e)
             return false;
@@ -1659,7 +1695,7 @@ namespace {
         lo = 0;
         hi = max_value;
         
-        auto* e = m_units[v];
+        entry* e = m_units[v].get_entries(s.size(v));  // TODO: take other sizes into account
         if (!e && !refine_viable<true>(v, lo, fixed, justifications))
             return refined;
         if (!e && !refine_viable<false>(v, hi, fixed, justifications))
@@ -1723,7 +1759,7 @@ namespace {
     lbool viable::query_min(pvar v, rational& lo, const svector<lbool>& fixed, const vector<ptr_vector<entry>>& justifications) {
         // TODO: should be able to deal with UNSAT case; since also min_viable has to deal with it due to fallback solver
         lo = 0;
-        entry* e = m_units[v];
+        entry* e = m_units[v].get_entries(s.size(v));  // TODO: take other sizes into account
         if (!e && !refine_viable<true>(v, lo, fixed, justifications))
             return l_undef;
         if (!e)
@@ -1748,7 +1784,7 @@ namespace {
     lbool viable::query_max(pvar v, rational& hi, const svector<lbool>& fixed, const vector<ptr_vector<entry>>& justifications) {
         // TODO: should be able to deal with UNSAT case; since also max_viable has to deal with it due to fallback solver
         hi = s.var2pdd(v).max_value();
-        auto* e = m_units[v];
+        entry* e = m_units[v].get_entries(s.size(v));  // TODO: take other sizes into account
         if (!e && !refine_viable<false>(v, hi, fixed, justifications))
             return l_undef;
         if (!e)
@@ -1778,7 +1814,7 @@ namespace {
         // The constraints which caused the refinement loop will be reached from m_units.
         LOG_H3("Checking looping univariate constraints for v" << v << "...");
         LOG("Assignment: " << assignments_pp(s));
-        entry const* first = m_units[v];
+        entry const* first = m_units[v].get_entries(s.size(v));  // TODO: take other sizes into account
         entry const* e = first;
         do {
             ptr_vector<entry const> to_process = e->refined;
@@ -1979,7 +2015,7 @@ namespace {
         make_bit_justification(v);
 #endif
 
-        entry const* e = m_units[v];
+        entry const* e = m_units[v].get_entries(s.size(v));  // TODO: take other sizes into account
         // TODO: in the forbidden interval paper, they start with the longest interval. We should also try that at some point.
         entry const* first = e;
         SASSERT(e);
@@ -2091,6 +2127,7 @@ namespace {
     }
 
     void viable::log(pvar v) {
+#if 0
         if (!well_formed(m_units[v]))
             LOG("v" << v << " not well formed");
         auto* e = m_units[v];
@@ -2107,6 +2144,7 @@ namespace {
             e = e->next();
         }
         while (e != first);
+#endif
     }
 
     void viable::log() {
@@ -2169,6 +2207,11 @@ namespace {
         return out;
     }
 
+    std::ostream& viable::display_all(std::ostream& out, pvar v, layers const& ls, char const* delimiter) const {
+        // TODO
+        return out;
+    }
+
     std::ostream& viable::display(std::ostream& out, pvar v, char const* delimiter) const {
         display_all(out, v, m_units[v], delimiter);
         display_all(out, v, m_equal_lin[v], delimiter);
@@ -2183,10 +2226,9 @@ namespace {
     }
 
     /*
-    * Lower bounds are strictly ascending.
-    * intervals don't contain each-other (since lower bounds are ascending,
-    * it suffices to check containment in one direction).
-    */
+     * Lower bounds are strictly ascending.
+     * Intervals don't contain each-other (since lower bounds are ascending, it suffices to check containment in one direction).
+     */
     bool viable::well_formed(entry* e) {
         if (!e)
             return true;
@@ -2206,6 +2248,24 @@ namespace {
             if (e->interval.lo_val() >= n->interval.lo_val())
                 return false;
             e = n;
+        }
+        return true;
+    }
+
+    /*
+     * Layers are ordered in strictly descending bit-width.
+     * Entries in each layer are well-formed.
+     */
+    bool viable::well_formed(layers const& ls) {
+        unsigned prev_width = std::numeric_limits<unsigned>::max();
+        for (layer const& l : ls.get_layers()) {
+            if (!well_formed(l.entries))
+                return false;
+            if (!all_of(dll_elements(l.entries), [&l](entry const& e) { return e.bit_width == l.bit_width; }))
+                return false;
+            if (prev_width <= l.bit_width)
+                return false;
+            prev_width = l.bit_width;
         }
         return true;
     }

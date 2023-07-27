@@ -83,13 +83,34 @@ namespace polysat {
         };
         enum class entry_kind { unit_e, equal_e, diseq_e };
 
-        ptr_vector<entry>                    m_alloc;
-        ptr_vector<entry>                    m_units;        // set of viable values based on unit multipliers
-        ptr_vector<entry>                    m_equal_lin;    // entries that have non-unit multipliers, but are equal
-        ptr_vector<entry>                    m_diseq_lin;    // entries that have distinct non-zero multipliers
+        struct layer final {
+            entry* entries = nullptr;
+            unsigned bit_width = 0;
+            layer(unsigned bw): bit_width(bw) {}
+        };
+
+        class layers final {
+            svector<layer> m_layers;
+        public:
+            svector<layer> const& get_layers() const { return m_layers; }
+            layer& ensure_layer(unsigned bit_width);
+            layer* get_layer(unsigned bit_width);
+            layer* get_layer(entry* e) { return get_layer(e->bit_width); }
+            layer const* get_layer(unsigned bit_width) const;
+            layer const* get_layer(entry* e) const { return get_layer(e->bit_width); }
+            entry* get_entries(unsigned bit_width) const { layer const* l = get_layer(bit_width); return l ? l->entries : nullptr; }
+        };
+
+        ptr_vector<entry>       m_alloc;
+        vector<layers>          m_units;        // set of viable values based on unit multipliers, layered by bit-width in descending order
+        ptr_vector<entry>       m_equal_lin;    // entries that have non-unit multipliers, but are equal
+        ptr_vector<entry>       m_diseq_lin;    // entries that have distinct non-zero multipliers
         svector<std::tuple<pvar, entry_kind, entry*>>     m_trail; // undo stack
 
+        unsigned size(pvar v) const;
+
         bool well_formed(entry* e);
+        bool well_formed(layers const& ls);
 
         entry* alloc_entry();
 
@@ -115,6 +136,7 @@ namespace polysat {
 
         std::ostream& display_one(std::ostream& out, pvar v, entry const* e) const;
         std::ostream& display_all(std::ostream& out, pvar v, entry const* e, char const* delimiter = "") const;
+        std::ostream& display_all(std::ostream& out, pvar v, layers const& ls, char const* delimiter = "") const;
 
         void insert(entry* e, pvar v, ptr_vector<entry>& entries, entry_kind k);
 
@@ -299,8 +321,9 @@ namespace polysat {
             pvar var;
         public:
             constraints(viable const& v, pvar var) : v(v), var(var) {}
-            iterator begin() const { return iterator(v.m_units[var], false); }
-            iterator end() const { return iterator(v.m_units[var], true); }
+            // TODO: take other widths into account!
+            iterator begin() const { return iterator(v.m_units[var].get_entries(v.size(var)), false); }
+            iterator end() const { return iterator(v.m_units[var].get_entries(v.size(var)), true); }
         };
 
         constraints get_constraints(pvar v) const {
@@ -338,8 +361,9 @@ namespace polysat {
             pvar var;
         public:
             intervals(viable const& v, pvar var): v(v), var(var) {}
-            int_iterator begin() const { return int_iterator(v.m_units[var], false); }
-            int_iterator end() const { return int_iterator(v.m_units[var], true); }
+            // TODO: take other widths into account!
+            int_iterator begin() const { return int_iterator(v.m_units[var].get_entries(v.size(var)), false); }
+            int_iterator end() const { return int_iterator(v.m_units[var].get_entries(v.size(var)), true); }
         };
 
         intervals units(pvar v) { return intervals(*this, v); }

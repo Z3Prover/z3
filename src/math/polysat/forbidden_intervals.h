@@ -23,8 +23,9 @@ namespace polysat {
     struct fi_record {
         eval_interval               interval;
         vector<signed_constraint>   side_cond;
-        vector<signed_constraint>   src; // only units may have multiple src (as they can consist of contracted bit constraints)
+        vector<signed_constraint>   src;        // only units may have multiple src (as they can consist of contracted bit constraints)
         rational                    coeff;
+        unsigned                    bit_width;  // number of lower bits
 
         /** Create invalid fi_record */
         fi_record(): interval(eval_interval::full()) {}
