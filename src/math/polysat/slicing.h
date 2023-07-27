@@ -54,8 +54,8 @@ namespace polysat {
             unsigned var_idx() const { SASSERT(is_var_idx()); return *std::get_if<unsigned>(&m_data); }
             bool operator==(dep_t other) const { return m_data == other.m_data; }
             bool operator!=(dep_t other) const { return !operator==(other); }
-            unsigned to_uint() const;
-            static dep_t from_uint(unsigned x);
+            void* encode() const;
+            static dep_t decode(void* p);
         };
 
         using dep_vector = svector<dep_t>;
@@ -123,9 +123,6 @@ namespace polysat {
         enode* mk_concat_node(enode_vector const& slices);
         // Add s = concat(s1, ..., sn)
         void add_concat_node(enode* s, enode* concat);
-
-        static void* encode_dep(dep_t d);
-        static dep_t decode_dep(void* d);
 
         slice_info& info(euf::enode* n);
         slice_info const& info(euf::enode* n) const;

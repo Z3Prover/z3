@@ -37,7 +37,7 @@ namespace polysat {
         static std::ostream& display_reason(scoped_solver_slicing& s, std::ostream& out, ptr_vector<void> deps) {
             char const* delim = "";
             for (void* dp : deps) {
-                slicing::dep_t d = slicing::decode_dep(dp);
+                slicing::dep_t d = slicing::dep_t::decode(dp);
                 if (d.is_null())
                     continue;
                 s.sl().display(out << delim, d);
