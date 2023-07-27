@@ -39,12 +39,7 @@ namespace sat {
     class literal {
         unsigned  m_val;
     public:
-        constexpr literal(): m_val(null_bool_var << 1) {
-#ifdef Z3DEBUG
-            assert(var() == null_bool_var);
-            assert(!sign());
-#endif
-        }
+        constexpr literal(): m_val(null_bool_var << 1) { }
 
         explicit literal(bool_var v, bool _sign = false):
             m_val((v << 1) + static_cast<unsigned>(_sign)) {
@@ -90,6 +85,9 @@ namespace sat {
     };
 
     inline constexpr literal null_literal;
+    static_assert(null_literal.var() == null_bool_var);
+    static_assert(!null_literal.sign());
+
     using literal_hash = obj_hash<literal>;
 
     inline literal to_literal(unsigned x) { literal l; l.m_val = x; return l; }
