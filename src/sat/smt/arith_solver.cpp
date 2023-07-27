@@ -713,10 +713,11 @@ namespace arith {
 
         ++m_stats.m_fixed_eqs;
         reset_evidence();
-        set_evidence(ci1);
-        set_evidence(ci2);
-        set_evidence(ci3);
-        set_evidence(ci4);
+        m_explanation.clear();
+        consume(rational::one(), ci1);
+        consume(rational::one(), ci2);
+        consume(rational::one(), ci3);
+        consume(rational::one(), ci4);
         enode* x = var2enode(v1);
         enode* y = var2enode(v2);
         auto* ex = explain_implied_eq(m_explanation, x, y);

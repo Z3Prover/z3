@@ -539,10 +539,12 @@ namespace arith {
         if (x->get_root() == y->get_root())
             return;
         reset_evidence();
-        set_evidence(ci1);
-        set_evidence(ci2);
+        m_explanation.clear();
+        consume(rational::one(), ci1);
+        consume(rational::one(), ci2);
         ++m_stats.m_fixed_eqs;
-        auto* jst = euf::th_explain::propagate(*this, m_core, m_eqs, x, y);
+        auto* hint = explain_implied_eq(m_explanation, x, y);
+        auto* jst = euf::th_explain::propagate(*this, m_core, m_eqs, x, y, hint);
         ctx.propagate(x, y, jst->to_index());
     }
 

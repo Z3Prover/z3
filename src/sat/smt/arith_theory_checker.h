@@ -35,12 +35,24 @@ The module assumes a limited repertoire of arithmetic proof rules.
 namespace arith {
 
     class theory_checker : public euf::theory_checker_plugin {
+
+        enum rule_type_t {
+            cut_t,
+            farkas_t,
+            implied_eq_t,
+            bound_t,
+            none_t
+        };
+        
         struct row {
             obj_map<expr, rational> m_coeffs;
             rational m_coeff;
             void reset() {
                 m_coeffs.reset();
                 m_coeff = 0;
+            }
+            bool is_zero() const {
+                return m_coeffs.empty() && m_coeff == 0;
             }
         };
        
@@ -50,10 +62,24 @@ namespace arith {
         bool         m_strict = false;
         row          m_ineq;
         row          m_conseq;
-        vector<row>  m_eqs;
-        symbol       m_farkas;
-        symbol       m_implied_eq;
-        symbol       m_bound;
+        vector<row>  m_eqs, m_ineqs;
+        symbol       m_farkas = symbol("farkas");
+        symbol       m_implied_eq = symbol("implied-eq");
+        symbol       m_bound = symbol("bound");
+        symbol       m_cut = symbol("cut");
+
+        rule_type_t rule_type(app* jst) const {
+            if (jst->get_name() == m_cut)
+                return cut_t;
+            if (jst->get_name() == m_bound)
+                return bound_t;
+            if (jst->get_name() == m_implied_eq)
+                return implied_eq_t;
+            if (jst->get_name() == m_farkas)
+                return farkas_t;
+            return none_t;
+        }
+        
         
         void add(row& r, expr* v, rational const& coeff) {
             rational coeff1;
@@ -90,10 +116,10 @@ namespace arith {
         // X = lcm(a,b)/b, Y = -lcm(a,b)/a  if v is integer
         // X = 1/b, Y = -1/a                if v is real
         //
-        void resolve(expr* v, row& dst, rational const& A, row const& src) {
+        bool resolve(expr* v, row& dst, rational const& A, row const& src) {
             rational B, x, y;
             if (!dst.m_coeffs.find(v, B))
-                return;
+                return false;
             if (a.is_int(v)) {
                 rational lc = lcm(abs(A), abs(B));
                 x =  lc / abs(B);
@@ -109,6 +135,7 @@ namespace arith {
                 y.neg();
             mul(dst, x);
             add(dst, src, y);
+            return true;
         }
 
         void cut(row& r) {
@@ -197,6 +224,8 @@ namespace arith {
                     resolve(v, m_eqs[j], coeff, r);
                 resolve(v, m_ineq, coeff, r);
                 resolve(v, m_conseq, coeff, r);
+                for (auto& ineq : m_ineqs)
+                    resolve(v, ineq, coeff, r);
             }
             return true;
         }
@@ -269,6 +298,81 @@ namespace arith {
             return false;
         }
 
+        /**
+           Check implied equality lemma:
+
+           inequalities & equalities => equality
+
+           
+           We may assume the set of inequality assumptions we are given are all tight, non-strict and imply equalities.
+           In other words, given a set of inequalities a1x + b1 <= 0, ..., anx + bn <= 0
+           the equalities a1x + b1 = 0, ..., anx + bn = 0 are all consequences.
+
+           We use a weaker property: We derive implied equalities by applying exhaustive Fourier-Motzkin
+           elimination and then collect the tight 0 <= 0 inequalities that are derived.
+           
+           Claim: the set of inequalities used to derive 0 <= 0 are all tight equalities.
+         */
+
+        svector<std::pair<unsigned, unsigned>> m_deps;
+        unsigned_vector m_tight_inequalities;
+        uint_set m_ineqs_that_are_eqs;
+        
+        bool check_implied_eq() {
+            if (!reduce_eq())
+                return true;
+            if (m_conseq.is_zero())
+                return true;
+
+            m_eqs.reset();
+            m_deps.reset();
+            unsigned orig_size = m_ineqs.size();
+            m_deps.reserve(orig_size);
+            for (unsigned i = 0; i < m_ineqs.size(); ++i) {
+                row& r = m_ineqs[i];
+                if (r.is_zero()) {
+                    m_tight_inequalities.push_back(i);                    
+                    continue;
+                }
+                auto const& [v, coeff] = *r.m_coeffs.begin();
+                unsigned sz = m_ineqs.size();
+                
+                for (unsigned j = i + 1; j < sz; ++j) {
+                    rational B;
+                    row& r2 = m_ineqs[j]; 
+                    if (!r2.m_coeffs.find(v, B) || (coeff > 0 && B > 0) || (coeff < 0 && B < 0))
+                        continue;
+                    row& r3 = fresh(m_ineqs);
+                    add(r3, m_ineqs[j], rational::one());
+                    resolve(v, r3, coeff, m_ineqs[i]);
+                    m_deps.push_back({i, j});
+                }
+                SASSERT(m_deps.size() == m_ineqs.size());
+            }
+
+            m_ineqs_that_are_eqs.reset();
+            while (!m_tight_inequalities.empty()) {
+                unsigned j = m_tight_inequalities.back();
+                m_tight_inequalities.pop_back();
+                if (m_ineqs_that_are_eqs.contains(j))
+                    continue;                
+                m_ineqs_that_are_eqs.insert(j);
+                if (j < orig_size) {
+                    m_eqs.push_back(m_ineqs[j]);
+                }
+                else {
+                    auto [a, b] = m_deps[j];
+                    m_tight_inequalities.push_back(a);
+                    m_tight_inequalities.push_back(b);
+                }                            
+            }
+            m_ineqs.reset();
+
+            VERIFY (reduce_eq());
+
+            return m_conseq.is_zero();
+        }
+
         std::ostream& display_row(std::ostream& out, row const& r) {
             bool first = true;
             for (auto const& [v, coeff] : r.m_coeffs) {
@@ -306,22 +410,21 @@ namespace arith {
     public:
         theory_checker(ast_manager& m): 
             m(m), 
-            a(m), 
-            m_farkas("farkas"), 
-            m_implied_eq("implied-eq"), 
-            m_bound("bound") {}
+            a(m) {}
 
         void reset() {
             m_ineq.reset();
             m_conseq.reset();
             m_eqs.reset();
+            m_ineqs.reset();
             m_strict = false;
         }
         
-        bool add_ineq(rational const& coeff, expr* e, bool sign) {
-            return add_literal(m_ineq, abs(coeff), e, sign);
+        bool add_ineq(rule_type_t rt, rational const& coeff, expr* e, bool sign) {
+            row& r = rt == implied_eq_t ? fresh(m_ineqs) : m_ineq;
+            return add_literal(r, abs(coeff), e, sign);            
         }
-        
+
         bool add_conseq(rational const& coeff, expr* e, bool sign) {
             return add_literal(m_conseq, abs(coeff), e, sign);
         }
@@ -332,11 +435,17 @@ namespace arith {
             linearize(r, rational(-1), b);
         }
         
-        bool check() {
-            if (m_conseq.m_coeffs.empty())
+        bool check(rule_type_t rt) {
+            switch (rt) {
+            case farkas_t:
                 return check_farkas();
-            else
+            case bound_t:
                 return check_bound();
+            case implied_eq_t:
+                return check_implied_eq();
+            default:
+                return check_bound();
+            }
         }
 
         std::ostream& display(std::ostream& out) {
@@ -359,7 +468,7 @@ namespace arith {
         /**
            Add implied equality as an inequality
          */
-        bool add_implied_ineq(bool sign, app* jst) {
+        bool add_implied_diseq(bool sign, app* jst) {
             unsigned n = jst->get_num_args();
             if (n < 2)
                 return false;
@@ -374,90 +483,57 @@ namespace arith {
                 return false;
             if (!sign)
                 coeff.neg();
-            auto& r = m_ineq;
+            auto& r = m_conseq;
             linearize(r, coeff, arg1);
             linearize(r, -coeff, arg2);
-            m_strict = true;
             return true;
         }
 
         bool check(app* jst) override {
             reset();
-            bool is_bound = jst->get_name() == m_bound;
-            bool is_implied_eq = jst->get_name() == m_implied_eq;
-            bool is_farkas = jst->get_name() == m_farkas;
-            if (!is_farkas && !is_bound && !is_implied_eq) {
+
+            auto rt = rule_type(jst);
+            switch (rt) {
+            case cut_t:
+                return false;
+            case none_t:
                 IF_VERBOSE(0, verbose_stream() << "unhandled inference " << mk_pp(jst, m) << "\n");
                 return false;
+            default:
+                break;
             }
             bool even = true;
             rational coeff;
             expr* x, * y;
-            unsigned j = 0, num_le = 0;
-
+            unsigned j = 0;
             
             for (expr* arg : *jst) {
+                
                 if (even) {
                     if (!a.is_numeral(arg, coeff)) {
                         IF_VERBOSE(0, verbose_stream() << "not numeral " << mk_pp(jst, m) << "\n");
                         return false;
                     }
-                    if (is_implied_eq) {
-                        is_implied_eq = false;
-                        if (!coeff.is_unsigned()) {
-                            IF_VERBOSE(0, verbose_stream() << "not unsigned " << mk_pp(jst, m) << "\n");
-                            return false;
-                        }
-                        num_le = coeff.get_unsigned();
-                        if (!add_implied_ineq(false, jst)) {
-                            IF_VERBOSE(0, display(verbose_stream() << "did not add implied eq"));
-                            return false;
-                        }
-                        ++j;
-                        continue;
-                    }
                 }
                 else {
                     bool sign = m.is_not(arg, arg);
                     if (a.is_le(arg) || a.is_lt(arg) || a.is_ge(arg) || a.is_gt(arg)) {
-                        if (is_bound && j + 1 == jst->get_num_args())
+                        if (rt == bound_t && j + 1 == jst->get_num_args())
                             add_conseq(coeff, arg, sign);
-                        else if (num_le > 0) {
-                            add_ineq(coeff, arg, sign);
-                            --num_le;
-                            if (num_le == 0) {
-                                // we processed all the first inequalities,
-                                // check that they imply one half of the implied equality.
-                                if (!check()) {
-                                    // we might have added the wrong direction of the implied equality.
-                                    // so try the opposite inequality.
-                                    add_implied_ineq(true, jst);
-                                    add_implied_ineq(true, jst);
-                                    if (check()) {
-                                        reset();
-                                        add_implied_ineq(false, jst);
-                                    }
-                                    else {
-                                        IF_VERBOSE(0, display(verbose_stream() << "failed to check implied eq "));
-                                        return false;
-                                    }
-                                }
-                                else {
-                                    reset();
-                                    VERIFY(add_implied_ineq(true, jst));
-                                }
-                            }
-                        }
                         else
-                            add_ineq(coeff, arg, sign);
+                            add_ineq(rt, coeff, arg, sign);
                     }
                     else if (m.is_eq(arg, x, y)) {
-                        if (is_bound && j + 1 == jst->get_num_args())
+                        if (rt == bound_t && j + 1 == jst->get_num_args())
                             add_conseq(coeff, arg, sign);
-                        else if (sign) 
-                            return check(); // it should be an implied equality
-                        else
+                        else if (rt == implied_eq_t && j + 1 == jst->get_num_args()) 
+                            return add_implied_diseq(sign, jst) && check(rt);
+                        else if (!sign) 
                             add_eq(x, y);
+                        else {
+                            IF_VERBOSE(0, verbose_stream() << "unexpected disequality in justification " << mk_pp(arg, m) << "\n");
+                            return false;
+                        }
                     }
                     else {
                         IF_VERBOSE(0, verbose_stream() << "not a recognized arithmetical relation " << mk_pp(arg, m) << "\n");
@@ -467,13 +543,14 @@ namespace arith {
                 even = !even;
                 ++j;
             }
-            return check();
+            return check(rt);
         }
 
         void register_plugins(euf::theory_checker& pc) override {
             pc.register_plugin(m_farkas, this);
             pc.register_plugin(m_bound, this);
             pc.register_plugin(m_implied_eq, this);
+            pc.register_plugin(m_cut, this);
         }
         
     };

@@ -612,7 +612,8 @@ class lp_bound_propagator {
         constraint_index lc, uc;
         lp().get_bound_constraint_witnesses_for_column(j, lc, uc);
         ex.push_back(lc);
-        ex.push_back(uc);
+        if (lc != uc)
+            ex.push_back(uc);
     }
 
     vector<edge> connect_in_tree(const vertex* u, const vertex* v) const {

@@ -240,6 +240,9 @@ namespace euf {
             m_literals[i] = lits[i];
         base_ptr += sizeof(literal) * n_lits;
         m_eqs = reinterpret_cast<enode_pair*>(base_ptr);
+        if (!pma) {
+            verbose_stream() << "null\n";
+        }
         for (i = 0; i < n_eqs; ++i) {
             m_eqs[i] = eqs[i];
             if (m_eqs[i].first->get_id() > m_eqs[i].second->get_id())
