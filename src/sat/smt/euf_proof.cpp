@@ -465,8 +465,6 @@ namespace euf {
 
     void solver::display_inferred(std::ostream& out, unsigned n, literal const* lits, expr* proof_hint) {
         expr_ref hint(proof_hint, m);
-        if (!proof_hint)
-            verbose_stream() << hint << "\n";
         if (!hint)
             hint = m.mk_const(m_smt, m.mk_proof_sort()); 
         visit_expr(out, hint);
