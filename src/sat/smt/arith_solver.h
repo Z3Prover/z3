@@ -51,6 +51,7 @@ namespace arith {
     enum class hint_type {
         farkas_h,
         bound_h,
+        cut_h,
         implied_eq_h
     };
 

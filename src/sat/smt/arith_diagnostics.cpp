@@ -192,6 +192,9 @@ namespace arith {
         case hint_type::farkas_h:
             name = "farkas";
             break;
+        case hint_type::cut_h:
+            name = "cut";
+            break;
         case hint_type::bound_h:
             name = "bound";
             break;
@@ -199,22 +202,26 @@ namespace arith {
             name = "implied-eq";
             args.push_back(arith.mk_int(m_num_le));
             break;
+        default:
+            name = "unknown-arithmetic";
+            break;
         }
         rational lc(1);
         for (unsigned i = m_lit_head; i < m_lit_tail; ++i) 
             lc = lcm(lc, denominator(a.m_arith_hint.lit(i).first));
-
-        for (unsigned i = m_lit_head; i < m_lit_tail; ++i) {
-            auto const& [coeff, lit] = a.m_arith_hint.lit(i);
-            args.push_back(arith.mk_int(abs(coeff*lc)));
-            args.push_back(s.literal2expr(lit));
-        }
         for (unsigned i = m_eq_head; i < m_eq_tail; ++i) {
-            auto const& [x, y, is_eq] = a.m_arith_hint.eq(i);            
+            auto [x, y, is_eq] = a.m_arith_hint.eq(i);    
+            if (x->get_id() > y->get_id())
+                std::swap(x, y);
             expr_ref eq(m.mk_eq(x->get_expr(), y->get_expr()), m);
             if (!is_eq) eq = m.mk_not(eq);
             args.push_back(arith.mk_int(1));
             args.push_back(eq);
+        }
+        for (unsigned i = m_lit_head; i < m_lit_tail; ++i) {
+            auto const& [coeff, lit] = a.m_arith_hint.lit(i);
+            args.push_back(arith.mk_int(abs(coeff*lc)));
+            args.push_back(s.literal2expr(lit));
         }
         return m.mk_app(symbol(name), args.size(), args.data(), m.mk_proof_sort());
     }

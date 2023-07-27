@@ -224,11 +224,6 @@ namespace euf {
     void etable::erase(enode * n) {
         SASSERT(n->num_args() > 0);
         void * t = get_table(n); 
-        static unsigned count = 0;
-        //verbose_stream() << "erase " << (++count) << " " << n << "\n";
-        // if (count == 10398) {
-        //     verbose_stream() << "here\n";
-        // }
         switch (static_cast<table_kind>(GET_TAG(t))) {
         case UNARY:
             UNTAG(unary_table*, t)->erase(n);

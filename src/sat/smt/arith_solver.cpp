@@ -1147,7 +1147,7 @@ namespace arith {
             app_ref b = mk_bound(m_lia->get_term(), m_lia->get_offset(), !m_lia->is_upper());
             IF_VERBOSE(4, verbose_stream() << "cut " << b << "\n");
             literal lit = expr2literal(b);
-            assign(lit, m_core, m_eqs, explain(hint_type::bound_h, lit));
+            assign(lit, m_core, m_eqs, explain(hint_type::cut_h, lit));
             lia_check = l_false;
             break;
         }
@@ -1460,7 +1460,7 @@ namespace arith {
 
     void solver::get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector& r, bool probing) {
         auto& jst = euf::th_explain::from_index(idx);
-        ctx.get_antecedents(l, jst, r, probing);
+        ctx.get_th_antecedents(l, jst, r, probing);
     }
 
     bool solver::include_func_interp(func_decl* f) const {

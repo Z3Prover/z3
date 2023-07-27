@@ -624,16 +624,21 @@ namespace lp {
     }
 
     void lar_solver::remove_fixed_vars_from_base() {
+        row_tracker_temp_disabler ch(*this);
         unsigned num = A_r().column_count();
         for (unsigned v = 0; v < num; v++) {
             if (!is_base(v) || !is_fixed(v))
                 continue;
 
+            lp_assert(is_base(v) && is_fixed(v));    
+
             auto const& r = basic2row(v);
 
             for (auto const& c : r) {
-                if (c.var() != v && is_fixed(c.var())) {
-                    pivot(c.var(), v);
+			    unsigned j = c.var();
+                if (j != v && !is_fixed(j)) {
+                    pivot(j, v);
+                    lp_assert(is_base(j));
                     break;
                 }
             }

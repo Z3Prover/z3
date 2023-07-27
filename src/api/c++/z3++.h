@@ -4214,17 +4214,20 @@ namespace z3 {
         return expr(ctx(), r);
     }
 
-    typedef std::function<void(expr const& proof, expr_vector const& clause)> on_clause_eh_t;
+    typedef std::function<void(expr const& proof, std::vector<unsigned> const& deps, expr_vector const& clause)> on_clause_eh_t;
 
     class on_clause {
         context& c;
         on_clause_eh_t m_on_clause;
 
-        static void _on_clause_eh(void* _ctx, Z3_ast _proof, Z3_ast_vector _literals) {
+        static void _on_clause_eh(void* _ctx, Z3_ast _proof, unsigned n, unsigned const* dep, Z3_ast_vector _literals) {
             on_clause* ctx = static_cast<on_clause*>(_ctx);
             expr_vector lits(ctx->c, _literals);
             expr proof(ctx->c, _proof);
-            ctx->m_on_clause(proof, lits);
+            std::vector<unsigned> deps;
+            for (unsigned i = 0; i < n; ++i)
+                deps.push_back(dep[i]);
+            ctx->m_on_clause(proof, deps, lits);
         }
     public:
         on_clause(solver& s, on_clause_eh_t& on_clause_eh): c(s.ctx()) {

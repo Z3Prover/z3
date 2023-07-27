@@ -29,7 +29,6 @@ namespace lp {
     }
 
     lia_move int_solver::patcher::patch_basic_columns() {
-        lra.remove_fixed_vars_from_base();
         lia.settings().stats().m_patches++;
         lp_assert(lia.is_feasible());
         
@@ -154,16 +153,17 @@ namespace lp {
         lra.set_value_for_nbasic_column(j, lia.get_value(j) + impq(delta));
         return true;
     }
-    
+
     void int_solver::patcher::patch_basic_column(unsigned v) {
         SASSERT(!lia.is_fixed(v));
-        for (auto const& c : lra.basic2row(v))
+        SASSERT(lia.is_base(v));
+        for (auto const& c : lra.basic2row(v)) {
             if (patch_basic_column_on_row_cell(v, c))
-                return;                                       
+                return;
+        }
     }
 
     lia_move int_solver::patcher::patch_nbasic_columns() {
-        lra.remove_fixed_vars_from_base();
         lia.settings().stats().m_patches++;
         lp_assert(lia.is_feasible());
         m_patch_success = 0;
@@ -359,7 +359,6 @@ struct check_return_helper {
 lia_move int_solver::check(lp::explanation * e) {
     SASSERT(lra.ax_is_correct());
     if (!has_inf_int()) return lia_move::sat;
-
     m_t.clear();
     m_k.reset();
     m_ex = e;

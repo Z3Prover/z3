@@ -801,6 +801,29 @@ expr_ref arith_util::mk_add_simplify(unsigned sz, expr* const* args) {
     return result;
 }
 
+bool arith_util::is_considered_partially_interpreted(func_decl* f, unsigned n, expr* const* args, func_decl_ref& f_out) {
+    if (is_decl_of(f, arith_family_id, OP_DIV) && n == 2 && !is_numeral(args[1])) {
+        f_out = mk_div0();
+        return true;
+    }
+    if (is_decl_of(f, arith_family_id, OP_IDIV) && n == 2 && !is_numeral(args[1])) {
+        sort* rs[2] = { mk_int(), mk_int() };
+        f_out = m_manager.mk_func_decl(arith_family_id, OP_IDIV0, 0, nullptr, 2, rs, mk_int());
+        return true;
+    }
+    if (is_decl_of(f, arith_family_id, OP_MOD) && n == 2 && !is_numeral(args[1])) {
+        sort* rs[2] = { mk_int(), mk_int() };
+        f_out = m_manager.mk_func_decl(arith_family_id, OP_MOD0, 0, nullptr, 2, rs, mk_int());
+        return true;
+    }
+    if (is_decl_of(f, arith_family_id, OP_REM) && n == 2 && !is_numeral(args[1])) {
+        sort* rs[2] = { mk_int(), mk_int() };
+        f_out = m_manager.mk_func_decl(arith_family_id, OP_MOD0, 0, nullptr, 2, rs, mk_int());
+        return true;
+    }
+    return false;
+}
+
 bool arith_util::is_considered_uninterpreted(func_decl* f, unsigned n, expr* const* args, func_decl_ref& f_out) {
     rational r;
     if (is_decl_of(f, arith_family_id, OP_DIV) && n == 2 && is_numeral(args[1], r) && r.is_zero()) {

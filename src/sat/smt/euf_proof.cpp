@@ -44,23 +44,88 @@ namespace euf {
     }
 
     /**
-     * \brief logs antecedents to a proof trail.
-     *
-     * NB with theories, this is not a pure EUF justification,
-     * It is true modulo EUF and previously logged certificates
-     * so it isn't necessarily an axiom over EUF,
-     * We will here leave it to the EUF checker to perform resolution steps.
-     */
+    * Log justifications.
+    * is_euf - true if l is justified by congruence closure. In this case create a congruence closure proof.
+    * explain_size - the relevant portion of premises for the congruence closure proof.
+    * The EUF solver manages equality propagation. Each propagated equality is justified by a congruence closure.
+    */
+    void solver::log_justifications(literal l, unsigned explain_size, bool is_euf) {
+
+        unsigned nv = s().num_vars();
+        expr_ref_vector eqs(m);
+
+        auto add_hint_literals = [&](unsigned sz) {
+            eqs.reset();
+            m_hint_lits.reset();
+            nv = s().num_vars();
+            for (unsigned i = 0; i < sz; ++i) {
+                size_t* e = m_explain[i];
+                if (is_literal(e))
+                    m_hint_lits.push_back(get_literal(e));
+                else {
+                    auto [x, y] = th_explain::from_index(get_justification(e)).eq_consequent();
+                    eqs.push_back(m.mk_eq(x->get_expr(), y->get_expr()));
+                    set_tmp_bool_var(nv, eqs.back());
+                    m_hint_lits.push_back(literal(nv, false));
+                    ++nv;
+                }
+            }
+        };
+
+        auto clear_hint_literals = [&]() {
+            for (unsigned v = s().num_vars(); v < nv; ++v)
+                set_tmp_bool_var(v, nullptr);
+        };
+
+        // log EUF justifications
+        if (is_euf) {
+            add_hint_literals(explain_size);
+            auto* hint = mk_hint(m_euf, l);
+            log_antecedents(l, m_hint_lits, hint);
+            clear_hint_literals();
+        }
+
+        // explain equalities
+        for (auto const& [a, b] : m_hint_eqs) {
+            m_egraph.begin_explain();
+            m_explain.reset();
+            m_egraph.explain_eq<size_t>(m_explain, &m_explain_cc, a, b);
+            m_egraph.end_explain();
+            // Detect shortcut if equality is explained directly by a theory
+            if (m_explain.size() == 1 && !is_literal(m_explain[0])) {
+                auto const& [x, y] = th_explain::from_index(get_justification(m_explain[0])).eq_consequent();
+                if (x == a && y == b)
+                    continue;
+            }
+            add_hint_literals(m_explain.size());
+            eqs.push_back(m.mk_eq(a->get_expr(), b->get_expr()));
+            set_tmp_bool_var(nv, eqs.back());
+            sat::literal eql = literal(nv, false);
+            ++nv;
+            auto* hint = mk_hint(m_euf, eql);
+            log_antecedents(eql, m_hint_lits, hint);
+            clear_hint_literals();
+        }
+    }
+
     void solver::log_antecedents(literal l, literal_vector const& r, th_proof_hint* hint) {
-        TRACE("euf", log_antecedents(tout, l, r););
-        if (!use_drat())
-            return;
+        SASSERT(hint && use_drat());
+        TRACE("euf", log_antecedents(tout, l, r); tout << mk_pp(hint->get_hint(*this), m) << "\n");
         literal_vector lits;
         for (literal lit : r) 
             lits.push_back(~lit);
         if (l != sat::null_literal)
             lits.push_back(l);
         get_drat().add(lits, sat::status::th(true, get_id(), hint));
+    }
+
+    void solver::log_rup(literal l, literal_vector const& r) {
+        literal_vector lits;
+        for (literal lit : r)
+            lits.push_back(~lit);
+        if (l != sat::null_literal)
+            lits.push_back(l);
+        get_drat().add(lits, sat::status::redundant());
     }
 
     void solver::log_antecedents(std::ostream& out, literal l, literal_vector const& r) {
@@ -79,7 +144,7 @@ namespace euf {
         }
     }
 
-    eq_proof_hint* solver::mk_hint(symbol const& th, literal conseq, literal_vector const& r) {
+    eq_proof_hint* solver::mk_hint(symbol const& th, literal conseq) {
         if (!use_drat())
             return nullptr;
         push(value_trail(m_lit_tail));
@@ -87,7 +152,7 @@ namespace euf {
         push(restore_vector(m_proof_literals));
         if (conseq != sat::null_literal)
             m_proof_literals.push_back(~conseq);
-        m_proof_literals.append(r);
+        m_proof_literals.append(m_hint_lits);
         m_lit_head = m_lit_tail;
         m_cc_head  = m_cc_tail;
         m_lit_tail = m_proof_literals.size();
@@ -159,6 +224,7 @@ namespace euf {
         };
         for (unsigned i = m_lit_head; i < m_lit_tail; ++i) 
             args.push_back(s.literal2expr(s.m_proof_literals[i]));
+        
         std::sort(s.m_explain_cc.data() + m_cc_head, s.m_explain_cc.data() + m_cc_tail, compare_ts);
         for (unsigned i = m_cc_head; i < m_cc_tail; ++i) {
             auto const& [a, b, ts, comm] = s.m_explain_cc[i];
@@ -197,7 +263,6 @@ namespace euf {
                 if (!literal2expr(lits[i])) 
                     IF_VERBOSE(0, verbose_stream() << lits[i] << "\n"; display(verbose_stream()));
                 
-
                 SASSERT(literal2expr(lits[i]));
                 m_proof_literals.push_back(lits[i]);
             }
@@ -260,10 +325,7 @@ namespace euf {
             auto const& [a, b] = s.m_proof_deqs[i];
             args.push_back(m.mk_not(m.mk_eq(a, b)));
         }
-        for (auto * arg : args)
-            sorts.push_back(arg->get_sort());
-        func_decl* f = m.mk_func_decl(m_name, sorts.size(), sorts.data(), proof);
-        return m.mk_app(f, args);
+        return m.mk_app(m_name, args.size(), args.data(), proof);
     }
 
     void solver::set_tmp_bool_var(bool_var b, expr* e) {
@@ -298,7 +360,7 @@ namespace euf {
     }
 
     void solver::on_clause(unsigned n, literal const* lits, sat::status st) {
-        TRACE("euf", tout << "on-clause " << n << "\n");
+        TRACE("euf_verbose", tout << "on-clause " << n << "\n");
         on_lemma(n, lits, st);
         on_proof(n, lits, st);
         on_check(n, lits, st);
@@ -312,7 +374,7 @@ namespace euf {
         for (unsigned i = 0; i < n; ++i) 
             m_clause.push_back(literal2expr(lits[i]));
         auto hint = status2proof_hint(st);
-        m_on_clause(m_on_clause_ctx, hint, m_clause.size(), m_clause.data());
+        m_on_clause(m_on_clause_ctx, hint, 0, nullptr, m_clause.size(), m_clause.data());
     }
 
     void solver::on_proof(unsigned n, literal const* lits, sat::status st) {
@@ -417,7 +479,7 @@ namespace euf {
         if (proof_hint)
             return display_expr(out << " ", proof_hint);
         else
-          return out;
+            return out;
     }
 
     app_ref solver::status2proof_hint(sat::status st) {

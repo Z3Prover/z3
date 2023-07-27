@@ -331,10 +331,7 @@ class lar_solver : public column_namer {
     void add_column_rows_to_touched_rows(lpvar j);
     template <typename T>
     void propagate_bounds_for_touched_rows(lp_bound_propagator<T>& bp) {
-        bool touch_track_was = this->touched_rows_are_tracked();
-        this->track_touched_rows(true);
         remove_fixed_vars_from_base();
-        this->track_touched_rows(touch_track_was);
         if (settings().propagate_eqs()) {
             bp.clear_for_eq();
             for (unsigned i : m_touched_rows) {
@@ -647,4 +644,19 @@ class lar_solver : public column_namer {
     friend int_solver;
     friend int_branch;
 };
+// this will allow to disable the tracking of the touched rows, 
+// and then restore its previous value
+struct row_tracker_temp_disabler {
+    lar_solver&      lra;
+    bool             m_track_touched_rows;
+    row_tracker_temp_disabler(lar_solver& ls) :
+        lra(ls),
+        m_track_touched_rows(lra.touched_rows_are_tracked()) {
+        lra.track_touched_rows(false);
+    }
+    ~row_tracker_temp_disabler() {
+        lra.track_touched_rows(m_track_touched_rows);
+    }
+};
+
 }  // namespace lp
