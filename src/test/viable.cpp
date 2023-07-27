@@ -318,6 +318,8 @@ namespace polysat {
         }
 
     public:
+        using entry = viable::entry;
+
         static bool check_one(unsigned a1, unsigned b1, unsigned a2, unsigned b2, unsigned val, unsigned bw) {
             return check_one(rational(a1), rational(b1), rational(a2), rational(b2), rational(val), bw);
         }
@@ -348,14 +350,14 @@ namespace polysat {
             v.intersect(x.var(), c);
             // Trigger forbidden interval refinement
             v.is_viable(x.var(), val);
-            auto* e = v.m_units[x.var()];
+            entry* e = v.m_units[x.var()].get_entries(s.size(x.var()));  // TODO: take other widths into account
             if (!e) {
                 std::cout << "test_fi: no interval for a1=" << a1 << " b1=" << b1 << " a2=" << a2 << " b2=" << b2 << " val=" << val << " neg=" << negated << std::endl;
                 VERIFY(false);
                 return false;
             }
             VERIFY(e);
-            auto* first = e;
+            entry* first = e;
             SASSERT(e->next() == e);  // the result is expected to be a single interval (although for this check it doesn't really matter if there's more...)
 
             auto check_is_violated = [&](rational const& x, bool expect_violated) -> bool {
