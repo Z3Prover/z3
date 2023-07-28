@@ -74,7 +74,7 @@ stages:
     - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
     - task: PublishPipelineArtifact@0
       inputs:
-        artifactName: 'Ubuntu'
+        artifactName: 'UbuntuArm64'
         targetPath: $(Build.ArtifactStagingDirectory)
 
   - job: UbuntuDoc
