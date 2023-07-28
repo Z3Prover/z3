@@ -636,9 +636,10 @@ namespace lp {
             lp_assert(is_base(j) && is_fixed(j));    
             auto const& r = basic2row(j);
             for (auto const& c : r) {
-			    unsigned j_entering = c.var();
+		unsigned j_entering = c.var();
                 if (j_entering != j && !is_fixed(j_entering)) {
                     pivot(j_entering, j);
+		    to_remove.push_back(j);	
                     lp_assert(is_base(j_entering));
                     break;
                 }
