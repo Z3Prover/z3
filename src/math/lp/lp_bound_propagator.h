@@ -12,104 +12,7 @@
 namespace lp {
 template <typename T>
 class lp_bound_propagator {
-    class edge;  // forward definition
-    // vertex represents a column
-    // The set of vertices is organized in a tree.
-    // The edges of the tree are rows,
-    // Vertices with m_neg set to false grow with the same rate as the root.
-    // Vertices with m_neq set to true diminish with the same rate as the roow grows.
-    // When two vertices with the same m_neg have the same value of columns
-    // then we have an equality between the columns.
-    class vertex {
-        unsigned m_column;
-        vector<edge> m_edges;
-        edge m_edge_from_parent;
-        unsigned m_level;  // the distance in hops to the root;
-                           // it is handy to find the common ancestor
-       public:
-        vertex() {}
-        vertex(unsigned column) : m_column(column),
-                                  m_level(0) {}
-        unsigned column() const { return m_column; }
-        const vertex* parent() const { return m_edge_from_parent.source(); }
-        vertex* parent() { return m_edge_from_parent.source(); }
-        unsigned level() const { return m_level; }
-        void set_edge_from_parent(edge& e) { m_edge_from_parent = e; }
-        const edge& edge_from_parent() const { return m_edge_from_parent; }
-
-        void add_child(int row, vertex* child) {
-            SASSERT(*this != *child);
-            SASSERT(child->parent() == nullptr);
-            edge e = edge(this, child, row);
-            m_edges.push_back(e);
-            child->set_edge_from_parent(e);
-            child->m_level = m_level + 1;
-        }
-        const vector<edge>& edges() const { return m_edges; }
-        bool operator==(const vertex& o) const {
-            return m_column == o.m_column;
-        }
-        bool operator!=(const vertex& o) const {
-            return m_column != o.m_column;
-        }
-    };
-
-    class edge {
-        vertex* m_source;
-        vertex* m_target;
-        int m_row;
-
-       public:
-        edge(vertex* source, vertex* target, int row) : m_source(source), m_target(target), m_row(row) {}
-        edge() : m_source(nullptr), m_target(nullptr), m_row(-1) {}
-        const vertex* source() const { return m_source; }
-        vertex* source() { return m_source; }
-        const vertex* target() const { return m_target; }
-        vertex* target() { return m_target; }
-        int row() const { return m_row; }
-        edge reverse() const { return edge(m_target, m_source, m_row); }
-    };
-
-    static int other(int x, int y, int z) {
-        SASSERT(x == z || y == z);
-        return x == z ? y : x;
-    }
-    std::ostream& print_vert(std::ostream& out, const vertex* v) const {
-        out << "(c = " << v->column() << ", parent = {";
-        if (v->parent())
-            out << "(" << v->parent()->column() << ")";
-        else
-            out << "null";
-        out << "} , lvl = " << v->level();
-        if (m_pol.contains(v->column()))
-            out << (pol(v) == -1 ? " -" : " +");
-        else
-            out << " not in m_pol";
-        out << ')';
-        return out;
-    }
-
-    hashtable<unsigned, u_hash, u_eq> m_visited_rows;
-    hashtable<unsigned, u_hash, u_eq> m_visited_columns;
-    u_map<vertex*> m_vertices;
-    vertex* m_root = nullptr;
-    // At some point we can find a row with a single vertex non fixed vertex
-    // then we can fix the whole tree,
-    // by adjusting the vertices offsets, so they become absolute.
-    // If the tree is fixed then in addition to checking with the m_vals_to_verts
-    // we are going to check with the m_fixed_var_tables.
-    const vertex* m_fixed_vertex = nullptr;
-    explanation m_fixed_vertex_explanation;
-    // a pair (o, j) belongs to m_vals_to_verts iff x[j] = x[m_root->column()] + o
-    map<mpq, const vertex*, obj_hash<mpq>, default_eq<mpq>> m_vals_to_verts;
-    // a pair (o, j) belongs to m_vals_to_verts_neg iff -x[j] = x[m_root->column()] + o
-    map<mpq, const vertex*, obj_hash<mpq>, default_eq<mpq>> m_vals_to_verts_neg;
-    // x[m_root->column()] - m_pol[j].pol()*x[j] == const;
-    // to bind polarity and the vertex in the table
-    u_map<int> m_pol;
-    // if m_pos.contains(j) then  x[j] = x[m_root->column()] + o
-    uint_set m_pos;
-
+	hashtable<unsigned, u_hash, u_eq> m_visited_rows;
     // these maps map a column index to the corresponding index in ibounds
     std::unordered_map<unsigned, unsigned> m_improved_lower_bounds;
     std::unordered_map<unsigned, unsigned> m_improved_upper_bounds;
@@ -118,8 +21,12 @@ class lp_bound_propagator {
     vector<implied_bound> m_ibounds;
 
     map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>> m_val2fixed_row;
-
-    bool is_fixed_row(unsigned r, unsigned& x) {
+    // works for rows of the form x + y + sum of fixed = 0
+    map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>> m_row2index_pos;
+    // works for rows of the form x - y + sum of fixed = 0    
+    map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>> m_row2index_neg;
+    // returns true iff there is only one non-fixed column in the row
+    bool only_one_nfixed(unsigned r, unsigned& x) {
         x = UINT_MAX;
         const auto& row = lp().get_row(r);
         for (unsigned k = 0; k < row.size(); k++) {
@@ -134,22 +41,26 @@ class lp_bound_propagator {
     }
 
     void try_add_equation_with_internal_fixed_tables(unsigned r1) {
-        SASSERT(m_fixed_vertex);
         unsigned v1, v2;
-        if (!is_fixed_row(r1, v1))
+        if (!only_one_nfixed(r1, v1))
             return;
         unsigned r2 = UINT_MAX;
         if (!m_val2fixed_row.find(val(v1), r2) || r2 >= lp().row_count()) {
             m_val2fixed_row.insert(val(v1), r1);
             return;
         }
-        if (!is_fixed_row(r2, v2) || val(v1) != val(v2) || is_int(v1) != is_int(v2)) {
+        if (!only_one_nfixed(r2, v2) || val(v1) != val(v2) || is_int(v1) != is_int(v2)) {
             m_val2fixed_row.insert(val(v1), r1);
             return;
         }
         if (v1 == v2)
             return;
-
+#if Z3DEBUG
+        lp_assert(val(v1) == val(v2));
+        unsigned debv1, debv2;
+        lp_assert(only_one_nfixed(r1, debv1) && only_one_nfixed(r2, debv2));
+        lp_assert(debv1 == v1 && debv2 == v2);
+#endif
         explanation ex;
         explain_fixed_in_row(r1, ex);
         explain_fixed_in_row(r2, ex);
@@ -157,141 +68,12 @@ class lp_bound_propagator {
         add_eq_on_columns(ex, v1, v2, true);
     }
 
-    void try_add_equation_with_lp_fixed_tables(unsigned row_index, const vertex* v) {
-        SASSERT(m_fixed_vertex);
-        unsigned v_j = v->column();
-        unsigned j = null_lpvar;
-        if (!lp().find_in_fixed_tables(val(v_j), is_int(v_j), j)) {
-            try_add_equation_with_internal_fixed_tables(row_index);
-            return;
-        }
-
-        TRACE("cheap_eq",
-              tout << "v_j = ";
-              lp().print_column_info(v_j, tout) << std::endl;
-              tout << "v = "; print_vert(tout, v) << std::endl;
-              tout << "found j " << j << std::endl; lp().print_column_info(j, tout) << std::endl;
-              tout << "found j = " << j << std::endl;);
-        vector<edge> path = connect_in_tree(v, m_fixed_vertex);
-        explanation ex = get_explanation_from_path(path);
-        ex.add_expl(m_fixed_vertex_explanation);
-        explain_fixed_column(j, ex);
-        add_eq_on_columns(ex, j, v_j, true);
-    }
-
-    void try_add_equation_with_val_table(const vertex* v) {
-        SASSERT(m_fixed_vertex);
-        unsigned v_j = v->column();
-        const vertex* u = nullptr;
-        if (!m_vals_to_verts.find(val(v_j), u)) {
-            m_vals_to_verts.insert(val(v_j), v);
-            return;
-        }
-        unsigned j = u->column();
-        if (j == v_j || is_int(j) != is_int(v_j))
-            return;
-
-        TRACE("cheap_eq", tout << "found j=" << j << " for v=";
-              print_vert(tout, v) << "\n in m_vals_to_verts\n";);
-        vector<edge> path = connect_in_tree(u, v);
-        explanation ex = get_explanation_from_path(path);
-        ex.add_expl(m_fixed_vertex_explanation);
-        add_eq_on_columns(ex, j, v_j, true);
-    }
-
-    static bool not_set(unsigned j) { return j == UINT_MAX; }
+    static bool is_not_set(unsigned j) { return j == UINT_MAX; }
     static bool is_set(unsigned j) { return j != UINT_MAX; }
 
-    void create_root(unsigned row_index) {
-        SASSERT(!m_root && !m_fixed_vertex);
-        unsigned x, y;
-        int polarity;
-        TRACE("cheap_eq_det", print_row(tout, row_index););
-        if (!is_tree_offset_row(row_index, x, y, polarity)) {
-            TRACE("cheap_eq_det", tout << "not an offset row\n";);
-            return;
-        }
-        TRACE("cheap_eq", print_row(tout, row_index););
-        m_root = alloc_v(x);
-        set_polarity(m_root, 1);  // keep m_root in the positive table
-        if (not_set(y)) {
-            set_fixed_vertex(m_root);
-            explain_fixed_in_row(row_index, m_fixed_vertex_explanation);
-        } else {
-            vertex* v = add_child_with_check(row_index, y, m_root, polarity);
-            if (v)
-                explore_under(v);
-        }
-        explore_under(m_root);
-    }
-
-    void explore_under(vertex* v) {
-        check_for_eq_and_add_to_val_tables(v);
-        go_over_vertex_column(v);
-    }
-
-    // In case of only one non fixed column, and the function returns true,
-    // this column would be represened by x.
-    bool is_tree_offset_row(unsigned row_index, unsigned& x, unsigned& y, int& polarity) const {
-        x = y = UINT_MAX;
-        const row_cell<mpq>* x_cell = nullptr;
-        const row_cell<mpq>* y_cell = nullptr;
-        const auto& row = lp().get_row(row_index);
-        for (unsigned k = 0; k < row.size(); k++) {
-            const auto& c = row[k];
-            if (column_is_fixed(c.var()))
-                continue;
-            if (not_set(x)) {
-                if (c.coeff().is_one() || c.coeff().is_minus_one()) {
-                    x = c.var();
-                    x_cell = &c;
-                } else
-                    return false;
-            } else if (not_set(y)) {
-                if (c.coeff().is_one() || c.coeff().is_minus_one()) {
-                    y = c.var();
-                    y_cell = &c;
-                } else
-                    return false;
-            } else
-                return false;
-        }
-        if (is_set(x)) {
-            if (is_set(y))
-                polarity = x_cell->coeff().is_pos() == y_cell->coeff().is_pos() ? -1 : 1;
-            else
-                polarity = 1;
-            return true;
-        }
-        return false;
-    }
-
-    void go_over_vertex_column(vertex* v) {
-        lpvar j = v->column();
-        if (!check_insert(m_visited_columns, j))
-            return;
-
-        for (const auto& c : lp().get_column(j)) {
-            unsigned row_index = c.var();
-            if (!check_insert(m_visited_rows, row_index))
-                continue;
-            vertex* u = get_child_from_row(row_index, v);
-            if (u)
-                explore_under(u);
-        }
-    }
-
     void reset_cheap_eq_eh() {
-        if (!m_root)
-            return;
-        delete_tree(m_root);
-        m_root = nullptr;
-        set_fixed_vertex(nullptr);
-        m_fixed_vertex_explanation.clear();
-        m_vals_to_verts.reset();
-        m_vals_to_verts_neg.reset();
-        m_pol.reset();
-        m_vertices.reset();
+        m_row2index_pos.reset();           
+        m_row2index_neg.reset();
     }
 
     struct reset_cheap_eq {
@@ -381,175 +163,24 @@ class lp_bound_propagator {
     }
 
     const mpq& val(unsigned j) const {
-        return lp().get_column_value(j).x;
+        return lp().get_column_value(j).x; // figure out why it is safe to return .x
     }
-
-    const mpq& val(const vertex* v) const {
-        return val(v->column());
-    }
-
-    bool tree_contains_r(vertex* root, vertex* v) const {
-        if (*root == *v)
-            return true;
-        for (auto e : root->edges())
-            if (tree_contains_r(e.target(), v))
-                return true;
-        return false;
-    }
-
-    // pol for polarity
-    int pol(const vertex* v) const { return pol(v->column()); }
-    int pol(unsigned j) const { return m_pol[j]; }
-    void set_polarity(const vertex* v, int p) {
-        SASSERT(p == 1 || p == -1);
-        unsigned j = v->column();
-        SASSERT(!m_pol.contains(j));
-        m_pol.insert(j, p);
-    }
-
-    void check_and_set_polarity(vertex* v, int polarity, unsigned row_index, vertex* v_parent) {
-        int prev_pol;
-        if (!m_pol.find(v->column(), prev_pol)) {
-            set_polarity(v, polarity);
-            return;
-        }
-        if (prev_pol == polarity)
-            return;
-        // we have a path L between v and parent with p(L) = -1, that means we can
-        // create an equality of the form x + x = a, where x = v->column() = u->column()
-        vector<edge> path = connect_in_tree(v, v_parent);
-        m_fixed_vertex_explanation = get_explanation_from_path(path);
-        explain_fixed_in_row(row_index, m_fixed_vertex_explanation);
-        set_fixed_vertex(v);
-        TRACE("cheap_eq",
-              tout << "polarity switch: " << polarity << "\nv = ";
-              print_vert(tout, v) << "\nu = "; tout << "fixed vertex explanation\n";
-              for (auto p
-                   : m_fixed_vertex_explanation)
-                  lp()
-                      .constraints()
-                      .display(
-                          tout, [this](lpvar j) { return lp().get_variable_name(j); }, p.ci()););
-    }
-
-    bool tree_contains(vertex* v) const {
-        if (!m_root)
-            return false;
-        return tree_contains_r(m_root, v);
-    }
-
-    vertex* alloc_v(unsigned column) {
-        vertex* v = alloc(vertex, column);
-        m_vertices.insert(column, v);
-        SASSERT(!tree_contains(v));
-        return v;
+    
+    const impq& ival(unsigned j) const {
+        return lp().get_column_value(j); // figure out why it is safe to return .x
     }
 
     unsigned column(unsigned row, unsigned index) {
         return lp().get_row(row)[index].var();
     }
 
-    bool fixed_phase() const { return m_fixed_vertex; }
-
-    // Returns the vertex to start exploration from, or nullptr.
-    // It is assumed that parent->column() is present in the row
-    vertex* get_child_from_row(unsigned row_index, vertex* parent) {
-        TRACE("cheap_eq_det", print_row(tout, row_index););
-        unsigned x, y;
-        int row_polarity;
-        if (!is_tree_offset_row(row_index, x, y, row_polarity)) {
-            TRACE("cheap_eq_det", tout << "not an offset row\n";);
-            return nullptr;
-        }
-        if (not_set(y)) {  // there is only one fixed variable in the row
-            if (!fixed_phase()) {
-                set_fixed_vertex(parent);
-                explain_fixed_in_row(row_index, m_fixed_vertex_explanation);
-            }
-            return nullptr;
-        }
-
-        SASSERT(is_set(x) && is_set(y));
-        unsigned col = other(x, y, parent->column());
-        return add_child_with_check(row_index, col, parent, row_polarity);
-    }
-
-    vertex* add_child_with_check(unsigned row_index, unsigned col, vertex* parent, int row_polarity) {
-        vertex* vy;
-        if (m_vertices.find(col, vy)) {
-            SASSERT(vy != nullptr);
-            if (!fixed_phase()) {
-                check_and_set_polarity(vy, pol(parent) * row_polarity, row_index, parent);
-            }
-            return nullptr;  // it is not a new vertex
-        }
-        vy = alloc_v(col);
-        parent->add_child(row_index, vy);
-        if (!fixed_phase())
-            check_and_set_polarity(vy, row_polarity * pol(parent), row_index, parent);
-        return vy;
-    }
 
     bool is_equal(lpvar j, lpvar k) const {
         return m_imp.is_equal(col_to_imp(j), col_to_imp(k));
     }
 
-    void check_for_eq_and_add_to_val_table(vertex* v, map<mpq, const vertex*, obj_hash<mpq>, default_eq<mpq>>& table) {
-        TRACE("cheap_eq", tout << "v = "; print_vert(tout, v) << "\n";);
-        const vertex* k;  // the other vertex
-        if (table.find(val(v), k)) {
-            TRACE("cheap_eq", tout << "found k "; print_vert(tout, k) << "\n";);
-            if (k->column() != v->column() &&
-                is_int(k->column()) == is_int(v->column()) &&
-                !is_equal(k->column(), v->column())) {
-                report_eq(k, v);
-            } else {
-                TRACE("cheap_eq", tout << "no report\n";);
-            }
-        } else {
-            TRACE("cheap_eq", tout << "registered: " << val(v) << " -> { "; print_vert(tout, v) << "} \n";);
-            table.insert(val(v), v);
-        }
-    }
-
-    void check_for_eq_and_add_to_val_tables(vertex* v) {
-        TRACE("cheap_eq_det", print_vert(tout, v) << "\n";);
-        if (!fixed_phase()) {
-            if (pol(v->column()) == -1)
-                check_for_eq_and_add_to_val_table(v, m_vals_to_verts_neg);
-            else
-                check_for_eq_and_add_to_val_table(v, m_vals_to_verts);
-        }
-    }
-
     void clear_for_eq() {
         m_visited_rows.reset();
-        m_visited_columns.reset();
-        m_root = nullptr;
-    }
-
-    std::ostream& print_edge(const edge& e, std::ostream& out) const {
-        out << e.source()->column() << "->" << e.target()->column() << "\n";
-        return print_row(out, e.row());
-    }
-
-    std::ostream& print_path(const vector<edge>& path, std::ostream& out) const {
-        out << "path = \n";
-        for (const edge& k : path)
-            print_edge(k, out) << "\n";
-        return out;
-    }
-
-    // we have v_i and v_j, indices of vertices at the same offsets
-    void report_eq(const vertex* v_i, const vertex* v_j) {
-        SASSERT(v_i != v_j);
-        SASSERT(lp().get_column_value(v_i->column()) == lp().get_column_value(v_j->column()));
-        TRACE("cheap_eq", tout << v_i->column() << " = " << v_j->column() << "\nu = ";
-              print_vert(tout, v_i) << "\nv = "; print_vert(tout, v_j) << "\n");
-
-        vector<edge> path = connect_in_tree(v_i, v_j);
-        lp::explanation exp = get_explanation_from_path(path);
-        add_eq_on_columns(exp, v_i->column(), v_j->column(), false);
     }
 
     std::ostream& print_expl(std::ostream& out, const explanation& exp) const {
@@ -560,7 +191,8 @@ class lp_bound_propagator {
     }
 
     bool add_eq_on_columns(const explanation& exp, lpvar j, lpvar k, bool is_fixed) {
-        SASSERT(j != k);
+        lp_assert(j != k && is_int(j) == is_int(k));
+
         unsigned je = lp().column_to_reported_index(j);
         unsigned ke = lp().column_to_reported_index(k);
         TRACE("cheap_eq",
@@ -593,18 +225,24 @@ class lp_bound_propagator {
         return lp().column_is_int(j);
     }
 
-    explanation get_explanation_from_path(vector<edge>& path) const {
-        explanation ex;
-        for (edge& e : path)
-            explain_fixed_in_row(e.row(), ex);
-        return ex;
-    }
-
     void explain_fixed_in_row(unsigned row, explanation& ex) const {
         TRACE("cheap_eq", tout << lp().get_row(row) << std::endl);
         for (const auto& c : lp().get_row(row))
             if (lp().is_fixed(c.var()))
                 explain_fixed_column(c.var(), ex);
+    }
+
+    unsigned explain_fixed_in_row_and_get_base(unsigned row, explanation& ex) const {
+        unsigned base = UINT_MAX;
+        TRACE("cheap_eq", tout << lp().get_row(row) << std::endl);
+        for (const auto& c : lp().get_row(row)) {
+            if (lp().is_fixed(c.var())) {
+                explain_fixed_column(c.var(), ex);
+            } else if (lp().is_base(c.var())) {
+                base = c.var();
+            }
+        }
+        return base;
     }
 
     void explain_fixed_column(unsigned j, explanation& ex) const {
@@ -616,100 +254,122 @@ class lp_bound_propagator {
             ex.push_back(uc);
     }
 
-    vector<edge> connect_in_tree(const vertex* u, const vertex* v) const {
-        vector<edge> path;
-        TRACE("cheap_eq_details", tout << "u = "; print_vert(tout, u); tout << "\nv = "; print_vert(tout, v) << "\n";);
-        vector<edge> v_branch;
-        // equalize the levels
-        while (u->level() > v->level()) {
-            path.push_back(u->edge_from_parent().reverse());
-            u = u->parent();
-        }
-
-        while (u->level() < v->level()) {
-            v_branch.push_back(v->edge_from_parent());
-            v = v->parent();
-        }
-        SASSERT(u->level() == v->level());
-        TRACE("cheap_eq_details", tout << "u = "; print_vert(tout, u); tout << "\nv = "; print_vert(tout, v) << "\n";);
-        while (u != v) {
-            path.push_back(u->edge_from_parent().reverse());
-            v_branch.push_back(v->edge_from_parent());
-            u = u->parent();
-            v = v->parent();
-        }
-        for (unsigned i = v_branch.size(); i--;) {
-            path.push_back(v_branch[i]);
-        }
-        TRACE("cheap_eq", print_path(path, tout););
-        return path;
-    }
-
-    bool tree_is_correct() const {
-        std::unordered_set<int> vs;
-        return tree_is_correct(m_root, vs);
-    }
-
-    bool tree_is_correct(vertex* v, std::unordered_set<int>& visited_verts) const {
-        if (fixed_phase())
-            return true;
-        if (visited_verts.find(v->column()) != visited_verts.end())
-            return false;
-        visited_verts.insert(v->column());
-        for (auto e : v->edges())
-            if (!tree_is_correct(e.target(), visited_verts))
+    // the function returns true iff the row is of the form x + ay + sum of fixed = 0, 
+    // where a = 1 or -1, x is a base, and y is not a fixed column
+    // y_sign is set to 1 if a > 0, -1 if a < 0, if y is present
+    bool is_tree_offset_row(unsigned row_index, unsigned& x, unsigned& y, int& y_sign) const {
+        y = UINT_MAX;
+        const auto& row = lp().get_row(row_index);
+        x = lp().get_base_column_in_row(row_index);
+        for (unsigned k = 0; k < row.size(); k++) {
+            const auto& c = row[k];
+            unsigned j = c.var();
+            if (j == x) continue;
+            if (column_is_fixed(j))
+                continue;
+            if (is_not_set(y)) {
+                 y = j;             
+                if (c.coeff().is_one()) {
+                    y_sign = 1;
+                } else if (c.coeff().is_minus_one()) {
+                    y_sign = - 1;
+                } else {
+                    // y is not a base and has a coefficient other than 1 or -1
+                    return false;
+                }                    
+            } else {
+                // there are more than two non-fixed columns
                 return false;
+            }
+        }
+        
         return true;
     }
-    std::ostream& print_tree(std::ostream& out, vertex* v) const {
-        print_vert(out, v);
-        out << "\nchildren :\n";
-        for (auto c : v->edges()) {
-            out << "row = ";
-            print_row(out, c.row());
-            print_tree(out, c.target());
+    
+    // bounded by 2
+    unsigned num_of_non_fixed_in_row(unsigned row_index) const {
+        unsigned n_of_nfixed = 0;
+        for (const auto& c : lp().get_row(row_index)) {
+            if (lp().column_is_fixed(c.var()))
+                continue;
+            n_of_nfixed++;
+            if (n_of_nfixed > 1)
+                return n_of_nfixed;
         }
-        return out;
+            
+        return n_of_nfixed;
     }
 
-    void try_add_equation_with_fixed_tables(unsigned row_index, const vertex* v) {
-        try_add_equation_with_lp_fixed_tables(row_index, v);
-        try_add_equation_with_val_table(v);
-    }
-
-    void handle_fixed_phase(unsigned row_index) {
-        if (!fixed_phase())
+    void try_add_equation_with_lp_fixed_tables(unsigned row_index, unsigned v_j) {
+        lp_assert(lp().get_base_column_in_row(row_index) == v_j);
+        lp_assert(num_of_non_fixed_in_row(row_index) == 1 || column_is_fixed(v_j));
+        if (column_is_fixed(v_j)) {
             return;
-        const vertex* v = m_root;
-        try_add_equation_with_fixed_tables(row_index, v);
-        for (auto e : v->edges())
-            try_add_equation_with_fixed_tables(row_index, e.target());
+        }
+        unsigned j = null_lpvar;
+        if (!lp().find_in_fixed_tables(val(v_j), is_int(v_j), j)) {
+            try_add_equation_with_internal_fixed_tables(row_index);
+            return;
+        } 
+        TRACE("cheap_eq",
+              tout << "v_j = ";
+              lp().print_column_info(v_j, tout) << std::endl;
+              tout << "found j " << j << std::endl; lp().print_column_info(j, tout) << std::endl;
+              print_row(tout, row_index) << std::endl;
+              );
+        explanation ex;  
+        explain_fixed_in_row(row_index, ex);
+        explain_fixed_column(j, ex);
+        add_eq_on_columns(ex, j, v_j, true);
     }
-
-    void cheap_eq_tree(unsigned row_index) {
+    
+    void cheap_eq_on_nbase(unsigned row_index) {
         reset_cheap_eq _reset(*this);
         TRACE("cheap_eq_det", tout << "row_index = " << row_index << "\n";);
         if (!check_insert(m_visited_rows, row_index))
             return;
-        create_root(row_index);
-        if (!m_root)
+        unsigned x, y;
+        int sign;    
+        if (!is_tree_offset_row(row_index, x, y, sign))
             return;
+        if (is_not_set(y)) {
+            try_add_equation_with_lp_fixed_tables(row_index, x);
+            return;
+        }
+        for (const column_cell& c : lp().get_column(y)) {
+            unsigned i = c.var();  // the running index of the row
+            m_visited_rows.insert(i);
+            unsigned y_nb;
+            if (!is_tree_offset_row(i, x, y_nb, sign))
+                continue;
+            lp_assert (y_nb == y);
+            lp_assert(sign == 1 || sign == -1);
+            auto & table = sign == 1? m_row2index_pos : m_row2index_neg;
+            const auto &v = val(x);
+            unsigned found_i;
+            if (!table.find(v, found_i)) {
+                table.insert(v, i);
+            } else {
+                explanation ex;
+                lp_assert(lp().is_base(x));
+                unsigned base_of_found = lp().get_base_column_in_row(found_i);
+                if (is_int(x) != is_int(base_of_found))
+                    continue;
+                lp_assert(ival(x) == ival(base_of_found));
 
-        TRACE("cheap_eq", tout << "tree = "; print_tree(tout, m_root) << "\n";);
-        SASSERT(tree_is_correct());
-        handle_fixed_phase(row_index);
-
-        TRACE("cheap_eq",
-              tout << "done for row_index " << row_index << "\n";
-              tout << "tree size = " << verts_size(););
+                explain_fixed_in_row(found_i, ex);
+                explain_fixed_in_row(i, ex);
+                lp_assert(is_int(x) == is_int(base_of_found));
+                TRACE("cheap_eq", { print_row(tout, i); print_row(tout, found_i) << "\n";
+                              lp().print_column_info(base_of_found, tout);
+                              lp().print_column_info(x, tout) << "\n"; 
+                            });
+                add_eq_on_columns(ex, x, base_of_found, false);
+            }
+        }
     }
 
     std::ostream& print_row(std::ostream& out, unsigned row_index) const {
-        unsigned x, y;
-        int polarity;
-        if (true || !is_tree_offset_row(row_index, x, y, polarity))
-            return lp().get_int_solver()->display_row_info(out, row_index);
-
         bool first = true;
         for (const auto& c : lp().A_r().m_rows[row_index]) {
             if (lp().column_is_fixed(c.var()))
@@ -724,29 +384,6 @@ class lp_bound_propagator {
         }
         out << "\n";
         return out;
-    }
-
-    void set_fixed_vertex(vertex* v) {
-        TRACE("cheap_eq", if (v) print_vert(tout, v); else tout << "set m_fixed_vertex to nullptr"; tout << "\n";);
-        SASSERT(!m_fixed_vertex || v == nullptr);
-        m_fixed_vertex = v;
-    }
-
-    unsigned verts_size() const {
-        return subtree_size(m_root);
-    }
-
-    unsigned subtree_size(vertex* v) const {
-        unsigned r = 1;  // 1 for v
-        for (auto e : v->edges())
-            r += subtree_size(e.target());
-        return r;
-    }
-
-    void delete_tree(vertex* v) {
-        for (auto p : v->edges())
-            delete_tree(p.target());
-        dealloc(v);
     }
 
     template <typename C>

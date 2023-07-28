@@ -1059,11 +1059,55 @@ public:
         return true;
     }
 
+    svector<std::pair<theory_var, theory_var>> m_diseqs;
+    unsigned m_diseqs_qhead = 0;
+
     void new_diseq_eh(theory_var v1, theory_var v2) {
         TRACE("arith", tout << "v" << v1 << " != " << "v" << v2 << "\n";);
         ++m_stats.m_assert_diseq;
         m_arith_eq_adapter.new_diseq_eh(v1, v2);
     }
+
+// actually have to go over entire stack to ensure diseqs are respected after mutations
+    bool delayed_diseqs() {
+        if (m_diseqs_qhead == m_diseqs.size())
+            return false;
+        verbose_stream() << m_diseqs_qhead << " out of " << m_diseqs.size() << "\n";
+        ctx().push_trail(value_trail(m_diseqs_qhead));
+        bool has_eq = false;
+        while (m_diseqs_qhead < m_diseqs.size()) {
+            auto [v1,v2] = m_diseqs[m_diseqs_qhead];
+            if (is_eq(v1, v2)) {
+                verbose_stream() << "bad diseq " << m_diseqs_qhead << "\n";
+                m_arith_eq_adapter.new_diseq_eh(v1, v2);
+                has_eq = true;
+            }
+            ++m_diseqs_qhead;
+        }
+        return has_eq;
+    }
+
+    svector<std::pair<theory_var, theory_var>> m_deqs;
+    unsigned m_eqs_qhead = 0;
+// actually have to go over entire stack to ensure eqs are respected after mutations
+    bool delayed_eqs() {
+        if (m_eqs_qhead == m_deqs.size())
+            return false;
+        ctx().push_trail(value_trail(m_eqs_qhead));
+        bool has_eq = false;
+        while (m_eqs_qhead < m_deqs.size()) {
+            auto [v1,v2] = m_deqs[m_eqs_qhead];
+            if (!is_eq(v1, v2)) {
+                //verbose_stream() << "bad diseq " << m_diseqs_qhead << "\n";
+                m_arith_eq_adapter.new_eq_eh(v1, v2);
+                has_eq = true;
+            }
+            ++m_eqs_qhead;
+        }
+        return has_eq;
+    }
+
+
 
     void apply_sort_cnstr(enode* n, sort*) {
         TRACE("arith", tout << "sort constraint: " << enode_pp(n, ctx()) << "\n";);
@@ -1493,6 +1537,9 @@ public:
     void random_update() {
         if (m_nla && m_nla->need_check())
             return;
+        if (!m_liberal_final_check)
+            return;
+        lp().remove_fixed_vars_from_base();    
         m_tmp_var_set.clear();
         m_tmp_var_set.resize(th.get_num_vars());
         m_model_eqs.reset();
@@ -1531,6 +1578,7 @@ public:
               tout << "\n"; );
         if (!vars.empty()) {
             lp().random_update(vars.size(), vars.data());
+            m_changed_assignment = true;
         }
     }
 
@@ -1541,6 +1589,13 @@ public:
         TRACE("arith", display(tout););
         random_update();
         m_model_eqs.reset();
+
+        if (delayed_diseqs())
+            return true;
+
+        if (delayed_eqs())
+            return true;
+
                         
         theory_var sz = static_cast<theory_var>(th.get_num_vars());            
         unsigned old_sz = m_assume_eq_candidates.size();
@@ -1642,8 +1697,56 @@ public:
 
     unsigned m_final_check_idx = 0;
     distribution m_dist { 0 };
-    
+
+    bool m_liberal_final_check = false;
+    bool m_changed_assignment = false;
+
     final_check_status final_check_eh() {
+        // verbose_stream() << "final " << ctx().get_scope_level() << " " << ctx().assigned_literals().size() << "\n";
+        //ctx().display(verbose_stream());
+        //exit(0);
+        
+        TRACE("arith_eq_adapter_info", m_arith_eq_adapter.display_already_processed(tout););
+        TRACE("arith", display(tout););
+
+        if (propagate_core())
+            return FC_CONTINUE;
+        if (delayed_assume_eqs()) {
+            return FC_CONTINUE;
+        }
+        m_liberal_final_check = true;
+        m_changed_assignment = false;
+        ctx().push_trail(value_trail<unsigned>(m_final_check_idx));
+        final_check_status result = final_check_core();
+        if (result != FC_DONE)
+            return result;
+        if (!m_changed_assignment) {
+            validate_solution();
+            return FC_DONE;
+        }
+        m_liberal_final_check = false;
+        m_changed_assignment = false;
+        result = final_check_core();
+        TRACE("arith", tout << "result: " << result << "\n";);
+        if (result == FC_DONE) {
+            validate_solution();
+        }
+        return result;
+    }
+    
+    final_check_status final_check_core() {
+
+        if (false)
+        {
+            verbose_stream() << "final\n";
+            ::statistics stats;
+            collect_statistics(stats);
+            stats.display(verbose_stream());
+        }
+#if 0
+        if (!m_has_propagated_fixed && propagate_fixed())
+            return FC_CONTINUE;
+#endif
         if (propagate_core())
             return FC_CONTINUE;
         m_model_is_initialized = false;
@@ -1655,7 +1758,6 @@ public:
         }
         bool giveup = false;
         final_check_status st = FC_DONE;
-        m_final_check_idx = 0; // remove to experiment.
         unsigned old_idx = m_final_check_idx;
         switch (is_sat) {
         case l_true:
@@ -1682,6 +1784,7 @@ public:
                     st = check_lia();
                     break;
                 default:
+                    verbose_stream() << idx << "\n";
                     UNREACHABLE();
                     break;                    
                 }
@@ -1704,11 +1807,11 @@ public:
                 
                 switch (m_final_check_idx) {
                 case 0:
-                    if (assume_eqs()) 
-                        st = FC_CONTINUE;                    
+                    st = check_lia();
                     break;
                 case 1:
-                    st = check_lia();
+                    if (assume_eqs()) 
+                        st = FC_CONTINUE;
                     break;
                 case 2:
                     st = check_nla();
@@ -1747,6 +1850,16 @@ public:
                 }
                 if (st == FC_CONTINUE)
                     break;
+            }
+            if (st == FC_DONE) {
+                if (assume_eqs()) {
+                    // verbose_stream() << "not done\n";
+                    return FC_CONTINUE;
+                }
+                st = check_nla();
+                if (st != FC_DONE)
+                    return st;
+
             }
             return st;
         case l_false:
@@ -3570,6 +3683,61 @@ public:
             nctx.assert_expr(m.mk_eq(eq.first->get_expr(), eq.second->get_expr()));
         }
     }        
+
+
+    void validate_solution() {
+        return;
+        verbose_stream() << "validate solution\n";
+
+        unsigned nv = th.get_num_vars();
+        for (unsigned v = 0; v < nv; ++v) {
+            auto t = get_tv(v);
+            auto vi = lp().external_to_column_index(v);
+
+            if (!is_registered_var(v))
+                continue;
+            
+            auto* n = get_enode(v);
+            expr* e = n->get_expr(), *e1, *e2;
+            rational r, r1, r2;
+            if (use_nra_model())
+                m_nla->am().display(verbose_stream() << " = ", nl_value(v, *m_a1)) << "\n";
+            else {
+                r = lp().get_tv_value(get_tv(v));
+                verbose_stream() << r << "\n";
+                if (a.is_mod(e, e1, e2)) {
+                    auto v1 = th.get_th_var(e1);
+                    auto v2 = th.get_th_var(e2);
+                    r1 = lp().get_tv_value(get_tv(v1));
+                    r2 = lp().get_tv_value(get_tv(v2));
+                    if (r2 > 0)
+                        VERIFY(r == r1 % r2);
+                }
+                else if (a.is_idiv(e, e1, e2)) {
+                    auto v1 = th.get_th_var(e1);
+                    auto v2 = th.get_th_var(e2);
+                    r1 = lp().get_tv_value(get_tv(v1));
+                    r2 = lp().get_tv_value(get_tv(v2));
+                    verbose_stream() << mk_pp(e, m) << " " << r << " == " << r1 << " div " << r2 << "\n";
+                    if (r2 > 0)
+                        VERIFY(r == div(r1, r2));
+                }
+                else if (a.is_add(e)) {
+                    verbose_stream() << "add v" << v << " " << r <<"\n";
+                }
+                else if (a.is_numeral(e, r2)) {
+                    VERIFY(r == r2);
+                }
+                else if (is_uninterp_const(e)) {
+
+                }
+                else {
+                    verbose_stream() << "other " << enode_pp(n, ctx()) << "\n";
+                }
+            }
+        }
+
+    }
 
     theory_lra::inf_eps value(theory_var v) {
         lp::impq ival = get_ivalue(v);
