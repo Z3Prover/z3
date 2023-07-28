@@ -426,9 +426,10 @@ def mk_dotnet(dotnet):
     dotnet.write('    {\n\n')
 
     for name, ret, sig in Closures:
+        sig = sig.replace("unsigned const*","uint[]")
         sig = sig.replace("void*","voidp").replace("unsigned","uint")
         sig = sig.replace("Z3_ast*","ref IntPtr").replace("uint*","ref uint").replace("Z3_lbool*","ref int")
-        ret = ret.replace("void*","voidp").replace("unsigned","uint")
+        ret = ret.replace("void*","voidp").replace("unsigned","uint")        
         if "*" in sig or "*" in ret:
             continue
         dotnet.write('        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]\n')
@@ -1919,7 +1920,7 @@ _error_handler_type  = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_uint)
 _lib.Z3_set_error_handler.restype  = None
 _lib.Z3_set_error_handler.argtypes = [ContextObj, _error_handler_type]
 
-Z3_on_clause_eh = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)
+Z3_on_clause_eh = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint, ctypes.POINTER(ctypes.c_uint), ctypes.c_void_p)
 Z3_push_eh  = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p)
 Z3_pop_eh   = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint)
 Z3_fresh_eh = ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)

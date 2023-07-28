@@ -30,6 +30,7 @@ namespace Microsoft.Z3
     using Z3_context = System.IntPtr;
     using Z3_solver = System.IntPtr;
     using voidp = System.IntPtr;
+    using uintp = System.IntPtr;
     using Z3_ast = System.IntPtr;
     using Z3_ast_vector = System.IntPtr;
 
@@ -60,7 +61,7 @@ namespace Microsoft.Z3
 
         Native.Z3_on_clause_eh on_clause_eh;
 
-	static void _on_clause(voidp ctx, Z3_ast _proof_hint, Z3_ast_vector _clause) 
+	static void _on_clause(voidp ctx, Z3_ast _proof_hint, uint n, uint[] deps, Z3_ast_vector _clause) 
         {
              var onc = (OnClause)GCHandle.FromIntPtr(ctx).Target;
              using var proof_hint = Expr.Create(onc.ctx, _proof_hint);
