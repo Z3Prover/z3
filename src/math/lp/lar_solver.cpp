@@ -1394,6 +1394,9 @@ namespace lp {
     }
 
     bool lar_solver::column_is_fixed(unsigned j) const {
+        if (j == m_crossed_bounds_column) {
+            return false;
+        }
         return m_mpq_lar_core_solver.column_is_fixed(j);
     }
 

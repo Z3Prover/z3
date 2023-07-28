@@ -50,6 +50,7 @@ inline std::ostream& operator<<(std::ostream& out, column_type const& t) {
     case column_type::boxed: return out << "boxed";
     case column_type::fixed: return out << "fixed";
     }
+    return out<<"erroneous column type";
 }
 
 enum class simplex_strategy_enum {
