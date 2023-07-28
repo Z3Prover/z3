@@ -72,7 +72,7 @@ namespace tseitin {
                 complement_mark(arg);
 
             for (expr* arg : *to_app(main_expr)) 
-                if (!is_complement(arg))
+                if (!is_complement(arg) && !m.is_true(arg))
                     return false;
             
             return true;
@@ -178,7 +178,7 @@ namespace tseitin {
                 for (expr* arg : *jst)
                     mark(arg);
                 for (expr* arg : *to_app(a))
-                    if (!is_marked(arg))
+                    if (!is_marked(arg) && !m.is_false(arg))
                         return false;
                 return true;
             }
