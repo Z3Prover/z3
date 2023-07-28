@@ -250,7 +250,8 @@ class lp_bound_propagator {
         constraint_index lc, uc;
         lp().get_bound_constraint_witnesses_for_column(j, lc, uc);
         ex.push_back(lc);
-        ex.push_back(uc);
+        if (lc != uc)
+            ex.push_back(uc);
     }
 
     // the function returns true iff the row is of the form x + ay + sum of fixed = 0, 
