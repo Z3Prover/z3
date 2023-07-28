@@ -626,22 +626,27 @@ namespace lp {
     void lar_solver::remove_fixed_vars_from_base() {
         row_tracker_temp_disabler ch(*this);
         unsigned num = A_r().column_count();
-        for (unsigned v = 0; v < num; v++) {
-            if (!is_base(v) || !is_fixed(v))
+        vector<unsigned> to_remove;
+        for (unsigned j : m_fixed_base_var_set) {
+            if (j >= num || !is_base(j) || !is_fixed(j)) {
+                to_remove.push_back(j);
                 continue;
+            }
 
-            lp_assert(is_base(v) && is_fixed(v));    
-
-            auto const& r = basic2row(v);
-
+            lp_assert(is_base(j) && is_fixed(j));    
+            auto const& r = basic2row(j);
             for (auto const& c : r) {
-			    unsigned j = c.var();
-                if (j != v && !is_fixed(j)) {
-                    pivot(j, v);
-                    lp_assert(is_base(j));
+			    unsigned j_entering = c.var();
+                if (j_entering != j && !is_fixed(j_entering)) {
+                    pivot(j_entering, j);
+                    lp_assert(is_base(j_entering));
                     break;
                 }
-            }
+            }     
+
+        }
+        for (unsigned j : to_remove) {
+            m_fixed_base_var_set.remove(j);
         }
     }
 
@@ -1758,6 +1763,10 @@ namespace lp {
             update_column_type_and_bound_with_ub(j, kind, right_side, constr_index);
         else
             update_column_type_and_bound_with_no_ub(j, kind, right_side, constr_index);
+         if (is_base(j) && column_is_fixed(j)) {
+            m_fixed_base_var_set.insert(j);
+         }
+            
         TRACE("lar_solver_feas", tout << "j = " << j << " became " << (this->column_is_feasible(j)?"feas":"non-feas") << ", and " << (this->column_is_bounded(j)? "bounded":"non-bounded") << std::endl;);    
     }
     void lar_solver::insert_to_columns_with_changed_bounds(unsigned j) {
