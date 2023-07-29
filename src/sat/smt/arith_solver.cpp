@@ -1155,7 +1155,7 @@ namespace arith {
         case lp::lia_move::conflict:
             TRACE("arith", tout << "conflict\n";);
             // ex contains unsat core
-            set_conflict();
+            set_conflict(hint_type::cut_h);
             return l_false;
         case lp::lia_move::undef:
             TRACE("arith", tout << "lia undef\n";);
@@ -1187,15 +1187,15 @@ namespace arith {
     void solver::get_infeasibility_explanation_and_set_conflict() {
         m_explanation.clear();
         lp().get_infeasibility_explanation(m_explanation);
-        set_conflict();
+        set_conflict(hint_type::farkas_h);
     }
 
-    void solver::set_conflict() {
+    void solver::set_conflict(hint_type ty) {
         literal_vector core;
-        set_conflict_or_lemma(core, true);
+        set_conflict_or_lemma(ty, core, true);
     }
 
-    void solver::set_conflict_or_lemma(literal_vector const& core, bool is_conflict) {
+    void solver::set_conflict_or_lemma(hint_type ty, literal_vector const& core, bool is_conflict) {
         reset_evidence();
         m_core.append(core);
         for (auto ev : m_explanation)
@@ -1212,7 +1212,7 @@ namespace arith {
                 for (auto p : m_eqs) VERIFY(p.first->get_root() == p.second->get_root()));                       
             ++m_num_conflicts;
             ++m_stats.m_conflicts;
-            auto* hint = explain_conflict(m_core, m_eqs);
+            auto* hint = explain_conflict(ty, m_core, m_eqs);
             ctx.set_conflict(euf::th_explain::conflict(*this, m_core, m_eqs, hint));
         }
         else {
@@ -1221,7 +1221,7 @@ namespace arith {
             for (literal& c : m_core)
                 c.neg();
             
-            add_redundant(m_core, explain(hint_type::farkas_h));
+            add_redundant(m_core, explain(ty));
         }
     }
 
@@ -1428,7 +1428,7 @@ namespace arith {
                 lit = ctx.expr2literal(mk_bound(ineq.term(), ineq.rs(), is_lower));
             core.push_back(pos ? lit : ~lit);
         }
-        set_conflict_or_lemma(core, false);
+        set_conflict_or_lemma(hint_type::nla_h, core, false);
     }
 
     lbool solver::check_nla() {

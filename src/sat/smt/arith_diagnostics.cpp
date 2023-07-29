@@ -133,7 +133,7 @@ namespace arith {
         return m_arith_hint.mk(ctx);
     }
 
-    arith_proof_hint const* solver::explain_conflict(sat::literal_vector const& core, euf::enode_pair_vector const& eqs) {
+    arith_proof_hint const* solver::explain_conflict(hint_type ty, sat::literal_vector const& core, euf::enode_pair_vector const& eqs) {
         arith_proof_hint* hint = nullptr;
         if (ctx.use_drat()) {
             m_coeffs.reset();
@@ -142,7 +142,7 @@ namespace arith {
                     m_coeffs.push_back(e.coeff());
             }
                 
-            m_arith_hint.set_type(ctx, hint_type::farkas_h);
+            m_arith_hint.set_type(ctx, ty);
             if (m_coeffs.size() == core.size()) {
                 unsigned i = 0;
                 for (auto lit : core)
@@ -205,6 +205,9 @@ namespace arith {
             break;
         case hint_type::implied_eq_h:
             name = "implied-eq";
+            break;
+        case hint_type::nla_h:
+            name = "nla";
             break;
         default:
             name = "unknown-arithmetic";

@@ -52,7 +52,8 @@ namespace arith {
         farkas_h,
         bound_h,
         cut_h,
-        implied_eq_h
+        implied_eq_h,
+        nla_h
     };
 
     struct arith_proof_hint : public euf::th_proof_hint {
@@ -457,8 +458,8 @@ namespace arith {
         void term2coeffs(lp::lar_term const& term, u_map<rational>& coeffs);
 
         void get_infeasibility_explanation_and_set_conflict();
-        void set_conflict();
-        void set_conflict_or_lemma(literal_vector const& core, bool is_conflict);
+        void set_conflict(hint_type ty);
+        void set_conflict_or_lemma(hint_type ty, literal_vector const& core, bool is_conflict);
         void set_evidence(lp::constraint_index idx);
         void assign(literal lit, literal_vector const& core, svector<enode_pair> const& eqs, euf::th_proof_hint const* pma);
 
@@ -470,7 +471,7 @@ namespace arith {
         arith_proof_hint const* explain(hint_type ty, sat::literal lit = sat::null_literal);
         arith_proof_hint const* explain_implied_eq(lp::explanation const& e, euf::enode* a, euf::enode* b);
         arith_proof_hint const* explain_trichotomy(sat::literal le, sat::literal ge, sat::literal eq);
-        arith_proof_hint const* explain_conflict(sat::literal_vector const& core, euf::enode_pair_vector const& eqs);
+        arith_proof_hint const* explain_conflict(hint_type ty, sat::literal_vector const& core, euf::enode_pair_vector const& eqs);
         void explain_assumptions(lp::explanation const& e);
 
 
