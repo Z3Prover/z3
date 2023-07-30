@@ -195,7 +195,7 @@ class lp_bound_propagator {
 
         unsigned je = lp().column_to_reported_index(j);
         unsigned ke = lp().column_to_reported_index(k);
-        TRACE("cheap_eq",
+        TRACE("eq",
               tout << "reporting eq " << j << ", " << k << "\n";
               tout << "reported idx " << je << ", " << ke << "\n";
               print_expl(tout, exp);
@@ -226,7 +226,7 @@ class lp_bound_propagator {
     }
 
     void explain_fixed_in_row(unsigned row, explanation& ex) const {
-        TRACE("cheap_eq", tout << lp().get_row(row) << std::endl);
+        TRACE("eq", tout << lp().get_row(row) << std::endl);
         for (const auto& c : lp().get_row(row))
             if (lp().is_fixed(c.var()))
                 explain_fixed_column(c.var(), ex);
@@ -234,7 +234,7 @@ class lp_bound_propagator {
 
     unsigned explain_fixed_in_row_and_get_base(unsigned row, explanation& ex) const {
         unsigned base = UINT_MAX;
-        TRACE("cheap_eq", tout << lp().get_row(row) << std::endl);
+        TRACE("eq", tout << lp().get_row(row) << std::endl);
         for (const auto& c : lp().get_row(row)) {
             if (lp().is_fixed(c.var())) {
                 explain_fixed_column(c.var(), ex);
@@ -253,39 +253,14 @@ class lp_bound_propagator {
         if (lc != uc)
             ex.push_back(uc);
     }
-
-    // the function returns true iff the row is of the form x + ay + sum of fixed = 0, 
-    // where a = 1 or -1, x is a base, and y is not a fixed column
-    // y_sign is set to 1 if a > 0, -1 if a < 0, if y is present
-    bool is_tree_offset_row(unsigned row_index, unsigned& x, unsigned& y, int& y_sign) const {
-        y = UINT_MAX;
-        const auto& row = lp().get_row(row_index);
-        x = lp().get_base_column_in_row(row_index);
-        for (unsigned k = 0; k < row.size(); k++) {
-            const auto& c = row[k];
-            unsigned j = c.var();
-            if (j == x) continue;
-            if (column_is_fixed(j))
-                continue;
-            if (is_not_set(y)) {
-                 y = j;             
-                if (c.coeff().is_one()) {
-                    y_sign = 1;
-                } else if (c.coeff().is_minus_one()) {
-                    y_sign = - 1;
-                } else {
-                    // y is not a base and has a coefficient other than 1 or -1
-                    return false;
-                }                    
-            } else {
-                // there are more than two non-fixed columns
+#ifdef Z3DEBUG
+    bool all_fixed_in_row(unsigned row) const {
+        for (const auto& c : lp().get_row(row))
+            if (!lp().is_fixed(c.var()))
                 return false;
-            }
-        }
-        
         return true;
     }
-    
+
     // bounded by 2
     unsigned num_of_non_fixed_in_row(unsigned row_index) const {
         unsigned n_of_nfixed = 0;
@@ -298,6 +273,48 @@ class lp_bound_propagator {
         }
             
         return n_of_nfixed;
+    }   
+#endif
+    // Let nf is the number of non-fixed columns in the row.
+    // Then the function returns min(nf, 3).
+    // if nf == 0, the row is of the form sum of fixed = 0
+    // if nf == 1, the row is of the form x + sum of fixed = 0, where x is not fixed base
+    // if nf == 2, the row is of the form x + ay + sum of fixed = 0, x is a non fixed base and y is not fixed 
+    // y_sign is set to a, if abs(a)= 1, and 0 otherwise
+
+    unsigned extract_non_fixed(unsigned row_index, unsigned& x, unsigned& y, int& y_sign) const {
+        unsigned nf = 0;  // number of non-fixed columns
+        y = UINT_MAX;
+        const auto& row = lp().get_row(row_index);
+        x = lp().get_base_column_in_row(row_index);
+        if (!column_is_fixed(x)) {
+            nf++;
+        } else {
+            lp_assert(all_fixed_in_row(row_index));
+            return 0;
+        }
+
+        for (const auto& c : row) {
+            unsigned j = c.var();
+            if (j == x) continue;
+            if (column_is_fixed(j))
+                continue;
+            if (++nf > 2)
+                return nf;
+            lp_assert(is_not_set(y));
+            y = j;
+            if (c.coeff().is_one()) {
+                y_sign = 1;
+            } else if (c.coeff().is_minus_one()) {
+                y_sign = -1;
+            } else {
+                // y has a coefficient other than 1 or -1
+                y_sign = 0;
+                return nf; // maybe be too low but we don't care
+            }
+        }
+
+        return nf;
     }
 
     void try_add_equation_with_lp_fixed_tables(unsigned row_index, unsigned v_j) {
@@ -311,7 +328,7 @@ class lp_bound_propagator {
             try_add_equation_with_internal_fixed_tables(row_index);
             return;
         } 
-        TRACE("cheap_eq",
+        TRACE("eq",
               tout << "v_j = ";
               lp().print_column_info(v_j, tout) << std::endl;
               tout << "found j " << j << std::endl; lp().print_column_info(j, tout) << std::endl;
@@ -322,48 +339,54 @@ class lp_bound_propagator {
         explain_fixed_column(j, ex);
         add_eq_on_columns(ex, j, v_j, true);
     }
-    
+
     void cheap_eq_on_nbase(unsigned row_index) {
         reset_cheap_eq _reset(*this);
-        TRACE("cheap_eq_det", tout << "row_index = " << row_index << "\n";);
+        TRACE("eq", tout << "row_index = " << row_index << "\n";
+                    print_row(tout, row_index) << "\n";);
         if (!check_insert(m_visited_rows, row_index))
             return;
         unsigned x, y;
-        int sign;    
-        if (!is_tree_offset_row(row_index, x, y, sign))
+        int y_sign;
+        unsigned nf = extract_non_fixed(row_index, x, y, y_sign);
+        if (nf == 0 || nf > 2)
             return;
-        if (is_not_set(y)) {
+        if (nf == 1) {
+            lp_assert(is_not_set(y));
             try_add_equation_with_lp_fixed_tables(row_index, x);
             return;
         }
+
         for (const column_cell& c : lp().get_column(y)) {
             unsigned i = c.var();  // the running index of the row
+            if(m_visited_rows.contains(i)) continue;
             m_visited_rows.insert(i);
             unsigned y_nb;
-            if (!is_tree_offset_row(i, x, y_nb, sign))
+            nf = extract_non_fixed(i, x, y_nb, y_sign);
+            if (nf != 2 || y_sign == 0)
                 continue;
-            lp_assert (y_nb == y);
-            lp_assert(sign == 1 || sign == -1);
-            auto & table = sign == 1? m_row2index_pos : m_row2index_neg;
-            const auto &v = val(x);
+
+            lp_assert(y_nb == y);
+            lp_assert(y_sign == 1 || y_sign == -1);
+            auto& table = y_sign == 1 ? m_row2index_pos : m_row2index_neg;
+            const auto& v = val(x);
             unsigned found_i;
             if (!table.find(v, found_i)) {
                 table.insert(v, i);
             } else {
                 explanation ex;
-                lp_assert(lp().is_base(x));
                 unsigned base_of_found = lp().get_base_column_in_row(found_i);
                 if (is_int(x) != is_int(base_of_found))
                     continue;
                 lp_assert(ival(x) == ival(base_of_found));
-
                 explain_fixed_in_row(found_i, ex);
                 explain_fixed_in_row(i, ex);
-                lp_assert(is_int(x) == is_int(base_of_found));
-                TRACE("cheap_eq", { print_row(tout, i); print_row(tout, found_i) << "\n";
-                              lp().print_column_info(base_of_found, tout);
-                              lp().print_column_info(x, tout) << "\n"; 
-                            });
+                TRACE("eq", {
+                    print_row(tout, i);
+                    print_row(tout, found_i) << "\n";
+                    lp().print_column_info(base_of_found, tout);
+                    lp().print_column_info(x, tout) << "\n";
+                });
                 add_eq_on_columns(ex, x, base_of_found, false);
             }
         }

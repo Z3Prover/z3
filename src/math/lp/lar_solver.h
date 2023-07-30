@@ -324,8 +324,9 @@ class lar_solver : public column_namer {
     inline unsigned get_base_column_in_row(unsigned row_index) const {
         return m_mpq_lar_core_solver.m_r_solver.get_base_column_in_row(row_index);
     }
-
-    // lp_assert(implied_bound_is_correctly_explained(ib, explanation)); }
+#ifdef Z3DEBUG
+    bool fixed_base_removed_correctly() const;
+#endif
     constraint_index mk_var_bound(var_index j, lconstraint_kind kind, const mpq& right_side);
     void activate_check_on_equal(constraint_index, var_index&);
     void activate(constraint_index);
@@ -431,9 +432,10 @@ class lar_solver : public column_namer {
     bool try_to_patch(lpvar j, const mpq& val,
                       const Blocker& is_blocked,
                       const ChangeReport& change_report) {
-        if (is_base(j)) {
+        if (is_base(j))  {
             TRACE("nla_solver", get_int_solver()->display_row_info(tout, row_of_basic_column(j)) << "\n";);
-            remove_from_basis(j);
+            if (!remove_from_basis(j))
+               return false;
         }
 
         impq ival(val);

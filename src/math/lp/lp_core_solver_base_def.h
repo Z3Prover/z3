@@ -404,30 +404,24 @@ template <typename T, typename X>  void lp_core_solver_base<T, X>::transpose_row
     transpose_basis(i, j);
     m_A.transpose_rows(i, j);
 }
-// j is the new basic column, j_basic - the leaving column
-template <typename T, typename X> bool lp_core_solver_base<T, X>::pivot_column_general(unsigned j, unsigned j_basic, indexed_vector<T> & w) {
-	lp_assert(m_basis_heading[j] < 0);
-	lp_assert(m_basis_heading[j_basic] >= 0);
-	unsigned row_index = m_basis_heading[j_basic];
+// entering is the new base column, leaving - the column leaving the basis
+template <typename T, typename X> bool lp_core_solver_base<T, X>::pivot_column_general(unsigned entering, unsigned leaving, indexed_vector<T> & w) {
+	lp_assert(m_basis_heading[entering] < 0);
+	lp_assert(m_basis_heading[leaving] >= 0);
+	unsigned row_index = m_basis_heading[leaving];
 	  // the tableau case
-	if (pivot_column_tableau(j, row_index))
-		change_basis(j, j_basic);
-	else return false;
+	if (pivot_column_tableau(entering, row_index))
+		change_basis(entering, leaving);
+	else 
+        return false;
 	
 	return true;
 }
 
 
-template <typename T, typename X> bool lp_core_solver_base<T, X>::remove_from_basis(unsigned basic_j) {
+template <typename T, typename X> bool lp_core_solver_base<T, X>::remove_from_basis_core(unsigned entering, unsigned leaving) {
     indexed_vector<T> w(m_basis.size()); // the buffer
-    unsigned i = m_basis_heading[basic_j];
-    for (auto &c : m_A.m_rows[i]) {
-        if (c.var() == basic_j)
-            continue;
-        if (pivot_column_general(c.var(), basic_j, w))
-            return true;
-    }
-    return false;
+    return pivot_column_general(entering, leaving, w);
 }
 
 

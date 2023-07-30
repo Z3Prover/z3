@@ -478,9 +478,17 @@ namespace lp {
         }
         return false;
     }
-
-    bool lar_solver::remove_from_basis(unsigned j) {
-        return m_mpq_lar_core_solver.m_r_solver.remove_from_basis(j);
+// returns true iff the row of j has a non-fixed column different from j
+    bool lar_solver::remove_from_basis(unsigned j) {    
+        lp_assert(is_base(j));
+        unsigned i = row_of_basic_column(j);
+        for (const auto & c : A_r().m_rows[i]) {
+            if (j != c.var() && !is_fixed(c.var())) {
+                return m_mpq_lar_core_solver.m_r_solver.remove_from_basis_core(c.var(), j);
+            }
+            
+        }
+        return false;
     }
 
     lar_term lar_solver::get_term_to_maximize(unsigned j_or_term) const {
@@ -633,23 +641,42 @@ namespace lp {
                 continue;
             }
 
-            lp_assert(is_base(j) && is_fixed(j));    
+            lp_assert(is_base(j) && is_fixed(j));
             auto const& r = basic2row(j);
             for (auto const& c : r) {
-		unsigned j_entering = c.var();
+                unsigned j_entering = c.var();
                 if (j_entering != j && !is_fixed(j_entering)) {
                     pivot(j_entering, j);
-		    to_remove.push_back(j);	
+                    to_remove.push_back(j);
                     lp_assert(is_base(j_entering));
                     break;
                 }
-            }     
-
+            }
         }
         for (unsigned j : to_remove) {
             m_fixed_base_var_set.remove(j);
         }
+        lp_assert(fixed_base_removed_correctly());
     }
+#ifdef Z3DEBUG    
+    bool lar_solver::fixed_base_removed_correctly() const {
+        for (unsigned i = 0; i < A_r().row_count(); i++) {
+            unsigned j = get_base_column_in_row(i);
+            if (column_is_fixed(j)) {
+                for (const auto & c : A_r().m_rows[i] ) {
+                    if (!column_is_fixed(c.var())) {
+                        TRACE("lar_solver", print_row(A_r().m_rows[i], tout) << "\n";
+                        for(const auto & c : A_r().m_rows[i]) {
+                            print_column_info(c.var(), tout) << "\n";
+                        });
+                        return false;
+                    }
+                }                
+            }
+        }
+        return true;
+    }
+#endif
 
     bool lar_solver::use_tableau_costs() const {
         return m_settings.simplex_strategy() == simplex_strategy_enum::tableau_costs;
@@ -1394,10 +1421,7 @@ namespace lp {
         return m_var_register.local_is_int(j);
     }
 
-    bool lar_solver::column_is_fixed(unsigned j) const {
-        if (j == m_crossed_bounds_column) {
-            return false;
-        }
+    bool lar_solver::column_is_fixed(unsigned j) const {        
         return m_mpq_lar_core_solver.column_is_fixed(j);
     }
 

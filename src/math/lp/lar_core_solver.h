@@ -216,7 +216,7 @@ public:
 
     bool column_is_fixed(unsigned j) const {
         lp_assert(m_column_types()[j] != column_type::fixed ||
-              m_r_solver.m_lower_bounds[j] == m_r_solver.m_upper_bounds[j]);
+              m_r_solver.m_lower_bounds[j] >= m_r_solver.m_upper_bounds[j]);
         return m_column_types()[j] == column_type::fixed;
     }
 
