@@ -356,11 +356,17 @@ class lp_bound_propagator {
             try_add_equation_with_lp_fixed_tables(row_index, x);
             return;
         }
+        lp_assert(lp().is_base(y) == false);
+        auto& table = y_sign == 1 ? m_row2index_pos : m_row2index_neg;
+        table.insert(val(x), row_index);        
+        TRACE("eq", tout << "y = " << y << "\n";);    
 
         for (const column_cell& c : lp().get_column(y)) {
             unsigned i = c.var();  // the running index of the row
-            if(m_visited_rows.contains(i)) continue;
-            m_visited_rows.insert(i);
+            if (i == row_index)
+                continue;
+            if (check_insert(m_visited_rows, i) == false)
+                continue;
             unsigned y_nb;
             nf = extract_non_fixed(i, x, y_nb, y_sign);
             if (nf != 2 || y_sign == 0)
@@ -376,9 +382,8 @@ class lp_bound_propagator {
             } else {
                 explanation ex;
                 unsigned base_of_found = lp().get_base_column_in_row(found_i);
-                if (is_int(x) != is_int(base_of_found))
+                if (is_int(x) != is_int(base_of_found) || ival(x).y != ival(base_of_found).y)
                     continue;
-                lp_assert(ival(x) == ival(base_of_found));
                 explain_fixed_in_row(found_i, ex);
                 explain_fixed_in_row(i, ex);
                 TRACE("eq", {
