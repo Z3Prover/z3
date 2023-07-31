@@ -1072,13 +1072,11 @@ public:
     bool delayed_diseqs() {
         if (m_diseqs_qhead == m_diseqs.size())
             return false;
-        verbose_stream() << m_diseqs_qhead << " out of " << m_diseqs.size() << "\n";
         ctx().push_trail(value_trail(m_diseqs_qhead));
         bool has_eq = false;
         while (m_diseqs_qhead < m_diseqs.size()) {
             auto [v1,v2] = m_diseqs[m_diseqs_qhead];
             if (is_eq(v1, v2)) {
-                verbose_stream() << "bad diseq " << m_diseqs_qhead << "\n";
                 m_arith_eq_adapter.new_diseq_eh(v1, v2);
                 has_eq = true;
             }
@@ -1720,33 +1718,25 @@ public:
         final_check_status result = final_check_core();
         if (result != FC_DONE)
             return result;
+#ifdef Z3DEBUG
         if (!m_changed_assignment) {
             validate_solution();
             return FC_DONE;
         }
+#endif        
         m_liberal_final_check = false;
         m_changed_assignment = false;
         result = final_check_core();
         TRACE("arith", tout << "result: " << result << "\n";);
+#ifdef Z3DEBUG
         if (result == FC_DONE) {
             validate_solution();
         }
+#endif
         return result;
     }
     
     final_check_status final_check_core() {
-
-        if (false)
-        {
-            verbose_stream() << "final\n";
-            ::statistics stats;
-            collect_statistics(stats);
-            stats.display(verbose_stream());
-        }
-#if 0
-        if (!m_has_propagated_fixed && propagate_fixed())
-            return FC_CONTINUE;
-#endif
         if (propagate_core())
             return FC_CONTINUE;
         m_model_is_initialized = false;
@@ -1853,13 +1843,12 @@ public:
             }
             if (st == FC_DONE) {
                 if (assume_eqs()) {
-                    // verbose_stream() << "not done\n";
                     return FC_CONTINUE;
                 }
                 st = check_nla();
-                if (st != FC_DONE)
+                if (st != FC_DONE) {
                     return st;
-
+                }
             }
             return st;
         case l_false:
@@ -3686,7 +3675,6 @@ public:
 
 
     void validate_solution() {
-        return;
         verbose_stream() << "validate solution\n";
 
         unsigned nv = th.get_num_vars();
