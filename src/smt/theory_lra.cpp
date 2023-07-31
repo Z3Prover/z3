@@ -3675,7 +3675,7 @@ public:
 
 
     void validate_solution() {
-        verbose_stream() << "validate solution\n";
+        // verbose_stream() << "validate solution\n";
 
         unsigned nv = th.get_num_vars();
         for (unsigned v = 0; v < nv; ++v) {
@@ -3688,11 +3688,12 @@ public:
             auto* n = get_enode(v);
             expr* e = n->get_expr(), *e1, *e2;
             rational r, r1, r2;
-            if (use_nra_model())
-                m_nla->am().display(verbose_stream() << " = ", nl_value(v, *m_a1)) << "\n";
+            if (use_nra_model()) {
+               //   m_nla->am().display(verbose_stream() << " = ", nl_value(v, *m_a1)) << "\n";
+            }
             else {
                 r = lp().get_tv_value(get_tv(v));
-                verbose_stream() << r << "\n";
+               // verbose_stream() << r << "\n";
                 if (a.is_mod(e, e1, e2)) {
                     auto v1 = th.get_th_var(e1);
                     auto v2 = th.get_th_var(e2);
@@ -3706,12 +3707,12 @@ public:
                     auto v2 = th.get_th_var(e2);
                     r1 = lp().get_tv_value(get_tv(v1));
                     r2 = lp().get_tv_value(get_tv(v2));
-                    verbose_stream() << mk_pp(e, m) << " " << r << " == " << r1 << " div " << r2 << "\n";
+                 //   verbose_stream() << mk_pp(e, m) << " " << r << " == " << r1 << " div " << r2 << "\n";
                     if (r2 > 0)
                         VERIFY(r == div(r1, r2));
                 }
                 else if (a.is_add(e)) {
-                    verbose_stream() << "add v" << v << " " << r <<"\n";
+                   // verbose_stream() << "add v" << v << " " << r <<"\n";
                 }
                 else if (a.is_numeral(e, r2)) {
                     VERIFY(r == r2);
@@ -3720,7 +3721,7 @@ public:
 
                 }
                 else {
-                    verbose_stream() << "other " << enode_pp(n, ctx()) << "\n";
+                   // verbose_stream() << "other " << enode_pp(n, ctx()) << "\n";
                 }
             }
         }
