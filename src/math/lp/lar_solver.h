@@ -648,19 +648,5 @@ class lar_solver : public column_namer {
     friend int_solver;
     friend int_branch;
 };
-// this will allow to disable the tracking of the touched rows, 
-// and then restore its previous value
-struct row_tracker_temp_disabler {
-    lar_solver&      lra;
-    bool             m_track_touched_rows;
-    row_tracker_temp_disabler(lar_solver& ls) :
-        lra(ls),
-        m_track_touched_rows(lra.touched_rows_are_tracked()) {
-        lra.track_touched_rows(false);
-    }
-    ~row_tracker_temp_disabler() {
-        lra.track_touched_rows(m_track_touched_rows);
-    }
-};
 
 }  // namespace lp

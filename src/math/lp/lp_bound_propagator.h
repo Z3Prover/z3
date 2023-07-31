@@ -12,7 +12,7 @@
 namespace lp {
 template <typename T>
 class lp_bound_propagator {
-	hashtable<unsigned, u_hash, u_eq> m_visited_rows;
+	uint_set m_visited_rows;
     // these maps map a column index to the corresponding index in ibounds
     std::unordered_map<unsigned, unsigned> m_improved_lower_bounds;
     std::unordered_map<unsigned, unsigned> m_improved_upper_bounds;
@@ -60,6 +60,7 @@ class lp_bound_propagator {
         unsigned debv1, debv2;
         lp_assert(only_one_nfixed(r1, debv1) && only_one_nfixed(r2, debv2));
         lp_assert(debv1 == v1 && debv2 == v2);
+        lp_assert(ival(v1).y == ival(v2).y);
 #endif
         explanation ex;
         explain_fixed_in_row(r1, ex);

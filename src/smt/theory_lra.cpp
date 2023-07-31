@@ -1700,10 +1700,6 @@ public:
     bool m_changed_assignment = false;
 
     final_check_status final_check_eh() {
-        // verbose_stream() << "final " << ctx().get_scope_level() << " " << ctx().assigned_literals().size() << "\n";
-        //ctx().display(verbose_stream());
-        //exit(0);
-        
         TRACE("arith_eq_adapter_info", m_arith_eq_adapter.display_already_processed(tout););
         TRACE("arith", display(tout););
 
@@ -1718,21 +1714,10 @@ public:
         final_check_status result = final_check_core();
         if (result != FC_DONE)
             return result;
-#ifdef Z3DEBUG
-        if (!m_changed_assignment) {
-            validate_solution();
-            return FC_DONE;
-        }
-#endif        
         m_liberal_final_check = false;
         m_changed_assignment = false;
         result = final_check_core();
         TRACE("arith", tout << "result: " << result << "\n";);
-#ifdef Z3DEBUG
-        if (result == FC_DONE) {
-            validate_solution();
-        }
-#endif
         return result;
     }
     
@@ -3672,61 +3657,6 @@ public:
             nctx.assert_expr(m.mk_eq(eq.first->get_expr(), eq.second->get_expr()));
         }
     }        
-
-
-    void validate_solution() {
-        // verbose_stream() << "validate solution\n";
-
-        unsigned nv = th.get_num_vars();
-        for (unsigned v = 0; v < nv; ++v) {
-            auto t = get_tv(v);
-            auto vi = lp().external_to_column_index(v);
-
-            if (!is_registered_var(v))
-                continue;
-            
-            auto* n = get_enode(v);
-            expr* e = n->get_expr(), *e1, *e2;
-            rational r, r1, r2;
-            if (use_nra_model()) {
-               //   m_nla->am().display(verbose_stream() << " = ", nl_value(v, *m_a1)) << "\n";
-            }
-            else {
-                r = lp().get_tv_value(get_tv(v));
-               // verbose_stream() << r << "\n";
-                if (a.is_mod(e, e1, e2)) {
-                    auto v1 = th.get_th_var(e1);
-                    auto v2 = th.get_th_var(e2);
-                    r1 = lp().get_tv_value(get_tv(v1));
-                    r2 = lp().get_tv_value(get_tv(v2));
-                    if (r2 > 0)
-                        VERIFY(r == r1 % r2);
-                }
-                else if (a.is_idiv(e, e1, e2)) {
-                    auto v1 = th.get_th_var(e1);
-                    auto v2 = th.get_th_var(e2);
-                    r1 = lp().get_tv_value(get_tv(v1));
-                    r2 = lp().get_tv_value(get_tv(v2));
-                 //   verbose_stream() << mk_pp(e, m) << " " << r << " == " << r1 << " div " << r2 << "\n";
-                    if (r2 > 0)
-                        VERIFY(r == div(r1, r2));
-                }
-                else if (a.is_add(e)) {
-                   // verbose_stream() << "add v" << v << " " << r <<"\n";
-                }
-                else if (a.is_numeral(e, r2)) {
-                    VERIFY(r == r2);
-                }
-                else if (is_uninterp_const(e)) {
-
-                }
-                else {
-                   // verbose_stream() << "other " << enode_pp(n, ctx()) << "\n";
-                }
-            }
-        }
-
-    }
 
     theory_lra::inf_eps value(theory_var v) {
         lp::impq ival = get_ivalue(v);

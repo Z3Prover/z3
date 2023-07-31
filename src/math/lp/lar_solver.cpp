@@ -4,7 +4,7 @@
 */
 #include "math/lp/lar_solver.h"
 #include "smt/params/smt_params_helper.hpp"
-
+#include  "util/util.h"
 
 namespace lp {
 
@@ -632,9 +632,10 @@ namespace lp {
     }
 
     void lar_solver::remove_fixed_vars_from_base() {
-        row_tracker_temp_disabler ch(*this);
+	   // this will allow to disable and restore the tracking of the touched rows
+        flet<u_set*> f(m_mpq_lar_core_solver.m_r_solver.m_touched_rows, nullptr);
         unsigned num = A_r().column_count();
-        vector<unsigned> to_remove;
+        unsigned_vector to_remove;
         for (unsigned j : m_fixed_base_var_set) {
             if (j >= num || !is_base(j) || !is_fixed(j)) {
                 to_remove.push_back(j);
