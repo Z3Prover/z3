@@ -1714,6 +1714,9 @@ public:
         final_check_status result = final_check_core();
         if (result != FC_DONE)
             return result;
+        if (!m_changed_assignment) {
+            return FC_DONE;
+        }
         m_liberal_final_check = false;
         m_changed_assignment = false;
         result = final_check_core();
