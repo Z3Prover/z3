@@ -646,7 +646,7 @@ namespace lp {
             auto const& r = basic2row(j);
             for (auto const& c : r) {
                 unsigned j_entering = c.var();
-                if (j_entering != j && !is_fixed(j_entering)) {
+                if (!is_fixed(j_entering)) {
                     pivot(j_entering, j);
                     to_remove.push_back(j);
                     lp_assert(is_base(j_entering));
@@ -1645,7 +1645,6 @@ namespace lp {
         m_incorrect_columns.increase_size_by_one();
         m_touched_rows.increase_size_by_one();
         add_new_var_to_core_fields_for_mpq(true);
-        
     }
 
     bool lar_solver::bound_is_integer_for_integer_column(unsigned j, const mpq& right_side) const {

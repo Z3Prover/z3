@@ -108,7 +108,7 @@ class lar_solver : public column_namer {
     // maps values to non-integral fixed vars
     map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>> m_fixed_var_table_real;
     // the set of fixed variables which are also base variables
-    uint_set                                           m_fixed_base_var_set;
+    tracked_uint_set                                   m_fixed_base_var_set;
     // end of fields
 
     ////////////////// methods ////////////////////////////////
