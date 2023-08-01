@@ -407,7 +407,6 @@ namespace bv {
        
     public:
         solver(euf::solver& ctx, theory_id id);
-        void updt_params(params_ref const& p) override;
         void set_lookahead(sat::lookahead* s) override { }
         void init_search() override {}
         double get_reward(literal l, sat::ext_constraint_idx idx, sat::literal_occs_fun& occs) const override;

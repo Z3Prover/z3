@@ -1,6 +1,10 @@
-def_module_params('polysat', 
-                  description='polysat solver',
-                  export=True,
-                  params=(('log_conflicts', BOOL, True, "log conflicts"),
-                          ))         
-                
+def_module_params('polysat',
+    description='polysat solver',
+    export=True,
+    params=(
+        ('max_conflicts', UINT, UINT_MAX, "maximum number of conflicts before giving up"),
+        ('max_decisions', UINT, UINT_MAX, "maximum number of decisions before giving up"),
+        ('log', UINT, UINT_MAX, "polysat logging filter (enable logging in iteration N)"),
+        ('log_conflicts', BOOL, False, "log conflicts"),
+    )
+)

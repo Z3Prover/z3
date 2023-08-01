@@ -52,15 +52,11 @@ namespace bv {
         euf::th_euf_solver(ctx, symbol("bv"), id),
         bv(m),
         m_autil(m),
-        m_polysat(m.limit()),
+        m_polysat(m.limit(), get_config()),
         m_ackerman(*this),
         m_bb(m, get_config()),
         m_find(*this) {
         m_bb.set_flat_and_or(false);
-    }
-
-    void solver::updt_params(params_ref const& p) {
-        m_polysat.updt_params(p);
     }
 
     bool solver::is_fixed(euf::theory_var v, expr_ref& val, sat::literal_vector& lits) {

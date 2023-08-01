@@ -39,11 +39,14 @@ Author:
 #include <limits>
 #include <optional>
 
+struct smt_params;
+
 namespace polysat {
 
     struct config {
         uint64_t    m_max_conflicts = std::numeric_limits<uint64_t>::max();
         uint64_t    m_max_decisions = std::numeric_limits<uint64_t>::max();
+        unsigned    m_log_iteration = UINT_MAX;
         bool        m_log_conflicts = false;
     };
 
@@ -149,6 +152,7 @@ namespace polysat {
 
         reslimit&                m_lim;
         params_ref               m_params;
+        config                   m_config;
 
         mutable scoped_ptr_vector<dd::pdd_manager> m_pdd;
         viable                   m_viable;   // viable sets per variable
@@ -162,7 +166,6 @@ namespace polysat {
         stats                    m_stats;
         random_gen               m_rand;
 
-        config                   m_config;
         // Per constraint state
         constraint_manager       m_constraints;
         name_manager             m_names;
@@ -372,7 +375,7 @@ namespace polysat {
 
     public:
 
-        solver(reslimit& lim);
+        solver(reslimit& lim, smt_params const& p);
 
         ~solver();
 
@@ -643,11 +646,10 @@ namespace polysat {
 
         void collect_statistics(statistics& st) const;
 
+        void updt_smt_params(smt_params const& p);
+        void updt_polysat_params(params_ref const& p);
         params_ref const & params() const { return m_params;  }
-
-        void updt_params(params_ref const& p);
-
-        config const& get_config() const { return m_config; }
+        config const& config() const { return m_config; }
 
     };  // class solver
 

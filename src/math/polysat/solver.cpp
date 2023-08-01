@@ -36,6 +36,7 @@ TODO: at some point we should add proper garbage collection
 #include "math/polysat/polysat_params.hpp"
 #include "math/polysat/variable_elimination.h"
 #include "math/polysat/polysat_ast.h"
+#include "smt/params/smt_params.h"
 #include <variant>
 #include <filesystem>
 
@@ -45,7 +46,7 @@ TODO: at some point we should add proper garbage collection
 
 namespace polysat {
 
-    solver::solver(reslimit& lim):
+    solver::solver(reslimit& lim, smt_params const& p):
         m_lim(lim),
         m_viable(*this),
         m_viable_fallback(*this),
@@ -59,6 +60,8 @@ namespace polysat {
         m_names(*this),
         m_slicing(*this),
         m_search(*this) {
+        updt_smt_params(p);
+        updt_polysat_params(gparams::get_module("polysat"));
     }
 
     solver::~solver() {
@@ -66,20 +69,32 @@ namespace polysat {
         m_conflict.reset();
     }
 
-    void solver::updt_params(params_ref const& p) {
+    // smt.random_seed, etc.
+    void solver::updt_smt_params(smt_params const& p) {
+        m_rand.set_seed(p.m_random_seed);
+    }
+
+    // polysat.max_conflicts, etc.
+    void solver::updt_polysat_params(params_ref const& p) {
         polysat_params pp(p);
         m_params.append(p);
-        m_config.m_max_conflicts = m_params.get_uint("max_conflicts", UINT_MAX);
-        m_config.m_max_decisions = m_params.get_uint("max_decisions", UINT_MAX);
+        m_config.m_max_conflicts = pp.max_conflicts();
+        m_config.m_max_decisions = pp.max_decisions();
+        m_config.m_log_iteration = pp.log();
         m_config.m_log_conflicts = pp.log_conflicts();
-        m_rand.set_seed(m_params.get_uint("random_seed", 0));
+
+        // TODO: log filter to enable/disable based on submodules
+        if (m_config.m_log_iteration == 0)
+            set_log_enabled(true);
+        else
+            set_log_enabled(false);
     }
 
     bool solver::should_search() {
         return
             m_lim.inc() &&
-            (m_stats.m_num_conflicts < get_config().m_max_conflicts) &&
-            (m_stats.m_num_decisions < get_config().m_max_decisions);
+            (m_stats.m_num_conflicts < config().m_max_conflicts) &&
+            (m_stats.m_num_decisions < config().m_max_decisions);
     }
 
     lbool solver::check_sat() {
@@ -90,6 +105,8 @@ namespace polysat {
         LOG("Starting");
         while (should_search()) {
             m_stats.m_num_iterations++;
+            if (m_stats.m_num_iterations == config().m_log_iteration)
+                set_log_enabled(true);
             LOG_H1("Next solving loop iteration (#" << m_stats.m_num_iterations << ")");
             LOG("Free variables: " << m_free_pvars);
             LOG("Assignment:     " << assignments_pp(*this));
