@@ -74,7 +74,8 @@ class mbp_qel::impl {
                     add_vars(p, vars);
                 }
             }
-        } while (progress);
+        }
+        while (progress);
     }
 
     void init(app_ref_vector &vars, expr_ref &fml, model &mdl) {
