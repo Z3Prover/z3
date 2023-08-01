@@ -166,13 +166,12 @@ namespace polysat {
     }
 
     void slicing::push_scope() {
-        SASSERT(!is_conflict());
         if (can_propagate())
             propagate();
         m_scopes.push_back(m_trail.size());
         m_egraph.push();
         m_dep_size_trail.push_back(m_dep_var.size());
-        SASSERT(m_needs_congruence.empty());
+        SASSERT(!m_solver.config().m_slicing_congruence || m_needs_congruence.empty());
     }
 
     void slicing::pop_scope(unsigned num_scopes) {
@@ -733,7 +732,9 @@ namespace polysat {
     }
 
     bool slicing::can_propagate() const {
-        return !m_needs_congruence.empty() || m_egraph.can_propagate();
+        if (m_solver.config().m_slicing_congruence && !m_needs_congruence.empty())
+            return true;
+        return m_egraph.can_propagate();
     }
 
     void slicing::propagate() {
