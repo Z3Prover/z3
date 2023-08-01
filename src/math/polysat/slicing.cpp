@@ -332,6 +332,8 @@ namespace polysat {
     }
 
     void slicing::update_var_congruences() {
+        if (!m_solver.config().m_slicing_congruence)
+            return;
         for (pvar v : m_needs_congruence)
             add_congruence(v);
         m_needs_congruence.reset();

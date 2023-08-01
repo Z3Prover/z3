@@ -48,6 +48,7 @@ namespace polysat {
         uint64_t    m_max_decisions = std::numeric_limits<uint64_t>::max();
         unsigned    m_log_iteration = UINT_MAX;
         bool        m_log_conflicts = false;
+        bool        m_slicing_congruence = false;
     };
 
     /**

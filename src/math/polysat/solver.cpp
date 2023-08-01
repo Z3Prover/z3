@@ -82,6 +82,7 @@ namespace polysat {
         m_config.m_max_decisions = pp.max_decisions();
         m_config.m_log_iteration = pp.log();
         m_config.m_log_conflicts = pp.log_conflicts();
+        m_config.m_slicing_congruence = pp.slicing_congruence();
 
         // TODO: log filter to enable/disable based on submodules
         if (m_config.m_log_iteration == 0)
