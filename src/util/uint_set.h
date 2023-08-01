@@ -310,51 +310,113 @@ public:
 };
 
 class indexed_uint_set {
-    unsigned        m_size;
-    unsigned_vector m_elems;
+    svector<int> m_data;
     unsigned_vector m_index;
+
 public:
-    indexed_uint_set():
-        m_size(0)
-    {}
-
-    void insert(unsigned x) {
-        SASSERT(!contains(x));
-        m_index.reserve(x + 1, UINT_MAX);
-        m_elems.reserve(m_size + 1);
-        m_index[x] = m_size;
-        m_elems[m_size] = x;
-        m_size++;
-        SASSERT(contains(x));
-    }
+    indexed_uint_set(unsigned size): m_data(size, -1) {}
+    indexed_uint_set() {}
+    indexed_uint_set(indexed_uint_set const& other):
+        m_data(other.m_data),
+        m_index(other.m_index) {}
     
-    void remove(unsigned x) {
-        SASSERT(contains(x));
-        unsigned y = m_elems[--m_size];
-        if (x != y) {
-            unsigned idx = m_index[x];
-            m_index[y] = idx;
-            m_elems[idx] = y;
-            m_index[x] = m_size;
-            m_elems[m_size] = x; 
-        }
-        SASSERT(!contains(x));
-    }
-
     unsigned elem_at(unsigned index) {
-        SASSERT(index < m_size);
-        return m_elems[index];
+        return m_index[index];
     }
 
-    bool contains(unsigned x) const { return x < m_index.size() && m_index[x] < m_size && m_elems[m_index[x]] == x; }
-    void reset() { m_size = 0; }
-    bool empty() const { return m_size == 0; }    
-    unsigned size() const { return m_size; }
-    unsigned max_var() const { return m_index.size(); }
-    typedef  unsigned_vector::const_iterator iterator;
-    iterator begin() const { return m_elems.begin(); }
-    iterator end() const { return m_elems.begin() + m_size; }
+    unsigned max_var() const { return m_data.size(); }
+
+    bool contains(unsigned j) const {
+        if (j >= m_data.size())
+            return false;
+        return m_data[j] >= 0;
+    }
+    void insert(unsigned j) {
+        if (j >= m_data.size()) {
+            m_data.resize(j + 1, -1);
+        }
+        if (contains(j)) return;
+        m_data[j] = m_index.size();
+        m_index.push_back(j);
+    }
+    // todo: remove == erase : unify
+    void remove(unsigned j) {
+        if (!contains(j)) return;
+        unsigned pos_j = m_data[j];
+        unsigned last_pos = m_index.size() - 1;
+        int last_j = m_index[last_pos];
+        if (last_pos != pos_j) {
+            // move last to j spot
+            m_data[last_j] = pos_j;
+            m_index[pos_j] = last_j;
+        }
+        m_index.pop_back();
+        m_data[j] = -1;
+    }
+    // todo: remove == erase : unify
+    void erase(unsigned j) {
+        if (!contains(j)) return;
+        unsigned pos_j = m_data[j];
+        unsigned last_pos = m_index.size() - 1;
+        int last_j = m_index[last_pos];
+        if (last_pos != pos_j) {
+            // move last to j spot
+            m_data[last_j] = pos_j;
+            m_index[pos_j] = last_j;
+        }
+        m_index.pop_back();
+        m_data[j] = -1;
+    }
+
+    int operator[](unsigned j) const { return m_index[j]; }
     
+    void resize(unsigned size) {
+        if (size < data_size()) {
+            bool copy = false;
+            unsigned i = 0;
+            for (unsigned j : m_index) {
+                if (j < size) {
+                    if (copy) {
+                        m_data[j] = i;
+                        m_index[i] = j;
+                    }
+                    i++;
+                } else {
+                    copy = true;
+                }
+            }
+            m_index.shrink(i);
+        }
+        m_data.resize(size, -1);
+    }
+
+    void increase_size_by_one() {
+        resize(m_data.size() + 1);
+    }
+   
+    unsigned data_size() const {  return m_data.size(); }
+    unsigned size() const { return m_index.size();}
+    bool empty() const { return size() == 0; }
+    void clear() {
+        for (unsigned j : m_index)
+            m_data[j] = -1;
+        m_index.resize(0);
+    }
+    void reset() {
+        for (unsigned j : m_index)
+            m_data[j] = -1;
+        m_index.resize(0);
+    }
+    std::ostream& display(std::ostream& out) const {
+        for (unsigned j : m_index) {
+            out << j << " ";
+        }
+        out << std::endl;
+        return out;
+    }
+    const unsigned * begin() const { return m_index.begin(); }
+    const unsigned * end() const { return m_index.end(); }
+    const unsigned_vector& index() { return m_index; }
 };
 
 inline std::ostream& operator<<(std::ostream& out, indexed_uint_set const& s) {

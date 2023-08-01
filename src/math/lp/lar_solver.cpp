@@ -655,7 +655,7 @@ namespace lp {
             }
         }
         for (unsigned j : to_remove) {
-            m_fixed_base_var_set.remove(j);
+            m_fixed_base_var_set.erase(j);
         }
         lp_assert(fixed_base_removed_correctly());
     }
