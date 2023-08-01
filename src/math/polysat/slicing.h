@@ -116,8 +116,9 @@ namespace polysat {
         // Add an equation v = concat(s1, ..., sn)
         // for each variable v with base slices s1, ..., sn
         void update_var_congruences();
-        void add_congruence(pvar v);
-        void add_congruence_if_needed(pvar v);
+        void add_var_congruence(pvar v);
+        void add_var_congruence_if_needed(pvar v);
+        bool use_var_congruences() const;
 
         func_decl* mk_concat_decl(ptr_vector<expr> const& args);
         enode* mk_concat_node(enode_vector const& slices);

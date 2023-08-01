@@ -171,7 +171,7 @@ namespace polysat {
         m_scopes.push_back(m_trail.size());
         m_egraph.push();
         m_dep_size_trail.push_back(m_dep_var.size());
-        SASSERT(!m_solver.config().m_slicing_congruence || m_needs_congruence.empty());
+        SASSERT(!use_var_congruences() || m_needs_congruence.empty());
     }
 
     void slicing::pop_scope(unsigned num_scopes) {
@@ -313,7 +313,7 @@ namespace polysat {
         m_egraph.merge(s, concat, dep_t().encode());
     }
 
-    void slicing::add_congruence(pvar v) {
+    void slicing::add_var_congruence(pvar v) {
         enode_vector& base = m_tmp2;
         SASSERT(base.empty());
         enode* sv = var2slice(v);
@@ -323,19 +323,23 @@ namespace polysat {
         base.clear();
     }
 
-    void slicing::add_congruence_if_needed(pvar v) {
+    void slicing::add_var_congruence_if_needed(pvar v) {
         if (!m_needs_congruence.contains(v))
             return;
         m_needs_congruence.remove(v);
-        add_congruence(v);
+        add_var_congruence(v);
     }
 
     void slicing::update_var_congruences() {
-        if (!m_solver.config().m_slicing_congruence)
+        if (!use_var_congruences())
             return;
         for (pvar v : m_needs_congruence)
-            add_congruence(v);
+            add_var_congruence(v);
         m_needs_congruence.reset();
+    }
+
+    bool slicing::use_var_congruences() const {
+        return m_solver.config().m_slicing_congruence;
     }
 
     // split a single slice without updating any equivalences
@@ -732,7 +736,7 @@ namespace polysat {
     }
 
     bool slicing::can_propagate() const {
-        if (m_solver.config().m_slicing_congruence && !m_needs_congruence.empty())
+        if (use_var_congruences() && !m_needs_congruence.empty())
             return true;
         return m_egraph.can_propagate();
     }
@@ -1052,8 +1056,8 @@ namespace polysat {
         else {
             enode* n = find_or_alloc_disequality(sy, sx, lit);
             if (!m_disequality_conflict && is_equal(sx, sy)) {
-                add_congruence_if_needed(x);
-                add_congruence_if_needed(y);
+                add_var_congruence_if_needed(x);
+                add_var_congruence_if_needed(y);
                 m_disequality_conflict = n;
                 return false;
             }
