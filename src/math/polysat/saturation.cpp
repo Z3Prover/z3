@@ -1359,11 +1359,9 @@ namespace polysat {
         if (!is_AxB_eq_0(x, a_l_b, a, b, y)) // TODO: Is the restriction to linear "x" too restrictive?
             return false;
         
-        bool change = false;
         bool prop = false;
         
         for (auto c : core) {
-            change = false;
             if (c == a_l_b)
                 continue;
             LOG("Trying to eliminate v" << x << " in " << c << " by using equation " << a_l_b.as_signed_constraint());
@@ -1448,7 +1446,6 @@ namespace polysat {
      * -x <  -x - y
      */
     bool saturation::is_add_overflow(pvar x, inequality const& i, pdd& y, bool& is_minus) {
-        auto& m = s.var2pdd(x);
         pdd const X = s.var(x);
         pdd a = X;
         if (i.lhs().degree(x) != 1 || i.rhs().degree(x) != 1)
@@ -1950,7 +1947,7 @@ namespace polysat {
      * Values of x1, y1, q1 have to be available for the rule to apply.
      * If not all values are present, the rule isn't going to be used.
      * The arithmetic solver uses complete assignments because it 
-     * builds on top of an integer feasiable state (or feasible over rationals)
+     * builds on top of an integer feasible state (or feasible over rationals)
      * Lemmas are false under that assignment. They don't necessarily propagate, though.
      * PolySAT isn't (yet) set up to work with complete assignments and thereforce misses such lemmas.
      * - should we force complete assignments by computing first a model that is feasible modulo linear constraints 

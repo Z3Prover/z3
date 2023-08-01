@@ -165,7 +165,6 @@ namespace polysat {
 
     template <typename Fn>
     expr* polysat_ast::mk_bin(char const* name, pdd const& p, pdd const& q, pdd const& r, Fn mk_bin_expr) {
-        unsigned const N = p.power_of_2();
         // r = p OP q
         expr* definition = m().mk_eq(mk_poly(r), mk_bin_expr(mk_poly(p), mk_poly(q)));
         // b <=> definition

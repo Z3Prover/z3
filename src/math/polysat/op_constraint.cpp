@@ -629,7 +629,6 @@ namespace polysat {
      * q = 1   ==>  r = p
      */
     clause_ref op_constraint::lemma_udiv(solver& s, assignment const& a) {
-        auto& m = p().manager();
         auto pv = a.apply_to(p());
         auto qv = a.apply_to(q());
         auto rv = a.apply_to(r());
@@ -679,7 +678,6 @@ namespace polysat {
      * q = 0   ==>  r = p
      */
     clause_ref op_constraint::lemma_urem(solver& s, assignment const& a) {
-        auto& m = p().manager();
         auto pv = a.apply_to(p());
         auto qv = a.apply_to(q());
         auto rv = a.apply_to(r());
