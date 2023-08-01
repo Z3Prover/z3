@@ -30,7 +30,7 @@ namespace pb {
         if (m_pb.is_pb(e)) {
             sat::literal lit = internalize_pb(e, sign, root);
             if (m_ctx && !root && lit != sat::null_literal)
-                m_ctx->attach_lit(lit, e);            
+                m_ctx->attach_lit(literal(lit.var(), false), e);            
             return lit;
         }
         UNREACHABLE();
