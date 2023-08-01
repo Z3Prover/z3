@@ -1,3 +1,22 @@
+/*++
+Copyright (c) 2023 Microsoft Corporation
+
+Module Name:
+
+    array_peq.cpp
+
+Abstract:
+
+  Partial equality for arrays
+
+Author:
+
+    Nikolaj Bjorner (nbjorner) 2015-06-13
+    Hari Govind V K
+
+Revision History:
+
+--*/
 #include "ast/array_peq.h"
 
 #define PARTIAL_EQ "!partial_eq"
