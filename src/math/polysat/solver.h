@@ -12,7 +12,7 @@ Abstract:
 Author:
 
     Nikolaj Bjorner (nbjorner) 2021-03-19
-    Jakob Rath 2021-04-6
+    Jakob Rath 2021-04-06
 
 --*/
 #pragma once
@@ -43,7 +43,7 @@ struct smt_params;
 
 namespace polysat {
 
-    struct config {
+    struct config_t {
         uint64_t    m_max_conflicts = std::numeric_limits<uint64_t>::max();
         uint64_t    m_max_decisions = std::numeric_limits<uint64_t>::max();
         unsigned    m_log_iteration = UINT_MAX;
@@ -153,7 +153,7 @@ namespace polysat {
 
         reslimit&                m_lim;
         params_ref               m_params;
-        config                   m_config;
+        config_t                 m_config;
 
         mutable scoped_ptr_vector<dd::pdd_manager> m_pdd;
         viable                   m_viable;   // viable sets per variable
@@ -650,7 +650,7 @@ namespace polysat {
         void updt_smt_params(smt_params const& p);
         void updt_polysat_params(params_ref const& p);
         params_ref const & params() const { return m_params;  }
-        config const& config() const { return m_config; }
+        config_t const& config() const { return m_config; }
 
     };  // class solver
 
