@@ -89,8 +89,7 @@ struct proc {
             if (is_app(idx) && m_dt_util.is_accessor(to_app(idx)->get_decl()))
                 return;
             collect_uninterp_consts(idx, m_vars);
-        }
-        else if (m_array_util.is_store(n)) {
+        } else if (m_array_util.is_store(n)) {
             expr *idx = n->get_arg(1), *elem = n->get_arg(2);
             if (!(is_app(idx) &&
                   m_dt_util.is_accessor(to_app(idx)->get_decl())))
