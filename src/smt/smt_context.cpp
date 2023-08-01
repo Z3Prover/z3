@@ -154,9 +154,8 @@ namespace smt {
 
         src_af.get_macro_manager().copy_to(dst_af.get_macro_manager());
 
-        if (!src_ctx.m_setup.already_configured()) {
+        if (!src_ctx.m_setup.already_configured()) 
             return;
-        }
 
         for (unsigned i = 0; !src_m.proofs_enabled() && i < src_ctx.m_assigned_literals.size(); ++i) {
             literal lit = src_ctx.m_assigned_literals[i];
@@ -3233,7 +3232,7 @@ namespace smt {
                 }
                 expr * f   = m_asserted_formulas.get_formula(qhead);
                 proof * pr = m_asserted_formulas.get_formula_proof(qhead);
-                SASSERT(!pr || f == m.get_fact(pr));
+                SASSERT(!pr || f == m.get_fact(pr));                    
                 internalize_assertion(f, pr, 0);
                 ++qhead;
             }

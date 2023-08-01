@@ -238,7 +238,8 @@ namespace sat {
         }
 
         m_user_scope_literals.reset();
-        m_user_scope_literals.append(src.m_user_scope_literals);
+        for (auto lit : src.m_user_scope_literals) 
+            assign_unit(~lit);
 
         m_mc = src.m_mc;
         m_stats.m_units = init_trail_size();

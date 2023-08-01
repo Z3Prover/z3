@@ -63,8 +63,8 @@ namespace smt {
         return m_imp->m_kernel.get_manager();
     }
 
-    void  kernel::copy(kernel& src, kernel& dst) {
-        context::copy(src.m_imp->m_kernel, dst.m_imp->m_kernel);
+    void  kernel::copy(kernel& src, kernel& dst, bool override_base) {
+        context::copy(src.m_imp->m_kernel, dst.m_imp->m_kernel, override_base);
     }
 
     bool kernel::set_logic(symbol logic) {

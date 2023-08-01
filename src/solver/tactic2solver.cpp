@@ -294,9 +294,6 @@ solver* tactic2solver::translate(ast_manager& m, params_ref const& p) {
     tactic* t = m_tactic->translate(m);
     tactic2solver* r = alloc(tactic2solver, m, t, p, m_produce_proofs, m_produce_models, m_produce_unsat_cores, m_logic);
     r->m_result = nullptr;
-    if (!m_scopes.empty()) {
-        throw default_exception("translation of contexts is only supported at base level");
-    }
     ast_translation tr(m_assertions.get_manager(), m, false);
     
     for (unsigned i = 0; i < get_num_assertions(); ++i) {
