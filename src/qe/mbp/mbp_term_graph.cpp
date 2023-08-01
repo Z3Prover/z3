@@ -299,7 +299,8 @@ class term {
         do {
             curr->set_mark2(v);
             curr = &curr->get_next();
-        } while (curr != this);
+        }
+        while (curr != this);
     }
 
     bool is_interpreted() const { return m_interpreted; }
@@ -339,7 +340,8 @@ class term {
         do {
             curr->set_repr(this);
             curr = &curr->get_next();
-        } while (curr != this);
+        }
+        while (curr != this);
     }
 
     std::ostream &display(std::ostream &out) const {
@@ -1268,7 +1270,8 @@ class term_graph::projector {
                 members.insert(member);
             }
             r = &r->get_next();
-        } while (r != &t);
+        }
+        while (r != &t);
     }
 
     bool is_projected(const term &t) { return m_tg.m_is_var(t); }
@@ -1288,7 +1291,8 @@ class term_graph::projector {
                 members.insert(member);
             }
             r = &r->get_next();
-        } while (r != &t);
+        }
+        while (r != &t);
     }
 
     template <bool pure> void mk_equalities(expr_ref_vector &res) {
