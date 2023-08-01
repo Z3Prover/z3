@@ -9,7 +9,7 @@
 #include "math/polynomial/polynomial.h"
 #include "math/polynomial/algebraic_numbers.h"
 #include "util/map.h"
-#include "math/lp/u_set.h"
+#include "util/uint_set.h"
 #include "math/lp/nla_core.h"
 
 
@@ -23,7 +23,7 @@ struct solver::imp {
     reslimit&                 m_limit;  
     params_ref                m_params; 
     u_map<polynomial::var>    m_lp2nl;  // map from lar_solver variables to nlsat::solver variables        
-    lp::u_set                 m_term_set;
+    u_set                 m_term_set;
     scoped_ptr<nlsat::solver> m_nlsat;
     scoped_ptr<scoped_anum>   m_zero;
     mutable variable_map_type m_variable_values; // current model        

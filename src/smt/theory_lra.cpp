@@ -168,7 +168,7 @@ class theory_lra::imp {
     
     svector<std::pair<theory_var, theory_var> >       m_assume_eq_candidates; 
     unsigned                                          m_assume_eq_head;
-    lp::u_set                                         m_tmp_var_set;
+    u_set                                         m_tmp_var_set;
     
     unsigned                                          m_num_conflicts;
 

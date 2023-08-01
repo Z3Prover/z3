@@ -27,7 +27,7 @@ Revision History:
 #include "math/lp/static_matrix.h"
 #include "math/lp/permutation_matrix.h"
 #include "math/lp/column_namer.h"
-#include "math/lp/u_set.h"
+#include "util/uint_set.h"
 #include "util/heap.h"
 
 namespace lp {

@@ -25,7 +25,7 @@ Revision History:
 #include <string>
 #include <algorithm>
 #include "math/lp/lp_settings.h"
-#include "math/lp/u_set.h"
+#include "util/uint_set.h"
 // see http://research.microsoft.com/projects/z3/smt07.pdf
 // The class searches for a feasible solution with as many different values of variables as it can find
 namespace lp {

@@ -224,7 +224,7 @@ namespace arith {
 
         svector<std::pair<theory_var, theory_var> >       m_assume_eq_candidates;
         unsigned                                          m_assume_eq_head = 0;
-        lp::u_set                                         m_tmp_var_set;
+        u_set                                         m_tmp_var_set;
 
         unsigned                                          m_num_conflicts = 0;
         lp_api::stats                                     m_stats;

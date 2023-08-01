@@ -21,7 +21,7 @@ Revision History:
 #include "math/lp/core_solver_pretty_printer.h"
 #include "math/lp/lp_core_solver_base.h"
 #include "math/lp/static_matrix.h"
-#include "math/lp/u_set.h"
+#include "util/uint_set.h"
 #include "util/vector.h"
 #include <algorithm>
 #include <cstdlib>
