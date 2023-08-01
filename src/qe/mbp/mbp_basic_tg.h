@@ -23,16 +23,18 @@ Revision History:
 #include "qe/mbp/mbp_tg_plugins.h"
 #include "util/obj_hashtable.h"
 
-class mbp_basic_tg: public mbp_tg_plugin {
-        struct impl;
-        impl* m_impl;
-    public:
-        mbp_basic_tg(ast_manager& man, mbp::term_graph& tg, model& mdl, obj_hashtable<app> &vars_set, expr_sparse_mark &seen);
-        // iterate through all terms in m_tg and apply all basic MBP rules once
-        // returns true if any rules were applied
-        bool apply() override;
-        ~mbp_basic_tg() override;
-        void use_model() override;
-        void get_new_vars(app_ref_vector*& t) override;
-        family_id get_family_id() const override;
+class mbp_basic_tg : public mbp_tg_plugin {
+    struct impl;
+    impl *m_impl;
+
+  public:
+    mbp_basic_tg(ast_manager &man, mbp::term_graph &tg, model &mdl,
+                 obj_hashtable<app> &vars_set, expr_sparse_mark &seen);
+    // iterate through all terms in m_tg and apply all basic MBP rules once
+    // returns true if any rules were applied
+    bool apply() override;
+    ~mbp_basic_tg() override;
+    void use_model() override;
+    void get_new_vars(app_ref_vector *&t) override;
+    family_id get_family_id() const override;
 };
