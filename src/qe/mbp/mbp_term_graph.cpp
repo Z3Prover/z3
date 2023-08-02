@@ -317,7 +317,7 @@ class term {
     term &get_root() const { return *m_root; }
     bool is_root() const { return m_root == this; }
     void set_root(term &r) { m_root = &r; }
-    term *get_repr() { return m_repr; }
+    term *get_repr() const { return m_repr; }
     bool is_repr() const { return m_repr == this; }
     void set_repr(term *t) {
         SASSERT(get_root().get_id() == t->get_root().get_id());
@@ -696,15 +696,15 @@ void term_graph::merge(term &t1, term &t2) {
 }
 
 expr *term_graph::mk_app_core(expr *e) {
-    if (is_app(e)) {
-        expr_ref_buffer kids(m);
-        app *a = ::to_app(e);
-        for (expr *arg : *a) { kids.push_back(mk_app(arg)); }
-        app *res = m.mk_app(a->get_decl(), a->get_num_args(), kids.data());
-        m_pinned.push_back(res);
-        return res;
-    }
-    else { return e; }
+    if (!is_app(e))
+        return e;
+    expr_ref_buffer kids(m);
+    app *a = ::to_app(e);
+    for (expr *arg : *a)
+        kids.push_back(mk_app(arg)); 
+    app *res = m.mk_app(a->get_decl(), a->get_num_args(), kids.data());
+    m_pinned.push_back(res);
+    return res;
 }
 
 expr_ref term_graph::mk_app(term &r) {
