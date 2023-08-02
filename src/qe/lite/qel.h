@@ -19,9 +19,6 @@ Author:
     Hari Govind V K (hgvk94)
     Isabel Garcia (igcontreras)
 
-Revision History:
-
-
 --*/
 
 #pragma once
@@ -34,8 +31,8 @@ Revision History:
 class qel {
     class impl;
     impl *m_impl;
-
-  public:
+    
+public:
     qel(ast_manager &m, params_ref const &p);
 
     ~qel();

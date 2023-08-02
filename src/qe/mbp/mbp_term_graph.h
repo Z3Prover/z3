@@ -47,7 +47,7 @@ class term_graph {
         bool m_exclude;
         obj_hashtable<func_decl> m_decls, m_solved;
 
-      public:
+    public:
         bool operator()(const expr *e) const override;
         bool operator()(const term &t) const;
 
@@ -68,7 +68,7 @@ class term_graph {
     class is_non_core : public i_expr_pred {
         std::function<bool(expr *)> *m_non_core;
 
-      public:
+    public:
         is_non_core(std::function<bool(expr *)> *nc) : m_non_core(nc) {}
         bool operator()(expr *n) override {
             if (m_non_core == nullptr) return false;
@@ -82,16 +82,15 @@ class term_graph {
     struct term_eq {
         bool operator()(term const *a, term const *b) const;
     };
-    ast_manager &m;
-    ptr_vector<term> m_terms;
-    expr_ref_vector m_lits; // NSB: expr_ref_vector?
-    u_map<term *> m_app2term;
-    ast_ref_vector m_pinned;
-    projector *m_projector;
-    bool m_explicit_eq;
-    bool m_repick_repr;
-    u_map<expr *>
-        m_term2app; // any representative change invalidates this cache
+    ast_manager &           m;
+    ptr_vector<term>        m_terms;
+    expr_ref_vector         m_lits;
+    u_map<term*>            m_app2term;
+    ast_ref_vector          m_pinned;
+    projector *             m_projector = nullptr;
+    bool                    m_explicit_eq = false;
+    bool                    m_repick_repr = false;
+    u_map<expr *>           m_term2app; // any representative change invalidates this cache
     plugin_manager<solve_plugin> m_plugins;
     ptr_hashtable<term, term_hash, term_eq> m_cg_table;
     vector<std::pair<term *, term *>> m_merge;
@@ -138,7 +137,7 @@ class term_graph {
     void cground_percolate_up(term *t);
     void compute_cground();
 
-  public:
+public:
     term_graph(ast_manager &m);
     ~term_graph();
 
@@ -218,8 +217,9 @@ class term_graph {
     expr *rep_of(expr *e);
 
     using deqs = bit_vector;
-    struct add_deq_proc {
-        uint64_t m_deq_cnt = 0;
+    struct add_deq_proc {        
+        unsigned m_deq_cnt = 0;
+        void inc_count();
         void operator()(term *t1, term *t2);
         void operator()(ptr_vector<term> &ts);
     };
@@ -239,7 +239,7 @@ class term_graph {
     app *get_const_in_class(expr *e);
     void set_explicit_eq() { m_explicit_eq = true; }
 
-  private:
+private:
     add_deq_proc m_add_deq;
     void refine_repr_class(term *t);
     void refine_repr();

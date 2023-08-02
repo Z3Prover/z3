@@ -18,18 +18,16 @@ Author:
     Hari Govind V K (hgvk94)
     Isabel Garcia (igcontreras)
 
-Revision History:
-
 
 --*/
 #include "qe/lite/qel.h"
 #include "qe/mbp/mbp_term_graph.h"
 
 class qel::impl {
-  private:
+private:
     ast_manager &m;
 
-  public:
+public:
     impl(ast_manager &m, params_ref const &p) : m(m) {}
 
     void operator()(app_ref_vector &vars, expr_ref &fml) {

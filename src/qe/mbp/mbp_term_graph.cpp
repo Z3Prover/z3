@@ -364,19 +364,25 @@ static std::ostream &operator<<(std::ostream &out, term const &t) {
     return t.display(out);
 }
 
+
 // t1 != t2
 void term_graph::add_deq_proc::operator()(term *t1, term *t2) {
-    ptr_vector<term> ts(2);
-    ts[0] = t1;
-    ts[1] = t2;
-    (*this)(ts);
+    term::set_deq(t1->get_root().get_deqs(), m_deq_cnt); 
+    term::set_deq(t2->get_root().get_deqs(), m_deq_cnt);
+    inc_count();
 }
 
 // distinct(ts)
 void term_graph::add_deq_proc::operator()(ptr_vector<term> &ts) {
-    for (auto t : ts) { term::set_deq(t->get_root().get_deqs(), m_deq_cnt); }
-    SASSERT(m_deq_cnt < UINT64_MAX);
+    for (auto t : ts)
+        term::set_deq(t->get_root().get_deqs(), m_deq_cnt);
+    inc_count();
+}
+
+void term_graph::add_deq_proc::inc_count() {
     m_deq_cnt++;
+    if (m_deq_cnt == 0)
+        throw default_exception("unexpected wrap-around on m_deq_cnt");
 }
 
 bool term_graph::is_variable_proc::operator()(const expr *e) const {
@@ -429,8 +435,7 @@ bool term_graph::term_eq::operator()(term const *a, term const *b) const {
 }
 
 term_graph::term_graph(ast_manager &man)
-    : m(man), m_lits(m), m_pinned(m), m_projector(nullptr),
-      m_explicit_eq(false), m_repick_repr(false) {
+    : m(man), m_lits(m), m_pinned(m) {
     m_is_var.reset();
     m_plugins.register_plugin(mbp::mk_basic_solve_plugin(m, m_is_var));
     m_plugins.register_plugin(mbp::mk_arith_solve_plugin(m, m_is_var));
@@ -447,15 +452,18 @@ bool term_graph::is_pure_def(expr *atom, expr *&v) {
 }
 
 static family_id get_family_id(ast_manager &m, expr *lit) {
-    if (m.is_not(lit, lit)) return get_family_id(m, lit);
+    if (m.is_not(lit, lit))
+        return get_family_id(m, lit);
 
     expr *a = nullptr, *b = nullptr;
-    // deal with equality using sort of range
-    if (m.is_eq(lit, a, b)) { return a->get_sort()->get_family_id(); }
-    // extract family_id of top level app
-    else if (is_app(lit)) { return to_app(lit)->get_decl()->get_family_id(); }
-    else { return null_family_id; }
+    if (m.is_eq(lit, a, b))   // deal with equality using sort of range
+        return a->get_sort()->get_family_id(); 
+    else if (is_app(lit))     // extract family_id of top level app
+        return to_app(lit)->get_decl()->get_family_id(); 
+    else
+        return null_family_id; 
 }
+    
 void term_graph::add_lit(expr *l) {
     expr_ref lit(m);
     expr_ref_vector lits(m);
@@ -492,7 +500,8 @@ void term_graph::get_terms(expr_ref_vector &res, bool exclude_cground) {
     auto terms = m_terms.filter_pure(fil);
     res.resize(terms.size());
     unsigned i = 0;
-    for (term *t : terms) res[i++] = t->get_expr();
+    for (term *t : terms)
+        res[i++] = t->get_expr();
 }
 
 bool term_graph::is_cgr(expr *e) {
@@ -543,12 +552,13 @@ term *term_graph::internalize_term(expr *t) {
             continue;
         }
         unsigned sz = todo.size();
-        if (is_app(t)) {
-            for (expr *arg : *::to_app(t)) {
-                if (!get_term(arg)) todo.push_back(arg);
-            }
-        }
-        if (sz < todo.size()) continue;
+        if (is_app(t)) 
+            for (expr *arg : *::to_app(t)) 
+                if (!get_term(arg))
+                    todo.push_back(arg);
+
+        if (sz < todo.size())
+            continue;
         todo.pop_back();
         res = mk_term(t);
 
@@ -556,11 +566,11 @@ term *term_graph::internalize_term(expr *t) {
         // could be congruent with some other term, if that is the case, we
         // need to merge them.
         term *res_old = m_cg_table.insert_if_not_there(res);
-        if (res->is_cgr()) res_old->set_cgr(true);
+        if (res->is_cgr())
+            res_old->set_cgr(true);
         SASSERT(res_old->is_cgr() == res->is_cgr());
-        if (res_old->get_root().get_id() != res->get_root().get_id()) {
-            m_merge.push_back(std::make_pair(res, res_old));
-        }
+        if (res_old->get_root().get_id() != res->get_root().get_id()) 
+            m_merge.push_back({res, res_old});            
     }
     merge_flush();
     SASSERT(res);
@@ -572,10 +582,12 @@ void term_graph::internalize_eq(expr *a1, expr *a2) {
     merge(*internalize_term(a1), *internalize_term(a2));
     merge_flush();
     SASSERT(m_merge.empty());
-    if (!m_explicit_eq) return;
+    if (!m_explicit_eq)
+        return;
     expr_ref eq(m.mk_eq(a1, a2), m);
     term *res = get_term(eq);
-    if (!res) mk_term(eq);
+    if (!res)
+        mk_term(eq);
 }
 
 void term_graph::internalize_distinct(expr *d) {
@@ -599,26 +611,29 @@ void term_graph::internalize_deq(expr *a1, expr *a2) {
     term *t2 = internalize_term(a2);
     m_add_deq(t1, t2);
     m_deq_pairs.push_back({t1, t2});
-    if (!m_explicit_eq) return;
+    if (!m_explicit_eq)
+        return;
     expr_ref eq(m.mk_eq(a1, a2), m);
     term *eq_term = mk_term(eq);
     eq_term->set_neq_child();
     expr_ref deq(m.mk_not(eq), m);
     term *res = get_term(deq);
-    if (!res) mk_term(deq);
+    if (!res)
+        mk_term(deq);
 }
 
 void term_graph::internalize_lit(expr *lit) {
     expr *e1 = nullptr, *e2 = nullptr, *ne = nullptr, *v = nullptr;
-    if (m.is_eq(lit, e1, e2)) { // internalize equality
+    if (m.is_eq(lit, e1, e2))  // internalize equality
         internalize_eq(e1, e2);
-    }
-    else if (m.is_distinct(lit)) { internalize_distinct(lit); }
-    else if (m.is_not(lit, ne) && m.is_eq(ne, e1, e2)) {
+    else if (m.is_distinct(lit))
+        internalize_distinct(lit); 
+    else if (m.is_not(lit, ne) && m.is_eq(ne, e1, e2)) 
         internalize_deq(e1, e2);
-    }
-    else { internalize_term(lit); }
-    if (is_pure_def(lit, v)) { m_is_var.mark_solved(v); }
+    else
+        internalize_term(lit); 
+    if (is_pure_def(lit, v))
+        m_is_var.mark_solved(v); 
 }
 
 void term_graph::merge_flush() {
@@ -674,7 +689,8 @@ void term_graph::merge(term &t1, term &t2) {
             }
         }
     }
-    if (prop_cgroundness) cground_percolate_up(a);
+    if (prop_cgroundness)
+        cground_percolate_up(a);
 
     SASSERT(marks_are_clear());
 }
@@ -694,10 +710,12 @@ expr *term_graph::mk_app_core(expr *e) {
 expr_ref term_graph::mk_app(term &r) {
     SASSERT(r.is_repr());
 
-    if (r.get_num_args() == 0) { return expr_ref(r.get_expr(), m); }
+    if (r.get_num_args() == 0)
+        return expr_ref(r.get_expr(), m); 
 
     expr *res = nullptr;
-    if (m_term2app.find(r.get_id(), res)) { return expr_ref(res, m); }
+    if (m_term2app.find(r.get_id(), res))
+        return expr_ref(res, m); 
 
     res = mk_app_core(r.get_expr());
     m_term2app.insert(r.get_id(), res);
@@ -716,7 +734,8 @@ expr_ref term_graph::mk_app(expr *a) {
 
 void term_graph::mk_equalities(term &t, expr_ref_vector &out) {
     SASSERT(t.is_repr());
-    if (t.get_class_size() == 1) return;
+    if (t.get_class_size() == 1)
+        return;
     expr_ref rep(mk_app(t), m);
     for (term *it = &t.get_next(); it != &t; it = &it->get_next()) {
         expr *mem = mk_app_core(it->get_expr());
@@ -725,7 +744,8 @@ void term_graph::mk_equalities(term &t, expr_ref_vector &out) {
 }
 
 void term_graph::mk_all_equalities(term &t, expr_ref_vector &out) {
-    if (t.get_class_size() == 1) return;
+    if (t.get_class_size() == 1)
+        return;
 
     mk_equalities(t, out);
 
@@ -762,22 +782,25 @@ void term_graph::mk_qe_lite_equalities(term &t, expr_ref_vector &out,
         // don't add equalities for vars to eliminate
         if (m_is_var.contains(a->get_decl())) continue;
         expr *mem = mk_app_core(e);
-        if (rep != mem && !contains_nc(mem)) out.push_back(m.mk_eq(rep, mem));
+        if (rep != mem && !contains_nc(mem))
+            out.push_back(m.mk_eq(rep, mem));
     }
 }
 
 void term_graph::reset_marks() {
-    for (term *t : m_terms) { t->set_mark(false); }
+    for (term *t : m_terms) t->set_mark(false); 
 }
 
 void term_graph::reset_marks2() {
-    for (term *t : m_terms) { t->set_mark2(false); }
+    for (term *t : m_terms) t->set_mark2(false); 
 }
 
 bool term_graph::marks_are_clear() {
-    for (term *t : m_terms) {
-        if (t->is_marked()) return false;
-    }
+    return all_of(m_terms, [](term* t) { return !t->is_marked(); });
+    
+    for (term *t : m_terms) 
+        if (t->is_marked())
+            return false;
     return true;
 }
 
