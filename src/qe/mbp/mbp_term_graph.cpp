@@ -649,14 +649,16 @@ void term_graph::merge(term &t1, term &t2) {
     term *a = &t1.get_root();
     term *b = &t2.get_root();
 
-    if (a == b) return;
+    if (a == b)
+        return;
 
     // -- merge might invalidate term2app cache
     m_term2app.reset();
     m_pinned.reset();
     m_repick_repr = true;
 
-    if (a->get_class_size() > b->get_class_size()) { std::swap(a, b); }
+    if (a->get_class_size() > b->get_class_size())
+        std::swap(a, b); 
 
     // Remove parents of b from the cg table
     for (term *p : term::parents(b)) {
@@ -669,9 +671,8 @@ void term_graph::merge(term &t1, term &t2) {
     bool prop_cgroundness = (b->is_class_gr() != a->is_class_gr());
     // make 'a' be the root of the equivalence class of 'b'
     b->set_root(*a);
-    for (term *it = &b->get_next(); it != b; it = &it->get_next()) {
+    for (term *it = &b->get_next(); it != b; it = &it->get_next()) 
         it->set_root(*a);
-    }
 
     // merge equivalence classes
     a->merge_eq_class(*b);
@@ -684,9 +685,8 @@ void term_graph::merge(term &t1, term &t2) {
             p->set_mark(false);
             a->add_parent(p);
             // propagate new equalities.
-            if (p->get_root().get_id() != p_old->get_root().get_id()) {
-                m_merge.push_back(std::make_pair(p, p_old));
-            }
+            if (p->get_root().get_id() != p_old->get_root().get_id()) 
+                m_merge.push_back({p, p_old});            
         }
     }
     if (prop_cgroundness)
@@ -724,12 +724,11 @@ expr_ref term_graph::mk_app(term &r) {
 
 expr_ref term_graph::mk_app(expr *a) {
     term *t = get_term(a);
+    SASSERT(!t || t->get_repr());
     if (!t)
         return expr_ref(a, m);
-    else {
-        SASSERT(t->get_repr());
+    else 
         return mk_app(*t->get_repr());
-    }
 }
 
 void term_graph::mk_equalities(term &t, expr_ref_vector &out) {
@@ -797,11 +796,6 @@ void term_graph::reset_marks2() {
 
 bool term_graph::marks_are_clear() {
     return all_of(m_terms, [](term* t) { return !t->is_marked(); });
-    
-    for (term *t : m_terms) 
-        if (t->is_marked())
-            return false;
-    return true;
 }
 
 /// Order of preference for roots of equivalence classes
@@ -829,11 +823,9 @@ bool term_graph::term_lt(term const &t1, term const &t2) {
 }
 
 bool all_children_picked(term *t) {
-    if (t->deg() == 0) return true;
-    for (term *c : term::children(t)) {
-        if (!c->get_repr()) return false;
-    }
-    return true;
+    if (t->deg() == 0)
+        return true;
+    return all_of(term::children(t), [](term* c) { return c->get_repr(); });
 }
 
 // pick representatives for all terms in todo. Then, pick representatives for
@@ -843,10 +835,12 @@ void term_graph::pick_repr_percolate_up(ptr_vector<term> &todo) {
     while (!todo.empty()) {
         t = todo.back();
         todo.pop_back();
-        if (t->get_repr()) continue;
+        if (t->get_repr())
+            continue;
         pick_repr_class(t);
         for (auto it : term::parents(t->get_root()))
-            if (all_children_picked(it)) todo.push_back(it);
+            if (all_children_picked(it))
+                todo.push_back(it);
     }
 }
 
@@ -856,7 +850,8 @@ void term_graph::pick_repr_class(term *t) {
     SASSERT(all_children_picked(t));
     term *r = t;
     for (term *it = &t->get_next(); it != t; it = &it->get_next()) {
-        if (!all_children_picked(it)) continue;
+        if (!all_children_picked(it))
+            continue;
         if ((it->is_cgr() && !r->is_cgr()) ||
             (it->is_cgr() == r->is_cgr() && term_lt(*it, *r)))
             r = it;
@@ -879,15 +874,17 @@ void term_graph::pick_repr() {
                            t->is_cgr()););
     for (term *t : m_terms) t->reset_repr();
     ptr_vector<term> todo;
-    for (term *t : m_terms) {
-        if (t->deg() == 0 && t->is_cgr()) todo.push_back(t);
-    }
+    for (term *t : m_terms) 
+        if (t->deg() == 0 && t->is_cgr())
+            todo.push_back(t);
     pick_repr_percolate_up(todo);
     DEBUG_CODE(for (term *t : m_terms) SASSERT(!t->is_cgr() || t->get_repr()););
 
     for (term *t : m_terms) {
-        if (t->get_repr()) continue;
-        if (t->deg() == 0) todo.push_back(t);
+        if (t->get_repr())
+            continue;
+        if (t->deg() == 0)
+            todo.push_back(t);
     }
     pick_repr_percolate_up(todo);
     DEBUG_CODE(for (term *t : m_terms) SASSERT(t->get_repr()););
@@ -903,12 +900,12 @@ void term_graph::refine_repr_class(term *t) {
         SASSERT(is_app(p->get_expr()));
         return m_is_var.contains(to_app(p->get_expr())->get_decl());
     };
-    if (!is_var(t)) return;
+    if (!is_var(t))
+        return;
     term *r = t;
-    for (term *it = &t->get_next(); it != t; it = &it->get_next()) {
-        if (makes_cycle(it)) continue;
-        if (is_var(r) && !is_var(it)) r = it;
-    }
+    for (term *it = &t->get_next(); it != t; it = &it->get_next()) 
+        if (!makes_cycle(it) && is_var(r) && !is_var(it))
+            r = it;
     r->mk_repr();
 }
 
@@ -918,13 +915,16 @@ void term_graph::refine_repr_class(term *t) {
 bool term_graph::makes_cycle(term *t) {
     term &r = t->get_root();
     ptr_vector<term> todo;
-    for (auto *it : term::children(t)) { todo.push_back(it->get_repr()); }
+    for (auto *it : term::children(t))
+        todo.push_back(it->get_repr()); 
     term *it;
     while (!todo.empty()) {
         it = todo.back();
         todo.pop_back();
-        if (it->get_root().get_id() == r.get_id()) return true;
-        for (auto *ch : term::children(it)) { todo.push_back(ch->get_repr()); }
+        if (it->get_root().get_id() == r.get_id())
+            return true;
+        for (auto *ch : term::children(it))
+            todo.push_back(ch->get_repr()); 
     }
     return false;
 }
@@ -932,9 +932,9 @@ bool term_graph::makes_cycle(term *t) {
 void term_graph::refine_repr() {
     // invalidates cache
     m_term2app.reset();
-    for (term *t : m_terms) {
-        if (!t->get_repr()->is_cgr()) refine_repr_class(t->get_repr());
-    }
+    for (term *t : m_terms) 
+        if (!t->get_repr()->is_cgr())
+            refine_repr_class(t->get_repr());
 }
 
 // returns true if tg ==> e = v where v is a value
@@ -942,9 +942,11 @@ bool term_graph::has_val_in_class(expr *e) {
     term *r = get_term(e);
     if (!r) return false;
     auto is_val = [&](term *t) { return m.is_value(t->get_expr()); };
-    if (is_val(r)) return true;
+    if (is_val(r))
+        return true;
     for (term *it = &r->get_next(); it != r; it = &it->get_next())
-        if (is_val(it)) return true;
+        if (is_val(it))
+            return true;
     return false;
 }
 
@@ -952,11 +954,14 @@ bool term_graph::has_val_in_class(expr *e) {
 // else return nullptr
 app *term_graph::get_const_in_class(expr *e) {
     term *r = get_term(e);
-    if (!r) return nullptr;
+    if (!r)
+        return nullptr;
     auto is_const = [](term *t) { return is_uninterp_const(t->get_expr()); };
-    if (is_const(r)) return ::to_app(r->get_expr());
+    if (is_const(r))
+        return ::to_app(r->get_expr());
     for (term *it = &r->get_next(); it != r; it = &it->get_next())
-        if (is_const(it)) return ::to_app(it->get_expr());
+        if (is_const(it))
+            return ::to_app(it->get_expr());
     return nullptr;
 }
 

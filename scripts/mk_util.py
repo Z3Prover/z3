@@ -2664,7 +2664,7 @@ def mk_config():
             LDFLAGS = '%s -static-libgcc -static-libstdc++' % LDFLAGS
         if sysname == 'Linux' and machine.startswith('armv7') or machine.startswith('armv8'):
             CXXFLAGS = '%s -fpic' % CXXFLAGS
-        if IS_OSX and IS_ARCH_ARM64:
+        if IS_ARCH_ARM64:
             print("Setting arm64")
             CXXFLAGS = '%s -arch arm64' % CXXFLAGS
             LDFLAGS = '%s -arch arm64' % LDFLAGS
