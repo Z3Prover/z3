@@ -825,7 +825,10 @@ bool term_graph::term_lt(term const &t1, term const &t2) {
 bool all_children_picked(term *t) {
     if (t->deg() == 0)
         return true;
-    return all_of(term::children(t), [](term* c) { return c->get_repr(); });
+    for (term *c : term::children(t)) 
+        if (!c->get_repr())
+            return false;
+    return true;
 }
 
 // pick representatives for all terms in todo. Then, pick representatives for
