@@ -23,7 +23,7 @@ struct solver::imp {
     reslimit&                 m_limit;  
     params_ref                m_params; 
     u_map<polynomial::var>    m_lp2nl;  // map from lar_solver variables to nlsat::solver variables        
-    u_set                 m_term_set;
+    indexed_uint_set                 m_term_set;
     scoped_ptr<nlsat::solver> m_nlsat;
     scoped_ptr<scoped_anum>   m_zero;
     mutable variable_map_type m_variable_values; // current model        
@@ -55,7 +55,7 @@ struct solver::imp {
         m_zero = nullptr;
         m_nlsat = alloc(nlsat::solver, m_limit, m_params, false);
         m_zero = alloc(scoped_anum, am());
-        m_term_set.clear();
+        m_term_set.reset();
         m_lp2nl.reset();
         vector<nlsat::assumption, false> core;
 
@@ -182,7 +182,7 @@ struct solver::imp {
         m_nlsat = alloc(nlsat::solver, m_limit, m_params, false);
         m_zero = alloc(scoped_anum, am());
         m_lp2nl.reset();
-        m_term_set.clear();
+        m_term_set.reset();
         for (auto const& eq : eqs)
             add_eq(eq);
         for (auto const& [v, w] : m_lp2nl) {
@@ -283,8 +283,6 @@ struct solver::imp {
             r = m_nlsat->mk_var(is_int(v));
             m_lp2nl.insert(v, r);
             if (!m_term_set.contains(v) && s.column_corresponds_to_term(v)) {
-                if (v >= m_term_set.data_size())
-                    m_term_set.resize(v + 1);
                 m_term_set.insert(v);
             }
         }

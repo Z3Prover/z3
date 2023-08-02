@@ -32,7 +32,7 @@ namespace lp {
 template <typename T> struct numeric_pair; // forward definition
 class lar_solver; // forward definition
 class random_updater {
-    u_set           m_var_set;
+    indexed_uint_set           m_var_set;
     lar_solver &    m_lar_solver;
     unsigned        m_range;
     bool shift_var(unsigned j);

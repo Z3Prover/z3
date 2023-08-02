@@ -85,14 +85,14 @@ class lar_solver : public column_namer {
     stacked_vector<ul_pair> m_columns_to_ul_pairs;
     constraint_set m_constraints;
     // the set of column indices j such that bounds have changed for j
-    u_set m_columns_with_changed_bounds;
-    u_set m_touched_rows;
+    indexed_uint_set m_columns_with_changed_bounds;
+    indexed_uint_set m_touched_rows;
     unsigned_vector m_row_bounds_to_replay;
 
-    u_set m_basic_columns_with_changed_cost;
+    indexed_uint_set m_basic_columns_with_changed_cost;
     // these are basic columns with the value changed, so the corresponding row in the tableau
     // does not sum to zero anymore
-    u_set m_incorrect_columns;
+    indexed_uint_set m_incorrect_columns;
     // copy of m_r_solver.inf_heap()
     unsigned_vector m_inf_index_copy;
     stacked_value<unsigned> m_term_count;
@@ -134,8 +134,7 @@ class lar_solver : public column_namer {
     void add_basic_var_to_core_fields();
     bool compare_values(impq const& lhs, lconstraint_kind k, const mpq& rhs);
 
-    inline void clear_columns_with_changed_bounds() { m_columns_with_changed_bounds.clear(); }
-    inline void increase_by_one_columns_with_changed_bounds() { m_columns_with_changed_bounds.increase_size_by_one(); }
+    inline void clear_columns_with_changed_bounds() { m_columns_with_changed_bounds.reset(); }
     void insert_to_columns_with_changed_bounds(unsigned j);
     void update_column_type_and_bound_check_on_equal(unsigned j, lconstraint_kind kind, const mpq& right_side, constraint_index constr_index, unsigned&);
     void update_column_type_and_bound(unsigned j, lconstraint_kind kind, const mpq& right_side, constraint_index constr_index);
@@ -177,7 +176,7 @@ class lar_solver : public column_namer {
     }
 
     static void clean_popped_elements_for_heap(unsigned n, lpvar_heap& set);
-    static void clean_popped_elements(unsigned n, u_set& set);
+    static void clean_popped_elements(unsigned n, indexed_uint_set& set);
     bool maximize_term_on_tableau(const lar_term& term,
                                   impq& term_max);
     bool costs_are_zeros_for_r_solver() const;
@@ -356,7 +355,7 @@ class lar_solver : public column_namer {
         // and add fixed columns this way     
 
         
-        m_touched_rows.clear();
+        m_touched_rows.reset();
     }
 
     template <typename T>

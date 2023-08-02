@@ -46,7 +46,7 @@ namespace lp {
         vector<T> m_costs_backup;
         unsigned m_inf_row_index_for_tableau;
         bool m_bland_mode_tableau;
-        u_set m_left_basis_tableau;
+        indexed_uint_set m_left_basis_tableau;
         unsigned m_bland_mode_threshold;
         unsigned m_left_basis_repeated;
         vector<unsigned> m_leaving_candidates;
@@ -627,8 +627,7 @@ namespace lp {
     void init_reduced_costs_tableau();
     void init_tableau_rows() {
         m_bland_mode_tableau = false;
-        m_left_basis_tableau.clear();
-        m_left_basis_tableau.resize(this->m_A.column_count());
+        m_left_basis_tableau.reset();
         m_left_basis_repeated = 0;
     }
     // stage1 constructor

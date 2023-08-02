@@ -318,10 +318,10 @@ public:
         return *this;
     }
 };
+
 // Implements a set of unsigned integers.
 // The class does not support boolean operations.
 // The iterator is efficient : it is just an iterator on an array.
-
 class indexed_uint_set {
     unsigned        m_size;
     unsigned_vector m_elems;
@@ -340,7 +340,6 @@ public:
         m_size++;
         SASSERT(contains(x));
     }
-    
     void remove(unsigned x) {
         SASSERT(contains(x));
         unsigned y = m_elems[--m_size];
@@ -359,10 +358,16 @@ public:
         return m_elems[index];
     }
 
+    unsigned operator[](unsigned index) const {
+        SASSERT(index < m_size);
+        return m_elems[index];
+    }    
+
     bool contains(unsigned x) const { return x < m_index.size() && m_index[x] < m_size && m_elems[m_index[x]] == x; }
     void reset() { m_size = 0; }
     bool empty() const { return m_size == 0; }    
     unsigned size() const { return m_size; }
+    // todo: consider to rename max_var to capacity.
     unsigned max_var() const { return m_index.size(); }
     typedef  unsigned_vector::const_iterator iterator;
     iterator begin() const { return m_elems.begin(); }
@@ -373,98 +378,4 @@ public:
 inline std::ostream& operator<<(std::ostream& out, indexed_uint_set const& s) {
     for (unsigned i : s) out << i << " ";
     return out;
-}
-// Implements a set of unsigned integers.
-// The class does not support boolean operations.
-// The iterator is efficient : it is just an iterator on an array.
-// Contains and insert method are slightly faster than in indexed_uint_set.
-// The class has a constructor that takes the maximum value that can be stored in the set,
-// using this constructor can save the amount of resizing operations.
-
-class u_set {
-    svector<int> m_data;
-    unsigned_vector m_index;
-
-public:
-    u_set(unsigned size): m_data(size, -1) {}
-    u_set() {}
-    u_set(u_set const& other):
-        m_data(other.m_data),
-        m_index(other.m_index) {}
-
-    bool contains(unsigned j) const {
-        if (j >= m_data.size())
-            return false;
-        return m_data[j] >= 0;
-    }
-    void insert(unsigned j) {
-        SASSERT(j < m_data.size());
-        if (contains(j)) return;
-        m_data[j] = m_index.size();
-        m_index.push_back(j);
-    }
-    void erase(unsigned j) {
-        if (!contains(j)) return;
-        unsigned pos_j = m_data[j];
-        unsigned last_pos = m_index.size() - 1;
-        int last_j = m_index[last_pos];
-        if (last_pos != pos_j) {
-            // move last to j spot
-            m_data[last_j] = pos_j;
-            m_index[pos_j] = last_j;
-        }
-        m_index.pop_back();
-        m_data[j] = -1;
-    }
-
-    int operator[](unsigned j) const { return m_index[j]; }
-    
-    void resize(unsigned size) {
-        if (size < data_size()) {
-            bool copy = false;
-            unsigned i = 0;
-            for (unsigned j : m_index) {
-                if (j < size) {
-                    if (copy) {
-                        m_data[j] = i;
-                        m_index[i] = j;
-                    }
-                    i++;
-                } else {
-                    copy = true;
-                }
-            }
-            m_index.shrink(i);
-        }
-        m_data.resize(size, -1);
-    }
-
-    void increase_size_by_one() {
-        resize(m_data.size() + 1);
-    }
-   // returns the capacity of the set
-    unsigned data_size() const {  return m_data.size(); }
-    // returns the number of elements in the set
-    unsigned size() const { return m_index.size();}
-    bool empty() const { return size() == 0; }
-    void clear() {
-        for (unsigned j : m_index)
-            m_data[j] = -1;
-        m_index.resize(0);
-    }
-
-    std::ostream& display(std::ostream& out) const {
-        for (unsigned j : m_index) {
-            out << j << " ";
-        }
-        out << std::endl;
-        return out;
-    }
-    const unsigned * begin() const { return m_index.begin(); }
-    const unsigned * end() const { return m_index.end(); }
-    const unsigned_vector& index() { return m_index; }
-};
-
-inline std::ostream& operator<<(std::ostream& out, u_set const& s) {
-    return s.display(out);
 }

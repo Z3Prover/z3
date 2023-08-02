@@ -234,13 +234,13 @@ namespace lp {
         m_usage_in_terms.push();
     }
     
-    void lar_solver::clean_popped_elements(unsigned n, u_set& set) {
+    void lar_solver::clean_popped_elements(unsigned n, indexed_uint_set& set) {
         vector<int> to_remove;
         for (unsigned j : set)
             if (j >= n)
                 to_remove.push_back(j);
         for (unsigned j : to_remove)
-            set.erase(j);
+            set.remove(j);
     }
 
     void lar_solver::clean_popped_elements_for_heap(unsigned n, lpvar_heap& heap) {
@@ -361,7 +361,6 @@ namespace lp {
 
     void lar_solver::prepare_costs_for_r_solver(const lar_term& term) {
         TRACE("lar_solver", print_term(term, tout << "prepare: ") << "\n";);
-        m_basic_columns_with_changed_cost.resize(m_mpq_lar_core_solver.m_r_x.size());
         move_non_basic_columns_to_bounds(false);
         auto& rslv = m_mpq_lar_core_solver.m_r_solver;
         lp_assert(costs_are_zeros_for_r_solver());
@@ -628,12 +627,13 @@ namespace lp {
 
     void lar_solver::add_touched_row(unsigned rid) {
         if (m_settings.bound_propagation())
-            m_touched_rows.insert(rid);
+            if (!m_touched_rows.contains(rid))
+          	    m_touched_rows.insert(rid);
     }
 
     void lar_solver::remove_fixed_vars_from_base() {
 	   // this will allow to disable and restore the tracking of the touched rows
-        flet<u_set*> f(m_mpq_lar_core_solver.m_r_solver.m_touched_rows, nullptr);
+        flet<indexed_uint_set*> f(m_mpq_lar_core_solver.m_r_solver.m_touched_rows, nullptr);
         unsigned num = A_r().column_count();
         unsigned_vector to_remove;
         for (unsigned j : m_fixed_base_var_set) {
@@ -766,9 +766,7 @@ namespace lp {
 
     void lar_solver::solve_with_core_solver() {
         m_mpq_lar_core_solver.prefix_r();
-        if (costs_are_used()) {
-            m_basic_columns_with_changed_cost.resize(m_mpq_lar_core_solver.m_r_x.size());
-        }
+       
         update_x_and_inf_costs_for_columns_with_changed_bounds_tableau();
         m_mpq_lar_core_solver.solve();
         set_status(m_mpq_lar_core_solver.m_r_solver.get_status());
@@ -1487,7 +1485,6 @@ namespace lp {
     void lar_solver::add_non_basic_var_to_core_fields(unsigned ext_j, bool is_int) {
         register_new_ext_var_index(ext_j, is_int);
         m_mpq_lar_core_solver.m_column_types.push_back(column_type::free_column);
-        increase_by_one_columns_with_changed_bounds();
         add_new_var_to_core_fields_for_mpq(false); // false for not adding a row        
     }
     
@@ -1641,9 +1638,6 @@ namespace lp {
 
     void lar_solver::add_basic_var_to_core_fields() {
         m_mpq_lar_core_solver.m_column_types.push_back(column_type::free_column);
-        increase_by_one_columns_with_changed_bounds();
-        m_incorrect_columns.increase_size_by_one();
-        m_touched_rows.increase_size_by_one();
         add_new_var_to_core_fields_for_mpq(true);
     }
 
@@ -1798,7 +1792,8 @@ namespace lp {
         TRACE("lar_solver_feas", tout << "j = " << j << " became " << (this->column_is_feasible(j)?"feas":"non-feas") << ", and " << (this->column_is_bounded(j)? "bounded":"non-bounded") << std::endl;);    
     }
     void lar_solver::insert_to_columns_with_changed_bounds(unsigned j) {
-        m_columns_with_changed_bounds.insert(j);
+        if (!m_columns_with_changed_bounds.contains(j))
+            m_columns_with_changed_bounds.insert(j);
         TRACE("lar_solver", tout << "column " << j << (column_is_feasible(j) ? " feas" : " non-feas") << "\n";);
     }
     void lar_solver::update_column_type_and_bound_check_on_equal(unsigned j,
@@ -2122,7 +2117,6 @@ namespace lp {
 
 
     void lar_solver::round_to_integer_solution() {
-        m_incorrect_columns.resize(column_count());
         for (unsigned j = 0; j < column_count(); j++) {
             if (!column_is_int(j)) continue;
             if (column_corresponds_to_term(j)) continue;
@@ -2144,7 +2138,7 @@ namespace lp {
         }
         if (!m_incorrect_columns.empty()) {
             fix_terms_with_rounded_columns();
-            m_incorrect_columns.clear();
+            m_incorrect_columns.reset();
         }
     }
 

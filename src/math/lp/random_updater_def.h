@@ -32,7 +32,6 @@ random_updater::random_updater(
                                const vector<unsigned> & column_indices) :
     m_lar_solver(lar_solver),
     m_range(100000) {
-    m_var_set.resize(m_lar_solver.number_of_vars());
     for (unsigned j : column_indices)
         m_var_set.insert(j);
     TRACE("lar_solver_rand", tout << "size = " << m_var_set.size() << "\n";);
@@ -45,7 +44,9 @@ bool random_updater::shift_var(unsigned j) {
     if (ret) {
         const auto & A = m_lar_solver.A_r();
         for (const auto& c : A.m_columns[j]) {
-            m_var_set.erase(m_lar_solver.r_basis()[c.var()]);
+            unsigned basis_var = m_lar_solver.r_basis()[c.var()];
+            if (m_var_set.contains(basis_var))
+                m_var_set.remove(basis_var);
         }
     }
     return ret;
@@ -54,7 +55,10 @@ bool random_updater::shift_var(unsigned j) {
 
 void random_updater::update() {
     // VERIFY(m_lar_solver.check_feasible());
-    auto columns = m_var_set.index();  // m_var_set is going to change during the loop
+    unsigned_vector columns; 
+    for (unsigned k: m_var_set) {// m_var_set is going to change during the loop, so make a copy
+        columns.push_back(k);
+    }
     for (auto j : columns) {
         if (!m_var_set.contains(j)) {
             TRACE("lar_solver_rand", tout << "skipped " << j << "\n";);

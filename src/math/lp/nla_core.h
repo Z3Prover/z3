@@ -84,7 +84,7 @@ class core {
     reslimit&                m_reslim;
     std::function<bool(lpvar)> m_relevant;
     vector<lemma> *          m_lemma_vec;
-    u_set                    m_to_refine;
+    indexed_uint_set                    m_to_refine;
     tangents                 m_tangents;
     basics                   m_basics;
     order                    m_order;
@@ -99,7 +99,7 @@ class core {
     grobner                  m_grobner;
     emonics                  m_emons;
     svector<lpvar>           m_add_buffer;
-    mutable u_set            m_active_var_set;
+    mutable indexed_uint_set            m_active_var_set;
 
     reslimit                 m_nra_lim;
 
@@ -118,17 +118,16 @@ public:
     void insert_to_refine(lpvar j);
     void erase_from_to_refine(lpvar j);
     
-    const u_set&  active_var_set () const { return m_active_var_set;}
+    const indexed_uint_set&  active_var_set () const { return m_active_var_set;}
     bool active_var_set_contains(unsigned j) const { return m_active_var_set.contains(j); }
 
-    void insert_to_active_var_set(unsigned j) const { m_active_var_set.insert(j); }    
+    void insert_to_active_var_set(unsigned j) const { 
+        if (!m_active_var_set.contains(j))
+            m_active_var_set.insert(j); 
+    }    
 
-    void clear_active_var_set() const { m_active_var_set.clear(); }
+    void clear_active_var_set() const { m_active_var_set.reset(); }
 
-    void clear_and_resize_active_var_set() const {
-        m_active_var_set.clear();
-        m_active_var_set.resize(m_lar_solver.number_of_vars());
-    }
     
     unsigned get_var_weight(lpvar) const;
 

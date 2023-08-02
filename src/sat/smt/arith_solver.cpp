@@ -847,8 +847,7 @@ namespace arith {
         if (m_nla)
             return;
         TRACE("arith", tout << s().scope_lvl() << "\n"; tout.flush(););
-        m_tmp_var_set.clear();
-        m_tmp_var_set.resize(get_num_vars());
+        m_tmp_var_set.reset();
         m_model_eqs.reset();
         svector<lpvar> vars;
         theory_var sz = static_cast<theory_var>(get_num_vars());
