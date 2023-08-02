@@ -9,6 +9,7 @@ Version 4.next
   - polysat
     - native word level bit-vector solving.
   - introduction of simple induction lemmas to handle a limited repertoire of induction proofs.
+  - Light quantifier elimination based on term graphs (egraphs), and corresponding Model Based Projection for arrays and ADTs. Used by Spacer and QSAT.
 
 Version 4.12.3
 ==============

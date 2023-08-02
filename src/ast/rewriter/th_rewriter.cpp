@@ -39,6 +39,7 @@ Notes:
 #include "ast/ast_util.h"
 #include "ast/well_sorted.h"
 #include "ast/for_each_expr.h"
+#include "ast/array_peq.h"
 
 namespace {
 struct th_rewriter_cfg : public default_rewriter_cfg {
@@ -644,6 +645,10 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             else
                 st = pull_ite(result);
         }
+        if (st == BR_FAILED && f->get_family_id() == null_family_id && is_partial_eq(f)) {
+            st = m_ar_rw.mk_app_core(f,  num, args, result);
+        }
+
         CTRACE("th_rewriter_step", st != BR_FAILED,
                tout << f->get_name() << "\n";
                for (unsigned i = 0; i < num; i++) tout << mk_ismt2_pp(args[i], m()) << "\n";

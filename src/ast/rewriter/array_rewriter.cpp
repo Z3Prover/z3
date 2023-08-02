@@ -24,6 +24,7 @@ Notes:
 #include "ast/rewriter/var_subst.h"
 #include "params/array_rewriter_params.hpp"
 #include "util/util.h"
+#include "ast/array_peq.h"
 
 void array_rewriter::updt_params(params_ref const & _p) {
     array_rewriter_params p(_p);
@@ -40,8 +41,48 @@ void array_rewriter::get_param_descrs(param_descrs & r) {
 }
 
 br_status array_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
+    br_status st = BR_FAILED;
+
+    // BEGIN: rewrite rules for PEQs
+    if (is_partial_eq(f)) {
+        SASSERT(num_args >= 2);
+        expr *e0, *e1;
+        e0 = args[0];
+        e1 = args[1];
+
+        expr_ref a(m()), val(m());
+        expr_ref_vector vindex(m());
+
+        if (e0 == e1) {
+            // t peq t --> true
+            result = m().mk_true();
+            st = BR_DONE;
+        }
+        else if (m_util.is_store_ext(e0, a, vindex, val)) {
+            if (num_args == 2 && a == e1) {
+                // (a[i := x] peq_{\emptyset} a) ---> a[i] == x
+                mk_select(vindex.size(), vindex.data(), result);
+                result = m().mk_eq(result, val);
+                st = BR_REWRITE_FULL;
+            }
+            else if (a == e1 && vindex.size() == num_args + 2) {
+                // a [i: = x] peq_{i} a -- > true
+                bool all_eq = true;
+                for (unsigned i = 0, sz = vindex.size(); all_eq && i < sz;
+                     ++i) {
+                    all_eq &= vindex.get(i) == args[2+i];
+                }
+                if (all_eq) {
+                    result = m().mk_true();
+                    st = BR_DONE;
+                }
+            }
+        }
+        return st;
+    }
+    // END: rewrite rules for PEQs
+
     SASSERT(f->get_family_id() == get_fid());
-    br_status st;
     switch (f->get_decl_kind()) {
     case OP_SELECT:
         st = mk_select_core(num_args, args, result);

@@ -30,6 +30,7 @@ class tactic;
 class qe_lite {
     class impl;
     impl * m_impl;
+
 public:
     /** 
         use_array_der controls whether equalities over array reads are simplified

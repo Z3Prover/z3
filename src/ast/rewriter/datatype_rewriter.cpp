@@ -21,7 +21,8 @@ Notes:
 br_status datatype_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
     SASSERT(f->get_family_id() == get_fid());
     switch(f->get_decl_kind()) {
-    case OP_DT_CONSTRUCTOR: return BR_FAILED;
+    case OP_DT_CONSTRUCTOR:
+        return BR_FAILED;
     case OP_DT_RECOGNISER:
         SASSERT(num_args == 1);
         result = m_util.mk_is(m_util.get_recognizer_constructor(f), args[0]);

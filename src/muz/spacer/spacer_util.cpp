@@ -34,6 +34,7 @@ Notes:
 #include "ast/ast_pp.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/datatype_decl_plugin.h"
+#include "ast/expr_functors.h"
 #include "ast/for_each_expr.h"
 #include "ast/occurs.h"
 #include "ast/rewriter/bool_rewriter.h"
@@ -51,7 +52,7 @@ Notes:
 #include "model/model_smt2_pp.h"
 #include "smt/params/smt_params.h"
 
-#include "qe/lite/qe_lite_tactic.h"
+#include "qe/lite/qel.h"
 #include "qe/mbp/mbp_plugin.h"
 #include "qe/mbp/mbp_term_graph.h"
 #include "qe/qe_mbp.h"
@@ -68,6 +69,21 @@ Notes:
 #include "muz/spacer/spacer_util.h"
 
 namespace spacer {
+
+class contains_def_pred : public i_expr_pred {
+        array_util m_autil;
+    public:
+        contains_def_pred(ast_manager& m): m_autil(m) {}
+        bool operator()(expr* e) override {
+            return m_autil.is_default(e);
+        }
+};
+
+bool contains_defaults(expr *fml, ast_manager &m) {
+    contains_def_pred pred(m);
+    check_pred check(pred, m, false);
+    return check(fml);
+}
 
 bool is_clause(ast_manager &m, expr *n) {
     if (spacer::is_literal(m, n)) return true;
@@ -173,7 +189,7 @@ void qe_project_spacer(ast_manager &m, app_ref_vector &vars, expr_ref &fml,
 
     while (true) {
         params_ref p;
-        qe_lite qe(m, p, false);
+        qel qe(m, p);
         qe(vars, fml);
         rw(fml);
 

@@ -18,25 +18,127 @@ Revision History:
 
 --*/
 
-#include "ast/rewriter/expr_safe_replace.h"
+#include "qe/qe_mbp.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_util.h"
-#include "ast/occurs.h"
-#include "ast/rewriter/th_rewriter.h"
 #include "ast/expr_functors.h"
 #include "ast/for_each_expr.h"
+#include "ast/occurs.h"
+#include "ast/rewriter/expr_safe_replace.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/rewriter.h"
+#include "ast/rewriter/rewriter_def.h"
 #include "ast/scoped_proof.h"
-#include "qe/qe_mbp.h"
+#include "util/gparams.h"
+#include "model/model_evaluator.h"
+#include "model/model_pp.h"
+#include "qe/lite/qe_lite_tactic.h"
+#include "qe/lite/qel.h"
 #include "qe/mbp/mbp_arith.h"
 #include "qe/mbp/mbp_arrays.h"
+#include "qe/mbp/mbp_qel.h"
 #include "qe/mbp/mbp_datatypes.h"
-#include "qe/lite/qe_lite_tactic.h"
-#include "model/model_pp.h"
-#include "model/model_evaluator.h"
-
 
 using namespace qe;
 
+namespace  {
+// rewrite select(store(a, i, k), j) into k if m \models i = j and select(a, j) if m \models i != j
+    struct rd_over_wr_rewriter : public default_rewriter_cfg {
+            ast_manager &m;
+            array_util m_arr;
+            model_evaluator m_eval;
+            expr_ref_vector m_sc;
+
+            rd_over_wr_rewriter(ast_manager& man, model& mdl): m(man), m_arr(m), m_eval(mdl), m_sc(m) {
+                m_eval.set_model_completion(false);
+            }
+
+            br_status reduce_app(func_decl *f, unsigned num, expr *const *args,
+                                 expr_ref &result, proof_ref &result_pr) {
+                if (m_arr.is_select(f) && m_arr.is_store(args[0])) {
+                    expr_ref ind1(m), ind2(m);
+                    ind1 = m_eval(args[1]);
+                    ind2 = m_eval(to_app(args[0])->get_arg(1));
+                    if (ind1 == ind2) {
+                        result = to_app(args[0])->get_arg(2);
+                        m_sc.push_back(m.mk_eq(args[1], to_app(args[0])->get_arg(1)));
+                        return BR_DONE;
+                    }
+                    m_sc.push_back(m.mk_not(m.mk_eq(args[1], to_app(args[0])->get_arg(1))));
+                    expr_ref_vector new_args(m);
+                    new_args.push_back(to_app(args[0])->get_arg(0));
+                    new_args.push_back(args[1]);
+                    result = m_arr.mk_select(new_args);
+                    return BR_REWRITE1;
+                }
+                return BR_FAILED;
+            }
+    };
+// rewrite all occurrences of (as const arr c) to (as const arr v) where v = m_eval(c)
+    struct app_const_arr_rewriter : public default_rewriter_cfg {
+            ast_manager &m;
+            array_util m_arr;
+            datatype_util m_dt_util;
+            model_evaluator m_eval;
+            expr_ref val;
+
+            app_const_arr_rewriter(ast_manager& man, model& mdl): m(man), m_arr(m), m_dt_util(m), m_eval(mdl), val(m) {
+                m_eval.set_model_completion(false);
+            }
+            br_status reduce_app(func_decl *f, unsigned num, expr *const *args,
+                                 expr_ref &result, proof_ref &result_pr) {
+                if (m_arr.is_const(f) && !m.is_value(args[0])) {
+                    val = m_eval(args[0]);
+                    SASSERT(m.is_value(val));
+                    result = m_arr.mk_const_array(f->get_range(), val);
+                    return BR_DONE;
+                }
+                if (m_dt_util.is_constructor(f)) {
+                    // cons(head(x), tail(x)) --> x
+                    ptr_vector<func_decl> const *accessors =
+                        m_dt_util.get_constructor_accessors(f);
+
+                    SASSERT(num == accessors->size());
+                    // -- all accessors must have exactly one argument
+                    if (any_of(*accessors, [&](const func_decl* acc) { return acc->get_arity() != 1; })) {
+                        return BR_FAILED;
+                    }
+
+                    if (num >= 1 && is_app(args[0]) && to_app(args[0])->get_decl() == accessors->get(0)) {
+                        bool is_all = true;
+                        expr* t = to_app(args[0])->get_arg(0);
+                        for(unsigned i = 1; i < num && is_all; ++i) {
+                            is_all &= (is_app(args[i]) &&
+                                       to_app(args[i])->get_decl() == accessors->get(i) &&
+                                       to_app(args[i])->get_arg(0) == t);
+                        }
+                        if (is_all) {
+                            result = t;
+                            return BR_DONE;
+                        }
+                    }
+                }
+                return BR_FAILED;
+            }
+    };
+}
+void rewrite_as_const_arr(expr* in, model& mdl, expr_ref& out) {
+    app_const_arr_rewriter cfg(out.m(), mdl);
+    rewriter_tpl<app_const_arr_rewriter> rw(out.m(), false, cfg);
+    rw(in, out);
+}
+
+void rewrite_read_over_write(expr *in, model &mdl, expr_ref &out) {
+    rd_over_wr_rewriter cfg(out.m(), mdl);
+    rewriter_tpl<rd_over_wr_rewriter> rw(out.m(), false, cfg);
+    rw(in, out);
+    if (cfg.m_sc.empty()) return;
+    expr_ref_vector sc(out.m());
+    SASSERT(out.m().is_and(out));
+    flatten_and(out, sc);
+    sc.append(cfg.m_sc);
+    out = mk_and(sc);
+}
 
 class mbproj::impl {
     ast_manager& m;
@@ -47,6 +149,7 @@ class mbproj::impl {
     // parameters
     bool m_reduce_all_selects;
     bool m_dont_sub;
+    bool m_use_qel;
 
     void add_plugin(mbp::project_plugin* p) {
         family_id fid = p->get_family_id();
@@ -253,9 +356,35 @@ public:
         m_params.append(p);
         m_reduce_all_selects = m_params.get_bool("reduce_all_selects", false);
         m_dont_sub = m_params.get_bool("dont_sub", false);
+        auto q = gparams::get_module("smt");
+        m_params.append(q);
+        m_use_qel = m_params.get_bool("qsat_use_qel", true);
     }
 
     void preprocess_solve(model& model, app_ref_vector& vars, expr_ref_vector& fmls) {
+        if (m_use_qel) {
+            extract_literals(model, vars, fmls);
+            expr_ref e(m);
+            bool change = true;
+            while (change && !vars.empty()) {
+                change = false;
+                e = mk_and(fmls);
+                do_qel(vars, e);
+                fmls.reset();
+                flatten_and(e, fmls);
+                for (auto* p : m_plugins) {
+                    if (p && p->solve(model, vars, fmls)) {
+                        change = true;
+                    }
+                }
+            }
+            //rewrite as_const_arr terms
+            expr_ref fml(m);
+            fml = mk_and(fmls);
+            rewrite_as_const_arr(fml, model, fml);
+            flatten_and(fml, fmls);
+        }
+        else {
         extract_literals(model, vars, fmls);
         bool change = true;
         while (change && !vars.empty()) {
@@ -267,6 +396,7 @@ public:
             }
         }
     }
+    }
 
     bool validate_model(model& model, expr_ref_vector const& fmls) {
         for (expr* f : fmls) {
@@ -276,6 +406,22 @@ public:
     }
 
     void operator()(bool force_elim, app_ref_vector& vars, model& model, expr_ref_vector& fmls) {
+            if (m_use_qel) {
+                bool dsub = m_dont_sub;
+                m_dont_sub = !force_elim;
+                expr_ref fml(m);
+                fml = mk_and(fmls);
+                spacer_qel(vars, model, fml);
+                fmls.reset();
+                flatten_and(fml, fmls);
+                m_dont_sub = dsub;
+            }
+            else {
+                mbp(force_elim, vars, model, fmls);
+            }
+        }
+
+    void mbp(bool force_elim, app_ref_vector& vars, model& model, expr_ref_vector& fmls) {
         SASSERT(validate_model(model, fmls));
         expr_ref val(m), tmp(m);
         app_ref var(m);
@@ -341,6 +487,17 @@ public:
         SASSERT(!m.is_false(fml));
     }
 
+
+    void do_qel(app_ref_vector &vars, expr_ref &fml) {
+        qel qe(m, m_params);
+        qe(vars, fml);
+        m_rw(fml);
+        TRACE("qe", tout << "After qel:\n"
+                         << fml << "\n"
+                         << "Vars: " << vars << "\n";);
+        SASSERT(!m.is_false(fml));
+    }
+
     void do_qe_bool(model& mdl, app_ref_vector& vars, expr_ref& fml) {
         expr_ref_vector fmls(m);
         fmls.push_back(fml);
@@ -348,7 +505,86 @@ public:
         fml = mk_and(fmls);
     }
 
+  void qel_project(app_ref_vector &vars, model &mdl, expr_ref &fml, bool reduce_all_selects) {
+      flatten_and(fml);
+      mbp::mbp_qel mbptg(m, m_params);
+      mbptg(vars, fml, mdl);
+      if (reduce_all_selects) rewrite_read_over_write(fml, mdl, fml);
+      m_rw(fml);
+      TRACE("qe", tout << "After mbp_tg:\n"
+            << fml << " models " << mdl.is_true(fml) << "\n"
+            << "Vars: " << vars << "\n";);
+  }
+
+    void spacer_qel(app_ref_vector& vars, model& mdl, expr_ref& fml) {
+        TRACE("qe", tout << "Before projection:\n" << fml << "\n" << "Vars: " << vars << "\n";);
+
+        model_evaluator eval(mdl, m_params);
+        eval.set_model_completion(true);
+        app_ref_vector other_vars(m);
+        app_ref_vector sub_vars(m);
+        array_util arr_u(m);
+        arith_util ari_u(m);
+        datatype_util dt_u(m);
+
+        do_qel(vars, fml);
+        qel_project(vars, mdl, fml, m_reduce_all_selects);
+        flatten_and(fml);
+        m_rw(fml);
+        rewrite_as_const_arr(fml, mdl, fml);
+
+        for (app* v : vars) {
+            SASSERT(!arr_u.is_array(v) && !dt_u.is_datatype(v->get_sort()));
+            other_vars.push_back(v);
+        }
+
+        // project reals, ints and other variables.
+        if (!other_vars.empty()) {
+            TRACE("qe", tout << "Other vars: " << other_vars << "\n" << mdl;);
+
+            expr_ref_vector fmls(m);
+            flatten_and(fml, fmls);
+
+            mbp(false, other_vars, mdl, fmls);
+            fml = mk_and(fmls);
+            m_rw(fml);
+
+            TRACE("qe",
+                tout << "Projected other vars:\n" << fml << "\n";
+            tout << "Remaining other vars:\n" << other_vars << "\n";);
+            SASSERT(!m.is_false(fml));
+        }
+
+        if (!other_vars.empty()) {
+            project_vars(mdl, other_vars, fml);
+            m_rw(fml);
+        }
+
+        // substitute any remaining other vars
+        if (!m_dont_sub && !other_vars.empty()) {
+            subst_vars(eval, other_vars, fml);
+            TRACE("qe", tout << "After substituting remaining other vars:\n" << fml << "\n";);
+            // an extra round of simplification because subst_vars is not simplifying
+            m_rw(fml);
+            other_vars.reset();
+        }
+
+        SASSERT(!eval.is_false(fml));
+
+        vars.reset();
+        vars.append(other_vars);
+    }
+
     void spacer(app_ref_vector& vars, model& mdl, expr_ref& fml) {
+        if (m_use_qel) {
+            spacer_qel(vars, mdl, fml);
+        }
+        else {
+            spacer_qe_lite(vars, mdl, fml);
+        }
+    }
+
+    void spacer_qe_lite(app_ref_vector& vars, model& mdl, expr_ref& fml) {
         TRACE("qe", tout << "Before projection:\n" << fml << "\n" << "Vars: " << vars << "\n";);
 
         model_evaluator eval(mdl, m_params);
@@ -428,7 +664,6 @@ public:
         vars.reset();
         vars.append(other_vars);
     }
-
 };
 
 mbproj::mbproj(ast_manager& m, params_ref const& p) {
@@ -447,6 +682,7 @@ void mbproj::updt_params(params_ref const& p) {
 void mbproj::get_param_descrs(param_descrs& r) {
     r.insert("reduce_all_selects", CPK_BOOL, "(default: false) reduce selects");
     r.insert("dont_sub", CPK_BOOL, "(default: false) disable substitution of values for free variables");
+    r.insert("use_qel", CPK_BOOL, "(default: true) use egraph based QEL");
 }
 
 void mbproj::operator()(bool force_elim, app_ref_vector& vars, model& mdl, expr_ref_vector& fmls) {
@@ -468,3 +704,5 @@ opt::inf_eps mbproj::maximize(expr_ref_vector const& fmls, model& mdl, app* t, e
     scoped_no_proof _sp(fmls.get_manager());
     return m_impl->maximize(fmls, mdl, t, ge, gt);
 }
+template class rewriter_tpl<app_const_arr_rewriter>;
+template class rewriter_tpl<rd_over_wr_rewriter>;
