@@ -44,8 +44,8 @@ INSTALL_LIB_DIR=getenv("Z3_INSTALL_LIB_DIR", "lib")
 INSTALL_INCLUDE_DIR=getenv("Z3_INSTALL_INCLUDE_DIR", "include")
 INSTALL_PKGCONFIG_DIR=getenv("Z3_INSTALL_PKGCONFIG_DIR", os.path.join(INSTALL_LIB_DIR, 'pkgconfig'))
 
-CXX_COMPILERS=['g++', 'clang++', 'aarch64-linux-gnu-g++']
-C_COMPILERS=['gcc', 'clang', 'aarch64-linux-gnu-gcc']
+CXX_COMPILERS=['g++', 'clang++']
+C_COMPILERS=['gcc', 'clang']
 JAVAC=None
 JAR=None
 PYTHON_PACKAGE_DIR=sysconfig.get_path('purelib')
