@@ -84,12 +84,11 @@ namespace bv {
 
         case OP_BUDIV:            polysat_div_rem(a, true); break;
         case OP_BUREM:            polysat_div_rem(a, false); break;
-        case OP_BSDIV0:           break;
-        case OP_BUDIV0:           break;
-        case OP_BSREM0:           break;
-        case OP_BUREM0:           break;
-        case OP_BSMOD0:           break;
-        // TODO: what about those naked breaks above? is this handled elsewhere?
+        case OP_BSDIV0:           UNREACHABLE(); break;
+        case OP_BUDIV0:           UNREACHABLE(); break;
+        case OP_BSREM0:           UNREACHABLE(); break;
+        case OP_BUREM0:           UNREACHABLE(); break;
+        case OP_BSMOD0:           UNREACHABLE(); break;
 
         case OP_EXTRACT:          polysat_extract(a); break;
         case OP_CONCAT:           polysat_concat(a); break;
@@ -97,8 +96,9 @@ namespace bv {
         case OP_SIGN_EXT:         polysat_par_unary(a, [&](pdd const& p, unsigned sz) { return m_polysat.sign_ext(p, sz); }); break;
 
             // polysat::solver should also support at least:
-        case OP_BREDAND: // x == 2^K - 1
-        case OP_BREDOR:  // x > 0
+        case OP_BREDAND: // x == 2^K - 1        unary, return single bit, 1 if all input bits are set.
+        case OP_BREDOR:  // x > 0               unary, return single bit, 1 if at least one input bit is set.
+        case OP_BCOMP:   // x == y              binary, return single bit, 1 if the arguments are equal.
         case OP_BSDIV:            
         case OP_BSREM:            
         case OP_BSMOD:     
@@ -106,7 +106,6 @@ namespace bv {
         case OP_BSREM_I:                        
         case OP_BSMOD_I:
         case OP_BASHR:
-        case OP_BCOMP:
             std::cout << mk_pp(a, m) << "\n";
             NOT_IMPLEMENTED_YET();
             return;
