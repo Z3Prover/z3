@@ -50,7 +50,7 @@
 #include "math/lp/nla_solver.h"
 #include "math/lp/numeric_pair.h"
 #include "math/lp/static_matrix.h"
-#include "math/lp/u_set.h"
+#include "util/uint_set.h"
 #include "test/lp/argument_parser.h"
 #include "test/lp/gomory_test.h"
 #include "test/lp/smt_reader.h"
@@ -1072,20 +1072,18 @@ void test_bound_propagation() {
 }
 
 void test_int_set() {
-    u_set s(4);
-    s.insert(2);
+    indexed_uint_set s;
     s.insert(1);
     s.insert(2);
     lp_assert(s.contains(2));
     lp_assert(s.size() == 2);
-    s.erase(2);
-    lp_assert(s.size() == 1);
-    s.erase(2);
+    s.remove(2);
     lp_assert(s.size() == 1);
     s.insert(3);
     s.insert(2);
-    s.clear();
+    s.reset();
     lp_assert(s.size() == 0);
+    std::cout << "done test_int_set\n";
 }
 
 void test_rationals_no_numeric_pairs() {

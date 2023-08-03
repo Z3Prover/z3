@@ -828,14 +828,14 @@ void core::insert_to_refine(lpvar j) {
 
 void core::erase_from_to_refine(lpvar j) {
     TRACE("lar_solver", tout << "j=" << j << '\n';);
-    m_to_refine.erase(j);
+    if (m_to_refine.contains(j))
+        m_to_refine.remove(j);
 }
 
 
 void core::init_to_refine() {
     TRACE("nla_solver_details", tout << "emons:" << pp_emons(*this, m_emons););
-    m_to_refine.clear();
-    m_to_refine.resize(m_lar_solver.number_of_vars());
+    m_to_refine.reset();
     unsigned r = random(), sz = m_emons.number_of_monics();
     for (unsigned k = 0; k < sz; k++) {
         auto const & m = *(m_emons.begin() + (k + r)% sz);
@@ -1407,8 +1407,12 @@ void core::patch_monomial(lpvar j) {
 }
 
 void core::patch_monomials_on_to_refine() {
-    auto to_refine = m_to_refine.index();
     // the rest of the function might change m_to_refine, so have to copy
+    unsigned_vector to_refine;
+    for (unsigned j :m_to_refine) {
+        to_refine.push_back(j);
+    }
+    
     unsigned sz = to_refine.size();
 
     unsigned start = random();
