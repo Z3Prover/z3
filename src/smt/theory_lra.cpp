@@ -168,7 +168,7 @@ class theory_lra::imp {
     
     svector<std::pair<theory_var, theory_var> >       m_assume_eq_candidates; 
     unsigned                                          m_assume_eq_head;
-    lp::u_set                                         m_tmp_var_set;
+    indexed_uint_set                                         m_tmp_var_set;
     
     unsigned                                          m_num_conflicts;
 
@@ -1493,8 +1493,7 @@ public:
     void random_update() {
         if (m_nla && m_nla->need_check())
             return;
-        m_tmp_var_set.clear();
-        m_tmp_var_set.resize(th.get_num_vars());
+        m_tmp_var_set.reset();
         m_model_eqs.reset();
         svector<lpvar> vars;
         theory_var sz = static_cast<theory_var>(th.get_num_vars());

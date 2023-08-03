@@ -50,7 +50,7 @@
 #include "math/lp/nla_solver.h"
 #include "math/lp/numeric_pair.h"
 #include "math/lp/static_matrix.h"
-#include "math/lp/u_set.h"
+#include "util/uint_set.h"
 #include "test/lp/argument_parser.h"
 #include "test/lp/gomory_test.h"
 #include "test/lp/smt_reader.h"
@@ -1072,7 +1072,7 @@ void test_bound_propagation() {
 }
 
 void test_int_set() {
-    u_set s(4);
+    indexed_uint_set s(4);
     s.insert(2);
     s.insert(1);
     s.insert(2);

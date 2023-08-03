@@ -27,7 +27,7 @@ Revision History:
 #include "math/lp/static_matrix.h"
 #include "math/lp/permutation_matrix.h"
 #include "math/lp/column_namer.h"
-#include "math/lp/u_set.h"
+#include "util/uint_set.h"
 #include "util/heap.h"
 
 namespace lp {
@@ -92,7 +92,7 @@ public:
     vector<unsigned>      m_trace_of_basis_change_vector; // the even positions are entering, the odd positions are leaving
     bool                  m_tracing_basis_changes;
     // these rows are changed by adding to them a multiple of the pivot row
-    u_set*                m_touched_rows;
+    indexed_uint_set*                m_touched_rows;
     bool                  m_look_for_feasible_solution_only;
 
     void start_tracing_basis_changes() {
