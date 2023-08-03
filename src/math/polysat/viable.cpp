@@ -600,6 +600,7 @@ namespace {
         rational new_val2 = extend_by_bits<!FORWARD>(v_pdd, val, fixed, justifications, ne->src, ne->side_cond, ne->refined);
 
         ne->coeff = 1;
+        ne->bit_width = s.size(v);
         if (FORWARD) {
             LOG("refine-bits FORWARD for v" << v << " = " << val << " to [" << new_val2 << ", " << new_val << "[");
             ne->interval = eval_interval::proper(v_pdd.manager().mk_val(new_val2), new_val2, v_pdd.manager().mk_val(new_val), new_val);
@@ -662,6 +663,7 @@ namespace {
                         ne->src = e->src;
                         ne->side_cond = e->side_cond;
                         ne->coeff = 1;
+                        ne->bit_width = e->bit_width;
                         ne->interval = eval_interval::full();
                         intersect(v, ne);
                         return false;
@@ -679,6 +681,7 @@ namespace {
                         ne->src = e->src;
                         ne->side_cond = e->side_cond;
                         ne->coeff = 1;
+                        ne->bit_width = e->bit_width;
                         ne->interval = eval_interval::proper(m.mk_val(lo), lo, m.mk_val(hi), hi);
                         SASSERT(ne->interval.currently_contains(val));
                         intersect(v, ne);
@@ -711,6 +714,7 @@ namespace {
                     ne->src = e->src;
                     ne->side_cond = e->side_cond;
                     ne->coeff = 1;
+                    ne->bit_width = e->bit_width;
                     ne->interval = eval_interval::proper(m.mk_val(lo), lo, m.mk_val(hi), hi);
                     SASSERT(ne->interval.currently_contains(val));
                     intersect(v, ne);
@@ -739,6 +743,7 @@ namespace {
                 ne->src = e->src;
                 ne->side_cond = e->side_cond;
                 ne->coeff = 1;
+                ne->bit_width = e->bit_width;
                 if (full)
                     ne->interval = eval_interval::full();
                 else
@@ -838,6 +843,7 @@ namespace {
                 ne->src = e->src;
                 ne->side_cond = e->side_cond;
                 ne->coeff = 1;
+                ne->bit_width = e->bit_width;
                 ne->interval = eval_interval::proper(lop, lo, hip, hi);
                 intersect(v, ne);
                 return false;
