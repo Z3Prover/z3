@@ -80,12 +80,12 @@ namespace polysat {
         m_params.append(p);
         m_config.m_max_conflicts = pp.max_conflicts();
         m_config.m_max_decisions = pp.max_decisions();
-        m_config.m_log_iteration = pp.log();
+        m_config.m_log_start = pp.log_start();
         m_config.m_log_conflicts = pp.log_conflicts();
         m_config.m_slicing_congruence = pp.slicing_congruence();
 
         // TODO: log filter to enable/disable based on submodules
-        if (m_config.m_log_iteration == 0)
+        if (m_config.m_log_start == 0)
             set_log_enabled(true);
         else
             set_log_enabled(false);
@@ -106,7 +106,7 @@ namespace polysat {
         LOG("Starting");
         while (should_search()) {
             m_stats.m_num_iterations++;
-            if (m_stats.m_num_iterations == config().m_log_iteration)
+            if (m_stats.m_num_iterations == config().m_log_start)
                 set_log_enabled(true);
             LOG_H1("Next solving loop iteration (#" << m_stats.m_num_iterations << ")");
             LOG("Free variables: " << m_free_pvars);
