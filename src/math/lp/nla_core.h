@@ -99,7 +99,7 @@ class core {
     grobner                  m_grobner;
     emonics                  m_emons;
     svector<lpvar>           m_add_buffer;
-    mutable indexed_uint_set        m_active_var_set;
+    mutable indexed_uint_set m_active_var_set;
 
     reslimit                 m_nra_lim;
 

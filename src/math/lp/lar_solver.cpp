@@ -1730,10 +1730,8 @@ namespace lp {
         TRACE("lar_solver_feas", tout << "j = " << j << " became " << (this->column_is_feasible(j)?"feas":"non-feas") << ", and " << (this->column_is_bounded(j)? "bounded":"non-bounded") << std::endl;);    
     }
     void lar_solver::insert_to_columns_with_changed_bounds(unsigned j) {
-        if (!m_columns_with_changed_bounds.contains(j)){
-             m_columns_with_changed_bounds.insert(j);
-             TRACE("lar_solver", tout << "column " << j << (column_is_feasible(j) ? " feas" : " non-feas") << "\n";);
-        }
+         m_columns_with_changed_bounds.insert(j);
+         TRACE("lar_solver", tout << "column " << j << (column_is_feasible(j) ? " feas" : " non-feas") << "\n";);
     }
     void lar_solver::update_column_type_and_bound_check_on_equal(unsigned j,
                                                                  lconstraint_kind kind,
