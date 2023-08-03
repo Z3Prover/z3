@@ -262,6 +262,7 @@ namespace polysat {
 
     void simplify_clause::prepare_subs_entry(subs_entry& entry, signed_constraint c) {
         entry.valid = false;
+        entry.fi_record::reset();
         if (!c->is_ule())
             return;
         forbidden_intervals fi(s);
