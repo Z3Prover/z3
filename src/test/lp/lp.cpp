@@ -1072,20 +1072,18 @@ void test_bound_propagation() {
 }
 
 void test_int_set() {
-    indexed_uint_set s(4);
-    s.insert(2);
+    indexed_uint_set s;
     s.insert(1);
     s.insert(2);
     lp_assert(s.contains(2));
     lp_assert(s.size() == 2);
-    s.erase(2);
-    lp_assert(s.size() == 1);
-    s.erase(2);
+    s.remove(2);
     lp_assert(s.size() == 1);
     s.insert(3);
     s.insert(2);
-    s.clear();
+    s.reset();
     lp_assert(s.size() == 0);
+    std::cout << "done test_int_set\n";
 }
 
 void test_rationals_no_numeric_pairs() {
