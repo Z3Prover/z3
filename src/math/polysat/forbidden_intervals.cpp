@@ -29,6 +29,10 @@ namespace polysat {
      * \returns True iff a forbidden interval exists and the output parameters were set.
      */
     bool forbidden_intervals::get_interval(signed_constraint const& c, pvar v, fi_record& fi) {
+        // verbose_stream() << "get_interval for v" << v << "    " << c << "\n";
+        SASSERT(fi.side_cond.empty());
+        SASSERT(fi.src.empty());
+        fi.bit_width = s.size(v);  // TODO: preliminary
         if (c->is_ule())
             return get_interval_ule(c, v, fi);
         if (c->is_umul_ovfl())

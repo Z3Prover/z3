@@ -78,10 +78,8 @@ namespace polysat {
         if (m_alloc.empty())
             return alloc(entry);
         auto* e = m_alloc.back();
-        e->src.reset();
-        e->side_cond.reset();
+        e->fi_record::reset();
         e->refined.reset();
-        e->coeff = 1;
         m_alloc.pop_back();
         return e;
     }
