@@ -68,6 +68,7 @@ stages:
     pool:
       vmImage: "ubuntu-latest"
     steps:
+    - script: sudo apt update
     - script: sudo apt install gcc-arm-none-eabi -y
     - script: sudo apt install gcc-arm-linux-gnueabihf -y
     - script: sudo apt install gcc-aarch64-linux-gnu -y
