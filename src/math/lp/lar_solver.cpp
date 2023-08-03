@@ -619,8 +619,7 @@ namespace lp {
 
     void lar_solver::add_touched_row(unsigned rid) {
         if (m_settings.bound_propagation()) 
-            if (!m_touched_rows.contains(rid))
-                m_touched_rows.insert(rid);
+            m_touched_rows.insert(rid);
     }
 
     bool lar_solver::use_tableau_costs() const {

@@ -823,8 +823,7 @@ void core::init_search() {
 
 void core::insert_to_refine(lpvar j) {
     TRACE("lar_solver", tout << "j=" << j << '\n';);
-    if (!m_to_refine.contains(j))
-        m_to_refine.insert(j);
+    m_to_refine.insert(j);
 }
 
 void core::erase_from_to_refine(lpvar j) {

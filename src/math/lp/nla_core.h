@@ -122,8 +122,7 @@ public:
     bool active_var_set_contains(unsigned j) const { return m_active_var_set.contains(j); }
 
     void insert_to_active_var_set(unsigned j) const { 
-        if (!m_active_var_set.contains(j))
-            m_active_var_set.insert(j); 
+        m_active_var_set.insert(j); 
     }    
 
     void clear_active_var_set() const { m_active_var_set.reset(); }

@@ -324,8 +324,7 @@ pivot_column_tableau(unsigned j, unsigned piv_row_index) {
             return false;
         }
         if (m_touched_rows!= nullptr)
-            if (!m_touched_rows->contains(c.var()))
-                m_touched_rows->insert(c.var());
+            m_touched_rows->insert(c.var());
     }
 
     if (m_settings.simplex_strategy() == simplex_strategy_enum::tableau_costs)
