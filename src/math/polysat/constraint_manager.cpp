@@ -639,18 +639,19 @@ namespace polysat {
         unsigned const v_sz = p_sz + extra_bits;
         if (p.is_val())
             return s.sz2pdd(v_sz).mk_val(p.val());
-        pdd const q = s.var(s.m_names.mk_name(p));
-        constraint_dedup::bv_ext_args const args = {false, q.var(), extra_bits};
+        pvar const p_name = s.m_names.mk_name(p);
+        constraint_dedup::bv_ext_args const args = {false, p_name, extra_bits};
         auto const it = m_dedup.m_bv_ext_expr.find_iterator(args);
         if (it != m_dedup.m_bv_ext_expr.end())
             return s.var(it->m_value);
-        pdd const v = s.var(s.add_var(v_sz));
-        m_dedup.m_bv_ext_expr.insert(args, v.var());
+        pvar const v = s.add_var(v_sz);
+        pdd const V = s.var(v);
+        m_dedup.m_bv_ext_expr.insert(args, v);
         // (1)  v[|p|-1:0] = p
-        s.add_eq(q, extract(v, p.power_of_2() - 1, 0));
+        s.add_eq(extract(V, p_sz - 1, 0), s.var(p_name));
         // (2)  v < 2^|p|
-        s.add_ule(q, p.manager().max_value());
-        return v;
+        s.add_ule(V, p.manager().max_value());
+        return V;
     }
 
     pdd constraint_manager::sign_ext(pdd const& p, unsigned extra_bits) {
