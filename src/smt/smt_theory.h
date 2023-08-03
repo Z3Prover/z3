@@ -368,7 +368,8 @@ namespace smt {
         //
         // ----------------------------------------------------
 
-        virtual void validate_model(model& mdl) {}
+        virtual void validate_model(proto_model& mdl) {}
+
 
         // ----------------------------------------------------
         //

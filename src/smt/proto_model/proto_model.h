@@ -63,6 +63,9 @@ public:
     void register_factory(value_factory * f) { m_factories.register_plugin(f); }
 
     bool eval(expr * e, expr_ref & result, bool model_completion = false);
+    bool are_equal(expr* a, expr* b) { return m_eval.are_equal(a, b); }
+    bool is_false(expr* e) { return m_eval.are_equal(e, m.mk_false()); }
+    expr_ref operator()(expr* e) { expr_ref result(e, m); eval(e, result, false); return result; }
 
     
     value_factory * get_factory(family_id fid);

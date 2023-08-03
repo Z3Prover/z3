@@ -3882,6 +3882,30 @@ public:
     }
 
 
+    void validate_model(proto_model& mdl) {
+
+        rational r1, r2;
+        expr_ref res(m);
+        if (!m_model_is_initialized)
+            return;
+        for (unsigned v = 0; v < th.get_num_vars(); ++v) {
+            if (!is_registered_var(v))
+                continue;
+            enode* n = get_enode(v);
+            if (!n)
+                continue;
+            if (!th.is_relevant_and_shared(n))
+                continue;
+            rational r1 = get_value(v);
+            if (!mdl.eval(n->get_expr(), res, false))
+                continue;
+            if (!a.is_numeral(res, r2))
+                continue;
+            if (r1 != r2)
+                IF_VERBOSE(1, verbose_stream() << enode_pp(n, ctx()) << " evaluates to " << r2 << " but arith solver has " << r1 << "\n"); 
+        }
+    }
+
 };
     
 theory_lra::theory_lra(context& ctx):
@@ -4007,6 +4031,10 @@ expr_ref theory_lra::mk_ge(generic_model_converter& fm, theory_var v, inf_ration
 
 void theory_lra::setup() {
     m_imp->setup();
+}
+
+void theory_lra::validate_model(proto_model& mdl) {
+    m_imp->validate_model(mdl);
 }
 
 }
