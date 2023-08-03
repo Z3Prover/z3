@@ -166,6 +166,7 @@ namespace polysat {
     }
 
     void slicing::push_scope() {
+        LOG("push_scope");
         if (can_propagate())
             propagate();
         m_scopes.push_back(m_trail.size());
@@ -175,6 +176,7 @@ namespace polysat {
     }
 
     void slicing::pop_scope(unsigned num_scopes) {
+        LOG("pop_scope(" << num_scopes << ")");
         if (num_scopes == 0)
             return;
         unsigned const lvl = m_scopes.size();
@@ -583,6 +585,9 @@ namespace polysat {
     }
 
     clause_ref slicing::build_conflict_clause() {
+        LOG_H1("slicing: build_conflict_clause");
+        // display_tree(std::cerr);
+        SASSERT(invariant());
         SASSERT(is_conflict());
         SASSERT(m_marked_lits.empty());
         SASSERT(m_tmp_deps.empty());
@@ -599,6 +604,7 @@ namespace polysat {
                 if (m_marked_lits.contains(lit))
                     continue;
                 m_marked_lits.insert(lit);
+                LOG("Premise:    " << lit_pp(m_solver, lit));
                 cb.insert(~lit);
             }
             else {
@@ -618,6 +624,8 @@ namespace polysat {
         }
         m_marked_lits.reset();
         m_tmp_deps.reset();
+        if (x != null_var) LOG("Variable v" << x << " with slice " << slice_pp(*this, sx));
+        if (y != null_var) LOG("Variable v" << y << " with slice " << slice_pp(*this, sy));
 
         signed_constraint c;
         if (x == null_var) {
@@ -661,6 +669,7 @@ namespace polysat {
             }
         }
         else {
+            SASSERT(x != y);
             // the egraph has derived that x (or a subslice of x) must be equal to y (or a subslice of y),
             // but the currently assigned values differ.
             // the explanation is:      lits ==> x[...] = y[...]
@@ -669,18 +678,42 @@ namespace polysat {
                 // TODO: but clause may be unsound if the premises only imply equality of subslices; may need a separate explain-query here.
                 c = m_solver.eq(m_solver.var(x), m_solver.var(y));
             }
+            else if (sx == sy) {
+                // two assignments to the same slice but coming from different variables.
+                // TODO: this case is impossible once we properly track/propagate fixed bits on slices, because viable-with-fixed-bits will exclude conflicting values upfront.
+                //      (it is also hard and probably not useful to handle otherwise)
+
+                // we handle one special case for now
+                if (sx->get_root() == var2slice(x)->get_root() && m_solver.get_value(x) != get_value(var2slice(x)->get_root())) {
+                    LOG("Variable v" << x << " has solver-value " << m_solver.get_value(x) << " and slicing-value " << get_value(var2slice(x)->get_root()));
+                    // here, the learned clause should be   y = value(y)  ==>  x = slicing-value(x)
+                    signed_constraint d = m_solver.eq(m_solver.var(y), m_solver.get_value(y));
+                    LOG("Premise:    " << lit_pp(m_solver, d));
+                    cb.insert_eval(~d);
+                    c = m_solver.eq(m_solver.var(x), get_value(sx->get_root()));
+                }
+           }
             else {
                 unsigned x_hi, x_lo, y_hi, y_lo;
                 VERIFY(find_range_in_ancestor(sx, var2slice(x), x_hi, x_lo));
                 VERIFY(find_range_in_ancestor(sy, var2slice(y), y_hi, y_lo));
                 pvar const xx = mk_extract(x, x_hi, x_lo);
                 pvar const yy = mk_extract(y, y_hi, y_lo);
+                SASSERT_EQ(sx->get_root(), var2slice(xx)->get_root());
+                SASSERT_EQ(sy->get_root(), var2slice(yy)->get_root());
+                LOG("find_range_in_ancestor: v" << x << "[" << x_hi << ":" << x_lo << "] = " << slice_pp(*this, sx) << "   --> represented by variable v" << xx);
+                LOG("find_range_in_ancestor: v" << y << "[" << y_hi << ":" << y_lo << "] = " << slice_pp(*this, sy) << "   --> represented by variable v" << yy);
+                SASSERT(xx != yy);
                 c = m_solver.eq(m_solver.var(xx), m_solver.var(yy));
             }
         }
         SASSERT(x == null_var || c);
-        if (c)
+        if (c) {
+            LOG("Conclusion: " << lit_pp(m_solver, c));
             cb.insert_eval(c);
+        } else {
+            LOG("Conclusion: <conflict>");
+        }
 
         return cb.build();
     }
@@ -891,6 +924,7 @@ namespace polysat {
     }
 
     pvar slicing::mk_extract(enode* src, unsigned hi, unsigned lo, pvar replay_var) {
+        LOG("mk_extract: src=" << slice_pp(*this, src) << " hi=" << hi << " lo=" << lo);
         enode_vector& slices = m_tmp3;
         SASSERT(slices.empty());
         mk_slice(src, hi, lo, slices, false, false);  // TODO: we don't need a base if we can reuse some intermediary slice, do we?
@@ -908,19 +942,22 @@ namespace polysat {
             v = replay_var;
         }
         // allocate new variable if we cannot reuse it
-        if (v == null_var)
+        if (v == null_var) {
             v = m_solver.add_var(hi - lo + 1);
 #if 1
-        // slice didn't have a variable yet; so we can re-use it for the new variable
-        // (we end up with a "phantom" enode that was first created for the variable)
-        if (slices.size() == 1) {
-            enode* s = slices[0];
-            SASSERT_EQ(info(s).var, null_var);
-            info(m_var2slice[v]).var = null_var;  // disconnect the "phantom" enode
-            info(s).var = v;
-            m_var2slice[v] = s;
-        }
+            // slice didn't have a variable yet; so we can re-use it for the new variable
+            // (we end up with a "phantom" enode that was first created for the variable)
+            if (slices.size() == 1) {
+                enode* s = slices[0];
+                LOG("re-using slice " << slice_pp(*this, s) << " for new variable v" << v);
+                display_tree(std::cerr, s, 0, hi, lo);
+                SASSERT_EQ(info(s).var, null_var);
+                info(m_var2slice[v]).var = null_var;  // disconnect the "phantom" enode
+                info(s).var = v;
+                m_var2slice[v] = s;
+            }
 #endif
+        }
         // connect new variable
         VERIFY(merge(slices, var2slice(v), dep_t()));
         slices.reset();
@@ -928,6 +965,7 @@ namespace polysat {
     }
 
     void slicing::replay_extract(extract_args const& args, pvar r) {
+        LOG("replay_extract");
         SASSERT(r != null_var);
         SASSERT(!m_extract_dedup.contains(args));
         VERIFY_EQ(mk_extract(var2slice(args.src), args.hi, args.lo, r), r);
@@ -937,6 +975,7 @@ namespace polysat {
     }
 
     pvar slicing::mk_extract(pvar src, unsigned hi, unsigned lo) {
+        LOG_H3("mk_extract: v" << src << "[" << hi << ":" << lo << "]     size(v" << src << ") = " << m_solver.size(src));
         extract_args args{src, hi, lo};
         auto it = m_extract_dedup.find_iterator(args);
         if (it != m_extract_dedup.end())
@@ -1044,16 +1083,19 @@ namespace polysat {
         }
         pvar const y = m_solver.m_names.get_name(body);
         if (y == null_var) {
-            LOG("    skip for now (unnamed body)");
+            LOG("    skip for now (unnamed body, or disequality with constant)");
             // TODO: register name trigger (if a name for value 'body' is created later, then merge x=y at that time)
             //      could also count how often 'body' was registered and introduce name when more than once.
             //      maybe better: register x as an existing name for 'body'? question is how to track the dependency on c.
             return true;
         }
         enode* const sy = var2slice(y);
-        if (!lit.sign())
+        if (!lit.sign()) {
+            LOG("    merge v" << x << " and v" << y);
             return merge(sx, sy, lit);
+        }
         else {
+            LOG("    store disequality v" << x << " != v" << y);
             enode* n = find_or_alloc_disequality(sy, sx, lit);
             if (!m_disequality_conflict && is_equal(sx, sy)) {
                 add_var_congruence_if_needed(x);

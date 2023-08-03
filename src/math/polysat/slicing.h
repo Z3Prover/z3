@@ -272,6 +272,15 @@ namespace polysat {
         std::ostream& display(std::ostream& out, enode* s) const;
         std::ostream& display_tree(std::ostream& out, enode* s, unsigned indent, unsigned hi, unsigned lo) const;
 
+        class slice_pp {
+            slicing const& s;
+            enode* n;
+        public:
+            slice_pp(slicing const& s, enode* n): s(s), n(n) {}
+            std::ostream& display(std::ostream& out) const { return s.display(out, n); }
+        };
+        friend std::ostream& operator<<(std::ostream& out, slice_pp const& s) { return s.display(out); }
+
     public:
         slicing(solver& s);
 
