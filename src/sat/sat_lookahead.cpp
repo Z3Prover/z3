@@ -990,7 +990,7 @@ namespace sat {
         m_rating.push_back(0);
         m_vprefix.push_back(prefix());
         if (!m_s.was_eliminated(v)) 
-            m_freevars.insert(v);
+            m_freevars.insert_fresh(v);
     }
 
     void lookahead::init(bool learned) {
@@ -1096,7 +1096,7 @@ namespace sat {
             literal l = m_trail[i];
             set_undef(l);
             TRACE("sat", tout << "inserting free var v" << l.var() << "\n";);
-            m_freevars.insert(l.var());
+            m_freevars.insert_fresh(l.var());
         }
             
         m_num_tc1 = m_num_tc1_lim.back();
