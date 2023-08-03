@@ -498,9 +498,8 @@ namespace nla {
     }
 
     void grobner::prepare_rows_and_active_vars() {
-        m_rows.clear();
-        m_rows.resize(m_lar_solver.row_count());
-        c().clear_and_resize_active_var_set();
+        m_rows.reset();
+        c().clear_active_var_set();
     }
 
 

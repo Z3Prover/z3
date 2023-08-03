@@ -12,7 +12,7 @@
 #include "math/lp/nla_intervals.h"
 #include "math/lp/nex.h"
 #include "math/lp/cross_nested.h"
-#include "math/lp/u_set.h"
+#include "util/uint_set.h"
 #include "math/grobner/pdd_solver.h"
 
 namespace nla {
@@ -22,7 +22,7 @@ namespace nla {
         dd::pdd_manager          m_pdd_manager;
         dd::solver               m_solver;
         lp::lar_solver&          m_lar_solver;
-        lp::u_set                m_rows;
+        indexed_uint_set                m_rows;
 
         lp::lp_settings& lp_settings();
 
