@@ -591,10 +591,11 @@ namespace polysat {
     pdd constraint_manager::extract(pdd const& p, unsigned hi, unsigned lo) {
         SASSERT(hi >= lo);
         SASSERT(p.power_of_2() > hi);
+        unsigned const v_sz = hi - lo + 1;
         if (p.is_val()) {
             // p[hi:lo] = (p >> lo) % 2^(hi - lo + 1)
             rational q = mod2k(machine_div2k(p.val(), lo), hi - lo + 1);
-            return p.manager().mk_val(q);
+            return s.sz2pdd(v_sz).mk_val(q);
         }
         if (lo == hi) {
             // could turn it into a single-bit constraint... unclear if that is useful
@@ -604,6 +605,7 @@ namespace polysat {
         }
         pvar const src = s.m_names.mk_name(p);
         pvar const v = s.m_slicing.mk_extract(src, hi, lo);
+        SASSERT_EQ(s.var(v).power_of_2(), v_sz);
         return s.var(v);
     }
 

@@ -143,7 +143,7 @@ namespace bv {
         if (p.hi_div0()) {
             polysat_div_rem_i(e, is_div);
             return;
-        }        
+        }
         expr* arg1 = e->get_arg(0);
         expr* arg2 = e->get_arg(1);
         unsigned sz = bv.get_bv_size(e);
@@ -184,6 +184,7 @@ namespace bv {
         unsigned const lo = bv.get_extract_low(e);
         auto const src = expr2pdd(e->get_arg(0));
         auto const p = m_polysat.extract(src, hi, lo);
+        SASSERT_EQ(p.power_of_2(), hi - lo + 1);
         polysat_set(e, p);
     }
 
@@ -258,6 +259,10 @@ namespace bv {
         force_push();
         pdd p = var2pdd(v1);
         pdd q = var2pdd(v2);
+        // LOG("expr(v1) = " << mk_ismt2_pp(var2enode(v1)->get_expr(), m));
+        // LOG("expr(v2) = " << mk_ismt2_pp(var2enode(v2)->get_expr(), m));
+        // LOG("polysat_merge_eh: size(v1) = " << get_bv_size(v1) << ", size(v2) = " << get_bv_size(v2));
+        // LOG("polysat_merge_eh: " << p << " (width " << p.power_of_2() << ")      " << q << " (width " << q.power_of_2() << ")");
         auto sc = m_polysat.eq(p, q);        
         m_var_eqs.setx(m_var_eqs_head, std::make_pair(v1, v2), std::make_pair(v1, v2));
         ctx.push(value_trail<unsigned>(m_var_eqs_head));        
@@ -364,9 +369,10 @@ namespace bv {
 #ifndef NDEBUG
         IF_VERBOSE(8,
             expr* e = var2enode(v)->get_expr();
-            verbose_stream() << "polysat_set: " << expr_ref(e, m) << " -> " << p << std::endl;
+            verbose_stream() << "polysat_set: " << expr_ref(e, m) << "  [bv size " << get_bv_size(v) << "] -> " << p << "  [pdd size " << p.power_of_2() << "]" << std::endl;
         );
 #endif
+        SASSERT_EQ(get_bv_size(v), p.power_of_2());
         m_var2pdd.reserve(get_num_vars(), p);
         m_var2pdd_valid.reserve(get_num_vars(), false);
         ctx.push(set_bitvector_trail(m_var2pdd_valid, v));
