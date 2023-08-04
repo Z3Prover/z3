@@ -1676,7 +1676,6 @@ public:
                 return FC_CONTINUE;
             case FC_GIVEUP:
                 TRACE("arith", tout << "check-nra giveup\n";);
-                verbose_stream() << "giveup nla\n";
                 st = FC_GIVEUP;
                 break;
             }
