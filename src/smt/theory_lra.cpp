@@ -1493,6 +1493,8 @@ public:
     void random_update() {
         if (m_nla && m_nla->need_check())
             return;
+        if (!m_liberal_final_check)
+            return;
         m_tmp_var_set.reset();
         m_model_eqs.reset();
         svector<lpvar> vars;
@@ -1530,6 +1532,7 @@ public:
               tout << "\n"; );
         if (!vars.empty()) {
             lp().random_update(vars.size(), vars.data());
+            m_changed_assignment = true;
         }
     }
 
@@ -1641,8 +1644,52 @@ public:
 
     unsigned m_final_check_idx = 0;
     distribution m_dist { 0 };
-    
+
+    bool m_liberal_final_check = false;
+    bool m_changed_assignment = false;
+
     final_check_status final_check_eh() {
+        // verbose_stream() << "final " << ctx().get_scope_level() << " " << ctx().assigned_literals().size() << "\n";
+        //ctx().display(verbose_stream());
+        //exit(0);
+        
+        TRACE("arith_eq_adapter_info", m_arith_eq_adapter.display_already_processed(tout););
+        TRACE("arith", display(tout););
+
+        if (propagate_core())
+            return FC_CONTINUE;
+        if (delayed_assume_eqs()) {
+            return FC_CONTINUE;
+        }
+        m_liberal_final_check = true;
+        m_changed_assignment = false;
+        ctx().push_trail(value_trail<unsigned>(m_final_check_idx));
+        final_check_status result = final_check_core();
+        if (result != FC_DONE)
+            return result;
+        if (!m_changed_assignment) {
+            return FC_DONE;
+        }
+        m_liberal_final_check = false;
+        m_changed_assignment = false;
+        result = final_check_core();
+        TRACE("arith", tout << "result: " << result << "\n";);
+        return result;
+    }
+    
+    final_check_status final_check_core() {
+
+        if (false)
+        {
+            verbose_stream() << "final\n";
+            ::statistics stats;
+            collect_statistics(stats);
+            stats.display(verbose_stream());
+        }
+#if 0
+        if (!m_has_propagated_fixed && propagate_fixed())
+            return FC_CONTINUE;
+#endif
         if (propagate_core())
             return FC_CONTINUE;
         m_model_is_initialized = false;
@@ -1654,7 +1701,6 @@ public:
         }
         bool giveup = false;
         final_check_status st = FC_DONE;
-        m_final_check_idx = 0; // remove to experiment.
         unsigned old_idx = m_final_check_idx;
         switch (is_sat) {
         case l_true:
@@ -1703,11 +1749,11 @@ public:
                 
                 switch (m_final_check_idx) {
                 case 0:
-                    if (assume_eqs()) 
-                        st = FC_CONTINUE;                    
+                    st = check_lia();
                     break;
                 case 1:
-                    st = check_lia();
+                    if (assume_eqs()) 
+                        st = FC_CONTINUE;
                     break;
                 case 2:
                     st = check_nla();
@@ -1746,6 +1792,16 @@ public:
                 }
                 if (st == FC_CONTINUE)
                     break;
+            }
+            if (st == FC_DONE) {
+                if (assume_eqs()) {
+                    // verbose_stream() << "not done\n";
+                    return FC_CONTINUE;
+                }
+                st = check_nla();
+                if (st != FC_DONE)
+                    return st;
+
             }
             return st;
         case l_false:
