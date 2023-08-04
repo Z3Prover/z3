@@ -338,7 +338,7 @@ public:
         
     }
 
-    bool remove_from_basis(unsigned j);
+    bool remove_from_basis_core(unsigned entering, unsigned leaving);
     bool pivot_column_general(unsigned j, unsigned j_basic, indexed_vector<T> & w);
     void init_basic_part_of_basis_heading() {
         unsigned m = m_basis.size();
