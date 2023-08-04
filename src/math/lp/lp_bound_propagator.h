@@ -193,6 +193,7 @@ class lp_bound_propagator {
 
     bool add_eq_on_columns(const explanation& exp, lpvar j, lpvar k, bool is_fixed) {
         lp_assert(j != k && is_int(j) == is_int(k));
+        lp_assert(ival(j) == ival(k));
 
         unsigned je = lp().column_to_reported_index(j);
         unsigned ke = lp().column_to_reported_index(k);
@@ -357,6 +358,11 @@ class lp_bound_propagator {
             try_add_equation_with_lp_fixed_tables(row_index, x);
             return;
         }
+        if (y_sign == 0) {
+            // the coefficient before y is not 1 or -1
+            return;
+        }
+        lp_assert(y_sign == -1 || y_sign == 1);
         lp_assert(lp().is_base(y) == false);
         auto& table = y_sign == 1 ? m_row2index_pos : m_row2index_neg;
         table.insert(val(x), row_index);        
