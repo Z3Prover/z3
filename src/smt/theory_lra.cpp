@@ -1649,44 +1649,43 @@ public:
     bool m_changed_assignment = false;
 
     final_check_status final_check_eh() {
-        // verbose_stream() << "final " << ctx().get_scope_level() << " " << ctx().assigned_literals().size() << "\n";
-        //ctx().display(verbose_stream());
-        //exit(0);
         
         TRACE("arith_eq_adapter_info", m_arith_eq_adapter.display_already_processed(tout););
         TRACE("arith", display(tout););
 
-        if (propagate_core())
+        if (propagate_core() || delayed_assume_eqs()) 
             return FC_CONTINUE;
-        if (delayed_assume_eqs())
-            return FC_CONTINUE;
+        
         m_liberal_final_check = true;
         m_changed_assignment = false;
         ctx().push_trail(value_trail<unsigned>(m_final_check_idx));
         final_check_status result = final_check_core();
         if (result != FC_DONE)
             return result;
-        if (!m_changed_assignment)
+        if (!m_changed_assignment) {
             return FC_DONE;
+        }
         m_liberal_final_check = false;
         m_changed_assignment = false;
         result = final_check_core();
         TRACE("arith", tout << "result: " << result << "\n";);
         return result;
     }
-    final_check_status one_step_of_round_robbin(final_check_status st) {
+    final_check_status one_step_round_robbin(final_check_status st) {
         switch (m_final_check_idx) {
                 case 0:
-                    return check_lia();
+                    st = check_lia();
+                    break;
                 case 1:
                     if (assume_eqs()) 
-                        return FC_CONTINUE;
-                    return st;
+                        st = FC_CONTINUE;
+                    break;
                 case 2:
-                    return check_nla();
-                default:
-                    throw default_exception("unexpected final check index");
-                }
+                    st = check_nla();
+                    break;
+        }
+        m_final_check_idx = (m_final_check_idx + 1) % 3;
+        return st;
     }
     final_check_status final_check_core() {
         if (propagate_core())
@@ -1698,22 +1697,28 @@ public:
         if (!lp().is_feasible() || lp().has_changed_columns()) {
             is_sat = make_feasible();
         }
+        bool giveup = false;
         final_check_status st = FC_DONE;
         unsigned old_idx = m_final_check_idx;
         switch (is_sat) {
         case l_true:
             TRACE("arith", display(tout));            
+            
             do {
                 if (!m.inc())
                     return FC_GIVEUP;
-                st = one_step_of_round_robbin(st);
-                m_final_check_idx = (m_final_check_idx + 1) % 3;
-                if (st != FC_DONE )
+                
+                st = one_step_round_robbin(st);
+                
+                if (st == FC_CONTINUE)
                     return st;
-                break;                    
+                if (st == FC_GIVEUP)
+                    giveup = true;
             }
             while (old_idx != m_final_check_idx);
-            
+
+            if (giveup)
+                return FC_GIVEUP;
             for (expr* e : m_not_handled) {
                 if (!ctx().is_relevant(e))
                     continue;
@@ -1734,11 +1739,13 @@ public:
             }
             if (st == FC_DONE) {
                 if (assume_eqs()) {
+                    // verbose_stream() << "not done\n";
                     return FC_CONTINUE;
                 }
                 st = check_nla();
                 if (st != FC_DONE)
                     return st;
+
             }
             return st;
         case l_false:
