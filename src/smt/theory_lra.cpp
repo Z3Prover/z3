@@ -1671,6 +1671,7 @@ public:
         TRACE("arith", tout << "result: " << result << "\n";);
         return result;
     }
+    
     final_check_status one_step_round_robbin(final_check_status st) {
         switch (m_final_check_idx) {
                 case 0:
@@ -1687,6 +1688,7 @@ public:
         m_final_check_idx = (m_final_check_idx + 1) % 3;
         return st;
     }
+    
     final_check_status final_check_core() {
         if (propagate_core())
             return FC_CONTINUE;
@@ -1736,16 +1738,17 @@ public:
                 if (st == FC_CONTINUE)
                     break;
             }
+
+            // TODO this is a bit desparate and assume_eqs() is already involed inside of check_nla and check_lia.
             if (st == FC_DONE) {
-                if (assume_eqs()) {
-                    // verbose_stream() << "not done\n";
+                if (assume_eqs()) 
                     return FC_CONTINUE;
-                }
                 st = check_nla();
                 if (st != FC_DONE)
                     return st;
-
             }
+            if (giveup)
+                st = FC_GIVEUP;
             return st;
         case l_false:
             get_infeasibility_explanation_and_set_conflict();
