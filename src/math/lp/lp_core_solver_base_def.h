@@ -405,16 +405,14 @@ template <typename T, typename X>  void lp_core_solver_base<T, X>::transpose_row
 }
 // entering is the new base column, leaving - the column leaving the basis
 template <typename T, typename X> bool lp_core_solver_base<T, X>::pivot_column_general(unsigned entering, unsigned leaving, indexed_vector<T> & w) {
-	lp_assert(m_basis_heading[entering] < 0);
-	lp_assert(m_basis_heading[leaving] >= 0);
-	unsigned row_index = m_basis_heading[leaving];
-	  // the tableau case
-	if (pivot_column_tableau(entering, row_index))
-		change_basis(entering, leaving);
-	else 
+    lp_assert(m_basis_heading[entering] < 0);
+    lp_assert(m_basis_heading[leaving] >= 0);
+    unsigned row_index = m_basis_heading[leaving];
+    // the tableau case
+    if (!pivot_column_tableau(entering, row_index))
         return false;
-	
-	return true;
+    change_basis(entering, leaving);
+    return true;
 }
 
 

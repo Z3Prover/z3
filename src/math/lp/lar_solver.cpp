@@ -481,12 +481,9 @@ namespace lp {
     bool lar_solver::remove_from_basis(unsigned j) {    
         lp_assert(is_base(j));
         unsigned i = row_of_basic_column(j);
-        for (const auto & c : A_r().m_rows[i]) {
-            if (j != c.var() && !is_fixed(c.var())) {
+        for (const auto & c : A_r().m_rows[i]) 
+            if (j != c.var() && !is_fixed(c.var())) 
                 return m_mpq_lar_core_solver.m_r_solver.remove_from_basis_core(c.var(), j);
-            }
-            
-        }
         return false;
     }
 
@@ -630,7 +627,7 @@ namespace lp {
     }
 
     void lar_solver::remove_fixed_vars_from_base() {
-	   // this will allow to disable and restore the tracking of the touched rows
+        // this will allow to disable and restore the tracking of the touched rows
         flet<indexed_uint_set*> f(m_mpq_lar_core_solver.m_r_solver.m_touched_rows, nullptr);
         unsigned num = A_r().column_count();
         unsigned_vector to_remove;
@@ -1782,9 +1779,9 @@ namespace lp {
             update_column_type_and_bound_with_ub(j, kind, right_side, constr_index);
         else
             update_column_type_and_bound_with_no_ub(j, kind, right_side, constr_index);
-         if (is_base(j) && column_is_fixed(j)) {
+
+        if (is_base(j) && column_is_fixed(j)) 
             m_fixed_base_var_set.insert(j);
-         }
             
         TRACE("lar_solver_feas", tout << "j = " << j << " became " << (this->column_is_feasible(j)?"feas":"non-feas") << ", and " << (this->column_is_bounded(j)? "bounded":"non-bounded") << std::endl;);    
     }
