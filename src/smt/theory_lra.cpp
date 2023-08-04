@@ -1658,38 +1658,37 @@ public:
 
         if (propagate_core())
             return FC_CONTINUE;
-        if (delayed_assume_eqs()) {
+        if (delayed_assume_eqs())
             return FC_CONTINUE;
-        }
         m_liberal_final_check = true;
         m_changed_assignment = false;
         ctx().push_trail(value_trail<unsigned>(m_final_check_idx));
         final_check_status result = final_check_core();
         if (result != FC_DONE)
             return result;
-        if (!m_changed_assignment) {
+        if (!m_changed_assignment)
             return FC_DONE;
-        }
         m_liberal_final_check = false;
         m_changed_assignment = false;
         result = final_check_core();
         TRACE("arith", tout << "result: " << result << "\n";);
         return result;
     }
-    
+    final_check_status one_step_of_round_robbin(final_check_status st) {
+        switch (m_final_check_idx) {
+                case 0:
+                    return check_lia();
+                case 1:
+                    if (assume_eqs()) 
+                        return FC_CONTINUE;
+                    return st;
+                case 2:
+                    return check_nla();
+                default:
+                    throw default_exception("unexpected final check index");
+                }
+    }
     final_check_status final_check_core() {
-
-        if (false)
-        {
-            verbose_stream() << "final\n";
-            ::statistics stats;
-            collect_statistics(stats);
-            stats.display(verbose_stream());
-        }
-#if 0
-        if (!m_has_propagated_fixed && propagate_fixed())
-            return FC_CONTINUE;
-#endif
         if (propagate_core())
             return FC_CONTINUE;
         m_model_is_initialized = false;
@@ -1699,82 +1698,22 @@ public:
         if (!lp().is_feasible() || lp().has_changed_columns()) {
             is_sat = make_feasible();
         }
-        bool giveup = false;
         final_check_status st = FC_DONE;
         unsigned old_idx = m_final_check_idx;
         switch (is_sat) {
         case l_true:
             TRACE("arith", display(tout));            
-#if 0
-            m_dist.reset();
-            m_dist.push(0, 1);
-            m_dist.push(1, 1);
-            m_dist.push(2, 1);
-
-            for (auto idx : m_dist) {
-                if (!m.inc())
-                    return FC_GIVEUP;
-
-                switch (idx) {
-                case 0:
-                    if (assume_eqs()) 
-                        st = FC_CONTINUE;                    
-                    break;
-                case 1:
-                    st = check_nla();
-                    break;
-                case 2:
-                    st = check_lia();
-                    break;
-                default:
-                    UNREACHABLE();
-                    break;                    
-                }
-                switch (st) {
-                case FC_DONE:
-                    break;
-                case FC_CONTINUE:
-                    return st;
-                case FC_GIVEUP:
-                    giveup = true;
-                    break;
-                }
-            }
-
-#else
-            
             do {
                 if (!m.inc())
                     return FC_GIVEUP;
-                
-                switch (m_final_check_idx) {
-                case 0:
-                    st = check_lia();
-                    break;
-                case 1:
-                    if (assume_eqs()) 
-                        st = FC_CONTINUE;
-                    break;
-                case 2:
-                    st = check_nla();
-                    break;
-                }
+                st = one_step_of_round_robbin(st);
                 m_final_check_idx = (m_final_check_idx + 1) % 3;
-                switch (st) {
-                case FC_DONE:
-                    break;
-                case FC_CONTINUE:
+                if (st != FC_DONE )
                     return st;
-                case FC_GIVEUP:
-                    giveup = true;
-                    break;
-                }
+                break;                    
             }
             while (old_idx != m_final_check_idx);
-#endif
-
-            if (giveup)
-                return FC_GIVEUP;
+            
             for (expr* e : m_not_handled) {
                 if (!ctx().is_relevant(e))
                     continue;
@@ -1795,13 +1734,11 @@ public:
             }
             if (st == FC_DONE) {
                 if (assume_eqs()) {
-                    // verbose_stream() << "not done\n";
                     return FC_CONTINUE;
                 }
                 st = check_nla();
                 if (st != FC_DONE)
                     return st;
-
             }
             return st;
         case l_false:
