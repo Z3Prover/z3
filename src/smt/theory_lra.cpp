@@ -1700,6 +1700,7 @@ public:
         final_check_status st = FC_DONE;
 
         unsigned old_idx = m_final_check_idx;
+        bool giveup = false;
         switch (is_sat) {
         case l_true:
             TRACE("arith", display(tout));            
@@ -1716,7 +1717,6 @@ public:
                     giveup = true;
             }
             while (old_idx != m_final_check_idx);
-
 
             for (expr* e : m_not_handled) {
                 if (!ctx().is_relevant(e))
