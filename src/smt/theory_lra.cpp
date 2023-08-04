@@ -1697,8 +1697,8 @@ public:
         if (!lp().is_feasible() || lp().has_changed_columns()) {
             is_sat = make_feasible();
         }
-        bool giveup = false;
         final_check_status st = FC_DONE;
+
         unsigned old_idx = m_final_check_idx;
         switch (is_sat) {
         case l_true:
@@ -1717,8 +1717,7 @@ public:
             }
             while (old_idx != m_final_check_idx);
 
-            if (giveup)
-                return FC_GIVEUP;
+
             for (expr* e : m_not_handled) {
                 if (!ctx().is_relevant(e))
                     continue;
