@@ -40,6 +40,7 @@ namespace polysat {
         SASSERT(!m_names.contains(key));
         m_names.insert(key, v);
         m_terms[v] = t;
+        LOG("set_name v" << v << " := " << t);
     }
 
     pvar name_manager::get_name(pdd const& t) const {
@@ -57,7 +58,7 @@ namespace polysat {
         pvar v = get_name(t);
         if (v != null_var)
             return v;
-        v = s.add_var(t.power_of_2());
+        v = s.add_var(t.power_of_2(), pvar_kind::name);
         s.add_eq(s.var(v), t);
         set_name(v, t);
         return v;

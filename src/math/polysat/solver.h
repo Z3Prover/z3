@@ -173,6 +173,7 @@ namespace polysat {
         slicing                  m_slicing;
 
         // Per variable information
+        svector<pvar_kind>       m_kind;
         vector<rational>         m_value;         // assigned value
         vector<justification>    m_justification; // justification for variable assignment
         vector<constraints>      m_pwatch;        // watch list datastructure into constraints.
@@ -240,6 +241,7 @@ namespace polysat {
          * Each struct is a subclass of trail and implements undo().
          */
 
+        pvar add_var(unsigned sz, pvar_kind k);
         void del_var();
 
         dd::pdd_manager& sz2pdd(unsigned sz) const;
@@ -409,7 +411,7 @@ namespace polysat {
         /**
          * Add variable with bit-size.
          */
-        pvar add_var(unsigned sz);
+        pvar add_var(unsigned sz) { return add_var(sz, pvar_kind::external); }
 
         /**
          * Create polynomial terms

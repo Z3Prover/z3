@@ -168,12 +168,16 @@ namespace polysat {
         return sz2pdd(size(v));
     }
 
-    unsigned solver::add_var(unsigned sz) {
+    unsigned solver::add_var(unsigned sz, pvar_kind k) {
+#ifndef NDEBUG
+        if (m_is_solving) {
+            SASSERT(k != pvar_kind::external);  // NOTE: if this assertion fails, most likely pvar_kind wasn't set for some internal variable.
+        }
+#endif
         pvar const v = m_value.size();
+        m_kind.push_back(k);
         m_value.push_back(rational::zero());
         m_justification.push_back(justification::unassigned());
-        m_viable.push_var(sz);
-        m_viable_fallback.push_var(sz);
         m_pwatch.push_back({});
         m_activity.push_back(0);
         m_vars.push_back(sz2pdd(sz).mk_var(v));
@@ -182,6 +186,8 @@ namespace polysat {
         m_free_pvars.mk_var_eh(v);
         m_names.push_var(var(v));  // needs m_vars
         m_slicing.add_var(sz);
+        m_viable.push_var(sz);
+        m_viable_fallback.push_var(sz);
         return v;
     }
 
@@ -195,6 +201,8 @@ namespace polysat {
         pvar v = m_value.size() - 1;
         m_viable.pop_var();
         m_viable_fallback.pop_var();
+        m_names.pop_var();
+        m_kind.pop_back();
         m_value.pop_back();
         m_justification.pop_back();
         m_pwatch.pop_back();
@@ -202,7 +210,6 @@ namespace polysat {
         m_vars.pop_back();
         m_size.pop_back();
         m_free_pvars.del_var_eh(v);
-        m_names.pop_var();
     }
 
     void solver::assign_eh(signed_constraint c, dependency dep) {

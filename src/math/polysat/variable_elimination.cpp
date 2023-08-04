@@ -98,7 +98,7 @@ namespace polysat {
         
         pdd power = get_dyadic_valuation(p).second;
         
-        pvar rest = s.add_var(p.power_of_2());
+        pvar rest = s.add_var(p.power_of_2(), pvar_kind::internal);
         pdd rest_pdd = m.mk_var(rest);
         m_rest_constants.setx(v, rest, -1);
         s.add_clause(s.eq(power * rest_pdd, p), false);
@@ -119,7 +119,7 @@ namespace polysat {
         if (m_inverse_constants.size() > v && m_inverse_constants[v] != -1)
             return optional<pdd>(s.var(m_inverse_constants[v]));
         
-        pvar inv = s.add_var(p.power_of_2());
+        pvar inv = s.add_var(p.power_of_2(), pvar_kind::internal);
         pdd inv_pdd = m.mk_var(inv);
         m_inverse_constants.setx(v, inv, -1);
         s.add_clause(s.eq(inv_pdd * p, m.one()), false);
@@ -138,8 +138,8 @@ namespace polysat {
         pvar pv2;
         bool new_var = false;
         if (m_pv_constants.size() <= v || m_pv_constants[v] == -1) {
-            pv = s.add_var(m.power_of_2()); // TODO: What's a good value? Unfortunately we cannot use an integer
-            pv2 = s.add_var(m.power_of_2());
+            pv = s.add_var(m.power_of_2(), pvar_kind::internal); // TODO: What's a good value? Unfortunately we cannot use an integer
+            pv2 = s.add_var(m.power_of_2(), pvar_kind::internal);
             m_pv_constants.setx(v, pv, -1);
             m_pv_power_constants.setx(v, pv2, -1);
             // [nsb cr]: why these calls to m.mk_var()?
@@ -586,7 +586,7 @@ namespace polysat {
         pvar p_inv = m_pseudo_inverse[v][parity];
         
         if (p_inv == -1) {
-            p_inv = s.add_var(p.power_of_2());
+            p_inv = s.add_var(p.power_of_2(), pvar_kind::internal);
             m_pseudo_inverse[v][parity] = p_inv;
             // NB: Strictly speaking this condition does not say that "p_inv" is the pseudo-inverse.
             // However, the variable elimination lemma stays valid even if "p_inv" is not really the pseudo-inverse anymore (e.g., because of parity was reduced)
@@ -608,7 +608,7 @@ namespace polysat {
         if (m_inverse.size() > v && m_inverse[v] != -1)
             return s.var(m_inverse[v]);
         
-        pvar inv = s.add_var(p.power_of_2());
+        pvar inv = s.add_var(p.power_of_2(), pvar_kind::internal);
         pdd inv_pdd = s.var(inv);
         m_inverse.setx(v, inv, -1);
         s.add_clause(s.eq(inv_pdd * p, p.manager().one()), false);
@@ -634,7 +634,7 @@ namespace polysat {
             needs_propagate = !tuple.second[parity];
         }
         else {
-            odd_v = s.add_var(p.power_of_2());
+            odd_v = s.add_var(p.power_of_2(), pvar_kind::internal);
             verbose_stream() << "Odd part v" << odd_v << " of " << p << " introduced\n";
             m_odd.setx(v, optional<std::pair<pvar, bool_vector>>({ odd_v, bool_vector(p.power_of_2(), false) }), optional<std::pair<pvar, bool_vector>>::undef());
         }

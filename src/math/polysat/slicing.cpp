@@ -943,7 +943,7 @@ namespace polysat {
         }
         // allocate new variable if we cannot reuse it
         if (v == null_var) {
-            v = m_solver.add_var(hi - lo + 1);
+            v = m_solver.add_var(hi - lo + 1, pvar_kind::internal);
 #if 1
             // slice didn't have a variable yet; so we can re-use it for the new variable
             // (we end up with a "phantom" enode that was first created for the variable)
@@ -984,6 +984,7 @@ namespace polysat {
         m_extract_dedup.insert(args, v);
         m_extract_trail.push_back(args);
         m_trail.push_back(trail_item::mk_extract);
+        LOG("mk_extract: v" << src << "[" << hi << ":" << lo << "] = v" << v);
         return v;
     }
 
@@ -1020,7 +1021,7 @@ namespace polysat {
             v = replay_var;
         }
         else
-            v = m_solver.add_var(total_width);
+            v = m_solver.add_var(total_width, pvar_kind::internal);
         enode* sv = var2slice(v);
         VERIFY(merge(slices, sv, dep_t()));
         // NOTE: add_concat_node must be done after merge to preserve the invariant: "a base slice is never equivalent to a congruence node".

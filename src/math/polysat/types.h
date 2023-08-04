@@ -44,8 +44,7 @@ namespace polysat {
         external,           // regular variables (from the input formula)
         name,               // name for a polynomial term
         op,                 // result of an op_constraint
-        extract,            // result of an extract operation
-        concat,             // result of a concat operation
+        internal,           // other internal variable
     };
 
     class dependency {

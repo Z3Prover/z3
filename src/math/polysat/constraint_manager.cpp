@@ -401,8 +401,8 @@ namespace polysat {
         if (it != m_dedup.m_quot_rem_expr.end())
             return { m.mk_var(it->m_value.first), m.mk_var(it->m_value.second) };
 
-        pdd q = m.mk_var(s.add_var(sz));  // quotient
-        pdd r = m.mk_var(s.add_var(sz));  // remainder
+        pdd q = m.mk_var(s.add_var(sz, pvar_kind::internal));  // quotient
+        pdd r = m.mk_var(s.add_var(sz, pvar_kind::internal));  // remainder
         m_dedup.m_quot_rem_expr.insert(args, { q.var(), r.var() });
         m_dedup.m_div_rem_list.push_back({ a, b, q.var(), r.var() });
 
@@ -467,7 +467,7 @@ namespace polysat {
         if (it != m_dedup.op_constraint_expr.end())
             return m.mk_var(it->m_value);
 
-        pdd r = m.mk_var(s.add_var(sz));
+        pdd r = m.mk_var(s.add_var(sz, pvar_kind::op));
         m_dedup.op_constraint_expr.insert(args, r.var());
 
         signed_constraint c = mk_op_constraint(op, p, q, r);
@@ -644,7 +644,7 @@ namespace polysat {
         auto const it = m_dedup.m_bv_ext_expr.find_iterator(args);
         if (it != m_dedup.m_bv_ext_expr.end())
             return s.var(it->m_value);
-        pvar const v = s.add_var(v_sz);
+        pvar const v = s.add_var(v_sz, pvar_kind::internal);
         pdd const V = s.var(v);
         m_dedup.m_bv_ext_expr.insert(args, v);
         // (1)  v[|p|-1:0] = p
@@ -665,7 +665,7 @@ namespace polysat {
         auto const it = m_dedup.m_bv_ext_expr.find_iterator(args);
         if (it != m_dedup.m_bv_ext_expr.end())
             return s.var(it->m_value);
-        pdd const v = s.var(s.add_var(v_sz));
+        pdd const v = s.var(s.add_var(v_sz, pvar_kind::internal));
         m_dedup.m_bv_ext_expr.insert(args, v.var());
         // (1)  v[|p|-1:0] = p
         s.add_eq(q, extract(v, p_sz - 1, 0));
