@@ -770,7 +770,7 @@ void term_graph::mk_qe_lite_equalities(term &t, expr_ref_vector &out,
                  it = &it->get_next()) { tout << *it << "\n"; };);
         DEBUG_CODE(
             for (term *it = &t.get_next(); it != &t; it = &it->get_next())
-                SASSERT(!it->is_cgr() ||
+                SASSERT(!it->is_cgr() || it->is_eq_or_neq() ||
                         contains_nc(mk_app_core(it->get_expr()))););
         return;
     }
