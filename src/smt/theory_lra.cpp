@@ -1652,83 +1652,41 @@ public:
         if (!lp().is_feasible() || lp().has_changed_columns()) {
             is_sat = make_feasible();
         }
-        bool giveup = false;
         final_check_status st = FC_DONE;
-        m_final_check_idx = 0; // remove to experiment.
-        unsigned old_idx = m_final_check_idx;
         switch (is_sat) {
         case l_true:
             TRACE("arith", display(tout));            
-#if 0
-            m_dist.reset();
-            m_dist.push(0, 1);
-            m_dist.push(1, 1);
-            m_dist.push(2, 1);
-
-            for (auto idx : m_dist) {
-                if (!m.inc())
-                    return FC_GIVEUP;
-
-                switch (idx) {
-                case 0:
-                    if (assume_eqs()) 
-                        st = FC_CONTINUE;                    
-                    break;
-                case 1:
-                    st = check_nla();
-                    break;
-                case 2:
-                    st = check_lia();
-                    break;
-                default:
-                    UNREACHABLE();
-                    break;                    
-                }
-                switch (st) {
-                case FC_DONE:
-                    break;
-                case FC_CONTINUE:
-                    return st;
-                case FC_GIVEUP:
-                    giveup = true;
-                    break;
-                }
-            }
-
-#else
             
-            do {
-                if (!m.inc())
-                    return FC_GIVEUP;
-                
-                switch (m_final_check_idx) {
-                case 0:
-                    if (assume_eqs()) 
-                        st = FC_CONTINUE;                    
-                    break;
-                case 1:
-                    st = check_lia();
-                    break;
-                case 2:
-                    st = check_nla();
-                    break;
-                }
-                m_final_check_idx = (m_final_check_idx + 1) % 3;
-                switch (st) {
-                case FC_DONE:
-                    break;
-                case FC_CONTINUE:
-                    return st;
-                case FC_GIVEUP:
-                    giveup = true;
-                    break;
-                }
+            switch (check_lia()) {
+            case FC_DONE:
+                break;
+            case FC_CONTINUE:
+                return FC_CONTINUE;
+            case FC_GIVEUP:
+                TRACE("arith", tout << "check-lia giveup\n";);
+                if (ctx().get_fparams().m_arith_ignore_int)
+                    st = FC_CONTINUE;
+                break;
             }
-            while (old_idx != m_final_check_idx);
-#endif
+            
+            switch (check_nla()) {
+            case FC_DONE:
+                break;
+            case FC_CONTINUE:
+                return FC_CONTINUE;
+            case FC_GIVEUP:
+                TRACE("arith", tout << "check-nra giveup\n";);
+                verbose_stream() << "giveup nla\n";
+                st = FC_GIVEUP;
+                break;
+            }
+                        
+            if (assume_eqs()) {
+                ++m_stats.m_assume_eqs;
+                return FC_CONTINUE;
+            }
+            
 
-            if (giveup)
-                return FC_GIVEUP;
             for (expr* e : m_not_handled) {
                 if (!ctx().is_relevant(e))
                     continue;
