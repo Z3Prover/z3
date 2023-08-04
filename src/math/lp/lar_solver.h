@@ -107,6 +107,8 @@ class lar_solver : public column_namer {
     map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>> m_fixed_var_table_int;
     // maps values to non-integral fixed vars
     map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>> m_fixed_var_table_real;
+    // the set of fixed variables which are also base variables
+    indexed_uint_set                                   m_fixed_base_var_set;
     // end of fields
 
     ////////////////// methods ////////////////////////////////
@@ -316,11 +318,14 @@ class lar_solver : public column_namer {
 
     void set_value_for_nbasic_column(unsigned j, const impq& new_val);
 
+    void remove_fixed_vars_from_base();
+
     inline unsigned get_base_column_in_row(unsigned row_index) const {
         return m_mpq_lar_core_solver.m_r_solver.get_base_column_in_row(row_index);
     }
-
-    // lp_assert(implied_bound_is_correctly_explained(ib, explanation)); }
+#ifdef Z3DEBUG
+    bool fixed_base_removed_correctly() const;
+#endif
     constraint_index mk_var_bound(var_index j, lconstraint_kind kind, const mpq& right_side);
     void activate_check_on_equal(constraint_index, var_index&);
     void activate(constraint_index);
@@ -328,25 +333,22 @@ class lar_solver : public column_namer {
     void add_column_rows_to_touched_rows(lpvar j);
     template <typename T>
     void propagate_bounds_for_touched_rows(lp_bound_propagator<T>& bp) {
-        unsigned num_prop = 0;
-        for (unsigned i : m_touched_rows) {
-            num_prop += calculate_implied_bounds_for_row(i, bp);
-            if (settings().get_cancel_flag())
-                return;
-        }
-        // these two loops should be run sequentially
-        // since the first loop might change column bounds
-        // and add fixed columns this way
+        remove_fixed_vars_from_base();
         if (settings().propagate_eqs()) {
             bp.clear_for_eq();
             for (unsigned i : m_touched_rows) {
                 unsigned offset_eqs = stats().m_offset_eqs;
-                bp.cheap_eq_tree(i);
+                bp.cheap_eq_on_nbase(i);
                 if (settings().get_cancel_flag())
                     return;
                 if (stats().m_offset_eqs > offset_eqs)
                     m_row_bounds_to_replay.push_back(i);
             }
+        }
+        for (unsigned i : m_touched_rows) {
+            calculate_implied_bounds_for_row(i, bp);
+            if (settings().get_cancel_flag())
+                return;
         }
         m_touched_rows.reset();
     }
@@ -424,9 +426,10 @@ class lar_solver : public column_namer {
     bool try_to_patch(lpvar j, const mpq& val,
                       const Blocker& is_blocked,
                       const ChangeReport& change_report) {
-        if (is_base(j)) {
+        if (is_base(j))  {
             TRACE("nla_solver", get_int_solver()->display_row_info(tout, row_of_basic_column(j)) << "\n";);
-            remove_from_basis(j);
+            if (!remove_from_basis(j))
+               return false;
         }
 
         impq ival(val);
