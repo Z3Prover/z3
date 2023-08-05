@@ -1531,7 +1531,7 @@ public:
                       tout << "v" << v << " ";
               tout << "\n"; );
         if (!vars.empty()) {
-            m_changed_assignment = lp().random_update(vars.size(), vars.data());            
+            m_changed_assignment |= lp().random_update(vars.size(), vars.data());            
         }
     }
 
