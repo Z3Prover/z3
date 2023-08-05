@@ -1688,68 +1688,85 @@ public:
         m_final_check_idx = (m_final_check_idx + 1) % 3;
         return st;
     }
+
+    final_check_status sat_case_of_final_check() {
+        bool giveup;
+        TRACE("arith", display(tout));
+        final_check_status st = round_robbin(giveup);
+        if (giveup)
+            return FC_GIVEUP;
+        handle_unhandled_exprs(st);
+        if (st == FC_DONE)
+            st = correct_status_with_when_done();
+        return st;
+    }
+
+    final_check_status handle_expr(expr* e, final_check_status st) {
+        // reuse status in return
+         switch (eval_unsupported(e)) {
+             case FC_CONTINUE:
+                 st = FC_CONTINUE;
+                 break;
+             case FC_GIVEUP:
+                 TRACE("arith", tout << "give up " << mk_pp(e, m) << "\n");
+                 if (st != FC_CONTINUE) 
+                     st = FC_GIVEUP;
+                 break;
+             default:
+                 break;
+        }
+        return st;
+    }
+    // called iff is_sat is true
+    final_check_status round_robbin(bool & giveup) {
+        giveup = false;
+        final_check_status st = FC_DONE;
+        unsigned old_idx = m_final_check_idx;
+        do {
+             if (!m.inc()) 
+                 return FC_GIVEUP;
+             st = one_step_round_robbin(st);
+             if (st == FC_CONTINUE)
+                 return st;
+             if (st == FC_GIVEUP)
+                 giveup = true;
+        }
+        while (old_idx != m_final_check_idx);
+        return st;    
+    }
     
+    void handle_unhandled_exprs(final_check_status &st) {
+        for (expr *e : m_not_handled) {
+           if (!ctx().is_relevant(e))
+               continue;
+           st = handle_expr(e, st);
+           if (st == FC_CONTINUE)
+               break;
+        }
+    }
+
+    final_check_status correct_status_with_when_done() {
+        if (assume_eqs()) 
+            return FC_CONTINUE;      
+        return check_nla();
+    }
+
+    lbool init_is_sat() {
+        SASSERT(lp().ax_is_correct());
+        if (!lp().is_feasible() || lp().has_changed_columns())
+            return make_feasible();
+        return l_true;    
+    }
+
     final_check_status final_check_core() {
         if (propagate_core())
             return FC_CONTINUE;
         m_model_is_initialized = false;
         IF_VERBOSE(12, verbose_stream() << "final-check " << lp().get_status() << "\n");
-        lbool is_sat = l_true;
-        SASSERT(lp().ax_is_correct());
-        if (!lp().is_feasible() || lp().has_changed_columns()) {
-            is_sat = make_feasible();
-        }
-        final_check_status st = FC_DONE;
-
-        unsigned old_idx = m_final_check_idx;
-        bool giveup = false;
+        lbool is_sat = init_is_sat();
         switch (is_sat) {
-        case l_true:
-            TRACE("arith", display(tout));            
-            
-            do {
-                if (!m.inc())
-                    return FC_GIVEUP;
-                
-                st = one_step_round_robbin(st);
-                
-                if (st == FC_CONTINUE)
-                    return st;
-                if (st == FC_GIVEUP)
-                    giveup = true;
-            }
-            while (old_idx != m_final_check_idx);
-
-            for (expr* e : m_not_handled) {
-                if (!ctx().is_relevant(e))
-                    continue;
-                switch (eval_unsupported(e)) {
-                case FC_CONTINUE:
-                    st = FC_CONTINUE;
-                    break;
-                case FC_GIVEUP:
-                    TRACE("arith", tout << "give up " << mk_pp(e, m) << "\n");
-                    if (st != FC_CONTINUE) 
-                        st = FC_GIVEUP;
-                    break;
-                default:
-                    break;
-                }
-                if (st == FC_CONTINUE)
-                    break;
-            }
-
-            // TODO this is a bit desparate and assume_eqs() is already involed inside of check_nla and check_lia.
-            if (st == FC_DONE) {
-                if (assume_eqs()) 
-                    return FC_CONTINUE;
-                st = check_nla();
-                if (st != FC_DONE)
-                    return st;
-            }
-            if (giveup)
-                st = FC_GIVEUP;
-            return st;
+        case l_true: 
+            return sat_case_of_final_check();
         case l_false:
             get_infeasibility_explanation_and_set_conflict();
             return FC_CONTINUE;
