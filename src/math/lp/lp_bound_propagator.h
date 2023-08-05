@@ -25,6 +25,8 @@ class lp_bound_propagator {
     map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>> m_row2index_pos;
     // works for rows of the form x - y + sum of fixed = 0    
     map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>> m_row2index_neg;
+
+    const vector<column_type>*                         m_column_types;
     // returns true iff there is only one non-fixed column in the row
     bool only_one_nfixed(unsigned r, unsigned& x) {
         x = UINT_MAX;
@@ -90,13 +92,14 @@ class lp_bound_propagator {
         m_improved_upper_bounds.clear();
         m_improved_lower_bounds.clear();
         m_ibounds.reset();
+        m_column_types = &lp().get_column_types();
     }
 
     const lar_solver& lp() const { return m_imp.lp(); }
     lar_solver& lp() { return m_imp.lp(); }
 
     column_type get_column_type(unsigned j) const {
-        return m_imp.lp().get_column_type(j);
+        return (*m_column_types)[j];
     }
 
     const impq& get_lower_bound(unsigned j) const {
@@ -117,7 +120,7 @@ class lp_bound_propagator {
 
     // require also the zero infinitesemal part
     bool column_is_fixed(lpvar j) const {
-        return lp().column_is_fixed(j) && get_lower_bound(j).y.is_zero();
+        return (*m_column_types)[j] == column_type::fixed && get_lower_bound(j).y.is_zero();
     }
 
     void try_add_bound(mpq const& v, unsigned j, bool is_low, bool coeff_before_j_is_pos, unsigned row_or_term_index, bool strict) {
@@ -265,7 +268,7 @@ class lp_bound_propagator {
     unsigned num_of_non_fixed_in_row(unsigned row_index) const {
         unsigned n_of_nfixed = 0;
         for (const auto& c : lp().get_row(row_index)) {
-            if (lp().column_is_fixed(c.var()))
+            if (column_is_fixed(c.var()))
                 continue;
             n_of_nfixed++;
             if (n_of_nfixed > 1)
@@ -370,7 +373,7 @@ class lp_bound_propagator {
             unsigned i = c.var();  // the running index of the row
             if (i == row_index)
                 continue;
-            if (check_insert(m_visited_rows, i) == false)
+            if (!check_insert(m_visited_rows, i))
                 continue;
             unsigned y_nb;
             nf = extract_non_fixed(i, x, y_nb, y_sign);

@@ -489,6 +489,7 @@ class lar_solver : public column_namer {
 
     void updt_params(params_ref const& p);
     column_type get_column_type(unsigned j) const { return m_mpq_lar_core_solver.m_column_types()[j]; }
+    const vector<column_type>&  get_column_types() const { return m_mpq_lar_core_solver.m_column_types(); }
     const impq& get_lower_bound(unsigned j) const { return m_mpq_lar_core_solver.m_r_lower_bounds()[j]; }
     const impq& get_upper_bound(unsigned j) const { return m_mpq_lar_core_solver.m_r_upper_bounds()[j]; }
     std::ostream& print_terms(std::ostream& out) const;
