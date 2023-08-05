@@ -1674,16 +1674,16 @@ public:
     
     final_check_status one_step_round_robbin(final_check_status st) {
         switch (m_final_check_idx) {
-                case 0:
-                    st = check_lia();
-                    break;
-                case 1:
-                    if (assume_eqs()) 
-                        st = FC_CONTINUE;
-                    break;
-                case 2:
-                    st = check_nla();
-                    break;
+            case 0:
+                st = check_lia();
+                break;
+            case 1:
+                if (assume_eqs()) 
+                    st = FC_CONTINUE;
+                break;
+            case 2:
+                st = check_nla();
+                break;
         }
         m_final_check_idx = (m_final_check_idx + 1) % 3;
         return st;
@@ -1734,7 +1734,7 @@ public:
         while (old_idx != m_final_check_idx);
         return st;    
     }
-    
+
     void handle_unhandled_exprs(final_check_status &st) {
         for (expr *e : m_not_handled) {
            if (!ctx().is_relevant(e))
