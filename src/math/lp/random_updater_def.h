@@ -52,9 +52,10 @@ bool random_updater::shift_var(unsigned j) {
     return ret;
 }
 
-
-void random_updater::update() {
+// returs true iff at least one varable was shifted
+bool random_updater::update() {
     // VERIFY(m_lar_solver.check_feasible());
+    bool ret = false;
     unsigned_vector columns;
     // m_var_set is going to change during the loop, make a copy
     for (unsigned j :  m_var_set) {
@@ -65,20 +66,26 @@ void random_updater::update() {
             TRACE("lar_solver_rand", tout << "skipped " << j << "\n";);
             continue;
         }
-        if (!m_lar_solver.is_base(j)) 
-            shift_var(j);
+        if (!m_lar_solver.is_base(j)) {
+            if (shift_var(j)) {
+                ret = true;
+            }
+        }
         else {
             unsigned row_index = m_lar_solver.r_heading()[j];
             for (auto & row_c : m_lar_solver.get_row(row_index)) {
                 unsigned cj = row_c.var();
                 if (!m_lar_solver.is_base(cj) &&
                     !m_lar_solver.column_is_fixed(cj) &&
-                    shift_var(cj)) 
+                    shift_var(cj)) {
+                    ret = true;
                     break; // done with the basic var j                
+                }
             }
         }            
-    }
+    }    
     TRACE("lar_solver_rand", tout << "m_var_set.size() = " << m_var_set.size() << "\n";);
+    return ret;
 }
 
 }

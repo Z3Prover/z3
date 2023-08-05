@@ -38,6 +38,6 @@ class random_updater {
     bool shift_var(unsigned j);
   public:
     random_updater(lar_solver & solver, const vector<unsigned> & column_list);
-    void update();
+    bool update();
 };
 }

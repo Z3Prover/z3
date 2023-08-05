@@ -324,7 +324,7 @@ class lar_solver : public column_namer {
     constraint_index mk_var_bound(var_index j, lconstraint_kind kind, const mpq& right_side);
     void activate_check_on_equal(constraint_index, var_index&);
     void activate(constraint_index);
-    void random_update(unsigned sz, var_index const* vars);
+    bool random_update(unsigned sz, var_index const* vars);
     void add_column_rows_to_touched_rows(lpvar j);
     template <typename T>
     void propagate_bounds_for_touched_rows(lp_bound_propagator<T>& bp) {

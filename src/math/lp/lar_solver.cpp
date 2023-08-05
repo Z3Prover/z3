@@ -1154,11 +1154,11 @@ namespace lp {
         }
     }
 
-    void lar_solver::random_update(unsigned sz, var_index const* vars) {
+    bool lar_solver::random_update(unsigned sz, var_index const* vars) {
         vector<unsigned> column_list;
         fill_var_set_for_random_update(sz, vars, column_list);
         random_updater ru(*this, column_list);
-        ru.update();
+        return ru.update();
     }
 
     void lar_solver::add_column_rows_to_touched_rows(lpvar j) {

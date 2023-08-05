@@ -1531,8 +1531,7 @@ public:
                       tout << "v" << v << " ";
               tout << "\n"; );
         if (!vars.empty()) {
-            lp().random_update(vars.size(), vars.data());
-            m_changed_assignment = true;
+            m_changed_assignment = lp().random_update(vars.size(), vars.data());            
         }
     }
 
@@ -1672,7 +1671,7 @@ public:
         return result;
     }
     
-    final_check_status one_step_round_robbin(final_check_status st) {
+    final_check_status one_step_round_robin(final_check_status st) {
         switch (m_final_check_idx) {
             case 0:
                 st = check_lia();
@@ -1690,14 +1689,16 @@ public:
     }
 
     final_check_status sat_case_of_final_check() {
-        bool giveup;
+        bool giveup = false;
         TRACE("arith", display(tout));
-        final_check_status st = round_robbin(giveup);
+        final_check_status st = round_robin(giveup);
         if (giveup)
             return FC_GIVEUP;
         handle_unhandled_exprs(st);
         if (st == FC_DONE)
             st = correct_status_with_when_done();
+        if (st == FC_DONE && assume_eqs())
+            st = FC_CONTINUE;    
         return st;
     }
 
@@ -1718,14 +1719,14 @@ public:
         return st;
     }
     // called iff is_sat is true
-    final_check_status round_robbin(bool & giveup) {
+    final_check_status round_robin(bool & giveup) {
         giveup = false;
         final_check_status st = FC_DONE;
         unsigned old_idx = m_final_check_idx;
         do {
              if (!m.inc()) 
                  return FC_GIVEUP;
-             st = one_step_round_robbin(st);
+             st = one_step_round_robin(st);
              if (st == FC_CONTINUE)
                  return st;
              if (st == FC_GIVEUP)
