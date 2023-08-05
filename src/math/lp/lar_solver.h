@@ -333,8 +333,9 @@ class lar_solver : public column_namer {
     void add_column_rows_to_touched_rows(lpvar j);
     template <typename T>
     void propagate_bounds_for_touched_rows(lp_bound_propagator<T>& bp) {
-        remove_fixed_vars_from_base();
         if (settings().propagate_eqs()) {
+            if (settings().random_next() % 10 == 0) 
+                remove_fixed_vars_from_base();
             bp.clear_for_eq();
             for (unsigned i : m_touched_rows) {
                 unsigned offset_eqs = stats().m_offset_eqs;

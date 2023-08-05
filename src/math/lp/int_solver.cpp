@@ -18,22 +18,6 @@ namespace lp {
         lrac(lia.lrac)
     {}
     
-    void int_solver::patcher::remove_fixed_vars_from_base() {
-        unsigned num = lra.A_r().column_count();
-        for (unsigned v = 0; v < num; v++) {
-            if (!lia.is_base(v) || !lia.is_fixed(v))
-                continue;
-            auto const & r = lra.basic2row(v);
-            for (auto const& c : r) {
-                if (c.var() != v && !lia.is_fixed(c.var())) {
-                    lra.pivot(c.var(), v); 
-                    break;
-                }
-            }        
-        }
-    }
-
-
     unsigned int_solver::patcher::count_non_int() {
         unsigned non_int = 0;
         for (auto j : lra.r_basis()) 
@@ -43,22 +27,12 @@ namespace lp {
     }
 
     lia_move int_solver::patcher::patch_basic_columns() {
-        remove_fixed_vars_from_base();
         lia.settings().stats().m_patches++;
+        lra.remove_fixed_vars_from_base();
         lp_assert(lia.is_feasible());
-        
-       // unsigned non_int_before, non_int_after;
-
-       // non_int_before = count_non_int();
-
-
-        // unsigned num = lra.A_r().column_count();
         for (unsigned j : lra.r_basis()) 
             if (!lra.get_value(j).is_int())
                 patch_basic_column(j);
-        // non_int_after = count_non_int();
-        // verbose_stream() << non_int_before << " -> " << non_int_after << "\n";
-
         if (!lia.has_inf_int()) {
             lia.settings().stats().m_patches_success++;
             return lia_move::sat;
@@ -175,7 +149,6 @@ namespace lp {
             if (patch_basic_column_on_row_cell(v, c))
                 return;                                       
     }
-
 
 
 int_solver::int_solver(lar_solver& lar_slv) :
