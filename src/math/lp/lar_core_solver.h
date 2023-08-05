@@ -215,9 +215,7 @@ public:
     }
 
     bool column_is_fixed(unsigned j) const {
-        return m_column_types()[j] == column_type::fixed ||
-            ( m_column_types()[j] == column_type::boxed &&
-              m_r_solver.m_lower_bounds[j] == m_r_solver.m_upper_bounds[j]);
+        return m_column_types()[j] == column_type::fixed;
     }
 
     bool column_is_free(unsigned j) const {
