@@ -1638,9 +1638,6 @@ public:
             return FC_DONE;
         return FC_GIVEUP;
     }
-
-    unsigned m_final_check_idx = 0;
-    distribution m_dist { 0 };
     
     final_check_status final_check_eh() {
         if (propagate_core())
