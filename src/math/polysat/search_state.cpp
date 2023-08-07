@@ -30,8 +30,10 @@ namespace polysat {
             switch (j.kind()) {
             case justification_k::decision:
                 return out << " by decision";
-            case justification_k::propagation:
+            case justification_k::propagation_by_viable:
                 return out << " by " << viable::var_pp(s.m_viable, var);
+            case justification_k::propagation_by_slicing:
+                return out << " by slicing (detailed output is TODO)";
             case justification_k::unassigned:
                 return out << " unassigned";
             }

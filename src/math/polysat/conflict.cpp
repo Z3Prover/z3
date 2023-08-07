@@ -468,9 +468,9 @@ namespace polysat {
         m_resolver->infer_lemmas_for_value(v, *this);
     }
 
-    void conflict::resolve_value(pvar v) {
+    void conflict::resolve_value_by_viable(pvar v) {
         SASSERT(contains_pvar(v));
-        SASSERT(s.m_justification[v].is_propagation());
+        SASSERT(s.m_justification[v].is_propagation_by_viable());
 
         s.inc_activity(v);
 
@@ -485,6 +485,26 @@ namespace polysat {
                 return;
         }
         logger().log(inf_resolve_value(s, v));
+
+        revert_pvar(v);
+    }
+
+    void conflict::resolve_value_by_slicing(pvar v) {
+        SASSERT(contains_pvar(v));
+        SASSERT(s.m_justification[v].is_propagation_by_slicing());
+
+        s.inc_activity(v);
+
+        m_vars.remove(v);
+        s.m_slicing.explain_value(v,
+            [this](sat::literal lit) {
+                insert_or_replace(s.lit2cnstr(lit));
+            },
+            [this](pvar w) {
+                SASSERT(s.is_assigned(w));
+                m_vars.insert(w);
+            });
+        // logger().log(inf_resolve_value(s, v)); TODO
 
         revert_pvar(v);
     }
@@ -619,13 +639,21 @@ namespace polysat {
                 todo_vars.pop_back();
                 IF_VERBOSE(11, verbose_stream() << "Handling v" << v << "\n";);
 
-                SASSERT(s.m_justification[v].is_propagation());  // no decisions at base level
-
-                for (signed_constraint c : s.m_viable.get_constraints(v))
-                    enqueue_constraint(c);
-                for (auto const& i : s.m_viable.units(v)) {
-                    enqueue_constraint(s.eq(i.lo(), i.lo_val()));
-                    enqueue_constraint(s.eq(i.hi(), i.hi_val()));
+                auto const& j = s.m_justification[v];
+                if (j.is_propagation_by_viable()) {
+                    for (signed_constraint c : s.m_viable.get_constraints(v))
+                        enqueue_constraint(c);
+                    for (auto const& i : s.m_viable.units(v)) {
+                        enqueue_constraint(s.eq(i.lo(), i.lo_val()));
+                        enqueue_constraint(s.eq(i.hi(), i.hi_val()));
+                    }
+                }
+                else if (j.is_propagation_by_slicing()) {
+                    s.m_slicing.explain_value(v, enqueue_lit, enqueue_var);
+                }
+                else {
+                    // no decisions at base level
+                    UNREACHABLE();
                 }
             }
             while (!todo_lits.empty()) {
@@ -670,7 +698,7 @@ namespace polysat {
     std::ostream& conflict::display(std::ostream& out) const {
         out << "lvl " << m_level;
         if (!m_dep.is_null())
-            out << "dep " << m_dep;
+            out << " dep " << m_dep;
         char const* sep = " ";
         for (auto c : *this)
             out << sep << c->bvar2string() << " " << c, sep = " ; ";

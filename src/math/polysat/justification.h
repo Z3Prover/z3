@@ -8,7 +8,7 @@ Module Name:
 Author:
 
     Nikolaj Bjorner (nbjorner) 2021-03-19
-    Jakob Rath 2021-04-6
+    Jakob Rath 2021-04-06
 
 --*/
 #pragma once
@@ -21,7 +21,12 @@ namespace polysat {
     /**
      * Justification kind for a variable assignment.
      */
-    enum justification_k { unassigned, decision, propagation };
+    enum class justification_k {
+        unassigned,
+        decision,
+        propagation_by_viable,
+        propagation_by_slicing,
+    };
 
     class justification {
         justification_k m_kind;
@@ -31,10 +36,12 @@ namespace polysat {
         justification(): m_kind(justification_k::unassigned) {}
         static justification unassigned() { return justification(justification_k::unassigned, 0); }
         static justification decision(unsigned lvl) { return justification(justification_k::decision, lvl); }
-        static justification propagation(unsigned lvl) { return justification(justification_k::propagation, lvl); }
+        static justification propagation_by_viable(unsigned lvl) { return justification(justification_k::propagation_by_viable, lvl); }
+        static justification propagation_by_slicing(unsigned lvl) { return justification(justification_k::propagation_by_slicing, lvl); }
         bool is_decision() const { return m_kind == justification_k::decision; }
         bool is_unassigned() const { return m_kind == justification_k::unassigned; }
-        bool is_propagation() const { return m_kind == justification_k::propagation; }
+        bool is_propagation_by_viable() const { return m_kind == justification_k::propagation_by_viable; }
+        bool is_propagation_by_slicing() const { return m_kind == justification_k::propagation_by_slicing; }
         justification_k kind() const { return m_kind; }
         unsigned level() const { /* SASSERT(!is_unassigned()); */ return m_level; }   // TODO: check why this assertion triggers...
         std::ostream& display(std::ostream& out) const;

@@ -227,7 +227,7 @@ namespace polysat {
             s.try_assign_eval(s.eq(i.lo(), i.lo_val()));
             s.try_assign_eval(s.eq(i.hi(), i.hi_val()));
         }
-        s.assign_propagate(v, val);
+        s.assign_propagate_by_viable(v, val);
     }
 
     bool viable::intersect(pvar v, signed_constraint const& c) {

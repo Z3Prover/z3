@@ -191,7 +191,9 @@ namespace polysat {
         void resolve_evaluated(sat::literal lit);
 
         /** Perform resolution with "v = value <- ..." */
-        void resolve_value(pvar v);
+        void resolve_value_by_viable(pvar v);
+
+        void resolve_value_by_slicing(pvar v);
 
         /** Revert variable assignment, add auxiliary lemmas for the reverted variable */
         void revert_pvar(pvar v);

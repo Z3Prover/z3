@@ -863,7 +863,7 @@ namespace polysat {
             // The fallback solver currently does not detect propagations, because we would need to handle justifications differently.
             // However, this case may still occur if during viable::intersect, we run into the refinement budget,
             // but here, we continue refinement and actually succeed until propagation.
-            assign_propagate(v, val);
+            assign_propagate_by_viable(v, val);
             return;
         case find_t::multiple:
             j = justification::decision(m_level + 1);
@@ -882,11 +882,7 @@ namespace polysat {
         assign_core(v, val, j);
     }
 
-    void solver::assign_propagate(pvar v, rational const& val) {
-        LOG("Propagation: " << assignment_pp(*this, v, val));
-        SASSERT(!is_assigned(v));
-        SASSERT(m_viable.is_viable(v, val));
-        m_free_pvars.del_var_eh(v);
+    void solver::assign_propagate_by_viable(pvar v, rational const& val) {
         // NOTE:
         // The propagation v := val might depend on a lower level than the current level (m_level).
         // This can happen if the constraints that cause the propagation have been bool-propagated at an earlier level,
@@ -901,14 +897,23 @@ namespace polysat {
                 if (is_assigned(w))  // TODO: question of which variables are relevant. e.g., v1 > v0 implies v1 > 0 without dependency on v0. maybe add a lemma v1 > v0 --> v1 > 0 on the top level to reduce false variable dependencies? instead of handling such special cases separately everywhere.
                     lvl = std::max(lvl, get_level(w));
         }
-        // NOTE: we do not have to check the univariate solver here.
-        //       Since we propagate, this means at most the single value 'val' is viable.
-        //       If it is not actually viable, the propagation loop will find out and enter the conflict state.
-        //       (However, if we do check here, we might find the conflict earlier. Might be worth a try.)
-        assign_core(v, val, justification::propagation(lvl));
+        assign_propagate(v, val, justification::propagation_by_viable(lvl));
     }
 
-    void solver::assign_core(pvar v, rational const& val, justification const& j) {
+    void solver::assign_propagate_by_slicing(pvar v, rational const& val) {
+        unsigned lvl = m_level;  // TODO: can the actual level be lower?
+        assign_propagate(v, val, justification::propagation_by_slicing(lvl));
+    }
+
+    void solver::assign_propagate(pvar v, rational const& val, justification j) {
+        LOG("Propagation: " << assignment_pp(*this, v, val));
+        SASSERT(!is_assigned(v));
+        SASSERT(j.is_propagation_by_viable() || j.is_propagation_by_slicing());
+        m_free_pvars.del_var_eh(v);
+        assign_core(v, val, j);
+    }
+
+    void solver::assign_core(pvar v, rational const& val, justification j) {
         VERIFY(!is_assigned(v));
         if (j.is_decision())
             ++m_stats.m_num_decisions;
@@ -916,7 +921,7 @@ namespace polysat {
             ++m_stats.m_num_propagations;
         LOG(assignment_pp(*this, v, val) << " by " << j);
         SASSERT(m_viable.is_viable(v, val));
-        SASSERT(j.is_decision() || j.is_propagation());
+        SASSERT(j.is_decision() || j.is_propagation_by_viable() || j.is_propagation_by_slicing());
         SASSERT(j.level() <= m_level);
         SASSERT(!is_assigned(v));
         SASSERT(all_of(get_assignment(), [v](auto p) { return p.first != v; }));
@@ -956,8 +961,13 @@ namespace polysat {
                     revert_decision(v);
                     return;
                 }
-                SASSERT(j.is_propagation());
-                m_conflict.resolve_value(v);
+                if (j.is_propagation_by_viable())
+                    m_conflict.resolve_value_by_viable(v);
+                else if (j.is_propagation_by_slicing())
+                    m_conflict.resolve_value_by_slicing(v);
+                else {
+                    UNREACHABLE();
+                }
             }
             else {
                 // Resolve over boolean literal
@@ -1102,6 +1112,7 @@ namespace polysat {
             appraise_lemma(lemmas.back());
         }
         if (!best_lemma) {
+            verbose_stream() << "ERROR: no best_lemma\n";
             display(verbose_stream());
             verbose_stream() << "conflict: " << m_conflict << "\n";
             verbose_stream() << "no lemma\n";
@@ -1110,7 +1121,6 @@ namespace polysat {
                 for (sat::literal lit : *cl)
                     verbose_stream() << "    " << lit_pp(*this, lit) << "\n";
             }
-            
         }
         SASSERT(best_score < lemma_score::max());
         VERIFY(best_lemma);
@@ -1581,9 +1591,11 @@ namespace polysat {
                 pvar v = item.var();
                 auto const& j = m_justification[v];
                 out << "\t" << assignment_pp(*this, v, get_value(v)) << " @" << j.level() << " ";
-                if (j.is_propagation())
+                if (j.is_propagation_by_viable())
                     for (auto const& c : m_viable.get_constraints(v))
                         out << c << " ";
+                if (j.is_propagation_by_slicing())
+                    out << "by slicing (detailed output is TODO)";
                 out << "\n";
             }
             else {

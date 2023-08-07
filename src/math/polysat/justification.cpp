@@ -8,7 +8,7 @@ Module Name:
 Author:
 
     Nikolaj Bjorner (nbjorner) 2021-03-19
-    Jakob Rath 2021-04-6
+    Jakob Rath 2021-04-06
 
 --*/
 
@@ -22,8 +22,10 @@ namespace polysat {
             return out << "unassigned";
         case justification_k::decision:
             return out << "decision @ " << level();
-        case justification_k::propagation:
-            return out << "propagation @ " << level();
+        case justification_k::propagation_by_viable:
+            return out << "propagation by viable @ " << level();
+        case justification_k::propagation_by_slicing:
+            return out << "propagation by slicing @ " << level();
         }
         UNREACHABLE();
         return out;

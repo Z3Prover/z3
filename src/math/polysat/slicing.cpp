@@ -718,6 +718,35 @@ namespace polysat {
         return cb.build();
     }
 
+    void slicing::explain_value(pvar v, std::function<void(sat::literal)> const& on_lit, std::function<void(pvar)> const& on_var) {
+        SASSERT(m_solver.m_justification[v].is_propagation_by_slicing());
+        SASSERT(invariant());
+        SASSERT(m_marked_lits.empty());
+
+        enode* sv = var2slice(v);
+        enode* rv = sv->get_root();
+        SASSERT(is_value(rv));  // by convention, value slices are always the root; and this method may only be called if v is equivalent to a value in the egraph.
+
+        SASSERT(m_tmp_deps.empty());
+        explain_equal(sv, rv, m_tmp_deps);
+
+        for (void* dp : m_tmp_deps) {
+            dep_t const d = dep_t::decode(dp);
+            if (d.is_null())
+                continue;
+            if (d.is_lit())
+                on_lit(d.lit());
+            else {
+                SASSERT(d.is_value());
+                if (get_dep_lit(d) == sat::null_literal)
+                    on_var(get_dep_var(d));
+                else
+                    on_lit(get_dep_lit(d));
+            }
+        }
+        m_tmp_deps.reset();
+    }
+
     bool slicing::find_range_in_ancestor(enode* s, enode* a, unsigned& out_hi, unsigned& out_lo) {
         out_hi = width(s) - 1;
         out_lo = 0;
@@ -747,10 +776,12 @@ namespace polysat {
                 pvar const v = slice2var(n);
                 if (v == null_var)
                     continue;
+                if (m_solver.is_assigned(v))
+                    continue;
                 LOG("on_merge: v" << v << " := " << get_value(root));
-                // TODO: notify solver about value
+                m_solver.assign_propagate_by_slicing(v, get_value(root));
                 // TODO: congruence? what if all base slices of a variable are equivalent to values?
-                //          -> could track, for each slice, how many of its base slices are (not) equivalent to values. (update on split and merge)
+                //          -> could track, for each variable, how many of its base slices are (not) equivalent to values. (update on split and merge)
             }
         }
     }

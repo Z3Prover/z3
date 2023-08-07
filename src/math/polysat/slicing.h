@@ -313,6 +313,9 @@ namespace polysat {
         /** Extract conflict clause */
         clause_ref build_conflict_clause();
 
+        /** Explain why slicing has propagated the value assignment for v */
+        void explain_value(pvar v, std::function<void(sat::literal)> const& on_lit, std::function<void(pvar)> const& on_var);
+
         /** For a given variable v, find the set of variables w such that w = v[|w|:0]. */
         void collect_simple_overlaps(pvar v, pvar_vector& out);
 

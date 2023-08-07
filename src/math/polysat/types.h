@@ -67,8 +67,12 @@ namespace polysat {
     inline bool operator!=(dependency const& d1, dependency const& d2) { return d1.val() != d2.val(); }
 
     inline std::ostream& operator<<(std::ostream& out, dependency const& d) {
-        out << "dep(" << d.val() << ")";
-        return out;
+        out << "dep(";
+        if (d.is_null())
+            out << "<null>";
+        else
+            out << d.val();
+        return out << ")";
     }
 
 }
