@@ -46,12 +46,12 @@ namespace polysat {
         public:
             dep_t() { SASSERT(is_null()); }
             dep_t(sat::literal l): m_data(l) { SASSERT(l != sat::null_literal); SASSERT_EQ(l, lit()); }
-            explicit dep_t(unsigned vi): m_data(vi) { SASSERT_EQ(vi, var_idx()); }
+            explicit dep_t(unsigned idx): m_data(idx) { SASSERT_EQ(idx, value_idx()); }
             bool is_null() const { return std::holds_alternative<std::monostate>(m_data); }
             bool is_lit()  const { return std::holds_alternative<sat::literal>(m_data); }
-            bool is_var_idx()  const { return std::holds_alternative<unsigned>(m_data); }
+            bool is_value()  const { return std::holds_alternative<unsigned>(m_data); }
             sat::literal lit() const { SASSERT(is_lit()); return *std::get_if<sat::literal>(&m_data); }
-            unsigned var_idx() const { SASSERT(is_var_idx()); return *std::get_if<unsigned>(&m_data); }
+            unsigned value_idx() const { SASSERT(is_value()); return *std::get_if<unsigned>(&m_data); }
             bool operator==(dep_t other) const { return m_data == other.m_data; }
             bool operator!=(dep_t other) const { return !operator==(other); }
             void* encode() const;
@@ -60,16 +60,18 @@ namespace polysat {
 
         using dep_vector = svector<dep_t>;
 
-        std::ostream& display(std::ostream& out, dep_t d);
+        std::ostream& display(std::ostream& out, dep_t d) const;
 
-        dep_t mk_var_dep(pvar v, enode* s);
+        dep_t mk_var_dep(pvar v, enode* s, sat::literal lit);
 
         pvar_vector         m_dep_var;
         ptr_vector<enode>   m_dep_slice;
+        sat::literal_vector m_dep_lit;          // optional, value assignment comes from a literal "x == val" rather than a solver assignment
         unsigned_vector     m_dep_size_trail;
 
-        pvar get_dep_var(dep_t d) const { return m_dep_var[d.var_idx()]; }
-        enode* get_dep_slice(dep_t d) const { return m_dep_slice[d.var_idx()]; }
+        pvar get_dep_var(dep_t d) const { return m_dep_var[d.value_idx()]; }
+        sat::literal get_dep_lit(dep_t d) const { return m_dep_lit[d.value_idx()]; }
+        enode* get_dep_slice(dep_t d) const { return m_dep_slice[d.value_idx()]; }
 
         static constexpr unsigned null_cut = std::numeric_limits<unsigned>::max();
 
@@ -212,9 +214,9 @@ namespace polysat {
 
         // deduplication of extract terms
         struct extract_args {
-            pvar src;
-            unsigned hi;
-            unsigned lo;
+            pvar src = null_var;
+            unsigned hi = 0;
+            unsigned lo = 0;
             bool operator==(extract_args const& other) const { return src == other.src && hi == other.hi && lo == other.lo; }
             unsigned hash() const { return mk_mix(src, hi, lo); }
         };
@@ -234,7 +236,7 @@ namespace polysat {
         };
         svector<trail_item> m_trail;
         enode_vector        m_split_trail;
-        svector<extract_args> m_extract_trail;      // TODO: expand to pvar -> extract_args? 1. for dependency tracking when sharing subslice trees; 2. for easily checking if a variable is an extraction of another.
+        svector<extract_args> m_extract_trail;
         unsigned_vector     m_scopes;
 
         struct concat_info {
@@ -265,6 +267,7 @@ namespace polysat {
         void replay_concat(unsigned num_args, pvar const* args, pvar r);
 
         bool add_equation(pvar x, pdd const& body, sat::literal lit);
+        bool add_value(pvar v, rational const& value, sat::literal lit);
 
         bool invariant() const;
         bool invariant_needs_congruence() const;
@@ -280,6 +283,15 @@ namespace polysat {
             std::ostream& display(std::ostream& out) const { return s.display(out, n); }
         };
         friend std::ostream& operator<<(std::ostream& out, slice_pp const& s) { return s.display(out); }
+
+        class dep_pp {
+            slicing const& s;
+            dep_t d;
+        public:
+            dep_pp(slicing const& s, dep_t d): s(s), d(d) {}
+            std::ostream& display(std::ostream& out) const { return s.display(out, d); }
+        };
+        friend std::ostream& operator<<(std::ostream& out, dep_pp const& d) { return d.display(out); }
 
     public:
         slicing(solver& s);

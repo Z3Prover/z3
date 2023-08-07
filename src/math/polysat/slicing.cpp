@@ -93,20 +93,26 @@ namespace polysat {
             return dep_t(unbox<unsigned>(p));
     }
 
-    std::ostream& slicing::display(std::ostream& out, dep_t d) {
+    std::ostream& slicing::display(std::ostream& out, dep_t d) const {
         if (d.is_null())
             out << "null";
-        else if (d.is_var_idx())
-            out << "var(v" << get_dep_var(d) << " on slice " << get_dep_slice(d)->get_id() << ")";
+        else if (d.is_value()) {
+            out << "value(v" << get_dep_var(d) << " on slice " << get_dep_slice(d)->get_id();
+            if (get_dep_lit(d) != sat::null_literal)
+                out << " by literal " << get_dep_lit(d);
+            out << ")";
+        }
         else if (d.is_lit())
             out << "lit(" << d.lit() << ")";
         return out;
     }
 
-    slicing::dep_t slicing::mk_var_dep(pvar v, enode* s) {
+    slicing::dep_t slicing::mk_var_dep(pvar v, enode* s, sat::literal lit) {
         SASSERT_EQ(m_dep_var.size(), m_dep_slice.size());
+        SASSERT_EQ(m_dep_var.size(), m_dep_lit.size());
         unsigned const idx = m_dep_var.size();
         m_dep_var.push_back(v);
+        m_dep_lit.push_back(lit);
         m_dep_slice.push_back(s);
         return dep_t(idx);
     }
@@ -212,6 +218,7 @@ namespace polysat {
         m_needs_congruence.reset();
         m_disequality_conflict = nullptr;
         m_dep_var.shrink(m_dep_size_trail[target_lvl]);
+        m_dep_lit.shrink(m_dep_size_trail[target_lvl]);
         m_dep_slice.shrink(m_dep_size_trail[target_lvl]);
         m_dep_size_trail.shrink(target_lvl);
         // replay add_var/mk_extract/mk_concat in the same order
@@ -413,11 +420,11 @@ namespace polysat {
             void* j_hi = j.ext<void>();
             void* j_lo = j.ext<void>();
             dep_t d = dep_t::decode(j.ext<void>());
-            if (d.is_var_idx()) {
+            if (d.is_value()) {
                 enode* ds = get_dep_slice(d);
                 SASSERT(ds == n || ds == target);
-                j_hi = mk_var_dep(get_dep_var(d), sub_hi(ds)).encode();
-                j_lo = mk_var_dep(get_dep_var(d), sub_lo(ds)).encode();
+                j_hi = mk_var_dep(get_dep_var(d), sub_hi(ds), get_dep_lit(d)).encode();
+                j_lo = mk_var_dep(get_dep_var(d), sub_lo(ds), get_dep_lit(d)).encode();
             }
             m_egraph.merge(sub_hi(n), sub_hi(target), j_hi);
             m_egraph.merge(sub_lo(n), sub_lo(target), j_lo);
@@ -608,7 +615,7 @@ namespace polysat {
                 cb.insert(~lit);
             }
             else {
-                SASSERT(d.is_var_idx());
+                SASSERT(d.is_value());
                 pvar const v = get_dep_var(d);
                 enode* const sv = get_dep_slice(d);
                 if (x == null_var)
@@ -620,12 +627,19 @@ namespace polysat {
                     // thus there can be at most two pvar justifications in a single conflict.
                     UNREACHABLE();
                 }
+                sat::literal lit = get_dep_lit(d);
+                if (lit != sat::null_literal) {
+                    LOG("Premise:    " << lit_pp(m_solver, lit));
+                    cb.insert(~lit);
+                }
             }
         }
         m_marked_lits.reset();
         m_tmp_deps.reset();
         if (x != null_var) LOG("Variable v" << x << " with slice " << slice_pp(*this, sx));
         if (y != null_var) LOG("Variable v" << y << " with slice " << slice_pp(*this, sy));
+        SASSERT(x != null_var || y == null_var);
+        SASSERT(y != null_var || x == null_var);
 
         signed_constraint c;
         if (x == null_var) {
@@ -633,6 +647,7 @@ namespace polysat {
             SASSERT_EQ(y, null_var);
         }
         else if (y == null_var) {
+            UNREACHABLE();
             SASSERT(is_value(sx->get_root()));
             // the egraph has derived that x (or a sub-slice thereof) must have value b that differs from the currently assigned value of x.
             // the explanation is:      lits ==> x[...] = b
@@ -647,7 +662,16 @@ namespace polysat {
                 SASSERT(!is_value(xn));
                 unsigned hi, lo;
                 VERIFY(find_range_in_ancestor(sx, var2slice(x), hi, lo));
+                LOG("Variable v" << x << " has solver-value " << m_solver.get_value(x));
+                LOG("Subslice v" << x << "[" << hi << ":" << lo << "] has value " << get_value(sx->get_root()));
                 rational const b = get_value(sx->get_root());
+                // TODO: problematic case when this assertion is violated:
+                // 1. v3 := v2[0:0]
+                // 2. propagate value assignment v2 := 1 from some other constraints.
+                // 3. propagate constraint v3 == 0.
+                // In this case we want the value from the constraint v3==0 rather from sx (how to access it?)
+                // (maybe constraints like v3 == 0 should be handled more like assignments?)
+                SASSERT(b != mod2k(machine_div2k(m_solver.get_value(x), lo), hi - lo + 1));
                 if (!lo) {
                     // x[hi:0] = b
                     // <==>
@@ -692,7 +716,7 @@ namespace polysat {
                     cb.insert_eval(~d);
                     c = m_solver.eq(m_solver.var(x), get_value(sx->get_root()));
                 }
-           }
+            }
             else {
                 unsigned x_hi, x_lo, y_hi, y_lo;
                 VERIFY(find_range_in_ancestor(sx, var2slice(x), x_hi, x_lo));
@@ -817,9 +841,9 @@ namespace polysat {
         SASSERT_EQ(width(s1), width(s2));
         SASSERT(!has_sub(s1));
         SASSERT(!has_sub(s2));
-        if (dep.is_var_idx()) {
+        if (dep.is_value()) {
             SASSERT(is_value(s2));
-            dep = mk_var_dep(get_dep_var(dep), s1);
+            dep = mk_var_dep(get_dep_var(dep), s1, get_dep_lit(dep));
         }
         m_egraph.merge(s1, s2, dep.encode());
         return !is_conflict();
@@ -958,7 +982,7 @@ namespace polysat {
         LOG("mk_extract: src=" << slice_pp(*this, src) << " hi=" << hi << " lo=" << lo);
         enode_vector& slices = m_tmp3;
         SASSERT(slices.empty());
-        mk_slice(src, hi, lo, slices, false, false);  // TODO: we don't need a base if we can reuse some intermediary slice, do we?
+        mk_slice(src, hi, lo, slices, false, false);
         pvar v = null_var;
         // try to re-use variable of an existing slice
         if (slices.size() == 1)
@@ -1106,13 +1130,12 @@ namespace polysat {
 
     bool slicing::add_equation(pvar x, pdd const& body, sat::literal lit) {
         LOG("Equation from lit(" << lit << "):  v" << x << (lit.sign() ? " != " : " = ") << body);
-        enode* const sx = var2slice(x);
         if (!lit.sign() && body.is_val()) {
             LOG("    simple assignment");
             // Simple assignment x = value
-            enode* const sval = mk_value_slice(body.val(), body.power_of_2());
-            return merge(sx, sval, lit);
+            return add_value(x, body.val(), lit);
         }
+        enode* const sx = var2slice(x);
         pvar const y = m_solver.m_names.get_name(body);
         if (y == null_var) {
             LOG("    skip for now (unnamed body, or disequality with constant)");
@@ -1139,12 +1162,16 @@ namespace polysat {
         return true;
     }
 
-    void slicing::add_value(pvar v, rational const& val) {
-        LOG("v" << v << " := " << val);
-        SASSERT(!is_conflict());
+    bool slicing::add_value(pvar v, rational const& value, sat::literal lit) {
         enode* const sv = var2slice(v);
-        enode* const sval = mk_value_slice(val, width(sv));
-        (void)merge(sv, sval, mk_var_dep(v, sv));
+        enode* const sval = mk_value_slice(value, width(sv));
+        return merge(sv, sval, mk_var_dep(v, sv, lit));
+    }
+
+    void slicing::add_value(pvar v, rational const& value) {
+        LOG("v" << v << " := " << value);
+        SASSERT(!is_conflict());
+        (void)add_value(v, value, sat::null_literal);
     }
 
     void slicing::collect_simple_overlaps(pvar v, pvar_vector& out) {
