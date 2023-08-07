@@ -43,11 +43,11 @@ namespace polysat {
         vector<std::tuple<pdd, pdd, pvar, pvar>> m_div_rem_list;
 
         // zero_ext or sign_ext
-        using bv_ext_args = std::tuple<bool, pvar, unsigned>;
+        using bv_ext_args = std::optional<std::tuple<bool, pdd, unsigned>>;  // NOTE: this is only wrapped in optional because table2map requires a default constructor
         using bv_ext_args_eq = default_eq<bv_ext_args>;
         struct bv_ext_args_hash {
             unsigned operator()(bv_ext_args const& args) const {
-                return mk_mix(std::get<0>(args), std::get<1>(args), std::get<2>(args));
+                return args ? mk_mix(std::get<0>(*args), std::get<1>(*args).hash(), std::get<2>(*args)) : 0;
             }
         };
         using bv_ext_expr_map = map<bv_ext_args, pvar, bv_ext_args_hash, bv_ext_args_eq>;

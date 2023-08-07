@@ -654,8 +654,7 @@ namespace polysat {
         unsigned const v_sz = p_sz + extra_bits;
         if (p.is_val())
             return s.sz2pdd(v_sz).mk_val(p.val());
-        pvar const p_name = s.m_names.mk_name(p);
-        constraint_dedup::bv_ext_args const args = {false, p_name, extra_bits};
+        constraint_dedup::bv_ext_args const args = {{false, p, extra_bits}};
         auto const it = m_dedup.m_bv_ext_expr.find_iterator(args);
         if (it != m_dedup.m_bv_ext_expr.end())
             return s.var(it->m_value);
@@ -663,7 +662,7 @@ namespace polysat {
         pdd const V = s.var(v);
         m_dedup.m_bv_ext_expr.insert(args, v);
         // (1)  v[|p|-1:0] = p
-        s.add_eq(extract(V, p_sz - 1, 0), s.var(p_name));
+        s.add_eq(extract(V, p_sz - 1, 0), p);
         // (2)  v < 2^|p|
         s.add_ule(V, p.manager().max_value());
         return V;
@@ -675,15 +674,14 @@ namespace polysat {
         unsigned const v_sz = p_sz + extra_bits;
         if (p.is_val())
             return s.sz2pdd(v_sz).mk_val(p.get_signed_val());
-        pdd const q = s.var(s.m_names.mk_name(p));
-        constraint_dedup::bv_ext_args const args = {true, q.var(), extra_bits};
+        constraint_dedup::bv_ext_args const args = {{true, p, extra_bits}};
         auto const it = m_dedup.m_bv_ext_expr.find_iterator(args);
         if (it != m_dedup.m_bv_ext_expr.end())
             return s.var(it->m_value);
         pdd const v = s.var(s.add_var(v_sz, pvar_kind::internal));
         m_dedup.m_bv_ext_expr.insert(args, v.var());
         // (1)  v[|p|-1:0] = p
-        s.add_eq(q, extract(v, p_sz - 1, 0));
+        s.add_eq(extract(v, p_sz - 1, 0), p);
         // (2)  Let h := v[|v|-1:|p|]
         pdd const h = extract(v, v_sz - 1, p_sz);
         signed_constraint p_negative = s.uge(p, rational::power_of_two(p_sz - 1));
