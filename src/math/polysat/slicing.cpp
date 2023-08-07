@@ -1031,6 +1031,8 @@ namespace polysat {
 
     pvar slicing::mk_extract(pvar src, unsigned hi, unsigned lo) {
         LOG_H3("mk_extract: v" << src << "[" << hi << ":" << lo << "]     size(v" << src << ") = " << m_solver.size(src));
+        if (m_solver.size(src) == hi - lo + 1)
+            return src;
         extract_args args{src, hi, lo};
         auto it = m_extract_dedup.find_iterator(args);
         if (it != m_extract_dedup.end())

@@ -592,6 +592,8 @@ namespace polysat {
         SASSERT(hi >= lo);
         SASSERT(p.power_of_2() > hi);
         unsigned const v_sz = hi - lo + 1;
+        if (p.power_of_2() == v_sz)
+            return p;
         if (p.is_val()) {
             // p[hi:lo] = (p >> lo) % 2^(hi - lo + 1)
             rational q = mod2k(machine_div2k(p.val(), lo), hi - lo + 1);
@@ -627,7 +629,18 @@ namespace polysat {
             return args[0];
         if (num_args == 2)
             return concat(args[0], args[1]);
-        // TODO: special cases when args are values?
+        if (std::all_of(args, args + num_args, [](pdd const& p) { return p.is_val(); })) {
+            rational val;
+            unsigned sz = 0;
+            for (unsigned i = num_args; i-- > 0; ) {
+                pdd const& p = args[i];
+                if (!p.is_zero())
+                    val += p.val() * rational::power_of_two(sz);
+                sz += p.power_of_2();
+            }
+            return s.sz2pdd(sz).mk_val(val);
+        }
+        // TODO: special cases when some of the arguments are values?
         pvar_vector pvar_args;
         for (unsigned i = 0; i < num_args; ++i)
             pvar_args.push_back(s.m_names.mk_name_even_if_value(args[i]));
