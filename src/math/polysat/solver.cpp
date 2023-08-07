@@ -1532,9 +1532,24 @@ namespace polysat {
                 if (!found)
                     verbose_stream() << "    " << d << ": <no constraint in polysat>\n";
             }
-            for (pvar v : vars)
-                if (signed_constraint c = m_constraints.find_op_by_result_var(v))
+            for (pvar v : vars) {
+                switch (m_kind[v]) {
+                case pvar_kind::external:
+                    break;
+                case pvar_kind::name:
+                    break;
+                case pvar_kind::op: {
+                    signed_constraint c = m_constraints.find_op_by_result_var(v);
                     verbose_stream() << "    op: " << lit_pp(*this, c) << "\n";
+                    break;
+                }
+                case pvar_kind::internal:
+                    verbose_stream() << "    internal: v" << v << "\n";
+                    break;
+                default:
+                    UNREACHABLE();
+                }
+            }
         });
 #if ENABLE_LEMMA_VALIDITY_CHECK
         clause_builder cb(*this, "unsat core check");

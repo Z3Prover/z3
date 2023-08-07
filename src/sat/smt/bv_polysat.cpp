@@ -309,22 +309,29 @@ namespace bv {
         sat::literal_vector core;
         euf::enode_pair_vector eqs;
         m_polysat.unsat_core(deps);
-        for (auto n : deps) {            
-            if (0 != (n.val() & 1))
-                core.push_back(sat::to_literal(n.val() / 2));
+        IF_VERBOSE(10, verbose_stream() << "polysat_core:\n");
+        for (auto d : deps) {
+            if (0 != (d.val() & 1)) {
+                sat::literal const lit = sat::to_literal(d.val() / 2);
+                core.push_back(lit);
+                IF_VERBOSE(10, verbose_stream() << "    " << d << ":  " << mk_ismt2_pp(literal2expr(lit), m) << "\n");
+            }
             else {                
-                auto [v1, v2] = m_var_eqs[n.val() / 2];
-                VERIFY(var2enode(v1)->get_root() == var2enode(v2)->get_root());
-                VERIFY(n.val() <= 2 * m_var_eqs_head);
-                eqs.push_back(euf::enode_pair(var2enode(v1), var2enode(v2)));
+                VERIFY(d.val() <= 2 * m_var_eqs_head);
+                auto const [v1, v2] = m_var_eqs[d.val() / 2];
+                euf::enode* const n1 = var2enode(v1);
+                euf::enode* const n2 = var2enode(v2);
+                VERIFY(n1->get_root() == n2->get_root());
+                eqs.push_back(euf::enode_pair(n1, n2));
+                IF_VERBOSE(10, verbose_stream() << "    " << d << ":  " << mk_ismt2_pp(n1->get_expr(), m) << "  ==  " << mk_ismt2_pp(n2->get_expr(), m) << "\n");
             }
         }
-        DEBUG_CODE(
+        DEBUG_CODE({
             for (auto lit : core) 
                 VERIFY(s().value(lit) == l_true);
             for (auto const& [n1, n2] : eqs)
                 VERIFY(n1->get_root() == n2->get_root());
-            );
+        });
         auto ex = mk_bv2ext_justification(core, eqs);
         ctx.set_conflict(ex);
     }
