@@ -1,6 +1,7 @@
 #include "math/polysat/log.h"
 #include "math/polysat/solver.h"
 #include "math/polysat/variable_elimination.h"
+#include "smt/params/smt_params.h"
 #include "ast/ast.h"
 #include "parsers/smt2/smt2parser.h"
 #include "util/util.h"
@@ -28,41 +29,41 @@ namespace {
         unsigned i = k % 3;
         unsigned j = k % 2;
         if (i == 1)
-            std::swap(a, b);
+            swap(a, b);
         else if (i == 2)
-            std::swap(a, c);
+            swap(a, c);
         if (j == 1)
-            std::swap(b, c);
+            swap(b, c);
     }
 
     void permute_args(unsigned n, pdd& a, pdd& b, pdd& c, pdd& d) {
         SASSERT(n < 24);
         switch (n % 4) {
         case 1:
-            std::swap(a, b);
+            swap(a, b);
             break;
         case 2:
-            std::swap(a, c);
+            swap(a, c);
             break;
         case 3:
-            std::swap(a, d);
+            swap(a, d);
             break;
         default:
             break;
         }
         switch (n % 3) {
         case 1:
-            std::swap(b, c);
+            swap(b, c);
             break;
         case 2:
-            std::swap(b, d);
+            swap(b, d);
             break;
         default:
             break;
         }
         switch (n % 2) {
         case 1:
-            std::swap(c, d);
+            swap(c, d);
             break;
         default:
             break;
@@ -233,6 +234,7 @@ namespace polysat {
 
     struct solver_scope {
         reslimit lim;
+        smt_params pars;
     };
 
     class scoped_solver : public solver_scope, public solver {
@@ -241,7 +243,7 @@ namespace polysat {
         test_record* m_last_finished = nullptr;
 
     public:
-        scoped_solver(std::string name): solver(lim), m_name(name) {
+        scoped_solver(std::string name): solver(lim, pars), m_name(name) {
             if (collect_test_records)
                 std::cout << m_name << std::flush;
             else {
@@ -262,7 +264,7 @@ namespace polysat {
         void set_max_conflicts(unsigned c) {
             params_ref p;
             p.set_uint("max_conflicts", c);
-            updt_params(p);
+            updt_polysat_params(p);
         }
 
         void check() {
@@ -1305,7 +1307,7 @@ namespace polysat {
             expect_lemma_cnt(cfl, 1); // Eliminating "x" fails because there is no assignment for "y"; eliminating "y" works
             expect_lemma(s, cfl, s.ule(3 * z - 7 * x * z, 2));
 
-            s.assign_core(y.var(), rational(2), justification::propagation(0));
+            s.assign_core(y.var(), rational(2), justification::propagation_by_viable(0));
 
             conflict cfl2(s);
             cfl2.insert(c1);

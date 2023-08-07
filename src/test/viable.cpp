@@ -2,6 +2,7 @@
 #include "math/polysat/solver.h"
 #include "math/polysat/viable.h"
 #include "math/polysat/univariate/univariate_solver.h"
+#include "smt/params/smt_params.h"
 
 namespace polysat {
 
@@ -34,11 +35,12 @@ namespace polysat {
 
     struct solver_scopev {
         reslimit lim;
+        smt_params pars;
     };
 
     class scoped_solverv : public solver_scopev, public solver {
     public:
-        scoped_solverv(): solver(lim) {}
+        scoped_solverv(): solver(lim, pars) {}
         viable& v() { return m_viable; }
     };
 

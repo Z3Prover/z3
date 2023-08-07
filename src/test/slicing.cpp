@@ -1,5 +1,6 @@
 #include "math/polysat/slicing.h"
 #include "math/polysat/solver.h"
+#include "smt/params/smt_params.h"
 
 namespace {
 
@@ -23,11 +24,12 @@ namespace polysat {
 
     struct solver_scope_slicing {
         reslimit lim;
+        smt_params pars;
     };
 
     class scoped_solver_slicing : public solver_scope_slicing, public solver {
     public:
-        scoped_solver_slicing(): solver(lim) {}
+        scoped_solver_slicing(): solver(lim, pars) {}
         slicing& sl() { return m_slicing; }
     };
 
