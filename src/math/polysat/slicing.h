@@ -192,6 +192,9 @@ namespace polysat {
         void egraph_on_merge(enode* root, enode* other);
         void egraph_on_propagate(enode* lit, enode* ante);
 
+        // Merge slices in the e-graph.
+        bool egraph_merge(enode* s1, enode* s2, dep_t dep);
+
         // Merge equivalence classes of two base slices.
         // Returns true if merge succeeded without conflict.
         [[nodiscard]] bool merge_base(enode* s1, enode* s2, dep_t dep);

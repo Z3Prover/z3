@@ -211,7 +211,8 @@ namespace polysat {
             case trail_item::mk_concat:
                 num_replay_concat++;
                 break;
-            default: UNREACHABLE();
+            default:
+                UNREACHABLE();
             }
         }
         m_egraph.pop(num_scopes);
@@ -247,9 +248,9 @@ namespace polysat {
                 replay_concat(ci.num_args, &m_concat_args[ci.args_idx], ci.v);
                 break;
             }
-            default: UNREACHABLE();
+            default:
+                UNREACHABLE();
             }
-
         }
         m_concat_trail.shrink(m_concat_trail.size() - num_replay_concat);
         m_concat_args.shrink(m_concat_trail.empty() ? 0 : m_concat_trail.back().next_args_idx());
@@ -319,7 +320,7 @@ namespace polysat {
         slice_info& concat_info = m_info[concat->get_id()];
         SASSERT(!concat_info.slice);  // not yet set
         concat_info.slice = s;
-        m_egraph.merge(s, concat, dep_t().encode());
+        egraph_merge(s, concat, dep_t());
     }
 
     void slicing::add_var_congruence(pvar v) {
@@ -342,6 +343,8 @@ namespace polysat {
     void slicing::update_var_congruences() {
         if (!use_var_congruences())
             return;
+        // TODO: this is only needed once per equivalence class
+        //          (mark root of var2slice to detect duplicates?)
         for (pvar v : m_needs_congruence)
             add_var_congruence(v);
         m_needs_congruence.reset();
@@ -410,24 +413,17 @@ namespace polysat {
         // split all slices in the equivalence class
         for (enode* n : euf::enode_class(s))
             split_core(n, cut);
-        // propagate the proper equivalences
+        // propagate equivalences to subslices
         for (enode* n : euf::enode_class(s)) {
             enode* target = n->get_target();
             if (!target)
                 continue;
+            SASSERT(!is_value(n));  // values are always roots, and target always points towards the root.
             euf::justification const j = n->get_justification();
             SASSERT(j.is_external());  // cannot be a congruence since the slice wasn't split before.
-            void* j_hi = j.ext<void>();
-            void* j_lo = j.ext<void>();
-            dep_t d = dep_t::decode(j.ext<void>());
-            if (d.is_value()) {
-                enode* ds = get_dep_slice(d);
-                SASSERT(ds == n || ds == target);
-                j_hi = mk_var_dep(get_dep_var(d), sub_hi(ds), get_dep_lit(d)).encode();
-                j_lo = mk_var_dep(get_dep_var(d), sub_lo(ds), get_dep_lit(d)).encode();
-            }
-            m_egraph.merge(sub_hi(n), sub_hi(target), j_hi);
-            m_egraph.merge(sub_lo(n), sub_lo(target), j_lo);
+            dep_t const d = dep_t::decode(j.ext<void>());
+            egraph_merge(sub_hi(n), sub_hi(target), d);
+            egraph_merge(sub_lo(n), sub_lo(target), d);
         }
     }
 
@@ -837,16 +833,24 @@ namespace polysat {
         m_egraph.propagate();
     }
 
-    bool slicing::merge_base(enode* s1, enode* s2, dep_t dep) {
+    bool slicing::egraph_merge(enode* s1, enode* s2, dep_t dep) {
         SASSERT_EQ(width(s1), width(s2));
-        SASSERT(!has_sub(s1));
-        SASSERT(!has_sub(s2));
         if (dep.is_value()) {
+            if (is_value(s1))
+                std::swap(s1, s2);
             SASSERT(is_value(s2));
-            dep = mk_var_dep(get_dep_var(dep), s1, get_dep_lit(dep));
+            SASSERT(!is_value(s1));  // we never merge two value slices directly
+            if (get_dep_slice(dep) != s1)
+                dep = mk_var_dep(get_dep_var(dep), s1, get_dep_lit(dep));
         }
         m_egraph.merge(s1, s2, dep.encode());
         return !is_conflict();
+    }
+
+    bool slicing::merge_base(enode* s1, enode* s2, dep_t dep) {
+        SASSERT(!has_sub(s1));
+        SASSERT(!has_sub(s2));
+        return egraph_merge(s1, s2, dep);
     }
 
     bool slicing::merge(enode_vector& xs, enode_vector& ys, dep_t dep) {
