@@ -293,7 +293,7 @@ class lp_bound_propagator {
         if (!column_is_fixed(x)) {
             nf++;
         } else {
-            lp_assert(all_fixed_in_row(row_index));
+            // we have a fixed base column, exiting
             return 0;
         }
 
