@@ -79,8 +79,16 @@ namespace polysat {
         forbidden_intervals      m_forbidden_intervals;
 
         struct entry final : public dll_base<entry>, public fi_record {
-            ptr_vector<entry const> refined;
+            /// whether the entry has been created by refinement (from constraints in 'fi_record::src')
+            bool refined = false;
+
+            void reset() {
+                // dll_base<entry>::init(this);  // we never did this in alloc_entry either
+                fi_record::reset();
+                refined = false;
+            }
         };
+
         enum class entry_kind { unit_e, equal_e, diseq_e };
 
         struct layer final {
@@ -127,7 +135,7 @@ namespace polysat {
         bool refine_disequal_lin(pvar v, rational const& val);
 
         template<bool FORWARD>
-        rational extend_by_bits(const pdd& var, const rational& bounds, const svector<lbool>& fixed, const vector<ptr_vector<entry>>& justifications, vector<signed_constraint>& src, vector<signed_constraint>& side_cond, ptr_vector<entry const>& refined) const;
+        rational extend_by_bits(const pdd& var, const rational& bounds, const svector<lbool>& fixed, const vector<ptr_vector<entry>>& justifications, vector<signed_constraint>& src, vector<signed_constraint>& side_cond) const;
 
         bool collect_bit_information(pvar v, bool add_conflict, svector<lbool>& fixed, vector<ptr_vector<entry>>& justifications);
 #if 0

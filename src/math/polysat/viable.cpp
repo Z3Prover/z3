@@ -78,8 +78,7 @@ namespace polysat {
         if (m_alloc.empty())
             return alloc(entry);
         auto* e = m_alloc.back();
-        e->fi_record::reset();
-        e->refined.reset();
+        e->reset();
         m_alloc.pop_back();
         return e;
     }
@@ -589,7 +588,7 @@ namespace {
 
         // TODO: We might also extend simultaneously up and downwards if we want the actual interval (however, this might make use of more fixed bits and is weaker - worse - therefore)
         entry* ne = alloc_entry();
-        rational new_val = extend_by_bits<FORWARD>(v_pdd, val, fixed, justifications, ne->src, ne->side_cond, ne->refined);
+        rational new_val = extend_by_bits<FORWARD>(v_pdd, val, fixed, justifications, ne->src, ne->side_cond);
 
         if (new_val == val) {
             m_alloc.push_back(ne);
@@ -597,8 +596,10 @@ namespace {
         }
 
         // TODO: Extend in both directions? (Less justifications vs. bigger intervals)
-        rational new_val2 = extend_by_bits<!FORWARD>(v_pdd, val, fixed, justifications, ne->src, ne->side_cond, ne->refined);
+        // TODO: could also try to extend backwards as much as we can without introducing new justifications?
+        rational new_val2 = extend_by_bits<!FORWARD>(v_pdd, val, fixed, justifications, ne->src, ne->side_cond);
 
+        ne->refined = true;
         ne->coeff = 1;
         ne->bit_width = s.size(v);
         if (FORWARD) {
@@ -659,7 +660,7 @@ namespace {
                         // No solution
                         LOG("refined: no solution due to parity");
                         entry* ne = alloc_entry();
-                        ne->refined.push_back(e);
+                        ne->refined = true;
                         ne->src = e->src;
                         ne->side_cond = e->side_cond;
                         ne->coeff = 1;
@@ -677,7 +678,7 @@ namespace {
                         LOG("refined to [" << num_pp(s, v, lo) << ", " << num_pp(s, v, hi) << "[");
                         SASSERT_EQ(mod(a * hi, mod_value), b);  // hi is the solution
                         entry* ne = alloc_entry();
-                        ne->refined.push_back(e);
+                        ne->refined = true;
                         ne->src = e->src;
                         ne->side_cond = e->side_cond;
                         ne->coeff = 1;
@@ -710,7 +711,7 @@ namespace {
                     SASSERT_EQ(mod(a * (lo - 1), mod_value), b);  // lo-1 is a solution
                     SASSERT_EQ(mod(a * hi, mod_value), b);  // hi is a solution
                     entry* ne = alloc_entry();
-                    ne->refined.push_back(e);
+                    ne->refined = true;
                     ne->src = e->src;
                     ne->side_cond = e->side_cond;
                     ne->coeff = 1;
@@ -739,7 +740,7 @@ namespace {
                 if (hi == mod_value)
                     hi = 0;
                 entry* ne = alloc_entry();
-                ne->refined.push_back(e);
+                ne->refined = true;
                 ne->src = e->src;
                 ne->side_cond = e->side_cond;
                 ne->coeff = 1;
@@ -839,7 +840,7 @@ namespace {
                 pdd lop = s.var2pdd(v).mk_val(lo);
                 pdd hip = s.var2pdd(v).mk_val(hi);
                 entry* ne = alloc_entry();
-                ne->refined.push_back(e);
+                ne->refined = true;
                 ne->src = e->src;
                 ne->side_cond = e->side_cond;
                 ne->coeff = 1;
@@ -856,7 +857,7 @@ namespace {
 
     // Skips all values that are not feasible w.r.t. fixed bits
     template<bool FORWARD>
-    rational viable::extend_by_bits(const pdd& var, const rational& bound, const svector<lbool>& fixed, const vector<ptr_vector<entry>>& justifications, vector<signed_constraint>& src, vector<signed_constraint>& side_cond, ptr_vector<entry const>& refined) const {
+    rational viable::extend_by_bits(const pdd& var, const rational& bound, const svector<lbool>& fixed, const vector<ptr_vector<entry>>& justifications, vector<signed_constraint>& src, vector<signed_constraint>& side_cond) const {
         unsigned k = var.power_of_2();
         if (fixed.empty())
             return bound;
@@ -872,7 +873,6 @@ namespace {
                     side_cond.push_back(sc);
                 for (auto& c : add->src)
                     src.push_back(c);
-                refined.push_back(add);
             }
         };
 
@@ -1423,7 +1423,7 @@ namespace {
         do {
             found = false;
             do {
-                if (e->refined.empty() && e->side_cond.empty()) {
+                if (!e->refined && e->side_cond.empty()) {
                     auto const& lo = e->interval.lo();
                     auto const& hi = e->interval.hi();
                     if (lo.is_val() && hi.is_val()) {
@@ -1459,7 +1459,7 @@ namespace {
         do {
             found = false;
             do {
-                if (e->refined.empty() && e->side_cond.empty()) {
+                if (!e->refined && e->side_cond.empty()) {
                     auto const& lo = e->interval.lo();
                     auto const& hi = e->interval.hi();
                     if (lo.is_val() && hi.is_val()) {
@@ -1821,17 +1821,9 @@ namespace {
         entry const* first = m_units[v].get_entries(s.size(v));  // TODO: take other sizes into account
         entry const* e = first;
         do {
-            ptr_vector<entry const> to_process = e->refined;
-            while (!to_process.empty()) {
-                auto current = to_process.back();
-                to_process.pop_back();
-                if (!current->refined.empty()) {
-                    for (auto& ref : current->refined)
-                        to_process.push_back(ref);
-                    continue;
-                }
-                const entry* origin = current;
-                for (const auto& src : origin->src) {
+            // in the first step we're only interested in entries from refinement
+            if (e->refined) {
+                for (signed_constraint const src : e->src) {
                     sat::literal const lit = src.blit();
                     if (!added.contains(lit)) {
                         added.insert(lit);
