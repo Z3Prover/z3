@@ -338,8 +338,16 @@ namespace polysat {
         /** For a given variable v, find the set of variables w such that w = v[|w|:0]. */
         void collect_simple_overlaps(pvar v, pvar_vector& out);
 
+        struct justified_fixed_bits : public fixed_bits {
+            enode* just;
+
+            justified_fixed_bits(unsigned hi, unsigned lo, rational value, enode* just): fixed_bits(hi, lo, value), just(just) {}
+        };
+
+        using justified_fixed_bits_vector = vector<justified_fixed_bits>;
+
         /** Collect fixed portions of the variable v */
-        void collect_fixed(pvar v, fixed_bits_vector& out, enode_vector& out_just);
+        void collect_fixed(pvar v, justified_fixed_bits_vector& out);
         void explain_fixed(euf::enode* just, std::function<void(sat::literal)> const& on_lit, std::function<void(pvar)> const& on_var);
 
         std::ostream& display(std::ostream& out) const;

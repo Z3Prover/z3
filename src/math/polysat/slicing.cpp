@@ -1363,7 +1363,7 @@ namespace polysat {
         SASSERT(all_of(m_egraph.nodes(), [](enode* n) { return !n->is_marked1(); }));
     }
 
-    void slicing::collect_fixed(pvar v, fixed_bits_vector& out, euf::enode_vector& out_just) {
+    void slicing::collect_fixed(pvar v, justified_fixed_bits_vector& out) {
         enode_vector& base = m_tmp2;
         SASSERT(base.empty());
         get_base(var2slice(v), base);
@@ -1373,10 +1373,8 @@ namespace polysat {
             enode* r = n->get_root();
             unsigned const w = width(n);
             unsigned const hi = lo + w - 1;
-            if (try_get_value(r, a)) {
-                out.push_back({hi, lo, a});
-                out_just.push_back(n);
-            }
+            if (try_get_value(r, a))
+                out.push_back({hi, lo, a, n});
             lo += w;
         }
     }

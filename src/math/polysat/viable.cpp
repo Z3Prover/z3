@@ -975,18 +975,15 @@ namespace {
 
 #if 0
         // TODO: wip
-        fixed_bits_vector fbs;
-        euf::enode_vector fbs_just;
-        s.m_slicing.collect_fixed(v, fbs, fbs_just);
+        slicing::justified_fixed_bits_vector fbs;
+        s.m_slicing.collect_fixed(v, fbs);
 
-        for (unsigned idx = fbs.size(); idx-- > 0; ) {
-            fixed_bits const& fb = fbs[idx];
-            euf::enode_pair const& just = fbs_just[idx];
+        for (auto const& fb : fbs) {
             for (unsigned i = fb.lo; i <= fb.hi; ++i) {
                 SASSERT(out_fbi.just_src[i].empty());  // since we don't get overlapping ranges from collect_fixed.
                 SASSERT(out_fbi.just_side_cond[i].empty());
                 out_fbi.fixed[i] = to_lbool(fb.value.get_bit(i - fb.lo));
-                // TODO: can add an euf::enode_pair to the fixed_bits_info. then we do not have to call explain_fixed() here already.
+                // TODO: can add an euf::enode* to the fixed_bits_info. then we do not have to call explain_fixed() here already.
                 // TODO: s.m_slicing.explain_fixed( ... );  with  out_fbi.just_src[i].push_back(...)
             }
         }
