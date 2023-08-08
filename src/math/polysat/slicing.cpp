@@ -506,7 +506,9 @@ namespace polysat {
     }
 
     bool slicing::try_get_value(enode* s, rational& val) const {
-        return m_bv->is_numeral(s->get_expr(), val);
+        bool const ok = m_bv->is_numeral(s->get_expr(), val);
+        SASSERT_EQ(ok, is_value(s));
+        return ok;
     }
 
     void slicing::explain_class(enode* x, enode* y, ptr_vector<void>& out_deps) {
@@ -1115,23 +1117,55 @@ namespace polysat {
     void slicing::add_constraint(signed_constraint c) {
         LOG(c);
         SASSERT(!is_conflict());
-        if (!c->is_eq())
+#if 0
+        if (!add_fixed_bits(c))
             return;
-        pdd const& p = c->to_eq();
+#endif
+        if (c->is_eq())
+            add_constraint_eq(c->to_eq(), c.blit());
+    }
+
+    bool slicing::add_fixed_bits(signed_constraint c) {
+        // TODO: what is missing here:
+        // - we don't prioritize constraints that set larger bit ranges
+        //   e.g., c1 sets 3 lower bits, and c2 sets 5 lower bits.
+        //   slicing may have both {c1,c2} in justifications while previously we always prefer c2.
+        // - (we could wait until propagate() to add fixed bits to the egraph. but that would only work on a single decision level.)
+        if (c->vars().size() != 1)
+            return true;
+        fixed_bits fb;
+        if (!get_fixed_bits(c, fb))
+            return true;
+        pvar const x = c->vars()[0];
+        return add_fixed_bits(x, fb.hi, fb.lo, fb.value, c.blit());
+    }
+
+    bool slicing::add_fixed_bits(pvar x, unsigned hi, unsigned lo, rational const& value, sat::literal lit) {
+        enode_vector& xs = m_tmp3;
+        SASSERT(xs.empty());
+        mk_slice(var2slice(x), hi, lo, xs, false, false);
+        enode* const sval = mk_value_slice(value, hi - lo + 1);
+        // 'xs' will be cleared by 'merge'.
+        // NOTE: the 'nullptr' argument will be fixed by 'egraph_merge'
+        return merge(xs, sval, mk_var_dep(x, nullptr, lit));
+    }
+
+    bool slicing::add_constraint_eq(pdd const& p, sat::literal lit) {
         auto& m = p.manager();
         for (auto& [a, x] : p.linear_monomials()) {
             if (a != 1 && a != m.max_value())
                 continue;
             pdd const body = a.is_one() ? (m.mk_var(x) - p) : (m.mk_var(x) + p);
             // c is either x = body or x != body, depending on polarity
-            if (!add_equation(x, body, c.blit())) {
+            if (!add_equation(x, body, lit)) {
                 SASSERT(is_conflict());
-                return;
+                return false;
             }
             // without this check, when p = x - y we would handle both x = y and y = x separately
             if (body.is_unary())
                 break;
         }
+        return true;
     }
 
     bool slicing::add_equation(pvar x, pdd const& body, sat::literal lit) {
@@ -1288,26 +1322,27 @@ namespace polysat {
         SASSERT(all_of(m_egraph.nodes(), [](enode* n) { return !n->is_marked1(); }));
     }
 
-    void slicing::collect_fixed(pvar v, rational& mask, rational& value) {
+    void slicing::collect_fixed(pvar v, fixed_bits_vector& out, euf::enode_pair_vector& out_just) {
         enode_vector& base = m_tmp2;
         SASSERT(base.empty());
         get_base(var2slice(v), base);
-        mask = 0;
-        value = 0;
         rational a;
         unsigned lo = 0;
-        for (auto it = base.rbegin(); it != base.rend(); ++it) {
-            enode* n = *it;
+        for (enode* n : base) {
             enode* r = n->get_root();
             unsigned const w = width(n);
+            unsigned const hi = lo + w - 1;
             if (try_get_value(r, a)) {
-                rational const factor = rational::power_of_two(lo);
-                // TODO: probably better to return vector of {w, lo, a} instead
-                mask += (rational::power_of_two(w) - 1) * factor;
-                value += a * factor;
+                out.push_back({hi, lo, a});
+                out_just.push_back({n, r});
             }
             lo += w;
         }
+    }
+
+    void slicing::explain_fixed(euf::enode_pair const& just, std::function<void(sat::literal)> const& on_lit, std::function<void(pvar)> const& on_var) {
+        auto [n, r] = just;
+        NOT_IMPLEMENTED_YET(); // TODO: like explain_value
     }
 
     std::ostream& slicing::display(std::ostream& out) const {

@@ -976,14 +976,17 @@ namespace {
 #if 0
         // TODO: wip
         fixed_bits_vector fbs;
-        s.m_slicing.collect_fixed(v, fbs);
+        euf::enode_pair_vector fbs_just;
+        s.m_slicing.collect_fixed(v, fbs, fbs_just);
 
-        for (fixed_bits const& fb : fbs) {
+        for (unsigned idx = fbs.size(); idx-- > 0; ) {
+            fixed_bits const& fb = fbs[idx];
+            euf::enode_pair const& just = fbs_just[idx];
             for (unsigned i = fb.lo; i <= fb.hi; ++i) {
                 SASSERT(out_fbi.just_src[i].empty());  // since we don't get overlapping ranges from collect_fixed.
                 SASSERT(out_fbi.just_side_cond[i].empty());
                 out_fbi.fixed[i] = to_lbool(fb.value.get_bit(i - fb.lo));
-                // TODO: out_fbi.just_src[i].push_back(
+                // TODO: s.m_slicing.explain_fixed( ... );  with  out_fbi.just_src[i].push_back(...)
             }
         }
 #endif

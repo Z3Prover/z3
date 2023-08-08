@@ -28,6 +28,7 @@ Notation:
 #include "ast/bv_decl_plugin.h"
 #include "math/polysat/types.h"
 #include "math/polysat/constraint.h"
+#include "math/polysat/fixed_bits.h"
 #include <variant>
 
 namespace polysat {
@@ -269,8 +270,11 @@ namespace polysat {
         pvar mk_concat(unsigned num_args, pvar const* args, pvar replay_var);
         void replay_concat(unsigned num_args, pvar const* args, pvar r);
 
+        bool add_constraint_eq(pdd const& p, sat::literal lit);
         bool add_equation(pvar x, pdd const& body, sat::literal lit);
         bool add_value(pvar v, rational const& value, sat::literal lit);
+        bool add_fixed_bits(signed_constraint c);
+        bool add_fixed_bits(pvar x, unsigned hi, unsigned lo, rational const& value, sat::literal lit);
 
         bool invariant() const;
         bool invariant_needs_congruence() const;
@@ -335,7 +339,8 @@ namespace polysat {
         void collect_simple_overlaps(pvar v, pvar_vector& out);
 
         /** Collect fixed portions of the variable v */
-        void collect_fixed(pvar v, rational& mask, rational& value);
+        void collect_fixed(pvar v, fixed_bits_vector& out, euf::enode_pair_vector& out_just);
+        void explain_fixed(euf::enode_pair const& just, std::function<void(sat::literal)> const& on_lit, std::function<void(pvar)> const& on_var);
 
         std::ostream& display(std::ostream& out) const;
         std::ostream& display_tree(std::ostream& out) const;
