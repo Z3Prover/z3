@@ -646,6 +646,7 @@ namespace polysat {
         }
         else if (y == null_var) {
             UNREACHABLE();
+            /*
             SASSERT(is_value(sx->get_root()));
             // the egraph has derived that x (or a sub-slice thereof) must have value b that differs from the currently assigned value of x.
             // the explanation is:      lits ==> x[...] = b
@@ -689,9 +690,30 @@ namespace polysat {
                     //          otherwise, we will generate tautologies in this branch.
                 }
             }
+            */
         }
         else {
             SASSERT(x != y);
+            unsigned x_hi, x_lo, y_hi, y_lo;
+            VERIFY(find_range_in_ancestor(sx, var2slice(x), x_hi, x_lo));
+            VERIFY(find_range_in_ancestor(sy, var2slice(y), y_hi, y_lo));
+            LOG("find_range_in_ancestor: v" << x << "[" << x_hi << ":" << x_lo << "] = " << slice_pp(*this, sx) << ", slice-value " << get_value(sx->get_root()));
+            LOG("find_range_in_ancestor: v" << y << "[" << y_hi << ":" << y_lo << "] = " << slice_pp(*this, sy) << ", slice-value " << get_value(sy->get_root()));
+            if (m_solver.is_assigned(x)) {
+                rational sval = mod2k(machine_div2k(m_solver.get_value(x), x_lo), x_hi - x_lo + 1);
+                LOG("Variable v" << x << " has solver-value " << m_solver.get_value(x) << ", i.e., v" << x << "[" << x_hi << ":" << x_lo << "] = " << sval);
+            }
+            if (m_solver.is_assigned(y)) {
+                rational sval = mod2k(machine_div2k(m_solver.get_value(y), y_lo), y_hi - y_lo + 1);
+                LOG("Variable v" << y << " has solver-value " << m_solver.get_value(y) << ", i.e., v" << y << "[" << y_hi << ":" << y_lo << "] = " << sval);
+            }
+
+            std::abort();
+            // below is TODO
+
+
+            // LOG("Slice sx=" << slice_pp(*this, sx) << " has value " << get_value(sx->get_root()));
+            // LOG("Slice sy=" << slice_pp(*this, sy) << " has value " << get_value(sy->get_root()));
             // the egraph has derived that x (or a subslice of x) must be equal to y (or a subslice of y),
             // but the currently assigned values differ.
             // the explanation is:      lits ==> x[...] = y[...]
