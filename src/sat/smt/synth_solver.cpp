@@ -30,11 +30,44 @@ namespace synth {
 
     }
 
+    void solver::synthesize(app* e) {
+    	auto * n = expr2enode(e->get_arg(0));
+	expr_ref_vector repr(m);
+	euf::enode_vector todo;
+	for (unsigned i = 1; i < e->get_num_args(); ++i) {
+	    expr * arg = e->get_arg(i);
+	    auto * narg = expr2enode(arg);
+	    todo.push_back(narg);
+	    repr.setx(narg->get_root_id(), arg);
+	}
+	for (unsigned i = 0; i < todo.size() && !repr.get(n->get_root_id(), nullptr); ++i) {
+	    auto * nn = todo[i];
+	    for (auto * p : euf::enode_parents(nn)) {
+		if (repr.get(p->get_root_id(), nullptr)) continue;
+		if (all_of(euf::enode_args(p), [&](auto * ch) { return repr.get(ch->get_root_id(), nullptr); })) {
+		    ptr_buffer<expr> args;
+		    for (auto * ch : euf::enode_args(p)) args.push_back(repr.get(ch->get_root_id()));
+		    app * papp = m.mk_app(p->get_decl(), args);
+		    repr.setx(p->get_root_id(), papp);
+		    todo.push_back(p);
+		}
+	    }
+	}
+	expr * sol = repr.get(n->get_root_id(), nullptr);
+	if (sol != nullptr) {
+	    sat::literal lit = eq_internalize(n->get_expr(), sol);
+	    add_unit(~lit);
+	    IF_VERBOSE(0, verbose_stream() << mk_pp(sol, m) << "\n");
+	}
+    }
+
     // block current model using realizer by E-graph (and arithmetic)
     // 
     sat::check_result solver::check() {
-
-        return sat::check_result::CR_DONE;
+	for (app* e : m_synth) {
+	    synthesize(e);
+	}
+        return sat::check_result::CR_CONTINUE;
     }
 
     // nothing particular to do
@@ -60,12 +93,21 @@ namespace synth {
 
     // recognize synthesis objectives here.
     sat::literal solver::internalize(expr* e, bool sign, bool root) {
-        NOT_IMPLEMENTED_YET();
-        return sat::null_literal;
+	internalize(e);
+	sat::literal lit = ctx.expr2literal(e);
+	if (sign)
+	    lit.neg();
+        return lit;
     }
 
     // recognize synthesis objectives here and above
-    void solver::internalize(expr* e) {}
+    void solver::internalize(expr* e) {
+	SASSERT(is_app(e));
+	sat::bool_var bv =ctx.get_si().add_bool_var(e);
+	sat::literal lit(bv, false);
+	ctx.attach_lit(lit, e);
+	ctx.push_vec(m_synth, to_app(e));
+    }
 
     // display current state (eg. current set of realizers)
     std::ostream& solver::display(std::ostream& out) const {

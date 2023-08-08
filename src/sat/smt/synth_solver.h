@@ -43,5 +43,11 @@ namespace synth {
         std::ostream& display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const override;
         euf::th_solver* clone(euf::solver& ctx) override;
 
+    private:
+	void synthesize(app* e);
+
+    	ptr_vector<app> m_synth;
+
     };
+
 };
