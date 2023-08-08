@@ -184,6 +184,9 @@ namespace polysat {
         // (i.e., x and y have the same base, but are not necessarily in the same equivalence class)
         void explain_equal(enode* x, enode* y, ptr_vector<void>& out_deps);
 
+        /** Explain why slice is equivalent to a value */
+        void explain_value(enode* s, std::function<void(sat::literal)> const& on_lit, std::function<void(pvar)> const& on_var);
+
         /** Extract reason for conflict */
         void explain(ptr_vector<void>& out_deps);
 

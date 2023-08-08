@@ -781,17 +781,15 @@ namespace polysat {
         return cb.build();
     }
 
-    void slicing::explain_value(pvar v, std::function<void(sat::literal)> const& on_lit, std::function<void(pvar)> const& on_var) {
-        SASSERT(m_solver.m_justification[v].is_propagation_by_slicing());
+    void slicing::explain_value(enode* s, std::function<void(sat::literal)> const& on_lit, std::function<void(pvar)> const& on_var) {
         SASSERT(invariant());
         SASSERT(m_marked_lits.empty());
 
-        enode* sv = var2slice(v);
-        enode* rv = sv->get_root();
-        SASSERT(is_value(rv));  // by convention, value slices are always the root; and this method may only be called if v is equivalent to a value in the egraph.
+        enode* r = s->get_root();
+        SASSERT(is_value(r));  // by convention, value slices are always the root; and this method may only be called if s is equivalent to a value node.
 
         SASSERT(m_tmp_deps.empty());
-        explain_equal(sv, rv, m_tmp_deps);
+        explain_equal(s, r, m_tmp_deps);
 
         for (void* dp : m_tmp_deps) {
             dep_t const d = dep_t::decode(dp);
@@ -808,6 +806,10 @@ namespace polysat {
             }
         }
         m_tmp_deps.reset();
+    }
+
+    void slicing::explain_value(pvar v, std::function<void(sat::literal)> const& on_lit, std::function<void(pvar)> const& on_var) {
+        explain_value(var2slice(v), on_lit, on_var);
     }
 
     bool slicing::find_range_in_ancestor(enode* s, enode* a, unsigned& out_hi, unsigned& out_lo) {
@@ -1380,9 +1382,7 @@ namespace polysat {
     }
 
     void slicing::explain_fixed(euf::enode* const n, std::function<void(sat::literal)> const& on_lit, std::function<void(pvar)> const& on_var) {
-        enode* const r = n->get_root();
-        SASSERT(is_value(r));
-        NOT_IMPLEMENTED_YET(); // TODO: like explain_value
+        explain_value(n, on_lit, on_var);
     }
 
     std::ostream& slicing::display(std::ostream& out) const {
