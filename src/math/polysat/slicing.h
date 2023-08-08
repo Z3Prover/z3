@@ -339,8 +339,8 @@ namespace polysat {
         void collect_simple_overlaps(pvar v, pvar_vector& out);
 
         /** Collect fixed portions of the variable v */
-        void collect_fixed(pvar v, fixed_bits_vector& out, euf::enode_pair_vector& out_just);
-        void explain_fixed(euf::enode_pair const& just, std::function<void(sat::literal)> const& on_lit, std::function<void(pvar)> const& on_var);
+        void collect_fixed(pvar v, fixed_bits_vector& out, enode_vector& out_just);
+        void explain_fixed(euf::enode* just, std::function<void(sat::literal)> const& on_lit, std::function<void(pvar)> const& on_var);
 
         std::ostream& display(std::ostream& out) const;
         std::ostream& display_tree(std::ostream& out) const;

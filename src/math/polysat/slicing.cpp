@@ -1363,7 +1363,7 @@ namespace polysat {
         SASSERT(all_of(m_egraph.nodes(), [](enode* n) { return !n->is_marked1(); }));
     }
 
-    void slicing::collect_fixed(pvar v, fixed_bits_vector& out, euf::enode_pair_vector& out_just) {
+    void slicing::collect_fixed(pvar v, fixed_bits_vector& out, euf::enode_vector& out_just) {
         enode_vector& base = m_tmp2;
         SASSERT(base.empty());
         get_base(var2slice(v), base);
@@ -1375,14 +1375,15 @@ namespace polysat {
             unsigned const hi = lo + w - 1;
             if (try_get_value(r, a)) {
                 out.push_back({hi, lo, a});
-                out_just.push_back({n, r});
+                out_just.push_back(n);
             }
             lo += w;
         }
     }
 
-    void slicing::explain_fixed(euf::enode_pair const& just, std::function<void(sat::literal)> const& on_lit, std::function<void(pvar)> const& on_var) {
-        auto [n, r] = just;
+    void slicing::explain_fixed(euf::enode* const n, std::function<void(sat::literal)> const& on_lit, std::function<void(pvar)> const& on_var) {
+        enode* const r = n->get_root();
+        SASSERT(is_value(r));
         NOT_IMPLEMENTED_YET(); // TODO: like explain_value
     }
 

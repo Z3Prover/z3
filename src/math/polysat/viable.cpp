@@ -976,7 +976,7 @@ namespace {
 #if 0
         // TODO: wip
         fixed_bits_vector fbs;
-        euf::enode_pair_vector fbs_just;
+        euf::enode_vector fbs_just;
         s.m_slicing.collect_fixed(v, fbs, fbs_just);
 
         for (unsigned idx = fbs.size(); idx-- > 0; ) {
