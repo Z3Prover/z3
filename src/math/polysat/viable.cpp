@@ -372,8 +372,8 @@ namespace polysat {
     }
 
     template<bool FORWARD>
-    bool viable::refine_viable(pvar v, rational const& val, const svector<lbool>& fixed, const vector<ptr_vector<entry>>& justifications) {
-        return refine_bits<FORWARD>(v, val, fixed, justifications) && refine_equal_lin(v, val) && refine_disequal_lin(v, val);
+    bool viable::refine_viable(pvar v, rational const& val, fixed_bits_info const& fbi) {
+        return refine_bits<FORWARD>(v, val, fbi) && refine_equal_lin(v, val) && refine_disequal_lin(v, val);
     }
 
 namespace {
@@ -582,13 +582,13 @@ namespace {
 }
 
     template<bool FORWARD>
-    bool viable::refine_bits(pvar v, rational const& val, const svector<lbool>& fixed, const vector<ptr_vector<entry>>& justifications) {
+    bool viable::refine_bits(pvar v, rational const& val, fixed_bits_info const& fbi) {
 
         pdd v_pdd = s.var(v);
 
         // TODO: We might also extend simultaneously up and downwards if we want the actual interval (however, this might make use of more fixed bits and is weaker - worse - therefore)
         entry* ne = alloc_entry();
-        rational new_val = extend_by_bits<FORWARD>(v_pdd, val, fixed, justifications, ne->src, ne->side_cond);
+        rational new_val = extend_by_bits<FORWARD>(v_pdd, val, fbi, ne->src, ne->side_cond);
 
         if (new_val == val) {
             m_alloc.push_back(ne);
@@ -597,7 +597,7 @@ namespace {
 
         // TODO: Extend in both directions? (Less justifications vs. bigger intervals)
         // TODO: could also try to extend backwards as much as we can without introducing new justifications?
-        rational new_val2 = extend_by_bits<!FORWARD>(v_pdd, val, fixed, justifications, ne->src, ne->side_cond);
+        rational new_val2 = extend_by_bits<!FORWARD>(v_pdd, val, fbi, ne->src, ne->side_cond);
 
         ne->refined = true;
         ne->coeff = 1;
@@ -857,29 +857,39 @@ namespace {
 
     // Skips all values that are not feasible w.r.t. fixed bits
     template<bool FORWARD>
-    rational viable::extend_by_bits(const pdd& var, const rational& bound, const svector<lbool>& fixed, const vector<ptr_vector<entry>>& justifications, vector<signed_constraint>& src, vector<signed_constraint>& side_cond) const {
-        unsigned k = var.power_of_2();
-        if (fixed.empty())
+    rational viable::extend_by_bits(pdd const& var, rational const& bound, fixed_bits_info const& fbi, vector<signed_constraint>& src, vector<signed_constraint>& side_cond) const {
+        unsigned const k = var.power_of_2();
+        if (fbi.is_empty())  // TODO: this check doesn't do anything.
             return bound;
+
+        svector<lbool> const& fixed = fbi.fixed;
 
         SASSERT(k == fixed.size());
 
+        sat::literal_set added_src;
+        sat::literal_set added_side_cond;
+
         auto add_justification = [&](unsigned i) {
-            auto& to_add = justifications[i];
-            SASSERT(!to_add.empty());
-            for (auto& add : to_add) {
-                // TODO: Check for duplicates; maybe we add the same src/side_cond over and over again
-                for (auto& sc : add->side_cond)
-                    side_cond.push_back(sc);
-                for (auto& c : add->src)
-                    src.push_back(c);
+            SASSERT(!fbi.just_src[i].empty());
+            // TODO: Check for duplicates; maybe we add the same src/side_cond over and over again
+            for (sat::literal lit : fbi.just_src[i]) {
+                if (added_src.contains(lit))
+                    continue;
+                added_src.insert(lit);
+                src.push_back(s.lit2cnstr(lit));
+            }
+            for (sat::literal lit : fbi.just_side_cond[i]) {
+                if (added_side_cond.contains(lit))
+                    continue;
+                added_side_cond.insert(lit);
+                side_cond.push_back(s.lit2cnstr(lit));
             }
         };
 
         unsigned firstFail;
         for (firstFail = k; firstFail > 0; firstFail--) {
             if (fixed[firstFail - 1] != l_undef) {
-                lbool current = bound.get_bit(firstFail - 1) ? l_true : l_false;
+                lbool current = to_lbool(bound.get_bit(firstFail - 1));
                 if (current != fixed[firstFail - 1])
                     break;
             }
@@ -887,7 +897,7 @@ namespace {
         if (firstFail == 0)
             return bound; // the value is feasible according to fixed bits
 
-        svector<lbool> new_bound(fixed.size());
+        svector<lbool> new_bound(k);
 
         for (unsigned i = 0; i < firstFail; i++) {
             if (fixed[i] != l_undef) {
@@ -904,7 +914,7 @@ namespace {
 
         for (unsigned i = firstFail; i < new_bound.size(); i++) {
             if (fixed[i] == l_undef) {
-                lbool current = bound.get_bit(i) ? l_true : l_false;
+                lbool current = to_lbool(bound.get_bit(i));
                 if (carry) {
                     if (FORWARD) {
                         if (current == l_false) {
@@ -954,13 +964,29 @@ namespace {
     }
 
     // returns true iff no conflict was encountered
-    bool viable::collect_bit_information(pvar v, bool add_conflict, svector<lbool>& fixed, vector<ptr_vector<entry>>& justifications) {
+    bool viable::collect_bit_information(pvar v, bool add_conflict, fixed_bits_info& out_fbi) {
 
         pdd p = s.var(v);
-        fixed.clear();
-        justifications.clear();
-        fixed.resize(p.power_of_2(), l_undef);
-        justifications.resize(p.power_of_2(), ptr_vector<entry>());
+        unsigned const v_sz = s.size(v);
+        out_fbi.reset(v_sz);
+        svector<lbool>& fixed = out_fbi.fixed;
+        vector<sat::literal_vector>& just_src = out_fbi.just_src;
+        vector<sat::literal_vector>& just_side_cond = out_fbi.just_side_cond;
+
+#if 0
+        // TODO: wip
+        fixed_bits_vector fbs;
+        s.m_slicing.collect_fixed(v, fbs);
+
+        for (fixed_bits const& fb : fbs) {
+            for (unsigned i = fb.lo; i <= fb.hi; ++i) {
+                SASSERT(out_fbi.just_src[i].empty());  // since we don't get overlapping ranges from collect_fixed.
+                SASSERT(out_fbi.just_side_cond[i].empty());
+                out_fbi.fixed[i] = to_lbool(fb.value.get_bit(i - fb.lo));
+                // TODO: out_fbi.just_src[i].push_back(
+            }
+        }
+#endif
 
         entry* e1 = m_equal_lin[v];
         entry* e2 = m_units[v].get_entries(s.size(v));  // TODO: take other widths into account (will be done automatically by tracking fixed bits in the slicing egraph)
@@ -969,28 +995,28 @@ namespace {
             return true;
 
         clause_builder builder(s, "bit check");
-        uint_set already_added;
+        sat::literal_set added;
         vector<std::pair<entry*, trailing_bits>> postponed;
 
-        auto add_entry = [&builder, &already_added](entry* e) {
-            for (const auto& sc : e->side_cond) {
-                if (already_added.contains(sc.bvar()))
-                    continue;
-                already_added.insert(sc.bvar());
-                builder.insert_eval(~sc);
-            }
-            for (const auto& src : e->src) {
-                if (already_added.contains(src.bvar()))
-                    continue;
-                already_added.insert(src.bvar());
-                builder.insert_eval(~src);
-            }
+        auto add_literal = [&builder, &added](sat::literal lit) {
+            if (added.contains(lit))
+                return;
+            added.insert(lit);
+            builder.insert_eval(~lit);
         };
 
-        auto add_entry_list = [add_entry](const ptr_vector<entry>& list) {
-            for (const auto& e : list)
-                add_entry(e);
+        auto add_literals = [&add_literal](sat::literal_vector const& lits) {
+            for (sat::literal lit : lits)
+                add_literal(lit);
         };
+
+        auto add_entry = [&add_literal](entry* e) {
+            for (const auto& sc : e->side_cond)
+                add_literal(sc.blit());
+            for (const auto& src : e->src)
+                add_literal(src.blit());
+        };
+
 
         if (e1) {
             unsigned largest_lsb = 0;
@@ -1006,12 +1032,13 @@ namespace {
 				if (src->is_ule() &&
 					simplify_clause::get_bit(s.subst(src->to_ule().lhs()), s.subst(src->to_ule().rhs()), p, bit, src.is_positive()) && p.is_var()) {
 					lbool prev = fixed[bit.position];
-					fixed[bit.position] = bit.positive ? l_true : l_false;
+					fixed[bit.position] = to_lbool(bit.positive);
 					//verbose_stream() << "Setting bit " << bit.position << " to " << bit.positive << " because of " << e->src << "\n";
 					if (prev != l_undef && fixed[bit.position] != prev) {
-						LOG("Bit conflicting " << e1->src << " with " << justifications[bit.position][0]->src);
+						LOG("Bit conflicting " << e1->src << " with " << just_src[bit.position][0]);
 						if (add_conflict) {
-							add_entry_list(justifications[bit.position]);
+                            add_literals(just_src[bit.position]);
+                            add_literals(just_side_cond[bit.position]);
 							add_entry(e1);
 							s.set_conflict(*builder.build());
 						}
@@ -1019,37 +1046,35 @@ namespace {
 					}
 					// just override; we prefer bit constraints over parity as those are easier for subsumption to remove
 					// verbose_stream() << "Adding bit constraint: " <<  e->src[0] << " (" << bit.position << ")\n";
-					justifications[bit.position].clear();
-					justifications[bit.position].push_back(e1);
+                    out_fbi.set_just(bit.position, e1);
 				}
 				else if (src->is_eq() &&
                          simplify_clause::get_lsb(s.subst(src->to_ule().lhs()), s.subst(src->to_ule().rhs()), p, lsb, src.is_positive()) && p.is_var()) {
 					if (src.is_positive()) {
 						for (unsigned i = 0; i < lsb.length; i++) {
 							lbool prev = fixed[i];
-							fixed[i] = lsb.bits.get_bit(i) ? l_true : l_false;
+							fixed[i] = to_lbool(lsb.bits.get_bit(i));
 							if (prev != l_undef) {
 								if (fixed[i] != prev) {
-									LOG("Positive parity conflicting " << e1->src << " with " << justifications[i][0]->src);
+									LOG("Positive parity conflicting " << e1->src << " with " << just_src[i][0]);
 									if (add_conflict) {
-										add_entry_list(justifications[i]);
+                                        add_literals(just_src[i]);
+                                        add_literals(just_side_cond[i]);
 										add_entry(e1);
 										s.set_conflict(*builder.build());
 									}
 									return false;
 								}
 								else {
-									// Prefer justifications from larger masks (less premisses)
+									// Prefer justifications from larger masks (less premises)
 									// TODO: Check that we don't override justifications comming from bit constraints
-									if (largest_lsb < lsb.length) {
-										justifications[i].clear();
-										justifications[i].push_back(e1);
-									}
+									if (largest_lsb < lsb.length)
+                                        out_fbi.set_just(i, e1);
 								}
 							}
 							else {
-								SASSERT(justifications[i].empty());
-								justifications[i].push_back(e1);
+								SASSERT(just_src[i].empty());
+                                out_fbi.set_just(i, e1);
 							}
 						}
 						largest_lsb = std::max(largest_lsb, lsb.length);
@@ -1062,7 +1087,7 @@ namespace {
         }
 
         // so far every bit is justified by a single constraint
-        SASSERT(all_of(justifications, [](auto const& vec) { return vec.size() <= 1; }));
+        SASSERT(all_of(just_src, [](auto const& vec) { return vec.size() <= 1; }));
 
 #if 0 // is the benefit enough?
         if (e2) {
@@ -1139,8 +1164,10 @@ namespace {
                         // Already false
                         LOG("Found conflict with constraint " << neg.first->src);
                         if (add_conflict) {
-                            for (unsigned k = 0; k < neg.second.length; k++)
-                                add_entry_list(justifications[k]);
+                            for (unsigned k = 0; k < neg.second.length; k++) {
+                                add_literals(just_src[k]);
+                                add_literals(just_side_cond[k]);
+                            }
                             add_entry(neg.first);
                             s.set_conflict(*builder.build());
                         }
@@ -1148,21 +1175,23 @@ namespace {
                     }
                     else if (indet == 1) {
                         // Simple BCP
-                        auto& justification = justifications[last_indet];
-                        SASSERT(justification.empty());
+                        SASSERT(just_src[last_indet].empty());
+                        SASSERT(just_side_cond[last_indet].empty());
                         for (unsigned k = 0; k < neg.second.length; k++) {
                             if (k != last_indet) {
                                 SASSERT(fixed[k] != l_undef);
-                                for (const auto& just : justifications[k])
-                                    justification.push_back(just);
+                                for (sat::literal lit : just_src[k])
+                                    just_src[last_indet].push_back(lit);
+                                for (sat::literal lit : just_side_cond[k])
+                                    just_side_cond[last_indet].push_back(lit);
                             }
                         }
-                        justification.push_back(neg.first);
+                        out_fbi.push_just(i, neg.first);
                         fixed[last_indet] = neg.second.bits.get_bit(last_indet) ? l_false : l_true;
                         removed[j] = true;
                         LOG("Applying fast BCP on bit " << last_indet << " from constraint " << neg.first->src);
                         changed = true;
-                    } 
+                    }
                 }
             }
         } while(changed);
@@ -1317,16 +1346,16 @@ namespace {
 
     bool viable::has_viable(pvar v) {
 
-        svector<lbool> fixed;
-        vector<ptr_vector<entry>> justifications;
+        fixed_bits_info fbi;
 
-        if (!collect_bit_information(v, false, fixed, justifications))
+        if (!collect_bit_information(v, false, fbi))
             return false;
 
         refined:
         entry* e = m_units[v].get_entries(s.size(v));  // TODO: take other sizes into account
 
-#define CHECK_RETURN(val) { if (refine_viable<true>(v, val, fixed, justifications)) return true; else goto refined; }
+#define CHECK_RETURN(val) { if (refine_viable<true>(v, val, fbi)) return true; else goto refined; }
+        // return refine_viable(v, val) ? l_true : l_undef;
 
         if (!e)
             CHECK_RETURN(rational::zero());
@@ -1362,14 +1391,13 @@ namespace {
 
     bool viable::is_viable(pvar v, rational const& val) {
 
-        svector<lbool> fixed;
-        vector<ptr_vector<entry>> justifications;
+        fixed_bits_info fbi;
 
-        if (!collect_bit_information(v, false, fixed, justifications))
+        if (!collect_bit_information(v, false, fbi))
             return false;
         entry* e = m_units[v].get_entries(s.size(v));  // TODO: take other sizes into account
         if (!e)
-            return refine_viable<true>(v, val, fixed, justifications);
+            return refine_viable<true>(v, val, fbi);
         entry* first = e;
         entry* last = first->prev();
         if (last->interval.currently_contains(val))
@@ -1378,9 +1406,9 @@ namespace {
             if (e->interval.currently_contains(val))
                 return false;
             if (val < e->interval.lo_val())
-                return refine_viable<true>(v, val, fixed, justifications);
+                return refine_viable<true>(v, val, fbi);
         }
-        return refine_viable<true>(v, val, fixed, justifications);
+        return refine_viable<true>(v, val, fbi);
     }
 
     find_t viable::find_viable(pvar v, rational& lo) {
@@ -1588,10 +1616,9 @@ namespace {
     template <query_t mode>
     lbool viable::query(pvar v, typename query_result<mode>::result_t& result) {
 
-        svector<lbool> fixed;
-        vector<ptr_vector<entry>> justifications;
+        fixed_bits_info fbi;
 
-        if (!collect_bit_information(v, true, fixed, justifications))
+        if (!collect_bit_information(v, true, fbi))
             return l_false; // conflict already added
 
         pvar_vector overlaps;
@@ -1666,11 +1693,11 @@ namespace {
             lbool res = l_undef;
 
             if constexpr (mode == query_t::find_viable)
-                res = query_find(v, result.first, result.second, fixed, justifications);
+                res = query_find(v, result.first, result.second, fbi);
             else if constexpr (mode == query_t::min_viable)
-                res = query_min(v, result, fixed, justifications);
+                res = query_min(v, result, fbi);
             else if constexpr (mode == query_t::max_viable)
-                res = query_max(v, result, fixed, justifications);
+                res = query_max(v, result, fbi);
             else if constexpr (mode == query_t::has_viable) {
                 NOT_IMPLEMENTED_YET();
             }
@@ -1689,7 +1716,7 @@ namespace {
         return query_fallback<mode>(v, result);
     }
     
-    lbool viable::query_find(pvar v, rational& lo, rational& hi, const svector<lbool>& fixed, const vector<ptr_vector<entry>>& justifications) {
+    lbool viable::query_find(pvar v, rational& lo, rational& hi, fixed_bits_info const& fbi) {
         auto const& max_value = s.var2pdd(v).max_value();
         lbool const refined = l_undef;
 
@@ -1700,9 +1727,9 @@ namespace {
         hi = max_value;
         
         entry* e = m_units[v].get_entries(s.size(v));  // TODO: take other sizes into account
-        if (!e && !refine_viable<true>(v, lo, fixed, justifications))
+        if (!e && !refine_viable<true>(v, lo, fbi))
             return refined;
-        if (!e && !refine_viable<false>(v, hi, fixed, justifications))
+        if (!e && !refine_viable<false>(v, hi, fbi))
             return refined;
         if (!e)
             return l_true;
@@ -1719,9 +1746,9 @@ namespace {
         if (last->interval.lo_val() < last->interval.hi_val() &&
             last->interval.hi_val() < max_value) {
             lo = last->interval.hi_val();
-            if (!refine_viable<true>(v, lo, fixed, justifications))
+            if (!refine_viable<true>(v, lo, fbi))
                 return refined;
-            if (!refine_viable<false>(v, max_value, fixed, justifications))
+            if (!refine_viable<false>(v, max_value, fbi))
                 return refined;
             return l_true;
         }
@@ -1753,18 +1780,18 @@ namespace {
         }
         while (e != last);
 
-        if (!refine_viable<true>(v, lo, fixed, justifications))
+        if (!refine_viable<true>(v, lo, fbi))
             return refined;
-        if (!refine_viable<false>(v, hi, fixed, justifications))
+        if (!refine_viable<false>(v, hi, fbi))
             return refined;
         return l_true;
     }
 
-    lbool viable::query_min(pvar v, rational& lo, const svector<lbool>& fixed, const vector<ptr_vector<entry>>& justifications) {
+    lbool viable::query_min(pvar v, rational& lo, fixed_bits_info const& fbi) {
         // TODO: should be able to deal with UNSAT case; since also min_viable has to deal with it due to fallback solver
         lo = 0;
         entry* e = m_units[v].get_entries(s.size(v));  // TODO: take other sizes into account
-        if (!e && !refine_viable<true>(v, lo, fixed, justifications))
+        if (!e && !refine_viable<true>(v, lo, fbi))
             return l_undef;
         if (!e)
             return l_true;
@@ -1779,17 +1806,17 @@ namespace {
             e = e->next();
         }
         while (e != first);
-        if (!refine_viable<true>(v, lo, fixed, justifications))
+        if (!refine_viable<true>(v, lo, fbi))
             return l_undef;
         SASSERT(is_viable(v, lo));
         return l_true;
     }
 
-    lbool viable::query_max(pvar v, rational& hi, const svector<lbool>& fixed, const vector<ptr_vector<entry>>& justifications) {
+    lbool viable::query_max(pvar v, rational& hi, fixed_bits_info const& fbi) {
         // TODO: should be able to deal with UNSAT case; since also max_viable has to deal with it due to fallback solver
         hi = s.var2pdd(v).max_value();
         entry* e = m_units[v].get_entries(s.size(v));  // TODO: take other sizes into account
-        if (!e && !refine_viable<false>(v, hi, fixed, justifications))
+        if (!e && !refine_viable<false>(v, hi, fbi))
             return l_undef;
         if (!e)
             return l_true;
@@ -1802,7 +1829,7 @@ namespace {
             e = e->prev();
         }
         while (e != last);
-        if (!refine_viable<false>(v, hi, fixed, justifications))
+        if (!refine_viable<false>(v, hi, fbi))
             return l_undef;
         SASSERT(is_viable(v, hi));
         return l_true;

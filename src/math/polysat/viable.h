@@ -124,20 +124,60 @@ namespace polysat {
 
         bool intersect(pvar v, entry* e);
 
-        template<bool FORWARD>
-        bool refine_viable(pvar v, rational const& val, const svector<lbool>& fixed, const vector<ptr_vector<entry>>& justifications);
+        struct fixed_bits_info {
+            svector<lbool> fixed;
+            vector<sat::literal_vector> just_src;
+            vector<sat::literal_vector> just_side_cond;
+
+            bool is_empty() const {
+                SASSERT_EQ(fixed.empty(), just_src.empty());
+                SASSERT_EQ(fixed.empty(), just_side_cond.empty());
+                return fixed.empty();
+            }
+
+            bool is_empty_at(unsigned i) const {
+                return fixed[i] == l_undef && just_src[i].empty() && just_side_cond[i].empty();
+            }
+
+            void reset(unsigned num_bits) {
+                fixed.reset();
+                fixed.resize(num_bits, l_undef);
+                just_src.reset();
+                just_src.resize(num_bits);
+                just_side_cond.reset();
+                just_side_cond.resize(num_bits);
+            }
+
+            void set_just(unsigned i, entry* e) {
+                just_src[i].reset();
+                just_side_cond[i].reset();
+                push_just(i, e);
+            }
+
+            void push_just(unsigned i, entry* e) {
+                for (signed_constraint c : e->src)
+                    just_src[i].push_back(c.blit());
+                for (signed_constraint c : e->side_cond)
+                    just_side_cond[i].push_back(c.blit());
+            }
+        };
+
+        // fixed_bits_info m_tmp_fbi;
 
         template<bool FORWARD>
-        bool refine_bits(pvar v, rational const& val, const svector<lbool>& fixed, const vector<ptr_vector<entry>>& justifications);
+        bool refine_viable(pvar v, rational const& val, fixed_bits_info const& fbi);
+
+        template<bool FORWARD>
+        bool refine_bits(pvar v, rational const& val, fixed_bits_info const& fbi);
 
         bool refine_equal_lin(pvar v, rational const& val);
 
         bool refine_disequal_lin(pvar v, rational const& val);
 
         template<bool FORWARD>
-        rational extend_by_bits(const pdd& var, const rational& bounds, const svector<lbool>& fixed, const vector<ptr_vector<entry>>& justifications, vector<signed_constraint>& src, vector<signed_constraint>& side_cond) const;
+        rational extend_by_bits(pdd const& var, rational const& bounds, fixed_bits_info const& fbi, vector<signed_constraint>& out_src, vector<signed_constraint>& out_side_cond) const;
 
-        bool collect_bit_information(pvar v, bool add_conflict, svector<lbool>& fixed, vector<ptr_vector<entry>>& justifications);
+        bool collect_bit_information(pvar v, bool add_conflict, fixed_bits_info& out_fbi);
 #if 0
         bool collect_bit_information(pvar v, bool add_conflict, const vector<signed_constraint>& cnstr, svector<lbool>& fixed, vector<vector<signed_constraint>>& justifications);
 #endif
@@ -154,9 +194,9 @@ namespace polysat {
          * Interval-based queries
          * @return l_true on success, l_false on conflict, l_undef on refinement
          */
-        lbool query_min(pvar v, rational& out_lo, const svector<lbool>& fixed, const vector<ptr_vector<entry>>& justifications);
-        lbool query_max(pvar v, rational& out_hi, const svector<lbool>& fixed, const vector<ptr_vector<entry>>& justifications);
-        lbool query_find(pvar v, rational& out_lo, rational& out_hi, const svector<lbool>& fixed, const vector<ptr_vector<entry>>& justifications);
+        lbool query_min(pvar v, rational& out_lo, fixed_bits_info const& fbi);
+        lbool query_max(pvar v, rational& out_hi, fixed_bits_info const& fbi);
+        lbool query_find(pvar v, rational& out_lo, rational& out_hi, fixed_bits_info const& fbi);
 
         /**
          * Bitblasting-based queries.
