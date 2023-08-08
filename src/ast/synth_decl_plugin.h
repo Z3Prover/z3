@@ -19,28 +19,39 @@ Author:
 
 #include "ast/ast.h"
 
+namespace synth {
 
-enum synth_op_kind {
-    OP_SYNTH_DECLARE_OUTPUT,
-    OP_SYNTH_DECLARE_GRAMMAR,
-    LAST_SYNTH_OP
-};
-
-class synth_decl_plugin : public decl_plugin {
-public:
-    synth_decl_plugin();
-
-    decl_plugin * mk_fresh() override {
-        return alloc(synth_decl_plugin);
-    }
+    enum op_kind {
+        OP_DECLARE_OUTPUT,
+        OP_DECLARE_GRAMMAR,
+        LAST_OP
+    };
     
-    func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
-                             unsigned arity, sort * const * domain, sort * range) override;
-
-    void get_op_names(svector<builtin_name> & op_names, symbol const & logic) override;
+    class plugin : public decl_plugin {
+    public:
+        plugin();
+        
+        plugin * mk_fresh() override {
+            return alloc(plugin);
+        }
+        
+        func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
+                                 unsigned arity, sort * const * domain, sort * range) override;
+        
+        void get_op_names(svector<builtin_name> & op_names, symbol const & logic) override;
+        
+        sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) override { return nullptr; }
+    };
     
-    sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) override { return nullptr; }
-};
-
-
+    class util {
+        ast_manager& m;
+        family_id m_fid;
+    public:
+        util(ast_manager& m): m(m), m_fid(m.get_family_id("synth")) {}
+        
+        bool is_synthesiz3(expr* e) { return is_app_of(e, m_fid, OP_DECLARE_OUTPUT); }
+        bool is_grammar(expr* e) { return is_app_of(e, m_fid, OP_DECLARE_GRAMMAR); }
+    };
+    
+}
 

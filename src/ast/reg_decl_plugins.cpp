@@ -55,5 +55,5 @@ void reg_decl_plugins(ast_manager & m) {
     if (!m.get_plugin(m.mk_family_id(symbol("specrels")))) 
         m.register_plugin(symbol("specrels"), alloc(special_relations_decl_plugin));
     if (!m.get_plugin(m.mk_family_id(symbol("synth"))))
-        m.register_plugin(symbol("synth"), alloc(synth_decl_plugin));
+        m.register_plugin(symbol("synth"), alloc(synth::plugin));
 }
