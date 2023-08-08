@@ -986,6 +986,7 @@ namespace {
                 SASSERT(out_fbi.just_src[i].empty());  // since we don't get overlapping ranges from collect_fixed.
                 SASSERT(out_fbi.just_side_cond[i].empty());
                 out_fbi.fixed[i] = to_lbool(fb.value.get_bit(i - fb.lo));
+                // TODO: can add an euf::enode_pair to the fixed_bits_info. then we do not have to call explain_fixed() here already.
                 // TODO: s.m_slicing.explain_fixed( ... );  with  out_fbi.just_src[i].push_back(...)
             }
         }

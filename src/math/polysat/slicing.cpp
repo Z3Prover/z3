@@ -46,6 +46,25 @@ TODO:
     - since we only track equations over variables/names, this might not lead to many further additions
     - a question is how to track/handle the dependency on the assignment
 - check Algorithm 2 of "Solving Bitvectors with MCSAT"; what is the difference to what we are doing now?
+- track equalities such as x = -y ?
+
+
+
+
+Current issue:
+
+        1. mk_extract v7 := v6[63:32]
+        2. solver assigns v7 := 1
+        3. solver assigns v6 := 1 by decision
+
+        This is a conflict, because v6[63:32] = 0, v7 = v6[63:32], v7 = 1.
+
+        Solution:
+        - when finding a viable value for v6 to make a decision,
+          call slicing::collect_fixed to find already fixed bits
+        - v7 is a subslice of v6, so we find v6[63:32] = 1
+        - viable can already deal with fixed bits
+          (needs some refactoring because of how justifications are tracked)
 
 */
 
