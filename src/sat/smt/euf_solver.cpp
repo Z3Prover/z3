@@ -28,6 +28,7 @@ Author:
 #include "sat/smt/fpa_solver.h"
 #include "sat/smt/dt_solver.h"
 #include "sat/smt/recfun_solver.h"
+#include "sat/smt/synth_solver.h"
 
 namespace euf {
 
@@ -130,6 +131,7 @@ namespace euf {
         arith_util arith(m);
         datatype_util dt(m);
         recfun::util rf(m);
+        
         if (pb.get_family_id() == fid)
             ext = alloc(pb::solver, *this, fid);
         else if (bvu.get_family_id() == fid)
@@ -144,6 +146,8 @@ namespace euf {
             ext = alloc(dt::solver, *this, fid);
         else if (rf.get_family_id() == fid)
             ext = alloc(recfun::solver, *this);
+        else if (m.mk_family_id("synth") == fid)
+            ext = alloc(synth::solver, *this);
         
         if (ext) 
             add_solver(ext);        

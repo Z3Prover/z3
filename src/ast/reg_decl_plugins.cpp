@@ -29,39 +29,31 @@ Revision History:
 #include "ast/pb_decl_plugin.h"
 #include "ast/fpa_decl_plugin.h"
 #include "ast/special_relations_decl_plugin.h"
+#include "ast/synth_decl_plugin.h"
 
 void reg_decl_plugins(ast_manager & m) {
-    if (!m.get_plugin(m.mk_family_id(symbol("arith")))) {
+    if (!m.get_plugin(m.mk_family_id(symbol("arith")))) 
         m.register_plugin(symbol("arith"), alloc(arith_decl_plugin));
-    }
-    if (!m.get_plugin(m.mk_family_id(symbol("bv")))) {
+    if (!m.get_plugin(m.mk_family_id(symbol("bv")))) 
         m.register_plugin(symbol("bv"), alloc(bv_decl_plugin));
-    }
-    if (!m.get_plugin(m.mk_family_id(symbol("array")))) {
+    if (!m.get_plugin(m.mk_family_id(symbol("array")))) 
         m.register_plugin(symbol("array"), alloc(array_decl_plugin));
-    }
-    if (!m.get_plugin(m.mk_family_id(symbol("datatype")))) {
+    if (!m.get_plugin(m.mk_family_id(symbol("datatype")))) 
         m.register_plugin(symbol("datatype"), alloc(datatype_decl_plugin));    
-    }
-    if (!m.get_plugin(m.mk_family_id(symbol("recfun")))) {
+    if (!m.get_plugin(m.mk_family_id(symbol("recfun")))) 
         m.register_plugin(symbol("recfun"), alloc(recfun::decl::plugin));    
-    }
-    if (!m.get_plugin(m.mk_family_id(symbol("datalog_relation")))) {
+    if (!m.get_plugin(m.mk_family_id(symbol("datalog_relation")))) 
         m.register_plugin(symbol("datalog_relation"), alloc(datalog::dl_decl_plugin));
-    }
-    if (!m.get_plugin(m.mk_family_id(symbol("char")))) {
+    if (!m.get_plugin(m.mk_family_id(symbol("char")))) 
         m.register_plugin(symbol("char"), alloc(char_decl_plugin));
-    }
-    if (!m.get_plugin(m.mk_family_id(symbol("seq")))) {
+    if (!m.get_plugin(m.mk_family_id(symbol("seq")))) 
         m.register_plugin(symbol("seq"), alloc(seq_decl_plugin));
-    }
-    if (!m.get_plugin(m.mk_family_id(symbol("fpa")))) {
+    if (!m.get_plugin(m.mk_family_id(symbol("fpa")))) 
         m.register_plugin(symbol("fpa"), alloc(fpa_decl_plugin));
-    }
-    if (!m.get_plugin(m.mk_family_id(symbol("pb")))) {
+    if (!m.get_plugin(m.mk_family_id(symbol("pb")))) 
         m.register_plugin(symbol("pb"), alloc(pb_decl_plugin));
-    }
-    if (!m.get_plugin(m.mk_family_id(symbol("specrels")))) {
+    if (!m.get_plugin(m.mk_family_id(symbol("specrels")))) 
         m.register_plugin(symbol("specrels"), alloc(special_relations_decl_plugin));
-    }
+    if (!m.get_plugin(m.mk_family_id(symbol("synth"))))
+        m.register_plugin(symbol("synth"), alloc(synth_decl_plugin));
 }
