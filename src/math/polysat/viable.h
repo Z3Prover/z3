@@ -289,7 +289,7 @@ namespace polysat {
          * On success, the conjunction of out_c implies v \not\in [out_lo; out_hi[.
          */
         bool has_max_forbidden(pvar v, signed_constraint const& c, rational& out_lo, rational& out_hi, vector<signed_constraint>& out_c);
-        
+
         /**
          * Find a next viable value for variable.
          */

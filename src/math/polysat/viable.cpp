@@ -218,7 +218,7 @@ namespace polysat {
         // The narrowing rules in ule_constraint already handle the bounds propagaitons
         // as it propagates p != -1 and 0 != q (p < -1, q > 0),
         //
-        
+
         for (auto const& c : get_constraints(v)) {
             s.try_assign_eval(c);
         }
@@ -1020,70 +1020,70 @@ namespace {
 
         if (e1) {
             unsigned largest_lsb = 0;
-			do {
-				if (e1->src.size() != 1) {
-					// We just consider the ordinary constraints and not already contracted ones
-					e1 = e1->next();
-					continue;
-				}
-				signed_constraint& src = e1->src[0];
-				single_bit bit;
-				trailing_bits lsb;
-				if (src->is_ule() &&
-					simplify_clause::get_bit(s.subst(src->to_ule().lhs()), s.subst(src->to_ule().rhs()), p, bit, src.is_positive()) && p.is_var()) {
-					lbool prev = fixed[bit.position];
-					fixed[bit.position] = to_lbool(bit.positive);
-					//verbose_stream() << "Setting bit " << bit.position << " to " << bit.positive << " because of " << e->src << "\n";
-					if (prev != l_undef && fixed[bit.position] != prev) {
-						LOG("Bit conflicting " << e1->src << " with " << just_src[bit.position][0]);
-						if (add_conflict) {
+            do {
+                if (e1->src.size() != 1) {
+                    // We just consider the ordinary constraints and not already contracted ones
+                    e1 = e1->next();
+                    continue;
+                }
+                signed_constraint& src = e1->src[0];
+                single_bit bit;
+                trailing_bits lsb;
+                if (src->is_ule() &&
+                    simplify_clause::get_bit(s.subst(src->to_ule().lhs()), s.subst(src->to_ule().rhs()), p, bit, src.is_positive()) && p.is_var()) {
+                    lbool prev = fixed[bit.position];
+                    fixed[bit.position] = to_lbool(bit.positive);
+                    //verbose_stream() << "Setting bit " << bit.position << " to " << bit.positive << " because of " << e->src << "\n";
+                    if (prev != l_undef && fixed[bit.position] != prev) {
+                        LOG("Bit conflicting " << e1->src << " with " << just_src[bit.position][0]);
+                        if (add_conflict) {
                             add_literals(just_src[bit.position]);
                             add_literals(just_side_cond[bit.position]);
-							add_entry(e1);
-							s.set_conflict(*builder.build());
-						}
-						return false;
-					}
-					// just override; we prefer bit constraints over parity as those are easier for subsumption to remove
-					// verbose_stream() << "Adding bit constraint: " <<  e->src[0] << " (" << bit.position << ")\n";
+                            add_entry(e1);
+                            s.set_conflict(*builder.build());
+                        }
+                        return false;
+                    }
+                    // just override; we prefer bit constraints over parity as those are easier for subsumption to remove
+                    // verbose_stream() << "Adding bit constraint: " <<  e->src[0] << " (" << bit.position << ")\n";
                     out_fbi.set_just(bit.position, e1);
-				}
-				else if (src->is_eq() &&
+                }
+                else if (src->is_eq() &&
                          simplify_clause::get_lsb(s.subst(src->to_ule().lhs()), s.subst(src->to_ule().rhs()), p, lsb, src.is_positive()) && p.is_var()) {
-					if (src.is_positive()) {
-						for (unsigned i = 0; i < lsb.length; i++) {
-							lbool prev = fixed[i];
-							fixed[i] = to_lbool(lsb.bits.get_bit(i));
-							if (prev != l_undef) {
-								if (fixed[i] != prev) {
-									LOG("Positive parity conflicting " << e1->src << " with " << just_src[i][0]);
-									if (add_conflict) {
+                    if (src.is_positive()) {
+                        for (unsigned i = 0; i < lsb.length; i++) {
+                            lbool prev = fixed[i];
+                            fixed[i] = to_lbool(lsb.bits.get_bit(i));
+                            if (prev != l_undef) {
+                                if (fixed[i] != prev) {
+                                    LOG("Positive parity conflicting " << e1->src << " with " << just_src[i][0]);
+                                    if (add_conflict) {
                                         add_literals(just_src[i]);
                                         add_literals(just_side_cond[i]);
-										add_entry(e1);
-										s.set_conflict(*builder.build());
-									}
-									return false;
-								}
-								else {
-									// Prefer justifications from larger masks (less premises)
-									// TODO: Check that we don't override justifications comming from bit constraints
-									if (largest_lsb < lsb.length)
+                                        add_entry(e1);
+                                        s.set_conflict(*builder.build());
+                                    }
+                                    return false;
+                                }
+                                else {
+                                    // Prefer justifications from larger masks (less premises)
+                                    // TODO: Check that we don't override justifications comming from bit constraints
+                                    if (largest_lsb < lsb.length)
                                         out_fbi.set_just(i, e1);
-								}
-							}
-							else {
-								SASSERT(just_src[i].empty());
+                                }
+                            }
+                            else {
+                                SASSERT(just_src[i].empty());
                                 out_fbi.set_just(i, e1);
-							}
-						}
-						largest_lsb = std::max(largest_lsb, lsb.length);
-					}
-					else
-						postponed.push_back({ e1, lsb });
-				}
-				e1 = e1->next();
-			} while(e1 != first);
+                            }
+                        }
+                        largest_lsb = std::max(largest_lsb, lsb.length);
+                    }
+                    else
+                        postponed.push_back({ e1, lsb });
+                }
+                e1 = e1->next();
+            } while(e1 != first);
         }
 
         // so far every bit is justified by a single constraint
@@ -1093,44 +1093,44 @@ namespace {
         if (e2) {
             unsigned largest_msb = 0;
             first = e2;
-			do {
-				if (e2->src.size() != 1) {
-					e2 = e2->next();
-					continue;
-				}
-				signed_constraint& src = e2->src[0];
-				leading_bits msb;
-				if (src->is_ule() &&
-					simplify_clause::get_msb(s.subst(src->to_ule().lhs()), s.subst(src->to_ule().rhs()), p, msb, src.is_positive()) && p.is_var()) {
-					for (unsigned i = fixed.size() - msb.length; i < fixed.size(); i++) {
-						lbool prev = fixed[i];
-						fixed[i] = msb.positive ? l_true : l_false;
-						if (prev != l_undef) {
-							if (fixed[i] != prev) {
-								LOG("msb conflicting " << e2->src << " with " << justifications[i][0]->src);
-								if (add_conflict) {
-									add_entry_list(justifications[i]);
-									add_entry(e2);
-									s.set_conflict(*builder.build());
-								}
-								return false;
-							}
-							else {
-								if (largest_msb < msb.length) {
-									justifications[i].clear();
-									justifications[i].push_back(e2);
-								}
-							}
-						}
-						else {
-							SASSERT(justifications[i].empty());
-							justifications[i].push_back(e2);
-						}
-					}
-					largest_msb = std::max(largest_msb, msb.length);
-				}
-				e2 = e2->next();
-			} while(e2 != first);
+            do {
+                if (e2->src.size() != 1) {
+                    e2 = e2->next();
+                    continue;
+                }
+                signed_constraint& src = e2->src[0];
+                leading_bits msb;
+                if (src->is_ule() &&
+                    simplify_clause::get_msb(s.subst(src->to_ule().lhs()), s.subst(src->to_ule().rhs()), p, msb, src.is_positive()) && p.is_var()) {
+                    for (unsigned i = fixed.size() - msb.length; i < fixed.size(); i++) {
+                        lbool prev = fixed[i];
+                        fixed[i] = msb.positive ? l_true : l_false;
+                        if (prev != l_undef) {
+                            if (fixed[i] != prev) {
+                                LOG("msb conflicting " << e2->src << " with " << justifications[i][0]->src);
+                                if (add_conflict) {
+                                    add_entry_list(justifications[i]);
+                                    add_entry(e2);
+                                    s.set_conflict(*builder.build());
+                                }
+                                return false;
+                            }
+                            else {
+                                if (largest_msb < msb.length) {
+                                    justifications[i].clear();
+                                    justifications[i].push_back(e2);
+                                }
+                            }
+                        }
+                        else {
+                            SASSERT(justifications[i].empty());
+                            justifications[i].push_back(e2);
+                        }
+                    }
+                    largest_msb = std::max(largest_msb, msb.length);
+                }
+                e2 = e2->next();
+            } while(e2 != first);
         }
 #endif
 
@@ -1138,7 +1138,7 @@ namespace {
         // This would require partially clause solving (worth the effort?)
         bool_vector removed(postponed.size(), false);
         bool changed;
-        do { // fixed-point required? 
+        do { // fixed-point required?
             changed = false;
             for (unsigned j = 0; j < postponed.size(); j++) {
                 if (removed[j])
@@ -1465,7 +1465,7 @@ namespace {
                             for (signed_constraint src : e->src)
                                 out_c.push_back(src);
                             out_hi = lo.val() - 1;
-                            found = true;                        
+                            found = true;
                         }
                     }
                 }
@@ -1605,7 +1605,7 @@ namespace {
         out_c.push_back(s.m_constraints.elem(e0_prev->interval.hi(), m.mk_val(out_hi), m.mk_val(out_lo)));
         out_c.push_back(s.m_constraints.elem(m.mk_val(out_lo), e0_next->interval.symbolic()));
 
-        IF_VERBOSE(2, 
+        IF_VERBOSE(2,
                    verbose_stream() << "has-max-forbidden " << e->src << "\n";
                    verbose_stream() << "v" << v << " " << out_lo << " " << out_hi << " " << out_c << "\n";
                    display(verbose_stream(), v) << "\n");
@@ -1715,7 +1715,7 @@ namespace {
         LOG("Refinement budget exhausted! Fall back to univariate solver.");
         return query_fallback<mode>(v, result);
     }
-    
+
     lbool viable::query_find(pvar v, rational& lo, rational& hi, fixed_bits_info const& fbi) {
         auto const& max_value = s.var2pdd(v).max_value();
         lbool const refined = l_undef;
@@ -1725,7 +1725,7 @@ namespace {
         // For this reason, we start chasing the intervals from the start again.
         lo = 0;
         hi = max_value;
-        
+
         entry* e = m_units[v].get_entries(s.size(v));  // TODO: take other sizes into account
         if (!e && !refine_viable<true>(v, lo, fbi))
             return refined;
@@ -2207,7 +2207,7 @@ namespace {
             if (count > 10) {
                 out << " ...";
                 break;
-            }                
+            }
         }
         return out;
     }
@@ -2224,7 +2224,7 @@ namespace {
             if (count > 10) {
                 out << " ...";
                 break;
-            }                
+            }
         }
         while (e != first);
         return out;
