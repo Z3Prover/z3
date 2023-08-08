@@ -8,6 +8,7 @@ z3_add_component(polysat
     constraint.cpp
     constraint_manager.cpp
     eq_explain.cpp
+    fixed_bits.cpp
     forbidden_intervals.cpp
     inference_logger.cpp
     justification.cpp
