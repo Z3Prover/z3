@@ -41,6 +41,8 @@ namespace synth {
             name = "synthesiz3";
             break;
         case OP_DECLARE_GRAMMAR: 
+	    name = "uncomputable";
+	    break;
         default:
             NOT_IMPLEMENTED_YET();
         }
@@ -51,6 +53,7 @@ namespace synth {
     void plugin::get_op_names(svector<builtin_name> & op_names, symbol const & logic) {
         if (logic == symbol::null) {
             op_names.push_back(builtin_name("synthesiz3", OP_DECLARE_OUTPUT));
+            op_names.push_back(builtin_name("uncomputable", OP_DECLARE_GRAMMAR));
         }
     }
 

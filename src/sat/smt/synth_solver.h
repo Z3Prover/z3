@@ -14,6 +14,7 @@ Author:
 
 #pragma once
 
+#include "muz/spacer/spacer_util.h"
 #include "sat/smt/sat_th.h"
 #include "solver/solver.h"
 
@@ -45,8 +46,11 @@ namespace synth {
 
     private:
 	bool synthesize(app* e);
+	void add_uncomputable(app* e);
+	bool contains_uncomputable(expr* e);
 
     	ptr_vector<app> m_synth;
+	spacer::func_decl_set m_uncomputable;
 
     };
 
