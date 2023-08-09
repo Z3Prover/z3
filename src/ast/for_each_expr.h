@@ -186,7 +186,7 @@ public:
         expr_mark         m_visited;   
         expr_mark*        m_visitedp = nullptr;
     public:
-        iterator(subterms& f, ptr_vector<expr>* esp, expr_mark* vp, bool start);
+        iterator(subterms const& f, ptr_vector<expr>* esp, expr_mark* vp, bool start);
         expr* operator*();
         iterator operator++(int);
         iterator& operator++();
@@ -198,8 +198,8 @@ public:
     static subterms ground(expr_ref const& e, ptr_vector<expr>* esp = nullptr, expr_mark* vp = nullptr) { return subterms(e, false, esp, vp); }
     static subterms all(expr_ref_vector const& e, ptr_vector<expr>* esp = nullptr, expr_mark* vp = nullptr) { return subterms(e, true, esp, vp); }
     static subterms ground(expr_ref_vector const& e, ptr_vector<expr>* esp = nullptr, expr_mark* vp = nullptr) { return subterms(e, false, esp, vp); }
-    iterator begin();
-    iterator end();
+    iterator begin() const;
+    iterator end() const;
 };
 
 class subterms_postorder {

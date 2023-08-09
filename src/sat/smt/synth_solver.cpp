@@ -23,87 +23,70 @@ namespace synth {
         
     solver::~solver() {}
 
-
-    // recognize synthesis objective as part of search objective.
-    // register it for calls to check.
-    void solver::asserted(sat::literal lit) {
-
-    }
-
     bool solver::contains_uncomputable(expr* e) {
 	return false;
     }
 
-    bool solver::synthesize(app* e) {
+    sat::literal solver::synthesize(app* e) {
 
         if (e->get_num_args() == 0)
-            return false;
+            return sat::null_literal;
         
-        auto * n = expr2enode(e->get_arg(0));
-        expr_ref_vector repr(m);
-	euf::enode_vector todo;
-        auto has_rep = [&](euf::enode* n) { return !!repr.get(n->get_root_id(), nullptr); };
+	auto * n = expr2enode(e->get_arg(0));
+	expr_ref_vector repr(m);
         auto get_rep = [&](euf::enode* n) { return repr.get(n->get_root_id(), nullptr); };
-        for (unsigned i = 1; i < e->get_num_args(); ++i) {
+        auto has_rep = [&](euf::enode* n) { return !!get_rep(n); };
+        auto set_rep = [&](euf::enode* n, expr* e) { repr.setx(n->get_root_id(), e); };
+        auto is_computable = [&](func_decl* f) { return true; };
+
+	euf::enode_vector todo;                
+        
+	for (unsigned i = 1; i < e->get_num_args(); ++i) {
 	    expr * arg = e->get_arg(i);
 	    auto * narg = expr2enode(arg);
-            todo.push_back(narg);
-	    repr.setx(narg->get_root_id(), arg);
+	    todo.push_back(narg);
+	    set_rep(narg, arg);
         }
 	for (unsigned i = 0; i < todo.size() && !has_rep(n); ++i) {
 	    auto * nn = todo[i];
             for (auto * p : euf::enode_parents(nn)) {
 	        if (has_rep(p))
                     continue;
-                if (all_of(euf::enode_args(p), [&](auto * ch) { return has_rep(ch); })) {
-                    ptr_buffer<expr> args;
-	            for (auto * ch : euf::enode_args(p))
-                        args.push_back(get_rep(ch));
-                    app * papp = m.mk_app(p->get_decl(), args);
-	            repr.setx(p->get_root_id(), papp);
-		    todo.push_back(p);
-		}
-	    }
-        }
+                if (!is_computable(p->get_decl()))
+                    continue;
+                if (!all_of(euf::enode_args(p), [&](auto * ch) { return has_rep(ch); }))
+                    continue;
+                ptr_buffer<expr> args;
+                for (auto * ch : euf::enode_args(p))
+                    args.push_back(get_rep(ch));
+                app * papp = m.mk_app(p->get_decl(), args);
+                set_rep(p, papp);
+                todo.push_back(p);
+            }
+	}
 	expr * sol = get_rep(n);
         if (!sol)
-            return false;
+            return sat::null_literal;
 
-        sat::literal lit = eq_internalize(n->get_expr(), sol);
-        add_unit(~lit);
         IF_VERBOSE(0, verbose_stream() << mk_pp(sol, m) << "\n");
-        return true;
+        return eq_internalize(n->get_expr(), sol);
     }
 
     // block current model using realizer by E-graph (and arithmetic)
     // 
     sat::check_result solver::check() {
-    for (app* e : m_synth)
-        if (synthesize(e))
-               sat::check_result::CR_CONTINUE; 
-        return sat::check_result::CR_DONE;
+        sat::literal_vector clause;
+	for (app* e : m_synth) {
+	    auto lit = synthesize(e);
+            if (lit == sat::null_literal)
+                return sat::check_result::CR_GIVEUP;
+            clause.push_back(~lit);
+        }
+        if (clause.empty())
+            return sat::check_result::CR_DONE;
+        add_clause(clause);
+        return sat::check_result::CR_CONTINUE; 
     }
-
-    // nothing particular to do
-    void solver::push_core() {
-
-    }
-
-    // nothing particular to do
-    void solver::pop_core(unsigned n) {
-    }
-
-    // nothing particular to do
-    bool solver::unit_propagate() {
-        return false;
-    }
-
-    // retrieve explanation for assertions made by synth solver. It only asserts unit literals so nothing to retrieve
-    void solver::get_antecedents(sat::literal l, sat::ext_justification_idx idx, sat::literal_vector & r, bool probing) {
-    }
-
-    // where we collect statistics (number of invocations?)
-    void solver::collect_statistics(statistics& st) const {}
 
     void solver::add_uncomputable(app* e) {
         for (unsigned i = 0; i < e->get_num_args(); ++i) {
@@ -140,22 +123,14 @@ namespace synth {
 
     // display current state (eg. current set of realizers)
     std::ostream& solver::display(std::ostream& out) const {
+        for (auto * e : m_synth)
+            out << "synth objective " << mk_pp(e, m) << "\n";            
         return out;
-    }
-
-    // justified by "synth".
-    std::ostream& solver::display_justification(std::ostream& out, sat::ext_justification_idx idx) const {
-        return out << "synth";
-    }
-    
-    std::ostream& solver::display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const {
-        return out << "synth";
     }
 
     // create a clone of the solver.
     euf::th_solver* solver::clone(euf::solver& ctx) {
-        NOT_IMPLEMENTED_YET();
-        return nullptr;
+        return alloc(solver, ctx);
     }
 
 }
