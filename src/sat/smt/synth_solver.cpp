@@ -37,7 +37,7 @@ namespace synth {
         auto get_rep = [&](euf::enode* n) { return repr.get(n->get_root_id(), nullptr); };
         auto has_rep = [&](euf::enode* n) { return !!get_rep(n); };
         auto set_rep = [&](euf::enode* n, expr* e) { repr.setx(n->get_root_id(), e); };
-        auto is_computable = [&](func_decl* f) { return true; };
+        auto is_computable = [&](func_decl* f) { return m_uncomputable.contains(f); };
 
 	euf::enode_vector todo;                
         
@@ -89,10 +89,9 @@ namespace synth {
     }
 
     void solver::add_uncomputable(app* e) {
-        for (unsigned i = 0; i < e->get_num_args(); ++i) {
-	    expr* a = e->get_arg(i);
-	    if (is_app(a)) {
-		func_decl* f = to_app(a)->get_decl();
+        for (expr* arg : *e) {
+	    if (is_app(arg)) {
+		func_decl* f = to_app(arg)->get_decl();
 		m_uncomputable.insert(f);
 		ctx.push(insert_obj_trail(m_uncomputable, f));
             }
