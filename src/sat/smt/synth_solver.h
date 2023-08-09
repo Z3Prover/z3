@@ -44,6 +44,9 @@ namespace synth {
 	void add_uncomputable(app* e);
 	bool contains_uncomputable(expr* e);
 
+        void on_merge_eh(euf::enode* root, euf::enode* other);
+        bool_vector m_is_computable;
+
     	ptr_vector<app> m_synth;
 	spacer::func_decl_set m_uncomputable;
 

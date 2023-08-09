@@ -12,6 +12,7 @@ Author:
 
 --*/
 
+#include "ast/for_each_expr.h"
 #include "ast/synth_decl_plugin.h"
 #include "sat/smt/synth_solver.h"
 #include "sat/smt/euf_solver.h"
@@ -24,7 +25,7 @@ namespace synth {
     solver::~solver() {}
 
     bool solver::contains_uncomputable(expr* e) {
-	return false;
+        return any_of(subterms::all(expr_ref(e, m)), [&](expr* a) { return is_app(a) && m_uncomputable.contains(to_app(a)->get_decl()); });
     }
 
     sat::literal solver::synthesize(app* e) {
@@ -37,7 +38,7 @@ namespace synth {
         auto get_rep = [&](euf::enode* n) { return repr.get(n->get_root_id(), nullptr); };
         auto has_rep = [&](euf::enode* n) { return !!get_rep(n); };
         auto set_rep = [&](euf::enode* n, expr* e) { repr.setx(n->get_root_id(), e); };
-        auto is_computable = [&](func_decl* f) { return m_uncomputable.contains(f); };
+        auto is_uncomputable = [&](func_decl* f) { return m_uncomputable.contains(f); };
 
 	euf::enode_vector todo;                
         
@@ -52,7 +53,7 @@ namespace synth {
             for (auto * p : euf::enode_parents(nn)) {
 	        if (has_rep(p))
                     continue;
-                if (!is_computable(p->get_decl()))
+                if (is_uncomputable(p->get_decl()))
                     continue;
                 if (!all_of(euf::enode_args(p), [&](auto * ch) { return has_rep(ch); }))
                     continue;
@@ -130,6 +131,39 @@ namespace synth {
     // create a clone of the solver.
     euf::th_solver* solver::clone(euf::solver& ctx) {
         return alloc(solver, ctx);
+    }
+
+    void solver::on_merge_eh(euf::enode* root, euf::enode* other) {
+
+        auto is_computable = [&](euf::enode* n) { return m_is_computable.get(n->get_id(), false); };
+        auto is_uncomputable = [&](func_decl* f) { return m_uncomputable.contains(f); };
+
+        if (is_computable(root) == is_computable(other))
+            return;
+
+        euf::enode_vector todo;
+
+        todo.push_back(root);
+        for (unsigned i = 0; i < todo.size(); ++i) {
+            auto * n = todo[i];
+            for (auto* p : euf::enode_parents(n)) {
+                if (is_uncomputable(p->get_decl()))
+                    continue;
+                if (is_computable(p))
+                    continue;
+                if (!all_of(euf::enode_args(p), [&](auto * ch) { return is_computable(ch); }))
+                    continue;
+                ctx.push(set_bitvector_trail(m_is_computable, p->get_root_id()));
+                todo.push_back(p);
+            }
+        }
+
+        for (app* e : m_synth) {
+            euf::enode* n = expr2enode(e->get_arg(0));
+            if (is_computable(n)) {
+                // TODO
+            }
+        }
     }
 
 }
