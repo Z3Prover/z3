@@ -39,7 +39,7 @@ namespace synth {
         euf::th_solver* clone(euf::solver& ctx) override;
 
     private:
-	bool synthesize(app* e);
+        sat::literal synthesize(app* e);
 
     	ptr_vector<app> m_synth;
 

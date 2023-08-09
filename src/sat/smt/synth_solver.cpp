@@ -23,16 +23,17 @@ namespace synth {
         
     solver::~solver() {}
 
-    bool solver::synthesize(app* e) {
+    sat::literal solver::synthesize(app* e) {
 
         if (e->get_num_args() == 0)
-            return false;
+            return sat::null_literal;
         
     	auto * n = expr2enode(e->get_arg(0));
 	expr_ref_vector repr(m);
         auto get_rep = [&](euf::enode* n) { return repr.get(n->get_root_id(), nullptr); };
         auto has_rep = [&](euf::enode* n) { return !!get_rep(n); };
         auto set_rep = [&](euf::enode* n, expr* e) { repr.setx(n->get_root_id(), e); };
+        auto is_computable = [&](func_decl* f) { return true; };
 
         euf::enode_vector todo;                
         
@@ -47,33 +48,40 @@ namespace synth {
 	    for (auto * p : euf::enode_parents(nn)) {
 		if (has_rep(p))
                     continue;
-                if (all_of(euf::enode_args(p), [&](auto * ch) { return has_rep(ch); })) {
-                    ptr_buffer<expr> args;
-		    for (auto * ch : euf::enode_args(p))
-                        args.push_back(get_rep(ch));
-                    app * papp = m.mk_app(p->get_decl(), args);
-		    set_rep(p, papp);
-                    todo.push_back(p);
-		}
-	    }
+                if (!is_computable(p->get_decl()))
+                    continue;
+                if (!all_of(euf::enode_args(p), [&](auto * ch) { return has_rep(ch); }))
+                    continue;
+                ptr_buffer<expr> args;
+                for (auto * ch : euf::enode_args(p))
+                    args.push_back(get_rep(ch));
+                app * papp = m.mk_app(p->get_decl(), args);
+                set_rep(p, papp);
+                todo.push_back(p);
+            }
 	}
 	expr * sol = get_rep(n);
         if (!sol)
-            return false;
+            return sat::null_literal;
 
-        sat::literal lit = eq_internalize(n->get_expr(), sol);
-        add_unit(~lit);
         IF_VERBOSE(0, verbose_stream() << mk_pp(sol, m) << "\n");
-	return true;
+        return eq_internalize(n->get_expr(), sol);
     }
 
     // block current model using realizer by E-graph (and arithmetic)
     // 
     sat::check_result solver::check() {
-	for (app* e : m_synth) 
-	    if (synthesize(e))
-               sat::check_result::CR_CONTINUE; 
-        return sat::check_result::CR_DONE;
+        sat::literal_vector clause;
+	for (app* e : m_synth) {
+	    auto lit = synthesize(e);
+            if (lit == sat::null_literal)
+                return sat::check_result::CR_GIVEUP;
+            clause.push_back(~lit);
+        }
+        if (clause.empty())
+            return sat::check_result::CR_DONE;
+        add_clause(clause);
+        return sat::check_result::CR_CONTINUE; 
     }
 
     // recognize synthesis objectives here.
