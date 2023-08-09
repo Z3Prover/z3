@@ -156,11 +156,15 @@ namespace synth {
             }
         }
 
+        if (m_blockers.size() > m_blockers_qhead)
+            return;
+
         for (app* e : m_synth) {
+            // TODO: actually wait to call compute_solution until unit propagation!
             euf::enode* n = expr2enode(e->get_arg(0));
             if (is_computable(n)) {
                 expr_ref sol = compute_solution(e);
-                verbose_stream() << "solution " << sol << "\n";
+                IF_VERBOSE(0, verbose_stream() << "solution " << sol << "\n");
                 ctx.push_vec(m_blockers, ~eq_internalize(sol, n->get_expr()));                
             }
         }
