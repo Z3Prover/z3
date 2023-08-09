@@ -14,7 +14,6 @@ Author:
 
 #pragma once
 
-#include "muz/spacer/spacer_util.h"
 #include "sat/smt/sat_th.h"
 #include "solver/solver.h"
 
@@ -53,7 +52,8 @@ namespace synth {
         sat::literal_vector m_blockers;
 
     	ptr_vector<app> m_synth;
-	spacer::func_decl_set m_uncomputable;
+        typedef obj_hashtable<func_decl> func_decl_set;
+	func_decl_set m_uncomputable;
 
     };
 
