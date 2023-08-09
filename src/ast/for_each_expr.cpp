@@ -109,9 +109,9 @@ bool has_skolem_functions(expr * n) {
 
 subterms::subterms(expr_ref_vector const& es, bool include_bound, ptr_vector<expr>* esp, expr_mark* vp): m_include_bound(include_bound), m_es(es), m_esp(esp), m_vp(vp) {}
 subterms::subterms(expr_ref const& e, bool include_bound, ptr_vector<expr>* esp, expr_mark* vp) : m_include_bound(include_bound), m_es(e.m()), m_esp(esp), m_vp(vp) { if (e) m_es.push_back(e); }
-subterms::iterator subterms::begin() { return iterator(* this, m_esp, m_vp, true); }
-subterms::iterator subterms::end() { return iterator(*this, nullptr, nullptr, false); }
-subterms::iterator::iterator(subterms& f, ptr_vector<expr>* esp, expr_mark* vp, bool start): m_include_bound(f.m_include_bound), m_esp(esp), m_visitedp(vp) {
+subterms::iterator subterms::begin() const { return iterator(* this, m_esp, m_vp, true); }
+subterms::iterator subterms::end() const { return iterator(*this, nullptr, nullptr, false); }
+subterms::iterator::iterator(subterms const& f, ptr_vector<expr>* esp, expr_mark* vp, bool start): m_include_bound(f.m_include_bound), m_esp(esp), m_visitedp(vp) {
     if (!esp)
         m_esp = &m_es;
     else

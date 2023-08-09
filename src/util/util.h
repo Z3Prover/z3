@@ -363,7 +363,7 @@ void set_fatal_error_handler(void (*pfn)(int error_code));
 
 
 template<typename S, typename T>
-bool any_of(S& set, T const& p) {
+bool any_of(S const & set, T const& p) {
     for (auto const& s : set)
         if (p(s))
             return true;
@@ -371,7 +371,7 @@ bool any_of(S& set, T const& p) {
 }
 
 template<typename S, typename T>
-bool all_of(S& set, T const& p) {
+bool all_of(S const & set, T const& p) {
     for (auto const& s : set)
         if (!p(s))
             return false;

@@ -37,15 +37,18 @@ namespace synth {
         
     	auto * n = expr2enode(e->get_arg(0));
 	expr_ref_vector repr(m);
-	euf::enode_vector todo;
-        auto has_rep = [&](euf::enode* n) { return !!repr.get(n->get_root_id(), nullptr); };
         auto get_rep = [&](euf::enode* n) { return repr.get(n->get_root_id(), nullptr); };
+        auto has_rep = [&](euf::enode* n) { return !!get_rep(n); };
+        auto set_rep = [&](euf::enode* n, expr* e) { repr.setx(n->get_root_id(), e); };
+
+        euf::enode_vector todo;                
+        
 	for (unsigned i = 1; i < e->get_num_args(); ++i) {
 	    expr * arg = e->get_arg(i);
 	    auto * narg = expr2enode(arg);
 	    todo.push_back(narg);
-	    repr.setx(narg->get_root_id(), arg);
-	}
+	    set_rep(narg, arg);
+        }
 	for (unsigned i = 0; i < todo.size() && !has_rep(n); ++i) {
 	    auto * nn = todo[i];
 	    for (auto * p : euf::enode_parents(nn)) {
@@ -56,8 +59,8 @@ namespace synth {
 		    for (auto * ch : euf::enode_args(p))
                         args.push_back(get_rep(ch));
                     app * papp = m.mk_app(p->get_decl(), args);
-		    repr.setx(p->get_root_id(), papp);
-		    todo.push_back(p);
+		    set_rep(p, papp);
+                    todo.push_back(p);
 		}
 	    }
 	}
