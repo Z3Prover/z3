@@ -50,9 +50,12 @@ namespace synth {
     public:
         util(ast_manager& m): m(m), m_fid(m.get_family_id("synth")) {}
         
-        bool is_synthesiz3(expr* e) { return is_app_of(e, m_fid, OP_DECLARE_OUTPUT); }
-        bool is_grammar(expr* e) { return is_app_of(e, m_fid, OP_DECLARE_GRAMMAR); }
-        bool is_specification(expr* e) { return is_app_of(e, m_fid, OP_DECLARE_SPECIFICATION); }
+        bool is_synthesiz3(expr* e) const { return is_app_of(e, m_fid, OP_DECLARE_OUTPUT); }
+        bool is_grammar(expr* e) const { return is_app_of(e, m_fid, OP_DECLARE_GRAMMAR); }
+        bool is_specification(expr const* e) const { return is_app_of(e, m_fid, OP_DECLARE_SPECIFICATION); }
+        bool is_specification(func_decl const* f) const { return is_decl_of(f, m_fid, OP_DECLARE_SPECIFICATION); }
+
+        MATCH_UNARY(is_specification);
     };
     
 }

@@ -85,10 +85,8 @@ namespace synth {
         }
     }
 
-    void solver::add_specification(app* e) {
+    void solver::add_specification(app* e, expr* arg) {
 	// This assumes that each (assert (constraint (...)) is asserting exactly one app
-	SASSERT((e->get_num_args() == 1) && (is_app(e->get_arg(0))));
-	app* arg = to_app(e->get_arg(0));
         sat::literal lit = ctx.mk_literal(arg);
         sat::bool_var bv = ctx.get_si().add_bool_var(e);
         sat::literal lit_e(bv, false);
@@ -115,12 +113,13 @@ namespace synth {
 	ctx.attach_lit(lit, e);
         synth::util util(m);
 	app* a = to_app(e);
+        expr* arg = nullptr;
         if (util.is_synthesiz3(e))
             add_synth_objective(a);
         if (util.is_grammar(e))
 	    add_uncomputable(a);
-	if (util.is_specification(e))
-	    add_specification(a);
+	if (util.is_specification(e, arg))
+	    add_specification(a, arg);
     }
 
     // display current state (eg. current set of realizers)
