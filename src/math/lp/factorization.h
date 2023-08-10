@@ -35,7 +35,8 @@ class factor {
     bool         m_sign{ false };
 public:
     factor(): factor(false) {}
-    factor(bool sign): m_sign(sign) {}
+    explicit factor(bool sign): m_sign(sign) {}
+    factor(lpvar var): m_var(var), m_type(factor_type::VAR), m_sign(false) {}
     explicit factor(lpvar v, factor_type t) : m_var(v), m_type(t), m_sign(false) {}
     unsigned var() const { return m_var; }
     factor_type type() const { return m_type; }
