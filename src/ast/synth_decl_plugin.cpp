@@ -43,6 +43,9 @@ namespace synth {
         case OP_DECLARE_GRAMMAR: 
 	    name = "uncomputable";
 	    break;
+        case OP_DECLARE_SPECIFICATION: 
+	    name = "constraint";
+	    break;
         default:
             NOT_IMPLEMENTED_YET();
         }
@@ -54,6 +57,7 @@ namespace synth {
         if (logic == symbol::null) {
             op_names.push_back(builtin_name("synthesiz3", OP_DECLARE_OUTPUT));
             op_names.push_back(builtin_name("uncomputable", OP_DECLARE_GRAMMAR));
+            op_names.push_back(builtin_name("constraint", OP_DECLARE_SPECIFICATION));
         }
     }
 

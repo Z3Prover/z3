@@ -24,6 +24,7 @@ namespace synth {
     enum op_kind {
         OP_DECLARE_OUTPUT,
         OP_DECLARE_GRAMMAR,
+	OP_DECLARE_SPECIFICATION,
         LAST_OP
     };
     
@@ -51,6 +52,7 @@ namespace synth {
         
         bool is_synthesiz3(expr* e) { return is_app_of(e, m_fid, OP_DECLARE_OUTPUT); }
         bool is_grammar(expr* e) { return is_app_of(e, m_fid, OP_DECLARE_GRAMMAR); }
+        bool is_specification(expr* e) { return is_app_of(e, m_fid, OP_DECLARE_SPECIFICATION); }
     };
     
 }

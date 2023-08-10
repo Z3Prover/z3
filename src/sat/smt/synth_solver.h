@@ -42,6 +42,7 @@ namespace synth {
         sat::literal synthesize(app* e);
 	void add_uncomputable(app* e);
         void add_synth_objective(app* e);
+	void add_specification(app* e);
 	bool contains_uncomputable(expr* e);
 
         void on_merge_eh(euf::enode* root, euf::enode* other);
@@ -54,6 +55,8 @@ namespace synth {
     	ptr_vector<app> m_synth;
         typedef obj_hashtable<func_decl> func_decl_set;
 	func_decl_set m_uncomputable;
+	typedef obj_hashtable<app> app_set;
+	app_set m_spec;
 
     };
 

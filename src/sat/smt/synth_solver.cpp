@@ -85,6 +85,16 @@ namespace synth {
         }
     }
 
+    void solver::add_specification(app* e) {
+	// This assumes that each (assert (constraint (...)) is asserting exactly one app
+	SASSERT((e->get_num_args() == 1) && (is_app(e->get_arg(0))));
+	app* arg = to_app(e->get_arg(0));
+	internalize(arg);
+	m_spec.insert(arg);
+	ctx.push(insert_obj_trail(m_spec, arg));
+	// TODO: assert arg <=> e
+    }
+
     // recognize synthesis objectives here.
     sat::literal solver::internalize(expr* e, bool sign, bool root) {
         internalize(e);
@@ -101,10 +111,13 @@ namespace synth {
         sat::literal lit(bv, false);
 	ctx.attach_lit(lit, e);
         synth::util util(m);
+	app* a = to_app(e);
         if (util.is_synthesiz3(e))
-            add_synth_objective(to_app(e));
+            add_synth_objective(a);
         if (util.is_grammar(e))
-	    add_uncomputable(to_app(e));
+	    add_uncomputable(a);
+	if (util.is_specification(e))
+	    add_specification(a);
     }
 
     // display current state (eg. current set of realizers)
