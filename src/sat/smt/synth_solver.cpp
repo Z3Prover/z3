@@ -56,8 +56,8 @@ namespace synth {
     // 
     sat::check_result solver::check() {
         sat::literal_vector clause;
-	for (app* e : m_synth) {
-	    auto lit = synthesize(e);
+        for (app* e : m_synth) {
+            auto lit = synthesize(e);
             if (lit == sat::null_literal)
                 return sat::check_result::CR_GIVEUP;
             clause.push_back(~lit);
@@ -65,17 +65,17 @@ namespace synth {
         if (clause.empty())
             return sat::check_result::CR_DONE;
         add_clause(clause);
-        return sat::check_result::CR_CONTINUE; 
+        return sat::check_result::CR_CONTINUE;
     }
 
     void solver::add_uncomputable(app* e) {
         for (expr* arg : *e) {
-	    if (is_app(arg)) {
-		func_decl* f = to_app(arg)->get_decl();
-		m_uncomputable.insert(f);
-		ctx.push(insert_obj_trail(m_uncomputable, f));
+            if (is_app(arg)) {
+                func_decl* f = to_app(arg)->get_decl();
+                m_uncomputable.insert(f);
+                ctx.push(insert_obj_trail(m_uncomputable, f));
             }
-	}
+        }
     }
 
     void solver::add_synth_objective(app* e) {
@@ -191,8 +191,8 @@ namespace synth {
         m_is_solved = true;
 
         sat::literal_vector clause;
-	for (app* e : m_synth) {
-	    auto lit = synthesize(e);
+        for (app* e : m_synth) {
+            auto lit = synthesize(e);
             if (lit == sat::null_literal)
                 return false;
             clause.push_back(~lit);
@@ -202,7 +202,7 @@ namespace synth {
     }
 
     expr_ref solver::compute_solution(app* e) {
-        auto * n = expr2enode(synth_output(e));
+        auto* n = expr2enode(synth_output(e));
         expr_ref_vector repr(m);
         auto get_rep = [&](euf::enode* n) { return repr.get(n->get_root_id(), nullptr); };
         auto has_rep = [&](euf::enode* n) { return !!get_rep(n); };
@@ -212,14 +212,14 @@ namespace synth {
 
         struct rep_lt {
             expr_ref_vector const& repr;
-            rep_lt(expr_ref_vector& repr): repr(repr) {}
+            rep_lt(expr_ref_vector& repr) : repr(repr) {}
             bool operator()(int v1, int v2) const {
                 return get_depth(repr.get(v1)) < get_depth(repr.get(v2));
             };
         };
-        rep_lt lt(repr);        
+        rep_lt lt(repr);
         heap<rep_lt> heap(1000, lt);
-        euf::enode_vector nodes;                
+        euf::enode_vector nodes;
         auto insert_repr = [&](euf::enode* n, expr* r) {
             unsigned id = n->get_root_id();
             set_rep(n, r);
@@ -229,10 +229,9 @@ namespace synth {
             heap.insert(id);
         };
 
-        
-	for (unsigned i = 1; i < e->get_num_args(); ++i) {
-	    expr * arg = e->get_arg(i);
-	    auto * narg = expr2enode(arg);
+        for (unsigned i = 1; i < e->get_num_args(); ++i) {
+            expr* arg = e->get_arg(i);
+            auto* narg = expr2enode(arg);
             insert_repr(narg, arg);
         }
         // make sure we only insert non-input symbols.
@@ -241,13 +240,13 @@ namespace synth {
                 insert_repr(n, n->get_expr());
         }
         while (!heap.empty()) {
-	    auto * nn = nodes[heap.erase_min()];
-            for (auto * p : euf::enode_parents(nn)) {
-	        if (has_rep(p))
+            auto* nn = nodes[heap.erase_min()];
+            for (auto* p : euf::enode_parents(nn)) {
+                if (has_rep(p))
                     continue;
                 if (is_uncomputable(p->get_decl()))
                     continue;
-                if (!all_of(euf::enode_args(p), [&](auto * ch) { return has_rep(ch); }))
+                if (!all_of(euf::enode_args(p), [&](auto* ch) { return has_rep(ch); }))
                     continue;
                 expr* r = get_rep(p);
                 if (r) {
@@ -257,13 +256,13 @@ namespace synth {
                     heap.erase(p->get_root_id());
                 }
                 ptr_buffer<expr> args;
-                for (auto * ch : euf::enode_args(p))
+                for (auto* ch : euf::enode_args(p))
                     args.push_back(get_rep(ch));
                 expr_ref papp(m.mk_app(p->get_decl(), args), m);
                 insert_repr(p, papp);
             }
-	}
-        return expr_ref(get_rep(n), m);        
+        }
+        return expr_ref(get_rep(n), m);
     }
 
 }
