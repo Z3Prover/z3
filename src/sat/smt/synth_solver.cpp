@@ -92,8 +92,7 @@ namespace synth {
         sat::literal lit_e(bv, false);
 	ctx.attach_lit(lit_e, e);
         add_clause(~lit_e, lit);
-	m_spec.insert(arg);
-	ctx.push(insert_obj_trail(m_spec, arg));
+	ctx.push_vec(m_spec, arg);        
     }
 
     // recognize synthesis objectives here.

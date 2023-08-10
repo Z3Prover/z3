@@ -56,10 +56,8 @@ namespace synth {
         ptr_vector<app> m_solved;
 
     	ptr_vector<app> m_synth;
-        typedef obj_hashtable<func_decl> func_decl_set;
-	func_decl_set m_uncomputable;
-	typedef obj_hashtable<app> app_set;
-        obj_hashtable<expr> m_spec;
+	obj_hashtable<func_decl> m_uncomputable;
+        ptr_vector<expr> m_spec;
 
     };
 
