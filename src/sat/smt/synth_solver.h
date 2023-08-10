@@ -48,9 +48,12 @@ namespace synth {
         void on_merge_eh(euf::enode* root, euf::enode* other);
 
         expr_ref compute_solution(app* synth_objective);
+
+        expr* synth_output(expr* e) const { return to_app(e)->get_arg(0); }
+        
         bool_vector m_is_computable;
-        unsigned    m_blockers_qhead = 0;
-        sat::literal_vector m_blockers;
+        bool            m_is_solved = false;
+        ptr_vector<app> m_solved;
 
     	ptr_vector<app> m_synth;
         typedef obj_hashtable<func_decl> func_decl_set;
