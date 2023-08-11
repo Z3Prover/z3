@@ -232,6 +232,7 @@ public:
     
     std::ostream & print_factor(const factor& f, std::ostream& out) const;
     std::ostream & print_factor_with_vars(const factor& f, std::ostream& out) const;
+    std::ostream & print_factor_with_vars(lpvar j, std::ostream& out) const { return print_var(j, out); }
     std::ostream& print_monic(const monic& m, std::ostream& out) const;
     std::ostream& print_bfc(const factorization& m, std::ostream& out) const;
     std::ostream& print_monic_with_vars(unsigned i, std::ostream& out) const;
