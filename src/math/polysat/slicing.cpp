@@ -1371,14 +1371,16 @@ namespace polysat {
         get_base(var2slice(v), base);
         rational a;
         unsigned lo = 0;
-        for (enode* n : base) {
-            enode* r = n->get_root();
+        for (auto it = base.rbegin(); it != base.rend(); ++it) {
+            enode* const n = *it;
+            enode* const r = n->get_root();
             unsigned const w = width(n);
             unsigned const hi = lo + w - 1;
             if (try_get_value(r, a))
                 out.push_back({hi, lo, a, n});
             lo += w;
         }
+        base.reset();
     }
 
     void slicing::explain_fixed(euf::enode* const n, std::function<void(sat::literal)> const& on_lit, std::function<void(pvar)> const& on_var) {

@@ -39,9 +39,11 @@ namespace polysat {
 
         friend class test_slicing;
 
+    public:
         using enode = euf::enode;
         using enode_vector = euf::enode_vector;
 
+    private:
         class dep_t {
             std::variant<std::monostate, sat::literal, unsigned> m_data;
         public:
@@ -351,7 +353,7 @@ namespace polysat {
 
         /** Collect fixed portions of the variable v */
         void collect_fixed(pvar v, justified_fixed_bits_vector& out);
-        void explain_fixed(euf::enode* just, std::function<void(sat::literal)> const& on_lit, std::function<void(pvar)> const& on_var);
+        void explain_fixed(enode* just, std::function<void(sat::literal)> const& on_lit, std::function<void(pvar)> const& on_var);
 
         std::ostream& display(std::ostream& out) const;
         std::ostream& display_tree(std::ostream& out) const;
