@@ -39,24 +39,24 @@ namespace synth {
         euf::th_solver* clone(euf::solver& ctx) override;
 
     private:
-        sat::literal synthesize(app* e);
-	void add_uncomputable(app* e);
+        sat::literal synthesize(expr_ref_vector const& repr, app* e);
+        void add_uncomputable(app* e);
         void add_synth_objective(app* e);
-	void add_specification(app* e, expr* arg);
-	bool contains_uncomputable(expr* e);
-
+        void add_specification(app* e, expr* arg);
+        bool contains_uncomputable(expr* e);
         void on_merge_eh(euf::enode* root, euf::enode* other);
-
-        expr_ref compute_solution(app* synth_objective);
-
+        expr_ref compute_solution(expr_ref_vector const& repr, app* synth_objective);
         expr* synth_output(expr* e) const { return to_app(e)->get_arg(0); }
+        expr_ref compute_condition(expr_ref_vector const& repr);
+        bool compute_solutions();
+        expr_ref_vector compute_rep();        
         
         bool_vector m_is_computable;
         bool            m_is_solved = false;
         ptr_vector<app> m_solved;
 
     	ptr_vector<app> m_synth;
-	obj_hashtable<func_decl> m_uncomputable;
+        obj_hashtable<func_decl> m_uncomputable;
         ptr_vector<expr> m_spec;
 
     };
