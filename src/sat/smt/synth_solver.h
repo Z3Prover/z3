@@ -39,23 +39,32 @@ namespace synth {
         euf::th_solver* clone(euf::solver& ctx) override;
 
     private:
-        sat::literal synthesize(expr_ref_vector const& repr, app* e);
+        class synth_objective {
+            app* obj;
+        public:
+            synth_objective(app* obj): obj(obj) { VERIFY(obj->get_num_args() > 0); }
+            expr* output() const { return obj->get_arg(0); }
+            expr* const* begin() const { return obj->get_args() + 1; }
+            expr* const* end() const { return obj->get_args() + obj->get_num_args(); }
+            bool operator==(synth_objective const& o) const { return o.obj == obj; }
+        };
+
+        sat::literal synthesize(expr_ref_vector const& repr, synth_objective const& synth_objective);
         void add_uncomputable(app* e);
-        void add_synth_objective(app* e);
+        void add_synth_objective(synth_objective const& e);
         void add_specification(app* e, expr* arg);
         bool contains_uncomputable(expr* e);
         void on_merge_eh(euf::enode* root, euf::enode* other);
-        expr_ref compute_solution(expr_ref_vector const& repr, app* synth_objective);
-        expr* synth_output(expr* e) const { return to_app(e)->get_arg(0); }
+        expr_ref compute_solution(expr_ref_vector const& repr, synth_objective const& synth_objective);
         expr_ref compute_condition(expr_ref_vector const& repr);
         bool compute_solutions();
         expr_ref_vector compute_rep();        
         
         bool_vector m_is_computable;
         bool            m_is_solved = false;
-        ptr_vector<app> m_solved;
+        svector<synth_objective> m_solved;
 
-    	ptr_vector<app> m_synth;
+    	svector<synth_objective> m_synth;
         obj_hashtable<func_decl> m_uncomputable;
         ptr_vector<expr> m_spec;
 
