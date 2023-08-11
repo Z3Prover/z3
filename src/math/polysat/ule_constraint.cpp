@@ -194,6 +194,8 @@ namespace polysat {
     ule_constraint::ule_constraint(pdd const& l, pdd const& r) :
         constraint(ckind_t::ule_t), m_lhs(l), m_rhs(r) {
 
+        SASSERT_EQ(m_lhs.power_of_2(), m_rhs.power_of_2());
+
         m_vars.append(m_lhs.free_vars());
         for (auto v : m_rhs.free_vars())
             if (!m_vars.contains(v))
@@ -201,6 +203,7 @@ namespace polysat {
     }
 
     void ule_constraint::simplify(bool& is_positive, pdd& lhs, pdd& rhs) {
+        SASSERT_EQ(lhs.power_of_2(), rhs.power_of_2());
 #ifndef NDEBUG
         bool const old_is_positive = is_positive;
         pdd const old_lhs = lhs;

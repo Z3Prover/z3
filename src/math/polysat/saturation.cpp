@@ -1245,6 +1245,8 @@ namespace polysat {
         for (auto c : core) {
             if (!c->is_ule())
                 continue;
+            if (c->to_ule().power_of_2() != m.power_of_2())
+                continue;
             auto i = inequality::from_ule(c);
             if (c == a_l_b.as_signed_constraint())
                 continue;
