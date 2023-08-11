@@ -49,20 +49,29 @@ namespace synth {
             bool operator==(synth_objective const& o) const { return o.obj == obj; }
         };
 
-        sat::literal synthesize(expr_ref_vector const& repr, synth_objective const& synth_objective);
+        
+
+        sat::literal synthesize(synth_objective const& synth_objective);
         void add_uncomputable(app* e);
         void add_synth_objective(synth_objective const& e);
         void add_specification(app* e, expr* arg);
         bool contains_uncomputable(expr* e);
         void on_merge_eh(euf::enode* root, euf::enode* other);
-        expr_ref compute_solution(expr_ref_vector const& repr, synth_objective const& synth_objective);
-        expr_ref compute_condition(expr_ref_vector const& repr);
+        expr_ref compute_solution(synth_objective const& synth_objective);
+        expr_ref compute_condition();
         bool compute_solutions();
-        expr_ref_vector compute_rep();        
+        void compute_rep();
+
+        expr* get_rep(euf::enode* n) { return m_rep.get(n->get_root_id(), nullptr); };
+        bool has_rep(euf::enode* n) { return !!get_rep(n); };
+        void set_rep(euf::enode* n, expr* e) { m_rep.setx(n->get_root_id(), e); };
+
+        expr_ref simplify_condition(expr* e);
         
         bool_vector m_is_computable;
         bool            m_is_solved = false;
         svector<synth_objective> m_solved;
+        expr_ref_vector m_rep;
 
     	svector<synth_objective> m_synth;
         obj_hashtable<func_decl> m_uncomputable;
