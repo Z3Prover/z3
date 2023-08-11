@@ -246,9 +246,11 @@ namespace synth {
         replace(result);
         th_rewriter rw(m);
         rw(result);
+	IF_VERBOSE(0, verbose_stream() << "simplifying: " << result << "\n");
+	result = simplify_condition(result.get());
+	IF_VERBOSE(0, verbose_stream() << result << "\n");
         return result;
     }
-#if 0
 
     expr_ref solver::simplify_condition(expr* e) {
         ptr_vector<expr> todo;
@@ -270,22 +272,26 @@ namespace synth {
                 continue;
             }
 
-            unsigned orig_size = todo.size();
+	    ptr_buffer<expr> args;
             for (expr* arg : *to_app(a)) {
-                if (has_rep(arg))
-                    args.push_back(get_rep(arg));
+		n = expr2enode(arg);
+		expr* r;
+		if (n && (r = get_rep(n)))
+		    args.push_back(r);
+		else if (r = m_rep.get(arg->get_id(), nullptr))
+                    args.push_back(r);
                 else
                     todo.push_back(arg);
             }
-            if (todo.size() == orig_size) {
+            if (args.size() == to_app(a)->get_num_args()) {
                 todo.pop_back();
                 expr_ref new_a(m.mk_app(to_app(a)->get_decl(), args), m);
                 n = expr2enode(new_a);
-                if (has_rep(n)) 
+                if (n && has_rep(n)) 
                     m_rep.setx(a->get_id(), get_rep(n));
                 else 
-                    m_rep.setx(a->get_id(), new_a);                
-            }            
+                    m_rep.setx(a->get_id(), new_a);
+            }
         }
         euf::enode* n = expr2enode(e);
         if (n && has_rep(n))
@@ -293,8 +299,6 @@ namespace synth {
         SASSERT(m_rep.get(e->get_id(), nullptr));
         return expr_ref(m_rep.get(e->get_id()), m);
     }
-#endif
-    
 
     sat::literal solver::synthesize(synth_objective const& synth_objective) {
         expr_ref sol = compute_solution(synth_objective);
