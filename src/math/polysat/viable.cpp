@@ -870,8 +870,7 @@ namespace {
         sat::literal_set added_side_cond;
 
         auto add_justification = [&](unsigned i) {
-            SASSERT(!fbi.just_src[i].empty());
-            // TODO: Check for duplicates; maybe we add the same src/side_cond over and over again
+            SASSERT(!fbi.just_src[i].empty() || !fbi.just_slicing[i].empty());
             for (sat::literal lit : fbi.just_src[i]) {
                 if (added_src.contains(lit))
                     continue;
@@ -883,6 +882,22 @@ namespace {
                     continue;
                 added_side_cond.insert(lit);
                 side_cond.push_back(s.lit2cnstr(lit));
+            }
+            for (slicing::enode* n : fbi.just_slicing[i]) {
+                s.m_slicing.explain_fixed(n, [&](sat::literal lit) {
+                    if (!added_src.contains(lit)) {
+                        added_src.insert(lit);
+                        src.push_back(s.lit2cnstr(lit));
+                    }
+                }, [&](pvar v){
+                    sat::literal lit = s.eq(s.var(v), s.get_value(v)).blit();
+                    if (!s.m_bvars.is_assigned(lit))
+                        s.assign_eval(lit);
+                    if (!added_src.contains(lit)) {
+                        added_src.insert(lit);
+                        src.push_back(s.lit2cnstr(lit));
+                    }
+                });
             }
         };
 
@@ -973,21 +988,19 @@ namespace {
         vector<sat::literal_vector>& just_src = out_fbi.just_src;
         vector<sat::literal_vector>& just_side_cond = out_fbi.just_side_cond;
 
-#if 0
-        // TODO: wip
         slicing::justified_fixed_bits_vector fbs;
         s.m_slicing.collect_fixed(v, fbs);
 
         for (auto const& fb : fbs) {
+            LOG("slicing fixed bits: v" << v << "[" << fb.hi << ":" << fb.lo << "] = " << fb.value);
             for (unsigned i = fb.lo; i <= fb.hi; ++i) {
                 SASSERT(out_fbi.just_src[i].empty());  // since we don't get overlapping ranges from collect_fixed.
                 SASSERT(out_fbi.just_side_cond[i].empty());
+                SASSERT(out_fbi.just_slicing[i].empty());
                 out_fbi.fixed[i] = to_lbool(fb.value.get_bit(i - fb.lo));
-                // TODO: can add an euf::enode* to the fixed_bits_info. then we do not have to call explain_fixed() here already.
-                // TODO: s.m_slicing.explain_fixed( ... );  with  out_fbi.just_src[i].push_back(...)
+                out_fbi.just_slicing[i].push_back(fb.just);
             }
         }
-#endif
 
         entry* e1 = m_equal_lin[v];
         entry* e2 = m_units[v].get_entries(s.size(v));  // TODO: take other widths into account (will be done automatically by tracking fixed bits in the slicing egraph)
@@ -1018,6 +1031,21 @@ namespace {
                 add_literal(src.blit());
         };
 
+        auto add_slicing = [this, &add_literal](slicing::enode* n) {
+            s.m_slicing.explain_fixed(n, [&](sat::literal lit) {
+                add_literal(lit);
+            }, [&](pvar v){
+                LOG("from slicing: v" << v);
+                add_literal(s.eq(s.var(v), s.get_value(v)).blit());
+            });
+        };
+
+        auto add_bit_justification = [&add_literals, &add_slicing](fixed_bits_info const& fbi, unsigned i) {
+            add_literals(fbi.just_src[i]);
+            add_literals(fbi.just_side_cond[i]);
+            for (slicing::enode* n : fbi.just_slicing[i])
+                add_slicing(n);
+        };
 
         if (e1) {
             unsigned largest_lsb = 0;
@@ -1036,10 +1064,9 @@ namespace {
                     fixed[bit.position] = to_lbool(bit.positive);
                     //verbose_stream() << "Setting bit " << bit.position << " to " << bit.positive << " because of " << e->src << "\n";
                     if (prev != l_undef && fixed[bit.position] != prev) {
-                        LOG("Bit conflicting " << e1->src << " with " << just_src[bit.position][0]);
+                        // LOG("Bit conflicting " << e1->src << " with " << just_src[bit.position][0]);  // NOTE: just_src may be empty if the justification is by slicing
                         if (add_conflict) {
-                            add_literals(just_src[bit.position]);
-                            add_literals(just_side_cond[bit.position]);
+                            add_bit_justification(out_fbi, bit.position);
                             add_entry(e1);
                             s.set_conflict(*builder.build());
                         }
@@ -1057,10 +1084,9 @@ namespace {
                             fixed[i] = to_lbool(lsb.bits.get_bit(i));
                             if (prev != l_undef) {
                                 if (fixed[i] != prev) {
-                                    LOG("Positive parity conflicting " << e1->src << " with " << just_src[i][0]);
+                                    // LOG("Positive parity conflicting " << e1->src << " with " << just_src[i][0]);  // NOTE: just_src may be empty if the justification is by slicing
                                     if (add_conflict) {
-                                        add_literals(just_src[i]);
-                                        add_literals(just_side_cond[i]);
+                                        add_bit_justification(out_fbi, i);
                                         add_entry(e1);
                                         s.set_conflict(*builder.build());
                                     }
@@ -1150,7 +1176,7 @@ namespace {
                 unsigned i = 0;
                 for (; i < neg.second.length; i++) {
                     if (fixed[i] != l_undef) {
-                        if (fixed[i] != (neg.second.bits.get_bit(i) ? l_true : l_false)) {
+                        if (fixed[i] != to_lbool(neg.second.bits.get_bit(i))) {
                             removed[j] = true;
                             break; // this is already satisfied
                         }
@@ -1165,10 +1191,8 @@ namespace {
                         // Already false
                         LOG("Found conflict with constraint " << neg.first->src);
                         if (add_conflict) {
-                            for (unsigned k = 0; k < neg.second.length; k++) {
-                                add_literals(just_src[k]);
-                                add_literals(just_side_cond[k]);
-                            }
+                            for (unsigned k = 0; k < neg.second.length; k++)
+                                add_bit_justification(out_fbi, k);
                             add_entry(neg.first);
                             s.set_conflict(*builder.build());
                         }
@@ -1181,10 +1205,7 @@ namespace {
                         for (unsigned k = 0; k < neg.second.length; k++) {
                             if (k != last_indet) {
                                 SASSERT(fixed[k] != l_undef);
-                                for (sat::literal lit : just_src[k])
-                                    just_src[last_indet].push_back(lit);
-                                for (sat::literal lit : just_side_cond[k])
-                                    just_side_cond[last_indet].push_back(lit);
+                                out_fbi.push_from_bit(last_indet, k);
                             }
                         }
                         out_fbi.push_just(i, neg.first);

@@ -25,6 +25,7 @@ Author:
 #include "math/polysat/conflict.h"
 #include "math/polysat/constraint.h"
 #include "math/polysat/forbidden_intervals.h"
+#include "math/polysat/slicing.h"
 #include <optional>
 
 namespace polysat {
@@ -128,6 +129,7 @@ namespace polysat {
             svector<lbool> fixed;
             vector<sat::literal_vector> just_src;
             vector<sat::literal_vector> just_side_cond;
+            vector<ptr_vector<slicing::enode>> just_slicing;
 
             bool is_empty() const {
                 SASSERT_EQ(fixed.empty(), just_src.empty());
@@ -146,11 +148,18 @@ namespace polysat {
                 just_src.resize(num_bits);
                 just_side_cond.reset();
                 just_side_cond.resize(num_bits);
+                just_slicing.reset();
+                just_slicing.resize(num_bits);
+            }
+
+            void reset_just(unsigned i) {
+                just_src[i].reset();
+                just_side_cond[i].reset();
+                just_slicing[i].reset();
             }
 
             void set_just(unsigned i, entry* e) {
-                just_src[i].reset();
-                just_side_cond[i].reset();
+                reset_just(i);
                 push_just(i, e);
             }
 
@@ -159,6 +168,15 @@ namespace polysat {
                     just_src[i].push_back(c.blit());
                 for (signed_constraint c : e->side_cond)
                     just_side_cond[i].push_back(c.blit());
+            }
+
+            void push_from_bit(unsigned i, unsigned src) {
+                for (sat::literal lit : just_src[src])
+                    just_src[i].push_back(lit);
+                for (sat::literal lit : just_side_cond[src])
+                    just_side_cond[i].push_back(lit);
+                for (slicing::enode* slice : just_slicing[src])
+                    just_slicing[i].push_back(slice);
             }
         };
 
