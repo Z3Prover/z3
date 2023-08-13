@@ -147,7 +147,7 @@ namespace euf {
         else if (rf.get_family_id() == fid)
             ext = alloc(recfun::solver, *this);
         else if (m.mk_family_id("synth") == fid)
-            ext = alloc(synth::solver, *this);
+            m_synth_solver = ext = alloc(synth::solver, *this);
         
         if (ext) 
             add_solver(ext);        
@@ -592,6 +592,12 @@ namespace euf {
             default: break;
             }
         };
+        auto should_continue = [&]() {
+            return num_nodes < m_egraph.num_nodes() || cont || s().inconsistent();
+        };
+        auto should_giveup = [&]() {
+            return give_up || (m_qsolver && m_config.m_arith_ignore_int);
+        };
         if (merge_shared_bools())
             cont = true;
         for (unsigned i = 0; i < m_solvers.size(); ++i) {
@@ -600,29 +606,26 @@ namespace euf {
                 m_reason_unknown = "canceled";
                 return sat::check_result::CR_GIVEUP;
             }
-            if (e == m_qsolver)
+            if (e == m_qsolver || e == m_synth_solver)
                 continue;
             apply_solver(e);
             if (s().inconsistent())
                 return sat::check_result::CR_CONTINUE;
         }
 
-
-        if (s().inconsistent())
-            return sat::check_result::CR_CONTINUE;
-        if (cont)
+        if (should_continue())
             return sat::check_result::CR_CONTINUE;
         if (m_qsolver && !m_config.m_arith_ignore_int)
             apply_solver(m_qsolver);
-        if (num_nodes < m_egraph.num_nodes()) 
+        if (should_continue())
             return sat::check_result::CR_CONTINUE;
-        if (cont)
+        if (m_synth_solver) 
+            apply_solver(m_synth_solver);
+        if (should_continue())
             return sat::check_result::CR_CONTINUE;
         TRACE("after_search", s().display(tout););
-        if (give_up)
+        if (should_giveup())
             return sat::check_result::CR_GIVEUP;  
-        if (m_qsolver && m_config.m_arith_ignore_int)
-            return sat::check_result::CR_GIVEUP;            
         return sat::check_result::CR_DONE;
     }
 

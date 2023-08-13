@@ -246,6 +246,7 @@ namespace synth {
         replace(result);
         th_rewriter rw(m);
         rw(result);
+        IF_VERBOSE(2, ctx.display(verbose_stream()));
 	IF_VERBOSE(0, verbose_stream() << "simplifying: " << result << "\n");
 	result = simplify_condition(result.get());
 	IF_VERBOSE(0, verbose_stream() << result << "\n");

@@ -140,6 +140,7 @@ namespace euf {
         void*                            m_on_clause_ctx = nullptr;
         user_solver::solver*             m_user_propagator = nullptr;
         th_solver*                       m_qsolver = nullptr;
+        th_solver*                       m_synth_solver = nullptr;
         unsigned                         m_generation = 0;
         std::string                      m_reason_unknown; 
         mutable ptr_vector<expr>         m_todo;
