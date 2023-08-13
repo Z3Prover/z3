@@ -24,7 +24,7 @@ namespace synth {
     public:
         solver(euf::solver& ctx);
         ~solver() override;        
-        void asserted(sat::literal lit) override {}
+        void asserted(sat::literal lit) override;
         sat::check_result check() override;
         void push_core() override {}
         void pop_core(unsigned n) override {}

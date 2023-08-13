@@ -96,14 +96,12 @@ namespace synth {
     }
 
     sat::check_result solver::check() {
-        // TODO: need to know if there are quantifiers to instantiate
-        if (m_solved.size() < m_synth.size()) {
-            IF_VERBOSE(2, ctx.display(verbose_stream()));
+        if (m_synth.empty())
             return sat::check_result::CR_DONE;
-        }
-        if (!compute_solutions())
-            return sat::check_result::CR_GIVEUP;
-        return sat::check_result::CR_CONTINUE;
+        
+        SASSERT(m_solved.size() < m_synth.size());
+        IF_VERBOSE(2, ctx.display(verbose_stream()));
+        return sat::check_result::CR_GIVEUP;        
     }
 
     // display current state (eg. current set of realizers)
@@ -117,6 +115,13 @@ namespace synth {
     euf::th_solver* solver::clone(euf::solver& ctx) {
         return alloc(solver, ctx);
     }
+
+    void solver::asserted(sat::literal lit) {
+        // lit corresponds to a Boolean output variable.
+        // it is asserted.
+        // assume that we attach this theory to such Boolean output variables.
+    }
+
 
     void solver::on_merge_eh(euf::enode* root, euf::enode* other) {
 
