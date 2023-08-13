@@ -489,7 +489,6 @@ public:
 
     model_converter_ref get_model_converter() const override {
         const_cast<sat_smt_solver*>(this)->convert_internalized();
-        verbose_stream() << "get model converter " << (m_cached_mc.get() != nullptr) << "\n";
         if (m_cached_mc)
             return m_cached_mc;
         if (is_internalized() && m_internalized_converted) {            
