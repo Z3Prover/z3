@@ -72,9 +72,8 @@ public:
 
     svector<unsigned> vars() const {
         svector<unsigned> ret;
-        for (const auto& p : m_local_to_external) {
+        for (const auto& p : m_local_to_external) 
             ret.push_back(p.external_j());
-        }
         return ret;
     }
 
@@ -126,11 +125,7 @@ public:
     }
 
     bool has_int_var() const {
-        for (const auto & vi : m_local_to_external) {
-            if (vi.is_integer())
-                return true;
-        }
-        return false;
+        return any_of(m_local_to_external, [&](const auto& vi) { return vi.is_integer(); });        
     }
     
     bool local_is_int(unsigned j) const {
@@ -138,9 +133,8 @@ public:
     }
 
     void shrink(unsigned shrunk_size) {
-        for (unsigned j = size(); j-- > shrunk_size;) {
+        for (unsigned j = size(); j-- > shrunk_size;) 
             m_external_to_local.erase(m_local_to_external[j].external_j());
-        }
         m_local_to_external.resize(shrunk_size);
     }
     

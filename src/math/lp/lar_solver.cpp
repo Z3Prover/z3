@@ -258,7 +258,7 @@ namespace lp {
         m_crossed_bounds_column.pop(k);
         unsigned n = m_columns_to_ul_pairs.peek_size(k);
         m_var_register.shrink(n);
-        pop_tableau();
+        pop_tableau(n);
         lp_assert(A_r().column_count() == n);
         TRACE("lar_solver_details",
             for (unsigned j = 0; j < n; j++) {
@@ -1326,15 +1326,15 @@ namespace lp {
         lp_assert(A_r().column_count() == m_mpq_lar_core_solver.m_r_solver.m_costs.size());
     }
 
-    void lar_solver::pop_tableau() {
+    void lar_solver::pop_tableau(unsigned old_size) {
         lp_assert(m_mpq_lar_core_solver.m_r_solver.m_costs.size() == A_r().column_count());
 
         lp_assert(m_mpq_lar_core_solver.m_r_solver.m_basis.size() == A_r().row_count());
         lp_assert(m_mpq_lar_core_solver.m_r_solver.basis_heading_is_correct());
         // We remove last variables starting from m_column_names.size() to m_vec_of_canonic_left_sides.size().    
         // At this moment m_column_names is already popped
-        unsigned size = m_var_register.size();
-        while (A_r().column_count() > size)
+        
+        while (A_r().column_count() > old_size)
             remove_last_column_from_tableau();
         lp_assert(m_mpq_lar_core_solver.m_r_solver.m_costs.size() == A_r().column_count());
         lp_assert(m_mpq_lar_core_solver.m_r_solver.m_basis.size() == A_r().row_count());
@@ -1544,12 +1544,7 @@ namespace lp {
 
     // terms
     bool lar_solver::all_vars_are_registered(const vector<std::pair<mpq, var_index>>& coeffs) {
-        for (const auto& p : coeffs) {
-            if (p.second >= m_var_register.size()) {
-                return false;
-            }
-        }
-        return true;
+        return all_of(coeffs, [&](const auto& p) { return p.second < m_var_register.size(); });
     }
 
     void lar_solver::subst_known_terms(lar_term* t) {

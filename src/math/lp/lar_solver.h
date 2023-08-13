@@ -225,7 +225,7 @@ class lar_solver : public column_namer {
 
     void remove_last_column_from_basis_tableau(unsigned j);
     void remove_last_column_from_tableau();
-    void pop_tableau();
+    void pop_tableau(unsigned old_size);
     void clean_inf_heap_of_r_solver_after_pop();
     inline bool column_value_is_integer(unsigned j) const { return get_column_value(j).is_int(); }
     bool model_is_int_feasible() const;
