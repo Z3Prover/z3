@@ -615,12 +615,12 @@ namespace euf {
 
         if (should_continue())
             return sat::check_result::CR_CONTINUE;
-        if (m_qsolver && !m_config.m_arith_ignore_int)
-            apply_solver(m_qsolver);
-        if (should_continue())
-            return sat::check_result::CR_CONTINUE;
         if (m_synth_solver) 
             apply_solver(m_synth_solver);
+        if (should_continue())
+            return sat::check_result::CR_CONTINUE;
+        if (m_qsolver && !m_config.m_arith_ignore_int)
+            apply_solver(m_qsolver);
         if (should_continue())
             return sat::check_result::CR_CONTINUE;
         TRACE("after_search", s().display(tout););
