@@ -680,9 +680,8 @@ namespace polysat {
             s.add_clause(c2, false);
             s.m_viable.intersect(x.var(), c1);
             s.m_viable.intersect(x.var(), c2);
-            svector<lbool> fixed;
-            vector<ptr_vector<viable::entry>> justifications;
-            VERIFY(!s.m_viable.collect_bit_information(x.var(), false, fixed, justifications));
+            viable::fixed_bits_info fbi;
+            VERIFY(!s.m_viable.collect_bit_information(x.var(), false, fbi));
         }
         
         // parity(x) >= 3 and bit_1(x)
@@ -695,9 +694,8 @@ namespace polysat {
             s.add_clause(c2, false);
             s.m_viable.intersect(x.var(), c1);
             s.m_viable.intersect(x.var(), c2);
-            svector<lbool> fixed;
-            vector<ptr_vector<viable::entry>> justifications;
-            VERIFY(!s.m_viable.collect_bit_information(x.var(), false, fixed, justifications));
+            viable::fixed_bits_info fbi;
+            VERIFY(!s.m_viable.collect_bit_information(x.var(), false, fbi));
         }
 
         // parity(x) >= 1 and bit_1(x)
@@ -710,9 +708,8 @@ namespace polysat {
             s.add_clause(c2, false);
             s.m_viable.intersect(x.var(), c1);
             s.m_viable.intersect(x.var(), c2);
-            svector<lbool> fixed;
-            vector<ptr_vector<viable::entry>> justifications;
-            VERIFY(!s.m_viable.collect_bit_information(x.var(), false, fixed, justifications));
+            viable::fixed_bits_info fbi;
+            VERIFY(!s.m_viable.collect_bit_information(x.var(), false, fbi));
         }
 
         // 8 * x + 3 == 0 or 8 * x + 5 == 0 is unsat
