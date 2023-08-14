@@ -263,11 +263,12 @@ namespace synth {
         expr_ref result(m.mk_and(m_spec), m);
         expr_safe_replace replace(m);
         for (auto const& e : m_synth) 
-            replace.insert(e.output(), compute_solution(e));        
+            replace.insert(e.output(), compute_solution(e));
+	IF_VERBOSE(3, verbose_stream() << "spec: " << result << "\n");        
         replace(result);
         th_rewriter rw(m);
         rw(result);
-        IF_VERBOSE(2, ctx.display(verbose_stream()));
+        IF_VERBOSE(4, ctx.display(verbose_stream()));
 	IF_VERBOSE(3, verbose_stream() << "simplifying: " << result << "\n");
 	result = simplify_condition(result.get());
 	IF_VERBOSE(3, verbose_stream() << result << "\n");
@@ -363,18 +364,36 @@ namespace synth {
         VERIFY(r);
         if (!r)
             return false;
-        for (auto* n : ctx.get_egraph().nodes()) {
+        euf::enode_vector candidates;
+        auto& egraph = ctx.get_egraph();
+        for (auto* n : egraph.nodes()) {
             if (n->get_sort() != srt || contains_uncomputable(n->get_expr())) 
                 continue;
+
+            // quick check to determine whether n can be used as a candidate
             expr_ref eq(m.mk_eq(r->get_root()->get_expr(), n->get_root()->get_expr()), m);
             euf::enode* eq_n = expr2enode(eq);
             if (eq_n && eq_n->bool_var() != sat::null_bool_var &&
                 s().value(eq_n->bool_var()) == l_false)
                 continue;
-            obj.set_solution(n->get_expr());
-            ctx.push(synth_objective::unset_solution(obj));
-            return true;
+            candidates.push_back(n);
         }
+        for (auto* n : candidates) {
+            // euf check if n can be used as a candidate
+            bool can_use = false;
+            egraph.push();
+            egraph.merge(r, n, nullptr);
+            if (!egraph.propagate())
+                can_use = true;
+            egraph.pop(1);
+
+            if (can_use) {
+                obj.set_solution(n->get_expr());
+                ctx.push(synth_objective::unset_solution(obj));
+                return true;
+            }
+        }
+
         verbose_stream() << "synth-uninterp failed\n";
         return false;
     }
