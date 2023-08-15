@@ -409,6 +409,30 @@ namespace synth {
     }
 
     bool solver::synthesize_arithmetic(synth_objective& obj) {
+        arith_util a(m);
+        if (!a.is_int_real(obj.output()))
+            return false;
+        verbose_stream() << "int-real-objective\n";
+#if 0
+        // 1 retrieve a model
+        // 1.5 - difference cert?
+        // 1.6 - split arith?
+        // 2 retrieve literal dependencies
+        // 3 split_arith, arith_vars, rpoejct, project_euf,
+        // produce projection
+
+        add_dcert(mdl, lits);
+        expr_ref_vector alits(m), uflits(m);
+        split_arith(lits, alits, uflits);
+        auto avars = get_arith_vars(lits);
+        vector<mbp::def> defs = arith_project(mdl, avars, alits);
+        for (auto const& d : defs) uflits.push_back(m.mk_eq(d.var, d.term));
+        TRACE("qe", tout << "uflits: " << uflits << "\n";);
+        project_euf(mdl, uflits);
+        lits.reset();
+        lits.append(alits);
+        lits.append(uflits);
+#endif
         return false;
     }
 
