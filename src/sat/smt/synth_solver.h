@@ -65,7 +65,7 @@ namespace synth {
 
         sat::literal synthesize(synth_objective const& synth_objective);
         void add_uncomputable(app* e);
-        void add_synth_objective(synth_objective & e);
+        void add_synth_objective(synth_objective const & e);
         void add_specification(app* e, expr* arg);
         bool contains_uncomputable(expr* e);
         void on_merge_eh(euf::enode* root, euf::enode* other);

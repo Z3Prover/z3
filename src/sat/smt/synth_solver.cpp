@@ -51,7 +51,7 @@ namespace synth {
         }
     }
 
-    void solver::add_synth_objective(synth_objective& e) {
+    void solver::add_synth_objective(synth_objective const& e) {
         m_synth.push_back(e);
         ctx.push(push_back_vector(m_synth));
         for (auto* arg : e) {
