@@ -33,7 +33,7 @@ Notes:
 #include "ast/ast_util.h"
 #include "util/gparams.h"
 #include "qe/qe_mbp.h"
-#include "qe/qe_mbi.h"
+#include "qe/mbi/qe_mbi.h"
 #include "qe/mbp/mbp_term_graph.h"
 #include "qe/mbp/mbp_qel.h"
 #include "qe/lite/qe_lite_tactic.h"

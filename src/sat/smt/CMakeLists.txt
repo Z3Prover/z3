@@ -53,5 +53,6 @@ z3_add_component(sat_smt
     euf
     mbp
     smt_params
+    mbi
 )
 

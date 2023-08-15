@@ -19,7 +19,7 @@ Author:
 #include "ast/rewriter/th_rewriter.h"
 #include "sat/smt/synth_solver.h"
 #include "sat/smt/euf_solver.h"
-#include "qe/qe_mbi.h"
+#include "qe/mbi/qe_mbi.h"
 
 namespace synth {
 
@@ -102,6 +102,7 @@ namespace synth {
     }
 
     sat::check_result solver::check() {
+        verbose_stream() << "check\n";
         if (m_synth.empty())
             return sat::check_result::CR_DONE;
         
@@ -184,6 +185,7 @@ namespace synth {
         for (auto& e : m_synth) {
             euf::enode* n = expr2enode(e.output());
             if (is_computable(n) && !e.is_solved()) {
+                verbose_stream() << "set solution\n";
                 e.set_solution(nullptr);
                 ctx.push(synth_objective::unset_solution(e));
             }
@@ -360,6 +362,12 @@ namespace synth {
         expr_ref cond = compute_condition();
         add_unit(~mk_literal(cond));
         IF_VERBOSE(0, verbose_stream() << "if " << cond << "\n");
+
+        // clear the solutions that are computed by projection
+        // projection may not contradict the current assignment and therefore
+        // not cause backtracking.
+        for (synth_objective& e : m_synth)
+            e.clear_solution();
         return true;
     }
 
@@ -412,8 +420,8 @@ namespace synth {
             return false;
         model_ref mdl = alloc(model, m);
         ctx.update_model(mdl, false);
-        verbose_stream() << "int-real-objective\n";
-        verbose_stream() << *mdl << "\n";
+        //        verbose_stream() << "int-real-objective\n";
+        // verbose_stream() << *mdl << "\n";
 
         expr_ref_vector lits(m), core(m);
         for (unsigned i = 0; i < s().trail_size(); ++i) {
@@ -424,16 +432,16 @@ namespace synth {
             if (e)
                 lits.push_back(e);            
         }
-        verbose_stream() << lits << "\n";
+        //        verbose_stream() << lits << "\n";
 
-        sat::no_drat_params                    no_drat_params;
+        sat::no_drat_params no_drat_params;
         ref<::solver> solver = mk_smt2_solver(m, no_drat_params, symbol::null);
         solver->assert_expr(m.mk_not(m.mk_and(m_spec)));
         lbool r = solver->check_sat(lits);
         if (r != l_false)
             return false;
         solver->get_unsat_core(core);
-        verbose_stream() << "core " << core << "\n";
+        //        verbose_stream() << "core " << core << "\n";
 
         qe::uflia_project proj(m);
         auto& egraph = ctx.get_egraph();
@@ -444,37 +452,18 @@ namespace synth {
                 visited.mark(n->get_decl(), true);
                 shared.push_back(n->get_decl());
             }
-        verbose_stream() << "shared " << shared << "\n";
+        // verbose_stream() << "shared " << shared << "\n";
         proj.set_shared(shared);
         auto defs = proj.project_solve(mdl, core);
 
         for (auto const& d : defs) {
-            verbose_stream() << d.var << " := " << d.term << "\n";
+            IF_VERBOSE(3, verbose_stream() << d.var << " := " << d.term << "\n");
             if (d.var == obj.output()) {
                 obj.set_solution(d.term);
                 ctx.push(synth_objective::unset_solution(obj));
                 return true;
             }
         }
-#if 0
-        // - retrieve literal dependencies
-        // - difference cert?
-        // - split arith?
-        // - split_arith, arith_vars, rpoejct, project_euf,
-        // produce projection
-
-        add_dcert(mdl, lits);
-        expr_ref_vector alits(m), uflits(m);
-        split_arith(lits, alits, uflits);
-        auto avars = get_arith_vars(lits);
-        vector<mbp::def> defs = arith_project(mdl, avars, alits);
-        for (auto const& d : defs) uflits.push_back(m.mk_eq(d.var, d.term));
-        TRACE("qe", tout << "uflits: " << uflits << "\n";);
-        project_euf(mdl, uflits);
-        lits.reset();
-        lits.append(alits);
-        lits.append(uflits);
-#endif
         return false;
     }
 

@@ -38,7 +38,7 @@ Notes:
 #include "ast/arith_decl_plugin.h"
 #include "model/model_evaluator.h"
 #include "solver/solver.h"
-#include "qe/qe_mbi.h"
+#include "qe/mbi/qe_mbi.h"
 #include "qe/mbp/mbp_term_graph.h"
 #include "qe/mbp/mbp_arith.h"
 #include "qe/mbp/mbp_arrays.h"

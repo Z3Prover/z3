@@ -5,6 +5,7 @@ z3_add_component(extra_cmds
     subpaving_cmds.cpp
     proof_cmds.cpp
   COMPONENT_DEPENDENCIES
+    mbi
     arith_tactics
     cmd_context
     subpaving_tactic
