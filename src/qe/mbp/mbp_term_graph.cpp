@@ -1085,23 +1085,25 @@ class term_graph::projector {
     expr *mk_pure(term const &t) {
         TRACE("qe", t.display(tout););
         expr *e = nullptr;
-        if (find_term2app(t, e)) return e;
+        if (find_term2app(t, e))
+            return e;
         e = t.get_expr();
-        if (!is_app(e)) return nullptr;
+        if (!is_app(e))
+            return nullptr;
         app *a = ::to_app(e);
         expr_ref_buffer kids(m);
         for (term *ch : term::children(t)) {
             // prefer a node that resembles current child,
             // otherwise, pick a root representative, if present.
-            if (find_term2app(*ch, e)) { kids.push_back(e); }
-            else if (m_root2rep.find(ch->get_root().get_id(), e)) {
+            if (find_term2app(*ch, e))
+                kids.push_back(e); 
+            else if (m_root2rep.find(ch->get_root().get_id(), e)) 
                 kids.push_back(e);
-            }
-            else { return nullptr; }
+            else
+                return nullptr; 
             TRACE("qe_verbose", tout << *ch << " -> " << mk_pp(e, m) << "\n";);
         }
-        expr_ref pure =
-            m_rewriter.mk_app(a->get_decl(), kids.size(), kids.data());
+        expr_ref pure = m_rewriter.mk_app(a->get_decl(), kids.size(), kids.data());
         m_pinned.push_back(pure);
         add_term2app(t, pure);
         return pure;

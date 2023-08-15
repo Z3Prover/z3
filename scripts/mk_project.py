@@ -44,6 +44,7 @@ def init_project_def():
     add_lib('mbp', ['model', 'simplex'], 'qe/mbp')
     add_lib('qe_lite', ['tactic', 'mbp'], 'qe/lite')
     add_lib('solver', ['params', 'smt_params', 'model', 'tactic', 'qe_lite', 'proofs'])
+    add_lib('mbi', ['qe_lite','solver'], 'qe/mbi')
     add_lib('cmd_context', ['solver', 'rewriter', 'params'])
     add_lib('smt2parser', ['cmd_context', 'parser_util'], 'parsers/smt2')
     add_lib('pattern', ['normal_forms', 'smt2parser', 'rewriter'], 'ast/pattern')
