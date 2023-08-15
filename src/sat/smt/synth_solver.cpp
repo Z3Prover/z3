@@ -102,7 +102,6 @@ namespace synth {
     }
 
     sat::check_result solver::check() {
-        verbose_stream() << "check\n";
         if (m_synth.empty())
             return sat::check_result::CR_DONE;
         
