@@ -19,9 +19,7 @@ Author:
 #include "ast/rewriter/th_rewriter.h"
 #include "sat/smt/synth_solver.h"
 #include "sat/smt/euf_solver.h"
-#include "qe/mbp/mbp_term_graph.h"
-#include "qe/mbp/mbp_arith.h"
-#include "qe/mbp/mbp_arrays.h"
+#include "qe/qe_mbi.h"
 
 namespace synth {
 
@@ -36,11 +34,12 @@ namespace synth {
         
     solver::~solver() {}
 
+
+    bool solver::is_output(expr * e) const {
+        return any_of(m_synth, [&](synth_objective const& a) { return a.output() == e; });
+    }
+
     bool solver::contains_uncomputable(expr* e) {
-        
-        auto is_output = [&](expr* e) {
-            return any_of(m_synth, [&](synth_objective const& a) { return a.output() == e; });
-        };
         return any_of(subterms::all(expr_ref(e, m)), [&](expr* a) { return (is_app(a) && m_uncomputable.contains(to_app(a)->get_decl())) || is_output(a); });
     }
 
@@ -353,12 +352,11 @@ namespace synth {
         compute_rep();
 
         for (synth_objective const& e : m_synth) {
-            auto lit = synthesize(e);
-            if (lit == sat::null_literal)
+            expr_ref sol = compute_solution(e);
+            if (!sol)
                 return false;
-            clause.push_back(~lit);
+            IF_VERBOSE(0, verbose_stream() << sol << "\n");
         }
-        add_clause(clause);
         expr_ref cond = compute_condition();
         add_unit(~mk_literal(cond));
         IF_VERBOSE(0, verbose_stream() << "if " << cond << "\n");
@@ -412,13 +410,57 @@ namespace synth {
         arith_util a(m);
         if (!a.is_int_real(obj.output()))
             return false;
+        model_ref mdl = alloc(model, m);
+        ctx.update_model(mdl, false);
         verbose_stream() << "int-real-objective\n";
+        verbose_stream() << *mdl << "\n";
+
+        expr_ref_vector lits(m), core(m);
+        for (unsigned i = 0; i < s().trail_size(); ++i) {
+            sat::literal l = s().trail_literal(i);
+            if (!ctx.is_relevant(l))
+                continue;
+            expr_ref e = literal2expr(l);
+            if (e)
+                lits.push_back(e);            
+        }
+        verbose_stream() << lits << "\n";
+
+        sat::no_drat_params                    no_drat_params;
+        ref<::solver> solver = mk_smt2_solver(m, no_drat_params, symbol::null);
+        solver->assert_expr(m.mk_not(m.mk_and(m_spec)));
+        lbool r = solver->check_sat(lits);
+        if (r != l_false)
+            return false;
+        solver->get_unsat_core(core);
+        verbose_stream() << "core " << core << "\n";
+
+        qe::uflia_project proj(m);
+        auto& egraph = ctx.get_egraph();
+        func_decl_ref_vector shared(m);
+        ast_mark visited;
+        for (auto* n : egraph.nodes())
+            if (is_app(n->get_expr()) && !is_output(n->get_expr()) && !m_uncomputable.contains(n->get_decl()) && !visited.is_marked(n->get_decl())) {
+                visited.mark(n->get_decl(), true);
+                shared.push_back(n->get_decl());
+            }
+        verbose_stream() << "shared " << shared << "\n";
+        proj.set_shared(shared);
+        auto defs = proj.project_solve(mdl, core);
+
+        for (auto const& d : defs) {
+            verbose_stream() << d.var << " := " << d.term << "\n";
+            if (d.var == obj.output()) {
+                obj.set_solution(d.term);
+                ctx.push(synth_objective::unset_solution(obj));
+                return true;
+            }
+        }
 #if 0
-        // 1 retrieve a model
-        // 1.5 - difference cert?
-        // 1.6 - split arith?
-        // 2 retrieve literal dependencies
-        // 3 split_arith, arith_vars, rpoejct, project_euf,
+        // - retrieve literal dependencies
+        // - difference cert?
+        // - split arith?
+        // - split_arith, arith_vars, rpoejct, project_euf,
         // produce projection
 
         add_dcert(mdl, lits);

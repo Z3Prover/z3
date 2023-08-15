@@ -115,7 +115,29 @@ namespace qe {
         void block(expr_ref_vector const& lits) override;
     };
 
-    class uflia_mbi : public mbi_plugin {
+    class uflia_project : public mbi_plugin {
+    protected:
+        void order_avars(app_ref_vector& avars);
+        app_ref_vector get_arith_vars(expr_ref_vector const& lits);
+        void fix_non_shared(model& mdl, expr_ref_vector& lits);
+        vector<::mbp::def> arith_project(model_ref& mdl, app_ref_vector& avars, expr_ref_vector& lits);
+        void add_dcert(model_ref& mdl, expr_ref_vector& lits);
+        void add_arith_dcert(model& mdl, expr_ref_vector& lits);
+        void add_arith_dcert(model& mdl, expr_ref_vector& lits, app* a, app* b);
+        void project_euf(model_ref& mdl, expr_ref_vector& lits);
+        void split_arith(expr_ref_vector const& lits, 
+                         expr_ref_vector& alits,
+                         expr_ref_vector& uflits);
+    public:
+        uflia_project(ast_manager& m): mbi_plugin(m) {}
+
+        vector<::mbp::def> project_solve(model_ref& mdl, expr_ref_vector& lits);
+        void block(expr_ref_vector const& lits) override {}
+        mbi_result operator()(expr_ref_vector& lits, model_ref& mdl) override { return mbi_result::mbi_undef; }
+
+    };
+
+    class uflia_mbi : public uflia_project {
         expr_ref_vector     m_atoms;
         obj_hashtable<expr> m_atom_set;
         expr_ref_vector     m_fmls;
@@ -125,18 +147,8 @@ namespace qe {
 
         bool get_literals(model_ref& mdl, expr_ref_vector& lits);
         void collect_atoms(expr_ref_vector const& fmls);
-        void order_avars(app_ref_vector& avars);
 
-        void add_dcert(model_ref& mdl, expr_ref_vector& lits);
-        void add_arith_dcert(model& mdl, expr_ref_vector& lits);
-        void add_arith_dcert(model& mdl, expr_ref_vector& lits, app* a, app* b);
-        app_ref_vector get_arith_vars(expr_ref_vector const& lits);
-        vector<::mbp::def> arith_project(model_ref& mdl, app_ref_vector& avars, expr_ref_vector& lits);
-        void project_euf(model_ref& mdl, expr_ref_vector& lits);
-        void split_arith(expr_ref_vector const& lits, 
-                         expr_ref_vector& alits,
-                         expr_ref_vector& uflits);
-        void fix_non_shared(model& mdl, expr_ref_vector& lits);
+
     public:
         uflia_mbi(solver* s, solver* emptySolver);
         mbi_result operator()(expr_ref_vector& lits, model_ref& mdl) override;
