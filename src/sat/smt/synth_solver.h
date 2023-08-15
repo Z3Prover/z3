@@ -75,6 +75,7 @@ namespace synth {
         void compute_rep();
 
         bool synthesize_uninterpreted_sort(synth_objective& obj);
+        bool synthesize_arithmetic(synth_objective& obj);
 
         expr* get_rep(euf::enode* n) { return m_rep.get(n->get_root_id(), nullptr); };
         bool has_rep(euf::enode* n) { return !!get_rep(n); };

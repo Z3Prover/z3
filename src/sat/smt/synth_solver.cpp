@@ -19,6 +19,9 @@ Author:
 #include "ast/rewriter/th_rewriter.h"
 #include "sat/smt/synth_solver.h"
 #include "sat/smt/euf_solver.h"
+#include "qe/mbp/mbp_term_graph.h"
+#include "qe/mbp/mbp_arith.h"
+#include "qe/mbp/mbp_arrays.h"
 
 namespace synth {
 
@@ -90,10 +93,13 @@ namespace synth {
         expr* arg = nullptr;
         if (util.is_synthesiz3(e))
             add_synth_objective(synth_objective(m, a));
-        if (util.is_grammar(e))
+        else if (util.is_grammar(e))
             add_uncomputable(a);
-        if (util.is_specification(e, arg))
+        else if (util.is_specification(e, arg))
             add_specification(a, arg);
+        else {
+            IF_VERBOSE(0, verbose_stream() << "unrecognized synthesis objective " << mk_pp(e, m) << "\n");
+        }
     }
 
     sat::check_result solver::check() {
@@ -103,8 +109,9 @@ namespace synth {
         for (auto& s : m_synth) {
             if (s.is_solved())
                 continue;
-            if (m.is_uninterp(s.output()->get_sort()) &&
-                synthesize_uninterpreted_sort(s))
+            if (synthesize_uninterpreted_sort(s))
+                continue;
+            if (synthesize_arithmetic(s))
                 continue;
             IF_VERBOSE(2, ctx.display(verbose_stream()));
             return sat::check_result::CR_GIVEUP;
@@ -359,6 +366,9 @@ namespace synth {
     }
 
     bool solver::synthesize_uninterpreted_sort(synth_objective& obj) {
+        if (!m.is_uninterp(obj.output()->get_sort()))
+            return false;
+                
         sort* srt = obj.output()->get_sort();
         euf::enode* r = expr2enode(obj.output());
         VERIFY(r);
@@ -397,5 +407,10 @@ namespace synth {
         verbose_stream() << "synth-uninterp failed\n";
         return false;
     }
+
+    bool solver::synthesize_arithmetic(synth_objective& obj) {
+        return false;
+    }
+
 
 }
