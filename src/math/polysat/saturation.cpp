@@ -47,6 +47,7 @@ namespace polysat {
     }
 
     void saturation::perform(pvar v, conflict& core) {
+        LOG_H1("Saturation for v" << v << ", core: " << core);
         IF_VERBOSE(2, verbose_stream() << "v" << v << " " << core << "\n");
         for (signed_constraint c : core)
             perform(v, c, core);
@@ -73,6 +74,8 @@ namespace polysat {
         bool prop = false;
         if (s.size(v) != i.lhs().power_of_2())
             return false;
+        if (try_nonzero_upper_extract(v, core, i))
+            prop = true;
         if (try_mul_bounds(v, core, i))
             prop = true;
         if (try_parity(v, core, i))
@@ -104,6 +107,44 @@ namespace polysat {
         if (false && try_tangent(v, core, i))
             prop = true;
         return prop;
+    }
+
+    bool saturation::try_nonzero_upper_extract(pvar y, conflict& core, inequality const& i) {
+        set_rule("y = x[h:l] & y != 0 ==> x >= 2^l");
+        if (!s.m_justification[y].is_propagation_by_slicing())
+            return false;
+        if (!s.get_value(y).is_zero())
+            return false;
+        if (!is_nonzero_by(y, i))
+            return false;
+        for (pvar x : core.vars()) {
+            if (!s.get_value(x).is_zero())
+                continue;
+            unsigned hi, lo;
+            if (!s.m_slicing.is_extract(y, x, hi, lo))  // TODO: generalize; use is_equal to check this and if yes, extract the explanation. otherwise it will only work in very limited cases.
+                continue;
+            if (propagate(y, core, i, s.ule(rational::power_of_two(lo), s.var(x))))
+                return true;
+        }
+        return false;
+    }
+
+    // TODO: can be generalized
+    bool saturation::is_nonzero_by(pvar x, inequality const& i) {
+        if (i.is_strict() && i.lhs().is_zero()) {
+            // 0 < p
+            pdd const& p = i.rhs();
+            if (p.is_val())
+                return false;
+            if (!p.lo().is_zero())
+                return false;
+            if (!p.hi().is_val())
+                return false;
+            SASSERT(!p.hi().is_zero());
+            // 0 < a*x for a != 0
+            return true;
+        }
+        return false;
     }
 
     bool saturation::try_umul_ovfl(pvar v, signed_constraint c, conflict& core) {
@@ -526,8 +567,8 @@ namespace polysat {
         return false;
     }
 
-    bool saturation::is_forced_diseq(pdd const& p, int i, signed_constraint& c) {
-        c = s.eq(p, i);
+    bool saturation::is_forced_diseq(pdd const& p, rational const& val, signed_constraint& c) {
+        c = s.eq(p, val);
         return is_forced_false(c);
     }
 

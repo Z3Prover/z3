@@ -834,6 +834,10 @@ namespace polysat {
         }
     }
 
+    bool slicing::is_extract(pvar x, pvar src, unsigned& out_hi, unsigned& out_lo) {
+        return find_range_in_ancestor(var2slice(x), var2slice(src), out_hi, out_lo);
+    }
+
     void slicing::egraph_on_merge(enode* root, enode* other) {
         SASSERT(!is_value(other));  // by convention, interpreted nodes are always chosen as root
         if (is_value(root)) {

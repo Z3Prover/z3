@@ -121,6 +121,8 @@ namespace polysat {
         bool try_infer_parity_equality(pvar x, conflict& core, inequality const& a_l_b);
         bool try_div_monotonicity(conflict& core);
 
+        bool try_nonzero_upper_extract(pvar v, conflict& core, inequality const& i);
+
         rational round(rational const& M, rational const& x);
         bool eval_round(rational const& M, pdd const& p, rational& r);
         bool extract_linear_form(pdd const& q, pvar& y, rational& a, rational& b);
@@ -199,6 +201,9 @@ namespace polysat {
 
         bool has_lower_bound(pvar x, conflict& core, rational& bound, vector<signed_constraint>& x_le_bound);
 
+        // inequality i implies x != 0
+        bool is_nonzero_by(pvar x, inequality const& i);
+
         // determine min/max parity of polynomial
         unsigned min_parity(pdd const& p, vector<signed_constraint>& explain);
         unsigned max_parity(pdd const& p, vector<signed_constraint>& explain);
@@ -210,7 +215,8 @@ namespace polysat {
         bool is_forced_eq(pdd const& p, rational const& val);
         bool is_forced_eq(pdd const& p, int i) { return is_forced_eq(p, rational(i)); }
         
-        bool is_forced_diseq(pdd const& p, int i, signed_constraint& c);
+        bool is_forced_diseq(pdd const& p, rational const& val, signed_constraint& c);
+        bool is_forced_diseq(pdd const& p, int i, signed_constraint& c) { return is_forced_diseq(p, rational(i), c); }
 
         bool is_forced_odd(pdd const& p, signed_constraint& c);
 

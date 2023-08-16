@@ -320,6 +320,9 @@ namespace polysat {
         pvar mk_concat(unsigned num_args, pvar const* args) { return mk_concat(num_args, args, null_var); }
         pvar mk_concat(std::initializer_list<pvar> args);
 
+        // Find hi, lo such that x = src[hi:lo].
+        bool is_extract(pvar x, pvar src, unsigned& out_hi, unsigned& out_lo);
+
         // Track value assignments to variables (and propagate to subslices)
         // (could generalize to fixed bits, then we need a way to merge interpreted enodes)
         void add_value(pvar v, rational const& value);
