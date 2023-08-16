@@ -54,8 +54,6 @@ TODO:
 #include "math/polysat/variable_elimination.h"
 #include <algorithm>
 
-#define ENABLE_CONFLICTS_TXT 0
-
 namespace polysat {
 
     class conflict_resolver {
@@ -131,21 +129,18 @@ namespace polysat {
     };
 
     conflict::conflict(solver& s) : s(s) {
-        // TODO: m_log_conflicts is always false even if "polysat.log_conflicts=true" is given on the command line
-#if ENABLE_CONFLICTS_TXT
-        if (true || s.get_config().m_log_conflicts)
-            m_logger = alloc(file_inference_logger, s);
-        else
-            m_logger = alloc(dummy_inference_logger);
-#else
-        m_logger = alloc(dummy_inference_logger);
-#endif
         m_resolver = alloc(conflict_resolver, s);
     }
 
     conflict::~conflict() {}
 
     inference_logger& conflict::logger() {
+        if (!m_logger) {
+            if (s.config().m_log_conflicts)
+                m_logger = alloc(file_inference_logger, s);
+            else
+                m_logger = alloc(dummy_inference_logger);
+        }
         return *m_logger;
     }
 
@@ -232,6 +227,7 @@ namespace polysat {
         SASSERT(!empty());
         // TODO: logger().begin_conflict???
         // TODO: check uses of logger().begin_conflict(). sometimes we call it before adding constraints, sometimes after...
+        logger().begin_conflict("base level");
     }
 
     void conflict::init(dependency dep, signed_constraint c) {
@@ -504,7 +500,7 @@ namespace polysat {
                 SASSERT(s.is_assigned(w));
                 m_vars.insert(w);
             });
-        // logger().log(inf_resolve_value(s, v)); TODO
+        logger().log("value was propagated by slicing");  // TODO: add information about v
 
         revert_pvar(v);
     }
