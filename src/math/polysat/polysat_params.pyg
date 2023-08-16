@@ -4,6 +4,7 @@ def_module_params('polysat',
     params=(
         ('max_conflicts', UINT, UINT_MAX, "maximum number of conflicts before giving up"),
         ('max_decisions', UINT, UINT_MAX, "maximum number of decisions before giving up"),
+        ('max_iterations', UINT, UINT_MAX, "maximum number of iterations before giving up"),
         # ('log', UINT, UINT_MAX, "polysat logging filter (TODO)"),
         ('log_start', UINT, UINT_MAX, "Enable logging on solver iteration N"),
         ('log_conflicts', BOOL, False, "log conflicts"),

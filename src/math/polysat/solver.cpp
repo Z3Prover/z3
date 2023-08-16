@@ -80,6 +80,7 @@ namespace polysat {
         m_params.append(p);
         m_config.m_max_conflicts = pp.max_conflicts();
         m_config.m_max_decisions = pp.max_decisions();
+        m_config.m_max_iterations = pp.max_iterations();
         m_config.m_log_start = pp.log_start();
         m_config.m_log_conflicts = pp.log_conflicts();
         m_config.m_slicing_congruence = pp.slicing_congruence();
@@ -96,7 +97,8 @@ namespace polysat {
         return
             m_lim.inc() &&
             (m_stats.m_num_conflicts < config().m_max_conflicts) &&
-            (m_stats.m_num_decisions < config().m_max_decisions);
+            (m_stats.m_num_decisions < config().m_max_decisions) &&
+            (m_stats.m_num_iterations < config().m_max_iterations);
     }
 
     lbool solver::check_sat() {
