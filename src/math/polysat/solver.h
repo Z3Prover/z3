@@ -43,12 +43,18 @@ struct smt_params;
 
 namespace polysat {
 
+    enum class bvumulo_repr : unsigned {
+        ovfl_constraint = 1,
+        double_width = 2,
+    };
+
     struct config_t {
         uint64_t    m_max_conflicts = std::numeric_limits<uint64_t>::max();
         uint64_t    m_max_decisions = std::numeric_limits<uint64_t>::max();
         unsigned    m_log_start     = UINT_MAX;
         bool        m_log_conflicts = false;
         bool        m_slicing_congruence = false;
+        bvumulo_repr m_bvumulo_repr = bvumulo_repr::ovfl_constraint;
     };
 
     /**

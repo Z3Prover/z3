@@ -8,5 +8,6 @@ def_module_params('polysat',
         ('log_start', UINT, UINT_MAX, "Enable logging on solver iteration N"),
         ('log_conflicts', BOOL, False, "log conflicts"),
         ('slicing.congruence', BOOL, False, "bitvector slicing: add virtual congruence terms"),
+        ('bvumulo', UINT, 1, "multiplication overflow representation: 1 = umul_ovfl_constraint, 2 = extend to double width"),
     )
 )

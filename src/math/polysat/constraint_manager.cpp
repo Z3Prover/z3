@@ -298,17 +298,31 @@ namespace polysat {
 
     /**
     * encode that the i'th bit of p is 1.
-    * It holds if p << (K - i - 1) >= 2^{K-1}, where K is the bit-width.
+    * It holds if 2^(N-1) <= 2^(N - 1 - i) * p, where N is the bit-width.
     */
     signed_constraint constraint_manager::bit(pdd const& p, unsigned i) {
-        unsigned K = p.manager().power_of_2();
-        pdd q = p * rational::power_of_two(K - i - 1);
-        rational msb = rational::power_of_two(K - 1);
+        unsigned const N = p.power_of_2();
+        pdd q = p * rational::power_of_two(N - 1 - i);
+        rational msb = rational::power_of_two(N - 1);
         return ule(p.manager().mk_val(msb), q);
     }
 
-    signed_constraint constraint_manager::umul_ovfl(pdd const& a, pdd const& b) {
-        return { dedup_store(alloc(umul_ovfl_constraint, a, b)), true };
+    signed_constraint constraint_manager::umul_ovfl(pdd const& p, pdd const& q) {
+        switch (s.config().m_bvumulo_repr) {
+        case bvumulo_repr::ovfl_constraint:
+            // Omega^*(p, q)
+            return { dedup_store(alloc(umul_ovfl_constraint, p, q)), true };
+        case bvumulo_repr::double_width: {
+            // ((0_N ++ p) * (0_N ++ q))[2N-1:N] != 0
+            unsigned const N = p.power_of_2();
+            pdd ovfl_bits = extract(zero_ext(p, N) * zero_ext(q, N), 2*N - 1, N);
+            SASSERT_EQ(ovfl_bits.power_of_2(), N);
+            return ~eq(ovfl_bits);
+        }
+        default:
+            verbose_stream() << "invalid value for polysat.bvumulo: " << static_cast<unsigned>(s.config().m_bvumulo_repr) << "\n";
+            UNREACHABLE();
+        }
     }
 
     signed_constraint constraint_manager::smul_ovfl(pdd const& a, pdd const& b) {
@@ -665,6 +679,7 @@ namespace polysat {
         s.add_eq(extract(V, p_sz - 1, 0), p);
         // (2)  v < 2^|p|
         s.add_ule(V, p.manager().max_value());
+        LOG("zero_ext_" << extra_bits << " " << p << " = " << V);
         return V;
     }
 
@@ -678,12 +693,13 @@ namespace polysat {
         auto const it = m_dedup.m_bv_ext_expr.find_iterator(args);
         if (it != m_dedup.m_bv_ext_expr.end())
             return s.var(it->m_value);
-        pdd const v = s.var(s.add_var(v_sz, pvar_kind::internal));
-        m_dedup.m_bv_ext_expr.insert(args, v.var());
+        pvar const v = s.add_var(v_sz, pvar_kind::internal);
+        pdd const V = s.var(v);
+        m_dedup.m_bv_ext_expr.insert(args, v);
         // (1)  v[|p|-1:0] = p
-        s.add_eq(extract(v, p_sz - 1, 0), p);
+        s.add_eq(extract(V, p_sz - 1, 0), p);
         // (2)  Let h := v[|v|-1:|p|]
-        pdd const h = extract(v, v_sz - 1, p_sz);
+        pdd const h = extract(V, v_sz - 1, p_sz);
         signed_constraint p_negative = s.uge(p, rational::power_of_two(p_sz - 1));
         // (3)  p < 2^(|p|-1)   ==>  h = 0
         s.add_clause(p_negative, s.eq(h), false);
@@ -691,7 +707,8 @@ namespace polysat {
         s.add_clause(~p_negative, s.eq(h, h.manager().max_value()), false);
         // (5)  h + 1 <= 1   (i.e., h = b000...0 or h = b111...1)  ... implied by (3), (4); maybe better to just exclude h from decisions as it is basically a defined variable
         s.add_ule(h + 1, 1);
-        return v;
+        LOG("sign_ext_" << extra_bits << " " << p << " = " << V);
+        return V;
     }
 
     /** unsigned quotient/remainder */

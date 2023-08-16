@@ -83,6 +83,7 @@ namespace polysat {
         m_config.m_log_start = pp.log_start();
         m_config.m_log_conflicts = pp.log_conflicts();
         m_config.m_slicing_congruence = pp.slicing_congruence();
+        m_config.m_bvumulo_repr = static_cast<bvumulo_repr>(pp.bvumulo());
 
         // TODO: log filter to enable/disable based on submodules
         if (m_config.m_log_start == 0)
