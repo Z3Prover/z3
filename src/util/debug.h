@@ -97,6 +97,7 @@ bool is_debug_enabled(const char * tag);
 
 #define VERIFY(_x_) if (!(_x_)) {                                                       \
         notify_assertion_violation(__FILE__, __LINE__, "Failed to verify: " #_x_ "\n"); \
+        DEBUG_CODE({ INVOKE_DEBUGGER(); });                                             \
         exit(ERR_UNREACHABLE);                                                          \
     }
 
@@ -104,6 +105,7 @@ bool is_debug_enabled(const char * tag);
     if (!((LHS) == (RHS))) {                                                                        \
         notify_assertion_violation(__FILE__, __LINE__, "Failed to verify: " #LHS " == " #RHS "\n"); \
         std::cerr << "LHS value: " << (LHS) << "\nRHS value: " << (RHS) << "\n";                    \
+        DEBUG_CODE({ INVOKE_DEBUGGER(); });                                                         \
         exit(ERR_UNREACHABLE);                                                                      \
     }
 
