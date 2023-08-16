@@ -489,6 +489,18 @@ public:
         return get_num_digits(rational(10));
     }
 
+    /**
+     * \brief Return the biggest k s.t. 2^k <= a.
+     * \remark Return 0 if a is not positive.
+     */
+    unsigned prev_power_of_two() const { return m().prev_power_of_two(m_val); }
+
+    /**
+     * \brief Return the smallest k s.t. a <= 2^k.
+     * \remark Return 0 if a is not positive.
+     */
+    unsigned next_power_of_two() const { return m().next_power_of_two(m_val); }
+
     bool get_bit(unsigned index) const {
         return m().get_bit(m_val, index);
     }

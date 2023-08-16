@@ -692,6 +692,13 @@ public:
        \remark Return 0 if a is not positive.
     */
     unsigned prev_power_of_two(mpz const & a) { return log2(a); }
+
+    /**
+       \brief Return the smallest k s.t. a <= 2^k.
+
+       \remark Return 0 if a is not positive.
+    */
+    unsigned next_power_of_two(mpz const & a);
     
     /**
        \brief Return true if a^{1/n} is an integer, and store the result in a.
