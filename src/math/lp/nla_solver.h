@@ -25,7 +25,7 @@ namespace nla {
         core* m_core;
     public:
 
-        solver(lp::lar_solver& s, reslimit& limit);
+        solver(lp::lar_solver& s, params_ref const& p, reslimit& limit);
         ~solver();
 
         void add_monic(lpvar v, unsigned sz, lpvar const* vs);

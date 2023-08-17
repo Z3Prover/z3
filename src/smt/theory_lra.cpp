@@ -263,7 +263,7 @@ class theory_lra::imp {
 
     void ensure_nla() {
         if (!m_nla) {
-            m_nla = alloc(nla::solver, *m_solver.get(), m.limit());
+            m_nla = alloc(nla::solver, *m_solver.get(), ctx().get_params(), m.limit());
             for (auto const& _s : m_scopes) {
                 (void)_s;
                 m_nla->push();

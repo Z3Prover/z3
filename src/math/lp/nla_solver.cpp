@@ -57,8 +57,8 @@ namespace nla {
         m_core->pop(n);
     }
     
-    solver::solver(lp::lar_solver& s, reslimit& limit): 
-        m_core(alloc(core, s, limit)) {
+    solver::solver(lp::lar_solver& s, params_ref const& p, reslimit& limit): 
+        m_core(alloc(core, s, p, limit)) {
     }
     
     bool solver::influences_nl_var(lpvar j) const {    

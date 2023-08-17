@@ -28,6 +28,7 @@
 #include "math/lp/monomial_bounds.h"
 #include "math/lp/nla_intervals.h"
 #include "nlsat/nlsat_solver.h"
+#include "smt/params/smt_params_helper.hpp"
 
 namespace nra {
     class solver;
@@ -82,6 +83,7 @@ class core {
 
     lp::lar_solver&          m_lar_solver;
     reslimit&                m_reslim;
+    smt_params_helper        m_params;
     std::function<bool(lpvar)> m_relevant;
     vector<lemma> *          m_lemma_vec;
     indexed_uint_set                m_to_refine;
@@ -113,7 +115,7 @@ class core {
 
 public:    
     // constructor
-    core(lp::lar_solver& s, reslimit&);
+    core(lp::lar_solver& s, params_ref const& p, reslimit&);
 
     void insert_to_refine(lpvar j);
     void erase_from_to_refine(lpvar j);
@@ -165,13 +167,15 @@ public:
     
     lpvar var(const factor& f) const { return f.var(); }
 
+    smt_params_helper const & params() const { return m_params; }
+
     // returns true if the combination of the Horner's schema and Grobner Basis should be called
     bool need_run_horner() const { 
-        return m_nla_settings.run_horner && lp_settings().stats().m_nla_calls % m_nla_settings.horner_frequency == 0; 
+        return params().arith_nl_horner() && lp_settings().stats().m_nla_calls % params().arith_nl_horner_frequency() == 0; 
     }
 
     bool need_run_grobner() const { 
-        return m_nla_settings.run_grobner && lp_settings().stats().m_nla_calls % m_nla_settings.grobner_frequency == 0; 
+        return params().arith_nl_grobner() && lp_settings().stats().m_nla_calls % params().arith_nl_grobner_frequency() == 0; 
     }
 
     void set_active_vars_weights(nex_creator&);

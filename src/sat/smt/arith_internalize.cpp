@@ -61,7 +61,7 @@ namespace arith {
 
     void solver::ensure_nla() {
         if (!m_nla) {
-            m_nla = alloc(nla::solver, *m_solver.get(), m.limit());
+            m_nla = alloc(nla::solver, *m_solver.get(), s().params(), m.limit());
             for (auto const& _s : m_scopes) {
                 (void)_s;
                 m_nla->push();

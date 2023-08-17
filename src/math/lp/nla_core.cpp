@@ -21,10 +21,11 @@ namespace nla {
 
 typedef lp::lar_term term;
 
-core::core(lp::lar_solver& s, reslimit & lim) :
+core::core(lp::lar_solver& s, params_ref const& p, reslimit & lim) :
     m_evars(),
     m_lar_solver(s),
     m_reslim(lim),
+    m_params(p),
     m_tangents(this),
     m_basics(this),
     m_order(this),
@@ -1566,11 +1567,11 @@ lbool core::check(vector<lemma>& l_vec) {
         check_weighted(3, checks);
 
         unsigned num_calls = lp_settings().stats().m_nla_calls;
-        if (!conflict_found() && m_nla_settings.run_nra && num_calls % 50 == 0 && num_calls > 500) 
+        if (!conflict_found() && params().arith_nl_nra() && num_calls % 50 == 0 && num_calls > 500) 
             ret = bounded_nlsat();
     }
 
-    if (l_vec.empty() && !done() && m_nla_settings.run_nra && ret == l_undef) {
+    if (l_vec.empty() && !done() && params().arith_nl_nra() && ret == l_undef) {
         ret = m_nra.check();
         m_stats.m_nra_calls++;
     }
@@ -1590,7 +1591,7 @@ lbool core::check(vector<lemma>& l_vec) {
 }
 
 bool core::should_run_bounded_nlsat() {
-    if (!m_nla_settings.run_nra)
+    if (!params().arith_nl_nra())
         return false;
     if (m_nlsat_delay > m_nlsat_fails)
         ++m_nlsat_fails;
