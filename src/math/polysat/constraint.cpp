@@ -82,6 +82,10 @@ namespace polysat {
         return { std::move(lhs), std::move(rhs), m_src };
     }
 
+    std::ostream& inequality::display(std::ostream& out) const {
+        return out << m_lhs << (is_strict() ? " < " : " <= ") << m_rhs;
+    }
+
     pdd const& constraint::to_eq() const {
         SASSERT(is_eq());
         return to_ule().lhs();

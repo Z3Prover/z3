@@ -236,6 +236,8 @@ namespace polysat {
          *      i=5     -q - 1 <= p - q - 1
          */
         inequality rewrite_equiv(int i) const;
+
+        std::ostream& display(std::ostream& out) const;
     };
 
     class constraint_pp {
@@ -248,6 +250,6 @@ namespace polysat {
 
     inline std::ostream& operator<<(std::ostream& out, constraint_pp const& p) { return p.display(out); }
 
-    inline std::ostream& operator<<(std::ostream& out, inequality const& i) { return out << i.as_signed_constraint(); }
+    inline std::ostream& operator<<(std::ostream& out, inequality const& i) { return i.display(out); }
 
 }
