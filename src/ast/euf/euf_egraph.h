@@ -249,7 +249,8 @@ namespace euf {
         void pop(unsigned num_scopes);
 
         /**
-           \brief merge nodes, all effects are deferred to the propagation step.
+         * \brief Merge nodes, all effects are deferred to the propagation step. (TODO: is that comment outdated? at least in polysat::slicing it seems we almost never need to call propagate() separately.)
+         * The root of the merged class will be root(n2), unless there is a specific reason to prefer root(n1).
          */
         void merge(enode* n1, enode* n2, void* reason) { merge(n1, n2, justification::external(reason)); }        
         void new_diseq(enode* n);

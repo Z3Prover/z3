@@ -793,7 +793,8 @@ namespace euf {
                 CTRACE("euf_verbose", m_display_justification, n->m_justification.display(tout << n->get_expr_id() << " = " << n->m_target->get_expr_id() << " ", m_display_justification) << "\n";);
                 explain_eq(justifications, cc, n, n->m_target, n->m_justification);
             }
-            else if (!n->is_marked1() && n->value() != l_undef) {
+            else if (n->value() != l_undef) {
+                SASSERT(!n->is_marked1());
                 n->mark1();
                 if (m.is_true(n->get_expr()) || m.is_false(n->get_expr()))
                     continue;
