@@ -23,8 +23,13 @@ Notes:
 
 namespace polysat {
 
+    dummy_inference_logger::dummy_inference_logger() {
+        // LOG("created dummy_inference_logger");
+    }
+
     file_inference_logger::file_inference_logger(solver& s)
         : s(s) {
+        // LOG("created file_inference_logger");
     }
 
     std::ostream& file_inference_logger::out() {
@@ -102,7 +107,6 @@ namespace polysat {
     }
 
     void file_inference_logger::end_conflict() {
-        // search_state const& search, viable const& v
         out() << "\n" << hline() << "\n\n";
         out() << "Search state (part):\n";
         for (auto const& item : s.m_search)
@@ -110,7 +114,7 @@ namespace polysat {
                 out_indent() << search_item_pp(s.m_search, item, true) << "\n";
         out() << hline() << "\nViable (part):\n";
         for (pvar v : m_used_vars)
-            out_indent() << "v" << std::setw(3) << std::left << v << ": " << viable::var_pp(s.m_viable, v) << "\n";
+            out_indent() << "v" << rpad(3, v) << ": " << viable::var_pp(s.m_viable, v) << "\n";
         out() << "End CONFLICT #" << m_num_conflicts << "\n";
         out().flush();
         LOG("End CONFLICT #" << m_num_conflicts);

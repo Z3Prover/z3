@@ -77,6 +77,7 @@ namespace polysat {
 
     class dummy_inference_logger : public inference_logger {
     public:
+        dummy_inference_logger();
         virtual void begin_conflict(displayable const& header) override {}
         virtual void log(inference const& inf) override {}
         virtual void log_var(pvar v) override {}

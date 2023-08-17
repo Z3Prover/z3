@@ -24,8 +24,8 @@ namespace polysat {
             pvar const var = item.var();
             rational const& val = s.m_value[var];
             auto const& j = s.m_justification[var];
-            out << "v" << std::setw(3) << std::left << var << " := ";
-            out << std::setw(30) << std::left << num_pp(s, var, val);
+            out << "v" << rpad(3, var) << " := ";
+            out << rpad(30, num_pp(s, var, val));
             out << " @" << j.level();
             switch (j.kind()) {
             case justification_k::decision:
