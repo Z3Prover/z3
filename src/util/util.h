@@ -192,6 +192,17 @@ unsigned get_verbosity_level();
 std::ostream& verbose_stream();
 void set_verbose_stream(std::ostream& str);
 
+class scoped_set_verbosity_level {
+    unsigned m_prev;
+public:
+    scoped_set_verbosity_level(unsigned lvl) {
+      m_prev = get_verbosity_level();
+      set_verbosity_level(lvl);
+    }
+    ~scoped_set_verbosity_level() {
+      set_verbosity_level(m_prev);
+    }
+};
   
 #define IF_VERBOSE(LVL, CODE) { if (get_verbosity_level() >= LVL) { THREAD_LOCK(CODE); } } ((void) 0)              
 
