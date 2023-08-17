@@ -538,7 +538,6 @@ namespace seq {
         expr_ref t_eq_empty = mk_eq_empty(t);
         expr_ref xsy        = mk_concat(x, s, y);
 
-        verbose_stream() << s << " " << t << "\n";
         //        add_clause(~mk_eq(t, s), i_eq_0);
         add_clause(cnt, i_eq_m1);
         add_clause(~t_eq_empty, s_eq_empty, i_eq_m1);
