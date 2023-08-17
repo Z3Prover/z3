@@ -1952,6 +1952,113 @@ namespace polysat {
             //s.expect_unsat();
         }
 
+        static void test_fi_pow2_a() {
+            scoped_solver s(__func__);
+            auto const x = s.var(s.add_var(256));
+            rational const a = rational::power_of_two(253);
+            s.add_eq(a*x);      // x[3:] == 0
+            s.add_eq(a*x, a*3); // x[3:] == 3
+            s.check();
+            s.expect_unsat();
+        }
+
+        static void test_fi_pow2_b() {
+            scoped_solver s(__func__);
+            auto const x = s.var(s.add_var(256));
+            rational const a = rational::power_of_two(253) + 2;
+            // s.add_eq(a*x);
+            // s.add_eq(a*x, 6);
+            s.add_ule(a*x, 1);
+            s.add_ule(a*x - 6, 1);
+            s.check();
+            s.expect_unsat();
+        }
+
+        static void test_fi_pow2_c() {
+            scoped_solver s(__func__);
+            auto const x = s.var(s.add_var(256));
+            s.add_eq(rational::power_of_two(253)*x);        // 2^253*x == 0 ... lowest three bits are zero
+            s.add_diseq(rational::power_of_two(254)*x);     // 2^254*x != 0 ... lowest two bits aren't zero
+            s.check();
+            s.expect_unsat();
+        }
+
+        // Test rewrite rules for ule_constraints.
+        // Since we recognize some syntactic patterns in constraints,
+        // make sure that equivalent forms are rewritten to the same result.
+        static void test_ule_simplify() {
+            scoped_solver s(__func__);
+            unsigned const N = 64;
+            auto const x = s.var(s.add_var(N));
+            scoped_set_log_enabled _log(true);
+            test_ule_simplify(s, true, x, rational::power_of_two(16));
+            test_ule_simplify(s, true, x, rational::power_of_two(48) + rational::power_of_two(23));
+            test_ule_simplify(s, true, x, rational::power_of_two(63));
+            test_ule_simplify(s, true, rational::power_of_two(16), x);
+            test_ule_simplify(s, true, rational::power_of_two(48) + rational::power_of_two(23), x);
+            test_ule_simplify(s, true, rational::power_of_two(63), x);
+            test_ule_simplify(s, true, rational(1), x, false, x, rational(0));
+            test_ule_simplify(s, true, rational::power_of_two(16) * (x - 1234), rational(0));  // 2^k * x = m * 2^k
+            test_ule_simplify(s, true, rational::power_of_two(63) * (x - 1234), rational(0));  // 2^k * x = m * 2^k
+            test_ule_simplify(s, true, rational::power_of_two(N - 1), x * rational::power_of_two(N - 1 - 5));  // bit(x, 5)
+            test_ule_simplify(s, true, rational::power_of_two(N - 1), x * rational::power_of_two(N - 1));  // bit(x, 0)
+            for (unsigned i = 0; i < N; ++i) {
+                scoped_set_log_enabled _logg(false);
+                test_ule_simplify(s, true, x, rational::power_of_two(i));
+                if (i == 0)
+                    test_ule_simplify(s, true, rational::power_of_two(i), x, false, x, rational(0));  // special case for 1 <= x  ==>  x > 0
+                else
+                    test_ule_simplify(s, true, rational::power_of_two(i), x);
+                test_ule_simplify(s, true, rational::power_of_two(N - 1), x * rational::power_of_two(N - 1 - i));  // bit(x, i)
+            }
+        }
+
+        static void test_ule_simplify(solver& s, bool is_positive, rational const& p, pdd const& q) {
+            test_ule_simplify(s, is_positive, q.manager().mk_val(p), q);
+        }
+
+        static void test_ule_simplify(solver& s, bool is_positive, pdd const& p, rational const& q) {
+            test_ule_simplify(s, is_positive, p, p.manager().mk_val(q));
+        }
+
+        // The argument is the expected form of the constraint.
+        // Checks if equivalent forms are rewritten by ule_constraint::simplify to the expected form.
+        static void test_ule_simplify(solver& s, bool const is_positive, pdd const& p, pdd const& q) {
+            LOG_H2("Constraint " << ule_pp(to_lbool(is_positive), p, q));
+            inequality const i = inequality::from_ule(is_positive ? s.ule(p, q) : ~s.ule(p, q));
+            bool ok = true;
+            for (unsigned j = 0; j < 6; ++j) {
+                inequality const i2 = i.rewrite_equiv(j);
+                pdd lhs = i2.is_strict() ? i2.rhs() : i2.lhs();
+                pdd rhs = i2.is_strict() ? i2.lhs() : i2.rhs();
+                bool pos = !i2.is_strict();
+                {
+                    scoped_set_log_enabled _log(false);
+                    ule_constraint::simplify(pos, lhs, rhs);
+                }
+                LOG(rpad(50, i2) << "   -->   " << ule_pp(to_lbool(pos), lhs, rhs));
+                ok = ok && (lhs == p) && (rhs == q) && (pos == is_positive);
+            }
+            VERIFY(ok);
+        }
+
+        // test expected rewrite before checking equivalent forms
+        static void test_ule_simplify(solver& s, bool is_positive, pdd p, pdd q, bool expect_pos, pdd const& expect_p, pdd const& expect_q) {
+            {
+                scoped_set_log_enabled _log(false);
+                ule_constraint::simplify(is_positive, p, q);
+            }
+            SASSERT_EQ(is_positive, expect_pos);
+            SASSERT_EQ(p, expect_p);
+            SASSERT_EQ(q, expect_q);
+            test_ule_simplify(s, is_positive, p, q);
+        }
+
+        static void test_ule_simplify(solver& s, bool is_positive, rational const& p, pdd q, bool expect_pos, pdd const& expect_p, rational const& expect_q) {
+            test_ule_simplify(s, is_positive, q.manager().mk_val(p), q, expect_pos, expect_p, expect_p.manager().mk_val(expect_q));
+        }
+
+
     };  // class test_polysat
 
 }  // namespace polysat
@@ -1966,11 +2073,16 @@ static void STD_CALL polysat_on_ctrl_c(int) {
 
 void tst_polysat() {
     using namespace polysat;
-#if 0  // Enable this block to run a single unit test with detailed output.
+#if 1  // Enable this block to run a single unit test with detailed output.
     collect_test_records = false;
     test_max_conflicts = 50;
-    //test_polysat::test_bench13_mulovfl_ineq();
-    test_polysat::test_ineq_axiom3(32, 3);  // TODO: assertion
+    test_polysat::test_ule_simplify();
+    // test_polysat::test_fi_pow2_a();
+    // test_polysat::test_fi_pow2_b();
+    // test_polysat::test_fi_pow2_c();
+    // test_polysat::test_monot();
+    // test_polysat::test_bench13_mulovfl_ineq();
+    // test_polysat::test_ineq_axiom3(32, 3);  // TODO: assertion
     // test_polysat::test_ineq_axiom6(32, 0);  // TODO: assertion
     // test_polysat::test_band5();  // TODO: assertion when clause simplification (merging p>q and p=q) is enabled
     // test_polysat::test_bench27_viable1();   // TODO: refinement
@@ -1988,6 +2100,7 @@ void tst_polysat() {
         signal(SIGINT, polysat_on_ctrl_c);
         set_default_debug_action(debug_action::throw_exception);
         set_log_enabled(false);
+        set_verbosity_level(0);
     }
 
 #if 0

@@ -82,6 +82,10 @@ namespace {
     // NOTE: the result should not depend on the initial value of is_positive;
     //       the purpose of is_positive is to allow flipping the sign as part of a rewrite rule.
     void simplify_impl(bool& is_positive, pdd& lhs, pdd& rhs) {
+        scoped_set_log_enabled _log(false);
+        SASSERT_EQ(lhs.power_of_2(), rhs.power_of_2());
+        unsigned const N = lhs.power_of_2();
+
         // 0 <= p   -->   0 <= 0
         if (lhs.is_zero()) {
             rhs = 0;
@@ -125,6 +129,7 @@ namespace {
             unsigned const rhs_vars = rhs.free_vars().size();
             unsigned const diff_vars = (lhs - rhs).free_vars().size();
             if (diff_vars < lhs_vars || diff_vars < rhs_vars) {
+                LOG("reduce number of varables");
                 // verbose_stream() << "IN:  " << ule_pp(to_lbool(is_positive), lhs, rhs) << "\n";
                 if (lhs_vars <= rhs_vars)
                     rhs = lhs - rhs - 1;
@@ -134,19 +139,60 @@ namespace {
             }
         }
 
-#if 0
-        // TODO: maybe enable this later to make some constraints more readable
+        // -p + k <= k      -->  p <= k
+        if (rhs.is_val() && !rhs.is_zero() && lhs.offset() == rhs.val()) {
+            LOG("-p + k <= k      -->  p <= k");
+            lhs = rhs - lhs;
+        }
+
+        // k <= p + k       -->  p <= -k-1
+        if (lhs.is_val() && !lhs.is_zero() && lhs.val() == rhs.offset()) {
+            LOG("k <= p + k       -->  p <= -k-1");
+            pdd k = lhs;
+            lhs = rhs - lhs;
+            rhs = -k - 1;
+        }
+
+        // k <= -p          -->  p-1 <= -k-1
+        if (lhs.is_val() && rhs.leading_coefficient().get_bit(N - 1) && !rhs.offset().is_zero()) {
+            LOG("k <= -p          -->  p-1 <= -k-1");
+            pdd k = lhs;
+            lhs = -(rhs + 1);
+            rhs = -k - 1;
+        }
+
+        // -p <= k          -->  -k-1 <= p-1
+        // if (rhs.is_val() && lhs.leading_coefficient() > rational::power_of_two(N - 1) && !lhs.offset().is_zero()) {
+        if (rhs.is_val() && lhs.leading_coefficient().get_bit(N - 1) && !lhs.offset().is_zero()) {
+            LOG("-p <= k          -->  -k-1 <= p-1");
+            pdd k = rhs;
+            rhs = -(lhs + 1);
+            lhs = -k - 1;
+        }
+
+        // NOTE: do not use pdd operations in conditions when comparing pdd values.
+        //       e.g.: "lhs.offset() == (rhs + 1).val()" is problematic with the following evaluation:
+        //          1. return reference into pdd_manager::m_values from lhs.offset()
+        //          2. compute rhs+1, which may reallocate pdd_manager::m_values
+        //          3. now the reference returned from lhs.offset() may be invalid
+        pdd const rhs_plus_one = rhs + 1;
+
         // p - k <= -k - 1  -->  k <= p
-        // ALTERNATIVE: p > k-1  to keep the polynomial on the lhs?  allows us to have boolean conflicts between x <= k and x > k ? (otherwise it is x <= k and k+1 <= x.)
-        if (rhs.is_val() && !rhs.is_zero() && lhs.offset() == (rhs + 1).val()) {
-            // verbose_stream() << "IN:  " << ule_pp(to_lbool(is_positive), lhs, rhs) << "\n";
-            std::abort();
+        // TODO: potential bug here: first call offset(), then rhs+1 has to reallocate pdd_manager::m_values, then the reference to offset is broken.
+        if (rhs.is_val() && !rhs.is_zero() && lhs.offset() == rhs_plus_one.val()) {
+            LOG("p - k <= -k - 1  -->  k <= p");
             pdd k = -(rhs + 1);
             rhs = lhs + k;
             lhs = k;
-            // verbose_stream() << "OUT: " << ule_pp(to_lbool(is_positive), lhs, rhs) << "\n";
         }
-#endif
+
+        pdd const lhs_minus_one = lhs - 1;
+
+        // k <= 2^(N-1)*p + q + k-1  -->  k <= 2^(N-1)*p - q
+        if (lhs.is_val() && rhs.leading_coefficient() == rational::power_of_two(N-1) && rhs.offset() == lhs_minus_one.val()) {
+            LOG("k <= 2^(N-1)*p + q + k-1  -->  k <= 2^(N-1)*p - q");
+            rhs = (lhs - 1) - rhs;
+        }
 
         // -1 <= p  -->   p + 1 <= 0
         if (lhs.is_max()) {
@@ -227,7 +273,32 @@ namespace polysat {
                 SASSERT(rhs.is_zero());
             }
         }
+        SASSERT(is_simplified(lhs, rhs));  // rewriting should be idempotent
 #endif
+    }
+
+    bool ule_constraint::is_simplified(pdd const& lhs0, pdd const& rhs0) {
+        bool const pos0 = true;
+        bool pos1 = pos0;
+        pdd lhs1 = lhs0;
+        pdd rhs1 = rhs0;
+        simplify_impl(pos1, lhs1, rhs1);
+        bool const is_simplified = (pos1 == pos0 && lhs1 == lhs0 && rhs1 == rhs0);
+        if (!is_simplified) {
+            LOG("Not simplified:   " << lhs0 << " <= " << rhs0);
+            LOG("            -->   " << lhs1 << " <= " << rhs1);
+        }
+        DEBUG_CODE({
+            // check that simplification doesn't depend on initial sign
+            bool pos2 = !pos0;
+            pdd lhs2 = lhs0;
+            pdd rhs2 = rhs0;
+            simplify_impl(pos2, lhs2, rhs2);
+            SASSERT_EQ(pos2, !pos1);
+            SASSERT_EQ(lhs2, lhs1);
+            SASSERT_EQ(rhs2, rhs1);
+        });
+        return is_simplified;
     }
 
     std::ostream& ule_constraint::display(std::ostream& out, lbool status, pdd const& lhs, pdd const& rhs) {

@@ -26,7 +26,6 @@ namespace polysat {
         pdd m_rhs;
 
         ule_constraint(pdd const& l, pdd const& r);
-        static void simplify(bool& is_positive, pdd& lhs, pdd& rhs);
         static bool is_always_true(bool is_positive, pdd const& lhs, pdd const& rhs) { return eval(lhs, rhs) == to_lbool(is_positive); }
         static bool is_always_false(bool is_positive, pdd const& lhs, pdd const& rhs) { return is_always_true(!is_positive, lhs, rhs); }
         static lbool eval(pdd const& lhs, pdd const& rhs);
@@ -46,6 +45,9 @@ namespace polysat {
         bool is_eq() const override { return m_rhs.is_zero(); }
         void add_to_univariate_solver(pvar v, solver& s, univariate_solver& us, unsigned dep, bool is_positive) const override;
         unsigned power_of_2() const { return m_lhs.power_of_2(); }
+
+        static void simplify(bool& is_positive, pdd& lhs, pdd& rhs);
+        static bool is_simplified(pdd const& lhs, pdd const& rhs);  // return true if lhs <= rhs is not simplified further. this is meant to be used in assertions.
     };
 
     struct ule_pp {
@@ -53,6 +55,7 @@ namespace polysat {
         pdd lhs;
         pdd rhs;
         ule_pp(lbool status, pdd const& lhs, pdd const& rhs): status(status), lhs(lhs), rhs(rhs) {}
+        ule_pp(lbool status, ule_constraint const& ule): status(status), lhs(ule.lhs()), rhs(ule.rhs()) {}
     };
 
     inline std::ostream& operator<<(std::ostream& out, ule_pp const& u) { return ule_constraint::display(out, u.status, u.lhs, u.rhs); }
