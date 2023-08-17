@@ -29,7 +29,9 @@ namespace polysat {
 
     class scoped_solver_slicing : public solver_scope_slicing, public solver {
     public:
-        scoped_solver_slicing(): solver(lim, pars) {}
+        scoped_solver_slicing(): solver(lim, pars) {
+            set_log_enabled(false);
+        }
         slicing& sl() { return m_slicing; }
     };
 
@@ -75,12 +77,14 @@ namespace polysat {
             VERIFY(sl.merge(y_5_0, sl.var2slice(b), sat::literal(2)));
             std::cout << sl << "\n";
 
+/*
             slicing::enode_vector x_base;
             sl.get_root_base(sl.var2slice(x), x_base);
             slicing::enode_vector y_base;
             sl.get_root_base(sl.var2slice(y), y_base);
             VERIFY(sl.merge(x_base, y_base, sat::literal(3)));
             std::cout << sl << "\n";
+*/
 
             sl.display_tree(std::cout);
             VERIFY(sl.invariant());
@@ -212,6 +216,11 @@ namespace polysat {
         // x[3:0] = z
         // y = 0b1001
         // z = 0b0111
+        //
+        // x:  xxxxxx
+        // y:  1001
+        // z:    0111
+        // (no conflict)
         static void test5() {
             std::cout << __func__ << "\n";
             scoped_solver_slicing s;
@@ -231,6 +240,43 @@ namespace polysat {
             slicing::enode* seven = sl.mk_value_slice(rational(7), 4);
             VERIFY(sl.merge(sl.var2slice(z), seven, sat::literal(107)));
             std::cout << "v" << z << " = 7\n" << sl << "\n";
+
+            VERIFY(!sl.is_conflict());
+
+            sl.display_tree(std::cout);
+            VERIFY(sl.invariant());
+        }
+
+        // x[5:2] = y
+        // x[3:0] = z
+        // y = 0b1001
+        // z = 0b1011
+        //
+        // x:  xxxxxx
+        // y:  1001
+        // z:    1011
+        // (conflict)
+        static void test5b() {
+            std::cout << __func__ << "\n";
+            scoped_solver_slicing s;
+            slicing& sl = s.sl();
+            pvar x = s.add_var(6);
+            std::cout << sl << "\n";
+
+            pvar y = sl.mk_extract(x, 5, 2);
+            std::cout << "v" << y << " := v" << x << "[5:2]\n" << sl << "\n";
+            pvar z = sl.mk_extract(x, 3, 0);
+            std::cout << "v" << z << " := v" << x << "[3:0]\n" << sl << "\n";
+
+            slicing::enode* nine = sl.mk_value_slice(rational(9), 4);
+            VERIFY(sl.merge(sl.var2slice(y), nine, sat::literal(109)));
+            std::cout << "v" << y << " = 9\n" << sl << "\n";
+
+            slicing::enode* eleven = sl.mk_value_slice(rational(11), 4);
+            VERIFY(!sl.merge(sl.var2slice(z), eleven, sat::literal(107)));
+            std::cout << "v" << z << " = 11\n" << sl << "\n";
+
+            VERIFY(sl.is_conflict());
 
             sl.display_tree(std::cout);
             VERIFY(sl.invariant());
@@ -264,7 +310,6 @@ namespace polysat {
         // in various permutations
         static void test7() {
             std::cout << __func__ << "\n";
-            scoped_set_log_enabled _logging(false);
             scoped_solver_slicing s;
             slicing& sl = s.sl();
             pdd x = s.var(s.add_var(8));
@@ -374,6 +419,68 @@ namespace polysat {
             VERIFY(sl.invariant());
         }
 
+        // x == 7
+        // y == 7
+        static void test11() {
+            std::cout << __func__ << "\n";
+            scoped_solver_slicing s;
+            slicing& sl = s.sl();
+            pvar x = s.add_var(8);
+            sl.add_constraint(s.eq(s.var(x), 7));
+            pvar a = sl.mk_extract(x, 7, 6);
+            pvar b = sl.mk_extract(x, 3, 0);
+            sl.display_tree(std::cout);
+
+            pvar y = s.add_var(8);
+            pvar c = sl.mk_extract(y, 7, 6);
+            pvar d = sl.mk_extract(y, 1, 0);
+            sl.display_tree(std::cout);
+
+            sl.add_constraint(s.eq(s.var(y), 7));
+            sl.display_tree(std::cout);
+        }
+
+
+
+        // x == 0
+        // x != y
+        // y <= 1
+        // y[0:0] = z
+        // z == w
+        // w == 0
+        static void test12() {
+            std::cout << __func__ << "\n";
+            // TODO
+            scoped_solver_slicing s;
+            slicing& sl = s.sl();
+        }
+
+
+        // mk_extract y := x[63:32]
+        // a * x = 123
+        // b * y = 456
+        // a = 1, propagates x = 123 (by constraint)
+        // b = 1, propagates y = 456 (by constraint), propagates x = 0 (by slicing)
+        // Conflict in slicing.
+        static void test13() {
+            std::cout << __func__ << "\n";
+            scoped_solver_slicing s;
+            slicing& sl = s.sl();
+            pvar x = s.add_var(64);
+            pvar y = sl.mk_extract(x, 63, 32);
+            pvar a = s.add_var(64);
+            pvar b = s.add_var(32);
+            sl.add_constraint(s.eq(s.var(a)*s.var(x), 123));  // NOTE: this does nothing inside slicing atm.
+            sl.add_constraint(s.eq(s.var(b)*s.var(y), 456));
+            sl.add_value(a, 1);
+            sl.add_value(x, 123);
+            sl.add_value(b, 1);
+            sl.add_value(y, 456);
+            VERIFY(sl.is_conflict());
+            sl.display_tree(std::cout);
+            VERIFY(sl.invariant());
+        }
+
     };  // test_slicing
 
 }  // namespace polysat
@@ -386,10 +493,13 @@ void tst_slicing() {
     test_slicing::test3();
     test_slicing::test4();
     test_slicing::test5();
+    test_slicing::test5b();
     test_slicing::test6();
     test_slicing::test7();
     test_slicing::test8();
     test_slicing::test9();
     test_slicing::test10();
+    test_slicing::test11();
+    test_slicing::test13();
     std::cout << "ok\n";
 }

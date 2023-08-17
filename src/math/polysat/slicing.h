@@ -41,6 +41,7 @@ namespace polysat {
 
     public:
         using enode = euf::enode;
+        using enode_pair = euf::enode_pair;
         using enode_vector = euf::enode_vector;
 
     private:
@@ -81,6 +82,7 @@ namespace polysat {
         // We use the following kinds of enodes:
         // - proper slices (of variables)
         // - value slices
+        // - interpreted value nodes ... these are short-lived, and only created to immediately trigger a conflict inside the egraph
         // - virtual concat(...) expressions
         // - equalities between enodes (to track disequalities; currently not represented in slice_info)
         struct slice_info {
@@ -92,6 +94,7 @@ namespace polysat {
             enode*      slice   = nullptr;      // if enode corresponds to a concat(...) expression, this field links to the represented slice.
             enode*      sub_hi  = nullptr;      // upper subslice s[|s|-1:cut+1]
             enode*      sub_lo  = nullptr;      // lower subslice s[cut:0]
+            enode*      value_node = nullptr;   // the root of an equivalence class stores the value slice here, if any
 
             void reset() { *this = slice_info(); }
             bool has_sub() const { return !!sub_hi; }
@@ -103,7 +106,7 @@ namespace polysat {
         bool is_slice(enode* n) const;
 
         bool is_proper_slice(enode* n) const { return !is_value(n) && is_slice(n); }
-        bool is_value(enode* n) const { return n->interpreted(); }
+        bool is_value(enode* n) const;
         bool is_concat(enode* n) const;
         bool is_equality(enode* n) const { return n->is_equality(); }
 
@@ -148,6 +151,9 @@ namespace polysat {
 
         enode* parent(enode* s) const { return info(s).parent; }
 
+        enode* get_value_node(enode* s) const { return info(s->get_root()).value_node; }
+        void set_value_node(enode* s, enode* value_node);
+
         bool has_sub(enode* s) const { return info(s).has_sub(); }
 
         /// Upper subslice (direct child, not necessarily the representative)
@@ -159,6 +165,9 @@ namespace polysat {
         // Retrieve (or create) a slice representing the given value.
         enode* mk_value_slice(rational const& val, unsigned bit_width);
 
+        // Turn value node into unwrapped BV constant node
+        enode* mk_interpreted_value_node(enode* value_slice);
+
         rational get_value(enode* s) const;
         bool try_get_value(enode* s, rational& val) const;
 
@@ -166,13 +175,8 @@ namespace polysat {
         void split(enode* s, unsigned cut);
         void split_core(enode* s, unsigned cut);
 
-        template <bool should_get_root>
-        void get_base_core(enode* src, enode_vector& out_base) const;
-
         /// Retrieve base slices s_1,...,s_n such that src == s_1 ++ ... ++ s_n (actual descendant subslices)
         void get_base(enode* src, enode_vector& out_base) const;
-        /// Retrieve base slices s_1,...,s_n such that src == s_1 ++ ... ++ s_n (representatives of subslices)
-        void get_root_base(enode* src, enode_vector& out_base) const;
 
         /// Retrieve (or create) base slices s_1,...,s_n such that src[hi:lo] == s_1 ++ ... ++ s_n.
         /// If output_full_src is true, return the new base for src, i.e., src == s_1 ++ ... ++ s_n.
@@ -195,6 +199,7 @@ namespace polysat {
         /** Extract reason for x == y */
         void explain_equal(pvar x, pvar y, ptr_vector<void>& out_deps);
 
+        void egraph_on_make(enode* n);
         void egraph_on_merge(enode* root, enode* other);
         void egraph_on_propagate(enode* lit, enode* ante);
 
@@ -233,18 +238,19 @@ namespace polysat {
         using extract_args_hash = obj_hash<extract_args>;
         using extract_map = map<extract_args, pvar, extract_args_hash, extract_args_eq>;
         extract_map m_extract_dedup;
-
-        bool is_extract(pvar v) const;
-        bool is_extract(pvar v, pvar& out_src, pvar& out_hi, pvar& out_lo) const;
+        // svector<extract_args> m_extract_origin;  // pvar -> extract_args
+        // TODO: add 'm_extract_origin' (pvar -> extract_args)? 1. for dependency tracking when sharing subslice trees; 2. for easily checking if a variable is an extraction of another; 3. also makes the replay easier
+        // bool is_extract(pvar v) const { return m_extract_origin[v].src != null_var; }
 
         enum class trail_item : std::uint8_t {
             add_var,
             split_core,
             mk_extract,
             mk_concat,
+            set_value_node,
         };
         svector<trail_item> m_trail;
-        enode_vector        m_split_trail;
+        enode_vector        m_enode_trail;
         svector<extract_args> m_extract_trail;
         unsigned_vector     m_scopes;
 
@@ -260,6 +266,7 @@ namespace polysat {
         void undo_add_var();
         void undo_split_core();
         void undo_mk_extract();
+        void undo_set_value_node();
 
         mutable enode_vector m_tmp1;
         mutable enode_vector m_tmp2;
@@ -304,6 +311,8 @@ namespace polysat {
             std::ostream& display(std::ostream& out) const { return s.display(out, d); }
         };
         friend std::ostream& operator<<(std::ostream& out, dep_pp const& d) { return d.display(out); }
+
+        euf::egraph::e_pp e_pp(enode* n) const { return euf::egraph::e_pp(m_egraph, n); }
 
     public:
         slicing(solver& s);

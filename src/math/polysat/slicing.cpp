@@ -28,12 +28,6 @@ Example:
 
 
 TODO:
-- notify solver about equalities discovered by congruence
-    - variable equalities x = y will be handled on-demand by the viable component
-    - but whenever we derive an equality between pvar and value we must propagate the value in the solver
-        -> need a way to store and retrieve justification for this propagation (explain_equal)
-- track fixed bits along with enodes
-- implement query functions
 - About the sub-slice sharing among equivalent nodes:
   - When extracting a variable y := x[h:l], we always need to create a new slice for y.
   - Merge slices for x[h:l] with y; store as dependency 'x[h:l]' (rather than 'null_dep' as we do now).
@@ -47,24 +41,9 @@ TODO:
     - a question is how to track/handle the dependency on the assignment
 - check Algorithm 2 of "Solving Bitvectors with MCSAT"; what is the difference to what we are doing now?
 - track equalities such as x = -y ?
-
-
-
-
-Current issue:
-
-        1. mk_extract v7 := v6[63:32]
-        2. solver assigns v7 := 1
-        3. solver assigns v6 := 1 by decision
-
-        This is a conflict, because v6[63:32] = 0, v7 = v6[63:32], v7 = 1.
-
-        Solution:
-        - when finding a viable value for v6 to make a decision,
-          call slicing::collect_fixed to find already fixed bits
-        - v7 is a subslice of v6, so we find v6[63:32] = 1
-        - viable can already deal with fixed bits
-          (needs some refactoring because of how justifications are tracked)
+- on_merge could propagate values upwards:
+    if slice has value but parent has no value, then check if sub_other(parent(s)) [sibling(s)?] has a value.
+    if yes, can propagate value upwards. (add a congruence term to track deps properly?)
 
 */
 
@@ -145,13 +124,14 @@ namespace polysat {
         m_egraph.set_display_justification([&](std::ostream& out, void* dp) { display(out, dep_t::decode(dp)); });
         m_egraph.set_on_merge([&](enode* root, enode* other) { egraph_on_merge(root, other); });
         m_egraph.set_on_propagate([&](enode* lit, enode* ante) { egraph_on_propagate(lit, ante); });
+        // m_egraph.set_on_make([&](enode* n) { egraph_on_make(n); });
     }
 
-    slicing::slice_info& slicing::info(euf::enode* n) {
+    slicing::slice_info& slicing::info(enode* n) {
         return const_cast<slice_info&>(std::as_const(*this).info(n));
     }
 
-    slicing::slice_info const& slicing::info(euf::enode* n) const {
+    slicing::slice_info const& slicing::info(enode* n) const {
         SASSERT(n);
         SASSERT(!n->is_equality());
         SASSERT(m_bv->is_bv_sort(n->get_sort()));
@@ -230,6 +210,9 @@ namespace polysat {
             case trail_item::mk_concat:
                 num_replay_concat++;
                 break;
+            case trail_item::set_value_node:
+                undo_set_value_node();
+                break;
             default:
                 UNREACHABLE();
             }
@@ -267,6 +250,9 @@ namespace polysat {
                 replay_concat(ci.num_args, &m_concat_args[ci.args_idx], ci.v);
                 break;
             }
+            case trail_item::set_value_node:
+                /* do nothing */
+                break;
             default:
                 UNREACHABLE();
             }
@@ -274,6 +260,7 @@ namespace polysat {
         m_concat_trail.shrink(m_concat_trail.size() - num_replay_concat);
         m_concat_args.shrink(m_concat_trail.empty() ? 0 : m_concat_trail.back().next_args_idx());
         m_trail.shrink(target_size);
+        SASSERT(invariant());
     }
 
     void slicing::add_var(unsigned bit_width) {
@@ -300,13 +287,23 @@ namespace polysat {
         return eqn;
     }
 
+#if 0
+    void slicing::egraph_on_make(enode* n) {
+        LOG("on_make: " << e_pp(n));
+    }
+#endif
+
     slicing::enode* slicing::alloc_enode(expr* e, unsigned num_args, enode* const* args, pvar var) {
         SASSERT(!m_egraph.find(e));
-        euf::enode* n = m_egraph.mk(e, 0, num_args, args);  // NOTE: the egraph keeps a strong reference to 'e'
-        m_info.reserve(n->get_id() + 1);
-        slice_info& i = info(n);
+        // NOTE: sometimes egraph::mk already triggers a merge due to congruence.
+        //       in this case we have to make sure to allocate m_info early enough.
+        unsigned const id = e->get_id();
+        m_info.reserve(id + 1);
+        slice_info& i = m_info[id];
         i.reset();
         i.var = var;
+        enode* n = m_egraph.mk(e, 0, num_args, args);  // NOTE: the egraph keeps a strong reference to 'e'
+        LOG("alloc_enode: " << e_pp(n));
         return n;
     }
 
@@ -321,7 +318,7 @@ namespace polysat {
 
     slicing::enode* slicing::alloc_slice(unsigned width, pvar var) {
         SASSERT(width > 0);
-        app* a = m_ast.mk_fresh_const("s", m_bv->mk_sort(width), false);
+        app_ref a(m_ast.mk_fresh_const("s", m_bv->mk_sort(width), false), m_ast);
         return alloc_enode(a, 0, nullptr, var);
     }
 
@@ -391,12 +388,14 @@ namespace polysat {
         else {
             sub_hi = alloc_slice(width_hi);
             sub_lo = alloc_slice(width_lo);
-            info(sub_hi).parent = s;
-            info(sub_lo).parent = s;
         }
+        SASSERT(!parent(sub_hi));
+        SASSERT(!parent(sub_lo));
+        info(sub_hi).parent = s;
+        info(sub_lo).parent = s;
         info(s).set_cut(cut, sub_hi, sub_lo);
         m_trail.push_back(trail_item::split_core);
-        m_split_trail.push_back(s);
+        m_enode_trail.push_back(s);
         for (enode* n = s; n != nullptr; n = parent(n)) {
             pvar const v = slice2var(n);
             if (v == null_var)
@@ -419,8 +418,8 @@ namespace polysat {
     }
 
     void slicing::undo_split_core() {
-        enode* s = m_split_trail.back();
-        m_split_trail.pop_back();
+        enode* s = m_enode_trail.back();
+        m_enode_trail.pop_back();
         info(s).set_cut(null_cut, nullptr, nullptr);
     }
 
@@ -437,7 +436,6 @@ namespace polysat {
             enode* target = n->get_target();
             if (!target)
                 continue;
-            SASSERT(!is_value(n));  // values are always roots, and target always points towards the root.
             euf::justification const j = n->get_justification();
             SASSERT(j.is_external());  // cannot be a congruence since the slice wasn't split before.
             dep_t const d = dep_t::decode(j.ext<void>());
@@ -509,12 +507,30 @@ namespace polysat {
 
     slicing::enode* slicing::mk_value_slice(rational const& val, unsigned bit_width) {
         SASSERT(0 <= val && val < rational::power_of_two(bit_width));
-        app_ref a(m_bv->mk_numeral(val, bit_width), m_ast);
-        enode* s = find_or_alloc_enode(a, 0, nullptr, null_var);
-        s->mark_interpreted();
-        SASSERT(s->interpreted());
+        sort* bv_sort = m_bv->mk_sort(bit_width);
+        func_decl_ref f(m_ast.mk_fresh_func_decl("val", nullptr, 1, &bv_sort, bv_sort, false), m_ast);
+        app_ref a(m_ast.mk_app(f, m_bv->mk_numeral(val, bit_width)), m_ast);
+        enode* s = alloc_enode(a, 0, nullptr, null_var);
+        set_value_node(s, s);
         SASSERT_EQ(get_value(s), val);
         return s;
+    }
+
+    slicing::enode* slicing::mk_interpreted_value_node(enode* s) {
+        SASSERT(is_value(s));
+        // NOTE: how this is used now, the node will not yet be contained in the egraph.
+        enode* n = alloc_enode(s->get_app()->get_arg(0), 0, nullptr, null_var);
+        info(n).value_node = s;
+        n->mark_interpreted();
+        SASSERT(n->interpreted());
+        SASSERT_EQ(get_value_node(n), s);
+        return n;
+    }
+
+    bool slicing::is_value(enode* n) const {
+        SASSERT(is_app(n->get_expr()));  // we only create app nodes at the moment; if this fails just return false here.
+        app* a = n->get_app();
+        return a->get_num_args() == 1 && m_bv->is_numeral(a->get_arg(0));
     }
 
     rational slicing::get_value(enode* s) const {
@@ -525,7 +541,10 @@ namespace polysat {
     }
 
     bool slicing::try_get_value(enode* s, rational& val) const {
-        bool const ok = m_bv->is_numeral(s->get_expr(), val);
+        app* a = s->get_app();
+        if (a->get_num_args() != 1)
+            return false;
+        bool const ok = m_bv->is_numeral(a->get_arg(0), val);
         SASSERT_EQ(ok, is_value(s));
         return ok;
     }
@@ -591,6 +610,7 @@ namespace polysat {
         SASSERT(is_conflict());
         m_egraph.begin_explain();
         if (m_disequality_conflict) {
+            LOG("Disequality conflict: " << m_disequality_conflict);
             enode* eqn = m_disequality_conflict;
             SASSERT(eqn->is_equality());
             SASSERT_EQ(eqn->value(), l_false);
@@ -654,18 +674,23 @@ namespace polysat {
         m_tmp_deps.reset();
         if (x != null_var) LOG("Variable v" << x << " with slice " << slice_pp(*this, sx));
         if (y != null_var) LOG("Variable v" << y << " with slice " << slice_pp(*this, sy));
-        SASSERT(x != null_var || y == null_var);
-        SASSERT(y != null_var || x == null_var);
+        // SASSERT(x != null_var || y == null_var);
+        // SASSERT(y != null_var || x == null_var);
 
+        // Algorithm 1 in BitvectorsMCSAT
         signed_constraint c;
         if (x == null_var) {
             /* nothing to do */
             SASSERT_EQ(y, null_var);
         }
         else if (y == null_var) {
+            SASSERT(get_value_node(sx));
+            unsigned hi, lo;
+            VERIFY(find_range_in_ancestor(sx, var2slice(x), hi, lo));
+            LOG("Variable v" << x << " has solver-value " << m_solver.get_value(x));
+            LOG("Subslice v" << x << "[" << hi << ":" << lo << "] has value " << get_value(get_value_node(sx)));
             UNREACHABLE();
             /*
-            SASSERT(is_value(sx->get_root()));
             // the egraph has derived that x (or a sub-slice thereof) must have value b that differs from the currently assigned value of x.
             // the explanation is:      lits ==> x[...] = b
             enode* const xn = var2slice(x)->get_root();
@@ -680,8 +705,8 @@ namespace polysat {
                 unsigned hi, lo;
                 VERIFY(find_range_in_ancestor(sx, var2slice(x), hi, lo));
                 LOG("Variable v" << x << " has solver-value " << m_solver.get_value(x));
-                LOG("Subslice v" << x << "[" << hi << ":" << lo << "] has value " << get_value(sx->get_root()));
-                rational const b = get_value(sx->get_root());
+                LOG("Subslice v" << x << "[" << hi << ":" << lo << "] has value " << get_value(get_value_node(sx)));
+                rational const b = get_value(get_value_node(sx));
                 // TODO: problematic case when this assertion is violated:
                 // 1. v3 := v2[0:0]
                 // 2. propagate value assignment v2 := 1 from some other constraints.
@@ -711,12 +736,16 @@ namespace polysat {
             */
         }
         else {
+            display_tree(std::cout);
+            SASSERT(y != null_var);
             SASSERT(x != y);
+            SASSERT(get_value_node(sx));
+            SASSERT(get_value_node(sy));
             unsigned x_hi, x_lo, y_hi, y_lo;
             VERIFY(find_range_in_ancestor(sx, var2slice(x), x_hi, x_lo));
             VERIFY(find_range_in_ancestor(sy, var2slice(y), y_hi, y_lo));
-            LOG("find_range_in_ancestor: v" << x << "[" << x_hi << ":" << x_lo << "] = " << slice_pp(*this, sx) << ", slice-value " << get_value(sx->get_root()));
-            LOG("find_range_in_ancestor: v" << y << "[" << y_hi << ":" << y_lo << "] = " << slice_pp(*this, sy) << ", slice-value " << get_value(sy->get_root()));
+            LOG("find_range_in_ancestor: v" << x << "[" << x_hi << ":" << x_lo << "] = " << slice_pp(*this, sx) << ", slice-value " << get_value(get_value_node(sx)));
+            LOG("find_range_in_ancestor: v" << y << "[" << y_hi << ":" << y_lo << "] = " << slice_pp(*this, sy) << ", slice-value " << get_value(get_value_node(sy)));
             if (m_solver.is_assigned(x)) {
                 rational sval = mod2k(machine_div2k(m_solver.get_value(x), x_lo), x_hi - x_lo + 1);
                 LOG("Variable v" << x << " has solver-value " << m_solver.get_value(x) << ", i.e., v" << x << "[" << x_hi << ":" << x_lo << "] = " << sval);
@@ -730,8 +759,8 @@ namespace polysat {
             // below is TODO
 
 
-            // LOG("Slice sx=" << slice_pp(*this, sx) << " has value " << get_value(sx->get_root()));
-            // LOG("Slice sy=" << slice_pp(*this, sy) << " has value " << get_value(sy->get_root()));
+            // LOG("Slice sx=" << slice_pp(*this, sx) << " has value " << get_value(get_value_node(sx)));
+            // LOG("Slice sy=" << slice_pp(*this, sy) << " has value " << get_value(get_value_node(sy)));
             // the egraph has derived that x (or a subslice of x) must be equal to y (or a subslice of y),
             // but the currently assigned values differ.
             // the explanation is:      lits ==> x[...] = y[...]
@@ -746,13 +775,13 @@ namespace polysat {
                 //      (it is also hard and probably not useful to handle otherwise)
 
                 // we handle one special case for now
-                if (sx->get_root() == var2slice(x)->get_root() && m_solver.get_value(x) != get_value(var2slice(x)->get_root())) {
-                    LOG("Variable v" << x << " has solver-value " << m_solver.get_value(x) << " and slicing-value " << get_value(var2slice(x)->get_root()));
+                if (sx->get_root() == var2slice(x)->get_root() && m_solver.get_value(x) != get_value(get_value_node(var2slice(x)))) {
+                    LOG("Variable v" << x << " has solver-value " << m_solver.get_value(x) << " and slicing-value " << get_value(get_value_node(var2slice(x))));
                     // here, the learned clause should be   y = value(y)  ==>  x = slicing-value(x)
                     signed_constraint d = m_solver.eq(m_solver.var(y), m_solver.get_value(y));
                     LOG("Premise:    " << lit_pp(m_solver, d));
                     cb.insert_eval(~d);
-                    c = m_solver.eq(m_solver.var(x), get_value(sx->get_root()));
+                    c = m_solver.eq(m_solver.var(x), get_value(get_value_node(sx)));
                 }
             }
             else {
@@ -777,6 +806,7 @@ namespace polysat {
             LOG("Conclusion: <conflict>");
         }
 
+        std::abort();
         return cb.build();
     }
 
@@ -784,11 +814,11 @@ namespace polysat {
         SASSERT(invariant());
         SASSERT(m_marked_lits.empty());
 
-        enode* r = s->get_root();
-        SASSERT(is_value(r));  // by convention, value slices are always the root; and this method may only be called if s is equivalent to a value node.
+        enode* n = get_value_node(s);
+        SASSERT(is_value(n));
 
         SASSERT(m_tmp_deps.empty());
-        explain_equal(s, r, m_tmp_deps);
+        explain_equal(s, n, m_tmp_deps);
 
         for (void* dp : m_tmp_deps) {
             dep_t const d = dep_t::decode(dp);
@@ -838,20 +868,56 @@ namespace polysat {
     }
 
     void slicing::egraph_on_merge(enode* root, enode* other) {
-        SASSERT(!is_value(other));  // by convention, interpreted nodes are always chosen as root
-        if (is_value(root)) {
+        // LOG("on_merge:\nroot " << e_pp(root) << "other " << e_pp(other));
+        if (root->interpreted())
+            return;
+        SASSERT(!other->interpreted());  // by convention, interpreted nodes are always chosen as root
+        SASSERT(root != other);
+        SASSERT_EQ(root, root->get_root());
+        SASSERT_EQ(root, other->get_root());
+
+        enode* v1 = info(root).value_node;   // root is the root
+        enode* v2 = info(other).value_node;  // 'other' was its own root before the merge
+        if (v1 && v2 && get_value(v1) != get_value(v2)) {
+            // we have a conflict. add interpreted enodes to make the egraph realize it.
+            enode* i1 = mk_interpreted_value_node(v1);
+            enode* i2 = mk_interpreted_value_node(v2);
+            m_egraph.merge(i1, v1, dep_t().encode());
+            m_egraph.merge(i2, v2, dep_t().encode());
+            SASSERT(is_conflict());
+            return;
+        }
+
+        if (v1 || v2) {
+            if (!v1) set_value_node(root, v2);
+            if (!v2) set_value_node(other, v1);
+            rational const val = get_value(v1 ? v1 : v2);
             for (enode* n : euf::enode_class(other)) {
                 pvar const v = slice2var(n);
                 if (v == null_var)
                     continue;
                 if (m_solver.is_assigned(v))
                     continue;
-                LOG("on_merge: v" << v << " := " << get_value(root));
-                m_solver.assign_propagate_by_slicing(v, get_value(root));
-                // TODO: congruence? what if all base slices of a variable are equivalent to values?
-                //          -> could track, for each variable, how many of its base slices are (not) equivalent to values. (update on split and merge)
+                LOG("on_merge: v" << v << " := " << val);
+                m_solver.assign_propagate_by_slicing(v, val);
             }
         }
+    }
+
+    void slicing::set_value_node(enode* s, enode* value_node) {
+        SASSERT(!info(s).value_node);
+        SASSERT(is_value(value_node));
+        info(s).value_node = value_node;
+        if (s != value_node) {
+            m_trail.push_back(trail_item::set_value_node);
+            m_enode_trail.push_back(s);
+        }
+    }
+
+    void slicing::undo_set_value_node() {
+        enode* s = m_enode_trail.back();
+        m_enode_trail.pop_back();
+        info(s).value_node = nullptr;
     }
 
     void slicing::egraph_on_propagate(enode* lit, enode* ante) {
@@ -882,7 +948,17 @@ namespace polysat {
     }
 
     bool slicing::egraph_merge(enode* s1, enode* s2, dep_t dep) {
+        LOG("egraph_merge: " << slice_pp(*this, s1) << " and " << slice_pp(*this, s2));
         SASSERT_EQ(width(s1), width(s2));
+        enode* v1 = get_value_node(s1);
+        enode* v2 = get_value_node(s2);
+        if (v1 && v2 && get_value(v1) == get_value(v2)) {
+            // optimization: if s1, s2 are already equivalent to the same value,
+            // then they could have been merged already and we do not need to record 'dep'.
+            // merge the value slices instead.
+            m_egraph.merge(v1, v2, dep_t().encode());
+            return !is_conflict();
+        }
         if (dep.is_value()) {
             if (is_value(s1))
                 std::swap(s1, s2);
@@ -896,6 +972,7 @@ namespace polysat {
     }
 
     bool slicing::merge_base(enode* s1, enode* s2, dep_t dep) {
+        LOG("merge_base: " << slice_pp(*this, s1) << " and " << slice_pp(*this, s2));
         SASSERT(!has_sub(s1));
         SASSERT(!has_sub(s2));
         return egraph_merge(s1, s2, dep);
@@ -968,6 +1045,7 @@ namespace polysat {
     }
 
     bool slicing::merge(enode* x, enode* y, dep_t dep) {
+        LOG("merge: " << slice_pp(*this, x) << " and " << slice_pp(*this, y));
         SASSERT_EQ(width(x), width(y));
         if (!has_sub(x) && !has_sub(y))
             return merge_base(x, y, dep);
@@ -990,28 +1068,28 @@ namespace polysat {
         enode_vector& ys = m_tmp3;
         SASSERT(xs.empty());
         SASSERT(ys.empty());
+        on_scope_exit clear_vectors([&xs, &ys](){
+            xs.clear();
+            ys.clear();
+        });
         // TODO: we don't always have to collect the full base if intermediate nodes are already equal
-        get_root_base(x, xs);
-        get_root_base(y, ys);
-        SASSERT(all_of(xs, [](enode* s) { return s->is_root(); }));
-        SASSERT(all_of(ys, [](enode* s) { return s->is_root(); }));
-        bool result = (xs == ys);
-        xs.clear();
-        ys.clear();
-        return result;
+        get_base(x, xs);
+        get_base(y, ys);
+        if (xs.size() != ys.size())
+            return false;
+        for (unsigned i = xs.size(); i-- > 0; )
+            if (xs[i]->get_root() != ys[i]->get_root())
+                return false;
+        return true;
     }
 
-    template <bool should_get_root>
-    void slicing::get_base_core(enode* src, enode_vector& out_base) const {
+    void slicing::get_base(enode* src, enode_vector& out_base) const {
         enode_vector& todo = m_tmp1;
         SASSERT(todo.empty());
         todo.push_back(src);
         while (!todo.empty()) {
             enode* s = todo.back();
             todo.pop_back();
-            if constexpr (should_get_root) {
-                s = s->get_root();
-            }
             if (!has_sub(s))
                 out_base.push_back(s);
             else {
@@ -1020,14 +1098,6 @@ namespace polysat {
             }
         }
         SASSERT(todo.empty());
-    }
-
-    void slicing::get_base(enode* src, enode_vector& out_base) const {
-        get_base_core<false>(src, out_base);
-    }
-
-    void slicing::get_root_base(enode* src, enode_vector& out_base) const {
-        get_base_core<true>(src, out_base);
     }
 
     pvar slicing::mk_extract(enode* src, unsigned hi, unsigned lo, pvar replay_var) {
@@ -1237,7 +1307,7 @@ namespace polysat {
         }
         else {
             LOG("    store disequality v" << x << " != v" << y);
-            enode* n = find_or_alloc_disequality(sy, sx, lit);
+            enode* n = find_or_alloc_disequality(sx, sy, lit);
             if (!m_disequality_conflict && is_equal(sx, sy)) {
                 add_var_congruence_if_needed(x);
                 add_var_congruence_if_needed(y);
@@ -1396,11 +1466,11 @@ namespace polysat {
             out << "v" << v << ":";
             base.reset();
             enode* const vs = var2slice(v);
-            get_root_base(vs, base);
+            get_base(vs, base);
             for (enode* s : base)
                 display(out << " ", s);
-            if (is_value(vs->get_root()))
-                out << "    [root_value: " << get_value(vs->get_root()) << "]";
+            if (enode* vnode = get_value_node(vs))
+                out << "    [root_value: " << get_value(vnode) << "]";
             out << "\n";
         }
         return out;
@@ -1426,8 +1496,8 @@ namespace polysat {
             out << " parent=" << parent(s)->get_id();
         if (!s->is_root())
             out << " root=" << s->get_root_id();
-        if (is_value(s->get_root()))
-            out << " root_value=" << get_value(s->get_root());
+        if (enode* n = get_value_node(s))
+            out << " value=" << get_value(n);
         // if (is_proper_slice(s))
         //     out << " <slice>";
         if (is_value(s))
@@ -1448,8 +1518,11 @@ namespace polysat {
     std::ostream& slicing::display(std::ostream& out, enode* s) const {
         out << "{id:" << s->get_id();
         out << ",w:" << width(s);
+        out << ",root:" << s->get_root_id();
         if (is_value(s))
-            out << ",<value>";
+            out << ",value:" << get_value(s);
+        if (s->interpreted())
+            out << ",<interpreted>";
         if (is_concat(s))
             out << ",<concat>";
         if (is_equality(s))
@@ -1462,6 +1535,8 @@ namespace polysat {
         VERIFY(m_tmp1.empty());
         VERIFY(m_tmp2.empty());
         VERIFY(m_tmp3.empty());
+        if (is_conflict())  // if we break a loop early on conflict, we can't guarantee that all properties are satisfied
+            return true;
         for (enode* s : m_egraph.nodes()) {
             // we use equality enodes only to track disequalities
             if (s->is_equality())
@@ -1472,12 +1547,9 @@ namespace polysat {
                 VERIFY_EQ(var2slice(v)->get_root(), s->get_root());
             }
             // if slice has a value, it should be propagated to its sub-slices
-            if (is_value(s)) {
-                VERIFY(s->is_root());
-                if (has_sub(s)) {
-                    VERIFY(is_value(sub_hi(s)));
-                    VERIFY(is_value(sub_lo(s)));
-                }
+            if (get_value_node(s) && has_sub(s)) {
+                VERIFY(get_value_node(sub_hi(s)));
+                VERIFY(get_value_node(sub_lo(s)));
             }
             // a base slice is never equivalent to a congruence node
             if (is_slice(s) && !has_sub(s)) {
@@ -1491,14 +1563,18 @@ namespace polysat {
                 VERIFY(is_slice(sv));
                 VERIFY(s->num_args() >= 2);
             }
-            // properties below only matter for representatives
+            /////////////////////////////////////////////////////////////////
+            // class properties (i.e., skip non-representatives)
             if (!s->is_root())
                 continue;
+            bool const sub = has_sub(s);
             enode_vector s_base;
             get_base(s, s_base);
             for (enode* n : euf::enode_class(s)) {
                 // equivalence class only contains slices of equal length
                 VERIFY_EQ(width(s), width(n));
+                // either all nodes in the class have subslices or none do
+                SASSERT_EQ(sub, has_sub(n));
                 // bases of equivalent nodes are equivalent
                 enode_vector n_base;
                 get_base(n, n_base);
