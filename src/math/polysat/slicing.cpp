@@ -1233,7 +1233,7 @@ namespace polysat {
     void slicing::add_constraint(signed_constraint c) {
         LOG(c);
         SASSERT(!is_conflict());
-#if 0
+#if 1
         if (!add_fixed_bits(c))
             return;
 #endif
@@ -1246,6 +1246,8 @@ namespace polysat {
         // - we don't prioritize constraints that set larger bit ranges
         //   e.g., c1 sets 3 lower bits, and c2 sets 5 lower bits.
         //   slicing may have both {c1,c2} in justifications while previously we always prefer c2.
+        // - instead of prioritizing constraints (which is annoying to do incrementally), let subsumption take care of this issue.
+        //   if constraint C subsumes constraint D, then we might even want to completely deactivate D in the solver? (not easy if D is on higher level than C).
         // - (we could wait until propagate() to add fixed bits to the egraph. but that would only work on a single decision level.)
         if (c->vars().size() != 1)
             return true;
@@ -1257,6 +1259,7 @@ namespace polysat {
     }
 
     bool slicing::add_fixed_bits(pvar x, unsigned hi, unsigned lo, rational const& value, sat::literal lit) {
+        LOG("add_fixed_bits: v" << x << "[" << hi << ":" << lo << "] = " << value << " by " << lit_pp(m_solver, lit));
         enode_vector& xs = m_tmp3;
         SASSERT(xs.empty());
         mk_slice(var2slice(x), hi, lo, xs, false, false);
