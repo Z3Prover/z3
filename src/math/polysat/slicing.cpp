@@ -543,6 +543,7 @@ namespace polysat {
 
     void slicing::explain_equal(enode* x, enode* y, ptr_vector<void>& out_deps) {
         SASSERT(is_equal(x, y));
+        SASSERT_EQ(width(x), width(y));
         enode_vector& xs = m_tmp2;
         enode_vector& ys = m_tmp3;
         SASSERT(xs.empty());
@@ -561,24 +562,22 @@ namespace polysat {
                 if (rx == ry)
                     explain_class(x, y, out_deps);
                 else {
-                    xs.push_back(sub_hi(rx));
-                    xs.push_back(sub_lo(rx));
-                    ys.push_back(sub_hi(ry));
-                    ys.push_back(sub_lo(ry));
+                    xs.push_back(sub_hi(x));
+                    xs.push_back(sub_lo(x));
+                    ys.push_back(sub_hi(y));
+                    ys.push_back(sub_lo(y));
                 }
             }
             else if (width(x) > width(y)) {
-                enode* const rx = x->get_root();
-                xs.push_back(sub_hi(rx));
-                xs.push_back(sub_lo(rx));
+                xs.push_back(sub_hi(x));
+                xs.push_back(sub_lo(x));
                 ys.push_back(y);
             }
             else {
                 SASSERT(width(x) < width(y));
                 xs.push_back(x);
-                enode* const ry = y->get_root();
-                ys.push_back(sub_hi(ry));
-                ys.push_back(sub_lo(ry));
+                ys.push_back(sub_hi(y));
+                ys.push_back(sub_lo(y));
             }
         }
         SASSERT(ys.empty());
