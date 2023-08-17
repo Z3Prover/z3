@@ -923,7 +923,7 @@ namespace polysat {
         else
             ++m_stats.m_num_propagations;
         LOG(assignment_pp(*this, v, val) << " by " << j);
-        SASSERT(m_viable.is_viable(v, val));
+        SASSERT(j.is_propagation_by_slicing() || m_viable.is_viable(v, val));  // slicing may propagate non-viable values.
         SASSERT(j.is_decision() || j.is_propagation_by_viable() || j.is_propagation_by_slicing());
         SASSERT(j.level() <= m_level);
         SASSERT(!is_assigned(v));
