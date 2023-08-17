@@ -43,6 +43,8 @@ struct mbp_basic_tg::impl {
     void mark_seen(expr *t) { m_seen.mark(t); }
     bool is_seen(expr *t) { return m_seen.is_marked(t); }
 
+    //Split on all ite terms, irrespective of whether
+    //they contain variables/are c-ground
     bool apply() {
         if (!m_use_mdl) return false;
         expr *term, *c, *th, *el;
@@ -60,7 +62,6 @@ struct mbp_basic_tg::impl {
             SASSERT(!m.is_implies(term));
 
             if (is_seen(term)) continue;
-            if (m_tg.is_cgr(term)) continue;
             if (m.is_ite(term, c, th, el)) {
                 mark_seen(term);
                 progress = true;
