@@ -3,7 +3,7 @@ Copyright (c) 2022 Microsoft Corporation
 
 Module Name:
 
-    Extract fixed bits from (univariate) constraints
+    Extract fixed bits of variables from univariate constraints
 
 Author:
 
@@ -35,6 +35,8 @@ namespace polysat {
     bool get_eq_fixed_bits(pdd const& p, fixed_bits& out);
 
     bool get_ule_fixed_lsb(pdd const& lhs, pdd const& rhs, bool is_positive, fixed_bits& out);
+    bool get_ule_fixed_msb(pdd const& lhs, pdd const& rhs, bool is_positive, fixed_bits& out);
+    bool get_ule_fixed_bit(pdd const& lhs, pdd const& rhs, bool is_positive, fixed_bits& out);
     bool get_ule_fixed_bits(pdd const& lhs, pdd const& rhs, bool is_positive, fixed_bits& out);
     bool get_fixed_bits(signed_constraint c, fixed_bits& out);
 
