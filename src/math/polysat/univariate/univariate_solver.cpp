@@ -345,13 +345,14 @@ namespace polysat {
                 parity = mk_numeral(get_parity(get_offset(v_coeff)));
                 return parity;
             }
-            parity = m.mk_fresh_const("parity", bv->mk_sort(bit_width));
+            parity = m.mk_fresh_const("parity", bv->mk_sort(bit_width), false);
             expr* parity_1 = bv->mk_bv_add(parity, mk_numeral(1));
             // if v = 0
             //   then parity = N
             //   else v = (v >> parity) << parity
             //        && v != (v >> parity+1) << parity+1
             // TODO: what about:  v[k:] = 0  &&  v[k+1:] != 0  ==>  parity = k  for each k?
+            // TODO: helper axioms like parity <= N etc.?
             add(m.mk_ite(
                     m.mk_eq(v, mk_numeral(0)),
                     m.mk_eq(parity, mk_numeral(bit_width)),

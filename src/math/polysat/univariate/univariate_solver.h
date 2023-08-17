@@ -74,7 +74,7 @@ namespace polysat {
         bool find_max(rational& out_max);
 
         /**
-         * Find up to two viable values.
+         * Find up to two models.
          *
          * Precondition: check() returned l_true
          * returns: true on success, false on resource out
