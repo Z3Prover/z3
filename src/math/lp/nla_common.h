@@ -82,10 +82,10 @@ struct common {
     void add_deps_of_fixed(lpvar j, u_dependency*& dep);
     class ci_value_manager {
     public:
-        void inc_ref(lp::constraint_dependency* const & v) {
+        void inc_ref(u_dependency* const & v) {
         }
 
-        void dec_ref(lp::constraint_dependency* const& v) {
+        void dec_ref(u_dependency* const& v) {
         }
     };
 
@@ -93,7 +93,7 @@ struct common {
         typedef ci_value_manager        value_manager;
         typedef region  allocator;
         static const bool ref_count = false;
-        typedef lp::constraint_dependency* value;
+        typedef u_dependency* value;
     };
         
     nex* nexvar(const rational& coeff, lpvar j, nex_creator&, u_dependency*&);

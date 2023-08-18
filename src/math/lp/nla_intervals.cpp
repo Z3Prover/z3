@@ -211,10 +211,6 @@ void intervals::set_zero_interval_deps_for_mult(interval& a) {
     a.m_upper_dep = a.m_lower_dep;
 }
 
-u_dependency* intervals::mk_dep(lp::constraint_dependency* ci) {
-    return ci;
-}
-
 u_dependency* intervals::mk_dep(const lp::explanation& expl) {
     u_dependency * r = nullptr;
     for (auto p : expl) 
@@ -249,7 +245,7 @@ std::ostream& intervals::display(std::ostream& out, const interval& i) const {
 template <e_with_deps wd>
 void intervals::set_var_interval(lpvar v, interval& b) {
     TRACE("nla_intervals_details", m_core->print_var(v, tout) << "\n";);
-    lp::constraint_dependency* dep = nullptr;
+    u_dependency* dep = nullptr;
     rational val;
     bool is_strict;
     if (ls().has_lower_bound(v, dep, val, is_strict)) {

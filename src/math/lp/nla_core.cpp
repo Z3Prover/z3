@@ -735,7 +735,7 @@ bool core::is_octagon_term(const lp::lar_term& t, bool & sign, lpvar& i, lpvar &
     return true;
 }
     
-void core::add_equivalence_maybe(const lp::lar_term *t, lpcd* c0, lpcd* c1) {
+void core::add_equivalence_maybe(const lp::lar_term* t, u_dependency* c0, u_dependency* c1) {
     bool sign;
     lpvar i, j;
     if (!is_octagon_term(*t, sign, i, j))

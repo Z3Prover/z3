@@ -926,7 +926,7 @@ namespace lp {
         return ret;
     }
 
-    bool lar_solver::has_lower_bound(var_index var, constraint_dependency*& ci, mpq& value, bool& is_strict) const {
+    bool lar_solver::has_lower_bound(var_index var, u_dependency*& ci, mpq& value, bool& is_strict) const {
 
         if (var >= m_columns_to_ul_pairs.size()) {
             // TBD: bounds on terms could also be used, caller may have to track these.
@@ -945,7 +945,7 @@ namespace lp {
         }
     }
 
-    bool lar_solver::has_upper_bound(var_index var, constraint_dependency*& ci, mpq& value, bool& is_strict) const {
+    bool lar_solver::has_upper_bound(var_index var, u_dependency*& ci, mpq& value, bool& is_strict) const {
 
         if (var >= m_columns_to_ul_pairs.size()) {
             // TBD: bounds on terms could also be used, caller may have to track these.
@@ -1011,7 +1011,7 @@ namespace lp {
             int adj_sign = coeff.is_pos() ? inf_sign : -inf_sign;
             const ul_pair& ul = m_columns_to_ul_pairs[j];
 
-            constraint_dependency* bound_constr_i = adj_sign < 0 ? ul.upper_bound_witness() : ul.lower_bound_witness();
+            u_dependency* bound_constr_i = adj_sign < 0 ? ul.upper_bound_witness() : ul.lower_bound_witness();
             svector<constraint_index> deps;
             m_dependencies.linearize(bound_constr_i, deps);
             for (auto d : deps) {
@@ -2175,7 +2175,7 @@ namespace lp {
         return true;
     }
 
-    bool lar_solver::get_equality_and_right_side_for_term_on_current_x(tv const& t, mpq& rs, constraint_dependency*& ci, bool& upper_bound) const {
+    bool lar_solver::get_equality_and_right_side_for_term_on_current_x(tv const& t, mpq& rs, u_dependency*& ci, bool& upper_bound) const {
         lp_assert(t.is_term());
         unsigned j;
         bool is_int;

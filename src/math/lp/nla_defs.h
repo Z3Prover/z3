@@ -15,9 +15,7 @@
 
 namespace nla {
     typedef lp::constraint_index lpci;
-    typedef lp::constraint_dependency lpcd;
     typedef lp::lconstraint_kind llc;
-    typedef lp::constraint_index     lpci;
     typedef lp::explanation          expl_set;
     typedef lp::var_index            lpvar;
 

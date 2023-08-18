@@ -25,7 +25,6 @@ class intervals {
 public:
     typedef dep_intervals::interval interval;
 private:
-    u_dependency* mk_dep(lp::constraint_dependency* ci);
     u_dependency* mk_dep(lp::explanation const&);
     lp::lar_solver& ls();
     const lp::lar_solver& ls() const;

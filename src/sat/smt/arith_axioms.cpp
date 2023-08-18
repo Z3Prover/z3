@@ -524,7 +524,7 @@ namespace arith {
         return all_divs_valid;
     }
 
-    void solver::fixed_var_eh(theory_var v, lp::constraint_dependency* dep, rational const& bound) {
+    void solver::fixed_var_eh(theory_var v, u_dependency* dep, rational const& bound) {
         theory_var w = euf::null_theory_var;
         enode* x = var2enode(v);
         if (bound.is_zero()) 

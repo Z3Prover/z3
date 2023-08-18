@@ -402,7 +402,7 @@ namespace arith {
     }
 
     void solver::propagate_eqs(lp::tv t, lp::constraint_index ci1, lp::lconstraint_kind k, api_bound& b, rational const& value) {
-        lp::constraint_dependency* ci2;
+        u_dependency* ci2;
         if (k == lp::GE && set_lower_bound(t, ci1, value) && has_upper_bound(t.index(), ci2, value)) {
             fixed_var_eh(b.get_var(), lp().dep_manager().mk_join(lp().dep_manager().mk_leaf(ci1), ci2), value);
         }
@@ -433,7 +433,7 @@ namespace arith {
             // m_solver already tracks bounds on proper variables, but not on terms.
             bool is_strict = false;
             rational b;
-            lp::constraint_dependency* dep = nullptr;
+            u_dependency* dep = nullptr;
             if (is_lower) {
                 return lp().has_lower_bound(tv.id(), dep, b, is_strict) && !is_strict && b == v;
             }
@@ -693,7 +693,7 @@ namespace arith {
 
     void solver::report_equality_of_fixed_vars(unsigned vi1, unsigned vi2) {
         rational bound;
-        lp::constraint_dependency* ci1 = nullptr, *ci2 = nullptr, *ci3 = nullptr, *ci4 = nullptr;
+        u_dependency* ci1 = nullptr, *ci2 = nullptr, *ci3 = nullptr, *ci4 = nullptr;
         theory_var v1 = lp().local_to_external(vi1);
         theory_var v2 = lp().local_to_external(vi2);
         TRACE("arith", tout << "fixed: " << mk_pp(var2expr(v1), m) << " " << mk_pp(var2expr(v2), m) << "\n";);
@@ -730,11 +730,11 @@ namespace arith {
         return x == y || var2enode(x)->get_root() == var2enode(y)->get_root();
     }
 
-    bool solver::has_upper_bound(lpvar vi, lp::constraint_dependency*& ci, rational const& bound) { return has_bound(vi, ci, bound, false); }
+    bool solver::has_upper_bound(lpvar vi, u_dependency*& ci, rational const& bound) { return has_bound(vi, ci, bound, false); }
 
-    bool solver::has_lower_bound(lpvar vi, lp::constraint_dependency*& ci, rational const& bound) { return has_bound(vi, ci, bound, true); }
+    bool solver::has_lower_bound(lpvar vi, u_dependency*& ci, rational const& bound) { return has_bound(vi, ci, bound, true); }
 
-    bool solver::has_bound(lpvar vi, lp::constraint_dependency*& dep, rational const& bound, bool is_lower) {
+    bool solver::has_bound(lpvar vi, u_dependency*& dep, rational const& bound, bool is_lower) {
         if (lp::tv::is_term(vi)) {
             theory_var v = lp().local_to_external(vi);
             rational val;

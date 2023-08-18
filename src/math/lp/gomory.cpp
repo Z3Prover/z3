@@ -50,10 +50,10 @@ class create_cut {
     bool at_upper(unsigned j) const { return lia.at_upper(j); }
     const impq & lower_bound(unsigned j) const { return lia.lower_bound(j); }
     const impq & upper_bound(unsigned j) const  { return lia.upper_bound(j); }
-    constraint_dependency* column_lower_bound_constraint(unsigned j) const { return lia.column_lower_bound_constraint(j); }
-    constraint_dependency* column_upper_bound_constraint(unsigned j) const { return lia.column_upper_bound_constraint(j); }
+    u_dependency* column_lower_bound_constraint(unsigned j) const { return lia.column_lower_bound_constraint(j); }
+    u_dependency* column_upper_bound_constraint(unsigned j) const { return lia.column_upper_bound_constraint(j); }
     bool column_is_fixed(unsigned j) const { return lia.lra.column_is_fixed(j); }
-    void push_explanation(constraint_dependency* d) {
+    void push_explanation(u_dependency* d) {
         for (auto ci : lia.lra.flatten(d))
             m_ex->push_back(ci);
     }

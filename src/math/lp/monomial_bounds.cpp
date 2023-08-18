@@ -149,7 +149,7 @@ namespace nla {
     }
 
     void monomial_bounds::var2interval(lpvar v, scoped_dep_interval& i) {
-        lp::constraint_dependency* d = nullptr;
+        u_dependency* d = nullptr;
         rational bound;
         bool is_strict;
         if (c().has_lower_bound(v, d, bound, is_strict)) {

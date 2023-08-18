@@ -90,7 +90,7 @@ class lar_solver : public column_namer {
     indexed_uint_set m_columns_with_changed_bounds;
     indexed_uint_set m_touched_rows;
     unsigned_vector m_row_bounds_to_replay;
-    constraint_dependencies m_dependencies;
+    u_dependency_manager m_dependencies;
     svector<constraint_index> m_tmp_dependencies;
 
     indexed_uint_set m_basic_columns_with_changed_cost;
@@ -314,10 +314,10 @@ class lar_solver : public column_namer {
             int a_sign = is_pos(a) ? 1 : -1;
             int sign = j_sign * a_sign;
             const ul_pair& ul = m_columns_to_ul_pairs[j];
-            auto witness = sign > 0 ? ul.upper_bound_witness() : ul.lower_bound_witness();
+            auto* witness = sign > 0 ? ul.upper_bound_witness() : ul.lower_bound_witness();
             lp_assert(witness);
-            NOT_IMPLEMENTED_YET();
-//            bp.consume(a, witness);
+            for (auto ci : flatten(witness))
+                bp.consume(a, ci);
         }
     }
 
@@ -465,20 +465,20 @@ class lar_solver : public column_namer {
         return m_mpq_lar_core_solver.m_r_solver.column_has_lower_bound(j);
     }
 
-    svector<constraint_index> const& flatten(constraint_dependency* d) {
+    svector<constraint_index> const& flatten(u_dependency* d) {
         m_tmp_dependencies.reset();
         m_dependencies.linearize(d, m_tmp_dependencies);
         return m_tmp_dependencies;
     }
 
-    void push_explanation(constraint_dependency* d, explanation& ex) {
+    void push_explanation(u_dependency* d, explanation& ex) {
         for (auto ci : flatten(d))
             ex.push_back(ci);
     }
 
-    constraint_dependencies& dep_manager() { return m_dependencies; }
+    u_dependency_manager& dep_manager() { return m_dependencies; }
 
-    inline constraint_dependency* get_column_upper_bound_witness(unsigned j) const {
+    inline u_dependency* get_column_upper_bound_witness(unsigned j) const {
         if (tv::is_term(j)) {
             j = m_var_register.external_to_local(j);
         }
@@ -492,8 +492,8 @@ class lar_solver : public column_namer {
     inline const impq& get_lower_bound(column_index j) const {
         return m_mpq_lar_core_solver.m_r_solver.m_lower_bounds[j];
     }
-    bool has_lower_bound(var_index var, constraint_dependency*& ci, mpq& value, bool& is_strict) const;
-    bool has_upper_bound(var_index var, constraint_dependency*& ci, mpq& value, bool& is_strict) const;
+    bool has_lower_bound(var_index var, u_dependency*& ci, mpq& value, bool& is_strict) const;
+    bool has_upper_bound(var_index var, u_dependency*& ci, mpq& value, bool& is_strict) const;
     bool has_value(var_index var, mpq& value) const;
     bool fetch_normalized_term_column(const lar_term& t, std::pair<mpq, lpvar>&) const;
     unsigned map_term_index_to_column_index(unsigned j) const;
@@ -548,7 +548,7 @@ class lar_solver : public column_namer {
 
     std::pair<constraint_index, constraint_index> add_equality(lpvar j, lpvar k);
 
-    constraint_dependency* get_bound_constraint_witnesses_for_column(unsigned j) {
+    u_dependency* get_bound_constraint_witnesses_for_column(unsigned j) {
         const ul_pair& ul = m_columns_to_ul_pairs[j];
         return m_dependencies.mk_join(ul.lower_bound_witness(), ul.upper_bound_witness());
     }
@@ -556,7 +556,7 @@ class lar_solver : public column_namer {
     void push();
     void pop();
 
-    inline constraint_dependency* get_column_lower_bound_witness(unsigned j) const {
+    inline u_dependency* get_column_lower_bound_witness(unsigned j) const {
         if (tv::is_term(j)) {
             j = m_var_register.external_to_local(j);
         }
@@ -619,7 +619,7 @@ class lar_solver : public column_namer {
     inline const column_strip& get_column(unsigned i) const { return A_r().m_columns[i]; }
     bool row_is_correct(unsigned i) const;
     bool ax_is_correct() const;
-    bool get_equality_and_right_side_for_term_on_current_x(tv const& t, mpq& rs, constraint_dependency*& ci, bool& upper_bound) const;
+    bool get_equality_and_right_side_for_term_on_current_x(tv const& t, mpq& rs, u_dependency*& ci, bool& upper_bound) const;
     bool var_is_int(var_index v) const;
     inline const vector<int>& r_heading() const { return m_mpq_lar_core_solver.m_r_heading; }
     inline const vector<unsigned>& r_basis() const { return m_mpq_lar_core_solver.r_basis(); }
