@@ -76,7 +76,7 @@ namespace polysat {
             return false;
         if (try_nonzero_upper_extract(v, core, i))
             prop = true;
-        if (try_ugt_eq(v, core, i))
+        if (try_congruence(v, core, i))
             prop = true;
         if (try_mul_bounds(v, core, i))
             prop = true;
@@ -111,20 +111,26 @@ namespace polysat {
         return prop;
     }
 
-    bool saturation::try_ugt_eq(pvar x, conflict& core, inequality const& i) {
-        set_rule("egraph(x == y) & p(x,y) > q(x,y) ==> p(y,y) > q(y,y)");
-        if (!i.is_strict())
-            return false;
+    bool saturation::try_congruence(pvar x, conflict& core, inequality const& i) {
+        set_rule("egraph(x == y) & C(x,y) ==> C(y,y)");
+        // TODO: generalize to other constraint types?
+        // if (!i.is_strict())
+        //     return false;
         // if (!core.vars().contains(x))
         //     return false;
         if (!i.as_signed_constraint().contains_var(x))
             return false;
         for (pvar y : s.m_slicing.equivalent_vars(x)) {
+            if (x == y)
+                continue;
+            if (!s.is_assigned(y))
+                continue;
             if (!core.vars().contains(y))
                 continue;
             if (!i.as_signed_constraint().contains_var(y))
                 continue;
-            // does inequality become false by plugging in x = y?
+            SASSERT_EQ(s.get_level(y), s.get_level(x));  // propagated by slicing egraph since they are equivalent
+            SASSERT(s.m_search.get_pvar_index(y) < s.m_search.get_pvar_index(x));  // y was the earlier one since we are currently resolving x
             pdd const lhs = i.lhs().subst_pdd(x, s.var(y));
             pdd const rhs = i.rhs().subst_pdd(x, s.var(y));
             signed_constraint c = ineq(true, lhs, rhs);
