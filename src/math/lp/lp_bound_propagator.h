@@ -228,33 +228,33 @@ class lp_bound_propagator {
         return lp().column_is_int(j);
     }
 
-    void explain_fixed_in_row(unsigned row, explanation& ex) const {
+    void explain_fixed_in_row(unsigned row, explanation& ex) {
         TRACE("eq", tout << lp().get_row(row) << std::endl);
         for (const auto& c : lp().get_row(row))
             if (lp().is_fixed(c.var()))
                 explain_fixed_column(c.var(), ex);
     }
 
-    unsigned explain_fixed_in_row_and_get_base(unsigned row, explanation& ex) const {
+    unsigned explain_fixed_in_row_and_get_base(unsigned row, explanation& ex) {
         unsigned base = UINT_MAX;
         TRACE("eq", tout << lp().get_row(row) << std::endl);
         for (const auto& c : lp().get_row(row)) {
             if (lp().is_fixed(c.var())) {
                 explain_fixed_column(c.var(), ex);
-            } else if (lp().is_base(c.var())) {
+            } 
+            else if (lp().is_base(c.var())) {
                 base = c.var();
             }
         }
         return base;
     }
 
-    void explain_fixed_column(unsigned j, explanation& ex) const {
+    void explain_fixed_column(unsigned j, explanation& ex) {
         SASSERT(column_is_fixed(j));
-        constraint_index lc, uc;
-        lp().get_bound_constraint_witnesses_for_column(j, lc, uc);
-        ex.push_back(lc);
-        if (lc != uc)
-            ex.push_back(uc);
+        unsigned_vector deps;
+        lp().get_bound_constraint_witnesses_for_column(j, deps);
+        for (auto ci : deps)
+            ex.push_back(ci);
     }
 #ifdef Z3DEBUG
     bool all_fixed_in_row(unsigned row) const {
