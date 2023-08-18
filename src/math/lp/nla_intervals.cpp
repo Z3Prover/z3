@@ -4,6 +4,11 @@
 #include "util/mpq.h"
 
 namespace nla {
+
+intervals::intervals(core* c, reslimit& lim):
+    m_dep_intervals(c->m_lar_solver.dep_manager(), lim),
+    m_core(c) {}
+
 typedef enum dep_intervals::with_deps_t e_with_deps;
 
 const nex* intervals::get_inf_interval_child(const nex_sum& e) const {

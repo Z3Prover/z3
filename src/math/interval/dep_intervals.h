@@ -27,6 +27,7 @@
 #include "math/interval/interval.h"
 
 class dep_intervals {
+
 public:
     enum with_deps_t { with_deps, without_deps };
 
@@ -142,8 +143,9 @@ private:
 public:
     typedef interval_manager<im_config>::interval interval;
 
+    u_dependency_manager&               m_dep_manager;
     mutable unsynch_mpq_manager         m_num_manager;
-    mutable u_dependency_manager        m_dep_manager;
+
     im_config                           m_config;
     mutable interval_manager<im_config> m_imanager;
 
@@ -158,9 +160,10 @@ public:
 public:
     u_dependency_manager& dep_manager() { return m_dep_manager; }
 
-    dep_intervals(reslimit& lim) :
-        m_config(m_num_manager, m_dep_manager),
-        m_imanager(lim, im_config(m_num_manager, m_dep_manager))
+    dep_intervals(u_dependency_manager& dm, reslimit& lim) :
+        m_dep_manager(dm),
+        m_config(m_num_manager, dm),
+        m_imanager(lim, im_config(m_num_manager, dm))
     {}
 
     std::ostream& display(std::ostream& out, const interval& i) const;
