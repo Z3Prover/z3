@@ -16,9 +16,6 @@
 #include "math/polynomial/algebraic_numbers.h"
 
 namespace nla {
-
-    nla_settings& solver::settings() { return m_core->m_nla_settings; }
-
     void solver::add_monic(lpvar v, unsigned sz, lpvar const* vs) {
         m_core->add_monic(v, sz, vs);
     }

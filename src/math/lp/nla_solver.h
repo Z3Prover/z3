@@ -13,7 +13,6 @@ Author:
 #include "util/params.h"
 #include "math/lp/lar_solver.h"
 #include "math/lp/monic.h"
-#include "math/lp/nla_settings.h"
 #include "math/lp/nla_core.h"
 namespace nra {
     class solver;
@@ -34,7 +33,6 @@ namespace nla {
         void add_bounded_division(lpvar q, lpvar x, lpvar y);
         void check_bounded_divisions(vector<lemma>&);
         void set_relevant(std::function<bool(lpvar)>& is_relevant);
-        nla_settings& settings();
         void push();
         void pop(unsigned scopes);
         bool need_check();

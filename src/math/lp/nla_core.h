@@ -22,7 +22,6 @@
 #include "math/lp/nla_powers.h"
 #include "math/lp/nla_divisions.h"
 #include "math/lp/emonics.h"
-#include "math/lp/nla_settings.h"
 #include "math/lp/nex.h"
 #include "math/lp/horner.h"
 #include "math/lp/monomial_bounds.h"
@@ -55,7 +54,6 @@ class core {
     friend struct tangents;
     friend class monotone;
     friend class powers;
-    friend struct nla_settings;
     friend class intervals;
     friend class horner;
     friend class solver;
@@ -95,8 +93,7 @@ class core {
     divisions                m_divisions;
     intervals                m_intervals; 
     monomial_bounds          m_monomial_bounds;
-    nla_settings             m_nla_settings;        
-
+    
     horner                   m_horner;
     grobner                  m_grobner;
     emonics                  m_emons;
