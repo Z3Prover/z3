@@ -445,6 +445,7 @@ namespace polysat {
         // a base slice is never equivalent to a congruence node.
         SASSERT(is_slice(s));
         SASSERT(!has_sub(s));
+        SASSERT(cut != null_cut);
         // split all slices in the equivalence class
         for (enode* n : euf::enode_class(s))
             split_core(n, cut);
@@ -523,6 +524,7 @@ namespace polysat {
     }
 
     slicing::enode* slicing::mk_value_slice(rational const& val, unsigned bit_width) {
+        SASSERT(bit_width > 0);
         SASSERT(0 <= val && val < rational::power_of_two(bit_width));
         sort* bv_sort = m_bv->mk_sort(bit_width);
         func_decl_ref f(m_ast.mk_fresh_func_decl("val", nullptr, 1, &bv_sort, bv_sort, false), m_ast);
@@ -1100,7 +1102,8 @@ namespace polysat {
             }
             else if (width(x) > width(y)) {
                 if (!has_sub(x))
-                    split(x, get_cut(y));
+                    split(x, width(y) - 1);
+                    // split(x, has_sub(y) ? get_cut(y) : (width(y) - 1));
                 xs.push_back(sub_hi(x));
                 xs.push_back(sub_lo(x));
                 ys.push_back(y);
@@ -1108,7 +1111,8 @@ namespace polysat {
             else {
                 SASSERT(width(y) > width(x));
                 if (!has_sub(y))
-                    split(y, get_cut(x));
+                    split(y, width(x) - 1);
+                    // split(y, has_sub(x) ? get_cut(x) : (width(x) - 1));
                 ys.push_back(sub_hi(y));
                 ys.push_back(sub_lo(y));
                 xs.push_back(x);
