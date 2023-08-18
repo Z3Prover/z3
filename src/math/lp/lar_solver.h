@@ -47,6 +47,8 @@ namespace lp {
 
 class int_branch;
 class int_solver;
+
+    
 class lar_solver : public column_namer {
     struct term_hasher {
         std::size_t operator()(const lar_term& t) const {
@@ -88,6 +90,7 @@ class lar_solver : public column_namer {
     indexed_uint_set m_columns_with_changed_bounds;
     indexed_uint_set m_touched_rows;
     unsigned_vector m_row_bounds_to_replay;
+    constraint_dependencies m_dependencies;
 
     indexed_uint_set m_basic_columns_with_changed_cost;
     // these are basic columns with the value changed, so the corresponding row in the tableau
