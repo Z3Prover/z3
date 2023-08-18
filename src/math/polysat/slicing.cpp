@@ -1385,6 +1385,8 @@ namespace polysat {
 
     bool slicing::add_value(pvar v, rational const& value, sat::literal lit) {
         enode* const sv = var2slice(v);
+        if (get_value_node(sv) && get_value(get_value_node(sv)) == value)
+            return true;
         enode* const sval = mk_value_slice(value, width(sv));
         return merge(sv, sval, mk_var_dep(v, sv, lit));
     }
@@ -1635,16 +1637,14 @@ namespace polysat {
             if (!s->is_root())
                 continue;
             bool const sub = has_sub(s);
-            enode_vector s_base;
-            get_base(s, s_base);
+            enode_vector const s_base = get_base(s);
             for (enode* n : euf::enode_class(s)) {
                 // equivalence class only contains slices of equal length
                 VERIFY_EQ(width(s), width(n));
                 // either all nodes in the class have subslices or none do
                 SASSERT_EQ(sub, has_sub(n));
                 // bases of equivalent nodes are equivalent
-                enode_vector n_base;
-                get_base(n, n_base);
+                enode_vector const n_base = get_base(n);
                 VERIFY_EQ(s_base.size(), n_base.size());
                 for (unsigned i = s_base.size(); i-- > 0; ) {
                     VERIFY_EQ(s_base[i]->get_root(), n_base[i]->get_root());
