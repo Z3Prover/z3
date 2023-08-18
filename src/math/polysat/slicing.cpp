@@ -43,7 +43,8 @@ TODO:
 - track equalities such as x = -y ?
 - on_merge could propagate values upwards:
     if slice has value but parent has no value, then check if sub_other(parent(s)) [sibling(s)?] has a value.
-    if yes, can propagate value upwards. (add a congruence term to track deps properly?)
+    if yes, can propagate value upwards. (add a congruence term to track deps properly?).
+    we have to check the whole equivalence class, because the parents may be in different classes.
 
 */
 
@@ -53,6 +54,9 @@ TODO:
 #include "math/polysat/solver.h"
 #include "math/polysat/log.h"
 #include "util/tptr.h"
+
+
+#define PROPAGATE_UPWARDS 0
 
 namespace {
 
@@ -229,6 +233,7 @@ namespace polysat {
         }
         m_egraph.pop(num_scopes);
         m_needs_congruence.reset();
+        m_to_propagate_upwards.reset();
         m_disequality_conflict = nullptr;
         m_dep_var.shrink(m_dep_size_trail[target_lvl]);
         m_dep_lit.shrink(m_dep_size_trail[target_lvl]);
@@ -907,6 +912,11 @@ namespace polysat {
             if (!v2) set_value_node(other, v1);
             rational const val = get_value(v1 ? v1 : v2);
             for (enode* n : euf::enode_class(other)) {
+#if PROPAGATE_UPWARDS
+                if (is_proper_slice(n))
+                    if (enode* p = parent(n))
+                        m_to_propagate_upwards.push_back(p);
+#endif
                 pvar const v = slice2var(n);
                 if (v == null_var)
                     continue;
@@ -917,6 +927,50 @@ namespace polysat {
             }
         }
     }
+
+#if PROPAGATE_UPWARDS
+    void slicing::propagate_value_upwards(enode* p) {
+        LOG("propagate value upwards to: " << slice_pp(*this, p));
+        if (get_value_node(p))
+            return;
+        enode* p_hi = sub_hi(p);
+        enode* p_lo = sub_lo(p);
+        if (!get_value_node(p_hi))
+            return;
+        if (!get_value_node(p_lo))
+            return;
+        // both children of p have a value, but p itself does not => propagate upwards by congruence
+        enode* v_hi = get_value_node(p_hi);
+        enode* v_lo = get_value_node(p_lo);
+        unsigned const w_hi = width(v_hi);
+        unsigned const w_lo = width(v_lo);
+        rational value = get_value(v_hi) * rational::power_of_two(w_lo) + get_value(v_lo);
+        enode* v_concat = mk_concat_node({v_hi, v_lo});
+        if (m_info[v_concat->get_id()].slice) {
+            enode* v = mk_value_slice(value, w_hi + w_lo);
+            info(v).set_cut(get_cut(p), v_hi, v_lo);
+            // v == concat(v_hi, v_lo)
+            add_concat_node(v, v_concat);
+        }
+        // p == concat(p_hi, p_lo)
+        add_concat_node(p, mk_concat_node({p_hi, p_lo}));
+        // TODO: continue with parent(p) and equivalents if possible?
+        // TODO: it's probably enough to do this for variables on base slices, but how to efficiently detect when value congruence is available? (could count the number of unassigned base slices in the parent)
+    }
+
+    void slicing::propagate_values_upwards() {
+        SASSERT(all_of(m_egraph.nodes(), [](enode* n){ return !n->is_marked3(); }));
+        for (enode* p : m_to_propagate_upwards) {
+            if (p->is_marked3())
+                continue;
+            p->mark3();
+            propagate_value_upwards(p);
+        }
+        for (enode* p : m_to_propagate_upwards)
+            p->unmark3();
+        m_to_propagate_upwards.reset();
+    }
+#endif
 
     void slicing::set_value_node(enode* s, enode* value_node) {
         SASSERT(!info(s).value_node);
@@ -950,6 +1004,8 @@ namespace polysat {
     bool slicing::can_propagate() const {
         if (use_var_congruences() && !m_needs_congruence.empty())
             return true;
+        if (!m_to_propagate_upwards.empty())
+            return true;
         return m_egraph.can_propagate();
     }
 
@@ -958,6 +1014,9 @@ namespace polysat {
         if (is_conflict())
             return;
         update_var_congruences();
+#if PROPAGATE_UPWARDS
+        propagate_values_upwards();
+#endif
         m_egraph.propagate();
     }
 
