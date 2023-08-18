@@ -33,7 +33,7 @@ public:
 private:
     class im_config {
         unsynch_mpq_manager& m_manager;
-        v_dependency_manager& m_dep_manager;
+        u_dependency_manager& m_dep_manager;
 
     public:
         typedef unsynch_mpq_manager numeral_manager;
@@ -50,8 +50,8 @@ private:
             unsigned  m_upper_open : 1;
             unsigned  m_lower_inf : 1;
             unsigned  m_upper_inf : 1;
-            v_dependency* m_lower_dep; // justification for the lower bound
-            v_dependency* m_upper_dep; // justification for the upper bound
+            u_dependency* m_lower_dep; // justification for the lower bound
+            u_dependency* m_upper_dep; // justification for the upper bound
         };
 
         void add_deps(interval const& a, interval const& b, interval_deps_combine_rule const& deps, interval& i) const {
@@ -101,16 +101,16 @@ private:
         void set_upper_is_open(interval& a, bool v) const { a.m_upper_open = v; }
         void set_lower_is_inf(interval& a, bool v) const { a.m_lower_inf = v; }
         void set_upper_is_inf(interval& a, bool v) const { a.m_upper_inf = v; }
-        void set_lower_dep(interval& a, v_dependency* d) const { a.m_lower_dep = d; }
-        void set_upper_dep(interval& a, v_dependency* d) const { a.m_upper_dep = d; }
+        void set_lower_dep(interval& a, u_dependency* d) const { a.m_lower_dep = d; }
+        void set_upper_dep(interval& a, u_dependency* d) const { a.m_upper_dep = d; }
 
         // Reference to numeral manager
         numeral_manager& m() const { return m_manager; }
 
-        im_config(numeral_manager& m, v_dependency_manager& d) :m_manager(m), m_dep_manager(d) {}
+        im_config(numeral_manager& m, u_dependency_manager& d) :m_manager(m), m_dep_manager(d) {}
     private:
-        v_dependency* mk_dependency(interval const& a, interval const& b, deps_combine_rule bd) const {
-            v_dependency* dep = nullptr;
+        u_dependency* mk_dependency(interval const& a, interval const& b, deps_combine_rule bd) const {
+            u_dependency* dep = nullptr;
             if (dep_in_lower1(bd)) {
                 dep = m_dep_manager.mk_join(dep, a.m_lower_dep);
             }
@@ -126,8 +126,8 @@ private:
             return dep;
         }
 
-        v_dependency* mk_dependency(interval const& a, deps_combine_rule bd) const {
-            v_dependency* dep = nullptr;
+        u_dependency* mk_dependency(interval const& a, deps_combine_rule bd) const {
+            u_dependency* dep = nullptr;
             if (dep_in_lower1(bd)) {
                 dep = m_dep_manager.mk_join(dep, a.m_lower_dep);
             }
@@ -143,7 +143,7 @@ public:
     typedef interval_manager<im_config>::interval interval;
 
     mutable unsynch_mpq_manager         m_num_manager;
-    mutable v_dependency_manager        m_dep_manager;
+    mutable u_dependency_manager        m_dep_manager;
     im_config                           m_config;
     mutable interval_manager<im_config> m_imanager;
 
@@ -151,12 +151,12 @@ public:
     unsynch_mpq_manager& num_manager() { return m_num_manager; }
     const unsynch_mpq_manager& num_manager() const { return m_num_manager; }
     
-    v_dependency* mk_leaf(void* d) { return m_dep_manager.mk_leaf(d); }
-    v_dependency* mk_join(v_dependency* a, v_dependency* b) { return m_dep_manager.mk_join(a, b); }
+    u_dependency* mk_leaf(unsigned d) { return m_dep_manager.mk_leaf(d); }
+    u_dependency* mk_join(u_dependency* a, u_dependency* b) { return m_dep_manager.mk_join(a, b); }
 
 
 public:
-    v_dependency_manager& dep_manager() { return m_dep_manager; }
+    u_dependency_manager& dep_manager() { return m_dep_manager; }
 
     dep_intervals(reslimit& lim) :
         m_config(m_num_manager, m_dep_manager),
@@ -170,8 +170,8 @@ public:
     void set_lower_is_inf(interval& a, bool inf) const { m_config.set_lower_is_inf(a, inf); }
     void set_upper_is_open(interval& a, bool strict) const { m_config.set_upper_is_open(a, strict); }
     void set_upper_is_inf(interval& a, bool inf) const { m_config.set_upper_is_inf(a, inf); }
-    void set_lower_dep(interval& a, v_dependency* d) const { m_config.set_lower_dep(a, d); }
-    void set_upper_dep(interval& a, v_dependency* d) const { m_config.set_upper_dep(a, d); }
+    void set_lower_dep(interval& a, u_dependency* d) const { m_config.set_lower_dep(a, d); }
+    void set_upper_dep(interval& a, u_dependency* d) const { m_config.set_upper_dep(a, d); }
     void reset(interval& a) const { set_lower_is_inf(a, true); set_upper_is_inf(a, true); }
     void set_value(interval& a, rational const& n) const { 
         set_lower(a, n); 
@@ -295,7 +295,7 @@ public:
 
 
     void set_zero_interval_deps_for_mult(interval&);
-    void set_zero_interval(interval&, v_dependency* dep = nullptr) const;
+    void set_zero_interval(interval&, u_dependency* dep = nullptr) const;
     bool is_inf(const interval& i) const { return m_config.is_inf(i); }
     bool separated_from_zero_on_lower(const interval&) const;
     bool separated_from_zero_on_upper(const interval&) const;
@@ -304,11 +304,11 @@ public:
     }
     // if the separation happens then call f()
     template <typename T> 
-    bool check_interval_for_conflict_on_zero(const interval& i, v_dependency* dep, std::function<void (const T&)> f) {
+    bool check_interval_for_conflict_on_zero(const interval& i, u_dependency* dep, std::function<void (const T&)> f) {
         return check_interval_for_conflict_on_zero_lower(i, dep, f) || check_interval_for_conflict_on_zero_upper(i, dep, f);
     }
     template <typename T> 
-    bool check_interval_for_conflict_on_zero_lower(const interval& i, v_dependency* dep, std::function<void (const T&)> f) {
+    bool check_interval_for_conflict_on_zero_lower(const interval& i, u_dependency* dep, std::function<void (const T&)> f) {
         if (!separated_from_zero_on_lower(i)) {
             return false;
         }
@@ -320,7 +320,7 @@ public:
         return true;
     }
     template <typename T> 
-    bool check_interval_for_conflict_on_zero_upper(const interval& i, v_dependency* dep, std::function<void (const T&)> f) {
+    bool check_interval_for_conflict_on_zero_upper(const interval& i, u_dependency* dep, std::function<void (const T&)> f) {
         if (!separated_from_zero_on_upper(i))
             return false;
         TRACE("dep_intervals", display(tout, i););
@@ -335,17 +335,15 @@ public:
 
     bool is_empty(interval const& a) const;
     void set_interval_for_scalar(interval&, const rational&);
-#if 0
-        TODO:
+
     template <typename T> 
-    void linearize(v_dependency* dep, T& expl) const {
-        vector<void*, false> v;
+    void linearize(u_dependency* dep, T& expl) const {
+        vector<unsigned, false> v;
         m_dep_manager.linearize(dep, v);
-        for (auto* ci: v)
-            expl.push_back(static_cast<T>(ci));
+        for (auto ci: v)
+            expl.push_back(ci);
     }
 
-#endif
 
     void reset() { m_dep_manager.reset(); }
 

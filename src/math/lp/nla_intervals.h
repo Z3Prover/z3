@@ -25,8 +25,8 @@ class intervals {
 public:
     typedef dep_intervals::interval interval;
 private:
-    v_dependency* mk_dep(lp::constraint_dependency* ci);
-    v_dependency* mk_dep(lp::explanation const&);
+    u_dependency* mk_dep(lp::constraint_dependency* ci);
+    u_dependency* mk_dep(lp::explanation const&);
     lp::lar_solver& ls();
     const lp::lar_solver& ls() const;
 public:
@@ -36,10 +36,10 @@ public:
         m_core(c)
     {}
     dep_intervals& get_dep_intervals() { return m_dep_intervals; }
-    v_dependency* mk_join(v_dependency* a, v_dependency* b) { return m_dep_intervals.mk_join(a, b); }
-    v_dependency* mk_leaf(lp::constraint_dependency* ci) { return m_dep_intervals.mk_leaf(ci); }
+    u_dependency* mk_join(u_dependency* a, u_dependency* b) { return m_dep_intervals.mk_join(a, b); }
+    u_dependency* mk_leaf(lp::constraint_index ci) { return m_dep_intervals.mk_leaf(ci); }
 
-    std::ostream& print_dependencies(v_dependency*, std::ostream&) const;
+    std::ostream& print_dependencies(u_dependency*, std::ostream&) const;
     std::ostream& display(std::ostream& out, const intervals::interval& i) const;
     void set_lower(interval& a, rational const& n) const { m_dep_intervals.set_lower(a, n.to_mpq()); }
     void set_upper(interval& a, rational const& n) const { m_dep_intervals.set_upper(a, n.to_mpq()); }
@@ -78,7 +78,7 @@ public:
     void set_zero_interval(interval&);
     bool is_inf(const interval& i) const { return m_dep_intervals.is_inf(i); }
 
-    bool check_nex(const nex*, v_dependency*);
+    bool check_nex(const nex*, u_dependency*);
     const nex* get_zero_interval_child(const nex_mul&) const;
     const nex* get_inf_interval_child(const nex_sum&) const;
     bool has_zero_interval(const nex&) const;
@@ -88,7 +88,7 @@ public:
     static void add_linear_to_vector(const nex*, vector<std::pair<rational, lpvar>>&);
     static void add_mul_of_degree_one_to_vector(const nex_mul*, vector<std::pair<rational, lpvar>>&);
     lpvar find_term_column(const lp::lar_term&, rational& a) const;
-    std::ostream& display_separating_interval(std::ostream& out, const nex*n, const scoped_dep_interval& interv_wd, v_dependency* initial_deps);
+    std::ostream& display_separating_interval(std::ostream& out, const nex*n, const scoped_dep_interval& interv_wd, u_dependency* initial_deps);
     bool conflict_u_l(const interval& a, const interval& b) const;
 
 }; // end of intervals

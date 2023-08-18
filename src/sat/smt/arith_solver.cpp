@@ -402,12 +402,12 @@ namespace arith {
     }
 
     void solver::propagate_eqs(lp::tv t, lp::constraint_index ci1, lp::lconstraint_kind k, api_bound& b, rational const& value) {
-        lp::constraint_index ci2;
+        lp::constraint_dependency* ci2;
         if (k == lp::GE && set_lower_bound(t, ci1, value) && has_upper_bound(t.index(), ci2, value)) {
-            fixed_var_eh(b.get_var(), ci1, ci2, value);
+            fixed_var_eh(b.get_var(), lp().dep_manager().mk_join(lp().dep_manager().mk_leaf(ci1), ci2), value);
         }
         else if (k == lp::LE && set_upper_bound(t, ci1, value) && has_lower_bound(t.index(), ci2, value)) {
-            fixed_var_eh(b.get_var(), ci1, ci2, value);
+            fixed_var_eh(b.get_var(), lp().dep_manager().mk_join(lp().dep_manager().mk_leaf(ci1), ci2), value);
         }
     }
 
@@ -693,7 +693,7 @@ namespace arith {
 
     void solver::report_equality_of_fixed_vars(unsigned vi1, unsigned vi2) {
         rational bound;
-        lp::constraint_index ci1, ci2, ci3, ci4;
+        lp::constraint_dependency* ci1 = nullptr, *ci2 = nullptr, *ci3 = nullptr, *ci4 = nullptr;
         theory_var v1 = lp().local_to_external(vi1);
         theory_var v2 = lp().local_to_external(vi2);
         TRACE("arith", tout << "fixed: " << mk_pp(var2expr(v1), m) << " " << mk_pp(var2expr(v2), m) << "\n";);
@@ -715,10 +715,10 @@ namespace arith {
         ++m_stats.m_fixed_eqs;
         reset_evidence();
         m_explanation.clear();
-        consume(rational::one(), ci1);
-        consume(rational::one(), ci2);
-        consume(rational::one(), ci3);
-        consume(rational::one(), ci4);
+        auto& dm = lp().dep_manager();
+        auto* d = dm.mk_join(dm.mk_join(ci1, ci2), dm.mk_join(ci3, ci4));
+        for (auto ci : lp().flatten(d))
+            consume(rational::one(), ci);
         enode* x = var2enode(v1);
         enode* y = var2enode(v2);
         auto* ex = explain_implied_eq(m_explanation, x, y);
@@ -730,26 +730,28 @@ namespace arith {
         return x == y || var2enode(x)->get_root() == var2enode(y)->get_root();
     }
 
-    bool solver::has_upper_bound(lpvar vi, lp::constraint_index& ci, rational const& bound) { return has_bound(vi, ci, bound, false); }
+    bool solver::has_upper_bound(lpvar vi, lp::constraint_dependency*& ci, rational const& bound) { return has_bound(vi, ci, bound, false); }
 
-    bool solver::has_lower_bound(lpvar vi, lp::constraint_index& ci, rational const& bound) { return has_bound(vi, ci, bound, true); }
+    bool solver::has_lower_bound(lpvar vi, lp::constraint_dependency*& ci, rational const& bound) { return has_bound(vi, ci, bound, true); }
 
-    bool solver::has_bound(lpvar vi, lp::constraint_index& ci, rational const& bound, bool is_lower) {
+    bool solver::has_bound(lpvar vi, lp::constraint_dependency*& ci, rational const& bound, bool is_lower) {
         if (lp::tv::is_term(vi)) {
             theory_var v = lp().local_to_external(vi);
             rational val;
             TRACE("arith", tout << lp().get_variable_name(vi) << " " << v << "\n";);
             if (v != euf::null_theory_var && a.is_numeral(var2expr(v), val) && bound == val) {
-                ci = UINT_MAX;
+                ci = nullptr;
                 return bound == val;
             }
 
             auto& vec = is_lower ? m_lower_terms : m_upper_terms;
             lpvar ti = lp::tv::unmask_term(vi);
             if (vec.size() > ti) {
-                constraint_bound& b = vec[ti];
-                ci = b.first;
-                return ci != UINT_MAX && bound == b.second;
+                auto& [dep, coeff] = vec[ti];
+                if (dep == UINT_MAX)
+                    return false;
+                ci = lp().dep_manager().mk_leaf(dep);
+                return bound == coeff;
             }
             else {
                 return false;

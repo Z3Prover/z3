@@ -85,9 +85,9 @@ public:
         eq_state                   m_state; 
         unsigned                   m_idx;        //!< unique index
         pdd                        m_poly;       //!< polynomial in pdd form
-        v_dependency *             m_dep;        //!< justification for the equality
+        u_dependency *             m_dep;        //!< justification for the equality
     public:
-        equation(pdd const& p, v_dependency* d): 
+        equation(pdd const& p, u_dependency* d): 
             m_state(to_simplify),
             m_idx(0),
             m_poly(p),
@@ -97,10 +97,10 @@ public:
         }
 
         const pdd& poly() const { return m_poly; }        
-        v_dependency * dep() const { return m_dep; }
+        u_dependency * dep() const { return m_dep; }
         unsigned idx() const { return m_idx; }
         void operator=(pdd const& p) { m_poly = p; }
-        void operator=(v_dependency* d) { m_dep = d; }
+        void operator=(u_dependency* d) { m_dep = d; }
         eq_state state() const { return m_state; }
         void set_state(eq_state st) { m_state = st; }
         void set_index(unsigned idx) { m_idx = idx; }
@@ -108,23 +108,23 @@ public:
 private:
 
     typedef ptr_vector<equation> equation_vector;
-    typedef std::function<void (v_dependency* d, std::ostream& out)> print_dep_t;
+    typedef std::function<void (u_dependency* d, std::ostream& out)> print_dep_t;
 
     pdd_manager&                                 m;
     reslimit&                                    m_limit;
+    u_dependency_manager&                        m_dep_manager;
     stats                                        m_stats;
     config                                       m_config;
     print_dep_t                                  m_print_dep;
     equation_vector                              m_solved; // equations with solved variables, triangular
     equation_vector                              m_processed;
     equation_vector                              m_to_simplify;
-    vector<std::tuple<unsigned, pdd, v_dependency*>> m_subst;
-    mutable v_dependency_manager                 m_dep_manager;
+    vector<std::tuple<unsigned, pdd, u_dependency*>> m_subst;
     equation_vector                              m_all_eqs;
     equation*                                    m_conflict = nullptr;   
     bool                                         m_too_complex;
 public:
-    solver(reslimit& lim, pdd_manager& m);
+    solver(reslimit& lim, u_dependency_manager& dm, pdd_manager& m);
     ~solver();
 
     pdd_manager& get_manager() { return m; }
@@ -135,16 +135,16 @@ public:
 
     void reset();
     void add(pdd const& p) { add(p, nullptr); }
-    void add(pdd const& p, v_dependency * dep);
+    void add(pdd const& p, u_dependency * dep);
 
-    void simplify(pdd& p, v_dependency*& dep);
-    void add_subst(unsigned v, pdd const& p, v_dependency* dep);
+    void simplify(pdd& p, u_dependency*& dep);
+    void add_subst(unsigned v, pdd const& p, u_dependency* dep);
 
     void simplify();
     void saturate();
 
     equation_vector const& equations();
-    v_dependency_manager& dep() const { return m_dep_manager;  }
+    //  u_dependency_manager& dep() const { return m_dep_manager;  }
 
     void collect_statistics(statistics & st) const;
     std::ostream& display(std::ostream& out, const equation& eq) const;

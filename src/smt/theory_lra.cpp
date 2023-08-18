@@ -2863,7 +2863,7 @@ public:
         lp::lar_term const& term = lp().get_term(ti);
         for (auto const mono : term) {
             auto wi = lp().column2tv(mono.column());
-            lp::constraint_index ci;
+            lp::constraint_dependency* ci = nullptr;
             rational value;
             bool is_strict;
             if (wi.is_term()) {
@@ -2966,12 +2966,13 @@ public:
     vector<constraint_bound>        m_upper_terms;
 
     void propagate_eqs(lp::tv t, lp::constraint_index ci1, lp::lconstraint_kind k, api_bound& b, rational const& value) {
-        lp::constraint_index ci2;
+        lp::constraint_dependency* ci2 = nullptr;
+        auto pair = [&]() { return lp().dep_manager().mk_join(lp().dep_manager().mk_leaf(ci1), ci2);  };
         if (k == lp::GE && set_lower_bound(t, ci1, value) && has_upper_bound(t.index(), ci2, value)) {
-            fixed_var_eh(b.get_var(), t, ci1, ci2, value);
+            fixed_var_eh(b.get_var(), t, pair(), value);
         }
         else if (k == lp::LE && set_upper_bound(t, ci1, value) && has_lower_bound(t.index(), ci2, value)) {
-            fixed_var_eh(b.get_var(), t, ci1, ci2, value);
+            fixed_var_eh(b.get_var(), t, pair(), value);
         }
     }
 
@@ -3012,11 +3013,12 @@ public:
             // m_solver already tracks bounds on proper variables, but not on terms.
             bool is_strict = false;
             rational b;
+            lp::constraint_dependency* dep = nullptr;
             if (is_lower) {
-                return lp().has_lower_bound(tv.id(), ci, b, is_strict) && !is_strict && b == v;
+                return lp().has_lower_bound(tv.id(), dep, b, is_strict) && !is_strict && b == v;
             }
             else {
-                return lp().has_upper_bound(tv.id(), ci, b, is_strict) && !is_strict && b == v;
+                return lp().has_upper_bound(tv.id(), dep, b, is_strict) && !is_strict && b == v;
             }            
         }
     }
@@ -3024,35 +3026,37 @@ public:
     bool var_has_bound(lpvar vi, bool is_lower) {
         bool is_strict = false;
         rational b;
-        lp::constraint_index ci;
+        lp::constraint_dependency* dep;
         if (is_lower) {
-            return lp().has_lower_bound(vi, ci, b, is_strict);
+            return lp().has_lower_bound(vi, dep, b, is_strict);
         }
         else {
-            return lp().has_upper_bound(vi, ci, b, is_strict);
+            return lp().has_upper_bound(vi, dep, b, is_strict);
         }        
     }
 
-    bool has_upper_bound(lpvar vi, lp::constraint_index& ci, rational const& bound) { return has_bound(vi, ci, bound, false); }
+    bool has_upper_bound(lpvar vi, lp::constraint_dependency*& ci, rational const& bound) { return has_bound(vi, ci, bound, false); }
 
-    bool has_lower_bound(lpvar vi, lp::constraint_index& ci, rational const& bound) { return has_bound(vi, ci, bound, true); }
+    bool has_lower_bound(lpvar vi, lp::constraint_dependency*& ci, rational const& bound) { return has_bound(vi, ci, bound, true); }
        
-    bool has_bound(lpvar vi, lp::constraint_index& ci, rational const& bound, bool is_lower) {
+    bool has_bound(lpvar vi, lp::constraint_dependency*& dep, rational const& bound, bool is_lower) {
         if (lp::tv::is_term(vi)) {
             theory_var v = lp().local_to_external(vi);
             rational val;
             TRACE("arith", tout << lp().get_variable_name(vi) << " " << v << "\n";);
             if (v != null_theory_var && a.is_numeral(get_owner(v), val) && bound == val) {
-                ci = UINT_MAX;
+                dep = nullptr;
                 return bound == val;
             }
 
             auto& vec = is_lower ? m_lower_terms : m_upper_terms;
             lpvar ti = lp::tv::unmask_term(vi);
             if (vec.size() > ti) {
-                constraint_bound& b = vec[ti];
-                ci = b.first;
-                return ci != UINT_MAX && bound == b.second;
+                auto const& [ci, coeff] = vec[ti];
+                if (ci == UINT_MAX)
+                    return false;
+                dep = lp().dep_manager().mk_leaf(ci);
+                return bound == coeff;
             }
             else {
                 return false;
@@ -3062,10 +3066,10 @@ public:
             bool is_strict = false;
             rational b;
             if (is_lower) {
-                return lp().has_lower_bound(vi, ci, b, is_strict) && b == bound && !is_strict;
+                return lp().has_lower_bound(vi, dep, b, is_strict) && b == bound && !is_strict;
             }
             else {
-                return lp().has_upper_bound(vi, ci, b, is_strict) && b == bound && !is_strict;
+                return lp().has_upper_bound(vi, dep, b, is_strict) && b == bound && !is_strict;
             }
         }
     }
@@ -3078,7 +3082,7 @@ public:
 
     void report_equality_of_fixed_vars(unsigned vi1, unsigned vi2) {
         rational bound(0);
-        lp::constraint_index ci1, ci2, ci3, ci4;
+        lp::constraint_dependency* ci1 = nullptr, *ci2 = nullptr, *ci3 = nullptr, *ci4 = nullptr;
         theory_var v1 = lp().local_to_external(vi1);
         theory_var v2 = lp().local_to_external(vi2);
         TRACE("arith", tout << "fixed: " << mk_pp(get_owner(v1), m) << " " << mk_pp(get_owner(v2), m) << "\n";);
@@ -3130,7 +3134,7 @@ public:
         ctx().assign_eq(x, y, eq_justification(js));
     }
     
-    void fixed_var_eh(theory_var v, lp::tv t, lp::constraint_index ci1, lp::constraint_index ci2, rational const& bound) {
+    void fixed_var_eh(theory_var v, lp::tv t, lp::constraint_dependency* dep, rational const& bound) {
         theory_var w = null_theory_var;
         enode* x = get_enode(v);
         if (m_value2var.find(bound, w)) 
@@ -3147,8 +3151,7 @@ public:
         if (x->get_root() == y->get_root())
             return;
         reset_evidence();
-        set_evidence(ci1, m_core, m_eqs);
-        set_evidence(ci2, m_core, m_eqs);
+        set_evidence(dep, m_core, m_eqs);
         ++m_stats.m_fixed_eqs;
         assign_eq(v, w);                    
     }
@@ -3181,6 +3184,11 @@ public:
     }
 
     // lp::constraint_index const null_constraint_index = UINT_MAX; // not sure what a correct fix is
+
+    void set_evidence(lp::constraint_dependency* dep, literal_vector& core, svector<enode_pair>& eqs) {
+        for (auto ci : lp().flatten(dep))
+            set_evidence(ci, core, eqs);
+    }
 
     void set_evidence(lp::constraint_index idx, literal_vector& core, svector<enode_pair>& eqs) {
         if (idx == UINT_MAX) {
@@ -3402,7 +3410,7 @@ public:
         if (!is_registered_var(v)) 
             return false;        
         lpvar vi = get_lpvar(v);
-        lp::constraint_index ci;
+        lp::constraint_dependency* ci;
         return lp().has_lower_bound(vi, ci, val, is_strict);
     }
 
@@ -3421,8 +3429,8 @@ public:
         if (!is_registered_var(v))
             return false;
         lpvar vi = get_lpvar(v);
-        lp::constraint_index ci;
-        return lp().has_upper_bound(vi, ci, val, is_strict);
+        lp::constraint_dependency* dep = nullptr;
+        return lp().has_upper_bound(vi, dep, val, is_strict);
 
     }
 

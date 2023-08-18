@@ -39,7 +39,7 @@ void dep_intervals::set_interval_for_scalar(interval& a, const rational& v) {
 
 
 
-void dep_intervals::set_zero_interval(interval& i, v_dependency* dep) const {
+void dep_intervals::set_zero_interval(interval& i, u_dependency* dep) const {
     auto val = rational(0);
     m_config.set_lower(i, val);
     m_config.set_lower_is_open(i, false);

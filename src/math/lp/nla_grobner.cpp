@@ -23,7 +23,7 @@ namespace nla {
     grobner::grobner(core* c):
         common(c),
         m_pdd_manager(m_core.m_lar_solver.number_of_vars()),
-        m_solver(m_core.m_reslim, m_pdd_manager),
+        m_solver(m_core.m_reslim, m_core.m_lar_solver.dep_manager(), m_pdd_manager),
         m_lar_solver(m_core.m_lar_solver),
         m_quota(m_core.params().arith_nl_gr_q())
     {}
@@ -196,7 +196,7 @@ namespace nla {
 
     void grobner::add_dependencies(new_lemma& lemma, const dd::solver::equation& eq) {
         lp::explanation ex;
-        v_dependency_manager dm;
+        u_dependency_manager dm;
         vector<unsigned, false> lv;
         dm.linearize(eq.dep(), lv);
         for (unsigned ci : lv)
@@ -361,18 +361,18 @@ namespace nla {
         }
     }
 
-    const rational& grobner::val_of_fixed_var_with_deps(lpvar j, v_dependency*& dep) {
+    const rational& grobner::val_of_fixed_var_with_deps(lpvar j, u_dependency*& dep) {
         auto* d = m_lar_solver.get_bound_constraint_witnesses_for_column(j);
         if (d)
-            dep = c().m_intervals.mk_join(dep, c().m_intervals.mk_leaf(d));
+            dep = c().m_intervals.mk_join(dep, d);
         return m_lar_solver.column_lower_bound(j).x;
     }
 
-    dd::pdd grobner::pdd_expr(const rational& coeff, lpvar j, v_dependency*& dep) {
+    dd::pdd grobner::pdd_expr(const rational& coeff, lpvar j, u_dependency*& dep) {
         dd::pdd r = m_pdd_manager.mk_val(coeff);
         sbuffer<lpvar> vars;
         vars.push_back(j);
-        v_dependency* zero_dep = dep;
+        u_dependency* zero_dep = dep;
         while (!vars.empty()) {
             j = vars.back();
             vars.pop_back();
@@ -451,7 +451,7 @@ namespace nla {
     /**
        \brief add an equality to grobner solver, convert it to solved form if available.
     */    
-    void grobner::add_eq(dd::pdd& p, v_dependency* dep) {
+    void grobner::add_eq(dd::pdd& p, u_dependency* dep) {
         unsigned v;
         dd::pdd q(m_pdd_manager);
         m_solver.simplify(p, dep);
@@ -462,7 +462,7 @@ namespace nla {
     }
 
     void grobner::add_fixed_monic(unsigned j) {
-        v_dependency* dep = nullptr;
+        u_dependency* dep = nullptr;
         dd::pdd r = m_pdd_manager.mk_val(rational(1));
         for (lpvar k : c().emons()[j].vars())
             r *= pdd_expr(rational::one(), k, dep);
@@ -471,7 +471,7 @@ namespace nla {
     }
 
     void grobner::add_row(const vector<lp::row_cell<rational>> & row) {
-        v_dependency *dep = nullptr;
+        u_dependency *dep = nullptr;
         rational val;
         dd::pdd sum = m_pdd_manager.mk_val(rational(0));
         for (const auto &p : row) 

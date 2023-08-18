@@ -155,7 +155,7 @@ namespace nla {
         if (c().has_lower_bound(v, d, bound, is_strict)) {
             dep.set_lower_is_open(i, is_strict);
             dep.set_lower(i, bound);
-            dep.set_lower_dep(i, dep.mk_leaf(d));
+            dep.set_lower_dep(i, d);
             dep.set_lower_is_inf(i, false);
         }
         else {
@@ -164,7 +164,7 @@ namespace nla {
         if (c().has_upper_bound(v, d, bound, is_strict)) {
             dep.set_upper_is_open(i, is_strict);
             dep.set_upper(i, bound);
-            dep.set_upper_dep(i, dep.mk_leaf(d));            
+            dep.set_upper_dep(i, d);            
             dep.set_upper_is_inf(i, false);
         }
         else {

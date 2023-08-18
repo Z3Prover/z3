@@ -412,9 +412,9 @@ namespace arith {
         nlsat::anum const& nl_value(theory_var v, scoped_anum& r) const;
 
 
-        bool has_bound(lpvar vi, lp::constraint_index& ci, rational const& bound, bool is_lower);
-        bool has_lower_bound(lpvar vi, lp::constraint_index& ci, rational const& bound);
-        bool has_upper_bound(lpvar vi, lp::constraint_index& ci, rational const& bound);
+        bool has_bound(lpvar vi, lp::constraint_dependency*& ci, rational const& bound, bool is_lower);
+        bool has_lower_bound(lpvar vi, lp::constraint_dependency*& ci, rational const& bound);
+        bool has_upper_bound(lpvar vi, lp::constraint_dependency*& ci, rational const& bound);
 
         /*
          * Facility to put a small box around integer variables used in branch and bounds.

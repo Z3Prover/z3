@@ -316,7 +316,8 @@ class lar_solver : public column_namer {
             const ul_pair& ul = m_columns_to_ul_pairs[j];
             auto witness = sign > 0 ? ul.upper_bound_witness() : ul.lower_bound_witness();
             lp_assert(witness);
-            bp.consume(a, witness);
+            NOT_IMPLEMENTED_YET();
+//            bp.consume(a, witness);
         }
     }
 
@@ -474,6 +475,8 @@ class lar_solver : public column_namer {
         for (auto ci : flatten(d))
             ex.push_back(ci);
     }
+
+    constraint_dependencies& dep_manager() { return m_dependencies; }
 
     inline constraint_dependency* get_column_upper_bound_witness(unsigned j) const {
         if (tv::is_term(j)) {
