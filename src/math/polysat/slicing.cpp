@@ -558,6 +558,8 @@ namespace polysat {
     }
 
     bool slicing::try_get_value(enode* s, rational& val) const {
+        if (!s)
+            return false;
         app* a = s->get_app();
         if (a->get_num_args() != 1)
             return false;
@@ -1514,10 +1516,10 @@ namespace polysat {
         unsigned lo = 0;
         for (auto it = base.rbegin(); it != base.rend(); ++it) {
             enode* const n = *it;
-            enode* const r = n->get_root();
+            enode* const nv = get_value_node(n);
             unsigned const w = width(n);
             unsigned const hi = lo + w - 1;
-            if (try_get_value(r, a))
+            if (try_get_value(nv, a))
                 out.push_back({hi, lo, a, n});
             lo += w;
         }
