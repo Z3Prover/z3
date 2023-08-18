@@ -80,23 +80,6 @@ struct common {
     bool check_monic(const monic&) const;
     unsigned random();
     void add_deps_of_fixed(lpvar j, u_dependency*& dep);
-    class ci_value_manager {
-    public:
-        void inc_ref(u_dependency* const & v) {
-        }
-
-        void dec_ref(u_dependency* const& v) {
-        }
-    };
-
-    #if 0
-    struct v_dependency_config {
-        typedef ci_value_manager        value_manager;
-        typedef region  allocator;
-        static const bool ref_count = false;
-        typedef u_dependency* value;
-    };
-    #endif
         
     nex* nexvar(const rational& coeff, lpvar j, nex_creator&, u_dependency*&);
     template <typename T>
