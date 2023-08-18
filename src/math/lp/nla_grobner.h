@@ -22,7 +22,8 @@ namespace nla {
         dd::pdd_manager          m_pdd_manager;
         dd::solver               m_solver;
         lp::lar_solver&          m_lar_solver;
-        indexed_uint_set                m_rows;
+        indexed_uint_set         m_rows;
+        unsigned                 m_quota = 0;
 
         lp::lp_settings& lp_settings();
 
