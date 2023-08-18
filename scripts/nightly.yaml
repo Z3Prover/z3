@@ -256,6 +256,11 @@ stages:
         artifact: 'Ubuntu'
         path: $(Agent.TempDirectory)\package
     - task: DownloadPipelineArtifact@2
+      displayName: 'Download Ubuntu 20.04 Build'
+      inputs:
+        artifact: 'Ubuntu-20.04'
+        path: $(Agent.TempDirectory)\package
+    - task: DownloadPipelineArtifact@2
       displayName: 'Download Ubuntu ARM64 Build'
       inputs:
         artifact: 'UbuntuArm64'
