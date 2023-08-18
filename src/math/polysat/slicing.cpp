@@ -203,11 +203,14 @@ namespace polysat {
         unsigned const target_size = m_scopes[target_lvl];
         m_scopes.shrink(target_lvl);
         unsigned_vector replay_add_var;
-        svector<std::pair<extract_args, pvar>> replay_extract;
+        svector<trail_item> replay_trail;
+        svector<std::pair<extract_args, pvar>> replay_extract_trail;
+        svector<concat_info> replay_concat_trail;
         unsigned num_replay_concat = 0;
         for (unsigned i = m_trail.size(); i-- > target_size; ) {
             switch (m_trail[i]) {
             case trail_item::add_var:
+                replay_trail.push_back(trail_item::add_var);
                 replay_add_var.push_back(width(m_var2slice.back()));
                 undo_add_var();
                 break;
@@ -215,12 +218,14 @@ namespace polysat {
                 undo_split_core();
                 break;
             case trail_item::mk_extract: {
+                replay_trail.push_back(trail_item::mk_extract);
                 extract_args const& args = m_extract_trail.back();
-                replay_extract.push_back({args, m_extract_dedup[args]});
+                replay_extract_trail.push_back({args, m_extract_dedup[args]});
                 undo_mk_extract();
                 break;
             }
             case trail_item::mk_concat:
+                replay_trail.push_back(trail_item::mk_concat);
                 num_replay_concat++;
                 break;
             case trail_item::set_value_node:
@@ -237,42 +242,35 @@ namespace polysat {
         m_dep_lit.shrink(m_dep_size_trail[target_lvl]);
         m_dep_slice.shrink(m_dep_size_trail[target_lvl]);
         m_dep_size_trail.shrink(target_lvl);
+        m_trail.shrink(target_size);
         // replay add_var/mk_extract/mk_concat in the same order
         // (only until polysat::solver supports proper garbage collection of variables)
         unsigned add_var_idx = replay_add_var.size();
-        unsigned extract_idx = replay_extract.size();
+        unsigned extract_idx = replay_extract_trail.size();
         unsigned concat_idx = m_concat_trail.size() - num_replay_concat;
-        for (unsigned i = target_size; i < m_trail.size(); ++i) {
-            switch (m_trail[i]) {
+        for (auto it = replay_trail.rbegin(); it != replay_trail.rend(); ++it) {
+            switch (*it) {
             case trail_item::add_var: {
                 unsigned const sz = replay_add_var[--add_var_idx];
                 add_var(sz);
                 break;
             }
-            case trail_item::split_core:
-                /* do nothing */
-                break;
             case trail_item::mk_extract: {
-                auto const [args, v] = replay_extract[--extract_idx];
-                this->replay_extract(args, v);
+                auto const [args, v] = replay_extract_trail[--extract_idx];
+                replay_extract(args, v);
                 break;
             }
             case trail_item::mk_concat: {
+                NOT_IMPLEMENTED_YET();
                 auto const ci = m_concat_trail[concat_idx++];
                 num_replay_concat++;
                 replay_concat(ci.num_args, &m_concat_args[ci.args_idx], ci.v);
                 break;
             }
-            case trail_item::set_value_node:
-                /* do nothing */
-                break;
             default:
                 UNREACHABLE();
             }
         }
-        m_concat_trail.shrink(m_concat_trail.size() - num_replay_concat);
-        m_concat_args.shrink(m_concat_trail.empty() ? 0 : m_concat_trail.back().next_args_idx());
-        m_trail.shrink(target_size);
         SASSERT(invariant());
     }
 
@@ -1269,15 +1267,16 @@ namespace polysat {
         add_concat_node(sv, concat);
         slices.reset();
 
-        // Note about the early return above:
-        // all such variables should have been introduced by mk_extract or mk_concat, so replay will properly restore them
-        concat_info ci;
-        ci.v = v;
-        ci.num_args = num_args;
-        ci.args_idx = m_concat_args.size();
-        m_concat_trail.push_back(ci);
-        for (unsigned i = 0; i < num_args; ++i)
-            m_concat_args.push_back(args[i]);
+        // don't mess with the concat_trail during replay
+        if (replay_var == null_var) {
+            concat_info ci;
+            ci.v = v;
+            ci.num_args = num_args;
+            ci.args_idx = m_concat_args.size();
+            m_concat_trail.push_back(ci);
+            for (unsigned i = 0; i < num_args; ++i)
+                m_concat_args.push_back(args[i]);
+        }
         m_trail.push_back(trail_item::mk_concat);
 
         return v;
