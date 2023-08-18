@@ -997,8 +997,8 @@ namespace polysat {
     bool slicing::merge(enode_vector& xs, enode_vector& ys, dep_t dep) {
         while (!xs.empty()) {
             SASSERT(!ys.empty());
-            enode* x = xs.back();
-            enode* y = ys.back();
+            enode* const x = xs.back();
+            enode* const y = ys.back();
             xs.pop_back();
             ys.pop_back();
             if (x == y)
@@ -1015,6 +1015,7 @@ namespace polysat {
                 });
                 continue;
             }
+#if 0
             if (has_sub(x)) {
                 get_base(x, xs);
                 x = xs.back();
@@ -1027,7 +1028,6 @@ namespace polysat {
             }
             SASSERT(!has_sub(x));
             SASSERT(!has_sub(y));
-            // TODO: move this above the has_sub check to merge intermediate nodes too?
             if (width(x) == width(y)) {
                 if (!merge_base(x, y, dep)) {
                     xs.clear();
@@ -1046,6 +1046,48 @@ namespace polysat {
                 mk_slice(y, width(x) - 1, 0, ys, true);
                 xs.push_back(x);
             }
+#else
+            if (width(x) == width(y)) {
+                // We may merge slices if at least one of them doesn't have a subslice yet,
+                // because in that case all intermediate cut points will be aligned.
+                // NOTE: it is necessary to merge intermediate slices for value nodes, to ensure downward propagation of assignments.
+                bool const should_merge = (!has_sub(x) || !has_sub(y));
+                // If either slice has a subdivision, we have to cut the other and advance to subslices
+                if (has_sub(x) || has_sub(y)) {
+                    if (!has_sub(x))
+                        split(x, get_cut(y));
+                    if (!has_sub(y))
+                        split(y, get_cut(x));
+                    xs.push_back(sub_hi(x));
+                    xs.push_back(sub_lo(x));
+                    ys.push_back(sub_hi(y));
+                    ys.push_back(sub_lo(y));
+                }
+                // We may only merge intermediate nodes after we're done with splitting (since we currently split the whole equivalence class at once)
+                if (should_merge) {
+                    if (!egraph_merge(x, y, dep)) {
+                        xs.clear();
+                        ys.clear();
+                        return false;
+                    }
+                }
+            }
+            else if (width(x) > width(y)) {
+                if (!has_sub(x))
+                    split(x, get_cut(y));
+                xs.push_back(sub_hi(x));
+                xs.push_back(sub_lo(x));
+                ys.push_back(y);
+            }
+            else {
+                SASSERT(width(y) > width(x));
+                if (!has_sub(y))
+                    split(y, get_cut(x));
+                ys.push_back(sub_hi(y));
+                ys.push_back(sub_lo(y));
+                xs.push_back(x);
+            }
+#endif
         }
         SASSERT(ys.empty());
         return true;
