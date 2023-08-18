@@ -1429,7 +1429,7 @@ void core::patch_monomials_on_to_refine() {
 void core::patch_monomials() {
     m_cautious_patching = true;
     patch_monomials_on_to_refine();
-    if (m_to_refine.size() == 0 || !m_nla_settings.expensive_patching) {
+    if (m_to_refine.size() == 0 || !params().arith_nl_expensive_patching()) {
         return;
     }
     NOT_IMPLEMENTED_YET();

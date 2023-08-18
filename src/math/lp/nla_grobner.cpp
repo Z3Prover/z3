@@ -24,8 +24,8 @@ namespace nla {
         common(c),
         m_pdd_manager(m_core.m_lar_solver.number_of_vars()),
         m_solver(m_core.m_reslim, m_pdd_manager),
-        m_lar_solver(m_core.m_lar_solver)
-
+        m_lar_solver(m_core.m_lar_solver),
+        m_quota(m_core.params().arith_nl_gr_q())
     {}
 
     lp::lp_settings& grobner::lp_settings() {
@@ -33,8 +33,10 @@ namespace nla {
     }
 
     void grobner::operator()() {
-        unsigned& quota = c().m_nla_settings.grobner_quota;
-        if (quota == 1)
+        if (m_quota == 0)
+            m_quota = c().params().arith_nl_gr_q();                    
+
+        if (m_quota == 1)
             return;
 
         lp_settings().stats().m_grobner_calls++;
@@ -59,11 +61,13 @@ namespace nla {
             
         }
 
-        if (quota > 1)
-            quota--;
+        if (m_quota > 0)
+           --m_quota;
 
-        IF_VERBOSE(2, verbose_stream() << "grobner miss, quota " << quota << "\n");
+        IF_VERBOSE(2, verbose_stream() << "grobner miss, quota " << m_quota << "\n");
         IF_VERBOSE(4, diagnose_pdd_miss(verbose_stream()));
+
+
 
 #if 0
         // diagnostics: did we miss something
@@ -348,7 +352,7 @@ namespace nla {
             unsigned k = m_lar_solver.get_base_column_in_row(row);
             if (m_lar_solver.column_is_free(k) && k != j)
                 continue;
-            CTRACE("grobner", matrix.m_rows[row].size() > c().m_nla_settings.grobner_row_length_limit,
+            CTRACE("grobner", matrix.m_rows[row].size() > c().params().arith_nl_grobner_row_length_limit(),
                    tout << "ignore the row " << row << " with the size " << matrix.m_rows[row].size() << "\n";); 
             if (matrix.m_rows[row].size() > c().params().arith_nl_horner_row_length_limit())
                 continue;
