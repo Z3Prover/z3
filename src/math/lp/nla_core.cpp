@@ -740,13 +740,10 @@ void core::add_equivalence_maybe(const lp::lar_term* t, u_dependency* c0, u_depe
     lpvar i, j;
     if (!is_octagon_term(*t, sign, i, j))
         return;
-    NOT_IMPLEMENTED_YET();
- #if 0
     if (sign)
         m_evars.merge_minus(i, j, eq_justification({c0, c1}));
     else 
         m_evars.merge_plus(i, j, eq_justification({c0, c1}));
- #endif
 }
 
 // x is equivalent to y if x = +- y
