@@ -625,6 +625,30 @@ namespace polysat {
         explain_equal(var2slice(x), var2slice(y), out_deps);
     }
 
+    void slicing::explain_equal(pvar x, pvar y, std::function<void(sat::literal)> const& on_lit) {
+        SASSERT(m_marked_lits.empty());
+        SASSERT(m_tmp_deps.empty());
+        explain_equal(x, y, m_tmp_deps);
+        for (void* dp : m_tmp_deps) {
+            dep_t const d = dep_t::decode(dp);
+            if (d.is_null())
+                continue;
+            if (d.is_lit()) {
+                sat::literal lit = d.lit();
+                if (m_marked_lits.contains(lit))
+                    continue;
+                m_marked_lits.insert(lit);
+                on_lit(d.lit());
+            }
+            else {
+                // equivalence between to variables cannot be due to value assignment
+                UNREACHABLE();
+            }
+        }
+        m_marked_lits.reset();
+        m_tmp_deps.reset();
+    }
+
     void slicing::explain(ptr_vector<void>& out_deps) {
         SASSERT(is_conflict());
         m_egraph.begin_explain();
@@ -1528,6 +1552,16 @@ namespace polysat {
 
     void slicing::explain_fixed(euf::enode* const n, std::function<void(sat::literal)> const& on_lit, std::function<void(pvar)> const& on_var) {
         explain_value(n, on_lit, on_var);
+    }
+
+    pvar_vector slicing::equivalent_vars(pvar v) const {
+        pvar_vector xs;
+        for (enode* n : euf::enode_class(var2slice(v))) {
+            pvar const x = slice2var(n);
+            if (x != null_var)
+                xs.push_back(x);
+        }
+        return xs;
     }
 
     std::ostream& slicing::display(std::ostream& out) const {

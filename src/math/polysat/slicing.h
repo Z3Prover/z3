@@ -375,6 +375,16 @@ namespace polysat {
         void collect_fixed(pvar v, justified_fixed_bits_vector& out);
         void explain_fixed(enode* just, std::function<void(sat::literal)> const& on_lit, std::function<void(pvar)> const& on_var);
 
+        /**
+         * Collect variables that are equivalent to v (including v itself)
+         *
+         * NOTE: this might miss some variables that are equal due to equivalent base slices. With 'polysat.slicing.congruence=true' and after propagate(), it should return all equal variables.
+         */
+        pvar_vector equivalent_vars(pvar v) const;
+
+        /** Explain why variables x and y are equivalent */
+        void explain_equal(pvar x, pvar y, std::function<void(sat::literal)> const& on_lit);
+
         std::ostream& display(std::ostream& out) const;
         std::ostream& display_tree(std::ostream& out) const;
     };
