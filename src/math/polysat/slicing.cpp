@@ -158,6 +158,16 @@ namespace polysat {
         return m_bv->get_bv_size(s->get_expr());
     }
 
+    slicing::enode* slicing::sibling(enode* s) const {
+        enode* p = parent(s);
+        SASSERT(p);
+        SASSERT(sub_lo(p) == s || sub_hi(p) == s);
+        if (s != sub_hi(p))
+            return sub_hi(p);
+        else
+            return sub_lo(p);
+    }
+
     func_decl* slicing::mk_concat_decl(ptr_vector<expr> const& args) {
         SASSERT(args.size() >= 2);
         ptr_vector<sort> domain;
@@ -303,7 +313,7 @@ namespace polysat {
         i.reset();
         i.var = var;
         enode* n = m_egraph.mk(e, 0, num_args, args);  // NOTE: the egraph keeps a strong reference to 'e'
-        LOG("alloc_enode: " << e_pp(n));
+        // LOG("alloc_enode: " << e_pp(n));
         return n;
     }
 
@@ -323,11 +333,15 @@ namespace polysat {
     }
 
     slicing::enode* slicing::mk_concat_node(enode_vector const& slices) {
+        return mk_concat_node(slices.size(), slices.data());
+    }
+
+    slicing::enode* slicing::mk_concat_node(unsigned num_slices, enode* const* slices) {
         ptr_vector<expr> args;
-        for (enode* n : slices)
-            args.push_back(n->get_expr());
+        for (unsigned i = 0; i < num_slices; ++i)
+            args.push_back(slices[i]->get_expr());
         app_ref a(m_ast.mk_app(mk_concat_decl(args), args), m_ast);
-        return find_or_alloc_enode(a, slices.size(), slices.data(), null_var);
+        return find_or_alloc_enode(a, num_slices, slices, null_var);
     }
 
     void slicing::add_concat_node(enode* s, enode* concat) {
@@ -868,7 +882,7 @@ namespace polysat {
     }
 
     void slicing::egraph_on_merge(enode* root, enode* other) {
-        // LOG("on_merge:\nroot " << e_pp(root) << "other " << e_pp(other));
+        LOG("on_merge: root " << slice_pp(*this, root) << "other " << slice_pp(*this, other));
         if (root->interpreted())
             return;
         SASSERT(!other->interpreted());  // by convention, interpreted nodes are always chosen as root
@@ -972,7 +986,6 @@ namespace polysat {
     }
 
     bool slicing::merge_base(enode* s1, enode* s2, dep_t dep) {
-        LOG("merge_base: " << slice_pp(*this, s1) << " and " << slice_pp(*this, s2));
         SASSERT(!has_sub(s1));
         SASSERT(!has_sub(s2));
         return egraph_merge(s1, s2, dep);
@@ -989,11 +1002,9 @@ namespace polysat {
                 continue;
             if (x->get_root() == y->get_root()) {
                 DEBUG_CODE({
-                    // parents merged => base slices merged
-                    enode_vector x_base;
-                    enode_vector y_base;
-                    get_base(x, x_base);
-                    get_base(y, y_base);
+                    // invariant: parents merged => base slices merged
+                    enode_vector const x_base = get_base(x);
+                    enode_vector const y_base = get_base(y);
                     SASSERT_EQ(x_base.size(), y_base.size());
                     for (unsigned i = x_base.size(); i-- > 0; ) {
                         SASSERT_EQ(x_base[i]->get_root(), y_base[i]->get_root());
@@ -1098,6 +1109,12 @@ namespace polysat {
             }
         }
         SASSERT(todo.empty());
+    }
+
+    slicing::enode_vector slicing::get_base(enode* src) const {
+        enode_vector out;
+        get_base(src, out);
+        return out;
     }
 
     pvar slicing::mk_extract(enode* src, unsigned hi, unsigned lo, pvar replay_var) {
@@ -1522,6 +1539,8 @@ namespace polysat {
         out << "{id:" << s->get_id();
         out << ",w:" << width(s);
         out << ",root:" << s->get_root_id();
+        if (slice2var(s) != null_var)
+            out << ",var:v" << slice2var(s);
         if (is_value(s))
             out << ",value:" << get_value(s);
         if (s->interpreted())

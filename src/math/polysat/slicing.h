@@ -41,8 +41,9 @@ namespace polysat {
 
     public:
         using enode = euf::enode;
-        using enode_pair = euf::enode_pair;
         using enode_vector = euf::enode_vector;
+        using enode_pair = euf::enode_pair;
+        using enode_pair_vector = euf::enode_pair_vector;
 
     private:
         class dep_t {
@@ -130,6 +131,8 @@ namespace polysat {
 
         func_decl* mk_concat_decl(ptr_vector<expr> const& args);
         enode* mk_concat_node(enode_vector const& slices);
+        enode* mk_concat_node(std::initializer_list<enode*> slices) { return mk_concat_node(slices.size(), slices.begin()); }
+        enode* mk_concat_node(unsigned num_slices, enode* const* slices);
         // Add s = concat(s1, ..., sn)
         void add_concat_node(enode* s, enode* concat);
 
@@ -154,6 +157,8 @@ namespace polysat {
         enode* get_value_node(enode* s) const { return info(s->get_root()).value_node; }
         void set_value_node(enode* s, enode* value_node);
 
+        unsigned get_cut(enode* s) const { return info(s).cut; }
+
         bool has_sub(enode* s) const { return info(s).has_sub(); }
 
         /// Upper subslice (direct child, not necessarily the representative)
@@ -161,6 +166,9 @@ namespace polysat {
 
         /// Lower subslice (direct child, not necessarily the representative)
         enode* sub_lo(enode* s) const { return info(s).sub_lo; }
+
+        /// sub_lo(parent(s)) or sub_hi(parent(s)), whichever is different from s.
+        enode* sibling(enode* s) const;
 
         // Retrieve (or create) a slice representing the given value.
         enode* mk_value_slice(rational const& val, unsigned bit_width);
@@ -177,6 +185,7 @@ namespace polysat {
 
         /// Retrieve base slices s_1,...,s_n such that src == s_1 ++ ... ++ s_n (actual descendant subslices)
         void get_base(enode* src, enode_vector& out_base) const;
+        enode_vector get_base(enode* src) const;
 
         /// Retrieve (or create) base slices s_1,...,s_n such that src[hi:lo] == s_1 ++ ... ++ s_n.
         /// If output_full_src is true, return the new base for src, i.e., src == s_1 ++ ... ++ s_n.
@@ -333,7 +342,6 @@ namespace polysat {
         bool is_extract(pvar x, pvar src, unsigned& out_hi, unsigned& out_lo);
 
         // Track value assignments to variables (and propagate to subslices)
-        // (could generalize to fixed bits, then we need a way to merge interpreted enodes)
         void add_value(pvar v, rational const& value);
         void add_value(pvar v, unsigned value) { add_value(v, rational(value)); }
         void add_value(pvar v, int value) { add_value(v, rational(value)); }
