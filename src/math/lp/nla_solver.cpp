@@ -42,8 +42,8 @@ namespace nla {
     
     bool solver::need_check() { return m_core->has_relevant_monomial(); }
     
-    lbool solver::check(vector<lemma>& l) {
-        return m_core->check(l);
+    lbool solver::check(vector<ineq>& lits, vector<lemma>& lemmas) {
+        return m_core->check(lits, lemmas);
     }
     
     void solver::push(){

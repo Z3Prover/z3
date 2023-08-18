@@ -1979,44 +1979,55 @@ public:
     }
 
     nla::lemma m_lemma;
- 
+
+    literal mk_literal(nla::ineq const& ineq) {
+        bool is_lower = true, pos = true, is_eq = false;
+        switch (ineq.cmp()) {
+        case lp::LE: is_lower = false; pos = false;  break;
+        case lp::LT: is_lower = true;  pos = true; break;
+        case lp::GE: is_lower = true;  pos = false;  break;
+        case lp::GT: is_lower = false; pos = true; break;
+        case lp::EQ: is_eq = true; pos = false; break;
+        case lp::NE: is_eq = true; pos = true; break;
+        default: UNREACHABLE();
+        }
+        TRACE("arith", tout << "is_lower: " << is_lower << " pos " << pos << "\n";);
+        app_ref atom(m);
+        // TBD utility: lp::lar_term term = mk_term(ineq.m_poly);
+        // then term is used instead of ineq.m_term
+        if (is_eq) 
+            atom = mk_eq(ineq.term(), ineq.rs());
+        else 
+            // create term >= 0 (or term <= 0)
+            atom = mk_bound(ineq.term(), ineq.rs(), is_lower);
+        return literal(ctx().get_bool_var(atom), pos);
+    }
+
     void false_case_of_check_nla(const nla::lemma & l) {
         m_lemma = l; //todo avoid the copy
         m_explanation = l.expl();
         literal_vector core;
         for (auto const& ineq : m_lemma.ineqs()) {
-            bool is_lower = true, pos = true, is_eq = false;
-            switch (ineq.cmp()) {
-            case lp::LE: is_lower = false; pos = false;  break;
-            case lp::LT: is_lower = true;  pos = true; break;
-            case lp::GE: is_lower = true;  pos = false;  break;
-            case lp::GT: is_lower = false; pos = true; break;
-            case lp::EQ: is_eq = true; pos = false; break;
-            case lp::NE: is_eq = true; pos = true; break;
-            default: UNREACHABLE();
-            }
-            TRACE("arith", tout << "is_lower: " << is_lower << " pos " << pos << "\n";);
-            app_ref atom(m);
-            // TBD utility: lp::lar_term term = mk_term(ineq.m_poly);
-            // then term is used instead of ineq.m_term
-            if (is_eq) {
-                atom = mk_eq(ineq.term(), ineq.rs());
-            }
-            else {
-                // create term >= 0 (or term <= 0)
-                atom = mk_bound(ineq.term(), ineq.rs(), is_lower);
-            }
-            literal lit(ctx().get_bool_var(atom), pos);
+            auto lit = mk_literal(ineq);
             core.push_back(~lit);
         }
         set_conflict_or_lemma(core, false);
     }
+
+    void assume_literal(nla::ineq const& i) {
+        auto lit = mk_literal(i);
+        ctx().mark_as_relevant(lit);
+        ctx().set_true_first_flag(lit.var());
+    }
     
     final_check_status check_nla_continue() {
         m_a1 = nullptr; m_a2 = nullptr;
-        lbool r = m_nla->check(m_nla_lemma_vector);
+        lbool r = m_nla->check(m_nla_literals, m_nla_lemma_vector);
+
         switch (r) {
-        case l_false: 
+        case l_false:
+            for (const nla::ineq& i : m_nla_literals)
+                assume_literal(i); 
             for (const nla::lemma & l : m_nla_lemma_vector) 
                 false_case_of_check_nla(l);
             return FC_CONTINUE;
@@ -3170,6 +3181,7 @@ public:
  
     lp::explanation     m_explanation;
     vector<nla::lemma>  m_nla_lemma_vector;
+    vector<nla::ineq>       m_nla_literals;
     literal_vector      m_core;
     svector<enode_pair> m_eqs;
     vector<parameter>   m_params;
