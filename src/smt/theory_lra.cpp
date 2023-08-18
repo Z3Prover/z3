@@ -273,7 +273,6 @@ class theory_lra::imp {
                 return ctx().is_relevant(th.get_enode(u));
             };
             m_nla->set_relevant(is_relevant);
-            smt_params_helper prms(ctx().get_params());
         }
     }
 

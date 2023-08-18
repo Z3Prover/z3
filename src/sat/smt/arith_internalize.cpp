@@ -66,7 +66,6 @@ namespace arith {
                 (void)_s;
                 m_nla->push();
             }
-            smt_params_helper prms(s().params());
         }
     }
 
