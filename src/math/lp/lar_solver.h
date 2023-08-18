@@ -548,11 +548,6 @@ class lar_solver : public column_namer {
 
     std::pair<constraint_index, constraint_index> add_equality(lpvar j, lpvar k);
 
-    inline void get_bound_constraint_witnesses_for_column(unsigned j, svector<constraint_index>& deps) {
-        const ul_pair& ul = m_columns_to_ul_pairs[j];
-        m_dependencies.linearize(ul.lower_bound_witness(), deps);
-        m_dependencies.linearize(ul.upper_bound_witness(), deps);
-    }
     constraint_dependency* get_bound_constraint_witnesses_for_column(unsigned j) {
         const ul_pair& ul = m_columns_to_ul_pairs[j];
         return m_dependencies.mk_join(ul.lower_bound_witness(), ul.upper_bound_witness());

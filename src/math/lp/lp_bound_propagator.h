@@ -251,9 +251,8 @@ class lp_bound_propagator {
 
     void explain_fixed_column(unsigned j, explanation& ex) {
         SASSERT(column_is_fixed(j));
-        unsigned_vector deps;
-        lp().get_bound_constraint_witnesses_for_column(j, deps);
-        for (auto ci : deps)
+        auto* deps = lp().get_bound_constraint_witnesses_for_column(j);
+        for (auto ci : lp().flatten(deps))
             ex.push_back(ci);
     }
 #ifdef Z3DEBUG

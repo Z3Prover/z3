@@ -60,11 +60,9 @@ unsigned common::random() {
 }
 
 void common::add_deps_of_fixed(lpvar j, u_dependency*& dep) {
-    auto& dep_manager = c().m_intervals.get_dep_intervals().dep_manager();
-    svector<lp::constraint_index> deps;
-    c().m_lar_solver.get_bound_constraint_witnesses_for_column(j, deps);
-    for (auto d : deps)
-        dep = dep_manager.mk_join(dep, dep_manager.mk_leaf(d));                
+    auto& dep_manager = c().m_intervals.get_dep_intervals().dep_manager();    
+    auto* deps = c().m_lar_solver.get_bound_constraint_witnesses_for_column(j);
+    dep = dep_manager.mk_join(dep, deps);               
 }
 
 

@@ -250,9 +250,8 @@ namespace lp {
     }
 
     void int_gcd_test::add_to_explanation_from_fixed_or_boxed_column(unsigned j) {
-        svector<constraint_index> deps;
-        lra.get_bound_constraint_witnesses_for_column(j, deps);
-        for (auto d : deps)
+        auto* deps = lra.get_bound_constraint_witnesses_for_column(j);
+        for (auto d : lra.flatten(deps))
             lia.m_ex->push_back(d);
     }
 
