@@ -202,8 +202,8 @@ namespace polysat {
         unsigned const target_lvl = lvl - num_scopes;
         unsigned const target_size = m_scopes[target_lvl];
         m_scopes.shrink(target_lvl);
-        unsigned_vector replay_add_var;
         svector<trail_item> replay_trail;
+        unsigned_vector replay_add_var_trail;
         svector<std::pair<extract_args, pvar>> replay_extract_trail;
         svector<concat_info> replay_concat_trail;
         unsigned num_replay_concat = 0;
@@ -211,7 +211,7 @@ namespace polysat {
             switch (m_trail[i]) {
             case trail_item::add_var:
                 replay_trail.push_back(trail_item::add_var);
-                replay_add_var.push_back(width(m_var2slice.back()));
+                replay_add_var_trail.push_back(width(m_var2slice.back()));
                 undo_add_var();
                 break;
             case trail_item::split_core:
@@ -245,13 +245,13 @@ namespace polysat {
         m_trail.shrink(target_size);
         // replay add_var/mk_extract/mk_concat in the same order
         // (only until polysat::solver supports proper garbage collection of variables)
-        unsigned add_var_idx = replay_add_var.size();
+        unsigned add_var_idx = replay_add_var_trail.size();
         unsigned extract_idx = replay_extract_trail.size();
         unsigned concat_idx = m_concat_trail.size() - num_replay_concat;
         for (auto it = replay_trail.rbegin(); it != replay_trail.rend(); ++it) {
             switch (*it) {
             case trail_item::add_var: {
-                unsigned const sz = replay_add_var[--add_var_idx];
+                unsigned const sz = replay_add_var_trail[--add_var_idx];
                 add_var(sz);
                 break;
             }
@@ -278,6 +278,8 @@ namespace polysat {
         pvar const v = m_var2slice.size();
         enode* s = alloc_slice(bit_width, v);
         m_var2slice.push_back(s);
+        m_trail.push_back(trail_item::add_var);
+        LOG("add_var: v" << v << " -> " << slice_pp(*this, s));
     }
 
     void slicing::undo_add_var() {
@@ -314,7 +316,7 @@ namespace polysat {
         i.reset();
         i.var = var;
         enode* n = m_egraph.mk(e, 0, num_args, args);  // NOTE: the egraph keeps a strong reference to 'e'
-        // LOG("alloc_enode: " << e_pp(n));
+        LOG_V(10, "alloc_enode: " << slice_pp(*this, n) << " " << e_pp(n));
         return n;
     }
 
