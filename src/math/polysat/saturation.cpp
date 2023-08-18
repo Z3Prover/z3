@@ -76,6 +76,8 @@ namespace polysat {
             return false;
         if (try_nonzero_upper_extract(v, core, i))
             prop = true;
+        if (try_ugt_eq(v, core, i))
+            prop = true;
         if (try_mul_bounds(v, core, i))
             prop = true;
         if (try_parity(v, core, i))
@@ -107,6 +109,31 @@ namespace polysat {
         if (false && try_tangent(v, core, i))
             prop = true;
         return prop;
+    }
+
+    bool saturation::try_ugt_eq(pvar x, conflict& core, inequality const& i) {
+        set_rule("egraph(x == y) & p(x,y) > q(x,y) ==> p(y,y) > q(y,y)");
+        if (!i.is_strict())
+            return false;
+        // if (!core.vars().contains(x))
+        //     return false;
+        if (!i.as_signed_constraint().contains_var(x))
+            return false;
+        for (pvar y : s.m_slicing.equivalent_vars(x)) {
+            if (!core.vars().contains(y))
+                continue;
+            if (!i.as_signed_constraint().contains_var(y))
+                continue;
+            // does inequality become false by plugging in x = y?
+            pdd const lhs = i.lhs().subst_pdd(x, s.var(y));
+            pdd const rhs = i.rhs().subst_pdd(x, s.var(y));
+            signed_constraint c = ineq(true, lhs, rhs);
+            m_lemma.reset();
+            s.m_slicing.explain_equal(x, y, [&](sat::literal lit) { m_lemma.insert(~lit); });
+            if (propagate(x, core, i, c))
+                return true;
+        }
+        return false;
     }
 
     bool saturation::try_nonzero_upper_extract(pvar y, conflict& core, inequality const& i) {

@@ -122,6 +122,8 @@ namespace polysat {
         bool try_div_monotonicity(conflict& core);
 
         bool try_nonzero_upper_extract(pvar v, conflict& core, inequality const& i);
+        bool try_ugt_eq(pvar v, conflict& core, inequality const& i);
+
 
         rational round(rational const& M, rational const& x);
         bool eval_round(rational const& M, pdd const& p, rational& r);
