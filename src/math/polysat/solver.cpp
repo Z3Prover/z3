@@ -1643,6 +1643,8 @@ namespace polysat {
     }
 
     std::ostream& lit_pp::display(std::ostream& out) const {
+        if (lit == sat::null_literal)
+            return out << "<null_literal>";
         signed_constraint const c = s.lit2cnstr(lit);
         out << lpad(5, lit) << ": " << rpad(30, c);
         if (!c)
