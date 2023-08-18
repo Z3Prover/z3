@@ -79,25 +79,25 @@ struct common {
     std::ostream& print_rooted_monic_with_vars(const monic&, std::ostream& out) const;
     bool check_monic(const monic&) const;
     unsigned random();
-    void add_deps_of_fixed(lpvar j, u_dependency*& dep);
+    void add_deps_of_fixed(lpvar j, v_dependency*& dep);
     class ci_value_manager {
     public:
-        void inc_ref(lp::constraint_index const & v) {
+        void inc_ref(lp::constraint_dependency* const & v) {
         }
 
-        void dec_ref(lp::constraint_index const & v) {
+        void dec_ref(lp::constraint_dependency* const& v) {
         }
     };
 
-    struct u_dependency_config {
+    struct v_dependency_config {
         typedef ci_value_manager        value_manager;
         typedef region  allocator;
         static const bool ref_count = false;
-        typedef lp::constraint_index value;
+        typedef lp::constraint_dependency* value;
     };
         
-    nex* nexvar(const rational& coeff, lpvar j, nex_creator&, u_dependency*&);
+    nex* nexvar(const rational& coeff, lpvar j, nex_creator&, v_dependency*&);
     template <typename T>
-    void create_sum_from_row(const T&, nex_creator&, nex_creator::sum_factory&, u_dependency*&);
+    void create_sum_from_row(const T&, nex_creator&, nex_creator::sum_factory&, v_dependency*&);
 };
 }

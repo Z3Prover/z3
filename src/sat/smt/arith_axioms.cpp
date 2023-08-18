@@ -524,7 +524,7 @@ namespace arith {
         return all_divs_valid;
     }
 
-    void solver::fixed_var_eh(theory_var v, lp::constraint_index ci1, lp::constraint_index ci2, rational const& bound) {
+    void solver::fixed_var_eh(theory_var v, lp::constraint_dependency* dep, rational const& bound) {
         theory_var w = euf::null_theory_var;
         enode* x = var2enode(v);
         if (bound.is_zero()) 
@@ -540,8 +540,8 @@ namespace arith {
             return;
         reset_evidence();
         m_explanation.clear();
-        consume(rational::one(), ci1);
-        consume(rational::one(), ci2);
+        for (auto ci : lp().flatten(dep))
+            consume(rational::one(), ci);
         ++m_stats.m_fixed_eqs;
         auto* hint = explain_implied_eq(m_explanation, x, y);
         auto* jst = euf::th_explain::propagate(*this, m_core, m_eqs, x, y, hint);

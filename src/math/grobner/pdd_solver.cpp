@@ -357,7 +357,7 @@ namespace dd {
         m_conflict = nullptr;
     }
 
-    void solver::add(pdd const& p, u_dependency * dep) {
+    void solver::add(pdd const& p, v_dependency * dep) {
         if (p.is_zero()) 
             return;
         equation * eq = alloc(equation, p, dep);
@@ -370,7 +370,7 @@ namespace dd {
         update_stats_max_degree_and_size(*eq);
     }
 
-    void solver::add_subst(unsigned v, pdd const& p, u_dependency* dep) {
+    void solver::add_subst(unsigned v, pdd const& p, v_dependency* dep) {
         m_subst.push_back({v, p, dep});
         if (!m_var2level.empty()) 
             m_levelp1 = std::max(m_var2level[v]+1, std::max(m_var2level[p.var()]+1, m_levelp1));
@@ -397,7 +397,7 @@ namespace dd {
             simplify_using(m_solved, simplifier);
     }
 
-    void solver::simplify(pdd& p, u_dependency*& d) {
+    void solver::simplify(pdd& p, v_dependency*& d) {
         for (auto const& [v, q, d2] : m_subst) {
             pdd r = p.subst_pdd(v, q);
             if (r != p) {

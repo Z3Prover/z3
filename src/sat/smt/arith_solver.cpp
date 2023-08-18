@@ -433,11 +433,12 @@ namespace arith {
             // m_solver already tracks bounds on proper variables, but not on terms.
             bool is_strict = false;
             rational b;
+            lp::constraint_dependency* dep = nullptr;
             if (is_lower) {
-                return lp().has_lower_bound(tv.id(), ci, b, is_strict) && !is_strict && b == v;
+                return lp().has_lower_bound(tv.id(), dep, b, is_strict) && !is_strict && b == v;
             }
             else {
-                return lp().has_upper_bound(tv.id(), ci, b, is_strict) && !is_strict && b == v;
+                return lp().has_upper_bound(tv.id(), dep, b, is_strict) && !is_strict && b == v;
             }
         }
     }
@@ -757,11 +758,13 @@ namespace arith {
         else {
             bool is_strict = false;
             rational b;
+            lp::constraint_dependency* dep = nullptr;
+            NOT_IMPLEMENTED_YET(); // need to reconcile ci and dep as outputs
             if (is_lower) {
-                return lp().has_lower_bound(vi, ci, b, is_strict) && b == bound && !is_strict;
+                return lp().has_lower_bound(vi, dep, b, is_strict) && b == bound && !is_strict;
             }
             else {
-                return lp().has_upper_bound(vi, ci, b, is_strict) && b == bound && !is_strict;
+                return lp().has_upper_bound(vi, dep, b, is_strict) && b == bound && !is_strict;
             }
         }
     }

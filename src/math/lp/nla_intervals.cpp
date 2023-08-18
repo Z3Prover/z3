@@ -54,7 +54,7 @@ const nex* intervals::get_zero_interval_child(const nex_mul& e) const {
     return nullptr;
 }
 
-std::ostream & intervals::print_dependencies(u_dependency* deps , std::ostream& out) const {
+std::ostream & intervals::print_dependencies(v_dependency* deps , std::ostream& out) const {
     svector<lp::constraint_index> expl;
     m_dep_intervals.linearize(deps, expl);
     {
@@ -69,7 +69,7 @@ std::ostream & intervals::print_dependencies(u_dependency* deps , std::ostream& 
     return out;
 }
 
-std::ostream& intervals::display_separating_interval(std::ostream& out, const nex*n, const scoped_dep_interval& interv_wd, u_dependency* initial_deps) {
+std::ostream& intervals::display_separating_interval(std::ostream& out, const nex*n, const scoped_dep_interval& interv_wd, v_dependency* initial_deps) {
      out << "conflict: interv_wd = "; display(out, interv_wd ) <<"expr = " << *n << "\n, initial deps\n"; print_dependencies(initial_deps, out);
           out << ", expressions vars = \n";
           for(lpvar j: m_core->get_vars_of_expr_with_opening_terms(n)) {
@@ -80,7 +80,7 @@ std::ostream& intervals::display_separating_interval(std::ostream& out, const ne
 }
 
 // return true iff the interval of n is does not contain 0
-bool intervals::check_nex(const nex* n, u_dependency* initial_deps) {
+bool intervals::check_nex(const nex* n, v_dependency* initial_deps) {
     m_core->lp_settings().stats().m_cross_nested_forms++;
     scoped_dep_interval i(get_dep_intervals());
     std::function<void (const lp::explanation&)> f = [this](const lp::explanation& e) {
@@ -206,19 +206,14 @@ void intervals::set_zero_interval_deps_for_mult(interval& a) {
     a.m_upper_dep = a.m_lower_dep;
 }
 
-u_dependency *intervals::mk_dep(lp::constraint_index ci) {
+v_dependency *intervals::mk_dep(lp::constraint_dependency* ci) {
     return m_dep_intervals.mk_leaf(ci);
 }
 
-u_dependency *intervals::mk_dep(const lp::explanation& expl) {
-    u_dependency * r = nullptr;
-    for (auto p : expl) {
-        if (r == nullptr) {
-            r = m_dep_intervals.mk_leaf(p.ci());
-        } else {
-            r = m_dep_intervals.mk_join(r, m_dep_intervals.mk_leaf(p.ci()));
-        }
-    }
+v_dependency *intervals::mk_dep(const lp::explanation& expl) {
+    v_dependency * r = nullptr;
+    for (auto p : expl) 
+        r = m_dep_intervals.mk_join(r, m_dep_intervals.mk_leaf(p.ci()));
     return r;
 }
 

@@ -59,17 +59,17 @@ unsigned common::random() {
     return c().random();
 }
 
-void common::add_deps_of_fixed(lpvar j, u_dependency*& dep) {
-    unsigned lc, uc;
+void common::add_deps_of_fixed(lpvar j, v_dependency*& dep) {
     auto& dep_manager = c().m_intervals.get_dep_intervals().dep_manager();
-    c().m_lar_solver.get_bound_constraint_witnesses_for_column(j, lc, uc);
-    dep = dep_manager.mk_join(dep, dep_manager.mk_leaf(lc));
-    dep = dep_manager.mk_join(dep, dep_manager.mk_leaf(uc));                    
+    svector<lp::constraint_index> deps;
+    c().m_lar_solver.get_bound_constraint_witnesses_for_column(j, deps);
+    for (auto d : deps)
+        dep = dep_manager.mk_join(dep, dep_manager.mk_leaf(d));                
 }
 
 
 // creates a nex expression for the coeff and var, 
-nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn, u_dependency*& dep) {
+nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn, v_dependency*& dep) {
     SASSERT(!coeff.is_zero());
     if (c().params().arith_nl_horner_subs_fixed() == 1 && c().var_is_fixed(j)) {
         add_deps_of_fixed(j, dep);
@@ -87,7 +87,7 @@ nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn, u_depende
     const monic& m = c().emons()[j];
     nex_creator::mul_factory mf(cn);
     mf *= coeff;
-    u_dependency * initial_dep = dep;
+    v_dependency * initial_dep = dep;
     for (lpvar k : m.vars()) {
         if (c().params().arith_nl_horner_subs_fixed() == 1 && c().var_is_fixed(k)) {
             add_deps_of_fixed(k, dep);
@@ -113,7 +113,7 @@ nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn, u_depende
 template <typename T> void common::create_sum_from_row(const T& row,
                                                        nex_creator& cn,
                                                        nex_creator::sum_factory& sum,
-                                                       u_dependency*& dep) {
+                                                       v_dependency*& dep) {
 
     TRACE("nla_horner", tout << "row="; m_core.print_row(row, tout) << "\n";);
     SASSERT(row.size() > 1);

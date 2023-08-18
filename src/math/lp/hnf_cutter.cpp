@@ -39,7 +39,7 @@ namespace lp  {
         m_overflow = false;
     }
 
-    void hnf_cutter::add_term(const lar_term* t, const mpq &rs, constraint_index ci, bool upper_bound) {
+    void hnf_cutter::add_term(const lar_term* t, const mpq &rs, constraint_dependency* ci, bool upper_bound) {
         m_terms.push_back(t);
         m_terms_upper.push_back(upper_bound);
         if (upper_bound)
@@ -146,7 +146,7 @@ namespace lp  {
     }
 #endif
     void hnf_cutter::shrink_explanation(const svector<unsigned>& basis_rows) {
-        svector<unsigned> new_expl;
+        ptr_vector<constraint_dependency> new_expl;
         for (unsigned i : basis_rows) {
             new_expl.push_back(m_constraints_for_explanation[i]);
         }
@@ -232,10 +232,10 @@ branch y_i >= ceil(y0_i) is impossible.
     void hnf_cutter::try_add_term_to_A_for_hnf(tv const &i) {
         mpq rs;
         const lar_term& t = lra.get_term(i);
-        constraint_index ci;
+        constraint_dependency* dep;
         bool upper_bound;
-        if (!is_full() && lra.get_equality_and_right_side_for_term_on_current_x(i, rs, ci, upper_bound)) {
-            add_term(&t, rs, ci, upper_bound);
+        if (!is_full() && lra.get_equality_and_right_side_for_term_on_current_x(i, rs, dep, upper_bound)) {
+            add_term(&t, rs, dep, upper_bound);
         }
     }
 
@@ -259,8 +259,9 @@ branch y_i >= ceil(y0_i) is impossible.
         }
         lia.settings().stats().m_hnf_cutter_calls++;
         TRACE("hnf_cut", tout << "settings().stats().m_hnf_cutter_calls = " << lia.settings().stats().m_hnf_cutter_calls << "\n";
-              for (unsigned i : constraints_for_explanation()) {
-                  lra.constraints().display(tout, i);
+              for (constraint_dependency* d : constraints_for_explanation()) {
+                for (auto ci : lra.flatten(d))
+                  lra.constraints().display(tout, ci);
               }              
               tout << lra.constraints();
               );
@@ -277,16 +278,16 @@ branch y_i >= ceil(y0_i) is impossible.
             TRACE("hnf_cut",
                   lra.print_term(lia.m_t, tout << "cut:"); 
                   tout << " <= " << lia.m_k << std::endl;
-                  for (unsigned i : constraints_for_explanation()) {
-                      lra.constraints().display(tout, i);
-                  }              
+                  for (auto* dep : constraints_for_explanation()) 
+                      for (auto ci : lra.flatten(dep))
+                        lra.constraints().display(tout, ci);                  
                   );
             lp_assert(lia.current_solution_is_inf_on_cut());
             lia.settings().stats().m_hnf_cuts++;
             lia.m_ex->clear();        
-            for (unsigned i : constraints_for_explanation()) {
-                lia.m_ex->push_back(i);
-            }
+            for (constraint_dependency* dep : constraints_for_explanation()) 
+                for (auto ci : lia.lra.flatten(dep))
+                    lia.m_ex->push_back(ci);            
         } 
         return r;
     }

@@ -316,21 +316,20 @@ bool core::explain_lower_bound(const lp::lar_term& t, const rational& rs, lp::ex
 bool core::explain_coeff_lower_bound(const lp::lar_term::ival& p, rational& bound, lp::explanation& e) const {
     const rational& a = p.coeff();
     SASSERT(!a.is_zero());
-    unsigned c; // the index for the lower or the upper bound
     if (a.is_pos()) {
-        unsigned c = m_lar_solver.get_column_lower_bound_witness(p.column());
-        if (c + 1 == 0)
+        auto* dep = m_lar_solver.get_column_lower_bound_witness(p.column());
+        if (!dep)
             return false;
         bound = a * m_lar_solver.get_lower_bound(p.column()).x;
-        e.push_back(c);
+        m_lar_solver.push_explanation(dep, e);
         return true;
     }
     // a.is_neg()
-    c = m_lar_solver.get_column_upper_bound_witness(p.column());
-    if (c + 1 == 0)
+    auto* dep = m_lar_solver.get_column_upper_bound_witness(p.column());
+    if (!dep)
         return false;
     bound = a * m_lar_solver.get_upper_bound(p.column()).x;
-    e.push_back(c);
+    m_lar_solver.push_explanation(dep, e);
     return true;
 }
 
@@ -338,21 +337,20 @@ bool core::explain_coeff_upper_bound(const lp::lar_term::ival& p, rational& boun
     const rational& a = p.coeff();
     lpvar j = p.column();
     SASSERT(!a.is_zero());
-    unsigned c; // the index for the lower or the upper bound
     if (a.is_neg()) {
-        unsigned c = m_lar_solver.get_column_lower_bound_witness(j);
-        if (c + 1 == 0)
+        auto *dep = m_lar_solver.get_column_lower_bound_witness(j);
+        if (!dep)
             return false;
         bound = a * m_lar_solver.get_lower_bound(j).x;
-        e.push_back(c);
+        m_lar_solver.push_explanation(dep, e);
         return true;
     }
     // a.is_pos()
-    c = m_lar_solver.get_column_upper_bound_witness(j);
-    if (c + 1 == 0)
+    auto* dep = m_lar_solver.get_column_upper_bound_witness(j);
+    if (!dep)
         return false;
     bound = a * m_lar_solver.get_upper_bound(j).x;
-    e.push_back(c);
+    m_lar_solver.push_explanation(dep, e);
     return true;
 }
     
@@ -737,15 +735,18 @@ bool core::is_octagon_term(const lp::lar_term& t, bool & sign, lpvar& i, lpvar &
     return true;
 }
     
-void core::add_equivalence_maybe(const lp::lar_term *t, lpci c0, lpci c1) {
+void core::add_equivalence_maybe(const lp::lar_term *t, lpcd* c0, lpcd* c1) {
     bool sign;
     lpvar i, j;
     if (!is_octagon_term(*t, sign, i, j))
         return;
+    NOT_IMPLEMENTED_YET();
+ #if 0
     if (sign)
         m_evars.merge_minus(i, j, eq_justification({c0, c1}));
     else 
         m_evars.merge_plus(i, j, eq_justification({c0, c1}));
+ #endif
 }
 
 // x is equivalent to y if x = +- y
@@ -1136,7 +1137,7 @@ new_lemma& new_lemma::explain_var_separated_from_zero(lpvar j) {
 new_lemma& new_lemma::explain_existing_lower_bound(lpvar j) {
     SASSERT(c.has_lower_bound(j));
     lp::explanation ex;
-    ex.push_back(c.m_lar_solver.get_column_lower_bound_witness(j));
+    c.m_lar_solver.push_explanation(c.m_lar_solver.get_column_lower_bound_witness(j), ex);
     *this &= ex;
     TRACE("nla_solver", tout << j << ": " << *this << "\n";);
     return *this;
@@ -1145,7 +1146,7 @@ new_lemma& new_lemma::explain_existing_lower_bound(lpvar j) {
 new_lemma& new_lemma::explain_existing_upper_bound(lpvar j) {
     SASSERT(c.has_upper_bound(j));
     lp::explanation ex;
-    ex.push_back(c.m_lar_solver.get_column_upper_bound_witness(j));
+    c.m_lar_solver.push_explanation(c.m_lar_solver.get_column_upper_bound_witness(j), ex);
     *this &= ex;
     return *this;
 }

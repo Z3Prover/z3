@@ -113,8 +113,8 @@ private:
     
 public:
     std::ostream& display_column(std::ostream & out, unsigned j) const;
-    constraint_index column_upper_bound_constraint(unsigned j) const;
-    constraint_index column_lower_bound_constraint(unsigned j) const;
+    constraint_dependency* column_upper_bound_constraint(unsigned j) const;
+    constraint_dependency* column_lower_bound_constraint(unsigned j) const;
     bool current_solution_is_inf_on_cut() const;
 
     bool shift_var(unsigned j, unsigned range);

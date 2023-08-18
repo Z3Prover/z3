@@ -22,8 +22,6 @@ Author:
 
 namespace lp {
 
-typedef scoped_dependency_manager<constraint_index> constraint_dependencies;
-typedef constraint_dependencies::dependency constraint_dependency;
 
 inline bool kind_is_strict(lconstraint_kind kind) { return kind == LT || kind == GT;}
 
@@ -44,16 +42,16 @@ inline bool compare(const std::pair<mpq, var_index> & a, const std::pair<mpq, va
 }
 
 class ul_pair {
-    constraint_index m_lower_bound_witness = UINT_MAX; // TODO change type to dependency
-    constraint_index m_upper_bound_witness = UINT_MAX;
-    bool             m_associated_with_row = false;  
+    constraint_dependency* m_lower_bound_witness = nullptr;
+    constraint_dependency* m_upper_bound_witness = nullptr;
+    bool                   m_associated_with_row = false;  
 public:
     // TODO - seems more straight-forward to just expose ul_pair as a struct with direct access to attributes.
     
-    constraint_index& lower_bound_witness() {return m_lower_bound_witness;}
-    constraint_index lower_bound_witness() const {return m_lower_bound_witness;}
-    constraint_index& upper_bound_witness() { return m_upper_bound_witness;}
-    constraint_index upper_bound_witness() const {return m_upper_bound_witness;}
+    constraint_dependency*& lower_bound_witness() {return m_lower_bound_witness;}
+    constraint_dependency* lower_bound_witness() const {return m_lower_bound_witness;}
+    constraint_dependency*& upper_bound_witness() { return m_upper_bound_witness;}
+    constraint_dependency* upper_bound_witness() const {return m_upper_bound_witness;}
 
     // equality is used by stackedvector operations.
     // this appears to be a low level reason

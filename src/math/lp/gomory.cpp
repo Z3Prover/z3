@@ -50,9 +50,13 @@ class create_cut {
     bool at_upper(unsigned j) const { return lia.at_upper(j); }
     const impq & lower_bound(unsigned j) const { return lia.lower_bound(j); }
     const impq & upper_bound(unsigned j) const  { return lia.upper_bound(j); }
-    constraint_index column_lower_bound_constraint(unsigned j) const { return lia.column_lower_bound_constraint(j); }
-    constraint_index column_upper_bound_constraint(unsigned j) const { return lia.column_upper_bound_constraint(j); }
+    constraint_dependency* column_lower_bound_constraint(unsigned j) const { return lia.column_lower_bound_constraint(j); }
+    constraint_dependency* column_upper_bound_constraint(unsigned j) const { return lia.column_upper_bound_constraint(j); }
     bool column_is_fixed(unsigned j) const { return lia.lra.column_is_fixed(j); }
+    void push_explanation(constraint_dependency* d) {
+        for (auto ci : lia.lra.flatten(d))
+            m_ex->push_back(ci);
+    }
 
     void int_case_in_gomory_cut(unsigned j) {
         lp_assert(is_int(j) && m_fj.is_pos());
@@ -67,7 +71,7 @@ class create_cut {
             new_a = m_fj <= m_one_minus_f ? m_fj / m_one_minus_f : ((1 - m_fj) / m_f);
             lp_assert(new_a.is_pos());
             m_k.addmul(new_a, lower_bound(j).x);
-            m_ex->push_back(column_lower_bound_constraint(j));            
+            push_explanation(column_lower_bound_constraint(j));            
         }
         else {
             lp_assert(at_upper(j));
@@ -75,7 +79,7 @@ class create_cut {
             new_a = - (m_fj <= m_f ? m_fj / m_f  : ((1 - m_fj) / m_one_minus_f));
             lp_assert(new_a.is_neg());
             m_k.addmul(new_a, upper_bound(j).x);
-            m_ex->push_back(column_upper_bound_constraint(j));
+            push_explanation(column_upper_bound_constraint(j));
         }
         m_t.add_monomial(new_a, j);
         m_lcm_den = lcm(m_lcm_den, denominator(new_a));
@@ -99,7 +103,7 @@ class create_cut {
                 new_a = - a / m_f;
             m_k.addmul(new_a, lower_bound(j).x); // is it a faster operation than
             // k += lower_bound(j).x * new_a;  
-            m_ex->push_back(column_lower_bound_constraint(j));
+            push_explanation(column_lower_bound_constraint(j));
         }
         else {
             lp_assert(at_upper(j));
@@ -110,7 +114,7 @@ class create_cut {
                 // the delta is positive works again m_one_minus_f
                 new_a =   a / m_one_minus_f; 
             m_k.addmul(new_a, upper_bound(j).x); //  k += upper_bound(j).x * new_a; 
-            m_ex->push_back(column_upper_bound_constraint(j));
+            push_explanation(column_upper_bound_constraint(j));
         }
         m_t.add_monomial(new_a, j);
         TRACE("gomory_cut_detail_real", tout << "add " << new_a << "*v" << j << ", k: " << m_k << "\n";
@@ -313,8 +317,8 @@ public:
              // use -p.coeff() to make the format compatible with the format used in: Integrating Simplex with DPLL(T)
             try {
                 if (lia.is_fixed(j)) {
-                    m_ex->push_back(column_lower_bound_constraint(j));
-                    m_ex->push_back(column_upper_bound_constraint(j));
+                    push_explanation(column_lower_bound_constraint(j));
+                    push_explanation(column_upper_bound_constraint(j));
                     continue;
                 }
                 if (is_real(j))   

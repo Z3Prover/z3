@@ -250,10 +250,10 @@ namespace lp {
     }
 
     void int_gcd_test::add_to_explanation_from_fixed_or_boxed_column(unsigned j) {
-        constraint_index lc, uc;
-        lra.get_bound_constraint_witnesses_for_column(j, lc, uc);
-        lia.m_ex->push_back(lc);
-        lia.m_ex->push_back(uc);
+        svector<constraint_index> deps;
+        lra.get_bound_constraint_witnesses_for_column(j, deps);
+        for (auto d : deps)
+            lia.m_ex->push_back(d);
     }
 
     bool int_gcd_test::accumulate_parity(const row_strip<mpq> & row, unsigned least_idx) {

@@ -287,10 +287,10 @@ public:
     }
     const rational& get_upper_bound(unsigned j) const;
     const rational& get_lower_bound(unsigned j) const;    
-    bool has_lower_bound(lp::var_index var, lp::constraint_index& ci, lp::mpq& value, bool& is_strict) const { 
+    bool has_lower_bound(lp::var_index var, lp::constraint_dependency*& ci, lp::mpq& value, bool& is_strict) const { 
         return m_lar_solver.has_lower_bound(var, ci, value, is_strict); 
     }
-    bool has_upper_bound(lp::var_index var, lp::constraint_index& ci, lp::mpq& value, bool& is_strict) const {
+    bool has_upper_bound(lp::var_index var, lp::constraint_dependency*& ci, lp::mpq& value, bool& is_strict) const {
         return m_lar_solver.has_upper_bound(var, ci, value, is_strict);
     }
 
@@ -338,7 +338,7 @@ public:
 
     bool is_octagon_term(const lp::lar_term& t, bool & sign, lpvar& i, lpvar &j) const;
     
-    void add_equivalence_maybe(const lp::lar_term *t, lpci c0, lpci c1);
+    void add_equivalence_maybe(const lp::lar_term *t, lpcd* c0, lpcd* c1);
 
     void init_vars_equivalence();
 

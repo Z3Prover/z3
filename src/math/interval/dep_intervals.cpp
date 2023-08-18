@@ -39,7 +39,7 @@ void dep_intervals::set_interval_for_scalar(interval& a, const rational& v) {
 
 
 
-void dep_intervals::set_zero_interval(interval& i, u_dependency* dep) const {
+void dep_intervals::set_zero_interval(interval& i, v_dependency* dep) const {
     auto val = rational(0);
     m_config.set_lower(i, val);
     m_config.set_lower_is_open(i, false);
@@ -101,14 +101,15 @@ std::ostream& dep_intervals::display(std::ostream& out, const interval& i) const
         out << rational(m_imanager.upper(i)) << (m_imanager.upper_is_open(i)? ")":"]");         
     }
     if (i.m_lower_dep) {
+        NOT_IMPLEMENTED_YET();
         vector<unsigned, false> ex;
-        linearize(i.m_lower_dep, ex);
+//        linearize(i.m_lower_dep, ex);
         out << " ld";
         for (unsigned d : ex) out << " " << d;
     }
     if (i.m_upper_dep) {
         vector<unsigned, false> ex;
-        linearize(i.m_upper_dep, ex);
+//        linearize(i.m_upper_dep, ex);
         out << " ud";
         for (unsigned d : ex) out << " " << d;
     }

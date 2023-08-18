@@ -91,6 +91,7 @@ class lar_solver : public column_namer {
     indexed_uint_set m_touched_rows;
     unsigned_vector m_row_bounds_to_replay;
     constraint_dependencies m_dependencies;
+    svector<constraint_index> m_tmp_dependencies;
 
     indexed_uint_set m_basic_columns_with_changed_cost;
     // these are basic columns with the value changed, so the corresponding row in the tableau
@@ -314,7 +315,7 @@ class lar_solver : public column_namer {
             int sign = j_sign * a_sign;
             const ul_pair& ul = m_columns_to_ul_pairs[j];
             auto witness = sign > 0 ? ul.upper_bound_witness() : ul.lower_bound_witness();
-            lp_assert(is_valid(witness));
+            lp_assert(witness);
             bp.consume(a, witness);
         }
     }
@@ -463,7 +464,18 @@ class lar_solver : public column_namer {
         return m_mpq_lar_core_solver.m_r_solver.column_has_lower_bound(j);
     }
 
-    inline constraint_index get_column_upper_bound_witness(unsigned j) const {
+    svector<constraint_index> const& flatten(constraint_dependency* d) {
+        m_tmp_dependencies.reset();
+        m_dependencies.linearize(d, m_tmp_dependencies);
+        return m_tmp_dependencies;
+    }
+
+    void push_explanation(constraint_dependency* d, explanation& ex) {
+        for (auto ci : flatten(d))
+            ex.push_back(ci);
+    }
+
+    inline constraint_dependency* get_column_upper_bound_witness(unsigned j) const {
         if (tv::is_term(j)) {
             j = m_var_register.external_to_local(j);
         }
@@ -477,8 +489,8 @@ class lar_solver : public column_namer {
     inline const impq& get_lower_bound(column_index j) const {
         return m_mpq_lar_core_solver.m_r_solver.m_lower_bounds[j];
     }
-    bool has_lower_bound(var_index var, constraint_index& ci, mpq& value, bool& is_strict) const;
-    bool has_upper_bound(var_index var, constraint_index& ci, mpq& value, bool& is_strict) const;
+    bool has_lower_bound(var_index var, constraint_dependency*& ci, mpq& value, bool& is_strict) const;
+    bool has_upper_bound(var_index var, constraint_dependency*& ci, mpq& value, bool& is_strict) const;
     bool has_value(var_index var, mpq& value) const;
     bool fetch_normalized_term_column(const lar_term& t, std::pair<mpq, lpvar>&) const;
     unsigned map_term_index_to_column_index(unsigned j) const;
@@ -533,15 +545,20 @@ class lar_solver : public column_namer {
 
     std::pair<constraint_index, constraint_index> add_equality(lpvar j, lpvar k);
 
-    inline void get_bound_constraint_witnesses_for_column(unsigned j, constraint_index& lc, constraint_index& uc) const {
+    inline void get_bound_constraint_witnesses_for_column(unsigned j, svector<constraint_index>& deps) {
         const ul_pair& ul = m_columns_to_ul_pairs[j];
-        lc = ul.lower_bound_witness();
-        uc = ul.upper_bound_witness();
+        m_dependencies.linearize(ul.lower_bound_witness(), deps);
+        m_dependencies.linearize(ul.upper_bound_witness(), deps);
+    }
+    constraint_dependency* get_bound_constraint_witnesses_for_column(unsigned j) {
+        const ul_pair& ul = m_columns_to_ul_pairs[j];
+        return m_dependencies.mk_join(ul.lower_bound_witness(), ul.upper_bound_witness());
     }
     inline constraint_set const& constraints() const { return m_constraints; }
     void push();
     void pop();
-    inline constraint_index get_column_lower_bound_witness(unsigned j) const {
+
+    inline constraint_dependency* get_column_lower_bound_witness(unsigned j) const {
         if (tv::is_term(j)) {
             j = m_var_register.external_to_local(j);
         }
@@ -604,7 +621,7 @@ class lar_solver : public column_namer {
     inline const column_strip& get_column(unsigned i) const { return A_r().m_columns[i]; }
     bool row_is_correct(unsigned i) const;
     bool ax_is_correct() const;
-    bool get_equality_and_right_side_for_term_on_current_x(tv const& t, mpq& rs, constraint_index& ci, bool& upper_bound) const;
+    bool get_equality_and_right_side_for_term_on_current_x(tv const& t, mpq& rs, constraint_dependency*& ci, bool& upper_bound) const;
     bool var_is_int(var_index v) const;
     inline const vector<int>& r_heading() const { return m_mpq_lar_core_solver.m_r_heading; }
     inline const vector<unsigned>& r_basis() const { return m_mpq_lar_core_solver.r_basis(); }

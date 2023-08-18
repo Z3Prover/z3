@@ -196,7 +196,7 @@ namespace nla {
 
     void grobner::add_dependencies(new_lemma& lemma, const dd::solver::equation& eq) {
         lp::explanation ex;
-        u_dependency_manager dm;
+        v_dependency_manager dm;
         vector<unsigned, false> lv;
         dm.linearize(eq.dep(), lv);
         for (unsigned ci : lv)
@@ -361,19 +361,18 @@ namespace nla {
         }
     }
 
-    const rational& grobner::val_of_fixed_var_with_deps(lpvar j, u_dependency*& dep) {
-        unsigned lc, uc;
-        m_lar_solver.get_bound_constraint_witnesses_for_column(j, lc, uc);
-        dep = c().m_intervals.mk_join(dep, c().m_intervals.mk_leaf(lc));
-        dep = c().m_intervals.mk_join(dep, c().m_intervals.mk_leaf(uc));
+    const rational& grobner::val_of_fixed_var_with_deps(lpvar j, v_dependency*& dep) {
+        auto* d = m_lar_solver.get_bound_constraint_witnesses_for_column(j);
+        if (d)
+            dep = c().m_intervals.mk_join(dep, c().m_intervals.mk_leaf(d));
         return m_lar_solver.column_lower_bound(j).x;
     }
 
-    dd::pdd grobner::pdd_expr(const rational& coeff, lpvar j, u_dependency*& dep) {
+    dd::pdd grobner::pdd_expr(const rational& coeff, lpvar j, v_dependency*& dep) {
         dd::pdd r = m_pdd_manager.mk_val(coeff);
         sbuffer<lpvar> vars;
         vars.push_back(j);
-        u_dependency* zero_dep = dep;
+        v_dependency* zero_dep = dep;
         while (!vars.empty()) {
             j = vars.back();
             vars.pop_back();
@@ -452,7 +451,7 @@ namespace nla {
     /**
        \brief add an equality to grobner solver, convert it to solved form if available.
     */    
-    void grobner::add_eq(dd::pdd& p, u_dependency* dep) {
+    void grobner::add_eq(dd::pdd& p, v_dependency* dep) {
         unsigned v;
         dd::pdd q(m_pdd_manager);
         m_solver.simplify(p, dep);
@@ -463,7 +462,7 @@ namespace nla {
     }
 
     void grobner::add_fixed_monic(unsigned j) {
-        u_dependency* dep = nullptr;
+        v_dependency* dep = nullptr;
         dd::pdd r = m_pdd_manager.mk_val(rational(1));
         for (lpvar k : c().emons()[j].vars())
             r *= pdd_expr(rational::one(), k, dep);
@@ -472,7 +471,7 @@ namespace nla {
     }
 
     void grobner::add_row(const vector<lp::row_cell<rational>> & row) {
-        u_dependency *dep = nullptr;
+        v_dependency *dep = nullptr;
         rational val;
         dd::pdd sum = m_pdd_manager.mk_val(rational(0));
         for (const auto &p : row) 

@@ -218,8 +218,14 @@ namespace lp {
 
         // this is the case when the lower bound is in conflict with the upper one
         const ul_pair& ul = m_columns_to_ul_pairs[m_crossed_bounds_column];
-        evidence.add_pair(ul.upper_bound_witness(), numeric_traits<mpq>::one());
-        evidence.add_pair(ul.lower_bound_witness(), -numeric_traits<mpq>::one());
+        svector<constraint_index> deps;
+        m_dependencies.linearize(ul.upper_bound_witness(), deps);
+        for (auto d : deps)
+            evidence.add_pair(d, numeric_traits<mpq>::one());
+        deps.reset();
+        m_dependencies.linearize(ul.lower_bound_witness(), deps);
+        for (auto d : deps)
+            evidence.add_pair(d, -numeric_traits<mpq>::one());
     }
 
     void lar_solver::push() {
@@ -579,13 +585,13 @@ namespace lp {
 
     void lar_solver::set_upper_bound_witness(var_index j, constraint_index ci) {
         ul_pair ul = m_columns_to_ul_pairs[j];
-        ul.upper_bound_witness() = ci;
+        ul.upper_bound_witness() = m_dependencies.mk_leaf(ci);
         m_columns_to_ul_pairs[j] = ul;
     }
 
     void lar_solver::set_lower_bound_witness(var_index j, constraint_index ci) {
         ul_pair ul = m_columns_to_ul_pairs[j];
-        ul.lower_bound_witness() = ci;
+        ul.lower_bound_witness() = m_dependencies.mk_leaf(ci);
         m_columns_to_ul_pairs[j] = ul;
     }
 
@@ -920,7 +926,7 @@ namespace lp {
         return ret;
     }
 
-    bool lar_solver::has_lower_bound(var_index var, constraint_index& ci, mpq& value, bool& is_strict) const {
+    bool lar_solver::has_lower_bound(var_index var, constraint_dependency*& ci, mpq& value, bool& is_strict) const {
 
         if (var >= m_columns_to_ul_pairs.size()) {
             // TBD: bounds on terms could also be used, caller may have to track these.
@@ -928,7 +934,7 @@ namespace lp {
         }
         const ul_pair& ul = m_columns_to_ul_pairs[var];
         ci = ul.lower_bound_witness();
-        if (ci != null_ci) {
+        if (ci != nullptr) {
             auto& p = m_mpq_lar_core_solver.m_r_lower_bounds()[var];
             value = p.x;
             is_strict = p.y.is_pos();
@@ -939,7 +945,7 @@ namespace lp {
         }
     }
 
-    bool lar_solver::has_upper_bound(var_index var, constraint_index& ci, mpq& value, bool& is_strict) const {
+    bool lar_solver::has_upper_bound(var_index var, constraint_dependency*& ci, mpq& value, bool& is_strict) const {
 
         if (var >= m_columns_to_ul_pairs.size()) {
             // TBD: bounds on terms could also be used, caller may have to track these.
@@ -947,7 +953,7 @@ namespace lp {
         }
         const ul_pair& ul = m_columns_to_ul_pairs[var];
         ci = ul.upper_bound_witness();
-        if (ci != null_ci) {
+        if (ci != nullptr) {
             auto& p = m_mpq_lar_core_solver.m_r_upper_bounds()[var];
             value = p.x;
             is_strict = p.y.is_neg();
@@ -1005,9 +1011,13 @@ namespace lp {
             int adj_sign = coeff.is_pos() ? inf_sign : -inf_sign;
             const ul_pair& ul = m_columns_to_ul_pairs[j];
 
-            constraint_index bound_constr_i = adj_sign < 0 ? ul.upper_bound_witness() : ul.lower_bound_witness();
-            lp_assert(m_constraints.valid_index(bound_constr_i));
-            exp.add_pair(bound_constr_i, coeff);
+            constraint_dependency* bound_constr_i = adj_sign < 0 ? ul.upper_bound_witness() : ul.lower_bound_witness();
+            svector<constraint_index> deps;
+            m_dependencies.linearize(bound_constr_i, deps);
+            for (auto d : deps) {
+                lp_assert(m_constraints.valid_index(d));
+                exp.add_pair(d, coeff);
+            }
         }
     }
 
@@ -2165,7 +2175,7 @@ namespace lp {
         return true;
     }
 
-    bool lar_solver::get_equality_and_right_side_for_term_on_current_x(tv const& t, mpq& rs, constraint_index& ci, bool& upper_bound) const {
+    bool lar_solver::get_equality_and_right_side_for_term_on_current_x(tv const& t, mpq& rs, constraint_dependency*& ci, bool& upper_bound) const {
         lp_assert(t.is_term());
         unsigned j;
         bool is_int;

@@ -51,9 +51,9 @@ namespace nla {
         void add_row(const vector<lp::row_cell<rational>>& row);
         void add_fixed_monic(unsigned j);
         bool is_solved(dd::pdd const& p, unsigned& v, dd::pdd& r);
-        void add_eq(dd::pdd& p, u_dependency* dep);        
-        const rational& val_of_fixed_var_with_deps(lpvar j, u_dependency*& dep);
-        dd::pdd pdd_expr(const rational& c, lpvar j, u_dependency*& dep);                
+        void add_eq(dd::pdd& p, v_dependency* dep);        
+        const rational& val_of_fixed_var_with_deps(lpvar j, v_dependency*& dep);
+        dd::pdd pdd_expr(const rational& c, lpvar j, v_dependency*& dep);                
 
         void display_matrix_of_m_rows(std::ostream& out) const;
         std::ostream& diagnose_pdd_miss(std::ostream& out);
