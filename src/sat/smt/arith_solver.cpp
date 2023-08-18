@@ -402,12 +402,13 @@ namespace arith {
     }
 
     void solver::propagate_eqs(lp::tv t, lp::constraint_index ci1, lp::lconstraint_kind k, api_bound& b, rational const& value) {
-        u_dependency* ci2;
-        if (k == lp::GE && set_lower_bound(t, ci1, value) && has_upper_bound(t.index(), ci2, value)) {
-            fixed_var_eh(b.get_var(), lp().dep_manager().mk_join(lp().dep_manager().mk_leaf(ci1), ci2), value);
+        u_dependency* dep;
+        auto& dm = lp().dep_manager();
+        if (k == lp::GE && set_lower_bound(t, ci1, value) && has_upper_bound(t.index(), dep, value)) {
+            fixed_var_eh(b.get_var(), dm.mk_join(dm.mk_leaf(ci1), dep), value);
         }
-        else if (k == lp::LE && set_upper_bound(t, ci1, value) && has_lower_bound(t.index(), ci2, value)) {
-            fixed_var_eh(b.get_var(), lp().dep_manager().mk_join(lp().dep_manager().mk_leaf(ci1), ci2), value);
+        else if (k == lp::LE && set_upper_bound(t, ci1, value) && has_lower_bound(t.index(), dep, value)) {
+            fixed_var_eh(b.get_var(), dm.mk_join(dm.mk_leaf(ci1), dep), value);
         }
     }
 

@@ -89,12 +89,14 @@ struct common {
         }
     };
 
+    #if 0
     struct v_dependency_config {
         typedef ci_value_manager        value_manager;
         typedef region  allocator;
         static const bool ref_count = false;
         typedef u_dependency* value;
     };
+    #endif
         
     nex* nexvar(const rational& coeff, lpvar j, nex_creator&, u_dependency*&);
     template <typename T>

@@ -6,7 +6,7 @@
 namespace nla {
 
 intervals::intervals(core* c, reslimit& lim):
-    m_dep_intervals(c->m_lar_solver.dep_manager(), lim),
+    m_dep_intervals(c->lra.dep_manager(), lim),
     m_core(c) {}
 
 typedef enum dep_intervals::with_deps_t e_with_deps;
@@ -178,7 +178,7 @@ lp::lar_term intervals::expression_to_normalized_term(const nex_sum* e, rational
 // where m_terms[k] corresponds to the returned lpvar
 lpvar intervals::find_term_column(const lp::lar_term & norm_t, rational& a) const {
     std::pair<rational, lpvar> a_j;
-    if (m_core->m_lar_solver.fetch_normalized_term_column(norm_t, a_j)) {
+    if (m_core->lra.fetch_normalized_term_column(norm_t, a_j)) {
         a /= a_j.first;
         return a_j.second;
     }
@@ -299,7 +299,7 @@ bool intervals::interval_from_term(const nex& e, scoped_dep_interval& i) {
     m_dep_intervals.set<wd>(i, bi);
 
     TRACE("nla_intervals",
-          m_core->m_lar_solver.print_column_info(j, tout) << "\n";
+          m_core->lra.print_column_info(j, tout) << "\n";
           tout << "a=" << a << ", b=" << b << "\n";
           tout << e << ", interval = "; display(tout, i););
     return true;
@@ -472,9 +472,9 @@ bool intervals::interval_of_expr(const nex* e, unsigned p, scoped_dep_interval& 
 }
 
 
-lp::lar_solver& intervals::ls() { return m_core->m_lar_solver; }
+lp::lar_solver& intervals::ls() { return m_core->lra; }
 
-const lp::lar_solver& intervals::ls() const { return m_core->m_lar_solver; }
+const lp::lar_solver& intervals::ls() const { return m_core->lra; }
 
 
 } // end of nla namespace
