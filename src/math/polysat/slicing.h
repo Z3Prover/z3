@@ -120,7 +120,6 @@ namespace polysat {
         slice_info_vector       m_info;         // indexed by enode::get_id()
         enode_vector            m_var2slice;    // pvar -> slice
         tracked_uint_set        m_needs_congruence;     // set of pvars that need updated concat(...) expressions
-        enode_vector            m_to_propagate_upwards;
         enode*                  m_disequality_conflict = nullptr;
 
         // Add an equation v = concat(s1, ..., sn)
@@ -211,8 +210,6 @@ namespace polysat {
 
         void egraph_on_make(enode* n);
         void egraph_on_merge(enode* root, enode* other);
-        void propagate_value_upwards(enode* n);
-        void propagate_values_upwards();
         void egraph_on_propagate(enode* lit, enode* ante);
 
         // Merge slices in the e-graph.
