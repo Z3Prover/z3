@@ -144,7 +144,6 @@ public:
     void saturate();
 
     equation_vector const& equations();
-    //  u_dependency_manager& dep() const { return m_dep_manager;  }
 
     void collect_statistics(statistics & st) const;
     std::ostream& display(std::ostream& out, const equation& eq) const;

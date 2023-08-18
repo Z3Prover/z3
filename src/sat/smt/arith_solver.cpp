@@ -734,23 +734,23 @@ namespace arith {
 
     bool solver::has_lower_bound(lpvar vi, lp::constraint_dependency*& ci, rational const& bound) { return has_bound(vi, ci, bound, true); }
 
-    bool solver::has_bound(lpvar vi, lp::constraint_dependency*& ci, rational const& bound, bool is_lower) {
+    bool solver::has_bound(lpvar vi, lp::constraint_dependency*& dep, rational const& bound, bool is_lower) {
         if (lp::tv::is_term(vi)) {
             theory_var v = lp().local_to_external(vi);
             rational val;
             TRACE("arith", tout << lp().get_variable_name(vi) << " " << v << "\n";);
             if (v != euf::null_theory_var && a.is_numeral(var2expr(v), val) && bound == val) {
-                ci = nullptr;
+                dep = nullptr;
                 return bound == val;
             }
 
             auto& vec = is_lower ? m_lower_terms : m_upper_terms;
             lpvar ti = lp::tv::unmask_term(vi);
             if (vec.size() > ti) {
-                auto& [dep, coeff] = vec[ti];
-                if (dep == UINT_MAX)
+                auto& [ci, coeff] = vec[ti];
+                if (ci == UINT_MAX)
                     return false;
-                ci = lp().dep_manager().mk_leaf(dep);
+                dep = lp().dep_manager().mk_leaf(ci);
                 return bound == coeff;
             }
             else {
@@ -760,8 +760,6 @@ namespace arith {
         else {
             bool is_strict = false;
             rational b;
-            lp::constraint_dependency* dep = nullptr;
-            NOT_IMPLEMENTED_YET(); // need to reconcile ci and dep as outputs
             if (is_lower) {
                 return lp().has_lower_bound(vi, dep, b, is_strict) && b == bound && !is_strict;
             }
