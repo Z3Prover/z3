@@ -64,6 +64,7 @@ class core {
         unsigned m_nla_explanations;
         unsigned m_nla_lemmas;
         unsigned m_nra_calls;
+        unsigned m_bounds_improvements;
         stats() { reset(); }
         void reset() {
             memset(this, 0, sizeof(*this));
@@ -111,7 +112,7 @@ class core {
     void check_weighted(unsigned sz, std::pair<unsigned, std::function<void(void)>>* checks);
 
     // try to improve bounds for variables in monomials.
-    bool max_min();
+    bool improve_bounds();
 
 public:    
     // constructor

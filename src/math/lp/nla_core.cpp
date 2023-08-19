@@ -1527,7 +1527,7 @@ lbool core::check(vector<lemma>& l_vec) {
     if (l_vec.empty() && !done()) 
         m_monomial_bounds();
 
-    if (l_vec.empty() && !done() && max_min())
+    if (l_vec.empty() && !done() && improve_bounds())
         return l_false;
     
     if (l_vec.empty() && !done() && run_horner) 
@@ -1763,10 +1763,13 @@ void core::set_use_nra_model(bool m) {
 void core::collect_statistics(::statistics & st) {
     st.update("arith-nla-explanations", m_stats.m_nla_explanations);
     st.update("arith-nla-lemmas", m_stats.m_nla_lemmas);
-    st.update("arith-nra-calls", m_stats.m_nra_calls);    
+    st.update("arith-nra-calls", m_stats.m_nra_calls);   
+    st.update("arith-bounds-improvements", m_stats.m_bounds_improvements);
 }
 
-bool core::max_min() {
+bool core::improve_bounds() {
+    return false;
+
     uint_set seen;
     bool bounds_improved = false;
     auto insert = [&](lpvar v) {
@@ -1774,9 +1777,9 @@ bool core::max_min() {
             return;
         seen.insert(v);
         if (lra.improve_bound(v, false))
-            bounds_improved = true;
+            bounds_improved = true, m_stats.m_bounds_improvements++;
         if (lra.improve_bound(v, true))
-            bounds_improved = true;
+            bounds_improved = true, m_stats.m_bounds_improvements++;
     };
     for (auto & m : m_emons) {
         insert(m.var());
