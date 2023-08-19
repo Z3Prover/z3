@@ -343,23 +343,17 @@ namespace lp {
                 return false;
             SASSERT(!column_has_lower_bound(j) || column_lower_bound(j) < bound);
             
-            // explain new lower bound.
+             // explain new lower bound.
             // TODO use update_bound
             u_dependency* dep = nullptr;
-            m_mpq_lar_core_solver.m_r_lower_bounds[j] = bound;            
-            ul_pair ul = m_columns_to_ul_pairs[j];
-            ul.lower_bound_witness() = dep;
-            m_columns_to_ul_pairs[j] = ul;
+            update_column_type_and_bound(j, bound.y > 0 ? lconstraint_kind::GT : lconstraint_kind::GE, bound.x, dep);
         } 
         else {
             if (column_has_upper_bound(j) && bound == column_upper_bound(j))
                 return false;
             // similar for upper bounds
             u_dependency* dep = nullptr;
-            m_mpq_lar_core_solver.m_r_upper_bounds[j] = bound;
-            ul_pair ul = m_columns_to_ul_pairs[j];
-            ul.upper_bound_witness() = dep;
-            m_columns_to_ul_pairs[j] = ul;
+            update_column_type_and_bound(j, bound.y < 0 ? lconstraint_kind::LT : lconstraint_kind::LE, bound.x, dep);
         }
         return true;
     }
