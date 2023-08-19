@@ -304,7 +304,7 @@ namespace lp {
         lp_assert(sizes_are_correct());
         lp_assert(m_mpq_lar_core_solver.m_r_solver.reduced_costs_are_correct_tableau());
         m_usage_in_terms.pop(k);
-        m_dependecies.pop_scope(k);
+        m_dependencies.pop_scope(k);
         set_status(lp_status::UNKNOWN);
     }
 
@@ -339,9 +339,9 @@ namespace lp {
         return false;
         // TODO
         if (improve_lower_bound) {
-            if (column_has_lower_bound(j) && bound == column_lower_bound(j))
+            if (column_has_lower_bound(j) && bound.x == column_lower_bound(j).x)
                 return false;
-            SASSERT(!column_has_lower_bound(j) || column_lower_bound(j) < bound);
+            SASSERT(!column_has_lower_bound(j) || column_lower_bound(j).x < bound.x);
             
              // explain new lower bound.
             // TODO use update_bound
@@ -349,8 +349,9 @@ namespace lp {
             update_column_type_and_bound(j, bound.y > 0 ? lconstraint_kind::GT : lconstraint_kind::GE, bound.x, dep);
         } 
         else {
-            if (column_has_upper_bound(j) && bound == column_upper_bound(j))
+            if (column_has_upper_bound(j) && bound.x == column_upper_bound(j).x)
                 return false;
+            SASSERT(!column_has_upper_bound(j) || column_upper_bound(j).x > bound.x);
             // similar for upper bounds
             u_dependency* dep = nullptr;
             update_column_type_and_bound(j, bound.y < 0 ? lconstraint_kind::LT : lconstraint_kind::LE, bound.x, dep);
