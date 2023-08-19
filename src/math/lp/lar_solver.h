@@ -140,14 +140,14 @@ class lar_solver : public column_namer {
 
     inline void clear_columns_with_changed_bounds() { m_columns_with_changed_bounds.reset(); }
     void insert_to_columns_with_changed_bounds(unsigned j);
-    void update_column_type_and_bound_check_on_equal(unsigned j, lconstraint_kind kind, const mpq& right_side, constraint_index constr_index, unsigned&);
-    void update_column_type_and_bound(unsigned j, lconstraint_kind kind, const mpq& right_side, constraint_index constr_index);
-    void update_column_type_and_bound_with_ub(var_index j, lconstraint_kind kind, const mpq& right_side, constraint_index constr_index);
-    void update_column_type_and_bound_with_no_ub(var_index j, lconstraint_kind kind, const mpq& right_side, constraint_index constr_index);
-    void update_bound_with_ub_lb(var_index j, lconstraint_kind kind, const mpq& right_side, constraint_index constr_index);
-    void update_bound_with_no_ub_lb(var_index j, lconstraint_kind kind, const mpq& right_side, constraint_index constr_index);
-    void update_bound_with_ub_no_lb(var_index j, lconstraint_kind kind, const mpq& right_side, constraint_index constr_index);
-    void update_bound_with_no_ub_no_lb(var_index j, lconstraint_kind kind, const mpq& right_side, constraint_index constr_index);
+    void update_column_type_and_bound_check_on_equal(unsigned j, lconstraint_kind kind, const mpq& right_side, constraint_index ci, unsigned&);
+    void update_column_type_and_bound(unsigned j, lconstraint_kind kind, const mpq& right_side, constraint_index ci);
+    void update_column_type_and_bound_with_ub(var_index j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
+    void update_column_type_and_bound_with_no_ub(var_index j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
+    void update_bound_with_ub_lb(var_index j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
+    void update_bound_with_no_ub_lb(var_index j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
+    void update_bound_with_ub_no_lb(var_index j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
+    void update_bound_with_no_ub_no_lb(var_index j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
     void register_in_fixed_var_table(unsigned, unsigned&);
     void remove_non_fixed_from_fixed_var_table();
     constraint_index add_var_bound_on_constraint_for_term(var_index j, lconstraint_kind kind, const mpq& right_side);
@@ -190,8 +190,8 @@ class lar_solver : public column_namer {
     bool maximize_term_on_corrected_r_solver(lar_term& term, impq& term_max);
     void pop_core_solver_params();
     void pop_core_solver_params(unsigned k);
-    void set_upper_bound_witness(var_index j, constraint_index ci);
-    void set_lower_bound_witness(var_index j, constraint_index ci);
+    void set_upper_bound_witness(var_index j, u_dependency* ci);
+    void set_lower_bound_witness(var_index j, u_dependency* ci);
     void substitute_terms_in_linear_expression(const vector<std::pair<mpq, var_index>>& left_side_with_terms,
                                                vector<std::pair<mpq, var_index>>& left_side) const;
 
