@@ -10,6 +10,52 @@ Author:
     Petra Hozzova 2023-08-08
     Nikolaj Bjorner (nbjorner) 2020-08-17
 
+Notes:
+
+- for each function, determine a set of input variables, a set of uncomputable, and a spec.
+- functions may share specs
+- functions may share input variables. 
+- functions may differ in input variables and uncomputable.
+- uncomputable play the role of input variables that the function cannot access.
+- functions may be in one of the forms:
+  - f is a skolem functions: there is a unique occurrence of f, it takes all input variables as argument
+  - f is a nested skolem functions: function occurrences are unique and can be ordered by subsets. f(x) g(x,y) h(x,z)
+  - f comes from a Henkin quantifier: there is a unique occurrence of each f, but variables are uncorrelated.
+  - f occurrences use arbitrary arguments, there is more than one occurrence of f.
+
+Functions that occur uniquely are handled the same way, regardless of whether they are Skolem or Henkin.
+Input variables that are not in scope of these functions are uncomputable.
+
+
+Example setting: 
+- Synthesize f(x,y), g(x, z)
+- Inputs     [x,y,z]
+- Uncomputable u 
+- Spec       Phi[x, y, z, f(x,y), g(x, z), u]
+- Auxilary   Psi[u]
+
+- Using model-based projection.
+- Given model M for Phi
+- f(x,y):
+  - Set x, y, f(x,y) to shared, 
+    - u, z g(x,z) are not shared
+  - Phi1[x,y,f(x,y)] := Project u, z, g(x, z) form Phi
+  - Set x, y to shared
+  - realizer t[x,y] := Project f(x,y) from Phi1 
+- g(x,z):
+  - set x, z, g(x,z) to shared
+  - Phi1 := Project u, y, f(x, y) from Phi
+  - Set x, z to shared
+  - realizer s[x,z] := Project g(x, z) from Phi3 
+- Guard: Phi1[x,y,t[x,y]] -> f(x,y) = t[x,y]
+  Guard: Phi2[x,z,s[x,z]] -> g(x,z) = s[x,z]
+- Block not (Phi1[t] & Phi2[s])
+
+Properties: 
+- Phi1 => Exists u, z, g(x, z) . Phi
+- Phi1[x,y,t[x,y]] is true in M 
+- Similar with Phi2
+
 --*/
 
 #pragma once
@@ -63,7 +109,6 @@ namespace synth {
 
         
         bool is_output(expr* e) const;
-        sat::literal synthesize(synth_objective const& synth_objective);
         void add_uncomputable(app* e);
         void add_synth_objective(synth_objective const & e);
         void add_specification(app* e, expr* arg);
@@ -83,13 +128,13 @@ namespace synth {
 
         expr_ref simplify_condition(expr* e);
         
-        bool_vector m_is_computable;
+        bool_vector     m_is_computable;
         bool            m_is_solved = false;
         expr_ref_vector m_rep;
         
-    	vector<synth_objective> m_synth;
+    	vector<synth_objective>  m_synth;
         obj_hashtable<func_decl> m_uncomputable;
-        ptr_vector<expr> m_spec;
+        ptr_vector<expr>         m_spec;
 
     };
 

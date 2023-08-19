@@ -339,15 +339,6 @@ namespace synth {
         return expr_ref(m_rep.get(e->get_id()), m);
     }
 
-    sat::literal solver::synthesize(synth_objective const& synth_objective) {
-        expr_ref sol = compute_solution(synth_objective);
-        if (!sol)
-            return sat::null_literal;
-
-        IF_VERBOSE(0, verbose_stream() << sol << "\n");
-        return eq_internalize(synth_objective.output(), sol);
-    }
-
     bool solver::compute_solutions() {
         sat::literal_vector clause;
         compute_rep();
@@ -468,3 +459,28 @@ namespace synth {
 
 
 }
+
+/**
+ * forall x, y . spec[f(x),g(y),f(2y),x]
+
+ * assert spec[f(x),g(y), f(2y) x, y]
+ * input variables x, y
+ * define f, g as terms over arguments x', y'
+ * assert not spec[t[x], s[y], t[2y], x, y]
+ 
+ * sequence of values for x, y, 2x, f(x), g(y), f(2y) 
+ * f(x) solved by quantifier elimination by allowing x in term.
+ * f(2y) solved by quantifier elimination by allowing y in term 
+ *   we can solve for 2y = x by 
+ *   f(x) <- t[x div 2] if even(x)
+ * f(2y + z)
+ *   f(x) <- based on values for 2y + z
+ * f(a_i) = b_i, not all consistent
+ * subset b_i = (Aa_i + B) mod K
+ * subset based on semi-linear set?
+ * (a_i, b_i), ..., 
+ * 
+
+
+
+**/
