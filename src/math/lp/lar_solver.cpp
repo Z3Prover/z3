@@ -238,6 +238,7 @@ namespace lp {
         m_term_count.push();
         m_constraints.push();
         m_usage_in_terms.push();
+        m_dependencies.push_scope();
     }
     
     void lar_solver::clean_popped_elements(unsigned n, indexed_uint_set& set) {
@@ -303,6 +304,7 @@ namespace lp {
         lp_assert(sizes_are_correct());
         lp_assert(m_mpq_lar_core_solver.m_r_solver.reduced_costs_are_correct_tableau());
         m_usage_in_terms.pop(k);
+        m_dependecies.pop_scope(k);
         set_status(lp_status::UNKNOWN);
     }
 
@@ -1836,6 +1838,7 @@ namespace lp {
          m_columns_with_changed_bounds.insert(j);
          TRACE("lar_solver", tout << "column " << j << (column_is_feasible(j) ? " feas" : " non-feas") << "\n";);
     }
+
     void lar_solver::update_column_type_and_bound_check_on_equal(unsigned j,
                                                                  const mpq& right_side,
                                                                  constraint_index constr_index,
