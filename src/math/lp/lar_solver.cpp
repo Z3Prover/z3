@@ -326,6 +326,40 @@ namespace lp {
         }
     }
 
+    bool lar_solver::improve_bound(lpvar j, bool improve_lower_bound) {
+        lar_term term = get_term_to_maximize(j);
+        if (improve_lower_bound)
+            term.negate();
+        impq bound;
+        if (!maximize_term_on_tableau(term, bound))
+            return false;
+        
+        // TODO
+        if (improve_lower_bound) {
+            if (column_has_lower_bound(j) && bound == column_lower_bound(j))
+                return false;
+            SASSERT(!column_has_lower_bound(j) || column_lower_bound(j) < bound);
+            
+            // explain new lower bound.
+            u_dependency* dep = nullptr;
+            m_mpq_lar_core_solver.m_r_lower_bounds[j] = bound;            
+            ul_pair ul = m_columns_to_ul_pairs[j];
+            ul.lower_bound_witness() = dep;
+            m_columns_to_ul_pairs[j] = ul;
+        } 
+        else {
+            if (column_has_upper_bound(j) && bound == column_upper_bound(j))
+                return false;
+            // similar for upper bounds
+            u_dependency* dep = nullptr;
+            m_mpq_lar_core_solver.m_r_upper_bounds[j] = bound;
+            ul_pair ul = m_columns_to_ul_pairs[j];
+            ul.upper_bound_witness() = dep;
+            m_columns_to_ul_pairs[j] = ul;
+        }
+        return false;
+    }
+
     bool lar_solver::costs_are_zeros_for_r_solver() const {
         for (unsigned j = 0; j < m_mpq_lar_core_solver.m_r_solver.m_costs.size(); j++) {
             lp_assert(is_zero(m_mpq_lar_core_solver.m_r_solver.m_costs[j]));

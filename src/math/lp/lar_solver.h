@@ -287,6 +287,8 @@ class lar_solver : public column_namer {
 
     lp_status maximize_term(unsigned j_or_term, impq& term_max);
 
+    bool improve_bound(lpvar j, bool is_lower);
+
     inline core_solver_pretty_printer<lp::mpq, lp::impq> pp(std::ostream& out) const {
         return core_solver_pretty_printer<lp::mpq, lp::impq>(m_mpq_lar_core_solver.m_r_solver, out);
     }

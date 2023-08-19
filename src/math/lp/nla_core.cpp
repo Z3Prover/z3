@@ -1767,35 +1767,25 @@ void core::collect_statistics(::statistics & st) {
 }
 
 bool core::max_min() {
-    svector<lpvar> vars;
     uint_set seen;
+    bool bounds_improved = false;
     auto insert = [&](lpvar v) {
         if (seen.contains(v))
             return;
         seen.insert(v);
-        vars.push_back(v);
+        if (lra.improve_bound(v, false))
+            bounds_improved = true;
+        if (lra.improve_bound(v, true))
+            bounds_improved = true;
     };
     for (auto & m : m_emons) {
         insert(m.var());
         for (auto v : m.vars())
             insert(v);
     }
-    return max_min(vars);
-}
-    
-bool core::max_min(svector<lpvar> const& vars) {
-    bool bounds_improved = false;
-    for (auto v : vars)
-        if (improve_bound(v))
-            bounds_improved = true;    
     return bounds_improved;
 }
-
-bool core::improve_bound(lpvar j) {
-    // lra solver should include a method for minimizing and maximizing j
-    return false;
-}
-
+    
 
 } // end of nla
 

@@ -112,8 +112,6 @@ class core {
 
     // try to improve bounds for variables in monomials.
     bool max_min();
-    bool max_min(svector<lpvar> const& vars);
-    bool improve_bound(lpvar j);
 
 public:    
     // constructor
