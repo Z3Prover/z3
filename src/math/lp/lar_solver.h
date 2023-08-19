@@ -140,8 +140,9 @@ class lar_solver : public column_namer {
 
     inline void clear_columns_with_changed_bounds() { m_columns_with_changed_bounds.reset(); }
     void insert_to_columns_with_changed_bounds(unsigned j);
-    void update_column_type_and_bound_check_on_equal(unsigned j, lconstraint_kind kind, const mpq& right_side, constraint_index ci, unsigned&);
-    void update_column_type_and_bound(unsigned j, lconstraint_kind kind, const mpq& right_side, constraint_index ci);
+    void update_column_type_and_bound_check_on_equal(unsigned j, const mpq& right_side, constraint_index ci, unsigned&);
+    void update_column_type_and_bound(unsigned j, const mpq& right_side, constraint_index ci);
+    void update_column_type_and_bound(unsigned j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
     void update_column_type_and_bound_with_ub(var_index j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
     void update_column_type_and_bound_with_no_ub(var_index j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
     void update_bound_with_ub_lb(var_index j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);

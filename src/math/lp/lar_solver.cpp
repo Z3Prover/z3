@@ -342,6 +342,7 @@ namespace lp {
             SASSERT(!column_has_lower_bound(j) || column_lower_bound(j) < bound);
             
             // explain new lower bound.
+            // TODO use update_bound
             u_dependency* dep = nullptr;
             m_mpq_lar_core_solver.m_r_lower_bounds[j] = bound;            
             ul_pair ul = m_columns_to_ul_pairs[j];
@@ -1743,12 +1744,12 @@ namespace lp {
 
     void lar_solver::activate_check_on_equal(constraint_index ci, unsigned& equal_column) {
         auto const& c = m_constraints[ci];
-        update_column_type_and_bound_check_on_equal(c.column(), c.kind(), c.rhs(), ci, equal_column);
+        update_column_type_and_bound_check_on_equal(c.column(), c.rhs(), ci, equal_column);
     }
 
     void lar_solver::activate(constraint_index ci) {
         auto const& c = m_constraints[ci];
-        update_column_type_and_bound(c.column(), c.kind(), c.rhs(), ci);
+        update_column_type_and_bound(c.column(), c.rhs(), ci);
     }
 
     mpq lar_solver::adjust_bound_for_int(lpvar j, lconstraint_kind& k, const mpq& bound) {
@@ -1810,32 +1811,36 @@ namespace lp {
     }
 
     void lar_solver::update_column_type_and_bound(unsigned j,
-        lconstraint_kind kind,
         const mpq& right_side,
         constraint_index constr_index) {
         TRACE("lar_solver_feas", tout << "j = " << j << " was " << (this->column_is_feasible(j)?"feas":"non-feas") << std::endl;);
         m_constraints.activate(constr_index);
+        lconstraint_kind kind = m_constraints[constr_index].kind();
         u_dependency* dep = m_constraints[constr_index].dep();
+        update_column_type_and_bound(j, kind, right_side, dep);
+    }
+
+    void lar_solver::update_column_type_and_bound(unsigned j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep) {
         if (column_has_upper_bound(j))
             update_column_type_and_bound_with_ub(j, kind, right_side, dep);
         else
             update_column_type_and_bound_with_no_ub(j, kind, right_side, dep);
 
-        if (is_base(j) && column_is_fixed(j)) 
+        if (is_base(j) && column_is_fixed(j))
             m_fixed_base_var_set.insert(j);
-            
-        TRACE("lar_solver_feas", tout << "j = " << j << " became " << (this->column_is_feasible(j)?"feas":"non-feas") << ", and " << (this->column_is_bounded(j)? "bounded":"non-bounded") << std::endl;);    
+
+        TRACE("lar_solver_feas", tout << "j = " << j << " became " << (this->column_is_feasible(j) ? "feas" : "non-feas") << ", and " << (this->column_is_bounded(j) ? "bounded" : "non-bounded") << std::endl;);    
     }
+
     void lar_solver::insert_to_columns_with_changed_bounds(unsigned j) {
          m_columns_with_changed_bounds.insert(j);
          TRACE("lar_solver", tout << "column " << j << (column_is_feasible(j) ? " feas" : " non-feas") << "\n";);
     }
     void lar_solver::update_column_type_and_bound_check_on_equal(unsigned j,
-                                                                 lconstraint_kind kind,
                                                                  const mpq& right_side,
                                                                  constraint_index constr_index,
                                                                  unsigned& equal_to_j) {
-        update_column_type_and_bound(j, kind, right_side, constr_index);
+        update_column_type_and_bound(j, right_side, constr_index);
         equal_to_j = null_lpvar;
         if (column_is_fixed(j)) {
             register_in_fixed_var_table(j, equal_to_j);
