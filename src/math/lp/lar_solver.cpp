@@ -343,8 +343,10 @@ namespace lp {
                 return false;
             SASSERT(!column_has_lower_bound(j) || column_lower_bound(j).x < bound.x);
             
-             // explain new lower bound.
-            // TODO use update_bound
+            // TODO - explain new lower bound.
+            // Seems the relevant information is in the "costs" that are used when 
+            // setting the optimization objecive. The costs are cleared after a call so
+            // maybe have some way of extracting bound dependencies from the costs.
             u_dependency* dep = nullptr;
             update_column_type_and_bound(j, bound.y > 0 ? lconstraint_kind::GT : lconstraint_kind::GE, bound.x, dep);
         } 
@@ -388,7 +390,7 @@ namespace lp {
                     jset.insert(rc.var());
             }
         }
-
+        
         for (unsigned j : jset)
             rslv.m_d[j] = zero_of_type<mpq>();
 
