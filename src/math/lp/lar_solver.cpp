@@ -334,6 +334,7 @@ namespace lp {
         if (!maximize_term_on_tableau(term, bound))
             return false;
         
+        return false;
         // TODO
         if (improve_lower_bound) {
             if (column_has_lower_bound(j) && bound == column_lower_bound(j))
@@ -357,7 +358,7 @@ namespace lp {
             ul.upper_bound_witness() = dep;
             m_columns_to_ul_pairs[j] = ul;
         }
-        return false;
+        return true;
     }
 
     bool lar_solver::costs_are_zeros_for_r_solver() const {
