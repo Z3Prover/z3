@@ -348,7 +348,7 @@ public:
     }
 
 
-    void reset() { m_dep_manager.reset(); }
+    void reset() { }
 
     void del(interval& i) { m_imanager.del(i); }
     
