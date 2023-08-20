@@ -24,14 +24,12 @@ namespace smt {
     class context;
     class relevancy_propagator;
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wnon-virtual-dtor"
-
     class relevancy_eh {
     protected:
         void mark_as_relevant(relevancy_propagator & rp, expr * n);
         void mark_args_as_relevant(relevancy_propagator & rp, app * n);
     public:
+        virtual ~relevancy_eh() = default;
         /**
            \brief This method is invoked when n is marked as relevant.
         */
@@ -45,7 +43,6 @@ namespace smt {
         */
         virtual void operator()(relevancy_propagator & rp) = 0;
     };
-#pragma clang diagnostic pop
 
     class simple_relevancy_eh : public relevancy_eh {
         expr * m_target;
