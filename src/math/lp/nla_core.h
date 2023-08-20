@@ -110,11 +110,7 @@ class core {
     monic const*             m_patched_monic = nullptr;      
 
     void check_weighted(unsigned sz, std::pair<unsigned, std::function<void(void)>>* checks);
-
-    u_map<unsigned>          m_lower_bounds_added, m_upper_bounds_added;
-    bool can_add_bound(unsigned j, u_map<unsigned>& bounds);
     void add_bounds();
-
 public:    
     // constructor
     core(lp::lar_solver& s, params_ref const& p, reslimit&);

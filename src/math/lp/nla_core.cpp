@@ -1504,51 +1504,16 @@ void core::check_bounded_divisions(vector<lemma>& l_vec) {
     m_lemma_vec = &l_vec;
     m_divisions.check_bounded_divisions();
 }
-
-bool core::can_add_bound(unsigned j, u_map<unsigned>& bounds) {
-    unsigned count = 1;
-    if (bounds.find(j, count)) {
-        if (count >= 2)
-            return false;
-        ++count;
-    }
-    bounds.insert(j, count);
-    struct decrement : public trail {
-        u_map<unsigned>& bounds;
-        unsigned j;
-        decrement(u_map<unsigned>& bounds, unsigned j):
-            bounds(bounds),
-            j(j)
-        {}
-        void undo() override {
-            --bounds[j];
-        }
-    };
-    trail().push(decrement(bounds, j));
-    return true;    
-}
-
+// looking for a free variable inside of a monic to split
 void core::add_bounds() {
     unsigned r = random(), sz = m_to_refine.size();
     for (unsigned k = 0; k < sz; k++) {
         lpvar i = m_to_refine[(k + r) % sz];
         auto const& m = m_emons[i];
         for (lpvar j : m.vars()) {
-            //m_lar_solver.print_column_info(j, verbose_stream() << "check variable " << j << " ") << "\n";
-            if (var_is_free(j)) 
-                m_literal_vec->push_back(ineq(j, lp::lconstraint_kind::EQ, rational::zero()));
-#if 0
-            else if (has_lower_bound(j) && can_add_bound(j, m_lower_bounds_added)) {
-                m_literal_vec->push_back(ineq(j, lp::lconstraint_kind::LE, get_lower_bound(j)));
-                std::cout << "called lower\n";
-            }
-            else if (has_upper_bound(j) && can_add_bound(j, m_upper_bounds_added)) {
-                m_literal_vec->push_back(ineq(j, lp::lconstraint_kind::GE, get_upper_bound(j)));
-                std::cout << "called  upper\n";
-            }
-#endif
-            else
-                continue;
+            if (!var_is_free(j)) continue;
+            // split the free variable (j <= 0, or j > 0), and return
+            m_literal_vec->push_back(ineq(j, lp::lconstraint_kind::EQ, rational::zero()));  
             ++lp_settings().stats().m_nla_bounds;
             return;
         }
