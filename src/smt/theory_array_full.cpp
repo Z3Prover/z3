@@ -546,7 +546,7 @@ namespace smt {
 
         expr_ref def2(m.mk_app(f, args2.size(), args2.data()), m);
         ctx.get_rewriter()(def2);
-        expr* def1 = mk_default(map);
+        expr_ref def1(mk_default(map), m);
         ctx.internalize(def1, false);
         ctx.internalize(def2, false);
         return try_assign_eq(def1, def2);
@@ -561,7 +561,7 @@ namespace smt {
         SASSERT(is_const(cnst));
         TRACE("array", tout << mk_bounded_pp(cnst->get_expr(), m) << "\n";);
         expr* val = cnst->get_arg(0)->get_expr();
-        expr* def = mk_default(cnst->get_expr());
+        expr_ref def(mk_default(cnst->get_expr()), m);
         ctx.internalize(def, false);
         return try_assign_eq(val, def);
     }
@@ -598,7 +598,7 @@ namespace smt {
             return false;
         m_stats.m_num_default_lambda_axiom++;
         expr* e = arr->get_expr();
-        expr* def = mk_default(e);
+        expr_ref def(mk_default(e), m);
         quantifier* lam = m.is_lambda_def(arr->get_decl());
         TRACE("array", tout << mk_pp(lam, m) << "\n" << mk_pp(e, m) << "\n");
         expr_ref_vector args(m);       
