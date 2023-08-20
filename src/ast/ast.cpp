@@ -542,22 +542,6 @@ inline unsigned ast_array_hash(T * const * array, unsigned size, unsigned init_v
     } }
 }
 
-unsigned get_asts_hash(unsigned sz, ast * const* ns, unsigned init) {
-    return ast_array_hash<ast>(ns, sz, init);
-}
-unsigned get_apps_hash(unsigned sz, app * const* ns, unsigned init) {
-    return ast_array_hash<app>(ns, sz, init);
-}
-unsigned get_exprs_hash(unsigned sz, expr * const* ns, unsigned init) {
-    return ast_array_hash<expr>(ns, sz, init);
-}
-unsigned get_sorts_hash(unsigned sz, sort * const* ns, unsigned init) {
-    return ast_array_hash<sort>(ns, sz, init);
-}
-unsigned get_decl_hash(unsigned sz, func_decl* const* ns, unsigned init) {
-    return ast_array_hash<func_decl>(ns, sz, init);
-}
-
 unsigned get_node_hash(ast const * n) {
     unsigned a, b, c;
 
