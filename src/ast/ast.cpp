@@ -479,15 +479,15 @@ bool compare_nodes(ast const * n1, ast const * n2) {
         return
             q1->get_kind()         == q2->get_kind() &&
             q1->get_num_decls()    == q2->get_num_decls() &&
+            q1->get_expr()         == q2->get_expr() &&
+            q1->get_weight()       == q2->get_weight() &&
+            q1->get_num_patterns() == q2->get_num_patterns() &&
             compare_arrays(q1->get_decl_sorts(),
                            q2->get_decl_sorts(),
                            q1->get_num_decls()) &&
             compare_arrays(q1->get_decl_names(),
                            q2->get_decl_names(),
                            q1->get_num_decls()) &&
-            q1->get_expr()         == q2->get_expr() &&
-            q1->get_weight()       == q2->get_weight() &&
-            q1->get_num_patterns() == q2->get_num_patterns() &&
             ((q1->get_qid().is_numerical() && q2->get_qid().is_numerical()) ||
              (q1->get_qid() == q2->get_qid())) && 
             compare_arrays(q1->get_patterns(),
