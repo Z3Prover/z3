@@ -29,7 +29,6 @@ namespace smt {
         void mark_as_relevant(relevancy_propagator & rp, expr * n);
         void mark_args_as_relevant(relevancy_propagator & rp, app * n);
     public:
-        virtual ~relevancy_eh() = default;
         /**
            \brief This method is invoked when n is marked as relevant.
         */
@@ -41,7 +40,7 @@ namespace smt {
         /**
            \brief Fallback for the two previous methods.
         */
-        virtual void operator()(relevancy_propagator & rp) {}
+        virtual void operator()(relevancy_propagator & rp) = 0;
     };
 
     class simple_relevancy_eh : public relevancy_eh {
