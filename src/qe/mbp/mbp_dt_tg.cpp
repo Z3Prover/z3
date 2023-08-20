@@ -158,7 +158,6 @@ struct mbp_dt_tg::impl {
         m_tg.get_terms(terms, false);
         for (unsigned i = 0; i < terms.size(); i++) {
             term = terms.get(i);
-            SASSERT(!m.is_distinct(term));
             if (is_seen(term)) continue;
             if (m_tg.is_cgr(term)) continue;
             if (is_app(term) &&
