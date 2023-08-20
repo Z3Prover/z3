@@ -21,7 +21,7 @@ namespace nla {
     class grobner : common {
         dd::pdd_manager          m_pdd_manager;
         dd::solver               m_solver;
-        lp::lar_solver&          m_lar_solver;
+        lp::lar_solver&          lra;
         indexed_uint_set         m_rows;
         unsigned                 m_quota = 0;
 

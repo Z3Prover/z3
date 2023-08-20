@@ -69,7 +69,7 @@ private:
 
     value_manager &         m_vmanager;
     allocator  &            m_allocator;
-    ptr_vector<dependency>  m_todo;
+    mutable ptr_vector<dependency>  m_todo;
 
     void inc_ref(value const & v) {
         if (C::ref_count)
@@ -106,12 +106,9 @@ private:
         }
     }
 
-    void unmark_todo() {
-        typename ptr_vector<dependency>::iterator it  = m_todo.begin();
-        typename ptr_vector<dependency>::iterator end = m_todo.end();
-        for (; it != end; ++it) {
-            (*it)->unmark();
-        }
+    void unmark_todo() const {
+        for (auto* d : m_todo)
+            d->unmark();
         m_todo.reset();
     }
 
@@ -193,7 +190,7 @@ public:
         return false;
     }
 
-    void linearize(dependency * d, vector<value, false> & vs) {
+    void linearize(dependency * d, vector<value, false> & vs) const {
         if (d) {
             m_todo.reset();
             d->mark();
@@ -300,7 +297,7 @@ public:
         return m_dep_manager.contains(d, v); 
     }
 
-    void linearize(dependency * d, vector<value, false> & vs) {
+    void linearize(dependency * d, vector<value, false> & vs) const {
         return m_dep_manager.linearize(d, vs);
     }    
     

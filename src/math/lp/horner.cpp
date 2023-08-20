@@ -103,7 +103,7 @@ bool horner::horner_lemmas() {
         return false;
     }
     c().lp_settings().stats().m_horner_calls++;
-    const auto& matrix = c().m_lar_solver.A_r();
+    const auto& matrix = c().lra.A_r();
     // choose only rows that depend on m_to_refine variables
     std::set<unsigned> rows_to_check;
     for (lpvar j : c().m_to_refine) {

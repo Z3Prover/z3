@@ -64,6 +64,7 @@ class core {
         unsigned m_nla_explanations;
         unsigned m_nla_lemmas;
         unsigned m_nra_calls;
+        unsigned m_bounds_improvements;
         stats() { reset(); }
         void reset() {
             memset(this, 0, sizeof(*this));
@@ -79,7 +80,7 @@ class core {
 
     var_eqs<emonics>         m_evars;
 
-    lp::lar_solver&          m_lar_solver;
+    lp::lar_solver&          lra;
     reslimit&                m_reslim;
     smt_params_helper        m_params;
     std::function<bool(lpvar)> m_relevant;
@@ -109,6 +110,9 @@ class core {
     monic const*             m_patched_monic = nullptr;      
 
     void check_weighted(unsigned sz, std::pair<unsigned, std::function<void(void)>>* checks);
+
+    // try to improve bounds for variables in monomials.
+    bool improve_bounds();
 
 public:    
     // constructor
@@ -142,13 +146,13 @@ public:
     bool ineq_holds(const ineq& n) const;
     bool lemma_holds(const lemma& l) const;
     bool is_monic_var(lpvar j) const { return m_emons.is_monic_var(j); }
-    const rational& val(lpvar j) const { return m_lar_solver.get_column_value(j).x; }
+    const rational& val(lpvar j) const { return lra.get_column_value(j).x; }
 
-    const rational& var_val(const monic& m) const { return m_lar_solver.get_column_value(m.var()).x; }
+    const rational& var_val(const monic& m) const { return lra.get_column_value(m.var()).x; }
 
     rational mul_val(const monic& m) const { 
         rational r(1);
-        for (lpvar v : m.vars()) r *= m_lar_solver.get_column_value(v).x;
+        for (lpvar v : m.vars()) r *= lra.get_column_value(v).x;
         return r;
     }
 
@@ -287,16 +291,16 @@ public:
     }
     const rational& get_upper_bound(unsigned j) const;
     const rational& get_lower_bound(unsigned j) const;    
-    bool has_lower_bound(lp::var_index var, lp::constraint_index& ci, lp::mpq& value, bool& is_strict) const { 
-        return m_lar_solver.has_lower_bound(var, ci, value, is_strict); 
+    bool has_lower_bound(lp::var_index var, u_dependency*& ci, lp::mpq& value, bool& is_strict) const { 
+        return lra.has_lower_bound(var, ci, value, is_strict); 
     }
-    bool has_upper_bound(lp::var_index var, lp::constraint_index& ci, lp::mpq& value, bool& is_strict) const {
-        return m_lar_solver.has_upper_bound(var, ci, value, is_strict);
+    bool has_upper_bound(lp::var_index var, u_dependency*& ci, lp::mpq& value, bool& is_strict) const {
+        return lra.has_upper_bound(var, ci, value, is_strict);
     }
 
     
     bool zero_is_an_inner_point_of_bounds(lpvar j) const;    
-    bool var_is_int(lpvar j) const { return m_lar_solver.column_is_int(j); }
+    bool var_is_int(lpvar j) const { return lra.column_is_int(j); }
     int rat_sign(const monic& m) const;
     inline int rat_sign(lpvar j) const { return nla::rat_sign(val(j)); }
 
@@ -338,7 +342,7 @@ public:
 
     bool is_octagon_term(const lp::lar_term& t, bool & sign, lpvar& i, lpvar &j) const;
     
-    void add_equivalence_maybe(const lp::lar_term *t, lpci c0, lpci c1);
+    void add_equivalence_maybe(const lp::lar_term* t, u_dependency* c0, u_dependency* c1);
 
     void init_vars_equivalence();
 

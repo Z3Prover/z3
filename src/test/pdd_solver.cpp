@@ -20,13 +20,15 @@ namespace dd {
     }
     void test1() {
         pdd_manager m(4);
+        u_dependency_manager dm;
         reslimit lim;
         pdd v0 = m.mk_var(0);
         pdd v1 = m.mk_var(1);
         pdd v2 = m.mk_var(2);
         pdd v3 = m.mk_var(3);
         
-        solver gb(lim, m);
+
+        solver gb(lim, dm, m);
         gb.add(v1*v2 + v1*v3);
         gb.add(v1 - 1);
         gb.display(std::cout);
@@ -198,10 +200,11 @@ namespace dd {
     void test_simplify(expr_ref_vector& fmls, bool use_mod2) {
         ast_manager& m = fmls.get_manager();
         unsigned_vector id2var;
+        u_dependency_manager dm;
 
         collect_id2var(id2var, fmls);
         pdd_manager p(id2var.size(), use_mod2 ? pdd_manager::mod2_e : pdd_manager::zero_one_vars_e);
-        solver g(m.limit(), p);
+        solver g(m.limit(), dm, p);
 
         for (expr* e : subterms::ground(fmls)) {
             add_def(id2var, to_app(e), m, p, g);

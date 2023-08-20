@@ -14,11 +14,10 @@
 #include "math/lp/explanation.h"
 
 namespace nla {
-typedef lp::constraint_index lpci;
-typedef lp::lconstraint_kind llc;
-typedef lp::constraint_index     lpci;
-typedef lp::explanation          expl_set;
-typedef lp::var_index            lpvar;
+    typedef lp::constraint_index lpci;
+    typedef lp::lconstraint_kind llc;
+    typedef lp::explanation          expl_set;
+    typedef lp::var_index            lpvar;
 
 struct from_index_dummy{};
 class signed_var {

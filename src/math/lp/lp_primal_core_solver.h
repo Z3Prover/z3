@@ -138,95 +138,98 @@ namespace lp {
             return false;
         }
 
-/**
- * Return the number of base non-free variables depending on the column j,
- * different from bj,
- * but take the min with the (bound+1).
- * This function is used to select the pivot variable.
-*/
-  unsigned get_num_of_not_free_basic_dependent_vars(
-      unsigned j, unsigned bound, unsigned bj) const { // consider looking at the signs here: todo
-    unsigned r = 0;
-    for (const auto &cc : this->m_A.m_columns[j]) {
-      unsigned basic_for_row = this->m_basis[cc.var()];
-      if (basic_for_row == bj)
-        continue;
-        
-     // std::cout << this->m_A.m_rows[cc.var()] << std::endl;
-      if (this->m_column_types[basic_for_row] != column_type::free_column)         
-         if (r++ > bound) return r;      
-    }
-    return r;
-  }
-        int find_beneficial_entering_in_row_tableau_rows_bland_mode(int i, T &a_ent) {
-        int j = -1;
-        unsigned bj = this->m_basis[i];
-        bool bj_needs_to_grow = needs_to_grow(bj);
-        for (const row_cell<T> &rc : this->m_A.m_rows[i]) {
-            if (rc.var() == bj)
-                continue;
-            if (bj_needs_to_grow) {
-                if (!monoid_can_decrease(rc))
+        /**
+         * Return the number of base non-free variables depending on the column j,
+         * different from bj,
+         * but take the min with the (bound+1).
+         * This function is used to select the pivot variable.
+         */
+        unsigned get_num_of_not_free_basic_dependent_vars(unsigned j, unsigned bound, unsigned bj) const {
+            // consider looking at the signs here: todo
+            unsigned r = 0;
+            for (const auto &cc : this->m_A.m_columns[j]) {
+                unsigned basic_for_row = this->m_basis[cc.var()];
+                if (basic_for_row == bj)
                     continue;
-            } else {
-                if (!monoid_can_increase(rc))
-                    continue;
+
+                // std::cout << this->m_A.m_rows[cc.var()] << std::endl;
+                if (this->m_column_types[basic_for_row] != column_type::free_column)
+                    if (r++ > bound) return r;
             }
-            if (rc.var() < static_cast<unsigned>(j)) {
-                j = rc.var();
-                a_ent = rc.coeff();
-            }
-        }
-        if (j == -1)
-            m_inf_row_index_for_tableau = i;
-        return j;
-    }
-        int find_beneficial_entering_tableau_rows(int i, T &a_ent) {
-        if (m_bland_mode_tableau)
-            return find_beneficial_entering_in_row_tableau_rows_bland_mode(i, a_ent);
-        // a short row produces short infeasibility explanation and benefits at
-        // least one pivot operation
-        int choice = -1;
-        int nchoices = 0;
-        unsigned min_non_free_so_far = -1;
-        unsigned best_col_sz = -1;
-        unsigned bj = this->m_basis[i];
-        bool bj_needs_to_grow = needs_to_grow(bj);
-        for (unsigned k = 0; k < this->m_A.m_rows[i].size(); k++) {
-            const row_cell<T> &rc = this->m_A.m_rows[i][k];
-            unsigned j = rc.var();
-            if (j == bj)
-                continue;
-            if (bj_needs_to_grow) {
-                if (!monoid_can_decrease(rc))
-                    continue;
-            } else {
-                if (!monoid_can_increase(rc))
-                    continue;
-            }
-            unsigned not_free = get_num_of_not_free_basic_dependent_vars(j, min_non_free_so_far, bj);
-            unsigned col_sz = this->m_A.m_columns[j].size();
-            if (not_free < min_non_free_so_far || (not_free == min_non_free_so_far && col_sz < best_col_sz)) {
-                min_non_free_so_far = not_free;
-                best_col_sz = this->m_A.m_columns[j].size();
-                choice = k;
-                nchoices = 1;
-            } else if (not_free == min_non_free_so_far &&
-                       col_sz == best_col_sz) {
-                if (this->m_settings.random_next(++nchoices) == 0) {
-                    choice = k;
-                }
-            }
+            return r;
         }
 
-        if (choice == -1) {
-            m_inf_row_index_for_tableau = i;
-            return -1;
+        int find_beneficial_entering_in_row_tableau_rows_bland_mode(int i, T &a_ent) {
+            int j = -1;
+            unsigned bj = this->m_basis[i];
+            bool bj_needs_to_grow = needs_to_grow(bj);
+            for (const row_cell<T> &rc : this->m_A.m_rows[i]) {
+                if (rc.var() == bj)
+                    continue;
+                if (bj_needs_to_grow) {
+                    if (!monoid_can_decrease(rc))
+                        continue;
+                } 
+                else {
+                    if (!monoid_can_increase(rc))
+                        continue;
+                }
+                if (rc.var() < static_cast<unsigned>(j)) {
+                    j = rc.var();
+                    a_ent = rc.coeff();
+                }
+            }
+            if (j == -1)
+                m_inf_row_index_for_tableau = i;
+            return j;
         }
-        const row_cell<T> &rc = this->m_A.m_rows[i][choice];
-        a_ent = rc.coeff();
-        return rc.var();
-    }
+
+        int find_beneficial_entering_tableau_rows(int i, T &a_ent) {
+            if (m_bland_mode_tableau)
+            return find_beneficial_entering_in_row_tableau_rows_bland_mode(i, a_ent);
+            // a short row produces short infeasibility explanation and benefits at
+            // least one pivot operation
+            int choice = -1;
+            int nchoices = 0;
+            unsigned min_non_free_so_far = -1;
+            unsigned best_col_sz = -1;
+            unsigned bj = this->m_basis[i];
+            bool bj_needs_to_grow = needs_to_grow(bj);
+            for (unsigned k = 0; k < this->m_A.m_rows[i].size(); k++) {
+                const row_cell<T> &rc = this->m_A.m_rows[i][k];
+                unsigned j = rc.var();
+                if (j == bj)
+                    continue;
+                if (bj_needs_to_grow) {
+                    if (!monoid_can_decrease(rc))
+                        continue;
+                } else {
+                    if (!monoid_can_increase(rc))
+                        continue;
+                }
+                unsigned not_free = get_num_of_not_free_basic_dependent_vars(j, min_non_free_so_far, bj);
+                unsigned col_sz = this->m_A.m_columns[j].size();
+                if (not_free < min_non_free_so_far || (not_free == min_non_free_so_far && col_sz < best_col_sz)) {
+                    min_non_free_so_far = not_free;
+                    best_col_sz = this->m_A.m_columns[j].size();
+                    choice = k;
+                    nchoices = 1;
+                } 
+                else if (not_free == min_non_free_so_far &&
+                       col_sz == best_col_sz) {
+                    if (this->m_settings.random_next(++nchoices) == 0) 
+                        choice = k;                    
+                }
+            }
+
+            if (choice == -1) {
+                m_inf_row_index_for_tableau = i;
+                return -1;
+            }
+            const row_cell<T> &rc = this->m_A.m_rows[i][choice];
+            a_ent = rc.coeff();
+            return rc.var();
+        }
 
     bool try_jump_to_another_bound_on_entering(unsigned entering, const X &theta, X &t, bool &unlimited);
 

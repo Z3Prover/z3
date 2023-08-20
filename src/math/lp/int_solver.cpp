@@ -242,11 +242,11 @@ namespace lp {
         return lra.has_inf_int();
     }
 
-    constraint_index int_solver::column_upper_bound_constraint(unsigned j) const {
+    u_dependency* int_solver::column_upper_bound_constraint(unsigned j) const {
         return lra.get_column_upper_bound_witness(j);
     }
 
-    constraint_index int_solver::column_lower_bound_constraint(unsigned j) const {
+    u_dependency* int_solver::column_lower_bound_constraint(unsigned j) const {
         return lra.get_column_lower_bound_witness(j);
     }
 

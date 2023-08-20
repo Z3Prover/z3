@@ -60,11 +60,9 @@ unsigned common::random() {
 }
 
 void common::add_deps_of_fixed(lpvar j, u_dependency*& dep) {
-    unsigned lc, uc;
-    auto& dep_manager = c().m_intervals.get_dep_intervals().dep_manager();
-    c().m_lar_solver.get_bound_constraint_witnesses_for_column(j, lc, uc);
-    dep = dep_manager.mk_join(dep, dep_manager.mk_leaf(lc));
-    dep = dep_manager.mk_join(dep, dep_manager.mk_leaf(uc));                    
+    auto& dm = c().lra.dep_manager();  
+    auto* deps = c().lra.get_bound_constraint_witnesses_for_column(j);
+    dep = dm.mk_join(dep, deps);               
 }
 
 
@@ -73,7 +71,7 @@ nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn, u_depende
     SASSERT(!coeff.is_zero());
     if (c().params().arith_nl_horner_subs_fixed() == 1 && c().var_is_fixed(j)) {
         add_deps_of_fixed(j, dep);
-        return cn.mk_scalar(coeff * c().m_lar_solver.column_lower_bound(j).x);
+        return cn.mk_scalar(coeff * c().lra.column_lower_bound(j).x);
     }
     if (c().params().arith_nl_horner_subs_fixed() == 2 && c().var_is_fixed_to_zero(j)) {
         add_deps_of_fixed(j, dep);
@@ -91,7 +89,7 @@ nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn, u_depende
     for (lpvar k : m.vars()) {
         if (c().params().arith_nl_horner_subs_fixed() == 1 && c().var_is_fixed(k)) {
             add_deps_of_fixed(k, dep);
-            mf *= c().m_lar_solver.column_lower_bound(k).x;
+            mf *= c().lra.column_lower_bound(k).x;
         } else if (c().params().arith_nl_horner_subs_fixed() == 2 &&
                    c().var_is_fixed_to_zero(k)) {
             dep = initial_dep;
