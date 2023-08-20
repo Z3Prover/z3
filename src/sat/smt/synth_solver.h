@@ -37,24 +37,48 @@ Example setting:
 - Using model-based projection.
 - Given model M for Phi
 - f(x,y):
-  - Set x, y, f(x,y) to shared, 
-    - u, z g(x,z) are not shared
-  - Phi1[x,y,f(x,y)] := Project u, z, g(x, z) form Phi
+  - Set x, y, f to shared, 
+    - u, z g are not shared
+  - Phi1[x,y,f(x,y)] := Project u, z, g from Phi
   - Set x, y to shared
   - realizer t[x,y] := Project f(x,y) from Phi1 
 - g(x,z):
-  - set x, z, g(x,z) to shared
-  - Phi1 := Project u, y, f(x, y) from Phi
+  - set x, z, g to shared
+  - Phi2 := Project u, y, f from Phi
   - Set x, z to shared
-  - realizer s[x,z] := Project g(x, z) from Phi3 
-- Guard: Phi1[x,y,t[x,y]] -> f(x,y) = t[x,y]
-  Guard: Phi2[x,z,s[x,z]] -> g(x,z) = s[x,z]
-- Block not (Phi1[t] & Phi2[s])
+  - realizer s[x,z] := Project g(x, z) from Phi2
+- Let Theta1, Theta2 be such that
+  - Psi[u] & ~Phi[x, y, z, t, g(x,z), u] => Theta1[x, y]
+  - Psi[u] & ~Phi[x, y, z, f(x,y), s, u] => Theta2[x, z]
+  - u is eliminated, g, f are eliminated
+  - Theta1, Theta2 != true and not implied by Psi[u].
+  Thus
+  - Psi[u] & ~Theta1[x,y] => forall z, g Phi[x, y, z, t, g(x,z), u]
+  - Psi[u] & ~Theta2[x,z] => forall y, f Phi[x, y, z, f(x,y), s, u]
 
-Properties: 
-- Phi1 => Exists u, z, g(x, z) . Phi
-- Phi1[x,y,t[x,y]] is true in M 
-- Similar with Phi2
+- ~Theta1 & ~Theta2 is the guard for f(x,y), g(x,z) 
+
+- Block by adding (Theta1 or Theta2) 
+
+Are there guarantees?
+- Does it soundly compute realizers for f, g?
+- Does it terminate when T admits quantifier elimination through MBP?
+
+Are there special cases:
+- All functions use the same arguments. They come from forall exists formulas.
+- The functions come from nested quantifiers (assume for simplificty prenex normal form).
+  - for example Phi[x, y, f(x), g(x, y)]
+  - Then project the function with all variables in scope first. Theta is just Phi[x,y,f(x), s].
+  - We know we can project based on Theta first.
+  - Abstract quantifiers
+- Tree decomposition for Henkin quantifiers?
+
+Are there extensions?
+- Suppose f has multiple occurrences f(x,y), f(y,z), f(u,v)...
+- Projecting each occurrence of f indepdendently does not solve for f.
+- It is not reasonable to expect termination
+
+
 
 --*/
 
