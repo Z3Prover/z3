@@ -25,16 +25,13 @@ class intervals {
 public:
     typedef dep_intervals::interval interval;
 private:
-    u_dependency* mk_dep(lp::constraint_index ci);
     u_dependency* mk_dep(lp::explanation const&);
     lp::lar_solver& ls();
     const lp::lar_solver& ls() const;
 public:
 
-    intervals(core* c, reslimit& lim) :
-        m_dep_intervals(lim),
-        m_core(c)
-    {}
+    intervals(core* c, reslimit& lim);
+
     dep_intervals& get_dep_intervals() { return m_dep_intervals; }
     u_dependency* mk_join(u_dependency* a, u_dependency* b) { return m_dep_intervals.mk_join(a, b); }
     u_dependency* mk_leaf(lp::constraint_index ci) { return m_dep_intervals.mk_leaf(ci); }

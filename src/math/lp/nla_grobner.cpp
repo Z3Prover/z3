@@ -22,9 +22,9 @@ namespace nla {
 
     grobner::grobner(core* c):
         common(c),
-        m_pdd_manager(m_core.m_lar_solver.number_of_vars()),
-        m_solver(m_core.m_reslim, m_pdd_manager),
-        m_lar_solver(m_core.m_lar_solver),
+        m_pdd_manager(m_core.lra.number_of_vars()),
+        m_solver(m_core.m_reslim, m_core.lra.dep_manager(), m_pdd_manager),
+        lra(m_core.lra),
         m_quota(m_core.params().arith_nl_gr_q())
     {}
 
@@ -211,12 +211,12 @@ namespace nla {
             TRACE("grobner",
                   tout << "base vars: ";
                   for (lpvar j : c().active_var_set())
-                      if (m_lar_solver.is_base(j))
+                      if (lra.is_base(j))
                           tout << "j" << j << " ";
                   tout << "\n");
             for (lpvar j : c().active_var_set()) {
-                if (m_lar_solver.is_base(j))
-                    add_row(m_lar_solver.basic2row(j));
+                if (lra.is_base(j))
+                    add_row(lra.basic2row(j));
                 
                 if (c().is_monic_var(j) && c().var_is_fixed(j))
                     add_fixed_monic(j);
@@ -267,12 +267,12 @@ namespace nla {
             }
         }  
   
-        for (unsigned j = 0; j < m_lar_solver.number_of_vars(); ++j) {
-            if (m_lar_solver.column_has_lower_bound(j) || m_lar_solver.column_has_upper_bound(j)) {
+        for (unsigned j = 0; j < lra.number_of_vars(); ++j) {
+            if (lra.column_has_lower_bound(j) || lra.column_has_upper_bound(j)) {
                 out << j << ": [";
-                if (m_lar_solver.column_has_lower_bound(j)) out << m_lar_solver.get_lower_bound(j);
+                if (lra.column_has_lower_bound(j)) out << lra.get_lower_bound(j);
                 out << "..";
-                if (m_lar_solver.column_has_upper_bound(j)) out << m_lar_solver.get_upper_bound(j);
+                if (lra.column_has_upper_bound(j)) out << lra.get_upper_bound(j);
                 out << "]\n";
             }
         }              
@@ -343,14 +343,14 @@ namespace nla {
 
         if (c().var_is_fixed(j))
             return;
-        const auto& matrix = m_lar_solver.A_r();
+        const auto& matrix = lra.A_r();
         for (auto & s : matrix.m_columns[j]) {
             unsigned row = s.var();
             if (m_rows.contains(row))
                 continue;
             m_rows.insert(row);
-            unsigned k = m_lar_solver.get_base_column_in_row(row);
-            if (m_lar_solver.column_is_free(k) && k != j)
+            unsigned k = lra.get_base_column_in_row(row);
+            if (lra.column_is_free(k) && k != j)
                 continue;
             CTRACE("grobner", matrix.m_rows[row].size() > c().params().arith_nl_grobner_row_length_limit(),
                    tout << "ignore the row " << row << " with the size " << matrix.m_rows[row].size() << "\n";); 
@@ -362,11 +362,10 @@ namespace nla {
     }
 
     const rational& grobner::val_of_fixed_var_with_deps(lpvar j, u_dependency*& dep) {
-        unsigned lc, uc;
-        m_lar_solver.get_bound_constraint_witnesses_for_column(j, lc, uc);
-        dep = c().m_intervals.mk_join(dep, c().m_intervals.mk_leaf(lc));
-        dep = c().m_intervals.mk_join(dep, c().m_intervals.mk_leaf(uc));
-        return m_lar_solver.column_lower_bound(j).x;
+        auto* d = lra.get_bound_constraint_witnesses_for_column(j);
+        if (d)
+            dep = c().m_intervals.mk_join(dep, d);
+        return lra.column_lower_bound(j).x;
     }
 
     dd::pdd grobner::pdd_expr(const rational& coeff, lpvar j, u_dependency*& dep) {
@@ -415,7 +414,7 @@ namespace nla {
             SASSERT(r.hi().is_val());
             v = r.var();
             rational val = r.hi().val();
-            switch (m_lar_solver.get_column_type(v)) {
+            switch (lra.get_column_type(v)) {
             case lp::column_type::lower_bound:
                 if (val > 0) num_lo++, lo = v, lc = val; else num_hi++, hi = v, hc = val;
                 break;
@@ -508,7 +507,7 @@ namespace nla {
 
 
     void grobner::display_matrix_of_m_rows(std::ostream & out) const {
-        const auto& matrix = m_lar_solver.A_r();
+        const auto& matrix = lra.A_r();
         out << m_rows.size() << " rows" << "\n";
         out << "the matrix\n";          
         for (const auto & r : matrix.m_rows) 
@@ -516,7 +515,7 @@ namespace nla {
     }
     
     void grobner::set_level2var() {
-        unsigned n = m_lar_solver.column_count();
+        unsigned n = lra.column_count();
         unsigned_vector sorted_vars(n), weighted_vars(n);
         for (unsigned j = 0; j < n; j++) {
             sorted_vars[j] = j;

@@ -4,6 +4,11 @@
 #include "util/mpq.h"
 
 namespace nla {
+
+intervals::intervals(core* c, reslimit& lim):
+    m_dep_intervals(c->lra.dep_manager(), lim),
+    m_core(c) {}
+
 typedef enum dep_intervals::with_deps_t e_with_deps;
 
 const nex* intervals::get_inf_interval_child(const nex_sum& e) const {
@@ -173,7 +178,7 @@ lp::lar_term intervals::expression_to_normalized_term(const nex_sum* e, rational
 // where m_terms[k] corresponds to the returned lpvar
 lpvar intervals::find_term_column(const lp::lar_term & norm_t, rational& a) const {
     std::pair<rational, lpvar> a_j;
-    if (m_core->m_lar_solver.fetch_normalized_term_column(norm_t, a_j)) {
+    if (m_core->lra.fetch_normalized_term_column(norm_t, a_j)) {
         a /= a_j.first;
         return a_j.second;
     }
@@ -206,19 +211,10 @@ void intervals::set_zero_interval_deps_for_mult(interval& a) {
     a.m_upper_dep = a.m_lower_dep;
 }
 
-u_dependency *intervals::mk_dep(lp::constraint_index ci) {
-    return m_dep_intervals.mk_leaf(ci);
-}
-
-u_dependency *intervals::mk_dep(const lp::explanation& expl) {
+u_dependency* intervals::mk_dep(const lp::explanation& expl) {
     u_dependency * r = nullptr;
-    for (auto p : expl) {
-        if (r == nullptr) {
-            r = m_dep_intervals.mk_leaf(p.ci());
-        } else {
-            r = m_dep_intervals.mk_join(r, m_dep_intervals.mk_leaf(p.ci()));
-        }
-    }
+    for (auto p : expl) 
+        r = m_dep_intervals.mk_join(r, m_dep_intervals.mk_leaf(p.ci()));
     return r;
 }
 
@@ -249,25 +245,25 @@ std::ostream& intervals::display(std::ostream& out, const interval& i) const {
 template <e_with_deps wd>
 void intervals::set_var_interval(lpvar v, interval& b) {
     TRACE("nla_intervals_details", m_core->print_var(v, tout) << "\n";);
-    lp::constraint_index ci;
+    u_dependency* dep = nullptr;
     rational val;
     bool is_strict;
-    if (ls().has_lower_bound(v, ci, val, is_strict)) {
+    if (ls().has_lower_bound(v, dep, val, is_strict)) {
         m_dep_intervals.set_lower(b, val);
         m_dep_intervals.set_lower_is_open(b, is_strict);
         m_dep_intervals.set_lower_is_inf(b, false);
-        if (wd == e_with_deps::with_deps) b.m_lower_dep = mk_dep(ci);
+        if (wd == e_with_deps::with_deps) b.m_lower_dep = dep;
     }
     else {
         m_dep_intervals.set_lower_is_open(b, true);
         m_dep_intervals.set_lower_is_inf(b, true);
         if (wd == e_with_deps::with_deps) b.m_lower_dep = nullptr;
     }
-    if (ls().has_upper_bound(v, ci, val, is_strict)) {
+    if (ls().has_upper_bound(v, dep, val, is_strict)) {
         m_dep_intervals.set_upper(b, val);
         m_dep_intervals.set_upper_is_open(b, is_strict);
         m_dep_intervals.set_upper_is_inf(b, false);
-        if (wd == e_with_deps::with_deps) b.m_upper_dep = mk_dep(ci);
+        if (wd == e_with_deps::with_deps) b.m_upper_dep = dep;
     }
     else {
         m_dep_intervals.set_upper_is_open(b, true);
@@ -303,7 +299,7 @@ bool intervals::interval_from_term(const nex& e, scoped_dep_interval& i) {
     m_dep_intervals.set<wd>(i, bi);
 
     TRACE("nla_intervals",
-          m_core->m_lar_solver.print_column_info(j, tout) << "\n";
+          m_core->lra.print_column_info(j, tout) << "\n";
           tout << "a=" << a << ", b=" << b << "\n";
           tout << e << ", interval = "; display(tout, i););
     return true;
@@ -476,9 +472,9 @@ bool intervals::interval_of_expr(const nex* e, unsigned p, scoped_dep_interval& 
 }
 
 
-lp::lar_solver& intervals::ls() { return m_core->m_lar_solver; }
+lp::lar_solver& intervals::ls() { return m_core->lra; }
 
-const lp::lar_solver& intervals::ls() const { return m_core->m_lar_solver; }
+const lp::lar_solver& intervals::ls() const { return m_core->lra; }
 
 
 } // end of nla namespace

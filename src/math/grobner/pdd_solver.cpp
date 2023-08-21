@@ -59,9 +59,10 @@ namespace dd {
        
     */
 
-    solver::solver(reslimit& lim, pdd_manager& m) : 
+    solver::solver(reslimit& lim, u_dependency_manager& dm, pdd_manager& m) : 
         m(m),
-        m_limit(lim) 
+        m_limit(lim),
+        m_dep_manager(dm)
     {}
 
     solver::~solver() {

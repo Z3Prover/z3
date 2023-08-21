@@ -149,22 +149,22 @@ namespace nla {
     }
 
     void monomial_bounds::var2interval(lpvar v, scoped_dep_interval& i) {
-        lp::constraint_index ci;
+        u_dependency* d = nullptr;
         rational bound;
         bool is_strict;
-        if (c().has_lower_bound(v, ci, bound, is_strict)) {
+        if (c().has_lower_bound(v, d, bound, is_strict)) {
             dep.set_lower_is_open(i, is_strict);
             dep.set_lower(i, bound);
-            dep.set_lower_dep(i, dep.mk_leaf(ci));
+            dep.set_lower_dep(i, d);
             dep.set_lower_is_inf(i, false);
         }
         else {
             dep.set_lower_is_inf(i, true);
         }
-        if (c().has_upper_bound(v, ci, bound, is_strict)) {
+        if (c().has_upper_bound(v, d, bound, is_strict)) {
             dep.set_upper_is_open(i, is_strict);
             dep.set_upper(i, bound);
-            dep.set_upper_dep(i, dep.mk_leaf(ci));            
+            dep.set_upper_dep(i, d);            
             dep.set_upper_is_inf(i, false);
         }
         else {

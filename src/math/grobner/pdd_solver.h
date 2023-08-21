@@ -112,6 +112,7 @@ private:
 
     pdd_manager&                                 m;
     reslimit&                                    m_limit;
+    u_dependency_manager&                        m_dep_manager;
     stats                                        m_stats;
     config                                       m_config;
     print_dep_t                                  m_print_dep;
@@ -119,12 +120,11 @@ private:
     equation_vector                              m_processed;
     equation_vector                              m_to_simplify;
     vector<std::tuple<unsigned, pdd, u_dependency*>> m_subst;
-    mutable u_dependency_manager                 m_dep_manager;
     equation_vector                              m_all_eqs;
     equation*                                    m_conflict = nullptr;   
     bool                                         m_too_complex;
 public:
-    solver(reslimit& lim, pdd_manager& m);
+    solver(reslimit& lim, u_dependency_manager& dm, pdd_manager& m);
     ~solver();
 
     pdd_manager& get_manager() { return m; }
@@ -144,7 +144,6 @@ public:
     void saturate();
 
     equation_vector const& equations();
-    u_dependency_manager& dep() const { return m_dep_manager;  }
 
     void collect_statistics(statistics & st) const;
     std::ostream& display(std::ostream& out, const equation& eq) const;

@@ -479,15 +479,15 @@ bool compare_nodes(ast const * n1, ast const * n2) {
         return
             q1->get_kind()         == q2->get_kind() &&
             q1->get_num_decls()    == q2->get_num_decls() &&
+            q1->get_expr()         == q2->get_expr() &&
+            q1->get_weight()       == q2->get_weight() &&
+            q1->get_num_patterns() == q2->get_num_patterns() &&
             compare_arrays(q1->get_decl_sorts(),
                            q2->get_decl_sorts(),
                            q1->get_num_decls()) &&
             compare_arrays(q1->get_decl_names(),
                            q2->get_decl_names(),
                            q1->get_num_decls()) &&
-            q1->get_expr()         == q2->get_expr() &&
-            q1->get_weight()       == q2->get_weight() &&
-            q1->get_num_patterns() == q2->get_num_patterns() &&
             ((q1->get_qid().is_numerical() && q2->get_qid().is_numerical()) ||
              (q1->get_qid() == q2->get_qid())) && 
             compare_arrays(q1->get_patterns(),
@@ -540,22 +540,6 @@ inline unsigned ast_array_hash(T * const * array, unsigned size, unsigned init_v
         mix(a, b, c);
         return c;
     } }
-}
-
-unsigned get_asts_hash(unsigned sz, ast * const* ns, unsigned init) {
-    return ast_array_hash<ast>(ns, sz, init);
-}
-unsigned get_apps_hash(unsigned sz, app * const* ns, unsigned init) {
-    return ast_array_hash<app>(ns, sz, init);
-}
-unsigned get_exprs_hash(unsigned sz, expr * const* ns, unsigned init) {
-    return ast_array_hash<expr>(ns, sz, init);
-}
-unsigned get_sorts_hash(unsigned sz, sort * const* ns, unsigned init) {
-    return ast_array_hash<sort>(ns, sz, init);
-}
-unsigned get_decl_hash(unsigned sz, func_decl* const* ns, unsigned init) {
-    return ast_array_hash<func_decl>(ns, sz, init);
 }
 
 unsigned get_node_hash(ast const * n) {

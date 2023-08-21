@@ -278,7 +278,6 @@ struct mbp_array_tg::impl {
         m_tg.get_terms(terms, false);
         for (unsigned i = 0; i < terms.size(); i++) {
             term = terms.get(i);
-            SASSERT(!m.is_distinct(term));
             if (m_seen.is_marked(term)) continue;
             if (m_tg.is_cgr(term)) continue;
             TRACE("mbp_tg", tout << "processing " << expr_ref(term, m););

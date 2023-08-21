@@ -186,7 +186,7 @@ struct solver::imp {
         for (auto const& eq : eqs)
             add_eq(eq);
         for (auto const& [v, w] : m_lp2nl) {
-            auto& ls = m_nla_core.m_lar_solver;
+            auto& ls = m_nla_core.lra;
             if (ls.column_has_lower_bound(v))
                 add_lb(ls.get_lower_bound(v), w);
             if (ls.column_has_upper_bound(v))
@@ -209,7 +209,7 @@ struct solver::imp {
         IF_VERBOSE(0, verbose_stream() << "check-nra " << r << "\n";
                    m_nlsat->display(verbose_stream());
                    for (auto const& [v, w] : m_lp2nl) {
-                       auto& ls = m_nla_core.m_lar_solver;
+                       auto& ls = m_nla_core.lra;
                        if (ls.column_has_lower_bound(v))
                            verbose_stream() << w << " >= " << ls.get_lower_bound(v) << "\n";
                        if (ls.column_has_upper_bound(v))

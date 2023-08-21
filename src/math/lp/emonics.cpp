@@ -517,11 +517,10 @@ bool emonics::invariant() const {
     TRACE("nla_solver_mons", display(tout););
     // the variable index contains exactly the active monomials
     unsigned mons = 0;
-    for (lpvar v = 0; v < m_var2index.size(); v++) {
-        if (is_monic_var(v)) {
+    for (lpvar v = 0; v < m_var2index.size(); v++)
+        if (is_monic_var(v)) 
             mons++;
-        }
-    }
+            
     if (m_monics.size() != mons) {
         TRACE("nla_solver_mons", tout << "missmatch of monic vars\n";);
         return false;
