@@ -39,12 +39,12 @@ Example setting:
 - f(x,y):
   - Set x, y, f to shared, 
     - u, z g are not shared
-  - Phi1[x,y,f(x,y)] := Project u, z, g from Phi
+  - Phi1[x,y,f(x,y)] := Project u, z, g from Phi, such that Phi => Phi1
   - Set x, y to shared
   - realizer t[x,y] := Project f(x,y) from Phi1 
 - g(x,z):
   - set x, z, g to shared
-  - Phi2 := Project u, y, f from Phi
+  - Phi2 := Project u, y, f from Phi, such that Phi => Phi2
   - Set x, z to shared
   - realizer s[x,z] := Project g(x, z) from Phi2
 - Let Theta1, Theta2 be such that
