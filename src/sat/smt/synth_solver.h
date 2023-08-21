@@ -66,11 +66,42 @@ Are there guarantees?
 
 Are there special cases:
 - All functions use the same arguments. They come from forall exists formulas.
-- The functions come from nested quantifiers (assume for simplificty prenex normal form).
+- The functions come from nested quantifiers 
+  Assume for simplificty prenex normal form:
   - for example Phi[x, y, f(x), g(x, y)]
-  - Then project the function with all variables in scope first. Theta is just Phi[x,y,f(x), s].
+  - Then project the function with all variables in scope first. Theta is just Phi[x, y, f(x), s[x,y,f(x)]].
   - We know we can project based on Theta first.
-  - Abstract quantifiers
+  Non-prenex (a la QSMA)
+  - for example Phi[x, f(x), Psi[y, f(x), g(x,y)], Psi'[z, f(x), h(x,z)]], where Phi, Psi' are positive in Phi
+  - maintain under and over approximations of Phi, Psi, Psi' projected to external variables e: 
+    - Phi.U[e], Phi.O[e], Psi.U[e,x,f(x)], Psi.O[e,x,f(x)], Psi'.U[e,x,f(x)], Psi'.O[e,x,f(x)].
+  - Given a model M for e
+  - If Phi.U[e] is true in M return SAT
+  - If Phi.O[e] is false in M return UNSAT
+  - If M cannot be extended to a model of Phi[e, x, f(x), Psi.O, Psi'.O] then
+    - Phi.O[e] <- Phi.O[e] & MBO(e, Phi[e, x, f(x), Psi.O, Psi'.O])
+  - else Phi[e, x, f(x), Psi.O, Psi'.O] is SAT with model M' extending M.
+    - update Psi.U/O, Psi'.U/O based on M'
+    - If M' satisfies Psi.U, Psi'.U, then 
+      Phi.U[e] <- Phi.U[e] or MBP(M', x, f(x), Phi[e, x, f(x), Psi.U, Psi'.U])
+    - Note: If M' does not satisfy either Psi.U or Psi'.U then Psi.O/Psi'.O were strengthened to exclude M'.
+
+  - It remains to define 
+    - MBP(M, x, f(x), Phi[e, x, f(x)]) 
+      - find t[x] such that M |= Phi[e,x,t[x]]
+      - MBP x from the remaining formula
+    - MBO(M, e, Phi[e, x, f(x)]) 
+      - formula that is implied by e = M[e] & exists x, f . Phi[e, x, f(x)]
+      - it is a half-interpolant (uniform interpolant or above)
+      - symbol elimination may compute result
+      - premise: e = M[e] & Phi[e, x, f(x)] is unsat
+      - means of computing MBO
+        - Proof using Farkas and EUF lemmas.
+          - Farkas uses e, x, f(x), then extract coefficients for e part (see HB12)
+          - EUF uses some congruence
+        - Using a core based on JB15?
+        - Using dual optimization [PR06]
+
 - Tree decomposition for Henkin quantifiers?
 
 Are there extensions?
