@@ -67,6 +67,8 @@ namespace smt {
             m_ge(ge) {
         }
 
+        ~arith_eq_relevancy_eh() override {}
+
         void operator()(relevancy_propagator & rp) override {
             if (!rp.is_relevant(m_n1))
                 return;

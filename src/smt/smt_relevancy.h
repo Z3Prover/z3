@@ -41,13 +41,14 @@ namespace smt {
         /**
            \brief Fallback for the two previous methods.
         */
-        virtual void operator()(relevancy_propagator & rp) {}
+        virtual void operator()(relevancy_propagator & rp) = 0;
     };
 
     class simple_relevancy_eh : public relevancy_eh {
         expr * m_target;
     public:
         simple_relevancy_eh(expr * t):m_target(t) {}
+        ~simple_relevancy_eh() override {}
         void operator()(relevancy_propagator & rp) override;
     };
     
@@ -60,6 +61,7 @@ namespace smt {
         expr * m_target;
     public:
         pair_relevancy_eh(expr * s1, expr * s2, expr * t):m_source1(s1), m_source2(s2), m_target(t) {}
+        ~pair_relevancy_eh() override {}
         void operator()(relevancy_propagator & rp) override;
     };
 

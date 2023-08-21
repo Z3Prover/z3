@@ -3565,7 +3565,6 @@ namespace smt {
         try {
             internalize_assertions();
         } catch (cancel_exception&) {
-            VERIFY(resource_limits_exceeded());
             return l_undef;
         }
         expr_ref_vector theory_assumptions(m);
@@ -3637,7 +3636,6 @@ namespace smt {
                 TRACE("unsat_core_bug", tout << asms << '\n';);
                 init_assumptions(asms);
             } catch (cancel_exception&) {
-                VERIFY(resource_limits_exceeded());
                 return l_undef;
             }
             TRACE("before_search", display(tout););
@@ -3664,7 +3662,6 @@ namespace smt {
                 for (auto const& clause : clauses) if (!validate_assumptions(clause)) return l_undef;
                 init_assumptions(asms);
             } catch (cancel_exception&) {
-                VERIFY(resource_limits_exceeded());
                 return l_undef;
             }
             for (auto const& clause : clauses) init_clause(clause);

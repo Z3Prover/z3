@@ -970,11 +970,6 @@ inline quantifier const * to_quantifier(ast const * n) { SASSERT(is_quantifier(n
 unsigned get_node_hash(ast const * n);
 bool compare_nodes(ast const * n1, ast const * n2);
 unsigned get_node_size(ast const * n);
-unsigned get_asts_hash(unsigned sz, ast * const* ns, unsigned init);
-unsigned get_apps_hash(unsigned sz, app * const* ns, unsigned init);
-unsigned get_exprs_hash(unsigned sz, expr * const* ns, unsigned init);
-unsigned get_sorts_hash(unsigned sz, sort * const* ns, unsigned init);
-unsigned get_decl_hash(unsigned sz, func_decl* const* ns, unsigned init);
 
 // This is the internal comparison functor for hash-consing AST nodes.
 struct ast_eq_proc {
