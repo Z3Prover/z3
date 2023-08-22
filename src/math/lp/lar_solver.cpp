@@ -333,21 +333,19 @@ namespace lp {
         if (improve_lower_bound)
             term.negate();
         impq bound;
-        if (!maximize_term_on_corrected_r_solver(term, bound))
+        explanation exp;
+        if (!maximize_term_on_corrected_r_solver(term, bound, &exp))
             return false;
         
         return false;
-        // TODO
         if (improve_lower_bound) {
             bound.neg();
             if (column_has_lower_bound(j) && bound.x == column_lower_bound(j).x)
                 return false;
             SASSERT(!column_has_lower_bound(j) || column_lower_bound(j).x < bound.x);
             
-            // TODO - explain new lower bound.
-            // Seems the relevant information is in the "costs" that are used when 
-            // setting the optimization objecive. The costs are cleared after a call so
-            // maybe have some way of extracting bound dependencies from the costs.
+           
+            // TODO: get dep from the explanation
             u_dependency* dep = nullptr;
             update_column_type_and_bound(j, bound.y > 0 ? lconstraint_kind::GT : lconstraint_kind::GE, bound.x, dep);
         } 
@@ -491,40 +489,27 @@ namespace lp {
 
 
     bool lar_solver::maximize_term_on_corrected_r_solver(lar_term& term,
-        impq& term_max) {
+                                                         impq& term_max, explanation* expl) {
         settings().backup_costs = false;
         bool ret = false;
-        TRACE("lar_solver", print_term(term, tout << "maximize: ") << "\n" << constraints() << ", strategy = " << (int)settings().simplex_strategy() << "\n";);
-        switch (settings().simplex_strategy()) {
-
-        case simplex_strategy_enum::tableau_rows:
-            settings().set_simplex_strategy(simplex_strategy_enum::tableau_costs);
-            prepare_costs_for_r_solver(term);
-            ret = maximize_term_on_tableau(term, term_max);
-            settings().set_simplex_strategy(simplex_strategy_enum::tableau_rows);
-            set_costs_to_zero(term);
-            m_mpq_lar_core_solver.m_r_solver.set_status(lp_status::OPTIMAL);
-            return ret;
-
-        case simplex_strategy_enum::tableau_costs:
-            prepare_costs_for_r_solver(term);
-            ret = maximize_term_on_tableau(term, term_max);
-            set_costs_to_zero(term);
-            m_mpq_lar_core_solver.m_r_solver.set_status(lp_status::OPTIMAL);
-            return ret;
-
-        
-        default:
-            UNREACHABLE(); // wrong mode
-        }
-        return false;
+        TRACE("lar_solver", print_term(term, tout << "maximize: ") << "\n" << constraints() << ", strategy = " << (int)settings().simplex_strategy() << "\n";);        
+        auto strategy = settings().simplex_strategy();
+        settings().set_simplex_strategy(simplex_strategy_enum::tableau_costs);
+        prepare_costs_for_r_solver(term);
+        ret = maximize_term_on_tableau(term, term_max);
+        if (ret && expl != nullptr) 
+        	get_explanation_of_maximum(term, *expl);            
+		settings().set_simplex_strategy(strategy);	
+        set_costs_to_zero(term);
+        m_mpq_lar_core_solver.m_r_solver.set_status(lp_status::OPTIMAL);
+        return ret;
     }
-// returns true iff the row of j has a non-fixed column different from j
-    bool lar_solver::remove_from_basis(unsigned j) {    
+    // returns true iff the row of j has a non-fixed column different from j
+    bool lar_solver::remove_from_basis(unsigned j) {
         lp_assert(is_base(j));
         unsigned i = row_of_basic_column(j);
-        for (const auto & c : A_r().m_rows[i]) 
-            if (j != c.var() && !is_fixed(c.var())) 
+        for (const auto& c : A_r().m_rows[i])
+            if (j != c.var() && !is_fixed(c.var()))
                 return m_mpq_lar_core_solver.m_r_solver.remove_from_basis_core(c.var(), j);
         return false;
     }
@@ -561,7 +546,7 @@ namespace lp {
         }
 
         m_mpq_lar_core_solver.m_r_solver.m_look_for_feasible_solution_only = false;
-        if (!maximize_term_on_corrected_r_solver(term, term_max)) {
+        if (!maximize_term_on_corrected_r_solver(term, term_max, nullptr)) {
             m_mpq_lar_core_solver.m_r_x = backup;
             return lp_status::UNBOUNDED;
         }
@@ -1057,6 +1042,35 @@ namespace lp {
         }
     }
 
+    void lar_solver::get_explanation_of_maximum(const lar_term& term, explanation& exp) {
+        const auto& s = this->m_mpq_lar_core_solver.m_r_solver;
+        // ttt
+        for (unsigned j = 0; j < this->m_mpq_lar_core_solver.m_n(); j++) {
+            if (s.m_basis_heading[j] >= 0) {
+                SASSERT(s.m_d[j].is_zero());
+                continue;
+            }
+            const mpq& d_j = s.m_d[j];
+            if (d_j.is_zero()) continue;
+            TRACE("lar_solver", tout << "d[" << j << "] = " << d_j << "\n";);
+            TRACE("lar_solver", s.print_column_info(j, tout););
+            const ul_pair& ul = m_columns_to_ul_pairs[j];
+            svector<constraint_index> deps;    
+            if (d_j.is_pos()) {
+                SASSERT(s.x_is_at_upper_bound(j));
+                m_dependencies.linearize(ul.upper_bound_witness(), deps);
+                for (auto d : deps) 
+                    exp.add_pair(d, d_j);
+            } else {
+                SASSERT(s.x_is_at_lower_bound(j));
+                m_dependencies.linearize(ul.lower_bound_witness(), deps);
+                for (auto d : deps) 
+                    exp.add_pair(d, d_j);
+            }
+        }
+        TRACE("lar_solver", print_explanation(tout, exp););
+    }
+
     // (x, y) != (x', y') => (x + delta*y) != (x' + delta*y')
     void lar_solver::get_model(std::unordered_map<var_index, mpq>& variable_values) const {
         variable_values.clear();
@@ -1065,7 +1079,7 @@ namespace lp {
 
         unsigned n = m_mpq_lar_core_solver.m_r_x.size();
 
-        for (unsigned j = 0; j < n; j++) 
+        for (unsigned j = 0; j < n; j++)
             variable_values[j] = get_value(column_index(j));
 
         TRACE("lar_solver_model", tout << "delta = " << m_delta << "\nmodel:\n";
@@ -2344,6 +2358,22 @@ namespace lp {
         if (column_has_lower_bound(j) && val < get_lower_bound(j))
             return false;
         return true;
+    }
+
+    std::ostream& lar_solver::print_explanation(std::ostream& out, const explanation& exp) const {
+        for (auto p : exp) {
+            bool brace=false;
+            if (!p.coeff().is_one()) {
+                out << p.coeff() << "*(";
+                brace = true;
+            }
+            constraints().display(
+                out, [this](lpvar j) { return get_variable_name(j); }, p.ci());
+                if (brace){
+                    out << ")\n";
+                }
+        }
+        return out;
     }
 
 } // namespace lp
