@@ -1548,7 +1548,7 @@ lbool core::check(vector<ineq>& lits, vector<lemma>& l_vec) {
     if (no_effect())
         m_monomial_bounds();
 
-    if (l_vec.empty() && !done() && improve_bounds())
+    if (no_effect() && improve_bounds())
         return l_false;
     
     {

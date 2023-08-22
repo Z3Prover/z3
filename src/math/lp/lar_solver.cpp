@@ -333,12 +333,13 @@ namespace lp {
         if (improve_lower_bound)
             term.negate();
         impq bound;
-        if (!maximize_term_on_tableau(term, bound))
+        if (!maximize_term_on_corrected_r_solver(term, bound))
             return false;
         
         return false;
         // TODO
         if (improve_lower_bound) {
+            bound.neg();
             if (column_has_lower_bound(j) && bound.x == column_lower_bound(j).x)
                 return false;
             SASSERT(!column_has_lower_bound(j) || column_lower_bound(j).x < bound.x);
