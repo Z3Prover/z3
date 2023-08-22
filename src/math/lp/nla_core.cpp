@@ -1523,7 +1523,7 @@ lbool core::check(vector<ineq>& lits, vector<lemma>& l_vec) {
     TRACE("nla_solver", tout << "calls = " << lp_settings().stats().m_nla_calls << "\n";);
     lra.get_rid_of_inf_eps();
     m_lemma_vec =  &l_vec;
-
+    m_literal_vec = &lits;
     if (!(lra.get_status() == lp::lp_status::OPTIMAL || 
           lra.get_status() == lp::lp_status::FEASIBLE)) {
         TRACE("nla_solver", tout << "unknown because of the lra.m_status = " << lra.get_status() << "\n";);
