@@ -249,6 +249,7 @@ namespace arith {
         // lemmas
         lp::explanation     m_explanation;
         vector<nla::lemma>  m_nla_lemma_vector;
+        vector<nla::ineq>   m_nla_literals;
         literal_vector      m_core, m_core2;
         vector<rational>    m_coeffs;
         svector<enode_pair> m_eqs;
@@ -463,6 +464,8 @@ namespace arith {
         void set_evidence(lp::constraint_index idx);
         void assign(literal lit, literal_vector const& core, svector<enode_pair> const& eqs, euf::th_proof_hint const* pma);
 
+        void assume_literals();
+        sat::literal mk_ineq_literal(nla::ineq const& ineq);
         void false_case_of_check_nla(const nla::lemma& l);        
         void dbg_finalize_model(model& mdl);
 
