@@ -1411,7 +1411,7 @@ namespace arith {
         m_explanation = l.expl();
         literal_vector core;
         for (auto const& ineq : m_lemma.ineqs()) 
-            core.push_back(mk_ineq_literal(ineq));
+            core.push_back(~mk_ineq_literal(ineq));
         set_conflict_or_lemma(hint_type::nla_h, core, false);
     }
 
@@ -1424,17 +1424,17 @@ namespace arith {
     }
     
     sat::literal solver::mk_ineq_literal(nla::ineq const& ineq) {
-        bool is_lower = true, pos = true, is_eq = false;
+        bool is_lower = true, sign = true, is_eq = false;
         switch (ineq.cmp()) {
-        case lp::LE: is_lower = false; pos = false; break;
-        case lp::LT: is_lower = true;  pos = true;  break;
-        case lp::GE: is_lower = true;  pos = false; break;
-        case lp::GT: is_lower = false; pos = true;  break;
-        case lp::EQ: is_eq = true;     pos = false; break;
-        case lp::NE: is_eq = true;     pos = true;  break;
+        case lp::LE: is_lower = false; sign = false; break;
+        case lp::LT: is_lower = true;  sign = true;  break;
+        case lp::GE: is_lower = true;  sign = false; break;
+        case lp::GT: is_lower = false; sign = true;  break;
+        case lp::EQ: is_eq = true;     sign = false; break;
+        case lp::NE: is_eq = true;     sign = true;  break;
         default: UNREACHABLE();
         }
-        TRACE("arith", tout << "is_lower: " << is_lower << " pos " << pos << "\n";);
+        TRACE("arith", tout << "is_lower: " << is_lower << " sign " << sign << "\n";);
         // TBD utility: lp::lar_term term = mk_term(ineq.m_poly);
         // then term is used instead of ineq.m_term
         sat::literal lit;
@@ -1443,7 +1443,7 @@ namespace arith {
         else 
             lit = ctx.expr2literal(mk_bound(ineq.term(), ineq.rs(), is_lower));
 
-        return pos ? lit : ~lit;                                            
+        return sign ? ~lit : lit;                                            
     }
 
 
