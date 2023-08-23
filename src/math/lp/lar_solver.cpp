@@ -1044,7 +1044,10 @@ namespace lp {
 
     void lar_solver::get_explanation_of_maximum(const lar_term& term, explanation& exp) {
         const auto& s = this->m_mpq_lar_core_solver.m_r_solver;
-        // ttt
+        // The sum of m_d[j]*x[j]  = term.
+        // Every j with positive m_d[j] is at its upper bound,
+        // and every j with negative m_d[j] is at its lower bound: so the sum cannot be increased.
+        // All variables j in the sum are non-basic.
         for (unsigned j = 0; j < this->m_mpq_lar_core_solver.m_n(); j++) {
             if (s.m_basis_heading[j] >= 0) {
                 SASSERT(s.m_d[j].is_zero());
