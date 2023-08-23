@@ -345,7 +345,7 @@ namespace lp {
             SASSERT(!column_has_lower_bound(j) || column_lower_bound(j).x < bound.x);
             
            
-            // TODO: get dep from the explanation: the coefficients of the explanaiton 
+            // TODO: get dep from the explanation: the coefficients of the explanation 
             // The coefficients should be preserved in "dep". The linear combination of coeff*constraints of the explanation
             // gives : term <= max
             u_dependency* dep = nullptr;
