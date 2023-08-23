@@ -345,7 +345,9 @@ namespace lp {
             SASSERT(!column_has_lower_bound(j) || column_lower_bound(j).x < bound.x);
             
            
-            // TODO: get dep from the explanation
+            // TODO: get dep from the explanation: the coefficients of the explanaiton 
+            // The coefficients should be preserved in "dep". The linear combination of coeff*constraints of the explanation
+            // gives : term <= max
             u_dependency* dep = nullptr;
             update_column_type_and_bound(j, bound.y > 0 ? lconstraint_kind::GT : lconstraint_kind::GE, bound.x, dep);
         } 
@@ -1044,7 +1046,7 @@ namespace lp {
 
     void lar_solver::get_explanation_of_maximum(const lar_term& term, explanation& exp) {
         const auto& s = this->m_mpq_lar_core_solver.m_r_solver;
-        // The sum of m_d[j]*x[j]  = term.
+        // The sum of m_d[j]*x[j] = term.
         // Every j with positive m_d[j] is at its upper bound,
         // and every j with negative m_d[j] is at its lower bound: so the sum cannot be increased.
         // All variables j in the sum are non-basic.
@@ -1062,14 +1064,13 @@ namespace lp {
             if (d_j.is_pos()) {
                 SASSERT(s.x_is_at_upper_bound(j));
                 m_dependencies.linearize(ul.upper_bound_witness(), deps);
-                for (auto d : deps) 
-                    exp.add_pair(d, d_j);
-            } else {
+            } 
+            else {
                 SASSERT(s.x_is_at_lower_bound(j));
                 m_dependencies.linearize(ul.lower_bound_witness(), deps);
-                for (auto d : deps) 
-                    exp.add_pair(d, d_j);
             }
+            for (auto d : deps) 
+                exp.add_pair(d, d_j);
         }
         TRACE("lar_solver", print_explanation(tout, exp););
     }
