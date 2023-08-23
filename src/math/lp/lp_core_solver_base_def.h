@@ -163,26 +163,6 @@ print_statistics_with_cost_and_check_that_the_time_is_over(X cost, std::ostream 
 }
 
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
-column_is_dual_feasible(unsigned j) const {
-    switch (m_column_types[j]) {
-    case column_type::fixed:
-    case column_type::boxed:
-        return (x_is_at_lower_bound(j) && d_is_not_negative(j)) ||
-            (x_is_at_upper_bound(j) && d_is_not_positive(j));
-    case column_type::lower_bound:
-        return x_is_at_lower_bound(j) && d_is_not_negative(j);
-    case column_type::upper_bound:
-        UNREACHABLE();
-        break;
-    case column_type::free_column:
-        return numeric_traits<X>::is_zero(m_d[j]);
-    default:
-        UNREACHABLE();
-    }
-    UNREACHABLE();
-    return false;
-}
-template <typename T, typename X> bool lp_core_solver_base<T, X>::
 d_is_not_negative(unsigned j) const {
     return m_d[j] >= numeric_traits<T>::zero();
 }

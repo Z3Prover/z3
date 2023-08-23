@@ -262,13 +262,20 @@ public:
         return out << " " << lconstraint_kind_string(c.kind()) << " " << c.rhs() << std::endl;
     }
 
-    std::ostream& display(std::ostream& out, std::function<std::string (unsigned)> var_str, constraint_index ci) const {
-        return (ci >= m_constraints.size()) ? out_of_bounds(out, ci) : display(out, var_str, (*this)[ci]);
+    std::ostream& display(std::ostream& out, std::function<std::string (unsigned)> var_str, constraint_index ci, bool brace = false) const {
+        return (ci >= m_constraints.size()) ? out_of_bounds(out, ci) : display(out, var_str, (*this)[ci], brace);
     }
 
-    std::ostream& display(std::ostream& out, std::function<std::string (unsigned)>& var_str, lar_base_constraint const& c) const {
+    std::ostream& display(std::ostream& out, std::function<std::string (unsigned)>& var_str, lar_base_constraint const& c, bool brace = false) const {
+        if (brace) {
+            out << "(";
+        }
         print_left_side_of_constraint(c, var_str, out); 
-        return out << " " << lconstraint_kind_string(c.kind()) << " " << c.rhs() << std::endl;
+        out << " " << lconstraint_kind_string(c.kind()) << " " << c.rhs();
+        if (brace) {
+            out << ")";
+        }
+        return out << std::endl;
     }
 };
 

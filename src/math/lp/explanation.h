@@ -36,7 +36,7 @@ public:
         for (unsigned c : t)
             push_back(c);
     }
-    
+    const vector<std::pair<unsigned, mpq>>& as_vector() const { return m_vector; }
     void clear() { m_vector.clear(); m_set.reset(); }
     void add_pair(constraint_index j, const mpq& v) {
         SASSERT(m_set.empty()); 

@@ -25,7 +25,6 @@ Revision History:
 #include "math/lp/lp_core_solver_base_def.h"
 template bool lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::print_statistics_with_iterations_and_nonzeroes_and_cost_and_check_that_the_time_is_over(char const*, std::ostream &);
 template bool lp::lp_core_solver_base<lp::mpq, lp::mpq>::basis_heading_is_correct() const ;
-template bool lp::lp_core_solver_base<lp::mpq, lp::mpq>::column_is_dual_feasible(unsigned int) const;
 template bool lp::lp_core_solver_base<lp::mpq, lp::mpq>::print_statistics_with_iterations_and_nonzeroes_and_cost_and_check_that_the_time_is_over(char const*, std::ostream &);
 template void lp::lp_core_solver_base<lp::mpq, lp::mpq>::add_delta_to_entering(unsigned int, const lp::mpq&);
 template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::init();

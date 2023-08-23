@@ -247,9 +247,11 @@ public:
         return above_bound(m_x[p], m_upper_bounds[p]);
     }
     bool x_is_at_lower_bound(unsigned j) const {
+        SASSERT(this->m_column_types[j] == column_type::fixed || this->m_column_types[j] == column_type::boxed || this->m_column_types[j] == column_type::lower_bound);
         return at_bound(m_x[j], m_lower_bounds[j]);
     }
     bool x_is_at_upper_bound(unsigned j) const {
+        SASSERT(this->m_column_types[j] == column_type::fixed || this->m_column_types[j] == column_type::boxed || this->m_column_types[j] == column_type::upper_bound);
         return at_bound(m_x[j], m_upper_bounds[j]);
     }
 
@@ -262,8 +264,6 @@ public:
 
     bool inf_heap_is_correct() const;
     
-    bool column_is_dual_feasible(unsigned j) const;
-
     bool d_is_not_negative(unsigned j) const;
 
     bool d_is_not_positive(unsigned j) const;

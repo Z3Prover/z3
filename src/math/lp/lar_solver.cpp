@@ -311,6 +311,7 @@ namespace lp {
 
     bool lar_solver::maximize_term_on_tableau(const lar_term& term,
         impq& term_max) {
+        flet f(m_mpq_lar_core_solver.m_r_solver.m_look_for_feasible_solution_only, false);    
         if (settings().simplex_strategy() == simplex_strategy_enum::undecided)
             decide_on_strategy_and_adjust_initial_state();
 
@@ -1044,7 +1045,7 @@ namespace lp {
         }
     }
 
-    void lar_solver::get_explanation_of_maximum(const lar_term& term, explanation& exp) {
+    void lar_solver::get_explanation_of_maximum(const lar_term& term, explanation& exp) {        
         const auto& s = this->m_mpq_lar_core_solver.m_r_solver;
         // The sum of m_d[j]*x[j] = term.
         // Every j with positive m_d[j] is at its upper bound,
@@ -1072,7 +1073,45 @@ namespace lp {
             for (auto d : deps) 
                 exp.add_pair(d, d_j);
         }
-        TRACE("lar_solver", print_explanation(tout, exp););
+        TRACE("lar_solver", print_explanation(tout, exp); tout << std::endl;);
+        SASSERT(maximum_is_correctly_explained(term, exp.as_vector()));       
+    }
+
+    bool lar_solver::maximum_is_correctly_explained(const lar_term& term, const vector<std::pair<constraint_index, mpq>>& explanation) const {
+        std::unordered_map<unsigned, mpq> coeff_map;
+        auto rs_of_evidence = zero_of_type<mpq>();
+        unsigned n_of_G = 0, n_of_L = 0;
+        bool strict = false;
+        for (auto& it : explanation) {
+            mpq coeff = it.second;
+            constraint_index con_ind = it.first;
+            const auto& constr = m_constraints[con_ind];
+            lconstraint_kind kind = coeff.is_pos() ? constr.kind() : flip_kind(constr.kind());
+            register_in_map(coeff_map, constr, coeff);
+            if (kind == GT || kind == LT)
+                strict = true;
+            if (kind == GE || kind == GT)
+                n_of_G++;
+            else if (kind == LE || kind == LT)
+                n_of_L++;
+            rs_of_evidence += coeff * constr.rhs();
+        }
+        lp_assert(n_of_G == 0);
+        lconstraint_kind kind = n_of_L ? LE : EQ;
+        if (strict)
+            kind = static_cast<lconstraint_kind>((static_cast<int>(kind) / 2));
+        auto term_val = term.apply(m_mpq_lar_core_solver.m_r_x).x;
+
+        unsigned size = 0;
+        for (auto p : term) {
+            auto it = coeff_map.find(p.column());
+            if (it == coeff_map.end())
+                return false;
+            if (p.coeff() != it->second)
+                return false;
+        }
+
+        return rs_of_evidence == term_val;
     }
 
     // (x, y) != (x', y') => (x + delta*y) != (x' + delta*y')
@@ -2366,16 +2405,12 @@ namespace lp {
 
     std::ostream& lar_solver::print_explanation(std::ostream& out, const explanation& exp) const {
         for (auto p : exp) {
-            bool brace=false;
-            if (!p.coeff().is_one()) {
-                out << p.coeff() << "*(";
-                brace = true;
-            }
+            bool brace = !p.coeff().is_one();
+            if (brace)
+                out << p.coeff() << "*";
             constraints().display(
-                out, [this](lpvar j) { return get_variable_name(j); }, p.ci());
-                if (brace){
-                    out << ")\n";
-                }
+                out, [this](lpvar j) { return get_variable_name(j); }, p.ci(), brace);
+        
         }
         return out;
     }
