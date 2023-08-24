@@ -188,9 +188,11 @@ class lar_solver : public column_namer {
     bool reduced_costs_are_zeroes_for_r_solver() const;
     void set_costs_to_zero(const lar_term& term);
     void prepare_costs_for_r_solver(const lar_term& term);
-    bool maximize_term_on_corrected_r_solver(lar_term& term, impq& term_max, explanation* expl);
+    bool maximize_term_on_feasible_r_solver(lar_term& term, impq& term_max, u_dependency** dep);
     std::ostream& print_explanation(std::ostream& out, const explanation& exp) const;
     void get_explanation_of_maximum(const lar_term& term, explanation& expl);
+    u_dependency* get_dependencies_of_maximum(const lar_term& term);
+    
     void pop_core_solver_params();
     void pop_core_solver_params(unsigned k);
     void set_upper_bound_witness(var_index j, u_dependency* ci);

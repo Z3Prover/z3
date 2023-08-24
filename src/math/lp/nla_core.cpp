@@ -1790,25 +1790,34 @@ void core::collect_statistics(::statistics & st) {
 }
 
 bool core::improve_bounds() {
-    return false;
-
+    if (m_stats.m_bounds_improvements > 1000)
+        return false;
     uint_set seen;
-    bool bounds_improved = false;
     auto insert = [&](lpvar v) {
         if (seen.contains(v))
-            return;
+            return false;
         seen.insert(v);
-        if (lra.improve_bound(v, false))
-            bounds_improved = true, m_stats.m_bounds_improvements++;
-        if (lra.improve_bound(v, true))
-            bounds_improved = true, m_stats.m_bounds_improvements++;
+        if  (lra.improve_bound(v, false) || lra.improve_bound(v, true)) {
+            m_stats.m_bounds_improvements++;
+            this->m_improved_bounds_quota+=2;
+            return true;
+        } else {
+            this->m_improved_bounds_quota--;
+        }
+        return false;
     };
-    for (auto & m : m_emons) {
-        insert(m.var());
+    for (unsigned j : m_to_refine) {
+        if (m_improved_bounds_quota <= 0)
+            return false;;
+        
+        const auto& m = emons()[j];
+        if (insert(m.var())) 
+            return true;
         for (auto v : m.vars())
-            insert(v);
+            if (insert(v))
+                return true;
     }
-    return bounds_improved;
+    return false;
 }
     
 

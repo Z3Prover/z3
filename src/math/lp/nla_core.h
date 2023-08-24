@@ -86,7 +86,7 @@ class core {
     std::function<bool(lpvar)> m_relevant;
     vector<lemma> *          m_lemma_vec;
     vector<ineq> *           m_literal_vec = nullptr;
-    indexed_uint_set                m_to_refine;
+    indexed_uint_set         m_to_refine;
     tangents                 m_tangents;
     basics                   m_basics;
     order                    m_order;
@@ -95,7 +95,7 @@ class core {
     divisions                m_divisions;
     intervals                m_intervals; 
     monomial_bounds          m_monomial_bounds;
-    
+    unsigned                 m_improved_bounds_quota = 1000;
     horner                   m_horner;
     grobner                  m_grobner;
     emonics                  m_emons;
@@ -358,10 +358,6 @@ public:
     template <typename T>
     bool vars_are_roots(const T& v) const;
 
-    void register_monic_in_tables(unsigned i_mon);
-
-    void register_monics_in_tables();
-
     void clear();
     
     void init_search();
@@ -408,7 +404,6 @@ public:
     bool influences_nl_var(lpvar) const;
     bool is_nl_var(lpvar) const;
     
-    bool is_used_in_monic(lpvar) const;
     void patch_monomials();
     void patch_monomials_on_to_refine();
     void patch_monomial(lpvar);
@@ -426,7 +421,6 @@ public:
     bool use_nra_model() const { return m_use_nra_model; }
     void collect_statistics(::statistics&);
 private:
-    void restore_patched_values();
     void constrain_nl_in_tableau();
     bool solve_tableau();
     void restore_tableau();

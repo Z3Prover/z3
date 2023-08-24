@@ -55,7 +55,7 @@ void lp_primal_core_solver<T, X>::sort_non_basis() {
 template <typename T, typename X>
 bool lp_primal_core_solver<T, X>::column_is_benefitial_for_entering_basis(unsigned j) const {
     const T& dj = this->m_d[j];
-    TRACE("lar_solver", tout << "dj=" << dj << "\n";); 
+    TRACE("lar_solver_simplex", tout << "m_d[" << j << "]=" << dj << "\n";); 
     switch (this->m_column_types[j]) {
     case column_type::fixed:  break;
     case column_type::free_column:

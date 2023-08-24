@@ -251,7 +251,7 @@ public:
     
     // the method of lar solver to use
     simplex_strategy_enum simplex_strategy() const { return m_simplex_strategy; }
-    void set_simplex_strategy(simplex_strategy_enum s) { m_simplex_strategy = s; }
+    simplex_strategy_enum& simplex_strategy() { return m_simplex_strategy; }
     bool use_tableau_rows() const { return m_simplex_strategy == simplex_strategy_enum::tableau_rows; }
     
 #ifdef Z3DEBUG
