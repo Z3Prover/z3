@@ -1177,11 +1177,18 @@ class term_graph::projector {
     }
 
     void lits2pure(expr_ref_vector &res) {
-        expr *e1 = nullptr, *e2 = nullptr, *p1 = nullptr, *p2 = nullptr;
+        expr *e1 = nullptr, *e2 = nullptr, *e = nullptr, *p1 = nullptr, *p2 = nullptr;
         for (auto *lit : m_tg.m_lits) {
             if (m.is_eq(lit, e1, e2)) {
                 if (find_app(e1, p1) && find_app(e2, p2)) {
                     if (p1 != p2) res.push_back(m.mk_eq(p1, p2));
+                }
+                else
+                    TRACE("qe", tout << "skipping " << mk_pp(lit, m) << "\n";);
+            }
+            else if (m.is_not(lit, e) && m.is_eq(e, e1, e2)) {
+                if (find_app(e1, p1) && find_app(e2, p2)) {
+                    res.push_back(mk_neq(m, p1, p2));
                 }
                 else
                     TRACE("qe", tout << "skipping " << mk_pp(lit, m) << "\n";);
