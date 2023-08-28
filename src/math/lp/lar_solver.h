@@ -164,7 +164,6 @@ class lar_solver : public column_namer {
     void adjust_initial_state_for_tableau_rows();
     bool sizes_are_correct() const;
     bool implied_bound_is_correctly_explained(implied_bound const& be, const vector<std::pair<mpq, unsigned>>& explanation) const;
-    bool maximum_is_correctly_explained(const lar_term& term, const vector<std::pair<unsigned, mpq>>& explanation) const;
     void substitute_basis_var_in_terms_for_row(unsigned i);
 
     template <typename T>

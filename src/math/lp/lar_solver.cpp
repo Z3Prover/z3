@@ -1051,12 +1051,10 @@ namespace lp {
             TRACE("lar_solver", tout << "d[" << j << "] = " << d_j << "\n";);
             TRACE("lar_solver", s.print_column_info(j, tout););
             const ul_pair& ul = m_columns_to_ul_pairs[j];
-            svector<constraint_index> deps;    
             u_dependency * bound_dep;
             if (d_j.is_pos()) {
                 SASSERT(s.x_is_at_upper_bound(j));
                 bound_dep = ul.upper_bound_witness();
-              
             } 
             else {
                 SASSERT(s.x_is_at_lower_bound(j));
@@ -1065,77 +1063,6 @@ namespace lp {
             dep = m_dependencies.mk_join(dep, bound_dep);
         }
         return dep;
-    }
-
-    
-
-    void lar_solver::get_explanation_of_maximum(const lar_term& term, explanation& exp) {        
-        const auto& s = this->m_mpq_lar_core_solver.m_r_solver;
-        // The sum of m_d[j]*x[j] = term.
-        // Every j with positive m_d[j] is at its upper bound,
-        // and every j with negative m_d[j] is at its lower bound: so the sum cannot be increased.
-        // All variables j in the sum are non-basic.
-        for (unsigned j = 0; j < this->m_mpq_lar_core_solver.m_n(); j++) {
-            if (s.m_basis_heading[j] >= 0) {
-                SASSERT(s.m_d[j].is_zero());
-                continue;
-            }
-            const mpq& d_j = s.m_d[j];
-            if (d_j.is_zero()) continue;
-            TRACE("lar_solver", tout << "d[" << j << "] = " << d_j << "\n";);
-            TRACE("lar_solver", s.print_column_info(j, tout););
-            const ul_pair& ul = m_columns_to_ul_pairs[j];
-            svector<constraint_index> deps;    
-            if (d_j.is_pos()) {
-                SASSERT(s.x_is_at_upper_bound(j));
-                m_dependencies.linearize(ul.upper_bound_witness(), deps);
-            } 
-            else {
-                SASSERT(s.x_is_at_lower_bound(j));
-                m_dependencies.linearize(ul.lower_bound_witness(), deps);
-            }
-            for (auto d : deps) 
-                exp.add_pair(d, d_j);
-        }
-        TRACE("lar_solver", print_explanation(tout, exp); tout << std::endl;);
-        SASSERT(maximum_is_correctly_explained(term, exp.as_vector()));       
-    }
-
-    bool lar_solver::maximum_is_correctly_explained(const lar_term& term, const vector<std::pair<constraint_index, mpq>>& explanation) const {
-        std::unordered_map<unsigned, mpq> coeff_map;
-        auto rs_of_evidence = zero_of_type<mpq>();
-        unsigned n_of_G = 0, n_of_L = 0;
-        bool strict = false;
-        for (auto& it : explanation) {
-            mpq coeff = it.second;
-            constraint_index con_ind = it.first;
-            const auto& constr = m_constraints[con_ind];
-            lconstraint_kind kind = coeff.is_pos() ? constr.kind() : flip_kind(constr.kind());
-            register_in_map(coeff_map, constr, coeff);
-            if (kind == GT || kind == LT)
-                strict = true;
-            if (kind == GE || kind == GT)
-                n_of_G++;
-            else if (kind == LE || kind == LT)
-                n_of_L++;
-            rs_of_evidence += coeff * constr.rhs();
-        }
-        lp_assert(n_of_G == 0);
-        lconstraint_kind kind = n_of_L ? LE : EQ;
-        if (strict)
-            kind = static_cast<lconstraint_kind>((static_cast<int>(kind) / 2));
-        auto term_val = term.apply(m_mpq_lar_core_solver.m_r_x).x;
-
-        unsigned size = 0;
-        for (auto p : term) {
-            auto it = coeff_map.find(p.column());
-            if (it == coeff_map.end())
-                return false;
-            if (p.coeff() != it->second)
-                return false;
-        }
-
-        return rs_of_evidence == term_val;
     }
 
     // (x, y) != (x', y') => (x + delta*y) != (x' + delta*y')
