@@ -338,16 +338,16 @@ namespace lp {
     };
 
     bool lar_solver::improve_bound(lpvar j, bool improve_lower_bound) {
-        local_let ll(*this); // this will backup and restore the values of x
         lar_term term = get_term_to_maximize(j);
         if (improve_lower_bound)
             term.negate();
         impq bound;
         u_dependency * dep;
-        
-        if (!maximize_term_on_feasible_r_solver(term, bound, &dep))
-            return false;
-        
+        {
+            local_let ll(*this); // this will backup and restore the values of x        
+            if (!maximize_term_on_feasible_r_solver(term, bound, &dep))
+                return false;
+        }
         if (improve_lower_bound) {
             bound.neg();
             if (column_has_lower_bound(j) && bound.x == column_lower_bound(j).x)
