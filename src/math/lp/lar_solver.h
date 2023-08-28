@@ -253,7 +253,12 @@ class lar_solver : public column_namer {
     mutable std::unordered_set<mpq> m_set_of_different_singles;
     mutable mpq m_delta;
 
-   public:
+    bool improve_bound(lpvar j, bool is_lower);
+
+    struct scoped_backup;
+    
+
+public:
     // this function just looks at the status
     bool is_feasible() const;
 
@@ -292,17 +297,18 @@ class lar_solver : public column_namer {
 
     lp_status maximize_term(unsigned j_or_term, impq& term_max);
 
-    bool improve_bound(lpvar j, bool is_lower);
+    unsigned improve_bounds(unsigned_vector const& js);
+
+    inline void backup_x() { m_backup_x = m_mpq_lar_core_solver.m_r_x; }
+
+    inline void restore_x() { m_mpq_lar_core_solver.m_r_x = m_backup_x; }
+
 
     inline core_solver_pretty_printer<lp::mpq, lp::impq> pp(std::ostream& out) const {
         return core_solver_pretty_printer<lp::mpq, lp::impq>(m_mpq_lar_core_solver.m_r_solver, out);
     }
 
     void get_infeasibility_explanation(explanation&) const;
-
-    inline void backup_x() { m_backup_x = m_mpq_lar_core_solver.m_r_x; }
-
-    inline void restore_x() { m_mpq_lar_core_solver.m_r_x = m_backup_x; }
 
     template <typename T>
     void explain_implied_bound(const implied_bound& ib, lp_bound_propagator<T>& bp) {

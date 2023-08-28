@@ -326,19 +326,33 @@ namespace lp {
             return true;
         }
     }
+
+    // we can backup and restore in the outer loop.
+    // so possibly move the outer loop from nla_solver into here?
+    // eg. expose function
     
-    struct local_let {
+    struct lar_solver::scoped_backup {
         lar_solver& m_s;
-        local_let(lar_solver& s) : m_s(s) {
+        scoped_backup(lar_solver& s) : m_s(s) {
             m_s.backup_x(); 
         }
-        ~local_let() {
+        ~scoped_backup() {
             m_s.restore_x();
         }
     };
 
+    unsigned lar_solver::improve_bounds(unsigned_vector const& js) {
+        scoped_backup save_values(*this);
+        unsigned improved = 0;
+        for (auto j : js) {
+            if (improve_bound(j, false) || improve_bound(j, true))
+                ++improved;
+        }
+        return improved;            
+    }
+
     bool lar_solver::improve_bound(lpvar j, bool improve_lower_bound) {
-        local_let ll(*this); // this will backup and restore the values of x
+        // scoped_backup ll(*this); // this will backup and restore the values of x
         lar_term term = get_term_to_maximize(j);
         if (improve_lower_bound)
             term.negate();
@@ -367,15 +381,14 @@ namespace lp {
     }
 
     bool lar_solver::costs_are_zeros_for_r_solver() const {
-        for (unsigned j = 0; j < m_mpq_lar_core_solver.m_r_solver.m_costs.size(); j++) {
-            lp_assert(is_zero(m_mpq_lar_core_solver.m_r_solver.m_costs[j]));
-        }
+        for (auto const& cost : m_mpq_lar_core_solver.m_r_solver.m_costs)
+            lp_assert(is_zero(cost));
         return true;
     }
+    
     bool lar_solver::reduced_costs_are_zeroes_for_r_solver() const {
-        for (unsigned j = 0; j < m_mpq_lar_core_solver.m_r_solver.m_d.size(); j++) {
-            lp_assert(is_zero(m_mpq_lar_core_solver.m_r_solver.m_d[j]));
-        }
+        for (auto const& d : m_mpq_lar_core_solver.m_r_solver.m_d)
+            lp_assert(is_zero(d));        
         return true;
     }
 
@@ -503,11 +516,12 @@ namespace lp {
         prepare_costs_for_r_solver(term);
         ret = maximize_term_on_tableau(term, term_max);
         if (ret && dep != nullptr) 
-        	*dep = get_dependencies_of_maximum(term);            
-		set_costs_to_zero(term);
+            *dep = get_dependencies_of_maximum(term);            
+        set_costs_to_zero(term);
         m_mpq_lar_core_solver.m_r_solver.set_status(lp_status::OPTIMAL);
         return ret;
     }
+    
     // returns true iff the row of j has a non-fixed column different from j
     bool lar_solver::remove_from_basis(unsigned j) {
         lp_assert(is_base(j));
@@ -1047,11 +1061,11 @@ namespace lp {
                 continue;
             }
             const mpq& d_j = s.m_d[j];
-            if (d_j.is_zero()) continue;
+            if (d_j.is_zero())
+                continue;
             TRACE("lar_solver", tout << "d[" << j << "] = " << d_j << "\n";);
             TRACE("lar_solver", s.print_column_info(j, tout););
             const ul_pair& ul = m_columns_to_ul_pairs[j];
-            svector<constraint_index> deps;    
             u_dependency * bound_dep;
             if (d_j.is_pos()) {
                 SASSERT(s.x_is_at_upper_bound(j));
@@ -1066,8 +1080,6 @@ namespace lp {
         }
         return dep;
     }
-
-    
 
     void lar_solver::get_explanation_of_maximum(const lar_term& term, explanation& exp) {        
         const auto& s = this->m_mpq_lar_core_solver.m_r_solver;
