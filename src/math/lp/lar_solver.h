@@ -92,7 +92,7 @@ class lar_solver : public column_namer {
     unsigned_vector m_row_bounds_to_replay;
     u_dependency_manager m_dependencies;
     svector<constraint_index> m_tmp_dependencies;
-
+    void print_dep(std::ostream& out, u_dependency *dep) const;
     indexed_uint_set m_basic_columns_with_changed_cost;
     // these are basic columns with the value changed, so the corresponding row in the tableau
     // does not sum to zero anymore
@@ -519,7 +519,6 @@ class lar_solver : public column_namer {
     std::ostream& print_terms(std::ostream& out) const;
     std::ostream& print_term(lar_term const& term, std::ostream& out) const;
     static std::ostream& print_term_as_indices(lar_term const& term, std::ostream& out);
-    std::ostream& print_constraint_indices_only(const lar_base_constraint* c, std::ostream& out) const;
     std::ostream& print_implied_bound(const implied_bound& be, std::ostream& out) const;
     std::ostream& print_values(std::ostream& out) const;
     std::ostream& display(std::ostream& out) const;

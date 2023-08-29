@@ -197,14 +197,15 @@ namespace lp {
     }
 
     lp_status lar_solver::solve() {
-        if (m_status == lp_status::INFEASIBLE) {
+        if (m_status == lp_status::INFEASIBLE || m_status == lp_status::CANCELLED) {
             return m_status;
         }
         solve_with_core_solver();
-        if (m_status != lp_status::INFEASIBLE) {
-            if (m_settings.bound_propagation())
-                detect_rows_with_changed_bounds();
+        if (m_status == lp_status::INFEASIBLE || m_status == lp_status::CANCELLED) {
+            return m_status;
         }
+        if (m_settings.bound_propagation())
+           detect_rows_with_changed_bounds();
 
         clear_columns_with_changed_bounds();
         return m_status;
@@ -318,11 +319,12 @@ namespace lp {
         lp_status st = m_mpq_lar_core_solver.m_r_solver.get_status();
         TRACE("lar_solver", tout << st << "\n";);
         SASSERT(m_mpq_lar_core_solver.m_r_solver.calc_current_x_is_feasible_include_non_basis());
-        if (st == lp_status::UNBOUNDED) {
+        if (st == lp_status::UNBOUNDED || st == lp_status::CANCELLED) {
             return false;
         }
         else {
             term_max = term.apply(m_mpq_lar_core_solver.m_r_x);
+            TRACE("lar_solver", tout << "term_max = " << term_max << "\n";);
             return true;
         }
     }
@@ -338,6 +340,10 @@ namespace lp {
     };
 
     bool lar_solver::improve_bound(lpvar j, bool improve_lower_bound) {
+        if (this->settings().get_cancel_flag()) {
+            set_status(lp_status::CANCELLED);
+            return false;
+		}
         lar_term term = get_term_to_maximize(j);
         if (improve_lower_bound)
             term.negate();
@@ -352,6 +358,8 @@ namespace lp {
             bound.neg();
             if (column_has_lower_bound(j) && bound.x == column_lower_bound(j).x)
                 return false;
+            if (column_is_int(j) && !bound.x.is_int())
+                bound.x = ceil(bound.x);
             SASSERT(!column_has_lower_bound(j) || column_lower_bound(j).x < bound.x);
             TRACE("lar_solver", tout << "setting lower bound for " << j << " to " << bound << "\n";);
             update_column_type_and_bound(j, bound.y > 0 ? lconstraint_kind::GT : lconstraint_kind::GE, bound.x, dep);
@@ -359,6 +367,8 @@ namespace lp {
         else {
             if (column_has_upper_bound(j) && bound.x == column_upper_bound(j).x)
                 return false;
+            if (column_is_int(j) && !bound.x.is_int()) 
+                bound.x = floor(bound.x);
             SASSERT(!column_has_upper_bound(j) || column_upper_bound(j).x > bound.x);           
             TRACE("lar_solver", tout << "setting upper bound for " << j << " to " << bound << "\n";);
             update_column_type_and_bound(j, bound.y < 0 ? lconstraint_kind::LT : lconstraint_kind::LE, bound.x, dep);
@@ -1064,6 +1074,16 @@ namespace lp {
         }
         return dep;
     }
+
+    void lar_solver::print_dep(std::ostream& out, u_dependency *dep) const {
+        vector<constraint_index, false>  cis;
+        m_dependencies.linearize(dep, cis);
+        for (auto c : cis) {
+           this->constraints().display(
+              out, [this](lpvar j) { return get_variable_name(j); }, c, false);
+        }
+    }
+    
 
     // (x, y) != (x', y') => (x + delta*y) != (x' + delta*y')
     void lar_solver::get_model(std::unordered_map<var_index, mpq>& variable_values) const {

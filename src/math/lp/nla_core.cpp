@@ -1551,6 +1551,11 @@ lbool core::check(vector<ineq>& lits, vector<lemma>& l_vec) {
     if (no_effect() && improve_bounds())
         return l_false;
     
+	if (lra.settings().get_cancel_flag()) {
+        TRACE("nla_solver", tout << "unknown because the linear solver got cancelled\n";);
+        return l_undef;
+    }
+    
     {
         std::function<void(void)> check1 = [&]() { if (no_effect() && run_horner) m_horner.horner_lemmas(); };
         std::function<void(void)> check2 = [&]() { if (no_effect() && run_grobner) m_grobner(); };
@@ -1792,6 +1797,8 @@ void core::collect_statistics(::statistics & st) {
 bool core::improve_bounds() {
     if (m_stats.m_bounds_improvements > 1000)
         return false;
+	if (lra.settings().get_cancel_flag())
+        return false;	
     uint_set seen;
     auto insert = [&](lpvar v) {
         if (seen.contains(v))
