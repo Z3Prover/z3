@@ -328,32 +328,40 @@ namespace lp {
             return true;
         }
     }
-    
-    struct local_let {
+
+    // backup and restore the values
+    struct lar_solver::scoped_backup {
         lar_solver& m_s;
-        local_let(lar_solver& s) : m_s(s) {
+        scoped_backup(lar_solver& s) : m_s(s) {
             m_s.backup_x(); 
         }
-        ~local_let() {
+        ~scoped_backup() {
             m_s.restore_x();
         }
     };
 
+    unsigned lar_solver::improve_bounds(unsigned_vector const& js) {
+        scoped_backup save_values(*this);
+        unsigned improved = 0;
+        for (auto j : js) {
+            if (improve_bound(j, false) || improve_bound(j, true))
+                ++improved;
+        }
+        return improved;            
+    }
+
     bool lar_solver::improve_bound(lpvar j, bool improve_lower_bound) {
-        if (this->settings().get_cancel_flag()) {
-            set_status(lp_status::CANCELLED);
+        if (!(get_status() == lp_status::FEASIBLE || get_status() == lp_status::OPTIMAL))
             return false;
-		}
         lar_term term = get_term_to_maximize(j);
         if (improve_lower_bound)
             term.negate();
         impq bound;
         u_dependency * dep;
-        {
-            local_let ll(*this); // this will backup and restore the values of x        
-            if (!maximize_term_on_feasible_r_solver(term, bound, &dep))
-                return false;
-        }
+        
+        if (!maximize_term_on_feasible_r_solver(term, bound, &dep))
+            return false;
+        
         if (improve_lower_bound) {
             bound.neg();
             if (column_has_lower_bound(j) && bound.x == column_lower_bound(j).x)
@@ -363,6 +371,10 @@ namespace lp {
             SASSERT(!column_has_lower_bound(j) || column_lower_bound(j).x < bound.x);
             TRACE("lar_solver", tout << "setting lower bound for " << j << " to " << bound << "\n";);
             update_column_type_and_bound(j, bound.y > 0 ? lconstraint_kind::GT : lconstraint_kind::GE, bound.x, dep);
+            if (!column_is_feasible(j)) {
+                if (get_status() != lp_status::INFEASIBLE)
+                    set_status(lp_status::UNKNOWN);
+            }
         } 
         else {
             if (column_has_upper_bound(j) && bound.x == column_upper_bound(j).x)
@@ -372,20 +384,23 @@ namespace lp {
             SASSERT(!column_has_upper_bound(j) || column_upper_bound(j).x > bound.x);           
             TRACE("lar_solver", tout << "setting upper bound for " << j << " to " << bound << "\n";);
             update_column_type_and_bound(j, bound.y < 0 ? lconstraint_kind::LT : lconstraint_kind::LE, bound.x, dep);
+            if (!column_is_feasible(j)) {
+                if (get_status() != lp_status::INFEASIBLE)
+                    set_status(lp_status::UNKNOWN);
+            }
         }
         return true;
     }
 
     bool lar_solver::costs_are_zeros_for_r_solver() const {
-        for (unsigned j = 0; j < m_mpq_lar_core_solver.m_r_solver.m_costs.size(); j++) {
-            lp_assert(is_zero(m_mpq_lar_core_solver.m_r_solver.m_costs[j]));
-        }
+        for (auto const& cost : m_mpq_lar_core_solver.m_r_solver.m_costs)
+            lp_assert(is_zero(cost));
         return true;
     }
+    
     bool lar_solver::reduced_costs_are_zeroes_for_r_solver() const {
-        for (unsigned j = 0; j < m_mpq_lar_core_solver.m_r_solver.m_d.size(); j++) {
-            lp_assert(is_zero(m_mpq_lar_core_solver.m_r_solver.m_d[j]));
-        }
+        for (auto const& d : m_mpq_lar_core_solver.m_r_solver.m_d)
+            lp_assert(is_zero(d));        
         return true;
     }
 
@@ -513,11 +528,12 @@ namespace lp {
         prepare_costs_for_r_solver(term);
         ret = maximize_term_on_tableau(term, term_max);
         if (ret && dep != nullptr) 
-        	*dep = get_dependencies_of_maximum(term);            
-		set_costs_to_zero(term);
+            *dep = get_dependencies_of_maximum(term);            
+        set_costs_to_zero(term);
         m_mpq_lar_core_solver.m_r_solver.set_status(lp_status::OPTIMAL);
         return ret;
     }
+    
     // returns true iff the row of j has a non-fixed column different from j
     bool lar_solver::remove_from_basis(unsigned j) {
         lp_assert(is_base(j));
@@ -1057,7 +1073,8 @@ namespace lp {
                 continue;
             }
             const mpq& d_j = s.m_d[j];
-            if (d_j.is_zero()) continue;
+            if (d_j.is_zero())
+                continue;
             TRACE("lar_solver", tout << "d[" << j << "] = " << d_j << "\n";);
             TRACE("lar_solver", s.print_column_info(j, tout););
             const ul_pair& ul = m_columns_to_ul_pairs[j];
@@ -1065,6 +1082,7 @@ namespace lp {
             if (d_j.is_pos()) {
                 SASSERT(s.x_is_at_upper_bound(j));
                 bound_dep = ul.upper_bound_witness();
+              
             } 
             else {
                 SASSERT(s.x_is_at_lower_bound(j));

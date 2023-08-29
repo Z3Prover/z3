@@ -114,6 +114,7 @@ class core {
     void add_bounds();
     // try to improve bounds for variables in monomials.
     bool improve_bounds();
+    bool m_bounds_improved = false;
 
 public:    
     // constructor
