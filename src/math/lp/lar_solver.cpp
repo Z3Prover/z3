@@ -357,11 +357,10 @@ namespace lp {
         if (improve_lower_bound)
             term.negate();
         impq bound;
-        u_dependency * dep;
-        
-        if (!maximize_term_on_feasible_r_solver(term, bound, &dep))
+        vector<std::pair<mpq, unsigned>> max_coeffs;        
+        if (!maximize_term_on_feasible_r_solver(term, bound, &max_coeffs))
             return false;
-        
+        u_dependency * dep = get_dependencies_of_maximum(max_coeffs);
         if (improve_lower_bound) {
             bound.neg();
             if (column_has_lower_bound(j) && bound.x == column_lower_bound(j).x)
@@ -518,22 +517,28 @@ namespace lp {
         change_basic_columns_dependend_on_a_given_nb_column(j, delta);
     }
 
-
     bool lar_solver::maximize_term_on_feasible_r_solver(lar_term& term,
-                                                         impq& term_max, u_dependency** dep = nullptr) {
+                                                        impq& term_max, vector<std::pair<mpq, lpvar>>* max_coeffs = nullptr) {
         settings().backup_costs = false;
         bool ret = false;
-        TRACE("lar_solver", print_term(term, tout << "maximize: ") << "\n" << constraints() << ", strategy = " << (int)settings().simplex_strategy() << "\n";);        
+        TRACE("lar_solver", print_term(term, tout << "maximize: ") << "\n"
+                                                                   << constraints() << ", strategy = " << (int)settings().simplex_strategy() << "\n";);
         flet f(settings().simplex_strategy(), simplex_strategy_enum::tableau_costs);
         prepare_costs_for_r_solver(term);
         ret = maximize_term_on_tableau(term, term_max);
-        if (ret && dep != nullptr) 
-            *dep = get_dependencies_of_maximum(term);            
+        if (ret && max_coeffs != nullptr) {
+            for (unsigned j = 0; j < column_count(); j++) {
+                const mpq& d_j = m_mpq_lar_core_solver.m_r_solver.m_d[j];
+                if (d_j.is_zero())
+                    continue;
+                max_coeffs->push_back(std::make_pair(d_j, j));
+            }
+        }
         set_costs_to_zero(term);
         m_mpq_lar_core_solver.m_r_solver.set_status(lp_status::OPTIMAL);
         return ret;
     }
-    
+
     // returns true iff the row of j has a non-fixed column different from j
     bool lar_solver::remove_from_basis(unsigned j) {
         lp_assert(is_base(j));
@@ -1060,32 +1065,29 @@ namespace lp {
         }
     }
 
-    u_dependency* lar_solver::get_dependencies_of_maximum(const lar_term& term) {        
+// get dependencies of the corresponding bounds from max_coeffs
+    u_dependency* lar_solver::get_dependencies_of_maximum(const vector<std::pair<mpq,lpvar>>& max_coeffs) {        
         const auto& s = this->m_mpq_lar_core_solver.m_r_solver;
-        // The sum of m_d[j]*x[j] = term.
-        // Every j with positive m_d[j] is at its upper bound,
-        // and every j with negative m_d[j] is at its lower bound: so the sum cannot be increased.
+        // The linear combinations of p.first*p.second = the term that got maximized
+        // Every j with positive coeff is at its upper bound,
+        // and every j with negative coeff is at its lower bound: so the sum cannot be increased.
         // All variables j in the sum are non-basic.
         u_dependency* dep = nullptr;
-        for (unsigned j = 0; j < this->m_mpq_lar_core_solver.m_n(); j++) {
-            if (s.m_basis_heading[j] >= 0) {
-                SASSERT(s.m_d[j].is_zero());
-                continue;
-            }
-            const mpq& d_j = s.m_d[j];
-            if (d_j.is_zero())
-                continue;
+        for (const auto & p: max_coeffs) {
+            const auto & d_j = p.first;
+            unsigned j = p.second;
+            SASSERT (!d_j.is_zero());
+                
             TRACE("lar_solver", tout << "d[" << j << "] = " << d_j << "\n";);
             TRACE("lar_solver", s.print_column_info(j, tout););
             const ul_pair& ul = m_columns_to_ul_pairs[j];
             u_dependency * bound_dep;
             if (d_j.is_pos()) {
-                SASSERT(s.x_is_at_upper_bound(j));
+                // SASSERT(s.x_is_at_upper_bound(j)); cannot guarantee this, because the value of j may be changed
                 bound_dep = ul.upper_bound_witness();
-              
             } 
             else {
-                SASSERT(s.x_is_at_lower_bound(j));
+                // SASSERT(s.x_is_at_lower_bound(j)); cannot guarantee this, because the value of j may be changed
                 bound_dep = ul.lower_bound_witness();               
             }
             dep = m_dependencies.mk_join(dep, bound_dep);
