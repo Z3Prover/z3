@@ -202,8 +202,7 @@ unsigned decl_info::hash() const {
 
 bool decl_info::operator==(decl_info const & info) const {
     return m_family_id == info.m_family_id && m_kind == info.m_kind &&
-        m_parameters.size() == info.m_parameters.size() && 
-        compare_arrays<parameter>(m_parameters.begin(), info.m_parameters.begin(), m_parameters.size());
+           m_parameters == info.m_parameters;
 }
 
 std::ostream & operator<<(std::ostream & out, decl_info const & info) {
@@ -449,7 +448,7 @@ bool compare_nodes(ast const * n1, ast const * n2) {
         if (to_sort(n1)->get_info() != nullptr && !(*to_sort(n1)->get_info() == *to_sort(n2)->get_info())) {
             return false;
         }
-        return to_sort(n1)->get_name()  == to_sort(n2)->get_name();
+        return to_sort(n1)->get_name() == to_sort(n2)->get_name();
     case AST_FUNC_DECL:
         if ((to_func_decl(n1)->get_info() == nullptr) != (to_func_decl(n2)->get_info() == nullptr)) {
             return false;
