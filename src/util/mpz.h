@@ -619,6 +619,7 @@ public:
     */
     void display_bin(std::ostream & out, mpz const & a, unsigned num_bits) const;
 
+    static void addHash(GenHash &hash, const mpz &a);
 
     static unsigned hash(mpz const & a);
 

@@ -558,6 +558,11 @@ public:
         mod(a.m_num, b.m_num, c);
     }
 
+    static void addHash(GenHash &hash, const mpq &a) {
+        mpz_manager<SYNCH>::addHash(hash, a.m_num);
+        mpz_manager<SYNCH>::addHash(hash, a.m_den);
+    }
+
     static unsigned hash(mpz const & a) { return mpz_manager<SYNCH>::hash(a); }
 
     static unsigned hash(mpq const & a) { return hash(a.m_num) + 3*hash(a.m_den); }

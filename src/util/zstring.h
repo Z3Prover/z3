@@ -83,7 +83,7 @@ public:
     zstring operator+(zstring const& other) const;
     bool operator==(const zstring& other) const;
     bool operator!=(const zstring& other) const;
-    unsigned hash() const;
+    void addHash(GenHash &hash) const;
 
     friend std::ostream& operator<<(std::ostream &os, const zstring &str);
     friend bool operator<(const zstring& lhs, const zstring& rhs);

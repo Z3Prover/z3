@@ -1848,6 +1848,19 @@ std::string mpz_manager<SYNCH>::to_string(mpz const & a) const {
 }
 
 template<bool SYNCH>
+void mpz_manager<SYNCH>::addHash(GenHash &hash, const mpz &a) {
+    if (is_small(a)) {
+        hash.add(a.m_val);
+    } else {
+#ifndef _MP_GMP
+        hash.add(digits(a), size(a) * sizeof(digit_t));
+#else
+        hash.add(mpz_get_si(*a.m_ptr));
+#endif
+    }
+}
+
+template<bool SYNCH>
 unsigned mpz_manager<SYNCH>::hash(mpz const & a) {
     if (is_small(a))
         return ::abs(a.m_val);

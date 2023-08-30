@@ -204,3 +204,12 @@ bool lt(symbol const & s1, symbol const & s2) {
     return cmp < 0;
 }
 
+void symbol::addHash(GenHash &hash) const {
+    if (is_numerical()) {
+        hash.add(get_num());
+    } else if (bare_str() == nullptr) {
+        hash.add(0);
+    } else {
+        hash.add(bare_str(), strlen(bare_str()));
+    }
+}

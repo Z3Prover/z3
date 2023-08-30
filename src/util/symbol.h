@@ -21,6 +21,7 @@ Revision History:
 #include <string>
 #include <ostream>
 
+#include "util/hash.h"
 #include "util/util.h"
 #include "util/tptr.h"
 #include "util/string_buffer.h"
@@ -126,6 +127,7 @@ public:
         }
         return target;
     }
+    void addHash(GenHash &hash) const;
 };
 
 struct symbol_hash_proc {

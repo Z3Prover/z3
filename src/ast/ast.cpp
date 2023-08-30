@@ -93,18 +93,17 @@ bool parameter::operator==(parameter const & p) const {
     }
 }
 
-unsigned parameter::hash() const {
-    unsigned b = 0;
+void parameter::addHash(GenHash &hash) const {
+    hash.add(get_kind());
     switch (get_kind()) {
-    case PARAM_INT:      b = get_int(); break;
-    case PARAM_AST:      b = get_ast()->hash(); break;
-    case PARAM_SYMBOL:   b = get_symbol().hash(); break;
-    case PARAM_RATIONAL: b = get_rational().hash(); break;
-    case PARAM_DOUBLE:   b = static_cast<unsigned>(get_double()); break;
-    case PARAM_ZSTRING:  b = get_zstring().hash(); break;
-    case PARAM_EXTERNAL: b = get_ext_id(); break;
+    case PARAM_INT:      hash.add(get_int()); break;
+    case PARAM_AST:      hash.add(get_ast()->hash()); break;
+    case PARAM_SYMBOL:   get_symbol().addHash(hash); break;
+    case PARAM_RATIONAL: get_rational().addHash(hash); break;
+    case PARAM_DOUBLE:   hash.add(get_double()); break;
+    case PARAM_ZSTRING:  get_zstring().addHash(hash); break;
+    case PARAM_EXTERNAL: hash.add(get_ext_id()); break;
     }
-    return b;
 }
 
 std::ostream& parameter::display(std::ostream& out) const {
@@ -186,18 +185,6 @@ void decl_info::del_eh(ast_manager & m) {
     for (parameter & p : m_parameters) {
         p.del_eh(m, m_family_id);
     }
-}
-
-struct decl_info_child_hash_proc {
-    unsigned operator()(decl_info const * info, unsigned idx) const { return info->get_parameter(idx).hash(); }
-};
-
-unsigned decl_info::hash() const {
-    unsigned a = m_family_id;
-    unsigned b = m_kind;
-    unsigned c = get_num_parameters() == 0 ? 0 : get_composite_hash<decl_info const *, default_kind_hash_proc<decl_info const *>, decl_info_child_hash_proc>(this, get_num_parameters());
-    mix(a, b, c);
-    return c;
 }
 
 bool decl_info::operator==(decl_info const & info) const {
@@ -503,76 +490,78 @@ bool compare_nodes(ast const * n1, ast const * n2) {
     return false;
 }
 
-template<typename T>
-inline unsigned ast_array_hash(T * const * array, unsigned size, unsigned init_value) {
-    switch (size) {
-    case 0:
-        return init_value;
-    case 1:
-        return combine_hash(array[0]->hash(), init_value);
-    case 2:
-        return combine_hash(combine_hash(array[0]->hash(), array[1]->hash()),
-                            init_value);
-    case 3:
-        return combine_hash(combine_hash(array[0]->hash(), array[1]->hash()),
-                            combine_hash(array[2]->hash(), init_value));
-    default: {
-        unsigned a, b, c;
-        a = b = 0x9e3779b9;
-        c = init_value;
-        while (size >= 3) {
-            size--;
-            a += array[size]->hash();
-            size--;
-            b += array[size]->hash();
-            size--;
-            c += array[size]->hash();
-            mix(a, b, c);
-        }
-        switch (size) {
-        case 2:
-            b += array[1]->hash();
-            Z3_fallthrough;
-        case 1:
-            c += array[0]->hash();
-        }
-        mix(a, b, c);
-        return c;
-    } }
-}
-
 unsigned get_node_hash(ast const * n) {
-    unsigned a, b, c;
-
+    GenHash hash;
+    hash.add(n->get_kind());
     switch (n->get_kind()) {
     case AST_SORT:
-        if (to_sort(n)->get_info() == nullptr)
-            return to_sort(n)->get_name().hash();
-        else
-            return combine_hash(to_sort(n)->get_name().hash(), to_sort(n)->get_info()->hash());
-    case AST_FUNC_DECL: {
-        unsigned h = combine_hash(to_func_decl(n)->get_name().hash(), to_func_decl(n)->get_range()->hash());
-        return ast_array_hash(to_func_decl(n)->get_domain(), to_func_decl(n)->get_arity(),
-            combine_hash(h, to_func_decl(n)->get_info() == nullptr ?  0 : to_func_decl(n)->get_info()->hash()));
-    }
+        to_sort(n)->addHash(hash);
+        break;
+    case AST_FUNC_DECL:
+        to_func_decl(n)->addHash(hash);
+        break;
     case AST_APP:
-        return ast_array_hash(to_app(n)->get_args(),
-                              to_app(n)->get_num_args(),
-                              to_app(n)->get_decl()->hash());
+        to_app(n)->addHash(hash);
+        break;
     case AST_VAR:
-        return combine_hash(to_var(n)->get_idx(), to_var(n)->get_sort()->hash());
+        to_var(n)->addHash(hash);
+        break;
     case AST_QUANTIFIER:
-        a = ast_array_hash(to_quantifier(n)->get_decl_sorts(),
-                           to_quantifier(n)->get_num_decls(),
-                           to_quantifier(n)->get_kind() == forall_k ? 31 : 19);
-        b = to_quantifier(n)->get_num_patterns();
-        c = to_quantifier(n)->get_expr()->hash();
-        mix(a,b,c);
-        return c;
+        to_quantifier(n)->addHash(hash);
+        break;
     default:
         UNREACHABLE();
     }
-    return 0;
+    return hash();
+}
+
+void decl_info::addHash(GenHash &hash) const {
+    hash.add(m_family_id);
+    hash.add(m_kind);
+    for (unsigned i = 0, e = get_num_parameters(); i < e; ++i) {
+        get_parameter(i).addHash(hash);
+    }
+}
+
+void decl::addHash(GenHash &hash) const {
+    get_name().addHash(hash);
+    if (get_info() != nullptr)
+        get_info()->addHash(hash);
+}
+
+void func_decl::addHash(GenHash &hash) const {
+    decl::addHash(hash);
+    get_range()->addHash(hash);
+    for (unsigned i = 0, e = get_arity(); i < e; ++i) {
+        get_domain(i)->addHash(hash);
+    }
+}
+
+void app::addHash(GenHash &hash) const {
+    get_decl()->addHash(hash);
+    for (unsigned i = 0, e = get_num_args(); i < e; ++i) {
+        hash.add(get_arg(i)->hash());
+    }
+}
+
+void var::addHash(GenHash &hash) const {
+    hash.add(get_idx());
+    get_sort()->addHash(hash);
+}
+
+void quantifier::addHash(GenHash &hash) const {
+    hash.add(get_kind());
+    hash.add(get_weight());
+    hash.add(get_expr()->hash());
+    for (unsigned i = 0, e = get_num_decls(); i < e; ++i) {
+        get_decl_sorts()[i]->addHash(hash);
+    }
+    for (unsigned i = 0, e = get_num_patterns(); i < e; ++i) {
+        hash.add(get_patterns()[i]->hash());
+    }
+    for (unsigned i = 0, e = get_num_no_patterns(); i < e; ++i) {
+        hash.add(get_no_patterns()[i]->hash());
+    }
 }
 
 void ast_table::push_erase(ast * n) {

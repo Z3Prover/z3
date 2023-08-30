@@ -238,8 +238,8 @@ zstring zstring::extract(unsigned offset, unsigned len) const {
     return result;
 }
 
-unsigned zstring::hash() const {
-    return unsigned_ptr_hash(m_buffer.data(), m_buffer.size(), 23);
+void zstring::addHash(GenHash &hash) const {
+    hash.add(m_buffer.data(), m_buffer.size());
 }
 
 zstring zstring::operator+(zstring const& other) const {

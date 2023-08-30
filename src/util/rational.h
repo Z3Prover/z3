@@ -80,6 +80,10 @@ public:
 
     bool is_big() const { return !is_small(); }
     
+    void addHash(GenHash &hash) const {
+        m().addHash(hash, m_val);
+    }
+
     unsigned hash() const { return m().hash(m_val); }
 
     struct hash_proc {  unsigned operator()(rational const& r) const { return r.hash(); }  };

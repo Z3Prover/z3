@@ -192,7 +192,7 @@ public:
     bool operator==(parameter const & p) const;
     bool operator!=(parameter const & p) const { return !operator==(p); }
 
-    unsigned hash() const;
+    void addHash(GenHash &hash) const;
 
     std::ostream& display(std::ostream& out) const;
 };
@@ -287,7 +287,7 @@ public:
     };
     iterator parameters() const { return iterator(*this); }
 
-    unsigned hash() const;
+    void addHash(GenHash &hash) const;
     bool operator==(decl_info const & info) const;
 };
 
@@ -602,8 +602,7 @@ public:
         parameter const* end() const { return begin() + d.get_num_parameters(); }
     };
     iterator parameters() const { return iterator(*this); }
-
-
+    void addHash(GenHash &hash) const;
 };
 
 // -----------------------------------
@@ -666,7 +665,7 @@ public:
     unsigned get_size() const { return get_obj_size(m_arity); }
     sort * const * begin() const { return get_domain(); }
     sort * const * end() const { return get_domain() + get_arity(); }
-
+    void addHash(GenHash &hash) const;
 };
 
 // -----------------------------------
@@ -688,7 +687,7 @@ public:
     sort* get_sort() const;
 
     unsigned get_small_id() const { return get_id(); }
-    
+
 };
 
 // -----------------------------------
@@ -748,6 +747,7 @@ public:
     bool is_ground() const { return flags()->m_ground; }
     bool has_quantifiers() const { return flags()->m_has_quantifiers; }
     bool has_labels() const { return flags()->m_has_labels; }
+    void addHash(GenHash &hash) const;
 };
 
 // -----------------------------------
@@ -833,6 +833,7 @@ public:
     unsigned get_idx() const { return m_idx; }
     sort * _get_sort() const { return m_sort; }
     unsigned get_size() const { return get_obj_size(); }
+    void addHash(GenHash &hash) const;
 };
 
 // -----------------------------------
@@ -919,6 +920,7 @@ public:
         else
             return get_no_pattern(idx - get_num_patterns() - 1);
     }
+    void addHash(GenHash &hash) const;
 };
 
 // -----------------------------------
