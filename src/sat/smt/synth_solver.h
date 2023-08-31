@@ -1,5 +1,5 @@
 /*++
-Copyright (c) 2020 Microsoft Corporation
+Copyright (c) 2023 Microsoft Corporation
 
 Module Name:
 
@@ -10,9 +10,20 @@ Author:
     Petra Hozzova 2023-08-08
     Nikolaj Bjorner (nbjorner) 2020-08-17
 
+
 Notes:
 
-- for each function, determine a set of input variables, a set of uncomputable, and a spec.
+
+Setting:
+ a global set of uncomputable symbols U
+ a set of specifications S1, ...,
+
+Spec ::=
+ a formula Phi
+ a set of input variables X that are local to Phi
+ a set of uninterpreted functions occuring in Phi
+
+
 - functions may share specs
 - functions may share input variables. 
 - functions may differ in input variables and uncomputable.
@@ -23,7 +34,6 @@ Notes:
   - f comes from a Henkin quantifier: there is a unique occurrence of each f, but variables are uncorrelated.
   - f occurrences use arbitrary arguments, there is more than one occurrence of f.
 
-Functions that occur uniquely are handled the same way, regardless of whether they are Skolem or Henkin.
 Input variables that are not in scope of these functions are uncomputable.
 
 
@@ -34,31 +44,35 @@ Example setting:
 - Spec       Phi[x, y, z, f(x,y), g(x, z), u]
 - Auxilary   Psi[u]
 
-- Using model-based projection.
-- Given model M for Phi
+- Given model M for Phi & Psi[u]
 - f(x,y):
   - Set x, y, f to shared, 
     - u, z g are not shared
-  - Phi1[x,y,f(x,y)] := Project u, z, g from Phi, such that Phi => Phi1
-  - Set x, y to shared
-  - realizer t[x,y] := Project f(x,y) from Phi1 
-- g(x,z):
-  - set x, z, g to shared
-  - Phi2 := Project u, y, f from Phi, such that Phi => Phi2
-  - Set x, z to shared
-  - realizer s[x,z] := Project g(x, z) from Phi2
-- Let Theta1, Theta2 be such that
-  - Psi[u] & ~Phi[x, y, z, t, g(x,z), u] => Theta1[x, y]
-  - Psi[u] & ~Phi[x, y, z, f(x,y), s, u] => Theta2[x, z]
-  - u is eliminated, g, f are eliminated
-  - Theta1, Theta2 != true and not implied by Psi[u].
-  Thus
-  - Psi[u] & ~Theta1[x,y] => forall z, g Phi[x, y, z, t, g(x,z), u]
-  - Psi[u] & ~Theta2[x,z] => forall y, f Phi[x, y, z, f(x,y), s, u]
 
-- ~Theta1 & ~Theta2 is the guard for f(x,y), g(x,z) 
+Simplified scenario:
+  Phi := F[x, f(x)] or G[y, g(y)]
 
-- Block by adding (Theta1 or Theta2) 
+  M[x] = x & M[f(x)] = f(x) & M[y] = y & M[g(y)] = g(y) 
+  Such that M |= F & G
+  Then M[y] = y & M[g(y)] = g(y) & ~Phi is unsat and useless for making progress.
+  => So you can't just project away on ~Phi based on M.
+  
+  -> Compute f(x) as t[x,y] a function of x, y. Set y = M[y], result t[x, M[y]] call it t[x]
+  -> Compute g(y) as s[x,y] as function of x y. Set x = M[x], result s[M[x], y] call it s[y]
+  Phi[x, t[x], y, s[y]]
+  Phi1[x] := Phi[x, t[x], M[y], M[s[y]]] is condition for t[x]
+  Phi2[y] := Phi[M[x], M[t[x]], y, s[y]] is condition for s[y]
+
+  block ~Phi1[x] or ~Phi2[y]
+  - when can you block on ~Phi1[x] & ~Phi2[y] instead? You can if Phi := F[x,f(x)] & G[y,g(y)]
+
+Claim: 
+  Suppose M' satisfies Phi and M' satisfies Phi1[x], then there is a model M'' 
+  that agrees with M'[x] and satisfies Phi[x,t[x],y,s[y]]
+
+Justification:
+   M' satisfied Phi[x,t[x],M[y],M[s[y]]] so set M''[x] = M'[x] and M''[y] = M[y]
+
 
 Are there guarantees?
 - Does it soundly compute realizers for f, g?
@@ -95,19 +109,14 @@ Are there special cases:
       - it is a half-interpolant (uniform interpolant or above)
       - symbol elimination may compute result
       - premise: e = M[e] & Phi[e, x, f(x)] is unsat
-      - means of computing MBO
+      - means of computing MBO        
         - Proof using Farkas and EUF lemmas.
           - Farkas uses e, x, f(x), then extract coefficients for e part (see HB12)
           - EUF uses some congruence
         - Using a core based on JB15?
-        - Using dual optimization [PR06]
+        - Model based interpolation of e = M[e] and Phi[e, x, f(x)].
 
-- Tree decomposition for Henkin quantifiers?
 
-Are there extensions?
-- Suppose f has multiple occurrences f(x,y), f(y,z), f(u,v)...
-- Projecting each occurrence of f indepdendently does not solve for f.
-- It is not reasonable to expect termination
 
 
 
