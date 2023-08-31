@@ -1574,10 +1574,10 @@ lbool core::check(vector<ineq>& lits, vector<lemma>& l_vec) {
     if (no_effect()) 
         m_divisions.check();
     
-    if (!conflict_found() && !done() && run_bounded_nlsat)
+    if (no_effect() && run_bounded_nlsat)
         ret = bounded_nlsat();
 
-    if (l_vec.empty() && !done() && ret == l_undef) {
+    if (no_effect() && ret == l_undef) {
         std::function<void(void)> check1 = [&]() { m_order.order_lemma(); };
         std::function<void(void)> check2 = [&]() { m_monotone.monotonicity_lemma(); };
         std::function<void(void)> check3 = [&]() { m_tangents.tangent_lemma(); };
@@ -1593,7 +1593,7 @@ lbool core::check(vector<ineq>& lits, vector<lemma>& l_vec) {
             ret = bounded_nlsat();
     }
 
-    if (l_vec.empty() && !done() && params().arith_nl_nra() && ret == l_undef) {
+    if (no_effect() && params().arith_nl_nra() && ret == l_undef) {
         ret = m_nra.check();
         m_stats.m_nra_calls++;
     }
@@ -1811,6 +1811,46 @@ bool core::improve_bounds() {
     return bounds_improved;
 }
     
+void core::propagate(vector<lemma>& lemmas) {
+    // disable for now
+    return;
+    
+    // propagate linear monomials
+    lemmas.reset();
+    for (auto const& m : m_emons) 
+        if (propagate(m, lemmas))
+            break;
+}
+
+bool core::propagate(monic const& m, vector<lemma>& lemmas) {
+    m_propagated.reserve(m.var() + 1, false);
+    if (m_propagated[m.var()])
+        return false;
+
+    if (!is_linear(m))
+        return false;
+    
+    trail().push(set_bitvector_trail(m_propagated, m.var()));
+
+    mpq k = fixed_var_product(m);
+    // todo
+    
+    // return true if m_emons changes (so the iterator is invalid)
+    return false;
+}
+
+bool core::is_linear(monic const& m) {
+    // todo
+    return false;
+}
+
+
+mpq core::fixed_var_product(monic const& m) {
+    // todo
+    return mpq(0);
+}
+
+
 
 } // end of nla
 

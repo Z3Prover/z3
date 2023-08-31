@@ -2152,9 +2152,18 @@ public:
             propagate_bounds_with_lp_solver();
             break;
         case l_undef:
+            propagate_nla();
             break;
         }
         return true;            
+    }
+
+    void propagate_nla() {
+        if (!m_nla)
+            return;
+        m_nla->propagate(m_nla_lemma_vector);
+        for (nla::lemma const& l : m_nla_lemma_vector)
+            false_case_of_check_nla(l);
     }
 
     bool should_propagate() const {

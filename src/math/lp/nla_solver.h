@@ -37,6 +37,7 @@ namespace nla {
         void pop(unsigned scopes);
         bool need_check();
         lbool check(vector<ineq>& lits, vector<lemma>&);
+        void propagate(vector<lemma>& lemmas);
         lbool check_power(lpvar r, lpvar x, lpvar y, vector<lemma>&);
         bool is_monic_var(lpvar) const;
         bool influences_nl_var(lpvar) const;

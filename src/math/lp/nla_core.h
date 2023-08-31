@@ -59,6 +59,7 @@ class core {
     friend class solver;
     friend class monomial_bounds;
     friend class nra::solver;
+    friend class divisions;
 
     struct stats {
         unsigned m_nla_explanations;
@@ -390,6 +391,8 @@ public:
     void check_bounded_divisions(vector<lemma>&);
 
     bool  no_lemmas_hold() const;
+
+    void propagate(vector<lemma>& lemmas);
     
     lbool  test_check(vector<lemma>& l);
     lpvar map_to_root(lpvar) const;
@@ -432,6 +435,13 @@ private:
     void restore_tableau();
     void save_tableau();
     bool integrality_holds();
+
+    // monomial propagation
+    bool_vector m_propagated;
+    bool propagate(monic const& m, vector<lemma>& lemmas);
+    bool is_linear(monic const& m);
+    mpq fixed_var_product(monic const& m);
+
 };  // end of core
 
 struct pp_mon {
