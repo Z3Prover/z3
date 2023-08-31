@@ -17,12 +17,13 @@ namespace nla {
         common(c), 
         dep(c->m_intervals.get_dep_intervals()) {}
 
-    void monomial_bounds::operator()() {
+    void monomial_bounds::propagate() {
         for (lpvar v : c().m_to_refine) {
             monic const& m = c().emons()[v];
             propagate(m);
         }
     }
+
 
     bool monomial_bounds::is_too_big(mpq const& q) const {
         return rational(q).bitsize() > 256;
@@ -255,6 +256,77 @@ namespace nla {
                 fv = v;
             }
         }
+    }
+
+    void monomial_bounds::unit_propagate() {        
+        for (auto const& m : c().m_emons) 
+            unit_propagate(m);
+    }
+
+    void monomial_bounds::unit_propagate(monic const& m) {
+        m_propagated.reserve(m.var() + 1, false);
+        if (m_propagated[m.var()])
+            return;
+
+        if (!is_linear(m))
+            return;
+        
+        c().trail().push(set_bitvector_trail(m_propagated, m.var()));
+        
+        rational k = fixed_var_product(m);
+        
+        new_lemma lemma(c(), "fixed-values");
+        if (k == 0) {
+            for (auto v : m) {
+                if (c().var_is_fixed(v) && c().val(v).is_zero()) {
+                    lemma.explain_fixed(v);
+                    break;
+                }
+            }
+            lemma |= ineq(m.var(), lp::lconstraint_kind::EQ, 0);
+        }
+        else {
+            for (auto v : m) 
+                if (c().var_is_fixed(v)) 
+                    lemma.explain_fixed(v);
+            
+            lpvar w = non_fixed_var(m);
+            SASSERT(w != null_lpvar);
+            
+            lp::lar_term term;
+            term.add_monomial(-m.rat_sign(), m.var());
+            term.add_monomial(k, w);
+            lemma |= ineq(term, lp::lconstraint_kind::EQ, 0);
+        }
+        
+    }
+    
+    bool monomial_bounds::is_linear(monic const& m) {
+        unsigned non_fixed = 0;
+        for (lpvar v : m) {
+            if (!c().var_is_fixed(v))
+                ++non_fixed;
+            else if (c().val(v).is_zero())
+                return true;
+        }
+        return non_fixed <= 1;
+    }
+    
+    
+    rational monomial_bounds::fixed_var_product(monic const& m) {
+        rational r(1);
+        for (lpvar v : m) {
+            if (c().var_is_fixed(v))
+                r *= c().lra.get_column_value(v).x;
+        }
+        return r;
+    }
+    
+    lpvar monomial_bounds::non_fixed_var(monic const& m) {
+        for (lpvar v : m) 
+            if (!c().var_is_fixed(v))
+                return v;
+        return null_lpvar;
     }
 
 }

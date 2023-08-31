@@ -436,12 +436,6 @@ private:
     void save_tableau();
     bool integrality_holds();
 
-    // monomial propagation
-    bool_vector m_propagated;
-    void propagate(monic const& m, vector<lemma>& lemmas);
-    bool is_linear(monic const& m);
-    rational fixed_var_product(monic const& m);
-    lpvar non_fixed_var(monic const& m);
 
 };  // end of core
 
