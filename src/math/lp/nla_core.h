@@ -438,9 +438,10 @@ private:
 
     // monomial propagation
     bool_vector m_propagated;
-    bool propagate(monic const& m, vector<lemma>& lemmas);
+    void propagate(monic const& m, vector<lemma>& lemmas);
     bool is_linear(monic const& m);
-    mpq fixed_var_product(monic const& m);
+    rational fixed_var_product(monic const& m);
+    lpvar non_fixed_var(monic const& m);
 
 };  // end of core
 

@@ -1817,39 +1817,76 @@ void core::propagate(vector<lemma>& lemmas) {
     
     // propagate linear monomials
     lemmas.reset();
+    m_lemma_vec = &lemmas;
     for (auto const& m : m_emons) 
-        if (propagate(m, lemmas))
-            break;
+        propagate(m, lemmas);
 }
 
-bool core::propagate(monic const& m, vector<lemma>& lemmas) {
+void core::propagate(monic const& m, vector<lemma>& lemmas) {
     m_propagated.reserve(m.var() + 1, false);
     if (m_propagated[m.var()])
-        return false;
-
+        return;
+    
     if (!is_linear(m))
-        return false;
+        return;
     
     trail().push(set_bitvector_trail(m_propagated, m.var()));
 
-    mpq k = fixed_var_product(m);
-    // todo
+    rational k = fixed_var_product(m);
+
+    new_lemma lemma(*this, "fixed-values");
+    if (k == 0) {
+        for (auto v : m) {
+            if (var_is_fixed(v) && val(v).is_zero()) {
+                lemma.explain_fixed(v);
+                break;
+            }
+        }
+        lemma |= ineq(m.var(), lp::lconstraint_kind::EQ, 0);
+    }
+    else {
+        for (auto v : m) 
+            if (var_is_fixed(v)) 
+                lemma.explain_fixed(v);
+
+        lpvar w = non_fixed_var(m);
+        SASSERT(w != null_lpvar);
+
+        lp::lar_term term;
+        term.add_monomial(mpq(-1), m.var());
+        term.add_monomial(k, w);
+        lemma |= ineq(term, lp::lconstraint_kind::EQ, 0);
+    }
     
-    // return true if m_emons changes (so the iterator is invalid)
-    return false;
 }
 
 bool core::is_linear(monic const& m) {
-    // todo
-    return false;
+    unsigned non_fixed = 0;
+    for (lpvar v : m) {
+        if (!var_is_fixed(v))
+            ++non_fixed;
+        else if (val(v).is_zero())
+            return true;
+    }
+    return non_fixed <= 1;
 }
 
 
-mpq core::fixed_var_product(monic const& m) {
-    // todo
-    return mpq(0);
+rational core::fixed_var_product(monic const& m) {
+    rational r(1);
+    for (lpvar v : m) {
+        if (var_is_fixed(v))
+            r *= lra.get_column_value(v).x;
+    }
+    return r;
 }
 
+lpvar core::non_fixed_var(monic const& m) {
+    for (lpvar v : m) 
+        if (!var_is_fixed(v))
+            return v;
+    return null_lpvar;
+}
 
 
 } // end of nla
