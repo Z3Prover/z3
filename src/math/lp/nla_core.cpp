@@ -1056,6 +1056,17 @@ new_lemma& new_lemma::operator|=(ineq const& ineq) {
     }
     return *this;
 }
+
+// Contrary to new_lemma::operator|=, this method does not assert that the model does not satisfy the ineq.
+// If ineq holds then it is a nop.
+new_lemma& new_lemma::operator+=(ineq const& ineq) {
+    if (c.ineq_holds(ineq)) return *this;
+    
+    if (!c.explain_ineq(*this, ineq.term(), ineq.cmp(), ineq.rs())) {
+        current().push_back(ineq);
+    }
+    return *this;
+}
     
 
 new_lemma::~new_lemma() {
