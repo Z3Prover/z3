@@ -283,7 +283,7 @@ namespace nla {
                     break;
                 }
             }
-            lemma |= ineq(m.var(), lp::lconstraint_kind::EQ, 0);
+            lemma |= ineq(m.var(), lp::lconstraint_kind::NE, 0);
         }
         else {
             for (auto v : m) 
@@ -291,12 +291,14 @@ namespace nla {
                     lemma.explain_fixed(v);
             
             lpvar w = non_fixed_var(m);
-            SASSERT(w != null_lpvar);
-            
-            lp::lar_term term;
-            term.add_monomial(-m.rat_sign(), m.var());
-            term.add_monomial(k, w);
-            lemma |= ineq(term, lp::lconstraint_kind::EQ, 0);
+            if (w != null_lpvar) {
+                lp::lar_term term;
+                term.add_var(m.var());
+                term.add_monomial(-k, w);
+                lemma |= ineq(term, lp::lconstraint_kind::NE, 0);
+            } else {
+                lemma |= ineq(m.var(), lp::lconstraint_kind::NE, k);
+            }
         }
         
     }

@@ -1812,9 +1812,7 @@ bool core::improve_bounds() {
 }
     
 void core::propagate(vector<lemma>& lemmas) {
-    // disable for now
-    return;
-   // propagate linear monomials
+   // propagate linear monomials, those that have all, or all but one, variables fixed
     lemmas.reset();
     m_lemma_vec = &lemmas;
  
