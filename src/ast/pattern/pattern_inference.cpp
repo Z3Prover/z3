@@ -623,6 +623,10 @@ bool pattern_inference_cfg::reduce_quantifier(
     expr_ref & result,
     proof_ref & result_pr) {
 
+    if (!m_params.m_pi_enabled) {
+        return false;
+    }
+
     TRACE("pattern_inference", tout << "processing:\n" << mk_pp(q, m) << "\n";);
     if (!is_forall(q)) {
         return false;
