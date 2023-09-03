@@ -110,12 +110,13 @@ class simplifier_solver : public solver {
         expr_ref_vector orig_assumptions(assumptions);
         m_core_replace.reset();
         if (qhead < m_fmls.size() || !assumptions.empty()) {
-            TRACE("solver", tout << "qhead " << qhead << "\n");
             m_preprocess_state.replay(qhead, assumptions);   
             m_preprocess_state.freeze(assumptions);
             m_preprocess.reduce();
             if (!m.inc())
                 return;
+            TRACE("solver", tout << "qhead " << qhead << "\n";
+                  m_preprocess_state.display(tout));
             m_preprocess_state.advance_qhead();
             for (unsigned i = 0; i < assumptions.size(); ++i) 
                 m_core_replace.insert(assumptions.get(i), orig_assumptions.get(i));            
