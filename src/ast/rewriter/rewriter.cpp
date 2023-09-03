@@ -17,6 +17,8 @@ Notes:
 
 --*/
 #include "ast/rewriter/rewriter_def.h"
+#include "ast/rewriter/push_app_ite.h"
+#include "ast/rewriter/elim_bounds.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_smt2_pp.h"
@@ -417,3 +419,6 @@ void inv_var_shifter::process_var(var * v) {
 }
     
 template class rewriter_tpl<beta_reducer_cfg>;
+template class rewriter_tpl<ng_push_app_ite_cfg>;
+template class rewriter_tpl<push_app_ite_cfg>;
+template class rewriter_tpl<elim_bounds_cfg>;
