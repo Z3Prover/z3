@@ -17,9 +17,13 @@ Notes:
 
 --*/
 #include "ast/rewriter/rewriter_def.h"
+#include "ast/rewriter/push_app_ite.h"
+#include "ast/normal_forms/elim_term_ite.h"
+#include "ast/rewriter/elim_bounds.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_smt2_pp.h"
+
 
 void rewriter_core::init_cache_stack() {
     SASSERT(m_cache_stack.empty());
@@ -417,3 +421,7 @@ void inv_var_shifter::process_var(var * v) {
 }
     
 template class rewriter_tpl<beta_reducer_cfg>;
+template class rewriter_tpl<ng_push_app_ite_cfg>;
+template class rewriter_tpl<push_app_ite_cfg>;
+template class rewriter_tpl<elim_term_ite_cfg>;
+template class rewriter_tpl<elim_bounds_cfg>;
