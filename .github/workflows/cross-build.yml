@@ -19,7 +19,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Install cross build tools
       run:  apt update && apt install -y ninja-build cmake python3 g++-11-${{ matrix.arch }}-linux-gnu
