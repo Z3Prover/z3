@@ -72,12 +72,11 @@ class GenHash {
         sipround();
     }
 
-
     void hash(const void *in, size_t inlen) {
         unsigned char *ni = (unsigned char *)in;
         const unsigned char *end = ni + inlen - (inlen % sizeof(uint32_t));
 
-        total_length += inlen;
+        total_length += (uint32_t)inlen;
 
         for (; ni != end; ni += 4) {
             uint32_t m = U8TO32_LE(ni);
@@ -147,7 +146,6 @@ public:
         return out;
     }
 };
-
 
 
 
