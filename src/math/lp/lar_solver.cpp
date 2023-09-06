@@ -2361,8 +2361,6 @@ namespace lp {
     // dep is the reason for the new bound
 
     void lar_solver::set_infeasible_column_and_witness(unsigned j, bool lower_bound, u_dependency* dep) {
-        bool was_feas = column_is_feasible(j);
-        bool in_heap = m_mpq_lar_core_solver.m_r_solver.inf_heap().contains(j);
         SASSERT(m_crossed_bounds_deps == nullptr && m_crossed_bounds_deps == nullptr);
         set_status(lp_status::INFEASIBLE);
         m_crossed_bounds_column = j;

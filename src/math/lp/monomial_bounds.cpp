@@ -258,32 +258,30 @@ namespace nla {
         }
     }
 
-    bool monomial_bounds::unit_propagate() {  
-        unsigned sz = 0;
-        vector<lpvar> monics_vars;
-        for (auto const& m : c().m_emons) {
-            monics_vars.push_back(m.var());
-            sz++;
-        }
-        unsigned l = this->random();
-        for (unsigned i = 0; i < sz; ++i) {
-            lpvar v = monics_vars[(i + l) % sz];
-            if (!unit_propagate(c().m_emons[v])) {
-                return false;
-            }
-        }
-
-        return true;    
+    void monomial_bounds::unit_propagate() {  
+        for (auto const& m : c().m_emons)
+            unit_propagate(m);
     }
 
-// returns false if and only if there is a conflict
-    bool monomial_bounds::unit_propagate(monic const& m) {
+    void monomial_bounds::check_for_conflict() {
+        if (c().lra.crossed_bounds_deps() != nullptr) {
+            new_lemma lemma(c(), "fixed-values");
+            lp::explanation ex;
+            c().lra.fill_explanation_from_crossed_bounds_column(ex);
+            lemma &= ex;
+            c().lra.crossed_bounds_deps() = nullptr;
+            c().lra.crossed_bounds_column() = null_lpvar;     
+            c().lra.set_status(lp::lp_status::OPTIMAL);           
+        }
+    }
+
+    void monomial_bounds::unit_propagate(monic const& m) {
         m_propagated.reserve(m.var() + 1, false);
         if (m_propagated[m.var()])
-            return true;
+            return;
 
         if (!is_linear(m))
-            return true;
+            return;
         
         c().trail().push(set_bitvector_trail(m_propagated, m.var()));
         lpvar zero_fixed = null_lpvar, non_fixed = null_lpvar;
@@ -303,8 +301,7 @@ namespace nla {
         if (zero_fixed != null_lpvar) {
             // the m.var() has to have a zero value
             u_dependency* d = this->dep.mk_join(c().lra.get_column_lower_bound_witness(zero_fixed),
-                                                c().lra.get_column_upper_bound_witness(zero_fixed));
-
+                                                c().lra.get_column_upper_bound_witness(zero_fixed));            
             c().lra.update_column_type_and_bound(m.var(), lp::lconstraint_kind::EQ, mpq(0), d);
         } else if (non_fixed != null_lpvar) {
             u_dependency* d = nullptr;
@@ -330,7 +327,6 @@ namespace nla {
                     bool strict = b.y.is_pos();
                     c().lra.update_column_type_and_bound(m.var(), strict ? lp::lconstraint_kind::GT : lp::lconstraint_kind::GE, k * b.x, d);
                 }
-
             } else {
                 d = c().lra.get_column_upper_bound_witness(non_fixed);
                 if (d) {
@@ -358,12 +354,9 @@ namespace nla {
             SASSERT(k.is_pos() || k.is_neg());
             // we have m = k: m.var() getting the bounds witnesses of all fixed variables
             c().lra.update_column_type_and_bound(m.var(), lp::lconstraint_kind::EQ, k, d);
-        }        
-        if (c().lra.get_status() == lp::lp_status::INFEASIBLE) {
-            TRACE("nla_solver", tout << "conflict in unit_propagate\n";);
-            return false;
         }
-        return true;
+        check_for_conflict();
+        SASSERT (c().lra.get_status() != lp::lp_status::INFEASIBLE);
     }
     bool monomial_bounds::is_linear(monic const& m) {
         unsigned non_fixed = 0;

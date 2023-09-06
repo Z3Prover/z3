@@ -79,7 +79,7 @@ class lar_solver : public column_namer {
     stacked_value<simplex_strategy_enum> m_simplex_strategy;
     // such can be found at the initialization step: u < l
     lpvar m_crossed_bounds_column;
-    u_dependency* m_crossed_bounds_deps;   
+    u_dependency* m_crossed_bounds_deps;
     lar_core_solver m_mpq_lar_core_solver;
     int_solver* m_int_solver = nullptr;
     bool m_need_register_terms = false;
@@ -142,6 +142,13 @@ class lar_solver : public column_namer {
     inline void clear_columns_with_changed_bounds() { m_columns_with_changed_bounds.reset(); }
  public:   
     void insert_to_columns_with_changed_bounds(unsigned j);
+    const u_dependency* crossed_bounds_deps() const { return m_crossed_bounds_deps;}
+    u_dependency*& crossed_bounds_deps() { return m_crossed_bounds_deps;}
+
+    lpvar crossed_bounds_column() const { return m_crossed_bounds_column; }
+    lpvar& crossed_bounds_column() { return m_crossed_bounds_column; } 
+        
+
  private:   
     void update_column_type_and_bound_check_on_equal(unsigned j, const mpq& right_side, constraint_index ci, unsigned&);
     void update_column_type_and_bound(unsigned j, const mpq& right_side, constraint_index ci);

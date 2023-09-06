@@ -32,12 +32,13 @@ namespace nla {
 
         // monomial propagation
         bool_vector m_propagated;
-        bool unit_propagate(monic const& m);
+        void unit_propagate(monic const& m);
         bool is_linear(monic const& m);
         rational fixed_var_product(monic const& m);
     public:
         monomial_bounds(core* core);
         void propagate();
-        bool unit_propagate();
+        void unit_propagate();
+        void check_for_conflict();
     }; 
 }
