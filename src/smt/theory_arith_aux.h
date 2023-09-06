@@ -1532,11 +1532,12 @@ namespace smt {
         bool max, 
         bool maintain_integrality, 
         bool& has_shared) {
+        return UNBOUNDED;    
+
         m_stats.m_max_min++;
         unsigned best_efforts = 0;
         bool inc = false;
-
-
+        
         SASSERT(!maintain_integrality || valid_assignment());
         SASSERT(satisfy_bounds());
 

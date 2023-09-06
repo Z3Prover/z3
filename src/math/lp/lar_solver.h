@@ -78,7 +78,8 @@ class lar_solver : public column_namer {
     lp_status m_status = lp_status::UNKNOWN;
     stacked_value<simplex_strategy_enum> m_simplex_strategy;
     // such can be found at the initialization step: u < l
-    stacked_value<int> m_crossed_bounds_column;
+    lpvar m_crossed_bounds_column;
+    u_dependency* m_crossed_bounds_deps;   
     lar_core_solver m_mpq_lar_core_solver;
     int_solver* m_int_solver = nullptr;
     bool m_need_register_terms = false;
@@ -139,10 +140,14 @@ class lar_solver : public column_namer {
     bool compare_values(impq const& lhs, lconstraint_kind k, const mpq& rhs);
 
     inline void clear_columns_with_changed_bounds() { m_columns_with_changed_bounds.reset(); }
+ public:   
     void insert_to_columns_with_changed_bounds(unsigned j);
+ private:   
     void update_column_type_and_bound_check_on_equal(unsigned j, const mpq& right_side, constraint_index ci, unsigned&);
     void update_column_type_and_bound(unsigned j, const mpq& right_side, constraint_index ci);
+ public:   
     void update_column_type_and_bound(unsigned j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
+ private:   
     void update_column_type_and_bound_with_ub(var_index j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
     void update_column_type_and_bound_with_no_ub(var_index j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
     void update_bound_with_ub_lb(var_index j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
@@ -152,10 +157,7 @@ class lar_solver : public column_namer {
     void register_in_fixed_var_table(unsigned, unsigned&);
     void remove_non_fixed_from_fixed_var_table();
     constraint_index add_var_bound_on_constraint_for_term(var_index j, lconstraint_kind kind, const mpq& right_side);
-    inline void set_infeasible_column(unsigned j) {
-        set_status(lp_status::INFEASIBLE);
-        m_crossed_bounds_column = j;
-    }
+    void set_infeasible_column_and_witness(unsigned j, bool lower_bound, u_dependency* dep);
     constraint_index add_constraint_from_term_and_create_new_column_row(unsigned term_j, const lar_term* term,
                                                                         lconstraint_kind kind, const mpq& right_side);
     unsigned row_of_basic_column(unsigned) const;

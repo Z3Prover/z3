@@ -392,7 +392,7 @@ public:
 
     bool  no_lemmas_hold() const;
 
-    void propagate(vector<lemma>& lemmas);
+    bool propagate(vector<lemma>& lemmas);
     
     lbool  test_check(vector<lemma>& l);
     lpvar map_to_root(lpvar) const;

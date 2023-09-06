@@ -511,6 +511,7 @@ bool theory_arith<Ext>::propagate_nl_downward(expr * n, var_power_pair const& p)
 */
 template<typename Ext>
 bool theory_arith<Ext>::propagate_nl_bounds(expr * m) {
+    return false;
     TRACE("non_linear", tout << "propagate several bounds using:\n"; display_monomial(tout, m); tout << "\n";);
     bool result = propagate_nl_upward(m);
     buffer<var_power_pair> vp;
@@ -530,6 +531,7 @@ bool theory_arith<Ext>::propagate_nl_bounds(expr * m) {
 */
 template<typename Ext>
 bool theory_arith<Ext>::propagate_nl_bounds() {
+    return false;
     m_dep_manager.reset();
     bool propagated = false;
     for (unsigned i = 0; i < m_nl_monomials.size(); i++) {
@@ -1632,6 +1634,7 @@ bool theory_arith<Ext>::is_cross_nested_consistent(row const & r) {
 */
 template<typename Ext>
 bool theory_arith<Ext>::is_cross_nested_consistent(svector<theory_var> const & nl_cluster) {
+    return true;
     for (theory_var v : nl_cluster) {
         if (!is_base(v))
             continue;
