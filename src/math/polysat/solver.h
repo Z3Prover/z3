@@ -34,6 +34,7 @@ Author:
 #include "math/polysat/search_state.h"
 #include "math/polysat/assignment.h"
 #include "math/polysat/trail.h"
+#include "math/polysat/pvar_queue.h"
 #include "math/polysat/viable.h"
 #include "math/polysat/log.h"
 #include <limits>
@@ -170,7 +171,7 @@ namespace polysat {
         simplify                 m_simplify;
         restart                  m_restart;
         bool_var_manager         m_bvars;       // Map boolean variables to constraints
-        var_queue                m_free_pvars;  // free poly vars
+        pvar_queue               m_free_pvars;  // free poly vars
         stats                    m_stats;
         random_gen               m_rand;
 

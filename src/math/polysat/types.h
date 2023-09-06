@@ -16,7 +16,6 @@ Author:
 #include "util/map.h"
 #include "util/rlimit.h"
 #include "util/scoped_ptr_vector.h"
-#include "util/var_queue.h"
 #include "util/ref_vector.h"
 #include "util/sat_literal.h"
 #include "math/dd/dd_pdd.h"

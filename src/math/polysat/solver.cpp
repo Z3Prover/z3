@@ -55,7 +55,7 @@ namespace polysat {
         m_simplify(*this),
         m_restart(*this),
         m_bvars(*this),
-        m_free_pvars(m_activity),
+        m_free_pvars(m_size, m_activity),
         m_constraints(*this),
         m_names(*this),
         m_slicing(*this),
