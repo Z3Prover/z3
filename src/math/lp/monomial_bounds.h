@@ -35,10 +35,11 @@ namespace nla {
         void unit_propagate(monic const& m);
         bool is_linear(monic const& m);
         rational fixed_var_product(monic const& m);
+        lpvar non_fixed_var(monic const& m);
+
     public:
         monomial_bounds(core* core);
         void propagate();
         void unit_propagate();
-        void check_for_conflict();
     }; 
 }

@@ -258,21 +258,9 @@ namespace nla {
         }
     }
 
-    void monomial_bounds::unit_propagate() {  
-        for (auto const& m : c().m_emons)
+    void monomial_bounds::unit_propagate() {        
+        for (auto const& m : c().m_emons) 
             unit_propagate(m);
-    }
-
-    void monomial_bounds::check_for_conflict() {
-        if (c().lra.crossed_bounds_deps() != nullptr) {
-            new_lemma lemma(c(), "fixed-values");
-            lp::explanation ex;
-            c().lra.fill_explanation_from_crossed_bounds_column(ex);
-            lemma &= ex;
-            c().lra.crossed_bounds_deps() = nullptr;
-            c().lra.crossed_bounds_column() = null_lpvar;     
-            c().lra.set_status(lp::lp_status::OPTIMAL);           
-        }
     }
 
     void monomial_bounds::unit_propagate(monic const& m) {
@@ -284,80 +272,37 @@ namespace nla {
             return;
         
         c().trail().push(set_bitvector_trail(m_propagated, m.var()));
-        lpvar zero_fixed = null_lpvar, non_fixed = null_lpvar;
-        // find a zero fixed variable and a non-fixed variable
-        for (lpvar v : m) {
-            if (c().var_is_fixed(v)) {
-                if (c().val(v).is_zero()) {
-                    zero_fixed = v;
+        
+        rational k = fixed_var_product(m);
+        
+        new_lemma lemma(c(), "fixed-values");
+        if (k == 0) {
+            for (auto v : m) {
+                if (c().var_is_fixed(v) && c().val(v).is_zero()) {
+                    lemma.explain_fixed(v);
                     break;
                 }
             }
-            else {
-                non_fixed = v;
-            }
+            lemma += ineq(m.var(), lp::lconstraint_kind::EQ, 0);
         }
-
-        if (zero_fixed != null_lpvar) {
-            // the m.var() has to have a zero value
-            u_dependency* d = this->dep.mk_join(c().lra.get_column_lower_bound_witness(zero_fixed),
-                                                c().lra.get_column_upper_bound_witness(zero_fixed));            
-            c().lra.update_column_type_and_bound(m.var(), lp::lconstraint_kind::EQ, mpq(0), d);
-        } else if (non_fixed != null_lpvar) {
-            u_dependency* d = nullptr;
-            rational k(1);
-            for (auto v : m)
-                if (v != non_fixed) {
-                    d = this->dep.mk_join(d, c().lra.get_column_upper_bound_witness(v));
-                    d = this->dep.mk_join(d, c().lra.get_column_lower_bound_witness(v));
-                    k *= c().val(v);
-                }
-            SASSERT(k.is_pos() || k.is_neg());
-            // we have m = k* non_fixed: m.var() getting the bounds witnesses of non_fixed
-            if (k.is_pos()) {
-                d = c().lra.get_column_upper_bound_witness(non_fixed);
-                if (d) {
-                    const auto& b = c().lra.get_column_value(non_fixed);
-                    bool strict = b.y.is_neg();
-                    c().lra.update_column_type_and_bound(m.var(), strict ? lp::lconstraint_kind::LT : lp::lconstraint_kind::LE, k * b.x, d);
-                }
-                d = c().lra.get_column_lower_bound_witness(non_fixed);
-                if (d) {
-                    const auto& b = c().lra.get_column_value(non_fixed);
-                    bool strict = b.y.is_pos();
-                    c().lra.update_column_type_and_bound(m.var(), strict ? lp::lconstraint_kind::GT : lp::lconstraint_kind::GE, k * b.x, d);
-                }
+        else {
+            for (auto v : m) 
+                if (c().var_is_fixed(v)) 
+                    lemma.explain_fixed(v);
+            
+            lpvar w = non_fixed_var(m);
+            if (w != null_lpvar) {
+                lp::lar_term term;
+                term.add_var(m.var());
+                term.add_monomial(-k, w);
+                lemma += ineq(term, lp::lconstraint_kind::EQ, 0);
             } else {
-                d = c().lra.get_column_upper_bound_witness(non_fixed);
-                if (d) {
-                    const auto& b = c().lra.get_column_value(non_fixed);
-                    bool strict = b.y.is_neg();
-                    c().lra.update_column_type_and_bound(m.var(), strict ? lp::lconstraint_kind::GT : lp::lconstraint_kind::GE, k * b.x, d);
-                }
-                d = c().lra.get_column_lower_bound_witness(non_fixed);
-                if (d) {
-                    const auto& b = c().lra.get_column_value(non_fixed);
-                    bool strict = b.y.is_pos();
-                    c().lra.update_column_type_and_bound(m.var(), strict ? lp::lconstraint_kind::LT : lp::lconstraint_kind::LE, k * b.x, d);                    
-                }
+                lemma += ineq(m.var(), lp::lconstraint_kind::EQ, k);
             }
-        } else {
-            SASSERT(non_fixed == null_lpvar && zero_fixed == null_lpvar);
-            rational k(1);
-            u_dependency* d = nullptr;
-            for (auto v : m) {
-                SASSERT(c().var_is_fixed(v));
-                d = this->dep.mk_join(d, c().lra.get_column_upper_bound_witness(v));
-                d = this->dep.mk_join(d, c().lra.get_column_lower_bound_witness(v));
-                k *= c().val(v);
-            }
-            SASSERT(k.is_pos() || k.is_neg());
-            // we have m = k: m.var() getting the bounds witnesses of all fixed variables
-            c().lra.update_column_type_and_bound(m.var(), lp::lconstraint_kind::EQ, k, d);
         }
-        check_for_conflict();
-        SASSERT (c().lra.get_status() != lp::lp_status::INFEASIBLE);
+        
     }
+    
     bool monomial_bounds::is_linear(monic const& m) {
         unsigned non_fixed = 0;
         for (lpvar v : m) {
@@ -379,6 +324,12 @@ namespace nla {
         return r;
     }
     
-   
+    lpvar monomial_bounds::non_fixed_var(monic const& m) {
+        for (lpvar v : m) 
+            if (!c().var_is_fixed(v))
+                return v;
+        return null_lpvar;
+    }
+
 }
 

@@ -1818,18 +1818,14 @@ bool core::improve_bounds() {
     }
     return bounds_improved;
 }
-    // returns false if and only if makes lp_solver inconsistent
-bool core::propagate(vector<lemma>& lemmas) {
+    
+void core::propagate(vector<lemma>& lemmas) {
    // propagate linear monomials, those that have all, or all but one, variables fixed
     lemmas.reset();
     m_lemma_vec = &lemmas;
  
     m_monomial_bounds.unit_propagate();
-    if (lra.get_status() == lp::lp_status::INFEASIBLE) {
-        TRACE("nla_solver", tout << "propagation found infeasibility\n";);
-        return false;
-    }
-    return true;
+   
 }
 
 
