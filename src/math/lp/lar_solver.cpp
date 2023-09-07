@@ -1931,7 +1931,7 @@ namespace lp {
             case LE: {
                 auto up = numeric_pair<mpq>(right_side, y_of_bound);
                 if (up < m_mpq_lar_core_solver.m_r_lower_bounds[j]) {
-                    set_infeasible_column_and_witness(j, true, dep);
+                    set_crossed_bounds_column_and_deps(j, true, dep);
                 }
                 else {
                     if (up >= m_mpq_lar_core_solver.m_r_upper_bounds[j]) return;
@@ -1946,7 +1946,7 @@ namespace lp {
             case GE: {
                 auto low = numeric_pair<mpq>(right_side, y_of_bound);
                 if (low > m_mpq_lar_core_solver.m_r_upper_bounds[j]) {
-                    set_infeasible_column_and_witness(j, false, dep);
+                    set_crossed_bounds_column_and_deps(j, false, dep);
                 } else {
                     if (low < m_mpq_lar_core_solver.m_r_lower_bounds[j]) {
                         return;
@@ -1962,10 +1962,10 @@ namespace lp {
             case EQ: {
                 auto v = numeric_pair<mpq>(right_side, zero_of_type<mpq>());
                 if (v > m_mpq_lar_core_solver.m_r_upper_bounds[j]){
-                    set_infeasible_column_and_witness(j, false, dep);
+                    set_crossed_bounds_column_and_deps(j, false, dep);
                 }  
                 else if (v < m_mpq_lar_core_solver.m_r_lower_bounds[j]) {
-                    set_infeasible_column_and_witness(j, true, dep);
+                    set_crossed_bounds_column_and_deps(j, true, dep);
                 }
                 else {
                     set_upper_bound_witness(j, dep);
@@ -1995,7 +1995,7 @@ namespace lp {
             case LE: {
                 auto up = numeric_pair<mpq>(right_side, y_of_bound);
                 if (up < m_mpq_lar_core_solver.m_r_lower_bounds[j]) {
-                    set_infeasible_column_and_witness(j, true, dep);
+                    set_crossed_bounds_column_and_deps(j, true, dep);
                 }
                 else {
                     m_mpq_lar_core_solver.m_r_upper_bounds[j] = up;
@@ -2020,7 +2020,7 @@ namespace lp {
             case EQ: {
                 auto v = numeric_pair<mpq>(right_side, zero_of_type<mpq>());
                 if (v < m_mpq_lar_core_solver.m_r_lower_bounds[j]) {
-                    set_infeasible_column_and_witness(j, true, dep);
+                    set_crossed_bounds_column_and_deps(j, true, dep);
                 } 
                 else {
                     set_upper_bound_witness(j, dep);
@@ -2059,7 +2059,7 @@ namespace lp {
         {
             auto low = numeric_pair<mpq>(right_side, y_of_bound);
             if (low > m_mpq_lar_core_solver.m_r_upper_bounds[j]) {
-                set_infeasible_column_and_witness(j, false, dep);
+                set_crossed_bounds_column_and_deps(j, false, dep);
             }
             else {
                 m_mpq_lar_core_solver.m_r_lower_bounds[j] = low;
@@ -2073,7 +2073,7 @@ namespace lp {
         {
             auto v = numeric_pair<mpq>(right_side, zero_of_type<mpq>());
             if (v > m_mpq_lar_core_solver.m_r_upper_bounds[j]) {
-                set_infeasible_column_and_witness(j, false, dep);
+                set_crossed_bounds_column_and_deps(j, false, dep);
             }
             else {
                 set_upper_bound_witness(j, dep);
@@ -2360,7 +2360,7 @@ namespace lp {
     // Otherwise the new asserted lower bound is is greater than the existing upper bound.
     // dep is the reason for the new bound
 
-    void lar_solver::set_infeasible_column_and_witness(unsigned j, bool lower_bound, u_dependency* dep) {
+    void lar_solver::set_crossed_bounds_column_and_deps(unsigned j, bool lower_bound, u_dependency* dep) {
         SASSERT(m_crossed_bounds_deps == nullptr && m_crossed_bounds_deps == nullptr);
         set_status(lp_status::INFEASIBLE);
         m_crossed_bounds_column = j;

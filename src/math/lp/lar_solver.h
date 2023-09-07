@@ -164,7 +164,7 @@ class lar_solver : public column_namer {
     void register_in_fixed_var_table(unsigned, unsigned&);
     void remove_non_fixed_from_fixed_var_table();
     constraint_index add_var_bound_on_constraint_for_term(var_index j, lconstraint_kind kind, const mpq& right_side);
-    void set_infeasible_column_and_witness(unsigned j, bool lower_bound, u_dependency* dep);
+    void set_crossed_bounds_column_and_deps(unsigned j, bool lower_bound, u_dependency* dep);
     constraint_index add_constraint_from_term_and_create_new_column_row(unsigned term_j, const lar_term* term,
                                                                         lconstraint_kind kind, const mpq& right_side);
     unsigned row_of_basic_column(unsigned) const;
