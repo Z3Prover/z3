@@ -670,6 +670,7 @@ class lar_solver : public column_namer {
             return 0;
         return m_usage_in_terms[j];
     }
+    std::function<void (const indexed_uint_set& columns_with_changed_bound)> m_find_monics_with_changed_bounds_func = nullptr;
     friend int_solver;
     friend int_branch;
 };

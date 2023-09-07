@@ -259,8 +259,8 @@ namespace nla {
     }
 
     void monomial_bounds::unit_propagate() {        
-        for (auto const& m : c().m_emons) 
-            unit_propagate(m);
+        for (lpvar v : c().m_monics_with_changed_bounds) 
+            unit_propagate(c().emons()[v]);
     }
 
     void monomial_bounds::unit_propagate(monic const& m) {

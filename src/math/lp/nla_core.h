@@ -87,7 +87,8 @@ class core {
     std::function<bool(lpvar)> m_relevant;
     vector<lemma> *          m_lemma_vec;
     vector<ineq> *           m_literal_vec = nullptr;
-    indexed_uint_set                m_to_refine;
+    indexed_uint_set         m_to_refine;
+    vector<lpvar>            m_monics_with_changed_bounds;
     tangents                 m_tangents;
     basics                   m_basics;
     order                    m_order;

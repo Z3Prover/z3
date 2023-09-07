@@ -21,28 +21,40 @@ namespace nla {
 
 typedef lp::lar_term term;
 
-core::core(lp::lar_solver& s, params_ref const& p, reslimit & lim) :
-    m_evars(),
-    lra(s),
-    m_reslim(lim),
-    m_params(p),
-    m_tangents(this),
-    m_basics(this),
-    m_order(this),
-    m_monotone(this),
-    m_powers(*this),
-    m_divisions(*this),
-    m_intervals(this, lim),
-    m_monomial_bounds(this),
-    m_horner(this),
-    m_grobner(this),
-    m_emons(m_evars),
-    m_use_nra_model(false),
-    m_nra(s, m_nra_lim, *this) 
-{
+core::core(lp::lar_solver& s, params_ref const& p, reslimit& lim) : m_evars(),
+                                                                    lra(s),
+                                                                    m_reslim(lim),
+                                                                    m_params(p),
+                                                                    m_tangents(this),
+                                                                    m_basics(this),
+                                                                    m_order(this),
+                                                                    m_monotone(this),
+                                                                    m_powers(*this),
+                                                                    m_divisions(*this),
+                                                                    m_intervals(this, lim),
+                                                                    m_monomial_bounds(this),
+                                                                    m_horner(this),
+                                                                    m_grobner(this),
+                                                                    m_emons(m_evars),
+                                                                    m_use_nra_model(false),
+                                                                    m_nra(s, m_nra_lim, *this) {
     m_nlsat_delay = lp_settings().nlsat_delay();
+    lra.m_find_monics_with_changed_bounds_func = [&](const indexed_uint_set& columns_with_changed_bounds) {
+    m_monics_with_changed_bounds.clear();
+    for (const auto& m : m_emons) {
+        if (columns_with_changed_bounds.contains(m.var())) {
+            m_monics_with_changed_bounds.push_back(m.var());
+            continue;
+        }
+        for (lpvar j : m.vars()) {
+            if (columns_with_changed_bounds.contains(j)) {
+                m_monics_with_changed_bounds.push_back(m.var());
+                break;
+            }
+        }
+    } };
 }
-    
+
 bool core::compare_holds(const rational& ls, llc cmp, const rational& rs) const {
     switch(cmp) {
     case llc::LE: return ls <= rs;

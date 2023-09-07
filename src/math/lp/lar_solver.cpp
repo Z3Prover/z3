@@ -789,6 +789,8 @@ namespace lp {
     void lar_solver::detect_rows_with_changed_bounds() {
         for (auto j : m_columns_with_changed_bounds)
             detect_rows_with_changed_bounds_for_column(j);
+        if (m_find_monics_with_changed_bounds_func)
+            m_find_monics_with_changed_bounds_func(m_columns_with_changed_bounds);
     }
 
     void lar_solver::update_x_and_inf_costs_for_columns_with_changed_bounds_tableau() {
