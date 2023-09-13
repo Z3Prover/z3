@@ -253,7 +253,7 @@ namespace arith {
                 first = false;
                 reset_evidence();
                 m_explanation.clear();
-                lp().explain_implied_bound(be, m_bp);
+                be.explain();                
             }
             CTRACE("arith", m_unassigned_bounds[v] == 0, tout << "missed bound\n";);
             updt_unassigned_bounds(v, -1);

@@ -2150,7 +2150,7 @@ public:
         case l_true:
             propagate_basic_bounds();
             propagate_bounds_with_lp_solver();
-            propagate_nla();
+            propagate_bounds_with_nlp();
             break;
         case l_undef:
             UNREACHABLE();
@@ -2185,31 +2185,53 @@ public:
         set_evidence(j, m_core, m_eqs);
         m_explanation.add_pair(j, v);
     }
-    
-    void propagate_bounds_with_lp_solver() {
-        if (!should_propagate()) 
-            return;
 
-        m_bp.init();
-        lp().propagate_bounds_for_touched_rows(m_bp);
-
-        if (!m.inc()) 
-            return;
-
+    void finish_bound_propagation() {
         if (is_infeasible()) {
             get_infeasibility_explanation_and_set_conflict();
             // verbose_stream() << "unsat\n";
-        }
-        else {
-            unsigned count = 0, prop = 0;
-            for (auto& ib : m_bp.ibounds()) {
+        } else {
+            for (auto &ib : m_bp.ibounds()) {
                 m.inc();
                 if (ctx().inconsistent())
                     break;
-                ++prop;
-                count += propagate_lp_solver_bound(ib);
+                propagate_lp_solver_bound(ib);
             }
         }
+    }
+
+    void propagate_bounds_with_lp_solver() {
+        if (!should_propagate()) 
+            return;
+        m_bp.init();
+        lp().propagate_bounds_for_touched_rows(m_bp);
+
+        if (m.inc()) 
+            finish_bound_propagation();
+    }
+    
+    void calculate_implied_bounds_for_monic(lpvar monic_var, const svector<lpvar>& vars) {
+        m_bp.propagate_monic(monic_var, vars);
+    }
+    
+    void propagate_bounds_for_touched_monomials() {
+        for (unsigned v : m_nla->monics_with_changed_bounds()) {
+            calculate_implied_bounds_for_monic(v, m_nla->get_core().emons()[v].vars());
+        }
+        m_nla->reset_monics_with_changed_bounds();
+    }
+
+    void propagate_bounds_with_nlp() {
+        if (!m_nla)
+            return;
+        if (is_infeasible() || !should_propagate())
+            return;
+
+        m_bp.init();
+        propagate_bounds_for_touched_monomials();
+
+        if (m.inc())
+            finish_bound_propagation();
     }
 
     bool bound_is_interesting(unsigned vi, lp::lconstraint_kind kind, const rational & bval) const {

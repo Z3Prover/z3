@@ -26,6 +26,8 @@ Revision History:
 #include "math/lp/test_bound_analyzer.h"
 
 namespace lp {
+  
+ 
 template <typename C, typename B> // C plays a role of a container, B - lp_bound_propagator
 class bound_analyzer_on_row {
     const C&                           m_row;
@@ -301,8 +303,12 @@ private:
     //     */
     // }
 
-    void limit_j(unsigned j, const mpq& u, bool coeff_before_j_is_pos, bool is_lower_bound, bool strict){
-        m_bp.try_add_bound(u, j, is_lower_bound, coeff_before_j_is_pos, m_row_index, strict);
+    
+    void limit_j(unsigned bound_j, const mpq& u, bool coeff_before_j_is_pos, bool is_lower_bound, bool strict){
+        lar_solver* lar = & this->m_bp.lp();
+        unsigned row_index = this->m_row_index;
+        auto explain = [lar, bound_j, coeff_before_j_is_pos, is_lower_bound, strict, row_index]() { return explain_bound_on_var_on_coeff(lar, bound_j, coeff_before_j_is_pos, is_lower_bound, strict, row_index); };
+        m_bp.add_bound(u, bound_j, is_lower_bound, strict, explain );
     }
     
     void advance_u(unsigned j) {
@@ -335,6 +341,27 @@ private:
             break;
         }
     }   
+    static u_dependency* explain_bound_on_var_on_coeff(lar_solver* lar, unsigned bound_j, bool coeff_before_j_is_pos, bool is_lower_bound, bool strict, unsigned row_index) {
+        int bound_sign = (is_lower_bound ? 1 : -1);
+        int j_sign = (coeff_before_j_is_pos ? 1 : -1) * bound_sign;
+
+        if (tv::is_term(bound_j))
+            bound_j = lar->map_term_index_to_column_index(bound_j);
+        u_dependency* ret = nullptr;
+        for (auto const& r : lar->get_row(row_index)) {
+            unsigned j = r.var();
+            if (j == bound_j)
+                continue;
+            mpq const& a = r.coeff();
+            int a_sign = is_pos(a) ? 1 : -1;
+            int sign = j_sign * a_sign;
+            u_dependency* witness = sign > 0 ? lar->get_column_upper_bound_witness(j) : lar->get_column_lower_bound_witness(j);
+            ret = lar->join_deps(ret, witness);
+        }
+        return ret;
+    }
 };
+   
+
 }
 

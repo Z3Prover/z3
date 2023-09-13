@@ -26,7 +26,8 @@ namespace nla {
 
         solver(lp::lar_solver& s, params_ref const& p, reslimit& limit);
         ~solver();
-
+        const auto& monics_with_changed_bounds() const { return m_core->monics_with_changed_bounds(); }
+        void reset_monics_with_changed_bounds() { m_core->reset_monics_with_changed_bounds(); } 
         void add_monic(lpvar v, unsigned sz, lpvar const* vs);
         void add_idivision(lpvar q, lpvar x, lpvar y);
         void add_rdivision(lpvar q, lpvar x, lpvar y);

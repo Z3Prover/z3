@@ -120,7 +120,8 @@ class core {
 public:    
     // constructor
     core(lp::lar_solver& s, params_ref const& p, reslimit&);
-
+    const auto& monics_with_changed_bounds() const { return m_monics_with_changed_bounds; }
+    void reset_monics_with_changed_bounds() { m_monics_with_changed_bounds.reset(); }
     void insert_to_refine(lpvar j);
     void erase_from_to_refine(lpvar j);
     
@@ -310,6 +311,7 @@ public:
     bool sign_contradiction(const monic& m) const;
 
     bool var_is_fixed_to_zero(lpvar j) const;
+    bool fixed_var_has_big_bound(lpvar j) const;
     bool var_is_fixed_to_val(lpvar j, const rational& v) const;
 
     bool var_is_fixed(lpvar j) const;

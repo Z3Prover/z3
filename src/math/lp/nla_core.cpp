@@ -40,7 +40,6 @@ core::core(lp::lar_solver& s, params_ref const& p, reslimit& lim) : m_evars(),
                                                                     m_nra(s, m_nra_lim, *this) {
     m_nlsat_delay = lp_settings().nlsat_delay();
     lra.m_find_monics_with_changed_bounds_func = [&](const indexed_uint_set& columns_with_changed_bounds) {
-    m_monics_with_changed_bounds.clear();
     for (const auto& m : m_emons) {
         if (columns_with_changed_bounds.contains(m.var())) {
             m_monics_with_changed_bounds.push_back(m.var());
@@ -553,6 +552,13 @@ bool core::var_is_fixed_to_zero(lpvar j) const {
         lra.column_is_fixed(j) &&
         lra.get_lower_bound(j) == lp::zero_of_type<lp::impq>();
 }
+
+bool core::fixed_var_has_big_bound(lpvar j) const {
+    SASSERT(lra.column_is_fixed(j));
+    const auto& b = lra.get_lower_bound(j);
+    return  b.x.is_big() || b.y.is_big();
+}
+
 bool core::var_is_fixed_to_val(lpvar j, const rational& v) const {
     return 
         lra.column_is_fixed(j) &&
