@@ -2239,6 +2239,9 @@ public:
         if (v == null_theory_var) 
             return false;
 
+        if (m_unassigned_bounds[v] == 0) 
+            return false;
+
         if (should_refine_bounds()) 
             return true;
 
