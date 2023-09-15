@@ -311,11 +311,12 @@ namespace euf {
             return p == i;
         };
 
-        // retrieve oldest parent of i whose sign is false
+        // retrieve oldest parent of i within the same alternation of and
         unsigned pi = i;
+        auto [_s, _depth, _f, _p] = todo[i];
         while (pi != 0) {
             auto [s, depth, f, p] = todo[pi];
-            if (s)
+            if (depth != _depth)
                 break;
             pi = p;
         }
