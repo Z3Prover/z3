@@ -40,6 +40,8 @@ class lp_bound_propagator {
         return x != UINT_MAX;
     }
 public:
+    const lar_solver& lp() const { return m_imp.lp(); }
+    lar_solver& lp() { return m_imp.lp(); }
     bool upper_bound_is_available(unsigned j) const {
         switch (get_column_type(j)) {
         case column_type::fixed:
@@ -138,12 +140,13 @@ private:
         return n_of_non_fixed <= 1 && !big_bound;
     }
 
+    
     void add_bounds_for_zero_var(lpvar monic_var, lpvar zero_var) {
-        add_lower_bound_monic(monic_var, mpq(0), false, [zero_var](lar_solver& s){return s.get_bound_constraint_witnesses_for_column(zero_var);});
-        add_upper_bound_monic(monic_var, mpq(0), false, [zero_var](lar_solver& s){return s.get_bound_constraint_witnesses_for_column(zero_var);});
+        add_lower_bound_monic(monic_var, mpq(0), false, [zero_var](int* s){return ((lp_bound_propagator*)s)->lp().get_bound_constraint_witnesses_for_column(zero_var);});
+        add_upper_bound_monic(monic_var, mpq(0), false, [zero_var](int* s){return ((lp_bound_propagator*)s)->lp().get_bound_constraint_witnesses_for_column(zero_var);});
     }
 
-    void add_lower_bound_monic(lpvar monic_var, const mpq& v, bool is_strict, std::function<u_dependency* (lar_solver&)> explain_dep) {
+    void add_lower_bound_monic(lpvar monic_var, const mpq& v, bool is_strict, std::function<u_dependency* (int*)> explain_dep) {
        unsigned k;
        if (!try_get_value(m_improved_lower_bounds, monic_var, k)) {
             m_improved_lower_bounds[monic_var] = m_ibounds.size();
@@ -152,12 +155,12 @@ private:
             auto& found_bound = m_ibounds[k];
             if (v > found_bound.m_bound || (v == found_bound.m_bound && !found_bound.m_strict && is_strict)) {
                 found_bound = implied_bound(v, monic_var, true, is_strict, explain_dep);
-                TRACE("add_bound", m_imp.lp().print_implied_bound(found_bound, tout););
+                TRACE("add_bound", lp().print_implied_bound(found_bound, tout););
             }
        }
     }
 
-    void add_upper_bound_monic(lpvar monic_var, const mpq& bound_val, bool is_strict, std::function <u_dependency* (lar_solver&)> explain_bound) {
+    void add_upper_bound_monic(lpvar monic_var, const mpq& bound_val, bool is_strict, std::function <u_dependency* (int*)> explain_bound) {
         unsigned k;
         if (!try_get_value(m_improved_upper_bounds, monic_var, k)) {
             m_improved_upper_bounds[monic_var] = m_ibounds.size();
@@ -166,7 +169,7 @@ private:
             auto& found_bound = m_ibounds[k];
             if (bound_val > found_bound.m_bound || (bound_val == found_bound.m_bound && !found_bound.m_strict && is_strict)) {
                 found_bound = implied_bound(bound_val, monic_var, false, is_strict, explain_bound);
-                TRACE("add_bound", m_imp.lp().print_implied_bound(found_bound, tout););
+                TRACE("add_bound", lp().print_implied_bound(found_bound, tout););
             }
        }
     }
@@ -193,66 +196,63 @@ private:
                     bound_value = lp().column_lower_bound(non_fixed);
                     is_strict = !bound_value.y.is_zero();
                     if (k.is_pos())
-                        add_lower_bound_monic(monic_var, k * bound_value.x, is_strict , [non_fixed](lar_solver& s) { return s.get_column_lower_bound_witness(non_fixed); });
+                        add_lower_bound_monic(monic_var, k * bound_value.x, is_strict , [non_fixed](int* s) { return ((lp_bound_propagator*)s)->lp().get_column_lower_bound_witness(non_fixed); });
                     else
-                        add_upper_bound_monic(monic_var, k * bound_value.x, is_strict, [non_fixed](lar_solver& s) {return s.get_column_lower_bound_witness(non_fixed);});
+                        add_upper_bound_monic(monic_var, k * bound_value.x, is_strict, [non_fixed](int* s) {return ((lp_bound_propagator*)s)->lp().get_column_lower_bound_witness(non_fixed);});
                 }
                 if (upper_bound_is_available(non_fixed)) {
                     bound_value = lp().column_upper_bound(non_fixed);
                     is_strict = !bound_value.y.is_zero();
                     if (k.is_neg())
-                        add_lower_bound_monic(monic_var, k * bound_value.x, is_strict, [non_fixed](lar_solver& s) {return s.get_column_upper_bound_witness(non_fixed);});
+                        add_lower_bound_monic(monic_var, k * bound_value.x, is_strict, [non_fixed](int* s) {return ((lp_bound_propagator*)s)->lp().get_column_upper_bound_witness(non_fixed);});
                     else
-                        add_upper_bound_monic(monic_var, k * bound_value.x, is_strict, [non_fixed](lar_solver& s) {return s.get_column_upper_bound_witness(non_fixed);});
+                        add_upper_bound_monic(monic_var, k * bound_value.x, is_strict, [non_fixed](int* s) {return ((lp_bound_propagator*)s)->lp().get_column_upper_bound_witness(non_fixed);});
                 }
 
                 if (lower_bound_is_available(monic_var)) {
                     bound_value = lp().column_lower_bound(monic_var);
                     is_strict = !bound_value.y.is_zero();
                     if (k.is_pos())
-                        add_lower_bound_monic(non_fixed, bound_value.x / k, is_strict, [monic_var](lar_solver& s) {return s.get_column_lower_bound_witness(monic_var);});
+                        add_lower_bound_monic(non_fixed, bound_value.x / k, is_strict, [monic_var](int* s) {return ((lp_bound_propagator*)s)->lp().get_column_lower_bound_witness(monic_var);});
                     else
-                        add_upper_bound_monic(non_fixed, bound_value.x / k, is_strict, [monic_var](lar_solver & s) {return s.get_column_lower_bound_witness(monic_var);});
+                        add_upper_bound_monic(non_fixed, bound_value.x / k, is_strict, [monic_var](int* s) {return ((lp_bound_propagator*)s)->lp().get_column_lower_bound_witness(monic_var);});
                 }
 
                 if (upper_bound_is_available(monic_var)) {
                     bound_value = lp().column_upper_bound(monic_var);
                     is_strict = !bound_value.y.is_zero();
                     if (k.is_neg())
-                        add_lower_bound_monic(non_fixed, bound_value.x / k, is_strict, [monic_var](lar_solver& s) {return s.get_column_upper_bound_witness(monic_var);});
+                        add_lower_bound_monic(non_fixed, bound_value.x / k, is_strict, [monic_var](int* s) {return ((lp_bound_propagator*)s)->lp().get_column_upper_bound_witness(monic_var);});
                     else
-                        add_upper_bound_monic(non_fixed, bound_value.x / k, is_strict, [monic_var](lar_solver & s) {return s.get_column_upper_bound_witness(monic_var);});
+                        add_upper_bound_monic(non_fixed, bound_value.x / k, is_strict, [monic_var](int* s) {return ((lp_bound_propagator*)s)->lp().get_column_upper_bound_witness(monic_var);});
                 }
 
                 
             } else {  // all variables are fixed
-                add_lower_bound_monic(monic_var, k, false, [vars](lar_solver& s){return s.get_bound_constraint_witnesses_for_columns(vars);});
-                add_upper_bound_monic(monic_var, k, false, [vars](lar_solver& s){return s.get_bound_constraint_witnesses_for_columns(vars);});                
+                add_lower_bound_monic(monic_var, k, false, [vars](int* s){return ((lp_bound_propagator*)s)->lp().get_bound_constraint_witnesses_for_columns(vars);});
+                add_upper_bound_monic(monic_var, k, false, [vars](int* s){return ((lp_bound_propagator*)s)->lp().get_bound_constraint_witnesses_for_columns(vars);});                
             }
         }
     }
-
-    const lar_solver& lp() const { return m_imp.lp(); }
-    lar_solver& lp() { return m_imp.lp(); }
 
     column_type get_column_type(unsigned j) const {
         return (*m_column_types)[j];
     }
 
     const impq& get_lower_bound(unsigned j) const {
-        return m_imp.lp().get_lower_bound(j);
+        return lp().get_lower_bound(j);
     }
 
     const mpq& get_lower_bound_rational(unsigned j) const {
-        return m_imp.lp().get_lower_bound(j).x;
+        return lp().get_lower_bound(j).x;
     }
 
     const impq& get_upper_bound(unsigned j) const {
-        return m_imp.lp().get_upper_bound(j);
+        return lp().get_upper_bound(j);
     }
 
     const mpq& get_upper_bound_rational(unsigned j) const {
-        return m_imp.lp().get_upper_bound(j).x;
+        return lp().get_upper_bound(j).x;
     }
 
     // require also the zero infinitesemal part
@@ -260,8 +260,8 @@ private:
         return (*m_column_types)[j] == column_type::fixed && get_lower_bound(j).y.is_zero();
     }
 
-    void add_bound(mpq const& v, unsigned j, bool is_low, bool strict, std::function<u_dependency* (lar_solver&)> explain_bound) {
-        j = m_imp.lp().column_to_reported_index(j);
+    void add_bound(mpq const& v, unsigned j, bool is_low, bool strict, std::function<u_dependency* (int*)> explain_bound) {
+        j = lp().column_to_reported_index(j);
 
         lconstraint_kind kind = is_low ? GE : LE;
         if (strict)
@@ -277,12 +277,12 @@ private:
                     found_bound.m_bound = v;
                     found_bound.m_strict = strict;
                     found_bound.set_explain(explain_bound);
-                    TRACE("add_bound", m_imp.lp().print_implied_bound(found_bound, tout););
+                    TRACE("add_bound", lp().print_implied_bound(found_bound, tout););
                 }
             } else {
                 m_improved_lower_bounds[j] = m_ibounds.size();
                 m_ibounds.push_back(implied_bound(v, j, is_low, strict, explain_bound));
-                TRACE("add_bound", m_imp.lp().print_implied_bound(m_ibounds.back(), tout););
+                TRACE("add_bound", lp().print_implied_bound(m_ibounds.back(), tout););
             }
         } else {  // the upper bound case
             if (try_get_value(m_improved_upper_bounds, j, k)) {
@@ -291,12 +291,12 @@ private:
                     found_bound.m_bound = v;
                     found_bound.m_strict = strict;
                     found_bound.set_explain(explain_bound);
-                    TRACE("add_bound", m_imp.lp().print_implied_bound(found_bound, tout););
+                    TRACE("add_bound", lp().print_implied_bound(found_bound, tout););
                 }
             } else {
                 m_improved_upper_bounds[j] = m_ibounds.size();
                 m_ibounds.push_back(implied_bound(v, j, is_low, strict, explain_bound));
-                TRACE("add_bound", m_imp.lp().print_implied_bound(m_ibounds.back(), tout););
+                TRACE("add_bound", lp().print_implied_bound(m_ibounds.back(), tout););
             }
         }
     }

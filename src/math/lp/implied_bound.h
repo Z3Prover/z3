@@ -20,7 +20,6 @@ Revision History:
 #pragma once
 #include "math/lp/lp_settings.h"
 #include "math/lp/lar_constraints.h"
-#include "math/lp/lar_solver.h"
 namespace lp {
 class implied_bound {
     public:
@@ -34,10 +33,10 @@ class implied_bound {
     bool m_is_lower_bound;
 	bool m_strict;
     private:
-    std::function<u_dependency*(lar_solver&)> m_explain_bound = nullptr;
+    std::function<u_dependency*(int *)> m_explain_bound = nullptr;
     public:
-    u_dependency* explain(lar_solver& s) const { return m_explain_bound(s); }
-    void set_explain(std::function<u_dependency*(lar_solver&)> f) { m_explain_bound = f; }
+    u_dependency* explain(int * s) const { return m_explain_bound(s); }
+    void set_explain(std::function<u_dependency*(int *)> f) { m_explain_bound = f; }
     lconstraint_kind kind() const {
         lconstraint_kind k = m_is_lower_bound? GE : LE;
         if (m_strict)
@@ -49,7 +48,7 @@ class implied_bound {
                   unsigned j,
                   bool is_lower_bound,
 				  bool is_strict,
-                  std::function<u_dependency*(lar_solver&)> get_dep):
+                  std::function<u_dependency*(int *)> get_dep):
         m_bound(a),
         m_j(j),
         m_is_lower_bound(is_lower_bound),
