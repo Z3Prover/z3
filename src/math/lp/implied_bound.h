@@ -35,6 +35,7 @@ class implied_bound {
     private:
     std::function<u_dependency*(int *)> m_explain_bound = nullptr;
     public:
+    // s is expected to be the pointer to lp_bound_propagator.
     u_dependency* explain(int * s) const { return m_explain_bound(s); }
     void set_explain(std::function<u_dependency*(int *)> f) { m_explain_bound = f; }
     lconstraint_kind kind() const {
