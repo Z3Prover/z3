@@ -137,14 +137,18 @@ private:
         return n_of_non_fixed <= 1;
     }
 
-    
     void add_bounds_for_zero_var(lpvar monic_var, lpvar zero_var) {
-        add_lower_bound_monic(monic_var, mpq(0), false, [zero_var](int* s){return ((lp_bound_propagator*)s)->lp().get_bound_constraint_witnesses_for_column(zero_var);});
-        add_upper_bound_monic(monic_var, mpq(0), false, [zero_var](int* s){return ((lp_bound_propagator*)s)->lp().get_bound_constraint_witnesses_for_column(zero_var);});
+        auto lambda = [zero_var](int* s) {
+            return ((lp_bound_propagator*)s)->lp().get_bound_constraint_witnesses_for_column(zero_var);
+        };
+        TRACE("add_bound", lp().print_column_info(zero_var, tout) << std::endl;);      
+        add_lower_bound_monic(monic_var, mpq(0), false, lambda);
+        add_upper_bound_monic(monic_var, mpq(0), false, lambda);
     }
 
     void add_lower_bound_monic(lpvar j, const mpq& v, bool is_strict, std::function<u_dependency* (int*)> explain_dep) {
        unsigned k;
+       TRACE("add_bound", lp().print_column_info(j, tout) << std::endl;);
        j = lp().column_to_reported_index(j);
        if (!try_get_value(m_improved_lower_bounds, j, k)) {
             m_improved_lower_bounds[j] = m_ibounds.size();

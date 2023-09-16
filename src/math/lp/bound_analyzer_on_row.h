@@ -319,6 +319,7 @@ private:
         }
     }   
     static u_dependency* explain_bound_on_var_on_coeff(B* bp, unsigned bound_j, bool coeff_before_j_is_pos, bool is_lower_bound, bool strict, unsigned row_index) {
+        TRACE("bound_analyzer", tout << "explain_bound_on_var_on_coeff, bound_j = " << bound_j << ", coeff_before_j_is_pos = " << coeff_before_j_is_pos << ", is_lower_bound = " << is_lower_bound << ", strict = " << strict << ", row_index = " << row_index << "\n";);
         auto& lar = bp->lp();
         int bound_sign = (is_lower_bound ? 1 : -1);
         int j_sign = (coeff_before_j_is_pos ? 1 : -1) * bound_sign;
