@@ -146,29 +146,31 @@ private:
         add_upper_bound_monic(monic_var, mpq(0), false, [zero_var](int* s){return ((lp_bound_propagator*)s)->lp().get_bound_constraint_witnesses_for_column(zero_var);});
     }
 
-    void add_lower_bound_monic(lpvar monic_var, const mpq& v, bool is_strict, std::function<u_dependency* (int*)> explain_dep) {
+    void add_lower_bound_monic(lpvar j, const mpq& v, bool is_strict, std::function<u_dependency* (int*)> explain_dep) {
        unsigned k;
-       if (!try_get_value(m_improved_lower_bounds, monic_var, k)) {
-            m_improved_lower_bounds[monic_var] = m_ibounds.size();
-            m_ibounds.push_back(implied_bound(v, monic_var, true, is_strict, explain_dep));
+       j = lp().column_to_reported_index(j);
+       if (!try_get_value(m_improved_lower_bounds, j, k)) {
+            m_improved_lower_bounds[j] = m_ibounds.size();
+            m_ibounds.push_back(implied_bound(v, j, true, is_strict, explain_dep));
        } else {
             auto& found_bound = m_ibounds[k];
             if (v > found_bound.m_bound || (v == found_bound.m_bound && !found_bound.m_strict && is_strict)) {
-                found_bound = implied_bound(v, monic_var, true, is_strict, explain_dep);
+                found_bound = implied_bound(v, j, true, is_strict, explain_dep);
                 TRACE("add_bound", lp().print_implied_bound(found_bound, tout););
             }
        }
     }
 
-    void add_upper_bound_monic(lpvar monic_var, const mpq& bound_val, bool is_strict, std::function <u_dependency* (int*)> explain_bound) {
+    void add_upper_bound_monic(lpvar j, const mpq& bound_val, bool is_strict, std::function <u_dependency* (int*)> explain_bound) {
+        j = lp().column_to_reported_index(j);
         unsigned k;
-        if (!try_get_value(m_improved_upper_bounds, monic_var, k)) {
-            m_improved_upper_bounds[monic_var] = m_ibounds.size();
-            m_ibounds.push_back(implied_bound(bound_val, monic_var, false, is_strict, explain_bound));
+        if (!try_get_value(m_improved_upper_bounds, j, k)) {
+            m_improved_upper_bounds[j] = m_ibounds.size();
+            m_ibounds.push_back(implied_bound(bound_val, j, false, is_strict, explain_bound));
        } else {
             auto& found_bound = m_ibounds[k];
             if (bound_val > found_bound.m_bound || (bound_val == found_bound.m_bound && !found_bound.m_strict && is_strict)) {
-                found_bound = implied_bound(bound_val, monic_var, false, is_strict, explain_bound);
+                found_bound = implied_bound(bound_val, j, false, is_strict, explain_bound);
                 TRACE("add_bound", lp().print_implied_bound(found_bound, tout););
             }
        }
