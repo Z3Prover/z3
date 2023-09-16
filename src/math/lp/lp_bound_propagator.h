@@ -121,7 +121,6 @@ private:
     bool is_linear(const svector<lpvar>& m, lpvar& zero_var, lpvar& non_fixed) {
         zero_var = non_fixed = null_lpvar;
         unsigned n_of_non_fixed = 0;
-        bool big_bound = false;
         for (lpvar v : m) {
             if (!this->column_is_fixed(v)) {
                 n_of_non_fixed++;
@@ -133,11 +132,9 @@ private:
                 zero_var = v;
                 return true;
             } 
-            if (b.is_big()) {
-                big_bound |= true;
-            }
+            
         }
-        return n_of_non_fixed <= 1 && !big_bound;
+        return n_of_non_fixed <= 1;
     }
 
     
