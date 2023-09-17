@@ -18,7 +18,7 @@ class lp_bound_propagator {
     std::unordered_map<unsigned, unsigned> m_improved_upper_bounds;
 
     T& m_imp;
-    vector<implied_bound> m_ibounds;
+    std::vector<implied_bound> m_ibounds;
 
     map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>> m_val2fixed_row;
     // works for rows of the form x + y + sum of fixed = 0
@@ -109,12 +109,12 @@ private:
    public:
     lp_bound_propagator(T& imp) : m_imp(imp) {}
 
-    const vector<implied_bound>& ibounds() const { return m_ibounds; }
+    const std::vector<implied_bound>& ibounds() const { return m_ibounds; }
 
     void init() {
         m_improved_upper_bounds.clear();
         m_improved_lower_bounds.clear();
-        m_ibounds.reset();
+        m_ibounds.clear();
         m_column_types = &lp().get_column_types();
     }
    
@@ -151,7 +151,7 @@ private:
        TRACE("add_bound", lp().print_column_info(j, tout) << std::endl;);
        j = lp().column_to_reported_index(j);
        if (!try_get_value(m_improved_lower_bounds, j, k)) {
-            m_improved_lower_bounds[j] = m_ibounds.size();
+            m_improved_lower_bounds[j] = static_cast<unsigned>(m_ibounds.size());
             m_ibounds.push_back(implied_bound(v, j, true, is_strict, explain_dep));
        } else {
             auto& found_bound = m_ibounds[k];
@@ -166,7 +166,7 @@ private:
         j = lp().column_to_reported_index(j);
         unsigned k;
         if (!try_get_value(m_improved_upper_bounds, j, k)) {
-            m_improved_upper_bounds[j] = m_ibounds.size();
+            m_improved_upper_bounds[j] = static_cast<unsigned>(m_ibounds.size());
             m_ibounds.push_back(implied_bound(bound_val, j, false, is_strict, explain_bound));
        } else {
             auto& found_bound = m_ibounds[k];
@@ -333,7 +333,7 @@ private:
                     TRACE("add_bound", lp().print_implied_bound(found_bound, tout););
                 }
             } else {
-                m_improved_lower_bounds[j] = m_ibounds.size();
+                m_improved_lower_bounds[j] = static_cast<unsigned>(m_ibounds.size());
                 m_ibounds.push_back(implied_bound(v, j, is_low, strict, explain_bound));
                 TRACE("add_bound", lp().print_implied_bound(m_ibounds.back(), tout););
             }
@@ -347,7 +347,7 @@ private:
                     TRACE("add_bound", lp().print_implied_bound(found_bound, tout););
                 }
             } else {
-                m_improved_upper_bounds[j] = m_ibounds.size();
+                m_improved_upper_bounds[j] = static_cast<unsigned>(m_ibounds.size());
                 m_ibounds.push_back(implied_bound(v, j, is_low, strict, explain_bound));
                 TRACE("add_bound", lp().print_implied_bound(m_ibounds.back(), tout););
             }
