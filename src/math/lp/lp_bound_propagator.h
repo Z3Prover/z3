@@ -6,9 +6,9 @@
 */
 #pragma once
 #include <utility>
-
 #include "math/lp/lp_settings.h"
 #include "util/uint_set.h"
+#include "math/lp/implied_bound.h"
 namespace lp {
 template <typename T>
 class lp_bound_propagator {
