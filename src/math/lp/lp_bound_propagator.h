@@ -9,29 +9,18 @@
 #include "math/lp/lp_settings.h"
 #include "util/uint_set.h"
 #include "math/lp/implied_bound.h"
-#include <vector>
+#include "util/vector.h"
 namespace lp {
-template <typename T>
-struct my_allocator {
-    using value_type = T;
-
-    T* allocate(std::size_t n) {
-        return static_cast<T*>(memory::allocate(n * sizeof(T)));
-    }
-
-    void deallocate(T* p, std::size_t n) {
-        memory::deallocate(p);
-    }
-};    
+    
 template <typename T>
 class lp_bound_propagator {
-	uint_set m_visited_rows;
+    uint_set m_visited_rows;
     // these maps map a column index to the corresponding index in ibounds
     u_map<unsigned> m_improved_lower_bounds;
     u_map<unsigned> m_improved_upper_bounds;
 
     T& m_imp;
-    std::vector<implied_bound, my_allocator<implied_bound>> m_ibounds;
+    std_vector<implied_bound> m_ibounds;
 
     map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>> m_val2fixed_row;
     // works for rows of the form x + y + sum of fixed = 0
@@ -119,10 +108,10 @@ private:
         ~reset_cheap_eq() { p.reset_cheap_eq_eh(); }
     };
 
-   public:
+public:
     lp_bound_propagator(T& imp) : m_imp(imp) {}
 
-    const std::vector<implied_bound, my_allocator<implied_bound>>& ibounds() const { return m_ibounds; }
+    const std_vector<implied_bound>& ibounds() const { return m_ibounds; }
 
     void init() {
         m_improved_upper_bounds.reset();
