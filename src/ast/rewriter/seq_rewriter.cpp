@@ -1716,6 +1716,10 @@ br_status seq_rewriter::mk_seq_last_index(expr* a, expr* b, expr_ref& result) {
         result = m_autil.mk_numeral(rational(idx), true);
         return BR_DONE;
     }
+    if (a == b) {
+        result = m_autil.mk_int(0);
+        return BR_DONE;
+    }
     return BR_FAILED;
 }
 

@@ -128,6 +128,19 @@ void dealloc_svect(T * ptr) {
     memory::deallocate(ptr);
 }
 
+template <typename T>
+struct std_allocator {
+    using value_type = T;
+
+    T* allocate(std::size_t n) {
+        return static_cast<T*>(memory::allocate(n * sizeof(T)));
+    }
+
+    void deallocate(T* p, std::size_t n) {
+        memory::deallocate(p);
+    }
+};
+
 struct mem_stat {
 };
 

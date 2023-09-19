@@ -2176,7 +2176,8 @@ public:
         if (is_infeasible()) {
             get_infeasibility_explanation_and_set_conflict();
             // verbose_stream() << "unsat\n";
-        } else {
+        }
+        else {
             for (auto &ib : m_bp.ibounds()) {
                 m.inc();
                 if (ctx().inconsistent())

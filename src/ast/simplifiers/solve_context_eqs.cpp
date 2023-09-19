@@ -243,8 +243,8 @@ namespace euf {
 
     void solve_context_eqs::collect_nested_equalities(dependent_expr const& df, expr_mark& visited, dep_eq_vector& eqs) {
 
-        svector<std::tuple<bool,unsigned,expr*>> todo;
-        todo.push_back({ false, 0, df.fml()});
+        svector<std::tuple<bool,unsigned,expr*, unsigned>> todo;
+        todo.push_back({ false, 0, df.fml(), 0});
 
         // even depth is conjunctive context, odd is disjunctive
         // when alternating between conjunctive and disjunctive context, increment depth.
@@ -255,37 +255,85 @@ namespace euf {
             return (0 == depth % 2) ? depth : depth + 1;
         };
 
-        while (!todo.empty()) {
-            auto [s, depth, f] = todo.back();
-            todo.pop_back();
+        for (unsigned i = 0; i < todo.size(); ++i) {
+            auto [s, depth, f, p] = todo[i];
             if (visited.is_marked(f))
                 continue;
             visited.mark(f, true);
             if (s && m.is_and(f)) {
                 for (auto* arg : *to_app(f))
-                    todo.push_back({ s, inc_or(depth), arg });
+                    todo.push_back({ s, inc_or(depth), arg, i });
             }
             else if (!s && m.is_or(f)) {
                 for (auto* arg : *to_app(f))
-                    todo.push_back({ s, inc_or(depth), arg });
+                    todo.push_back({ s, inc_or(depth), arg, i });
             }
             if (!s && m.is_and(f)) {
                 for (auto* arg : *to_app(f))
-                    todo.push_back({ s, inc_and(depth), arg });
+                    todo.push_back({ s, inc_and(depth), arg, i });
             }
             else if (s && m.is_or(f)) {
                 for (auto* arg : *to_app(f))
-                    todo.push_back({ s, inc_and(depth), arg });
+                    todo.push_back({ s, inc_and(depth), arg, i });
             }
             else if (m.is_not(f, f))
-                todo.push_back({ !s, depth, f });
+                todo.push_back({ !s, depth, f, i });
             else if (!s && 1 <= depth) {
+                unsigned sz = eqs.size();
                 for (extract_eq* ex : m_solve_eqs.m_extract_plugins) {
                     ex->set_allow_booleans(false);
                     ex->get_eqs(dependent_expr(m, f, nullptr, df.dep()), eqs);
                     ex->set_allow_booleans(true);
                 }
+                // prune eqs for solutions that are not safe in df.fml()
+                for (; sz < eqs.size(); ++sz) {
+                    if (!is_safe_var(eqs[sz].var, i, df.fml(), todo)) {
+                        eqs[sz] = eqs.back();
+                        --sz;
+                        eqs.pop_back();
+                    }
+                }
             }
         }
     }
+    
+    bool solve_context_eqs::is_safe_var(expr* x, unsigned i, expr* f, svector<std::tuple<bool,unsigned,expr*,unsigned>> const& todo) {
+        m_contains_v.reset();
+        m_todo.push_back(f);
+        mark_occurs(m_todo, x, m_contains_v);
+        SASSERT(m_todo.empty());
+
+        auto is_parent = [&](unsigned p, unsigned i) {
+            while (p != i && i != 0) {
+                auto [_s,_depth, _f, _p] = todo[i];
+                i = _p;
+            }
+            return p == i;
+        };
+
+        // retrieve oldest parent of i within the same alternation of and
+        unsigned pi = i;
+        auto [_s, _depth, _f, _p] = todo[i];
+        while (pi != 0) {
+            auto [s, depth, f, p] = todo[pi];
+            if (depth != _depth)
+                break;
+            pi = p;
+        }
+        
+        // determine if j and j have common conjunctive parent
+        // for every j in todo.
+        for (unsigned j = 0; j < todo.size(); ++j) {
+            auto [s, depth, f, p] = todo[j];
+            if (i == j || !m_contains_v.is_marked(f))
+                continue;
+            if (is_parent(j, i)) // j is a parent if i
+                continue;
+            if (is_parent(pi, j)) // pi is a parent of j
+                continue;
+            return false;
+        }
+        return true;
+    }
+
 }

@@ -27,7 +27,8 @@ enum arith_pattern_inference_kind {
 };
 
 struct pattern_inference_params {
-    unsigned                      m_pi_max_multi_patterns; 
+    bool                          m_pi_enabled = true;
+    unsigned                      m_pi_max_multi_patterns = 1; 
     bool                          m_pi_block_loop_patterns; 
     bool                          m_pi_decompose_patterns;
     arith_pattern_inference_kind  m_pi_arith;
@@ -35,13 +36,11 @@ struct pattern_inference_params {
     unsigned                      m_pi_arith_weight;
     unsigned                      m_pi_non_nested_arith_weight;
     bool                          m_pi_pull_quantifiers;
-    int                           m_pi_nopat_weight;
-    bool                          m_pi_avoid_skolems;
+    int                           m_pi_nopat_weight = -1;
+    bool                          m_pi_avoid_skolems = true;
     bool                          m_pi_warnings;
     
-    pattern_inference_params(params_ref const & p = params_ref()):
-        m_pi_nopat_weight(-1),
-        m_pi_avoid_skolems(true) {
+    pattern_inference_params(params_ref const & p = params_ref()) {
         updt_params(p);
     }
 
