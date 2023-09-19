@@ -24,7 +24,8 @@ Notes:
  * Add or overwrite value in model.
  */
 void model_converter::display_add(std::ostream& out, smt2_pp_environment& env, ast_manager& m, func_decl* f, expr* e) {
-    VERIFY(e);
+    if (!e)
+        return;
     VERIFY(f->get_range() == e->get_sort());
     ast_smt2_pp_rev(out, f, e, env, params_ref(), 0, "model-add") << "\n";
 }
