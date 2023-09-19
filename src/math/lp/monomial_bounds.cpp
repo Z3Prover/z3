@@ -24,7 +24,6 @@ namespace nla {
         }
     }
 
-
     bool monomial_bounds::is_too_big(mpq const& q) const {
         return rational(q).bitsize() > 256;
     }
@@ -258,53 +257,6 @@ namespace nla {
         }
     }
 
-    void monomial_bounds::unit_propagate() {        
-        for (lpvar v : c().m_monics_with_changed_bounds) 
-            unit_propagate(c().emons()[v]);
-         c().m_monics_with_changed_bounds.clear();        
-    }
-
-    void monomial_bounds::unit_propagate(monic const& m) {
-        m_propagated.reserve(m.var() + 1, false);
-        if (m_propagated[m.var()])
-            return;
-
-        lpvar non_fixed = null_lpvar, zero_var = null_lpvar; 
-        if (!is_linear(m, zero_var, non_fixed))
-            return;
-        
-        c().trail().push(set_bitvector_trail(m_propagated, m.var()));
-        
-        
-        if (zero_var != null_lpvar) {
-            new_lemma lemma(c(), "fixed-values");
-            lemma.explain_fixed(zero_var);
-            lemma += ineq(m.var(), lp::lconstraint_kind::EQ, 0);
-        }
-        else {
-            rational k =  rational(1);        
-            for (auto v : m) 
-                if (v != non_fixed) {
-                    k *= c().lra.get_column_value(v).x;
-                    if (k.is_big()) return;
-                }
- 
-            new_lemma lemma(c(), "fixed-values");
- 
-            for (auto v : m) 
-                if (v != non_fixed) 
-                    lemma.explain_fixed(v);
-            
-            if (non_fixed != null_lpvar) {
-                lp::lar_term term;
-                term.add_var(m.var());
-                term.add_monomial(-k, non_fixed);
-                lemma += ineq(term, lp::lconstraint_kind::EQ, 0);
-            } else {
-                lemma += ineq(m.var(), lp::lconstraint_kind::EQ, k);
-            }
-        }
-    }
     // returns true iff  (all variables are fixed,
     // or all but one variable are fixed) and the bounds are not big,
     // or at least one variable is fixed to zero.

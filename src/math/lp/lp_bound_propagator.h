@@ -162,12 +162,12 @@ private:
     void add_lower_bound_monic(lpvar j, const mpq& v, bool is_strict, std::function<u_dependency* (int*)> explain_dep) {
        TRACE("add_bound", lp().print_column_info(j, tout) << std::endl;);
        j = lp().column_to_reported_index(j);
-       auto *e = m_improved_lower_bounds.find_core(j);
-       if (!e) {
+       unsigned k;
+       if (!m_improved_lower_bounds.find(j, k)) {
             m_improved_lower_bounds.insert(j,static_cast<unsigned>(m_ibounds.size()));
             m_ibounds.push_back(implied_bound(v, j, true, is_strict, explain_dep));
        } else {
-            auto& found_bound = m_ibounds[e->get_data().m_value];
+            auto& found_bound = m_ibounds[k];
             if (v > found_bound.m_bound || (v == found_bound.m_bound && !found_bound.m_strict && is_strict)) {
                 found_bound = implied_bound(v, j, true, is_strict, explain_dep);
                 TRACE("add_bound", lp().print_implied_bound(found_bound, tout););
@@ -177,12 +177,12 @@ private:
 
     void add_upper_bound_monic(lpvar j, const mpq& bound_val, bool is_strict, std::function <u_dependency* (int*)> explain_bound) {
         j = lp().column_to_reported_index(j);
-        auto *e = m_improved_upper_bounds.find_core(j);
-        if (!e) {
+        unsigned k;
+        if (!m_improved_upper_bounds.find(j, k)) {
             m_improved_upper_bounds.insert(j, static_cast<unsigned>(m_ibounds.size()));
             m_ibounds.push_back(implied_bound(bound_val, j, false, is_strict, explain_bound));
         } else {
-            auto& found_bound = m_ibounds[e->get_data().m_value];
+            auto& found_bound = m_ibounds[k];
             if (bound_val > found_bound.m_bound || (bound_val == found_bound.m_bound && !found_bound.m_strict && is_strict)) {
                 found_bound = implied_bound(bound_val, j, false, is_strict, explain_bound);
                 TRACE("add_bound", lp().print_implied_bound(found_bound, tout););
@@ -336,9 +336,9 @@ private:
         if (!m_imp.bound_is_interesting(j, kind, v))
             return;
         if (is_low) {
-            auto *e = m_improved_lower_bounds.find_core(j);
-            if (e) {
-                auto& found_bound = m_ibounds[e->get_data().m_value];
+            unsigned k;
+            if (m_improved_lower_bounds.find(j, k)) {
+                auto& found_bound = m_ibounds[k];
                 if (v > found_bound.m_bound || (v == found_bound.m_bound && !found_bound.m_strict && strict)) {
                     found_bound.m_bound = v;
                     found_bound.m_strict = strict;
@@ -351,9 +351,9 @@ private:
                 TRACE("add_bound", lp().print_implied_bound(m_ibounds.back(), tout););
             }
         } else {  // the upper bound case
-            auto *e = m_improved_upper_bounds.find_core(j);
-            if (e) {
-                auto& found_bound = m_ibounds[e->get_data().m_value];
+            unsigned k;
+            if (m_improved_upper_bounds.find(j, k)) {
+                auto& found_bound = m_ibounds[k];
                 if (v < found_bound.m_bound || (v == found_bound.m_bound && !found_bound.m_strict && strict)) {
                     found_bound.m_bound = v;
                     found_bound.m_strict = strict;
@@ -591,12 +591,12 @@ private:
             lp_assert(y_sign == 1 || y_sign == -1);
             auto& table = y_sign == 1 ? m_row2index_pos : m_row2index_neg;
             const auto& v = val(x);
-            auto * e = table.find_core(v);
-            if (!e) {
+            unsigned found_i;;
+            
+            if (!table.find(v, found_i)) {
                 table.insert(v, i);
             } else {
                 explanation ex;
-                unsigned found_i = e->get_data().m_value;
                 unsigned base_of_found = lp().get_base_column_in_row(found_i);
                 if (is_int(x) != is_int(base_of_found) || ival(x).y != ival(base_of_found).y)
                     continue;

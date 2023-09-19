@@ -2159,20 +2159,6 @@ public:
         return true;            
     }
 
-    void propagate_nla() {
-        if (!m_nla)
-            return;
-        m_nla->propagate(m_nla_lemma_vector);
-        if (lp().get_status() == lp::lp_status::INFEASIBLE) {
-            TRACE("arith", tout << "propagation conflict\n";);
-            get_infeasibility_explanation_and_set_conflict();
-        } 
-        else {
-            for (nla::lemma const& l : m_nla_lemma_vector)
-                false_case_of_check_nla(l);
-        }
-    }
-
     bool should_propagate() const {
         return bound_prop_mode::BP_NONE != propagation_mode();
     }

@@ -20,7 +20,6 @@ namespace nla {
 
         void var2interval(lpvar v, scoped_dep_interval& i);
         bool is_too_big(mpq const& q) const;
-        bool propagate_down(monic const& m, lpvar u);
         bool propagate_value(dep_interval& range, lpvar v);
         bool propagate_value(dep_interval& range, lpvar v, unsigned power);
         void compute_product(unsigned start, monic const& m, scoped_dep_interval& i);
@@ -32,12 +31,11 @@ namespace nla {
 
         // monomial propagation
         bool_vector m_propagated;
-        void unit_propagate(monic const& m);
         bool is_linear(monic const& m, lpvar& zero_var, lpvar& non_fixed);
         
     public:
         monomial_bounds(core* core);
         void propagate();
-        void unit_propagate();
+        
     }; 
 }

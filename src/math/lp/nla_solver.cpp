@@ -46,10 +46,6 @@ namespace nla {
         return m_core->check(lits, lemmas);
     }
 
-    void solver::propagate(vector<lemma>& lemmas) {
-        m_core->propagate(lemmas);
-    }
-    
     void solver::push(){
         m_core->push();
     }

@@ -1836,17 +1836,6 @@ bool core::improve_bounds() {
     }
     return bounds_improved;
 }
-    
-void core::propagate(vector<lemma>& lemmas) {
-   // propagate linear monomials, those that have all, or all but one, variables fixed
-    lemmas.reset();
-    m_lemma_vec = &lemmas;
- 
-    m_monomial_bounds.unit_propagate();
-   
-}
-
-
 
 } // end of nla
 
