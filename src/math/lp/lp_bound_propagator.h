@@ -183,27 +183,27 @@ public:
     }
 
     void propagate_monic(lpvar monic_var, const svector<lpvar>& vars) {
-       lpvar non_fixed, zero_var;
-       if (!is_linear(vars, zero_var, non_fixed)) 
-           return;
-
-       if (zero_var != null_lpvar) 
+        lpvar non_fixed, zero_var;
+        if (!is_linear(vars, zero_var, non_fixed)) 
+            return;
+        
+        if (zero_var != null_lpvar) 
             add_bounds_for_zero_var(monic_var, zero_var);
-       else {
+        else {
             rational k = rational(1);
             for (auto v : vars)
                 if (v != non_fixed) {
                     k *= lp().get_column_value(v).x;
                     if (k.is_big()) return;
                 }
-
+            
             if (non_fixed != null_lpvar) 
                 propagate_monic_with_non_fixed(monic_var, vars, non_fixed, k);
             else   // all variables are fixed
                 propagate_monic_with_all_fixed(monic_var, vars, k);
-       }
+        }
     }
-
+    
     void propagate_monic_with_non_fixed(lpvar monic_var, const svector<lpvar>& vars, lpvar non_fixed, const rational& k) {
         lp::impq bound_value;
         bool is_strict;
