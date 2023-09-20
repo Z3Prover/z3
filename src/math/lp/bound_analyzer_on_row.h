@@ -284,7 +284,9 @@ private:
     
     void limit_j(unsigned bound_j, const mpq& u, bool coeff_before_j_is_pos, bool is_lower_bound, bool strict){
         unsigned row_index = this->m_row_index;
-        auto explain = [bound_j, coeff_before_j_is_pos, is_lower_bound, strict, row_index](int * s) { return explain_bound_on_var_on_coeff((B*)s, bound_j, coeff_before_j_is_pos, is_lower_bound, strict, row_index); };
+        auto explain = [bound_j, coeff_before_j_is_pos, is_lower_bound, strict, row_index,this]() {
+            return explain_bound_on_var_on_coeff((B*)&m_bp, bound_j, coeff_before_j_is_pos, is_lower_bound, strict, row_index);
+        };
         m_bp.add_bound(u, bound_j, is_lower_bound, strict, explain);
     }
     

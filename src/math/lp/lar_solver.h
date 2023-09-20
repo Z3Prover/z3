@@ -311,7 +311,7 @@ class lar_solver : public column_namer {
 
     template <typename T>
     void explain_implied_bound(const implied_bound& ib, lp_bound_propagator<T>& bp) {
-        u_dependency* dep = ib.explain_implied((int*)&bp);
+        u_dependency* dep = ib.explain_implied();
         for (auto ci : flatten(dep))
             bp.consume(mpq(1), ci); // TODO: flatten should provide the coefficients
         /*
