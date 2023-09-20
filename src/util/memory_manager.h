@@ -131,7 +131,7 @@ void dealloc_svect(T * ptr) {
 template <typename T>
 struct std_allocator {
     using value_type = T;
-    // the constructors must be proveded according to cpp docs
+    // the constructors must be provided according to cpp docs
     std_allocator() = default;
     template <class U> constexpr std_allocator(const std_allocator<U>&) noexcept {}
  
@@ -145,7 +145,7 @@ struct std_allocator {
     }
 };
 
-// the comparison operators must be proveded according to cpp docs
+// the comparison operators must be provided according to cpp docs
 template <class T, class U>
 bool operator==(const std_allocator<T>&, const std_allocator<U>&) { return true; }
 template <class T, class U>
