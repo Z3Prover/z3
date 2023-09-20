@@ -42,7 +42,7 @@ Revision History:
 #endif
 
 template <typename T>
-class std_vector : public std::vector<T, std_allocator<T>> {};
+using std_vector = std::vector<T, std_allocator<T>>;
 
 #if 0
 
