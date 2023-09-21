@@ -225,6 +225,7 @@ class theory_lra::imp {
     lp_bounds                    m_new_bounds;
     symbol                       m_farkas;
     vector<parameter>            m_bound_params;
+    std_vector<lp::implied_bound>   m_implied_bounds;
     lp::lp_bound_propagator<imp> m_bp;
 
     context& ctx() const { return th.get_context(); }
@@ -873,7 +874,7 @@ public:
         m_solver(nullptr),
         m_resource_limit(*this),
         m_farkas("farkas"),
-        m_bp(*this),
+        m_bp(*this, m_implied_bounds),
         m_bounded_range_idx(0),
         m_bounded_range_lit(null_literal),
         m_bound_terms(m),

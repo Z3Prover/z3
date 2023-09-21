@@ -20,7 +20,7 @@ class lp_bound_propagator {
     u_map<unsigned> m_improved_upper_bounds;
 
     T& m_imp;
-    std_vector<implied_bound> m_ibounds;
+    std_vector<implied_bound>& m_ibounds;
 
     map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>> m_val2fixed_row;
     // works for rows of the form x + y + sum of fixed = 0
@@ -109,7 +109,7 @@ private:
     };
 
 public:
-    lp_bound_propagator(T& imp) : m_imp(imp) {}
+    lp_bound_propagator(T& imp, std_vector<implied_bound> & ibounds) : m_imp(imp), m_ibounds(ibounds) {}
 
     const std_vector<implied_bound>& ibounds() const { return m_ibounds; }
 

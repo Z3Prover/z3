@@ -243,6 +243,7 @@ namespace arith {
         resource_limit               m_resource_limit;
         lp_bounds                    m_new_bounds;
         symbol                       m_farkas;
+        std_vector<lp::implied_bound> m_implied_bounds;
         lp::lp_bound_propagator<solver> m_bp;
         mutable vector<std::pair<lp::tv, rational>> m_todo_terms;
 
