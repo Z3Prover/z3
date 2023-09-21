@@ -264,7 +264,7 @@ class theory_lra::imp {
 
     void ensure_nla() {
         if (!m_nla) {
-            m_nla = alloc(nla::solver, *m_solver.get(), ctx().get_params(), m.limit());
+            m_nla = alloc(nla::solver, *m_solver.get(), ctx().get_params(), m.limit(), m_implied_bounds);
             for (auto const& _s : m_scopes) {
                 (void)_s;
                 m_nla->push();
@@ -2198,13 +2198,10 @@ public:
             finish_bound_propagation();
     }
     
-    void calculate_implied_bounds_for_monic(lpvar monic_var, const svector<lpvar>& vars) {
-        m_bp.propagate_monic(monic_var, vars);
-    }
-    
     void propagate_bounds_for_touched_monomials() {
+        m_nla->init_bound_propagation();
         for (unsigned v : m_nla->monics_with_changed_bounds()) {
-            calculate_implied_bounds_for_monic(v, m_nla->get_core().emons()[v].vars());
+            m_nla->calculate_implied_bounds_for_monic(v);
         }
         m_nla->reset_monics_with_changed_bounds();
     }

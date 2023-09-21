@@ -24,7 +24,7 @@ namespace nla {
         core* m_core;
     public:
 
-        solver(lp::lar_solver& s, params_ref const& p, reslimit& limit);
+        solver(lp::lar_solver& s, params_ref const& p, reslimit& limit, std_vector<lp::implied_bound> & implied_bounds);
         ~solver();
         const auto& monics_with_changed_bounds() const { return m_core->monics_with_changed_bounds(); }
         void reset_monics_with_changed_bounds() { m_core->reset_monics_with_changed_bounds(); } 
@@ -48,5 +48,7 @@ namespace nla {
         nlsat::anum_manager& am();
         nlsat::anum const& am_value(lp::var_index v) const;
         void collect_statistics(::statistics & st);
+        void calculate_implied_bounds_for_monic(lp::lpvar v);
+        void init_bound_propagation();
     };
 }

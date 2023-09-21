@@ -54,8 +54,8 @@ namespace nla {
         m_core->pop(n);
     }
     
-    solver::solver(lp::lar_solver& s, params_ref const& p, reslimit& limit): 
-        m_core(alloc(core, s, p, limit)) {
+    solver::solver(lp::lar_solver& s, params_ref const& p, reslimit& limit, std_vector<lp::implied_bound> & implied_bounds): 
+        m_core(alloc(core, s, p, limit, implied_bounds)) {
     }
     
     bool solver::influences_nl_var(lpvar j) const {    
@@ -88,6 +88,9 @@ namespace nla {
         m_core->collect_statistics(st);
     }
 
+    void solver::calculate_implied_bounds_for_monic(lp::lpvar v) {
+        m_core->calculate_implied_bounds_for_monic(v);
+    }
     // ensure r = x^y, add abstraction/refinement lemmas
     lbool solver::check_power(lpvar r, lpvar x, lpvar y, vector<lemma>& lemmas) {
         return m_core->check_power(r, x, y, lemmas);
@@ -95,6 +98,10 @@ namespace nla {
 
     void solver::check_bounded_divisions(vector<lemma>& lemmas) {
         m_core->check_bounded_divisions(lemmas);
+    }
+
+    void solver::init_bound_propagation() {
+        m_core->init_bound_propagation();
     }
 
 }
