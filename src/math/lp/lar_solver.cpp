@@ -135,15 +135,9 @@ namespace lp {
 
 
     bool lar_solver::row_has_a_big_num(unsigned i) const {
-        for (const auto& c : A_r().m_rows[i])  {
+        for (const auto& c : A_r().m_rows[i]) 
             if (c.coeff().is_big())
                 return true;
-            if (column_has_lower_bound(c.var())&& get_lower_bound(c.var()).x.is_big())
-                return true;
-            if (column_has_upper_bound(c.var())&& get_upper_bound(c.var()).x.is_big())
-                return true;    
-        }
-
         return false;
     }
 
