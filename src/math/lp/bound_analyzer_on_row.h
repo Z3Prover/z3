@@ -281,15 +281,32 @@ private:
     //     */
     // }
 
-    
-    void limit_j(unsigned bound_j, const mpq& u, bool coeff_before_j_is_pos, bool is_lower_bound, bool strict){
+    void limit_j(unsigned bound_j, const mpq& u, bool coeff_before_j_is_pos, bool is_lower_bound, bool strict)
+    {
         unsigned row_index = this->m_row_index;
-        auto explain = [bound_j, coeff_before_j_is_pos, is_lower_bound, strict, row_index,this]() {
-            return explain_bound_on_var_on_coeff((B*)&m_bp, bound_j, coeff_before_j_is_pos, is_lower_bound, strict, row_index);
+        auto* lar = &m_bp.lp();
+        auto explain = [bound_j, coeff_before_j_is_pos, is_lower_bound, strict, row_index, lar]() {
+            TRACE("bound_analyzer", tout << "explain_bound_on_var_on_coeff, bound_j = " << bound_j << ", coeff_before_j_is_pos = " << coeff_before_j_is_pos << ", is_lower_bound = " << is_lower_bound << ", strict = " << strict << ", row_index = " << row_index << "\n";);
+            int bound_sign = (is_lower_bound ? 1 : -1);
+            int j_sign = (coeff_before_j_is_pos ? 1 : -1) * bound_sign;
+
+            SASSERT(!tv::is_term(bound_j));
+            u_dependency* ret = nullptr;
+            for (auto const& r : lar->get_row(row_index)) {
+                unsigned j = r.var();
+                if (j == bound_j)
+                    continue;
+                mpq const& a = r.coeff();
+                int a_sign = is_pos(a) ? 1 : -1;
+                int sign = j_sign * a_sign;
+                u_dependency* witness = sign > 0 ? lar->get_column_upper_bound_witness(j) : lar->get_column_lower_bound_witness(j);
+                ret = lar->join_deps(ret, witness);
+            }
+            return ret;
         };
         m_bp.add_bound(u, bound_j, is_lower_bound, strict, explain);
     }
-    
+
     void advance_u(unsigned j) {
         m_column_of_u = (m_column_of_u == -1) ? j : -2;
     }
@@ -320,26 +337,7 @@ private:
             break;
         }
     }   
-    static u_dependency* explain_bound_on_var_on_coeff(B* bp, unsigned bound_j, bool coeff_before_j_is_pos, bool is_lower_bound, bool strict, unsigned row_index) {
-        TRACE("bound_analyzer", tout << "explain_bound_on_var_on_coeff, bound_j = " << bound_j << ", coeff_before_j_is_pos = " << coeff_before_j_is_pos << ", is_lower_bound = " << is_lower_bound << ", strict = " << strict << ", row_index = " << row_index << "\n";);
-        auto& lar = bp->lp();
-        int bound_sign = (is_lower_bound ? 1 : -1);
-        int j_sign = (coeff_before_j_is_pos ? 1 : -1) * bound_sign;
-
-        SASSERT(!tv::is_term(bound_j));
-        u_dependency* ret = nullptr;
-        for (auto const& r : lar.get_row(row_index)) {
-            unsigned j = r.var();
-            if (j == bound_j)
-                continue;
-            mpq const& a = r.coeff();
-            int a_sign = is_pos(a) ? 1 : -1;
-            int sign = j_sign * a_sign;
-            u_dependency* witness = sign > 0 ? lar.get_column_upper_bound_witness(j) : lar.get_column_lower_bound_witness(j);
-            ret = lar.join_deps(ret, witness);
-        }
-        return ret;
-    }
+    
 };
    
 
