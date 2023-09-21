@@ -451,7 +451,7 @@ private:
     void save_tableau();
     bool integrality_holds();
     void calculate_implied_bounds_for_monic(lp::lpvar v);
-    void init_bound_propagation();    
+    void init_bound_propagation(vector<lemma>&);    
 };  // end of core
 
 struct pp_mon {
