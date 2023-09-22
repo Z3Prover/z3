@@ -2199,14 +2199,11 @@ public:
     }
     
     void propagate_bounds_for_touched_monomials() {
-        m_nla->init_bound_propagation(m_nla_lemma_vector);
+        m_nla->init_bound_propagation();
         for (unsigned v : m_nla->monics_with_changed_bounds()) {
             m_nla->calculate_implied_bounds_for_monic(v);
         }
         m_nla->reset_monics_with_changed_bounds();
-        for (const auto & l:m_nla_lemma_vector) {
-            false_case_of_check_nla(l);
-        }
     }
 
     void propagate_bounds_with_nlp() {

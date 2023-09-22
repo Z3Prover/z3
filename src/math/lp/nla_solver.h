@@ -49,6 +49,6 @@ namespace nla {
         nlsat::anum const& am_value(lp::var_index v) const;
         void collect_statistics(::statistics & st);
         void calculate_implied_bounds_for_monic(lp::lpvar v);
-        void init_bound_propagation(vector<lemma>&);
+        void init_bound_propagation();
     };
 }
