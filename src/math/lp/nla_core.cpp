@@ -22,24 +22,25 @@ namespace nla {
 
 typedef lp::lar_term term;
 
-core::core(lp::lar_solver& s, params_ref const& p, reslimit& lim, std_vector<lp::implied_bound>& implied_bounds) : m_evars(),
-                                                                    lra(s),
-                                                                    m_reslim(lim),
-                                                                    m_params(p),
-                                                                    m_tangents(this),
-                                                                    m_basics(this),
-                                                                    m_order(this),
-                                                                    m_monotone(this),
-                                                                    m_powers(*this),
-                                                                    m_divisions(*this),
-                                                                    m_intervals(this, lim),
-                                                                    m_monomial_bounds(this),
-                                                                    m_horner(this),
-                                                                    m_grobner(this),
-                                                                    m_emons(m_evars),
-                                                                    m_use_nra_model(false),
-                                                                    m_nra(s, m_nra_lim, *this),
-                                                                    m_implied_bounds(implied_bounds) {
+core::core(lp::lar_solver& s, params_ref const& p, reslimit& lim, std_vector<lp::implied_bound>& implied_bounds) :
+    m_evars(),
+    lra(s),
+    m_reslim(lim),
+    m_params(p),
+    m_tangents(this),
+    m_basics(this),
+    m_order(this),
+    m_monotone(this),
+    m_powers(*this),
+    m_divisions(*this),
+    m_intervals(this, lim),
+    m_monomial_bounds(this),
+    m_horner(this),
+    m_grobner(this),
+    m_emons(m_evars),
+    m_use_nra_model(false),
+    m_nra(s, m_nra_lim, *this),
+    m_implied_bounds(implied_bounds) {
     m_nlsat_delay = lp_settings().nlsat_delay();
     lra.m_find_monics_with_changed_bounds_func = [&](const indexed_uint_set& columns_with_changed_bounds) {
     for (const auto& m : m_emons) {
@@ -1839,8 +1840,7 @@ bool core::improve_bounds() {
     return bounds_improved;
 }
 
-bool core::is_linear(const svector<lpvar>& m, lpvar& zero_var, lpvar& non_fixed)
-{
+bool core::is_linear(const svector<lpvar>& m, lpvar& zero_var, lpvar& non_fixed) {
     zero_var = non_fixed = null_lpvar;
     unsigned n_of_non_fixed = 0;
     for (lpvar v : m) {
@@ -1858,8 +1858,7 @@ bool core::is_linear(const svector<lpvar>& m, lpvar& zero_var, lpvar& non_fixed)
     return n_of_non_fixed <= 1;
 }
 
-void core::add_lower_bound_monic(lpvar j, const lp::mpq& v, bool is_strict, std::function<u_dependency*()> explain_dep)
-{
+void core::add_lower_bound_monic(lpvar j, const lp::mpq& v, bool is_strict, std::function<u_dependency*()> explain_dep) {
     TRACE("add_bound", lra.print_column_info(j, tout) << std::endl;);
     j = lra.column_to_reported_index(j);
     unsigned k;
@@ -1876,67 +1875,63 @@ void core::add_lower_bound_monic(lpvar j, const lp::mpq& v, bool is_strict, std:
     }
 }
 
-void core::add_upper_bound_monic(lpvar j, const lp::mpq& bound_val, bool is_strict, std::function<u_dependency*()> explain_dep)
-{
-    j = lra.column_to_reported_index(j);
-    unsigned k;
-    if (!m_improved_upper_bounds.find(j, k)) {
-        m_improved_upper_bounds.insert(j, static_cast<unsigned>(m_implied_bounds.size()));
-        m_implied_bounds.push_back(lp::implied_bound(bound_val, j, false, is_strict, explain_dep));
-    }
-    else {
-        auto& found_bound = m_implied_bounds[k];
-        if (bound_val > found_bound.m_bound || (bound_val == found_bound.m_bound && !found_bound.m_strict && is_strict)) {
-            found_bound = lp::implied_bound(bound_val, j, false, is_strict, explain_dep);
-            TRACE("add_bound", lra.print_implied_bound(found_bound, tout););
+    void core::add_upper_bound_monic(lpvar j, const lp::mpq& bound_val, bool is_strict, std::function<u_dependency*()> explain_dep) {
+        j = lra.column_to_reported_index(j);
+        unsigned k;
+        if (!m_improved_upper_bounds.find(j, k)) {
+            m_improved_upper_bounds.insert(j, static_cast<unsigned>(m_implied_bounds.size()));
+            m_implied_bounds.push_back(lp::implied_bound(bound_val, j, false, is_strict, explain_dep));
+        }
+        else {
+            auto& found_bound = m_implied_bounds[k];
+            if (bound_val > found_bound.m_bound || (bound_val == found_bound.m_bound && !found_bound.m_strict && is_strict)) {
+                found_bound = lp::implied_bound(bound_val, j, false, is_strict, explain_dep);
+                TRACE("add_bound", lra.print_implied_bound(found_bound, tout););
+            }
         }
     }
-}
 
-bool core::upper_bound_is_available(unsigned j) const
-{
-    switch (get_column_type(j)) {
+    bool core::upper_bound_is_available(unsigned j) const {
+        switch (get_column_type(j)) {
         case lp::column_type::fixed:
         case lp::column_type::boxed:
         case lp::column_type::upper_bound:
             return true;
         default:
             return false;
+        }
     }
-}
-
-bool core::lower_bound_is_available(unsigned j) const
-{
-    switch (get_column_type(j)) {
+    
+    bool core::lower_bound_is_available(unsigned j) const {
+        switch (get_column_type(j)) {
         case lp::column_type::fixed:
         case lp::column_type::boxed:
         case lp::column_type::lower_bound:
             return true;
         default:
             return false;
+        }
     }
-}
 
-void core::propagate_monic_with_non_fixed(lpvar monic_var, const svector<lpvar>& vars, lpvar non_fixed, const rational& k)
-{
-    lp::impq bound_value;
-    new_lemma lemma(*this, "propagate monic with non fixed");
-    // using += to not assert thath the inequality does not hold
-    lemma += ineq(term(rational(1), monic_var, -k, non_fixed), llc::EQ, 0);
-    lp::explanation exp;
-    for (auto v : m_emons[monic_var].vars()) {
-        if (v == non_fixed) continue;
-        u_dependency* dep = lra.get_column_lower_bound_witness(v);
-        for (auto ci : lra.flatten(dep)) {
-            exp.push_back(ci);
+    void core::propagate_monic_with_non_fixed(lpvar monic_var, const svector<lpvar>& vars, lpvar non_fixed, const rational& k) {
+        lp::impq bound_value;
+        new_lemma lemma(*this, "propagate monic with non fixed");
+        // using += to not assert thath the inequality does not hold
+        lemma += ineq(term(rational(1), monic_var, -k, non_fixed), llc::EQ, 0);
+        lp::explanation exp;
+        for (auto v : m_emons[monic_var].vars()) {
+            if (v == non_fixed) continue;
+            u_dependency* dep = lra.get_column_lower_bound_witness(v);
+            for (auto ci : lra.flatten(dep)) {
+                exp.push_back(ci);
+            }
+            dep = lra.get_column_upper_bound_witness(v);
+            for (auto ci : lra.flatten(dep)) {
+                exp.push_back(ci);
+            }
         }
-        dep = lra.get_column_upper_bound_witness(v);
-        for (auto ci : lra.flatten(dep)) {
-            exp.push_back(ci);
-        }
+        lemma &= exp;
     }
-    lemma &= exp;
-}
 
     void core::propagate_monic_with_all_fixed(lpvar monic_var, const svector<lpvar>& vars, const rational& k)
     {

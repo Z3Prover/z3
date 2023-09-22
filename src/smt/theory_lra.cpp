@@ -1480,6 +1480,7 @@ public:
         m_model_eqs.reset();
         svector<lpvar> vars;
         theory_var sz = static_cast<theory_var>(th.get_num_vars());
+        verbose_stream() << "check " << sz << "\n";
         for (theory_var v = 0; v < sz; ++v) {
             enode * n1 = get_enode(v);
             if (!th.is_relevant_and_shared(n1)) {
@@ -1528,12 +1529,16 @@ public:
         unsigned old_sz = m_assume_eq_candidates.size();
         unsigned num_candidates = 0;
         int start = ctx().get_random_value();
+        verbose_stream() << "assume-eqs " << sz << "\n";
+        unsigned num_relevant = 0;
         for (theory_var i = 0; i < sz; ++i) {
             theory_var v = (i + start) % sz;
             enode* n1 = get_enode(v);
+            verbose_stream() << enode_pp(n1, ctx()) << "\n";
             if (!th.is_relevant_and_shared(n1)) {                    
                 continue;
             }
+            ++num_relevant;
             ensure_column(v);
             if (!is_registered_var(v))
                 continue;
@@ -1551,7 +1556,8 @@ public:
                 num_candidates++;
             }
         }
-            
+
+        verbose_stream() << "candidates " << num_candidates << " num relevant " << num_relevant << "\n";
         if (num_candidates > 0) {
             ctx().push_trail(restore_vector(m_assume_eq_candidates, old_sz));
         }
@@ -2200,13 +2206,12 @@ public:
     
     void propagate_bounds_for_touched_monomials() {
         m_nla->init_bound_propagation(m_nla_lemma_vector);
-        for (unsigned v : m_nla->monics_with_changed_bounds()) {
+        for (unsigned v : m_nla->monics_with_changed_bounds()) 
             m_nla->calculate_implied_bounds_for_monic(v);
-        }
+        
         m_nla->reset_monics_with_changed_bounds();
-        for (const auto & l:m_nla_lemma_vector) {
+        for (const auto & l : m_nla_lemma_vector) 
             false_case_of_check_nla(l);
-        }
     }
 
     void propagate_bounds_with_nlp() {
