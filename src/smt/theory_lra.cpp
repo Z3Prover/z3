@@ -2205,7 +2205,7 @@ public:
     }
     
     void propagate_bounds_for_touched_monomials() {
-        m_nla->init_bound_propagation(m_nla_lemma_vector);
+        m_nla->init_bound_propagation();
         for (unsigned v : m_nla->monics_with_changed_bounds()) 
             m_nla->calculate_implied_bounds_for_monic(v);
         
@@ -3891,7 +3891,6 @@ public:
                 IF_VERBOSE(1, verbose_stream() << enode_pp(n, ctx()) << " evaluates to " << r2 << " but arith solver has " << r1 << "\n"); 
         }
     }
-
 };
     
 theory_lra::theory_lra(context& ctx):

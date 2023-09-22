@@ -100,8 +100,8 @@ namespace nla {
         m_core->check_bounded_divisions(lemmas);
     }
 
-    void solver::init_bound_propagation(vector<lemma>& lemmas) {
-        m_core->init_bound_propagation(lemmas);
+    void solver::init_bound_propagation() {
+        m_core->init_bound_propagation();
     }
 
 }
