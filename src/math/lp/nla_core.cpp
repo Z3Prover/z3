@@ -1913,91 +1913,88 @@ void core::add_lower_bound_monic(lpvar j, const lp::mpq& v, bool is_strict, std:
         }
     }
 
-void core::propagate_monic_with_non_fixed(lpvar monic_var, const svector<lpvar>& vars, lpvar non_fixed, const rational& k)
-{
-    lp::impq bound_value;
-    bool is_strict;
-    auto& lps = lra;
+    void core::propagate_monic_with_non_fixed(lpvar monic_var, const svector<lpvar>& vars, lpvar non_fixed, const rational& k) {
+        lp::impq bound_value;
+        bool is_strict;
+        auto& lps = lra;
+        
+        if (lower_bound_is_available(non_fixed)) {
+            bound_value = lra.column_lower_bound(non_fixed);
+            is_strict = !bound_value.y.is_zero();
+            auto lambda = [vars, non_fixed, &lps]() {
+                u_dependency* dep = lps.get_column_lower_bound_witness(non_fixed);
+                for (auto v : vars)
+                    if (v != non_fixed)
+                        dep = lps.join_deps(dep, lps.get_bound_constraint_witnesses_for_column(v));
+                return dep;
+            };
+            if (k.is_pos())
+                add_lower_bound_monic(monic_var, k * bound_value.x, is_strict, lambda);
+            else
+                add_upper_bound_monic(monic_var, k * bound_value.x, is_strict, lambda);
+        }
+        
+        if (upper_bound_is_available(non_fixed)) {
+            bound_value = lra.column_upper_bound(non_fixed);
+            is_strict = !bound_value.y.is_zero();
+            auto lambda = [vars, non_fixed, &lps]() {
+                u_dependency* dep = lps.get_column_upper_bound_witness(non_fixed);
+                for (auto v : vars)
+                    if (v != non_fixed)
+                        dep = lps.join_deps(dep, lps.get_bound_constraint_witnesses_for_column(v));
+                return dep;
+            };
+            if (k.is_neg())
+                add_lower_bound_monic(monic_var, k * bound_value.x, is_strict, lambda);
+            else
+                add_upper_bound_monic(monic_var, k * bound_value.x, is_strict, lambda);
+        }
 
-    if (lower_bound_is_available(non_fixed)) {
-        bound_value = lra.column_lower_bound(non_fixed);
-        is_strict = !bound_value.y.is_zero();
-        auto lambda = [vars, non_fixed, &lps]() {
-            u_dependency* dep = lps.get_column_lower_bound_witness(non_fixed);
-            for (auto v : vars)
-                if (v != non_fixed)
-                    dep = lps.join_deps(dep, lps.get_bound_constraint_witnesses_for_column(v));
-            return dep;
-        };
-        if (k.is_pos())
-            add_lower_bound_monic(monic_var, k * bound_value.x, is_strict, lambda);
-        else
-            add_upper_bound_monic(monic_var, k * bound_value.x, is_strict, lambda);
-    }
-
-    if (upper_bound_is_available(non_fixed)) {
-        bound_value = lra.column_upper_bound(non_fixed);
-        is_strict = !bound_value.y.is_zero();
-        auto lambda = [vars, non_fixed, &lps]() {
-            u_dependency* dep = lps.get_column_upper_bound_witness(non_fixed);
-            for (auto v : vars)
-                if (v != non_fixed)
-                    dep = lps.join_deps(dep, lps.get_bound_constraint_witnesses_for_column(v));
-            return dep;
-        };
-        if (k.is_neg())
-            add_lower_bound_monic(monic_var, k * bound_value.x, is_strict, lambda);
-        else
-            add_upper_bound_monic(monic_var, k * bound_value.x, is_strict, lambda);
-    }
-
-    if (lower_bound_is_available(monic_var)) {
-        auto lambda = [vars, monic_var, non_fixed, &lps]() {
-            u_dependency* dep = lps.get_column_lower_bound_witness(monic_var);
-            for (auto v : vars) {
-                if (v != non_fixed) {
-                    dep = lps.join_deps(dep, lps.get_bound_constraint_witnesses_for_column(v));
+        if (lower_bound_is_available(monic_var)) {
+            auto lambda = [vars, monic_var, non_fixed, &lps]() {
+                u_dependency* dep = lps.get_column_lower_bound_witness(monic_var);
+                for (auto v : vars) {
+                    if (v != non_fixed) {
+                        dep = lps.join_deps(dep, lps.get_bound_constraint_witnesses_for_column(v));
+                    }
                 }
-            }
-            return dep;
-        };
-        bound_value = lra.column_lower_bound(monic_var);
-        is_strict = !bound_value.y.is_zero();
-        if (k.is_pos())
-            add_lower_bound_monic(non_fixed, bound_value.x / k, is_strict, lambda);
-        else
-            add_upper_bound_monic(non_fixed, bound_value.x / k, is_strict, lambda);
-    }
-
-    if (upper_bound_is_available(monic_var)) {
-        bound_value = lra.column_upper_bound(monic_var);
-        is_strict = !bound_value.y.is_zero();
-        auto lambda = [vars, monic_var, non_fixed, &lps]() {
-            u_dependency* dep = lps.get_column_upper_bound_witness(monic_var);
-            for (auto v : vars) {
-                if (v != non_fixed) {
-                    dep = lps.join_deps(dep, lps.get_bound_constraint_witnesses_for_column(v));
+                return dep;
+            };
+            bound_value = lra.column_lower_bound(monic_var);
+            is_strict = !bound_value.y.is_zero();
+            if (k.is_pos())
+                add_lower_bound_monic(non_fixed, bound_value.x / k, is_strict, lambda);
+            else
+                add_upper_bound_monic(non_fixed, bound_value.x / k, is_strict, lambda);
+        }
+        
+        if (upper_bound_is_available(monic_var)) {
+            bound_value = lra.column_upper_bound(monic_var);
+            is_strict = !bound_value.y.is_zero();
+            auto lambda = [vars, monic_var, non_fixed, &lps]() {
+                u_dependency* dep = lps.get_column_upper_bound_witness(monic_var);
+                for (auto v : vars) {
+                    if (v != non_fixed) {
+                        dep = lps.join_deps(dep, lps.get_bound_constraint_witnesses_for_column(v));
+                    }
                 }
-            }
-            return dep;
-        };
-        if (k.is_neg())
-            add_lower_bound_monic(non_fixed, bound_value.x / k, is_strict, lambda);
-        else
-            add_upper_bound_monic(non_fixed, bound_value.x / k, is_strict, lambda);
+                return dep;
+            };
+            if (k.is_neg())
+                add_lower_bound_monic(non_fixed, bound_value.x / k, is_strict, lambda);
+            else
+                add_upper_bound_monic(non_fixed, bound_value.x / k, is_strict, lambda);
+        }
     }
-}
 
-    void core::propagate_monic_with_all_fixed(lpvar monic_var, const svector<lpvar>& vars, const rational& k)
-    {
+    void core::propagate_monic_with_all_fixed(lpvar monic_var, const svector<lpvar>& vars, const rational& k) {
         auto* lps = &lra;
         auto lambda = [vars, lps]() { return lps->get_bound_constraint_witnesses_for_columns(vars); };
         add_lower_bound_monic(monic_var, k, false, lambda);
         add_upper_bound_monic(monic_var, k, false, lambda);
     }
 
-    void core::add_bounds_for_zero_var(lpvar monic_var, lpvar zero_var)
-    {
+    void core::add_bounds_for_zero_var(lpvar monic_var, lpvar zero_var) {
         auto* lps = &lra;
         auto lambda = [zero_var, lps]() {
             return lps->get_bound_constraint_witnesses_for_column(zero_var);
@@ -2007,8 +2004,7 @@ void core::propagate_monic_with_non_fixed(lpvar monic_var, const svector<lpvar>&
         add_upper_bound_monic(monic_var, lp::mpq(0), false, lambda);
     }
 
-    void core::calculate_implied_bounds_for_monic(lp::lpvar monic_var)
-    {
+    void core::calculate_implied_bounds_for_monic(lp::lpvar monic_var) {
         lpvar non_fixed, zero_var;
         const auto& vars = m_emons[monic_var].vars();
         if (!is_linear(vars, zero_var, non_fixed))
@@ -2031,8 +2027,7 @@ void core::propagate_monic_with_non_fixed(lpvar monic_var, const svector<lpvar>&
         }
     }
 
-    void core::init_bound_propagation()
-    {
+    void core::init_bound_propagation() {
         m_implied_bounds.clear();
         m_improved_lower_bounds.reset();
         m_improved_upper_bounds.reset();
