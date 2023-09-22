@@ -31,7 +31,7 @@ namespace lp {
         lra.remove_fixed_vars_from_base();
         lp_assert(lia.is_feasible());
         for (unsigned j : lra.r_basis()) 
-            if (!lra.get_value(j).is_int() && lra.column_is_int(j))
+            if (!lra.get_value(j).is_int() && lra.column_is_int(j) && !lia.is_fixed(j))
                 patch_basic_column(j);
         if (!lia.has_inf_int()) {
             lia.settings().stats().m_patches_success++;

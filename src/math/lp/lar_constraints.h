@@ -136,9 +136,10 @@ class constraint_set {
     }
 
 public:
-    constraint_set(u_dependency_manager& d, column_namer& cn): 
-        m_dep_manager(d),
-        m_namer(cn) {}
+    constraint_set(u_dependency_manager& d, column_namer& cn):
+        m_namer(cn),
+        m_dep_manager(d)
+    {}
 
     ~constraint_set() {
         for (auto* c : m_constraints) 
