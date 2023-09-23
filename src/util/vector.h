@@ -30,6 +30,7 @@ Revision History:
 #include <functional>
 #include <memory>
 #include <type_traits>
+#include <utility>
 #include "util/memory_manager.h"
 #include "util/hash.h"
 #include "util/z3_exception.h"
