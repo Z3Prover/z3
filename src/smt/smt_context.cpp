@@ -4522,8 +4522,6 @@ namespace smt {
             theory_var_list * l = n->get_th_var_list();
             theory_id th_id     = l->get_id();
 
-            verbose_stream() << "num parents " << n->get_num_parents() << "\n";
-
             for (enode * parent : enode::parents(n)) {
                 app* p = parent->get_expr();
                 family_id fid = p->get_family_id();
