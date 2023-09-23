@@ -1480,7 +1480,6 @@ public:
         m_model_eqs.reset();
         svector<lpvar> vars;
         theory_var sz = static_cast<theory_var>(th.get_num_vars());
-        verbose_stream() << "check " << sz << "\n";
         for (theory_var v = 0; v < sz; ++v) {
             enode * n1 = get_enode(v);
             if (!th.is_relevant_and_shared(n1)) {
