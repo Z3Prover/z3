@@ -322,6 +322,7 @@ namespace polysat {
         default:
             verbose_stream() << "invalid value for polysat.bvumulo: " << static_cast<unsigned>(s.config().m_bvumulo_repr) << "\n";
             UNREACHABLE();
+            return {};
         }
     }
 
