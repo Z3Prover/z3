@@ -26,7 +26,7 @@ namespace arith {
         m_model_eqs(DEFAULT_HASHTABLE_INITIAL_CAPACITY, var_value_hash(*this), var_value_eq(*this)),
         m_local_search(*this),
         m_resource_limit(*this),
-        m_bp(*this),
+        m_bp(*this, m_implied_bounds),
         a(m),
         m_bound_terms(m),
         m_bound_predicate(m)

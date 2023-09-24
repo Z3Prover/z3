@@ -225,6 +225,7 @@ class theory_lra::imp {
     lp_bounds                    m_new_bounds;
     symbol                       m_farkas;
     vector<parameter>            m_bound_params;
+    std_vector<lp::implied_bound>   m_implied_bounds;
     lp::lp_bound_propagator<imp> m_bp;
 
     context& ctx() const { return th.get_context(); }
@@ -263,7 +264,7 @@ class theory_lra::imp {
 
     void ensure_nla() {
         if (!m_nla) {
-            m_nla = alloc(nla::solver, *m_solver.get(), ctx().get_params(), m.limit());
+            m_nla = alloc(nla::solver, *m_solver.get(), ctx().get_params(), m.limit(), m_implied_bounds);
             for (auto const& _s : m_scopes) {
                 (void)_s;
                 m_nla->push();
@@ -873,7 +874,7 @@ public:
         m_solver(nullptr),
         m_resource_limit(*this),
         m_farkas("farkas"),
-        m_bp(*this),
+        m_bp(*this, m_implied_bounds),
         m_bounded_range_idx(0),
         m_bounded_range_lit(null_literal),
         m_bound_terms(m),
@@ -1527,12 +1528,14 @@ public:
         unsigned old_sz = m_assume_eq_candidates.size();
         unsigned num_candidates = 0;
         int start = ctx().get_random_value();
+        unsigned num_relevant = 0;
         for (theory_var i = 0; i < sz; ++i) {
             theory_var v = (i + start) % sz;
             enode* n1 = get_enode(v);
             if (!th.is_relevant_and_shared(n1)) {                    
                 continue;
             }
+            ++num_relevant;
             ensure_column(v);
             if (!is_registered_var(v))
                 continue;
@@ -1550,7 +1553,7 @@ public:
                 num_candidates++;
             }
         }
-            
+
         if (num_candidates > 0) {
             ctx().push_trail(restore_vector(m_assume_eq_candidates, old_sz));
         }
@@ -2197,15 +2200,14 @@ public:
             finish_bound_propagation();
     }
     
-    void calculate_implied_bounds_for_monic(lpvar monic_var, const svector<lpvar>& vars) {
-        m_bp.propagate_monic(monic_var, vars);
-    }
-    
     void propagate_bounds_for_touched_monomials() {
-        for (unsigned v : m_nla->monics_with_changed_bounds()) {
-            calculate_implied_bounds_for_monic(v, m_nla->get_core().emons()[v].vars());
-        }
+        m_nla->init_bound_propagation();
+        for (unsigned v : m_nla->monics_with_changed_bounds()) 
+            m_nla->calculate_implied_bounds_for_monic(v);
+        
         m_nla->reset_monics_with_changed_bounds();
+        for (const auto & l : m_nla_lemma_vector) 
+            false_case_of_check_nla(l);
     }
 
     void propagate_bounds_with_nlp() {
@@ -3885,7 +3887,6 @@ public:
                 IF_VERBOSE(1, verbose_stream() << enode_pp(n, ctx()) << " evaluates to " << r2 << " but arith solver has " << r1 << "\n"); 
         }
     }
-
 };
     
 theory_lra::theory_lra(context& ctx):
