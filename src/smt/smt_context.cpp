@@ -560,6 +560,7 @@ namespace smt {
 
             // Update "equivalence" class size
             r2->m_class_size += r1->m_class_size;
+            r2->m_is_shared = 2;
 
             CASSERT("add_eq", check_invariant());
         }
@@ -920,6 +921,7 @@ namespace smt {
 
         // restore r2 class size
         r2->m_class_size -= r1->m_class_size;
+        r2->m_is_shared = 2;
 
         // unmerge "equivalence" classes
         std::swap(r1->m_next, r2->m_next);
@@ -4504,8 +4506,15 @@ namespace smt {
 
     bool context::is_shared(enode * n) const {
         n = n->get_root();
+        switch (n->is_shared()) {
+        case l_true: return true;
+        case l_false: return false;
+        default: break;
+        }
+
         unsigned num_th_vars = n->get_num_th_vars();
         if (m.is_ite(n->get_expr())) {
+            n->set_is_shared(l_true);
             return true;
         }
         switch (num_th_vars) {
@@ -4531,6 +4540,7 @@ namespace smt {
                     TRACE("is_shared", tout << enode_pp(n, *this) 
                           << "\nis shared because of:\n" 
                           << enode_pp(parent, *this) << "\n";);
+                    n->set_is_shared(l_true);
                     return true;
                 }
             }
@@ -4561,7 +4571,9 @@ namespace smt {
             // the theories of (array int int) and (array (array int int) int).
             // Remark: The inconsistency is not going to be detected if they are
             // not marked as shared.
-            return get_theory(th_id)->is_shared(l->get_var());
+            bool r = get_theory(th_id)->is_shared(l->get_var());
+            n->set_is_shared(to_lbool(r));
+            return r;
         }
         default:
             return true;
