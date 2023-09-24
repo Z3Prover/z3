@@ -355,8 +355,16 @@ namespace euf {
     bool solver::is_shared(enode* n) const {
         n = n->get_root();
 
-        if (m.is_ite(n->get_expr()))
+        switch (n->is_shared()) {
+        case l_true: return true;
+        case l_false: return false;
+        default: break;
+        }
+
+        if (m.is_ite(n->get_expr())) {
+            n->set_is_shared(l_true);
             return true;
+        }
 
         // the variable is shared if the equivalence class of n
         // contains a parent application.
@@ -366,21 +374,27 @@ namespace euf {
             family_id id = p.get_id();
             if (m.get_basic_family_id() != id) {
                 
-                if (th_id != m.get_basic_family_id())
+                if (th_id != m.get_basic_family_id()) {
+                    n->set_is_shared(l_true);
                     return true;
+                }
                 th_id = id;               
             }
         }
-        if (m.is_bool(n->get_expr()) && th_id != m.get_basic_family_id())
+        if (m.is_bool(n->get_expr()) && th_id != m.get_basic_family_id()) {
+            n->set_is_shared(l_true);
             return true;
+        }
         
         for (enode* parent : euf::enode_parents(n)) {
             app* p = to_app(parent->get_expr());
             family_id fid = p->get_family_id();
             if (is_beta_redex(parent, n))
                 continue;
-            if (fid != th_id && fid != m.get_basic_family_id())
+            if (fid != th_id && fid != m.get_basic_family_id()) {
+                n->set_is_shared(l_true);
                 return true;
+            }
         }
 
         // Some theories implement families of theories. Examples:
@@ -411,9 +425,12 @@ namespace euf {
         // not marked as shared.
 
         for (auto const& p : euf::enode_th_vars(n)) 
-            if (fid2solver(p.get_id())->is_shared(p.get_var()))
+            if (fid2solver(p.get_id())->is_shared(p.get_var())) {
+                n->set_is_shared(l_true);
                 return true;
+            }
 
+        n->set_is_shared(l_false);
         return false;
     }
 

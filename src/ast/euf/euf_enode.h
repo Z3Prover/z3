@@ -52,6 +52,7 @@ namespace euf {
         bool          m_merge_tf_enabled = false;
         bool          m_is_equality = false;    // Does the expression represent an equality
         bool          m_is_relevant = false;
+        lbool         m_is_shared = l_undef;
         lbool         m_value = l_undef;        // Assignment by SAT solver for Boolean node
         sat::bool_var m_bool_var = sat::null_bool_var;    // SAT solver variable associated with Boolean node
         unsigned      m_class_size = 1;         // Size of the equivalence class if the enode is the root.
@@ -180,6 +181,9 @@ namespace euf {
         void mark3() { m_mark3 = true; }
         void unmark3() { m_mark3 = false; }
         bool is_marked3() { return m_mark3; }
+
+        lbool is_shared() const { return m_is_shared; }
+        void set_is_shared(lbool s) { m_is_shared = s; }
 
         template<bool m> void mark1_targets() {
             enode* n = this;
