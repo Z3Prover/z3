@@ -180,7 +180,6 @@ void test_basic_lemma_for_mon_neutral_from_factors_to_monomial_0() {
     v.push_back(lp_a);v.push_back(lp_c);
     nla.add_monic(lp_ac, v.size(), v.begin());
      
-    vector<lemma> lv;
 
     // set abcde = ac * bde
     // ac = 1 then abcde = bde, but we have abcde < bde
@@ -194,9 +193,9 @@ void test_basic_lemma_for_mon_neutral_from_factors_to_monomial_0() {
     s.set_column_value_test(lp_bde, lp::impq(rational(16)));
 
     
-    VERIFY(nla.get_core().test_check(lv) == l_false);
-    
-    nla.get_core().print_lemma(lv.back(), std::cout);
+    VERIFY(nla.get_core().test_check() == l_false);
+    auto const& lemmas = nla.get_core().lemmas();
+    nla.get_core().print_lemma(lemmas.back(), std::cout);
 
     ineq i0(lp_ac, llc::NE, 1);
     lp::lar_term t1, t2;
@@ -209,7 +208,7 @@ void test_basic_lemma_for_mon_neutral_from_factors_to_monomial_0() {
     bool found0 = false;
     bool found1 = false;
     bool found2 = false;
-    for (const auto& k : lv[0].ineqs()){
+    for (const auto& k : lemmas[0].ineqs()){
         if (k == i0) {
             found0 = true;
         } else if (k == i1) {
@@ -252,7 +251,6 @@ void test_basic_lemma_for_mon_neutral_from_factors_to_monomial_1() {
     svector<lpvar> v; v.push_back(lp_b);v.push_back(lp_d);v.push_back(lp_e);
     nla.add_monic(lp_bde, v.size(), v.begin());
 
-    vector<lemma> lemma;
 
     s_set_column_value_test(s, lp_a, rational(1));
     s_set_column_value_test(s, lp_b, rational(1));
@@ -261,7 +259,8 @@ void test_basic_lemma_for_mon_neutral_from_factors_to_monomial_1() {
     s_set_column_value_test(s, lp_e, rational(1));
     s_set_column_value_test(s, lp_bde, rational(3));
 
-    VERIFY(nla.get_core().test_check(lemma) == l_false);
+    VERIFY(nla.get_core().test_check() == l_false);
+    auto const& lemma = nla.get_core().lemmas();
     SASSERT(lemma[0].size() == 4);
     nla.get_core().print_lemma(lemma.back(), std::cout);
 
@@ -333,7 +332,6 @@ void test_basic_lemma_for_mon_zero_from_factors_to_monomial() {
                  lp_bde,
                  lp_acd,
                  lp_be);
-    vector<lemma> lemma;
 
     // set vars
     s_set_column_value_test(s, lp_a, rational(1));
@@ -347,7 +345,8 @@ void test_basic_lemma_for_mon_zero_from_factors_to_monomial() {
     s_set_column_value_test(s, lp_acd, rational(1));
     s_set_column_value_test(s, lp_be, rational(1));
 
-    VERIFY(nla.get_core().test_check(lemma) == l_false);
+    VERIFY(nla.get_core().test_check() == l_false);
+    auto const& lemma = nla.get_core().lemmas();
     nla.get_core().print_lemma(lemma.back(), std::cout);
     SASSERT(lemma.size() == 1 && lemma[0].size() == 2);
     lp::lar_term t0, t1;
@@ -393,13 +392,13 @@ void test_basic_lemma_for_mon_zero_from_monomial_to_factors() {
     vec.push_back(lp_d);
     nla.add_monic(lp_acd, vec.size(), vec.begin());
     
-    vector<lemma> lemma;
     s_set_column_value_test(s, lp_a, rational(1));
     s_set_column_value_test(s, lp_c, rational(1));
     s_set_column_value_test(s, lp_d, rational(1));
     s_set_column_value_test(s, lp_acd, rational(0));
 
-    VERIFY(nla.get_core().test_check(lemma) == l_false);
+    VERIFY(nla.get_core().test_check() == l_false);
+    auto const& lemma = nla.get_core().lemmas();
     
     nla.get_core().print_lemma(lemma.back(), std::cout);
 
@@ -457,7 +456,6 @@ void test_basic_lemma_for_mon_neutral_from_monomial_to_factors() {
                  lp_bde,
                  lp_acd,
                  lp_be);
-    vector<lemma> lemma;
 
     // set all vars to 1
     s_set_column_value_test(s, lp_a, rational(1));
@@ -476,7 +474,8 @@ void test_basic_lemma_for_mon_neutral_from_monomial_to_factors() {
     s_set_column_value_test(s, lp_b, - rational(2));
     // we have bde = -b, therefore d = +-1 and e = +-1
     s_set_column_value_test(s, lp_d,  rational(3));
-    VERIFY(nla.get_core().test_check(lemma) == l_false);
+    VERIFY(nla.get_core().test_check() == l_false);
+    auto const& lemma = nla.get_core().lemmas();
 
     
     nla.get_core().print_lemma(lemma.back(), std::cout);
@@ -591,8 +590,8 @@ void test_basic_sign_lemma() {
     s_set_column_value_test(s, lp_bde, rational(5));
     s_set_column_value_test(s, lp_acd, rational(3));
    
-    vector<lemma> lemmas;
-    VERIFY(nla.get_core().test_check(lemmas) == l_false);
+    VERIFY(nla.get_core().test_check() == l_false);
+    auto const& lemmas = nla.get_core().lemmas();
 
     lp::lar_term t;
     t.add_var(lp_bde);
@@ -831,8 +830,8 @@ void test_tangent_lemma_rat() {
     vec.push_back(lp_b);
     nla.add_monic(lp_ab, vec.size(), vec.begin());
     
-    vector<lemma> lemma;
-    VERIFY(nla.get_core().test_check(lemma) == l_false);
+    VERIFY(nla.get_core().test_check() == l_false);
+    auto const& lemma = nla.get_core().lemmas();
     nla.get_core().print_lemma(lemma.back(), std::cout);
 }
 
@@ -859,8 +858,8 @@ void test_tangent_lemma_reg() {
     vec.push_back(lp_b);
     nla.add_monic(lp_ab, vec.size(), vec.begin());
     
-    vector<lemma> lemma;
-    VERIFY(nla.get_core().test_check(lemma) == l_false);
+    VERIFY(nla.get_core().test_check() == l_false);
+    auto const& lemma = nla.get_core().lemmas();
     nla.get_core().print_lemma(lemma.back(), std::cout);
 }
 
