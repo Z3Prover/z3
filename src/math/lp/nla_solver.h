@@ -51,6 +51,6 @@ namespace nla {
         void calculate_implied_bounds_for_monic(lp::lpvar v);
         void init_bound_propagation();
         vector<nla::lemma> const& lemmas() const;        
-
+        void propagate_bounds_for_touched_monomials();
     };
 }

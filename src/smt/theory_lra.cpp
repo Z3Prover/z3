@@ -2199,12 +2199,8 @@ public:
             finish_bound_propagation();
     }
     
-    void propagate_bounds_for_touched_monomials() {
-        m_nla->init_bound_propagation();
-        for (unsigned v : m_nla->monics_with_changed_bounds()) 
-            m_nla->calculate_implied_bounds_for_monic(v);
-        
-        m_nla->reset_monics_with_changed_bounds();
+    void propagate_bounds_for_monomials() {
+        m_nla->propagate_bounds_for_touched_monomials();
         for (const auto & l : m_nla->lemmas()) 
             false_case_of_check_nla(l);
     }
@@ -2215,8 +2211,7 @@ public:
         if (is_infeasible() || !should_propagate())
             return;
 
-        m_bp.init();
-        propagate_bounds_for_touched_monomials();
+        propagate_bounds_for_monomials();
 
         if (m.inc())
             finish_bound_propagation();
