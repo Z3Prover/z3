@@ -1601,11 +1601,11 @@ public:
             return FC_DONE;
         if (!m_nla)
             return FC_GIVEUP;
-        switch (m_nla->check_power(get_lpvar(e), get_lpvar(x), get_lpvar(y), m_nla_lemma_vector)) {
+        switch (m_nla->check_power(get_lpvar(e), get_lpvar(x), get_lpvar(y))) {
         case l_true:
             return FC_DONE;
         case l_false:
-            for (const nla::lemma & l : m_nla_lemma_vector) 
+            for (const nla::lemma & l : m_nla->lemmas()) 
                 false_case_of_check_nla(l);
             return FC_CONTINUE;
         case l_undef:
@@ -1802,11 +1802,10 @@ public:
     bool check_idiv_bounds() {
         if (!m_nla)
             return true;
-        m_nla_lemma_vector.reset();
-        m_nla->check_bounded_divisions(m_nla_lemma_vector);
-        for (auto & lemma : m_nla_lemma_vector)
+        m_nla->check_bounded_divisions();
+        for (auto & lemma : m_nla->lemmas())
             false_case_of_check_nla(lemma);
-        return m_nla_lemma_vector.empty();         
+        return m_nla->lemmas().empty();        
     }
 
     expr_ref var2expr(lpvar v) {
@@ -2025,13 +2024,13 @@ public:
     
     final_check_status check_nla_continue() {
         m_a1 = nullptr; m_a2 = nullptr;
-        lbool r = m_nla->check(m_nla_literals, m_nla_lemma_vector);
+        lbool r = m_nla->check(m_nla_literals);
 
         switch (r) {
         case l_false:
             for (const nla::ineq& i : m_nla_literals)
                 assume_literal(i); 
-            for (const nla::lemma & l : m_nla_lemma_vector) 
+            for (const nla::lemma & l : m_nla->lemmas()) 
                 false_case_of_check_nla(l);
             return FC_CONTINUE;
         case l_true:
@@ -2201,12 +2200,12 @@ public:
     }
     
     void propagate_bounds_for_touched_monomials() {
-        m_nla->init_bound_propagation(m_nla_lemma_vector);
+        m_nla->init_bound_propagation();
         for (unsigned v : m_nla->monics_with_changed_bounds()) 
             m_nla->calculate_implied_bounds_for_monic(v);
         
         m_nla->reset_monics_with_changed_bounds();
-        for (const auto & l : m_nla_lemma_vector) 
+        for (const auto & l : m_nla->lemmas()) 
             false_case_of_check_nla(l);
     }
 
@@ -3210,7 +3209,6 @@ public:
     }
  
     lp::explanation     m_explanation;
-    vector<nla::lemma>  m_nla_lemma_vector;
     vector<nla::ineq>       m_nla_literals;
     literal_vector      m_core;
     svector<enode_pair> m_eqs;

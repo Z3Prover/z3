@@ -829,7 +829,7 @@ void core::print_stats(std::ostream& out) {
         
 
 void core::clear() {
-    m_lemma_vec->clear();
+    m_lemmas.clear();
     m_literal_vec->clear();
 }
     
@@ -1066,7 +1066,7 @@ rational core::val(const factorization& f) const {
 }
 
 new_lemma::new_lemma(core& c, char const* name):name(name), c(c) {
-    c.m_lemma_vec->push_back(lemma());
+    c.m_lemmas.push_back(lemma());
 }
 
 new_lemma& new_lemma::operator|=(ineq const& ineq) {
@@ -1096,7 +1096,7 @@ new_lemma::~new_lemma() {
 }
 
 lemma& new_lemma::current() const {
-    return c.m_lemma_vec->back();
+    return c.m_lemmas.back();
 }
 
 new_lemma& new_lemma::operator&=(lp::explanation const& e) {
@@ -1209,7 +1209,7 @@ void core::negate_relation(new_lemma& lemma, unsigned j, const rational& a) {
 }
 
 bool core::conflict_found() const {
-    for (const auto & l : * m_lemma_vec) {
+    for (const auto & l : m_lemmas) {
         if (l.is_conflict())
             return true;
     }
@@ -1217,7 +1217,7 @@ bool core::conflict_found() const {
 }
 
 bool core::done() const {
-    return m_lemma_vec->size() >= 10 || 
+    return m_lemmas.size() >= 10 || 
         conflict_found() || 
         lp_settings().get_cancel_flag();
 }
@@ -1506,7 +1506,7 @@ void core::check_weighted(unsigned sz, std::pair<unsigned, std::function<void(vo
     for (unsigned i = 0; i < sz; ++i) 
         bound += checks[i].first;
     uint_set seen;
-    while (bound > 0 && !done() && m_lemma_vec->empty()) {
+    while (bound > 0 && !done() && m_lemmas.empty()) {
         unsigned n = random() % bound;
         for (unsigned i = 0; i < sz; ++i) {
             if (seen.contains(i))
@@ -1522,13 +1522,13 @@ void core::check_weighted(unsigned sz, std::pair<unsigned, std::function<void(vo
     }
 }
 
-lbool core::check_power(lpvar r, lpvar x, lpvar y, vector<lemma>& l_vec) {
-    m_lemma_vec =  &l_vec;
-    return m_powers.check(r, x, y, l_vec);
+lbool core::check_power(lpvar r, lpvar x, lpvar y) {
+    m_lemmas.reset();
+    return m_powers.check(r, x, y, m_lemmas);
 }
 
-void core::check_bounded_divisions(vector<lemma>& l_vec) {
-    m_lemma_vec = &l_vec;
+void core::check_bounded_divisions() {
+    m_lemmas.reset();
     m_divisions.check_bounded_divisions();
 }
 // looking for a free variable inside of a monic to split
@@ -1547,11 +1547,10 @@ void core::add_bounds() {
     }    
 }
 
-lbool core::check(vector<ineq>& lits, vector<lemma>& l_vec) {
+lbool core::check(vector<ineq>& lits) {
     lp_settings().stats().m_nla_calls++;
     TRACE("nla_solver", tout << "calls = " << lp_settings().stats().m_nla_calls << "\n";);
     lra.get_rid_of_inf_eps();
-    m_lemma_vec =  &l_vec;
     m_literal_vec = &lits;
     if (!(lra.get_status() == lp::lp_status::OPTIMAL || 
           lra.get_status() == lp::lp_status::FEASIBLE)) {
@@ -1572,7 +1571,7 @@ lbool core::check(vector<ineq>& lits, vector<lemma>& l_vec) {
     bool run_bounded_nlsat = should_run_bounded_nlsat();
     bool run_bounds = params().arith_nl_branching();    
 
-    auto no_effect = [&]() { return !done() && l_vec.empty() && lits.empty(); };
+    auto no_effect = [&]() { return !done() && m_lemmas.empty() && lits.empty(); };
     
     if (no_effect())
         m_monomial_bounds.propagate();
@@ -1590,7 +1589,7 @@ lbool core::check(vector<ineq>& lits, vector<lemma>& l_vec) {
               {1, check2},
               {1, check3} };
         check_weighted(3, checks);
-        if (!l_vec.empty() || !lits.empty())
+        if (!m_lemmas.empty() || !lits.empty())
             return l_false;
     }
                 
@@ -1627,15 +1626,15 @@ lbool core::check(vector<ineq>& lits, vector<lemma>& l_vec) {
         m_stats.m_nra_calls++;
     }
     
-    if (ret == l_undef && !l_vec.empty() && m_reslim.inc()) 
+    if (ret == l_undef && !m_lemmas.empty() && m_reslim.inc()) 
         ret = l_false;
 
-    m_stats.m_nla_lemmas += l_vec.size();
-    for (const auto& l : l_vec)
+    m_stats.m_nla_lemmas += m_lemmas.size();
+    for (const auto& l : m_lemmas)
         m_stats.m_nla_explanations += static_cast<unsigned>(l.expl().size());
 
     
-    TRACE("nla_solver", tout << "ret = " << ret << ", lemmas count = " << l_vec.size() << "\n";);
+    TRACE("nla_solver", tout << "ret = " << ret << ", lemmas count = " << m_lemmas.size() << "\n";);
     IF_VERBOSE(2, if(ret == l_undef) {verbose_stream() << "Monomials\n"; print_monics(verbose_stream());});
     CTRACE("nla_solver", ret == l_undef, tout << "Monomials\n"; print_monics(tout););
     return ret;
@@ -1670,13 +1669,13 @@ lbool core::bounded_nlsat() {
         m_nlsat_delay /= 2;
     }
     if (ret == l_true) {
-        m_lemma_vec->reset();
+        m_lemmas.reset();
     }
     return ret;
 }
 
 bool core::no_lemmas_hold() const {
-    for (auto & l : * m_lemma_vec) {
+    for (auto & l : m_lemmas) {
         if (lemma_holds(l)) {
             TRACE("nla_solver", print_lemma(l, tout););
             return false;
@@ -1685,10 +1684,10 @@ bool core::no_lemmas_hold() const {
     return true;
 }
     
-lbool core::test_check(vector<lemma>& l) {
+lbool core::test_check() {
     vector<ineq> lits;
     lra.set_status(lp::lp_status::OPTIMAL);
-    return check(lits, l);
+    return check(lits);
 }
 
 std::ostream& core::print_terms(std::ostream& out) const {
@@ -2027,12 +2026,12 @@ void core::add_lower_bound_monic(lpvar j, const lp::mpq& v, bool is_strict, std:
         }
     }
 
-    void core::init_bound_propagation(vector<nla::lemma>& lemma_vector) {
+    void core::init_bound_propagation() {
         m_implied_bounds.clear();
         m_improved_lower_bounds.reset();
         m_improved_upper_bounds.reset();
         m_column_types = &lra.get_column_types();
-        lemma_vector.clear();
+        m_lemmas.clear();
     }
 
 }  // namespace nla

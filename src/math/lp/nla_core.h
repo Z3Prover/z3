@@ -85,7 +85,7 @@ class core {
     reslimit&                m_reslim;
     smt_params_helper        m_params;
     std::function<bool(lpvar)> m_relevant;
-    vector<lemma> *          m_lemma_vec;
+    vector<lemma>            m_lemmas;
     vector<ineq> *           m_literal_vec = nullptr;
     indexed_uint_set         m_to_refine;
     vector<lpvar>            m_monics_with_changed_bounds;
@@ -393,15 +393,15 @@ public:
 
     bool  conflict_found() const;
     
-    lbool check(vector<ineq>& ineqs, vector<lemma>& l_vec);
-    lbool check_power(lpvar r, lpvar x, lpvar y, vector<lemma>& l_vec);
-    void check_bounded_divisions(vector<lemma>&);
+    lbool check(vector<ineq>& ineqs);
+    lbool check_power(lpvar r, lpvar x, lpvar y);
+    void check_bounded_divisions();
 
     bool  no_lemmas_hold() const;
 
-    void propagate(vector<lemma>& lemmas);
+    // void propagate();
     
-    lbool  test_check(vector<lemma>& l);
+    lbool  test_check();
     lpvar map_to_root(lpvar) const;
     std::ostream& print_terms(std::ostream&) const;
     std::ostream& print_term(const lp::lar_term&, std::ostream&) const;
@@ -443,6 +443,8 @@ public:
     void add_upper_bound_monic(lpvar j, const lp::mpq& v, bool is_strict, std::function<u_dependency*()> explain_dep);    
     bool upper_bound_is_available(unsigned j) const;
     bool lower_bound_is_available(unsigned j) const;
+    vector<nla::lemma> const& lemmas() const { return m_lemmas; }        
+
 private:
     lp::column_type get_column_type(unsigned j) const { return (*m_column_types)[j]; }
     void constrain_nl_in_tableau();
@@ -451,7 +453,7 @@ private:
     void save_tableau();
     bool integrality_holds();
     void calculate_implied_bounds_for_monic(lp::lpvar v);
-    void init_bound_propagation(vector<nla::lemma> &);    
+    void init_bound_propagation();    
 };  // end of core
 
 struct pp_mon {
