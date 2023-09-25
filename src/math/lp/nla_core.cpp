@@ -2027,11 +2027,12 @@ void core::add_lower_bound_monic(lpvar j, const lp::mpq& v, bool is_strict, std:
         }
     }
 
-    void core::init_bound_propagation() {
+    void core::init_bound_propagation(vector<nla::lemma>& lemma_vector) {
         m_implied_bounds.clear();
         m_improved_lower_bounds.reset();
         m_improved_upper_bounds.reset();
         m_column_types = &lra.get_column_types();
+        lemma_vector.clear();
     }
 
 }  // namespace nla
