@@ -3209,7 +3209,7 @@ public:
     svector<enode_pair> m_eqs;
     vector<parameter>   m_params;
 
-    void reset_evidence() {
+        void reset_evidence() {
         m_core.reset();
         m_eqs.reset();
         m_params.reset();

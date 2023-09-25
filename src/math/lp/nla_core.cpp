@@ -1913,6 +1913,10 @@ void core::add_lower_bound_monic(lpvar j, const lp::mpq& v, bool is_strict, std:
     }
 
     void core::propagate_monic_with_non_fixed(lpvar monic_var, const svector<lpvar>& vars, lpvar non_fixed, const rational& k) {
+        if (params().arith_nl_use_lemmas_in_unit_prop()) {
+            propagate_monic_non_fixed_with_lemma(monic_var, vars, non_fixed, k);
+            return;
+        }
         lp::impq bound_value;
         bool is_strict;
         auto& lps = lra;
@@ -2002,13 +2006,38 @@ void core::add_lower_bound_monic(lpvar j, const lp::mpq& v, bool is_strict, std:
         add_lower_bound_monic(monic_var, lp::mpq(0), false, lambda);
         add_upper_bound_monic(monic_var, lp::mpq(0), false, lambda);
     }
+    
+    void core::propagate_monic_non_fixed_with_lemma(lpvar monic_var, const svector<lpvar>& vars, lpvar non_fixed, const rational& k) {
+        lp::impq bound_value;
+        new_lemma lemma(*this, "propagate monic with non fixed");
+        // using += to not assert thath the inequality does not hold
+        lemma += ineq(term(rational(1), monic_var, -k, non_fixed), llc::EQ, 0);
+        lp::explanation exp;
+        for (auto v : m_emons[monic_var].vars()) {
+            if (v == non_fixed) continue;
+            u_dependency* dep = lra.get_column_lower_bound_witness(v);
+            for (auto ci : lra.flatten(dep)) {
+                exp.push_back(ci);
+            }
+            dep = lra.get_column_upper_bound_witness(v);
+            for (auto ci : lra.flatten(dep)) {
+                exp.push_back(ci);
+            }
+        }
+        lemma &= exp;
+    }
 
     void core::calculate_implied_bounds_for_monic(lp::lpvar monic_var) {
+        m_propagated.reserve(monic_var + 1, false);
+        bool throttle = params().arith_nl_throttle_unit_prop();
+        if (throttle && m_propagated[monic_var])
+            return;
         lpvar non_fixed, zero_var;
         const auto& vars = m_emons[monic_var].vars();
         if (!is_linear(vars, zero_var, non_fixed))
             return;
-
+        if (throttle)    
+            trail().push(set_bitvector_trail(m_propagated, monic_var));    
         if (zero_var != null_lpvar)
             add_bounds_for_zero_var(monic_var, zero_var);
         else {
