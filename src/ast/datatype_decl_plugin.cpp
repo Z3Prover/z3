@@ -275,7 +275,7 @@ namespace datatype {
                 }
                 parameter const & name = parameters[0];
                 if (!name.is_symbol()) {
-                    TRACE("datatype", tout << "expected symol parameter at position " << 0 << " got: " << name << "\n";);
+                    TRACE("datatype", tout << "expected symbol parameter at position " << 0 << " got: " << name << "\n";);
                     throw invalid_datatype();
                 }
                 for (unsigned i = 1; i < num_parameters; ++i) {

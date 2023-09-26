@@ -444,7 +444,7 @@ struct purify_arith_proc {
             expr * x = args[0];
             bool is_int = u().is_int(x);
 
-            expr * k = mk_fresh_var(is_int);
+            expr * k = mk_fresh_var(false);
             result = k;
             mk_def_proof(k, t, result_pr);
             cache_result(t, result, result_pr);
@@ -454,7 +454,7 @@ struct purify_arith_proc {
             if (y.is_zero()) {
                 expr* p0;
                 if (is_int) {
-                    if (!m_ipower0) m_ipower0 = mk_fresh_var(true);
+                    if (!m_ipower0) m_ipower0 = mk_fresh_var(false);
                     p0 = m_ipower0;
                 }
                 else {

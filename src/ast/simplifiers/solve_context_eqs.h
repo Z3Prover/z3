@@ -45,7 +45,9 @@ namespace euf {
         bool contains_conjunctively(expr* f, bool sign, expr* e, signed_expressions& conjuncts);
         bool is_conjunction(bool sign, expr* f) const;
         
-        void collect_nested_equalities(dependent_expr const& f, expr_mark& visited, dep_eq_vector& eqs);        
+        void collect_nested_equalities(dependent_expr const& f, expr_mark& visited, dep_eq_vector& eqs);
+
+        bool is_safe_var(expr* x, unsigned i, expr* f, svector<std::tuple<bool,unsigned,expr*,unsigned>> const& todo);
 
     public:
         

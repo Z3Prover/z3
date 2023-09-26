@@ -16,9 +16,6 @@
 #include "math/polynomial/algebraic_numbers.h"
 
 namespace nla {
-
-    nla_settings& solver::settings() { return m_core->m_nla_settings; }
-
     void solver::add_monic(lpvar v, unsigned sz, lpvar const* vs) {
         m_core->add_monic(v, sz, vs);
     }
@@ -45,8 +42,12 @@ namespace nla {
     
     bool solver::need_check() { return m_core->has_relevant_monomial(); }
     
-    lbool solver::check(vector<lemma>& l) {
-        return m_core->check(l);
+    lbool solver::check(vector<ineq>& lits, vector<lemma>& lemmas) {
+        return m_core->check(lits, lemmas);
+    }
+
+    void solver::propagate(vector<lemma>& lemmas) {
+        m_core->propagate(lemmas);
     }
     
     void solver::push(){
@@ -57,8 +58,8 @@ namespace nla {
         m_core->pop(n);
     }
     
-    solver::solver(lp::lar_solver& s, reslimit& limit): 
-        m_core(alloc(core, s, limit)) {
+    solver::solver(lp::lar_solver& s, params_ref const& p, reslimit& limit): 
+        m_core(alloc(core, s, p, limit)) {
     }
     
     bool solver::influences_nl_var(lpvar j) const {    

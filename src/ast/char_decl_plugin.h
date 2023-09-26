@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    char_plugin for unicode suppport
+    char_plugin for unicode support
 
 Author:
 

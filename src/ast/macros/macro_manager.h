@@ -32,7 +32,7 @@ Revision History:
    where T[X] does not contain f.
 
    This class is responsible for storing macros and expanding them.
-   It has support for backtracking and tagging declarations in an expression as forbidded for being macros.
+   It has support for backtracking and tagging declarations in an expression as forbidden for being macros.
 */
 class macro_manager {
     ast_manager &                    m;

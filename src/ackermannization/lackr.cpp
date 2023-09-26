@@ -22,6 +22,8 @@
 #include "ackermannization/ackr_info.h"
 #include "ast/for_each_expr.h"
 #include "ast/ast_util.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 #include "model/model_smt2_pp.h"
 
 lackr::lackr(ast_manager& m, const params_ref& p, lackr_stats& st,
@@ -142,10 +144,10 @@ bool lackr::ackr(app * const t1, app * const t2) {
 // Introduce the ackermann lemma for each pair of terms.
 //
 void lackr::eager_enc() {
-    TRACE("ackermannize", tout << "#funs: " << m_fun2terms.size() << "#sels: " << m_sel2terms.size() << std::endl;);
-    for (auto const& kv : m_fun2terms) {
+    TRACE("ackermannize", tout << "#funs: " << m_fun2terms.size() << " #sels: " << m_sel2terms.size() << std::endl;);
+    for (auto const& [k,v] : m_fun2terms) {
         checkpoint();
-        ackr(kv.get_value());
+        ackr(v);
     }
     for (auto const& kv : m_sel2terms) {
         checkpoint();
@@ -172,14 +174,13 @@ void lackr::ackr(app_set const* ts) {
 }
 
 void lackr::abstract_fun(fun2terms_map const& apps) {
-    for (auto const& kv : apps) {
-        func_decl* fd = kv.m_key;
-        for (app * t : kv.m_value->var_args) {
+    for (auto const& [fd, v] : apps) {
+        for (app * t : v->var_args) {
             app * fc = m.mk_fresh_const(fd->get_name(), t->get_sort());
             SASSERT(t->get_decl() == fd);
             m_info->set_abstr(t, fc);
         }
-        for (app * t : kv.m_value->const_args) {
+        for (app * t : v->const_args) {
             app * fc = m.mk_fresh_const(fd->get_name(), t->get_sort());
             SASSERT(t->get_decl() == fd);
             m_info->set_abstr(t, fc);

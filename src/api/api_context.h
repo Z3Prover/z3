@@ -231,7 +231,7 @@ namespace api {
         void handle_exception(z3_exception & ex);
         char const * get_exception_msg() const { return m_exception_msg.c_str(); }
 
-        // Interrupt the current interruptable object
+        // Interrupt the current interruptible object
         void interrupt();
 
         void invoke_error_handler(Z3_error_code c);

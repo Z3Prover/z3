@@ -42,7 +42,8 @@ namespace sat {
             
     void anf_simplifier::operator()() {
         dd::pdd_manager m(20, dd::pdd_manager::semantics::mod2_e);
-        pdd_solver solver(s.rlimit(), m);
+        u_dependency_manager dm;
+        pdd_solver solver(s.rlimit(), dm, m);
         report _report(*this);
         configure_solver(solver);
         clauses2anf(solver);

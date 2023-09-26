@@ -297,9 +297,10 @@ namespace smt {
     void context::assert_default(expr * n, proof * pr) {
         internalize(n, true);
         literal l = get_literal(n);
-        if (l == false_literal) {
+        if (l == false_literal) 
             set_conflict(mk_justification(justification_proof_wrapper(*this, pr)));
-        }
+        else if (l == true_literal)
+            return;
         else {
             justification* j = mk_justification(justification_proof_wrapper(*this, pr));
             m_clause_proof.add(l, CLS_AUX, j);

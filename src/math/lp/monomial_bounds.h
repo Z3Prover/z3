@@ -10,12 +10,14 @@
 
 #include "math/lp/nla_common.h"
 #include "math/lp/nla_intervals.h"
-#include "math/lp/u_set.h"
+#include "util/uint_set.h"
 
 namespace nla {
     class core;
     class monomial_bounds : common {
         dep_intervals& dep;
+
+
         void var2interval(lpvar v, scoped_dep_interval& i);
         bool is_too_big(mpq const& q) const;
         bool propagate_down(monic const& m, lpvar u);
@@ -27,8 +29,17 @@ namespace nla {
         void analyze_monomial(monic const& m, unsigned& num_free, lpvar& free_v, unsigned& power) const;
         bool is_free(lpvar v) const;
         bool is_zero(lpvar v) const;
+
+        // monomial propagation
+        bool_vector m_propagated;
+        void unit_propagate(monic const& m);
+        bool is_linear(monic const& m);
+        rational fixed_var_product(monic const& m);
+        lpvar non_fixed_var(monic const& m);
+
     public:
         monomial_bounds(core* core);
-        void operator()();
+        void propagate();
+        void unit_propagate();
     }; 
 }

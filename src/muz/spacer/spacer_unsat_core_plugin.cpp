@@ -73,7 +73,7 @@ namespace spacer {
                 // the current step needs to be interpolated:
                 expr* fact = m.get_fact(pf);
                 // if we trust the current step and we are able to use it
-                if (m_ctx.is_b_pure (pf) && (m.is_asserted(pf) || spacer::is_literal(m, fact))) {
+                if (m_ctx.is_b_pure (pf) && (m.is_asserted(pf) || spacer::is_literal(m, fact)) && !spacer::contains_defaults(fact, m)) {
                     // just add it to the core
                     m_ctx.add_lemma_to_core(fact);
                 }

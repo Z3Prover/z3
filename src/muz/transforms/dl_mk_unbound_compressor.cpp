@@ -294,13 +294,11 @@ namespace datalog {
                 replace_original_rule = true;
                 replace_by_decompression_rule(source, rule_index, tail_index, arg_index);
                 // NB. arg_indices becomes stale after original rule is replaced.
-                if (is_negated_predicate && !can_remove_orig_rule) {
+                if (is_negated_predicate && !can_remove_orig_rule) 
                     break;
-                }
             }
-            else {
+            else 
                 add_decompression_rule(source, r, tail_index, arg_index);
-            }
         }
         return replace_original_rule;
     }
@@ -343,20 +341,19 @@ namespace datalog {
     }
 
     rule_set * mk_unbound_compressor::operator()(rule_set const & source) {
-        // TODO mc
 
-        if (!m_context.compress_unbound()) {
+        if (!m_context.compress_unbound() || m_context.get_model_converter()) 
             return nullptr;
-        }
 
         m_modified = false;
 
         SASSERT(m_rules.empty());
 
         rel_context_base* rel = m_context.get_rel_context();
-        if (rel) {
+        if (rel) 
             rel->collect_non_empty_predicates(m_non_empty_rels);
-        }
+
+        
         unsigned init_rule_cnt = source.get_num_rules();
         for (unsigned i = 0; i < init_rule_cnt; i++) {
             rule * r = source.get_rule(i);
@@ -390,13 +387,15 @@ namespace datalog {
         scoped_ptr<rule_set> result;
         if (m_modified) {
             result = alloc(rule_set, m_context);
-            unsigned fin_rule_cnt = m_rules.size();
-            for (unsigned i=0; i<fin_rule_cnt; i++) {
-                result->add_rule(m_rules.get(i));
-            }
+            for (auto* r : m_rules)
+                result->add_rule(r);
             result->inherit_predicates(source);
         }
+        if (result && m_context.get_model_converter()) {
+            // TODO mc
+        }
         reset();
+        
         return result.detach();
     }
 

@@ -19,7 +19,7 @@ typedef lp::lar_term term;
 // a > b && c > 0 => ac > bc
 void order::order_lemma() {
     TRACE("nla_solver", );
-    if (!c().m_nla_settings.run_order) {
+    if (!c().params().arith_nl_order()) {
         TRACE("nla_solver", tout << "not generating order lemmas\n";);
         return;
     }
@@ -116,7 +116,7 @@ void order::order_lemma_on_factor_binomial_rm(const monic& ac, bool k, const mon
           tout << "bd=" << pp_mon_with_vars(_(), bd) << "\n";
           );
     factor d(_().m_evars.find(ac.vars()[k]).var(), factor_type::VAR);
-    factor b(false);
+    factor b;
     if (c().divide(bd, d, b)) {
         order_lemma_on_binomial_ac_bd(ac, k, bd, b, d.var());
     }
@@ -192,7 +192,7 @@ bool order::order_lemma_on_ac_and_bc(const monic& rm_ac,
           tout << "rm_bd = " << pp_mon_with_vars(_(), rm_bd) << "\n";
           tout << "ac_f[k] = ";
           c().print_factor_with_vars(ac_f[k], tout););
-    factor b(false);
+    factor b;
     return 
         c().divide(rm_bd, ac_f[k], b) && 
         order_lemma_on_ac_and_bc_and_factors(rm_ac, ac_f[!k], ac_f[k], rm_bd, b);

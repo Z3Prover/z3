@@ -65,6 +65,13 @@ void ast_translation::collect_decl_extra_children(decl * d) {
 }
 
 void ast_translation::push_frame(ast * n) {
+    // ensure poly roots are pushed first.
+    if (m_from_manager.has_type_vars() && n->get_kind() == AST_FUNC_DECL && to_func_decl(n)->is_polymorphic()) {
+        func_decl* g = m_from_manager.poly_root(to_func_decl(n));
+        if (n != g && m_cache.contains(g)) {
+            m_frame_stack.push_back(frame(n, 0, m_extra_children_stack.size(), m_result_stack.size()));
+        }
+    }
     m_frame_stack.push_back(frame(n, 0, m_extra_children_stack.size(), m_result_stack.size()));
     switch (n->get_kind()) {
     case AST_SORT:
@@ -152,6 +159,10 @@ void ast_translation::mk_func_decl(func_decl * f, frame & fr) {
                                           f->get_arity(),
                                           new_domain,
                                           new_range);
+    }
+    else if (f->is_polymorphic() && m_from_manager.poly_root(f) != f) {
+        func_decl* fr = to_func_decl(m_cache[m_from_manager.poly_root(f)]);
+        new_f = m_to_manager.instantiate_polymorphic(fr, f->get_arity(), new_domain, new_range);
     }
     else {
         buffer<parameter> ps;

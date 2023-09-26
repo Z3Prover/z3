@@ -15,7 +15,6 @@
 
   Revision History:
   --*/
-// clang-format off
 #include "math/lp/int_solver.h"
 #include "math/lp/lar_solver.h"
 #include "math/lp/int_branch.h"

@@ -30,7 +30,7 @@ namespace pb {
         if (m_pb.is_pb(e)) {
             sat::literal lit = internalize_pb(e, sign, root);
             if (m_ctx && !root && lit != sat::null_literal)
-                m_ctx->attach_lit(lit, e);            
+                m_ctx->attach_lit(literal(lit.var(), false), e);            
             return lit;
         }
         UNREACHABLE();
@@ -171,6 +171,15 @@ namespace pb {
             wl.second.neg();
             k += rational(wl.first);
         }
+        if (k < 0) {
+            bool_var v = s().add_var(false);
+            literal l(v, false);
+            s().assign_unit(~l);
+            si.cache(t, l);
+            if (sign) l.neg();
+            return l;
+        }
+            
         check_unsigned(k);
         add_pb_ge(v2, false, wlits, k.get_unsigned());
         if (base_assert) {

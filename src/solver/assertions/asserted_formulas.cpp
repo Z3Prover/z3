@@ -161,6 +161,9 @@ void asserted_formulas::assert_expr(expr * e, proof * _in_pr) {
     if (inconsistent())
         return;
 
+    if (m.is_true(e))
+        return;
+
     if (m_smt_params.m_preprocess) {
         TRACE("assert_expr_bug", tout << r << "\n";);
         set_eliminate_and(false); // do not eliminate and before nnf.
@@ -507,7 +510,8 @@ void asserted_formulas::simplify_fmls::operator()() {
         else {
             af.push_assertion(result, result_pr, new_fmls);
         }
-        if (af.canceled()) return;
+        if (af.canceled())
+            return;
     }
     af.swap_asserted_formulas(new_fmls);
     TRACE("asserted_formulas", af.display(tout););

@@ -31,7 +31,6 @@ struct theory_bv_params {
     bool         m_bv_reflect = true;
     bool         m_bv_lazy_le = false;
     bool         m_bv_cc = false;
-    bool         m_bv_eq_axioms = true;
     unsigned     m_bv_blast_max_size = INT_MAX;
     bool         m_bv_enable_int2bv2int = true;
     bool         m_bv_watch_diseq = false;

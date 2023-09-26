@@ -85,6 +85,7 @@ const family_id user_sort_family_id = 4;
 const family_id last_builtin_family_id = 4;
 
 const family_id arith_family_id = 5;
+const family_id poly_family_id = 6;
 
 // -----------------------------------
 //
@@ -399,6 +400,7 @@ struct func_decl_info : public decl_info {
     bool m_idempotent:1;
     bool m_skolem:1;
     bool m_lambda:1;
+    bool m_polymorphic:1;
 
     func_decl_info(family_id family_id = null_family_id, decl_kind k = null_decl_kind, unsigned num_parameters = 0, parameter const * parameters = nullptr);
 
@@ -413,6 +415,7 @@ struct func_decl_info : public decl_info {
     bool is_idempotent() const { return m_idempotent; }
     bool is_skolem() const { return m_skolem; }
     bool is_lambda() const { return m_lambda; }
+    bool is_polymorphic() const { return m_polymorphic; }
 
     void set_associative(bool flag = true) { m_left_assoc = flag; m_right_assoc = flag; }
     void set_left_associative(bool flag = true) { m_left_assoc = flag; }
@@ -425,6 +428,7 @@ struct func_decl_info : public decl_info {
     void set_idempotent(bool flag = true) { m_idempotent = flag; }
     void set_skolem(bool flag = true) { m_skolem = flag; }
     void set_lambda(bool flag = true) { m_lambda = flag; }
+    void set_polymorphic(bool flag = true) { m_polymorphic = flag; }
 
     bool operator==(func_decl_info const & info) const;
 
@@ -622,6 +626,7 @@ public:
     sort_size const & get_num_elements() const { return get_info()->get_num_elements(); }
     void set_num_elements(sort_size const& s) { get_info()->set_num_elements(s); }
     unsigned get_size() const { return get_obj_size(); }
+    bool is_type_var() const { return get_family_id() == poly_family_id; }
 };
 
 // -----------------------------------
@@ -653,6 +658,7 @@ public:
     bool is_skolem() const { return get_info() != nullptr && get_info()->is_skolem(); }
     bool is_lambda() const { return get_info() != nullptr && get_info()->is_lambda(); }
     bool is_idempotent() const { return get_info() != nullptr && get_info()->is_idempotent(); }
+    bool is_polymorphic() const { return get_info() != nullptr && get_info()->is_polymorphic(); }
     unsigned get_arity() const { return m_arity; }
     sort * get_domain(unsigned idx) const { SASSERT(idx < get_arity()); return m_domain[idx]; }
     sort * const * get_domain() const { return m_domain; }
@@ -964,11 +970,6 @@ inline quantifier const * to_quantifier(ast const * n) { SASSERT(is_quantifier(n
 unsigned get_node_hash(ast const * n);
 bool compare_nodes(ast const * n1, ast const * n2);
 unsigned get_node_size(ast const * n);
-unsigned get_asts_hash(unsigned sz, ast * const* ns, unsigned init);
-unsigned get_apps_hash(unsigned sz, app * const* ns, unsigned init);
-unsigned get_exprs_hash(unsigned sz, expr * const* ns, unsigned init);
-unsigned get_sorts_hash(unsigned sz, sort * const* ns, unsigned init);
-unsigned get_decl_hash(unsigned sz, func_decl* const* ns, unsigned init);
 
 // This is the internal comparison functor for hash-consing AST nodes.
 struct ast_eq_proc {
@@ -1509,13 +1510,15 @@ protected:
     unsigned                  m_fresh_id;
     bool                      m_debug_ref_count;
     u_map<unsigned>           m_debug_free_indices;
-    std::fstream*             m_trace_stream;
-    bool                      m_trace_stream_owner;
+    std::fstream*             m_trace_stream = nullptr;
+    bool                      m_trace_stream_owner = false;
+    bool                      m_has_type_vars = false;
 #ifdef Z3DEBUG
     bool slow_not_contains(ast const * n);
 #endif
     ast_manager *             m_format_manager; // hack for isolating format objects in a different manager.
-    symbol                    m_lambda_def;
+    symbol                    m_lambda_def = symbol(":lambda-def");
+    obj_map<func_decl, func_decl*> m_poly_roots;
 
     void init();
 
@@ -1709,6 +1712,8 @@ public:
 
     sort * mk_uninterpreted_sort(symbol const & name) { return mk_uninterpreted_sort(name, 0, nullptr); }
 
+    sort * mk_type_var(symbol const& name);
+
     sort * mk_sort(symbol const & name, sort_info const & info) {
         if (info.get_family_id() == null_family_id) {
             return mk_uninterpreted_sort(name);
@@ -1730,11 +1735,26 @@ public:
 
     bool is_uninterp(sort const * s) const { return s->get_family_id() == null_family_id || s->get_family_id() == user_sort_family_id; }
 
+    bool is_type_var(sort const* s) const { return s->get_family_id() == poly_family_id; }
+
+    bool has_type_vars() const { return m_has_type_vars; }
+
+    func_decl* poly_root(func_decl* f) const { SASSERT(f->is_polymorphic()); return m_poly_roots[f]; }
+
+
+    func_decl* instantiate_polymorphic(func_decl* f, unsigned arity, sort * const* domain, sort * range);
+
     /**
        \brief A sort is "fully" interpreted if it is interpreted,
        and doesn't depend on other uninterpreted sorts.
     */
     bool is_fully_interp(sort * s) const;
+
+    bool has_type_var(sort* s) const;
+
+    bool has_type_var(func_decl* f) const;
+
+    bool has_type_var(unsigned n, sort* const* domain, sort* range) const;
 
     func_decl * mk_func_decl(family_id fid, decl_kind k, unsigned num_parameters, parameter const * parameters,
                              unsigned arity, sort * const * domain, sort * range = nullptr);

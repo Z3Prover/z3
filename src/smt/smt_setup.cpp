@@ -38,6 +38,7 @@ Revision History:
 #include "smt/theory_pb.h"
 #include "smt/theory_fpa.h"
 #include "smt/theory_str.h"
+#include "smt/theory_polymorphism.h"
 
 namespace smt {
 
@@ -788,6 +789,11 @@ namespace smt {
         m_context.register_plugin(alloc(smt::theory_special_relations, m_context, m_manager));
     }
 
+    void setup::setup_polymorphism() {
+        if (m_manager.has_type_vars())
+            m_context.register_plugin(alloc(theory_polymorphism, m_context));
+    }
+
     void setup::setup_unknown() {
         static_features st(m_manager);
         ptr_vector<expr> fmls;
@@ -803,6 +809,7 @@ namespace smt {
         setup_seq_str(st);
         setup_fpa();
         setup_special_relations();
+        setup_polymorphism();
     }
 
     void setup::setup_unknown(static_features & st) {
@@ -819,6 +826,7 @@ namespace smt {
             setup_fpa();
             setup_recfuns();
             setup_special_relations();
+            setup_polymorphism();
             return;
         }
 

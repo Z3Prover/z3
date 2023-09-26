@@ -1,20 +1,9 @@
 /*++
 Copyright (c) 2017 Microsoft Corporation
 
-Module Name:
-
-    <name>
-
-Abstract:
-
-    <abstract>
-
 Author:
 
     Lev Nachmanson (levnach)
-
-Revision History:
-
 
 --*/
 
@@ -53,15 +42,19 @@ class lar_base_constraint {
     mpq              m_right_side;
     bool             m_active;
     unsigned         m_j;
-public:
+    u_dependency*    m_dep;
+
+   public:
 
     virtual vector<std::pair<mpq, var_index>> coeffs() const = 0;
-    lar_base_constraint(unsigned j, lconstraint_kind kind, const mpq& right_side) :m_kind(kind), m_right_side(right_side), m_active(false), m_j(j) {}
+    lar_base_constraint(unsigned j, lconstraint_kind kind, u_dependency* dep, const mpq& right_side) :
+        m_kind(kind), m_right_side(right_side), m_active(false), m_j(j), m_dep(dep) {}
     virtual ~lar_base_constraint() = default;
 
     lconstraint_kind kind() const { return m_kind; }
     mpq const& rhs() const { return m_right_side; }
     unsigned column() const { return m_j; }
+    u_dependency* dep() const { return m_dep; }
 
     void activate() { m_active = true; }
     void deactivate() { m_active = false; }
@@ -73,8 +66,8 @@ public:
 
 class lar_var_constraint: public lar_base_constraint {
 public:
-    lar_var_constraint(unsigned j, lconstraint_kind kind, const mpq& right_side) : 
-        lar_base_constraint(j, kind, right_side) {}
+    lar_var_constraint(unsigned j, lconstraint_kind kind, u_dependency* dep, const mpq& right_side) : 
+        lar_base_constraint(j, kind, dep, right_side) {}
 
     vector<std::pair<mpq, var_index>> coeffs() const override {
         vector<std::pair<mpq, var_index>> ret;
@@ -88,8 +81,8 @@ public:
 class lar_term_constraint: public lar_base_constraint {
     const lar_term * m_term;
 public:
-    lar_term_constraint(unsigned j, const lar_term *t, lconstraint_kind kind, const mpq& right_side) : 
-        lar_base_constraint(j, kind, right_side), m_term(t) {}
+    lar_term_constraint(unsigned j, const lar_term* t, lconstraint_kind kind, u_dependency* dep, const mpq& right_side) : 
+        lar_base_constraint(j, kind, dep, right_side), m_term(t) {}
 
     vector<std::pair<mpq, var_index>> coeffs() const override { return m_term->coeffs_as_vector(); }
     unsigned size() const override { return m_term->size();}
@@ -98,10 +91,11 @@ public:
 class constraint_set {
     region                         m_region;
     column_namer&                  m_namer;
+    u_dependency_manager&          m_dep_manager;
     vector<lar_base_constraint*>   m_constraints;
     stacked_value<unsigned>        m_constraint_count;
     unsigned_vector                m_active;
-    stacked_value<unsigned>        m_active_lim;
+    stacked_value<unsigned>        m_active_lim;    
 
     constraint_index add(lar_base_constraint* c) {
         constraint_index ci = m_constraints.size();
@@ -137,9 +131,15 @@ class constraint_set {
         return out << "constraint " << T_to_string(ci) << " is not found" << std::endl;
     }
 
+    u_dependency* mk_dep() {
+        return m_dep_manager.mk_leaf(m_constraints.size());
+    }
+
 public:
-    constraint_set(column_namer& cn): 
-        m_namer(cn) {}
+    constraint_set(u_dependency_manager& d, column_namer& cn):
+        m_namer(cn),
+        m_dep_manager(d)
+    {}
 
     ~constraint_set() {
         for (auto* c : m_constraints) 
@@ -169,11 +169,12 @@ public:
     }
 
     constraint_index add_var_constraint(var_index j, lconstraint_kind k, mpq const& rhs) {
-        return add(new (m_region) lar_var_constraint(j, k, rhs));
+        return add(new (m_region) lar_var_constraint(j, k, mk_dep(), rhs));
     }
 
     constraint_index add_term_constraint(unsigned j, const lar_term* t, lconstraint_kind k, mpq const& rhs) {
-        return add(new (m_region) lar_term_constraint(j, t, k, rhs));
+        auto* dep = mk_dep();
+        return add(new (m_region) lar_term_constraint(j, t, k, dep, rhs));
     }
 
     // future behavior uses activation bit.

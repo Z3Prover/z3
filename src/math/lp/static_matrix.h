@@ -126,7 +126,6 @@ public:
 
     unsigned lowest_row_in_column(unsigned col);
 
-    void add_columns_at_the_end(unsigned delta);
     void add_new_element(unsigned i, unsigned j, const T & v);
 
     void add_row() {m_rows.push_back(row_strip<T>());}

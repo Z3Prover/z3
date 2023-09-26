@@ -2,7 +2,6 @@
   Copyright (c) 2017 Microsoft Corporation
   Author: Nikolaj Bjorner, Lev Nachmanson
 */
-// clang-format off
 #include "math/lp/lar_solver.h"
 #include "smt/params/smt_params_helper.hpp"
 
@@ -17,7 +16,7 @@ namespace lp {
 
     void lar_solver::updt_params(params_ref const& _p) {
         smt_params_helper p(_p);
-        set_track_pivoted_rows(p.arith_bprop_on_pivoted_rows());
+        track_touched_rows(p.arith_bprop_on_pivoted_rows());
         set_cut_strategy(p.arith_branch_cut_ratio());
         m_settings.updt_params(_p);
     }
@@ -27,14 +26,16 @@ namespace lp {
         m_mpq_lar_core_solver(m_settings, *this),
         m_var_register(false),
         m_term_register(true),
-        m_constraints(*this) {}
+        m_constraints(m_dependencies, *this) {}
 
-    void lar_solver::set_track_pivoted_rows(bool v) {
-        m_mpq_lar_core_solver.m_r_solver.m_pivoted_rows = v ? (&m_rows_with_changed_bounds) : nullptr;
+    // start or ends tracking the rows that were changed by solve()
+    void lar_solver::track_touched_rows(bool v) {
+        m_mpq_lar_core_solver.m_r_solver.m_touched_rows = v ? (&m_touched_rows) : nullptr;
     }
-
-    bool lar_solver::get_track_pivoted_rows() const {
-        return m_mpq_lar_core_solver.m_r_solver.m_pivoted_rows != nullptr;
+   
+    // returns true iff the solver tracks the rows that were changed by solve()    
+    bool lar_solver::touched_rows_are_tracked() const {
+        return m_mpq_lar_core_solver.m_r_solver.m_touched_rows != nullptr;
     }
 
     lar_solver::~lar_solver() {
@@ -213,12 +214,18 @@ namespace lp {
 
     void lar_solver::fill_explanation_from_crossed_bounds_column(explanation& evidence) const {
         lp_assert(static_cast<int>(get_column_type(m_crossed_bounds_column)) >= static_cast<int>(column_type::boxed));
-        lp_assert(!m_mpq_lar_core_solver.m_r_solver.column_is_feasible(m_crossed_bounds_column));
+        lp_assert(!column_is_feasible(m_crossed_bounds_column));
 
         // this is the case when the lower bound is in conflict with the upper one
         const ul_pair& ul = m_columns_to_ul_pairs[m_crossed_bounds_column];
-        evidence.add_pair(ul.upper_bound_witness(), numeric_traits<mpq>::one());
-        evidence.add_pair(ul.lower_bound_witness(), -numeric_traits<mpq>::one());
+        svector<constraint_index> deps;
+        m_dependencies.linearize(ul.upper_bound_witness(), deps);
+        for (auto d : deps)
+            evidence.add_pair(d, numeric_traits<mpq>::one());
+        deps.reset();
+        m_dependencies.linearize(ul.lower_bound_witness(), deps);
+        for (auto d : deps)
+            evidence.add_pair(d, -numeric_traits<mpq>::one());
     }
 
     void lar_solver::push() {
@@ -231,15 +238,16 @@ namespace lp {
         m_term_count.push();
         m_constraints.push();
         m_usage_in_terms.push();
+        m_dependencies.push_scope();
     }
     
-    void lar_solver::clean_popped_elements(unsigned n, u_set& set) {
+    void lar_solver::clean_popped_elements(unsigned n, indexed_uint_set& set) {
         vector<int> to_remove;
         for (unsigned j : set)
             if (j >= n)
                 to_remove.push_back(j);
         for (unsigned j : to_remove)
-            set.erase(j);
+            set.remove(j);
     }
 
     void lar_solver::clean_popped_elements_for_heap(unsigned n, lpvar_heap& heap) {
@@ -257,7 +265,7 @@ namespace lp {
         m_crossed_bounds_column.pop(k);
         unsigned n = m_columns_to_ul_pairs.peek_size(k);
         m_var_register.shrink(n);
-        pop_tableau();
+        pop_tableau(n);
         lp_assert(A_r().column_count() == n);
         TRACE("lar_solver_details",
             for (unsigned j = 0; j < n; j++) {
@@ -272,11 +280,11 @@ namespace lp {
         clean_popped_elements(n, m_incorrect_columns);
 
         for (auto rid : m_row_bounds_to_replay)
-            insert_row_with_changed_bounds(rid);
+            add_touched_row(rid);
         m_row_bounds_to_replay.reset();
 
         unsigned m = A_r().row_count();
-        clean_popped_elements(m, m_rows_with_changed_bounds);
+        clean_popped_elements(m, m_touched_rows);
         clean_inf_heap_of_r_solver_after_pop();
         lp_assert(
             m_settings.simplex_strategy() == simplex_strategy_enum::undecided ||
@@ -296,6 +304,7 @@ namespace lp {
         lp_assert(sizes_are_correct());
         lp_assert(m_mpq_lar_core_solver.m_r_solver.reduced_costs_are_correct_tableau());
         m_usage_in_terms.pop(k);
+        m_dependencies.pop_scope(k);
         set_status(lp_status::UNKNOWN);
     }
 
@@ -317,6 +326,40 @@ namespace lp {
             term_max = term.apply(m_mpq_lar_core_solver.m_r_x);
             return true;
         }
+    }
+
+    bool lar_solver::improve_bound(lpvar j, bool improve_lower_bound) {
+        lar_term term = get_term_to_maximize(j);
+        if (improve_lower_bound)
+            term.negate();
+        impq bound;
+        if (!maximize_term_on_corrected_r_solver(term, bound))
+            return false;
+        
+        return false;
+        // TODO
+        if (improve_lower_bound) {
+            bound.neg();
+            if (column_has_lower_bound(j) && bound.x == column_lower_bound(j).x)
+                return false;
+            SASSERT(!column_has_lower_bound(j) || column_lower_bound(j).x < bound.x);
+            
+            // TODO - explain new lower bound.
+            // Seems the relevant information is in the "costs" that are used when 
+            // setting the optimization objecive. The costs are cleared after a call so
+            // maybe have some way of extracting bound dependencies from the costs.
+            u_dependency* dep = nullptr;
+            update_column_type_and_bound(j, bound.y > 0 ? lconstraint_kind::GT : lconstraint_kind::GE, bound.x, dep);
+        } 
+        else {
+            if (column_has_upper_bound(j) && bound.x == column_upper_bound(j).x)
+                return false;
+            SASSERT(!column_has_upper_bound(j) || column_upper_bound(j).x > bound.x);
+            // similar for upper bounds
+            u_dependency* dep = nullptr;
+            update_column_type_and_bound(j, bound.y < 0 ? lconstraint_kind::LT : lconstraint_kind::LE, bound.x, dep);
+        }
+        return true;
     }
 
     bool lar_solver::costs_are_zeros_for_r_solver() const {
@@ -348,7 +391,7 @@ namespace lp {
                     jset.insert(rc.var());
             }
         }
-
+        
         for (unsigned j : jset)
             rslv.m_d[j] = zero_of_type<mpq>();
 
@@ -360,7 +403,6 @@ namespace lp {
 
     void lar_solver::prepare_costs_for_r_solver(const lar_term& term) {
         TRACE("lar_solver", print_term(term, tout << "prepare: ") << "\n";);
-        m_basic_columns_with_changed_cost.resize(m_mpq_lar_core_solver.m_r_x.size());
         move_non_basic_columns_to_bounds(false);
         auto& rslv = m_mpq_lar_core_solver.m_r_solver;
         lp_assert(costs_are_zeros_for_r_solver());
@@ -477,9 +519,14 @@ namespace lp {
         }
         return false;
     }
-
-    bool lar_solver::remove_from_basis(unsigned j) {
-        return m_mpq_lar_core_solver.m_r_solver.remove_from_basis(j);
+// returns true iff the row of j has a non-fixed column different from j
+    bool lar_solver::remove_from_basis(unsigned j) {    
+        lp_assert(is_base(j));
+        unsigned i = row_of_basic_column(j);
+        for (const auto & c : A_r().m_rows[i]) 
+            if (j != c.var() && !is_fixed(c.var())) 
+                return m_mpq_lar_core_solver.m_r_solver.remove_from_basis_core(c.var(), j);
+        return false;
     }
 
     lar_term lar_solver::get_term_to_maximize(unsigned j_or_term) const {
@@ -534,7 +581,6 @@ namespace lp {
                     return lp_status::FEASIBLE; // it should not happen
                 }
             }
-            m_int_solver->patch_nbasic_column(j);
             if (!column_value_is_integer(j)) {
                 term_max = prev_value;
                 m_mpq_lar_core_solver.m_r_x = backup;
@@ -573,15 +619,15 @@ namespace lp {
     }
 
 
-    void lar_solver::set_upper_bound_witness(var_index j, constraint_index ci) {
+    void lar_solver::set_upper_bound_witness(var_index j, u_dependency* dep) {
         ul_pair ul = m_columns_to_ul_pairs[j];
-        ul.upper_bound_witness() = ci;
+        ul.upper_bound_witness() = dep;
         m_columns_to_ul_pairs[j] = ul;
     }
 
-    void lar_solver::set_lower_bound_witness(var_index j, constraint_index ci) {
+    void lar_solver::set_lower_bound_witness(var_index j, u_dependency* dep) {
         ul_pair ul = m_columns_to_ul_pairs[j];
-        ul.lower_bound_witness() = ci;
+        ul.lower_bound_witness() = dep;
         m_columns_to_ul_pairs[j] = ul;
     }
 
@@ -617,18 +663,59 @@ namespace lp {
                 left_side.push_back(std::make_pair(c, v));        
     }
 
-    void lar_solver::insert_row_with_changed_bounds(unsigned rid) {
-        m_rows_with_changed_bounds.insert(rid);
+    void lar_solver::add_touched_row(unsigned rid) {
+        if (m_settings.bound_propagation()) 
+            m_touched_rows.insert(rid);
     }
 
+    void lar_solver::remove_fixed_vars_from_base() {
+        // this will allow to disable and restore the tracking of the touched rows
+        flet<indexed_uint_set*> f(m_mpq_lar_core_solver.m_r_solver.m_touched_rows, nullptr);
+        unsigned num = A_r().column_count();
+        unsigned_vector to_remove;
+        for (unsigned j : m_fixed_base_var_set) {
+            if (j >= num || !is_base(j) || !is_fixed(j)) {
+                to_remove.push_back(j);
+                continue;
+            }
 
-
-    void lar_solver::detect_rows_of_bound_change_column_for_nbasic_column_tableau(unsigned j) {
-        for (auto& rc : m_mpq_lar_core_solver.m_r_A.m_columns[j])
-            insert_row_with_changed_bounds(rc.var());
+            lp_assert(is_base(j) && is_fixed(j));
+            auto const& r = basic2row(j);
+            for (auto const& c : r) {
+                unsigned j_entering = c.var();
+                if (!is_fixed(j_entering)) {
+                    pivot(j_entering, j);
+                    to_remove.push_back(j);
+                    lp_assert(is_base(j_entering));
+                    break;
+                }
+            }
+        }
+        for (unsigned j : to_remove) {
+            m_fixed_base_var_set.remove(j);
+        }
+        lp_assert(fixed_base_removed_correctly());
     }
+#ifdef Z3DEBUG    
+    bool lar_solver::fixed_base_removed_correctly() const {
+        for (unsigned i = 0; i < A_r().row_count(); i++) {
+            unsigned j = get_base_column_in_row(i);
+            if (column_is_fixed(j)) {
+                for (const auto & c : A_r().m_rows[i] ) {
+                    if (!column_is_fixed(c.var())) {
+                        TRACE("lar_solver", print_row(A_r().m_rows[i], tout) << "\n";
+                        for(const auto & c : A_r().m_rows[i]) {
+                            print_column_info(c.var(), tout) << "\n";
+                        });
+                        return false;
+                    }
+                }                
+            }
+        }
+        return true;
+    }
+#endif
 
-    
     bool lar_solver::use_tableau_costs() const {
         return m_settings.simplex_strategy() == simplex_strategy_enum::tableau_costs;
     }
@@ -673,7 +760,7 @@ namespace lp {
            m_mpq_lar_core_solver.m_r_solver.add_delta_to_x_and_track_feasibility(bj, -A_r().get_val(c) * delta);
            TRACE("change_x_del",
               tout << "changed basis column " << bj << ", it is " <<
-              (m_mpq_lar_core_solver.m_r_solver.column_is_feasible(bj) ? "feas" : "inf") << std::endl;);
+              (column_is_feasible(bj) ? "feas" : "inf") << std::endl;);
         }
     }
 
@@ -698,9 +785,9 @@ namespace lp {
 
     void lar_solver::detect_rows_with_changed_bounds_for_column(unsigned j) {
         if (m_mpq_lar_core_solver.m_r_heading[j] >= 0) 
-            insert_row_with_changed_bounds(m_mpq_lar_core_solver.m_r_heading[j]);
+            add_touched_row(m_mpq_lar_core_solver.m_r_heading[j]);
         else 
-            detect_rows_of_bound_change_column_for_nbasic_column_tableau(j);        
+            add_column_rows_to_touched_rows(j);        
     }
 
     void lar_solver::detect_rows_with_changed_bounds() {
@@ -716,9 +803,6 @@ namespace lp {
 
     void lar_solver::solve_with_core_solver() {
         m_mpq_lar_core_solver.prefix_r();
-        if (costs_are_used()) {
-            m_basic_columns_with_changed_cost.resize(m_mpq_lar_core_solver.m_r_x.size());
-        }
         update_x_and_inf_costs_for_columns_with_changed_bounds_tableau();
         m_mpq_lar_core_solver.solve();
         set_status(m_mpq_lar_core_solver.m_r_solver.get_status());
@@ -878,7 +962,7 @@ namespace lp {
         return ret;
     }
 
-    bool lar_solver::has_lower_bound(var_index var, constraint_index& ci, mpq& value, bool& is_strict) const {
+    bool lar_solver::has_lower_bound(var_index var, u_dependency*& ci, mpq& value, bool& is_strict) const {
 
         if (var >= m_columns_to_ul_pairs.size()) {
             // TBD: bounds on terms could also be used, caller may have to track these.
@@ -886,7 +970,7 @@ namespace lp {
         }
         const ul_pair& ul = m_columns_to_ul_pairs[var];
         ci = ul.lower_bound_witness();
-        if (ci != null_ci) {
+        if (ci != nullptr) {
             auto& p = m_mpq_lar_core_solver.m_r_lower_bounds()[var];
             value = p.x;
             is_strict = p.y.is_pos();
@@ -897,7 +981,7 @@ namespace lp {
         }
     }
 
-    bool lar_solver::has_upper_bound(var_index var, constraint_index& ci, mpq& value, bool& is_strict) const {
+    bool lar_solver::has_upper_bound(var_index var, u_dependency*& ci, mpq& value, bool& is_strict) const {
 
         if (var >= m_columns_to_ul_pairs.size()) {
             // TBD: bounds on terms could also be used, caller may have to track these.
@@ -905,7 +989,7 @@ namespace lp {
         }
         const ul_pair& ul = m_columns_to_ul_pairs[var];
         ci = ul.upper_bound_witness();
-        if (ci != null_ci) {
+        if (ci != nullptr) {
             auto& p = m_mpq_lar_core_solver.m_r_upper_bounds()[var];
             value = p.x;
             is_strict = p.y.is_neg();
@@ -963,9 +1047,13 @@ namespace lp {
             int adj_sign = coeff.is_pos() ? inf_sign : -inf_sign;
             const ul_pair& ul = m_columns_to_ul_pairs[j];
 
-            constraint_index bound_constr_i = adj_sign < 0 ? ul.upper_bound_witness() : ul.lower_bound_witness();
-            lp_assert(m_constraints.valid_index(bound_constr_i));
-            exp.add_pair(bound_constr_i, coeff);
+            u_dependency* bound_constr_i = adj_sign < 0 ? ul.upper_bound_witness() : ul.lower_bound_witness();
+            svector<constraint_index> deps;
+            m_dependencies.linearize(bound_constr_i, deps);
+            for (auto d : deps) {
+                lp_assert(m_constraints.valid_index(d));
+                exp.add_pair(d, coeff);
+            }
         }
     }
 
@@ -1024,7 +1112,7 @@ namespace lp {
         SASSERT(get_status() == lp_status::OPTIMAL || get_status() == lp_status::FEASIBLE);
         SASSERT(m_columns_with_changed_bounds.empty());
         numeric_pair<mpq> const& rp = get_column_value(j);
-        return rp.x + m_delta * rp.y;        
+        return from_model_in_impq_to_mpq(rp);        
     }
 
     mpq lar_solver::get_tv_value(tv const& t) const {
@@ -1171,10 +1259,10 @@ namespace lp {
         ru.update();
     }
 
-    void lar_solver::mark_rows_for_bound_prop(lpvar j) {
-        auto& column = A_r().m_columns[j];
+    void lar_solver::add_column_rows_to_touched_rows(lpvar j) {
+        const auto& column = A_r().m_columns[j];
         for (auto const& r : column) 
-            insert_row_with_changed_bounds(r.var());        
+            add_touched_row(r.var());        
     }
 
     void lar_solver::pop() {
@@ -1284,15 +1372,15 @@ namespace lp {
         lp_assert(A_r().column_count() == m_mpq_lar_core_solver.m_r_solver.m_costs.size());
     }
 
-    void lar_solver::pop_tableau() {
+    void lar_solver::pop_tableau(unsigned old_size) {
         lp_assert(m_mpq_lar_core_solver.m_r_solver.m_costs.size() == A_r().column_count());
 
         lp_assert(m_mpq_lar_core_solver.m_r_solver.m_basis.size() == A_r().row_count());
         lp_assert(m_mpq_lar_core_solver.m_r_solver.basis_heading_is_correct());
         // We remove last variables starting from m_column_names.size() to m_vec_of_canonic_left_sides.size().    
         // At this moment m_column_names is already popped
-        unsigned size = m_var_register.size();
-        while (A_r().column_count() > size)
+        
+        while (A_r().column_count() > old_size)
             remove_last_column_from_tableau();
         lp_assert(m_mpq_lar_core_solver.m_r_solver.m_costs.size() == A_r().column_count());
         lp_assert(m_mpq_lar_core_solver.m_r_solver.m_basis.size() == A_r().row_count());
@@ -1327,7 +1415,7 @@ namespace lp {
         became_feas.clear();
         for (unsigned j : m_mpq_lar_core_solver.m_r_solver.inf_heap()) {
             lp_assert(m_mpq_lar_core_solver.m_r_heading[j] >= 0);
-            if (m_mpq_lar_core_solver.m_r_solver.column_is_feasible(j))
+            if (column_is_feasible(j))
                 became_feas.push_back(j);
         }
         for (unsigned j : became_feas)
@@ -1379,72 +1467,6 @@ namespace lp {
     bool lar_solver::column_is_free(unsigned j) const {
         return m_mpq_lar_core_solver.column_is_free(j);
     }
-
-    // column is at lower or upper bound, lower and upper bound are different.
-    // the lower/upper bound is not strict.
-    // the LP obtained by making the bound strict is infeasible
-    // -> the column has to be fixed
-    bool lar_solver::is_fixed_at_bound(column_index const& j, vector<std::tuple<explanation, column_index, bool, mpq>>& bounds) {
-        if (column_is_fixed(j))
-            return false;
-        mpq val;
-        if (!has_value(j, val))
-            return false;
-        lp::lconstraint_kind k;
-        if (column_has_upper_bound(j) &&
-            get_upper_bound(j).x == val) {
-            push();   
-            k = column_is_int(j) ? LE : LT;
-            auto ci = mk_var_bound(j, k, column_is_int(j) ? val - 1 : val);
-            update_column_type_and_bound(j, k, column_is_int(j) ? val - 1 : val, ci);
-            auto st = find_feasible_solution();
-            bool infeasible = st == lp_status::INFEASIBLE;
-            if (infeasible) {
-                explanation exp;
-                get_infeasibility_explanation(exp);
-                unsigned_vector cis;
-                exp.remove(ci);
-                verbose_stream() << "tight upper bound " << j << " " << val << "\n";
-                bounds.push_back({exp, j, true, val});
-            }
-            pop(1);
-            return infeasible;            
-        }
-        if (column_has_lower_bound(j) &&
-            get_lower_bound(j).x == val) {
-            push();
-            k = column_is_int(j) ? GE : GT;
-            auto ci = mk_var_bound(j, k, column_is_int(j) ? val + 1 : val);
-            update_column_type_and_bound(j, k, column_is_int(j) ? val + 1 : val, ci);
-            auto st = find_feasible_solution();
-            bool infeasible = st == lp_status::INFEASIBLE;
-            if (infeasible) {
-                explanation exp;
-                get_infeasibility_explanation(exp);
-                exp.remove(ci);
-                verbose_stream() << "tight lower bound " << j << " " << val << "\n";
-                bounds.push_back({exp, j, false, val});
-            }
-            pop(1);
-            return infeasible;
-        }
-        
-        return false;
-    }
-
-    bool lar_solver::has_fixed_at_bound(vector<std::tuple<explanation, column_index, bool, mpq>>& bounds) {
-        verbose_stream() << "has-fixed-at-bound\n";
-        for (unsigned j = 0; j < A_r().m_columns.size(); ++j) {
-            auto ci = column_index(j);
-            if (is_fixed_at_bound(ci, bounds)) 
-                verbose_stream() << "fixed " << j << "\n";
-        }
-        verbose_stream() << "num fixed " << bounds.size() << "\n";
-        if (!bounds.empty())
-            find_feasible_solution();
-        return !bounds.empty();
-    }
-
 
     // below is the initialization functionality of lar_solver
 
@@ -1503,7 +1525,6 @@ namespace lp {
     void lar_solver::add_non_basic_var_to_core_fields(unsigned ext_j, bool is_int) {
         register_new_ext_var_index(ext_j, is_int);
         m_mpq_lar_core_solver.m_column_types.push_back(column_type::free_column);
-        increase_by_one_columns_with_changed_bounds();
         add_new_var_to_core_fields_for_mpq(false); // false for not adding a row        
     }
     
@@ -1524,8 +1545,7 @@ namespace lp {
             A_r().add_row();
             m_mpq_lar_core_solver.m_r_heading.push_back(m_mpq_lar_core_solver.m_r_basis.size());
             m_mpq_lar_core_solver.m_r_basis.push_back(j);
-            if (m_settings.bound_propagation())
-                insert_row_with_changed_bounds(A_r().row_count() - 1);
+            add_touched_row(A_r().row_count() - 1);
         }
         else {
             m_mpq_lar_core_solver.m_r_heading.push_back(-static_cast<int>(m_mpq_lar_core_solver.m_r_nbasis.size()) - 1);
@@ -1570,12 +1590,7 @@ namespace lp {
 
     // terms
     bool lar_solver::all_vars_are_registered(const vector<std::pair<mpq, var_index>>& coeffs) {
-        for (const auto& p : coeffs) {
-            if (p.second >= m_var_register.size()) {
-                return false;
-            }
-        }
-        return true;
+        return all_of(coeffs, [&](const auto& p) { return p.second < m_var_register.size(); });
     }
 
     void lar_solver::subst_known_terms(lar_term* t) {
@@ -1612,8 +1627,7 @@ namespace lp {
         var_index ret = tv::mask_term(adjusted_term_index);
         if (!coeffs.empty()) {
             add_row_from_term_no_constraint(m_terms.back(), ret);
-            if (m_settings.bound_propagation())
-                insert_row_with_changed_bounds(A_r().row_count() - 1);
+            add_touched_row(A_r().row_count() - 1);
         }
         lp_assert(m_var_register.size() == A_r().column_count());
         if (m_need_register_terms) 
@@ -1659,11 +1673,7 @@ namespace lp {
 
     void lar_solver::add_basic_var_to_core_fields() {
         m_mpq_lar_core_solver.m_column_types.push_back(column_type::free_column);
-        increase_by_one_columns_with_changed_bounds();
-        m_incorrect_columns.increase_size_by_one();
-        m_rows_with_changed_bounds.increase_size_by_one();
         add_new_var_to_core_fields_for_mpq(true);
-        
     }
 
     bool lar_solver::bound_is_integer_for_integer_column(unsigned j, const mpq& right_side) const {
@@ -1734,12 +1744,12 @@ namespace lp {
 
     void lar_solver::activate_check_on_equal(constraint_index ci, unsigned& equal_column) {
         auto const& c = m_constraints[ci];
-        update_column_type_and_bound_check_on_equal(c.column(), c.kind(), c.rhs(), ci, equal_column);
+        update_column_type_and_bound_check_on_equal(c.column(), c.rhs(), ci, equal_column);
     }
 
     void lar_solver::activate(constraint_index ci) {
         auto const& c = m_constraints[ci];
-        update_column_type_and_bound(c.column(), c.kind(), c.rhs(), ci);
+        update_column_type_and_bound(c.column(), c.rhs(), ci);
     }
 
     mpq lar_solver::adjust_bound_for_int(lpvar j, lconstraint_kind& k, const mpq& bound) {
@@ -1801,27 +1811,41 @@ namespace lp {
     }
 
     void lar_solver::update_column_type_and_bound(unsigned j,
-        lconstraint_kind kind,
         const mpq& right_side,
         constraint_index constr_index) {
+        TRACE("lar_solver_feas", tout << "j = " << j << " was " << (this->column_is_feasible(j)?"feas":"non-feas") << std::endl;);
         m_constraints.activate(constr_index);
+        lconstraint_kind kind = m_constraints[constr_index].kind();
+        u_dependency* dep = m_constraints[constr_index].dep();
+        update_column_type_and_bound(j, kind, right_side, dep);
+    }
+
+    void lar_solver::update_column_type_and_bound(unsigned j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep) {
         if (column_has_upper_bound(j))
-            update_column_type_and_bound_with_ub(j, kind, right_side, constr_index);
+            update_column_type_and_bound_with_ub(j, kind, right_side, dep);
         else
-            update_column_type_and_bound_with_no_ub(j, kind, right_side, constr_index);
+            update_column_type_and_bound_with_no_ub(j, kind, right_side, dep);
+
+        if (is_base(j) && column_is_fixed(j))
+            m_fixed_base_var_set.insert(j);
+
+        TRACE("lar_solver_feas", tout << "j = " << j << " became " << (this->column_is_feasible(j) ? "feas" : "non-feas") << ", and " << (this->column_is_bounded(j) ? "bounded" : "non-bounded") << std::endl;);    
+    }
+
+    void lar_solver::insert_to_columns_with_changed_bounds(unsigned j) {
+         m_columns_with_changed_bounds.insert(j);
+         TRACE("lar_solver", tout << "column " << j << (column_is_feasible(j) ? " feas" : " non-feas") << "\n";);
     }
 
     void lar_solver::update_column_type_and_bound_check_on_equal(unsigned j,
-        lconstraint_kind kind,
-        const mpq& right_side,
-        constraint_index constr_index,
-        unsigned& equal_to_j) {
-        update_column_type_and_bound(j, kind, right_side, constr_index);
+                                                                 const mpq& right_side,
+                                                                 constraint_index constr_index,
+                                                                 unsigned& equal_to_j) {
+        update_column_type_and_bound(j, right_side, constr_index);
         equal_to_j = null_lpvar;
         if (column_is_fixed(j)) {
             register_in_fixed_var_table(j, equal_to_j);
         }
-
     }
 
     constraint_index lar_solver::add_var_bound_on_constraint_for_term(var_index j, lconstraint_kind kind, const mpq& right_side) {
@@ -1880,138 +1904,132 @@ namespace lp {
     }
 
     
-    void lar_solver::update_column_type_and_bound_with_ub(unsigned j, lp::lconstraint_kind kind, const mpq& right_side, unsigned constraint_index) {
+    void lar_solver::update_column_type_and_bound_with_ub(unsigned j, lp::lconstraint_kind kind, const mpq& right_side, u_dependency* dep) {
         SASSERT(column_has_upper_bound(j));
         if (column_has_lower_bound(j)) {
-            update_bound_with_ub_lb(j, kind, right_side, constraint_index);
+            update_bound_with_ub_lb(j, kind, right_side, dep);
         }
         else {
-            update_bound_with_ub_no_lb(j, kind, right_side, constraint_index);
+            update_bound_with_ub_no_lb(j, kind, right_side, dep);
         }
     }
 
-    void lar_solver::update_column_type_and_bound_with_no_ub(unsigned j, lp::lconstraint_kind kind, const mpq& right_side, unsigned constraint_index) {
+    void lar_solver::update_column_type_and_bound_with_no_ub(unsigned j, lp::lconstraint_kind kind, const mpq& right_side, u_dependency* dep) {
         SASSERT(!column_has_upper_bound(j));
         if (column_has_lower_bound(j)) {
-            update_bound_with_no_ub_lb(j, kind, right_side, constraint_index);
+            update_bound_with_no_ub_lb(j, kind, right_side, dep);
         }
         else {
-            update_bound_with_no_ub_no_lb(j, kind, right_side, constraint_index);
+            update_bound_with_no_ub_no_lb(j, kind, right_side, dep);
         }
     }
 
-
-    void lar_solver::update_bound_with_ub_lb(var_index j, lconstraint_kind kind, const mpq& right_side, constraint_index ci) {
+    // clang-format on
+    void lar_solver::update_bound_with_ub_lb(var_index j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep) {
         lp_assert(column_has_lower_bound(j) && column_has_upper_bound(j));
         lp_assert(m_mpq_lar_core_solver.m_column_types[j] == column_type::boxed ||
-            m_mpq_lar_core_solver.m_column_types[j] == column_type::fixed);
+                  m_mpq_lar_core_solver.m_column_types[j] == column_type::fixed);
 
         mpq y_of_bound(0);
         switch (kind) {
-        case LT:
-            y_of_bound = -1;
-        case LE:
-        {
-            auto up = numeric_pair<mpq>(right_side, y_of_bound);
-            if (up < m_mpq_lar_core_solver.m_r_lower_bounds[j]) {
-                set_infeasible_column(j);
+            case LT:
+                y_of_bound = -1;
+            case LE: {
+                auto up = numeric_pair<mpq>(right_side, y_of_bound);
+                if (up < m_mpq_lar_core_solver.m_r_lower_bounds[j]) {
+                    set_infeasible_column(j);
+                }
+                if (up >= m_mpq_lar_core_solver.m_r_upper_bounds[j]) return;
+                m_mpq_lar_core_solver.m_r_upper_bounds[j] = up;
+                set_upper_bound_witness(j, dep);
+                insert_to_columns_with_changed_bounds(j);
+                break;
             }
-            if (up >= m_mpq_lar_core_solver.m_r_upper_bounds[j]) return;
-            m_mpq_lar_core_solver.m_r_upper_bounds[j] = up;
-            set_upper_bound_witness(j, ci);
-            insert_to_columns_with_changed_bounds(j);
-        }
-        break;
-        case GT:
-            y_of_bound = 1;
-        case GE:
-        {
-            auto low = numeric_pair<mpq>(right_side, y_of_bound);
-            if (low > m_mpq_lar_core_solver.m_r_upper_bounds[j]) {
-                set_infeasible_column(j);
+            case GT:
+                y_of_bound = 1;
+            case GE: {
+                auto low = numeric_pair<mpq>(right_side, y_of_bound);
+                if (low > m_mpq_lar_core_solver.m_r_upper_bounds[j]) {
+                    set_infeasible_column(j);
+                }
+                if (low < m_mpq_lar_core_solver.m_r_lower_bounds[j]) {
+                    return;
+                }
+                m_mpq_lar_core_solver.m_r_lower_bounds[j] = low;
+                set_lower_bound_witness(j, dep);
+                m_mpq_lar_core_solver.m_column_types[j] = (low == m_mpq_lar_core_solver.m_r_upper_bounds[j] ? column_type::fixed : column_type::boxed);
+                insert_to_columns_with_changed_bounds(j);
+                break;
+            } 
+            case EQ: {
+                auto v = numeric_pair<mpq>(right_side, zero_of_type<mpq>());
+                if (v > m_mpq_lar_core_solver.m_r_upper_bounds[j] || v < m_mpq_lar_core_solver.m_r_lower_bounds[j]) {
+                    set_infeasible_column(j);
+                }
+                set_upper_bound_witness(j, dep);
+                set_lower_bound_witness(j, dep);
+                m_mpq_lar_core_solver.m_r_upper_bounds[j] = m_mpq_lar_core_solver.m_r_lower_bounds[j] = v;
+                break;
             }
-            if (low < m_mpq_lar_core_solver.m_r_lower_bounds[j]) {
-                return;
-            }
-            m_mpq_lar_core_solver.m_r_lower_bounds[j] = low;
-            insert_to_columns_with_changed_bounds(j);
-            set_lower_bound_witness(j, ci);
-            m_mpq_lar_core_solver.m_column_types[j] = (low == m_mpq_lar_core_solver.m_r_upper_bounds[j] ? column_type::fixed : column_type::boxed);
-        }
-        break;
-        case EQ:
-        {
-            auto v = numeric_pair<mpq>(right_side, zero_of_type<mpq>());
-            if (v > m_mpq_lar_core_solver.m_r_upper_bounds[j] || v < m_mpq_lar_core_solver.m_r_lower_bounds[j]) {
-                set_infeasible_column(j);
-            }
-            set_upper_bound_witness(j, ci);
-            set_lower_bound_witness(j, ci);
-            m_mpq_lar_core_solver.m_r_upper_bounds[j] = m_mpq_lar_core_solver.m_r_lower_bounds[j] = v;
-            break;
-        }
 
-        default:
-            UNREACHABLE();
+            default:
+                UNREACHABLE();
         }
         if (m_mpq_lar_core_solver.m_r_upper_bounds[j] == m_mpq_lar_core_solver.m_r_lower_bounds[j]) {
             m_mpq_lar_core_solver.m_column_types[j] = column_type::fixed;
         }
     }
-    void lar_solver::update_bound_with_no_ub_lb(var_index j, lconstraint_kind kind, const mpq& right_side, constraint_index ci) {
+    // clang-format off
+    void lar_solver::update_bound_with_no_ub_lb(var_index j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep) {
         lp_assert(column_has_lower_bound(j) && !column_has_upper_bound(j));
         lp_assert(m_mpq_lar_core_solver.m_column_types[j] == column_type::lower_bound);
 
         mpq y_of_bound(0);
         switch (kind) {
-        case LT:
-            y_of_bound = -1;
-        case LE:
-        {
-            auto up = numeric_pair<mpq>(right_side, y_of_bound);
-            if (up < m_mpq_lar_core_solver.m_r_lower_bounds[j]) {
-                set_infeasible_column(j);
-            }
-            m_mpq_lar_core_solver.m_r_upper_bounds[j] = up;
-            set_upper_bound_witness(j, ci);
-            insert_to_columns_with_changed_bounds(j);
-            m_mpq_lar_core_solver.m_column_types[j] = (up == m_mpq_lar_core_solver.m_r_lower_bounds[j] ? column_type::fixed : column_type::boxed);
-        }
-        break;
-        case GT:
-            y_of_bound = 1;
-        case GE:
-        {
-            auto low = numeric_pair<mpq>(right_side, y_of_bound);
-            if (low < m_mpq_lar_core_solver.m_r_lower_bounds[j]) {
-                return;
-            }
-            m_mpq_lar_core_solver.m_r_lower_bounds[j] = low;
-            insert_to_columns_with_changed_bounds(j);
-            set_lower_bound_witness(j, ci);
-        }
-        break;
-        case EQ:
-        {
-            auto v = numeric_pair<mpq>(right_side, zero_of_type<mpq>());
-            if (v < m_mpq_lar_core_solver.m_r_lower_bounds[j]) {
-                set_infeasible_column(j);
+            case LT:
+                y_of_bound = -1;
+            case LE: {
+                auto up = numeric_pair<mpq>(right_side, y_of_bound);
+                if (up < m_mpq_lar_core_solver.m_r_lower_bounds[j]) {
+                    set_infeasible_column(j);
+                }
+                m_mpq_lar_core_solver.m_r_upper_bounds[j] = up;
+                set_upper_bound_witness(j, dep);
+                m_mpq_lar_core_solver.m_column_types[j] = (up == m_mpq_lar_core_solver.m_r_lower_bounds[j] ? column_type::fixed : column_type::boxed);
+                insert_to_columns_with_changed_bounds(j);
+                break;
+            } 
+            case GT:
+                y_of_bound = 1;
+            case GE: {
+                auto low = numeric_pair<mpq>(right_side, y_of_bound);
+                if (low < m_mpq_lar_core_solver.m_r_lower_bounds[j]) {
+                    return;
+                }
+                m_mpq_lar_core_solver.m_r_lower_bounds[j] = low;
+                set_lower_bound_witness(j, dep);
+                insert_to_columns_with_changed_bounds(j);
+                break;
+            } 
+            case EQ: {
+                auto v = numeric_pair<mpq>(right_side, zero_of_type<mpq>());
+                if (v < m_mpq_lar_core_solver.m_r_lower_bounds[j]) {
+                    set_infeasible_column(j);
+                }
+
+                set_upper_bound_witness(j, dep);
+                set_lower_bound_witness(j, dep);
+                m_mpq_lar_core_solver.m_r_upper_bounds[j] = m_mpq_lar_core_solver.m_r_lower_bounds[j] = v;
+                m_mpq_lar_core_solver.m_column_types[j] = column_type::fixed;
+                break;
             }
 
-            set_upper_bound_witness(j, ci);
-            set_lower_bound_witness(j, ci);
-            m_mpq_lar_core_solver.m_r_upper_bounds[j] = m_mpq_lar_core_solver.m_r_lower_bounds[j] = v;
-            m_mpq_lar_core_solver.m_column_types[j] = column_type::fixed;
-            break;
+            default:
+                UNREACHABLE();
         }
-
-        default:
-            UNREACHABLE();
-        }
-
     }
-
-    void lar_solver::update_bound_with_ub_no_lb(var_index j, lconstraint_kind kind, const mpq& right_side, constraint_index ci) {
+    // clang-format off
+    void lar_solver::update_bound_with_ub_no_lb(var_index j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep) {
         lp_assert(!column_has_lower_bound(j) && column_has_upper_bound(j));
         lp_assert(m_mpq_lar_core_solver.m_column_types[j] == column_type::upper_bound);
         mpq y_of_bound(0);
@@ -2023,7 +2041,7 @@ namespace lp {
             auto up = numeric_pair<mpq>(right_side, y_of_bound);
             if (up >= m_mpq_lar_core_solver.m_r_upper_bounds[j]) return;
             m_mpq_lar_core_solver.m_r_upper_bounds[j] = up;
-            set_upper_bound_witness(j, ci);
+            set_upper_bound_witness(j, dep);
             insert_to_columns_with_changed_bounds(j);
         }
         break;
@@ -2036,9 +2054,10 @@ namespace lp {
                 set_infeasible_column(j);
             }
             m_mpq_lar_core_solver.m_r_lower_bounds[j] = low;
-            insert_to_columns_with_changed_bounds(j);
-            set_lower_bound_witness(j, ci);
+            set_lower_bound_witness(j, dep);
             m_mpq_lar_core_solver.m_column_types[j] = (low == m_mpq_lar_core_solver.m_r_upper_bounds[j] ? column_type::fixed : column_type::boxed);
+            insert_to_columns_with_changed_bounds(j);
+            
         }
         break;
         case EQ:
@@ -2048,8 +2067,8 @@ namespace lp {
                 set_infeasible_column(j);
             }
 
-            set_upper_bound_witness(j, ci);
-            set_lower_bound_witness(j, ci);
+            set_upper_bound_witness(j, dep);
+            set_lower_bound_witness(j, dep);
             m_mpq_lar_core_solver.m_r_upper_bounds[j] = m_mpq_lar_core_solver.m_r_lower_bounds[j] = v;
             m_mpq_lar_core_solver.m_column_types[j] = column_type::fixed;
             break;
@@ -2059,48 +2078,44 @@ namespace lp {
             UNREACHABLE();
         }
     }
-    void lar_solver::update_bound_with_no_ub_no_lb(var_index j, lconstraint_kind kind, const mpq& right_side, constraint_index ci) {
+    // clang-format on
+    void lar_solver::update_bound_with_no_ub_no_lb(var_index j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep) {
         lp_assert(!column_has_lower_bound(j) && !column_has_upper_bound(j));
-        insert_to_columns_with_changed_bounds(j);
 
         mpq y_of_bound(0);
         switch (kind) {
-        case LT:
-            y_of_bound = -1;
-        case LE:
-        {
-            auto up = numeric_pair<mpq>(right_side, y_of_bound);
-            m_mpq_lar_core_solver.m_r_upper_bounds[j] = up;
-            set_upper_bound_witness(j, ci);
-            m_mpq_lar_core_solver.m_column_types[j] = column_type::upper_bound;
-        }
-        break;
-        case GT:
-            y_of_bound = 1;
-        case GE:
-        {
-            auto low = numeric_pair<mpq>(right_side, y_of_bound);
-            m_mpq_lar_core_solver.m_r_lower_bounds[j] = low;
-            insert_to_columns_with_changed_bounds(j);
-            set_lower_bound_witness(j, ci);
-            m_mpq_lar_core_solver.m_column_types[j] = column_type::lower_bound;
-        }
-        break;
-        case EQ:
-        {
-            auto v = numeric_pair<mpq>(right_side, zero_of_type<mpq>());
-            set_upper_bound_witness(j, ci);
-            set_lower_bound_witness(j, ci);
-            m_mpq_lar_core_solver.m_r_upper_bounds[j] = m_mpq_lar_core_solver.m_r_lower_bounds[j] = v;
-            m_mpq_lar_core_solver.m_column_types[j] = column_type::fixed;
-            break;
-        }
+            case LT:
+                y_of_bound = -1;
+            case LE: {
+                auto up = numeric_pair<mpq>(right_side, y_of_bound);
+                m_mpq_lar_core_solver.m_r_upper_bounds[j] = up;
+                set_upper_bound_witness(j, dep);
+                m_mpq_lar_core_solver.m_column_types[j] = column_type::upper_bound;
+            } break;
+            case GT:
+                y_of_bound = 1;
+            case GE: {
+                auto low = numeric_pair<mpq>(right_side, y_of_bound);
+                m_mpq_lar_core_solver.m_r_lower_bounds[j] = low;
+                set_lower_bound_witness(j, dep);
+                m_mpq_lar_core_solver.m_column_types[j] = column_type::lower_bound;
 
-        default:
-            UNREACHABLE();
+            } break;
+            case EQ: {
+                auto v = numeric_pair<mpq>(right_side, zero_of_type<mpq>());
+                set_upper_bound_witness(j, dep);
+                set_lower_bound_witness(j, dep);
+                m_mpq_lar_core_solver.m_r_upper_bounds[j] = m_mpq_lar_core_solver.m_r_lower_bounds[j] = v;
+                m_mpq_lar_core_solver.m_column_types[j] = column_type::fixed;
+                break;
+            }
+
+            default:
+                UNREACHABLE();
         }
+        insert_to_columns_with_changed_bounds(j);
     }
-
+    // clang-format off
     bool lar_solver::column_corresponds_to_term(unsigned j) const {
         return tv::is_term(m_var_register.local_to_external(j));
     }
@@ -2142,7 +2157,6 @@ namespace lp {
 
 
     void lar_solver::round_to_integer_solution() {
-        m_incorrect_columns.resize(column_count());
         for (unsigned j = 0; j < column_count(); j++) {
             if (!column_is_int(j)) continue;
             if (column_corresponds_to_term(j)) continue;
@@ -2164,7 +2178,7 @@ namespace lp {
         }
         if (!m_incorrect_columns.empty()) {
             fix_terms_with_rounded_columns();
-            m_incorrect_columns.clear();
+            m_incorrect_columns.reset();
         }
     }
 
@@ -2203,9 +2217,9 @@ namespace lp {
         return true;
     }
 
-    bool lar_solver::get_equality_and_right_side_for_term_on_current_x(tv const& t, mpq& rs, constraint_index& ci, bool& upper_bound) const {
-        lp_assert(t.is_term())
-            unsigned j;
+    bool lar_solver::get_equality_and_right_side_for_term_on_current_x(tv const& t, mpq& rs, u_dependency*& ci, bool& upper_bound) const {
+        lp_assert(t.is_term());
+        unsigned j;
         bool is_int;
         if (!m_var_register.external_is_used(t.index(), j, is_int))
             return false; // the term does not have a bound because it does not correspond to a column

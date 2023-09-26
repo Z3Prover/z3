@@ -5,7 +5,6 @@
 #pragma once
 
 DEFINE_TYPE(Z3_symbol);
-DEFINE_TYPE(Z3_literals);
 DEFINE_TYPE(Z3_config);
 DEFINE_TYPE(Z3_context);
 DEFINE_TYPE(Z3_sort);
@@ -151,6 +150,7 @@ typedef enum
     Z3_SEQ_SORT,
     Z3_RE_SORT,
     Z3_CHAR_SORT,
+    Z3_TYPE_VAR,
     Z3_UNKNOWN_SORT = 1000
 } Z3_sort_kind;
 
@@ -1397,7 +1397,6 @@ typedef enum
   def_Type('FUNC_DECL',        'Z3_func_decl',        'FuncDecl')
   def_Type('PATTERN',          'Z3_pattern',          'Pattern')
   def_Type('MODEL',            'Z3_model',            'ModelObj')
-  def_Type('LITERALS',         'Z3_literals',         'Literals')
   def_Type('CONSTRUCTOR',      'Z3_constructor',      'Constructor')
   def_Type('CONSTRUCTOR_LIST', 'Z3_constructor_list', 'ConstructorList')
   def_Type('SOLVER',           'Z3_solver',           'SolverObj')
@@ -1436,7 +1435,7 @@ Z3_DECLARE_CLOSURE(Z3_eq_eh,      void, (void* ctx, Z3_solver_callback cb, Z3_as
 Z3_DECLARE_CLOSURE(Z3_final_eh,   void, (void* ctx, Z3_solver_callback cb));
 Z3_DECLARE_CLOSURE(Z3_created_eh, void, (void* ctx, Z3_solver_callback cb, Z3_ast t));
 Z3_DECLARE_CLOSURE(Z3_decide_eh,  void, (void* ctx, Z3_solver_callback cb, Z3_ast t, unsigned idx, bool phase));
-Z3_DECLARE_CLOSURE(Z3_on_clause_eh, void, (void* ctx, Z3_ast proof_hint, Z3_ast_vector literals));
+Z3_DECLARE_CLOSURE(Z3_on_clause_eh, void, (void* ctx, Z3_ast proof_hint, unsigned n, unsigned const* deps, Z3_ast_vector literals));
 
 
 /**
@@ -1884,6 +1883,17 @@ extern "C" {
     Z3_sort Z3_API Z3_mk_uninterpreted_sort(Z3_context c, Z3_symbol s);
 
     /**
+       \brief Create a type variable.
+
+       Functions using type variables can be applied to instantiations that match the signature 
+       of the function. Assertions using type variables correspond to assertions over all possible
+       instantiations.
+
+       def_API('Z3_mk_type_variable', SORT, (_in(CONTEXT), _in(SYMBOL)))
+    */
+    Z3_sort Z3_API Z3_mk_type_variable(Z3_context c, Z3_symbol s);
+
+    /**
        \brief Create the Boolean type.
 
        This type is used to create propositional variables and predicates.
@@ -2172,7 +2182,7 @@ extern "C" {
        \brief Query constructor for declared functions.
 
        \param c logical context.
-       \param constr constructor container. The container must have been passed in to a #Z3_mk_datatype call.
+       \param constr constructor container. The container must have been passed into a #Z3_mk_datatype call.
        \param num_fields number of accessor fields in the constructor.
        \param constructor constructor function declaration, allocated by user.
        \param tester constructor test function declaration, allocated by user.
@@ -2317,7 +2327,7 @@ extern "C" {
        \param args constants that are used as arguments to the recursive function in the definition.
        \param body body of the recursive function
 
-       After declaring a recursive function or a collection of  mutually recursive functions, use 
+       After declaring a recursive function or a collection of mutually recursive functions, use 
        this function to provide the definition for the recursive function.
 
        \sa Z3_mk_rec_func_decl
@@ -3614,7 +3624,7 @@ extern "C" {
 
     /**
        \brief Retrieve the string constant stored in \c s.
-       Characters outside the basic printiable ASCII range are escaped.
+       Characters outside the basic printable ASCII range are escaped.
 
        \pre  Z3_is_string(c, s)
 
@@ -4897,7 +4907,7 @@ extern "C" {
     /**
        \brief Return a hash code for the given AST.
        The hash code is structural but two different AST objects can map to the same hash.
-       The result of \c Z3_get_ast_id returns an indentifier that is unique over the 
+       The result of \c Z3_get_ast_id returns an identifier that is unique over the 
        set of live AST objects.
 
        def_API('Z3_get_ast_hash', UINT, (_in(CONTEXT), _in(AST)))
@@ -5346,7 +5356,7 @@ extern "C" {
                                      Z3_ast const to[]);
 
     /**
-       \brief Substitute funcions in \c from with new expressions in \c to.
+       \brief Substitute functions in \c from with new expressions in \c to.
 
        The expressions in \c to can have free variables. The free variable in \c to at index 0
        refers to the first argument of \c from, the free variable at index 1 corresponds to the second argument.
@@ -7026,13 +7036,13 @@ extern "C" {
         Z3_on_clause_eh on_clause_eh);
 
     /**
-       \brief register a user-properator with the solver.
+       \brief register a user-propagator with the solver.
 
        \param c - context.
        \param s - solver object.
        \param user_context - a context used to maintain state for callbacks.
        \param push_eh - a callback invoked when scopes are pushed
-       \param pop_eh - a callback invoked when scopes are poped
+       \param pop_eh - a callback invoked when scopes are popped
        \param fresh_eh - a solver may spawn new solvers internally. This callback is used to produce a fresh user_context to be associated with fresh solvers. 
 
        def_API('Z3_solver_propagate_init', VOID, (_in(CONTEXT), _in(SOLVER), _in(VOID_PTR), _fnptr(Z3_push_eh), _fnptr(Z3_pop_eh), _fnptr(Z3_fresh_eh)))

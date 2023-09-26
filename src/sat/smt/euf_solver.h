@@ -147,6 +147,8 @@ namespace euf {
         ptr_vector<expr>                 m_bool_var2expr;
         ptr_vector<size_t>               m_explain;
         euf::cc_justification            m_explain_cc;
+        enode_pair_vector                m_hint_eqs;
+        sat::literal_vector              m_hint_lits;
         unsigned                         m_num_scopes = 0;
         unsigned_vector                  m_var_trail;
         svector<scope>                   m_scopes;
@@ -218,7 +220,7 @@ namespace euf {
         void propagate_literal(enode* n, enode* ante);
         void propagate_th_eqs();
         bool is_self_propagated(th_eq const& e);
-        void get_antecedents(literal l, constraint& j, literal_vector& r, bool probing);
+        void get_euf_antecedents(literal l, constraint& j, literal_vector& r, bool probing);
         void new_diseq(enode* a, enode* b, literal lit);
         bool merge_shared_bools();
 
@@ -226,9 +228,11 @@ namespace euf {
         void log_antecedents(std::ostream& out, literal l, literal_vector const& r);
         void log_antecedents(literal l, literal_vector const& r, th_proof_hint* hint);
         void log_justification(literal l, th_explain const& jst);
+        void log_justifications(literal l, unsigned explain_size, bool is_euf);
+        void log_rup(literal l, literal_vector const& r);
 
 
-        eq_proof_hint* mk_hint(symbol const& th, literal lit, literal_vector const& r);
+        eq_proof_hint* mk_hint(symbol const& th, literal lit);
 
 
 
@@ -363,9 +367,9 @@ namespace euf {
         void flush_roots() override;
 
         void get_antecedents(literal l, ext_justification_idx idx, literal_vector& r, bool probing) override;
-        void get_antecedents(literal l, th_explain& jst, literal_vector& r, bool probing);
-        void add_antecedent(bool probing, enode* a, enode* b);
-        void add_diseq_antecedent(ptr_vector<size_t>& ex, cc_justification* cc, enode* a, enode* b);
+        void get_th_antecedents(literal l, th_explain& jst, literal_vector& r, bool probing);
+        void add_eq_antecedent(bool probing, enode* a, enode* b);
+        void explain_diseq(ptr_vector<size_t>& ex, cc_justification* cc, enode* a, enode* b);
         void add_explain(size_t* p) { m_explain.push_back(p); }
         void reset_explain() { m_explain.reset(); }
         void set_eliminated(bool_var v) override;

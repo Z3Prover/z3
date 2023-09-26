@@ -1121,7 +1121,7 @@ bool arith_rewriter::divides(expr* num, expr* den, expr_ref& result) {
         if (m_util.is_numeral(arg, num_r)) num_e = arg; 
     } 
     for (expr* arg : args2) { 
-        // dont remove divisor on (div (* -1 x) (* -1 y)) because rewriting would diverge. 
+        // don't remove divisor on (div (* -1 x) (* -1 y)) because rewriting would diverge. 
         if (mark.is_marked(arg) && (!m_util.is_numeral(arg, num_r) || !num_r.is_minus_one())) { 
             result = remove_divisor(arg, num, den); 
             return true; 
@@ -1569,21 +1569,48 @@ br_status arith_rewriter::mk_to_real_core(expr * arg, expr_ref & result) {
 }
 
 br_status arith_rewriter::mk_is_int(expr * arg, expr_ref & result) {
-    numeral a;
-    if (m_util.is_numeral(arg, a)) {
-        result = a.is_int() ? m.mk_true() : m.mk_false();
+    numeral n;
+    
+    if (m_util.is_numeral(arg, n)) {
+        result = n.is_int() ? m.mk_true() : m.mk_false();
         return BR_DONE;
     }
-    else if (m_util.is_to_real(arg)) {
+    
+    if (m_util.is_to_real(arg)) {
         result = m.mk_true();
         return BR_DONE;
     }
-    else {
-        result = m.mk_eq(m.mk_app(get_fid(), OP_TO_REAL,
-                                      m.mk_app(get_fid(), OP_TO_INT, arg)),
-                           arg);
-        return BR_REWRITE3;
+
+    ptr_buffer<expr> todo;
+    todo.push_back(arg);
+    expr_fast_mark1 mark; 
+    for (unsigned i = 0; i < todo.size(); ++i) {
+        expr* e = todo[i];
+        if (mark.is_marked(e))
+            continue;
+        mark.mark(e, true);
+        if (m_util.is_to_real(e))
+            continue;
+        if (m_util.is_numeral(e, n)) {
+            if (n.is_int())
+                continue;
+            goto bail;
+        }
+        if (m_util.is_mul(e) || m_util.is_add(e) || m_util.is_sub(e) || m_util.is_uminus(e)) {
+            for (expr* a : *to_app(e))
+                todo.push_back(a);
+            continue;
+        }
+        goto bail;
     }
+    result = m.mk_true();
+    return BR_DONE;
+
+ bail:
+    result = m.mk_eq(m.mk_app(get_fid(), OP_TO_REAL,
+                              m.mk_app(get_fid(), OP_TO_INT, arg)),
+                     arg);
+    return BR_REWRITE3;
 }
 
 br_status arith_rewriter::mk_abs_core(expr * arg, expr_ref & result) {
@@ -1592,7 +1619,7 @@ br_status arith_rewriter::mk_abs_core(expr * arg, expr_ref & result) {
 }
 
 
-// Return true if t is of the form  c*Pi where c is a numeral.
+// Return true if t is of the form c*Pi where c is a numeral.
 // Store c into k
 bool arith_rewriter::is_pi_multiple(expr * t, rational & k) {
     if (m_util.is_pi(t)) {
@@ -1603,7 +1630,7 @@ bool arith_rewriter::is_pi_multiple(expr * t, rational & k) {
     return m_util.is_mul(t, a, b) && m_util.is_pi(b) && m_util.is_numeral(a, k);
 }
 
-// Return true if t is of the form  (+ s c*Pi) where c is a numeral.
+// Return true if t is of the form (+ s c*Pi) where c is a numeral.
 // Store c into k, and c*Pi into m.
 bool arith_rewriter::is_pi_offset(expr * t, rational & k, expr * & m) {
     if (m_util.is_add(t)) {
@@ -1916,7 +1943,7 @@ br_status arith_rewriter::mk_tan_core(expr * arg, expr_ref & result) {
 br_status arith_rewriter::mk_asin_core(expr * arg, expr_ref & result) {
     // Remark: we assume that ForAll x : asin(-x) == asin(x).
     // Mathematica uses this as an axiom. Although asin is an underspecified function for x < -1 or x > 1.
-    // Actually, in Mathematica, asin(x) is a total function that returns a complex number fo x < -1 or x > 1.
+    // Actually, in Mathematica, asin(x) is a total function that returns a complex number for x < -1 or x > 1.
     rational k;
     if (is_numeral(arg, k)) {
         if (k.is_zero()) {

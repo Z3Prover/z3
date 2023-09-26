@@ -17,11 +17,10 @@ Revision History:
 
 
 --*/
-// clang-format off
 #pragma once
 #include "math/lp/lp_settings.h"
 #include "math/lp/static_matrix.h"
-#include "math/lp/u_set.h"
+#include "util/uint_set.h"
 #include "math/lp/lar_term.h"
 #include "math/lp/lar_constraints.h"
 #include "math/lp/hnf_cutter.h"
@@ -53,14 +52,11 @@ class int_solver {
         patcher(int_solver& lia);
         bool should_apply() const { return true; }
         lia_move operator()() { return patch_basic_columns(); }
-        void patch_nbasic_column(unsigned j);
-        bool patch_basic_column_on_row_cell(unsigned v, row_cell<mpq> const& c);
         void patch_basic_column(unsigned j);
         bool try_patch_column(unsigned v, unsigned j, mpq const& delta);
         unsigned count_non_int();
     private:
-        void remove_fixed_vars_from_base();
-        lia_move patch_nbasic_columns();
+        bool patch_basic_column_on_row_cell(unsigned v, row_cell<mpq> const& c);
         lia_move patch_basic_columns();
     };
 
@@ -113,13 +109,12 @@ private:
     bool has_lower(unsigned j) const;
     bool has_upper(unsigned j) const;
     unsigned row_of_basic_column(unsigned j) const;
-    bool non_basic_columns_are_at_bounds() const;
     bool cut_indices_are_columns() const;
     
 public:
     std::ostream& display_column(std::ostream & out, unsigned j) const;
-    constraint_index column_upper_bound_constraint(unsigned j) const;
-    constraint_index column_lower_bound_constraint(unsigned j) const;
+    u_dependency* column_upper_bound_constraint(unsigned j) const;
+    u_dependency* column_lower_bound_constraint(unsigned j) const;
     bool current_solution_is_inf_on_cut() const;
 
     bool shift_var(unsigned j, unsigned range);
@@ -135,9 +130,8 @@ public:
     bool all_columns_are_bounded() const;
     void find_feasible_solution();
     lia_move hnf_cut();
-    void patch_nbasic_column(unsigned j) { m_patcher.patch_nbasic_column(j); }
 
     int select_int_infeasible_var();
 
-  };
+};
 }

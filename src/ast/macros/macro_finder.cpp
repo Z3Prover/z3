@@ -65,7 +65,7 @@ bool macro_finder::is_arith_macro(expr * n, proof * pr, bool deps_valid, expr_de
     // functions introduced within macros are Skolem functions
     // To avoid unsound expansion of these as macros (because they 
     // appear in model conversions and are therefore not fully
-    // replacable) we prevent these from being treated as macro functions.
+    // replaceable) we prevent these from being treated as macro functions.
     if (m_macro_manager.contains(f) || f->is_skolem())
         return false;
 

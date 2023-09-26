@@ -29,7 +29,6 @@ namespace lp {
 template std::set<std::pair<unsigned, unsigned>> lp::static_matrix<lp::mpq, lp::mpq>::get_domain();
 template std::set<std::pair<unsigned, unsigned>> lp::static_matrix<lp::mpq, lp::numeric_pair<lp::mpq> >::get_domain();
 template void static_matrix<mpq, mpq>::add_column_to_vector(mpq const&, unsigned int, mpq*) const;
-template void static_matrix<mpq, mpq>::add_columns_at_the_end(unsigned int);
 template bool static_matrix<mpq, mpq>::is_correct() const;
 
 template mpq static_matrix<mpq, mpq>::get_balance() const;

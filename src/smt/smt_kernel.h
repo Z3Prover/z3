@@ -50,7 +50,7 @@ namespace smt {
 
         ~kernel();
 
-        static void copy(kernel& src, kernel& dst);
+        static void copy(kernel& src, kernel& dst, bool override_base);
 
         ast_manager & m() const;
         

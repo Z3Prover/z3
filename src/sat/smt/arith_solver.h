@@ -51,15 +51,16 @@ namespace arith {
     enum class hint_type {
         farkas_h,
         bound_h,
-        implied_eq_h
+        cut_h,
+        implied_eq_h,
+        nla_h
     };
 
     struct arith_proof_hint : public euf::th_proof_hint {
         hint_type m_ty;
-        unsigned  m_num_le;
         unsigned  m_lit_head, m_lit_tail, m_eq_head, m_eq_tail;
-        arith_proof_hint(hint_type t, unsigned num_le, unsigned lh, unsigned lt, unsigned eh, unsigned et):
-            m_ty(t), m_num_le(num_le), m_lit_head(lh), m_lit_tail(lt), m_eq_head(eh), m_eq_tail(et) {}
+        arith_proof_hint(hint_type t, unsigned lh, unsigned lt, unsigned eh, unsigned et):
+            m_ty(t), m_lit_head(lh), m_lit_tail(lt), m_eq_head(eh), m_eq_tail(et) {}
         expr* get_hint(euf::solver& s) const override;
     };
 
@@ -67,7 +68,6 @@ namespace arith {
         vector<std::pair<rational, literal>>   m_literals;
         svector<std::tuple<euf::enode*,euf::enode*,bool>> m_eqs;
         hint_type                              m_ty;
-        unsigned                               m_num_le = 0;
         unsigned                               m_lit_head = 0, m_lit_tail = 0, m_eq_head = 0, m_eq_tail = 0;
         void reset() { m_lit_head = m_lit_tail; m_eq_head = m_eq_tail; }
         void add(euf::enode* a, euf::enode* b, bool is_eq) {
@@ -79,7 +79,6 @@ namespace arith {
         }
     public:
         void set_type(euf::solver& ctx, hint_type ty);
-        void set_num_le(unsigned n) { m_num_le = n; }
         void add_eq(euf::enode* a, euf::enode* b) { add(a, b, true); }
         void add_diseq(euf::enode* a, euf::enode* b) { add(a, b, false); }
         void add_lit(rational const& coeff, literal lit) { 
@@ -226,7 +225,7 @@ namespace arith {
 
         svector<std::pair<theory_var, theory_var> >       m_assume_eq_candidates;
         unsigned                                          m_assume_eq_head = 0;
-        lp::u_set                                         m_tmp_var_set;
+        indexed_uint_set                                         m_tmp_var_set;
 
         unsigned                                          m_num_conflicts = 0;
         lp_api::stats                                     m_stats;
@@ -250,7 +249,9 @@ namespace arith {
         // lemmas
         lp::explanation     m_explanation;
         vector<nla::lemma>  m_nla_lemma_vector;
+        vector<nla::ineq>   m_nla_literals;
         literal_vector      m_core, m_core2;
+        vector<rational>    m_coeffs;
         svector<enode_pair> m_eqs;
         vector<parameter>   m_params;
         nla::lemma          m_lemma;
@@ -359,7 +360,7 @@ namespace arith {
         void assert_idiv_mod_axioms(theory_var u, theory_var v, theory_var w, rational const& r);
         api_bound* mk_var_bound(sat::literal lit, theory_var v, lp_api::bound_kind bk, rational const& bound);
         lp::lconstraint_kind bound2constraint_kind(bool is_int, lp_api::bound_kind bk, bool is_true);
-        void fixed_var_eh(theory_var v1, lp::constraint_index ci1, lp::constraint_index ci2, rational const& bound);
+        void fixed_var_eh(theory_var v1, u_dependency* dep, rational const& bound);
         bool set_upper_bound(lp::tv t, lp::constraint_index ci, rational const& v) { return set_bound(t, ci, v, false); }
         bool set_lower_bound(lp::tv t, lp::constraint_index ci, rational const& v) { return set_bound(t, ci, v, true); }
         bool set_bound(lp::tv tv, lp::constraint_index ci, rational const& v, bool is_lower);
@@ -412,9 +413,9 @@ namespace arith {
         nlsat::anum const& nl_value(theory_var v, scoped_anum& r) const;
 
 
-        bool has_bound(lpvar vi, lp::constraint_index& ci, rational const& bound, bool is_lower);
-        bool has_lower_bound(lpvar vi, lp::constraint_index& ci, rational const& bound);
-        bool has_upper_bound(lpvar vi, lp::constraint_index& ci, rational const& bound);
+        bool has_bound(lpvar vi, u_dependency*& ci, rational const& bound, bool is_lower);
+        bool has_lower_bound(lpvar vi, u_dependency*& ci, rational const& bound);
+        bool has_upper_bound(lpvar vi, u_dependency*& ci, rational const& bound);
 
         /*
          * Facility to put a small box around integer variables used in branch and bounds.
@@ -458,11 +459,13 @@ namespace arith {
         void term2coeffs(lp::lar_term const& term, u_map<rational>& coeffs);
 
         void get_infeasibility_explanation_and_set_conflict();
-        void set_conflict();
-        void set_conflict_or_lemma(literal_vector const& core, bool is_conflict);
+        void set_conflict(hint_type ty);
+        void set_conflict_or_lemma(hint_type ty, literal_vector const& core, bool is_conflict);
         void set_evidence(lp::constraint_index idx);
         void assign(literal lit, literal_vector const& core, svector<enode_pair> const& eqs, euf::th_proof_hint const* pma);
 
+        void assume_literals();
+        sat::literal mk_ineq_literal(nla::ineq const& ineq);
         void false_case_of_check_nla(const nla::lemma& l);        
         void dbg_finalize_model(model& mdl);
 
@@ -471,7 +474,7 @@ namespace arith {
         arith_proof_hint const* explain(hint_type ty, sat::literal lit = sat::null_literal);
         arith_proof_hint const* explain_implied_eq(lp::explanation const& e, euf::enode* a, euf::enode* b);
         arith_proof_hint const* explain_trichotomy(sat::literal le, sat::literal ge, sat::literal eq);
-        arith_proof_hint const* explain_conflict(sat::literal_vector const& core, euf::enode_pair_vector const& eqs);
+        arith_proof_hint const* explain_conflict(hint_type ty, sat::literal_vector const& core, euf::enode_pair_vector const& eqs);
         void explain_assumptions(lp::explanation const& e);
 
 

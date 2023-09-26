@@ -137,6 +137,8 @@ class array_decl_plugin : public decl_plugin {
 
     bool is_value(app * e) const override;
 
+    bool is_unique_value(app* e) const override;
+
 };
 
 class array_recognizers {

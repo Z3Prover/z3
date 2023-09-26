@@ -34,7 +34,7 @@ class hnf_cutter {
     general_matrix             m_A;
     vector<const lar_term*>    m_terms;
     vector<bool>               m_terms_upper;
-    svector<constraint_index>  m_constraints_for_explanation;
+    ptr_vector<u_dependency>  m_constraints_for_explanation;
     vector<mpq>                m_right_sides;
     mpq                        m_abs_max;
     bool                       m_overflow;
@@ -55,13 +55,13 @@ private:
     unsigned terms_count() const { return m_terms.size();  }
     const mpq & abs_max() const { return m_abs_max; }
     const vector<const lar_term*>& terms() const { return m_terms; }
-    const svector<unsigned>& constraints_for_explanation() const { return m_constraints_for_explanation; }
+    const ptr_vector<u_dependency>& constraints_for_explanation() const { return m_constraints_for_explanation; }
     const vector<mpq> & right_sides() const { return m_right_sides; }
 
     bool is_full() const;
 
     void clear();
-    void add_term(const lar_term* t, const mpq &rs, constraint_index ci, bool upper_bound);
+    void add_term(const lar_term* t, const mpq &rs, u_dependency* ci, bool upper_bound);
     
     void print(std::ostream & out);
 

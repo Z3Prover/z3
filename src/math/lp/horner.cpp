@@ -40,7 +40,7 @@ bool horner::row_has_monomial_to_refine(const T& row) const {
 template <typename T>
 bool horner::row_is_interesting(const T& row) const {
     TRACE("nla_solver_details", c().print_row(row, tout););
-    if (row.size() > c().m_nla_settings.horner_row_length_limit) {
+    if (row.size() > c().params().arith_nl_horner_row_length_limit()) {
         TRACE("nla_solver_details", tout << "disregard\n";);
         return false;
     }
@@ -76,7 +76,7 @@ bool horner::lemmas_on_expr(cross_nested& cn, nex_sum* e) {
 template <typename T> 
 bool horner::lemmas_on_row(const T& row) {
     SASSERT (row_is_interesting(row));
-    c().clear_and_resize_active_var_set();
+    c().clear_active_var_set();
     u_dependency* dep = nullptr;
     create_sum_from_row(row, m_nex_creator, m_row_sum, dep);
     c().set_active_vars_weights(m_nex_creator); // without this call the comparisons will be incorrect
@@ -98,19 +98,19 @@ bool horner::lemmas_on_row(const T& row) {
 }
 
 bool horner::horner_lemmas() {
-    if (!c().m_nla_settings.run_horner) {
+    if (!c().params().arith_nl_horner()) {
         TRACE("nla_solver", tout << "not generating horner lemmas\n";);
         return false;
     }
     c().lp_settings().stats().m_horner_calls++;
-    const auto& matrix = c().m_lar_solver.A_r();
+    const auto& matrix = c().lra.A_r();
     // choose only rows that depend on m_to_refine variables
     std::set<unsigned> rows_to_check;
     for (lpvar j : c().m_to_refine) {
         for (auto & s : matrix.m_columns[j])
             rows_to_check.insert(s.var());
     }
-    c().clear_and_resize_active_var_set();
+    c().clear_active_var_set();
     svector<unsigned> rows;
     for (unsigned i : rows_to_check) {
         if (row_is_interesting(matrix.m_rows[i]))

@@ -80,7 +80,7 @@ namespace sat {
             ci.del(lit);
             switch (ci.m_num_trues) {
             case 0:
-                m_unsat.insert(cls_idx);
+                m_unsat.insert_fresh(cls_idx);
                 dec_break(lit);
                 break;
             case 1:
@@ -184,7 +184,7 @@ namespace sat {
             }
             switch (ci.m_num_trues) {
             case 0:
-                m_unsat.insert(i);
+                m_unsat.insert_fresh(i);
                 break;
             case 1:
                 inc_break(to_literal(ci.m_trues));

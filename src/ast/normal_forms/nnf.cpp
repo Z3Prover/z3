@@ -28,6 +28,7 @@ Notes:
 #include "ast/rewriter/var_subst.h"
 #include "ast/normal_forms/name_exprs.h"
 #include "ast/ast_smt2_pp.h"
+#include "ast/ast_pp.h"
 #include <array>
 
 /**
@@ -149,7 +150,7 @@ class skolemizer {
         p = nullptr;
         if (m_proofs_enabled) {
             if (q->get_kind() == forall_k) 
-                p = m.mk_skolemization(mk_not(m, q), m.mk_not(r));
+                p = m.mk_skolemization(mk_not(m, q), mk_not(m, r));
             else
                 p = m.mk_skolemization(q, r);
         }

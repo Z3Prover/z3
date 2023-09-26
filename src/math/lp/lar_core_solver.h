@@ -16,15 +16,15 @@ Author:
 #include "math/lp/stacked_vector.h"
 #include "util/stacked_value.h"
 namespace lp {
-
 class lar_core_solver  {
     vector<std::pair<mpq, unsigned>> m_infeasible_linear_combination;
     int m_infeasible_sum_sign; // todo: get rid of this field
     vector<numeric_pair<mpq>> m_right_sides_dummy;
     vector<mpq> m_costs_dummy;
-    
-public:
     stacked_value<simplex_strategy_enum> m_stacked_simplex_strategy;
+
+public:
+    
     stacked_vector<column_type> m_column_types;
     // r - solver fields, for rational numbers
     vector<numeric_pair<mpq>> m_r_x; // the solution
@@ -44,8 +44,6 @@ public:
                     const column_namer & column_names
                     );
 
-    lp_settings & settings() { return m_r_solver.m_settings;}
-
     const lp_settings & settings() const { return m_r_solver.m_settings;}
     
     int get_infeasible_sum_sign() const { return m_infeasible_sum_sign;   }
@@ -58,8 +56,7 @@ public:
     void fill_not_improvable_zero_sum_from_inf_row();
     
     column_type get_column_type(unsigned j) { return m_column_types[j];}
-    
-    
+        
     void print_pivot_row(std::ostream & out, unsigned row_index) const  {
         for (unsigned j : m_r_solver.m_pivot_row.m_index) {
             if (numeric_traits<mpq>::is_pos(m_r_solver.m_pivot_row.m_data[j]))
@@ -69,9 +66,9 @@ public:
         
         out << " +" << m_r_solver.column_name(m_r_solver.m_basis[row_index]) << std::endl;
         
-        for (unsigned j : m_r_solver.m_pivot_row.m_index) {
+        for (unsigned j : m_r_solver.m_pivot_row.m_index) 
             m_r_solver.print_column_bound_info(j, out);
-        }
+        
         m_r_solver.print_column_bound_info(m_r_solver.m_basis[row_index], out);        
     }
     
@@ -111,10 +108,7 @@ public:
         m_column_types.push();
         // rational
         m_r_lower_bounds.push();
-        m_r_upper_bounds.push();
-        
-        
-        
+        m_r_upper_bounds.push();        
     }
 
     void pop(unsigned k) {
@@ -128,11 +122,9 @@ public:
         m_r_solver.m_d.resize(m_r_A.column_count());
         
         m_stacked_simplex_strategy.pop(k);
-        settings().set_simplex_strategy(m_stacked_simplex_strategy);
+        m_r_solver.m_settings.set_simplex_strategy(m_stacked_simplex_strategy);
         lp_assert(m_r_solver.basis_heading_is_correct());
     }
-
-    
     
     bool r_basis_is_OK() const {
 #ifdef Z3DEBUG
@@ -216,9 +208,7 @@ public:
     }
 
     bool column_is_fixed(unsigned j) const {
-        return m_column_types()[j] == column_type::fixed ||
-            ( m_column_types()[j] == column_type::boxed &&
-              m_r_solver.m_lower_bounds[j] == m_r_solver.m_upper_bounds[j]);
+        return m_column_types()[j] == column_type::fixed;
     }
 
     bool column_is_free(unsigned j) const {

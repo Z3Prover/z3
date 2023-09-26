@@ -77,6 +77,7 @@ namespace smt {
         unsigned            m_bool:1;           //!< True if it is a boolean enode
         unsigned            m_merge_tf:1;       //!< True if the enode should be merged with true/false when the associated boolean variable is assigned.
         unsigned            m_cgc_enabled:1;    //!< True if congruence closure is enabled for this enode.
+        unsigned            m_is_shared:2;      //!< 0 - not shared, 1 - shared, 2 - invalid state
         unsigned            m_iscope_lvl;       //!< When the enode was internalized
         bool                m_proof_is_logged;  //!< Indicates that the proof for the enode being equal to its root is in the log.
         signed char         m_lbl_hash;         //!< It is different from -1, if enode is used in a pattern
@@ -179,6 +180,21 @@ namespace smt {
             return m_owner->hash();
         }
 
+        lbool is_shared() const { 
+            switch (m_is_shared) {
+            case 0: return l_false;
+            case 1: return l_true;
+            default: return l_undef;
+            }
+        }
+
+        void set_is_shared(lbool s) {
+            switch (s) {
+            case l_true: m_is_shared = 1; break;
+            case l_false: m_is_shared = 0; break;
+            default: m_is_shared = 2; break;
+            }
+        }
 
         enode * get_root() const { 
             return m_root; 

@@ -30,11 +30,13 @@ namespace sat {
 
     class proof_trim {
         solver         s;
-        literal_vector m_clause;
+        literal_vector m_clause, m_clause2, m_conflict;
+        uint_set       m_in_deps;
         uint_set       m_in_clause;
         uint_set       m_in_coi;
+        clause*        m_conflict_clause = nullptr;
         vector<std::tuple<unsigned, literal_vector, clause*, bool, bool>> m_trail;
-        
+        vector<std::pair<unsigned, unsigned_vector>> m_result;
         
         struct hash {
             unsigned operator()(literal_vector const& v) const {
@@ -46,15 +48,19 @@ namespace sat {
                 return a == b;
             }
         };
-        map<literal_vector, clause_vector, hash, eq> m_clauses;
 
-        hashtable<literal_vector, hash, eq> m_core_literals;
+        
+        struct clause_info {
+            clause_vector m_clauses;
+            unsigned      m_id = 0;
+            bool          m_in_core = false;
+        };
+
+        
+        map<literal_vector, clause_info, hash, eq>   m_clauses;
         bool_vector                         m_propagated;
 
         void del(literal_vector const& cl, clause* cp);
-
-        bool match_clause(literal_vector const& cl, literal l1, literal l2) const;
-        bool match_clause(literal_vector const& cl, literal l1, literal l2, literal l3) const;
 
         void prune_trail(literal_vector const& cl, clause* cp);
         void conflict_analysis_core(literal_vector const& cl, clause* cp);
@@ -63,13 +69,15 @@ namespace sat {
         void add_dependency(justification j);
         void add_core(bool_var v);
         void add_core(literal l, justification j);
-        bool in_core(literal_vector const& cl, clause* cp) const;
+        bool in_core(literal_vector const& cl) const;
         void revive(literal_vector const& cl, clause* cp);        
         clause* del(literal_vector const& cl);
-        void save(literal_vector const& lits, clause* cl);
+
+        void insert_dep(unsigned dep);
 
         uint_set m_units;
         bool unit_or_binary_occurs();
+        void set_conflict(literal_vector const& c, clause* cp) { m_conflict.reset(); m_conflict.append(c); m_conflict_clause = cp;}
         
     public:
 
@@ -85,7 +93,7 @@ namespace sat {
         void infer(unsigned id);
         void updt_params(params_ref const& p) { s.updt_params(p); }
 
-        unsigned_vector trim();
+        vector<std::pair<unsigned, unsigned_vector>> trim();
 
     };
 }

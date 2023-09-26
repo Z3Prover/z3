@@ -407,7 +407,7 @@ namespace smt {
         void init_model(model_generator & mg) override;
         void finalize_model(model_generator & mg) override;
         void init_search_eh() override;
-        void validate_model(model& mdl) override;
+        void validate_model(proto_model& mdl) override;
         bool is_beta_redex(enode* p, enode* n) const override;
 
         void init_model(expr_ref_vector const& es);

@@ -13,7 +13,6 @@ Author:
 #include "util/params.h"
 #include "math/lp/lar_solver.h"
 #include "math/lp/monic.h"
-#include "math/lp/nla_settings.h"
 #include "math/lp/nla_core.h"
 namespace nra {
     class solver;
@@ -25,7 +24,7 @@ namespace nla {
         core* m_core;
     public:
 
-        solver(lp::lar_solver& s, reslimit& limit);
+        solver(lp::lar_solver& s, params_ref const& p, reslimit& limit);
         ~solver();
 
         void add_monic(lpvar v, unsigned sz, lpvar const* vs);
@@ -34,11 +33,11 @@ namespace nla {
         void add_bounded_division(lpvar q, lpvar x, lpvar y);
         void check_bounded_divisions(vector<lemma>&);
         void set_relevant(std::function<bool(lpvar)>& is_relevant);
-        nla_settings& settings();
         void push();
         void pop(unsigned scopes);
         bool need_check();
-        lbool check(vector<lemma>&);
+        lbool check(vector<ineq>& lits, vector<lemma>&);
+        void propagate(vector<lemma>& lemmas);
         lbool check_power(lpvar r, lpvar x, lpvar y, vector<lemma>&);
         bool is_monic_var(lpvar) const;
         bool influences_nl_var(lpvar) const;

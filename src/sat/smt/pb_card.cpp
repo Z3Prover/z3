@@ -176,17 +176,17 @@ namespace pb {
             return false;
         }
         else if (j == bound) {
-            for (unsigned i = 0; i < bound; ++i) {
-                s.assign(c, c[i]);
-            }
+            for (unsigned i = 0; i < bound; ++i) 
+                s.assign(c, c[i]);            
             return false;
         }
         else {
-            if (c.is_watched()) return true;
+            if (c.is_watched()) 
+                return true;
             clear_watch(s);
-            for (unsigned i = 0; i <= bound; ++i) {
-                c.watch_literal(s, c[i]);
-            }
+            for (unsigned i = 0; i <= bound; ++i) 
+                if (!c.is_watched(s, c[i]))
+                    c.watch_literal(s, c[i]);            
             c.set_watch();
             return true;
         }

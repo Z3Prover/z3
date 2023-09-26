@@ -665,12 +665,19 @@ br_status bool_rewriter::try_ite_value(app * ite, app * val, expr_ref & result) 
     SASSERT(m().is_value(val));
 
     if (m().are_distinct(val, e)) {
-        mk_eq(t, val, result);
+        if (get_depth(t) < 500)
+            mk_eq(t, val, result);
+        else
+            result = m().mk_eq(t, val);
+        
         result = m().mk_and(result, cond);
         return BR_REWRITE2;
     }
     if (m().are_distinct(val, t)) {
-        mk_eq(e, val, result);
+        if (get_depth(e) < 500)
+            mk_eq(e, val, result);
+        else
+            result = m().mk_eq(e, val);
         result = m().mk_and(result, m().mk_not(cond));
         return BR_REWRITE2;
     }

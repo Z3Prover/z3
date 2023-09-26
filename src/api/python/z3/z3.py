@@ -683,6 +683,8 @@ def _to_sort_ref(s, ctx):
         return SeqSortRef(s, ctx)
     elif k == Z3_CHAR_SORT:
         return CharSortRef(s, ctx)
+    elif k == Z3_TYPE_VAR:
+        return TypeVarRef(s, ctx)
     return SortRef(s, ctx)
 
 
@@ -707,6 +709,26 @@ def DeclareSort(name, ctx=None):
     """
     ctx = _get_ctx(ctx)
     return SortRef(Z3_mk_uninterpreted_sort(ctx.ref(), to_symbol(name, ctx)), ctx)
+
+class TypeVarRef(SortRef):
+    """Type variable reference"""
+
+    def subsort(self, other):
+        return True
+    
+    def cast(self, val):
+        return val
+    
+
+def DeclareTypeVar(name, ctx=None):
+    """Create a new type variable named `name`.
+
+    If `ctx=None`, then the new sort is declared in the global Z3Py context.
+
+    """
+    ctx = _get_ctx(ctx)
+    return TypeVarRef(Z3_mk_type_variable(ctx.ref(), to_symbol(name, ctx)), ctx)
+
 
 #########################################
 #
@@ -5385,7 +5407,7 @@ def EnumSort(name, values, ctx=None):
     """
     if z3_debug():
         _z3_assert(isinstance(name, str), "Name must be a string")
-        _z3_assert(all([isinstance(v, str) for v in values]), "Eumeration sort values must be strings")
+        _z3_assert(all([isinstance(v, str) for v in values]), "Enumeration sort values must be strings")
         _z3_assert(len(values) > 0, "At least one value expected")
     ctx = _get_ctx(ctx)
     num = len(values)
@@ -11286,6 +11308,8 @@ def Plus(re):
     >>> print(simplify(InRe("", re)))
     False
     """
+    if z3_debug():
+        _z3_assert(is_expr(re), "expression expected")
     return ReRef(Z3_mk_re_plus(re.ctx_ref(), re.as_ast()), re.ctx)
 
 
@@ -11299,6 +11323,8 @@ def Option(re):
     >>> print(simplify(InRe("aa", re)))
     False
     """
+    if z3_debug():
+        _z3_assert(is_expr(re), "expression expected")
     return ReRef(Z3_mk_re_option(re.ctx_ref(), re.as_ast()), re.ctx)
 
 
@@ -11317,6 +11343,8 @@ def Star(re):
     >>> print(simplify(InRe("", re)))
     True
     """
+    if z3_debug():
+        _z3_assert(is_expr(re), "expression expected")
     return ReRef(Z3_mk_re_star(re.ctx_ref(), re.as_ast()), re.ctx)
 
 
@@ -11330,6 +11358,8 @@ def Loop(re, lo, hi=0):
     >>> print(simplify(InRe("", re)))
     False
     """
+    if z3_debug():
+        _z3_assert(is_expr(re), "expression expected")
     return ReRef(Z3_mk_re_loop(re.ctx_ref(), re.as_ast(), lo, hi), re.ctx)
 
 
@@ -11343,11 +11373,17 @@ def Range(lo, hi, ctx=None):
     """
     lo = _coerce_seq(lo, ctx)
     hi = _coerce_seq(hi, ctx)
+    if z3_debug():
+        _z3_assert(is_expr(lo), "expression expected")
+        _z3_assert(is_expr(hi), "expression expected")
     return ReRef(Z3_mk_re_range(lo.ctx_ref(), lo.ast, hi.ast), lo.ctx)
 
 def Diff(a, b, ctx=None):
     """Create the difference regular expression
     """
+    if z3_debug():
+        _z3_assert(is_expr(a), "expression expected")
+        _z3_assert(is_expr(b), "expression expected")
     return ReRef(Z3_mk_re_diff(a.ctx_ref(), a.ast, b.ast), a.ctx)
 
 def AllChar(regex_sort, ctx=None):
@@ -11402,11 +11438,12 @@ def to_AstVectorObj(ptr,):
 # for UserPropagator we use a global dictionary, which isn't great code.
 
 _my_hacky_class = None
-def on_clause_eh(ctx, p, clause):
+def on_clause_eh(ctx, p, n, dep, clause):
     onc = _my_hacky_class
     p = _to_expr_ref(to_Ast(p), onc.ctx)
     clause = AstVector(to_AstVectorObj(clause), onc.ctx)
-    onc.on_clause(p, clause)
+    deps = [dep[i] for i in range(n)]
+    onc.on_clause(p, deps, clause)
     
 _on_clause_eh = Z3_on_clause_eh(on_clause_eh)
 

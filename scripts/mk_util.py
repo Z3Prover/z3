@@ -395,7 +395,7 @@ def check_java():
     else:
         # Search for jni.h in the library directories...
         t = open('errout', 'r')
-        open_pat = re.compile("\[search path for class files: (.*)\]")
+        open_pat = re.compile(r"\[search path for class files: (.*)\]")
         cdirs = []
         for line in t:
             m = open_pat.match(line)
@@ -812,8 +812,8 @@ def parse_options():
 def extract_c_includes(fname):
     result = {}
     # We look for well behaved #include directives
-    std_inc_pat     = re.compile("[ \t]*#include[ \t]*\"(.*)\"[ \t]*")
-    system_inc_pat  = re.compile("[ \t]*#include[ \t]*\<.*\>[ \t]*")
+    std_inc_pat     = re.compile(r"[ \t]*#include[ \t]*\"(.*)\"[ \t]*")
+    system_inc_pat  = re.compile(r"[ \t]*#include[ \t]*\<.*\>[ \t]*")
     # We should generate and error for any occurrence of #include that does not match the previous pattern.
     non_std_inc_pat = re.compile(".*#include.*")
 
@@ -1720,7 +1720,7 @@ class DotNetDLLComponent(Component):
 
         print("Version output to csproj:", version)
 
-        core_csproj_str = """<Project Sdk="Microsoft.NET.Sdk">
+        core_csproj_str = r"""<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>netstandard1.4</TargetFramework>
@@ -2246,7 +2246,7 @@ class DotNetExampleComponent(ExampleComponent):
             else:
                 platform = 'x86'
 
-            dotnet_proj_str = """<Project Sdk="Microsoft.NET.Sdk">
+            dotnet_proj_str = r"""<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp2.0</TargetFramework>
@@ -2519,19 +2519,19 @@ def mk_config():
                 'SLINK_FLAGS=/nologo /LDd\n' % static_opt)
             if VS_X64:
                 config.write(
-                    'CXXFLAGS=/c %s /W3 /WX- /Od /Oy- /D _DEBUG /D Z3DEBUG /D _CONSOLE /D _TRACE /Gm- /RTC1 %s %s\n' % (CXXFLAGS, extra_opt, static_opt))
+                    'CXXFLAGS=/c %s /Zi /W3 /WX- /Od /Oy- /D _DEBUG /D Z3DEBUG /D _CONSOLE /D _TRACE /Gm- /RTC1 %s %s\n' % (CXXFLAGS, extra_opt, static_opt))
                 config.write(
-                    'LINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X64 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT %s\n'
-                    'SLINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X64 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 %s %s\n' % (link_extra_opt, maybe_disable_dynamic_base, link_extra_opt))
+                    'LINK_EXTRA_FLAGS=/link /PROFILE /DEBUG:full /MACHINE:X64 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT %s\n'
+                    'SLINK_EXTRA_FLAGS=/link /PROFILE /DEBUG:full /MACHINE:X64 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 %s %s\n' % (link_extra_opt, maybe_disable_dynamic_base, link_extra_opt))
             elif VS_ARM:
                 print("ARM on VS is unsupported")
                 exit(1)
             else:
                 config.write(
-                    'CXXFLAGS=/c %s /W3 /WX- /Od /Oy- /D _DEBUG /D Z3DEBUG /D _CONSOLE /D _TRACE /Gm- /RTC1 /arch:SSE2 %s %s\n' % (CXXFLAGS, extra_opt, static_opt))
+                    'CXXFLAGS=/c %s /Zi /W3 /WX- /Od /Oy- /D _DEBUG /D Z3DEBUG /D _CONSOLE /D _TRACE /Gm- /RTC1 /arch:SSE2 %s %s\n' % (CXXFLAGS, extra_opt, static_opt))
                 config.write(
-                    'LINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X86 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT %s\n'
-                    'SLINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X86 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 %s %s\n' % (link_extra_opt, maybe_disable_dynamic_base, link_extra_opt))
+                    'LINK_EXTRA_FLAGS=/link /PROFILE /DEBUG:full /MACHINE:X86 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT %s\n'
+                    'SLINK_EXTRA_FLAGS=/link /PROFILE /DEBUG:full /MACHINE:X86 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 %s %s\n' % (link_extra_opt, maybe_disable_dynamic_base, link_extra_opt))
         else:
             # Windows Release mode
             LTCG=' /LTCG' if SLOW_OPTIMIZE else ''
@@ -2544,19 +2544,19 @@ def mk_config():
                 extra_opt = '%s /D _TRACE ' % extra_opt
             if VS_X64:
                 config.write(
-                    'CXXFLAGS=/c%s %s /W3 /WX- /O2 /D _EXTERNAL_RELEASE /D NDEBUG /D _LIB /D UNICODE /Gm- /GF /Gy /TP %s %s\n' % (GL, CXXFLAGS, extra_opt, static_opt))
+                    'CXXFLAGS=/c%s %s /Zi /W3 /WX- /O2 /D _EXTERNAL_RELEASE /D NDEBUG /D _LIB /D UNICODE /Gm- /GF /Gy /TP %s %s\n' % (GL, CXXFLAGS, extra_opt, static_opt))
                 config.write(
-                    'LINK_EXTRA_FLAGS=/link%s /profile /MACHINE:X64 /SUBSYSTEM:CONSOLE /STACK:8388608 %s\n'
-                    'SLINK_EXTRA_FLAGS=/link%s /profile /MACHINE:X64 /SUBSYSTEM:WINDOWS /STACK:8388608 %s\n' % (LTCG, link_extra_opt, LTCG, link_extra_opt))
+                    'LINK_EXTRA_FLAGS=/link%s /PROFILE /DEBUG:full /profile /MACHINE:X64 /SUBSYSTEM:CONSOLE /STACK:8388608 %s\n'
+                    'SLINK_EXTRA_FLAGS=/link%s /PROFILE /DEBUG:full /profile /MACHINE:X64 /SUBSYSTEM:WINDOWS /STACK:8388608 %s\n' % (LTCG, link_extra_opt, LTCG, link_extra_opt))
             elif VS_ARM:
                 print("ARM on VS is unsupported")
                 exit(1)
             else:
                 config.write(
-                    'CXXFLAGS=/c%s %s /WX- /O2 /Oy- /D _EXTERNAL_RELEASE /D NDEBUG /D _CONSOLE /D ASYNC_COMMANDS /Gm- /arch:SSE2 %s %s\n' % (GL, CXXFLAGS, extra_opt, static_opt))
+                    'CXXFLAGS=/c%s %s /Zi /WX- /O2 /Oy- /D _EXTERNAL_RELEASE /D NDEBUG /D _CONSOLE /D ASYNC_COMMANDS /Gm- /arch:SSE2 %s %s\n' % (GL, CXXFLAGS, extra_opt, static_opt))
                 config.write(
-                    'LINK_EXTRA_FLAGS=/link%s /DEBUG /MACHINE:X86 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT %s\n'
-                    'SLINK_EXTRA_FLAGS=/link%s /DEBUG /MACHINE:X86 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 %s %s\n' % (LTCG, link_extra_opt, LTCG, maybe_disable_dynamic_base, link_extra_opt))
+                    'LINK_EXTRA_FLAGS=/link%s /PROFILE /DEBUG:full /MACHINE:X86 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT %s\n'
+                    'SLINK_EXTRA_FLAGS=/link%s /PROFILE /DEBUG:full /MACHINE:X86 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 %s %s\n' % (LTCG, link_extra_opt, LTCG, maybe_disable_dynamic_base, link_extra_opt))
 
         config.write('CFLAGS=$(CXXFLAGS)\n')
 
@@ -2664,7 +2664,7 @@ def mk_config():
             LDFLAGS = '%s -static-libgcc -static-libstdc++' % LDFLAGS
         if sysname == 'Linux' and machine.startswith('armv7') or machine.startswith('armv8'):
             CXXFLAGS = '%s -fpic' % CXXFLAGS
-        if IS_OSX and IS_ARCH_ARM64:
+        if IS_ARCH_ARM64 and IS_OSX:
             print("Setting arm64")
             CXXFLAGS = '%s -arch arm64' % CXXFLAGS
             LDFLAGS = '%s -arch arm64' % LDFLAGS
@@ -3162,7 +3162,7 @@ def mk_vs_proj_property_groups(f, name, target_ext, type):
     f.write('    <Keyword>Win32Proj</Keyword>\n')
     f.write('    <PlatformToolset>%s</PlatformToolset>\n' % get_platform_toolset_str())
     f.write('  </PropertyGroup>\n')
-    f.write('  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />\n')
+    f.write('  <Import Project="$(VCTargetsPath)\\Microsoft.Cpp.Default.props" />\n')
     f.write('  <PropertyGroup Condition="\'$(Configuration)|$(Platform)\'==\'Debug|Win32\'" Label="Configuration">\n')
     f.write('    <ConfigurationType>%s</ConfigurationType>\n' % type)
     f.write('    <CharacterSet>Unicode</CharacterSet>\n')
@@ -3173,24 +3173,24 @@ def mk_vs_proj_property_groups(f, name, target_ext, type):
     f.write('    <CharacterSet>Unicode</CharacterSet>\n')
     f.write('    <UseOfMfc>false</UseOfMfc>\n')
     f.write('  </PropertyGroup>\n')
-    f.write('  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />\n')
+    f.write('  <Import Project="$(VCTargetsPath)\\Microsoft.Cpp.props" />\n')
     f.write('  <ImportGroup Label="ExtensionSettings" />\n')
     f.write('   <ImportGroup Label="PropertySheets">\n')
-    f.write('    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists(\'$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props\')" Label="LocalAppDataPlatform" />  </ImportGroup>\n')
+    f.write('    <Import Project="$(UserRootDir)\\Microsoft.Cpp.$(Platform).user.props" Condition="exists(\'$(UserRootDir)\\Microsoft.Cpp.$(Platform).user.props\')" Label="LocalAppDataPlatform" />  </ImportGroup>\n')
     f.write('  <PropertyGroup Label="UserMacros" />\n')
     f.write('  <PropertyGroup>\n')
-    f.write('    <OutDir Condition="\'$(Configuration)|$(Platform)\'==\'Debug|Win32\'">$(SolutionDir)\$(ProjectName)\$(Configuration)\</OutDir>\n')
+    f.write('    <OutDir Condition="\'$(Configuration)|$(Platform)\'==\'Debug|Win32\'">$(SolutionDir)\\$(ProjectName)\\$(Configuration)\\</OutDir>\n')
     f.write('    <TargetName Condition="\'$(Configuration)|$(Platform)\'==\'Debug|Win32\'">%s</TargetName>\n' % name)
     f.write('    <TargetExt Condition="\'$(Configuration)|$(Platform)\'==\'Debug|Win32\'">.%s</TargetExt>\n' % target_ext)
-    f.write('    <OutDir Condition="\'$(Configuration)|$(Platform)\'==\'Release|Win32\'">$(SolutionDir)\$(ProjectName)\$(Configuration)\</OutDir>\n')
+    f.write('    <OutDir Condition="\'$(Configuration)|$(Platform)\'==\'Release|Win32\'">$(SolutionDir)\\$(ProjectName)\\$(Configuration)\\</OutDir>\n')
     f.write('    <TargetName Condition="\'$(Configuration)|$(Platform)\'==\'Release|Win32\'">%s</TargetName>\n' % name)
     f.write('    <TargetExt Condition="\'$(Configuration)|$(Platform)\'==\'Release|Win32\'">.%s</TargetExt>\n' % target_ext)
     f.write('  </PropertyGroup>\n')
     f.write('  <PropertyGroup Condition="\'$(Configuration)|$(Platform)\'==\'Debug|Win32\'">\n')
-    f.write('        <IntDir>$(ProjectName)\$(Configuration)\</IntDir>\n')
+    f.write('        <IntDir>$(ProjectName)\\$(Configuration)\\</IntDir>\n')
     f.write('  </PropertyGroup>\n')
     f.write('  <PropertyGroup Condition="\'$(Configuration)|$(Platform)\'==\'Release|Win32\'">\n')
-    f.write('    <IntDir>$(ProjectName)\$(Configuration)\</IntDir>\n')
+    f.write('    <IntDir>$(ProjectName)\\$(Configuration)\\</IntDir>\n')
     f.write('  </PropertyGroup>\n')
 
 
@@ -3267,7 +3267,7 @@ def mk_vs_proj(name, components):
     mk_vs_proj_link_exe(f, name, debug=False)
     f.write('  </ItemDefinitionGroup>\n')
     mk_vs_proj_dep_groups(f, name, components)
-    f.write('  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />\n')
+    f.write('  <Import Project="$(VCTargetsPath)\\Microsoft.Cpp.targets" />\n')
     f.write('  <ImportGroup Label="ExtensionTargets">\n')
     f.write('  </ImportGroup>\n')
     f.write('</Project>\n')
@@ -3308,7 +3308,7 @@ def mk_vs_proj_dll(name, components):
     mk_vs_proj_link_dll(f, name, debug=False)
     f.write('  </ItemDefinitionGroup>\n')
     mk_vs_proj_dep_groups(f, name, components)
-    f.write('  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />\n')
+    f.write('  <Import Project="$(VCTargetsPath)\\Microsoft.Cpp.targets" />\n')
     f.write('  <ImportGroup Label="ExtensionTargets">\n')
     f.write('  </ImportGroup>\n')
     f.write('</Project>\n')

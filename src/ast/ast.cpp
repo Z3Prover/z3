@@ -202,8 +202,7 @@ unsigned decl_info::hash() const {
 
 bool decl_info::operator==(decl_info const & info) const {
     return m_family_id == info.m_family_id && m_kind == info.m_kind &&
-        m_parameters.size() == info.m_parameters.size() && 
-        compare_arrays<parameter>(m_parameters.begin(), info.m_parameters.begin(), m_parameters.size());
+           m_parameters == info.m_parameters;
 }
 
 std::ostream & operator<<(std::ostream & out, decl_info const & info) {
@@ -255,7 +254,8 @@ func_decl_info::func_decl_info(family_id family_id, decl_kind k, unsigned num_pa
     m_injective(false),
     m_idempotent(false),
     m_skolem(false),
-    m_lambda(false) {
+    m_lambda(false),
+    m_polymorphic(false) {
 }
 
 bool func_decl_info::operator==(func_decl_info const & info) const {
@@ -283,6 +283,7 @@ std::ostream & operator<<(std::ostream & out, func_decl_info const & info) {
     if (info.is_idempotent()) out << " :idempotent ";
     if (info.is_skolem()) out << " :skolem ";
     if (info.is_lambda()) out << " :lambda ";
+    if (info.is_polymorphic()) out << " :polymorphic ";
     return out;
 }
 
@@ -447,7 +448,7 @@ bool compare_nodes(ast const * n1, ast const * n2) {
         if (to_sort(n1)->get_info() != nullptr && !(*to_sort(n1)->get_info() == *to_sort(n2)->get_info())) {
             return false;
         }
-        return to_sort(n1)->get_name()  == to_sort(n2)->get_name();
+        return to_sort(n1)->get_name() == to_sort(n2)->get_name();
     case AST_FUNC_DECL:
         if ((to_func_decl(n1)->get_info() == nullptr) != (to_func_decl(n2)->get_info() == nullptr)) {
             return false;
@@ -477,15 +478,15 @@ bool compare_nodes(ast const * n1, ast const * n2) {
         return
             q1->get_kind()         == q2->get_kind() &&
             q1->get_num_decls()    == q2->get_num_decls() &&
+            q1->get_expr()         == q2->get_expr() &&
+            q1->get_weight()       == q2->get_weight() &&
+            q1->get_num_patterns() == q2->get_num_patterns() &&
             compare_arrays(q1->get_decl_sorts(),
                            q2->get_decl_sorts(),
                            q1->get_num_decls()) &&
             compare_arrays(q1->get_decl_names(),
                            q2->get_decl_names(),
                            q1->get_num_decls()) &&
-            q1->get_expr()         == q2->get_expr() &&
-            q1->get_weight()       == q2->get_weight() &&
-            q1->get_num_patterns() == q2->get_num_patterns() &&
             ((q1->get_qid().is_numerical() && q2->get_qid().is_numerical()) ||
              (q1->get_qid() == q2->get_qid())) && 
             compare_arrays(q1->get_patterns(),
@@ -538,22 +539,6 @@ inline unsigned ast_array_hash(T * const * array, unsigned size, unsigned init_v
         mix(a, b, c);
         return c;
     } }
-}
-
-unsigned get_asts_hash(unsigned sz, ast * const* ns, unsigned init) {
-    return ast_array_hash<ast>(ns, sz, init);
-}
-unsigned get_apps_hash(unsigned sz, app * const* ns, unsigned init) {
-    return ast_array_hash<app>(ns, sz, init);
-}
-unsigned get_exprs_hash(unsigned sz, expr * const* ns, unsigned init) {
-    return ast_array_hash<expr>(ns, sz, init);
-}
-unsigned get_sorts_hash(unsigned sz, sort * const* ns, unsigned init) {
-    return ast_array_hash<sort>(ns, sz, init);
-}
-unsigned get_decl_hash(unsigned sz, func_decl* const* ns, unsigned init) {
-    return ast_array_hash<func_decl>(ns, sz, init);
 }
 
 unsigned get_node_hash(ast const * n) {
@@ -1309,10 +1294,7 @@ ast_manager::ast_manager(proof_gen_mode m, char const * trace_file, bool is_form
     m_expr_array_manager(*this, m_alloc),
     m_expr_dependency_manager(*this, m_alloc),
     m_expr_dependency_array_manager(*this, m_alloc),
-    m_proof_mode(m),
-    m_trace_stream(nullptr),
-    m_trace_stream_owner(false),
-    m_lambda_def(":lambda-def") {
+    m_proof_mode(m) {
 
     if (trace_file) {
         m_trace_stream       = alloc(std::fstream, trace_file, std::ios_base::out);
@@ -1333,9 +1315,7 @@ ast_manager::ast_manager(proof_gen_mode m, std::fstream * trace_stream, bool is_
     m_expr_dependency_manager(*this, m_alloc),
     m_expr_dependency_array_manager(*this, m_alloc),
     m_proof_mode(m),
-    m_trace_stream(trace_stream),
-    m_trace_stream_owner(false),
-    m_lambda_def(":lambda-def") {
+    m_trace_stream(trace_stream) {
 
     if (!is_format_manager)
         m_format_manager = alloc(ast_manager, PGM_DISABLED, trace_stream, true);
@@ -1350,9 +1330,7 @@ ast_manager::ast_manager(ast_manager const & src, bool disable_proofs):
     m_expr_dependency_manager(*this, m_alloc),
     m_expr_dependency_array_manager(*this, m_alloc),
     m_proof_mode(disable_proofs ? PGM_DISABLED : src.m_proof_mode),
-    m_trace_stream(src.m_trace_stream),
-    m_trace_stream_owner(false),
-    m_lambda_def(":lambda-def") {
+    m_trace_stream(src.m_trace_stream) {
     SASSERT(!src.is_format_manager());
     m_format_manager = alloc(ast_manager, PGM_DISABLED, m_trace_stream, true);
     init();
@@ -1378,6 +1356,7 @@ void ast_manager::init() {
     ENSURE(model_value_family_id == mk_family_id("model-value"));
     ENSURE(user_sort_family_id   == mk_family_id("user-sort"));
     ENSURE(arith_family_id       == mk_family_id("arith"));
+    ENSURE(poly_family_id        == mk_family_id("polymorphic"));
     basic_decl_plugin * plugin = alloc(basic_decl_plugin);
     register_plugin(basic_family_id, plugin);
     m_bool_sort = plugin->mk_bool_sort();
@@ -1879,6 +1858,8 @@ void ast_manager::delete_node(ast * n) {
             break;
         case AST_FUNC_DECL: {
             func_decl* f = to_func_decl(n);
+            if (f->is_polymorphic())
+                m_poly_roots.erase(f);
             if (f->m_info != nullptr) {
                 func_decl_info * info = f->get_info();
                 if (info->is_lambda()) {
@@ -2019,6 +2000,7 @@ sort * ast_manager::mk_uninterpreted_sort(symbol const & name, unsigned num_para
     return plugin->mk_sort(kind, num_parameters, parameters);
 }
 
+
 func_decl * ast_manager::mk_func_decl(symbol const & name, unsigned arity, sort * const * domain, sort * range,
                                       bool assoc, bool comm, bool inj) {
     func_decl_info info(null_family_id, null_decl_kind);
@@ -2029,13 +2011,30 @@ func_decl * ast_manager::mk_func_decl(symbol const & name, unsigned arity, sort 
 }
 
 func_decl * ast_manager::mk_func_decl(symbol const & name, unsigned arity, sort * const * domain, sort * range, func_decl_info * info) {
-    SASSERT(arity == 1 || info == 0 || !info->is_injective());
-    SASSERT(arity == 2 || info == 0 || !info->is_associative());
-    SASSERT(arity == 2 || info == 0 || !info->is_commutative());
+    SASSERT(arity == 1 || !info || !info->is_injective());
+    SASSERT(arity == 2 || !info || !info->is_associative());
+    SASSERT(arity == 2 || !info || !info->is_commutative());
     unsigned sz               = func_decl::get_obj_size(arity);
     void * mem                = allocate_node(sz);
-    func_decl * new_node = new (mem) func_decl(name, arity, domain, range, info);
-    return register_node(new_node);
+
+    // determine if function is a polymorphic root object.
+    // instances of polymorphic functions are automatically tagged as polymorphic and
+    // inserted into the m_poly_roots table.
+    bool is_polymorphic_root = false;
+    func_decl_info info0;
+    if (has_type_var(arity, domain, range)) {
+        if (!info)
+            info = &info0;
+        if (!info->is_polymorphic()) {
+            info->set_polymorphic(true);
+            is_polymorphic_root = true;
+        }
+    }
+    func_decl* new_node = new (mem) func_decl(name, arity, domain, range, info);
+    new_node = register_node(new_node);
+    if (is_polymorphic_root) 
+        m_poly_roots.insert(new_node, new_node);
+    return new_node;
 }
 
 void ast_manager::check_sort(func_decl const * decl, unsigned num_args, expr * const * args) const {
@@ -2300,9 +2299,10 @@ func_decl * ast_manager::mk_fresh_func_decl(symbol const & prefix, symbol const 
     func_decl_info info(null_family_id, null_decl_kind);
     info.m_skolem = skolem;
     SASSERT(skolem == info.is_skolem());
+    func_decl_info* infop = skolem ? &info : nullptr;
     func_decl * d;
     if (prefix == symbol::null && suffix == symbol::null) {
-        d = mk_func_decl(symbol(m_fresh_id), arity, domain, range, &info);
+        d = mk_func_decl(symbol(m_fresh_id), arity, domain, range, infop);
     }
     else {
         string_buffer<64> buffer;
@@ -2314,10 +2314,10 @@ func_decl * ast_manager::mk_fresh_func_decl(symbol const & prefix, symbol const 
         if (suffix != symbol::null)
             buffer << suffix << "!";
         buffer << m_fresh_id;
-        d = mk_func_decl(symbol(buffer.c_str()), arity, domain, range, &info);
+        d = mk_func_decl(symbol(buffer.c_str()), arity, domain, range, infop);
     }
     m_fresh_id++;
-    SASSERT(d->get_info());
+    SASSERT(!skolem || d->get_info());
     SASSERT(skolem == d->is_skolem());
     return d;
 }
@@ -2719,6 +2719,49 @@ bool ast_manager::is_fully_interp(sort * s) const {
     return false;
 }
 
+// -----------------------------------------
+// Polymorphism
+// -----------------------------------------
+sort * ast_manager::mk_type_var(symbol const& name) {
+    m_has_type_vars = true;
+    sort_info si(poly_family_id, 0);
+    return mk_sort(name, &si);
+}
+
+bool ast_manager::has_type_var(sort* s) const {
+    if (is_type_var(s))
+        return true;
+    for (parameter const& p : s->parameters()) 
+        if (p.is_ast() && is_sort(p.get_ast()) && has_type_var(to_sort(p.get_ast())))
+            return true;   
+    return false;
+}
+
+bool ast_manager::has_type_var(func_decl* f) const {
+    return has_type_var(f->get_arity(), f->get_domain(), f->get_range());
+}
+
+bool ast_manager::has_type_var(unsigned n, sort* const* domain, sort* range) const {
+    if (!has_type_vars())
+        return false;
+    for (unsigned i = n; i-- > 0; )
+        if (has_type_var(domain[i]))
+            return true;
+    return has_type_var(range);    
+}
+
+/**
+ * \brief create an instantiation of polymorphic function f.
+ */
+
+func_decl* ast_manager::instantiate_polymorphic(func_decl* f, unsigned arity, sort * const* domain, sort * range) {
+    SASSERT(f->is_polymorphic());
+    func_decl* g = mk_func_decl(f->get_name(), arity, domain, range, f->get_info());
+    m_poly_roots.insert(g, f);
+    // SASSERT(g->is_polymorphic());
+    return g;
+}
+
 // -----------------------------------
 //
 // Proof generation
@@ -2841,29 +2884,40 @@ proof * ast_manager::mk_transitivity(proof * p1, proof * p2) {
     SASSERT(has_fact(p2));
     SASSERT(is_app(get_fact(p1)));
     SASSERT(is_app(get_fact(p2)));
-    SASSERT(to_app(get_fact(p1))->get_num_args() == 2);
-    SASSERT(to_app(get_fact(p2))->get_num_args() == 2);
-    CTRACE("mk_transitivity", to_app(get_fact(p1))->get_decl() != to_app(get_fact(p2))->get_decl(),
-           tout << mk_pp(get_fact(p1), *this) << "\n\n" << mk_pp(get_fact(p2), *this) << "\n";
-           tout << mk_pp(to_app(get_fact(p1))->get_decl(), *this) << "\n";
-           tout << mk_pp(to_app(get_fact(p2))->get_decl(), *this) << "\n";);
-    SASSERT(to_app(get_fact(p1))->get_decl() == to_app(get_fact(p2))->get_decl() ||
-            ( (is_eq(get_fact(p1)) || is_oeq(get_fact(p1))) &&
-              (is_eq(get_fact(p2)) || is_oeq(get_fact(p2)))));
-    CTRACE("mk_transitivity", to_app(get_fact(p1))->get_arg(1) != to_app(get_fact(p2))->get_arg(0),
-           tout << mk_pp(get_fact(p1), *this) << "\n\n" << mk_pp(get_fact(p2), *this) << "\n";
+    app* fact1 = to_app(get_fact(p1));
+    app* fact2 = to_app(get_fact(p2));
+    SASSERT(fact1->get_num_args() == 2);
+    SASSERT(fact2->get_num_args() == 2);
+    CTRACE("mk_transitivity", fact1->get_decl() != fact2->get_decl(),
+           tout << mk_pp(fact1, *this) << "\n\n" << mk_pp(fact2, *this) << "\n";
+           tout << mk_pp(fact1->get_decl(), *this) << "\n";
+           tout << mk_pp(fact2->get_decl(), *this) << "\n";);
+    SASSERT(fact1->get_decl() == fact2->get_decl() ||
+            ( (is_eq(fact1) || is_oeq(fact1)) &&
+              (is_eq(fact2) || is_oeq(fact2))));
+    CTRACE("mk_transitivity", fact1->get_arg(1) != fact2->get_arg(0),
+           tout << mk_pp(fact1, *this) << "\n\n" << mk_pp(fact2, *this) << "\n";
            tout << p1->get_id() << ": " << mk_bounded_pp(p1, *this, 5) << "\n\n";
            tout << p2->get_id() << ": " << mk_bounded_pp(p2, *this, 5) << "\n\n";
     );
-    SASSERT(to_app(get_fact(p1))->get_arg(1) == to_app(get_fact(p2))->get_arg(0));
     if (is_reflexivity(p1))
         return p2;
     if (is_reflexivity(p2))
         return p1;
+    // local fixup to admit inline simplifications of not(not(e)) to e
+    expr* e;
+    if (is_not(fact1->get_arg(1), e) && is_not(e, e) && e == fact2->get_arg(0))
+        p1 = mk_transitivity(p1, mk_rewrite(fact1->get_arg(1), fact2->get_arg(0)));
+    else if (is_not(fact2->get_arg(0), e) && is_not(e, e) && e == fact1->get_arg(1))
+        p1 = mk_transitivity(p1, mk_rewrite(fact1->get_arg(1), fact2->get_arg(0)));
+    else {                                            
+        SASSERT(fact1->get_arg(1) == fact2->get_arg(0));
+    }
     // OEQ is compatible with EQ for transitivity.
-    func_decl* f = to_app(get_fact(p1))->get_decl();
-    if (is_oeq(get_fact(p2))) f = to_app(get_fact(p2))->get_decl();
-    return  mk_app(basic_family_id, PR_TRANSITIVITY, p1, p2, mk_app(f, to_app(get_fact(p1))->get_arg(0), to_app(get_fact(p2))->get_arg(1)));
+    func_decl* f = fact1->get_decl();
+    if (is_oeq(fact2))
+        f = fact2->get_decl();
+    return  mk_app(basic_family_id, PR_TRANSITIVITY, p1, p2, mk_app(f, fact1->get_arg(0), fact2->get_arg(1)));
 
 }
 

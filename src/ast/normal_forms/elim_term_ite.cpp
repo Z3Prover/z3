@@ -18,6 +18,7 @@ Revision History:
 --*/
 #include "ast/normal_forms/elim_term_ite.h"
 #include "ast/ast_smt2_pp.h"
+#include "ast/rewriter/rewriter_def.h"
 
 br_status elim_term_ite_cfg::reduce_app(func_decl* f, unsigned n, expr * const* args, expr_ref& result, proof_ref& result_pr) {
     if (!m.is_term_ite(f)) {
@@ -38,3 +39,4 @@ br_status elim_term_ite_cfg::reduce_app(func_decl* f, unsigned n, expr * const* 
     return BR_DONE;
 }
 
+template class rewriter_tpl<elim_term_ite_cfg>;

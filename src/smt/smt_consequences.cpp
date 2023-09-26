@@ -243,7 +243,7 @@ namespace smt {
                     lit.neg();
 
                 literal lit = mk_diseq(k, v);
-                literals.push_back(lit);
+                literals.push_back(~lit);
                 mk_clause(literals.size(), literals.data(), nullptr);
                 TRACE("context", display_literals_verbose(tout, literals.size(), literals.data()););
             }

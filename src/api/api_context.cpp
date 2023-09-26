@@ -157,6 +157,9 @@ namespace api {
         flush_objects();
         for (auto& kv : m_allocated_objects) {
             api::object* val = kv.m_value;
+#ifdef SINGLE_THREAD
+# define m_concurrent_dec_ref false
+#endif
             DEBUG_CODE(if (!m_concurrent_dec_ref) warning_msg("Uncollected memory: %d: %s", kv.m_key, typeid(*val).name()););
             dealloc(val);
         }

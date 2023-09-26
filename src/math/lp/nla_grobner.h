@@ -12,7 +12,7 @@
 #include "math/lp/nla_intervals.h"
 #include "math/lp/nex.h"
 #include "math/lp/cross_nested.h"
-#include "math/lp/u_set.h"
+#include "util/uint_set.h"
 #include "math/grobner/pdd_solver.h"
 
 namespace nla {
@@ -21,8 +21,9 @@ namespace nla {
     class grobner : common {
         dd::pdd_manager          m_pdd_manager;
         dd::solver               m_solver;
-        lp::lar_solver&          m_lar_solver;
-        lp::u_set                m_rows;
+        lp::lar_solver&          lra;
+        indexed_uint_set         m_rows;
+        unsigned                 m_quota = 0;
 
         lp::lp_settings& lp_settings();
 

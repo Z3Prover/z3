@@ -25,6 +25,7 @@ Revision History:
 namespace sat {
     class integrity_checker {
         solver const & s;
+        bool contains_watched(watch_list const & wlist, clause const & c, clause_offset cls_off) const;
     public:
         integrity_checker(solver const & s);
         

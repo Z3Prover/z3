@@ -37,6 +37,7 @@ class bound_simplifier : public dependent_expr_simplifier {
     unsynch_mpq_manager     nm;
     small_object_allocator  m_alloc;
     bound_propagator        bp;
+    u_dependency_manager    m_dep_manager;
     dep_intervals           m_interval;
     ptr_vector<expr>        m_var2expr;
     unsigned_vector         m_expr2var;
@@ -105,7 +106,7 @@ public:
         a(m),
         m_rewriter(m),
         bp(nm, m_alloc, p),
-        m_interval(m.limit()),
+        m_interval(m_dep_manager, m.limit()),
         m_trail(m),
         m_num_buffer(nm) {
         updt_params(p);

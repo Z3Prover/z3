@@ -275,7 +275,7 @@ def prove(claim, assume=None, verbose=0):
 
 def get_models(f, k):
     """
-    Returns the first k models satisfiying f.
+    Returns the first k models satisfying f.
     If f is not satisfiable, returns False.
     If f cannot be solved, returns None
     If f is satisfiable, returns the first k models
@@ -485,7 +485,7 @@ def model_str(m, as_str=True):
     x = 10, y = 3
 
     EXAMPLES:
-    see doctest exampels from function prove()
+    see doctest examples from function prove()
 
     """
     if z3_debug():

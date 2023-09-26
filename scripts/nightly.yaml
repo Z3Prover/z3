@@ -63,6 +63,23 @@ stages:
         artifactName: 'Ubuntu'
         targetPath: $(Build.ArtifactStagingDirectory)
 
+  - job: UbuntuArm64
+    displayName: "Ubuntu ARM64 build"
+    pool:
+      vmImage: "ubuntu-latest"
+    steps:
+    - script: sudo apt update
+    - script: sudo apt install gcc-arm-none-eabi -y
+    - script: sudo apt install gcc-arm-linux-gnueabihf -y
+    - script: sudo apt install gcc-aarch64-linux-gnu -y
+    - script: sudo apt install g++-aarch64-linux-gnu -y
+    - script: CXX=aarch64-linux-gnu-g++ CC=aarch64-linux-gnu-gcc python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk --arch=arm64
+    - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
+    - task: PublishPipelineArtifact@0
+      inputs:
+        artifactName: 'UbuntuArm64'
+        targetPath: $(Build.ArtifactStagingDirectory)
+
   - job: UbuntuDoc
     displayName: "Ubuntu Doc build"
     pool:
@@ -237,6 +254,16 @@ stages:
       displayName: 'Download Ubuntu Build'
       inputs:
         artifact: 'Ubuntu'
+        path: $(Agent.TempDirectory)\package
+    - task: DownloadPipelineArtifact@2
+      displayName: 'Download Ubuntu 20.04 Build'
+      inputs:
+        artifact: 'Ubuntu-20.04'
+        path: $(Agent.TempDirectory)\package
+    - task: DownloadPipelineArtifact@2
+      displayName: 'Download Ubuntu ARM64 Build'
+      inputs:
+        artifact: 'UbuntuArm64'
         path: $(Agent.TempDirectory)\package
     - task: DownloadPipelineArtifact@2
       displayName: 'Download macOS Build'
@@ -520,6 +547,11 @@ stages:
       displayName: "Download MacArm64"
       inputs:
         artifactName: 'MacArm64'
+        targetPath: tmp
+    - task: DownloadPipelineArtifact@2
+      displayName: "Download Ubuntu Arm64"
+      inputs:
+        artifactName: 'UbuntuArm64'
         targetPath: tmp
     - task: DownloadPipelineArtifact@2
       displayName: "Download Ubuntu"

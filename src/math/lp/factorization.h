@@ -30,13 +30,12 @@ struct factorization_factory;
 enum class factor_type { VAR, MON };
 
 class factor {
-    lpvar        m_var{ UINT_MAX };
-    factor_type  m_type{ factor_type::VAR };
-    bool         m_sign{ false };
+    lpvar        m_var = UINT_MAX;
+    factor_type  m_type = factor_type::VAR;
+    bool         m_sign = false;
 public:
-    factor(): factor(false) {}
-    factor(bool sign): m_sign(sign) {}
-    explicit factor(lpvar v, factor_type t) : m_var(v), m_type(t), m_sign(false) {}
+    factor() { }
+    explicit factor(lpvar v, factor_type t) : m_var(v), m_type(t) {}
     unsigned var() const { return m_var; }
     factor_type type() const { return m_type; }
     void set(lpvar v, factor_type t) { m_var = v; m_type = t; }

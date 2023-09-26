@@ -27,7 +27,7 @@ Revision History:
 #include "math/lp/static_matrix.h"
 #include "math/lp/permutation_matrix.h"
 #include "math/lp/column_namer.h"
-#include "math/lp/u_set.h"
+#include "util/uint_set.h"
 #include "util/heap.h"
 
 namespace lp {
@@ -54,8 +54,8 @@ private:
     lp_status m_status;
 public:
     bool current_x_is_feasible() const {
-        TRACE("feas",
-              if (m_inf_heap.size()) {
+        TRACE("feas_bug",
+              if (!m_inf_heap.empty()) {
                   tout << "column " << *m_inf_heap.begin() << " is infeasible" << std::endl;
                   print_column_info(*m_inf_heap.begin(), tout);
               } else {
@@ -91,7 +91,8 @@ public:
     unsigned              m_basis_sort_counter;
     vector<unsigned>      m_trace_of_basis_change_vector; // the even positions are entering, the odd positions are leaving
     bool                  m_tracing_basis_changes;
-    u_set*                m_pivoted_rows;
+    // these rows are changed by adding to them a multiple of the pivot row
+    indexed_uint_set*     m_touched_rows = nullptr;
     bool                  m_look_for_feasible_solution_only;
 
     void start_tracing_basis_changes() {
@@ -290,8 +291,8 @@ public:
     X bound_span(unsigned j) const {
         return m_upper_bounds[j] - m_lower_bounds[j];
     }
-
-    std::string column_name(unsigned column) const;
+        // clang-format on       
+        std::string column_name(unsigned column) const;
 
     bool make_column_feasible(unsigned j, numeric_pair<mpq> & delta) {
         bool ret = false;
@@ -302,15 +303,15 @@ public:
             lp_assert(m_lower_bounds[j] == m_upper_bounds[j]);
             if (x != m_lower_bounds[j]) {
                 delta = m_lower_bounds[j] - x;
-                ret = true;;
+                ret = true;
             }
             break;
         case column_type::boxed:
             if (x < m_lower_bounds[j]) {
                 delta = m_lower_bounds[j] - x;
-                ret = true;;
+                ret = true;
             }
-            if (x > m_upper_bounds[j]) {
+            else if (x > m_upper_bounds[j]) {
                 delta = m_upper_bounds[j] - x;
                 ret = true;
             }
@@ -337,7 +338,7 @@ public:
         
     }
 
-    bool remove_from_basis(unsigned j);
+    bool remove_from_basis_core(unsigned entering, unsigned leaving);
     bool pivot_column_general(unsigned j, unsigned j_basic, indexed_vector<T> & w);
     void init_basic_part_of_basis_heading() {
         unsigned m = m_basis.size();
@@ -538,51 +539,46 @@ public:
         return m_basis_heading[j] >= 0;
     }
 
-    
-    void update_x_with_feasibility_tracking(unsigned j, const X & v) {
-        TRACE("lar_solver", tout << "j = " << j << ", v = " << v << "\n";);
-        m_x[j] = v;
-        track_column_feasibility(j);
-    }
-
     void add_delta_to_x_and_track_feasibility(unsigned j, const X & del) {
-        TRACE("lar_solver", tout << "del = " << del << ", was x[" << j << "] = " << m_x[j] << "\n";);
+        TRACE("lar_solver_feas_bug", tout << "del = " << del << ", was x[" << j << "] = " << m_x[j] << "\n";);
         m_x[j] += del;
-        TRACE("lar_solver", tout << "became x[" << j << "] = " << m_x[j] << "\n";);
+        TRACE("lar_solver_feas_bug", tout << "became x[" << j << "] = " << m_x[j] << "\n";);
         track_column_feasibility(j);
     }
 
     void update_x(unsigned j, const X & v) {
-        TRACE("lar_solver", tout << "j = " << j << ", v = " << v << "\n";);
         m_x[j] = v;
+        TRACE("lar_solver_feas", tout << "not tracking feas j = " << j << ", v = " << v << (column_is_feasible(j)? " feas":" non-feas") << "\n";);
     }
 
-    void add_delta_to_x(unsigned j, const X & delta) {
-        TRACE("lar_solver", tout << "j = " << j << ", delta = " << delta << "\n";);
+    void add_delta_to_x(unsigned j, const X& delta) {
         m_x[j] += delta;
+        TRACE("lar_solver_feas", tout << "not tracking feas j = " << j << " v = " << m_x[j] << " delta = " << delta << (column_is_feasible(j) ? " feas" : " non-feas") << "\n";);
     }
-   
+        
     void track_column_feasibility(unsigned j) {
         if (column_is_feasible(j))
             remove_column_from_inf_heap(j);
         else
             insert_column_into_inf_heap(j);
     }
-    void insert_column_into_inf_heap(unsigned j) {
-        TRACE("lar_solver", tout << "j = " << j << "\n";);
-		if (!m_inf_heap.contains(j))
+    void insert_column_into_inf_heap(unsigned j) {        
+		if (!m_inf_heap.contains(j)) {
 	        m_inf_heap.insert(j);
+            TRACE("lar_solver_inf_heap", tout << "insert into inf_heap j = " << j << "\n";);
+        }
         lp_assert(!column_is_feasible(j));
     }
     void remove_column_from_inf_heap(unsigned j) {
-        TRACE("lar_solver", tout << "j = " << j << "\n";);
-		if (m_inf_heap.contains(j))
+		if (m_inf_heap.contains(j)) {
+            TRACE("lar_solver_inf_heap", tout << "insert into heap j = " << j << "\n";);
         	m_inf_heap.erase(j);
+        }
         lp_assert(column_is_feasible(j));
     }
 
     void clear_inf_heap() {
-        TRACE("lar_solver",);
+        TRACE("lar_solver_feas",);
         m_inf_heap.clear();
     }
     
