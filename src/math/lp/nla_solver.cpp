@@ -112,6 +112,5 @@ namespace nla {
         init_bound_propagation();
         for (unsigned v : monics_with_changed_bounds()) 
             calculate_implied_bounds_for_monic(v);        
-        reset_monics_with_changed_bounds();
     }
 }

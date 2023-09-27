@@ -88,7 +88,7 @@ class core {
     vector<lemma>            m_lemmas;
     vector<ineq> *           m_literal_vec = nullptr;
     indexed_uint_set         m_to_refine;
-    vector<lpvar>            m_monics_with_changed_bounds;
+    indexed_uint_set         m_monics_with_changed_bounds;
     tangents                 m_tangents;
     basics                   m_basics;
     order                    m_order;
@@ -125,7 +125,6 @@ public:
     // constructor
     core(lp::lar_solver& s, params_ref const& p, reslimit&, std_vector<lp::implied_bound> & implied_bounds);
     const auto& monics_with_changed_bounds() const { return m_monics_with_changed_bounds; }
-    void reset_monics_with_changed_bounds() { m_monics_with_changed_bounds.reset(); }
     void insert_to_refine(lpvar j);
     void erase_from_to_refine(lpvar j);
     

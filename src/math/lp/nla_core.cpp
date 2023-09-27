@@ -43,18 +43,17 @@ core::core(lp::lar_solver& s, params_ref const& p, reslimit& lim, std_vector<lp:
     m_implied_bounds(implied_bounds) {
     m_nlsat_delay = lp_settings().nlsat_delay();
     lra.m_find_monics_with_changed_bounds_func = [&](const indexed_uint_set& columns_with_changed_bounds) {
-    for (const auto& m : m_emons) {
-        if (columns_with_changed_bounds.contains(m.var())) {
-            m_monics_with_changed_bounds.push_back(m.var());
-            continue;
+        m_monics_with_changed_bounds.reset();
+        for (lpvar j : columns_with_changed_bounds) {
+            if (is_monic_var(j))
+                m_monics_with_changed_bounds.insert(j);
+            else {
+                for (const auto & m: m_emons.get_use_list(j)) {
+                    m_monics_with_changed_bounds.insert(m.var());
+                }
+            }    
         }
-        for (lpvar j : m.vars()) {
-            if (columns_with_changed_bounds.contains(j)) {
-                m_monics_with_changed_bounds.push_back(m.var());
-                break;
-            }
-        }
-    } };
+    };
 }
 
 bool core::compare_holds(const rational& ls, llc cmp, const rational& rs) const {
