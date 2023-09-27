@@ -42,12 +42,12 @@ namespace nla {
     
     bool solver::need_check() { return m_core->has_relevant_monomial(); }
     
-    lbool solver::check(vector<ineq>& lits, vector<lemma>& lemmas) {
-        return m_core->check(lits, lemmas);
+    lbool solver::check(vector<ineq>& lits) {
+        return m_core->check(lits);
     }
 
-    void solver::propagate(vector<lemma>& lemmas) {
-        m_core->propagate(lemmas);
+    void solver::propagate() {
+        m_core->propagate();
     }
     
     void solver::push(){
@@ -93,12 +93,15 @@ namespace nla {
     }
 
     // ensure r = x^y, add abstraction/refinement lemmas
-    lbool solver::check_power(lpvar r, lpvar x, lpvar y, vector<lemma>& lemmas) {
-        return m_core->check_power(r, x, y, lemmas);
+    lbool solver::check_power(lpvar r, lpvar x, lpvar y) {
+        return m_core->check_power(r, x, y);
     }
 
-    void solver::check_bounded_divisions(vector<lemma>& lemmas) {
-        m_core->check_bounded_divisions(lemmas);
+    void solver::check_bounded_divisions() {
+        m_core->check_bounded_divisions();
     }
 
+    vector<nla::lemma> const& solver::lemmas() const {
+        return m_core->lemmas();
+    }
 }

@@ -31,14 +31,14 @@ namespace nla {
         void add_idivision(lpvar q, lpvar x, lpvar y);
         void add_rdivision(lpvar q, lpvar x, lpvar y);
         void add_bounded_division(lpvar q, lpvar x, lpvar y);
-        void check_bounded_divisions(vector<lemma>&);
+        void check_bounded_divisions();
         void set_relevant(std::function<bool(lpvar)>& is_relevant);
         void push();
         void pop(unsigned scopes);
         bool need_check();
-        lbool check(vector<ineq>& lits, vector<lemma>&);
-        void propagate(vector<lemma>& lemmas);
-        lbool check_power(lpvar r, lpvar x, lpvar y, vector<lemma>&);
+        lbool check(vector<ineq>& lits);
+        void propagate();
+        lbool check_power(lpvar r, lpvar x, lpvar y);
         bool is_monic_var(lpvar) const;
         bool influences_nl_var(lpvar) const;
         std::ostream& display(std::ostream& out) const;
@@ -47,5 +47,6 @@ namespace nla {
         nlsat::anum_manager& am();
         nlsat::anum const& am_value(lp::var_index v) const;
         void collect_statistics(::statistics & st);
+        vector<nla::lemma> const& lemmas() const;
     };
 }

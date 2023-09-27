@@ -1598,11 +1598,11 @@ public:
             return FC_DONE;
         if (!m_nla)
             return FC_GIVEUP;
-        switch (m_nla->check_power(get_lpvar(e), get_lpvar(x), get_lpvar(y), m_nla_lemma_vector)) {
+        switch (m_nla->check_power(get_lpvar(e), get_lpvar(x), get_lpvar(y))) {
         case l_true:
             return FC_DONE;
         case l_false:
-            for (const nla::lemma & l : m_nla_lemma_vector) 
+            for (const nla::lemma & l : m_nla->lemmas()) 
                 false_case_of_check_nla(l);
             return FC_CONTINUE;
         case l_undef:
@@ -1800,8 +1800,8 @@ public:
         if (!m_nla)
             return true;
         m_nla_lemma_vector.reset();
-        m_nla->check_bounded_divisions(m_nla_lemma_vector);
-        for (auto & lemma : m_nla_lemma_vector)
+        m_nla->check_bounded_divisions();
+        for (auto & lemma : m_nla->lemmas())
             false_case_of_check_nla(lemma);
         return m_nla_lemma_vector.empty();         
     }
@@ -2022,13 +2022,13 @@ public:
     
     final_check_status check_nla_continue() {
         m_a1 = nullptr; m_a2 = nullptr;
-        lbool r = m_nla->check(m_nla_literals, m_nla_lemma_vector);
+        lbool r = m_nla->check(m_nla_literals);
 
         switch (r) {
         case l_false:
             for (const nla::ineq& i : m_nla_literals)
                 assume_literal(i); 
-            for (const nla::lemma & l : m_nla_lemma_vector) 
+            for (const nla::lemma & l : m_nla->lemmas()) 
                 false_case_of_check_nla(l);
             return FC_CONTINUE;
         case l_true:
@@ -2161,8 +2161,8 @@ public:
     void propagate_nla() {
         if (!m_nla)
             return;
-        m_nla->propagate(m_nla_lemma_vector);
-        for (nla::lemma const& l : m_nla_lemma_vector)
+        m_nla->propagate();
+        for (nla::lemma const& l : m_nla->lemmas())
             false_case_of_check_nla(l);
     }
 
