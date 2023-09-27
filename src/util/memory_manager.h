@@ -128,6 +128,29 @@ void dealloc_svect(T * ptr) {
     memory::deallocate(ptr);
 }
 
+template <typename T>
+struct std_allocator {
+    using value_type = T;
+    // the constructors must be provided according to cpp docs
+    std_allocator() = default;
+    template <class U> constexpr std_allocator(const std_allocator<U>&) noexcept {}
+ 
+
+    T* allocate(std::size_t n) {
+        return static_cast<T*>(memory::allocate(n * sizeof(T)));
+    }
+
+    void deallocate(T* p, std::size_t n) {
+        memory::deallocate(p);
+    }
+};
+
+// the comparison operators must be provided according to cpp docs
+template <class T, class U>
+bool operator==(const std_allocator<T>&, const std_allocator<U>&) { return true; }
+template <class T, class U>
+bool operator!=(const std_allocator<T>&, const std_allocator<U>&) { return false; }
+
 struct mem_stat {
 };
 
