@@ -103,19 +103,19 @@ class lp_bound_propagator {
     }
 
     const impq& get_lower_bound(unsigned j) const {
-        return m_imp.lp().get_lower_bound(j);
+        return lp().get_lower_bound(j);
     }
 
     const mpq& get_lower_bound_rational(unsigned j) const {
-        return m_imp.lp().get_lower_bound(j).x;
+        return lp().get_lower_bound(j).x;
     }
 
     const impq& get_upper_bound(unsigned j) const {
-        return m_imp.lp().get_upper_bound(j);
+        return lp().get_upper_bound(j);
     }
 
     const mpq& get_upper_bound_rational(unsigned j) const {
-        return m_imp.lp().get_upper_bound(j).x;
+        return lp().get_upper_bound(j).x;
     }
 
     // require also the zero infinitesemal part
@@ -124,7 +124,7 @@ class lp_bound_propagator {
     }
 
     void try_add_bound(mpq const& v, unsigned j, bool is_low, bool coeff_before_j_is_pos, unsigned row_or_term_index, bool strict) {
-        j = m_imp.lp().column_to_reported_index(j);
+        j = lp().column_to_reported_index(j);
 
         lconstraint_kind kind = is_low ? GE : LE;
         if (strict)
@@ -138,24 +138,24 @@ class lp_bound_propagator {
                 auto& found_bound = m_ibounds[k];
                 if (v > found_bound.m_bound || (v == found_bound.m_bound && !found_bound.m_strict && strict)) {
                     found_bound = implied_bound(v, j, is_low, coeff_before_j_is_pos, row_or_term_index, strict);
-                    TRACE("try_add_bound", m_imp.lp().print_implied_bound(found_bound, tout););
+                    TRACE("try_add_bound", lp().print_implied_bound(found_bound, tout););
                 }
             } else {
                 m_improved_lower_bounds[j] = m_ibounds.size();
                 m_ibounds.push_back(implied_bound(v, j, is_low, coeff_before_j_is_pos, row_or_term_index, strict));
-                TRACE("try_add_bound", m_imp.lp().print_implied_bound(m_ibounds.back(), tout););
+                TRACE("try_add_bound", lp().print_implied_bound(m_ibounds.back(), tout););
             }
         } else {  // the upper bound case
             if (try_get_value(m_improved_upper_bounds, j, k)) {
                 auto& found_bound = m_ibounds[k];
                 if (v < found_bound.m_bound || (v == found_bound.m_bound && !found_bound.m_strict && strict)) {
                     found_bound = implied_bound(v, j, is_low, coeff_before_j_is_pos, row_or_term_index, strict);
-                    TRACE("try_add_bound", m_imp.lp().print_implied_bound(found_bound, tout););
+                    TRACE("try_add_bound", lp().print_implied_bound(found_bound, tout););
                 }
             } else {
                 m_improved_upper_bounds[j] = m_ibounds.size();
                 m_ibounds.push_back(implied_bound(v, j, is_low, coeff_before_j_is_pos, row_or_term_index, strict));
-                TRACE("try_add_bound", m_imp.lp().print_implied_bound(m_ibounds.back(), tout););
+                TRACE("try_add_bound", lp().print_implied_bound(m_ibounds.back(), tout););
             }
         }
     }
