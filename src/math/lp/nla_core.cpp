@@ -1855,6 +1855,7 @@ bool core::is_linear(const svector<lpvar>& m, lpvar& zero_var, lpvar& non_fixed)
         }
     }
     return n_of_non_fixed <= 1;
+
 }
 
 void core::add_lower_bound_monic(lpvar j, const lp::mpq& v, bool is_strict, std::function<u_dependency*()> explain_dep) {

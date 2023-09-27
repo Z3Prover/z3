@@ -36,6 +36,9 @@ void theory_arith_params::updt_params(params_ref const & _p) {
     m_arith_bound_prop = static_cast<bound_prop_mode>(p.arith_propagation_mode());
     m_arith_eager_eq_axioms = p.arith_eager_eq_axioms();
     m_arith_auto_config_simplex = p.arith_auto_config_simplex();
+    m_nl_arith_propagate_linear_monomials = p.arith_nl_propagate_linear_monomials();
+    m_nl_arith_optimize_bounds = p.arith_nl_optimize_bounds();
+    m_nl_arith_cross_nested = p.arith_nl_cross_nested();
 
     arith_rewriter_params ap(_p);
     m_arith_eq2ineq = ap.eq2ineq();
@@ -89,4 +92,7 @@ void theory_arith_params::display(std::ostream & out) const {
     DISPLAY_PARAM(m_nl_arith_max_degree);
     DISPLAY_PARAM(m_nl_arith_branching);
     DISPLAY_PARAM(m_nl_arith_rounds);
+    DISPLAY_PARAM(m_nl_arith_propagate_linear_monomials);
+    DISPLAY_PARAM(m_nl_arith_optimize_bounds);
+    DISPLAY_PARAM(m_nl_arith_cross_nested);
 }

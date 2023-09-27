@@ -398,8 +398,6 @@ public:
     void check_bounded_divisions();
 
     bool  no_lemmas_hold() const;
-
-    // void propagate();
     
     lbool  test_check();
     lpvar map_to_root(lpvar) const;
@@ -435,6 +433,7 @@ public:
     void set_use_nra_model(bool m);
     bool use_nra_model() const { return m_use_nra_model; }
     void collect_statistics(::statistics&);
+
     bool is_linear(const svector<lpvar>& m, lpvar& zero_var, lpvar& non_fixed);
     void add_bounds_for_zero_var(lpvar monic_var, lpvar zero_var);
     void propagate_monic_with_non_fixed(lpvar monic_var, const svector<lpvar>& vars, lpvar non_fixed, const rational& k);
