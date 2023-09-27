@@ -145,6 +145,7 @@ public:
         return (*m_column_types)[j] == column_type::fixed && get_lower_bound(j).y.is_zero();
     }
 
+
     void add_bound(mpq const& v, unsigned j, bool is_low, bool strict, std::function<u_dependency* ()> explain_bound) {
         j = lp().column_to_reported_index(j);
 
@@ -159,6 +160,7 @@ public:
             if (m_improved_lower_bounds.find(j, k)) {
                 auto& found_bound = m_ibounds[k];
                 if (v > found_bound.m_bound || (v == found_bound.m_bound && !found_bound.m_strict && strict)) {
+
                     found_bound.m_bound = v;
                     found_bound.m_strict = strict;
                     found_bound.set_explain(explain_bound);
@@ -174,6 +176,7 @@ public:
             if (m_improved_upper_bounds.find(j, k)) {
                 auto& found_bound = m_ibounds[k];
                 if (v < found_bound.m_bound || (v == found_bound.m_bound && !found_bound.m_strict && strict)) {
+
                     found_bound.m_bound = v;
                     found_bound.m_strict = strict;
                     found_bound.set_explain(explain_bound);
