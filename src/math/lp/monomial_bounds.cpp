@@ -263,40 +263,53 @@ namespace nla {
             unit_propagate(m);
     }
 
+
     void monomial_bounds::unit_propagate(monic const& m) {
-        m_propagated.reserve(m.var() + 1, false);
-        if (m_propagated[m.var()])
+        if (m.is_propagated())
             return;
 
         if (!is_linear(m))
             return;
-        
-        c().trail().push(set_bitvector_trail(m_propagated, m.var()));
+
+        c().m_emons.set_propagated(m);
         
         rational k = fixed_var_product(m);
         
-        new_lemma lemma(c(), "fixed-values");
         if (k == 0) {
-            for (auto v : m) {
-                if (c().var_is_fixed(v) && c().val(v).is_zero()) {
-                    lemma.explain_fixed(v);
-                    break;
-                }
-            }
-            lemma |= ineq(m.var(), lp::lconstraint_kind::EQ, 0);
+            ineq ineq(m.var(), lp::lconstraint_kind::EQ, 0);
+            if (c().ineq_holds(ineq))
+                return;
+
+            lpvar zero_var = find<monic,lpvar>(m, [&](lpvar v) { return c().var_is_fixed(v) && c().val(v).is_zero(); });
+
+            IF_VERBOSE(2, verbose_stream() << "zero " << m.var() << "\n");
+            
+            new_lemma lemma(c(), "fixed-values");
+            lemma.explain_fixed(zero_var);
+            lemma |= ineq;
         }
         else {
+            lpvar w = non_fixed_var(m);
+            lp::lar_term term;
+            term.add_monomial(m.rat_sign(), m.var());
+
+            if (w != null_lpvar) {
+                IF_VERBOSE(2, verbose_stream() << "linear " << m.var() << " " << k << " " << w << "\n");
+                term.add_monomial(-k, w);
+                k = 0;
+            }
+            else 
+                IF_VERBOSE(2, verbose_stream() << "fixed " << m.var() << " " << k << "\n");
+                           
+            ineq ineq(term, lp::lconstraint_kind::EQ, k);
+            if (c().ineq_holds(ineq))
+                return;
+            
+            new_lemma lemma(c(), "linearized-fixed-values");
             for (auto v : m) 
                 if (c().var_is_fixed(v)) 
-                    lemma.explain_fixed(v);
-            
-            lpvar w = non_fixed_var(m);
-            SASSERT(w != null_lpvar);
-            
-            lp::lar_term term;
-            term.add_monomial(-m.rat_sign(), m.var());
-            term.add_monomial(k, w);
-            lemma |= ineq(term, lp::lconstraint_kind::EQ, 0);
+                    lemma.explain_fixed(v);            
+            lemma |= ineq;
         }
         
     }

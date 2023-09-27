@@ -596,7 +596,7 @@ bool emonics::invariant() const {
 }
 
 
-void emonics::set_propagated(monic& m) {
+void emonics::set_propagated(monic const& m) {
     struct set_unpropagated : public trail {
         emonics& em;
         unsigned var;
@@ -607,7 +607,7 @@ void emonics::set_propagated(monic& m) {
         }
     };
     SASSERT(!m.is_propagated());
-    m.set_propagated(true);
+    (*this)[m.var()].set_propagated(true);
     m_u_f_stack.push(set_unpropagated(*this, m.var()));
 }
 

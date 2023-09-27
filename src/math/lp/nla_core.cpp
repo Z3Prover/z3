@@ -1811,13 +1811,8 @@ bool core::improve_bounds() {
 }
     
 void core::propagate() {
-    // disable for now
-    return;
-   // propagate linear monomials
-    m_lemmas.reset();
- 
+    m_lemmas.reset(); 
     m_monomial_bounds.unit_propagate();
-   
 }
 
 
