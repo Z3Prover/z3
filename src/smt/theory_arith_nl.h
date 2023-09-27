@@ -902,6 +902,8 @@ bool theory_arith<Ext>::propagate_linear_monomial(theory_var v) {
 */
 template<typename Ext>
 bool theory_arith<Ext>::propagate_linear_monomials() {
+    if (!m_params.m_nl_arith_propagate_linear_monomials)
+        return false;
     if (!reflection_enabled())
         return false;
     TRACE("non_linear", tout << "propagating linear monomials...\n";);
@@ -2278,6 +2280,8 @@ typename theory_arith<Ext>::gb_result theory_arith<Ext>::compute_grobner(svector
 */
 template<typename Ext>
 bool theory_arith<Ext>::max_min_nl_vars() {
+    if (!m_params.m_nl_arith_optimize_bounds)
+        return true;
     var_set             already_found;
     svector<theory_var> vars;
     for (theory_var v : m_nl_monomials) {
@@ -2360,7 +2364,7 @@ final_check_status theory_arith<Ext>::process_non_linear() {
             }
             break;
         case 1:
-            if (!is_cross_nested_consistent(vars))
+            if (m_params.m_nl_arith_cross_nested && !is_cross_nested_consistent(vars))
                 progress = true;
             break;
         case 2:
