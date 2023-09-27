@@ -1802,7 +1802,7 @@ public:
         m_nla->check_bounded_divisions();
         for (auto & lemma : m_nla->lemmas())
             false_case_of_check_nla(lemma);
-        return m_nla->lemmas.empty();
+        return m_nla->lemmas().empty();
     }
 
     expr_ref var2expr(lpvar v) {
