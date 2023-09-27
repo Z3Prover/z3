@@ -595,4 +595,20 @@ bool emonics::invariant() const {
     return true;
 }
 
+
+void emonics::set_propagated(monic& m) {
+    struct set_unpropagated : public trail {
+        emonics& em;
+        unsigned var;
+    public:
+        set_unpropagated(emonics& em, unsigned var): em(em), var(var) {}
+        void undo() override {
+            em[var].set_propagated(false);
+        }
+    };
+    SASSERT(!m.is_propagated());
+    m.set_propagated(true);
+    m_u_f_stack.push(set_unpropagated(*this, m.var()));
+}
+
 }
