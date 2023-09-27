@@ -1799,11 +1799,10 @@ public:
     bool check_idiv_bounds() {
         if (!m_nla)
             return true;
-        m_nla_lemma_vector.reset();
         m_nla->check_bounded_divisions();
         for (auto & lemma : m_nla->lemmas())
             false_case_of_check_nla(lemma);
-        return m_nla_lemma_vector.empty();         
+        return m_nla->lemmas.empty();
     }
 
     expr_ref var2expr(lpvar v) {
@@ -3192,7 +3191,6 @@ public:
     }
  
     lp::explanation     m_explanation;
-    vector<nla::lemma>  m_nla_lemma_vector;
     vector<nla::ineq>       m_nla_literals;
     literal_vector      m_core;
     svector<enode_pair> m_eqs;
