@@ -298,19 +298,21 @@ namespace nla {
 
     u_dependency* monomial_bounds::explain_fixed(monic const& m, rational const& k) {
         u_dependency* dep = nullptr;
-        for (auto j : m.vars()) {
-            if (k == 0) {
-                if (c().var_is_fixed_to_zero(j)) {
-                    dep = c().lra.dep_manager().mk_join(dep, c().lra.get_column_lower_bound_witness(j));
-                    dep = c().lra.dep_manager().mk_join(dep, c().lra.get_column_upper_bound_witness(j));
-                    return dep;
-                }
-                continue;
-            }
-            if (c().var_is_fixed(j)) {
-                dep = c().lra.dep_manager().mk_join(dep, c().lra.get_column_lower_bound_witness(j));
-                dep = c().lra.dep_manager().mk_join(dep, c().lra.get_column_upper_bound_witness(j));
-            }
+        auto update_dep = [&](unsigned j) {
+            dep = c().lra.dep_manager().mk_join(dep, c().lra.get_column_lower_bound_witness(j));
+            dep = c().lra.dep_manager().mk_join(dep, c().lra.get_column_upper_bound_witness(j));
+            return dep;
+        };
+
+        if (k == 0) {
+            for (auto j : m.vars()) 
+                if (c().var_is_fixed_to_zero(j)) 
+                    return update_dep(j);
+        }
+        else {
+            for (auto j : m.vars()) 
+                if (c().var_is_fixed(j))
+                    update_dep(j);
         }
         return dep;
     }
