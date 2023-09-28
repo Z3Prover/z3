@@ -86,8 +86,8 @@ class core {
     smt_params_helper        m_params;
     std::function<bool(lpvar)> m_relevant;
     vector<lemma>            m_lemmas;
-    vector<ineq> *           m_literal_vec = nullptr;
-    indexed_uint_set                m_to_refine;
+    vector<ineq>             m_literals;
+    indexed_uint_set         m_to_refine;
     tangents                 m_tangents;
     basics                   m_basics;
     order                    m_order;
@@ -386,7 +386,7 @@ public:
 
     bool  conflict_found() const;
     
-    lbool check(vector<ineq>& ineqs);
+    lbool check();
     lbool check_power(lpvar r, lpvar x, lpvar y);
     void check_bounded_divisions();
 
@@ -428,7 +428,8 @@ public:
     void set_use_nra_model(bool m);
     bool use_nra_model() const { return m_use_nra_model; }
     void collect_statistics(::statistics&);
-    vector<nla::lemma> const& lemmas() const { return m_lemmas; } 
+    vector<nla::lemma> const& lemmas() const { return m_lemmas; }
+    vector<nla::ineq> const& literals() const { return m_literals; }
 private:
     void restore_patched_values();
     void constrain_nl_in_tableau();

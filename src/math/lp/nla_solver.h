@@ -36,7 +36,7 @@ namespace nla {
         void push();
         void pop(unsigned scopes);
         bool need_check();
-        lbool check(vector<ineq>& lits);
+        lbool check();
         void propagate();
         lbool check_power(lpvar r, lpvar x, lpvar y);
         bool is_monic_var(lpvar) const;
@@ -48,5 +48,6 @@ namespace nla {
         nlsat::anum const& am_value(lp::var_index v) const;
         void collect_statistics(::statistics & st);
         vector<nla::lemma> const& lemmas() const;
+        vector<nla::ineq> const& literals() const;
     };
 }

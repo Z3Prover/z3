@@ -1602,8 +1602,7 @@ public:
         case l_true:
             return FC_DONE;
         case l_false:
-            for (const nla::lemma & l : m_nla->lemmas()) 
-                false_case_of_check_nla(l);
+            add_lemmas();
             return FC_CONTINUE;
         case l_undef:
             return FC_GIVEUP;
@@ -1800,8 +1799,7 @@ public:
         if (!m_nla)
             return true;
         m_nla->check_bounded_divisions();
-        for (auto & lemma : m_nla->lemmas())
-            false_case_of_check_nla(lemma);
+        add_lemmas();
         return m_nla->lemmas().empty();
     }
 
@@ -2000,7 +1998,7 @@ public:
             // create term >= 0 (or term <= 0)
             atom = mk_bound(ineq.term(), ineq.rs(), is_lower);
         return literal(ctx().get_bool_var(atom), pos);
-    }
+    }    
 
     void false_case_of_check_nla(const nla::lemma & l) {
         m_lemma = l; //todo avoid the copy
@@ -2021,14 +2019,11 @@ public:
     
     final_check_status check_nla_continue() {
         m_a1 = nullptr; m_a2 = nullptr;
-        lbool r = m_nla->check(m_nla_literals);
+        lbool r = m_nla->check();
 
         switch (r) {
         case l_false:
-            for (const nla::ineq& i : m_nla_literals)
-                assume_literal(i); 
-            for (const nla::lemma & l : m_nla->lemmas()) 
-                false_case_of_check_nla(l);
+            add_lemmas();
             return FC_CONTINUE;
         case l_true:
             return assume_eqs()? FC_CONTINUE: FC_DONE;
@@ -2158,10 +2153,16 @@ public:
     }
 
     void propagate_nla() {
-        if (!m_nla)
-            return;
-        m_nla->propagate();
-        for (nla::lemma const& l : m_nla->lemmas())
+        if (m_nla) {
+            m_nla->propagate();
+            add_lemmas();
+        }
+    }
+
+    void add_lemmas() {
+        for (const nla::ineq& i : m_nla->literals())
+            assume_literal(i); 
+        for (const nla::lemma & l : m_nla->lemmas()) 
             false_case_of_check_nla(l);
     }
 
@@ -3191,7 +3192,6 @@ public:
     }
  
     lp::explanation     m_explanation;
-    vector<nla::ineq>       m_nla_literals;
     literal_vector      m_core;
     svector<enode_pair> m_eqs;
     vector<parameter>   m_params;
