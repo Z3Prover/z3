@@ -293,7 +293,7 @@ namespace nla {
         lp::lpvar term_index = c().lra.add_term(coeffs, UINT_MAX);
         auto* dep = explain_fixed(m, k);
         term_index = c().lra.map_term_index_to_column_index(term_index);
-        c().lra.update_column_type_and_bound(term_index, lp::lconstraint_kind::EQ, k, dep);
+        c().lra.update_column_type_and_bound(term_index, lp::lconstraint_kind::EQ, mpq(0), dep);
     }
 
     u_dependency* monomial_bounds::explain_fixed(monic const& m, rational const& k) {

@@ -2144,7 +2144,7 @@ public:
         case l_true:
             propagate_basic_bounds();
             propagate_bounds_with_lp_solver();
-            // propagate_nla();
+            // propagate_nla(); 
             break;
         case l_undef:
             break;
