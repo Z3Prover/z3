@@ -570,7 +570,7 @@ namespace dd {
         pdd_iterator& operator++() { next(); return *this; }
         pdd_iterator operator++(int) { auto tmp = *this; next(); return tmp; }
         bool operator==(pdd_iterator const& other) const { return m_nodes == other.m_nodes; }
-        bool operator!=(pdd_iterator const& other) const { return m_nodes != other.m_nodes; }
+        bool operator!=(pdd_iterator const& other) const { return !operator==(other); }
     };
 
     class pdd_linear_iterator {

@@ -1969,6 +1969,9 @@ namespace dd {
             n = m.hi(n);
         }
         m_mono.coeff = m.val(n);
+        // if m_pdd is constant and non-zero, the iterator should return a single monomial
+        if (m_nodes.empty() && !m_mono.coeff.is_zero())
+            m_nodes.push_back(std::make_pair(false, n));
     }
 
     pdd_iterator pdd::begin() const { return pdd_iterator(*this, true); }
