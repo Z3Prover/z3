@@ -2151,8 +2151,8 @@ public:
             break;
         case l_true:
             propagate_basic_bounds();
+            propagate_bounds_with_nlp();            
             propagate_bounds_with_lp_solver();
-            propagate_bounds_with_nlp();
             break;
         case l_undef:
             UNREACHABLE();
