@@ -44,7 +44,6 @@ bool try_insert(const A& elem, B& collection) {
     return true;
 }
 
-
 class core {
     friend struct common;
     friend class new_lemma;
@@ -87,6 +86,8 @@ class core {
     std::function<bool(lpvar)> m_relevant;
     vector<lemma>            m_lemmas;
     vector<ineq>             m_literals;
+    vector<equality>         m_equalities;
+    vector<fixed_equality>   m_fixed_equalities;
     indexed_uint_set         m_to_refine;
     tangents                 m_tangents;
     basics                   m_basics;
@@ -430,6 +431,11 @@ public:
     void collect_statistics(::statistics&);
     vector<nla::lemma> const& lemmas() const { return m_lemmas; }
     vector<nla::ineq> const& literals() const { return m_literals; }
+    vector<equality> const& equalities() const { return m_equalities; }
+    vector<fixed_equality> const& fixed_equalities() const { return m_fixed_equalities; }
+
+    void add_fixed_equality(lp::lpvar v, rational const& k, lp::explanation const& e) { m_fixed_equalities.push_back({v, k, e}); }
+    void add_equality(lp::lpvar i, lp::lpvar j, lp::explanation const& e) { m_equalities.push_back({i, j, e}); }
 private:
     void restore_patched_values();
     void constrain_nl_in_tableau();

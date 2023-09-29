@@ -108,4 +108,13 @@ namespace nla {
     vector<nla::ineq> const& solver::literals() const {
         return m_core->literals();
     }
+
+    vector<nla::equality> const& solver::equalities() const {
+        return m_core->equalities();
+    }
+
+    vector<nla::fixed_equality> const& solver::fixed_equalities() const {
+        return m_core->fixed_equalities();
+    }
+
 }

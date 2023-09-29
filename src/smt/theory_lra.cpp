@@ -2112,6 +2112,7 @@ public:
     bool propagate_core() {
         m_model_is_initialized = false;
         flush_bound_axioms();
+        // disabled in master: propagate_nla(); 
         if (!can_propagate_core())
             return false;
         m_new_def = false;        
@@ -2144,7 +2145,6 @@ public:
         case l_true:
             propagate_basic_bounds();
             propagate_bounds_with_lp_solver();
-            // propagate_nla(); 
             break;
         case l_undef:
             break;
@@ -2156,7 +2156,32 @@ public:
         if (m_nla) {
             m_nla->propagate();
             add_lemmas();
+            add_equalities();
         }
+    }
+
+    void add_equalities() {
+        for (auto const& [v,k,e] : m_nla->fixed_equalities())
+            add_equality(v, k, e);
+        for (auto const& [i,j,e] : m_nla->equalities())
+            add_eq(i,j,e,false);
+    }
+
+    void add_equality(lpvar j, rational const& k, lp::explanation const& exp) {
+        verbose_stream() << "equality " << j << " " << k << "\n";
+        TRACE("arith", tout << "equality " << j << " " << k << "\n");
+        theory_var v;
+        if (k == 1)
+            v = m_one_var;
+        else if (k == 0)
+            v = m_zero_var;
+        else if (!m_value2var.find(k, v))
+            return;
+        theory_var w = lp().local_to_external(j);
+        if (w < 0)
+            return;
+        lpvar i = register_theory_var_in_lar_solver(v);
+        add_eq(i, j, exp, true);
     }
 
     void add_lemmas() {

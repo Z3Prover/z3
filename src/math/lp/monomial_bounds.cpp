@@ -10,6 +10,7 @@
 #include "math/lp/monomial_bounds.h"
 #include "math/lp/nla_core.h"
 #include "math/lp/nla_intervals.h"
+#include "math/lp/numeric_pair.h"
 
 namespace nla {
 
@@ -281,9 +282,21 @@ namespace nla {
             propagate_nonfixed(m, k, w);
     }
 
+    lp::explanation monomial_bounds::get_explanation(u_dependency* dep) {
+        lp::explanation exp;
+        svector<lp::constraint_index> cs;
+        c().lra.dep_manager().linearize(dep, cs);
+        for (auto d : cs)
+            exp.add_pair(d, mpq(1));
+        return exp;
+    }
+
     void monomial_bounds::propagate_fixed(monic const& m, rational const& k) {
         auto* dep = explain_fixed(m, k);
-        c().lra.update_column_type_and_bound(m.var(), lp::lconstraint_kind::EQ, k, dep);        
+        c().lra.update_column_type_and_bound(m.var(), lp::lconstraint_kind::EQ, k, dep);
+        // propagate fixed equality
+        auto exp = get_explanation(dep);
+        c().add_fixed_equality(m.var(), k, exp);
     }
 
     void monomial_bounds::propagate_nonfixed(monic const& m, rational const& k, lpvar w) {
@@ -294,6 +307,11 @@ namespace nla {
         auto* dep = explain_fixed(m, k);
         term_index = c().lra.map_term_index_to_column_index(term_index);
         c().lra.update_column_type_and_bound(term_index, lp::lconstraint_kind::EQ, mpq(0), dep);
+
+        if (k == 1) {
+            lp::explanation exp = get_explanation(dep);
+            c().add_equality(m.var(), w, exp);
+        }
     }
 
     u_dependency* monomial_bounds::explain_fixed(monic const& m, rational const& k) {

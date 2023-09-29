@@ -49,5 +49,7 @@ namespace nla {
         void collect_statistics(::statistics & st);
         vector<nla::lemma> const& lemmas() const;
         vector<nla::ineq> const& literals() const;
+        vector<nla::fixed_equality> const& fixed_equalities() const;
+        vector<nla::equality> const& equalities() const;
     };
 }

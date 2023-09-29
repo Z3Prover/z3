@@ -810,6 +810,8 @@ void core::print_stats(std::ostream& out) {
 void core::clear() {
     m_lemmas.clear();
     m_literals.clear();
+    m_fixed_equalities.clear();
+    m_equalities.clear();
 }
     
 void core::init_search() {
