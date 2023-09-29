@@ -110,7 +110,12 @@ namespace nla {
 
     void solver::propagate_bounds_for_touched_monomials() {
         init_bound_propagation();
-        for (unsigned v : monics_with_changed_bounds()) 
-            calculate_implied_bounds_for_monic(v);        
+        for (unsigned v : m_core->monics_with_changed_bounds()) { 
+            calculate_implied_bounds_for_monic(v);
+            if (m_core->lra.get_status() == lp::lp_status::INFEASIBLE) {
+                break;
+            }
+        }
+        m_core->clear_monics_with_changed_bounds();        
     }
 }

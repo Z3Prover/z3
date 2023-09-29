@@ -120,7 +120,7 @@ class core {
     std_vector<lp::implied_bound> & m_implied_bounds;
     // try to improve bounds for variables in monomials.
     bool improve_bounds();
-
+    void clear_monics_with_changed_bounds() { m_monics_with_changed_bounds.reset(); }
 public:    
     // constructor
     core(lp::lar_solver& s, params_ref const& p, reslimit&, std_vector<lp::implied_bound> & implied_bounds);

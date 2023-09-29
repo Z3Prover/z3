@@ -200,16 +200,10 @@ namespace lp {
     }
 
     lp_status lar_solver::solve() {
-        if (m_status == lp_status::INFEASIBLE) {
+        if (m_status == lp_status::INFEASIBLE) 
             return m_status;
-        }
+        
         solve_with_core_solver();
-        if (m_status != lp_status::INFEASIBLE) {
-            if (m_settings.bound_propagation())
-                detect_rows_with_changed_bounds();
-        }
-
-        clear_columns_with_changed_bounds();
         return m_status;
     }
 
@@ -789,8 +783,7 @@ namespace lp {
     void lar_solver::detect_rows_with_changed_bounds() {
         for (auto j : m_columns_with_changed_bounds)
             detect_rows_with_changed_bounds_for_column(j);
-        if (m_find_monics_with_changed_bounds_func)
-            m_find_monics_with_changed_bounds_func(m_columns_with_changed_bounds);
+        
     }
 
     void lar_solver::update_x_and_inf_costs_for_columns_with_changed_bounds_tableau() {
@@ -1623,10 +1616,9 @@ namespace lp {
         SASSERT(m_terms.size() == m_term_register.size());
         unsigned adjusted_term_index = m_terms.size() - 1;
         var_index ret = tv::mask_term(adjusted_term_index);
-        if (!coeffs.empty()) {
+        if (!coeffs.empty())
             add_row_from_term_no_constraint(m_terms.back(), ret);
-            add_touched_row(A_r().row_count() - 1);
-        }
+        
         lp_assert(m_var_register.size() == A_r().column_count());
         if (m_need_register_terms) 
             register_normalized_term(*t, A_r().column_count() - 1);

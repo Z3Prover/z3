@@ -41,19 +41,7 @@ core::core(lp::lar_solver& s, params_ref const& p, reslimit& lim, std_vector<lp:
     m_use_nra_model(false),
     m_nra(s, m_nra_lim, *this),
     m_implied_bounds(implied_bounds) {
-    m_nlsat_delay = lp_settings().nlsat_delay();
-    lra.m_find_monics_with_changed_bounds_func = [&](const indexed_uint_set& columns_with_changed_bounds) {
-        m_monics_with_changed_bounds.reset();
-        for (lpvar j : columns_with_changed_bounds) {
-            if (is_monic_var(j))
-                m_monics_with_changed_bounds.insert(j);
-            else {
-                for (const auto & m: m_emons.get_use_list(j)) {
-                    m_monics_with_changed_bounds.insert(m.var());
-                }
-            }    
-        }
-    };
+    m_nlsat_delay = lp_settings().nlsat_delay();    
 }
 
 bool core::compare_holds(const rational& ls, llc cmp, const rational& rs) const {
@@ -1983,6 +1971,15 @@ void core::add_lower_bound_monic(lpvar j, const lp::mpq& v, bool is_strict, std:
         m_improved_upper_bounds.reset();
         m_column_types = &lra.get_column_types();
         m_lemmas.clear();
+		// find m_monics_with_changed_bounds
+        for (lpvar j : lra.columns_with_changed_bounds()) {
+            if (is_monic_var(j))
+                m_monics_with_changed_bounds.insert(j);
+            else {
+                for (const auto & m: m_emons.get_use_list(j)) {
+                    m_monics_with_changed_bounds.insert(m.var());
+                }
+            }    
+        }
     }
-
 }  // namespace nla
