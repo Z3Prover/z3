@@ -17,7 +17,7 @@ namespace nla {
     class monomial_bounds : common {
         dep_intervals& dep;
 
-
+        u_dependency* explain_fixed(const svector<lpvar>& vars, lpvar non_fixed);
         void var2interval(lpvar v, scoped_dep_interval& i);
         bool is_too_big(mpq const& q) const;
         bool propagate_value(dep_interval& range, lpvar v);
@@ -35,6 +35,6 @@ namespace nla {
     public:
         monomial_bounds(core* core);
         void propagate();
-        
+        void propagate_nonfixed(lpvar monic_var, const svector<lpvar>& vars, lpvar non_fixed, const rational& k);    
     }; 
 }

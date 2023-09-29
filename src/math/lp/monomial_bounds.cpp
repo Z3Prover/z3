@@ -12,6 +12,26 @@
 #include "math/lp/nla_intervals.h"
 
 namespace nla {
+    // here non_fixed is the only non-fixed variable in the monomial, 
+    // vars is the vector of the monomial variables, 
+    // k is the product of all fixed variables in vars 
+    void monomial_bounds::propagate_nonfixed(lpvar monic_var, const svector<lpvar>& vars, lpvar non_fixed, const rational& k) {
+        vector<std::pair<lp::mpq, unsigned>> coeffs;        
+        coeffs.push_back(std::make_pair(-k, non_fixed));
+        coeffs.push_back(std::make_pair(rational::one(), monic_var));
+        lp::lpvar term_index = c().lra.add_term(coeffs, UINT_MAX);
+        auto* dep = explain_fixed(vars, non_fixed);
+        term_index = c().lra.map_term_index_to_column_index(term_index);
+        c().lra.update_column_type_and_bound(term_index, lp::lconstraint_kind::EQ, mpq(0), dep);
+    }
+
+    u_dependency* monomial_bounds::explain_fixed(const svector<lpvar>& vars, lpvar non_fixed) {
+        u_dependency* dep = nullptr;
+        for (auto v : vars)
+            if (v != non_fixed)
+                dep = c().lra.join_deps(dep, c().lra.get_bound_constraint_witnesses_for_column(v));
+        return dep;
+    }
 
     monomial_bounds::monomial_bounds(core* c):
         common(c), 

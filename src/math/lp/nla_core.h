@@ -435,7 +435,6 @@ public:
 
     bool is_linear(const svector<lpvar>& m, lpvar& zero_var, lpvar& non_fixed);
     void add_bounds_for_zero_var(lpvar monic_var, lpvar zero_var);
-    void propagate_monic_with_non_fixed(lpvar monic_var, const svector<lpvar>& vars, lpvar non_fixed, const rational& k);
     void propagate_monic_non_fixed_with_lemma(lpvar monic_var, const svector<lpvar>& vars, lpvar non_fixed, const rational& k);
     void propagate_monic_with_all_fixed(lpvar monic_var, const svector<lpvar>& vars, const rational& k);
     void add_lower_bound_monic(lpvar j, const lp::mpq& v, bool is_strict, std::function<u_dependency*()> explain_dep);
