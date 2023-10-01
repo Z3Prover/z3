@@ -476,6 +476,9 @@ namespace lp {
         auto& x = m_mpq_lar_core_solver.m_r_x[j];
         auto delta = new_val - x;
         x = new_val;
+        TRACE("lar_solver_feas", tout << "setting " << j << " to "
+         << new_val << (column_is_feasible(j)?"feas":"non-feas") << "\n";);
+        m_mpq_lar_core_solver.m_r_solver.track_column_feasibility(j);
         change_basic_columns_dependend_on_a_given_nb_column(j, delta);
     }
 
@@ -1101,7 +1104,6 @@ namespace lp {
 
     mpq lar_solver::get_value(column_index const& j) const {
         SASSERT(get_status() == lp_status::OPTIMAL || get_status() == lp_status::FEASIBLE);
-        SASSERT(m_columns_with_changed_bounds.empty());
         numeric_pair<mpq> const& rp = get_column_value(j);
         return from_model_in_impq_to_mpq(rp);        
     }
@@ -1818,7 +1820,7 @@ namespace lp {
 
         if (is_base(j) && column_is_fixed(j))
             m_fixed_base_var_set.insert(j);
-        TRACE("lar_solver_feas", tout << "j = " << j << " became " << (this->column_is_feasible(j) ? "feas" : "non-feas") << ", and " << (this->column_is_bounded(j) ? "bounded" : "non-bounded") << std::endl;);    
+        TRACE("lar_solver_feas", tout << "j = " << j << " became " << (this->column_is_feasible(j) ? "feas" : "non-feas") << ", and " << (this->column_is_bounded(j) ? "bounded" : "non-bounded") << " val = " << get_column_value(j) << std::endl;);   
     }
 
     void lar_solver::insert_to_columns_with_changed_bounds(unsigned j) {
@@ -2363,6 +2365,11 @@ namespace lp {
         SASSERT(bdep != nullptr);
         m_crossed_bounds_deps = m_dependencies.mk_join(bdep, dep);
     }
+
+    void lar_solver::track_column_feasibility(lpvar j) {
+        m_mpq_lar_core_solver.m_r_solver.track_column_feasibility(j);
+    }
+
 } // namespace lp
 
 

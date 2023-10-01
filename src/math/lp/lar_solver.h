@@ -92,6 +92,8 @@ class lar_solver : public column_namer {
 public: 
     const indexed_uint_set& columns_with_changed_bounds() const { return m_columns_with_changed_bounds; }
     inline void clear_columns_with_changed_bounds() { m_columns_with_changed_bounds.reset(); }
+    void track_column_feasibility(lpvar j);
+
 private:
     // m_touched_rows contains rows that have been changed by a pivoting or have a column with changed bounds
     indexed_uint_set m_touched_rows;

@@ -571,7 +571,7 @@ public:
     }
     void remove_column_from_inf_heap(unsigned j) {
 		if (m_inf_heap.contains(j)) {
-            TRACE("lar_solver_inf_heap", tout << "insert into heap j = " << j << "\n";);
+            TRACE("lar_solver_inf_heap", tout << "erase from heap j = " << j << "\n";);
         	m_inf_heap.erase(j);
         }
         lp_assert(column_is_feasible(j));

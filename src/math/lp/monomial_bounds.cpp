@@ -21,8 +21,14 @@ namespace nla {
         coeffs.push_back(std::make_pair(rational::one(), monic_var));
         lp::lpvar term_index = c().lra.add_term(coeffs, UINT_MAX);
         auto* dep = explain_fixed(vars, non_fixed);
+        // term_index becomes the column index of the term slack variable
         term_index = c().lra.map_term_index_to_column_index(term_index);
         c().lra.update_column_type_and_bound(term_index, lp::lconstraint_kind::EQ, mpq(0), dep);
+        c().lra.track_column_feasibility(term_index);
+        if (!c().lra.column_is_feasible(term_index)) {
+            c().lra.set_status(lp::lp_status::UNKNOWN);
+        }
+        
     }
 
     u_dependency* monomial_bounds::explain_fixed(const svector<lpvar>& vars, lpvar non_fixed) {

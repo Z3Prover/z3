@@ -138,6 +138,7 @@ void core::add_monic(lpvar v, unsigned sz, lpvar const* vs) {
         m_add_buffer[i] = j;
     }
     m_emons.add(v, m_add_buffer);
+    m_monics_with_changed_bounds.insert(v);
 }
     
 void core::push() {
@@ -1938,6 +1939,7 @@ void core::add_lower_bound_monic(lpvar j, const lp::mpq& v, bool is_strict, std:
     }
 
     void core::calculate_implied_bounds_for_monic(lp::lpvar monic_var) {
+        if (!is_monic_var(monic_var)) return;
         m_propagated.reserve(monic_var + 1, false);
         bool throttle = params().arith_nl_throttle_unit_prop();
         if (throttle && m_propagated[monic_var])
