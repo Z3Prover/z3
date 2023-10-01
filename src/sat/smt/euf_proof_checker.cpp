@@ -501,8 +501,9 @@ namespace euf {
         for (expr* arg : clause)
             std::cout << "\n " << mk_bounded_pp(arg, m);
         std::cout << ")\n";
+        std::cout.flush();
 
-        if (is_rup(proof_hint)) 
+        if (false && is_rup(proof_hint)) 
             diagnose_rup_failure(clause);
             
         add_clause(clause);
@@ -527,9 +528,6 @@ namespace euf {
             for (expr* f : core)
                 std::cout << mk_pp(f, m) << "\n";
         }
-        SASSERT(false);
-        
-        exit(0);
     }
 
     void smt_proof_checker::collect_statistics(statistics& st) const {

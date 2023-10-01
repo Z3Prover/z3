@@ -276,7 +276,7 @@ namespace nla {
         
         rational k = fixed_var_product(m);
         lpvar w = non_fixed_var(m);
-        if (w == null_lpvar)
+        if (w == null_lpvar || k == 0)
             propagate_fixed(m, k);
         else
             propagate_nonfixed(m, k, w);
@@ -293,6 +293,10 @@ namespace nla {
 
     void monomial_bounds::propagate_fixed(monic const& m, rational const& k) {
         auto* dep = explain_fixed(m, k);
+        if (!c().lra.is_base(m.var())) {
+            lp::impq val(k);
+            c().lra.set_value_for_nbasic_column(m.var(), val);
+        }
         c().lra.update_column_type_and_bound(m.var(), lp::lconstraint_kind::EQ, k, dep);
         // propagate fixed equality
         auto exp = get_explanation(dep);
@@ -300,6 +304,7 @@ namespace nla {
     }
 
     void monomial_bounds::propagate_nonfixed(monic const& m, rational const& k, lpvar w) {
+        VERIFY(k != 0);
         vector<std::pair<lp::mpq, unsigned>> coeffs;        
         coeffs.push_back(std::make_pair(-k, w));
         coeffs.push_back(std::make_pair(rational::one(), m.var()));

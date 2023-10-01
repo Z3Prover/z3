@@ -2112,7 +2112,8 @@ public:
     bool propagate_core() {
         m_model_is_initialized = false;
         flush_bound_axioms();
-        // disabled in master: propagate_nla(); 
+        // disabled in master:
+        // propagate_nla(); 
         if (!can_propagate_core())
             return false;
         m_new_def = false;        
@@ -2161,6 +2162,8 @@ public:
     }
 
     void add_equalities() {
+        if (!propagate_eqs()) 
+            return;
         for (auto const& [v,k,e] : m_nla->fixed_equalities())
             add_equality(v, k, e);
         for (auto const& [i,j,e] : m_nla->equalities())
@@ -2168,7 +2171,7 @@ public:
     }
 
     void add_equality(lpvar j, rational const& k, lp::explanation const& exp) {
-        verbose_stream() << "equality " << j << " " << k << "\n";
+        //verbose_stream() << "equality " << j << " " << k << "\n";
         TRACE("arith", tout << "equality " << j << " " << k << "\n");
         theory_var v;
         if (k == 1)
@@ -3174,8 +3177,7 @@ public:
         std::function<expr*(void)> fn = [&]() { return m.mk_eq(x->get_expr(), y->get_expr()); };
         scoped_trace_stream _sts(th, fn);
 
-       
-        // SASSERT(validate_eq(x, y));
+        //VERIFY(validate_eq(x, y));
         ctx().assign_eq(x, y, eq_justification(js));
     }
     
@@ -3288,6 +3290,7 @@ public:
               display(tout << "is-conflict: " << is_conflict << "\n"););
         for (auto ev : m_explanation) 
             set_evidence(ev.ci(), m_core, m_eqs);
+
         
         // SASSERT(validate_conflict(m_core, m_eqs));
         if (is_conflict) {
@@ -3543,6 +3546,8 @@ public:
         lbool r = nctx.check();
         if (r == l_true) {
             nctx.display_asserted_formulas(std::cout);
+            std::cout.flush();
+            std::cout.flush();
         }
         return l_true != r;
     }

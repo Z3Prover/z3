@@ -68,7 +68,7 @@ namespace smt {
         void init_pp_out();
         
         void update(status st, expr_ref_vector& v, proof* p);
-        void update(clause& c, status st, proof* p);
+        void update(clause& c, status st, proof* p, literal_buffer const* simp_lits);
         status kind2st(clause_kind k);
         proof_ref justification2proof(status st, justification* j);
         void log(status st, proof* p);
@@ -79,8 +79,8 @@ namespace smt {
         clause_proof(context& ctx);
         void shrink(clause& c, unsigned new_size);
         void add(literal lit, clause_kind k, justification* j);
-        void add(literal lit1, literal lit2, clause_kind k, justification* j);
-        void add(clause& c);
+        void add(literal lit1, literal lit2, clause_kind k, justification* j, literal_buffer const* simp_lits = nullptr);
+        void add(clause& c, literal_buffer const* simp_lits = nullptr);
         void add(unsigned n, literal const* lits, clause_kind k, justification* j);
         void propagate(literal lit, justification const& j, literal_vector const& ante);
         void del(clause& c);
