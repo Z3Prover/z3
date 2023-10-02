@@ -28,6 +28,7 @@ theory_user_propagator::theory_user_propagator(context& ctx):
     theory(ctx, ctx.get_manager().mk_family_id(user_propagator::plugin::name())),
     m_var2expr(ctx.get_manager()),
     m_push_popping(false),
+    m_registered_new_since_final(false),
     m_to_add(ctx.get_manager())
 {}
 
@@ -62,12 +63,12 @@ void theory_user_propagator::add_expr(expr* term, bool ensure_enode) {
     enode* n = ensure_enode ? this->ensure_enode(e) : ctx.get_enode(e);
     if (is_attached_to_var(n))
         return;
-
-
+    
     theory_var v = mk_var(n);
     m_var2expr.reserve(v + 1);
     m_var2expr[v] = term;
     m_expr2var.setx(term->get_id(), v, null_theory_var);
+    m_registered_new_since_final = true;
     
     if (m.is_bool(e) && !ctx.b_internalized(e)) {
         bool_var bv = ctx.mk_bool_var(e);
@@ -146,7 +147,7 @@ final_check_status theory_user_propagator::final_check_eh() {
         return FC_DONE;
     force_push();
     unsigned sz1 = m_prop.size();
-    unsigned sz2 = m_expr2var.size();
+    m_registered_new_since_final = false;
     try {
         m_final_eh(m_user_context, this);
     }
@@ -157,7 +158,7 @@ final_check_status theory_user_propagator::final_check_eh() {
     propagate();
     CTRACE("user_propagate", ctx.inconsistent(), tout << "inconsistent\n");
     // check if it became inconsistent or something new was propagated/registered
-    bool done = (sz1 == m_prop.size()) && (sz2 == m_expr2var.size()) && !ctx.inconsistent();
+    bool done = !m_registered_new_since_final && (sz1 == m_prop.size()) && !ctx.inconsistent();
     return done ? FC_DONE : FC_CONTINUE;
 }
 
