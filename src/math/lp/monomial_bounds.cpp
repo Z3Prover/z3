@@ -10,34 +10,9 @@
 #include "math/lp/monomial_bounds.h"
 #include "math/lp/nla_core.h"
 #include "math/lp/nla_intervals.h"
+#include "math/lp/numeric_pair.h"
 
 namespace nla {
-    // here non_fixed is the only non-fixed variable in the monomial, 
-    // vars is the vector of the monomial variables, 
-    // k is the product of all fixed variables in vars 
-    void monomial_bounds::propagate_nonfixed(lpvar monic_var, const svector<lpvar>& vars, lpvar non_fixed, const rational& k) {
-        vector<std::pair<lp::mpq, unsigned>> coeffs;        
-        coeffs.push_back(std::make_pair(-k, non_fixed));
-        coeffs.push_back(std::make_pair(rational::one(), monic_var));
-        lp::lpvar term_index = c().lra.add_term(coeffs, UINT_MAX);
-        auto* dep = explain_fixed(vars, non_fixed);
-        // term_index becomes the column index of the term slack variable
-        term_index = c().lra.map_term_index_to_column_index(term_index);
-        c().lra.update_column_type_and_bound(term_index, lp::lconstraint_kind::EQ, mpq(0), dep);
-        c().lra.track_column_feasibility(term_index);
-        if (!c().lra.column_is_feasible(term_index)) {
-            c().lra.set_status(lp::lp_status::UNKNOWN);
-        }
-        
-    }
-
-    u_dependency* monomial_bounds::explain_fixed(const svector<lpvar>& vars, lpvar non_fixed) {
-        u_dependency* dep = nullptr;
-        for (auto v : vars)
-            if (v != non_fixed)
-                dep = c().lra.join_deps(dep, c().lra.get_bound_constraint_witnesses_for_column(v));
-        return dep;
-    }
 
     monomial_bounds::monomial_bounds(core* c):
         common(c), 
@@ -49,6 +24,7 @@ namespace nla {
             propagate(m);
         }
     }
+
 
     bool monomial_bounds::is_too_big(mpq const& q) const {
         return rational(q).bitsize() > 256;
@@ -283,25 +259,127 @@ namespace nla {
         }
     }
 
-    // returns true iff  (all variables are fixed,
-    // or all but one variable are fixed) and the bounds are not big,
-    // or at least one variable is fixed to zero.
-    bool monomial_bounds::is_linear(monic const& m, lpvar& zero_var, lpvar& non_fixed) {
-        zero_var = non_fixed = null_lpvar;
-        unsigned n_of_non_fixed = 0;
-        bool big_bound = false;
-        for (lpvar v : m) {
-            if (!c().var_is_fixed(v)) {
-                n_of_non_fixed++;
-                non_fixed = v;
-            } else if (c().var_is_fixed_to_zero(v)) {
-                zero_var = v;
-                return true;
-            } else if (c().fixed_var_has_big_bound(v)) {
-                big_bound |= true;
+    void monomial_bounds::unit_propagate() {        
+        for (auto const& m : c().m_emons) {
+            unit_propagate(m);
+            if (c().lra.get_status() == lp::lp_status::INFEASIBLE) {
+                lp::explanation exp;
+                c().lra.get_infeasibility_explanation(exp);
+                new_lemma lemma(c(), "propagate fixed - infeasible lra");
+                lemma &= exp;
+                return;
             }
-        }
-        return n_of_non_fixed <= 1 && !big_bound;
+            if (c().m_conflicts > 0 ) {
+                return;
+            }
+        }   
     }
+
+
+    void monomial_bounds::unit_propagate(monic const& m) {
+        if (m.is_propagated())
+            return;
+
+        if (!is_linear(m))
+            return;
+
+        
+        rational k = fixed_var_product(m);
+        lpvar w = non_fixed_var(m);
+        if (w == null_lpvar || k == 0) {
+            propagate_fixed(m, k);
+        }
+        else
+            propagate_nonfixed(m, k, w);
+    }
+
+    lp::explanation monomial_bounds::get_explanation(u_dependency* dep) {
+        lp::explanation exp;
+        svector<lp::constraint_index> cs;
+        c().lra.dep_manager().linearize(dep, cs);
+        for (auto d : cs)
+            exp.add_pair(d, mpq(1));
+        return exp;
+    }
+
+    void monomial_bounds::propagate_fixed(monic const& m, rational const& k) {
+        auto* dep = explain_fixed(m, k);
+        if (!c().lra.is_base(m.var())) {
+            lp::impq val(k);
+            c().lra.set_value_for_nbasic_column(m.var(), val);
+        }
+        c().lra.update_column_type_and_bound(m.var(), lp::lconstraint_kind::EQ, k, dep);
+        
+        // propagate fixed equality
+        auto exp = get_explanation(dep);
+        c().add_fixed_equality(m.var(), k, exp);
+    }
+
+    void monomial_bounds::propagate_nonfixed(monic const& m, rational const& k, lpvar w) {
+        VERIFY(k != 0);
+        vector<std::pair<lp::mpq, unsigned>> coeffs;        
+        coeffs.push_back(std::make_pair(-k, w));
+        coeffs.push_back(std::make_pair(rational::one(), m.var()));
+        lp::lpvar term_index = c().lra.add_term(coeffs, UINT_MAX);
+        auto* dep = explain_fixed(m, k);
+        term_index = c().lra.map_term_index_to_column_index(term_index);
+        c().lra.update_column_type_and_bound(term_index, lp::lconstraint_kind::EQ, mpq(0), dep);
+
+        if (k == 1) {
+            lp::explanation exp = get_explanation(dep);
+            c().add_equality(m.var(), w, exp);
+        }
+    }
+
+    u_dependency* monomial_bounds::explain_fixed(monic const& m, rational const& k) {
+        u_dependency* dep = nullptr;
+        auto update_dep = [&](unsigned j) {
+            dep = c().lra.dep_manager().mk_join(dep, c().lra.get_column_lower_bound_witness(j));
+            dep = c().lra.dep_manager().mk_join(dep, c().lra.get_column_upper_bound_witness(j));
+            return dep;
+        };
+
+        if (k == 0) {
+            for (auto j : m.vars()) 
+                if (c().var_is_fixed_to_zero(j)) 
+                    return update_dep(j);
+        }
+        else {
+            for (auto j : m.vars()) 
+                if (c().var_is_fixed(j))
+                    update_dep(j);
+        }
+        return dep;
+    }
+
+    
+    bool monomial_bounds::is_linear(monic const& m) {
+        unsigned non_fixed = 0;
+        for (lpvar v : m) {
+            if (!c().var_is_fixed(v))
+                ++non_fixed;
+            else if (c().val(v).is_zero())
+                return true;
+        }
+        return non_fixed <= 1;
+    }
+    
+    
+    rational monomial_bounds::fixed_var_product(monic const& m) {
+        rational r(1);
+        for (lpvar v : m) {
+            if (c().var_is_fixed(v))
+                r *= c().lra.get_column_value(v).x;
+        }
+        return r;
+    }
+    
+    lpvar monomial_bounds::non_fixed_var(monic const& m) {
+        for (lpvar v : m) 
+            if (!c().var_is_fixed(v))
+                return v;
+        return null_lpvar;
+    }
+
 }
 

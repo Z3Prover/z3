@@ -24,6 +24,20 @@ namespace nla {
     typedef lp::explanation          expl_set;
     typedef lp::var_index            lpvar;
     const lpvar null_lpvar = UINT_MAX;
+
+    struct equality {
+        lp::lpvar i, j;
+        lp::explanation e;
+        equality(lp::lpvar i, lp::lpvar j, lp::explanation const& e):i(i),j(j),e(e) {}
+    };
+    
+    struct fixed_equality {
+        lp::lpvar v;
+        rational       k;
+        lp::explanation e;
+        fixed_equality(lp::lpvar v, rational const& k, lp::explanation const& e):v(v),k(k),e(e) {}
+    };
+
     
     inline int rat_sign(const rational& r) { return r.is_pos()? 1 : ( r.is_neg()? -1 : 0); }
     inline rational rrat_sign(const rational& r) { return rational(rat_sign(r)); }
@@ -83,7 +97,6 @@ namespace nla {
         new_lemma& operator&=(const factorization& f);
         new_lemma& operator&=(lpvar j);
         new_lemma& operator|=(ineq const& i);
-        new_lemma& operator+=(ineq const& i);
         new_lemma& explain_fixed(lpvar j);
         new_lemma& explain_equiv(lpvar u, lpvar v);
         new_lemma& explain_var_separated_from_zero(lpvar j);

@@ -42,10 +42,14 @@ namespace nla {
     
     bool solver::need_check() { return m_core->has_relevant_monomial(); }
     
-    lbool solver::check(vector<ineq>& lits) {
-        return m_core->check(lits);
+    lbool solver::check() {
+        return m_core->check();
     }
 
+    void solver::propagate() {
+        m_core->propagate();
+    }
+    
     void solver::push(){
         m_core->push();
     }
@@ -54,8 +58,8 @@ namespace nla {
         m_core->pop(n);
     }
     
-    solver::solver(lp::lar_solver& s, params_ref const& p, reslimit& limit, std_vector<lp::implied_bound> & implied_bounds): 
-        m_core(alloc(core, s, p, limit, implied_bounds)) {
+    solver::solver(lp::lar_solver& s, params_ref const& p, reslimit& limit): 
+        m_core(alloc(core, s, p, limit)) {
     }
     
     bool solver::influences_nl_var(lpvar j) const {    
@@ -88,9 +92,6 @@ namespace nla {
         m_core->collect_statistics(st);
     }
 
-    void solver::calculate_implied_bounds_for_monic(lp::lpvar v) {
-        m_core->calculate_implied_bounds_for_monic(v);
-    }
     // ensure r = x^y, add abstraction/refinement lemmas
     lbool solver::check_power(lpvar r, lpvar x, lpvar y) {
         return m_core->check_power(r, x, y);
@@ -100,22 +101,20 @@ namespace nla {
         m_core->check_bounded_divisions();
     }
 
-    void solver::init_bound_propagation() {
-        m_core->init_bound_propagation();
-    }
-
     vector<nla::lemma> const& solver::lemmas() const {
         return m_core->lemmas();
     }
-
-    void solver::propagate_bounds_for_touched_monomials() {
-        init_bound_propagation();
-        for (unsigned v : m_core->monics_with_changed_bounds()) { 
-            calculate_implied_bounds_for_monic(v);
-            if (m_core->lra.get_status() == lp::lp_status::INFEASIBLE) {
-                break;
-            }
-        }
-        m_core->clear_monics_with_changed_bounds();        
+    
+    vector<nla::ineq> const& solver::literals() const {
+        return m_core->literals();
     }
+
+    vector<nla::equality> const& solver::equalities() const {
+        return m_core->equalities();
+    }
+
+    vector<nla::fixed_equality> const& solver::fixed_equalities() const {
+        return m_core->fixed_equalities();
+    }
+
 }

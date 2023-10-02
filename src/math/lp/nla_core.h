@@ -44,7 +44,6 @@ bool try_insert(const A& elem, B& collection) {
     return true;
 }
 
-
 class core {
     friend struct common;
     friend class new_lemma;
@@ -86,9 +85,10 @@ class core {
     smt_params_helper        m_params;
     std::function<bool(lpvar)> m_relevant;
     vector<lemma>            m_lemmas;
-    vector<ineq> *           m_literal_vec = nullptr;
+    vector<ineq>             m_literals;
+    vector<equality>         m_equalities;
+    vector<fixed_equality>   m_fixed_equalities;
     indexed_uint_set         m_to_refine;
-    indexed_uint_set         m_monics_with_changed_bounds;
     tangents                 m_tangents;
     basics                   m_basics;
     order                    m_order;
@@ -97,16 +97,13 @@ class core {
     divisions                m_divisions;
     intervals                m_intervals; 
     monomial_bounds          m_monomial_bounds;
-    
+    unsigned                 m_conflicts;
     horner                   m_horner;
     grobner                  m_grobner;
     emonics                  m_emons;
     svector<lpvar>           m_add_buffer;
     mutable indexed_uint_set m_active_var_set;
-    // these maps map a column index to the corresponding index in ibounds
-    u_map<unsigned>          m_improved_lower_bounds;
-    u_map<unsigned>          m_improved_upper_bounds;
-    const vector<lp::column_type>* m_column_types;
+
     reslimit                 m_nra_lim;
 
     bool                     m_use_nra_model = false;
@@ -114,17 +111,16 @@ class core {
     bool                     m_cautious_patching = true;
     lpvar                    m_patched_var = 0;
     monic const*             m_patched_monic = nullptr;      
-    bool_vector              m_propagated;
+
     void check_weighted(unsigned sz, std::pair<unsigned, std::function<void(void)>>* checks);
     void add_bounds();
-    std_vector<lp::implied_bound> & m_implied_bounds;
     // try to improve bounds for variables in monomials.
     bool improve_bounds();
-    void clear_monics_with_changed_bounds() { m_monics_with_changed_bounds.reset(); }
+
 public:    
     // constructor
-    core(lp::lar_solver& s, params_ref const& p, reslimit&, std_vector<lp::implied_bound> & implied_bounds);
-    const auto& monics_with_changed_bounds() const { return m_monics_with_changed_bounds; }
+    core(lp::lar_solver& s, params_ref const& p, reslimit&);
+
     void insert_to_refine(lpvar j);
     void erase_from_to_refine(lpvar j);
     
@@ -314,7 +310,6 @@ public:
     bool sign_contradiction(const monic& m) const;
 
     bool var_is_fixed_to_zero(lpvar j) const;
-    bool fixed_var_has_big_bound(lpvar j) const;
     bool var_is_fixed_to_val(lpvar j, const rational& v) const;
 
     bool var_is_fixed(lpvar j) const;
@@ -392,11 +387,13 @@ public:
 
     bool  conflict_found() const;
     
-    lbool check(vector<ineq>& ineqs);
+    lbool check();
     lbool check_power(lpvar r, lpvar x, lpvar y);
     void check_bounded_divisions();
 
     bool  no_lemmas_hold() const;
+
+    void propagate();
     
     lbool  test_check();
     lpvar map_to_root(lpvar) const;
@@ -432,26 +429,22 @@ public:
     void set_use_nra_model(bool m);
     bool use_nra_model() const { return m_use_nra_model; }
     void collect_statistics(::statistics&);
+    vector<nla::lemma> const& lemmas() const { return m_lemmas; }
+    vector<nla::ineq> const& literals() const { return m_literals; }
+    vector<equality> const& equalities() const { return m_equalities; }
+    vector<fixed_equality> const& fixed_equalities() const { return m_fixed_equalities; }
 
-    bool is_linear(const svector<lpvar>& m, lpvar& zero_var, lpvar& non_fixed);
-    void add_bounds_for_zero_var(lpvar monic_var, lpvar zero_var);
-    void propagate_monic_non_fixed_with_lemma(lpvar monic_var, const svector<lpvar>& vars, lpvar non_fixed, const rational& k);
-    void propagate_monic_with_all_fixed(lpvar monic_var, const svector<lpvar>& vars, const rational& k);
-    void add_lower_bound_monic(lpvar j, const lp::mpq& v, bool is_strict, std::function<u_dependency*()> explain_dep);
-    void add_upper_bound_monic(lpvar j, const lp::mpq& v, bool is_strict, std::function<u_dependency*()> explain_dep);    
-    bool upper_bound_is_available(unsigned j) const;
-    bool lower_bound_is_available(unsigned j) const;
-    vector<nla::lemma> const& lemmas() const { return m_lemmas; }        
-
+    void add_fixed_equality(lp::lpvar v, rational const& k, lp::explanation const& e) { m_fixed_equalities.push_back({v, k, e}); }
+    void add_equality(lp::lpvar i, lp::lpvar j, lp::explanation const& e) { m_equalities.push_back({i, j, e}); }
 private:
-    lp::column_type get_column_type(unsigned j) const { return (*m_column_types)[j]; }
+    void restore_patched_values();
     void constrain_nl_in_tableau();
     bool solve_tableau();
     void restore_tableau();
     void save_tableau();
     bool integrality_holds();
-    void calculate_implied_bounds_for_monic(lp::lpvar v);
-    void init_bound_propagation();    
+
+
 };  // end of core
 
 struct pp_mon {

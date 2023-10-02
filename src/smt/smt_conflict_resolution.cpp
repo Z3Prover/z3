@@ -601,6 +601,7 @@ namespace smt {
 
         finalize_resolve(conflict, not_l);
 
+
         return true;
     }
 

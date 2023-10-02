@@ -264,7 +264,7 @@ class theory_lra::imp {
 
     void ensure_nla() {
         if (!m_nla) {
-            m_nla = alloc(nla::solver, *m_solver.get(), ctx().get_params(), m.limit(), m_implied_bounds);
+            m_nla = alloc(nla::solver, *m_solver.get(), ctx().get_params(), m.limit());
             for (auto const& _s : m_scopes) {
                 (void)_s;
                 m_nla->push();
@@ -1528,14 +1528,12 @@ public:
         unsigned old_sz = m_assume_eq_candidates.size();
         unsigned num_candidates = 0;
         int start = ctx().get_random_value();
-        unsigned num_relevant = 0;
         for (theory_var i = 0; i < sz; ++i) {
             theory_var v = (i + start) % sz;
             enode* n1 = get_enode(v);
             if (!th.is_relevant_and_shared(n1)) {                    
                 continue;
             }
-            ++num_relevant;
             ensure_column(v);
             if (!is_registered_var(v))
                 continue;
@@ -1553,7 +1551,7 @@ public:
                 num_candidates++;
             }
         }
-
+            
         if (num_candidates > 0) {
             ctx().push_trail(restore_vector(m_assume_eq_candidates, old_sz));
         }
@@ -1605,8 +1603,7 @@ public:
         case l_true:
             return FC_DONE;
         case l_false:
-            for (const nla::lemma & l : m_nla->lemmas()) 
-                false_case_of_check_nla(l);
+            add_lemmas();
             return FC_CONTINUE;
         case l_undef:
             return FC_GIVEUP;
@@ -1803,8 +1800,7 @@ public:
         if (!m_nla)
             return true;
         m_nla->check_bounded_divisions();
-        for (auto & lemma : m_nla->lemmas())
-            false_case_of_check_nla(lemma);
+        add_lemmas();
         return m_nla->lemmas().empty();
     }
 
@@ -2003,7 +1999,7 @@ public:
             // create term >= 0 (or term <= 0)
             atom = mk_bound(ineq.term(), ineq.rs(), is_lower);
         return literal(ctx().get_bool_var(atom), pos);
-    }
+    }    
 
     void false_case_of_check_nla(const nla::lemma & l) {
         m_lemma = l; //todo avoid the copy
@@ -2024,14 +2020,11 @@ public:
     
     final_check_status check_nla_continue() {
         m_a1 = nullptr; m_a2 = nullptr;
-        lbool r = m_nla->check(m_nla_literals);
+        lbool r = m_nla->check();
 
         switch (r) {
         case l_false:
-            for (const nla::ineq& i : m_nla_literals)
-                assume_literal(i); 
-            for (const nla::lemma & l : m_nla->lemmas()) 
-                false_case_of_check_nla(l);
+            add_lemmas();
             return FC_CONTINUE;
         case l_true:
             return assume_eqs()? FC_CONTINUE: FC_DONE;
@@ -2120,6 +2113,8 @@ public:
     bool propagate_core() {
         m_model_is_initialized = false;
         flush_bound_axioms();
+        // disabled in master:
+        propagate_nla(); 
         if (!can_propagate_core())
             return false;
         m_new_def = false;        
@@ -2151,7 +2146,6 @@ public:
             break;
         case l_true:
             propagate_basic_bounds();
-            propagate_bounds_with_nlp();            
             propagate_bounds_with_lp_solver();
             break;
         case l_undef:
@@ -2159,6 +2153,47 @@ public:
             break;
         }
         return true;            
+    }
+
+    void propagate_nla() {
+        if (m_nla) {
+            m_nla->propagate();
+            add_lemmas();
+            add_equalities();
+        }
+    }
+
+    void add_equalities() {
+        if (!propagate_eqs()) 
+            return;
+        for (auto const& [v,k,e] : m_nla->fixed_equalities())
+            add_equality(v, k, e);
+        for (auto const& [i,j,e] : m_nla->equalities())
+            add_eq(i,j,e,false);
+    }
+
+    void add_equality(lpvar j, rational const& k, lp::explanation const& exp) {
+        //verbose_stream() << "equality " << j << " " << k << "\n";
+        TRACE("arith", tout << "equality " << j << " " << k << "\n");
+        theory_var v;
+        if (k == 1)
+            v = m_one_var;
+        else if (k == 0)
+            v = m_zero_var;
+        else if (!m_value2var.find(k, v))
+            return;
+        theory_var w = lp().local_to_external(j);
+        if (w < 0)
+            return;
+        lpvar i = register_theory_var_in_lar_solver(v);
+        add_eq(i, j, exp, true);
+    }
+
+    void add_lemmas() {
+        for (const nla::ineq& i : m_nla->literals())
+            assume_literal(i); 
+        for (const nla::lemma & l : m_nla->lemmas()) 
+            false_case_of_check_nla(l);
     }
 
     bool should_propagate() const {
@@ -2173,48 +2208,31 @@ public:
         set_evidence(j, m_core, m_eqs);
         m_explanation.add_pair(j, v);
     }
+    
+    void propagate_bounds_with_lp_solver() {
+        if (!should_propagate()) 
+            return;
 
-    void finish_bound_propagation() {
+        m_bp.init();
+        lp().propagate_bounds_for_touched_rows(m_bp);
+
+        if (!m.inc()) 
+            return;
+
         if (is_infeasible()) {
             get_infeasibility_explanation_and_set_conflict();
             // verbose_stream() << "unsat\n";
         }
         else {
-            for (auto &ib : m_bp.ibounds()) {
+            unsigned count = 0, prop = 0;
+            for (auto& ib : m_bp.ibounds()) {
                 m.inc();
                 if (ctx().inconsistent())
                     break;
-                propagate_lp_solver_bound(ib);
+                ++prop;
+                count += propagate_lp_solver_bound(ib);
             }
         }
-    }
-
-    void propagate_bounds_with_lp_solver() {
-        if (!should_propagate()) 
-            return;
-        m_bp.init();
-        lp().propagate_bounds_for_touched_rows(m_bp);
-
-        if (m.inc()) 
-            finish_bound_propagation();
-    }
-    
-    void propagate_bounds_for_monomials() {
-        m_nla->propagate_bounds_for_touched_monomials();
-        for (const auto & l : m_nla->lemmas()) 
-            false_case_of_check_nla(l);
-    }
-
-    void propagate_bounds_with_nlp() {
-        if (!m_nla)
-            return;
-        if (is_infeasible() || !should_propagate())
-            return;
-
-        propagate_bounds_for_monomials();
-
-        if (m.inc())
-            finish_bound_propagation();
     }
 
     bool bound_is_interesting(unsigned vi, lp::lconstraint_kind kind, const rational & bval) const {
@@ -3161,8 +3179,7 @@ public:
         std::function<expr*(void)> fn = [&]() { return m.mk_eq(x->get_expr(), y->get_expr()); };
         scoped_trace_stream _sts(th, fn);
 
-       
-        // SASSERT(validate_eq(x, y));
+        //VERIFY(validate_eq(x, y));
         ctx().assign_eq(x, y, eq_justification(js));
     }
     
@@ -3206,12 +3223,11 @@ public:
     }
  
     lp::explanation     m_explanation;
-    vector<nla::ineq>       m_nla_literals;
     literal_vector      m_core;
     svector<enode_pair> m_eqs;
     vector<parameter>   m_params;
 
-        void reset_evidence() {
+    void reset_evidence() {
         m_core.reset();
         m_eqs.reset();
         m_params.reset();
@@ -3278,6 +3294,7 @@ public:
               display(tout << "is-conflict: " << is_conflict << "\n"););
         for (auto ev : m_explanation) 
             set_evidence(ev.ci(), m_core, m_eqs);
+
         
         // SASSERT(validate_conflict(m_core, m_eqs));
         if (is_conflict) {
@@ -3533,6 +3550,8 @@ public:
         lbool r = nctx.check();
         if (r == l_true) {
             nctx.display_asserted_formulas(std::cout);
+            std::cout.flush();
+            std::cout.flush();
         }
         return l_true != r;
     }
@@ -3882,6 +3901,7 @@ public:
                 IF_VERBOSE(1, verbose_stream() << enode_pp(n, ctx()) << " evaluates to " << r2 << " but arith solver has " << r1 << "\n"); 
         }
     }
+
 };
     
 theory_lra::theory_lra(context& ctx):

@@ -23,9 +23,10 @@ namespace nla {
     class solver {
         core* m_core;
     public:
-        
-        solver(lp::lar_solver& s, params_ref const& p, reslimit& limit, std_vector<lp::implied_bound> & implied_bounds);
+
+        solver(lp::lar_solver& s, params_ref const& p, reslimit& limit);
         ~solver();
+
         void add_monic(lpvar v, unsigned sz, lpvar const* vs);
         void add_idivision(lpvar q, lpvar x, lpvar y);
         void add_rdivision(lpvar q, lpvar x, lpvar y);
@@ -35,7 +36,7 @@ namespace nla {
         void push();
         void pop(unsigned scopes);
         bool need_check();
-        lbool check(vector<ineq>& lits);
+        lbool check();
         void propagate();
         lbool check_power(lpvar r, lpvar x, lpvar y);
         bool is_monic_var(lpvar) const;
@@ -46,9 +47,9 @@ namespace nla {
         nlsat::anum_manager& am();
         nlsat::anum const& am_value(lp::var_index v) const;
         void collect_statistics(::statistics & st);
-        void calculate_implied_bounds_for_monic(lp::lpvar v);
-        void init_bound_propagation();
-        vector<nla::lemma> const& lemmas() const;        
-        void propagate_bounds_for_touched_monomials();
+        vector<nla::lemma> const& lemmas() const;
+        vector<nla::ineq> const& literals() const;
+        vector<nla::fixed_equality> const& fixed_equalities() const;
+        vector<nla::equality> const& equalities() const;
     };
 }
