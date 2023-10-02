@@ -80,7 +80,6 @@ namespace smt {
         expr_ref_vector        m_var2expr;
         unsigned_vector        m_expr2var;
         bool                   m_push_popping;
-        bool                   m_registered_new_since_final;
         expr_ref_vector        m_to_add;
         unsigned_vector        m_to_add_lim;
         unsigned               m_to_add_qhead = 0;
