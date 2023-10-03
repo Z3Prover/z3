@@ -104,7 +104,7 @@ bool basics::basic_sign_lemma_model_based() {
                 return true;
         }
     }
-    return c().m_lemma_vec->size() > 0;
+    return c().m_lemmas.size() > 0;
 }
 
     

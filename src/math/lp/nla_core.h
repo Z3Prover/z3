@@ -44,7 +44,6 @@ bool try_insert(const A& elem, B& collection) {
     return true;
 }
 
-
 class core {
     friend struct common;
     friend class new_lemma;
@@ -85,9 +84,11 @@ class core {
     reslimit&                m_reslim;
     smt_params_helper        m_params;
     std::function<bool(lpvar)> m_relevant;
-    vector<lemma> *          m_lemma_vec;
-    vector<ineq> *           m_literal_vec = nullptr;
-    indexed_uint_set                m_to_refine;
+    vector<lemma>            m_lemmas;
+    vector<ineq>             m_literals;
+    vector<equality>         m_equalities;
+    vector<fixed_equality>   m_fixed_equalities;
+    indexed_uint_set         m_to_refine;
     tangents                 m_tangents;
     basics                   m_basics;
     order                    m_order;
@@ -386,15 +387,15 @@ public:
 
     bool  conflict_found() const;
     
-    lbool check(vector<ineq>& ineqs, vector<lemma>& l_vec);
-    lbool check_power(lpvar r, lpvar x, lpvar y, vector<lemma>& l_vec);
-    void check_bounded_divisions(vector<lemma>&);
+    lbool check();
+    lbool check_power(lpvar r, lpvar x, lpvar y);
+    void check_bounded_divisions();
 
     bool  no_lemmas_hold() const;
 
-    void propagate(vector<lemma>& lemmas);
+    void propagate();
     
-    lbool  test_check(vector<lemma>& l);
+    lbool  test_check();
     lpvar map_to_root(lpvar) const;
     std::ostream& print_terms(std::ostream&) const;
     std::ostream& print_term(const lp::lar_term&, std::ostream&) const;
@@ -428,6 +429,13 @@ public:
     void set_use_nra_model(bool m);
     bool use_nra_model() const { return m_use_nra_model; }
     void collect_statistics(::statistics&);
+    vector<nla::lemma> const& lemmas() const { return m_lemmas; }
+    vector<nla::ineq> const& literals() const { return m_literals; }
+    vector<equality> const& equalities() const { return m_equalities; }
+    vector<fixed_equality> const& fixed_equalities() const { return m_fixed_equalities; }
+
+    void add_fixed_equality(lp::lpvar v, rational const& k, lp::explanation const& e) { m_fixed_equalities.push_back({v, k, e}); }
+    void add_equality(lp::lpvar i, lp::lpvar j, lp::explanation const& e) { m_equalities.push_back({i, j, e}); }
 private:
     void restore_patched_values();
     void constrain_nl_in_tableau();

@@ -33,6 +33,7 @@ Revision History:
 #include "util/memory_manager.h"
 #include "util/hash.h"
 #include "util/z3_exception.h"
+#include <vector>
 
 // disable warning for constant 'if' expressions.
 // these are used heavily in templates.
@@ -40,6 +41,8 @@ Revision History:
 #pragma warning(disable:4127)
 #endif
 
+template <typename T>
+using std_vector = std::vector<T, std_allocator<T>>;
 
 #if 0
 

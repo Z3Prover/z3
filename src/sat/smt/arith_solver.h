@@ -248,8 +248,6 @@ namespace arith {
 
         // lemmas
         lp::explanation     m_explanation;
-        vector<nla::lemma>  m_nla_lemma_vector;
-        vector<nla::ineq>   m_nla_literals;
         literal_vector      m_core, m_core2;
         vector<rational>    m_coeffs;
         svector<enode_pair> m_eqs;

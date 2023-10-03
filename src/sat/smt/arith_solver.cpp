@@ -1416,7 +1416,7 @@ namespace arith {
     }
 
     void solver::assume_literals() {
-        for (auto const& ineq : m_nla_literals) {
+        for (auto const& ineq : m_nla->literals()) {
             auto lit = mk_ineq_literal(ineq);
             ctx.mark_relevant(lit);
             s().set_phase(lit);
@@ -1459,11 +1459,11 @@ namespace arith {
             return l_true;
 
         m_a1 = nullptr; m_a2 = nullptr;
-        lbool r = m_nla->check(m_nla_literals, m_nla_lemma_vector);
+        lbool r = m_nla->check();
         switch (r) {
         case l_false:
             assume_literals();
-            for (const nla::lemma& l : m_nla_lemma_vector)
+            for (const nla::lemma& l : m_nla->lemmas())
                 false_case_of_check_nla(l);
             break;
         case l_true:
