@@ -1067,6 +1067,8 @@ namespace lp {
     }
 
     bool lar_solver::init_model() const {
+        CTRACE("lar_solver_model",!m_columns_with_changed_bounds.empty(), tout << "non-empty changed bounds\n");
+        TRACE("lar_solver_model", tout << get_status() << "\n");
         if (get_status() != lp_status::OPTIMAL && get_status() != lp_status::FEASIBLE)
             return false;
         if (!m_columns_with_changed_bounds.empty())

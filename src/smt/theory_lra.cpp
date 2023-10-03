@@ -2115,8 +2115,9 @@ public:
         flush_bound_axioms();
         // disabled in master:
         propagate_nla(); 
-        if (!can_propagate_core())
+        if (!can_propagate_core()) 
             return false;
+        
         m_new_def = false;        
         while (m_asserted_qhead < m_asserted_atoms.size() && !ctx().inconsistent() && m.inc()) {
             auto [bv, is_true] = m_asserted_atoms[m_asserted_qhead];
@@ -2160,6 +2161,7 @@ public:
             m_nla->propagate();
             add_lemmas();
             add_equalities();
+            propagate_bounds_with_lp_solver();
         }
     }
 
@@ -2210,9 +2212,6 @@ public:
     }
     
     void propagate_bounds_with_lp_solver() {
-        if (!should_propagate()) 
-            return;
-
         m_bp.init();
         lp().propagate_bounds_for_touched_rows(m_bp);
 
@@ -2224,13 +2223,11 @@ public:
             // verbose_stream() << "unsat\n";
         }
         else {
-            unsigned count = 0, prop = 0;
             for (auto& ib : m_bp.ibounds()) {
                 m.inc();
                 if (ctx().inconsistent())
                     break;
-                ++prop;
-                count += propagate_lp_solver_bound(ib);
+                propagate_lp_solver_bound(ib);
             }
         }
     }
