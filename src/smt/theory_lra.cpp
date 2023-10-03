@@ -2212,6 +2212,10 @@ public:
     }
     
     void propagate_bounds_with_lp_solver() {
+        if (!lp().current_x_is_feasible()) {  
+            lp().clear_columns_with_changed_bounds();
+            return;
+        }
         m_bp.init();
         lp().propagate_bounds_for_touched_rows(m_bp);
 

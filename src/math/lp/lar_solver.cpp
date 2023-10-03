@@ -1822,6 +1822,7 @@ namespace lp {
 
         if (is_base(j) && column_is_fixed(j))
             m_fixed_base_var_set.insert(j);
+        track_column_feasibility(j);
         TRACE("lar_solver_feas", tout << "j = " << j << " became " << (this->column_is_feasible(j) ? "feas" : "non-feas") << ", and " << (this->column_is_bounded(j) ? "bounded" : "non-bounded") << " val = " << get_column_value(j) << std::endl;);   
     }
 
@@ -2359,7 +2360,8 @@ namespace lp {
     // dep is the reason for the new bound
 
     void lar_solver::set_crossed_bounds_column_and_deps(unsigned j, bool lower_bound, u_dependency* dep) {
-        SASSERT(m_crossed_bounds_deps == nullptr && m_crossed_bounds_deps == nullptr);
+        if (m_crossed_bounds_column != null_lpvar) return; // already set
+        SASSERT(m_crossed_bounds_deps == nullptr);
         set_status(lp_status::INFEASIBLE);
         m_crossed_bounds_column = j;
         const auto& ul = this->m_columns_to_ul_pairs()[j];

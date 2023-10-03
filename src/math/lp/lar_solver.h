@@ -152,7 +152,8 @@ public:
 
     lpvar crossed_bounds_column() const { return m_crossed_bounds_column; }
     lpvar& crossed_bounds_column() { return m_crossed_bounds_column; } 
-        
+    bool current_x_is_feasible() const { return m_mpq_lar_core_solver.m_r_solver.current_x_is_feasible(); }     
+    
 
 private:   
     void update_column_type_and_bound_check_on_equal(unsigned j, const mpq& right_side, constraint_index ci, unsigned&);
