@@ -89,6 +89,7 @@ class core {
     vector<equality>         m_equalities;
     vector<fixed_equality>   m_fixed_equalities;
     indexed_uint_set         m_to_refine;
+    indexed_uint_set         m_monics_with_changed_bounds;
     tangents                 m_tangents;
     basics                   m_basics;
     order                    m_order;
@@ -120,7 +121,7 @@ class core {
 public:    
     // constructor
     core(lp::lar_solver& s, params_ref const& p, reslimit&);
-
+    const auto& monics_with_changed_bounds() const { return m_monics_with_changed_bounds; }
     void insert_to_refine(lpvar j);
     void erase_from_to_refine(lpvar j);
     

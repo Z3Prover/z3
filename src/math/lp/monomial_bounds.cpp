@@ -260,8 +260,9 @@ namespace nla {
     }
 
     void monomial_bounds::unit_propagate() {        
-        for (auto const& m : c().m_emons) {
-            unit_propagate(m);
+        for (lpvar v : c().m_monics_with_changed_bounds) {
+            if (!c().is_monic_var(v)) continue;
+            unit_propagate(c().emons()[v]);
             if (c().lra.get_status() == lp::lp_status::INFEASIBLE) {
                 lp::explanation exp;
                 c().lra.get_infeasibility_explanation(exp);
@@ -276,14 +277,15 @@ namespace nla {
     }
 
 
-    void monomial_bounds::unit_propagate(monic const& m) {
+    void monomial_bounds::unit_propagate(monic & m) {
         if (m.is_propagated())
             return;
 
         if (!is_linear(m))
             return;
 
-        
+        c().emons().set_propagated(m);
+
         rational k = fixed_var_product(m);
         lpvar w = non_fixed_var(m);
         if (w == null_lpvar || k == 0) {

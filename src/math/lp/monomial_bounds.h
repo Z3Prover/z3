@@ -35,7 +35,7 @@ namespace nla {
         bool is_zero(lpvar v) const;
 
         // monomial propagation
-        void unit_propagate(monic const& m);
+        void unit_propagate(monic & m);
         bool is_linear(monic const& m);
         rational fixed_var_product(monic const& m);
         lpvar non_fixed_var(monic const& m);

@@ -204,6 +204,12 @@ namespace lp {
             return m_status;
         
         solve_with_core_solver();
+        if (m_status != lp_status::INFEASIBLE) {
+            if (m_settings.bound_propagation())
+                detect_rows_with_changed_bounds();
+        }
+
+        clear_columns_with_changed_bounds();
         return m_status;
     }
 
@@ -478,7 +484,6 @@ namespace lp {
         x = new_val;
         TRACE("lar_solver_feas", tout << "setting " << j << " to "
          << new_val << (column_is_feasible(j)?"feas":"non-feas") << "\n";);
-        m_mpq_lar_core_solver.m_r_solver.track_column_feasibility(j);
         change_basic_columns_dependend_on_a_given_nb_column(j, delta);
     }
 
@@ -786,7 +791,8 @@ namespace lp {
     void lar_solver::detect_rows_with_changed_bounds() {
         for (auto j : m_columns_with_changed_bounds)
             detect_rows_with_changed_bounds_for_column(j);
-        
+        if (m_find_monics_with_changed_bounds_func)
+            m_find_monics_with_changed_bounds_func(m_columns_with_changed_bounds);
     }
 
     void lar_solver::update_x_and_inf_costs_for_columns_with_changed_bounds_tableau() {
@@ -1106,6 +1112,7 @@ namespace lp {
 
     mpq lar_solver::get_value(column_index const& j) const {
         SASSERT(get_status() == lp_status::OPTIMAL || get_status() == lp_status::FEASIBLE);
+        SASSERT(m_columns_with_changed_bounds.empty());
         numeric_pair<mpq> const& rp = get_column_value(j);
         return from_model_in_impq_to_mpq(rp);        
     }
@@ -1822,8 +1829,7 @@ namespace lp {
 
         if (is_base(j) && column_is_fixed(j))
             m_fixed_base_var_set.insert(j);
-        track_column_feasibility(j);
-        TRACE("lar_solver_feas", tout << "j = " << j << " became " << (this->column_is_feasible(j) ? "feas" : "non-feas") << ", and " << (this->column_is_bounded(j) ? "bounded" : "non-bounded") << " val = " << get_column_value(j) << std::endl;);   
+        TRACE("lar_solver_feas", tout << "j = " << j << " became " << (this->column_is_feasible(j) ? "feas" : "non-feas") << ", and " << (this->column_is_bounded(j) ? "bounded" : "non-bounded") << std::endl;);    
     }
 
     void lar_solver::insert_to_columns_with_changed_bounds(unsigned j) {
@@ -2370,9 +2376,11 @@ namespace lp {
         m_crossed_bounds_deps = m_dependencies.mk_join(bdep, dep);
     }
 
-    void lar_solver::track_column_feasibility(lpvar j) {
-        m_mpq_lar_core_solver.m_r_solver.track_column_feasibility(j);
+    void lar_solver::collect_more_rows_for_lp_propagation(){
+        for (auto j : m_columns_with_changed_bounds)
+            detect_rows_with_changed_bounds_for_column(j); 
     }
+
 
 } // namespace lp
 

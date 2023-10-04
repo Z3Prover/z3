@@ -89,13 +89,6 @@ class lar_solver : public column_namer {
     constraint_set m_constraints;
     // the set of column indices j such that bounds have changed for j
     indexed_uint_set m_columns_with_changed_bounds;
-public: 
-    const indexed_uint_set& columns_with_changed_bounds() const { return m_columns_with_changed_bounds; }
-    inline void clear_columns_with_changed_bounds() { m_columns_with_changed_bounds.reset(); }
-    void track_column_feasibility(lpvar j);
-
-private:
-    // m_touched_rows contains rows that have been changed by a pivoting or have a column with changed bounds
     indexed_uint_set m_touched_rows;
     unsigned_vector m_row_bounds_to_replay;
     u_dependency_manager m_dependencies;
@@ -145,22 +138,23 @@ private:
     void add_row_from_term_no_constraint(const lar_term* term, unsigned term_ext_index);
     void add_basic_var_to_core_fields();
     bool compare_values(impq const& lhs, lconstraint_kind k, const mpq& rhs);
-public:   
+
+    inline void clear_columns_with_changed_bounds() { m_columns_with_changed_bounds.reset(); }
+ public:   
     void insert_to_columns_with_changed_bounds(unsigned j);
     const u_dependency* crossed_bounds_deps() const { return m_crossed_bounds_deps;}
     u_dependency*& crossed_bounds_deps() { return m_crossed_bounds_deps;}
 
     lpvar crossed_bounds_column() const { return m_crossed_bounds_column; }
     lpvar& crossed_bounds_column() { return m_crossed_bounds_column; } 
-    bool current_x_is_feasible() const { return m_mpq_lar_core_solver.m_r_solver.current_x_is_feasible(); }     
-    
+        
 
-private:   
+ private:   
     void update_column_type_and_bound_check_on_equal(unsigned j, const mpq& right_side, constraint_index ci, unsigned&);
     void update_column_type_and_bound(unsigned j, const mpq& right_side, constraint_index ci);
-public:   
+ public:   
     void update_column_type_and_bound(unsigned j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
-private:   
+ private:   
     void update_column_type_and_bound_with_ub(var_index j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
     void update_column_type_and_bound_with_no_ub(var_index j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
     void update_bound_with_ub_lb(var_index j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
@@ -364,8 +358,6 @@ private:
     void add_column_rows_to_touched_rows(lpvar j);
     template <typename T>
     void propagate_bounds_for_touched_rows(lp_bound_propagator<T>& bp) {
-        detect_rows_with_changed_bounds();
-        clear_columns_with_changed_bounds();
         if (settings().propagate_eqs()) {
             if (settings().random_next() % 10 == 0) 
                 remove_fixed_vars_from_base();
@@ -386,7 +378,7 @@ private:
         }
         m_touched_rows.reset();
     }
-
+    void collect_more_rows_for_lp_propagation();
     template <typename T>
     void check_missed_propagations(lp_bound_propagator<T>& bp) {
         for (unsigned i = 0; i < A_r().row_count(); i++)
@@ -696,6 +688,7 @@ private:
             return 0;
         return m_usage_in_terms[j];
     }
+    std::function<void (const indexed_uint_set& columns_with_changed_bound)> m_find_monics_with_changed_bounds_func = nullptr;
     friend int_solver;
     friend int_branch;
 };
