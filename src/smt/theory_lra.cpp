@@ -2113,7 +2113,10 @@ public:
         m_model_is_initialized = false;
         flush_bound_axioms();
         // disabled in master:
-        // propagate_nla(); 
+        // propagate_nla();
+        if (ctx().inconsistent())
+            return true;
+        
         if (!can_propagate_core())
             return false;
         m_new_def = false;        
@@ -3546,7 +3549,6 @@ public:
         lbool r = nctx.check();
         if (r == l_true) {
             nctx.display_asserted_formulas(std::cout);
-            std::cout.flush();
             std::cout.flush();
         }
         return l_true != r;

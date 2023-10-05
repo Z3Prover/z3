@@ -24,6 +24,7 @@ Author:
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/simplifiers/dependent_expr_state.h"
 #include "ast/simplifiers/then_simplifier.h"
+#include "ast/rewriter/th_rewriter.h"
 #include "solver/solver.h"
 #include "solver/simplifier_solver.h"
 #include "solver/solver_preprocess.h"
@@ -62,7 +63,16 @@ class simplifier_solver : public solver {
             if (s.m.is_false(f))
                 s.set_inconsistent();
         }        
-        void replay(unsigned qhead, expr_ref_vector& assumptions) { m_reconstruction_trail.replay(qhead, assumptions, *this); }
+        void replay(unsigned qhead, expr_ref_vector& assumptions) {
+            m_reconstruction_trail.replay(qhead, assumptions, *this);
+            th_rewriter rw(s.m);
+            expr_ref tmp(s.m);
+            for (unsigned i = 0; i < assumptions.size(); ++i) {
+                tmp = assumptions.get(i);
+                rw(tmp);
+                assumptions[i] = tmp;
+            }                    
+        }
         void flatten_suffix() override {
             expr_mark seen;
             unsigned j = qhead();
@@ -109,15 +119,16 @@ class simplifier_solver : public solver {
         unsigned qhead = m_preprocess_state.qhead();
         expr_ref_vector orig_assumptions(assumptions);
         m_core_replace.reset();
-        if (qhead < m_fmls.size() || !assumptions.empty()) {
-            m_preprocess_state.replay(qhead, assumptions);   
-            m_preprocess_state.freeze(assumptions);
+        if (qhead < m_fmls.size()) {
             m_preprocess.reduce();
             if (!m.inc())
                 return;
             TRACE("solver", tout << "qhead " << qhead << "\n";
                   m_preprocess_state.display(tout));
             m_preprocess_state.advance_qhead();
+        }
+        if (!assumptions.empty()) {
+            m_preprocess_state.replay(m_preprocess_state.qhead(), assumptions);   
             for (unsigned i = 0; i < assumptions.size(); ++i) 
                 m_core_replace.insert(assumptions.get(i), orig_assumptions.get(i));            
         }
@@ -203,6 +214,7 @@ public:
     lbool check_sat_core(unsigned num_assumptions, expr* const* assumptions) override { 
         expr_ref_vector _assumptions(m, num_assumptions, assumptions);
         flush(_assumptions);
+        TRACE("simplifier", tout << _assumptions);
         return s->check_sat_core(num_assumptions, _assumptions.data()); 
     }
 
