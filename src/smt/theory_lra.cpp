@@ -3205,8 +3205,6 @@ public:
     lbool make_feasible() {
         TRACE("pcs",  tout << lp().constraints(););
         TRACE("arith_verbose", tout << "before calling lp().find_feasible_solution()\n"; display(tout););
-        // todo: remove later : debug!!!!!
-        lp().move_non_basic_columns_to_bounds(false);
         auto status = lp().find_feasible_solution();
         TRACE("arith_verbose", display(tout););
         if (lp().is_feasible())

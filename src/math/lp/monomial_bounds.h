@@ -39,7 +39,6 @@ namespace nla {
         bool is_linear(monic const& m);
         rational fixed_var_product(monic const& m);
         lpvar non_fixed_var(monic const& m);
-
     public:
         monomial_bounds(core* core);
         void propagate();

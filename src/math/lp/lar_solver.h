@@ -140,7 +140,8 @@ class lar_solver : public column_namer {
     bool compare_values(impq const& lhs, lconstraint_kind k, const mpq& rhs);
 
     inline void clear_columns_with_changed_bounds() { m_columns_with_changed_bounds.reset(); }
- public:   
+ public:
+    const auto& columns_with_changed_bounds() const { return m_columns_with_changed_bounds; }
     void insert_to_columns_with_changed_bounds(unsigned j);
     const u_dependency* crossed_bounds_deps() const { return m_crossed_bounds_deps;}
     u_dependency*& crossed_bounds_deps() { return m_crossed_bounds_deps;}

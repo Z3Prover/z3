@@ -268,14 +268,13 @@ namespace nla {
                 c().lra.get_infeasibility_explanation(exp);
                 new_lemma lemma(c(), "propagate fixed - infeasible lra");
                 lemma &= exp;
-                return;
+                break;
             }
             if (c().m_conflicts > 0 ) {
-                return;
+                break;
             }
         }   
     }
-
 
     void monomial_bounds::unit_propagate(monic & m) {
         if (m.is_propagated())
@@ -288,9 +287,8 @@ namespace nla {
 
         rational k = fixed_var_product(m);
         lpvar w = non_fixed_var(m);
-        if (w == null_lpvar || k == 0) {
+        if (w == null_lpvar || k == 0)
             propagate_fixed(m, k);
-        }
         else
             propagate_nonfixed(m, k, w);
     }
@@ -310,6 +308,7 @@ namespace nla {
             lp::impq val(k);
             c().lra.set_value_for_nbasic_column(m.var(), val);
         }
+        TRACE("nla_solver", tout << "propagate fixed " << m << " = " << k << "\n";);
         c().lra.update_column_type_and_bound(m.var(), lp::lconstraint_kind::EQ, k, dep);
         
         // propagate fixed equality
@@ -325,6 +324,7 @@ namespace nla {
         lp::lpvar term_index = c().lra.add_term(coeffs, UINT_MAX);
         auto* dep = explain_fixed(m, k);
         term_index = c().lra.map_term_index_to_column_index(term_index);
+        TRACE("nla_solver", tout << "propagate nonfixed " << m << " = " << k << "\n";);
         c().lra.update_column_type_and_bound(term_index, lp::lconstraint_kind::EQ, mpq(0), dep);
 
         if (k == 1) {

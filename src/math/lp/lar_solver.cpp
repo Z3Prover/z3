@@ -419,7 +419,9 @@ namespace lp {
     void lar_solver::move_non_basic_columns_to_bounds(bool shift_randomly) {
         auto& lcs = m_mpq_lar_core_solver;
         bool change = false;
-        for (unsigned j : lcs.m_r_nbasis) {
+        for (unsigned j : m_columns_with_changed_bounds) {
+            if (lcs.m_r_heading[j] >= 0)
+                continue;
             if (move_non_basic_column_to_bounds(j, shift_randomly))
                 change = true;
         }
@@ -2374,6 +2376,7 @@ namespace lp {
         u_dependency* bdep = lower_bound? ul.lower_bound_witness() : ul.upper_bound_witness();
         SASSERT(bdep != nullptr);
         m_crossed_bounds_deps = m_dependencies.mk_join(bdep, dep);
+        insert_to_columns_with_changed_bounds(j);
     }
 
     void lar_solver::collect_more_rows_for_lp_propagation(){
