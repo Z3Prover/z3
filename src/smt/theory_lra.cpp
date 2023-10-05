@@ -2115,6 +2115,9 @@ public:
         flush_bound_axioms();
         // disabled in master:
         propagate_nla(); 
+        if (ctx().inconsistent())
+            return true;
+        
         if (!can_propagate_core()) 
             return false;
         
@@ -2212,6 +2215,9 @@ public:
     }
     
     void propagate_bounds_with_lp_solver() {
+        if (!should_propagate()) 
+            return;
+
         m_bp.init();
         lp().propagate_bounds_for_touched_rows(m_bp);
 
@@ -3545,7 +3551,6 @@ public:
         lbool r = nctx.check();
         if (r == l_true) {
             nctx.display_asserted_formulas(std::cout);
-            std::cout.flush();
             std::cout.flush();
         }
         return l_true != r;

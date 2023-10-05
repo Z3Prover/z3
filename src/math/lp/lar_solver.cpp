@@ -1077,12 +1077,14 @@ namespace lp {
     bool lar_solver::init_model() const {
         CTRACE("lar_solver_model",!m_columns_with_changed_bounds.empty(), tout << "non-empty changed bounds\n");
         TRACE("lar_solver_model", tout << get_status() << "\n");
-        if (get_status() != lp_status::OPTIMAL && get_status() != lp_status::FEASIBLE)
+        auto status = get_status();
+        SASSERT((status != lp_status::OPTIMAL && status != lp_status::FEASIBLE) 
+            || m_mpq_lar_core_solver.m_r_solver.calc_current_x_is_feasible_include_non_basis());
+        if (status != lp_status::OPTIMAL && status != lp_status::FEASIBLE)
             return false;
         if (!m_columns_with_changed_bounds.empty())
             return false;
 
-        lp_assert(m_mpq_lar_core_solver.m_r_solver.calc_current_x_is_feasible_include_non_basis());
         m_delta = m_mpq_lar_core_solver.find_delta_for_strict_bounds(mpq(1));
         unsigned j;
         unsigned n = m_mpq_lar_core_solver.m_r_x.size();
