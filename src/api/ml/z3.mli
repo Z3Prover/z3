@@ -3535,6 +3535,81 @@ sig
   val parse_smtlib2_file : context -> string -> Symbol.symbol list -> Sort.sort list -> Symbol.symbol list -> FuncDecl.func_decl list -> AST.ASTVector.ast_vector
 end
 
+(** Real closed field *)
+module RCF :
+sig
+    type rcf_num
+
+    (** Delete a RCF numeral created using the RCF API. *)
+    val del : context -> rcf_num -> unit
+
+    (** Return a RCF rational using the given string. *)
+    val mk_rational : context -> string -> rcf_num
+
+    (** Return a RCF small integer. *)
+    val mk_small_int : context -> int -> rcf_num
+
+    (** Return Pi *)
+    val mk_pi : context -> rcf_num
+
+    (** Return e (Euler's constant) *)
+    val mk_e : context -> rcf_num
+
+    (** Return a new infinitesimal that is smaller than all elements in the Z3 field. *)
+    val mk_infinitesimal : context -> rcf_num
+
+    (** Extract the roots of a polynomial. Precondition: The input polynomial is not the zero polynomial. *)
+    val mk_roots : context -> int -> rcf_num list -> rcf_num list
+
+    (** Addition *)
+    val add : context -> rcf_num -> rcf_num -> rcf_num
+
+    (** Subtraction *)
+    val sub : context -> rcf_num -> rcf_num -> rcf_num
+
+    (** Multiplication *)
+    val mul : context -> rcf_num -> rcf_num -> rcf_num
+
+    (** Division *)
+    val div : context -> rcf_num -> rcf_num -> rcf_num
+
+    (** Negation *)
+    val neg : context -> rcf_num -> rcf_num
+
+    (** Multiplicative Inverse *)
+    val inv : context -> rcf_num -> rcf_num
+
+    (** Power *)
+    val power : context -> rcf_num -> int -> rcf_num
+
+    (** less-than *)
+    val lt : context -> rcf_num -> rcf_num -> bool
+
+    (** greater-than *)
+    val gt : context -> rcf_num -> rcf_num -> bool
+
+    (** less-than or equal *)
+    val le : context -> rcf_num -> rcf_num -> bool
+
+    (** greater-than or equal *)
+    val ge : context -> rcf_num -> rcf_num -> bool
+
+    (** equality *)
+    val eq : context -> rcf_num -> rcf_num -> bool
+
+    (** not equal *)
+    val neq : context -> rcf_num -> rcf_num -> bool
+
+    (** Convert the RCF numeral into a string. *)
+    val num_to_string : context -> rcf_num -> bool -> bool -> string
+
+    (** Convert the RCF numeral into a string in decimal notation. *)
+    val num_to_decimal_string : context -> rcf_num -> int -> string
+
+    (** Extract the "numerator" and "denominator" of the given RCF numeral.
+        We have that \ccode{a = n/d}, moreover \c n and \c d are not represented using rational functions. *)
+    val get_numerator_denominator : context -> rcf_num -> (rcf_num * rcf_num)
+end
 
 (** Set a global (or module) parameter, which is shared by all Z3 contexts.
 

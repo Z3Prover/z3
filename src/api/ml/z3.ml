@@ -2077,6 +2077,43 @@ struct
 end
 
 
+module RCF =
+struct
+  type rcf_num = Z3native.rcf_num
+
+  let del (ctx:context) (a:rcf_num) = Z3native.rcf_del ctx a
+  let mk_rational (ctx:context) (v:string) = Z3native.rcf_mk_rational ctx v
+  let mk_small_int (ctx:context) (v:int) = Z3native.rcf_mk_small_int ctx v
+
+  let mk_pi (ctx:context) = Z3native.rcf_mk_pi ctx
+  let mk_e (ctx:context) = Z3native.rcf_mk_e ctx
+  let mk_infinitesimal (ctx:context) = Z3native.rcf_mk_infinitesimal ctx
+
+  let mk_roots (ctx:context) (n:int) (a:rcf_num list) = let n, r = Z3native.rcf_mk_roots ctx n a in r
+
+  let add (ctx:context) (a:rcf_num) (b:rcf_num) = Z3native.rcf_add ctx a b
+  let sub (ctx:context) (a:rcf_num) (b:rcf_num) = Z3native.rcf_sub ctx a b
+  let mul (ctx:context) (a:rcf_num) (b:rcf_num) = Z3native.rcf_mul ctx a b
+  let div (ctx:context) (a:rcf_num) (b:rcf_num) = Z3native.rcf_div ctx a b
+
+  let neg (ctx:context) (a:rcf_num) = Z3native.rcf_neg ctx a
+  let inv (ctx:context) (a:rcf_num) = Z3native.rcf_neg ctx a
+
+  let power (ctx:context) (a:rcf_num) (k:int) = Z3native.rcf_power ctx a k
+
+  let lt (ctx:context) (a:rcf_num) (b:rcf_num) = Z3native.rcf_lt ctx a b
+  let gt (ctx:context) (a:rcf_num) (b:rcf_num) = Z3native.rcf_gt ctx a b
+  let le (ctx:context) (a:rcf_num) (b:rcf_num) = Z3native.rcf_le ctx a b
+  let ge (ctx:context) (a:rcf_num) (b:rcf_num) = Z3native.rcf_ge ctx a b
+  let eq (ctx:context) (a:rcf_num) (b:rcf_num) = Z3native.rcf_eq ctx a b
+  let neq (ctx:context) (a:rcf_num) (b:rcf_num) = Z3native.rcf_neq ctx a b
+
+  let num_to_string (ctx:context) (a:rcf_num) (compact:bool) (html:bool) = Z3native.rcf_num_to_string ctx a compact html
+  let num_to_decimal_string (ctx:context) (a:rcf_num) (prec:int) = Z3native.rcf_num_to_decimal_string ctx a prec
+  let get_numerator_denominator (ctx:context) (a:rcf_num) = Z3native.rcf_get_numerator_denominator ctx a
+end
+
+
 let set_global_param = Z3native.global_param_set
 
 let get_global_param id =
