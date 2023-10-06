@@ -315,7 +315,21 @@ let fpa_example ( ctx : context ) =
 	  Printf.printf "Test passed.\n"
   ) 
 
-let _ = 
+(**
+	A basic example of RCF usage
+**)
+let rcf_example ( ctx : context ) =
+  Printf.printf "RCFExample\n" ;
+  let pi = RCF.mk_pi ctx in
+  let e = RCF.mk_e ctx in
+  (Printf.printf "e: %s,  pi: %s, e==pi: %b, e < pi: %b\n"
+    (RCF.num_to_string ctx e true false)
+    (RCF.num_to_string ctx pi true false)
+    (RCF.eq ctx e pi)
+    (RCF.lt ctx e pi)) ;
+  Printf.printf "Test passed.\n"
+
+let _ =
   try (
     if not (Log.open_ "z3.log") then
       raise (TestFailedException "Log couldn't be opened.")
@@ -340,6 +354,7 @@ let _ =
 	basic_tests ctx ;
 	quantifier_example1 ctx ;
 	fpa_example ctx ;
+  rcf_example ctx ;
 	Printf.printf "Disposing...\n";
 	Gc.full_major ()
       );
