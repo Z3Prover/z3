@@ -564,6 +564,7 @@ public:
     }
     void insert_column_into_inf_heap(unsigned j) {        
 		if (!m_inf_heap.contains(j)) {
+            m_inf_heap.reserve(j+1);
 	        m_inf_heap.insert(j);
             TRACE("lar_solver_inf_heap", tout << "insert into inf_heap j = " << j << "\n";);
         }

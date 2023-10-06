@@ -181,7 +181,10 @@ namespace lp {
 
     lp_status lar_solver::get_status() const { return m_status; }
 
-    void lar_solver::set_status(lp_status s) { m_status = s; }
+    void lar_solver::set_status(lp_status s) { 
+        TRACE("lar_solver", tout << "setting status to " << s << "\n";);
+        m_status = s; 
+    }
 
     lp_status lar_solver::find_feasible_solution() {
         stats().m_make_feasible++;
@@ -419,9 +422,7 @@ namespace lp {
     void lar_solver::move_non_basic_columns_to_bounds(bool shift_randomly) {
         auto& lcs = m_mpq_lar_core_solver;
         bool change = false;
-        for (unsigned j : m_columns_with_changed_bounds) {
-            if (lcs.m_r_heading[j] >= 0)
-                continue;
+        for (unsigned j : lcs.m_r_nbasis) {
             if (move_non_basic_column_to_bounds(j, shift_randomly))
                 change = true;
         }
@@ -439,7 +440,7 @@ namespace lp {
         switch (lcs.m_column_types()[j]) {
         case column_type::boxed: {
             bool at_l = val == lcs.m_r_lower_bounds()[j];
-            bool at_u = !at_l && (val == lcs.m_r_upper_bounds()[j]);
+            bool at_u = (!at_l && (val == lcs.m_r_upper_bounds()[j]));
             if (!at_l && !at_u) {
                 if (m_settings.random_next() % 2)
                     set_value_for_nbasic_column(j, lcs.m_r_lower_bounds()[j]);
