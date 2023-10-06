@@ -169,8 +169,7 @@ void test_basic_lemma_for_mon_neutral_from_factors_to_monomial_0() {
     
     reslimit l;
     params_ref p;
-    std_vector<lp::implied_bound> ib;
-    solver nla(s, p, l, ib);
+    solver nla(s, p, l);
     svector<lpvar> v; v.push_back(lp_b);v.push_back(lp_d);v.push_back(lp_e);
     nla.add_monic(lp_bde, v.size(), v.begin());
     v.clear();
@@ -247,8 +246,7 @@ void test_basic_lemma_for_mon_neutral_from_factors_to_monomial_1() {
     
     reslimit l;
     params_ref p;
-    std_vector<lp::implied_bound> ib;
-    solver nla(s, p, l, ib);
+    solver nla(s, p, l);
     svector<lpvar> v; v.push_back(lp_b);v.push_back(lp_d);v.push_back(lp_e);
     nla.add_monic(lp_bde, v.size(), v.begin());
 
@@ -319,8 +317,7 @@ void test_basic_lemma_for_mon_zero_from_factors_to_monomial() {
     
     reslimit l;
     params_ref p;
-    std_vector<lp::implied_bound> ib;
-    solver nla(s, p, l, ib);
+    solver nla(s, p, l);
     
     create_abcde(nla,
                  lp_a,
@@ -382,8 +379,7 @@ void test_basic_lemma_for_mon_zero_from_monomial_to_factors() {
     
     reslimit l;
     params_ref p;
-    std_vector<lp::implied_bound> ib;
-    solver nla(s, p, l, ib);
+    solver nla(s, p, l);
 
     // create monomial acd
     unsigned_vector vec;
@@ -443,8 +439,7 @@ void test_basic_lemma_for_mon_neutral_from_monomial_to_factors() {
     
     reslimit l;
     params_ref p;
-    std_vector<lp::implied_bound> ib;
-    solver nla(s, p, l, ib);
+    solver nla(s, p, l);
     
     create_abcde(nla,
                  lp_a,
@@ -556,8 +551,7 @@ void test_basic_sign_lemma() {
     
     reslimit l;
     params_ref p;
-    std_vector<lp::implied_bound> ib;
-    solver nla(s, p, l, ib);
+    solver nla(s, p, l);
     // create monomial bde
     vector<unsigned> vec;
 
@@ -822,8 +816,7 @@ void test_tangent_lemma_rat() {
     s_set_column_value_test(s, lp_ab, v);
     reslimit l;
     params_ref p;
-    std_vector<lp::implied_bound> ib;
-    solver nla(s, p, l, ib);
+    solver nla(s, p, l);
     // create monomial ab
     vector<unsigned> vec;
     vec.push_back(lp_a);
@@ -850,8 +843,7 @@ void test_tangent_lemma_reg() {
     s_set_column_value_test(s, lp_ab, rational(11));
     reslimit l;
     params_ref p;
-    std_vector<lp::implied_bound> ib;
-    solver nla(s, p, l, ib);
+    solver nla(s, p, l);
     // create monomial ab
     vector<unsigned> vec;
     vec.push_back(lp_a);
