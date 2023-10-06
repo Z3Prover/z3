@@ -635,8 +635,8 @@ class lar_solver : public column_namer {
         return *m_terms[t.id()];
     }
     lp_status find_feasible_solution();
-    void move_non_basic_columns_to_bounds(bool);
-    bool move_non_basic_column_to_bounds(unsigned j, bool);
+    void move_non_basic_columns_to_bounds();
+    bool move_non_basic_column_to_bounds(unsigned j);
     inline bool r_basis_has_inf_int() const {
         for (unsigned j : r_basis()) {
             if (column_is_int(j) && !column_value_is_int(j))

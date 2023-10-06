@@ -24,7 +24,7 @@ namespace lp {
 int_branch::int_branch(int_solver& lia):lia(lia), lra(lia.lra) {}
 
 lia_move int_branch::operator()() {
-    lra.move_non_basic_columns_to_bounds(true);
+    lra.move_non_basic_columns_to_bounds();
     int j = find_inf_int_base_column();
     return j == -1? lia_move::sat : create_branch_on_column(j);        
 }

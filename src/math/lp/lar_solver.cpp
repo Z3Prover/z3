@@ -402,7 +402,7 @@ namespace lp {
 
     void lar_solver::prepare_costs_for_r_solver(const lar_term& term) {
         TRACE("lar_solver", print_term(term, tout << "prepare: ") << "\n";);
-        move_non_basic_columns_to_bounds(false);
+        move_non_basic_columns_to_bounds();
         auto& rslv = m_mpq_lar_core_solver.m_r_solver;
         lp_assert(costs_are_zeros_for_r_solver());
         lp_assert(reduced_costs_are_zeroes_for_r_solver());
@@ -419,11 +419,11 @@ namespace lp {
         lp_assert(rslv.reduced_costs_are_correct_tableau());
     }
 
-    void lar_solver::move_non_basic_columns_to_bounds(bool shift_randomly) {
+    void lar_solver::move_non_basic_columns_to_bounds() {
         auto& lcs = m_mpq_lar_core_solver;
         bool change = false;
         for (unsigned j : lcs.m_r_nbasis) {
-            if (move_non_basic_column_to_bounds(j, shift_randomly))
+            if (move_non_basic_column_to_bounds(j))
                 change = true;
         }
         if (!change)
@@ -434,46 +434,40 @@ namespace lp {
         find_feasible_solution();
     }
 
-    bool lar_solver::move_non_basic_column_to_bounds(unsigned j, bool force_change) {
+    bool lar_solver::move_non_basic_column_to_bounds(unsigned j) {
         auto& lcs = m_mpq_lar_core_solver;
         auto& val = lcs.m_r_x[j];
         switch (lcs.m_column_types()[j]) {
         case column_type::boxed: {
-            bool at_l = val == lcs.m_r_lower_bounds()[j];
-            bool at_u = (!at_l && (val == lcs.m_r_upper_bounds()[j]));
-            if (!at_l && !at_u) {
-                if (m_settings.random_next() % 2)
-                    set_value_for_nbasic_column(j, lcs.m_r_lower_bounds()[j]);
-                else
-                    set_value_for_nbasic_column(j, lcs.m_r_upper_bounds()[j]);
-                return true;
-            }
-            else if (force_change && m_settings.random_next() % 3 == 0) {
-                set_value_for_nbasic_column(j,
-                    at_l ? lcs.m_r_upper_bounds()[j] : lcs.m_r_lower_bounds()[j]);
-                return true;
-            }
-            break;
-        }                               
-        case column_type::lower_bound:
+            const auto& l = lcs.m_r_lower_bounds()[j];
+            if (val == l || val == lcs.m_r_upper_bounds()[j]) return false;
+            set_value_for_nbasic_column(j, l);
+            return true;
+        }
+                                        
+        case column_type::lower_bound: {
+            const auto& l = lcs.m_r_lower_bounds()[j];
             if (val != lcs.m_r_lower_bounds()[j]) {
-                set_value_for_nbasic_column(j, lcs.m_r_lower_bounds()[j]);
+                set_value_for_nbasic_column(j, l);
                 return true;
             }
-            break;
+            return false;
+        }
         case column_type::fixed:
-        case column_type::upper_bound:
-            if (val != lcs.m_r_upper_bounds()[j]) {
-                set_value_for_nbasic_column(j, lcs.m_r_upper_bounds()[j]);
+        case column_type::upper_bound: {
+            const auto & u = lcs.m_r_upper_bounds()[j];
+            if (val != u) {
+                set_value_for_nbasic_column(j, u);
                 return true;
             }
-            break;
+            return false;
+        }
         case column_type::free_column:
             if (column_is_int(j) && !val.is_int()) {
                 set_value_for_nbasic_column(j, impq(floor(val)));
                 return true;
             }
-            break;
+            return false;
         default:
             SASSERT(false);
         }
