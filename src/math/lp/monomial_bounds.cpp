@@ -370,7 +370,7 @@ namespace nla {
     rational monomial_bounds::fixed_var_product(monic const& m) {
         rational r(1);
         for (lpvar v : m) {
-            //            VERIFY(!c().var_is_fixed(v) || c().lra.get_column_value(v).x == c().lra.get_lower_bound(v).x);
+            //  we have to use the column bounds here, because the value of the column value may be outside the bounds
             if (c().var_is_fixed(v))
                 r *= c().lra.get_lower_bound(v).x;            
         }
