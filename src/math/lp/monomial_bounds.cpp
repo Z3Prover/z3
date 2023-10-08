@@ -324,7 +324,7 @@ namespace nla {
         lp::lpvar term_index = c().lra.add_term(coeffs, UINT_MAX);
         auto* dep = explain_fixed(m, k);
         term_index = c().lra.map_term_index_to_column_index(term_index);
-        TRACE("nla_solver", tout << "propagate nonfixed " << m << " = " << k << "\n";);
+        TRACE("nla_solver", tout << "propagate nonfixed " << m << " = " << k << " " << w << "\n";);
         c().lra.update_column_type_and_bound(term_index, lp::lconstraint_kind::EQ, mpq(0), dep);
 
         if (k == 1) {
@@ -370,8 +370,9 @@ namespace nla {
     rational monomial_bounds::fixed_var_product(monic const& m) {
         rational r(1);
         for (lpvar v : m) {
+            //            VERIFY(!c().var_is_fixed(v) || c().lra.get_column_value(v).x == c().lra.get_lower_bound(v).x);
             if (c().var_is_fixed(v))
-                r *= c().lra.get_column_value(v).x;
+                r *= c().lra.get_lower_bound(v).x;            
         }
         return r;
     }
