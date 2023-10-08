@@ -447,7 +447,7 @@ namespace lp {
                                         
         case column_type::lower_bound: {
             const auto& l = lcs.m_r_lower_bounds()[j];
-            if (val != lcs.m_r_lower_bounds()[j]) {
+            if (val != l) {
                 set_value_for_nbasic_column(j, l);
                 return true;
             }
