@@ -115,10 +115,12 @@ pretty_print(std::ostream & out) {
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 add_delta_to_entering(unsigned entering, const X& delta) {
-    m_x[entering] += delta;     
+    m_x[entering] += delta;  
+    TRACE("lar_solver_feas", tout << "not tracking feas entering = " << entering << " = " << m_x[entering] << (column_is_feasible(entering) ? " feas" : " non-feas") << "\n";); 
     for (const auto & c : m_A.m_columns[entering]) {
         unsigned i = c.var();
         m_x[m_basis[i]] -= delta * m_A.get_val(c);
+        TRACE("lar_solver_feas", tout << "not tracking feas m_basis[i] = " << m_basis[i] << " = " << m_x[m_basis[i]] << (column_is_feasible(m_basis[i]) ? " feas" : " non-feas") << "\n";);
     }
 }
 

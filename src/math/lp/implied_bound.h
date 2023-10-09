@@ -21,37 +21,40 @@ Revision History:
 #include "math/lp/lp_settings.h"
 #include "math/lp/lar_constraints.h"
 namespace lp {
-struct implied_bound {
+class implied_bound {
+    public:
     mpq m_bound;
-    unsigned m_j; // the column for which the bound has been found
+    // It is either the column for which the bound has been found, or,
+    // in the case the column was created as
+    // the slack variable to a term, it is the term index.
+    // It is the same index that was returned by lar_solver::add_var(), or
+    // by lar_solver::add_term()
+    unsigned m_j; 
     bool m_is_lower_bound;
-    bool m_coeff_before_j_is_pos;
-    unsigned m_row_or_term_index;
     bool m_strict;
+    private:
+    std::function<u_dependency*()> m_explain_bound = nullptr;
+    public:
+    // s is expected to be the pointer to lp_bound_propagator.
+    u_dependency* explain_implied() const { return m_explain_bound(); }
+    void set_explain(std::function<u_dependency*()> f) { m_explain_bound = f; }
     lconstraint_kind kind() const {
         lconstraint_kind k = m_is_lower_bound? GE : LE;
         if (m_strict)
             k = static_cast<lconstraint_kind>(k / 2);
         return k;
     }
-    bool operator==(const implied_bound & o) const {
-        return m_j == o.m_j && m_is_lower_bound == o.m_is_lower_bound && m_bound == o.m_bound &&
-            m_coeff_before_j_is_pos == o.m_coeff_before_j_is_pos &&
-            m_row_or_term_index == o.m_row_or_term_index && m_strict == o.m_strict;
-    }
     implied_bound(){}
     implied_bound(const mpq & a,
                   unsigned j,
-                  bool lower_bound,
-                  bool coeff_before_j_is_pos,
-                  unsigned row_or_term_index,
-                  bool strict):
+                  bool is_lower_bound,
+                  bool is_strict,
+                  std::function<u_dependency*()> get_dep):
         m_bound(a),
         m_j(j),
-        m_is_lower_bound(lower_bound),
-        m_coeff_before_j_is_pos(coeff_before_j_is_pos),
-        m_row_or_term_index(row_or_term_index),
-        m_strict(strict) {
+        m_is_lower_bound(is_lower_bound),
+        m_strict(is_strict),
+        m_explain_bound(get_dep) {
     }
 };
 }

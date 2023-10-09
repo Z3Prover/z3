@@ -417,7 +417,7 @@ int gomory::find_basic_var() {
 }
     
 lia_move gomory::operator()() {
-    lra.move_non_basic_columns_to_bounds(true);
+    lra.move_non_basic_columns_to_bounds();
     int j = find_basic_var();
     if (j == -1)
         return lia_move::undef;

@@ -193,9 +193,9 @@ void test_basic_lemma_for_mon_neutral_from_factors_to_monomial_0() {
 
     
     VERIFY(nla.get_core().test_check() == l_false);
-    
-    auto const& lv = nla.get_core().lemmas();
-    nla.get_core().print_lemma(lv.back(), std::cout);
+    auto const& lemmas = nla.get_core().lemmas();
+    nla.get_core().print_lemma(lemmas.back(), std::cout);
+
 
     ineq i0(lp_ac, llc::NE, 1);
     lp::lar_term t1, t2;
@@ -208,7 +208,7 @@ void test_basic_lemma_for_mon_neutral_from_factors_to_monomial_0() {
     bool found0 = false;
     bool found1 = false;
     bool found2 = false;
-    for (const auto& k : lv[0].ineqs()){
+    for (const auto& k : lemmas[0].ineqs()){
         if (k == i0) {
             found0 = true;
         } else if (k == i1) {
@@ -249,6 +249,7 @@ void test_basic_lemma_for_mon_neutral_from_factors_to_monomial_1() {
     solver nla(s, p, l);
     svector<lpvar> v; v.push_back(lp_b);v.push_back(lp_d);v.push_back(lp_e);
     nla.add_monic(lp_bde, v.size(), v.begin());
+
 
     s_set_column_value_test(s, lp_a, rational(1));
     s_set_column_value_test(s, lp_b, rational(1));
@@ -395,6 +396,7 @@ void test_basic_lemma_for_mon_zero_from_monomial_to_factors() {
 
     VERIFY(nla.get_core().test_check() == l_false);
     auto const& lemma = nla.get_core().lemmas();
+
     nla.get_core().print_lemma(lemma.back(), std::cout);
 
     ineq i0(lp_a, llc::EQ, 0);
@@ -511,7 +513,8 @@ void test_horner() {
     
     reslimit l;
     params_ref p;
-    solver nla(s, p, l);
+    std_vector<lp::implied_bound> ib;
+    solver nla(s, p, l, ib);
     vector<lpvar> v;
     v.push_back(a); v.push_back(b);
     nla.add_monic(lp_ab, v.size(), v.begin());
@@ -583,6 +586,7 @@ void test_basic_sign_lemma() {
    
     VERIFY(nla.get_core().test_check() == l_false);
     auto const& lemmas = nla.get_core().lemmas();
+
     lp::lar_term t;
     t.add_var(lp_bde);
     t.add_var(lp_acd);
@@ -622,7 +626,8 @@ void test_order_lemma_params(bool var_equiv, int sign) {
     
     reslimit l;
     params_ref p;
-    solver nla(s,p,l);
+    std_vector<lp::implied_bound> ib;
+    solver nla(s,p,l,ib);
     // create monomial ab
     vector<unsigned> vec;
     vec.push_back(lp_a);
@@ -753,7 +758,8 @@ void test_monotone_lemma() {
     
     reslimit l;
     params_ref p;
-    solver nla(s, p, l);
+    std_vector<lp::implied_bound> ib;
+    solver nla(s, p, l, ib);
     // create monomial ab
     vector<unsigned> vec;
     vec.push_back(lp_a);
@@ -880,7 +886,8 @@ void test_tangent_lemma_equiv() {
     s_set_column_value_test(s, lp_a, - s.get_column_value(lp_k));
     reslimit l;
     params_ref p;
-    solver nla(s, p, l);
+    std_vector<lp::implied_bound> ib;
+    solver nla(s, p, l, ib);
     // create monomial ab
     vector<unsigned> vec;
     vec.push_back(lp_a);

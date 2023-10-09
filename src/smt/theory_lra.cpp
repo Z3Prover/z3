@@ -225,6 +225,7 @@ class theory_lra::imp {
     lp_bounds                    m_new_bounds;
     symbol                       m_farkas;
     vector<parameter>            m_bound_params;
+    std_vector<lp::implied_bound>   m_implied_bounds;
     lp::lp_bound_propagator<imp> m_bp;
 
     context& ctx() const { return th.get_context(); }
@@ -873,7 +874,7 @@ public:
         m_solver(nullptr),
         m_resource_limit(*this),
         m_farkas("farkas"),
-        m_bp(*this),
+        m_bp(*this, m_implied_bounds),
         m_bounded_range_idx(0),
         m_bounded_range_lit(null_literal),
         m_bound_terms(m),
@@ -2113,12 +2114,13 @@ public:
         m_model_is_initialized = false;
         flush_bound_axioms();
         // disabled in master:
-        // propagate_nla();
+        propagate_nla(); 
         if (ctx().inconsistent())
             return true;
         
-        if (!can_propagate_core())
+        if (!can_propagate_core()) 
             return false;
+        
         m_new_def = false;        
         while (m_asserted_qhead < m_asserted_atoms.size() && !ctx().inconsistent() && m.inc()) {
             auto [bv, is_true] = m_asserted_atoms[m_asserted_qhead];
@@ -2151,6 +2153,7 @@ public:
             propagate_bounds_with_lp_solver();
             break;
         case l_undef:
+            UNREACHABLE();
             break;
         }
         return true;            
@@ -2161,6 +2164,7 @@ public:
             m_nla->propagate();
             add_lemmas();
             add_equalities();
+            lp().collect_more_rows_for_lp_propagation();
         }
     }
 
@@ -2225,13 +2229,11 @@ public:
             // verbose_stream() << "unsat\n";
         }
         else {
-            unsigned count = 0, prop = 0;
             for (auto& ib : m_bp.ibounds()) {
                 m.inc();
                 if (ctx().inconsistent())
                     break;
-                ++prop;
-                count += propagate_lp_solver_bound(ib);
+                propagate_lp_solver_bound(ib);
             }
         }
     }

@@ -540,9 +540,9 @@ public:
     }
 
     void add_delta_to_x_and_track_feasibility(unsigned j, const X & del) {
-        TRACE("lar_solver_feas_bug", tout << "del = " << del << ", was x[" << j << "] = " << m_x[j] << "\n";);
+        TRACE("lar_solver_feas", tout << "del = " << del << ", was x[" << j << "] = " << m_x[j] << "\n";);
         m_x[j] += del;
-        TRACE("lar_solver_feas_bug", tout << "became x[" << j << "] = " << m_x[j] << "\n";);
+        TRACE("lar_solver_feas", tout << "became x[" << j << "] = " << m_x[j] << "\n";);
         track_column_feasibility(j);
     }
 
@@ -564,6 +564,7 @@ public:
     }
     void insert_column_into_inf_heap(unsigned j) {        
 		if (!m_inf_heap.contains(j)) {
+            m_inf_heap.reserve(j+1);
 	        m_inf_heap.insert(j);
             TRACE("lar_solver_inf_heap", tout << "insert into inf_heap j = " << j << "\n";);
         }
@@ -571,7 +572,7 @@ public:
     }
     void remove_column_from_inf_heap(unsigned j) {
 		if (m_inf_heap.contains(j)) {
-            TRACE("lar_solver_inf_heap", tout << "insert into heap j = " << j << "\n";);
+            TRACE("lar_solver_inf_heap", tout << "erase from heap j = " << j << "\n";);
         	m_inf_heap.erase(j);
         }
         lp_assert(column_is_feasible(j));
