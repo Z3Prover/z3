@@ -22,8 +22,6 @@ namespace lp {
     }
 
     lar_solver::lar_solver() :
-        m_crossed_bounds_column(null_lpvar),
-        m_crossed_bounds_deps(nullptr),
         m_mpq_lar_core_solver(m_settings, *this),
         m_var_register(false),
         m_term_register(true),

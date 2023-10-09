@@ -78,8 +78,8 @@ class lar_solver : public column_namer {
     lp_status m_status = lp_status::UNKNOWN;
     stacked_value<simplex_strategy_enum> m_simplex_strategy;
     // such can be found at the initialization step: u < l
-    lpvar m_crossed_bounds_column;
-    u_dependency* m_crossed_bounds_deps;
+    lpvar m_crossed_bounds_column = null_lpvar;
+    u_dependency* m_crossed_bounds_deps = nullptr;
     lar_core_solver m_mpq_lar_core_solver;
     int_solver* m_int_solver = nullptr;
     bool m_need_register_terms = false;
