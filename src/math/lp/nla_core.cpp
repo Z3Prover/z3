@@ -45,11 +45,8 @@ core::core(lp::lar_solver& s, params_ref const& p, reslimit & lim) :
         for (lpvar j : columns_with_changed_bounds) {
             if (is_monic_var(j))
                 m_monics_with_changed_bounds.insert(j);
-            else {
-                for (const auto & m: m_emons.get_use_list(j)) {
-                    m_monics_with_changed_bounds.insert(m.var());
-                }
-            }    
+            for (const auto & m: m_emons.get_use_list(j)) 
+                m_monics_with_changed_bounds.insert(m.var());
         }
     };
 }
@@ -1257,7 +1254,7 @@ bool core::var_breaks_correct_monic_as_factor(lpvar j, const monic& m) const {
 
 bool core::var_breaks_correct_monic(lpvar j) const {
     if (is_monic_var(j) && !m_to_refine.contains(j)) {
-        TRACE("nla_solver", tout << "j = " << j << ", m  = "; print_monic(emons()[j], tout) << "\n";);
+        TRACE("nla_solver", tout << "j = " << j << ", m  = "; print_monic(emon(j), tout) << "\n";);
         return true; // changing the value of a correct monic
     }
     
@@ -1279,7 +1276,7 @@ void core::update_to_refine_of_var(lpvar j) {
             insert_to_refine(var(m));
     }
     if (is_monic_var(j)) {
-        const monic& m = emons()[j];
+        const monic& m = emon(j);
         if (var_val(m) == mul_val(m))
             erase_from_to_refine(j);
         else
@@ -1362,10 +1359,10 @@ bool in_power(const svector<lpvar>& vs, unsigned l) {
 bool core::to_refine_is_correct() const {
     for (unsigned j = 0; j < lra.number_of_vars(); j++) {
         if (!is_monic_var(j)) continue;
-        bool valid = check_monic(emons()[j]);
+        bool valid = check_monic(emon(j));
         if (valid == m_to_refine.contains(j)) {
             TRACE("nla_solver", tout << "inconstency in m_to_refine : ";
-                  print_monic(emons()[j], tout) << "\n";
+                  print_monic(emon(j), tout) << "\n";
                   if (valid) tout << "should NOT be in to_refine\n";
                   else tout << "should be in to_refine\n";);
             return false;
@@ -1375,7 +1372,7 @@ bool core::to_refine_is_correct() const {
 }
 
 void core::patch_monomial(lpvar j) {    
-    m_patched_monic =& (emons()[j]);
+    m_patched_monic =& (emon(j));
     m_patched_var = j;
     TRACE("nla_solver", tout << "m = "; print_monic(*m_patched_monic, tout) << "\n";);
     rational v = mul_val(*m_patched_monic);
@@ -1530,7 +1527,7 @@ void core::add_bounds() {
             if (!var_is_free(j)) continue;
             // split the free variable (j <= 0, or j > 0), and return
             m_literals.push_back(ineq(j, lp::lconstraint_kind::EQ, rational::zero()));  
-            ++lp_settings().stats().m_nla_bounds;
+            ++lp_settings().stats().m_nla_add_bounds;
             return;
         }
     }    
@@ -1611,15 +1608,13 @@ lbool core::check() {
 
     if (no_effect() && params().arith_nl_nra() && ret == l_undef) {
         ret = m_nra.check();
-        m_stats.m_nra_calls++;
+        lp_settings().stats().m_nra_calls++;
     }
     
     if (ret == l_undef && !m_lemmas.empty() && m_reslim.inc()) 
         ret = l_false;
 
-    m_stats.m_nla_lemmas += m_lemmas.size();
-    for (const auto& l : m_lemmas)
-        m_stats.m_nla_explanations += static_cast<unsigned>(l.expl().size());
+    lp_settings().stats().m_nla_lemmas += m_lemmas.size();
 
     
     TRACE("nla_solver", tout << "ret = " << ret << ", lemmas count = " << m_lemmas.size() << "\n";);
@@ -1649,7 +1644,7 @@ lbool core::bounded_nlsat() {
     }
     p.set_uint("max_conflicts", UINT_MAX);           
     m_nra.updt_params(p);
-    m_stats.m_nra_calls++;
+    lp_settings().stats().m_nra_calls++;
     if (ret == l_undef) 
         ++m_nlsat_delay;    
     else { 
@@ -1678,7 +1673,7 @@ lbool core::test_check() {
 }
 
 std::ostream& core::print_terms(std::ostream& out) const {
-    for (unsigned i = 0; i< lra.terms().size(); i++) {
+    for (unsigned i = 0; i < lra.terms().size(); i++) {
         unsigned ext = lp::tv::mask_term(i);
         if (!lra.var_is_registered(ext)) {
             out << "term is not registered\n";
@@ -1798,10 +1793,6 @@ void core::set_use_nra_model(bool m) {
 }
     
 void core::collect_statistics(::statistics & st) {
-    st.update("arith-nla-explanations", m_stats.m_nla_explanations);
-    st.update("arith-nla-lemmas", m_stats.m_nla_lemmas);
-    st.update("arith-nra-calls", m_stats.m_nra_calls);   
-    st.update("arith-bounds-improvements", m_stats.m_bounds_improvements);
 }
 
 bool core::improve_bounds() {
@@ -1814,9 +1805,9 @@ bool core::improve_bounds() {
             return;
         seen.insert(v);
         if (lra.improve_bound(v, false))
-            bounds_improved = true, m_stats.m_bounds_improvements++;
+            bounds_improved = true, lp_settings().stats().m_nla_bounds_improvements++;
         if (lra.improve_bound(v, true))
-            bounds_improved = true, m_stats.m_bounds_improvements++;
+            bounds_improved = true, lp_settings().stats().m_nla_bounds_improvements++;
     };
     for (auto & m : m_emons) {
         insert(m.var());

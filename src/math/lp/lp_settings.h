@@ -115,7 +115,12 @@ struct statistics {
     unsigned m_hnf_cutter_calls;
     unsigned m_hnf_cuts;
     unsigned m_nla_calls;
-    unsigned m_nla_bounds;
+    unsigned m_nla_add_bounds;
+    unsigned m_nla_propagate_bounds;
+    unsigned m_nla_propagate_eq;
+    unsigned m_nla_lemmas;
+    unsigned m_nra_calls;
+    unsigned m_nla_bounds_improvements;
     unsigned m_horner_calls;
     unsigned m_horner_conflicts;
     unsigned m_cross_nested_forms;
@@ -145,7 +150,13 @@ struct statistics {
         st.update("arith-grobner-conflicts", m_grobner_conflicts);
         st.update("arith-offset-eqs", m_offset_eqs);
         st.update("arith-fixed-eqs", m_fixed_eqs);
-        st.update("arith-nla-bounds", m_nla_bounds);
+        st.update("arith-nla-add-bounds", m_nla_add_bounds);
+        st.update("arith-nla-propagate-bounds", m_nla_propagate_bounds);
+        st.update("arith-nla-propagate-eq", m_nla_propagate_eq);
+        st.update("arith-nla-lemmas", m_nla_lemmas);
+        st.update("arith-nra-calls", m_nra_calls);   
+        st.update("arith-bounds-improvements", m_nla_bounds_improvements);
+
     }
 };
 

@@ -17,7 +17,6 @@ namespace nla {
     class monomial_bounds : common {
         dep_intervals& dep;
 
-
         void var2interval(lpvar v, scoped_dep_interval& i);
         bool is_too_big(mpq const& q) const;
         bool propagate_down(monic const& m, lpvar u);

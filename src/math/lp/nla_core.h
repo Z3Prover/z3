@@ -60,18 +60,6 @@ class core {
     friend class nra::solver;
     friend class divisions;
 
-    struct stats {
-        unsigned m_nla_explanations;
-        unsigned m_nla_lemmas;
-        unsigned m_nra_calls;
-        unsigned m_bounds_improvements;
-        stats() { reset(); }
-        void reset() {
-            memset(this, 0, sizeof(*this));
-        }
-    };
-
-    stats    m_stats;
     unsigned m_nlsat_delay = 50;
     unsigned m_nlsat_fails = 0;
 
@@ -139,6 +127,8 @@ public:
     reslimit& reslim() { return m_reslim; }  
     emonics& emons() { return m_emons; }
     const emonics& emons() const { return m_emons; }
+    monic& emon(unsigned i) { return m_emons[i]; }
+    monic const& emon(unsigned i) const { return m_emons[i]; }
 
     bool has_relevant_monomial() const;
 
