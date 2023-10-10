@@ -60,7 +60,6 @@ namespace nla {
             ++c().lra.settings().stats().m_nla_propagate_bounds;
             if (c().params().arith_nl_internal_bounds()) {
                 auto* d = dep.get_upper_dep(range);
-                TRACE("arith", tout << "upper " << cmp << " " << upper << "\n");
                 propagate_bound(v, cmp, upper, d);
             }
             else {
@@ -82,7 +81,6 @@ namespace nla {
             if (c().params().arith_nl_internal_bounds()) {
                 auto* d = dep.get_lower_dep(range);
                 propagate_bound(v, cmp, lower, d);
-                TRACE("arith", tout << v << " " << cmp << " " << lower << "\n");
             }
             else {
                 lp::explanation ex;
