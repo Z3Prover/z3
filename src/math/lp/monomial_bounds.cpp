@@ -335,10 +335,9 @@ namespace nla {
             return;
         lpvar w, fixed_to_zero;
 
-        if (!is_linear(m)) {
-            if (c().params().arith_nl_internal_bounds()) {
+        if (!is_linear(m, w, fixed_to_zero)) {
+            if (c().params().arith_nl_internal_bounds()) 
                 propagate(m);
-            }  
             return;
         }
 
