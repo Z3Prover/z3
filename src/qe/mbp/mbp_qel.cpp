@@ -32,7 +32,7 @@ Revision History:
 namespace mbp {
 
 class mbp_qel::impl {
-  private:
+private:
     ast_manager &m;
     array_util m_array_util;
     datatype_util m_dt_util;
@@ -105,11 +105,12 @@ class mbp_qel::impl {
 
     mbp_tg_plugin *get_plugin(family_id fid) {
         for (auto p : m_plugins)
-            if (p->get_family_id() == fid) return p;
+            if (p->get_family_id() == fid)
+                return p;
         return nullptr;
     }
 
-  public:
+public:
     impl(ast_manager &m, params_ref const &p)
         : m(m), m_array_util(m), m_dt_util(m), m_params(p), m_tg(m) {}
 
@@ -119,7 +120,8 @@ class mbp_qel::impl {
     }
 
     void operator()(app_ref_vector &vars, expr_ref &fml, model &mdl) {
-        if (vars.empty()) return;
+        if (vars.empty())
+            return;
 
         init(vars, fml, mdl);
         // Apply MBP rules till saturation
@@ -177,8 +179,10 @@ class mbp_qel::impl {
                tout << "\n";);
 
         std::function<bool(expr *)> non_core = [&](expr *e) {
-            if (is_app(e) && is_partial_eq(to_app(e))) return true;
-            if (m.is_ite(e) || m.is_or(e) || m.is_implies(e) || m.is_and(e) || m.is_distinct(e)) return true;
+            if (is_app(e) && is_partial_eq(to_app(e)))
+                return true;
+            if (m.is_ite(e) || m.is_or(e) || m.is_implies(e) || m.is_and(e) || m.is_distinct(e))
+                return true;
             return red_vars.is_marked(e);
         };
 
@@ -203,9 +207,11 @@ class mbp_qel::impl {
         }
 
         std::function<bool(expr *)> substituted = [&](expr *e) {
-            if (is_app(e) && is_partial_eq(to_app(e))) return true;
-            if (m.is_ite(e)) return true;
-            return red_vars.is_marked(e) || s_vars.is_marked(e);
+            return
+                (is_app(e) && is_partial_eq(to_app(e))) ||
+                m.is_ite(e) ||
+                red_vars.is_marked(e) ||
+                s_vars.is_marked(e);
         };
 
         // remove all substituted variables
