@@ -753,7 +753,7 @@ namespace smt {
             }
             else {
                 if (j != i) {
-                    m_lemma[j]       = m_lemma[i];
+                    m_lemma[j] = l;
                     m_lemma_atoms.set(j, m_lemma_atoms.get(i));
                 }
                 j++;
