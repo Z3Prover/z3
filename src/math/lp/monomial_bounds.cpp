@@ -303,8 +303,6 @@ namespace nla {
     }
 
     void monomial_bounds::unit_propagate(monic & m) {
-        if (m.is_propagated())
-            return;
         lpvar w, fixed_to_zero;
         if (!is_linear(m, w, fixed_to_zero)) {
 #if UNIT_PROPAGATE_BOUNDS
@@ -312,8 +310,6 @@ namespace nla {
 #endif            
             return;
         }
-
-        c().emons().set_propagated(m);
 
         if (fixed_to_zero != null_lpvar) {
             propagate_fixed_to_zero(m, fixed_to_zero);
@@ -338,6 +334,8 @@ namespace nla {
     }
     
     void monomial_bounds::propagate_fixed_to_zero(monic const& m, lpvar fixed_to_zero) {
+        if (c().var_is_fixed_to_zero(m.var())) return;
+        
         auto* dep = c().lra.get_bound_constraint_witnesses_for_column(fixed_to_zero);
         TRACE("nla_solver", tout << "propagate fixed " << m << " =  0, fixed_to_zero = " << fixed_to_zero << "\n";);
         c().lra.update_column_type_and_bound(m.var(), lp::lconstraint_kind::EQ, rational(0), dep);
@@ -348,6 +346,8 @@ namespace nla {
     }
 
     void monomial_bounds::propagate_fixed(monic const& m, rational const& k) {
+        if (c().var_is_fixed_to_val(m.var(), k)) return;
+        
         auto* dep = explain_fixed(m, k);
         TRACE("nla_solver", tout << "propagate fixed " << m << " = " << k << "\n";);
         c().lra.update_column_type_and_bound(m.var(), lp::lconstraint_kind::EQ, k, dep);
