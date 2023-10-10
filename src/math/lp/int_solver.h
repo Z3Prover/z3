@@ -44,10 +44,6 @@ class int_solver {
         int_solver&         lia;
         lar_solver&         lra;
         lar_core_solver&    lrac;
-        unsigned            m_patch_success = 0;
-        unsigned            m_patch_fail = 0;
-        unsigned            m_num_ones = 0;
-        unsigned            m_num_divides = 0;
     public:
         patcher(int_solver& lia);
         bool should_apply() const { return true; }

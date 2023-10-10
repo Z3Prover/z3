@@ -194,7 +194,6 @@ namespace smt {
             m_trail.push_back(info(st, v, p));
         if (m_on_clause_eh) 
             m_on_clause_eh(m_on_clause_ctx, p, 0, nullptr, v.size(), v.data());
-        static unsigned s_count = 0;
         
         if (m_has_log) {
             init_pp_out();
