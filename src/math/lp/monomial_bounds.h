@@ -24,6 +24,7 @@ namespace nla {
         bool propagate_value(dep_interval& range, lpvar v, unsigned power);
         void compute_product(unsigned start, monic const& m, scoped_dep_interval& i);
         bool propagate(monic const& m);
+        void propagate_fixed_to_zero(monic const& m, lpvar fixed_to_zero);
         void propagate_fixed(monic const& m, rational const& k);
         void propagate_nonfixed(monic const& m, rational const& k, lpvar w);
         u_dependency* explain_fixed(monic const& m, rational const& k);
@@ -35,8 +36,8 @@ namespace nla {
 
         // monomial propagation
         void unit_propagate(monic & m);
-        bool is_linear(monic const& m);
-        rational fixed_var_product(monic const& m);
+        bool is_linear(monic const& m, lpvar& w, lpvar & fixed_to_zero);
+        rational fixed_var_product(monic const& m, lpvar w);
         lpvar non_fixed_var(monic const& m);
     public:
         monomial_bounds(core* core);

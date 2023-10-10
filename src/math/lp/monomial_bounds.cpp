@@ -305,8 +305,8 @@ namespace nla {
     void monomial_bounds::unit_propagate(monic & m) {
         if (m.is_propagated())
             return;
-
-        if (!is_linear(m)) {
+        lpvar w, fixed_to_zero;
+        if (!is_linear(m, w, fixed_to_zero)) {
 #if UNIT_PROPAGATE_BOUNDS
             propagate(m);
 #endif            
@@ -315,12 +315,16 @@ namespace nla {
 
         c().emons().set_propagated(m);
 
-        rational k = fixed_var_product(m);
-        lpvar w = non_fixed_var(m);
-        if (w == null_lpvar || k == 0)
-            propagate_fixed(m, k);
-        else
-            propagate_nonfixed(m, k, w);
+        if (fixed_to_zero != null_lpvar) {
+            propagate_fixed_to_zero(m, fixed_to_zero);
+        } 
+        else {
+            rational k = fixed_var_product(m, w);
+            if (w == null_lpvar)
+                propagate_fixed(m, k);
+            else
+                propagate_nonfixed(m, k, w);
+        }
         ++c().lra.settings().stats().m_nla_propagate_eq;
     }
 
@@ -332,13 +336,19 @@ namespace nla {
             exp.add_pair(d, mpq(1));
         return exp;
     }
+    
+    void monomial_bounds::propagate_fixed_to_zero(monic const& m, lpvar fixed_to_zero) {
+        auto* dep = c().lra.get_bound_constraint_witnesses_for_column(fixed_to_zero);
+        TRACE("nla_solver", tout << "propagate fixed " << m << " =  0, fixed_to_zero = " << fixed_to_zero << "\n";);
+        c().lra.update_column_type_and_bound(m.var(), lp::lconstraint_kind::EQ, rational(0), dep);
+        
+        // propagate fixed equality
+        auto exp = get_explanation(dep);        
+        c().add_fixed_equality(c().lra.column_to_reported_index(m.var()), rational(0), exp);
+    }
 
     void monomial_bounds::propagate_fixed(monic const& m, rational const& k) {
         auto* dep = explain_fixed(m, k);
-        if (!c().lra.is_base(m.var())) {
-            lp::impq val(k);
-            c().lra.set_value_for_nbasic_column(m.var(), val);
-        }
         TRACE("nla_solver", tout << "propagate fixed " << m << " = " << k << "\n";);
         c().lra.update_column_type_and_bound(m.var(), lp::lconstraint_kind::EQ, k, dep);
         
@@ -385,24 +395,31 @@ namespace nla {
     }
 
     
-    bool monomial_bounds::is_linear(monic const& m) {
-        unsigned non_fixed = 0;
+    bool monomial_bounds::is_linear(monic const& m, lpvar& w, lpvar & fixed_to_zero) {
+        w = fixed_to_zero = null_lpvar;
         for (lpvar v : m) {
-            if (!c().var_is_fixed(v))
-                ++non_fixed;
-            else if (c().val(v).is_zero())
+            if (!c().var_is_fixed(v)) {
+                if (w != null_lpvar)
+                    return false;
+                w = v;
+            }
+            else if (c().get_lower_bound(v).is_zero()) {
+                fixed_to_zero = v;
                 return true;
+            }
         }
-        return non_fixed <= 1;
+        return true;
     }
     
     
-    rational monomial_bounds::fixed_var_product(monic const& m) {
+    rational monomial_bounds::fixed_var_product(monic const& m, lpvar w) {
         rational r(1);
         for (lpvar v : m) {
             //  we have to use the column bounds here, because the column value may be outside the bounds
-            if (c().var_is_fixed(v))
-                r *= c().lra.get_lower_bound(v).x;            
+            if (v != w ){
+                SASSERT(c().var_is_fixed(v));
+                r *= c().lra.get_lower_bound(v).x;
+            }
         }
         return r;
     }
