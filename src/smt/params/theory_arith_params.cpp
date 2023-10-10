@@ -39,6 +39,7 @@ void theory_arith_params::updt_params(params_ref const & _p) {
     m_nl_arith_propagate_linear_monomials = p.arith_nl_propagate_linear_monomials();
     m_nl_arith_optimize_bounds = p.arith_nl_optimize_bounds();
     m_nl_arith_cross_nested = p.arith_nl_cross_nested();
+    m_nl_arith_internal_bounds = p.arith_nl_internal_bounds();
 
     arith_rewriter_params ap(_p);
     m_arith_eq2ineq = ap.eq2ineq();
@@ -95,4 +96,5 @@ void theory_arith_params::display(std::ostream & out) const {
     DISPLAY_PARAM(m_nl_arith_propagate_linear_monomials);
     DISPLAY_PARAM(m_nl_arith_optimize_bounds);
     DISPLAY_PARAM(m_nl_arith_cross_nested);
+    DISPLAY_PARAM(m_nl_arith_internal_bounds);
 }

@@ -2113,7 +2113,6 @@ public:
     bool propagate_core() {
         m_model_is_initialized = false;
         flush_bound_axioms();
-        // disabled in master:
         propagate_nla(); 
         if (ctx().inconsistent())
             return true;
@@ -3175,14 +3174,13 @@ public:
                   ctx().display_detailed_literal(tout << ctx().get_assign_level(c.var()) << " " << c << " ", c) << "\n";              
               for (auto e : m_eqs) 
                   tout << pp(e.first, m) << " = " << pp(e.second, m) << "\n";
-              tout << " ==> ";
-              tout << pp(x, m) << " = " << pp(y, m) << "\n";
+              tout << " ==> " << pp(x, m) << " = " << pp(y, m) << "\n";
               );
         
         std::function<expr*(void)> fn = [&]() { return m.mk_eq(x->get_expr(), y->get_expr()); };
         scoped_trace_stream _sts(th, fn);
 
-        //VERIFY(validate_eq(x, y));
+        // VERIFY(validate_eq(x, y));
         ctx().assign_eq(x, y, eq_justification(js));
     }
     
@@ -3291,11 +3289,11 @@ public:
               tout << "lemma scope: " << ctx().get_scope_level();
               for (auto const& p : m_params) tout << " " << p;
               tout << "\n";
-              display_evidence(tout, m_explanation);
-              display(tout << "is-conflict: " << is_conflict << "\n"););
+              display_evidence(tout, m_explanation););
         for (auto ev : m_explanation) 
             set_evidence(ev.ci(), m_core, m_eqs);
 
+        SASSERT(!m_core.empty() || !m_eqs.empty());
         
         // SASSERT(validate_conflict(m_core, m_eqs));
         if (is_conflict) {
@@ -3517,7 +3515,7 @@ public:
         cancel_eh<reslimit> eh(m.limit());
         scoped_timer timer(1000, &eh);
         bool result = l_true != nctx.check();
-        CTRACE("arith", !result, ctx().display_lemma_as_smt_problem(tout, core.size(), core.data(), eqs.size(), eqs.data(), false_literal););
+        CTRACE("arith", !result, ctx().display_lemma_as_smt_problem(tout, core.size(), core.data(), eqs.size(), eqs.data(), false_literal););        
         return result;
     }
 

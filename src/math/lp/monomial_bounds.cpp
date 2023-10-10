@@ -58,44 +58,70 @@ namespace nla {
             auto const& upper = dep.upper(range);
             auto cmp = dep.upper_is_open(range) ? llc::LT : llc::LE;
             ++c().lra.settings().stats().m_nla_propagate_bounds;
-#if UNIT_PROPAGATE_BOUNDS
-            auto* d = dep.get_upper_dep(range);
-            c().lra.update_column_type_and_bound(v, cmp, upper, d);
-#else
-            lp::explanation ex;
-            dep.get_upper_dep(range, ex);
-            if (is_too_big(upper))
-                return false;
-            new_lemma lemma(c(), "propagate value - upper bound of range is below value");
-            lemma &= ex;
-            lemma |= ineq(v, cmp, upper); 
-            TRACE("nla_solver", dep.display(tout << c().val(v) << " > ", range) << "\n" << lemma << "\n";);
-#endif
+            if (c().params().arith_nl_internal_bounds()) {
+                auto* d = dep.get_upper_dep(range);
+                TRACE("arith", tout << "upper " << cmp << " " << upper << "\n");
+                propagate_bound(v, cmp, upper, d);
+            }
+            else {
+                lp::explanation ex;
+                dep.get_upper_dep(range, ex);
+                if (is_too_big(upper))
+                    return false;
+                new_lemma lemma(c(), "propagate value - upper bound of range is below value");
+                lemma &= ex;
+                lemma |= ineq(v, cmp, upper); 
+                TRACE("nla_solver", dep.display(tout << c().val(v) << " > ", range) << "\n" << lemma << "\n";);
+            }
             return true;
         }
         else if (dep.is_above(range, val)) {
             auto const& lower = dep.lower(range);
             auto cmp = dep.lower_is_open(range) ? llc::GT : llc::GE;
             ++c().lra.settings().stats().m_nla_propagate_bounds;
-#if UNIT_PROPAGATE_BOUNDS
-            auto* d = dep.get_lower_dep(range);
-            c().lra.update_column_type_and_bound(v, cmp, lower, d);            
-#else
-            lp::explanation ex;
-            dep.get_lower_dep(range, ex);
-            if (is_too_big(lower))
-                return false;
-            new_lemma lemma(c(), "propagate value - lower bound of range is above value");
-            lemma &= ex;
-            lemma |= ineq(v, cmp, lower); 
-            TRACE("nla_solver", dep.display(tout << c().val(v) << " < ", range) << "\n" << lemma << "\n";);
-#endif
+            if (c().params().arith_nl_internal_bounds()) {
+                auto* d = dep.get_lower_dep(range);
+                propagate_bound(v, cmp, lower, d);
+                TRACE("arith", tout << v << " " << cmp << " " << lower << "\n");
+            }
+            else {
+                lp::explanation ex;
+                dep.get_lower_dep(range, ex);
+                if (is_too_big(lower))
+                    return false;
+                new_lemma lemma(c(), "propagate value - lower bound of range is above value");
+                lemma &= ex;
+                lemma |= ineq(v, cmp, lower); 
+                TRACE("nla_solver", dep.display(tout << c().val(v) << " < ", range) << "\n" << lemma << "\n";);
+            }
             return true;
         }
         else {
             return false;
         }
     }
+
+    /**
+     * Ensure that bounds are integral when the variable is integer.
+     */
+    void monomial_bounds::propagate_bound(lpvar v, lp::lconstraint_kind cmp, rational const& q, u_dependency* d) {
+        SASSERT(cmp != llc::EQ && cmp != llc::NE);
+        if (!c().var_is_int(v))
+            c().lra.update_column_type_and_bound(v, cmp, q, d);
+        else if (q.is_int()) {
+            if (cmp == llc::GT)
+                c().lra.update_column_type_and_bound(v, llc::GE, q + 1, d);
+            else if(cmp == llc::LT)
+                c().lra.update_column_type_and_bound(v, llc::LE, q - 1, d);
+            else
+                c().lra.update_column_type_and_bound(v, cmp, q, d);
+        }
+        else if (cmp == llc::GE || cmp == llc::GT) 
+            c().lra.update_column_type_and_bound(v, llc::GE, ceil(q), d);
+        else
+            c().lra.update_column_type_and_bound(v, llc::LE, floor(q), d);
+    }
+
 
     /**
      * val(v)^p should be in range.
@@ -129,28 +155,30 @@ namespace nla {
                 if ((p % 2 == 1) || val_v.is_pos()) {
                     ++c().lra.settings().stats().m_nla_propagate_bounds;
                     auto le = dep.upper_is_open(range) ? llc::LT : llc::LE;
-#if UNIT_PROPAGATE_BOUNDS
-                    auto* d = dep.get_upper_dep();
-                    c().lra.update_column_type_and_bound(v, le, r, d);
-#else
-                    new_lemma lemma(c(), "propagate value - root case - upper bound of range is below value");
-                    lemma &= ex;
-                    lemma |= ineq(v, le, r);
-#endif
+                    if (c().params().arith_nl_internal_bounds()) {
+                        auto* d = dep.get_upper_dep(range);
+                        propagate_bound(v, le, r, d);
+                    }
+                    else {
+                        new_lemma lemma(c(), "propagate value - root case - upper bound of range is below value");
+                        lemma &= ex;
+                        lemma |= ineq(v, le, r);
+                    }
                     return true;
                 }
                 if (p % 2 == 0 && val_v.is_neg()) {
                     ++c().lra.settings().stats().m_nla_propagate_bounds;
                     SASSERT(!r.is_neg());
                     auto ge = dep.upper_is_open(range) ? llc::GT : llc::GE;
-#if UNIT_PROPAGATE_BOUNDS
-                    auto* d = dep.get_upper_dep();
-                    c().lra.update_column_type_and_bound(v, ge, -r, d);
-#else
-                    new_lemma lemma(c(), "propagate value - root case - upper bound of range is below negative value");
-                    lemma &= ex;
-                    lemma |= ineq(v, ge, -r);
-#endif
+                    if (c().params().arith_nl_internal_bounds()) {
+                        auto* d = dep.get_upper_dep(range);
+                        propagate_bound(v, ge, -r, d);
+                    }
+                    else {
+                        new_lemma lemma(c(), "propagate value - root case - upper bound of range is below negative value");
+                        lemma &= ex;
+                        lemma |= ineq(v, ge, -r);
+                    }
                     return true;
                 }
             }
@@ -306,10 +334,11 @@ namespace nla {
         if (m.is_propagated())
             return;
         lpvar w, fixed_to_zero;
-        if (!is_linear(m, w, fixed_to_zero)) {
-#if UNIT_PROPAGATE_BOUNDS
-            propagate(m);
-#endif            
+
+        if (!is_linear(m)) {
+            if (c().params().arith_nl_internal_bounds()) {
+                propagate(m);
+            }  
             return;
         }
 

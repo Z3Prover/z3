@@ -172,7 +172,8 @@ namespace lp {
 
     lia_move int_solver::check(lp::explanation * e) {
         SASSERT(lra.ax_is_correct());
-        if (!has_inf_int()) return lia_move::sat;
+        if (!has_inf_int())
+            return lia_move::sat;
 
         m_t.clear();
         m_k.reset();
@@ -181,7 +182,8 @@ namespace lp {
         m_upper = false;
         lia_move r = lia_move::undef;
 
-        if (m_gcd.should_apply()) r = m_gcd();
+        if (m_gcd.should_apply())
+            r = m_gcd();
 
         check_return_helper pc(lra);
 
@@ -297,7 +299,6 @@ namespace lp {
     bool int_solver::should_find_cube() {
         return m_number_of_calls % settings().m_int_find_cube_period == 0;
     }
-
 
     bool int_solver::should_gomory_cut() {
         return m_number_of_calls % settings().m_int_gomory_cut_period == 0;
