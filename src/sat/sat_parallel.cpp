@@ -5,7 +5,7 @@ Module Name:
 
     sat_parallel.cpp
 
-    Abstract:
+Abstract:
 
     Utilities for parallel SAT solving.
 
@@ -260,15 +260,13 @@ namespace sat {
 
     bool parallel::copy_solver(solver& s) {
         bool copied = false;
-        {
-            lock_guard lock(m_mux);
-            m_consumer_ready = true;
-            if (m_solver_copy && s.m_clauses.size() > m_solver_copy->m_clauses.size()) {
-                s.copy(*m_solver_copy, true);
-                copied = true;
-                m_num_clauses = s.m_clauses.size();
-            }
-        }        
+        lock_guard lock(m_mux);
+        m_consumer_ready = true;
+        if (m_solver_copy && s.m_clauses.size() > m_solver_copy->m_clauses.size()) {
+            s.copy(*m_solver_copy, true);
+            copied = true;
+            m_num_clauses = s.m_clauses.size();
+        }
         return copied;
     }
     
