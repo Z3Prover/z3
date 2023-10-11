@@ -130,12 +130,15 @@ struct mbp_basic_tg::impl {
                 for (auto a1 : *c) {
                     for (auto a2 : *c) {
                         if (a1 == a2) continue;
-                        if (m_mdl.are_equal(a1, a2)) {
+                        expr_ref e(m.mk_eq(a1, a2), m);
+                        if (m_mdl.is_true(e)) {
                             m_tg.add_eq(a1, a2);
                             eq = true;
                             break;
-                        } else
+                        } else {
+                            SASSERT(m_mdl.is_false(e));
                             m_tg.add_deq(a1, a2);
+                        }
                     }
                 }
                 if (eq)

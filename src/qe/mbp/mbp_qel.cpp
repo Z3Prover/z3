@@ -181,7 +181,8 @@ public:
         std::function<bool(expr *)> non_core = [&](expr *e) {
             if (is_app(e) && is_partial_eq(to_app(e)))
                 return true;
-            if (m.is_ite(e) || m.is_or(e) || m.is_implies(e) || m.is_and(e) || m.is_distinct(e))
+            if (m.is_ite(e) || m.is_or(e) || m.is_implies(e) ||
+                m.is_distinct(e))
                 return true;
             return red_vars.is_marked(e);
         };
