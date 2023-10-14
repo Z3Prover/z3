@@ -58,40 +58,28 @@ namespace nla {
             auto const& upper = dep.upper(range);
             auto cmp = dep.upper_is_open(range) ? llc::LT : llc::LE;
             ++c().lra.settings().stats().m_nla_propagate_bounds;
-            if (c().params().arith_nl_internal_bounds()) {
-                auto* d = dep.get_upper_dep(range);
-                propagate_bound(v, cmp, upper, d);
-            }
-            else {
-                lp::explanation ex;
-                dep.get_upper_dep(range, ex);
-                if (is_too_big(upper))
-                    return false;
-                new_lemma lemma(c(), "propagate value - upper bound of range is below value");
-                lemma &= ex;
-                lemma |= ineq(v, cmp, upper); 
-                TRACE("nla_solver", dep.display(tout << c().val(v) << " > ", range) << "\n" << lemma << "\n";);
-            }
+            lp::explanation ex;
+            dep.get_upper_dep(range, ex);
+            if (is_too_big(upper))
+                return false;
+            new_lemma lemma(c(), "propagate value - upper bound of range is below value");
+            lemma &= ex;
+            lemma |= ineq(v, cmp, upper); 
+            TRACE("nla_solver", dep.display(tout << c().val(v) << " > ", range) << "\n" << lemma << "\n";);
             propagated = true;           
         }
         if (should_propagate_lower(range, v, 1)) {
             auto const& lower = dep.lower(range);
             auto cmp = dep.lower_is_open(range) ? llc::GT : llc::GE;
             ++c().lra.settings().stats().m_nla_propagate_bounds;
-            if (c().params().arith_nl_internal_bounds()) {
-                auto* d = dep.get_lower_dep(range);
-                propagate_bound(v, cmp, lower, d);
-            }
-            else {
-                lp::explanation ex;
-                dep.get_lower_dep(range, ex);
-                if (is_too_big(lower))
-                    return false;
-                new_lemma lemma(c(), "propagate value - lower bound of range is above value");
-                lemma &= ex;
-                lemma |= ineq(v, cmp, lower); 
-                TRACE("nla_solver", dep.display(tout << c().val(v) << " < ", range) << "\n" << lemma << "\n";);
-            }
+            lp::explanation ex;
+            dep.get_lower_dep(range, ex);
+            if (is_too_big(lower))
+                return false;
+            new_lemma lemma(c(), "propagate value - lower bound of range is above value");
+            lemma &= ex;
+            lemma |= ineq(v, cmp, lower); 
+            TRACE("nla_solver", dep.display(tout << c().val(v) << " < ", range) << "\n" << lemma << "\n";);
             propagated = true;
         }
         return propagated;
@@ -196,19 +184,11 @@ namespace nla {
                 // v = -2, [-1,+1]^2 < v^2 -> add bound v >= -1
                 ++c().lra.settings().stats().m_nla_propagate_bounds;
                 auto le = dep.upper_is_open(range) ? llc::LT : llc::LE;
-                if (c().params().arith_nl_internal_bounds()) {
-                    auto* d = dep.get_upper_dep(range);
-                    if (p % 2 == 0)
-                        d = dep.mk_join(d, c().lra.get_column_upper_bound_witness(v));
-                    propagate_bound(v, le, r, d);
-                }
-                else {
-                    new_lemma lemma(c(), "propagate value - root case - upper bound of range is below value");
-                    lemma &= ex;
-                    if (p % 2 == 0)
-                        lemma.explain_existing_upper_bound(v);
-                    lemma |= ineq(v, le, r);
-                }
+                new_lemma lemma(c(), "propagate value - root case - upper bound of range is below value");
+                lemma &= ex;
+                if (p % 2 == 0)
+                    lemma.explain_existing_upper_bound(v);
+                lemma |= ineq(v, le, r);                
                 return true;
             }
         }
@@ -227,19 +207,6 @@ namespace nla {
                 ++c().lra.settings().stats().m_nla_propagate_bounds;
                 auto ge = dep.lower_is_open(range) ? llc::GT : llc::GE;
                 auto le = dep.lower_is_open(range) ? llc::LT : llc::LE;
-                if (c().params().arith_nl_internal_bounds()) {
-                    if (rational(dep.lower(range)).is_neg() || p % 2 == 1) {
-                        auto* d = dep.get_lower_dep(range);
-                        propagate_bound(v, ge, r, d);
-                        return true;
-                    }
-                    if (c().get_lower_bound(v) >= 0) {
-                        auto* d = dep.get_lower_dep(range);
-                        d = dep.mk_join(d, c().lra.get_column_lower_bound_witness(v));
-                        propagate_bound(v, ge, r, d);
-                        return true;
-                    }
-                }
                 lp::explanation ex;
                 dep.get_lower_dep(range, ex);
                 new_lemma lemma(c(), "propagate value - root case - lower bound of range is above value");

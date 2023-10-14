@@ -108,8 +108,6 @@ struct theory_arith_params {
     bool                    m_nl_arith_propagate_linear_monomials = true;
     bool                    m_nl_arith_optimize_bounds = true;
     bool                    m_nl_arith_cross_nested = true;
-    bool                    m_nl_arith_internal_bounds = false;
-
 
     theory_arith_params(params_ref const & p = params_ref()) {
         updt_params(p);
