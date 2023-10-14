@@ -44,7 +44,7 @@ inline bool compare(const std::pair<mpq, var_index> & a, const std::pair<mpq, va
 class ul_pair {
     u_dependency* m_lower_bound_witness = nullptr;
     u_dependency* m_upper_bound_witness = nullptr;
-    bool                   m_associated_with_row = false;  
+    bool          m_associated_with_row = false;  
 public:
     // TODO - seems more straight-forward to just expose ul_pair as a struct with direct access to attributes.
     
@@ -62,8 +62,8 @@ public:
 
     bool operator==(const ul_pair & p) const {
         return m_lower_bound_witness == p.m_lower_bound_witness
-            && m_upper_bound_witness == p.m_upper_bound_witness &&
-            m_associated_with_row == p.m_associated_with_row;
+            && m_upper_bound_witness == p.m_upper_bound_witness 
+            && m_associated_with_row == p.m_associated_with_row;
     }
     // empty constructor
     ul_pair() {}

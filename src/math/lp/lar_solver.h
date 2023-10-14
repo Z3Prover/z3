@@ -42,6 +42,7 @@
 #include "util/debug.h"
 #include "util/stacked_value.h"
 #include "util/vector.h"
+#include "util/trail.h"
 
 namespace lp {
 
@@ -74,6 +75,7 @@ class lar_solver : public column_namer {
     };
 
     //////////////////// fields //////////////////////////
+    trail_stack m_trail;
     lp_settings m_settings;
     lp_status m_status = lp_status::UNKNOWN;
     stacked_value<simplex_strategy_enum> m_simplex_strategy;
@@ -85,7 +87,8 @@ class lar_solver : public column_namer {
     bool m_need_register_terms = false;
     var_register m_var_register;
     var_register m_term_register;
-    stacked_vector<ul_pair> m_columns_to_ul_pairs;
+    struct add_column;
+    svector<ul_pair> m_columns_to_ul_pairs;
     constraint_set m_constraints;
     // the set of column indices j such that bounds have changed for j
     indexed_uint_set m_columns_with_changed_bounds;
@@ -240,7 +243,6 @@ class lar_solver : public column_namer {
 
     void remove_last_column_from_basis_tableau(unsigned j);
     void remove_last_column_from_tableau();
-    void pop_tableau(unsigned old_size);
     void clean_inf_heap_of_r_solver_after_pop();
     inline bool column_value_is_integer(unsigned j) const { return get_column_value(j).is_int(); }
     bool model_is_int_feasible() const;
@@ -393,6 +395,7 @@ class lar_solver : public column_namer {
     inline column_index to_column_index(unsigned v) const { return column_index(external_to_column_index(v)); }
     bool external_is_used(unsigned) const;
     void pop(unsigned k);
+    unsigned num_scopes() const { return m_term_count.stack_size(); }
     bool compare_values(var_index j, lconstraint_kind kind, const mpq& right_side);
     var_index add_term(const vector<std::pair<mpq, var_index>>& coeffs, unsigned ext_i);
     void register_existing_terms();
@@ -503,7 +506,7 @@ class lar_solver : public column_namer {
         if (tv::is_term(j)) {
             j = m_var_register.external_to_local(j);
         }
-        return m_columns_to_ul_pairs()[j].upper_bound_witness();
+        return m_columns_to_ul_pairs[j].upper_bound_witness();
     }
 
     inline const impq& get_upper_bound(column_index j) const {
@@ -591,7 +594,7 @@ class lar_solver : public column_namer {
         if (tv::is_term(j)) {
             j = m_var_register.external_to_local(j);
         }
-        return m_columns_to_ul_pairs()[j].lower_bound_witness();
+        return m_columns_to_ul_pairs[j].lower_bound_witness();
     }
 
     inline tv column2tv(column_index const& c) const {

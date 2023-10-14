@@ -2021,7 +2021,6 @@ public:
     final_check_status check_nla_continue() {
         m_a1 = nullptr; m_a2 = nullptr;
         lbool r = m_nla->check();
-
         switch (r) {
         case l_false:
             add_lemmas();
@@ -3293,9 +3292,8 @@ public:
         for (auto ev : m_explanation) 
             set_evidence(ev.ci(), m_core, m_eqs);
 
-        SASSERT(!m_core.empty() || !m_eqs.empty());
         
-        // SASSERT(validate_conflict(m_core, m_eqs));
+        // VERIFY(validate_conflict(m_core, m_eqs));
         if (is_conflict) {
             ctx().set_conflict(
                 ctx().mk_justification(
@@ -3509,6 +3507,8 @@ public:
 
     bool validate_conflict(literal_vector const& core, svector<enode_pair> const& eqs) {
         if (params().m_arith_mode != arith_solver_id::AS_NEW_ARITH) return true;
+
+        VERIFY(!m_core.empty() || !m_eqs.empty());
         scoped_arith_mode _sa(ctx().get_fparams());
         context nctx(m, ctx().get_fparams(), ctx().get_params());
         add_background(nctx);

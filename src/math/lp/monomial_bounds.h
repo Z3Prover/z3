@@ -17,6 +17,8 @@ namespace nla {
     class monomial_bounds : common {
         dep_intervals& dep;
 
+        bool should_propagate_lower(dep_interval const& range, lpvar v, unsigned p);
+        bool should_propagate_upper(dep_interval const& range, lpvar v, unsigned p);
         void propagate_bound(lpvar v, lp::lconstraint_kind cmp, rational const& q, u_dependency* d);
         void var2interval(lpvar v, scoped_dep_interval& i);
         bool is_too_big(mpq const& q) const;
@@ -34,6 +36,7 @@ namespace nla {
         void analyze_monomial(monic const& m, unsigned& num_free, lpvar& free_v, unsigned& power) const;
         bool is_free(lpvar v) const;
         bool is_zero(lpvar v) const;
+        bool add_lemma();
 
         // monomial propagation
         void unit_propagate(monic & m);

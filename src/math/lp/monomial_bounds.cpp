@@ -12,8 +12,6 @@
 #include "math/lp/nla_intervals.h"
 #include "math/lp/numeric_pair.h"
 
-#define UNIT_PROPAGATE_BOUNDS 0
-
 namespace nla {
 
     monomial_bounds::monomial_bounds(core* c):
@@ -21,15 +19,16 @@ namespace nla {
         dep(c->m_intervals.get_dep_intervals()) {}
 
     void monomial_bounds::propagate() {
-        for (lpvar v : c().m_to_refine) 
+        for (lpvar v : c().m_to_refine) {
             propagate(c().emon(v));
+            if (add_lemma()) 
+                break;
+        }
     }
-
 
     bool monomial_bounds::is_too_big(mpq const& q) const {
         return rational(q).bitsize() > 256;
     }
-
 
     /**
      * Accumulate product of variables in monomial starting at position 'start'
@@ -53,8 +52,9 @@ namespace nla {
      * a bounds axiom.
      */
     bool monomial_bounds::propagate_value(dep_interval& range, lpvar v) {
-        auto val = c().val(v);
-        if (dep.is_below(range, val)) {
+        // auto val = c().val(v);
+        bool propagated = false;
+        if (should_propagate_upper(range, v, 1)) {
             auto const& upper = dep.upper(range);
             auto cmp = dep.upper_is_open(range) ? llc::LT : llc::LE;
             ++c().lra.settings().stats().m_nla_propagate_bounds;
@@ -72,9 +72,9 @@ namespace nla {
                 lemma |= ineq(v, cmp, upper); 
                 TRACE("nla_solver", dep.display(tout << c().val(v) << " > ", range) << "\n" << lemma << "\n";);
             }
-            return true;
+            propagated = true;           
         }
-        else if (dep.is_above(range, val)) {
+        if (should_propagate_lower(range, v, 1)) {
             auto const& lower = dep.lower(range);
             auto cmp = dep.lower_is_open(range) ? llc::GT : llc::GE;
             ++c().lra.settings().stats().m_nla_propagate_bounds;
@@ -92,11 +92,45 @@ namespace nla {
                 lemma |= ineq(v, cmp, lower); 
                 TRACE("nla_solver", dep.display(tout << c().val(v) << " < ", range) << "\n" << lemma << "\n";);
             }
-            return true;
+            propagated = true;
         }
-        else {
+        return propagated;
+    }
+
+    bool monomial_bounds::should_propagate_lower(dep_interval const& range, lpvar v, unsigned p) {
+        if (dep.lower_is_inf(range))
             return false;
-        }
+        u_dependency* d = nullptr;
+        rational bound;
+        bool is_strict;
+        if (!c().has_lower_bound(v, d, bound, is_strict))
+            return true;
+        auto const& lower = dep.lower(range);
+        if (p > 1)
+            bound = power(bound, p);
+        if (bound < lower)
+            return true;
+        if (bound > lower)
+            return false;
+        return !is_strict && dep.lower_is_open(range);
+    }
+
+    bool monomial_bounds::should_propagate_upper(dep_interval const& range, lpvar v, unsigned p) {
+        if (dep.upper_is_inf(range))
+            return false;
+        u_dependency* d = nullptr;
+        rational bound;
+        bool is_strict;
+        if (!c().has_upper_bound(v, d, bound, is_strict))
+            return true;
+        auto const& upper = dep.upper(range);
+        if (p > 1)
+            bound = power(bound, p);
+        if (bound > upper)
+            return true;
+        if (bound < upper)
+            return false;
+        return !is_strict && dep.upper_is_open(range);
     }
 
     /**
@@ -135,68 +169,86 @@ namespace nla {
         SASSERT(p > 0);
         if (p == 1) 
             return propagate_value(range, v);
-        auto val_v = c().val(v);
-        auto val = power(val_v, p);
         rational r;
-        if (dep.is_below(range, val)) {
+        if (should_propagate_upper(range, v, p)) {  // v.upper^p > range.upper
+            SASSERT(c().has_upper_bound(v));
             lp::explanation ex;
             dep.get_upper_dep(range, ex);
+            // p even, range.upper < 0, v^p >= 0 -> infeasible
             if (p % 2 == 0 && rational(dep.upper(range)).is_neg()) {
                 ++c().lra.settings().stats().m_nla_propagate_bounds;
                 new_lemma lemma(c(), "range requires a non-negative upper bound");
                 lemma &= ex;
                 return true;
             }
-            else if (rational(dep.upper(range)).root(p, r)) {
-                // v = -2, [-4,-3]^3 < v^3 -> add bound v <= -3
-                // v = -2, [-1,+1]^2 < v^2 -> add bound v >= -1                
-                if ((p % 2 == 1) || val_v.is_pos()) {
-                    ++c().lra.settings().stats().m_nla_propagate_bounds;
-                    auto le = dep.upper_is_open(range) ? llc::LT : llc::LE;
-                    if (c().params().arith_nl_internal_bounds()) {
-                        auto* d = dep.get_upper_dep(range);
-                        propagate_bound(v, le, r, d);
-                    }
-                    else {
-                        new_lemma lemma(c(), "propagate value - root case - upper bound of range is below value");
-                        lemma &= ex;
-                        lemma |= ineq(v, le, r);
-                    }
-                    return true;
-                }
-                if (p % 2 == 0 && val_v.is_neg()) {
-                    ++c().lra.settings().stats().m_nla_propagate_bounds;
-                    SASSERT(!r.is_neg());
-                    auto ge = dep.upper_is_open(range) ? llc::GT : llc::GE;
-                    if (c().params().arith_nl_internal_bounds()) {
-                        auto* d = dep.get_upper_dep(range);
-                        propagate_bound(v, ge, -r, d);
-                    }
-                    else {
-                        new_lemma lemma(c(), "propagate value - root case - upper bound of range is below negative value");
-                        lemma &= ex;
-                        lemma |= ineq(v, ge, -r);
-                    }
-                    return true;
-                }
-            }
-            // TBD: add bounds as long as difference to val is above some epsilon.
-        }
-        else if (dep.is_above(range, val)) {
-            if (rational(dep.lower(range)).root(p, r)) {
+            // v.upper < 0, but v^p > range.upper -> infeasible.
+            if (p % 2 == 0 && c().get_upper_bound(v) < 0) {
                 ++c().lra.settings().stats().m_nla_propagate_bounds;
-                lp::explanation ex;
-                dep.get_lower_dep(range, ex);
-                auto ge = dep.lower_is_open(range) ? llc::GT : llc::GE;
-                auto le = dep.lower_is_open(range) ? llc::LT : llc::LE;
-                new_lemma lemma(c(), "propagate value - root case - lower bound of range is above value");
+                new_lemma lemma(c(), "range requires a non-negative upper bound");
                 lemma &= ex;
-                lemma |= ineq(v, ge, r); 
-                if (p % 2 == 0) 
-                    lemma |= ineq(v, le, -r);                 
+                lemma.explain_existing_upper_bound(v);
                 return true;
             }
-            // TBD: add bounds as long as difference to val is above some epsilon.
+            SASSERT(p % 2 == 1 || c().get_upper_bound(v) >= 0);
+
+            if (rational(dep.upper(range)).root(p, r)) {
+                // v = -2, [-4,-3]^3 < v^3 -> add bound v <= -3
+                // v = -2, [-1,+1]^2 < v^2 -> add bound v >= -1
+                ++c().lra.settings().stats().m_nla_propagate_bounds;
+                auto le = dep.upper_is_open(range) ? llc::LT : llc::LE;
+                if (c().params().arith_nl_internal_bounds()) {
+                    auto* d = dep.get_upper_dep(range);
+                    if (p % 2 == 0)
+                        d = dep.mk_join(d, c().lra.get_column_upper_bound_witness(v));
+                    propagate_bound(v, le, r, d);
+                }
+                else {
+                    new_lemma lemma(c(), "propagate value - root case - upper bound of range is below value");
+                    lemma &= ex;
+                    if (p % 2 == 0)
+                        lemma.explain_existing_upper_bound(v);
+                    lemma |= ineq(v, le, r);
+                }
+                return true;
+            }
+        }
+
+        if (should_propagate_lower(range, v, p)) { // v.lower^p < range.lower
+            //
+            // range.lower < 0 -> v.lower >= root(p, range.lower)
+            // range.lower >= 0, p odd -> v.lower >= root(p, range.lower)
+            // range.lower >= 0, p even, v.lower >= 0 -> v.lower >= root(p, range.lower)
+            // default:
+            //    v.lower >= root(p, range.lower) || (p even & v.upper <= -root(p, range.lower))
+            // 
+            // pre-condition: p even -> range.lower >= 0
+            //  
+            if (rational(dep.lower(range)).root(p, r)) {
+                ++c().lra.settings().stats().m_nla_propagate_bounds;
+                auto ge = dep.lower_is_open(range) ? llc::GT : llc::GE;
+                auto le = dep.lower_is_open(range) ? llc::LT : llc::LE;
+                if (c().params().arith_nl_internal_bounds()) {
+                    if (rational(dep.lower(range)).is_neg() || p % 2 == 1) {
+                        auto* d = dep.get_lower_dep(range);
+                        propagate_bound(v, ge, r, d);
+                        return true;
+                    }
+                    if (c().get_lower_bound(v) >= 0) {
+                        auto* d = dep.get_lower_dep(range);
+                        d = dep.mk_join(d, c().lra.get_column_lower_bound_witness(v));
+                        propagate_bound(v, ge, r, d);
+                        return true;
+                    }
+                }
+                lp::explanation ex;
+                dep.get_lower_dep(range, ex);
+                new_lemma lemma(c(), "propagate value - root case - lower bound of range is above value");
+                lemma &= ex;
+                lemma |= ineq(v, ge, r);
+                if (p % 2 == 0)
+                    lemma |= ineq(v, le, -r);
+                return true;                
+            }
         }
         return false;
     }
@@ -316,16 +368,21 @@ namespace nla {
                 continue;
             monic& m = c().emon(v);
             unit_propagate(m);
-            if (c().lra.get_status() == lp::lp_status::INFEASIBLE) {
-                lp::explanation exp;
-                c().lra.get_infeasibility_explanation(exp);
-                new_lemma lemma(c(), "propagate fixed - infeasible lra");
-                lemma &= exp;
+            if (add_lemma()) 
                 break;
-            }
             if (c().m_conflicts > 0) 
                 break;
         }   
+    }
+
+    bool monomial_bounds::add_lemma() {
+        if (c().lra.get_status() != lp::lp_status::INFEASIBLE)
+            return false;
+        lp::explanation exp;
+        c().lra.get_infeasibility_explanation(exp);
+        new_lemma lemma(c(), "propagate fixed - infeasible lra");
+        lemma &= exp;
+        return true;
     }
 
     void monomial_bounds::unit_propagate(monic & m) {
@@ -333,11 +390,8 @@ namespace nla {
             return;
         lpvar w, fixed_to_zero;
 
-        if (!is_linear(m, w, fixed_to_zero)) {
-            if (c().params().arith_nl_internal_bounds()) 
-                propagate(m);
+        if (!is_linear(m, w, fixed_to_zero)) 
             return;
-        }
 
         c().emons().set_propagated(m);
 
