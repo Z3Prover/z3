@@ -161,18 +161,28 @@ namespace nla {
                 return true;
             }
 
-            if (rational(dep.upper(range)).root(p, r) && (p % 2 == 1 || c().has_upper_bound(v))) {
-                SASSERT(p % 2 == 1 || c().get_upper_bound(v) >= 0);
+            if (rational(dep.upper(range)).root(p, r)) {
                 // v = -2, [-4,-3]^3 < v^3 -> add bound v <= -3
                 // v = -2, [-1,+1]^2 < v^2 -> add bound v >= -1
-                ++c().lra.settings().stats().m_nla_propagate_bounds;
-                auto le = dep.upper_is_open(range) ? llc::LT : llc::LE;
-                new_lemma lemma(c(), "propagate value - root case - upper bound of range is below value");
-                lemma &= ex;
-                if (p % 2 == 0)
-                    lemma.explain_existing_upper_bound(v);
-                lemma |= ineq(v, le, r);                
-                return true;
+
+                if ((p % 2 == 1) || c().val(v).is_pos()) {
+                    ++c().lra.settings().stats().m_nla_propagate_bounds;
+                    auto le = dep.upper_is_open(range) ? llc::LT : llc::LE;
+                    new_lemma lemma(c(), "propagate value - root case - upper bound of range is below value");
+                    lemma &= ex;
+                    lemma |= ineq(v, le, r);
+                    return true;
+                }
+
+                if (p % 2 == 0 && c().val(v).is_neg()) {
+                    ++c().lra.settings().stats().m_nla_propagate_bounds;
+                    SASSERT(!r.is_neg());
+                    auto ge = dep.upper_is_open(range) ? llc::GT : llc::GE;
+                    new_lemma lemma(c(), "propagate value - root case - upper bound of range is below negative value");
+                    lemma &= ex;
+                    lemma |= ineq(v, ge, -r);
+                    return true;
+                }
             }
         }
 
