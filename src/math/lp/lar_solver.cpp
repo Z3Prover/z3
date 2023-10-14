@@ -230,8 +230,6 @@ namespace lp {
         m_crossed_bounds_column = null_lpvar;
         m_crossed_bounds_deps = nullptr;
         m_mpq_lar_core_solver.push();
-        m_term_count = m_terms.size();
-        m_term_count.push();
         m_constraints.push();
         m_usage_in_terms.push();
         m_dependencies.push_scope();
@@ -267,14 +265,11 @@ namespace lp {
         lp_assert(m_mpq_lar_core_solver.m_r_solver.m_costs.size() == A_r().column_count());
         lp_assert(m_mpq_lar_core_solver.m_r_solver.m_basis.size() == A_r().row_count());
         lp_assert(m_mpq_lar_core_solver.m_r_solver.basis_heading_is_correct());
-
         lp_assert(A_r().column_count() == n);
         TRACE("lar_solver_details", for (unsigned j = 0; j < n; j++) print_column_info(j, tout) << "\n";);
 
         m_mpq_lar_core_solver.pop(k);
         remove_non_fixed_from_fixed_var_table();
-        clean_popped_elements(n, m_columns_with_changed_bounds);
-        clean_popped_elements(n, m_incorrect_columns);
 
         for (auto rid : m_row_bounds_to_replay)
             add_touched_row(rid);
@@ -288,14 +283,6 @@ namespace lp {
             m_mpq_lar_core_solver.m_r_solver.reduced_costs_are_correct_tableau());
 
         m_constraints.pop(k);
-        m_term_count.pop(k);
-        for (unsigned i = m_term_count; i < m_terms.size(); i++) {
-            if (m_need_register_terms)
-                deregister_normalized_term(*m_terms[i]);
-            delete m_terms[i];
-        }
-        m_term_register.shrink(m_term_count);
-        m_terms.resize(m_term_count);
         m_simplex_strategy.pop(k);
         m_settings.set_simplex_strategy(m_simplex_strategy);
         lp_assert(sizes_are_correct());
@@ -1473,12 +1460,30 @@ namespace lp {
         return j;
     }
 
-    struct lar_solver::add_column : public trail {
+    struct lar_solver::undo_add_column : public trail {
         lar_solver& s;
-        add_column(lar_solver& s) : s(s) {}
+        undo_add_column(lar_solver& s) : s(s) {}
         virtual void undo() {
             s.remove_last_column_from_tableau();            
             s.m_columns_to_ul_pairs.pop_back();
+            unsigned j = s.m_columns_to_ul_pairs.size();
+            if (s.m_columns_with_changed_bounds.contains(j))
+                s.m_columns_with_changed_bounds.remove(j);
+            if (s.m_incorrect_columns.contains(j))
+                s.m_incorrect_columns.remove(j);
+        }
+    };
+
+    struct lar_solver::undo_add_term : public trail {
+        lar_solver& s;
+        undo_add_term(lar_solver& s):s(s) {}
+        void undo() override {
+            auto* t = s.m_terms.back();
+            if (s.m_need_register_terms)
+                s.deregister_normalized_term(*t);
+            delete t;
+            s.m_terms.pop_back();
+            s.m_term_register.shrink(s.m_terms.size());
         }
     };
 
@@ -1492,7 +1497,7 @@ namespace lp {
         lp_assert(m_columns_to_ul_pairs.size() == A_r().column_count());
         local_j = A_r().column_count();
         m_columns_to_ul_pairs.push_back(ul_pair(false)); // not associated with a row
-        m_trail.push(add_column(*this));
+        m_trail.push(undo_add_column(*this));
         while (m_usage_in_terms.size() <= ext_j) 
             m_usage_in_terms.push_back(0);
         add_non_basic_var_to_core_fields(ext_j, is_int);
@@ -1575,8 +1580,10 @@ namespace lp {
         return false;
     }
 #endif
+    
     void lar_solver::push_term(lar_term* t) {
         m_terms.push_back(t);
+        m_trail.push(undo_add_term(*this));
     }
 
     // terms
@@ -1645,7 +1652,7 @@ namespace lp {
         unsigned j = A_r().column_count();
         ul_pair ul(true); // to mark this column as associated_with_row
         m_columns_to_ul_pairs.push_back(ul);
-        m_trail.push(add_column(*this));
+        m_trail.push(undo_add_column(*this));
         add_basic_var_to_core_fields();
          
         A_r().fill_last_row_with_pivoting(*term,

@@ -52,7 +52,7 @@ namespace nla {
      * a bounds axiom.
      */
     bool monomial_bounds::propagate_value(dep_interval& range, lpvar v) {
-        // auto val = c().val(v);
+        
         bool propagated = false;
         if (should_propagate_upper(range, v, 1)) {
             auto const& upper = dep.upper(range);
@@ -88,37 +88,21 @@ namespace nla {
     bool monomial_bounds::should_propagate_lower(dep_interval const& range, lpvar v, unsigned p) {
         if (dep.lower_is_inf(range))
             return false;
-        u_dependency* d = nullptr;
-        rational bound;
-        bool is_strict;
-        if (!c().has_lower_bound(v, d, bound, is_strict))
-            return true;
+        auto bound = c().val(v);
         auto const& lower = dep.lower(range);
         if (p > 1)
             bound = power(bound, p);
-        if (bound < lower)
-            return true;
-        if (bound > lower)
-            return false;
-        return !is_strict && dep.lower_is_open(range);
+        return bound < lower;
     }
 
     bool monomial_bounds::should_propagate_upper(dep_interval const& range, lpvar v, unsigned p) {
         if (dep.upper_is_inf(range))
             return false;
-        u_dependency* d = nullptr;
-        rational bound;
-        bool is_strict;
-        if (!c().has_upper_bound(v, d, bound, is_strict))
-            return true;
+        auto bound = c().val(v);
         auto const& upper = dep.upper(range);
         if (p > 1)
             bound = power(bound, p);
-        if (bound > upper)
-            return true;
-        if (bound < upper)
-            return false;
-        return !is_strict && dep.upper_is_open(range);
+        return bound > upper;
     }
 
     /**

@@ -87,7 +87,6 @@ class lar_solver : public column_namer {
     bool m_need_register_terms = false;
     var_register m_var_register;
     var_register m_term_register;
-    struct add_column;
     svector<ul_pair> m_columns_to_ul_pairs;
     constraint_set m_constraints;
     // the set of column indices j such that bounds have changed for j
@@ -103,7 +102,6 @@ class lar_solver : public column_namer {
     indexed_uint_set m_incorrect_columns;
     // copy of m_r_solver.inf_heap()
     unsigned_vector m_inf_index_copy;
-    stacked_value<unsigned> m_term_count;
     vector<lar_term*> m_terms;
     indexed_vector<mpq> m_column_buffer;
     std::unordered_map<lar_term, std::pair<mpq, unsigned>, term_hasher, term_comparer>
@@ -118,6 +116,10 @@ class lar_solver : public column_namer {
     // the set of fixed variables which are also base variables
     indexed_uint_set                                   m_fixed_base_var_set;
     // end of fields
+
+    ////////////////// nested structs /////////////////////////
+    struct undo_add_column;
+    struct undo_add_term;
 
     ////////////////// methods ////////////////////////////////
 
@@ -395,7 +397,7 @@ class lar_solver : public column_namer {
     inline column_index to_column_index(unsigned v) const { return column_index(external_to_column_index(v)); }
     bool external_is_used(unsigned) const;
     void pop(unsigned k);
-    unsigned num_scopes() const { return m_term_count.stack_size(); }
+    unsigned num_scopes() const { return m_trail.get_num_scopes(); }
     bool compare_values(var_index j, lconstraint_kind kind, const mpq& right_side);
     var_index add_term(const vector<std::pair<mpq, var_index>>& coeffs, unsigned ext_i);
     void register_existing_terms();
