@@ -36,8 +36,10 @@ namespace euf {
         }
         m_expr2enode.setx(f->get_id(), n, nullptr);
         push_node(n);
-        for (unsigned i = 0; i < num_args; ++i) 
-            set_cgc_enabled(args[i], true);                             
+        for (unsigned i = 0; i < num_args; ++i) {
+            set_cgc_enabled(args[i], true);      
+            args[i]->get_root()->set_is_shared(l_undef);
+        }                       
         return n;
     }
 
