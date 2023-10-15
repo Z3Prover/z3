@@ -407,6 +407,9 @@ namespace arith {
         bool  check_delayed_eqs();
         lbool check_lia();
         lbool check_nla();
+        void add_lemmas();
+        void propagate_nla();
+        void add_equality(lpvar v, rational const& k, lp::explanation const& exp);
         bool is_infeasible() const;
 
         nlsat::anum const& nl_value(theory_var v, scoped_anum& r) const;
@@ -463,7 +466,6 @@ namespace arith {
         void set_evidence(lp::constraint_index idx);
         void assign(literal lit, literal_vector const& core, svector<enode_pair> const& eqs, euf::th_proof_hint const* pma);
 
-        void assume_literals();
         sat::literal mk_ineq_literal(nla::ineq const& ineq);
         void false_case_of_check_nla(const nla::lemma& l);        
         void dbg_finalize_model(model& mdl);

@@ -83,6 +83,7 @@ namespace arith {
 
         m_new_eq = false;
         flush_bound_axioms();
+        propagate_nla();
 
         unsigned qhead = m_asserted_qhead;
         while (m_asserted_qhead < m_asserted.size() && !s().inconsistent() && m.inc()) {
@@ -299,6 +300,22 @@ namespace arith {
     void solver::consume(rational const& v, lp::constraint_index j) {
         set_evidence(j);
         m_explanation.add_pair(j, v);
+    }
+
+    void solver::add_equality(lpvar j, rational const& k, lp::explanation const& exp) {
+        TRACE("arith", tout << "equality " << j << " " << k << "\n");
+        theory_var v;
+        if (k == 1)
+            v = m_one_var;
+        else if (k == 0)
+            v = m_zero_var;
+        else if (!m_value2var.find(k, v))
+            return;
+        theory_var w = lp().local_to_external(j);
+        if (w < 0)
+            return;
+        lpvar i = register_theory_var_in_lar_solver(v);
+        add_eq(i, j, exp, true);
     }
 
     bool solver::add_eq(lpvar u, lpvar v, lp::explanation const& e, bool is_fixed) {
@@ -1414,14 +1431,6 @@ namespace arith {
             core.push_back(~mk_ineq_literal(ineq));
         set_conflict_or_lemma(hint_type::nla_h, core, false);
     }
-
-    void solver::assume_literals() {
-        for (auto const& ineq : m_nla->literals()) {
-            auto lit = mk_ineq_literal(ineq);
-            ctx.mark_relevant(lit);
-            s().set_phase(lit);
-        }
-    }
     
     sat::literal solver::mk_ineq_literal(nla::ineq const& ineq) {
         bool is_lower = true, sign = true, is_eq = false;
@@ -1462,9 +1471,7 @@ namespace arith {
         lbool r = m_nla->check();
         switch (r) {
         case l_false:
-            assume_literals();
-            for (const nla::lemma& l : m_nla->lemmas())
-                false_case_of_check_nla(l);
+            add_lemmas();
             break;
         case l_true:
             if (assume_eqs())
@@ -1474,6 +1481,30 @@ namespace arith {
             break;
         }
         return r;
+    }
+
+    void solver::add_lemmas() {
+        for (auto const& ineq : m_nla->literals()) {
+            auto lit = mk_ineq_literal(ineq);
+            ctx.mark_relevant(lit);
+            s().set_phase(lit);
+        }
+        for (const nla::lemma& l : m_nla->lemmas())
+            false_case_of_check_nla(l);
+        if (!propagate_eqs()) 
+            return;
+        for (auto const& [v,k,e] : m_nla->fixed_equalities())
+            add_equality(v, k, e);
+        for (auto const& [i,j,e] : m_nla->equalities())
+            add_eq(i,j,e,false);
+    }
+
+    void solver::propagate_nla() {
+        if (m_nla) {
+            m_nla->propagate();
+            add_lemmas();
+            lp().collect_more_rows_for_lp_propagation();
+        }
     }
 
     void solver::get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector& r, bool probing) {

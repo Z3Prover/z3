@@ -2173,7 +2173,6 @@ public:
     }
 
     void add_equality(lpvar j, rational const& k, lp::explanation const& exp) {
-        //verbose_stream() << "equality " << j << " " << k << "\n";
         TRACE("arith", tout << "equality " << j << " " << k << "\n");
         theory_var v;
         if (k == 1)
