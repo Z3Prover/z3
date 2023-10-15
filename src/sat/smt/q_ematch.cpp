@@ -578,11 +578,10 @@ namespace q {
         TRACE("q", tout << "add " << mk_pp(_q, m) << "\n");
         scoped_ptr<clause> c = clausify(_q);
         quantifier* q = c->q();
-        if (m_q2clauses.contains(q)) {
+        if (m_q2clauses.contains(q)) 
             return;
-        }
         ensure_ground_enodes(*c);
-        m_clauses.push_back(c.detach());
+        m_clauses.push_back(c.get());
         m_q2clauses.insert(q, c->index());
         ctx.push(pop_clause(*this));
         init_watch(*c);
@@ -613,6 +612,7 @@ namespace q {
             if (!unary)
                 j++;
         }
+        c.detach();
     }
 
 
