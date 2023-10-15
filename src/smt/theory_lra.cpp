@@ -1648,6 +1648,7 @@ public:
                 break;
             }
             
+
             switch (check_nla()) {
             case FC_DONE:
                 break;
