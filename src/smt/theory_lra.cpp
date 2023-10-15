@@ -1635,7 +1635,7 @@ public:
         switch (is_sat) {
         case l_true:
             TRACE("arith", display(tout));            
-            
+                
             switch (check_lia()) {
             case FC_DONE:
                 break;
@@ -1647,7 +1647,6 @@ public:
                     st = FC_CONTINUE;
                 break;
             }
-            
 
             switch (check_nla()) {
             case FC_DONE:
@@ -1658,7 +1657,7 @@ public:
                 TRACE("arith", tout << "check-nra giveup\n";);
                 st = FC_GIVEUP;
                 break;
-            }
+            }                        
                         
             if (assume_eqs()) {
                 ++m_stats.m_assume_eqs;
@@ -1970,9 +1969,6 @@ public:
         }
         if (!check_idiv_bounds())
             return FC_CONTINUE;
-
-        if (assume_eqs())
-            return FC_CONTINUE;
         
         return FC_DONE;
     }
@@ -2027,7 +2023,7 @@ public:
             add_lemmas();
             return FC_CONTINUE;
         case l_true:
-            return assume_eqs()? FC_CONTINUE: FC_DONE;
+            return FC_DONE;
         default:
             return FC_GIVEUP;
         }
