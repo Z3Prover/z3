@@ -486,7 +486,7 @@ namespace q {
      * basic clausifier, assumes q has been normalized.
      */
     clause* ematch::clausify(quantifier* _q) {
-        clause* cl = alloc(clause, m, m_clauses.size());
+        scoped_ptr<clause> cl = alloc(clause, m, m_clauses.size());
         cl->m_literal = ctx.mk_literal(_q);
         quantifier_ref q(_q, m);
         q = m_qs.flatten(q);
@@ -514,7 +514,7 @@ namespace q {
         unsigned generation = nq ? nq->generation() : ctx.generation();
         cl->m_stat = m_qstat_gen(_q, generation);
         SASSERT(ctx.s().value(cl->m_literal) == l_true);
-        return cl;
+        return cl.detach();
     }
 
     lit ematch::clausify_literal(expr* arg) {
