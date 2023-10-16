@@ -38,9 +38,14 @@ namespace nra {
         lbool check();
 
         /**
-           \breif Check feasibility of equalities modulo bounds constraints on their variables.
+           \brief Check feasibility of equalities modulo bounds constraints on their variables.
          */
         lbool check(vector<dd::pdd> const& eqs);
+
+        /**
+           \brief Check if equality is tight.
+        */
+        lbool check_tight(const dd::pdd& eq);
 
         /*
           \brief determine whether nra check is needed.

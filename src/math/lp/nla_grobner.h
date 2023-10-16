@@ -41,6 +41,9 @@ namespace nla {
         bool propagate_factorization(const dd::solver::equation& eq);
                 
         void add_dependencies(new_lemma& lemma, const dd::solver::equation& eq);
+        void explain(const dd::solver::equation& eq, lp::explanation& exp);
+
+        void check_missing_propagation(const dd::solver::equation& eq);
 
         // setup
         void configure();

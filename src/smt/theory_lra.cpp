@@ -2158,7 +2158,6 @@ public:
         if (m_nla) {
             m_nla->propagate();
             add_lemmas();
-            add_equalities();
             lp().collect_more_rows_for_lp_propagation();
         }
     }
@@ -2193,6 +2192,7 @@ public:
             assume_literal(i); 
         for (const nla::lemma & l : m_nla->lemmas()) 
             false_case_of_check_nla(l);
+        add_equalities();
     }
 
     bool should_propagate() const {
