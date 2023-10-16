@@ -421,6 +421,8 @@ namespace polysat {
         m_dedup.m_quot_rem_expr.insert(args, { q.var(), r.var() });
         m_dedup.m_div_rem_list.push_back({ a, b, q.var(), r.var() });
 
+        LOG("quot_rem(" << a << ", " << b << ") = (" << q << ", " << r << ")");
+
         // Axioms for quotient/remainder:
         //      a = b*q + r
         //      multiplication does not overflow in b*q
@@ -443,8 +445,10 @@ namespace polysat {
 #endif
 
         auto c_eq = eq(b);
-        s.add_clause("[axiom] quot_rem 4", {  c_eq, ult(r, b)  }, false);
-        s.add_clause("[axiom] quot_rem 5", { ~c_eq, eq(q + 1)  }, false);
+        if (!c_eq.is_always_true())
+            s.add_clause("[axiom] quot_rem 4", {  c_eq, ult(r, b)  }, false);
+        if (!c_eq.is_always_false())
+            s.add_clause("[axiom] quot_rem 5", { ~c_eq, eq(q + 1)  }, false);
 
         return {std::move(q), std::move(r)};
     }

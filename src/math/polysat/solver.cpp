@@ -1387,9 +1387,9 @@ namespace polysat {
 
     clause_ref solver::mk_clause(char const* name, unsigned n, signed_constraint const* cs, bool is_redundant) {
         clause_builder cb(*this, name);
+        cb.set_redundant(is_redundant);
         for (unsigned i = 0; i < n; ++i)
             cb.insert(cs[i]);
-        cb.set_redundant(is_redundant);
         return cb.build();
     }
 
