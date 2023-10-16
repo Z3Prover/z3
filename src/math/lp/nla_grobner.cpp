@@ -36,7 +36,7 @@ namespace nla {
         if (m_quota == 0)
             m_quota = c().params().arith_nl_gr_q();                    
 
-        if (false && m_quota == 1)
+        if (m_quota == 1)
             return;
 
         lp_settings().stats().m_grobner_calls++;
