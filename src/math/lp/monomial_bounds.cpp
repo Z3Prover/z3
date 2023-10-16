@@ -152,14 +152,6 @@ namespace nla {
                 lemma &= ex;
                 return true;
             }
-            // v.upper < 0, but v^p > range.upper -> infeasible.
-            if (p % 2 == 0 && c().has_upper_bound(v) && c().get_upper_bound(v) < 0) {
-                ++c().lra.settings().stats().m_nla_propagate_bounds;
-                new_lemma lemma(c(), "range requires a non-negative upper bound");
-                lemma &= ex;
-                lemma.explain_existing_upper_bound(v);
-                return true;
-            }
 
             if (rational(dep.upper(range)).root(p, r)) {
                 // v = -2, [-4,-3]^3 < v^3 -> add bound v <= -3
