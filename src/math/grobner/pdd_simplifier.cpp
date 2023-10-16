@@ -89,7 +89,7 @@ namespace dd {
 
     bool simplifier::simplify_linear_step(bool binary) {
         TRACE("dd.solver", tout << "binary " << binary << "\n";);
-        IF_VERBOSE(2, verbose_stream() << "binary " << binary << "\n");
+        IF_VERBOSE(3, verbose_stream() << "binary " << binary << "\n");
         equation_vector linear;
         for (equation* e : s.m_to_simplify) {
             pdd p = e->poly();
@@ -184,7 +184,7 @@ namespace dd {
      */
     bool simplifier::simplify_cc_step() {
         TRACE("dd.solver", tout << "cc\n";);
-        IF_VERBOSE(2, verbose_stream() << "cc\n");
+        IF_VERBOSE(3, verbose_stream() << "cc\n");
         u_map<equation*> los;
         bool reduced = false;
         unsigned j = 0;
@@ -217,7 +217,7 @@ namespace dd {
     */
     bool simplifier::simplify_leaf_step() {
         TRACE("dd.solver", tout << "leaf\n";);
-        IF_VERBOSE(2, verbose_stream() << "leaf\n");
+        IF_VERBOSE(3, verbose_stream() << "leaf\n");
         use_list_t use_list = get_use_list();
         equation_vector leaves;
         for (unsigned i = 0; i < s.m_to_simplify.size(); ++i) {
@@ -262,7 +262,7 @@ namespace dd {
     */
     bool simplifier::simplify_elim_pure_step() {
         TRACE("dd.solver", tout << "pure\n";);
-        IF_VERBOSE(2, verbose_stream() << "pure\n");
+        IF_VERBOSE(3, verbose_stream() << "pure\n");
         use_list_t use_list = get_use_list();        
         unsigned j = 0;
         for (equation* e : s.m_to_simplify) {

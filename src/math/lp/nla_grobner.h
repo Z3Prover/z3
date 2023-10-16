@@ -43,6 +43,8 @@ namespace nla {
         void add_dependencies(new_lemma& lemma, const dd::solver::equation& eq);
         void explain(const dd::solver::equation& eq, lp::explanation& exp);
 
+        bool is_nla_conflict(const dd::solver::equation& eq);
+        bool add_nla_conflict(const dd::solver::equation& eq);
         void check_missing_propagation(const dd::solver::equation& eq);
 
         // setup

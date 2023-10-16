@@ -36,7 +36,7 @@ namespace nla {
         if (m_quota == 0)
             m_quota = c().params().arith_nl_gr_q();                    
 
-        if (m_quota == 1)
+        if (false && m_quota == 1)
             return;
 
         lp_settings().stats().m_grobner_calls++;
@@ -316,7 +316,11 @@ namespace nla {
                       c().m_intervals.display(tout << "j" << j << " ", a); tout << " ";
                   }
                   tout << "\n");
-        
+            
+#if 0
+            if (add_nla_conflict(e)) 
+                return true;
+#endif
             return false;
         }
         eval.get_interval<dd::w_dep::with_deps>(e.poly(), i_wd);  
@@ -329,6 +333,10 @@ namespace nla {
             return true;
         }
         else {
+#if 0
+            if (add_nla_conflict(e)) 
+                return true;
+#endif
             TRACE("grobner", m_solver.display(tout << "no conflict ", e) << "\n");
             return false;
         }
@@ -567,14 +575,30 @@ namespace nla {
         tout << "\n");
     }
 
-    void grobner::check_missing_propagation(const dd::solver::equation& e) { 
+    bool grobner::is_nla_conflict(const dd::solver::equation& eq) {
         vector<dd::pdd> eqs;
-        eqs.push_back(e.poly());
-        lbool r = c().m_nra.check(eqs);
-        CTRACE("grobner", r == l_false, m_solver.display(tout << "missed conflict ", e););
-        if (r != l_true) 
+        eqs.push_back(eq.poly());
+        return l_false == c().m_nra.check(eqs);
+    }
+
+    bool grobner::add_nla_conflict(const dd::solver::equation& eq) {
+        if (is_nla_conflict(eq)) {
+            new_lemma lemma(m_core,"nla-conflict");
+            lp::explanation exp;
+            explain(eq, exp);
+            lemma &= exp;
+            return true;
+        }
+        return false;
+    }
+
+
+    void grobner::check_missing_propagation(const dd::solver::equation& e) { 
+        bool is_confl = is_nla_conflict(e);
+        CTRACE("grobner", is_confl, m_solver.display(tout << "missed conflict ", e););
+        if (is_confl) 
             return;
-        r = c().m_nra.check_tight(e.poly());
+        lbool r = c().m_nra.check_tight(e.poly());
         CTRACE("grobner", r == l_false, m_solver.display(tout << "tight equality ", e););
     }
 
