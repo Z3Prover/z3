@@ -1443,7 +1443,6 @@ namespace arith {
         case lp::NE: is_eq = true;     sign = true;  break;
         default: UNREACHABLE();
         }
-        TRACE("arith", tout << "is_lower: " << is_lower << " sign " << sign << "\n";);
         // TBD utility: lp::lar_term term = mk_term(ineq.m_poly);
         // then term is used instead of ineq.m_term
         sat::literal lit;
@@ -1452,6 +1451,7 @@ namespace arith {
         else 
             lit = ctx.expr2literal(mk_bound(ineq.term(), ineq.rs(), is_lower));
 
+        TRACE("arith", tout << "is_lower: " << is_lower << " sign " << sign << " " << ctx.literal2expr(lit) << "\n";);
         return sign ? ~lit : lit;                                            
     }
 
@@ -1488,6 +1488,14 @@ namespace arith {
             auto lit = mk_ineq_literal(ineq);
             ctx.mark_relevant(lit);
             s().set_phase(lit);
+            // force trichotomy axiom for equality literals
+            if (ineq.cmp() == lp::EQ) {
+                nla::lemma l;
+                l.push_back(ineq);
+                l.push_back(nla::ineq(lp::LT, ineq.term(), ineq.rs()));
+                l.push_back(nla::ineq(lp::GT, ineq.term(), ineq.rs()));
+                false_case_of_check_nla(l);
+            }
         }
         for (const nla::lemma& l : m_nla->lemmas())
             false_case_of_check_nla(l);

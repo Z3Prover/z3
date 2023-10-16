@@ -563,18 +563,15 @@ bool core::var_is_fixed(lpvar j) const {
 bool core::var_is_free(lpvar j) const {
     return lra.column_is_free(j);
 }
-
     
 std::ostream & core::print_ineq(const ineq & in, std::ostream & out) const {
     lra.print_term_as_indices(in.term(), out);
-    out << " " << lconstraint_kind_string(in.cmp()) << " " << in.rs();
-    return out;
+    return out << " " << lconstraint_kind_string(in.cmp()) << " " << in.rs();
 }
 
 std::ostream & core::print_var(lpvar j, std::ostream & out) const {
-    if (is_monic_var(j)) {
+    if (is_monic_var(j)) 
         print_monic(m_emons[j], out);
-    }
         
     lra.print_column_info(j, out);
     signed_var jr = m_evars.find(j);
@@ -1524,9 +1521,11 @@ void core::add_bounds() {
         lpvar i = m_to_refine[(k + r) % sz];
         auto const& m = m_emons[i];
         for (lpvar j : m.vars()) {
-            if (!var_is_free(j)) continue;
+            if (!var_is_free(j))
+                continue;
             // split the free variable (j <= 0, or j > 0), and return
-            m_literals.push_back(ineq(j, lp::lconstraint_kind::EQ, rational::zero()));  
+            m_literals.push_back(ineq(j, lp::lconstraint_kind::EQ, rational::zero()));
+            TRACE("nla_solver", print_ineq(m_literals.back(), tout) << "\n");                  
             ++lp_settings().stats().m_nla_add_bounds;
             return;
         }
