@@ -279,7 +279,7 @@ namespace polysat {
         enode* s = alloc_slice(bit_width, v);
         m_var2slice.push_back(s);
         m_trail.push_back(trail_item::add_var);
-        LOG("add_var: v" << v << " -> " << slice_pp(*this, s));
+        LOG_V(10, "add_var: v" << v << " -> " << slice_pp(*this, s));
     }
 
     void slicing::undo_add_var() {
@@ -300,11 +300,9 @@ namespace polysat {
         return eqn;
     }
 
-#if 0
     void slicing::egraph_on_make(enode* n) {
         LOG("on_make: " << e_pp(n));
     }
-#endif
 
     slicing::enode* slicing::alloc_enode(expr* e, unsigned num_args, enode* const* args, pvar var) {
         SASSERT(!m_egraph.find(e));
@@ -351,6 +349,10 @@ namespace polysat {
         SASSERT(slice2var(s) != null_var);  // all concat nodes should point to a variable node
         SASSERT(is_app(concat->get_expr()));
         slice_info& concat_info = m_info[concat->get_id()];
+        if (s->get_root() == concat->get_root()) {
+            SASSERT_EQ(s, concat_info.slice);
+            return;
+        }
         SASSERT(!concat_info.slice);  // not yet set
         concat_info.slice = s;
         egraph_merge(s, concat, dep_t());
@@ -573,10 +575,6 @@ namespace polysat {
     void slicing::explain_class(enode* x, enode* y, ptr_vector<void>& out_deps) {
         SASSERT_EQ(x->get_root(), y->get_root());
         m_egraph.begin_explain();
-        // TODO: move the begin_explain/end_explain outside? to avoid duplicates from multiple calls.
-        //       Although that would not really help us, I think:
-        //       because we get the duplicates from traversing multiple sub-slices, which are different enodes.
-        //       What we could do is try and merge intermediate slices too (see TODO in merge).
         m_egraph.explain_eq(out_deps, nullptr, x, y);
         m_egraph.end_explain();
     }
@@ -1219,7 +1217,7 @@ namespace polysat {
             if (slices.size() == 1) {
                 enode* s = slices[0];
                 LOG("re-using slice " << slice_pp(*this, s) << " for new variable v" << v);
-                display_tree(std::cerr, s, 0, hi, lo);
+                // display_tree(std::cerr, s, 0, hi, lo);
                 SASSERT_EQ(info(s).var, null_var);
                 info(m_var2slice[v]).var = null_var;  // disconnect the "phantom" enode
                 info(s).var = v;
@@ -1326,10 +1324,8 @@ namespace polysat {
     void slicing::add_constraint(signed_constraint c) {
         LOG(c);
         SASSERT(!is_conflict());
-#if 1
         if (!add_fixed_bits(c))
             return;
-#endif
         if (c->is_eq())
             add_constraint_eq(c->to_eq(), c.blit());
     }
@@ -1380,6 +1376,7 @@ namespace polysat {
         return true;
     }
 
+    // TODO: handle equations 2^k x = 2^k y? (lower n-k bits of x and y are equal)
     bool slicing::add_equation(pvar x, pdd const& body, sat::literal lit) {
         LOG("Equation from lit(" << lit << "):  v" << x << (lit.sign() ? " != " : " = ") << body);
         if (!lit.sign() && body.is_val()) {
@@ -1390,10 +1387,13 @@ namespace polysat {
         enode* const sx = var2slice(x);
         pvar const y = m_solver.m_names.get_name(body);
         if (y == null_var) {
-            LOG("    skip for now (unnamed body, or disequality with constant)");
-            // TODO: register name trigger (if a name for value 'body' is created later, then merge x=y at that time)
-            //      could also count how often 'body' was registered and introduce name when more than once.
-            //      maybe better: register x as an existing name for 'body'? question is how to track the dependency on c.
+            if (!body.is_val()) {
+                // TODO: register name trigger (if a name for value 'body' is created later, then merge x=y at that time)
+                //      could also count how often 'body' was registered and introduce name when more than once.
+                //      maybe better: register x as an existing name for 'body'? question is how to track the dependency on c.
+                LOG("    skip for now (unnamed body)");
+            } else
+                LOG("    skip for now (disequality with constant)");
             return true;
         }
         enode* const sy = var2slice(y);
