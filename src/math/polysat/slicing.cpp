@@ -672,15 +672,20 @@ namespace polysat {
 
     clause_ref slicing::build_conflict_clause() {
         LOG_H1("slicing: build_conflict_clause");
-        // display_tree(std::cerr);
         SASSERT(invariant());
         SASSERT(is_conflict());
         SASSERT(m_marked_lits.empty());
         SASSERT(m_tmp_deps.empty());
         explain(m_tmp_deps);
         clause_builder cb(m_solver, "slicing");
-        pvar x = null_var; enode* sx = nullptr;
-        pvar y = null_var; enode* sy = nullptr;
+
+        auto add_premise = [this, &cb](sat::literal lit) {
+            LOG("Premise:    " << lit_pp(m_solver, lit));
+            cb.insert(~lit);
+        };
+
+        pvar x = null_var; enode* sx = nullptr; sat::literal xlit = sat::null_literal;
+        pvar y = null_var; enode* sy = nullptr; sat::literal ylit = sat::null_literal;
         for (void* dp : m_tmp_deps) {
             dep_t const d = dep_t::decode(dp);
             if (d.is_null())
@@ -690,158 +695,81 @@ namespace polysat {
                 if (m_marked_lits.contains(lit))
                     continue;
                 m_marked_lits.insert(lit);
-                LOG("Premise:    " << lit_pp(m_solver, lit));
-                cb.insert(~lit);
+                add_premise(lit);
             }
             else {
                 SASSERT(d.is_value());
                 pvar const v = get_dep_var(d);
                 enode* const sv = get_dep_slice(d);
+                sat::literal const lit = get_dep_lit(d);
                 if (x == null_var)
-                    x = v, sx = sv;
+                    x = v, sx = sv, xlit = lit;
                 else if (y == null_var)
-                    y = v, sy = sv;
+                    y = v, sy = sv, ylit = lit;
                 else {
                     // pvar justifications are only introduced by add_value, i.e., when a variable is assigned in the solver.
                     // thus there can be at most two pvar justifications in a single conflict.
                     UNREACHABLE();
                 }
-                sat::literal lit = get_dep_lit(d);
-                if (lit != sat::null_literal) {
-                    LOG("Premise:    " << lit_pp(m_solver, lit));
-                    cb.insert(~lit);
-                }
             }
         }
         m_marked_lits.reset();
         m_tmp_deps.reset();
-        if (x != null_var) LOG("Variable v" << x << " with slice " << slice_pp(*this, sx));
-        if (y != null_var) LOG("Variable v" << y << " with slice " << slice_pp(*this, sy));
-        // SASSERT(x != null_var || y == null_var);
-        // SASSERT(y != null_var || x == null_var);
 
-        // Algorithm 1 in BitvectorsMCSAT
-        signed_constraint c;
-        if (x == null_var) {
-            /* nothing to do */
-            SASSERT_EQ(y, null_var);
+        if (x != null_var && y != null_var && xlit == sat::null_literal && ylit != sat::null_literal) {
+            using std::swap;
+            swap(x, y);
+            swap(sx, sy);
+            swap(xlit, ylit);
         }
-        else if (y == null_var) {
-            SASSERT(get_value_node(sx));
+
+        if (x != null_var) LOG("Variable v" << x << " with slice " << slice_pp(*this, sx) << " by literal " << lit_pp(m_solver, xlit));
+        if (y != null_var) LOG("Variable v" << y << " with slice " << slice_pp(*this, sy) << " by literal " << lit_pp(m_solver, ylit));
+
+        // conflict has either 0 or 2 vars
+        SASSERT(x != null_var || y == null_var);
+        SASSERT(y != null_var || x == null_var);
+
+        signed_constraint c;
+        if (xlit != sat::null_literal && ylit != sat::null_literal) {
+            std::cout << "build_conflict_clause (2)" << std::endl;
+            add_premise(xlit);
+            add_premise(ylit);
+        }
+        else if (xlit != sat::null_literal && ylit == sat::null_literal) {
+            std::cout << "build_conflict_clause (1)" << std::endl;
+            add_premise(xlit);
             unsigned hi, lo;
-            VERIFY(find_range_in_ancestor(sx, var2slice(x), hi, lo));
-            LOG("Variable v" << x << " has solver-value " << m_solver.get_value(x));
-            LOG("Subslice v" << x << "[" << hi << ":" << lo << "] has value " << get_value(get_value_node(sx)));
-            UNREACHABLE();
-            /*
-            // the egraph has derived that x (or a sub-slice thereof) must have value b that differs from the currently assigned value of x.
-            // the explanation is:      lits ==> x[...] = b
-            enode* const xn = var2slice(x)->get_root();
-            if (false && is_value(xn)) {
-                // TODO: clause may be unsound if the premises only imply equality of subslices; may need a separate explain-query here.
-                c = m_solver.eq(m_solver.var(x), get_value(xn));
-            }
-            else {
-                // The conflict is only for a sub-slice x[hi:lo].
-                // We need to create some literal that sets the bits x[hi:lo] to b.
-                SASSERT(!is_value(xn));
-                unsigned hi, lo;
-                VERIFY(find_range_in_ancestor(sx, var2slice(x), hi, lo));
-                LOG("Variable v" << x << " has solver-value " << m_solver.get_value(x));
-                LOG("Subslice v" << x << "[" << hi << ":" << lo << "] has value " << get_value(get_value_node(sx)));
-                rational const b = get_value(get_value_node(sx));
-                // TODO: problematic case when this assertion is violated:
-                // 1. v3 := v2[0:0]
-                // 2. propagate value assignment v2 := 1 from some other constraints.
-                // 3. propagate constraint v3 == 0.
-                // In this case we want the value from the constraint v3==0 rather from sx (how to access it?)
-                // (maybe constraints like v3 == 0 should be handled more like assignments?)
-                SASSERT(b != mod2k(machine_div2k(m_solver.get_value(x), lo), hi - lo + 1));
-                if (!lo) {
-                    // x[hi:0] = b
-                    // <==>
-                    // 2^(N-1-hi) x = 2^(N-1-hi) b      where N = |x|
-                    unsigned const N = m_solver.var2pdd(x).power_of_2();
-                    rational const coeff = rational::power_of_two(N - 1 - hi);
-                    c = m_solver.eq(coeff * m_solver.var(x), coeff * b);
-                }
-                else {
-                    pvar const xx = mk_extract(x, hi, lo);
-                    SASSERT_EQ(sx->get_root(), var2slice(xx)->get_root());
-                    c = m_solver.eq(m_solver.var(xx), b);
-                    // TODO: how does this clause actually help with search?
-                    //      ==> need a constraint that will set the corresponding fixed bits of x.
-                    //          for this, we need to track/propagate fixed bits across equivalence classes.
-                    //          (could also introduce a constraint type that assigns a sub-range of a variable?)
-                    //          otherwise, we will generate tautologies in this branch.
-                }
-            }
-            */
+            VERIFY(find_range_in_ancestor(sy, var2slice(y), hi, lo));
+            pvar const yy = mk_extract(y, hi, lo);
+            SASSERT_EQ(sy->get_root(), var2slice(yy)->get_root());
+            rational const sy_slice_value = get_value(get_value_node(sy));
+            // rational const sy_solver_value = mod2k(machine_div2k(m_solver.get_value(y), lo), hi - lo + 1);
+            c = m_solver.eq(m_solver.var(yy), sy_slice_value);
+
+            NOT_IMPLEMENTED_YET();  // alert when this branch is taken (TODO: check results)
         }
         else {
-            display_tree(std::cout);
-            SASSERT(y != null_var);
-            SASSERT(x != y);
-            SASSERT(get_value_node(sx));
-            SASSERT(get_value_node(sy));
+            std::cout << "build_conflict_clause (0)" << std::endl;
+            SASSERT(xlit == sat::null_literal);
+            SASSERT(ylit == sat::null_literal);
+
             unsigned x_hi, x_lo, y_hi, y_lo;
             VERIFY(find_range_in_ancestor(sx, var2slice(x), x_hi, x_lo));
             VERIFY(find_range_in_ancestor(sy, var2slice(y), y_hi, y_lo));
-            LOG("find_range_in_ancestor: v" << x << "[" << x_hi << ":" << x_lo << "] = " << slice_pp(*this, sx) << ", slice-value " << get_value(get_value_node(sx)));
-            LOG("find_range_in_ancestor: v" << y << "[" << y_hi << ":" << y_lo << "] = " << slice_pp(*this, sy) << ", slice-value " << get_value(get_value_node(sy)));
-            if (m_solver.is_assigned(x)) {
-                rational sval = mod2k(machine_div2k(m_solver.get_value(x), x_lo), x_hi - x_lo + 1);
-                LOG("Variable v" << x << " has solver-value " << m_solver.get_value(x) << ", i.e., v" << x << "[" << x_hi << ":" << x_lo << "] = " << sval);
-            }
-            if (m_solver.is_assigned(y)) {
-                rational sval = mod2k(machine_div2k(m_solver.get_value(y), y_lo), y_hi - y_lo + 1);
-                LOG("Variable v" << y << " has solver-value " << m_solver.get_value(y) << ", i.e., v" << y << "[" << y_hi << ":" << y_lo << "] = " << sval);
-            }
+            pvar const xx = mk_extract(x, x_hi, x_lo);
+            pvar const yy = mk_extract(y, y_hi, y_lo);
+            SASSERT_EQ(sx->get_root(), var2slice(xx)->get_root());
+            SASSERT_EQ(sy->get_root(), var2slice(yy)->get_root());
+            rational sval = mod2k(machine_div2k(m_solver.get_value(x), x_lo), x_hi - x_lo + 1);
+            LOG("find_range_in_ancestor: v" << x << "[" << x_hi << ":" << x_lo << "] = " << slice_pp(*this, sx) << "   --> represented by variable v" << xx);
+            LOG("find_range_in_ancestor: v" << y << "[" << y_hi << ":" << y_lo << "] = " << slice_pp(*this, sy) << "   --> represented by variable v" << yy);
+            SASSERT(xx != yy);
+            c = m_solver.eq(m_solver.var(xx), m_solver.var(yy));  // similar to what Algorithm 1 in BitvectorsMCSAT is doing
 
-            std::abort();
-            // below is TODO
-
-
-            // LOG("Slice sx=" << slice_pp(*this, sx) << " has value " << get_value(get_value_node(sx)));
-            // LOG("Slice sy=" << slice_pp(*this, sy) << " has value " << get_value(get_value_node(sy)));
-            // the egraph has derived that x (or a subslice of x) must be equal to y (or a subslice of y),
-            // but the currently assigned values differ.
-            // the explanation is:      lits ==> x[...] = y[...]
-            if (false && is_equal(var2slice(x), var2slice(y))) {
-                // don't need to introduce subslices if the variables themselves are already equal
-                // TODO: but clause may be unsound if the premises only imply equality of subslices; may need a separate explain-query here.
-                c = m_solver.eq(m_solver.var(x), m_solver.var(y));
-            }
-            else if (sx == sy) {
-                // two assignments to the same slice but coming from different variables.
-                // TODO: this case is impossible once we properly track/propagate fixed bits on slices, because viable-with-fixed-bits will exclude conflicting values upfront.
-                //      (it is also hard and probably not useful to handle otherwise)
-
-                // we handle one special case for now
-                if (sx->get_root() == var2slice(x)->get_root() && m_solver.get_value(x) != get_value(get_value_node(var2slice(x)))) {
-                    LOG("Variable v" << x << " has solver-value " << m_solver.get_value(x) << " and slicing-value " << get_value(get_value_node(var2slice(x))));
-                    // here, the learned clause should be   y = value(y)  ==>  x = slicing-value(x)
-                    signed_constraint d = m_solver.eq(m_solver.var(y), m_solver.get_value(y));
-                    LOG("Premise:    " << lit_pp(m_solver, d));
-                    cb.insert_eval(~d);
-                    c = m_solver.eq(m_solver.var(x), get_value(get_value_node(sx)));
-                }
-            }
-            else {
-                unsigned x_hi, x_lo, y_hi, y_lo;
-                VERIFY(find_range_in_ancestor(sx, var2slice(x), x_hi, x_lo));
-                VERIFY(find_range_in_ancestor(sy, var2slice(y), y_hi, y_lo));
-                pvar const xx = mk_extract(x, x_hi, x_lo);
-                pvar const yy = mk_extract(y, y_hi, y_lo);
-                SASSERT_EQ(sx->get_root(), var2slice(xx)->get_root());
-                SASSERT_EQ(sy->get_root(), var2slice(yy)->get_root());
-                LOG("find_range_in_ancestor: v" << x << "[" << x_hi << ":" << x_lo << "] = " << slice_pp(*this, sx) << "   --> represented by variable v" << xx);
-                LOG("find_range_in_ancestor: v" << y << "[" << y_hi << ":" << y_lo << "] = " << slice_pp(*this, sy) << "   --> represented by variable v" << yy);
-                SASSERT(xx != yy);
-                c = m_solver.eq(m_solver.var(xx), m_solver.var(yy));
-            }
+            NOT_IMPLEMENTED_YET();  // alert when this branch is taken (TODO: check results)
         }
-        SASSERT(x == null_var || c);
+
         if (c) {
             LOG("Conclusion: " << lit_pp(m_solver, c));
             cb.insert_eval(c);
@@ -849,7 +777,6 @@ namespace polysat {
             LOG("Conclusion: <conflict>");
         }
 
-        std::abort();
         return cb.build();
     }
 
