@@ -1557,8 +1557,16 @@ lbool core::check() {
     if (no_effect())
         m_monomial_bounds.propagate();
 
-    if (no_effect() && improve_bounds())
-        return l_false;
+    if (no_effect()) 
+        if (improve_bounds()) {
+            if (!lra.is_feasible()) {
+                TRACE("nla_solver", tout << "infeasible\n";);
+                return l_false;
+            } 
+            this->propagate();
+
+            return l_false;
+        }
     
     {
         std::function<void(void)> check1 = [&]() { if (no_effect() && run_horner) m_horner.horner_lemmas(); };
@@ -1795,25 +1803,34 @@ void core::collect_statistics(::statistics & st) {
 }
 
 bool core::improve_bounds() {
-    return false;
-
+    if (m_bounds_improved)
+        return false;
+    trail().push(value_trail(m_bounds_improved));
+    m_bounds_improved = true;
+    
+    if (lp_settings().stats().m_bounds_improvements > 1000 || lra.settings().get_cancel_flag())
+        return false;
+    if (m_improved_bounds_quota <= 0) {
+        ++m_improved_bounds_quota;
+        return false;
+    }
     uint_set seen;
-    bool bounds_improved = false;
+    unsigned_vector js;
     auto insert = [&](lpvar v) {
         if (seen.contains(v))
             return;
         seen.insert(v);
-        if (lra.improve_bound(v, false))
-            bounds_improved = true, lp_settings().stats().m_nla_bounds_improvements++;
-        if (lra.improve_bound(v, true))
-            bounds_improved = true, lp_settings().stats().m_nla_bounds_improvements++;
+        js.push_back(v);
     };
     for (auto & m : m_emons) {
         insert(m.var());
         for (auto v : m.vars())
             insert(v);
     }
-    return bounds_improved;
+    unsigned n = lra.improve_bounds(js);
+    m_improved_bounds_quota += 2*n - js.size();
+    lp_settings().stats().m_bounds_improvements += n;
+    return n > 0;
 }
     
 void core::propagate() {

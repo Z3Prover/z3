@@ -88,6 +88,7 @@ class core {
     monomial_bounds          m_monomial_bounds;
     unsigned                 m_conflicts;
     bool                     m_check_feasible = false;
+	unsigned                 m_improved_bounds_quota = 1000;
     horner                   m_horner;
     grobner                  m_grobner;
     emonics                  m_emons;
@@ -106,6 +107,7 @@ class core {
     void add_bounds();
     // try to improve bounds for variables in monomials.
     bool improve_bounds();
+    bool m_bounds_improved = false;
 
 public:    
     // constructor

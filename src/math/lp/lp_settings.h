@@ -128,6 +128,7 @@ struct statistics {
     unsigned m_grobner_conflicts;
     unsigned m_offset_eqs;
     unsigned m_fixed_eqs;
+    unsigned m_bounds_improvements;
     statistics() { reset(); }
     void reset() { memset(this, 0, sizeof(*this)); }
     void collect_statistics(::statistics& st) const {
@@ -262,6 +263,7 @@ public:
     
     // the method of lar solver to use
     simplex_strategy_enum simplex_strategy() const { return m_simplex_strategy; }
+    simplex_strategy_enum & simplex_strategy()  { return m_simplex_strategy; }
     void set_simplex_strategy(simplex_strategy_enum s) { m_simplex_strategy = s; }
     bool use_tableau_rows() const { return m_simplex_strategy == simplex_strategy_enum::tableau_rows; }
     

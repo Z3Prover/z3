@@ -203,7 +203,10 @@ class lar_solver : public column_namer {
     bool reduced_costs_are_zeroes_for_r_solver() const;
     void set_costs_to_zero(const lar_term& term);
     void prepare_costs_for_r_solver(const lar_term& term);
-    bool maximize_term_on_corrected_r_solver(lar_term& term, impq& term_max);
+    bool maximize_term_on_feasible_r_solver(lar_term& term, impq& term_max, vector<std::pair<mpq,lpvar>>* max_coeffs);
+    std::ostream& print_explanation(std::ostream& out, const explanation& exp) const;
+    u_dependency* get_dependencies_of_maximum(const vector<std::pair<mpq,lpvar>>& max_coeffs);
+    
     void pop_core_solver_params();
     void pop_core_solver_params(unsigned k);
     void set_upper_bound_witness(var_index j, u_dependency* ci);
@@ -263,7 +266,10 @@ class lar_solver : public column_namer {
     mutable std::unordered_set<mpq> m_set_of_different_singles;
     mutable mpq m_delta;
 
+    bool improve_bound(lpvar j, bool is_lower);
+
    public:
+    unsigned improve_bounds(unsigned_vector const& js);
     // this function just looks at the status
     bool is_feasible() const;
 
@@ -301,8 +307,6 @@ class lar_solver : public column_namer {
     var_index add_named_var(unsigned ext_j, bool is_integer, const std::string&);
 
     lp_status maximize_term(unsigned j_or_term, impq& term_max);
-
-    bool improve_bound(lpvar j, bool is_lower);
 
     inline core_solver_pretty_printer<lp::mpq, lp::impq> pp(std::ostream& out) const {
         return core_solver_pretty_printer<lp::mpq, lp::impq>(m_mpq_lar_core_solver.m_r_solver, out);
