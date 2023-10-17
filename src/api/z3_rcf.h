@@ -193,8 +193,124 @@ extern "C" {
        We have that \ccode{a = n/d}, moreover \c n and \c d are not represented using rational functions.
 
        def_API('Z3_rcf_get_numerator_denominator', VOID, (_in(CONTEXT), _in(RCF_NUM), _out(RCF_NUM), _out(RCF_NUM)))
-    */
-    void Z3_API Z3_rcf_get_numerator_denominator(Z3_context c, Z3_rcf_num a, Z3_rcf_num * n, Z3_rcf_num * d);
+   */
+   void Z3_API Z3_rcf_get_numerator_denominator(Z3_context c, Z3_rcf_num a, Z3_rcf_num * n, Z3_rcf_num * d);
+
+   /**
+       \brief Return \c true if \c a represents a rational number.
+
+       def_API('Z3_rcf_is_rational', BOOL, (_in(CONTEXT), _in(RCF_NUM)))
+   */
+   bool Z3_API Z3_rcf_is_rational(Z3_context c, Z3_rcf_num a);
+
+   /**
+       \brief Return \c true if \c a represents an algebraic number.
+
+       def_API('Z3_rcf_is_algebraic', BOOL, (_in(CONTEXT), _in(RCF_NUM)))
+   */
+   bool Z3_API Z3_rcf_is_algebraic(Z3_context c, Z3_rcf_num a);
+
+   /**
+       \brief Return \c true if \c a represents an infinitesimal.
+
+       def_API('Z3_rcf_is_infinitesimal', BOOL, (_in(CONTEXT), _in(RCF_NUM)))
+   */
+   bool Z3_API Z3_rcf_is_infinitesimal(Z3_context c, Z3_rcf_num a);
+
+   /**
+       \brief Return \c true if \c a represents a transcendental number.
+
+       def_API('Z3_rcf_is_transcendental', BOOL, (_in(CONTEXT), _in(RCF_NUM)))
+   */
+   bool Z3_API Z3_rcf_is_transcendental(Z3_context c, Z3_rcf_num a);
+
+   /**
+       \brief Return the index of a field extension.
+
+      def_API('Z3_rcf_extension_index', UINT, (_in(CONTEXT), _in(RCF_NUM)))
+   */
+   unsigned Z3_API Z3_rcf_extension_index(Z3_context c, Z3_rcf_num a);
+
+   /**
+       \brief Return the name of a transcendental.
+
+       \pre Z3_rcf_is_transcendtal(ctx, a);
+
+       def_API('Z3_rcf_transcendental_name', SYMBOL, (_in(CONTEXT), _in(RCF_NUM)))
+   */
+   Z3_symbol Z3_API Z3_rcf_transcendental_name(Z3_context c, Z3_rcf_num a);
+
+    /**
+       \brief Return the name of an infinitesimal.
+
+       \pre Z3_rcf_is_infinitesimal(ctx, a);
+
+       def_API('Z3_rcf_infinitesimal_name', SYMBOL, (_in(CONTEXT), _in(RCF_NUM)))
+   */
+   Z3_symbol Z3_API Z3_rcf_infinitesimal_name(Z3_context c, Z3_rcf_num a);
+
+   /**
+       \brief Return the number of coefficients in an algebraic number.
+
+       \pre Z3_rcf_is_algebraic(ctx, a);
+
+       def_API('Z3_rcf_num_coefficients', UINT, (_in(CONTEXT), _in(RCF_NUM)))
+   */
+   unsigned Z3_API Z3_rcf_num_coefficients(Z3_context c, Z3_rcf_num a);
+
+   /**
+       \brief Extract a coefficient from an algebraic number.
+
+       \pre Z3_rcf_is_algebraic(ctx, a);
+
+       def_API('Z3_rcf_coefficient', RCF_NUM, (_in(CONTEXT), _in(RCF_NUM), _in(UINT)))
+   */
+   Z3_rcf_num Z3_API Z3_rcf_coefficient(Z3_context c, Z3_rcf_num a, unsigned i);
+
+   /**
+       \brief Extract an interval from an algebraic number.
+
+       \pre Z3_rcf_is_algebraic(ctx, a);
+
+       def_API('Z3_rcf_interval', INT, (_in(CONTEXT), _in(RCF_NUM), _out(INT), _out(INT), _out(RCF_NUM), _out(INT), _out(INT), _out(RCF_NUM)))
+   */
+   int Z3_API Z3_rcf_interval(Z3_context c, Z3_rcf_num a, int * lower_is_inf, int * lower_is_open, Z3_rcf_num * lower, int * upper_is_inf, int * upper_is_open, Z3_rcf_num * upper);
+
+   /**
+       \brief Return the number of sign conditions of an algebraic number.
+
+       \pre Z3_rcf_is_algebraic(ctx, a);
+
+       def_API('Z3_rcf_num_sign_conditions', UINT, (_in(CONTEXT), _in(RCF_NUM)))
+   */
+   unsigned Z3_API Z3_rcf_num_sign_conditions(Z3_context c, Z3_rcf_num a);
+
+   /**
+       \brief Extract the sign of a sign condition from an algebraic number.
+
+       \pre Z3_rcf_is_algebraic(ctx, a);
+
+       def_API('Z3_rcf_sign_condition_sign', INT, (_in(CONTEXT), _in(RCF_NUM), _in(UINT)))
+   */
+   int Z3_API Z3_rcf_sign_condition_sign(Z3_context c, Z3_rcf_num a, unsigned i);
+
+   /**
+       \brief Return the number of sign condition polynomial coefficients of an algebraic number.
+
+       \pre Z3_rcf_is_algebraic(ctx, a);
+
+       def_API('Z3_rcf_num_sign_condition_coefficients', UINT, (_in(CONTEXT), _in(RCF_NUM), _in(UINT)))
+   */
+   unsigned Z3_API Z3_rcf_num_sign_condition_coefficients(Z3_context c, Z3_rcf_num a, unsigned i);
+
+   /**
+       \brief Extract the j-th polynomial coefficient of the i-th sign condition.
+
+       \pre Z3_rcf_is_algebraic(ctx, a);
+
+       def_API('Z3_rcf_sign_condition_coefficient', RCF_NUM, (_in(CONTEXT), _in(RCF_NUM), _in(UINT), _in(UINT)))
+   */
+   Z3_rcf_num Z3_API Z3_rcf_sign_condition_coefficient(Z3_context c, Z3_rcf_num a, unsigned i, unsigned j);
 
     /**@}*/
     /**@}*/

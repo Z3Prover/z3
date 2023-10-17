@@ -2080,6 +2080,7 @@ struct
   type rcf_num = Z3native.rcf_num
 
   let del (ctx:context) (a:rcf_num) = Z3native.rcf_del ctx a
+  let del_list (ctx:context) (ns:rcf_num list) = List.iter (fun a -> Z3native.rcf_del ctx a) ns
   let mk_rational (ctx:context) (v:string) = Z3native.rcf_mk_rational ctx v
   let mk_small_int (ctx:context) (v:int) = Z3native.rcf_mk_small_int ctx v
 
@@ -2087,7 +2088,9 @@ struct
   let mk_e (ctx:context) = Z3native.rcf_mk_e ctx
   let mk_infinitesimal (ctx:context) = Z3native.rcf_mk_infinitesimal ctx
 
-  let mk_roots (ctx:context) (n:int) (a:rcf_num list) = let n, r = Z3native.rcf_mk_roots ctx n a in r
+  let mk_roots (ctx:context) (a:rcf_num list) =
+    let n, r = Z3native.rcf_mk_roots ctx (List.length a) a in
+    List.init n (fun x -> List.nth r x)
 
   let add (ctx:context) (a:rcf_num) (b:rcf_num) = Z3native.rcf_add ctx a b
   let sub (ctx:context) (a:rcf_num) (b:rcf_num) = Z3native.rcf_sub ctx a b
@@ -2109,6 +2112,83 @@ struct
   let num_to_string (ctx:context) (a:rcf_num) (compact:bool) (html:bool) = Z3native.rcf_num_to_string ctx a compact html
   let num_to_decimal_string (ctx:context) (a:rcf_num) (prec:int) = Z3native.rcf_num_to_decimal_string ctx a prec
   let get_numerator_denominator (ctx:context) (a:rcf_num) = Z3native.rcf_get_numerator_denominator ctx a
+
+  let is_rational (ctx:context) (a:rcf_num) = Z3native.rcf_is_rational ctx a
+  let is_algebraic (ctx:context) (a:rcf_num) = Z3native.rcf_is_algebraic ctx a
+  let is_infinitesimal (ctx:context) (a:rcf_num) = Z3native.rcf_is_infinitesimal ctx a
+  let is_transcendental (ctx:context) (a:rcf_num) = Z3native.rcf_is_transcendental ctx a
+
+  let extension_index (ctx:context) (a:rcf_num) =  Z3native.rcf_extension_index ctx a
+  let transcendental_name (ctx:context) (a:rcf_num) = Z3native.rcf_transcendental_name ctx a
+  let infinitesimal_name (ctx:context) (a:rcf_num) = Z3native.rcf_infinitesimal_name ctx a
+
+  let num_coefficients (ctx:context) (a:rcf_num) = Z3native.rcf_num_coefficients ctx a
+  let get_coefficient (ctx:context) (a:rcf_num) (i:int) = Z3native.rcf_coefficient ctx a i
+
+  let coefficients (ctx:context) (a:rcf_num) =
+    List.init (num_coefficients ctx a) (fun i -> Z3native.rcf_coefficient ctx a i)
+
+  type interval = {
+      lower_is_inf : bool;
+      lower_is_open : bool;
+      lower : rcf_num;
+      upper_is_inf : bool;
+      upper_is_open : bool;
+      upper : rcf_num;
+  }
+
+  let root_interval (ctx:context) (a:rcf_num) =
+    let ok, linf, lopen, l, uinf, uopen, u = Z3native.rcf_interval ctx a in
+    let i:interval = {
+      lower_is_inf = linf != 0;
+      lower_is_open = lopen != 0;
+      lower = l;
+      upper_is_inf = uinf != 0;
+      upper_is_open = uopen != 0;
+      upper = u } in
+    if ok != 0 then Some i else None
+
+  let sign_condition_sign (ctx:context) (a:rcf_num) (i:int) = Z3native.rcf_sign_condition_sign ctx a i
+
+  let sign_condition_coefficient (ctx:context) (a:rcf_num) (i:int) (j:int) = Z3native.rcf_sign_condition_coefficient ctx a i j
+
+  let num_sign_condition_coefficients (ctx:context) (a:rcf_num) (i:int) = Z3native.rcf_num_sign_condition_coefficients ctx a i
+
+  let sign_condition_coefficients (ctx:context) (a:rcf_num) (i:int) =
+    let n = Z3native.rcf_num_sign_condition_coefficients ctx a i in
+    List.init n (fun j -> Z3native.rcf_sign_condition_coefficient ctx a i j)
+
+  let sign_conditions (ctx:context) (a:rcf_num) =
+    let n = Z3native.rcf_num_sign_conditions ctx a in
+    List.init n (fun i ->
+      (let nc = Z3native.rcf_num_sign_condition_coefficients ctx a i in
+       List.init nc (fun j -> Z3native.rcf_sign_condition_coefficient ctx a i j)),
+      Z3native.rcf_sign_condition_sign ctx a i)
+
+  type root = {
+    obj : rcf_num;
+    polynomial : rcf_num list;
+    interval : interval option;
+    sign_conditions : (rcf_num list * int) list;
+  }
+
+  let roots (ctx:context) (a:rcf_num list) =
+      let rs = mk_roots ctx a in
+      List.map
+        (fun r -> {
+          obj = r;
+          polynomial = coefficients ctx r;
+          interval = root_interval ctx r;
+          sign_conditions = sign_conditions ctx r})
+        rs
+
+  let del_root (ctx:context) (r:root) =
+    del ctx r.obj;
+    List.iter (fun n -> del ctx n) r.polynomial;
+    List.iter (fun (ns, _) -> del_list ctx ns) r.sign_conditions
+
+  let del_roots (ctx:context) (rs:root list) =
+    List.iter (fun r -> del_root ctx r) rs
 end
 
 

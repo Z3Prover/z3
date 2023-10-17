@@ -2499,6 +2499,35 @@ namespace realclosure {
         }
 
         /**
+           \brief Return true if a is an algebraic number.
+        */
+        bool is_algebraic(numeral const & a) {
+            return is_rational_function(a) && to_rational_function(a)->ext()->is_algebraic();
+        }
+
+        /**
+           \brief Return true if a represents an infinitesimal.
+        */
+        bool is_infinitesimal(numeral const & a) {
+            return is_rational_function(a) && to_rational_function(a)->ext()->is_infinitesimal();
+        }
+
+        /**
+           \brief Return true if a is a transcendental.
+        */
+        bool is_transcendental(numeral const & a) {
+            return is_rational_function(a) && to_rational_function(a)->ext()->is_transcendental();
+        }
+
+        /**
+           \brief Return true if a is a rational.
+        */
+        bool is_rational(numeral const & a) {
+            return a.m_value->is_rational();
+        }
+
+
+        /**
            \brief Return true if a depends on infinitesimal extensions.
         */
         bool depends_on_infinitesimals(numeral const & a) const {
@@ -3329,6 +3358,151 @@ namespace realclosure {
             set(p, _p);
             set(q, _q);
         }
+
+        unsigned extension_index(numeral const & a) {
+            if (!is_rational_function(a))
+                return -1;
+            return to_rational_function(a)->ext()->idx();
+        }
+
+        symbol transcendental_name(numeral const & a) {
+            if (!is_transcendental(a))
+                return symbol();
+            return to_transcendental(to_rational_function(a)->ext())->m_name;
+        }
+
+        symbol infinitesimal_name(numeral const & a) {
+            if (!is_infinitesimal(a))
+                return symbol();
+            return to_infinitesimal(to_rational_function(a)->ext())->m_name;
+        }
+
+        unsigned num_coefficients(numeral const & a) {
+            if (!is_algebraic(a))
+                return 0;
+            return to_algebraic(to_rational_function(a)->ext())->p().size();
+        }
+
+        numeral get_coefficient(numeral const & a, unsigned i)
+        {
+            if (!is_algebraic(a))
+                return numeral();
+            algebraic * ext = to_algebraic(to_rational_function(a)->ext());
+            if (i >= ext->p().size())
+                return numeral();
+            value_ref v(*this);
+            v = ext->p()[i];
+            numeral r;
+            set(r, v);
+            return r;
+        }
+
+        unsigned num_sign_conditions(numeral const & a) {
+            unsigned r = 0;
+            if (is_algebraic(a)) {
+                algebraic * ext = to_algebraic(to_rational_function(a)->ext());
+                const sign_det * sdt = ext->sdt();
+                if (sdt) {
+                    sign_condition * sc = sdt->sc(ext->sc_idx());
+                    while (sc) {
+                        r++;
+                        sc = sc->prev();
+                    }
+                }
+            }
+            return r;
+        }
+
+        int get_sign_condition_sign(numeral const & a, unsigned i)
+        {
+            if (!is_algebraic(a))
+                return 0;
+            algebraic * ext = to_algebraic(to_rational_function(a)->ext());
+            const sign_det * sdt = ext->sdt();
+            if (!sdt)
+                return 0;
+            else {
+                sign_condition * sc = sdt->sc(ext->sc_idx());
+                while (i) {
+                    if (sc) sc = sc->prev();
+                    i--;
+                }
+                return sc ? sc->sign() : 0;
+            }
+        }
+
+        bool get_interval(numeral const & a, int & lower_is_inf, int & lower_is_open, numeral & lower, int & upper_is_inf, int & upper_is_open, numeral & upper)
+        {
+            if (!is_algebraic(a))
+                return false;
+            lower = numeral();
+            upper = numeral();
+            algebraic * ext = to_algebraic(to_rational_function(a)->ext());
+            mpbqi &ivl = ext->iso_interval();
+            lower_is_inf = ivl.lower_is_inf();
+            lower_is_open = ivl.lower_is_open();
+            if (!m_bqm.is_zero(ivl.lower()))
+                set(lower, mk_rational(ivl.lower()));
+            upper_is_inf = ivl.upper_is_inf();
+            upper_is_open = ivl.upper_is_open();
+            if (!m_bqm.is_zero(ivl.upper()))
+                set(upper, mk_rational(ivl.upper()));
+            return true;
+        }
+
+        unsigned get_sign_condition_size(numeral const &a, unsigned i) {
+            algebraic * ext = to_algebraic(to_rational_function(a)->ext());
+            const sign_det * sdt = ext->sdt();
+            if (!sdt)
+                return 0;
+            sign_condition * sc = sdt->sc(ext->sc_idx());
+            while (i) {
+                if (sc) sc = sc->prev();
+                i--;
+            }
+            return ext->sdt()->qs()[sc->qidx()].size();
+        }
+
+        int num_sign_condition_coefficients(numeral const &a, unsigned i)
+        {
+            if (!is_algebraic(a))
+                return 0;
+            algebraic * ext = to_algebraic(to_rational_function(a)->ext());
+            const sign_det * sdt = ext->sdt();
+            if (!sdt)
+                return 0;
+            sign_condition * sc = sdt->sc(ext->sc_idx());
+            while (i) {
+                if (sc) sc = sc->prev();
+                i--;
+            }
+            const polynomial & q = ext->sdt()->qs()[sc->qidx()];
+            return q.size();
+        }
+
+        numeral get_sign_condition_coefficient(numeral const &a, unsigned i, unsigned j)
+        {
+            if (!is_algebraic(a))
+                return numeral();
+            algebraic * ext = to_algebraic(to_rational_function(a)->ext());
+            const sign_det * sdt = ext->sdt();
+            if (!sdt)
+                return numeral();
+            sign_condition * sc = sdt->sc(ext->sc_idx());
+            while (i) {
+                if (sc) sc = sc->prev();
+                i--;
+            }
+            const polynomial & q = ext->sdt()->qs()[sc->qidx()];
+            if (j >= q.size())
+                return numeral();
+            value_ref v(*this);
+            v = q[j];
+            numeral r;
+            set(r, v);
+            return r;
+        }
+
 
         // ---------------------------------
         //
@@ -6103,6 +6277,22 @@ namespace realclosure {
         return m_imp->is_int(a);
     }
 
+    bool manager::is_rational(numeral const & a) {
+        return m_imp->is_rational(a);
+    }
+
+    bool manager::is_algebraic(numeral const & a) {
+        return m_imp->is_algebraic(a);
+    }
+
+    bool manager::is_infinitesimal(numeral const & a) {
+        return m_imp->is_infinitesimal(a);
+    }
+
+    bool manager::is_transcendental(numeral const & a) {
+        return m_imp->is_transcendental(a);
+    }
+
     bool manager::depends_on_infinitesimals(numeral const & a) {
         return m_imp->depends_on_infinitesimals(a);
     }
@@ -6250,6 +6440,56 @@ namespace realclosure {
     void manager::clean_denominators(numeral const & a, numeral & p, numeral & q) {
         save_interval_ctx ctx(this);
         m_imp->clean_denominators(a, p, q);
+    }
+
+    unsigned manager::extension_index(numeral const & a)
+    {
+        return m_imp->extension_index(a);
+    }
+
+    symbol manager::transcendental_name(numeral const &a)
+    {
+        return m_imp->transcendental_name(a);
+    }
+
+    symbol manager::infinitesimal_name(numeral const &a)
+    {
+        return m_imp->infinitesimal_name(a);
+    }
+
+    unsigned manager::num_coefficients(numeral const &a)
+    {
+        return m_imp->num_coefficients(a);
+    }
+
+    manager::numeral manager::get_coefficient(numeral const &a, unsigned i)
+    {
+        return m_imp->get_coefficient(a, i);
+    }
+
+    unsigned manager::num_sign_conditions(numeral const &a)
+    {
+        return m_imp->num_sign_conditions(a);
+    }
+
+    int manager::get_sign_condition_sign(numeral const &a, unsigned i)
+    {
+        return m_imp->get_sign_condition_sign(a, i);
+    }
+
+    bool manager::get_interval(numeral const & a, int & lower_is_inf, int & lower_is_open, numeral & lower, int & upper_is_inf, int & upper_is_open, numeral & upper)
+    {
+        return m_imp->get_interval(a, lower_is_inf, lower_is_open, lower, upper_is_inf, upper_is_open, upper);
+    }
+
+    unsigned manager::num_sign_condition_coefficients(numeral const &a, unsigned i)
+    {
+        return m_imp->num_sign_condition_coefficients(a, i);
+    }
+
+    manager::numeral manager::get_sign_condition_coefficient(numeral const &a, unsigned i, unsigned j)
+    {
+        return m_imp->get_sign_condition_coefficient(a, i, j);
     }
 };
 
