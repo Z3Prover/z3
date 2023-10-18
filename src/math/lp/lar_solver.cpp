@@ -363,7 +363,7 @@ namespace lp {
         vector<std::pair<mpq, unsigned>> max_coeffs;
         TRACE("lar_solver_improve_bounds", tout << "j = " << j << ", ";  print_term(term, tout << "term to maximize\n"););        
         if (!maximize_term_on_feasible_r_solver(term, bound, &max_coeffs))
-            return false;
+            return nullptr;
         u_dependency * dep = get_dependencies_of_maximum(max_coeffs);
         SASSERT(dep != nullptr);
         if (lower_bound) {
