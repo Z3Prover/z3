@@ -265,9 +265,9 @@ class lar_solver : public column_namer {
     mutable std::unordered_set<mpq> m_set_of_different_singles;
     mutable mpq m_delta;
 
-    bool improve_bound(lpvar j, bool is_lower);
+ public:
+    u_dependency* find_improved_bound(lpvar j, bool is_lower, impq& bound);
 
-   public:
     std::ostream& print_explanation(
         std::ostream& out, const explanation& exp, 
         std::function<std::string(lpvar)> var_str = [](lpvar j) { return std::string("j") + T_to_string(j); }) const;

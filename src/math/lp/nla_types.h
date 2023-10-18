@@ -97,6 +97,7 @@ namespace nla {
         new_lemma& operator&=(const factorization& f);
         new_lemma& operator&=(lpvar j);
         new_lemma& operator|=(ineq const& i);
+        new_lemma& operator&=(ineq const& ineq);
         new_lemma& explain_fixed(lpvar j);
         new_lemma& explain_equiv(lpvar u, lpvar v);
         new_lemma& explain_var_separated_from_zero(lpvar j);

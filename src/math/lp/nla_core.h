@@ -107,6 +107,8 @@ class core {
     void add_bounds();
     // try to improve bounds for variables in monomials.
     bool improve_bounds();
+    bool improve_bounds_on_monomial_vars(const unsigned_vector&);
+    bool improve_bound(lpvar j, bool lower_bound);
     bool m_bounds_improved = false;
 
 public:    
