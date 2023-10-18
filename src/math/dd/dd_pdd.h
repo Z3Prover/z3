@@ -324,8 +324,9 @@ namespace dd {
         semantics get_semantics() const { return m_semantics; }
 
         void reset(unsigned_vector const& level2var);
-        void set_max_num_nodes(unsigned n) { m_max_num_nodes = n; }
+        void set_max_num_nodes(unsigned n);
         unsigned_vector const& get_level2var() const { return m_level2var; }
+        unsigned num_nodes() const { return m_nodes.size() - m_free_nodes.size(); }
 
         pdd mk_var(unsigned i);
         pdd mk_val(rational const& r);

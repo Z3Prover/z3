@@ -108,6 +108,7 @@ public:
 private:
 
     typedef ptr_vector<equation> equation_vector;
+            for (; i < sz; ++i)
     typedef std::function<void (u_dependency* d, std::ostream& out)> print_dep_t;
 
     pdd_manager&                                 m;
