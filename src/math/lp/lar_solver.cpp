@@ -325,8 +325,8 @@ namespace lp {
             unsigned j = p.second;
             SASSERT (!d_j.is_zero());
                 
-            TRACE("lar_solver", tout << "d[" << j << "] = " << d_j << "\n";);
-            TRACE("lar_solver", s.print_column_info(j, tout););
+            TRACE("lar_solver_improve_bounds", tout << "d[" << j << "] = " << d_j << "\n";
+                                               s.print_column_info(j, tout););
             const ul_pair& ul = m_columns_to_ul_pairs[j];
             u_dependency * bound_dep;
             if (d_j.is_pos()) {
@@ -335,15 +335,21 @@ namespace lp {
             else {
                 bound_dep = ul.lower_bound_witness();               
             }
+            TRACE("lar_solver_improve_bounds", {
+	           svector<constraint_index> cs;
+               m_dependencies.linearize(bound_dep, cs);
+               for (auto c : cs) 
+                    m_constraints.display(tout, c) << "\n";
+            });
             dep = m_dependencies.mk_join(dep, bound_dep);
         }
         return dep;
     }
 
-    bool lar_solver::improve_bound(lpvar j, bool improve_lower_bound) {
+    bool lar_solver::improve_bound(lpvar j, bool lower_bound) {
         if (!(get_status() == lp_status::FEASIBLE || get_status() == lp_status::OPTIMAL))
             return false;
-        if (improve_lower_bound) {
+        if (lower_bound) {
             if (column_has_lower_bound(j) && get_column_value(j) == column_lower_bound(j)) 
                 return false; // cannot do better
         }
@@ -354,7 +360,7 @@ namespace lp {
         
 
         lar_term term = get_term_to_maximize(j);
-        if (improve_lower_bound)
+        if (lower_bound)
             term.negate();
         impq bound;
         vector<std::pair<mpq, unsigned>> max_coeffs;
@@ -363,34 +369,41 @@ namespace lp {
             return false;
         u_dependency * dep = get_dependencies_of_maximum(max_coeffs);
         SASSERT(dep != nullptr);
-        if (improve_lower_bound) {
+        if (lower_bound) {
             bound.neg();
-            if (column_has_lower_bound(j) && bound <= column_lower_bound(j))
-                return false;
-            if (column_is_int(j) && !bound.x.is_int())
+            if (column_is_int(j) && !bound.x.is_int()) {
                 bound.x = ceil(bound.x);
-            SASSERT(!column_has_lower_bound(j) || column_lower_bound(j).x < bound.x);
-            TRACE("lar_solver", tout << "setting lower bound for " << j << " to " << bound << "\n";);
+				bound.y = 0;  // todo: is it correct?
+            }
+            if (column_has_lower_bound(j) ) {
+                const auto& jb = column_lower_bound(j);
+                if (column_is_int(j) && bound.x <= jb.x || bound <= jb)
+                    return false;
+            } 
+            TRACE("lar_solver_improve_bounds",
+                  tout << "setting lower bound for " << j << " to " << bound << "\n";
+                  std::cout << "bound was = " << column_lower_bound(j) << "\n";
+                  );
             update_column_type_and_bound(j, bound.y > 0 ? lconstraint_kind::GT : lconstraint_kind::GE, bound.x, dep);
         } 
         else {
-            if (column_has_upper_bound(j) && bound >= column_upper_bound(j))
-                return false;
-            if (column_is_int(j) && !bound.x.is_int()) 
-                bound.x = floor(bound.x);
-            SASSERT(!column_has_upper_bound(j) || column_upper_bound(j).x > bound.x);           
-            TRACE("lar_solver_improve_bounds", tout << "setting upper bound for " << j << " to " << bound << "\n";
-            if (column_has_upper_bound(j))  {
-                 tout << "bound was = " << column_upper_bound(j) << "\n";
+            if (column_is_int(j) && !bound.x.is_int()) {
+                bound.x = floor(bound.x); // todo: is it correct?
+				bound.y = 0;
             }
-            else {
-                tout << "there was no upper bound\n";;
-            });
-            
+            if (column_has_upper_bound(j)) {
+                const auto& jb = column_upper_bound(j);
+                if (column_is_int(j) && bound.x >=jb.x || bound >= jb)
+                    return false;
+            }            
+            TRACE("lar_solver_improve_bounds", 
+                std::cout << "setting upper bound for " << j << " to " << bound << "\n";
+                std::cout << "bound was = " << column_upper_bound(j) << "\n";
+                );
             update_column_type_and_bound(j, bound.y < 0 ? lconstraint_kind::LT : lconstraint_kind::LE, bound.x, dep);
         }
         find_feasible_solution();
-        return is_feasible();
+        return true;
     }
 
     bool lar_solver::costs_are_zeros_for_r_solver() const {
@@ -1121,7 +1134,13 @@ namespace lp {
 
     mpq lar_solver::get_value(column_index const& j) const {
         SASSERT(get_status() == lp_status::OPTIMAL || get_status() == lp_status::FEASIBLE);
+        if (!m_columns_with_changed_bounds.empty()) {
+            for (auto j : m_columns_with_changed_bounds) {
+                std::cout << "column " << j << " has changed bounds\n";
+            }
+        }
         SASSERT(m_columns_with_changed_bounds.empty());
+       
         numeric_pair<mpq> const& rp = get_column_value(j);
         return from_model_in_impq_to_mpq(rp);        
     }
@@ -1858,8 +1877,8 @@ namespace lp {
     }
 
     void lar_solver::insert_to_columns_with_changed_bounds(unsigned j) {
-         m_columns_with_changed_bounds.insert(j);
-         TRACE("lar_solver", tout << "column " << j << (column_is_feasible(j) ? " feas" : " non-feas") << "\n";);
+        m_columns_with_changed_bounds.insert(j);
+        TRACE("lar_solver", tout << "column " << j << (column_is_feasible(j) ? " feas" : " non-feas") << "\n";);
     }
 
     void lar_solver::update_column_type_and_bound_check_on_equal(unsigned j,
@@ -1923,11 +1942,10 @@ namespace lp {
         for (auto j : js) {
             if (improve_bound(j, false)) {
                 ++improved;
-                
             }
             if (this->get_status() == lp_status::INFEASIBLE)
                 break;
-            if (improve_bound(j, false))  {
+            if (improve_bound(j, true))  {
                 ++improved;
             }
             if (this->get_status() == lp_status::INFEASIBLE)
@@ -2437,7 +2455,19 @@ namespace lp {
         for (auto j : m_columns_with_changed_bounds)
             detect_rows_with_changed_bounds_for_column(j); 
     }
-
+    std::ostream& lar_solver::print_explanation(
+        std::ostream& out, const explanation& exp,
+        std::function<std::string(lpvar)> var_str) const {
+        out << "expl: ";
+        unsigned i = 0;
+        for (auto p : exp) {
+            out << "(" << p.ci() << ")";
+            constraints().display(out, var_str, p.ci());
+            if (++i < exp.size())
+                out << "      ";
+        }
+        return out;
+    }
 
 } // namespace lp
 

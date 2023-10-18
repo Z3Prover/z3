@@ -126,6 +126,7 @@ public:
     void clear_active_var_set() const { m_active_var_set.reset(); }
 
     unsigned get_var_weight(lpvar) const;
+    bool add_lemma_of_infeas_lp();
 
     reslimit& reslim() { return m_reslim; }  
     emonics& emons() { return m_emons; }

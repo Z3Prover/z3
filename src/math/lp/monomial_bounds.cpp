@@ -21,7 +21,7 @@ namespace nla {
     void monomial_bounds::propagate() {
         for (lpvar v : c().m_to_refine) {
             propagate(c().emon(v));
-            if (add_lemma()) 
+            if (c().add_lemma_of_infeas_lp()) 
                 break;
         }
     }
@@ -320,32 +320,24 @@ namespace nla {
                 continue;
             monic& m = c().emon(v);
             unit_propagate(m);
-            if (add_lemma()) 
+            if (c().add_lemma_of_infeas_lp()) 
                 break;
             if (c().m_conflicts > 0) 
                 break;
         }   
     }
 
-    bool monomial_bounds::add_lemma() {
-        if (c().lra.get_status() != lp::lp_status::INFEASIBLE)
-            return false;
-        lp::explanation exp;
-        c().lra.get_infeasibility_explanation(exp);
-        new_lemma lemma(c(), "propagate fixed - infeasible lra");
-        lemma &= exp;
-        return true;
-    }
 
     void monomial_bounds::unit_propagate(monic & m) {
-        if (m.is_propagated())
+        if (m_unit_propagate_once && m.is_propagated())
             return;
         lpvar w, fixed_to_zero;
 
         if (!is_linear(m, w, fixed_to_zero)) 
             return;
 
-        c().emons().set_propagated(m);
+        if (m_unit_propagate_once)
+            c().emons().set_propagated(m);
 
         if (fixed_to_zero != null_lpvar) {
             propagate_fixed_to_zero(m, fixed_to_zero);

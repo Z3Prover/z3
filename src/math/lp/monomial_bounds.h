@@ -36,14 +36,14 @@ namespace nla {
         void analyze_monomial(monic const& m, unsigned& num_free, lpvar& free_v, unsigned& power) const;
         bool is_free(lpvar v) const;
         bool is_zero(lpvar v) const;
-        bool add_lemma();
-
+        
         // monomial propagation
         void unit_propagate(monic & m);
         bool is_linear(monic const& m, lpvar& w, lpvar & fixed_to_zero);
         rational fixed_var_product(monic const& m, lpvar w);
         lpvar non_fixed_var(monic const& m);
     public:
+        bool m_unit_propagate_once = true;
         monomial_bounds(core* core);
         void propagate();
         void unit_propagate();
