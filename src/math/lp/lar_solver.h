@@ -204,7 +204,6 @@ class lar_solver : public column_namer {
     void set_costs_to_zero(const lar_term& term);
     void prepare_costs_for_r_solver(const lar_term& term);
     bool maximize_term_on_feasible_r_solver(lar_term& term, impq& term_max, vector<std::pair<mpq,lpvar>>* max_coeffs);
-    std::ostream& print_explanation(std::ostream& out, const explanation& exp) const;
     u_dependency* get_dependencies_of_maximum(const vector<std::pair<mpq,lpvar>>& max_coeffs);
     
     void pop_core_solver_params();
@@ -269,6 +268,9 @@ class lar_solver : public column_namer {
     bool improve_bound(lpvar j, bool is_lower);
 
    public:
+    std::ostream& print_explanation(
+        std::ostream& out, const explanation& exp, 
+        std::function<std::string(lpvar)> var_str = [](lpvar j) { return std::string("j") + T_to_string(j); }) const;
     unsigned improve_bounds(unsigned_vector const& js);
     // this function just looks at the status
     bool is_feasible() const;

@@ -276,15 +276,7 @@ std::ostream& core::print_monic_with_vars(const monic& m, std::ostream& out) con
 }
 
 std::ostream& core::print_explanation(const lp::explanation& exp, std::ostream& out) const {
-    out << "expl: ";
-    unsigned i = 0;
-    for (auto p : exp) {
-        out << "(" << p.ci() << ")";
-        lra.constraints().display(out, [this](lpvar j) { return var_str(j);}, p.ci());
-        if (++i < exp.size())
-            out << "      ";
-    }
-    return out;
+    return lra.print_explanation(out, exp, [this](lpvar j) { return var_str(j);});    
 }
 
 bool core::explain_upper_bound(const lp::lar_term& t, const rational& rs, lp::explanation& e) const {
@@ -935,7 +927,7 @@ std::ostream& core::print_lemma(const lemma& l, std::ostream& out) const {
     static int n = 0;
     out << "lemma:" << ++n << " ";    
     print_ineqs(l, out);
-    print_explanation(l.expl(), out);        
+    lra.print_explanation(out, l.expl(), [this](lpvar j) {return var_str(j);});        
     for (lpvar j : collect_vars(l)) {
         print_var(j, out);
     }
@@ -1558,14 +1550,27 @@ lbool core::check() {
 
     if (no_effect()) 
         if (improve_bounds()) {
+            lra.find_feasible_solution();
             if (!lra.is_feasible()) {
                 TRACE("nla_solver", tout << "infeasible\n";);
+                add_lemma_of_infeas_lp();
                 return l_false;
             } 
-            this->propagate();
-
-            return l_false;
+            flet f(m_monomial_bounds.m_unit_propagate_once, false);
+            m_monomial_bounds.unit_propagate();
+            if (lra.columns_with_changed_bounds().size()) {
+                lra.find_feasible_solution();
+                if (!lra.is_feasible()) {
+                    TRACE("nla_solver", tout << "infeasible\n";);
+                    add_lemma_of_infeas_lp();
+                    return l_false;
+                }
+            }
         }
+        init_to_refine();
+        if (m_to_refine.empty())
+            return l_true;  
+
     
     {
         std::function<void(void)> check1 = [&]() { if (no_effect() && run_horner) m_horner.horner_lemmas(); };
@@ -1624,6 +1629,16 @@ lbool core::check() {
     IF_VERBOSE(5, if(ret == l_undef) {verbose_stream() << "Monomials\n"; print_monics(verbose_stream());});
     CTRACE("nla_solver", ret == l_undef, tout << "Monomials\n"; print_monics(tout););
     return ret;
+}
+
+bool core::add_lemma_of_infeas_lp() {
+    if (lra.get_status() != lp::lp_status::INFEASIBLE)
+        return false;
+    lp::explanation exp;
+    lra.get_infeasibility_explanation(exp);
+    new_lemma lemma(*this, "propagate fixed - infeasible lra");
+    lemma &= exp;
+    return true;
 }
 
 bool core::should_run_bounded_nlsat() {
@@ -1802,17 +1817,17 @@ void core::collect_statistics(::statistics & st) {
 =======
 
 bool core::improve_bounds() {
-    if (m_bounds_improved)
-        return false;
+    // if (m_bounds_improved)
+    //      return false;
     trail().push(value_trail(m_bounds_improved));
     m_bounds_improved = true;
     
-    if (lp_settings().stats().m_bounds_improvements > 1000 || lra.settings().get_cancel_flag())
-        return false;
-    if (m_improved_bounds_quota <= 0) {
-        ++m_improved_bounds_quota;
-        return false;
-    }
+    // if (lp_settings().stats().m_bounds_improvements > 1000 || lra.settings().get_cancel_flag())
+    //     return false;
+    // if (m_improved_bounds_quota <= 0) {
+    //     ++m_improved_bounds_quota;
+    //     return false;
+    // }
     uint_set seen;
     unsigned_vector js;
     auto insert = [&](lpvar v) {
