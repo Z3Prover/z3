@@ -24,28 +24,37 @@ namespace nla {
         lp::lar_solver&          lra;
         indexed_uint_set         m_rows;
         unsigned                 m_quota = 0;
+        unsigned                 m_delay_base = 0;
+        unsigned                 m_delay = 0;
 
         lp::lp_settings& lp_settings();
 
         // solving
         bool is_conflicting();
-        bool is_conflicting(const dd::solver::equation& eq);
+        bool is_conflicting(dd::solver::equation const& eq);
 
         bool propagate_bounds();
-        bool propagate_bounds(const dd::solver::equation& eq);
+        bool propagate_bounds(dd::solver::equation const& eq);
 
         bool propagate_eqs();
-        bool propagate_fixed(const dd::solver::equation& eq);
+        bool propagate_fixed(dd::solver::equation const& eq);
 
         bool propagate_factorization();
-        bool propagate_factorization(const dd::solver::equation& eq);
-                
-        void add_dependencies(new_lemma& lemma, const dd::solver::equation& eq);
-        void explain(const dd::solver::equation& eq, lp::explanation& exp);
+        bool propagate_factorization(dd::solver::equation const& eq);
 
-        bool is_nla_conflict(const dd::solver::equation& eq);
-        bool add_nla_conflict(const dd::solver::equation& eq);
-        void check_missing_propagation(const dd::solver::equation& eq);
+
+        bool propagate_linear_equations();
+        bool propagate_linear_equations(dd::solver::equation const& eq);
+        
+        void add_dependencies(new_lemma& lemma, dd::solver::equation const& eq);
+        void explain(dd::solver::equation const& eq, lp::explanation& exp);
+
+        bool add_horner_conflict(dd::solver::equation const& eq);
+        bool is_nla_conflict(dd::solver::equation const& eq);
+        bool add_nla_conflict(dd::solver::equation const& eq);
+        void check_missing_propagation(dd::solver::equation const& eq);
+
+        bool equation_is_true(dd::solver::equation const& eq);
 
         // setup
         void configure();

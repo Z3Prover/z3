@@ -169,8 +169,8 @@ public:
         return params().arith_nl_horner() && lp_settings().stats().m_nla_calls % params().arith_nl_horner_frequency() == 0; 
     }
 
-    bool need_run_grobner() const { 
-        return params().arith_nl_grobner() && lp_settings().stats().m_nla_calls % params().arith_nl_grobner_frequency() == 0; 
+    bool need_run_grobner() const {
+        return params().arith_nl_grobner();         
     }
 
     void set_active_vars_weights(nex_creator&);
