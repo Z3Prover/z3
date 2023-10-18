@@ -49,30 +49,17 @@ public:
     };
 
     struct config {
-        unsigned m_eqs_threshold;
-        unsigned m_expr_size_limit;
-        unsigned m_expr_degree_limit;
-        unsigned m_max_steps;
-        unsigned m_max_simplified;
-        unsigned m_random_seed;
-        bool     m_enable_exlin;
-        unsigned m_eqs_growth;
-        unsigned m_expr_size_growth;
-        unsigned m_expr_degree_growth;
-        unsigned m_number_of_conflicts_to_report;
-        config() :
-            m_eqs_threshold(UINT_MAX),
-            m_expr_size_limit(UINT_MAX),
-            m_expr_degree_limit(UINT_MAX),
-            m_max_steps(UINT_MAX),
-            m_max_simplified(UINT_MAX),
-            m_random_seed(0),
-            m_enable_exlin(false),
-            m_eqs_growth(10),
-            m_expr_size_growth(10),
-            m_expr_degree_growth(5),
-            m_number_of_conflicts_to_report(1)
-        {}
+        unsigned m_eqs_threshold = UINT_MAX;
+        unsigned m_expr_size_limit = UINT_MAX;
+        unsigned m_expr_degree_limit = UINT_MAX;
+        unsigned m_max_steps = UINT_MAX;
+        unsigned m_max_simplified = UINT_MAX;
+        unsigned m_random_seed = 0;
+        bool     m_enable_exlin = false;
+        unsigned m_eqs_growth = 10;
+        unsigned m_expr_size_growth = 10;
+        unsigned m_expr_degree_growth = 5;
+        unsigned m_number_of_conflicts_to_report = 1;
     };
 
     enum eq_state {
@@ -82,18 +69,14 @@ public:
     };
 
     class equation {
-        eq_state                   m_state; 
-        unsigned                   m_idx;        //!< unique index
+        eq_state                   m_state = to_simplify; 
+        unsigned                   m_idx = 0;    //!< unique index
         pdd                        m_poly;       //!< polynomial in pdd form
         u_dependency *             m_dep;        //!< justification for the equality
     public:
         equation(pdd const& p, u_dependency* d): 
-            m_state(to_simplify),
-            m_idx(0),
             m_poly(p),
-            m_dep(d)
-        {
-            
+            m_dep(d) {                  
         }
 
         const pdd& poly() const { return m_poly; }        
@@ -105,10 +88,33 @@ public:
         void set_state(eq_state st) { m_state = st; }
         void set_index(unsigned idx) { m_idx = idx; }
     };
-private:
 
     typedef ptr_vector<equation> equation_vector;
+
+    struct scoped_update {
+        equation_vector& set;
+        unsigned i = 0;
+        unsigned j = 0;
+        unsigned sz;
+        scoped_update(equation_vector& set) :
+            set(set), sz(set.size()) {
+        }
+        ~scoped_update() {
             for (; i < sz; ++i)
+                nextj();
+            set.shrink(j);
+        }
+        equation* get() { return set[i]; }
+
+        void nextj() {
+            set[j] = set[i];
+            set[i]->set_index(j++);
+        }
+    };
+
+private:
+
+
     typedef std::function<void (u_dependency* d, std::ostream& out)> print_dep_t;
 
     pdd_manager&                                 m;
@@ -192,6 +198,7 @@ private:
     void push_equation(eq_state st, equation& eq);
     void push_equation(eq_state st, equation* eq) { push_equation(st, *eq); }
 
+    void well_formed();
     void invariant() const;
     struct scoped_process {
         solver& g;
