@@ -87,6 +87,7 @@ class core {
     intervals                m_intervals; 
     monomial_bounds          m_monomial_bounds;
     unsigned                 m_conflicts;
+    bool                     m_check_feasible = false;
     horner                   m_horner;
     grobner                  m_grobner;
     emonics                  m_emons;
@@ -424,6 +425,7 @@ public:
     vector<nla::ineq> const& literals() const { return m_literals; }
     vector<equality> const& equalities() const { return m_equalities; }
     vector<fixed_equality> const& fixed_equalities() const { return m_fixed_equalities; }
+    bool check_feasible() const { return m_check_feasible; }
 
     void add_fixed_equality(lp::lpvar v, rational const& k, lp::explanation const& e) { m_fixed_equalities.push_back({v, k, e}); }
     void add_equality(lp::lpvar i, lp::lpvar j, lp::explanation const& e) { m_equalities.push_back({i, j, e}); }

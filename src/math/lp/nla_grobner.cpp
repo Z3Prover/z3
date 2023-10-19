@@ -401,9 +401,7 @@ namespace nla {
         auto q = e.poly();
 
         
-#if 0
-        // TODO: instead add a row to lra solver, make sure that make_feasible
-        // gets invoked (for example, bail out of final check).
+#if 1
         vector<std::pair<lp::mpq, unsigned>> coeffs;        
         while (!q.is_val()) {
             coeffs.push_back({lc*q.hi().val(), q.var()});
@@ -413,7 +411,7 @@ namespace nla {
         lp::lpvar term_index = c().lra.add_term(coeffs, UINT_MAX);
         term_index = c().lra.map_term_index_to_column_index(term_index);
         c().lra.update_column_type_and_bound(term_index, lp::lconstraint_kind::EQ, -lc*q.val(), e.dep());
-
+        c().m_check_feasible = true;
 #else
         
         new_lemma lemma(m_core,"nla-linear");

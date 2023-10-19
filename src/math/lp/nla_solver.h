@@ -51,5 +51,6 @@ namespace nla {
         vector<nla::ineq> const& literals() const;
         vector<nla::fixed_equality> const& fixed_equalities() const;
         vector<nla::equality> const& equalities() const;
+        bool check_feasible() const { return m_core->check_feasible(); }
     };
 }

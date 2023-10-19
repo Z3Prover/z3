@@ -2162,15 +2162,6 @@ public:
         }
     }
 
-    void add_equalities() {
-        if (!propagate_eqs()) 
-            return;
-        for (auto const& [v,k,e] : m_nla->fixed_equalities())
-            add_equality(v, k, e);
-        for (auto const& [i,j,e] : m_nla->equalities())
-            add_eq(i,j,e,false);
-    }
-
     void add_equality(lpvar j, rational const& k, lp::explanation const& exp) {
         TRACE("arith", tout << "equality " << j << " " << k << "\n");
         theory_var v;
@@ -2188,11 +2179,23 @@ public:
     }
 
     void add_lemmas() {
+        if (m_nla->check_feasible()) {
+            auto is_sat = make_feasible();
+            if (l_false == is_sat) {
+                get_infeasibility_explanation_and_set_conflict();
+                return;
+            }
+        }
         for (const nla::ineq& i : m_nla->literals())
             assume_literal(i); 
         for (const nla::lemma & l : m_nla->lemmas()) 
             false_case_of_check_nla(l);
-        add_equalities();
+        if (!propagate_eqs())
+            return;
+        for (auto const& [v, k, e] : m_nla->fixed_equalities())
+            add_equality(v, k, e);
+        for (auto const& [i, j, e] : m_nla->equalities())
+            add_eq(i, j, e, false);
     }
 
     bool should_propagate() const {

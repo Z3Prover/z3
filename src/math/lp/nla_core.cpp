@@ -819,6 +819,7 @@ void core::clear() {
     m_fixed_equalities.clear();
     m_equalities.clear();
     m_conflicts = 0;
+    m_check_feasible = false;
 }
     
 void core::init_search() {
@@ -1192,11 +1193,7 @@ void core::negate_relation(new_lemma& lemma, unsigned j, const rational& a) {
 }
 
 bool core::conflict_found() const {
-    for (const auto & l : m_lemmas) {
-        if (l.is_conflict())
-            return true;
-    }
-    return false;
+    return any_of(m_lemmas, [&](const auto& l) { return l.is_conflict(); });
 }
 
 bool core::done() const {
@@ -1555,7 +1552,7 @@ lbool core::check() {
     bool run_bounded_nlsat = should_run_bounded_nlsat();
     bool run_bounds = params().arith_nl_branching();    
 
-    auto no_effect = [&]() { return !done() && m_lemmas.empty() && m_literals.empty(); };
+    auto no_effect = [&]() { return !done() && m_lemmas.empty() && m_literals.empty() && !m_check_feasible; };
     
     if (no_effect())
         m_monomial_bounds.propagate();
@@ -1573,6 +1570,7 @@ lbool core::check() {
               {1, check2},
               {1, check3} };
         check_weighted(3, checks);
+
         if (!m_lemmas.empty() || !m_literals.empty())
             return l_false;
     }
@@ -1610,7 +1608,7 @@ lbool core::check() {
         lp_settings().stats().m_nra_calls++;
     }
     
-    if (ret == l_undef && !m_lemmas.empty() && m_reslim.inc()) 
+    if (ret == l_undef && !no_effect() && m_reslim.inc()) 
         ret = l_false;
 
     lp_settings().stats().m_nla_lemmas += m_lemmas.size();
