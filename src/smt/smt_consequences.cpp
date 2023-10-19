@@ -274,6 +274,12 @@ namespace smt {
                                     expr_ref_vector& conseq, 
                                     expr_ref_vector& unfixed) {
 
+        for (expr* a : assumptions0)
+            if (!m.is_bool(a)) {
+                std::string msg = std::string("assumption ") + mk_pp(a, m) + std::string(" is not Boolean");
+                warning_msg(msg.c_str());
+                throw default_exception(msg.c_str());
+            }
         m_antecedents.reset();
         m_antecedents.insert(true_literal.var(), index_set());
         pop_to_base_lvl();
