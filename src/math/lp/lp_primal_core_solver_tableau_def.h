@@ -99,6 +99,7 @@ unsigned lp_primal_core_solver<T, X>::solve() {
         
     do {
         if (this->print_statistics_with_iterations_and_nonzeroes_and_cost_and_check_that_the_time_is_over( "feas t", * this->m_settings.get_message_ostream())) {
+            this->set_status(lp_status::CANCELLED);
             return this->total_iterations();
         }
         if (this->m_settings.use_tableau_rows()) {
