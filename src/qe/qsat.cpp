@@ -568,25 +568,21 @@ namespace qe {
             m_solver = nullptr;
         }
 
-      void assert_expr(expr *e) {
-        if (!m.is_true(e)) 
-          m_solver->assert_expr(e);
-      }
+        void assert_expr(expr* e) {
+            if (!m.is_true(e))
+                m_solver->assert_expr(e);
+        }
         void assert_blocking_fml(expr* e) {
-          if (m.is_true(e)) return;
-          if (m_last_assert) {
-            if (e == m_last_assert) {
-              verbose_stream() << "Asserting this expression twice in a row:\n " << m_last_assert << "\n";
-              SASSERT(false);
-              std::exit(3);
+            if (m.is_true(e))
+                return;
+            if (m_last_assert && e == m_last_assert && !m.is_false(e)) {
+                IF_VERBOSE(0, verbose_stream() << "Asserting this expression twice in a row:\n " << m_last_assert << "\n");
+                UNREACHABLE();
             }
-            
-          }
-          m_last_assert = e;
-
+            m_last_assert = e;
             m_solver->assert_expr(e);
         }
-        
+
         void get_core(expr_ref_vector& core) {
             core.reset();
             m_solver->get_unsat_core(core);
