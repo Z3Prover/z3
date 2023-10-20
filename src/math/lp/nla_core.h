@@ -94,6 +94,7 @@ class core {
     emonics                  m_emons;
     svector<lpvar>           m_add_buffer;
     mutable indexed_uint_set m_active_var_set;
+    
 
     reslimit                 m_nra_lim;
 
@@ -105,12 +106,7 @@ class core {
 
     void check_weighted(unsigned sz, std::pair<unsigned, std::function<void(void)>>* checks);
     void add_bounds();
-    // try to improve bounds for variables in monomials.
-    bool improve_bounds();
-    bool improve_bounds_on_monomial_vars(const unsigned_vector&);
-    bool improve_bound(lpvar j, bool lower_bound);
     bool m_bounds_improved = false;
-
 public:    
     // constructor
     core(lp::lar_solver& s, params_ref const& p, reslimit&);

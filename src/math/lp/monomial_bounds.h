@@ -14,8 +14,15 @@
 
 namespace nla {
     class core;
+    struct max_min_bound {
+        u_dependency* m_dep;
+        lp::impq      m_bound;
+    };
     class monomial_bounds : common {
-        dep_intervals& dep;
+        dep_intervals&       dep;
+        u_map<max_min_bound> m_lower_max_min_bounds;
+        u_map<max_min_bound> m_upper_max_min_bounds;
+        
 
         bool should_propagate_lower(dep_interval const& range, lpvar v, unsigned p);
         bool should_propagate_upper(dep_interval const& range, lpvar v, unsigned p);
@@ -42,7 +49,11 @@ namespace nla {
         bool is_linear(monic const& m, lpvar& w, lpvar & fixed_to_zero);
         rational fixed_var_product(monic const& m, lpvar w);
         lpvar non_fixed_var(monic const& m);
+        void improve_bounds_on_monomial_vars(const unsigned_vector&);
+        bool improve_bound(lpvar j, bool lower_bound);
+    
     public:
+        void improve_bounds();
         bool m_unit_propagate_once = true;
         monomial_bounds(core* core);
         void propagate();

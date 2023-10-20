@@ -113,9 +113,10 @@ struct solver::imp {
        TBD: use partial model from lra_solver to prime the state of nlsat_solver.
        TBD: explore more incremental ways of applying nlsat (using assumptions)
     */
-    lbool check() {
-        SASSERT(need_check());
-        m_values = nullptr;
+    lbool check() {        
+        if (!need_check()) 
+            return l_true;
+        m_value = nullptr;
         m_nlsat = alloc(nlsat::solver, m_limit, m_params, false);
         m_values = alloc(scoped_anum_vector, am());
         m_term_set.reset();

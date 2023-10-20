@@ -455,5 +455,84 @@ namespace nla {
         return null_lpvar;
     }
 
+    void monomial_bounds::improve_bounds() {
+        // if (m_bounds_improved)
+        //      return false;
+        c().trail().push(value_trail(c().m_bounds_improved));
+        c().m_bounds_improved = true;
+        m_lower_max_min_bounds.reset();
+        m_upper_max_min_bounds.reset();
+
+        // if (lp_settings().stats().m_bounds_improvements > 1000 || lra.settings().get_cancel_flag())
+        //     return false;
+        // if (m_improved_bounds_quota <= 0) {
+        //     ++m_improved_bounds_quota;
+        //     return false;
+        // }
+        uint_set seen;
+        unsigned_vector js;
+        auto insert = [&](lpvar v) {
+            if (seen.contains(v))
+                return;
+            seen.insert(v);
+            js.push_back(v);
+        };
+        for (auto& m : c().m_emons) {
+            insert(m.var());
+            for (auto v : m.vars())
+                insert(v);
+        }
+        improve_bounds_on_monomial_vars(js);        
+    }
+
+    void monomial_bounds::improve_bounds_on_monomial_vars(const unsigned_vector& js) {
+        for (auto j : js) {
+            improve_bound(j, false);
+            improve_bound(j, true);           
+        }
+
+        if (m_lower_max_min_bounds.empty() && m_upper_max_min_bounds.empty()) {
+            c().init_to_refine();
+            return;
+        }
+        c().lp_settings().stats().m_bounds_improvements += m_lower_max_min_bounds.size() + m_upper_max_min_bounds.size();
+            
+        for (const auto& [j, b] : m_lower_max_min_bounds) {
+            SASSERT(c().var_is_fixed(j) == false);
+            if (b.m_bound.y <= 0)
+                c().lra.update_column_type_and_bound(j, lp::lconstraint_kind::GE, b.m_bound.x, b.m_dep);
+            else
+                c().lra.update_column_type_and_bound(j, lp::lconstraint_kind::GT, b.m_bound.x, b.m_dep);         
+        }
+        for (const auto& [j, b] : m_upper_max_min_bounds) {
+            SASSERT(c().var_is_fixed(j) == false);
+            if (b.m_bound.y >= 0)
+                c().lra.update_column_type_and_bound(j, lp::lconstraint_kind::LE, b.m_bound.x, b.m_dep);
+            else
+                c().lra.update_column_type_and_bound(j, lp::lconstraint_kind::LT, b.m_bound.x, b.m_dep);
+        }
+
+        c().lra.find_feasible_solution();
+        if (c().lra.is_feasible()) {
+            unit_propagate();
+        }
+        else {
+            c().add_lemma_of_infeas_lp();
+        }
+        c().init_to_refine();                
+    }
+
+    bool monomial_bounds::improve_bound(lpvar j, bool lower_bound) {
+        lp::impq bound;
+        u_dependency* dep = c().lra.find_improved_bound(j, lower_bound, bound);
+        if (dep == nullptr)
+            return false;
+        if (lower_bound)
+            m_lower_max_min_bounds.insert(j, max_min_bound{ dep, bound });
+        else
+            m_upper_max_min_bounds.insert(j, max_min_bound{ dep, bound });
+        
+        return true;
+    }
 }
 
