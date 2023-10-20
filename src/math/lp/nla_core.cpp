@@ -1559,7 +1559,7 @@ lbool core::check() {
         m_monomial_bounds.propagate();
 
     if (no_effect()) 
-        improve_bounds();
+        m_monomial_bounds.improve_bounds();
     
     {
         std::function<void(void)> check1 = [&]() { if (no_effect() && run_horner) m_horner.horner_lemmas(); };
@@ -1805,71 +1805,6 @@ void core::set_use_nra_model(bool m) {
 void core::collect_statistics(::statistics & st) {
 }
 
-bool core::improve_bounds() {
-    // if (m_bounds_improved)
-    //      return false;
-    lra.backup_x();
-    trail().push(value_trail(m_bounds_improved));
-    m_bounds_improved = true;
-    
-    // if (lp_settings().stats().m_bounds_improvements > 1000 || lra.settings().get_cancel_flag())
-    //     return false;
-    // if (m_improved_bounds_quota <= 0) {
-    //     ++m_improved_bounds_quota;
-    //     return false;
-    // }
-    uint_set seen;
-    unsigned_vector js;
-    auto insert = [&](lpvar v) {
-        if (seen.contains(v))
-            return;
-        seen.insert(v);
-        js.push_back(v);
-    };
-    for (auto & m : m_emons) {
-        insert(m.var());
-        for (auto v : m.vars())
-            insert(v);
-    }
-    unsigned n = improve_bounds_on_monomial_vars(js);
-    m_improved_bounds_quota += 2*n - js.size();
-    lp_settings().stats().m_bounds_improvements += n;
-    lra.restore_x();
-    return n > 0;
-}
-
-bool core::improve_bounds_on_monomial_vars(const unsigned_vector& js) {
-    unsigned improved = 0;
-    for (auto j : js) {
-        if (improve_bound(j, false)) {
-            ++improved;
-        }
-        if (improve_bound(j, true)) {
-            ++improved;
-        }
-    }
-    return improved;
-}
-
-bool core::improve_bound(lpvar j, bool lower_bound) {   
-    lp::impq bound;
-    u_dependency* dep = lra.find_improved_bound(j, lower_bound, bound);
-    if (dep == nullptr)
-        return false;
-    new_lemma l(*this, "nla_core: improve_bound");
-    lp::explanation expl(lra.flatten(dep));
-    l &= expl;
-
-    if (lower_bound) {
-        llc k = bound.y.is_zero()? llc::GE : llc::GT;
-        l &= ineq(j, k, bound.x);
-    }
-    else {
-        llc k = bound.y.is_zero()? llc::LE : llc::LT;
-        l &= ineq(j, k, bound.x);        
-   }
-    return true;
-}
 
 void core::propagate() {
     clear();

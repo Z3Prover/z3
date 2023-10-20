@@ -271,7 +271,6 @@ class lar_solver : public column_namer {
     std::ostream& print_explanation(
         std::ostream& out, const explanation& exp, 
         std::function<std::string(lpvar)> var_str = [](lpvar j) { return std::string("j") + T_to_string(j); }) const;
-    unsigned improve_bounds(unsigned_vector const& js);
     // this function just looks at the status
     bool is_feasible() const;
 

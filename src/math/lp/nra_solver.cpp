@@ -51,7 +51,7 @@ struct solver::imp {
        TBD: explore more incremental ways of applying nlsat (using assumptions)
     */
     lbool check() {        
-        SASSERT(need_check());
+        if(need_check() == false) return l_true;
         m_zero = nullptr;
         m_nlsat = alloc(nlsat::solver, m_limit, m_params, false);
         m_zero = alloc(scoped_anum, am());
