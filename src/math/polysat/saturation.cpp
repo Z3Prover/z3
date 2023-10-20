@@ -2051,6 +2051,7 @@ namespace polysat {
                        << s.var(q1) << "\n");
         };
 
+#if 0
         // monotonicity0 lemma should be asserted eagerly.
         auto monotonicity0 = [&](auto& x1, auto& x1_val, auto& y1, auto& y1_val, auto& q1, auto& q1_val) {
             if (q1_val * y1_val <= x1_val)
@@ -2061,6 +2062,7 @@ namespace polysat {
             m_lemma.reset();
             propagate(q1, core, s.ule(s.var(q1) * y1, x1));            
         };
+#endif
 
         auto monotonicity1 = [&](auto& x1, auto& x1_val, auto& y1, auto& y1_val, auto& q1, auto& q1_val,
                                  auto& x2, auto& x2_val, auto& y2, auto& y2_val, auto& q2, auto& q2_val) {
@@ -2101,10 +2103,11 @@ namespace polysat {
 
             // force that q1 * y1 <= x1 if it isn't the case.
             // monotonicity0(x1, x1_val, y1, y1_val, q1, q1_val);
-            
-            
+
             for (auto const& [x2, y2, q2, r2] : s.m_constraints.div_constraints()) {            
                 if (x1 == x2 && y1 == y2)
+                    continue;
+                if (x1.power_of_2() != x2.power_of_2())
                     continue;
                 rational x2_val, y2_val, q2_val;
                 if (!s.try_eval(x2, x2_val) || !s.try_eval(y2, y2_val) || !s.is_assigned(q2))
