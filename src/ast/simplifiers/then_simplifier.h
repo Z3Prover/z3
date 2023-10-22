@@ -51,6 +51,10 @@ class then_simplifier : public dependent_expr_simplifier {
         }
     };
 
+protected:
+    
+    bool m_bail_on_no_change = false;
+    
 public:
     
     then_simplifier(ast_manager& m, params_ref const& p, dependent_expr_state& fmls):
@@ -72,9 +76,17 @@ public:
                 break;
             s->reset_statistics();
             collect_stats _cs(*s);
-            s->reduce();
-            m_fmls.flatten_suffix();
+            m_fmls.reset_updated();
+            try {
+                s->reduce();
+                m_fmls.flatten_suffix();
+            }
+            catch (rewriter_exception &) {
+                break;
+            }
             TRACE("simplifier", tout << s->name() << "\n" << m_fmls);
+            if (m_bail_on_no_change && !m_fmls.updated())
+                break;
         }      
     }
     
@@ -107,4 +119,15 @@ public:
         for (auto* s : m_simplifiers)
             s->pop(n);     
     }
+};
+
+class if_change_simplifier : public then_simplifier {
+public:
+    if_change_simplifier(ast_manager& m, params_ref const& p, dependent_expr_state& fmls):
+        then_simplifier(m, p, fmls) {
+        m_bail_on_no_change = true;
+    }
+
+    char const* name() const override { return "if-change-then"; }
+
 };

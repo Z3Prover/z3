@@ -36,6 +36,7 @@ class simplifier_solver : public solver {
     struct dep_expr_state : public dependent_expr_state {
         simplifier_solver& s;
         model_reconstruction_trail m_reconstruction_trail;
+        bool m_updated = false;
         dep_expr_state(simplifier_solver& s) :dependent_expr_state(s.m), s(s), m_reconstruction_trail(s.m, m_trail) {}
         ~dep_expr_state() override {}
         virtual unsigned qtail() const override { return s.m_fmls.size(); }
@@ -43,10 +44,13 @@ class simplifier_solver : public solver {
         void update(unsigned i, dependent_expr const& j) override { 
             SASSERT(j.fml());  
             check_false(j.fml());
-            s.m_fmls[i] = j; 
+            s.m_fmls[i] = j;
+            m_updated = true;
         }
-        void add(dependent_expr const& j) override { check_false(j.fml()); s.m_fmls.push_back(j); }
+        void add(dependent_expr const& j) override { m_updated = true; check_false(j.fml()); s.m_fmls.push_back(j); }
         bool inconsistent() override { return s.m_inconsistent; }
+        bool updated() override { return m_updated; }
+        void reset_updated() override { m_updated = false; }
         model_reconstruction_trail& model_trail() override { return m_reconstruction_trail; }
         std::ostream& display(std::ostream& out) const override {
             unsigned i = 0;
@@ -77,7 +81,7 @@ class simplifier_solver : public solver {
             expr_mark seen;
             unsigned j = qhead();
             for (unsigned i = qhead(); i < qtail(); ++i) {
-                expr* f = s.m_fmls[i].fml();
+                expr* f = s.m_fmls[i].fml(), *g = nullptr;
                 if (seen.is_marked(f))
                     continue;
                 seen.mark(f, true);
@@ -87,6 +91,12 @@ class simplifier_solver : public solver {
                     auto* d = s.m_fmls[i].dep();
                     for (expr* arg : *to_app(f))
                         add(dependent_expr(s.m, arg, nullptr, d));
+                    continue;
+                }
+                if (s.m.is_not(f, g) && s.m.is_or(g)) {
+                    auto* d = s.m_fmls[i].dep();
+                    for (expr* arg : *to_app(g))
+                        add(dependent_expr(s.m, mk_not(s.m, arg), nullptr, d));
                     continue;
                 }
                 if (i != j)

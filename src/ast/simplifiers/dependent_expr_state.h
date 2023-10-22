@@ -74,6 +74,8 @@ public:
     virtual bool inconsistent() = 0;
     virtual model_reconstruction_trail& model_trail() = 0;
     virtual void flatten_suffix() {}
+    virtual bool updated() = 0;
+    virtual void reset_updated() = 0;
 
     trail_stack    m_trail;
     void push() {
@@ -109,6 +111,9 @@ public:
     virtual void add(dependent_expr const& j) { throw default_exception("unexpected addition"); }
     virtual bool inconsistent() { return false; }
     virtual model_reconstruction_trail& model_trail() { throw default_exception("unexpected access to model reconstruction"); }
+    virtual bool updated() { return false; }
+    virtual void reset_updated() {}
+
 };
 
 inline std::ostream& operator<<(std::ostream& out, dependent_expr_state& st) {
@@ -147,7 +152,7 @@ protected:
     index_set indices() { return index_set(*this); }
 
     proof* mp(proof* a, proof* b) { return (a && b) ? m.mk_modus_ponens(a, b) : nullptr;  }
-
+    proof* tr(proof* a, proof* b) { return m.mk_transitivity(a, b); }
 public:
     dependent_expr_simplifier(ast_manager& m, dependent_expr_state& s) : m(m), m_fmls(s), m_trail(s.m_trail) {}
     virtual ~dependent_expr_simplifier() {}
