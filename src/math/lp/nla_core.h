@@ -60,8 +60,8 @@ class core {
     friend class nra::solver;
     friend class divisions;
 
-    unsigned m_nlsat_delay = 50;
-    unsigned m_nlsat_fails = 0;
+    unsigned m_nlsat_delay = 0;
+    unsigned m_nlsat_delay_bound = 0;
 
     bool should_run_bounded_nlsat();
     lbool bounded_nlsat();

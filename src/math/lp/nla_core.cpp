@@ -40,7 +40,7 @@ core::core(lp::lar_solver& s, params_ref const& p, reslimit & lim) :
     m_use_nra_model(false),
     m_nra(s, m_nra_lim, *this) 
 {
-    m_nlsat_delay = lp_settings().nlsat_delay();
+    // m_nlsat_delay_bound = lp_settings().nlsat_delay();
     lra.m_find_monics_with_changed_bounds_func = [&](const indexed_uint_set& columns_with_changed_bounds) {
         for (lpvar j : columns_with_changed_bounds) {
             if (is_monic_var(j))
@@ -1550,7 +1550,7 @@ lbool core::check() {
     bool run_grobner = need_run_grobner();
     bool run_horner = need_run_horner();
     bool run_bounded_nlsat = should_run_bounded_nlsat();
-    bool run_bounds = params().arith_nl_branching();    
+    bool run_bounds = params().arith_nl_branching();
 
     auto no_effect = [&]() { return !done() && m_lemmas.empty() && m_literals.empty() && !m_check_feasible; };
     
@@ -1574,6 +1574,9 @@ lbool core::check() {
         if (!m_lemmas.empty() || !m_literals.empty())
             return l_false;
     }
+    
+    if (no_effect() && run_bounded_nlsat)
+        ret = bounded_nlsat();
                 
     if (no_effect()) 
         m_basics.basic_lemma(true); 
@@ -1584,8 +1587,6 @@ lbool core::check() {
     if (no_effect()) 
         m_divisions.check();
     
-    if (no_effect() && run_bounded_nlsat)
-        ret = bounded_nlsat();
 
     if (no_effect() && ret == l_undef) {
         std::function<void(void)> check1 = [&]() { m_order.order_lemma(); };
@@ -1623,9 +1624,9 @@ lbool core::check() {
 bool core::should_run_bounded_nlsat() {
     if (!params().arith_nl_nra())
         return false;
-    if (m_nlsat_delay > m_nlsat_fails)
-        ++m_nlsat_fails;
-    return m_nlsat_delay <= m_nlsat_fails;
+    if (m_nlsat_delay > 0) 
+        --m_nlsat_delay;
+    return m_nlsat_delay < 5;
 }
 
 lbool core::bounded_nlsat() {
@@ -1643,11 +1644,12 @@ lbool core::bounded_nlsat() {
     m_nra.updt_params(p);
     lp_settings().stats().m_nra_calls++;
     if (ret == l_undef) 
-        ++m_nlsat_delay;    
-    else { 
-        m_nlsat_fails = 0;
-        m_nlsat_delay /= 2;
-    }
+        ++m_nlsat_delay_bound;
+    else if (m_nlsat_delay_bound > 0)
+        m_nlsat_delay_bound /= 2;        
+    
+    m_nlsat_delay = m_nlsat_delay_bound;
+
     if (ret == l_true) 
         clear();
     return ret;
