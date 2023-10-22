@@ -72,7 +72,7 @@ namespace nla {
             if (propagate_factorization())
                 return;
 
-            if (false && propagate_linear_equations())
+            if (propagate_linear_equations())
                 return;
         }
         catch (...) {
@@ -81,6 +81,8 @@ namespace nla {
 
         // DEBUG_CODE(for (auto e : m_solver.equations()) check_missing_propagation(*e););
 
+        // for (auto e : m_solver.equations()) check_missing_propagation(*e);
+        
         ++m_delay_base;
         if (m_quota > 0)
            --m_quota;
@@ -383,6 +385,9 @@ namespace nla {
 
     bool grobner::propagate_linear_equations() {
         unsigned changed = 0;
+        m_mon2var.clear();
+        for (auto const& m : c().emons()) 
+            m_mon2var[m.vars()] = m.var();
         for (auto eq : m_solver.equations()) 
             if (propagate_linear_equations(*eq) && ++changed >= m_solver.number_of_conflicts_to_report())
                 return true;
@@ -392,40 +397,40 @@ namespace nla {
     bool grobner::propagate_linear_equations(dd::solver::equation const& e) {
         if (equation_is_true(e))
             return false;
-        if (!e.poly().is_linear())
+        rational value(0);
+        for (auto const& [coeff, vars] : e.poly()) {
+            if (vars.empty())
+                value += coeff;
+            else if (vars.size() == 1)
+                value += coeff*val(vars[0]);
+            else if (m_mon2var.find(vars) == m_mon2var.end())
+                return false;
+            else
+                value += coeff*val(m_mon2var.find(vars)->second);
+        }
+        if (value == 0)
             return false;
 
         rational lc(1);
-        for (auto const& [coeff, vars] : e.poly())
+        for (auto const& [coeff, vars] : e.poly()) 
             lc = lcm(denominator(coeff), lc);
-        auto q = e.poly();
-
         
-#if 1
-        vector<std::pair<lp::mpq, unsigned>> coeffs;        
-        while (!q.is_val()) {
-            coeffs.push_back({lc*q.hi().val(), q.var()});
-            q = q.lo();
-        }
+        vector<std::pair<lp::mpq, unsigned>> coeffs;
+        rational offset(0);
+
+        for (auto const& [coeff, vars] : e.poly()) {
+            if (vars.size() == 0)
+                offset -= lc*coeff;
+            else if (vars.size() == 1)
+                coeffs.push_back({lc*coeff, vars[0]});
+            else
+                coeffs.push_back({lc*coeff, m_mon2var.find(vars)->second});
+        }                    
 
         lp::lpvar term_index = c().lra.add_term(coeffs, UINT_MAX);
         term_index = c().lra.map_term_index_to_column_index(term_index);
-        c().lra.update_column_type_and_bound(term_index, lp::lconstraint_kind::EQ, -lc*q.val(), e.dep());
+        c().lra.update_column_type_and_bound(term_index, lp::lconstraint_kind::EQ, offset, e.dep());
         c().m_check_feasible = true;
-#else
-        
-        new_lemma lemma(m_core,"nla-linear");
-        lp::explanation exp;
-        explain(e, exp);
-        lemma &= exp;
-        term t;
-        while (!q.is_val()) {
-            t.add_monomial(lc*q.hi().val(), q.var());
-            q = q.lo();
-        }
-        lemma |= ineq(t, llc::EQ, -lc*q.val());
-#endif
-        
         return true;
     }
 
@@ -690,12 +695,11 @@ namespace nla {
 
         auto dep = eq.dep();
         cross_nested cn(
-            [this, dep](const nex* n) { bool r = c().m_intervals.check_nex(n, dep); TRACE("grobner", tout << "check " << r << " " << *n << "\n"); return r; },
+            [this, dep](const nex* n) { return c().m_intervals.check_nex(n, dep);  },
             [this](unsigned j)   { return c().var_is_fixed(j); },
             [this]() { return c().random(); }, nc);
         cn.run(to_sum(e));
         bool ret = cn.done();
-        TRACE("grobner", tout << "Horner " << ret << " " << eq.poly() << "\n");
         return ret;
     }
 
@@ -714,10 +718,12 @@ namespace nla {
     void grobner::check_missing_propagation(const dd::solver::equation& e) { 
         bool is_confl = is_nla_conflict(e);
         CTRACE("grobner", is_confl, m_solver.display(tout << "missed conflict ", e););
-        if (is_confl) 
+        if (is_confl) {
+            IF_VERBOSE(2, verbose_stream() << "missed conflict\n");
             return;
-        lbool r = c().m_nra.check_tight(e.poly());
-        CTRACE("grobner", r == l_false, m_solver.display(tout << "tight equality ", e););
+        }
+        //lbool r = c().m_nra.check_tight(e.poly());
+        //CTRACE("grobner", r == l_false, m_solver.display(tout << "tight equality ", e););
     }
 
 

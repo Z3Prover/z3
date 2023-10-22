@@ -26,6 +26,7 @@ namespace nla {
         unsigned                 m_quota = 0;
         unsigned                 m_delay_base = 0;
         unsigned                 m_delay = 0;
+        std::unordered_map<unsigned_vector, lpvar, hash_svector> m_mon2var;
 
         lp::lp_settings& lp_settings();
 
