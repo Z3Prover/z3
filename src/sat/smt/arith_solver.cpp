@@ -1484,6 +1484,13 @@ namespace arith {
     }
 
     void solver::add_lemmas() {
+        if (m_nla->check_feasible()) {
+            auto is_sat = make_feasible();
+            if (l_false == is_sat) {
+                get_infeasibility_explanation_and_set_conflict();
+                return;
+            }
+        }
         for (auto const& ineq : m_nla->literals()) {
             auto lit = mk_ineq_literal(ineq);
             ctx.mark_relevant(lit);
