@@ -838,9 +838,13 @@ namespace polysat {
     }
 
     void slicing::egraph_on_merge(enode* root, enode* other) {
-        LOG("on_merge: root " << slice_pp(*this, root) << "other " << slice_pp(*this, other));
+        LOG("on_merge: root " << slice_pp(*this, root) << " other " << slice_pp(*this, other));
         if (root->interpreted())
             return;
+        if (root->is_equality()) {
+            SASSERT(other->is_equality());
+            return;
+        }
         SASSERT(!other->interpreted());  // by convention, interpreted nodes are always chosen as root
         SASSERT(root != other);
         SASSERT_EQ(root, root->get_root());
