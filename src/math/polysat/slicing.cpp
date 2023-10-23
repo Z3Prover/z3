@@ -1556,18 +1556,18 @@ namespace polysat {
 
     std::ostream& slicing::display(std::ostream& out, enode* s) const {
         out << "{id:" << s->get_id();
+        if (is_equality(s))
+            return out << ",<equality>}";
         out << ",w:" << width(s);
         out << ",root:" << s->get_root_id();
         if (slice2var(s) != null_var)
             out << ",var:v" << slice2var(s);
-        if (is_value(s))
-            out << ",value:" << get_value(s);
+        if (enode* n = get_value_node(s))
+            out << ",value:" << get_value(n);
         if (s->interpreted())
             out << ",<interpreted>";
         if (is_concat(s))
             out << ",<concat>";
-        if (is_equality(s))
-            out << ",<equality>";
         out << "}";
         return out;
     }
