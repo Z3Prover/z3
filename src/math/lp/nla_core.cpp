@@ -1198,7 +1198,9 @@ bool core::conflict_found() const {
 }
 
 bool core::done() const {
-    return m_lemmas.size() >= 10 || 
+    return 
+        lra.get_status() == lp::lp_status::INFEASIBLE ||
+        m_lemmas.size() >= 10 || 
         conflict_found() || 
         lp_settings().get_cancel_flag();
 }
@@ -1475,8 +1477,13 @@ void core::save_tableau() {
 }
 
 bool core::integrality_holds() {
-    NOT_IMPLEMENTED_YET();
-    return false;
+    for (lpvar j = 0; j < lra.number_of_vars(); j++) {
+        if (var_is_int(j) && !val(j).is_int()) {
+            TRACE("nla_solver", tout << "j = " << j << ", val(j) = " << val(j) << "\n";);
+            return false;
+        }
+    }
+    return true;
 }
 
 /**
@@ -1558,9 +1565,15 @@ lbool core::check() {
     if (no_effect())
         m_monomial_bounds.propagate();
 
-    if (no_effect()) 
+    if (no_effect())  
         m_monomial_bounds.improve_bounds();
-    
+    if (lra.get_status() == lp::lp_status::INFEASIBLE) {
+        TRACE("nla_solver", tout << "return unknown because of the status = " << lra.get_status() <<"\n";);        
+        return l_false;
+    }
+    if (!integrality_holds()) {
+        return l_false;
+    }
     {
         std::function<void(void)> check1 = [&]() { if (no_effect() && run_horner) m_horner.horner_lemmas(); };
         std::function<void(void)> check2 = [&]() { if (no_effect() && run_grobner) m_grobner(); };
