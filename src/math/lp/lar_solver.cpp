@@ -345,72 +345,54 @@ namespace lp {
         }
         return dep;
     }
- // returns nullptr if the bound is not improved, otherwise returns the witness of the bound
-    u_dependency* lar_solver::find_improved_bound(lpvar j, bool lower_bound, lp::impq & bound) {
-        SASSERT( is_feasible());
+    // returns nullptr if the bound is not improved, otherwise returns the witness of the bound
+    u_dependency* lar_solver::find_improved_bound(lpvar j, bool lower_bound, mpq& bound) {
+        SASSERT(is_feasible());
         if (lower_bound) {
-            if (column_has_lower_bound(j) && get_column_value(j) == column_lower_bound(j)) 
-                return nullptr; // cannot do better
+            if (column_has_lower_bound(j) && get_column_value(j) == column_lower_bound(j))
+                return nullptr;  // cannot do better
         }
-        else { // improve upper bound = false 
-            if (column_has_upper_bound(j) && get_column_value(j) == column_upper_bound(j)) 
-                return nullptr; // cannot do better
+        else {  // improve upper bound = false
+            if (column_has_upper_bound(j) && get_column_value(j) == column_upper_bound(j))
+                return nullptr;  // cannot do better
         }
-        
+
         lar_term term = get_term_to_maximize(j);
         if (lower_bound)
             term.negate();
         vector<std::pair<mpq, unsigned>> max_coeffs;
-        TRACE("lar_solver_improve_bounds", tout << "j = " << j << ", ";  print_term(term, tout << "term to maximize\n"););        
-        if (!maximize_term_on_feasible_r_solver(term, bound, &max_coeffs))
+        TRACE("lar_solver_improve_bounds", tout << "j = " << j << ", "; print_term(term, tout << "term to maximize\n"););
+        impq term_max;
+        if (!maximize_term_on_feasible_r_solver(term, term_max, &max_coeffs))
             return nullptr;
-        u_dependency * dep = get_dependencies_of_maximum(max_coeffs);
-        SASSERT(dep != nullptr);
+        bound = term_max.x;
         if (lower_bound) {
             bound.neg();
-            if (column_is_int(j)) {
-                if (!bound.x.is_int()) {
-                    bound.x = ceil(bound.x);
-                } 
-                else { // bound.x is int
-                    if (bound.y.is_pos()) {
-                        bound.x += 1;
-                    } 
-                }
-                bound.y = 0;
-            }   
-            if (column_has_lower_bound(j) ) {
-                if (column_is_int(j) && bound <= column_lower_bound(j))
+            if (column_is_int(j))
+                bound = ceil(bound);
+         
+            if (column_has_lower_bound(j)) {
+                if (column_is_int(j) && bound <= column_lower_bound(j).x)
                     return nullptr;
-            } 
-            TRACE("lar_solver_improve_bounds",
-                  tout << "setting lower bound for " << j << " to " << bound << "\n";
-                  std::cout << "bound was = " << column_lower_bound(j) << "\n";
-                  );
-        } 
-        else {
-            if (column_is_int(j)) {
-                if (!bound.x.is_int()) {
-                    bound.x = floor(bound.x);
-                } 
-                else {
-                    if (bound.y.is_neg()) {
-                        bound.x -= 1;
-                    } 
-                }
-                bound.y = 0;
             }
 
-            if (column_has_upper_bound(j)) {
-                if (bound >= column_upper_bound(j))
-                    return nullptr;
-            }            
-            TRACE("lar_solver_improve_bounds", 
-                std::cout << "setting upper bound for " << j << " to " << bound << "\n";
-                std::cout << "bound was = " << column_upper_bound(j) << "\n";
-                );
+            TRACE("lar_solver_improve_bounds",
+                  tout << "setting lower bound for " << j << " to " << bound << "\n";
+                  std::cout << "bound was = " << column_lower_bound(j) << "\n";);
         }
-        return dep;
+        else {
+            if (column_is_int(j))
+                bound = floor(bound);
+            
+            if (column_has_upper_bound(j)) {
+                if (bound >= column_upper_bound(j).x)
+                    return nullptr;
+            }
+            TRACE("lar_solver_improve_bounds",
+                  std::cout << "setting upper bound for " << j << " to " << bound << "\n";
+                  std::cout << "bound was = " << column_upper_bound(j) << "\n";);
+        }   
+        return get_dependencies_of_maximum(max_coeffs);
     }
 
     bool lar_solver::costs_are_zeros_for_r_solver() const {
@@ -555,6 +537,9 @@ namespace lp {
         }
         set_costs_to_zero(term);
         m_mpq_lar_core_solver.m_r_solver.set_status(lp_status::OPTIMAL);
+        // the upper bounds contribute non-positive values (-1|0)*d[j]
+        // and the lower bounds contribute non-negative values (1|0)*d[j] 
+        SASSERT(!ret || !term_max.y.is_pos());
         return ret;
     }
 
@@ -1183,9 +1168,12 @@ namespace lp {
             return;
         mpq delta = m_mpq_lar_core_solver.find_delta_for_strict_bounds(mpq(1));
         for (unsigned j = 0; j < number_of_vars(); j++) {
-            auto& r = m_mpq_lar_core_solver.m_r_x[j];
-            if (!r.y.is_zero())
-                r = impq(r.x + delta * r.y);
+            auto& v = m_mpq_lar_core_solver.m_r_x[j];
+            if (!v.y.is_zero()) {
+                v = impq(v.x + delta * v.y);
+                TRACE("lar_solver_feas", tout << "x[" << j << "] = " << v << "\n";);
+                SASSERT(!column_is_int(j) || v.is_int());
+            }
         }
     }
 

@@ -266,7 +266,7 @@ class lar_solver : public column_namer {
     mutable mpq m_delta;
 
  public:
-    u_dependency* find_improved_bound(lpvar j, bool is_lower, impq& bound);
+    u_dependency* find_improved_bound(lpvar j, bool is_lower, mpq& bound);
 
     std::ostream& print_explanation(
         std::ostream& out, const explanation& exp, 

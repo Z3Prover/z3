@@ -2220,10 +2220,13 @@ public:
         m_bp.init();
         lp().propagate_bounds_for_touched_rows(m_bp);
 
-        if (!m.inc()) 
+        if (!m.inc())
             return;
 
-        if (is_infeasible()) {
+        if (lp().get_status() == lp::lp_status::CANCELLED) {
+            return;
+        }
+        if (is_infeasible() ) {
             get_infeasibility_explanation_and_set_conflict();
             // verbose_stream() << "unsat\n";
         }

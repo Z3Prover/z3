@@ -252,7 +252,7 @@ bool basics::basic_lemma(bool derived) {
         lpvar v = mon_inds_to_ref[(j + start) % mon_inds_to_ref.size()];
         const monic& r = c().emons()[v];
         CTRACE("nla_solver", c().check_monic(c().emons()[v]), c().print_monic(c().emons()[v], tout));
-        SASSERT (!c().check_monic(c().emons()[v]));
+        SASSERT (!c().lra.settings().get_cancel_flag() || !c().check_monic(c().emons()[v]));
         basic_lemma_for_mon(r, derived);
     } 
         

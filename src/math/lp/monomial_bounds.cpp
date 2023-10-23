@@ -486,44 +486,42 @@ namespace nla {
     }
 
     void monomial_bounds::improve_bounds_on_monomial_vars(const unsigned_vector& js) {
+        c().lra.backup_x();
         for (auto j : js) {
             improve_bound(j, false);
             improve_bound(j, true);           
         }
-
+        c().lra.restore_x();
         if (m_lower_max_min_bounds.empty() && m_upper_max_min_bounds.empty()) {
-            c().init_to_refine();
             return;
         }
         c().lp_settings().stats().m_bounds_improvements += m_lower_max_min_bounds.size() + m_upper_max_min_bounds.size();
             
         for (const auto& [j, b] : m_lower_max_min_bounds) {
             SASSERT(c().var_is_fixed(j) == false);
-            if (b.m_bound.y <= 0)
-                c().lra.update_column_type_and_bound(j, lp::lconstraint_kind::GE, b.m_bound.x, b.m_dep);
-            else
-                c().lra.update_column_type_and_bound(j, lp::lconstraint_kind::GT, b.m_bound.x, b.m_dep);         
+            c().lra.update_column_type_and_bound(j, lp::lconstraint_kind::GE, b.m_bound, b.m_dep);
         }
         for (const auto& [j, b] : m_upper_max_min_bounds) {
             SASSERT(c().var_is_fixed(j) == false);
-            if (b.m_bound.y >= 0)
-                c().lra.update_column_type_and_bound(j, lp::lconstraint_kind::LE, b.m_bound.x, b.m_dep);
-            else
-                c().lra.update_column_type_and_bound(j, lp::lconstraint_kind::LT, b.m_bound.x, b.m_dep);
+            c().lra.update_column_type_and_bound(j, lp::lconstraint_kind::LE, b.m_bound, b.m_dep);
         }
 
         c().lra.find_feasible_solution();
         if (c().lra.is_feasible()) {
             unit_propagate();
+            c().lra.find_feasible_solution();
         }
         else {
             c().add_lemma_of_infeas_lp();
         }
-        c().init_to_refine();                
+        if(c().lra.is_feasible()) {
+            c().lra.get_rid_of_inf_eps();
+            c().init_to_refine();  
+        }              
     }
 
     bool monomial_bounds::improve_bound(lpvar j, bool lower_bound) {
-        lp::impq bound;
+        rational bound;
         u_dependency* dep = c().lra.find_improved_bound(j, lower_bound, bound);
         if (dep == nullptr)
             return false;

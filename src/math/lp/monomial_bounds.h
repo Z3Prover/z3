@@ -16,7 +16,7 @@ namespace nla {
     class core;
     struct max_min_bound {
         u_dependency* m_dep;
-        lp::impq      m_bound;
+        rational      m_bound;
     };
     class monomial_bounds : common {
         dep_intervals&       dep;
