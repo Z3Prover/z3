@@ -230,6 +230,7 @@ to Z3's C API. For more information, see [MachineArithmetic/README.md](https://g
 * [.NET API](https://z3prover.github.io/api/html/namespace_microsoft_1_1_z3.html)
 * [Java API](https://z3prover.github.io/api/html/namespacecom_1_1microsoft_1_1z3.html)
 * [Python API](https://z3prover.github.io/api/html/namespacez3py.html) (also available in [pydoc format](https://z3prover.github.io/api/html/z3.html))
+* [Rust](https://github.com/prove-rs/z3.rs)
 * C
 * OCaml
 * [Julia](https://github.com/ahumenberger/Z3.jl)
