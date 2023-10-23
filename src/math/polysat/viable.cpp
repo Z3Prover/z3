@@ -1205,7 +1205,7 @@ namespace {
                                 out_fbi.push_from_bit(last_indet, k);
                             }
                         }
-                        out_fbi.push_just(i, neg.first);
+                        out_fbi.push_just(last_indet, neg.first);
                         fixed[last_indet] = neg.second.bits.get_bit(last_indet) ? l_false : l_true;
                         removed[j] = true;
                         LOG("Applying fast BCP on bit " << last_indet << " from constraint " << neg.first->src);
