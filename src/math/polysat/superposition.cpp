@@ -69,6 +69,8 @@ namespace polysat {
                 continue;
             if (!c1.is_pos_eq())
                 continue;
+            if (!c1.is_currently_true(s))  // may happen if value of 'v' was propagated by slicing, thus falsifying c1 (which then is the conflict constraint)
+                continue;
             SASSERT(c1.is_currently_true(s));
             SASSERT(c2.is_currently_false(s));
             SASSERT_EQ(c1.bvalue(s), l_true);
