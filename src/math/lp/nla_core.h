@@ -88,7 +88,7 @@ class core {
     monomial_bounds          m_monomial_bounds;
     unsigned                 m_conflicts;
     bool                     m_check_feasible = false;
-	unsigned                 m_improved_bounds_quota = 1000;
+    unsigned                 m_improved_bounds_quota = 1000;
     horner                   m_horner;
     grobner                  m_grobner;
     emonics                  m_emons;
