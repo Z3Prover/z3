@@ -549,6 +549,7 @@ namespace polysat {
     }
 
     bool slicing::is_value(enode* n) const {
+        SASSERT(n);
         SASSERT(is_app(n->get_expr()));  // we only create app nodes at the moment; if this fails just return false here.
         app* a = n->get_app();
         return a->get_num_args() == 1 && m_bv->is_numeral(a->get_arg(0));
