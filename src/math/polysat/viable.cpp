@@ -1082,27 +1082,24 @@ namespace {
                         for (unsigned i = 0; i < lsb.length; i++) {
                             lbool prev = fixed[i];
                             fixed[i] = to_lbool(lsb.bits.get_bit(i));
-                            if (prev != l_undef) {
-                                if (fixed[i] != prev) {
-                                    // LOG("Positive parity conflicting " << e1->src << " with " << just_src[i][0]);  // NOTE: just_src may be empty if the justification is by slicing
-                                    if (add_conflict) {
-                                        add_bit_justification(out_fbi, i);
-                                        add_entry(e1);
-                                        s.set_conflict(*builder.build());
-                                    }
-                                    return false;
-                                }
-                                else {
-                                    // Prefer justifications from larger masks (less premises)
-                                    // TODO: Check that we don't override justifications comming from bit constraints
-                                    if (largest_lsb < lsb.length)
-                                        out_fbi.set_just(i, e1);
-                                }
-                            }
-                            else {
+                            if (prev == l_undef) {
                                 SASSERT(just_src[i].empty());
                                 out_fbi.set_just(i, e1);
+                                continue;
                             }
+                            if (fixed[i] != prev) {
+                                // LOG("Positive parity conflicting " << e1->src << " with " << just_src[i][0]);  // NOTE: just_src may be empty if the justification is by slicing
+                                if (add_conflict) {
+                                    add_bit_justification(out_fbi, i);
+                                    add_entry(e1);
+                                    s.set_conflict(*builder.build());
+                                }
+                                return false;
+                            }
+                            // Prefer justifications from larger masks (less premises)
+                            // TODO: Check that we don't override justifications coming from bit constraints
+                            if (largest_lsb < lsb.length)
+                                out_fbi.set_just(i, e1);
                         }
                         largest_lsb = std::max(largest_lsb, lsb.length);
                     }
