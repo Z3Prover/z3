@@ -434,6 +434,7 @@ namespace polysat {
      * Match [x] x <= y
      */
     bool saturation::is_x_l_Y(pvar x, inequality const& i, pdd& y) {
+        y.reset(i.rhs().manager());
         y = i.rhs();
         return is_g_v(x, i);
     }
@@ -442,6 +443,7 @@ namespace polysat {
      * Match [x] y <= x
      */
     bool saturation::is_Y_l_x(pvar x, inequality const& i, pdd& y) {
+        y.reset(i.lhs().manager());
         y = i.lhs();
         return is_l_v(x, i);
     }
@@ -450,6 +452,7 @@ namespace polysat {
      * Match [x] y <= a*x
      */
     bool saturation::is_Y_l_Ax(pvar x, inequality const& i, pdd& a, pdd& y) {
+        y.reset(i.lhs().manager());
         y = i.lhs();
         return is_xY(x, i.rhs(), a);
     }
@@ -462,6 +465,7 @@ namespace polysat {
      * Match [x] a*x <= y
      */
     bool saturation::is_Ax_l_Y(pvar x, inequality const& i, pdd& a, pdd& y) {
+        y.reset(i.rhs().manager());
         y = i.rhs();
         return is_xY(x, i.lhs(), a);
     }
@@ -474,6 +478,7 @@ namespace polysat {
      * Match [x] a*x + b <= y
      */
     bool saturation::is_AxB_l_Y(pvar x, inequality const& i, pdd& a, pdd& b, pdd& y) {
+        y.reset(i.rhs().manager());
         y = i.rhs();
         return i.lhs().degree(x) == 1 && (i.lhs().factor(x, 1, a, b), true);
     }
@@ -484,6 +489,7 @@ namespace polysat {
 
 
     bool saturation::is_Y_l_AxB(pvar x, inequality const& i, pdd& y, pdd& a, pdd& b) {
+        y.reset(i.lhs().manager());
         y = i.lhs();
         return i.rhs().degree(x) == 1 && (i.rhs().factor(x, 1, a, b), true);        
     }
@@ -497,6 +503,7 @@ namespace polysat {
      * Match [x] a*x + b <= y, val(y) = 0
      */
     bool saturation::is_AxB_eq_0(pvar x, inequality const& i, pdd& a, pdd& b, pdd& y) {
+        y.reset(i.rhs().manager());
         y = i.rhs();
         rational y_val;
         if (!s.try_eval(y, y_val) || y_val != 0)
@@ -511,12 +518,15 @@ namespace polysat {
     bool saturation::is_AxB_diseq_0(pvar x, inequality const& i, pdd& a, pdd& b, pdd& y) {
         if (!i.is_strict())
             return false;
+        y.reset(i.lhs().manager());
         y = i.lhs();
         if (i.rhs().is_val() && i.rhs().val() == 1)
             return false;
         rational y_val;
         if (!s.try_eval(y, y_val) || y_val != 0)
             return false;
+        a.reset(i.rhs().manager());
+        b.reset(i.rhs().manager());
         return i.rhs().degree(x) == 1 && (i.rhs().factor(x, 1, a, b), true);
     }
 
