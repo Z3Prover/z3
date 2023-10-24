@@ -43,7 +43,7 @@ namespace polysat {
         bool is_propagation_by_viable() const { return m_kind == justification_k::propagation_by_viable; }
         bool is_propagation_by_slicing() const { return m_kind == justification_k::propagation_by_slicing; }
         justification_k kind() const { return m_kind; }
-        unsigned level() const { /* SASSERT(!is_unassigned()); */ return m_level; }   // TODO: check why this assertion triggers...
+        unsigned level() const { SASSERT(!is_unassigned()); return m_level; }
         std::ostream& display(std::ostream& out) const;
     };
 
