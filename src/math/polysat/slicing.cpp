@@ -802,17 +802,26 @@ namespace polysat {
             dep_t const d = dep_t::decode(dp);
             if (d.is_null())
                 continue;
-            if (d.is_lit())
-                on_lit(d.lit());
+            if (d.is_lit()) {
+                sat::literal const lit = d.lit();
+                if (!m_marked_lits.contains(lit)) {
+                    on_lit(lit);
+                    m_marked_lits.insert(lit);
+                }
+            }
             else {
                 SASSERT(d.is_value());
-                if (get_dep_lit(d) == sat::null_literal)
+                sat::literal const lit = get_dep_lit(d);
+                if (lit == sat::null_literal)
                     on_var(get_dep_var(d));
-                else
-                    on_lit(get_dep_lit(d));
+                else if (!m_marked_lits.contains(lit)) {
+                    on_lit(lit);
+                    m_marked_lits.insert(lit);
+                }
             }
         }
         m_tmp_deps.reset();
+        m_marked_lits.reset();
     }
 
     void slicing::explain_value(pvar v, std::function<void(sat::literal)> const& on_lit, std::function<void(pvar)> const& on_var) {
