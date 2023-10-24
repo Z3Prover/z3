@@ -98,9 +98,16 @@ namespace polysat {
         if (d.is_null())
             out << "null";
         else if (d.is_value()) {
-            out << "value(v" << get_dep_var(d) << " on slice " << get_dep_slice(d)->get_id();
-            if (get_dep_lit(d) != sat::null_literal)
-                out << " by literal " << get_dep_lit(d);
+            pvar x = get_dep_var(d);
+            enode* n = get_dep_slice(d);
+            sat::literal lit = get_dep_lit(d);
+            out << "value(v" << x << " on slice ";
+            if (n)
+                out << n->get_id();
+            else
+                out << "<null>";
+            if (lit != sat::null_literal)
+                out << " by literal " << lit;
             out << ")";
         }
         else if (d.is_lit())
@@ -923,17 +930,8 @@ namespace polysat {
     }
 
     bool slicing::egraph_merge(enode* s1, enode* s2, dep_t dep) {
-        LOG("egraph_merge: " << slice_pp(*this, s1) << " and " << slice_pp(*this, s2));
+        LOG("egraph_merge: " << slice_pp(*this, s1) << " and " << slice_pp(*this, s2) << " by " << dep_pp(*this, dep));
         SASSERT_EQ(width(s1), width(s2));
-        enode* v1 = get_value_node(s1);
-        enode* v2 = get_value_node(s2);
-        if (v1 && v2 && get_value(v1) == get_value(v2)) {
-            // optimization: if s1, s2 are already equivalent to the same value,
-            // then they could have been merged already and we do not need to record 'dep'.
-            // merge the value slices instead.
-            m_egraph.merge(v1, v2, dep_t().encode());
-            return !is_conflict();
-        }
         if (dep.is_value()) {
             if (is_value(s1))
                 std::swap(s1, s2);
