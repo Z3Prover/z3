@@ -320,21 +320,17 @@ namespace lp {
         // and every j with negative coeff is at its lower bound: so the sum cannot be increased.
         // All variables j in the sum are non-basic.
         u_dependency* dep = nullptr;
-        for (const auto & p: max_coeffs) {
-            const auto & d_j = p.first;
-            unsigned j = p.second;
+        for (const auto & [d_j, j]: max_coeffs) {
             SASSERT (!d_j.is_zero());
                 
             TRACE("lar_solver_improve_bounds", tout << "d[" << j << "] = " << d_j << "\n";
                                                s.print_column_info(j, tout););
             const ul_pair& ul = m_columns_to_ul_pairs[j];
             u_dependency * bound_dep;
-            if (d_j.is_pos()) {
+            if (d_j.is_pos()) 
                 bound_dep = ul.upper_bound_witness();
-            } 
-            else {
+            else 
                 bound_dep = ul.lower_bound_witness();               
-            }
             TRACE("lar_solver_improve_bounds", {
 	           svector<constraint_index> cs;
                m_dependencies.linearize(bound_dep, cs);
@@ -348,14 +344,11 @@ namespace lp {
     // returns nullptr if the bound is not improved, otherwise returns the witness of the bound
     u_dependency* lar_solver::find_improved_bound(lpvar j, bool lower_bound, mpq& bound) {
         SASSERT(is_feasible());
-        if (lower_bound) {
-            if (column_has_lower_bound(j) && get_column_value(j) == column_lower_bound(j))
-                return nullptr;  // cannot do better
-        }
-        else {  // improve upper bound = false
-            if (column_has_upper_bound(j) && get_column_value(j) == column_upper_bound(j))
-                return nullptr;  // cannot do better
-        }
+        if (lower_bound  && column_has_lower_bound(j) && get_column_value(j) == column_lower_bound(j))
+            return nullptr;  // cannot do better
+        if (!lower_bound && column_has_upper_bound(j) && get_column_value(j) == column_upper_bound(j))
+            return nullptr;  // cannot do better
+        
 
         lar_term term = get_term_to_maximize(j);
         if (lower_bound)
@@ -365,6 +358,8 @@ namespace lp {
         impq term_max;
         if (!maximize_term_on_feasible_r_solver(term, term_max, &max_coeffs))
             return nullptr;
+        
+        // Took keep it simpler we ignore possible improvements from non-strict to strict bounds.
         bound = term_max.x;
         if (lower_bound) {
             bound.neg();
@@ -378,7 +373,7 @@ namespace lp {
 
             TRACE("lar_solver_improve_bounds",
                   tout << "setting lower bound for " << j << " to " << bound << "\n";
-                  std::cout << "bound was = " << column_lower_bound(j) << "\n";);
+                  tout << "bound was = " << column_lower_bound(j) << "\n";);
         }
         else {
             if (column_is_int(j))
@@ -389,8 +384,8 @@ namespace lp {
                     return nullptr;
             }
             TRACE("lar_solver_improve_bounds",
-                  std::cout << "setting upper bound for " << j << " to " << bound << "\n";
-                  std::cout << "bound was = " << column_upper_bound(j) << "\n";);
+                  tout << "setting upper bound for " << j << " to " << bound << "\n";
+                  tout << "bound was = " << column_upper_bound(j) << "\n";);
         }   
         return get_dependencies_of_maximum(max_coeffs);
     }
@@ -1119,13 +1114,7 @@ namespace lp {
 
     mpq lar_solver::get_value(column_index const& j) const {
         SASSERT(get_status() == lp_status::OPTIMAL || get_status() == lp_status::FEASIBLE);
-        if (!m_columns_with_changed_bounds.empty()) {
-            for (auto j : m_columns_with_changed_bounds) {
-                std::cout << "column " << j << " has changed bounds\n";
-            }
-        }
-        SASSERT(m_columns_with_changed_bounds.empty());
-       
+        VERIFY(m_columns_with_changed_bounds.empty());       
         numeric_pair<mpq> const& rp = get_column_value(j);
         return from_model_in_impq_to_mpq(rp);        
     }
