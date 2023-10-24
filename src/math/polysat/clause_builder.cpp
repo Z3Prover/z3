@@ -89,6 +89,13 @@ namespace polysat {
     void clause_builder::insert_eval(signed_constraint c) {
         if (c.bvalue(*m_solver) == l_undef)
             m_solver->assign_eval(~c.blit());
+        if (c.bvalue(*m_solver) != l_false) {
+            IF_VERBOSE(1,
+                verbose_stream() << "clause_builder: " << (m_name ? m_name : "<null>") << "\n";
+                verbose_stream() << "    constraint is not b:false: " << lit_pp(*m_solver, c) << "\n";
+            );
+        }
+        // SASSERT_EQ(c.bvalue(*m_solver), l_false);
         insert(c);
     }
 
