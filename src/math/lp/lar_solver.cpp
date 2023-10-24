@@ -207,7 +207,7 @@ namespace lp {
             return m_status;
         
         if (m_settings.bound_propagation())
-           detect_rows_with_changed_bounds();
+            detect_rows_with_changed_bounds();
 
         clear_columns_with_changed_bounds();
         return m_status;
