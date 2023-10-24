@@ -410,26 +410,19 @@ namespace lp {
 
     void lar_solver::set_costs_to_zero(const lar_term& term) {
         auto& rslv = m_mpq_lar_core_solver.m_r_solver;
-        auto& jset = m_mpq_lar_core_solver.m_r_solver.inf_heap(); // hijack this set that should be empty right now
-        lp_assert(jset.empty());
-
+        auto& d = rslv.m_d;
+        auto& costs = rslv.m_costs;
         for (lar_term::ival p : term) {
             unsigned j = p.column();
-            rslv.m_costs[j] = zero_of_type<mpq>();
+            costs[j] = zero_of_type<mpq>();
             int i = rslv.m_basis_heading[j];
-            if (i < 0)
-                jset.insert(j);
-            else {
+            if (i < 0) 
+                d[j] = zero_of_type<mpq>();            
+            else 
                 for (const auto& rc : A_r().m_rows[i])
-                    jset.insert(rc.var());
-            }
+                    d[rc.var()] = zero_of_type<mpq>();
         }
         
-        for (unsigned j : jset)
-            rslv.m_d[j] = zero_of_type<mpq>();
-
-        jset.clear();
-
         lp_assert(reduced_costs_are_zeroes_for_r_solver());
         lp_assert(costs_are_zeros_for_r_solver());
     }
