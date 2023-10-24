@@ -41,6 +41,7 @@ namespace polysat {
     }
 
     bool forbidden_intervals::get_interval_umul_ovfl(signed_constraint const& c, pvar v, fi_record& fi) {
+        using std::swap;
 
         backtrack _backtrack(fi.side_cond);
 
@@ -57,10 +58,10 @@ namespace polysat {
         rational bound = m.max_value();
 
         if (ok2 && !ok1) {
-            std::swap(a1, a2);
-            std::swap(e1, e2);
-            std::swap(b1, b2);
-            std::swap(ok1, ok2);
+            swap(a1, a2);
+            swap(e1, e2);
+            swap(b1, b2);
+            swap(ok1, ok2);
         }
         if (ok1 && !ok2 && a1.is_one() && b1.is_zero()) {
             if (c.is_positive()) {
@@ -79,9 +80,9 @@ namespace polysat {
 
 
         if (a2.is_one() && a1.is_zero()) {
-            std::swap(a1, a2);
-            std::swap(e1, e2);
-            std::swap(b1, b2);
+            swap(a1, a2);
+            swap(e1, e2);
+            swap(b1, b2);
         }
 
         if (!a1.is_one() || !a2.is_zero())
@@ -262,9 +263,10 @@ namespace polysat {
                 return eval_interval::full();
         }
 
-        rational pow2 = m.max_value() + 1;
+        rational pow2 = m.two_to_N();
 
         if (coeff > pow2/2) {
+            // TODO: if coeff != pow2 - 1, isn't this counterproductive now? considering the gap condition on refine-equal-lin acceleration.
 
             coeff = pow2 - coeff;
             SASSERT(coeff > 0);

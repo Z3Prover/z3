@@ -25,7 +25,7 @@ namespace polysat {
         vector<signed_constraint>   side_cond;
         vector<signed_constraint>   src;        // only units may have multiple src (as they can consist of contracted bit constraints)
         rational                    coeff;
-        unsigned                    bit_width = 0;  // number of lower bits
+        unsigned                    bit_width = 0;  // number of lower bits; TODO: should move this to viable::entry; where the coeff/bit-width is adapted accordingly
 
         /** Create invalid fi_record */
         fi_record(): interval(eval_interval::full()) {}
