@@ -21,7 +21,7 @@ namespace nla {
     void monomial_bounds::propagate() {
         for (lpvar v : c().m_to_refine) {
             propagate(c().emon(v));
-            if (c().add_lemma_of_infeas_lp()) 
+            if (c().add_lemma_of_infeasible_lp()) 
                 break;
         }
     }
@@ -320,7 +320,7 @@ namespace nla {
                 continue;
             monic& m = c().emon(v);
             unit_propagate(m);
-            if (c().add_lemma_of_infeas_lp()) 
+            if (c().add_lemma_of_infeasible_lp()) 
                 break;
             if (c().m_conflicts > 0) 
                 break;
@@ -460,9 +460,6 @@ namespace nla {
         //      return false;
         c().trail().push(value_trail(c().m_bounds_improved));
         c().m_bounds_improved = true;
-        m_lower_max_min_bounds.reset();
-        m_upper_max_min_bounds.reset();
-
         // if (lp_settings().stats().m_bounds_improvements > 1000 || lra.settings().get_cancel_flag())
         //     return false;
         // if (m_improved_bounds_quota <= 0) {
@@ -505,14 +502,17 @@ namespace nla {
             SASSERT(c().var_is_fixed(j) == false);
             c().lra.update_column_type_and_bound(j, lp::lconstraint_kind::LE, b.m_bound, b.m_dep);
         }
-
+        
+        m_lower_max_min_bounds.reset();
+        m_upper_max_min_bounds.reset();
+        
         c().lra.find_feasible_solution();
         if (c().lra.is_feasible()) {
             unit_propagate();
             c().lra.find_feasible_solution();
         }
         else {
-            c().add_lemma_of_infeas_lp();
+            c().add_lemma_of_infeasible_lp();
         }
         if(c().lra.is_feasible()) {
             c().lra.get_rid_of_inf_eps();

@@ -2224,7 +2224,7 @@ public:
         if (lp().get_status() == lp::lp_status::CANCELLED) {
             return;
         }
-        if (is_infeasible() ) {
+        if (is_infeasible()) {
             get_infeasibility_explanation_and_set_conflict();
             // verbose_stream() << "unsat\n";
         }

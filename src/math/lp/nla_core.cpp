@@ -1061,7 +1061,7 @@ new_lemma& new_lemma::operator|=(ineq const& ineq) {
 }
     
 // it differs from |= only in that it does not assert the ineq does not hold
-new_lemma& new_lemma::operator&=(ineq const& ineq) {
+new_lemma& new_lemma::add_ineq(ineq const& ineq) {
     if (!c.explain_ineq(*this, ineq.term(), ineq.cmp(), ineq.rs())) {
         current().push_back(ineq);
     }
@@ -1198,8 +1198,7 @@ bool core::conflict_found() const {
 }
 
 bool core::done() const {
-    return 
-        lra.get_status() == lp::lp_status::INFEASIBLE ||
+    return        
         m_lemmas.size() >= 10 || 
         conflict_found() || 
         lp_settings().get_cancel_flag();
@@ -1635,7 +1634,7 @@ lbool core::check() {
     return ret;
 }
 
-bool core::add_lemma_of_infeas_lp() {
+bool core::add_lemma_of_infeasible_lp() {
     if (lra.get_status() != lp::lp_status::INFEASIBLE)
         return false;
     lp::explanation exp;
