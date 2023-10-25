@@ -1556,9 +1556,6 @@ lbool core::check() {
     
     if (no_effect())
         m_monomial_bounds.propagate();
-
-    if (no_effect() && improve_bounds())
-        return l_false;
     
     {
         std::function<void(void)> check1 = [&]() { if (no_effect() && run_horner) m_horner.horner_lemmas(); };
@@ -1793,34 +1790,16 @@ void core::set_use_nra_model(bool m) {
     
 void core::collect_statistics(::statistics & st) {
 }
-
-bool core::improve_bounds() {
-    return false;
-
-    uint_set seen;
-    bool bounds_improved = false;
-    auto insert = [&](lpvar v) {
-        if (seen.contains(v))
-            return;
-        seen.insert(v);
-        if (lra.improve_bound(v, false))
-            bounds_improved = true, lp_settings().stats().m_nla_bounds_improvements++;
-        if (lra.improve_bound(v, true))
-            bounds_improved = true, lp_settings().stats().m_nla_bounds_improvements++;
-    };
-    for (auto & m : m_emons) {
-        insert(m.var());
-        for (auto v : m.vars())
-            insert(v);
-    }
-    return bounds_improved;
-}
     
 void core::propagate() {
     clear();
     m_monomial_bounds.unit_propagate();
     m_monics_with_changed_bounds.reset();
 }
+
+    void core::simplify() {
+        // in-processing simplifiation can go here, such as bounds improvements.
+    }
 
 
 

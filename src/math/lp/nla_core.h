@@ -104,8 +104,6 @@ class core {
 
     void check_weighted(unsigned sz, std::pair<unsigned, std::function<void(void)>>* checks);
     void add_bounds();
-    // try to improve bounds for variables in monomials.
-    bool improve_bounds();
 
 public:    
     // constructor
@@ -386,6 +384,8 @@ public:
     bool  no_lemmas_hold() const;
 
     void propagate();
+
+    void simplify();
     
     lbool  test_check();
     lpvar map_to_root(lpvar) const;
