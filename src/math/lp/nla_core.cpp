@@ -1549,7 +1549,6 @@ lbool core::check() {
     lbool ret = l_undef;
     bool run_grobner = need_run_grobner();
     bool run_horner = need_run_horner();
-    bool run_bounded_nlsat = should_run_bounded_nlsat();
     bool run_bounds = params().arith_nl_branching();
 
     auto no_effect = [&]() { return !done() && m_lemmas.empty() && m_literals.empty() && !m_check_feasible; };
@@ -1572,7 +1571,7 @@ lbool core::check() {
             return l_false;
     }
     
-    if (no_effect() && run_bounded_nlsat)
+    if (no_effect() && should_run_bounded_nlsat())
         ret = bounded_nlsat();
                 
     if (no_effect()) 
@@ -1582,8 +1581,7 @@ lbool core::check() {
         m_basics.basic_lemma(false);
 
     if (no_effect()) 
-        m_divisions.check();
-    
+        m_divisions.check();    
 
     if (no_effect() && ret == l_undef) {
         std::function<void(void)> check1 = [&]() { m_order.order_lemma(); };
@@ -1610,7 +1608,6 @@ lbool core::check() {
         ret = l_false;
 
     lp_settings().stats().m_nla_lemmas += m_lemmas.size();
-
     
     TRACE("nla_solver", tout << "ret = " << ret << ", lemmas count = " << m_lemmas.size() << "\n";);
     IF_VERBOSE(5, if(ret == l_undef) {verbose_stream() << "Monomials\n"; print_monics(verbose_stream());});
@@ -1623,7 +1620,7 @@ bool core::should_run_bounded_nlsat() {
         return false;
     if (m_nlsat_delay > 0) 
         --m_nlsat_delay;
-    return m_nlsat_delay < 5;
+    return m_nlsat_delay < 2;
 }
 
 lbool core::bounded_nlsat() {

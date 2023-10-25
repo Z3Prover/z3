@@ -26,6 +26,7 @@ namespace nla {
         unsigned                 m_quota = 0;
         unsigned                 m_delay_base = 0;
         unsigned                 m_delay = 0;
+        bool                     m_add_all_eqs = false;
         std::unordered_map<unsigned_vector, lpvar, hash_svector> m_mon2var;
 
         lp::lp_settings& lp_settings();
@@ -58,7 +59,7 @@ namespace nla {
         bool equation_is_true(dd::solver::equation const& eq);
 
         // setup
-        void configure();
+        bool configure();
         void set_level2var();
         void find_nl_cluster();
         void prepare_rows_and_active_vars();
@@ -76,5 +77,6 @@ namespace nla {
     public:
         grobner(core *core);        
         void operator()();
+        dd::solver::equation_vector const& core_equations(bool all_eqs);
     }; 
 }

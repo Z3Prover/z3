@@ -50,10 +50,10 @@ namespace nla {
             return;
         }
         
-
         lp_settings().stats().m_grobner_calls++;
         find_nl_cluster();        
-        configure();
+        if (!configure())
+            return;
         m_solver.saturate();
 
         if (m_delay_base > 0)
@@ -89,15 +89,14 @@ namespace nla {
 
         IF_VERBOSE(3, verbose_stream() << "grobner miss, quota " << m_quota << "\n");
         IF_VERBOSE(4, diagnose_pdd_miss(verbose_stream()));
+    }
 
-
-#if 0
-        // diagnostics: did we miss something
-        vector<dd::pdd> eqs;
-        for (auto eq : m_solver.equations())
-            eqs.push_back(eq->poly());
-        c().m_nra.check(eqs);
-#endif
+    dd::solver::equation_vector const& grobner::core_equations(bool all_eqs) {
+        flet<bool> _add_all(m_add_all_eqs, all_eqs);
+        find_nl_cluster();        
+        if (!configure()) 
+            throw dd::pdd_manager::mem_out();
+        return m_solver.equations();
     }
 
     bool grobner::is_conflicting() {
@@ -220,7 +219,7 @@ namespace nla {
         return true;
     }
 
-    void grobner::explain(const dd::solver::equation& eq, lp::explanation& exp) {
+    void grobner::explain(dd::solver::equation const& eq, lp::explanation& exp) {
         u_dependency_manager dm;
         vector<unsigned, false> lv;
         dm.linearize(eq.dep(), lv);
@@ -235,7 +234,7 @@ namespace nla {
         lemma &= exp;
     }
 
-    void grobner::configure() {
+    bool grobner::configure() {
         m_solver.reset();
         try {
             set_level2var();
@@ -253,12 +252,12 @@ namespace nla {
                     add_fixed_monic(j);
             }
         }
-        catch (...) {
+        catch (dd::pdd_manager::mem_out) {
             IF_VERBOSE(2, verbose_stream() << "pdd throw\n");
-            return;
+            return false;
         }
         TRACE("grobner", m_solver.display(tout));
-    
+
 #if 0
         IF_VERBOSE(2, m_pdd_grobner.display(verbose_stream()));
         dd::pdd_eval eval(m_pdd_manager);
@@ -282,6 +281,8 @@ namespace nla {
         m_solver.set(cfg);
         m_solver.adjust_cfg();
         m_pdd_manager.set_max_num_nodes(10000); // or something proportional to the number of initial nodes.
+
+        return true;
     }
 
     std::ostream& grobner::diagnose_pdd_miss(std::ostream& out) {
@@ -389,8 +390,8 @@ namespace nla {
         for (auto const& m : c().emons()) 
             m_mon2var[m.vars()] = m.var();
         for (auto eq : m_solver.equations()) 
-            if (propagate_linear_equations(*eq) && ++changed >= m_solver.number_of_conflicts_to_report())
-                return true;
+            if (propagate_linear_equations(*eq))
+                ++changed;
         return changed > 0;
     }
     
@@ -430,7 +431,7 @@ namespace nla {
         lp::lpvar term_index = c().lra.add_term(coeffs, UINT_MAX);
         term_index = c().lra.map_term_index_to_column_index(term_index);
         c().lra.update_column_type_and_bound(term_index, lp::lconstraint_kind::EQ, offset, e.dep());
-        c().m_check_feasible = true;
+        c().m_check_feasible = true; 
         return true;
     }
 
@@ -455,11 +456,16 @@ namespace nla {
                 continue;
             m_rows.insert(row);
             unsigned k = lra.get_base_column_in_row(row);
-            if (lra.column_is_free(k) && k != j)
+            // grobner bassis does not know about integer constraints
+            if (lra.column_is_free(k) && !m_add_all_eqs && k != j)
+                continue;
+            // a free column over the reals can be assigned
+            if (lra.column_is_free(k) && k != j && !lra.var_is_int(k)) 
                 continue;
             CTRACE("grobner", matrix.m_rows[row].size() > c().params().arith_nl_grobner_row_length_limit(),
-                   tout << "ignore the row " << row << " with the size " << matrix.m_rows[row].size() << "\n";); 
-            if (matrix.m_rows[row].size() > c().params().arith_nl_horner_row_length_limit())
+                   tout << "ignore the row " << row << " with the size " << matrix.m_rows[row].size() << "\n";);
+            // limits overhead of grobner equations, unless this is for extracting a complete COI of the non-satisfied subset.
+            if (!m_add_all_eqs && matrix.m_rows[row].size() > c().params().arith_nl_horner_row_length_limit())
                 continue;
             for (auto& rc : matrix.m_rows[row]) 
                 add_var_and_its_factors_to_q_and_collect_new_rows(rc.var(), q);
@@ -584,7 +590,6 @@ namespace nla {
         TRACE("grobner", c().print_row(row, tout) << " " << sum << "\n");
         add_eq(sum, dep);
     }
-
 
     void grobner::find_nl_cluster() {        
         prepare_rows_and_active_vars();
