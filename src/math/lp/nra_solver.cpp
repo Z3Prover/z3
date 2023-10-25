@@ -207,9 +207,9 @@ struct solver::imp {
         coeffs.push_back(mpz(1));
         polynomial::polynomial_ref p(pm.mk_polynomial(1, coeffs.data(), mls),  pm);
         if (lra.column_has_lower_bound(v)) 
-            add_lb(lra.get_lower_bound(v), p, lra.get_column_lower_bound_witness(v));
+            add_lb_p(lra.get_lower_bound(v), p, lra.get_column_lower_bound_witness(v));
         if (lra.column_has_upper_bound(v)) 
-            add_ub(lra.get_upper_bound(v), p, lra.get_column_upper_bound_witness(v));
+            add_ub_p(lra.get_upper_bound(v), p, lra.get_column_upper_bound_witness(v));
     }
 
     void add_monic_eq(mon_eq const& m) {
@@ -448,20 +448,20 @@ struct solver::imp {
     void add_lb(lp::impq const& b, unsigned w, nlsat::assumption a = nullptr) {
         polynomial::manager& pm = m_nlsat->pm();
         polynomial::polynomial_ref p(pm.mk_polynomial(w), pm);
-        add_lb(b, p, a);
+        add_lb_p(b, p, a);
     }
         
     void add_ub(lp::impq const& b, unsigned w, nlsat::assumption a = nullptr) {
         polynomial::manager& pm = m_nlsat->pm();
         polynomial::polynomial_ref p(pm.mk_polynomial(w), pm);
-        add_ub(b, p, a);
+        add_ub_p(b, p, a);
     }
 
-    void add_lb(lp::impq const& b, polynomial::polynomial* p, nlsat::assumption a = nullptr) {
+    void add_lb_p(lp::impq const& b, polynomial::polynomial* p, nlsat::assumption a = nullptr) {
         add_bound(b.x, p, b.y <= 0, b.y > 0 ? nlsat::atom::kind::GT : nlsat::atom::kind::LT, a);
     }
 
-    void add_ub(lp::impq const& b, polynomial::polynomial* p, nlsat::assumption a = nullptr) {
+    void add_ub_p(lp::impq const& b, polynomial::polynomial* p, nlsat::assumption a = nullptr) {
         add_bound(b.x, p, b.y >= 0, b.y < 0 ? nlsat::atom::kind::LT : nlsat::atom::kind::GT, a);
     }
 
