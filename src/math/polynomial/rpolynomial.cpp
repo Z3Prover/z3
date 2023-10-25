@@ -658,9 +658,7 @@ namespace rpolynomial {
         void display(std::ostream & out, polynomial const * p, display_var_proc const & proc, bool use_star) {
             var x      = p->max_var();
             bool first = true;
-            unsigned i = p->size();
-            while (i > 0) {
-                --i;
+            for (unsigned i = p->size(); i-- > 0; ) {
                 poly_or_num * pn = p->arg(i);
                 if (pn == nullptr)
                     continue;
@@ -697,23 +695,19 @@ namespace rpolynomial {
                         display(out, to_poly(pn), proc, use_star);
                     }
                     else {
-                        bool add_paren = false;
-                        if (i > 0)
-                            add_paren = !is_monomial(to_poly(pn));
+                        bool add_paren = !is_monomial(to_poly(pn));
                         if (add_paren)
                             out << "(";
                         display(out, to_poly(pn), proc, use_star);
                         if (add_paren)
                             out << ")";
-                        if (i > 0) {
-                            if (use_star)
-                                out << "*";
-                            else
-                                out << " ";
-                            proc(out, x);
-                            if (i > 1)
-                                out << "^" << i;
-                        }
+                        if (use_star)
+                            out << "*";
+                        else
+                            out << " ";
+                        proc(out, x);
+                        if (i > 1)
+                            out << "^" << i;
                     }
                 }
             }
