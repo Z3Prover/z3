@@ -996,9 +996,6 @@ namespace arith {
 
         TRACE("arith", ctx.display(tout););
 
-        if (!check_delayed_eqs()) 
-            return sat::check_result::CR_CONTINUE;
-
         switch (check_lia()) {
         case l_true:
             break;
@@ -1022,10 +1019,6 @@ namespace arith {
             break;
         }
 
-        if (delayed_assume_eqs()) {
-            ++m_stats.m_assume_eqs;
-            return sat::check_result::CR_CONTINUE;
-        }
         if (assume_eqs()) {
             ++m_stats.m_assume_eqs;
             return sat::check_result::CR_CONTINUE;
