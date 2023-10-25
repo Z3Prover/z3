@@ -5594,14 +5594,14 @@ extern "C" {
     void Z3_API Z3_add_const_interp(Z3_context c, Z3_model m, Z3_func_decl f, Z3_ast a);
 
     /**
-       \brief Increment the reference counter of the given Z3_func_interp object.
+       \brief Increment the reference counter of the given \c Z3_func_interp object.
 
        def_API('Z3_func_interp_inc_ref', VOID, (_in(CONTEXT), _in(FUNC_INTERP)))
     */
     void Z3_API Z3_func_interp_inc_ref(Z3_context c, Z3_func_interp f);
 
     /**
-       \brief Decrement the reference counter of the given Z3_func_interp object.
+       \brief Decrement the reference counter of the given \c Z3_func_interp object.
 
        def_API('Z3_func_interp_dec_ref', VOID, (_in(CONTEXT), _in(FUNC_INTERP)))
     */
