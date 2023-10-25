@@ -257,8 +257,6 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_
 }
 template <typename T, typename X> void lp_primal_core_solver<T, X>::init_run_tableau() {
         lp_assert(basis_columns_are_set_correctly());
-        this->m_basis_sort_counter = 0; // to initiate the sort of the basis
-        //  this->set_total_iterations(0);
         this->iters_with_no_cost_growing() = 0;
 		lp_assert(this->inf_heap_is_correct());
         if (this->current_x_is_feasible() && this->m_look_for_feasible_solution_only)
