@@ -19,8 +19,6 @@ namespace lp {
 
 namespace nra {
 
-
-
     class solver {
         struct imp;
         imp* m_imp;
