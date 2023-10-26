@@ -40,8 +40,8 @@ core::core(lp::lar_solver& s, params_ref const& p, reslimit & lim) :
     m_use_nra_model(false),
     m_nra(s, m_nra_lim, *this) 
 {
-    // m_nlsat_delay_bound = lp_settings().nlsat_delay();
-    lra.m_find_monics_with_changed_bounds_func = [&](const indexed_uint_set& columns_with_changed_bounds) {
+     m_nlsat_delay_bound = lp_settings().nlsat_delay();
+     lra.m_find_monics_with_changed_bounds_func = [&](const indexed_uint_set& columns_with_changed_bounds) {
         for (lpvar j : columns_with_changed_bounds) {
             if (is_monic_var(j))
                 m_monics_with_changed_bounds.insert(j);
@@ -1567,11 +1567,11 @@ lbool core::check() {
               {1, check3} };
         check_weighted(3, checks);
 
-        if (!m_lemmas.empty() || !m_literals.empty())
+        if (!m_lemmas.empty() || !m_literals.empty() || m_check_feasible)
             return l_false;
     }
     
-    if (no_effect() && should_run_bounded_nlsat())
+    if (no_effect() && should_run_bounded_nlsat()) 
         ret = bounded_nlsat();
                 
     if (no_effect()) 
