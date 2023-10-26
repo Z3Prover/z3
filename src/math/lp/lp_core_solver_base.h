@@ -165,10 +165,6 @@ public:
 
     void print_statistics(char const* str, X cost, std::ostream & message_stream);
 
-    bool print_statistics_with_iterations_and_check_that_the_time_is_over(std::ostream & message_stream);
-
-    bool print_statistics_with_iterations_and_nonzeroes_and_cost_and_check_that_the_time_is_over(char const* str, std::ostream & message_stream);
-
     bool print_statistics_with_cost_and_check_that_the_time_is_over(X cost, std::ostream & message_stream);
 
     unsigned total_iterations() const { return m_total_iterations; }

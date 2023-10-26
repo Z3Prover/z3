@@ -23,10 +23,8 @@ Revision History:
 #include "util/vector.h"
 #include <functional>
 #include "math/lp/lp_core_solver_base_def.h"
-template bool lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::print_statistics_with_iterations_and_nonzeroes_and_cost_and_check_that_the_time_is_over(char const*, std::ostream &);
 template bool lp::lp_core_solver_base<lp::mpq, lp::mpq>::basis_heading_is_correct() const ;
 template bool lp::lp_core_solver_base<lp::mpq, lp::mpq>::column_is_dual_feasible(unsigned int) const;
-template bool lp::lp_core_solver_base<lp::mpq, lp::mpq>::print_statistics_with_iterations_and_nonzeroes_and_cost_and_check_that_the_time_is_over(char const*, std::ostream &);
 template void lp::lp_core_solver_base<lp::mpq, lp::mpq>::add_delta_to_entering(unsigned int, const lp::mpq&);
 template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::init();
 template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::init_basis_heading_and_non_basic_columns_vector();
@@ -35,7 +33,6 @@ template lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::lp_core_s
     vector<unsigned int >&, vector<unsigned> &, vector<int> &, vector<lp::numeric_pair<lp::mpq> >&, vector<lp::mpq>&, lp::lp_settings&, const column_namer&, const vector<lp::column_type >&,
                                                                                                    const vector<lp::numeric_pair<lp::mpq> >&,
                                                                                                    const vector<lp::numeric_pair<lp::mpq> >&);
-template bool lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::print_statistics_with_cost_and_check_that_the_time_is_over(lp::numeric_pair<lp::mpq>, std::ostream&);
 
 template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::add_delta_to_entering(unsigned int, const lp::numeric_pair<lp::mpq>&);
 template lp::lp_core_solver_base<lp::mpq, lp::mpq>::lp_core_solver_base(
@@ -50,7 +47,6 @@ template lp::lp_core_solver_base<lp::mpq, lp::mpq>::lp_core_solver_base(
                                                                               const vector<lp::column_type >&,
                                                                               const vector<lp::mpq>&,
                                                                               const vector<lp::mpq>&);
-template bool lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::print_statistics_with_iterations_and_check_that_the_time_is_over(std::ostream &);
 template std::string lp::lp_core_solver_base<lp::mpq, lp::mpq>::column_name(unsigned int) const;
 template void lp::lp_core_solver_base<lp::mpq, lp::mpq>::pretty_print(std::ostream & out);
 template std::string lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::column_name(unsigned int) const;

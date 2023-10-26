@@ -134,37 +134,6 @@ print_statistics(char const* str, X cost, std::ostream & out) {
 }
 
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
-print_statistics_with_iterations_and_check_that_the_time_is_over(std::ostream & str) {
-    unsigned total_iterations = inc_total_iterations();
-    if (m_settings.report_frequency != 0)  {
-        if (m_settings.print_statistics && (total_iterations % m_settings.report_frequency == 0)) {
-            print_statistics("", X(), str);
-        }
-    }
-    return time_is_over();
-}
-
-template <typename T, typename X> bool lp_core_solver_base<T, X>::
-print_statistics_with_iterations_and_nonzeroes_and_cost_and_check_that_the_time_is_over(char const* str, std::ostream & out) {
-    unsigned total_iterations = inc_total_iterations();
-    if (m_settings.report_frequency != 0)
-        if (m_settings.print_statistics && (total_iterations % m_settings.report_frequency == 0)) {
-            print_statistics(str, get_cost(), out);
-        }
-    return time_is_over();
-}
-
-template <typename T, typename X> bool lp_core_solver_base<T, X>::
-print_statistics_with_cost_and_check_that_the_time_is_over(X cost, std::ostream & out) {
-    unsigned total_iterations = inc_total_iterations();
-    if (m_settings.report_frequency != 0)
-        if (m_settings.print_statistics && (total_iterations % m_settings.report_frequency == 0)) {
-            print_statistics("", cost, out);
-        }
-    return time_is_over();
-}
-
-template <typename T, typename X> bool lp_core_solver_base<T, X>::
 column_is_dual_feasible(unsigned j) const {
     switch (m_column_types[j]) {
     case column_type::fixed:
@@ -192,18 +161,6 @@ d_is_not_negative(unsigned j) const {
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
 d_is_not_positive(unsigned j) const {
     return m_d[j] <= numeric_traits<T>::zero();    
-}
-
-
-template <typename T, typename X> bool lp_core_solver_base<T, X>::
-time_is_over() {
-    if (m_settings.get_cancel_flag()) {
-        m_status = lp_status::TIME_EXHAUSTED;
-        return true;
-    }
-    else {
-        return false;
-    }
 }
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::
