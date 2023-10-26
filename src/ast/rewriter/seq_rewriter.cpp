@@ -828,6 +828,7 @@ br_status seq_rewriter::mk_seq_concat(expr* a, expr* b, expr_ref& result) {
 
 br_status seq_rewriter::mk_seq_length(expr* a, expr_ref& result) {
     zstring b;
+    rational r;
     m_es.reset();
     str().get_concat(a, m_es);
     unsigned len = 0;
@@ -867,6 +868,13 @@ br_status seq_rewriter::mk_seq_length(expr* a, expr_ref& result) {
         result = str().mk_length(z);
         return BR_REWRITE1;
     } 
+    // len(extract(x, 0, z)) = min(z, len(x))
+    if (str().is_extract(a, x, y, z) && 
+        m_autil.is_numeral(y, r) && r.is_zero()) {
+        expr* len_x = str().mk_length(x);
+        result = m().mk_ite(m_autil.mk_le(len_x, z), len_x, z);
+        return BR_REWRITE2;
+    }
 #if 0
     expr* s = nullptr, *offset = nullptr, *length = nullptr;
     if (str().is_extract(a, s, offset, length)) {
@@ -1209,6 +1217,11 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
     constantPos &= pos.is_unsigned();
     constantLen &= len.is_unsigned();
 
+    if (constantPos && constantLen && len == 1) {
+        result = str().mk_at(a, b);
+        return BR_REWRITE1;
+    }
+
     if (constantPos && constantLen && constantBase) {
         unsigned _pos = pos.get_unsigned();
         unsigned _len = len.get_unsigned();
@@ -1548,9 +1561,17 @@ bool seq_rewriter::reduce_by_char(expr_ref& r, expr* ch, unsigned depth) {
  */
 br_status seq_rewriter::mk_seq_at(expr* a, expr* b, expr_ref& result) {
     zstring c;
-    rational r;
+    rational r, offset_r, len_r;
+    expr* offset, *a1, *len;
     expr_ref_vector lens(m());
     sort* sort_a = a->get_sort();
+    if (str().is_extract(a, a1, offset, len) && 
+        m_autil.is_numeral(offset, offset_r) && offset_r.is_zero() && 
+        m_autil.is_numeral(len, len_r) && m_autil.is_numeral(b, r) && 
+        r < len_r) {
+        result = str().mk_at(a1, b);
+        return BR_REWRITE1;
+    }
     if (!get_lengths(b, lens, r)) {
         return BR_FAILED;
     }
