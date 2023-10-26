@@ -116,7 +116,7 @@ struct solver::imp {
     lbool check() {        
         if (!need_check()) 
             return l_true;
-        m_value = nullptr;
+        m_values = nullptr;
         m_nlsat = alloc(nlsat::solver, m_limit, m_params, false);
         m_values = alloc(scoped_anum_vector, am());
         m_term_set.reset();
