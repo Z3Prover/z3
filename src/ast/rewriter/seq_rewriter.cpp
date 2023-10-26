@@ -870,10 +870,13 @@ br_status seq_rewriter::mk_seq_length(expr* a, expr_ref& result) {
     } 
     // len(extract(x, 0, z)) = min(z, len(x))
     if (str().is_extract(a, x, y, z) && 
-        m_autil.is_numeral(y, r) && r.is_zero()) {
+        m_autil.is_numeral(y, r) && r.is_zero() &&
+        m_autil.is_numeral(z, r) && r >= 0) {
         expr* len_x = str().mk_length(x);
+        expr* zero = m_autil.mk_int(0);
         result = m().mk_ite(m_autil.mk_le(len_x, z), len_x, z);
-        return BR_REWRITE2;
+        // result = m().mk_ite(m_autil.mk_le(z, zero), zero, result);
+        return BR_REWRITE_FULL;
     }
 #if 0
     expr* s = nullptr, *offset = nullptr, *length = nullptr;
