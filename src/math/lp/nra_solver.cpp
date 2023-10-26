@@ -458,17 +458,17 @@ struct solver::imp {
     }
 
     void add_lb_p(lp::impq const& b, polynomial::polynomial* p, nlsat::assumption a = nullptr) {
-        add_bound(b.x, p, b.y <= 0, b.y > 0 ? nlsat::atom::kind::GT : nlsat::atom::kind::LT, a);
+        add_bound_p(b.x, p, b.y <= 0, b.y > 0 ? nlsat::atom::kind::GT : nlsat::atom::kind::LT, a);
     }
 
     void add_ub_p(lp::impq const& b, polynomial::polynomial* p, nlsat::assumption a = nullptr) {
-        add_bound(b.x, p, b.y >= 0, b.y < 0 ? nlsat::atom::kind::LT : nlsat::atom::kind::GT, a);
+        add_bound_p(b.x, p, b.y >= 0, b.y < 0 ? nlsat::atom::kind::LT : nlsat::atom::kind::GT, a);
     }
 
     // w - bound < 0
     // w - bound > 0
 
-    void add_bound(lp::mpq const& bound, polynomial::polynomial* p1, bool neg, nlsat::atom::kind k, nlsat::assumption a = nullptr) {
+    void add_bound_p(lp::mpq const& bound, polynomial::polynomial* p1, bool neg, nlsat::atom::kind k, nlsat::assumption a = nullptr) {
         polynomial::manager& pm = m_nlsat->pm();
         polynomial::polynomial_ref p2(pm.mk_const(bound), pm);
         polynomial::polynomial_ref p(pm.sub(p1, p2), pm);
@@ -482,8 +482,8 @@ struct solver::imp {
 
     void add_bound(lp::mpq const& bound, unsigned w, bool neg, nlsat::atom::kind k, nlsat::assumption a = nullptr) {
         polynomial::manager& pm = m_nlsat->pm();
-        polynomial::polynomial_ref p1(pm.mk_polynomial(w), pm);
-        add_bound(bound, p1, neg, k, a);
+        polynomial::polynomial_ref p(pm.mk_polynomial(w), pm);
+        add_bound_p(bound, p, neg, k, a);
     }
 
     polynomial::polynomial* pdd2polynomial(dd::pdd const& p) {
