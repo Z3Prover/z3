@@ -1555,6 +1555,17 @@ lbool core::check() {
     
     if (no_effect())
         m_monomial_bounds.propagate();
+
+    if (no_effect()) 
+        if (improve_bounds()) {
+            if (!lra.is_feasible()) {
+                TRACE("nla_solver", tout << "infeasible\n";);
+                return l_false;
+            } 
+            this->propagate();
+
+            return l_false;
+        }
     
     {
         std::function<void(void)> check1 = [&]() { if (no_effect() && run_horner) m_horner.horner_lemmas(); };
@@ -1787,6 +1798,40 @@ void core::set_use_nra_model(bool m) {
     
 void core::collect_statistics(::statistics & st) {
 }
+<<<<<<< HEAD
+=======
+
+bool core::improve_bounds() {
+    if (m_bounds_improved)
+        return false;
+    trail().push(value_trail(m_bounds_improved));
+    m_bounds_improved = true;
+    
+    if (lp_settings().stats().m_bounds_improvements > 1000 || lra.settings().get_cancel_flag())
+        return false;
+    if (m_improved_bounds_quota <= 0) {
+        ++m_improved_bounds_quota;
+        return false;
+    }
+    uint_set seen;
+    unsigned_vector js;
+    auto insert = [&](lpvar v) {
+        if (seen.contains(v))
+            return;
+        seen.insert(v);
+        js.push_back(v);
+    };
+    for (auto & m : m_emons) {
+        insert(m.var());
+        for (auto v : m.vars())
+            insert(v);
+    }
+    unsigned n = lra.improve_bounds(js);
+    m_improved_bounds_quota += 2*n - js.size();
+    lp_settings().stats().m_bounds_improvements += n;
+    return n > 0;
+}
+>>>>>>> fdfe5c2d8 (attempt improve bounds with maximize_term)
     
 void core::propagate() {
     clear();
