@@ -17,6 +17,7 @@ Author:
 #include "math/grobner/pdd_solver.h"
 #include "math/dd/pdd_interval.h"
 #include "math/dd/pdd_eval.h"
+#include "nla_core.h"
 namespace nla {
 
 typedef lp::lar_term term;
@@ -1059,6 +1060,14 @@ new_lemma& new_lemma::operator|=(ineq const& ineq) {
     return *this;
 }
     
+// it differs from |= only in that it does not assert the ineq does not hold
+new_lemma& new_lemma::operator&=(ineq const& ineq) {
+    if (!c.explain_ineq(*this, ineq.term(), ineq.cmp(), ineq.rs())) {
+        current().push_back(ineq);
+    }
+    return *this;
+}
+
 
 new_lemma::~new_lemma() {
     static int i = 0;
@@ -1549,28 +1558,7 @@ lbool core::check() {
         m_monomial_bounds.propagate();
 
     if (no_effect()) 
-        if (improve_bounds()) {
-            lra.find_feasible_solution();
-            if (!lra.is_feasible()) {
-                TRACE("nla_solver", tout << "infeasible\n";);
-                add_lemma_of_infeas_lp();
-                return l_false;
-            } 
-            flet f(m_monomial_bounds.m_unit_propagate_once, false);
-            m_monomial_bounds.unit_propagate();
-            if (lra.columns_with_changed_bounds().size()) {
-                lra.find_feasible_solution();
-                if (!lra.is_feasible()) {
-                    TRACE("nla_solver", tout << "infeasible\n";);
-                    add_lemma_of_infeas_lp();
-                    return l_false;
-                }
-            }
-        }
-        init_to_refine();
-        if (m_to_refine.empty())
-            return l_true;  
-
+        improve_bounds();
     
     {
         std::function<void(void)> check1 = [&]() { if (no_effect() && run_horner) m_horner.horner_lemmas(); };
@@ -1813,12 +1801,11 @@ void core::set_use_nra_model(bool m) {
     
 void core::collect_statistics(::statistics & st) {
 }
-<<<<<<< HEAD
-=======
 
 bool core::improve_bounds() {
     // if (m_bounds_improved)
     //      return false;
+    lra.backup_x();
     trail().push(value_trail(m_bounds_improved));
     m_bounds_improved = true;
     
@@ -1841,13 +1828,46 @@ bool core::improve_bounds() {
         for (auto v : m.vars())
             insert(v);
     }
-    unsigned n = lra.improve_bounds(js);
+    unsigned n = improve_bounds_on_monomial_vars(js);
     m_improved_bounds_quota += 2*n - js.size();
     lp_settings().stats().m_bounds_improvements += n;
+    lra.restore_x();
     return n > 0;
 }
->>>>>>> fdfe5c2d8 (attempt improve bounds with maximize_term)
-    
+
+bool core::improve_bounds_on_monomial_vars(const unsigned_vector& js) {
+    unsigned improved = 0;
+    for (auto j : js) {
+        if (improve_bound(j, false)) {
+            ++improved;
+        }
+        if (improve_bound(j, true)) {
+            ++improved;
+        }
+    }
+    return improved;
+}
+
+bool core::improve_bound(lpvar j, bool lower_bound) {   
+    lp::impq bound;
+    u_dependency* dep = lra.find_improved_bound(j, lower_bound, bound);
+    if (dep == nullptr)
+        return false;
+    new_lemma l(*this, "nla_core: improve_bound");
+    lp::explanation expl(lra.flatten(dep));
+    l &= expl;
+
+    if (lower_bound) {
+        llc k = bound.y.is_zero()? llc::GE : llc::GT;
+        l &= ineq(j, k, bound.x);
+    }
+    else {
+        llc k = bound.y.is_zero()? llc::LE : llc::LT;
+        l &= ineq(j, k, bound.x);        
+   }
+    return true;
+}
+
 void core::propagate() {
     clear();
     m_monomial_bounds.unit_propagate();

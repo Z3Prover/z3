@@ -251,6 +251,7 @@ bool basics::basic_lemma(bool derived) {
     for (unsigned j = 0; j < sz; ++j) {
         lpvar v = mon_inds_to_ref[(j + start) % mon_inds_to_ref.size()];
         const monic& r = c().emons()[v];
+        CTRACE("nla_solver", c().check_monic(c().emons()[v]), c().print_monic(c().emons()[v], tout));
         SASSERT (!c().check_monic(c().emons()[v]));
         basic_lemma_for_mon(r, derived);
     } 
