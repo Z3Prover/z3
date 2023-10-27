@@ -386,12 +386,12 @@ namespace arith {
         ctx.push(push_back_vector<svector<std::pair<euf::th_eq, bool>>>(m_delayed_eqs));
     }
 
-    void solver::mk_diseq_axiom(euf::th_eq const& e) {
-        if (is_bool(e.v1()))
+    void solver::mk_diseq_axiom(theory_var v1, theory_var v2) {
+        if (is_bool(v1))
             return;
         force_push();
-        expr* e1 = var2expr(e.v1());
-        expr* e2 = var2expr(e.v2());
+        expr* e1 = var2expr(v1);
+        expr* e2 = var2expr(v2);
         if (e1->get_id() > e2->get_id())
             std::swap(e1, e2);
         if (m.are_distinct(e1, e2))

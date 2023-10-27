@@ -896,6 +896,9 @@ namespace arith {
     }
 
     bool solver::assume_eqs() {
+        if (delayed_assume_eqs())
+            return true;
+
         TRACE("arith", display(tout););
         random_update();
         m_model_eqs.reset();
@@ -944,8 +947,15 @@ namespace arith {
                 continue;
             literal eq = eq_internalize(n1, n2);
             ctx.mark_relevant(eq);
-            if (s().value(eq) != l_true)
+            switch (s().value(eq)) {
+            case l_true:
+                break;
+            case l_undef:
                 return true;
+            case l_false:
+                mk_diseq_axiom(v1, v2);
+                return true;
+            }
         }
         return false;
     }
@@ -1018,13 +1028,14 @@ namespace arith {
             st = sat::check_result::CR_GIVEUP;
             break;
         }
-
+            
         if (assume_eqs()) {
             ++m_stats.m_assume_eqs;
             return sat::check_result::CR_CONTINUE;
         }
         if (!check_delayed_eqs()) 
             return sat::check_result::CR_CONTINUE;
+
         if (ctx.get_config().m_arith_ignore_int && int_undef)
             return sat::check_result::CR_GIVEUP;
         if (m_not_handled != nullptr) {
@@ -1106,7 +1117,7 @@ namespace arith {
             if (p.second)
                 new_eq_eh(e);
             else if (is_eq(e.v1(), e.v2())) {
-                mk_diseq_axiom(e);
+                mk_diseq_axiom(e.v1(), e.v2());
                 found_diseq = true;
                 break;
             }
@@ -1467,8 +1478,6 @@ namespace arith {
             add_lemmas();
             break;
         case l_true:
-            if (assume_eqs())
-                return l_false;
             break;
         case l_undef:
             break;
