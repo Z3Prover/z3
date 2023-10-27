@@ -46,17 +46,18 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::advance_on_e
 
  template <typename T, typename X> int lp_primal_core_solver<T, X>::choose_entering_column_tableau() {
     //this moment m_y = cB * B(-1)
+    if (this->m_nbasis_sort_counter == 0) {
+        sort_non_basis();
+        this->m_nbasis_sort_counter = 20;
+    }
+    else {
+        this->m_nbasis_sort_counter--;
+    }
     unsigned number_of_benefitial_columns_to_go_over =  get_number_of_non_basic_column_to_try_for_enter();
     
     if (number_of_benefitial_columns_to_go_over == 0)
         return -1;
-    if (this->m_basis_sort_counter == 0) {
-        sort_non_basis();
-        this->m_basis_sort_counter = 20;
-    }
-    else {
-        this->m_basis_sort_counter--;
-    }
+    
     unsigned j_nz = this->m_m() + 1; // this number is greater than the max column size
     std::list<unsigned>::iterator entering_iter = m_non_basis_list.end();
     unsigned n = 0;

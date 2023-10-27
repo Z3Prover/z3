@@ -288,6 +288,8 @@ namespace lp {
         lp_assert(m_mpq_lar_core_solver.m_r_solver.reduced_costs_are_correct_tableau());
         m_usage_in_terms.pop(k);
         m_dependencies.pop_scope(k);
+        // init the nbasis sorting
+		require_nbasis_sort();
         set_status(lp_status::UNKNOWN);
     }
 
@@ -1570,6 +1572,7 @@ namespace lp {
         else {
             m_mpq_lar_core_solver.m_r_heading.push_back(-static_cast<int>(m_mpq_lar_core_solver.m_r_nbasis.size()) - 1);
             m_mpq_lar_core_solver.m_r_nbasis.push_back(j);
+            require_nbasis_sort();
         }
     }
 

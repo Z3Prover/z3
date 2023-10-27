@@ -88,7 +88,7 @@ public:
     const vector<column_type> & m_column_types;
     const vector<X> &     m_lower_bounds;
     const vector<X> &     m_upper_bounds; 
-    unsigned              m_basis_sort_counter;
+    unsigned              m_nbasis_sort_counter;
     vector<unsigned>      m_trace_of_basis_change_vector; // the even positions are entering, the odd positions are leaving
     bool                  m_tracing_basis_changes;
     // these rows are changed by adding to them a multiple of the pivot row

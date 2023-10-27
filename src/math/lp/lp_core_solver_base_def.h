@@ -56,7 +56,7 @@ lp_core_solver_base(static_matrix<T, X> & A,
     m_column_types(column_types),
     m_lower_bounds(lower_bound_values),
     m_upper_bounds(upper_bound_values),
-    m_basis_sort_counter(0),
+    m_nbasis_sort_counter(0),
     m_tracing_basis_changes(false),
     m_touched_rows(nullptr),
     m_look_for_feasible_solution_only(false) {
