@@ -1839,7 +1839,7 @@ _file_manager = contextlib.ExitStack()
 atexit.register(_file_manager.close)
 _ext = 'dll' if sys.platform in ('win32', 'cygwin') else 'dylib' if sys.platform == 'darwin' else 'so'
 _lib = None
-_z3_lib_resource = importlib_resources.files('z3', 'lib')
+_z3_lib_resource = importlib_resources.files('z3').joinpath('lib')
 _z3_lib_resource_path = _file_manager.enter_context(
     importlib_resources.as_file(_z3_lib_resource)
 )
