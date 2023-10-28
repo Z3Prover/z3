@@ -150,7 +150,7 @@ void fpa2bv_converter::mk_numeral(func_decl * f, unsigned num, expr * const * ar
     scoped_mpf v(m_mpf_manager);
     expr_ref a(m);
     a = m.mk_app(f, num, args);
-    SASSERT(m_util.is_numeral(a, v));
+    m_util.is_numeral(a, v);
     mk_numeral(f->get_range(), v, result);
 }
 
