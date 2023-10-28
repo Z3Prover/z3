@@ -4122,7 +4122,6 @@ namespace smt {
             // Moreover, I backtrack only one level.
             bool delay_forced_restart =
                 m_fparams.m_delay_units &&
-                internalized_quantifiers() &&
                 num_lits == 1 &&
                 conflict_lvl > m_search_lvl + 1 &&
                 !m.proofs_enabled() &&
