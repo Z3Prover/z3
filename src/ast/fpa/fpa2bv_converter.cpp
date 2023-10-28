@@ -2990,30 +2990,43 @@ void fpa2bv_converter::mk_to_fp_signed(func_decl * f, unsigned num, expr * const
     unsigned bv_sz = m_bv_util.get_bv_size(x);
     SASSERT(m_bv_util.get_bv_size(rm) == 3);
 
+    expr_ref rm_is_to_neg(m);
+    mk_is_rm(rm, BV_RM_TO_NEGATIVE, rm_is_to_neg);
+
     expr_ref bv1_1(m), bv0_sz(m);
     bv1_1 = m_bv_util.mk_numeral(1, 1);
     bv0_sz = m_bv_util.mk_numeral(0, bv_sz);
 
-    expr_ref is_zero(m), pzero(m);
+    expr_ref is_zero(m), pzero(m), nzero(m);
     is_zero = m.mk_eq(x, bv0_sz);
     mk_pzero(f, pzero);
+    mk_nzero(f, nzero);
 
     // Special case: x == 0 -> p/n zero
     expr_ref c1(m), v1(m);
     c1 = is_zero;
-    v1 = pzero;
+    mk_ite(rm_is_to_neg, nzero, pzero, v1);
+    dbg_decouple("fpa2bv_to_fp_signed_c1", c1);
 
     // Special case: x != 0
-    expr_ref is_neg_bit(m), exp_too_large(m), sig_4(m), exp_2(m);
+    expr_ref sign_bit(m), exp_too_large(m), sig_4(m), exp_2(m), rest(m);
     expr_ref is_neg(m), x_abs(m), neg_x(m);
-    is_neg_bit = m_bv_util.mk_extract(bv_sz - 1, bv_sz - 1, x);
-    is_neg = m.mk_eq(is_neg_bit, bv1_1);
-    neg_x = m_bv_util.mk_bv_neg(x); // overflow problem?
+    sign_bit = m_bv_util.mk_extract(bv_sz - 1, bv_sz - 1, x);
+    rest = m_bv_util.mk_extract(bv_sz - 2, 0, x);
+    dbg_decouple("fpa2bv_to_fp_signed_rest", rest);
+    is_neg = m.mk_eq(sign_bit, bv1_1);
+    neg_x = m_bv_util.mk_bv_neg(x);
     x_abs = m.mk_ite(is_neg, neg_x, x);
     dbg_decouple("fpa2bv_to_fp_signed_is_neg", is_neg);
     // x_abs has an extra bit in the front.
     // x_abs is [bv_sz-1, bv_sz-2] . [bv_sz-3 ... 0] * 2^(bv_sz-2)
     // bv_sz-2 is the "1.0" bit for the rounder.
+    expr_ref is_max_neg(m);
+    is_max_neg = m.mk_eq(rest, m_bv_util.mk_numeral(0, bv_sz-1));
+    dbg_decouple("fpa2bv_to_fp_signed_is_max_neg", is_max_neg);
+
+    x_abs = m.mk_ite(is_max_neg, m_bv_util.mk_concat(bv1_1, m_bv_util.mk_numeral(0, bv_sz-1)), x_abs);
+    dbg_decouple("fpa2bv_to_fp_signed_x_abs", x_abs);
 
     expr_ref lz(m);
     mk_leading_zeros(x_abs, bv_sz, lz);
@@ -3048,6 +3061,7 @@ void fpa2bv_converter::mk_to_fp_signed(func_decl * f, unsigned num, expr * const
     expr_ref s_exp(m), exp_rest(m);
     s_exp = m_bv_util.mk_bv_sub(m_bv_util.mk_numeral(bv_sz - 2, bv_sz), lz);
     // s_exp = (bv_sz-2) + (-lz) signed
+    s_exp = m.mk_ite(is_max_neg, m_bv_util.mk_bv_sub(s_exp, m_bv_util.mk_numeral(1, bv_sz)), s_exp);
     SASSERT(m_bv_util.get_bv_size(s_exp) == bv_sz);
     dbg_decouple("fpa2bv_to_fp_signed_s_exp", s_exp);
 
@@ -3080,7 +3094,7 @@ void fpa2bv_converter::mk_to_fp_signed(func_decl * f, unsigned num, expr * const
     dbg_decouple("fpa2bv_to_fp_signed_exp_too_large", exp_too_large);
 
     expr_ref sgn(m), sig(m), exp(m);
-    sgn = is_neg_bit;
+    sgn = sign_bit;
     sig = sig_4;
     exp = exp_2;
 
@@ -3119,6 +3133,9 @@ void fpa2bv_converter::mk_to_fp_unsigned(func_decl * f, unsigned num, expr * con
     rm = to_app(args[0])->get_arg(0);
     x = args[1];
 
+    expr_ref rm_is_to_neg(m);
+    mk_is_rm(rm, BV_RM_TO_NEGATIVE, rm_is_to_neg);
+
     dbg_decouple("fpa2bv_to_fp_unsigned_x", x);
 
     unsigned ebits = m_util.get_ebits(f->get_range());
@@ -3130,14 +3147,15 @@ void fpa2bv_converter::mk_to_fp_unsigned(func_decl * f, unsigned num, expr * con
     bv0_1 = m_bv_util.mk_numeral(0, 1);
     bv0_sz = m_bv_util.mk_numeral(0, bv_sz);
 
-    expr_ref is_zero(m), pzero(m);
+    expr_ref is_zero(m), pzero(m), nzero(m);
     is_zero = m.mk_eq(x, bv0_sz);
     mk_pzero(f, pzero);
+    mk_nzero(f, nzero);
 
     // Special case: x == 0 -> p/n zero
     expr_ref c1(m), v1(m);
     c1 = is_zero;
-    v1 = pzero;
+    mk_ite(rm_is_to_neg, nzero, pzero, v1);
 
     // Special case: x != 0
     expr_ref exp_too_large(m), sig_4(m), exp_2(m);
@@ -3181,7 +3199,7 @@ void fpa2bv_converter::mk_to_fp_unsigned(func_decl * f, unsigned num, expr * con
     unsigned exp_sz = ebits + 2; // (+2 for rounder)
     exp_2 = m_bv_util.mk_extract(exp_sz - 1, 0, s_exp);
     // the remaining bits are 0 if ebits is large enough.
-    exp_too_large = m.mk_false(); // This is always in range.
+    exp_too_large = m.mk_false();
 
                                   // The exponent is at most bv_sz, i.e., we need ld(bv_sz)+1 ebits.
                                   // exp < bv_sz (+sign bit which is [0])
