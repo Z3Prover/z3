@@ -916,8 +916,8 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
     dbg_decouple("fpa2bv_div_y_is_pos", y_is_pos);
     dbg_decouple("fpa2bv_div_y_is_inf", y_is_inf);
 
-    expr_ref c1(m), c2(m), c3(m), c4(m), c5(m), c6(m), c7(m);
-    expr_ref v1(m), v2(m), v3(m), v4(m), v5(m), v6(m), v7(m), v8(m);
+    expr_ref c1(m), c2(m), c3(m), c4(m), c5(m), c6(m), c7(m), c8(m);
+    expr_ref v1(m), v2(m), v3(m), v4(m), v5(m), v6(m), v7(m), v8(m), v9(m);
 
     // (x is NaN) || (y is NaN) -> NaN
     m_simp.mk_or(x_is_nan, y_is_nan, c1);
@@ -973,6 +973,9 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
     a_sig_ext = m_bv_util.mk_concat(a_sig, m_bv_util.mk_numeral(0, sbits + extra_bits));
     b_sig_ext = m_bv_util.mk_zero_extend(sbits + extra_bits, b_sig);
 
+    dbg_decouple("fpa2bv_div_a_sig_ext", a_sig_ext);
+    dbg_decouple("fpa2bv_div_b_sig_ext", b_sig_ext);
+
     expr_ref a_exp_ext(m), b_exp_ext(m);
     a_exp_ext = m_bv_util.mk_sign_extend(2, a_exp);
     b_exp_ext = m_bv_util.mk_sign_extend(2, b_exp);
@@ -992,14 +995,21 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
     expr_ref quotient(m);
     // b_sig_ext can't be 0 here, so it's safe to use OP_BUDIV_I
     quotient = m.mk_app(m_bv_util.get_fid(), OP_BUDIV_I, a_sig_ext, b_sig_ext);
-
     dbg_decouple("fpa2bv_div_quotient", quotient);
 
     SASSERT(m_bv_util.get_bv_size(quotient) == (sbits + sbits + extra_bits));
 
-    expr_ref sticky(m);
+    expr_ref sticky(m), upper(m), upper_reduced(m), too_large(m);
     sticky = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, m_bv_util.mk_extract(extra_bits-2, 0, quotient));
     res_sig = m_bv_util.mk_concat(m_bv_util.mk_extract(extra_bits+sbits+1, extra_bits-1, quotient), sticky);
+    upper = m_bv_util.mk_extract(sbits + sbits + extra_bits-1, extra_bits+sbits+2, quotient);
+    upper_reduced = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, upper.get());
+    too_large = m.mk_eq(upper_reduced, m_bv_util.mk_numeral(1, 1));
+    c8 = too_large;
+    mk_ite(signs_xor, ninf, pinf, v8);
+    dbg_decouple("fpa2bv_div_res_sig_p4", res_sig);
+    dbg_decouple("fpa2bv_div_upper", upper);
+    dbg_decouple("fpa2bv_div_too_large", too_large);
 
     SASSERT(m_bv_util.get_bv_size(res_sig) == (sbits + 4));
 
@@ -1017,10 +1027,14 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
     m_simp.mk_ite(shift_cond, res_sig, res_sig_shifted, res_sig);
     m_simp.mk_ite(shift_cond, res_exp, res_exp_shifted, res_exp);
 
-    round(s, rm, res_sgn, res_sig, res_exp, v8);
+    dbg_decouple("fpa2bv_div_res_sig", res_sig);
+    dbg_decouple("fpa2bv_div_res_exp", res_exp);
+
+    round(s, rm, res_sgn, res_sig, res_exp, v9);
 
     // And finally, we tie them together.
-    mk_ite(c7, v7, v8, result);
+    mk_ite(c8, v8, v9, result);
+    mk_ite(c7, v7, result, result);
     mk_ite(c6, v6, result, result);
     mk_ite(c5, v5, result, result);
     mk_ite(c4, v4, result, result);
