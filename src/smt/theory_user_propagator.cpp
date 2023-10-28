@@ -241,6 +241,7 @@ void theory_user_propagator::decide(bool_var& var, bool& is_pos) {
     // call the registered callback
     unsigned new_bit = original_bit;
 
+    force_push();
     expr *e = var2expr(v);
     m_decide_eh(m_user_context, this, e, new_bit, is_pos);
 
