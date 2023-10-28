@@ -2784,8 +2784,12 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
 
         expr * e = m.mk_eq(m_util.mk_to_real(result), x);
         m_extra_assertions.push_back(e);
-        // x = 0 -> result = 0+
-        m_extra_assertions.push_back(m.mk_implies(m.mk_eq(x, zero), m.mk_eq(result, m_util.mk_pzero(result->get_sort()))));
+
+        // x = 0 -> result = +0/-0
+        expr_ref pzero(m), nzero(m);
+        mk_pzero(result->get_sort(), pzero);
+        mk_nzero(result->get_sort(), nzero);
+        m_extra_assertions.push_back(m.mk_implies(m.mk_eq(x, zero), m.mk_or(m.mk_eq(result, pzero), m.mk_eq(result, nzero))));
     }
 
     SASSERT(is_well_sorted(m, result));
