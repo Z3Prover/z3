@@ -147,36 +147,11 @@ void fpa2bv_converter::mk_distinct(func_decl * f, unsigned num, expr * const * a
 
 void fpa2bv_converter::mk_numeral(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     SASSERT(num == 0);
-    sort* s = f->get_range();
-    if (f->get_num_parameters() == 1) {
-        SASSERT(f->get_parameter(0).is_external());
-        unsigned p_id = f->get_parameter(0).get_ext_id();
-        mpf const& v = m_plugin->get_value(p_id);
-        mk_numeral(s, v, result);
-        return;
-    }
-    scoped_mpf v(m_mpf_manager);   
-    unsigned ebits = m_util.get_ebits(s), sbits = m_util.get_sbits(s);
-    switch (f->get_decl_kind()) {
-    case OP_FPA_PLUS_INF:
-        m_util.fm().mk_pinf(ebits, sbits, v);
-        break;
-    case OP_FPA_MINUS_INF:
-        m_util.fm().mk_ninf(ebits, sbits, v);
-        break;
-    case OP_FPA_NAN:        
-        m_util.fm().mk_nan(ebits, sbits, v);
-        break;
-    case OP_FPA_PLUS_ZERO:
-        m_util.fm().mk_pzero(ebits, sbits, v);
-        break;
-    case OP_FPA_MINUS_ZERO:
-        m_util.fm().mk_nzero(ebits, sbits, v);
-        break;
-    default:
-        UNREACHABLE();
-    }
-    mk_numeral(s, v, result);
+    scoped_mpf v(m_mpf_manager);
+    expr_ref a(m);
+    a = m.mk_app(f, num, args);
+    SASSERT(m_util.is_numeral(a, v));
+    mk_numeral(f->get_range(), v, result);
 }
 
 void fpa2bv_converter::mk_numeral(sort * s, mpf const & v, expr_ref & result) {
@@ -2854,19 +2829,13 @@ void fpa2bv_converter::mk_to_fp_real_int(func_decl * f, unsigned num, expr * con
         m_mpf_manager.set(tn, ebits, sbits, MPF_ROUND_TOWARD_NEGATIVE, e.to_mpq().numerator(), q.to_mpq());
         m_mpf_manager.set(tz, ebits, sbits, MPF_ROUND_TOWARD_ZERO, e.to_mpq().numerator(), q.to_mpq());
 
-        app_ref a_nte(m), a_nta(m), a_tp(m), a_tn(m), a_tz(m);
-        a_nte = m_plugin->mk_numeral(nte);
-        a_nta = m_plugin->mk_numeral(nta);
-        a_tp = m_plugin->mk_numeral(tp);
-        a_tn = m_plugin->mk_numeral(tn);
-        a_tz = m_plugin->mk_numeral(tz);
-
         expr_ref bv_nte(m), bv_nta(m), bv_tp(m), bv_tn(m), bv_tz(m);
-        mk_numeral(a_nte->get_decl(), 0, nullptr, bv_nte);
-        mk_numeral(a_nta->get_decl(), 0, nullptr, bv_nta);
-        mk_numeral(a_tp->get_decl(), 0, nullptr, bv_tp);
-        mk_numeral(a_tn->get_decl(), 0, nullptr, bv_tn);
-        mk_numeral(a_tz->get_decl(), 0, nullptr, bv_tz);
+        sort *s = f->get_range();
+        mk_numeral(s, nte, bv_nte);
+        mk_numeral(s, nta, bv_nta);
+        mk_numeral(s, tp, bv_tp);
+        mk_numeral(s, tn, bv_tn);
+        mk_numeral(s, tz, bv_tz);
 
         expr_ref c1(m), c2(m), c3(m), c4(m);
         c1 = m.mk_eq(bv_rm, m_bv_util.mk_numeral(BV_RM_TO_POSITIVE, 3));
