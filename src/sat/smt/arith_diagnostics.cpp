@@ -90,7 +90,6 @@ namespace arith {
     void solver::collect_statistics(statistics& st) const {
         m_stats.collect_statistics(st);
         lp().settings().stats().collect_statistics(st);
-        if (m_nla) m_nla->collect_statistics(st);
     }
 
     void solver::explain_assumptions(lp::explanation const& e) {

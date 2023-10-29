@@ -391,8 +391,8 @@ namespace nla {
 
     void monomial_bounds::propagate_nonfixed(monic const& m, rational const& k, lpvar w) {
         vector<std::pair<lp::mpq, unsigned>> coeffs;        
-        coeffs.push_back(std::make_pair(-k, w));
-        coeffs.push_back(std::make_pair(rational::one(), m.var()));
+        coeffs.push_back({-k, w});
+        coeffs.push_back({rational::one(), m.var()});
         lp::lpvar term_index = c().lra.add_term(coeffs, UINT_MAX);
         auto* dep = explain_fixed(m, k);
         term_index = c().lra.map_term_index_to_column_index(term_index);

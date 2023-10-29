@@ -67,6 +67,8 @@ class int_solver {
     bool                m_upper;           // we have a cut m_t*x <= k if m_upper is true nad m_t*x >= k otherwise
     hnf_cutter          m_hnf_cutter;
     unsigned            m_hnf_cut_period;
+
+    vector<equality>       m_equalities;
 public:
     int_solver(lar_solver& lp);
     
@@ -84,7 +86,9 @@ public:
     const impq & get_value(unsigned j) const;
     bool at_lower(unsigned j) const;
     bool at_upper(unsigned j) const;
-    
+    void simplify(std::function<bool(unsigned)>& is_root);
+    vector<equality> const& equalities() const { return m_equalities; }
+
 private:
     // lia_move patch_nbasic_columns();
     bool get_freedom_interval_for_column(unsigned j, bool & inf_l, impq & l, bool & inf_u, impq & u, mpq & m);

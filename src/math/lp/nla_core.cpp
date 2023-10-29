@@ -17,7 +17,7 @@ Author:
 #include "math/grobner/pdd_solver.h"
 #include "math/dd/pdd_interval.h"
 #include "math/dd/pdd_eval.h"
-namespace nla {
+using namespace nla;
 
 typedef lp::lar_term term;
 
@@ -1785,20 +1785,17 @@ void core::set_use_nra_model(bool m) {
     }
 }
     
-void core::collect_statistics(::statistics & st) {
-}
-    
 void core::propagate() {
     clear();
     m_monomial_bounds.unit_propagate();
     m_monics_with_changed_bounds.reset();
 }
 
-    void core::simplify() {
-        // in-processing simplifiation can go here, such as bounds improvements.
-    }
+void core::simplify() {
+    // in-processing simplifiation can go here, such as bounds improvements.
+
+}
 
 
 
-} // end of nla
 

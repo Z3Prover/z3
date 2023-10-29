@@ -1091,6 +1091,26 @@ public:
 
     void restart_eh() {
         m_arith_eq_adapter.restart_eh();
+#if 0
+        // experiment
+        if (m_lia) {
+            std::function<bool(unsigned)> is_root = [&](unsigned j) {
+                theory_var v = lp().local_to_external(j);
+                if (v < 0)
+                    return false;
+                auto* n = get_enode(v);
+                if (!th.is_relevant_and_shared(n))
+                    return false;
+                if (n->is_root())
+                    return true;
+                theory_var w = n->get_root()->get_th_var(get_id());
+                return w == v;
+            };
+            m_lia->simplify(is_root);
+            for (auto const& [i, j, e] : m_lia->equalities())
+                add_eq(i, j, e, false);
+        }
+#endif
         if (m_nla)
             m_nla->simplify();
     }
@@ -3843,7 +3863,6 @@ public:
         m_arith_eq_adapter.collect_statistics(st);
         m_stats.collect_statistics(st);
         lp().settings().stats().collect_statistics(st);
-        if (m_nla) m_nla->collect_statistics(st);
     }        
 
     /*

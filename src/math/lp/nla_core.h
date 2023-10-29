@@ -74,8 +74,8 @@ class core {
     std::function<bool(lpvar)> m_relevant;
     vector<lemma>            m_lemmas;
     vector<ineq>             m_literals;
-    vector<equality>         m_equalities;
-    vector<fixed_equality>   m_fixed_equalities;
+    vector<lp::equality>       m_equalities;
+    vector<lp::fixed_equality> m_fixed_equalities;
     indexed_uint_set         m_to_refine;
     indexed_uint_set         m_monics_with_changed_bounds;
     tangents                 m_tangents;
@@ -420,11 +420,10 @@ public:
     bool has_real(const monic& m) const;
     void set_use_nra_model(bool m);
     bool use_nra_model() const { return m_use_nra_model; }
-    void collect_statistics(::statistics&);
     vector<nla::lemma> const& lemmas() const { return m_lemmas; }
     vector<nla::ineq> const& literals() const { return m_literals; }
-    vector<equality> const& equalities() const { return m_equalities; }
-    vector<fixed_equality> const& fixed_equalities() const { return m_fixed_equalities; }
+    vector<lp::equality> const& equalities() const { return m_equalities; }
+    vector<lp::fixed_equality> const& fixed_equalities() const { return m_fixed_equalities; }
     bool check_feasible() const { return m_check_feasible; }
 
     void add_fixed_equality(lp::lpvar v, rational const& k, lp::explanation const& e) { m_fixed_equalities.push_back({v, k, e}); }

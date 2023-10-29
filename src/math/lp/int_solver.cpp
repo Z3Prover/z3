@@ -683,5 +683,236 @@ namespace lp {
         return result;
     }
 
+    void int_solver::simplify(std::function<bool(unsigned)>& is_root) {
+
+#if 0
+
+        // in-processing simplification can go here, such as bounds improvements.
+
+        if (!lra.is_feasible()) {
+            lra.find_feasible_solution();
+            if (!lra.is_feasible())
+                return;
+        }
+
+        stopwatch sw;
+        explanation exp1, exp2;
+
+        //
+        // tighten integer bounds
+        // It is a weak method as it ownly strengthens bounds if 
+        // variables are already at one of the to-be discovered bounds.
+        //
+        sw.start();
+        unsigned changes = 0;
+        auto const& constraints = lra.constraints();
+        auto print_var = [this](lpvar j) {
+            if (lra.column_corresponds_to_term(j)) {
+                std::stringstream strm;
+                lra.print_column_info(j, strm);
+                return strm.str();
+            }
+            else
+                return std::string("j") + std::to_string(j);
+        };
+        unsigned start = random();
+        unsigned num_checks = 0;
+        for (lpvar j0 = 0; j0 < lra.column_count(); ++j0) {
+            lpvar j = (j0 + start) % lra.column_count();                       
+
+            if (num_checks > 1000)
+                break;
+            if (is_fixed(j))
+                continue;
+            if (!lra.column_is_int(j))
+                continue;
+            rational value = get_value(j).x;
+            bool tight_lower = false, tight_upper = false;
+            u_dependency* dep;
+
+            if (!value.is_int())
+                continue;
+
+            bool at_up = at_upper(j);
+            
+            if (!at_lower(j)) {
+                ++num_checks;
+                lra.push();
+                auto k = lp::lconstraint_kind::LE;
+                lra.update_column_type_and_bound(j, k, (value - 1).to_mpq(), nullptr);
+                lra.find_feasible_solution();
+                if (!lra.is_feasible()) {
+                    tight_upper = true;
+                    ++changes;
+                    lra.get_infeasibility_explanation(exp1);  
+#if 0
+                    display_column(std::cout, j);
+                    std::cout << print_var(j) << " >= " << value << "\n";
+                    unsigned i = 0;
+                    for (auto p : exp1) {
+                        std::cout << "(" << p.ci() << ")";
+                        constraints.display(std::cout, print_var, p.ci());
+                        if (++i < exp1.size())
+                            std::cout << "      ";
+                    }
+#endif
+                }
+                lra.pop(1);
+                if (tight_upper) {
+                    dep = nullptr;
+                    for (auto& cc : exp1)
+                        dep = lra.join_deps(dep, constraints[cc.ci()].dep());
+                    lra.update_column_type_and_bound(j, lp::lconstraint_kind::GE, value.to_mpq(), dep);
+                }
+            }
+            
+            if (!at_up) {
+                ++num_checks;
+                lra.push();
+                auto k = lp::lconstraint_kind::GE;
+                lra.update_column_type_and_bound(j, k, (value + 1).to_mpq(), nullptr);
+                lra.find_feasible_solution();
+                if (!lra.is_feasible()) {
+                    tight_lower = true;
+                    ++changes;
+                    lra.get_infeasibility_explanation(exp1);      
+#if 0
+                    display_column(std::cout, j);
+                    std::cout << print_var(j) << " <= " << value << "\n";
+                    unsigned i = 0;
+                    for (auto p : exp1) {
+                        std::cout << "(" << p.ci() << ")";
+                        constraints.display(std::cout, print_var, p.ci());
+                        if (++i < exp1.size())
+                            std::cout << "      ";
+                    }
+#endif
+                }
+                lra.pop(1);
+                if (tight_lower) {
+                    dep = nullptr;
+                    for (auto& cc : exp1)
+                        dep = lra.join_deps(dep, constraints[cc.ci()].dep());
+                    lra.update_column_type_and_bound(j, lp::lconstraint_kind::LE, value.to_mpq(), dep);
+                }
+            }
+        }
+        sw.stop();
+        std::cout << "changes " << changes << " columns " << lra.column_count() << " time: " << sw.get_seconds() << "\n";
+        std::cout.flush();
+
+        // 
+        // identify equalities
+        //
+
+        m_equalities.reset();
+        map<rational, unsigned_vector, rational::hash_proc, rational::eq_proc> value2roots;
+
+        vector<std::pair<lp::mpq, unsigned>> coeffs;        
+        coeffs.push_back({-rational::one(), 0});
+        coeffs.push_back({rational::one(), 0});
+
+        num_checks = 0;
+
+        // make sure values are sampled with respect to the same state of the Simplex.
+        vector<rational> values;
+        for (lpvar j = 0; j < lra.column_count(); ++j) 
+            values.push_back(get_value(j).x);
+
+        sw.reset();
+        sw.start();
+        start = random();
+        for (lpvar j0 = 0; j0 < lra.column_count(); ++j0) {
+            lpvar j = (j0 + start) % lra.column_count();
+            if (is_fixed(j))
+                continue;
+            if (!lra.column_is_int(j))
+                continue;
+            if (!is_root(j))
+                continue;
+            rational value = values[j];
+            if (!value2roots.contains(value)) {
+                unsigned_vector vec;
+                vec.push_back(j);
+                value2roots.insert(value, vec);
+                continue;
+            }
+            auto& roots = value2roots.find(value);
+            bool has_eq = false;
+            //
+            // Super inefficient check. There are better ways.
+            // 1. call into equality finder:
+            // the cheap equality finder can also be used.
+            // 2. value sweeping:
+            // update partitions of values based on feasible tableaus
+            // instead of having just the values vector use the values 
+            // collected when the find_feasible_solution succeeds with
+            // a new assignment. 
+            // 3. a more expensive equality finder:
+            // use the tableau to extract equalities from tight rows.
+            // If x = y is implied, there is a set of rows that link x and y
+            // and such that the variables are at their bounds.
+            // 4. retain information between calls:
+            // If simplification is invoked at the same backtracking level (or above)
+            // form the previous call and it is established that x <= y (but not x == y), then no need to
+            // recheck the inequality x <= y.
+            for (auto k : roots) {
+                bool le = false, ge = false;
+                u_dependency* dep = nullptr;
+                lra.push();
+                coeffs[0].second = j;
+                coeffs[1].second = k;
+                lp::lpvar term_index = lra.add_term(coeffs, UINT_MAX);
+                term_index = lra.map_term_index_to_column_index(term_index);
+                lra.push();
+                lra.update_column_type_and_bound(term_index, lp::lconstraint_kind::GE, mpq(1), nullptr);
+                lra.find_feasible_solution();
+                if (!lra.is_feasible()) {
+                    lra.get_infeasibility_explanation(exp1);
+                    le = true;
+                }
+                lra.pop(1);
+                ++num_checks;
+                if (le) {
+                    lra.push();
+                    lra.update_column_type_and_bound(term_index, lp::lconstraint_kind::LE, mpq(-1), nullptr);
+                    lra.find_feasible_solution();
+                    if (!lra.is_feasible()) {
+                        lra.get_infeasibility_explanation(exp2);
+                        exp1.add_expl(exp2);
+                        ge = true;           
+                    }                             
+                    lra.pop(1);
+                    ++num_checks;
+                }
+                lra.pop(1);
+                if (le && ge) {
+                    has_eq = true;
+                    m_equalities.push_back({j, k, exp1});
+                    break;
+                }
+                // artificial throttle.
+                if (num_checks > 10000)
+                    break;
+            }
+            if (!has_eq) 
+                roots.push_back(j);
+
+            // artificial throttle.
+            if (num_checks > 10000)
+                break;
+        }
+
+        sw.stop();
+        std::cout << "equalities " << m_equalities.size() << " num checks " << num_checks << " time: " << sw.get_seconds() << "\n";
+        std::cout.flush();
+
+        //
+        // Cuts? Eg. for 0-1 variables or bounded integers?
+        // 
+
+#endif
+    }
+
 
 }
