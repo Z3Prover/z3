@@ -921,6 +921,7 @@ void mpf_manager::fma(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf co
         }
         else {
             m_mpz_manager.mul2k(res.significand(), 4 - x.sbits + 3, o.significand);
+            o.exponent -= 4 - x.sbits + 3;
         }
 
         if (renorm_sticky && m_mpz_manager.is_even(o.significand))
@@ -929,15 +930,18 @@ void mpf_manager::fma(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf co
         TRACE("mpf_dbg", tout << "sum[-1:sbits+2] = " << m_mpz_manager.to_string(o.significand) << std::endl;
                         tout << "R = " << to_string_binary(o, 1, 3) << std::endl;);
 
+        unsigned max_size = o.sbits+4;
+        unsigned sig_size = m_mpz_manager.bitsize(o.significand);
+        if (sig_size > max_size) {
+            unsigned d = sig_size - max_size;
+            m_mpz_manager.machine_div2k(o.significand, d);
+            o.exponent += d;
+        }
+
         if (m_mpz_manager.is_zero(o.significand))
             mk_zero(x.ebits, x.sbits, rm == MPF_ROUND_TOWARD_NEGATIVE, o);
-        else {
-            const mpz & p_m3 = m_powers2(o.sbits+4);
-            if (m_mpz_manager.ge(o.significand, p_m3))
-                mk_inf(x.ebits, x.sbits, !x.sign, o);
-            else
-                round(rm, o);
-        }
+        else
+            round(rm, o);
     }
 
     TRACE("mpf_dbg", tout << "FMA = " << to_string(o) << std::endl;);
