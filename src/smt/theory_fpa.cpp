@@ -239,10 +239,10 @@ namespace smt {
         if (ctx.b_internalized(atom))
             return true;
 
-        ctx.internalize(atom->get_args(), atom->get_num_args(), false);
-
         literal l(ctx.mk_bool_var(atom));
         ctx.set_var_theory(l.var(), get_id());
+
+        ctx.internalize(atom->get_args(), atom->get_num_args(), false);
 
         expr_ref bv_atom(m_rw.convert_atom(m_th_rw, atom));
         expr_ref bv_atom_w_side_c(m), atom_eq(m);
