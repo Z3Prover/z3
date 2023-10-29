@@ -2803,6 +2803,36 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
         mk_is_nan(result, r_is_nan);
         m_extra_assertions.push_back(m.mk_not(r_is_nan));
 
+        rational min_real, max_real;
+        const mpz& max_exp_z = m_mpf_manager.m_powers2.m1(ebits-1);
+        SASSERT(m_mpz_manager.is_uint(max_exp_z));
+        unsigned max_exp = m_mpz_manager.get_uint(max_exp_z);
+        rational max_sig = m_mpf_manager.m_powers2.m1(sbits) / m_mpf_manager.m_powers2(sbits-1);
+        max_real = max_sig * rational(m_mpf_manager.m_powers2(max_exp));
+        TRACE("fpa2bv_to_real", tout << "max exp: " << max_exp << " max real: " << max_real << std::endl;);
+
+        expr_ref r_is_pinf(m), r_is_ninf(m);
+        mk_is_pinf(result, r_is_pinf);
+        mk_is_ninf(result, r_is_ninf);
+
+        expr_ref e_max_real(m), e_max_real_neg(m);
+        e_max_real = m_arith_util.mk_numeral(max_real, false);
+        e_max_real_neg = m_arith_util.mk_numeral(-max_real, false);
+
+        expr_ref rm_nta(m), rm_nte(m), rm_tp(m), rm_tn(m), rm_tz(m);
+        mk_is_rm(bv_rm, BV_RM_TIES_TO_AWAY, rm_nta);
+        mk_is_rm(bv_rm, BV_RM_TIES_TO_EVEN, rm_nte);
+        mk_is_rm(bv_rm, BV_RM_TO_POSITIVE, rm_tp);
+        mk_is_rm(bv_rm, BV_RM_TO_NEGATIVE, rm_tn);
+        mk_is_rm(bv_rm, BV_RM_TO_ZERO, rm_tz);
+
+        expr_ref implies_gt_max_real(m), implies_lt_min_real(m);
+        implies_gt_max_real = m.mk_implies(r_is_pinf, m.mk_and(rm_tp, m_arith_util.mk_gt(x, e_max_real)));
+        implies_lt_min_real = m.mk_implies(r_is_ninf, m.mk_and(rm_tn, m_arith_util.mk_lt(x, e_max_real_neg)));
+
+        m_extra_assertions.push_back(implies_gt_max_real);
+        m_extra_assertions.push_back(implies_lt_min_real);
+
         // x = 0 -> result = +0/-0
         expr_ref pzero(m), nzero(m);
         mk_pzero(result->get_sort(), pzero);
