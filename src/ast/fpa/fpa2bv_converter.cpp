@@ -2799,6 +2799,10 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
         expr * e = m.mk_eq(m_util.mk_to_real(result), x);
         m_extra_assertions.push_back(e);
 
+        expr_ref r_is_nan(m);
+        mk_is_nan(result, r_is_nan);
+        m_extra_assertions.push_back(m.mk_not(r_is_nan));
+
         // x = 0 -> result = +0/-0
         expr_ref pzero(m), nzero(m);
         mk_pzero(result->get_sort(), pzero);
