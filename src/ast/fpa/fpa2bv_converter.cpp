@@ -3002,11 +3002,10 @@ void fpa2bv_converter::mk_to_fp_signed(func_decl * f, unsigned num, expr * const
     mk_pzero(f, pzero);
     mk_nzero(f, nzero);
 
-    // Special case: x == 0 -> p/n zero
+    // Special case: x == 0 -> +zero
     expr_ref c1(m), v1(m);
     c1 = is_zero;
-    mk_ite(rm_is_to_neg, nzero, pzero, v1);
-    dbg_decouple("fpa2bv_to_fp_signed_c1", c1);
+    v1 = pzero; // No -zero? zeros_consistent_4.smt2 requires +zero.
 
     // Special case: x != 0
     expr_ref sign_bit(m), exp_too_large(m), sig_4(m), exp_2(m), rest(m);
@@ -3022,7 +3021,7 @@ void fpa2bv_converter::mk_to_fp_signed(func_decl * f, unsigned num, expr * const
     // x_abs is [bv_sz-1, bv_sz-2] . [bv_sz-3 ... 0] * 2^(bv_sz-2)
     // bv_sz-2 is the "1.0" bit for the rounder.
     expr_ref is_max_neg(m);
-    is_max_neg = m.mk_eq(rest, m_bv_util.mk_numeral(0, bv_sz-1));
+    is_max_neg = m.mk_and(is_neg, m.mk_eq(rest, m_bv_util.mk_numeral(0, bv_sz-1)));
     dbg_decouple("fpa2bv_to_fp_signed_is_max_neg", is_max_neg);
 
     x_abs = m.mk_ite(is_max_neg, m_bv_util.mk_concat(bv1_1, m_bv_util.mk_numeral(0, bv_sz-1)), x_abs);
@@ -3152,10 +3151,10 @@ void fpa2bv_converter::mk_to_fp_unsigned(func_decl * f, unsigned num, expr * con
     mk_pzero(f, pzero);
     mk_nzero(f, nzero);
 
-    // Special case: x == 0 -> p/n zero
+    // Special case: x == 0 -> +zero
     expr_ref c1(m), v1(m);
     c1 = is_zero;
-    mk_ite(rm_is_to_neg, nzero, pzero, v1);
+    v1 = pzero; // No nzero?
 
     // Special case: x != 0
     expr_ref exp_too_large(m), sig_4(m), exp_2(m);
