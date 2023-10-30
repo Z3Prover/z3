@@ -8,6 +8,7 @@ Copyright (c) 2015 Microsoft Corporation
 // for SMT-LIB2.
 
 #include "api/z3.h"
+#include "util/debug.h"
 #include <iostream>
 
 void test_print(Z3_context ctx, Z3_ast_vector av) {
@@ -159,6 +160,70 @@ void test_repeated_eval() {
     Z3_del_context(ctx);
 }
 
+void test_name(Z3_string spec, Z3_string expected_name) {
+    Z3_context ctx = Z3_mk_context(nullptr);
+    Z3_set_error_handler(ctx, setError);
+    std::cout << "spec:\n" << spec << "\n";
+    is_error = false;
+
+    Z3_ast_vector a =
+        Z3_parse_smtlib2_string(ctx,
+                                spec,
+                                0,
+                                nullptr,
+                                nullptr,
+                                0,
+                                nullptr,
+                                nullptr);
+
+    std::cout << "done parsing\n";
+    ENSURE(is_error == (expected_name == nullptr));
+    if (is_error) {
+        Z3_del_context(ctx);
+        return;
+    }
+    Z3_ast_vector_inc_ref(ctx, a);
+
+    ENSURE(Z3_ast_vector_size(ctx, a) == 1)
+    Z3_ast c = Z3_ast_vector_get(ctx, a, 0);
+    Z3_inc_ref(ctx, c);
+    Z3_app app = Z3_to_app(ctx, c);
+    Z3_func_decl decl = Z3_get_app_decl(ctx, app);
+    Z3_symbol symbol = Z3_get_decl_name(ctx, decl);
+    Z3_string name = Z3_get_symbol_string(ctx, symbol);
+    bool success = strcmp(name, expected_name) == 0;
+    Z3_dec_ref(ctx, c);
+    Z3_ast_vector_dec_ref(ctx, a);
+    Z3_del_context(ctx);
+    ENSURE(success);
+}
+
+void test_symbol_escape() {
+
+#define SYMBOL_ASSERTION(N)            \
+        "(declare-const " N " Bool)\n" \
+        "(assert " N ")\n"             \
+        "(check-sat)\n"
+
+    std::cout << "testing Z3_eval_smtlib2_string\n";
+
+    try {
+        test_name(SYMBOL_ASSERTION("|a|"), "a");
+        test_name(SYMBOL_ASSERTION("|a\\|"), nullptr);
+        test_name(SYMBOL_ASSERTION("|a\\||"), "a|");
+        test_name(SYMBOL_ASSERTION("|a\\\\|"), "a\\");
+        test_name(SYMBOL_ASSERTION("|a\\\\||"), nullptr);
+        test_name(SYMBOL_ASSERTION("|a\\a|"), "a\\a");
+        test_name(SYMBOL_ASSERTION("|a\\a"), nullptr);
+    }
+    catch(...) {
+        std::cout << "Error: uncaught exception\n";
+        throw;
+    }
+
+    std::cout << "done evaluating\n";
+}
+
 void tst_smt2print_parse() {
 
     // test basic datatypes  
@@ -224,5 +289,7 @@ void tst_smt2print_parse() {
     // Test ?
 
     test_repeated_eval();
+
+    test_symbol_escape();
 
 }
