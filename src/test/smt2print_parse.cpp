@@ -10,6 +10,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "api/z3.h"
 #include "util/debug.h"
 #include <iostream>
+#include <cstdlib>
 
 void test_print(Z3_context ctx, Z3_ast_vector av) {
     Z3_set_ast_print_mode(ctx, Z3_PRINT_SMTLIB2_COMPLIANT);
