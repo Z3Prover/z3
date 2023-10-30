@@ -110,6 +110,7 @@ private:
     bool has_upper(unsigned j) const;
     unsigned row_of_basic_column(unsigned j) const;
     bool cut_indices_are_columns() const;
+    lia_move local_gomory();
     
 public:
     std::ostream& display_column(std::ostream & out, unsigned j) const;
@@ -128,7 +129,6 @@ public:
     bool is_term(unsigned j) const;
     unsigned column_count() const;
     bool all_columns_are_bounded() const;
-    void find_feasible_solution();
     lia_move hnf_cut();
 
     int select_int_infeasible_var();

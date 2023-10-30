@@ -194,7 +194,11 @@ namespace lp {
         if (r == lia_move::undef && m_patcher.should_apply()) r = m_patcher();
         if (r == lia_move::undef && should_find_cube()) r = int_cube(*this)();
         if (r == lia_move::undef && should_hnf_cut()) r = hnf_cut();
+#if 1
         if (r == lia_move::undef && should_gomory_cut()) r = gomory(*this)();
+#else
+        if (r == lia_move::undef && should_gomory_cut()) r = local_gomory();
+#endif
         if (r == lia_move::undef) r = int_branch(*this)();
         return r;
     }
@@ -913,6 +917,36 @@ namespace lp {
 
 #endif
     }
+
+    lia_move int_solver::local_gomory() {
+        for (unsigned i = 0; i < 4; ++i) {
+            
+            m_ex->clear();
+            m_t.clear();
+            m_k.reset();
+            auto r = gomory(*this)();
+            IF_VERBOSE(3, verbose_stream() << i << " " << r << "\n");
+            if (r != lia_move::cut) 
+                return r;
+            u_dependency* dep = nullptr;
+            for (auto c : *m_ex) 
+                dep = lra.join_deps(lra.dep_manager().mk_leaf(c.ci()), dep);
+            lp::lpvar term_index = lra.add_term(get_term().coeffs_as_vector(), UINT_MAX);
+            term_index = lra.map_term_index_to_column_index(term_index);
+            lra.update_column_type_and_bound(term_index, is_upper() ? lp::lconstraint_kind::LE : lp::lconstraint_kind::GE, get_offset(), dep);
+            lra.find_feasible_solution();
+            if (!lra.is_feasible()) {
+                lra.get_infeasibility_explanation(*m_ex);
+                return lia_move::conflict;
+            }
+        }
+        m_ex->clear();
+        m_t.clear();
+        m_k.reset();
+
+        return lia_move::undef;
+    }
+
 
 
 }

@@ -2416,6 +2416,10 @@ public:
             return false;
         theory_var uv = lp().local_to_external(u); // variables that are returned should have external representations
         theory_var vv = lp().local_to_external(v); // so maybe better to have them already transformed to external form
+        if (uv == null_theory_var)
+            return false;
+        if (vv == null_theory_var)
+            return false;
         enode* n1 = get_enode(uv);
         enode* n2 = get_enode(vv);
 
