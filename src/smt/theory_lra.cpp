@@ -589,7 +589,7 @@ class theory_lra::imp {
 
     void mk_clause(literal l1, literal l2, unsigned num_params, parameter * params) {
         TRACE("arith", literal lits[2]; lits[0] = l1; lits[1] = l2; ctx().display_literals_verbose(tout, 2, lits); tout << "\n";);
-        ctx().mk_th_lemma(get_id(), l1, l2, num_params, params);
+        ctx().mk_th_axiom(get_id(), l1, l2, num_params, params);
     }
 
     void mk_clause(literal l1, literal l2, literal l3, unsigned num_params, parameter * params) {
@@ -3342,7 +3342,7 @@ public:
             // The lemmas can come in batches
             // and the same literal can appear in several lemmas in a batch: it becomes l_true
             // in earlier processing, but it was not so when the lemma was produced
-            ctx().mk_th_lemma(get_id(), m_core.size(), m_core.data());
+            ctx().mk_th_axiom(get_id(), m_core.size(), m_core.data());
         }
     }
 
