@@ -361,7 +361,7 @@ namespace lp {
         if (!maximize_term_on_feasible_r_solver(term, term_max, &max_coeffs))
             return nullptr;
         if (term_max.y.is_pos())
-            return false; // we can only conclude that term <= term_max.x + epsilon
+            return nullptr; // we can only conclude that term <= term_max.x + epsilon
 
         // To keep it simpler we ignore possible improvements from non-strict to strict bounds.
         bound = term_max.x;
