@@ -589,11 +589,15 @@ class theory_lra::imp {
 
     void mk_clause(literal l1, literal l2, unsigned num_params, parameter * params) {
         TRACE("arith", literal lits[2]; lits[0] = l1; lits[1] = l2; ctx().display_literals_verbose(tout, 2, lits); tout << "\n";);
-        ctx().mk_th_axiom(get_id(), l1, l2, num_params, params);
+//        static unsigned num_bin = 0;
+//       std::cout << "binary " << (num_bin++) << "\n";
+        ctx().mk_th_lemma(get_id(), l1, l2, num_params, params);
     }
 
     void mk_clause(literal l1, literal l2, literal l3, unsigned num_params, parameter * params) {
         TRACE("arith", literal lits[3]; lits[0] = l1; lits[1] = l2; lits[2] = l3; ctx().display_literals_smt2(tout, 3, lits); tout << "\n";);
+        static unsigned num_ter = 0;
+        std::cout << "ternary " << (num_ter++) << "\n";
         ctx().mk_th_axiom(get_id(), l1, l2, l3, num_params, params);
     }
 
@@ -3342,7 +3346,7 @@ public:
             // The lemmas can come in batches
             // and the same literal can appear in several lemmas in a batch: it becomes l_true
             // in earlier processing, but it was not so when the lemma was produced
-            ctx().mk_th_axiom(get_id(), m_core.size(), m_core.data());
+            ctx().mk_th_lemma(get_id(), m_core.size(), m_core.data());
         }
     }
 
@@ -3703,17 +3707,16 @@ public:
 
     app_ref coeffs2app(u_map<rational> const& coeffs, rational const& offset, bool is_int) {
         expr_ref_vector args(m);
-        for (auto const& kv : coeffs) {
-            theory_var w = kv.m_key;
+        for (auto const& [w, coeff] : coeffs) {
             expr* o = get_enode(w)->get_expr();
-            if (kv.m_value.is_zero()) {
+            if (coeff.is_zero()) {
                 // continue
             }
-            else if (kv.m_value.is_one()) {
+            else if (coeff.is_one()) {
                 args.push_back(o);
             }
             else {
-                args.push_back(a.mk_mul(a.mk_numeral(kv.m_value, is_int), o));                
+                args.push_back(a.mk_mul(a.mk_numeral(coeff, is_int), o));                
             }
         }
         if (!offset.is_zero()) {

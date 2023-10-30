@@ -199,14 +199,22 @@ namespace nla {
         // IF_VERBOSE(0, verbose_stream() << "factored " << q << " : " << vars << "\n");
 
         term t;
+        rational lc(1);
+        auto ql = q;
+        while (!ql.is_val()) {
+            lc = lcm(lc, denominator(ql.hi().val()));
+            ql = q.lo();
+        }
+        lc = lcm(denominator(ql.val()), lc);
+
         while (!q.is_val()) {
-            t.add_monomial(q.hi().val(), q.var());
+            t.add_monomial(lc*q.hi().val(), q.var());
             q = q.lo();
         }
         vector<ineq> ineqs;
         for (auto v : vars)
             ineqs.push_back(ineq(v, llc::EQ, rational::zero()));
-        ineqs.push_back(ineq(t, llc::EQ, -q.val()));
+        ineqs.push_back(ineq(t, llc::EQ, -lc*q.val()));
         for (auto const& i : ineqs)
             if (c().ineq_holds(i))
                 return false;
