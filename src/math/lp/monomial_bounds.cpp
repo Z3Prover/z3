@@ -483,10 +483,16 @@ namespace nla {
     }
 
     void monomial_bounds::improve_bounds_on_monomial_vars(const unsigned_vector& js) {
+        if (js.empty())
+            return;
         c().lra.backup_x();
-        for (auto j : js) {
+        unsigned start =  c().random() % js.size();
+        unsigned steps= std::min(10u, js.size());
+        for (unsigned s = 0; s < steps; s++) {
+            unsigned k = (start + s) % js.size();
+            unsigned j = js[k];
             improve_bound(j, false);
-            improve_bound(j, true);           
+            improve_bound(j, true);
         }
         c().lra.restore_x();
         if (m_lower_max_min_bounds.empty() && m_upper_max_min_bounds.empty()) {

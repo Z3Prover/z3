@@ -1091,8 +1091,7 @@ public:
 
     void restart_eh() {
         m_arith_eq_adapter.restart_eh();
-        if (m_nla)
-            m_nla->simplify();
+       
     }
 
     void relevant_eh(app* n) {

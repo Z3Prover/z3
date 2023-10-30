@@ -360,18 +360,18 @@ namespace lp {
         impq term_max;
         if (!maximize_term_on_feasible_r_solver(term, term_max, &max_coeffs))
             return nullptr;
-        
-        // Took keep it simpler we ignore possible improvements from non-strict to strict bounds.
+        if (term_max.y.is_pos())
+            return false; // we can only conclude that term <= term_max.x + epsilon
+
+        // To keep it simpler we ignore possible improvements from non-strict to strict bounds.
         bound = term_max.x;
         if (lower_bound) {
             bound.neg();
             if (column_is_int(j))
                 bound = ceil(bound);
          
-            if (column_has_lower_bound(j)) {
-                if (column_is_int(j) && bound <= column_lower_bound(j).x)
-                    return nullptr;
-            }
+            if (column_has_lower_bound(j) && column_is_int(j) && bound <= column_lower_bound(j).x)
+                return nullptr;
 
             TRACE("lar_solver_improve_bounds",
                   tout << "setting lower bound for " << j << " to " << bound << "\n";
@@ -439,7 +439,8 @@ namespace lp {
             else
                 rslv.update_reduced_cost_for_basic_column_cost_change(-p.coeff(), j);
         }
-        rslv.m_costs_backup = rslv.m_costs;
+        if (settings().backup_costs)
+            rslv.m_costs_backup = rslv.m_costs;
         lp_assert(rslv.reduced_costs_are_correct_tableau());
     }
 
@@ -523,13 +524,11 @@ namespace lp {
                 if (d_j.is_zero())
                     continue;
                 max_coeffs->push_back(std::make_pair(d_j, j));
+                TRACE("lar_solver", tout<<"m_d["<<j<<"] = " << d_j<< ",\n";print_column_info(j, tout) << "\n";);
             }
         }
         set_costs_to_zero(term);
         m_mpq_lar_core_solver.m_r_solver.set_status(lp_status::OPTIMAL);
-        // the upper bounds contribute non-positive values (-1|0)*d[j]
-        // and the lower bounds contribute non-negative values (1|0)*d[j] 
-        SASSERT(!ret || !term_max.y.is_pos());
         return ret;
     }
 
