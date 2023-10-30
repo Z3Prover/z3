@@ -106,8 +106,13 @@ namespace smt2 {
                 TRACE("scanner", tout << "new quoted symbol: " << m_id << "\n";);
                 return SYMBOL_TOKEN;
             }
-            escape = (c == '\\');
-            m_string.push_back(c);
+            else if (c != '|' && c != '\\' && escape) {
+                m_string.push_back('\\');
+            }
+
+            escape = (c == '\\') && !escape;
+            if (!escape)
+                m_string.push_back(c);
             next();
         }
     }
