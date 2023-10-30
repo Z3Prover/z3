@@ -203,7 +203,7 @@ namespace nla {
         auto ql = q;
         while (!ql.is_val()) {
             lc = lcm(lc, denominator(ql.hi().val()));
-            ql = q.lo();
+            ql = ql.lo();
         }
         lc = lcm(denominator(ql.val()), lc);
 
