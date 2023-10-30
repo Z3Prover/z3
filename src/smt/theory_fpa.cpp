@@ -220,7 +220,7 @@ namespace smt {
         TRACE("t_fpa_detail", tout << "asserting " << mk_ismt2_pp(e, m) << "\n";);
         if (m.has_trace_stream()) log_axiom_instantiation(e);
         ctx.internalize(e, false);
-        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";        
+        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
         literal lit(ctx.get_literal(e));
         ctx.mark_as_relevant(lit);
         ctx.mk_th_axiom(get_id(), 1, &lit);
@@ -239,10 +239,10 @@ namespace smt {
         if (ctx.b_internalized(atom))
             return true;
 
-        ctx.internalize(atom->get_args(), atom->get_num_args(), false);
-
         literal l(ctx.mk_bool_var(atom));
         ctx.set_var_theory(l.var(), get_id());
+
+        ctx.internalize(atom->get_args(), atom->get_num_args(), false);
 
         expr_ref bv_atom(m_rw.convert_atom(m_th_rw, atom));
         expr_ref bv_atom_w_side_c(m), atom_eq(m);
@@ -251,6 +251,18 @@ namespace smt {
         atom_eq = m.mk_eq(atom, bv_atom_w_side_c);
         assert_cnstr(atom_eq);
         return true;
+    }
+
+    void theory_fpa::mk_bv_nan(sort * s, expr_ref & result) {
+        SASSERT(m_fpa_util.is_float(s));
+        unsigned sbits = m_fpa_util.get_sbits(s);
+        unsigned ebits = m_fpa_util.get_ebits(s);
+        expr_ref exp(m), sgn(m), sig(m);
+        exp = m_bv_util.mk_numeral(m_fpa_util.fm().m_powers2.m1(ebits), ebits);
+        sgn = m_bv_util.mk_numeral(0, 1);
+        sig = m_bv_util.mk_numeral(1, sbits - 1);
+        expr * args[3] = {sgn, exp, sig};
+        result = m_bv_util.mk_concat(3, args);
     }
 
     bool theory_fpa::internalize_term(app * term) {
@@ -284,6 +296,22 @@ namespace smt {
                 break;
             }
             default: /* ignore */;
+            }
+
+            expr * owner = e->get_expr();
+            sort * s = owner->get_sort();
+            if (m_fpa_util.is_float(s))
+            {
+                TRACE("t_fpa", tout << "extra nan constraint for: " << mk_ismt2_pp(owner, m) << "\n";);
+                expr_ref wrapped(m), is_nan(m), bv_nan(m);
+                app_ref impl(m);
+                wrapped = m_converter.wrap(owner);
+                is_nan = m_fpa_util.mk_is_nan(owner);
+                mk_bv_nan(s, bv_nan);
+                impl = m.mk_or(m.mk_and(is_nan, m.mk_eq(wrapped, bv_nan)),
+                               m.mk_and(m.mk_not(is_nan), m.mk_not(m.mk_eq(wrapped, bv_nan))));
+                assert_cnstr(impl);
+                assert_cnstr(mk_side_conditions());
             }
 
             if (!ctx.relevancy())

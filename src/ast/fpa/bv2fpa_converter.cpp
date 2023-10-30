@@ -324,7 +324,7 @@ func_interp * bv2fpa_converter::convert_func_interp(model_core * mc, func_decl *
             expr_ref else_value(m.mk_app(to_bv_i, dom.size(), dom.data()), m);
             result->set_else(else_value);
         }
-        else if (m_fpa_util.is_to_real(f)) {           
+        else if (m_fpa_util.is_to_real(f)) {
             SASSERT(dom.size() == 1);
             func_decl_ref to_real_i(m.mk_func_decl(fid, OP_FPA_TO_REAL_I, 0, nullptr, dom.size(), dom.data()), m);
             expr_ref else_value(m.mk_app(to_real_i, dom.size(), dom.data()), m);
@@ -508,7 +508,7 @@ void bv2fpa_converter::convert_uf2bvuf(model_core * mc, model_core * target_mode
         }
     }
 
-    TRACE("bv2fpa", tout << "Target model: " << *target_model; );
+    TRACE("bv2fpa", tout << "Target model: " << *target_model << std::endl; );
 }
 
 void bv2fpa_converter::display(std::ostream & out) {
