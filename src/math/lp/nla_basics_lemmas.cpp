@@ -331,7 +331,7 @@ bool basics::basic_lemma_for_mon_neutral_derived(const monic& rm, const factoriz
     for (auto fc : f) {
         lpvar j = var(fc);
         all_int &= c().var_is_int(j);        
-        if (j == null_lpvar && abs(val(j)) == abs_mv && 
+        if (u == null_lpvar && abs(val(j)) == abs_mv && 
             c().vars_are_equiv(j, mon_var) &&
             (mon_var_is_sep_from_zero ||  c().var_is_separated_from_zero(j))) 
             u = j;

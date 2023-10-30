@@ -286,11 +286,9 @@ struct solver::imp {
 
     bool check_constraint(unsigned idx) {
         auto& c = lra.constraints()[idx];
-        auto& pm = m_nlsat->pm();
         auto k = c.kind();
         auto offset = -c.rhs();
         auto lhs = c.coeffs();
-        auto sz = lhs.size();
         
         scoped_anum val(am()), mon(am());
         am().set(val, offset.to_mpq());

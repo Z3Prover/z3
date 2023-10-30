@@ -873,8 +873,8 @@ br_status seq_rewriter::mk_seq_length(expr* a, expr_ref& result) {
         m_autil.is_numeral(y, r) && r.is_zero() &&
         m_autil.is_numeral(z, r) && r >= 0) {
         expr* len_x = str().mk_length(x);
-        expr* zero = m_autil.mk_int(0);
         result = m().mk_ite(m_autil.mk_le(len_x, z), len_x, z);
+        // expr* zero = m_autil.mk_int(0);
         // result = m().mk_ite(m_autil.mk_le(z, zero), zero, result);
         return BR_REWRITE_FULL;
     }

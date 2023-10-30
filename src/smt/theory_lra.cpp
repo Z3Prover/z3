@@ -1091,7 +1091,7 @@ public:
 
     void restart_eh() {
         m_arith_eq_adapter.restart_eh();
-#if 0
+#if 1
         // experiment
         if (m_lia) {
             std::function<bool(unsigned)> is_root = [&](unsigned j) {

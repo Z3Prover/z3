@@ -689,7 +689,8 @@ namespace lp {
 
     void int_solver::simplify(std::function<bool(unsigned)>& is_root) {
 
-#if 0
+        return;
+#if 1
 
         // in-processing simplification can go here, such as bounds improvements.
 
@@ -699,6 +700,20 @@ namespace lp {
                 return;
         }
 
+        
+#endif
+
+#if 1
+        lp::explanation exp;
+        m_ex = &exp;
+        m_t.clear();
+        m_k.reset();
+
+        if (has_inf_int()) 
+            local_gomory();            
+#endif
+
+#if 0
         stopwatch sw;
         explanation exp1, exp2;
 
@@ -919,8 +934,7 @@ namespace lp {
     }
 
     lia_move int_solver::local_gomory() {
-        for (unsigned i = 0; i < 4; ++i) {
-            
+        for (unsigned i = 0; i < 2 && has_inf_int() && !settings().get_cancel_flag(); ++i) {
             m_ex->clear();
             m_t.clear();
             m_k.reset();
@@ -939,11 +953,15 @@ namespace lp {
                 lra.get_infeasibility_explanation(*m_ex);
                 return lia_move::conflict;
             }
+            //r = m_patcher();
+            //if (r != lia_move::undef)
+            //    return r;
         }
         m_ex->clear();
         m_t.clear();
         m_k.reset();
-
+        if (!has_inf_int())
+            return lia_move::sat;
         return lia_move::undef;
     }
 

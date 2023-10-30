@@ -100,7 +100,6 @@ namespace nla {
     }
 
     bool grobner::is_conflicting() {
-        bool is_conflict = false;
         for (auto eq : m_solver.equations()) {
             if (is_conflicting(*eq)) {
                 lp_settings().stats().m_grobner_conflicts++;
@@ -677,7 +676,6 @@ namespace nla {
         nex_creator& nc = m_nex_creator;
         nc.pop(0);
         nex_creator::sum_factory sum(nc);
-        unsigned row_index = 0;
         u_map<nex_var*> var2nex;
         for (auto v : eq.poly().free_vars()) 
             var2nex.insert(v, nc.mk_var(v));
