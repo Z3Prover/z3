@@ -589,15 +589,11 @@ class theory_lra::imp {
 
     void mk_clause(literal l1, literal l2, unsigned num_params, parameter * params) {
         TRACE("arith", literal lits[2]; lits[0] = l1; lits[1] = l2; ctx().display_literals_verbose(tout, 2, lits); tout << "\n";);
-//        static unsigned num_bin = 0;
-//       std::cout << "binary " << (num_bin++) << "\n";
         ctx().mk_th_lemma(get_id(), l1, l2, num_params, params);
     }
 
     void mk_clause(literal l1, literal l2, literal l3, unsigned num_params, parameter * params) {
         TRACE("arith", literal lits[3]; lits[0] = l1; lits[1] = l2; lits[2] = l3; ctx().display_literals_smt2(tout, 3, lits); tout << "\n";);
-        static unsigned num_ter = 0;
-        std::cout << "ternary " << (num_ter++) << "\n";
         ctx().mk_th_axiom(get_id(), l1, l2, l3, num_params, params);
     }
 
