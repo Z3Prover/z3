@@ -10,7 +10,6 @@ Copyright (c) 2015 Microsoft Corporation
 #include "api/z3.h"
 #include "util/debug.h"
 #include <iostream>
-#include <cstdlib>
 
 void test_print(Z3_context ctx, Z3_ast_vector av) {
     Z3_set_ast_print_mode(ctx, Z3_PRINT_SMTLIB2_COMPLIANT);
@@ -192,7 +191,7 @@ void test_name(Z3_string spec, Z3_string expected_name) {
     Z3_func_decl decl = Z3_get_app_decl(ctx, app);
     Z3_symbol symbol = Z3_get_decl_name(ctx, decl);
     Z3_string name = Z3_get_symbol_string(ctx, symbol);
-    bool success = strcmp(name, expected_name) == 0;
+    bool success = std::string(name) == std::string(expected_name);
     Z3_dec_ref(ctx, c);
     Z3_ast_vector_dec_ref(ctx, a);
     Z3_del_context(ctx);
