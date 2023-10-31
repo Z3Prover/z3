@@ -531,11 +531,8 @@ namespace nla {
         u_dependency* dep = c().lra.find_improved_bound(j, lower_bound, bound);
         if (dep == nullptr)
             return false;
-        if (lower_bound)
-            m_lower_max_min_bounds.insert(j, max_min_bound{ dep, bound });
-        else
-            m_upper_max_min_bounds.insert(j, max_min_bound{ dep, bound });
-        
+        auto table = lower_bound? m_lower_max_min_bounds: m_upper_max_min_bounds;
+        table.insert(j, max_min_bound{ dep, bound });
         return true;
     }
 }

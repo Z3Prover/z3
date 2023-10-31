@@ -55,34 +55,27 @@ void lp_primal_core_solver<T, X>::sort_non_basis() {
 template <typename T, typename X>
 bool lp_primal_core_solver<T, X>::column_is_benefitial_for_entering_basis(unsigned j) const {
     const T& dj = this->m_d[j];
-    TRACE("lar_solver", tout << "dj=" << dj << "\n";); 
+    if (dj.is_zero()) return false;
+    TRACE("lar_solver", tout << "d[" << j <<"] = " << dj << "\n";); 
     switch (this->m_column_types[j]) {
     case column_type::fixed:  break;
     case column_type::free_column:
-        if (!is_zero(dj))
-            return true;
-        break;
+        return true;
     case column_type::lower_bound:
         if (dj > zero_of_type<T>()) return true;
-        if (dj < 0 && this->m_x[j] > this->m_lower_bounds[j]){
+        if (dj < 0 && this->m_x[j] > this->m_lower_bounds[j])
             return true;
-        }
         break;
     case column_type::upper_bound:
         if (dj < zero_of_type<T>()) return true;
-        if (dj > 0 && this->m_x[j] < this->m_upper_bounds[j]) {
+        if (dj > 0 && this->m_x[j] < this->m_upper_bounds[j]) 
             return true;
-        }
         break;
     case column_type::boxed:
-        if (dj > zero_of_type<T>()) {
-            if (this->m_x[j] < this->m_upper_bounds[j])
-                return true;
-            break;
-        } else if (dj < zero_of_type<T>()) {
-            if (this->m_x[j] > this->m_lower_bounds[j])
-                return true;
-        }
+        if (dj > zero_of_type<T>() && this->m_x[j] < this->m_upper_bounds[j])
+            return true;
+        if (dj < zero_of_type<T>() && this->m_x[j] > this->m_lower_bounds[j])
+            return true;
         break;
     default:
         UNREACHABLE();

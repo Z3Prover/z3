@@ -317,7 +317,7 @@ basis_is_correctly_represented_in_heading() const {
     return true;
 }
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
-non_basis_is_correctly_represented_in_heading() const {
+non_basis_is_correctly_represented_in_heading(std::list<unsigned>* non_basis_list) const {
     for (unsigned i = 0; i < m_nbasis.size(); i++) 
         if (m_basis_heading[m_nbasis[i]] !=  - static_cast<int>(i) - 1)
             return false;
@@ -325,7 +325,34 @@ non_basis_is_correctly_represented_in_heading() const {
     for (unsigned j = 0; j < m_A.column_count(); j++) 
         if (m_basis_heading[j] >= 0)
             lp_assert(static_cast<unsigned>(m_basis_heading[j]) < m_A.row_count() && m_basis[m_basis_heading[j]] == j);
-        
+
+    if (non_basis_list == nullptr) return true;
+	
+    std::unordered_set<unsigned> nbasis_set(this->m_nbasis.size());
+    for (unsigned j : this->m_nbasis) 
+        nbasis_set.insert(j);
+    
+    if (non_basis_list->size() != nbasis_set.size()) {
+        TRACE("lp_core", tout << "non_basis_list.size() = " << non_basis_list->size() << ", nbasis_set.size() = " << nbasis_set.size() << "\n";);
+        return false;
+    }
+    for (auto it = non_basis_list->begin(); it != non_basis_list->end(); it++) {
+        if (nbasis_set.find(*it) == nbasis_set.end()) {
+            TRACE("lp_core", tout << "column " << *it << " is in m_non_basis_list but not in m_nbasis\n";);
+            return false;
+        }
+    }
+
+    // check for duplicates in m_non_basis_list
+    nbasis_set.clear();
+    for (auto it = non_basis_list->begin(); it != non_basis_list->end(); it++) {
+        if (nbasis_set.find(*it) != nbasis_set.end()) {
+            TRACE("lp_core", tout << "column " << *it << " is in m_non_basis_list twice\n";);
+            return false;
+        }
+        nbasis_set.insert(*it);
+    }
+
     return true;
 }
 
@@ -347,7 +374,7 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::
     if (!basis_is_correctly_represented_in_heading()) 
         return false;    
 
-    if (!non_basis_is_correctly_represented_in_heading()) 
+    if (!non_basis_is_correctly_represented_in_heading(nullptr)) 
         return false;
     
     return true;

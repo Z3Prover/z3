@@ -1635,6 +1635,11 @@ void test_maximize_term() {
     std::cout << "calling int_solver\n";
     explanation ex;
     lia_move lm = i_solver.check(&ex);
+    solver.get_model(model);
+    for (auto p : model) {
+        std::cout << "v[" << p.first << "] = " << p.second << std::endl;
+    }
+    std::cout << solver.get_value(solver.external_to_column_index(term_2x_pl_2y)) << std::endl;
     VERIFY(lm == lia_move::sat);
     impq term_max;
     lp_status st = solver.maximize_term(term_2x_pl_2y, term_max);
@@ -1645,6 +1650,8 @@ void test_maximize_term() {
     for (auto p : model) {
         std::cout << "v[" << p.first << "] = " << p.second << std::endl;
     }
+    std::cout <<  "new val = " << solver.get_value(solver.external_to_column_index(term_2x_pl_2y)) << std::endl;
+    
 }
 #ifdef Z3DEBUG
 void test_hnf() {
@@ -1688,7 +1695,10 @@ void test_lp_local(int argn, char **argv) {
         nla::test_monics();
         return finalize(0);
     }
-
+    if (args_parser.option_is_used("--maximize_term")) {
+        test_maximize_term();
+        return finalize(0);
+    }
     if (args_parser.option_is_used("--patching")) {
         test_patching();
         return finalize(0);

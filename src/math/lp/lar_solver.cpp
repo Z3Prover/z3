@@ -317,7 +317,7 @@ namespace lp {
     // get dependencies of the corresponding bounds from max_coeffs
     u_dependency* lar_solver::get_dependencies_of_maximum(const vector<std::pair<mpq,lpvar>>& max_coeffs) {        
         const auto& s = this->m_mpq_lar_core_solver.m_r_solver;
-        // The linear combinations of p.first*p.second = the term that got maximized
+        // The linear combinations of d_j*x[j] = the term that got maximized, where (d_j, j) is in max_coeffs
         // Every j with positive coeff is at its upper bound,
         // and every j with negative coeff is at its lower bound: so the sum cannot be increased.
         // All variables j in the sum are non-basic.
@@ -339,12 +339,14 @@ namespace lp {
                for (auto c : cs) 
                     m_constraints.display(tout, c) << "\n";
             });
+            SASSERT(bound_dep != nullptr);
             dep = m_dependencies.mk_join(dep, bound_dep);
         }
         return dep;
     }
     // returns nullptr if the bound is not improved, otherwise returns the witness of the bound
     u_dependency* lar_solver::find_improved_bound(lpvar j, bool lower_bound, mpq& bound) {
+        
         SASSERT(is_feasible());
         if (lower_bound  && column_has_lower_bound(j) && get_column_value(j) == column_lower_bound(j))
             return nullptr;  // cannot do better
@@ -360,9 +362,10 @@ namespace lp {
         impq term_max;
         if (!maximize_term_on_feasible_r_solver(term, term_max, &max_coeffs))
             return nullptr;
-        if (term_max.y.is_pos())
-            return nullptr; // we can only conclude that term <= term_max.x + epsilon
-
+        // term_max is equal to the sum of m_d[j]*x[j] over all non basic j.
+        // For the sum to be at the maximum all non basic variables should be at their bounds: if (m_d[j] > 0) x[j] = u[j], otherwise x[j] = l[j]. At upper bounds we have u[j] <= 0, and at lower bounds we have l[j] >= 0, therefore for the sum term_max.y <= 0.   
+        SASSERT(!term_max.y.is_pos()); 
+      
         // To keep it simpler we ignore possible improvements from non-strict to strict bounds.
         bound = term_max.x;
         if (lower_bound) {
@@ -375,7 +378,7 @@ namespace lp {
 
             TRACE("lar_solver_improve_bounds",
                   tout << "setting lower bound for " << j << " to " << bound << "\n";
-                  tout << "bound was = " << column_lower_bound(j) << "\n";);
+                  if (column_has_lower_bound(j)) tout << "bound was = " << column_lower_bound(j) << "\n";);                
         }
         else {
             if (column_is_int(j))
@@ -387,7 +390,7 @@ namespace lp {
             }
             TRACE("lar_solver_improve_bounds",
                   tout << "setting upper bound for " << j << " to " << bound << "\n";
-                  tout << "bound was = " << column_upper_bound(j) << "\n";);
+                  if (column_has_upper_bound(j)) tout << "bound was = " << column_upper_bound(j) << "\n";;);
         }   
         return get_dependencies_of_maximum(max_coeffs);
     }
@@ -515,6 +518,8 @@ namespace lp {
         bool ret = false;
         TRACE("lar_solver", print_term(term, tout << "maximize: ") << "\n"
                                                                    << constraints() << ", strategy = " << (int)settings().simplex_strategy() << "\n";);
+        if (settings().simplex_strategy() != simplex_strategy_enum::tableau_costs)
+            require_nbasis_sort();
         flet f(settings().simplex_strategy(), simplex_strategy_enum::tableau_costs);
         prepare_costs_for_r_solver(term);
         ret = maximize_term_on_tableau(term, term_max);
@@ -1845,6 +1850,17 @@ namespace lp {
     }
 
     void lar_solver::update_column_type_and_bound(unsigned j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep) {
+        TRACE(
+            "lar_solver_feas",
+            tout << "j" << j << " " << lconstraint_kind_string(kind) << " " << right_side << std::endl;            
+            if (dep) {
+                tout << "dep:\n";
+                auto cs = flatten(dep);
+                for (auto c : cs) {
+                    constraints().display(tout, c);
+                    tout << std::endl;
+                }
+            });
         if (column_has_upper_bound(j))
             update_column_type_and_bound_with_ub(j, kind, right_side, dep);
         else

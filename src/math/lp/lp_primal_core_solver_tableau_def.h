@@ -44,6 +44,7 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::advance_on_e
     advance_on_entering_and_leaving_tableau(entering, leaving, t);
 }
 
+
  template <typename T, typename X> int lp_primal_core_solver<T, X>::choose_entering_column_tableau() {
     //this moment m_y = cB * B(-1)
     if (this->m_nbasis_sort_counter == 0) {
@@ -52,6 +53,7 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::advance_on_e
     }
     else {
         this->m_nbasis_sort_counter--;
+        SASSERT(non_basis_is_correctly_represented_in_heading(&m_non_basis_list));
     }
     unsigned number_of_benefitial_columns_to_go_over =  get_number_of_non_basic_column_to_try_for_enter();
     

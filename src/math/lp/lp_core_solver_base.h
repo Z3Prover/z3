@@ -273,7 +273,7 @@ public:
     bool non_basis_has_no_doubles() const;
 
     bool basis_is_correctly_represented_in_heading() const ;
-    bool non_basis_is_correctly_represented_in_heading() const ;
+    bool non_basis_is_correctly_represented_in_heading(std::list<unsigned>*) const ;
 
     bool basis_heading_is_correct() const;
 
@@ -412,6 +412,7 @@ public:
                 TRACE("lp_core", tout << "inf col "; print_column_info(j, tout) << "\n";);
                 return false;
             }
+        
         return true;
     }
 
