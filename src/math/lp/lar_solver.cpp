@@ -363,7 +363,7 @@ namespace lp {
         if (!maximize_term_on_feasible_r_solver(term, term_max, &max_coeffs))
             return nullptr;
         // term_max is equal to the sum of m_d[j]*x[j] over all non basic j.
-        // For the sum to be at the maximum all non basic variables should be at their bounds: if (m_d[j] > 0) x[j] = u[j], otherwise x[j] = l[j]. At upper bounds we have u[j] <= 0, and at lower bounds we have l[j] >= 0, therefore for the sum term_max.y <= 0.   
+        // For the sum to be at the maximum all non basic variables should be at their bounds: if (m_d[j] > 0) x[j] = u[j], otherwise x[j] = l[j]. At upper bounds we have u[j].y <= 0, and at lower bounds we have l[j].y >= 0, therefore for the sum term_max.y <= 0.   
         SASSERT(!term_max.y.is_pos()); 
       
         // To keep it simpler we ignore possible improvements from non-strict to strict bounds.
@@ -429,7 +429,6 @@ namespace lp {
 
     void lar_solver::prepare_costs_for_r_solver(const lar_term& term) {
         TRACE("lar_solver", print_term(term, tout << "prepare: ") << "\n";);
-        move_non_basic_columns_to_bounds();
         auto& rslv = m_mpq_lar_core_solver.m_r_solver;
         lp_assert(costs_are_zeros_for_r_solver());
         lp_assert(reduced_costs_are_zeroes_for_r_solver());
