@@ -26,7 +26,7 @@ struct
   let (major, minor, build, revision) = Z3native.get_version ()
 
   let full_version : string = Z3native.get_full_version()
-                                                             
+
   let to_string =
     string_of_int major ^ "." ^
     string_of_int minor ^ "." ^
@@ -45,12 +45,12 @@ let mk_list f n =
 
 let check_int32 v = v = Int32.to_int (Int32.of_int v)
 
-let mk_int_expr ctx v ty = 
+let mk_int_expr ctx v ty =
    if not (check_int32 v) then
       Z3native.mk_numeral ctx (string_of_int v) ty
    else
       Z3native.mk_int ctx v ty
-    
+
 let mk_context (settings:(string * string) list) =
   let cfg = Z3native.mk_config () in
   let f e = Z3native.set_param_value cfg (fst e) (snd e) in
@@ -61,6 +61,9 @@ let mk_context (settings:(string * string) list) =
   Z3native.set_internal_error_handler res;
   Z3native.enable_concurrent_dec_ref res;
   res
+
+let interrupt (ctx:context) =
+    Z3native.interrupt ctx
 
 module Symbol =
 struct
@@ -721,7 +724,7 @@ struct
   let mk_exists = _internal_mk_quantifier ~universal:false
   let mk_exists_const = _internal_mk_quantifier_const ~universal:false
   let mk_lambda_const ctx bound body = Z3native.mk_lambda_const ctx (List.length bound) bound body
-  let mk_lambda ctx bound body = 
+  let mk_lambda ctx bound body =
       let names = List.map (fun (x,_) -> x) bound in
       let sorts = List.map (fun (_,y) -> y) bound in
       Z3native.mk_lambda ctx (List.length bound) sorts names body
@@ -917,10 +920,10 @@ struct
 
   let mk_sort_s (ctx:context) (name:string) (constructors:Constructor.constructor list) =
     mk_sort ctx (Symbol.mk_string ctx name) constructors
-    
+
   let mk_sort_ref (ctx: context) (name:Symbol.symbol) =
     Z3native.mk_datatype_sort ctx name
-    
+
   let mk_sort_ref_s (ctx: context) (name: string) =
     mk_sort_ref ctx (Symbol.mk_string ctx name)
 
@@ -1249,7 +1252,7 @@ end
 module Seq =
 struct
   let mk_seq_sort  = Z3native.mk_seq_sort
-  let is_seq_sort = Z3native.is_seq_sort 
+  let is_seq_sort = Z3native.is_seq_sort
   let mk_re_sort = Z3native.mk_re_sort
   let is_re_sort = Z3native.is_re_sort
   let mk_string_sort = Z3native.mk_string_sort
@@ -1264,7 +1267,7 @@ struct
   let mk_seq_concat ctx args = Z3native.mk_seq_concat ctx (List.length args) args
   let mk_seq_prefix = Z3native.mk_seq_prefix
   let mk_seq_suffix = Z3native.mk_seq_suffix
-  let mk_seq_contains = Z3native.mk_seq_contains 
+  let mk_seq_contains = Z3native.mk_seq_contains
   let mk_seq_extract = Z3native.mk_seq_extract
   let mk_seq_replace = Z3native.mk_seq_replace
   let mk_seq_at = Z3native.mk_seq_at
@@ -1889,9 +1892,9 @@ struct
     | _ -> UNKNOWN
 
   let get_model x =
-    try 
+    try
        let q = Z3native.solver_get_model (gc x) x in
-       if Z3native.is_null_model q then None else Some q 
+       if Z3native.is_null_model q then None else Some q
     with | _ -> None
 
   let get_proof x =
@@ -1916,6 +1919,9 @@ struct
   let add_simplifier = Z3native.solver_add_simplifier
   let translate x = Z3native.solver_translate (gc x) x
   let to_string x = Z3native.solver_to_string (gc x) x
+
+  let interrupt (ctx:context) (s:solver) =
+    Z3native.solver_interrupt ctx s
 end
 
 

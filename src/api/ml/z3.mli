@@ -48,6 +48,12 @@ type context
 *)
 val mk_context : (string * string) list -> context
 
+(** Interrupt the execution of a Z3 procedure.
+
+    This procedure can be used to interrupt: solvers, simplifiers and tactics.
+    Note: Tactic.interrupt is an alias for this. *)
+val interrupt: context -> unit
+
 (** Interaction logging for Z3
     Interaction logs are used to record calls into the API into a text file.
     The text file can be replayed using z3. It has to be the same version of z3
@@ -1068,13 +1074,13 @@ sig
       if the corresponding sort reference is 0, then the value in sort_refs should be an index
       referring to one of the recursive datatypes that is declared. *)
   val mk_constructor_s : context -> string -> Symbol.symbol -> Symbol.symbol list -> Sort.sort option list -> int list -> Constructor.constructor
-  
+
   (* Create a forward reference to a recursive datatype being declared.
      The forward reference can be used in a nested occurrence: the range of an array
      or as element sort of a sequence. The forward reference should only be used when
      used in an accessor for a recursive datatype that gets declared. *)
   val mk_sort_ref : context -> Symbol.symbol -> Sort.sort
-  
+
   (* [mk_sort_ref_s ctx s] is [mk_sort_ref ctx (Symbol.mk_string ctx s)] *)
   val mk_sort_ref_s : context -> string -> Sort.sort
 
@@ -1653,8 +1659,8 @@ sig
 
       - The \c ceiling of [t1/t2] if \c t2 is different from zero, and [t1*t2 < 0].
 
-      If [t2] is zero, then the result is is not uniquely specified. 
-      It can be set to any value that satisfies the constraints 
+      If [t2] is zero, then the result is is not uniquely specified.
+      It can be set to any value that satisfies the constraints
       where signed division is used.
       The arguments must have the same bit-vector sort. *)
   val mk_sdiv : context -> Expr.expr -> Expr.expr -> Expr.expr
@@ -1662,8 +1668,8 @@ sig
   (** Unsigned remainder.
 
       It is defined as [t1 - (t1 /u t2) * t2], where [/u] represents unsigned division.
-      If [t2] is zero, then the result is not uniquely specified. 
-      It can be set to any value that satisfies the constraints 
+      If [t2] is zero, then the result is not uniquely specified.
+      It can be set to any value that satisfies the constraints
       where unsigned remainder is used.
       The arguments must have the same bit-vector sort. *)
   val mk_urem : context -> Expr.expr -> Expr.expr -> Expr.expr
@@ -1673,16 +1679,16 @@ sig
       It is defined as [t1 - (t1 /s t2) * t2], where [/s] represents signed division.
       The most significant bit (sign) of the result is equal to the most significant bit of \c t1.
 
-      If [t2] is zero, then the result is not uniquely specified. 
-      It can be set to any value that satisfies the constraints 
+      If [t2] is zero, then the result is not uniquely specified.
+      It can be set to any value that satisfies the constraints
       where signed remainder is used.
       The arguments must have the same bit-vector sort. *)
   val mk_srem : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Two's complement signed remainder (sign follows divisor).
 
-      If [t2] is zero, then the result is not uniquely specified. 
-      It can be set to any value that satisfies the constraints 
+      If [t2] is zero, then the result is not uniquely specified.
+      It can be set to any value that satisfies the constraints
       where two's complement signed remainder is used.
       The arguments must have the same bit-vector sort. *)
   val mk_smod : context -> Expr.expr -> Expr.expr -> Expr.expr
@@ -1864,7 +1870,7 @@ sig
 end
 
 (** Sequences, Strings and Regular Expressions **)
-module Seq : 
+module Seq :
 sig
   (** create a sequence sort *)
   val mk_seq_sort : context -> Sort.sort -> Sort.sort
@@ -1872,9 +1878,9 @@ sig
   (** test if sort is a sequence sort *)
   val is_seq_sort : context -> Sort.sort -> bool
 
-  (** create regular expression sorts over sequences of the argument sort *)   
+  (** create regular expression sorts over sequences of the argument sort *)
   val mk_re_sort : context -> Sort.sort -> Sort.sort
-  
+
   (** test if sort is a regular expression sort *)
   val is_re_sort : context -> Sort.sort -> bool
 
@@ -1885,7 +1891,7 @@ sig
   val mk_char_sort : context -> Sort.sort
 
   (** test if sort is a string sort (a sequence of 8-bit bit-vectors) *)
-  val is_string_sort : context -> Sort.sort -> bool 
+  val is_string_sort : context -> Sort.sort -> bool
 
   (** test if sort is a char sort *)
   val is_char_sort : context -> Sort.sort -> bool
@@ -1894,51 +1900,51 @@ sig
   val mk_string : context -> string -> Expr.expr
 
   (** test if expression is a string *)
-  val is_string : context -> Expr.expr -> bool 
+  val is_string : context -> Expr.expr -> bool
 
   (** retrieve string from string Expr.expr *)
-  val get_string : context -> Expr.expr -> string 
+  val get_string : context -> Expr.expr -> string
 
   (** the empty sequence over base sort *)
-  val mk_seq_empty : context -> Sort.sort -> Expr.expr 
+  val mk_seq_empty : context -> Sort.sort -> Expr.expr
 
   (** a unit sequence *)
-  val mk_seq_unit : context -> Expr.expr -> Expr.expr 
+  val mk_seq_unit : context -> Expr.expr -> Expr.expr
 
   (** sequence concatenation *)
-  val mk_seq_concat : context -> Expr.expr list -> Expr.expr 
+  val mk_seq_concat : context -> Expr.expr list -> Expr.expr
 
   (** predicate if the first argument is a prefix of the second *)
-  val mk_seq_prefix : context -> Expr.expr -> Expr.expr -> Expr.expr  
+  val mk_seq_prefix : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** predicate if the first argument is a suffix of the second *)
-  val mk_seq_suffix : context -> Expr.expr -> Expr.expr -> Expr.expr  
+  val mk_seq_suffix : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** predicate if the first argument contains the second *)
-  val mk_seq_contains : context -> Expr.expr -> Expr.expr -> Expr.expr  
+  val mk_seq_contains : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** extract sub-sequence starting at index given by second argument and of length provided by third argument *)
-  val mk_seq_extract : context -> Expr.expr -> Expr.expr -> Expr.expr -> Expr.expr  
+  val mk_seq_extract : context -> Expr.expr -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** replace first occurrence of second argument by third *)
-  val mk_seq_replace : context -> Expr.expr -> Expr.expr -> Expr.expr -> Expr.expr  
+  val mk_seq_replace : context -> Expr.expr -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** a unit sequence at index provided by second argument *)
-  val mk_seq_at : context -> Expr.expr -> Expr.expr -> Expr.expr 
+  val mk_seq_at : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** length of a sequence *)
-  val mk_seq_length : context -> Expr.expr -> Expr.expr  
-  
-  (** [mk_seq_nth ctx s index] retrieves from [s] the element at position [index]. 
+  val mk_seq_length : context -> Expr.expr -> Expr.expr
+
+  (** [mk_seq_nth ctx s index] retrieves from [s] the element at position [index].
       The function is under-specified if the index is out of bounds. *)
   val mk_seq_nth : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** index of the first occurrence of the second argument in the first *)
-  val mk_seq_index : context -> Expr.expr -> Expr.expr -> Expr.expr -> Expr.expr 
+  val mk_seq_index : context -> Expr.expr -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** [mk_seq_last_index ctx s substr] occurence of [substr] in the sequence [s] *)
   val mk_seq_last_index : context -> Expr.expr -> Expr.expr -> Expr.expr
-  
+
   (** retrieve integer expression encoded in string *)
   val mk_str_to_int : context -> Expr.expr -> Expr.expr
 
@@ -1950,7 +1956,7 @@ sig
   val mk_str_lt : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** convert an integer expression to a string *)
-  val mk_int_to_str : context -> Expr.expr -> Expr.expr 
+  val mk_int_to_str : context -> Expr.expr -> Expr.expr
 
   (** [mk_string_to_code ctx s] convert a unit length string [s] to integer code *)
   val mk_string_to_code : context -> Expr.expr -> Expr.expr
@@ -1965,43 +1971,43 @@ sig
   val mk_sbv_to_str : context -> Expr.expr -> Expr.expr
 
   (** create regular expression that accepts the argument sequence *)
-  val mk_seq_to_re : context -> Expr.expr -> Expr.expr 
+  val mk_seq_to_re : context -> Expr.expr -> Expr.expr
 
   (** regular expression membership predicate *)
-  val mk_seq_in_re : context -> Expr.expr -> Expr.expr -> Expr.expr 
+  val mk_seq_in_re : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** regular expression plus *)
-  val mk_re_plus : context -> Expr.expr -> Expr.expr 
+  val mk_re_plus : context -> Expr.expr -> Expr.expr
 
   (** regular expression star *)
-  val mk_re_star : context -> Expr.expr -> Expr.expr 
+  val mk_re_star : context -> Expr.expr -> Expr.expr
 
   (** optional regular expression *)
-  val mk_re_option : context -> Expr.expr -> Expr.expr 
+  val mk_re_option : context -> Expr.expr -> Expr.expr
 
   (** union of regular expressions *)
-  val mk_re_union : context -> Expr.expr list -> Expr.expr 
+  val mk_re_union : context -> Expr.expr list -> Expr.expr
 
   (** concatenation of regular expressions *)
-  val mk_re_concat : context -> Expr.expr list -> Expr.expr 
-  
+  val mk_re_concat : context -> Expr.expr list -> Expr.expr
+
   (** regular expression for the range between two characters *)
-  val mk_re_range : context -> Expr.expr -> Expr.expr -> Expr.expr 
+  val mk_re_range : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** bounded loop regular expression *)
-  val mk_re_loop : context -> Expr.expr -> int -> int -> Expr.expr 
-  
+  val mk_re_loop : context -> Expr.expr -> int -> int -> Expr.expr
+
   (** intersection of regular expressions *)
   val mk_re_intersect : context -> Expr.expr list -> Expr.expr
 
   (** the regular expression complement *)
-  val mk_re_complement : context -> Expr.expr -> Expr.expr 
+  val mk_re_complement : context -> Expr.expr -> Expr.expr
 
   (** the regular expression that accepts no sequences *)
-  val mk_re_empty : context -> Sort.sort -> Expr.expr 
+  val mk_re_empty : context -> Sort.sort -> Expr.expr
 
   (** the regular expression that accepts all sequences *)
-  val mk_re_full : context -> Sort.sort -> Expr.expr 
+  val mk_re_full : context -> Sort.sort -> Expr.expr
 
   (** [mk_char ctx i] converts an integer to a character *)
   val mk_char : context -> int -> Expr.expr
@@ -2339,7 +2345,7 @@ sig
   (** Retrieves the sign of a floating-point literal. *)
   val get_numeral_sign : context -> Expr.expr -> bool * int
 
-  (** Return the sign of a floating-point numeral as a bit-vector expression. 
+  (** Return the sign of a floating-point numeral as a bit-vector expression.
       Remark: NaN's do not have a bit-vector sign, so they are invalid arguments. *)
   val get_numeral_sign_bv : context -> Expr.expr -> Expr.expr
 
@@ -2349,11 +2355,11 @@ sig
   (** Return the exponent value of a floating-point numeral as a signed integer *)
   val get_numeral_exponent_int : context -> Expr.expr -> bool -> bool * int64
 
-  (** Return the exponent of a floating-point numeral as a bit-vector expression. 
+  (** Return the exponent of a floating-point numeral as a bit-vector expression.
       Remark: NaN's do not have a bit-vector exponent, so they are invalid arguments. *)
   val get_numeral_exponent_bv : context -> Expr.expr -> bool -> Expr.expr
 
-  (** Return the significand value of a floating-point numeral as a bit-vector expression. 
+  (** Return the significand value of a floating-point numeral as a bit-vector expression.
       Remark: NaN's do not have a bit-vector significand, so they are invalid arguments. *)
   val get_numeral_significand_bv : context -> Expr.expr -> Expr.expr
 
@@ -2386,7 +2392,7 @@ sig
 
   (** Indicates whether a floating-point numeral is negative. *)
   val is_numeral_negative : context -> Expr.expr -> bool
-   
+
   (** Conversion of a floating-point term into a bit-vector term in IEEE 754-2008 format. *)
   val mk_to_ieee_bv : context -> Expr.expr -> Expr.expr
 
@@ -3260,7 +3266,7 @@ sig
 
   (** Assert multiple constraints (cs) into the solver, and track them (in the
       unsat) core using the Boolean constants in ps.
-     
+
       This API is an alternative to {!check} with assumptions for extracting unsat cores.
       Both APIs can be used in the same solver. The unsat core will contain a combination
       of the Boolean variables provided using {!assert_and_track} and the Boolean literals
@@ -3269,10 +3275,10 @@ sig
 
   (** Assert a constraint (c) into the solver, and track it (in the unsat) core
       using the Boolean constant p.
-      
-      This API is an alternative to {!check} with assumptions for extracting unsat cores. 
-      Both APIs can be used in the same solver. The unsat core will contain a combination  
-      of the Boolean variables provided using {!assert_and_track} and the Boolean literals 
+
+      This API is an alternative to {!check} with assumptions for extracting unsat cores.
+      Both APIs can be used in the same solver. The unsat core will contain a combination
+      of the Boolean variables provided using {!assert_and_track} and the Boolean literals
       provided using {!check} with assumptions. *)
   val assert_and_track : solver -> Expr.expr -> Expr.expr -> unit
 
@@ -3342,6 +3348,15 @@ sig
 
   (** A string representation of the solver. *)
   val to_string : solver -> string
+
+  (** Solver local interrupt.
+
+      Normally you should use Z3_interrupt to cancel solvers because only
+      one solver is enabled concurrently per context.
+      However, per GitHub issue #1006, there are use cases where
+      it is more convenient to cancel a specific solver. Solvers
+      that are not selected for interrupts are left alone.*)
+  val interrupt: context -> solver -> unit
 end
 
 (** Fixedpoint solving *)
@@ -3496,23 +3511,23 @@ sig
   val get_statistics : optimize -> Statistics.statistics
 
   (** Parse an SMT-LIB2 file with assertions, soft constraints and optimization
-      objectives. Add the parsed constraints and objectives to the optimization 
+      objectives. Add the parsed constraints and objectives to the optimization
       context. *)
   val from_file : optimize -> string -> unit
 
-  (** Parse an SMT-LIB2 string with assertions, soft constraints and optimization 
-      objectives. Add the parsed constraints and objectives to the optimization 
+  (** Parse an SMT-LIB2 string with assertions, soft constraints and optimization
+      objectives. Add the parsed constraints and objectives to the optimization
       context. *)
   val from_string : optimize -> string -> unit
-                                            
-  (** Return the set of asserted formulas on the optimization context. *) 
+
+  (** Return the set of asserted formulas on the optimization context. *)
   val get_assertions : optimize -> Expr.expr list
 
-  (** Return objectives on the optimization context. If the objective function 
-      is a max-sat objective it is returned as a Pseudo-Boolean (minimization) 
-      sum of the form (+ (if f1 w1 0) (if f2 w2 0) ...). If the objective 
-      function is entered as a maximization objective, then return the 
-      corresponding minimization objective. In this way the resulting 
+  (** Return objectives on the optimization context. If the objective function
+      is a max-sat objective it is returned as a Pseudo-Boolean (minimization)
+      sum of the form (+ (if f1 w1 0) (if f2 w2 0) ...). If the objective
+      function is entered as a maximization objective, then return the
+      corresponding minimization objective. In this way the resulting
       objective function is always returned as a minimization objective. *)
   val get_objectives : optimize -> Expr.expr list
 end
