@@ -19,6 +19,7 @@ Revision History:
 --*/
 #pragma once
 #include <set>
+#include <list>
 #include "util/vector.h"
 #include <string>
 #include "math/lp/lp_utils.h"
