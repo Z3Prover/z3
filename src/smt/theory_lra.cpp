@@ -2178,6 +2178,8 @@ public:
 
     void propagate_nla() {
         if (m_nla) {
+            m_a1 = nullptr; 
+            m_a2 = nullptr;
             m_nla->propagate();
             add_lemmas();
             lp().collect_more_rows_for_lp_propagation();
@@ -3385,7 +3387,7 @@ public:
     }
 
     nlsat::anum const& nl_value(theory_var v, scoped_anum& r) const {
-        SASSERT(use_nra_model());
+        SASSERT(m_nla && m_nla->use_nra_model());
         auto t = get_tv(v);
         if (t.is_term()) {
 

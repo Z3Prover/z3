@@ -1518,6 +1518,7 @@ namespace arith {
 
     void solver::propagate_nla() {
         if (m_nla) {
+            m_a1 = nullptr; m_a2 = nullptr;
             m_nla->propagate();
             add_lemmas();
             lp().collect_more_rows_for_lp_propagation();
