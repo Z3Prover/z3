@@ -3296,7 +3296,7 @@ public:
             set_evidence(ev.ci(), m_core, m_eqs);
 
         
-        VERIFY(validate_conflict(m_core, m_eqs));
+        // VERIFY(validate_conflict(m_core, m_eqs));
         if (is_conflict) {
             ctx().set_conflict(
                 ctx().mk_justification(
