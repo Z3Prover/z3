@@ -303,7 +303,7 @@ The following useful options can be passed to CMake whilst configuring.
 * ``Z3_ENABLE_CFI`` - BOOL. If set to ``TRUE`` will enable Control Flow Integrity security checks. This is only supported by MSVC and Clang and will
     fail on other compilers. This requires Z3_LINK_TIME_OPTIMIZATION to also be enabled.
 * ``Z3_API_LOG_SYNC`` - BOOL. If set to ``TRUE`` will enable experimental API log sync feature.
-* ``WARNINGS_AS_ERRORS`` - STRING. If set to ``TRUE`` compiler warnings will be treated as errors. If set to ``False`` compiler warnings will not be treated as errors.
+* ``WARNINGS_AS_ERRORS`` - STRING. If set to ``ON`` compiler warnings will be treated as errors. If set to ``OFF`` compiler warnings will not be treated as errors.
     If set to ``SERIOUS_ONLY`` a subset of compiler warnings will be treated as errors.
 * ``Z3_C_EXAMPLES_FORCE_CXX_LINKER`` - BOOL. If set to ``TRUE`` the C API examples will request that the C++ linker is used rather than the C linker.
 * ``Z3_BUILD_EXECUTABLE`` - BOOL. If set to ``TRUE`` build the z3 executable. Defaults to ``TRUE`` unless z3 is being built as a submodule in which case it defaults to ``FALSE``.
