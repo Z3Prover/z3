@@ -88,6 +88,17 @@ namespace nla {
         return m_core->m_nra.value(v);
     }
     
+    scoped_anum& solver::tmp1() {
+        SASSERT(use_nra_model());
+        return m_core->m_nra.tmp1();
+    }
+
+    scoped_anum& solver::tmp2() {
+        SASSERT(use_nra_model());
+        return m_core->m_nra.tmp1();
+    }
+
+    
     // ensure r = x^y, add abstraction/refinement lemmas
     lbool solver::check_power(lpvar r, lpvar x, lpvar y) {
         return m_core->check_power(r, x, y);

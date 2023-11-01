@@ -619,11 +619,11 @@ namespace arith {
             value = n->get_root()->get_expr();
         }
         else if (use_nra_model() && lp().external_to_local(v) != lp::null_lpvar) {
-            anum const& an = nl_value(v, *m_a1);
+            anum const& an = nl_value(v, m_nla->tmp1());
             if (a.is_int(o) && !m_nla->am().is_int(an))
                 value = a.mk_numeral(rational::zero(), a.is_int(o));       
             else
-                value = a.mk_numeral(m_nla->am(), nl_value(v, *m_a1), a.is_int(o));
+                value = a.mk_numeral(m_nla->am(), nl_value(v, m_nla->tmp1()), a.is_int(o));
         }
         else if (v != euf::null_theory_var) {
             rational r = get_value(v);
@@ -961,19 +961,12 @@ namespace arith {
     }
 
     bool solver::use_nra_model() {
-        if (m_nla && m_nla->use_nra_model()) {
-            if (!m_a1) {
-                m_a1 = alloc(scoped_anum, m_nla->am());
-                m_a2 = alloc(scoped_anum, m_nla->am());
-            }
-            return true;
-        }
-        return false;
+        return m_nla && m_nla->use_nra_model();
     }
 
     bool solver::is_eq(theory_var v1, theory_var v2) {
         if (use_nra_model()) {
-            return m_nla->am().eq(nl_value(v1, *m_a1), nl_value(v2, *m_a2));
+            return m_nla->am().eq(nl_value(v1, m_nla->tmp1()), nl_value(v2, m_nla->tmp2()));
         }
         else {
             return get_ivalue(v1) == get_ivalue(v2);
@@ -1471,7 +1464,6 @@ namespace arith {
         if (!m_nla->need_check())
             return l_true;
 
-        m_a1 = nullptr; m_a2 = nullptr;
         lbool r = m_nla->check();
         switch (r) {
         case l_false:
@@ -1518,7 +1510,6 @@ namespace arith {
 
     void solver::propagate_nla() {
         if (m_nla) {
-            m_a1 = nullptr; m_a2 = nullptr;
             m_nla->propagate();
             add_lemmas();
             lp().collect_more_rows_for_lp_propagation();

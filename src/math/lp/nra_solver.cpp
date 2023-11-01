@@ -27,6 +27,7 @@ struct solver::imp {
     indexed_uint_set          m_term_set;
     scoped_ptr<nlsat::solver> m_nlsat;
     scoped_ptr<scoped_anum_vector>   m_values; // values provided by LRA solver
+    scoped_ptr<scoped_anum> m_tmp1, m_tmp2;
     nla::core&                m_nla_core;
 
     imp(lp::lar_solver& s, reslimit& lim, params_ref const& p, nla::core& nla_core): 
@@ -102,6 +103,15 @@ struct solver::imp {
         }
     }
 
+    void reset() {
+        m_values = nullptr;
+        m_tmp1 = nullptr; m_tmp2 = nullptr;
+        m_nlsat = alloc(nlsat::solver, m_limit, m_params, false);
+        m_values = alloc(scoped_anum_vector, am());
+        m_term_set.reset();
+        m_lp2nl.reset();
+    }
+
     /**
        \brief one-shot nlsat check.
        A one shot checker is the least functionality that can 
@@ -115,11 +125,7 @@ struct solver::imp {
     */
     lbool check() {
         SASSERT(need_check());
-        m_values = nullptr;
-        m_nlsat = alloc(nlsat::solver, m_limit, m_params, false);
-        m_values = alloc(scoped_anum_vector, am());
-        m_term_set.reset();
-        m_lp2nl.reset();
+        reset();
         vector<nlsat::assumption, false> core;
 
         init_cone_of_influence();
@@ -316,28 +322,24 @@ struct solver::imp {
     }
 
     lbool check(dd::solver::equation_vector const& eqs) {
-        m_values = nullptr;
-        m_nlsat = alloc(nlsat::solver, m_limit, m_params, false);
-        m_values = alloc(scoped_anum_vector, am());
-        m_lp2nl.reset();
-        m_term_set.reset();
+        reset();
         for (auto const& eq : eqs)
-        add_eq(*eq);
+            add_eq(*eq);
         for (auto const& m : m_nla_core.emons())
-        if (any_of(m.vars(), [&](lp::lpvar v) { return m_lp2nl.contains(v); }))
-            add_monic_eq_bound(m);
+            if (any_of(m.vars(), [&](lp::lpvar v) { return m_lp2nl.contains(v); }))
+                add_monic_eq_bound(m);
         for (unsigned i : m_term_set)
-        add_term(i);
+            add_term(i);
         for (auto const& [v, w] : m_lp2nl) {
-        if (lra.column_has_lower_bound(v))
-            add_lb(lra.get_lower_bound(v), w, lra.get_column_lower_bound_witness(v));
-        if (lra.column_has_upper_bound(v))
-            add_ub(lra.get_upper_bound(v), w, lra.get_column_upper_bound_witness(v));
+            if (lra.column_has_lower_bound(v))
+                add_lb(lra.get_lower_bound(v), w, lra.get_column_lower_bound_witness(v));
+            if (lra.column_has_upper_bound(v))
+                add_ub(lra.get_upper_bound(v), w, lra.get_column_upper_bound_witness(v));
         }
-
+        
         lbool r = l_undef;
         try {
-        r = m_nlsat->check();
+            r = m_nlsat->check();
         }
         catch (z3_exception&) {
             if (m_limit.is_canceled()) {
@@ -347,7 +349,7 @@ struct solver::imp {
                 throw;
             }
         }
-
+        
         switch (r) {
         case l_true:
             m_nla_core.set_use_nra_model(true);
@@ -380,11 +382,7 @@ struct solver::imp {
     }
 
     lbool check(vector<dd::pdd> const& eqs) {
-        m_values = nullptr;
-        m_nlsat = alloc(nlsat::solver, m_limit, m_params, false);
-        m_values = alloc(scoped_anum_vector, am());
-        m_lp2nl.reset();
-        m_term_set.reset();
+        reset();
         for (auto const& eq : eqs)
             add_eq(eq);
         for (auto const& m : m_nla_core.emons())
@@ -562,6 +560,19 @@ struct solver::imp {
         return m_nlsat->am();
     }
 
+    scoped_anum& tmp1() {
+        if (!m_tmp1) 
+            m_tmp1 = alloc(scoped_anum, am());
+        return *m_tmp1;
+    }
+
+    scoped_anum& tmp2() {
+        if (!m_tmp2) 
+            m_tmp2 = alloc(scoped_anum, am());
+        return *m_tmp2;
+    }
+
+
     void updt_params(params_ref& p) {
         m_params.append(p);
     }
@@ -615,6 +626,11 @@ nlsat::anum const& solver::value(lp::var_index v) {
 nlsat::anum_manager& solver::am() {
     return m_imp->am();
 }
+
+scoped_anum& solver::tmp1() { return m_imp->tmp1(); }
+
+scoped_anum& solver::tmp2() { return m_imp->tmp2(); }
+
 
 void solver::updt_params(params_ref& p) {
     m_imp->updt_params(p);

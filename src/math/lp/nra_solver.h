@@ -6,6 +6,7 @@
 #pragma once
 #include "util/vector.h"
 #include "math/lp/lp_settings.h"
+#include "math/polynomial/algebraic_numbers.h"
 #include "util/rlimit.h"
 #include "util/params.h"
 #include "nlsat/nlsat_solver.h"
@@ -57,6 +58,10 @@ namespace nra {
         nlsat::anum const& value(lp::var_index v);
 
         nlsat::anum_manager& am();        
+
+        scoped_anum& tmp1();
+
+        scoped_anum& tmp2();
 
         void updt_params(params_ref& p);
 

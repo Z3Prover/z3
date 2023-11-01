@@ -47,6 +47,8 @@ namespace nla {
         core& get_core();
         nlsat::anum_manager& am();
         nlsat::anum const& am_value(lp::var_index v) const;
+        scoped_anum& tmp1();
+        scoped_anum& tmp2();
         vector<nla::lemma> const& lemmas() const;
         vector<nla::ineq> const& literals() const;
         vector<lp::fixed_equality> const& fixed_equalities() const;

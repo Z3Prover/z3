@@ -174,7 +174,6 @@ class theory_lra::imp {
 
     // non-linear arithmetic
     scoped_ptr<nla::solver>  m_nla;
-    mutable scoped_ptr<scoped_anum>  m_a1, m_a2;
 
     // integer arithmetic
     scoped_ptr<lp::int_solver> m_lia;
@@ -192,14 +191,7 @@ class theory_lra::imp {
     };
 
     bool use_nra_model() const {
-        if (m_nla && m_nla->use_nra_model()) {
-            if (!m_a1) {
-                m_a1 = alloc(scoped_anum, m_nla->am());
-                m_a2 = alloc(scoped_anum, m_nla->am());
-            }
-            return true;
-        }
-        return false;
+        return m_nla && m_nla->use_nra_model();
     }
     
     struct var_value_hash {
@@ -1604,7 +1596,7 @@ public:
 
     bool is_eq(theory_var v1, theory_var v2) {
         if (use_nra_model()) 
-            return m_nla->am().eq(nl_value(v1, *m_a1), nl_value(v2, *m_a2));
+            return m_nla->am().eq(nl_value(v1, m_nla->tmp1()), nl_value(v2, m_nla->tmp2()));
         else 
             return get_ivalue(v1) == get_ivalue(v2); 
     }
@@ -2038,7 +2030,6 @@ public:
     }
     
     final_check_status check_nla_continue() {
-        m_a1 = nullptr; m_a2 = nullptr;
         lbool r = m_nla->check();
         switch (r) {
         case l_false:
@@ -2178,8 +2169,6 @@ public:
 
     void propagate_nla() {
         if (m_nla) {
-            m_a1 = nullptr; 
-            m_a2 = nullptr;
             m_nla->propagate();
             add_lemmas();
             lp().collect_more_rows_for_lp_propagation();
@@ -3387,7 +3376,7 @@ public:
     }
 
     nlsat::anum const& nl_value(theory_var v, scoped_anum& r) const {
-        SASSERT(m_nla && m_nla->use_nra_model());
+        SASSERT(use_nra_model());
         auto t = get_tv(v);
         if (t.is_term()) {
 
@@ -3431,11 +3420,11 @@ public:
         theory_var v = n->get_th_var(get_id());
         expr* o = n->get_expr();
         if (use_nra_model() && lp().external_to_local(v) != lp::null_lpvar) {
-            anum const& an = nl_value(v, *m_a1);
+            anum const& an = nl_value(v, m_nla->tmp1());
             if (a.is_int(o) && !m_nla->am().is_int(an)) {
                 return alloc(expr_wrapper_proc, a.mk_numeral(rational::zero(), a.is_int(o)));
             }
-            return alloc(expr_wrapper_proc, a.mk_numeral(m_nla->am(), nl_value(v, *m_a1), a.is_int(o)));
+            return alloc(expr_wrapper_proc, a.mk_numeral(m_nla->am(), nl_value(v, m_nla->tmp1()), a.is_int(o)));
         }
         else {
             rational r = get_value(v);
@@ -3818,7 +3807,7 @@ public:
             if (!ctx().is_relevant(get_enode(v))) out << "irr: ";
             out << "v" << v << " ";
             if (t.is_null()) out << "null"; else out << (t.is_term() ? "t":"j") << vi;
-            if (use_nra_model() && is_registered_var(v)) m_nla->am().display(out << " = ", nl_value(v, *m_a1));
+            if (use_nra_model() && is_registered_var(v)) m_nla->am().display(out << " = ", nl_value(v, m_nla->tmp1()));
             else if (can_get_value(v)) out << " = " << get_value(v); 
             if (is_int(v)) out << ", int";
             if (ctx().is_shared(get_enode(v))) out << ", shared";

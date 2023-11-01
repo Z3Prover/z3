@@ -233,7 +233,6 @@ namespace arith {
 
         // non-linear arithmetic
         scoped_ptr<nla::solver>  m_nla;
-        scoped_ptr<scoped_anum>  m_a1, m_a2;
 
         // integer arithmetic
         scoped_ptr<lp::int_solver>   m_lia;
