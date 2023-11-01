@@ -1852,7 +1852,6 @@ namespace lp {
 
     bool lar_solver::validate_bound(lpvar j, lconstraint_kind kind, const mpq& rs, u_dependency* dep) {
         if (m_validate_blocker) return true;
-        ++lp_settings::ddd;        
         lar_solver solver;
         solver.m_validate_blocker = true;
         TRACE("lar_solver_validate", tout << "j = " << j << " " << lconstraint_kind_string(kind) << " " << rs << std::endl;);
