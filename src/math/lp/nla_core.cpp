@@ -1537,6 +1537,9 @@ void core::add_bounds() {
 }
 
 lbool core::check() {
+#if Z3DEBUG
+    flet f(lra.validate_blocker(), true);
+#endif
     lp_settings().stats().m_nla_calls++;
     TRACE("nla_solver", tout << "calls = " << lp_settings().stats().m_nla_calls << "\n";);
     lra.get_rid_of_inf_eps();
@@ -1816,6 +1819,9 @@ void core::collect_statistics(::statistics & st) {
 
 
 void core::propagate() {
+    #if Z3DEBUG
+    flet f(this->lra.validate_blocker(), true );
+    #endif
     clear();
     m_monomial_bounds.unit_propagate();
     m_monics_with_changed_bounds.reset();

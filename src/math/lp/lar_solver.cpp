@@ -1897,6 +1897,7 @@ namespace lp {
             break;
         case GT:
             ls.add_var_bound(j, LE, right_side);
+            break;
         default:
             UNREACHABLE();
             break;
