@@ -155,7 +155,12 @@ class lar_solver : public column_namer {
     lpvar& crossed_bounds_column() { return m_crossed_bounds_column; } 
         
 
- private:   
+ private:
+    bool validate_bound(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);   
+    void add_dep_constraints_to_solver(lar_solver& ls, u_dependency* dep);
+    void add_bound_negation_to_solver(lar_solver& ls, lpvar j, lconstraint_kind kind, const mpq& right_side);
+    void add_constraint_to_validate(lar_solver& ls, constraint_index ci);
+    bool m_validate_blocker = false;
     void update_column_type_and_bound_check_on_equal(unsigned j, const mpq& right_side, constraint_index ci, unsigned&);
     void update_column_type_and_bound(unsigned j, const mpq& right_side, constraint_index ci);
  public:   

@@ -432,6 +432,7 @@ namespace lp {
         auto& rslv = m_mpq_lar_core_solver.m_r_solver;
         lp_assert(costs_are_zeros_for_r_solver());
         lp_assert(reduced_costs_are_zeroes_for_r_solver());
+        move_non_basic_columns_to_bounds();
         rslv.m_costs.resize(A_r().column_count(), zero_of_type<mpq>());
         for (lar_term::ival p : term) {
             unsigned j = p.column();
@@ -1848,7 +1849,86 @@ namespace lp {
         update_column_type_and_bound(j, kind, right_side, dep);
     }
 
+
+    bool lar_solver::validate_bound(lpvar j, lconstraint_kind kind, const mpq& rs, u_dependency* dep) {
+        if (m_validate_blocker) return true;
+        ++lp_settings::ddd;        
+        lar_solver solver;
+        solver.m_validate_blocker = true;
+        TRACE("lar_solver_validate", tout << "j = " << j << " " << lconstraint_kind_string(kind) << " " << rs << std::endl;);
+        add_dep_constraints_to_solver(solver, dep);
+        if (solver.external_to_local(j) == null_lpvar) {
+            return false; // we have to mention j in the dep
+        }
+        if (kind != EQ) {
+            add_bound_negation_to_solver(solver, j, kind, rs);
+            solver.find_feasible_solution();
+            return solver.get_status() == lp_status::INFEASIBLE;
+        }
+        else {
+            solver.push();
+            add_bound_negation_to_solver(solver, j, LE, rs);
+            solver.find_feasible_solution();
+            if (solver.get_status() != lp_status::INFEASIBLE)
+                return false;
+            solver.pop();
+            add_bound_negation_to_solver(solver, j, GE, rs);
+            solver.find_feasible_solution();
+            return solver.get_status() == lp_status::INFEASIBLE;
+        }
+    }
+
+    void lar_solver::add_dep_constraints_to_solver(lar_solver& ls, u_dependency* dep) {
+        auto constraints = flatten(dep);
+        for (auto c : constraints) 
+            add_constraint_to_validate(ls, c);
+    }
+    void lar_solver::add_bound_negation_to_solver(lar_solver& ls, lpvar j, lconstraint_kind kind, const mpq& right_side) {
+        j = ls.external_to_local(j);
+        switch (kind) {
+        case LE:
+            ls.add_var_bound(j, GT, right_side);
+            break;
+        case LT:
+            ls.add_var_bound(j, GE, right_side);
+            break;
+        case GE:
+            ls.add_var_bound(j, LT, right_side);
+            break;
+        case GT:
+            ls.add_var_bound(j, LE, right_side);
+        default:
+            UNREACHABLE();
+            break;
+        }                
+    }
+    void lar_solver::add_constraint_to_validate(lar_solver& ls, constraint_index ci) {
+        auto const& c = m_constraints[ci];
+        TRACE("lar_solver_validate", tout << "adding constr with column = "<< c.column() << "\n"; m_constraints.display(tout, c); tout << std::endl;);
+        vector<std::pair<mpq, var_index>> coeffs;
+        for (auto p : c.coeffs()) {
+            lpvar jext = p.second;
+            lpvar j = ls.external_to_local(jext);
+            if (j == null_lpvar) { 
+                ls.add_var(jext, column_is_int(jext));
+                j = ls.external_to_local(jext);
+            }
+            coeffs.push_back(std::make_pair(p.first, j));
+        }
+        
+        lpvar column_ext = c.column();
+        unsigned j = ls.external_to_local(column_ext);
+        var_index tv;
+        if (j == UINT_MAX) {
+            tv = ls.add_term(coeffs, column_ext);
+        }
+        else {            
+            tv = ls.add_term(coeffs, null_lpvar);
+        }
+        ls.add_var_bound(tv, c.kind(), c.rhs());
+    }
     void lar_solver::update_column_type_and_bound(unsigned j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep) {
+        SASSERT(validate_bound(j, kind, right_side, dep));
         TRACE(
             "lar_solver_feas",
             tout << "j" << j << " " << lconstraint_kind_string(kind) << " " << right_side << std::endl;            
@@ -1867,7 +1947,7 @@ namespace lp {
 
         if (is_base(j) && column_is_fixed(j))
             m_fixed_base_var_set.insert(j);
-        TRACE("lar_solver_feas", tout << "j = " << j << " became " << (this->column_is_feasible(j) ? "feas" : "non-feas") << ", and " << (this->column_is_bounded(j) ? "bounded" : "non-bounded") << std::endl;);    
+        TRACE("lar_solver_feas", tout << "j = " << j << " became " << (this->column_is_feasible(j) ? "feas" : "non-feas") << ", and " << (this->column_is_bounded(j) ? "bounded" : "non-bounded") << std::endl;);
     }
 
     void lar_solver::insert_to_columns_with_changed_bounds(unsigned j) {
