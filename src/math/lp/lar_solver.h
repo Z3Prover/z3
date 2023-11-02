@@ -155,12 +155,20 @@ class lar_solver : public column_namer {
     lpvar& crossed_bounds_column() { return m_crossed_bounds_column; } 
         
 
- private:   
+ private:
+    bool validate_bound(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);   
+    void add_dep_constraints_to_solver(lar_solver& ls, u_dependency* dep);
+    void add_bound_negation_to_solver(lar_solver& ls, lpvar j, lconstraint_kind kind, const mpq& right_side);
+    void add_constraint_to_validate(lar_solver& ls, constraint_index ci);
+    bool m_validate_blocker = false;
     void update_column_type_and_bound_check_on_equal(unsigned j, const mpq& right_side, constraint_index ci, unsigned&);
     void update_column_type_and_bound(unsigned j, const mpq& right_side, constraint_index ci);
  public:   
-    void update_column_type_and_bound(unsigned j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
- private:   
+    bool validate_blocker() const { return m_validate_blocker; }
+    bool & validate_blocker() { return m_validate_blocker; }   
+	void update_column_type_and_bound(unsigned j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
+ private:
+    void require_nbasis_sort() { m_mpq_lar_core_solver.m_r_solver.m_nbasis_sort_counter = 0; }   
     void update_column_type_and_bound_with_ub(var_index j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
     void update_column_type_and_bound_with_no_ub(var_index j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
     void update_bound_with_ub_lb(var_index j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
@@ -203,7 +211,9 @@ class lar_solver : public column_namer {
     bool reduced_costs_are_zeroes_for_r_solver() const;
     void set_costs_to_zero(const lar_term& term);
     void prepare_costs_for_r_solver(const lar_term& term);
-    bool maximize_term_on_corrected_r_solver(lar_term& term, impq& term_max);
+    bool maximize_term_on_feasible_r_solver(lar_term& term, impq& term_max, vector<std::pair<mpq,lpvar>>* max_coeffs);
+    u_dependency* get_dependencies_of_maximum(const vector<std::pair<mpq,lpvar>>& max_coeffs);
+    
     void pop_core_solver_params();
     void pop_core_solver_params(unsigned k);
     void set_upper_bound_witness(var_index j, u_dependency* ci);
@@ -263,7 +273,12 @@ class lar_solver : public column_namer {
     mutable std::unordered_set<mpq> m_set_of_different_singles;
     mutable mpq m_delta;
 
-   public:
+ public:
+    u_dependency* find_improved_bound(lpvar j, bool is_lower, mpq& bound);
+
+    std::ostream& print_explanation(
+        std::ostream& out, const explanation& exp, 
+        std::function<std::string(lpvar)> var_str = [](lpvar j) { return std::string("j") + T_to_string(j); }) const;
     // this function just looks at the status
     bool is_feasible() const;
 
@@ -301,8 +316,6 @@ class lar_solver : public column_namer {
     var_index add_named_var(unsigned ext_j, bool is_integer, const std::string&);
 
     lp_status maximize_term(unsigned j_or_term, impq& term_max);
-
-    bool improve_bound(lpvar j, bool is_lower);
 
     inline core_solver_pretty_printer<lp::mpq, lp::impq> pp(std::ostream& out) const {
         return core_solver_pretty_printer<lp::mpq, lp::impq>(m_mpq_lar_core_solver.m_r_solver, out);

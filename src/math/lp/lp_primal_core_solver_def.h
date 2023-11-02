@@ -40,49 +40,57 @@ void lp_primal_core_solver<T, X>::sort_non_basis() {
                 if (ca != 0 && cb == 0) return true;
                 return ca < cb;
             });
-     
-    m_non_basis_list.clear();
-    // reinit m_basis_heading
-    for (unsigned j = 0; j < this->m_nbasis.size(); j++) {
-        unsigned col = this->m_nbasis[j];
-        this->m_basis_heading[col] = - static_cast<int>(j) - 1;
-        m_non_basis_list.push_back(col);
+    m_non_basis_list.resize(this->m_nbasis.size());
+    // initialize m_non_basis_list from m_nbasis by using an iterator on m_non_basis_list
+    auto it = m_non_basis_list.begin();
+    unsigned j = 0;
+    for (; j < this->m_nbasis.size(); j++, ++it) {
+        unsigned col = *it = this->m_nbasis[j];
+        this->m_basis_heading[col] = -static_cast<int>(j) - 1;
     }
 }
 
+template <typename T, typename X>
+bool lp_primal_core_solver<T, X>::correctly_moved_to_bounds(unsigned j) const {
+    switch (this->m_column_types[j]) {
+    case column_type::fixed:
+        return this->m_x[j] == this->m_lower_bounds[j];
+    case column_type::boxed:
+        return this->m_x[j] == this->m_lower_bounds[j] || this->m_x[j] == this->m_upper_bounds[j];
+    case column_type::lower_bound:
+        return this->m_x[j] == this->m_lower_bounds[j];
+    case column_type::upper_bound:
+        return this->m_x[j] == this->m_upper_bounds[j];
+    case column_type::free_column:
+        return true;
+    default:
+        UNREACHABLE();
+        return false;
+    }
+}
 
 
 template <typename T, typename X>
 bool lp_primal_core_solver<T, X>::column_is_benefitial_for_entering_basis(unsigned j) const {
     const T& dj = this->m_d[j];
-    TRACE("lar_solver", tout << "dj=" << dj << "\n";); 
+    if (dj.is_zero()) return false;
+    TRACE("lar_solver", tout << "d[" << j <<"] = " << dj << "\n";); 
+    SASSERT(correctly_moved_to_bounds(j));
     switch (this->m_column_types[j]) {
     case column_type::fixed:  break;
     case column_type::free_column:
-        if (!is_zero(dj))
-            return true;
-        break;
+        return true;
     case column_type::lower_bound:
         if (dj > zero_of_type<T>()) return true;
-        if (dj < 0 && this->m_x[j] > this->m_lower_bounds[j]){
-            return true;
-        }
         break;
     case column_type::upper_bound:
         if (dj < zero_of_type<T>()) return true;
-        if (dj > 0 && this->m_x[j] < this->m_upper_bounds[j]) {
-            return true;
-        }
         break;
     case column_type::boxed:
-        if (dj > zero_of_type<T>()) {
-            if (this->m_x[j] < this->m_upper_bounds[j])
-                return true;
-            break;
-        } else if (dj < zero_of_type<T>()) {
-            if (this->m_x[j] > this->m_lower_bounds[j])
-                return true;
-        }
+        if (dj > zero_of_type<T>() && this->m_x[j] == this->m_lower_bounds[j])
+            return true;
+        if (dj < zero_of_type<T>() && this->m_x[j] == this->m_upper_bounds[j])
+            return true;
         break;
     default:
         UNREACHABLE();

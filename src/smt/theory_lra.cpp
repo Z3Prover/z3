@@ -2030,6 +2030,9 @@ public:
     }
     
     final_check_status check_nla_continue() {
+#if Z3DEBUG
+        flet f(lp().validate_blocker(), true);
+#endif
         lbool r = m_nla->check();
         switch (r) {
         case l_false:
