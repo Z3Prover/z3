@@ -122,8 +122,7 @@ namespace dd {
 
     solver::scoped_process::~scoped_process() {
         if (e) {
-            pdd const& p = e->poly();
-            SASSERT(!p.is_val());
+            SASSERT(!e->poly().is_val());
             g.push_equation(processed, e);            
         }
     }    

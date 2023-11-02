@@ -316,7 +316,6 @@ namespace lp {
 
     // get dependencies of the corresponding bounds from max_coeffs
     u_dependency* lar_solver::get_dependencies_of_maximum(const vector<std::pair<mpq,lpvar>>& max_coeffs) {        
-        const auto& s = this->m_mpq_lar_core_solver.m_r_solver;
         // The linear combinations of d_j*x[j] = the term that got maximized, where (d_j, j) is in max_coeffs
         // Every j with positive coeff is at its upper bound,
         // and every j with negative coeff is at its lower bound: so the sum cannot be increased.
@@ -326,7 +325,7 @@ namespace lp {
             SASSERT (!d_j.is_zero());
                 
             TRACE("lar_solver_improve_bounds", tout << "d[" << j << "] = " << d_j << "\n";
-                                               s.print_column_info(j, tout););
+                                               this->m_mpq_lar_core_solver.m_r_solver.print_column_info(j, tout););
             const ul_pair& ul = m_columns_to_ul_pairs[j];
             u_dependency * bound_dep;
             if (d_j.is_pos()) 
