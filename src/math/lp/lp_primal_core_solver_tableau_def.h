@@ -44,19 +44,22 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::advance_on_e
     advance_on_entering_and_leaving_tableau(entering, leaving, t);
 }
 
+
  template <typename T, typename X> int lp_primal_core_solver<T, X>::choose_entering_column_tableau() {
     //this moment m_y = cB * B(-1)
+    if (this->m_nbasis_sort_counter == 0) {
+        sort_non_basis();
+        this->m_nbasis_sort_counter = 20;
+    }
+    else {
+        this->m_nbasis_sort_counter--;
+        SASSERT(non_basis_is_correctly_represented_in_heading(&m_non_basis_list));
+    }
     unsigned number_of_benefitial_columns_to_go_over =  get_number_of_non_basic_column_to_try_for_enter();
     
     if (number_of_benefitial_columns_to_go_over == 0)
         return -1;
-    if (this->m_basis_sort_counter == 0) {
-        sort_non_basis();
-        this->m_basis_sort_counter = 20;
-    }
-    else {
-        this->m_basis_sort_counter--;
-    }
+    
     unsigned j_nz = this->m_m() + 1; // this number is greater than the max column size
     std::list<unsigned>::iterator entering_iter = m_non_basis_list.end();
     unsigned n = 0;
@@ -98,7 +101,8 @@ unsigned lp_primal_core_solver<T, X>::solve() {
     }
         
     do {
-        if (this->print_statistics_with_iterations_and_nonzeroes_and_cost_and_check_that_the_time_is_over( "feas t", * this->m_settings.get_message_ostream())) {
+        if (this->m_settings.get_cancel_flag()) {
+            this->set_status(lp_status::CANCELLED);
             return this->total_iterations();
         }
         if (this->m_settings.use_tableau_rows()) {
@@ -256,8 +260,6 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_
 }
 template <typename T, typename X> void lp_primal_core_solver<T, X>::init_run_tableau() {
         lp_assert(basis_columns_are_set_correctly());
-        this->m_basis_sort_counter = 0; // to initiate the sort of the basis
-        //  this->set_total_iterations(0);
         this->iters_with_no_cost_growing() = 0;
 		lp_assert(this->inf_heap_is_correct());
         if (this->current_x_is_feasible() && this->m_look_for_feasible_solution_only)

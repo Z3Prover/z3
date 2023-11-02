@@ -122,7 +122,7 @@ public:
         m_r_solver.m_d.resize(m_r_A.column_count());
         
         m_stacked_simplex_strategy.pop(k);
-        m_r_solver.m_settings.set_simplex_strategy(m_stacked_simplex_strategy);
+        m_r_solver.m_settings.simplex_strategy() = m_stacked_simplex_strategy;
         m_infeasible_linear_combination.reset();
         lp_assert(m_r_solver.basis_heading_is_correct());
     }

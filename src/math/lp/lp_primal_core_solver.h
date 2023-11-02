@@ -592,7 +592,7 @@ namespace lp {
             theta = zero_of_type<X>();
         }
     }
-
+    bool correctly_moved_to_bounds(lpvar) const;
     bool column_is_benefitial_for_entering_basis(unsigned j) const;
     void init_infeasibility_costs();
     void print_column(unsigned j, std::ostream &out);
