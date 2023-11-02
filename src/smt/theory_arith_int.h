@@ -146,13 +146,10 @@ namespace smt {
     */
     template<typename Ext>
     theory_var theory_arith<Ext>::find_infeasible_int_base_var() {
-        theory_var v = find_bounded_infeasible_int_base_var();
-        if (v != null_theory_var) {
-            TRACE("find_infeasible_int_base_var", display_var(tout, v););
-            return v;
-        }
+        theory_var r = find_bounded_infeasible_int_base_var();
+        CTRACE("find_infeasible_int_base_var", r != null_theory_var, display_var(tout << "bounded infeasible", r););
+        
         unsigned n   = 0;
-        theory_var r = null_theory_var;
         
 #define SELECT_VAR(VAR) if (r == null_theory_var) { n = 1; r = VAR; } else { n++; SASSERT(n >= 2); if (m_random() % n == 0) r = VAR; }
 
@@ -172,6 +169,7 @@ namespace smt {
                     }
                 }
             }
+            CTRACE("find_infeasible_int_base_var", r != null_theory_var, tout << "found small value v" << r << "\n");
         }
 
         if (r == null_theory_var) {
@@ -181,6 +179,8 @@ namespace smt {
                     SELECT_VAR(v);
                 }
             }
+            CTRACE("find_infeasible_int_base_var", r != null_theory_var, tout << "found base v" << r << "\n");
+
         }
 
         if (r == null_theory_var) {
@@ -191,6 +191,7 @@ namespace smt {
                     SELECT_VAR(v);
                 }
             }
+            CTRACE("find_infeasible_int_base_var", r != null_theory_var, tout << "found quasi base v" << r << "\n");
         }
         CASSERT("arith", wf_rows());
         CASSERT("arith", wf_columns());
@@ -438,15 +439,13 @@ namespace smt {
     bool theory_arith<Ext>::is_gomory_cut_target(row const & r) {
         TRACE("gomory_cut", r.display(tout););
         theory_var b = r.get_base_var();
-        typename vector<row_entry>::const_iterator it  = r.begin_entries();
-        typename vector<row_entry>::const_iterator end = r.end_entries();
-        for (; it != end; ++it) {
+        for (auto& e : r) {
             // All non base variables must be at their bounds and assigned to rationals (that is, infinitesimals are not allowed).
-            if (!it->is_dead() && it->m_var != b && (!at_bound(it->m_var) || !get_value(it->m_var).is_rational())) {
+            if (!e.is_dead() && e.m_var != b && (!at_bound(e.m_var) || !get_value(e.m_var).is_rational())) {
                 TRACE("gomory_cut", tout << "row is not gomory cut target:\n";
-                      display_var(tout, it->m_var);
-                      tout << "at_bound:      " << at_bound(it->m_var) << "\n";
-                      tout << "infinitesimal: " << !get_value(it->m_var).is_rational() << "\n";);
+                      display_var(tout, e.m_var);
+                      tout << "at_bound:      " << at_bound(e.m_var) << "\n";
+                      tout << "infinitesimal: " << !get_value(e.m_var).is_rational() << "\n";);
                 return false;
             }
         }
@@ -541,12 +540,10 @@ namespace smt {
         numeral lcm_den(1);
         unsigned num_ints = 0;
 
-        typename vector<row_entry>::const_iterator it  = r.begin_entries();
-        typename vector<row_entry>::const_iterator end = r.end_entries();
-        for (; it != end; ++it) {
-            if (!it->is_dead() && it->m_var != x_i) {
-                theory_var x_j   = it->m_var;
-                numeral a_ij = it->m_coeff;
+        for (row_entry const& e : r) {
+            if (!e.is_dead() && e.m_var != x_i) {
+                theory_var x_j   = e.m_var;
+                numeral a_ij = e.m_coeff;
                 a_ij.neg();  // make the used format compatible with the format used in: Integrating Simplex with DPLL(T)
                 if (is_real(x_j)) {
                     numeral new_a_ij;
@@ -709,38 +706,36 @@ namespace smt {
         numeral gcds(0);
         numeral least_coeff(0);
         bool    least_coeff_is_bounded = false;
-        typename vector<row_entry>::const_iterator it  = r.begin_entries();
-        typename vector<row_entry>::const_iterator end = r.end_entries();
-        for (; it != end; ++it) {
-            if (!it->is_dead()) {
-                if (is_fixed(it->m_var)) {
-                    // WARNING: it is not safe to use get_value(it->m_var) here, since
-                    // get_value(it->m_var) may not satisfy it->m_var bounds at this point.
-                    numeral aux = lcm_den * it->m_coeff;
-                    consts += aux * lower_bound(it->m_var).get_rational();
+        for (row_entry const& e : r) {
+            if (!e.is_dead()) {
+                if (is_fixed(e.m_var)) {
+                    // WARNING: it is not safe to use get_value(e.m_var) here, since
+                    // get_value(e.m_var) may not satisfy e.m_var bounds at this point.
+                    numeral aux = lcm_den * e.m_coeff;
+                    consts += aux * lower_bound(e.m_var).get_rational();
                 }
-                else if (is_real(it->m_var)) {
+                else if (is_real(e.m_var)) {
                     return true;
                 }
                 else if (gcds.is_zero()) {
-                    gcds = abs(lcm_den * it->m_coeff);
+                    gcds = abs(lcm_den * e.m_coeff);
                     least_coeff = gcds;
-                    least_coeff_is_bounded = is_bounded(it->m_var);
+                    least_coeff_is_bounded = is_bounded(e.m_var);
                 }
                 else {
-                    numeral aux = abs(lcm_den * it->m_coeff);
+                    numeral aux = abs(lcm_den * e.m_coeff);
                     gcds = gcd(gcds, aux);
                     if (aux < least_coeff) {
                         least_coeff = aux;
-                        least_coeff_is_bounded = is_bounded(it->m_var);
+                        least_coeff_is_bounded = is_bounded(e.m_var);
                     }
                     else if (least_coeff_is_bounded && aux == least_coeff) {
-                        least_coeff_is_bounded = is_bounded(it->m_var);
+                        least_coeff_is_bounded = is_bounded(e.m_var);
                     }
                 }
                 SASSERT(gcds.is_int());
                 SASSERT(least_coeff.is_int());
-                TRACE("gcd_test_bug", tout << "coeff: " << it->m_coeff << ", gcds: " << gcds 
+                TRACE("gcd_test_bug", tout << "coeff: " << e.m_coeff << ", gcds: " << gcds 
                       << " least_coeff: " << least_coeff << " consts: " << consts << "\n";);
             }
         }
@@ -790,14 +785,11 @@ namespace smt {
 
         antecedents ante(*this);
 
-
-        typename vector<row_entry>::const_iterator it  = r.begin_entries();
-        typename vector<row_entry>::const_iterator end = r.end_entries();
-        for (; it != end; ++it) {
-            if (!it->is_dead() && !is_fixed(it->m_var)) {
-                theory_var v = it->m_var;
+        for (auto const& e : r) {
+            if (!e.is_dead() && !is_fixed(e.m_var)) {
+                theory_var v = e.m_var;
                 SASSERT(!is_real(v));
-                numeral ncoeff = lcm_den * it->m_coeff;
+                numeral ncoeff = lcm_den * e.m_coeff;
                 SASSERT(ncoeff.is_int());
                 numeral abs_ncoeff = abs(ncoeff);
                 if (abs_ncoeff == least_coeff) {
@@ -814,8 +806,8 @@ namespace smt {
                         // u += ncoeff * lower_bound(v).get_rational();
                         u.addmul(ncoeff, lower_bound(v).get_rational());
                     }
-                    lower(v)->push_justification(ante, it->m_coeff, coeffs_enabled());
-                    upper(v)->push_justification(ante, it->m_coeff, coeffs_enabled());
+                    lower(v)->push_justification(ante, e.m_coeff, coeffs_enabled());
+                    upper(v)->push_justification(ante, e.m_coeff, coeffs_enabled());
                 }
                 else if (gcds.is_zero()) {
                     gcds = abs_ncoeff; 
