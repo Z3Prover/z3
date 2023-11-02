@@ -231,7 +231,7 @@ namespace lp {
             return rc.var();
         }
 
-    bool try_jump_to_another_bound_on_entering(unsigned entering, const X &theta, X &t, bool &unlimited);
+    bool try_jump_to_another_bound_on_entering(unsigned entering, X &t);
 
     bool try_jump_to_another_bound_on_entering_unlimited(unsigned entering, X &t);
 

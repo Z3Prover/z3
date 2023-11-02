@@ -98,48 +98,17 @@ bool lp_primal_core_solver<T, X>::column_is_benefitial_for_entering_basis(unsign
     }
     return false;
 }
-
-template <typename T, typename X> bool lp_primal_core_solver<T, X>::try_jump_to_another_bound_on_entering(unsigned entering,
-                                                                                                          const X & theta,
-                                                                                                          X & t,
-                                                                                                          bool & unlimited) {
-    switch(this->m_column_types[entering]){
-    case column_type::boxed: 
-        if (m_sign_of_entering_delta > 0) {
-            t = this->m_upper_bounds[entering] - this->m_x[entering];
-            if (unlimited || t <= theta){
-                lp_assert(t >= zero_of_type<X>());
-                return true;
-            }
-        } else { // m_sign_of_entering_delta == -1
-            t = this->m_x[entering] - this->m_lower_bounds[entering];
-            if (unlimited || t <= theta) {
-                lp_assert(t >= zero_of_type<X>());
-                return true;
-            }
-        }
+// we assume that the columns are at their bounds
+template <typename T, typename X> bool lp_primal_core_solver<T, X>::try_jump_to_another_bound_on_entering(unsigned entering, X & theta) {
+    if (this->m_column_types[entering] != column_type::boxed)
         return false;
-    case column_type::upper_bound:
-        if (m_sign_of_entering_delta > 0) {
-            t = this->m_upper_bounds[entering] - this->m_x[entering];
-            if (unlimited || t <= theta){
-                lp_assert(t >= zero_of_type<X>());
-                return true;
-            }
-        }
-        return false;
-    case column_type::lower_bound:
-        if (m_sign_of_entering_delta < 0) {
-                t = this->m_x[entering] - this->m_lower_bounds[entering];
-                if (unlimited || t <= theta) {
-                    lp_assert(t >= zero_of_type<X>());
-                    return true;
-                }
-        }
-        return false;
-    default:return false;
+    X t = this->m_upper_bounds[entering] - this->m_lower_bounds[entering];
+    if (t <= theta) {
+        theta = t;
+        return true;
     }
     return false;
+    
 }
 
 template <typename T, typename X> bool lp_primal_core_solver<T, X>::

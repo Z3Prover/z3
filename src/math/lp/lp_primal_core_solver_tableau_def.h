@@ -246,10 +246,7 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_
         }
     }
 
-    ratio = t;
-    unlimited = false;
-    if (try_jump_to_another_bound_on_entering(entering, t, ratio, unlimited)) {
-        t = ratio;
+    if (try_jump_to_another_bound_on_entering(entering, t)) {
         return entering;
     }
     if (m_leaving_candidates.size() == 1)
