@@ -46,23 +46,11 @@ namespace polysat {
     namespace viable_query {
         enum class query_t {
             has_viable,  // currently only used internally in resolve_viable
-            min_viable,  // currently unused
-            max_viable,  // currently unused
             find_viable,
         };
 
         template <query_t mode>
         struct query_result {
-        };
-
-        template <>
-        struct query_result<query_t::min_viable> {
-            using result_t = rational;
-        };
-
-        template <>
-        struct query_result<query_t::max_viable> {
-            using result_t = rational;
         };
 
         template <>
@@ -212,8 +200,6 @@ namespace polysat {
          * Interval-based queries
          * @return l_true on success, l_false on conflict, l_undef on refinement
          */
-        lbool query_min(pvar v, rational& out_lo, fixed_bits_info const& fbi);
-        lbool query_max(pvar v, rational& out_hi, fixed_bits_info const& fbi);
         lbool query_find(pvar v, rational& out_lo, rational& out_hi, fixed_bits_info const& fbi);
 
         /**
@@ -221,8 +207,6 @@ namespace polysat {
          * The univariate solver has already been filled with all relevant constraints and check() returned l_true.
          * @return l_true on success, l_false on conflict, l_undef on resource limit
          */
-        lbool query_min_fallback(pvar v, univariate_solver& us, rational& out_lo);
-        lbool query_max_fallback(pvar v, univariate_solver& us, rational& out_hi);
         lbool query_find_fallback(pvar v, univariate_solver& us, rational& out_lo, rational& out_hi);
 
         /**
@@ -274,19 +258,6 @@ namespace polysat {
          * check if value is viable according to m_viable.
          */
         bool is_viable(pvar v, rational const& val);
-
-        /**
-         * Extract min viable value for v.
-         * @return l_true on success, l_false on conflict, l_undef on resource limit
-         */
-        lbool min_viable(pvar v, rational& out_lo);
-
-        /**
-         * Extract max viable value for v.
-         * @return l_true on success, l_false on conflict, l_undef on resource limit
-         */
-        lbool max_viable(pvar v, rational& out_hi);
-
 
         /**
          * Query for an upper bound literal for v together with justification.

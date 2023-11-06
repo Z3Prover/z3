@@ -1446,14 +1446,6 @@ namespace {
         return query<query_t::find_viable>(v, args);
     }
 
-    lbool viable::min_viable(pvar v, rational& lo) {
-        return query<query_t::min_viable>(v, lo);
-    }
-
-    lbool viable::max_viable(pvar v, rational& hi) {
-        return query<query_t::max_viable>(v, hi);
-    }
-
     bool viable::has_upper_bound(pvar v, rational& out_hi, vector<signed_constraint>& out_c) {
         entry const* first = m_units[v].get_entries(s.size(v));  // TODO: take other sizes into account
         entry const* e = first;
@@ -1707,10 +1699,6 @@ namespace {
 
             if constexpr (mode == query_t::find_viable)
                 res = query_find(v, result.first, result.second, fbi);
-            else if constexpr (mode == query_t::min_viable)
-                res = query_min(v, result, fbi);
-            else if constexpr (mode == query_t::max_viable)
-                res = query_max(v, result, fbi);
             else if constexpr (mode == query_t::has_viable) {
                 NOT_IMPLEMENTED_YET();
             }
@@ -1800,54 +1788,6 @@ namespace {
         return l_true;
     }
 
-    lbool viable::query_min(pvar v, rational& lo, fixed_bits_info const& fbi) {
-        // TODO: should be able to deal with UNSAT case; since also min_viable has to deal with it due to fallback solver
-        lo = 0;
-        entry* e = m_units[v].get_entries(s.size(v));  // TODO: take other sizes into account
-        if (!e && !refine_viable<true>(v, lo, fbi))
-            return l_undef;
-        if (!e)
-            return l_true;
-        entry* first = e;
-        entry* last = first->prev();
-        if (last->interval.currently_contains(lo))
-            lo = last->interval.hi_val();
-        do {
-            if (!e->interval.currently_contains(lo))
-                break;
-            lo = e->interval.hi_val();
-            e = e->next();
-        }
-        while (e != first);
-        if (!refine_viable<true>(v, lo, fbi))
-            return l_undef;
-        SASSERT(is_viable(v, lo));
-        return l_true;
-    }
-
-    lbool viable::query_max(pvar v, rational& hi, fixed_bits_info const& fbi) {
-        // TODO: should be able to deal with UNSAT case; since also max_viable has to deal with it due to fallback solver
-        hi = s.var2pdd(v).max_value();
-        entry* e = m_units[v].get_entries(s.size(v));  // TODO: take other sizes into account
-        if (!e && !refine_viable<false>(v, hi, fbi))
-            return l_undef;
-        if (!e)
-            return l_true;
-        entry* last = e->prev();
-        e = last;
-        do {
-            if (!e->interval.currently_contains(hi))
-                break;
-            hi = e->interval.lo_val() - 1;
-            e = e->prev();
-        }
-        while (e != last);
-        if (!refine_viable<false>(v, hi, fbi))
-            return l_undef;
-        SASSERT(is_viable(v, hi));
-        return l_true;
-    }
-
     template <query_t mode>
     lbool viable::query_fallback(pvar v, typename query_result<mode>::result_t& result) {
         unsigned const bit_width = s.size(v);
@@ -1917,12 +1857,6 @@ namespace {
         if constexpr (mode == query_t::find_viable)
             return query_find_fallback(v, *us, result.first, result.second);
 
-        if constexpr (mode == query_t::min_viable)
-            return query_min_fallback(v, *us, result);
-
-        if constexpr (mode == query_t::max_viable)
-            return query_max_fallback(v, *us, result);
-
         if constexpr (mode == query_t::has_viable) {
             NOT_IMPLEMENTED_YET();
             return l_undef;
@@ -1937,14 +1871,6 @@ namespace {
         hi = -1;
         return l_true;
         // return us.find_two(lo, hi) ? l_true : l_undef;
-    }
-
-    lbool viable::query_min_fallback(pvar v, univariate_solver& us, rational& lo) {
-        return us.find_min(lo) ? l_true : l_undef;
-    }
-
-    lbool viable::query_max_fallback(pvar v, univariate_solver& us, rational& hi) {
-        return us.find_max(hi) ? l_true : l_undef;
     }
 
     bool viable::resolve_fallback(pvar v, univariate_solver& us, conflict& core) {
