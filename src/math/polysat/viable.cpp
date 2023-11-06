@@ -112,6 +112,8 @@ namespace polysat {
         auto const& [v, k, e] = m_trail.back();
         // display_one(verbose_stream() << "Pop entry:  ", v, e) << "\n";
         SASSERT(well_formed(m_units[v]));
+        SASSERT(e->active);
+        e->active = false;
         switch (k) {
         case entry_kind::unit_e:
             entry::remove_from(m_units[v].get_layer(e)->entries, e);
@@ -138,6 +140,8 @@ namespace polysat {
         SASSERT(e->prev() != e || !entries);
         SASSERT(e->prev() != e || e->next() == e);
         SASSERT(k == entry_kind::unit_e);
+        SASSERT(!e->active);
+        e->active = true;
         (void)k;
         SASSERT(well_formed(m_units[v]));
         if (e->prev() != e) {
@@ -313,6 +317,7 @@ namespace polysat {
             m_trail.push_back({ v, entry_kind::unit_e, e });
             s.m_trail.push_back(trail_instr_t::viable_rem_i);
             e->remove_from(entries, e);
+            e->active = false;
         };
 
         if (ne->interval.is_full()) {
@@ -1751,6 +1756,9 @@ namespace polysat {
             return true;
         entry* first = e;
         while (true) {
+            if (!e->active)
+                return false;
+
             if (e->interval.is_full())
                 return e->next() == e;
             if (e->interval.is_currently_empty())

@@ -52,11 +52,14 @@ namespace polysat {
         struct entry final : public dll_base<entry>, public fi_record {
             /// whether the entry has been created by refinement (from constraints in 'fi_record::src')
             bool refined = false;
+            /// whether the entry is part of the current set of intervals, or stashed away for backtracking
+            bool active = true;
 
             void reset() {
                 // dll_base<entry>::init(this);  // we never did this in alloc_entry either
                 fi_record::reset();
                 refined = false;
+                active = true;
             }
         };
 
