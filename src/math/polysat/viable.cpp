@@ -1065,8 +1065,13 @@ namespace {
                         return false;
                     }
                     // just override; we prefer bit constraints over parity as those are easier for subsumption to remove
+                    // do we just introduce a new justification here that subsumption will remove anyway?
+                    //      the only way it will not is if all bits are overwritten like this.
+                    //      but in that case we basically replace one parity constraint by multiple bit constraints?
                     // verbose_stream() << "Adding bit constraint: " <<  e->src[0] << " (" << bit.position << ")\n";
-                    out_fbi.set_just(bit.position, e1);
+                    if (prev == l_undef) {
+                        out_fbi.set_just(bit.position, e1);
+                    }
                 }
                 else if (src->is_eq() &&
                          simplify_clause::get_lsb(s.subst(src->to_ule().lhs()), s.subst(src->to_ule().rhs()), p, lsb, src.is_positive()) && p.is_var()) {
