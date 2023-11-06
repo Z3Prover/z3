@@ -1042,7 +1042,10 @@ namespace arith {
         SASSERT(m_nla);
         SASSERT(m_nla->use_nra_model());
         auto t = get_tv(v);
-        if (t.is_term()) {
+        if (!t.is_term()) {
+            m_nla->am().set(r, m_nla->am_value(t.id()));
+        }
+        else {
             m_todo_terms.push_back(std::make_pair(t, rational::one()));
             TRACE("nl_value", tout << "v" << v << " " << t.to_string() << "\n";);
             TRACE("nl_value", tout << "v" << v << " := w" << t.to_string() << "\n";
@@ -1072,11 +1075,8 @@ namespace arith {
                     }
                 }
             }
-            return r;
         }
-        else {
-            return m_nla->am_value(t.id());
-        }
+        return r;
     }
 
     lbool solver::make_feasible() {

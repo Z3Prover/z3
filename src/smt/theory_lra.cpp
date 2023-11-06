@@ -1954,7 +1954,7 @@ public:
             }
             // The call mk_bound() can set the m_infeasible_column in lar_solver
             // so the explanation is safer to take before this call.
-            app_ref b = mk_bound(m_lia->get_term(), m_lia->get_offset(), !m_lia->is_upper());
+            expr_ref b(mk_bound(m_lia->get_term(), m_lia->get_offset(), !m_lia->is_upper()), m);
             if (m.has_trace_stream()) {
                 th.log_axiom_instantiation(b);
                 m.trace_stream() << "[end-of-instance]\n";
@@ -3381,7 +3381,9 @@ public:
     nlsat::anum const& nl_value(theory_var v, scoped_anum& r) const {
         SASSERT(use_nra_model());
         auto t = get_tv(v);
-        if (t.is_term()) {
+        if (!t.is_term())
+            m_nla->am().set(r, m_nla->am_value(t.id()));            
+        else {
 
             m_todo_terms.push_back(std::make_pair(t, rational::one()));
             TRACE("nl_value", tout << "v" << v << " " << t.to_string() << "\n";);
@@ -3412,11 +3414,9 @@ public:
                     }
                 }
             }
-            return r;
         }
-        else {
-            return m_nla->am_value(t.id());
-        }
+        return r;
+
     }
 
     model_value_proc * mk_value(enode * n, model_generator & mg) {
