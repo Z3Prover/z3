@@ -16,8 +16,6 @@ Author:
 --*/
 #pragma once
 
-
-#include <limits>
 #include "util/dlist.h"
 #include "util/map.h"
 #include "util/small_object_allocator.h"

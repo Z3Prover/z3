@@ -17,6 +17,7 @@ z3_add_component(polysat
     naming.cpp
     op_constraint.cpp
     polysat_ast.cpp
+    refine.cpp
     restart.cpp
     saturation.cpp
     search_state.cpp
