@@ -1130,11 +1130,11 @@ namespace polysat {
         SASSERT(best_score < lemma_score::max());
         VERIFY(best_lemma);
 
+        LOG("best_score: " << best_score);
+        LOG("best_lemma: " << clause_pp(*this, best_lemma));
+
         unsigned const jump_level = std::max(best_score.jump_level(), base_level());
         VERIFY(jump_level <= max_jump_level);
-
-        LOG("best_score: " << best_score);
-        LOG("best_lemma: " << *best_lemma);
 
         m_conflict.reset();
         backjump(jump_level);
@@ -1599,8 +1599,16 @@ namespace polysat {
                 if (j.is_propagation_by_viable())
                     for (auto const& c : m_viable.get_constraints(v))
                         out << c << " ";
-                if (j.is_propagation_by_slicing())
-                    out << "by slicing (detailed output is TODO)";
+                if (j.is_propagation_by_slicing()) {
+                    out << "by slicing: ";
+                    const_cast<slicing&>(m_slicing).explain_value(v,
+                        [&](sat::literal lit) {
+                            out << lit2cnstr(lit) << " ";
+                        },
+                        [&](pvar w) {
+                            out << "pvar(v" << w << ") ";
+                        });
+                }
                 out << "\n";
             }
             else {
