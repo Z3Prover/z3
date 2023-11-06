@@ -1664,8 +1664,14 @@ namespace polysat {
             out << '@' << s.m_bvars.level(lit);
             out << " idx:" << s.m_search.get_bool_index(lit);
         }
-        if (c->is_pwatched())
-            out << " pwatched";
+        if (c->is_pwatched()) {
+            out << " pwatched(";
+            char const* delim = "";
+            for (pvar v : c->vars())
+                if (s.m_pwatch[v].contains(c.get()))
+                    out << delim << "v" << v, delim = ",";
+            out << ")";
+        }
         if (c->is_external())
             out << " ext";
         dependency const d = s.m_bvars.dep(lit);
