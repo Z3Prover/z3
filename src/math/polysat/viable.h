@@ -168,9 +168,6 @@ namespace polysat {
         rational extend_by_bits(pdd const& var, rational const& bounds, fixed_bits_info const& fbi, vector<signed_constraint>& out_src, vector<signed_constraint>& out_side_cond) const;
 
         bool collect_bit_information(pvar v, bool add_conflict, fixed_bits_info& out_fbi);
-#if 0
-        bool collect_bit_information(pvar v, bool add_conflict, const vector<signed_constraint>& cnstr, svector<lbool>& fixed, vector<vector<signed_constraint>>& justifications);
-#endif
 
         std::ostream& display_one(std::ostream& out, pvar v, entry const* e) const;
         std::ostream& display_all(std::ostream& out, pvar v, entry const* e, char const* delimiter = "") const;
@@ -259,22 +256,6 @@ namespace polysat {
          * Find a next viable value for variable.
          */
         find_t find_viable(pvar v, rational& out_val);
-
-    private:
-        /**
-         * Find a next viable value for variable. Attempts to find two different values, to distinguish propagation/decision.
-         * NOTE: out_hi is set to -1 by the fallback solver.
-         * @return l_true on success, l_false on conflict, l_undef on resource limit
-         */
-        lbool find_viable2(pvar v, rational& out_lo, rational& out_hi);
-
-        lbool find_viable_fallback(pvar v, rational& out_lo, rational& out_hi);
-    public:
-
-#if 0
-        void make_bit_justification(pvar v);
-        void get_bit_min_max(pvar v, conflict& core, rational& min, rational& max, vector<signed_constraint>& justifications_min, vector<signed_constraint>& justifications_max);
-#endif
 
         /**
          * Retrieve the unsat core for v,
