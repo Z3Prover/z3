@@ -35,8 +35,6 @@ TODO: plan to fix the FI "pumping":
 
 namespace polysat {
 
-    using namespace viable_query;
-
     struct inf_fi : public inference {
         viable& v;
         pvar var;
@@ -1441,11 +1439,6 @@ namespace {
         }
     }
 
-    lbool viable::find_viable2(pvar v, rational& lo, rational& hi) {
-        std::pair<rational&, rational&> args{lo, hi};
-        return query<query_t::find_viable>(v, args);
-    }
-
     bool viable::has_upper_bound(pvar v, rational& out_hi, vector<signed_constraint>& out_c) {
         entry const* first = m_units[v].get_entries(s.size(v));  // TODO: take other sizes into account
         entry const* e = first;
@@ -1618,8 +1611,7 @@ namespace {
     }
 
 
-    template <query_t mode>
-    lbool viable::query(pvar v, typename query_result<mode>::result_t& result) {
+    lbool viable::find_viable2(pvar v, rational& lo, rational& hi) {
 
         fixed_bits_info fbi;
 
@@ -1695,16 +1687,7 @@ namespace {
         unsigned refinements = refinement_budget;
 
         while (refinements--) {
-            lbool res = l_undef;
-
-            if constexpr (mode == query_t::find_viable)
-                res = query_find(v, result.first, result.second, fbi);
-            else if constexpr (mode == query_t::has_viable) {
-                NOT_IMPLEMENTED_YET();
-            }
-            else {
-                UNREACHABLE();
-            }
+            lbool res = query_find(v, lo, hi, fbi);
             IF_VERBOSE(10, {
                 if (refinements % 100 == 0)
                     verbose_stream() << "Refinements " << refinements << "\n";
@@ -1714,7 +1697,8 @@ namespace {
         }
         IF_VERBOSE(10, verbose_stream() << "Fallback\n";);
         LOG("Refinement budget exhausted! Fall back to univariate solver.");
-        return query_fallback<mode>(v, result);
+
+        return find_viable_fallback(v, lo, hi);
     }
 
     lbool viable::query_find(pvar v, rational& lo, rational& hi, fixed_bits_info const& fbi) {
@@ -1770,6 +1754,14 @@ namespace {
             return l_false;
         }
 
+        // TODO: we could also try to continue the search at lo+1, if we get stuck at the upper bound.
+
+        // TODO: we only need (any) 2 viable values. some possibilities:
+        // - find lower and upper bound
+        // - find lower bound and next lowest value
+        // - find upper bound and next highest value
+        // - try a random sample and chase value from there
+
         // find upper bound
         hi = max_value;
         e = last;
@@ -1788,14 +1780,13 @@ namespace {
         return l_true;
     }
 
-    template <query_t mode>
-    lbool viable::query_fallback(pvar v, typename query_result<mode>::result_t& result) {
+    lbool viable::find_viable_fallback(pvar v, rational& lo, rational& hi) {
         unsigned const bit_width = s.size(v);
         univariate_solver* us = s.m_viable_fallback.usolver(bit_width);
         sat::literal_set added;
 
         // First step: only query the looping constraints and see if they alone are already UNSAT.
-        // The constraints which caused the refinement loop will be reached from m_units.
+        // The constraints which caused the refinement loop can always be reached from m_units.
         LOG_H3("Checking looping univariate constraints for v" << v << "...");
         LOG("Assignment: " << assignments_pp(s));
         entry const* first = m_units[v].get_entries(s.size(v));  // TODO: take other sizes into account
@@ -1847,30 +1838,14 @@ namespace {
             s.set_conflict_by_viable_fallback(v, *us);
             return l_false;
         case l_true:
-            // pass solver to mode-specific query
-            break;
+            lo = us->model();
+            hi = -1;
+            return l_true;
+            // TODO: return us.find_two(lo, hi) ? l_true : l_undef;  ???
         default:
             // resource limit
             return l_undef;
         }
-
-        if constexpr (mode == query_t::find_viable)
-            return query_find_fallback(v, *us, result.first, result.second);
-
-        if constexpr (mode == query_t::has_viable) {
-            NOT_IMPLEMENTED_YET();
-            return l_undef;
-        }
-
-        UNREACHABLE();
-        return l_undef;
-    }
-
-    lbool viable::query_find_fallback(pvar v, univariate_solver& us, rational& lo, rational& hi) {
-        lo = us.model();
-        hi = -1;
-        return l_true;
-        // return us.find_two(lo, hi) ? l_true : l_undef;
     }
 
     bool viable::resolve_fallback(pvar v, univariate_solver& us, conflict& core) {

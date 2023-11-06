@@ -43,22 +43,6 @@ namespace polysat {
 
     std::ostream& operator<<(std::ostream& out, find_t x);
 
-    namespace viable_query {
-        enum class query_t {
-            has_viable,  // currently only used internally in resolve_viable
-            find_viable,
-        };
-
-        template <query_t mode>
-        struct query_result {
-        };
-
-        template <>
-        struct query_result<query_t::find_viable> {
-            using result_t = std::pair<rational&, rational&>;
-        };
-    }
-
     class viable {
         friend class test_fi;
         friend class test_polysat;
@@ -203,25 +187,17 @@ namespace polysat {
         lbool query_find(pvar v, rational& out_lo, rational& out_hi, fixed_bits_info const& fbi);
 
         /**
-         * Bitblasting-based queries.
-         * The univariate solver has already been filled with all relevant constraints and check() returned l_true.
+         * Find a next viable value for variable. Attempts to find two different values, to distinguish propagation/decision.
+         * NOTE: out_hi is set to -1 by the fallback solver.
          * @return l_true on success, l_false on conflict, l_undef on resource limit
          */
-        lbool query_find_fallback(pvar v, univariate_solver& us, rational& out_lo, rational& out_hi);
-
-        /**
-         * Interval-based query with bounded refinement and fallback to bitblasting.
-         * @return l_true on success, l_false on conflict, l_undef on resource limit
-         */
-        template <viable_query::query_t mode>
-        lbool query(pvar v, typename viable_query::query_result<mode>::result_t& out_result);
+        lbool find_viable2(pvar v, rational& out_lo, rational& out_hi);
 
         /**
          * Bitblasting-based query.
          * @return l_true on success, l_false on conflict, l_undef on resource limit
          */
-        template <viable_query::query_t mode>
-        lbool query_fallback(pvar v, typename viable_query::query_result<mode>::result_t& out_result);
+        lbool find_viable_fallback(pvar v, rational& out_lo, rational& out_hi);
 
     public:
         viable(solver& s);
@@ -291,6 +267,8 @@ namespace polysat {
          * @return l_true on success, l_false on conflict, l_undef on resource limit
          */
         lbool find_viable2(pvar v, rational& out_lo, rational& out_hi);
+
+        lbool find_viable_fallback(pvar v, rational& out_lo, rational& out_hi);
     public:
 
 #if 0
