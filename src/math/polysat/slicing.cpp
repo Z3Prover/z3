@@ -899,30 +899,35 @@ namespace polysat {
         SASSERT_EQ(root, root->get_root());
         SASSERT_EQ(root, other->get_root());
 
-        enode* v1 = info(root).value_node;   // root is the root
-        enode* v2 = info(other).value_node;  // 'other' was its own root before the merge
+        enode* const v1 = info(root).value_node;   // root is the root
+        enode* const v2 = info(other).value_node;  // 'other' was its own root before the merge
         if (v1 && v2 && get_value(v1) != get_value(v2)) {
             // we have a conflict. add interpreted enodes to make the egraph realize it.
-            enode* i1 = mk_interpreted_value_node(v1);
-            enode* i2 = mk_interpreted_value_node(v2);
+            enode* const i1 = mk_interpreted_value_node(v1);
+            enode* const i2 = mk_interpreted_value_node(v2);
             m_egraph.merge(i1, v1, dep_t().encode());
             m_egraph.merge(i2, v2, dep_t().encode());
             SASSERT(is_conflict());
             return;
         }
 
-        if (v1 || v2) {
-            if (!v1) set_value_node(root, v2);
-            if (!v2) set_value_node(other, v1);
-            rational const val = get_value(v1 ? v1 : v2);
+        enode* const v = v1 ? v1 : v2;
+        if (v && !(v1 && v2)) {
+            // exactly one node has a value
+            rational const val = get_value(v);
             for (enode* n : euf::enode_class(other)) {
-                pvar const v = slice2var(n);
-                if (v == null_var)
-                    continue;
-                if (m_solver.is_assigned(v))
+                pvar const var = slice2var(n);
+                if (var != null_var && m_solver.is_assigned(var))
+                    continue;  // TODO: could try to detect possible conflicts by checking value
+
+                enode* const vn = get_value_node(n);
+                if (!vn)
+                    set_value_node(n, v);
+
+                if (var == null_var)
                     continue;
                 LOG("on_merge: v" << v << " := " << val);
-                m_solver.assign_propagate_by_slicing(v, val);
+                m_solver.assign_propagate_by_slicing(var, val);
             }
         }
     }

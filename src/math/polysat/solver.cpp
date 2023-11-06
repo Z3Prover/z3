@@ -1007,11 +1007,13 @@ namespace polysat {
     }
 
     void solver::revert_decision(pvar v) {
+        LOG("revert_decision: v" << v);
         unsigned max_jump_level = get_level(v) - 1;
         backjump_and_learn(max_jump_level, false);
     }
 
     void solver::revert_bool_decision(sat::literal const lit) {
+        LOG("revert_bool_decision: " << lit_pp(*this, lit));
         unsigned max_jump_level = m_bvars.level(lit) - 1;
         backjump_and_learn(max_jump_level, true);
         // NOTE: happens in 42448.smt2; but does not seem to be a bug.

@@ -154,7 +154,7 @@ namespace polysat {
 
         enode* parent(enode* s) const { return info(s).parent; }
 
-        enode* get_value_node(enode* s) const { return info(s->get_root()).value_node; }
+        enode* get_value_node(enode* s) const { return info(s).value_node; }
         void set_value_node(enode* s, enode* value_node);
 
         unsigned get_cut(enode* s) const { return info(s).cut; }
