@@ -916,17 +916,16 @@ namespace polysat {
             // exactly one node has a value
             rational const val = get_value(v);
             for (enode* n : euf::enode_class(other)) {
-                pvar const var = slice2var(n);
-                if (var != null_var && m_solver.is_assigned(var))
-                    continue;  // TODO: could try to detect possible conflicts by checking value
-
                 enode* const vn = get_value_node(n);
                 if (!vn)
                     set_value_node(n, v);
 
+                pvar const var = slice2var(n);
                 if (var == null_var)
                     continue;
-                LOG("on_merge: v" << v << " := " << val);
+                if (m_solver.is_assigned(var))
+                    continue;
+                LOG("on_merge: v" << var << " := " << val);
                 m_solver.assign_propagate_by_slicing(var, val);
             }
         }
