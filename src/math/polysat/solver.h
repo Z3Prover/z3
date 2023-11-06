@@ -36,6 +36,7 @@ Author:
 #include "math/polysat/trail.h"
 #include "math/polysat/pvar_queue.h"
 #include "math/polysat/viable.h"
+#include "math/polysat/viable_fallback.h"
 #include "math/polysat/log.h"
 #include <limits>
 #include <optional>

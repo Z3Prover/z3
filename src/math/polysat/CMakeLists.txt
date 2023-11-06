@@ -30,6 +30,7 @@ z3_add_component(polysat
     umul_ovfl_constraint.cpp
     variable_elimination.cpp
     viable.cpp
+    viable_fallback.cpp
   COMPONENT_DEPENDENCIES
     bigfix
     dd
