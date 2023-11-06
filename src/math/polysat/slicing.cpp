@@ -739,8 +739,16 @@ namespace polysat {
             swap(xlit, ylit);
         }
 
-        if (x != null_var) LOG("Variable v" << x << " with slice " << slice_pp(*this, sx) << " by literal " << lit_pp(m_solver, xlit));
-        if (y != null_var) LOG("Variable v" << y << " with slice " << slice_pp(*this, sy) << " by literal " << lit_pp(m_solver, ylit));
+        if (x != null_var) {
+            LOG("Variable v" << x << " with slice " << slice_pp(*this, sx) << " by literal " << lit_pp(m_solver, xlit));
+            if (m_solver.is_assigned(x))
+                LOG("solver-value " << assignment_pp(m_solver, x, m_solver.get_value(x)));
+        }
+        if (y != null_var) {
+            LOG("Variable v" << y << " with slice " << slice_pp(*this, sy) << " by literal " << lit_pp(m_solver, ylit));
+            if (m_solver.is_assigned(y))
+                LOG("solver-value " << assignment_pp(m_solver, y, m_solver.get_value(y)));
+        }
 
         // conflict has either 0 or 2 vars
         VERIFY(x != null_var || y == null_var);
