@@ -1285,6 +1285,8 @@ namespace polysat {
 
         pvar_vector overlaps;
         s.m_slicing.collect_simple_overlaps(v, overlaps);
+        std::sort(overlaps.begin(), overlaps.end(), [&](pvar x, pvar y) { return s.size(x) > s.size(y); });
+
         // TODO: (combining intervals across equivalence classes from slicing)
         //
         // When iterating over intervals:
@@ -1315,6 +1317,9 @@ namespace polysat {
         // Refinement:
         // - is done when we find a "feasible" point, so not directly affected by changes to the algorithm.
         // - we don't know which constraint yields the "best" interval, so keep interleaving constraints
+        //
+        // one could also try starting at the smallest bit-width to detect conflicts faster.
+        // question: how to do recursion "upwards" without exponentially many holes to fill?
 
         // Mapping intervals (by example):
         //
@@ -1346,6 +1351,37 @@ namespace polysat {
         //
         //          x[6:0] \not\in [15;30[
         //      ==> x[5:0] \not\in \emptyset
+
+
+
+
+        // start covering on the highest level.
+        // - at first, use a low refinement budget: we do not want to get stuck in a refinement loop if lower-bits intervals may already cover everything.
+        //
+        //
+        // - if we can cover everything except a hole of size < 2^{bits of next layer}
+        //      - recursively try to cover that hole on lower level
+        // - otherwise
+        //      - recursively try to cover the whole domain on lower level
+        //
+        //
+        // - if the lower level succeeds, we are done.
+        // - if the lower level does not succeed, we can try refinement with a higher budget.
+        //
+        // - each level may have:
+        //   a) intervals (an entry in layers)
+        //   b) a fixed top-level bit, i.e., interval that covers half of the area
+        //      -- (question: is it useful to consider here already lower-level bits too? or keep it to one bit per layer for simplicity)
+        //          maybe we take lower bits into account. but only use bits if we have the highest bit on this level fixed,
+        //          i.e., we have a fixed-bit interval that covers half of the area. then extend that interval based on lower bits.
+        //          whether this is useful I'm not sure but it could skip some "virtual layers" where we only have a bit but no intervals.
+        //
+        //
+        // - how to integrate fallback solver?
+        //   when lowest level fails, we can try more refinement there.
+        //   in case of refinement loop, try fallback solver with constraints only from lower level.
+
+
 
         // max number of interval refinements before falling back to the univariate solver
         unsigned const refinement_budget = 1000;
