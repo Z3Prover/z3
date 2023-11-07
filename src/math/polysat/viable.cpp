@@ -1089,7 +1089,7 @@ namespace polysat {
 
     find_t viable::find_viable(pvar v, rational& lo) {
         rational hi;
-        switch (find_viable2(v, lo, hi)) {
+        switch (find_viable2_new(v, lo, hi)) {
         case l_true:
             if (hi < 0) {
                 // fallback solver, treat propagations as decisions for now
@@ -1276,112 +1276,128 @@ namespace polysat {
     }
 
 
+
+    // TODO: (combining intervals across equivalence classes from slicing)
+    //
+    // When iterating over intervals:
+    // - instead of only intervals of v, go over intervals of each entry of overlaps
+    // - need a function to map interval from overlap into an interval over v
+    //
+    // Maybe combine only the "simple" overlaps in this method, and do the more comprehensive queries on demand, during conflict resolution (saturation.cpp).
+    // Here, we should handle at least:
+    // - direct equivalences (x = y); could just point one interval set to the other and store them together (may be annoying for bookkeeping)
+    // - lower bits extractions (x[h:0]) and equivalent slices;
+    //   (this is what Algorithm 3 in "Solving Bitvectors with MCSAT" does, and will also let us better handle even coefficients of inequalities).
+    // - intervals with coefficient 2^k*a to be treated as intervals over x[|x|-k:0] with coefficient a (with odd a)
+    //
+    // Problem:
+    // - the conflict clause will involve relations between different bit-widths
+    // - can we avoid introducing new extract-terms? (if not, can we at least avoid additional slices?)
+    //       e.g., multiply other terms by 2^k instead of introducing extract?
+    // - NOTE: currently our clauses survive across backtracking points, but the slicing will be reset.
+    //         It is currently unsafe to create extract/concat terms internally.
+    //         (to be fixed when we re-internalize conflict clauses after backtracking)
+    //
+    // Problem:
+    // - we want to iterate intervals in order. do we then need to perform the mapping in advance? (monotonic mapping -> only first one needs to be mapped in advance)
+    // - should have some "cursor" class which abstracts the prev/next operation.
+    //
+    // (in addition to slices, some intervals may transfer by other operations. e.g. x = -y. but maybe it's better to handle these cases on demand by saturation.cpp)
+    //
+    // Refinement:
+    // - is done when we find a "feasible" point, so not directly affected by changes to the algorithm.
+    // - we don't know which constraint yields the "best" interval, so keep interleaving constraints
+    //
+    // one could also try starting at the smallest bit-width to detect conflicts faster.
+    // question: how to do recursion "upwards" without exponentially many holes to fill?
+    //
+    // Mapping intervals (by example):
+    //
+    // A) Removing/appending LSB:
+    //
+    //      easy enough on numerals (have to be careful with rounding);
+    //      using in conflict clause will probably involve new extract-terms...
+    //
+    //          x[6:0] \not\in [15;30[
+    //      ==> x[6:1] \not\in [8;15[
+    //      ==> x[6:2] \not\in [4;7[
+    //
+    //          x[6:2] \not\in [3;7[
+    //      ==> x[6:1] \not\in [6;14[
+    //      ==> x[6:0] \not\in [12;28[
+    //
+    // B) Removing/appending MSB:
+    //
+    //      When appending to the MSB, we get exponentially many copies
+    //      of the interval because the upper bits are arbitrary.
+    //      This is why the algorithm should support this case directly (i.e., lower-bits extractions of the query variable).
+    //
+    //          x[4:0] \not\in [3;7[
+    //      ==> x[5:0] \not\in [3;7[ + 2^4 {0,1}
+    //      ==> x[6:0] \not\in [3;7[ + 2^4 {0,1,2,3}
+    //
+    //      When shorting from the MSB side, we may not get an interval at all,
+    //      because the bit-patterns of the remaining (lower) bits are allowed in another part of the domain.
+    //
+    //          x[6:0] \not\in [15;30[
+    //      ==> x[5:0] \not\in \emptyset
+    //
+    //
+    //
+    //
+    //
+    // start covering on the highest level.
+    // - at first, use a low refinement budget: we do not want to get stuck in a refinement loop if lower-bits intervals may already cover everything.
+    //
+    // - if we can cover everything except a hole of size < 2^{bits of next layer}
+    //      - recursively try to cover that hole on lower level
+    // - otherwise
+    //      - recursively try to cover the whole domain on lower level
+    //
+    // - if the lower level succeeds, we are done.
+    // - if the lower level does not succeed, we can try refinement with a higher budget.
+    //
+    // - each level may have:
+    //   a) intervals (an entry in layers)
+    //   b) a fixed top-level bit, i.e., interval that covers half of the area
+    //      -- (question: is it useful to consider here already lower-level bits too? or keep it to one bit per layer for simplicity)
+    //          maybe we take lower bits into account. but only use bits if we have the highest bit on this level fixed,
+    //          i.e., we have a fixed-bit interval that covers half of the area. then extend that interval based on lower bits.
+    //          whether this is useful I'm not sure but it could skip some "virtual layers" where we only have a bit but no intervals.
+    //
+    // - how to integrate fallback solver?
+    //   when lowest level fails, we can try more refinement there.
+    //   in case of refinement loop, try fallback solver with constraints only from lower level.
+    lbool viable::find_viable2_new(pvar v, rational& lo, rational& hi) {
+        fixed_bits_info fbi;
+
+        if (!collect_bit_information(v, true, fbi))
+            return l_false;  // conflict already added
+
+        pvar_vector overlaps;
+        s.m_slicing.collect_simple_overlaps(v, overlaps);
+        std::sort(overlaps.begin(), overlaps.end(), [&](pvar x, pvar y) { return s.size(x) > s.size(y); });
+
+        LOG("Overlaps with v" << v << ":");
+        for (pvar x : overlaps) {
+            unsigned hi, lo;
+            if (s.m_slicing.is_extract(x, v, hi, lo))
+                LOG("    v" << x << " = v" << v << "[" << hi << ":" << lo << "]");
+            else
+                LOG("    v" << x << " not extracted from v" << v << "; size " << s.size(x));
+        }
+
+        NOT_IMPLEMENTED_YET();
+        return l_undef;
+    }
+
+
     lbool viable::find_viable2(pvar v, rational& lo, rational& hi) {
 
         fixed_bits_info fbi;
 
         if (!collect_bit_information(v, true, fbi))
             return l_false; // conflict already added
-
-        pvar_vector overlaps;
-        s.m_slicing.collect_simple_overlaps(v, overlaps);
-        std::sort(overlaps.begin(), overlaps.end(), [&](pvar x, pvar y) { return s.size(x) > s.size(y); });
-
-        // TODO: (combining intervals across equivalence classes from slicing)
-        //
-        // When iterating over intervals:
-        // - instead of only intervals of v, go over intervals of each entry of overlaps
-        // - need a function to map interval from overlap into an interval over v
-        //
-        // Maybe combine only the "simple" overlaps in this method, and do the more comprehensive queries on demand, during conflict resolution (saturation.cpp).
-        // Here, we should handle at least:
-        // - direct equivalences (x = y); could just point one interval set to the other and store them together (may be annoying for bookkeeping)
-        // - lower bits extractions (x[h:0]) and equivalent slices;
-        //   (this is what Algorithm 3 in "Solving Bitvectors with MCSAT" does, and will also let us better handle even coefficients of inequalities).
-        // - intervals with coefficient 2^k*a to be treated as intervals over x[|x|-k:0] with coefficient a (with odd a)
-        //
-        // Problem:
-        // - the conflict clause will involve relations between different bit-widths
-        // - can we avoid introducing new extract-terms? (if not, can we at least avoid additional slices?)
-        //       e.g., multiply other terms by 2^k instead of introducing extract?
-        // - NOTE: currently our clauses survive across backtracking points, but the slicing will be reset.
-        //         It is currently unsafe to create extract/concat terms internally.
-        //         (to be fixed when we re-internalize conflict clauses after backtracking)
-        //
-        // Problem:
-        // - we want to iterate intervals in order. do we then need to perform the mapping in advance? (monotonic mapping -> only first one needs to be mapped in advance)
-        // - should have some "cursor" class which abstracts the prev/next operation.
-        //
-        // (in addition to slices, some intervals may transfer by other operations. e.g. x = -y. but maybe it's better to handle these cases on demand by saturation.cpp)
-        //
-        // Refinement:
-        // - is done when we find a "feasible" point, so not directly affected by changes to the algorithm.
-        // - we don't know which constraint yields the "best" interval, so keep interleaving constraints
-        //
-        // one could also try starting at the smallest bit-width to detect conflicts faster.
-        // question: how to do recursion "upwards" without exponentially many holes to fill?
-
-        // Mapping intervals (by example):
-        //
-        // A) Removing/appending LSB:
-        //
-        //      easy enough on numerals (have to be careful with rounding);
-        //      using in conflict clause will probably involve new extract-terms...
-        //
-        //          x[6:0] \not\in [15;30[
-        //      ==> x[6:1] \not\in [8;15[
-        //      ==> x[6:2] \not\in [4;7[
-        //
-        //          x[6:2] \not\in [3;7[
-        //      ==> x[6:1] \not\in [6;14[
-        //      ==> x[6:0] \not\in [12;28[
-        //
-        // B) Removing/appending MSB:
-        //
-        //      When appending to the MSB, we get exponentially many copies
-        //      of the interval because the upper bits are arbitrary.
-        //      This is why the algorithm should support this case directly (i.e., lower-bits extractions of the query variable).
-        //
-        //          x[4:0] \not\in [3;7[
-        //      ==> x[5:0] \not\in [3;7[ + 2^4 {0,1}
-        //      ==> x[6:0] \not\in [3;7[ + 2^4 {0,1,2,3}
-        //
-        //      When shorting from the MSB side, we may not get an interval at all,
-        //      because the bit-patterns of the remaining (lower) bits are allowed in another part of the domain.
-        //
-        //          x[6:0] \not\in [15;30[
-        //      ==> x[5:0] \not\in \emptyset
-
-
-
-
-        // start covering on the highest level.
-        // - at first, use a low refinement budget: we do not want to get stuck in a refinement loop if lower-bits intervals may already cover everything.
-        //
-        //
-        // - if we can cover everything except a hole of size < 2^{bits of next layer}
-        //      - recursively try to cover that hole on lower level
-        // - otherwise
-        //      - recursively try to cover the whole domain on lower level
-        //
-        //
-        // - if the lower level succeeds, we are done.
-        // - if the lower level does not succeed, we can try refinement with a higher budget.
-        //
-        // - each level may have:
-        //   a) intervals (an entry in layers)
-        //   b) a fixed top-level bit, i.e., interval that covers half of the area
-        //      -- (question: is it useful to consider here already lower-level bits too? or keep it to one bit per layer for simplicity)
-        //          maybe we take lower bits into account. but only use bits if we have the highest bit on this level fixed,
-        //          i.e., we have a fixed-bit interval that covers half of the area. then extend that interval based on lower bits.
-        //          whether this is useful I'm not sure but it could skip some "virtual layers" where we only have a bit but no intervals.
-        //
-        //
-        // - how to integrate fallback solver?
-        //   when lowest level fails, we can try more refinement there.
-        //   in case of refinement loop, try fallback solver with constraints only from lower level.
-
-
 
         // max number of interval refinements before falling back to the univariate solver
         unsigned const refinement_budget = 1000;
