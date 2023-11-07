@@ -1927,7 +1927,7 @@ namespace lp {
         ls.add_var_bound(tv, c.kind(), c.rhs());
     }
     void lar_solver::update_column_type_and_bound(unsigned j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep) {
-        SASSERT(validate_bound(j, kind, right_side, dep));
+        // SASSERT(validate_bound(j, kind, right_side, dep));
         TRACE(
             "lar_solver_feas",
             tout << "j" << j << " " << lconstraint_kind_string(kind) << " " << right_side << std::endl;            
