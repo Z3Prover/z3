@@ -31,7 +31,7 @@ class create_cut {
     explanation*          m_ex; // the conflict explanation
     unsigned              m_inf_col; // a basis column which has to be an integer but has a non integral value
     const row_strip<mpq>& m_row;
-    const int_solver&     lia;
+    int_solver&           lia;
     mpq                   m_lcm_den;
     mpq                   m_f;
     mpq                   m_one_minus_f;
@@ -133,26 +133,50 @@ class create_cut {
         return lia_move::conflict;
     }
 
+    void divd(mpq& r, mpq const& d) {
+        r /= d;
+        if (!r.is_int())
+            r = ceil(r);
+    }
+
+    bool can_divide_by(vector<std::pair<mpq, lpvar>> const& p, mpq const& d) {
+        mpq lhs(0), rhs(m_k);
+        mpq max_c(abs(m_k));
+        for (auto const& [c, v] : p) {            
+            auto c1 = c;
+            max_c = std::max(max_c, abs(c1));
+            divd(c1, d);
+            if (c1 == 0)
+                return false;
+            VERIFY(lia.get_value(v).y == 0);
+            lhs += c1 * lia.get_value(v).x;
+        }
+        if (max_c == 1)
+            return false;
+        divd(rhs, d);
+        return lhs < rhs;        
+    }
+    
     void adjust_term_and_k_for_some_ints_case_gomory() {
         lp_assert(!m_t.is_empty());
         // k = 1 + sum of m_t at bounds
-        auto pol = m_t.coeffs_as_vector();
+        lar_term t = lia.lra.unfold_nested_subterms(m_t);
+        auto pol = t.coeffs_as_vector();
         m_t.clear();
         if (pol.size() == 1) {
             TRACE("gomory_cut_detail", tout << "pol.size() is 1" << std::endl;);
-            unsigned v = pol[0].second;
+            auto const& [a, v] = pol[0];
             lp_assert(is_int(v));
-            const mpq& a = pol[0].first;
             if (a.is_pos()) { // we have av >= k
-                m_k /= a;
-                if (!m_k.is_int())
-                    m_k = ceil(m_k);
+                divd(m_k, a);
                 m_t.add_monomial(mpq(1), v);
             }
             else {
-                m_k /= -a;
-                if (!m_k.is_int())
-                    m_k = ceil(m_k);
+                // av >= k
+                // a/-a*v >= k / - a
+                // -v >= k / - a
+                // -v >= ceil(k / -a)
+                divd(m_k, -a);
                 m_t.add_monomial(-mpq(1), v);
             }
         }
@@ -162,17 +186,48 @@ class create_cut {
             TRACE("gomory_cut_detail", tout << "pol.size() > 1 den: " << m_lcm_den << std::endl;);
             if (!m_lcm_den.is_one()) {
                 // normalize coefficients of integer parameters to be integers.
-                for (auto & pi: pol) {
-                    pi.first *= m_lcm_den;
-                    SASSERT(!is_int(pi.second) || pi.first.is_int());
+                for (auto & [c,v]: pol) {
+                    c *= m_lcm_den;
+                    SASSERT(!is_int(v) || c.is_int());
                 }
                 m_k *= m_lcm_den;
             }
-            for (const auto & pi: pol)
-                m_t.add_monomial(pi.first, pi.second);
+
+            // gcd reduction is loss-less:
+            mpq g(1);
+            for (const auto & [c, v] : pol)
+                g = gcd(g, c);
+
+            if (g != 1) {
+                for (auto & [c, v] : pol)
+                    c /= g;
+                divd(m_k, g);
+            }
+                
+#if 0
+            // TODO: create self-contained rounding mode to weaken cuts
+            // whose cofficients are considered too large
+            // (larger than bounds from the input)
+            mpq min_c = abs(m_k);
+            for (const auto & [c, v] : pol) 
+                min_c = std::min(min_c, abs(c));
+                
+            if (min_c > 1 && can_divide_by(pol, min_c)) {
+                for (auto& [c, v] : pol)
+                    divd(c, min_c);
+                divd(m_k, min_c);
+            }
+#endif
+
+            for (const auto & [c, v]: pol)
+                m_t.add_monomial(c, v);   
+            VERIFY(m_t.size() > 0);
         }
+
         TRACE("gomory_cut_detail", tout << "k = " << m_k << std::endl;);
         lp_assert(m_k.is_int());
+
+        
     }
 
     std::string var_name(unsigned j) const {
@@ -191,10 +246,9 @@ class create_cut {
     
     template <typename T>
     void dump_coeff(std::ostream & out, const T& c) const {
-        out << "( * ";
+        out << "(* ";
         dump_coeff_val(out, c.coeff());
-        auto t = lia.lra.column2tv(c.column());
-        out << " " << var_name(t.id()) << ")";
+        out << " " << var_name(c.column().index()) << ")";
     }
     
     std::ostream& dump_row_coefficients(std::ostream & out) const {
@@ -208,7 +262,7 @@ class create_cut {
     
     void dump_the_row(std::ostream& out) const {
         out << "; the row, excluding fixed vars\n";
-        out << "(assert ( = ( +";
+        out << "(assert (= (+";
         dump_row_coefficients(out) << ") 0))\n";
     }
 
@@ -259,12 +313,12 @@ class create_cut {
         return dump_term_coefficients(out << "(+ ") << ")";
     }
     
-    std::ostream& dump_term_le_k(std::ostream & out) const {
-        return dump_term_sum(out << "(<= ") << " " << m_k << ")";
+    std::ostream& dump_term_ge_k(std::ostream & out) const {
+        return dump_term_sum(out << "(>= ") << " " << m_k << ")";
     }
 
     void dump_the_cut_assert(std::ostream & out) const {
-        dump_term_le_k(out << "(assert (not ") << "))\n";
+        dump_term_ge_k(out << "(assert (not ") << "))\n";
     }
 
     void dump_cut_and_constraints_as_smt_lemma(std::ostream& out) const {
@@ -310,7 +364,6 @@ public:
             unsigned j = p.var();
             if (j == m_inf_col) {
                 lp_assert(p.coeff() == one_of_type<mpq>());
-                TRACE("gomory_cut_detail", tout << "seeing basic var\n";);
                 continue;
             }
 
@@ -341,13 +394,21 @@ public:
             return report_conflict_from_gomory_cut();
         if (some_int_columns)
             adjust_term_and_k_for_some_ints_case_gomory();
-        TRACE("gomory_cut_detail", dump_cut_and_constraints_as_smt_lemma(tout););
+        if (!lia.current_solution_is_inf_on_cut()) {
+            m_ex->clear();
+            m_t.clear();
+            m_k = 1;
+            return lia_move::undef;
+        }
         lp_assert(lia.current_solution_is_inf_on_cut());  // checks that indices are columns
-        TRACE("gomory_cut", print_linear_combination_of_column_indices_only(m_t.coeffs_as_vector(), tout << "gomory cut:"); tout << " <= " << m_k << std::endl;);
+        TRACE("gomory_cut", print_linear_combination_of_column_indices_only(m_t.coeffs_as_vector(), tout << "gomory cut: "); tout << " >= " << m_k << std::endl;);
+        TRACE("gomory_cut_detail", dump_cut_and_constraints_as_smt_lemma(tout);
+              lia.lra.display(tout));
+        lia.settings().stats().m_gomory_cuts++;
         return lia_move::cut;
     }
 
-    create_cut(lar_term & t, mpq & k, explanation* ex, unsigned basic_inf_int_j, const row_strip<mpq>& row, const int_solver& lia) :
+    create_cut(lar_term & t, mpq & k, explanation* ex, unsigned basic_inf_int_j, const row_strip<mpq>& row, int_solver& lia) :
         m_t(t),
         m_k(k),
         m_ex(ex),
@@ -385,22 +446,26 @@ int gomory::find_basic_var() {
     int result = -1;
     unsigned min_row_size = UINT_MAX;
 
-#if 0
-    result = lia.select_int_infeasible_var();
+#if 1
+    result = lia.select_int_infeasible_var(true);
 
     if (result == -1)
         return result;
 
+    TRACE("gomory_cut", tout << "row: " << result << "\n");
     const row_strip<mpq>& row = lra.get_row(lia.row_of_basic_column(result));
     if (is_gomory_cut_target(row)) 
         return result;
     result = -1;
+
+    UNREACHABLE();
 #endif
 
     for (unsigned j : lra.r_basis()) {
         if (!lia.column_is_int_inf(j))
             continue;
         const row_strip<mpq>& row = lra.get_row(lia.row_of_basic_column(j));
+        TRACE("gomory_cut", tout << "try j" << j << "\n");
         if (!is_gomory_cut_target(row)) 
             continue;
         IF_VERBOSE(20, lia.display_row_info(verbose_stream(), lia.row_of_basic_column(j)));
@@ -417,7 +482,6 @@ int gomory::find_basic_var() {
 }
     
 lia_move gomory::operator()() {
-    lra.move_non_basic_columns_to_bounds();
     int j = find_basic_var();
     if (j == -1)
         return lia_move::undef;
@@ -426,6 +490,7 @@ lia_move gomory::operator()() {
     SASSERT(lra.row_is_correct(r));
     SASSERT(is_gomory_cut_target(row));
     lia.m_upper = false;
+    lia.m_cut_vars.push_back(j);
     return cut(lia.m_t, lia.m_k, lia.m_ex, j, row);
 }
 

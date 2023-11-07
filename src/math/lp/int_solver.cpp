@@ -180,6 +180,8 @@ namespace lp {
         m_ex = e;
         m_ex->clear();
         m_upper = false;
+        m_cut_vars.reset();
+        
         lia_move r = lia_move::undef;
 
         if (m_gcd.should_apply())
@@ -193,12 +195,15 @@ namespace lp {
         ++m_number_of_calls;
         if (r == lia_move::undef && m_patcher.should_apply()) r = m_patcher();
         if (r == lia_move::undef && should_find_cube()) r = int_cube(*this)();
+        if (r == lia_move::undef) lra.move_non_basic_columns_to_bounds();
         if (r == lia_move::undef && should_hnf_cut()) r = hnf_cut();
-#if 1
+        m_cut_vars.reset();
+#if 0
         if (r == lia_move::undef && should_gomory_cut()) r = gomory(*this)();
 #else
-        if (r == lia_move::undef && should_gomory_cut()) r = local_gomory();
+        if (r == lia_move::undef && should_gomory_cut()) r = local_gomory(2);
 #endif
+        m_cut_vars.reset();
         if (r == lia_move::undef) r = int_branch(*this)();
         return r;
     }
@@ -626,71 +631,85 @@ namespace lp {
     }
 
 
-    int int_solver::select_int_infeasible_var() {
-        int result = -1;
+    int int_solver::select_int_infeasible_var(bool check_bounded) {
+        int r_small_box = -1;
+        int r_small_value = -1;
+        int r_any_value = -1;
+        unsigned n_small_box = 1;
+        unsigned n_small_value = 1;
+        unsigned n_any_value = 1;
         mpq range;
         mpq new_range;
         mpq small_value(1024);
-        unsigned n = 0;
         lar_core_solver & lcs = lra.m_mpq_lar_core_solver;
-        unsigned prev_usage = 0; // to quiet down the compile
+        unsigned prev_usage = 0;
 
-        enum state { small_box, is_small_value,  any_value, not_found };
-        state st = not_found;
+        auto check_bounded_fn = [&](unsigned j) {
+            if (!check_bounded)
+                return true;
+            auto const& row = lra.get_row(row_of_basic_column(j));
+            for (const auto & p : row) {
+                unsigned j = p.var();
+                if (!is_base(j) && (!at_bound(j) || !is_zero(get_value(j).y)))
+                    return false;
+            }
+            return true;
+        };
 
+        auto add_column = [&](bool improved, int& result, unsigned& n, unsigned j) {
+            if (result == -1)
+                result = j;
+            else if (improved && ((random() % (++n)) == 0))
+                result = j;            
+        };
+        
         for (unsigned j : lra.r_basis()) {
             if (!column_is_int_inf(j))
                 continue;
+            if (!check_bounded_fn(j))
+                continue;
+            if (m_cut_vars.contains(j))
+                continue;
+
+            SASSERT(!is_fixed(j));
+
             unsigned usage = lra.usage_in_terms(j);
             if (is_boxed(j) && (new_range = lcs.m_r_upper_bounds()[j].x - lcs.m_r_lower_bounds()[j].x - rational(2*usage)) <= small_value) {
-                SASSERT(!is_fixed(j));
-                if (st != small_box) {
-                    n = 0;
-                    st = small_box;
-                }
-                if (n == 0 || new_range < range) {
-                    result = j;
+
+                bool improved = new_range <= range || r_small_box == -1;
+                if (improved)
                     range = new_range;
-                    n = 1;
-                }
-                else if (new_range == range && (random() % (++n) == 0)) {
-                    result = j;
-                }
+                add_column(improved, r_small_box, n_small_box, j);
                 continue;
             }
-            if (st == small_box)
-                continue;
             impq const& value = get_value(j);
             if (abs(value.x) < small_value ||
                 (has_upper(j) && small_value > upper_bound(j).x - value.x) ||
                 (has_lower(j) && small_value > value.x - lower_bound(j).x)) {
-                if (st != is_small_value) {
-                    n = 0;
-                    st = is_small_value;
-                }
-                if (random() % (++n) == 0)
-                    result = j;
-            }
-            if (st == is_small_value)
+                TRACE("gomory_cut", tout << "small j" << j << "\n");
+                add_column(true, r_small_value, n_small_value, j);
                 continue;
-            SASSERT(st == not_found || st == any_value);
-            st = any_value;
-            if (n == 0 || usage > prev_usage) {
-                result = j;
+            }
+            TRACE("gomory_cut", tout << "any j" << j << "\n");
+            add_column(usage >= prev_usage, r_any_value, n_any_value, j);
+            if (usage > prev_usage) 
                 prev_usage = usage;
-                n = 1;
-            } 
-            else if (usage > 0 && usage == prev_usage && (random() % (++n) == 0)) 
-                result = j;
         }
-    
-        return result;
+
+        if (r_small_box != -1 && (random() % 3 != 0))
+            return r_small_box;
+        if (r_small_value != -1 && (random() % 3) != 0)
+            return r_small_value;
+        if (r_any_value != -1)
+            return r_any_value;
+        if (r_small_box != -1)
+            return r_small_box;
+        return r_small_value;
     }
 
     void int_solver::simplify(std::function<bool(unsigned)>& is_root) {
 
         return;
-#if 1
 
         // in-processing simplification can go here, such as bounds improvements.
 
@@ -701,17 +720,13 @@ namespace lp {
         }
 
         
-#endif
-
-#if 1
         lp::explanation exp;
         m_ex = &exp;
         m_t.clear();
         m_k.reset();
 
         if (has_inf_int()) 
-            local_gomory();            
-#endif
+            local_gomory(5);            
 
 #if 0
         stopwatch sw;
@@ -933,35 +948,85 @@ namespace lp {
 #endif
     }
 
-    lia_move int_solver::local_gomory() {
-        for (unsigned i = 0; i < 2 && has_inf_int() && !settings().get_cancel_flag(); ++i) {
+    lia_move int_solver::local_gomory(unsigned num_cuts) {
+
+        struct ex { explanation m_ex; lar_term m_term; mpq m_k; bool m_is_upper; };
+        vector<ex> cuts;
+        for (unsigned i = 0; i < num_cuts && has_inf_int() && !settings().get_cancel_flag(); ++i) {
             m_ex->clear();
             m_t.clear();
             m_k.reset();
             auto r = gomory(*this)();
-            IF_VERBOSE(3, verbose_stream() << i << " " << r << "\n");
-            if (r != lia_move::cut) 
-                return r;
-            u_dependency* dep = nullptr;
-            for (auto c : *m_ex) 
-                dep = lra.join_deps(lra.dep_manager().mk_leaf(c.ci()), dep);
-            lp::lpvar term_index = lra.add_term(get_term().coeffs_as_vector(), UINT_MAX);
-            term_index = lra.map_term_index_to_column_index(term_index);
-            lra.update_column_type_and_bound(term_index, is_upper() ? lp::lconstraint_kind::LE : lp::lconstraint_kind::GE, get_offset(), dep);
-            lra.find_feasible_solution();
-            if (!lra.is_feasible()) {
-                lra.get_infeasibility_explanation(*m_ex);
-                return lia_move::conflict;
-            }
-            //r = m_patcher();
-            //if (r != lia_move::undef)
-            //    return r;
+            if (r != lia_move::cut)
+                break;
+            cuts.push_back({ *m_ex, m_t, m_k, is_upper() });
         }
+        m_cut_vars.reset();
+
+        auto is_small_cut = [&](ex const& cut) {
+            return all_of(cut.m_term, [&](auto ci) { return ci.coeff().is_small(); });
+        };
+
+        auto add_cut = [&](ex const& cut) {
+            u_dependency* dep = nullptr;
+            for (auto c : cut.m_ex) 
+                dep = lra.join_deps(lra.dep_manager().mk_leaf(c.ci()), dep);
+            lp::lpvar term_index = lra.add_term(cut.m_term.coeffs_as_vector(), UINT_MAX);
+            term_index = lra.map_term_index_to_column_index(term_index);
+            lra.update_column_type_and_bound(term_index,
+                                             cut.m_is_upper ? lp::lconstraint_kind::LE : lp::lconstraint_kind::GE,
+                                             cut.m_k, dep);
+        };
+
+        auto _check_feasible = [&](void) {
+            auto st = lra.find_feasible_solution();
+            if (!lra.is_feasible()) {                
+                lra.get_infeasibility_explanation(*m_ex);
+                return false;
+            }
+            return true;
+        };
+
+        bool has_small = false, has_large = false;
+
+        for (auto const& cut : cuts) {
+            if (!is_small_cut(cut)) {
+                has_large = true;
+                continue;
+            }
+            has_small = true;
+            add_cut(cut);
+        }
+
+        if (has_large) {
+            lra.push();
+        
+            for (auto const& cut : cuts) 
+                if (!is_small_cut(cut))
+                    add_cut(cut);
+
+            bool feas = _check_feasible();
+            lra.pop(1);
+
+            if (!feas)
+                return lia_move::conflict;
+            
+        }
+
+        if (!_check_feasible())
+            return lia_move::conflict;
+        
+                
         m_ex->clear();
         m_t.clear();
         m_k.reset();
         if (!has_inf_int())
             return lia_move::sat;
+
+        if (has_small || has_large)
+            return lia_move::continue_with_check;
+        
+        lra.move_non_basic_columns_to_bounds();
         return lia_move::undef;
     }
 

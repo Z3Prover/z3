@@ -63,10 +63,11 @@ class int_solver {
     unsigned            m_number_of_calls;
     lar_term            m_t;               // the term to return in the cut
     mpq                 m_k;               // the right side of the cut
+    bool                m_upper;           // cut is an upper bound
     explanation         *m_ex;             // the conflict explanation
-    bool                m_upper;           // we have a cut m_t*x <= k if m_upper is true nad m_t*x >= k otherwise
     hnf_cutter          m_hnf_cutter;
     unsigned            m_hnf_cut_period;
+    unsigned_vector     m_cut_vars;        // variables that should not be selected for cuts
 
     vector<equality>       m_equalities;
 public:
@@ -110,7 +111,7 @@ private:
     bool has_upper(unsigned j) const;
     unsigned row_of_basic_column(unsigned j) const;
     bool cut_indices_are_columns() const;
-    lia_move local_gomory();
+    lia_move local_gomory(unsigned num_cuts);
     
 public:
     std::ostream& display_column(std::ostream & out, unsigned j) const;
@@ -131,7 +132,7 @@ public:
     bool all_columns_are_bounded() const;
     lia_move hnf_cut();
 
-    int select_int_infeasible_var();
+    int select_int_infeasible_var(bool check_bounded);
 
 };
 }
