@@ -437,17 +437,11 @@ namespace smt {
     */
     template<typename Ext>
     bool theory_arith<Ext>::is_gomory_cut_target(row const & r) {
-        TRACE("gomory_cut", r.display(tout););
         theory_var b = r.get_base_var();
         for (auto& e : r) {
             // All non base variables must be at their bounds and assigned to rationals (that is, infinitesimals are not allowed).
-            if (!e.is_dead() && e.m_var != b && (!at_bound(e.m_var) || !get_value(e.m_var).is_rational())) {
-                TRACE("gomory_cut", tout << "row is not gomory cut target:\n";
-                      display_var(tout, e.m_var);
-                      tout << "at_bound:      " << at_bound(e.m_var) << "\n";
-                      tout << "infinitesimal: " << !get_value(e.m_var).is_rational() << "\n";);
+            if (!e.is_dead() && e.m_var != b && (!at_bound(e.m_var) || !get_value(e.m_var).is_rational())) 
                 return false;
-            }
         }
         return true;
     }
