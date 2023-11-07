@@ -129,7 +129,6 @@ namespace polysat {
                 continue;
             if (!i.as_signed_constraint().contains_var(y))
                 continue;
-            SASSERT_EQ(s.get_level(y), s.get_level(x));  // propagated by slicing egraph since they are equivalent
             SASSERT(s.m_search.get_pvar_index(y) < s.m_search.get_pvar_index(x));  // y was the earlier one since we are currently resolving x
             pdd const lhs = i.lhs().subst_pdd(x, s.var(y));
             pdd const rhs = i.rhs().subst_pdd(x, s.var(y));
