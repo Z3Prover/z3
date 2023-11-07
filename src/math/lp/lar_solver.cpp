@@ -160,9 +160,8 @@ namespace lp {
         if (tv::is_term(j))
             return j;
         unsigned ext_var_or_term = m_var_register.local_to_external(j);
-        if (tv::is_term(ext_var_or_term)) {
+        if (tv::is_term(ext_var_or_term)) 
             j = ext_var_or_term;
-        }
         return j;
     }
 
@@ -2450,8 +2449,7 @@ namespace lp {
     // a_j.first gives the normalised coefficient,
     // a_j.second givis the column
     bool lar_solver::fetch_normalized_term_column(const lar_term& c, std::pair<mpq, lpvar>& a_j) const {
-        TRACE("lar_solver_terms", tout << "looking for term ";
-        print_term_as_indices(c, tout) << "\n";);
+        TRACE("lar_solver_terms", print_term_as_indices(c, tout << "looking for term ") << "\n";);
         lp_assert(c.is_normalized());
         auto it = m_normalized_terms_to_columns.find(c);
         if (it != m_normalized_terms_to_columns.end()) {
@@ -2462,6 +2460,26 @@ namespace lp {
         TRACE("lar_solver_terms", tout << "have not found\n";);
         return false;
     }
+
+    lar_term lar_solver::unfold_nested_subterms(lar_term const& term) {
+        lar_term result;
+        vector<std::pair<lpvar, mpq>> todo;
+        for (auto const & [j,c] : term.coeffs()) 
+            todo.push_back({j, c});
+        while (!todo.empty()) {
+            auto [j, c] = todo.back();
+            todo.pop_back();
+            auto tv = column2tv(j);
+            if (tv.is_term()) {
+                for (auto const& [j, c2] : get_term(tv).coeffs())
+                    todo.push_back({j, c*c2});                
+            }
+            else
+                result.add_monomial(c, j);
+        }
+        return result;
+    }
+
 
     std::pair<constraint_index, constraint_index> lar_solver::add_equality(lpvar j, lpvar k) {
         vector<std::pair<mpq, var_index>> coeffs;

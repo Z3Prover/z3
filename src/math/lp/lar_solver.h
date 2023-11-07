@@ -205,8 +205,7 @@ class lar_solver : public column_namer {
 
     static void clean_popped_elements_for_heap(unsigned n, lpvar_heap& set);
     static void clean_popped_elements(unsigned n, indexed_uint_set& set);
-    bool maximize_term_on_tableau(const lar_term& term,
-                                  impq& term_max);
+    bool maximize_term_on_tableau(const lar_term& term, impq& term_max);
     bool costs_are_zeros_for_r_solver() const;
     bool reduced_costs_are_zeroes_for_r_solver() const;
     void set_costs_to_zero(const lar_term& term);
@@ -273,7 +272,7 @@ class lar_solver : public column_namer {
     mutable std::unordered_set<mpq> m_set_of_different_singles;
     mutable mpq m_delta;
 
- public:
+public:
     u_dependency* find_improved_bound(lpvar j, bool is_lower, mpq& bound);
 
     std::ostream& print_explanation(
@@ -429,6 +428,8 @@ class lar_solver : public column_namer {
         SASSERT(column_corresponds_to_term(j));
         return get_term(column2tv(to_column_index(j)));
     }
+
+    lar_term unfold_nested_subterms(lar_term const& term);
 
     inline unsigned row_count() const { return A_r().row_count(); }
     bool var_is_registered(var_index vj) const;
