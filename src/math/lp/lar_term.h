@@ -52,8 +52,7 @@ public:
     
     unsigned size() const { return static_cast<unsigned>(m_coeffs.size()); }
 
-    template <typename T>
-    const T &   coeffs() const {
+    u_map<mpq> const &   coeffs() const {
         return m_coeffs;
     }
     
@@ -97,9 +96,8 @@ public:
 
     vector<std::pair<mpq, lpvar>> coeffs_as_vector() const {
         vector<std::pair<mpq, lpvar>> ret;
-        for (const auto & p :  m_coeffs) {
-            ret.push_back(std::make_pair(p.m_value, p.m_key));
-        }
+        for (const auto & [c, v] :  m_coeffs) 
+            ret.push_back({v, c});
         return ret;
     }
 
