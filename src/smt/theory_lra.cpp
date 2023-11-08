@@ -1730,13 +1730,13 @@ public:
         }
     }
     // create a bound atom representing term >= k is lower_bound is true, and term <= k if it is false
-    app_ref mk_bound(lp::lar_term const& term, rational const& k, bool lower_bound) {
+    expr_ref mk_bound(lp::lar_term const& term, rational const& k, bool lower_bound) {
         rational offset;
         expr_ref t(m);
         return mk_bound(term, k, lower_bound, offset, t);
     }
 
-    app_ref mk_bound(lp::lar_term const& term, rational const& k, bool lower_bound, rational& offset, expr_ref& t) {
+    expr_ref mk_bound(lp::lar_term const& term, rational const& k, bool lower_bound, rational& offset, expr_ref& t) {
         offset = k;
         u_map<rational> coeffs;
         term2coeffs(term, coeffs);
@@ -1782,7 +1782,7 @@ public:
         //        lp().print_term(term, tout << "term: ") << "\n";
         //        tout << "offset: " << offset << " gcd: " << g << "\n";);
 
-        app_ref atom(m);
+        expr_ref atom(m);
         t = coeffs2app(coeffs, rational::zero(), is_int);
         if (lower_bound) {
             atom = a.mk_ge(t, a.mk_numeral(offset, is_int));
@@ -1791,6 +1791,7 @@ public:
             atom = a.mk_le(t, a.mk_numeral(offset, is_int));
         }
 
+        // ctx().get_rewriter()(atom);
         TRACE("arith", tout << t << ": " << atom << "\n";
               lp().print_term(term, tout << "bound atom: ") << (lower_bound?" >= ":" <= ") << k << "\n";);
         ctx().internalize(atom, true);
@@ -1920,12 +1921,11 @@ public:
 
         case lp::lia_move::branch: {
             TRACE("arith", tout << "branch\n";);
-            app_ref b(m);
             bool u = m_lia->is_upper();
             auto const & k = m_lia->get_offset();
             rational offset;
             expr_ref t(m);
-            b = mk_bound(m_lia->get_term(), k, !u, offset, t);
+            expr_ref b = mk_bound(m_lia->get_term(), k, !u, offset, t);
             if (m.has_trace_stream()) {
                 app_ref body(m);
                 body = m.mk_or(b, m.mk_not(b));
@@ -1953,7 +1953,7 @@ public:
             }
             // The call mk_bound() can set the m_infeasible_column in lar_solver
             // so the explanation is safer to take before this call.
-            expr_ref b(mk_bound(m_lia->get_term(), m_lia->get_offset(), !m_lia->is_upper()), m);
+            expr_ref b = mk_bound(m_lia->get_term(), m_lia->get_offset(), !m_lia->is_upper());
             if (m.has_trace_stream()) {
                 th.log_axiom_instantiation(b);
                 m.trace_stream() << "[end-of-instance]\n";
@@ -2000,7 +2000,7 @@ public:
         default: UNREACHABLE();
         }
         TRACE("arith", tout << "is_lower: " << is_lower << " pos " << pos << "\n";);
-        app_ref atom(m);
+        expr_ref atom(m);
         // TBD utility: lp::lar_term term = mk_term(ineq.m_poly);
         // then term is used instead of ineq.m_term
         if (is_eq) 
