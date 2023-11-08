@@ -32,7 +32,7 @@ class create_cut {
     unsigned              m_inf_col; // a basis column which has to be an integer but has a non integral value
     const row_strip<mpq>& m_row;
     int_solver&           lia;
-    mpq                   m_lcm_den;
+    mpq                   m_lcm_den = { mpq(1) };
     mpq                   m_f;
     mpq                   m_one_minus_f;
     mpq                   m_fj;
@@ -82,8 +82,7 @@ class create_cut {
             push_explanation(column_upper_bound_constraint(j));
         }
         m_t.add_monomial(new_a, j);
-        m_lcm_den = lcm(m_lcm_den, denominator(new_a));
-        TRACE("gomory_cut_detail", tout << "new_a = " << new_a << ", k = " << m_k << ", lcm_den = " << m_lcm_den << "\n";);
+        TRACE("gomory_cut_detail", tout << "new_a = " << new_a << ", k = " << m_k << "\n";);
 #if SMALL_CUTS
         // if (numerator(new_a).is_big()) throw found_big(); 
         if (numerator(new_a) > m_big_number)
@@ -181,7 +180,9 @@ class create_cut {
             }
         }
         else {
-            m_lcm_den = lcm(m_lcm_den, denominator(m_k));
+            m_lcm_den = denominator(m_k);
+            for (auto const& [c, v] : pol)
+                m_lcm_den = lcm(m_lcm_den, denominator(c));
             lp_assert(m_lcm_den.is_pos());
             TRACE("gomory_cut_detail", tout << "pol.size() > 1 den: " << m_lcm_den << std::endl;);
             if (!m_lcm_den.is_one()) {
@@ -192,6 +193,21 @@ class create_cut {
                 }
                 m_k *= m_lcm_den;
             }
+#if 0
+            unsigned j = 0, i = 0;
+            for (auto & [c, v] : pol) {
+                if (lia.is_fixed(v)) {
+                    push_explanation(column_lower_bound_constraint(v));
+                    push_explanation(column_upper_bound_constraint(v));
+                    m_k -= c;
+                    IF_VERBOSE(0, verbose_stream() << "got fixed " << v << "\n");
+                }
+                else
+                    pol[j++] = pol[i];
+                ++i;
+            }
+            pol.shrink(j);
+#endif
 
             // gcd reduction is loss-less:
             mpq g(1);
@@ -219,8 +235,8 @@ class create_cut {
             }
 #endif
 
-            for (const auto & [c, v]: pol)
-                m_t.add_monomial(c, v);   
+            for (const auto & [c, v]: pol) 
+                m_t.add_monomial(c, v);
             VERIFY(m_t.size() > 0);
         }
 
@@ -343,7 +359,6 @@ public:
         // gomory will be   t >= k and the current solution has a property t < k
         m_k = 1;
         m_t.clear();
-        mpq m_lcm_den(1);
         bool some_int_columns = false;
         mpq m_f  = fractional_part(get_value(m_inf_col));
         TRACE("gomory_cut_detail", tout << "m_f: " << m_f << ", ";
@@ -415,7 +430,6 @@ public:
         m_inf_col(basic_inf_int_j),
         m_row(row),
         lia(lia),
-        m_lcm_den(1),
         m_f(fractional_part(get_value(basic_inf_int_j).x)),
         m_one_minus_f(1 - m_f) {}
     
