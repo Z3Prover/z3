@@ -135,6 +135,30 @@ namespace polysat {
         test_intervals(3, intervals);
     }
 
+    static void test3() {
+        scoped_solverv s;
+        auto xv = s.add_var(64);
+        auto x = s.var(xv);
+        viable& v = s.v();
+        rational val;
+
+        rational const two_to_60 = rational::power_of_two(60);
+
+        s.add_ule(5000, x);
+        VERIFY_EQ(s.check_sat(), l_true);
+        rational lo, hi;
+        std::cout << "find_viable: " << v.find_viable2_new(xv, lo, hi) << "\n";
+        std::cout << "         lo: " << lo << "\n";
+        std::cout << "         hi: " << hi << "\n";
+
+        // 10 < x[3:0]
+        s.add_ule(10 * two_to_60, x * two_to_60);
+        VERIFY_EQ(s.check_sat(), l_true);
+        std::cout << "find_viable: " << v.find_viable2_new(xv, lo, hi) << "\n";
+        std::cout << "         lo: " << lo << "\n";
+        std::cout << "         hi: " << hi << "\n";
+    }
+
     static void test_univariate() {
         std::cout << "\ntest_univariate\n";
         unsigned const bw = 32;
@@ -457,6 +481,7 @@ void tst_viable() {
     polysat::test_univariate();
     polysat::test_univariate_minmax();
     polysat::test2();
+    polysat::test3();
     polysat::test_fi::exhaustive();
     polysat::test_fi::randomized(10000, 16);
     polysat::test_fi::randomized(1000, 256);

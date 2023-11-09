@@ -273,6 +273,27 @@ namespace polysat {
             return true;
         }
         else {
+            unsigned const v_bits = s.size(v);
+            unsigned const coeff_parity = ne->coeff.parity(v_bits);
+            unsigned const lo_parity = ne->interval.lo_val().parity(v_bits);
+            unsigned const hi_parity = ne->interval.hi_val().parity(v_bits);
+            if (coeff_parity <= lo_parity && coeff_parity <= hi_parity && ne->coeff.is_power_of_two()) {
+                // reduction of coeff gives us a unit entry
+                ne->coeff = 1;
+                ne->interval = eval_interval::proper(
+                    ne->interval.lo(),
+                    machine_div2k(ne->interval.lo_val(), coeff_parity),
+                    ne->interval.hi(),
+                    machine_div2k(ne->interval.hi_val(), coeff_parity)
+                );
+                ne->bit_width -= coeff_parity;
+                LOG("reduced entry to unit in width " << ne->bit_width);
+                return intersect(v, ne);
+            }
+
+            // TODO: later, can reduce according to shared_parity
+            // unsigned const shared_parity = std::min(coeff_parity, std::min(lo_parity, hi_parity));
+
             insert(ne, v, m_equal_lin, entry_kind::equal_e);
             return true;
         }
@@ -1089,7 +1110,7 @@ namespace polysat {
 
     find_t viable::find_viable(pvar v, rational& lo) {
         rational hi;
-        switch (find_viable2_new(v, lo, hi)) {
+        switch (find_viable2(v, lo, hi)) {
         case l_true:
             if (hi < 0) {
                 // fallback solver, treat propagations as decisions for now
@@ -1399,14 +1420,22 @@ namespace polysat {
         for (unsigned w : widths_set) {
             widths.push_back(w);
         }
+        LOG("widths: " << widths);
 
-        lbool result_lo = find_on_layer(widths.size() - 1, widths, overlaps, fbi, rational::zero(), s.var2pdd(v).max_value(), lo);
+        rational const& max_value = s.var2pdd(v).max_value();
+
+        lbool result_lo = find_on_layer(widths.size() - 1, widths, overlaps, fbi, rational::zero(), max_value, lo);
         if (result_lo == l_false)
             return l_false;  // conflict
         if (result_lo == l_undef)
             return l_undef;
 
-        lbool result_hi = find_on_layer(widths.size() - 1, widths, overlaps, fbi, lo, s.var2pdd(v).max_value(), hi);
+        if (lo == max_value) {
+            hi = lo;
+            return l_true;
+        }
+
+        lbool result_hi = find_on_layer(widths.size() - 1, widths, overlaps, fbi, lo + 1, max_value, hi);
         if (result_hi == l_false)
             hi = lo;  // no other viable value
         if (result_hi == l_undef)
@@ -1419,7 +1448,8 @@ namespace polysat {
     // The bool component indicates whether the returned interval contains 'val'.
     std::pair<viable::entry*, bool> viable::find_value(rational const& val, entry* entries) {
         SASSERT(entries);
-        SASSERT(well_formed(entries));
+        // display_all(std::cerr << "entries:\n\t", 0, entries, "\n\t");
+        // SASSERT(well_formed(entries));
         // SASSERT(!limit || entry::contains(entries, limit));
         // if (!limit)
         //     limit = entries;
@@ -1475,7 +1505,7 @@ namespace polysat {
         for (pvar x : overlaps) {
             if (s.size(x) < w)  // note that overlaps are sorted by variable size descending
                 break;
-            if (entry* e = m_units[x].get_entries(s.size(x))) {
+            if (entry* e = m_units[x].get_entries(w)) {
                 entry_cursor ec;
                 ec.cur = e;
                 // ec.first = nullptr;
@@ -1555,7 +1585,7 @@ namespace polysat {
 
         // replace lower bits of 'val' by 'a'
         val = val - lower_cover_lo + a;
-        SASSERT(distance(val, to_cover_hi, mod_value) < distance(next_val, to_cover_hi, mod_value));
+        SASSERT(distance(val, to_cover_hi, mod_value) >= distance(next_val, to_cover_hi, mod_value));
 
         if (result == l_true)
             return l_true;  // done

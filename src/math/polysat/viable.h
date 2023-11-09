@@ -200,6 +200,7 @@ namespace polysat {
 
 
 
+public:
         lbool find_viable2_new(pvar v, rational& out_lo, rational& out_hi);
         lbool find_on_layer(unsigned w_idx, unsigned_vector const& widths, pvar_vector const& overlaps, fixed_bits_info const& fbi, rational const& to_cover_lo, rational const& to_cover_hi, rational& out_val);
 
