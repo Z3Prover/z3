@@ -65,6 +65,83 @@ namespace polysat {
             return os << "[" << i.lo() << " ; " << i.hi() << "[";
     }
 
+    // distance from a to b, wrapping around at mod_value.
+    // basically mod(b - a, mod_value), but distance(0, mod_value, mod_value) = mod_value.
+    rational distance(rational const& a, rational const& b, rational const& mod_value) {
+        SASSERT(mod_value.is_power_of_two());
+        SASSERT(0 <= a && a < mod_value);
+        SASSERT(0 <= b && b <= mod_value);
+        rational x = b - a;
+        if (x.is_neg())
+            x += mod_value;
+        return x;
+    }
+
+    class r_interval {
+        rational m_lo;
+        rational m_hi;
+
+        r_interval(rational lo, rational hi)
+            : m_lo(std::move(lo)), m_hi(std::move(hi))
+        {}
+
+    public:
+
+        static r_interval empty() {
+            return {rational::zero(), rational::zero()};
+        }
+
+        static r_interval full() {
+            return {rational(-1), rational::zero()};
+        }
+
+        static r_interval proper(rational lo, rational hi) {
+            SASSERT(0 <= lo);
+            SASSERT(0 <= hi);
+            return {std::move(lo), std::move(hi)};
+        }
+
+        bool is_full() const { return m_lo.is_neg(); }
+        bool is_proper() const { return !is_full(); }
+        bool is_empty() const { return is_proper() && lo() == hi(); }
+        rational const& lo() const { SASSERT(is_proper()); return m_lo; }
+        rational const& hi() const { SASSERT(is_proper()); return m_hi; }
+
+        // this one also supports representing full intervals as [lo;mod_value[
+        static rational len(rational const& lo, rational const& hi, rational const& mod_value) {
+            SASSERT(mod_value.is_power_of_two());
+            SASSERT(0 <= lo && lo < mod_value);
+            SASSERT(0 <= hi && hi <= mod_value);
+            SASSERT(hi != mod_value || lo == 0);  // hi == mod_value only allowed when lo == 0
+            rational len = hi - lo;
+            if (len.is_neg())
+                len += mod_value;
+            return len;
+        }
+
+        rational len(rational const& mod_value) const {
+            SASSERT(is_proper());
+            return len(lo(), hi(), mod_value);
+        }
+
+        // deals only with proper intervals
+        // but works with full intervals represented as [0;mod_value[  -- maybe we should just change representation of full intervals to this always
+        static bool contains(rational const& lo, rational const& hi, rational const& val) {
+            if (lo <= hi)
+                return lo <= val && val < hi;
+            else
+                return val < hi || val >= lo;
+        }
+
+        bool contains(rational const& val) const {
+            if (is_full())
+                return true;
+            else
+                return contains(lo(), hi(), val);
+        }
+
+    };
+
     class eval_interval {
         interval m_symbolic;
         rational m_concrete_lo;
@@ -73,7 +150,7 @@ namespace polysat {
         eval_interval(interval&& i, rational const& lo_val, rational const& hi_val):
             m_symbolic(std::move(i)), m_concrete_lo(lo_val), m_concrete_hi(hi_val) {}
     public:
-        static eval_interval empty(dd::pdd_manager &m) {
+        static eval_interval empty(dd::pdd_manager& m) {
             return {interval::empty(m), rational::zero(), rational::zero()};
         }
 
@@ -81,7 +158,7 @@ namespace polysat {
             return {interval::full(), rational::zero(), rational::zero()};
         }
 
-        static eval_interval proper(pdd const &lo, rational const &lo_val, pdd const &hi, rational const &hi_val) {
+        static eval_interval proper(pdd const& lo, rational const& lo_val, pdd const& hi, rational const& hi_val) {
             SASSERT(0 <= lo_val && lo_val <= lo.manager().max_value());
             SASSERT(0 <= hi_val && hi_val <= hi.manager().max_value());
             return {interval::proper(lo, hi), lo_val, hi_val};
