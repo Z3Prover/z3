@@ -273,20 +273,59 @@ namespace polysat {
             return true;
         }
         else {
-            unsigned const v_bits = s.size(v);
-            unsigned const coeff_parity = ne->coeff.parity(v_bits);
-            unsigned const lo_parity = ne->interval.lo_val().parity(v_bits);
-            unsigned const hi_parity = ne->interval.hi_val().parity(v_bits);
-            if (coeff_parity <= lo_parity && coeff_parity <= hi_parity && ne->coeff.is_power_of_two()) {
+            unsigned const w = s.size(v);
+            unsigned const k = ne->coeff.parity(w);
+            // unsigned const lo_parity = ne->interval.lo_val().parity(w);
+            // unsigned const hi_parity = ne->interval.hi_val().parity(w);
+
+            // display_one(std::cerr << "try to reduce entry: ", v, ne) << "\n";
+            // std::cerr << "coeff_parity " << k << " lo_parity " << lo_parity << " hi_parity " << hi_parity << "\n";
+
+            if (k > 0 && ne->coeff.is_power_of_two()) {
                 // reduction of coeff gives us a unit entry
-                ne->coeff = 1;
-                ne->interval = eval_interval::proper(
-                    ne->interval.lo(),
-                    machine_div2k(ne->interval.lo_val(), coeff_parity),
-                    ne->interval.hi(),
-                    machine_div2k(ne->interval.hi_val(), coeff_parity)
-                );
-                ne->bit_width -= coeff_parity;
+                //
+                // 2^k a x \not\in [ lo ; hi [
+                //
+                // new_lo = lo[w-1:k]      if lo[k-1:0] = 0
+                //          lo[w-1:k] + 1  otherwise
+                //
+                // new_hi = hi[w-1:k]      if hi[k-1:0] = 0
+                //          hi[w-1:k] + 1  otherwise
+                //
+                pdd const& pdd_lo = ne->interval.lo();
+                pdd const& pdd_hi = ne->interval.hi();
+                rational const& lo = ne->interval.lo_val();
+                rational const& hi = ne->interval.hi_val();
+
+                rational new_lo = machine_div2k(lo, k);
+                if (mod2k(lo, k).is_zero())
+                    ne->side_cond.push_back(  s.eq(pdd_lo * rational::power_of_two(w - k)) );
+                else {
+                    new_lo += 1;
+                    ne->side_cond.push_back( ~s.eq(pdd_lo * rational::power_of_two(w - k)) );
+                }
+
+                rational new_hi = machine_div2k(hi, k);
+                if (mod2k(hi, k).is_zero())
+                    ne->side_cond.push_back(  s.eq(pdd_hi * rational::power_of_two(w - k)) );
+                else {
+                    new_hi += 1;
+                    ne->side_cond.push_back( ~s.eq(pdd_hi * rational::power_of_two(w - k)) );
+                }
+
+                // we have to update also the pdd bounds accordingly, but it seems not worth introducing new variables for this eagerly
+                //      new_lo = lo[:k]  etc.
+                // TODO: for now just disable the FI-lemma if this case occurs
+
+                if (new_lo == new_hi) {
+                    // empty or full
+                    // if (ne->interval.currently_contains(rational::zero()))
+                    NOT_IMPLEMENTED_YET();
+                }
+
+                ne->coeff = machine_div2k(ne->coeff, k);
+                ne->interval = eval_interval::proper(pdd_lo, new_lo, pdd_hi, new_hi);
+                ne->bit_width -= k;
                 LOG("reduced entry to unit in width " << ne->bit_width);
                 return intersect(v, ne);
             }
