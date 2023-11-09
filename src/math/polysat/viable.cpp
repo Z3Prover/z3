@@ -1435,6 +1435,7 @@ namespace polysat {
             e = n;
         } while (e != first);
         UNREACHABLE();
+        return {nullptr, false};
     }
 
     // find viable values in half-open interval [to_cover_lo;to_cover_hi[ w.r.t. unit intervals on the given layer
@@ -1564,6 +1565,9 @@ namespace polysat {
 
         // TODO: refinement and fallback solver -- can we refine without throwing out all the entry_cursors we have set up?
         //       we only have to chase intervals from the beginning if ec.cur has become inactive
+
+        NOT_IMPLEMENTED_YET();
+        return l_undef;
     }
 
     lbool viable::find_viable2(pvar v, rational& lo, rational& hi) {

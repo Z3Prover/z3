@@ -67,7 +67,7 @@ namespace polysat {
 
     // distance from a to b, wrapping around at mod_value.
     // basically mod(b - a, mod_value), but distance(0, mod_value, mod_value) = mod_value.
-    rational distance(rational const& a, rational const& b, rational const& mod_value) {
+    inline rational distance(rational const& a, rational const& b, rational const& mod_value) {
         SASSERT(mod_value.is_power_of_two());
         SASSERT(0 <= a && a < mod_value);
         SASSERT(0 <= b && b <= mod_value);
