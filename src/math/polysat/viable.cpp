@@ -1378,6 +1378,11 @@ namespace polysat {
         s.m_slicing.collect_simple_overlaps(v, overlaps);
         std::sort(overlaps.begin(), overlaps.end(), [&](pvar x, pvar y) { return s.size(x) > s.size(y); });
 
+        uint_set widths_set;
+        // max size should always be present, regardless of whether we have intervals there (to make sure all fixed bits are considered)
+        // - OTOH, probably easier to introduce a proper interval from bits during refinement
+        widths_set.insert(s.size(v));
+
         LOG("Overlaps with v" << v << ":");
         for (pvar x : overlaps) {
             unsigned hi, lo;
@@ -1385,12 +1390,181 @@ namespace polysat {
                 LOG("    v" << x << " = v" << v << "[" << hi << ":" << lo << "]");
             else
                 LOG("    v" << x << " not extracted from v" << v << "; size " << s.size(x));
+            for (layer const& l : m_units[x].get_layers()) {
+                widths_set.insert(l.bit_width);
+            }
         }
 
-        NOT_IMPLEMENTED_YET();
-        return l_undef;
+        unsigned_vector widths;
+        for (unsigned w : widths_set) {
+            widths.push_back(w);
+        }
+
+        lbool result_lo = find_on_layer(widths.size() - 1, widths, overlaps, fbi, rational::zero(), s.var2pdd(v).max_value(), lo);
+        if (result_lo == l_false)
+            return l_false;  // conflict
+        if (result_lo == l_undef)
+            return l_undef;
+
+        lbool result_hi = find_on_layer(widths.size() - 1, widths, overlaps, fbi, lo, s.var2pdd(v).max_value(), hi);
+        if (result_hi == l_false)
+            hi = lo;  // no other viable value
+        if (result_hi == l_undef)
+            return l_undef;
+
+        return l_true;
     }
 
+    // Find interval that contains 'val', or, if no such interval exists, the first interval after 'val'.
+    // The bool component indicates whether the returned interval contains 'val'.
+    std::pair<viable::entry*, bool> viable::find_value(rational const& val, entry* entries) {
+        SASSERT(entries);
+        SASSERT(well_formed(entries));
+        // SASSERT(!limit || entry::contains(entries, limit));
+        // if (!limit)
+        //     limit = entries;
+        entry* first = entries;
+        entry* e = entries;
+        do {
+            if (e->interval.currently_contains(val))
+                return {e, true};
+            entry* n = e->next();
+            // check whether 'val' is contained in the gap between e and n
+            if (r_interval::contains(e->interval.hi_val(), n->interval.lo_val(), val))
+                return {n, false};
+            e = n;
+        } while (e != first);
+        UNREACHABLE();
+    }
+
+    // find viable values in half-open interval [to_cover_lo;to_cover_hi[ w.r.t. unit intervals on the given layer
+    lbool viable::find_on_layer(unsigned w_idx, unsigned_vector const& widths, pvar_vector const& overlaps, fixed_bits_info const& fbi, rational const& to_cover_lo, rational const& to_cover_hi, rational& val) {
+
+        unsigned const w = widths[w_idx];
+        rational const& mod_value = rational::power_of_two(w);
+
+        SASSERT(0 <= to_cover_lo);
+        SASSERT(0 <= to_cover_hi);
+        SASSERT(to_cover_lo < mod_value);
+        SASSERT(to_cover_hi <= mod_value);  // full interval if to_cover_hi == mod_value
+        SASSERT(to_cover_lo != to_cover_hi);  // non-empty search domain (but it may wrap)
+
+        // TODO: refinement of eq/diseq should happen only on the correct layer: where (one of) the coefficient(s) are odd
+        //       for refinement, we have to choose an entry that is violated, but if there are multiple, we can choose the one on smallest domain (lowest bit-width).
+        //       (by maintaining descending order by bit-width; and refine first that fails).
+        // but fixed-bit-refinement is cheap and could be done during the search.
+
+        // when we arrive at a hole the possibilities are:
+        // 1) go to lower bitwidth
+        // 2) refinement of some eq/diseq constraint (if one is violated at that point)  -- defer this until point is viable for all layers and fixed bits.
+        // 3) refinement by using bit constraints?  -- TODO: do this during search (another interval check after/before the entry_cursors)
+        // 4) (point is actually feasible)
+
+        // a complication is that we have to iterate over multiple lists of intervals.
+        // might be useful to merge them upfront to simplify the remainder of the algorithm?
+        // (non-trivial since prev/next pointers are embedded into entries and lists are updated by refinement)
+        struct entry_cursor {
+            entry* cur;
+            // entry* first;
+            // entry* last;
+        };
+
+        // find relevant interval lists
+        svector<entry_cursor> ecs;
+        for (pvar x : overlaps) {
+            if (s.size(x) < w)  // note that overlaps are sorted by variable size descending
+                break;
+            if (entry* e = m_units[x].get_entries(s.size(x))) {
+                entry_cursor ec;
+                ec.cur = e;
+                // ec.first = nullptr;
+                // ec.last = nullptr;
+                ecs.push_back(ec);
+            }
+        }
+
+        rational const to_cover_len = r_interval::len(to_cover_lo, to_cover_hi, mod_value);
+        val = to_cover_lo;
+
+        rational progress; // = 0
+        rational old_progress;
+        do {
+            old_progress = progress;
+
+            // try to make progress using any of the relevant interval lists
+            for (entry_cursor& ec : ecs) {
+                // advance until current value 'val'
+                auto const [e, e_contains_lo] = find_value(val, ec.cur);
+                ec.cur = e;
+                if (e_contains_lo) {
+                    rational const& new_val = e->interval.hi_val();
+                    rational const dist = distance(val, new_val, mod_value);
+                    val = new_val;
+                    progress += dist;
+                    if (progress >= mod_value) {
+                        // covered the whole domain => conflict
+                        return l_false;
+                    }
+                    if (progress >= to_cover_len) {
+                        // we covered the hole left at larger bit-width
+                        return l_undef;
+                    }
+
+                    // (another way to compute 'progress')
+                    SASSERT_EQ(progress, distance(to_cover_lo, val, mod_value));
+                    // progress = mod(val - to_cover_lo, mod_value);
+                    // if (progress < old_progress) {
+                    //     // if this ever drops, it means we crossed over 'val' again
+                    // }
+                }
+            }
+
+            // TODO: check (virtual) fixed-bits interval
+
+        } while (old_progress != progress);
+
+        // no more progress
+        // => 'val' is viable w.r.t. unit intervals until current layer
+
+        if (!w_idx) {
+            // no lower layer, so we are feasible w.r.t. units and bits
+            // TODO: find second value?
+            return l_true;
+        }
+
+        // find next covered value
+        rational next_val = to_cover_hi;
+        for (entry_cursor& ec : ecs) {
+            // each ec.cur is now the next interval after 'lo'
+            rational const& n = ec.cur->interval.lo_val();
+            SASSERT(r_interval::contains(ec.cur->prev()->interval.hi_val(), n, val));
+            if (distance(val, n, mod_value) < distance(val, next_val, mod_value))
+                next_val = n;
+        }
+
+        unsigned const lower_w = widths[w_idx - 1];
+        rational const lower_mod_value = rational::power_of_two(lower_w);
+        rational const lower_cover_lo = mod(val, lower_mod_value);
+        rational const lower_cover_hi = mod(next_val, lower_mod_value);
+
+        rational a;
+        lbool result = find_on_layer(w_idx - 1, widths, overlaps, fbi, lower_cover_lo, lower_cover_hi, a);
+        if (result == l_false)
+            return l_false;  // conflict
+
+        // replace lower bits of 'val' by 'a'
+        val = val - lower_cover_lo + a;
+        SASSERT(distance(val, to_cover_hi, mod_value) < distance(next_val, to_cover_hi, mod_value));
+
+        if (result == l_true)
+            return l_true;  // done
+
+        SASSERT(result == l_undef);
+        // TODO: continue with intervals at current level
+
+        // TODO: refinement and fallback solver -- can we refine without throwing out all the entry_cursors we have set up?
+        //       we only have to chase intervals from the beginning if ec.cur has become inactive
+    }
 
     lbool viable::find_viable2(pvar v, rational& lo, rational& hi) {
 
