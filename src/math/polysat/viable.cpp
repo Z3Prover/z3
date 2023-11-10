@@ -1564,9 +1564,9 @@ namespace polysat {
             // try to make progress using any of the relevant interval lists
             for (entry_cursor& ec : ecs) {
                 // advance until current value 'val'
-                auto const [e, e_contains_lo] = find_value(val, ec.cur);
+                auto const [e, e_contains_val] = find_value(val, ec.cur);
                 ec.cur = e;
-                if (e_contains_lo) {
+                if (e_contains_val) {
                     rational const& new_val = e->interval.hi_val();
                     rational const dist = distance(val, new_val, mod_value);
                     val = new_val;
@@ -1614,8 +1614,16 @@ namespace polysat {
 
         unsigned const lower_w = widths[w_idx - 1];
         rational const lower_mod_value = rational::power_of_two(lower_w);
-        rational const lower_cover_lo = mod(val, lower_mod_value);
-        rational const lower_cover_hi = mod(next_val, lower_mod_value);
+
+        rational lower_cover_lo, lower_cover_hi;
+        if (distance(val, next_val, mod_value) >= lower_mod_value) {
+            lower_cover_lo = 0;
+            lower_cover_hi = lower_mod_value;
+        }
+        else {
+            lower_cover_lo = mod(val, lower_mod_value);
+            lower_cover_hi = mod(next_val, lower_mod_value);
+        }
 
         rational a;
         lbool result = find_on_layer(w_idx - 1, widths, overlaps, fbi, lower_cover_lo, lower_cover_hi, a);
