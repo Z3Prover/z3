@@ -5648,7 +5648,7 @@ namespace polynomial {
             unsigned d0 = 0;
             unsigned d1 = n1 - n2;
             unsigned i  = 1;
-            unsigned n3;
+            unsigned n3 = 0;
             S.reset();
             while (true) {
                 // Compute Gh_{i+2}
