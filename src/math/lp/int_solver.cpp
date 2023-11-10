@@ -197,11 +197,14 @@ namespace lp {
         if (r == lia_move::undef && should_find_cube()) r = int_cube(*this)();
         if (r == lia_move::undef) lra.move_non_basic_columns_to_bounds();
         if (r == lia_move::undef && should_hnf_cut()) r = hnf_cut();
+
+        std::function<lia_move(void)> gomory_fn = [&]() { return gomory(*this)(); };
         m_cut_vars.reset();
 #if 0
         if (r == lia_move::undef && should_gomory_cut()) r = gomory(*this)();
 #else
-        if (r == lia_move::undef && should_gomory_cut()) r = local_gomory(2);
+        if (r == lia_move::undef && should_gomory_cut()) r = local_cut(2, gomory_fn);
+        
 #endif
         m_cut_vars.reset();
         if (r == lia_move::undef) r = int_branch(*this)();
@@ -711,6 +714,8 @@ namespace lp {
 
         return;
 
+#if 0
+
         // in-processing simplification can go here, such as bounds improvements.
 
         if (!lra.is_feasible()) {
@@ -728,112 +733,8 @@ namespace lp {
         if (has_inf_int()) 
             local_gomory(5);            
 
-#if 0
         stopwatch sw;
         explanation exp1, exp2;
-
-        //
-        // tighten integer bounds
-        // It is a weak method as it ownly strengthens bounds if 
-        // variables are already at one of the to-be discovered bounds.
-        //
-        sw.start();
-        unsigned changes = 0;
-        auto const& constraints = lra.constraints();
-        auto print_var = [this](lpvar j) {
-            if (lra.column_corresponds_to_term(j)) {
-                std::stringstream strm;
-                lra.print_column_info(j, strm);
-                return strm.str();
-            }
-            else
-                return std::string("j") + std::to_string(j);
-        };
-        unsigned start = random();
-        unsigned num_checks = 0;
-        for (lpvar j0 = 0; j0 < lra.column_count(); ++j0) {
-            lpvar j = (j0 + start) % lra.column_count();                       
-
-            if (num_checks > 1000)
-                break;
-            if (is_fixed(j))
-                continue;
-            if (!lra.column_is_int(j))
-                continue;
-            rational value = get_value(j).x;
-            bool tight_lower = false, tight_upper = false;
-            u_dependency* dep;
-
-            if (!value.is_int())
-                continue;
-
-            bool at_up = at_upper(j);
-            
-            if (!at_lower(j)) {
-                ++num_checks;
-                lra.push();
-                auto k = lp::lconstraint_kind::LE;
-                lra.update_column_type_and_bound(j, k, (value - 1).to_mpq(), nullptr);
-                lra.find_feasible_solution();
-                if (!lra.is_feasible()) {
-                    tight_upper = true;
-                    ++changes;
-                    lra.get_infeasibility_explanation(exp1);  
-#if 0
-                    display_column(std::cout, j);
-                    std::cout << print_var(j) << " >= " << value << "\n";
-                    unsigned i = 0;
-                    for (auto p : exp1) {
-                        std::cout << "(" << p.ci() << ")";
-                        constraints.display(std::cout, print_var, p.ci());
-                        if (++i < exp1.size())
-                            std::cout << "      ";
-                    }
-#endif
-                }
-                lra.pop(1);
-                if (tight_upper) {
-                    dep = nullptr;
-                    for (auto& cc : exp1)
-                        dep = lra.join_deps(dep, constraints[cc.ci()].dep());
-                    lra.update_column_type_and_bound(j, lp::lconstraint_kind::GE, value.to_mpq(), dep);
-                }
-            }
-            
-            if (!at_up) {
-                ++num_checks;
-                lra.push();
-                auto k = lp::lconstraint_kind::GE;
-                lra.update_column_type_and_bound(j, k, (value + 1).to_mpq(), nullptr);
-                lra.find_feasible_solution();
-                if (!lra.is_feasible()) {
-                    tight_lower = true;
-                    ++changes;
-                    lra.get_infeasibility_explanation(exp1);      
-#if 0
-                    display_column(std::cout, j);
-                    std::cout << print_var(j) << " <= " << value << "\n";
-                    unsigned i = 0;
-                    for (auto p : exp1) {
-                        std::cout << "(" << p.ci() << ")";
-                        constraints.display(std::cout, print_var, p.ci());
-                        if (++i < exp1.size())
-                            std::cout << "      ";
-                    }
-#endif
-                }
-                lra.pop(1);
-                if (tight_lower) {
-                    dep = nullptr;
-                    for (auto& cc : exp1)
-                        dep = lra.join_deps(dep, constraints[cc.ci()].dep());
-                    lra.update_column_type_and_bound(j, lp::lconstraint_kind::LE, value.to_mpq(), dep);
-                }
-            }
-        }
-        sw.stop();
-        std::cout << "changes " << changes << " columns " << lra.column_count() << " time: " << sw.get_seconds() << "\n";
-        std::cout.flush();
 
         // 
         // identify equalities
@@ -948,7 +849,8 @@ namespace lp {
 #endif
     }
 
-    lia_move int_solver::local_gomory(unsigned num_cuts) {
+
+    lia_move int_solver::local_cut(unsigned num_cuts, std::function<lia_move(void)>& cut_fn) {
 
         struct ex { explanation m_ex; lar_term m_term; mpq m_k; bool m_is_upper; };
         vector<ex> cuts;
@@ -956,7 +858,7 @@ namespace lp {
             m_ex->clear();
             m_t.clear();
             m_k.reset();
-            auto r = gomory(*this)();
+            auto r = cut_fn();
             if (r != lia_move::cut)
                 break;
             cuts.push_back({ *m_ex, m_t, m_k, is_upper() });

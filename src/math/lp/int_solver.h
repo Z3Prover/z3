@@ -68,7 +68,7 @@ class int_solver {
     hnf_cutter          m_hnf_cutter;
     unsigned            m_hnf_cut_period;
     unsigned_vector     m_cut_vars;        // variables that should not be selected for cuts
-
+    
     vector<equality>       m_equalities;
 public:
     int_solver(lar_solver& lp);
@@ -111,8 +111,8 @@ private:
     bool has_upper(unsigned j) const;
     unsigned row_of_basic_column(unsigned j) const;
     bool cut_indices_are_columns() const;
-    lia_move local_gomory(unsigned num_cuts);
-    
+    lia_move local_cut(unsigned num_cuts, std::function<lia_move(void)>& cut_fn);
+        
 public:
     std::ostream& display_column(std::ostream & out, unsigned j) const;
     u_dependency* column_upper_bound_constraint(unsigned j) const;

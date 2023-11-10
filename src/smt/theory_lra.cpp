@@ -1784,14 +1784,15 @@ public:
 
         expr_ref atom(m);
         t = coeffs2app(coeffs, rational::zero(), is_int);
-        if (lower_bound) {
+        if (lower_bound) 
             atom = a.mk_ge(t, a.mk_numeral(offset, is_int));
-        }
-        else {
-            atom = a.mk_le(t, a.mk_numeral(offset, is_int));
-        }
+        else 
+            atom = a.mk_le(t, a.mk_numeral(offset, is_int));        
 
         // ctx().get_rewriter()(atom);
+        // Note: it is not safe to rewrite atom because the rewriter can
+        // destroy structure, such as (div x 24) >= 0 becomes x >= 0 and the internal variable
+        // corresponding to (div x 24) is not constrained.
         TRACE("arith", tout << t << ": " << atom << "\n";
               lp().print_term(term, tout << "bound atom: ") << (lower_bound?" >= ":" <= ") << k << "\n";);
         ctx().internalize(atom, true);
