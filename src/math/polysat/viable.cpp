@@ -1488,18 +1488,18 @@ namespace polysat {
     std::pair<viable::entry*, bool> viable::find_value(rational const& val, entry* entries) {
         SASSERT(entries);
         // display_all(std::cerr << "entries:\n\t", 0, entries, "\n\t");
-        // SASSERT(well_formed(entries));
-        // SASSERT(!limit || entry::contains(entries, limit));
-        // if (!limit)
-        //     limit = entries;
-        entry* first = entries;
+        entry* const first = entries;
         entry* e = entries;
         do {
             if (e->interval.currently_contains(val))
                 return {e, true};
-            entry* n = e->next();
+            entry* const n = e->next();
+            // there is only one interval, and it does not contain 'val'
+            if (e == n)
+                return {e, false};
             // check whether 'val' is contained in the gap between e and n
-            if (r_interval::contains(e->interval.hi_val(), n->interval.lo_val(), val))
+            bool const overlapping = e->interval.currently_contains(n->interval.lo_val());
+            if (!overlapping && r_interval::contains(e->interval.hi_val(), n->interval.lo_val(), val))
                 return {n, false};
             e = n;
         } while (e != first);
