@@ -270,4 +270,5 @@ int main(int argc, char ** argv) {
     TST(slicing);
     TST(totalizer);
     TST(distribution);
+    TST(euf_bv_plugin);
 }

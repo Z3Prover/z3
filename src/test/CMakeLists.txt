@@ -38,6 +38,7 @@ add_executable(test-z3
   dl_util.cpp
   doc.cpp
   egraph.cpp
+  euf_bv_plugin.cpp
   escaped.cpp
   ex.cpp
   expr_rand.cpp

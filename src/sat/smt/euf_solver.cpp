@@ -420,8 +420,6 @@ namespace euf {
         return *c;
     }
 
-
-
     bool solver::unit_propagate() {
         bool propagated = false;
         while (!s().inconsistent()) {

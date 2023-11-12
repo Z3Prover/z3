@@ -69,6 +69,14 @@ public:
             d->unmark();
     }
 
+    static void s_linearize(dependency* d, vector<value, false>& vs) {
+        if (!d)
+            return;
+        ptr_vector<dependency> todo;
+        todo.push_back(d);
+        linearize_todo(todo, vs);
+    }
+
 private:
     struct join : public dependency {
         dependency *    m_children[2];
@@ -324,6 +332,11 @@ public:
     void linearize(dependency * d, vector<value, false> & vs) {
         return m_dep_manager.linearize(d, vs);
     }    
+
+    static vector<value, false> const& s_linearize(dependency* d, vector<value, false>& vs) {
+        dep_manager::s_linearize(d, vs);
+        return vs;
+    }
 
     void linearize(ptr_vector<dependency>& d, vector<value, false> & vs) {
         return m_dep_manager.linearize(d, vs);

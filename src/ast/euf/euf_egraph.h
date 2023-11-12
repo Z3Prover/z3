@@ -29,8 +29,10 @@ Notes:
 #include "util/statistics.h"
 #include "util/trail.h"
 #include "util/lbool.h"
+#include "util/scoped_ptr_vector.h"
 #include "ast/euf/euf_enode.h"
 #include "ast/euf/euf_etable.h"
+#include "ast/euf/euf_plugin.h"
 #include "ast/ast_ll_pp.h"
 #include <vector>
 
@@ -82,12 +84,15 @@ namespace euf {
     
     class egraph {        
 
+        friend class plugin;
+
         typedef ptr_vector<trail> trail_stack;
 
         struct to_merge {
             enode* a, * b;
-            bool commutativity;
-            to_merge(enode* a, enode* b, bool c) : a(a), b(b), commutativity(c) {}
+            justification j;
+            to_merge(enode* a, enode* b, bool c) : a(a), b(b), j(justification::congruence(c, 0)) {}
+            to_merge(enode* a, enode* b, justification j) : a(a), b(b), j(j) {}
         };
 
         struct stats {
@@ -113,10 +118,12 @@ namespace euf {
             struct lbl_set {};
             struct update_children {};
             struct set_relevant {};
+            struct plugin_undo {};
             enum class tag_t { is_set_parent, is_add_node, is_toggle_cgc, is_toggle_merge_tf, is_update_children,
                     is_add_th_var, is_replace_th_var, is_new_th_eq,
                     is_lbl_hash, is_new_th_eq_qhead,
-                    is_inconsistent, is_value_assignment, is_lbl_set, is_set_relevant };
+                    is_inconsistent, is_value_assignment, is_lbl_set, is_set_relevant,
+                    is_plugin_undo };
             tag_t  tag;
             enode* r1;
             enode* n1;
@@ -159,11 +166,14 @@ namespace euf {
                 tag(tag_t::is_update_children), r1(n), n1(nullptr), r2_num_parents(UINT_MAX) {}
             update_record(enode* n, set_relevant) :
                 tag(tag_t::is_set_relevant), r1(n), n1(nullptr), r2_num_parents(UINT_MAX) {}
+            update_record(unsigned th_id, plugin_undo) :
+                tag(tag_t::is_plugin_undo), r1(nullptr), n1(nullptr), m_th_id(th_id) {}
         };
         ast_manager&           m;
         svector<to_merge>      m_to_merge;
         etable                 m_table;
         region                 m_region;
+        scoped_ptr_vector<plugin> m_plugins;
         svector<update_record> m_updates;
         unsigned_vector        m_scopes;
         enode_vector           m_expr2enode;
@@ -202,6 +212,13 @@ namespace euf {
         }
         void push_node(enode* n) { m_updates.push_back(update_record(n)); }
 
+        // plugin related methods
+        void push_plugin_undo(unsigned th_id) { m_updates.push_back(update_record(th_id, update_record::plugin_undo())); }
+        void push_merge(enode* a, enode* b, justification j) { m_to_merge.push_back({ a, b, j }); }
+        plugin* get_plugin(enode* n) { return m_plugins.get(n->get_sort()->get_family_id(), nullptr); }
+        void register_node(enode* n);
+        void propagate_plugins();
+
         void add_th_eq(theory_id id, theory_var v1, theory_var v2, enode* c, enode* r);
         
         void add_th_diseqs(theory_id id, theory_var v1, enode* r);
@@ -213,7 +230,7 @@ namespace euf {
         void force_push();
         void set_conflict(enode* n1, enode* n2, justification j);
         void merge(enode* n1, enode* n2, justification j);
-        void merge_th_eq(enode* n, enode* root);
+        void merge_th_eq(enode* n, enode* root, justification j);
         void merge_justification(enode* n1, enode* n2, justification j);
         void reinsert_parents(enode* r1, enode* r2);
         void remove_parents(enode* r);
@@ -241,6 +258,7 @@ namespace euf {
     public:
         egraph(ast_manager& m);
         ~egraph();
+        void add_plugins();
         enode* find(expr* f) const { return m_expr2enode.get(f->get_id(), nullptr); }
         enode* find(expr* f, unsigned n, enode* const* args);
         enode* mk(expr* f, unsigned generation, unsigned n, enode *const* args);

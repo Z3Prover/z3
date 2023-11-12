@@ -202,6 +202,7 @@ namespace euf {
         enode* get_root() const { return m_root; }
         expr*  get_expr() const { return m_expr; }
         sort*  get_sort() const { return m_expr->get_sort(); }
+        enode* get_interpreted() const { return get_root(); }
         app*  get_app() const { return to_app(m_expr); }
         func_decl* get_decl() const { return is_app(m_expr) ? to_app(m_expr)->get_decl() : nullptr; }
         unsigned get_expr_id() const { return m_expr->get_id(); }
