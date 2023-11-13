@@ -80,6 +80,8 @@ namespace euf {
     public:
         bv_plugin(egraph& g);
 
+        ~bv_plugin() override {}
+
         unsigned get_id() const override { return bv.get_family_id(); }
 
         void register_node(enode* n) override;

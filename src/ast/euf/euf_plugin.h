@@ -38,6 +38,8 @@ namespace euf {
             g(g)
         {}
 
+        virtual ~plugin() {}
+
         virtual unsigned get_id() const = 0;
 
         virtual void register_node(enode* n) = 0;

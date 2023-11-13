@@ -48,7 +48,7 @@ namespace euf {
 
             unsigned root_id() const { return root->n->get_id(); }
             ~node() {}
-            static node* mk(region& r, enode* n);            
+            static node* mk(region& r, enode* n);
         };
 
         class equiv {
@@ -71,17 +71,17 @@ namespace euf {
             iterator end() const { return iterator(&n, &n); }
         };
 
-        struct eq {   
+        struct eq {
             unsigned l, r;   // refer to monomials
             bool is_processed = false;
-            justification j; 
+            justification j;
         };
 
         unsigned                 m_fid;
-        unsigned                 m_op;        
+        unsigned                 m_op;
         vector<eq>               m_eqs;
         ptr_vector<node>         m_nodes;
-        vector<ptr_vector<node>> m_monomials; 
+        vector<ptr_vector<node>> m_monomials;
         enode_vector             m_monomial_enodes;
         justification::dependency_manager m_dep_manager;
 
@@ -103,8 +103,8 @@ namespace euf {
         svector<std::pair<unsigned, eq>> m_update_eq_trail;
 
         node* mk_node(enode* n);
-        void merge(node* r1, node* r2, justification j);        
-         
+        void merge(node* r1, node* r2, justification j);
+
         bool is_op(enode* n) const { auto d = n->get_decl(); return d && m_fid == d->get_family_id() && m_op == d->get_kind(); }
 
         std::function<void(void)> m_undo_notify;
@@ -114,9 +114,9 @@ namespace euf {
         unsigned to_monomial(enode* n, ptr_vector<node> const& ms);
         ptr_vector<node> const& monomial(unsigned i) const { return m_monomials[i]; }
         ptr_vector<node>& monomial(unsigned i) { return m_monomials[i]; }
-        
+
         void init_equation(eq const& e);
-        bool orient_equation(eq & e);
+        bool orient_equation(eq& e);
         void set_processed(unsigned eq_id, bool f);
         unsigned pick_next_eq();
         bool is_trivial(unsigned eq_id) const { throw default_exception("NYI"); }
@@ -143,7 +143,6 @@ namespace euf {
         bool is_processed(unsigned eq) const { return m_eqs[eq].is_processed; }
 
         justification justify_rewrite(unsigned eq1, unsigned eq2);
-        justification justify_superpose(justification j1, justification j2);
         justification::dependency* justify_monomial(justification::dependency* d, ptr_vector<node> const& m);
 
         void propagate_shared();
@@ -152,6 +151,8 @@ namespace euf {
     public:
 
         ac_plugin(egraph& g, unsigned fid, unsigned op);
+
+        ~ac_plugin() override {}
         
         unsigned get_id() const override { return m_fid; }
 

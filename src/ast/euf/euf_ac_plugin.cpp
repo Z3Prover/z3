@@ -41,8 +41,6 @@ More notes:
 
 --*/
 
-#pragma once
-
 #include "ast/euf/euf_ac_plugin.h"
 #include "ast/euf/euf_egraph.h"
 
@@ -275,7 +273,7 @@ namespace euf {
             return m_nodes[id];
         auto* r = node::mk(get_region(), n);
         push_undo(is_add_node);
-        m_nodes.set(id, r);
+        m_nodes.setx(id, r, nullptr);
         m_node_trail.push_back(r);
         return r;
     }

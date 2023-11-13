@@ -52,6 +52,11 @@ namespace euf {
         // no-op
     }
 
+    void arith_plugin::propagate() {
+        m_add.propagate();
+        m_mul.propagate();
+    }
+
     void arith_plugin::undo() {
         auto k = m_undo.back();
         m_undo.pop_back();

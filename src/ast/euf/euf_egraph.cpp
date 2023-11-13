@@ -19,6 +19,7 @@ Notes:
 
 #include "ast/euf/euf_egraph.h"
 #include "ast/euf/euf_bv_plugin.h"
+#include "ast/euf/euf_arith_plugin.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_translation.h"
 
@@ -159,9 +160,13 @@ namespace euf {
     }
 
     void egraph::add_plugins() {
-        auto* plugin = alloc(bv_plugin, *this);
-        m_plugins.reserve(plugin->get_id() + 1);
-        m_plugins.set(plugin->get_id(), plugin);    
+        auto insert = [&](plugin* p) {
+            m_plugins.reserve(p->get_id() + 1);
+            m_plugins.set(p->get_id(), p);
+        };
+
+        insert(alloc(bv_plugin, *this));
+        insert(alloc(arith_plugin, *this));
     }
 
     void egraph::propagate_plugins() {

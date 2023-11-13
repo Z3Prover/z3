@@ -11,7 +11,7 @@ Copyright (c) 2023 Microsoft Corporation
 #include "ast/ast_pp.h"
 #include <iostream>
 
-euf::enode* get_node(euf::egraph& g, expr* e) {
+static euf::enode* get_node(euf::egraph& g, expr* e) {
     auto* n = g.find(e);
     if (n)
         return n;

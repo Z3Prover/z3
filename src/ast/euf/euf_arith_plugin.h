@@ -33,6 +33,8 @@ namespace euf {
     public:
         arith_plugin(egraph& g);
 
+        ~arith_plugin() override {}
+
         unsigned get_id() const override { return a.get_family_id(); }
 
         void register_node(enode* n) override;
@@ -44,6 +46,8 @@ namespace euf {
         void diseq_eh(enode* n1, enode* n2) override;
 
         void undo() override;
+
+        void propagate() override;
         
         std::ostream& display(std::ostream& out) const override;
             
