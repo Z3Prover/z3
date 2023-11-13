@@ -84,6 +84,9 @@ namespace euf {
         vector<ptr_vector<node>> m_monomials;
         enode_vector             m_monomial_enodes;
         justification::dependency_manager m_dep_manager;
+        tracked_uint_set         m_to_simplify_todo;
+        unsigned_vector          m_shared_find;
+        
 
         // backtrackable state
         enum undo_kind {
@@ -94,11 +97,13 @@ namespace euf {
             is_update_eq,
             is_add_shared,
             is_register_shared,
-            is_join_justification
+            is_join_justification,
+            is_update_shared_find
         };
         svector<undo_kind>       m_undo;
         ptr_vector<node>         m_node_trail;
         unsigned_vector          m_monomial_trail, m_shared_trail;
+        svector<std::pair<unsigned, unsigned>> m_shared_find_trail;
         svector<std::tuple<node*, unsigned, unsigned, unsigned>> m_merge_trail;
         svector<std::pair<unsigned, eq>> m_update_eq_trail;
 
@@ -130,14 +135,15 @@ namespace euf {
         unsigned_vector m_lhs_eqs;
         bool_vector m_eq_seen;
         bool m_backward_simplified = false;
-        unsigned m_next_eq_index = 0;
 
         unsigned_vector const& forward_iterator(unsigned eq);
         unsigned_vector const& superpose_iterator(unsigned eq);
         unsigned_vector const& backward_iterator(unsigned eq);
-        void init_ids_counts(unsigned eq, unsigned monomial_id, unsigned_vector& ids, unsigned_vector& counts);
+        void init_ids_counts(ptr_vector<node> const& monomial, unsigned_vector& ids, unsigned_vector& counts);
         void reset_ids_counts(unsigned_vector& ids, unsigned_vector& counts);
-        void init_overlap_iterator(unsigned eq, unsigned monomial_id);
+        void init_overlap_iterator(unsigned eq, ptr_vector<node> const& m);
+        bool is_subset(ptr_vector<node> const& dst);
+        unsigned rewrite(ptr_vector<node> const& src_r, ptr_vector<node> const& dst_r);
 
         bool is_to_simplify(unsigned eq) const { return !m_eqs[eq].is_processed; }
         bool is_processed(unsigned eq) const { return m_eqs[eq].is_processed; }
