@@ -139,7 +139,7 @@ class create_cut {
     std::ostream& dump_coeff_val(std::ostream & out, const mpq & a) const {
         if (a.is_int()) 
             out << a;
-        else if ( a >= zero_of_type<mpq>())
+        else if (a >= zero_of_type<mpq>())
             out << "(/ " << numerator(a) << " " << denominator(a) << ")";
         else 
             out << "(- (/ " <<   numerator(-a) << " " << denominator(-a) << "))";
@@ -148,9 +148,7 @@ class create_cut {
     
     template <typename T>
     void dump_coeff(std::ostream & out, const T& c) const {
-        out << "(* ";
-        dump_coeff_val(out, c.coeff());
-        out << " " << var_name(c.column().index()) << ")";
+        dump_coeff_val(out << "(* ", c.coeff()) << " " << var_name(c.column().index()) << ")";
     }
     
     std::ostream& dump_row_coefficients(std::ostream & out) const {
@@ -178,9 +176,8 @@ class create_cut {
             dump_declaration(out, p.var());
         for (lar_term::ival p : m_t) {
             auto t = lia.lra.column2tv(p.column());
-            if (t.is_term()) {
-                dump_declaration(out, t.id());
-            }
+            if (t.is_term()) 
+                dump_declaration(out, t.id());            
         }
     }
 
@@ -352,6 +349,14 @@ public:
                 }
                 m_k *= m_lcm_den;
             }
+            // ax + by >= k
+            // b > 0, c1 <= y <= c2
+            // ax + b*c2 >= ax + by >= k
+            // => 
+            // ax >= k - by >= k - b*c1
+            // b < 0
+            // ax + b*c1 >= ax + by >= k
+            // 
             unsigned j = 0, i = 0;
             for (auto & [c, v] : pol) {
                 if (lia.is_fixed(v)) {

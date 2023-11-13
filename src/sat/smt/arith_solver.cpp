@@ -323,6 +323,10 @@ namespace arith {
             return false;
         theory_var uv = lp().local_to_external(u); // variables that are returned should have external representations
         theory_var vv = lp().local_to_external(v); // so maybe better to have them already transformed to external form
+        if (uv == euf::null_theory_var)
+            return false;
+        if (vv == euf::null_theory_var)
+            return false;
         if (is_equal(uv, vv))
             return false;
         enode* n1 = var2enode(uv);
