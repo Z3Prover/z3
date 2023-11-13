@@ -140,10 +140,12 @@ namespace euf {
         auto* p = get_plugin(n);
         if (p)
             p->register_node(n);
-        for (auto* arg : enode_args(n)) {
-            auto* p_arg = get_plugin(arg);
-            if (p != p_arg)
-                p_arg->register_shared(arg);
+        if (!n->is_equality()) {
+            for (auto* arg : enode_args(n)) {
+                auto* p_arg = get_plugin(arg);
+                if (p != p_arg)
+                    p_arg->register_shared(arg);
+            }
         }
 
     }
@@ -620,6 +622,7 @@ namespace euf {
 
     bool egraph::propagate() {        
         force_push();
+        propagate_plugins();
         for (unsigned i = 0; i < m_to_merge.size() && m.limit().inc() && !inconsistent(); ++i) {
             auto const& w = m_to_merge[i];
             if (w.j.is_congruence())

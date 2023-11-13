@@ -105,7 +105,7 @@ namespace euf {
         node* mk_node(enode* n);
         void merge(node* r1, node* r2, justification j);
 
-        bool is_op(enode* n) const { auto d = n->get_decl(); return d && m_fid == d->get_family_id() && m_op == d->get_kind(); }
+        bool is_op(enode* n) const { auto d = n->get_decl(); return d && m_fid == d->get_family_id() && m_op == d->get_decl_kind(); }
 
         std::function<void(void)> m_undo_notify;
         void push_undo(undo_kind k);
@@ -147,6 +147,9 @@ namespace euf {
 
         void propagate_shared();
         void simplify_shared(unsigned monomial_id);
+
+        std::ostream& display_monomial(std::ostream& out, ptr_vector<node> const& m) const;
+        std::ostream& display_equation(std::ostream& out, eq const& e) const;
 
     public:
 
