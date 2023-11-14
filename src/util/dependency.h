@@ -361,4 +361,83 @@ typedef scoped_dependency_manager<void*>::dependency v_dependency;
 typedef scoped_dependency_manager<unsigned>             u_dependency_manager;
 typedef scoped_dependency_manager<unsigned>::dependency u_dependency;
 
+/**
+   \brief Version of the scoped-depenendcy-manager where region scopes are handled externally.
+*/
+template<typename Value>
+class stacked_dependency_manager {
 
+    class config {
+    public:
+        static const bool ref_count = true;
+
+        typedef Value value;
+
+        class value_manager {
+        public:
+            void inc_ref(value const& v) {
+            }
+
+            void dec_ref(value const& v) {
+            }
+        };
+
+        class allocator {
+            region&   m_region;
+        public:
+            allocator(region& r) : m_region(r) {}
+
+            void* allocate(size_t sz) { 
+                return m_region.allocate(sz);
+            }            
+
+            void deallocate(size_t sz, void* mem) {
+            }
+        };
+    };
+
+    typedef dependency_manager<config>       dep_manager;
+public:
+    typedef typename dep_manager::dependency dependency;
+    typedef Value value;
+
+private:
+    typename config::value_manager m_vmanager;
+    typename config::allocator     m_allocator;
+    dep_manager                    m_dep_manager;
+
+public:
+    stacked_dependency_manager(region& r) :
+        m_allocator(r),
+        m_dep_manager(m_vmanager, m_allocator) {
+    }
+
+    dependency* mk_empty() {
+        return m_dep_manager.mk_empty();
+    }
+
+    dependency* mk_leaf(value const& v) {
+        return m_dep_manager.mk_leaf(v);
+    }
+
+    dependency* mk_join(dependency* d1, dependency* d2) {
+        return m_dep_manager.mk_join(d1, d2);
+    }
+
+    bool contains(dependency* d, value const& v) {
+        return m_dep_manager.contains(d, v);
+    }
+
+    void linearize(dependency* d, vector<value, false>& vs) {
+        return m_dep_manager.linearize(d, vs);
+    }
+
+    static vector<value, false> const& s_linearize(dependency* d, vector<value, false>& vs) {
+        dep_manager::s_linearize(d, vs);
+        return vs;
+    }
+
+    void linearize(ptr_vector<dependency>& d, vector<value, false>& vs) {
+        return m_dep_manager.linearize(d, vs);
+    }
+};

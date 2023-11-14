@@ -41,6 +41,18 @@ More notes:
   Shared occurrences are rewritten modulo completion.
   When equal to a different shared occurrence, propagate equality.
 
+TODOs:
+- Establish / fix formal termination properties in the presence of union-find.
+  The formal interactions between union find and orienting the equations need to be established.  
+  - Union-find merges can change the orientation of an equation and break termination.
+  - For example, rules are currently not re-oriented if there is a merge. The rules could be re-oriented during propagation.
+- Elimination of redundant rules.
+  - superposition uses a stop-gap to avoid some steps. It should be revisited.
+- Efficiency of handling shared terms.
+  - The shared terms hash table is not incremental. 
+    It could be made incremental by updating it on every merge similar to how the egraph handles it.
+- V2 using multiplicities instead of repeated values in monomials.
+
 --*/
 
 #include "ast/euf/euf_ac_plugin.h"
@@ -49,11 +61,13 @@ More notes:
 namespace euf {
 
     ac_plugin::ac_plugin(egraph& g, unsigned fid, unsigned op):
-        plugin(g), m_fid(fid), m_op(op)
+        plugin(g), m_fid(fid), m_op(op),
+        m_dep_manager(get_region()),
+        m_hash(*this), m_eq(*this), m_monomial_table(m_hash, m_eq)
     {}
 
     void ac_plugin::register_node(enode* n) {
-        
+        // no-op
     }
 
     void ac_plugin::register_shared(enode* n) {
@@ -64,8 +78,9 @@ namespace euf {
             m_node_trail.push_back(arg);
             push_undo(is_add_shared);
         }
-        m_shared_trail.push_back(m);
-        m_shared_find.setx(m, m, 0);
+        sort(monomial(m));
+        m_shared.push_back({ n, m, justification::axiom() });
+        m_shared_todo.insert(m);
         push_undo(is_register_shared);
     }
 
@@ -91,7 +106,6 @@ namespace euf {
         }
         case is_add_monomial: {         
             m_monomials.pop_back();
-            m_monomial_enodes.pop_back();
             break;
         }
         case is_merge_node: {
@@ -117,17 +131,13 @@ namespace euf {
             break;
         }
         case is_register_shared: {
-            m_shared_trail.pop_back();
+            m_shared.pop_back();
             break;
         }
-        case is_join_justification: {
-            m_dep_manager.pop_scope(1);
-            break;
-        }
-        case is_update_shared_find: {
-            auto [id, old_id] = m_shared_find_trail.back();
-            m_shared_find[id] = old_id;
-            m_shared_find_trail.pop_back();
+        case is_update_shared: {
+            auto [id, s] = m_update_shared_trail.back();
+            m_shared[id] = s;
+            m_update_shared_trail.pop_back();
             break;
         }
         default:
@@ -135,7 +145,7 @@ namespace euf {
         }
     }
 
-    std::ostream& ac_plugin::display_monomial(std::ostream& out, ptr_vector<node> const& m) const {
+    std::ostream& ac_plugin::display_monomial(std::ostream& out, monomial_t const& m) const {
         for (auto n : m)
             out << g.bpp(n->n) << " ";
         return out;
@@ -216,8 +226,8 @@ namespace euf {
             return true;
         }
         else {
-            std::sort(ml.begin(), ml.end(), [&](node* a, node* b) { return a->root_id() < b->root_id(); });
-            std::sort(mr.begin(), mr.end(), [&](node* a, node* b) { return a->root_id() < b->root_id(); });
+            sort(ml);
+            sort(mr);
             for (unsigned i = ml.size(); i-- > 0;) {
                 if (ml[i] == mr[i])
                     continue;
@@ -229,6 +239,17 @@ namespace euf {
         }
     }
 
+    void ac_plugin::sort(monomial_t& m) {
+        std::sort(m.begin(), m.end(), [&](node* a, node* b) { return a->root_id() < b->root_id(); });
+    }
+
+    bool ac_plugin::is_sorted(monomial_t const& m) const {
+        for (unsigned i = m.size(); i-- > 1; ) 
+            if (m[i-1]->root_id() > m[i]->root_id())
+                return false;        
+        return true;
+    }
+
     void ac_plugin::merge(node* root, node* other, justification j) {
         for (auto n : equiv(other))
             n->root = root;
@@ -237,6 +258,8 @@ namespace euf {
             set_processed(eq_id, false);
         for (auto eq_id : other->rhs)
             set_processed(eq_id, false);
+        for (auto m : other->shared)
+            m_shared_todo.insert(m);
         root->shared.append(other->shared);
         root->lhs.append(other->lhs);
         root->rhs.append(other->rhs);
@@ -270,10 +293,9 @@ namespace euf {
         return to_monomial(n, ms);
     }
 
-    unsigned ac_plugin::to_monomial(enode* e, ptr_vector<node> const& ms) {
+    unsigned ac_plugin::to_monomial(enode* e, monomial_t const& ms) {
         unsigned id = m_monomials.size();
         m_monomials.push_back(ms);
-        m_monomial_enodes.push_back(e);
         push_undo(is_add_monomial);
         return id;
     }
@@ -502,7 +524,7 @@ namespace euf {
         m_backward_simplified = true;
     }
 
-    unsigned ac_plugin::rewrite(ptr_vector<node> const& src_r, ptr_vector<node> const& dst_r) {
+    unsigned ac_plugin::rewrite(monomial_t const& src_r, monomial_t const& dst_r) {
         // pre-condition: is-subset is invoked so that m_src_count is initialized.
         // pre-condition: m_dst_count is also initialized (once).
         m_src_r.reset();
@@ -519,7 +541,7 @@ namespace euf {
         return to_monomial(nullptr, m_src_r);
     }
 
-    bool ac_plugin::is_subset(ptr_vector<node> const& dst) {
+    bool ac_plugin::is_subset(monomial_t const& dst) {
         reset_ids_counts(m_src_ids, m_src_count);
         for (auto n : dst) {
             unsigned id = n->root_id();
@@ -620,32 +642,61 @@ namespace euf {
     // simple version based on propagating all shared
     // todo: version touching only newly processed shared, and maintaining incremental data-structures.
     //       - hash-tables for shared monomials similar to the ones used for euf_table.
-    //       -  m_shared_todo : tracked_uint_set set of monomials that have elements that can be simplified.
-    //          set is updated when nodes are merged, similar to updates of to_simplify
+    //         the tables have to be updated (and re-sorted) whenever a child changes root.
     // 
 
     void ac_plugin::propagate_shared() {
-        for (auto m : m_shared_trail)
-            simplify_shared(m);
-        // check for collisions, push_merge when there is a collision.
+        if (m_shared_todo.empty())
+            return;
+        while (!m_shared_todo.empty()) {
+            auto idx = *m_shared_todo.begin();
+            m_shared_todo.remove(idx);
+            if (idx < m_shared.size()) 
+                simplify_shared(idx, m_shared[idx]);
+        }
+        m_monomial_table.reset();
+        for (auto const& s1 : m_shared) {
+            shared s2;
+            if (m_monomial_table.find(s1.m, s2)) {
+                if (s2.n->get_root() != s1.n->get_root())
+                    push_merge(s1.n, s2.n, justification::dependent(m_dep_manager.mk_join(m_dep_manager.mk_leaf(s1.j), m_dep_manager.mk_leaf(s2.j))));
+            }
+            else 
+                m_monomial_table.insert(s1.m, s1);
+        }
     }
 
-    void ac_plugin::simplify_shared(unsigned monomial_id) {
-        unsigned m_id = monomial_id;
+    void ac_plugin::simplify_shared(unsigned idx, shared s) {
         bool change = true;
         while (change) {
             change = false;
-            auto const& m = monomial(m_shared_find[monomial_id]);
+            auto const& m = monomial(s.m);
             init_ids_counts(m, m_dst_ids, m_dst_count);
             init_overlap_iterator(UINT_MAX, m);
             for (auto eq : m_lhs_eqs) {
                 auto& src = m_eqs[eq];
                 if (!is_subset(monomial(src.l)))
                     continue;
-                m_shared_find_trail.push_back({ monomial_id, m_id });
-                m_id = rewrite(monomial(src.r), m);                
-                m_shared_find[monomial_id] = m_id;
-                push_undo(is_update_shared_find);
+                m_update_shared_trail.push_back({ idx, s });
+                push_undo(is_update_shared);
+                unsigned new_m = rewrite(monomial(src.r), m);
+                m_shared[idx].m = new_m;
+                m_shared[idx].j = justification::dependent(m_dep_manager.mk_join(m_dep_manager.mk_leaf(s.j), justify_equation(eq)));
+                
+                // update shared occurrences for members of the new monomial that are not already in the old monomial.
+                for (auto n : monomial(s.m))
+                    n->root->n->mark1();
+                for (auto n : monomial(new_m))
+                    if (!n->root->n->is_marked1()) {
+                        n->root->shared.push_back(s.m);
+                        m_shared_todo.insert(s.m);
+                        m_node_trail.push_back(n->root);
+                        push_undo(is_add_shared);
+                    }
+                for (auto n : monomial(s.m))
+                    n->root->n->unmark1();
+
+                s = m_shared[idx];
                 change = true;
                 break;
             }
@@ -653,19 +704,19 @@ namespace euf {
     }
 
     justification ac_plugin::justify_rewrite(unsigned eq1, unsigned eq2) {
-        auto const& e1 = m_eqs[eq1];
-        auto const& e2 = m_eqs[eq2];
-        auto* j = m_dep_manager.mk_join(m_dep_manager.mk_leaf(e1.j), m_dep_manager.mk_leaf(e2.j));        
-        j = justify_monomial(j, monomial(e1.l));
-        j = justify_monomial(j, monomial(e1.r));
-        j = justify_monomial(j, monomial(e2.l));
-        j = justify_monomial(j, monomial(e2.r));
-        m_dep_manager.push_scope();
-        push_undo(is_join_justification);
+        auto* j = m_dep_manager.mk_join(justify_equation(eq1), justify_equation(eq2));
         return justification::dependent(j);
     }
 
-    justification::dependency* ac_plugin::justify_monomial(justification::dependency* j, ptr_vector<node> const& m) {
+    justification::dependency* ac_plugin::justify_equation(unsigned eq) {
+        auto const& e = m_eqs[eq];
+        auto* j = m_dep_manager.mk_leaf(e.j);
+        j = justify_monomial(j, monomial(e.l));
+        j = justify_monomial(j, monomial(e.r));
+        return j;
+    }
+
+    justification::dependency* ac_plugin::justify_monomial(justification::dependency* j, monomial_t const& m) {
         for (auto n : m)
             if (n->root->n != n->n)
                 j = m_dep_manager.mk_join(j, m_dep_manager.mk_leaf(justification::equality(n->root->n, n->n)));

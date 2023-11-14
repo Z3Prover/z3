@@ -30,8 +30,8 @@ namespace euf {
 
     class justification {
     public:
-        typedef scoped_dependency_manager<justification>             dependency_manager;
-        typedef scoped_dependency_manager<justification>::dependency dependency;
+        typedef stacked_dependency_manager<justification>             dependency_manager;
+        typedef stacked_dependency_manager<justification>::dependency dependency;
     private:
         enum class kind_t {
             axiom_t, 
