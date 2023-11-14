@@ -241,6 +241,20 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
+    unsigned Z3_API Z3_constructor_num_fields(Z3_context c, Z3_constructor constr) {
+        Z3_TRY;
+        LOG_Z3_constructor_num_fields(c, constr);
+        RESET_ERROR_CODE();
+        mk_c(c)->reset_last_result();
+        if (!constr) {
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
+            return 0;
+        }
+        constructor* c = reinterpret_cast<constructor*>(constr);
+        return c->m_field_names.size();
+        Z3_CATCH_RETURN(0);
+    }
+
 
     void Z3_API Z3_query_constructor(Z3_context c,
                                      Z3_constructor constr,

@@ -858,15 +858,6 @@ struct
   module Constructor =
   struct
     type constructor = Z3native.constructor
-
-    module FieldNumTable = Hashtbl.Make(struct
-        type t = AST.ast
-        let equal x y = AST.compare x y = 0
-        let hash = AST.hash
-      end)
-
-    let _field_nums = FieldNumTable.create 0
-
     let create (ctx:context) (name:Symbol.symbol) (recognizer:Symbol.symbol) (field_names:Symbol.symbol list) (sorts:Sort.sort option list) (sort_refs:int list) =
       let n = List.length field_names in
       if n <> List.length sorts then
@@ -882,10 +873,9 @@ struct
             (let f x = match x with None -> Z3native.mk_null_ast ctx | Some s -> s in
              List.map f sorts)
             sort_refs in
-        FieldNumTable.add _field_nums no n;
         no
 
-    let get_num_fields (x:constructor) = FieldNumTable.find _field_nums x
+    let get_num_fields (x:constructor) = Z3native.constructor_num_fields (gc x) x
 
     let get_constructor_decl (x:constructor) =
       let (a, _, _) = (Z3native.query_constructor (gc x) x (get_num_fields x)) in
@@ -1512,13 +1502,15 @@ struct
     in
     Z3native.apply_result_inc_ref (gc x) arn;
     let sg = Z3native.apply_result_get_num_subgoals (gc x) arn in
-    let res = if sg = 0 then
-        raise (Error "No subgoals")
-      else
-        Z3native.apply_result_get_subgoal (gc x) arn 0 in
-    Z3native.apply_result_dec_ref (gc x) arn;
-    Z3native.tactic_dec_ref (gc x) tn;
-    res
+    if sg = 0 then (
+      Z3native.apply_result_dec_ref (gc x) arn;
+      Z3native.tactic_dec_ref (gc x) tn;
+      raise (Error "No subgoals"))
+    else
+      let res:goal = Z3native.apply_result_get_subgoal (gc x) arn 0 in
+      Z3native.apply_result_dec_ref (gc x) arn;
+      Z3native.tactic_dec_ref (gc x) tn;
+      res
 
   let mk_goal = Z3native.mk_goal
 

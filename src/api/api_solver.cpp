@@ -468,8 +468,10 @@ extern "C" {
     void Z3_API Z3_solver_dec_ref(Z3_context c, Z3_solver s) {
         Z3_TRY;
         LOG_Z3_solver_dec_ref(c, s);
-        if (s) 
-            to_solver(s)->dec_ref();        
+        if (s) {
+            to_solver(s)->dec_ref();
+            mk_c(c)->flush_objects();
+        }
         Z3_CATCH;
     }
 
