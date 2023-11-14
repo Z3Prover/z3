@@ -558,9 +558,13 @@ namespace qe {
             div_rewriter_cfg(nlqsat& s): m(s.m), a(s.m), m_zero(a.mk_real(0), m) {}
             ~div_rewriter_cfg() {}
             br_status reduce_app(func_decl* f, unsigned sz, expr* const* args, expr_ref& result, proof_ref& pr) {
-                rational r(1);
+                rational r1, r(1);
+                if (a.is_div(f) && sz == 2 && a.is_numeral(args[0], r1) && a.is_numeral(args[1], r) && !r.is_zero()) {
+                    result = a.mk_real(r1 / r);
+                    return BR_DONE;
+                }
                 if (is_decl_of(f, a.get_family_id(), OP_DIV) && 
-                    sz == 2 && (!a.is_numeral(args[1], r) || r.is_zero()) &&
+                    sz == 2 &&
                     is_ground(args[0]) && is_ground(args[1])) {                    
                     result = m.mk_fresh_const("div", a.mk_real());
                     m_divs.push_back(div(m, args[0], args[1], to_app(result)));
@@ -609,9 +613,6 @@ namespace qe {
                 }
                 expr* n1, *n2;
                 rational r;
-                if (a.is_div(n, n1, n2) && a.is_numeral(n2, r) && !r.is_zero()) {
-                    return;
-                }
                 if (a.is_power(n, n1, n2) && a.is_numeral(n2, r) && r.is_unsigned() && r.is_pos()) {
                     return;
                 }
