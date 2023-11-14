@@ -124,8 +124,6 @@ namespace smt {
         enode* ensure_enode(expr* e);
         enode* get_root(expr* a) { return ensure_enode(a)->get_root(); }
         app* get_ite_value(expr* e);
-
-        void mk_bv_nan(sort * s, expr_ref & result);
     };
 
 };

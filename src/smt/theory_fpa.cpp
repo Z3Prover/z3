@@ -253,18 +253,6 @@ namespace smt {
         return true;
     }
 
-    void theory_fpa::mk_bv_nan(sort * s, expr_ref & result) {
-        SASSERT(m_fpa_util.is_float(s));
-        unsigned sbits = m_fpa_util.get_sbits(s);
-        unsigned ebits = m_fpa_util.get_ebits(s);
-        expr_ref exp(m), sgn(m), sig(m);
-        exp = m_bv_util.mk_numeral(m_fpa_util.fm().m_powers2.m1(ebits), ebits);
-        sgn = m_bv_util.mk_numeral(0, 1);
-        sig = m_bv_util.mk_numeral(1, sbits - 1);
-        expr * args[3] = {sgn, exp, sig};
-        result = m_bv_util.mk_concat(3, args);
-    }
-
     bool theory_fpa::internalize_term(app * term) {
         TRACE("t_fpa_internalize", tout << "internalizing term: " << mk_ismt2_pp(term, m) << "\n";);
         SASSERT(term->get_family_id() == get_family_id());
@@ -296,22 +284,6 @@ namespace smt {
                 break;
             }
             default: /* ignore */;
-            }
-
-            expr * owner = e->get_expr();
-            sort * s = owner->get_sort();
-            if (m_fpa_util.is_float(s))
-            {
-                TRACE("t_fpa", tout << "extra nan constraint for: " << mk_ismt2_pp(owner, m) << "\n";);
-                expr_ref wrapped(m), is_nan(m), bv_nan(m);
-                app_ref impl(m);
-                wrapped = m_converter.wrap(owner);
-                is_nan = m_fpa_util.mk_is_nan(owner);
-                mk_bv_nan(s, bv_nan);
-                impl = m.mk_or(m.mk_and(is_nan, m.mk_eq(wrapped, bv_nan)),
-                               m.mk_and(m.mk_not(is_nan), m.mk_not(m.mk_eq(wrapped, bv_nan))));
-                assert_cnstr(impl);
-                assert_cnstr(mk_side_conditions());
             }
 
             if (!ctx.relevancy())
