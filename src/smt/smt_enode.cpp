@@ -54,7 +54,7 @@ namespace smt {
         for (unsigned i = 0; i < num_args; i++) {            
             enode * arg  = app2enode[owner->get_arg(i)->get_id()];
             n->m_args[i] = arg;
-            arg->m_is_shared = 2;
+            arg->get_root()->m_is_shared = 2;
             SASSERT(n->get_arg(i) == arg);
             if (update_children_parent)
                 arg->get_root()->m_parents.push_back(n);

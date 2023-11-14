@@ -2077,7 +2077,7 @@ public:
         enode * n      = get_enode(v);
         enode * r      = n->get_root();
         unsigned usz   = m_underspecified.size();
-        TRACE("shared", tout << ctx().get_scope_level() << " " <<  v << " " << r->get_num_parents() << "\n";);
+        TRACE("shared", tout << ctx().get_scope_level() << " " <<  enode_pp(n, ctx()) << " " << v << " underspecified " << usz << " parents " << r->get_num_parents() << "\n";);
         if (r->get_num_parents() > 2*usz) {
             for (unsigned i = 0; i < usz; ++i) {
                 app* u = m_underspecified[i];

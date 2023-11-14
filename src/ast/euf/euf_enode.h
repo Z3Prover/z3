@@ -97,6 +97,7 @@ namespace euf {
             for (unsigned i = 0; i < num_args; ++i) {
                 SASSERT(to_app(f)->get_arg(i) == args[i]->get_expr());
                 n->m_args[i] = args[i];
+                n->m_args[i]->get_root()->set_is_shared(l_undef);
             }
             return n;
         }
