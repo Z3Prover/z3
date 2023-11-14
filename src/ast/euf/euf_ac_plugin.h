@@ -43,9 +43,8 @@ namespace euf {
             justification j; // justification for equality
             node* target = nullptr;    // justified next
             unsigned_vector shared;    // shared occurrences
-            unsigned_vector lhs;       // left hand side of equalities
-            unsigned_vector rhs;       // left side of equalities
-
+            unsigned_vector eqs;       // equality occurrences
+            
             unsigned root_id() const { return root->n->get_id(); }
             ~node() {}
             static node* mk(region& r, enode* n);
@@ -71,10 +70,18 @@ namespace euf {
             iterator end() const { return iterator(&n, &n); }
         };
 
+        struct bloom {
+            uint64_t m_tick = 0;
+            uint64_t m_filter = 0;
+        };
+
         // represent equalities added by merge_eh and by superposition
         struct eq {
+            eq(unsigned l, unsigned r, justification j):
+                l(l), r(r), j(j) {}
             unsigned l, r;              // refer to monomials
             bool is_processed = false;  // true if the equality is in the processed set
+            bool is_alive = true; 
             justification j;            // justification for equality
         };
 
@@ -85,7 +92,17 @@ namespace euf {
             justification j;  // justification for current simplification of monomial
         };
 
-        using monomial_t = ptr_vector<node>;
+        struct monomial_t {
+            ptr_vector<node> m_nodes;
+            bloom m_filter;
+            node* operator[](unsigned i) const { return m_nodes[i]; }
+            unsigned size() const { return m_nodes.size(); }
+            node* const* begin() const { return m_nodes.begin(); }
+            node* const* end() const { return m_nodes.end(); }
+            node* * begin() { return m_nodes.begin(); }
+            node* * end() { return m_nodes.end(); }            
+        };
+
 
         struct monomial_hash {
             ac_plugin& p;
@@ -124,6 +141,8 @@ namespace euf {
         justification::dependency_manager m_dep_manager;
         tracked_uint_set         m_to_simplify_todo;
         tracked_uint_set         m_shared_todo;
+        uint64_t                 m_tick = 1;
+        
 
 
         monomial_hash m_hash;
@@ -146,7 +165,7 @@ namespace euf {
         ptr_vector<node>         m_node_trail;
 
         svector<std::pair<unsigned, shared>> m_update_shared_trail;
-        svector<std::tuple<node*, unsigned, unsigned, unsigned>> m_merge_trail;
+        svector<std::tuple<node*, unsigned, unsigned>> m_merge_trail;
         svector<std::pair<unsigned, eq>> m_update_eq_trail;
 
 
@@ -160,11 +179,14 @@ namespace euf {
         void push_undo(undo_kind k);
         enode_vector m_todo;
         unsigned to_monomial(enode* n);
-        unsigned to_monomial(enode* n, monomial_t const& ms);
+        unsigned to_monomial(enode* n, ptr_vector<node> const& ms);
         monomial_t const& monomial(unsigned i) const { return m_monomials[i]; }
         monomial_t& monomial(unsigned i) { return m_monomials[i]; }
         void sort(monomial_t& monomial);
         bool is_sorted(monomial_t const& monomial) const;
+        uint64_t filter(monomial_t& m);
+        bool can_be_subset(monomial_t& subset, monomial_t& superset);
+        bool subsumes(unsigned src_eq, unsigned dst_eq);
 
         void init_equation(eq const& e);
         bool orient_equation(eq& e);
@@ -174,10 +196,10 @@ namespace euf {
         void forward_simplify(unsigned eq_id, unsigned using_eq);
         void backward_simplify(unsigned eq_id, unsigned using_eq);
         void superpose(unsigned src_eq, unsigned dst_eq);
-
-        monomial_t m_src_r, m_src_l, m_dst_r;
+        
+        ptr_vector<node> m_src_r, m_src_l, m_dst_r;
         unsigned_vector m_src_ids, m_src_count, m_dst_ids, m_dst_count;
-        unsigned_vector m_lhs_eqs;
+        unsigned_vector m_eq_occurs;
         bool_vector m_eq_seen;
         bool m_backward_simplified = false;
 
@@ -190,17 +212,17 @@ namespace euf {
         bool is_subset(monomial_t const& dst);
         unsigned rewrite(monomial_t const& src_r, monomial_t const& dst_r);
 
-        bool is_to_simplify(unsigned eq) const { return !m_eqs[eq].is_processed; }
-        bool is_processed(unsigned eq) const { return m_eqs[eq].is_processed; }
+        bool is_to_simplify(unsigned eq) const { return !m_eqs[eq].is_processed && m_eqs[eq].is_alive; }
+        bool is_processed(unsigned eq) const { return m_eqs[eq].is_processed && m_eqs[eq].is_alive; }
 
         justification justify_rewrite(unsigned eq1, unsigned eq2);
         justification::dependency* justify_equation(unsigned eq);
-        justification::dependency* justify_monomial(justification::dependency* d, ptr_vector<node> const& m);
+        justification::dependency* justify_monomial(justification::dependency* d, monomial_t const& m);
 
         void propagate_shared();
         void simplify_shared(unsigned idx, shared s);
 
-        std::ostream& display_monomial(std::ostream& out, ptr_vector<node> const& m) const;
+        std::ostream& display_monomial(std::ostream& out, monomial_t const& m) const;
         std::ostream& display_equation(std::ostream& out, eq const& e) const;
 
     public:
