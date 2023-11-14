@@ -551,6 +551,7 @@ namespace qe {
 
         void init() {
            m_solver = mk_smt2_solver(m, m_params, symbol::null);
+           m_last_assert = nullptr;
         }
         void collect_statistics(statistics & st) const {
             if (m_solver) 
@@ -633,7 +634,7 @@ namespace qe {
            \brief check alternating satisfiability.
            Even levels are existential, odd levels are universal.
         */
-        lbool check_sat() {        
+        lbool check_sat() {
             while (true) {
                 ++m_stats.m_num_rounds;
                 IF_VERBOSE(1, verbose_stream() << "(check-qsat level: " << m_level << " round: " << m_stats.m_num_rounds << ")\n";);
