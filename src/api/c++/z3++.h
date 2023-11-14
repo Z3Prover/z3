@@ -368,7 +368,7 @@ namespace z3 {
         func_decl recfun(char const * name, sort const & d1, sort const & d2, sort const & range);
 
         /**
-         * \brief add function definition body to declaration decl. decl needs to be declared using context::<recfun>.
+         * \brief add function definition body to declaration decl. decl needs to be declared using context::recfun.
          * @param decl
          * @param args
          * @param body
