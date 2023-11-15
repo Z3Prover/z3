@@ -41,16 +41,20 @@ More notes:
   Shared occurrences are rewritten modulo completion.
   When equal to a different shared occurrence, propagate equality.
 
-TODOs:
-- Establish / fix formal termination properties in the presence of union-find.
-  The formal interactions between union find and orienting the equations need to be established.  
-  - Union-find merges can change the orientation of an equation and break termination.
-  - For example, rules are currently not re-oriented if there is a merge. The rules could be re-oriented during propagation.
-- Elimination of redundant rules.
-  - superposition uses a stop-gap to avoid some steps. It should be revisited.
+  - Elimination of redundant rules.
   -> forward and backward subsumption
      - apply forward subsumption when simplifying equality using processed
      - apply backward subsumption when simplifying processed and to_simplify
+
+   Rewrite rules are reoriented after a merge of enodes.
+   It simulates creating a critical pair:
+   n -> n'
+   n + k = j + k
+   after merge
+   n' + k = j + k, could be that n' + k < j + k < n + k in term ordering because n' < j, m < n
+
+   TODOs:
+
 - Efficiency of handling shared terms.
   - The shared terms hash table is not incremental. 
     It could be made incremental by updating it on every merge similar to how the egraph handles it.
@@ -350,10 +354,10 @@ namespace euf {
         while (true) {
             loop_start:
             unsigned eq_id = pick_next_eq();
-            TRACE("plugin", tout << "propagate " << eq_id << "\n");
             if (eq_id == UINT_MAX)
                 break;
-            eq& eq = m_eqs[eq_id];
+
+            TRACE("plugin", tout << "propagate " << eq_id << ": " << eq_pp(*this, m_eqs[eq_id]) << "\n");
 
             // simplify eq using processed
             for (auto other_eq : backward_iterator(eq_id))
@@ -390,6 +394,7 @@ namespace euf {
         return UINT_MAX;
     }
 
+    // reorient equations when the status of equations are set to to_simplify.
     void ac_plugin::set_status(unsigned id, eq_status s) {
         auto& eq = m_eqs[id];
         if (eq.status == eq_status::is_dead)
@@ -434,7 +439,7 @@ namespace euf {
         auto const& eq = m_eqs[eq_id];
         init_ref_counts(monomial(eq.r), m_dst_r_counts);
         init_ref_counts(monomial(eq.l), m_dst_l_counts);
-        init_overlap_iterator(eq_id, monomial(eq.r));
+        init_subset_iterator(eq_id, monomial(eq.r));
         return m_eq_occurs;
     }
 
@@ -442,12 +447,37 @@ namespace euf {
         m_eq_occurs.reset();
         for (auto n : m)
             m_eq_occurs.append(n->root->eqs);
+        compress_eq_occurs(eq_id);
+    }
 
-        // prune m_eq_occurs to single occurrences
+    //
+    // add all but one of the use lists. Identify the largest use list and skip it.
+    // The rationale is that [a, b] is a subset of [a, b, c, d, e] if
+    // it has at least two elements (otherwise it would not apply as a rewrite over AC).
+    // then one of the two elements has to be in the set of [a, b, c, d, e] \ { x }
+    // where x is an arbitrary value from a, b, c, d, e. Not a two-element watch list, but still.
+    //
+    void ac_plugin::init_subset_iterator(unsigned eq_id, monomial_t const& m) {
+        unsigned max_use = 0;
+        node* max_n = nullptr;
+        for (auto n : m)
+            if (n->root->eqs.size() >= max_use)
+                 max_n = n, max_use = n->root->eqs.size();
+        // found node that occurs in fewest rhs
+        VERIFY(max_n);
+        m_eq_occurs.reset();
+        for (auto n : m)
+            if (n != max_n)
+                m_eq_occurs.append(n->root->eqs);
+        compress_eq_occurs(eq_id);
+    }
+
+    // prune m_eq_occurs to single occurrences
+    void ac_plugin::compress_eq_occurs(unsigned eq_id) {
         unsigned j = 0;
+        m_eq_seen.reserve(m_eqs.size() + 1, false);
         for (unsigned i = 0; i < m_eq_occurs.size(); ++i) {
-            unsigned id = m_eq_occurs[i];
-            m_eq_seen.reserve(id + 1, false);
+            unsigned id = m_eq_occurs[i];            
             if (m_eq_seen[id])
                 continue;
             if (id == eq_id)
@@ -497,6 +527,8 @@ namespace euf {
         auto& src = m_eqs[src_eq];
         auto& dst = m_eqs[dst_eq];
 
+        TRACE("plugin", tout << "forward simplify " << eq_pp(*this, src) << " " << eq_pp(*this, dst) << "\n");
+
         if (!can_be_subset(monomial(src.l), monomial(dst.r)))
             return;
 
@@ -530,6 +562,7 @@ namespace euf {
             m_eqs[dst_eq].r = new_r;
             m_eqs[dst_eq].j = justify_rewrite(src_eq, dst_eq);
             push_undo(is_update_eq);
+            TRACE("plugin", tout << "rewritten to " << m_pp(*this, monomial(new_r)) << "\n");
         }
         m_src_r.shrink(src_r_size);
     }
@@ -543,13 +576,14 @@ namespace euf {
         //
         // dst_ids, dst_count contain rhs of dst_eq
         //
-
+        TRACE("plugin", tout << "backward simplify " << eq_pp(*this, src) << " " << eq_pp(*this, dst) << "\n");
         // check that src.l is a subset of dst.r
         if (!can_be_subset(monomial(src.l), monomial(dst.r)))
             return false;
         if (!is_subset(m_dst_l_counts, m_src_l_counts, monomial(src.l)))
             return false;
         if (backward_subsumes(src_eq, dst_eq)) {
+            
             set_status(dst_eq, eq_status::is_dead);
             return true;
         }
@@ -558,6 +592,7 @@ namespace euf {
         m_update_eq_trail.push_back({ dst_eq, m_eqs[dst_eq] });
         m_eqs[dst_eq].r = new_r;
         m_eqs[dst_eq].j = justify_rewrite(src_eq, dst_eq);
+        TRACE("plugin", tout << "rewritten to " << m_pp(*this, monomial(new_r)) << "\n");
         push_undo(is_update_eq);
         return true;
     }
@@ -769,7 +804,7 @@ namespace euf {
             change = false;
             auto & m = monomial(s.m);
             init_ref_counts(m, m_dst_l_counts);
-            init_overlap_iterator(UINT_MAX, m);
+            init_subset_iterator(UINT_MAX, m);
             for (auto eq : m_eq_occurs) {
                 auto& src = m_eqs[eq];
                 if (!can_be_subset(monomial(src.l), m))

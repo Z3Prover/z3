@@ -29,6 +29,7 @@ for p in parents(xyzz):
 
 #pragma once
 
+#include <iostream>
 #include "ast/euf/euf_plugin.h"
 
 namespace euf {
@@ -223,6 +224,8 @@ namespace euf {
         unsigned_vector const& backward_iterator(unsigned eq);
         void init_ref_counts(monomial_t const& monomial, ref_counts& counts);
         void init_overlap_iterator(unsigned eq, monomial_t const& m);
+        void init_subset_iterator(unsigned eq, monomial_t const& m);
+        void compress_eq_occurs(unsigned eq_id);
         // check that src is a subset of dst, where dst_counts are precomputed
         bool is_subset(ref_counts const& dst_counts, ref_counts& src_counts, monomial_t const& src);
 
@@ -243,6 +246,7 @@ namespace euf {
 
         std::ostream& display_monomial(std::ostream& out, monomial_t const& m) const;
         std::ostream& display_equation(std::ostream& out, eq const& e) const;
+
 
     public:
 
@@ -267,5 +271,20 @@ namespace euf {
         std::ostream& display(std::ostream& out) const override;
 
         void set_undo(std::function<void(void)> u) { m_undo_notify = u; }
+
+        struct eq_pp {
+            ac_plugin& p; eq const& e; 
+            eq_pp(ac_plugin& p, eq const& e) : p(p), e(e) {}; 
+            std::ostream& display(std::ostream& out) const { return p.display_equation(out, e); }
+        };
+
+        struct m_pp { 
+            ac_plugin& p; monomial_t const& m; 
+            m_pp(ac_plugin& p, monomial_t const& m) : p(p), m(m) {} 
+            std::ostream& display(std::ostream& out) const { return p.display_monomial(out, m); }
+        };
     };
+
+    inline std::ostream& operator<<(std::ostream& out, ac_plugin::eq_pp const& d) { return d.display(out); }
+    inline std::ostream& operator<<(std::ostream& out, ac_plugin::m_pp const& d) { return d.display(out); }
 }
