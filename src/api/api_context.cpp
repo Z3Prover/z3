@@ -78,6 +78,11 @@ namespace api {
             m().dec_ref(a);
     }
 
+    // flush_objects can only be called in the main thread.
+    // This ensures that the calls to m().dec_ref() and dealloc(o)
+    // only happens in the main thread.
+    // Calls to dec_ref are allowed in other threads when m_concurrent_dec_ref is
+    // set to true.
     void context::flush_objects() {
 #ifndef SINGLE_THREAD
         if (!m_concurrent_dec_ref)
