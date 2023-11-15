@@ -75,13 +75,16 @@ namespace euf {
             uint64_t m_filter = 0;
         };
 
+        enum eq_status {
+            processed, to_simplify, is_dead
+        };
+
         // represent equalities added by merge_eh and by superposition
         struct eq {
             eq(unsigned l, unsigned r, justification j):
                 l(l), r(r), j(j) {}
             unsigned l, r;              // refer to monomials
-            bool is_processed = false;  // true if the equality is in the processed set
-            bool is_alive = true; 
+            eq_status status = to_simplify;
             justification j;            // justification for equality
         };
 
@@ -94,7 +97,7 @@ namespace euf {
 
         struct monomial_t {
             ptr_vector<node> m_nodes;
-            bloom m_filter;
+            bloom m_bloom;
             node* operator[](unsigned i) const { return m_nodes[i]; }
             unsigned size() const { return m_nodes.size(); }
             node* const* begin() const { return m_nodes.begin(); }
@@ -186,34 +189,50 @@ namespace euf {
         bool is_sorted(monomial_t const& monomial) const;
         uint64_t filter(monomial_t& m);
         bool can_be_subset(monomial_t& subset, monomial_t& superset);
-        bool subsumes(unsigned src_eq, unsigned dst_eq);
+        bool are_equal(ptr_vector<node> const& a, ptr_vector<node> const& b);
+        bool are_equal(monomial_t& a, monomial_t& b);
+        bool backward_subsumes(unsigned src_eq, unsigned dst_eq);
+        bool forward_subsumes(unsigned src_eq, unsigned dst_eq);
 
         void init_equation(eq const& e);
         bool orient_equation(eq& e);
-        void set_processed(unsigned eq_id, bool f);
+        void set_status(unsigned eq_id, eq_status s);
         unsigned pick_next_eq();
 
         void forward_simplify(unsigned eq_id, unsigned using_eq);
-        void backward_simplify(unsigned eq_id, unsigned using_eq);
+        bool backward_simplify(unsigned eq_id, unsigned using_eq);
         void superpose(unsigned src_eq, unsigned dst_eq);
         
-        ptr_vector<node> m_src_r, m_src_l, m_dst_r;
-        unsigned_vector m_src_ids, m_src_count, m_dst_ids, m_dst_count;
+        ptr_vector<node> m_src_r, m_src_l, m_dst_r, m_dst_l;
+
+        struct ref_counts {
+            unsigned_vector ids;
+            unsigned_vector counts;
+            void reset() { for (auto idx : ids) counts[idx] = 0; ids.reset(); }
+            unsigned operator[](unsigned idx) const { return counts.get(idx, 0); }
+            void inc(unsigned idx, unsigned amount) { counts.reserve(idx + 1, 0); ids.push_back(idx);  counts[idx] += amount; }
+            unsigned const* begin() const { return ids.begin(); }
+            unsigned const* end() const { return ids.end(); }
+        };
+        ref_counts m_src_l_counts, m_dst_l_counts, m_src_r_counts, m_dst_r_counts, m_eq_counts;
         unsigned_vector m_eq_occurs;
         bool_vector m_eq_seen;
-        bool m_backward_simplified = false;
 
         unsigned_vector const& forward_iterator(unsigned eq);
         unsigned_vector const& superpose_iterator(unsigned eq);
         unsigned_vector const& backward_iterator(unsigned eq);
-        void init_ids_counts(monomial_t const& monomial, unsigned_vector& ids, unsigned_vector& counts);
-        void reset_ids_counts(unsigned_vector& ids, unsigned_vector& counts);
+        void init_ref_counts(monomial_t const& monomial, ref_counts& counts);
         void init_overlap_iterator(unsigned eq, monomial_t const& m);
-        bool is_subset(monomial_t const& dst);
+        // check that src is a subset of dst, where dst_counts are precomputed
+        bool is_subset(ref_counts const& dst_counts, ref_counts& src_counts, monomial_t const& src);
+
+        // check that dst is a superset of dst, where src_counts are precomputed
+        bool is_superset(ref_counts const& src_counts, ref_counts& dst_counts, monomial_t const& dst);
         unsigned rewrite(monomial_t const& src_r, monomial_t const& dst_r);
 
-        bool is_to_simplify(unsigned eq) const { return !m_eqs[eq].is_processed && m_eqs[eq].is_alive; }
-        bool is_processed(unsigned eq) const { return m_eqs[eq].is_processed && m_eqs[eq].is_alive; }
+        bool is_to_simplify(unsigned eq) const { return m_eqs[eq].status == eq_status::to_simplify; }
+        bool is_processed(unsigned eq) const { return m_eqs[eq].status == eq_status::processed; }
+        bool is_alive(unsigned eq) const { return m_eqs[eq].status != eq_status::is_dead; }
 
         justification justify_rewrite(unsigned eq1, unsigned eq2);
         justification::dependency* justify_equation(unsigned eq);
