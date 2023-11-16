@@ -38,10 +38,9 @@ namespace api {
     void object::inc_ref() { ++m_ref_count; }
 
     void object::dec_ref() { SASSERT(m_ref_count > 0); if (--m_ref_count == 0) m_context.del_object(this); }
-
+    
     unsigned context::add_object(api::object* o) {
         flush_objects();
-        lock_guard lock(m_mux);
         unsigned id = m_allocated_objects.size();
         if (!m_free_object_ids.empty()) {
             id = m_free_object_ids.back();
@@ -87,12 +86,14 @@ namespace api {
     void context::flush_objects() {
 #ifndef SINGLE_THREAD
         if (!m_concurrent_dec_ref)
-            return;
-        lock_guard lock(m_mux);
-        if (m_asts_to_flush.empty() && m_objects_to_flush.empty())
-            return;
-        m_asts_to_flush2.swap(m_asts_to_flush);
-        m_objects_to_flush2.swap(m_objects_to_flush);
+            return;        
+        {
+            lock_guard lock(m_mux);
+            if (m_asts_to_flush.empty() && m_objects_to_flush.empty())
+                return;
+            m_asts_to_flush2.swap(m_asts_to_flush);
+            m_objects_to_flush2.swap(m_objects_to_flush);
+        }
         for (ast* a : m_asts_to_flush2)
             m().dec_ref(a);
         for (auto* o : m_objects_to_flush2) {
