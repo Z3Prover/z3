@@ -29,6 +29,7 @@ Revision History:
 #include "ast/rewriter/rewriter.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/scoped_proof.h"
+#include "ast/seq_decl_plugin.h"
 #include "util/gparams.h"
 #include "model/model_evaluator.h"
 #include "model/model_pp.h"
@@ -405,8 +406,18 @@ public:
         return true;
     }
 
+    bool has_unsupported_th(const expr_ref_vector fmls) {
+        seq_util seq(m);
+        expr_ref e(m);
+        e = mk_and(fmls);
+        return any_of(subterms::all(e), [&](expr* c) { return seq.is_char(c) || seq.is_seq(c); });
+    }
     void operator()(bool force_elim, app_ref_vector& vars, model& model, expr_ref_vector& fmls) {
-            if (m_use_qel) {
+            //don't use mbp_qel on some theories where model evaluation is
+            //incomplete This is not a limitation of qel. Fix this either by
+            //making mbp choices less dependent on the model evaluation methods
+            //or fix theory rewriters to make terms evalution complete
+            if (m_use_qel && !has_unsupported_th(fmls)) {
                 bool dsub = m_dont_sub;
                 m_dont_sub = !force_elim;
                 expr_ref fml(m);
