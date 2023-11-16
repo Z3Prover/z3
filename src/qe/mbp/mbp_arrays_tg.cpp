@@ -77,8 +77,7 @@ struct mbp_array_tg::impl {
     }
 
     // Returns true if e has a subterm store(v) where v is a variable to be
-    // eliminated. Assumes that has_store has already been called for
-    // subexpressions of e
+    // eliminated. Recurses on subexpressions of ee
     bool has_stores(expr *e) {
         if (m_has_stores.is_marked(e)) return true;
         if (!is_app(e)) return false;
@@ -86,8 +85,13 @@ struct mbp_array_tg::impl {
             m_has_stores.mark(e, true);
             return true;
         }
-        for (auto c : *(to_app(e))) {
-            if (m_has_stores.is_marked(c)) {
+        if (any_of(*(to_app(e)), [&](expr* c) { return m_has_stores.is_marked(c); })) {
+            m_has_stores.mark(e, true);
+            return true;
+        }
+        //recurse
+        for(auto c : *(to_app(e))) {
+            if (has_stores(c)) {
                 m_has_stores.mark(e, true);
                 return true;
             }
@@ -325,10 +329,10 @@ struct mbp_array_tg::impl {
                     continue;
                 }
             }
-            if (m_use_mdl && is_rd_wr(term)) {
+            if (m_use_mdl && is_rd_wr(nt)) {
                 mark_seen(term);
                 progress = true;
-                elimrdwr(term);
+                elimrdwr(nt);
                 continue;
             }
         }
