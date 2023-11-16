@@ -316,7 +316,7 @@ public:
         lar_term t = lia.lra.unfold_nested_subterms(m_t);
         auto pol = t.coeffs_as_vector();
         m_t.clear();
-        if (pol.size() == 1) {
+        if (pol.size() == 1 && is_int(pol[0].second)) {
             TRACE("gomory_cut_detail", tout << "pol.size() is 1" << std::endl;);
             auto const& [a, v] = pol[0];
             lp_assert(is_int(v));
