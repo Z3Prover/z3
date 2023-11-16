@@ -53,12 +53,15 @@ More notes:
    after merge
    n' + k = j + k, could be that n' + k < j + k < n + k in term ordering because n' < j, m < n
 
-   TODOs:
+TODOs:
 
 - Efficiency of handling shared terms.
   - The shared terms hash table is not incremental. 
     It could be made incremental by updating it on every merge similar to how the egraph handles it.
 - V2 using multiplicities instead of repeated values in monomials.
+- Squash trail updates when equations or monomials are modified within the same epoque. 
+  - by an epoque counter that can be updated by the egraph class whenever there is a push/pop.
+  - store the epoque as a tick on equations and possibly when updating monomials on equations.
 
 --*/
 
@@ -159,9 +162,19 @@ namespace euf {
     }
 
     std::ostream& ac_plugin::display_equation(std::ostream& out, eq const& e) const {
+        display_status(out, e.status) << " ";
         display_monomial(out, monomial(e.l));
-        out << " == ";
+        out << "== ";
         display_monomial(out, monomial(e.r));
+        return out;
+    }
+
+    std::ostream& ac_plugin::display_status(std::ostream& out, eq_status s) const {
+        switch (s) {
+        case eq_status::is_dead: out << "d"; break;
+        case eq_status::processed: out << "p"; break;
+        case eq_status::to_simplify: out << "s"; break;
+        }
         return out;
     }
 
@@ -367,7 +380,7 @@ namespace euf {
             // simplify processed using eq
             for (auto other_eq : forward_iterator(eq_id))
                 if (is_processed(other_eq))
-                    forward_simplify(other_eq, eq_id);
+                    forward_simplify(eq_id, other_eq);
 
             // superpose, create new equations
             for (auto other_eq : superpose_iterator(eq_id))
@@ -377,7 +390,7 @@ namespace euf {
             // simplify to_simplify using eq
             for (auto other_eq : forward_iterator(eq_id))
                 if (is_to_simplify(other_eq))
-                    forward_simplify(other_eq, eq_id);
+                    forward_simplify(eq_id, other_eq);
 
             set_status(eq_id, eq_status::processed);
         }
@@ -515,7 +528,7 @@ namespace euf {
             counts.inc(n->root_id(), 1);        
     }
 
-    void ac_plugin::forward_simplify(unsigned dst_eq, unsigned src_eq) {
+    void ac_plugin::forward_simplify(unsigned src_eq, unsigned dst_eq) {
 
         if (src_eq == dst_eq)
             return;
@@ -529,13 +542,13 @@ namespace euf {
 
         TRACE("plugin", tout << "forward simplify " << eq_pp(*this, src) << " " << eq_pp(*this, dst) << "\n");
 
-        if (!can_be_subset(monomial(src.l), monomial(dst.r)))
-            return;
-
         if (forward_subsumes(src_eq, dst_eq)) {
             set_status(dst_eq, eq_status::is_dead);
             return;
         }
+
+        if (!can_be_subset(monomial(src.l), monomial(dst.r)))
+            return;
 
         m_dst_r_counts.reset();
 
@@ -691,11 +704,11 @@ namespace euf {
         return true;
     }
 
-    // check that dst is a superset of dst, where src_counts are precomputed
+    // check that dst is a superset of src, where src_counts are precomputed
     bool ac_plugin::is_superset(ref_counts const& src_counts, ref_counts& dst_counts, monomial_t const& dst) {
         SASSERT(&dst_counts != &src_counts);
         init_ref_counts(dst, dst_counts);
-        return all_of(src_counts, [&](unsigned idx) { return dst_counts[idx] <= src_counts[idx]; });
+        return all_of(src_counts, [&](unsigned idx) { return src_counts[idx] <= dst_counts[idx]; });
     }
 
     void ac_plugin::superpose(unsigned src_eq, unsigned dst_eq) {

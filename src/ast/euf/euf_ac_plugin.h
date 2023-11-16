@@ -246,6 +246,7 @@ namespace euf {
 
         std::ostream& display_monomial(std::ostream& out, monomial_t const& m) const;
         std::ostream& display_equation(std::ostream& out, eq const& e) const;
+        std::ostream& display_status(std::ostream& out, eq_status s) const;
 
 
     public:
@@ -275,6 +276,7 @@ namespace euf {
         struct eq_pp {
             ac_plugin& p; eq const& e; 
             eq_pp(ac_plugin& p, eq const& e) : p(p), e(e) {}; 
+            eq_pp(ac_plugin& p, unsigned eq_id): p(p), e(p.m_eqs[eq_id]) {}
             std::ostream& display(std::ostream& out) const { return p.display_equation(out, e); }
         };
 
