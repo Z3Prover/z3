@@ -36,7 +36,7 @@ namespace euf {
 
     class ac_plugin : public plugin {
 
-        // enode structure for AC equivalenes
+        // enode structure for AC equivalences
         struct node {
             enode* n;        // associated enode
             node* root;      // path compressed root

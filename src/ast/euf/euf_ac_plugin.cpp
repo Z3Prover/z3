@@ -21,7 +21,7 @@ Completion modulo AC
 
 
   Notes: 
-  - Some equalities come from shared terms, so do not.
+  - Some equalities come from shared terms, some do not.
   
   - V2 can use multiplicities of elements to handle larger domains.
     - e.g. 3x + 100000y
@@ -77,7 +77,11 @@ namespace euf {
     {}
 
     void ac_plugin::register_node(enode* n) {
-        // no-op
+        if (is_op(n))
+            return;
+        for (auto arg : enode_args(n))
+            if (is_op(arg))
+                register_shared(arg); // TODO optimization to avoid registering shared terms twice
     }
 
     void ac_plugin::register_shared(enode* n) {
@@ -476,7 +480,7 @@ namespace euf {
         for (auto n : m)
             if (n->root->eqs.size() >= max_use)
                  max_n = n, max_use = n->root->eqs.size();
-        // found node that occurs in fewest rhs
+        // found node that occurs in most eqs
         VERIFY(max_n);
         m_eq_occurs.reset();
         for (auto n : m)
@@ -517,7 +521,7 @@ namespace euf {
         for (auto n : monomial(eq.l))
             if (n->root->eqs.size() < min_r)
                 min_n = n, min_r = n->root->eqs.size();
-        // found node that occurs in fewest rhs
+        // found node that occurs in fewest eqs
         VERIFY(min_n);
         return min_n->eqs;
     }
