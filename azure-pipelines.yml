@@ -178,7 +178,7 @@ jobs:
     - ${{if eq(variables['runTests'], 'True')}}:
       - template: scripts/test-examples-cmake.yml
 #   - template: scripts/test-jupyter.yml
-#   - template: scripts/test-java-cmake.yml
+    - template: scripts/test-java-cmake.yml
     - ${{if eq(variables['runTests'], 'True')}}:
       - template: scripts/test-regressions.yml
          
