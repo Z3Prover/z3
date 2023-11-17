@@ -109,7 +109,7 @@ struct mbp_array_tg::impl {
     bool is_rd_wr(expr *t) {
         expr* a, *idx;
         return m_array_util.is_select1(t, a, idx) &&
-            m_array_util.is_store(a) &
+            m_array_util.is_store(a) &&
             has_stores(a);        
     }
 
@@ -208,7 +208,7 @@ struct mbp_array_tg::impl {
         if (in) {
             SASSERT(m_mdl.are_equal(j, eq_index));
             peq p_new =
-                mk_wr_peq(to_app(a, p.rhs(), indices);
+                mk_wr_peq(a, p.rhs(), indices);
             m_tg.add_eq(j, eq_index);
             expr_ref p_new_expr(m);
             p_new_expr = is_neg ? m.mk_not(p_new.mk_peq()) : p_new.mk_peq();
