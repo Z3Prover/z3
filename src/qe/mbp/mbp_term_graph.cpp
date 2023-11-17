@@ -121,6 +121,8 @@ class term {
     unsigned m_is_peq : 1;
     // caches whether m_expr is the child of not
     unsigned m_is_neq_child : 1;
+    // caches whether m_expr is peq and the child of not
+    unsigned m_is_npeq_child : 1;
 
     // -- the term is a compound term can be rewritten to be ground or it is a
     // ground constant
@@ -170,6 +172,7 @@ class term {
         : m_expr(v), m_root(this), m_repr(nullptr), m_next(this), m_mark(false),
           m_mark2(false), m_interpreted(false),
           m_is_eq(m_expr.get_manager().is_eq(m_expr)), m_is_peq(false),
+          m_is_npeq_child(false),
           m_is_neq_child(false), m_cgr(0), m_gr(0) {
         m_is_neq = m_expr.get_manager().is_not(m_expr) &&
                    m_expr.get_manager().is_eq(to_app(m_expr)->get_arg(0));
@@ -244,7 +247,9 @@ class term {
     bool is_eq_or_peq() const { return m_is_eq || m_is_peq; }
     bool is_neq() const { return m_is_neq; }
     void set_neq_child() { m_is_neq_child = true; }
+    void set_npeq_child() { m_is_npeq_child = true; }
     bool is_neq_child() const { return m_is_neq_child; }
+    bool is_npeq_child() const { return m_is_npeq_child; }
     unsigned get_decl_id() const {
         return is_app(m_expr) ? to_app(m_expr)->get_decl()->get_id()
                               : m_expr->get_id();
@@ -491,11 +496,11 @@ void term_graph::get_terms(expr_ref_vector &res, bool exclude_cground) {
     std::function<bool(term *)> fil = nullptr;
     if (exclude_cground) {
         fil = [](term *t) {
-            return !t->is_neq_child() && (t->is_eq_or_peq() || !t->is_cgr());
+            return !t->is_neq_child() && !t->is_npeq_child() && (t->is_eq_or_peq() || !t->is_cgr());
         };
     }
     else {
-        fil = [](term *t) { return !t->is_neq_child(); };
+        fil = [](term *t) { return !t->is_neq_child() && !t->is_npeq_child(); };
     }
     auto terms = m_terms.filter_pure(fil);
     res.resize(terms.size());
@@ -574,6 +579,11 @@ term *term_graph::internalize_term(expr *t) {
     }
     merge_flush();
     SASSERT(res);
+    if (m.is_not(t) && is_app(to_app(t)->get_arg(0)) && is_partial_eq(to_app(to_app(t)->get_arg(0)))) {
+        term* p = get_term(to_app(t)->get_arg(0));
+        SASSERT(p);
+        p->set_npeq_child();
+    }
     return res;
 }
 

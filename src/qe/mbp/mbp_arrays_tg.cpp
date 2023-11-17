@@ -77,8 +77,7 @@ struct mbp_array_tg::impl {
     }
 
     // Returns true if e has a subterm store(v) where v is a variable to be
-    // eliminated. Assumes that has_store has already been called for
-    // subexpressions of e
+    // eliminated. Recurses on subexpressions of ee
     bool has_stores(expr *e) {
         if (m_has_stores.is_marked(e)) return true;
         if (!is_app(e)) return false;
@@ -86,8 +85,13 @@ struct mbp_array_tg::impl {
             m_has_stores.mark(e, true);
             return true;
         }
-        for (auto c : *(to_app(e))) {
-            if (m_has_stores.is_marked(c)) {
+        if (any_of(*(to_app(e)), [&](expr* c) { return m_has_stores.is_marked(c); })) {
+            m_has_stores.mark(e, true);
+            return true;
+        }
+        //recurse
+        for(auto c : *(to_app(e))) {
+            if (has_stores(c)) {
                 m_has_stores.mark(e, true);
                 return true;
             }
@@ -110,7 +114,10 @@ struct mbp_array_tg::impl {
         return m_array_util.is_array(lhs) && m_array_util.is_array(rhs) &&
                (has_var(lhs) || has_var(rhs));
     }
-
+    bool is_neg_peq(expr *e) {
+        expr* ne;
+        return m.is_not(e, ne) && is_implicit_peq(ne);
+    }
     void mark_seen(expr *t) { m_seen.mark(t); }
     bool is_seen(expr *t) { return m_seen.is_marked(t); }
     void mark_seen(expr *t1, expr *t2) { m_seenp.insert(expr_pair(t1, t2)); }
@@ -151,7 +158,7 @@ struct mbp_array_tg::impl {
     void elimwreq(peq p, bool is_neg) {
         SASSERT(is_arr_write(p.lhs()));
         TRACE("mbp_tg",
-              tout << "applying elimwreq on " << expr_ref(p.mk_peq(), m););
+              tout << "applying elimwreq on " << expr_ref(p.mk_peq(), m) << " is neg: " << is_neg;);
         vector<expr_ref_vector> indices;
         expr *j = to_app(p.lhs())->get_arg(1);
         expr *elem = to_app(p.lhs())->get_arg(2);
@@ -178,7 +185,7 @@ struct mbp_array_tg::impl {
             expr_ref p_new_expr(m);
             p_new_expr = is_neg ? m.mk_not(p_new.mk_peq()) : p_new.mk_peq();
             m_tg.add_lit(p_new_expr);
-            m_tg.add_eq(p_new_expr, p.mk_peq());
+            m_tg.add_eq(p_new.mk_peq(), p.mk_peq());
             return;
         }
         for (expr *d : deq) { m_tg.add_deq(j, d); }
@@ -193,14 +200,13 @@ struct mbp_array_tg::impl {
             m_tg.add_eq(rd, elem);
             m_tg.add_eq(p.mk_peq(), p_new.mk_peq());
         } else {
-            SASSERT(m_mdl.is_false(p_new.mk_peq()) ||
-                    !m_mdl.are_equal(rd, elem));
-            if (m_mdl.is_false(p_new.mk_peq())) {
+            expr_ref rd_eq(m.mk_eq(rd, elem), m);
+            if (m_mdl.is_false(rd_eq)) { m_tg.add_deq(rd, elem); }
+            else {
                 expr_ref npeq(mk_not(p_new.mk_peq()), m);
                 m_tg.add_lit(npeq);
                 m_tg.add_eq(p.mk_peq(), p_new.mk_peq());
             }
-            if (!m_mdl.are_equal(rd, elem)) { m_tg.add_deq(rd, elem); }
         }
     }
 
@@ -281,13 +287,16 @@ struct mbp_array_tg::impl {
             if (m_seen.is_marked(term)) continue;
             if (m_tg.is_cgr(term)) continue;
             TRACE("mbp_tg", tout << "processing " << expr_ref(term, m););
-            if (is_implicit_peq(term)) {
+            if (is_implicit_peq(term) || is_neg_peq(term)) {
                 // rewrite array eq as peq
                 mark_seen(term);
                 progress = true;
-                e = mk_wr_peq(to_app(term)->get_arg(0),
-                              to_app(term)->get_arg(1))
+                nt = term;
+                bool is_not = m.is_not(term, nt);
+                e = mk_wr_peq(to_app(nt)->get_arg(0),
+                              to_app(nt)->get_arg(1))
                         .mk_peq();
+                e = is_not ? m.mk_not(e) : e;
                 m_tg.add_lit(e);
                 m_tg.add_eq(term, e);
                 continue;
@@ -303,9 +312,10 @@ struct mbp_array_tg::impl {
                     elimwreq(p, is_neg);
                     continue;
                 }
-                if (!m_array_util.is_store(p.lhs()) && has_var(p.lhs())) {
+                if (!m_array_util.is_store(p.lhs()) && has_var(p.lhs()) && !is_neg) {
                     // TODO: don't apply this rule if vars in p.lhs() also
                     // appear in p.rhs()
+
                     mark_seen(p.lhs());
                     mark_seen(nt);
                     mark_seen(term);
@@ -314,7 +324,7 @@ struct mbp_array_tg::impl {
                     continue;
                 }
                 // eliminate eq when the variable is on the rhs
-                if (!m_array_util.is_store(p.rhs()) && has_var(p.rhs())) {
+                if (!m_array_util.is_store(p.rhs()) && has_var(p.rhs()) && !is_neg) {
                     mark_seen(p.rhs());
                     p.get_diff_indices(indices);
                     peq p_new = mk_wr_peq(p.rhs(), p.lhs(), indices);
@@ -325,10 +335,10 @@ struct mbp_array_tg::impl {
                     continue;
                 }
             }
-            if (m_use_mdl && is_rd_wr(term)) {
+            if (m_use_mdl && is_rd_wr(nt)) {
                 mark_seen(term);
                 progress = true;
-                elimrdwr(term);
+                elimrdwr(nt);
                 continue;
             }
         }

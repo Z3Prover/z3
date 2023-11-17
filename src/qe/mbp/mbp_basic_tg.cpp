@@ -69,6 +69,7 @@ struct mbp_basic_tg::impl {
         m_tg.get_terms(terms, false);
         for (expr *term : terms) {
             if (is_seen(term)) continue;
+            TRACE("mbp_tg", tout << "Processing " << expr_ref(term, m) << "\n";);
             if (m.is_ite(term, c, th, el) && should_split(c)) {
                 mark_seen(term);
                 progress = true;
