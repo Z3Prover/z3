@@ -2,6 +2,12 @@
 #include <string.h>
 #include <assert.h>
 
+#ifndef __STDC_NO_ATOMICS__
+#include <stdatomic.h>
+#else
+#define _Atomic(T) T
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -118,7 +124,7 @@ int compare_pointers(void* pt1, void* pt2) {
    blocks that get copied. */
 typedef struct {
   Z3_context ctx;
-  unsigned long obj_count;
+  _Atomic(unsigned long) obj_count;
 } Z3_context_plus_data;
 
 /* A context is wrapped to an OCaml value by storing a pointer

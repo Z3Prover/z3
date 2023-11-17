@@ -2083,6 +2083,16 @@ extern "C" {
                                             );
 
     /**
+       \brief Retrieve the number of fields of a constructor
+
+       \param c logical context.
+       \param constr constructor.
+
+       def_API('Z3_constructor_num_fields', UINT, (_in(CONTEXT), _in(CONSTRUCTOR)))
+    */
+    unsigned Z3_API Z3_constructor_num_fields(Z3_context c, Z3_constructor constr);
+
+    /**
        \brief Reclaim memory allocated to constructor.
 
        \param c logical context.
