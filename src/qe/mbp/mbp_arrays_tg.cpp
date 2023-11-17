@@ -296,7 +296,7 @@ struct mbp_array_tg::impl {
                 e = mk_wr_peq(to_app(nt)->get_arg(0),
                               to_app(nt)->get_arg(1))
                         .mk_peq();
-                e = is_not ? m.mk_not(e) : e;
+                e = is_not ? m.mk_not(e) : e.get();
                 m_tg.add_lit(e);
                 m_tg.add_eq(term, e);
                 continue;
