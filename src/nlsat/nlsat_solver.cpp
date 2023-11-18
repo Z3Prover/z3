@@ -1491,6 +1491,7 @@ namespace nlsat {
             m_bk = 0;
             m_xk = null_var;
             m_conflicts = 0;
+            m_next_conflict = 100;
 
             while (true) {
                 CASSERT("nlsat", check_satisfied());
@@ -1527,6 +1528,7 @@ namespace nlsat {
                         return l_false;                    
                     if (m_conflicts >= m_max_conflicts)
                         return l_undef;
+                    log();
                 }
                
                 if (m_xk == null_var) {
@@ -1539,6 +1541,14 @@ namespace nlsat {
                     select_witness();
                 }
             }
+        }
+
+        unsigned m_next_conflict = 100;
+        void log() {
+            if (m_conflicts < m_next_conflict)
+                return;
+            m_next_conflict += 100;
+            IF_VERBOSE(2, verbose_stream() << "(nlsat :conflicts " << m_conflicts << " :decisions " << m_decisions << " :propagations " << m_propagations << " :clauses " << m_clauses.size() << " :learned " << m_learned.size() << ")\n");
         }
 
 
