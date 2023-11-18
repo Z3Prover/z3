@@ -61,8 +61,15 @@ Revision History:
 namespace smt {
 
     class model_generator;
+    class context;
 
     struct cancel_exception {};
+
+    struct enode_pp {
+        context const& ctx;
+        enode*   n;
+        enode_pp(enode* n, context const& ctx): ctx(ctx), n(n) {}
+    };
 
     class context {
         friend class model_generator;
@@ -1368,6 +1375,8 @@ namespace smt {
 
         void display_asserted_formulas(std::ostream & out) const;
 
+        enode_pp pp(enode* n) { return enode_pp(n, *this); }
+
         std::ostream& display_literal(std::ostream & out, literal l) const;
 
         std::ostream& display_detailed_literal(std::ostream & out, literal l) const { return smt::display(out, l, m, m_bool_var2expr.data()); }
@@ -1844,11 +1853,6 @@ namespace smt {
 
     std::ostream& operator<<(std::ostream& out, enode_eq_pp const& p);
 
-    struct enode_pp {
-        context const& ctx;
-        enode*   n;
-        enode_pp(enode* n, context const& ctx): ctx(ctx), n(n) {}
-    };
 
     std::ostream& operator<<(std::ostream& out, enode_pp const& p);
 
