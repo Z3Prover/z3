@@ -477,14 +477,13 @@ namespace euf {
     void ac_plugin::init_subset_iterator(unsigned eq_id, monomial_t const& m) {
         unsigned max_use = 0;
         node* max_n = nullptr;
+        bool has_two = false;
         for (auto n : m)
-            if (n->root->eqs.size() >= max_use)
-                 max_n = n, max_use = n->root->eqs.size();
-        // found node that occurs in most eqs
-        VERIFY(max_n);
+            if (n->root->eqs.size() > max_use)
+                max_n = n->root, max_use = n->root->eqs.size(), has_two |= max_n != nullptr;
         m_eq_occurs.reset();
         for (auto n : m)
-            if (n != max_n)
+            if (n->root != max_n && has_two)
                 m_eq_occurs.append(n->root->eqs);
         compress_eq_occurs(eq_id);
     }
