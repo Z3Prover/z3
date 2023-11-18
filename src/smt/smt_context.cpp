@@ -1672,12 +1672,7 @@ namespace smt {
     }
 
     bool context::can_theories_propagate() const {
-        for (theory* t : m_theory_set) {
-            if (t->can_propagate()) {
-                return true;
-            }
-        }
-        return false;
+        return any_of(m_theory_set, [&](theory* t) { return t->can_propagate(); });
     }
 
     bool context::can_propagate() const {
