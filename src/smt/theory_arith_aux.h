@@ -370,8 +370,8 @@ namespace smt {
 
     
     template<typename Ext>
-    void theory_arith<Ext>::bound::display(theory_arith<Ext> const& th, std::ostream& out) const {
-        out << "v" << get_var() << " " << get_bound_kind() << " " << get_value();
+    std::ostream& theory_arith<Ext>::bound::display(theory_arith<Ext> const& th, std::ostream& out) const {
+        return out << "v" << get_var() << " " << get_bound_kind() << " " << get_value();
     }
 
 
@@ -414,11 +414,10 @@ namespace smt {
     }
 
     template<typename Ext>
-    void theory_arith<Ext>::atom::display(theory_arith<Ext> const& th, std::ostream& out) const {
+    std::ostream& theory_arith<Ext>::atom::display(theory_arith<Ext> const& th, std::ostream& out) const {
         literal l(get_bool_var(), !m_is_true);
-        // out << "v" << bound::get_var() << " " << bound::get_bound_kind() << " " << get_k() << " ";
-        // out << l << ":";
         th.ctx.display_detailed_literal(out, l);
+        return out;
     }
 
     // -----------------------------------
@@ -428,10 +427,10 @@ namespace smt {
     // -----------------------------------
 
     template<typename Ext>
-    void theory_arith<Ext>::eq_bound::display(theory_arith<Ext> const& th, std::ostream& out) const {        
+    std::ostream& theory_arith<Ext>::eq_bound::display(theory_arith<Ext> const& th, std::ostream& out) const {
         ast_manager& m = th.get_manager();
-        out << "#" << m_lhs->get_owner_id() << " " << mk_pp(m_lhs->get_expr(), m) << " = "
-            << "#" << m_rhs->get_owner_id() << " " << mk_pp(m_rhs->get_expr(), m);
+        return out << "#" << m_lhs->get_owner_id() << " " << mk_pp(m_lhs->get_expr(), m) << " = "
+                   << "#" << m_rhs->get_owner_id() << " " << mk_pp(m_rhs->get_expr(), m);
     }
 
     // -----------------------------------
@@ -752,7 +751,7 @@ namespace smt {
     }
 
     template<typename Ext>
-    void theory_arith<Ext>::derived_bound::display(theory_arith<Ext> const& th, std::ostream& out) const {
+    std::ostream& theory_arith<Ext>::derived_bound::display(theory_arith<Ext> const& th, std::ostream& out) const {
         ast_manager& m = th.get_manager();
         out << "v" << bound::get_var() << " " << bound::get_bound_kind() << " " << bound::get_value() << "\n";
         out << "expr: " << mk_pp(th.var2expr(bound::get_var()), m) << "\n";
@@ -765,8 +764,9 @@ namespace smt {
                 << "#" << b->get_owner_id() << " " << mk_pp(b->get_expr(), m) << "\n";
         }
         for (literal l : m_lits) {
-            out << l << ":"; th.ctx.display_detailed_literal(out, l) << "\n";           
+            out << l << ":"; th.ctx.display_detailed_literal(out, l) << "\n";
         }
+        return out;
     }
 
 
@@ -2195,33 +2195,27 @@ namespace smt {
     }
 
     template<typename Ext>
-    bool theory_arith<Ext>::assume_eqs_core() {
+    bool theory_arith<Ext>::assume_eqs() {
         // See comment in m_liberal_final_check declaration
         if (m_liberal_final_check)
             mutate_assignment();
         TRACE("assume_eq_int", display(tout););
 
         unsigned old_sz = m_assume_eq_candidates.size();
-        TRACE("func_interp_bug", display(tout););
         m_var_value_table.reset();
         bool result   = false;
         int num       = get_num_vars();
         for (theory_var v = 0; v < num; v++) {
             enode * n        = get_enode(v);
-            TRACE("func_interp_bug", tout << mk_pp(n->get_expr(), get_manager()) << " -> " << m_value[v] << " root #" << n->get_root()->get_owner_id() << " " << is_relevant_and_shared(n) << "\n";);
-            if (!is_relevant_and_shared(n)) {
+            if (!is_relevant_and_shared(n)) 
                 continue;
-            }
             theory_var other = null_theory_var;
             other = m_var_value_table.insert_if_not_there(v);
-            if (other == v) {
+            if (other == v) 
                 continue;
-            }
             enode * n2 = get_enode(other);
-            if (n->get_root() == n2->get_root()) {
+            if (n->get_root() == n2->get_root()) 
                 continue;
-            }
-            TRACE("func_interp_bug", tout << "adding to assume_eq queue #" << n->get_owner_id() << " #" << n2->get_owner_id() << "\n";);
             m_assume_eq_candidates.push_back({ other , v }); 
             result = true;
         }
@@ -2242,10 +2236,9 @@ namespace smt {
             enode* n1 = get_enode(v1);
             enode* n2 = get_enode(v2);
             m_assume_eq_head++;
-            CTRACE("func_interp_bug", 
-                   get_value(v1) == get_value(v2) && 
-                   n1->get_root() != n2->get_root(),
-                   tout << "assuming eq: #" << n1->get_owner_id() << " = #" << n2->get_owner_id() << "\n";);
+            CTRACE("arith",
+                   get_value(v1) == get_value(v2) && n1->get_root() != n2->get_root(),
+                   tout << "assuming eq: " << ctx.pp(n1) << " = #" << ctx.pp(n2) << "\n";);
             if (get_value(v1) == get_value(v2) && 
                 n1->get_root() != n2->get_root() &&
                 assume_eq(n1, n2)) {

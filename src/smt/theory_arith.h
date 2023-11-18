@@ -301,7 +301,7 @@ namespace smt {
             inf_numeral const & get_value() const { return m_value; }
             virtual bool has_justification() const { return false; }
             virtual void push_justification(antecedents& antecedents, numeral const& coeff, bool proofs_enabled) {}
-            virtual void display(theory_arith const& th, std::ostream& out) const;
+            virtual std::ostream& display(theory_arith const& th, std::ostream& out) const;
         };
 
 
@@ -327,7 +327,7 @@ namespace smt {
             void push_justification(antecedents& a, numeral const& coeff, bool proofs_enabled) override {
                 a.push_lit(literal(get_bool_var(), !m_is_true), coeff, proofs_enabled); 
             }
-            void display(theory_arith const& th, std::ostream& out) const override;
+            std::ostream& display(theory_arith const& th, std::ostream& out) const override;
         };
 
         class eq_bound : public bound { 
@@ -345,7 +345,7 @@ namespace smt {
                 SASSERT(m_lhs->get_root() == m_rhs->get_root());
                 a.push_eq(enode_pair(m_lhs, m_rhs), coeff, proofs_enabled); 
             }
-            void display(theory_arith const& th, std::ostream& out) const override;
+            std::ostream& display(theory_arith const& th, std::ostream& out) const override;
         };
 
         class derived_bound : public bound {
@@ -361,7 +361,7 @@ namespace smt {
             void push_justification(antecedents& a, numeral const& coeff, bool proofs_enabled) override;
             virtual void push_lit(literal l, numeral const&) { m_lits.push_back(l); }
             virtual void push_eq(enode_pair const& p, numeral const&) { m_eqs.push_back(p); }
-            void display(theory_arith const& th, std::ostream& out) const override;
+            std::ostream& display(theory_arith const& th, std::ostream& out) const override;
             
         };
     
@@ -824,7 +824,7 @@ namespace smt {
         unsigned                                          m_assume_eq_head = 0;
         bool random_update(theory_var v);
         void mutate_assignment();
-        bool assume_eqs_core();
+        bool assume_eqs();
         bool delayed_assume_eqs();
 
         // -----------------------------------

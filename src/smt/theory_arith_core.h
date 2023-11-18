@@ -1167,10 +1167,7 @@ namespace smt {
                     --i;
                 }
             }
-            CTRACE("arith", atoms.size() > 1,
-                  for (unsigned i = 0; i < atoms.size(); ++i) {
-                      atoms[i]->display(*this, tout); tout << "\n";
-                  });
+            CTRACE("arith", atoms.size() > 1, for (auto* a : atoms) a->display(*this, tout) << "\n";);
             ptr_vector<atom> occs(m_var_occs[v]);
 
             std::sort(atoms.begin(), atoms.end(), compare_atoms());
@@ -1277,7 +1274,7 @@ namespace smt {
 
     template<typename Ext>
     bool theory_arith<Ext>::internalize_atom(app * n, bool gate_ctx) {
-        TRACE("arith_internalize", tout << "internalizing atom:\n" << mk_pp(n, m) << "\n";);
+        TRACE("arith_internalize", tout << "internalizing atom:\n" << mk_bounded_pp(n, m) << "\n";);
         SASSERT(m_util.is_le(n) || m_util.is_ge(n) || m_util.is_is_int(n));
         SASSERT(!ctx.b_internalized(n));
         atom_kind kind;
@@ -1302,7 +1299,8 @@ namespace smt {
         app * lhs      = to_app(n->get_arg(0));
         app * rhs      = to_app(n->get_arg(1));
         expr * rhs2;
-        if (m_util.is_to_real(rhs, rhs2) && is_app(rhs2)) { rhs = to_app(rhs2); }
+        if (m_util.is_to_real(rhs, rhs2) && is_app(rhs2))
+            rhs = to_app(rhs2); 
         if (!m_util.is_numeral(rhs)) {
             throw default_exception("malformed atomic constraint");
         }
@@ -1335,16 +1333,14 @@ namespace smt {
         occs.push_back(a);
         m_atoms.push_back(a);
         insert_bv2a(bv, a);
-        TRACE("arith_internalize", tout << "succeeded... v" << v << " " << kind << " " << k << "\n";
-              for (unsigned i = 0; i + 1 < occs.size(); ++i) tout << occs[i] << "\n";);
+        TRACE("arith_internalize", tout << "succeeded... v" << v << " " << kind << " " << k << "\n");
         return true;
     }
 
     template<typename Ext>
     bool theory_arith<Ext>::internalize_term(app * term) {
-        TRACE("arith_internalize", tout << "internalising term:\n" << mk_pp(term, m) << "\n";);
         theory_var v = internalize_term_core(term);
-        TRACE("arith_internalize", tout << "theory_var: " << v << "\n";);
+        TRACE("arith_internalize", tout << "internalising term: v" << v << " " << mk_bounded_pp(term, m) << "\n";);
         return v != null_theory_var;
     }
 
@@ -1375,9 +1371,9 @@ namespace smt {
 
     template<typename Ext>
     void theory_arith<Ext>::assign_eh(bool_var v, bool is_true) {
-        TRACE("arith_verbose", tout << "p" << v << " := " << (is_true?"true":"false") << "\n";);
         atom * a = get_bv2a(v);
         if (!a) return;
+        TRACE("arith", tout << "assign p" << literal(v,!is_true) << " : " << mk_bounded_pp(ctx.bool_var2expr(v), m) << "\n";);
         SASSERT(ctx.get_assignment(a->get_bool_var()) != l_undef);
         SASSERT((ctx.get_assignment(a->get_bool_var()) == l_true) == is_true);
         a->assign_eh(is_true, get_epsilon(a->get_var()));
@@ -1401,9 +1397,7 @@ namespace smt {
 
     template<typename Ext>
     void theory_arith<Ext>::new_eq_eh(theory_var v1, theory_var v2) {
-        TRACE("arith_new_eq_eh", tout << "#" << get_enode(v1)->get_owner_id() << " = #" << get_enode(v2)->get_owner_id() << "\n";);
-        TRACE("arith_new_eq_eh_detail", tout << mk_pp(get_enode(v1)->get_expr(), m) << "\n" <<
-              mk_pp(get_enode(v2)->get_expr(), m) << "\n";);
+        TRACE("arith_new_eq_eh", tout << ctx.pp(get_enode(v1)) << "\n" << ctx.pp(get_enode(v2)) << "\n";);
 
         enode * n1 = get_enode(v1);
 
@@ -1503,7 +1497,7 @@ namespace smt {
                 TRACE("arith", tout << "check_int_feasibility(), ok: " << ok << "\n";);
                 break;
             case 1:
-                if (assume_eqs_core())
+                if (assume_eqs())
                     ok = FC_CONTINUE;
                 else
                     ok = FC_DONE;
@@ -1571,7 +1565,6 @@ namespace smt {
 
     template<typename Ext>
     void theory_arith<Ext>::propagate() {
-        TRACE("arith_propagate", tout << "propagate\n"; display(tout););
         if (!process_atoms())
             return;
         propagate_core();
@@ -1597,9 +1590,9 @@ namespace smt {
             failed();
             return false;
         }
-        if (ctx.get_cancel_flag()) {
+        if (ctx.get_cancel_flag()) 
             return true;
-        }
+        
         CASSERT("arith", satisfy_bounds());
         discard_update_trail();
 
@@ -2812,7 +2805,8 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::explain_bound(row const & r, int idx, bool is_lower, inf_numeral & delta, antecedents& ante) {
         SASSERT(delta >= inf_numeral::zero());
-        TRACE("arith_conflict", tout << "relax: " << relax_bounds() << " lits: " << ante.lits().size() << " eqs: " << ante.eqs().size() << " idx: " << idx << "\n";);
+        TRACE("arith_conflict", tout << "delta: " << delta << " relax: " << relax_bounds() << " lits: " << ante.lits().size() << " eqs: " << ante.eqs().size() << " idx: " << idx << "\n";);
+               
         if (!relax_bounds() && (!ante.lits().empty() || !ante.eqs().empty())) {
             return;
         }
@@ -3002,12 +2996,10 @@ namespace smt {
 
         TRACE("propagate_bounds",
               ante.display(tout) << " --> ";
-              ctx.display_detailed_literal(tout, l);
-              tout << "\n";);
+              ctx.display_detailed_literal(tout, l) << "\n");
 
-
-
-        TRACE("arith", tout << ctx.get_scope_level() << "\n";
+        TRACE("arith", tout << "@" << ctx.get_scope_level() << ": ";
+              ante.display(tout) << " --> ";
               ctx.display_detailed_literal(tout, l) << "\n");
 
         if (ante.lits().size() < small_lemma_size() && ante.eqs().empty()) {
@@ -3078,7 +3070,6 @@ namespace smt {
             }
         }
 
-        TRACE("arith_eq", tout << "done\n";);
         m_to_check.reset();
         m_in_to_check.reset();
     }
@@ -3108,7 +3099,7 @@ namespace smt {
         TRACE("arith_conflict",
               if (proof_rule)
                   tout << proof_rule << "\n";
-              tout << "scope: " << ctx.get_scope_level() << "\n";
+              tout << "@" << ctx.get_scope_level() << "\n";
               for (unsigned i = 0; i < num_literals; i++) {
                   ctx.display_detailed_literal(tout, lits[i]);
                   tout << " ";
@@ -3392,7 +3383,7 @@ namespace smt {
     }
 
     template<typename Ext>
-    void theory_arith<Ext>::pop_scope_eh(unsigned num_scopes) {        
+    void theory_arith<Ext>::pop_scope_eh(unsigned num_scopes) {
         CASSERT("arith", wf_rows());
         CASSERT("arith", wf_columns());
         CASSERT("arith", valid_row_assignment());
