@@ -1678,6 +1678,8 @@ void cmd_context::restore_assertions(unsigned old_sz) {
         SASSERT(m_assertions.empty());
         return;
     }
+    if (m_assertions.empty())
+        return;
     if (old_sz == m_assertions.size())
         return;
     SASSERT(old_sz < m_assertions.size());
@@ -2296,6 +2298,8 @@ vector<std::pair<expr*,expr*>> cmd_context::tracked_assertions() {
 }
 
 void cmd_context::reset_tracked_assertions() {
+    for (expr* a : m_assertion_names)
+        m().dec_ref(a);
     m_assertion_names.reset();
     for (expr* a : m_assertions)
         m().dec_ref(a);
