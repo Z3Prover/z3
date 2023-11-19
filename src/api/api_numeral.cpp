@@ -29,13 +29,12 @@ bool is_numeral_sort(Z3_context c, Z3_sort ty) {
     if (!ty) return false;
     sort * _ty = to_sort(ty);
     family_id fid  = _ty->get_family_id();
-    if (fid != mk_c(c)->get_arith_fid() &&
-        fid != mk_c(c)->get_bv_fid() &&
-        fid != mk_c(c)->get_datalog_fid() &&
-        fid != mk_c(c)->get_fpa_fid()) {
-        return false;
-    }
-    return true;
+    return 
+        fid == mk_c(c)->get_arith_fid() ||
+        fid == mk_c(c)->get_bv_fid() ||
+        fid == mk_c(c)->get_datalog_fid() ||
+        fid == mk_c(c)->get_fpa_fid();
+
 }
 
 static bool check_numeral_sort(Z3_context c, Z3_sort ty) {
@@ -152,7 +151,7 @@ extern "C" {
             mk_c(c)->bvutil().is_numeral(e) ||
             mk_c(c)->fpautil().is_numeral(e) ||
             mk_c(c)->fpautil().is_rm_numeral(e) ||
-            mk_c(c)->datalog_util().is_numeral_ext(e);
+            mk_c(c)->datalog_util().is_numeral(e);
         Z3_CATCH_RETURN(false);
     }
 
