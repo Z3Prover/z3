@@ -208,6 +208,7 @@ namespace lp {
 #endif
         m_cut_vars.reset();
         if (r == lia_move::undef) r = int_branch(*this)();
+        if (settings().get_cancel_flag()) r = lia_move::undef;        
         return r;
     }
 
@@ -854,7 +855,7 @@ namespace lp {
 
         struct ex { explanation m_ex; lar_term m_term; mpq m_k; bool m_is_upper; };
         vector<ex> cuts;
-        for (unsigned i = 0; i < num_cuts && has_inf_int() && !settings().get_cancel_flag(); ++i) {
+        for (unsigned i = 0; i < num_cuts && has_inf_int(); ++i) {
             m_ex->clear();
             m_t.clear();
             m_k.reset();
@@ -862,6 +863,8 @@ namespace lp {
             if (r != lia_move::cut)
                 break;
             cuts.push_back({ *m_ex, m_t, m_k, is_upper() });
+            if (settings().get_cancel_flag())
+                return lia_move::undef;
         }
         m_cut_vars.reset();
 
@@ -882,7 +885,7 @@ namespace lp {
 
         auto _check_feasible = [&](void) {
             auto st = lra.find_feasible_solution();
-            if (!lra.is_feasible()) {                
+            if (!lra.is_feasible() && !settings().get_cancel_flag()) {
                 lra.get_infeasibility_explanation(*m_ex);
                 return false;
             }
@@ -909,6 +912,9 @@ namespace lp {
 
             bool feas = _check_feasible();
             lra.pop(1);
+
+            if (settings().get_cancel_flag())
+                return lia_move::undef;
 
             if (!feas)
                 return lia_move::conflict;

@@ -1567,6 +1567,8 @@ lbool core::check() {
               {1, check3} };
         check_weighted(3, checks);
 
+        if (lp_settings().get_cancel_flag())
+            return l_undef;
         if (!m_lemmas.empty() || !m_literals.empty() || m_check_feasible)
             return l_false;
     }
