@@ -5658,7 +5658,9 @@ namespace polynomial {
                     if (!is_zero(Gh3) && d1%2 == 0)
                         Gh3 = neg(Gh3);
                 }
-
+                else
+                    n3 = 0;
+                
                 // Compute hi
                 if (i > 1) {
                     g1 = lc(G1, x);

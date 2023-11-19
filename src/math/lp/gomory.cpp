@@ -338,14 +338,14 @@ public:
             for (auto const& [c, v] : pol)
                 m_lcm_den = lcm(m_lcm_den, denominator(c));
             lp_assert(m_lcm_den.is_pos());
-            bool int_row = true;
+            bool int_row = all_of(pol, [&](auto const& kv) { return is_int(kv.second); });
             TRACE("gomory_cut_detail", tout << "pol.size() > 1 den: " << m_lcm_den << std::endl;);
+                
             if (!m_lcm_den.is_one()) {
                 // normalize coefficients of integer parameters to be integers.
                 for (auto & [c,v]: pol) {
                     c *= m_lcm_den;
                     SASSERT(!is_int(v) || c.is_int());
-                    int_row &= is_int(v);
                 }
                 m_k *= m_lcm_den;
             }
