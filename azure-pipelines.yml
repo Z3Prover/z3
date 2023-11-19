@@ -129,7 +129,7 @@ jobs:
     - ${{if eq(variables['runExample'], 'True')}}:
       - template: scripts/test-examples-cmake.yml
 #   - template: scripts/test-jupyter.yml
-#   - template: scripts/test-java-cmake.yml
+    - template: scripts/test-java-cmake.yml
 #   - template: scripts/test-regressions.yml
   
 - job: "UbuntuCMake"
@@ -236,6 +236,7 @@ jobs:
          test-z3.exe -a
          popd
       condition: eq(variables['runTests'], 'True')
+    - template: scripts/test-java-cmake.yml
     - script: |
          git clone https://github.com/z3prover/z3test z3test
          python z3test\scripts\test_benchmarks.py build\z3.exe z3test\regressions\smt2
@@ -283,7 +284,7 @@ jobs:
     - template: scripts/test-z3.yml
 #   - template: scripts/test-examples-cmake.yml
     - template: scripts/test-regressions.yml
-#   - template: scripts/test-java-cmake.yml
+    - template: scripts/test-java-cmake.yml
 
 
 - job: "MacOSOCaml"
