@@ -2081,6 +2081,16 @@ class QuantifierRef(BoolRef):
         """
         return int(Z3_get_quantifier_weight(self.ctx_ref(), self.ast))
 
+    def skolem_id(self):
+        """Return the skolem id of `self`.
+        """
+        return _symbol2py(self.ctx, Z3_get_quantifier_skolem_id(self.ctx_ref(), self.ast))
+
+    def qid(self):
+        """Return the quantifier id of `self`.
+        """
+        return _symbol2py(self.ctx, Z3_get_quantifier_id(self.ctx_ref(), self.ast))
+
     def num_patterns(self):
         """Return the number of patterns (i.e., quantifier instantiation hints) in `self`.
 

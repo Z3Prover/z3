@@ -5207,6 +5207,24 @@ extern "C" {
     unsigned Z3_API Z3_get_quantifier_weight(Z3_context c, Z3_ast a);
 
     /**
+       \brief Obtain skolem id of quantifier.
+
+       \pre Z3_get_ast_kind(a) == Z3_QUANTIFIER_AST
+
+       def_API('Z3_get_quantifier_skolem_id', SYMBOL, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_symbol Z3_API Z3_get_quantifier_skolem_id(Z3_context c, Z3_ast a);
+
+    /**
+       \brief Obtain id of quantifier.
+
+       \pre Z3_get_ast_kind(a) == Z3_QUANTIFIER_AST
+
+       def_API('Z3_get_quantifier_id', SYMBOL, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_symbol Z3_API Z3_get_quantifier_id(Z3_context c, Z3_ast a);
+
+    /**
        \brief Return number of patterns used in quantifier.
 
        \pre Z3_get_ast_kind(a) == Z3_QUANTIFIER_AST
