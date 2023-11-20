@@ -254,7 +254,7 @@ namespace euf {
             sort(ml);
             sort(mr);
             for (unsigned i = ml.size(); i-- > 0;) {
-                if (ml[i] == mr[i])
+                if (ml[i]->root_id() == mr[i]->root_id())
                     continue;
                 if (ml[i]->root_id() < mr[i]->root_id())
                     std::swap(e.l, e.r);
@@ -480,7 +480,7 @@ namespace euf {
         bool has_two = false;
         for (auto n : m)
             if (n->root->eqs.size() > max_use)
-                max_n = n->root, max_use = n->root->eqs.size(), has_two |= max_n != nullptr;
+                has_two |= max_n && (max_n != n->root), max_n = n->root, max_use = n->root->eqs.size();
         m_eq_occurs.reset();
         for (auto n : m)
             if (n->root != max_n && has_two)

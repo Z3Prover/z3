@@ -45,9 +45,33 @@ static void test1() {
     std::cout << g << "\n";
 }
 
+static void test2() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::egraph g(m);
+    g.add_plugins();
+    arith_util a(m);
+    sort_ref I(a.mk_int(), m);
 
+    expr_ref x(m.mk_const("x", I), m);
+    expr_ref y(m.mk_const("y", I), m);
+    auto* nx = get_node(g, a.mk_add(x, y));
+    auto* ny = get_node(g, a.mk_add(y, x));
+    TRACE("plugin", tout << "before merge\n" << g << "\n");
+    g.merge(nx, get_node(g, x), nullptr);
+    g.merge(ny, get_node(g, y), nullptr);
+
+    TRACE("plugin", tout << "before propagate\n" << g << "\n");
+    g.propagate();
+    TRACE("plugin", tout << "after propagate\n" << g << "\n");
+    SASSERT(get_node(g, x)->get_root() == get_node(g, y)->get_root());
+    g.merge(get_node(g, a.mk_add(x, a.mk_add(y, y))), get_node(g, a.mk_add(y, x)), nullptr);
+    g.propagate();
+    std::cout << g << "\n";
+}
 
 void tst_euf_arith_plugin() {
     enable_trace("plugin");
     test1();
+    test2();
 }
