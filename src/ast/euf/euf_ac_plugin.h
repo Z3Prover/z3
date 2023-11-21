@@ -212,6 +212,7 @@ namespace euf {
             void reset() { for (auto idx : ids) counts[idx] = 0; ids.reset(); }
             unsigned operator[](unsigned idx) const { return counts.get(idx, 0); }
             void inc(unsigned idx, unsigned amount) { counts.reserve(idx + 1, 0); ids.push_back(idx);  counts[idx] += amount; }
+            void dec(unsigned idx, unsigned amount) { counts.reserve(idx + 1, 0); ids.push_back(idx);  counts[idx] -= amount; }
             unsigned const* begin() const { return ids.begin(); }
             unsigned const* end() const { return ids.end(); }
         };

@@ -598,8 +598,7 @@ namespace euf {
             return false;
         if (!is_subset(m_dst_l_counts, m_src_l_counts, monomial(src.l)))
             return false;
-        if (backward_subsumes(src_eq, dst_eq)) {
-            
+        if (backward_subsumes(src_eq, dst_eq)) {            
             set_status(dst_eq, eq_status::is_dead);
             return true;
         }
@@ -613,8 +612,8 @@ namespace euf {
         return true;
     }
 
-    // dst_eq is fixed, dst_count is pre-computed for monomial(dst.l)
-    // dst2_counts is pre-computed for monomial(dst.r).
+    // dst_eq is fixed, dst_l_count is pre-computed for monomial(dst.l)
+    // dst_r_counts is pre-computed for monomial(dst.r).
     // is dst_eq subsumed by src_eq?
     bool ac_plugin::backward_subsumes(unsigned src_eq, unsigned dst_eq) {
         auto& src = m_eqs[src_eq];
@@ -626,22 +625,22 @@ namespace euf {
         unsigned size_diff = monomial(dst.l).size() - monomial(src.l).size();
         if (size_diff != monomial(dst.r).size() - monomial(src.r).size())
             return false;
-        if (!is_subset(m_dst_l_counts, m_src_l_counts, monomial(src.l)))
+        if (!is_superset(m_dst_l_counts, m_src_l_counts, monomial(src.l)))
             return false;
-        if (!is_subset(m_dst_r_counts, m_src_r_counts, monomial(src.r)))
+        if (!is_superset(m_dst_r_counts, m_src_r_counts, monomial(src.r)))
             return false;        
         // add difference betwen src and dst1 to dst2 
         // (also add it to dst1 to make sure same difference isn't counted twice).
         for (auto n : monomial(src.l)) {
             unsigned id = n->root_id();
-            SASSERT(m_src_l_counts[id] >= m_dst_l_counts[id]);
-            unsigned diff = m_src_l_counts[id] - m_dst_l_counts[id];
+            SASSERT(m_dst_l_counts[id] >= m_src_l_counts[id]);
+            unsigned diff = m_dst_l_counts[id] - m_src_l_counts[id];
             if (diff > 0) {
-                m_dst_l_counts.inc(id, diff);
-                m_dst_r_counts.inc(id, diff);
+                m_src_l_counts.inc(id, diff);
+                m_src_r_counts.inc(id, diff);
             }
         }
-        // now dst2 and src2 should align and have the same elements.
+        // now dst.r and src.r should align and have the same elements.
         // since src.r is a subset of dst.r we iterate over dst.r
         return all_of(monomial(dst.r), [&](node* n) { unsigned id = n->root_id(); return m_src_r_counts[id] == m_dst_r_counts[id]; });
     }
@@ -744,7 +743,7 @@ namespace euf {
         for (auto n : monomial(src.l)) {
             unsigned id = n->root_id();
             if (m_dst_l_counts[id] > 0)
-                m_dst_l_counts.inc(id, -1);
+                m_dst_l_counts.dec(id, 1);
             else
                 m_dst_r.push_back(n);
         }
@@ -781,7 +780,7 @@ namespace euf {
             unsigned id = n->root_id();
             if (m_eq_counts[id] == 0)
                 return false;
-            m_eq_counts.inc(id, -1);
+            m_eq_counts.dec(id, 1);
         }
         return true;
     }

@@ -55,23 +55,49 @@ static void test2() {
 
     expr_ref x(m.mk_const("x", I), m);
     expr_ref y(m.mk_const("y", I), m);
-    auto* nx = get_node(g, a.mk_add(x, y));
-    auto* ny = get_node(g, a.mk_add(y, x));
+    auto* nxy = get_node(g, a.mk_add(x, y));
+    auto* nyx = get_node(g, a.mk_add(y, x));
+    auto* nx = get_node(g, x);
+    auto* ny = get_node(g, y);
+    
     TRACE("plugin", tout << "before merge\n" << g << "\n");
-    g.merge(nx, get_node(g, x), nullptr);
-    g.merge(ny, get_node(g, y), nullptr);
-
+    g.merge(nxy, nx, nullptr);
+    g.merge(nyx, ny, nullptr);
     TRACE("plugin", tout << "before propagate\n" << g << "\n");
     g.propagate();
     TRACE("plugin", tout << "after propagate\n" << g << "\n");
-    SASSERT(get_node(g, x)->get_root() == get_node(g, y)->get_root());
+    SASSERT(nx->get_root() == ny->get_root());
     g.merge(get_node(g, a.mk_add(x, a.mk_add(y, y))), get_node(g, a.mk_add(y, x)), nullptr);
     g.propagate();
     std::cout << g << "\n";
 }
 
+static void test3() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::egraph g(m);
+    g.add_plugins();
+    arith_util a(m);
+    sort_ref I(a.mk_int(), m);
+
+    expr_ref x(m.mk_const("x", I), m);
+    expr_ref y(m.mk_const("y", I), m);
+    auto* nxyy = get_node(g, a.mk_add(a.mk_add(x, y), y));
+    auto* nyxx = get_node(g, a.mk_add(a.mk_add(y, x), x));
+    auto* nx = get_node(g, x);
+    auto* ny = get_node(g, y);
+    g.merge(nxyy, nx, nullptr);
+    g.merge(nyxx, ny, nullptr);
+    TRACE("plugin", tout << "before propagate\n" << g << "\n");
+    g.propagate();
+    TRACE("plugin", tout << "after propagate\n" << g << "\n");
+    SASSERT(nx->get_root() == ny->get_root());
+    std::cout << g << "\n";
+}
+
 void tst_euf_arith_plugin() {
     enable_trace("plugin");
+    test3();
     test1();
     test2();
 }
