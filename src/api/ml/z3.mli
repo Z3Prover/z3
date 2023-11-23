@@ -3553,77 +3553,147 @@ end
 (** Real closed field *)
 module RCF :
 sig
-    type rcf_num
+  type rcf_num
 
-    (** Delete a RCF numeral created using the RCF API. *)
-    val del : context -> rcf_num -> unit
+  (** Delete a RCF numeral created using the RCF API. *)
+  val del : context -> rcf_num -> unit
 
-    (** Return a RCF rational using the given string. *)
-    val mk_rational : context -> string -> rcf_num
+  (** Delete RCF numerals created using the RCF API. *)
+  val del_list : context -> rcf_num list -> unit
 
-    (** Return a RCF small integer. *)
-    val mk_small_int : context -> int -> rcf_num
+  (** Return a RCF rational using the given string. *)
+  val mk_rational : context -> string -> rcf_num
 
-    (** Return Pi *)
-    val mk_pi : context -> rcf_num
+  (** Return a RCF small integer. *)
+  val mk_small_int : context -> int -> rcf_num
 
-    (** Return e (Euler's constant) *)
-    val mk_e : context -> rcf_num
+  (** Return Pi *)
+  val mk_pi : context -> rcf_num
 
-    (** Return a new infinitesimal that is smaller than all elements in the Z3 field. *)
-    val mk_infinitesimal : context -> rcf_num
+  (** Return e (Euler's constant) *)
+  val mk_e : context -> rcf_num
 
-    (** Extract the roots of a polynomial. Precondition: The input polynomial is not the zero polynomial. *)
-    val mk_roots : context -> int -> rcf_num list -> rcf_num list
+  (** Return a new infinitesimal that is smaller than all elements in the Z3 field. *)
+  val mk_infinitesimal : context -> rcf_num
 
-    (** Addition *)
-    val add : context -> rcf_num -> rcf_num -> rcf_num
+  (** Extract the roots of a polynomial. Precondition: The input polynomial is not the zero polynomial. *)
+  val mk_roots : context -> rcf_num list -> rcf_num list
 
-    (** Subtraction *)
-    val sub : context -> rcf_num -> rcf_num -> rcf_num
+  (** Addition *)
+  val add : context -> rcf_num -> rcf_num -> rcf_num
 
-    (** Multiplication *)
-    val mul : context -> rcf_num -> rcf_num -> rcf_num
+  (** Subtraction *)
+  val sub : context -> rcf_num -> rcf_num -> rcf_num
 
-    (** Division *)
-    val div : context -> rcf_num -> rcf_num -> rcf_num
+  (** Multiplication *)
+  val mul : context -> rcf_num -> rcf_num -> rcf_num
 
-    (** Negation *)
-    val neg : context -> rcf_num -> rcf_num
+  (** Division *)
+  val div : context -> rcf_num -> rcf_num -> rcf_num
 
-    (** Multiplicative Inverse *)
-    val inv : context -> rcf_num -> rcf_num
+  (** Negation *)
+  val neg : context -> rcf_num -> rcf_num
 
-    (** Power *)
-    val power : context -> rcf_num -> int -> rcf_num
+  (** Multiplicative Inverse *)
+  val inv : context -> rcf_num -> rcf_num
 
-    (** less-than *)
-    val lt : context -> rcf_num -> rcf_num -> bool
+  (** Power *)
+  val power : context -> rcf_num -> int -> rcf_num
 
-    (** greater-than *)
-    val gt : context -> rcf_num -> rcf_num -> bool
+  (** less-than *)
+  val lt : context -> rcf_num -> rcf_num -> bool
 
-    (** less-than or equal *)
-    val le : context -> rcf_num -> rcf_num -> bool
+  (** greater-than *)
+  val gt : context -> rcf_num -> rcf_num -> bool
 
-    (** greater-than or equal *)
-    val ge : context -> rcf_num -> rcf_num -> bool
+  (** less-than or equal *)
+  val le : context -> rcf_num -> rcf_num -> bool
 
-    (** equality *)
-    val eq : context -> rcf_num -> rcf_num -> bool
+  (** greater-than or equal *)
+  val ge : context -> rcf_num -> rcf_num -> bool
 
-    (** not equal *)
-    val neq : context -> rcf_num -> rcf_num -> bool
+  (** equality *)
+  val eq : context -> rcf_num -> rcf_num -> bool
 
-    (** Convert the RCF numeral into a string. *)
-    val num_to_string : context -> rcf_num -> bool -> bool -> string
+  (** not equal *)
+  val neq : context -> rcf_num -> rcf_num -> bool
 
-    (** Convert the RCF numeral into a string in decimal notation. *)
-    val num_to_decimal_string : context -> rcf_num -> int -> string
+  (** Convert the RCF numeral into a string. *)
+  val num_to_string : context -> rcf_num -> bool -> bool -> string
 
-    (** Extract the "numerator" and "denominator" of the given RCF numeral.
-        We have that \ccode{a = n/d}, moreover \c n and \c d are not represented using rational functions. *)
-    val get_numerator_denominator : context -> rcf_num -> (rcf_num * rcf_num)
+  (** Convert the RCF numeral into a string in decimal notation. *)
+  val num_to_decimal_string : context -> rcf_num -> int -> string
+
+  (** Extract the "numerator" and "denominator" of the given RCF numeral.
+      We have that \ccode{a = n/d}, moreover \c n and \c d are not represented using rational functions. *)
+  val get_numerator_denominator : context -> rcf_num -> (rcf_num * rcf_num)
+
+  (** Return \c true if \c a represents a rational number. *)
+  val is_rational : context -> rcf_num -> bool
+
+  (** Return \c true if \c a represents an algebraic number. *)
+  val is_algebraic : context -> rcf_num -> bool
+
+  (** Return \c true if \c a represents an infinitesimal. *)
+  val is_infinitesimal : context -> rcf_num -> bool
+
+  (** Return \c true if \c a represents a transcendental number. *)
+  val is_transcendental : context -> rcf_num -> bool
+
+  (** Return the index of a field extension. *)
+  val extension_index : context -> rcf_num -> int
+
+  (** Return the name of a transcendental. *)
+  val transcendental_name : context -> rcf_num -> Symbol.symbol
+
+  (** Return the name of an infinitesimal. *)
+  val infinitesimal_name : context -> rcf_num -> Symbol.symbol
+
+  (** Return the number of coefficients in an algebraic number. *)
+  val num_coefficients : context -> rcf_num -> int
+
+  (** Extract a coefficient from an algebraic number. *)
+  val get_coefficient : context -> rcf_num -> int -> rcf_num
+
+  (** Extract the coefficients from an algebraic number. *)
+  val coefficients : context -> rcf_num -> rcf_num list
+
+  (** Extract the sign of a sign condition from an algebraic number. *)
+  val sign_condition_sign : context -> rcf_num -> int -> int
+
+  (** Return the size of a sign condition polynomial. *)
+  val num_sign_condition_coefficients : context -> rcf_num -> int -> int
+
+  (** Extract a sign condition polynomial coefficient from an algebraic number. *)
+  val sign_condition_coefficient : context -> rcf_num -> int -> int -> rcf_num
+
+  (** Extract sign conditions from an algebraic number. *)
+  val sign_conditions : context -> rcf_num -> (rcf_num list * int) list
+
+  (** Extract the interval from an algebraic number. *)
+  type interval = {
+    lower_is_inf : bool;
+    lower_is_open : bool;
+    lower : rcf_num;
+    upper_is_inf : bool;
+    upper_is_open : bool;
+    upper : rcf_num;
+  }
+
+  val root_interval : context -> rcf_num -> interval option
+
+  type root = {
+    obj : rcf_num;
+    polynomial : rcf_num list;
+    interval : interval option;
+    sign_conditions : (rcf_num list * int) list;
+  }
+
+  val roots : context -> rcf_num list -> root list
+
+  val del_root : context -> root -> unit
+
+  val del_roots : context -> root list -> unit
 end
 
 (** Set a global (or module) parameter, which is shared by all Z3 contexts.

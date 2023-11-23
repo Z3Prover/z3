@@ -17,7 +17,7 @@ Author:
     Leonardo de Moura (leonardo) 2012-01-05
 
 Notes:
-    
+
 --*/
 #include "api/z3.h"
 #include "api/api_log_macros.h"
@@ -32,12 +32,12 @@ static void reset_rcf_cancel(Z3_context c) {
     // no-op
 }
 
-static Z3_rcf_num from_rcnumeral(rcnumeral a) { 
-    return reinterpret_cast<Z3_rcf_num>(a.data()); 
+static Z3_rcf_num from_rcnumeral(rcnumeral a) {
+    return reinterpret_cast<Z3_rcf_num>(a.data());
 }
 
-static rcnumeral to_rcnumeral(Z3_rcf_num a) { 
-    return rcnumeral::mk(a); 
+static rcnumeral to_rcnumeral(Z3_rcf_num a) {
+    return rcnumeral::mk(a);
 }
 
 extern "C" {
@@ -179,7 +179,7 @@ extern "C" {
         RETURN_Z3(from_rcnumeral(r));
         Z3_CATCH_RETURN(nullptr);
     }
-    
+
     Z3_rcf_num Z3_API Z3_rcf_neg(Z3_context c, Z3_rcf_num a) {
         Z3_TRY;
         LOG_Z3_rcf_neg(c, a);
@@ -302,4 +302,139 @@ extern "C" {
         Z3_CATCH;
     }
 
+    bool Z3_API Z3_rcf_is_rational(Z3_context c, Z3_rcf_num a) {
+        Z3_TRY;
+        LOG_Z3_rcf_is_rational(c, a);
+        RESET_ERROR_CODE();
+        reset_rcf_cancel(c);
+        return rcfm(c).is_rational(to_rcnumeral(a));
+        Z3_CATCH_RETURN(false);
+    }
+
+    bool Z3_API Z3_rcf_is_algebraic(Z3_context c, Z3_rcf_num a) {
+        Z3_TRY;
+        LOG_Z3_rcf_is_algebraic(c, a);
+        RESET_ERROR_CODE();
+        reset_rcf_cancel(c);
+        return rcfm(c).is_algebraic(to_rcnumeral(a));
+        Z3_CATCH_RETURN(false);
+    }
+
+    bool Z3_API Z3_rcf_is_infinitesimal(Z3_context c, Z3_rcf_num a) {
+        Z3_TRY;
+        LOG_Z3_rcf_is_infinitesimal(c, a);
+        RESET_ERROR_CODE();
+        reset_rcf_cancel(c);
+        return rcfm(c).is_infinitesimal(to_rcnumeral(a));
+        Z3_CATCH_RETURN(false);
+    }
+
+    bool Z3_API Z3_rcf_is_transcendental(Z3_context c, Z3_rcf_num a) {
+        Z3_TRY;
+        LOG_Z3_rcf_is_transcendental(c, a);
+        RESET_ERROR_CODE();
+        reset_rcf_cancel(c);
+        return rcfm(c).is_transcendental(to_rcnumeral(a));
+        Z3_CATCH_RETURN(false);
+    }
+
+    unsigned Z3_API Z3_rcf_extension_index(Z3_context c, Z3_rcf_num a) {
+        Z3_TRY;
+        LOG_Z3_rcf_extension_index(c, a);
+        RESET_ERROR_CODE();
+        reset_rcf_cancel(c);
+        return rcfm(c).extension_index(to_rcnumeral(a));
+        Z3_CATCH_RETURN(false);
+    }
+
+    Z3_symbol Z3_API Z3_rcf_transcendental_name(Z3_context c, Z3_rcf_num a) {
+        Z3_TRY;
+        LOG_Z3_rcf_transcendental_name(c, a);
+        RESET_ERROR_CODE();
+        reset_rcf_cancel(c);
+        return of_symbol(rcfm(c).transcendental_name(to_rcnumeral(a)));
+        Z3_CATCH_RETURN(of_symbol(symbol::null));
+    }
+
+    Z3_symbol Z3_API Z3_rcf_infinitesimal_name(Z3_context c, Z3_rcf_num a) {
+        Z3_TRY;
+        LOG_Z3_rcf_infinitesimal_name(c, a);
+        RESET_ERROR_CODE();
+        reset_rcf_cancel(c);
+        return of_symbol(rcfm(c).infinitesimal_name(to_rcnumeral(a)));
+        Z3_CATCH_RETURN(of_symbol(symbol::null));
+    }
+
+    unsigned Z3_API Z3_rcf_num_coefficients(Z3_context c, Z3_rcf_num a)
+    {
+        Z3_TRY;
+        LOG_Z3_rcf_num_coefficients(c, a);
+        RESET_ERROR_CODE();
+        reset_rcf_cancel(c);
+        return rcfm(c).num_coefficients(to_rcnumeral(a));
+        Z3_CATCH_RETURN(0);
+    }
+
+    Z3_rcf_num Z3_API Z3_rcf_coefficient(Z3_context c, Z3_rcf_num a, unsigned i)
+    {
+        Z3_TRY;
+        LOG_Z3_rcf_coefficient(c, a, i);
+        RESET_ERROR_CODE();
+        reset_rcf_cancel(c);
+        return from_rcnumeral(rcfm(c).get_coefficient(to_rcnumeral(a), i));
+        Z3_CATCH_RETURN(nullptr);
+    }
+
+    int Z3_API Z3_rcf_interval(Z3_context c, Z3_rcf_num a, int * lower_is_inf, int * lower_is_open, Z3_rcf_num * lower, int * upper_is_inf, int * upper_is_open, Z3_rcf_num * upper) {
+        Z3_TRY;
+        LOG_Z3_rcf_interval(c, a, lower_is_inf, lower_is_open, lower, upper_is_inf, upper_is_open, upper);
+        RESET_ERROR_CODE();
+        reset_rcf_cancel(c);
+        rcnumeral r_lower, r_upper;
+        bool r = rcfm(c).get_interval(to_rcnumeral(a), *lower_is_inf, *lower_is_open, r_lower, *upper_is_inf, *upper_is_open, r_upper);
+        *lower = from_rcnumeral(r_lower);
+        *upper = from_rcnumeral(r_upper);
+        return r;
+        Z3_CATCH_RETURN(0);
+    }
+
+    unsigned Z3_API Z3_rcf_num_sign_conditions(Z3_context c, Z3_rcf_num a)
+    {
+        Z3_TRY;
+        LOG_Z3_rcf_num_sign_conditions(c, a);
+        RESET_ERROR_CODE();
+        reset_rcf_cancel(c);
+        return rcfm(c).num_sign_conditions(to_rcnumeral(a));
+        Z3_CATCH_RETURN(0);
+    }
+
+    int Z3_API Z3_rcf_sign_condition_sign(Z3_context c, Z3_rcf_num a, unsigned i)
+    {
+        Z3_TRY;
+        LOG_Z3_rcf_sign_condition_sign(c, a, i);
+        RESET_ERROR_CODE();
+        reset_rcf_cancel(c);
+        return rcfm(c).get_sign_condition_sign(to_rcnumeral(a), i);
+        Z3_CATCH_RETURN(0);
+    }
+
+    unsigned Z3_API Z3_rcf_num_sign_condition_coefficients(Z3_context c, Z3_rcf_num a, unsigned i)
+    {
+        Z3_TRY;
+        LOG_Z3_rcf_num_sign_condition_coefficients(c, a, i);
+        RESET_ERROR_CODE();
+        reset_rcf_cancel(c);
+        return rcfm(c).num_sign_condition_coefficients(to_rcnumeral(a), i);
+        Z3_CATCH_RETURN(0);
+    }
+
+    Z3_rcf_num Z3_API Z3_rcf_sign_condition_coefficient(Z3_context c, Z3_rcf_num a, unsigned i, unsigned j)
+    {
+        Z3_TRY;
+        LOG_Z3_rcf_sign_condition_coefficient(c, a, i, j);
+        RESET_ERROR_CODE();
+        reset_rcf_cancel(c);
+        return from_rcnumeral(rcfm(c).get_sign_condition_coefficient(to_rcnumeral(a), i, j));
+        Z3_CATCH_RETURN(nullptr);
+    }
 };

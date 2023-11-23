@@ -70,14 +70,14 @@ namespace realclosure {
         */
         void mk_infinitesimal(char const * name, char const * pp_name, numeral & r);
         void mk_infinitesimal(numeral & r);
-        
+
         /**
-           \brief Add a new transcendental real value to the field. 
+           \brief Add a new transcendental real value to the field.
            The functor \c mk_interval is used to compute approximations of the transcendental value.
            This procedure should be used with care, if the value is not really transcendental with respect to the current
            field, computations with the new numeral may not terminate.
            Example: we extended the field with Pi. Pi is transcendental with respect to a field that contains only algebraic real numbers.
-           So, this step is fine. Let us call the resultant field F. 
+           So, this step is fine. Let us call the resultant field F.
            Then, we extend the field F with 1 - Pi. 1 - Pi is transcendental with respect to algebraic real numbers, but it is NOT transcendental
            with respect to F, since F contains Pi.
         */
@@ -109,12 +109,12 @@ namespace realclosure {
            \brief Return the sign of a.
         */
         int sign(numeral const & a);
-        
+
         /**
            \brief Return true if a is zero.
         */
         bool is_zero(numeral const & a);
-        
+
         /**
            \brief Return true if a is positive.
         */
@@ -129,13 +129,33 @@ namespace realclosure {
            \brief Return true if a is an integer.
         */
         bool is_int(numeral const & a);
-        
+
+         /**
+           \brief Return true if a is a rational.
+        */
+        bool is_rational(numeral const & a);
+
+        /**
+           \brief Return true if a is an algebraic number.
+        */
+        bool is_algebraic(numeral const & a);
+
+        /**
+           \brief Return true if a represents an infinitesimal.
+        */
+        bool is_infinitesimal(numeral const & a);
+
+        /**
+           \brief Return true if a is a transcendental.
+        */
+        bool is_transcendental(numeral const & a);
+
         /**
            \brief Return true if the representation of \c a depends on
            infinitesimal extensions.
         */
         bool depends_on_infinitesimals(numeral const & a);
-        
+
         /**
            \brief a <- n
         */
@@ -148,14 +168,14 @@ namespace realclosure {
 
         /**
            \brief Return a^{1/k}
-           
+
            Throws an exception if (a is negative and k is even) or (k is zero).
-        */           
+        */
         void root(numeral const & a, unsigned k, numeral & b);
-      
+
         /**
            \brief Return a^k
-           
+
            Throws an exception if 0^0.
         */
         void power(numeral const & a, unsigned k, numeral & b);
@@ -180,7 +200,7 @@ namespace realclosure {
            \brief a <- -a
         */
         void neg(numeral & a);
-        
+
         /**
            \brief b <- -a
         */
@@ -190,7 +210,7 @@ namespace realclosure {
            \brief a <- 1/a  if a != 0
         */
         void inv(numeral & a);
-        
+
         /**
            \brief b <- 1/a if a != 0
         */
@@ -207,7 +227,7 @@ namespace realclosure {
            Return 1  if a > b
         */
         int compare(numeral const & a, numeral const & b);
-        
+
         /**
            \brief a == b
         */
@@ -249,7 +269,7 @@ namespace realclosure {
         bool ge(numeral const & a, numeral const & b) { return !lt(a, b); }
         bool ge(numeral const & a, mpq const & b) { return !lt(a, b); }
         bool ge(numeral const & a, mpz const & b) { return !lt(a, b); }
-        
+
         void display(std::ostream & out, numeral const & a, bool compact=false, bool pp=false) const;
 
         /**
@@ -259,10 +279,30 @@ namespace realclosure {
         */
         void display_decimal(std::ostream & out, numeral const & a, unsigned precision = 10) const;
 
-        
+
         void display_interval(std::ostream & out, numeral const & a) const;
-    
+
         void clean_denominators(numeral const & a, numeral & p, numeral & q);
+
+        unsigned extension_index(numeral const & a);
+
+        symbol transcendental_name(numeral const &a);
+
+        symbol infinitesimal_name(numeral const &a);
+
+        unsigned num_coefficients(numeral const &a);
+
+        numeral get_coefficient(numeral const &a, unsigned i);
+
+        unsigned num_sign_conditions(numeral const &a);
+
+        int get_sign_condition_sign(numeral const &a, unsigned i);
+
+        bool get_interval(numeral const & a, int & lower_is_inf, int & lower_is_open, numeral & lower, int & upper_is_inf, int & upper_is_open, numeral & upper);
+
+        unsigned num_sign_condition_coefficients(numeral const &a, unsigned i);
+
+        numeral get_sign_condition_coefficient(numeral const &a, unsigned i, unsigned j);
     };
 
     struct value;
