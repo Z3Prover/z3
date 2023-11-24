@@ -156,11 +156,14 @@ namespace polysat {
 
         // fixed_bits_info m_tmp_fbi;
 
-        template<bool FORWARD>
+        template <bool FORWARD>
         bool refine_viable(pvar v, rational const& val, fixed_bits_info const& fbi);
 
-        template<bool FORWARD>
+        template <bool FORWARD>
         bool refine_bits(pvar v, rational const& val, fixed_bits_info const& fbi);
+
+        template <bool FORWARD>
+        entry* refine_bits(pvar v, rational const& val, unsigned num_bits, fixed_bits_info const& fbi);
 
         bool refine_equal_lin(pvar v, rational const& val);
 

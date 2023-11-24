@@ -434,38 +434,41 @@ namespace polysat {
         return refine_bits<FORWARD>(v, val, fbi) && refine_equal_lin(v, val) && refine_disequal_lin(v, val);
     }
 
-    template<bool FORWARD>
+    template <bool FORWARD>
     bool viable::refine_bits(pvar v, rational const& val, fixed_bits_info const& fbi) {
-        pdd_manager& m = s.var2pdd(v);
-        unsigned const k = s.size(v);
-
-        // TODO: We might also extend simultaneously up and downwards if we want the actual interval (however, this might make use of more fixed bits and is weaker - worse - therefore)
-        entry* ne = alloc_entry();
-        rational new_val = extend_by_bits<FORWARD>(k, val, fbi, ne->src, ne->side_cond);
-
-        if (new_val == val) {
-            m_alloc.push_back(ne);
+        entry* ne = refine_bits(v, val, s.size(v), fbi);
+        if (!ne)
             return true;
+        intersect(v, ne);
+        return false;
+    }
+
+    template <bool FORWARD>
+    viable::entry* viable::refine_bits(pvar const v, rational const& val, unsigned const k, fixed_bits_info const& fbi) {
+        SASSERT(k <= s.size(v));
+        pdd_manager& m = s.var2pdd(v);
+
+        entry* ne = alloc_entry();
+        rational hi = extend_by_bits<FORWARD>(k, val, fbi, ne->src, ne->side_cond);
+
+        if (hi == val) {
+            m_alloc.push_back(ne);
+            return nullptr;
         }
 
-        // TODO: Extend in both directions? (Less justifications vs. bigger intervals)
-        // TODO: could also try to extend backwards as much as we can without introducing new justifications?
-        rational new_val2 = extend_by_bits<!FORWARD>(k, val, fbi, ne->src, ne->side_cond);
+        // TODO: extend backwards as much as we can without introducing new justifications
+        rational lo = extend_by_bits<!FORWARD>(k, val, fbi, ne->src, ne->side_cond);
+
+        if (!FORWARD)
+            swap(lo, hi);
 
         ne->refined = true;
         ne->coeff = 1;
-        ne->bit_width = s.size(v);
-        if (FORWARD) {
-            LOG("refine-bits FORWARD for v" << v << " = " << val << " to [" << new_val2 << ", " << new_val << "[");
-            ne->interval = eval_interval::proper(m.mk_val(new_val2), new_val2, m.mk_val(new_val), new_val);
-        }
-        else {
-            LOG("refine-bits BACKWARD for v" << v << " = " << val << " to [" << new_val << ", " << new_val2 << "[");
-            ne->interval = eval_interval::proper(m.mk_val(new_val), new_val, m.mk_val(new_val2), new_val2);
-        }
+        ne->bit_width = k;
+        LOG("refine-bits " << (FORWARD ? "FORWARD" : "BACKWARD") << " for v" << v << " = " << val << " to [" << lo << ", " << hi << "[");
+        ne->interval = eval_interval::proper(m.mk_val(lo), lo, m.mk_val(hi), hi);
         SASSERT(ne->interval.currently_contains(val));
-        intersect(v, ne);
-        return false;
+        return ne;
     }
 
     /**
