@@ -1560,65 +1560,55 @@ namespace polysat {
         svector<std::pair<pvar, entry*>> refine_todo;
 
         rational progress; // = 0
-        rational old_progress;
-        do {
-            old_progress = progress;
+        while (true) {
+            entry* e = nullptr;
 
             // try to make progress using any of the relevant interval lists
             for (entry_cursor& ec : ecs) {
                 // advance until current value 'val'
-                auto const [e, e_contains_val] = find_value(val, ec.cur);
-                // display_one(std::cerr << "found entry e: ", 0, e) << "\n";
-                // LOG("e_contains_val: " << e_contains_val << "    val = " << val);
-                ec.cur = e;
-                if (e_contains_val) {
-                    rational const& new_val = e->interval.hi_val();
-                    rational const dist = distance(val, new_val, mod_value);
-                    val = new_val;
-                    progress += dist;
-                    LOG("val: " << val << " progress: " << progress);
-                    if (progress >= mod_value) {
-                        // covered the whole domain => conflict
-                        return l_false;
-                    }
-                    if (progress >= to_cover_len) {
-                        // we covered the hole left at larger bit-width
-                        return l_undef;
-                    }
-
-                    // (another way to compute 'progress')
-                    SASSERT_EQ(progress, distance(to_cover_lo, val, mod_value));
-                    // progress = mod(val - to_cover_lo, mod_value);
-                    // if (progress < old_progress) {
-                    //     // if this ever drops, it means we crossed over 'val' again
-                    // }
+                auto const [n, n_contains_val] = find_value(val, ec.cur);
+                // display_one(std::cerr << "found entry n: ", 0, n) << "\n";
+                // LOG("n_contains_val: " << n_contains_val << "    val = " << val);
+                ec.cur = n;
+                if (n_contains_val) {
+                    e = n;
+                    break;
                 }
             }
 
-            // if we make no more progress by existing intervals, try interval from fixed bits
-            if (progress == old_progress) {
-                if (entry* e = refine_bits<true>(v, val, w, fbi)) {
+            // when we cannot make progress by existing intervals any more, try interval from fixed bits
+            if (!e) {
+                e = refine_bits<true>(v, val, w, fbi);
+                if (e) {
                     refine_todo.push_back({v, e});
-                    SASSERT(e->interval.currently_contains(val));
-                    rational const& new_val = e->interval.hi_val();
-                    LOG("by bits: " << val << " -> " << new_val);
-                    rational const dist = distance(val, new_val, mod_value);
-                    val = new_val;
-                    progress += dist;
-                    LOG("val: " << val << " progress: " << progress);
-                    if (progress >= mod_value) {
-                        // covered the whole domain => conflict
-                        return l_false;
-                    }
-                    if (progress >= to_cover_len) {
-                        // we covered the hole left at larger bit-width
-                        return l_undef;
-                    }
+                    display_one(std::cerr << "found entry by bits: ", 0, e) << "\n";
                 }
             }
 
-            LOG("old_progress: " << old_progress << " progress: " << progress);
-        } while (old_progress != progress);
+            // no more progress
+            if (!e)
+                break;
+
+            SASSERT(e->interval.currently_contains(val));
+            rational const& new_val = e->interval.hi_val();
+            rational const dist = distance(val, new_val, mod_value);
+            SASSERT(dist > 0);
+            val = new_val;
+            progress += dist;
+            LOG("val: " << val << " progress: " << progress);
+
+            if (progress >= mod_value) {
+                // covered the whole domain => conflict
+                return l_false;
+            }
+            if (progress >= to_cover_len) {
+                // we covered the hole left at larger bit-width
+                return l_undef;
+            }
+
+            // (another way to compute 'progress')
+            SASSERT_EQ(progress, distance(to_cover_lo, val, mod_value));
+        }
 
         // no more progress
         // => 'val' is viable w.r.t. unit intervals until current layer
