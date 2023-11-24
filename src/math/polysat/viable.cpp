@@ -1461,7 +1461,7 @@ namespace polysat {
 
         rational const& max_value = s.var2pdd(v).max_value();
 
-        lbool result_lo = find_on_layer(v, widths.size() - 1, widths, overlaps, fbi, rational::zero(), max_value, lo);
+        lbool result_lo = find_on_layers(v, widths, overlaps, fbi, rational::zero(), max_value, lo);
         if (result_lo == l_false)
             return l_false;  // conflict
         if (result_lo == l_undef)
@@ -1472,7 +1472,7 @@ namespace polysat {
             return l_true;
         }
 
-        lbool result_hi = find_on_layer(v, widths.size() - 1, widths, overlaps, fbi, lo + 1, max_value, hi);
+        lbool result_hi = find_on_layers(v, widths, overlaps, fbi, lo + 1, max_value, hi);
         if (result_hi == l_false)
             hi = lo;  // no other viable value
         if (result_hi == l_undef)
@@ -1505,8 +1505,22 @@ namespace polysat {
         return {nullptr, false};
     }
 
+    lbool viable::find_on_layers(pvar const v, unsigned_vector const& widths, pvar_vector const& overlaps, fixed_bits_info const& fbi, rational const& to_cover_lo, rational const& to_cover_hi, rational& val) {
+        ptr_vector<entry> refine_todo;
+
+        lbool result = find_on_layer(v, widths.size() - 1, widths, overlaps, fbi, to_cover_lo, to_cover_hi, val, refine_todo);
+
+        // store bit intervals we have used
+        for (entry* e : refine_todo)
+            intersect(v, e);
+
+        // TODO: other refinements
+
+        return result;
+    }
+
     // find viable values in half-open interval [to_cover_lo;to_cover_hi[ w.r.t. unit intervals on the given layer
-    lbool viable::find_on_layer(pvar v, unsigned w_idx, unsigned_vector const& widths, pvar_vector const& overlaps, fixed_bits_info const& fbi, rational const& to_cover_lo, rational const& to_cover_hi, rational& val) {
+    lbool viable::find_on_layer(pvar const v, unsigned const w_idx, unsigned_vector const& widths, pvar_vector const& overlaps, fixed_bits_info const& fbi, rational const& to_cover_lo, rational const& to_cover_hi, rational& val, ptr_vector<entry>& refine_todo) {
 
         unsigned const w = widths[w_idx];
         rational const& mod_value = rational::power_of_two(w);
@@ -1556,9 +1570,6 @@ namespace polysat {
         rational const to_cover_len = r_interval::len(to_cover_lo, to_cover_hi, mod_value);
         val = to_cover_lo;
 
-        // TODO: for each e in refine_todo, intersect(v, e);
-        svector<std::pair<pvar, entry*>> refine_todo;
-
         rational progress; // = 0
         while (true) {
             entry* e = nullptr;
@@ -1580,7 +1591,7 @@ namespace polysat {
             if (!e) {
                 e = refine_bits<true>(v, val, w, fbi);
                 if (e) {
-                    refine_todo.push_back({v, e});
+                    refine_todo.push_back(e);
                     display_one(std::cerr << "found entry by bits: ", 0, e) << "\n";
                 }
             }
@@ -1651,7 +1662,7 @@ namespace polysat {
         }
 
         rational a;
-        lbool result = find_on_layer(v, w_idx - 1, widths, overlaps, fbi, lower_cover_lo, lower_cover_hi, a);
+        lbool result = find_on_layer(v, w_idx - 1, widths, overlaps, fbi, lower_cover_lo, lower_cover_hi, a, refine_todo);
         if (result == l_false)
             return l_false;  // conflict
 
