@@ -167,7 +167,7 @@ namespace polysat {
         bool refine_disequal_lin(pvar v, rational const& val);
 
         template<bool FORWARD>
-        rational extend_by_bits(pdd const& var, rational const& bounds, fixed_bits_info const& fbi, vector<signed_constraint>& out_src, vector<signed_constraint>& out_side_cond) const;
+        rational extend_by_bits(unsigned num_bits, rational const& bounds, fixed_bits_info const& fbi, vector<signed_constraint>& out_src, vector<signed_constraint>& out_side_cond) const;
 
         bool collect_bit_information(pvar v, bool add_conflict, fixed_bits_info& out_fbi);
 

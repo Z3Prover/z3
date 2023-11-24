@@ -436,12 +436,12 @@ namespace polysat {
 
     template<bool FORWARD>
     bool viable::refine_bits(pvar v, rational const& val, fixed_bits_info const& fbi) {
-
-        pdd v_pdd = s.var(v);
+        pdd_manager& m = s.var2pdd(v);
+        unsigned const k = s.size(v);
 
         // TODO: We might also extend simultaneously up and downwards if we want the actual interval (however, this might make use of more fixed bits and is weaker - worse - therefore)
         entry* ne = alloc_entry();
-        rational new_val = extend_by_bits<FORWARD>(v_pdd, val, fbi, ne->src, ne->side_cond);
+        rational new_val = extend_by_bits<FORWARD>(k, val, fbi, ne->src, ne->side_cond);
 
         if (new_val == val) {
             m_alloc.push_back(ne);
@@ -450,18 +450,18 @@ namespace polysat {
 
         // TODO: Extend in both directions? (Less justifications vs. bigger intervals)
         // TODO: could also try to extend backwards as much as we can without introducing new justifications?
-        rational new_val2 = extend_by_bits<!FORWARD>(v_pdd, val, fbi, ne->src, ne->side_cond);
+        rational new_val2 = extend_by_bits<!FORWARD>(k, val, fbi, ne->src, ne->side_cond);
 
         ne->refined = true;
         ne->coeff = 1;
         ne->bit_width = s.size(v);
         if (FORWARD) {
             LOG("refine-bits FORWARD for v" << v << " = " << val << " to [" << new_val2 << ", " << new_val << "[");
-            ne->interval = eval_interval::proper(v_pdd.manager().mk_val(new_val2), new_val2, v_pdd.manager().mk_val(new_val), new_val);
+            ne->interval = eval_interval::proper(m.mk_val(new_val2), new_val2, m.mk_val(new_val), new_val);
         }
         else {
             LOG("refine-bits BACKWARD for v" << v << " = " << val << " to [" << new_val << ", " << new_val2 << "[");
-            ne->interval = eval_interval::proper(v_pdd.manager().mk_val(new_val), new_val, v_pdd.manager().mk_val(new_val2), new_val2);
+            ne->interval = eval_interval::proper(m.mk_val(new_val), new_val, m.mk_val(new_val2), new_val2);
         }
         SASSERT(ne->interval.currently_contains(val));
         intersect(v, ne);
@@ -713,15 +713,10 @@ namespace polysat {
     }
 
     // Skips all values that are not feasible w.r.t. fixed bits
-    template<bool FORWARD>
-    rational viable::extend_by_bits(pdd const& var, rational const& bound, fixed_bits_info const& fbi, vector<signed_constraint>& src, vector<signed_constraint>& side_cond) const {
-        unsigned const k = var.power_of_2();
-        if (fbi.is_empty())  // TODO: this check doesn't do anything.
-            return bound;
-
+    template <bool FORWARD>
+    rational viable::extend_by_bits(unsigned k, rational const& bound, fixed_bits_info const& fbi, vector<signed_constraint>& src, vector<signed_constraint>& side_cond) const {
         svector<lbool> const& fixed = fbi.fixed;
-
-        SASSERT(k == fixed.size());
+        SASSERT(k <= fixed.size());
 
         sat::literal_set added_src;
         sat::literal_set added_side_cond;
