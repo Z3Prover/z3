@@ -20,7 +20,6 @@ Notes:
 
 #pragma once
 
-#include <stdio.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include "z3_macros.h"
