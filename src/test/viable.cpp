@@ -31,6 +31,19 @@ namespace polysat {
             }
             return mod(x, m_mod_value);
         }
+
+        rational odd() {
+            return mod(2 * operator()() + 1, m_mod_value);
+        }
+
+        rational pow2_biased() {
+            unsigned exponent = u32() % m_bit_width;
+            return mod(odd() * rational::power_of_two(exponent), m_mod_value);
+        }
+
+        unsigned u32() {
+            return rng32_unsigned();
+        }
     };
 
     struct solver_scopev {
@@ -489,11 +502,105 @@ namespace polysat {
     };  // class test_fi
 
 
+    // check fixed bits of constraint
+    //      a1*x + b1 <= a2*x + b2
+    static void test_fixed(univariate_solver& us, unsigned bw, rational const& a1, rational const& b1, rational const& a2, rational const& b2, bool sign) {
+        scoped_solverv s;
+        auto x = s.var(s.add_var(bw));
+        signed_constraint c = s.ule(a1*x + b1, a2*x + b2);
+        if (sign)
+            c.negate();
+        if (c.is_always_true() || c.is_always_false())
+            return;
+
+        std::cerr << "test_fixed: " << c << "\n";
+
+        VERIFY_EQ(us.scope_level(), 0);
+        us.push();
+
+        c.add_to_univariate_solver(x.var(), s, us, 0);
+        VERIFY_EQ(us.check(), l_true);  // c.is_always_false() should be true otherwise
+
+        fixed_bits fb;
+        bool has_fb = get_fixed_bits(c, fb);
+        if (has_fb) {
+            // check whether fixed bits are correct
+            VERIFY(fb.lo <= fb.hi);
+            std::cerr << "  found lo=" << fb.lo << " hi=" << fb.hi << " value=" << fb.value << "\n";
+            for (unsigned i = fb.lo; i <= fb.hi; ++i) {
+                us.push();
+                if (fb.value.get_bit(i - fb.lo))
+                    us.add_bit0(i, 0);
+                else
+                    us.add_bit1(i, 0);
+                VERIFY_EQ(us.check(), l_false);
+                us.pop(1);
+            }
+        }
+
+        // check whether we missed some fixed bits
+        for (unsigned i = 0; i < bw; ++i) {
+            if (has_fb && fb.lo <= i && i <= fb.hi)
+                continue;
+
+            us.push();
+            us.add_bit0(i, 0);
+            if (us.check() == l_false)
+                std::cerr << "  => " << x << "[" << i << "] = 1\n";
+            us.pop(1);
+
+            us.push();
+            us.add_bit1(i, 0);
+            if (us.check() == l_false)
+                std::cerr << "  => " << x << "[" << i << "] = 0\n";
+            us.pop(1);
+        }
+
+        us.pop(1);
+    }
+
+    static void test_fixed_exhaustive(unsigned bw) {
+        auto us_factory = mk_univariate_bitblast_factory();
+        auto us_ptr = (*us_factory)(bw);
+        auto& us = *us_ptr;
+        rational const m = rational::power_of_two(bw);
+        for (rational a; a < m; ++a)
+            for (rational b; b < m; ++b)
+                for (rational c; c < m; ++c)
+                    for (rational d; d < m; ++d)
+                        test_fixed(us, bw, a, b, c, d, false);
+    }
+
+    static void test_fixed_randomized(unsigned num_rounds, unsigned bw) {
+        auto us_factory = mk_univariate_bitblast_factory();
+        auto us_ptr = (*us_factory)(bw);
+        auto& us = *us_ptr;
+        big_random_gen rng(bw);
+        while (num_rounds--) {
+            rational a1 = rng.pow2_biased();
+            rational a2 = rng.pow2_biased();
+            rational b1 = rng();
+            rational b2 = rng();
+            test_fixed(us, bw, a1, b1, a2, b2, false);
+        }
+    }
+
+    static void test_fixed() {
+        // test_fixed_exhaustive(1);
+        // test_fixed_exhaustive(2);
+        // test_fixed_exhaustive(3);
+        // test_fixed_exhaustive(4);
+        // test_fixed_exhaustive(5);
+        test_fixed_randomized(1000, 8);
+    }
+
 }
 
 
 
 void tst_viable() {
+    // polysat::test_fixed();
+    // return;
     set_log_enabled(false);
     polysat::test1();
     polysat::test_univariate();
