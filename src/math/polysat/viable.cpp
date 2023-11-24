@@ -1628,6 +1628,14 @@ namespace polysat {
             if (distance(val, n, mod_value) < distance(val, next_val, mod_value))
                 next_val = n;
         }
+        if (entry* e = refine_bits<false>(v, next_val, w, fbi)) {
+            refine_todo.push_back(e);
+            rational const& n = e->interval.lo_val();
+            SASSERT(distance(val, n, mod_value) < distance(val, next_val, mod_value));
+            next_val = n;
+        }
+        SASSERT(!refine_bits<true>(v, val, w, fbi));
+        SASSERT(val != next_val);
 
         unsigned const lower_w = widths[w_idx - 1];
         rational const lower_mod_value = rational::power_of_two(lower_w);
