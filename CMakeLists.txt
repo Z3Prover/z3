@@ -153,8 +153,8 @@ list(APPEND Z3_COMPONENT_CXX_DEFINES $<$<CONFIG:RelWithDebInfo>:_EXTERNAL_RELEAS
 ################################################################################
 # Find Python
 ################################################################################
-find_package(PythonInterp 3 REQUIRED)
-message(STATUS "PYTHON_EXECUTABLE: ${PYTHON_EXECUTABLE}")
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+message(STATUS "Python3_EXECUTABLE: ${Python3_EXECUTABLE}")
 
 ################################################################################
 # Target architecture detection
