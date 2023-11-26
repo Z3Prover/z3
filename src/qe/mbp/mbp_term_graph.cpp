@@ -172,8 +172,8 @@ class term {
         : m_expr(v), m_root(this), m_repr(nullptr), m_next(this), m_mark(false),
           m_mark2(false), m_interpreted(false),
           m_is_eq(m_expr.get_manager().is_eq(m_expr)), m_is_peq(false),
-          m_is_npeq_child(false),
-          m_is_neq_child(false), m_cgr(0), m_gr(0) {
+          m_is_neq_child(false), m_is_npeq_child(false),
+          m_cgr(0), m_gr(0) {
         m_is_neq = m_expr.get_manager().is_not(m_expr) &&
                    m_expr.get_manager().is_eq(to_app(m_expr)->get_arg(0));
         m_is_distinct = m_expr.get_manager().is_distinct(m_expr);
