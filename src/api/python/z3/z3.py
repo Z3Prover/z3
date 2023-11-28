@@ -1571,6 +1571,9 @@ class BoolRef(ExprRef):
     def sort(self):
         return BoolSortRef(Z3_get_sort(self.ctx_ref(), self.as_ast()), self.ctx)
 
+    def __add__(self, other):
+        return If(self, 1, 0) + If(other, 1, 0)
+ 
     def __rmul__(self, other):
         return self * other
 
@@ -1584,6 +1587,17 @@ class BoolRef(ExprRef):
         if isinstance(other, BoolRef):
             other = If(other, 1, 0)
         return If(self, other, 0)
+        
+    def __and__(self, other):
+        return And(self, other)
+    
+    def __or__(self, other):
+        return Or(self, other)
+    
+    def __invert__(self):
+        return Not(self)
+    
+    
 
     
 def is_bool(a):
