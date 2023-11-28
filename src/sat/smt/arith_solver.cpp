@@ -899,6 +899,11 @@ namespace arith {
             lp().random_update(vars.size(), vars.data());
     }
 
+    bool solver::include_func_interp(enode* n) const {
+        func_decl* d = n->get_decl();
+        return d && include_func_interp(d);
+    }
+
     bool solver::assume_eqs() {
         if (delayed_assume_eqs())
             return true;
@@ -913,7 +918,7 @@ namespace arith {
             theory_var v = (i + start) % sz;
             if (is_bool(v))
                 continue;
-            if (!ctx.is_shared(var2enode(v)))
+            if (!ctx.is_shared(var2enode(v)) && !include_func_interp(var2enode(v)))
                 continue;
             ensure_column(v);
             if (!is_registered_var(v))

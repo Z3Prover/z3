@@ -1513,7 +1513,7 @@ public:
         for (theory_var i = 0; i < sz; ++i) {
             theory_var v = (i + start) % sz;
             enode* n1 = get_enode(v);
-            if (!th.is_relevant_and_shared(n1))                     
+            if (!th.is_relevant_and_shared(n1) && !include_func_interp(n1))                     
                 continue;
             ensure_column(v);
             if (!is_registered_var(v))
@@ -3346,7 +3346,6 @@ public:
             }
         }
         return r;
-
     }
 
     model_value_proc * mk_value(enode * n, model_generator & mg) {
@@ -3400,6 +3399,10 @@ public:
             a.is_power0(f) ||
             a.is_rem0(f) ||
             a.is_mod0(f);        
+    }
+
+    bool include_func_interp(enode* n) {
+        return include_func_interp(n->get_decl());
     }
 
     bool get_lower(enode* n, rational& val, bool& is_strict) {

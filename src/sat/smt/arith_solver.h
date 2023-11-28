@@ -401,6 +401,7 @@ namespace arith {
         bool delayed_assume_eqs();
         bool is_eq(theory_var v1, theory_var v2);
         bool use_nra_model();
+        bool include_func_interp(enode* n) const;
 
         lbool make_feasible();
         bool  check_delayed_eqs();
