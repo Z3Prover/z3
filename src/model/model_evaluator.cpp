@@ -161,7 +161,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
         return st;
     }
 
-    bool contains_as_array(expr* e) {
+    bool contains_redex(expr* e) {
         if (m_ar.is_as_array(e))
             return true;
         if (is_var(e))
@@ -169,22 +169,24 @@ struct evaluator_cfg : public default_rewriter_cfg {
         if (is_app(e) && to_app(e)->get_num_args() == 0)
             return false;
 
-        struct has_as_array {};
-        struct has_as_array_finder {
+        struct has_redex {};
+        struct has_redex_finder {
             array_util& au;
-            has_as_array_finder(array_util& au): au(au) {}
+            has_redex_finder(array_util& au): au(au) {}
             void operator()(var* v) {}
             void operator()(quantifier* q) {}
             void operator()(app* a) {
                 if (au.is_as_array(a->get_decl()))
-                    throw has_as_array();                
+                    throw has_redex();
+                if (au.get_manager().is_eq(a))
+                    throw has_redex();
             }
         };
-        has_as_array_finder ha(m_ar);
+        has_redex_finder ha(m_ar);
         try {
             for_each_expr(ha, e);
         }
-        catch (has_as_array) {
+        catch (has_redex) {
             return true;
         }
         return false;
@@ -216,8 +218,8 @@ struct evaluator_cfg : public default_rewriter_cfg {
             expr* val = m_model.get_const_interp(f);
             if (val != nullptr) {
                 result = val;
-                st = contains_as_array(val) ? BR_REWRITE_FULL : BR_DONE;
-                TRACE("model_evaluator", tout << result << "\n";);
+                st = contains_redex(val) ? BR_REWRITE_FULL : BR_DONE;
+                TRACE("model_evaluator", tout << st << " " << result << "\n";);
                 return st;
             }
             if (!m_model_completion)
@@ -443,10 +445,22 @@ struct evaluator_cfg : public default_rewriter_cfg {
             result = m.get_some_value(f->get_range());
             return BR_DONE;
         }
-        else if (m_dt.is_accessor(f) && !is_ground(args[0])) {
-            result = m.mk_app(f, num, args);
-            return BR_DONE;            
+        else if (m_dt.is_accessor(f)) {
+            expr* arg = args[0];
+            if (is_ground(arg) && !fi) {
+                fi = alloc(func_interp, m, f->get_arity());
+                expr* val = m_model.get_some_value(f->get_range());
+                fi->set_else(val);
+                m_model.register_decl(f, fi);
+                result = val;
+                return BR_DONE;
+            }
+            if (!is_ground(arg)) {
+                result = m.mk_app(f, num, args);
+                return BR_DONE;
+            }
         }
+
         if (fi) {
             if (fi->is_partial())
                 fi->set_else(m.get_some_value(f->get_range()));
