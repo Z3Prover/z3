@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    Theory plugin for altegraic datatypes
+    Theory plugin for algebraic datatypes
 
 Author:
 

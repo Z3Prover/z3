@@ -229,6 +229,7 @@ namespace euf {
 
         theory_var get_th_var(theory_id id) const { return m_th_vars.find(id); }
         theory_var get_closest_th_var(theory_id id) const;
+        enode* get_closest_th_node(theory_id id);
         bool is_attached_to(theory_id id) const { return get_th_var(id) != null_theory_var; }
         bool has_th_vars() const { return !m_th_vars.empty(); }
         bool has_one_th_var() const { return !m_th_vars.empty() && !m_th_vars.get_next();}

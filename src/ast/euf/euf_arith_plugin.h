@@ -39,11 +39,9 @@ namespace euf {
 
         void register_node(enode* n) override;
 
-        void register_shared(enode* n) override;
+        void merge_eh(enode* n1, enode* n2) override;
 
-        void merge_eh(enode* n1, enode* n2, justification j) override;
-
-        void diseq_eh(enode* n1, enode* n2) override;
+        void diseq_eh(enode* eq) override {}
 
         void undo() override;
 

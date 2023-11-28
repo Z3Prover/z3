@@ -101,6 +101,7 @@ namespace euf {
             bloom m_bloom;
             node* operator[](unsigned i) const { return m_nodes[i]; }
             unsigned size() const { return m_nodes.size(); }
+            void set(ptr_vector<node> const& ns) { m_nodes.reset(); m_nodes.append(ns); m_bloom.m_tick = 0; }
             node* const* begin() const { return m_nodes.begin(); }
             node* const* end() const { return m_nodes.end(); }
             node* * begin() { return m_nodes.begin(); }
@@ -136,10 +137,12 @@ namespace euf {
             }
         };
 
-        unsigned                 m_fid;
-        unsigned                 m_op;
+        unsigned                 m_fid = 0;
+        unsigned                 m_op = null_decl_kind;
+        func_decl*               m_decl = nullptr;
         vector<eq>               m_eqs;
         ptr_vector<node>         m_nodes;
+        bool_vector              m_shared_nodes;
         vector<monomial_t>       m_monomials;
         svector<shared>          m_shared;
         justification::dependency_manager m_dep_manager;
@@ -161,7 +164,8 @@ namespace euf {
             is_add_node,
             is_merge_node,
             is_update_eq,
-            is_add_shared,
+            is_add_shared_index,
+            is_add_eq_index,
             is_register_shared,
             is_update_shared
         };
@@ -177,19 +181,21 @@ namespace euf {
         node* mk_node(enode* n);
         void merge(node* r1, node* r2, justification j);
 
-        bool is_op(enode* n) const { auto d = n->get_decl(); return d && m_fid == d->get_family_id() && m_op == d->get_decl_kind(); }
+        bool is_op(enode* n) const { auto d = n->get_decl(); return d && (d == m_decl || (m_fid == d->get_family_id() && m_op == d->get_decl_kind())); }
 
         std::function<void(void)> m_undo_notify;
         void push_undo(undo_kind k);
         enode_vector m_todo;
         unsigned to_monomial(enode* n);
         unsigned to_monomial(enode* n, ptr_vector<node> const& ms);
+        unsigned to_monomial(ptr_vector<node> const& ms) { return to_monomial(nullptr, ms); }
         monomial_t const& monomial(unsigned i) const { return m_monomials[i]; }
         monomial_t& monomial(unsigned i) { return m_monomials[i]; }
         void sort(monomial_t& monomial);
         bool is_sorted(monomial_t const& monomial) const;
         uint64_t filter(monomial_t& m);
         bool can_be_subset(monomial_t& subset, monomial_t& superset);
+        bool can_be_subset(monomial_t& subset, ptr_vector<node> const& m, bloom& b);
         bool are_equal(ptr_vector<node> const& a, ptr_vector<node> const& b);
         bool are_equal(monomial_t& a, monomial_t& b);
         bool backward_subsumes(unsigned src_eq, unsigned dst_eq);
@@ -216,14 +222,15 @@ namespace euf {
             unsigned const* begin() const { return ids.begin(); }
             unsigned const* end() const { return ids.end(); }
         };
-        ref_counts m_src_l_counts, m_dst_l_counts, m_src_r_counts, m_dst_r_counts, m_eq_counts;
+        ref_counts m_src_l_counts, m_dst_l_counts, m_src_r_counts, m_dst_r_counts, m_eq_counts, m_m_counts;
         unsigned_vector m_eq_occurs;
         bool_vector m_eq_seen;
 
         unsigned_vector const& forward_iterator(unsigned eq);
         unsigned_vector const& superpose_iterator(unsigned eq);
         unsigned_vector const& backward_iterator(unsigned eq);
-        void init_ref_counts(monomial_t const& monomial, ref_counts& counts);
+        void init_ref_counts(monomial_t const& monomial, ref_counts& counts) const;
+        void init_ref_counts(ptr_vector<node> const& monomial, ref_counts& counts) const;
         void init_overlap_iterator(unsigned eq, monomial_t const& m);
         void init_subset_iterator(unsigned eq, monomial_t const& m);
         void compress_eq_occurs(unsigned eq_id);
@@ -232,7 +239,9 @@ namespace euf {
 
         // check that dst is a superset of dst, where src_counts are precomputed
         bool is_superset(ref_counts const& src_counts, ref_counts& dst_counts, monomial_t const& dst);
-        unsigned rewrite(monomial_t const& src_r, monomial_t const& dst_r);
+        void rewrite1(ref_counts const& src_l, monomial_t const& src_r, ref_counts& dst_r_counts, ptr_vector<node>& dst_r);
+        bool reduce(ptr_vector<node>& m, justification& j);
+        void index_new_r(unsigned eq, monomial_t const& old_r, monomial_t const& new_r);
 
         bool is_to_simplify(unsigned eq) const { return m_eqs[eq].status == eq_status::to_simplify; }
         bool is_processed(unsigned eq) const { return m_eqs[eq].status == eq_status::processed; }
@@ -241,11 +250,17 @@ namespace euf {
         justification justify_rewrite(unsigned eq1, unsigned eq2);
         justification::dependency* justify_equation(unsigned eq);
         justification::dependency* justify_monomial(justification::dependency* d, monomial_t const& m);
+        justification join(justification j1, unsigned eq);
 
+        bool is_correct_ref_count(monomial_t const& m, ref_counts const& counts) const;
+        bool is_correct_ref_count(ptr_vector<node> const& m, ref_counts const& counts) const;
+        
+        void register_shared(enode* n);
         void propagate_shared();
         void simplify_shared(unsigned idx, shared s);
 
-        std::ostream& display_monomial(std::ostream& out, monomial_t const& m) const;
+        std::ostream& display_monomial(std::ostream& out, monomial_t const& m) const { return display_monomial(out, m.m_nodes); }
+        std::ostream& display_monomial(std::ostream& out, ptr_vector<node> const& m) const;
         std::ostream& display_equation(std::ostream& out, eq const& e) const;
         std::ostream& display_status(std::ostream& out, eq_status s) const;
 
@@ -254,17 +269,17 @@ namespace euf {
 
         ac_plugin(egraph& g, unsigned fid, unsigned op);
 
+        ac_plugin(egraph& g, func_decl* f);
+
         ~ac_plugin() override {}
         
         unsigned get_id() const override { return m_fid; }
 
         void register_node(enode* n) override;
 
-        void register_shared(enode* n) override;
+        void merge_eh(enode* n1, enode* n2) override;
 
-        void merge_eh(enode* n1, enode* n2, justification j) override;
-
-        void diseq_eh(enode* n1, enode* n2) override {}
+        void diseq_eh(enode* eq) override;
 
         void undo() override;
 
@@ -282,8 +297,9 @@ namespace euf {
         };
 
         struct m_pp { 
-            ac_plugin& p; monomial_t const& m; 
-            m_pp(ac_plugin& p, monomial_t const& m) : p(p), m(m) {} 
+            ac_plugin& p; ptr_vector<node> const& m; 
+            m_pp(ac_plugin& p, monomial_t const& m) : p(p), m(m.m_nodes) {} 
+            m_pp(ac_plugin& p, ptr_vector<node> const& m) : p(p), m(m) {}
             std::ostream& display(std::ostream& out) const { return p.display_monomial(out, m); }
         };
     };

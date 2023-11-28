@@ -20,6 +20,7 @@ Notes:
 #include "ast/euf/euf_egraph.h"
 #include "ast/euf/euf_bv_plugin.h"
 #include "ast/euf/euf_arith_plugin.h"
+#include "ast/euf/euf_specrel_plugin.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_translation.h"
 
@@ -115,7 +116,6 @@ namespace euf {
             n->mark_interpreted();
         if (m_on_make)
             m_on_make(n);
-        register_node(n);
 
         if (num_args == 0) 
             return n;
@@ -134,22 +134,6 @@ namespace euf {
         return n;
     }
 
-    void egraph::register_node(enode* n) {
-        if (m_plugins.empty())
-            return;
-        auto* p = get_plugin(n);
-        if (p)
-            p->register_node(n);
-        if (!n->is_equality()) {
-            for (auto* arg : enode_args(n)) {
-                auto* p_arg = get_plugin(arg);
-                if (p != p_arg)
-                    p_arg->register_shared(arg);
-            }
-        }
-
-    }
-
     egraph::egraph(ast_manager& m) : m(m), m_table(m), m_tmp_app(2), m_exprs(m), m_eq_decls(m) {
         m_tmp_eq = enode::mk_tmp(m_region, 2);
     }
@@ -162,6 +146,9 @@ namespace euf {
     }
 
     void egraph::add_plugins() {
+        if (!m_plugins.empty())
+            return;
+
         auto insert = [&](plugin* p) {
             m_plugins.reserve(p->get_id() + 1);
             m_plugins.set(p->get_id(), p);
@@ -169,6 +156,7 @@ namespace euf {
 
         insert(alloc(bv_plugin, *this));
         insert(alloc(arith_plugin, *this));
+        insert(alloc(specrel_plugin, *this));
     }
 
     void egraph::propagate_plugins() {
@@ -182,14 +170,20 @@ namespace euf {
         m_new_th_eqs.push_back(th_eq(id, v1, v2, c, r));
         m_updates.push_back(update_record(update_record::new_th_eq()));
         ++m_stats.m_num_th_eqs;
+        auto* p = get_plugin(id);
+        if (p)
+            p->merge_eh(c, r);
     }
 
-    void egraph::add_th_diseq(theory_id id, theory_var v1, theory_var v2, expr* eq) {
+    void egraph::add_th_diseq(theory_id id, theory_var v1, theory_var v2, enode* eq) {
         if (!th_propagates_diseqs(id))
             return;
         TRACE("euf_verbose", tout << "eq: " << v1 << " != " << v2 << "\n";);
-        m_new_th_eqs.push_back(th_eq(id, v1, v2, eq));
+        m_new_th_eqs.push_back(th_eq(id, v1, v2, eq->get_expr()));
         m_updates.push_back(update_record(update_record::new_th_eq()));
+        auto* p = get_plugin(id);
+        if (p)
+            p->diseq_eh(eq);
         ++m_stats.m_num_th_diseqs;
     }
 
@@ -238,7 +232,7 @@ namespace euf {
                 return;
             theory_var v1 = arg1->get_closest_th_var(id);
             theory_var v2 = arg2->get_closest_th_var(id);
-            add_th_diseq(id, v1, v2, n->get_expr());
+            add_th_diseq(id, v1, v2, n);
             return;
         }
         for (auto const& p : euf::enode_th_vars(r1)) {
@@ -246,7 +240,7 @@ namespace euf {
                 continue;
             for (auto const& q : euf::enode_th_vars(r2))
                 if (p.get_id() == q.get_id()) 
-                    add_th_diseq(p.get_id(), p.get_var(), q.get_var(), n->get_expr());
+                    add_th_diseq(p.get_id(), p.get_var(), q.get_var(), n);
         }
     }
 
@@ -266,7 +260,7 @@ namespace euf {
                 n = n->get_root();
                 theory_var v2 = n->get_closest_th_var(id);
                 if (v2 != null_theory_var)
-                    add_th_diseq(id, v1, v2, p->get_expr());                        
+                    add_th_diseq(id, v1, v2, p);                        
             }
         }
     }
@@ -284,6 +278,10 @@ namespace euf {
         force_push();
         theory_var w = n->get_th_var(id);
         enode* r = n->get_root();
+
+        auto* p = get_plugin(id);
+        if (p)
+            p->register_node(n);
 
         if (w == null_theory_var) {
             n->add_th_var(v, id, m_region);
@@ -529,10 +527,7 @@ namespace euf {
 
         for (auto& cb : m_on_merge)
             cb(r2, r1);
-
-        auto* p = get_plugin(r1);
-        if (p)
-            p->merge_eh(r2, r1, j);        
+    
     }
 
     void egraph::remove_parents(enode* r) {

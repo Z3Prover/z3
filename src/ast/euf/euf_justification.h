@@ -118,31 +118,8 @@ namespace euf {
             }
         }
 
-        std::ostream& display(std::ostream& out, std::function<void (std::ostream&, void*)> const& ext) const {
-            switch (m_kind) {
-            case kind_t::external_t:
-                if (ext)
-                    ext(out, m_external);
-                else
-                    out << "external";
-                return out;
-            case kind_t::axiom_t:
-                return out << "axiom";
-            case kind_t::congruence_t:
-                return out << "congruence";
-            case kind_t::dependent_t: {
-                vector<justification, false> js;                
-                out << "dependent";
-                for (auto const& j : dependency_manager::s_linearize(m_dependency, js))
-                    j.display(out << " ", ext);
-                return out;
-            }
-            default:
-                UNREACHABLE();
-                return out;
-            }
-            return out;
-        }
+        std::ostream& display(std::ostream& out, std::function<void(std::ostream&, void*)> const& ext) const;
+
     };
 
     inline std::ostream& operator<<(std::ostream& out, justification const& j) {

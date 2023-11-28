@@ -103,7 +103,7 @@ namespace euf {
         return mk(e, 0, nullptr);
     }
 
-    void bv_plugin::merge_eh(enode* x, enode* y, justification j) {
+    void bv_plugin::merge_eh(enode* x, enode* y) {
         SASSERT(x == x->get_root());
         SASSERT(x == y->get_root());
 
@@ -120,7 +120,7 @@ namespace euf {
             ys.reset();
             xs.push_back(x);
             ys.push_back(y);
-            merge(xs, ys, j);
+            merge(xs, ys, justification::equality(x, y));
         }
 
         // ensure p := concat(n1[I], n2[J]), n1 ~ n2 ~ n3 I and J are consecutive => p ~ n3[IJ]

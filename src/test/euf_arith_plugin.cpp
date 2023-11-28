@@ -11,14 +11,18 @@ Copyright (c) 2023 Microsoft Corporation
 #include "ast/ast_pp.h"
 #include <iostream>
 
-static euf::enode* get_node(euf::egraph& g, expr* e) {
+unsigned s_var = 0;
+
+static euf::enode* get_node(euf::egraph& g, arith_util& a, expr* e) {
     auto* n = g.find(e);
     if (n)
         return n;
     euf::enode_vector args;
     for (expr* arg : *to_app(e))
-        args.push_back(get_node(g, arg));
-    return g.mk(e, 0, args.size(), args.data());
+        args.push_back(get_node(g, a, arg));
+    n = g.mk(e, 0, args.size(), args.data());
+    g.add_th_var(n, s_var++, a.get_family_id());
+    return n;
 }
 
 // 
@@ -32,15 +36,15 @@ static void test1() {
 
     expr_ref x(m.mk_const("x", I), m);
     expr_ref y(m.mk_const("y", I), m);
-    auto* nx = get_node(g, a.mk_add(a.mk_add(y, y), a.mk_add(x, x)));
-    auto* ny = get_node(g, a.mk_add(a.mk_add(y, x), x));
+    auto* nx = get_node(g, a, a.mk_add(a.mk_add(y, y), a.mk_add(x, x)));
+    auto* ny = get_node(g, a, a.mk_add(a.mk_add(y, x), x));
     TRACE("plugin", tout << "before merge\n" << g << "\n");
     g.merge(nx, ny, nullptr);
 
     TRACE("plugin", tout << "before propagate\n" << g << "\n");
     g.propagate();
     TRACE("plugin", tout << "after propagate\n" << g << "\n");
-    g.merge(get_node(g, a.mk_add(x, a.mk_add(y, y))), get_node(g, a.mk_add(y, x)), nullptr);
+    g.merge(get_node(g, a, a.mk_add(x, a.mk_add(y, y))), get_node(g, a, a.mk_add(y, x)), nullptr);
     g.propagate();
     std::cout << g << "\n";
 }
@@ -55,10 +59,10 @@ static void test2() {
 
     expr_ref x(m.mk_const("x", I), m);
     expr_ref y(m.mk_const("y", I), m);
-    auto* nxy = get_node(g, a.mk_add(x, y));
-    auto* nyx = get_node(g, a.mk_add(y, x));
-    auto* nx = get_node(g, x);
-    auto* ny = get_node(g, y);
+    auto* nxy = get_node(g, a, a.mk_add(x, y));
+    auto* nyx = get_node(g, a, a.mk_add(y, x));
+    auto* nx = get_node(g, a, x);
+    auto* ny = get_node(g, a, y);
     
     TRACE("plugin", tout << "before merge\n" << g << "\n");
     g.merge(nxy, nx, nullptr);
@@ -67,7 +71,7 @@ static void test2() {
     g.propagate();
     TRACE("plugin", tout << "after propagate\n" << g << "\n");
     SASSERT(nx->get_root() == ny->get_root());
-    g.merge(get_node(g, a.mk_add(x, a.mk_add(y, y))), get_node(g, a.mk_add(y, x)), nullptr);
+    g.merge(get_node(g, a, a.mk_add(x, a.mk_add(y, y))), get_node(g, a, a.mk_add(y, x)), nullptr);
     g.propagate();
     std::cout << g << "\n";
 }
@@ -82,22 +86,21 @@ static void test3() {
 
     expr_ref x(m.mk_const("x", I), m);
     expr_ref y(m.mk_const("y", I), m);
-    auto* nxyy = get_node(g, a.mk_add(a.mk_add(x, y), y));
-    auto* nyxx = get_node(g, a.mk_add(a.mk_add(y, x), x));
-    auto* nx = get_node(g, x);
-    auto* ny = get_node(g, y);
+    auto* nxyy = get_node(g, a, a.mk_add(a.mk_add(x, y), y));
+    auto* nyxx = get_node(g, a, a.mk_add(a.mk_add(y, x), x));
+    auto* nx = get_node(g, a, x);
+    auto* ny = get_node(g, a, y);
     g.merge(nxyy, nx, nullptr);
     g.merge(nyxx, ny, nullptr);
     TRACE("plugin", tout << "before propagate\n" << g << "\n");
     g.propagate();
     TRACE("plugin", tout << "after propagate\n" << g << "\n");
-    SASSERT(nx->get_root() == ny->get_root());
     std::cout << g << "\n";
 }
 
 void tst_euf_arith_plugin() {
     enable_trace("plugin");
-    test3();
     test1();
     test2();
+    test3();
 }

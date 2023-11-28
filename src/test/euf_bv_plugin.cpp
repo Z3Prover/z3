@@ -11,14 +11,17 @@ Copyright (c) 2023 Microsoft Corporation
 #include "ast/ast_pp.h"
 #include <iostream>
 
-static euf::enode* get_node(euf::egraph& g, expr* e) {
+static unsigned s_var = 0;
+static euf::enode* get_node(euf::egraph& g, bv_util& b, expr* e) {
     auto* n = g.find(e);
     if (n)
         return n;
     euf::enode_vector args;
     for (expr* arg : *to_app(e))
-        args.push_back(get_node(g, arg));
-    return g.mk(e, 0, args.size(), args.data());
+        args.push_back(get_node(g, b, arg));
+    n = g.mk(e, 0, args.size(), args.data());
+    g.add_th_var(n, s_var++, b.get_family_id());
+    return n;
 }
 
 // align slices, and propagate extensionality
@@ -40,8 +43,8 @@ static void test1() {
     expr_ref y1(bv.mk_extract(7, 0, y), m);
     expr_ref xx(bv.mk_concat(x1, bv.mk_concat(x2, x3)), m);
     expr_ref yy(bv.mk_concat(y1, bv.mk_concat(y2, y3)), m);
-    auto* nx = get_node(g, xx);
-    auto* ny = get_node(g, yy);
+    auto* nx = get_node(g, bv, xx);
+    auto* ny = get_node(g, bv, yy);
     TRACE("bv", tout << "before merge\n" << g << "\n");
     g.merge(nx, ny, nullptr);
     TRACE("bv", tout << "before propagate\n" << g << "\n");
@@ -65,12 +68,12 @@ static void test2() {
     expr_ref x2(bv.mk_extract(15, 8, x), m);
     expr_ref x1(bv.mk_extract(7, 0, x), m);
     expr_ref xx(bv.mk_concat(x1, bv.mk_concat(x2, x3)), m);
-    g.merge(get_node(g, xx), get_node(g, bv.mk_numeral((1 << 27) + (1 << 17) + (1 << 3), 32)), nullptr);
+    g.merge(get_node(g, bv, xx), get_node(g, bv, bv.mk_numeral((1 << 27) + (1 << 17) + (1 << 3), 32)), nullptr);
     g.propagate();
-    SASSERT(get_node(g, x1)->get_root()->interpreted());
-    SASSERT(get_node(g, x2)->get_root()->interpreted());
-    SASSERT(get_node(g, x3)->get_root()->interpreted());
-    SASSERT(get_node(g, x)->get_root()->interpreted());
+    SASSERT(get_node(g, bv, x1)->get_root()->interpreted());
+    SASSERT(get_node(g, bv, x2)->get_root()->interpreted());
+    SASSERT(get_node(g, bv, x3)->get_root()->interpreted());
+    SASSERT(get_node(g, bv, x)->get_root()->interpreted());
 }
 
 
@@ -89,13 +92,13 @@ static void test3() {
     expr_ref x1(bv.mk_extract(7, 0, x), m);
     expr_ref xx(bv.mk_concat(bv.mk_concat(x1, x2), x3), m);
     expr_ref y(m.mk_const("y", u32), m);
-    g.merge(get_node(g, xx), get_node(g, y), nullptr);
-    g.merge(get_node(g, x1), get_node(g, bv.mk_numeral(2, 8)), nullptr);
-    g.merge(get_node(g, x2), get_node(g, bv.mk_numeral(8, 8)), nullptr);
+    g.merge(get_node(g, bv, xx), get_node(g, bv, y), nullptr);
+    g.merge(get_node(g, bv, x1), get_node(g, bv, bv.mk_numeral(2, 8)), nullptr);
+    g.merge(get_node(g, bv, x2), get_node(g, bv, bv.mk_numeral(8, 8)), nullptr);
     g.propagate();
-    SASSERT(get_node(g, bv.mk_concat(x1, x2))->get_root()->interpreted());
-    SASSERT(get_node(g, x1)->get_root()->interpreted());
-    SASSERT(get_node(g, x2)->get_root()->interpreted());
+    SASSERT(get_node(g, bv, bv.mk_concat(x1, x2))->get_root()->interpreted());
+    SASSERT(get_node(g, bv, x1)->get_root()->interpreted());
+    SASSERT(get_node(g, bv, x2)->get_root()->interpreted());
 }
 
 // propagate extract up
@@ -114,11 +117,11 @@ static void test4() {
     expr_ref y(m.mk_const("y", u16), m);
     expr_ref x1(bv.mk_extract(15, 8, x), m);
     expr_ref x2(bv.mk_extract(23, 16, x), m);
-    g.merge(get_node(g, bv.mk_concat(a, x2)), get_node(g, y), nullptr);
-    g.merge(get_node(g, x1), get_node(g, a), nullptr);
+    g.merge(get_node(g, bv, bv.mk_concat(a, x2)), get_node(g, bv, y), nullptr);
+    g.merge(get_node(g, bv, x1), get_node(g, bv, a), nullptr);
     g.propagate();
     TRACE("bv", tout << g << "\n");
-    SASSERT(get_node(g, bv.mk_extract(23, 8, x))->get_root() == get_node(g, y)->get_root());
+    SASSERT(get_node(g, bv, bv.mk_extract(23, 8, x))->get_root() == get_node(g, bv, y)->get_root());
 }
 
 // iterative slicing
@@ -133,8 +136,8 @@ static void test5() {
     expr_ref x(m.mk_const("x", u32), m);
     expr_ref x1(bv.mk_extract(31, 4, x), m);
     expr_ref x2(bv.mk_extract(27, 0, x), m);
-    auto* nx = get_node(g, x1);
-    auto* ny = get_node(g, x2);
+    auto* nx = get_node(g, bv, x1);
+    auto* ny = get_node(g, bv, x2);
     TRACE("bv", tout << "before merge\n" << g << "\n");
     g.merge(nx, ny, nullptr);
     TRACE("bv", tout << "before propagate\n" << g << "\n");
@@ -155,8 +158,8 @@ static void test6() {
     expr_ref x(m.mk_const("x", u32), m);
     expr_ref x1(bv.mk_extract(31, 3, x), m);
     expr_ref x2(bv.mk_extract(28, 0, x), m);
-    auto* nx = get_node(g, x1);
-    auto* ny = get_node(g, x2);
+    auto* nx = get_node(g, bv, x1);
+    auto* ny = get_node(g, bv, x2);
     TRACE("bv", tout << "before merge\n" << g << "\n");
     g.merge(nx, ny, nullptr);
     TRACE("bv", tout << "before propagate\n" << g << "\n");

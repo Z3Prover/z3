@@ -67,6 +67,7 @@ TODOs:
 
 #include "ast/euf/euf_ac_plugin.h"
 #include "ast/euf/euf_egraph.h"
+#include "ast/ast_pp.h"
 
 namespace euf {
 
@@ -74,7 +75,18 @@ namespace euf {
         plugin(g), m_fid(fid), m_op(op),
         m_dep_manager(get_region()),
         m_hash(*this), m_eq(*this), m_monomial_table(m_hash, m_eq)
-    {}
+    {
+        g.set_th_propagates_diseqs(m_fid);
+    }
+
+    ac_plugin::ac_plugin(egraph& g, func_decl* f) :
+        plugin(g), m_decl(f), m_fid(f->get_family_id()),
+        m_dep_manager(get_region()),
+        m_hash(*this), m_eq(*this), m_monomial_table(m_hash, m_eq)
+    {
+        if (m_fid != null_family_id)
+            g.set_th_propagates_diseqs(m_fid);
+    }
 
     void ac_plugin::register_node(enode* n) {
         if (is_op(n))
@@ -85,16 +97,19 @@ namespace euf {
     }
 
     void ac_plugin::register_shared(enode* n) {
+        if (m_shared_nodes.get(n->get_id(), false))
+            return;
         auto m = to_monomial(n);
         auto const& ns = monomial(m);
         for (auto arg : ns) {
             arg->shared.push_back(m);
             m_node_trail.push_back(arg);
-            push_undo(is_add_shared);
+            push_undo(is_add_shared_index);
         }
+        m_shared_nodes.setx(n->get_id(), true, false);
         sort(monomial(m));
+        m_shared_todo.insert(m_shared.size());
         m_shared.push_back({ n, m, justification::axiom() });
-        m_shared_todo.insert(m);
         push_undo(is_register_shared);
     }
 
@@ -103,11 +118,6 @@ namespace euf {
         m_undo.pop_back();
         switch (k) {
         case is_add_eq: {
-            auto const& eq = m_eqs.back();
-            for (auto* n : monomial(eq.l))
-                n->eqs.pop_back();
-            for (auto* n : monomial(eq.r))
-                n->eqs.pop_back();
             m_eqs.pop_back();
             break;
         }
@@ -138,13 +148,21 @@ namespace euf {
             m_update_eq_trail.pop_back();
             break;
         }
-        case is_add_shared: {
+        case is_add_shared_index: {
             auto n = m_node_trail.back();
             m_node_trail.pop_back();
             n->shared.pop_back();
             break;
         }
+        case is_add_eq_index: {
+            auto n = m_node_trail.back();
+            m_node_trail.pop_back();
+            n->eqs.pop_back();
+            break;
+        }
         case is_register_shared: {
+            auto s = m_shared.back();   
+            m_shared_nodes[s.n->get_id()] = false;
             m_shared.pop_back();
             break;
         }
@@ -159,9 +177,13 @@ namespace euf {
         }
     }
 
-    std::ostream& ac_plugin::display_monomial(std::ostream& out, monomial_t const& m) const {
-        for (auto n : m)
-            out << g.bpp(n->n) << " ";
+    std::ostream& ac_plugin::display_monomial(std::ostream& out, ptr_vector<node> const& m) const {
+        for (auto n : m) {
+            if (n->n->num_args() == 0)
+                out << mk_pp(n->n->get_expr(), g.get_manager()) << " ";
+            else
+                out << g.bpp(n->n) << " ";
+        }
         return out;
     }
 
@@ -200,6 +222,8 @@ namespace euf {
         for (auto n : m_nodes) {
             if (!n)
                 continue;
+            if (n->eqs.empty() && n->shared.empty())
+                continue;
             out << g.bpp(n->n) << " r: " << n->root_id() << " ";
             if (!n->eqs.empty()) {
                 out << "eqs ";
@@ -216,25 +240,57 @@ namespace euf {
         return out;
     }
 
-    void ac_plugin::merge_eh(enode* l, enode* r, justification j) {
+    void ac_plugin::merge_eh(enode* l, enode* r) {
         if (l == r)
             return;
+        auto j = justification::equality(l, r);
         if (!is_op(l) && !is_op(r))
             merge(mk_node(l), mk_node(r), j);
         else
             init_equation(eq(to_monomial(l), to_monomial(r), j));
     }
 
+    void ac_plugin::diseq_eh(enode* eq) {
+        SASSERT(g.get_manager().is_eq(eq->get_expr()));
+        enode* a = eq->get_arg(0), * b = eq->get_arg(1);
+        a = a->get_closest_th_node(m_fid);
+        b = b->get_closest_th_node(m_fid);
+        SASSERT(a && b);
+        register_shared(a);
+        register_shared(b);
+    }
+
     void ac_plugin::init_equation(eq const& e) {
         m_eqs.push_back(e);
         auto& eq = m_eqs.back();
         if (orient_equation(eq)) {
-            push_undo(is_add_eq);
+            
             unsigned eq_id = m_eqs.size() - 1;
-            for (auto n : monomial(eq.l))
-                n->eqs.push_back(eq_id);
+
+            for (auto n : monomial(eq.l)) {
+                if (!n->root->n->is_marked1()) {
+                    n->root->eqs.push_back(eq_id);
+                    n->root->n->mark1();
+                    push_undo(is_add_eq_index);
+                    m_node_trail.push_back(n->root);
+                }
+            }
+
+            for (auto n : monomial(eq.r)) {
+                if (!n->root->n->is_marked1()) {
+                    n->root->eqs.push_back(eq_id);
+                    n->root->n->mark1();
+                    push_undo(is_add_eq_index);
+                    m_node_trail.push_back(n->root);
+                }
+            }
+
+            for (auto n : monomial(eq.l)) 
+                n->root->n->unmark1();
+
             for (auto n : monomial(eq.r))
-                n->eqs.push_back(eq_id);
+                n->root->n->unmark1();
+
             m_to_simplify_todo.insert(eq_id);
         }
         else
@@ -298,6 +354,19 @@ namespace euf {
         return (f1 | f2) == f2;
     }
 
+    bool ac_plugin::can_be_subset(monomial_t& subset, ptr_vector<node> const& m, bloom& bloom) {
+        if (subset.size() > m.size())
+            return false;
+        if (bloom.m_tick != m_tick) {
+            bloom.m_filter = 0;
+            for (auto n : m)
+                bloom.m_filter |= (1ull << (n->root_id() % 64ull));
+            bloom.m_tick = m_tick;
+        }
+        auto f2 = bloom.m_filter;
+        return (filter(subset) | f2) == f2;
+    }
+
     void ac_plugin::merge(node* root, node* other, justification j) {
         for (auto n : equiv(other))
             n->root = root;
@@ -326,15 +395,10 @@ namespace euf {
         ns.push_back(n);
         for (unsigned i = 0; i < ns.size(); ++i) {
             n = ns[i];
-            if (is_op(n)) {
-                ns.append(n->num_args(), n->args());
-                ns[i] = ns.back();
-                ns.pop_back();
-                --i;
-            }
-            else {
-                m.push_back(mk_node(n));
-            }
+            if (is_op(n)) 
+                ns.append(n->num_args(), n->args());            
+            else 
+                m.push_back(mk_node(n));            
         }
         return to_monomial(n, m);
     }
@@ -367,7 +431,6 @@ namespace euf {
     }
 
     void ac_plugin::propagate() {
-        TRACE("plugin", display(tout));
         while (true) {
             loop_start:
             unsigned eq_id = pick_next_eq();
@@ -378,8 +441,12 @@ namespace euf {
 
             // simplify eq using processed
             for (auto other_eq : backward_iterator(eq_id))
+                TRACE("plugin", tout << "backward iterator " << eq_id << " vs " << other_eq << " " << is_processed(other_eq) << "\n");
+            for (auto other_eq : backward_iterator(eq_id))
                 if (is_processed(other_eq) && backward_simplify(eq_id, other_eq))
                     goto loop_start;
+
+            set_status(eq_id, eq_status::processed);
 
             // simplify processed using eq
             for (auto other_eq : forward_iterator(eq_id))
@@ -395,10 +462,10 @@ namespace euf {
             for (auto other_eq : forward_iterator(eq_id))
                 if (is_to_simplify(other_eq))
                     forward_simplify(eq_id, other_eq);
-
-            set_status(eq_id, eq_status::processed);
         }
         propagate_shared();
+
+        CTRACE("plugin", !m_shared.empty() || !m_eqs.empty(), display(tout));
     }
 
     unsigned ac_plugin::pick_next_eq() {
@@ -456,6 +523,8 @@ namespace euf {
         auto const& eq = m_eqs[eq_id];
         init_ref_counts(monomial(eq.r), m_dst_r_counts);
         init_ref_counts(monomial(eq.l), m_dst_l_counts);
+        m_dst_r.reset();
+        m_dst_r.append(monomial(eq.r).m_nodes);
         init_subset_iterator(eq_id, monomial(eq.r));
         return m_eq_occurs;
     }
@@ -479,12 +548,20 @@ namespace euf {
         node* max_n = nullptr;
         bool has_two = false;
         for (auto n : m)
-            if (n->root->eqs.size() > max_use)
+            if (n->root->eqs.size() >= max_use)
                 has_two |= max_n && (max_n != n->root), max_n = n->root, max_use = n->root->eqs.size();
         m_eq_occurs.reset();
-        for (auto n : m)
-            if (n->root != max_n && has_two)
+        if (has_two) {
+            for (auto n : m)
+                if (n->root != max_n)
+                    m_eq_occurs.append(n->root->eqs);
+        }
+        else {
+            for (auto n : m) {
                 m_eq_occurs.append(n->root->eqs);
+                break;
+            }
+        }
         compress_eq_occurs(eq_id);
     }
 
@@ -525,10 +602,26 @@ namespace euf {
         return min_n->eqs;
     }
 
-    void ac_plugin::init_ref_counts(monomial_t const& monomial, ref_counts& counts) {
-        counts.reset();        
-        for (auto n : monomial) 
-            counts.inc(n->root_id(), 1);        
+    void ac_plugin::init_ref_counts(monomial_t const& monomial, ref_counts& counts) const {
+        init_ref_counts(monomial.m_nodes, counts);       
+    }
+
+    void ac_plugin::init_ref_counts(ptr_vector<node> const& monomial, ref_counts& counts) const {
+        counts.reset();
+        for (auto n : monomial)
+            counts.inc(n->root_id(), 1);
+    }
+
+    bool ac_plugin::is_correct_ref_count(monomial_t const& m, ref_counts const& counts) const {
+        return is_correct_ref_count(m.m_nodes, counts);
+    }
+
+    bool ac_plugin::is_correct_ref_count(ptr_vector<node> const& m, ref_counts const& counts) const {
+        ref_counts check;
+        init_ref_counts(m, check);
+        return
+            all_of(counts, [&](unsigned i) { return check[i] == counts[i]; }) &&
+            all_of(check, [&](unsigned i) { return check[i] == counts[i]; });
     }
 
     void ac_plugin::forward_simplify(unsigned src_eq, unsigned dst_eq) {
@@ -540,12 +633,14 @@ namespace euf {
         // dst = A -> BC 
         // src = B -> D  
         // post(dst) := A -> CD
-        auto& src = m_eqs[src_eq];
+        auto& src = m_eqs[src_eq];  // src_r_counts, src_l_counts are initialized
         auto& dst = m_eqs[dst_eq];
 
         TRACE("plugin", tout << "forward simplify " << eq_pp(*this, src) << " " << eq_pp(*this, dst) << "\n");
 
+
         if (forward_subsumes(src_eq, dst_eq)) {
+            TRACE("plugin", tout << "forward subsumed\n");
             set_status(dst_eq, eq_status::is_dead);
             return;
         }
@@ -553,34 +648,49 @@ namespace euf {
         if (!can_be_subset(monomial(src.l), monomial(dst.r)))
             return;
 
+
         m_dst_r_counts.reset();
 
         unsigned src_l_size = monomial(src.l).size();
         unsigned src_r_size = m_src_r.size();
 
+        SASSERT(is_correct_ref_count(monomial(src.l), m_src_l_counts));
         // subtract src.l from dst.r if src.l is a subset of dst.r
-        // new_rhs := old_rhs - src_lhs + src_rhs
+        // dst_rhs := dst_rhs - src_lhs + src_rhs
+        //         := src_rhs + (dst_rhs - src_lhs)
+        //         := src_rhs + elements from dst_rhs that are in excess of src_lhs
         unsigned num_overlap = 0;
         for (auto n : monomial(dst.r)) {
             unsigned id = n->root_id();
-            unsigned count = m_src_l_counts[id];
-            if (count == 0)
+            unsigned dst_count = m_dst_r_counts[id];
+            unsigned src_count = m_src_l_counts[id];
+            if (dst_count > src_count) {
                 m_src_r.push_back(n);
-            else if (m_dst_r_counts[id] >= count)
-                m_src_r.push_back(n);
+                m_dst_r_counts.dec(id, 1);
+            }
+            else if (dst_count < src_count) {
+                m_src_r.shrink(src_r_size);
+                return;             
+            }
             else
-                m_dst_r_counts.inc(id, 1), ++num_overlap;            
+                ++num_overlap;            
         }
         // The dst.r has to be a superset of src.l, otherwise simplification does not apply
-        if (num_overlap == src_l_size) {
-            auto new_r = to_monomial(nullptr, m_src_r);
-            m_update_eq_trail.push_back({ dst_eq, m_eqs[dst_eq] });
-            m_eqs[dst_eq].r = new_r;
-            m_eqs[dst_eq].j = justify_rewrite(src_eq, dst_eq);
-            push_undo(is_update_eq);
-            TRACE("plugin", tout << "rewritten to " << m_pp(*this, monomial(new_r)) << "\n");
+        if (num_overlap != src_l_size) {
+            m_src_r.shrink(src_r_size);
+            return;
         }
-        m_src_r.shrink(src_r_size);
+        auto j = justify_rewrite(src_eq, dst_eq);
+        reduce(m_src_r, j);
+        auto new_r = to_monomial(m_src_r);
+        index_new_r(dst_eq, monomial(m_eqs[dst_eq].r), monomial(new_r));
+        m_update_eq_trail.push_back({ dst_eq, m_eqs[dst_eq] });
+        m_eqs[dst_eq].r = new_r;
+        m_eqs[dst_eq].j = j;
+        push_undo(is_update_eq);
+        m_src_r.reset();
+        m_src_r.append(monomial(src.r).m_nodes);
+        TRACE("plugin", tout << "rewritten to " << m_pp(*this, monomial(new_r)) << "\n");
     }
 
     bool ac_plugin::backward_simplify(unsigned dst_eq, unsigned src_eq) {
@@ -588,25 +698,38 @@ namespace euf {
             return false;
 
         auto& src = m_eqs[src_eq];
-        auto& dst = m_eqs[dst_eq];
+        auto& dst = m_eqs[dst_eq]; // pre-computed dst_r_counts, dst_l_counts 
         //
         // dst_ids, dst_count contain rhs of dst_eq
         //
-        TRACE("plugin", tout << "backward simplify " << eq_pp(*this, src) << " " << eq_pp(*this, dst) << "\n");
-        // check that src.l is a subset of dst.r
-        if (!can_be_subset(monomial(src.l), monomial(dst.r)))
-            return false;
-        if (!is_subset(m_dst_l_counts, m_src_l_counts, monomial(src.l)))
-            return false;
-        if (backward_subsumes(src_eq, dst_eq)) {            
+        TRACE("plugin", tout << "backward simplify " << eq_pp(*this, src) << " " << eq_pp(*this, dst) << " can-be-subset: " << can_be_subset(monomial(src.l), monomial(dst.r)) << "\n");
+
+        if (backward_subsumes(src_eq, dst_eq)) {
+            TRACE("plugin", tout << "backward subsumed\n");
             set_status(dst_eq, eq_status::is_dead);
             return true;
         }
-        // dst_rhs := dst_rhs - src_lhs + src_rhs
-        auto new_r = rewrite(monomial(src.r), monomial(dst.r));
+        // check that src.l is a subset of dst.r
+        if (!can_be_subset(monomial(src.l), monomial(dst.r)))
+            return false;
+        if (!is_subset(m_dst_r_counts, m_src_l_counts, monomial(src.l))) {
+            TRACE("plugin", tout << "not subset\n");
+            return false;
+        }
+
+        SASSERT(is_correct_ref_count(monomial(dst.r), m_dst_r_counts));
+
+        ptr_vector<node> m(m_dst_r);
+        init_ref_counts(monomial(src.l), m_src_l_counts);
+        
+        rewrite1(m_src_l_counts, monomial(src.r), m_dst_r_counts, m);
+        auto j = justify_rewrite(src_eq, dst_eq);
+        reduce(m, j);
+        auto new_r = to_monomial(m);
+        index_new_r(dst_eq, monomial(m_eqs[dst_eq].r), monomial(new_r));
         m_update_eq_trail.push_back({ dst_eq, m_eqs[dst_eq] });
         m_eqs[dst_eq].r = new_r;
-        m_eqs[dst_eq].j = justify_rewrite(src_eq, dst_eq);
+        m_eqs[dst_eq].j = j;
         TRACE("plugin", tout << "rewritten to " << m_pp(*this, monomial(new_r)) << "\n");
         push_undo(is_update_eq);
         return true;
@@ -618,6 +741,8 @@ namespace euf {
     bool ac_plugin::backward_subsumes(unsigned src_eq, unsigned dst_eq) {
         auto& src = m_eqs[src_eq];
         auto& dst = m_eqs[dst_eq];
+        SASSERT(is_correct_ref_count(monomial(dst.l), m_dst_l_counts));
+        SASSERT(is_correct_ref_count(monomial(dst.r), m_dst_r_counts));
         if (!can_be_subset(monomial(src.l), monomial(dst.l)))
             return false;
         if (!can_be_subset(monomial(src.r), monomial(dst.r)))
@@ -625,13 +750,14 @@ namespace euf {
         unsigned size_diff = monomial(dst.l).size() - monomial(src.l).size();
         if (size_diff != monomial(dst.r).size() - monomial(src.r).size())
             return false;
-        if (!is_superset(m_dst_l_counts, m_src_l_counts, monomial(src.l)))
+        if (!is_subset(m_dst_l_counts, m_src_l_counts, monomial(src.l)))
             return false;
-        if (!is_superset(m_dst_r_counts, m_src_r_counts, monomial(src.r)))
-            return false;        
-        // add difference betwen src and dst1 to dst2 
-        // (also add it to dst1 to make sure same difference isn't counted twice).
-        for (auto n : monomial(src.l)) {
+        if (!is_subset(m_dst_r_counts, m_src_r_counts, monomial(src.r)))
+            return false;  
+        SASSERT(is_correct_ref_count(monomial(src.l), m_src_l_counts));
+        SASSERT(is_correct_ref_count(monomial(src.r), m_src_r_counts));
+        // add difference betwen dst.l and src.l to both src.l, src.r
+        for (auto n : monomial(dst.l)) {
             unsigned id = n->root_id();
             SASSERT(m_dst_l_counts[id] >= m_src_l_counts[id]);
             unsigned diff = m_dst_l_counts[id] - m_src_l_counts[id];
@@ -645,10 +771,12 @@ namespace euf {
         return all_of(monomial(dst.r), [&](node* n) { unsigned id = n->root_id(); return m_src_r_counts[id] == m_dst_r_counts[id]; });
     }
 
-    // src_counts, src2_counts are initialized for src_eq
+    // src_l_counts, src_r_counts are initialized for src.l, src.r
     bool ac_plugin::forward_subsumes(unsigned src_eq, unsigned dst_eq) {
         auto& src = m_eqs[src_eq];
         auto& dst = m_eqs[dst_eq];
+        SASSERT(is_correct_ref_count(monomial(src.l), m_src_l_counts));
+        SASSERT(is_correct_ref_count(monomial(src.r), m_src_r_counts));
         if (!can_be_subset(monomial(src.l), monomial(dst.l)))
             return false;
         if (!can_be_subset(monomial(src.r), monomial(dst.r)))
@@ -658,52 +786,87 @@ namespace euf {
             return false;         
         if (!is_superset(m_src_l_counts, m_dst_l_counts, monomial(dst.l)))
             return false;
-        if (!is_subset(m_src_r_counts, m_dst_r_counts, monomial(dst.r)))
+        if (!is_superset(m_src_r_counts, m_dst_r_counts, monomial(dst.r)))
             return false;
+        SASSERT(is_correct_ref_count(monomial(dst.l), m_dst_l_counts));
+        SASSERT(is_correct_ref_count(monomial(dst.r), m_dst_r_counts));
         for (auto n : monomial(src.l)) {
             unsigned id = n->root_id();
-            SASSERT(m_src_l_counts[id] >= m_dst_l_counts[id]);
-            unsigned diff = m_src_l_counts[id] - m_dst_l_counts[id];
-            if (diff > 0) {
-                m_dst_l_counts.inc(id, diff);
-                m_dst_r_counts.inc(id, diff);
-            }
+            SASSERT(m_src_l_counts[id] <= m_dst_l_counts[id]);
+            unsigned diff = m_dst_l_counts[id] - m_src_l_counts[id];
+            if (diff == 0)
+                continue;
+            m_dst_l_counts.dec(id, diff);
+            if (m_dst_r_counts[id] < diff)
+                return false;
+            m_dst_r_counts.dec(id, diff);
         }
+
         return all_of(monomial(dst.r), [&](node* n) { unsigned id = n->root_id(); return m_src_r_counts[id] == m_dst_r_counts[id]; });
     }
 
-    unsigned ac_plugin::rewrite(monomial_t const& src_r, monomial_t const& dst_r) {
-        // pre-condition: is-subset is invoked so that m_src_count is initialized.
-        // pre-condition: m_dst_count is also initialized (once).
-        m_src_r.reset();
-        m_src_r.append(src_r.m_nodes);
-        // add to m_src_r elements of dst.r that are not in src.l
-        for (auto n : dst_r) {
+    void ac_plugin::rewrite1(ref_counts const& src_l, monomial_t const& src_r, ref_counts& dst_counts, ptr_vector<node>& dst) {
+        // pre-condition: is-subset is invoked so that src_l is initialized.
+        // pre-condition: dst_count is also initialized.
+        // remove from dst elements that are in src_l   
+        // add elements from src_r  
+        SASSERT(is_correct_ref_count(dst, dst_counts));
+        SASSERT(&src_r.m_nodes != &dst);
+        unsigned sz = dst.size(), j = 0;
+        for (unsigned i = 0; i < sz; ++i) {
+            auto* n = dst[i];
             unsigned id = n->root_id();
-            unsigned count = m_src_l_counts[id];
-            if (count == 0)
-                m_src_r.push_back(n);
-            else
-                m_src_l_counts.inc(id, -1);
+            unsigned dst_count = dst_counts[id];
+            unsigned src_count = src_l[id];
+            SASSERT(dst_count > 0);
+            if (src_count == 0)
+                dst[j++] = n;
+            else if (src_count < dst_count) {
+                dst[j++] = n;
+                dst_counts.dec(id, 1);
+            }          
         }
-        return to_monomial(nullptr, m_src_r);
+        dst.shrink(j);
+        dst.append(src_r.m_nodes);
+    }
+
+    // rewrite monomial to normal form.
+    bool ac_plugin::reduce(ptr_vector<node>& m, justification& j) {
+        bool change = false;
+        do {
+        init_loop:
+            if (m.size() == 1)
+                return change;
+            bloom b;            
+            init_ref_counts(m, m_m_counts);
+            for (auto n : m) {
+                for (auto eq : n->root->eqs) {
+                    if (!is_processed(eq))
+                        continue;
+                    auto& src = m_eqs[eq];
+                   
+                    if (!can_be_subset(monomial(src.l), m, b))
+                        continue;
+                    if (!is_subset(m_m_counts, m_eq_counts, monomial(src.l)))
+                        continue;
+                    TRACE("plugin", display_equation(tout << "reduce ", src) << "\n");
+                    SASSERT(is_correct_ref_count(monomial(src.l), m_eq_counts));
+                    rewrite1(m_eq_counts, monomial(src.r), m_m_counts, m);
+                    j = join(j, eq);
+                    change = true;
+                    goto init_loop;
+                }
+            }            
+        }
+        while (false);
+        return change;
     }
 
     // check that src is a subset of dst, where dst_counts are precomputed
     bool ac_plugin::is_subset(ref_counts const& dst_counts, ref_counts& src_counts, monomial_t const& src) {
         SASSERT(&dst_counts != &src_counts);
-        src_counts.reset();
-        for (auto n : src) {
-            unsigned id = n->root_id();
-            unsigned dst_count = dst_counts[id];
-            if (dst_count == 0)
-                return false;
-            else if (src_counts[id] >= dst_count)
-                return false;
-            else
-                src_counts.inc(id, 1);
-        }
-        return true;
+        init_ref_counts(src, src_counts);
+        return all_of(src_counts, [&](unsigned idx) { return src_counts[idx] <= dst_counts[idx]; });
     }
 
     // check that dst is a superset of src, where src_counts are precomputed
@@ -712,6 +875,23 @@ namespace euf {
         init_ref_counts(dst, dst_counts);
         return all_of(src_counts, [&](unsigned idx) { return src_counts[idx] <= dst_counts[idx]; });
     }
+
+    void ac_plugin::index_new_r(unsigned eq, monomial_t const& old_r, monomial_t const& new_r) {
+        for (auto n : old_r)
+            n->root->n->mark1();
+        for (auto n : new_r)
+            if (!n->root->n->is_marked1()) {
+                n->root->eqs.push_back(eq);
+                m_node_trail.push_back(n->root);
+                n->root->n->mark1();
+                push_undo(is_add_eq_index);
+            }
+        for (auto n : old_r)
+            n->root->n->unmark1();
+        for (auto n : new_r)
+            n->root->n->unmark1();
+    }
+
 
     void ac_plugin::superpose(unsigned src_eq, unsigned dst_eq) {
         if (src_eq == dst_eq)
@@ -733,12 +913,20 @@ namespace euf {
         // src_r contains E
 
         // compute BE, initialize dst_ids, dst_counts
+        bool overlap = false;
         for (auto n : monomial(dst.l)) {
             unsigned id = n->root_id();
+            m_dst_l_counts.inc(id, 1);
             if (m_src_l_counts[id] < m_dst_l_counts[id])
                 m_src_r.push_back(n);
-            m_dst_l_counts.inc(id, 1);
+            overlap |= m_src_l_counts[id] > 0;
         }
+
+        if (!overlap) {
+            m_src_r.shrink(src_r_size);
+            return;
+        }
+        
         // compute CD
         for (auto n : monomial(src.l)) {
             unsigned id = n->root_id();
@@ -753,16 +941,18 @@ namespace euf {
             return;
         }
 
-        TRACE("plugin", for (auto n : m_src_r) tout << g.bpp(n->n) << " "; tout << "== "; for (auto n : m_dst_r) tout << g.bpp(n->n) << " "; tout << "\n";);
-
+        TRACE("plugin", tout << m_pp(*this, m_src_r) << "== " << m_pp(*this, m_dst_r) << "\n";);
 
         justification j = justify_rewrite(src_eq, dst_eq);
+        reduce(m_dst_r, j);
+        reduce(m_src_r, j);
         if (m_src_r.size() == 1 && m_dst_r.size() == 1)
             push_merge(m_src_r[0]->n, m_dst_r[0]->n, j);
         else
-            init_equation(eq(to_monomial(nullptr, m_src_r), to_monomial(nullptr, m_dst_r), j));
+            init_equation(eq(to_monomial(m_src_r), to_monomial(m_dst_r), j));
 
-        m_src_r.shrink(src_r_size);
+        m_src_r.reset();
+        m_src_r.append(monomial(src.r).m_nodes);
     }
 
     bool ac_plugin::are_equal(monomial_t& a, monomial_t& b) {
@@ -804,52 +994,41 @@ namespace euf {
         m_monomial_table.reset();
         for (auto const& s1 : m_shared) {
             shared s2;
-            if (m_monomial_table.find(s1.m, s2)) {
-                if (s2.n->get_root() != s1.n->get_root())
-                    push_merge(s1.n, s2.n, justification::dependent(m_dep_manager.mk_join(m_dep_manager.mk_leaf(s1.j), m_dep_manager.mk_leaf(s2.j))));
-            }
-            else 
+            TRACE("plugin", tout << "shared " << m_pp(*this, monomial(s1.m)) << "\n");
+            if (!m_monomial_table.find(s1.m, s2)) 
                 m_monomial_table.insert(s1.m, s1);
+            else if (s2.n->get_root() != s1.n->get_root()) {
+                TRACE("plugin", tout << m_pp(*this, monomial(s1.m)) << " == " << m_pp(*this, monomial(s2.m)) << "\n");
+                push_merge(s1.n, s2.n, justification::dependent(m_dep_manager.mk_join(m_dep_manager.mk_leaf(s1.j), m_dep_manager.mk_leaf(s2.j))));
+            }
         }
     }
 
     void ac_plugin::simplify_shared(unsigned idx, shared s) {
-        bool change = true;
-        while (change) {
-            change = false;
-            auto & m = monomial(s.m);
-            init_ref_counts(m, m_dst_l_counts);
-            init_subset_iterator(UINT_MAX, m);
-            for (auto eq : m_eq_occurs) {
-                auto& src = m_eqs[eq];
-                if (!can_be_subset(monomial(src.l), m))
-                    continue;
-                if (!is_subset(m_dst_l_counts, m_src_l_counts, monomial(src.l)))
-                    continue;
-                m_update_shared_trail.push_back({ idx, s });
-                push_undo(is_update_shared);
-                unsigned new_m = rewrite(monomial(src.r), m);
-                m_shared[idx].m = new_m;
-                m_shared[idx].j = justification::dependent(m_dep_manager.mk_join(m_dep_manager.mk_leaf(s.j), justify_equation(eq)));
-                
-                // update shared occurrences for members of the new monomial that are not already in the old monomial.
-                for (auto n : monomial(s.m))
-                    n->root->n->mark1();
-                for (auto n : monomial(new_m))
-                    if (!n->root->n->is_marked1()) {
-                        n->root->shared.push_back(s.m);
-                        m_shared_todo.insert(s.m);
-                        m_node_trail.push_back(n->root);
-                        push_undo(is_add_shared);
-                    }
-                for (auto n : monomial(s.m))
-                    n->root->n->unmark1();
+        auto j = s.j;
+        auto old_m = s.m;
+        ptr_vector<node> m1(monomial(old_m).m_nodes);
+        TRACE("plugin", tout << "simplify " << m_pp(*this, monomial(old_m)) << "\n");
+        if (!reduce(m1, j))
+            return;
 
-                s = m_shared[idx];
-                change = true;
-                break;
+        auto new_m = to_monomial(m1);
+        // update shared occurrences for members of the new monomial that are not already in the old monomial.
+        for (auto n : monomial(old_m))
+            n->root->n->mark1();
+        for (auto n : m1)
+            if (!n->root->n->is_marked1()) {
+                n->root->shared.push_back(idx);
+                m_shared_todo.insert(idx);
+                m_node_trail.push_back(n->root);
+                push_undo(is_add_shared_index);
             }
-        }
+        for (auto n : monomial(old_m))
+            n->root->n->unmark1();  
+        m_update_shared_trail.push_back({ idx, s });
+        push_undo(is_update_shared);
+        m_shared[idx].m = new_m;
+        m_shared[idx].j = j;
     }
 
     justification ac_plugin::justify_rewrite(unsigned eq1, unsigned eq2) {
@@ -871,4 +1050,9 @@ namespace euf {
                 j = m_dep_manager.mk_join(j, m_dep_manager.mk_leaf(justification::equality(n->root->n, n->n)));
         return j;
     }
+
+    justification ac_plugin::join(justification j, unsigned eq) {
+        return justification::dependent(m_dep_manager.mk_join(m_dep_manager.mk_leaf(j), justify_equation(eq)));
+    }
+
 }

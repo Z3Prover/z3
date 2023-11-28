@@ -6,7 +6,9 @@ z3_add_component(euf
     euf_egraph.cpp
     euf_enode.cpp
     euf_etable.cpp
+    euf_justification.cpp
     euf_plugin.cpp
+    euf_specrel_plugin.cpp
   COMPONENT_DEPENDENCIES
     ast
     util

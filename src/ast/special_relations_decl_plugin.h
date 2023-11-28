@@ -16,6 +16,8 @@ Author:
 
 Revision History:
 
+    2023-11-27: Added ac-op for E-graph plugin
+
 --*/
 #pragma once
 
@@ -28,6 +30,7 @@ enum special_relations_op_kind {
     OP_SPECIAL_RELATION_PLO,
     OP_SPECIAL_RELATION_TO,
     OP_SPECIAL_RELATION_TC,
+    OP_SPECIAL_RELATION_AC,
     LAST_SPECIAL_RELATIONS_OP
 };
 
@@ -37,6 +40,7 @@ class special_relations_decl_plugin : public decl_plugin {
     symbol m_plo;
     symbol m_to;
     symbol m_tc;
+    symbol m_ac;
     bool   m_has_special_relation = false;
 public:
     special_relations_decl_plugin();
@@ -86,13 +90,16 @@ class special_relations_util {
 public:
     special_relations_util(ast_manager& m) : m(m), m_fid(null_family_id) { }
 
+    family_id get_family_id() const { return fid(); }
+
     bool has_special_relation() const { return static_cast<special_relations_decl_plugin*>(m.get_plugin(m.mk_family_id("specrels")))->has_special_relation(); }
     
     bool is_special_relation(func_decl* f) const { return f->get_family_id() == fid(); }
-    bool is_special_relation(app* e) const { return is_special_relation(e->get_decl()); }
+    bool is_special_relation(expr* e) const { return is_app(e) && is_special_relation(to_app(e)->get_decl()); }
     sr_property get_property(func_decl* f) const;
     sr_property get_property(app* e) const { return get_property(e->get_decl()); }
     func_decl* get_relation(func_decl* f) const { SASSERT(is_special_relation(f)); return to_func_decl(f->get_parameter(0).get_ast()); }
+    func_decl* get_relation(expr* e) const { SASSERT(is_special_relation(e)); return to_func_decl(to_app(e)->get_parameter(0).get_ast()); }
 
     func_decl* mk_to_decl(func_decl* f) { return mk_rel_decl(f, OP_SPECIAL_RELATION_TO); }
     func_decl* mk_po_decl(func_decl* f) { return mk_rel_decl(f, OP_SPECIAL_RELATION_PO); }
@@ -105,12 +112,14 @@ public:
     bool is_plo(expr const * e) const { return is_app_of(e, fid(), OP_SPECIAL_RELATION_PLO); }
     bool is_to(expr const * e) const { return is_app_of(e, fid(), OP_SPECIAL_RELATION_TO); }
     bool is_tc(expr const * e) const { return is_app_of(e, fid(), OP_SPECIAL_RELATION_TC); }
+    bool is_ac(expr const* e) const { return is_app_of(e, fid(), OP_SPECIAL_RELATION_AC); }
     
     bool is_lo(func_decl const * e) const { return is_decl_of(e, fid(), OP_SPECIAL_RELATION_LO); }
     bool is_po(func_decl const * e) const { return is_decl_of(e, fid(), OP_SPECIAL_RELATION_PO); }
     bool is_plo(func_decl const * e) const { return is_decl_of(e, fid(), OP_SPECIAL_RELATION_PLO); }
     bool is_to(func_decl const * e) const { return is_decl_of(e, fid(), OP_SPECIAL_RELATION_TO); }
     bool is_tc(func_decl const * e) const { return is_decl_of(e, fid(), OP_SPECIAL_RELATION_TC); }
+    bool is_ac(func_decl const* e) const { return is_decl_of(e, fid(), OP_SPECIAL_RELATION_AC); }
 
     app * mk_lo (expr * arg1, expr * arg2) { return m.mk_app( fid(), OP_SPECIAL_RELATION_LO,  arg1, arg2); }
     app * mk_po (expr * arg1, expr * arg2) { return m.mk_app( fid(), OP_SPECIAL_RELATION_PO,  arg1, arg2); }

@@ -215,8 +215,6 @@ namespace euf {
         // plugin related methods
         void push_plugin_undo(unsigned th_id) { m_updates.push_back(update_record(th_id, update_record::plugin_undo())); }
         void push_merge(enode* a, enode* b, justification j) { m_to_merge.push_back({ a, b, j }); }
-        plugin* get_plugin(enode* n) { return m_plugins.get(n->get_sort()->get_family_id(), nullptr); }
-        void register_node(enode* n);
         void propagate_plugins();
 
         void add_th_eq(theory_id id, theory_var v1, theory_var v2, enode* c, enode* r);
@@ -259,6 +257,7 @@ namespace euf {
         egraph(ast_manager& m);
         ~egraph();
         void add_plugins();
+        plugin* get_plugin(family_id fid) const { return m_plugins.get(fid, nullptr); }
         enode* find(expr* f) const { return m_expr2enode.get(f->get_id(), nullptr); }
         enode* find(expr* f, unsigned n, enode* const* args);
         enode* mk(expr* f, unsigned generation, unsigned n, enode *const* args);
@@ -302,7 +301,7 @@ namespace euf {
            where \c n is an enode and \c is_eq indicates whether the enode
            is an equality consequence. 
          */
-        void       add_th_diseq(theory_id id, theory_var v1, theory_var v2, expr* eq);
+        void       add_th_diseq(theory_id id, theory_var v1, theory_var v2, enode* eq);
         bool       has_th_eq() const { return m_new_th_eqs_qhead < m_new_th_eqs.size(); }
         th_eq      get_th_eq() const { return m_new_th_eqs[m_new_th_eqs_qhead]; }
         void       next_th_eq() { force_push(); SASSERT(m_new_th_eqs_qhead < m_new_th_eqs.size()); m_new_th_eqs_qhead++; }

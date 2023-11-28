@@ -36,20 +36,9 @@ namespace euf {
         // no-op
     }
 
-    void arith_plugin::register_shared(enode* n) {
-        if (a.is_add(n->get_expr()))
-            m_add.register_shared(n);
-        if (a.is_mul(n->get_expr()))
-            m_mul.register_shared(n);
-    }
-
-    void arith_plugin::merge_eh(enode* n1, enode* n2, justification j) {
-        m_add.merge_eh(n1, n2, j);
-        m_mul.merge_eh(n1, n2, j);
-    }
-
-    void arith_plugin::diseq_eh(enode* n1, enode* n2) {
-        // no-op
+    void arith_plugin::merge_eh(enode* n1, enode* n2) {
+        m_add.merge_eh(n1, n2);
+        m_mul.merge_eh(n1, n2);
     }
 
     void arith_plugin::propagate() {

@@ -43,12 +43,10 @@ namespace euf {
         virtual unsigned get_id() const = 0;
 
         virtual void register_node(enode* n) = 0;
-
-        virtual void register_shared(enode* n) = 0;
         
-        virtual void merge_eh(enode* n1, enode* n2, justification j) = 0;
+        virtual void merge_eh(enode* n1, enode* n2) = 0;
 
-        virtual void diseq_eh(enode* n1, enode* n2) = 0;
+        virtual void diseq_eh(enode* eq) {};
 
         virtual void propagate() = 0;
 
