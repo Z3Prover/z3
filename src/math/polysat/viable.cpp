@@ -1511,7 +1511,15 @@ namespace polysat {
         return {nullptr, false};
     }
 
-    lbool viable::find_on_layers(pvar const v, unsigned_vector const& widths, pvar_vector const& overlaps, fixed_bits_info const& fbi, rational const& to_cover_lo, rational const& to_cover_hi, rational& val) {
+    lbool viable::find_on_layers(
+        pvar const v,
+        unsigned_vector const& widths,
+        pvar_vector const& overlaps,
+        fixed_bits_info const& fbi,
+        rational const& to_cover_lo,
+        rational const& to_cover_hi,
+        rational& val
+    ) {
         ptr_vector<entry> refine_todo;
 
         // max number of interval refinements before falling back to the univariate solver
