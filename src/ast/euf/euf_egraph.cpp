@@ -83,7 +83,7 @@ namespace euf {
     void egraph::reinsert_equality(enode* p) {
         SASSERT(p->is_equality());
         if (p->value() != l_true && p->get_arg(0)->get_root() == p->get_arg(1)->get_root()) 
-            add_literal(p, nullptr);
+            queue_literal(p, nullptr);
     }
 
     void egraph::queue_literal(enode* p, enode* ante) {
