@@ -216,7 +216,7 @@ br_status bv_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
     case OP_BUSUB_OVFL:
         return mk_bvusub_underflow(num_args, args, result);
     case OP_BSSUB_OVFL:
-        return mk_bvssub_overflow(num_args, args, result);
+        return mk_bvssub_under_overflow(num_args, args, result);
     default:
         return BR_FAILED;
     }
@@ -3081,19 +3081,29 @@ br_status bv_rewriter::mk_bvusub_underflow(unsigned num, expr * const * args, ex
     return status;
 }
 
-br_status bv_rewriter::mk_bvssub_overflow(unsigned num, expr * const * args, expr_ref & result) {
+//
+// no_overflow    := if t2 = min_int then t1 <s 0 else no_overflow(t1 + -t2)
+// no_underflow   := 0 <s -t2 => no_underflow(t1 + -t2)
+// over_underflow := 0 <s -t2 & under_overflow+(t1 + -t2) || t2 = min_int & t1 >=s 0 || t2 != min_int & under_overflow+(t1 + -t2)
+//                := if t2 == min_int then t1 >=s 0 else under_overflow+(t1 + -t2)
+// because when 0 <s min_int = false
+// 
+br_status bv_rewriter::mk_bvssub_under_overflow(unsigned num, expr * const * args, expr_ref & result) {
     SASSERT(num == 2);
     SASSERT(get_bv_size(args[0]) == get_bv_size(args[1]));
     auto sz = get_bv_size(args[0]);
     auto minSigned = mk_numeral(rational::power_of_two(sz-1), sz);
     expr_ref bvsaddo {m};
     expr * args2[2] = { args[0], m_util.mk_bv_neg(args[1]) };
-    auto bvsaddo_stat = mk_bvsadd_overflow(2, args2, bvsaddo);
+    auto bvsaddo_stat = mk_bvsadd_over_underflow(2, args2, bvsaddo);
     SASSERT(bvsaddo_stat != BR_FAILED); (void)bvsaddo_stat;
     auto first_arg_ge_zero = m_util.mk_sle(mk_zero(sz), args[0]);
     result = m.mk_ite(m.mk_eq(args[1], minSigned), first_arg_ge_zero, bvsaddo);
     return BR_REWRITE_FULL;
 }
+
+//br_status bv_rewriter::mk_bvssub_overflow(unsigned num, expr * const * args, expr_ref & result) {
+//}
 br_status bv_rewriter::mk_bvsdiv_overflow(unsigned num, expr * const * args, expr_ref & result) {
     SASSERT(num == 2);
     SASSERT(get_bv_size(args[0]) == get_bv_size(args[1]));
