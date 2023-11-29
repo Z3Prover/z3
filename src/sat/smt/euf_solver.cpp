@@ -1057,7 +1057,6 @@ namespace euf {
             SASSERT(true_lit != sat::null_literal); 
             return (void*)(r->to_ptr(true_lit)); 
         };
-        r->m_egraph.copy_from(m_egraph, copy_justification);        
         r->set_solver(s);
         r->m_egraph.copy_from(m_egraph, copy_justification);        
         for (euf::enode* n : r->m_egraph.nodes()) {
