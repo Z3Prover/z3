@@ -198,6 +198,6 @@ namespace polysat {
         pdd q1 = s.subst(q());
         if (!q1.is_univariate_in(v))
             return;
-        us.add_umul_ovfl(p1.get_univariate_coefficients(), q1.get_univariate_coefficients(), !is_positive, dep);
+        us.add_umul_ovfl(p1.get_univariate_coefficients(), q1.get_univariate_coefficients(), !is_positive, p1.power_of_2(), dep);
     }
 }

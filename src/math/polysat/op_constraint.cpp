@@ -720,6 +720,7 @@ namespace polysat {
     }
 
     void op_constraint::add_to_univariate_solver(pvar v, solver& s, univariate_solver& us, unsigned dep, bool is_positive) const {
+        unsigned const N = p().power_of_2();
         pdd pv = s.subst(p());
         if (!pv.is_univariate_in(v))
             return;
@@ -731,22 +732,22 @@ namespace polysat {
             return;
         switch (m_op) {
         case code::lshr_op:
-            us.add_lshr(pv.get_univariate_coefficients(), qv.get_univariate_coefficients(), rv.get_univariate_coefficients(), !is_positive, dep);
+            us.add_lshr(pv.get_univariate_coefficients(), qv.get_univariate_coefficients(), rv.get_univariate_coefficients(), !is_positive, N, dep);
             break;
         case code::shl_op:
-            us.add_shl(pv.get_univariate_coefficients(), qv.get_univariate_coefficients(), rv.get_univariate_coefficients(), !is_positive, dep);
+            us.add_shl(pv.get_univariate_coefficients(), qv.get_univariate_coefficients(), rv.get_univariate_coefficients(), !is_positive, N, dep);
             break;
         case code::and_op:
-            us.add_and(pv.get_univariate_coefficients(), qv.get_univariate_coefficients(), rv.get_univariate_coefficients(), !is_positive, dep);
+            us.add_and(pv.get_univariate_coefficients(), qv.get_univariate_coefficients(), rv.get_univariate_coefficients(), !is_positive, N, dep);
             break;
         case code::inv_op:
-            us.add_inv(pv.get_univariate_coefficients(), rv.get_univariate_coefficients(), !is_positive, dep);
+            us.add_inv(pv.get_univariate_coefficients(), rv.get_univariate_coefficients(), !is_positive, N, dep);
             break;
         case code::udiv_op:
-            us.add_udiv(pv.get_univariate_coefficients(), qv.get_univariate_coefficients(), rv.get_univariate_coefficients(), !is_positive, dep);
+            us.add_udiv(pv.get_univariate_coefficients(), qv.get_univariate_coefficients(), rv.get_univariate_coefficients(), !is_positive, N, dep);
             break;
         case code::urem_op:
-            us.add_urem(pv.get_univariate_coefficients(), qv.get_univariate_coefficients(), rv.get_univariate_coefficients(), !is_positive, dep);
+            us.add_urem(pv.get_univariate_coefficients(), qv.get_univariate_coefficients(), rv.get_univariate_coefficients(), !is_positive, N, dep);
             break;
         default:
             NOT_IMPLEMENTED_YET();

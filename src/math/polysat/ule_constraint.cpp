@@ -391,10 +391,10 @@ namespace polysat {
         bool q_ok = q.is_univariate_in(v);
         IF_VERBOSE(10, display(verbose_stream() << ";; ", to_lbool(is_positive), p, q) << "\n");
         if (!is_positive && !q_ok)  // add p > 0
-            us.add_ugt(p.get_univariate_coefficients(), rational::zero(), false, dep);
+            us.add_ugt(p.get_univariate_coefficients(), rational::zero(), false, p.power_of_2(), dep);
         if (!is_positive && !p_ok)  // add -1 > q  <==>  q+1 > 0
-            us.add_ugt((q + 1).get_univariate_coefficients(), rational::zero(), false, dep);
+            us.add_ugt((q + 1).get_univariate_coefficients(), rational::zero(), false, p.power_of_2(), dep);
         if (p_ok && q_ok)
-            us.add_ule(p.get_univariate_coefficients(), q.get_univariate_coefficients(), !is_positive, dep);
+            us.add_ule(p.get_univariate_coefficients(), q.get_univariate_coefficients(), !is_positive, p.power_of_2(), dep);
     }
 }

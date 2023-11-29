@@ -82,42 +82,42 @@ namespace polysat {
         virtual bool find_two(rational& out1, rational& out2) = 0;
 
         /** lhs <= rhs */
-        virtual void add_ule(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) = 0;
-        virtual void add_ule(univariate const& lhs, rational   const& rhs, bool sign, dep_t dep) = 0;
-        virtual void add_ule(rational   const& lhs, univariate const& rhs, bool sign, dep_t dep) = 0;
+        virtual void add_ule(univariate const& lhs, univariate const& rhs, bool sign, unsigned num_bits, dep_t dep) = 0;
+        virtual void add_ule(univariate const& lhs, rational   const& rhs, bool sign, unsigned num_bits, dep_t dep) = 0;
+        virtual void add_ule(rational   const& lhs, univariate const& rhs, bool sign, unsigned num_bits, dep_t dep) = 0;
         /** lhs >= rhs */
-        void add_uge(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) { add_ule(rhs, lhs, sign, dep); }
-        void add_uge(univariate const& lhs, rational   const& rhs, bool sign, dep_t dep) { add_ule(rhs, lhs, sign, dep); }
-        void add_uge(rational   const& lhs, univariate const& rhs, bool sign, dep_t dep) { add_ule(rhs, lhs, sign, dep); }
+        void add_uge(univariate const& lhs, univariate const& rhs, bool sign, unsigned num_bits, dep_t dep) { add_ule(rhs, lhs,  sign, num_bits, dep); }
+        void add_uge(univariate const& lhs, rational   const& rhs, bool sign, unsigned num_bits, dep_t dep) { add_ule(rhs, lhs,  sign, num_bits, dep); }
+        void add_uge(rational   const& lhs, univariate const& rhs, bool sign, unsigned num_bits, dep_t dep) { add_ule(rhs, lhs,  sign, num_bits, dep); }
         /** lhs < rhs */
-        void add_ult(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) { add_ule(rhs, lhs, !sign, dep); }
-        void add_ult(univariate const& lhs, rational   const& rhs, bool sign, dep_t dep) { add_ule(rhs, lhs, !sign, dep); }
-        void add_ult(rational   const& lhs, univariate const& rhs, bool sign, dep_t dep) { add_ule(rhs, lhs, !sign, dep); }
+        void add_ult(univariate const& lhs, univariate const& rhs, bool sign, unsigned num_bits, dep_t dep) { add_ule(rhs, lhs, !sign, num_bits, dep); }
+        void add_ult(univariate const& lhs, rational   const& rhs, bool sign, unsigned num_bits, dep_t dep) { add_ule(rhs, lhs, !sign, num_bits, dep); }
+        void add_ult(rational   const& lhs, univariate const& rhs, bool sign, unsigned num_bits, dep_t dep) { add_ule(rhs, lhs, !sign, num_bits, dep); }
         /** lhs > rhs */
-        void add_ugt(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) { add_ule(lhs, rhs, !sign, dep); }
-        void add_ugt(univariate const& lhs, rational   const& rhs, bool sign, dep_t dep) { add_ule(lhs, rhs, !sign, dep); }
-        void add_ugt(rational   const& lhs, univariate const& rhs, bool sign, dep_t dep) { add_ule(lhs, rhs, !sign, dep); }
+        void add_ugt(univariate const& lhs, univariate const& rhs, bool sign, unsigned num_bits, dep_t dep) { add_ule(lhs, rhs, !sign, num_bits, dep); }
+        void add_ugt(univariate const& lhs, rational   const& rhs, bool sign, unsigned num_bits, dep_t dep) { add_ule(lhs, rhs, !sign, num_bits, dep); }
+        void add_ugt(rational   const& lhs, univariate const& rhs, bool sign, unsigned num_bits, dep_t dep) { add_ule(lhs, rhs, !sign, num_bits, dep); }
 
-        virtual void add_umul_ovfl(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) = 0;
-        virtual void add_smul_ovfl(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) = 0;
-        virtual void add_smul_udfl(univariate const& lhs, univariate const& rhs, bool sign, dep_t dep) = 0;
-        virtual void add_lshr(univariate const& in1, univariate const& in2, univariate const& out, bool sign, dep_t dep) = 0;
-        virtual void add_ashr(univariate const& in1, univariate const& in2, univariate const& out, bool sign, dep_t dep) = 0;
-        virtual void add_shl(univariate const& in1, univariate const& in2, univariate const& out, bool sign, dep_t dep) = 0;
-        virtual void add_and(univariate const& in1, univariate const& in2, univariate const& out, bool sign, dep_t dep) = 0;
-        virtual void add_or(univariate const& in1, univariate const& in2, univariate const& out, bool sign, dep_t dep) = 0;
-        virtual void add_xor(univariate const& in1, univariate const& in2, univariate const& out, bool sign, dep_t dep) = 0;
-        virtual void add_not(univariate const& in, univariate const& out, bool sign, dep_t dep) = 0;
-        virtual void add_inv(univariate const& in, univariate const& out, bool sign, dep_t dep) = 0;
-        virtual void add_udiv(univariate const& in1, univariate const& in2, univariate const& out, bool sign, dep_t dep) = 0;
-        virtual void add_urem(univariate const& in1, univariate const& in2, univariate const& out, bool sign, dep_t dep) = 0;
+        virtual void add_umul_ovfl(univariate const& lhs, univariate const& rhs, bool sign, unsigned num_bits, dep_t dep) = 0;
+        virtual void add_smul_ovfl(univariate const& lhs, univariate const& rhs, bool sign, unsigned num_bits, dep_t dep) = 0;
+        virtual void add_smul_udfl(univariate const& lhs, univariate const& rhs, bool sign, unsigned num_bits, dep_t dep) = 0;
+        virtual void add_lshr(univariate const& in1, univariate const& in2, univariate const& out, bool sign, unsigned num_bits, dep_t dep) = 0;
+        virtual void add_ashr(univariate const& in1, univariate const& in2, univariate const& out, bool sign, unsigned num_bits, dep_t dep) = 0;
+        virtual void add_shl(univariate const& in1, univariate const& in2, univariate const& out, bool sign, unsigned num_bits, dep_t dep) = 0;
+        virtual void add_and(univariate const& in1, univariate const& in2, univariate const& out, bool sign, unsigned num_bits, dep_t dep) = 0;
+        virtual void add_or(univariate const& in1, univariate const& in2, univariate const& out, bool sign, unsigned num_bits, dep_t dep) = 0;
+        virtual void add_xor(univariate const& in1, univariate const& in2, univariate const& out, bool sign, unsigned num_bits, dep_t dep) = 0;
+        virtual void add_not(univariate const& in, univariate const& out, bool sign, unsigned num_bits, dep_t dep) = 0;
+        virtual void add_inv(univariate const& in, univariate const& out, bool sign, unsigned num_bits, dep_t dep) = 0;
+        virtual void add_udiv(univariate const& in1, univariate const& in2, univariate const& out, bool sign, unsigned num_bits, dep_t dep) = 0;
+        virtual void add_urem(univariate const& in1, univariate const& in2, univariate const& out, bool sign, unsigned num_bits, dep_t dep) = 0;
 
         /// Add x <= val or x > val, depending on sign
-        virtual void add_ule_const(rational const& val, bool sign, dep_t dep) = 0;
+        virtual void add_ule_const(rational const& val, bool sign, unsigned num_bits, dep_t dep) = 0;
         /// Add x >= val or x < val, depending on sign
-        virtual void add_uge_const(rational const& val, bool sign, dep_t dep) = 0;
-        void add_ugt_const(rational const& val, bool sign, dep_t dep) { add_ule_const(val, !sign, dep); }
-        void add_ult_const(rational const& val, bool sign, dep_t dep) { add_uge_const(val, !sign, dep); }
+        virtual void add_uge_const(rational const& val, bool sign, unsigned num_bits, dep_t dep) = 0;
+        void add_ugt_const(rational const& val, bool sign, unsigned num_bits, dep_t dep) { add_ule_const(val, !sign, num_bits, dep); }
+        void add_ult_const(rational const& val, bool sign, unsigned num_bits, dep_t dep) { add_uge_const(val, !sign, num_bits, dep); }
 
         /// Assert i-th bit of x
         virtual void add_bit(unsigned idx, bool sign, dep_t dep) = 0;

@@ -127,9 +127,9 @@ namespace polysat {
         if (!q1.is_univariate_in(v))
             return;
         if (is_overflow())
-            us.add_smul_ovfl(p1.get_univariate_coefficients(), q1.get_univariate_coefficients(), !is_positive, dep);
+            us.add_smul_ovfl(p1.get_univariate_coefficients(), q1.get_univariate_coefficients(), !is_positive, p1.power_of_2(), dep);
         else
-            us.add_smul_udfl(p1.get_univariate_coefficients(), q1.get_univariate_coefficients(), !is_positive, dep);
+            us.add_smul_udfl(p1.get_univariate_coefficients(), q1.get_univariate_coefficients(), !is_positive, p1.power_of_2(), dep);
     }
 
 }
