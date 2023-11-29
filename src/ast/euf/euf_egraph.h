@@ -89,7 +89,7 @@ namespace euf {
             enode* a, * b;
             to_merge_t t;
             bool commutativity() const { return t == to_merge_comm; }
-            to_merge(enode* a, enode* b, bool c) : a(a), b(b), t(c ? to_merge_comm : to_merge_comm) {}
+            to_merge(enode* a, enode* b, bool c) : a(a), b(b), t(c ? to_merge_comm : to_merge_plain) {}
             to_merge(enode* p, enode* ante): a(p), b(ante), t(to_add_literal) {}
         };
 

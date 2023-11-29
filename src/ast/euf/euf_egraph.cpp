@@ -83,7 +83,7 @@ namespace euf {
     void egraph::reinsert_equality(enode* p) {
         SASSERT(p->is_equality());
         if (p->value() != l_true && p->get_arg(0)->get_root() == p->get_arg(1)->get_root()) 
-            queue_literal(p, nullptr);
+            add_literal(p, nullptr);
     }
 
     void egraph::queue_literal(enode* p, enode* ante) {
@@ -581,13 +581,13 @@ namespace euf {
 
 
     bool egraph::propagate() {
-        SASSERT(m_num_scopes == 0 || m_to_merge.empty());
         force_push();
         unsigned j = 0;
         for (unsigned i = 0; i < m_to_merge.size() && m.limit().inc() && !inconsistent(); ++i) {
             auto const& w = m_to_merge[i];
             switch (w.t) {
             case to_merge_plain:
+            case to_merge_comm:
                 merge(w.a, w.b, justification::congruence(w.commutativity(), m_congruence_timestamp++));
                 break;
             case to_add_literal:
