@@ -67,7 +67,6 @@ namespace polysat {
 
         struct layer final {
             entry* entries = nullptr;
-            // TODO: cache longest?
             unsigned bit_width = 0;
             layer(unsigned bw): bit_width(bw) {}
         };
@@ -203,6 +202,7 @@ namespace polysat {
          */
         lbool find_viable_fallback(pvar v, rational& out_lo, rational& out_hi);
 
+        lbool find_viable_fallback(pvar v, pvar_vector const& overlaps, rational& out_lo, rational& out_hi);
 
 
 public:

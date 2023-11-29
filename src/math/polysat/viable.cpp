@@ -1471,7 +1471,7 @@ namespace polysat {
         if (result_lo == l_false)
             return l_false;  // conflict
         if (result_lo == l_undef)
-            return l_undef;
+            return find_viable_fallback(v, overlaps, lo, hi);
 
         if (lo == max_value) {
             hi = lo;
@@ -1482,7 +1482,7 @@ namespace polysat {
         if (result_hi == l_false)
             hi = lo;  // no other viable value
         if (result_hi == l_undef)
-            return l_undef;
+            return find_viable_fallback(v, overlaps, lo, hi);
 
         return l_true;
     }
@@ -1511,6 +1511,9 @@ namespace polysat {
         return {nullptr, false};
     }
 
+    // l_true ... found viable value
+    // l_false ... no viable value in [to_cover_lo;to_cover_hi[
+    // l_undef ... out of resources
     lbool viable::find_on_layers(
         pvar const v,
         unsigned_vector const& widths,
@@ -1535,7 +1538,7 @@ namespace polysat {
             refine_todo.clear();
 
             if (result != l_true)
-                return result;
+                return l_false;
 
             // overlaps are sorted by variable size in descending order
             // start refinement on smallest variable
@@ -1555,8 +1558,7 @@ namespace polysat {
                 return l_true;
         }
 
-        // TODO: fallback
-        NOT_IMPLEMENTED_YET();
+        LOG("Refinement budget exhausted! Fall back to univariate solver.");
         return l_undef;
     }
 
@@ -1765,6 +1767,83 @@ namespace polysat {
         }
         UNREACHABLE();
         return l_undef;
+    }
+
+    lbool viable::find_viable_fallback(pvar v, pvar_vector const& overlaps, rational& lo, rational& hi) {
+        unsigned const bit_width = s.size(v);
+        univariate_solver* us = s.m_viable_fallback.usolver(bit_width);
+        sat::literal_set added;
+
+        // TODO: justifications need to include equalities from slicing egraph
+
+        // First step: only query the looping constraints and see if they alone are already UNSAT.
+        // The constraints which caused the refinement loop can always be reached from m_units.
+        LOG_H3("Checking looping univariate constraints for v" << v << "...");
+        LOG("Assignment: " << assignments_pp(s));
+        for (pvar x : overlaps) {
+            for (layer const& l : m_units[x].get_layers()) {
+                unsigned const k = l.bit_width;
+                entry const* first = l.entries;
+                entry const* e = first;
+                do {
+                    // in the first step we're only interested in entries from refinement
+                    if (e->refined) {
+                        for (signed_constraint const src : e->src) {
+                            sat::literal const lit = src.blit();
+                            if (!added.contains(lit)) {
+                                added.insert(lit);
+                                LOG("Adding " << lit_pp(s, lit));
+                                IF_VERBOSE(10, verbose_stream() << ";; " << lit_pp(s, lit) << "\n");
+                                src.add_to_univariate_solver(x, s, *us, lit.to_uint());
+                            }
+                        }
+                    }
+                    e = e->next();
+                }
+                while (e != first);
+            }
+        }
+
+        switch (us->check()) {
+        case l_false:
+            s.set_conflict_by_viable_fallback(v, *us);
+            return l_false;
+        case l_true:
+            // At this point we don't know much because we did not add all relevant constraints
+            break;
+        default:
+            // resource limit
+            return l_undef;
+        }
+
+        // Second step: looping constraints aren't UNSAT, so add the remaining relevant constraints
+        LOG_H3("Checking all univariate constraints for v" << v << "...");
+        for (pvar x : overlaps) {
+            auto const& cs = s.m_viable_fallback.m_constraints[x];
+            for (unsigned i = cs.size(); i-- > 0; ) {
+                sat::literal const lit = cs[i].blit();
+                if (added.contains(lit))
+                    continue;
+                LOG("Adding " << lit_pp(s, lit));
+                IF_VERBOSE(10, verbose_stream() << ";; " << lit_pp(s, lit) << "\n");
+                added.insert(lit);
+                cs[i].add_to_univariate_solver(x, s, *us, lit.to_uint());
+            }
+        }
+
+        switch (us->check()) {
+        case l_false:
+            s.set_conflict_by_viable_fallback(v, *us);
+            return l_false;
+        case l_true:
+            lo = us->model();
+            hi = -1;
+            return l_true;
+            // TODO: return us.find_two(lo, hi) ? l_true : l_undef;  ???
+        default:
+            // resource limit
+            return l_undef;
+        }
     }
 
     lbool viable::find_viable2(pvar v, rational& lo, rational& hi) {
