@@ -1732,7 +1732,7 @@ namespace polysat {
             return l_false;  // conflict
 
         // replace lower bits of 'val' by 'a'
-        val = val - lower_cover_lo + a;
+        val = val + distance(lower_cover_lo, a, lower_mod_value);
         LOG("distance(val,      cover_hi) = " << distance(val, to_cover_hi, mod_value));
         LOG("distance(next_val, cover_hi) = " << distance(next_val, to_cover_hi, mod_value));
         SASSERT(distance(val, to_cover_hi, mod_value) >= distance(next_val, to_cover_hi, mod_value));
@@ -1742,9 +1742,6 @@ namespace polysat {
 
         SASSERT(result == l_undef);
         // TODO: continue with intervals at current level
-
-        // TODO: refinement and fallback solver -- can we refine without throwing out all the entry_cursors we have set up?
-        //       we only have to chase intervals from the beginning if ec.cur has become inactive
 
         NOT_IMPLEMENTED_YET();
         return l_undef;
