@@ -19,21 +19,21 @@ Author:
 #include "util/ref_vector.h"
 #include "util/sat_literal.h"
 #include "math/dd/dd_pdd.h"
-#include "math/dd/dd_bdd.h"
 #include "math/dd/dd_fdd.h"
 
 namespace polysat {
 
     class solver;
+    class constraint;
     class clause;
 
     using clause_ref = ref<clause>;
     using clause_ref_vector = sref_vector<clause>;
 
-    typedef dd::pdd pdd;
-    typedef dd::bdd bdd;
-    typedef dd::bddv bddv;
-    typedef dd::val_pp val_pp;
+    using dd::pdd;
+    using dd::pdd_monomial;
+    using dd::pdd_manager;
+    using dd::val_pp;
 
     using pvar = unsigned;
     using pvar_vector = unsigned_vector;
