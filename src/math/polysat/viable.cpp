@@ -440,7 +440,7 @@ namespace polysat {
 
     template <bool FORWARD>
     bool viable::refine_bits(pvar v, rational const& val, fixed_bits_info const& fbi) {
-        entry* ne = refine_bits(v, val, s.size(v), fbi);
+        entry* ne = refine_bits<FORWARD>(v, val, s.size(v), fbi);
         if (!ne)
             return true;
         intersect(v, ne);

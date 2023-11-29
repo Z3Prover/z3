@@ -670,3 +670,7 @@ inline rational gcd(rational const & r1, rational const & r2, rational & a, rati
   rational::m().gcd(r1.m_val, r2.m_val, a.m_val, b.m_val, result.m_val);
   return result;
 }
+
+inline void swap(rational& r1, rational& r2) {
+    r1.swap(r2);
+}
