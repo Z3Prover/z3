@@ -206,7 +206,7 @@ namespace polysat {
         lhs.push_back(rational(2));
         rhs.clear();
         rhs.push_back(rational(123));
-        solver->add_ule(lhs, rhs, false, 0);
+        solver->add_ule(lhs, rhs, false, bw, 0);
         std::cout << "status: " << solver->check() << "\n";
         std::cout << "model: " << solver->model() << "\n";
 
@@ -218,7 +218,7 @@ namespace polysat {
         lhs.push_back(rational(0));
         lhs.push_back(rational(1));
         rhs.clear();
-        solver->add_ule(lhs, rhs, false, 1);
+        solver->add_ule(lhs, rhs, false, bw, 1);
         std::cout << "status: " << solver->check() << "\n";
         std::cout << "model: " << solver->model() << "\n";
 
@@ -230,7 +230,7 @@ namespace polysat {
         lhs.push_back(rational(1));
         rhs.clear();
         rhs.push_back(rational(1000));
-        solver->add_ule(lhs, rhs, false, 2);
+        solver->add_ule(lhs, rhs, false, bw, 2);
         // std::cout << *solver << '\n';
         std::cout << "status: " << solver->check() << "\n";
         std::cout << "model: " << solver->model() << "\n";
@@ -243,7 +243,7 @@ namespace polysat {
         rhs.clear();
         rhs.push_back(rational(0));
         rhs.push_back(rational(1));
-        solver->add_umul_ovfl(lhs, rhs, false, 3);
+        solver->add_umul_ovfl(lhs, rhs, false, bw, 3);
         std::cout << "status: " << solver->check() << "\n";
         std::cout << "model: " << solver->model() << "\n";
 
@@ -253,7 +253,7 @@ namespace polysat {
         rhs.clear();
         rhs.push_back(rational(0));
         rhs.push_back(rational(1));
-        solver->add_ule(lhs, rhs, true, 4);
+        solver->add_ule(lhs, rhs, true, bw, 4);
         std::cout << "status: " << solver->check() << "\n";
         std::cout << "core: " << solver->unsat_core() << "\n";
     }
@@ -277,7 +277,7 @@ namespace polysat {
         rhs.clear();
         rhs.push_back(rational(10));
         rhs.push_back(rational(2));
-        solver->add_ule(lhs, rhs, false, 0);
+        solver->add_ule(lhs, rhs, false, bw, 0);
         std::cout << "status:   " << solver->check() << "\n";
         std::cout << "model:    " << solver->model() << "\n";
 
@@ -288,7 +288,7 @@ namespace polysat {
         VERIFY(solver->find_max(max));
         std::cout << "find_max: " << max << "\n";
         solver->push();
-        solver->add_ugt_const(max, false, 5);
+        solver->add_ugt_const(max, false, bw, 5);
         VERIFY(solver->check() == l_false);
         solver->pop(1);
 
@@ -300,7 +300,7 @@ namespace polysat {
         rhs.clear();
         rhs.push_back(rational(0));
         rhs.push_back(rational(1));
-        solver->add_ule(lhs, rhs, false, 1);
+        solver->add_ule(lhs, rhs, false, bw, 1);
         std::cout << "status:   " << solver->check() << "\n";
         std::cout << "model:    " << solver->model() << "\n";
 
@@ -310,7 +310,7 @@ namespace polysat {
 
         VERIFY(solver->find_max(max));
         std::cout << "find_max: " << max << "\n";
-        solver->add_ugt_const(max, false, 5);
+        solver->add_ugt_const(max, false, bw, 5);
         VERIFY(solver->check() == l_false);
 
         solver->pop(1);
@@ -321,20 +321,20 @@ namespace polysat {
         rhs.clear();
         rhs.push_back(rational(0));
         rhs.push_back(rational(1));
-        solver->add_umul_ovfl(lhs, rhs, false, 2);
+        solver->add_umul_ovfl(lhs, rhs, false, bw, 2);
         std::cout << "status:   " << solver->check() << "\n";
         std::cout << "model:    " << solver->model() << "\n";
 
         VERIFY(solver->find_min(min));
         std::cout << "find_min: " << min << "\n";
         solver->push();
-        solver->add_ult_const(min, false, 5);
+        solver->add_ult_const(min, false, bw, 5);
         VERIFY(solver->check() == l_false);
         solver->pop(1);
 
         VERIFY(solver->find_max(max));
         std::cout << "find_max: " << max << "\n";
-        solver->add_ugt_const(max, false, 5);
+        solver->add_ugt_const(max, false, bw, 5);
         VERIFY(solver->check() == l_false);
 
         solver->pop(1);
@@ -345,20 +345,20 @@ namespace polysat {
         rhs.clear();
         rhs.push_back(rational(0));
         rhs.push_back(rational(1));
-        solver->add_umul_ovfl(lhs, rhs, false, 3);
+        solver->add_umul_ovfl(lhs, rhs, false, bw, 3);
         std::cout << "status:   " << solver->check() << "\n";
         std::cout << "model:    " << solver->model() << "\n";
 
         VERIFY(solver->find_min(min));
         std::cout << "find_min: " << min << "\n";
         solver->push();
-        solver->add_ult_const(min, false, 5);
+        solver->add_ult_const(min, false, bw, 5);
         VERIFY(solver->check() == l_false);
         solver->pop(1);
 
         VERIFY(solver->find_max(max));
         std::cout << "find_max: " << max << "\n";
-        solver->add_ugt_const(max, false, 5);
+        solver->add_ugt_const(max, false, bw, 5);
         VERIFY(solver->check() == l_false);
     }
 
