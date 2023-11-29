@@ -918,7 +918,7 @@ namespace arith {
             theory_var v = (i + start) % sz;
             if (is_bool(v))
                 continue;
-            if (!ctx.is_shared(var2enode(v)) && !include_func_interp(var2enode(v)))
+            if (!ctx.is_shared(var2enode(v)))
                 continue;
             ensure_column(v);
             if (!is_registered_var(v))

@@ -95,7 +95,7 @@ namespace nla {
 
     scoped_anum& solver::tmp2() {
         SASSERT(use_nra_model());
-        return m_core->m_nra.tmp1();
+        return m_core->m_nra.tmp2();
     }
 
     

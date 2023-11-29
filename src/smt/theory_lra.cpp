@@ -1513,7 +1513,7 @@ public:
         for (theory_var i = 0; i < sz; ++i) {
             theory_var v = (i + start) % sz;
             enode* n1 = get_enode(v);
-            if (!th.is_relevant_and_shared(n1) && !include_func_interp(n1))                     
+            if (!th.is_relevant_and_shared(n1))                   
                 continue;
             ensure_column(v);
             if (!is_registered_var(v))
