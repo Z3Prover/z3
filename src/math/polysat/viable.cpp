@@ -1744,9 +1744,18 @@ namespace polysat {
                 return l_true;  // done
 
             SASSERT(result == l_undef);
-            // TODO: continue with intervals at current level
+
+            if (progress >= mod_value) {
+                // covered the whole domain => conflict
+                return l_false;
+            }
+
+            if (progress >= to_cover_len) {
+                // we covered the hole left at larger bit-width
+                return l_undef;
+            }
         }
-        NOT_IMPLEMENTED_YET();
+        UNREACHABLE();
         return l_undef;
     }
 
