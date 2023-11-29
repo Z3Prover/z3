@@ -286,6 +286,7 @@ private:
         unsigned row_index = this->m_row_index;
         auto* lar = &m_bp.lp();
         auto explain = [bound_j, coeff_before_j_is_pos, is_lower_bound, strict, row_index, lar]() {
+            (void) strict;
             TRACE("bound_analyzer", tout << "explain_bound_on_var_on_coeff, bound_j = " << bound_j << ", coeff_before_j_is_pos = " << coeff_before_j_is_pos << ", is_lower_bound = " << is_lower_bound << ", strict = " << strict << ", row_index = " << row_index << "\n";);
             int bound_sign = (is_lower_bound ? 1 : -1);
             int j_sign = (coeff_before_j_is_pos ? 1 : -1) * bound_sign;

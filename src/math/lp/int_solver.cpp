@@ -884,7 +884,7 @@ namespace lp {
         };
 
         auto _check_feasible = [&](void) {
-            auto st = lra.find_feasible_solution();
+            lra.find_feasible_solution();
             if (!lra.is_feasible() && !settings().get_cancel_flag()) {
                 lra.get_infeasibility_explanation(*m_ex);
                 return false;

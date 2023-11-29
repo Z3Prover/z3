@@ -582,7 +582,6 @@ namespace euf {
 
     bool egraph::propagate() {
         force_push();
-        unsigned j = 0;
         for (unsigned i = 0; i < m_to_merge.size() && m.limit().inc() && !inconsistent(); ++i) {
             auto const& w = m_to_merge[i];
             switch (w.t) {
