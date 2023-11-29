@@ -6955,6 +6955,13 @@ class Solver(Z3PPObject):
         if self.solver is not None and self.ctx.ref() is not None and Z3_solver_dec_ref is not None:
             Z3_solver_dec_ref(self.ctx.ref(), self.solver)
 
+    def __enter__(self):
+        self.push()
+        return self
+
+    def __exit__(self, *exc_info):
+        self.pop()
+
     def set(self, *args, **keys):
         """Set a configuration option.
         The method `help()` return a string containing all available options.
