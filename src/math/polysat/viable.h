@@ -159,6 +159,8 @@ namespace polysat {
         template <bool FORWARD>
         bool refine_viable(pvar v, rational const& val, fixed_bits_info const& fbi);
 
+        bool refine_viable(pvar v, rational const& val);
+
         template <bool FORWARD>
         bool refine_bits(pvar v, rational const& val, fixed_bits_info const& fbi);
 

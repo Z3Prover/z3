@@ -434,6 +434,10 @@ namespace polysat {
         return refine_bits<FORWARD>(v, val, fbi) && refine_equal_lin(v, val) && refine_disequal_lin(v, val);
     }
 
+    bool viable::refine_viable(pvar v, rational const& val) {
+        return refine_equal_lin(v, val) && refine_disequal_lin(v, val);
+    }
+
     template <bool FORWARD>
     bool viable::refine_bits(pvar v, rational const& val, fixed_bits_info const& fbi) {
         entry* ne = refine_bits(v, val, s.size(v), fbi);
@@ -490,6 +494,7 @@ namespace polysat {
         unsigned const N = m.power_of_2();
         rational const& max_value = m.max_value();
         rational const& mod_value = m.two_to_N();
+        SASSERT(0 <= val && val <= max_value);
 
         // Rotate the 'first' entry, to prevent getting stuck in a refinement loop
         // with an early entry when a later entry could give a better interval.
@@ -625,8 +630,10 @@ namespace polysat {
         if (!e)
             return true;
         entry const* first = e;
-        rational const& max_value = s.var2pdd(v).max_value();
-        rational const mod_value = max_value + 1;
+        auto& m = s.var2pdd(v);
+        rational const& max_value = m.max_value();
+        rational const& mod_value = m.two_to_N();
+        SASSERT(0 <= val && val <= max_value);
 
         // Rotate the 'first' entry, to prevent getting stuck in a refinement loop
         // with an early entry when a later entry could give a better interval.
@@ -1438,7 +1445,6 @@ namespace polysat {
 
         uint_set widths_set;
         // max size should always be present, regardless of whether we have intervals there (to make sure all fixed bits are considered)
-        // - OTOH, probably easier to introduce a proper interval from bits during refinement
         widths_set.insert(s.size(v));
 
         LOG("Overlaps with v" << v << ":");
@@ -1508,20 +1514,61 @@ namespace polysat {
     lbool viable::find_on_layers(pvar const v, unsigned_vector const& widths, pvar_vector const& overlaps, fixed_bits_info const& fbi, rational const& to_cover_lo, rational const& to_cover_hi, rational& val) {
         ptr_vector<entry> refine_todo;
 
-        lbool result = find_on_layer(v, widths.size() - 1, widths, overlaps, fbi, to_cover_lo, to_cover_hi, val, refine_todo);
+        // max number of interval refinements before falling back to the univariate solver
+        unsigned const refinement_budget = 100;
+        unsigned refinements = refinement_budget;
 
-        // store bit intervals we have used
-        for (entry* e : refine_todo)
-            intersect(v, e);
+        while (refinements--) {
+            lbool result = find_on_layer(v, widths.size() - 1, widths, overlaps, fbi, to_cover_lo, to_cover_hi, val, refine_todo);
 
-        // TODO: other refinements
+            // store bit intervals we have used
+            for (entry* e : refine_todo)
+                intersect(v, e);
+            refine_todo.clear();
 
-        return result;
+            if (result != l_true)
+                return result;
+
+            // overlaps are sorted by variable size in descending order
+            // start refinement on smallest variable
+            // however, we probably should rotate to avoid getting stuck in refinement loop on a 'bad' constraint
+            bool refined = false;
+            for (unsigned i = overlaps.size(); i-- > 0; ) {
+                pvar x = overlaps[i];
+                rational const& mod_value = s.var2pdd(x).two_to_N();
+                rational x_val = mod(val, mod_value);
+                if (!refine_viable(x, x_val)) {
+                    refined = true;
+                    break;
+                }
+            }
+
+            if (!refined)
+                return l_true;
+        }
+
+        // TODO: fallback
+        NOT_IMPLEMENTED_YET();
+        return l_undef;
     }
 
     // find viable values in half-open interval [to_cover_lo;to_cover_hi[ w.r.t. unit intervals on the given layer
-    lbool viable::find_on_layer(pvar const v, unsigned const w_idx, unsigned_vector const& widths, pvar_vector const& overlaps, fixed_bits_info const& fbi, rational const& to_cover_lo, rational const& to_cover_hi, rational& val, ptr_vector<entry>& refine_todo) {
-
+    //
+    // Returns:
+    // - l_true  ... found value that is viable w.r.t. units and fixed bits
+    // - l_false ... found conflict
+    // - l_undef ... found no viable value in target interval [to_cover_lo;to_cover_hi[
+    lbool viable::find_on_layer(
+        pvar const v,
+        unsigned const w_idx,
+        unsigned_vector const& widths,
+        pvar_vector const& overlaps,
+        fixed_bits_info const& fbi,
+        rational const& to_cover_lo,
+        rational const& to_cover_hi,
+        rational& val,
+        ptr_vector<entry>& refine_todo
+    ) {
         unsigned const w = widths[w_idx];
         rational const& mod_value = rational::power_of_two(w);
 
@@ -1614,6 +1661,7 @@ namespace polysat {
             }
             if (progress >= to_cover_len) {
                 // we covered the hole left at larger bit-width
+                // TODO: maybe we want to keep trying a bit longer to see if we can cover the whole domain. or maybe only if we enter this layer multiple times.
                 return l_undef;
             }
 
@@ -1625,8 +1673,8 @@ namespace polysat {
         // => 'val' is viable w.r.t. unit intervals until current layer
 
         if (!w_idx) {
-            // no lower layer, so we are feasible w.r.t. units and bits
-            // TODO: find second value?
+            // we are at the lowest layer
+            // => found viable value w.r.t. unit intervals and fixed bits
             return l_true;
         }
 
