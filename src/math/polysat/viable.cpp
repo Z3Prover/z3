@@ -1732,7 +1732,9 @@ namespace polysat {
             return l_false;  // conflict
 
         // replace lower bits of 'val' by 'a'
-        val = val + distance(lower_cover_lo, a, lower_mod_value);
+        rational const dist = distance(lower_cover_lo, a, lower_mod_value);
+        val += dist;
+        progress += dist;
         LOG("distance(val,      cover_hi) = " << distance(val, to_cover_hi, mod_value));
         LOG("distance(next_val, cover_hi) = " << distance(next_val, to_cover_hi, mod_value));
         SASSERT(distance(val, to_cover_hi, mod_value) >= distance(next_val, to_cover_hi, mod_value));
