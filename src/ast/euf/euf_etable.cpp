@@ -203,7 +203,6 @@ namespace euf {
         SASSERT(n->num_args() > 0);
         enode * n_prime;
         void * t = get_table(n); 
-        //verbose_stream() << "insert " << n << "\n";
         switch (static_cast<table_kind>(GET_TAG(t))) {
         case UNARY:
             n_prime = UNTAG(unary_table*, t)->insert_if_not_there(n);
@@ -238,6 +237,7 @@ namespace euf {
             UNTAG(table*, t)->erase(n);
             break;
         }
+        CTRACE("euf", contains_ptr(n), display(tout));
         SASSERT(!contains_ptr(n));
     }
 

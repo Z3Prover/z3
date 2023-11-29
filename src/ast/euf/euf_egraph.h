@@ -90,6 +90,11 @@ namespace euf {
             to_merge(enode* a, enode* b, bool c) : a(a), b(b), commutativity(c) {}
         };
 
+        struct to_add_literal {
+            enode* p, *ante;
+            to_add_literal(enode* p, enode* ante) : p(p), ante(ante) {}
+        };
+
         struct stats {
             unsigned m_num_merge;
             unsigned m_num_th_eqs;
@@ -162,6 +167,7 @@ namespace euf {
         };
         ast_manager&           m;
         svector<to_merge>      m_to_merge;
+        svector<to_add_literal>   m_to_add_literal;
         etable                 m_table;
         region                 m_region;
         svector<update_record> m_updates;
@@ -207,6 +213,7 @@ namespace euf {
         void add_th_diseqs(theory_id id, theory_var v1, enode* r);
         bool th_propagates_diseqs(theory_id id) const;
         void add_literal(enode* n, enode* ante);
+        void queue_literal(enode* n, enode* ante);
         void undo_eq(enode* r1, enode* n1, unsigned r2_num_parents);
         void undo_add_th_var(enode* n, theory_id id);
         enode* mk_enode(expr* f, unsigned generation, unsigned num_args, enode * const* args);

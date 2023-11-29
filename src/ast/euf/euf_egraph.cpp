@@ -69,7 +69,7 @@ namespace euf {
     }
 
     enode_bool_pair egraph::insert_table(enode* p) {
-        TRACE("euf", tout << bpp(p) << "\n");
+        TRACE("euf", tout << "insert_table " << bpp(p) << "\n");
         //SASSERT(!m_table.contains_ptr(p));
         auto rc = m_table.insert(p);
         p->m_cg = rc.first;
@@ -83,7 +83,12 @@ namespace euf {
     void egraph::reinsert_equality(enode* p) {
         SASSERT(p->is_equality());
         if (p->value() != l_true && p->get_arg(0)->get_root() == p->get_arg(1)->get_root()) 
-            add_literal(p, nullptr);
+            queue_literal(p, nullptr);
+    }
+
+    void egraph::queue_literal(enode* p, enode* ante) {
+        if (m_on_propagate_literal)
+            m_to_add_literal.push_back({ p, ante });
     }
 
     void egraph::force_push() {
@@ -164,19 +169,14 @@ namespace euf {
         if (!ante)
             m_on_propagate_literal(n, ante);
         else if (m.is_true(ante->get_expr()) || m.is_false(ante->get_expr())) {
-            for (enode* k : enode_class(n)) {
-                if (k != ante) {
-                    //verbose_stream() << "eq: " << k->value() << " " <<ante->value() << "\n";
-                    m_on_propagate_literal(k, ante);
-                }
-            }
+            for (enode* k : enode_class(n)) 
+                if (k != ante) 
+                    m_on_propagate_literal(k, ante);           
         }
         else {
             for (enode* k : enode_class(n)) {
-                if (k->value() != ante->value()) {
-                    //verbose_stream() << "eq: " << k->value() << " " <<ante->value() << "\n";
-                    m_on_propagate_literal(k, ante);
-                }
+                if (k->value() != ante->value()) 
+                    m_on_propagate_literal(k, ante);                
             }
         }
     }
@@ -352,6 +352,7 @@ namespace euf {
         if (num_scopes <= m_num_scopes) {
             m_num_scopes -= num_scopes;
             m_to_merge.reset();
+            m_to_add_literal.reset();
             return;
         }
         num_scopes -= m_num_scopes;
@@ -434,6 +435,7 @@ namespace euf {
         m_scopes.shrink(old_lim);        
         m_region.pop_scope(num_scopes);  
         m_to_merge.reset();
+        m_to_add_literal.reset();
 
         SASSERT(m_new_th_eqs_qhead <= m_new_th_eqs.size());
 
@@ -494,6 +496,7 @@ namespace euf {
 
     void egraph::remove_parents(enode* r) {
         TRACE("euf", tout << bpp(r) << "\n");
+        DEBUG_CODE(for (enode* p : enode_parents(r)) SASSERT(!p->is_marked1()); );
         for (enode* p : enode_parents(r)) {
             if (p->is_marked1())
                 continue;
@@ -582,11 +585,17 @@ namespace euf {
     bool egraph::propagate() {
         SASSERT(m_num_scopes == 0 || m_to_merge.empty());
         force_push();
+        unsigned j = 0;
         for (unsigned i = 0; i < m_to_merge.size() && m.limit().inc() && !inconsistent(); ++i) {
             auto const& w = m_to_merge[i];
             merge(w.a, w.b, justification::congruence(w.commutativity, m_congruence_timestamp++));                
+            for (; j < m_to_add_literal.size() && m.limit().inc() && !inconsistent(); ++j) {
+                auto const& [p, ante] = m_to_add_literal[j];
+                add_literal(p, ante);
+            }
         }
         m_to_merge.reset();
+        m_to_add_literal.reset();
         return 
             (m_new_th_eqs_qhead < m_new_th_eqs.size()) ||
             inconsistent();
