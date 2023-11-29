@@ -1619,132 +1619,133 @@ namespace polysat {
 
         rational progress; // = 0
         while (true) {
-            entry* e = nullptr;
+            while (true) {
+                entry* e = nullptr;
 
-            // try to make progress using any of the relevant interval lists
-            for (entry_cursor& ec : ecs) {
-                // advance until current value 'val'
-                auto const [n, n_contains_val] = find_value(val, ec.cur);
-                // display_one(std::cerr << "found entry n: ", 0, n) << "\n";
-                // LOG("n_contains_val: " << n_contains_val << "    val = " << val);
-                ec.cur = n;
-                if (n_contains_val) {
-                    e = n;
+                // try to make progress using any of the relevant interval lists
+                for (entry_cursor& ec : ecs) {
+                    // advance until current value 'val'
+                    auto const [n, n_contains_val] = find_value(val, ec.cur);
+                    // display_one(std::cerr << "found entry n: ", 0, n) << "\n";
+                    // LOG("n_contains_val: " << n_contains_val << "    val = " << val);
+                    ec.cur = n;
+                    if (n_contains_val) {
+                        e = n;
+                        break;
+                    }
+                }
+
+                // when we cannot make progress by existing intervals any more, try interval from fixed bits
+                if (!e) {
+                    e = refine_bits<true>(v, val, w, fbi);
+                    if (e) {
+                        refine_todo.push_back(e);
+                        display_one(std::cerr << "found entry by bits: ", 0, e) << "\n";
+                    }
+                }
+
+                // no more progress on current layer
+                if (!e)
                     break;
-                }
-            }
 
-            // when we cannot make progress by existing intervals any more, try interval from fixed bits
-            if (!e) {
-                e = refine_bits<true>(v, val, w, fbi);
-                if (e) {
-                    refine_todo.push_back(e);
-                    display_one(std::cerr << "found entry by bits: ", 0, e) << "\n";
+                SASSERT(e->interval.currently_contains(val));
+                rational const& new_val = e->interval.hi_val();
+                rational const dist = distance(val, new_val, mod_value);
+                SASSERT(dist > 0);
+                val = new_val;
+                progress += dist;
+                LOG("val: " << val << " progress: " << progress);
+
+                if (progress >= mod_value) {
+                    // covered the whole domain => conflict
+                    return l_false;
                 }
+                if (progress >= to_cover_len) {
+                    // we covered the hole left at larger bit-width
+                    // TODO: maybe we want to keep trying a bit longer to see if we can cover the whole domain. or maybe only if we enter this layer multiple times.
+                    return l_undef;
+                }
+
+                // (another way to compute 'progress')
+                SASSERT_EQ(progress, distance(to_cover_lo, val, mod_value));
             }
 
             // no more progress
-            if (!e)
-                break;
+            // => 'val' is viable w.r.t. unit intervals until current layer
 
-            SASSERT(e->interval.currently_contains(val));
-            rational const& new_val = e->interval.hi_val();
-            rational const dist = distance(val, new_val, mod_value);
-            SASSERT(dist > 0);
-            val = new_val;
-            progress += dist;
-            LOG("val: " << val << " progress: " << progress);
-
-            if (progress >= mod_value) {
-                // covered the whole domain => conflict
-                return l_false;
-            }
-            if (progress >= to_cover_len) {
-                // we covered the hole left at larger bit-width
-                // TODO: maybe we want to keep trying a bit longer to see if we can cover the whole domain. or maybe only if we enter this layer multiple times.
-                return l_undef;
+            if (!w_idx) {
+                // we are at the lowest layer
+                // => found viable value w.r.t. unit intervals and fixed bits
+                return l_true;
             }
 
-            // (another way to compute 'progress')
-            SASSERT_EQ(progress, distance(to_cover_lo, val, mod_value));
-        }
-
-        // no more progress
-        // => 'val' is viable w.r.t. unit intervals until current layer
-
-        if (!w_idx) {
-            // we are at the lowest layer
-            // => found viable value w.r.t. unit intervals and fixed bits
-            return l_true;
-        }
-
-        // find next covered value
-        rational next_val = to_cover_hi;
-        for (entry_cursor& ec : ecs) {
-            // each ec.cur is now the next interval after 'lo'
-            rational const& n = ec.cur->interval.lo_val();
-            SASSERT(r_interval::contains(ec.cur->prev()->interval.hi_val(), n, val));
-            if (distance(val, n, mod_value) < distance(val, next_val, mod_value))
+            // find next covered value
+            rational next_val = to_cover_hi;
+            for (entry_cursor& ec : ecs) {
+                // each ec.cur is now the next interval after 'lo'
+                rational const& n = ec.cur->interval.lo_val();
+                SASSERT(r_interval::contains(ec.cur->prev()->interval.hi_val(), n, val));
+                if (distance(val, n, mod_value) < distance(val, next_val, mod_value))
+                    next_val = n;
+            }
+            if (entry* e = refine_bits<false>(v, next_val, w, fbi)) {
+                refine_todo.push_back(e);
+                rational const& n = e->interval.lo_val();
+                SASSERT(distance(val, n, mod_value) < distance(val, next_val, mod_value));
                 next_val = n;
-        }
-        if (entry* e = refine_bits<false>(v, next_val, w, fbi)) {
-            refine_todo.push_back(e);
-            rational const& n = e->interval.lo_val();
-            SASSERT(distance(val, n, mod_value) < distance(val, next_val, mod_value));
-            next_val = n;
-        }
-        SASSERT(!refine_bits<true>(v, val, w, fbi));
-        SASSERT(val != next_val);
+            }
+            SASSERT(!refine_bits<true>(v, val, w, fbi));
+            SASSERT(val != next_val);
 
-        unsigned const lower_w = widths[w_idx - 1];
-        rational const lower_mod_value = rational::power_of_two(lower_w);
+            unsigned const lower_w = widths[w_idx - 1];
+            rational const lower_mod_value = rational::power_of_two(lower_w);
 
-        rational lower_cover_lo, lower_cover_hi;
-        if (distance(val, next_val, mod_value) >= lower_mod_value) {
-            // NOTE: in this case we do not get the first viable value, but the one with smallest value in the lower bits.
-            //       this is because we start the search in the recursive case at 0.
-            //       if this is a problem, adapt to lower_cover_lo = mod(val, lower_mod_value), lower_cover_hi = ...
-            lower_cover_lo = 0;
-            lower_cover_hi = lower_mod_value;
+            rational lower_cover_lo, lower_cover_hi;
+            if (distance(val, next_val, mod_value) >= lower_mod_value) {
+                // NOTE: in this case we do not get the first viable value, but the one with smallest value in the lower bits.
+                //       this is because we start the search in the recursive case at 0.
+                //       if this is a problem, adapt to lower_cover_lo = mod(val, lower_mod_value), lower_cover_hi = ...
+                lower_cover_lo = 0;
+                lower_cover_hi = lower_mod_value;
+                rational a;
+                lbool result = find_on_layer(v, w_idx - 1, widths, overlaps, fbi, lower_cover_lo, lower_cover_hi, a, refine_todo);
+                VERIFY(result != l_undef);
+                if (result == l_false)
+                    return l_false;  // conflict
+                SASSERT(result == l_true);
+                // replace lower bits of 'val' by 'a'
+                rational const val_lower = mod(val, lower_mod_value);
+                val = val - val_lower + a;
+                if (a < val_lower)
+                    a += lower_mod_value;
+                LOG("distance(val,      cover_hi) = " << distance(val, to_cover_hi, mod_value));
+                LOG("distance(next_val, cover_hi) = " << distance(next_val, to_cover_hi, mod_value));
+                SASSERT(distance(val, to_cover_hi, mod_value) >= distance(next_val, to_cover_hi, mod_value));
+                return l_true;
+            }
+
+            lower_cover_lo = mod(val, lower_mod_value);
+            lower_cover_hi = mod(next_val, lower_mod_value);
+
             rational a;
             lbool result = find_on_layer(v, w_idx - 1, widths, overlaps, fbi, lower_cover_lo, lower_cover_hi, a, refine_todo);
-            VERIFY(result != l_undef);
             if (result == l_false)
                 return l_false;  // conflict
-            SASSERT(result == l_true);
+
             // replace lower bits of 'val' by 'a'
-            rational const val_lower = mod(val, lower_mod_value);
-            val = val - val_lower + a;
-            if (a < val_lower)
-                a += lower_mod_value;
+            rational const dist = distance(lower_cover_lo, a, lower_mod_value);
+            val += dist;
+            progress += dist;
             LOG("distance(val,      cover_hi) = " << distance(val, to_cover_hi, mod_value));
             LOG("distance(next_val, cover_hi) = " << distance(next_val, to_cover_hi, mod_value));
             SASSERT(distance(val, to_cover_hi, mod_value) >= distance(next_val, to_cover_hi, mod_value));
-            return l_true;
+
+            if (result == l_true)
+                return l_true;  // done
+
+            SASSERT(result == l_undef);
+            // TODO: continue with intervals at current level
         }
-
-        lower_cover_lo = mod(val, lower_mod_value);
-        lower_cover_hi = mod(next_val, lower_mod_value);
-
-        rational a;
-        lbool result = find_on_layer(v, w_idx - 1, widths, overlaps, fbi, lower_cover_lo, lower_cover_hi, a, refine_todo);
-        if (result == l_false)
-            return l_false;  // conflict
-
-        // replace lower bits of 'val' by 'a'
-        rational const dist = distance(lower_cover_lo, a, lower_mod_value);
-        val += dist;
-        progress += dist;
-        LOG("distance(val,      cover_hi) = " << distance(val, to_cover_hi, mod_value));
-        LOG("distance(next_val, cover_hi) = " << distance(next_val, to_cover_hi, mod_value));
-        SASSERT(distance(val, to_cover_hi, mod_value) >= distance(next_val, to_cover_hi, mod_value));
-
-        if (result == l_true)
-            return l_true;  // done
-
-        SASSERT(result == l_undef);
-        // TODO: continue with intervals at current level
-
         NOT_IMPLEMENTED_YET();
         return l_undef;
     }
