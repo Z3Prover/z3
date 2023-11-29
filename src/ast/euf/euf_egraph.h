@@ -84,15 +84,13 @@ namespace euf {
 
         typedef ptr_vector<trail> trail_stack;
 
+        enum to_merge_t { to_merge_plain, to_merge_comm, to_add_literal };
         struct to_merge {
             enode* a, * b;
-            bool commutativity;
-            to_merge(enode* a, enode* b, bool c) : a(a), b(b), commutativity(c) {}
-        };
-
-        struct to_add_literal {
-            enode* p, *ante;
-            to_add_literal(enode* p, enode* ante) : p(p), ante(ante) {}
+            to_merge_t t;
+            bool commutativity() const { return t == to_merge_comm; }
+            to_merge(enode* a, enode* b, bool c) : a(a), b(b), t(c ? to_merge_comm : to_merge_comm) {}
+            to_merge(enode* p, enode* ante): a(p), b(ante), t(to_add_literal) {}
         };
 
         struct stats {
@@ -167,7 +165,6 @@ namespace euf {
         };
         ast_manager&           m;
         svector<to_merge>      m_to_merge;
-        svector<to_add_literal>   m_to_add_literal;
         etable                 m_table;
         region                 m_region;
         svector<update_record> m_updates;

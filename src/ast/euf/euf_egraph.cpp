@@ -88,7 +88,7 @@ namespace euf {
 
     void egraph::queue_literal(enode* p, enode* ante) {
         if (m_on_propagate_literal)
-            m_to_add_literal.push_back({ p, ante });
+            m_to_merge.push_back({ p, ante });
     }
 
     void egraph::force_push() {
@@ -352,7 +352,6 @@ namespace euf {
         if (num_scopes <= m_num_scopes) {
             m_num_scopes -= num_scopes;
             m_to_merge.reset();
-            m_to_add_literal.reset();
             return;
         }
         num_scopes -= m_num_scopes;
@@ -435,7 +434,6 @@ namespace euf {
         m_scopes.shrink(old_lim);        
         m_region.pop_scope(num_scopes);  
         m_to_merge.reset();
-        m_to_add_literal.reset();
 
         SASSERT(m_new_th_eqs_qhead <= m_new_th_eqs.size());
 
@@ -588,14 +586,16 @@ namespace euf {
         unsigned j = 0;
         for (unsigned i = 0; i < m_to_merge.size() && m.limit().inc() && !inconsistent(); ++i) {
             auto const& w = m_to_merge[i];
-            merge(w.a, w.b, justification::congruence(w.commutativity, m_congruence_timestamp++));                
-            for (; j < m_to_add_literal.size() && m.limit().inc() && !inconsistent(); ++j) {
-                auto const& [p, ante] = m_to_add_literal[j];
-                add_literal(p, ante);
-            }
+            switch (w.t) {
+            case to_merge_plain:
+                merge(w.a, w.b, justification::congruence(w.commutativity(), m_congruence_timestamp++));
+                break;
+            case to_add_literal:
+                add_literal(w.a, w.b);
+                break;
+            }                
         }
         m_to_merge.reset();
-        m_to_add_literal.reset();
         return 
             (m_new_th_eqs_qhead < m_new_th_eqs.size()) ||
             inconsistent();
