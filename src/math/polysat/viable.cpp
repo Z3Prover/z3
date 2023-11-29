@@ -1653,13 +1653,30 @@ namespace polysat {
 
         rational lower_cover_lo, lower_cover_hi;
         if (distance(val, next_val, mod_value) >= lower_mod_value) {
+            // NOTE: in this case we do not get the first viable value, but the one with smallest value in the lower bits.
+            //       this is because we start the search in the recursive case at 0.
+            //       if this is a problem, adapt to lower_cover_lo = mod(val, lower_mod_value), lower_cover_hi = ...
             lower_cover_lo = 0;
             lower_cover_hi = lower_mod_value;
+            rational a;
+            lbool result = find_on_layer(v, w_idx - 1, widths, overlaps, fbi, lower_cover_lo, lower_cover_hi, a, refine_todo);
+            VERIFY(result != l_undef);
+            if (result == l_false)
+                return l_false;  // conflict
+            SASSERT(result == l_true);
+            // replace lower bits of 'val' by 'a'
+            rational const val_lower = mod(val, lower_mod_value);
+            val = val - val_lower + a;
+            if (a < val_lower)
+                a += lower_mod_value;
+            LOG("distance(val,      cover_hi) = " << distance(val, to_cover_hi, mod_value));
+            LOG("distance(next_val, cover_hi) = " << distance(next_val, to_cover_hi, mod_value));
+            SASSERT(distance(val, to_cover_hi, mod_value) >= distance(next_val, to_cover_hi, mod_value));
+            return l_true;
         }
-        else {
-            lower_cover_lo = mod(val, lower_mod_value);
-            lower_cover_hi = mod(next_val, lower_mod_value);
-        }
+
+        lower_cover_lo = mod(val, lower_mod_value);
+        lower_cover_hi = mod(next_val, lower_mod_value);
 
         rational a;
         lbool result = find_on_layer(v, w_idx - 1, widths, overlaps, fbi, lower_cover_lo, lower_cover_hi, a, refine_todo);
@@ -1667,9 +1684,7 @@ namespace polysat {
             return l_false;  // conflict
 
         // replace lower bits of 'val' by 'a'
-        // LOG("old val: " << val);
         val = val - lower_cover_lo + a;
-        // LOG("new val: " << val);
         LOG("distance(val,      cover_hi) = " << distance(val, to_cover_hi, mod_value));
         LOG("distance(next_val, cover_hi) = " << distance(next_val, to_cover_hi, mod_value));
         SASSERT(distance(val, to_cover_hi, mod_value) >= distance(next_val, to_cover_hi, mod_value));
