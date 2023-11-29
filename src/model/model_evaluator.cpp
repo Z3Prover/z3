@@ -447,7 +447,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
         }
         else if (m_dt.is_accessor(f)) {
             expr* arg = args[0];
-            if (is_ground(arg) && !fi) {
+            if (m.is_value(arg) && !fi) {
                 fi = alloc(func_interp, m, f->get_arity());
                 expr* val = m_model.get_some_value(f->get_range());
                 fi->set_else(val);
