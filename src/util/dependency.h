@@ -100,7 +100,7 @@ private:
 
     value_manager &         m_vmanager;
     allocator  &            m_allocator;
-    ptr_vector<dependency>  m_todo;
+    mutable ptr_vector<dependency>  m_todo;
 
     void inc_ref(value const & v) {
         if (C::ref_count)
@@ -138,7 +138,7 @@ private:
         }
     }
 
-    void unmark_todo() {
+    void unmark_todo() const {
         for (auto* d : m_todo) 
             d->unmark();
         m_todo.reset();
@@ -224,7 +224,7 @@ public:
 
 
 
-    void linearize(dependency * d, vector<value, false> & vs) {
+    void linearize(dependency * d, vector<value, false> & vs) const {
         if (!d) 
             return;
         SASSERT(m_todo.empty());
@@ -234,7 +234,7 @@ public:
         m_todo.reset();
     }
 
-    void linearize(ptr_vector<dependency>& deps, vector<value, false> & vs) {
+    void linearize(ptr_vector<dependency>& deps, vector<value, false> & vs) const {
         if (deps.empty())
             return;
         SASSERT(m_todo.empty());
@@ -329,7 +329,7 @@ public:
         return m_dep_manager.contains(d, v); 
     }
 
-    void linearize(dependency * d, vector<value, false> & vs) {
+    void linearize(dependency * d, vector<value, false> & vs) const {
         return m_dep_manager.linearize(d, vs);
     }    
 
@@ -338,7 +338,7 @@ public:
         return vs;
     }
 
-    void linearize(ptr_vector<dependency>& d, vector<value, false> & vs) {
+    void linearize(ptr_vector<dependency>& d, vector<value, false> & vs) const {
         return m_dep_manager.linearize(d, vs);
     }    
     
