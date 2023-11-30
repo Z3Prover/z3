@@ -93,6 +93,17 @@ namespace euf {
         return null_theory_var;
     }
 
+    enode* enode::get_closest_th_node(theory_id id) {
+        enode* n = this;
+        while (n) {
+            theory_var v = n->get_th_var(id);
+            if (v != null_theory_var)
+                return n;
+            n = n->m_target;
+        }
+        return nullptr;
+    }
+
     bool enode::acyclic() const {
         enode const* n = this;
         enode const* p = this;

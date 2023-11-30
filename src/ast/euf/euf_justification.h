@@ -22,19 +22,34 @@ Notes:
 
 #pragma once
 
+#include "util/dependency.h"
+
 namespace euf {
 
+    class enode;
+
     class justification {
+    public:
+        typedef stacked_dependency_manager<justification>             dependency_manager;
+        typedef stacked_dependency_manager<justification>::dependency dependency;
+    private:
         enum class kind_t {
             axiom_t, 
             congruence_t, 
-            external_t
+            external_t,
+            dependent_t,
+            equality_t
         };
         kind_t m_kind;
-        bool   m_comm;
+        union {
+            bool   m_comm;
+            enode* m_n1;
+        };
         union {
             void*    m_external;
             uint64_t m_timestamp;
+            dependency* m_dependency;
+            enode* m_n2;
         };
 
         justification(bool comm, uint64_t ts):
@@ -49,6 +64,18 @@ namespace euf {
             m_external(ext)
         {}
 
+        justification(dependency* dep, int):
+            m_kind(kind_t::dependent_t),
+            m_comm(false),
+            m_dependency(dep)
+        {}
+
+        justification(enode* n1, enode* n2):
+            m_kind(kind_t::equality_t),
+            m_n1(n1),
+            m_n2(n2)
+        {}
+
     public:
         justification():
             m_kind(kind_t::axiom_t),
@@ -59,10 +86,17 @@ namespace euf {
         static justification axiom() { return justification(); }
         static justification congruence(bool c, uint64_t ts) { return justification(c, ts); }
         static justification external(void* ext) { return justification(ext); }
+        static justification dependent(dependency* d) { return justification(d, 1); }
+        static justification equality(enode* a, enode* b) { return justification(a, b); }
         
         bool   is_external() const { return m_kind == kind_t::external_t; }
         bool   is_congruence() const { return m_kind == kind_t::congruence_t; }
         bool   is_commutative() const { return m_comm; }
+        bool   is_dependent() const { return m_kind == kind_t::dependent_t; }
+        bool   is_equality() const { return m_kind == kind_t::equality_t; }
+        dependency* get_dependency() const { SASSERT(is_dependent());  return m_dependency; }
+        enode* lhs() const { SASSERT(is_equality()); return m_n1; }
+        enode* rhs() const { SASSERT(is_equality()); return m_n2; }
         uint64_t timestamp() const { SASSERT(is_congruence()); return m_timestamp; }
         template <typename T>
         T*  ext() const { SASSERT(is_external()); return static_cast<T*>(m_external); }            
@@ -75,30 +109,17 @@ namespace euf {
                 return axiom();
             case kind_t::congruence_t:
                 return congruence(m_comm, m_timestamp);
+            case kind_t::dependent_t:
+                NOT_IMPLEMENTED_YET();
+                return dependent(m_dependency);
             default:
                 UNREACHABLE();
                 return axiom();
             }
         }
 
-        std::ostream& display(std::ostream& out, std::function<void (std::ostream&, void*)> const& ext) const {
-            switch (m_kind) {
-            case kind_t::external_t:
-                if (ext)
-                    ext(out, m_external);
-                else
-                    out << "external";
-                return out;
-            case kind_t::axiom_t:
-                return out << "axiom";
-            case kind_t::congruence_t:
-                return out << "congruence";
-            default:
-                UNREACHABLE();
-                return out;
-            }
-            return out;
-        }
+        std::ostream& display(std::ostream& out, std::function<void(std::ostream&, void*)> const& ext) const;
+
     };
 
     inline std::ostream& operator<<(std::ostream& out, justification const& j) {

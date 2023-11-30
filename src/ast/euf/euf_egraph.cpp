@@ -130,8 +130,8 @@ namespace euf {
         if (n2 == n) 
             update_children(n);        
         else 
-            merge(n, n2, justification::congruence(comm, m_congruence_timestamp++));
-
+            push_merge(n, n2, comm);
+    
         return n;
     }
 
@@ -146,19 +146,36 @@ namespace euf {
             memory::deallocate(m_tmp_node);
     }
 
+    void egraph::add_plugin(plugin* p) {
+        m_plugins.reserve(p->get_id() + 1);
+        m_plugins.set(p->get_id(), p);       
+    }
+
+    void egraph::propagate_plugins() {
+        for (auto* p : m_plugins)
+            if (p)
+                p->propagate();        
+    }
+
     void egraph::add_th_eq(theory_id id, theory_var v1, theory_var v2, enode* c, enode* r) {
         TRACE("euf_verbose", tout << "eq: " << v1 << " == " << v2 << "\n";);
         m_new_th_eqs.push_back(th_eq(id, v1, v2, c, r));
         m_updates.push_back(update_record(update_record::new_th_eq()));
         ++m_stats.m_num_th_eqs;
+        auto* p = get_plugin(id);
+        if (p)
+            p->merge_eh(c, r);
     }
 
-    void egraph::add_th_diseq(theory_id id, theory_var v1, theory_var v2, expr* eq) {
+    void egraph::add_th_diseq(theory_id id, theory_var v1, theory_var v2, enode* eq) {
         if (!th_propagates_diseqs(id))
             return;
         TRACE("euf_verbose", tout << "eq: " << v1 << " != " << v2 << "\n";);
-        m_new_th_eqs.push_back(th_eq(id, v1, v2, eq));
+        m_new_th_eqs.push_back(th_eq(id, v1, v2, eq->get_expr()));
         m_updates.push_back(update_record(update_record::new_th_eq()));
+        auto* p = get_plugin(id);
+        if (p)
+            p->diseq_eh(eq);
         ++m_stats.m_num_th_diseqs;
     }
 
@@ -202,7 +219,7 @@ namespace euf {
                 return;
             theory_var v1 = arg1->get_closest_th_var(id);
             theory_var v2 = arg2->get_closest_th_var(id);
-            add_th_diseq(id, v1, v2, n->get_expr());
+            add_th_diseq(id, v1, v2, n);
             return;
         }
         for (auto const& p : euf::enode_th_vars(r1)) {
@@ -210,8 +227,8 @@ namespace euf {
                 continue;
             for (auto const& q : euf::enode_th_vars(r2))
                 if (p.get_id() == q.get_id()) 
-                    add_th_diseq(p.get_id(), p.get_var(), q.get_var(), n->get_expr());
-        }
+                    add_th_diseq(p.get_id(), p.get_var(), q.get_var(), n);
+    }
     }
 
 
@@ -230,7 +247,7 @@ namespace euf {
                 n = n->get_root();
                 theory_var v2 = n->get_closest_th_var(id);
                 if (v2 != null_theory_var)
-                    add_th_diseq(id, v1, v2, p->get_expr());                        
+                    add_th_diseq(id, v1, v2, p);                        
             }
         }
     }
@@ -248,6 +265,10 @@ namespace euf {
         force_push();
         theory_var w = n->get_th_var(id);
         enode* r = n->get_root();
+
+        auto* p = get_plugin(id);
+        if (p)
+            p->register_node(n);
 
         if (w == null_theory_var) {
             n->add_th_var(v, id, m_region);
@@ -424,6 +445,9 @@ namespace euf {
                     p.r1->m_args[i]->get_root()->m_parents.pop_back();
                 }
                 break;
+            case update_record::tag_t::is_plugin_undo:
+                m_plugins[p.m_th_id]->undo();
+                break;
             default:
                 UNREACHABLE();
                 break;
@@ -588,6 +612,9 @@ namespace euf {
             case to_merge_plain:
             case to_merge_comm:
                 merge(w.a, w.b, justification::congruence(w.commutativity(), m_congruence_timestamp++));
+                break;
+            case to_justified:
+                merge(w.a, w.b, w.j);
                 break;
             case to_add_literal:
                 add_literal(w.a, w.b);
@@ -760,6 +787,13 @@ namespace euf {
             justifications.push_back(j.ext<T>());
         else if (j.is_congruence()) 
             push_congruence(a, b, j.is_commutative());
+        else if (j.is_dependent()) {
+            vector<justification, false> js;
+            for (auto const& j2 : justification::dependency_manager::s_linearize(j.get_dependency(), js))
+                explain_eq(justifications, cc, a, b, j2);
+        }
+        else if (j.is_equality()) 
+            explain_eq(justifications, cc, j.lhs(), j.rhs());        
         if (cc && j.is_congruence()) 
             cc->push_back(std::tuple(a->get_app(), b->get_app(), j.timestamp(), j.is_commutative()));
     }
@@ -879,6 +913,9 @@ namespace euf {
             max_args = std::max(max_args, n->num_args());
         for (enode* n : m_nodes) 
             display(out, max_args, n);          
+        for (auto* p : m_plugins)
+            if (p)
+                p->display(out);
         return out;
     }
 

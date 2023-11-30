@@ -44,6 +44,7 @@ z3_add_component(sat_smt
     q_solver.cpp
     recfun_solver.cpp
     sat_th.cpp
+    specrel_solver.cpp
     tseitin_theory_checker.cpp
     user_solver.cpp
   COMPONENT_DEPENDENCIES
