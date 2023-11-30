@@ -72,14 +72,13 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::advance_on_e
         if (t < j_nz) {
             j_nz = t;
             entering_iter = non_basis_iter;
-            if (number_of_benefitial_columns_to_go_over)
-                number_of_benefitial_columns_to_go_over--;
+            number_of_benefitial_columns_to_go_over--;
             n = 1;
         }
         else if (t == j_nz && this->m_settings.random_next(++n) == 0) {
             entering_iter = non_basis_iter;
         }
-    }// while (number_of_benefitial_columns_to_go_over && initial_offset_in_non_basis != offset_in_nb);
+    }
     if (entering_iter == m_non_basis_list.end())
         return -1;
     unsigned entering = *entering_iter;
