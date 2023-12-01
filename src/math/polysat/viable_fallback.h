@@ -45,8 +45,6 @@ namespace polysat {
         // or find an arbitrary violated constraint.
         bool check_constraints(assignment const& a, pvar v) { return !find_violated_constraint(a, v); }
         signed_constraint find_violated_constraint(assignment const& a, pvar v);
-
-        find_t find_viable(pvar v, rational& out_val);
     };
 
 }

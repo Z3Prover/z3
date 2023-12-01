@@ -89,30 +89,6 @@ namespace polysat {
         return us;
     }
 
-    find_t viable_fallback::find_viable(pvar v, rational& out_val) {
-        unsigned const bit_width = s.m_size[v];
-        univariate_solver* us = usolver(bit_width);
-
-        auto const& cs = m_constraints[v];
-        for (unsigned i = cs.size(); i-- > 0; ) {
-            signed_constraint const c = cs[i];
-            LOG("Univariate constraint: " << c);
-            c.add_to_univariate_solver(v, s, *us, c.blit().to_uint());
-        }
-
-        switch (us->check()) {
-        case l_true:
-            out_val = us->model();
-            // we don't know whether the SMT instance has a unique solution
-            return find_t::multiple;
-        case l_false:
-            s.set_conflict_by_viable_fallback(v, *us);
-            return find_t::empty;
-        default:
-            return find_t::resource_out;
-        }
-    }
-
     std::ostream& operator<<(std::ostream& out, find_t x) {
         switch (x) {
         case find_t::empty:
