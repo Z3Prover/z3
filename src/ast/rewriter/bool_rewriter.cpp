@@ -282,7 +282,7 @@ br_status bool_rewriter::mk_nflat_or_core(unsigned num_args, expr * const * args
                 get_num_internal_exprs(m_counts2, m_todo2, args[i]);
             unsigned count1 = count_internal_nodes(m_counts1, m_todo1);
             unsigned count2 = count_internal_nodes(m_counts2, m_todo2);
-            if (count1 > count2)
+            if (count1 > count2 + num_args)
                 st = BR_FAILED;
         }
         if (st != BR_FAILED)

@@ -137,11 +137,17 @@ br_status hoist_rewriter::mk_or(unsigned num_args, expr * const * es, expr_ref &
             m_subst.insert(p, m.mk_true());
         fmls.push_back(p);
     }
-    for (auto& p : m_eqs) {
-        if (m.is_value(p.first))
-            std::swap(p.first, p.second);
-        m_subst.insert(p.first, p.second);
-        fmls.push_back(m.mk_eq(p.first, p.second));
+    for (auto& [a, b] : m_eqs) {
+        if (m.is_value(a))
+            std::swap(a, b);
+        if (m.are_equal(a, b))
+            continue;
+        if (m.are_distinct(a, b)) {
+            result = m.mk_false();
+            return BR_DONE;
+        }
+        m_subst.insert(a, b);
+        fmls.push_back(m.mk_eq(a, b));        
     }    
     expr_ref ors(::mk_or(m, num_args, es), m);
     m_subst(ors);
