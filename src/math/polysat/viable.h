@@ -54,12 +54,14 @@ namespace polysat {
             bool refined = false;
             /// whether the entry is part of the current set of intervals, or stashed away for backtracking
             bool active = true;
+            pvar var = null_var;
 
             void reset() {
                 // dll_base<entry>::init(this);  // we never did this in alloc_entry either
                 fi_record::reset();
                 refined = false;
                 active = true;
+                var = null_var;
             }
         };
 
@@ -94,7 +96,7 @@ namespace polysat {
         bool well_formed(entry* e);
         bool well_formed(layers const& ls);
 
-        entry* alloc_entry();
+        entry* alloc_entry(pvar v);
 
         bool intersect(pvar v, entry* e);
 

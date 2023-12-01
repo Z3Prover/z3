@@ -67,11 +67,12 @@ namespace polysat {
         m_diseq_lin.pop_back();
     }
 
-    viable::entry* viable::alloc_entry() {
+    viable::entry* viable::alloc_entry(pvar var) {
         if (m_alloc.empty())
             return alloc(entry);
         auto* e = m_alloc.back();
         e->reset();
+        e->var = var;
         m_alloc.pop_back();
         return e;
     }
@@ -233,7 +234,7 @@ namespace polysat {
             LOG("abort intersect because v" << v << " is already assigned");
             return false;
         }
-        entry* ne = alloc_entry();
+        entry* ne = alloc_entry(v);
         if (!m_forbidden_intervals.get_interval(c, v, *ne)) {
             m_alloc.push_back(ne);
             return false;
@@ -452,7 +453,7 @@ namespace polysat {
         SASSERT(k <= s.size(v));
         pdd_manager& m = s.var2pdd(v);
 
-        entry* ne = alloc_entry();
+        entry* ne = alloc_entry(v);
         rational hi = extend_by_bits<FORWARD>(k, val, fbi, ne->src, ne->side_cond);
 
         if (hi == val) {
@@ -520,7 +521,7 @@ namespace polysat {
                     if (parity_a > parity_b) {
                         // No solution
                         LOG("refined: no solution due to parity");
-                        entry* ne = alloc_entry();
+                        entry* ne = alloc_entry(v);
                         ne->refined = true;
                         ne->src = e->src;
                         ne->side_cond = e->side_cond;
@@ -538,7 +539,7 @@ namespace polysat {
                         rational const lo = mod(hi + 1, mod_value);
                         LOG("refined to [" << num_pp(s, v, lo) << ", " << num_pp(s, v, hi) << "[");
                         SASSERT_EQ(mod(a * hi, mod_value), b);  // hi is the solution
-                        entry* ne = alloc_entry();
+                        entry* ne = alloc_entry(v);
                         ne->refined = true;
                         ne->src = e->src;
                         ne->side_cond = e->side_cond;
@@ -571,7 +572,7 @@ namespace polysat {
                     LOG("refined to [" << num_pp(s, v, lo) << ", " << num_pp(s, v, hi) << "[");
                     SASSERT_EQ(mod(a * (lo - 1), mod_value), b);  // lo-1 is a solution
                     SASSERT_EQ(mod(a * hi, mod_value), b);  // hi is a solution
-                    entry* ne = alloc_entry();
+                    entry* ne = alloc_entry(v);
                     ne->refined = true;
                     ne->src = e->src;
                     ne->side_cond = e->side_cond;
@@ -604,7 +605,7 @@ namespace polysat {
                 bool full = (lo == 0 && hi == mod_value);
                 if (hi == mod_value)
                     hi = 0;
-                entry* ne = alloc_entry();
+                entry* ne = alloc_entry(v);
                 ne->refined = true;
                 ne->src = e->src;
                 ne->side_cond = e->side_cond;
@@ -706,7 +707,7 @@ namespace polysat {
                 if (hi == mod_value) hi = 0;
                 pdd lop = s.var2pdd(v).mk_val(lo);
                 pdd hip = s.var2pdd(v).mk_val(hi);
-                entry* ne = alloc_entry();
+                entry* ne = alloc_entry(v);
                 ne->refined = true;
                 ne->src = e->src;
                 ne->side_cond = e->side_cond;
