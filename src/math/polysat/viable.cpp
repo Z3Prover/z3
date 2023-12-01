@@ -1659,6 +1659,9 @@ namespace polysat {
                 if (!e)
                     break;
 
+                if (e->interval.is_full())
+                    return l_false;
+
                 SASSERT(e->interval.currently_contains(val));
                 rational const& new_val = e->interval.hi_val();
                 rational const dist = distance(val, new_val, mod_value);
