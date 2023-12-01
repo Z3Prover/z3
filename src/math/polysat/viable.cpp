@@ -1973,14 +1973,19 @@ namespace polysat {
         //      e.g.:   v^2 + w^2 == 0;   w := 1
         // - but we could use side constraints on the coefficients instead (coefficients when viewed as polynomial over v):
         //      e.g.:   v^2 + w^2 == 0;   w^2 == 1
+        uint_set to_explain;
         for (unsigned d : us.unsat_core()) {
             auto [x, lit] = deps[d];
-            s.m_slicing.explain_simple_overlap(v, x, [this, &core](sat::literal l) {
-                core.insert(s.lit2cnstr(l));
-            });
+            if (x != v)
+                to_explain.insert(x);
             signed_constraint c = s.lit2cnstr(lit);
             core.insert(c);
             core.insert_vars(c);
+        }
+        for (pvar x : to_explain) {
+            s.m_slicing.explain_simple_overlap(v, x, [this, &core](sat::literal l) {
+                core.insert(s.lit2cnstr(l));
+            });
         }
         SASSERT(!core.vars().contains(v));
         core.add_lemma("viable unsat core", core.build_lemma());
