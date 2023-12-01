@@ -1525,6 +1525,9 @@ namespace polysat {
         SASSERT(m_marked_lits.empty());
         SASSERT(m_tmp_deps.empty());
 
+        if (v == x)
+            return;
+
         enode_vector& v_base = m_tmp4;
         SASSERT(v_base.empty());
         get_base(var2slice(v), v_base);
