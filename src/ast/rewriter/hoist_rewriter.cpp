@@ -137,6 +137,7 @@ br_status hoist_rewriter::mk_or(unsigned num_args, expr * const * es, expr_ref &
             m_subst.insert(p, m.mk_true());
         fmls.push_back(p);
     }
+    bool new_eq = false;
     for (auto& [a, b] : m_eqs) {
         if (m.is_value(a))
             std::swap(a, b);
@@ -146,6 +147,7 @@ br_status hoist_rewriter::mk_or(unsigned num_args, expr * const * es, expr_ref &
             result = m.mk_false();
             return BR_DONE;
         }
+        new_eq = true;
         m_subst.insert(a, b);
         fmls.push_back(m.mk_eq(a, b));        
     }    
@@ -154,7 +156,7 @@ br_status hoist_rewriter::mk_or(unsigned num_args, expr * const * es, expr_ref &
     fmls.push_back(ors);
     result = mk_and(fmls);
     TRACE("hoist", tout << ors << " => " << result << "\n";);
-    return BR_DONE;
+    return new_eq ? BR_REWRITE3 : BR_DONE;
 }
 
 unsigned hoist_rewriter::mk_var(expr* e) {
