@@ -137,7 +137,8 @@ namespace polysat {
         /** conflict because there is no viable value for the variable v, by interval reasoning */
         void init_by_viable_interval(pvar v);
         /** conflict because there is no viable value for the variable v, by fallback solver */
-        void init_by_viable_fallback(pvar v, univariate_solver& us);
+        void init_viable_fallback_begin(pvar v);
+        void init_viable_fallback_end(pvar v);
 
         /** conflict depends on dep and free variables in c **/
         /** c evaluates to false but is assigned to true by dep **/

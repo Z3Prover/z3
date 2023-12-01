@@ -202,9 +202,13 @@ namespace polysat {
          * Bitblasting-based query.
          * @return l_true on success, l_false on conflict, l_undef on resource limit
          */
-        lbool find_viable_fallback(pvar v, rational& out_lo, rational& out_hi);
-
         lbool find_viable_fallback(pvar v, pvar_vector const& overlaps, rational& out_lo, rational& out_hi);
+
+        /**
+         * Enter conflict state after querying the univariate solver.
+         * \pre there are no viable values for v (determined by fallback solver)
+         */
+        bool set_conflict_by_fallback(pvar v, univariate_solver& us, svector<std::pair<pvar, sat::literal>> const& deps);
 
 
 public:
@@ -298,12 +302,6 @@ public:
          * \pre there are no viable values for v (determined by interval reasoning)
          */
         bool resolve_interval(pvar v, conflict& core);
-
-        /**
-         * Retrieve the unsat core for v.
-         * \pre there are no viable values for v (determined by fallback solver)
-         */
-        bool resolve_fallback(pvar v, univariate_solver& us, conflict& core);
 
         /** Log all viable values for the given variable.
          * (Inefficient, but useful for debugging small instances.)

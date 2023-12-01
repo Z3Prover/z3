@@ -288,13 +288,15 @@ namespace polysat {
         SASSERT(!empty());
     }
 
-    void conflict::init_by_viable_fallback(pvar v, univariate_solver& us) {
+    void conflict::init_viable_fallback_begin(pvar v) {
         LOG("Conflict: viable_fallback v" << v);
         SASSERT(empty());
         SASSERT(!s.is_assigned(v));
         m_level = s.m_level;
         logger().begin_conflict(header_with_var("viable_fallback v", v));
-        VERIFY(s.m_viable.resolve_fallback(v, us, *this));
+    }
+
+    void conflict::init_viable_fallback_end(pvar v) {
         SASSERT(!empty());
         revert_pvar(v);  // at this point, v is not assigned
     }

@@ -1780,8 +1780,7 @@ namespace polysat {
         unsigned const bit_width = s.size(v);
         univariate_solver* us = s.m_viable_fallback.usolver(bit_width);
         sat::literal_set added;
-
-        // TODO: justifications need to include equalities from slicing egraph
+        svector<std::pair<pvar, sat::literal>> deps;
 
         // First step: only query the looping constraints and see if they alone are already UNSAT.
         // The constraints which caused the refinement loop can always be reached from m_units.
@@ -1801,7 +1800,9 @@ namespace polysat {
                                 added.insert(lit);
                                 LOG("Adding " << lit_pp(s, lit));
                                 IF_VERBOSE(10, verbose_stream() << ";; " << lit_pp(s, lit) << "\n");
-                                src.add_to_univariate_solver(x, s, *us, lit.to_uint());
+                                unsigned d = deps.size();
+                                deps.push_back({x, lit});
+                                src.add_to_univariate_solver(x, s, *us, d);
                             }
                         }
                     }
@@ -1813,7 +1814,7 @@ namespace polysat {
 
         switch (us->check()) {
         case l_false:
-            s.set_conflict_by_viable_fallback(v, *us);
+            set_conflict_by_fallback(v, *us, deps);
             return l_false;
         case l_true:
             // At this point we don't know much because we did not add all relevant constraints
@@ -1834,13 +1835,15 @@ namespace polysat {
                 LOG("Adding " << lit_pp(s, lit));
                 IF_VERBOSE(10, verbose_stream() << ";; " << lit_pp(s, lit) << "\n");
                 added.insert(lit);
-                cs[i].add_to_univariate_solver(x, s, *us, lit.to_uint());
+                unsigned d = deps.size();
+                deps.push_back({x, lit});
+                cs[i].add_to_univariate_solver(x, s, *us, d);
             }
         }
 
         switch (us->check()) {
         case l_false:
-            s.set_conflict_by_viable_fallback(v, *us);
+            set_conflict_by_fallback(v, *us, deps);
             return l_false;
         case l_true:
             lo = us->model();
@@ -1876,7 +1879,9 @@ namespace polysat {
         IF_VERBOSE(10, verbose_stream() << "Fallback\n";);
         LOG("Refinement budget exhausted! Fall back to univariate solver.");
 
-        return find_viable_fallback(v, lo, hi);
+        pvar_vector overlaps;
+        overlaps.push_back(v);
+        return find_viable_fallback(v, overlaps, lo, hi);
     }
 
     lbool viable::query_find(pvar v, rational& lo, rational& hi, fixed_bits_info const& fbi) {
@@ -1958,75 +1963,9 @@ namespace polysat {
         return l_true;
     }
 
-    lbool viable::find_viable_fallback(pvar v, rational& lo, rational& hi) {
-        unsigned const bit_width = s.size(v);
-        univariate_solver* us = s.m_viable_fallback.usolver(bit_width);
-        sat::literal_set added;
-
-        // First step: only query the looping constraints and see if they alone are already UNSAT.
-        // The constraints which caused the refinement loop can always be reached from m_units.
-        LOG_H3("Checking looping univariate constraints for v" << v << "...");
-        LOG("Assignment: " << assignments_pp(s));
-        entry const* first = m_units[v].get_entries(s.size(v));  // TODO: take other sizes into account
-        entry const* e = first;
-        do {
-            // in the first step we're only interested in entries from refinement
-            if (e->refined) {
-                for (signed_constraint const src : e->src) {
-                    sat::literal const lit = src.blit();
-                    if (!added.contains(lit)) {
-                        added.insert(lit);
-                        LOG("Adding " << lit_pp(s, lit));
-                        IF_VERBOSE(10, verbose_stream() << ";; " << lit_pp(s, lit) << "\n");
-                        src.add_to_univariate_solver(v, s, *us, lit.to_uint());
-                    }
-                }
-            }
-            e = e->next();
-        }
-        while (e != first);
-
-        switch (us->check()) {
-        case l_false:
-            s.set_conflict_by_viable_fallback(v, *us);
-            return l_false;
-        case l_true:
-            // At this point we don't know much because we did not add all relevant constraints
-            break;
-        default:
-            // resource limit
-            return l_undef;
-        }
-
-        // Second step: looping constraints aren't UNSAT, so add the remaining relevant constraints
-        LOG_H3("Checking all univariate constraints for v" << v << "...");
-        auto const& cs = s.m_viable_fallback.m_constraints[v];
-        for (unsigned i = cs.size(); i-- > 0; ) {
-            sat::literal const lit = cs[i].blit();
-            if (added.contains(lit))
-                continue;
-            LOG("Adding " << lit_pp(s, lit));
-            IF_VERBOSE(10, verbose_stream() << ";; " << lit_pp(s, lit) << "\n");
-            added.insert(lit);
-            cs[i].add_to_univariate_solver(v, s, *us, lit.to_uint());
-        }
-
-        switch (us->check()) {
-        case l_false:
-            s.set_conflict_by_viable_fallback(v, *us);
-            return l_false;
-        case l_true:
-            lo = us->model();
-            hi = -1;
-            return l_true;
-            // TODO: return us.find_two(lo, hi) ? l_true : l_undef;  ???
-        default:
-            // resource limit
-            return l_undef;
-        }
-    }
-
-    bool viable::resolve_fallback(pvar v, univariate_solver& us, conflict& core) {
+    bool viable::set_conflict_by_fallback(pvar v, univariate_solver& us, svector<std::pair<pvar, sat::literal>> const& deps) {
+        auto& core = s.m_conflict;
+        core.init_viable_fallback_begin(v);
         // The conflict is the unsat core of the univariate solver,
         // and the current assignment (under which the constraints are univariate in v)
         // TODO:
@@ -2034,8 +1973,11 @@ namespace polysat {
         //      e.g.:   v^2 + w^2 == 0;   w := 1
         // - but we could use side constraints on the coefficients instead (coefficients when viewed as polynomial over v):
         //      e.g.:   v^2 + w^2 == 0;   w^2 == 1
-        for (unsigned dep : us.unsat_core()) {
-            sat::literal lit = sat::to_literal(dep);
+        for (unsigned d : us.unsat_core()) {
+            auto [x, lit] = deps[d];
+            s.m_slicing.explain_simple_overlap(v, x, [this, &core](sat::literal l) {
+                core.insert(s.lit2cnstr(l));
+            });
             signed_constraint c = s.lit2cnstr(lit);
             core.insert(c);
             core.insert_vars(c);
@@ -2043,6 +1985,7 @@ namespace polysat {
         SASSERT(!core.vars().contains(v));
         core.add_lemma("viable unsat core", core.build_lemma());
         IF_VERBOSE(10, verbose_stream() << "unsat core " << core << "\n";);
+        core.init_viable_fallback_end(v);
         return true;
     }
 
