@@ -1490,6 +1490,7 @@ namespace polysat {
                 SASSERT_EQ(sub_lo(p), n);   // otherwise not a candidate
                 // check if base of sub_hi(p) matches the base of v
                 enode_vector& p_hi_base = m_tmp3;
+                SASSERT(p_hi_base.empty());
                 get_base(sub_hi(p), p_hi_base);
                 auto p_it = p_hi_base.rbegin();
                 bool ok = true;
@@ -1517,6 +1518,48 @@ namespace polysat {
             n->unmark1();
         }
         SASSERT(all_of(m_egraph.nodes(), [](enode* n) { return !n->is_marked1(); }));
+    }
+
+    void slicing::explain_simple_overlap(pvar v, pvar x, std::function<void(sat::literal)> const& on_lit) {
+        SASSERT(width(var2slice(x)) <= width(var2slice(v)));
+        SASSERT(m_marked_lits.empty());
+        SASSERT(m_tmp_deps.empty());
+
+        enode_vector& v_base = m_tmp4;
+        SASSERT(v_base.empty());
+        get_base(var2slice(v), v_base);
+        enode_vector& x_base = m_tmp5;
+        SASSERT(x_base.empty());
+        get_base(var2slice(x), x_base);
+
+        auto v_it = v_base.rbegin();
+        auto x_it = x_base.rbegin();
+        while (x_it != x_base.rend()) {
+            SASSERT(v_it != v_base.rend());
+            enode* nv = *v_it; ++v_it;
+            enode* nx = *x_it; ++x_it;
+            SASSERT_EQ(nv->get_root(), nx->get_root());
+            explain_equal(nv, nx, m_tmp_deps);
+        }
+
+        for (void* dp : m_tmp_deps) {
+            dep_t const d = dep_t::decode(dp);
+            if (d.is_null())
+                continue;
+            if (d.is_lit()) {
+                sat::literal lit = d.lit();
+                if (m_marked_lits.contains(lit))
+                    continue;
+                m_marked_lits.insert(lit);
+                on_lit(d.lit());
+            }
+            else {
+                // equivalence between to variables cannot be due to value assignment
+                UNREACHABLE();
+            }
+        }
+        m_marked_lits.reset();
+        m_tmp_deps.reset();
     }
 
     void slicing::collect_fixed(pvar v, justified_fixed_bits_vector& out) {

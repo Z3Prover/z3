@@ -280,6 +280,8 @@ namespace polysat {
         mutable enode_vector m_tmp1;
         mutable enode_vector m_tmp2;
         mutable enode_vector m_tmp3;
+        mutable enode_vector m_tmp4;
+        mutable enode_vector m_tmp5;
         ptr_vector<void>     m_tmp_deps;
         sat::literal_set     m_marked_lits;
 
@@ -362,6 +364,7 @@ namespace polysat {
 
         /** For a given variable v, find the set of variables w such that w = v[|w|:0]. */
         void collect_simple_overlaps(pvar v, pvar_vector& out);
+        void explain_simple_overlap(pvar v, pvar x, std::function<void(sat::literal)> const& on_lit);
 
         struct justified_fixed_bits : public fixed_bits {
             enode* just;
