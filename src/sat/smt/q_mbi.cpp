@@ -498,8 +498,8 @@ namespace q {
             if (m_model->is_false(eq)) {
                 IF_VERBOSE(0,
                     verbose_stream() << mk_pp(s, m) << " := " << (*m_model)(s) << "\n";
-                verbose_stream() << mk_pp(term, m) << " := " << (*m_model)(term) << "\n";
-                verbose_stream() << value << " -> " << (*m_model)(ctx.values2root()[value]->get_expr()) << "\n";
+                verbose_stream() << term << " := " << (*m_model)(term) << "\n";
+                verbose_stream() << value << " -> " << (*m_model)(ctx.values2root()[(*m_model)(term)]->get_expr()) << "\n";
                 verbose_stream() << (*m_model)(s) << " -> " << (*m_model)(ctx.values2root()[(*m_model)(s)]->get_expr()) << "\n";
                 verbose_stream() << *m_model << "\n";);
             }
