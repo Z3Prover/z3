@@ -226,7 +226,8 @@ public:
             rational const& to_cover_lo,
             rational const& to_cover_hi,
             rational& out_val,
-            ptr_vector<entry>& refine_todo);
+            ptr_vector<entry>& refine_todo,
+            ptr_vector<entry>& relevant_entries);
 
         std::pair<entry*, bool> find_value(rational const& val, entry* entries);
 

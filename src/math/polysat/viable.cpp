@@ -1343,8 +1343,6 @@ namespace polysat {
 
 
 
-    // TODO: (combining intervals across equivalence classes from slicing)
-    //
     // When iterating over intervals:
     // - instead of only intervals of v, go over intervals of each entry of overlaps
     // - need a function to map interval from overlap into an interval over v
@@ -1525,15 +1523,17 @@ namespace polysat {
         rational& val
     ) {
         ptr_vector<entry> refine_todo;
+        ptr_vector<entry> relevant_entries;
 
         // max number of interval refinements before falling back to the univariate solver
         unsigned const refinement_budget = 100;
         unsigned refinements = refinement_budget;
 
         while (refinements--) {
-            lbool result = find_on_layer(v, widths.size() - 1, widths, overlaps, fbi, to_cover_lo, to_cover_hi, val, refine_todo);
+            relevant_entries.clear();
+            lbool result = find_on_layer(v, widths.size() - 1, widths, overlaps, fbi, to_cover_lo, to_cover_hi, val, refine_todo, relevant_entries);
 
-            // store bit intervals we have used
+            // store bit-intervals we have used
             for (entry* e : refine_todo)
                 intersect(v, e);
             refine_todo.clear();
@@ -1578,7 +1578,8 @@ namespace polysat {
         rational const& to_cover_lo,
         rational const& to_cover_hi,
         rational& val,
-        ptr_vector<entry>& refine_todo
+        ptr_vector<entry>& refine_todo,
+        ptr_vector<entry>& relevant_entries
     ) {
         unsigned const w = widths[w_idx];
         rational const& mod_value = rational::power_of_two(w);
@@ -1659,6 +1660,8 @@ namespace polysat {
                 if (!e)
                     break;
 
+                relevant_entries.push_back(e);
+
                 if (e->interval.is_full())
                     return l_false;
 
@@ -1722,7 +1725,7 @@ namespace polysat {
                 lower_cover_lo = 0;
                 lower_cover_hi = lower_mod_value;
                 rational a;
-                lbool result = find_on_layer(v, w_idx - 1, widths, overlaps, fbi, lower_cover_lo, lower_cover_hi, a, refine_todo);
+                lbool result = find_on_layer(v, w_idx - 1, widths, overlaps, fbi, lower_cover_lo, lower_cover_hi, a, refine_todo, relevant_entries);
                 VERIFY(result != l_undef);
                 if (result == l_false)
                     return l_false;  // conflict
@@ -1742,7 +1745,7 @@ namespace polysat {
             lower_cover_hi = mod(next_val, lower_mod_value);
 
             rational a;
-            lbool result = find_on_layer(v, w_idx - 1, widths, overlaps, fbi, lower_cover_lo, lower_cover_hi, a, refine_todo);
+            lbool result = find_on_layer(v, w_idx - 1, widths, overlaps, fbi, lower_cover_lo, lower_cover_hi, a, refine_todo, relevant_entries);
             if (result == l_false)
                 return l_false;  // conflict
 
