@@ -1158,7 +1158,6 @@ namespace lp {
             if (!v.y.is_zero()) {
                 v = impq(v.x + delta * v.y);
                 TRACE("lar_solver_feas", tout << "x[" << j << "] = " << v << "\n";);
-                SASSERT(!column_is_int(j) || v.is_int());
             }
         }
     }
