@@ -47,6 +47,8 @@ namespace nla {
 
         bool propagate_linear_equations();
         bool propagate_linear_equations(dd::solver::equation const& eq);
+
+        bool check_missed_bound(dd::solver::equation const& eq);
         
         void add_dependencies(new_lemma& lemma, dd::solver::equation const& eq);
         void explain(dd::solver::equation const& eq, lp::explanation& exp);
