@@ -551,25 +551,10 @@ br_status arith_rewriter::mk_le_ge_eq_core(expr * arg1, expr * arg2, op_kind kin
 }
 
     if (m_anum_simp) {
-        if (is_numeral(arg1, a1) && m_util.is_irrational_algebraic_numeral(arg2)) {
-            anum_manager & am = m_util.am();
-            scoped_anum v1(am);
-            am.set(v1, a1.to_mpq());
-            anum const & v2 = m_util.to_irrational_algebraic_numeral(arg2);
-            ANUM_LE_GE_EQ();
-        }
-        if (m_util.is_irrational_algebraic_numeral(arg1) && is_numeral(arg2, a2)) {
-            anum_manager & am = m_util.am();
-            anum const & v1 = m_util.to_irrational_algebraic_numeral(arg1);
-            scoped_anum v2(am);
-            am.set(v2, a2.to_mpq());
-            ANUM_LE_GE_EQ();
-        }
-        if (m_util.is_irrational_algebraic_numeral(arg1) && m_util.is_irrational_algebraic_numeral(arg2)) {
-            anum_manager & am = m_util.am();
-            anum const & v1 = m_util.to_irrational_algebraic_numeral(arg1);
-            anum const & v2 = m_util.to_irrational_algebraic_numeral(arg2);
-            ANUM_LE_GE_EQ();
+        auto& am = m_util.am();
+        scoped_anum v1(am), v2(am);
+        if (is_algebraic_numeral(arg1, v1) && is_algebraic_numeral(arg2, v2)) {
+            ANUM_LE_GE_EQ();            
         }
     }
     br_status st1 = is_separated(arg1, arg2, kind, result);
@@ -669,6 +654,7 @@ br_status arith_rewriter::mk_le_ge_eq_core(expr * arg1, expr * arg2, op_kind kin
     return BR_FAILED;
 }
 
+
 br_status arith_rewriter::mk_le_core(expr * arg1, expr * arg2, expr_ref & result) {
     return mk_le_ge_eq_core(arg1, arg2, LE, result);
 }
@@ -744,18 +730,26 @@ bool arith_rewriter::mk_eq_mod(expr* arg1, expr* arg2, expr_ref& result) {
         if (g == 1) {
             expr_ref nb(m_util.mk_numeral(b, true), m);
             result = m.mk_eq(m_util.mk_mod(u, y),
-                               m_util.mk_mod(m_util.mk_mul(nb, arg2), y));
+                             m_util.mk_mod(m_util.mk_mul(nb, arg2), y));
             return true;            
         }
     }
     return false;
 }
 
-expr_ref arith_rewriter::neg_monomial(expr* e) const {
+expr_ref arith_rewriter::neg_monomial(expr* e) {
     expr_ref_vector args(m);
     rational a1;
     if (m_util.is_numeral(e, a1)) 
         args.push_back(m_util.mk_numeral(-a1, e->get_sort()));
+    else if (m_util.is_irrational_algebraic_numeral(e)) {
+        auto& n = m_util.to_irrational_algebraic_numeral(e);
+        auto& am = m_util.am();
+        scoped_anum new_n(am);
+        am.set(new_n, n);
+        am.neg(new_n);
+        args.push_back(m_util.mk_numeral(am, new_n, m_util.is_int(e)));
+    }
     else if (is_app(e) && m_util.is_mul(e)) {
         if (is_numeral(to_app(e)->get_arg(0), a1)) {
             if (!a1.is_minus_one()) {
@@ -780,7 +774,7 @@ expr_ref arith_rewriter::neg_monomial(expr* e) const {
     }
 }
 
-bool arith_rewriter::is_neg_poly(expr* t, expr_ref& neg) const {
+bool arith_rewriter::is_neg_poly(expr* t, expr_ref& neg) {
     rational r;
     if (m_util.is_mul(t) && is_numeral(to_app(t)->get_arg(0), r) && r.is_neg()) {
         neg = neg_monomial(t);
@@ -823,6 +817,36 @@ bool arith_rewriter::is_anum_simp_target(unsigned num_args, expr * const * args)
     }
     return false;
 }
+
+bool arith_rewriter::is_algebraic_numeral(expr* n, scoped_anum& a) {
+    auto& am = m_util.am();
+    expr* x, *y;
+    rational r;
+    if (m_util.is_mul(n, x, y)) {
+        scoped_anum ax(am), ay(am);
+        if (is_algebraic_numeral(x, ax) && is_algebraic_numeral(y, ay)) {
+            am.mul(ax, ay, a);
+            return true;
+        }
+    }
+    else if (m_util.is_add(n, x, y)) {
+        scoped_anum ax(am), ay(am);
+        if (is_algebraic_numeral(x, ax) && is_algebraic_numeral(y, ay)) {
+            am.add(ax, ay, a);
+            return true;
+        }
+    }
+    else if (m_util.is_numeral(n, r)) {
+        am.set(a, r.to_mpq());
+        return true;
+    }    
+    else if (m_util.is_irrational_algebraic_numeral(n)) {
+        am.set(a, m_util.to_irrational_algebraic_numeral(n));
+        return true;
+    }
+    return false;
+}
+
 
 br_status arith_rewriter::mk_add_core(unsigned num_args, expr * const * args, expr_ref & result) {
     if (is_anum_simp_target(num_args, args)) {
