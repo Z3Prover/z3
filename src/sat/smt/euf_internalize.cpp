@@ -425,7 +425,7 @@ namespace euf {
         // not marked as shared.
 
         for (auto const& p : euf::enode_th_vars(n)) 
-            if (fid2solver(p.get_id())->is_shared(p.get_var())) {
+            if (fid2solver(p.get_id()) && fid2solver(p.get_id())->is_shared(p.get_var())) {
                 n->set_is_shared(l_true);
                 return true;
             }
@@ -436,7 +436,7 @@ namespace euf {
 
     bool solver::is_beta_redex(enode* p, enode* n) const {
         for (auto const& th : enode_th_vars(p))
-            if (fid2solver(th.get_id())->is_beta_redex(p, n))
+            if (fid2solver(th.get_id()) && fid2solver(th.get_id())->is_beta_redex(p, n))
                 return true;
         return false;
     }

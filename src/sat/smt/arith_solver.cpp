@@ -53,17 +53,22 @@ namespace arith {
 
     euf::th_solver* solver::clone(euf::solver& dst_ctx) {
         arith::solver* result = alloc(arith::solver, dst_ctx, get_id());
+        unsigned_vector var2var;
+        for (unsigned i = 0; i < result->get_num_vars(); ++i) 
+            var2var.push_back(i);
+        
         for (unsigned i = result->get_num_vars(); i < get_num_vars(); ++i) 
-            result->mk_evar(ctx.copy(dst_ctx, var2enode(i))->get_expr());        
+            var2var.push_back(result->mk_evar(ctx.copy(dst_ctx, var2enode(i))->get_expr()));
 
         unsigned v = 0;
         result->m_bounds.resize(m_bounds.size());
         for (auto const& bounds : m_bounds) {            
+            auto w = var2var[v];
             for (auto* b : bounds) {
-                auto* b2 = result->mk_var_bound(b->get_lit(), v, b->get_bound_kind(), b->get_value());
-                result->m_bounds[v].push_back(b2);
-                result->m_bounds_trail.push_back(v);
-                result->updt_unassigned_bounds(v, +1);
+                auto* b2 = result->mk_var_bound(b->get_lit(), w, b->get_bound_kind(), b->get_value());
+                result->m_bounds[w].push_back(b2);
+                result->m_bounds_trail.push_back(w);
+                result->updt_unassigned_bounds(w, +1);
                 result->m_bool_var2bound.insert(b->get_lit().var(), b2);
                 result->m_new_bounds.push_back(b2);
             }
