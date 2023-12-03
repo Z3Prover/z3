@@ -131,6 +131,7 @@ namespace smt {
         special_relations_util         m_util;
         atoms                          m_atoms;
         unsigned_vector                m_atoms_lim;
+        ptr_vector<app>                m_terms;
         obj_map<func_decl, relation*>  m_relations;
         bool_var2atom                  m_bool_var2atom;
         bool                           m_can_propagate;
