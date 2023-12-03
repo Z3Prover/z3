@@ -3039,7 +3039,7 @@ void fpa2bv_converter::mk_to_fp_signed(func_decl * f, unsigned num, expr * const
     // Special case: x == 0 -> +zero
     expr_ref c1(m), v1(m);
     c1 = is_zero;
-    v1 = pzero; // No -zero? zeros_consistent_4.smt2 requires +zero.
+    v1 = pzero; // No -zero (IEEE754)
 
     // Special case: x != 0
     expr_ref sign_bit(m), exp_too_large(m), sig_4(m), exp_2(m), rest(m);
@@ -3048,18 +3048,13 @@ void fpa2bv_converter::mk_to_fp_signed(func_decl * f, unsigned num, expr * const
     rest = m_bv_util.mk_extract(bv_sz - 2, 0, x);
     dbg_decouple("fpa2bv_to_fp_signed_rest", rest);
     is_neg = m.mk_eq(sign_bit, bv1_1);
-    neg_x = m_bv_util.mk_bv_neg(x);
+    neg_x = m_bv_util.mk_bv_neg(x); // overflow ok, x_abs is now unsigned.
     x_abs = m.mk_ite(is_neg, neg_x, x);
     dbg_decouple("fpa2bv_to_fp_signed_is_neg", is_neg);
+    dbg_decouple("fpa2bv_to_fp_signed_x_abs", x_abs);
     // x_abs has an extra bit in the front.
     // x_abs is [bv_sz-1, bv_sz-2] . [bv_sz-3 ... 0] * 2^(bv_sz-2)
     // bv_sz-2 is the "1.0" bit for the rounder.
-    expr_ref is_max_neg(m);
-    is_max_neg = m.mk_and(is_neg, m.mk_eq(rest, m_bv_util.mk_numeral(0, bv_sz-1)));
-    dbg_decouple("fpa2bv_to_fp_signed_is_max_neg", is_max_neg);
-
-    x_abs = m.mk_ite(is_max_neg, m_bv_util.mk_concat(bv1_1, m_bv_util.mk_numeral(0, bv_sz-1)), x_abs);
-    dbg_decouple("fpa2bv_to_fp_signed_x_abs", x_abs);
 
     expr_ref lz(m);
     mk_leading_zeros(x_abs, bv_sz, lz);
@@ -3094,7 +3089,6 @@ void fpa2bv_converter::mk_to_fp_signed(func_decl * f, unsigned num, expr * const
     expr_ref s_exp(m), exp_rest(m);
     s_exp = m_bv_util.mk_bv_sub(m_bv_util.mk_numeral(bv_sz - 2, bv_sz), lz);
     // s_exp = (bv_sz-2) + (-lz) signed
-    s_exp = m.mk_ite(is_max_neg, m_bv_util.mk_bv_sub(s_exp, m_bv_util.mk_numeral(1, bv_sz)), s_exp);
     SASSERT(m_bv_util.get_bv_size(s_exp) == bv_sz);
     dbg_decouple("fpa2bv_to_fp_signed_s_exp", s_exp);
 
@@ -3109,7 +3103,7 @@ void fpa2bv_converter::mk_to_fp_signed(func_decl * f, unsigned num, expr * const
 
     TRACE("fpa2bv_to_fp_signed", tout << "exp worst case sz: " << exp_worst_case_sz << std::endl;);
 
-    if (exp_sz < exp_worst_case_sz) {
+    if (exp_sz <= exp_worst_case_sz) {
         // exp_sz < exp_worst_case_sz and exp >= 0.
         // Take the maximum legal exponent; this
         // allows us to keep the most precision.
@@ -3188,7 +3182,7 @@ void fpa2bv_converter::mk_to_fp_unsigned(func_decl * f, unsigned num, expr * con
     // Special case: x == 0 -> +zero
     expr_ref c1(m), v1(m);
     c1 = is_zero;
-    v1 = pzero; // No nzero?
+    v1 = pzero; // No -zero (IEEE754)
 
     // Special case: x != 0
     expr_ref exp_too_large(m), sig_4(m), exp_2(m);
