@@ -81,14 +81,14 @@ namespace euf {
     }
 
     void egraph::reinsert_equality(enode* p) {
-        SASSERT(p->is_equality());
+        SASSERT(p->is_equality());        
         if (p->value() != l_true && p->get_arg(0)->get_root() == p->get_arg(1)->get_root()) 
             queue_literal(p, nullptr);
     }
 
-    void egraph::queue_literal(enode* p, enode* ante) {
+    void egraph::queue_literal(enode* p, enode* ante) {        
         if (m_on_propagate_literal)
-            m_to_merge.push_back({ p, ante });
+            m_to_merge.push_back(to_merge(p, ante));
     }
 
     void egraph::force_push() {
@@ -180,6 +180,7 @@ namespace euf {
     }
 
     void egraph::add_literal(enode* n, enode* ante) {
+        TRACE("euf", tout << "propagate " << bpp(n) << " " << bpp(ante) << "\n");
         if (!m_on_propagate_literal)
             return;
         if (!ante) ++m_stats.m_num_eqs; else ++m_stats.m_num_lits;
@@ -518,7 +519,7 @@ namespace euf {
 
     void egraph::remove_parents(enode* r) {
         TRACE("euf", tout << bpp(r) << "\n");
-        DEBUG_CODE(for (enode* p : enode_parents(r)) SASSERT(!p->is_marked1()); );
+        SASSERT(all_of(enode_parents(r), [&](enode* p) { return !p->is_marked1(); }));
         for (enode* p : enode_parents(r)) {
             if (p->is_marked1())
                 continue;
@@ -545,7 +546,7 @@ namespace euf {
             if (p->cgc_enabled()) {
                 auto [p_other, comm] = insert_table(p);
                 SASSERT(m_table.contains_ptr(p) == (p_other == p));
-                TRACE("euf", tout << "other " << bpp(p_other) << "\n";);
+                CTRACE("euf", p_other != p, tout << "reinsert " << bpp(p) << " == " << bpp(p_other) << " " << p->value() << " " << p_other->value() << "\n");
                 if (p_other != p) 
                     m_to_merge.push_back(to_merge(p_other, p, comm));                
                 else
@@ -606,20 +607,26 @@ namespace euf {
 
     bool egraph::propagate() {
         force_push();
-        for (unsigned i = 0; i < m_to_merge.size() && m.limit().inc() && !inconsistent(); ++i) {
-            auto const& w = m_to_merge[i];
-            switch (w.t) {
-            case to_merge_plain:
-            case to_merge_comm:
-                merge(w.a, w.b, justification::congruence(w.commutativity(), m_congruence_timestamp++));
-                break;
-            case to_justified:
-                merge(w.a, w.b, w.j);
-                break;
-            case to_add_literal:
-                add_literal(w.a, w.b);
-                break;
-            }                
+        unsigned i = 0;
+        bool change = true;
+        while (change) {
+            change = false;
+            propagate_plugins();
+            for (; i < m_to_merge.size() && m.limit().inc() && !inconsistent(); ++i) {
+                auto const& w = m_to_merge[i];
+                switch (w.t) {
+                case to_merge_plain:
+                case to_merge_comm:
+                    merge(w.a, w.b, justification::congruence(w.commutativity(), m_congruence_timestamp++));
+                    break;
+                case to_justified:
+                    merge(w.a, w.b, w.j);
+                    break;
+                case to_add_literal:
+                    add_literal(w.a, w.b);
+                    break;
+                }                
+            }
         }
         m_to_merge.reset();
         return 
@@ -635,7 +642,7 @@ namespace euf {
         m_updates.push_back(update_record(false, update_record::inconsistent()));
         m_n1 = n1;
         m_n2 = n2;
-        TRACE("euf", tout << "conflict " << bpp(n1) << " " << bpp(n2) << " " << j << "\n");
+        TRACE("euf", tout << "conflict " << bpp(n1) << " " << bpp(n2) << " " << j << " " << n1->get_root()->value() << " " << n2->get_root()->value() << "\n");
         m_justification = j;
     }
 

@@ -435,6 +435,9 @@ namespace euf {
     }
 
 
+    bool solver::should_propagate() {
+        return m_egraph.can_propagate();
+    }
 
     bool solver::unit_propagate() {
         bool propagated = false;
@@ -477,6 +480,7 @@ namespace euf {
         SASSERT(m.is_bool(e));
         size_t cnstr;
         literal lit;
+
         if (!ante) {
             VERIFY(m.is_eq(e, a, b));
             cnstr = eq_constraint().to_index();
@@ -494,7 +498,7 @@ namespace euf {
             if (val == l_undef) {
                 SASSERT(m.is_value(ante->get_expr()));
                 val = m.is_true(ante->get_expr()) ? l_true : l_false;
-            }
+            }           
             auto& c = lit_constraint(ante);
             cnstr = c.to_index();
             lit = literal(v, val == l_false);
@@ -1012,8 +1016,10 @@ namespace euf {
                 return out << "euf conflict";
             case constraint::kind_t::eq:
                 return out << "euf equality propagation";
-            case constraint::kind_t::lit:
-                return out << "euf literal propagation " << m_egraph.bpp(c.node()) ;                
+            case constraint::kind_t::lit: {
+                euf::enode* n = c.node();
+                return out << "euf literal propagation " << (sat::literal(n->bool_var(), n->value() == l_false)) << " " << m_egraph.bpp(n);
+            } 
             default:
                 UNREACHABLE();
                 return out;

@@ -962,6 +962,8 @@ namespace sat {
     // -----------------------
 
     bool solver::propagate_core(bool update) {
+        if (m_ext && (!is_probing() || at_base_lvl())) 
+            m_ext->unit_propagate();    
         while (m_qhead < m_trail.size() && !m_inconsistent) {
             do {
                 checkpoint();
@@ -1783,7 +1785,7 @@ namespace sat {
     }
 
     bool solver::should_propagate() const {        
-        return !inconsistent() && m_qhead < m_trail.size();
+        return !inconsistent() && (m_qhead < m_trail.size() || (m_ext && m_ext->should_propagate()));
     }
 
     lbool solver::final_check() {
@@ -2533,17 +2535,8 @@ namespace sat {
             case justification::EXT_JUSTIFICATION: {
                 fill_ext_antecedents(consequent, js, false);
                 TRACE("sat", tout << "ext antecedents: " << m_ext_antecedents << "\n";);
-                for (literal l : m_ext_antecedents) 
-                    process_antecedent(l, num_marks);
-                
-#if 0
-                if (m_ext_antecedents.size() <= 1) {
-                    for (literal& l : m_ext_antecedents) 
-                        l.neg();
-                    m_ext_antecedents.push_back(consequent);
-                    mk_clause(m_ext_antecedents.size(), m_ext_antecedents.c_ptr(), sat::status::redundant());
-                }
-#endif
+                for (literal l : m_ext_antecedents)                     
+                    process_antecedent(l, num_marks);                
                 break;
             }
             default:
@@ -2822,25 +2815,27 @@ namespace sat {
         switch (js.get_kind()) {
         case justification::NONE:
             level = std::max(level, js.level());
-            return level;
+            break;
         case justification::BINARY:
             level = update_max_level(js.get_literal(), level, unique_max);
-            return level;
+            break;
         case justification::CLAUSE: 
             for (literal l : get_clause(js)) 
                 level = update_max_level(l, level, unique_max);
-            return level;
+            break;
         case justification::EXT_JUSTIFICATION:
             if (not_l != null_literal) 
                 not_l.neg();
             fill_ext_antecedents(not_l, js, true);
             for (literal l : m_ext_antecedents) 
                 level = update_max_level(l, level, unique_max);
-            return level;
+            break;
         default:
             UNREACHABLE();
-            return 0;
+            break;
         }
+        TRACE("sat", tout << "max-level " << level << " " << unique_max << "\n");
+        return level;
     }
 
     /**
@@ -3493,6 +3488,8 @@ namespace sat {
         SASSERT(!inconsistent());
         TRACE("sat_verbose", tout << "q:" << m_qhead << " trail: " << m_trail.size() << "\n";);
         SASSERT(m_qhead == m_trail.size());
+        if (m_ext) 
+            m_ext->unit_propagate();
         m_scopes.push_back(scope());
         scope & s = m_scopes.back();
         m_scope_lvl++;
