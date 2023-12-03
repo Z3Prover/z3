@@ -45,6 +45,7 @@ struct solver::imp {
     struct occurs {
         unsigned_vector constraints;
         unsigned_vector monics;
+        unsigned_vector terms;
     };
 
     void init_cone_of_influence() {
@@ -70,6 +71,15 @@ struct solver::imp {
             }
         }
 
+        for (unsigned i = lra.terms().size(); i-- > 0; ) {
+            auto const& t = lra.term(i);
+            for (auto const iv : t) {
+                auto v = iv.column().index();
+                var2occurs.reserve(v + 1);
+                var2occurs[v].terms.push_back(i);
+            }
+        }
+
         for (auto const& m : m_nla_core.m_to_refine)
             todo.push_back(m);
 
@@ -88,12 +98,19 @@ struct solver::imp {
             for (auto w : var2occurs[v].monics)
                 todo.push_back(w);
 
+            for (auto ti : var2occurs[v].terms) {
+                for (auto iv : lra.term(ti))
+                    todo.push_back(iv.column().index());
+                auto vi = lp::tv::mask_term(ti);
+                todo.push_back(lra.map_term_index_to_column_index(vi));
+            }
+
             if (lra.column_corresponds_to_term(v)) {
                 m_term_set.insert(v);
                 lp::tv ti = lp::tv::raw(lra.column_to_reported_index(v));
                 for (auto kv : lra.get_term(ti))
                     todo.push_back(kv.column().index());
-            }
+            }            
 
             if (m_nla_core.is_monic_var(v)) {
                 m_mon_set.insert(v);
@@ -153,12 +170,10 @@ struct solver::imp {
                 throw;
             }
         }
-#if 0
         TRACE("nra",
               m_nlsat->display(tout << r << "\n");
               display(tout);
               for (auto [j, x] : m_lp2nl) tout << "j" << j << " := x" << x << "\n";);
-#endif
         switch (r) {
         case l_true:
             m_nla_core.set_use_nra_model(true);
