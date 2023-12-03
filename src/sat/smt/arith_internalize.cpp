@@ -291,6 +291,13 @@ namespace arith {
         internalize_term(n->get_arg(1)->get_expr());
     }
 
+    expr* solver::mk_sub(expr* x, expr* y) {
+        rational r;
+        if (a.is_numeral(y, r) && r == 0)
+            return x;
+        return a.mk_sub(x, y);
+    }
+
     bool solver::internalize_atom(expr* atom) {
         TRACE("arith", tout << mk_pp(atom, m) << "\n";);
         expr* n1, *n2;
@@ -319,26 +326,26 @@ namespace arith {
             k = lp_api::upper_t;
         }
         else if (a.is_le(atom, n1, n2)) {
-            expr_ref n3(a.mk_sub(n1, n2), m);
+            expr_ref n3(mk_sub(n1, n2), m);
             v = internalize_def(n3);
             k = lp_api::upper_t;
             r = 0;
         }
         else if (a.is_ge(atom, n1, n2)) {
-            expr_ref n3(a.mk_sub(n1, n2), m);
+            expr_ref n3(mk_sub(n1, n2), m);
             v = internalize_def(n3);
             k = lp_api::lower_t;
             r = 0;
         }
         else if (a.is_lt(atom, n1, n2)) {
-            expr_ref n3(a.mk_sub(n1, n2), m);
+            expr_ref n3(mk_sub(n1, n2), m);
             v = internalize_def(n3);
             k = lp_api::lower_t;
             r = 0;
             lit.neg();
         }
-        else if (a.is_gt(atom, n1, n2)) {
-            expr_ref n3(a.mk_sub(n1, n2), m);
+        else if (a.is_gt(atom, n1, n2)) {            
+            expr_ref n3(mk_sub(n1, n2), m);
             v = internalize_def(n3);
             k = lp_api::upper_t;
             r = 0;
