@@ -292,10 +292,11 @@ namespace arith {
         theory_var internalize_linearized_def(expr* term, scoped_internalize_state& st);
         void init_left_side(scoped_internalize_state& st);
         bool internalize_term(expr* term);
-        bool internalize_atom(expr* atom);
+        bool internalize_atom(expr* atom);        
         bool is_unit_var(scoped_internalize_state& st);
         bool is_one(scoped_internalize_state& st);
         bool is_zero(scoped_internalize_state& st);
+        expr* mk_sub(expr* a, expr* b);
         enode* mk_enode(expr* e);
 
         lpvar register_theory_var_in_lar_solver(theory_var v);
