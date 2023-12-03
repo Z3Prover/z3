@@ -60,11 +60,11 @@ namespace arith {
         for (unsigned i = result->get_num_vars(); i < get_num_vars(); ++i) 
             var2var.push_back(result->mk_evar(ctx.copy(dst_ctx, var2enode(i))->get_expr()));
 
-        unsigned v = 0;
-        result->m_bounds.resize(m_bounds.size());
-        for (auto const& bounds : m_bounds) {            
+        result->m_bounds.resize(get_num_vars());
+        unsigned nv = std::min(m_bounds.size(), get_num_vars());
+        for (unsigned v = 0; v < nv; ++v) {
             auto w = var2var[v];
-            for (auto* b : bounds) {
+            for (auto* b : m_bounds[v]) {
                 auto* b2 = result->mk_var_bound(b->get_lit(), w, b->get_bound_kind(), b->get_value());
                 result->m_bounds[w].push_back(b2);
                 result->m_bounds_trail.push_back(w);
@@ -72,7 +72,6 @@ namespace arith {
                 result->m_bool_var2bound.insert(b->get_lit().var(), b2);
                 result->m_new_bounds.push_back(b2);
             }
-            ++v;
         }
 
         // clone rows into m_solver, m_nla, m_lia
