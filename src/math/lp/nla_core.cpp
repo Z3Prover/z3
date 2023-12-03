@@ -1418,20 +1418,17 @@ void core::patch_monomial(lpvar j) {
 void core::patch_monomials_on_to_refine() {
     // the rest of the function might change m_to_refine, so have to copy
     unsigned_vector to_refine;
-    for (unsigned j :m_to_refine) {
+    for (unsigned j : m_to_refine) 
         to_refine.push_back(j);
-    }
     
     unsigned sz = to_refine.size();
 
     unsigned start = random();
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz && !m_to_refine.empty(); i++) 
         patch_monomial(to_refine[(start + i) % sz]);
-        if (m_to_refine.size() == 0)
-            break;
-    }
+
     TRACE("nla_solver", tout << "sz = " << sz << ", m_to_refine = " << m_to_refine.size() <<
-          (sz > m_to_refine.size()? " less" : "same" ) << "\n";);
+          (sz > m_to_refine.size()? " less" : " same" ) << "\n";);
 }
 
 void core::patch_monomials() {
@@ -1551,7 +1548,7 @@ lbool core::check() {
     bool run_horner = need_run_horner();
     bool run_bounds = params().arith_nl_branching();
 
-    auto no_effect = [&]() { return !done() && m_lemmas.empty() && m_literals.empty() && !m_check_feasible; };
+    auto no_effect = [&]() { return ret == l_undef && !done() && m_lemmas.empty() && m_literals.empty() && !m_check_feasible; };
     
     if (no_effect())
         m_monomial_bounds.propagate();
@@ -1585,7 +1582,7 @@ lbool core::check() {
     if (no_effect()) 
         m_divisions.check();    
 
-    if (no_effect() && ret == l_undef) {
+    if (no_effect()) {
         std::function<void(void)> check1 = [&]() { m_order.order_lemma(); };
         std::function<void(void)> check2 = [&]() { m_monotone.monotonicity_lemma(); };
         std::function<void(void)> check3 = [&]() { m_tangents.tangent_lemma(); };
@@ -1601,7 +1598,7 @@ lbool core::check() {
             ret = bounded_nlsat();
     }
 
-    if (no_effect() && params().arith_nl_nra() && ret == l_undef) {
+    if (no_effect() && params().arith_nl_nra()) {
         ret = m_nra.check();
         lp_settings().stats().m_nra_calls++;
     }
