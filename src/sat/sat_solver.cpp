@@ -1785,7 +1785,7 @@ namespace sat {
     }
 
     bool solver::should_propagate() const {        
-        return !inconsistent() && (m_qhead < m_trail.size() || (m_ext && m_ext->should_propagate()));
+        return !inconsistent() && (m_qhead < m_trail.size() || (m_ext && m_ext->can_propagate()));
     }
 
     lbool solver::final_check() {

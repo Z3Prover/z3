@@ -435,7 +435,7 @@ namespace euf {
     }
 
 
-    bool solver::should_propagate() {
+    bool solver::can_propagate() {
         return m_egraph.can_propagate();
     }
 

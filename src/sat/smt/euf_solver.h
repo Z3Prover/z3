@@ -348,7 +348,7 @@ namespace euf {
         bool is_external(bool_var v) override;
         bool propagated(literal l, ext_constraint_idx idx) override;
         bool unit_propagate() override;
-        bool should_propagate() override;
+        bool can_propagate() override;
         bool should_research(sat::literal_vector const& core) override;
         void add_assumptions(sat::literal_set& assumptions) override;
         bool tracking_assumptions() override;
