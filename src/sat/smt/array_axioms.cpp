@@ -443,7 +443,8 @@ namespace array {
             sel2 = a.mk_select(args2);
             return 
                 ctx.propagate(e_internalize(sel1), ndef1, array_axiom()) ||
-                ctx.propagate(e_internalize(sel2), ndef2, array_axiom());
+                ctx.propagate(e_internalize(sel2), ndef2, array_axiom()) ||
+                prop;
         }
         // default(A) == default(B)
         if (ctx.propagate(ndef1, ndef2, array_axiom()))
