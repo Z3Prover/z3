@@ -267,10 +267,9 @@ namespace qe {
                 continue;
             }
             
-            for (expr* f : *a) {
+            for (expr* f : *a)
                 if (!mark.is_marked(f))
-                    todo.push_back(f);                
-            } 
+                    todo.push_back(f);                            
             
             bool is_boolop = 
                 (a->get_family_id() == m.get_basic_family_id()) &&
