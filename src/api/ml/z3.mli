@@ -3481,7 +3481,7 @@ sig
   (** Add minimization objective. *)
   val minimize : optimize -> Expr.expr -> handle
 
-  (** Checks whether the assertions in the context are satisfiable and solves objectives. *)
+  (** Check consistency and produce optimal values. *)
   val check : optimize -> Solver.status
 
   (** Retrieve model from satisfiable context *)

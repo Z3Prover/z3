@@ -220,7 +220,7 @@ namespace Microsoft.Z3
         /// <summary>
         /// Check satisfiability of asserted constraints.
         /// Produce a model that (when the objectives are bounded and 
-        /// don't use strict inequalities) meets the objectives.
+        /// don't use strict inequalities) is optimal.
         /// </summary>
         ///
         public Status Check(params Expr[] assumptions)

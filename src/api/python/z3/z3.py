@@ -8046,7 +8046,7 @@ class Optimize(Z3PPObject):
         Z3_optimize_pop(self.ctx.ref(), self.optimize)
 
     def check(self, *assumptions):
-        """Check satisfiability while optimizing objective functions."""
+        """Check consistency and produce optimal values."""
         assumptions = _get_args(assumptions)
         num = len(assumptions)
         _assumptions = (Ast * num)()
