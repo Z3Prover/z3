@@ -399,7 +399,7 @@ namespace nla {
         for (auto eq : m_solver.equations()) 
             if (propagate_linear_equations(*eq))
                 ++changed;
-#if 1
+#if 0
         for (auto eq : m_solver.equations()) 
             if (check_missed_bound(*eq))
                 return true;
