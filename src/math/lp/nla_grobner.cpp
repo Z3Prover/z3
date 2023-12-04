@@ -399,7 +399,7 @@ namespace nla {
         for (auto eq : m_solver.equations()) 
             if (propagate_linear_equations(*eq))
                 ++changed;
-#if 0
+#if 1
         for (auto eq : m_solver.equations()) 
             if (check_missed_bound(*eq))
                 return true;
@@ -419,15 +419,15 @@ namespace nla {
             if (vars.empty())
                 di.add(coeff, i);
             else {
-                di.set_value(t, rational::one());
+                di.set_value(t, coeff);
                 for (auto v : vars) {
                     set_var_interval(v, s);
-                    di.mul<dd::w_dep::with_deps>(coeff, s, s);
-                    di.add<dd::w_dep::with_deps>(t, s, t);
+                    di.mul<dd::w_dep::with_deps>(t, s, t);
                 }
                 if (m_mon2var.find(vars) != m_mon2var.end()) {
                     auto v = m_mon2var.find(vars)->second;
                     set_var_interval(v, u);
+                    di.mul<dd::w_dep::with_deps>(coeff, u, u);
                     di.intersect<dd::w_dep::with_deps>(t, u, t);
                 }
                 di.add<dd::w_dep::with_deps>(i, t, i);
@@ -435,6 +435,8 @@ namespace nla {
         }
         if (!di.separated_from_zero(i)) 
             return false;
+//        m_solver.display(verbose_stream() << "missed bound\n", e);
+//        exit(1);
         std::function<void (const lp::explanation&)> f = [this](const lp::explanation& e) {
             new_lemma lemma(m_core, "pdd");
             lemma &= e;
