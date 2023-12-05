@@ -32,7 +32,6 @@ z3_add_component(polysat
     viable.cpp
     viable_fallback.cpp
   COMPONENT_DEPENDENCIES
-    bigfix
     dd
     euf
     interval
