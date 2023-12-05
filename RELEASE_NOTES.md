@@ -10,6 +10,9 @@ Version 4.next
     - native word level bit-vector solving.
   - introduction of simple induction lemmas to handle a limited repertoire of induction proofs.
 
+Version 4.12.4
+==============
+
 Version 4.12.3
 ==============
 - Alpha support for polymorphism.
@@ -26,6 +29,8 @@ Version 4.12.3
   smt.arith.solver=6 is the default for most use cases. It trails smt.arith.solver=2 in some scenarios and the gap has been either removed or reduced.
   smt.arith.solver=6 is complete for integrations of non-linear real arithmetic and theories, smt.arith.solver=2 is not. 
 - qel: Light quantifier elimination based on term graphs (egraphs), and corresponding Model Based Projection for arrays and ADTs. Used by Spacer and QSAT.
+- added real-closed fields features to C API, exposed more RCF over OCaml API
+- fixes to FP
 
 Version 4.12.2
 ==============
