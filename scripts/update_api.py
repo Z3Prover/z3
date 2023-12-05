@@ -1831,7 +1831,10 @@ import atexit
 import sys, os
 import contextlib
 import ctypes
-import importlib_resources
+if sys.version_info >= (3, 9):
+    import importlib.resources as importlib_resources
+else:
+    import importlib_resources
 from .z3types import *
 from .z3consts import *
 
