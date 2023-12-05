@@ -1746,7 +1746,7 @@ class DotNetDLLComponent(Component):
 
   <ItemGroup>
     <Compile Include="..\%s\*.cs;*.cs" Exclude="bin\**;obj\**;**\*.xproj;packages\**" />
-    <None Include="..\%s\README.md" Pack="true" PackagePath="\"/>
+    <None Include="%s\README.md" Pack="true" PackagePath="\"/>
   </ItemGroup>
 
 </Project>""" % (version, key, self.to_src_dir, self.src_dir)
