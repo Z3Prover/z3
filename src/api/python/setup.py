@@ -18,7 +18,7 @@ from setuptools.command.bdist_egg import bdist_egg as _bdist_egg
 
 build_env = dict(os.environ)
 build_env['PYTHON'] = sys.executable
-build_env['CXXFLAGS'] = build_env.get('CXXFLAGS', '') + " -std=c++11"
+build_env['CXXFLAGS'] = build_env.get('CXXFLAGS', '') + " -std=c++17"
 
 # determine where we're building and where sources are
 ROOT_DIR = os.path.abspath(os.path.dirname(__file__))

@@ -7,6 +7,8 @@
     <AssemblyName>Microsoft.Z3</AssemblyName>
     <RootNamespace>Microsoft.Z3</RootNamespace>
 
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+
     <Title>Z3 .NET Interface</Title>
     <AssemblyTitle>Z3 .NET Interface</AssemblyTitle>
 
@@ -63,6 +65,11 @@
   <!-- Compilation items -->
   <ItemGroup>
 ${Z3_DOTNET_COMPILE_ITEMS}
+  </ItemGroup>
+
+  <!-- Readme -->
+  <ItemGroup>
+  <None Include="${CMAKE_CURRENT_LIST_DIR}/README.md" Pack="true" PackagePath="\"/>
   </ItemGroup>
 
   <!-- Legacy .NET framework native library helper routines  -->
