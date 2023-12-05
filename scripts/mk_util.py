@@ -1746,10 +1746,10 @@ class DotNetDLLComponent(Component):
 
   <ItemGroup>
     <Compile Include="..\%s\*.cs;*.cs" Exclude="bin\**;obj\**;**\*.xproj;packages\**" />
-    <None Include="%s\README.md" Pack="true" PackagePath="\"/>
+    <None Include="..\%s\README.md" Pack="true" PackagePath="/"/>
   </ItemGroup>
 
-</Project>""" % (version, key, self.to_src_dir, self.src_dir)
+</Project>""" % (version, key, self.to_src_dir, self.to_src_dir)
 
         mk_dir(os.path.join(BUILD_DIR, 'dotnet'))
         csproj = os.path.join('dotnet', 'z3.csproj')
