@@ -17,8 +17,8 @@
     <Description>Z3 is a satisfiability modulo theories solver from Microsoft Research.</Description>
     <AssemblyDescription>.NET Interface to the Z3 Theorem Prover</AssemblyDescription>
 
-    <Copyright>Copyright (C) 2006-2019 Microsoft Corporation</Copyright>
-    <AssemblyCopyright>Copyright (C) 2006-2019 Microsoft Corporation</AssemblyCopyright>
+    <Copyright>Copyright (C) 2006- Microsoft Corporation</Copyright>
+    <AssemblyCopyright>Copyright (C) 2006- Microsoft Corporation</AssemblyCopyright>
 
     <Company>Microsoft Corporation</Company>
     <AssemblyCompany>Microsoft Corporation</AssemblyCompany>
