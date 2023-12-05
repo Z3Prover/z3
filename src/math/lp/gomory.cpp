@@ -409,73 +409,15 @@ lia_move gomory::cut(lar_term & t, mpq & k, explanation* ex, unsigned basic_inf_
     create_cut cc(t, k, ex, basic_inf_int_j, row, lia);
     return cc.cut();
 }
-
-bool gomory::is_gomory_cut_target(const row_strip<mpq>& row) {
-    // All non base variables must be at their bounds and assigned to rationals (that is, infinitesimals are not allowed).
-    unsigned j;
-    for (const auto & p : row) {
-        j = p.var();
-        if (!lia.is_base(j) && (!lia.at_bound(j) || !is_zero(lia.get_value(j).y))) {
-            TRACE("gomory_cut", tout << "row is not gomory cut target:\n";
-                  lia.display_column(tout, j);
-                  tout << "infinitesimal: " << !is_zero(lia.get_value(j).y) << "\n";);
-            return false;
-        }
-    }
-    return true;
-}
-
-int gomory::find_basic_var() {
-    unsigned n = 0;
-    int result = -1;
-    unsigned min_row_size = UINT_MAX;
-
-#if 1
-    result = lia.select_int_infeasible_var(true);
-
-    if (result == -1)
-        return result;
-
-    TRACE("gomory_cut", tout << "row: " << result << "\n");
-    const row_strip<mpq>& row = lra.get_row(lia.row_of_basic_column(result));
-    if (is_gomory_cut_target(row)) 
-        return result;
-    result = -1;
-
-    UNREACHABLE();
-#endif
-
-    for (unsigned j : lra.r_basis()) {
-        if (!lia.column_is_int_inf(j))
-            continue;
-        const row_strip<mpq>& row = lra.get_row(lia.row_of_basic_column(j));
-        TRACE("gomory_cut", tout << "try j" << j << "\n");
-        if (!is_gomory_cut_target(row)) 
-            continue;
-        IF_VERBOSE(20, lia.display_row_info(verbose_stream(), lia.row_of_basic_column(j)));
-        // Prefer smaller row size
-        if (min_row_size == UINT_MAX || 
-            2*row.size() < min_row_size || 
-            (4*row.size() < 5*min_row_size && lia.random() % (++n) == 0)) {
-            result = j;
-            n = 1;
-            min_row_size = std::min(min_row_size, row.size());
-        }
-    }
-    return result;
-}
     
-lia_move gomory::operator()() {
-    int j = find_basic_var();
-    if (j == -1)
-        return lia_move::undef;
+lia_move gomory::get_cut(lpvar j) {
     unsigned r = lia.row_of_basic_column(j);
     const row_strip<mpq>& row = lra.get_row(r);
     SASSERT(lra.row_is_correct(r));
-    SASSERT(is_gomory_cut_target(row));
+    SASSERT(lia.is_gomory_cut_target(j));
     lia.m_upper = false;
     lia.m_cut_vars.push_back(j);
-    return cut(lia.m_t, lia.m_k, lia.m_ex, j, row);
+    return cut(lia.m_t, lia.m_k, lia.m_ex, j, row);    
 }
 
 
