@@ -27,11 +27,9 @@ namespace lp {
     class gomory {
         class int_solver& lia;
         class lar_solver& lra;
-        int find_basic_var();
-        bool is_gomory_cut_target(const row_strip<mpq>& row);
         lia_move cut(lar_term & t, mpq & k, explanation* ex, unsigned basic_inf_int_j, const row_strip<mpq>& row);
     public:
         gomory(int_solver& lia);
-        lia_move operator()();
+        lia_move get_cut(lpvar j);
     };
 }

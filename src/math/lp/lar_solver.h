@@ -532,6 +532,11 @@ public:
     inline const impq& get_lower_bound(column_index j) const {
         return m_mpq_lar_core_solver.m_r_solver.m_lower_bounds[j];
     }
+
+    inline mpq bound_span_x(column_index j) const {
+        return m_mpq_lar_core_solver.m_r_solver.m_upper_bounds[j].x - m_mpq_lar_core_solver.m_r_solver.m_lower_bounds[j].x;
+    }
+    
     bool has_lower_bound(var_index var, u_dependency*& ci, mpq& value, bool& is_strict) const;
     bool has_upper_bound(var_index var, u_dependency*& ci, mpq& value, bool& is_strict) const;
     bool has_value(var_index var, mpq& value) const;
