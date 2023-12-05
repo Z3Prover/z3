@@ -1593,6 +1593,9 @@ class BoolRef(ExprRef):
     
     def __or__(self, other):
         return Or(self, other)
+
+    def __xor__(self, other):
+        return Xor(self, other)
     
     def __invert__(self):
         return Not(self)
