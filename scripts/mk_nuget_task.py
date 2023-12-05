@@ -86,6 +86,10 @@ def mk_icon(source_root):
     mk_dir("out/content")
     shutil.copy(f"{source_root}/resources/icon.jpg", "out/content/icon.jpg")
 
+def mk_readme(source_root):
+    mk_dir("out/content")
+    shutil.copy(f"{source_root}/README.md", "out/content/README.md")
+
     
 def create_nuget_spec(version, repo, branch, commit, symbols, arch):
     arch = f".{arch}" if arch == "x86" else ""
@@ -140,6 +144,7 @@ class Env:
         mk_dir(self.packages)
         unpack(self.packages, self.symbols, self.arch)
         mk_targets(self.source_root)
+        mk_readme(self.source_root)
         mk_icon(self.source_root)
         create_nuget_spec(self.version, self.repo, self.branch, self.commit, self.symbols, self.arch)
         
