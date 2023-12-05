@@ -504,7 +504,7 @@ stages:
       displayName: "Download Ubuntu Arm64"
       inputs:
         artifactName: 'UbuntuArm64'
-        targetPath: tmp	
+        path: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
       displayName: "Download Doc"
       inputs:
