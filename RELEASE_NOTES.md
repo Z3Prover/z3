@@ -9,7 +9,6 @@ Version 4.next
   - polysat
     - native word level bit-vector solving.
   - introduction of simple induction lemmas to handle a limited repertoire of induction proofs.
-  - Light quantifier elimination based on term graphs (egraphs), and corresponding Model Based Projection for arrays and ADTs. Used by Spacer and QSAT.
 
 Version 4.12.3
 ==============
@@ -23,6 +22,10 @@ Version 4.12.3
 - Various (ongoing) performance fixes and improvements to smt.arith.solver=6
 - A working version of solver.proof.trim=true option. Proofs logs created when using sat.smt=true may be trimmed by running z3
   on the generated proof log using the option solver.proof.trim=true. 
+- Optimizations LIA and NIA (linear integer arithmetic and non-linear integer (and real) arithmetic reasoning).
+  smt.arith.solver=6 is the default for most use cases. It trails smt.arith.solver=2 in some scenarios and the gap has been either removed or reduced.
+  smt.arith.solver=6 is complete for integrations of non-linear real arithmetic and theories, smt.arith.solver=2 is not. 
+- qel: Light quantifier elimination based on term graphs (egraphs), and corresponding Model Based Projection for arrays and ADTs. Used by Spacer and QSAT.
 
 Version 4.12.2
 ==============
