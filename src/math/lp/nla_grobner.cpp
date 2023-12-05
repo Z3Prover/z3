@@ -59,21 +59,20 @@ namespace nla {
         if (m_delay_base > 0)
             --m_delay_base;
         
-        if (is_conflicting())
-            return;
-
         try {
-            if (propagate_bounds())
+
+            if (is_conflicting())
                 return;
 
             if (propagate_eqs())
                 return;
-
+            
             if (propagate_factorization())
                 return;
-
+            
             if (propagate_linear_equations())
                 return;
+            
         }
         catch (...) {
             
@@ -111,17 +110,9 @@ namespace nla {
         return false;
     }
 
-    bool grobner::propagate_bounds() {
-        unsigned changed = 0;
-        for (auto eq : m_solver.equations()) 
-            if (propagate_bounds(*eq) && ++changed >= m_solver.number_of_conflicts_to_report())
-                return true;
-        return changed > 0;
-    }
-
     bool grobner::propagate_eqs() {
         unsigned changed = 0;
-        for (auto eq : m_solver.equations())
+        for (auto eq : m_solver.equations()) 
             if (propagate_fixed(*eq) && ++changed >= m_solver.number_of_conflicts_to_report())
                 return true;
         return changed > 0;
@@ -129,7 +120,7 @@ namespace nla {
 
     bool grobner::propagate_factorization() {
         unsigned changed = 0;
-        for (auto eq : m_solver.equations())
+        for (auto eq : m_solver.equations()) 
             if (propagate_factorization(*eq) && ++changed >= m_solver.number_of_conflicts_to_report())
                 return true;
         return changed > 0;
@@ -165,19 +156,12 @@ namespace nla {
             rational d = lcm(denominator(a), denominator(b));
             a *= d;
             b *= d;
-#if 0
-            c().lra.update_column_type_and_bound(v, lp::lconstraint_kind::EQ, b/a, eq.dep()); 
-            lp::explanation exp;
-            explain(eq, exp);
-            c().add_fixed_equality(c().lra.column_to_reported_index(v), b/a, exp);       
-#else
             ineq new_eq(term(a, v), llc::EQ, b);
             if (c().ineq_holds(new_eq))
                 return false;
             new_lemma lemma(c(), "pdd-eq");
             add_dependencies(lemma, eq);
             lemma |= new_eq;
-#endif
             return true;
         }
 
@@ -377,73 +361,18 @@ namespace nla {
         }
     }
 
-    bool grobner::propagate_bounds(const dd::solver::equation& e) {
-        return false;
-        // TODO
-        auto& di = c().m_intervals.get_dep_intervals();
-        dd::pdd_interval eval(di);
-        eval.var2interval() = [this](lpvar j, bool deps, scoped_dep_interval& a) {
-            if (deps) c().m_intervals.set_var_interval<dd::w_dep::with_deps>(j, a);
-            else c().m_intervals.set_var_interval<dd::w_dep::without_deps>(j, a);
-        };
-        scoped_dep_interval i(di), i_wd(di);
-        eval.get_interval<dd::w_dep::without_deps>(e.poly(), i);
-        return false;
-    }
-
     bool grobner::propagate_linear_equations() {
         unsigned changed = 0;
         m_mon2var.clear();
         for (auto const& m : c().emons()) 
             m_mon2var[m.vars()] = m.var();
+        
         for (auto eq : m_solver.equations()) 
             if (propagate_linear_equations(*eq))
                 ++changed;
-#if 0
-        for (auto eq : m_solver.equations()) 
-            if (check_missed_bound(*eq))
-                return true;
-#endif
         return changed > 0;
     }
-    
-    bool grobner::check_missed_bound(dd::solver::equation const& e) {
-        auto& di = c().m_intervals.get_dep_intervals();
-        auto set_var_interval = [&](lpvar j, scoped_dep_interval& a) {
-            c().m_intervals.set_var_interval<dd::w_dep::with_deps>(j, a);
-        };
-        scoped_dep_interval i(di), t(di), s(di), u(di);
-        di.set_value(i, rational::zero());
-
-        for (auto const& [coeff, vars] : e.poly()) {
-            if (vars.empty())
-                di.add(coeff, i);
-            else {
-                di.set_value(t, coeff);
-                for (auto v : vars) {
-                    set_var_interval(v, s);
-                    di.mul<dd::w_dep::with_deps>(t, s, t);
-                }
-                if (m_mon2var.find(vars) != m_mon2var.end()) {
-                    auto v = m_mon2var.find(vars)->second;
-                    set_var_interval(v, u);
-                    di.mul<dd::w_dep::with_deps>(coeff, u, u);
-                    di.intersect<dd::w_dep::with_deps>(t, u, t);
-                }
-                di.add<dd::w_dep::with_deps>(i, t, i);
-            }
-        }
-        if (!di.separated_from_zero(i)) 
-            return false;
-//        m_solver.display(verbose_stream() << "missed bound\n", e);
-//        exit(1);
-        std::function<void (const lp::explanation&)> f = [this](const lp::explanation& e) {
-            new_lemma lemma(m_core, "pdd");
-            lemma &= e;
-        };
-        return di.check_interval_for_conflict_on_zero(i, e.dep(), f);
-    }
-    
+        
     bool grobner::propagate_linear_equations(dd::solver::equation const& e) {
         if (equation_is_true(e))
             return false;
