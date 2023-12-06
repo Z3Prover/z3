@@ -88,7 +88,7 @@ def mk_icon(source_root):
 
 def mk_readme(source_root):
     mk_dir("out/content")
-    shutil.copy(f"{source_root}/src/api/dotnet/README.md", "out/content/icon.jpg")
+    shutil.copy(f"{source_root}/src/api/dotnet/README.md", "out/content/README.md")
 
 
     
