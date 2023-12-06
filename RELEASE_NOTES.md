@@ -10,6 +10,9 @@ Version 4.next
     - native word level bit-vector solving.
   - introduction of simple induction lemmas to handle a limited repertoire of induction proofs.
 
+Version 4.12.5
+==============
+
 Version 4.12.4
 ==============
 - Re-release fixing a few issues with 4.12:
