@@ -12,6 +12,10 @@ Version 4.next
 
 Version 4.12.4
 ==============
+- Re-release fixing a few issues with 4.12:
+  - Python dependency on importlib.resources vs importlib_resources break automatic pypi installations. Supposedly fixed by conditioning dependency on Python 3.9 where the feature is built-in.
+  - Missing release of arm64 for Ubuntu.
+  - Futile attempt to streamline adding readme.md file as part of Nuget distribution. Nuget.org now requires a readme file. I was able to integrate the readme with the cmake build, but the cross-platform repackage in scripts/mk_nuget_task.py does not ingest a similar readme file with the CI pipelines.
 
 Version 4.12.3
 ==============
