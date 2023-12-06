@@ -110,7 +110,6 @@ Linux Dependencies:
         <copyright>&#169; Microsoft Corporation. All rights reserved.</copyright>
         <tags>smt constraint solver theorem prover</tags>
         <icon>content/icon.jpg</icon>
-        <readme>README.md</readme>
         <projectUrl>https://github.com/Z3Prover/z3</projectUrl>
         <license type="expression">MIT</license>
         <repository type="git" url="{1}" branch="{2}" commit="{3}" />
@@ -148,7 +147,7 @@ class Env:
         unpack(self.packages, self.symbols, self.arch)
         mk_targets(self.source_root)
         mk_icon(self.source_root)
-        mk_readme(self.source_root)
+#       mk_readme(self.source_root)
         create_nuget_spec(self.version, self.repo, self.branch, self.commit, self.symbols, self.arch)
         
 def main():
