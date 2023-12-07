@@ -860,23 +860,26 @@ namespace lp {
             return lra.usage_in_terms(j) > lra.usage_in_terms(k);
         });
         unsigned_vector ret;
-        unsigned n = static_cast<unsigned>(sorted_vars.size());
+        unsigned n = std::min(static_cast<unsigned>(sorted_vars.size()), num_cuts);
 
         while (num_cuts-- && n > 0) {
-            unsigned k = random() % n;
-           
+            if (n == 1) {
+                ret.push_back(*sorted_vars.begin());
+                break;
+            }
+            unsigned k = random() % n; // 0 <= k < n
+            n--; 
             double k_ratio = k / (double) n;
-            k_ratio *= k_ratio*k_ratio;  // square k_ratio to make it smaller
-            k = static_cast<unsigned>(std::floor(k_ratio * n));
+            k_ratio *= k_ratio;  // take a power of k_ratio to make it smaller
+            k_ratio *= k_ratio;
+            k = static_cast<unsigned>(std::floor(k_ratio * (double)n));
             // these operations move k to the beginning of the indices range
-            SASSERT(0 <= k && k < n);
+            SASSERT(0 <= k && k <= n);
             auto it = sorted_vars.begin();
             while(k--) it++;
-
             ret.push_back(*it);
             sorted_vars.erase(it);
-            n--;            
-        }
+            }
         return ret;
     }
     
