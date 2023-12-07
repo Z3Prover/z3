@@ -279,8 +279,7 @@ namespace polysat {
             // unsigned const lo_parity = ne->interval.lo_val().parity(w);
             // unsigned const hi_parity = ne->interval.hi_val().parity(w);
 
-            // display_one(std::cerr << "try to reduce entry: ", v, ne) << "\n";
-            // std::cerr << "coeff_parity " << k << " lo_parity " << lo_parity << " hi_parity " << hi_parity << "\n";
+            display_one(std::cerr << "try to reduce entry: ", v, ne) << "\n";
 
             if (k > 0 && ne->coeff.is_power_of_two()) {
                 // reduction of coeff gives us a unit entry
@@ -292,6 +291,8 @@ namespace polysat {
                 //
                 // new_hi = hi[w-1:k]      if hi[k-1:0] = 0
                 //          hi[w-1:k] + 1  otherwise
+                //
+                // Reference: Fig. 1 (dtrim) in BitvectorsMCSAT
                 //
                 pdd const& pdd_lo = ne->interval.lo();
                 pdd const& pdd_hi = ne->interval.hi();
@@ -317,6 +318,7 @@ namespace polysat {
                 // we have to update also the pdd bounds accordingly, but it seems not worth introducing new variables for this eagerly
                 //      new_lo = lo[:k]  etc.
                 // TODO: for now just disable the FI-lemma if this case occurs
+                ne->valid_for_lemma = false;
 
                 if (new_lo == new_hi) {
                     // empty or full
@@ -327,7 +329,8 @@ namespace polysat {
                 ne->coeff = machine_div2k(ne->coeff, k);
                 ne->interval = eval_interval::proper(pdd_lo, new_lo, pdd_hi, new_hi);
                 ne->bit_width -= k;
-                LOG("reduced entry to unit in width " << ne->bit_width);
+                display_one(std::cerr << "reduced entry:  ", v, ne) << "\n";
+                LOG("reduced entry to unit in bitwidth " << ne->bit_width);
                 return intersect(v, ne);
             }
 
@@ -382,6 +385,9 @@ namespace polysat {
         };
 
         if (ne->interval.is_full()) {
+            // for (auto const& l : m_units[v].get_layers())
+            //     while (l.entries)
+            //         remove_entry(l.entries);
             while (entries)
                 remove_entry(entries);
             entries = create_entry();
