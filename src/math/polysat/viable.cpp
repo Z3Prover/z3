@@ -1589,6 +1589,7 @@ namespace polysat {
     ) {
         unsigned const w = widths[w_idx];
         rational const& mod_value = rational::power_of_two(w);
+        unsigned const first_relevant_for_conflict = relevant_entries.size();
 
         LOG("layer " << w << " bits, to_cover: [" << to_cover_lo << "; " << to_cover_hi << "[");
         SASSERT(0 <= to_cover_lo);
@@ -1625,7 +1626,7 @@ namespace polysat {
             if (entry* e = m_units[x].get_entries(w)) {
                 display_all(std::cerr << "units for width " << w << ":\n", 0, e, "\n");
                 entry_cursor ec;
-                ec.cur = e;
+                ec.cur = e;  // TODO: e->prev() probably makes it faster when querying 0 (can often save going around the interval list once)
                 // ec.first = nullptr;
                 // ec.last = nullptr;
                 ecs.push_back(ec);
@@ -1636,6 +1637,7 @@ namespace polysat {
         val = to_cover_lo;
 
         rational progress; // = 0
+        SASSERT(progress.is_zero());
         while (true) {
             while (true) {
                 entry* e = nullptr;
@@ -1668,8 +1670,12 @@ namespace polysat {
 
                 relevant_entries.push_back(e);
 
-                if (e->interval.is_full())
+                if (e->interval.is_full()) {
+                    relevant_entries.clear();
+                    relevant_entries.push_back(e);  // full interval e -> all other intervals are subsumed/irrelevant
+                    set_conflict_by_interval(v, w, relevant_entries, 0);
                     return l_false;
+                }
 
                 SASSERT(e->interval.currently_contains(val));
                 rational const& new_val = e->interval.hi_val();
@@ -1681,6 +1687,7 @@ namespace polysat {
 
                 if (progress >= mod_value) {
                     // covered the whole domain => conflict
+                    set_conflict_by_interval(v, w, relevant_entries, first_relevant_for_conflict);
                     return l_false;
                 }
                 if (progress >= to_cover_len) {
@@ -1733,8 +1740,10 @@ namespace polysat {
                 rational a;
                 lbool result = find_on_layer(v, w_idx - 1, widths, overlaps, fbi, lower_cover_lo, lower_cover_hi, a, refine_todo, relevant_entries);
                 VERIFY(result != l_undef);
-                if (result == l_false)
+                if (result == l_false) {
+                    SASSERT(s.is_conflict());
                     return l_false;  // conflict
+                }
                 SASSERT(result == l_true);
                 // replace lower bits of 'val' by 'a'
                 rational const val_lower = mod(val, lower_mod_value);
@@ -1752,8 +1761,10 @@ namespace polysat {
 
             rational a;
             lbool result = find_on_layer(v, w_idx - 1, widths, overlaps, fbi, lower_cover_lo, lower_cover_hi, a, refine_todo, relevant_entries);
-            if (result == l_false)
+            if (result == l_false) {
+                SASSERT(s.is_conflict());
                 return l_false;  // conflict
+            }
 
             // replace lower bits of 'val' by 'a'
             rational const dist = distance(lower_cover_lo, a, lower_mod_value);
@@ -1770,6 +1781,7 @@ namespace polysat {
 
             if (progress >= mod_value) {
                 // covered the whole domain => conflict
+                set_conflict_by_interval(v, w, relevant_entries, first_relevant_for_conflict);
                 return l_false;
             }
 
@@ -1794,7 +1806,6 @@ namespace polysat {
         LOG("Assignment: " << assignments_pp(s));
         for (pvar x : overlaps) {
             for (layer const& l : m_units[x].get_layers()) {
-                unsigned const k = l.bit_width;
                 entry const* first = l.entries;
                 entry const* e = first;
                 do {
@@ -1968,10 +1979,11 @@ namespace polysat {
             return refined;
         return l_true;
     }
+#endif
 
     bool viable::set_conflict_by_fallback(pvar v, univariate_solver& us, svector<std::pair<pvar, sat::literal>> const& deps) {
         auto& core = s.m_conflict;
-        core.init_viable_fallback_begin(v);
+        core.init_viable_begin(v, false);
         // The conflict is the unsat core of the univariate solver,
         // and the current assignment (under which the constraints are univariate in v)
         // TODO:
@@ -1996,10 +2008,425 @@ namespace polysat {
         SASSERT(!core.vars().contains(v));
         core.add_lemma("viable unsat core", core.build_lemma());
         IF_VERBOSE(10, verbose_stream() << "unsat core " << core << "\n";);
-        core.init_viable_fallback_end(v);
+        core.init_viable_end(v);
         return true;
     }
 
+    bool viable::set_conflict_by_interval(pvar v, unsigned w, ptr_vector<entry>& intervals, unsigned first_interval) {
+        SASSERT(!intervals.empty());
+        SASSERT(first_interval < intervals.size());
+        auto& core = s.m_conflict;
+        core.init_viable_begin(v, true);
+
+        bool create_lemma = true;
+        clause_builder lemma(s);
+
+        // if there is a full interval, it should be the only one in the given vector
+        if (intervals.size() == 1 && intervals[0]->interval.is_full()) {
+            entry const* e = intervals[0];
+            for (auto sc : e->side_cond)
+                lemma.insert_eval(~sc);
+            for (const auto& src : e->src) {
+                lemma.insert(~src);
+                core.insert(src);
+                core.insert_vars(src);
+            }
+            core.add_lemma("viable (single full interval)", lemma.build());
+        }
+        else {
+            SASSERT(all_of(intervals, [](entry* e) { return e->interval.is_proper(); }));
+
+            // allocate one dummy space in intervals storage to simplify recursive calls
+            intervals.push_back(nullptr);
+            entry** intervals_begin = intervals.data() + first_interval;
+            unsigned num_intervals = intervals.size() - first_interval - 1;
+
+            if (!set_conflict_by_interval_rec(v, w, intervals_begin, num_intervals, core, create_lemma, lemma))
+                return false;
+#if 0
+        // TODO: recursive call from here
+        SASSERT(std::all_of(intervals, intervals + num_intervals, [w](entry const* e) { return e->bit_width <= w; }));
+        rational const& mod_value = rational::power_of_two(w);
+
+        unsigned longest_idx = UINT_MAX;
+        rational longest_len;
+        for (unsigned i = 0; i < num_intervals; ++i) {
+            entry* e = intervals[i];
+            if (e->bit_width != w)
+                continue;
+            rational len = e->interval.current_len();
+            if (len > longest_len) {
+                longest_idx = i;
+                longest_len = len;
+            }
+        }
+        SASSERT(longest_idx < UINT_MAX);
+        entry* longest = intervals[longest_idx];
+
+
+        unsigned i = longest_idx;
+        entry* e = longest;  // baseline
+
+        while (!longest->interval.currently_contains(e->interval.hi_val())) {
+            unsigned j = (i + 1) % num_intervals;
+            entry* n = intervals[j];
+
+            if (n->bit_width != w) {
+                NOT_IMPLEMENTED_YET();
+                // TODO: fill hole at lower bit width
+                create_lemma = false;  // we could create extract-terms for boundaries but let's skip that for now
+            }
+
+            // We may have a bunch of intervals that contain the current value.
+            // Choose the one making the most progress.
+            // TODO: it should be the last one, otherwise we wouldn't have added it to relevant_intervals? then we can skip the progress computation.
+            //       (TODO: should note the invariants of relevant_intervals list and assert them above.)
+            SASSERT(n->interval.currently_contains(e->interval.hi_val()));
+            unsigned best_j = j;
+            rational best_progress = distance(e->interval.hi_val(), n->interval.hi_val(), mod_value);
+            while (true) {
+                unsigned j1 = (j + 1) % num_intervals;
+                entry* n1 = intervals[j1];
+                if (n1->bit_width != w)
+                    break;
+                if (!n1->interval.currently_contains(e->interval.hi_val()))
+                    break;
+                j = j1;
+                n = n1;
+                SASSERT(n != longest);  // because of loop condition on outer while loop
+                rational progress = distance(e->interval.hi_val(), n->interval.hi_val(), mod_value);
+                if (progress > best_progress) {
+                    best_j = j;
+                    best_progress = progress;
+                }
+            }
+            j = best_j;
+            n = intervals[best_j];
+
+            if (!n->valid_for_lemma)
+                create_lemma = false;
+
+            if (create_lemma) {
+                // linking constraint: e->hi \in n
+                signed_constraint c = s.m_constraints.elem(e->interval.hi(), n->interval.symbolic());
+                VERIFY(c.is_currently_true(s));
+                // this constraint may already exist on the stack with opposite bool value,
+                // in that case we have a different, earlier conflict
+                if (c.bvalue(s) == l_false) {
+                    core.reset();
+                    core.init(~c);
+                    goto not_a_viable_conflict;
+                }
+                lemma.insert_eval(~c);
+                for (signed_constraint sc : e->side_cond)
+                    lemma.insert_eval(~sc);
+                for (signed_constraint src : e->src)
+                    lemma.insert(~src);
+            }
+
+            // update conflict core for COI tracking
+            for (signed_constraint src : e->src) {
+                core.insert(src);
+                core.insert_vars(src);
+            }
+
+            i = j;
+            e = n;
+        }
+#endif
+
+            if (create_lemma)
+                core.add_lemma("viable", lemma.build());
+        }
+
+        core.logger().log(inf_fi(*this, v));
+        core.init_viable_end(v);
+        return true;
+    }
+
+
+    bool viable::set_conflict_by_interval_rec(pvar v, unsigned w, entry** intervals, unsigned num_intervals, conflict& core, bool& create_lemma, clause_builder& lemma) {
+        SASSERT(std::all_of(intervals, intervals + num_intervals, [w](entry const* e) { return e->bit_width <= w; }));
+        // TODO: assert invariants on intervals list
+        rational const& mod_value = rational::power_of_two(w);
+
+/*
+        // Add to lemma: b \in entr->interval
+        auto add_linking_constraint = [this, &core, &lemma](pdd const& b, entry* entr) -> bool {
+            signed_constraint c = s.m_constraints.elem(b, entr->interval.symbolic());
+            VERIFY(c.is_currently_true(s));
+            // this constraint may already exist on the stack with opposite bool value,
+            // in that case we have a different, earlier conflict
+            if (c.bvalue(s) == l_false) {
+                core.reset();
+                core.init(~c);
+                return false;
+            }
+            lemma.insert_eval(~c);
+            return true;
+        };
+
+        auto update_conflict = [this, &core, &create_lemma, &lemma](pdd const& p, entry* entr) -> bool {
+            if (!entr->valid_for_lemma)
+                create_lemma = false;
+
+            if (create_lemma) {
+                // linking constraint: e->hi \in n
+                signed_constraint c = s.m_constraints.elem(p, entr->interval.symbolic());
+                VERIFY(c.is_currently_true(s));
+                // this constraint may already exist on the stack with opposite bool value,
+                // in that case we have a different, earlier conflict
+                if (c.bvalue(s) == l_false) {
+                    core.reset();
+                    core.init(~c);
+                    return false;
+                }
+                lemma.insert_eval(~c);
+                for (signed_constraint sc : entr->side_cond)
+                    lemma.insert_eval(~sc);
+                for (signed_constraint src : entr->src)
+                    lemma.insert(~src);
+            }
+
+            // update conflict core for COI tracking
+            for (signed_constraint src : entr->src) {
+                core.insert(src);
+                core.insert_vars(src);
+            }
+
+            // TODO: constraints from entr->var vs. v
+
+            return true;
+        };
+*/
+
+        // heuristic: find longest interval as starting point
+        unsigned longest_idx = UINT_MAX;
+        rational longest_len;
+        for (unsigned i = 0; i < num_intervals; ++i) {
+            entry* e = intervals[i];
+            if (e->bit_width != w)
+                continue;
+            rational len = e->interval.current_len();
+            if (len > longest_len) {
+                longest_idx = i;
+                longest_len = len;
+            }
+        }
+        SASSERT(longest_idx < UINT_MAX);
+        entry* longest = intervals[longest_idx];
+
+        if (!longest->valid_for_lemma)
+            create_lemma = false;
+
+        unsigned i = longest_idx;
+        entry* e = longest;  // e is the current baseline
+
+        while (!longest->interval.currently_contains(e->interval.hi_val())) {
+            unsigned j = (i + 1) % num_intervals;
+            entry* n = intervals[j];
+
+            entry* tmp = nullptr;
+            on_scope_exit dont_leak_entry = [this, &tmp]() {
+                if (tmp)
+                    m_alloc.push_back(tmp);
+            };
+
+            if (n->bit_width != w) {
+                // we have a hole starting with 'n', to be filled with intervals at lower bit-width.
+                // note that the next lower bit-width is not necessarily n->bit_width (e.g., the next layer may start with a hole itself)
+                unsigned w2 = n->bit_width;
+                // first, find the next constraint after the hole
+                unsigned last_idx = j;
+                unsigned k = j;
+                while (intervals[k]->bit_width != w) {
+                    if (intervals[k]->bit_width > w2)
+                        w2 = intervals[k]->bit_width;
+                    last_idx = k;
+                    k = (k + 1) % num_intervals;
+                }
+                entry* after = intervals[k];
+                SASSERT(j < last_idx);  // the hole cannot wrap around (but k may be 0)
+
+                rational const& lower_mod_value = rational::power_of_two(w2);
+                SASSERT(distance(e->interval.hi_val(), after->interval.lo_val(), mod_value) < lower_mod_value);  // otherwise we would have started the conflict at w2 already
+
+                // create temporary entry that covers the hole-complement on the lower level
+                tmp = alloc_entry(v);
+                pdd dummy = s.var2pdd(v).mk_val(123);  // we could create extract-terms for boundaries but let's skip that for now and just disable the lemma
+                create_lemma = false;
+                tmp->valid_for_lemma = false;
+                tmp->bit_width = w2;
+                tmp->interval = eval_interval::proper(dummy, mod(after->interval.lo_val(), lower_mod_value), dummy, mod(e->interval.hi_val(), lower_mod_value));
+
+                // the index "last_idx+1" is always valid because we allocate an extra dummy space at the end before starting the recursion.
+                // we only need a single dummy space because the temporary entry is always at bit-width w2.
+                entry* old = intervals[last_idx + 1];
+                intervals[last_idx + 1] = tmp;
+
+                bool result = set_conflict_by_interval_rec(v, w2, &intervals[j], last_idx - j + 2, core, create_lemma, lemma);
+
+                intervals[last_idx + 1] = old;
+
+                if (!result)
+                    return false;
+
+                if (create_lemma) {
+                    // hole_length < 2^w2
+                    signed_constraint c = s.ult(after->interval.lo() - e->interval.hi(), lower_mod_value);
+                    VERIFY(c.is_currently_true(s));
+                    // this constraint may already exist on the stack with opposite bool value,
+                    // in that case we have a different, earlier conflict
+                    if (c.bvalue(s) == l_false) {
+                        core.reset();
+                        core.init(~c);
+                        return false;
+                    }
+                    lemma.insert(~c);
+                }
+
+                tmp->bit_width = w;
+                tmp->interval = eval_interval::proper(dummy, e->interval.hi_val(), dummy, after->interval.lo_val());
+                e = tmp;
+                j = k;
+                n = after;
+            }
+
+            // We may have a bunch of intervals that contain the current value.
+            // Choose the one making the most progress.
+            // TODO: it should be the last one, otherwise we wouldn't have added it to relevant_intervals? then we can skip the progress computation.
+            //       (TODO: should note the relevant invariants of intervals list and assert them above.)
+            SASSERT(n->interval.currently_contains(e->interval.hi_val()));
+            unsigned best_j = j;
+            rational best_progress = distance(e->interval.hi_val(), n->interval.hi_val(), mod_value);
+            while (true) {
+                unsigned j1 = (j + 1) % num_intervals;
+                entry* n1 = intervals[j1];
+                if (n1->bit_width != w)
+                    break;
+                if (!n1->interval.currently_contains(e->interval.hi_val()))
+                    break;
+                j = j1;
+                n = n1;
+                SASSERT(n != longest);  // because of loop condition on outer while loop
+                rational progress = distance(e->interval.hi_val(), n->interval.hi_val(), mod_value);
+                if (progress > best_progress) {
+                    best_j = j;
+                    best_progress = progress;
+                }
+            }
+            j = best_j;
+            n = intervals[best_j];
+
+            if (!update_interval_conflict(v, e->interval.hi(), n, core, create_lemma, lemma))
+                return false;
+#if 0
+            if (!n->valid_for_lemma)
+                create_lemma = false;
+
+            if (create_lemma) {
+                // linking constraint: e->hi \in n
+                if (!add_linking_constraint(e->interval.hi(), n))
+                    return false;
+                /*
+                signed_constraint c = s.m_constraints.elem(e->interval.hi(), n->interval.symbolic());
+                VERIFY(c.is_currently_true(s));
+                // this constraint may already exist on the stack with opposite bool value,
+                // in that case we have a different, earlier conflict
+                if (c.bvalue(s) == l_false) {
+                    core.reset();
+                    core.init(~c);
+                    return false;
+                }
+                lemma.insert_eval(~c);
+                */
+                for (signed_constraint sc : n->side_cond)
+                    lemma.insert_eval(~sc);
+                for (signed_constraint src : n->src)
+                    lemma.insert(~src);
+            }
+
+            // update conflict core for COI tracking
+            for (signed_constraint src : n->src) {
+                core.insert(src);
+                core.insert_vars(src);
+            }
+#endif
+
+            i = j;
+            e = n;
+        }
+
+        if (!update_interval_conflict(v, e->interval.hi(), longest, core, create_lemma, lemma))
+            return false;
+#if 0
+        if (create_lemma) {
+            // final linking constraint: e->hi \in longest
+            if (!add_linking_constraint(e->interval.hi(), longest))
+                return false;
+            /*
+            signed_constraint c = s.m_constraints.elem(e->interval.hi(), longest->interval.symbolic());
+            VERIFY(c.is_currently_true(s));
+            // this constraint may already exist on the stack with opposite bool value,
+            // in that case we have a different, earlier conflict
+            if (c.bvalue(s) == l_false) {
+                core.reset();
+                core.init(~c);
+                return false;
+            }
+            lemma.insert_eval(~c);
+            */
+            for (signed_constraint sc : longest->side_cond)
+                lemma.insert_eval(~sc);
+            for (signed_constraint src : longest->src)
+                lemma.insert(~src);
+        }
+
+        for (signed_constraint src : longest->src) {
+            core.insert(src);
+            core.insert_vars(src);
+        }
+#endif
+
+        return true;
+    }
+
+    bool viable::update_interval_conflict(pvar v, pdd const& p, entry* n, conflict& core, bool& create_lemma, clause_builder& lemma) {
+        if (!n->valid_for_lemma)
+            create_lemma = false;
+
+        if (create_lemma) {
+            // linking constraint: p \in n
+            signed_constraint c = s.m_constraints.elem(p, n->interval.symbolic());
+            VERIFY(c.is_currently_true(s));
+            // this constraint may already exist on the stack with opposite bool value,
+            // in that case we have a different, earlier conflict
+            if (c.bvalue(s) == l_false) {
+                core.reset();
+                core.init(~c);
+                return false;
+            }
+            lemma.insert_eval(~c);
+            for (signed_constraint sc : n->side_cond)
+                lemma.insert_eval(~sc);
+            for (signed_constraint src : n->src)
+                lemma.insert(~src);
+        }
+
+        for (signed_constraint src : n->src) {
+            core.insert(src);
+            core.insert_vars(src);
+        }
+
+        if (v != n->var) {
+            NOT_IMPLEMENTED_YET();
+            // TODO: s.m_slicing.explain_simple_overlap(v, n->var)  [add to both core and lemma]
+        }
+
+        return true;
+    }
+
+#if 0
     bool viable::resolve_interval(pvar v, conflict& core) {
         DEBUG_CODE( log(v); );
         VERIFY(!has_viable(v));  // does a pass over interval refinement, making sure the intervals actually exist
@@ -2099,6 +2526,7 @@ namespace polysat {
         core.logger().log(inf_fi(*this, v));
         return true;
     }
+#endif
 
     void viable::log(pvar v) {
 #if 0

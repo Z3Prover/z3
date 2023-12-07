@@ -200,9 +200,25 @@ namespace polysat {
          */
         lbool find_viable2(pvar v, rational& out_lo, rational& out_hi);
 
+        // /**
+        //  * Retrieve the unsat core for v,
+        //  * and add the forbidden interval lemma for v (which eliminates v from the unsat core).
+        //  */
+        // bool resolve_interval(pvar v, conflict& core);
+
+        /**
+         * Enter conflict state when intervals cover the full domain.
+         * Try to create the forbidden interval lemma for v.
+         * \param w: only intervals of bit-width w or less are relevant for the conflict.
+         * \pre there are no viable values for v (determined by interval reasoning)
+         */
+        bool set_conflict_by_interval(pvar v, unsigned w, ptr_vector<entry>& intervals, unsigned first_interval);
+        bool set_conflict_by_interval_rec(pvar v, unsigned w, entry** intervals, unsigned num_intervals, conflict& core, bool& create_lemma, clause_builder& lemma);
+        bool update_interval_conflict(pvar v, pdd const& p, entry* n, conflict& core, bool& create_lemma, clause_builder& lemma);
+
         /**
          * Bitblasting-based query.
-         * @return l_true on success, l_false on conflict, l_undef on resource limit
+         * \return l_true on success, l_false on conflict, l_undef on resource limit
          */
         lbool find_viable_fallback(pvar v, pvar_vector const& overlaps, rational& out_lo, rational& out_hi);
 
@@ -214,7 +230,13 @@ namespace polysat {
 
 
 public:
+        /**
+         * Find a next viable value for variable. Attempts to find two different values, to distinguish propagation/decision.
+         * NOTE: out_hi is set to -1 by the fallback solver.
+         * \return l_true on success, l_false on conflict, l_undef on resource limit
+         */
         lbool find_viable2_new(pvar v, rational& out_lo, rational& out_hi);
+
         lbool find_on_layers(
             pvar v,
             unsigned_vector const& widths,
@@ -223,6 +245,7 @@ public:
             rational const& to_cover_lo,
             rational const& to_cover_hi,
             rational& out_val);
+
         lbool find_on_layer(
             pvar v,
             unsigned w_idx,
@@ -297,13 +320,6 @@ public:
          * Find a next viable value for variable.
          */
         find_t find_viable(pvar v, rational& out_val);
-
-        /**
-         * Retrieve the unsat core for v,
-         * and add the forbidden interval lemma for v (which eliminates v from the unsat core).
-         * \pre there are no viable values for v (determined by interval reasoning)
-         */
-        bool resolve_interval(pvar v, conflict& core);
 
         /** Log all viable values for the given variable.
          * (Inefficient, but useful for debugging small instances.)

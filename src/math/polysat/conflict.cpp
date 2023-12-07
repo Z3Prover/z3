@@ -276,27 +276,27 @@ namespace polysat {
         logger().begin_conflict(cl.name());
     }
 
-    void conflict::init_by_viable_interval(pvar v) {
-        LOG("Conflict: viable_interval v" << v);
+    // void conflict::init_by_viable_interval(pvar v) {
+    //     LOG("Conflict: viable_interval v" << v);
+    //     SASSERT(empty());
+    //     SASSERT(!s.is_assigned(v));
+    //     m_level = s.m_level;
+    //     logger().begin_conflict(header_with_var("viable_interval v", v));
+    //     if (s.m_viable.resolve_interval(v, *this)) {
+    //         revert_pvar(v);  // at this point, v is not assigned
+    //     }
+    //     SASSERT(!empty());
+    // }
+
+    void conflict::init_viable_begin(pvar v, bool by_intervals) {
+        LOG("Conflict: viable_" << (by_intervals ? "interval" : "fallback") << " v" << v);
         SASSERT(empty());
         SASSERT(!s.is_assigned(v));
         m_level = s.m_level;
-        logger().begin_conflict(header_with_var("viable_interval v", v));
-        if (s.m_viable.resolve_interval(v, *this)) {
-            revert_pvar(v);  // at this point, v is not assigned
-        }
-        SASSERT(!empty());
+        logger().begin_conflict(header_with_var(by_intervals ? "viable_interval" : "viable_fallback v", v));
     }
 
-    void conflict::init_viable_fallback_begin(pvar v) {
-        LOG("Conflict: viable_fallback v" << v);
-        SASSERT(empty());
-        SASSERT(!s.is_assigned(v));
-        m_level = s.m_level;
-        logger().begin_conflict(header_with_var("viable_fallback v", v));
-    }
-
-    void conflict::init_viable_fallback_end(pvar v) {
+    void conflict::init_viable_end(pvar v) {
         SASSERT(!empty());
         revert_pvar(v);  // at this point, v is not assigned
     }
