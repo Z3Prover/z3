@@ -1883,16 +1883,16 @@ namespace polysat {
         //      e.g.:   v^2 + w^2 == 0;   w := 1
         // - but we could use side constraints on the coefficients instead (coefficients when viewed as polynomial over v):
         //      e.g.:   v^2 + w^2 == 0;   w^2 == 1
-        uint_set to_explain;
+        uint_set vars_to_explain;
         for (unsigned d : us.unsat_core()) {
             auto [x, lit] = deps[d];
             if (x != v)
-                to_explain.insert(x);
+                vars_to_explain.insert(x);
             signed_constraint c = s.lit2cnstr(lit);
             core.insert(c);
             core.insert_vars(c);
         }
-        for (pvar x : to_explain) {
+        for (pvar x : vars_to_explain) {
             s.m_slicing.explain_simple_overlap(v, x, [this, &core](sat::literal l) {
                 core.insert(s.lit2cnstr(l));
             });
@@ -1912,9 +1912,12 @@ namespace polysat {
 
         bool create_lemma = true;
         clause_builder lemma(s);
+        uint_set vars_to_explain;
+        char const* lemma_name = nullptr;
 
         // if there is a full interval, it should be the only one in the given vector
         if (intervals.size() == 1 && intervals[0]->interval.is_full()) {
+            lemma_name = "viable (full interval)";
             entry const* e = intervals[0];
             for (auto sc : e->side_cond)
                 lemma.insert_eval(~sc);
@@ -1923,22 +1926,31 @@ namespace polysat {
                 core.insert(src);
                 core.insert_vars(src);
             }
-            core.add_lemma("viable (single full interval)", lemma.build());
+            if (v != e->var)
+                vars_to_explain.insert(e->var);
         }
         else {
             SASSERT(all_of(intervals, [](entry* e) { return e->interval.is_proper(); }));
+            lemma_name = "viable (proper intervals)";
 
             // allocate one dummy space in intervals storage to simplify recursive calls
             intervals.push_back(nullptr);
             entry** intervals_begin = intervals.data() + first_interval;
             unsigned num_intervals = intervals.size() - first_interval - 1;
 
-            if (!set_conflict_by_interval_rec(v, w, intervals_begin, num_intervals, core, create_lemma, lemma))
+            if (!set_conflict_by_interval_rec(v, w, intervals_begin, num_intervals, core, create_lemma, lemma, vars_to_explain))
                 return false;
-
-            if (create_lemma)
-                core.add_lemma("viable", lemma.build());
         }
+
+        for (pvar x : vars_to_explain) {
+            s.m_slicing.explain_simple_overlap(v, x, [this, &core, &lemma](sat::literal l) {
+                lemma.insert(~l);
+                core.insert(s.lit2cnstr(l));
+            });
+        }
+
+        if (create_lemma)
+            core.add_lemma(lemma_name, lemma.build());
 
         core.logger().log(inf_fi(*this, v));
         core.init_viable_end(v);
@@ -1946,7 +1958,7 @@ namespace polysat {
     }
 
 
-    bool viable::set_conflict_by_interval_rec(pvar v, unsigned w, entry** intervals, unsigned num_intervals, conflict& core, bool& create_lemma, clause_builder& lemma) {
+    bool viable::set_conflict_by_interval_rec(pvar v, unsigned w, entry** intervals, unsigned num_intervals, conflict& core, bool& create_lemma, clause_builder& lemma, uint_set& vars_to_explain) {
         SASSERT(std::all_of(intervals, intervals + num_intervals, [w](entry const* e) { return e->bit_width <= w; }));
         // TODO: assert invariants on intervals list
         rational const& mod_value = rational::power_of_two(w);
@@ -2016,7 +2028,7 @@ namespace polysat {
                 entry* old = intervals[last_idx + 1];
                 intervals[last_idx + 1] = tmp;
 
-                bool result = set_conflict_by_interval_rec(v, w2, &intervals[j], last_idx - j + 2, core, create_lemma, lemma);
+                bool result = set_conflict_by_interval_rec(v, w2, &intervals[j], last_idx - j + 2, core, create_lemma, lemma, vars_to_explain);
 
                 intervals[last_idx + 1] = old;
 
@@ -2070,20 +2082,20 @@ namespace polysat {
             j = best_j;
             n = intervals[best_j];
 
-            if (!update_interval_conflict(v, e->interval.hi(), n, core, create_lemma, lemma))
+            if (!update_interval_conflict(v, e->interval.hi(), n, core, create_lemma, lemma, vars_to_explain))
                 return false;
 
             i = j;
             e = n;
         }
 
-        if (!update_interval_conflict(v, e->interval.hi(), longest, core, create_lemma, lemma))
+        if (!update_interval_conflict(v, e->interval.hi(), longest, core, create_lemma, lemma, vars_to_explain))
             return false;
 
         return true;
     }
 
-    bool viable::update_interval_conflict(pvar v, pdd const& p, entry* n, conflict& core, bool& create_lemma, clause_builder& lemma) {
+    bool viable::update_interval_conflict(pvar v, pdd const& p, entry* n, conflict& core, bool& create_lemma, clause_builder& lemma, uint_set& vars_to_explain) {
         if (!n->valid_for_lemma)
             create_lemma = false;
 
@@ -2110,10 +2122,8 @@ namespace polysat {
             core.insert_vars(src);
         }
 
-        if (v != n->var) {
-            NOT_IMPLEMENTED_YET();
-            // TODO: s.m_slicing.explain_simple_overlap(v, n->var)  [add to both core and lemma]
-        }
+        if (v != n->var)
+            vars_to_explain.insert(n->var);
 
         return true;
     }

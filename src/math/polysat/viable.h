@@ -194,8 +194,8 @@ namespace polysat {
          * \pre there are no viable values for v (determined by interval reasoning)
          */
         bool set_conflict_by_interval(pvar v, unsigned w, ptr_vector<entry>& intervals, unsigned first_interval);
-        bool set_conflict_by_interval_rec(pvar v, unsigned w, entry** intervals, unsigned num_intervals, conflict& core, bool& create_lemma, clause_builder& lemma);
-        bool update_interval_conflict(pvar v, pdd const& p, entry* n, conflict& core, bool& create_lemma, clause_builder& lemma);
+        bool set_conflict_by_interval_rec(pvar v, unsigned w, entry** intervals, unsigned num_intervals, conflict& core, bool& create_lemma, clause_builder& lemma, uint_set& vars_to_explain);
+        bool update_interval_conflict(pvar v, pdd const& p, entry* n, conflict& core, bool& create_lemma, clause_builder& lemma, uint_set& vars_to_explain);
 
         /**
          * Bitblasting-based query.
