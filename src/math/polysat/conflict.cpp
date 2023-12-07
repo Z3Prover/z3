@@ -276,18 +276,6 @@ namespace polysat {
         logger().begin_conflict(cl.name());
     }
 
-    // void conflict::init_by_viable_interval(pvar v) {
-    //     LOG("Conflict: viable_interval v" << v);
-    //     SASSERT(empty());
-    //     SASSERT(!s.is_assigned(v));
-    //     m_level = s.m_level;
-    //     logger().begin_conflict(header_with_var("viable_interval v", v));
-    //     if (s.m_viable.resolve_interval(v, *this)) {
-    //         revert_pvar(v);  // at this point, v is not assigned
-    //     }
-    //     SASSERT(!empty());
-    // }
-
     void conflict::init_viable_begin(pvar v, bool by_intervals) {
         LOG("Conflict: viable_" << (by_intervals ? "interval" : "fallback") << " v" << v);
         SASSERT(empty());

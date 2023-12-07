@@ -134,8 +134,6 @@ namespace polysat {
         void init(signed_constraint c);
         /** boolean conflict with the given clause */
         void init(clause& cl);
-        /** conflict because there is no viable value for the variable v, by interval reasoning */
-        // void init_by_viable_interval(pvar v);
         /** conflict because there is no viable value for the variable v */
         void init_viable_begin(pvar v, bool by_intervals);
         void init_viable_end(pvar v);

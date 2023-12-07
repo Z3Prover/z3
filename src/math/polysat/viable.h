@@ -200,12 +200,6 @@ namespace polysat {
          */
         lbool find_viable2(pvar v, rational& out_lo, rational& out_hi);
 
-        // /**
-        //  * Retrieve the unsat core for v,
-        //  * and add the forbidden interval lemma for v (which eliminates v from the unsat core).
-        //  */
-        // bool resolve_interval(pvar v, conflict& core);
-
         /**
          * Enter conflict state when intervals cover the full domain.
          * Try to create the forbidden interval lemma for v.
