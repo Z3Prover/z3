@@ -2222,15 +2222,15 @@ namespace polysat {
         unsigned i = longest_idx;
         entry* e = longest;  // e is the current baseline
 
+        entry* tmp = nullptr;
+        on_scope_exit dont_leak_entry = [this, &tmp]() {
+            if (tmp)
+                m_alloc.push_back(tmp);
+        };
+
         while (!longest->interval.currently_contains(e->interval.hi_val())) {
             unsigned j = (i + 1) % num_intervals;
             entry* n = intervals[j];
-
-            entry* tmp = nullptr;
-            on_scope_exit dont_leak_entry = [this, &tmp]() {
-                if (tmp)
-                    m_alloc.push_back(tmp);
-            };
 
             if (n->bit_width != w) {
                 // we have a hole starting with 'n', to be filled with intervals at lower bit-width.
@@ -2252,7 +2252,8 @@ namespace polysat {
                 SASSERT(distance(e->interval.hi_val(), after->interval.lo_val(), mod_value) < lower_mod_value);  // otherwise we would have started the conflict at w2 already
 
                 // create temporary entry that covers the hole-complement on the lower level
-                tmp = alloc_entry(v);
+                if (!tmp)
+                    tmp = alloc_entry(v);
                 pdd dummy = s.var2pdd(v).mk_val(123);  // we could create extract-terms for boundaries but let's skip that for now and just disable the lemma
                 create_lemma = false;
                 tmp->valid_for_lemma = false;
