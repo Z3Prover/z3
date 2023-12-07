@@ -209,6 +209,15 @@ namespace euf {
         s().assign(lit, sat::justification::mk_ext_justification(s().scope_lvl(), idx));
     }
 
+    lbool solver::resolve_conflict() {
+        for (auto* s : m_solvers) {
+            lbool r = s->resolve_conflict();
+            if (r != l_undef)
+                return r;
+        }
+        return l_undef;
+    }
+
     /**
     Retrieve set of literals r that imply r.
     Since the set of literals are retrieved modulo multiple theories in a single implication

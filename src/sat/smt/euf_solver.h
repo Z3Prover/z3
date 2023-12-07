@@ -363,6 +363,7 @@ namespace euf {
         bool propagate(enode* a, enode* b, th_explain* p) { return propagate(a, b, p->to_index()); }
         size_t* to_justification(sat::literal l) { return to_ptr(l); }
         void set_conflict(th_explain* p) { set_conflict(p->to_index()); }
+        bool inconsistent() const { return s().inconsistent() || m_egraph.inconsistent(); }
 
         bool set_root(literal l, literal r) override;
         void flush_roots() override;
@@ -378,6 +379,7 @@ namespace euf {
         bool get_case_split(bool_var& var, lbool& phase) override;
         void asserted(literal l) override;
         sat::check_result check() override;
+        lbool resolve_conflict() override;
         void push() override;
         void pop(unsigned n) override;
         void user_push() override;

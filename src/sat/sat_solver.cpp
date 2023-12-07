@@ -2429,9 +2429,8 @@ namespace sat {
         m_conflicts_since_restart++;
         m_conflicts_since_gc++;
         m_stats.m_conflict++;
-        if (m_step_size > m_config.m_step_size_min) {
-            m_step_size -= m_config.m_step_size_dec;
-        }
+        if (m_step_size > m_config.m_step_size_min)
+            m_step_size -= m_config.m_step_size_dec;        
 
         bool unique_max;
         m_conflict_lvl = get_max_lvl(m_not_l, m_conflict, unique_max);        
