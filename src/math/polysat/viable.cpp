@@ -1161,7 +1161,7 @@ namespace polysat {
 
     find_t viable::find_viable(pvar v, rational& lo) {
         rational hi;
-        switch (find_viable2(v, lo, hi)) {
+        switch (find_viable2_new(v, lo, hi)) {
         case l_true:
             if (hi < 0) {
                 // fallback solver, treat propagations as decisions for now
