@@ -341,15 +341,6 @@ public:
     void linearize(ptr_vector<dependency>& d, vector<value, false> & vs) const {
         return m_dep_manager.linearize(d, vs);
     }    
-
-    static vector<value, false> const& s_linearize(dependency* d, vector<value, false>& vs) {
-        dep_manager::s_linearize(d, vs);
-        return vs;
-    }
-
-    void linearize(ptr_vector<dependency>& d, vector<value, false> & vs) {
-        return m_dep_manager.linearize(d, vs);
-    }    
     
     void reset() {
         m_allocator.reset();

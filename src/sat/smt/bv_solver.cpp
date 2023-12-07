@@ -387,7 +387,7 @@ namespace bv {
             for (unsigned i = 0; i < c.m_num_literals; ++i)
                 r.push_back(c.m_literals[i]);
             for (unsigned i = 0; i < c.m_num_eqs; ++i)
-                ctx.add_antecedent(probing, c.m_eqs[i].first, c.m_eqs[i].second);            
+                ctx.add_eq_antecedent(probing, c.m_eqs[i].first, c.m_eqs[i].second);            
             break;
         }
         default:

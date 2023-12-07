@@ -18,9 +18,6 @@ Notes:
 
 
 #include "ast/euf/euf_egraph.h"
-#include "ast/euf/euf_bv_plugin.h"
-#include "ast/euf/euf_arith_plugin.h"
-#include "ast/euf/euf_specrel_plugin.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_translation.h"
 
@@ -123,10 +120,8 @@ namespace euf {
             n->mark_interpreted();
         if (m_on_make)
             m_on_make(n);
-
-        if (num_args == 0) 
+        if (num_args == 0)
             return n;
-        
         if (m.is_eq(f) && !m.is_iff(f)) {
             n->set_is_equality();
             reinsert_equality(n);
@@ -474,7 +469,7 @@ namespace euf {
 
         if (!n1->cgc_enabled() && !n2->cgc_enabled())
             return;
-        
+        SASSERT(n1->get_sort() == n2->get_sort());
         enode* r1 = n1->get_root();
         enode* r2 = n2->get_root();
         if (r1 == r2)
@@ -484,7 +479,6 @@ namespace euf {
         IF_VERBOSE(20, j.display(verbose_stream() << "merge: " << bpp(n1) << " == " << bpp(n2) << " ", m_display_justification) << "\n";);
         force_push();
         SASSERT(m_num_scopes == 0);
-        SASSERT(n1->get_sort() == n2->get_sort());
         ++m_stats.m_num_merge;
         if (r1->interpreted() && r2->interpreted()) {
             set_conflict(n1, n2, j);
@@ -510,7 +504,7 @@ namespace euf {
         std::swap(r1->m_next, r2->m_next);
         r2->inc_class_size(r1->class_size());   
         r2->set_is_shared(l_undef);
-        merge_th_eq(r1, r2, j);
+        merge_th_eq(r1, r2);
         reinsert_parents(r1, r2);
         if (j.is_congruence() && (m.is_false(r2->get_expr()) || m.is_true(r2->get_expr())))
             add_literal(n1, r2);
@@ -521,7 +515,6 @@ namespace euf {
 
         for (auto& cb : m_on_merge)
             cb(r2, r1);
-    
     }
 
     void egraph::remove_parents(enode* r) {
@@ -568,7 +561,7 @@ namespace euf {
         }
     }
 
-    void egraph::merge_th_eq(enode* n, enode* root, justification j) {
+    void egraph::merge_th_eq(enode* n, enode* root) {
         SASSERT(n != root);
         for (auto const& iv : enode_th_vars(n)) {
             theory_id id = iv.get_id();

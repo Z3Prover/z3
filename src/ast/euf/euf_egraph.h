@@ -234,7 +234,7 @@ namespace euf {
         void force_push();
         void set_conflict(enode* n1, enode* n2, justification j);
         void merge(enode* n1, enode* n2, justification j);
-        void merge_th_eq(enode* n, enode* root, justification j);
+        void merge_th_eq(enode* n, enode* root);
         void merge_justification(enode* n1, enode* n2, justification j);
         void reinsert_parents(enode* r1, enode* r2);
         void remove_parents(enode* r);
@@ -279,8 +279,6 @@ namespace euf {
          */
         void merge(enode* n1, enode* n2, void* reason) { merge(n1, n2, justification::external(reason)); }        
         void new_diseq(enode* n);
-
-        bool can_propagate() const { return !m_to_merge.empty(); }
 
         /**
            \brief propagate set of merges. 
