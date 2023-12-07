@@ -1161,7 +1161,7 @@ namespace polysat {
 
     find_t viable::find_viable(pvar v, rational& lo) {
         rational hi;
-        switch (find_viable2_new(v, lo, hi)) {
+        switch (find_viable2(v, lo, hi)) {
         case l_true:
             if (hi < 0) {
                 // fallback solver, treat propagations as decisions for now
@@ -1438,7 +1438,7 @@ namespace polysat {
     // - how to integrate fallback solver?
     //   when lowest level fails, we can try more refinement there.
     //   in case of refinement loop, try fallback solver with constraints only from lower level.
-    lbool viable::find_viable2_new(pvar v, rational& lo, rational& hi) {
+    lbool viable::find_viable2(pvar v, rational& lo, rational& hi) {
         fixed_bits_info fbi;
 
         if (!collect_bit_information(v, true, fbi))
@@ -1872,114 +1872,6 @@ namespace polysat {
             return l_undef;
         }
     }
-
-    lbool viable::find_viable2(pvar v, rational& lo, rational& hi) {
-
-        fixed_bits_info fbi;
-
-        if (!collect_bit_information(v, true, fbi))
-            return l_false; // conflict already added
-
-        // max number of interval refinements before falling back to the univariate solver
-        unsigned const refinement_budget = 1000;
-        unsigned refinements = refinement_budget;
-
-        while (refinements--) {
-            lbool res = query_find(v, lo, hi, fbi);
-            IF_VERBOSE(10, {
-                if (refinements % 100 == 0)
-                    verbose_stream() << "Refinements " << refinements << "\n";
-            });
-            if (res != l_undef)
-                return res;
-        }
-        IF_VERBOSE(10, verbose_stream() << "Fallback\n";);
-        LOG("Refinement budget exhausted! Fall back to univariate solver.");
-
-        pvar_vector overlaps;
-        overlaps.push_back(v);
-        return find_viable_fallback(v, overlaps, lo, hi);
-    }
-
-    lbool viable::query_find(pvar v, rational& lo, rational& hi, fixed_bits_info const& fbi) {
-        auto const& max_value = s.var2pdd(v).max_value();
-        lbool const refined = l_undef;
-
-        // After a refinement, any of the existing entries may have been replaced
-        // (if it is subsumed by the new entry created during refinement).
-        // For this reason, we start chasing the intervals from the start again.
-        lo = 0;
-        hi = max_value;
-
-        entry* e = m_units[v].get_entries(s.size(v));  // TODO: take other sizes into account
-        if (!e && !refine_viable<true>(v, lo, fbi))
-            return refined;
-        if (!e && !refine_viable<false>(v, hi, fbi))
-            return refined;
-        if (!e)
-            return l_true;
-        if (e->interval.is_full()) {
-            s.set_conflict_by_viable_interval(v);
-            return l_false;
-        }
-
-        entry* first = e;
-        entry* last = first->prev();
-
-        // quick check: last interval does not wrap around
-        // and has space for 2 unassigned values.
-        if (last->interval.lo_val() < last->interval.hi_val() &&
-            last->interval.hi_val() < max_value) {
-            lo = last->interval.hi_val();
-            if (!refine_viable<true>(v, lo, fbi))
-                return refined;
-            if (!refine_viable<false>(v, max_value, fbi))
-                return refined;
-            return l_true;
-        }
-
-        // find lower bound
-        if (last->interval.currently_contains(lo))
-            lo = last->interval.hi_val();
-        do {
-            if (!e->interval.currently_contains(lo))
-                break;
-            lo = e->interval.hi_val();
-            e = e->next();
-        }
-        while (e != first);
-
-        if (e->interval.currently_contains(lo)) {
-            s.set_conflict_by_viable_interval(v);
-            return l_false;
-        }
-
-        // TODO: we could also try to continue the search at lo+1, if we get stuck at the upper bound.
-
-        // TODO: we only need (any) 2 viable values. some possibilities:
-        // - find lower and upper bound
-        // - find lower bound and next lowest value
-        // - find upper bound and next highest value
-        // - try a random sample and chase value from there
-
-        // find upper bound
-        hi = max_value;
-        e = last;
-        do {
-            if (!e->interval.currently_contains(hi))
-                break;
-            hi = e->interval.lo_val() - 1;
-            e = e->prev();
-        }
-        while (e != last);
-
-        if (!refine_viable<true>(v, lo, fbi))
-            return refined;
-        if (!refine_viable<false>(v, hi, fbi))
-            return refined;
-        return l_true;
-    }
-#endif
 
     bool viable::set_conflict_by_fallback(pvar v, univariate_solver& us, svector<std::pair<pvar, sat::literal>> const& deps) {
         auto& core = s.m_conflict;

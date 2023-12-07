@@ -188,19 +188,6 @@ namespace polysat {
         void propagate(pvar v, rational const& val);
 
         /**
-         * Interval-based queries
-         * @return l_true on success, l_false on conflict, l_undef on refinement
-         */
-        lbool query_find(pvar v, rational& out_lo, rational& out_hi, fixed_bits_info const& fbi);
-
-        /**
-         * Find a next viable value for variable. Attempts to find two different values, to distinguish propagation/decision.
-         * NOTE: out_hi is set to -1 by the fallback solver.
-         * @return l_true on success, l_false on conflict, l_undef on resource limit
-         */
-        lbool find_viable2(pvar v, rational& out_lo, rational& out_hi);
-
-        /**
          * Enter conflict state when intervals cover the full domain.
          * Try to create the forbidden interval lemma for v.
          * \param w: only intervals of bit-width w or less are relevant for the conflict.
@@ -222,14 +209,12 @@ namespace polysat {
          */
         bool set_conflict_by_fallback(pvar v, univariate_solver& us, svector<std::pair<pvar, sat::literal>> const& deps);
 
-
-public:
         /**
          * Find a next viable value for variable. Attempts to find two different values, to distinguish propagation/decision.
          * NOTE: out_hi is set to -1 by the fallback solver.
          * \return l_true on success, l_false on conflict, l_undef on resource limit
          */
-        lbool find_viable2_new(pvar v, rational& out_lo, rational& out_hi);
+        lbool find_viable2(pvar v, rational& out_lo, rational& out_hi);
 
         lbool find_on_layers(
             pvar v,
