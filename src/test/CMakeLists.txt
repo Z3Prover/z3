@@ -48,7 +48,6 @@ add_executable(test-z3
   f2n.cpp
   factor_rewriter.cpp
   finder.cpp
-  fixplex.cpp
   fixed_bit_vector.cpp
   for_each_file.cpp
   get_consequences.cpp
@@ -70,7 +69,6 @@ add_executable(test-z3
   matcher.cpp
   "${CMAKE_CURRENT_BINARY_DIR}/mem_initializer.cpp"
   memory.cpp
-  mod_interval.cpp
   model2expr.cpp
   model_based_opt.cpp
   model_evaluator.cpp
