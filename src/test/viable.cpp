@@ -158,36 +158,24 @@ namespace polysat {
         rational const two_to_60 = rational::power_of_two(60);
 
         params_ref p;
-        p.set_uint("max_decisions", 1);
+        p.set_uint("max_decisions", 5);
         s.updt_polysat_params(p);
+
+        // s.push();
 
         // x >= 5000
         s.add_ule(5000, x);
-        VERIFY_EQ(s.check_sat(), l_undef);
-        rational lo, hi;
-        VERIFY_EQ(v.find_viable2_new(xv, lo, hi), l_true);
-        std::cout << "lo: " << lo << "\n";
-        std::cout << "hi: " << hi << "\n";
+        VERIFY_EQ(s.check_sat(), l_true);
 
-        p.set_uint("max_decisions", 2);
-        s.updt_polysat_params(p);
+        // s.pop();
 
         // x[3:0] >= 10
         s.add_ule(10 * two_to_60, x * two_to_60);
-        VERIFY_EQ(s.check_sat(), l_undef);
-        VERIFY_EQ(v.find_viable2_new(xv, lo, hi), l_true);
-        std::cout << "lo: " << lo << "\n";
-        std::cout << "hi: " << hi << "\n";
-
-        p.set_uint("max_decisions", 3);
-        s.updt_polysat_params(p);
+        VERIFY_EQ(s.check_sat(), l_true);
 
         // x[3:0] <= 5
         s.add_ule(x * two_to_60, 5 * two_to_60);
-        VERIFY_EQ(s.check_sat(), l_undef);
-        VERIFY_EQ(v.find_viable2_new(xv, lo, hi), l_false);
-        std::cout << "lo: " << lo << "\n";
-        std::cout << "hi: " << hi << "\n";
+        VERIFY_EQ(s.check_sat(), l_false);
     }
 
     static void test_univariate() {
@@ -610,6 +598,7 @@ void tst_viable() {
     polysat::test_fi::exhaustive();
     polysat::test_fi::randomized(10000, 16);
     polysat::test_fi::randomized(1000, 256);
+    polysat::test_fixed();
 #if 0
     // TODO: case where refine-equal-lin is still looping:
     polysat::test_fi::check_one(
