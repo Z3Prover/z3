@@ -91,7 +91,13 @@ namespace Microsoft.Z3
         /// </summary>
         ~Constructor()
         {
-            Native.Z3_del_constructor(Context.nCtx, NativeObject);
+	    if (Context.nCtx != IntPtr.Zero) {
+               lock (Context) 
+	       { 
+                   if (Context.nCtx != IntPtr.Zero) 
+                       Native.Z3_del_constructor(Context.nCtx, NativeObject);
+               }
+            }
         }        
 
         #region Internal

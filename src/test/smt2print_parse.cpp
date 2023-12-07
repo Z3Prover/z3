@@ -8,6 +8,7 @@ Copyright (c) 2015 Microsoft Corporation
 // for SMT-LIB2.
 
 #include "api/z3.h"
+#include "util/debug.h"
 #include <iostream>
 
 void test_print(Z3_context ctx, Z3_ast_vector av) {
@@ -64,26 +65,22 @@ void test_parseprint(char const* spec) {
     Z3_del_context(ctx);
 }
 
+static bool is_error = false;
+void setError(Z3_context c, Z3_error_code e) {
+    is_error = true;
+}
+
 void test_eval(Z3_context ctx, Z3_string spec, bool shouldFail) {
     std::cout << "spec:\n" << spec << "\n";
 
     std::string resp;
-    bool failed = false;
-    try {
-        resp = Z3_eval_smtlib2_string(ctx, spec);
-    }
-    catch (std::runtime_error& e) {
-        resp = e.what();
-        failed = true;
-    }
-    catch (...) {
-        resp = "unknown exception";
-        failed = true;
-    }
+    is_error = false;
+    resp = Z3_eval_smtlib2_string(ctx, spec);
 
-    std::cout << "response:\n" << resp << "\n";
+    if (!is_error)
+        std::cout << "response:\n" << resp << "\n";
 
-    if (shouldFail != failed) {
+    if (shouldFail != is_error) {
         if (shouldFail)
             throw std::runtime_error("should have failed");
         else
@@ -91,9 +88,6 @@ void test_eval(Z3_context ctx, Z3_string spec, bool shouldFail) {
     }
 }
 
-void throwError(Z3_context c, Z3_error_code e) {
-    throw std::runtime_error(Z3_get_error_msg(c, e));
-}
 
 void test_repeated_eval() {
     // Z3_eval_smtlib2_string reuses the parser and the scanner
@@ -142,7 +136,7 @@ void test_repeated_eval() {
         "(pop)\n";
 
     Z3_context ctx = Z3_mk_context(nullptr);
-    Z3_set_error_handler(ctx, throwError);
+    Z3_set_error_handler(ctx, setError);
     std::cout << "testing Z3_eval_smtlib2_string\n";
 
     try {
@@ -164,6 +158,70 @@ void test_repeated_eval() {
     std::cout << "done evaluating\n";
 
     Z3_del_context(ctx);
+}
+
+void test_name(Z3_string spec, Z3_string expected_name) {
+    Z3_context ctx = Z3_mk_context(nullptr);
+    Z3_set_error_handler(ctx, setError);
+    std::cout << "spec:\n" << spec << "\n";
+    is_error = false;
+
+    Z3_ast_vector a =
+        Z3_parse_smtlib2_string(ctx,
+                                spec,
+                                0,
+                                nullptr,
+                                nullptr,
+                                0,
+                                nullptr,
+                                nullptr);
+
+    std::cout << "done parsing\n";
+    ENSURE(is_error == (expected_name == nullptr));
+    if (is_error) {
+        Z3_del_context(ctx);
+        return;
+    }
+    Z3_ast_vector_inc_ref(ctx, a);
+
+    ENSURE(Z3_ast_vector_size(ctx, a) == 1)
+    Z3_ast c = Z3_ast_vector_get(ctx, a, 0);
+    Z3_inc_ref(ctx, c);
+    Z3_app app = Z3_to_app(ctx, c);
+    Z3_func_decl decl = Z3_get_app_decl(ctx, app);
+    Z3_symbol symbol = Z3_get_decl_name(ctx, decl);
+    Z3_string name = Z3_get_symbol_string(ctx, symbol);
+    bool success = std::string(name) == std::string(expected_name);
+    Z3_dec_ref(ctx, c);
+    Z3_ast_vector_dec_ref(ctx, a);
+    Z3_del_context(ctx);
+    ENSURE(success);
+}
+
+void test_symbol_escape() {
+
+#define SYMBOL_ASSERTION(N)            \
+        "(declare-const " N " Bool)\n" \
+        "(assert " N ")\n"             \
+        "(check-sat)\n"
+
+    std::cout << "testing Z3_eval_smtlib2_string\n";
+
+    try {
+        test_name(SYMBOL_ASSERTION("|a|"), "a");
+        test_name(SYMBOL_ASSERTION("|a\\|"), nullptr);
+        test_name(SYMBOL_ASSERTION("|a\\||"), "a|");
+        test_name(SYMBOL_ASSERTION("|a\\\\|"), "a\\");
+        test_name(SYMBOL_ASSERTION("|a\\\\||"), nullptr);
+        test_name(SYMBOL_ASSERTION("|a\\a|"), "a\\a");
+        test_name(SYMBOL_ASSERTION("|a\\a"), nullptr);
+    }
+    catch(...) {
+        std::cout << "Error: uncaught exception\n";
+        throw;
+    }
+
+    std::cout << "done evaluating\n";
 }
 
 void tst_smt2print_parse() {
@@ -231,5 +289,7 @@ void tst_smt2print_parse() {
     // Test ?
 
     test_repeated_eval();
+
+    test_symbol_escape();
 
 }

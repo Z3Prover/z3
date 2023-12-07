@@ -24,13 +24,15 @@ def mk_dir(d):
 os_info = {  'ubuntu-latest' : ('so', 'linux-x64'),
              'ubuntu-18' : ('so', 'linux-x64'),
              'ubuntu-20' : ('so', 'linux-x64'),
-             'glibc' : ('so', 'linux-x64'),
-             #'glibc-2.35' : ('so', 'linux-x64'),
+             'x64-glibc-2.35' : ('so', 'linux-x64'),
              'x64-win' : ('dll', 'win-x64'),
              'x86-win' : ('dll', 'win-x86'),
              'x64-osx' : ('dylib', 'osx-x64'),
-             'arm64-osx' : ('dylib', 'osx-arm64'),
              'debian' : ('so', 'linux-x64') }
+
+# Nuget not supported for ARM
+#'arm-glibc-2.35' : ('so', 'linux-arm64'),
+#'arm64-osx' : ('dylib', 'osx-arm64'),
 
         
 
@@ -87,6 +89,11 @@ def mk_icon(source_root):
     mk_dir("out/content")
     shutil.copy(f"{source_root}/resources/icon.jpg", "out/content/icon.jpg")
 
+def mk_readme(source_root):
+    mk_dir("out/content")
+    shutil.copy(f"{source_root}/src/api/dotnet/README.md", "out/README.md")
+
+
     
 def create_nuget_spec(version, repo, branch, commit, symbols, arch):
     arch = f".{arch}" if arch == "x86" else ""
@@ -142,6 +149,7 @@ class Env:
         unpack(self.packages, self.symbols, self.arch)
         mk_targets(self.source_root)
         mk_icon(self.source_root)
+#       mk_readme(self.source_root)
         create_nuget_spec(self.version, self.repo, self.branch, self.commit, self.symbols, self.arch)
         
 def main():

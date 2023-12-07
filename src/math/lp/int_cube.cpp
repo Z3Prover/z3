@@ -15,7 +15,6 @@ Author:
 
 Revision History:
 --*/
-// clang-format off
 
 #include "math/lp/int_solver.h"
 #include "math/lp/lar_solver.h"
@@ -44,7 +43,7 @@ namespace lp {
         if (st != lp_status::FEASIBLE && st != lp_status::OPTIMAL) {
             TRACE("cube", tout << "cannot find a feasible solution";);
             lra.pop();
-            lra.move_non_basic_columns_to_bounds(false);
+            lra.move_non_basic_columns_to_bounds();
             // it can happen that we found an integer solution here
             return !lra.r_basis_has_inf_int()? lia_move::sat: lia_move::undef;
         }

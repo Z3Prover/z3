@@ -102,14 +102,11 @@ namespace datalog {
         // set to false each unreached predicate 
         if (res && m_context.get_model_converter()) {
             generic_model_converter* mc0 = alloc(generic_model_converter, m, "dl_coi");
-            for (auto const& kv : engine) {
-                if (!kv.m_value.is_reachable()) {
+            for (auto const& kv : engine) 
+                if (!kv.m_value.is_reachable()) 
                     unreachable.insert(kv.m_key);
-                }
-            }
-            for (func_decl* f : unreachable) {
+            for (func_decl* f : unreachable) 
                 mc0->add(f, m.mk_false());
-            }
             m_context.add_model_converter(mc0);
             TRACE("dl", m_context.get_model_converter()->display(tout););
         }

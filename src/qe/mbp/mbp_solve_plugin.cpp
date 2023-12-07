@@ -248,30 +248,80 @@ namespace mbp {
             return false;
         }
 
+        // returns `true` if a rewritting happened
+        bool try_int_mul_solve(expr *atom, bool is_pos, expr_ref &res) {
+
+            if (!is_pos)
+                return false; // negation of multiplication is not a cube for
+                              // integers
+
+            // we want k*y == x -----> y = x div k && x mod k == 0
+            expr *lhs = nullptr, *rhs = nullptr;
+            if (!m.is_eq(atom, lhs, rhs)) return false;
+
+            if (!a.is_int(lhs)) { return false; }
+
+            if (!a.is_mul(rhs)) {
+                if (a.is_mul(lhs))
+                    std::swap(lhs, rhs);
+                else
+                    return false; // no muls
+            }
+
+            // of the form v = k*expr
+            expr *first = nullptr, *second = nullptr;
+            if (!a.is_mul(rhs, first, second)) return false;
+
+            if (!(is_app(first) && a.plugin().is_value(to_app(first)))) {
+                if (is_app(second) && a.plugin().is_value(to_app(second))) {
+                    std::swap(first, second);
+                } else {
+                    return false;
+                }
+            }
+
+            if (a.is_zero(first)) {
+                // SASSERT(a.is_int(lhs));
+                res = m.mk_eq(lhs, a.mk_int(0));
+                return true;
+            };
+
+            // `first` is a value, different from 0
+            res = m.mk_and(m.mk_eq(second, a.mk_idiv(lhs, first)),
+                           m.mk_eq(a.mk_int(0), a.mk_mod(lhs, first)));
+
+            return true;
+        }
+
         expr_ref solve(expr* atom, bool is_pos) override {
-            expr *e1, *e2;
 
-            expr_ref res(atom, m);
-            if (m.is_eq (atom, e1, e2)) {
-                expr_ref v(m), t(m);
-                v = e1; t = e2;
-                // -- attempt to solve using arithmetic
-                solve(e1, e2, v, t);
-                // -- normalize equality
-                res = mk_eq_core(v, t);
-            }
-            else if (a.is_le(atom, e1, e2)) {
-                mk_le_core(e1, e2, res);
-            }
-            else if (a.is_ge(atom, e1, e2)) {
-                mk_ge_core(e1, e2, res);
-            }
+          expr_ref res(atom, m);
 
-            // restore negation
-            if (!is_pos) {
-                res = mk_not(m, res);
-            }
-            return res;
+          if (try_int_mul_solve(atom, is_pos, res)) return res;
+
+          expr *e1, *e2;
+
+          if (m.is_eq(atom, e1, e2)) {
+            expr_ref v(m), t(m);
+            v = e1;
+            t = e2;
+            // -- attempt to solve using arithmetic
+            solve(e1, e2, v, t);
+            // -- normalize equality
+            res = mk_eq_core(v, t);
+          }
+          else if (a.is_le(atom, e1, e2)) {
+            mk_le_core(e1, e2, res);
+          }
+          else if (a.is_ge(atom, e1, e2)) {
+            mk_ge_core(e1, e2, res);
+          }
+
+          // restore negation
+          if (!is_pos) {
+            res = mk_not(m, res);
+          }
+          return res;
         }
     };
 

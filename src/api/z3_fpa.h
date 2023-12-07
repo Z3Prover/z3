@@ -32,6 +32,12 @@ extern "C" {
 
         \param c logical context
 
+        \sa Z3_mk_fpa_round_nearest_ties_to_away or Z3_mk_fpa_rna
+        \sa Z3_mk_fpa_round_nearest_ties_to_even or Z3_mk_fpa_rne
+        \sa Z3_mk_fpa_round_toward_negative or Z3_mk_fpa_rtn
+        \sa Z3_mk_fpa_round_toward_positive or Z3_mk_fpa_rtp
+        \sa Z3_mk_fpa_round_toward_zero or Z3_mk_fpa_rtz
+
         def_API('Z3_mk_fpa_rounding_mode_sort', SORT, (_in(CONTEXT),))
     */
     Z3_sort Z3_API Z3_mk_fpa_rounding_mode_sort(Z3_context c);
@@ -39,7 +45,15 @@ extern "C" {
     /**
         \brief Create a numeral of RoundingMode sort which represents the NearestTiesToEven rounding mode.
 
+        This is the same as #Z3_mk_fpa_rne.
+
         \param c logical context
+
+        \sa Z3_mk_fpa_rounding_mode_sort
+        \sa Z3_mk_fpa_round_nearest_ties_to_away
+        \sa Z3_mk_fpa_round_toward_negative
+        \sa Z3_mk_fpa_round_toward_positive
+        \sa Z3_mk_fpa_round_toward_zero
 
         def_API('Z3_mk_fpa_round_nearest_ties_to_even', AST, (_in(CONTEXT),))
     */
@@ -48,7 +62,15 @@ extern "C" {
     /**
         \brief Create a numeral of RoundingMode sort which represents the NearestTiesToEven rounding mode.
 
+        This is the same as #Z3_mk_fpa_round_nearest_ties_to_even.
+
         \param c logical context
+
+        \sa Z3_mk_fpa_rounding_mode_sort
+        \sa Z3_mk_fpa_rna
+        \sa Z3_mk_fpa_rtn
+        \sa Z3_mk_fpa_rtp
+        \sa Z3_mk_fpa_rtz
 
         def_API('Z3_mk_fpa_rne', AST, (_in(CONTEXT),))
     */
@@ -57,7 +79,15 @@ extern "C" {
     /**
         \brief Create a numeral of RoundingMode sort which represents the NearestTiesToAway rounding mode.
 
+        This is the same as #Z3_mk_fpa_rna.
+
         \param c logical context
+
+        \sa Z3_mk_fpa_rounding_mode_sort
+        \sa Z3_mk_fpa_round_nearest_ties_to_even
+        \sa Z3_mk_fpa_round_toward_negative
+        \sa Z3_mk_fpa_round_toward_positive
+        \sa Z3_mk_fpa_round_toward_zero
 
         def_API('Z3_mk_fpa_round_nearest_ties_to_away', AST, (_in(CONTEXT),))
     */
@@ -66,7 +96,15 @@ extern "C" {
     /**
         \brief Create a numeral of RoundingMode sort which represents the NearestTiesToAway rounding mode.
 
+        This is the same as #Z3_mk_fpa_round_nearest_ties_to_away.
+
         \param c logical context
+
+        \sa Z3_mk_fpa_rounding_mode_sort
+        \sa Z3_mk_fpa_rne
+        \sa Z3_mk_fpa_rtn
+        \sa Z3_mk_fpa_rtp
+        \sa Z3_mk_fpa_rtz
 
         def_API('Z3_mk_fpa_rna', AST, (_in(CONTEXT),))
     */
@@ -75,7 +113,15 @@ extern "C" {
     /**
         \brief Create a numeral of RoundingMode sort which represents the TowardPositive rounding mode.
 
+        This is the same as #Z3_mk_fpa_rtp.
+
         \param c logical context
+
+        \sa Z3_mk_fpa_rounding_mode_sort
+        \sa Z3_mk_fpa_round_nearest_ties_to_away
+        \sa Z3_mk_fpa_round_nearest_ties_to_even
+        \sa Z3_mk_fpa_round_toward_negative
+        \sa Z3_mk_fpa_round_toward_zero
 
         def_API('Z3_mk_fpa_round_toward_positive', AST, (_in(CONTEXT),))
     */
@@ -84,7 +130,15 @@ extern "C" {
     /**
         \brief Create a numeral of RoundingMode sort which represents the TowardPositive rounding mode.
 
+        This is the same as #Z3_mk_fpa_round_toward_positive.
+
         \param c logical context
+
+        \sa Z3_mk_fpa_rounding_mode_sort
+        \sa Z3_mk_fpa_rna
+        \sa Z3_mk_fpa_rne
+        \sa Z3_mk_fpa_rtn
+        \sa Z3_mk_fpa_rtz
 
         def_API('Z3_mk_fpa_rtp', AST, (_in(CONTEXT),))
     */
@@ -93,7 +147,15 @@ extern "C" {
     /**
         \brief Create a numeral of RoundingMode sort which represents the TowardNegative rounding mode.
 
+        This is the same as #Z3_mk_fpa_rtn.
+
         \param c logical context
+
+        \sa Z3_mk_fpa_rounding_mode_sort
+        \sa Z3_mk_fpa_round_nearest_ties_to_away
+        \sa Z3_mk_fpa_round_nearest_ties_to_even
+        \sa Z3_mk_fpa_round_toward_positive
+        \sa Z3_mk_fpa_round_toward_zero
 
         def_API('Z3_mk_fpa_round_toward_negative', AST, (_in(CONTEXT),))
     */
@@ -102,7 +164,15 @@ extern "C" {
     /**
         \brief Create a numeral of RoundingMode sort which represents the TowardNegative rounding mode.
 
+        This is the same as #Z3_mk_fpa_round_toward_negative.
+
         \param c logical context
+
+        \sa Z3_mk_fpa_rounding_mode_sort
+        \sa Z3_mk_fpa_rna
+        \sa Z3_mk_fpa_rne
+        \sa Z3_mk_fpa_rtp
+        \sa Z3_mk_fpa_rtz
 
         def_API('Z3_mk_fpa_rtn', AST, (_in(CONTEXT),))
     */
@@ -111,7 +181,15 @@ extern "C" {
     /**
         \brief Create a numeral of RoundingMode sort which represents the TowardZero rounding mode.
 
+        This is the same as #Z3_mk_fpa_rtz.
+
         \param c logical context
+
+        \sa Z3_mk_fpa_rounding_mode_sort
+        \sa Z3_mk_fpa_round_nearest_ties_to_away
+        \sa Z3_mk_fpa_round_nearest_ties_to_even
+        \sa Z3_mk_fpa_round_toward_negative
+        \sa Z3_mk_fpa_round_toward_positive
 
         def_API('Z3_mk_fpa_round_toward_zero', AST, (_in(CONTEXT),))
     */
@@ -120,7 +198,15 @@ extern "C" {
     /**
         \brief Create a numeral of RoundingMode sort which represents the TowardZero rounding mode.
 
+        This is the same as #Z3_mk_fpa_round_toward_zero.
+
         \param c logical context
+
+        \sa Z3_mk_fpa_rounding_mode_sort
+        \sa Z3_mk_fpa_rna
+        \sa Z3_mk_fpa_rne
+        \sa Z3_mk_fpa_rtn
+        \sa Z3_mk_fpa_rtp
 
         def_API('Z3_mk_fpa_rtz', AST, (_in(CONTEXT),))
     */
@@ -135,6 +221,11 @@ extern "C" {
 
         \remark \c ebits must be larger than 1 and \c sbits must be larger than 2.
 
+        \sa Z3_mk_fpa_sort_half or Z3_mk_fpa_sort_16
+        \sa Z3_mk_fpa_sort_single or Z3_mk_fpa_sort_32
+        \sa Z3_mk_fpa_sort_double or Z3_mk_fpa_sort_64
+        \sa Z3_mk_fpa_sort_quadruple or Z3_mk_fpa_sort_128
+
         def_API('Z3_mk_fpa_sort', SORT, (_in(CONTEXT), _in(UINT), _in(UINT)))
     */
     Z3_sort Z3_API Z3_mk_fpa_sort(Z3_context c, unsigned ebits, unsigned sbits);
@@ -142,7 +233,14 @@ extern "C" {
     /**
         \brief Create the half-precision (16-bit) FloatingPoint sort.
 
+        This is the same as #Z3_mk_fpa_sort_16.
+
         \param c logical context
+
+        \sa Z3_mk_fpa_sort
+        \sa Z3_mk_fpa_sort_single
+        \sa Z3_mk_fpa_sort_double
+        \sa Z3_mk_fpa_sort_quadruple
 
         def_API('Z3_mk_fpa_sort_half', SORT, (_in(CONTEXT),))
     */
@@ -151,7 +249,14 @@ extern "C" {
     /**
         \brief Create the half-precision (16-bit) FloatingPoint sort.
 
+        This is the same as #Z3_mk_fpa_sort_half.
+
         \param c logical context
+
+        \sa Z3_mk_fpa_sort
+        \sa Z3_mk_fpa_sort_32
+        \sa Z3_mk_fpa_sort_64
+        \sa Z3_mk_fpa_sort_128
 
         def_API('Z3_mk_fpa_sort_16', SORT, (_in(CONTEXT),))
     */
@@ -160,7 +265,14 @@ extern "C" {
     /**
         \brief Create the single-precision (32-bit) FloatingPoint sort.
 
+        This is the same as #Z3_mk_fpa_sort_32.
+
         \param c logical context.
+
+        \sa Z3_mk_fpa_sort
+        \sa Z3_mk_fpa_sort_half
+        \sa Z3_mk_fpa_sort_double
+        \sa Z3_mk_fpa_sort_quadruple
 
         def_API('Z3_mk_fpa_sort_single', SORT, (_in(CONTEXT),))
     */
@@ -169,7 +281,14 @@ extern "C" {
     /**
         \brief Create the single-precision (32-bit) FloatingPoint sort.
 
+        This is the same as #Z3_mk_fpa_sort_single.
+
         \param c logical context
+
+        \sa Z3_mk_fpa_sort
+        \sa Z3_mk_fpa_sort_16
+        \sa Z3_mk_fpa_sort_64
+        \sa Z3_mk_fpa_sort_128
 
         def_API('Z3_mk_fpa_sort_32', SORT, (_in(CONTEXT),))
     */
@@ -178,7 +297,14 @@ extern "C" {
     /**
         \brief Create the double-precision (64-bit) FloatingPoint sort.
 
+        This is the same as #Z3_mk_fpa_sort_64.
+
         \param c logical context
+
+        \sa Z3_mk_fpa_sort
+        \sa Z3_mk_fpa_sort_half
+        \sa Z3_mk_fpa_sort_single
+        \sa Z3_mk_fpa_sort_quadruple
 
         def_API('Z3_mk_fpa_sort_double', SORT, (_in(CONTEXT),))
     */
@@ -187,7 +313,14 @@ extern "C" {
     /**
         \brief Create the double-precision (64-bit) FloatingPoint sort.
 
+        This is the same as #Z3_mk_fpa_sort_double.
+
         \param c logical context
+
+        \sa Z3_mk_fpa_sort
+        \sa Z3_mk_fpa_sort_16
+        \sa Z3_mk_fpa_sort_32
+        \sa Z3_mk_fpa_sort_128
 
         def_API('Z3_mk_fpa_sort_64', SORT, (_in(CONTEXT),))
     */
@@ -196,7 +329,14 @@ extern "C" {
     /**
         \brief Create the quadruple-precision (128-bit) FloatingPoint sort.
 
+        This is the same as #Z3_mk_fpa_sort_128.
+
         \param c logical context
+
+        \sa Z3_mk_fpa_sort
+        \sa Z3_mk_fpa_sort_half
+        \sa Z3_mk_fpa_sort_single
+        \sa Z3_mk_fpa_sort_double
 
         def_API('Z3_mk_fpa_sort_quadruple', SORT, (_in(CONTEXT),))
     */
@@ -205,7 +345,14 @@ extern "C" {
     /**
         \brief Create the quadruple-precision (128-bit) FloatingPoint sort.
 
+        This is the same as #Z3_mk_fpa_sort_quadruple.
+
         \param c logical context
+
+        \sa Z3_mk_fpa_sort
+        \sa Z3_mk_fpa_sort_16
+        \sa Z3_mk_fpa_sort_32
+        \sa Z3_mk_fpa_sort_64
 
         def_API('Z3_mk_fpa_sort_128', SORT, (_in(CONTEXT),))
     */
@@ -218,6 +365,7 @@ extern "C" {
         \param s target sort
 
         \sa Z3_mk_fpa_inf
+        \sa Z3_mk_fpa_is_nan
         \sa Z3_mk_fpa_zero
 
         def_API('Z3_mk_fpa_nan', AST, (_in(CONTEXT),_in(SORT)))
@@ -233,6 +381,7 @@ extern "C" {
 
         When \c negative is \c true, -oo will be generated instead of +oo.
 
+        \sa Z3_mk_fpa_is_infinite
         \sa Z3_mk_fpa_nan
         \sa Z3_mk_fpa_zero
 
@@ -250,6 +399,7 @@ extern "C" {
         When \c negative is \c true, -zero will be generated instead of +zero.
 
         \sa Z3_mk_fpa_inf
+        \sa Z3_mk_fpa_is_zero
         \sa Z3_mk_fpa_nan
 
         def_API('Z3_mk_fpa_zero', AST, (_in(CONTEXT),_in(SORT),_in(BOOL)))
@@ -397,6 +547,10 @@ extern "C" {
         \param c logical context
         \param t term of FloatingPoint sort
 
+        \sa Z3_mk_fpa_is_negative
+        \sa Z3_mk_fpa_is_positive
+        \sa Z3_mk_fpa_neg
+
         def_API('Z3_mk_fpa_abs', AST, (_in(CONTEXT),_in(AST)))
     */
     Z3_ast Z3_API Z3_mk_fpa_abs(Z3_context c, Z3_ast t);
@@ -406,6 +560,10 @@ extern "C" {
 
         \param c logical context
         \param t term of FloatingPoint sort
+
+        \sa Z3_mk_fpa_abs
+        \sa Z3_mk_fpa_is_negative
+        \sa Z3_mk_fpa_is_positive
 
         def_API('Z3_mk_fpa_neg', AST, (_in(CONTEXT),_in(AST)))
     */
@@ -533,6 +691,8 @@ extern "C" {
 
         \c t1, \c t2 must have the same FloatingPoint sort.
 
+        \sa Z3_mk_fpa_max
+
         def_API('Z3_mk_fpa_min', AST, (_in(CONTEXT),_in(AST),_in(AST)))
     */
     Z3_ast Z3_API Z3_mk_fpa_min(Z3_context c, Z3_ast t1, Z3_ast t2);
@@ -545,6 +705,8 @@ extern "C" {
         \param t2 term of FloatingPoint sort
 
         \c t1, \c t2 must have the same FloatingPoint sort.
+
+        \sa Z3_mk_fpa_min
 
         def_API('Z3_mk_fpa_max', AST, (_in(CONTEXT),_in(AST),_in(AST)))
     */
@@ -559,6 +721,11 @@ extern "C" {
 
         \c t1 and \c t2 must have the same FloatingPoint sort.
 
+        \sa Z3_mk_fpa_eq
+        \sa Z3_mk_fpa_geq
+        \sa Z3_mk_fpa_gt
+        \sa Z3_mk_fpa_lt
+
         def_API('Z3_mk_fpa_leq', AST, (_in(CONTEXT),_in(AST),_in(AST)))
     */
     Z3_ast Z3_API Z3_mk_fpa_leq(Z3_context c, Z3_ast t1, Z3_ast t2);
@@ -571,6 +738,11 @@ extern "C" {
         \param t2 term of FloatingPoint sort
 
         \c t1 and \c t2 must have the same FloatingPoint sort.
+
+        \sa Z3_mk_fpa_eq
+        \sa Z3_mk_fpa_geq
+        \sa Z3_mk_fpa_gt
+        \sa Z3_mk_fpa_leq
 
         def_API('Z3_mk_fpa_lt', AST, (_in(CONTEXT),_in(AST),_in(AST)))
     */
@@ -585,6 +757,11 @@ extern "C" {
 
         \c t1 and \c t2 must have the same FloatingPoint sort.
 
+        \sa Z3_mk_fpa_eq
+        \sa Z3_mk_fpa_gt
+        \sa Z3_mk_fpa_leq
+        \sa Z3_mk_fpa_lt
+
         def_API('Z3_mk_fpa_geq', AST, (_in(CONTEXT),_in(AST),_in(AST)))
     */
     Z3_ast Z3_API Z3_mk_fpa_geq(Z3_context c, Z3_ast t1, Z3_ast t2);
@@ -597,6 +774,11 @@ extern "C" {
         \param t2 term of FloatingPoint sort
 
         \c t1 and \c t2 must have the same FloatingPoint sort.
+
+        \sa Z3_mk_fpa_eq
+        \sa Z3_mk_fpa_geq
+        \sa Z3_mk_fpa_leq
+        \sa Z3_mk_fpa_lt
 
         def_API('Z3_mk_fpa_gt', AST, (_in(CONTEXT),_in(AST),_in(AST)))
     */
@@ -613,6 +795,11 @@ extern "C" {
 
         \c t1 and \c t2 must have the same FloatingPoint sort.
 
+        \sa Z3_mk_fpa_geq
+        \sa Z3_mk_fpa_gt
+        \sa Z3_mk_fpa_leq
+        \sa Z3_mk_fpa_lt
+
         def_API('Z3_mk_fpa_eq', AST, (_in(CONTEXT),_in(AST),_in(AST)))
     */
     Z3_ast Z3_API Z3_mk_fpa_eq(Z3_context c, Z3_ast t1, Z3_ast t2);
@@ -624,6 +811,11 @@ extern "C" {
         \param t term of FloatingPoint sort
 
         \c t must have FloatingPoint sort.
+
+        \sa Z3_mk_fpa_is_infinite
+        \sa Z3_mk_fpa_is_nan
+        \sa Z3_mk_fpa_is_subnormal
+        \sa Z3_mk_fpa_is_zero
 
         def_API('Z3_mk_fpa_is_normal', AST, (_in(CONTEXT),_in(AST)))
     */
@@ -637,6 +829,11 @@ extern "C" {
 
         \c t must have FloatingPoint sort.
 
+        \sa Z3_mk_fpa_is_infinite
+        \sa Z3_mk_fpa_is_nan
+        \sa Z3_mk_fpa_is_normal
+        \sa Z3_mk_fpa_is_zero
+
         def_API('Z3_mk_fpa_is_subnormal', AST, (_in(CONTEXT),_in(AST)))
     */
     Z3_ast Z3_API Z3_mk_fpa_is_subnormal(Z3_context c, Z3_ast t);
@@ -648,6 +845,12 @@ extern "C" {
         \param t term of FloatingPoint sort
 
         \c t must have FloatingPoint sort.
+
+        \sa Z3_mk_fpa_is_infinite
+        \sa Z3_mk_fpa_is_nan
+        \sa Z3_mk_fpa_is_normal
+        \sa Z3_mk_fpa_is_subnormal
+        \sa Z3_mk_fpa_zero
 
         def_API('Z3_mk_fpa_is_zero', AST, (_in(CONTEXT),_in(AST)))
     */
@@ -661,6 +864,12 @@ extern "C" {
 
         \c t must have FloatingPoint sort.
 
+        \sa Z3_mk_fpa_inf
+        \sa Z3_mk_fpa_is_nan
+        \sa Z3_mk_fpa_is_normal
+        \sa Z3_mk_fpa_is_subnormal
+        \sa Z3_mk_fpa_is_zero
+
         def_API('Z3_mk_fpa_is_infinite', AST, (_in(CONTEXT),_in(AST)))
     */
     Z3_ast Z3_API Z3_mk_fpa_is_infinite(Z3_context c, Z3_ast t);
@@ -672,6 +881,12 @@ extern "C" {
         \param t term of FloatingPoint sort
 
         \c t must have FloatingPoint sort.
+
+        \sa Z3_mk_fpa_is_infinite
+        \sa Z3_mk_fpa_is_normal
+        \sa Z3_mk_fpa_is_subnormal
+        \sa Z3_mk_fpa_is_zero
+        \sa Z3_mk_fpa_nan
 
         def_API('Z3_mk_fpa_is_nan', AST, (_in(CONTEXT),_in(AST)))
     */
@@ -685,6 +900,10 @@ extern "C" {
 
         \c t must have FloatingPoint sort.
 
+        \sa Z3_mk_fpa_abs
+        \sa Z3_mk_fpa_is_positive
+        \sa Z3_mk_fpa_neg
+
         def_API('Z3_mk_fpa_is_negative', AST, (_in(CONTEXT),_in(AST)))
     */
     Z3_ast Z3_API Z3_mk_fpa_is_negative(Z3_context c, Z3_ast t);
@@ -696,6 +915,10 @@ extern "C" {
         \param t term of FloatingPoint sort
 
         \c t must have FloatingPoint sort.
+
+        \sa Z3_mk_fpa_abs
+        \sa Z3_mk_fpa_is_negative
+        \sa Z3_mk_fpa_neg
 
         def_API('Z3_mk_fpa_is_positive', AST, (_in(CONTEXT),_in(AST)))
     */
@@ -848,6 +1071,8 @@ extern "C" {
         \param c logical context
         \param s FloatingPoint sort
 
+        \sa Z3_fpa_get_sbits
+
         def_API('Z3_fpa_get_ebits', UINT, (_in(CONTEXT),_in(SORT)))
     */
     unsigned Z3_API Z3_fpa_get_ebits(Z3_context c, Z3_sort s);
@@ -857,6 +1082,8 @@ extern "C" {
 
         \param c logical context
         \param s FloatingPoint sort
+
+        \sa Z3_fpa_get_ebits
 
         def_API('Z3_fpa_get_sbits', UINT, (_in(CONTEXT),_in(SORT)))
     */
@@ -868,6 +1095,11 @@ extern "C" {
         \param c logical context
         \param t a floating-point numeral
 
+        \sa Z3_fpa_is_numeral_inf
+        \sa Z3_fpa_is_numeral_normal
+        \sa Z3_fpa_is_numeral_subnormal
+        \sa Z3_fpa_is_numeral_zero
+
         def_API('Z3_fpa_is_numeral_nan', BOOL, (_in(CONTEXT), _in(AST)))
     */
     bool Z3_API Z3_fpa_is_numeral_nan(Z3_context c, Z3_ast t);
@@ -877,6 +1109,11 @@ extern "C" {
 
         \param c logical context
         \param t a floating-point numeral
+
+        \sa Z3_fpa_is_numeral_nan
+        \sa Z3_fpa_is_numeral_normal
+        \sa Z3_fpa_is_numeral_subnormal
+        \sa Z3_fpa_is_numeral_zero
 
         def_API('Z3_fpa_is_numeral_inf', BOOL, (_in(CONTEXT), _in(AST)))
     */
@@ -888,6 +1125,11 @@ extern "C" {
         \param c logical context
         \param t a floating-point numeral
 
+        \sa Z3_fpa_is_numeral_inf
+        \sa Z3_fpa_is_numeral_nan
+        \sa Z3_fpa_is_numeral_normal
+        \sa Z3_fpa_is_numeral_subnormal
+
         def_API('Z3_fpa_is_numeral_zero', BOOL, (_in(CONTEXT), _in(AST)))
     */
     bool Z3_API Z3_fpa_is_numeral_zero(Z3_context c, Z3_ast t);
@@ -897,6 +1139,11 @@ extern "C" {
 
         \param c logical context
         \param t a floating-point numeral
+
+        \sa Z3_fpa_is_numeral_inf
+        \sa Z3_fpa_is_numeral_nan
+        \sa Z3_fpa_is_numeral_subnormal
+        \sa Z3_fpa_is_numeral_zero
 
         def_API('Z3_fpa_is_numeral_normal', BOOL, (_in(CONTEXT), _in(AST)))
     */
@@ -908,6 +1155,11 @@ extern "C" {
         \param c logical context
         \param t a floating-point numeral
 
+        \sa Z3_fpa_is_numeral_inf
+        \sa Z3_fpa_is_numeral_nan
+        \sa Z3_fpa_is_numeral_normal
+        \sa Z3_fpa_is_numeral_zero
+
         def_API('Z3_fpa_is_numeral_subnormal', BOOL, (_in(CONTEXT), _in(AST)))
     */
     bool Z3_API Z3_fpa_is_numeral_subnormal(Z3_context c, Z3_ast t);
@@ -918,6 +1170,8 @@ extern "C" {
         \param c logical context
         \param t a floating-point numeral
 
+        \sa Z3_fpa_is_numeral_negative
+
         def_API('Z3_fpa_is_numeral_positive', BOOL, (_in(CONTEXT), _in(AST)))
     */
     bool Z3_API Z3_fpa_is_numeral_positive(Z3_context c, Z3_ast t);
@@ -927,6 +1181,8 @@ extern "C" {
 
         \param c logical context
         \param t a floating-point numeral
+
+        \sa Z3_fpa_is_numeral_positive
 
         def_API('Z3_fpa_is_numeral_negative', BOOL, (_in(CONTEXT), _in(AST)))
     */

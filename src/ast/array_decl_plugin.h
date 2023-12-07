@@ -137,6 +137,8 @@ class array_decl_plugin : public decl_plugin {
 
     bool is_value(app * e) const override;
 
+    bool is_unique_value(app* e) const override;
+
 };
 
 class array_recognizers {
@@ -184,6 +186,21 @@ public:
 
     bool is_store_ext(expr* e, expr_ref& a, expr_ref_vector& args, expr_ref& value);
 
+
+    bool is_select1(expr* n) const { return is_select(n) && to_app(n)->get_num_args() == 2; }
+    
+    bool is_select1(expr* n, expr*& a, expr*& i) const {
+        return is_select1(n) && (a = to_app(n)->get_arg(0), i = to_app(n)->get_arg(1), true);
+    }
+
+    bool is_store1(expr* n) const { return is_store(n) && to_app(n)->get_num_args() == 3; }
+    
+    bool is_store1(expr* n, expr*& a, expr*& i, expr*& v) const {
+        app* _n;
+        return is_store1(n) && (_n = to_app(n), a = _n->get_arg(0), i = _n->get_arg(1), v = _n->get_arg(2), true);
+    }
+
+
     MATCH_BINARY(is_subset);
 };
 
@@ -209,6 +226,11 @@ public:
 
     app* mk_store(ptr_buffer<expr> const& args) const {
         return mk_store(args.size(), args.data());
+    }
+
+    app * mk_select(expr* a, expr* i) const {
+        expr* args[2] = { a, i };
+        return mk_select(2, args);
     }
 
     app * mk_select(unsigned num_args, expr * const * args) const {

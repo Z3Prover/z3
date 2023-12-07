@@ -913,34 +913,38 @@ void mpf_manager::fma(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf co
 
         TRACE("mpf_dbg", tout << "R*= " << to_string_binary(res, 2, 0) << " (renormalized, delta=" << renorm_delta << ")" << std::endl;);
 
-        if (exp(res) <= mk_max_exp(x.ebits))
-        {
-            set(o, x.ebits, x.sbits, res.sign(), res.exponent(), mpz(0));
+        set(o, x.ebits, x.sbits, res.sign(), res.exponent(), mpz(0));
 
-            if (x.sbits >= 4) {
-                m_mpz_manager.machine_div_rem(res.significand(), m_powers2(x.sbits - 4 + 3), o.significand, sticky_rem);
-                renorm_sticky |= !m_mpz_manager.is_zero(sticky_rem);
-            }
-            else {
-                m_mpz_manager.mul2k(res.significand(), 4 - x.sbits + 3, o.significand);
-            }
-
-            if (renorm_sticky && m_mpz_manager.is_even(o.significand))
-                m_mpz_manager.inc(o.significand);
-
-            TRACE("mpf_dbg", tout << "sum[-1:sbits+2] = " << m_mpz_manager.to_string(o.significand) << std::endl;
-                            tout << "R = " << to_string_binary(o, 1, 3) << std::endl;);
-
-            if (m_mpz_manager.is_zero(o.significand))
-                mk_zero(x.ebits, x.sbits, rm == MPF_ROUND_TOWARD_NEGATIVE, o);
-            else
-                round(rm, o);
+        if (x.sbits >= 4) {
+            m_mpz_manager.machine_div_rem(res.significand(), m_powers2(x.sbits - 4 + 3), o.significand, sticky_rem);
+            renorm_sticky |= !m_mpz_manager.is_zero(sticky_rem);
         }
         else {
-            mk_inf(x.ebits, x.sbits, res.sign(), o);
+            m_mpz_manager.mul2k(res.significand(), 4 - x.sbits + 3, o.significand);
+            o.exponent -= 4 - x.sbits + 3;
         }
+
+        if (renorm_sticky && m_mpz_manager.is_even(o.significand))
+            m_mpz_manager.inc(o.significand);
+
+        TRACE("mpf_dbg", tout << "sum[-1:sbits+2] = " << m_mpz_manager.to_string(o.significand) << std::endl;
+                        tout << "R = " << to_string_binary(o, 1, 3) << std::endl;);
+
+        unsigned max_size = o.sbits+4;
+        unsigned sig_size = m_mpz_manager.bitsize(o.significand);
+        if (sig_size > max_size) {
+            unsigned d = sig_size - max_size;
+            m_mpz_manager.machine_div2k(o.significand, d);
+            o.exponent += d;
+        }
+
+        if (m_mpz_manager.is_zero(o.significand))
+            mk_zero(x.ebits, x.sbits, rm == MPF_ROUND_TOWARD_NEGATIVE, o);
+        else
+            round(rm, o);
     }
 
+    TRACE("mpf_dbg", tout << "FMA = " << to_string(o) << std::endl;);
 }
 
 void my_mpz_sqrt(unsynch_mpz_manager & m, unsigned sbits, bool odd_exp, mpz & in, mpz & o) {

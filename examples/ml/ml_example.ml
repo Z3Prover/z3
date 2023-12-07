@@ -1,4 +1,4 @@
-(* 
+(*
    Copyright (C) 2012 Microsoft Corporation
    Author: CM Wintersteiger (cwinter) 2012-12-17
 *)
@@ -19,7 +19,6 @@ open Z3.Arithmetic.Integer
 open Z3.Arithmetic.Real
 open Z3.BitVector
 
-
 exception TestFailedException of string
 
 (**
@@ -31,14 +30,14 @@ let  model_converter_test ( ctx : context ) =
   let yr = (Expr.mk_const ctx (Symbol.mk_string ctx "y") (Real.mk_sort ctx)) in
   let g4 = (mk_goal ctx true false false ) in
   (Goal.add g4 [ (mk_gt ctx xr (Real.mk_numeral_nd ctx 10 1)) ]) ;
-  (Goal.add g4 [ (mk_eq ctx 
+  (Goal.add g4 [ (mk_eq ctx
 			 yr
 			 (Arithmetic.mk_add ctx [ xr; (Real.mk_numeral_nd ctx 1 1)  ])) ]) ;
   (Goal.add g4 [ (mk_gt ctx yr (Real.mk_numeral_nd ctx 1 1)) ]) ;
   (
     let  ar = (Tactic.apply (mk_tactic ctx "simplify") g4 None) in
-    if ((get_num_subgoals ar) == 1 && 
-	   ((is_decided_sat (get_subgoal ar 0)) ||  
+    if ((get_num_subgoals ar) == 1 &&
+	   ((is_decided_sat (get_subgoal ar 0)) ||
 	       (is_decided_unsat (get_subgoal ar 0)))) then
       raise (TestFailedException "")
     else
@@ -46,8 +45,8 @@ let  model_converter_test ( ctx : context ) =
   );
   (
     let ar = (Tactic.apply (and_then ctx (mk_tactic ctx ("simplify")) (mk_tactic ctx "solve-eqs") []) g4 None) in
-    if ((get_num_subgoals ar) == 1 && 
-	   ((is_decided_sat (get_subgoal ar 0)) ||  
+    if ((get_num_subgoals ar) == 1 &&
+	   ((is_decided_sat (get_subgoal ar 0)) ||
 	       (is_decided_unsat (get_subgoal ar 0)))) then
       raise (TestFailedException "")
     else
@@ -57,15 +56,15 @@ let  model_converter_test ( ctx : context ) =
     let f e = (Solver.add solver [ e ]) in
     ignore (List.map f (get_formulas (get_subgoal ar 0))) ;
     let q = (check solver []) in
-    if q != SATISFIABLE then 
+    if q != SATISFIABLE then
       raise (TestFailedException "")
     else
-      let m = (get_model solver) in    
-      match m with 
+      let m = (get_model solver) in
+      match m with
 	| None -> raise (TestFailedException "")
-	| Some (m) -> 
+	| Some (m) ->
 	  Printf.printf "Solver says: %s\n" (string_of_status q) ;
-	  Printf.printf "Model: \n%s\n" (Model.to_string m) 
+	  Printf.printf "Model: \n%s\n" (Model.to_string m)
   )
 
 (**
@@ -79,7 +78,7 @@ let basic_tests ( ctx : context ) =
   let bs = (Boolean.mk_sort ctx) in
   let domain = [ bs; bs ] in
   let f = (FuncDecl.mk_func_decl ctx fname domain bs) in
-  let fapp = (mk_app ctx f 
+  let fapp = (mk_app ctx f
 		[ (Expr.mk_const ctx x bs); (Expr.mk_const ctx y bs) ]) in
   let fargs2 = [ (mk_fresh_const ctx "cp" bs) ] in
   let domain2 = [ bs ] in
@@ -100,8 +99,8 @@ let basic_tests ( ctx : context ) =
   );
   (
     let ar = (Tactic.apply (mk_tactic ctx "simplify") g None) in
-    if ((get_num_subgoals ar) == 1 && 
-	   ((is_decided_sat (get_subgoal ar 0)) ||  
+    if ((get_num_subgoals ar) == 1 &&
+	   ((is_decided_sat (get_subgoal ar 0)) ||
 	       (is_decided_unsat (get_subgoal ar 0)))) then
       raise (TestFailedException "")
     else
@@ -109,28 +108,28 @@ let basic_tests ( ctx : context ) =
   );
   (
     let ar = (Tactic.apply (mk_tactic ctx "smt") g None) in
-    if ((get_num_subgoals ar) == 1 && 
+    if ((get_num_subgoals ar) == 1 &&
 	   (not (is_decided_sat (get_subgoal ar 0)))) then
       raise (TestFailedException "")
     else
       Printf.printf "Test passed.\n"
   );
-  (Goal.add g [ (mk_eq ctx 
+  (Goal.add g [ (mk_eq ctx
 			(mk_numeral_int ctx 1 (BitVector.mk_sort ctx 32))
 			(mk_numeral_int ctx 2 (BitVector.mk_sort ctx 32))) ] )
   ;
   (
     let ar = (Tactic.apply (mk_tactic ctx "smt") g None) in
-    if ((get_num_subgoals ar) == 1 && 
+    if ((get_num_subgoals ar) == 1 &&
 	   (not (is_decided_unsat (get_subgoal ar 0)))) then
       raise (TestFailedException "")
-    else 
+    else
       Printf.printf "Test passed.\n"
   );
   (
     let g2 = (mk_goal ctx true true false) in
     let ar = (Tactic.apply (mk_tactic ctx "smt") g2 None) in
-    if ((get_num_subgoals ar) == 1 && 
+    if ((get_num_subgoals ar) == 1 &&
 	   (not (is_decided_sat (get_subgoal ar 0)))) then
       raise (TestFailedException "")
     else
@@ -140,10 +139,10 @@ let basic_tests ( ctx : context ) =
     let g2 = (mk_goal ctx true true false) in
     (Goal.add g2 [ (Boolean.mk_false ctx) ]) ;
     let ar = (Tactic.apply (mk_tactic ctx "smt") g2 None) in
-    if ((get_num_subgoals ar) == 1 && 
+    if ((get_num_subgoals ar) == 1 &&
 	   (not (is_decided_unsat (get_subgoal ar 0)))) then
       raise (TestFailedException "")
-    else 
+    else
       Printf.printf "Test passed.\n"
   );
   (
@@ -155,10 +154,10 @@ let basic_tests ( ctx : context ) =
     let constr = (mk_eq ctx xc yc) in
     (Goal.add g3 [ constr ] ) ;
     let ar = (Tactic.apply (mk_tactic ctx "smt") g3 None) in
-    if ((get_num_subgoals ar) == 1 && 
+    if ((get_num_subgoals ar) == 1 &&
 	   (not (is_decided_unsat (get_subgoal ar 0)))) then
       raise (TestFailedException "")
-    else 
+    else
       Printf.printf "Test passed.\n"
   ) ;
   model_converter_test ctx ;
@@ -169,12 +168,12 @@ let basic_tests ( ctx : context ) =
   Printf.printf "Numerator: %s Denominator: %s\n" (Real.numeral_to_string inum) (Real.numeral_to_string iden) ;
   if ((Real.numeral_to_string inum) <> "42" || (Real.numeral_to_string iden) <> "43") then
     raise (TestFailedException "")
-  else 
+  else
     Printf.printf "Test passed.\n"
   ;
   if ((to_decimal_string rn 3) <> "0.976?") then
     raise (TestFailedException "")
-  else 
+  else
     Printf.printf "Test passed.\n"
   ;
   if (to_decimal_string (Real.mk_numeral_s ctx "-1231231232/234234333") 5 <> "-5.25640?") then
@@ -193,7 +192,7 @@ let basic_tests ( ctx : context ) =
     raise (TestFailedException "check")
   )
   with Z3.Error(_) -> (
-    Printf.printf "Exception caught, OK.\n" 
+    Printf.printf "Exception caught, OK.\n"
   )
 
 (**
@@ -212,22 +211,22 @@ let  quantifier_example1 ( ctx : context ) =
   let xs = [ (Integer.mk_const ctx (List.nth names 0));
 	     (Integer.mk_const ctx (List.nth names 1));
 	     (Integer.mk_const ctx (List.nth names 2)) ] in
-  
-  let body_vars = (Boolean.mk_and ctx 
-		     [ (mk_eq ctx 
-			  (Arithmetic.mk_add ctx [ (List.nth vars 0) ; (Integer.mk_numeral_i ctx 1)]) 
+
+  let body_vars = (Boolean.mk_and ctx
+		     [ (mk_eq ctx
+			  (Arithmetic.mk_add ctx [ (List.nth vars 0) ; (Integer.mk_numeral_i ctx 1)])
 			  (Integer.mk_numeral_i ctx 2)) ;
-		       (mk_eq ctx 
+		       (mk_eq ctx
 			  (Arithmetic.mk_add ctx [ (List.nth vars 1); (Integer.mk_numeral_i ctx 2)])
 			  (Arithmetic.mk_add ctx [ (List.nth vars 2); (Integer.mk_numeral_i ctx 3)])) ]) in
   let body_const = (Boolean.mk_and ctx
-		      [ (mk_eq ctx 
-			   (Arithmetic.mk_add ctx [ (List.nth xs 0); (Integer.mk_numeral_i ctx 1)]) 
+		      [ (mk_eq ctx
+			   (Arithmetic.mk_add ctx [ (List.nth xs 0); (Integer.mk_numeral_i ctx 1)])
 			   (Integer.mk_numeral_i ctx 2)) ;
-			(mk_eq ctx 
+			(mk_eq ctx
 			   (Arithmetic.mk_add ctx [ (List.nth xs 1); (Integer.mk_numeral_i ctx 2)])
 			   (Arithmetic.mk_add ctx [ (List.nth xs 2); (Integer.mk_numeral_i ctx 3)])) ]) in
-  
+
   let x = (Quantifier.mk_forall ctx types names body_vars (Some 1) [] [] (Some (Symbol.mk_string ctx "Q1")) (Some (Symbol.mk_string ctx "skid1"))) in
   Printf.printf "Quantifier X: %s\n" (Quantifier.to_string x) ;
   let y = (Quantifier.mk_forall_const ctx xs body_const (Some 1) [] [] (Some (Symbol.mk_string ctx "Q2")) (Some (Symbol.mk_string ctx "skid2"))) in
@@ -242,8 +241,8 @@ let  quantifier_example1 ( ctx : context ) =
 
 open Z3.FloatingPoint
 
-(** 
-	A basic example of floating point arithmetic 
+(**
+	A basic example of floating point arithmetic
 **)
 let fpa_example ( ctx : context ) =
   Printf.printf "FPAExample\n" ;
@@ -271,7 +270,7 @@ let fpa_example ( ctx : context ) =
 				   (Boolean.mk_not ctx (mk_is_nan ctx y)) ;
 				   (Boolean.mk_not ctx (mk_is_infinite ctx y)) ] in
   let args3 = [ c3 ; (Boolean.mk_and ctx and_args) ] in
-  let c4 = (Boolean.mk_and ctx args3) in  
+  let c4 = (Boolean.mk_and ctx args3) in
   (Printf.printf "c4: %s\n" (Expr.to_string c4)) ;
   (
     let solver = (mk_solver ctx None) in
@@ -293,7 +292,7 @@ let fpa_example ( ctx : context ) =
   let c2 = (mk_to_fp_bv ctx
 			  (mk_numeral_string ctx "4619567317775286272" (BitVector.mk_sort ctx 64))
 			  (mk_sort ctx 11 53)) in
-  let c3 = (mk_to_fp_int_real ctx 
+  let c3 = (mk_to_fp_int_real ctx
 			  (RoundingMode.mk_rtz ctx)
                           (mk_numeral_string ctx "2" (Integer.mk_sort ctx))
 			  (mk_numeral_string ctx "1.75" (Real.mk_sort ctx))
@@ -304,7 +303,7 @@ let fpa_example ( ctx : context ) =
   let args3 = [ (mk_eq ctx c1 c2) ;
 				(mk_eq ctx c1 c3) ;
 				(mk_eq ctx c1 c4) ] in
-  let c5 = (Boolean.mk_and ctx args3) in  
+  let c5 = (Boolean.mk_and ctx args3) in
   (Printf.printf "c5: %s\n" (Expr.to_string c5)) ;
   (
     let solver = (mk_solver ctx None) in
@@ -313,9 +312,70 @@ let fpa_example ( ctx : context ) =
 	  raise (TestFailedException "")
     else
 	  Printf.printf "Test passed.\n"
-  ) 
+  )
 
-let _ = 
+(**
+	A basic example of RCF usage
+**)
+let rcf_example ( ctx : context ) =
+  Printf.printf "RCFExample\n" ;
+  let pi = RCF.mk_pi ctx in
+  let e = RCF.mk_e ctx in
+  let inf0 = RCF.mk_infinitesimal ctx in
+  let inf1 = RCF.mk_infinitesimal ctx in
+  let r = RCF.mk_rational ctx "42.001" in
+  let pi_div_e = RCF.div ctx pi e in
+  let pi_div_r = RCF.div ctx pi r in
+  (Printf.printf "e: %s,  pi: %s, e==pi: %b, e < pi: %b\n"
+    (RCF.num_to_string ctx e true false)
+    (RCF.num_to_string ctx pi true false)
+    (RCF.eq ctx e pi)
+    (RCF.lt ctx e pi)) ;
+  Printf.printf "pi_div_e: %s.\n" (RCF.num_to_string ctx pi_div_e true false);
+  Printf.printf "pi_div_r: %s.\n" (RCF.num_to_string ctx pi_div_r true false);
+  Printf.printf "inf0: %s.\n" (RCF.num_to_string ctx inf0 true false);
+  Printf.printf "(RCF.is_rational ctx pi): %b.\n" (RCF.is_rational ctx pi);
+  Printf.printf "(RCF.is_algebraic ctx pi): %b.\n" (RCF.is_algebraic ctx pi);
+  Printf.printf "(RCF.is_transcendental ctx pi): %b.\n" (RCF.is_transcendental ctx pi);
+  Printf.printf "(RCF.is_rational ctx r): %b.\n" (RCF.is_rational ctx r);
+  Printf.printf "(RCF.is_algebraic ctx r): %b.\n" (RCF.is_algebraic ctx r);
+  Printf.printf "(RCF.is_transcendental ctx r): %b.\n" (RCF.is_transcendental ctx r);
+  Printf.printf "(RCF.is_infinitesimal ctx inf0): %b.\n" (RCF.is_infinitesimal ctx inf0);
+  Printf.printf "(RCF.extension_index ctx inf0): %d.\n" (RCF.extension_index ctx inf0);
+  Printf.printf "(RCF.extension_index ctx inf1): %d.\n" (RCF.extension_index ctx inf1);
+  let poly:RCF.rcf_num list = [ e; pi; inf0 ] in
+  let rs:RCF.root list = RCF.roots ctx poly in
+  let print_root (x:RCF.root) =
+    begin
+    Printf.printf "root: %s\n%!" (RCF.num_to_string ctx x.obj true false);
+    if RCF.is_algebraic ctx x.obj then (
+      (match x.interval with
+      | Some ivl -> Printf.printf "  interval: (%b, %b, %s, %b, %b, %s)\n"
+                                  ivl.lower_is_inf
+                                  ivl.lower_is_open
+                                  (RCF.num_to_string ctx ivl.lower true false)
+                                  ivl.upper_is_inf
+                                  ivl.upper_is_open
+                                  (RCF.num_to_string ctx ivl.upper true false);
+      | None -> ());
+      Printf.printf "  polynomial coefficients:";
+      List.iter (fun c -> Printf.printf " %s" (RCF.num_to_string ctx c false false)) x.polynomial;
+      Printf.printf "\n";
+      Printf.printf "  sign conditions:";
+      List.iter
+        (fun (poly, sign) ->
+          List.iter (fun p -> Printf.printf " %s" (RCF.num_to_string ctx p true false)) poly;
+          Printf.printf " %s" (if sign > 0 then "> 0" else if sign < 0 then "< 0" else "= 0"))
+        x.sign_conditions;
+      Printf.printf "\n")
+    end
+  in
+  List.iter print_root rs;
+  RCF.del_roots ctx rs;
+  RCF.del_list ctx [pi; e; inf0; inf1; r; pi_div_e; pi_div_r];
+  Printf.printf "Test passed.\n"
+
+let _ =
   try (
     if not (Log.open_ "z3.log") then
       raise (TestFailedException "Log couldn't be opened.")
@@ -340,6 +400,7 @@ let _ =
 	basic_tests ctx ;
 	quantifier_example1 ctx ;
 	fpa_example ctx ;
+  rcf_example ctx ;
 	Printf.printf "Disposing...\n";
 	Gc.full_major ()
       );
@@ -348,5 +409,6 @@ let _ =
   ) with Error(msg) -> (
     Printf.printf "Z3 EXCEPTION: %s\n" msg ;
     exit 1
-  )    
+  )
 ;;
+

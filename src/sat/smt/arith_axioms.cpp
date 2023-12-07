@@ -386,12 +386,12 @@ namespace arith {
         ctx.push(push_back_vector<svector<std::pair<euf::th_eq, bool>>>(m_delayed_eqs));
     }
 
-    void solver::mk_diseq_axiom(euf::th_eq const& e) {
-        if (is_bool(e.v1()))
+    void solver::mk_diseq_axiom(theory_var v1, theory_var v2) {
+        if (is_bool(v1))
             return;
         force_push();
-        expr* e1 = var2expr(e.v1());
-        expr* e2 = var2expr(e.v2());
+        expr* e1 = var2expr(v1);
+        expr* e2 = var2expr(v2);
         if (e1->get_id() > e2->get_id())
             std::swap(e1, e2);
         if (m.are_distinct(e1, e2))
@@ -524,7 +524,7 @@ namespace arith {
         return all_divs_valid;
     }
 
-    void solver::fixed_var_eh(theory_var v, lp::constraint_index ci1, lp::constraint_index ci2, rational const& bound) {
+    void solver::fixed_var_eh(theory_var v, u_dependency* dep, rational const& bound) {
         theory_var w = euf::null_theory_var;
         enode* x = var2enode(v);
         if (bound.is_zero()) 
@@ -539,10 +539,12 @@ namespace arith {
         if (x->get_root() == y->get_root())
             return;
         reset_evidence();
-        set_evidence(ci1);
-        set_evidence(ci2);
+        m_explanation.clear();
+        for (auto ci : lp().flatten(dep))
+            consume(rational::one(), ci);
         ++m_stats.m_fixed_eqs;
-        auto* jst = euf::th_explain::propagate(*this, m_core, m_eqs, x, y);
+        auto* hint = explain_implied_eq(m_explanation, x, y);
+        auto* jst = euf::th_explain::propagate(*this, m_core, m_eqs, x, y, hint);
         ctx.propagate(x, y, jst->to_index());
     }
 

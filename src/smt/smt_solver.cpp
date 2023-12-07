@@ -20,7 +20,7 @@ Notes:
 #include "util/dec_ref_util.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/for_each_expr.h"
-#include "ast/ast_smt2_pp.h"
+#include "ast/ast_pp.h"
 #include "ast/func_decl_dependencies.h"
 #include "smt/smt_kernel.h"
 #include "smt/params/smt_params.h"
@@ -88,14 +88,14 @@ namespace {
             ast_translation translator(get_manager(), m);
 
             smt_solver * result = alloc(smt_solver, m, p, m_logic);
-            smt::kernel::copy(m_context, result->m_context);
+            smt::kernel::copy(m_context, result->m_context, true);
 
             if (mc0()) 
                 result->set_model_converter(mc0()->translate(translator));
 
-            for (auto & kv : m_name2assertion) { 
-                expr* val = translator(kv.m_value);
-                expr* key = translator(kv.m_key);
+            for (auto & [k, v] : m_name2assertion) {
+                expr* val = translator(k);
+                expr* key = translator(v);
                 result->assert_expr(val, key);
             }
 
@@ -104,9 +104,9 @@ namespace {
 
         ~smt_solver() override {
             dealloc(m_cuber);
-            for (auto& kv : m_name2assertion) {
-                get_manager().dec_ref(kv.m_key);
-                get_manager().dec_ref(kv.m_value);
+            for (auto& [k,v] : m_name2assertion) {
+                get_manager().dec_ref(k);
+                get_manager().dec_ref(v);
             }
         }
 

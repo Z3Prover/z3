@@ -17,7 +17,6 @@ Revision History:
 
 
 --*/
-// clang-format off
 #if 0
 #pragma once
 #include "util/vector.h"

@@ -193,7 +193,7 @@ public class Optimize extends Z3Object {
     /**
      * Check satisfiability of asserted constraints.
      * Produce a model that (when the objectives are bounded and 
-     * don't use strict inequalities) meets the objectives.
+     * don't use strict inequalities) is optimal.
      **/
     public Status Check(Expr<BoolSort>... assumptions)
     {

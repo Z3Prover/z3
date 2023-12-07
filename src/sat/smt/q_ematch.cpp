@@ -125,7 +125,7 @@ namespace q {
             if (a->get_root() == b->get_root())
                 ctx.get_egraph().explain_eq<size_t>(m_explain, cc, a, b);
             else
-                ctx.add_diseq_antecedent(m_explain, cc, a, b);
+                ctx.explain_diseq(m_explain, cc, a, b);
         }
         ctx.get_egraph().end_explain();
 
@@ -486,7 +486,7 @@ namespace q {
      * basic clausifier, assumes q has been normalized.
      */
     clause* ematch::clausify(quantifier* _q) {
-        clause* cl = alloc(clause, m, m_clauses.size());
+        scoped_ptr<clause> cl = alloc(clause, m, m_clauses.size());
         cl->m_literal = ctx.mk_literal(_q);
         quantifier_ref q(_q, m);
         q = m_qs.flatten(q);
@@ -514,7 +514,7 @@ namespace q {
         unsigned generation = nq ? nq->generation() : ctx.generation();
         cl->m_stat = m_qstat_gen(_q, generation);
         SASSERT(ctx.s().value(cl->m_literal) == l_true);
-        return cl;
+        return cl.detach();
     }
 
     lit ematch::clausify_literal(expr* arg) {
@@ -576,14 +576,12 @@ namespace q {
 
     void ematch::add(quantifier* _q) {
         TRACE("q", tout << "add " << mk_pp(_q, m) << "\n");
-        clause* c = clausify(_q);
+        scoped_ptr<clause> c = clausify(_q);
         quantifier* q = c->q();
-        if (m_q2clauses.contains(q)) {
-            dealloc(c);
+        if (m_q2clauses.contains(q)) 
             return;
-        }
         ensure_ground_enodes(*c);
-        m_clauses.push_back(c);
+        m_clauses.push_back(c.get());
         m_q2clauses.insert(q, c->index());
         ctx.push(pop_clause(*this));
         init_watch(*c);
@@ -614,6 +612,7 @@ namespace q {
             if (!unary)
                 j++;
         }
+        c.detach();
     }
 
 

@@ -40,7 +40,6 @@ namespace sat {
         conflict_analysis_core(m_conflict, m_conflict_clause);
         m_trail.pop_back();
         
-
         for (unsigned i = m_trail.size(); i-- > 0; ) {            
             auto const& [id, cl, clp, is_add, is_initial] = m_trail[i];
             if (!is_add) {
@@ -56,6 +55,7 @@ namespace sat {
             IF_VERBOSE(4, verbose_stream() << cl << " in-core " << in_core(cl) << ": "; for (auto const& [k,v] : m_clauses) verbose_stream() << "{" << v.m_clauses << "} "; verbose_stream() << "\n");
 
             m_result.push_back({id, unsigned_vector()});
+            m_in_deps.reset();
             if (is_initial)
                 continue;
             conflict_analysis_core(cl, clp);            
@@ -177,7 +177,8 @@ namespace sat {
         IF_VERBOSE(3, verbose_stream() << "core " << cl << "\n");
         
         unsigned trail_size0 = s.m_trail.size();
-        if (!cl.empty()) {
+        bool probe = !cl.empty() && !s.inconsistent();
+        if (probe) {
             SASSERT(!s.inconsistent());
             s.push();
             unsigned lvl = s.scope_lvl();
@@ -214,11 +215,12 @@ namespace sat {
             s.reset_mark(v);            
             add_dependency(s.get_justification(v));
         }
-        if (!cl.empty())
+        if (probe)
             s.pop(1);                
     }
 
     void proof_trim::add_dependency(literal lit) {
+        IF_VERBOSE(3, verbose_stream() << "add dependency " << lit << "\n");
         bool_var v = lit.var();
         if (m_propagated[v]) { // literal was propagated after assuming ~C
             if (!s.is_marked(v))
@@ -253,12 +255,19 @@ namespace sat {
         add_core(lit, j);
     }
 
+    void proof_trim::insert_dep(unsigned dep) {
+        if (m_in_deps.contains(dep))
+            return;
+        m_in_deps.insert(dep);
+        m_result.back().second.push_back(dep);
+    }
 
     void proof_trim::add_core(literal l, justification j) {
         m_clause.reset();
         switch (j.get_kind()) {
         case justification::NONE:
-            m_clause.push_back(l);
+            if (l != null_literal)
+                m_clause.push_back(l);
             break;                
         case justification::BINARY:
             m_clause.push_back(l);
@@ -274,14 +283,21 @@ namespace sat {
             break;
         }
         std::sort(m_clause.begin(), m_clause.end());
-        IF_VERBOSE(3, verbose_stream() << "add core " << m_clause << "\n");
+        IF_VERBOSE(3, verbose_stream() << "add core {" << m_clause << "}\n");
         auto& [clauses, id, in_core] = m_clauses.find(m_clause);
         in_core = true;
-        m_result.back().second.push_back(id);
-        if (l != null_literal && s.lvl(l) == 0) {
-            m_clause.reset();
-            m_clause.push_back(l);
-            m_clauses.insert_if_not_there(m_clause, {{}, 0, true }).m_in_core = true;
+        insert_dep(id);
+        if (m_clause.size() > 1 && l != null_literal && s.lvl(l) == 0) {
+            for (auto lit : m_clause) {
+                if (s.lvl(lit) != 0)
+                    continue;
+                m_clause2.reset();
+                m_clause2.push_back(s.value(lit) == l_false ? ~lit : lit);
+                auto& [clauses, id, in_core] = m_clauses.insert_if_not_there(m_clause2, {{}, UINT_MAX, true });
+                in_core = true;
+                if (id != UINT_MAX)
+                    insert_dep(id);
+            }
         }
     }
 
@@ -322,7 +338,13 @@ namespace sat {
     }
 
     void proof_trim::assume(unsigned id, bool is_initial) {
-        std::sort(m_clause.begin(), m_clause.end());                
+        std::sort(m_clause.begin(), m_clause.end()); 
+        unsigned j = 0;
+        sat::literal prev = null_literal;
+        for (unsigned i = 0; i < m_clause.size(); ++i) 
+            if (m_clause[i] != prev)
+               prev = m_clause[j++] = m_clause[i];        
+        m_clause.shrink(j);
         if (unit_or_binary_occurs())
             return;        
         if (!m_conflict.empty() && m_clause.empty()) {
@@ -362,13 +384,21 @@ namespace sat {
             return false;
         };
 
+        if (all_of(m_clause, [&](sat::literal lit) { return s.value(lit) == l_false; })) {
+            IF_VERBOSE(3, verbose_stream() << "false clause " << m_clause << "\n");
+            set_conflict(m_clause, cl);
+            return;
+        }
+
         if (m_clause.size() == 2 && is_unit2())
             s.propagate_bin_clause(m_clause[0], m_clause[1]);
         else if (m_clause.size() > 2 && is_unit())
             s.propagate_clause(*cl, true, 0, s.cls_allocator().get_offset(cl));
         s.propagate(false);
-        if (s.inconsistent() ||  all_of(m_clause, [&](sat::literal lit) { return s.value(lit) == l_false; }))
-            set_conflict(m_clause, cl);       
+        if (s.inconsistent()) {
+            IF_VERBOSE(3, verbose_stream() << "conflict " << m_clause << "\n");
+            set_conflict(m_clause, cl);
+        }
     }
 
     /**

@@ -27,6 +27,7 @@
 #include "math/interval/interval.h"
 
 class dep_intervals {
+
 public:
     enum with_deps_t { with_deps, without_deps };
 
@@ -142,8 +143,9 @@ private:
 public:
     typedef interval_manager<im_config>::interval interval;
 
+    u_dependency_manager&               m_dep_manager;
     mutable unsynch_mpq_manager         m_num_manager;
-    mutable u_dependency_manager        m_dep_manager;
+
     im_config                           m_config;
     mutable interval_manager<im_config> m_imanager;
 
@@ -158,9 +160,10 @@ public:
 public:
     u_dependency_manager& dep_manager() { return m_dep_manager; }
 
-    dep_intervals(reslimit& lim) :
-        m_config(m_num_manager, m_dep_manager),
-        m_imanager(lim, im_config(m_num_manager, m_dep_manager))
+    dep_intervals(u_dependency_manager& dm, reslimit& lim) :
+        m_dep_manager(dm),
+        m_config(m_num_manager, dm),
+        m_imanager(lim, im_config(m_num_manager, dm))
     {}
 
     std::ostream& display(std::ostream& out, const interval& i) const;
@@ -172,6 +175,8 @@ public:
     void set_upper_is_inf(interval& a, bool inf) const { m_config.set_upper_is_inf(a, inf); }
     void set_lower_dep(interval& a, u_dependency* d) const { m_config.set_lower_dep(a, d); }
     void set_upper_dep(interval& a, u_dependency* d) const { m_config.set_upper_dep(a, d); }
+    u_dependency* get_lower_dep(interval const& a) const { return a.m_lower_dep; }
+    u_dependency* get_upper_dep(interval const& a) const { return a.m_upper_dep; }
     void reset(interval& a) const { set_lower_is_inf(a, true); set_upper_is_inf(a, true); }
     void set_value(interval& a, rational const& n) const { 
         set_lower(a, n); 
@@ -335,15 +340,17 @@ public:
 
     bool is_empty(interval const& a) const;
     void set_interval_for_scalar(interval&, const rational&);
+
     template <typename T> 
     void linearize(u_dependency* dep, T& expl) const {
         vector<unsigned, false> v;
         m_dep_manager.linearize(dep, v);
-        for (unsigned ci: v)
+        for (auto ci: v)
             expl.push_back(ci);
     }
 
-    void reset() { m_dep_manager.reset(); }
+
+    void reset() { }
 
     void del(interval& i) { m_imanager.del(i); }
     

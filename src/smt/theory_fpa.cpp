@@ -220,7 +220,7 @@ namespace smt {
         TRACE("t_fpa_detail", tout << "asserting " << mk_ismt2_pp(e, m) << "\n";);
         if (m.has_trace_stream()) log_axiom_instantiation(e);
         ctx.internalize(e, false);
-        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";        
+        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
         literal lit(ctx.get_literal(e));
         ctx.mark_as_relevant(lit);
         ctx.mk_th_axiom(get_id(), 1, &lit);
@@ -239,10 +239,10 @@ namespace smt {
         if (ctx.b_internalized(atom))
             return true;
 
-        ctx.internalize(atom->get_args(), atom->get_num_args(), false);
-
         literal l(ctx.mk_bool_var(atom));
         ctx.set_var_theory(l.var(), get_id());
+
+        ctx.internalize(atom->get_args(), atom->get_num_args(), false);
 
         expr_ref bv_atom(m_rw.convert_atom(m_th_rw, atom));
         expr_ref bv_atom_w_side_c(m), atom_eq(m);

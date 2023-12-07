@@ -574,9 +574,9 @@ namespace smt {
                                 to_delete.push_back(n);
                             }
                         }
-                        for (expr* e : to_delete) {
+                        for (expr* e : to_delete) 
                             s->remove(e);
-                        }
+                        reset_eval_cache();
                     }
                 }
             }

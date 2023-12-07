@@ -838,14 +838,18 @@ struct pdecl_manager::app_sort_info : public pdecl_manager::sort_info {
     }
 
     format * pp(smt2_pp_environment& env, pdecl_manager const & m) const override {
+        symbol s = m_decl->get_name();
+        std::string name = s.str();
+        if (is_smt2_quoted_symbol(s))
+            name = mk_smt2_quoted_symbol(s);
         if (m_args.empty()) {
-            return mk_string(m.m(), m_decl->get_name().str());
+            return mk_string(m.m(), name);            
         }
         else {
             ptr_buffer<format> b;
             for (auto arg : m_args)
                 b.push_back(m.pp(env, arg));
-            return mk_seq1(m.m(), b.begin(), b.end(), f2f(), m_decl->get_name().str());
+            return mk_seq1(m.m(), b.begin(), b.end(), f2f(), name);
         }
     }
 };
@@ -874,12 +878,17 @@ struct pdecl_manager::indexed_sort_info : public pdecl_manager::sort_info {
     }
 
     format * pp(smt2_pp_environment& env, pdecl_manager const & m) const override {
+        symbol s = m_decl->get_name();
+        std::string name = s.str();
+        if (is_smt2_quoted_symbol(s))
+            name = mk_smt2_quoted_symbol(s);
+
         if (m_indices.empty()) {
-            return mk_string(m.m(), m_decl->get_name().str());
+            return mk_string(m.m(), name);
         }
         else {
             ptr_buffer<format> b;
-            b.push_back(mk_string(m.m(), m_decl->get_name().str()));
+            b.push_back(mk_string(m.m(), name));
             for (auto idx : m_indices)
                 b.push_back(mk_unsigned(m.m(), idx));
             return mk_seq1(m.m(), b.begin(), b.end(), f2f(), "_");

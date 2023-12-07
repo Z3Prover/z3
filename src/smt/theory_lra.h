@@ -82,6 +82,7 @@ namespace smt {
         void init_model(model_generator & m) override;
         
         model_value_proc * mk_value(enode * n, model_generator & mg) override;
+        void validate_model(proto_model& mdl) override;
 
         bool get_value(enode* n, expr_ref& r) override;
         bool include_func_interp(func_decl* f) override;

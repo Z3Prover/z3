@@ -5,7 +5,6 @@
 #pragma once
 
 DEFINE_TYPE(Z3_symbol);
-DEFINE_TYPE(Z3_literals);
 DEFINE_TYPE(Z3_config);
 DEFINE_TYPE(Z3_context);
 DEFINE_TYPE(Z3_sort);
@@ -151,6 +150,7 @@ typedef enum
     Z3_SEQ_SORT,
     Z3_RE_SORT,
     Z3_CHAR_SORT,
+    Z3_TYPE_VAR,
     Z3_UNKNOWN_SORT = 1000
 } Z3_sort_kind;
 
@@ -1397,7 +1397,6 @@ typedef enum
   def_Type('FUNC_DECL',        'Z3_func_decl',        'FuncDecl')
   def_Type('PATTERN',          'Z3_pattern',          'Pattern')
   def_Type('MODEL',            'Z3_model',            'ModelObj')
-  def_Type('LITERALS',         'Z3_literals',         'Literals')
   def_Type('CONSTRUCTOR',      'Z3_constructor',      'Constructor')
   def_Type('CONSTRUCTOR_LIST', 'Z3_constructor_list', 'ConstructorList')
   def_Type('SOLVER',           'Z3_solver',           'SolverObj')
@@ -1436,7 +1435,7 @@ Z3_DECLARE_CLOSURE(Z3_eq_eh,      void, (void* ctx, Z3_solver_callback cb, Z3_as
 Z3_DECLARE_CLOSURE(Z3_final_eh,   void, (void* ctx, Z3_solver_callback cb));
 Z3_DECLARE_CLOSURE(Z3_created_eh, void, (void* ctx, Z3_solver_callback cb, Z3_ast t));
 Z3_DECLARE_CLOSURE(Z3_decide_eh,  void, (void* ctx, Z3_solver_callback cb, Z3_ast t, unsigned idx, bool phase));
-Z3_DECLARE_CLOSURE(Z3_on_clause_eh, void, (void* ctx, Z3_ast proof_hint, Z3_ast_vector literals));
+Z3_DECLARE_CLOSURE(Z3_on_clause_eh, void, (void* ctx, Z3_ast proof_hint, unsigned n, unsigned const* deps, Z3_ast_vector literals));
 
 
 /**
@@ -1884,6 +1883,17 @@ extern "C" {
     Z3_sort Z3_API Z3_mk_uninterpreted_sort(Z3_context c, Z3_symbol s);
 
     /**
+       \brief Create a type variable.
+
+       Functions using type variables can be applied to instantiations that match the signature 
+       of the function. Assertions using type variables correspond to assertions over all possible
+       instantiations.
+
+       def_API('Z3_mk_type_variable', SORT, (_in(CONTEXT), _in(SYMBOL)))
+    */
+    Z3_sort Z3_API Z3_mk_type_variable(Z3_context c, Z3_symbol s);
+
+    /**
        \brief Create the Boolean type.
 
        This type is used to create propositional variables and predicates.
@@ -2071,6 +2081,16 @@ extern "C" {
                                             Z3_sort_opt const sorts[],
                                             unsigned sort_refs[]
                                             );
+
+    /**
+       \brief Retrieve the number of fields of a constructor
+
+       \param c logical context.
+       \param constr constructor.
+
+       def_API('Z3_constructor_num_fields', UINT, (_in(CONTEXT), _in(CONSTRUCTOR)))
+    */
+    unsigned Z3_API Z3_constructor_num_fields(Z3_context c, Z3_constructor constr);
 
     /**
        \brief Reclaim memory allocated to constructor.
@@ -5187,6 +5207,24 @@ extern "C" {
     unsigned Z3_API Z3_get_quantifier_weight(Z3_context c, Z3_ast a);
 
     /**
+       \brief Obtain skolem id of quantifier.
+
+       \pre Z3_get_ast_kind(a) == Z3_QUANTIFIER_AST
+
+       def_API('Z3_get_quantifier_skolem_id', SYMBOL, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_symbol Z3_API Z3_get_quantifier_skolem_id(Z3_context c, Z3_ast a);
+
+    /**
+       \brief Obtain id of quantifier.
+
+       \pre Z3_get_ast_kind(a) == Z3_QUANTIFIER_AST
+
+       def_API('Z3_get_quantifier_id', SYMBOL, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_symbol Z3_API Z3_get_quantifier_id(Z3_context c, Z3_ast a);
+
+    /**
        \brief Return number of patterns used in quantifier.
 
        \pre Z3_get_ast_kind(a) == Z3_QUANTIFIER_AST
@@ -5584,14 +5622,14 @@ extern "C" {
     void Z3_API Z3_add_const_interp(Z3_context c, Z3_model m, Z3_func_decl f, Z3_ast a);
 
     /**
-       \brief Increment the reference counter of the given Z3_func_interp object.
+       \brief Increment the reference counter of the given \c Z3_func_interp object.
 
        def_API('Z3_func_interp_inc_ref', VOID, (_in(CONTEXT), _in(FUNC_INTERP)))
     */
     void Z3_API Z3_func_interp_inc_ref(Z3_context c, Z3_func_interp f);
 
     /**
-       \brief Decrement the reference counter of the given Z3_func_interp object.
+       \brief Decrement the reference counter of the given \c Z3_func_interp object.
 
        def_API('Z3_func_interp_dec_ref', VOID, (_in(CONTEXT), _in(FUNC_INTERP)))
     */

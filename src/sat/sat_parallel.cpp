@@ -5,7 +5,7 @@ Module Name:
 
     sat_parallel.cpp
 
-    Abstract:
+Abstract:
 
     Utilities for parallel SAT solving.
 
@@ -25,12 +25,7 @@ namespace sat {
     void parallel::vector_pool::next(unsigned& index) {
         SASSERT(index < m_size);
         unsigned n = index + 2 + get_length(index);
-        if (n >= m_size) {
-            index = 0;
-        }
-        else {
-            index = n;
-        }
+        index = (n >= m_size) ? 0 : n;
     }
 
     void parallel::vector_pool::reserve(unsigned num_threads, unsigned sz) {
@@ -64,9 +59,8 @@ namespace sat {
     }
 
     void parallel::vector_pool::end_add_vector() {
-        if (m_tail >= m_size) {
+        if (m_tail >= m_size) 
             m_tail = 0;
-        }
     }
 
 
@@ -93,9 +87,9 @@ namespace sat {
     parallel::parallel(solver& s): m_num_clauses(0), m_consumer_ready(false), m_scoped_rlimit(s.rlimit()) {}
 
     parallel::~parallel() {
-        for (unsigned i = 0; i < m_solvers.size(); ++i) {            
-            dealloc(m_solvers[i]);
-        }
+        m_limits.reset();
+        for (auto* s : m_solvers)
+            dealloc(s);
     }
 
     void parallel::init_solvers(solver& s, unsigned num_extra_solvers) {
@@ -106,9 +100,8 @@ namespace sat {
         
         for (unsigned i = 0; i < num_extra_solvers; ++i) {
             s.m_params.set_uint("random_seed", s.m_rand());
-            if (i == 1 + num_threads/2) {
+            if (i == 1 + num_threads/2) 
                 s.m_params.set_sym("phase", symbol("random"));
-            }                        
             m_solvers[i] = alloc(sat::solver, s.m_params, m_limits[i]);
             m_solvers[i]->copy(s, true);
             m_solvers[i]->set_par(this, i);
@@ -164,9 +157,8 @@ namespace sat {
         IF_VERBOSE(3, verbose_stream() << owner << ": share " <<  c << "\n";);
         lock_guard lock(m_mux);
         m_pool.begin_add_vector(owner, n);                
-        for (unsigned i = 0; i < n; ++i) {
+        for (unsigned i = 0; i < n; ++i) 
             m_pool.add_vector_elem(c[i].index());
-        }
         m_pool.end_add_vector();        
     }
 
@@ -220,9 +212,8 @@ namespace sat {
         if (m_priorities.empty())
             return;
         
-        for (bool_var v = 0; v < m_priorities.size(); ++v) {
+        for (bool_var v = 0; v < m_priorities.size(); ++v) 
             s.update_activity(v, m_priorities[v]);
-        }
         s.m_activity_inc = 128;
 #endif
     }
@@ -269,15 +260,13 @@ namespace sat {
 
     bool parallel::copy_solver(solver& s) {
         bool copied = false;
-        {
-            lock_guard lock(m_mux);
-            m_consumer_ready = true;
-            if (m_solver_copy && s.m_clauses.size() > m_solver_copy->m_clauses.size()) {
-                s.copy(*m_solver_copy, true);
-                copied = true;
-                m_num_clauses = s.m_clauses.size();
-            }
-        }        
+        lock_guard lock(m_mux);
+        m_consumer_ready = true;
+        if (m_solver_copy && s.m_clauses.size() > m_solver_copy->m_clauses.size()) {
+            s.copy(*m_solver_copy, true);
+            copied = true;
+            m_num_clauses = s.m_clauses.size();
+        }
         return copied;
     }
     

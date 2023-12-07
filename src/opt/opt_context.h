@@ -303,6 +303,7 @@ namespace opt {
         void import_scoped_state();
         void normalize(expr_ref_vector const& asms);
         void internalize();
+        bool is_objective(expr* fml);
         bool is_maximize(expr* fml, app_ref& term, expr_ref& orig_term, unsigned& index);
         bool is_minimize(expr* fml, app_ref& term, expr_ref& orig_term, unsigned& index);
         bool is_maxsat(expr* fml, expr_ref_vector& terms, 

@@ -17,7 +17,6 @@ Revision History:
 
 
 --*/
-// clang-format off
 #include "util/vector.h"
 #include "math/lp/indexed_vector_def.h"
 namespace lp {

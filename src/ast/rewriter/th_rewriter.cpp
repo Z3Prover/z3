@@ -39,6 +39,7 @@ Notes:
 #include "ast/ast_util.h"
 #include "ast/well_sorted.h"
 #include "ast/for_each_expr.h"
+#include "ast/array_peq.h"
 
 namespace {
 struct th_rewriter_cfg : public default_rewriter_cfg {
@@ -75,6 +76,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
     bool                m_ignore_patterns_on_ground_qbody = true;
     bool                m_rewrite_patterns = true;
     bool                m_enable_der = true;
+    bool                m_nested_der = false;
 
 
     ast_manager & m() const { return m_b_rw.m(); }
@@ -91,6 +93,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         m_ignore_patterns_on_ground_qbody = p.ignore_patterns_on_ground_qbody();
         m_rewrite_patterns = p.rewrite_patterns();
         m_enable_der     = p.enable_der();
+        m_nested_der     = _p.get_bool("nested_der", false);
     }
 
     void updt_params(params_ref const & p) {
@@ -644,6 +647,10 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             else
                 st = pull_ite(result);
         }
+        if (st == BR_FAILED && f->get_family_id() == null_family_id && is_partial_eq(f)) {
+            st = m_ar_rw.mk_app_core(f,  num, args, result);
+        }
+
         CTRACE("th_rewriter_step", st != BR_FAILED,
                tout << f->get_name() << "\n";
                for (unsigned i = 0; i < num; i++) tout << mk_ismt2_pp(args[i], m()) << "\n";
@@ -838,8 +845,11 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             result = r;
         }
 
-        if (der_change) {
+        if (der_change && !m_nested_der) {
             th_rewriter rw(m());
+            params_ref p;
+            p.set_bool("nested_der", true);
+            rw.updt_params(p);
             rw(result, r, p2);
             if (m().proofs_enabled() && result.get() != r.get()) 
                 result_pr = m().mk_transitivity(result_pr, p2);

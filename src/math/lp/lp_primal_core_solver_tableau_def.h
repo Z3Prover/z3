@@ -17,7 +17,6 @@ Revision History:
 
 
 --*/
-// clang-format off
 #pragma once
 
 // this is a part of lp_primal_core_solver that deals with the tableau
@@ -45,19 +44,21 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::advance_on_e
     advance_on_entering_and_leaving_tableau(entering, leaving, t);
 }
 
+
  template <typename T, typename X> int lp_primal_core_solver<T, X>::choose_entering_column_tableau() {
     //this moment m_y = cB * B(-1)
+    if (this->m_nbasis_sort_counter == 0) {
+        sort_non_basis();
+        this->m_nbasis_sort_counter = 20;
+    }
+    else {
+        this->m_nbasis_sort_counter--;
+    }
     unsigned number_of_benefitial_columns_to_go_over =  get_number_of_non_basic_column_to_try_for_enter();
     
     if (number_of_benefitial_columns_to_go_over == 0)
         return -1;
-    if (this->m_basis_sort_counter == 0) {
-        sort_non_basis();
-        this->m_basis_sort_counter = 20;
-    }
-    else {
-        this->m_basis_sort_counter--;
-    }
+    
     unsigned j_nz = this->m_m() + 1; // this number is greater than the max column size
     std::list<unsigned>::iterator entering_iter = m_non_basis_list.end();
     unsigned n = 0;
@@ -71,14 +72,13 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::advance_on_e
         if (t < j_nz) {
             j_nz = t;
             entering_iter = non_basis_iter;
-            if (number_of_benefitial_columns_to_go_over)
-                number_of_benefitial_columns_to_go_over--;
+            number_of_benefitial_columns_to_go_over--;
             n = 1;
         }
         else if (t == j_nz && this->m_settings.random_next(++n) == 0) {
             entering_iter = non_basis_iter;
         }
-    }// while (number_of_benefitial_columns_to_go_over && initial_offset_in_non_basis != offset_in_nb);
+    }
     if (entering_iter == m_non_basis_list.end())
         return -1;
     unsigned entering = *entering_iter;
@@ -99,7 +99,8 @@ unsigned lp_primal_core_solver<T, X>::solve() {
     }
         
     do {
-        if (this->print_statistics_with_iterations_and_nonzeroes_and_cost_and_check_that_the_time_is_over( "feas t", * this->m_settings.get_message_ostream())) {
+        if (this->m_settings.get_cancel_flag()) {
+            this->set_status(lp_status::CANCELLED);
             return this->total_iterations();
         }
         if (this->m_settings.use_tableau_rows()) {
@@ -244,10 +245,7 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_
         }
     }
 
-    ratio = t;
-    unlimited = false;
-    if (try_jump_to_another_bound_on_entering(entering, t, ratio, unlimited)) {
-        t = ratio;
+    if (try_jump_to_another_bound_on_entering(entering, t)) {
         return entering;
     }
     if (m_leaving_candidates.size() == 1)
@@ -257,8 +255,6 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_
 }
 template <typename T, typename X> void lp_primal_core_solver<T, X>::init_run_tableau() {
         lp_assert(basis_columns_are_set_correctly());
-        this->m_basis_sort_counter = 0; // to initiate the sort of the basis
-        //  this->set_total_iterations(0);
         this->iters_with_no_cost_growing() = 0;
 		lp_assert(this->inf_heap_is_correct());
         if (this->current_x_is_feasible() && this->m_look_for_feasible_solution_only)

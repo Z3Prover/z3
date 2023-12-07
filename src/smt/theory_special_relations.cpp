@@ -130,7 +130,11 @@ namespace smt {
     }
 
     bool theory_special_relations::internalize_term(app * term) {
-        verbose_stream() << mk_pp(term, m) << "\n";
+        m_terms.push_back(term);
+        ctx.push_trail(push_back_vector(m_terms));
+        std::stringstream strm;
+        strm << "term not not handled by special relations procedure. Use sat.smt=true " << mk_pp(term, m);
+        warning_msg(strm.str().c_str());
         return false;
     }
 
@@ -207,9 +211,10 @@ namespace smt {
         if (new_equality) {
             return FC_CONTINUE;
         }
-        else {
+        else if (!m_terms.empty()) 
+            return FC_GIVEUP;
+        else 
             return FC_DONE;
-        }
     }
 
     lbool theory_special_relations::final_check_lo(relation& r) {

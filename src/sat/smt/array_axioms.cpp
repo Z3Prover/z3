@@ -409,6 +409,11 @@ namespace array {
         def1 = a.mk_default(store);
         def2 = a.mk_default(store->get_arg(0));
 
+        prop |= !ctx.get_enode(def1) || !ctx.get_enode(def2);
+
+        euf::enode* ndef1 = e_internalize(def1);
+        euf::enode* ndef2 = e_internalize(def2);
+
         if (has_unitary_domain(store)) {
             def2 = store->get_arg(num_args - 1);
         }
@@ -417,8 +422,8 @@ namespace array {
             // let A = store(B, i, v)
             // 
             // Add:
-            //   default(A) = ite(epsilon1 = i, v, default(B))
-            //   A[diag(i)] = B[diag(i)]
+            //   default(A) = A[epsilon]
+            //   default(B) = B[epsilon]
             // 
             expr_ref_vector eqs(m);
             expr_ref_vector args1(m), args2(m);
@@ -428,22 +433,21 @@ namespace array {
             for (unsigned i = 1; i + 1 < num_args; ++i) {
                 expr* arg = store->get_arg(i);
                 sort* srt = arg->get_sort();
-                auto ep = mk_epsilon(srt);
-                eqs.push_back(m.mk_eq(ep.first, arg));
-                args1.push_back(m.mk_app(ep.second, arg));
-                args2.push_back(m.mk_app(ep.second, arg));
+                auto [ep, d] = mk_epsilon(srt);
+                eqs.push_back(m.mk_eq(ep, arg));
+                args1.push_back(ep);
+                args2.push_back(ep);
             }
-            expr_ref eq(m.mk_and(eqs), m);
-            def2 = m.mk_ite(eq, store->get_arg(num_args - 1), def2);
             app_ref sel1(m), sel2(m);
             sel1 = a.mk_select(args1);
             sel2 = a.mk_select(args2);
-            prop |= !ctx.get_enode(sel1) || !ctx.get_enode(sel2);
-            if (ctx.propagate(e_internalize(sel1), e_internalize(sel2), array_axiom()))
-                prop = true;
+            return 
+                ctx.propagate(e_internalize(sel1), ndef1, array_axiom()) ||
+                ctx.propagate(e_internalize(sel2), ndef2, array_axiom()) ||
+                prop;
         }
-        prop |= !ctx.get_enode(def1) || !ctx.get_enode(def2);
-        if (ctx.propagate(e_internalize(def1), e_internalize(def2), array_axiom()))
+        // default(A) == default(B)
+        if (ctx.propagate(ndef1, ndef2, array_axiom()))
             prop = true;
         return prop;
     }

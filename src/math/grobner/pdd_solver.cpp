@@ -59,9 +59,10 @@ namespace dd {
        
     */
 
-    solver::solver(reslimit& lim, pdd_manager& m) : 
+    solver::solver(reslimit& lim, u_dependency_manager& dm, pdd_manager& m) : 
         m(m),
-        m_limit(lim) 
+        m_limit(lim),
+        m_dep_manager(dm)
     {}
 
     solver::~solver() {
@@ -89,11 +90,9 @@ namespace dd {
         
     }
     void solver::saturate() {
-        simplify();
-        if (done()) {
-            return;
-        }
-        init_saturate();
+        if (done()) 
+            return;        
+        init_saturate();  
         TRACE("dd.solver", display(tout););
         try {
             while (!done() && step()) {
@@ -104,7 +103,7 @@ namespace dd {
             DEBUG_CODE(invariant(););
         }
         catch (pdd_manager::mem_out) {
-            IF_VERBOSE(2, verbose_stream() << "mem-out\n");
+            IF_VERBOSE(1, verbose_stream() << "mem-out saturate\n");
             // don't reduce further
         }
     }
@@ -123,8 +122,7 @@ namespace dd {
 
     solver::scoped_process::~scoped_process() {
         if (e) {
-            pdd p = e->poly();
-            SASSERT(!p.is_val());
+            SASSERT(!e->poly().is_val());
             g.push_equation(processed, e);            
         }
     }    
@@ -136,9 +134,8 @@ namespace dd {
 
 
     void solver::superpose(equation const & eq) {
-        for (equation* target : m_processed) {
-            superpose(eq, *target);
-        }
+        for (equation* target : m_processed) 
+            superpose(eq, *target);        
     }
 
     /*
@@ -165,32 +162,28 @@ namespace dd {
         TRACE("dd.solver", display(tout << "simplification result: ", eq););
     }
 
+    void solver::well_formed() {
+        auto& set = m_to_simplify;
+        for (unsigned k = 0; k < set.size(); ++k)
+            for (unsigned l = k + 1; l < set.size(); ++l) {
+                if (!set[l] || !set[k] || set[k] != set[l])
+                    continue;
+                verbose_stream() << k << " " << l << " " << set[k] << "\n";
+                for (auto* s : set)
+                    verbose_stream() << s->idx() << "\n";
+                VERIFY(set[k] != set[l]);
+            }
+    }
     /*
       Use the given equation to simplify equations in set
     */
-    void solver::simplify_using(equation_vector& set, std::function<bool(equation&, bool&)>& simplifier) {   
-        struct scoped_update {
-            equation_vector& set;
-            unsigned i, j, sz;
-            scoped_update(equation_vector& set): set(set), i(0), j(0), sz(set.size()) {}
-            void nextj() {
-                set[j] = set[i];
-                set[i]->set_index(j++);
-            }
-            ~scoped_update() {                
-                for (; i < sz; ++i) 
-                    nextj();
-                set.shrink(j);
-            }
-        };
-
+    void solver::simplify_using(equation_vector& set, std::function<bool(equation&, bool&)>& simplifier) {           
         scoped_update sr(set);
         for (; sr.i < sr.sz; ++sr.i) {
             equation& target = *set[sr.i];
             bool changed_leading_term = false;
             bool simplified = true;
             simplified = !done() && simplifier(target, changed_leading_term);
-
             
             if (simplified && is_trivial(target)) 
                 retire(&target);
@@ -285,21 +278,32 @@ namespace dd {
         m_stats.m_compute_steps++;
         IF_VERBOSE(3, if (m_stats.m_compute_steps % 100 == 0) verbose_stream() << "compute steps = " << m_stats.m_compute_steps << "\n";);
         equation* e = pick_next();
-        if (!e) return false;
+        if (!e) 
+            return false;
         scoped_process sd(*this, e);
         equation& eq = *e;
         SASSERT(eq.state() == to_simplify);
         simplify_using(eq, m_processed);
-        if (is_trivial(eq)) { sd.e = nullptr; retire(e); return true; }
-        if (check_conflict(eq)) { sd.e = nullptr; return false; }
+        if (is_trivial(eq)) { 
+            sd.e = nullptr; 
+            retire(e); 
+            return true; 
+        }
+        if (check_conflict(eq)) { 
+            sd.e = nullptr; 
+            return false; 
+        }
         m_too_complex = false;
         simplify_using(m_processed, eq);
-        if (done()) return false;
+        if (done()) 
+            return false;
         TRACE("dd.solver", display(tout << "eq = ", eq););
         superpose(eq);
         simplify_using(m_to_simplify, eq);
-        if (done()) return false;
-        if (!m_too_complex) sd.done();
+        if (done()) 
+            return false;
+        if (!m_too_complex) 
+            sd.done();
         return true;
     }
 
@@ -344,9 +348,9 @@ namespace dd {
     }
 
     void solver::reset() {
-        for (equation* e : m_solved) dealloc(e);
-        for (equation* e : m_to_simplify) dealloc(e);
-        for (equation* e : m_processed) dealloc(e);
+        for (equation* e : m_solved) dealloc(e);        
+        for (equation* e : m_to_simplify) dealloc(e);        
+        for (equation* e : m_processed) dealloc(e);        
         m_subst.reset();
         m_solved.reset();
         m_processed.reset();
@@ -443,7 +447,6 @@ namespace dd {
         dealloc(eq); 
 #endif
     }
-
 
     void solver::pop_equation(equation& eq) {
         equation_vector& v = get_queue(eq);

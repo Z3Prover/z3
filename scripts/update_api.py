@@ -1,4 +1,4 @@
-#  - !/usr/bin/env python
+#!/usr/bin/env python
 ############################################
 # Copyright (c) 2012 Microsoft Corporation
 #
@@ -426,9 +426,10 @@ def mk_dotnet(dotnet):
     dotnet.write('    {\n\n')
 
     for name, ret, sig in Closures:
+        sig = sig.replace("unsigned const*","uint[]")
         sig = sig.replace("void*","voidp").replace("unsigned","uint")
         sig = sig.replace("Z3_ast*","ref IntPtr").replace("uint*","ref uint").replace("Z3_lbool*","ref int")
-        ret = ret.replace("void*","voidp").replace("unsigned","uint")
+        ret = ret.replace("void*","voidp").replace("unsigned","uint")        
         if "*" in sig or "*" in ret:
             continue
         dotnet.write('        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]\n')
@@ -1826,17 +1827,28 @@ def write_core_py_preamble(core_py):
   core_py.write(
 """
 # Automatically generated file
+import atexit
 import sys, os
+import contextlib
 import ctypes
-import pkg_resources
+if sys.version_info >= (3, 9):
+    import importlib.resources as importlib_resources
+else:
+    import importlib_resources
 from .z3types import *
 from .z3consts import *
 
+_file_manager = contextlib.ExitStack()
+atexit.register(_file_manager.close)
 _ext = 'dll' if sys.platform in ('win32', 'cygwin') else 'dylib' if sys.platform == 'darwin' else 'so'
 _lib = None
+_z3_lib_resource = importlib_resources.files('z3').joinpath('lib')
+_z3_lib_resource_path = _file_manager.enter_context(
+    importlib_resources.as_file(_z3_lib_resource)
+)
 _default_dirs = ['.',
                  os.path.dirname(os.path.abspath(__file__)),
-                 pkg_resources.resource_filename('z3', 'lib'),
+                 _z3_lib_resource_path,
                  os.path.join(sys.prefix, 'lib'),
                  None]
 _all_dirs = []
@@ -1886,10 +1898,10 @@ if _lib is None:
   print("  - to the custom Z3_LIB_DIRS Python-builtin before importing the z3 module, e.g. via")
   if sys.version < '3':
     print("    import __builtin__")
-    print("    __builtin__.Z3_LIB_DIRS = [ '/path/to/libz3.%s' ] " % _ext)
+    print("    __builtin__.Z3_LIB_DIRS = [ '/path/to/z3/lib/dir' ] # directory containing libz3.%s" % _ext)
   else:
     print("    import builtins")
-    print("    builtins.Z3_LIB_DIRS = [ '/path/to/libz3.%s' ] " % _ext)
+    print("    builtins.Z3_LIB_DIRS = [ '/path/to/z3/lib/dir' ] # directory containing libz3.%s" % _ext)
   print(_failures)
   raise Z3Exception("libz3.%s not found." % _ext)
 
@@ -1919,7 +1931,7 @@ _error_handler_type  = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_uint)
 _lib.Z3_set_error_handler.restype  = None
 _lib.Z3_set_error_handler.argtypes = [ContextObj, _error_handler_type]
 
-Z3_on_clause_eh = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)
+Z3_on_clause_eh = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint, ctypes.POINTER(ctypes.c_uint), ctypes.c_void_p)
 Z3_push_eh  = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p)
 Z3_pop_eh   = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint)
 Z3_fresh_eh = ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)

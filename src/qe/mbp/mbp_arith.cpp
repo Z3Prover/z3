@@ -277,8 +277,14 @@ namespace mbp {
                 extract_coefficients(mbo, eval, ts0, tids, coeffs);
                 mbo.add_divides(coeffs, c0, mul1);
             }
-            else
+            else if (a.is_to_real(t))
+                throw default_exception("mbp to-real");
+            else if (a.is_to_int(t))
+                throw default_exception("mbp to-int");
+            else {
+                TRACE("qe", tout << "insert mul " << mk_pp(t, m) << "\n");
                 insert_mul(t, mul, ts);
+            }
         }
 
         bool is_numeral(expr* t, rational& r) {
@@ -387,8 +393,7 @@ namespace mbp {
                 return false;
             };
 
-            for (auto& kv : tids) {
-                expr* e = kv.m_key;
+            for (auto& [e, v] : tids) {
                 if (is_arith(e) && !is_pure(e) && !var_mark.is_marked(e))
                     mark_rec(fmls_mark, e);
             }

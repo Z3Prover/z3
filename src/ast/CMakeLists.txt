@@ -3,6 +3,7 @@ z3_add_component(ast
     act_cache.cpp
     arith_decl_plugin.cpp
     array_decl_plugin.cpp
+    array_peq.cpp
     ast.cpp
     ast_ll_pp.cpp
     ast_lt.cpp
@@ -37,6 +38,8 @@ z3_add_component(ast
     num_occurs.cpp
     occurs.cpp
     pb_decl_plugin.cpp
+    polymorphism_inst.cpp
+    polymorphism_util.cpp
     pp.cpp
     quantifier_stat.cpp
     recfun_decl_plugin.cpp

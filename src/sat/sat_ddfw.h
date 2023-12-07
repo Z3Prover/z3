@@ -178,7 +178,7 @@ namespace sat {
 
         inline void inc_make(literal lit) { 
             bool_var v = lit.var(); 
-            if (make_count(v)++ == 0) m_unsat_vars.insert(v); 
+            if (make_count(v)++ == 0) m_unsat_vars.insert_fresh(v); 
         }
 
         inline void dec_make(literal lit) { 

@@ -2413,7 +2413,10 @@ namespace {
             m_n2 = static_cast<const check *>(m_pc)->m_enode;
             SASSERT(m_n1 != 0);
             SASSERT(m_n2 != 0);
-            if (m_n1->get_root() != m_n2->get_root())
+
+            // hack to handle dynamically generated patterns:
+            // if the pattern is ground and an if-expression, ignore equality check.
+            if (m_n1->get_root() != m_n2->get_root() && !m.is_ite(m_n2->get_expr()))
                 goto backtrack;
 
             // we used the equality m_n1 = m_n2 for the match and need to make sure it ends up in the log

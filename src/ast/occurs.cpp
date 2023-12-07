@@ -19,6 +19,7 @@ Revision History:
 #include "ast/occurs.h"
 
 #include "ast/for_each_expr.h"
+#include "ast/for_each_ast.h"
 
 // -----------------------------------
 //
@@ -49,6 +50,15 @@ namespace {
         void operator()(quantifier const * n) { }
     };
 
+
+    struct sort_proc {
+        sort* m_s;
+        sort_proc(sort* s) :m_s(s) {}
+        void operator()(sort const* s2) { if (m_s == s2) throw found(); }
+        void operator()(ast*) {}
+    };
+
+
 }
 
 // Return true if n1 occurs in n2
@@ -69,6 +79,17 @@ bool occurs(func_decl * d, expr * n) {
         quick_for_each_expr(p, n);
     }
     catch (const found &) {
+        return true;
+    }
+    return false;
+}
+
+bool occurs(sort* s1, sort* s2) {
+    sort_proc p(s1);
+    try {
+        for_each_ast(p, s2, true);
+    }
+    catch (const found&) {
         return true;
     }
     return false;

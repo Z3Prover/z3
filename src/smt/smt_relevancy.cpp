@@ -123,7 +123,7 @@ namespace smt {
     }
     
     struct relevancy_propagator_imp : public relevancy_propagator {
-        unsigned                       m_qhead;
+        unsigned                       m_qhead = 0;
         expr_ref_vector                m_relevant_exprs; 
         uint_set                       m_is_relevant;
         typedef list<relevancy_eh *>   relevancy_ehs;
@@ -144,14 +144,18 @@ namespace smt {
             unsigned m_trail_lim;
         };
         svector<scope>                 m_scopes;
-        bool                           m_propagating;
+        bool                           m_propagating = false;
 
         relevancy_propagator_imp(context & ctx):
-            relevancy_propagator(ctx), m_qhead(0), m_relevant_exprs(ctx.get_manager()),
-            m_propagating(false) {}
+            relevancy_propagator(ctx), m_relevant_exprs(ctx.get_manager()) {}
 
         ~relevancy_propagator_imp() override {
-            undo_trail(0);
+            ast_manager & m = get_manager();
+            unsigned i = m_trail.size();
+            while (i != 0) {
+                --i;
+                m.dec_ref(m_trail[i].get_node());
+            }
         }
 
         relevancy_ehs * get_handlers(expr * n) {

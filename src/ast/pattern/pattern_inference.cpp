@@ -624,9 +624,11 @@ bool pattern_inference_cfg::reduce_quantifier(
     proof_ref & result_pr) {
 
     TRACE("pattern_inference", tout << "processing:\n" << mk_pp(q, m) << "\n";);
-    if (!is_forall(q)) {
+    if (!m_params.m_pi_enabled)
         return false;
-    }
+
+    if (!is_forall(q)) 
+        return false;
 
     int weight = q->get_weight();
 
@@ -653,9 +655,8 @@ bool pattern_inference_cfg::reduce_quantifier(
         }
     }
 
-    if (q->get_num_patterns() > 0) {
+    if (q->get_num_patterns() > 0) 
         return false;
-    }
 
     if (m_params.m_pi_nopat_weight >= 0)
         weight = m_params.m_pi_nopat_weight;

@@ -61,8 +61,15 @@ Revision History:
 namespace smt {
 
     class model_generator;
+    class context;
 
     struct cancel_exception {};
+
+    struct enode_pp {
+        context const& ctx;
+        enode*   n;
+        enode_pp(enode* n, context const& ctx): ctx(ctx), n(n) {}
+    };
 
     class context {
         friend class model_generator;
@@ -134,7 +141,6 @@ namespace smt {
             enode *                 m_lhs;
             enode *                 m_rhs;
             eq_justification        m_justification;
-            new_eq() {}
             new_eq(enode * lhs, enode * rhs, eq_justification const & js):
                 m_lhs(lhs), m_rhs(rhs), m_justification(js) {}
         };
@@ -143,7 +149,6 @@ namespace smt {
             theory_id  m_th_id;
             theory_var m_lhs;
             theory_var m_rhs;
-            new_th_eq():m_th_id(null_theory_id), m_lhs(null_theory_var), m_rhs(null_theory_var) {}
             new_th_eq(theory_id id, theory_var l, theory_var r):m_th_id(id), m_lhs(l), m_rhs(r) {}
         };
         svector<new_th_eq>          m_th_eq_propagation_queue;
@@ -215,7 +220,7 @@ namespace smt {
         // -----------------------------------
         proto_model_ref            m_proto_model;
         model_ref                  m_model;
-        std::string                m_unknown;
+        const char *               m_unknown;
         void                       mk_proto_model();
         void                       reset_model() { m_model = nullptr; m_proto_model = nullptr; }
 
@@ -1370,6 +1375,8 @@ namespace smt {
 
         void display_asserted_formulas(std::ostream & out) const;
 
+        enode_pp pp(enode* n) { return enode_pp(n, *this); }
+
         std::ostream& display_literal(std::ostream & out, literal l) const;
 
         std::ostream& display_detailed_literal(std::ostream & out, literal l) const { return smt::display(out, l, m, m_bool_var2expr.data()); }
@@ -1846,11 +1853,6 @@ namespace smt {
 
     std::ostream& operator<<(std::ostream& out, enode_eq_pp const& p);
 
-    struct enode_pp {
-        context const& ctx;
-        enode*   n;
-        enode_pp(enode* n, context const& ctx): ctx(ctx), n(n) {}
-    };
 
     std::ostream& operator<<(std::ostream& out, enode_pp const& p);
 

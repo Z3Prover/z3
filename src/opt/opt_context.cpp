@@ -213,7 +213,7 @@ namespace opt {
 
     void context::add_hard_constraint(expr* f, expr* t) {
         if (m_calling_on_model) 
-            throw default_exception("adding soft constraints is not supported during callbacks");
+            throw default_exception("adding hard constraints is not supported during callbacks");
         m_scoped_state.m_asms.push_back(t);
         m_scoped_state.add(m.mk_implies(t, f));
         clear_state();
@@ -905,12 +905,14 @@ namespace opt {
             ptr_vector<expr> deps;
             expr_dependency_ref core(r->dep(i), m);
             m.linearize(core, deps);
-            if (!deps.empty()) {
-                fmls.push_back(m.mk_implies(m.mk_and(deps.size(), deps.data()), r->form(i)));
-            }
-            else {
+            if (deps.empty())
+                fmls.push_back(r->form(i));                
+            else if (deps.size() == 1 && deps[0] == r->form(i))
+                continue;
+            else if (is_objective(r->form(i)))
                 fmls.push_back(r->form(i));
-            }
+            else
+                fmls.push_back(m.mk_implies(mk_and(m, deps.size(), deps.data()), r->form(i)));
         }        
         if (r->inconsistent()) {
             ptr_vector<expr> core_elems;
@@ -918,6 +920,10 @@ namespace opt {
             m.linearize(core, core_elems);
             m_core.append(core_elems.size(), core_elems.data());
         }
+    }
+
+    bool context::is_objective(expr* fml) {
+        return is_app(fml) && m_objective_fns.contains(to_app(fml)->get_decl());
     }
 
     bool context::is_maximize(expr* fml, app_ref& term, expr_ref& orig_term, unsigned& index) {

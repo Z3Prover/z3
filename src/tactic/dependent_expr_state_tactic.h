@@ -33,6 +33,7 @@ private:
     expr_ref_vector m_frozen;
     scoped_ptr<dependent_expr_simplifier>   m_simp;
     scoped_ptr<model_reconstruction_trail>  m_model_trail;
+    bool m_updated = false;
 
     void init() {
         if (!m_simp) {
@@ -75,6 +76,7 @@ public:
     void update(unsigned i, dependent_expr const& j) override {
         if (inconsistent())
             return;
+        m_updated = true;
         auto [f, p, d] = j();
         m_goal->update(i, f, p, d);
     }
@@ -82,6 +84,7 @@ public:
     void add(dependent_expr const& j) override {
         if (inconsistent())
             return;
+        m_updated = true;
         auto [f, p, d] = j();
         m_goal->assert_expr(f, p, d);
     }
@@ -95,6 +98,10 @@ public:
     }
 
     char const* name() const override { return m_simp ? m_simp->name() : "null"; }
+
+    bool updated() override { return m_updated; }
+
+    void reset_updated() override { m_updated = false; }
 
     void updt_params(params_ref const& p) override {
         m_params.append(p);

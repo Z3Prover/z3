@@ -121,7 +121,6 @@ namespace smt {
         void attach_new_th_var(enode * n);
         void assert_cnstr(expr * e);
 
-
         enode* ensure_enode(expr* e);
         enode* get_root(expr* a) { return ensure_enode(a)->get_root(); }
         app* get_ite_value(expr* e);

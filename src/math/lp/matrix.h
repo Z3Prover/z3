@@ -6,7 +6,6 @@ Author:
     Lev Nachmanson (levnach)
 
 --*/
-// clang-format off
 #pragma once
 #include "math/lp/numeric_pair.h"
 #include "util/vector.h"

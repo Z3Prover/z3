@@ -208,6 +208,7 @@ protected:
 
 private:
     void mk_nan(sort * s, expr_ref & result);
+
     void mk_nzero(sort * s, expr_ref & result);
     void mk_pzero(sort * s, expr_ref & result);
     void mk_zero(sort * s, expr_ref & sgn, expr_ref & result);

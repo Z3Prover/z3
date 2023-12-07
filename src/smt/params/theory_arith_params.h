@@ -105,7 +105,9 @@ struct theory_arith_params {
     unsigned                m_nl_arith_max_degree = 6;
     bool                    m_nl_arith_branching = true;
     unsigned                m_nl_arith_rounds = 1024;
-
+    bool                    m_nl_arith_propagate_linear_monomials = true;
+    bool                    m_nl_arith_optimize_bounds = true;
+    bool                    m_nl_arith_cross_nested = true;
 
     theory_arith_params(params_ref const & p = params_ref()) {
         updt_params(p);

@@ -13,7 +13,6 @@ Description:
   Types used for nla solver.
   
 --*/
-// clang-format off
 
 #pragma once
 
@@ -25,6 +24,8 @@ namespace nla {
     typedef lp::explanation          expl_set;
     typedef lp::var_index            lpvar;
     const lpvar null_lpvar = UINT_MAX;
+
+
     
     inline int rat_sign(const rational& r) { return r.is_pos()? 1 : ( r.is_neg()? -1 : 0); }
     inline rational rrat_sign(const rational& r) { return rational(rat_sign(r)); }

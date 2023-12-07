@@ -61,29 +61,11 @@ namespace arith {
 
     void solver::ensure_nla() {
         if (!m_nla) {
-            m_nla = alloc(nla::solver, *m_solver.get(), m.limit());
+            m_nla = alloc(nla::solver, *m_solver.get(), s().params(), m.limit());
             for (auto const& _s : m_scopes) {
                 (void)_s;
                 m_nla->push();
             }
-            smt_params_helper prms(s().params());
-            m_nla->settings().run_order = prms.arith_nl_order();
-            m_nla->settings().run_tangents = prms.arith_nl_tangents();
-            m_nla->settings().run_horner = prms.arith_nl_horner();
-            m_nla->settings().horner_subs_fixed = prms.arith_nl_horner_subs_fixed();
-            m_nla->settings().horner_frequency = prms.arith_nl_horner_frequency();
-            m_nla->settings().horner_row_length_limit = prms.arith_nl_horner_row_length_limit();
-            m_nla->settings().run_grobner = prms.arith_nl_grobner();
-            m_nla->settings().run_nra = prms.arith_nl_nra();
-            m_nla->settings().grobner_subs_fixed = prms.arith_nl_grobner_subs_fixed();
-            m_nla->settings().grobner_eqs_growth = prms.arith_nl_grobner_eqs_growth();
-            m_nla->settings().grobner_expr_size_growth = prms.arith_nl_grobner_expr_size_growth();
-            m_nla->settings().grobner_expr_degree_growth = prms.arith_nl_grobner_expr_degree_growth();
-            m_nla->settings().grobner_max_simplified = prms.arith_nl_grobner_max_simplified();
-            m_nla->settings().grobner_number_of_conflicts_to_report = prms.arith_nl_grobner_cnfl_to_report();
-            m_nla->settings().grobner_quota = prms.arith_nl_gr_q();
-            m_nla->settings().grobner_frequency = prms.arith_nl_grobner_frequency();
-            m_nla->settings().expensive_patching = false;
         }
     }
 
@@ -309,6 +291,13 @@ namespace arith {
         internalize_term(n->get_arg(1)->get_expr());
     }
 
+    expr* solver::mk_sub(expr* x, expr* y) {
+        rational r;
+        if (a.is_numeral(y, r) && r == 0)
+            return x;
+        return a.mk_sub(x, y);
+    }
+
     bool solver::internalize_atom(expr* atom) {
         TRACE("arith", tout << mk_pp(atom, m) << "\n";);
         expr* n1, *n2;
@@ -337,26 +326,26 @@ namespace arith {
             k = lp_api::upper_t;
         }
         else if (a.is_le(atom, n1, n2)) {
-            expr_ref n3(a.mk_sub(n1, n2), m);
+            expr_ref n3(mk_sub(n1, n2), m);
             v = internalize_def(n3);
             k = lp_api::upper_t;
             r = 0;
         }
         else if (a.is_ge(atom, n1, n2)) {
-            expr_ref n3(a.mk_sub(n1, n2), m);
+            expr_ref n3(mk_sub(n1, n2), m);
             v = internalize_def(n3);
             k = lp_api::lower_t;
             r = 0;
         }
         else if (a.is_lt(atom, n1, n2)) {
-            expr_ref n3(a.mk_sub(n1, n2), m);
+            expr_ref n3(mk_sub(n1, n2), m);
             v = internalize_def(n3);
             k = lp_api::lower_t;
             r = 0;
             lit.neg();
         }
-        else if (a.is_gt(atom, n1, n2)) {
-            expr_ref n3(a.mk_sub(n1, n2), m);
+        else if (a.is_gt(atom, n1, n2)) {            
+            expr_ref n3(mk_sub(n1, n2), m);
             v = internalize_def(n3);
             k = lp_api::upper_t;
             r = 0;

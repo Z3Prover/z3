@@ -147,36 +147,11 @@ void fpa2bv_converter::mk_distinct(func_decl * f, unsigned num, expr * const * a
 
 void fpa2bv_converter::mk_numeral(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     SASSERT(num == 0);
-    sort* s = f->get_range();
-    if (f->get_num_parameters() == 1) {
-        SASSERT(f->get_parameter(0).is_external());
-        unsigned p_id = f->get_parameter(0).get_ext_id();
-        mpf const& v = m_plugin->get_value(p_id);
-        mk_numeral(s, v, result);
-        return;
-    }
-    scoped_mpf v(m_mpf_manager);   
-    unsigned ebits = m_util.get_ebits(s), sbits = m_util.get_sbits(s);
-    switch (f->get_decl_kind()) {
-    case OP_FPA_PLUS_INF:
-        m_util.fm().mk_pinf(ebits, sbits, v);
-        break;
-    case OP_FPA_MINUS_INF:
-        m_util.fm().mk_ninf(ebits, sbits, v);
-        break;
-    case OP_FPA_NAN:        
-        m_util.fm().mk_nan(ebits, sbits, v);
-        break;
-    case OP_FPA_PLUS_ZERO:
-        m_util.fm().mk_pzero(ebits, sbits, v);
-        break;
-    case OP_FPA_MINUS_ZERO:
-        m_util.fm().mk_nzero(ebits, sbits, v);
-        break;
-    default:
-        UNREACHABLE();
-    }
-    mk_numeral(s, v, result);
+    scoped_mpf v(m_mpf_manager);
+    expr_ref a(m);
+    a = m.mk_app(f, num, args);
+    m_util.is_numeral(a, v);
+    mk_numeral(f->get_range(), v, result);
 }
 
 void fpa2bv_converter::mk_numeral(sort * s, mpf const & v, expr_ref & result) {
@@ -941,8 +916,8 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
     dbg_decouple("fpa2bv_div_y_is_pos", y_is_pos);
     dbg_decouple("fpa2bv_div_y_is_inf", y_is_inf);
 
-    expr_ref c1(m), c2(m), c3(m), c4(m), c5(m), c6(m), c7(m);
-    expr_ref v1(m), v2(m), v3(m), v4(m), v5(m), v6(m), v7(m), v8(m);
+    expr_ref c1(m), c2(m), c3(m), c4(m), c5(m), c6(m), c7(m), c8(m);
+    expr_ref v1(m), v2(m), v3(m), v4(m), v5(m), v6(m), v7(m), v8(m), v9(m);
 
     // (x is NaN) || (y is NaN) -> NaN
     m_simp.mk_or(x_is_nan, y_is_nan, c1);
@@ -998,6 +973,9 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
     a_sig_ext = m_bv_util.mk_concat(a_sig, m_bv_util.mk_numeral(0, sbits + extra_bits));
     b_sig_ext = m_bv_util.mk_zero_extend(sbits + extra_bits, b_sig);
 
+    dbg_decouple("fpa2bv_div_a_sig_ext", a_sig_ext);
+    dbg_decouple("fpa2bv_div_b_sig_ext", b_sig_ext);
+
     expr_ref a_exp_ext(m), b_exp_ext(m);
     a_exp_ext = m_bv_util.mk_sign_extend(2, a_exp);
     b_exp_ext = m_bv_util.mk_sign_extend(2, b_exp);
@@ -1017,14 +995,21 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
     expr_ref quotient(m);
     // b_sig_ext can't be 0 here, so it's safe to use OP_BUDIV_I
     quotient = m.mk_app(m_bv_util.get_fid(), OP_BUDIV_I, a_sig_ext, b_sig_ext);
-
     dbg_decouple("fpa2bv_div_quotient", quotient);
 
     SASSERT(m_bv_util.get_bv_size(quotient) == (sbits + sbits + extra_bits));
 
-    expr_ref sticky(m);
+    expr_ref sticky(m), upper(m), upper_reduced(m), too_large(m);
     sticky = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, m_bv_util.mk_extract(extra_bits-2, 0, quotient));
     res_sig = m_bv_util.mk_concat(m_bv_util.mk_extract(extra_bits+sbits+1, extra_bits-1, quotient), sticky);
+    upper = m_bv_util.mk_extract(sbits + sbits + extra_bits-1, extra_bits+sbits+2, quotient);
+    upper_reduced = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, upper.get());
+    too_large = m.mk_eq(upper_reduced, m_bv_util.mk_numeral(1, 1));
+    c8 = too_large;
+    mk_ite(signs_xor, ninf, pinf, v8);
+    dbg_decouple("fpa2bv_div_res_sig_p4", res_sig);
+    dbg_decouple("fpa2bv_div_upper", upper);
+    dbg_decouple("fpa2bv_div_too_large", too_large);
 
     SASSERT(m_bv_util.get_bv_size(res_sig) == (sbits + 4));
 
@@ -1042,10 +1027,14 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
     m_simp.mk_ite(shift_cond, res_sig, res_sig_shifted, res_sig);
     m_simp.mk_ite(shift_cond, res_exp, res_exp_shifted, res_exp);
 
-    round(s, rm, res_sgn, res_sig, res_exp, v8);
+    dbg_decouple("fpa2bv_div_res_sig", res_sig);
+    dbg_decouple("fpa2bv_div_res_exp", res_exp);
+
+    round(s, rm, res_sgn, res_sig, res_exp, v9);
 
     // And finally, we tie them together.
-    mk_ite(c7, v7, v8, result);
+    mk_ite(c8, v8, v9, result);
+    mk_ite(c7, v7, result, result);
     mk_ite(c6, v6, result, result);
     mk_ite(c5, v5, result, result);
     mk_ite(c4, v4, result, result);
@@ -2809,8 +2798,46 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
 
         expr * e = m.mk_eq(m_util.mk_to_real(result), x);
         m_extra_assertions.push_back(e);
-        // x = 0 -> result = 0+
-        m_extra_assertions.push_back(m.mk_implies(m.mk_eq(x, zero), m.mk_eq(result, m_util.mk_pzero(result->get_sort()))));
+
+        expr_ref r_is_nan(m);
+        mk_is_nan(result, r_is_nan);
+        m_extra_assertions.push_back(m.mk_not(r_is_nan));
+
+        rational min_real, max_real;
+        const mpz& max_exp_z = m_mpf_manager.m_powers2.m1(ebits-1);
+        SASSERT(m_mpz_manager.is_uint(max_exp_z));
+        unsigned max_exp = m_mpz_manager.get_uint(max_exp_z);
+        rational max_sig = m_mpf_manager.m_powers2.m1(sbits) / m_mpf_manager.m_powers2(sbits-1);
+        max_real = max_sig * rational(m_mpf_manager.m_powers2(max_exp));
+        TRACE("fpa2bv_to_real", tout << "max exp: " << max_exp << " max real: " << max_real << std::endl;);
+
+        expr_ref r_is_pinf(m), r_is_ninf(m);
+        mk_is_pinf(result, r_is_pinf);
+        mk_is_ninf(result, r_is_ninf);
+
+        expr_ref e_max_real(m), e_max_real_neg(m);
+        e_max_real = m_arith_util.mk_numeral(max_real, false);
+        e_max_real_neg = m_arith_util.mk_numeral(-max_real, false);
+
+        expr_ref rm_nta(m), rm_nte(m), rm_tp(m), rm_tn(m), rm_tz(m);
+        mk_is_rm(bv_rm, BV_RM_TIES_TO_AWAY, rm_nta);
+        mk_is_rm(bv_rm, BV_RM_TIES_TO_EVEN, rm_nte);
+        mk_is_rm(bv_rm, BV_RM_TO_POSITIVE, rm_tp);
+        mk_is_rm(bv_rm, BV_RM_TO_NEGATIVE, rm_tn);
+        mk_is_rm(bv_rm, BV_RM_TO_ZERO, rm_tz);
+
+        expr_ref implies_gt_max_real(m), implies_lt_min_real(m);
+        implies_gt_max_real = m.mk_implies(r_is_pinf, m.mk_and(rm_tp, m_arith_util.mk_gt(x, e_max_real)));
+        implies_lt_min_real = m.mk_implies(r_is_ninf, m.mk_and(rm_tn, m_arith_util.mk_lt(x, e_max_real_neg)));
+
+        m_extra_assertions.push_back(implies_gt_max_real);
+        m_extra_assertions.push_back(implies_lt_min_real);
+
+        // x = 0 -> result = +0/-0
+        expr_ref pzero(m), nzero(m);
+        mk_pzero(result->get_sort(), pzero);
+        mk_nzero(result->get_sort(), nzero);
+        m_extra_assertions.push_back(m.mk_implies(m.mk_eq(x, zero), m.mk_or(m.mk_eq(result, pzero), m.mk_eq(result, nzero))));
     }
 
     SASSERT(is_well_sorted(m, result));
@@ -2854,19 +2881,13 @@ void fpa2bv_converter::mk_to_fp_real_int(func_decl * f, unsigned num, expr * con
         m_mpf_manager.set(tn, ebits, sbits, MPF_ROUND_TOWARD_NEGATIVE, e.to_mpq().numerator(), q.to_mpq());
         m_mpf_manager.set(tz, ebits, sbits, MPF_ROUND_TOWARD_ZERO, e.to_mpq().numerator(), q.to_mpq());
 
-        app_ref a_nte(m), a_nta(m), a_tp(m), a_tn(m), a_tz(m);
-        a_nte = m_plugin->mk_numeral(nte);
-        a_nta = m_plugin->mk_numeral(nta);
-        a_tp = m_plugin->mk_numeral(tp);
-        a_tn = m_plugin->mk_numeral(tn);
-        a_tz = m_plugin->mk_numeral(tz);
-
         expr_ref bv_nte(m), bv_nta(m), bv_tp(m), bv_tn(m), bv_tz(m);
-        mk_numeral(a_nte->get_decl(), 0, nullptr, bv_nte);
-        mk_numeral(a_nta->get_decl(), 0, nullptr, bv_nta);
-        mk_numeral(a_tp->get_decl(), 0, nullptr, bv_tp);
-        mk_numeral(a_tn->get_decl(), 0, nullptr, bv_tn);
-        mk_numeral(a_tz->get_decl(), 0, nullptr, bv_tz);
+        sort *s = f->get_range();
+        mk_numeral(s, nte, bv_nte);
+        mk_numeral(s, nta, bv_nta);
+        mk_numeral(s, tp, bv_tp);
+        mk_numeral(s, tn, bv_tn);
+        mk_numeral(s, tz, bv_tz);
 
         expr_ref c1(m), c2(m), c3(m), c4(m);
         c1 = m.mk_eq(bv_rm, m_bv_util.mk_numeral(BV_RM_TO_POSITIVE, 3));
@@ -3003,27 +3024,34 @@ void fpa2bv_converter::mk_to_fp_signed(func_decl * f, unsigned num, expr * const
     unsigned bv_sz = m_bv_util.get_bv_size(x);
     SASSERT(m_bv_util.get_bv_size(rm) == 3);
 
+    expr_ref rm_is_to_neg(m);
+    mk_is_rm(rm, BV_RM_TO_NEGATIVE, rm_is_to_neg);
+
     expr_ref bv1_1(m), bv0_sz(m);
     bv1_1 = m_bv_util.mk_numeral(1, 1);
     bv0_sz = m_bv_util.mk_numeral(0, bv_sz);
 
-    expr_ref is_zero(m), pzero(m);
+    expr_ref is_zero(m), pzero(m), nzero(m);
     is_zero = m.mk_eq(x, bv0_sz);
     mk_pzero(f, pzero);
+    mk_nzero(f, nzero);
 
-    // Special case: x == 0 -> p/n zero
+    // Special case: x == 0 -> +zero
     expr_ref c1(m), v1(m);
     c1 = is_zero;
-    v1 = pzero;
+    v1 = pzero; // No -zero (IEEE754)
 
     // Special case: x != 0
-    expr_ref is_neg_bit(m), exp_too_large(m), sig_4(m), exp_2(m);
+    expr_ref sign_bit(m), exp_too_large(m), sig_4(m), exp_2(m), rest(m);
     expr_ref is_neg(m), x_abs(m), neg_x(m);
-    is_neg_bit = m_bv_util.mk_extract(bv_sz - 1, bv_sz - 1, x);
-    is_neg = m.mk_eq(is_neg_bit, bv1_1);
-    neg_x = m_bv_util.mk_bv_neg(x); // overflow problem?
+    sign_bit = m_bv_util.mk_extract(bv_sz - 1, bv_sz - 1, x);
+    rest = m_bv_util.mk_extract(bv_sz - 2, 0, x);
+    dbg_decouple("fpa2bv_to_fp_signed_rest", rest);
+    is_neg = m.mk_eq(sign_bit, bv1_1);
+    neg_x = m_bv_util.mk_bv_neg(x); // overflow ok, x_abs is now unsigned.
     x_abs = m.mk_ite(is_neg, neg_x, x);
     dbg_decouple("fpa2bv_to_fp_signed_is_neg", is_neg);
+    dbg_decouple("fpa2bv_to_fp_signed_x_abs", x_abs);
     // x_abs has an extra bit in the front.
     // x_abs is [bv_sz-1, bv_sz-2] . [bv_sz-3 ... 0] * 2^(bv_sz-2)
     // bv_sz-2 is the "1.0" bit for the rounder.
@@ -3075,7 +3103,7 @@ void fpa2bv_converter::mk_to_fp_signed(func_decl * f, unsigned num, expr * const
 
     TRACE("fpa2bv_to_fp_signed", tout << "exp worst case sz: " << exp_worst_case_sz << std::endl;);
 
-    if (exp_sz < exp_worst_case_sz) {
+    if (exp_sz <= exp_worst_case_sz) {
         // exp_sz < exp_worst_case_sz and exp >= 0.
         // Take the maximum legal exponent; this
         // allows us to keep the most precision.
@@ -3093,7 +3121,7 @@ void fpa2bv_converter::mk_to_fp_signed(func_decl * f, unsigned num, expr * const
     dbg_decouple("fpa2bv_to_fp_signed_exp_too_large", exp_too_large);
 
     expr_ref sgn(m), sig(m), exp(m);
-    sgn = is_neg_bit;
+    sgn = sign_bit;
     sig = sig_4;
     exp = exp_2;
 
@@ -3132,6 +3160,9 @@ void fpa2bv_converter::mk_to_fp_unsigned(func_decl * f, unsigned num, expr * con
     rm = to_app(args[0])->get_arg(0);
     x = args[1];
 
+    expr_ref rm_is_to_neg(m);
+    mk_is_rm(rm, BV_RM_TO_NEGATIVE, rm_is_to_neg);
+
     dbg_decouple("fpa2bv_to_fp_unsigned_x", x);
 
     unsigned ebits = m_util.get_ebits(f->get_range());
@@ -3143,14 +3174,15 @@ void fpa2bv_converter::mk_to_fp_unsigned(func_decl * f, unsigned num, expr * con
     bv0_1 = m_bv_util.mk_numeral(0, 1);
     bv0_sz = m_bv_util.mk_numeral(0, bv_sz);
 
-    expr_ref is_zero(m), pzero(m);
+    expr_ref is_zero(m), pzero(m), nzero(m);
     is_zero = m.mk_eq(x, bv0_sz);
     mk_pzero(f, pzero);
+    mk_nzero(f, nzero);
 
-    // Special case: x == 0 -> p/n zero
+    // Special case: x == 0 -> +zero
     expr_ref c1(m), v1(m);
     c1 = is_zero;
-    v1 = pzero;
+    v1 = pzero; // No -zero (IEEE754)
 
     // Special case: x != 0
     expr_ref exp_too_large(m), sig_4(m), exp_2(m);
@@ -3194,7 +3226,7 @@ void fpa2bv_converter::mk_to_fp_unsigned(func_decl * f, unsigned num, expr * con
     unsigned exp_sz = ebits + 2; // (+2 for rounder)
     exp_2 = m_bv_util.mk_extract(exp_sz - 1, 0, s_exp);
     // the remaining bits are 0 if ebits is large enough.
-    exp_too_large = m.mk_false(); // This is always in range.
+    exp_too_large = m.mk_false();
 
                                   // The exponent is at most bv_sz, i.e., we need ld(bv_sz)+1 ebits.
                                   // exp < bv_sz (+sign bit which is [0])

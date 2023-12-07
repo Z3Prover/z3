@@ -32,6 +32,7 @@ Revision History:
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/rewriter/var_subst.h"
+#include "ast/rewriter/recfun_rewriter.h"
 #include "model/model_smt2_pp.h"
 #include "model/model.h"
 #include "model/model_evaluator_params.hpp"
@@ -53,6 +54,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
     pb_rewriter                     m_pb_rw;
     fpa_rewriter                    m_f_rw;
     seq_rewriter                    m_seq_rw;
+    recfun_rewriter                 m_rec_rw;
     array_util                      m_ar;
     arith_util                      m_au;
     fpa_util                        m_fpau;
@@ -80,6 +82,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
         m_pb_rw(m),
         m_f_rw(m),
         m_seq_rw(m),
+        m_rec_rw(m),
         m_ar(m),
         m_au(m),
         m_fpau(m),
@@ -158,7 +161,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
         return st;
     }
 
-    bool contains_as_array(expr* e) {
+    bool contains_redex(expr* e) {
         if (m_ar.is_as_array(e))
             return true;
         if (is_var(e))
@@ -166,22 +169,24 @@ struct evaluator_cfg : public default_rewriter_cfg {
         if (is_app(e) && to_app(e)->get_num_args() == 0)
             return false;
 
-        struct has_as_array {};
-        struct has_as_array_finder {
+        struct has_redex {};
+        struct has_redex_finder {
             array_util& au;
-            has_as_array_finder(array_util& au): au(au) {}
+            has_redex_finder(array_util& au): au(au) {}
             void operator()(var* v) {}
             void operator()(quantifier* q) {}
             void operator()(app* a) {
                 if (au.is_as_array(a->get_decl()))
-                    throw has_as_array();                
+                    throw has_redex();
+                if (au.get_manager().is_eq(a))
+                    throw has_redex();
             }
         };
-        has_as_array_finder ha(m_ar);
+        has_redex_finder ha(m_ar);
         try {
             for_each_expr(ha, e);
         }
-        catch (has_as_array) {
+        catch (has_redex) {
             return true;
         }
         return false;
@@ -213,8 +218,8 @@ struct evaluator_cfg : public default_rewriter_cfg {
             expr* val = m_model.get_const_interp(f);
             if (val != nullptr) {
                 result = val;
-                st = contains_as_array(val) ? BR_REWRITE_FULL : BR_DONE;
-                TRACE("model_evaluator", tout << result << "\n";);
+                st = contains_redex(val) ? BR_REWRITE_FULL : BR_DONE;
+                TRACE("model_evaluator", tout << st << " " << result << "\n";);
                 return st;
             }
             if (!m_model_completion)
@@ -283,6 +288,8 @@ struct evaluator_cfg : public default_rewriter_cfg {
             st = m_f_rw.mk_app_core(f, num, args, result);
         else if (fid == m_seq_rw.get_fid())
             st = m_seq_rw.mk_app_core(f, num, args, result);
+        else if (fid == m_rec_rw.get_fid())
+            st = m_rec_rw.mk_app_core(f, num, args, result);
         else if (fid == m.get_label_family_id() && num == 1) {
             result = args[0];
             st = BR_DONE;
@@ -421,14 +428,39 @@ struct evaluator_cfg : public default_rewriter_cfg {
                 return BR_DONE;
             }
         }
+        else if (!fi && m_au.is_considered_partially_interpreted(f, num, args, f_ui)) {
+            fi = m_model.get_func_interp(f_ui);
+                            
+            if (fi) {
+                auto interp = fi->get_interp();
+                if (interp) {
+                    var_subst vs(m, false);
+                    result = vs(fi->get_interp(), num, args);
+                    result = m.mk_ite(m.mk_eq(m_au.mk_real(rational(0)), args[1]), result, m.mk_app(f, num, args));
+                    return BR_DONE;
+                }
+            }
+        }
         else if (!fi && m_fpau.is_considered_uninterpreted(f, num, args)) {
             result = m.get_some_value(f->get_range());
             return BR_DONE;
         }
-        else if (m_dt.is_accessor(f) && !is_ground(args[0])) {
-            result = m.mk_app(f, num, args);
-            return BR_DONE;            
+        else if (m_dt.is_accessor(f)) {
+            expr* arg = args[0];
+            if (m.is_value(arg) && !fi) {
+                fi = alloc(func_interp, m, f->get_arity());
+                expr* val = m_model.get_some_value(f->get_range());
+                fi->set_else(val);
+                m_model.register_decl(f, fi);
+                result = val;
+                return BR_DONE;
+            }
+            if (!is_ground(arg)) {
+                result = m.mk_app(f, num, args);
+                return BR_DONE;
+            }
         }
+
         if (fi) {
             if (fi->is_partial())
                 fi->set_else(m.get_some_value(f->get_range()));

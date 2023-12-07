@@ -26,7 +26,6 @@ Revision History:
 
 
 --*/
-// clang-format off
 #pragma once
 #include "math/lp/numeric_pair.h"
 #include "util/ext_gcd.h"

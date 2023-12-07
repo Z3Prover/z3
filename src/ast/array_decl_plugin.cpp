@@ -633,6 +633,12 @@ bool array_decl_plugin::is_value(app * _e) const {
     }
 }
 
+bool array_decl_plugin::is_unique_value(app* _e) const {
+    array_util u(*m_manager);
+    expr* e = _e;
+    return u.is_const(e, e) && m_manager->is_unique_value(e);
+}
+
 
 func_decl * array_recognizers::get_as_array_func_decl(expr * n) const { 
     SASSERT(is_as_array(n)); 

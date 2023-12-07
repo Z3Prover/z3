@@ -24,6 +24,7 @@ Author:
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/simplifiers/dependent_expr_state.h"
 #include "ast/simplifiers/then_simplifier.h"
+#include "ast/rewriter/th_rewriter.h"
 #include "solver/solver.h"
 #include "solver/simplifier_solver.h"
 #include "solver/solver_preprocess.h"
@@ -35,6 +36,7 @@ class simplifier_solver : public solver {
     struct dep_expr_state : public dependent_expr_state {
         simplifier_solver& s;
         model_reconstruction_trail m_reconstruction_trail;
+        bool m_updated = false;
         dep_expr_state(simplifier_solver& s) :dependent_expr_state(s.m), s(s), m_reconstruction_trail(s.m, m_trail) {}
         ~dep_expr_state() override {}
         virtual unsigned qtail() const override { return s.m_fmls.size(); }
@@ -42,10 +44,13 @@ class simplifier_solver : public solver {
         void update(unsigned i, dependent_expr const& j) override { 
             SASSERT(j.fml());  
             check_false(j.fml());
-            s.m_fmls[i] = j; 
+            s.m_fmls[i] = j;
+            m_updated = true;
         }
-        void add(dependent_expr const& j) override { check_false(j.fml()); s.m_fmls.push_back(j); }
+        void add(dependent_expr const& j) override { m_updated = true; check_false(j.fml()); s.m_fmls.push_back(j); }
         bool inconsistent() override { return s.m_inconsistent; }
+        bool updated() override { return m_updated; }
+        void reset_updated() override { m_updated = false; }
         model_reconstruction_trail& model_trail() override { return m_reconstruction_trail; }
         std::ostream& display(std::ostream& out) const override {
             unsigned i = 0;
@@ -62,12 +67,21 @@ class simplifier_solver : public solver {
             if (s.m.is_false(f))
                 s.set_inconsistent();
         }        
-        void replay(unsigned qhead, expr_ref_vector& assumptions) { m_reconstruction_trail.replay(qhead, assumptions, *this); }
+        void replay(unsigned qhead, expr_ref_vector& assumptions) {
+            m_reconstruction_trail.replay(qhead, assumptions, *this);
+            th_rewriter rw(s.m);
+            expr_ref tmp(s.m);
+            for (unsigned i = 0; i < assumptions.size(); ++i) {
+                tmp = assumptions.get(i);
+                rw(tmp);
+                assumptions[i] = tmp;
+            }                    
+        }
         void flatten_suffix() override {
             expr_mark seen;
             unsigned j = qhead();
             for (unsigned i = qhead(); i < qtail(); ++i) {
-                expr* f = s.m_fmls[i].fml();
+                expr* f = s.m_fmls[i].fml(), *g = nullptr;
                 if (seen.is_marked(f))
                     continue;
                 seen.mark(f, true);
@@ -77,6 +91,12 @@ class simplifier_solver : public solver {
                     auto* d = s.m_fmls[i].dep();
                     for (expr* arg : *to_app(f))
                         add(dependent_expr(s.m, arg, nullptr, d));
+                    continue;
+                }
+                if (s.m.is_not(f, g) && s.m.is_or(g)) {
+                    auto* d = s.m_fmls[i].dep();
+                    for (expr* arg : *to_app(g))
+                        add(dependent_expr(s.m, mk_not(s.m, arg), nullptr, d));
                     continue;
                 }
                 if (i != j)
@@ -109,14 +129,16 @@ class simplifier_solver : public solver {
         unsigned qhead = m_preprocess_state.qhead();
         expr_ref_vector orig_assumptions(assumptions);
         m_core_replace.reset();
-        if (qhead < m_fmls.size() || !assumptions.empty()) {
-            TRACE("solver", tout << "qhead " << qhead << "\n");
-            m_preprocess_state.replay(qhead, assumptions);   
-            m_preprocess_state.freeze(assumptions);
+        if (qhead < m_fmls.size()) {
             m_preprocess.reduce();
             if (!m.inc())
                 return;
+            TRACE("solver", tout << "qhead " << qhead << "\n";
+                  m_preprocess_state.display(tout));
             m_preprocess_state.advance_qhead();
+        }
+        if (!assumptions.empty()) {
+            m_preprocess_state.replay(m_preprocess_state.qhead(), assumptions);   
             for (unsigned i = 0; i < assumptions.size(); ++i) 
                 m_core_replace.insert(assumptions.get(i), orig_assumptions.get(i));            
         }
@@ -202,6 +224,7 @@ public:
     lbool check_sat_core(unsigned num_assumptions, expr* const* assumptions) override { 
         expr_ref_vector _assumptions(m, num_assumptions, assumptions);
         flush(_assumptions);
+        TRACE("simplifier", tout << _assumptions);
         return s->check_sat_core(num_assumptions, _assumptions.data()); 
     }
 

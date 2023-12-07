@@ -88,11 +88,15 @@ namespace euf {
 
         typedef ptr_vector<trail> trail_stack;
 
+        enum to_merge_t { to_merge_plain, to_merge_comm, to_justified, to_add_literal };
         struct to_merge {
             enode* a, * b;
+            to_merge_t t;
             justification j;
-            to_merge(enode* a, enode* b, bool c) : a(a), b(b), j(justification::congruence(c, 0)) {}
-            to_merge(enode* a, enode* b, justification j) : a(a), b(b), j(j) {}
+            bool commutativity() const { return t == to_merge_comm; }
+            to_merge(enode* a, enode* b, bool c) : a(a), b(b), t(c ? to_merge_comm : to_merge_plain) {}
+            to_merge(enode* a, enode* b, justification j): a(a), b(b), t(to_justified), j(j) {}
+            to_merge(enode* p, enode* ante): a(p), b(ante), t(to_add_literal) {}
         };
 
         struct stats {
@@ -215,6 +219,7 @@ namespace euf {
         // plugin related methods
         void push_plugin_undo(unsigned th_id) { m_updates.push_back(update_record(th_id, update_record::plugin_undo())); }
         void push_merge(enode* a, enode* b, justification j) { m_to_merge.push_back({ a, b, j }); }
+        void push_merge(enode* a, enode* b, bool comm) { m_to_merge.push_back({ a, b, comm }); }
         void propagate_plugins();
 
         void add_th_eq(theory_id id, theory_var v1, theory_var v2, enode* c, enode* r);
@@ -222,6 +227,7 @@ namespace euf {
         void add_th_diseqs(theory_id id, theory_var v1, enode* r);
         bool th_propagates_diseqs(theory_id id) const;
         void add_literal(enode* n, enode* ante);
+        void queue_literal(enode* n, enode* ante);
         void undo_eq(enode* r1, enode* n1, unsigned r2_num_parents);
         void undo_add_th_var(enode* n, theory_id id);
         enode* mk_enode(expr* f, unsigned generation, unsigned num_args, enode * const* args);
@@ -256,8 +262,10 @@ namespace euf {
     public:
         egraph(ast_manager& m);
         ~egraph();
-        void add_plugins();
+
+        void add_plugin(plugin* p);
         plugin* get_plugin(family_id fid) const { return m_plugins.get(fid, nullptr); }
+
         enode* find(expr* f) const { return m_expr2enode.get(f->get_id(), nullptr); }
         enode* find(expr* f, unsigned n, enode* const* args);
         enode* mk(expr* f, unsigned generation, unsigned n, enode *const* args);
@@ -284,6 +292,7 @@ namespace euf {
            of new equalities.
         */
         bool propagate();
+        bool can_propagate() const { return !m_to_merge.empty(); }
         bool inconsistent() const { return m_inconsistent; }
 
         /**

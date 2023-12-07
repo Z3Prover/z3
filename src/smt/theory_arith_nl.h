@@ -765,10 +765,8 @@ typename theory_arith<Ext>::numeral theory_arith<Ext>::get_monomial_fixed_var_pr
 template<typename Ext>
 expr * theory_arith<Ext>::get_monomial_non_fixed_var(expr * m) const {
     SASSERT(is_pure_monomial(m));
-    for (unsigned i = 0; i < to_app(m)->get_num_args(); i++) {
-        expr * arg = to_app(m)->get_arg(i);
-        theory_var _var = expr2var(arg);
-        if (!is_fixed(_var))
+    for (expr* arg : *to_app(m)) {
+        if (!is_fixed(expr2var(arg)))
             return arg;
     }
     return nullptr;
@@ -780,7 +778,7 @@ expr * theory_arith<Ext>::get_monomial_non_fixed_var(expr * m) const {
 */
 template<typename Ext>
 bool theory_arith<Ext>::propagate_linear_monomial(theory_var v) {
-    TRACE("non_linear", tout << "checking whether v" << v << " became linear...\n";);
+    TRACE("non_linear_verbose", tout << "checking whether v" << v << " became linear...\n";);
     if (m_data[v].m_nl_propagated)
         return false; // already propagated this monomial.
     expr * m = var2expr(v);
@@ -819,6 +817,11 @@ bool theory_arith<Ext>::propagate_linear_monomial(theory_var v) {
             ctx.mark_as_relevant(rhs);
         }
         TRACE("non_linear_bug", tout << "enode: " << ctx.get_enode(rhs) << " enode_id: " << ctx.get_enode(rhs)->get_owner_id() << "\n";);
+        IF_VERBOSE(3,
+                   for (auto* arg : *to_app(m)) 
+                       if (is_fixed(expr2var(arg)))
+                           verbose_stream() << mk_pp(arg, get_manager()) << " = " << -k << "\n");
+            
         theory_var new_v = expr2var(rhs);
         SASSERT(new_v != null_theory_var);
         new_lower    = alloc(derived_bound, new_v, inf_numeral(0), B_LOWER);
@@ -902,9 +905,11 @@ bool theory_arith<Ext>::propagate_linear_monomial(theory_var v) {
 */
 template<typename Ext>
 bool theory_arith<Ext>::propagate_linear_monomials() {
+    if (!m_params.m_nl_arith_propagate_linear_monomials)
+        return false;
     if (!reflection_enabled())
         return false;
-    TRACE("non_linear", tout << "propagating linear monomials...\n";);
+    TRACE("non_linear_verbose", tout << "propagating linear monomials...\n";);
     bool p = false;
     // CMW: m_nl_monomials can grow during this loop, so
     // don't use iterators.
@@ -2278,6 +2283,8 @@ typename theory_arith<Ext>::gb_result theory_arith<Ext>::compute_grobner(svector
 */
 template<typename Ext>
 bool theory_arith<Ext>::max_min_nl_vars() {
+    if (!m_params.m_nl_arith_optimize_bounds)
+        return true;
     var_set             already_found;
     svector<theory_var> vars;
     for (theory_var v : m_nl_monomials) {
@@ -2360,7 +2367,7 @@ final_check_status theory_arith<Ext>::process_non_linear() {
             }
             break;
         case 1:
-            if (!is_cross_nested_consistent(vars))
+            if (m_params.m_nl_arith_cross_nested && !is_cross_nested_consistent(vars))
                 progress = true;
             break;
         case 2:

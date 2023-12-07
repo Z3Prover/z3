@@ -17,7 +17,6 @@ Revision History:
 
 
 --*/
-// clang-format off
 #pragma once
 
 #include <set>
@@ -57,9 +56,9 @@ lp_core_solver_base(static_matrix<T, X> & A,
     m_column_types(column_types),
     m_lower_bounds(lower_bound_values),
     m_upper_bounds(upper_bound_values),
-    m_basis_sort_counter(0),
+    m_nbasis_sort_counter(0),
     m_tracing_basis_changes(false),
-    m_pivoted_rows(nullptr),
+    m_touched_rows(nullptr),
     m_look_for_feasible_solution_only(false) {
     lp_assert(bounds_for_boxed_are_set_correctly());    
     init();
@@ -116,12 +115,13 @@ pretty_print(std::ostream & out) {
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 add_delta_to_entering(unsigned entering, const X& delta) {
-    m_x[entering] += delta;
-     
-        for (const auto & c : m_A.m_columns[entering]) {
-            unsigned i = c.var();
-            m_x[m_basis[i]] -= delta * m_A.get_val(c);
-        }
+    m_x[entering] += delta;  
+    TRACE("lar_solver_feas", tout << "not tracking feas entering = " << entering << " = " << m_x[entering] << (column_is_feasible(entering) ? " feas" : " non-feas") << "\n";); 
+    for (const auto & c : m_A.m_columns[entering]) {
+        unsigned i = c.var();
+        m_x[m_basis[i]] -= delta * m_A.get_val(c);
+        TRACE("lar_solver_feas", tout << "not tracking feas m_basis[i] = " << m_basis[i] << " = " << m_x[m_basis[i]] << (column_is_feasible(m_basis[i]) ? " feas" : " non-feas") << "\n";);
+    }
 }
 
 
@@ -131,37 +131,6 @@ print_statistics(char const* str, X cost, std::ostream & out) {
         out << str << " ";
     out << "iterations = " << (total_iterations() - 1) << ", cost = " << T_to_string(cost)
         << ", nonzeros = " <<  m_A.number_of_non_zeroes() << std::endl;
-}
-
-template <typename T, typename X> bool lp_core_solver_base<T, X>::
-print_statistics_with_iterations_and_check_that_the_time_is_over(std::ostream & str) {
-    unsigned total_iterations = inc_total_iterations();
-    if (m_settings.report_frequency != 0)  {
-        if (m_settings.print_statistics && (total_iterations % m_settings.report_frequency == 0)) {
-            print_statistics("", X(), str);
-        }
-    }
-    return time_is_over();
-}
-
-template <typename T, typename X> bool lp_core_solver_base<T, X>::
-print_statistics_with_iterations_and_nonzeroes_and_cost_and_check_that_the_time_is_over(char const* str, std::ostream & out) {
-    unsigned total_iterations = inc_total_iterations();
-    if (m_settings.report_frequency != 0)
-        if (m_settings.print_statistics && (total_iterations % m_settings.report_frequency == 0)) {
-            print_statistics(str, get_cost(), out);
-        }
-    return time_is_over();
-}
-
-template <typename T, typename X> bool lp_core_solver_base<T, X>::
-print_statistics_with_cost_and_check_that_the_time_is_over(X cost, std::ostream & out) {
-    unsigned total_iterations = inc_total_iterations();
-    if (m_settings.report_frequency != 0)
-        if (m_settings.print_statistics && (total_iterations % m_settings.report_frequency == 0)) {
-            print_statistics("", cost, out);
-        }
-    return time_is_over();
 }
 
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
@@ -192,18 +161,6 @@ d_is_not_negative(unsigned j) const {
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
 d_is_not_positive(unsigned j) const {
     return m_d[j] <= numeric_traits<T>::zero();    
-}
-
-
-template <typename T, typename X> bool lp_core_solver_base<T, X>::
-time_is_over() {
-    if (m_settings.get_cancel_flag()) {
-        m_status = lp_status::TIME_EXHAUSTED;
-        return true;
-    }
-    else {
-        return false;
-    }
 }
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::
@@ -325,8 +282,8 @@ pivot_column_tableau(unsigned j, unsigned piv_row_index) {
         if(! m_A.pivot_row_to_row_given_cell(piv_row_index, c, j)) {
             return false;
         }
-        if (m_pivoted_rows!= nullptr)
-            m_pivoted_rows->insert(c.var());
+        if (m_touched_rows!= nullptr)
+            m_touched_rows->insert(c.var());
     }
 
     if (m_settings.simplex_strategy() == simplex_strategy_enum::tableau_costs)
@@ -360,7 +317,7 @@ basis_is_correctly_represented_in_heading() const {
     return true;
 }
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
-non_basis_is_correctly_represented_in_heading() const {
+non_basis_is_correctly_represented_in_heading(std::list<unsigned>* non_basis_list) const {
     for (unsigned i = 0; i < m_nbasis.size(); i++) 
         if (m_basis_heading[m_nbasis[i]] !=  - static_cast<int>(i) - 1)
             return false;
@@ -368,7 +325,34 @@ non_basis_is_correctly_represented_in_heading() const {
     for (unsigned j = 0; j < m_A.column_count(); j++) 
         if (m_basis_heading[j] >= 0)
             lp_assert(static_cast<unsigned>(m_basis_heading[j]) < m_A.row_count() && m_basis[m_basis_heading[j]] == j);
-        
+
+    if (non_basis_list == nullptr) return true;
+	
+    std::unordered_set<unsigned> nbasis_set(this->m_nbasis.size());
+    for (unsigned j : this->m_nbasis) 
+        nbasis_set.insert(j);
+    
+    if (non_basis_list->size() != nbasis_set.size()) {
+        TRACE("lp_core", tout << "non_basis_list.size() = " << non_basis_list->size() << ", nbasis_set.size() = " << nbasis_set.size() << "\n";);
+        return false;
+    }
+    for (auto it = non_basis_list->begin(); it != non_basis_list->end(); it++) {
+        if (nbasis_set.find(*it) == nbasis_set.end()) {
+            TRACE("lp_core", tout << "column " << *it << " is in m_non_basis_list but not in m_nbasis\n";);
+            return false;
+        }
+    }
+
+    // check for duplicates in m_non_basis_list
+    nbasis_set.clear();
+    for (auto it = non_basis_list->begin(); it != non_basis_list->end(); it++) {
+        if (nbasis_set.find(*it) != nbasis_set.end()) {
+            TRACE("lp_core", tout << "column " << *it << " is in m_non_basis_list twice\n";);
+            return false;
+        }
+        nbasis_set.insert(*it);
+    }
+
     return true;
 }
 
@@ -390,7 +374,7 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::
     if (!basis_is_correctly_represented_in_heading()) 
         return false;    
 
-    if (!non_basis_is_correctly_represented_in_heading()) 
+    if (!non_basis_is_correctly_represented_in_heading(nullptr)) 
         return false;
     
     return true;
@@ -405,30 +389,22 @@ template <typename T, typename X>  void lp_core_solver_base<T, X>::transpose_row
     transpose_basis(i, j);
     m_A.transpose_rows(i, j);
 }
-// j is the new basic column, j_basic - the leaving column
-template <typename T, typename X> bool lp_core_solver_base<T, X>::pivot_column_general(unsigned j, unsigned j_basic, indexed_vector<T> & w) {
-	lp_assert(m_basis_heading[j] < 0);
-	lp_assert(m_basis_heading[j_basic] >= 0);
-	unsigned row_index = m_basis_heading[j_basic];
-	  // the tableau case
-	if (pivot_column_tableau(j, row_index))
-		change_basis(j, j_basic);
-	else return false;
-	
-	return true;
+// entering is the new base column, leaving - the column leaving the basis
+template <typename T, typename X> bool lp_core_solver_base<T, X>::pivot_column_general(unsigned entering, unsigned leaving, indexed_vector<T> & w) {
+    lp_assert(m_basis_heading[entering] < 0);
+    lp_assert(m_basis_heading[leaving] >= 0);
+    unsigned row_index = m_basis_heading[leaving];
+    // the tableau case
+    if (!pivot_column_tableau(entering, row_index))
+        return false;
+    change_basis(entering, leaving);
+    return true;
 }
 
 
-template <typename T, typename X> bool lp_core_solver_base<T, X>::remove_from_basis(unsigned basic_j) {
+template <typename T, typename X> bool lp_core_solver_base<T, X>::remove_from_basis_core(unsigned entering, unsigned leaving) {
     indexed_vector<T> w(m_basis.size()); // the buffer
-    unsigned i = m_basis_heading[basic_j];
-    for (auto &c : m_A.m_rows[i]) {
-        if (c.var() == basic_j)
-            continue;
-        if (pivot_column_general(c.var(), basic_j, w))
-            return true;
-    }
-    return false;
+    return pivot_column_general(entering, leaving, w);
 }
 
 

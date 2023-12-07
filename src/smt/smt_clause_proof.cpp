@@ -90,14 +90,14 @@ namespace smt {
         return proof_ref(m);
     }
 
-    void clause_proof::add(clause& c) {
+    void clause_proof::add(clause& c, literal_buffer const* simp_lits) {
         if (!is_enabled())
             return;
         justification* j = c.get_justification();
         auto st = kind2st(c.get_kind());
         auto pr = justification2proof(st, j);
         CTRACE("mk_clause", pr.get(), tout << mk_bounded_pp(pr, m, 4) << "\n";);
-        update(c, st, pr);        
+        update(c, st, pr, simp_lits);        
     }
 
     void clause_proof::add(unsigned n, literal const* lits, clause_kind k, justification* j) {
@@ -137,12 +137,15 @@ namespace smt {
         update(st, m_lits, pr);
     }
 
-    void clause_proof::add(literal lit1, literal lit2, clause_kind k, justification* j) {
+    void clause_proof::add(literal lit1, literal lit2, clause_kind k, justification* j, literal_buffer const* simp_lits) {
         if (!is_enabled())
             return;
         m_lits.reset();
         m_lits.push_back(ctx.literal2expr(lit1));
         m_lits.push_back(ctx.literal2expr(lit2));
+        if (simp_lits) 
+            for (auto lit : *simp_lits)
+                m_lits.push_back(ctx.literal2expr(~lit));
         auto st = kind2st(k);
         auto pr = justification2proof(st, j);
         update(st, m_lits, pr);
@@ -160,7 +163,7 @@ namespace smt {
     }
 
     void clause_proof::del(clause& c) {
-        update(c, status::deleted, justification2proof(status::deleted, nullptr));
+        update(c, status::deleted, justification2proof(status::deleted, nullptr), nullptr);
     }
 
     std::ostream& clause_proof::display_literals(std::ostream& out, expr_ref_vector const& v) {
@@ -190,7 +193,8 @@ namespace smt {
         if (ctx.get_fparams().m_clause_proof)
             m_trail.push_back(info(st, v, p));
         if (m_on_clause_eh) 
-            m_on_clause_eh(m_on_clause_ctx, p, v.size(), v.data());        
+            m_on_clause_eh(m_on_clause_ctx, p, 0, nullptr, v.size(), v.data());
+        
         if (m_has_log) {
             init_pp_out();
             auto& out = *m_pp_out;
@@ -220,12 +224,15 @@ namespace smt {
         }
     }
 
-    void clause_proof::update(clause& c, status st, proof* p) {
+    void clause_proof::update(clause& c, status st, proof* p, literal_buffer const* simp_lits) {
         if (!is_enabled())
             return;
         m_lits.reset();
         for (literal lit : c) 
-            m_lits.push_back(ctx.literal2expr(lit));        
+            m_lits.push_back(ctx.literal2expr(lit));
+        if (simp_lits) 
+            for (auto lit : *simp_lits)
+                m_lits.push_back(ctx.literal2expr(~lit));
         update(st, m_lits, p);        
     }
 

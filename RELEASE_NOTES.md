@@ -10,9 +10,34 @@ Version 4.next
     - native word level bit-vector solving.
   - introduction of simple induction lemmas to handle a limited repertoire of induction proofs.
 
-Version 4.12.3
+Version 4.12.5
 ==============
 
+Version 4.12.4
+==============
+- Re-release fixing a few issues with 4.12:
+  - Python dependency on importlib.resources vs importlib_resources break automatic pypi installations. Supposedly fixed by conditioning dependency on Python 3.9 where the feature is built-in.
+  - Missing release of arm64 for Ubuntu.
+  - Futile attempt to streamline adding readme.md file as part of Nuget distribution. Nuget.org now requires a readme file. I was able to integrate the readme with the cmake build, but the cross-platform repackage in scripts/mk_nuget_task.py does not ingest a similar readme file with the CI pipelines.
+
+Version 4.12.3
+==============
+- Alpha support for polymorphism.
+  - SMTLIB3-ish, C, Python
+  It adds the new command `(declare-type-var A)` that declares a symbol (in this case `A`) globally as a polymorphic type variable.
+  The C API contains a new function `Z3_mk_type_variable` and a new enumeration case `Z3_TYPE_VAR` as a kind associated with sorts.
+  All occurrences of `A` are treated as type variables. A function declaration whose signature uses `A` is treated as a shorthand
+  for declarations of all functions that use instances of `A`.
+  Assertions that use type variables are shorthands for assertions covering all instantiations.
+- Various (ongoing) performance fixes and improvements to smt.arith.solver=6
+- A working version of solver.proof.trim=true option. Proofs logs created when using sat.smt=true may be trimmed by running z3
+  on the generated proof log using the option solver.proof.trim=true. 
+- Optimizations LIA and NIA (linear integer arithmetic and non-linear integer (and real) arithmetic reasoning).
+  smt.arith.solver=6 is the default for most use cases. It trails smt.arith.solver=2 in some scenarios and the gap has been either removed or reduced.
+  smt.arith.solver=6 is complete for integrations of non-linear real arithmetic and theories, smt.arith.solver=2 is not. 
+- qel: Light quantifier elimination based on term graphs (egraphs), and corresponding Model Based Projection for arrays and ADTs. Used by Spacer and QSAT.
+- added real-closed fields features to C API, exposed more RCF over OCaml API
+- fixes to FP
 
 Version 4.12.2
 ==============

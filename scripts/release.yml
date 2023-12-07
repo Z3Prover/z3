@@ -6,7 +6,7 @@
 trigger: none
 
 variables:
-  ReleaseVersion: '4.12.3'
+  ReleaseVersion: '4.12.5'
 
 stages:
 
@@ -114,11 +114,26 @@ stages:
         artifactName: 'UbuntuBuild20'
         targetPath: $(Build.ArtifactStagingDirectory)
 
+  - job: UbuntuArm64
+    displayName: "Ubuntu ARM64 build"
+    pool:
+      vmImage: "ubuntu-latest"
+    steps:
+    - script: python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk --arch=arm64
+    - script: git clone https://github.com/z3prover/z3test z3test
+    - script: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2    
+    - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
+    - task: PublishPipelineArtifact@0
+      inputs:
+        artifactName: 'UbuntuArm64'
+        targetPath: $(Build.ArtifactStagingDirectory)
+
   - job: UbuntuDoc
     displayName: "Ubuntu Doc build"
     pool:
       vmImage: "ubuntu-latest"
     steps:
+    - script: pip3 install importlib-resources
     - script: sudo apt-get install ocaml opam libgmp-dev
     - script: opam init -y
     - script: eval `opam config env`; opam install zarith ocamlfind -y
@@ -137,8 +152,8 @@ stages:
         set -e
         eval `opam config env` 
         cd doc
-        python mk_api_doc.py --mld --z3py-package-path=../build/python/z3
-        python mk_params_doc.py 
+        python3 mk_api_doc.py --mld --z3py-package-path=../build/python/z3
+        python3 mk_params_doc.py 
         mkdir api/html/ml
         ocamldoc -html -d api/html/ml -sort -hide Z3 -I $( ocamlfind query zarith ) -I ../build/api/ml ../build/api/ml/z3enums.mli ../build/api/ml/z3.mli
         cd ..
@@ -225,6 +240,11 @@ stages:
       inputs:
         artifact: 'UbuntuBuild20'
         path: $(Agent.TempDirectory)\package
+    - task: DownloadPipelineArtifact@2
+      displayName: 'Download Ubuntu ARM64 Build'
+      inputs:
+        artifact: 'UbuntuArm64'
+        path: $(Agent.TempDirectory)\package	
     - task: DownloadPipelineArtifact@2
       displayName: 'Download macOS Build'
       inputs:
@@ -479,6 +499,11 @@ stages:
       displayName: 'Download Ubuntu Build'
       inputs:
         artifact: 'UbuntuBuild'
+        path: $(Agent.TempDirectory)
+    - task: DownloadPipelineArtifact@2
+      displayName: "Download Ubuntu Arm64"
+      inputs:
+        artifactName: 'UbuntuArm64'
         path: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
       displayName: "Download Doc"

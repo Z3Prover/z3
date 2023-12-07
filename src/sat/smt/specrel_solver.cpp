@@ -17,6 +17,7 @@ Author:
 
 #include "sat/smt/specrel_solver.h"
 #include "sat/smt/euf_solver.h"
+#include "ast/euf/euf_specrel_plugin.h"
 
 namespace euf {
     class solver;
@@ -28,7 +29,7 @@ namespace specrel {
         th_euf_solver(ctx, ctx.get_manager().get_family_name(id), id),
         sp(m)
     {
-        ctx.get_egraph().add_plugins();
+        ctx.get_egraph().add_plugin(alloc(euf::specrel_plugin, ctx.get_egraph()));
     }
 
     solver::~solver() {

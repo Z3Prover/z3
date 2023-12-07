@@ -17,14 +17,13 @@
 
 
   --*/
-// clang-format off
 #pragma once
 
 #include "math/lp/nla_common.h"
 #include "math/lp/nla_intervals.h"
 #include "math/lp/nex.h"
 #include "math/lp/cross_nested.h"
-#include "math/lp/u_set.h"
+#include "util/uint_set.h"
 
 namespace nla {
 class core;

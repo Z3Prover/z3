@@ -317,7 +317,7 @@ namespace sat {
             // cls becomes false: flip any variable in clause to receive reward w
             switch (ci.m_num_trues) {
             case 0: {
-                m_unsat.insert(cls_idx);
+                m_unsat.insert_fresh(cls_idx);
                 clause const& c = get_clause(cls_idx);
                 for (literal l : c) {
                     inc_reward(l, w);
@@ -406,7 +406,7 @@ namespace sat {
                     inc_reward(lit, ci.m_weight);
                     inc_make(lit);
                 }
-                m_unsat.insert(i);
+                m_unsat.insert_fresh(i);
                 break;
             case 1:
                 dec_reward(to_literal(ci.m_trues), ci.m_weight);
@@ -494,7 +494,7 @@ namespace sat {
         unsigned h = value_hash();
         unsigned occs = 0;
         bool contains = m_models.find(h, occs);
-        if (!m_models.contains(h)) {
+        if (!contains) {
             for (unsigned v = 0; v < num_vars(); ++v)
                 bias(v) += value(v) ? 1 : -1;
             if (m_models.size() > m_config.m_max_num_models)

@@ -39,8 +39,10 @@ namespace euf {
         }
         m_expr2enode.setx(f->get_id(), n, nullptr);
         push_node(n);
-        for (unsigned i = 0; i < num_args; ++i) 
-            set_cgc_enabled(args[i], true);                             
+        for (unsigned i = 0; i < num_args; ++i) {
+            set_cgc_enabled(args[i], true);      
+            args[i]->get_root()->set_is_shared(l_undef);
+        }                       
         return n;
     }
 
@@ -70,7 +72,7 @@ namespace euf {
     }
 
     enode_bool_pair egraph::insert_table(enode* p) {
-        TRACE("euf", tout << bpp(p) << "\n");
+        TRACE("euf", tout << "insert_table " << bpp(p) << "\n");
         //SASSERT(!m_table.contains_ptr(p));
         auto rc = m_table.insert(p);
         p->m_cg = rc.first;
@@ -82,9 +84,14 @@ namespace euf {
     }
 
     void egraph::reinsert_equality(enode* p) {
-        SASSERT(p->is_equality());
+        SASSERT(p->is_equality());        
         if (p->value() != l_true && p->get_arg(0)->get_root() == p->get_arg(1)->get_root()) 
-            add_literal(p, nullptr);
+            queue_literal(p, nullptr);
+    }
+
+    void egraph::queue_literal(enode* p, enode* ante) {        
+        if (m_on_propagate_literal)
+            m_to_merge.push_back(to_merge(p, ante));
     }
 
     void egraph::force_push() {
@@ -128,9 +135,8 @@ namespace euf {
         if (n2 == n) 
             update_children(n);        
         else 
-            push_merge(n, n2, justification::congruence(comm, 0));
-        // merge(n, n2, justification::congruence(comm, m_congruence_timestamp++));
-            
+            push_merge(n, n2, comm);
+    
         return n;
     }
 
@@ -145,18 +151,9 @@ namespace euf {
             memory::deallocate(m_tmp_node);
     }
 
-    void egraph::add_plugins() {
-        if (!m_plugins.empty())
-            return;
-
-        auto insert = [&](plugin* p) {
-            m_plugins.reserve(p->get_id() + 1);
-            m_plugins.set(p->get_id(), p);
-        };
-
-        insert(alloc(bv_plugin, *this));
-        insert(alloc(arith_plugin, *this));
-        insert(alloc(specrel_plugin, *this));
+    void egraph::add_plugin(plugin* p) {
+        m_plugins.reserve(p->get_id() + 1);
+        m_plugins.set(p->get_id(), p);       
     }
 
     void egraph::propagate_plugins() {
@@ -188,25 +185,21 @@ namespace euf {
     }
 
     void egraph::add_literal(enode* n, enode* ante) {
+        TRACE("euf", tout << "propagate " << bpp(n) << " " << bpp(ante) << "\n");
         if (!m_on_propagate_literal)
             return;
         if (!ante) ++m_stats.m_num_eqs; else ++m_stats.m_num_lits;
         if (!ante)
             m_on_propagate_literal(n, ante);
         else if (m.is_true(ante->get_expr()) || m.is_false(ante->get_expr())) {
-            for (enode* k : enode_class(n)) {
-                if (k != ante) {
-                    //verbose_stream() << "eq: " << k->value() << " " <<ante->value() << "\n";
-                    m_on_propagate_literal(k, ante);
-                }
-            }
+            for (enode* k : enode_class(n)) 
+                if (k != ante) 
+                    m_on_propagate_literal(k, ante);           
         }
         else {
             for (enode* k : enode_class(n)) {
-                if (k->value() != ante->value()) {
-                    //verbose_stream() << "eq: " << k->value() << " " <<ante->value() << "\n";
-                    m_on_propagate_literal(k, ante);
-                }
+                if (k->value() != ante->value()) 
+                    m_on_propagate_literal(k, ante);                
             }
         }
     }
@@ -516,6 +509,7 @@ namespace euf {
             c->m_root = r2;
         std::swap(r1->m_next, r2->m_next);
         r2->inc_class_size(r1->class_size());   
+        r2->set_is_shared(l_undef);
         merge_th_eq(r1, r2, j);
         reinsert_parents(r1, r2);
         if (j.is_congruence() && (m.is_false(r2->get_expr()) || m.is_true(r2->get_expr())))
@@ -532,6 +526,7 @@ namespace euf {
 
     void egraph::remove_parents(enode* r) {
         TRACE("euf", tout << bpp(r) << "\n");
+        SASSERT(all_of(enode_parents(r), [&](enode* p) { return !p->is_marked1(); }));
         for (enode* p : enode_parents(r)) {
             if (p->is_marked1())
                 continue;
@@ -558,7 +553,7 @@ namespace euf {
             if (p->cgc_enabled()) {
                 auto [p_other, comm] = insert_table(p);
                 SASSERT(m_table.contains_ptr(p) == (p_other == p));
-                TRACE("euf", tout << "other " << bpp(p_other) << "\n";);
+                CTRACE("euf", p_other != p, tout << "reinsert " << bpp(p) << " == " << bpp(p_other) << " " << p->value() << " " << p_other->value() << "\n");
                 if (p_other != p) 
                     m_to_merge.push_back(to_merge(p_other, p, comm));                
                 else
@@ -594,6 +589,7 @@ namespace euf {
         enode* r2 = r1->get_root();
         TRACE("euf", tout << "undo-eq old-root: " << bpp(r1) << " current-root " << bpp(r2) << " node: " << bpp(n1) << "\n";);
         r2->dec_class_size(r1->class_size());
+        r2->set_is_shared(l_undef);
         std::swap(r1->m_next, r2->m_next);
         auto begin = r2->begin_parents() + r2_num_parents, end = r2->end_parents();
         for (auto it = begin; it != end; ++it) {
@@ -615,18 +611,29 @@ namespace euf {
         unmerge_justification(n1);
     }
 
-    bool egraph::propagate() {        
+
+    bool egraph::propagate() {
         force_push();
-        propagate_plugins();
-        for (unsigned i = 0; i < m_to_merge.size() && m.limit().inc() && !inconsistent(); ++i) {
-            auto const& w = m_to_merge[i];
-            if (w.j.is_congruence())
-                merge(w.a, w.b, justification::congruence(w.j.is_commutative(), m_congruence_timestamp++));
-            else
-                merge(w.a, w.b, w.j);
-            
-            if (i + 1 == m_to_merge.size())
-                propagate_plugins();
+        unsigned i = 0;
+        bool change = true;
+        while (change) {
+            change = false;
+            propagate_plugins();
+            for (; i < m_to_merge.size() && m.limit().inc() && !inconsistent(); ++i) {
+                auto const& w = m_to_merge[i];
+                switch (w.t) {
+                case to_merge_plain:
+                case to_merge_comm:
+                    merge(w.a, w.b, justification::congruence(w.commutativity(), m_congruence_timestamp++));
+                    break;
+                case to_justified:
+                    merge(w.a, w.b, w.j);
+                    break;
+                case to_add_literal:
+                    add_literal(w.a, w.b);
+                    break;
+                }                
+            }
         }
         m_to_merge.reset();
         return 
@@ -642,7 +649,7 @@ namespace euf {
         m_updates.push_back(update_record(false, update_record::inconsistent()));
         m_n1 = n1;
         m_n2 = n2;
-        TRACE("euf", tout << "conflict " << bpp(n1) << " " << bpp(n2) << " " << j << "\n");
+        TRACE("euf", tout << "conflict " << bpp(n1) << " " << bpp(n2) << " " << j << " " << n1->get_root()->value() << " " << n2->get_root()->value() << "\n");
         m_justification = j;
     }
 
@@ -920,7 +927,7 @@ namespace euf {
         for (enode* n : m_nodes)
             max_args = std::max(max_args, n->num_args());
         for (enode* n : m_nodes) 
-            display(out, max_args, n);   
+            display(out, max_args, n);          
         for (auto* p : m_plugins)
             if (p)
                 p->display(out);

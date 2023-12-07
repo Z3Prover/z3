@@ -33,6 +33,18 @@ enum br_status {
     BR_FAILED                  // no builtin rewrite is available
 };
 
+inline std::ostream& operator<<(std::ostream& out, br_status st) {
+    switch (st) {
+    case BR_REWRITE1: return out << "rewrite1";
+    case BR_REWRITE2: return out << "rewrite2";
+    case BR_REWRITE3: return out << "rewrite3";
+    case BR_REWRITE_FULL: return out << "rewrite_full";
+    case BR_DONE: return out << "done";
+    case BR_FAILED: return out << "failed";
+    default: return out << "unknown";
+    }
+}
+
 #define RW_UNBOUNDED_DEPTH 3
 inline br_status unsigned2br_status(unsigned u) {
     br_status r = u >= RW_UNBOUNDED_DEPTH ? BR_REWRITE_FULL : static_cast<br_status>(u);

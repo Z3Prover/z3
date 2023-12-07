@@ -30,7 +30,7 @@ static void test1() {
     ast_manager m;
     reg_decl_plugins(m);
     euf::egraph g(m);
-    g.add_plugins();
+    g.add_plugin(alloc(euf::arith_plugin, g));
     arith_util a(m);
     sort_ref I(a.mk_int(), m);
 
@@ -53,7 +53,7 @@ static void test2() {
     ast_manager m;
     reg_decl_plugins(m);
     euf::egraph g(m);
-    g.add_plugins();
+    g.add_plugin(alloc(euf::arith_plugin, g));
     arith_util a(m);
     sort_ref I(a.mk_int(), m);
 
@@ -80,7 +80,7 @@ static void test3() {
     ast_manager m;
     reg_decl_plugins(m);
     euf::egraph g(m);
-    g.add_plugins();
+    g.add_plugin(alloc(euf::arith_plugin, g));
     arith_util a(m);
     sort_ref I(a.mk_int(), m);
 

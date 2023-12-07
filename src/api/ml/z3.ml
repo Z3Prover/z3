@@ -26,7 +26,7 @@ struct
   let (major, minor, build, revision) = Z3native.get_version ()
 
   let full_version : string = Z3native.get_full_version()
-                                                             
+
   let to_string =
     string_of_int major ^ "." ^
     string_of_int minor ^ "." ^
@@ -45,12 +45,12 @@ let mk_list f n =
 
 let check_int32 v = v = Int32.to_int (Int32.of_int v)
 
-let mk_int_expr ctx v ty = 
+let mk_int_expr ctx v ty =
    if not (check_int32 v) then
       Z3native.mk_numeral ctx (string_of_int v) ty
    else
       Z3native.mk_int ctx v ty
-    
+
 let mk_context (settings:(string * string) list) =
   let cfg = Z3native.mk_config () in
   let f e = Z3native.set_param_value cfg (fst e) (snd e) in
@@ -61,6 +61,9 @@ let mk_context (settings:(string * string) list) =
   Z3native.set_internal_error_handler res;
   Z3native.enable_concurrent_dec_ref res;
   res
+
+let interrupt (ctx:context) =
+    Z3native.interrupt ctx
 
 module Symbol =
 struct
@@ -721,7 +724,7 @@ struct
   let mk_exists = _internal_mk_quantifier ~universal:false
   let mk_exists_const = _internal_mk_quantifier_const ~universal:false
   let mk_lambda_const ctx bound body = Z3native.mk_lambda_const ctx (List.length bound) bound body
-  let mk_lambda ctx bound body = 
+  let mk_lambda ctx bound body =
       let names = List.map (fun (x,_) -> x) bound in
       let sorts = List.map (fun (_,y) -> y) bound in
       Z3native.mk_lambda ctx (List.length bound) sorts names body
@@ -855,15 +858,6 @@ struct
   module Constructor =
   struct
     type constructor = Z3native.constructor
-
-    module FieldNumTable = Hashtbl.Make(struct
-        type t = AST.ast
-        let equal x y = AST.compare x y = 0
-        let hash = AST.hash
-      end)
-
-    let _field_nums = FieldNumTable.create 0
-
     let create (ctx:context) (name:Symbol.symbol) (recognizer:Symbol.symbol) (field_names:Symbol.symbol list) (sorts:Sort.sort option list) (sort_refs:int list) =
       let n = List.length field_names in
       if n <> List.length sorts then
@@ -879,10 +873,9 @@ struct
             (let f x = match x with None -> Z3native.mk_null_ast ctx | Some s -> s in
              List.map f sorts)
             sort_refs in
-        FieldNumTable.add _field_nums no n;
         no
 
-    let get_num_fields (x:constructor) = FieldNumTable.find _field_nums x
+    let get_num_fields (x:constructor) = Z3native.constructor_num_fields (gc x) x
 
     let get_constructor_decl (x:constructor) =
       let (a, _, _) = (Z3native.query_constructor (gc x) x (get_num_fields x)) in
@@ -917,10 +910,10 @@ struct
 
   let mk_sort_s (ctx:context) (name:string) (constructors:Constructor.constructor list) =
     mk_sort ctx (Symbol.mk_string ctx name) constructors
-    
+
   let mk_sort_ref (ctx: context) (name:Symbol.symbol) =
     Z3native.mk_datatype_sort ctx name
-    
+
   let mk_sort_ref_s (ctx: context) (name: string) =
     mk_sort_ref ctx (Symbol.mk_string ctx name)
 
@@ -1249,7 +1242,7 @@ end
 module Seq =
 struct
   let mk_seq_sort  = Z3native.mk_seq_sort
-  let is_seq_sort = Z3native.is_seq_sort 
+  let is_seq_sort = Z3native.is_seq_sort
   let mk_re_sort = Z3native.mk_re_sort
   let is_re_sort = Z3native.is_re_sort
   let mk_string_sort = Z3native.mk_string_sort
@@ -1264,7 +1257,7 @@ struct
   let mk_seq_concat ctx args = Z3native.mk_seq_concat ctx (List.length args) args
   let mk_seq_prefix = Z3native.mk_seq_prefix
   let mk_seq_suffix = Z3native.mk_seq_suffix
-  let mk_seq_contains = Z3native.mk_seq_contains 
+  let mk_seq_contains = Z3native.mk_seq_contains
   let mk_seq_extract = Z3native.mk_seq_extract
   let mk_seq_replace = Z3native.mk_seq_replace
   let mk_seq_at = Z3native.mk_seq_at
@@ -1509,13 +1502,15 @@ struct
     in
     Z3native.apply_result_inc_ref (gc x) arn;
     let sg = Z3native.apply_result_get_num_subgoals (gc x) arn in
-    let res = if sg = 0 then
-        raise (Error "No subgoals")
-      else
-        Z3native.apply_result_get_subgoal (gc x) arn 0 in
-    Z3native.apply_result_dec_ref (gc x) arn;
-    Z3native.tactic_dec_ref (gc x) tn;
-    res
+    if sg = 0 then (
+      Z3native.apply_result_dec_ref (gc x) arn;
+      Z3native.tactic_dec_ref (gc x) tn;
+      raise (Error "No subgoals"))
+    else
+      let res:goal = Z3native.apply_result_get_subgoal (gc x) arn 0 in
+      Z3native.apply_result_dec_ref (gc x) arn;
+      Z3native.tactic_dec_ref (gc x) tn;
+      res
 
   let mk_goal = Z3native.mk_goal
 
@@ -1889,9 +1884,9 @@ struct
     | _ -> UNKNOWN
 
   let get_model x =
-    try 
+    try
        let q = Z3native.solver_get_model (gc x) x in
-       if Z3native.is_null_model q then None else Some q 
+       if Z3native.is_null_model q then None else Some q
     with | _ -> None
 
   let get_proof x =
@@ -1916,6 +1911,9 @@ struct
   let add_simplifier = Z3native.solver_add_simplifier
   let translate x = Z3native.solver_translate (gc x) x
   let to_string x = Z3native.solver_to_string (gc x) x
+
+  let interrupt (ctx:context) (s:solver) =
+    Z3native.solver_interrupt ctx s
 end
 
 
@@ -2074,6 +2072,123 @@ struct
     else
       Z3native.parse_smtlib2_file ctx file_name
         cs sort_names sorts cd decl_names decls
+end
+
+
+module RCF =
+struct
+  type rcf_num = Z3native.rcf_num
+
+  let del (ctx:context) (a:rcf_num) = Z3native.rcf_del ctx a
+  let del_list (ctx:context) (ns:rcf_num list) = List.iter (fun a -> Z3native.rcf_del ctx a) ns
+  let mk_rational (ctx:context) (v:string) = Z3native.rcf_mk_rational ctx v
+  let mk_small_int (ctx:context) (v:int) = Z3native.rcf_mk_small_int ctx v
+
+  let mk_pi (ctx:context) = Z3native.rcf_mk_pi ctx
+  let mk_e (ctx:context) = Z3native.rcf_mk_e ctx
+  let mk_infinitesimal (ctx:context) = Z3native.rcf_mk_infinitesimal ctx
+
+  let mk_roots (ctx:context) (a:rcf_num list) =
+    let n, r = Z3native.rcf_mk_roots ctx (List.length a) a in
+    List.init n (fun x -> List.nth r x)
+
+  let add (ctx:context) (a:rcf_num) (b:rcf_num) = Z3native.rcf_add ctx a b
+  let sub (ctx:context) (a:rcf_num) (b:rcf_num) = Z3native.rcf_sub ctx a b
+  let mul (ctx:context) (a:rcf_num) (b:rcf_num) = Z3native.rcf_mul ctx a b
+  let div (ctx:context) (a:rcf_num) (b:rcf_num) = Z3native.rcf_div ctx a b
+
+  let neg (ctx:context) (a:rcf_num) = Z3native.rcf_neg ctx a
+  let inv (ctx:context) (a:rcf_num) = Z3native.rcf_neg ctx a
+
+  let power (ctx:context) (a:rcf_num) (k:int) = Z3native.rcf_power ctx a k
+
+  let lt (ctx:context) (a:rcf_num) (b:rcf_num) = Z3native.rcf_lt ctx a b
+  let gt (ctx:context) (a:rcf_num) (b:rcf_num) = Z3native.rcf_gt ctx a b
+  let le (ctx:context) (a:rcf_num) (b:rcf_num) = Z3native.rcf_le ctx a b
+  let ge (ctx:context) (a:rcf_num) (b:rcf_num) = Z3native.rcf_ge ctx a b
+  let eq (ctx:context) (a:rcf_num) (b:rcf_num) = Z3native.rcf_eq ctx a b
+  let neq (ctx:context) (a:rcf_num) (b:rcf_num) = Z3native.rcf_neq ctx a b
+
+  let num_to_string (ctx:context) (a:rcf_num) (compact:bool) (html:bool) = Z3native.rcf_num_to_string ctx a compact html
+  let num_to_decimal_string (ctx:context) (a:rcf_num) (prec:int) = Z3native.rcf_num_to_decimal_string ctx a prec
+  let get_numerator_denominator (ctx:context) (a:rcf_num) = Z3native.rcf_get_numerator_denominator ctx a
+
+  let is_rational (ctx:context) (a:rcf_num) = Z3native.rcf_is_rational ctx a
+  let is_algebraic (ctx:context) (a:rcf_num) = Z3native.rcf_is_algebraic ctx a
+  let is_infinitesimal (ctx:context) (a:rcf_num) = Z3native.rcf_is_infinitesimal ctx a
+  let is_transcendental (ctx:context) (a:rcf_num) = Z3native.rcf_is_transcendental ctx a
+
+  let extension_index (ctx:context) (a:rcf_num) =  Z3native.rcf_extension_index ctx a
+  let transcendental_name (ctx:context) (a:rcf_num) = Z3native.rcf_transcendental_name ctx a
+  let infinitesimal_name (ctx:context) (a:rcf_num) = Z3native.rcf_infinitesimal_name ctx a
+
+  let num_coefficients (ctx:context) (a:rcf_num) = Z3native.rcf_num_coefficients ctx a
+  let get_coefficient (ctx:context) (a:rcf_num) (i:int) = Z3native.rcf_coefficient ctx a i
+
+  let coefficients (ctx:context) (a:rcf_num) =
+    List.init (num_coefficients ctx a) (fun i -> Z3native.rcf_coefficient ctx a i)
+
+  type interval = {
+      lower_is_inf : bool;
+      lower_is_open : bool;
+      lower : rcf_num;
+      upper_is_inf : bool;
+      upper_is_open : bool;
+      upper : rcf_num;
+  }
+
+  let root_interval (ctx:context) (a:rcf_num) =
+    let ok, linf, lopen, l, uinf, uopen, u = Z3native.rcf_interval ctx a in
+    let i:interval = {
+      lower_is_inf = linf != 0;
+      lower_is_open = lopen != 0;
+      lower = l;
+      upper_is_inf = uinf != 0;
+      upper_is_open = uopen != 0;
+      upper = u } in
+    if ok != 0 then Some i else None
+
+  let sign_condition_sign (ctx:context) (a:rcf_num) (i:int) = Z3native.rcf_sign_condition_sign ctx a i
+
+  let sign_condition_coefficient (ctx:context) (a:rcf_num) (i:int) (j:int) = Z3native.rcf_sign_condition_coefficient ctx a i j
+
+  let num_sign_condition_coefficients (ctx:context) (a:rcf_num) (i:int) = Z3native.rcf_num_sign_condition_coefficients ctx a i
+
+  let sign_condition_coefficients (ctx:context) (a:rcf_num) (i:int) =
+    let n = Z3native.rcf_num_sign_condition_coefficients ctx a i in
+    List.init n (fun j -> Z3native.rcf_sign_condition_coefficient ctx a i j)
+
+  let sign_conditions (ctx:context) (a:rcf_num) =
+    let n = Z3native.rcf_num_sign_conditions ctx a in
+    List.init n (fun i ->
+      (let nc = Z3native.rcf_num_sign_condition_coefficients ctx a i in
+       List.init nc (fun j -> Z3native.rcf_sign_condition_coefficient ctx a i j)),
+      Z3native.rcf_sign_condition_sign ctx a i)
+
+  type root = {
+    obj : rcf_num;
+    polynomial : rcf_num list;
+    interval : interval option;
+    sign_conditions : (rcf_num list * int) list;
+  }
+
+  let roots (ctx:context) (a:rcf_num list) =
+      let rs = mk_roots ctx a in
+      List.map
+        (fun r -> {
+          obj = r;
+          polynomial = coefficients ctx r;
+          interval = root_interval ctx r;
+          sign_conditions = sign_conditions ctx r})
+        rs
+
+  let del_root (ctx:context) (r:root) =
+    del ctx r.obj;
+    List.iter (fun n -> del ctx n) r.polynomial;
+    List.iter (fun (ns, _) -> del_list ctx ns) r.sign_conditions
+
+  let del_roots (ctx:context) (rs:root list) =
+    List.iter (fun r -> del_root ctx r) rs
 end
 
 

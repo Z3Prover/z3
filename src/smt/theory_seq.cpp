@@ -2160,7 +2160,7 @@ app* theory_seq::mk_value(app* e) {
 }
 
 
-void theory_seq::validate_model(model& mdl) {
+void theory_seq::validate_model(proto_model& mdl) {
     return;
     for (auto const& eq : m_eqs) {
         sort* srt = eq.ls[0]->get_sort();

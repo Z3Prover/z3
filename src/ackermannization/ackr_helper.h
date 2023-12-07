@@ -18,6 +18,7 @@
 
 #include "ast/bv_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
+#include "ast/ast_ll_pp.h"
 
 class ackr_helper {
 public:
@@ -40,10 +41,8 @@ public:
     inline bool is_uninterp_fn(app const * a) const {
         if (is_uninterp(a))
             return true;
-        else {
-            decl_plugin * p = m_bvutil.get_manager().get_plugin(a->get_family_id());
-            return p->is_considered_uninterpreted(a->get_decl());
-        }
+        decl_plugin * p = m_bvutil.get_manager().get_plugin(a->get_family_id());
+        return p->is_considered_uninterpreted(a->get_decl());        
     }
 
     /**
@@ -64,9 +63,8 @@ public:
             }
         }
         else {
-            for (expr* arg : *a) {
+            for (expr* arg : *a) 
                 non_select.mark(arg, true);
-            }
         }
     }
 
@@ -112,7 +110,8 @@ public:
     }
 
     void insert(fun2terms_map& f2t, sel2terms_map& s2t, app* a) {
-        if (a->get_num_args() == 0) return;
+        if (a->get_num_args() == 0)
+            return;
         ast_manager& m = m_bvutil.get_manager();
         app_set* ts = nullptr;
         bool is_const_args = true;
@@ -129,21 +128,18 @@ public:
                 ts = alloc(app_set);
                 f2t.insert(fd, ts);
             }
-            is_const_args = m.is_value(a->get_arg(0));
+            is_const_args = m.is_unique_value(a->get_arg(0));
         }
-        else {
+        else 
             return;
-        }
-        for (unsigned i = 1; is_const_args && i < a->get_num_args(); ++i) {
-            is_const_args &= m.is_value(a->get_arg(i));
-        }
         
-        if (is_const_args) {
+        for (unsigned i = 1; is_const_args && i < a->get_num_args(); ++i) 
+            is_const_args &= m.is_unique_value(a->get_arg(i));
+        
+        if (is_const_args) 
             ts->const_args.insert(a);
-        }
-        else {
+        else 
             ts->var_args.insert(a);
-        }
     }
     
 private:

@@ -21,6 +21,7 @@ Notes:
 #include "ast/rewriter/poly_rewriter.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/seq_decl_plugin.h"
+#include "math/polynomial/algebraic_numbers.h"
 
 class arith_rewriter_core {
 protected:
@@ -80,6 +81,7 @@ class arith_rewriter : public poly_rewriter<arith_rewriter_core> {
     void updt_local_params(params_ref const & p);
 
     bool is_anum_simp_target(unsigned num_args, expr * const * args);
+    bool is_algebraic_numeral(expr* n, scoped_anum& a);
 
     br_status mk_div_irrat_rat(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_div_rat_irrat(expr * arg1, expr * arg2, expr_ref & result);
@@ -97,8 +99,8 @@ class arith_rewriter : public poly_rewriter<arith_rewriter_core> {
     bool is_2_pi_integer_offset(expr * t, expr * & m);
     bool is_pi_integer(expr * t);
     bool is_pi_integer_offset(expr * t, expr * & m);
-    bool is_neg_poly(expr* e, expr_ref& neg) const;
-    expr_ref neg_monomial(expr * e) const;
+    bool is_neg_poly(expr* e, expr_ref& neg);
+    expr_ref neg_monomial(expr * e);
     expr * mk_sin_value(rational const & k);
     app * mk_sqrt(rational const & k);
     bool divides(expr* d, expr* n, expr_ref& result);

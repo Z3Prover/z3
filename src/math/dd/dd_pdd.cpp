@@ -62,6 +62,10 @@ namespace dd {
         init_nodes(level2var);
     }
 
+    void pdd_manager::set_max_num_nodes(unsigned n) {        
+        m_max_num_nodes = n + m_level2var.size();
+    }
+
     void pdd_manager::init_nodes(unsigned_vector const& l2v) {
         // add dummy nodes for operations, and 0, 1 pdds.
         for (unsigned i = 0; i < pdd_no_op; ++i) {
@@ -1614,7 +1618,8 @@ namespace dd {
         for (unsigned i = m_nodes.size(); i-- > pdd_no_op; ) {
             if (!reachable[i]) {
                 if (is_val(i)) {
-                    if (m_freeze_value == val(i)) continue;
+                    if (m_freeze_value == val(i)) 
+                        continue;
                     m_free_values.push_back(m_mpq_table.find(val(i)).m_value_index);
                     m_mpq_table.remove(val(i));  
                 }
@@ -1629,20 +1634,17 @@ namespace dd {
 
         ptr_vector<op_entry> to_delete, to_keep;
         for (auto* e : m_op_cache) {            
-            if (e->m_result != null_pdd) {
-                to_delete.push_back(e);
-            }
-            else {
-                to_keep.push_back(e);
-            }
+            if (e->m_result != null_pdd)
+                to_delete.push_back(e);            
+            else 
+                to_keep.push_back(e);            
         }
         m_op_cache.reset();
-        for (op_entry* e : to_delete) {
+        for (op_entry* e : to_delete) 
             m_alloc.deallocate(sizeof(*e), e);
-        }
-        for (op_entry* e : to_keep) {
-            m_op_cache.insert(e);
-        }
+        
+        for (op_entry* e : to_keep) 
+            m_op_cache.insert(e);        
 
         m_factor_cache.reset();
 

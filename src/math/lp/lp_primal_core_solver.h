@@ -17,12 +17,11 @@ Revision History:
 
 
 --*/
-// clang-format off
 #pragma once
 #include "math/lp/core_solver_pretty_printer.h"
 #include "math/lp/lp_core_solver_base.h"
 #include "math/lp/static_matrix.h"
-#include "math/lp/u_set.h"
+#include "util/uint_set.h"
 #include "util/vector.h"
 #include <algorithm>
 #include <cstdlib>
@@ -47,7 +46,7 @@ namespace lp {
         vector<T> m_costs_backup;
         unsigned m_inf_row_index_for_tableau;
         bool m_bland_mode_tableau;
-        u_set m_left_basis_tableau;
+        indexed_uint_set m_left_basis_tableau;
         unsigned m_bland_mode_threshold;
         unsigned m_left_basis_repeated;
         vector<unsigned> m_leaving_candidates;
@@ -139,99 +138,100 @@ namespace lp {
             return false;
         }
 
-/**
- * Return the number of base non-free variables depending on the column j,
- * different from bj,
- * but take the min with the (bound+1).
- * This function is used to select the pivot variable.
-*/
-  unsigned get_num_of_not_free_basic_dependent_vars(
-      unsigned j, unsigned bound, unsigned bj) const { // consider looking at the signs here: todo
-    unsigned r = 0;
-    for (const auto &cc : this->m_A.m_columns[j]) {
-      unsigned basic_for_row = this->m_basis[cc.var()];
-      if (basic_for_row == bj)
-        continue;
-        
-     // std::cout << this->m_A.m_rows[cc.var()] << std::endl;
-      if (this->m_column_types[basic_for_row] != column_type::free_column)         
-         if (r++ > bound) return r;      
-    }
-    return r;
-  }
-    // clang-format off
-    int find_beneficial_entering_in_row_tableau_rows_bland_mode(int i, T &a_ent) {
-        int j = -1;
-        unsigned bj = this->m_basis[i];
-        bool bj_needs_to_grow = needs_to_grow(bj);
-        for (const row_cell<T> &rc : this->m_A.m_rows[i]) {
-            if (rc.var() == bj)
-                continue;
-            if (bj_needs_to_grow) {
-                if (!monoid_can_decrease(rc))
+        /**
+         * Return the number of base non-free variables depending on the column j,
+         * different from bj,
+         * but take the min with the (bound+1).
+         * This function is used to select the pivot variable.
+         */
+        unsigned get_num_of_not_free_basic_dependent_vars(unsigned j, unsigned bound, unsigned bj) const {
+            // consider looking at the signs here: todo
+            unsigned r = 0;
+            for (const auto &cc : this->m_A.m_columns[j]) {
+                unsigned basic_for_row = this->m_basis[cc.var()];
+                if (basic_for_row == bj)
                     continue;
-            } else {
-                if (!monoid_can_increase(rc))
-                    continue;
+
+                // std::cout << this->m_A.m_rows[cc.var()] << std::endl;
+                if (this->m_column_types[basic_for_row] != column_type::free_column)
+                    if (r++ > bound) return r;
             }
-            if (rc.var() < static_cast<unsigned>(j)) {
-                j = rc.var();
-                a_ent = rc.coeff();
-            }
+            return r;
         }
-        if (j == -1)
-            m_inf_row_index_for_tableau = i;
-        return j;
-    }
-    //clang-format off
-    int find_beneficial_entering_tableau_rows(int i, T &a_ent) {
-        if (m_bland_mode_tableau)
-            return find_beneficial_entering_in_row_tableau_rows_bland_mode(i, a_ent);
-        // a short row produces short infeasibility explanation and benefits at
-        // least one pivot operation
-        int choice = -1;
-        int nchoices = 0;
-        unsigned min_non_free_so_far = -1;
-        unsigned best_col_sz = -1;
-        unsigned bj = this->m_basis[i];
-        bool bj_needs_to_grow = needs_to_grow(bj);
-        for (unsigned k = 0; k < this->m_A.m_rows[i].size(); k++) {
-            const row_cell<T> &rc = this->m_A.m_rows[i][k];
-            unsigned j = rc.var();
-            if (j == bj)
-                continue;
-            if (bj_needs_to_grow) {
-                if (!monoid_can_decrease(rc))
+
+        int find_beneficial_entering_in_row_tableau_rows_bland_mode(int i, T &a_ent) {
+            int j = -1;
+            unsigned bj = this->m_basis[i];
+            bool bj_needs_to_grow = needs_to_grow(bj);
+            for (const row_cell<T> &rc : this->m_A.m_rows[i]) {
+                if (rc.var() == bj)
                     continue;
-            } else {
-                if (!monoid_can_increase(rc))
-                    continue;
-            }
-            unsigned not_free = get_num_of_not_free_basic_dependent_vars(j, min_non_free_so_far, bj);
-            unsigned col_sz = this->m_A.m_columns[j].size();
-            if (not_free < min_non_free_so_far || (not_free == min_non_free_so_far && col_sz < best_col_sz)) {
-                min_non_free_so_far = not_free;
-                best_col_sz = this->m_A.m_columns[j].size();
-                choice = k;
-                nchoices = 1;
-            } else if (not_free == min_non_free_so_far &&
-                       col_sz == best_col_sz) {
-                if (this->m_settings.random_next(++nchoices) == 0) {
-                    choice = k;
+                if (bj_needs_to_grow) {
+                    if (!monoid_can_decrease(rc))
+                        continue;
+                } 
+                else {
+                    if (!monoid_can_increase(rc))
+                        continue;
+                }
+                if (rc.var() < static_cast<unsigned>(j)) {
+                    j = rc.var();
+                    a_ent = rc.coeff();
                 }
             }
+            if (j == -1)
+                m_inf_row_index_for_tableau = i;
+            return j;
         }
 
-        if (choice == -1) {
-            m_inf_row_index_for_tableau = i;
-            return -1;
-        }
-        const row_cell<T> &rc = this->m_A.m_rows[i][choice];
-        a_ent = rc.coeff();
-        return rc.var();
-    }
+        int find_beneficial_entering_tableau_rows(int i, T &a_ent) {
+            if (m_bland_mode_tableau)
+            return find_beneficial_entering_in_row_tableau_rows_bland_mode(i, a_ent);
+            // a short row produces short infeasibility explanation and benefits at
+            // least one pivot operation
+            int choice = -1;
+            int nchoices = 0;
+            unsigned min_non_free_so_far = -1;
+            unsigned best_col_sz = -1;
+            unsigned bj = this->m_basis[i];
+            bool bj_needs_to_grow = needs_to_grow(bj);
+            for (unsigned k = 0; k < this->m_A.m_rows[i].size(); k++) {
+                const row_cell<T> &rc = this->m_A.m_rows[i][k];
+                unsigned j = rc.var();
+                if (j == bj)
+                    continue;
+                if (bj_needs_to_grow) {
+                    if (!monoid_can_decrease(rc))
+                        continue;
+                } else {
+                    if (!monoid_can_increase(rc))
+                        continue;
+                }
+                unsigned not_free = get_num_of_not_free_basic_dependent_vars(j, min_non_free_so_far, bj);
+                unsigned col_sz = this->m_A.m_columns[j].size();
+                if (not_free < min_non_free_so_far || (not_free == min_non_free_so_far && col_sz < best_col_sz)) {
+                    min_non_free_so_far = not_free;
+                    best_col_sz = this->m_A.m_columns[j].size();
+                    choice = k;
+                    nchoices = 1;
+                } 
+                else if (not_free == min_non_free_so_far &&
+                       col_sz == best_col_sz) {
+                    if (this->m_settings.random_next(++nchoices) == 0) 
+                        choice = k;                    
+                }
+            }
 
-    bool try_jump_to_another_bound_on_entering(unsigned entering, const X &theta, X &t, bool &unlimited);
+            if (choice == -1) {
+                m_inf_row_index_for_tableau = i;
+                return -1;
+            }
+            const row_cell<T> &rc = this->m_A.m_rows[i][choice];
+            a_ent = rc.coeff();
+            return rc.var();
+        }
+
+    bool try_jump_to_another_bound_on_entering(unsigned entering, X &t);
 
     bool try_jump_to_another_bound_on_entering_unlimited(unsigned entering, X &t);
 
@@ -394,9 +394,10 @@ namespace lp {
         const X &new_val_for_leaving = get_val_for_leaving(leaving);
         X theta = (this->m_x[leaving] - new_val_for_leaving) / a_ent;
         this->m_x[leaving] = new_val_for_leaving;
-        // this will remove the leaving from the heap
-        TRACE("lar_solver_inf_heap", tout << "leaving = " << leaving
+        TRACE("lar_solver_feas", tout << "entering = " << entering << ", leaving = " << leaving << ", new_val_for_leaving = " << new_val_for_leaving << ", theta = " << theta << "\n";);
+        TRACE("lar_solver_feas", tout << "leaving = " << leaving
                                  << " removed from inf_heap()\n";);
+        // this will remove the leaving from the heap
         this->inf_heap().erase_min();
         advance_on_entering_and_leaving_tableau_rows(entering, leaving, theta);
         if (this->current_x_is_feasible())
@@ -591,7 +592,7 @@ namespace lp {
             theta = zero_of_type<X>();
         }
     }
-
+    bool correctly_moved_to_bounds(lpvar) const;
     bool column_is_benefitial_for_entering_basis(unsigned j) const;
     void init_infeasibility_costs();
     void print_column(unsigned j, std::ostream &out);
@@ -630,8 +631,7 @@ namespace lp {
     void init_reduced_costs_tableau();
     void init_tableau_rows() {
         m_bland_mode_tableau = false;
-        m_left_basis_tableau.clear();
-        m_left_basis_tableau.resize(this->m_A.column_count());
+        m_left_basis_tableau.reset();
         m_left_basis_repeated = 0;
     }
     // stage1 constructor

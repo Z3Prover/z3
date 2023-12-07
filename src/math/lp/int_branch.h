@@ -15,7 +15,6 @@ Author:
 
 Revision History:
 --*/
-// clang-format off
 #pragma once
 
 #include "math/lp/lar_solver.h"

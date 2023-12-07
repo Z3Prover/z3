@@ -9,7 +9,6 @@ Revision History:
 
 
 --*/
-// clang-format off
 #pragma once
 
 #include <string>
@@ -50,7 +49,7 @@ void lar_core_solver::fill_not_improvable_zero_sum_from_inf_row() {
     m_infeasible_sum_sign =  m_r_solver.inf_sign_of_column(bj);
     m_infeasible_linear_combination.clear();
     for (auto & rc : m_r_solver.m_A.m_rows[m_r_solver.m_inf_row_index_for_tableau]) 
-        m_infeasible_linear_combination.push_back(std::make_pair(rc.coeff(), rc.var()));    
+        m_infeasible_linear_combination.push_back({rc.coeff(), rc.var()});
 }
 
 void lar_core_solver::fill_not_improvable_zero_sum() {
@@ -89,19 +88,18 @@ void lar_core_solver::solve() {
     lp_assert(m_r_solver.inf_heap_is_correct());
 	TRACE("find_feas_stats", tout << "infeasibles = " << m_r_solver.inf_heap_size() << ", int_infs = " << get_number_of_non_ints() << std::endl;);
 	if (m_r_solver.current_x_is_feasible() && m_r_solver.m_look_for_feasible_solution_only) {
-            m_r_solver.set_status(lp_status::OPTIMAL);
-            TRACE("lar_solver", tout << m_r_solver.get_status() << "\n";);
-            return;
+        m_r_solver.set_status(lp_status::OPTIMAL);
+        TRACE("lar_solver", tout << m_r_solver.get_status() << "\n";);
+        return;
 	}
-    ++settings().stats().m_need_to_solve_inf;
+    ++m_r_solver.m_settings.stats().m_need_to_solve_inf;
     lp_assert( r_basis_is_OK());
-     
-        
+             
     if (m_r_solver.m_look_for_feasible_solution_only) //todo : should it be set?
          m_r_solver.find_feasible_solution();
-    else {
+    else 
         m_r_solver.solve();
-    }
+    
     lp_assert(r_basis_is_OK());
     
     switch (m_r_solver.get_status())

@@ -47,6 +47,17 @@ Notes:
 
 void init_preprocess(ast_manager& m, params_ref const& p, then_simplifier& s, dependent_expr_state& st) {
 
+    auto mk_bound_simplifier = [&]() {
+        auto* s1 = alloc(bound_simplifier, m, p, st);
+        auto* s2 = alloc(then_simplifier, m, p, st);
+        s2->add_simplifier(alloc(rewriter_simplifier, m, p, st));
+        s2->add_simplifier(alloc(propagate_values, m, p, st));
+        s2->add_simplifier(alloc(euf::solve_eqs, m, st));
+        auto* r = alloc(if_change_simplifier, m, p, st);
+        r->add_simplifier(s1);
+        r->add_simplifier(s2);
+        return r;
+    };
     smt_params smtp(p);
     s.add_simplifier(alloc(rewriter_simplifier, m, p, st));
     if (smtp.m_propagate_values) s.add_simplifier(alloc(propagate_values, m, p, st));
@@ -60,7 +71,7 @@ void init_preprocess(ast_manager& m, params_ref const& p, then_simplifier& s, de
     if (smtp.m_refine_inj_axiom) s.add_simplifier(alloc(refine_inj_axiom_simplifier, m, p, st));
     if (smtp.m_bv_size_reduce) s.add_simplifier(alloc(bv::slice, m, st));
     if (smtp.m_distribute_forall) s.add_simplifier(alloc(distribute_forall_simplifier, m, p, st));
-    if (smtp.m_bound_simplifier) s.add_simplifier(alloc(bound_simplifier, m, p, st));
+    if (smtp.m_bound_simplifier) s.add_simplifier(mk_bound_simplifier());
     if (smtp.m_eliminate_bounds) s.add_simplifier(alloc(elim_bounds_simplifier, m, p, st));
     if (smtp.m_simplify_bit2int) s.add_simplifier(alloc(bit2int_simplifier, m, p, st));
     if (smtp.m_bb_quantifiers) s.add_simplifier(alloc(bv::elim_simplifier, m, p, st));

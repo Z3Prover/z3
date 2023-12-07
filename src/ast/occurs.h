@@ -32,6 +32,11 @@ bool occurs(expr * n1, expr * n2);
 bool occurs(func_decl * d, expr * n);
 
 /**
+* \brief Return true if s1 occurs in s2
+*/
+bool occurs(sort* s1, sort* s2);
+
+/**
 * \brief Mark sub-expressions of to_check by whether v occurs in these.
 */
 void mark_occurs(ptr_vector<expr>& to_check, expr* v, expr_mark& occurs);

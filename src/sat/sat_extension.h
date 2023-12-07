@@ -87,6 +87,7 @@ namespace sat {
         virtual void init_search() {}
         virtual bool propagated(sat::literal l, sat::ext_constraint_idx idx) { UNREACHABLE(); return false; }
         virtual bool unit_propagate() = 0;        
+        virtual bool can_propagate() { return false; }
         virtual bool is_external(bool_var v) { return false; }
         virtual double get_reward(literal l, ext_constraint_idx idx, literal_occs_fun& occs) const { return 0; }
         virtual void get_antecedents(literal l, ext_justification_idx idx, literal_vector & r, bool probing) = 0;

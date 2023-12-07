@@ -6,7 +6,6 @@
     Nikolaj Bjorner (nbjorner)
 
   --*/
-// clang-format off
 #pragma once
 #include "math/lp/monic.h"    
 #include "math/lp/factorization.h"    

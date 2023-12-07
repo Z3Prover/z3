@@ -297,9 +297,10 @@ namespace smt {
     void context::assert_default(expr * n, proof * pr) {
         internalize(n, true);
         literal l = get_literal(n);
-        if (l == false_literal) {
+        if (l == false_literal) 
             set_conflict(mk_justification(justification_proof_wrapper(*this, pr)));
-        }
+        else if (l == true_literal)
+            return;
         else {
             justification* j = mk_justification(justification_proof_wrapper(*this, pr));
             m_clause_proof.add(l, CLS_AUX, j);
@@ -1377,12 +1378,12 @@ namespace smt {
     clause * context::mk_clause(unsigned num_lits, literal * lits, justification * j, clause_kind k, clause_del_eh * del_eh) {
         TRACE("mk_clause", display_literals_verbose(tout << "creating clause: " << literal_vector(num_lits, lits) << "\n", num_lits, lits) << "\n";);
         m_clause_proof.add(num_lits, lits, k, j);
+        literal_buffer simp_lits;
         switch (k) {
         case CLS_TH_AXIOM:
             dump_axiom(num_lits, lits);
             Z3_fallthrough;
         case CLS_AUX: {
-            literal_buffer simp_lits;
             if (m_searching)
                 dump_lemma(num_lits, lits);
             if (!simplify_aux_clause_literals(num_lits, lits, simp_lits)) {
@@ -1450,7 +1451,7 @@ namespace smt {
                 else if (get_assignment(l2) == l_false) {
                     assign(l1, b_justification(~l2));
                 }
-                m_clause_proof.add(l1, l2, k, j);
+                m_clause_proof.add(l1, l2, k, j, &simp_lits);
                 m_stats.m_num_mk_bin_clause++;
                 return nullptr;
             }
@@ -1463,7 +1464,7 @@ namespace smt {
             bool reinit         = save_atoms;
             SASSERT(!lemma || j == 0 || !j->in_region());
             clause * cls = clause::mk(m, num_lits, lits, k, j, del_eh, save_atoms, m_bool_var2expr.data());
-            m_clause_proof.add(*cls);
+            m_clause_proof.add(*cls, &simp_lits);
             if (lemma) {
                 cls->set_activity(activity);
                 if (k == CLS_LEARNED) {

@@ -963,6 +963,7 @@ namespace smt2 {
             unsigned line = m_scanner.get_line();
             unsigned pos  = m_scanner.get_pos();
             symbol dt_name = curr_id();
+            check_identifier("unexpected token used as datatype name");
             next();
 
             m_dt_name2idx.reset();

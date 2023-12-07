@@ -91,8 +91,9 @@ public:
 
 struct scoped_limits {
     reslimit&  m_limit;
-    unsigned   m_sz;
-    scoped_limits(reslimit& lim): m_limit(lim), m_sz(0) {}
-    ~scoped_limits() { for (unsigned i = 0; i < m_sz; ++i) m_limit.pop_child(); }
+    unsigned   m_sz = 0;
+    scoped_limits(reslimit& lim): m_limit(lim) {}    
+    ~scoped_limits() { reset(); }
+    void reset() { for (unsigned i = 0; i < m_sz; ++i) m_limit.pop_child(); m_sz = 0; }
     void push_child(reslimit* lim) { m_limit.push_child(lim); ++m_sz; }
 };

@@ -6,7 +6,6 @@ Author:
     Lev Nachmanson (levnach)
 
 --*/
-// clang-format off
 
 #pragma once
 #include "util/vector.h"

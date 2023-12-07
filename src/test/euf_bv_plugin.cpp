@@ -29,7 +29,7 @@ static void test1() {
     ast_manager m;
     reg_decl_plugins(m);
     euf::egraph g(m);
-    g.add_plugins();
+    g.add_plugin(alloc(euf::bv_plugin, g));
     bv_util bv(m);
     sort_ref u32(bv.mk_sort(32), m);
 
@@ -59,7 +59,7 @@ static void test2() {
     ast_manager m;
     reg_decl_plugins(m);
     euf::egraph g(m);
-    g.add_plugins();
+    g.add_plugin(alloc(euf::bv_plugin, g));
     bv_util bv(m);
     sort_ref u32(bv.mk_sort(32), m);
 
@@ -82,7 +82,7 @@ static void test3() {
     ast_manager m;
     reg_decl_plugins(m);
     euf::egraph g(m);
-    g.add_plugins();
+    g.add_plugin(alloc(euf::bv_plugin, g));
     bv_util bv(m);
     sort_ref u32(bv.mk_sort(32), m);
 
@@ -107,7 +107,7 @@ static void test4() {
     ast_manager m;
     reg_decl_plugins(m);
     euf::egraph g(m);
-    g.add_plugins();
+    g.add_plugin(alloc(euf::bv_plugin, g));
     bv_util bv(m);
     sort_ref u32(bv.mk_sort(32), m);
     sort_ref u8(bv.mk_sort(8), m);
@@ -129,7 +129,7 @@ static void test5() {
     ast_manager m;
     reg_decl_plugins(m);
     euf::egraph g(m);
-    g.add_plugins();
+    g.add_plugin(alloc(euf::bv_plugin, g));
     bv_util bv(m);
     sort_ref u32(bv.mk_sort(32), m);
 
@@ -151,7 +151,7 @@ static void test6() {
     ast_manager m;
     reg_decl_plugins(m);
     euf::egraph g(m);
-    g.add_plugins();
+    g.add_plugin(alloc(euf::bv_plugin, g));
     bv_util bv(m);
     sort_ref u32(bv.mk_sort(32), m);
 

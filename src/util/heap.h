@@ -159,7 +159,7 @@ public:
     }
 
     unsigned size() const {
-        return m_value2indices.size();
+        return m_values.size() - 1;
     }
 
     void reserve(int s) {
