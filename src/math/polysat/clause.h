@@ -24,7 +24,7 @@ namespace polysat {
     // NB code review:
     // right, ref-count is unlikely the right mechanism.
     // In the SAT solver all clauses are managed in one arena (auxiliarary and redundant)
-    // and deleted when they exist the arena.
+    // and deleted when they exit the arena.
     //
     class clause {
     public:

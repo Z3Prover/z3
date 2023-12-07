@@ -15,6 +15,8 @@ Author:
 
 Revision History:
 
+NSB: I made util/var_queue.h a template. You can feed it a struct comprising of size/activity.
+
 --*/
 #pragma once
 

@@ -12,7 +12,6 @@ z3_add_component(polysat
     forbidden_intervals.cpp
     inference_logger.cpp
     justification.cpp
-    linear_solver.cpp
     log.cpp
     naming.cpp
     op_constraint.cpp
@@ -33,7 +32,6 @@ z3_add_component(polysat
     viable.cpp
     viable_fallback.cpp
   COMPONENT_DEPENDENCIES
-    bigfix
     dd
     euf
     interval

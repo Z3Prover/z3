@@ -139,7 +139,6 @@ namespace polysat {
         friend class inference_engine;
         friend class file_inference_logger;
         friend class forbidden_intervals;
-        friend class linear_solver;
         friend class viable;
         friend class viable_fallback;
         friend class search_state;
