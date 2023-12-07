@@ -628,27 +628,20 @@ namespace lp {
         return true;
     }
 
+    mpq close_to_middle(const int_solver& lia, lpvar j) {
+        const impq& val = lia.get_value(j);
+        mpq r = val.x - floor(val.x);
+        mpq h = mpq(1, 2);
+        if (r <= h)
+            return h - r;
+        return r - h;
+    }
 
     int int_solver::select_int_infeasible_var() {
-        int r_small_box = -1;
-        int r_small_value = -1;
-        int r_any_value = -1;
-        unsigned n_small_box = 1;
-        unsigned n_small_value = 1;
-        unsigned n_any_value = 1;
-        mpq range;
-        mpq new_range;
-        mpq small_value(1024);
-        lar_core_solver & lcs = lra.m_mpq_lar_core_solver;
-        unsigned prev_usage = 0;
-
-        auto add_column = [&](bool improved, int& result, unsigned& n, unsigned j) {
-            if (result == -1)
-                result = j;
-            else if (improved && ((random() % (++n)) == 0))
-                result = j;            
-        };
-        
+        int ret_j = -1;
+        unsigned n = 1;
+        mpq prev_score = mpq(1);
+                
         for (unsigned j : lra.r_basis()) {
             if (!column_is_int_inf(j))
                 continue;
@@ -657,38 +650,16 @@ namespace lp {
 
             SASSERT(!is_fixed(j));
 
-            unsigned usage = lra.usage_in_terms(j);
-            if (is_boxed(j) && (new_range = lcs.m_r_upper_bounds()[j].x - lcs.m_r_lower_bounds()[j].x - rational(2*usage)) <= small_value) {
-
-                bool improved = new_range <= range || r_small_box == -1;
-                if (improved)
-                    range = new_range;
-                add_column(improved, r_small_box, n_small_box, j);
-                continue;
+            mpq score = close_to_middle(*this, j);
+            bool improved = score < prev_score  ||
+                             (score == prev_score &&  lra.usage_in_terms(j) > lra.usage_in_terms(ret_j));
+            
+            if (ret_j == -1 || (improved && ((random() % (++n)) == 0))) {
+                ret_j = j;
+                prev_score = score;
             }
-            impq const& value = get_value(j);
-            if (abs(value.x) < small_value ||
-                (has_upper(j) && small_value > upper_bound(j).x - value.x) ||
-                (has_lower(j) && small_value > value.x - lower_bound(j).x)) {
-                TRACE("gomory_cut", tout << "small j" << j << "\n");
-                add_column(true, r_small_value, n_small_value, j);
-                continue;
-            }
-            TRACE("gomory_cut", tout << "any j" << j << "\n");
-            add_column(usage >= prev_usage, r_any_value, n_any_value, j);
-            if (usage > prev_usage) 
-                prev_usage = usage;
         }
-
-        if (r_small_box != -1 && (random() % 3 != 0))
-            return r_small_box;
-        if (r_small_value != -1 && (random() % 3) != 0)
-            return r_small_value;
-        if (r_any_value != -1)
-            return r_any_value;
-        if (r_small_box != -1)
-            return r_small_box;
-        return r_small_value;
+        return ret_j;    
     }
 
     void int_solver::simplify(std::function<bool(unsigned)>& is_root) {
