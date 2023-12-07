@@ -59,6 +59,7 @@ class monic: public mon_eq {
     bool             m_rsign;
     mutable unsigned m_visited;
     bool             m_propagated = false;
+    bool             m_bound_propagated = false;
 public:
     // constructors
     monic(lpvar v, unsigned sz, lpvar const* vs, unsigned idx):  
@@ -77,6 +78,8 @@ public:
     void sort_rvars() { std::sort(m_rvars.begin(), m_rvars.end()); }
     void set_propagated(bool p) { m_propagated = p; }
     bool is_propagated() const { return m_propagated; }
+    void set_bound_propagated(bool p) { m_bound_propagated = p; }
+    bool is_bound_propagated() const { return m_bound_propagated; }
     
     svector<lpvar>::const_iterator begin() const { return vars().begin(); }
     svector<lpvar>::const_iterator end() const { return vars().end(); }
