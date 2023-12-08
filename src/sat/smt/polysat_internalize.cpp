@@ -163,23 +163,18 @@ namespace polysat {
     public:
         mk_atom_trail(sat::bool_var v, solver& th) : th(th), m_var(v) {}
         void undo() override {
-            solver::atom* a = th.get_bv2a(m_var);
-            a->~atom();
             th.erase_bv2a(m_var);
         }
     };
 
-    solver::atom* solver::mk_atom(sat::literal lit, signed_constraint& sc) {
-        auto bv = lit.var();
-        atom* a = get_bv2a(bv);
-        if (a)
-            return a;
-        a = new (get_region()) atom(bv);
+    void solver::mk_atom(sat::bool_var bv, signed_constraint& sc) {
+        if (get_bv2a(bv))
+            return;
+        sat::literal lit(bv, false);
+        auto index = m_core.register_constraint(sc, dependency(lit, 0));
+        auto a = new (get_region()) atom(bv, index);
         insert_bv2a(bv, a);
-        a->m_sc = sc;
-        a->m_index = m_core.register_constraint(sc, lit);
         ctx.push(mk_atom_trail(bv, *this));
-        return a;
     }
 
     void solver::internalize_binaryc(app* e, std::function<polysat::signed_constraint(pdd, pdd)> const& fn) {
@@ -187,7 +182,9 @@ namespace polysat {
         auto q = expr2pdd(e->get_arg(1));
         auto sc = ~fn(p, q);
         sat::literal lit = expr2literal(e);
-        auto* a = mk_atom(lit, sc);
+        if (lit.sign())
+            sc = ~sc;
+        mk_atom(lit.var(), sc);
     }
 
     void solver::internalize_div_rem_i(app* e, bool is_div) {
@@ -290,12 +287,9 @@ namespace polysat {
             sc = ~sc;
         
         sat::literal lit = expr2literal(e);
-        atom* a = mk_atom(lit, sc);
-    }
-
-    void solver::internalize_bit2bool(atom* a, expr* e, unsigned idx) {
-        pdd p = expr2pdd(e);
-        a->m_sc = m_core.bit(p, idx);
+        if (lit.sign())
+            sc = ~sc;
+        mk_atom(lit.var(), sc);
     }
 
     dd::pdd solver::expr2pdd(expr* e) {

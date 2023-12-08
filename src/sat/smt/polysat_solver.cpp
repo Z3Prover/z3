@@ -58,15 +58,12 @@ namespace polysat {
     }
 
     void solver::asserted(literal l) {
-        atom* a = get_bv2a(l.var());
         TRACE("bv", tout << "asserted: " << l << "\n";);
+        atom* a = get_bv2a(l.var());
         if (!a)
             return;
         force_push();
-        auto sc = a->m_sc;
-        if (l.sign())
-            sc = ~sc;
-        m_core.assign_eh(a->m_index, sc, dependency(l, s().lvl(l)));
+        m_core.assign_eh(a->m_index, l.sign(), dependency(l, s().lvl(l)));
     }
 
     void solver::set_conflict(dependency_vector const& core) {
@@ -150,10 +147,11 @@ namespace polysat {
         pdd p = var2pdd(v1);
         pdd q = var2pdd(v2);
         auto sc = m_core.eq(p, q);        
-        m_var_eqs.setx(m_var_eqs_head, std::make_pair(v1, v2), std::make_pair(v1, v2));
+        m_var_eqs.setx(m_var_eqs_head, {v1, v2}, {v1, v2});
         ctx.push(value_trail<unsigned>(m_var_eqs_head));    
-        unsigned index = m_core.register_constraint(sc, solver_assertion(v1, v2));
-        m_core.assign_eh(index, sc, dependency(m_var_eqs_head, s().scope_lvl())); 
+        auto d = dependency(m_var_eqs_head, s().scope_lvl());
+        unsigned index = m_core.register_constraint(sc, d);
+        m_core.assign_eh(index, false, d); 
         m_var_eqs_head++;
     }
 
@@ -163,9 +161,10 @@ namespace polysat {
         pdd q = var2pdd(v2);
         auto sc = ~m_core.eq(p, q);
         sat::literal neq = ~expr2literal(ne.eq());
-        auto index = m_core.register_constraint(sc, neq);
+        auto d = dependency(neq, s().lvl(neq));
+        auto index = m_core.register_constraint(sc, d);
         TRACE("bv", tout << neq << " := " << s().value(neq) << " @" << s().scope_lvl() << "\n");
-        m_core.assign_eh(index, sc, dependency(neq, s().lvl(neq)));
+        m_core.assign_eh(index, false, d);
     }
 
     // Core uses the propagate callback to add unit propagations to the trail.
@@ -178,19 +177,22 @@ namespace polysat {
         ctx.propagate(lit, ex);
     }
 
-    void solver::propagate(solver_assertion as, bool sign, dependency_vector const& deps) {
+    void solver::propagate(dependency const& d, bool sign, dependency_vector const& deps) {
         auto [core, eqs] = explain_deps(deps);
-        if (as.is_literal()) {
-            auto lit = as.get_literal();
+        if (d.is_literal()) {
+            auto lit = d.literal();
             if (sign)
                 lit.neg();
+            if (s().value(lit) == l_true)
+                return;
             auto ex = euf::th_explain::propagate(*this, core, eqs, lit, nullptr);
             ctx.propagate(lit, ex);
         }
-        else if (sign) {           
+        else if (sign) {  
+            auto const [v1, v2] = m_var_eqs[d.index()];
             // equalities are always asserted so a negative propagation is a conflict.
-            auto n1 = var2enode(as.var1());
-            auto n2 = var2enode(as.var2());
+            auto n1 = var2enode(v1);
+            auto n2 = var2enode(v2);
             eqs.push_back({ n1, n2 });
             auto ex = euf::th_explain::conflict(*this, core, eqs, nullptr);
             ctx.set_conflict(ex);
@@ -223,6 +225,7 @@ namespace polysat {
         }
         case ckind_t::smul_fl_t:
         case ckind_t::op_t:
+            NOT_IMPLEMENTED_YET();
             break;
         }
         throw default_exception("nyi"); 

@@ -30,45 +30,36 @@ namespace polysat {
     class core;
     class solver;
 
-    struct solver_assertion {
-        unsigned m_var1;
-        unsigned m_var2 = 0;
-    public:
-        solver_assertion(sat::literal lit) : m_var1(2*lit.index()) {}
-        solver_assertion(unsigned v1, unsigned v2) : m_var1(1 + 2*v1), m_var2(v2) {}
-        bool is_literal() const { return m_var1 % 2 == 0; }
-        sat::literal get_literal() const { SASSERT(is_literal()); return sat::to_literal(m_var1 / 2); }
-        unsigned var1() const { SASSERT(!is_literal()); return (m_var1 - 1) / 2; }
-        unsigned var2() const { SASSERT(!is_literal()); return m_var2; }
-    };
-
     class core {
         class mk_add_var;
         class mk_dqueue_var;
         class mk_assign_var;
         class mk_add_watch;
         typedef svector<std::pair<unsigned, unsigned>> activity;
-        typedef std::tuple<unsigned, signed_constraint, stacked_dependency*> prop_item;
+        typedef std::tuple<unsigned, bool, dependency> prop_item;
         friend class viable;
         friend class constraints;
         friend class assignment;
 
+        struct constraint_info {
+            signed_constraint sc;
+            dependency d;
+        };
         solver& s;
         viable m_viable;
         constraints m_constraints;
         assignment m_assignment;
         unsigned m_qhead = 0, m_vqhead = 0;
         svector<prop_item> m_prop_queue;
-        svector<std::tuple<signed_constraint, solver_assertion>> m_constraint_trail;  // 
-        stacked_dependency_manager<dependency>     m_dep;
+        svector<constraint_info> m_constraint_trail;  // index of constraints
         mutable scoped_ptr_vector<dd::pdd_manager> m_pdd;
         dependency_vector m_unsat_core;
 
 
         // attributes associated with variables
-        vector<pdd>            m_vars;                       // for each variable a pdd
-        vector<rational>       m_values;                     // current value of assigned variable
-        ptr_vector<stacked_dependency>     m_justification;  // justification for assignment
+        vector<pdd>             m_vars;                       // for each variable a pdd
+        vector<rational>        m_values;                     // current value of assigned variable
+        svector<dependency>     m_justification;  // justification for assignment
         activity                m_activity;                  // activity of variables
         var_queue<activity>     m_var_queue;                 // priority queue of variables to assign
         vector<unsigned_vector> m_watch;                     // watch lists for variables for constraints on m_prop_queue where they occur
@@ -82,25 +73,27 @@ namespace polysat {
         unsigned size(pvar v) const { return var2pdd(v).power_of_2(); }
         void del_var();
 
-        bool is_assigned(pvar v) { return nullptr != m_justification[v]; }
-        void propagate_constraint(prop_item& dc);
+        bool is_assigned(pvar v) { return !m_justification[v].is_null(); }
         void propagate_value(prop_item const& dc);
-        void propagate_assignment(pvar v, rational const& value, stacked_dependency* dep);
+        void propagate_assignment(prop_item& dc);
+        void propagate_assignment(pvar v, rational const& value, dependency dep);
         void propagate_unsat_core();
 
         void add_watch(unsigned idx, unsigned var);
 
+        signed_constraint get_constraint(unsigned idx, bool sign);
+
         lbool eval(signed_constraint sc) { throw default_exception("nyi"); }
-        dependency_vector explain_eval(dependent_constraint const& dc) { throw default_exception("nyi"); }
+        dependency_vector explain_eval(signed_constraint const& dc) { throw default_exception("nyi"); }
 
     public:
         core(solver& s);
 
         sat::check_result check();
 
-        unsigned register_constraint(signed_constraint& sc, solver_assertion sa);
+        unsigned register_constraint(signed_constraint& sc, dependency d);
         bool propagate();
-        void assign_eh(unsigned idx, signed_constraint const& sc, dependency const& dep);
+        void assign_eh(unsigned idx, bool sign, dependency const& d);
 
         pdd value(rational const& v, unsigned sz);
 
