@@ -40,7 +40,7 @@ namespace polysat {
     public:
         mk_assign_var(pvar v, core& c) : m_var(v), c(c) {}
         void undo() {
-            c.m_justification[m_var] = dependency::null_dependency();
+            c.m_justification[m_var] = null_dependency;
             c.m_assignment.pop();
         }
     };
@@ -106,7 +106,7 @@ namespace polysat {
         unsigned v = m_vars.size();
         m_vars.push_back(sz2pdd(sz).mk_var(v));
         m_activity.push_back({ sz, 0 });
-        m_justification.push_back(dependency::null_dependency());
+        m_justification.push_back(null_dependency);
         m_watch.push_back({});
         m_var_queue.mk_var_eh(v);
         s.ctx.push(mk_add_var(*this));
