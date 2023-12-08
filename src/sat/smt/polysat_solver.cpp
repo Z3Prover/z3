@@ -66,7 +66,7 @@ namespace polysat {
         auto sc = a->m_sc;
         if (l.sign())
             sc = ~sc;
-        m_core.assign_eh(sc, dependency(l, s().lvl(l)));
+        m_core.assign_eh(a->m_index, sc, dependency(l, s().lvl(l)));
     }
 
     void solver::set_conflict(dependency_vector const& core) {
@@ -151,8 +151,10 @@ namespace polysat {
         pdd q = var2pdd(v2);
         auto sc = m_core.eq(p, q);        
         m_var_eqs.setx(m_var_eqs_head, std::make_pair(v1, v2), std::make_pair(v1, v2));
-        ctx.push(value_trail<unsigned>(m_var_eqs_head));        
-        m_core.assign_eh(sc, dependency(m_var_eqs_head, s().scope_lvl())); 
+        ctx.push(value_trail<unsigned>(m_var_eqs_head));    
+        unsigned index = 0;
+//        unsigned index = m_core.register_constraint(sc);
+        m_core.assign_eh(index, sc, dependency(m_var_eqs_head, s().scope_lvl())); 
         m_var_eqs_head++;
     }
 
@@ -162,8 +164,9 @@ namespace polysat {
         pdd q = var2pdd(v2);
         auto sc = ~m_core.eq(p, q);
         sat::literal neq = ~expr2literal(ne.eq());
+        auto index = m_core.register_constraint(sc, neq);
         TRACE("bv", tout << neq << " := " << s().value(neq) << " @" << s().scope_lvl() << "\n");
-        m_core.assign_eh(sc, dependency(neq, s().lvl(neq)));
+        m_core.assign_eh(index, sc, dependency(neq, s().lvl(neq)));
     }
 
     // Core uses the propagate callback to add unit propagations to the trail.
@@ -174,6 +177,25 @@ namespace polysat {
         auto [core, eqs] = explain_deps(deps);
         auto ex = euf::th_explain::propagate(*this, core, eqs, lit, nullptr);
         ctx.propagate(lit, ex);
+    }
+
+    void solver::propagate(solver_assertion as, bool sign, dependency_vector const& deps) {
+        auto [core, eqs] = explain_deps(deps);
+        if (as.is_literal()) {
+            auto lit = as.get_literal();
+            if (sign)
+                lit.neg();
+            auto ex = euf::th_explain::propagate(*this, core, eqs, lit, nullptr);
+            ctx.propagate(lit, ex);
+        }
+        else if (sign) {           
+            // equalities are always asserted so a negative propagation is a conflict.
+            auto n1 = var2enode(as.var1());
+            auto n2 = var2enode(as.var2());
+            eqs.push_back({ n1, n2 });
+            auto ex = euf::th_explain::conflict(*this, core, eqs, nullptr);
+            ctx.set_conflict(ex);
+        }
     }
 
     void solver::add_lemma(vector<signed_constraint> const& lemma) {

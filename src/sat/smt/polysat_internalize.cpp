@@ -169,12 +169,15 @@ namespace polysat {
         }
     };
 
-    solver::atom* solver::mk_atom(sat::bool_var bv) {
+    solver::atom* solver::mk_atom(sat::literal lit, signed_constraint& sc) {
+        auto bv = lit.var();
         atom* a = get_bv2a(bv);
         if (a)
             return a;
         a = new (get_region()) atom(bv);
         insert_bv2a(bv, a);
+        a->m_sc = sc;
+        a->m_index = m_core.register_constraint(sc, lit);
         ctx.push(mk_atom_trail(bv, *this));
         return a;
     }
@@ -184,7 +187,7 @@ namespace polysat {
         auto q = expr2pdd(e->get_arg(1));
         auto sc = ~fn(p, q);
         sat::literal lit = expr2literal(e);
-        mk_atom(lit.var())->m_sc = sc;
+        auto* a = mk_atom(lit, sc);
     }
 
     void solver::internalize_div_rem_i(app* e, bool is_div) {
@@ -277,6 +280,7 @@ namespace polysat {
 
     template<bool Signed, bool Rev, bool Negated>
     void solver::internalize_le(app* e) {
+        SASSERT(e->get_num_args() == 2);
         auto p = expr2pdd(e->get_arg(0));
         auto q = expr2pdd(e->get_arg(1));
         if (Rev)
@@ -286,8 +290,7 @@ namespace polysat {
             sc = ~sc;
         
         sat::literal lit = expr2literal(e);
-        atom* a = mk_atom(lit.var());
-        a->m_sc = sc;
+        atom* a = mk_atom(lit, sc);
     }
 
     void solver::internalize_bit2bool(atom* a, expr* e, unsigned idx) {
