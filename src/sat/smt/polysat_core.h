@@ -83,8 +83,8 @@ namespace polysat {
 
         signed_constraint get_constraint(unsigned idx, bool sign);
 
-        lbool eval(signed_constraint sc) { throw default_exception("nyi"); }
-        dependency_vector explain_eval(signed_constraint const& dc) { throw default_exception("nyi"); }
+        lbool eval(signed_constraint const& sc);
+        dependency_vector explain_eval(signed_constraint const& sc);
 
     public:
         core(solver& s);
