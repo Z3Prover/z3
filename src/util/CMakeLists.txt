@@ -26,6 +26,7 @@ z3_add_component(util
     inf_rational.cpp
     inf_s_integer.cpp
     lbool.cpp
+    log.cpp
     luby.cpp
     memory_manager.cpp
     min_cut.cpp
