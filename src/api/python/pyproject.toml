@@ -4,4 +4,5 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "z3-solver"
+version = "4"
 dependencies = ["importlib-resources", ]
