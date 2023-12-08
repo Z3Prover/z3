@@ -66,16 +66,16 @@ namespace polysat {
 
     class core::mk_add_watch : public trail {
         core& c;
-        unsigned m_idx;
     public:
-        mk_add_watch(core& c, unsigned idx) : c(c), m_idx(idx) {}
+        mk_add_watch(core& c) : c(c) {}
         void undo() override {
-            auto& sc = c.m_prop_queue[m_idx].first;
+            auto& [sc, lit] = c.m_constraint_trail.back();
             auto& vars = sc.vars();
             if (vars.size() > 0)
                 c.m_watch[vars[0]].pop_back();
             if (vars.size() > 1)
                 c.m_watch[vars[1]].pop_back();
+            c.m_constraint_trail.pop_back();
         }
     };
 
@@ -123,6 +123,22 @@ namespace polysat {
         m_var_queue.del_var_eh(v);
     }
 
+    unsigned core::register_constraint(signed_constraint& sc, solver_assertion as) {
+        unsigned idx = m_constraint_trail.size();
+        m_constraint_trail.push_back({ sc, as });
+        auto& vars = sc.vars();
+        unsigned i = 0, j = 0, sz = vars.size();
+        for (; i < sz && j < 2; ++i)
+            if (!is_assigned(vars[i]))
+                std::swap(vars[i], vars[j++]);
+        if (vars.size() > 0)
+            add_watch(idx, vars[0]);
+        if (vars.size() > 1)
+            add_watch(idx, vars[1]);
+        s.ctx.push(mk_add_watch(*this));
+        return idx;
+    }
+
     // case split on unassigned variables until all are assigned values.
     // create equality literal for unassigned variable.
     // return new_eq if there is a new literal.
@@ -141,6 +157,7 @@ namespace polysat {
             s.propagate(m_constraints.eq(var2pdd(m_var), m_value), m_viable.explain());
             return sat::check_result::CR_CONTINUE;
         case find_t::multiple:  
+            s.add_eq_literal(m_var, m_value);
             return sat::check_result::CR_CONTINUE;
         case find_t::resource_out:
             return sat::check_result::CR_GIVEUP;
@@ -155,33 +172,17 @@ namespace polysat {
             return false;
         s.ctx.push(value_trail(m_qhead));
         for (; m_qhead < m_prop_queue.size() && !s.ctx.inconsistent(); ++m_qhead)
-            propagate_constraint(m_qhead, m_prop_queue[m_qhead]);        
+            propagate_constraint(m_prop_queue[m_qhead]);        
         s.ctx.push(value_trail(m_vqhead));
         for (; m_vqhead < m_prop_queue.size() && !s.ctx.inconsistent(); ++m_vqhead) 
-            propagate_value(m_vqhead, m_prop_queue[m_vqhead]);        
+            propagate_value(m_prop_queue[m_vqhead]);        
         return true;
     }
 
-    void core::propagate_constraint(unsigned idx, dependent_constraint& dc) { 
-        auto [sc, dep] = dc;
-        if (sc.is_eq(m_var, m_value)) {
+    void core::propagate_constraint(prop_item& dc) { 
+        auto [idx, sc, dep] = dc;
+        if (sc.is_eq(m_var, m_value))
             propagate_assignment(m_var, m_value, dep);
-            return;
-        }
-        add_watch(idx, sc);
-    }
-
-    void core::add_watch(unsigned idx, signed_constraint& sc) {        
-        auto& vars = sc.vars();
-        unsigned i = 0, j = 0, sz = vars.size();
-        for (; i < sz && j < 2; ++i)
-            if (!is_assigned(vars[i]))
-                std::swap(vars[i], vars[j++]);
-        if (vars.size() > 0)
-            add_watch(idx, vars[0]);
-        if (vars.size() > 1)
-            add_watch(idx, vars[1]);
-        s.ctx.push(mk_add_watch(*this, idx));
     }
 
     void core::add_watch(unsigned idx, unsigned var) {
@@ -205,7 +206,7 @@ namespace polysat {
         // for entries where there is only one free variable left add to viable set 
         unsigned j = 0;
         for (auto idx : m_watch[v]) {
-            auto [sc, dep] = m_prop_queue[idx];
+            auto [sc, as] = m_constraint_trail[idx];
             auto& vars = sc.vars();
             if (vars[0] != v)
                 std::swap(vars[0], vars[1]);
@@ -219,39 +220,51 @@ namespace polysat {
                     break;
                 }
             }
-            if (!swapped) {
-                m_watch[v][j++] = idx;
-            }
 
-            // constraint is unitary, add to viable set 
-            if (vars.size() >= 2 && is_assigned(vars[0]) && !is_assigned(vars[1])) {
-                m_viable.add_unitary(vars[1], idx);
-            }
+            SASSERT(!swapped || vars.size() <= 1 || (!is_assigned(vars[0]) && !is_assigned(vars[1])));
+            if (swapped)
+                continue;
+            m_watch[v][j++] = idx;
+            if (vars.size() <= 1)
+                continue;
+            auto v1 = vars[1];
+            if (is_assigned(v1))
+                continue;
+            SASSERT(is_assigned(vars[0]) && vars.size() >= 2);
+            // detect unitary, add to viable, detect conflict?
+            m_viable.add_unitary(v1, idx);            
         }
         m_watch[v].shrink(j);
     }
 
-    void core::propagate_value(unsigned idx, dependent_constraint const& dc) {
-        auto [sc, dep] = dc;
+    void core::propagate_value(prop_item const& dc) {
+        auto [idx, sc, dep] = dc;
         // check if sc evaluates to false
         switch (eval(sc)) {
         case l_true:
             return;
         case l_false:
-            m_unsat_core = explain_eval(dc);
+            m_unsat_core = explain_eval({ sc, dep });
             propagate_unsat_core();
             return;
         default:
             break;
         }
-        // if sc is v == value, then check the watch list for v if they evaluate to false.
+        // if sc is v == value, then check the watch list for v to propagate truth assignments
         if (sc.is_eq(m_var, m_value)) {
             for (auto idx : m_watch[m_var]) {
-                auto [sc, dep] = m_prop_queue[idx];
-                if (eval(sc) == l_false) {
-                    m_unsat_core = explain_eval({ sc, dep });
-                    propagate_unsat_core();
-                    return;
+                auto [sc, as] = m_constraint_trail[idx];
+                switch (eval(sc)) {
+                case l_false:
+                    m_unsat_core = explain_eval({ sc, nullptr });
+                    s.propagate(as, true, m_unsat_core);
+                    break;
+                case l_true:
+                    m_unsat_core = explain_eval({ sc, nullptr });
+                    s.propagate(as, false, m_unsat_core);
+                    break;
+                default:
+                    break;
                 }
             }
         }
@@ -259,15 +272,14 @@ namespace polysat {
         throw default_exception("nyi"); 
     }
 
-    bool core::propagate_unsat_core() { 
+    void core::propagate_unsat_core() { 
         // default is to use unsat core:
         s.set_conflict(m_unsat_core);
         // if core is based on viable, use s.set_lemma();
-        throw default_exception("nyi"); 
     }
 
-    void core::assign_eh(signed_constraint const& sc, dependency const& dep) { 
-        m_prop_queue.push_back({ sc, m_dep.mk_leaf(dep) });
+    void core::assign_eh(unsigned index, signed_constraint const& sc, dependency const& dep) { 
+        m_prop_queue.push_back({ index, sc, m_dep.mk_leaf(dep) });
         s.ctx.push(push_back_vector(m_prop_queue));
     }
 

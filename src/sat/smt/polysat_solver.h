@@ -42,6 +42,7 @@ namespace polysat {
 
         struct atom {
             bool_var                m_bv;
+            unsigned                m_index = 0;
             signed_constraint       m_sc;
             atom(bool_var b) :m_bv(b) {}
             ~atom() { }
@@ -91,7 +92,7 @@ namespace polysat {
         void erase_bv2a(bool_var bv) { m_bool_var2atom[bv] = nullptr; }
         atom* get_bv2a(bool_var bv) const { return m_bool_var2atom.get(bv, nullptr); }
         class mk_atom_trail;
-        atom* mk_atom(sat::bool_var bv);
+        atom* mk_atom(sat::literal lit, signed_constraint& sc);
         void set_bit_eh(theory_var v, literal l, unsigned idx);
         void init_bits(expr* e, expr_ref_vector const & bits);
         void mk_bits(theory_var v);
@@ -133,6 +134,8 @@ namespace polysat {
         void set_conflict(dependency_vector const& core);
         void set_lemma(vector<signed_constraint> const& lemma, unsigned level, dependency_vector const& core);
         void propagate(signed_constraint sc, dependency_vector const& deps);
+        void propagate(solver_assertion as, bool sign, dependency_vector const& deps);
+        
         void add_lemma(vector<signed_constraint> const& lemma);
 
         std::pair<sat::literal_vector, euf::enode_pair_vector> explain_deps(dependency_vector const& deps);

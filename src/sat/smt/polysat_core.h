@@ -30,12 +30,25 @@ namespace polysat {
     class core;
     class solver;
 
+    struct solver_assertion {
+        unsigned m_var1;
+        unsigned m_var2 = 0;
+    public:
+        solver_assertion(sat::literal lit) : m_var1(2*lit.index()) {}
+        solver_assertion(unsigned v1, unsigned v2) : m_var1(1 + 2*v1), m_var2(v2) {}
+        bool is_literal() const { return m_var1 % 2 == 0; }
+        sat::literal get_literal() const { SASSERT(is_literal()); return sat::to_literal(m_var1 / 2); }
+        unsigned var1() const { SASSERT(!is_literal()); return (m_var1 - 1) / 2; }
+        unsigned var2() const { SASSERT(!is_literal()); return m_var2; }
+    };
+
     class core {
         class mk_add_var;
         class mk_dqueue_var;
         class mk_assign_var;
         class mk_add_watch;
         typedef svector<std::pair<unsigned, unsigned>> activity;
+        typedef std::tuple<unsigned, signed_constraint, stacked_dependency*> prop_item;
         friend class viable;
         friend class constraints;
         friend class assignment;
@@ -45,7 +58,8 @@ namespace polysat {
         constraints m_constraints;
         assignment m_assignment;
         unsigned m_qhead = 0, m_vqhead = 0;
-        svector<dependent_constraint> m_prop_queue;
+        svector<prop_item> m_prop_queue;
+        svector<std::tuple<signed_constraint, solver_assertion>> m_constraint_trail;  // 
         stacked_dependency_manager<dependency>     m_dep;
         mutable scoped_ptr_vector<dd::pdd_manager> m_pdd;
         dependency_vector m_unsat_core;
@@ -69,12 +83,11 @@ namespace polysat {
         void del_var();
 
         bool is_assigned(pvar v) { return nullptr != m_justification[v]; }
-        void propagate_constraint(unsigned idx, dependent_constraint& dc);
-        void propagate_value(unsigned idx, dependent_constraint const& dc);
+        void propagate_constraint(prop_item& dc);
+        void propagate_value(prop_item const& dc);
         void propagate_assignment(pvar v, rational const& value, stacked_dependency* dep);
-        bool propagate_unsat_core();
+        void propagate_unsat_core();
 
-        void add_watch(unsigned idx, signed_constraint& sc);
         void add_watch(unsigned idx, unsigned var);
 
         lbool eval(signed_constraint sc) { throw default_exception("nyi"); }
@@ -85,8 +98,9 @@ namespace polysat {
 
         sat::check_result check();
 
+        unsigned register_constraint(signed_constraint& sc, solver_assertion sa);
         bool propagate();
-        void assign_eh(signed_constraint const& sc, dependency const& dep);
+        void assign_eh(unsigned idx, signed_constraint const& sc, dependency const& dep);
 
         expr_ref constraint2expr(signed_constraint const& sc) const { throw default_exception("nyi"); }
 
