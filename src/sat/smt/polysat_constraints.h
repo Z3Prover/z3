@@ -21,6 +21,7 @@ namespace polysat {
 
     class core;
     class ule_constraint;
+    class umul_ovfl_constraint;
     class assignment;
 
     using pdd = dd::pdd;
@@ -42,14 +43,8 @@ namespace polysat {
         virtual lbool eval(assignment const& a) const = 0;
     };
 
+    inline std::ostream& operator<<(std::ostream& out, constraint const& c) { return c.display(out); }
 
-    class umul_ovfl_constraint : public constraint {
-        pdd m_lhs, m_rhs;
-    public:
-        umul_ovfl_constraint(pdd const& lhs, pdd const& rhs) : m_lhs(lhs), m_rhs(rhs) {}
-        pdd const& lhs() const { return m_lhs; }
-        pdd const& rhs() const { return m_rhs; }
-    };
 
     class signed_constraint {
         bool m_sign = false;
@@ -60,10 +55,13 @@ namespace polysat {
         signed_constraint(ckind_t c, constraint* p) : m_op(c), m_constraint(p) {}
         signed_constraint operator~() const { signed_constraint r(*this); r.m_sign = !r.m_sign; return r; }
         bool sign() const { return m_sign; }
+        bool is_positive() const { return !m_sign; }
+        bool is_negative() const { return m_sign; }
         unsigned_vector& vars() { return m_constraint->vars(); }
         unsigned_vector const& vars() const { return m_constraint->vars(); }
         unsigned var(unsigned idx) const { return m_constraint->var(idx); }
         bool contains_var(pvar v) const { return m_constraint->contains_var(v); }
+        lbool eval(assignment& a) const;
         ckind_t op() const { return m_op; }
         bool is_ule() const { return m_op == ule_t; }
         bool is_umul_ovfl() const { return m_op == umul_ovfl_t; }
@@ -71,7 +69,10 @@ namespace polysat {
         ule_constraint const& to_ule() const { return *reinterpret_cast<ule_constraint*>(m_constraint); }
         umul_ovfl_constraint const& to_umul_ovfl() const { return *reinterpret_cast<umul_ovfl_constraint*>(m_constraint); }
         bool is_eq(pvar& v, rational& val) { throw default_exception("nyi"); }
+        std::ostream& display(std::ostream& out) const;
     };
+
+    inline std::ostream& operator<<(std::ostream& out, signed_constraint const& c) { return c.display(out); }
 
     class constraints {
         trail_stack& m_trail;

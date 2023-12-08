@@ -30,6 +30,8 @@ namespace polysat {
 
     class core;
 
+    std::ostream& operator<<(std::ostream& out, find_t x);
+
     class viable {
         core& c;
     public:

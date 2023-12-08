@@ -28,4 +28,14 @@ namespace polysat {
         auto sc = signed_constraint(ckind_t::ule_t, c);
         return is_positive ? sc : ~sc;
     }
+
+    lbool signed_constraint::eval(assignment& a) const {
+        lbool r = m_constraint->eval(a);
+        return m_sign ? ~r : r;
+    }
+
+    std::ostream& signed_constraint::display(std::ostream& out) const {
+        if (m_sign) out << "~";
+        return out << *m_constraint;        
+    }
 }
