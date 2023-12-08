@@ -121,6 +121,13 @@ namespace polysat {
         pdd concat(unsigned n, pdd const* args) { throw default_exception("nyi"); }
         pvar add_var(unsigned sz);
         pdd var(pvar p) { return m_vars[p]; }
+<<<<<<< HEAD
+=======
+        unsigned size(pvar v) const { return var2pdd(v).power_of_2(); }
+
+        constraints& cs() { return m_constraints; }
+        trail_stack& trail();
+>>>>>>> c7945af45 (porting viable)
 
         std::ostream& display(std::ostream& out) const { throw default_exception("nyi"); }
     };
