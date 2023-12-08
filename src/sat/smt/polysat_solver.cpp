@@ -27,6 +27,7 @@ The result of polysat::core::check is one of:
 #include "ast/euf/euf_bv_plugin.h"
 #include "sat/smt/polysat_solver.h"
 #include "sat/smt/euf_solver.h"
+#include "sat/smt/polysat_ule.h"
 
 
 namespace polysat {
@@ -170,11 +171,12 @@ namespace polysat {
     // Core uses the propagate callback to add unit propagations to the trail.
     // The polysat::solver takes care of translating signed constraints into expressions, which translate into literals.
     // Everything goes over expressions/literals. polysat::core is not responsible for replaying expressions. 
-    void solver::propagate(signed_constraint sc, dependency_vector const& deps) {
+    dependency solver::propagate(signed_constraint sc, dependency_vector const& deps) {
         sat::literal lit = ctx.mk_literal(constraint2expr(sc));
         auto [core, eqs] = explain_deps(deps);
         auto ex = euf::th_explain::propagate(*this, core, eqs, lit, nullptr);
         ctx.propagate(lit, ex);
+        return dependency(lit, s().lvl(lit));
     }
 
     void solver::propagate(dependency const& d, bool sign, dependency_vector const& deps) {

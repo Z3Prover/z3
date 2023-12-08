@@ -14,11 +14,14 @@ Author:
 
 
 #pragma once 
+#include "util/trail.h"
 #include "sat/smt/polysat_types.h"
 
 namespace polysat {
 
     class core;
+    class ule_constraint;
+    class assignment;
 
     using pdd = dd::pdd;
     using pvar = unsigned;
@@ -33,15 +36,12 @@ namespace polysat {
         unsigned_vector const& vars() const { return m_vars; }
         unsigned var(unsigned idx) const { return m_vars[idx]; }
         bool contains_var(pvar v) const { return m_vars.contains(v); }
+        virtual std::ostream& display(std::ostream& out, lbool status) const = 0;
+        virtual std::ostream& display(std::ostream& out) const = 0;
+        virtual lbool eval() const = 0;
+        virtual lbool eval(assignment const& a) const = 0;
     };
 
-    class ule_constraint : public constraint {
-        pdd m_lhs, m_rhs;
-    public:
-        ule_constraint(pdd const& lhs, pdd const& rhs) : m_lhs(lhs), m_rhs(rhs) {}
-        pdd const& lhs() const { return m_lhs; }
-        pdd const& rhs() const { return m_rhs; }
-    };
 
     class umul_ovfl_constraint : public constraint {
         pdd m_lhs, m_rhs;

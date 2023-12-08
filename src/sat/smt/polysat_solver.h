@@ -131,7 +131,7 @@ namespace polysat {
         void add_eq_literal(pvar v, rational const& val);
         void set_conflict(dependency_vector const& core);
         void set_lemma(vector<signed_constraint> const& lemma, unsigned level, dependency_vector const& core);
-        void propagate(signed_constraint sc, dependency_vector const& deps);
+        dependency propagate(signed_constraint sc, dependency_vector const& deps);
         void propagate(dependency const& d, bool sign, dependency_vector const& deps);
         
         void add_lemma(vector<signed_constraint> const& lemma);

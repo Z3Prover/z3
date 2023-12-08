@@ -39,6 +39,7 @@ z3_add_component(sat_smt
     polysat_internalize.cpp
     polysat_model.cpp
     polysat_solver.cpp
+    polysat_ule.cpp
     q_clause.cpp
     q_ematch.cpp
     q_eval.cpp
