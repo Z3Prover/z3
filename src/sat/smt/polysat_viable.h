@@ -86,6 +86,9 @@ namespace polysat {
         ptr_vector<entry>       m_equal_lin;    // entries that have non-unit multipliers, but are equal
         ptr_vector<entry>       m_diseq_lin;    // entries that have distinct non-zero multipliers
 
+        bool well_formed(entry* e);
+        bool well_formed(layers const& ls);
+
         entry* alloc_entry(pvar v);
 
         std::ostream& display_one(std::ostream& out, pvar v, entry const* e) const;
@@ -93,13 +96,20 @@ namespace polysat {
         void log();
         void log(pvar v);
 
+        struct pop_viable_trail;
+        void pop_viable(entry* e, pvar v, entry_kind k);
+        struct push_viable_trail;
+        void push_viable(entry* e, pvar v, entry_kind k);
+
         void insert(entry* e, pvar v, ptr_vector<entry>& entries, entry_kind k);
 
-        void intersect(pvar v, entry* e);
+        bool intersect(pvar v, entry* e);
 
+        void ensure_var(pvar v);
 
     public:
         viable(core& c);
+
         ~viable();
 
         /**
