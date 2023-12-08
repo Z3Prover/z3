@@ -59,8 +59,6 @@ namespace polysat {
         var_queue<activity>     m_var_queue;                 // priority queue of variables to assign
         vector<unsigned_vector> m_watch;                     // watch lists for variables for constraints on m_prop_queue where they occur
 
-        vector<pdd>             m_subst;            // substitution, one for each size.
-
         // values to split on
         rational    m_value;
         pvar        m_var = 0;

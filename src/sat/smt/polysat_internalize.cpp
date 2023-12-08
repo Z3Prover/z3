@@ -3,11 +3,11 @@ Copyright (c) 2022 Microsoft Corporation
 
 Module Name:
 
-    polysat_model.cpp
+    polysat_internalize.cpp
 
 Abstract:
 
-    PolySAT model generation
+    PolySAT internalize
     
 Author:
 
