@@ -3,4 +3,5 @@ requires = ["setuptools>=46.4.0", "wheel", "cmake"]
 build-backend = "setuptools.build_meta"
 
 [project]
-dependencies = ["importlib-resources" ]
+name = "z3-solver"
+dependencies = ["importlib-resources", ]
