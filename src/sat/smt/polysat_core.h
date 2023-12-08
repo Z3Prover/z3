@@ -128,6 +128,7 @@ namespace polysat {
         unsigned size(pvar v) const { return var2pdd(v).power_of_2(); }
 
         constraints& cs() { return m_constraints; }
+        trail_stack& trail();
 
         std::ostream& display(std::ostream& out) const { throw default_exception("nyi"); }
     };

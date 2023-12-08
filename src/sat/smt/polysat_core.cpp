@@ -308,4 +308,8 @@ namespace polysat {
         return m_assignment.apply_to(p);
     }
 
+    trail_stack& core::trail() {
+        return s.get_trail_stack();
+    }
+
 }
