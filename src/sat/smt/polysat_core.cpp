@@ -262,8 +262,10 @@ namespace polysat {
         }
         // if sc is v == value, then check the watch list for v to propagate truth assignments
         if (sc.is_eq(m_var, m_value)) {
-            for (auto idx : m_watch[m_var]) {
-                auto [sc, d] = m_constraint_trail[idx];
+            for (auto idx1 : m_watch[m_var]) {
+                if (idx == idx1)
+                    continue;
+                auto [sc, d] = m_constraint_trail[idx1];
                 switch (eval(sc)) {
                 case l_false:
                     s.propagate(d, true, explain_eval(sc));
@@ -299,7 +301,11 @@ namespace polysat {
     }
 
     lbool core::eval(signed_constraint const& sc) { 
-        throw default_exception("nyi"); 
+        return sc.eval(m_assignment);
+    }
+
+    pdd core::subst(pdd const& p) { 
+        return m_assignment.apply_to(p);
     }
 
 }

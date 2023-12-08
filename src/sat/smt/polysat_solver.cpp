@@ -28,6 +28,7 @@ The result of polysat::core::check is one of:
 #include "sat/smt/polysat_solver.h"
 #include "sat/smt/euf_solver.h"
 #include "sat/smt/polysat_ule.h"
+#include "sat/smt/polysat_umul_ovfl.h"
 
 
 namespace polysat {
@@ -221,8 +222,8 @@ namespace polysat {
             return expr_ref(bv.mk_ule(l, h), m);
         }
         case ckind_t::umul_ovfl_t: {
-            auto l = pdd2expr(sc.to_umul_ovfl().lhs());
-            auto r = pdd2expr(sc.to_umul_ovfl().rhs());
+            auto l = pdd2expr(sc.to_umul_ovfl().p());
+            auto r = pdd2expr(sc.to_umul_ovfl().q());
             return expr_ref(bv.mk_bvumul_ovfl(l, r), m);
         }
         case ckind_t::smul_fl_t:

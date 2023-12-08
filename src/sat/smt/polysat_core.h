@@ -70,7 +70,7 @@ namespace polysat {
 
         dd::pdd_manager& sz2pdd(unsigned sz) const;
         dd::pdd_manager& var2pdd(pvar v) const;
-        unsigned size(pvar v) const { return var2pdd(v).power_of_2(); }
+
         void del_var();
 
         bool is_assigned(pvar v) { return !m_justification[v].is_null(); }
@@ -96,6 +96,7 @@ namespace polysat {
         void assign_eh(unsigned idx, bool sign, dependency const& d);
 
         pdd value(rational const& v, unsigned sz);
+        pdd subst(pdd const&);
 
         signed_constraint eq(pdd const& p) { return m_constraints.eq(p); }
         signed_constraint eq(pdd const& p, pdd const& q) { return m_constraints.eq(p - q); }
@@ -124,6 +125,9 @@ namespace polysat {
         pdd concat(unsigned n, pdd const* args) { throw default_exception("nyi"); }
         pvar add_var(unsigned sz);
         pdd var(pvar p) { return m_vars[p]; }
+        unsigned size(pvar v) const { return var2pdd(v).power_of_2(); }
+
+        constraints& cs() { return m_constraints; }
 
         std::ostream& display(std::ostream& out) const { throw default_exception("nyi"); }
     };
