@@ -152,8 +152,7 @@ namespace polysat {
         auto sc = m_core.eq(p, q);        
         m_var_eqs.setx(m_var_eqs_head, std::make_pair(v1, v2), std::make_pair(v1, v2));
         ctx.push(value_trail<unsigned>(m_var_eqs_head));    
-        unsigned index = 0;
-//        unsigned index = m_core.register_constraint(sc);
+        unsigned index = m_core.register_constraint(sc, solver_assertion(v1, v2));
         m_core.assign_eh(index, sc, dependency(m_var_eqs_head, s().scope_lvl())); 
         m_var_eqs_head++;
     }
