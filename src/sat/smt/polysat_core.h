@@ -102,8 +102,6 @@ namespace polysat {
         bool propagate();
         void assign_eh(unsigned idx, signed_constraint const& sc, dependency const& dep);
 
-        expr_ref constraint2expr(signed_constraint const& sc) const { throw default_exception("nyi"); }
-
         pdd value(rational const& v, unsigned sz);
 
         signed_constraint eq(pdd const& p) { return m_constraints.eq(p); }

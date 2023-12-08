@@ -39,6 +39,16 @@ namespace polysat {
         pdd m_lhs, m_rhs;
     public:
         ule_constraint(pdd const& lhs, pdd const& rhs) : m_lhs(lhs), m_rhs(rhs) {}
+        pdd const& lhs() const { return m_lhs; }
+        pdd const& rhs() const { return m_rhs; }
+    };
+
+    class umul_ovfl_constraint : public constraint {
+        pdd m_lhs, m_rhs;
+    public:
+        umul_ovfl_constraint(pdd const& lhs, pdd const& rhs) : m_lhs(lhs), m_rhs(rhs) {}
+        pdd const& lhs() const { return m_lhs; }
+        pdd const& rhs() const { return m_rhs; }
     };
 
     class signed_constraint {
@@ -54,8 +64,12 @@ namespace polysat {
         unsigned_vector const& vars() const { return m_constraint->vars(); }
         unsigned var(unsigned idx) const { return m_constraint->var(idx); }
         bool contains_var(pvar v) const { return m_constraint->contains_var(v); }
+        ckind_t op() const { return m_op; }
         bool is_ule() const { return m_op == ule_t; }
-        ule_constraint& to_ule() { return *reinterpret_cast<ule_constraint*>(m_constraint); }
+        bool is_umul_ovfl() const { return m_op == umul_ovfl_t; }
+        bool is_smul_fl() const { return m_op == smul_fl_t; }
+        ule_constraint const& to_ule() const { return *reinterpret_cast<ule_constraint*>(m_constraint); }
+        umul_ovfl_constraint const& to_umul_ovfl() const { return *reinterpret_cast<umul_ovfl_constraint*>(m_constraint); }
         bool is_eq(pvar& v, rational& val) { throw default_exception("nyi"); }
     };
 

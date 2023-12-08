@@ -139,6 +139,9 @@ namespace polysat {
         void add_lemma(vector<signed_constraint> const& lemma);
 
         std::pair<sat::literal_vector, euf::enode_pair_vector> explain_deps(dependency_vector const& deps);
+
+        expr_ref constraint2expr(signed_constraint const& sc);
+        expr_ref pdd2expr(pdd const& p);
 	       
     public:
         solver(euf::solver& ctx, theory_id id);
