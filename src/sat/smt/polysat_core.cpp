@@ -290,6 +290,16 @@ namespace polysat {
         s.ctx.push(push_back_vector(m_prop_queue));
     }
 
+    dependency_vector core::explain_eval(signed_constraint const& sc) { 
+        dependency_vector deps;
+        for (auto v : sc.vars()) 
+            if (is_assigned(v))
+                deps.push_back(m_justification[v]);
+        return deps;
+    }
 
+    lbool core::eval(signed_constraint const& sc) { 
+        throw default_exception("nyi"); 
+    }
 
 }
