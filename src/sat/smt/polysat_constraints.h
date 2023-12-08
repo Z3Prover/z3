@@ -73,8 +73,6 @@ namespace polysat {
         bool is_eq(pvar& v, rational& val) { throw default_exception("nyi"); }
     };
 
-    using dependent_constraint = std::pair<signed_constraint, stacked_dependency*>;
-
     class constraints {
         trail_stack& m_trail;
     public:
