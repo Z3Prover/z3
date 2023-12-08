@@ -267,9 +267,7 @@ namespace polysat {
                     break;
                 }
             }
-        }
-
-        throw default_exception("nyi"); 
+        }       
     }
 
     void core::propagate_unsat_core() { 
