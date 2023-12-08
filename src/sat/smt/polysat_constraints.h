@@ -85,7 +85,7 @@ namespace polysat {
         signed_constraint sle(pdd const& p, pdd const& q) { throw default_exception("nyi"); }
         signed_constraint ult(pdd const& p, pdd const& q) { throw default_exception("nyi"); }
         signed_constraint slt(pdd const& p, pdd const& q) { throw default_exception("nyi"); }
-        signed_constraint umul_ovfl(pdd const& p, pdd const& q) { throw default_exception("nyi"); }
+        signed_constraint umul_ovfl(pdd const& p, pdd const& q);
         signed_constraint smul_ovfl(pdd const& p, pdd const& q) { throw default_exception("nyi"); }
         signed_constraint smul_udfl(pdd const& p, pdd const& q) { throw default_exception("nyi"); }
         signed_constraint bit(pdd const& p, unsigned i) { throw default_exception("nyi"); }

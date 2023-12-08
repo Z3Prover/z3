@@ -16,6 +16,7 @@ Author:
 #include "sat/smt/polysat_solver.h"
 #include "sat/smt/polysat_constraints.h"
 #include "sat/smt/polysat_ule.h"
+#include "sat/smt/polysat_umul_ovfl.h"
 
 namespace polysat {
 
@@ -27,6 +28,12 @@ namespace polysat {
         m_trail.push(new_obj_trail(c));
         auto sc = signed_constraint(ckind_t::ule_t, c);
         return is_positive ? sc : ~sc;
+    }
+
+    signed_constraint constraints::umul_ovfl(pdd const& p, pdd const& q) { 
+        auto* c = alloc(umul_ovfl_constraint, p, q);
+        m_trail.push(new_obj_trail(c));
+        return signed_constraint(ckind_t::umul_ovfl_t, c);
     }
 
     lbool signed_constraint::eval(assignment& a) const {
