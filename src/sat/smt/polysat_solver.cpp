@@ -113,7 +113,7 @@ namespace polysat {
         m_lemma_level = level;
         m_lemma.reset();
         for (auto sc : lemma)
-            m_lemma.push_back(m_core.constraint2expr(sc));
+            m_lemma.push_back(constraint2expr(sc));
         ctx.set_conflict(ex);
     }
 
@@ -172,7 +172,7 @@ namespace polysat {
     // The polysat::solver takes care of translating signed constraints into expressions, which translate into literals.
     // Everything goes over expressions/literals. polysat::core is not responsible for replaying expressions. 
     void solver::propagate(signed_constraint sc, dependency_vector const& deps) {
-        sat::literal lit = ctx.mk_literal(m_core.constraint2expr(sc));
+        sat::literal lit = ctx.mk_literal(constraint2expr(sc));
         auto [core, eqs] = explain_deps(deps);
         auto ex = euf::th_explain::propagate(*this, core, eqs, lit, nullptr);
         ctx.propagate(lit, ex);
@@ -200,13 +200,44 @@ namespace polysat {
     void solver::add_lemma(vector<signed_constraint> const& lemma) {
         sat::literal_vector lits;
         for (auto sc : lemma)
-            lits.push_back(ctx.mk_literal(m_core.constraint2expr(sc)));
+            lits.push_back(ctx.mk_literal(constraint2expr(sc)));
         s().add_clause(lits.size(), lits.data(), sat::status::th(true, get_id(), nullptr));
     }
 
     void solver::get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector& r, bool probing) {
         auto& jst = euf::th_explain::from_index(idx);
         ctx.get_th_antecedents(l, jst, r, probing);
+    }
+
+    expr_ref solver::constraint2expr(signed_constraint const& sc) { 
+        switch (sc.op()) {
+        case ckind_t::ule_t: {
+            auto l = pdd2expr(sc.to_ule().lhs());
+            auto h = pdd2expr(sc.to_ule().rhs());
+            return expr_ref(bv.mk_ule(l, h), m);
+        }
+        case ckind_t::umul_ovfl_t: {
+            auto l = pdd2expr(sc.to_umul_ovfl().lhs());
+            auto r = pdd2expr(sc.to_umul_ovfl().rhs());
+            return expr_ref(bv.mk_bvumul_ovfl(l, r), m);
+        }
+        case ckind_t::smul_fl_t:
+        case ckind_t::op_t:
+            break;
+        }
+        throw default_exception("nyi"); 
+    }
+
+    expr_ref solver::pdd2expr(pdd const& p) {
+        if (p.is_val()) {
+            expr* n = bv.mk_numeral(p.val(), p.power_of_2());
+            return expr_ref(n, m);
+        }
+        auto lo = pdd2expr(p.lo());
+        auto hi = pdd2expr(p.hi());
+        auto v = var2enode(m_pddvar2var[p.var()]);
+        hi = bv.mk_bv_mul(v->get_expr(), hi);
+        return expr_ref(bv.mk_bv_add(lo, hi), m);
     }
 
 }
