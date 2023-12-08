@@ -225,7 +225,7 @@ namespace polysat {
 
             // constraint is unitary, add to viable set 
             if (vars.size() >= 2 && is_assigned(vars[0]) && !is_assigned(vars[1])) {
-                // m_viable.add_unitary(vars[1], idx);
+                m_viable.add_unitary(vars[1], idx);
             }
         }
         m_watch[v].shrink(j);

@@ -3,7 +3,7 @@ Copyright (c 2022 Microsoft Corporation
 
 Module Name:
 
-    polysat_internalize.cpp
+    polysat_solver.cpp
 
 Abstract:
 
