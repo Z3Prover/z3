@@ -89,6 +89,10 @@ namespace polysat {
 
     class signed_constraint;
 
+    //
+    // The interface that PolySAT uses to the SAT/SMT solver.
+    //
+
     class solver_interface {
     public:
         virtual void add_eq_literal(pvar v, rational const& val) = 0;
