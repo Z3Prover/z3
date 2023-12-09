@@ -50,6 +50,7 @@ namespace polysat {
             bool active = true;
             bool valid_for_lemma = true;
             pvar var = null_var;
+            unsigned constraint_index = UINT_MAX;
 
             void reset() {
                 // dll_base<entry>::init(this);  // we never did this in alloc_entry either
@@ -58,6 +59,7 @@ namespace polysat {
                 active = true;
                 valid_for_lemma = true;
                 var = null_var;
+                constraint_index = UINT_MAX;
             }
         };
 
@@ -70,7 +72,7 @@ namespace polysat {
         };
 
         class layers final {
-            svector<layer> m_layers;
+	  svector<layer> m_layers;
         public:
             svector<layer> const& get_layers() const { return m_layers; }
             layer& ensure_layer(unsigned bit_width);
@@ -81,6 +83,57 @@ namespace polysat {
             entry* get_entries(unsigned bit_width) const { layer const* l = get_layer(bit_width); return l ? l->entries : nullptr; }
         };
 
+        struct fixed_bits_info {
+            svector<lbool> fixed;
+            vector<vector<signed_constraint>> just_src;
+            vector<vector<signed_constraint>> just_side_cond;
+            vector<svector<pvar>> just_slicing;
+
+            bool is_empty() const {
+                SASSERT_EQ(fixed.empty(), just_src.empty());
+                SASSERT_EQ(fixed.empty(), just_side_cond.empty());
+                return fixed.empty();
+            }
+
+            bool is_empty_at(unsigned i) const {
+                return fixed[i] == l_undef && just_src[i].empty() && just_side_cond[i].empty();
+            }
+
+            void reset(unsigned num_bits) {
+                fixed.reset();
+                fixed.resize(num_bits, l_undef);
+                just_src.reset();
+                just_src.resize(num_bits);
+                just_side_cond.reset();
+                just_side_cond.resize(num_bits);
+                just_slicing.reset();
+                just_slicing.resize(num_bits);
+            }
+
+            void reset_just(unsigned i) {
+                just_src[i].reset();
+                just_side_cond[i].reset();
+                just_slicing[i].reset();
+            }
+
+            void set_just(unsigned i, entry* e) {
+                reset_just(i);
+                push_just(i, e);
+            }
+
+            void push_just(unsigned i, entry* e) {
+                just_src[i].append(e->src);
+                just_side_cond[i].append(e->side_cond);
+            }
+
+            void push_from_bit(unsigned i, unsigned src) {
+                just_src[i].append(just_src[src]);
+                just_side_cond[i].append(just_side_cond[src]);
+                just_slicing[i].append(just_slicing[src]);
+            }
+        };
+
+
         ptr_vector<entry>       m_alloc;
         vector<layers>          m_units;        // set of viable values based on unit multipliers, layered by bit-width in descending order
         ptr_vector<entry>       m_equal_lin;    // entries that have non-unit multipliers, but are equal
@@ -89,7 +142,7 @@ namespace polysat {
         bool well_formed(entry* e);
         bool well_formed(layers const& ls);
 
-        entry* alloc_entry(pvar v);
+        entry* alloc_entry(pvar v, unsigned constraint_index);
 
         std::ostream& display_one(std::ostream& out, pvar v, entry const* e) const;
         std::ostream& display_all(std::ostream& out, pvar v, entry const* e, char const* delimiter = "") const;
@@ -97,15 +150,17 @@ namespace polysat {
         void log(pvar v);
 
         struct pop_viable_trail;
-        void pop_viable(entry* e, pvar v, entry_kind k);
+        void pop_viable(entry* e, entry_kind k);
         struct push_viable_trail;
-        void push_viable(entry* e, pvar v, entry_kind k);
+        void push_viable(entry* e);
 
         void insert(entry* e, pvar v, ptr_vector<entry>& entries, entry_kind k);
 
         bool intersect(pvar v, entry* e);
 
         void ensure_var(pvar v);
+
+        lbool find_viable(pvar v, rational& lo, rational& hi);
 
     public:
         viable(core& c);
