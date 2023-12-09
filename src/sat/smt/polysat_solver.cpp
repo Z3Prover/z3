@@ -254,4 +254,46 @@ namespace polysat {
         return expr_ref(bv.mk_bv_add(lo, hi), m);
     }
 
+    // walk the egraph starting with pvar for overlaps.
+    void solver::get_bitvector_prefixes(pvar pv, pvar_vector& out) {
+        theory_var v = m_pddvar2var[pv];
+        euf::enode_vector todo;
+        uint_set seen;
+        unsigned lo, hi;
+        expr* e = nullptr;
+        todo.push_back(var2enode(v));
+        for (unsigned i = 0; i < todo.size(); ++i) {
+            auto n = todo[i]->get_root();
+            if (n->is_marked1())
+                continue;
+            n->mark1();
+            for (auto sib : euf::enode_class(n)) {
+                theory_var w = sib->get_th_var(get_id());
+
+                // identify prefixes
+                if (bv.is_concat(sib->get_expr()))
+                    todo.push_back(sib->get_arg(0));                
+                if (w == euf::null_theory_var)
+                    continue;
+                if (seen.contains(w))
+                    continue;
+                seen.insert(w);
+                auto const& p = m_var2pdd[w];
+                if (p.is_var())
+                    out.push_back(p.var());
+            }
+            for (auto p : euf::enode_parents(n)) {
+                if (p->is_marked1())
+                    continue;
+                // find prefixes: e[hi:0] a parent of n
+                if (bv.is_extract(p->get_expr(), lo, hi, e) && lo == 0) {
+                    SASSERT(n == expr2enode(e)->get_root());
+                    todo.push_back(p);
+                }
+            }  
+        }
+        for (auto n : todo)
+            n->get_root()->unmark1();
+    }
+
 }
