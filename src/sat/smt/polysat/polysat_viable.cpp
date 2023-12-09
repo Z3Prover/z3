@@ -45,43 +45,110 @@ namespace polysat {
     struct viable::pop_viable_trail : public trail {
         viable& m_s;
         entry* e;
-        pvar v;
         entry_kind k;
     public:
-        pop_viable_trail(viable& s, entry* e, pvar v, entry_kind k)
-            : m_s(s), e(e), v(v), k(k) {}
+        pop_viable_trail(viable& s, entry* e, entry_kind k)
+            : m_s(s), e(e), k(k) {}
         void undo() override {
-            m_s.pop_viable(e, v, k);
+            m_s.pop_viable(e, k);
         }
     };
 
     struct viable::push_viable_trail : public trail {
         viable& m_s;
         entry* e;
-        pvar v;
-        entry_kind k;
     public:
-        push_viable_trail(viable& s, entry* e, pvar v, entry_kind k)
-            : m_s(s), e(e), v(v), k(k) {}
+        push_viable_trail(viable& s, entry* e)
+            : m_s(s), e(e) {}
         void undo() override {
-            m_s.push_viable(e, v, k);
+            m_s.push_viable(e);
         }
     };
 
-    viable::entry* viable::alloc_entry(pvar var) {
+    viable::entry* viable::alloc_entry(pvar var, unsigned constraint_index) {
         if (m_alloc.empty())
             return alloc(entry);
         auto* e = m_alloc.back();
         e->reset();
         e->var = var;
+        e->constraint_index = constraint_index;
         m_alloc.pop_back();
         return e;
     }
 
-    find_t viable::find_viable(pvar v, rational& out_val) { 
+    find_t viable::find_viable(pvar v, rational& lo) {
+        rational hi;
         ensure_var(v);
-        throw default_exception("nyi"); 
+        switch (find_viable(v, lo, hi)) {
+        case l_true:
+            return (lo == hi) ? find_t::singleton : find_t::multiple;
+        case l_false:
+            return find_t::empty;
+        default:
+            return find_t::resource_out;
+        }
     }
+
+    lbool viable::find_viable(pvar v, rational& lo, rational& hi) {
+        fixed_bits_info fbi;
+
+#if 0
+        if (!collect_bit_information(v, true, fbi))
+            return l_false;  // conflict already added
+#endif
+
+        pvar_vector overlaps;
+#if 0
+        // TODO s.m_slicing.collect_simple_overlaps(v, overlaps);
+#endif
+        std::sort(overlaps.begin(), overlaps.end(), [&](pvar x, pvar y) { return c.size(x) > c.size(y); });
+
+        uint_set widths_set;
+        // max size should always be present, regardless of whether we have intervals there (to make sure all fixed bits are considered)
+        widths_set.insert(c.size(v));
+
+#if 0
+        LOG("Overlaps with v" << v << ":");
+        for (pvar x : overlaps) {
+            unsigned hi, lo;
+            if (s.m_slicing.is_extract(x, v, hi, lo))
+                LOG("    v" << x << " = v" << v << "[" << hi << ":" << lo << "]");
+            else
+                LOG("    v" << x << " not extracted from v" << v << "; size " << s.size(x));
+            for (layer const& l : m_units[x].get_layers()) {
+                widths_set.insert(l.bit_width);
+            }
+        }
+#endif
+
+        unsigned_vector widths;
+        for (unsigned w : widths_set) 
+            widths.push_back(w);        
+        LOG("widths: " << widths);
+
+        rational const& max_value = c.var2pdd(v).max_value();
+
+#if 0
+        lbool result_lo = find_on_layers(v, widths, overlaps, fbi, rational::zero(), max_value, lo);
+        if (result_lo == l_false)
+            return l_false;  // conflict
+        if (result_lo == l_undef)
+            return find_viable_fallback(v, overlaps, lo, hi);
+
+        if (lo == max_value) {
+            hi = lo;
+            return l_true;
+        }
+
+        lbool result_hi = find_on_layers(v, widths, overlaps, fbi, lo + 1, max_value, hi);
+        if (result_hi == l_false)
+            hi = lo;  // no other viable value
+        if (result_hi == l_undef)
+            return find_viable_fallback(v, overlaps, lo, hi);
+#endif
+        return l_true;
+    }
+
 
     /*
     * Explain why the current variable is not viable or signleton.
@@ -99,7 +166,7 @@ namespace polysat {
             return;
         auto [sc, d] = c.m_constraint_trail[idx];
 
-        entry* ne = alloc_entry(v);
+        entry* ne = alloc_entry(v, idx);
         if (!m_forbidden_intervals.get_interval(sc, v, *ne)) {
             m_alloc.push_back(ne);
             return;
@@ -211,13 +278,13 @@ namespace polysat {
         }
 
         auto create_entry = [&]() {
-            c.trail().push(pop_viable_trail(*this, ne, v, entry_kind::unit_e));
+            c.trail().push(pop_viable_trail(*this, ne, entry_kind::unit_e));
             ne->init(ne);
             return ne;
             };
 
         auto remove_entry = [&](entry* e) {
-            c.trail().push(push_viable_trail(*this, e, v, entry_kind::unit_e));
+            c.trail().push(push_viable_trail(*this, e));
             e->remove_from(entries, e);
             e->active = false;
             };
@@ -311,7 +378,8 @@ namespace polysat {
         return nullptr;
     }
 
-    void viable::pop_viable(entry* e, pvar v, entry_kind k) {
+    void viable::pop_viable(entry* e, entry_kind k) {
+        unsigned v = e->var;
         SASSERT(well_formed(m_units[v]));
         SASSERT(e->active);
         e->active = false;
@@ -333,15 +401,15 @@ namespace polysat {
         m_alloc.push_back(e);
     }
 
-    void viable::push_viable(entry* e, pvar v, entry_kind k) {
+    void viable::push_viable(entry* e) {
         // display_one(verbose_stream() << "Push entry: ", v, e) << "\n";
+        auto v = e->var;
         entry*& entries = m_units[v].get_layer(e)->entries;
         SASSERT(e->prev() != e || !entries);
         SASSERT(e->prev() != e || e->next() == e);
-        SASSERT(k == entry_kind::unit_e);
         SASSERT(!e->active);
         e->active = true;
-        (void)k;
+
         SASSERT(well_formed(m_units[v]));
         if (e->prev() != e) {
             entry* pos = e->prev();
@@ -358,7 +426,7 @@ namespace polysat {
     void viable::insert(entry* e, pvar v, ptr_vector<entry>& entries, entry_kind k) {
         SASSERT(well_formed(m_units[v]));
 
-        c.trail().push(pop_viable_trail(*this, e, v, k));
+        c.trail().push(pop_viable_trail(*this, e, k));
 
         e->init(e);
         if (!entries[v])
