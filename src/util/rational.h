@@ -55,7 +55,7 @@ public:
     explicit rational(double  z) { UNREACHABLE(); }
     
     explicit rational(char const * v) { m().set(m_val, v); }
-
+    
     explicit rational(unsigned const * v, unsigned sz) { m().set(m_val, sz, v); }
 
     struct i64 {};
@@ -489,6 +489,18 @@ public:
         return get_num_digits(rational(10));
     }
 
+    /**
+     * \brief Return the biggest k s.t. 2^k <= a.
+     * \remark Return 0 if a is not positive.
+     */
+    unsigned prev_power_of_two() const { return m().prev_power_of_two(m_val); }
+
+    /**
+     * \brief Return the smallest k s.t. a <= 2^k.
+     * \remark Return 0 if a is not positive.
+     */
+    unsigned next_power_of_two() const { return m().next_power_of_two(m_val); }
+
     bool get_bit(unsigned index) const {
         return m().get_bit(m_val, index);
     }
@@ -509,7 +521,6 @@ public:
             return num_bits;
         return trailing_zeros();
     }
-
 
     static bool limit_denominator(rational &num, rational const& limit);
 };
@@ -658,4 +669,8 @@ inline rational gcd(rational const & r1, rational const & r2, rational & a, rati
   rational result;
   rational::m().gcd(r1.m_val, r2.m_val, a.m_val, b.m_val, result.m_val);
   return result;
+}
+
+inline void swap(rational& r1, rational& r2) {
+    r1.swap(r2);
 }

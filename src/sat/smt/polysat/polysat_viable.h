@@ -87,7 +87,7 @@ namespace polysat {
             svector<lbool> fixed;
             vector<vector<signed_constraint>> just_src;
             vector<vector<signed_constraint>> just_side_cond;
-            vector<svector<pvar>> just_slicing;
+            vector<svector<justified_fixed_bits>> just_slicing;
 
             bool is_empty() const {
                 SASSERT_EQ(fixed.empty(), just_src.empty());
@@ -218,6 +218,8 @@ namespace polysat {
         std::pair<entry*, bool> find_value(rational const& val, entry* entries) {
             throw default_exception("nyi");
         }
+
+        bool collect_bit_information(pvar v, bool add_conflict, fixed_bits_info& out_fbi);
 
     public:
         viable(core& c);

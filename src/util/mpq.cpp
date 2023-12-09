@@ -316,6 +316,12 @@ unsigned mpq_manager<SYNCH>::prev_power_of_two(mpq const & a) {
     return prev_power_of_two(_tmp);
 }
 
+template<bool SYNCH>
+unsigned mpq_manager<SYNCH>::next_power_of_two(mpq const & a) {
+    _scoped_numeral<mpz_manager<SYNCH> > _tmp(*this);
+    ceil(a, _tmp);
+    return next_power_of_two(_tmp);
+}
 
 template<bool SYNCH>
 template<bool SUB>

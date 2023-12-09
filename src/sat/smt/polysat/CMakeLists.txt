@@ -1,5 +1,6 @@
 z3_add_component(polysat
   SOURCES
+    fixed_bits.cpp
     polysat_assignment.cpp
     polysat_constraints.cpp
     polysat_core.cpp

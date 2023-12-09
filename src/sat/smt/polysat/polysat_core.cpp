@@ -282,6 +282,10 @@ namespace polysat {
         s.get_bitvector_prefixes(v, out);
     }
 
+    void core::get_fixed_bits(pvar v, svector<justified_fixed_bits>& fixed_bits) {
+        s.get_fixed_bits(v, fixed_bits);
+    }
+
     bool core::inconsistent() const {
         return s.inconsistent();
     }
