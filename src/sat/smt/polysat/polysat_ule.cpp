@@ -70,8 +70,8 @@ Useful lemmas:
 
 --*/
 
-#include "sat/smt/polysat_constraints.h"
-#include "sat/smt/polysat_ule.h"
+#include "sat/smt/polysat/polysat_constraints.h"
+#include "sat/smt/polysat/polysat_ule.h"
 
 #define LOG(_msg_) verbose_stream() << _msg_ << "\n"
 

@@ -13,11 +13,11 @@ Author:
     Nikolaj Bjorner (nbjorner) 2021-03-19
 
 --*/
-#include "sat/smt/polysat_fi.h"
-#include "sat/smt/polysat_interval.h"
-#include "sat/smt/polysat_umul_ovfl.h"
-#include "sat/smt/polysat_ule.h"
-#include "sat/smt/polysat_core.h"
+#include "sat/smt/polysat/polysat_fi.h"
+#include "sat/smt/polysat/polysat_interval.h"
+#include "sat/smt/polysat/polysat_umul_ovfl.h"
+#include "sat/smt/polysat/polysat_ule.h"
+#include "sat/smt/polysat/polysat_core.h"
 
 namespace polysat {
 

@@ -18,7 +18,7 @@ Author:
 
 #include "sat/smt/sat_th.h"
 #include "math/dd/dd_pdd.h"
-#include "sat/smt/polysat_core.h"
+#include "sat/smt/polysat/polysat_core.h"
 
 namespace euf {
     class solver;
@@ -27,7 +27,7 @@ namespace euf {
 namespace polysat {
 
 
-    class solver : public euf::th_euf_solver {
+    class solver : public euf::th_euf_solver, public solver_interface {
         typedef euf::theory_var theory_var;
         typedef euf::theory_id theory_id;
         typedef sat::literal literal;
@@ -52,8 +52,6 @@ namespace polysat {
             ~polysat_proof() override {}
             expr* get_hint(euf::solver& s) const override { return nullptr; }
         };
-
-        friend class core;
 
         bv_util                  bv;
         arith_util               m_autil;
@@ -128,12 +126,14 @@ namespace polysat {
         void internalize_set(euf::theory_var v, pdd const& p);
 
         // callbacks from core
-        void add_eq_literal(pvar v, rational const& val);
-        void set_conflict(dependency_vector const& core);
-        void set_lemma(vector<signed_constraint> const& lemma, unsigned level, dependency_vector const& core);
-        dependency propagate(signed_constraint sc, dependency_vector const& deps);
-        void propagate(dependency const& d, bool sign, dependency_vector const& deps);
-        
+        void add_eq_literal(pvar v, rational const& val) override;
+        void set_conflict(dependency_vector const& core) override;
+        void set_lemma(vector<signed_constraint> const& lemma, unsigned level, dependency_vector const& core) override;
+        dependency propagate(signed_constraint sc, dependency_vector const& deps) override;
+        void propagate(dependency const& d, bool sign, dependency_vector const& deps) override;
+        trail_stack& trail() override;
+        bool inconsistent() const override;
+
         void add_lemma(vector<signed_constraint> const& lemma);
 
         std::pair<sat::literal_vector, euf::enode_pair_vector> explain_deps(dependency_vector const& deps);

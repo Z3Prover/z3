@@ -27,8 +27,8 @@ The result of polysat::core::check is one of:
 #include "ast/euf/euf_bv_plugin.h"
 #include "sat/smt/polysat_solver.h"
 #include "sat/smt/euf_solver.h"
-#include "sat/smt/polysat_ule.h"
-#include "sat/smt/polysat_umul_ovfl.h"
+#include "sat/smt/polysat/polysat_ule.h"
+#include "sat/smt/polysat/polysat_umul_ovfl.h"
 
 
 namespace polysat {
@@ -82,7 +82,7 @@ namespace polysat {
                 core.push_back(d.literal());
             }
             else {
-                auto const [v1, v2] = m_var_eqs[d.index()];
+                auto const [v1, v2] = d.eq();
                 euf::enode* const n1 = var2enode(v1);
                 euf::enode* const n2 = var2enode(v2);
                 VERIFY(n1->get_root() == n2->get_root());
@@ -151,7 +151,7 @@ namespace polysat {
         auto sc = m_core.eq(p, q);        
         m_var_eqs.setx(m_var_eqs_head, {v1, v2}, {v1, v2});
         ctx.push(value_trail<unsigned>(m_var_eqs_head));    
-        auto d = dependency(m_var_eqs_head, s().scope_lvl());
+        auto d = dependency(v1, v2, s().scope_lvl());
         unsigned index = m_core.register_constraint(sc, d);
         m_core.assign_eh(index, false, d); 
         m_var_eqs_head++;
@@ -192,7 +192,7 @@ namespace polysat {
             ctx.propagate(lit, ex);
         }
         else if (sign) {  
-            auto const [v1, v2] = m_var_eqs[d.index()];
+            auto const [v1, v2] = d.eq();
             // equalities are always asserted so a negative propagation is a conflict.
             auto n1 = var2enode(v1);
             auto n2 = var2enode(v2);
@@ -200,6 +200,14 @@ namespace polysat {
             auto ex = euf::th_explain::conflict(*this, core, eqs, nullptr);
             ctx.set_conflict(ex);
         }
+    }
+
+    bool solver::inconsistent() const {
+        return s().inconsistent();
+    }
+
+    trail_stack& solver::trail() {
+        return ctx.get_trail_stack();
     }
 
     void solver::add_lemma(vector<signed_constraint> const& lemma) {

@@ -12,9 +12,8 @@ Author:
 
 --*/
 #pragma once
-#include "sat/smt/polysat_ule.h"
-#include "sat/smt/polysat_assignment.h"
-#include "sat/smt/polysat_constraints.h"
+#include "sat/smt/polysat/polysat_assignment.h"
+#include "sat/smt/polysat/polysat_constraints.h"
 
 
 namespace polysat {

@@ -10,9 +10,9 @@ Author:
     Jakob Rath, Nikolaj Bjorner (nbjorner) 2021-12-09
 
 --*/
-#include "sat/smt/polysat_constraints.h"
-#include "sat/smt/polysat_assignment.h"
-#include "sat/smt/polysat_umul_ovfl.h"
+#include "sat/smt/polysat/polysat_constraints.h"
+#include "sat/smt/polysat/polysat_assignment.h"
+#include "sat/smt/polysat/polysat_umul_ovfl.h"
 
 
 namespace polysat {
