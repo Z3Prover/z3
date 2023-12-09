@@ -42,8 +42,9 @@ namespace polysat {
         friend class assignment;
 
         struct constraint_info {
-            signed_constraint sc;
-            dependency d;
+            signed_constraint sc;        // signed constraint representation
+            dependency d;                // justification for constraint
+            lbool      value;            // value assigned by solver
         };
         solver_interface& s;
         viable m_viable;
@@ -51,7 +52,7 @@ namespace polysat {
         assignment m_assignment;
         unsigned m_qhead = 0, m_vqhead = 0;
         svector<prop_item> m_prop_queue;
-        svector<constraint_info> m_constraint_trail;  // index of constraints
+        svector<constraint_info> m_constraint_index;  // index of constraints
         mutable scoped_ptr_vector<dd::pdd_manager> m_pdd;
         dependency_vector m_unsat_core;
 

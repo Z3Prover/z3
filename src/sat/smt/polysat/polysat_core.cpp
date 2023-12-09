@@ -67,13 +67,13 @@ namespace polysat {
     public:
         mk_add_watch(core& c) : c(c) {}
         void undo() override {
-            auto& [sc, lit] = c.m_constraint_trail.back();
+            auto& [sc, lit, val] = c.m_constraint_index.back();
             auto& vars = sc.vars();
             if (vars.size() > 0)
                 c.m_watch[vars[0]].pop_back();
             if (vars.size() > 1)
                 c.m_watch[vars[1]].pop_back();
-            c.m_constraint_trail.pop_back();
+            c.m_constraint_index.pop_back();
         }
     };
 
@@ -121,8 +121,8 @@ namespace polysat {
     }
 
     unsigned core::register_constraint(signed_constraint& sc, dependency d) {
-        unsigned idx = m_constraint_trail.size();
-        m_constraint_trail.push_back({ sc, d });
+        unsigned idx = m_constraint_index.size();
+        m_constraint_index.push_back({ sc, d, l_undef });
         auto& vars = sc.vars();
         unsigned i = 0, j = 0, sz = vars.size();
         for (; i < sz && j < 2; ++i)
@@ -177,7 +177,7 @@ namespace polysat {
     }
 
     signed_constraint core::get_constraint(unsigned idx, bool sign) {
-        auto sc = m_constraint_trail[idx].sc;
+        auto sc = m_constraint_index[idx].sc;
         if (sign)
             sc = ~sc;
         return sc;
@@ -212,7 +212,7 @@ namespace polysat {
         // for entries where there is only one free variable left add to viable set 
         unsigned j = 0;
         for (auto idx : m_watch[v]) {
-            auto [sc, as] = m_constraint_trail[idx];
+            auto [sc, as, value] = m_constraint_index[idx];
             auto& vars = sc.vars();
             if (vars[0] != v)
                 std::swap(vars[0], vars[1]);
@@ -263,7 +263,7 @@ namespace polysat {
             for (auto idx1 : m_watch[m_var]) {
                 if (idx == idx1)
                     continue;
-                auto [sc, d] = m_constraint_trail[idx1];
+                auto [sc, d, value] = m_constraint_index[idx1];
                 switch (eval(sc)) {
                 case l_false:
                     s.propagate(d, true, explain_eval(sc));
@@ -298,8 +298,18 @@ namespace polysat {
     }
 
     void core::assign_eh(unsigned index, bool sign, dependency const& dep) { 
+        struct unassign : public trail {
+            core& c;
+            unsigned m_index;
+            unassign(core& c, unsigned index): c(c), m_index(index) {}
+            void undo() override {
+                c.m_constraint_index[m_index].value = l_undef;
+                c.m_prop_queue.pop_back();
+            }
+        };
         m_prop_queue.push_back({ index, sign, dep });
-        s.trail().push(push_back_vector(m_prop_queue));
+        m_constraint_index[index].value = to_lbool(!sign);
+        s.trail().push(unassign(*this, index));
     }
 
     dependency_vector core::explain_eval(signed_constraint const& sc) { 
