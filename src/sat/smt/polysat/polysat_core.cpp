@@ -29,8 +29,7 @@ polysat::core
 --*/
 
 #include "params/bv_rewriter_params.hpp"
-#include "sat/smt/polysat_solver.h"
-#include "sat/smt/euf_solver.h"
+#include "sat/smt/polysat/polysat_core.h"
 
 namespace polysat {
 
@@ -79,10 +78,10 @@ namespace polysat {
         }
     };
 
-    core::core(solver& s) :
+    core::core(solver_interface& s) :
         s(s),         
         m_viable(*this),
-        m_constraints(s.get_trail_stack()),
+        m_constraints(s.trail()),
         m_assignment(*this),
         m_var_queue(m_activity)
     {}
@@ -109,7 +108,7 @@ namespace polysat {
         m_justification.push_back(null_dependency);
         m_watch.push_back({});
         m_var_queue.mk_var_eh(v);
-        s.ctx.push(mk_add_var(*this));
+        s.trail().push(mk_add_var(*this));
         return v;
     }
 
@@ -134,7 +133,7 @@ namespace polysat {
             add_watch(idx, vars[0]);
         if (vars.size() > 1)
             add_watch(idx, vars[1]);
-        s.ctx.push(mk_add_watch(*this));
+        s.trail().push(mk_add_watch(*this));
         return idx;
     }
 
@@ -146,7 +145,7 @@ namespace polysat {
         if (m_var_queue.empty())
             return sat::check_result::CR_DONE;
         m_var = m_var_queue.next_var();       
-        s.ctx.push(mk_dqueue_var(m_var, *this));
+        s.trail().push(mk_dqueue_var(m_var, *this));
         switch (m_viable.find_viable(m_var, m_value)) {
         case find_t::empty:
             m_unsat_core = m_viable.explain();
@@ -169,11 +168,11 @@ namespace polysat {
     bool core::propagate() { 
         if (m_qhead == m_prop_queue.size() && m_vqhead == m_prop_queue.size())
             return false;
-        s.ctx.push(value_trail(m_qhead));
-        for (; m_qhead < m_prop_queue.size() && !s.ctx.inconsistent(); ++m_qhead)
+        s.trail().push(value_trail(m_qhead));
+        for (; m_qhead < m_prop_queue.size() && !s.inconsistent(); ++m_qhead)
             propagate_assignment(m_prop_queue[m_qhead]);        
-        s.ctx.push(value_trail(m_vqhead));
-        for (; m_vqhead < m_prop_queue.size() && !s.ctx.inconsistent(); ++m_vqhead) 
+        s.trail().push(value_trail(m_vqhead));
+        for (; m_vqhead < m_prop_queue.size() && !s.inconsistent(); ++m_vqhead) 
             propagate_value(m_prop_queue[m_vqhead]);        
         return true;
     }
@@ -202,12 +201,12 @@ namespace polysat {
             return;
         if (m_var_queue.contains(v)) {
             m_var_queue.del_var_eh(v);
-            s.ctx.push(mk_dqueue_var(v, *this));
+            s.trail().push(mk_dqueue_var(v, *this));
         }
         m_values[v] = value;
         m_justification[v] = dep;   
         m_assignment.push(v , value);
-        s.ctx.push(mk_assign_var(v, *this));
+        s.trail().push(mk_assign_var(v, *this));
 
         // update the watch lists for pvars
         // remove constraints from m_watch[v] that have more than 2 free variables.
@@ -289,7 +288,7 @@ namespace polysat {
 
     void core::assign_eh(unsigned index, bool sign, dependency const& dep) { 
         m_prop_queue.push_back({ index, sign, dep });
-        s.ctx.push(push_back_vector(m_prop_queue));
+        s.trail().push(push_back_vector(m_prop_queue));
     }
 
     dependency_vector core::explain_eval(signed_constraint const& sc) { 
@@ -309,7 +308,7 @@ namespace polysat {
     }
 
     trail_stack& core::trail() {
-        return s.get_trail_stack();
+        return s.trail();
     }
 
 }

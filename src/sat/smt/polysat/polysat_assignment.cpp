@@ -12,8 +12,8 @@ Author:
 
 --*/
 
-#include "sat/smt/polysat_assignment.h"
-#include "sat/smt/polysat_core.h"
+#include "sat/smt/polysat/polysat_assignment.h"
+#include "sat/smt/polysat/polysat_core.h"
 
 namespace polysat {
 

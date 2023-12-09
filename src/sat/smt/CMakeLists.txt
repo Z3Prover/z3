@@ -35,16 +35,9 @@ z3_add_component(sat_smt
     pb_internalize.cpp
     pb_pb.cpp
     pb_solver.cpp
-    polysat_assignment.cpp
-    polysat_constraints.cpp
-    polysat_core.cpp
     polysat_internalize.cpp
-    polysat_fi.cpp
     polysat_model.cpp
     polysat_solver.cpp
-    polysat_ule.cpp
-    polysat_umul_ovfl.cpp
-    polysat_viable.cpp
     q_clause.cpp
     q_ematch.cpp
     q_eval.cpp

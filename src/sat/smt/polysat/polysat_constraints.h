@@ -15,7 +15,7 @@ Author:
 
 #pragma once 
 #include "util/trail.h"
-#include "sat/smt/polysat_types.h"
+#include "sat/smt/polysat/polysat_types.h"
 
 namespace polysat {
 

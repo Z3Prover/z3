@@ -12,11 +12,10 @@ Author:
 
 --*/
 
-#include "sat/smt/polysat_core.h"
-#include "sat/smt/polysat_solver.h"
-#include "sat/smt/polysat_constraints.h"
-#include "sat/smt/polysat_ule.h"
-#include "sat/smt/polysat_umul_ovfl.h"
+#include "sat/smt/polysat/polysat_core.h"
+#include "sat/smt/polysat/polysat_constraints.h"
+#include "sat/smt/polysat/polysat_ule.h"
+#include "sat/smt/polysat/polysat_umul_ovfl.h"
 
 namespace polysat {
 

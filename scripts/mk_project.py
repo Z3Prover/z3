@@ -58,7 +58,8 @@ def init_project_def():
     add_lib('proto_model', ['model', 'rewriter', 'smt_params'], 'smt/proto_model')
     add_lib('smt', ['bit_blaster', 'macros', 'normal_forms', 'cmd_context', 'proto_model', 'solver_assertions',
                     'substitution', 'grobner', 'simplex', 'proofs', 'pattern', 'parser_util', 'fpa', 'lp'])
-    add_lib('sat_smt', ['sat', 'euf', 'smt', 'tactic', 'solver', 'smt_params', 'bit_blaster', 'fpa', 'mbp', 'normal_forms', 'lp', 'pattern', 'qe_lite'], 'sat/smt')
+    add_lib('polysat', ['util', 'dd'], 'sat/smt/polysat'),
+    add_lib('sat_smt', ['sat', 'euf', 'smt', 'tactic', 'solver', 'smt_params', 'bit_blaster', 'fpa', 'mbp', 'polysat', 'normal_forms', 'lp', 'pattern', 'qe_lite'], 'sat/smt')
     add_lib('sat_tactic', ['tactic', 'sat', 'solver', 'sat_smt'], 'sat/tactic')
     add_lib('nlsat_tactic', ['nlsat', 'sat_tactic', 'arith_tactics'], 'nlsat/tactic')    
     add_lib('bv_tactics', ['tactic', 'bit_blaster', 'core_tactics'], 'tactic/bv')

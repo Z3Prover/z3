@@ -20,15 +20,15 @@ Author:
 #include "util/dependency.h"
 #include "math/dd/dd_pdd.h"
 #include "sat/smt/sat_th.h"
-#include "sat/smt/polysat_types.h"
-#include "sat/smt/polysat_constraints.h"
-#include "sat/smt/polysat_viable.h"
-#include "sat/smt/polysat_assignment.h"
+#include "sat/smt/polysat/polysat_types.h"
+#include "sat/smt/polysat/polysat_constraints.h"
+#include "sat/smt/polysat/polysat_viable.h"
+#include "sat/smt/polysat/polysat_assignment.h"
 
 namespace polysat {
 
     class core;
-    class solver;
+    class solver_interface;
 
     class core {
         class mk_add_var;
@@ -45,7 +45,7 @@ namespace polysat {
             signed_constraint sc;
             dependency d;
         };
-        solver& s;
+        solver_interface& s;
         viable m_viable;
         constraints m_constraints;
         assignment m_assignment;
@@ -87,7 +87,7 @@ namespace polysat {
         dependency_vector explain_eval(signed_constraint const& sc);
 
     public:
-        core(solver& s);
+        core(solver_interface& s);
 
         sat::check_result check();
 
