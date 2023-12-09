@@ -28,7 +28,6 @@ polysat::core
 
 --*/
 
-#include "params/bv_rewriter_params.hpp"
 #include "sat/smt/polysat/polysat_core.h"
 
 namespace polysat {
