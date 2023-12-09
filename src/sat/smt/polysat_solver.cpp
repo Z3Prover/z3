@@ -296,4 +296,24 @@ namespace polysat {
             n->get_root()->unmark1();
     }
 
+    void solver::get_fixed_bits(pvar pv, svector<justified_fixed_bits>& fixed_bits) {
+        theory_var v = m_pddvar2var[pv];
+        auto n = var2enode(v);
+        auto r = n->get_root();
+        unsigned lo, hi;
+        expr* e = nullptr;
+        for (auto p : euf::enode_parents(r)) {
+            if (!p->interpreted())
+                continue;
+            for (auto sib : euf::enode_class(p)) {
+                if (bv.is_extract(sib->get_expr(), lo, hi, e) && r == expr2enode(e)->get_root()) {
+                    throw default_exception("nyi");
+                    // TODO                    
+                    // dependency d = dependency(p->get_th_var(get_id()), n->get_th_var(get_id()), s().scope_lvl());
+                    // fixed_bits.push_back({ hi, lo, rational::zero(), null_dependency()});
+                }
+            }
+        }
+    }
+
 }

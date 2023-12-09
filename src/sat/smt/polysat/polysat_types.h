@@ -52,6 +52,39 @@ namespace polysat {
             return out << "v" << d.eq().first << " == v" << d.eq().second << "@" << d.level();
     }
 
+    struct trailing_bits {
+        unsigned length;
+        rational bits;
+        bool positive;
+        unsigned src_idx;
+    };
+
+    struct leading_bits {
+        unsigned length;
+        bool positive; // either all 0 or all 1
+        unsigned src_idx;
+    };
+
+    struct single_bit {
+        bool positive;
+        unsigned position;
+        unsigned src_idx;
+    };
+
+    struct fixed_bits {
+        unsigned hi = 0;
+        unsigned lo = 0;
+        rational value;
+
+        /// The constraint is equivalent to setting fixed bits on a variable.
+        // bool is_equivalent;
+
+        fixed_bits() = default;
+        fixed_bits(unsigned hi, unsigned lo, rational value) : hi(hi), lo(lo), value(value) {}
+    };
+
+    struct justified_fixed_bits : public fixed_bits, public dependency {};
+
     using dependency_vector = vector<dependency>;
 
     class signed_constraint;
@@ -66,6 +99,7 @@ namespace polysat {
         virtual trail_stack& trail() = 0;
         virtual bool inconsistent() const = 0;
         virtual void get_bitvector_prefixes(pvar v, pvar_vector& out) = 0;
+        virtual void get_fixed_bits(pvar v, svector<justified_fixed_bits>& fixed_bits) = 0;
     };
 
 }

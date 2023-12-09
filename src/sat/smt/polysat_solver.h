@@ -134,6 +134,7 @@ namespace polysat {
         trail_stack& trail() override;
         bool inconsistent() const override;
         void get_bitvector_prefixes(pvar v, pvar_vector& out) override;
+        void get_fixed_bits(pvar v, svector<justified_fixed_bits>& fixed_bits) override;
 
         void add_lemma(vector<signed_constraint> const& lemma);
 

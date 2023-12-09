@@ -20,6 +20,7 @@ Notes:
 #include "util/log.h"
 #include "sat/smt/polysat/polysat_viable.h"
 #include "sat/smt/polysat/polysat_core.h"
+#include "sat/smt/polysat/polysat_ule.h"
 
 namespace polysat {
 
@@ -420,6 +421,206 @@ namespace polysat {
         return l_undef;
     }
 
+    // returns true iff no conflict was encountered
+    bool viable::collect_bit_information(pvar v, bool add_conflict, fixed_bits_info& out_fbi) {
+
+        pdd p = c.var(v);
+        unsigned const v_sz = c.size(v);
+        out_fbi.reset(v_sz);
+        auto& [fixed, just_src, just_side_cond, just_slice] = out_fbi;
+
+        svector<justified_fixed_bits> fbs;
+        c.get_fixed_bits(v, fbs);
+
+        for (auto const& fb : fbs) {
+            LOG("slicing fixed bits: v" << v << "[" << fb.hi << ":" << fb.lo << "] = " << fb.value);
+            for (unsigned i = fb.lo; i <= fb.hi; ++i) {
+                SASSERT(out_fbi.just_src[i].empty());  // since we don't get overlapping ranges from collect_fixed.
+                SASSERT(out_fbi.just_side_cond[i].empty());
+                SASSERT(out_fbi.just_slicing[i].empty());
+                out_fbi.fixed[i] = to_lbool(fb.value.get_bit(i - fb.lo));
+                out_fbi.just_slicing[i].push_back(fb);
+            }
+        }
+
+        entry* e1 = m_equal_lin[v];
+        entry* e2 = m_units[v].get_entries(c.size(v));  // TODO: take other widths into account (will be done automatically by tracking fixed bits in the slicing egraph)
+        entry* first = e1;
+        if (!e1 && !e2)
+            return true;
+#if 0
+
+        clause_builder builder(s, "bit check");
+        sat::literal_set added;
+        vector<std::pair<entry*, trailing_bits>> postponed;
+
+        auto add_literal = [&builder, &added](sat::literal lit) {
+            if (added.contains(lit))
+                return;
+            added.insert(lit);
+            builder.insert_eval(~lit);
+            };
+
+        auto add_literals = [&add_literal](sat::literal_vector const& lits) {
+            for (sat::literal lit : lits)
+                add_literal(lit);
+            };
+
+        auto add_entry = [&add_literal](entry* e) {
+            for (const auto& sc : e->side_cond)
+                add_literal(sc.blit());
+            for (const auto& src : e->src)
+                add_literal(src.blit());
+            };
+
+        auto add_slicing = [this, &add_literal](slicing::enode* n) {
+            s.m_slicing.explain_fixed(n, [&](sat::literal lit) {
+                add_literal(lit);
+                }, [&](pvar v) {
+                    LOG("from slicing: v" << v);
+                    add_literal(s.cs().eq(c.var(v), c.get_value(v)).blit());
+                    });
+            };
+
+        auto add_bit_justification = [&add_literals, &add_slicing](fixed_bits_info const& fbi, unsigned i) {
+            add_literals(fbi.just_src[i]);
+            add_literals(fbi.just_side_cond[i]);
+            for (slicing::enode* n : fbi.just_slicing[i])
+                add_slicing(n);
+            };
+
+        if (e1) {
+            unsigned largest_lsb = 0;
+            do {
+                if (e1->src.size() != 1) {
+                    // We just consider the ordinary constraints and not already contracted ones
+                    e1 = e1->next();
+                    continue;
+                }
+                signed_constraint& src = e1->src[0];
+                single_bit bit;
+                trailing_bits lsb;
+                if (src.is_ule() &&
+                    simplify_clause::get_bit(s.subst(src.to_ule().lhs()), s.subst(src.to_ule().rhs()), p, bit, src.is_positive()) && p.is_var()) {
+                    lbool prev = fixed[bit.position];
+                    fixed[bit.position] = to_lbool(bit.positive);
+                    //verbose_stream() << "Setting bit " << bit.position << " to " << bit.positive << " because of " << e->src << "\n";
+                    if (prev != l_undef && fixed[bit.position] != prev) {
+                        // LOG("Bit conflicting " << e1->src << " with " << just_src[bit.position][0]);  // NOTE: just_src may be empty if the justification is by slicing
+                        if (add_conflict) {
+                            add_bit_justification(out_fbi, bit.position);
+                            add_entry(e1);
+                            s.set_conflict(*builder.build());
+                        }
+                        return false;
+                    }
+                    // just override; we prefer bit constraints over parity as those are easier for subsumption to remove
+                    // do we just introduce a new justification here that subsumption will remove anyway?
+                    //      the only way it will not is if all bits are overwritten like this.
+                    //      but in that case we basically replace one parity constraint by multiple bit constraints?
+                    // verbose_stream() << "Adding bit constraint: " <<  e->src[0] << " (" << bit.position << ")\n";
+                    if (prev == l_undef) {
+                        out_fbi.set_just(bit.position, e1);
+                    }
+                }
+                else if (src.is_eq() &&
+                    simplify_clause::get_lsb(s.subst(src.to_ule().lhs()), s.subst(src.to_ule().rhs()), p, lsb, src.is_positive()) && p.is_var()) {
+                    if (src.is_positive()) {
+                        for (unsigned i = 0; i < lsb.length; i++) {
+                            lbool prev = fixed[i];
+                            fixed[i] = to_lbool(lsb.bits.get_bit(i));
+                            if (prev == l_undef) {
+                                SASSERT(just_src[i].empty());
+                                out_fbi.set_just(i, e1);
+                                continue;
+                            }
+                            if (fixed[i] != prev) {
+                                // LOG("Positive parity conflicting " << e1->src << " with " << just_src[i][0]);  // NOTE: just_src may be empty if the justification is by slicing
+                                if (add_conflict) {
+                                    add_bit_justification(out_fbi, i);
+                                    add_entry(e1);
+                                    s.set_conflict(*builder.build());
+                                }
+                                return false;
+                            }
+                            // Prefer justifications from larger masks (less premises)
+                            // TODO: Check that we don't override justifications coming from bit constraints
+                            if (largest_lsb < lsb.length)
+                                out_fbi.set_just(i, e1);
+                        }
+                        largest_lsb = std::max(largest_lsb, lsb.length);
+                    }
+                    else
+                        postponed.push_back({ e1, lsb });
+                }
+                e1 = e1->next();
+            } while (e1 != first);
+        }
+
+        // so far every bit is justified by a single constraint
+        SASSERT(all_of(just_src, [](auto const& vec) { return vec.size() <= 1; }));
+
+        // TODO: Incomplete - e.g., if we know the trailing bits are not 00 not 10 not 01 and not 11 we could also detect a conflict
+        // This would require partially clause solving (worth the effort?)
+        bool_vector removed(postponed.size(), false);
+        bool changed;
+        do { // fixed-point required?
+            changed = false;
+            for (unsigned j = 0; j < postponed.size(); j++) {
+                if (removed[j])
+                    continue;
+                const auto& neg = postponed[j];
+                unsigned indet = 0;
+                unsigned last_indet = 0;
+                unsigned i = 0;
+                for (; i < neg.second.length; i++) {
+                    if (fixed[i] != l_undef) {
+                        if (fixed[i] != to_lbool(neg.second.bits.get_bit(i))) {
+                            removed[j] = true;
+                            break; // this is already satisfied
+                        }
+                    }
+                    else {
+                        indet++;
+                        last_indet = i;
+                    }
+                }
+                if (i == neg.second.length) {
+                    if (indet == 0) {
+                        // Already false
+                        LOG("Found conflict with constraint " << neg.first->src);
+                        if (add_conflict) {
+                            for (unsigned k = 0; k < neg.second.length; k++)
+                                add_bit_justification(out_fbi, k);
+                            add_entry(neg.first);
+                            s.set_conflict(*builder.build());
+                        }
+                        return false;
+                    }
+                    else if (indet == 1) {
+                        // Simple BCP
+                        SASSERT(just_src[last_indet].empty());
+                        SASSERT(just_side_cond[last_indet].empty());
+                        for (unsigned k = 0; k < neg.second.length; k++) {
+                            if (k != last_indet) {
+                                SASSERT(fixed[k] != l_undef);
+                                out_fbi.push_from_bit(last_indet, k);
+                            }
+                        }
+                        out_fbi.push_just(last_indet, neg.first);
+                        fixed[last_indet] = neg.second.bits.get_bit(last_indet) ? l_false : l_true;
+                        removed[j] = true;
+                        LOG("Applying fast BCP on bit " << last_indet << " from constraint " << neg.first->src);
+                        changed = true;
+                    }
+                }
+            }
+        } while (changed);
+#endif
+
+        return true;
+    }
+
 
     /*
     * Explain why the current variable is not viable or signleton.
@@ -436,6 +637,8 @@ namespace polysat {
         if (c.is_assigned(v))
             return;
         auto [sc, d] = c.m_constraint_trail[idx];
+        // fixme: constraint must be assigned a value l_true or l_false at this point.
+        // adjust sc to the truth value of the constraint when passed to forbidden intervals.
 
         entry* ne = alloc_entry(v, idx);
         if (!m_forbidden_intervals.get_interval(sc, v, *ne)) {
