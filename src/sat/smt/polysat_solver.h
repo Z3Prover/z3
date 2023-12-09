@@ -133,6 +133,7 @@ namespace polysat {
         void propagate(dependency const& d, bool sign, dependency_vector const& deps) override;
         trail_stack& trail() override;
         bool inconsistent() const override;
+        void get_bitvector_prefixes(pvar v, pvar_vector& out) override;
 
         void add_lemma(vector<signed_constraint> const& lemma);
 

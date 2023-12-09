@@ -162,6 +162,63 @@ namespace polysat {
 
         lbool find_viable(pvar v, rational& lo, rational& hi);
 
+        lbool find_on_layers(
+            pvar v,
+            unsigned_vector const& widths,
+            pvar_vector const& overlaps,
+            fixed_bits_info const& fbi,
+            rational const& to_cover_lo,
+            rational const& to_cover_hi,
+            rational& out_val);
+
+        lbool find_on_layer(
+            pvar v,
+            unsigned w_idx,
+            unsigned_vector const& widths,
+            pvar_vector const& overlaps,
+            fixed_bits_info const& fbi,
+            rational const& to_cover_lo,
+            rational const& to_cover_hi,
+            rational& out_val,
+            ptr_vector<entry>& refine_todo,
+            ptr_vector<entry>& relevant_entries);
+
+
+        template <bool FORWARD>
+        bool refine_viable(pvar v, rational const& val, fixed_bits_info const& fbi) {
+            throw default_exception("nyi");
+        }
+
+        bool refine_viable(pvar v, rational const& val) {
+            throw default_exception("nyi");
+        }
+
+        template <bool FORWARD>
+        bool refine_bits(pvar v, rational const& val, fixed_bits_info const& fbi) {
+            throw default_exception("nyi");
+        }
+
+        template <bool FORWARD>
+        entry* refine_bits(pvar v, rational const& val, unsigned num_bits, fixed_bits_info const& fbi) {
+            throw default_exception("nyi");
+        }
+
+        bool refine_equal_lin(pvar v, rational const& val) {
+            throw default_exception("nyi");
+        }
+
+        bool refine_disequal_lin(pvar v, rational const& val) {
+            throw default_exception("nyi");
+        }
+
+        bool set_conflict_by_interval(pvar v, unsigned w, ptr_vector<entry>& intervals, unsigned first_interval) {
+            throw default_exception("nyi");
+        }
+
+        std::pair<entry*, bool> find_value(rational const& val, entry* entries) {
+            throw default_exception("nyi");
+        }
+
     public:
         viable(core& c);
 

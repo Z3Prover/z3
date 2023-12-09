@@ -10,6 +10,9 @@ Author:
 #pragma once
 
 #include <variant>
+
+
+
 #include "math/dd/dd_pdd.h"
 #include "util/trail.h"
 #include "util/sat_literal.h"
@@ -62,6 +65,7 @@ namespace polysat {
         virtual void propagate(dependency const& d, bool sign, dependency_vector const& deps) = 0;
         virtual trail_stack& trail() = 0;
         virtual bool inconsistent() const = 0;
+        virtual void get_bitvector_prefixes(pvar v, pvar_vector& out) = 0;
     };
 
 }

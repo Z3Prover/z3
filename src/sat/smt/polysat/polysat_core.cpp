@@ -278,6 +278,14 @@ namespace polysat {
         }       
     }
 
+    void core::get_bitvector_prefixes(pvar v, pvar_vector& out) {
+        s.get_bitvector_prefixes(v, out);
+    }
+
+    bool core::inconsistent() const {
+        return s.inconsistent();
+    }
+
     void core::propagate_unsat_core() { 
         // default is to use unsat core:
         // if core is based on viable, use s.set_lemma();

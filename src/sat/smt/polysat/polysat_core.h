@@ -79,6 +79,9 @@ namespace polysat {
         void propagate_assignment(pvar v, rational const& value, dependency dep);
         void propagate_unsat_core();
 
+        void get_bitvector_prefixes(pvar v, pvar_vector& out);
+        bool inconsistent() const;
+
         void add_watch(unsigned idx, unsigned var);
 
         signed_constraint get_constraint(unsigned idx, bool sign);
@@ -89,8 +92,7 @@ namespace polysat {
     public:
         core(solver_interface& s);
 
-        sat::check_result check();
-
+        sat::check_result check();        
         unsigned register_constraint(signed_constraint& sc, dependency d);
         bool propagate();
         void assign_eh(unsigned idx, bool sign, dependency const& d);
