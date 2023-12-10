@@ -46,6 +46,7 @@ namespace intblast {
         scoped_ptr<::solver> m_solver;
         obj_map<expr, var_info> m_vars;
         expr_ref_vector m_trail;
+        sat::literal_vector m_core;
 
 
 
@@ -57,6 +58,8 @@ namespace intblast {
         solver(euf::solver& ctx);
         
         lbool check();
+
+        sat::literal_vector const& unsat_core();
 
         rational get_value(expr* e) const;
     };

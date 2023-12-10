@@ -19,6 +19,7 @@ Author:
 #include "sat/smt/sat_th.h"
 #include "math/dd/dd_pdd.h"
 #include "sat/smt/polysat/polysat_core.h"
+#include "sat/smt/intblast_solver.h"
 
 namespace euf {
     class solver;
@@ -57,7 +58,8 @@ namespace polysat {
         arith_util               m_autil;
         stats                    m_stats;
         core                     m_core;
-        polysat_proof            m_proof;
+        intblast::solver         m_intblast;
+        bool                     m_use_intblast_model = false;
 
         vector<pdd>              m_var2pdd;                   // theory_var 2 pdd
         bool_vector              m_var2pdd_valid;             // valid flag

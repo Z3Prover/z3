@@ -31,6 +31,8 @@ The result of polysat::core::check is one of:
 #include "sat/smt/polysat/polysat_umul_ovfl.h"
 
 
+
+
 namespace polysat {
 
     solver::solver(euf::solver& ctx, theory_id id):
@@ -38,6 +40,7 @@ namespace polysat {
         bv(ctx.get_manager()),
         m_autil(ctx.get_manager()),
         m_core(*this),
+        m_intblast(ctx),
         m_lemma(ctx.get_manager())
     {
         ctx.get_egraph().add_plugin(alloc(euf::bv_plugin, ctx.get_egraph()));
@@ -56,7 +59,31 @@ namespace polysat {
     }
 
     sat::check_result solver::check() {
-        return m_core.check();
+        switch (m_core.check()) {
+        case sat::check_result::CR_DONE:
+            return sat::check_result::CR_DONE;
+        case sat::check_result::CR_CONTINUE:
+            return sat::check_result::CR_CONTINUE;
+        case sat::check_result::CR_GIVEUP: {
+            if (!m.inc())
+                return sat::check_result::CR_GIVEUP;
+            switch (m_intblast.check()) {
+            case l_true:
+                trail().push(value_trail(m_use_intblast_model));
+                m_use_intblast_model = true;
+                return sat::check_result::CR_DONE;
+            case l_false: {
+                auto core = m_intblast.unsat_core();
+                for (auto& lit : core)
+                    lit.neg();
+                s().add_clause(core.size(), core.data(), sat::status::th(true, get_id(), nullptr));
+                return sat::check_result::CR_CONTINUE;
+            }
+            case l_undef:
+                return sat::check_result::CR_GIVEUP;
+            }
+        }
+        }
     }
 
     void solver::asserted(literal l) {
@@ -136,6 +163,7 @@ namespace polysat {
 
         unsigned num_scopes = s().scope_lvl() - m_lemma_level;
 
+        NOT_IMPLEMENTED_YET();
         // s().pop_reinit(num_scopes);
 
         sat::literal_vector lits;

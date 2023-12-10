@@ -78,6 +78,7 @@ namespace intblast {
             literals.push_back(a);                
         }
 
+        m_core.reset();
         m_solver = mk_smt2_solver(m, s.params(), symbol::null);
 
         expr_ref_vector es(m);
@@ -86,11 +87,23 @@ namespace intblast {
 
         translate(es);
 
-        for (auto e : es)
-            m_solver->assert_expr(e);
-        
+        for (auto const& [src, vi] : m_vars) {
+            auto const& [v, b] = vi;
+            m_solver->assert_expr(a.mk_le(a.mk_int(0), v));
+            m_solver->assert_expr(a.mk_lt(v, a.mk_int(b)));
+        }
                
-        lbool r = m_solver->check_sat(0, nullptr);
+        lbool r = m_solver->check_sat(es);
+
+        if (r == l_false) {
+            expr_ref_vector core(m);
+            m_solver->get_unsat_core(core);
+            obj_map<expr, unsigned> e2index;
+            for (unsigned i = 0; i < es.size(); ++i)
+                e2index.insert(es.get(i), i);
+            for (auto e : core)
+                m_core.push_back(literals[e2index[e]]);
+        }
 
         return r;
     };
@@ -290,11 +303,6 @@ namespace intblast {
         }
         for (unsigned i = 0; i < es.size(); ++i) 
             es[i] = translated[es.get(i)];
-        for (auto const& [src, vi] : m_vars) {
-            auto const& [v, b] = vi;
-            es.push_back(a.mk_le(a.mk_int(0), v));
-            es.push_back(a.mk_lt(v, a.mk_int(b)));
-        }
     }
 
     rational solver::get_value(expr* e) const {
@@ -311,6 +319,10 @@ namespace intblast {
         if (!a.is_numeral(r, val))
             return rational::zero();
         return val;
+    }
+
+    sat::literal_vector const& solver::unsat_core() {
+        return m_core;
     }
 
 }
