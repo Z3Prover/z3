@@ -138,6 +138,9 @@ namespace polysat {
         vector<layers>          m_units;        // set of viable values based on unit multipliers, layered by bit-width in descending order
         ptr_vector<entry>       m_equal_lin;    // entries that have non-unit multipliers, but are equal
         ptr_vector<entry>       m_diseq_lin;    // entries that have distinct non-zero multipliers
+        ptr_vector<entry>       m_explain;      // entries that explain the current propagation or conflict
+        core_vector             m_core;         // forbidden interval core
+        bool m_has_core = false;
 
         bool well_formed(entry* e);
         bool well_formed(layers const& ls);
@@ -157,8 +160,6 @@ namespace polysat {
         void insert(entry* e, pvar v, ptr_vector<entry>& entries, entry_kind k);
 
         bool intersect(pvar v, entry* e);
-
-        void ensure_var(pvar v);
 
         lbool find_viable(pvar v, rational& lo, rational& hi);
 
@@ -180,8 +181,7 @@ namespace polysat {
             rational const& to_cover_lo,
             rational const& to_cover_hi,
             rational& out_val,
-            ptr_vector<entry>& refine_todo,
-            ptr_vector<entry>& relevant_entries);
+            ptr_vector<entry>& refine_todo);
 
 
         template <bool FORWARD>
@@ -211,9 +211,8 @@ namespace polysat {
             throw default_exception("nyi");
         }
 
-        bool set_conflict_by_interval(pvar v, unsigned w, ptr_vector<entry>& intervals, unsigned first_interval) {
-            throw default_exception("nyi");
-        }
+        void set_conflict_by_interval(pvar v, unsigned w, ptr_vector<entry>& intervals, unsigned first_interval);
+        bool set_conflict_by_interval_rec(pvar v, unsigned w, entry** intervals, unsigned num_intervals, bool& create_lemma, uint_set& vars_to_explain);
 
         std::pair<entry*, bool> find_value(rational const& val, entry* entries) {
             throw default_exception("nyi");
@@ -237,9 +236,24 @@ namespace polysat {
         dependency_vector explain();
 
         /*
+        * flag whether there is a forbidden interval core
+        */
+        bool has_core() const { return m_has_core; }
+
+        /*
+        * Retrieve lemma corresponding to forbidden interval constraints
+        */
+        core_vector const& get_core() { SASSERT(m_has_core);  return m_core; }
+
+        /*
         * Register constraint at index 'idx' as unitary in v.
         */
         void add_unitary(pvar v, unsigned idx);
+
+        /*
+        * Ensure data-structures tracking variable v.
+        */
+        void ensure_var(pvar v);
 
     };
 

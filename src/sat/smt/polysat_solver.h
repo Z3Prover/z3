@@ -128,7 +128,7 @@ namespace polysat {
         // callbacks from core
         void add_eq_literal(pvar v, rational const& val) override;
         void set_conflict(dependency_vector const& core) override;
-        void set_lemma(vector<signed_constraint> const& lemma, unsigned level, dependency_vector const& core) override;
+        void set_lemma(core_vector const& aux_core, unsigned level, dependency_vector const& core) override;
         dependency propagate(signed_constraint sc, dependency_vector const& deps) override;
         void propagate(dependency const& d, bool sign, dependency_vector const& deps) override;
         trail_stack& trail() override;

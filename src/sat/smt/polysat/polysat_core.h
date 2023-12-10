@@ -17,9 +17,10 @@ Author:
 --*/
 #pragma once
 
+#include "util/var_queue.h"
 #include "util/dependency.h"
 #include "math/dd/dd_pdd.h"
-#include "sat/smt/sat_th.h"
+#include "sat/sat_extension.h"
 #include "sat/smt/polysat/polysat_types.h"
 #include "sat/smt/polysat/polysat_constraints.h"
 #include "sat/smt/polysat/polysat_viable.h"

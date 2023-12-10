@@ -104,15 +104,26 @@ namespace polysat {
         return { core, eqs };
     }
 
-    void solver::set_lemma(vector<signed_constraint> const& lemma, unsigned level, dependency_vector const& core) {
+    void solver::set_lemma(core_vector const& aux_core, unsigned level, dependency_vector const& core) {
         auto [lits, eqs] = explain_deps(core);
         auto ex = euf::th_explain::conflict(*this, lits, eqs, nullptr);
         ctx.push(value_trail<bool>(m_has_lemma));
         m_has_lemma = true;
         m_lemma_level = level;
         m_lemma.reset();
-        for (auto sc : lemma)
-            m_lemma.push_back(constraint2expr(sc));
+        for (auto sc : aux_core) {
+            if (std::holds_alternative<dependency>(sc)) {
+                auto d = *std::get_if<dependency>(&sc);
+                if (d.is_literal())
+                    m_lemma.push_back(ctx.literal2expr(d.literal()));
+                else {
+                    auto [v1, v2] = d.eq();
+                    m_lemma.push_back(ctx.mk_eq(var2enode(v1), var2enode(v2)));
+                }
+            }
+            else if (std::holds_alternative<signed_constraint>(sc))
+                m_lemma.push_back(constraint2expr(*std::get_if<signed_constraint>(&sc)));
+        }
         ctx.set_conflict(ex);
     }
 
@@ -129,7 +140,7 @@ namespace polysat {
 
         sat::literal_vector lits;
         for (auto* e : m_lemma)
-            lits.push_back(ctx.mk_literal(e));
+            lits.push_back(~ctx.mk_literal(e));
         s().add_clause(lits.size(), lits.data(), sat::status::th(true, get_id(), nullptr));
         return l_false;
     }
