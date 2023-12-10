@@ -57,6 +57,7 @@ z3_add_component(sat_smt
     ast
     euf
     mbp
+    polysat
     smt_params
 )
 
