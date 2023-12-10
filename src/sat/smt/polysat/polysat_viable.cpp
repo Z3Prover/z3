@@ -637,8 +637,9 @@ namespace polysat {
         if (c.is_assigned(v))
             return;
         auto [sc, d, value] = c.m_constraint_index[idx];
-        // fixme: constraint must be assigned a value l_true or l_false at this point.
-        // adjust sc to the truth value of the constraint when passed to forbidden intervals.
+        SASSERT(value != l_undef);
+        if (value == l_false)
+            sc = ~sc;
 
         entry* ne = alloc_entry(v, idx);
         if (!m_forbidden_intervals.get_interval(sc, v, *ne)) {
