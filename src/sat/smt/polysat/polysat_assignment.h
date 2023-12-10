@@ -91,9 +91,6 @@ namespace polysat {
         // prevent implicit copy, use clone() if you do need a copy
         assignment(assignment const&) = delete;
         assignment& operator=(assignment const&) = delete;
-        assignment(assignment&&) = default;
-        assignment& operator=(assignment&&) = default;
-        assignment clone() const;
 
         void push(pvar var, rational const& value);
         void pop();

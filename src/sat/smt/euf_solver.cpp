@@ -21,6 +21,7 @@ Author:
 #include "sat/smt/sat_smt.h"
 #include "sat/smt/pb_solver.h"
 #include "sat/smt/bv_solver.h"
+#include "sat/smt/polysat_solver.h"
 #include "sat/smt/euf_solver.h"
 #include "sat/smt/array_solver.h"
 #include "sat/smt/arith_solver.h"
@@ -134,8 +135,11 @@ namespace euf {
         special_relations_util sp(m);
         if (pb.get_family_id() == fid)
             ext = alloc(pb::solver, *this, fid);
-        else if (bvu.get_family_id() == fid)
+        else if (bvu.get_family_id() == fid) {
             ext = alloc(bv::solver, *this, fid);
+            dealloc(ext);
+            ext = alloc(polysat::solver, *this, fid);
+        }
         else if (au.get_family_id() == fid)
             ext = alloc(array::solver, *this, fid);
         else if (fpa.get_family_id() == fid)

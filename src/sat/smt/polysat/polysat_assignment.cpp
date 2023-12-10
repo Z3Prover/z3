@@ -12,6 +12,7 @@ Author:
 
 --*/
 
+#include <utility>
 #include "sat/smt/polysat/polysat_assignment.h"
 #include "sat/smt/polysat/polysat_core.h"
 
@@ -42,18 +43,6 @@ namespace polysat {
 
     assignment::assignment(core& s)
         : m_core(s) { }
-
-
-    assignment assignment::clone() const {
-        assignment a(s());
-        a.m_pairs = m_pairs;
-        a.m_subst.reserve(m_subst.size());
-        for (unsigned i = m_subst.size(); i-- > 0; )
-            if (m_subst[i])
-                a.m_subst.set(i, alloc(substitution, *m_subst[i]));
-        a.m_subst_trail = m_subst_trail;
-        return a;
-    }
 
     bool assignment::contains(pvar var) const {
         return subst(s().size(var)).contains(var);
