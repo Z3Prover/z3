@@ -107,6 +107,7 @@ namespace polysat {
         m_justification.push_back(null_dependency);
         m_watch.push_back({});
         m_var_queue.mk_var_eh(v);
+        m_viable.ensure_var(v);
         s.trail().push(mk_add_var(*this));
         return v;
     }
@@ -147,8 +148,8 @@ namespace polysat {
         s.trail().push(mk_dqueue_var(m_var, *this));
         switch (m_viable.find_viable(m_var, m_value)) {
         case find_t::empty:
-            m_unsat_core = m_viable.explain();
-            propagate_unsat_core();
+            s.set_lemma(m_viable.get_core(), 0, m_viable.explain());
+            // propagate_unsat_core();
             return sat::check_result::CR_CONTINUE;
         case find_t::singleton:
             s.propagate(m_constraints.eq(var2pdd(m_var), m_value), m_viable.explain());
@@ -294,7 +295,7 @@ namespace polysat {
         // default is to use unsat core:
         // if core is based on viable, use s.set_lemma();
 
-        s.set_conflict(m_unsat_core);
+        s.set_conflict(m_unsat_core);       
     }
 
     void core::assign_eh(unsigned index, bool sign, dependency const& dep) { 

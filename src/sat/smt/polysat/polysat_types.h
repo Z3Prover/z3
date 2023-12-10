@@ -26,7 +26,7 @@ namespace polysat {
     using pvar_vector = unsigned_vector;
     inline const pvar null_var = UINT_MAX;
 
-
+    class signed_constraint;
 
     class dependency {
         std::variant<sat::literal, std::pair<theory_var, theory_var>> m_data;
@@ -87,7 +87,9 @@ namespace polysat {
 
     using dependency_vector = vector<dependency>;
 
-    class signed_constraint;
+    using core_vector = vector<std::variant<signed_constraint, dependency>>;
+
+
 
     //
     // The interface that PolySAT uses to the SAT/SMT solver.
@@ -97,7 +99,7 @@ namespace polysat {
     public:
         virtual void add_eq_literal(pvar v, rational const& val) = 0;
         virtual void set_conflict(dependency_vector const& core) = 0;
-        virtual void set_lemma(vector<signed_constraint> const& lemma, unsigned level, dependency_vector const& core) = 0;
+        virtual void set_lemma(core_vector const& aux_core, unsigned level, dependency_vector const& core) = 0;
         virtual dependency propagate(signed_constraint sc, dependency_vector const& deps) = 0;
         virtual void propagate(dependency const& d, bool sign, dependency_vector const& deps) = 0;
         virtual trail_stack& trail() = 0;
