@@ -22,6 +22,7 @@ Author:
 #include "sat/smt/pb_solver.h"
 #include "sat/smt/bv_solver.h"
 #include "sat/smt/intblast_solver.h"
+#include "sat/smt/polysat_solver.h"
 #include "sat/smt/euf_solver.h"
 #include "sat/smt/array_solver.h"
 #include "sat/smt/arith_solver.h"
