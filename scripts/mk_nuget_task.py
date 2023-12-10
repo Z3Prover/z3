@@ -88,9 +88,6 @@ def mk_targets(source_root):
 def mk_icon(source_root):
     mk_dir("out/content")
     shutil.copy(f"{source_root}/resources/icon.jpg", "out/content/icon.jpg")
-
-def mk_readme(source_root):
-    mk_dir("out/content")
     shutil.copy(f"{source_root}/src/api/dotnet/README.md", "out/content/README.md")
 
 
@@ -124,6 +121,7 @@ Linux Dependencies:
     </metadata>
     <files>
       <file src="content/README.md" target="content/README.md"/>
+      <file src="content/icon.jpg" target="content/icon.jpg"/>
     </files>
 </package>""".format(version, repo, branch, commit, arch)
     print(contents)
@@ -153,7 +151,6 @@ class Env:
         unpack(self.packages, self.symbols, self.arch)
         mk_targets(self.source_root)
         mk_icon(self.source_root)
-        mk_readme(self.source_root)
         create_nuget_spec(self.version, self.repo, self.branch, self.commit, self.symbols, self.arch)
         
 def main():
