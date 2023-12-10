@@ -149,7 +149,7 @@ class Env:
         unpack(self.packages, self.symbols, self.arch)
         mk_targets(self.source_root)
         mk_icon(self.source_root)
-#       mk_readme(self.source_root)
+        mk_readme(self.source_root)
         create_nuget_spec(self.version, self.repo, self.branch, self.commit, self.symbols, self.arch)
         
 def main():
