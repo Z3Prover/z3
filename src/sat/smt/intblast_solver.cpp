@@ -191,7 +191,6 @@ namespace intblast {
                 continue;
             if (any_of(*clause, [&](auto lit) { return s.value(lit) == l_true && !is_bv(lit); }))
                 continue;
-            // TBD: if we associate "status" with clauses, we can also remove theory axioms from polysat
             sat::literal selected_lit = sat::null_literal;
             for (auto lit : *clause) {
                 if (s.value(lit) != l_true)
@@ -231,11 +230,9 @@ namespace intblast {
             if (s.value(b) == l_true && s.value(a) == l_true && s.lvl(b) < s.lvl(a))
                 std::swap(a, b);
             selected.insert(a.index());
-            literals.push_back(a);
+            literals.push_back(a);                
         }
 
-        m_core.reset();
-        m_is_plugin = false;
         m_solver = mk_smt2_solver(m, s.params(), symbol::null);
 
         expr_ref_vector es(m);
@@ -244,41 +241,16 @@ namespace intblast {
 
         translate(es);
 
-        for (auto e : m_vars) {
-            auto v = translated(e);
-            auto b = rational::power_of_two(bv.get_bv_size(e));
-            m_solver->assert_expr(a.mk_le(a.mk_int(0), v));
-            m_solver->assert_expr(a.mk_lt(v, a.mk_int(b)));
-        }
+        for (auto e : es)
+            m_solver->assert_expr(e);
+        
+               
+        lbool r = m_solver->check_sat(0, nullptr);
 
-        IF_VERBOSE(10, verbose_stream() << "check\n";
-        m_solver->display(verbose_stream());
-        verbose_stream() << es << "\n");
-
-        lbool r = m_solver->check_sat(es);
-
-        m_solver->collect_statistics(m_stats);
-
-        IF_VERBOSE(2, verbose_stream() << "(sat.intblast :result " << r << ")\n");
-
-        if (r == l_false) {
-            expr_ref_vector core(m);
-            m_solver->get_unsat_core(core);
-            obj_map<expr, unsigned> e2index;
-            for (unsigned i = 0; i < es.size(); ++i)
-                e2index.insert(es.get(i), i);
-            for (auto e : core) {
-                unsigned idx = e2index[e];
-                if (idx < literals.size())
-                    m_core.push_back(literals[idx]);
-                else
-                    m_core.push_back(ctx.mk_literal(e));
-            }
-        }
         return r;
     };
 
-    bool solver::is_bv(sat::literal lit) {
+    bool solver::is_bv(sat::literal lit) {        
         expr* e = ctx.bool_var2expr(lit.var());
         if (!e)
             return false;
@@ -306,27 +278,6 @@ namespace intblast {
                     }
                 }
 
-                //
-                // Add ground equalities to ensure the model is valid with respect to the current case splits.
-                // This may cause more conflicts than necessary. Instead could use intblast on the base level, but using literal
-                // assignment from complete level.
-                // E.g., force the solver to completely backtrack, check satisfiability using the assignment obtained under a complete assignment.
-                // If intblast is SAT, then force the model and literal assignment on the rest of the literals.
-                // 
-                if (!is_ground(e))
-                    continue;
-                euf::enode* n = ctx.get_enode(e);
-                if (!n)
-                    continue;
-                if (n == n->get_root())
-                    continue;
-                expr* r = n->get_root()->get_expr();
-                es.push_back(m.mk_eq(e, r));
-                r = es.back();
-                if (!visited.is_marked(r) && !is_translated(r)) {
-                    visited.mark(r);
-                    sorted.push_back(r);
-                }
             }
             else if (is_quantifier(e)) {
                 quantifier* q = to_quantifier(e);
@@ -998,5 +949,6 @@ namespace intblast {
     void solver::collect_statistics(statistics& st) const {
         st.copy(m_stats);
     }
+
 
 }

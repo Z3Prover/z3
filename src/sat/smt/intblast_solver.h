@@ -8,8 +8,7 @@ Module Name:
 Abstract:
 
     Int-blast solver.
-
-    check_solver_state assumes a full assignment to literals in 
+    It assumes a full assignemnt to literals in 
     irredundant clauses. 
     It picks a satisfying Boolean assignment and 
     checks if it is feasible for bit-vectors using
