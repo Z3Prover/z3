@@ -135,6 +135,8 @@ namespace intblast {
 
         void eq_internalized(euf::enode* n) override;
 
+        sat::literal_vector const& unsat_core();
+
         rational get_value(expr* e) const;
 
     };
