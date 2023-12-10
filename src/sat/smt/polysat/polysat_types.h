@@ -97,6 +97,7 @@ namespace polysat {
 
     class solver_interface {
     public:
+        virtual ~solver_interface() {}
         virtual void add_eq_literal(pvar v, rational const& val) = 0;
         virtual void set_conflict(dependency_vector const& core) = 0;
         virtual void set_lemma(core_vector const& aux_core, unsigned level, dependency_vector const& core) = 0;
