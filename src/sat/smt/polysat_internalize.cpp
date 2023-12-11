@@ -192,32 +192,54 @@ namespace polysat {
 
     void solver::internalize_udiv_i(app* e) {
         expr* x, *y;
-        VERIFY(bv.is_bv_udivi(e, x, y) || bv.is_bv_udiv(e, x, y));
-        app_ref rm(bv.mk_bv_urem_i(x, y), m);
+        expr_ref rm(m);
+        if (bv.is_bv_udivi(e, x, y))
+            rm = bv.mk_bv_urem_i(x, y);
+        else if (bv.is_bv_udiv(e, x, y))
+            rm = bv.mk_bv_urem(x, y);
+        else
+            UNREACHABLE();
         internalize(rm);
     }
 
-    void solver::internalize_urem_i(app* e) {
+    void solver::internalize_urem_i(app* rem) {
         expr* x, *y;
-        if (expr2enode(e))
+        euf::enode* n = expr2enode(rem);
+        SASSERT(n && n->is_attached_to(get_id()));
+        theory_var v = n->get_th_var(get_id());
+        if (m_var2pdd_valid.get(v, false))
             return;
-        VERIFY(bv.is_bv_uremi(e, x, y) || bv.is_bv_urem(e, x, y));
-        auto [quot, rem] = quot_rem(x, y);
-        internalize_set(e, rem);
-        internalize_set(bv.mk_bv_udiv_i(x, y), quot);
+        expr_ref quot(m);
+        if (bv.is_bv_uremi(rem, x, y))
+            quot = bv.mk_bv_udiv_i(x, y);
+        else if (bv.is_bv_urem(rem, x, y))
+            quot = bv.mk_bv_udiv(x, y);
+        else
+            UNREACHABLE();
+        m_var2pdd_valid.setx(v, true, false);
+        ctx.internalize(quot);
+        m_var2pdd_valid.setx(v, false, false);
+        quot_rem(quot, rem, x, y);
     }
-
-    std::pair<pdd, pdd> solver::quot_rem(expr* x, expr* y) {
+    
+    void solver::quot_rem(expr* quot, expr* rem, expr* x, expr* y) {
         pdd a = expr2pdd(x);
         pdd b = expr2pdd(y);
+        euf::enode* qn = expr2enode(quot);
+        euf::enode* rn = expr2enode(rem);
         auto& m = a.manager();
         unsigned sz = m.power_of_2();
-        if (b.is_zero())
+        if (b.is_zero()) {
             // By SMT-LIB specification, b = 0 ==> q = -1, r = a.
-            return { m.mk_val(m.max_value()), a };
-
-        if (b.is_one())
-            return { a, m.zero() };
+            internalize_set(quot, m.mk_val(m.max_value()));
+            internalize_set(rem, a);
+            return;
+        }
+        if (b.is_one()) {
+            internalize_set(quot, a);
+            internalize_set(rem, m.zero());
+            return;
+        }
 
         if (a.is_val() && b.is_val()) {
             rational const av = a.val();
@@ -231,19 +253,13 @@ namespace polysat {
             SASSERT(b.val() * q.val() + r.val() <= m.max_value());
             SASSERT(r.val() <= (b * q + r).val());
             SASSERT(r.val() < b.val());
-            return { std::move(q), std::move(r) };
-        }
+            internalize_set(quot, q);
+            internalize_set(rem, r);
+            return;
+        }       
         
-        expr* quot = bv.mk_bv_udiv_i(x, y);
-        expr* rem = bv.mk_bv_urem_i(x, y);
-
-        ctx.internalize(quot);
-        ctx.internalize(rem);
-        auto quotv = expr2enode(quot)->get_th_var(get_id());
-        auto remv  = expr2enode(rem)->get_th_var(get_id());
-
-        pdd q = var2pdd(quotv);
-        pdd r = var2pdd(remv);
+        pdd r = var2pdd(rn->get_th_var(get_id()));
+        pdd q = var2pdd(qn->get_th_var(get_id()));
 
         // Axioms for quotient/remainder
         // 
@@ -267,7 +283,6 @@ namespace polysat {
         if (!c_eq.is_always_false())
             add_polysat_clause("[axiom] quot_rem 5", { ~c_eq, m_core.eq(q + 1) }, false);
 
-        return { std::move(q), std::move(r) };
     }
 
     void solver::internalize_div_rem(app* e, bool is_div) {

@@ -108,6 +108,7 @@ namespace polysat {
         m_watch.push_back({});
         m_var_queue.mk_var_eh(v);
         m_viable.ensure_var(v);
+        m_values.push_back(rational::zero());
         s.trail().push(mk_add_var(*this));
         return v;
     }
@@ -118,6 +119,7 @@ namespace polysat {
         m_activity.pop_back();
         m_justification.pop_back();
         m_watch.pop_back();
+        m_values.pop_back();
         m_var_queue.del_var_eh(v);
     }
 

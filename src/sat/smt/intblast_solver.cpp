@@ -191,6 +191,7 @@ namespace intblast {
                 continue;
             if (any_of(*clause, [&](auto lit) { return s.value(lit) == l_true && !is_bv(lit); }))
                 continue;
+            // TBD: if we associate "status" with clauses, we can also remove theory axioms from polysat
             sat::literal selected_lit = sat::null_literal;
             for (auto lit : *clause) {
                 if (s.value(lit) != l_true)
