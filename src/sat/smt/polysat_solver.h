@@ -126,7 +126,7 @@ namespace polysat {
         pdd var2pdd(euf::theory_var v);
         void internalize_set(expr* e, pdd const& p);
         void internalize_set(euf::theory_var v, pdd const& p);
-        std::pair<pdd, pdd> quot_rem(expr* x, expr* y);
+        void quot_rem(expr* quot, expr* rem, expr* x, expr* y);
 
 
         // callbacks from core

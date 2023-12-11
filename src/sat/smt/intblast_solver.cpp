@@ -36,6 +36,7 @@ namespace intblast {
                 continue;
             if (any_of(*clause, [&](auto lit) { return s.value(lit) == l_true && !is_bv(lit); }))
                 continue;
+            // TBD: if we associate "status" with clauses, we can also remove theory axioms from polysat
             sat::literal selected_lit = sat::null_literal;
             for (auto lit : *clause) {
                 if (s.value(lit) != l_true)
@@ -269,27 +270,34 @@ namespace intblast {
                     m_trail.push_back(a.mk_mul(args));
                     break;
                 case OP_ULEQ:
+                    bv_expr = ap->get_arg(0);
                     m_trail.push_back(a.mk_le(mk_mod(args.get(0)), mk_mod(args.get(1))));
                     break;
                 case OP_UGEQ:
+                    bv_expr = ap->get_arg(0);
                     m_trail.push_back(a.mk_ge(mk_mod(args.get(0)), mk_mod(args.get(1))));
                     break;
                 case OP_ULT:
+                    bv_expr = ap->get_arg(0);
                     m_trail.push_back(a.mk_lt(mk_mod(args.get(0)), mk_mod(args.get(1))));
                     break;
                 case OP_UGT:
+                    bv_expr = ap->get_arg(0);
                     m_trail.push_back(a.mk_gt(mk_mod(args.get(0)), mk_mod(args.get(1))));
                     break;
                 case OP_SLEQ: 
+                    bv_expr = ap->get_arg(0);
                     m_trail.push_back(a.mk_le(mk_smod(args.get(0)), mk_smod(args.get(1))));
                     break;
                 case OP_SGEQ:
                     m_trail.push_back(a.mk_ge(mk_smod(args.get(0)), mk_smod(args.get(1))));
                     break;
                 case OP_SLT:
+                    bv_expr = ap->get_arg(0);
                     m_trail.push_back(a.mk_lt(mk_smod(args.get(0)), mk_smod(args.get(1))));
                     break;
                 case OP_SGT:
+                    bv_expr = ap->get_arg(0);
                     m_trail.push_back(a.mk_gt(mk_smod(args.get(0)), mk_smod(args.get(1))));
                     break;
                 case OP_BNEG:
@@ -340,6 +348,12 @@ namespace intblast {
                 case OP_BUDIV_I: {
                     expr* x = args.get(0), * y = args.get(1);
                     m_trail.push_back(m.mk_ite(m.mk_eq(y, a.mk_int(0)), a.mk_int(0), a.mk_idiv(x, y)));
+                    break;
+                }
+                case OP_BUMUL_NO_OVFL: {
+                    expr* x = args.get(0), * y = args.get(1);
+                    bv_expr = ap->get_arg(0);
+                    m_trail.push_back(a.mk_lt(a.mk_mul(mk_mod(x), mk_mod(y)), a.mk_int(bv_size())));
                     break;
                 }
                 case OP_BNOT:

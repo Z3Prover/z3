@@ -67,13 +67,17 @@ namespace polysat {
     };
 
     viable::entry* viable::alloc_entry(pvar var, unsigned constraint_index) {
+        entry* e = nullptr;
         if (m_alloc.empty())
-            return alloc(entry);
-        auto* e = m_alloc.back();
+            e = alloc(entry);
+        else {
+            e = m_alloc.back();
+            m_alloc.pop_back();
+        }
         e->reset();
         e->var = var;
         e->constraint_index = constraint_index;
-        m_alloc.pop_back();
+        
         return e;
     }
 
