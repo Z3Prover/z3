@@ -23,10 +23,7 @@ Author:
 namespace intblast {
 
     solver::solver(euf::solver& ctx) :
-<<<<<<< HEAD
         th_euf_solver(ctx, symbol("intblast"), ctx.get_manager().get_family_id("bv")),
-=======
->>>>>>> 17c480f83 (adding band)
         ctx(ctx),
         s(ctx.s()),
         m(ctx.get_manager()),
@@ -37,7 +34,6 @@ namespace intblast {
         m_pinned(m)
     {}
 
-<<<<<<< HEAD
     euf::theory_var solver::mk_var(euf::enode* n) {
         auto r = euf::th_euf_solver::mk_var(n);
         ctx.attach_th_var(n, this, r);
@@ -188,9 +184,6 @@ namespace intblast {
     }
 
     lbool solver::check_solver_state() {
-=======
-    lbool solver::check() {
->>>>>>> 17c480f83 (adding band)
         sat::literal_vector literals;
         uint_set selected;
         for (auto const& clause : s.clauses()) {
