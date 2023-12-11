@@ -135,11 +135,8 @@ namespace euf {
         special_relations_util sp(m);
         if (pb.get_family_id() == fid)
             ext = alloc(pb::solver, *this, fid);
-        else if (bvu.get_family_id() == fid) {
-            ext = alloc(bv::solver, *this, fid);
-            dealloc(ext);
-            ext = alloc(polysat::solver, *this, fid);
-        }
+        else if (bvu.get_family_id() == fid) 
+            ext = alloc(polysat::solver, *this, fid);        
         else if (au.get_family_id() == fid)
             ext = alloc(array::solver, *this, fid);
         else if (fpa.get_family_id() == fid)

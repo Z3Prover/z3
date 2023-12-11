@@ -84,7 +84,8 @@ namespace polysat {
         void get_bitvector_prefixes(pvar v, pvar_vector& out);
         void get_fixed_bits(pvar v, svector<justified_fixed_bits>& fixed_bits);
         bool inconsistent() const;
-        
+        void add_clause(char const* name, std::initializer_list<signed_constraint> cs, bool is_redundant);
+
 
         void add_watch(unsigned idx, unsigned var);
 
@@ -114,29 +115,28 @@ namespace polysat {
         signed_constraint bit(pdd const& p, unsigned i) { return m_constraints.bit(p, i); }
 
 
-        pdd lshr(pdd a, pdd b) { throw default_exception("nyi"); }
-        pdd ashr(pdd a, pdd b) { throw default_exception("nyi"); }
-        pdd shl(pdd a, pdd b) { throw default_exception("nyi"); }
-        pdd band(pdd a, pdd b) { throw default_exception("nyi"); }
-        pdd bxor(pdd a, pdd b) { throw default_exception("nyi"); }
-        pdd bor(pdd a, pdd b) { throw default_exception("nyi"); }
-        pdd bnand(pdd a, pdd b) { throw default_exception("nyi"); }
-        pdd bxnor(pdd a, pdd b) { throw default_exception("nyi"); }
-        pdd bnor(pdd a, pdd b) { throw default_exception("nyi"); }
-        pdd bnot(pdd a) { throw default_exception("nyi"); }
-        std::pair<pdd, pdd> quot_rem(pdd const& n, pdd const& d) { throw default_exception("nyi"); }
-        pdd zero_ext(pdd a, unsigned sz) { throw default_exception("nyi"); }
-        pdd sign_ext(pdd a, unsigned sz) { throw default_exception("nyi"); }
-        pdd extract(pdd src, unsigned hi, unsigned lo) { throw default_exception("nyi"); }
-        pdd concat(unsigned n, pdd const* args) { throw default_exception("nyi"); }
+        pdd lshr(pdd a, pdd b) { NOT_IMPLEMENTED_YET();  throw default_exception("lshr nyi"); }
+        pdd ashr(pdd a, pdd b) { NOT_IMPLEMENTED_YET();  throw default_exception("ashr nyi"); }
+        pdd shl(pdd a, pdd b) { NOT_IMPLEMENTED_YET();  throw default_exception("shlh nyi"); }
+        pdd band(pdd a, pdd b) { NOT_IMPLEMENTED_YET();  throw default_exception("band nyi"); }
+        pdd bxor(pdd a, pdd b) { NOT_IMPLEMENTED_YET();  throw default_exception("bxor nyi"); }
+        pdd bor(pdd a, pdd b) { NOT_IMPLEMENTED_YET();  throw default_exception("bir ==nyi"); }
+        pdd bnand(pdd a, pdd b) { NOT_IMPLEMENTED_YET();  throw default_exception("bnand nyi"); }
+        pdd bxnor(pdd a, pdd b) { NOT_IMPLEMENTED_YET();  throw default_exception("bxnor nyi"); }
+        pdd bnor(pdd a, pdd b) { NOT_IMPLEMENTED_YET();  throw default_exception("bnotr nyi"); }
+        pdd bnot(pdd a) { NOT_IMPLEMENTED_YET();  throw default_exception("bnot nyi"); }
+        pdd zero_ext(pdd a, unsigned sz) { NOT_IMPLEMENTED_YET();  throw default_exception("zero ext nyi"); }
+        pdd sign_ext(pdd a, unsigned sz) { NOT_IMPLEMENTED_YET();  throw default_exception("sign ext nyi"); }
+        pdd extract(pdd src, unsigned hi, unsigned lo) { NOT_IMPLEMENTED_YET();  throw default_exception("extract nyi"); }
+        pdd concat(unsigned n, pdd const* args) { NOT_IMPLEMENTED_YET();  throw default_exception("concat nyi"); }
         pvar add_var(unsigned sz);
         pdd var(pvar p) { return m_vars[p]; }
-        unsigned size(pvar v) const { return var2pdd(v).power_of_2(); }
+        unsigned size(pvar v) const { return m_vars[v].power_of_2(); }
 
         constraints& cs() { return m_constraints; }
         trail_stack& trail();
 
-        std::ostream& display(std::ostream& out) const { throw default_exception("nyi"); }
+        std::ostream& display(std::ostream& out) const { NOT_IMPLEMENTED_YET();  throw default_exception("nyi"); }
     };
 
 }

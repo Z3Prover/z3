@@ -79,6 +79,8 @@ namespace intblast {
         }
 
         m_core.reset();
+        m_vars.reset();
+        m_trail.reset();
         m_solver = mk_smt2_solver(m, s.params(), symbol::null);
 
         expr_ref_vector es(m);
@@ -89,11 +91,18 @@ namespace intblast {
 
         for (auto const& [src, vi] : m_vars) {
             auto const& [v, b] = vi;
+            verbose_stream() << "asserting " << mk_pp(v, m) << " < " << b << "\n";
             m_solver->assert_expr(a.mk_le(a.mk_int(0), v));
             m_solver->assert_expr(a.mk_lt(v, a.mk_int(b)));
         }
+
+        verbose_stream() << "check\n";
+        m_solver->display(verbose_stream());
+        verbose_stream() << es << "\n";
                
         lbool r = m_solver->check_sat(es);
+
+        verbose_stream() << "result " << r << "\n";
 
         if (r == l_false) {
             expr_ref_vector core(m);
@@ -113,8 +122,6 @@ namespace intblast {
         if (!e)
             return false;
         if (m.is_and(e) || m.is_or(e) || m.is_not(e) || m.is_implies(e) || m.is_iff(e))
-            return false;
-        if (is_quantifier(e))
             return false;
         return any_of(subterms::all(expr_ref(e, m)), [&](auto* p) { return bv.is_bv_sort(p->get_sort()); });
     }
@@ -145,22 +152,34 @@ namespace intblast {
                 }
             }
         }
+        std::stable_sort(sorted.begin(), sorted.end(), [&](expr* a, expr* b) { return get_depth(a) < get_depth(b); });
     }
 
     void solver::translate(expr_ref_vector& es) {
         ptr_vector<expr> todo;
         obj_map<expr, expr*> translated;        
         expr_ref_vector args(m);
-        m_trail.reset();
-        m_vars.reset();
         
         sorted_subterms(es, todo);
-        for (unsigned i = todo.size(); i-- > 0; ) {
-            expr* e = todo[i];
+        for (expr* e : todo) {
             if (is_quantifier(e)) {
                 quantifier* q = to_quantifier(e);
                 expr* b = q->get_expr();
-                m_trail.push_back(m.update_quantifier(q, translated[b]));
+
+                unsigned nd = q->get_num_decls();
+                ptr_vector<sort> sorts;
+                for (unsigned i = 0; i < nd; ++i) {
+                    auto s = q->get_decl_sort(i);
+                    if (bv.is_bv_sort(s)) {
+                        NOT_IMPLEMENTED_YET();
+                        sorts.push_back(a.mk_int());
+                    }
+                    else
+                        sorts.push_back(s);
+                }
+                b = translated[b];
+                // TODO if sorts contain integer, then created bounds variables.
+                m_trail.push_back(m.update_quantifier(q, b));
                 translated.insert(e, m_trail.back());
                 continue;
             }
@@ -177,11 +196,12 @@ namespace intblast {
                 continue;
             }
             app* ap = to_app(e);
+            expr* bv_expr = e;
             args.reset();
             for (auto arg : *ap)
                 args.push_back(translated[arg]);
 
-            auto bv_size = [&]() { return rational::power_of_two(bv.get_bv_size(e->get_sort())); };
+            auto bv_size = [&]() { return rational::power_of_two(bv.get_bv_size(bv_expr->get_sort())); };
 
             auto mk_mod = [&](expr* x) {
                 if (m_vars.contains(x))
@@ -197,6 +217,7 @@ namespace intblast {
             if (m.is_eq(e)) {
                 bool has_bv_arg = any_of(*ap, [&](expr* arg) { return bv.is_bv(arg); });
                 if (has_bv_arg) {
+                    bv_expr = ap->get_arg(0);
                     m_trail.push_back(m.mk_eq(mk_mod(args.get(0)), mk_mod(args.get(1))));
                     translated.insert(e, m_trail.back());
                 }
@@ -228,6 +249,8 @@ namespace intblast {
                 
                 m_trail.push_back(m.mk_app(f, args));
                 translated.insert(e, m_trail.back());
+
+                verbose_stream() << "translate " << mk_pp(e, m) << " " << has_bv_sort << "\n";
 
                 if (has_bv_sort) 
                     m_vars.insert(e, { m_trail.back(), bv_size() });
@@ -272,6 +295,53 @@ namespace intblast {
                 case OP_BNEG:
                     m_trail.push_back(a.mk_uminus(args.get(0)));
                     break;
+                case OP_CONCAT: {
+                    expr_ref r(a.mk_int(0), m);
+                    unsigned sz = 0;
+                    for (unsigned i = 0; i < args.size(); ++i) {
+                        expr* old_arg = ap->get_arg(i);
+                        expr* new_arg = args.get(i);
+                        bv_expr = old_arg;
+                        new_arg = mk_mod(new_arg);
+                        if (sz > 0) {
+                            new_arg = a.mk_mul(new_arg, a.mk_int(rational::power_of_two(sz)));
+                            r = a.mk_add(r, new_arg);
+                        }
+                        else 
+                            r = new_arg;                        
+                        sz += bv.get_bv_size(old_arg->get_sort());
+                    }
+                    m_trail.push_back(r);
+                    break;
+                }
+                case OP_EXTRACT: {
+                    unsigned lo, hi;
+                    expr* old_arg;
+                    VERIFY(bv.is_extract(e, lo, hi, old_arg));
+                    unsigned sz = hi - lo + 1;
+                    expr* new_arg = args.get(0);
+                    if (lo > 0)
+                        new_arg = a.mk_div(new_arg, a.mk_int(rational::power_of_two(lo)));
+                    m_trail.push_back(new_arg);
+                    break;
+                }   
+                case OP_BV_NUM: {
+                    rational val;
+                    unsigned sz;
+                    VERIFY(bv.is_numeral(e, val, sz));
+                    m_trail.push_back(a.mk_int(val));
+                    break;
+                }
+                case OP_BUREM_I: {
+                    expr* x = args.get(0), * y = args.get(1);
+                    m_trail.push_back(m.mk_ite(m.mk_eq(y, a.mk_int(0)), a.mk_int(0), a.mk_mod(x, y)));
+                    break;
+                }
+                case OP_BUDIV_I: {
+                    expr* x = args.get(0), * y = args.get(1);
+                    m_trail.push_back(m.mk_ite(m.mk_eq(y, a.mk_int(0)), a.mk_int(0), a.mk_idiv(x, y)));
+                    break;
+                }
                 case OP_BNOT:
                 case OP_BNAND:
                 case OP_BNOR:
@@ -296,9 +366,14 @@ namespace intblast {
                 case OP_BSREM:
                 case OP_BSMOD:
                 case OP_BAND:
+                    verbose_stream() << mk_pp(e, m) << "\n";
                     NOT_IMPLEMENTED_YET();
                     break;
+                default:
+                    verbose_stream() << mk_pp(e, m) << "\n";
+                    NOT_IMPLEMENTED_YET();
             }
+            verbose_stream() << "insert " << mk_pp(e, m) << " -> " << mk_pp(m_trail.back(), m) << "\n";
             translated.insert(e, m_trail.back());
         }
         for (unsigned i = 0; i < es.size(); ++i) 

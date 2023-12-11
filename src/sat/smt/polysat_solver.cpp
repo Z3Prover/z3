@@ -84,6 +84,8 @@ namespace polysat {
             }
         }
         }
+        UNREACHABLE();
+        return sat::check_result::CR_GIVEUP;
     }
 
     void solver::asserted(literal l) {
@@ -249,11 +251,11 @@ namespace polysat {
         return ctx.get_trail_stack();
     }
 
-    void solver::add_lemma(vector<signed_constraint> const& lemma) {
+    void solver::add_polysat_clause(char const* name, std::initializer_list<signed_constraint> cs, bool is_redundant) {
         sat::literal_vector lits;
-        for (auto sc : lemma)
+        for (auto sc : cs)
             lits.push_back(ctx.mk_literal(constraint2expr(sc)));
-        s().add_clause(lits.size(), lits.data(), sat::status::th(true, get_id(), nullptr));
+        s().add_clause(lits.size(), lits.data(), sat::status::th(is_redundant, get_id(), nullptr));
     }
 
     void solver::get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector& r, bool probing) {
@@ -271,14 +273,14 @@ namespace polysat {
         case ckind_t::umul_ovfl_t: {
             auto l = pdd2expr(sc.to_umul_ovfl().p());
             auto r = pdd2expr(sc.to_umul_ovfl().q());
-            return expr_ref(bv.mk_bvumul_ovfl(l, r), m);
+            return expr_ref(m.mk_not(bv.mk_bvumul_no_ovfl(l, r)), m);
         }
         case ckind_t::smul_fl_t:
         case ckind_t::op_t:
             NOT_IMPLEMENTED_YET();
             break;
         }
-        throw default_exception("nyi"); 
+        throw default_exception("constraint2expr nyi"); 
     }
 
     expr_ref solver::pdd2expr(pdd const& p) {
@@ -346,7 +348,7 @@ namespace polysat {
                 continue;
             for (auto sib : euf::enode_class(p)) {
                 if (bv.is_extract(sib->get_expr(), lo, hi, e) && r == expr2enode(e)->get_root()) {
-                    throw default_exception("nyi");
+                    throw default_exception("get_fixed nyi");
                     // TODO                    
                     // dependency d = dependency(p->get_th_var(get_id()), n->get_th_var(get_id()), s().scope_lvl());
                     // fixed_bits.push_back({ hi, lo, rational::zero(), null_dependency()});

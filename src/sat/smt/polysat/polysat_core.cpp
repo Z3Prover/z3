@@ -80,7 +80,7 @@ namespace polysat {
     core::core(solver_interface& s) :
         s(s),         
         m_viable(*this),
-        m_constraints(s.trail()),
+        m_constraints(*this),
         m_assignment(*this),
         m_var_queue(m_activity)
     {}

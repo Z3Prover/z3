@@ -41,6 +41,8 @@ namespace polysat {
         virtual std::ostream& display(std::ostream& out) const = 0;
         virtual lbool eval() const = 0;
         virtual lbool eval(assignment const& a) const = 0;
+        virtual bool is_always_true() const = 0;
+        virtual bool is_always_false() const = 0;
     };
 
     inline std::ostream& operator<<(std::ostream& out, constraint const& c) { return c.display(out); }
@@ -61,6 +63,8 @@ namespace polysat {
         unsigned_vector const& vars() const { return m_constraint->vars(); }
         unsigned var(unsigned idx) const { return m_constraint->var(idx); }
         bool contains_var(pvar v) const { return m_constraint->contains_var(v); }
+        bool is_always_true() const;
+        bool is_always_false() const;
         lbool eval(assignment& a) const;
         ckind_t op() const { return m_op; }
         bool is_ule() const { return m_op == ule_t; }
@@ -68,27 +72,27 @@ namespace polysat {
         bool is_smul_fl() const { return m_op == smul_fl_t; }
         ule_constraint const& to_ule() const { return *reinterpret_cast<ule_constraint*>(m_constraint); }
         umul_ovfl_constraint const& to_umul_ovfl() const { return *reinterpret_cast<umul_ovfl_constraint*>(m_constraint); }
-        bool is_eq(pvar& v, rational& val) { throw default_exception("nyi"); }
+        bool is_eq(pvar& v, rational& val);
         std::ostream& display(std::ostream& out) const;
     };
 
     inline std::ostream& operator<<(std::ostream& out, signed_constraint const& c) { return c.display(out); }
 
     class constraints {
-        trail_stack& m_trail;
+        core& c;
     public:
-        constraints(trail_stack& c) : m_trail(c) {}
+        constraints(core& c) : c(c) {}
 
         signed_constraint eq(pdd const& p) { return ule(p, p.manager().mk_val(0)); }
         signed_constraint eq(pdd const& p, rational const& v) { return eq(p - p.manager().mk_val(v)); }
         signed_constraint ule(pdd const& p, pdd const& q);
-        signed_constraint sle(pdd const& p, pdd const& q) { throw default_exception("nyi"); }
-        signed_constraint ult(pdd const& p, pdd const& q) { throw default_exception("nyi"); }
-        signed_constraint slt(pdd const& p, pdd const& q) { throw default_exception("nyi"); }
+        signed_constraint sle(pdd const& p, pdd const& q) { auto sh = rational::power_of_two(p.power_of_2() - 1); return ule(p + sh, q + sh); }
+        signed_constraint ult(pdd const& p, pdd const& q) { return ~ule(q, p); }
+        signed_constraint slt(pdd const& p, pdd const& q) { return ~sle(q, p); }
         signed_constraint umul_ovfl(pdd const& p, pdd const& q);
-        signed_constraint smul_ovfl(pdd const& p, pdd const& q) { throw default_exception("nyi"); }
-        signed_constraint smul_udfl(pdd const& p, pdd const& q) { throw default_exception("nyi"); }
-        signed_constraint bit(pdd const& p, unsigned i) { throw default_exception("nyi"); }
+        signed_constraint smul_ovfl(pdd const& p, pdd const& q) { throw default_exception("smul ovfl nyi"); }
+        signed_constraint smul_udfl(pdd const& p, pdd const& q) { throw default_exception("smult-udfl nyi"); }
+        signed_constraint bit(pdd const& p, unsigned i) { throw default_exception("bit nyi"); }
 
         signed_constraint diseq(pdd const& p) { return ~eq(p); }
         signed_constraint diseq(pdd const& p, pdd const& q) { return diseq(p - q); }
