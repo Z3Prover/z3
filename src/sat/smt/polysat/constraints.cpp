@@ -17,6 +17,7 @@ Author:
 #include "sat/smt/polysat/constraints.h"
 #include "sat/smt/polysat/ule_constraint.h"
 #include "sat/smt/polysat/umul_ovfl_constraint.h"
+#include "sat/smt/polysat/op_constraint.h"
 
 namespace polysat {
 
@@ -34,6 +35,30 @@ namespace polysat {
         auto* cnstr = alloc(umul_ovfl_constraint, p, q);
         c.trail().push(new_obj_trail(cnstr));
         return signed_constraint(ckind_t::umul_ovfl_t, cnstr);
+    }
+
+    signed_constraint constraints::lshr(pdd const& a, pdd const& b, pdd const& r) {
+        auto* cnstr = alloc(op_constraint, op_constraint::code::lshr_op, a, b, r);
+        c.trail().push(new_obj_trail(cnstr));
+        return signed_constraint(ckind_t::op_t, cnstr);
+    }
+
+    signed_constraint constraints::ashr(pdd const& a, pdd const& b, pdd const& r) {
+        auto* cnstr = alloc(op_constraint, op_constraint::code::ashr_op, a, b, r);
+        c.trail().push(new_obj_trail(cnstr));
+        return signed_constraint(ckind_t::op_t, cnstr);
+    }
+
+    signed_constraint constraints::shl(pdd const& a, pdd const& b, pdd const& r) {
+        auto* cnstr = alloc(op_constraint, op_constraint::code::shl_op, a, b, r);
+        c.trail().push(new_obj_trail(cnstr));
+        return signed_constraint(ckind_t::op_t, cnstr);
+    }
+
+    signed_constraint constraints::band(pdd const& a, pdd const& b, pdd const& r) {
+        auto* cnstr = alloc(op_constraint, op_constraint::code::and_op, a, b, r);
+        c.trail().push(new_obj_trail(cnstr));
+        return signed_constraint(ckind_t::op_t, cnstr);
     }
 
     bool signed_constraint::is_eq(pvar& v, rational& val) {
@@ -64,10 +89,4 @@ namespace polysat {
         return out << *m_constraint;        
     }
 
-    bool signed_constraint::is_always_true() const {
-        return m_sign ? m_constraint->is_always_false() : m_constraint->is_always_true();
-    }
-    bool signed_constraint::is_always_false() const {
-        return m_sign ? m_constraint->is_always_true() : m_constraint->is_always_false();
-    }
 }

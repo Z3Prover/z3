@@ -70,6 +70,8 @@ enum arith_op_kind {
     OP_ASINH,
     OP_ACOSH,
     OP_ATANH,
+    // Bit-vector functions
+    OP_ARITH_BAND,
     // constants
     OP_PI,
     OP_E,
@@ -309,6 +311,8 @@ public:
     bool is_int_real(sort const * s) const { return s->get_family_id() == arith_family_id; }
     bool is_int_real(expr const * n) const { return is_int_real(n->get_sort()); }
 
+    bool is_band(expr const* n) const { return is_app_of(n, arith_family_id, OP_ARITH_BAND); }
+
     bool is_sin(expr const* n) const { return is_app_of(n, arith_family_id, OP_SIN); }
     bool is_cos(expr const* n) const { return is_app_of(n, arith_family_id, OP_COS); }
     bool is_tan(expr const* n) const { return is_app_of(n, arith_family_id, OP_TAN); }
@@ -470,6 +474,8 @@ public:
     app * mk_is_int(expr * arg1) { return m_manager.mk_app(arith_family_id, OP_IS_INT, arg1); }
     app * mk_power(expr* arg1, expr* arg2) { return m_manager.mk_app(arith_family_id, OP_POWER, arg1, arg2); }
     app * mk_power0(expr* arg1, expr* arg2) { return m_manager.mk_app(arith_family_id, OP_POWER0, arg1, arg2); }
+
+    app* mk_band(unsigned n, expr* arg1, expr* arg2) { parameter p(n); expr* args[2] = { arg1, arg2 }; return m_manager.mk_app(arith_family_id, OP_ARITH_BAND, 1, &p, 2, args); }
 
     app * mk_sin(expr * arg) { return m_manager.mk_app(arith_family_id, OP_SIN, arg); }
     app * mk_cos(expr * arg) { return m_manager.mk_app(arith_family_id, OP_COS, arg); }

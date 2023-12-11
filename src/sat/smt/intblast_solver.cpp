@@ -19,15 +19,15 @@ Author:
 
 namespace intblast {
 
-    solver::solver(euf::solver& ctx): 
-        ctx(ctx), 
+    solver::solver(euf::solver& ctx) :
+        ctx(ctx),
         s(ctx.s()),
         m(ctx.get_manager()),
         bv(m),
         a(m),
         m_trail(m)
     {}
-    
+
     lbool solver::check() {
         sat::literal_vector literals;
         uint_set selected;
@@ -76,7 +76,7 @@ namespace intblast {
             if (s.value(b) == l_true && s.value(a) == l_true && s.lvl(b) < s.lvl(a))
                 std::swap(a, b);
             selected.insert(a.index());
-            literals.push_back(a);                
+            literals.push_back(a);
         }
 
         m_core.reset();
@@ -98,9 +98,9 @@ namespace intblast {
         }
 
         IF_VERBOSE(10, verbose_stream() << "check\n";
-            m_solver->display(verbose_stream());
-            verbose_stream() << es << "\n");
-               
+        m_solver->display(verbose_stream());
+        verbose_stream() << es << "\n");
+
         lbool r = m_solver->check_sat(es);
 
         IF_VERBOSE(2, verbose_stream() << "(sat.intblast :result " << r << ")\n");
@@ -116,14 +116,14 @@ namespace intblast {
                 if (idx < literals.size())
                     m_core.push_back(literals[idx]);
                 else
-                    m_core.push_back(ctx.mk_literal(e));                
+                    m_core.push_back(ctx.mk_literal(e));
             }
         }
 
         return r;
     };
 
-    bool solver::is_bv(sat::literal lit) {        
+    bool solver::is_bv(sat::literal lit) {
         expr* e = ctx.bool_var2expr(lit.var());
         if (!e)
             return false;
@@ -185,9 +185,9 @@ namespace intblast {
 
     void solver::translate(expr_ref_vector& es) {
         ptr_vector<expr> todo;
-        obj_map<expr, expr*> translated;        
+        obj_map<expr, expr*> translated;
         expr_ref_vector args(m);
-        
+
         sorted_subterms(es, todo);
 
         for (expr* e : todo) {
@@ -236,12 +236,12 @@ namespace intblast {
                 if (m_vars.contains(x))
                     return x;
                 return to_expr(a.mk_mod(x, a.mk_int(bv_size())));
-            };
+                };
 
             auto mk_smod = [&](expr* x) {
                 auto shift = bv_size() / 2;
                 return a.mk_mod(a.mk_add(x, a.mk_int(shift)), a.mk_int(bv_size()));
-            };           
+                };
 
             if (m.is_eq(e)) {
                 bool has_bv_arg = any_of(*ap, [&](expr* arg) { return bv.is_bv(arg); });
@@ -256,7 +256,7 @@ namespace intblast {
                 }
                 continue;
             }
-            
+
             if (m.is_ite(e)) {
                 m_trail.push_back(m.mk_ite(args.get(0), args.get(1), args.get(2)));
                 translated.insert(e, m_trail.back());
@@ -287,144 +287,179 @@ namespace intblast {
                     }
                     f = g;
                 }
-                
+
                 m_trail.push_back(m.mk_app(f, args));
                 translated.insert(e, m_trail.back());
 
-                if (has_bv_sort) 
+                if (has_bv_sort)
                     m_vars.insert(e, { m_trail.back(), bv_size() });
-                
+
                 continue;
             }
 
+            auto bnot = [&](expr* e) {
+                return a.mk_sub(a.mk_int(-1), e);
+            };
+
+            auto band = [&](expr_ref_vector const& args) {
+                expr * r = args.get(0);
+                for (unsigned i = 1; i < args.size(); ++i)
+                    r = a.mk_band(bv.get_bv_size(e), r, args.get(i));
+                return r;
+            };
+
             switch (ap->get_decl_kind()) {
-                case OP_BADD:
-                    m_trail.push_back(a.mk_add(args));
-                    break;
-                case OP_BSUB:
-                    m_trail.push_back(a.mk_sub(args.size(), args.data()));
-                    break;
-                case OP_BMUL:
-                    m_trail.push_back(a.mk_mul(args));
-                    break;
-                case OP_ULEQ:
-                    bv_expr = ap->get_arg(0);
-                    m_trail.push_back(a.mk_le(mk_mod(args.get(0)), mk_mod(args.get(1))));
-                    break;
-                case OP_UGEQ:
-                    bv_expr = ap->get_arg(0);
-                    m_trail.push_back(a.mk_ge(mk_mod(args.get(0)), mk_mod(args.get(1))));
-                    break;
-                case OP_ULT:
-                    bv_expr = ap->get_arg(0);
-                    m_trail.push_back(a.mk_lt(mk_mod(args.get(0)), mk_mod(args.get(1))));
-                    break;
-                case OP_UGT:
-                    bv_expr = ap->get_arg(0);
-                    m_trail.push_back(a.mk_gt(mk_mod(args.get(0)), mk_mod(args.get(1))));
-                    break;
-                case OP_SLEQ: 
-                    bv_expr = ap->get_arg(0);
-                    m_trail.push_back(a.mk_le(mk_smod(args.get(0)), mk_smod(args.get(1))));
-                    break;
-                case OP_SGEQ:
-                    m_trail.push_back(a.mk_ge(mk_smod(args.get(0)), mk_smod(args.get(1))));
-                    break;
-                case OP_SLT:
-                    bv_expr = ap->get_arg(0);
-                    m_trail.push_back(a.mk_lt(mk_smod(args.get(0)), mk_smod(args.get(1))));
-                    break;
-                case OP_SGT:
-                    bv_expr = ap->get_arg(0);
-                    m_trail.push_back(a.mk_gt(mk_smod(args.get(0)), mk_smod(args.get(1))));
-                    break;
-                case OP_BNEG:
-                    m_trail.push_back(a.mk_uminus(args.get(0)));
-                    break;
-                case OP_CONCAT: {
-                    expr_ref r(a.mk_int(0), m);
-                    unsigned sz = 0;
-                    for (unsigned i = 0; i < args.size(); ++i) {
-                        expr* old_arg = ap->get_arg(i);
-                        expr* new_arg = args.get(i);
-                        bv_expr = old_arg;
-                        new_arg = mk_mod(new_arg);
-                        if (sz > 0) {
-                            new_arg = a.mk_mul(new_arg, a.mk_int(rational::power_of_two(sz)));
-                            r = a.mk_add(r, new_arg);
-                        }
-                        else 
-                            r = new_arg;                        
-                        sz += bv.get_bv_size(old_arg->get_sort());
+            case OP_BADD:
+                m_trail.push_back(a.mk_add(args));
+                break;
+            case OP_BSUB:
+                m_trail.push_back(a.mk_sub(args.size(), args.data()));
+                break;
+            case OP_BMUL:
+                m_trail.push_back(a.mk_mul(args));
+                break;
+            case OP_ULEQ:
+                bv_expr = ap->get_arg(0);
+                m_trail.push_back(a.mk_le(mk_mod(args.get(0)), mk_mod(args.get(1))));
+                break;
+            case OP_UGEQ:
+                bv_expr = ap->get_arg(0);
+                m_trail.push_back(a.mk_ge(mk_mod(args.get(0)), mk_mod(args.get(1))));
+                break;
+            case OP_ULT:
+                bv_expr = ap->get_arg(0);
+                m_trail.push_back(a.mk_lt(mk_mod(args.get(0)), mk_mod(args.get(1))));
+                break;
+            case OP_UGT:
+                bv_expr = ap->get_arg(0);
+                m_trail.push_back(a.mk_gt(mk_mod(args.get(0)), mk_mod(args.get(1))));
+                break;
+            case OP_SLEQ:
+                bv_expr = ap->get_arg(0);
+                m_trail.push_back(a.mk_le(mk_smod(args.get(0)), mk_smod(args.get(1))));
+                break;
+            case OP_SGEQ:
+                m_trail.push_back(a.mk_ge(mk_smod(args.get(0)), mk_smod(args.get(1))));
+                break;
+            case OP_SLT:
+                bv_expr = ap->get_arg(0);
+                m_trail.push_back(a.mk_lt(mk_smod(args.get(0)), mk_smod(args.get(1))));
+                break;
+            case OP_SGT:
+                bv_expr = ap->get_arg(0);
+                m_trail.push_back(a.mk_gt(mk_smod(args.get(0)), mk_smod(args.get(1))));
+                break;
+            case OP_BNEG:
+                m_trail.push_back(a.mk_uminus(args.get(0)));
+                break;
+            case OP_CONCAT: {
+                expr_ref r(a.mk_int(0), m);
+                unsigned sz = 0;
+                for (unsigned i = 0; i < args.size(); ++i) {
+                    expr* old_arg = ap->get_arg(i);
+                    expr* new_arg = args.get(i);
+                    bv_expr = old_arg;
+                    new_arg = mk_mod(new_arg);
+                    if (sz > 0) {
+                        new_arg = a.mk_mul(new_arg, a.mk_int(rational::power_of_two(sz)));
+                        r = a.mk_add(r, new_arg);
                     }
-                    m_trail.push_back(r);
-                    break;
+                    else
+                        r = new_arg;
+                    sz += bv.get_bv_size(old_arg->get_sort());
                 }
-                case OP_EXTRACT: {
-                    unsigned lo, hi;
-                    expr* old_arg;
-                    VERIFY(bv.is_extract(e, lo, hi, old_arg));
-                    unsigned sz = hi - lo + 1;
-                    expr* new_arg = args.get(0);
-                    if (lo > 0)
-                        new_arg = a.mk_idiv(new_arg, a.mk_int(rational::power_of_two(lo)));
-                    m_trail.push_back(new_arg);
-                    break;
-                }   
-                case OP_BV_NUM: {
-                    rational val;
-                    unsigned sz;
-                    VERIFY(bv.is_numeral(e, val, sz));
-                    m_trail.push_back(a.mk_int(val));
-                    break;
-                }
-                case OP_BUREM_I: {
-                    expr* x = args.get(0), * y = args.get(1);
-                    m_trail.push_back(m.mk_ite(m.mk_eq(y, a.mk_int(0)), a.mk_int(0), a.mk_mod(x, y)));
-                    break;
-                }
-                case OP_BUDIV_I: {
-                    expr* x = args.get(0), * y = args.get(1);
-                    m_trail.push_back(m.mk_ite(m.mk_eq(y, a.mk_int(0)), a.mk_int(0), a.mk_idiv(x, y)));
-                    break;
-                }
-                case OP_BUMUL_NO_OVFL: {
-                    expr* x = args.get(0), * y = args.get(1);
-                    bv_expr = ap->get_arg(0);
-                    m_trail.push_back(a.mk_lt(a.mk_mul(mk_mod(x), mk_mod(y)), a.mk_int(bv_size())));
-                    break;
-                }
-                case OP_BNOT:
-                case OP_BNAND:
-                case OP_BNOR:
-                case OP_BXOR:
-                case OP_BXNOR:
-                case OP_BCOMP:
-                case OP_BSHL:
-                case OP_BLSHR:
-                case OP_BASHR:
-                case OP_ROTATE_LEFT:
-                case OP_ROTATE_RIGHT:
-                case OP_EXT_ROTATE_LEFT:
-                case OP_EXT_ROTATE_RIGHT:
-                case OP_REPEAT:
-                case OP_ZERO_EXT:
-                case OP_SIGN_EXT:
-                case OP_BREDOR:
-                case OP_BREDAND:
-                case OP_BUDIV:
-                case OP_BSDIV:
-                case OP_BUREM:
-                case OP_BSREM:
-                case OP_BSMOD:
-                case OP_BAND:
-                    verbose_stream() << mk_pp(e, m) << "\n";
-                    NOT_IMPLEMENTED_YET();
-                    break;
-                default:
-                    verbose_stream() << mk_pp(e, m) << "\n";
-                    NOT_IMPLEMENTED_YET();
-            }            
+                m_trail.push_back(r);
+                break;
+            }
+            case OP_EXTRACT: {
+                unsigned lo, hi;
+                expr* old_arg;
+                VERIFY(bv.is_extract(e, lo, hi, old_arg));
+                unsigned sz = hi - lo + 1;
+                expr* new_arg = args.get(0);
+                if (lo > 0)
+                    new_arg = a.mk_idiv(new_arg, a.mk_int(rational::power_of_two(lo)));
+                m_trail.push_back(new_arg);
+                break;
+            }
+            case OP_BV_NUM: {
+                rational val;
+                unsigned sz;
+                VERIFY(bv.is_numeral(e, val, sz));
+                m_trail.push_back(a.mk_int(val));
+                break;
+            }
+            case OP_BUREM_I: {
+                expr* x = args.get(0), * y = args.get(1);
+                m_trail.push_back(m.mk_ite(m.mk_eq(y, a.mk_int(0)), a.mk_int(0), a.mk_mod(x, y)));
+                break;
+            }
+            case OP_BUDIV_I: {
+                expr* x = args.get(0), * y = args.get(1);
+                m_trail.push_back(m.mk_ite(m.mk_eq(y, a.mk_int(0)), a.mk_int(0), a.mk_idiv(x, y)));
+                break;
+            }
+            case OP_BUMUL_NO_OVFL: {
+                expr* x = args.get(0), * y = args.get(1);
+                bv_expr = ap->get_arg(0);
+                m_trail.push_back(a.mk_lt(a.mk_mul(mk_mod(x), mk_mod(y)), a.mk_int(bv_size())));
+                break;
+            }
+            case OP_BSHL: {
+                expr* x = args.get(0), * y = args.get(1);
+                expr* r = a.mk_int(0);
+                for (unsigned i = 0; i < bv.get_bv_size(e); ++i)
+                    r = m.mk_ite(a.mk_eq(y, a.mk_int(i)), a.mk_mul(x, a.mk_int(rational::power_of_two(i))), r);                   
+                m_trail.push_back(r);
+                break;
+            }
+            case OP_BNOT:       
+                m_trail.push_back(bnot(args.get(0)));
+                break;            
+            case OP_BLSHR: {
+                expr* x = args.get(0), * y = args.get(1);
+                expr* r = a.mk_int(0);
+                for (unsigned i = 0; i < bv.get_bv_size(e); ++i)
+                    r = m.mk_ite(a.mk_eq(y, a.mk_int(i)), a.mk_idiv(x, a.mk_int(rational::power_of_two(i))), r);
+                m_trail.push_back(r);
+                break;
+            }                  
+            case OP_BOR:
+                for (unsigned i = 0; i < args.size(); ++i)
+                    args[i] = bnot(args.get(i));
+                m_trail.push_back(bnot(band(args)));
+                break;
+            case OP_BNAND:
+                m_trail.push_back(bnot(band(args)));
+                break;
+            case OP_BAND:
+                m_trail.push_back(band(args));
+                break;
+            case OP_BXOR:
+            case OP_BXNOR:
+            case OP_BCOMP:
+            case OP_BASHR:
+            case OP_ROTATE_LEFT:
+            case OP_ROTATE_RIGHT:
+            case OP_EXT_ROTATE_LEFT:
+            case OP_EXT_ROTATE_RIGHT:
+            case OP_REPEAT:
+            case OP_ZERO_EXT:
+            case OP_SIGN_EXT:
+            case OP_BREDOR:
+            case OP_BREDAND:
+            case OP_BUDIV:
+            case OP_BSDIV:
+            case OP_BUREM:
+            case OP_BSREM:
+            case OP_BSMOD:
+                verbose_stream() << mk_pp(e, m) << "\n";
+                NOT_IMPLEMENTED_YET();
+                break;
+            default:
+                verbose_stream() << mk_pp(e, m) << "\n";
+                NOT_IMPLEMENTED_YET();
+            }
             translated.insert(e, m_trail.back());
         }
 
@@ -433,7 +468,7 @@ namespace intblast {
                 tout << mk_pp(e, m) << "\n->\n" << mk_pp(translated[e], m) << "\n";
         );
 
-        for (unsigned i = 0; i < es.size(); ++i) 
+        for (unsigned i = 0; i < es.size(); ++i)
             es[i] = translated[es.get(i)];
 
 
@@ -445,7 +480,7 @@ namespace intblast {
         m_solver->get_model(mdl);
         expr_ref r(m);
         var_info vi;
-        rational val;       
+        rational val;
         if (!m_vars.find(e, vi))
             return rational::zero();
         if (!mdl->eval_expr(vi.dst, r, true))

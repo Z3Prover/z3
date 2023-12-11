@@ -115,10 +115,10 @@ namespace polysat {
         signed_constraint bit(pdd const& p, unsigned i) { return m_constraints.bit(p, i); }
 
 
-        void lshr(pdd r, pdd a, pdd b) { NOT_IMPLEMENTED_YET();  throw default_exception("lshr nyi"); }
-        void ashr(pdd r, pdd a, pdd b) { NOT_IMPLEMENTED_YET();  throw default_exception("ashr nyi"); }
-        void shl(pdd r, pdd a, pdd b) { NOT_IMPLEMENTED_YET();  throw default_exception("shlh nyi"); }
-        void band(pdd r, pdd a, pdd b) { NOT_IMPLEMENTED_YET();  throw default_exception("band nyi"); }
+        signed_constraint lshr(pdd const& a, pdd const& b, pdd const& r) { return m_constraints.lshr(a, b, r); }
+        signed_constraint ashr(pdd const& a, pdd const& b, pdd const& r) { return m_constraints.ashr(a, b, r); }
+        signed_constraint shl(pdd const& a, pdd const& b, pdd const& r) { return m_constraints.shl(a, b, r); }
+        signed_constraint band(pdd const& a, pdd const& b, pdd const& r) { return m_constraints.band(a, b, r); }
 
         pdd bnot(pdd p) { return -p - 1; }
 

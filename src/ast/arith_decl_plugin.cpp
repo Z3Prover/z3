@@ -523,6 +523,12 @@ func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
         return m_manager->mk_func_decl(symbol("divisible"), 1, &m_int_decl, m_manager->mk_bool_sort(), 
                                        func_decl_info(m_family_id, k, num_parameters, parameters));
     }
+    if (k == OP_ARITH_BAND) {
+        if (arity != 2 || domain[0] != m_int_decl || domain[1] != m_int_decl || num_parameters != 1 || !parameters[0].is_int()) 
+            m_manager->raise_exception("invalid bitwise and application. Expects integer parameter and two arguments of sort integer");
+        return m_manager->mk_func_decl(symbol("band"), 2, domain, m_int_decl,
+            func_decl_info(m_family_id, k, num_parameters, parameters));
+    }
 
     if (m_manager->int_real_coercions() && use_coercion(k)) {
         return mk_func_decl(fix_kind(k, arity), has_real_arg(arity, domain, m_real_decl));
@@ -548,6 +554,14 @@ func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
         return m_manager->mk_func_decl(symbol("divisible"), 1, &m_int_decl, m_manager->mk_bool_sort(), 
                                        func_decl_info(m_family_id, k, num_parameters, parameters));
     }
+    if (k == OP_ARITH_BAND) {
+        if (num_args != 2 || args[0]->get_sort() != m_int_decl || args[1]->get_sort() != m_int_decl || num_parameters != 1 || !parameters[0].is_int())
+            m_manager->raise_exception("invalid bitwise and application. Expects integer parameter and two arguments of sort integer");
+        sort* domain[2] = { m_int_decl, m_int_decl };
+        return m_manager->mk_func_decl(symbol("band"), 2, domain, m_int_decl,
+            func_decl_info(m_family_id, k, num_parameters, parameters));
+    }
+
     if (m_manager->int_real_coercions() && use_coercion(k)) {
         return mk_func_decl(fix_kind(k, num_args), has_real_arg(m_manager, num_args, args, m_real_decl));
     }
