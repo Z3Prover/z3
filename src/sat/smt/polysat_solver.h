@@ -115,6 +115,8 @@ namespace polysat {
         void internalize_bit2bool(app* n);
         template<bool Signed, bool Reverse, bool Negated>
         void internalize_le(app* n);
+        void internalize_zero_extend(app* n);
+        void internalize_sign_extend(app* n);
         void internalize_udiv_i(app* e);
         void internalize_urem_i(app* e);
         void internalize_div_rem(app* e, bool is_div);

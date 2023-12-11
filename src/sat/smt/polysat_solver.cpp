@@ -30,9 +30,6 @@ The result of polysat::core::check is one of:
 #include "sat/smt/polysat/ule_constraint.h"
 #include "sat/smt/polysat/umul_ovfl_constraint.h"
 
-
-
-
 namespace polysat {
 
     solver::solver(euf::solver& ctx, theory_id id):
@@ -288,11 +285,13 @@ namespace polysat {
             expr* n = bv.mk_numeral(p.val(), p.power_of_2());
             return expr_ref(n, m);
         }
-        auto lo = pdd2expr(p.lo());
-        auto hi = pdd2expr(p.hi());
         auto v = var2enode(m_pddvar2var[p.var()]);
-        hi = bv.mk_bv_mul(v->get_expr(), hi);
-        return expr_ref(bv.mk_bv_add(lo, hi), m);
+        expr* r = v->get_expr();
+        if (!p.hi().is_one())
+            r = bv.mk_bv_mul(r, pdd2expr(p.hi()));
+        if (!p.lo().is_zero())
+            r = bv.mk_bv_add(r, pdd2expr(p.lo()));
+        return expr_ref(r, m);
     }
 
     // walk the egraph starting with pvar for overlaps.
