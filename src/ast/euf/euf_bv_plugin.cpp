@@ -343,7 +343,8 @@ namespace euf {
         enode* hi = mk_extract(n, cut, w - 1);
         enode* lo = mk_extract(n, 0, cut - 1);        
         auto& i = info(n);
-        SASSERT(i.value);
+        if (!i.value)
+            i.value = n;
         i.hi = hi;
         i.lo = lo;
         i.cut = cut;

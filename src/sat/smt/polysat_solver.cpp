@@ -40,7 +40,7 @@ namespace polysat {
         m_intblast(ctx),
         m_lemma(ctx.get_manager())
     {
-        ctx.get_egraph().add_plugin(alloc(euf::bv_plugin, ctx.get_egraph()));
+        // ctx.get_egraph().add_plugin(alloc(euf::bv_plugin, ctx.get_egraph()));
     }
 
     unsigned solver::get_bv_size(euf::enode* n) {

@@ -45,6 +45,7 @@ namespace intblast {
         arith_util a;
         scoped_ptr<::solver> m_solver;
         obj_map<expr, var_info> m_vars;
+        obj_map<func_decl, func_decl*> m_new_funs;
         expr_ref_vector m_trail;
         sat::literal_vector m_core;
 
@@ -62,6 +63,8 @@ namespace intblast {
         sat::literal_vector const& unsat_core();
 
         rational get_value(expr* e) const;
+
+        std::ostream& display(std::ostream& out) const;
     };
 
 }

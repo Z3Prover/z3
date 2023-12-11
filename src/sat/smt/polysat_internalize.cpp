@@ -84,9 +84,9 @@ namespace polysat {
         case OP_BMUL:             internalize_binary(a, [&](pdd const& p, pdd const& q) { return p * q; }); break;
         case OP_BADD:             internalize_binary(a, [&](pdd const& p, pdd const& q) { return p + q; }); break;
         case OP_BSUB:             internalize_binary(a, [&](pdd const& p, pdd const& q) { return p - q; }); break;
-        case OP_BLSHR:            internalize_binary(a, [&](pdd const& p, pdd const& q) { return m_core.lshr(p, q); }); break;
-        case OP_BSHL:             internalize_binary(a, [&](pdd const& p, pdd const& q) { return m_core.shl(p, q); }); break;
-        case OP_BAND:             internalize_binary(a, [&](pdd const& p, pdd const& q) { return m_core.band(p, q); }); break;
+        case OP_BLSHR:            internalize_lshr(a); break;
+        case OP_BSHL:             internalize_shl(a); break;
+        case OP_BAND:             internalize_band(a); break;
         case OP_BOR:              internalize_bor(a); break;
         case OP_BXOR:             internalize_bxor(a); break;
         case OP_BNAND:            if_unary(m_core.bnot); internalize_bnand(a); break;
@@ -229,6 +229,34 @@ namespace polysat {
     void solver::internalize_bxnor(app* n) {
         internalize_binary(n, [&](expr* const& x, expr* const& y) { return bv.mk_bv_not(bv.mk_bv_xor(x, y)); });
     }
+
+    void solver::internalize_band(app* n) {
+        if (n->get_num_args() == 2) {
+            expr* x, * y;
+            VERIFY(bv.is_bv_and(n, x, y));
+            m_core.band(expr2pdd(n), expr2pdd(x), expr2pdd(y));
+        }
+        else {
+            expr_ref z(n->get_arg(0), m);
+            for (unsigned i = 1; i < n->get_num_args(); ++i) {
+                z = bv.mk_bv_and(z, n->get_arg(i));
+                ctx.internalize(z);
+            }
+            internalize_set(n, expr2pdd(z));
+        }
+    }
+
+    void solver::internalize_lshr(app* n) {
+        expr* x, * y;
+        VERIFY(bv.is_bv_lshr(n, x, y));
+        m_core.lshr(expr2pdd(n), expr2pdd(x), expr2pdd(y));
+    }
+
+    void solver::internalize_shl(app* n) {
+        expr* x, * y;
+        VERIFY(bv.is_bv_shl(n, x, y));
+        m_core.shl(expr2pdd(n), expr2pdd(x), expr2pdd(y));
+    }  
 
     void solver::internalize_urem_i(app* rem) {
         expr* x, *y;
@@ -389,14 +417,12 @@ namespace polysat {
     }
 
     void solver::internalize_extract(app* e) {
-        auto p = var2pdd(expr2enode(e)->get_th_var(get_id()));
-        internalize_set(e, p);
+        var2pdd(expr2enode(e)->get_th_var(get_id()));
     }
 
     void solver::internalize_concat(app* e) {
         SASSERT(bv.is_concat(e));
-        auto p = var2pdd(expr2enode(e)->get_th_var(get_id()));
-        internalize_set(e, p);
+        var2pdd(expr2enode(e)->get_th_var(get_id()));
     }
 
     void solver::internalize_par_unary(app* e, std::function<pdd(pdd,unsigned)> const& fn) {

@@ -82,6 +82,7 @@ namespace intblast {
         m_core.reset();
         m_vars.reset();
         m_trail.reset();
+        m_new_funs.reset();
         m_solver = mk_smt2_solver(m, s.params(), symbol::null);
 
         expr_ref_vector es(m);
@@ -228,12 +229,19 @@ namespace intblast {
                 }
                 continue;
             }
+            
+            if (m.is_ite(e)) {
+                m_trail.push_back(m.mk_ite(args.get(0), args.get(1), args.get(2)));
+                translated.insert(e, m_trail.back());
+                continue;
+            }
 
             if (ap->get_family_id() != bv.get_family_id()) {
                 bool has_bv_arg = any_of(*ap, [&](expr* arg) { return bv.is_bv(arg); });
                 bool has_bv_sort = bv.is_bv(e);
                 func_decl* f = ap->get_decl();
                 if (has_bv_arg) {
+                    verbose_stream() << mk_pp(ap, m) << "\n";
                     // need to update args with mod where they are bit-vectors.
                     NOT_IMPLEMENTED_YET();
                 }
@@ -245,13 +253,16 @@ namespace intblast {
                         domain.push_back(bv.is_bv_sort(s) ? a.mk_int() : s);
                     }
                     sort* range = bv.is_bv(e) ? a.mk_int() : e->get_sort();
-                    f = m.mk_fresh_func_decl(ap->get_decl()->get_name(), symbol("bv"), domain.size(), domain.data(), range);
+                    func_decl* g = nullptr;
+                    if (!m_new_funs.find(f, g)) {
+                        g = m.mk_fresh_func_decl(ap->get_decl()->get_name(), symbol("bv"), domain.size(), domain.data(), range);
+                        m_new_funs.insert(f, g);
+                    }
+                    f = g;
                 }
                 
                 m_trail.push_back(m.mk_app(f, args));
                 translated.insert(e, m_trail.back());
-
-                verbose_stream() << "translate " << mk_pp(e, m) << " " << has_bv_sort << "\n";
 
                 if (has_bv_sort) 
                     m_vars.insert(e, { m_trail.back(), bv_size() });
@@ -329,7 +340,7 @@ namespace intblast {
                     unsigned sz = hi - lo + 1;
                     expr* new_arg = args.get(0);
                     if (lo > 0)
-                        new_arg = a.mk_div(new_arg, a.mk_int(rational::power_of_two(lo)));
+                        new_arg = a.mk_idiv(new_arg, a.mk_int(rational::power_of_two(lo)));
                     m_trail.push_back(new_arg);
                     break;
                 }   
@@ -386,12 +397,19 @@ namespace intblast {
                 default:
                     verbose_stream() << mk_pp(e, m) << "\n";
                     NOT_IMPLEMENTED_YET();
-            }
-            verbose_stream() << "insert " << mk_pp(e, m) << " -> " << mk_pp(m_trail.back(), m) << "\n";
+            }            
             translated.insert(e, m_trail.back());
         }
+
+        TRACE("bv",
+            for (unsigned i = 0; i < es.size(); ++i)
+                tout << mk_pp(es.get(i), m) << " -> " << mk_pp(translated[es.get(i)], m) << "\n";
+        );
+
         for (unsigned i = 0; i < es.size(); ++i) 
             es[i] = translated[es.get(i)];
+
+
     }
 
     rational solver::get_value(expr* e) const {
@@ -412,6 +430,12 @@ namespace intblast {
 
     sat::literal_vector const& solver::unsat_core() {
         return m_core;
+    }
+
+    std::ostream& solver::display(std::ostream& out) const {
+        if (m_solver)
+            m_solver->display(out);
+        return out;
     }
 
 }
