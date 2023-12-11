@@ -411,6 +411,12 @@ public:
     MATCH_BINARY(is_bv_sdiv);
     MATCH_BINARY(is_bv_udiv);
     MATCH_BINARY(is_bv_smod);
+    MATCH_BINARY(is_bv_and);
+    MATCH_BINARY(is_bv_or);
+    MATCH_BINARY(is_bv_xor);
+    MATCH_BINARY(is_bv_nand);
+    MATCH_BINARY(is_bv_nor);
+
 
     MATCH_BINARY(is_bv_uremi);
     MATCH_BINARY(is_bv_sremi);
