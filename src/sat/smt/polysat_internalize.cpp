@@ -135,8 +135,8 @@ namespace polysat {
 
         case OP_EXTRACT:          internalize_extract(a); break;
         case OP_CONCAT:           internalize_concat(a); break;
-        case OP_ZERO_EXT:         internalize_par_unary(a, [&](pdd const& p, unsigned sz) { return m_core.zero_ext(p, sz); }); break;
-        case OP_SIGN_EXT:         internalize_par_unary(a, [&](pdd const& p, unsigned sz) { return m_core.sign_ext(p, sz); }); break;
+        case OP_ZERO_EXT:         internalize_zero_extend(a); break;
+        case OP_SIGN_EXT:         internalize_sign_extend(a); break; 
 
             // polysat::solver should also support at least:
         case OP_BREDAND: // x == 2^K - 1        unary, return single bit, 1 if all input bits are set.
@@ -282,7 +282,38 @@ namespace polysat {
             add_polysat_clause("[axiom] quot_rem 4", { c_eq, ~m_core.ule(b, r) }, false);
         if (!c_eq.is_always_false())
             add_polysat_clause("[axiom] quot_rem 5", { ~c_eq, m_core.eq(q + 1) }, false);
+    }
 
+    void solver::internalize_sign_extend(app* e) {
+        expr* arg = e->get_arg(0);        
+        unsigned sz = bv.get_bv_size(e);
+        unsigned arg_sz = bv.get_bv_size(arg);
+        unsigned sz2 = sz - arg_sz;
+
+        var2pdd(expr2enode(e)->get_th_var(get_id()));
+
+        if (arg_sz == sz) 
+            add_clause(eq_internalize(e, arg), false);            
+        else {
+            sat::literal lt0 = ctx.mk_literal(bv.mk_slt(arg, bv.mk_numeral(0, arg_sz)));
+            // arg < 0 ==> e = concat(arg, 1...1)
+            // arg >= 0 ==> e = concat(arg, 0...0)
+            add_clause(lt0, eq_internalize(e, bv.mk_concat(arg, bv.mk_numeral(rational::power_of_two(sz2) - 1, sz2))), false);
+            add_clause(~lt0, eq_internalize(e, bv.mk_concat(arg, bv.mk_numeral(0, sz - arg_sz))), false);
+        }
+    }
+
+    void solver::internalize_zero_extend(app* e) {
+        expr* arg = e->get_arg(0);
+        unsigned sz = bv.get_bv_size(e);
+        unsigned arg_sz = bv.get_bv_size(arg);
+        unsigned sz2 = sz - arg_sz;
+        var2pdd(expr2enode(e)->get_th_var(get_id()));
+        if (arg_sz == sz)
+            add_clause(eq_internalize(e, arg), false);
+        else 
+            // e = concat(arg, 0...0)
+            add_clause(eq_internalize(e, bv.mk_concat(arg, bv.mk_numeral(0, sz - arg_sz))), false);        
     }
 
     void solver::internalize_div_rem(app* e, bool is_div) {
@@ -332,20 +363,13 @@ namespace polysat {
     }
 
     void solver::internalize_extract(app* e) {
-        unsigned const hi = bv.get_extract_high(e);
-        unsigned const lo = bv.get_extract_low(e);
-        auto const src = expr2pdd(e->get_arg(0));
-        auto const p = m_core.extract(src, hi, lo);
-        SASSERT_EQ(p.power_of_2(), hi - lo + 1);
+        auto p = var2pdd(expr2enode(e)->get_th_var(get_id()));
         internalize_set(e, p);
     }
 
     void solver::internalize_concat(app* e) {
         SASSERT(bv.is_concat(e));
-        vector<pdd> args;
-        for (expr* arg : *e)
-            args.push_back(expr2pdd(arg));
-        auto const p = m_core.concat(args.size(), args.data());
+        auto p = var2pdd(expr2enode(e)->get_th_var(get_id()));
         internalize_set(e, p);
     }
 

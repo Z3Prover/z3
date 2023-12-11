@@ -125,10 +125,6 @@ namespace polysat {
         pdd bxnor(pdd a, pdd b) { NOT_IMPLEMENTED_YET();  throw default_exception("bxnor nyi"); }
         pdd bnor(pdd a, pdd b) { NOT_IMPLEMENTED_YET();  throw default_exception("bnotr nyi"); }
         pdd bnot(pdd a) { NOT_IMPLEMENTED_YET();  throw default_exception("bnot nyi"); }
-        pdd zero_ext(pdd a, unsigned sz) { NOT_IMPLEMENTED_YET();  throw default_exception("zero ext nyi"); }
-        pdd sign_ext(pdd a, unsigned sz) { NOT_IMPLEMENTED_YET();  throw default_exception("sign ext nyi"); }
-        pdd extract(pdd src, unsigned hi, unsigned lo) { NOT_IMPLEMENTED_YET();  throw default_exception("extract nyi"); }
-        pdd concat(unsigned n, pdd const* args) { NOT_IMPLEMENTED_YET();  throw default_exception("concat nyi"); }
         pvar add_var(unsigned sz);
         pdd var(pvar p) { return m_vars[p]; }
         unsigned size(pvar v) const { return m_vars[v].power_of_2(); }
