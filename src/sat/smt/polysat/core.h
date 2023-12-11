@@ -119,12 +119,9 @@ namespace polysat {
         pdd ashr(pdd a, pdd b) { NOT_IMPLEMENTED_YET();  throw default_exception("ashr nyi"); }
         pdd shl(pdd a, pdd b) { NOT_IMPLEMENTED_YET();  throw default_exception("shlh nyi"); }
         pdd band(pdd a, pdd b) { NOT_IMPLEMENTED_YET();  throw default_exception("band nyi"); }
-        pdd bxor(pdd a, pdd b) { NOT_IMPLEMENTED_YET();  throw default_exception("bxor nyi"); }
-        pdd bor(pdd a, pdd b) { NOT_IMPLEMENTED_YET();  throw default_exception("bir ==nyi"); }
-        pdd bnand(pdd a, pdd b) { NOT_IMPLEMENTED_YET();  throw default_exception("bnand nyi"); }
-        pdd bxnor(pdd a, pdd b) { NOT_IMPLEMENTED_YET();  throw default_exception("bxnor nyi"); }
-        pdd bnor(pdd a, pdd b) { NOT_IMPLEMENTED_YET();  throw default_exception("bnotr nyi"); }
-        pdd bnot(pdd a) { NOT_IMPLEMENTED_YET();  throw default_exception("bnot nyi"); }
+        pdd bnot(pdd a) { return -a - 1; }
+
+        
         pvar add_var(unsigned sz);
         pdd var(pvar p) { return m_vars[p]; }
         unsigned size(pvar v) const { return m_vars[v].power_of_2(); }

@@ -98,6 +98,7 @@ namespace polysat {
         void add_def(sat::literal def, sat::literal l);
         void internalize_unary(app* e, std::function<pdd(pdd)> const& fn);
         void internalize_binary(app* e, std::function<pdd(pdd, pdd)> const& fn);
+        void internalize_binary(app* e, std::function<expr*(expr*, expr*)> const& fn);
         void internalize_binaryc(app* e, std::function<signed_constraint(pdd, pdd)> const& fn);
         void internalize_par_unary(app* e, std::function<pdd(pdd,unsigned)> const& fn);
         void internalize_novfl(app* n, std::function<void(unsigned, expr* const*, expr* const*, expr_ref&)>& fn);
@@ -113,6 +114,11 @@ namespace polysat {
         void internalize_extract(app* n);
         void internalize_repeat(app* n);
         void internalize_bit2bool(app* n);
+        void internalize_bor(app* n);
+        void internalize_bxor(app* n);
+        void internalize_bnor(app* n);
+        void internalize_bnand(app* n);
+        void internalize_bxnor(app* n);
         template<bool Signed, bool Reverse, bool Negated>
         void internalize_le(app* n);
         void internalize_zero_extend(app* n);

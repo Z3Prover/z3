@@ -87,11 +87,11 @@ namespace polysat {
         case OP_BLSHR:            internalize_binary(a, [&](pdd const& p, pdd const& q) { return m_core.lshr(p, q); }); break;
         case OP_BSHL:             internalize_binary(a, [&](pdd const& p, pdd const& q) { return m_core.shl(p, q); }); break;
         case OP_BAND:             internalize_binary(a, [&](pdd const& p, pdd const& q) { return m_core.band(p, q); }); break;
-        case OP_BOR:              internalize_binary(a, [&](pdd const& p, pdd const& q) { return m_core.bor(p, q); }); break;
-        case OP_BXOR:             internalize_binary(a, [&](pdd const& p, pdd const& q) { return m_core.bxor(p, q); }); break;
-        case OP_BNAND:            if_unary(m_core.bnot); internalize_binary(a, [&](pdd const& p, pdd const& q) { return m_core.bnand(p, q); }); break;
-        case OP_BNOR:             if_unary(m_core.bnot); internalize_binary(a, [&](pdd const& p, pdd const& q) { return m_core.bnor(p, q); }); break;
-        case OP_BXNOR:            if_unary(m_core.bnot); internalize_binary(a, [&](pdd const& p, pdd const& q) { return m_core.bxnor(p, q); }); break;
+        case OP_BOR:              internalize_bor(a); break;
+        case OP_BXOR:             internalize_bxor(a); break;
+        case OP_BNAND:            if_unary(m_core.bnot); internalize_bnand(a); break;
+        case OP_BNOR:             if_unary(m_core.bnot); internalize_bnor(a); break;
+        case OP_BXNOR:            if_unary(m_core.bnot); internalize_bxnor(a); break;
         case OP_BNOT:             internalize_unary(a, [&](pdd const& p) { return m_core.bnot(p); }); break;
         case OP_BNEG:             internalize_unary(a, [&](pdd const& p) { return -p; }); break;
         case OP_MKBV:             internalize_mkbv(a); break;
@@ -200,6 +200,34 @@ namespace polysat {
         else
             UNREACHABLE();
         internalize(rm);
+    }
+
+    // From "Hacker's Delight", section 2-2. Addition Combined with Logical Operations;
+    // found via Int-Blasting paper; see https://doi.org/10.1007/978-3-030-94583-1_24
+    // (p + q) - band(p, q);
+    void solver::internalize_bor(app* n) { 
+        internalize_binary(n, [&](expr* const& x, expr* const& y) { return bv.mk_bv_sub(bv.mk_bv_add(x, y), bv.mk_bv_and(x, y)); });   
+    }
+
+    // From "Hacker's Delight", section 2-2. Addition Combined with Logical Operations;
+    // found via Int-Blasting paper; see https://doi.org/10.1007/978-3-030-94583-1_24
+    // (p + q) - 2*band(p, q);
+    void solver::internalize_bxor(app* n) {
+        internalize_binary(n, [&](expr* const& x, expr* const& y) { 
+            return bv.mk_bv_sub(bv.mk_bv_add(x, y), bv.mk_bv_add(bv.mk_bv_and(x, y), bv.mk_bv_and(x, y))); 
+            });
+    }
+
+    void solver::internalize_bnor(app* n) {
+        internalize_binary(n, [&](expr* const& x, expr* const& y) { return bv.mk_bv_not(bv.mk_bv_or(x, y)); });
+    }
+
+    void solver::internalize_bnand(app* n) {
+        internalize_binary(n, [&](expr* const& x, expr* const& y) { return bv.mk_bv_not(bv.mk_bv_and(x, y)); });
+    }
+
+    void solver::internalize_bxnor(app* n) {
+        internalize_binary(n, [&](expr* const& x, expr* const& y) { return bv.mk_bv_not(bv.mk_bv_xor(x, y)); });
     }
 
     void solver::internalize_urem_i(app* rem) {
@@ -317,7 +345,7 @@ namespace polysat {
     void solver::internalize_div_rem(app* e, bool is_div) {
         bv_rewriter_params p(s().params());
         if (p.hi_div0()) {
-            if (bv.is_bv_udivi(e))
+            if (is_div)
                 internalize_udiv_i(e);
             else
                 internalize_urem_i(e);
@@ -383,6 +411,15 @@ namespace polysat {
         for (unsigned i = 1; i < e->get_num_args(); ++i) 
             p = fn(p, expr2pdd(e->get_arg(i)));
         internalize_set(e, p);
+    }
+
+    void solver::internalize_binary(app* e, std::function<expr* (expr*, expr*)> const& fn) {
+        SASSERT(e->get_num_args() >= 1);
+        expr* r = e->get_arg(0);
+        for (unsigned i = 1; i < e->get_num_args(); ++i)
+            r = fn(r, e->get_arg(i));
+        ctx.internalize(r);
+        internalize_set(e, var2pdd(expr2enode(r)->get_th_var(get_id())));
     }
 
     void solver::internalize_unary(app* e, std::function<pdd(pdd)> const& fn) {
