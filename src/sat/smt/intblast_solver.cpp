@@ -423,7 +423,8 @@ namespace intblast {
                     r = m.mk_ite(a.mk_eq(y, a.mk_int(i)), a.mk_idiv(x, a.mk_int(rational::power_of_two(i))), r);
                 m_trail.push_back(r);
                 break;
-            }                  
+            }                 
+            // Or use (p + q) - band(p, q)?
             case OP_BOR:
                 for (unsigned i = 0; i < args.size(); ++i)
                     args[i] = bnot(args.get(i));
@@ -435,8 +436,22 @@ namespace intblast {
             case OP_BAND:
                 m_trail.push_back(band(args));
                 break;
-            case OP_BXOR:
+            // From "Hacker's Delight", section 2-2. Addition Combined with Logical Operations;
+            // found via Int-Blasting paper; see https://doi.org/10.1007/978-3-030-94583-1_24
+            // (p + q) - 2*band(p, q);
             case OP_BXNOR:
+            case OP_BXOR: {
+                unsigned sz = bv.get_bv_size(e);
+                expr* p = args.get(0);
+                for (unsigned i = 1; i < args.size(); ++i) {
+                    expr* q = args.get(i);
+                    p = a.mk_sub(a.mk_add(p, q), a.mk_mul(a.mk_int(2), a.mk_band(sz, p, q)));
+                }
+                if (ap->get_decl_kind() == OP_BXNOR)
+                    p = bnot(p);
+                m_trail.push_back(p);
+                break;
+            }
             case OP_BCOMP:
             case OP_BASHR:
             case OP_ROTATE_LEFT:
