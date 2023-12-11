@@ -139,6 +139,7 @@ namespace intblast {
 
         rational get_value(expr* e) const;
 
+
     };
 
 }

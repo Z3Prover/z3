@@ -119,6 +119,9 @@ namespace polysat {
         void internalize_bnor(app* n);
         void internalize_bnand(app* n);
         void internalize_bxnor(app* n);
+        void internalize_band(app* n);
+        void internalize_lshr(app* n);
+        void internalize_shl(app* n);
         template<bool Signed, bool Reverse, bool Negated>
         void internalize_le(app* n);
         void internalize_zero_extend(app* n);
@@ -172,7 +175,7 @@ namespace polysat {
         std::ostream& display_justification(std::ostream& out, sat::ext_justification_idx idx) const override;
         std::ostream& display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const override;
         void collect_statistics(statistics& st) const override {}
-        euf::th_solver* clone(euf::solver& ctx) override { throw default_exception("nyi"); }
+        euf::th_solver* clone(euf::solver& ctx) override { return alloc(solver, ctx, get_id()); }
         extension* copy(sat::solver* s) override { throw default_exception("nyi"); }
         void find_mutexes(literal_vector& lits, vector<literal_vector> & mutexes) override {}
         void gc() override {}
@@ -190,6 +193,7 @@ namespace polysat {
         bool unit_propagate() override;
 
         void add_value(euf::enode* n, model& mdl, expr_ref_vector& values) override;
+        bool add_dep(euf::enode* n, top_sort<euf::enode>& dep) override;
 
         bool extract_pb(std::function<void(unsigned sz, literal const* c, unsigned k)>& card,
                         std::function<void(unsigned sz, literal const* c, unsigned const* coeffs, unsigned k)>& pb) override { return false; }

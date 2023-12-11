@@ -237,6 +237,7 @@ namespace intblast {
         m_core.reset();
         m_vars.reset();
         m_trail.reset();
+        m_new_funs.reset();
         m_solver = mk_smt2_solver(m, s.params(), symbol::null);
 
         expr_ref_vector es(m);
