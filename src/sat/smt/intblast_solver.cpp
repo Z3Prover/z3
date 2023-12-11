@@ -234,6 +234,8 @@ namespace intblast {
         }
 
         m_core.reset();
+        m_vars.reset();
+        m_trail.reset();
         m_solver = mk_smt2_solver(m, s.params(), symbol::null);
 
         expr_ref_vector es(m);
@@ -244,11 +246,18 @@ namespace intblast {
 
         for (auto const& [src, vi] : m_vars) {
             auto const& [v, b] = vi;
+            verbose_stream() << "asserting " << mk_pp(v, m) << " < " << b << "\n";
             m_solver->assert_expr(a.mk_le(a.mk_int(0), v));
             m_solver->assert_expr(a.mk_lt(v, a.mk_int(b)));
         }
+
+        verbose_stream() << "check\n";
+        m_solver->display(verbose_stream());
+        verbose_stream() << es << "\n";
                
         lbool r = m_solver->check_sat(es);
+
+        verbose_stream() << "result " << r << "\n";
 
         if (r == l_false) {
             expr_ref_vector core(m);
@@ -586,7 +595,6 @@ namespace intblast {
             }
             break;
         }
-<<<<<<< HEAD
         case OP_EXTRACT: {
             unsigned lo, hi;
             expr* old_arg;
@@ -860,10 +868,6 @@ namespace intblast {
             set_translated(e, e);
         else
             set_translated(e, m.mk_app(e->get_decl(), m_args));
-=======
-        for (unsigned i = 0; i < es.size(); ++i) 
-            es[i] = translated[es.get(i)];
->>>>>>> 09c2e0dd6 (integrate intblast solver)
     }
 
     rational solver::get_value(expr* e) const {

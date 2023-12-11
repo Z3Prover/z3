@@ -343,4 +343,22 @@ namespace polysat {
         return eval(a.apply_to(lhs()), a.apply_to(rhs()));
     }
 
+    bool ule_constraint::is_always_true() const {
+        if (lhs().is_zero())
+            return true;      // 0 <= p
+        if (rhs().is_max())
+            return true;      // p <= -1
+        if (lhs().is_val() && rhs().is_val())
+            return lhs().val() <= rhs().val();
+        return false;
+    }
+
+    bool ule_constraint::is_always_false() const {
+        if (lhs().is_never_zero() && rhs().is_zero())
+            return true;      // p > 0, q = 0
+        if (lhs().is_val() && rhs().is_val())
+            return lhs().val() > rhs().val();
+        return false;
+    }
+
 }

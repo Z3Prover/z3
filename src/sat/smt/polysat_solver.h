@@ -113,10 +113,10 @@ namespace polysat {
         void internalize_extract(app* n);
         void internalize_repeat(app* n);
         void internalize_bit2bool(app* n);
-        void internalize_udiv_i(app* n);
         template<bool Signed, bool Reverse, bool Negated>
         void internalize_le(app* n);
-        void internalize_div_rem_i(app* e, bool is_div);
+        void internalize_udiv_i(app* e);
+        void internalize_urem_i(app* e);
         void internalize_div_rem(app* e, bool is_div);
         void internalize_polysat(app* a);
         void assert_bv2int_axiom(app * n);
@@ -126,6 +126,8 @@ namespace polysat {
         pdd var2pdd(euf::theory_var v);
         void internalize_set(expr* e, pdd const& p);
         void internalize_set(euf::theory_var v, pdd const& p);
+        std::pair<pdd, pdd> quot_rem(expr* x, expr* y);
+
 
         // callbacks from core
         void add_eq_literal(pvar v, rational const& val) override;
@@ -137,8 +139,7 @@ namespace polysat {
         bool inconsistent() const override;
         void get_bitvector_prefixes(pvar v, pvar_vector& out) override;
         void get_fixed_bits(pvar v, svector<justified_fixed_bits>& fixed_bits) override;
-
-        void add_lemma(vector<signed_constraint> const& lemma);
+        void add_polysat_clause(char const* name, std::initializer_list<signed_constraint> cs, bool is_redundant);
 
         std::pair<sat::literal_vector, euf::enode_pair_vector> explain_deps(dependency_vector const& deps);
 

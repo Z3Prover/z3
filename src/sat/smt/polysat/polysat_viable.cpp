@@ -90,6 +90,8 @@ namespace polysat {
     }
 
     lbool viable::find_viable(pvar v, rational& lo, rational& hi) {
+        return l_undef;
+
         fixed_bits_info fbi;
 
 #if 0
@@ -1007,7 +1009,7 @@ namespace polysat {
     }
 
     void viable::log(pvar v) {
-        throw default_exception("nyi");
+      // 
     }
 
 

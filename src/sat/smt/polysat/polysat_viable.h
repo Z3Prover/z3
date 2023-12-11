@@ -186,36 +186,36 @@ namespace polysat {
 
         template <bool FORWARD>
         bool refine_viable(pvar v, rational const& val, fixed_bits_info const& fbi) {
-            throw default_exception("nyi");
+            throw default_exception("refine nyi");
         }
 
         bool refine_viable(pvar v, rational const& val) {
-            throw default_exception("nyi");
+            throw default_exception("refine nyi");
         }
 
         template <bool FORWARD>
         bool refine_bits(pvar v, rational const& val, fixed_bits_info const& fbi) {
-            throw default_exception("nyi");
+            throw default_exception("refine nyi");
         }
 
         template <bool FORWARD>
         entry* refine_bits(pvar v, rational const& val, unsigned num_bits, fixed_bits_info const& fbi) {
-            throw default_exception("nyi");
+            throw default_exception("refine nyi");
         }
 
         bool refine_equal_lin(pvar v, rational const& val) {
-            throw default_exception("nyi");
+            throw default_exception("refine nyi");
         }
 
         bool refine_disequal_lin(pvar v, rational const& val) {
-            throw default_exception("nyi");
+            throw default_exception("refine nyi");
         }
 
         void set_conflict_by_interval(pvar v, unsigned w, ptr_vector<entry>& intervals, unsigned first_interval);
         bool set_conflict_by_interval_rec(pvar v, unsigned w, entry** intervals, unsigned num_intervals, bool& create_lemma, uint_set& vars_to_explain);
 
         std::pair<entry*, bool> find_value(rational const& val, entry* entries) {
-            throw default_exception("nyi");
+            throw default_exception("fine_value nyi");
         }
 
         bool collect_bit_information(pvar v, bool add_conflict, fixed_bits_info& out_fbi);

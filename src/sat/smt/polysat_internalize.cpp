@@ -1,4 +1,4 @@
-/*++
+﻿/*++
 Copyright (c) 2022 Microsoft Corporation
 
 Module Name:
@@ -22,7 +22,9 @@ Author:
 namespace polysat {
 
     euf::theory_var solver::mk_var(euf::enode* n) {
-        return euf::th_euf_solver::mk_var(n);
+        theory_var v = euf::th_euf_solver::mk_var(n);
+        ctx.attach_th_var(n, this, v);
+        return v;
     }
 
     sat::literal solver::internalize(expr* e, bool sign, bool root) {
@@ -115,12 +117,13 @@ namespace polysat {
         case OP_BSADD_OVFL:
         case OP_BUSUB_OVFL:
         case OP_BSSUB_OVFL:
+            verbose_stream() << mk_pp(a, m) << "\n";
             // handled by bv_rewriter for now
             UNREACHABLE();
             break;
 
-        case OP_BUDIV_I:          internalize_div_rem_i(a, true); break;
-        case OP_BUREM_I:          internalize_div_rem_i(a, false); break;
+        case OP_BUDIV_I:          internalize_udiv_i(a); break;
+        case OP_BUREM_I:          internalize_urem_i(a); break;
 
         case OP_BUDIV:            internalize_div_rem(a, true); break;
         case OP_BUREM:            internalize_div_rem(a, false); break;
@@ -187,17 +190,93 @@ namespace polysat {
         mk_atom(lit.var(), sc);
     }
 
-    void solver::internalize_div_rem_i(app* e, bool is_div) {
-        auto p = expr2pdd(e->get_arg(0));
-        auto q = expr2pdd(e->get_arg(1));
-        auto [quot, rem] = m_core.quot_rem(p, q);
-        internalize_set(e, is_div ? quot : rem);        
+    void solver::internalize_udiv_i(app* e) {
+        expr* x, *y;
+        VERIFY(bv.is_bv_udivi(e, x, y) || bv.is_bv_udiv(e, x, y));
+        app_ref rm(bv.mk_bv_urem_i(x, y), m);
+        internalize(rm);
+    }
+
+    void solver::internalize_urem_i(app* e) {
+        expr* x, *y;
+        if (expr2enode(e))
+            return;
+        VERIFY(bv.is_bv_uremi(e, x, y) || bv.is_bv_urem(e, x, y));
+        auto [quot, rem] = quot_rem(x, y);
+        internalize_set(e, rem);
+        internalize_set(bv.mk_bv_udiv_i(x, y), quot);
+    }
+
+    std::pair<pdd, pdd> solver::quot_rem(expr* x, expr* y) {
+        pdd a = expr2pdd(x);
+        pdd b = expr2pdd(y);
+        auto& m = a.manager();
+        unsigned sz = m.power_of_2();
+        if (b.is_zero())
+            // By SMT-LIB specification, b = 0 ==> q = -1, r = a.
+            return { m.mk_val(m.max_value()), a };
+
+        if (b.is_one())
+            return { a, m.zero() };
+
+        if (a.is_val() && b.is_val()) {
+            rational const av = a.val();
+            rational const bv = b.val();
+            SASSERT(!bv.is_zero());
+            rational rv;
+            rational qv = machine_div_rem(av, bv, rv);
+            pdd q = m.mk_val(qv);
+            pdd r = m.mk_val(rv);
+            SASSERT_EQ(a, b * q + r);
+            SASSERT(b.val() * q.val() + r.val() <= m.max_value());
+            SASSERT(r.val() <= (b * q + r).val());
+            SASSERT(r.val() < b.val());
+            return { std::move(q), std::move(r) };
+        }
+        
+        expr* quot = bv.mk_bv_udiv_i(x, y);
+        expr* rem = bv.mk_bv_urem_i(x, y);
+
+        ctx.internalize(quot);
+        ctx.internalize(rem);
+        auto quotv = expr2enode(quot)->get_th_var(get_id());
+        auto remv  = expr2enode(rem)->get_th_var(get_id());
+
+        pdd q = var2pdd(quotv);
+        pdd r = var2pdd(remv);
+
+        // Axioms for quotient/remainder
+        // 
+        //      a = b*q + r
+        //      multiplication does not overflow in b*q
+        //      addition does not overflow in (b*q) + r; for now expressed as: r <= bq+r
+        //      b ≠ 0  ==>  r < b
+        //      b = 0  ==>  q = -1
+        // TODO: when a,b become evaluable, can we actually propagate q,r? doesn't seem like it.
+        //       Maybe we need something like an op_constraint for better propagation.
+        add_polysat_clause("[axiom] quot_rem 1", { m_core.eq(b * q + r - a) }, false);
+        add_polysat_clause("[axiom] quot_rem 2", { ~m_core.umul_ovfl(b, q) }, false);
+        // r <= b*q+r
+        //  { apply equivalence:  p <= q  <=>  q-p <= -p-1 }
+        // b*q <= -r-1
+        add_polysat_clause("[axiom] quot_rem 3", { m_core.ule(b * q, -r - 1) }, false);
+
+        auto c_eq = m_core.eq(b);
+        if (!c_eq.is_always_true())
+            add_polysat_clause("[axiom] quot_rem 4", { c_eq, ~m_core.ule(b, r) }, false);
+        if (!c_eq.is_always_false())
+            add_polysat_clause("[axiom] quot_rem 5", { ~c_eq, m_core.eq(q + 1) }, false);
+
+        return { std::move(q), std::move(r) };
     }
 
     void solver::internalize_div_rem(app* e, bool is_div) {
         bv_rewriter_params p(s().params());
         if (p.hi_div0()) {
-            internalize_div_rem_i(e, is_div);
+            if (bv.is_bv_udivi(e))
+                internalize_udiv_i(e);
+            else
+                internalize_urem_i(e);
             return;
         }
         expr* arg1 = e->get_arg(0);
