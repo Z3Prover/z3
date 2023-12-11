@@ -21,10 +21,10 @@ Author:
 #include "util/dependency.h"
 #include "math/dd/dd_pdd.h"
 #include "sat/sat_extension.h"
-#include "sat/smt/polysat/polysat_types.h"
-#include "sat/smt/polysat/polysat_constraints.h"
-#include "sat/smt/polysat/polysat_viable.h"
-#include "sat/smt/polysat/polysat_assignment.h"
+#include "sat/smt/polysat/types.h"
+#include "sat/smt/polysat/constraints.h"
+#include "sat/smt/polysat/viable.h"
+#include "sat/smt/polysat/assignment.h"
 
 namespace polysat {
 
@@ -136,7 +136,7 @@ namespace polysat {
         constraints& cs() { return m_constraints; }
         trail_stack& trail();
 
-        std::ostream& display(std::ostream& out) const { NOT_IMPLEMENTED_YET();  throw default_exception("nyi"); }
+        std::ostream& display(std::ostream& out) const;
     };
 
 }

@@ -28,7 +28,7 @@ polysat::core
 
 --*/
 
-#include "sat/smt/polysat/polysat_core.h"
+#include "sat/smt/polysat/core.h"
 
 namespace polysat {
 
@@ -333,6 +333,17 @@ namespace polysat {
 
     trail_stack& core::trail() {
         return s.trail();
+    }
+
+    std::ostream& core::display(std::ostream& out) const {
+        if (m_constraint_index.empty() && m_vars.empty())
+            return out;
+        out << "polysat:\n";
+        for (auto const& [sc, d, value] : m_constraint_index) 
+            out << sc << " " << d << " := " << value << "\n";        
+        for (unsigned i = 0; i < m_vars.size(); ++i) 
+            out << "p" << m_vars[i] << " := " << m_values[i] << " " << m_justification[i] << "\n";
+        return out;
     }
 
 }

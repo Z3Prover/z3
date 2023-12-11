@@ -11,7 +11,7 @@ Author:
 
 --*/
 #pragma once
-#include "sat/smt/polysat/polysat_constraints.h"
+#include "sat/smt/polysat/constraints.h"
 
 namespace polysat {
 

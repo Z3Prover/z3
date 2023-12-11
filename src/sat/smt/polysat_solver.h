@@ -18,7 +18,7 @@ Author:
 
 #include "sat/smt/sat_th.h"
 #include "math/dd/dd_pdd.h"
-#include "sat/smt/polysat/polysat_core.h"
+#include "sat/smt/polysat/core.h"
 #include "sat/smt/intblast_solver.h"
 
 namespace euf {

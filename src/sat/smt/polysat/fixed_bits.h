@@ -11,8 +11,8 @@ Author:
 
 --*/
 #pragma once
-#include "sat/smt/polysat/polysat_types.h"
-#include "sat/smt/polysat/polysat_constraints.h"
+#include "sat/smt/polysat/types.h"
+#include "sat/smt/polysat/constraints.h"
 #include "util/vector.h"
 
 namespace polysat {

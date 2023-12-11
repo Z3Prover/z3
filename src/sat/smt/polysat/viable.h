@@ -21,8 +21,8 @@ Author:
 #include "util/map.h"
 #include "util/small_object_allocator.h"
 
-#include "sat/smt/polysat/polysat_types.h"
-#include "sat/smt/polysat/polysat_fi.h"
+#include "sat/smt/polysat/types.h"
+#include "sat/smt/polysat/forbidden_intervals.h"
 
 namespace polysat {
 

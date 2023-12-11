@@ -12,7 +12,7 @@ Author:
 --*/
 
 #include "sat/smt/polysat/fixed_bits.h"
-#include "sat/smt/polysat/polysat_ule.h"
+#include "sat/smt/polysat/ule_constraint.h"
 
 namespace polysat {
 

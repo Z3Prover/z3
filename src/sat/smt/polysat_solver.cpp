@@ -27,8 +27,8 @@ The result of polysat::core::check is one of:
 #include "ast/euf/euf_bv_plugin.h"
 #include "sat/smt/polysat_solver.h"
 #include "sat/smt/euf_solver.h"
-#include "sat/smt/polysat/polysat_ule.h"
-#include "sat/smt/polysat/polysat_umul_ovfl.h"
+#include "sat/smt/polysat/ule_constraint.h"
+#include "sat/smt/polysat/umul_ovfl_constraint.h"
 
 
 

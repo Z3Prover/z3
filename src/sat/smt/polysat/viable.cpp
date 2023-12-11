@@ -18,9 +18,9 @@ Notes:
 
 #include "util/debug.h"
 #include "util/log.h"
-#include "sat/smt/polysat/polysat_viable.h"
-#include "sat/smt/polysat/polysat_core.h"
-#include "sat/smt/polysat/polysat_ule.h"
+#include "sat/smt/polysat/viable.h"
+#include "sat/smt/polysat/core.h"
+#include "sat/smt/polysat/ule_constraint.h"
 
 namespace polysat {
 

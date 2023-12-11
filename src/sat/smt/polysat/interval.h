@@ -12,7 +12,7 @@ Author:
 
 --*/
 #pragma once
-#include "sat/smt/polysat/polysat_types.h"
+#include "sat/smt/polysat/types.h"
 #include <optional>
 
 namespace polysat {
