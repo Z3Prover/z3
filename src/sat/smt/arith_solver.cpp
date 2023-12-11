@@ -1197,6 +1197,8 @@ namespace arith {
         default:
             UNREACHABLE();
         }
+        if (lia_check == l_true && !check_band_terms())
+            lia_check = l_false;
         return lia_check;
     }
 

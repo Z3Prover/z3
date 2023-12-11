@@ -205,6 +205,71 @@ namespace arith {
         add_clause(dgez, neg);
     }
 
+    bool solver::check_band_term(app* n) {
+        unsigned sz;
+        expr* x, * y;
+        VERIFY(a.is_band(n, sz, x, y));
+        if (use_nra_model()) {
+            found_unsupported(n);
+            return true;
+        }
+        theory_var vx = expr2enode(x)->get_th_var(get_id());
+        theory_var vy = expr2enode(y)->get_th_var(get_id());
+        theory_var xn = expr2enode(n)->get_th_var(get_id());
+        rational valx = get_value(vx);
+        rational valy = get_value(vy);
+        rational valn = get_value(xn);
+
+        // x mod 2^{i + 1} >= 2^i means the i'th bit is 1.
+        auto bitof = [&](expr* x, unsigned i) { 
+            expr_ref r(m);
+            r = a.mk_ge(a.mk_mod(x, a.mk_int(rational::power_of_two(i+1))), a.mk_int(rational::power_of_two(i)));
+            return mk_literal(r);
+        };
+        for (unsigned i = 0; i < sz; ++i) {
+            bool xb = valx.get_bit(i);
+            bool yb = valy.get_bit(i);
+            bool nb = valn.get_bit(i);
+            if (xb && yb && !nb) {
+                add_clause(~bitof(x, i), ~bitof(y, i), bitof(n, i));
+                return false;
+            }
+            if (nb && !xb) {
+                add_clause(~bitof(n, i), bitof(x, i));
+                return false;
+            }
+            if (nb && !yb) {
+                add_clause(~bitof(n, i), bitof(y, i));
+                return false;
+            }
+        }
+        return true;
+    }
+
+    bool solver::check_band_terms() {
+        for (app* n : m_band_terms) {
+            if (!check_band_term(n))
+                return false;            
+        }
+        return true;
+    }
+
+    /*
+    * 0 <= x&y < 2^sz
+    * x&y <= x
+    * x&y <= y
+    */
+    void solver::mk_band_axiom(app* n) {
+        unsigned sz;
+        expr* x, * y;
+        VERIFY(a.is_band(n, sz, x, y));
+        rational N = rational::power_of_two(sz);
+        add_clause(mk_literal(a.mk_ge(n, a.mk_int(0))));
+        add_clause(mk_literal(a.mk_le(n, a.mk_int(N - 1))));
+        add_clause(mk_literal(a.mk_le(n, a.mk_mod(x, a.mk_int(N)))));
+        add_clause(mk_literal(a.mk_le(n, a.mk_mod(y, a.mk_int(N)))));
+    }
+
     void solver::mk_bound_axioms(api_bound& b) {
         theory_var v = b.get_var();
         lp_api::bound_kind kind1 = b.get_bound_kind();

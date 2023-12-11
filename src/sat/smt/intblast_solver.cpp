@@ -13,6 +13,7 @@ Author:
 
 #include "ast/ast_util.h"
 #include "ast/for_each_expr.h"
+#include "params/bv_rewriter_params.hpp"
 #include "sat/smt/intblast_solver.h"
 #include "sat/smt/euf_solver.h"
 
@@ -25,7 +26,8 @@ namespace intblast {
         m(ctx.get_manager()),
         bv(m),
         a(m),
-        m_trail(m)
+        m_trail(m),
+        m_pinned(m)
     {}
 
     lbool solver::check() {
@@ -82,7 +84,6 @@ namespace intblast {
         m_core.reset();
         m_vars.reset();
         m_trail.reset();
-        m_new_funs.reset();
         m_solver = mk_smt2_solver(m, s.params(), symbol::null);
 
         expr_ref_vector es(m);
@@ -284,6 +285,8 @@ namespace intblast {
                     if (!m_new_funs.find(f, g)) {
                         g = m.mk_fresh_func_decl(ap->get_decl()->get_name(), symbol("bv"), domain.size(), domain.data(), range);
                         m_new_funs.insert(f, g);
+                        m_pinned.push_back(f);
+                        m_pinned.push_back(g);
                     }
                     f = g;
                 }
@@ -452,6 +455,24 @@ namespace intblast {
                 m_trail.push_back(p);
                 break;
             }
+            case OP_BUDIV: {
+                bv_rewriter_params p(ctx.s().params());
+                expr* x = args.get(0), * y = args.get(1);
+                if (p.hi_div0())
+                    m_trail.push_back(m.mk_ite(m.mk_eq(y, a.mk_int(0)), a.mk_int(0), a.mk_idiv(x, y)));
+                else
+                    m_trail.push_back(a.mk_idiv(x, y));
+                break;
+            }
+            case OP_BUREM: {
+                bv_rewriter_params p(ctx.s().params());
+                expr* x = args.get(0), * y = args.get(1);
+                if (p.hi_div0())
+                    m_trail.push_back(m.mk_ite(m.mk_eq(y, a.mk_int(0)), a.mk_int(0), a.mk_mod(x, y)));
+                else
+                    m_trail.push_back(a.mk_mod(x, y));
+                break;
+            }            
             case OP_BCOMP:
             case OP_BASHR:
             case OP_ROTATE_LEFT:
@@ -463,9 +484,7 @@ namespace intblast {
             case OP_SIGN_EXT:
             case OP_BREDOR:
             case OP_BREDAND:
-            case OP_BUDIV:
             case OP_BSDIV:
-            case OP_BUREM:
             case OP_BSREM:
             case OP_BSMOD:
                 verbose_stream() << mk_pp(e, m) << "\n";

@@ -47,13 +47,11 @@ namespace intblast {
         obj_map<expr, var_info> m_vars;
         obj_map<func_decl, func_decl*> m_new_funs;
         expr_ref_vector m_trail;
+        ast_ref_vector m_pinned;
         sat::literal_vector m_core;
-
-
 
         bool is_bv(sat::literal lit);
         void translate(expr_ref_vector& es);
-        void add_root_equations(expr_ref_vector& es, ptr_vector<expr>& sorted);
         void sorted_subterms(expr_ref_vector& es, ptr_vector<expr>& sorted);
 
     public:
