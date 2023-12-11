@@ -93,18 +93,17 @@ namespace intblast {
 
         for (auto const& [src, vi] : m_vars) {
             auto const& [v, b] = vi;
-            verbose_stream() << "asserting " << mk_pp(v, m) << " < " << b << "\n";
             m_solver->assert_expr(a.mk_le(a.mk_int(0), v));
             m_solver->assert_expr(a.mk_lt(v, a.mk_int(b)));
         }
 
-        verbose_stream() << "check\n";
-        m_solver->display(verbose_stream());
-        verbose_stream() << es << "\n";
+        IF_VERBOSE(10, verbose_stream() << "check\n";
+            m_solver->display(verbose_stream());
+            verbose_stream() << es << "\n");
                
         lbool r = m_solver->check_sat(es);
 
-        verbose_stream() << "result " << r << "\n";
+        IF_VERBOSE(2, verbose_stream() << "(sat.intblast :result " << r << ")\n");
 
         if (r == l_false) {
             expr_ref_vector core(m);
@@ -112,8 +111,13 @@ namespace intblast {
             obj_map<expr, unsigned> e2index;
             for (unsigned i = 0; i < es.size(); ++i)
                 e2index.insert(es.get(i), i);
-            for (auto e : core)
-                m_core.push_back(literals[e2index[e]]);
+            for (auto e : core) {
+                unsigned idx = e2index[e];
+                if (idx < literals.size())
+                    m_core.push_back(literals[idx]);
+                else
+                    m_core.push_back(ctx.mk_literal(e));                
+            }
         }
 
         return r;
@@ -128,7 +132,7 @@ namespace intblast {
         return any_of(subterms::all(expr_ref(e, m)), [&](auto* p) { return bv.is_bv_sort(p->get_sort()); });
     }
 
-    void solver::sorted_subterms(expr_ref_vector const& es, ptr_vector<expr>& sorted) {
+    void solver::sorted_subterms(expr_ref_vector& es, ptr_vector<expr>& sorted) {
         expr_fast_mark1 visited;
         for (expr* e : es) {
             sorted.push_back(e);
@@ -143,6 +147,28 @@ namespace intblast {
                         visited.mark(arg);
                         sorted.push_back(arg);
                     }
+                }
+
+                //
+                // Add ground equalities to ensure the model is valid with respect to the current case splits.
+                // This may cause more conflicts than necessary. Instead could use intblast on the base level, but using literal
+                // assignment from complete level.
+                // E.g., force the solver to completely backtrack, check satisfiability using the assignment obtained under a complete assignment.
+                // If intblast is SAT, then force the model and literal assignment on the rest of the literals.
+                // 
+                if (!is_ground(e))
+                    continue;
+                euf::enode* n = ctx.get_enode(e);
+                if (!n)
+                    continue;
+                if (n == n->get_root())
+                    continue;
+                expr* r = n->get_root()->get_expr();
+                es.push_back(m.mk_eq(e, r));
+                r = es.back();
+                if (!visited.is_marked(r)) {
+                    visited.mark(r);
+                    sorted.push_back(r);
                 }
             }
             else if (is_quantifier(e)) {
@@ -163,6 +189,7 @@ namespace intblast {
         expr_ref_vector args(m);
         
         sorted_subterms(es, todo);
+
         for (expr* e : todo) {
             if (is_quantifier(e)) {
                 quantifier* q = to_quantifier(e);
@@ -402,8 +429,8 @@ namespace intblast {
         }
 
         TRACE("bv",
-            for (unsigned i = 0; i < es.size(); ++i)
-                tout << mk_pp(es.get(i), m) << " -> " << mk_pp(translated[es.get(i)], m) << "\n";
+            for (expr* e : es)
+                tout << mk_pp(e, m) << "\n->\n" << mk_pp(translated[e], m) << "\n";
         );
 
         for (unsigned i = 0; i < es.size(); ++i) 

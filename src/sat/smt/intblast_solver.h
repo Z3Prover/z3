@@ -53,7 +53,8 @@ namespace intblast {
 
         bool is_bv(sat::literal lit);
         void translate(expr_ref_vector& es);
-        void sorted_subterms(expr_ref_vector const& es, ptr_vector<expr>& sorted);
+        void add_root_equations(expr_ref_vector& es, ptr_vector<expr>& sorted);
+        void sorted_subterms(expr_ref_vector& es, ptr_vector<expr>& sorted);
 
     public:
         solver(euf::solver& ctx);
