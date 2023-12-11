@@ -14,9 +14,9 @@ Author:
 
 --*/
 #pragma once
-#include "sat/smt/polysat/polysat_types.h"
-#include "sat/smt/polysat/polysat_interval.h"
-#include "sat/smt/polysat/polysat_constraints.h"
+#include "sat/smt/polysat/types.h"
+#include "sat/smt/polysat/interval.h"
+#include "sat/smt/polysat/constraints.h"
 
 namespace polysat {
 

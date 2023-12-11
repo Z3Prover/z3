@@ -13,10 +13,10 @@ Author:
 --*/
 
 #include "util/log.h"
-#include "sat/smt/polysat/polysat_core.h"
-#include "sat/smt/polysat/polysat_constraints.h"
-#include "sat/smt/polysat/polysat_ule.h"
-#include "sat/smt/polysat/polysat_umul_ovfl.h"
+#include "sat/smt/polysat/core.h"
+#include "sat/smt/polysat/constraints.h"
+#include "sat/smt/polysat/ule_constraint.h"
+#include "sat/smt/polysat/umul_ovfl_constraint.h"
 
 namespace polysat {
 

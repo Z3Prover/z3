@@ -13,11 +13,11 @@ Author:
     Nikolaj Bjorner (nbjorner) 2021-03-19
 
 --*/
-#include "sat/smt/polysat/polysat_fi.h"
-#include "sat/smt/polysat/polysat_interval.h"
-#include "sat/smt/polysat/polysat_umul_ovfl.h"
-#include "sat/smt/polysat/polysat_ule.h"
-#include "sat/smt/polysat/polysat_core.h"
+#include "sat/smt/polysat/forbidden_intervals.h"
+#include "sat/smt/polysat/interval.h"
+#include "sat/smt/polysat/umul_ovfl_constraint.h"
+#include "sat/smt/polysat/ule_constraint.h"
+#include "sat/smt/polysat/core.h"
 
 namespace polysat {
 

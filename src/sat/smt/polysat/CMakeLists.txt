@@ -1,13 +1,13 @@
 z3_add_component(polysat
   SOURCES
+    assignment.cpp
+    constraints.cpp
+    core.cpp
     fixed_bits.cpp
-    polysat_assignment.cpp
-    polysat_constraints.cpp
-    polysat_core.cpp
-    polysat_fi.cpp
-    polysat_ule.cpp
-    polysat_umul_ovfl.cpp
-    polysat_viable.cpp
+    forbidden_intervals.cpp
+    ule_constraint.cpp
+    umul_ovfl_constraint.cpp
+    viable.cpp
   COMPONENT_DEPENDENCIES
     util
     dd
