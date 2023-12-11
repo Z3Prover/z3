@@ -23,7 +23,10 @@ Author:
 namespace intblast {
 
     solver::solver(euf::solver& ctx) :
+<<<<<<< HEAD
         th_euf_solver(ctx, symbol("intblast"), ctx.get_manager().get_family_id("bv")),
+=======
+>>>>>>> 17c480f83 (adding band)
         ctx(ctx),
         s(ctx.s()),
         m(ctx.get_manager()),
@@ -34,6 +37,7 @@ namespace intblast {
         m_pinned(m)
     {}
 
+<<<<<<< HEAD
     euf::theory_var solver::mk_var(euf::enode* n) {
         auto r = euf::th_euf_solver::mk_var(n);
         ctx.attach_th_var(n, this, r);
@@ -184,6 +188,9 @@ namespace intblast {
     }
 
     lbool solver::check_solver_state() {
+=======
+    lbool solver::check() {
+>>>>>>> 17c480f83 (adding band)
         sat::literal_vector literals;
         uint_set selected;
         for (auto const& clause : s.clauses()) {
@@ -231,7 +238,7 @@ namespace intblast {
             if (s.value(b) == l_true && s.value(a) == l_true && s.lvl(b) < s.lvl(a))
                 std::swap(a, b);
             selected.insert(a.index());
-            literals.push_back(a);                
+            literals.push_back(a);
         }
 
         m_core.reset();
@@ -253,9 +260,9 @@ namespace intblast {
         }
 
         IF_VERBOSE(10, verbose_stream() << "check\n";
-            m_solver->display(verbose_stream());
-            verbose_stream() << es << "\n");
-               
+        m_solver->display(verbose_stream());
+        verbose_stream() << es << "\n");
+
         lbool r = m_solver->check_sat(es);
 
         IF_VERBOSE(2, verbose_stream() << "(sat.intblast :result " << r << ")\n");
@@ -271,14 +278,14 @@ namespace intblast {
                 if (idx < literals.size())
                     m_core.push_back(literals[idx]);
                 else
-                    m_core.push_back(ctx.mk_literal(e));                
+                    m_core.push_back(ctx.mk_literal(e));
             }
         }
 
         return r;
     };
 
-    bool solver::is_bv(sat::literal lit) {        
+    bool solver::is_bv(sat::literal lit) {
         expr* e = ctx.bool_var2expr(lit.var());
         if (!e)
             return false;

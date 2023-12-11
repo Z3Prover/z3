@@ -41,8 +41,6 @@ namespace polysat {
         virtual std::ostream& display(std::ostream& out) const = 0;
         virtual lbool eval() const = 0;
         virtual lbool eval(assignment const& a) const = 0;
-        virtual bool is_always_true() const = 0;
-        virtual bool is_always_false() const = 0;
     };
 
     inline std::ostream& operator<<(std::ostream& out, constraint const& c) { return c.display(out); }
@@ -63,9 +61,10 @@ namespace polysat {
         unsigned_vector const& vars() const { return m_constraint->vars(); }
         unsigned var(unsigned idx) const { return m_constraint->var(idx); }
         bool contains_var(pvar v) const { return m_constraint->contains_var(v); }
-        bool is_always_true() const;
-        bool is_always_false() const;
+        bool is_always_true() const { return eval() == l_true; }
+        bool is_always_false() const { return eval() == l_false; }
         lbool eval(assignment& a) const;
+        lbool eval() const { return m_sign ? ~m_constraint->eval() : m_constraint->eval();}
         ckind_t op() const { return m_op; }
         bool is_ule() const { return m_op == ule_t; }
         bool is_umul_ovfl() const { return m_op == umul_ovfl_t; }
@@ -138,6 +137,10 @@ namespace polysat {
         signed_constraint umul_ovfl(int             p, pdd const& q) { return umul_ovfl(rational(p), q); }
         signed_constraint umul_ovfl(unsigned        p, pdd const& q) { return umul_ovfl(rational(p), q); }
 
+        signed_constraint lshr(pdd const& a, pdd const& b, pdd const& r);
+        signed_constraint ashr(pdd const& a, pdd const& b, pdd const& r);
+        signed_constraint shl(pdd const& a, pdd const& b, pdd const& r);
+        signed_constraint band(pdd const& a, pdd const& b, pdd const& r);
 
         //signed_constraint even(pdd const& p) { return parity_at_least(p, 1); }
         //signed_constraint odd(pdd const& p) { return ~even(p); }

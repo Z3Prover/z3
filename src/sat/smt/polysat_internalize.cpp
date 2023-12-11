@@ -234,7 +234,9 @@ namespace polysat {
         if (n->get_num_args() == 2) {
             expr* x, * y;
             VERIFY(bv.is_bv_and(n, x, y));
-            m_core.band(expr2pdd(n), expr2pdd(x), expr2pdd(y));
+            auto sc = m_core.band(expr2pdd(x), expr2pdd(y), expr2pdd(n));
+            // auto index = m_core.register_constraint(sc, dependency::axiom());
+            // 
         }
         else {
             expr_ref z(n->get_arg(0), m);
@@ -249,13 +251,13 @@ namespace polysat {
     void solver::internalize_lshr(app* n) {
         expr* x, * y;
         VERIFY(bv.is_bv_lshr(n, x, y));
-        m_core.lshr(expr2pdd(n), expr2pdd(x), expr2pdd(y));
+        auto sc = m_core.lshr(expr2pdd(x), expr2pdd(y), expr2pdd(n));
     }
 
     void solver::internalize_shl(app* n) {
         expr* x, * y;
         VERIFY(bv.is_bv_shl(n, x, y));
-        m_core.shl(expr2pdd(n), expr2pdd(x), expr2pdd(y));
+        auto sc = m_core.shl(expr2pdd(x), expr2pdd(y), expr2pdd(n));
     }  
 
     void solver::internalize_urem_i(app* rem) {

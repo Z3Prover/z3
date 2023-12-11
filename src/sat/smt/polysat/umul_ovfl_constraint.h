@@ -34,8 +34,6 @@ namespace polysat {
         std::ostream& display(std::ostream& out) const override;
         lbool eval() const override;
         lbool eval(assignment const& a) const override;
-        bool is_always_true() const override { return false; } // todo port
-        bool is_always_false() const override { return false; }
     };
 
 }
