@@ -410,8 +410,13 @@ namespace arith {
         bool  check_delayed_eqs();
         lbool check_lia();
         lbool check_nla();
+<<<<<<< HEAD
         bool check_bv_terms();
         bool check_bv_term(app* n);
+=======
+        bool check_band_terms();
+        bool check_band_term(app* n);
+>>>>>>> b72575148 (axioms for b-and)
         void add_lemmas();
         void propagate_nla();
         void add_equality(lpvar v, rational const& k, lp::explanation const& exp);

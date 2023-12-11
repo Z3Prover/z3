@@ -237,7 +237,6 @@ namespace intblast {
         m_core.reset();
         m_vars.reset();
         m_trail.reset();
-        m_new_funs.reset();
         m_solver = mk_smt2_solver(m, s.params(), symbol::null);
 
         expr_ref_vector es(m);
@@ -325,7 +324,6 @@ namespace intblast {
 
         for (expr* e : todo)
             translate_expr(e);
-
         TRACE("bv",
             for (expr* e : es)
                 tout << mk_pp(e, m) << "\n->\n" << mk_pp(translated(e), m) << "\n";
