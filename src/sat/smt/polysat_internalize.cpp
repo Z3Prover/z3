@@ -347,13 +347,13 @@ namespace polysat {
         unsigned sz2 = sz - arg_sz;
         var2pdd(expr2enode(e)->get_th_var(get_id()));
         if (arg_sz == sz) 
-            add_clause(eq_internalize(e, arg), false);            
+            add_clause(eq_internalize(e, arg), nullptr);
         else {
             sat::literal lt0 = ctx.mk_literal(bv.mk_slt(arg, bv.mk_numeral(0, arg_sz)));
             // arg < 0 ==> e = concat(arg, 1...1)
             // arg >= 0 ==> e = concat(arg, 0...0)
-            add_clause(lt0, eq_internalize(e, bv.mk_concat(arg, bv.mk_numeral(rational::power_of_two(sz2) - 1, sz2))), false);
-            add_clause(~lt0, eq_internalize(e, bv.mk_concat(arg, bv.mk_numeral(0, sz2))), false);
+            add_clause(lt0, eq_internalize(e, bv.mk_concat(arg, bv.mk_numeral(rational::power_of_two(sz2) - 1, sz2))), nullptr);
+            add_clause(~lt0, eq_internalize(e, bv.mk_concat(arg, bv.mk_numeral(0, sz2))), nullptr);
         }
     }
 
@@ -364,10 +364,10 @@ namespace polysat {
         unsigned sz2 = sz - arg_sz;
         var2pdd(expr2enode(e)->get_th_var(get_id()));
         if (arg_sz == sz)
-            add_clause(eq_internalize(e, arg), false);
+            add_clause(eq_internalize(e, arg), nullptr);
         else 
             // e = concat(arg, 0...0)
-            add_clause(eq_internalize(e, bv.mk_concat(arg, bv.mk_numeral(0, sz2))), false);        
+            add_clause(eq_internalize(e, bv.mk_concat(arg, bv.mk_numeral(0, sz2))), nullptr);
     }
 
     void solver::internalize_div_rem(app* e, bool is_div) {
