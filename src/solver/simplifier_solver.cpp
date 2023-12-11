@@ -289,8 +289,19 @@ public:
         return m_cached_mc;
     }
 
-    unsigned get_num_assertions() const override { return s->get_num_assertions(); }
-    expr* get_assertion(unsigned idx) const override { return s->get_assertion(idx); }
+    unsigned get_num_assertions() const override { 
+        unsigned qhead = m_preprocess_state.qhead();
+        unsigned qtail = m_preprocess_state.qtail();
+        return s->get_num_assertions() + qtail - qhead;
+    }
+    expr* get_assertion(unsigned idx) const override { 
+        unsigned qhead = m_preprocess_state.qhead();
+        unsigned qtail = m_preprocess_state.qtail();
+        if (idx < qtail - qhead)
+            return m_fmls.get(idx + qhead).fml();
+        idx -= qtail - qhead;
+        return s->get_assertion(idx); 
+    }
     std::string reason_unknown() const override { return s->reason_unknown(); }
     void set_reason_unknown(char const* msg) override { s->set_reason_unknown(msg); }
     void get_labels(svector<symbol>& r) override { s->get_labels(r); }
@@ -364,9 +375,6 @@ public:
 
     expr* congruence_root(expr* e) override { return s->congruence_root(e); }
     expr* congruence_next(expr* e) override { return s->congruence_next(e); }
-    std::ostream& display(std::ostream& out, unsigned n, expr* const* assumptions) const override {
-        return s->display(out, n, assumptions);
-    }
     void get_units_core(expr_ref_vector& units) override { s->get_units_core(units); }
     expr_ref_vector get_trail(unsigned max_level) override { return s->get_trail(max_level); }
     void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) override { s->get_levels(vars, depth); }

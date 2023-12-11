@@ -48,13 +48,13 @@ namespace polysat {
             lbool      value;            // value assigned by solver
         };
         solver_interface& s;
+        mutable scoped_ptr_vector<dd::pdd_manager> m_pdd;
         viable m_viable;
         constraints m_constraints;
         assignment m_assignment;
         unsigned m_qhead = 0, m_vqhead = 0;
         svector<prop_item> m_prop_queue;
         svector<constraint_info> m_constraint_index;  // index of constraints
-        mutable scoped_ptr_vector<dd::pdd_manager> m_pdd;
         dependency_vector m_unsat_core;
 
 
