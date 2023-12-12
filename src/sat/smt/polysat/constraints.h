@@ -41,6 +41,8 @@ namespace polysat {
         virtual std::ostream& display(std::ostream& out) const = 0;
         virtual lbool eval() const = 0;
         virtual lbool eval(assignment const& a) const = 0;
+        virtual void activate(core& c, bool sign, dependency const& d) = 0;
+        virtual void propagate(core& c, lbool value, dependency const& d) = 0;
     };
 
     inline std::ostream& operator<<(std::ostream& out, constraint const& c) { return c.display(out); }
@@ -61,6 +63,8 @@ namespace polysat {
         unsigned_vector const& vars() const { return m_constraint->vars(); }
         unsigned var(unsigned idx) const { return m_constraint->var(idx); }
         bool contains_var(pvar v) const { return m_constraint->contains_var(v); }
+        void activate(core& c, dependency const& d) { m_constraint->activate(c, m_sign, d); }
+        void propagate(core& c, lbool value, dependency const& d) { m_constraint->propagate(c, value, d); }
         bool is_always_true() const { return eval() == l_true; }
         bool is_always_false() const { return eval() == l_false; }
         lbool eval(assignment& a) const;
@@ -84,6 +88,8 @@ namespace polysat {
 
         signed_constraint eq(pdd const& p) { return ule(p, p.manager().mk_val(0)); }
         signed_constraint eq(pdd const& p, rational const& v) { return eq(p - p.manager().mk_val(v)); }
+        signed_constraint eq(pdd const& p, unsigned v) { return eq(p - p.manager().mk_val(v)); }
+        signed_constraint eq(pdd const& p, pdd const& q) { return eq(p - q); }
         signed_constraint ule(pdd const& p, pdd const& q);
         signed_constraint sle(pdd const& p, pdd const& q) { auto sh = rational::power_of_two(p.power_of_2() - 1); return ule(p + sh, q + sh); }
         signed_constraint ult(pdd const& p, pdd const& q) { return ~ule(q, p); }

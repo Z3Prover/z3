@@ -8,7 +8,8 @@ Module Name:
 Abstract:
 
     Int-blast solver.
-    It assumes a full assignemnt to literals in 
+
+    check_solver_state assumes a full assignment to literals in 
     irredundant clauses. 
     It picks a satisfying Boolean assignment and 
     checks if it is feasible for bit-vectors using
@@ -45,6 +46,14 @@ namespace euf {
 namespace intblast {
 
     class solver : public euf::th_euf_solver {
+<<<<<<< HEAD
+=======
+        struct var_info {
+            expr* dst;
+            rational sz;
+        };
+
+>>>>>>> 4cadf6d9f (preparing intblaster as self-contained solver.)
         euf::solver& ctx;
         sat::solver& s;
         ast_manager& m;
@@ -94,6 +103,27 @@ namespace intblast {
         void add_value_plugin(euf::enode* n, model& mdl, expr_ref_vector& values);
         void add_value_solver(euf::enode* n, model& mdl, expr_ref_vector& values);
 
+        expr* translated(expr* e) { expr* r = m_translate.get(e->get_id(), nullptr); SASSERT(r); return r; }
+        void set_translated(expr* e, expr* r) { m_translate.setx(e->get_id(), r); }
+        expr* arg(unsigned i) { return m_args.get(i); }
+
+        expr* mk_mod(expr* x);
+        expr* mk_smod(expr* x);
+        expr* bv_expr = nullptr;
+        rational bv_size();
+
+        void translate_expr(expr* e);
+        void translate_bv(app* e);
+        void translate_basic(app* e);
+        void translate_app(app* e);
+        void translate_quantifier(quantifier* q);
+        void translate_var(var* v);
+
+        void ensure_args(app* e);
+        void internalize_bv(app* e);
+
+        euf::theory_var mk_var(euf::enode* n) override;
+
     public:
         solver(euf::solver& ctx);
         
@@ -137,7 +167,7 @@ namespace intblast {
 
         sat::literal_vector const& unsat_core();
 
-        void add_value(euf::enode* n, model& mdl, expr_ref_vector& values);
+        void add_value(euf::enode* n, model& mdl, expr_ref_vector& values) override;
 
 
     };

@@ -71,8 +71,6 @@ namespace intblast {
         return n && n->is_attached_to(get_id());
     }
 
-
-
     bool solver::post_visit(expr* e, bool sign, bool root) {
         euf::enode* n = expr2enode(e);
         app* a = to_app(e);
@@ -236,7 +234,7 @@ namespace intblast {
 
         m_core.reset();
         m_vars.reset();
-        m_trail.reset();
+        m_translate.reset();
         m_solver = mk_smt2_solver(m, s.params(), symbol::null);
 
         expr_ref_vector es(m);
@@ -275,7 +273,6 @@ namespace intblast {
                     m_core.push_back(ctx.mk_literal(e));
             }
         }
-
         return r;
     };
 
@@ -446,7 +443,6 @@ namespace intblast {
                 sorts.push_back(a.mk_int());
             }
             else
-
                 sorts.push_back(s);
         }
         b = translated(b);
@@ -855,7 +851,6 @@ namespace intblast {
         }
         set_translated(e, r);
     }
-
     void solver::translate_basic(app* e) {
         if (m.is_eq(e)) {
             bool has_bv_arg = any_of(*e, [&](expr* arg) { return bv.is_bv(arg); });

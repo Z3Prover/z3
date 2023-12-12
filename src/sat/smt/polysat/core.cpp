@@ -187,12 +187,13 @@ namespace polysat {
         return sc;
     }
 
-
     void core::propagate_assignment(prop_item& dc) { 
         auto [idx, sign, dep] = dc;
         auto sc = get_constraint(idx, sign);
         if (sc.is_eq(m_var, m_value))
             propagate_assignment(m_var, m_value, dep);
+        else 
+            sc.activate(*this, dep);        
     }
 
     void core::add_watch(unsigned idx, unsigned var) {
@@ -216,7 +217,7 @@ namespace polysat {
         // for entries where there is only one free variable left add to viable set 
         unsigned j = 0;
         for (auto idx : m_watch[v]) {
-            auto [sc, as, value] = m_constraint_index[idx];
+            auto [sc, dep, value] = m_constraint_index[idx];
             auto& vars = sc.vars();
             if (vars[0] != v)
                 std::swap(vars[0], vars[1]);
@@ -230,6 +231,8 @@ namespace polysat {
                     break;
                 }
             }
+
+            sc.propagate(*this, value, dep);
 
             SASSERT(!swapped || vars.size() <= 1 || (!is_assigned(vars[0]) && !is_assigned(vars[1])));
             if (swapped)
@@ -262,6 +265,11 @@ namespace polysat {
         default:
             break;
         }
+        // propagate current assignment for sc
+        sc.propagate(*this, to_lbool(!sign), dep);
+        if (s.inconsistent())
+            return;
+
         // if sc is v == value, then check the watch list for v to propagate truth assignments
         if (sc.is_eq(m_var, m_value)) {
             for (auto idx1 : m_watch[m_var]) {
@@ -358,6 +366,15 @@ namespace polysat {
 
     void core::collect_statistics(statistics& st) const {
 
+    }
+
+    void core::add_axiom(signed_constraint sc) {
+        auto idx = register_constraint(sc, dependency::axiom());
+        assign_eh(idx, false, dependency::axiom());
+    }
+
+    void core::add_clause(char const* name, core_vector const& cs, bool is_redundant) {
+        s.add_polysat_clause(name, cs, is_redundant);
     }
 
 }

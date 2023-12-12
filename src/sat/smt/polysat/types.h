@@ -29,12 +29,17 @@ namespace polysat {
     class signed_constraint;
 
     class dependency {
-        std::variant<sat::literal, std::pair<theory_var, theory_var>> m_data;
+        struct axiom_t {};
+        std::variant<axiom_t, sat::literal, std::pair<theory_var, theory_var>> m_data;
         unsigned m_level;
+        dependency(): m_data(axiom_t()), m_level(0) {}
     public:
         dependency(sat::literal lit, unsigned level) : m_data(lit), m_level(level) {}
         dependency(theory_var v1, theory_var v2, unsigned level) : m_data(std::make_pair(v1, v2)), m_level(level) {} 
+        static dependency axiom() { return dependency(); } 
         bool is_null() const { return is_literal() && *std::get_if<sat::literal>(&m_data) == sat::null_literal; }
+        bool is_axiom() const { return std::holds_alternative<axiom_t>(m_data); }
+        bool is_eq() const { return std::holds_alternative<std::pair<theory_var, theory_var>>(m_data); }
         bool is_literal() const { return std::holds_alternative<sat::literal>(m_data); }
         sat::literal literal() const { SASSERT(is_literal()); return *std::get_if<sat::literal>(&m_data); }
         std::pair<theory_var, theory_var> eq() const { SASSERT(!is_literal()); return *std::get_if<std::pair<theory_var, theory_var>>(&m_data); }
@@ -46,6 +51,8 @@ namespace polysat {
     inline std::ostream& operator<<(std::ostream& out, dependency d) {
         if (d.is_null())
             return out << "null";
+        else if (d.is_axiom())
+            return out << "axiom@" << d.level();
         else if (d.is_literal())
             return out << d.literal() << "@" << d.level();
         else
@@ -87,7 +94,7 @@ namespace polysat {
 
     using dependency_vector = vector<dependency>;
 
-    using core_vector = vector<std::variant<signed_constraint, dependency>>;
+    using core_vector = std::initializer_list<std::variant<signed_constraint, dependency>>;
 
 
 
@@ -101,6 +108,7 @@ namespace polysat {
         virtual void add_eq_literal(pvar v, rational const& val) = 0;
         virtual void set_conflict(dependency_vector const& core) = 0;
         virtual void set_lemma(core_vector const& aux_core, unsigned level, dependency_vector const& core) = 0;
+        virtual void add_polysat_clause(char const* name, core_vector cs, bool redundant) = 0;
         virtual dependency propagate(signed_constraint sc, dependency_vector const& deps) = 0;
         virtual void propagate(dependency const& d, bool sign, dependency_vector const& deps) = 0;
         virtual trail_stack& trail() = 0;

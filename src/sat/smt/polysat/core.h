@@ -84,7 +84,7 @@ namespace polysat {
         void get_bitvector_prefixes(pvar v, pvar_vector& out);
         void get_fixed_bits(pvar v, svector<justified_fixed_bits>& fixed_bits);
         bool inconsistent() const;
-        void add_clause(char const* name, std::initializer_list<signed_constraint> cs, bool is_redundant);
+
 
 
         void add_watch(unsigned idx, unsigned var);
@@ -93,6 +93,8 @@ namespace polysat {
 
         lbool eval(signed_constraint const& sc);
         dependency_vector explain_eval(signed_constraint const& sc);
+
+        void add_axiom(signed_constraint sc);
 
     public:
         core(solver_interface& s);
@@ -118,13 +120,20 @@ namespace polysat {
         signed_constraint bit(pdd const& p, unsigned i) { return m_constraints.bit(p, i); }
 
 
-        signed_constraint lshr(pdd const& a, pdd const& b, pdd const& r) { return m_constraints.lshr(a, b, r); }
-        signed_constraint ashr(pdd const& a, pdd const& b, pdd const& r) { return m_constraints.ashr(a, b, r); }
-        signed_constraint shl(pdd const& a, pdd const& b, pdd const& r) { return m_constraints.shl(a, b, r); }
-        signed_constraint band(pdd const& a, pdd const& b, pdd const& r) { return m_constraints.band(a, b, r); }
+        void lshr(pdd const& a, pdd const& b, pdd const& r) { add_axiom(m_constraints.lshr(a, b, r)); }
+        void ashr(pdd const& a, pdd const& b, pdd const& r) { add_axiom(m_constraints.ashr(a, b, r)); }
+        void shl(pdd const& a, pdd const& b, pdd const& r) { add_axiom(m_constraints.shl(a, b, r)); }
+        void band(pdd const& a, pdd const& b, pdd const& r) { add_axiom(m_constraints.band(a, b, r)); }
 
         pdd bnot(pdd p) { return -p - 1; }
 
+
+        /*
+        * Add a named clause. Dependencies are assumed, signed constraints are guaranteeed.
+        * In other words, the clause represents the formula /\ d_i -> \/ sc_j
+        * Where d_i are logical interpretations of dependencies and sc_j are signed constraints.
+        */
+        void add_clause(char const* name, core_vector const& cs, bool is_redundant);
         
         pvar add_var(unsigned sz);
         pdd var(pvar p) { return m_vars[p]; }

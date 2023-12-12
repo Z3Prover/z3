@@ -70,6 +70,8 @@ Useful lemmas:
 
 --*/
 
+#include "util/log.h"
+#include "sat/smt/polysat/core.h"
 #include "sat/smt/polysat/constraints.h"
 #include "sat/smt/polysat/ule_constraint.h"
 
@@ -314,8 +316,6 @@ namespace polysat {
         return display(out, l_true, m_lhs, m_rhs);
     }
 
-
-
     // Evaluate lhs <= rhs
     lbool ule_constraint::eval(pdd const& lhs, pdd const& rhs) {
         // NOTE: don't assume simplifications here because we also call this on partially substituted constraints
@@ -342,5 +342,16 @@ namespace polysat {
     lbool ule_constraint::eval(assignment const& a) const {
         return eval(a.apply_to(lhs()), a.apply_to(rhs()));
     }
+
+    void ule_constraint::activate(core& c, bool sign, dependency const& d) {
+        auto p = c.subst(lhs());
+        auto q = c.subst(rhs());
+        auto& C = c.cs();
+        if (sign && !lhs().is_val() && !rhs().is_val()) {
+            c.add_clause("lhs > rhs  ==>  -1 > rhs", { d, C.ult(rhs(), -1) }, false);
+            c.add_clause("lhs > rhs  ==>  lhs > 0", { d, C.ult(0, lhs()) }, false);
+        }
+    }
+
 
 }

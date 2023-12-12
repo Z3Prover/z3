@@ -64,7 +64,7 @@ namespace polysat {
         case sat::check_result::CR_GIVEUP: {
             if (!m.inc())
                 return sat::check_result::CR_GIVEUP;
-            switch (m_intblast.check()) {
+            switch (m_intblast.check_solver_state()) {
             case l_true:
                 trail().push(value_trail(m_use_intblast_model));
                 m_use_intblast_model = true;
@@ -254,10 +254,25 @@ namespace polysat {
         return ctx.get_trail_stack();
     }
 
-    void solver::add_polysat_clause(char const* name, std::initializer_list<signed_constraint> cs, bool is_redundant) {
+    void solver::add_polysat_clause(char const* name, core_vector cs, bool is_redundant) {
         sat::literal_vector lits;
-        for (auto sc : cs)
-            lits.push_back(ctx.mk_literal(constraint2expr(sc)));
+        for (auto e : cs) {
+            if (std::holds_alternative<dependency>(e)) {
+                auto d = *std::get_if<dependency>(&e);
+                SASSERT(!d.is_null());
+                if (d.is_literal())
+                    lits.push_back(~d.literal());
+                else if (d.is_eq()) {
+                    auto [v1, v2] = d.eq();
+                    lits.push_back(~eq_internalize(var2enode(v1), var2enode(v2)));
+                }
+                else {
+                    SASSERT(d.is_axiom());
+                }
+            }
+            else if (std::holds_alternative<signed_constraint>(e))
+                lits.push_back(ctx.mk_literal(constraint2expr(*std::get_if<signed_constraint>(&e))));
+        }
         s().add_clause(lits.size(), lits.data(), sat::status::th(is_redundant, get_id(), nullptr));
     }
 
