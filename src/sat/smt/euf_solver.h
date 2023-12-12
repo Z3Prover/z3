@@ -369,6 +369,7 @@ namespace euf {
         void flush_roots() override;
 
         void get_antecedents(literal l, ext_justification_idx idx, literal_vector& r, bool probing) override;
+        void get_eq_antecedents(enode* a, enode* b, literal_vector& r);
         void get_th_antecedents(literal l, th_explain& jst, literal_vector& r, bool probing);
         void add_eq_antecedent(bool probing, enode* a, enode* b);
         void explain_diseq(ptr_vector<size_t>& ex, cc_justification* cc, enode* a, enode* b);

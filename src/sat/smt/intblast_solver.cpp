@@ -647,7 +647,7 @@ namespace intblast {
             bv_rewriter_params p(ctx.s().params());
             expr* x = arg(0), * y = umod(e, 1);
             if (p.hi_div0())
-                r = m.mk_ite(m.mk_eq(y, a.mk_int(0)), a.mk_int(0), y));
+                r = m.mk_ite(m.mk_eq(y, a.mk_int(0)), a.mk_int(0), y);
             else
                 r = a.mk_mod(x, y);
             break;

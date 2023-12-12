@@ -107,7 +107,7 @@ namespace polysat {
         virtual ~solver_interface() {}
         virtual void add_eq_literal(pvar v, rational const& val) = 0;
         virtual void set_conflict(dependency_vector const& core) = 0;
-        virtual void set_lemma(core_vector const& aux_core, unsigned level, dependency_vector const& core) = 0;
+        virtual void set_lemma(core_vector const& aux_core, dependency_vector const& core) = 0;
         virtual void add_polysat_clause(char const* name, core_vector cs, bool redundant) = 0;
         virtual dependency propagate(signed_constraint sc, dependency_vector const& deps) = 0;
         virtual void propagate(dependency const& d, bool sign, dependency_vector const& deps) = 0;
