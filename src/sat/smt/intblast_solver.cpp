@@ -28,8 +28,8 @@ namespace intblast {
         m(ctx.get_manager()),
         bv(m),
         a(m),
-        m_args(m),
-        m_translate(m)
+        m_translate(m),
+        m_args(m)
     {}
 
     euf::theory_var solver::mk_var(euf::enode* n) {
@@ -100,6 +100,8 @@ namespace intblast {
         for (auto arg : *e)
             m_args.push_back(translated(arg));
         translate_bv(e);
+
+        // possibly wait until propagation?
         if (m.is_bool(e))
             add_equiv(expr2literal(e), mk_literal(translated(e)));
         add_bound_axioms();
@@ -468,6 +470,8 @@ namespace intblast {
             return;
         }
         else if (has_bv_sort) {
+            if (f->get_family_id() != null_family_id)
+                throw default_exception("conversion for interpreted functions is not supported by intblast solver");
             func_decl* g = nullptr;
             if (!m_new_funs.find(f, g)) {
                 g = m.mk_fresh_func_decl(e->get_decl()->get_name(), symbol("bv"), f->get_arity(), f->get_domain(), a.mk_int());
@@ -558,7 +562,6 @@ namespace intblast {
             unsigned lo, hi;
             expr* old_arg;
             VERIFY(bv.is_extract(e, lo, hi, old_arg));
-            unsigned sz = hi - lo + 1;
             expr* r = arg(0);
             if (lo > 0)
                 r = a.mk_idiv(r, a.mk_int(rational::power_of_two(lo)));
@@ -611,10 +614,10 @@ namespace intblast {
             break;
         }
         case OP_BNAND:
-            r = (bnot(band(args)));
+            r = bnot(band(args));
             break;
         case OP_BAND:
-            r = (band(args));
+            r = band(args);
             break;
             // From "Hacker's Delight", section 2-2. Addition Combined with Logical Operations;
             // found via Int-Blasting paper; see https://doi.org/10.1007/978-3-030-94583-1_24
@@ -635,18 +638,18 @@ namespace intblast {
             bv_rewriter_params p(ctx.s().params());
             expr* x = arg(0), * y = arg(1);
             if (p.hi_div0())
-                r = m.mk_ite(m.mk_eq(y, a.mk_int(0)), a.mk_int(0), a.mk_idiv(x, y));
+                r = m.mk_ite(m.mk_eq(y, a.mk_int(0)), a.mk_int(0), a.mk_idiv(x, umod(e, 1)));
             else
-                r = a.mk_idiv(x, y);
+                r = a.mk_idiv(x, umod(e, 1));
             break;
         }
         case OP_BUREM: {
             bv_rewriter_params p(ctx.s().params());
             expr* x = arg(0), * y = arg(1);
             if (p.hi_div0())
-                r = m.mk_ite(m.mk_eq(y, a.mk_int(0)), a.mk_int(0), a.mk_mod(x, y));
+                r = m.mk_ite(m.mk_eq(y, a.mk_int(0)), a.mk_int(0), a.mk_mod(x, umod(e, 1)));
             else
-                r = a.mk_mod(x, y);
+                r = a.mk_mod(x, umod(e, 1));
             break;
         }
 
@@ -694,7 +697,7 @@ namespace intblast {
         case OP_BV2INT:
             m_bv2int.push_back(e);
             ctx.push(push_back_vector(m_bv2int));
-            r = arg(0);
+            r = umod(e->get_arg(0), 0);
             break;
         case OP_BCOMP:
         case OP_ROTATE_LEFT:
@@ -758,6 +761,7 @@ namespace intblast {
         if (!e)
             return false;
         dep.add(n, e);
+        return true;
     }
 
     // TODO: handle dependencies properly by using arithmetical model to retrieve values of translated 
