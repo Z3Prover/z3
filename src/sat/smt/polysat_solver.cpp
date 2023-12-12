@@ -130,8 +130,13 @@ namespace polysat {
         return { core, eqs };
     }
 
-    void solver::set_lemma(core_vector const& aux_core, unsigned level, dependency_vector const& core) {
+    void solver::set_lemma(core_vector const& aux_core, dependency_vector const& core) {
         auto [lits, eqs] = explain_deps(core);
+        unsigned level = 0;
+        for (auto const& [n1, n2] : eqs)
+            ctx.get_eq_antecedents(n1, n2, lits);
+        for (auto lit : lits)
+            level = std::max(level, s().lvl(lit));
         auto ex = euf::th_explain::conflict(*this, lits, eqs, nullptr);
         ctx.push(value_trail<bool>(m_has_lemma));
         m_has_lemma = true;
