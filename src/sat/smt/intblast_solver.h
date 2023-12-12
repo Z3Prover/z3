@@ -113,7 +113,7 @@ namespace intblast {
 
         void get_antecedents(sat::literal l, sat::ext_justification_idx idx, sat::literal_vector& r, bool probing) override {}
 
-        sat::check_result check() override { return sat::check_result::CR_DONE; }
+        sat::check_result check() override;
 
         std::ostream& display_justification(std::ostream& out, sat::ext_justification_idx idx) const override { return out; }
 
