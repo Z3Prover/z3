@@ -215,10 +215,15 @@ namespace arith {
         }
         theory_var vx = expr2enode(x)->get_th_var(get_id());
         theory_var vy = expr2enode(y)->get_th_var(get_id());
-        theory_var xn = expr2enode(n)->get_th_var(get_id());
-        rational valx = get_value(vx);
-        rational valy = get_value(vy);
-        rational valn = get_value(xn);
+        theory_var vn = expr2enode(n)->get_th_var(get_id());
+        rational N = rational::power_of_two(sz);
+        SASSERT(get_value(vx).is_int());
+        SASSERT(get_value(vy).is_int());
+        SASSERT(get_value(vn).is_int());
+        rational valx = mod(get_value(vx), N);
+        rational valy = mod(get_value(vy), N);
+        rational valn = get_value(vn);
+        SASSERT(0 <= valn && valn < N);
 
         // x mod 2^{i + 1} >= 2^i means the i'th bit is 1.
         auto bitof = [&](expr* x, unsigned i) { 
@@ -230,26 +235,25 @@ namespace arith {
             bool xb = valx.get_bit(i);
             bool yb = valy.get_bit(i);
             bool nb = valn.get_bit(i);
-            if (xb && yb && !nb) {
+            if (xb && yb && !nb)
                 add_clause(~bitof(x, i), ~bitof(y, i), bitof(n, i));
-                return false;
-            }
-            if (nb && !xb) {
+            else if (nb && !xb)
                 add_clause(~bitof(n, i), bitof(x, i));
-                return false;
-            }
-            if (nb && !yb) {
+            else if (nb && !yb)
                 add_clause(~bitof(n, i), bitof(y, i));
-                return false;
-            }
+            else
+                continue;
+            return false;
         }
         return true;
     }
 
     bool solver::check_band_terms() {
         for (app* n : m_band_terms) {
-            if (!check_band_term(n))
-                return false;            
+            if (!check_band_term(n)) {
+                ++m_stats.m_band_axioms;
+                return false;
+            }
         }
         return true;
     }

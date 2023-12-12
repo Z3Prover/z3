@@ -26,32 +26,18 @@ namespace polysat {
     void solver::add_value(euf::enode* n, model& mdl, expr_ref_vector& values) {
         
         if (m_use_intblast_model) {
-            expr_ref value(m);            
-            if (n->interpreted()) 
-                value = n->get_expr();
-            else if (to_app(n->get_expr())->get_family_id() == bv.get_family_id()) {
-                bv_rewriter rw(m);                
-                expr_ref_vector args(m);
-                for (auto arg : euf::enode_args(n))
-                    args.push_back(values.get(arg->get_root_id()));                    
-                rw.mk_app(n->get_decl(), args.size(), args.data(), value);
-                VERIFY(value);
-            }
-            else {
-                rational r = m_intblast.get_value(n->get_expr());
-                verbose_stream() << ctx.bpp(n) << " := " << r << "\n";
-                value = bv.mk_numeral(r, get_bv_size(n));
-            }
-            values.set(n->get_root_id(), value);
-            TRACE("model", tout << "add_value " << ctx.bpp(n) << " := " << value << "\n");
+            m_intblast.add_value(n, mdl, values);
             return;
         }
-#if 0
         auto p = expr2pdd(n->get_expr());
         rational val;
-        VERIFY(m_polysat.try_eval(p, val));
-        values[n->get_root_id()] = bv.mk_numeral(val, get_bv_size(n));    
-#endif
+        if (!m_core.try_eval(p, val)) {
+            ctx.s().display(verbose_stream());
+            verbose_stream() << ctx.bpp(n) << " := " << p << "\n";
+            UNREACHABLE();
+        }
+        VERIFY(m_core.try_eval(p, val));
+        values.set(n->get_root_id(), bv.mk_numeral(val, get_bv_size(n)));
     }   
 
     bool solver::add_dep(euf::enode* n, top_sort<euf::enode>& dep) {
@@ -76,6 +62,11 @@ namespace polysat {
 
     void solver::finalize_model(model& mdl) {
 
+    }
+
+    void solver::collect_statistics(statistics& st) const {
+        m_intblast.collect_statistics(st);
+        m_core.collect_statistics(st);
     }
 
     std::ostream& solver::display_justification(std::ostream& out, sat::ext_justification_idx idx) const {

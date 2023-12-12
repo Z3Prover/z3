@@ -184,6 +184,9 @@ namespace polysat {
 
     void solver::new_eq_eh(euf::th_eq const& eq) {
         auto v1 = eq.v1(), v2 = eq.v2();
+        euf::enode* n = var2enode(v1);
+        if (!bv.is_bv(n->get_expr()))
+            return;
         pdd p = var2pdd(v1);
         pdd q = var2pdd(v2);
         auto sc = m_core.eq(p, q);        
@@ -197,6 +200,9 @@ namespace polysat {
 
     void solver::new_diseq_eh(euf::th_eq const& ne) {
         euf::theory_var v1 = ne.v1(), v2 = ne.v2();
+        euf::enode* n = var2enode(v1);
+        if (!bv.is_bv(n->get_expr()))
+            return;
         pdd p = var2pdd(v1);
         pdd q = var2pdd(v2);
         auto sc = ~m_core.eq(p, q);

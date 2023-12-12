@@ -1042,6 +1042,9 @@ namespace arith {
         if (!check_delayed_eqs()) 
             return sat::check_result::CR_CONTINUE;
 
+        if (!check_band_terms())
+            return sat::check_result::CR_CONTINUE;
+
         if (ctx.get_config().m_arith_ignore_int && int_undef)
             return sat::check_result::CR_GIVEUP;
         if (m_not_handled != nullptr) {
@@ -1197,8 +1200,6 @@ namespace arith {
         default:
             UNREACHABLE();
         }
-        if (lia_check == l_true && !check_band_terms())
-            lia_check = l_false;
         return lia_check;
     }
 

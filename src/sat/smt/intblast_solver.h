@@ -25,6 +25,7 @@ Author:
 #include "ast/bv_decl_plugin.h"
 #include "solver/solver.h"
 #include "sat/smt/sat_th.h"
+#include "util/statistics.h"
 
 namespace euf {
     class solver;
@@ -49,10 +50,13 @@ namespace intblast {
         expr_ref_vector m_trail;
         ast_ref_vector m_pinned;
         sat::literal_vector m_core;
+        statistics m_stats;
 
         bool is_bv(sat::literal lit);
         void translate(expr_ref_vector& es);
         void sorted_subterms(expr_ref_vector& es, ptr_vector<expr>& sorted);
+
+        rational get_value(expr* e) const;
 
     public:
         solver(euf::solver& ctx);
@@ -61,9 +65,11 @@ namespace intblast {
 
         sat::literal_vector const& unsat_core();
 
-        rational get_value(expr* e) const;
+        void add_value(euf::enode* n, model& mdl, expr_ref_vector& values);
 
         std::ostream& display(std::ostream& out) const;
+
+        void collect_statistics(statistics& st) const;
     };
 
 }

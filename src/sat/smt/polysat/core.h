@@ -104,6 +104,9 @@ namespace polysat {
 
         pdd value(rational const& v, unsigned sz);
         pdd subst(pdd const&);
+        bool try_eval(pdd const& p, rational& r);
+
+        void collect_statistics(statistics& st) const;
 
         signed_constraint eq(pdd const& p) { return m_constraints.eq(p); }
         signed_constraint eq(pdd const& p, pdd const& q) { return m_constraints.eq(p - q); }

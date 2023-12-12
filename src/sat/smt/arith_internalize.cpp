@@ -253,7 +253,6 @@ namespace arith {
                     st.to_ensure_var().push_back(n2);
                 }
                 else if (a.is_band(n)) {
-                    // unsupported for now.
                     m_band_terms.push_back(to_app(n));
                     mk_band_axiom(to_app(n));
                     ctx.push(push_back_vector(m_band_terms));

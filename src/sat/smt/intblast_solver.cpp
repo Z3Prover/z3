@@ -13,6 +13,7 @@ Author:
 
 #include "ast/ast_util.h"
 #include "ast/for_each_expr.h"
+#include "ast/rewriter/bv_rewriter.h"
 #include "params/bv_rewriter_params.hpp"
 #include "sat/smt/intblast_solver.h"
 #include "sat/smt/euf_solver.h"
@@ -103,6 +104,8 @@ namespace intblast {
         verbose_stream() << es << "\n");
 
         lbool r = m_solver->check_sat(es);
+
+        m_solver->collect_statistics(m_stats);
 
         IF_VERBOSE(2, verbose_stream() << "(sat.intblast :result " << r << ")\n");
 
@@ -472,9 +475,32 @@ namespace intblast {
                 else
                     m_trail.push_back(a.mk_mod(x, y));
                 break;
-            }            
+            }       
+            //
+            // ashr(x, y)
+            // if y = k & x >= 0 -> x / 2^k   
+            // if y = k & x < 0  -> - (x / 2^k) 
+            //
+            
+            case OP_BASHR: {
+                expr* x = args.get(0), * y = args.get(1);
+                rational N = rational::power_of_two(bv.get_bv_size(e));
+                bv_expr = ap;
+                x = mk_mod(x);
+                y = mk_mod(y);
+                expr* signbit = a.mk_ge(x, a.mk_int(N/2));
+                expr* r = m.mk_ite(signbit, a.mk_int(N - 1), a.mk_int(0));                
+                for (unsigned i = 0; i < bv.get_bv_size(e); ++i) {
+                    expr* d = a.mk_idiv(x, a.mk_int(rational::power_of_two(i)));
+                    r = m.mk_ite(a.mk_eq(y, a.mk_int(i)),
+                        m.mk_ite(signbit, a.mk_uminus(d), d),
+                        r);
+                }
+                m_trail.push_back(r);
+                break;
+            }
             case OP_BCOMP:
-            case OP_BASHR:
+
             case OP_ROTATE_LEFT:
             case OP_ROTATE_RIGHT:
             case OP_EXT_ROTATE_LEFT:
@@ -524,6 +550,27 @@ namespace intblast {
         return val;
     }
 
+    void solver::add_value(euf::enode* n, model& mdl, expr_ref_vector& values) {
+        expr_ref value(m);
+        if (n->interpreted())
+            value = n->get_expr();
+        else if (to_app(n->get_expr())->get_family_id() == bv.get_family_id()) {
+            bv_rewriter rw(m);
+            expr_ref_vector args(m);
+            for (auto arg : euf::enode_args(n))
+                args.push_back(values.get(arg->get_root_id()));
+            rw.mk_app(n->get_decl(), args.size(), args.data(), value);
+            VERIFY(value);
+        }
+        else {
+            rational r = get_value(n->get_expr());
+            verbose_stream() << ctx.bpp(n) << " := " << r << "\n";
+            value = bv.mk_numeral(r, bv.get_bv_size(n->get_expr()));
+        }
+        values.set(n->get_root_id(), value);
+        TRACE("model", tout << "add_value " << ctx.bpp(n) << " := " << value << "\n");
+    }
+
     sat::literal_vector const& solver::unsat_core() {
         return m_core;
     }
@@ -532,6 +579,10 @@ namespace intblast {
         if (m_solver)
             m_solver->display(out);
         return out;
+    }
+
+    void solver::collect_statistics(statistics& st) const {
+        st.copy(m_stats);
     }
 
 }
