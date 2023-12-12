@@ -137,7 +137,7 @@ namespace intblast {
 
         sat::literal_vector const& unsat_core();
 
-        rational get_value(expr* e) const;
+        void add_value(euf::enode* n, model& mdl, expr_ref_vector& values);
 
 
     };

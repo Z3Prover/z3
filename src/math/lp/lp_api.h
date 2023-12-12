@@ -129,7 +129,11 @@ namespace lp_api {
             st.update("arith-gomory-cuts", m_gomory_cuts);
             st.update("arith-assume-eqs", m_assume_eqs);
             st.update("arith-branch", m_branch);
+<<<<<<< HEAD
             st.update("arith-bv-axioms", m_bv_axioms);
+=======
+            st.update("arith-band-axioms", m_band_axioms);
+>>>>>>> c72780d9b (b-and, stats, reinsert variable to heap, debugging)
         }
     };
 

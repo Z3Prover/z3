@@ -257,6 +257,8 @@ namespace intblast {
 
         lbool r = m_solver->check_sat(es);
 
+        m_solver->collect_statistics(m_stats);
+
         IF_VERBOSE(2, verbose_stream() << "(sat.intblast :result " << r << ")\n");
 
         if (r == l_false) {
@@ -974,6 +976,5 @@ namespace intblast {
     void solver::collect_statistics(statistics& st) const {
         st.copy(m_stats);
     }
-
 
 }

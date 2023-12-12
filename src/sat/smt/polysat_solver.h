@@ -121,6 +121,7 @@ namespace polysat {
         void internalize_bxnor(app* n);
         void internalize_band(app* n);
         void internalize_lshr(app* n);
+        void internalize_ashr(app* n);
         void internalize_shl(app* n);
         template<bool Signed, bool Reverse, bool Negated>
         void internalize_le(app* n);
@@ -174,7 +175,7 @@ namespace polysat {
         std::ostream& display(std::ostream& out) const override;
         std::ostream& display_justification(std::ostream& out, sat::ext_justification_idx idx) const override;
         std::ostream& display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const override;
-        void collect_statistics(statistics& st) const override {}
+        void collect_statistics(statistics& st) const override;
         euf::th_solver* clone(euf::solver& ctx) override { return alloc(solver, ctx, get_id()); }
         extension* copy(sat::solver* s) override { throw default_exception("nyi"); }
         void find_mutexes(literal_vector& lits, vector<literal_vector> & mutexes) override {}

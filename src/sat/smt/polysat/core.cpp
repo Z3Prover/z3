@@ -119,7 +119,7 @@ namespace polysat {
         m_activity.pop_back();
         m_justification.pop_back();
         m_watch.pop_back();
-        m_values.pop_back();
+        m_values.pop_back();        
         m_var_queue.del_var_eh(v);
     }
 
@@ -160,6 +160,7 @@ namespace polysat {
             s.add_eq_literal(m_var, m_value);
             return sat::check_result::CR_CONTINUE;
         case find_t::resource_out:
+            m_var_queue.unassign_var_eh(m_var);
             return sat::check_result::CR_GIVEUP;
         }
         UNREACHABLE();
@@ -342,8 +343,21 @@ namespace polysat {
         for (auto const& [sc, d, value] : m_constraint_index) 
             out << sc << " " << d << " := " << value << "\n";        
         for (unsigned i = 0; i < m_vars.size(); ++i) 
-            out << "p" << m_vars[i] << " := " << m_values[i] << " " << m_justification[i] << "\n";
+            out << m_vars[i] << " := " << m_values[i] << " " << m_justification[i] << "\n";
+        m_var_queue.display(out << "vars ") << "\n";
         return out;
+    }
+
+    bool core::try_eval(pdd const& p, rational& r) {
+        auto q = subst(p);
+        if (!q.is_val())
+            return false;
+        r = q.val();
+        return true;
+    }
+
+    void core::collect_statistics(statistics& st) const {
+
     }
 
 }

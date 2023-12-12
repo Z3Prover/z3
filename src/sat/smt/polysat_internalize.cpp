@@ -86,6 +86,7 @@ namespace polysat {
         case OP_BSUB:             internalize_binary(a, [&](pdd const& p, pdd const& q) { return p - q; }); break;
         case OP_BLSHR:            internalize_lshr(a); break;
         case OP_BSHL:             internalize_shl(a); break;
+        case OP_BASHR:            internalize_ashr(a); break;
         case OP_BAND:             internalize_band(a); break;
         case OP_BOR:              internalize_bor(a); break;
         case OP_BXOR:             internalize_bxor(a); break;
@@ -148,7 +149,7 @@ namespace polysat {
         case OP_BSDIV_I:            
         case OP_BSREM_I:                        
         case OP_BSMOD_I:
-        case OP_BASHR:
+
             IF_VERBOSE(0, verbose_stream() << mk_pp(a, m) << "\n");
             NOT_IMPLEMENTED_YET();
             return;
@@ -252,6 +253,12 @@ namespace polysat {
         expr* x, * y;
         VERIFY(bv.is_bv_lshr(n, x, y));
         auto sc = m_core.lshr(expr2pdd(x), expr2pdd(y), expr2pdd(n));
+    }
+
+    void solver::internalize_ashr(app* n) {
+        expr* x, * y;
+        VERIFY(bv.is_bv_ashr(n, x, y));
+        auto sc = m_core.ashr(expr2pdd(x), expr2pdd(y), expr2pdd(n));
     }
 
     void solver::internalize_shl(app* n) {
