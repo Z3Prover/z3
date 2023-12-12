@@ -636,29 +636,28 @@ namespace intblast {
         }
         case OP_BUDIV: {
             bv_rewriter_params p(ctx.s().params());
-            expr* x = arg(0), * y = arg(1);
+            expr* x = arg(0), * y = umod(e, 1);
             if (p.hi_div0())
-                r = m.mk_ite(m.mk_eq(y, a.mk_int(0)), a.mk_int(0), a.mk_idiv(x, umod(e, 1)));
+                r = m.mk_ite(m.mk_eq(y, a.mk_int(0)), a.mk_int(0), a.mk_idiv(x, y));
             else
-                r = a.mk_idiv(x, umod(e, 1));
+                r = a.mk_idiv(x, y);
             break;
         }
         case OP_BUREM: {
             bv_rewriter_params p(ctx.s().params());
-            expr* x = arg(0), * y = arg(1);
+            expr* x = arg(0), * y = umod(e, 1);
             if (p.hi_div0())
-                r = m.mk_ite(m.mk_eq(y, a.mk_int(0)), a.mk_int(0), a.mk_mod(x, umod(e, 1)));
+                r = m.mk_ite(m.mk_eq(y, a.mk_int(0)), a.mk_int(0), y));
             else
-                r = a.mk_mod(x, umod(e, 1));
+                r = a.mk_mod(x, y);
             break;
         }
-
-                     //
-                     // ashr(x, y)
-                     // if y = k & x >= 0 -> x / 2^k   
-                     // if y = k & x < 0  -> - (x / 2^k) 
-                     //
         case OP_BASHR: {
+            //
+            // ashr(x, y)
+            // if y = k & x >= 0 -> x / 2^k   
+            // if y = k & x < 0  -> - (x / 2^k) 
+            //
             rational N = rational::power_of_two(bv.get_bv_size(e));
             expr* x = umod(e, 0);
             expr* y = umod(e, 1);
@@ -700,6 +699,9 @@ namespace intblast {
             r = umod(e->get_arg(0), 0);
             break;
         case OP_BCOMP:
+            bv_expr = e->get_arg(0);
+            r = m.mk_ite(m.mk_eq(umod(bv_expr, 0), umod(bv_expr, 1)), a.mk_int(1), a.mk_int(0));
+            break;
         case OP_ROTATE_LEFT:
         case OP_ROTATE_RIGHT:
         case OP_EXT_ROTATE_LEFT:
