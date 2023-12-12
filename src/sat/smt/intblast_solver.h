@@ -8,11 +8,23 @@ Module Name:
 Abstract:
 
     Int-blast solver.
-    It assumes a full assignemnt to literals in 
+
+    check_solver_state assumes a full assignment to literals in 
     irredundant clauses. 
     It picks a satisfying Boolean assignment and 
     checks if it is feasible for bit-vectors using
     an arithmetic solver.
+
+    The solver plugin is self-contained.
+
+    Internalize:
+    - internalize bit-vector terms bottom-up by updating m_translate.
+    - add axioms of the form:
+      - ule(b,a) <=> translate(ule(b, a))
+      - let arithmetic solver handle bit-vector constraints.
+    - For shared b
+      - Ensure: int2bv(translate(b)) = b
+      - but avoid bit-blasting by ensuring int2bv is injective (mod N) during final check
 
 Author:
 
@@ -33,7 +45,7 @@ namespace euf {
 
 namespace intblast {
 
-    class solver {
+    class solver : public euf::th_euf_solver {
         struct var_info {
             expr* dst;
             rational sz;
@@ -47,7 +59,7 @@ namespace intblast {
         scoped_ptr<::solver> m_solver;
         obj_map<expr, var_info> m_vars;
         obj_map<func_decl, func_decl*> m_new_funs;
-        expr_ref_vector m_trail;
+        expr_ref_vector m_translate, m_args;
         ast_ref_vector m_pinned;
         sat::literal_vector m_core;
         statistics m_stats;
@@ -58,18 +70,68 @@ namespace intblast {
 
         rational get_value(expr* e) const;
 
+        expr* translated(expr* e) { expr* r = m_translate.get(e->get_id(), nullptr); SASSERT(r); return r; }
+        void set_translated(expr* e, expr* r) { m_translate.setx(e->get_id(), r); }
+        expr* arg(unsigned i) { return m_args.get(i); }
+
+        expr* mk_mod(expr* x);
+        expr* mk_smod(expr* x);
+        expr* bv_expr = nullptr;
+        rational bv_size();
+
+        void translate_expr(expr* e);
+        void translate_bv(app* e);
+        void translate_basic(app* e);
+        void translate_app(app* e);
+        void translate_quantifier(quantifier* q);
+        void translate_var(var* v);
+
+        void ensure_args(app* e);
+        void internalize_bv(app* e);
+
+        euf::theory_var mk_var(euf::enode* n) override;
+
     public:
         solver(euf::solver& ctx);
         
-        lbool check();
+        ~solver() override {}
+
+        lbool check_solver_state();
 
         sat::literal_vector const& unsat_core();
 
-        void add_value(euf::enode* n, model& mdl, expr_ref_vector& values);
+        void add_value(euf::enode* n, model& mdl, expr_ref_vector& values) override;
 
-        std::ostream& display(std::ostream& out) const;
+        std::ostream& display(std::ostream& out) const override;
 
-        void collect_statistics(statistics& st) const;
+        void collect_statistics(statistics& st) const override;
+
+
+
+        bool unit_propagate() override { return false; }
+
+        void get_antecedents(sat::literal l, sat::ext_justification_idx idx, sat::literal_vector& r, bool probing) override {}
+
+        sat::check_result check() override { return sat::check_result::CR_DONE; }
+
+        std::ostream& display_justification(std::ostream& out, sat::ext_justification_idx idx) const override { return out; }
+
+        std::ostream& display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const override { return out; }
+
+        euf::th_solver* clone(euf::solver& ctx) override { return alloc(solver, ctx); }
+
+        void internalize(expr* e) override;
+
+        bool visited(expr* e) override;
+
+        bool post_visit(expr* e, bool sign, bool root) override;
+
+        bool visit(expr* e) override;
+
+        sat::literal internalize(expr* e, bool, bool) override;
+
+        void eq_internalized(euf::enode* n) override {}
+
     };
 
 }

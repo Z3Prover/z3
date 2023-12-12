@@ -22,16 +22,109 @@ Author:
 namespace intblast {
 
     solver::solver(euf::solver& ctx) :
+        th_euf_solver(ctx, symbol("intblast"), ctx.get_manager().get_family_id("bv")),
         ctx(ctx),
         s(ctx.s()),
         m(ctx.get_manager()),
         bv(m),
         a(m),
-        m_trail(m),
+        m_args(m),
+        m_translate(m),
         m_pinned(m)
     {}
 
-    lbool solver::check() {
+    euf::theory_var solver::mk_var(euf::enode* n) {
+        auto r = euf::th_euf_solver::mk_var(n);
+        ctx.attach_th_var(n, this, r);
+        TRACE("bv", tout << "mk-var: v" << r << " " << ctx.bpp(n) << "\n";);
+        return r;
+    }
+
+    sat::literal solver::internalize(expr* e, bool sign, bool root) {
+        force_push();
+        SASSERT(m.is_bool(e));
+        if (!visit_rec(m, e, sign, root))
+            return sat::null_literal;
+        sat::literal lit = expr2literal(e);
+        if (sign)
+            lit.neg();
+        return lit;
+    }
+
+    void solver::internalize(expr* e) {
+        force_push();
+        visit_rec(m, e, false, false);
+    }
+
+    bool solver::visit(expr* e) {
+        if (!is_app(e) || to_app(e)->get_family_id() != get_id()) {
+            ctx.internalize(e);
+            return true;
+        }
+        m_stack.push_back(sat::eframe(e));
+        return false;
+    }
+
+    bool solver::visited(expr* e) {
+        euf::enode* n = expr2enode(e);
+        return n && n->is_attached_to(get_id());
+    }
+
+    bool solver::post_visit(expr* e, bool sign, bool root) {
+        euf::enode* n = expr2enode(e);
+        app* a = to_app(e);
+        if (visited(e))
+            return true;
+        SASSERT(!n || !n->is_attached_to(get_id()));
+        if (!n)
+            n = mk_enode(e, false);
+        SASSERT(!n->is_attached_to(get_id()));
+        mk_var(n);
+        SASSERT(n->is_attached_to(get_id()));
+        internalize_bv(a);
+        return true;
+    }
+
+    void solver::internalize_bv(app* e) {
+        ensure_args(e);
+        m_args.reset();
+        for (auto arg : *e)
+            m_args.push_back(translated(arg));
+        translate_bv(e);
+        if (m.is_bool(e)) 
+            add_equiv(expr2literal(e), mk_literal(translated(e)));        
+    }
+
+    void solver::ensure_args(app* e) {
+        ptr_vector<expr> todo;
+        ast_fast_mark1 visited;
+        for (auto arg : *e) {
+            if (!m_translate.get(arg->get_id(), nullptr))
+                todo.push_back(arg);
+        }
+        if (todo.empty())
+            return;
+        for (unsigned i = 0; i < todo.size(); ++i) {
+            expr* e = todo[i];
+            if (is_app(e)) {
+                for (auto arg : *to_app(e))
+                    if (!visited.is_marked(arg)) {
+                        visited.mark(arg);
+                        todo.push_back(arg);
+                    }
+            }
+            else if (is_quantifier(e) && !visited.is_marked(to_quantifier(e)->get_expr())) {
+                visited.mark(to_quantifier(e)->get_expr());
+                todo.push_back(to_quantifier(e)->get_expr());
+            }
+        }
+
+        std::stable_sort(todo.begin(), todo.end(), [&](expr* a, expr* b) { return get_depth(a) < get_depth(b); });
+        for (expr* e : todo)
+            translate_expr(e);
+    }
+
+    lbool solver::check_solver_state() {
         sat::literal_vector literals;
         uint_set selected;
         for (auto const& clause : s.clauses()) {
@@ -84,7 +177,7 @@ namespace intblast {
 
         m_core.reset();
         m_vars.reset();
-        m_trail.reset();
+        m_translate.reset();
         m_solver = mk_smt2_solver(m, s.params(), symbol::null);
 
         expr_ref_vector es(m);
@@ -123,7 +216,6 @@ namespace intblast {
                     m_core.push_back(ctx.mk_literal(e));
             }
         }
-
         return r;
     };
 
@@ -189,349 +281,348 @@ namespace intblast {
 
     void solver::translate(expr_ref_vector& es) {
         ptr_vector<expr> todo;
-        obj_map<expr, expr*> translated;
-        expr_ref_vector args(m);
 
         sorted_subterms(es, todo);
 
-        for (expr* e : todo) {
-            if (is_quantifier(e)) {
-                quantifier* q = to_quantifier(e);
-                expr* b = q->get_expr();
-
-                unsigned nd = q->get_num_decls();
-                ptr_vector<sort> sorts;
-                for (unsigned i = 0; i < nd; ++i) {
-                    auto s = q->get_decl_sort(i);
-                    if (bv.is_bv_sort(s)) {
-                        NOT_IMPLEMENTED_YET();
-                        sorts.push_back(a.mk_int());
-                    }
-                    else
-                        sorts.push_back(s);
-                }
-                b = translated[b];
-                // TODO if sorts contain integer, then created bounds variables.
-                m_trail.push_back(m.update_quantifier(q, b));
-                translated.insert(e, m_trail.back());
-                continue;
-            }
-            if (is_var(e)) {
-                if (bv.is_bv_sort(e->get_sort())) {
-                    expr* v = m.mk_var(to_var(e)->get_idx(), a.mk_int());
-                    m_trail.push_back(v);
-                    translated.insert(e, m_trail.back());
-                }
-                else {
-                    m_trail.push_back(e);
-                    translated.insert(e, m_trail.back());
-                }
-                continue;
-            }
-            app* ap = to_app(e);
-            expr* bv_expr = e;
-            args.reset();
-            for (auto arg : *ap)
-                args.push_back(translated[arg]);
-
-            auto bv_size = [&]() { return rational::power_of_two(bv.get_bv_size(bv_expr->get_sort())); };
-
-            auto mk_mod = [&](expr* x) {
-                if (m_vars.contains(x))
-                    return x;
-                return to_expr(a.mk_mod(x, a.mk_int(bv_size())));
-                };
-
-            auto mk_smod = [&](expr* x) {
-                auto shift = bv_size() / 2;
-                return a.mk_mod(a.mk_add(x, a.mk_int(shift)), a.mk_int(bv_size()));
-                };
-
-            if (m.is_eq(e)) {
-                bool has_bv_arg = any_of(*ap, [&](expr* arg) { return bv.is_bv(arg); });
-                if (has_bv_arg) {
-                    bv_expr = ap->get_arg(0);
-                    m_trail.push_back(m.mk_eq(mk_mod(args.get(0)), mk_mod(args.get(1))));
-                    translated.insert(e, m_trail.back());
-                }
-                else {
-                    m_trail.push_back(m.mk_eq(args.get(0), args.get(1)));
-                    translated.insert(e, m_trail.back());
-                }
-                continue;
-            }
-
-            if (m.is_ite(e)) {
-                m_trail.push_back(m.mk_ite(args.get(0), args.get(1), args.get(2)));
-                translated.insert(e, m_trail.back());
-                continue;
-            }
-
-            if (ap->get_family_id() != bv.get_family_id()) {
-                bool has_bv_arg = any_of(*ap, [&](expr* arg) { return bv.is_bv(arg); });
-                bool has_bv_sort = bv.is_bv(e);
-                func_decl* f = ap->get_decl();
-                if (has_bv_arg) {
-                    verbose_stream() << mk_pp(ap, m) << "\n";
-                    // need to update args with mod where they are bit-vectors.
-                    NOT_IMPLEMENTED_YET();
-                }
-
-                if (has_bv_arg || has_bv_sort) {
-                    ptr_vector<sort> domain;
-                    for (auto* arg : *ap) {
-                        sort* s = arg->get_sort();
-                        domain.push_back(bv.is_bv_sort(s) ? a.mk_int() : s);
-                    }
-                    sort* range = bv.is_bv(e) ? a.mk_int() : e->get_sort();
-                    func_decl* g = nullptr;
-                    if (!m_new_funs.find(f, g)) {
-                        g = m.mk_fresh_func_decl(ap->get_decl()->get_name(), symbol("bv"), domain.size(), domain.data(), range);
-                        m_new_funs.insert(f, g);
-                        m_pinned.push_back(f);
-                        m_pinned.push_back(g);
-                    }
-                    f = g;
-                }
-
-                m_trail.push_back(m.mk_app(f, args));
-                translated.insert(e, m_trail.back());
-
-                if (has_bv_sort)
-                    m_vars.insert(e, { m_trail.back(), bv_size() });
-
-                continue;
-            }
-
-            auto bnot = [&](expr* e) {
-                return a.mk_sub(a.mk_int(-1), e);
-            };
-
-            auto band = [&](expr_ref_vector const& args) {
-                expr * r = args.get(0);
-                for (unsigned i = 1; i < args.size(); ++i)
-                    r = a.mk_band(bv.get_bv_size(e), r, args.get(i));
-                return r;
-            };
-
-            switch (ap->get_decl_kind()) {
-            case OP_BADD:
-                m_trail.push_back(a.mk_add(args));
-                break;
-            case OP_BSUB:
-                m_trail.push_back(a.mk_sub(args.size(), args.data()));
-                break;
-            case OP_BMUL:
-                m_trail.push_back(a.mk_mul(args));
-                break;
-            case OP_ULEQ:
-                bv_expr = ap->get_arg(0);
-                m_trail.push_back(a.mk_le(mk_mod(args.get(0)), mk_mod(args.get(1))));
-                break;
-            case OP_UGEQ:
-                bv_expr = ap->get_arg(0);
-                m_trail.push_back(a.mk_ge(mk_mod(args.get(0)), mk_mod(args.get(1))));
-                break;
-            case OP_ULT:
-                bv_expr = ap->get_arg(0);
-                m_trail.push_back(a.mk_lt(mk_mod(args.get(0)), mk_mod(args.get(1))));
-                break;
-            case OP_UGT:
-                bv_expr = ap->get_arg(0);
-                m_trail.push_back(a.mk_gt(mk_mod(args.get(0)), mk_mod(args.get(1))));
-                break;
-            case OP_SLEQ:
-                bv_expr = ap->get_arg(0);
-                m_trail.push_back(a.mk_le(mk_smod(args.get(0)), mk_smod(args.get(1))));
-                break;
-            case OP_SGEQ:
-                m_trail.push_back(a.mk_ge(mk_smod(args.get(0)), mk_smod(args.get(1))));
-                break;
-            case OP_SLT:
-                bv_expr = ap->get_arg(0);
-                m_trail.push_back(a.mk_lt(mk_smod(args.get(0)), mk_smod(args.get(1))));
-                break;
-            case OP_SGT:
-                bv_expr = ap->get_arg(0);
-                m_trail.push_back(a.mk_gt(mk_smod(args.get(0)), mk_smod(args.get(1))));
-                break;
-            case OP_BNEG:
-                m_trail.push_back(a.mk_uminus(args.get(0)));
-                break;
-            case OP_CONCAT: {
-                expr_ref r(a.mk_int(0), m);
-                unsigned sz = 0;
-                for (unsigned i = 0; i < args.size(); ++i) {
-                    expr* old_arg = ap->get_arg(i);
-                    expr* new_arg = args.get(i);
-                    bv_expr = old_arg;
-                    new_arg = mk_mod(new_arg);
-                    if (sz > 0) {
-                        new_arg = a.mk_mul(new_arg, a.mk_int(rational::power_of_two(sz)));
-                        r = a.mk_add(r, new_arg);
-                    }
-                    else
-                        r = new_arg;
-                    sz += bv.get_bv_size(old_arg->get_sort());
-                }
-                m_trail.push_back(r);
-                break;
-            }
-            case OP_EXTRACT: {
-                unsigned lo, hi;
-                expr* old_arg;
-                VERIFY(bv.is_extract(e, lo, hi, old_arg));
-                unsigned sz = hi - lo + 1;
-                expr* new_arg = args.get(0);
-                if (lo > 0)
-                    new_arg = a.mk_idiv(new_arg, a.mk_int(rational::power_of_two(lo)));
-                m_trail.push_back(new_arg);
-                break;
-            }
-            case OP_BV_NUM: {
-                rational val;
-                unsigned sz;
-                VERIFY(bv.is_numeral(e, val, sz));
-                m_trail.push_back(a.mk_int(val));
-                break;
-            }
-            case OP_BUREM_I: {
-                expr* x = args.get(0), * y = args.get(1);
-                m_trail.push_back(m.mk_ite(m.mk_eq(y, a.mk_int(0)), a.mk_int(0), a.mk_mod(x, y)));
-                break;
-            }
-            case OP_BUDIV_I: {
-                expr* x = args.get(0), * y = args.get(1);
-                m_trail.push_back(m.mk_ite(m.mk_eq(y, a.mk_int(0)), a.mk_int(0), a.mk_idiv(x, y)));
-                break;
-            }
-            case OP_BUMUL_NO_OVFL: {
-                expr* x = args.get(0), * y = args.get(1);
-                bv_expr = ap->get_arg(0);
-                m_trail.push_back(a.mk_lt(a.mk_mul(mk_mod(x), mk_mod(y)), a.mk_int(bv_size())));
-                break;
-            }
-            case OP_BSHL: {
-                expr* x = args.get(0), * y = args.get(1);
-                expr* r = a.mk_int(0);
-                for (unsigned i = 0; i < bv.get_bv_size(e); ++i)
-                    r = m.mk_ite(a.mk_eq(y, a.mk_int(i)), a.mk_mul(x, a.mk_int(rational::power_of_two(i))), r);                   
-                m_trail.push_back(r);
-                break;
-            }
-            case OP_BNOT:       
-                m_trail.push_back(bnot(args.get(0)));
-                break;            
-            case OP_BLSHR: {
-                expr* x = args.get(0), * y = args.get(1);
-                expr* r = a.mk_int(0);
-                for (unsigned i = 0; i < bv.get_bv_size(e); ++i)
-                    r = m.mk_ite(a.mk_eq(y, a.mk_int(i)), a.mk_idiv(x, a.mk_int(rational::power_of_two(i))), r);
-                m_trail.push_back(r);
-                break;
-            }                 
-            // Or use (p + q) - band(p, q)?
-            case OP_BOR:
-                for (unsigned i = 0; i < args.size(); ++i)
-                    args[i] = bnot(args.get(i));
-                m_trail.push_back(bnot(band(args)));
-                break;
-            case OP_BNAND:
-                m_trail.push_back(bnot(band(args)));
-                break;
-            case OP_BAND:
-                m_trail.push_back(band(args));
-                break;
-            // From "Hacker's Delight", section 2-2. Addition Combined with Logical Operations;
-            // found via Int-Blasting paper; see https://doi.org/10.1007/978-3-030-94583-1_24
-            // (p + q) - 2*band(p, q);
-            case OP_BXNOR:
-            case OP_BXOR: {
-                unsigned sz = bv.get_bv_size(e);
-                expr* p = args.get(0);
-                for (unsigned i = 1; i < args.size(); ++i) {
-                    expr* q = args.get(i);
-                    p = a.mk_sub(a.mk_add(p, q), a.mk_mul(a.mk_int(2), a.mk_band(sz, p, q)));
-                }
-                if (ap->get_decl_kind() == OP_BXNOR)
-                    p = bnot(p);
-                m_trail.push_back(p);
-                break;
-            }
-            case OP_BUDIV: {
-                bv_rewriter_params p(ctx.s().params());
-                expr* x = args.get(0), * y = args.get(1);
-                if (p.hi_div0())
-                    m_trail.push_back(m.mk_ite(m.mk_eq(y, a.mk_int(0)), a.mk_int(0), a.mk_idiv(x, y)));
-                else
-                    m_trail.push_back(a.mk_idiv(x, y));
-                break;
-            }
-            case OP_BUREM: {
-                bv_rewriter_params p(ctx.s().params());
-                expr* x = args.get(0), * y = args.get(1);
-                if (p.hi_div0())
-                    m_trail.push_back(m.mk_ite(m.mk_eq(y, a.mk_int(0)), a.mk_int(0), a.mk_mod(x, y)));
-                else
-                    m_trail.push_back(a.mk_mod(x, y));
-                break;
-            }       
-            //
-            // ashr(x, y)
-            // if y = k & x >= 0 -> x / 2^k   
-            // if y = k & x < 0  -> - (x / 2^k) 
-            //
-            
-            case OP_BASHR: {
-                expr* x = args.get(0), * y = args.get(1);
-                rational N = rational::power_of_two(bv.get_bv_size(e));
-                bv_expr = ap;
-                x = mk_mod(x);
-                y = mk_mod(y);
-                expr* signbit = a.mk_ge(x, a.mk_int(N/2));
-                expr* r = m.mk_ite(signbit, a.mk_int(N - 1), a.mk_int(0));                
-                for (unsigned i = 0; i < bv.get_bv_size(e); ++i) {
-                    expr* d = a.mk_idiv(x, a.mk_int(rational::power_of_two(i)));
-                    r = m.mk_ite(a.mk_eq(y, a.mk_int(i)),
-                        m.mk_ite(signbit, a.mk_uminus(d), d),
-                        r);
-                }
-                m_trail.push_back(r);
-                break;
-            }
-            case OP_BCOMP:
-
-            case OP_ROTATE_LEFT:
-            case OP_ROTATE_RIGHT:
-            case OP_EXT_ROTATE_LEFT:
-            case OP_EXT_ROTATE_RIGHT:
-            case OP_REPEAT:
-            case OP_ZERO_EXT:
-            case OP_SIGN_EXT:
-            case OP_BREDOR:
-            case OP_BREDAND:
-            case OP_BSDIV:
-            case OP_BSREM:
-            case OP_BSMOD:
-                verbose_stream() << mk_pp(e, m) << "\n";
-                NOT_IMPLEMENTED_YET();
-                break;
-            default:
-                verbose_stream() << mk_pp(e, m) << "\n";
-                NOT_IMPLEMENTED_YET();
-            }
-            translated.insert(e, m_trail.back());
-        }
+        for (expr* e : todo)
+            translate_expr(e);
 
         TRACE("bv",
             for (expr* e : es)
-                tout << mk_pp(e, m) << "\n->\n" << mk_pp(translated[e], m) << "\n";
+                tout << mk_pp(e, m) << "\n->\n" << mk_pp(translated(e), m) << "\n";
         );
 
         for (unsigned i = 0; i < es.size(); ++i)
-            es[i] = translated[es.get(i)];
+            es[i] = translated(es.get(i));
+    }
 
+    expr* solver::mk_mod(expr* x) {
+        if (m_vars.contains(x))
+            return x;
+        return to_expr(a.mk_mod(x, a.mk_int(bv_size())));
+    }
 
+    expr* solver::mk_smod(expr* x) {
+        auto shift = bv_size() / 2;
+        return a.mk_mod(a.mk_add(x, a.mk_int(shift)), a.mk_int(bv_size()));
+    }
+
+    rational solver::bv_size() { 
+        return rational::power_of_two(bv.get_bv_size(bv_expr->get_sort())); 
+    }
+
+    void solver::translate_expr(expr* e) {
+        if (is_quantifier(e))
+            translate_quantifier(to_quantifier(e));
+        else if (is_var(e))
+            translate_var(to_var(e));
+        else {
+            app* ap = to_app(e);
+            bv_expr = e;
+            m_args.reset();
+            for (auto arg : *ap)
+                m_args.push_back(translated(arg));
+
+            if (ap->get_family_id() == basic_family_id)
+                translate_basic(ap);
+            else if (ap->get_family_id() == bv.get_family_id())
+                translate_bv(ap);
+            else
+                translate_app(ap);
+        }
+    }
+
+    void solver::translate_quantifier(quantifier* q) {
+        expr* b = q->get_expr();
+        unsigned nd = q->get_num_decls();
+        ptr_vector<sort> sorts;
+        for (unsigned i = 0; i < nd; ++i) {
+            auto s = q->get_decl_sort(i);
+            if (bv.is_bv_sort(s)) {
+                NOT_IMPLEMENTED_YET();
+                sorts.push_back(a.mk_int());
+            }
+            else
+                sorts.push_back(s);
+        }
+        b = translated(b);
+        // TODO if sorts contain integer, then created bounds variables.       
+        set_translated(q, m.update_quantifier(q, b));
+    }
+
+    void solver::translate_var(var* v) {
+        if (bv.is_bv_sort(v->get_sort()))
+            set_translated(v, m.mk_var(v->get_idx(), a.mk_int()));
+        else
+            set_translated(v, v);
+    }
+
+    void solver::translate_app(app* e) {
+        bool has_bv_arg = any_of(*e, [&](expr* arg) { return bv.is_bv(arg); });
+        bool has_bv_sort = bv.is_bv(e);
+        func_decl* f = e->get_decl();
+        if (has_bv_arg) {
+            verbose_stream() << mk_pp(e, m) << "\n";
+            // need to update args with mod where they are bit-vectors.
+            NOT_IMPLEMENTED_YET();
+        }
+
+        if (has_bv_arg || has_bv_sort) {
+            ptr_vector<sort> domain;
+            for (auto* arg : *e) {
+                sort* s = arg->get_sort();
+                domain.push_back(bv.is_bv_sort(s) ? a.mk_int() : s);
+            }
+            sort* range = bv.is_bv(e) ? a.mk_int() : e->get_sort();
+            func_decl* g = nullptr;
+            if (!m_new_funs.find(f, g)) {
+                g = m.mk_fresh_func_decl(e->get_decl()->get_name(), symbol("bv"), domain.size(), domain.data(), range);
+                m_new_funs.insert(f, g);
+                m_pinned.push_back(f);
+                m_pinned.push_back(g);
+            }
+            f = g;
+        }
+
+        set_translated(e, m.mk_app(f, m_args));
+
+        if (has_bv_sort)
+            m_vars.insert(e, { translated(e), bv_size()});
+    }
+
+    void solver::translate_bv(app* e) {
+
+        auto bnot = [&](expr* e) {
+            return a.mk_sub(a.mk_int(-1), e);
+            };
+
+        auto band = [&](expr_ref_vector const& args) {
+            expr* r = arg(0);
+            for (unsigned i = 1; i < args.size(); ++i)
+                r = a.mk_band(bv.get_bv_size(e), r, arg(i));
+            return r;
+            };
+
+        bv_expr = e;
+        expr* r = nullptr;
+        auto const& args = m_args;
+        switch (e->get_decl_kind()) {
+        case OP_BADD:
+            r = (a.mk_add(args));
+            break;
+        case OP_BSUB:
+            r = (a.mk_sub(args.size(), args.data()));
+            break;
+        case OP_BMUL:
+            r = (a.mk_mul(args));
+            break;
+        case OP_ULEQ:
+            bv_expr = e->get_arg(0);
+            r = (a.mk_le(mk_mod(arg(0)), mk_mod(arg(1))));
+            break;
+        case OP_UGEQ:
+            bv_expr = e->get_arg(0);
+            r = (a.mk_ge(mk_mod(arg(0)), mk_mod(arg(1))));
+            break;
+        case OP_ULT:
+            bv_expr = e->get_arg(0);
+            r = (a.mk_lt(mk_mod(arg(0)), mk_mod(arg(1))));
+            break;
+        case OP_UGT:
+            bv_expr = e->get_arg(0);
+            r = (a.mk_gt(mk_mod(arg(0)), mk_mod(arg(1))));
+            break;
+        case OP_SLEQ:
+            bv_expr = e->get_arg(0);
+            r = (a.mk_le(mk_smod(arg(0)), mk_smod(arg(1))));
+            break;
+        case OP_SGEQ:
+            r = (a.mk_ge(mk_smod(arg(0)), mk_smod(arg(1))));
+            break;
+        case OP_SLT:
+            bv_expr = e->get_arg(0);
+            r = (a.mk_lt(mk_smod(arg(0)), mk_smod(arg(1))));
+            break;
+        case OP_SGT:
+            bv_expr = e->get_arg(0);
+            r = (a.mk_gt(mk_smod(arg(0)), mk_smod(arg(1))));
+            break;
+        case OP_BNEG:
+            r = (a.mk_uminus(arg(0)));
+            break;
+        case OP_CONCAT: {
+            r = a.mk_int(0);
+            unsigned sz = 0;
+            for (unsigned i = 0; i < args.size(); ++i) {
+                expr* old_arg = e->get_arg(i);
+                expr* new_arg = arg(i);
+                bv_expr = old_arg;
+                new_arg = mk_mod(new_arg);
+                if (sz > 0) {
+                    new_arg = a.mk_mul(new_arg, a.mk_int(rational::power_of_two(sz)));
+                    r = a.mk_add(r, new_arg);
+                }
+                else
+                    r = new_arg;
+                sz += bv.get_bv_size(old_arg->get_sort());
+            }
+            break;
+        }
+        case OP_EXTRACT: {
+            unsigned lo, hi;
+            expr* old_arg;
+            VERIFY(bv.is_extract(e, lo, hi, old_arg));
+            unsigned sz = hi - lo + 1;
+            expr* r = arg(0);
+            if (lo > 0)
+                r = a.mk_idiv(r, a.mk_int(rational::power_of_two(lo)));
+            break;
+        }
+        case OP_BV_NUM: {
+            rational val;
+            unsigned sz;
+            VERIFY(bv.is_numeral(e, val, sz));
+            r = (a.mk_int(val));
+            break;
+        }
+        case OP_BUREM_I: {
+            expr* x = arg(0), * y = arg(1);
+            r = (m.mk_ite(m.mk_eq(y, a.mk_int(0)), a.mk_int(0), a.mk_mod(x, y)));
+            break;
+        }
+        case OP_BUDIV_I: {
+            expr* x = arg(0), * y = arg(1);
+            r = (m.mk_ite(m.mk_eq(y, a.mk_int(0)), a.mk_int(0), a.mk_idiv(x, y)));
+            break;
+        }
+        case OP_BUMUL_NO_OVFL: {
+            expr* x = arg(0), * y = arg(1);
+            bv_expr = e->get_arg(0);
+            r = (a.mk_lt(a.mk_mul(mk_mod(x), mk_mod(y)), a.mk_int(bv_size())));
+            break;
+        }
+        case OP_BSHL: {
+            expr* x = arg(0), * y = arg(1);
+            r = a.mk_int(0);
+            for (unsigned i = 0; i < bv.get_bv_size(e); ++i)
+                r = m.mk_ite(a.mk_eq(y, a.mk_int(i)), a.mk_mul(x, a.mk_int(rational::power_of_two(i))), r);
+            break;
+        }
+        case OP_BNOT:
+            r = (bnot(arg(0)));
+            break;
+        case OP_BLSHR: {
+            expr* x = arg(0), * y = arg(1);
+            r = a.mk_int(0);
+            for (unsigned i = 0; i < bv.get_bv_size(e); ++i)
+                r = m.mk_ite(a.mk_eq(y, a.mk_int(i)), a.mk_idiv(x, a.mk_int(rational::power_of_two(i))), r);
+            break;
+        }
+        // Or use (p + q) - band(p, q)?
+        case OP_BOR: {
+            r = arg(0);
+            for (unsigned i = 1; i < args.size(); ++i)
+                r = a.mk_sub(a.mk_add(r, arg(i)), a.mk_band(bv.get_bv_size(e), r, arg(i)));
+            break;
+        }
+        case OP_BNAND:
+            r = (bnot(band(args)));
+            break;
+        case OP_BAND:
+            r = (band(args));
+            break;
+            // From "Hacker's Delight", section 2-2. Addition Combined with Logical Operations;
+            // found via Int-Blasting paper; see https://doi.org/10.1007/978-3-030-94583-1_24
+            // (p + q) - 2*band(p, q);
+        case OP_BXNOR:
+        case OP_BXOR: {
+            unsigned sz = bv.get_bv_size(e);
+            expr* p = arg(0);
+            for (unsigned i = 1; i < args.size(); ++i) {
+                expr* q = arg(i);
+                p = a.mk_sub(a.mk_add(p, q), a.mk_mul(a.mk_int(2), a.mk_band(sz, p, q)));
+            }
+            if (e->get_decl_kind() == OP_BXNOR)
+                p = bnot(p);
+            r = (p);
+            break;
+        }
+        case OP_BUDIV: {
+            bv_rewriter_params p(ctx.s().params());
+            expr* x = arg(0), * y = arg(1);
+            if (p.hi_div0())
+                r = (m.mk_ite(m.mk_eq(y, a.mk_int(0)), a.mk_int(0), a.mk_idiv(x, y)));
+            else
+                r = (a.mk_idiv(x, y));
+            break;
+        }
+        case OP_BUREM: {
+            bv_rewriter_params p(ctx.s().params());
+            expr* x = arg(0), * y = arg(1);
+            if (p.hi_div0())
+                r = (m.mk_ite(m.mk_eq(y, a.mk_int(0)), a.mk_int(0), a.mk_mod(x, y)));
+            else
+                r = (a.mk_mod(x, y));
+            break;
+        }
+                     //
+                     // ashr(x, y)
+                     // if y = k & x >= 0 -> x / 2^k   
+                     // if y = k & x < 0  -> - (x / 2^k) 
+                     //
+
+        case OP_BASHR: {
+            expr* x = arg(0), * y = arg(1);
+            rational N = rational::power_of_two(bv.get_bv_size(e));
+            bv_expr = e;
+            x = mk_mod(x);
+            y = mk_mod(y);
+            expr* signbit = a.mk_ge(x, a.mk_int(N / 2));
+            r = m.mk_ite(signbit, a.mk_int(N - 1), a.mk_int(0));
+            for (unsigned i = 0; i < bv.get_bv_size(e); ++i) {
+                expr* d = a.mk_idiv(x, a.mk_int(rational::power_of_two(i)));
+                r = m.mk_ite(a.mk_eq(y, a.mk_int(i)),
+                    m.mk_ite(signbit, a.mk_uminus(d), d),
+                    r);
+            }
+            break;
+        }
+        case OP_BCOMP:
+
+        case OP_ROTATE_LEFT:
+        case OP_ROTATE_RIGHT:
+        case OP_EXT_ROTATE_LEFT:
+        case OP_EXT_ROTATE_RIGHT:
+        case OP_REPEAT:
+        case OP_ZERO_EXT:
+        case OP_SIGN_EXT:
+        case OP_BREDOR:
+        case OP_BREDAND:
+        case OP_BSDIV:
+        case OP_BSREM:
+        case OP_BSMOD:
+            verbose_stream() << mk_pp(e, m) << "\n";
+            NOT_IMPLEMENTED_YET();
+            break;
+        default:
+            verbose_stream() << mk_pp(e, m) << "\n";
+            NOT_IMPLEMENTED_YET();
+        }
+        set_translated(e, r);
+    }
+    
+    void solver::translate_basic(app* e) {
+        if (m.is_eq(e)) {
+            bool has_bv_arg = any_of(*e, [&](expr* arg) { return bv.is_bv(arg); });
+            if (has_bv_arg) {
+                bv_expr = e->get_arg(0);
+                set_translated(e, m.mk_eq(mk_mod(arg(0)), mk_mod(arg(1))));
+            }
+            else 
+                set_translated(e, m.mk_eq(arg(0), arg(1)));            
+        }
+        else 
+            set_translated(e, m.mk_app(e->get_decl(), m_args));        
     }
 
     rational solver::get_value(expr* e) const {

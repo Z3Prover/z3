@@ -50,32 +50,22 @@ namespace polysat {
         
         op_constraint(code c, pdd const& r, pdd const& p, pdd const& q);
         lbool eval(pdd const& r, pdd const& p, pdd const& q) const;
-//        clause_ref produce_lemma(core& s, assignment const& a);
 
-  //      clause_ref lemma_lshr(core& s, assignment const& a);
         static lbool eval_lshr(pdd const& p, pdd const& q, pdd const& r);
-
-    //    clause_ref lemma_shl(core& s, assignment const& a);
         static lbool eval_shl(pdd const& p, pdd const& q, pdd const& r);
-
-      //  clause_ref lemma_and(core& s, assignment const& a);
         static lbool eval_and(pdd const& p, pdd const& q, pdd const& r);
-
-       // clause_ref lemma_inv(core& s, assignment const& a);
         static lbool eval_inv(pdd const& p, pdd const& r);
+
+        void propagate_lshr(core& s, dependency const& dep);
+        void propagate_shl(core& s, dependency const& dep);
+        void propagate_and(core& s, dependency const& dep);
+        void propagate_inv(core& s, dependency const& dep);
+
         
-       // clause_ref lemma_udiv(core& s, assignment const& a);
-        static lbool eval_udiv(pdd const& p, pdd const& q, pdd const& r);
-        
-       // clause_ref lemma_urem(core& s, assignment const& a);
-        static lbool eval_urem(pdd const& p, pdd const& q, pdd const& r);
 
         std::ostream& display(std::ostream& out, char const* eq) const;
 
-        void activate(core& s);
-
-        void activate_and(core& s);
-        void activate_udiv(core& s);
+        void activate_and(core& s, dependency const& d);
 
     public:
         ~op_constraint() override {}
@@ -89,6 +79,8 @@ namespace polysat {
         lbool eval(assignment const& a) const override;
         bool is_always_true() const { return false; }
         bool is_always_false() const { return false; }
+        void activate(core& c, bool sign, dependency const& dep) override;
+        void propagate(core& c, lbool value, dependency const& dep) override;
     };
 
 }
