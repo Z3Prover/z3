@@ -46,23 +46,18 @@ namespace euf {
 namespace intblast {
 
     class solver : public euf::th_euf_solver {
-        struct var_info {
-            expr* dst;
-            rational sz;
-        };
-
         euf::solver& ctx;
         sat::solver& s;
         ast_manager& m;
         bv_util bv;
         arith_util a;
         scoped_ptr<::solver> m_solver;
-        obj_map<expr, var_info> m_vars;
         obj_map<func_decl, func_decl*> m_new_funs;
         expr_ref_vector m_translate, m_args;
-        ast_ref_vector m_pinned;
         sat::literal_vector m_core;
+        ptr_vector<app> m_bv2int, m_int2bv;
         statistics m_stats;
+        bool m_is_plugin = true;        // when the solver is used as a plugin, then do not translate below quantifiers.
 
         bool is_bv(sat::literal lit);
         void translate(expr_ref_vector& es);
@@ -70,14 +65,13 @@ namespace intblast {
 
         rational get_value(expr* e) const;
 
-        expr* translated(expr* e) { expr* r = m_translate.get(e->get_id(), nullptr); SASSERT(r); return r; }
+        expr* translated(expr* e) const { expr* r = m_translate.get(e->get_id(), nullptr); SASSERT(r); return r; }
         void set_translated(expr* e, expr* r) { m_translate.setx(e->get_id(), r); }
         expr* arg(unsigned i) { return m_args.get(i); }
 
-        expr* mk_mod(expr* x);
-        expr* mk_smod(expr* x);
-        expr* bv_expr = nullptr;
-        rational bv_size();
+        expr* umod(expr* bv_expr, unsigned i);
+        expr* smod(expr* bv_expr, unsigned i);
+        rational bv_size(expr* bv_expr);
 
         void translate_expr(expr* e);
         void translate_bv(app* e);
@@ -89,7 +83,14 @@ namespace intblast {
         void ensure_args(app* e);
         void internalize_bv(app* e);
 
+        unsigned m_vars_qhead = 0;
+        ptr_vector<expr> m_vars;
+        void add_bound_axioms();
+
         euf::theory_var mk_var(euf::enode* n) override;
+
+        void add_value_plugin(euf::enode* n, model& mdl, expr_ref_vector& values);
+        void add_value_solver(euf::enode* n, model& mdl, expr_ref_vector& values);
 
     public:
         solver(euf::solver& ctx);
@@ -102,11 +103,11 @@ namespace intblast {
 
         void add_value(euf::enode* n, model& mdl, expr_ref_vector& values) override;
 
+        bool add_dep(euf::enode* n, top_sort<euf::enode>& dep) override;
+
         std::ostream& display(std::ostream& out) const override;
 
         void collect_statistics(statistics& st) const override;
-
-
 
         bool unit_propagate() override { return false; }
 
@@ -130,7 +131,7 @@ namespace intblast {
 
         sat::literal internalize(expr* e, bool, bool) override;
 
-        void eq_internalized(euf::enode* n) override {}
+        void eq_internalized(euf::enode* n) override;
 
     };
 

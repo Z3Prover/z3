@@ -522,6 +522,7 @@ public:
     app * mk_bv_lshr(expr* arg1, expr* arg2) { return m_manager.mk_app(get_fid(), OP_BLSHR, arg1, arg2); }
 
     app * mk_bv2int(expr* e);
+    app * mk_int2bv(unsigned sz, expr* e);
 
     // TODO: all these binary ops commute (right?) but it'd be more logical to swap `n` & `m` in the `return`
     app * mk_bvsmul_no_ovfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BSMUL_NO_OVFL, n, m); }
