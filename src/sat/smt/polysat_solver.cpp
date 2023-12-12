@@ -256,6 +256,32 @@ namespace polysat {
 
     void solver::add_polysat_clause(char const* name, core_vector cs, bool is_redundant) {
         sat::literal_vector lits;
+        signed_constraint sc;
+        unsigned constraint_count = 0;
+        for (auto e : cs) {
+            if (std::holds_alternative<signed_constraint>(e)) {
+                sc = *std::get_if<signed_constraint>(&e);
+                constraint_count++;
+            }
+        }
+        if (constraint_count == 1) {
+            auto lit = ctx.mk_literal(constraint2expr(sc));
+            svector<euf::enode_pair> eqs;
+            for (auto e : cs) {
+                if (std::holds_alternative<dependency>(e)) {
+                    auto d = *std::get_if<dependency>(&e);
+                    if (d.is_literal())
+                        lits.push_back(d.literal());
+                    else if (d.is_eq()) {
+                        auto [v1, v2] = d.eq();
+                        eqs.push_back({ var2enode(v1), var2enode(v2) });
+                    }
+                }
+            }
+            ctx.propagate(lit, euf::th_explain::propagate(*this, lits, eqs, lit, nullptr));
+            return;
+        }
+
         for (auto e : cs) {
             if (std::holds_alternative<dependency>(e)) {
                 auto d = *std::get_if<dependency>(&e);

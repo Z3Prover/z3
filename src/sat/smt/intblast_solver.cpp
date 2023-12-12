@@ -233,8 +233,8 @@ namespace intblast {
         }
 
         m_core.reset();
-        m_vars.reset();
         m_translate.reset();
+        m_is_plugin = false;
         m_solver = mk_smt2_solver(m, s.params(), symbol::null);
 
         expr_ref_vector es(m);
@@ -243,8 +243,9 @@ namespace intblast {
 
         translate(es);
 
-        for (auto const& [src, vi] : m_vars) {
-            auto const& [v, b] = vi;
+        for (auto e : m_vars) {
+            auto v = translated(e);
+            auto b = rational::power_of_two(bv.get_bv_size(e));
             m_solver->assert_expr(a.mk_le(a.mk_int(0), v));
             m_solver->assert_expr(a.mk_lt(v, a.mk_int(b)));
         }
@@ -679,6 +680,7 @@ namespace intblast {
                 }
             }
             break;
+        }
         case OP_BOR: {
             // p | q := (p + q) - band(p, q)
             IF_VERBOSE(2, verbose_stream() << "bor " << mk_bounded_pp(e, m) << " " << bv.get_bv_size(e) << "\n");

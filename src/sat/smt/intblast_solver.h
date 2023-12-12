@@ -46,14 +46,6 @@ namespace euf {
 namespace intblast {
 
     class solver : public euf::th_euf_solver {
-<<<<<<< HEAD
-=======
-        struct var_info {
-            expr* dst;
-            rational sz;
-        };
-
->>>>>>> 4cadf6d9f (preparing intblaster as self-contained solver.)
         euf::solver& ctx;
         sat::solver& s;
         ast_manager& m;
@@ -62,7 +54,6 @@ namespace intblast {
         scoped_ptr<::solver> m_solver;
         obj_map<func_decl, func_decl*> m_new_funs;
         expr_ref_vector m_translate, m_args;
-        ast_ref_vector m_pinned;
         sat::literal_vector m_core;
         ptr_vector<app> m_bv2int, m_int2bv;
         statistics m_stats;
@@ -103,14 +94,13 @@ namespace intblast {
         void add_value_plugin(euf::enode* n, model& mdl, expr_ref_vector& values);
         void add_value_solver(euf::enode* n, model& mdl, expr_ref_vector& values);
 
-        expr* translated(expr* e) { expr* r = m_translate.get(e->get_id(), nullptr); SASSERT(r); return r; }
+        expr* translated(expr* e) const { expr* r = m_translate.get(e->get_id(), nullptr); SASSERT(r); return r; }
         void set_translated(expr* e, expr* r) { m_translate.setx(e->get_id(), r); }
         expr* arg(unsigned i) { return m_args.get(i); }
 
-        expr* mk_mod(expr* x);
-        expr* mk_smod(expr* x);
-        expr* bv_expr = nullptr;
-        rational bv_size();
+        expr* umod(expr* bv_expr, unsigned i);
+        expr* smod(expr* bv_expr, unsigned i);
+        rational bv_size(expr* bv_expr);
 
         void translate_expr(expr* e);
         void translate_bv(app* e);
@@ -122,7 +112,14 @@ namespace intblast {
         void ensure_args(app* e);
         void internalize_bv(app* e);
 
+        unsigned m_vars_qhead = 0;
+        ptr_vector<expr> m_vars;
+        void add_bound_axioms();
+
         euf::theory_var mk_var(euf::enode* n) override;
+
+        void add_value_plugin(euf::enode* n, model& mdl, expr_ref_vector& values);
+        void add_value_solver(euf::enode* n, model& mdl, expr_ref_vector& values);
 
     public:
         solver(euf::solver& ctx);
