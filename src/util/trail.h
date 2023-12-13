@@ -219,12 +219,12 @@ public:
     }
 };
 
-template<typename T>
+template<typename V>
 class set_vector_idx_trail : public trail {
-    ptr_vector<T> & m_vector;
+    V & m_vector;
     unsigned                         m_idx;
 public:
-    set_vector_idx_trail(ptr_vector<T> & v, unsigned idx):
+    set_vector_idx_trail(V & v, unsigned idx):
         m_vector(v),
         m_idx(idx) {
     }

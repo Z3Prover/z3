@@ -250,6 +250,7 @@ namespace arith {
                 add_clause(~bitof(n, i), bitof(y, i));
             else
                 continue;
+	    verbose_stream() << "added b-and clause\n";
             return false;
         }
         return true;

@@ -619,17 +619,20 @@ namespace arith {
         }
     }
 
-    void solver::add_value(euf::enode* n, model& mdl, expr_ref_vector& values) {
+    bool solver::get_value(euf::enode* n, expr_ref& value) {
         theory_var v = n->get_th_var(get_id());
         expr* o = n->get_expr();
-        expr_ref value(m);
+
         if (m.is_value(n->get_root()->get_expr())) {
             value = n->get_root()->get_expr();
         }
         else if (use_nra_model() && lp().external_to_local(v) != lp::null_lpvar) {
             anum const& an = nl_value(v, m_nla->tmp1());
+
+
+
             if (a.is_int(o) && !m_nla->am().is_int(an))
-                value = a.mk_numeral(rational::zero(), a.is_int(o));       
+                value = a.mk_numeral(rational::zero(), a.is_int(o));
             else
                 value = a.mk_numeral(m_nla->am(), nl_value(v, m_nla->tmp1()), a.is_int(o));
         }
@@ -637,24 +640,35 @@ namespace arith {
             rational r = get_value(v);
             TRACE("arith", tout << mk_pp(o, m) << " v" << v << " := " << r << "\n";);
             SASSERT("integer variables should have integer values: " && (ctx.get_config().m_arith_ignore_int || !a.is_int(o) || r.is_int() || m_not_handled != nullptr || m.limit().is_canceled()));
-            if (a.is_int(o) && !r.is_int()) 
+            if (a.is_int(o) && !r.is_int())
                 r = floor(r);
             value = a.mk_numeral(r, o->get_sort());
         }
+        else
+            return false;
+
+        return true;
+    }
+
+
+    void solver::add_value(euf::enode* n, model& mdl, expr_ref_vector& values) {
+        expr_ref value(m);
+        expr* o = n->get_expr();
+        if (get_value(n, value))
+            ;
         else if (a.is_arith_expr(o) && reflect(o)) {
             expr_ref_vector args(m);
             for (auto* arg : *to_app(o)) {
                 if (m.is_value(arg))
                     args.push_back(arg);
-                else 
+                else
                     args.push_back(values.get(ctx.get_enode(arg)->get_root_id()));
             }
             value = m.mk_app(to_app(o)->get_decl(), args.size(), args.data());
             ctx.get_rewriter()(value);
         }
-        else {
-            value = mdl.get_fresh_value(o->get_sort());
-        }
+        else
+            value = mdl.get_fresh_value(n->get_sort());
         mdl.register_value(value);
         values.set(n->get_root_id(), value);
     }
@@ -1042,7 +1056,7 @@ namespace arith {
         if (!check_delayed_eqs()) 
             return sat::check_result::CR_CONTINUE;
 
-        if (!check_band_terms())
+        if (!int_undef && !check_band_terms())
             return sat::check_result::CR_CONTINUE;
 
         if (ctx.get_config().m_arith_ignore_int && int_undef)
@@ -1195,7 +1209,8 @@ namespace arith {
             lia_check = l_undef;
             break;
         case lp::lia_move::continue_with_check:
-            lia_check = l_undef;
+            TRACE("arith", tout << "continue-with-check\n");
+            lia_check = l_false;
             break;
         default:
             UNREACHABLE();

@@ -54,6 +54,7 @@ namespace intblast {
         scoped_ptr<::solver> m_solver;
         obj_map<func_decl, func_decl*> m_new_funs;
         expr_ref_vector m_translate, m_args;
+        ast_ref_vector m_pinned;
         sat::literal_vector m_core;
         ptr_vector<app> m_bv2int, m_int2bv;
         statistics m_stats;
@@ -65,8 +66,9 @@ namespace intblast {
 
         rational get_value(expr* e) const;
 
+        bool is_translated(expr* e) const { return !!m_translate.get(e->get_id(), nullptr); }
         expr* translated(expr* e) const { expr* r = m_translate.get(e->get_id(), nullptr); SASSERT(r); return r; }
-        void set_translated(expr* e, expr* r) { SASSERT(r); m_translate.setx(e->get_id(), r); }
+        void set_translated(expr* e, expr* r);
         expr* arg(unsigned i) { return m_args.get(i); }
 
         expr* umod(expr* bv_expr, unsigned i);
@@ -83,9 +85,10 @@ namespace intblast {
         void ensure_translated(expr* e);
         void internalize_bv(app* e);
 
-        unsigned m_vars_qhead = 0;
-        ptr_vector<expr> m_vars;
-        void add_bound_axioms();
+        unsigned m_vars_qhead = 0, m_preds_qhead = 0;
+        ptr_vector<expr> m_vars, m_preds;
+        bool add_bound_axioms();
+        bool add_predicate_axioms();
 
         euf::theory_var mk_var(euf::enode* n) override;
 
@@ -109,7 +112,7 @@ namespace intblast {
 
         void collect_statistics(statistics& st) const override;
 
-        bool unit_propagate() override { return false; }
+        bool unit_propagate() override;
 
         void get_antecedents(sat::literal l, sat::ext_justification_idx idx, sat::literal_vector& r, bool probing) override {}
 

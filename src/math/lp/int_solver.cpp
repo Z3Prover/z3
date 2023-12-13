@@ -207,8 +207,10 @@ namespace lp {
         
 #endif
         m_cut_vars.reset();
-        if (r == lia_move::undef) r = int_branch(*this)();
-        if (settings().get_cancel_flag()) r = lia_move::undef;        
+        if (settings().get_cancel_flag()) 
+            return lia_move::undef;   
+        if (r == lia_move::undef) 
+            r = int_branch(*this)();     
         return r;
     }
 

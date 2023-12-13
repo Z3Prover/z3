@@ -526,6 +526,8 @@ namespace arith {
         bool add_eq(lpvar u, lpvar v, lp::explanation const& e, bool is_fixed);
         void consume(rational const& v, lp::constraint_index j);
         bool bound_is_interesting(unsigned vi, lp::lconstraint_kind kind, const rational& bval) const;
+
+        bool get_value(euf::enode* n, expr_ref& val);
     };
 
 
