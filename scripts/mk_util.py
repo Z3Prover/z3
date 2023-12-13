@@ -3003,7 +3003,7 @@ def cp_z3py_to_build():
     # Compile Z3Py files
     if compileall.compile_dir(z3py_src, force=1) != 1:
         raise MKException("failed to compile Z3Py sources")
-    sys.pycache_prefix = sys.pycache_prefix_before
+    sys.pycache_prefix = pycache_prefix_before
     if is_verbose:
         print("Generated python bytecode")
     # Copy sources to build
