@@ -233,7 +233,6 @@ namespace intblast {
         }
 
         m_core.reset();
-        m_translate.reset();
         m_is_plugin = false;
         m_solver = mk_smt2_solver(m, s.params(), symbol::null);
 
