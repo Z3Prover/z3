@@ -109,7 +109,7 @@ namespace intblast {
         void translate_quantifier(quantifier* q);
         void translate_var(var* v);
 
-        void ensure_args(app* e);
+        void ensure_translated(expr* e);
         void internalize_bv(app* e);
 
         unsigned m_vars_qhead = 0;

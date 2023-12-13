@@ -74,11 +74,13 @@ namespace polysat {
             if (vars.size() > 0) verbose_stream() << "(" << c.m_constraint_index.size() -1 << ": " << c.m_watch[vars[0]] << ") ";
             if (vars.size() > 1) verbose_stream() << "(" << c.m_constraint_index.size() -1 << ": " << c.m_watch[vars[1]] << ") ";
             verbose_stream() << "\n");
-            SASSERT(vars.size() <= 0 || c.m_watch[vars[0]].back() == c.m_constraint_index.size() - 1);
-            SASSERT(vars.size() <= 1 || c.m_watch[vars[1]].back() == c.m_constraint_index.size() - 1);
-            if (vars.size() > 0)
+            unsigned n = sc.num_watch();
+            SASSERT(n <= vars.size());
+            SASSERT(n <= 0 || c.m_watch[vars[0]].back() == c.m_constraint_index.size() - 1);
+            SASSERT(n <= 1 || c.m_watch[vars[1]].back() == c.m_constraint_index.size() - 1);
+            if (n > 0)
                 c.m_watch[vars[0]].pop_back();
-            if (vars.size() > 1)
+            if (n > 1)
                 c.m_watch[vars[1]].pop_back();
             c.m_constraint_index.pop_back();
         }
@@ -138,9 +140,10 @@ namespace polysat {
         for (; i < sz && j < 2; ++i)
             if (!is_assigned(vars[i]))
                 std::swap(vars[i], vars[j++]);
-        if (vars.size() > 0)
+        sc.set_num_watch(i);
+        if (i > 0)
             add_watch(idx, vars[0]);
-        if (vars.size() > 1)
+        if (i > 1)
             add_watch(idx, vars[1]);
         IF_VERBOSE(10, verbose_stream() << "add watch " << sc << " " << vars << "  ";
                     if (vars.size() > 0) verbose_stream() << "( " << idx << " : " << m_watch[vars[0]] << ") ";
@@ -225,19 +228,12 @@ namespace polysat {
         s.trail().push(mk_assign_var(v, *this));
 
         return; 
-        // to debug:
-        unsigned sz = m_watch[v].size();
-        for (unsigned i = 0; i < sz; ++i) {
-            auto idx = m_watch[v][i];
-            auto [sc, dep, value] = m_constraint_index[idx];
-            sc.propagate(*this, value, dep);
-        }
-
         // update the watch lists for pvars
         // remove constraints from m_watch[v] that have more than 2 free variables.
         // for entries where there is only one free variable left add to viable set 
-        unsigned j = 0;
-        for (auto idx : m_watch[v]) {
+        unsigned j = 0, sz = m_watch[v].size();
+        for (unsigned k = 0; k < sz; ++k) {
+            auto idx = m_watch[v][k];
             auto [sc, dep, value] = m_constraint_index[idx];
             auto& vars = sc.vars();
             if (vars[0] != v)
@@ -253,6 +249,11 @@ namespace polysat {
                     break;
                 }
             }
+
+            // this can create fresh literals and update m_watch, but
+            // will not update m_watch[v] (other than copy constructor for m_watch)
+            // because v has been assigned a value.
+            sc.propagate(*this, value, dep);
            
             SASSERT(!swapped || vars.size() <= 1 || (!is_assigned(vars[0]) && !is_assigned(vars[1])));
             if (swapped)
@@ -267,6 +268,7 @@ namespace polysat {
             // detect unitary, add to viable, detect conflict?
             m_viable.add_unitary(v1, idx);            
         }
+        SASSERT(m_watch[v].size() == sz && "size of watch list was not changed");
         m_watch[v].shrink(j);
         verbose_stream() << "new watch " << v << ": " << m_watch[v] << "\n";
     }
