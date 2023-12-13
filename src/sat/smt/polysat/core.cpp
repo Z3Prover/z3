@@ -69,10 +69,11 @@ namespace polysat {
         void undo() override {            
             auto& [sc, lit, val] = c.m_constraint_index.back();
             auto& vars = sc.vars();
+            IF_VERBOSE(10, 
             verbose_stream() << "undo add watch " << sc << " ";
             if (vars.size() > 0) verbose_stream() << "(" << c.m_constraint_index.size() -1 << ": " << c.m_watch[vars[0]] << ") ";
             if (vars.size() > 1) verbose_stream() << "(" << c.m_constraint_index.size() -1 << ": " << c.m_watch[vars[1]] << ") ";
-            verbose_stream() << "\n";
+            verbose_stream() << "\n");
             SASSERT(vars.size() <= 0 || c.m_watch[vars[0]].back() == c.m_constraint_index.size() - 1);
             SASSERT(vars.size() <= 1 || c.m_watch[vars[1]].back() == c.m_constraint_index.size() - 1);
             if (vars.size() > 0)
@@ -141,10 +142,10 @@ namespace polysat {
             add_watch(idx, vars[0]);
         if (vars.size() > 1)
             add_watch(idx, vars[1]);
-        verbose_stream() << "add watch " << sc << " " << vars << "  ";
-        if (vars.size() > 0) verbose_stream() << "( " << idx << " : " << m_watch[vars[0]] << ") ";
-        if (vars.size() > 1) verbose_stream() << "( " << idx << " : " << m_watch[vars[1]] << ") ";
-        verbose_stream() << "\n";
+        IF_VERBOSE(10, verbose_stream() << "add watch " << sc << " " << vars << "  ";
+                    if (vars.size() > 0) verbose_stream() << "( " << idx << " : " << m_watch[vars[0]] << ") ";
+                    if (vars.size() > 1) verbose_stream() << "( " << idx << " : " << m_watch[vars[1]] << ") ";
+                    verbose_stream() << "\n");
         s.trail().push(mk_add_watch(*this));
         return idx;
     }

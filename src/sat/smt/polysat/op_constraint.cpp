@@ -42,6 +42,7 @@ namespace polysat {
             break;
         case code::inv_op:
             SASSERT(q.is_zero());
+            break;
         default:
             break;
         }
@@ -192,6 +193,9 @@ namespace polysat {
         case code::lshr_op:
             propagate_lshr(c, dep);
             break;
+        case code::ashr_op:
+            propagate_ashr(c, dep);
+            break;
         case code::shl_op:
             propagate_shl(c, dep);
             break;
@@ -202,6 +206,7 @@ namespace polysat {
             propagate_inv(c, dep);
             break;
         default:
+            verbose_stream() << "not implemented yet: " << *this << "\n";
             NOT_IMPLEMENTED_YET();
             break;
         }
@@ -310,6 +315,10 @@ namespace polysat {
             c.add_clause("band-mask 2", { d, C.ule(r(), y) }, false);  // maybe always activate these constraints regardless?
         }
     }   
+
+    void op_constraint::propagate_ashr(core& s, dependency const& dep) {
+
+    }
 
 
     /**
