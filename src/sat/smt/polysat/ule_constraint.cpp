@@ -75,8 +75,6 @@ Useful lemmas:
 #include "sat/smt/polysat/constraints.h"
 #include "sat/smt/polysat/ule_constraint.h"
 
-#define LOG(_msg_) verbose_stream() << _msg_ << "\n"
-
 namespace polysat {
 
     // Simplify lhs <= rhs.

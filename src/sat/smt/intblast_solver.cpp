@@ -562,7 +562,7 @@ namespace intblast {
             unsigned lo, hi;
             expr* old_arg;
             VERIFY(bv.is_extract(e, lo, hi, old_arg));
-            expr* r = arg(0);
+            r = arg(0);
             if (lo > 0)
                 r = a.mk_idiv(r, a.mk_int(rational::power_of_two(lo)));
             break;

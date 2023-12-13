@@ -138,6 +138,10 @@ namespace polysat {
         for (auto lit : lits)
             level = std::max(level, s().lvl(lit));
         auto ex = euf::th_explain::conflict(*this, lits, eqs, nullptr);
+        if (level == 0) {
+            ctx.set_conflict(ex);
+            return;
+        }        
         ctx.push(value_trail<bool>(m_has_lemma));
         m_has_lemma = true;
         m_lemma_level = level;
@@ -165,7 +169,8 @@ namespace polysat {
         if (!m_has_lemma)
             return l_undef;
 
-        unsigned num_scopes = s().scope_lvl() - m_lemma_level;
+        SASSERT(m_lemma_level > 0);
+        unsigned num_scopes = s().scope_lvl() - m_lemma_level - 1;
 
         NOT_IMPLEMENTED_YET();
         // s().pop_reinit(num_scopes);
