@@ -88,22 +88,25 @@ namespace intblast {
         expr* e = n->get_expr();
         expr* x, * y;
         VERIFY(m.is_eq(n->get_expr(), x, y));
+        SASSERT(bv.is_bv(x));
+        ensure_translated(x);
+        ensure_translated(y);
         m_args.reset();
-        m_args.push_back(translated(x));
-        m_args.push_back(translated(y));
-        add_equiv(expr2literal(e), eq_internalize(umod(x, 0), umod(x, 1)));
+        m_args.push_back(a.mk_sub(translated(x), translated(y)));
+        expr_ref lhs(umod(x, 0), m);
+        ctx.get_rewriter()(lhs);
+        add_equiv(expr2literal(e), eq_internalize(lhs, a.mk_int(0)));
     }
 
     void solver::internalize_bv(app* e) {
-        ensure_args(e);
-        m_args.reset();
-        for (auto arg : *e)
-            m_args.push_back(translated(arg));
-        translate_bv(e);
+        ensure_translated(e);
 
         // possibly wait until propagation?
-        if (m.is_bool(e))
-            add_equiv(expr2literal(e), mk_literal(translated(e)));
+        if (m.is_bool(e)) {
+            expr_ref r(translated(e), m);
+            ctx.get_rewriter()(r);
+            add_equiv(expr2literal(e), mk_literal(r));
+        }
         add_bound_axioms();
     }
 
@@ -120,32 +123,28 @@ namespace intblast {
         }
     }
 
-    void solver::ensure_args(app* e) {
+    void solver::ensure_translated(expr* e) {
+        if (m_translate.get(e->get_id(), nullptr))
+            return;
         ptr_vector<expr> todo;
         ast_fast_mark1 visited;
-        for (auto arg : *e) {
-            if (!m_translate.get(arg->get_id(), nullptr))
-                todo.push_back(arg);
-        }
-        if (todo.empty())
-            return;
+        todo.push_back(e);
+        visited.mark(e);
         for (unsigned i = 0; i < todo.size(); ++i) {
             expr* e = todo[i];
-            if (m.is_bool(e))
+            if (!is_app(e))
                 continue;
-            else if (is_app(e)) {
-                for (auto arg : *to_app(e))
-                    if (!visited.is_marked(arg)) {
-                        visited.mark(arg);
-                        todo.push_back(arg);
-                    }
-            }
-            else if (is_lambda(e))
-                throw default_exception("lambdas are not supported in intblaster");
+            app* a = to_app(e);
+            if (m.is_bool(e) && a->get_family_id() != bv.get_family_id())
+                continue;
+            for (auto arg : *a)
+                if (!visited.is_marked(arg) && !m_translate.get(arg->get_id(), nullptr)) {
+                    visited.mark(arg);
+                    todo.push_back(arg);
+                }
         }
-
         std::stable_sort(todo.begin(), todo.end(), [&](expr* a, expr* b) { return get_depth(a) < get_depth(b); });
-        for (expr* e : todo)
+        for (expr* e : todo)            
             translate_expr(e);
     }
 
@@ -369,7 +368,7 @@ namespace intblast {
         }
         if (any_of(m_vars, [&](expr* v) { return translated(v) == x; }))
             return x;
-        return to_expr(a.mk_mod(x, a.mk_int(N)));
+        return a.mk_mod(x, a.mk_int(N));
     }
 
     expr* solver::smod(expr* bv_expr, unsigned i) {
@@ -393,6 +392,10 @@ namespace intblast {
             translate_var(to_var(e));
         else {
             app* ap = to_app(e);
+            if (m_is_plugin && ap->get_family_id() == basic_family_id && m.is_bool(ap)) {
+                set_translated(e, e);
+                return;
+            }
             m_args.reset();
             for (auto arg : *ap)
                 m_args.push_back(translated(arg));
@@ -543,7 +546,6 @@ namespace intblast {
             r = a.mk_uminus(arg(0));
             break;
         case OP_CONCAT: {
-            r = a.mk_int(0);
             unsigned sz = 0;
             for (unsigned i = 0; i < args.size(); ++i) {
                 expr* old_arg = e->get_arg(i);
@@ -595,7 +597,7 @@ namespace intblast {
             expr* x = arg(0), * y = arg(1);
             r = a.mk_int(0);
             for (unsigned i = 0; i < bv.get_bv_size(e); ++i)
-                r = m.mk_ite(a.mk_eq(y, a.mk_int(i)), a.mk_mul(x, a.mk_int(rational::power_of_two(i))), r);
+                r = m.mk_ite(m.mk_eq(y, a.mk_int(i)), a.mk_mul(x, a.mk_int(rational::power_of_two(i))), r);
             break;
         }
         case OP_BNOT:
@@ -605,7 +607,7 @@ namespace intblast {
             expr* x = arg(0), * y = arg(1);
             r = a.mk_int(0);
             for (unsigned i = 0; i < bv.get_bv_size(e); ++i)
-                r = m.mk_ite(a.mk_eq(y, a.mk_int(i)), a.mk_idiv(x, a.mk_int(rational::power_of_two(i))), r);
+                r = m.mk_ite(m.mk_eq(y, a.mk_int(i)), a.mk_idiv(x, a.mk_int(rational::power_of_two(i))), r);
             break;
         }
                      // Or use (p + q) - band(p, q)?
@@ -649,7 +651,7 @@ namespace intblast {
             r = m.mk_ite(signbit, a.mk_int(N - 1), a.mk_int(0));
             for (unsigned i = 0; i < bv.get_bv_size(e); ++i) {
                 expr* d = a.mk_idiv(x, a.mk_int(rational::power_of_two(i)));
-                r = m.mk_ite(a.mk_eq(y, a.mk_int(i)),
+                r = m.mk_ite(m.mk_eq(y, a.mk_int(i)),
                     m.mk_ite(signbit, a.mk_uminus(d), d),
                     r);
             }
@@ -686,6 +688,7 @@ namespace intblast {
             bv_expr = e->get_arg(0);
             r = m.mk_ite(m.mk_eq(umod(bv_expr, 0), umod(bv_expr, 1)), a.mk_int(1), a.mk_int(0));
             break;
+        case OP_BSMOD_I:
         case OP_BSMOD: {
             bv_expr = e;
             expr* x = umod(bv_expr, 0), *y = umod(bv_expr, 0);
@@ -693,12 +696,12 @@ namespace intblast {
             expr* signx = a.mk_ge(x, a.mk_int(N/2));
             expr* signy = a.mk_ge(y, a.mk_int(N/2));
             expr* u = a.mk_mod(x, y);
-            // x < 0, y < 0 -> r = -u
-            // x < 0, y >= 0 -> r = y - u
-            // x >= 0, y < 0 -> r = y + u
-            // x >= 0, y >= 0 -> r = u
-            // u = 0 -> r = 0
-            // y = 0 -> r = x
+            // u = 0 ->  0
+            // y = 0 ->  x
+            // x < 0, y < 0 ->  -u
+            // x < 0, y >= 0 ->  y - u
+            // x >= 0, y < 0 ->  y + u
+            // x >= 0, y >= 0 ->  u
             r = a.mk_uminus(u);   
             r = m.mk_ite(m.mk_and(m.mk_not(signx), signy), a.mk_add(u, y), r);
             r = m.mk_ite(m.mk_and(signx, m.mk_not(signy)), a.mk_sub(y, u), r);
@@ -707,15 +710,41 @@ namespace intblast {
             r = m.mk_ite(m.mk_eq(y, a.mk_int(0)), x, r);
             break;
         } 
+        case OP_BSDIV_I:
         case OP_BSDIV: {
+            // d = udiv(x mod N, y mod N)
             // y = 0, x > 0 -> 1
             // y = 0, x <= 0 -> -1
-            // y != 0 -> machine_div(x, y)
-#if 0
-
-#endif
+            // x = 0, y != 0 -> 0
+            // x < 0, y < 0 -> -d
+            // x < 0, y > 0 -> -d
+            // x > 0, y > 0 -> d
+            // x < 0, y < 0 -> d
+            bv_expr = e;
+            expr* x = umod(bv_expr, 0), * y = umod(bv_expr, 0);
+            rational N = rational::power_of_two(bv.get_bv_size(bv_expr));
+            expr* signx = a.mk_ge(x, a.mk_int(N / 2));
+            expr* signy = a.mk_ge(y, a.mk_int(N / 2));
+            expr* d = a.mk_idiv(x, y);
+            r = m.mk_ite(m.mk_iff(signx, signy), d, a.mk_uminus(d));
+            r = m.mk_ite(m.mk_eq(y, a.mk_int(0)), m.mk_ite(signx, a.mk_int(-1), a.mk_int(1)), r);
+            break;
         }
-
+        case OP_BSREM_I:
+        case OP_BSREM: {
+            // y = 0 -> x
+            // else x - sdiv(x, y) * y
+            bv_expr = e;
+            expr* x = umod(bv_expr, 0), * y = umod(bv_expr, 0);
+            rational N = rational::power_of_two(bv.get_bv_size(bv_expr));
+            expr* signx = a.mk_ge(x, a.mk_int(N / 2));
+            expr* signy = a.mk_ge(y, a.mk_int(N / 2));
+            expr* d = a.mk_idiv(x, y);
+            d = m.mk_ite(m.mk_iff(signx, signy), d, a.mk_uminus(d));
+            r = a.mk_sub(x, a.mk_mul(d, y));
+            r = m.mk_ite(m.mk_eq(y, a.mk_int(0)), x, r);
+            break;  
+        }
         case OP_ROTATE_LEFT:
         case OP_ROTATE_RIGHT:
         case OP_EXT_ROTATE_LEFT:
@@ -723,7 +752,7 @@ namespace intblast {
         case OP_REPEAT:
         case OP_BREDOR:
         case OP_BREDAND:
-        case OP_BSREM:
+        
             verbose_stream() << mk_pp(e, m) << "\n";
             NOT_IMPLEMENTED_YET();
             break;
@@ -739,11 +768,16 @@ namespace intblast {
             bool has_bv_arg = any_of(*e, [&](expr* arg) { return bv.is_bv(arg); });
             if (has_bv_arg) {
                 expr* bv_expr = e->get_arg(0);
-                set_translated(e, m.mk_eq(umod(bv_expr, 0), umod(bv_expr, 1)));
+                m_args[0] = a.mk_sub(arg(0), arg(1));
+                set_translated(e, m.mk_eq(umod(bv_expr, 0), a.mk_int(0)));
             }
             else
                 set_translated(e, m.mk_eq(arg(0), arg(1)));
         }
+        else if (m.is_ite(e))
+            set_translated(e, m.mk_ite(arg(0), arg(1), arg(2)));
+        else if (m_is_plugin)
+            set_translated(e, e);
         else
             set_translated(e, m.mk_app(e->get_decl(), m_args));
     }

@@ -208,6 +208,8 @@ namespace arith {
     bool solver::check_band_term(app* n) {
         unsigned sz;
         expr* x, * y;
+        if (!ctx.is_relevant(expr2enode(n)))
+            return true;
         VERIFY(a.is_band(n, sz, x, y));
         if (use_nra_model()) {
             found_unsupported(n);
@@ -217,6 +219,11 @@ namespace arith {
         theory_var vy = expr2enode(y)->get_th_var(get_id());
         theory_var vn = expr2enode(n)->get_th_var(get_id());
         rational N = rational::power_of_two(sz);
+        if (!get_value(vx).is_int() || !get_value(vy).is_int()) {
+            
+            s().display(verbose_stream());
+            verbose_stream() << vx << " " << vy << " " << mk_pp(n, m) << "\n";
+        }
         SASSERT(get_value(vx).is_int());
         SASSERT(get_value(vy).is_int());
         SASSERT(get_value(vn).is_int());

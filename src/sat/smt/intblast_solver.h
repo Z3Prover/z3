@@ -57,7 +57,7 @@ namespace intblast {
         sat::literal_vector m_core;
         ptr_vector<app> m_bv2int, m_int2bv;
         statistics m_stats;
-        bool m_is_plugin = true;        // when the solver is used as a plugin, then do not translate below quantifiers.
+        bool m_is_plugin = true;        // when the solver is used as a plugin, then do not translate below quantifiers.        
 
         bool is_bv(sat::literal lit);
         void translate(expr_ref_vector& es);
@@ -80,7 +80,7 @@ namespace intblast {
         void translate_quantifier(quantifier* q);
         void translate_var(var* v);
 
-        void ensure_args(app* e);
+        void ensure_translated(expr* e);
         void internalize_bv(app* e);
 
         unsigned m_vars_qhead = 0;

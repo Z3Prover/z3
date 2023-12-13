@@ -22,6 +22,7 @@ Author:
 #include "sat/smt/pb_solver.h"
 #include "sat/smt/bv_solver.h"
 #include "sat/smt/polysat_solver.h"
+#include "sat/smt/intblast_solver.h"
 #include "sat/smt/euf_solver.h"
 #include "sat/smt/array_solver.h"
 #include "sat/smt/arith_solver.h"
@@ -135,8 +136,16 @@ namespace euf {
         special_relations_util sp(m);
         if (pb.get_family_id() == fid)
             ext = alloc(pb::solver, *this, fid);
-        else if (bvu.get_family_id() == fid) 
-            ext = alloc(polysat::solver, *this, fid);        
+        else if (bvu.get_family_id() == fid) {
+            if (get_config().m_bv_solver == 0)
+                ext = alloc(bv::solver, *this, fid);
+            else if (get_config().m_bv_solver == 1)
+                ext = alloc(polysat::solver, *this, fid);
+            else if (get_config().m_bv_solver == 2)
+                ext = alloc(intblast::solver, *this);
+            else 
+                throw default_exception("unknown bit-vector solver. Accepted values 0 (bit blast), 1 (polysat), 2 (int blast)");
+        }
         else if (au.get_family_id() == fid)
             ext = alloc(array::solver, *this, fid);
         else if (fpa.get_family_id() == fid)

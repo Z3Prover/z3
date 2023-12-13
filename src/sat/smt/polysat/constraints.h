@@ -31,12 +31,15 @@ namespace polysat {
 
     class constraint {
         unsigned_vector     m_vars;
+        unsigned            m_num_watch = 0;
     public:
         virtual ~constraint() {}
         unsigned_vector& vars() { return m_vars; }
         unsigned_vector const& vars() const { return m_vars; }
         unsigned var(unsigned idx) const { return m_vars[idx]; }
         bool contains_var(pvar v) const { return m_vars.contains(v); }
+        unsigned num_watch() const { return m_num_watch;  }
+        void set_num_watch(unsigned n) { SASSERT(n <= 2);  m_num_watch = n; }
         virtual std::ostream& display(std::ostream& out, lbool status) const = 0;
         virtual std::ostream& display(std::ostream& out) const = 0;
         virtual lbool eval() const = 0;
@@ -63,6 +66,8 @@ namespace polysat {
         unsigned_vector const& vars() const { return m_constraint->vars(); }
         unsigned var(unsigned idx) const { return m_constraint->var(idx); }
         bool contains_var(pvar v) const { return m_constraint->contains_var(v); }
+        unsigned num_watch() const { return m_constraint->num_watch(); }
+        void set_num_watch(unsigned n) { m_constraint->set_num_watch(n); }
         void activate(core& c, dependency const& d) { m_constraint->activate(c, m_sign, d); }
         void propagate(core& c, lbool value, dependency const& d) { m_constraint->propagate(c, value, d); }
         bool is_always_true() const { return eval() == l_true; }
