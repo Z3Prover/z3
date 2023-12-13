@@ -574,14 +574,16 @@ namespace intblast {
             r = a.mk_int(val);
             break;
         }
+        case OP_BUREM:
         case OP_BUREM_I: {
             expr* x = arg(0), * y = arg(1);
-            r = m.mk_ite(m.mk_eq(y, a.mk_int(0)), a.mk_int(0), a.mk_mod(x, y));
+            r = m.mk_ite(m.mk_eq(y, a.mk_int(0)), x, a.mk_mod(x, y));
             break;
         }
+        case OP_BUDIV:
         case OP_BUDIV_I: {
             expr* x = arg(0), * y = arg(1);
-            r = m.mk_ite(m.mk_eq(y, a.mk_int(0)), a.mk_int(0), a.mk_idiv(x, umod(bv_expr, 1)));
+            r = m.mk_ite(m.mk_eq(y, a.mk_int(0)), a.mk_int(1), a.mk_idiv(x, umod(bv_expr, 1)));
             break;
         }
         case OP_BUMUL_NO_OVFL: {
@@ -634,24 +636,6 @@ namespace intblast {
                 r = bnot(r);
             break;
         }
-        case OP_BUDIV: {
-            bv_rewriter_params p(ctx.s().params());
-            expr* x = arg(0), * y = umod(e, 1);
-            if (p.hi_div0())
-                r = m.mk_ite(m.mk_eq(y, a.mk_int(0)), a.mk_int(0), a.mk_idiv(x, y));
-            else
-                r = a.mk_idiv(x, y);
-            break;
-        }
-        case OP_BUREM: {
-            bv_rewriter_params p(ctx.s().params());
-            expr* x = arg(0), * y = umod(e, 1);
-            if (p.hi_div0())
-                r = m.mk_ite(m.mk_eq(y, a.mk_int(0)), a.mk_int(0), y);
-            else
-                r = a.mk_mod(x, y);
-            break;
-        }
         case OP_BASHR: {
             //
             // ashr(x, y)
@@ -702,6 +686,36 @@ namespace intblast {
             bv_expr = e->get_arg(0);
             r = m.mk_ite(m.mk_eq(umod(bv_expr, 0), umod(bv_expr, 1)), a.mk_int(1), a.mk_int(0));
             break;
+        case OP_BSMOD: {
+            bv_expr = e;
+            expr* x = umod(bv_expr, 0), *y = umod(bv_expr, 0);
+            rational N = rational::power_of_two(bv.get_bv_size(bv_expr));
+            expr* signx = a.mk_ge(x, a.mk_int(N/2));
+            expr* signy = a.mk_ge(y, a.mk_int(N/2));
+            expr* u = a.mk_mod(x, y);
+            // x < 0, y < 0 -> r = -u
+            // x < 0, y >= 0 -> r = y - u
+            // x >= 0, y < 0 -> r = y + u
+            // x >= 0, y >= 0 -> r = u
+            // u = 0 -> r = 0
+            // y = 0 -> r = x
+            r = a.mk_uminus(u);   
+            r = m.mk_ite(m.mk_and(m.mk_not(signx), signy), a.mk_add(u, y), r);
+            r = m.mk_ite(m.mk_and(signx, m.mk_not(signy)), a.mk_sub(y, u), r);
+            r = m.mk_ite(m.mk_and(m.mk_not(signx), m.mk_not(signy)), u, r);
+            r = m.mk_ite(m.mk_eq(u, a.mk_int(0)), a.mk_int(0), r);
+            r = m.mk_ite(m.mk_eq(y, a.mk_int(0)), x, r);
+            break;
+        } 
+        case OP_BSDIV: {
+            // y = 0, x > 0 -> 1
+            // y = 0, x <= 0 -> -1
+            // y != 0 -> machine_div(x, y)
+#if 0
+
+#endif
+        }
+
         case OP_ROTATE_LEFT:
         case OP_ROTATE_RIGHT:
         case OP_EXT_ROTATE_LEFT:
@@ -709,9 +723,7 @@ namespace intblast {
         case OP_REPEAT:
         case OP_BREDOR:
         case OP_BREDAND:
-        case OP_BSDIV:
         case OP_BSREM:
-        case OP_BSMOD:
             verbose_stream() << mk_pp(e, m) << "\n";
             NOT_IMPLEMENTED_YET();
             break;

@@ -57,6 +57,7 @@ namespace polysat {
         static lbool eval_inv(pdd const& p, pdd const& r);
 
         void propagate_lshr(core& s, dependency const& dep);
+        void propagate_ashr(core& s, dependency const& dep);
         void propagate_shl(core& s, dependency const& dep);
         void propagate_and(core& s, dependency const& dep);
         void propagate_inv(core& s, dependency const& dep);
