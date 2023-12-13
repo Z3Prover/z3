@@ -94,7 +94,10 @@ namespace polymorphism {
             t.push(value_trail(m_decl_qhead));
             for (; m_decl_qhead < num_decls; ++m_decl_qhead) {
                 func_decl* p = m_decl_queue.get(m_decl_qhead);
-                for (expr* e : m_occurs[m.poly_root(p)])
+                func_decl* r = m.poly_root(p);
+                if (!m_occurs.contains(r))
+                    continue;
+                for (expr* e : m_occurs[r])
                     instantiate(p, e, instances);
             }
         }

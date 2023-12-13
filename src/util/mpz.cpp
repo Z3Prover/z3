@@ -2289,6 +2289,19 @@ unsigned mpz_manager<SYNCH>::bitsize(mpz const & a) {
 }
 
 template<bool SYNCH>
+unsigned mpz_manager<SYNCH>::next_power_of_two(mpz const & a) {
+    if (is_nonpos(a))
+        return 0;
+    if (is_one(a))
+        return 0;
+    unsigned shift;
+    if (is_power_of_two(a, shift))
+        return shift;
+    else
+        return log2(a) + 1;
+}
+
+template<bool SYNCH>
 bool mpz_manager<SYNCH>::is_perfect_square(mpz const & a, mpz & root) {
     if (is_neg(a))
         return false;

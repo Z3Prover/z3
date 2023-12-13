@@ -848,6 +848,14 @@ public:
     unsigned prev_power_of_two(mpz const & a) { return mpz_manager<SYNCH>::prev_power_of_two(a); }
     unsigned prev_power_of_two(mpq const & a);
 
+    /**
+       \brief Return the smallest k s.t. a <= 2^k.
+
+       \remark Return 0 if a is not positive.
+    */
+    unsigned next_power_of_two(mpz const & a) { return mpz_manager<SYNCH>::next_power_of_two(a); }
+    unsigned next_power_of_two(mpq const & a);
+
     bool is_int_perfect_square(mpq const & a, mpq & r) {
         SASSERT(is_int(a));
         reset_denominator(r);

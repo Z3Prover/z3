@@ -164,7 +164,7 @@ namespace sat {
         unsigned                m_rephase_inc;
         backoff                 m_rephase;
         backoff                 m_reorder;
-        var_queue               m_case_split_queue;
+        var_queue<unsigned_vector> m_case_split_queue;
         unsigned                m_qhead;
         unsigned                m_scope_lvl;
         unsigned                m_search_lvl;

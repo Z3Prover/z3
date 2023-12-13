@@ -21,20 +21,20 @@ Revision History:
 #include "util/heap.h"
 
 
-    
+template <class ActivityVector>    
 class var_queue {
     typedef unsigned var;
 
     struct lt {
-        svector<unsigned> & m_activity;
-    lt(svector<unsigned> & act):m_activity(act) {}
+        ActivityVector & m_activity;
+        lt(ActivityVector & act):m_activity(act) {}
         bool operator()(var v1, var v2) const { return m_activity[v1] > m_activity[v2]; }
     };
     heap<lt>  m_queue;
-public:
 
+public:
     
-    var_queue(svector<unsigned> & act):m_queue(128, lt(act)) {}
+    var_queue(ActivityVector & act):m_queue(128, lt(act)) {}
     
     void activity_increased_eh(var v) {
         if (m_queue.contains(v))
@@ -68,6 +68,8 @@ public:
     void reset() {
         m_queue.reset();
     }
+
+    bool contains(var v) const { return m_queue.contains(v); }
     
     bool empty() const { return m_queue.empty(); }
     
@@ -90,11 +92,12 @@ public:
         return out;
     }
 
-    using const_iterator = decltype(m_queue)::const_iterator;
+    using const_iterator = const int *;
     const_iterator begin() const { return m_queue.begin(); }
     const_iterator end() const { return m_queue.end(); }
 };
 
-inline std::ostream& operator<<(std::ostream& out, var_queue const& queue) {
+template <typename T>
+inline std::ostream& operator<<(std::ostream& out, var_queue<T> const& queue) {
     return queue.display(out);
 }

@@ -143,6 +143,7 @@ public:
     void after_merge_eh(unsigned r2, unsigned r1, unsigned v2, unsigned v1) {}
 
     void set_propagated(monic const& m);
+    void set_bound_propagated(monic const& m);
 
     // this method is required by union_find
     trail_stack & get_trail_stack() { return m_u_f_stack; }
