@@ -95,7 +95,7 @@ namespace intblast {
         void add_value_solver(euf::enode* n, model& mdl, expr_ref_vector& values);
 
         expr* translated(expr* e) const { expr* r = m_translate.get(e->get_id(), nullptr); SASSERT(r); return r; }
-        void set_translated(expr* e, expr* r) { m_translate.setx(e->get_id(), r); }
+        void set_translated(expr* e, expr* r) { SASSERT(r); m_translate.setx(e->get_id(), r); }
         expr* arg(unsigned i) { return m_args.get(i); }
 
         expr* umod(expr* bv_expr, unsigned i);

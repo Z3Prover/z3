@@ -66,9 +66,15 @@ namespace polysat {
         core& c;
     public:
         mk_add_watch(core& c) : c(c) {}
-        void undo() override {
+        void undo() override {            
             auto& [sc, lit, val] = c.m_constraint_index.back();
             auto& vars = sc.vars();
+            verbose_stream() << "undo add watch " << sc << " ";
+            if (vars.size() > 0) verbose_stream() << "(" << c.m_constraint_index.size() -1 << ": " << c.m_watch[vars[0]] << ") ";
+            if (vars.size() > 1) verbose_stream() << "(" << c.m_constraint_index.size() -1 << ": " << c.m_watch[vars[1]] << ") ";
+            verbose_stream() << "\n";
+            SASSERT(vars.size() <= 0 || c.m_watch[vars[0]].back() == c.m_constraint_index.size() - 1);
+            SASSERT(vars.size() <= 1 || c.m_watch[vars[1]].back() == c.m_constraint_index.size() - 1);
             if (vars.size() > 0)
                 c.m_watch[vars[0]].pop_back();
             if (vars.size() > 1)
@@ -135,6 +141,10 @@ namespace polysat {
             add_watch(idx, vars[0]);
         if (vars.size() > 1)
             add_watch(idx, vars[1]);
+        verbose_stream() << "add watch " << sc << " " << vars << "  ";
+        if (vars.size() > 0) verbose_stream() << "( " << idx << " : " << m_watch[vars[0]] << ") ";
+        if (vars.size() > 1) verbose_stream() << "( " << idx << " : " << m_watch[vars[1]] << ") ";
+        verbose_stream() << "\n";
         s.trail().push(mk_add_watch(*this));
         return idx;
     }
@@ -213,6 +223,15 @@ namespace polysat {
         m_assignment.push(v , value);
         s.trail().push(mk_assign_var(v, *this));
 
+        return; 
+        // to debug:
+        unsigned sz = m_watch[v].size();
+        for (unsigned i = 0; i < sz; ++i) {
+            auto idx = m_watch[v][i];
+            auto [sc, dep, value] = m_constraint_index[idx];
+            sc.propagate(*this, value, dep);
+        }
+
         // update the watch lists for pvars
         // remove constraints from m_watch[v] that have more than 2 free variables.
         // for entries where there is only one free variable left add to viable set 
@@ -226,15 +245,14 @@ namespace polysat {
             bool swapped = false;
             for (unsigned i = vars.size(); i-- > 2; ) {
                 if (!is_assigned(vars[i])) {
+                    verbose_stream() << "watch instead " << idx << " " << vars[i] << "instead of " << vars[0] << "\n";
                     add_watch(idx, vars[i]);
                     std::swap(vars[i], vars[0]);
                     swapped = true;
                     break;
                 }
             }
-
-            sc.propagate(*this, value, dep);
-
+           
             SASSERT(!swapped || vars.size() <= 1 || (!is_assigned(vars[0]) && !is_assigned(vars[1])));
             if (swapped)
                 continue;
@@ -249,6 +267,7 @@ namespace polysat {
             m_viable.add_unitary(v1, idx);            
         }
         m_watch[v].shrink(j);
+        verbose_stream() << "new watch " << v << ": " << m_watch[v] << "\n";
     }
 
     void core::propagate_value(prop_item const& dc) {
