@@ -83,9 +83,11 @@ namespace smt {
 
     template<typename Ext>
     void theory_arith<Ext>::display_row(std::ostream & out, row const & r, bool compact) const {
-
+        if (static_cast<unsigned>(r.get_base_var()) >= m_columns.size())
+            return;
         column const & c   = m_columns[r.get_base_var()];
-        out << "(v" << r.get_base_var() << " r" << c[0].m_row_id << ") : ";
+        if (c.size() > 0)
+            out << "(v" << r.get_base_var() << " r" << c[0].m_row_id << ") : ";
         bool first = true;
         for (auto const& e : r) {
             if (!e.is_dead()) {
