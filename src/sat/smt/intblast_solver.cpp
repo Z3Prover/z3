@@ -619,7 +619,7 @@ namespace intblast {
         }
         case OP_BUREM:
         case OP_BUREM_I: {
-            expr* x = arg(0), * y = umod(e, 1);
+            expr* x = umod(e, 0), * y = umod(e, 1);
             r = m.mk_ite(m.mk_eq(y, a.mk_int(0)), x, a.mk_mod(x, y));
             break;
         }
