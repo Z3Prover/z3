@@ -64,6 +64,8 @@ namespace polysat {
     // c2 ... constraint that is currently false
     // Try to replace it with a new false constraint (derived from superposition with a true constraint)
     lbool ex_polynomial_superposition::find_replacement(signed_constraint c2, pvar v, conflict& core) {
+#if 0
+        // TODO: propagation_reason is the wrong thing here; we could query the fallback solver for constraints in v
         for (sat::literal lit1 : s.m_viable.get_propagation_reason(v)) {
             signed_constraint c1 = s.lit2cnstr(lit1);
             if (!c1->contains_var(v))  // side conditions and interval endpoint constraints do not contain v; skip them here
@@ -99,6 +101,7 @@ namespace polysat {
             // core.log_inference(inference_sup(inf_name, v, c2, c1));
             return c->contains_var(v) ? l_undef : l_true;
         }
+#endif
         return l_false;
     }
 
