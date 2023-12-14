@@ -204,6 +204,8 @@ namespace polysat {
         unsigned const begin = m_propagation_reason_storage.size();
 
         auto add_reason = [this](signed_constraint c) {
+            if (c.is_always_true())
+                return;
             s.try_assign_eval(c);
             m_propagation_reason_storage.push_back(c.blit());
         };

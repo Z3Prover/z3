@@ -866,12 +866,9 @@ namespace polysat {
             m_free_pvars.unassign_var_eh(v);
             return;
         case find_t::singleton:
-            // Any propagations should have been discovered by viable::intersect.
-            // The fallback solver currently does not detect propagations, because we would need to handle justifications differently.
-            // However, this case may still occur if during viable::intersect, we run into the refinement budget,
-            // but here, we continue refinement and actually succeed until propagation.
-            // ???
-            UNREACHABLE();
+            // Propagations are intended to be discovered by viable::intersect.
+            // However, changes in the slicing structure currently don't trigger a check for interval-propagated values,
+            // which means this call to find_viable may have had more intervals ot work with than the previous viable::intersect.
             SASSERT(m_justification[v].is_propagation_by_viable());
             return;
         case find_t::multiple:
@@ -892,8 +889,10 @@ namespace polysat {
     }
 
     void solver::assign_propagate_by_viable(pvar v, rational const& val) {
+        LOG("Propagation by viable: " << assignment_pp(*this, v, val));
         unsigned lvl = 0;
         for (sat::literal const lit : m_viable.get_propagation_reason(v)) {
+            LOG("    due to " << lit_pp(*this, lit));
             VERIFY(m_bvars.is_assigned(lit));
             lvl = std::max(lvl, m_bvars.level(lit));
         }
