@@ -59,24 +59,6 @@ namespace polysat {
             return out << "v" << d.eq().first << " == v" << d.eq().second << "@" << d.level();
     }
 
-    struct trailing_bits {
-        unsigned length;
-        rational bits;
-        bool positive;
-        unsigned src_idx;
-    };
-
-    struct leading_bits {
-        unsigned length;
-        bool positive; // either all 0 or all 1
-        unsigned src_idx;
-    };
-
-    struct single_bit {
-        bool positive;
-        unsigned position;
-        unsigned src_idx;
-    };
 
     struct fixed_bits {
         unsigned hi = 0;

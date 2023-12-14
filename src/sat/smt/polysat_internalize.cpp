@@ -139,20 +139,21 @@ namespace polysat {
         case OP_ZERO_EXT:         internalize_zero_extend(a); break;
         case OP_SIGN_EXT:         internalize_sign_extend(a); break; 
 
-            // polysat::solver should also support at least:
+        case OP_BSREM:          
+        case OP_BSREM_I:          
+        case OP_BSMOD:            
+        case OP_BSMOD_I:         
+        case OP_BSDIV:            
+        case OP_BSDIV_I:
+            expr2pdd(a);
+            m_delayed_axioms.push_back(a);            
+            ctx.push(push_back_vector(m_delayed_axioms));
+            break;
+
         case OP_BREDAND: // x == 2^K - 1        unary, return single bit, 1 if all input bits are set.
         case OP_BREDOR:  // x > 0               unary, return single bit, 1 if at least one input bit is set.
         case OP_BCOMP:   // x == y              binary, return single bit, 1 if the arguments are equal.
-        case OP_BSDIV:            
-        case OP_BSREM:            
-        case OP_BSMOD:     
-        case OP_BSDIV_I:            
-        case OP_BSREM_I:                        
-        case OP_BSMOD_I:
 
-            IF_VERBOSE(0, verbose_stream() << mk_pp(a, m) << "\n");
-            NOT_IMPLEMENTED_YET();
-            return;
         default:
             IF_VERBOSE(0, verbose_stream() << mk_pp(a, m) << "\n");
             NOT_IMPLEMENTED_YET();
@@ -263,7 +264,94 @@ namespace polysat {
         expr* x, * y;
         VERIFY(bv.is_bv_shl(n, x, y));
         m_core.shl(expr2pdd(x), expr2pdd(y), expr2pdd(n));
-    }  
+    }
+
+    bool solver::propagate_delayed_axioms() {
+        if (m_delayed_axioms_qhead == m_delayed_axioms.size())
+            return false;
+        ctx.push(value_trail(m_delayed_axioms_qhead));
+        for (; m_delayed_axioms_qhead < m_delayed_axioms.size() && !inconsistent(); ++m_delayed_axioms_qhead) {
+            app* e = m_delayed_axioms[m_delayed_axioms_qhead];
+            expr* x, *y;
+            if (bv.is_bv_sdiv(e, x, y))
+                axiomatize_sdiv(e, x, y);
+            else if (bv.is_bv_sdivi(e, x, y))
+                axiomatize_sdiv(e, x, y);
+            else if (bv.is_bv_srem(e, x, y))
+                axiomatize_srem(e, x, y);
+            else if (bv.is_bv_sremi(e, x, y))
+                axiomatize_srem(e, x, y);
+            else if (bv.is_bv_smod(e, x, y))
+                axiomatize_smod(e, x, y);
+            else if (bv.is_bv_smodi(e, x, y))
+                axiomatize_smod(e, x, y);
+            else
+                UNREACHABLE();
+        }
+        return true;
+    }
+
+    // y = 0 -> x
+    // else x - sdiv(x, y) * y
+    void solver::axiomatize_srem(app* e, expr* x, expr* y) {
+        unsigned sz = bv.get_bv_size(x);
+        sat::literal y_eq0 = eq_internalize(y, bv.mk_zero(sz));
+        add_clause(~y_eq0, eq_internalize(e, x));
+        add_clause(y_eq0, eq_internalize(e, bv.mk_bv_mul(bv.mk_bv_sdiv(x, y), y)));
+    }
+
+    // u := umod(x, y)
+    // u = 0 ->  0
+    // y = 0 ->  x
+    // x < 0, y < 0 ->  -u
+    // x < 0, y >= 0 ->  y - u
+    // x >= 0, y < 0 ->  y + u
+    // x >= 0, y >= 0 ->  u
+    void solver::axiomatize_smod(app* e, expr* x, expr* y) {
+        unsigned sz = bv.get_bv_size(x);
+        expr* u = bv.mk_bv_urem(x, y);
+        rational N = rational::power_of_two(bv.get_bv_size(x));
+        expr* signx = bv.mk_ule(bv.mk_numeral(N / 2, sz), x);
+        expr* signy = bv.mk_ule(bv.mk_numeral(N / 2, sz), y);
+        sat::literal lsignx = mk_literal(signx);
+        sat::literal lsigny = mk_literal(signy);
+        sat::literal u_eq0 = eq_internalize(u, bv.mk_zero(sz)); 
+        sat::literal y_eq0 = eq_internalize(y, bv.mk_zero(sz)); 
+        add_clause(~u_eq0, eq_internalize(e, bv.mk_zero(sz)));
+        add_clause(u_eq0, ~y_eq0, eq_internalize(e, x));
+        add_clause(~lsignx, ~lsigny, eq_internalize(e, bv.mk_bv_neg(u)));
+        add_clause(y_eq0, ~lsignx, lsigny, eq_internalize(e, bv.mk_bv_sub(y, u)));
+        add_clause(y_eq0, lsignx, ~lsigny, eq_internalize(e, bv.mk_bv_add(y, u)));
+        add_clause(y_eq0, lsignx, lsigny, eq_internalize(e, u));
+    }
+
+
+    // d = udiv(abs(x), abs(y))
+    // y = 0, x > 0 -> 1
+    // y = 0, x <= 0 -> -1
+    // x = 0, y != 0 -> 0
+    // x > 0, y < 0 -> -d
+    // x < 0, y > 0 -> -d
+    // x > 0, y > 0 -> d
+    // x < 0, y < 0 -> d
+    void solver::axiomatize_sdiv(app* e, expr* x, expr* y) {
+        unsigned sz = bv.get_bv_size(x);
+        rational N = rational::power_of_two(bv.get_bv_size(x));
+        expr* signx = bv.mk_ule(bv.mk_numeral(N/2, sz), x);
+        expr* signy = bv.mk_ule(bv.mk_numeral(N/2, sz), y);
+        expr* absx = m.mk_ite(signx, bv.mk_bv_sub(bv.mk_numeral(N-1, sz), x), x);
+        expr* absy = m.mk_ite(signy, bv.mk_bv_sub(bv.mk_numeral(N-1, sz), y), y);
+        expr* d = bv.mk_bv_udiv(absx, absy);
+        sat::literal lsignx = mk_literal(signx);
+        sat::literal lsigny = mk_literal(signy);
+        sat::literal y_eq0 = eq_internalize(y, bv.mk_zero(sz));
+        add_clause(~y_eq0, ~lsignx, eq_internalize(e, bv.mk_numeral(1, sz)));
+        add_clause(~y_eq0, lsignx, eq_internalize(e, bv.mk_numeral(N-1, sz)));
+        add_clause(y_eq0, lsignx, ~lsigny, eq_internalize(e, bv.mk_bv_neg(d)));
+        add_clause(y_eq0, ~lsignx, lsigny, eq_internalize(e, bv.mk_bv_neg(d)));
+        add_clause(y_eq0, lsignx, lsigny, eq_internalize(e, d));
+        add_clause(y_eq0, ~lsignx, ~lsigny, eq_internalize(e, d));
+    }    
 
     void solver::internalize_urem_i(app* rem) {
         expr* x, *y;

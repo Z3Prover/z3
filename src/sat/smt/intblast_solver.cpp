@@ -543,16 +543,17 @@ namespace intblast {
 
         auto rotate_left = [&](unsigned n) {
             auto sz = bv.get_bv_size(e);
+            n = n % sz;
             expr* r = arg(0);
             if (n != 0 && sz != 1) {
                 // r[sz - n - 1 : 0] ++ r[sz - 1 : sz - n]
-                // r * 2^(sz - n) + (r / 2^(sz - n)) mod n???
-                NOT_IMPLEMENTED_YET();
+                // r * 2^(sz - n) + (r div 2^n) mod 2^(sz - n)???
+                // r * A + (r div B) mod A
                 auto N = bv_size(e);
                 auto A = rational::power_of_two(sz - n);
                 auto B = rational::power_of_two(n);
-                auto hi = a.mk_mul(r, a.mk_int(B));
-                auto lo = a.mk_idiv(a.mk_mod(r, a.mk_int(B)), a.mk_int(A));
+                auto hi = a.mk_mul(r, a.mk_int(A));
+                auto lo = a.mk_mod(a.mk_idiv(umod(e, 0), a.mk_int(B)), a.mk_int(A));
                 r = a.mk_add(hi, lo);
             }
             return r;
@@ -607,7 +608,7 @@ namespace intblast {
             break;
         case OP_CONCAT: {
             unsigned sz = 0;
-            for (unsigned i = args.size(); i-- > 0; ++i) {
+            for (unsigned i = args.size(); i-- > 0;) {
                 expr* old_arg = e->get_arg(i);
                 expr* new_arg = umod(old_arg, i);
                 if (sz > 0) {
@@ -809,20 +810,48 @@ namespace intblast {
             break;
         }
         case OP_ROTATE_RIGHT: {
-            auto n = e->get_parameter(0).get_int();
             unsigned sz = bv.get_bv_size(e);
-            n = n % sz;
+            auto n = e->get_parameter(0).get_int();
             r = rotate_left(sz - n);
             break;
         }
-        case OP_EXT_ROTATE_LEFT:
-        case OP_EXT_ROTATE_RIGHT:
-        case OP_REPEAT:
-        case OP_BREDOR:
-        case OP_BREDAND:        
-            verbose_stream() << mk_pp(e, m) << "\n";
-            NOT_IMPLEMENTED_YET();
+        case OP_EXT_ROTATE_LEFT:  {
+            unsigned sz = bv.get_bv_size(e);
+            expr* y = umod(e, 1);
+            r = a.mk_int(0);
+            for (unsigned i = 0; i < sz; ++i) 
+                r = m.mk_ite(m.mk_eq(a.mk_int(i), y), rotate_left(i), r);
             break;
+        }
+        case OP_EXT_ROTATE_RIGHT: {
+            unsigned sz = bv.get_bv_size(e);
+            expr* y = umod(e, 1);
+            r = a.mk_int(0);
+            for (unsigned i = 0; i < sz; ++i) 
+                r = m.mk_ite(m.mk_eq(a.mk_int(i), y), rotate_left(sz - i), r);
+            break;
+        }
+        case OP_REPEAT: {
+            unsigned n = e->get_parameter(0).get_int();
+            expr* x = umod(e->get_arg(0), 0);
+            r = x;
+            rational N = bv_size(e->get_arg(0));
+            rational N0 = N;
+            for (unsigned i = 1; i < n; ++i)
+                r = a.mk_add(a.mk_mul(a.mk_int(N), x), r), N *= N0;
+            break;
+        }            
+        case OP_BREDOR: {
+            r = umod(e->get_arg(0), 0);
+            r = m.mk_not(m.mk_eq(r, a.mk_int(0)));
+            break;
+        }
+        case OP_BREDAND: {
+            rational N = bv_size(e->get_arg(0));
+            r = umod(e->get_arg(0), 0);
+            r = m.mk_not(m.mk_eq(r, a.mk_int(N - 1)));
+            break;
+        }
         default:
             verbose_stream() << mk_pp(e, m) << "\n";
             NOT_IMPLEMENTED_YET();

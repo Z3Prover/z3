@@ -130,6 +130,12 @@ namespace polysat {
         void internalize_udiv_i(app* e);
         void internalize_urem_i(app* e);
         void internalize_div_rem(app* e, bool is_div);
+        void axiomatize_srem(app* e, expr* x, expr* y);
+        void axiomatize_smod(app* e, expr* x, expr* y);
+        void axiomatize_sdiv(app* e, expr* x, expr* y);
+        unsigned m_delayed_axioms_qhead = 0;
+        ptr_vector<app> m_delayed_axioms;
+        bool propagate_delayed_axioms();
         void internalize_polysat(app* a);
         void assert_bv2int_axiom(app * n);
         void assert_int2bv_axiom(app* n);

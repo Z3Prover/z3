@@ -140,14 +140,14 @@ namespace polysat {
         for (; i < sz && j < 2; ++i)
             if (!is_assigned(vars[i]))
                 std::swap(vars[i], vars[j++]);
-        sc.set_num_watch(i);
-        if (i > 0)
+        sc.set_num_watch(j);
+        if (j > 0)
             add_watch(idx, vars[0]);
-        if (i > 1)
+        if (j > 1)
             add_watch(idx, vars[1]);
         IF_VERBOSE(10, verbose_stream() << "add watch " << sc << " " << vars << "  ";
-                    if (vars.size() > 0) verbose_stream() << "( " << idx << " : " << m_watch[vars[0]] << ") ";
-                    if (vars.size() > 1) verbose_stream() << "( " << idx << " : " << m_watch[vars[1]] << ") ";
+                    if (j > 0) verbose_stream() << "( " << idx << " : " << m_watch[vars[0]] << ") ";
+                    if (j > 1) verbose_stream() << "( " << idx << " : " << m_watch[vars[1]] << ") ";
                     verbose_stream() << "\n");
         s.trail().push(mk_add_watch(*this));
         return idx;
@@ -227,7 +227,6 @@ namespace polysat {
         m_assignment.push(v , value);
         s.trail().push(mk_assign_var(v, *this));
 
-        return; 
         // update the watch lists for pvars
         // remove constraints from m_watch[v] that have more than 2 free variables.
         // for entries where there is only one free variable left add to viable set 
@@ -242,7 +241,7 @@ namespace polysat {
             bool swapped = false;
             for (unsigned i = vars.size(); i-- > 2; ) {
                 if (!is_assigned(vars[i])) {
-                    verbose_stream() << "watch instead " << idx << " " << vars[i] << "instead of " << vars[0] << "\n";
+                    verbose_stream() << "watch instead " << vars[i] << " instead of " << vars[0] << " for " << idx << "\n";
                     add_watch(idx, vars[i]);
                     std::swap(vars[i], vars[0]);
                     swapped = true;
