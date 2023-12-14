@@ -233,13 +233,13 @@ stages:
         symbolServerType: TeamServices
         detailedLog: true
 
-- job: "WindowsArm64"
-  displayName: "Windows"
-  pool: 
-    vmImage: "windows-latest"
-  variables:
-     arch: "amd64_arm64"
-  steps:
+  - job: "WindowsArm64"
+    displayName: "Windows"
+    pool: 
+      vmImage: "windows-latest"
+    variables:
+       arch: "amd64_arm64"
+    steps:
     - script: md build
     - script: |
          cd build
