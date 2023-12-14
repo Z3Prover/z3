@@ -146,6 +146,7 @@ namespace intblast {
             auto a = expr2literal(e);
             auto b = mk_literal(r);
             ctx.mark_relevant(b);
+//            verbose_stream() << "add-predicate-axiom: " << mk_pp(e, m) << " == " << r << "\n";
             add_equiv(a, b);
         }
         return true;
@@ -625,7 +626,7 @@ namespace intblast {
         case OP_BUDIV:
         case OP_BUDIV_I: {
             expr* x = arg(0), * y = umod(e, 1);
-            r = m.mk_ite(m.mk_eq(y, a.mk_int(0)), a.mk_int(1), a.mk_idiv(x, y));
+            r = m.mk_ite(m.mk_eq(y, a.mk_int(0)), a.mk_int(-1), a.mk_idiv(x, y));
             break;
         }
         case OP_BUMUL_NO_OVFL: {
@@ -727,10 +728,9 @@ namespace intblast {
             r = m.mk_ite(m.mk_eq(umod(bv_expr, 0), umod(bv_expr, 1)), a.mk_int(1), a.mk_int(0));
             break;
         case OP_BSMOD_I:
-        case OP_BSMOD: {
-            bv_expr = e;
-            expr* x = umod(bv_expr, 0), *y = umod(bv_expr, 1);
-            rational N = rational::power_of_two(bv.get_bv_size(bv_expr));
+        case OP_BSMOD: {            
+            expr* x = umod(e, 0), *y = umod(e, 1);
+            rational N = bv_size(e); 
             expr* signx = a.mk_ge(x, a.mk_int(N/2));
             expr* signy = a.mk_ge(y, a.mk_int(N/2));
             expr* u = a.mk_mod(x, y);
@@ -750,22 +750,23 @@ namespace intblast {
         } 
         case OP_BSDIV_I:
         case OP_BSDIV: {
-            // d = udiv(x mod N, y mod N)
+            // d = udiv(abs(x), abs(y))
             // y = 0, x > 0 -> 1
             // y = 0, x <= 0 -> -1
             // x = 0, y != 0 -> 0
-            // x < 0, y < 0 -> -d
+            // x > 0, y < 0 -> -d
             // x < 0, y > 0 -> -d
             // x > 0, y > 0 -> d
             // x < 0, y < 0 -> d
-            bv_expr = e;
-            expr* x = umod(bv_expr, 0), * y = umod(bv_expr, 1);
-            rational N = rational::power_of_two(bv.get_bv_size(bv_expr));
+            expr* x = umod(e, 0), * y = umod(e, 1);
+            rational N = bv_size(e);
             expr* signx = a.mk_ge(x, a.mk_int(N / 2));
             expr* signy = a.mk_ge(y, a.mk_int(N / 2));
+            x = m.mk_ite(signx, a.mk_sub(a.mk_int(N), x), x);
+            y = m.mk_ite(signy, a.mk_sub(a.mk_int(N), y), y);
             expr* d = a.mk_idiv(x, y);
             r = m.mk_ite(m.mk_iff(signx, signy), d, a.mk_uminus(d));
-            r = m.mk_ite(m.mk_eq(y, a.mk_int(0)), m.mk_ite(signx, a.mk_int(-1), a.mk_int(1)), r);
+            r = m.mk_ite(m.mk_eq(y, a.mk_int(0)), m.mk_ite(signx, a.mk_int(1), a.mk_int(-1)), r);
             break;
         }
         case OP_BSREM_I:
