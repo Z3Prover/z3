@@ -38,13 +38,13 @@ public:
         m_sig_idx(0) {
     }
     
-    void swap(mpfx & other) { 
+    void swap(mpfx & other) noexcept {
         unsigned sign    = m_sign;    m_sign    = other.m_sign;    other.m_sign = sign;
         unsigned sig_idx = m_sig_idx; m_sig_idx = other.m_sig_idx; other.m_sig_idx = sig_idx;
     }
 };
 
-inline void swap(mpfx & m1, mpfx & m2) { m1.swap(m2); }
+inline void swap(mpfx & m1, mpfx & m2) noexcept { m1.swap(m2); }
 
 class mpz;
 class mpq;
@@ -228,7 +228,7 @@ public:
     */
     static void abs(mpfx & a) { a.m_sign = 0; }
 
-    static void swap(mpfx & a, mpfx & b) { a.swap(b); }
+    static void swap(mpfx & a, mpfx & b) noexcept { a.swap(b); }
 
     /**
        \brief c <- a + b

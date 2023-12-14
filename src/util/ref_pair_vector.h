@@ -143,7 +143,7 @@ public:
             push_back(other[i]);
     }
 
-    void swap(unsigned idx1, unsigned idx2) {
+    void swap(unsigned idx1, unsigned idx2) noexcept {
         std::swap(m_nodes[idx1], m_nodes[idx2]);
     }
 
@@ -179,7 +179,7 @@ public:
         this->append(other);
     }
 
-    ref_pair_vector(ref_pair_vector && other) : super(std::move(other)) {}
+    ref_pair_vector(ref_pair_vector && other) noexcept : super(std::move(other)) {}
 
     ref_pair_vector(TManager & m, unsigned sz, elem_t const * data):
         super(ref_manager_wrapper<T, TManager>(m)) {
@@ -194,7 +194,7 @@ public:
         return get_manager();
     }
 
-    void swap(ref_pair_vector & other) {
+    void swap(ref_pair_vector & other) noexcept {
         SASSERT(&(this->m_manager) == &(other.m_manager));
         this->m_nodes.swap(other.m_nodes);
     }

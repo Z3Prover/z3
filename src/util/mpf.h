@@ -52,7 +52,7 @@ public:
     mpf & operator=(mpf const & other) = delete;
     unsigned get_ebits() const { return ebits; }
     unsigned get_sbits() const { return sbits; }
-    void swap(mpf & other);
+    void swap(mpf & other) noexcept;
 };
 
 class mpf_manager {
@@ -87,7 +87,7 @@ public:
     void neg(mpf & o);
     void neg(mpf const & x, mpf & o);
     
-    void swap(mpf& a, mpf& b) { a.swap(b); }
+    void swap(mpf& a, mpf& b) noexcept { a.swap(b); }
 
     bool is_zero(mpf const & x);
     bool is_neg(mpf const & x);

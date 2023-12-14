@@ -52,7 +52,7 @@ public:
         m.del(a.second);
     }
 
-    void swap(mpq_inf & a, mpq_inf & b) {
+    void swap(mpq_inf & a, mpq_inf & b) noexcept {
         m.swap(a.first, b.first);
         m.swap(a.second, b.second);
     }

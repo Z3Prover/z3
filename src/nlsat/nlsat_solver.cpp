@@ -48,7 +48,7 @@ namespace nlsat {
     typedef chashtable<root_atom*, root_atom::hash_proc, root_atom::eq_proc> root_atom_table;
 
     // for apply_permutation procedure
-    void swap(clause * & c1, clause * & c2) {
+    void swap(clause * & c1, clause * & c2) noexcept {
         std::swap(c1, c2);
     }
 

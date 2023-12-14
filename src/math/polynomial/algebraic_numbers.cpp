@@ -358,7 +358,7 @@ namespace algebraic_numbers {
             return a.to_algebraic()->m_p_sz - 1;
         }
 
-        void swap(numeral & a, numeral & b) {
+        void swap(numeral & a, numeral & b) noexcept {
             std::swap(a.m_cell, b.m_cell);
         }
 
@@ -2935,7 +2935,7 @@ namespace algebraic_numbers {
         return m_imp->to_rational(const_cast<numeral&>(a), r);
     }
 
-    void manager::swap(numeral & a, numeral & b) {
+    void manager::swap(numeral & a, numeral & b) noexcept {
         return m_imp->swap(a, b);
     }
 

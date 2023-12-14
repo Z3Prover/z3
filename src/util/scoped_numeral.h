@@ -60,11 +60,11 @@ public:
         m().reset(m_num);
     }
 
-    void swap(_scoped_numeral & n) {
+    void swap(_scoped_numeral & n) noexcept {
         m().swap(m_num, n.m_num);
     }
 
-    void swap(numeral & n) {
+    void swap(numeral & n) noexcept {
         m().swap(m_num, n);
     }
 

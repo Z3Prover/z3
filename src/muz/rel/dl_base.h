@@ -484,7 +484,7 @@ namespace datalog {
 
             virtual bool can_swap(const base_object & o) const { return false; }
 
-            virtual void swap(base_object & o) {
+            virtual void swap(base_object & o) noexcept {
                 std::swap(m_kind, o.m_kind);
 #if DL_LEAK_HUNTING
                 m_leak_guard = get_plugin().get_ast_manager().mk_fresh_sort(get_plugin().get_name().bare_str());
@@ -910,7 +910,7 @@ namespace datalog {
     public:
         table_signature() : m_functional_columns(0) {}
 
-        void swap(table_signature & s) {
+        void swap(table_signature & s) noexcept {
             signature_base::swap(s);
             std::swap(m_functional_columns, s.m_functional_columns);
         }

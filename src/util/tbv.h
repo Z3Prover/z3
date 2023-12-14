@@ -135,7 +135,7 @@ class tbv_ref {
 public:
     tbv_ref(tbv_manager& mgr) : mgr(mgr), d(nullptr) {}
     tbv_ref(tbv_manager& mgr, tbv* d) : mgr(mgr), d(d) {}
-    tbv_ref(tbv_ref&& d) : mgr(d.mgr), d(d.detach()) {}
+    tbv_ref(tbv_ref&& d) noexcept : mgr(d.mgr), d(d.detach()) {}
     ~tbv_ref() {
         if (d) mgr.deallocate(d);
     }

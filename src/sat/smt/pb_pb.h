@@ -46,7 +46,7 @@ namespace pb {
         bool is_cardinality() const;
         void negate() override;
         void set_k(unsigned k) override { m_k = k; VERIFY(k < 4000000000); update_max_sum(); }
-        void swap(unsigned i, unsigned j) override { std::swap(m_wlits[i], m_wlits[j]); }
+        void swap(unsigned i, unsigned j) noexcept override { std::swap(m_wlits[i], m_wlits[j]); }
         literal_vector literals() const override { literal_vector lits; for (auto wl : *this) lits.push_back(wl.second); return lits; }
         bool is_watching(literal l) const override;
         literal get_lit(unsigned i) const override { return m_wlits[i].second; }

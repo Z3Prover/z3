@@ -34,7 +34,7 @@ public:
     struct hash_proc {  unsigned operator()(s_integer const& r) const { return r.hash(); }  };
     struct eq_proc { bool operator()(s_integer const& r1, s_integer const& r2) const { return r1 == r2; } };
 
-    void swap(s_integer & n) { 
+    void swap(s_integer & n) noexcept {
         std::swap(m_val, n.m_val);
     }
 

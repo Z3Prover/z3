@@ -283,7 +283,7 @@ public:
         delete_table();
     }
 
-    void swap(core_hashtable & source) {
+    void swap(core_hashtable & source) noexcept {
         std::swap(m_table,       source.m_table);
         std::swap(m_capacity,    source.m_capacity);
         std::swap(m_size,        source.m_size);

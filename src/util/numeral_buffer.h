@@ -81,7 +81,7 @@ public:
         m_buffer.reserve(sz);
     }
 
-    void swap(svector<Numeral> & other) {
+    void swap(svector<Numeral> & other) noexcept {
         m_buffer.swap(other);
     }
 

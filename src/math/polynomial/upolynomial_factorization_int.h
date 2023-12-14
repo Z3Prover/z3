@@ -85,7 +85,7 @@ namespace upolynomial {
 
         unsigned max_degree() const { return m_set.size() - 1; }
 
-        void swap(factorization_degree_set & other) {
+        void swap(factorization_degree_set & other) noexcept {
             m_set.swap(other.m_set);
         }
 

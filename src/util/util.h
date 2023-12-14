@@ -265,7 +265,7 @@ public:
         return *this;
     }
 
-    scoped_ptr& operator=(scoped_ptr&& other) {
+    scoped_ptr& operator=(scoped_ptr&& other) noexcept {
         *this = other.detach();
         return *this;
     };
@@ -276,7 +276,7 @@ public:
         return tmp;
     }
 
-    void swap(scoped_ptr & p) {
+    void swap(scoped_ptr & p) noexcept {
         std::swap(m_ptr, p.m_ptr);
     }
 };

@@ -197,14 +197,14 @@ public:
             push_back(data[i]);
     }
 
-    void operator=(ref_vector_core && other) {
+    void operator=(ref_vector_core && other) noexcept {
         if (this != &other) {
             reset();
             m_nodes = std::move(other.m_nodes);
         }
     }
 
-    void swap(unsigned idx1, unsigned idx2) {
+    void swap(unsigned idx1, unsigned idx2) noexcept {
         std::swap(m_nodes[idx1], m_nodes[idx2]);
     }
 
@@ -262,7 +262,7 @@ public:
         return get_manager();
     }
 
-    void swap(ref_vector & other) {
+    void swap(ref_vector & other) noexcept {
         SASSERT(&(this->m_manager) == &(other.m_manager));
         this->m_nodes.swap(other.m_nodes);
     }

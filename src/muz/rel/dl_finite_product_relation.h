@@ -316,7 +316,7 @@ namespace datalog {
 
            Both relations must come from the same plugin and be of the same signature.
         */
-        void swap(relation_base & r) override;
+        void swap(relation_base & r) noexcept override;
 
         /**
            \brief Create a \c finite_product_relation object.

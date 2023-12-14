@@ -606,7 +606,7 @@ namespace recfun {
         : m_lhs(from.m_lhs),
           m_def(from.m_def),
           m_args(from.m_args) {}
-    case_expansion::case_expansion(case_expansion && from)
+    case_expansion::case_expansion(case_expansion && from) noexcept
         : m_lhs(from.m_lhs),
           m_def(from.m_def),
           m_args(std::move(from.m_args)) {}

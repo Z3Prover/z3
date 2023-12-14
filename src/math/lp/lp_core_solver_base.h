@@ -517,7 +517,7 @@ public:
 
     
     template <typename K>
-    static void swap(vector<K> &v, unsigned i, unsigned j) {
+    static void swap(vector<K> &v, unsigned i, unsigned j) noexcept {
         auto t = v[i];
         v[i] = v[j];
         v[j] = t;

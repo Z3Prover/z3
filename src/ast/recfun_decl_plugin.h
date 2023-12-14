@@ -302,7 +302,7 @@ namespace recfun {
         expr_ref_vector     m_args;
         case_expansion(recfun::util& u, app * n);
         case_expansion(case_expansion const & from);
-        case_expansion(case_expansion && from);
+        case_expansion(case_expansion && from) noexcept;
         std::ostream& display(std::ostream& out) const;
     };
 

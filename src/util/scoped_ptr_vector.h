@@ -34,7 +34,7 @@ public:
     scoped_ptr_vector(scoped_ptr_vector&& other) noexcept {
         m_vector.swap(other.m_vector);
     }
-    scoped_ptr_vector& operator=(scoped_ptr_vector&& other) {
+    scoped_ptr_vector& operator=(scoped_ptr_vector&& other) noexcept {
         if (this == &other)
             return *this;
         reset();
@@ -55,7 +55,7 @@ public:
         dealloc(m_vector[idx]); 
         m_vector[idx] = ptr; 
     }
-    void swap(unsigned i, unsigned j) { std::swap(m_vector[i], m_vector[j]); }
+    void swap(unsigned i, unsigned j) noexcept { std::swap(m_vector[i], m_vector[j]); }
     unsigned size() const { return m_vector.size(); }
     bool empty() const { return m_vector.empty(); }
     void resize(unsigned sz) { 

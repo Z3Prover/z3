@@ -110,7 +110,7 @@ public:
         return *this;
     }
 
-    void swap(mpz & other) { 
+    void swap(mpz & other) noexcept {
         std::swap(m_val, other.m_val);
         std::swap(m_ptr, other.m_ptr);
         unsigned o = m_owner; m_owner = other.m_owner; other.m_owner = o;
@@ -131,7 +131,7 @@ public:
 class mpz_stack : public mpz {};
 #endif
 
-inline void swap(mpz & m1, mpz & m2) { m1.swap(m2); }
+inline void swap(mpz & m1, mpz & m2) noexcept { m1.swap(m2); }
 
 template<bool SYNCH = true>
 class mpz_manager {
@@ -573,7 +573,7 @@ public:
     // deallocates any memory.
     void reset(mpz & a);
 
-    void swap(mpz & a, mpz & b) {
+    void swap(mpz & a, mpz & b) noexcept {
         std::swap(a.m_val, b.m_val);
         std::swap(a.m_ptr, b.m_ptr);
         auto o = a.m_owner; a.m_owner = b.m_owner; b.m_owner = o;

@@ -183,7 +183,7 @@ namespace sat {
         void reset(on_update_t& on_del) { shrink(on_del, 0); }
         cut const & operator[](unsigned idx) const { return m_cuts[idx]; }
         void shrink(on_update_t& on_del, unsigned j); 
-        void swap(cut_set& other) { 
+        void swap(cut_set& other) noexcept {
             std::swap(m_var, other.m_var);
             std::swap(m_size, other.m_size); 
             std::swap(m_max_size, other.m_max_size); 
