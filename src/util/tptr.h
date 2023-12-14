@@ -21,7 +21,6 @@ Revision History:
 
 #include <cstdint>
 #include "util/machine.h"
-#include <cstdint>
 
 #define TAG_SHIFT        PTR_ALIGNMENT
 #define ALIGNMENT_VALUE  (1 << PTR_ALIGNMENT)

@@ -88,7 +88,7 @@ def mk_targets(source_root):
 def mk_icon(source_root):
     mk_dir("out/content")
     shutil.copy(f"{source_root}/resources/icon.jpg", "out/content/icon.jpg")
-    shutil.copy(f"{source_root}/src/api/dotnet/README.md", "out/content/README.md")
+#   shutil.copy(f"{source_root}/src/api/dotnet/README.md", "out/content/README.md")
 
 
     
@@ -109,7 +109,6 @@ Linux Dependencies:
         <copyright>&#169; Microsoft Corporation. All rights reserved.</copyright>
         <tags>smt constraint solver theorem prover</tags>
         <icon>content/icon.jpg</icon>
-        <readme>content/README.md</readme>
         <projectUrl>https://github.com/Z3Prover/z3</projectUrl>
         <license type="expression">MIT</license>
         <repository type="git" url="{1}" branch="{2}" commit="{3}" />
@@ -119,10 +118,6 @@ Linux Dependencies:
             <group targetFramework=".netstandard2.0" />
         </dependencies>
     </metadata>
-    <files>
-      <file src="content/README.md" target="content/README.md"/>
-      <file src="content/icon.jpg" target="content/icon.jpg"/>
-    </files>
 </package>""".format(version, repo, branch, commit, arch)
     print(contents)
     sym = "sym." if symbols else ""
