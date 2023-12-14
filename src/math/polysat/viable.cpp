@@ -1765,36 +1765,13 @@ namespace polysat {
 
             unsigned const lower_w = widths[w_idx - 1];
             rational const lower_mod_value = rational::power_of_two(lower_w);
-
-            rational lower_cover_lo;
-            rational lower_cover_len;
-            if (next_dist >= lower_mod_value) {
-                lower_cover_lo = mod(val, lower_mod_value);
-                lower_cover_len = lower_mod_value;
-                rational a;
-                lbool result = find_on_layer(v, w_idx - 1, widths, overlaps, fbi, lower_cover_lo, lower_cover_len, a, refine_todo, relevant_entries);
-                VERIFY(result != l_undef);
-                if (result == l_false) {
-                    SASSERT(s.is_conflict());
-                    return l_false;  // conflict
-                }
-                SASSERT(result == l_true);
-                // replace lower bits of 'val' by 'a'
-                rational const val_lower = mod(val, lower_mod_value);
-                val = val - val_lower + a;
-                if (a < val_lower)
-                    a += lower_mod_value;
-                LOG("distance(val,      cover_hi) = " << distance(val, to_cover_hi, mod_value));
-                LOG("distance(next_val, cover_hi) = " << distance(next_val, to_cover_hi, mod_value));
-                SASSERT(distance(val, to_cover_hi, mod_value) >= distance(next_val, to_cover_hi, mod_value));
-                return l_true;
-            }
-
-            lower_cover_lo = mod(val, lower_mod_value);
-            lower_cover_len = next_dist;
+            rational const lower_cover_lo = mod(val, lower_mod_value);
+            rational const lower_cover_len = std::min(next_dist, lower_mod_value);
 
             rational a;
             lbool result = find_on_layer(v, w_idx - 1, widths, overlaps, fbi, lower_cover_lo, lower_cover_len, a, refine_todo, relevant_entries);
+            SASSERT(lower_cover_len < lower_mod_value || result != l_undef);  // if lower_cover_len is the full domain size, the result cannot be l_undef
+
             if (result == l_false) {
                 SASSERT(s.is_conflict());
                 return l_false;  // conflict
