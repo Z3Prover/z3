@@ -25,6 +25,8 @@ TODO: plan to fix the FI "pumping":
         - for inequalities, a coefficient 2^k*a means that intervals are periodic because the upper k bits of x are irrelevant;
           storing the interval for x[K-k:0] would take care of this.
 
+TODO: we can now support propagations by fallback solver
+
 --*/
 
 
@@ -59,12 +61,14 @@ namespace polysat {
         m_units.push_back({});
         m_equal_lin.push_back(nullptr);
         m_diseq_lin.push_back(nullptr);
+        m_propagation_reasons.push_back({});
     }
 
     void viable::pop_var() {
         m_units.pop_back();
         m_equal_lin.pop_back();
         m_diseq_lin.pop_back();
+        m_propagation_reasons.pop_back();
     }
 
     viable::entry* viable::alloc_entry(pvar var) {
@@ -176,7 +180,7 @@ namespace polysat {
             rational val;
             switch (find_viable(v, val)) {
             case find_t::singleton:
-                propagate(v, val);
+                SASSERT(s.m_justification[v].is_propagation_by_viable());
                 prop = true;
                 break;
             case find_t::empty:
@@ -194,7 +198,16 @@ namespace polysat {
         return prop;
     }
 
-    void viable::propagate(pvar v, rational const& val) {
+    void viable::propagate(pvar v, rational const& val, ptr_vector<entry> const& reason) {
+        SASSERT(m_propagation_reasons[v].begin == 0);
+        SASSERT(m_propagation_reasons[v].len == 0);
+        unsigned const begin = m_propagation_reason_storage.size();
+
+        auto add_reason = [this](signed_constraint c) {
+            s.try_assign_eval(c);
+            m_propagation_reason_storage.push_back(c.blit());
+        };
+
         // NOTE: all propagations must be justified by a prefix of \Gamma,
         //       otherwise dependencies may be missed during conflict resolution.
         //       The propagation reason for v := val consists of the following constraints:
@@ -202,29 +215,34 @@ namespace polysat {
         //       - side conditions
         //       - i.lo() == i.lo_val() for each unit interval i
         //       - i.hi() == i.hi_val() for each unit interval i
-
-        // NSB review:
-        // the bounds added by x < p and p < x in forbidden_intervals
-        // match_non_max, match_non_zero
-        // use values that are approximations. Then the propagations in
-        // try_assign_eval are incorrect.
-        // For example, x > p means x has forbidden interval [0, p + 1[,
-        // the numeric interval is [0, 1[, but p + 1 == 1 is not ensured
-        // even p may have free variables.
-        // the proper side condition on p + 1 is -1 > p or -2 >= p or p + 1 != 0
-        // I am disabling match_non_max and match_non_zero from forbidden_interval
-        // The narrowing rules in ule_constraint already handle the bounds propagaitons
-        // as it propagates p != -1 and 0 != q (p < -1, q > 0),
-        //
-
-        for (auto const& c : get_constraints(v)) {
-            s.try_assign_eval(c);
+        for (entry* e : reason) {
+            for (signed_constraint c : e->side_cond)
+                add_reason(c);
+            for (signed_constraint c : e->src)
+                add_reason(c);
+            auto const& i = e->interval;
+            add_reason(s.eq(i.lo(), i.lo_val()));
+            add_reason(s.eq(i.hi(), i.hi_val()));
         }
-        for (auto const& i : units(v)) {
-            s.try_assign_eval(s.eq(i.lo(), i.lo_val()));
-            s.try_assign_eval(s.eq(i.hi(), i.hi_val()));
-        }
+
+        unsigned const len = m_propagation_reason_storage.size() - begin;
+        SASSERT(begin + len == m_propagation_reason_storage.size());
+        m_propagation_reasons[v].begin = begin;
+        m_propagation_reasons[v].len = len;
+        m_propagation_trail.push_back(v);
+        s.m_trail.push_back(trail_instr_t::viable_propagation_i);
+
         s.assign_propagate_by_viable(v, val);
+    }
+
+    void viable::pop_propagation_reason() {
+        pvar const v = m_propagation_trail.back();
+        m_propagation_trail.pop_back();
+        unsigned begin = m_propagation_reasons[v].begin;
+        unsigned len = m_propagation_reasons[v].len;
+        SASSERT(len > 0);
+        SASSERT(begin + len == m_propagation_reason_storage.size());
+        m_propagation_reason_storage.shrink(begin);
     }
 
     bool viable::intersect(pvar v, signed_constraint const& c) {
@@ -1161,14 +1179,19 @@ namespace polysat {
 
     find_t viable::find_viable(pvar v, rational& lo) {
         rational hi;
-        switch (find_viable2(v, lo, hi)) {
+        ptr_vector<entry> relevant_entries;
+        switch (find_viable2(v, lo, hi, relevant_entries)) {
         case l_true:
             if (hi < 0) {
                 // fallback solver, treat propagations as decisions for now
                 // (this is because the propagation justification currently always uses intervals, which is unsound in this case)
                 return find_t::multiple;
             }
-            return (lo == hi) ? find_t::singleton : find_t::multiple;
+            if (lo == hi) {
+                propagate(v, lo, relevant_entries);
+                return find_t::singleton;
+            }
+            return find_t::multiple;
         case l_false:
             return find_t::empty;
         default:
@@ -1177,6 +1200,7 @@ namespace polysat {
     }
 
     bool viable::has_upper_bound(pvar v, rational& out_hi, vector<signed_constraint>& out_c) {
+        NOT_IMPLEMENTED_YET();
         entry const* first = m_units[v].get_entries(s.size(v));  // TODO: take other sizes into account
         entry const* e = first;
         bool found = false;
@@ -1213,6 +1237,7 @@ namespace polysat {
     }
 
     bool viable::has_lower_bound(pvar v, rational& out_lo, vector<signed_constraint>& out_c) {
+        NOT_IMPLEMENTED_YET();
         entry const* first = m_units[v].get_entries(s.size(v));  // TODO: take other sizes into account
         entry const* e = first;
         bool found = false;
@@ -1249,6 +1274,7 @@ namespace polysat {
     }
 
     bool viable::has_max_forbidden(pvar v, signed_constraint const& c, rational& out_lo, rational& out_hi, vector<signed_constraint>& out_c) {
+        NOT_IMPLEMENTED_YET();
         // TODO:
         // - skip intervals adjacent to c's interval if they contain side conditions on y?
         //      constraints over y are allowed if level(c) < level(y) (e.g., boolean propagated)
@@ -1347,8 +1373,6 @@ namespace polysat {
         return true;
     }
 
-
-
     // When iterating over intervals:
     // - instead of only intervals of v, go over intervals of each entry of overlaps
     // - need a function to map interval from overlap into an interval over v
@@ -1438,7 +1462,7 @@ namespace polysat {
     // - how to integrate fallback solver?
     //   when lowest level fails, we can try more refinement there.
     //   in case of refinement loop, try fallback solver with constraints only from lower level.
-    lbool viable::find_viable2(pvar v, rational& lo, rational& hi) {
+    lbool viable::find_viable2(pvar v, rational& lo, rational& hi, ptr_vector<entry>& relevant_entries) {
         fixed_bits_info fbi;
 
         if (!collect_bit_information(v, true, fbi))
@@ -1472,7 +1496,7 @@ namespace polysat {
 
         rational const& max_value = s.var2pdd(v).max_value();
 
-        lbool result_lo = find_on_layers(v, widths, overlaps, fbi, rational::zero(), max_value, lo);
+        lbool result_lo = find_on_layers(v, widths, overlaps, fbi, rational::zero(), max_value, lo, relevant_entries);
         if (result_lo == l_false)
             return l_false;  // conflict
         if (result_lo == l_undef)
@@ -1483,7 +1507,7 @@ namespace polysat {
             return l_true;
         }
 
-        lbool result_hi = find_on_layers(v, widths, overlaps, fbi, lo + 1, max_value, hi);
+        lbool result_hi = find_on_layers(v, widths, overlaps, fbi, lo + 1, max_value, hi, relevant_entries);
         if (result_hi == l_false)
             hi = lo;  // no other viable value
         if (result_hi == l_undef)
@@ -1526,10 +1550,10 @@ namespace polysat {
         fixed_bits_info const& fbi,
         rational const& to_cover_lo,
         rational const& to_cover_hi,
-        rational& val
+        rational& val,
+        ptr_vector<entry>& relevant_entries
     ) {
         ptr_vector<entry> refine_todo;
-        ptr_vector<entry> relevant_entries;
 
         // max number of interval refinements before falling back to the univariate solver
         unsigned const refinement_budget = 100;
@@ -1938,7 +1962,12 @@ namespace polysat {
             entry** intervals_begin = intervals.data() + first_interval;
             unsigned num_intervals = intervals.size() - first_interval - 1;
 
-            if (!set_conflict_by_interval_rec(v, w, intervals_begin, num_intervals, core, create_lemma, lemma, vars_to_explain))
+            bool const ok = set_conflict_by_interval_rec(v, w, intervals_begin, num_intervals, core, create_lemma, lemma, vars_to_explain);
+
+            SASSERT(!intervals.back());
+            // intervals.pop_back();  // get rid of the dummy space (we don't use the intervals anymore after setting the conflict, so this is not necessary)
+
+            if (!ok)
                 return false;
         }
 

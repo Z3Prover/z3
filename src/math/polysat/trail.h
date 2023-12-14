@@ -16,7 +16,7 @@ Author:
 
 namespace polysat {
 
-    enum class trail_instr_t {
+    enum class trail_instr_t : std::uint8_t {
         qhead_i,
         lemma_qhead_i,
         add_lemma_i,
@@ -26,6 +26,7 @@ namespace polysat {
         viable_add_i,
         viable_rem_i,
         viable_constraint_i,
+        viable_propagation_i,
         assign_i,
         assign_bool_i
     };

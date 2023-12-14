@@ -64,8 +64,9 @@ namespace polysat {
     // c2 ... constraint that is currently false
     // Try to replace it with a new false constraint (derived from superposition with a true constraint)
     lbool ex_polynomial_superposition::find_replacement(signed_constraint c2, pvar v, conflict& core) {
-        for (auto c1 : s.m_viable.get_constraints(v)) {
-            if (!c1->contains_var(v))  // side conditions do not contain v; skip them here
+        for (sat::literal lit1 : s.m_viable.get_propagation_reason(v)) {
+            signed_constraint c1 = s.lit2cnstr(lit1);
+            if (!c1->contains_var(v))  // side conditions and interval endpoint constraints do not contain v; skip them here
                 continue;
             if (!c1.is_pos_eq())
                 continue;

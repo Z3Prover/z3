@@ -740,6 +740,10 @@ namespace polysat {
                 m_viable_fallback.pop_constraint();
                 break;
             }
+            case trail_instr_t::viable_propagation_i: {
+                m_viable.pop_propagation_reason();
+                break;
+            }
             case trail_instr_t::assign_i: {
                 auto v = m_search.back().var();
                 LOG_V(20, "Undo assign_i: v" << v);
@@ -866,7 +870,9 @@ namespace polysat {
             // The fallback solver currently does not detect propagations, because we would need to handle justifications differently.
             // However, this case may still occur if during viable::intersect, we run into the refinement budget,
             // but here, we continue refinement and actually succeed until propagation.
-            assign_propagate_by_viable(v, val);
+            // ???
+            UNREACHABLE();
+            SASSERT(m_justification[v].is_propagation_by_viable());
             return;
         case find_t::multiple:
             j = justification::decision(m_level + 1);
@@ -886,19 +892,10 @@ namespace polysat {
     }
 
     void solver::assign_propagate_by_viable(pvar v, rational const& val) {
-        // NOTE:
-        // The propagation v := val might depend on a lower level than the current level (m_level).
-        // This can happen if the constraints that cause the propagation have been bool-propagated at an earlier level,
-        // but appear later in the stack (cf. replay).
-        // The level of v should then also be the earlier level instead of m_level.
         unsigned lvl = 0;
-        for (signed_constraint c : m_viable.get_constraints(v)) {
-            LOG("due to: " << lit_pp(*this, c));
-            VERIFY(m_bvars.is_assigned(c.blit()));
-            lvl = std::max(lvl, m_bvars.level(c.blit()));
-            for (pvar w : c->vars())
-                if (is_assigned(w))  // TODO: question of which variables are relevant. e.g., v1 > v0 implies v1 > 0 without dependency on v0. maybe add a lemma v1 > v0 --> v1 > 0 on the top level to reduce false variable dependencies? instead of handling such special cases separately everywhere.
-                    lvl = std::max(lvl, get_level(w));
+        for (sat::literal const lit : m_viable.get_propagation_reason(v)) {
+            VERIFY(m_bvars.is_assigned(lit));
+            lvl = std::max(lvl, m_bvars.level(lit));
         }
         assign_propagate(v, val, justification::propagation_by_viable(lvl));
     }
@@ -1597,8 +1594,8 @@ namespace polysat {
                 auto const& j = m_justification[v];
                 out << "\t" << assignment_pp(*this, v, get_value(v)) << " @" << j.level() << " ";
                 if (j.is_propagation_by_viable())
-                    for (auto const& c : m_viable.get_constraints(v))
-                        out << c << " ";
+                    for (sat::literal const lit : m_viable.get_propagation_reason(v))
+                        out << lit2cnstr(lit) << " ";
                 if (j.is_propagation_by_slicing()) {
                     out << "by slicing: ";
                     const_cast<slicing&>(m_slicing).explain_value(v,

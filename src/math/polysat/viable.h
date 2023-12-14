@@ -93,6 +93,14 @@ namespace polysat {
         ptr_vector<entry>       m_diseq_lin;    // entries that have distinct non-zero multipliers
         svector<std::tuple<pvar, entry_kind, entry*>>     m_trail; // undo stack
 
+        struct reason_ptr {
+            unsigned begin = 0;
+            unsigned len = 0;
+        };
+        sat::literal_vector     m_propagation_reason_storage;
+        pvar_vector             m_propagation_trail;
+        svector<reason_ptr>     m_propagation_reasons;
+
         unsigned size(pvar v) const;
 
         bool well_formed(entry* e);
@@ -185,7 +193,7 @@ namespace polysat {
 
         void insert(entry* e, pvar v, ptr_vector<entry>& entries, entry_kind k);
 
-        void propagate(pvar v, rational const& val);
+        void propagate(pvar v, rational const& val, ptr_vector<entry> const& reason);
 
         /**
          * Enter conflict state when intervals cover the full domain.
@@ -214,7 +222,7 @@ namespace polysat {
          * NOTE: out_hi is set to -1 by the fallback solver.
          * \return l_true on success, l_false on conflict, l_undef on resource limit
          */
-        lbool find_viable2(pvar v, rational& out_lo, rational& out_hi);
+        lbool find_viable2(pvar v, rational& out_lo, rational& out_hi, ptr_vector<entry>& out_relevant_entries);
 
         lbool find_on_layers(
             pvar v,
@@ -223,7 +231,8 @@ namespace polysat {
             fixed_bits_info const& fbi,
             rational const& to_cover_lo,
             rational const& to_cover_hi,
-            rational& out_val);
+            rational& out_val,
+            ptr_vector<entry>& out_relevant_entries);
 
         lbool find_on_layer(
             pvar v,
@@ -234,8 +243,8 @@ namespace polysat {
             rational const& to_cover_lo,
             rational const& to_cover_hi,
             rational& out_val,
-            ptr_vector<entry>& refine_todo,
-            ptr_vector<entry>& relevant_entries);
+            ptr_vector<entry>& out_refine_todo,
+            ptr_vector<entry>& out_relevant_entries);
 
         std::pair<entry*, bool> find_value(rational const& val, entry* entries);
 
@@ -251,6 +260,8 @@ namespace polysat {
         // undo adding/removing of entries
         void pop_viable();
         void push_viable();
+
+        void pop_propagation_reason();
 
         /**
          * update state of viable for pvar v
@@ -297,6 +308,7 @@ namespace polysat {
 
         /**
          * Find a next viable value for variable.
+         * Side effect: propagate v in the solver if only a single value is viable.
          */
         find_t find_viable(pvar v, rational& out_val);
 
@@ -310,89 +322,23 @@ namespace polysat {
 
         std::ostream& display(std::ostream& out, char const* delimiter = "") const;
 
-        class iterator {
-            entry* curr = nullptr;
-            bool   visited = false;
-            unsigned idx = 0;
+        class propagation_reason {
+            sat::literal const* m_begin;
+            sat::literal const* m_end;
+            propagation_reason(sat::literal const* begin, sat::literal const* end): m_begin(begin), m_end(end) {}
+            friend class viable;
         public:
-            iterator(entry* curr, bool visited) :
-                curr(curr), visited(visited || !curr) {}
-
-            iterator& operator++() {
-                if (idx < curr->side_cond.size() + curr->src.size() - 1)
-                    ++idx;
-                else {
-                    idx = 0;
-                    visited = true;
-                    curr = curr->next();
-                }
-                return *this;
-            }
-
-            signed_constraint& operator*() {
-                return idx < curr->side_cond.size() ? curr->side_cond[idx] : curr->src[idx - curr->side_cond.size()];
-            }
-
-            bool operator==(iterator const& other) const {
-                return visited == other.visited && curr == other.curr;
-            }
-
-            bool operator!=(iterator const& other) const {
-                return !(*this == other);
-            }
+            sat::literal const* begin() const { return m_begin; }
+            sat::literal const* end() const { return m_end; }
         };
 
-        class constraints {
-            viable const& v;
-            pvar var;
-        public:
-            constraints(viable const& v, pvar var) : v(v), var(var) {}
-            // TODO: take other widths into account!
-            iterator begin() const { return iterator(v.m_units[var].get_entries(v.size(var)), false); }
-            iterator end() const { return iterator(v.m_units[var].get_entries(v.size(var)), true); }
-        };
-
-        constraints get_constraints(pvar v) const {
-            return constraints(*this, v);
+        propagation_reason get_propagation_reason(pvar v) const {
+            auto const& r = m_propagation_reasons[v];
+            SASSERT(r.len > 0);
+            sat::literal const* begin = &m_propagation_reason_storage[r.begin];
+            sat::literal const* end = begin + r.len;
+            return { begin, end };
         }
-
-        class int_iterator {
-            entry* curr = nullptr;
-            bool visited = false;
-        public:
-            int_iterator(entry* curr, bool visited) :
-                curr(curr), visited(visited || !curr) {}
-            int_iterator& operator++() {
-                visited = true;
-                curr = curr->next();
-                return *this;
-            }
-
-            eval_interval const& operator*() {
-                return curr->interval;
-            }
-
-            bool operator==(int_iterator const& other) const {
-                return visited == other.visited && curr == other.curr;
-            }
-
-            bool operator!=(int_iterator const& other) const {
-                return !(*this == other);
-            }
-
-        };
-
-        class intervals {
-            viable const& v;
-            pvar var;
-        public:
-            intervals(viable const& v, pvar var): v(v), var(var) {}
-            // TODO: take other widths into account!
-            int_iterator begin() const { return int_iterator(v.m_units[var].get_entries(v.size(var)), false); }
-            int_iterator end() const { return int_iterator(v.m_units[var].get_entries(v.size(var)), true); }
-        };
-
-        intervals units(pvar v) { return intervals(*this, v); }
 
         std::ostream& display(std::ostream& out, pvar v, char const* delimiter = "") const;
 

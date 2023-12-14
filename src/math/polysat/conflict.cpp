@@ -461,15 +461,9 @@ namespace polysat {
         s.inc_activity(v);
 
         m_vars.remove(v);
-        for (signed_constraint const c : s.m_viable.get_constraints(v))
-            if (insert_or_replace(c))
+        for (sat::literal const lit : s.m_viable.get_propagation_reason(v))
+            if (insert_or_replace(s.lit2cnstr(lit)))
                 return;
-        for (auto const& i : s.m_viable.units(v)) {
-            if (insert_or_replace(s.eq(i.lo(), i.lo_val())))
-                return;
-            if (insert_or_replace(s.eq(i.hi(), i.hi_val())))
-                return;
-        }
         logger().log(inf_resolve_value(s, v));
 
         revert_pvar(v);
@@ -627,12 +621,8 @@ namespace polysat {
 
                 auto const& j = s.m_justification[v];
                 if (j.is_propagation_by_viable()) {
-                    for (signed_constraint c : s.m_viable.get_constraints(v))
-                        enqueue_constraint(c);
-                    for (auto const& i : s.m_viable.units(v)) {
-                        enqueue_constraint(s.eq(i.lo(), i.lo_val()));
-                        enqueue_constraint(s.eq(i.hi(), i.hi_val()));
-                    }
+                    for (sat::literal const lit : s.m_viable.get_propagation_reason(v))
+                        enqueue_lit(lit);
                 }
                 else if (j.is_propagation_by_slicing()) {
                     s.m_slicing.explain_value(v, enqueue_lit, enqueue_var);
