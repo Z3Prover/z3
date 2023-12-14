@@ -2998,7 +2998,7 @@ def cp_z3py_to_build():
     # so we disable it temporarily. This is an issue with recent versions of MacOS
     # where XCode's Python has a cache, but the build scripts don't have access to
     # it (e.g. during OPAM package installation).
-    have_cache = hasattr(sys, 'pycache_prefix') and sys.pycache_prefix != None
+    have_cache = hasattr(sys, 'pycache_prefix') and sys.pycache_prefix is not None
     if have_cache:
         pycache_prefix_before = sys.pycache_prefix
         sys.pycache_prefix = None
