@@ -541,6 +541,23 @@ namespace intblast {
             return r;
             };
 
+        auto rotate_left = [&](unsigned n) {
+            auto sz = bv.get_bv_size(e);
+            expr* r = arg(0);
+            if (n != 0 && sz != 1) {
+                // r[sz - n - 1 : 0] ++ r[sz - 1 : sz - n]
+                // r * 2^(sz - n) + (r / 2^(sz - n)) mod n???
+                NOT_IMPLEMENTED_YET();
+                auto N = bv_size(e);
+                auto A = rational::power_of_two(sz - n);
+                auto B = rational::power_of_two(n);
+                auto hi = a.mk_mul(r, a.mk_int(B));
+                auto lo = a.mk_idiv(a.mk_mod(r, a.mk_int(B)), a.mk_int(A));
+                r = a.mk_add(hi, lo);
+            }
+            return r;
+        };
+
         expr* bv_expr = e;
         expr* r = nullptr;
         auto const& args = m_args;
@@ -590,7 +607,7 @@ namespace intblast {
             break;
         case OP_CONCAT: {
             unsigned sz = 0;
-            for (unsigned i = 0; i < args.size(); ++i) {
+            for (unsigned i = args.size(); i-- > 0; ++i) {
                 expr* old_arg = e->get_arg(i);
                 expr* new_arg = umod(old_arg, i);
                 if (sz > 0) {
@@ -786,8 +803,18 @@ namespace intblast {
             r = m.mk_ite(m.mk_eq(y, a.mk_int(0)), x, r);
             break;  
         }
-        case OP_ROTATE_LEFT:
-        case OP_ROTATE_RIGHT:
+        case OP_ROTATE_LEFT: {
+            auto n = e->get_parameter(0).get_int();
+            r = rotate_left(n);
+            break;
+        }
+        case OP_ROTATE_RIGHT: {
+            auto n = e->get_parameter(0).get_int();
+            unsigned sz = bv.get_bv_size(e);
+            n = n % sz;
+            r = rotate_left(sz - n);
+            break;
+        }
         case OP_EXT_ROTATE_LEFT:
         case OP_EXT_ROTATE_RIGHT:
         case OP_REPEAT:
