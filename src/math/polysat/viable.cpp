@@ -1781,9 +1781,10 @@ namespace polysat {
             rational const dist = distance(lower_cover_lo, a, lower_mod_value);
             val += dist;
             progress += dist;
-            LOG("distance(val,      cover_hi) = " << distance(val, to_cover_hi, mod_value));
+            LOG("distance(val,      cover_hi) = " << (to_cover_len == mod_value && val == to_cover_lo ? to_cover_len : distance(val, to_cover_hi, mod_value)));
             LOG("distance(next_val, cover_hi) = " << distance(next_val, to_cover_hi, mod_value));
-            SASSERT(distance(val, to_cover_hi, mod_value) >= distance(next_val, to_cover_hi, mod_value));
+            SASSERT_EQ((to_cover_len == mod_value && val == to_cover_lo ? to_cover_len : distance(val, to_cover_hi, mod_value)), to_cover_len - progress);
+            SASSERT((to_cover_len == mod_value && val == to_cover_lo ? to_cover_len : distance(val, to_cover_hi, mod_value)) >= distance(next_val, to_cover_hi, mod_value));
 
             if (result == l_true)
                 return l_true;  // done
