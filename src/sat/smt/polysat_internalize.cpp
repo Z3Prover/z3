@@ -152,8 +152,11 @@ namespace polysat {
 
         case OP_BREDAND: // x == 2^K - 1        unary, return single bit, 1 if all input bits are set.
         case OP_BREDOR:  // x > 0               unary, return single bit, 1 if at least one input bit is set.
-        case OP_BCOMP:   // x == y              binary, return single bit, 1 if the arguments are equal.
-
+        case OP_BCOMP:   // x == y ? 1 : 0      binary, return single bit, 1 if the arguments are equal.
+        case OP_ROTATE_LEFT:
+        case OP_ROTATE_RIGHT:
+        case OP_EXT_ROTATE_LEFT:
+        case OP_EXT_ROTATE_RIGHT:
         default:
             IF_VERBOSE(0, verbose_stream() << mk_pp(a, m) << "\n");
             NOT_IMPLEMENTED_YET();
