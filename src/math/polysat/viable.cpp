@@ -1504,6 +1504,7 @@ namespace polysat {
         if (result_lo == l_undef)
             return find_viable_fallback(v, overlaps, lo, hi);
 
+        LOG("lo: " << lo);
         if (lo == max_value) {
             hi = lo;
             return l_true;
@@ -1514,6 +1515,8 @@ namespace polysat {
             hi = lo;  // no other viable value
         if (result_hi == l_undef)
             return find_viable_fallback(v, overlaps, lo, hi);
+
+        LOG("hi: " << hi);
 
         return l_true;
     }
@@ -1551,11 +1554,12 @@ namespace polysat {
         pvar_vector const& overlaps,
         fixed_bits_info const& fbi,
         rational const& to_cover_lo,
-        rational const& to_cover_hi,
+        rational const& to_cover_len,
         rational& val,
         ptr_vector<entry>& relevant_entries
     ) {
         ptr_vector<entry> refine_todo;
+        LOG("find_on_layers: v" << v << " in [" << to_cover_lo << "; " << mod(to_cover_lo + to_cover_len, s.var2pdd(v).two_to_N()) << "[  (len " << to_cover_len << ")");
 
         // max number of interval refinements before falling back to the univariate solver
         unsigned const refinement_budget = 100;
@@ -1563,7 +1567,7 @@ namespace polysat {
 
         while (refinements--) {
             relevant_entries.clear();
-            lbool result = find_on_layer(v, widths.size() - 1, widths, overlaps, fbi, to_cover_lo, to_cover_hi, val, refine_todo, relevant_entries);
+            lbool result = find_on_layer(v, widths.size() - 1, widths, overlaps, fbi, to_cover_lo, to_cover_len, val, refine_todo, relevant_entries);
 
             // store bit-intervals we have used
             for (entry* e : refine_todo)
@@ -1596,6 +1600,7 @@ namespace polysat {
     }
 
     // find viable values in half-open interval [to_cover_lo;to_cover_hi[ w.r.t. unit intervals on the given layer
+    // where to_cover_hi = to_cover_lo + to_cover_len (mod domain size)
     //
     // Returns:
     // - l_true  ... found value that is viable w.r.t. units and fixed bits
@@ -1608,7 +1613,7 @@ namespace polysat {
         pvar_vector const& overlaps,
         fixed_bits_info const& fbi,
         rational const& to_cover_lo,
-        rational const& to_cover_hi,
+        rational const& to_cover_len,
         rational& val,
         ptr_vector<entry>& refine_todo,
         ptr_vector<entry>& relevant_entries
@@ -1617,12 +1622,11 @@ namespace polysat {
         rational const& mod_value = rational::power_of_two(w);
         unsigned const first_relevant_for_conflict = relevant_entries.size();
 
-        LOG("layer " << w << " bits, to_cover: [" << to_cover_lo << "; " << to_cover_hi << "[");
+        LOG("layer " << w << " bits, to_cover: [" << to_cover_lo << "; " << mod(to_cover_lo + to_cover_len, mod_value) << "[  (len " << to_cover_len << ")");
         SASSERT(0 <= to_cover_lo);
-        SASSERT(0 <= to_cover_hi);
         SASSERT(to_cover_lo < mod_value);
-        SASSERT(to_cover_hi <= mod_value);  // full interval if to_cover_hi == mod_value
-        SASSERT(to_cover_lo != to_cover_hi);  // non-empty search domain (but it may wrap)
+        SASSERT(0 < to_cover_len);  // non-empty search domain (but it may wrap)
+        SASSERT(to_cover_len <= mod_value);  // full interval if to_cover_len == mod_value
 
         // TODO: refinement of eq/diseq should happen only on the correct layer: where (one of) the coefficient(s) are odd
         //       for refinement, we have to choose an entry that is violated, but if there are multiple, we can choose the one on smallest domain (lowest bit-width).
@@ -1659,8 +1663,8 @@ namespace polysat {
             }
         }
 
-        rational const to_cover_len = r_interval::len(to_cover_lo, to_cover_hi, mod_value);
         val = to_cover_lo;
+        rational const to_cover_hi = mod(to_cover_lo + to_cover_len, mod_value);  // may be equal to to_cover_lo if to_cover_len is the full domain size
 
         rational progress; // = 0
         SASSERT(progress.is_zero());
@@ -1737,18 +1741,24 @@ namespace polysat {
 
             // find next covered value
             rational next_val = to_cover_hi;
+            rational next_dist = (val == next_val) ? to_cover_len : distance(val, next_val, mod_value);
             for (entry_cursor& ec : ecs) {
                 // each ec.cur is now the next interval after 'lo'
                 rational const& n = ec.cur->interval.lo_val();
                 SASSERT(r_interval::contains(ec.cur->prev()->interval.hi_val(), n, val));
-                if (distance(val, n, mod_value) < distance(val, next_val, mod_value))
+                rational const dist = distance(val, n, mod_value);
+                if (dist < next_dist) {
                     next_val = n;
+                    next_dist = dist;
+                }
             }
             if (entry* e = refine_bits<false>(v, next_val, w, fbi)) {
                 refine_todo.push_back(e);
                 rational const& n = e->interval.lo_val();
-                SASSERT(distance(val, n, mod_value) < distance(val, next_val, mod_value));
+                rational const dist = distance(val, n, mod_value);
+                SASSERT(dist < next_dist);
                 next_val = n;
+                next_dist = dist;
             }
             SASSERT(!refine_bits<true>(v, val, w, fbi));
             SASSERT(val != next_val);
@@ -1756,15 +1766,13 @@ namespace polysat {
             unsigned const lower_w = widths[w_idx - 1];
             rational const lower_mod_value = rational::power_of_two(lower_w);
 
-            rational lower_cover_lo, lower_cover_hi;
-            if (distance(val, next_val, mod_value) >= lower_mod_value) {
-                // NOTE: in this case we do not get the first viable value, but the one with smallest value in the lower bits.
-                //       this is because we start the search in the recursive case at 0.
-                //       if this is a problem, adapt to lower_cover_lo = mod(val, lower_mod_value), lower_cover_hi = ...
-                lower_cover_lo = 0;
-                lower_cover_hi = lower_mod_value;
+            rational lower_cover_lo;
+            rational lower_cover_len;
+            if (next_dist >= lower_mod_value) {
+                lower_cover_lo = mod(val, lower_mod_value);
+                lower_cover_len = lower_mod_value;
                 rational a;
-                lbool result = find_on_layer(v, w_idx - 1, widths, overlaps, fbi, lower_cover_lo, lower_cover_hi, a, refine_todo, relevant_entries);
+                lbool result = find_on_layer(v, w_idx - 1, widths, overlaps, fbi, lower_cover_lo, lower_cover_len, a, refine_todo, relevant_entries);
                 VERIFY(result != l_undef);
                 if (result == l_false) {
                     SASSERT(s.is_conflict());
@@ -1783,10 +1791,10 @@ namespace polysat {
             }
 
             lower_cover_lo = mod(val, lower_mod_value);
-            lower_cover_hi = mod(next_val, lower_mod_value);
+            lower_cover_len = next_dist;
 
             rational a;
-            lbool result = find_on_layer(v, w_idx - 1, widths, overlaps, fbi, lower_cover_lo, lower_cover_hi, a, refine_todo, relevant_entries);
+            lbool result = find_on_layer(v, w_idx - 1, widths, overlaps, fbi, lower_cover_lo, lower_cover_len, a, refine_todo, relevant_entries);
             if (result == l_false) {
                 SASSERT(s.is_conflict());
                 return l_false;  // conflict

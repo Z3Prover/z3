@@ -230,7 +230,7 @@ namespace polysat {
             pvar_vector const& overlaps,
             fixed_bits_info const& fbi,
             rational const& to_cover_lo,
-            rational const& to_cover_hi,
+            rational const& to_cover_len,
             rational& out_val,
             ptr_vector<entry>& out_relevant_entries);
 
@@ -241,7 +241,7 @@ namespace polysat {
             pvar_vector const& overlaps,
             fixed_bits_info const& fbi,
             rational const& to_cover_lo,
-            rational const& to_cover_hi,
+            rational const& to_cover_len,
             rational& out_val,
             ptr_vector<entry>& out_refine_todo,
             ptr_vector<entry>& out_relevant_entries);
