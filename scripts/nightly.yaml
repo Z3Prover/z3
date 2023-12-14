@@ -234,11 +234,12 @@ stages:
         detailedLog: true
 
   - job: "WindowsArm64"
-    displayName: "Windows"
+    displayName: "WindowsArm64"
     pool: 
       vmImage: "windows-latest"
     variables:
        arch: "amd64_arm64"
+       bindings: "-DCMAKE_BUILD_TYPE=RelWithDebInfo"
     steps:
     - script: md build
     - script: |
@@ -250,7 +251,7 @@ stages:
     - task: CopyFiles@2
       inputs:
         sourceFolder: build
-        contents: '*.zip'
+        contents: '*z3*.*'
         targetFolder: $(Build.ArtifactStagingDirectory)
     - task: PublishPipelineArtifact@1
       inputs:
