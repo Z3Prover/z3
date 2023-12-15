@@ -1490,7 +1490,7 @@ namespace lp {
     struct lar_solver::undo_add_column : public trail {
         lar_solver& s;
         undo_add_column(lar_solver& s) : s(s) {}
-        virtual void undo() {
+        void undo() override {
             s.remove_last_column_from_tableau();            
             s.m_columns_to_ul_pairs.pop_back();
             unsigned j = s.m_columns_to_ul_pairs.size();

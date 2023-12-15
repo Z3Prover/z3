@@ -105,14 +105,14 @@ public:
 class default_dependent_expr_state : public dependent_expr_state {
 public:
     default_dependent_expr_state(ast_manager& m): dependent_expr_state(m) {}
-    virtual unsigned qtail() const { return 0; }
-    virtual dependent_expr const& operator[](unsigned i) { throw default_exception("unexpected access"); }
-    virtual void update(unsigned i, dependent_expr const& j) { throw default_exception("unexpected update"); }
-    virtual void add(dependent_expr const& j) { throw default_exception("unexpected addition"); }
-    virtual bool inconsistent() { return false; }
-    virtual model_reconstruction_trail& model_trail() { throw default_exception("unexpected access to model reconstruction"); }
-    virtual bool updated() { return false; }
-    virtual void reset_updated() {}
+    unsigned qtail() const override { return 0; }
+    dependent_expr const& operator[](unsigned i) override { throw default_exception("unexpected access"); }
+    void update(unsigned i, dependent_expr const& j) override { throw default_exception("unexpected update"); }
+    void add(dependent_expr const& j) override { throw default_exception("unexpected addition"); }
+    bool inconsistent() override { return false; }
+    model_reconstruction_trail& model_trail() override { throw default_exception("unexpected access to model reconstruction"); }
+    bool updated() override { return false; }
+    void reset_updated() override {}
 
 };
 

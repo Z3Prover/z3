@@ -90,7 +90,7 @@ class model_reconstruction_trail {
     struct undo_model_var : public trail {
         model_reconstruction_trail& s;
         undo_model_var(model_reconstruction_trail& s) : s(s) {}
-        virtual void undo() {
+        void undo() override {
             s.m_model_vars.mark(s.m_model_vars_trail.back(), false);
             s.m_model_vars_trail.pop_back();
         }
