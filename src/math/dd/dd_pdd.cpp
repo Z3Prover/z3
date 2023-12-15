@@ -113,11 +113,34 @@ namespace dd {
     pdd pdd_manager::add(rational const& r, pdd const& b) { pdd c(mk_val(r)); return pdd(apply(c.root, b.root, pdd_add_op), this); }
     pdd pdd_manager::zero() { return pdd(zero_pdd, this); }
     pdd pdd_manager::one() { return pdd(one_pdd, this); }
-    
-    pdd pdd_manager::mk_or(pdd const& p, pdd const& q) { return p + q - (p*q); }
-    pdd pdd_manager::mk_xor(pdd const& p, pdd const& q) { if (m_semantics == mod2_e) return p + q; return (p*q*2) - p - q; }
-    pdd pdd_manager::mk_xor(pdd const& p, unsigned x) { pdd q(mk_val(x)); if (m_semantics == mod2_e) return p + q; return (p*q*2) - p - q; }
-    pdd pdd_manager::mk_not(pdd const& p) { return 1 - p; }
+
+    // NOTE: bit-wise AND cannot be expressed in mod2N_e semantics with the existing operations.
+    pdd pdd_manager::mk_and(pdd const& p, pdd const& q) {
+        VERIFY(m_semantics == mod2_e || m_semantics == zero_one_vars_e);
+        return p * q;
+    }
+
+    pdd pdd_manager::mk_or(pdd const& p, pdd const& q) {
+        return p + q - mk_and(p, q);
+    }
+
+    pdd pdd_manager::mk_xor(pdd const& p, pdd const& q) {
+        if (m_semantics == mod2_e)
+            return p + q;
+        return p + q - 2*mk_and(p, q);
+    }
+
+    pdd pdd_manager::mk_xor(pdd const& p, unsigned x) { 
+        pdd q(mk_val(x)); 
+        return mk_xor(p, q); 
+    }
+
+    pdd pdd_manager::mk_not(pdd const& p) {
+        if (m_semantics == mod2N_e)
+            return -p - 1;
+        VERIFY(m_semantics == mod2_e || m_semantics == zero_one_vars_e);
+        return 1 - p;
+    }
 
     pdd pdd_manager::subst_val(pdd const& p, unsigned v, rational const& val) {
         pdd r = mk_var(v) + val;
@@ -173,15 +196,8 @@ namespace dd {
         if (m_semantics != mod2N_e)
             return 0;
 
-        if (is_val(p)) {
-            rational v = val(p);
-            if (v.is_zero())
-                return m_power_of_2 + 1;
-            unsigned r = 0;
-            while (v.is_even() && v > 0)
-                r++, v /= 2;
-            return r;
-        }
+        if (is_val(p))
+            return val(p).parity(m_power_of_2);
         init_mark();
         PDD q = p;
         m_todo.push_back(hi(q));
@@ -189,9 +205,9 @@ namespace dd {
             q = lo(q);
             m_todo.push_back(hi(q));
         }
-        unsigned p2 = val(q).trailing_zeros();
+        unsigned parity = val(q).parity(m_power_of_2);
         init_mark();
-        while (p2 != 0 && !m_todo.empty()) {
+        while (parity != 0 && !m_todo.empty()) {
             PDD r = m_todo.back();
             m_todo.pop_back();
             if (is_marked(r))
@@ -203,11 +219,11 @@ namespace dd {
             }
             else if (val(r).is_zero())
                 continue;
-            else if (val(r).trailing_zeros() < p2)
-                p2 = val(r).trailing_zeros();
+            else
+                parity = std::min(parity, val(r).trailing_zeros());
         }
         m_todo.reset();
-        return p2;
+        return parity;
     }
 
     pdd pdd_manager::subst_val(pdd const& p, pdd const& s) {
@@ -246,7 +262,7 @@ namespace dd {
     }
 
     pdd_manager::PDD pdd_manager::apply(PDD arg1, PDD arg2, pdd_op op) {
-        bool first = true;
+        unsigned count = 0;
         SASSERT(well_formed());
         scoped_push _sp(*this);
         while (true) {
@@ -255,8 +271,9 @@ namespace dd {
             }
             catch (const mem_out &) {
                 try_gc();
-                if (!first) throw;
-                first = false;
+                if (count > 0)
+                    m_max_num_nodes *= 2;
+                count++;
             }
         }
         SASSERT(well_formed());
@@ -507,7 +524,7 @@ namespace dd {
         if (m_semantics == mod2_e) {
             return a;
         }
-        bool first = true;
+        unsigned count = 0;
         SASSERT(well_formed());
         scoped_push _sp(*this);
         while (true) {
@@ -516,8 +533,9 @@ namespace dd {
             }
             catch (const mem_out &) {
                 try_gc();
-                if (!first) throw;
-                first = false;
+                if (count > 0)
+                    m_max_num_nodes *= 2;
+                ++count;                
             }
         }
         SASSERT(well_formed());        
@@ -565,7 +583,7 @@ namespace dd {
             return true;
         }
         SASSERT(c.is_int());
-        bool first = true;
+        unsigned count = 0;
         SASSERT(well_formed());
         scoped_push _sp(*this);
         while (true) {
@@ -578,8 +596,9 @@ namespace dd {
             }
             catch (const mem_out &) {
                 try_gc();
-                if (!first) throw;
-                first = false;
+                if (count > 0)
+                    m_max_num_nodes *= 2;
+                ++count;
             }
         }
     }
@@ -1138,6 +1157,7 @@ namespace dd {
     unsigned pdd_manager::max_pow2_divisor(PDD p) {
         init_mark();
         unsigned min_j = UINT_MAX;
+        SASSERT(m_todo.empty());
         m_todo.push_back(p);
         while (!m_todo.empty()) {
             PDD r = m_todo.back();
@@ -1785,25 +1805,42 @@ namespace dd {
     }
 
     pdd& pdd::operator=(pdd const& other) { 
+        if (m != other.m) {
+            verbose_stream() << "pdd manager confusion: " << *this << " (mod 2^" << power_of_2() << ") := " << other << " (mod 2^" << other.power_of_2() << ")\n";
+            UNREACHABLE();
+            // TODO: in the end, this operator should probably be changed to also update the manager. But for now I want to detect such confusions.
+            reset(*other.m);
+        }
+        SASSERT_EQ(power_of_2(), other.power_of_2());
+        VERIFY_EQ(power_of_2(), other.power_of_2());
+        VERIFY_EQ(m, other.m);
         unsigned r1 = root; 
         root = other.root; 
-        m.inc_ref(root); 
-        m.dec_ref(r1); 
+        m->inc_ref(root); 
+        m->dec_ref(r1); 
         return *this; 
     }
 
     pdd& pdd::operator=(unsigned k) {
-        m.dec_ref(root);
-        root = m.mk_val(k).root;
-        m.inc_ref(root);
+        m->dec_ref(root);
+        root = m->mk_val(k).root;
+        m->inc_ref(root);
         return *this;
     }
 
     pdd& pdd::operator=(rational const& k) {
-        m.dec_ref(root);
-        root = m.mk_val(k).root;
-        m.inc_ref(root);
+        m->dec_ref(root);
+        root = m->mk_val(k).root;
+        m->inc_ref(root);
         return *this;
+    }
+
+    /* Reset pdd to 0. Allows re-assigning the pdd manager. */
+    void pdd::reset(pdd_manager& new_m) {
+        m->dec_ref(root);
+        root = 0;
+        m = &new_m;
+        SASSERT(is_zero());
     }
 
     rational const& pdd::leading_coefficient() const {
@@ -1813,11 +1850,10 @@ namespace dd {
         return p.val();
     }
 
-    rational const& pdd::offset() const {
-        pdd p = *this;
-        while (!p.is_val())
-            p = p.lo();
-        return p.val();
+    rational const& pdd_manager::offset(PDD p) const {
+        while (!is_val(p))
+            p = lo(p);
+        return val(p);
     }
 
     pdd pdd::shl(unsigned n) const {
@@ -1831,7 +1867,7 @@ namespace dd {
     pdd pdd::subst_pdd(unsigned v, pdd const& r) const {
         if (is_val())
             return *this;
-        if (m.m_var2level[var()] < m.m_var2level[v])
+        if (m->m_var2level[var()] < m->m_var2level[v])
             return *this;
         pdd l = lo().subst_pdd(v, r);
         pdd h = hi().subst_pdd(v, r);
@@ -1840,7 +1876,7 @@ namespace dd {
         else if (l == lo() && h == hi())
             return *this;
         else
-            return m.mk_var(var())*h + l;
+            return m->mk_var(var())*h + l;
     }
 
     std::pair<unsigned_vector, pdd> pdd::var_factors() const {
@@ -1871,7 +1907,7 @@ namespace dd {
                     ++i;
                     ++j;
                 }
-                else if (m.m_var2level[lo_vars[i]] > m.m_var2level[hi_vars[j]]) 
+                else if (m->m_var2level[lo_vars[i]] > m->m_var2level[hi_vars[j]]) 
                     hi_vars[jr++] = hi_vars[j++];
                 else 
                     lo_vars[ir++] = lo_vars[i++];
@@ -1882,7 +1918,7 @@ namespace dd {
 
         auto mul = [&](unsigned_vector const& vars, pdd p) {
             for (auto v : vars)
-                p *= m.mk_var(v);
+                p *= m->mk_var(v);
             return p;
         };
 
@@ -1908,7 +1944,7 @@ namespace dd {
     std::ostream& operator<<(std::ostream& out, pdd const& b) { return b.display(out); }
 
     void pdd_iterator::next() {
-        auto& m = m_pdd.m;
+        auto& m = m_pdd.manager();
         while (!m_nodes.empty()) {
             auto& p = m_nodes.back();
             if (p.first && !m.is_val(p.second)) {
@@ -1935,13 +1971,16 @@ namespace dd {
 
     void pdd_iterator::first() {
         unsigned n = m_pdd.root;
-        auto& m = m_pdd.m;
+        auto& m = m_pdd.manager();
         while (!m.is_val(n)) {
             m_nodes.push_back(std::make_pair(true, n));
             m_mono.vars.push_back(m.var(n));
             n = m.hi(n);
         }
         m_mono.coeff = m.val(n);
+        // if m_pdd is constant and non-zero, the iterator should return a single monomial
+        if (m_nodes.empty() && !m_mono.coeff.is_zero())
+            m_nodes.push_back(std::make_pair(false, n));
     }
 
     pdd_iterator pdd::begin() const { return pdd_iterator(*this, true); }
@@ -1960,5 +1999,32 @@ namespace dd {
         return out;
     }
 
+    void pdd_linear_iterator::first() {
+        m_next = m_pdd.root;
+        next();
+    }
 
-}
+    void pdd_linear_iterator::next() {
+        SASSERT(m_next != pdd_manager::null_pdd);
+        auto& m = m_pdd.manager();
+        while (!m.is_val(m_next)) {
+            unsigned const var = m.var(m_next);
+            rational const val = m.offset(m.hi(m_next));
+            m_next = m.lo(m_next);
+            if (!val.is_zero()) {
+                m_mono = {val, var};
+                return;
+            }
+        }
+        m_next = pdd_manager::null_pdd;
+    }
+
+    pdd_linear_iterator pdd::pdd_linear_monomials::begin() const {
+        return pdd_linear_iterator(m_pdd, true);
+    }
+
+    pdd_linear_iterator pdd::pdd_linear_monomials::end() const {
+        return pdd_linear_iterator(m_pdd, false);
+    }
+
+}  // namespace dd

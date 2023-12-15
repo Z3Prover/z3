@@ -698,9 +698,7 @@ namespace polysat {
         m_var2pdd.reserve(get_num_vars(), p);
         m_var2pdd_valid.reserve(get_num_vars(), false);
         ctx.push(set_bitvector_trail(m_var2pdd_valid, v));
-#if 0
         m_var2pdd[v].reset(p.manager());
-#endif
         m_var2pdd[v] = p;
     }
 
