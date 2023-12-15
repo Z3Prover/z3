@@ -2189,7 +2189,13 @@ void fpa2bv_converter::mk_round_to_integral(sort * s, expr_ref & rm, expr_ref & 
     renorm_delta = m.mk_ite(m_bv_util.mk_ule(zero_e2, sig_lz_capped), sig_lz_capped, zero_e2);
     SASSERT(m_bv_util.get_bv_size(renorm_delta) == ebits + 2);
     res_exp = m_bv_util.mk_bv_sub(res_exp, renorm_delta);
-    res_sig = m_bv_util.mk_bv_shl(res_sig, m_bv_util.mk_zero_extend(sbits-ebits-2, renorm_delta));
+    if (sbits >= ebits+2)
+        res_sig = m_bv_util.mk_bv_shl(res_sig, m_bv_util.mk_zero_extend(sbits-ebits-2, renorm_delta));
+    else {
+        // should not overflow because renorm_delta is logarithmic to the size of the leading zero bits
+        res_sig = m_bv_util.mk_bv_shl(m_bv_util.mk_zero_extend(ebits+2-sbits, res_sig), renorm_delta);
+        res_sig = m_bv_util.mk_extract(sbits-1, 0, res_sig);
+    }
     dbg_decouple("fpa2bv_r2i_renorm_delta", renorm_delta);
     dbg_decouple("fpa2bv_r2i_sig_lz", sig_lz);
     dbg_decouple("fpa2bv_r2i_sig_lz_capped", sig_lz_capped);
