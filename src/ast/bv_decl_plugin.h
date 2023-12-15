@@ -386,9 +386,31 @@ public:
     bool is_bv_shl(expr const * e) const { return is_app_of(e, get_fid(), OP_BSHL); }
     bool is_sign_ext(expr const * e) const { return is_app_of(e, get_fid(), OP_SIGN_EXT); }
     bool is_bv_umul_no_ovfl(expr const* e) const { return is_app_of(e, get_fid(), OP_BUMUL_NO_OVFL); }
+    bool is_redand(expr const* e) const { return is_app_of(e, get_fid(), OP_BREDAND); }
+    bool is_redor(expr const* e) const { return is_app_of(e, get_fid(), OP_BREDOR); }
+    bool is_comp(expr const* e) const { return is_app_of(e, get_fid(), OP_BCOMP); }
+    bool is_rotate_left(expr const* e) const { return is_app_of(e, get_fid(), OP_ROTATE_LEFT); }
+    bool is_rotate_right(expr const* e) const { return is_app_of(e, get_fid(), OP_ROTATE_RIGHT); }
+    bool is_ext_rotate_left(expr const* e) const { return is_app_of(e, get_fid(), OP_EXT_ROTATE_LEFT); }
+    bool is_ext_rotate_right(expr const* e) const { return is_app_of(e, get_fid(), OP_EXT_ROTATE_RIGHT); }
+
+    bool is_rotate_left(expr const* e, unsigned& n, expr*& x) const {
+        return is_rotate_left(e) && (n = to_app(e)->get_parameter(0).get_int(), x = to_app(e)->get_arg(0), true);
+    }
+    bool is_rotate_right(expr const* e, unsigned& n, expr*& x) const {
+        return is_rotate_right(e) && (n = to_app(e)->get_parameter(0).get_int(), x = to_app(e)->get_arg(0), true);
+    }
+    bool is_int2bv(expr const* e, unsigned& n, expr*& x) const {
+        return is_int2bv(e) && (n = to_app(e)->get_parameter(0).get_int(), x = to_app(e)->get_arg(0), true);
+    }
 
     MATCH_UNARY(is_bv_not);
+    MATCH_UNARY(is_redand);
+    MATCH_UNARY(is_redor);
 
+    MATCH_BINARY(is_ext_rotate_left);
+    MATCH_BINARY(is_ext_rotate_right);
+    MATCH_BINARY(is_comp);
     MATCH_BINARY(is_bv_add);
     MATCH_BINARY(is_bv_sub);
     MATCH_BINARY(is_bv_mul);
