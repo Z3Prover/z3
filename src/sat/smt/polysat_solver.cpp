@@ -91,7 +91,7 @@ namespace polysat {
         if (!a)
             return;
         force_push();
-        m_core.assign_eh(a->m_index, l.sign(), dependency(l, s().lvl(l)));
+        m_core.assign_eh(a->m_index, l.sign(), s().lvl(l));
     }
 
     void solver::set_conflict(dependency_vector const& core) {
@@ -115,17 +115,18 @@ namespace polysat {
                 eqs.push_back(euf::enode_pair(n1, n2));
             }
         }
-        DEBUG_CODE({
-            for (auto lit : core)
-                VERIFY(s().value(lit) == l_true);
-            for (auto const& [n1, n2] : eqs)
-                VERIFY(n1->get_root() == n2->get_root());
-            });
         IF_VERBOSE(10,
             for (auto lit : core)
-                verbose_stream() << "    " << lit << ":  " << mk_ismt2_pp(literal2expr(lit), m) << "\n";
+                verbose_stream() << "    " << lit << ":  " << mk_ismt2_pp(literal2expr(lit), m) << " " << s().value(lit) << "\n";
+        for (auto const& [n1, n2] : eqs)
+            verbose_stream() << "    " << ctx.bpp(n1) << "  ==  " << ctx.bpp(n2) << "\n";);
+        DEBUG_CODE({
+            for (auto lit : core)
+                SASSERT(s().value(lit) == l_true);
             for (auto const& [n1, n2] : eqs)
-                verbose_stream() << "    " << ctx.bpp(n1) << "  ==  " << ctx.bpp(n2) << "\n";);
+                SASSERT(n1->get_root() == n2->get_root());
+            });
+
 
         return { core, eqs };
     }
@@ -203,8 +204,8 @@ namespace polysat {
         m_var_eqs.setx(m_var_eqs_head, {v1, v2}, {v1, v2});
         ctx.push(value_trail<unsigned>(m_var_eqs_head));    
         auto d = dependency(v1, v2, s().scope_lvl());
-        unsigned index = m_core.register_constraint(sc, d);
-        m_core.assign_eh(index, false, d); 
+        constraint_id id = m_core.register_constraint(sc, d);
+        m_core.assign_eh(id, false, s().scope_lvl()); 
         m_var_eqs_head++;
     }
 
@@ -218,9 +219,9 @@ namespace polysat {
         auto sc = ~m_core.eq(p, q);
         sat::literal neq = ~expr2literal(ne.eq());
         auto d = dependency(neq, s().lvl(neq));
-        auto index = m_core.register_constraint(sc, d);
+        auto id = m_core.register_constraint(sc, d);
         TRACE("bv", tout << neq << " := " << s().value(neq) << " @" << s().scope_lvl() << "\n");
-        m_core.assign_eh(index, false, d);
+        m_core.assign_eh(id, false, s().lvl(neq));
     }
 
     // Core uses the propagate callback to add unit propagations to the trail.

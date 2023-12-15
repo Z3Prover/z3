@@ -97,7 +97,7 @@ namespace polysat {
 
         if (!p.is_val())
             return false;
-        VERIFY(!p.is_zero() && !p.is_one());  // evaluation should catch this case
+        SASSERT(!p.is_zero() && !p.is_one());  // evaluation should catch this case
 
         rational const& M = p.manager().two_to_N();
         auto& C = c.cs();

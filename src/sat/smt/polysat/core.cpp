@@ -69,19 +69,29 @@ namespace polysat {
         void undo() override {            
             auto& [sc, lit, val] = c.m_constraint_index.back();
             auto& vars = sc.vars();
+            auto idx = c.m_constraint_index.size() - 1;
             IF_VERBOSE(10, 
             verbose_stream() << "undo add watch " << sc << " ";
-            if (vars.size() > 0) verbose_stream() << "(" << c.m_constraint_index.size() -1 << ": " << c.m_watch[vars[0]] << ") ";
-            if (vars.size() > 1) verbose_stream() << "(" << c.m_constraint_index.size() -1 << ": " << c.m_watch[vars[1]] << ") ";
+            if (vars.size() > 0) verbose_stream() << "(" << idx << ": " << c.m_watch[vars[0]] << ") ";
+            if (vars.size() > 1) verbose_stream() << "(" << idx<< ": " << c.m_watch[vars[1]] << ") ";
             verbose_stream() << "\n");
             unsigned n = sc.num_watch();
             SASSERT(n <= vars.size());
-            SASSERT(n <= 0 || c.m_watch[vars[0]].back() == c.m_constraint_index.size() - 1);
-            SASSERT(n <= 1 || c.m_watch[vars[1]].back() == c.m_constraint_index.size() - 1);
-            if (n > 0)
-                c.m_watch[vars[0]].pop_back();
+            auto del_watch = [&](unsigned i) {
+                auto& w = c.m_watch[vars[i]];
+                for (unsigned j = w.size(); j-- > 0;) {
+                    if (w[j] == idx) {
+                        std::swap(w[w.size() - 1], w[j]);
+                        w.pop_back();
+                        return;
+                    }
+                }
+                UNREACHABLE();
+            };
+            if (n > 0) 
+                del_watch(0);
             if (n > 1)
-                c.m_watch[vars[1]].pop_back();
+                del_watch(1);
             c.m_constraint_index.pop_back();
         }
     };
@@ -132,7 +142,7 @@ namespace polysat {
         m_var_queue.del_var_eh(v);
     }
 
-    unsigned core::register_constraint(signed_constraint& sc, dependency d) {
+    constraint_id core::register_constraint(signed_constraint& sc, dependency d) {
         unsigned idx = m_constraint_index.size();
         m_constraint_index.push_back({ sc, d, l_undef });
         auto& vars = sc.vars();
@@ -150,7 +160,7 @@ namespace polysat {
                     if (j > 1) verbose_stream() << "( " << idx << " : " << m_watch[vars[1]] << ") ";
                     verbose_stream() << "\n");
         s.trail().push(mk_add_watch(*this));
-        return idx;
+        return { idx };
     }
 
     // case split on unassigned variables until all are assigned values.
@@ -202,9 +212,11 @@ namespace polysat {
         return sc;
     }
 
-    void core::propagate_assignment(prop_item& dc) { 
-        auto [idx, sign, dep] = dc;
-        auto sc = get_constraint(idx, sign);
+    void core::propagate_assignment(constraint_id idx) { 
+        auto [sc, dep, value] = m_constraint_index[idx.id];
+        SASSERT(value != l_undef);
+        if (value == l_false)
+            sc = ~sc;
         if (sc.is_eq(m_var, m_value))
             propagate_assignment(m_var, m_value, dep);
         else 
@@ -252,7 +264,9 @@ namespace polysat {
             // this can create fresh literals and update m_watch, but
             // will not update m_watch[v] (other than copy constructor for m_watch)
             // because v has been assigned a value.
-            sc.propagate(*this, value, dep);
+            propagate(sc, value, dep);
+            if (s.inconsistent())
+                return;
            
             SASSERT(!swapped || vars.size() <= 1 || (!is_assigned(vars[0]) && !is_assigned(vars[1])));
             if (swapped)
@@ -272,30 +286,17 @@ namespace polysat {
         verbose_stream() << "new watch " << v << ": " << m_watch[v] << "\n";
     }
 
-    void core::propagate_value(prop_item const& dc) {
-        auto [idx, sign, dep] = dc;
-        auto sc = get_constraint(idx, sign);
-        // check if sc evaluates to false
-        switch (eval(sc)) {
-        case l_true:
-            break;
-        case l_false:
-            m_unsat_core = explain_eval(sc);
-            m_unsat_core.push_back(dep);
-            propagate_unsat_core();
-            return;
-        default:
-            break;
-        }
+    void core::propagate_value(constraint_id idx) {
+        auto [sc, d, value] = m_constraint_index[idx.id];
         // propagate current assignment for sc
-        sc.propagate(*this, to_lbool(!sign), dep);
+        propagate(sc, value, d);
         if (s.inconsistent())
             return;
 
         // if sc is v == value, then check the watch list for v to propagate truth assignments
         if (sc.is_eq(m_var, m_value)) {
             for (auto idx1 : m_watch[m_var]) {
-                if (idx == idx1)
+                if (idx.id == idx1)
                     continue;
                 auto [sc, d, value] = m_constraint_index[idx1];
                 switch (eval(sc)) {
@@ -310,6 +311,19 @@ namespace polysat {
                 }
             }
         }       
+    }
+
+    void core::propagate(signed_constraint& sc, lbool value, dependency const& d) {
+        lbool eval_value = eval(sc);
+        if (eval_value == l_undef)
+            sc.propagate(*this, value, d);
+        else if (value == l_undef)
+            s.propagate(d, eval_value != l_true, explain_eval(sc));
+        else if (value != eval_value) {
+            m_unsat_core = explain_eval(sc);
+            m_unsat_core.push_back(value == l_false ? ~d : d);
+            propagate_unsat_core();
+        }                   
     }
 
     void core::get_bitvector_prefixes(pvar v, pvar_vector& out) {
@@ -331,7 +345,7 @@ namespace polysat {
         s.set_conflict(m_unsat_core);       
     }
 
-    void core::assign_eh(unsigned index, bool sign, dependency const& dep) { 
+    void core::assign_eh(constraint_id index, bool sign, unsigned level) { 
         struct unassign : public trail {
             core& c;
             unsigned m_index;
@@ -341,9 +355,10 @@ namespace polysat {
                 c.m_prop_queue.pop_back();
             }
         };
-        m_prop_queue.push_back({ index, sign, dep });
-        m_constraint_index[index].value = to_lbool(!sign);
-        s.trail().push(unassign(*this, index));
+        m_prop_queue.push_back(index);
+        m_constraint_index[index.id].value = to_lbool(!sign);
+        m_constraint_index[index.id].d.set_level(level);
+        s.trail().push(unassign(*this, index.id));
     }
 
     dependency_vector core::explain_eval(signed_constraint const& sc) { 
@@ -392,7 +407,7 @@ namespace polysat {
 
     void core::add_axiom(signed_constraint sc) {
         auto idx = register_constraint(sc, dependency::axiom());
-        assign_eh(idx, false, dependency::axiom());
+        assign_eh(idx, false, 0);
     }
 
     void core::add_clause(char const* name, core_vector const& cs, bool is_redundant) {
