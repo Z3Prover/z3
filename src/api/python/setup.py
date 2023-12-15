@@ -313,12 +313,11 @@ if 'bdist_wheel' in sys.argv and '--plat-name' not in sys.argv:
             osver = RELEASE_METADATA[3]
             if osver.count('.') > 1:
                 osver = '.'.join(osver.split('.')[:2])
-            if osver.startswith("11"):
-                osver = "11_0"
+            osver = osver.replace('.','_')
             if arch == 'x64':
-                plat_name ='macosx_%s_x86_64' % osver.replace('.', '_')
+                plat_name ='macosx_%s_x86_64' % re.sub(r'\A(1[1-9])(_[\d]+)*\Z', r'\1_0', osver)
             elif arch == 'arm64':
-                plat_name ='macosx_%s_arm64' % osver.replace('.', '_')
+                plat_name ='macosx_%s_arm64' % osver
             else:
                 raise Exception(f"idk how os {distos} {osver} works. what goes here?")
         else:
