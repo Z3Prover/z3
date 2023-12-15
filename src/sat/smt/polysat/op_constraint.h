@@ -44,14 +44,15 @@ namespace polysat {
         friend class constraints;
 
         code m_op;
-        pdd m_p; // operand1
-        pdd m_q; // operand2
-        pdd m_r; // result
+        pdd p; // operand1
+        pdd q; // operand2
+        pdd r; // result
         
         op_constraint(code c, pdd const& r, pdd const& p, pdd const& q);
         lbool eval(pdd const& r, pdd const& p, pdd const& q) const;
 
         static lbool eval_lshr(pdd const& p, pdd const& q, pdd const& r);
+        static lbool eval_ashr(pdd const& p, pdd const& q, pdd const& r);
         static lbool eval_shl(pdd const& p, pdd const& q, pdd const& r);
         static lbool eval_and(pdd const& p, pdd const& q, pdd const& r);
         static lbool eval_inv(pdd const& p, pdd const& r);
@@ -70,9 +71,6 @@ namespace polysat {
 
     public:
         ~op_constraint() override {}
-        pdd const& p() const { return m_p; }
-        pdd const& q() const { return m_q; }
-        pdd const& r() const { return m_r; }
         code get_op() const { return m_op; }
         std::ostream& display(std::ostream& out, lbool status) const override;
         std::ostream& display(std::ostream& out) const override;

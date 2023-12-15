@@ -708,11 +708,11 @@ namespace intblast {
             rational N = bv_size(e);
             expr* x = umod(e, 0), *y = umod(e, 1);
             expr* signx = a.mk_ge(x, a.mk_int(N / 2));
-            r = m.mk_ite(signx, a.mk_int(N - 1), a.mk_int(0));
+            r = m.mk_ite(signx, a.mk_int(- 1), a.mk_int(0));
             for (unsigned i = 0; i < sz; ++i) {
                 expr* d = a.mk_idiv(x, a.mk_int(rational::power_of_two(i)));              
                 r = m.mk_ite(m.mk_eq(y, a.mk_int(i)),
-                    m.mk_ite(signx, a.mk_add(d, a.mk_int(N - rational::power_of_two(sz-i))), d),
+                    m.mk_ite(signx, a.mk_add(d, a.mk_int(- rational::power_of_two(sz-i))), d),
                     r);
             }
             break;
