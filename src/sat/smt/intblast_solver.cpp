@@ -445,6 +445,7 @@ namespace intblast {
                 sorts.push_back(a.mk_int());
             }
             else
+
                 sorts.push_back(s);
         }
         b = translated(b);
