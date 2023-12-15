@@ -91,6 +91,7 @@ br_status arith_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * c
     case OP_SINH: SASSERT(num_args == 1); st = mk_sinh_core(args[0], result); break;
     case OP_COSH: SASSERT(num_args == 1); st = mk_cosh_core(args[0], result); break;
     case OP_TANH: SASSERT(num_args == 1); st = mk_tanh_core(args[0], result); break;
+    case OP_ARITH_BAND: SASSERT(num_args == 2);  st = mk_band_core(f->get_parameter(0).get_int(), args[0], args[1], result); break;
     default: st = BR_FAILED; break;
     }
     CTRACE("arith_rewriter", st != BR_FAILED, tout << st << ": " << mk_pp(f, m);
@@ -1347,6 +1348,34 @@ app* arith_rewriter_core::mk_power(expr* x, rational const& r, sort* s) {
     if (m_util.is_int(s))
         y = m_util.mk_to_int(y);
     return y;
+}
+
+br_status arith_rewriter::mk_band_core(unsigned sz, expr* arg1, expr* arg2, expr_ref& result) {
+    numeral x, y, N;
+    bool is_num_x = m_util.is_numeral(arg1, x);
+    bool is_num_y = m_util.is_numeral(arg2, y);
+    N = rational::power_of_two(sz);
+    if (is_num_x) 
+        x = mod(x, N);      
+    if (is_num_y)
+        y = mod(y, N);
+    if (is_num_x && x.is_zero()) {
+        result = m_util.mk_int(0);
+        return BR_DONE;
+    }
+    if (is_num_y && y.is_zero()) {
+        result = m_util.mk_int(0);
+        return BR_DONE;
+    }
+    if (is_num_x && is_num_y) {
+        rational r(0);
+        for (unsigned i = 0; i < sz; ++i)
+            if (x.get_bit(i) && y.get_bit(i))
+                r += rational::power_of_two(i);
+        result = m_util.mk_int(r);
+        return BR_DONE;
+    }
+    return BR_FAILED;
 }
 
 br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & result) {

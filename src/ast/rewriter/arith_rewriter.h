@@ -159,6 +159,7 @@ public:
     br_status mk_mod_core(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_rem_core(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_power_core(expr* arg1, expr* arg2, expr_ref & result);
+    br_status mk_band_core(unsigned sz, expr* arg1, expr* arg2, expr_ref& result);
     void mk_div(expr * arg1, expr * arg2, expr_ref & result) {
         if (mk_div_core(arg1, arg2, result) == BR_FAILED)
             result = m.mk_app(get_fid(), OP_DIV, arg1, arg2);
