@@ -879,7 +879,6 @@ namespace sat {
         m_conflict = c;
         m_not_l    = not_l;
         TRACE("sat", display(display_justification(tout << "conflict " << not_l << " ", c) << "\n"));
-        TRACE("sat", display_watches(tout));
     }
 
     void solver::assign_core(literal l, justification j) {
@@ -1720,6 +1719,9 @@ namespace sat {
             if (next == null_bool_var)
                 return false;
         }
+        else {
+            SASSERT(value(next) == l_undef);
+        }
         push();
         m_stats.m_decision++;
         
@@ -1729,11 +1731,14 @@ namespace sat {
             phase = guess(next) ? l_true: l_false;
         
         literal next_lit(next, false);
+        SASSERT(value(next_lit) == l_undef);
         
         if (m_ext && m_ext->decide(next, phase)) {
+
             if (used_queue)
                 m_case_split_queue.unassign_var_eh(next);
             next_lit = literal(next, false);
+            SASSERT(value(next_lit) == l_undef);
         }
                 
         if (phase == l_undef)
@@ -2429,9 +2434,8 @@ namespace sat {
         m_conflicts_since_restart++;
         m_conflicts_since_gc++;
         m_stats.m_conflict++;
-        if (m_step_size > m_config.m_step_size_min) {
-            m_step_size -= m_config.m_step_size_dec;
-        }
+        if (m_step_size > m_config.m_step_size_min)
+            m_step_size -= m_config.m_step_size_dec;        
 
         bool unique_max;
         m_conflict_lvl = get_max_lvl(m_not_l, m_conflict, unique_max);        
@@ -2554,7 +2558,8 @@ namespace sat {
                     }
                     SASSERT(lvl(c_var) < m_conflict_lvl);
                 }
-                CTRACE("sat", idx == 0, 
+                CTRACE("sat", idx == 0,
+                       tout << "conflict level " << m_conflict_lvl << "\n";
                        for (literal lit : m_trail)
                            if (is_marked(lit.var()))
                                tout << "missed " << lit << "@" << lvl(lit) << "\n";);
@@ -2809,8 +2814,9 @@ namespace sat {
         unsigned level = 0;
 
         if (not_l != null_literal) {
-            level = lvl(not_l);            
+            level = lvl(not_l);
         }      
+        TRACE("sat", tout << "level " << not_l << " is " << level << " " << js << "\n");
 
         switch (js.get_kind()) {
         case justification::NONE:
@@ -3485,11 +3491,10 @@ namespace sat {
     //
     // -----------------------
     void solver::push() {
+        SASSERT(!m_ext || !m_ext->can_propagate());
         SASSERT(!inconsistent());
         TRACE("sat_verbose", tout << "q:" << m_qhead << " trail: " << m_trail.size() << "\n";);
         SASSERT(m_qhead == m_trail.size());
-        if (m_ext) 
-            m_ext->unit_propagate();
         m_scopes.push_back(scope());
         scope & s = m_scopes.back();
         m_scope_lvl++;

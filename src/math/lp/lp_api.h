@@ -108,6 +108,7 @@ namespace lp_api {
         unsigned m_gomory_cuts;
         unsigned m_assume_eqs;
         unsigned m_branch;
+        unsigned m_band_axioms;
         stats() { reset(); }
         void reset() {
             memset(this, 0, sizeof(*this));
@@ -128,6 +129,7 @@ namespace lp_api {
             st.update("arith-gomory-cuts", m_gomory_cuts);
             st.update("arith-assume-eqs", m_assume_eqs);
             st.update("arith-branch", m_branch);
+            st.update("arith-band-axioms", m_band_axioms);
         }
     };
 

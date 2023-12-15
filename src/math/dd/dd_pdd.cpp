@@ -1807,7 +1807,9 @@ namespace dd {
     pdd& pdd::operator=(pdd const& other) { 
         if (m != other.m) {
             verbose_stream() << "pdd manager confusion: " << *this << " (mod 2^" << power_of_2() << ") := " << other << " (mod 2^" << other.power_of_2() << ")\n";
+            UNREACHABLE();
             // TODO: in the end, this operator should probably be changed to also update the manager. But for now I want to detect such confusions.
+            reset(*other.m);
         }
         SASSERT_EQ(power_of_2(), other.power_of_2());
         VERIFY_EQ(power_of_2(), other.power_of_2());

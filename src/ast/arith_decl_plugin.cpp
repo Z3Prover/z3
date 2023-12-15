@@ -523,6 +523,12 @@ func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
         return m_manager->mk_func_decl(symbol("divisible"), 1, &m_int_decl, m_manager->mk_bool_sort(), 
                                        func_decl_info(m_family_id, k, num_parameters, parameters));
     }
+    if (k == OP_ARITH_BAND) {
+        if (arity != 2 || domain[0] != m_int_decl || domain[1] != m_int_decl || num_parameters != 1 || !parameters[0].is_int()) 
+            m_manager->raise_exception("invalid bitwise and application. Expects integer parameter and two arguments of sort integer");
+        return m_manager->mk_func_decl(symbol("band"), 2, domain, m_int_decl,
+            func_decl_info(m_family_id, k, num_parameters, parameters));
+    }
 
     if (m_manager->int_real_coercions() && use_coercion(k)) {
         return mk_func_decl(fix_kind(k, arity), has_real_arg(arity, domain, m_real_decl));
@@ -548,6 +554,14 @@ func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
         return m_manager->mk_func_decl(symbol("divisible"), 1, &m_int_decl, m_manager->mk_bool_sort(), 
                                        func_decl_info(m_family_id, k, num_parameters, parameters));
     }
+    if (k == OP_ARITH_BAND) {
+        if (num_args != 2 || args[0]->get_sort() != m_int_decl || args[1]->get_sort() != m_int_decl || num_parameters != 1 || !parameters[0].is_int())
+            m_manager->raise_exception("invalid bitwise and application. Expects integer parameter and two arguments of sort integer");
+        sort* domain[2] = { m_int_decl, m_int_decl };
+        return m_manager->mk_func_decl(symbol("band"), 2, domain, m_int_decl,
+            func_decl_info(m_family_id, k, num_parameters, parameters));
+    }
+
     if (m_manager->int_real_coercions() && use_coercion(k)) {
         return mk_func_decl(fix_kind(k, num_args), has_real_arg(m_manager, num_args, args, m_real_decl));
     }
@@ -693,7 +707,16 @@ expr * arith_decl_plugin::get_some_value(sort * s) {
     return mk_numeral(rational(0), s == m_int_decl);
 }
 
-bool arith_recognizers::is_numeral(expr const * n, rational & val, bool & is_int) const {
+bool arith_util::is_numeral(expr const * n, rational & val, bool & is_int) const {
+    if (is_irrational_algebraic_numeral(n)) {
+        scoped_anum an(am());
+        is_irrational_algebraic_numeral2(n, an);
+        if (am().is_rational(an)) {
+            am().to_rational(an, val);
+            is_int = val.is_int();
+            return true;
+        }
+    }
     if (!is_app_of(n, arith_family_id, OP_NUM))
         return false;
     func_decl * decl = to_app(n)->get_decl();
@@ -724,7 +747,7 @@ bool arith_recognizers::is_int_expr(expr const *e) const {
         if (is_to_real(e)) {
             // pass
         }
-        else if (is_numeral(e, r) && r.is_int()) {
+        else if (is_numeral(e) && is_int(e)) {
             // pass
         }
         else if (is_add(e) || is_mul(e)) {
@@ -747,14 +770,14 @@ void arith_util::init_plugin() {
     m_plugin = static_cast<arith_decl_plugin*>(m_manager.get_plugin(arith_family_id));
 }
 
-bool arith_util::is_irrational_algebraic_numeral2(expr const * n, algebraic_numbers::anum & val) {
+bool arith_util::is_irrational_algebraic_numeral2(expr const * n, algebraic_numbers::anum & val) const {
     if (!is_app_of(n, arith_family_id, OP_IRRATIONAL_ALGEBRAIC_NUM))
         return false;
     am().set(val, to_irrational_algebraic_numeral(n));
     return true;
 }
 
-algebraic_numbers::anum const & arith_util::to_irrational_algebraic_numeral(expr const * n) {
+algebraic_numbers::anum const & arith_util::to_irrational_algebraic_numeral(expr const * n) const {
     SASSERT(is_irrational_algebraic_numeral(n));
     return plugin().aw().to_anum(to_app(n)->get_decl());
 }

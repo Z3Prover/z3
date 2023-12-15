@@ -21,6 +21,7 @@ Author:
 #include "sat/smt/sat_smt.h"
 #include "sat/smt/pb_solver.h"
 #include "sat/smt/bv_solver.h"
+#include "sat/smt/intblast_solver.h"
 #include "sat/smt/euf_solver.h"
 #include "sat/smt/array_solver.h"
 #include "sat/smt/arith_solver.h"
@@ -134,8 +135,16 @@ namespace euf {
         special_relations_util sp(m);
         if (pb.get_family_id() == fid)
             ext = alloc(pb::solver, *this, fid);
-        else if (bvu.get_family_id() == fid)
-            ext = alloc(bv::solver, *this, fid);
+        else if (bvu.get_family_id() == fid) {
+            if (get_config().m_bv_solver == 0)
+                ext = alloc(bv::solver, *this, fid);
+            else if (get_config().m_bv_solver == 1)
+                throw default_exception("polysat solver is not integrated");
+            else if (get_config().m_bv_solver == 2)
+                ext = alloc(intblast::solver, *this);
+            else 
+                throw default_exception("unknown bit-vector solver. Accepted values 0 (bit blast), 1 (polysat), 2 (int blast)");
+        }
         else if (au.get_family_id() == fid)
             ext = alloc(array::solver, *this, fid);
         else if (fpa.get_family_id() == fid)
@@ -209,6 +218,15 @@ namespace euf {
         s().assign(lit, sat::justification::mk_ext_justification(s().scope_lvl(), idx));
     }
 
+    lbool solver::resolve_conflict() {
+        for (auto* s : m_solvers) {
+            lbool r = s->resolve_conflict();
+            if (r != l_undef)
+                return r;
+        }
+        return l_undef;
+    }
+
     /**
     Retrieve set of literals r that imply r.
     Since the set of literals are retrieved modulo multiple theories in a single implication
@@ -280,6 +298,26 @@ namespace euf {
                 log_rup(l, r);
         }
     }
+
+    void solver::get_eq_antecedents(enode* a, enode* b, literal_vector& r) {
+        m_egraph.begin_explain();
+        m_explain.reset();
+	m_egraph.explain_eq<size_t>(m_explain, nullptr, a, b);
+	for (unsigned qhead = 0; qhead < m_explain.size(); ++qhead) {
+	    size_t* e = m_explain[qhead];
+	    if (is_literal(e)) 
+	        r.push_back(get_literal(e));            
+            else {
+                size_t idx = get_justification(e);
+                auto* ext = sat::constraint_base::to_extension(idx);
+                SASSERT(ext != this);
+                sat::literal lit = sat::null_literal;
+                ext->get_antecedents(lit, idx, r, true);
+            }
+        }
+        m_egraph.end_explain();
+    }
+
 
     void solver::get_th_antecedents(literal l, th_explain& jst, literal_vector& r, bool probing) {
         for (auto lit : euf::th_explain::lits(jst))

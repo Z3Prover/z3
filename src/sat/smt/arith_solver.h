@@ -214,6 +214,7 @@ namespace arith {
         expr* m_not_handled = nullptr;
         ptr_vector<app>        m_underspecified;
         ptr_vector<expr>       m_idiv_terms;
+        ptr_vector<app>        m_band_terms;
         vector<ptr_vector<api_bound> > m_use_list;        // bounds where variables are used.
 
         // attributes for incremental version:
@@ -317,6 +318,7 @@ namespace arith {
         void mk_bound_axioms(api_bound& b);
         void mk_bound_axiom(api_bound& b1, api_bound& b2);
         void mk_power0_axioms(app* t, app* n);
+        void mk_band_axiom(app* n);
         void flush_bound_axioms();
         void add_farkas_clause(sat::literal l1, sat::literal l2);
 
@@ -408,6 +410,8 @@ namespace arith {
         bool  check_delayed_eqs();
         lbool check_lia();
         lbool check_nla();
+        bool check_band_terms();
+        bool check_band_term(app* n);
         void add_lemmas();
         void propagate_nla();
         void add_equality(lpvar v, rational const& k, lp::explanation const& exp);
@@ -522,6 +526,8 @@ namespace arith {
         bool add_eq(lpvar u, lpvar v, lp::explanation const& e, bool is_fixed);
         void consume(rational const& v, lp::constraint_index j);
         bool bound_is_interesting(unsigned vi, lp::lconstraint_kind kind, const rational& bval) const;
+
+        bool get_value(euf::enode* n, expr_ref& val);
     };
 
 

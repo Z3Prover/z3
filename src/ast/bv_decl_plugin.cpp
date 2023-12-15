@@ -942,3 +942,8 @@ app * bv_util::mk_bv2int(expr* e) {
     parameter p(s);
     return m_manager.mk_app(get_fid(), OP_BV2INT, 1, &p, 1, &e);
 }
+
+app* bv_util::mk_int2bv(unsigned sz, expr* e) {
+    parameter p(sz);
+    return m_manager.mk_app(get_fid(), OP_INT2BV, 1, &p, 1, &e);
+}

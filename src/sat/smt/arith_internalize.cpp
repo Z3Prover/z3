@@ -252,6 +252,12 @@ namespace arith {
                     st.to_ensure_var().push_back(n1);
                     st.to_ensure_var().push_back(n2);
                 }
+                else if (a.is_band(n)) {
+                    m_band_terms.push_back(to_app(n));
+                    mk_band_axiom(to_app(n));
+                    ctx.push(push_back_vector(m_band_terms));
+                    ensure_arg_vars(to_app(n));
+                }
                 else if (!a.is_div0(n) && !a.is_mod0(n) && !a.is_idiv0(n) && !a.is_rem0(n) && !a.is_power0(n)) {
                     found_unsupported(n);
                     ensure_arg_vars(to_app(n));
