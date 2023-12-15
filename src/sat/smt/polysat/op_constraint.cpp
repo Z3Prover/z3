@@ -319,15 +319,12 @@ namespace polysat {
         //
 
         auto& m = p.manager();
-        auto const pv = c.subst(p);
-        auto const qv = c.subst(q);
-        auto const rv = c.subst(r);
         unsigned const N = m.power_of_2();
 
         auto& C = c.cs();
-        c.add_clause("q >= N & p < 0 -> p << q = -1", {~C.uge(q, N), ~C.slt(p, 0), C.eq(r, m.max_value())}, true);
-        c.add_clause("q >= N & p >= 0 -> p << q = 0", {~C.uge(q, N), ~C.sge(p, 0), C.eq(r)}, true);
-        c.add_clause("q = 0 -> p << q = p", { ~C.eq(q), C.eq(r, p) }, true);
+        c.add_clause("q >= N & p < 0 -> p << q = -1", {~C.uge(q, N), ~C.slt(p, 0), C.eq(r, m.max_value())}, false);
+        c.add_clause("q >= N & p >= 0 -> p << q = 0", {~C.uge(q, N), ~C.sge(p, 0), C.eq(r)}, false);
+        c.add_clause("q = 0 -> p << q = p", { ~C.eq(q), C.eq(r, p) }, false);
         for (unsigned k = 0; k < N; ++k) {
 //            c.add_clause("q = k & p >= 0 -> p << q = p / 2^k", {~C.eq(q, k), ~C.sge(p, 0), ... }, true);
 //            c.add_clause("q = k & p < 0 -> p << q = (p / 2^k) -1 + 2^{N-k}", {~C.eq(q, k), ~C.slt(p, 0), ... }, true);
@@ -338,6 +335,10 @@ namespace polysat {
     void op_constraint::activate_and(core& c, dependency const& d) {
         auto x = p, y = q;
         auto& C = c.cs();
+
+        c.add_clause("band-mask p&q <= p", { C.ule(r, p) }, false);
+        c.add_clause("band-mask p&q <= q", { C.ule(r, q) }, false);
+
         if (x.is_val())
             std::swap(x, y);
         if (!y.is_val())
@@ -356,7 +357,6 @@ namespace polysat {
             SASSERT(k < N);
             rational exp = rational::power_of_two(N - k);
             c.add_clause("band-mask 1", { C.eq(x * exp, r * exp) }, false);
-            c.add_clause("band-mask 2", { C.ule(r, y) }, false);  // maybe always activate these constraints regardless?
         }
     }   
 
