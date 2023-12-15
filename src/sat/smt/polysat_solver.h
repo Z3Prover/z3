@@ -43,8 +43,8 @@ namespace polysat {
 
         struct atom {
             bool_var                m_bv;
-            unsigned                m_index;
-            atom(bool_var b, unsigned index) :m_bv(b), m_index(index) {}
+            constraint_id           m_index;
+            atom(bool_var b, constraint_id index) :m_bv(b), m_index(index) {}
             ~atom() { }
         };
 

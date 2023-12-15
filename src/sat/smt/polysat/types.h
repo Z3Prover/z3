@@ -22,6 +22,7 @@ namespace polysat {
     using pdd = dd::pdd;
     using pvar = unsigned;
     using theory_var = unsigned;
+    struct constraint_id { unsigned id; };
 
     using pvar_vector = unsigned_vector;
     inline const pvar null_var = UINT_MAX;
@@ -44,6 +45,8 @@ namespace polysat {
         sat::literal literal() const { SASSERT(is_literal()); return *std::get_if<sat::literal>(&m_data); }
         std::pair<theory_var, theory_var> eq() const { SASSERT(!is_literal()); return *std::get_if<std::pair<theory_var, theory_var>>(&m_data); }
         unsigned level() const { return m_level; }
+        void set_level(unsigned level) { m_level = level; }
+        dependency operator~() const { SASSERT(is_literal()); return dependency(~literal(), level()); }
     };
 
     inline const dependency null_dependency = dependency(sat::null_literal, UINT_MAX);

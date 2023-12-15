@@ -37,7 +37,6 @@ namespace polysat {
         class mk_assign_var;
         class mk_add_watch;
         typedef svector<std::pair<unsigned, unsigned>> activity;
-        typedef std::tuple<unsigned, bool, dependency> prop_item;
         friend class viable;
         friend class constraints;
         friend class assignment;
@@ -53,7 +52,7 @@ namespace polysat {
         constraints m_constraints;
         assignment m_assignment;
         unsigned m_qhead = 0, m_vqhead = 0;
-        svector<prop_item> m_prop_queue;
+        svector<constraint_id> m_prop_queue;
         svector<constraint_info> m_constraint_index;  // index of constraints
         dependency_vector m_unsat_core;
 
@@ -76,16 +75,15 @@ namespace polysat {
         void del_var();
 
         bool is_assigned(pvar v) { return !m_justification[v].is_null(); }
-        void propagate_value(prop_item const& dc);
-        void propagate_assignment(prop_item& dc);
+        void propagate_value(constraint_id idx);
+        void propagate_assignment(constraint_id idx);
         void propagate_assignment(pvar v, rational const& value, dependency dep);
         void propagate_unsat_core();
+        void propagate(signed_constraint& sc, lbool value, dependency const& d);
 
         void get_bitvector_prefixes(pvar v, pvar_vector& out);
         void get_fixed_bits(pvar v, svector<justified_fixed_bits>& fixed_bits);
         bool inconsistent() const;
-
-
 
         void add_watch(unsigned idx, unsigned var);
 
@@ -100,9 +98,9 @@ namespace polysat {
         core(solver_interface& s);
 
         sat::check_result check();        
-        unsigned register_constraint(signed_constraint& sc, dependency d);
+        constraint_id register_constraint(signed_constraint& sc, dependency d);
         bool propagate();
-        void assign_eh(unsigned idx, bool sign, dependency const& d);
+        void assign_eh(constraint_id idx, bool sign, unsigned level);
 
         pdd value(rational const& v, unsigned sz);
         pdd subst(pdd const&);
