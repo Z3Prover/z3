@@ -59,7 +59,6 @@ namespace polysat {
         stats                    m_stats;
         core                     m_core;
         intblast::solver         m_intblast;
-        bool                     m_use_intblast_model = false;
 
         vector<pdd>              m_var2pdd;                   // theory_var 2 pdd
         bool_vector              m_var2pdd_valid;             // valid flag
@@ -72,6 +71,8 @@ namespace polysat {
         bool m_has_lemma = false;
         unsigned m_lemma_level = 0;
         expr_ref_vector m_lemma;
+
+        sat::check_result intblast();
 
         // internalize
         bool visit(expr* e) override;

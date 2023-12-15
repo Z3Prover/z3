@@ -61,25 +61,36 @@ namespace polysat {
             return sat::check_result::CR_DONE;
         case sat::check_result::CR_CONTINUE:
             return sat::check_result::CR_CONTINUE;
-        case sat::check_result::CR_GIVEUP: {
-            if (!m.inc())
-                return sat::check_result::CR_GIVEUP;
-            switch (m_intblast.check_solver_state()) {
-            case l_true:
-                trail().push(value_trail(m_use_intblast_model));
-                m_use_intblast_model = true;
-                return sat::check_result::CR_DONE;
-            case l_false: {
-                auto core = m_intblast.unsat_core();
-                for (auto& lit : core)
-                    lit.neg();
-                s().add_clause(core.size(), core.data(), sat::status::th(true, get_id(), nullptr));
-                return sat::check_result::CR_CONTINUE;
-            }
-            case l_undef:
-                return sat::check_result::CR_GIVEUP;
-            }
+        case sat::check_result::CR_GIVEUP: 
+            return intblast();        
         }
+        UNREACHABLE();
+        return sat::check_result::CR_GIVEUP;
+    }
+
+    sat::check_result solver::intblast() {
+        if (!m.inc())
+            return sat::check_result::CR_GIVEUP;
+        switch (m_intblast.check_solver_state()) {
+        case l_true: {
+            pvar pv = m_core.next_var();
+            auto v = m_pddvar2var[pv];
+            auto n = var2expr(v);
+            auto val = m_intblast.get_value(n);
+            sat::literal lit = eq_internalize(n, bv.mk_numeral(val, get_bv_size(v)));
+            s().set_phase(lit);
+            return sat::check_result::CR_CONTINUE;
+        }
+        case l_false: {
+            IF_VERBOSE(2, verbose_stream() << "unsat core: " << m_intblast.unsat_core() << "\n");
+            auto core = m_intblast.unsat_core();
+            for (auto& lit : core)
+                lit.neg();
+            s().add_clause(core.size(), core.data(), sat::status::th(true, get_id(), nullptr));
+            return sat::check_result::CR_CONTINUE;
+        }
+        case l_undef:
+            return sat::check_result::CR_GIVEUP;
         }
         UNREACHABLE();
         return sat::check_result::CR_GIVEUP;

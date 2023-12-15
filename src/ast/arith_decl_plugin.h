@@ -237,26 +237,10 @@ public:
     family_id get_family_id() const { return arith_family_id; }
 
     bool is_arith_expr(expr const * n) const { return is_app(n) && to_app(n)->get_family_id() == arith_family_id; }
-    bool is_irrational_algebraic_numeral(expr const * n) const;
-    bool is_unsigned(expr const * n, unsigned& u) const { 
-        rational val;
-        bool is_int = true;
-        return is_numeral(n, val, is_int) && is_int && val.is_unsigned() && (u = val.get_unsigned(), true); 
-    }
-    bool is_numeral(expr const * n, rational & val, bool & is_int) const;
-    bool is_numeral(expr const * n, rational & val) const { bool is_int; return is_numeral(n, val, is_int); }
-    bool is_numeral(expr const * n) const { return is_app_of(n, arith_family_id, OP_NUM); }
-    bool is_zero(expr const * n) const { rational val; return is_numeral(n, val) && val.is_zero(); }
-    bool is_minus_one(expr * n) const { rational tmp; return is_numeral(n, tmp) && tmp.is_minus_one(); }
-    // return true if \c n is a term of the form (* -1 r)
-    bool is_times_minus_one(expr * n, expr * & r) const {
-        if (is_mul(n) && to_app(n)->get_num_args() == 2 && is_minus_one(to_app(n)->get_arg(0))) {
-            r = to_app(n)->get_arg(1);
-            return true;
-        }
-        return false;
-    }
 
+    bool is_irrational_algebraic_numeral(expr const* n) const;
+
+    bool is_numeral(expr const* n) const { return is_app_of(n, arith_family_id, OP_NUM); }
     bool is_int_expr(expr const * e) const;
 
     bool is_le(expr const * n) const { return is_app_of(n, arith_family_id, OP_LE); }
@@ -399,13 +383,32 @@ public:
         return *m_plugin;
     }
 
-    algebraic_numbers::manager & am() {
+    algebraic_numbers::manager & am() const {
         return plugin().am();
     }
 
+    // return true if \c n is a term of the form (* -1 r)
+    bool is_zero(expr const* n) const { rational val; return is_numeral(n, val) && val.is_zero(); }
+    bool is_minus_one(expr* n) const { rational tmp; return is_numeral(n, tmp) && tmp.is_minus_one(); }
+    bool is_times_minus_one(expr* n, expr*& r) const {
+        if (is_mul(n) && to_app(n)->get_num_args() == 2 && is_minus_one(to_app(n)->get_arg(0))) {
+            r = to_app(n)->get_arg(1);
+            return true;
+        }
+        return false;
+    }
+    bool is_unsigned(expr const* n, unsigned& u) const {
+        rational val;
+        bool is_int = true;
+        return is_numeral(n, val, is_int) && is_int && val.is_unsigned() && (u = val.get_unsigned(), true);
+    }
+    bool is_numeral(expr const* n) const { return arith_recognizers::is_numeral(n); }
+    bool is_numeral(expr const* n, rational& val, bool& is_int) const;
+    bool is_numeral(expr const* n, rational& val) const { bool is_int; return is_numeral(n, val, is_int); }
+
     bool convert_int_numerals_to_real() const { return plugin().convert_int_numerals_to_real(); }
-    bool is_irrational_algebraic_numeral2(expr const * n, algebraic_numbers::anum & val);
-    algebraic_numbers::anum const & to_irrational_algebraic_numeral(expr const * n);
+    bool is_irrational_algebraic_numeral2(expr const * n, algebraic_numbers::anum & val) const;
+    algebraic_numbers::anum const & to_irrational_algebraic_numeral(expr const * n) const;
 
     sort * mk_int() { return m_manager.mk_sort(arith_family_id, INT_SORT); }
     sort * mk_real() { return m_manager.mk_sort(arith_family_id, REAL_SORT); }
@@ -512,11 +515,11 @@ public:
        if none of them are numerals, then the left-hand-side has a smaller id than the right hand side.
     */
     app * mk_eq(expr * lhs, expr * rhs) {
-        if (is_numeral(lhs) || (!is_numeral(rhs) && lhs->get_id() > rhs->get_id()))
+        if (arith_recognizers::is_numeral(lhs) || (!arith_recognizers::is_numeral(rhs) && lhs->get_id() > rhs->get_id()))
             std::swap(lhs, rhs);
         if (lhs == rhs)
             return m_manager.mk_true();
-        if (is_numeral(lhs) && is_numeral(rhs)) {
+        if (arith_recognizers::is_numeral(lhs) && arith_recognizers::is_numeral(rhs)) {
             SASSERT(lhs != rhs);
             return m_manager.mk_false();
         }

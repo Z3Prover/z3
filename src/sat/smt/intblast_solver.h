@@ -64,7 +64,7 @@ namespace intblast {
         void translate(expr_ref_vector& es);
         void sorted_subterms(expr_ref_vector& es, ptr_vector<expr>& sorted);
 
-        rational get_value(expr* e) const;
+
 
         bool is_translated(expr* e) const { return !!m_translate.get(e->get_id(), nullptr); }
         expr* translated(expr* e) const { expr* r = m_translate.get(e->get_id(), nullptr); SASSERT(r); return r; }
@@ -135,6 +135,8 @@ namespace intblast {
         sat::literal internalize(expr* e, bool, bool) override;
 
         void eq_internalized(euf::enode* n) override;
+
+        rational get_value(expr* e) const;
 
     };
 

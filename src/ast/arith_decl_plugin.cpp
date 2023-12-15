@@ -707,7 +707,16 @@ expr * arith_decl_plugin::get_some_value(sort * s) {
     return mk_numeral(rational(0), s == m_int_decl);
 }
 
-bool arith_recognizers::is_numeral(expr const * n, rational & val, bool & is_int) const {
+bool arith_util::is_numeral(expr const * n, rational & val, bool & is_int) const {
+    if (is_irrational_algebraic_numeral(n)) {
+        scoped_anum an(am());
+        is_irrational_algebraic_numeral2(n, an);
+        if (am().is_rational(an)) {
+            am().to_rational(an, val);
+            is_int = val.is_int();
+            return true;
+        }
+    }
     if (!is_app_of(n, arith_family_id, OP_NUM))
         return false;
     func_decl * decl = to_app(n)->get_decl();
@@ -738,7 +747,7 @@ bool arith_recognizers::is_int_expr(expr const *e) const {
         if (is_to_real(e)) {
             // pass
         }
-        else if (is_numeral(e, r) && r.is_int()) {
+        else if (is_numeral(e) && is_int(e)) {
             // pass
         }
         else if (is_add(e) || is_mul(e)) {
@@ -761,14 +770,14 @@ void arith_util::init_plugin() {
     m_plugin = static_cast<arith_decl_plugin*>(m_manager.get_plugin(arith_family_id));
 }
 
-bool arith_util::is_irrational_algebraic_numeral2(expr const * n, algebraic_numbers::anum & val) {
+bool arith_util::is_irrational_algebraic_numeral2(expr const * n, algebraic_numbers::anum & val) const {
     if (!is_app_of(n, arith_family_id, OP_IRRATIONAL_ALGEBRAIC_NUM))
         return false;
     am().set(val, to_irrational_algebraic_numeral(n));
     return true;
 }
 
-algebraic_numbers::anum const & arith_util::to_irrational_algebraic_numeral(expr const * n) {
+algebraic_numbers::anum const & arith_util::to_irrational_algebraic_numeral(expr const * n) const {
     SASSERT(is_irrational_algebraic_numeral(n));
     return plugin().aw().to_anum(to_app(n)->get_decl());
 }

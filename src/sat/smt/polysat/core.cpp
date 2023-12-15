@@ -177,10 +177,9 @@ namespace polysat {
             s.set_lemma(m_viable.get_core(), m_viable.explain());
             // propagate_unsat_core();        
             return sat::check_result::CR_CONTINUE;
-        case find_t::singleton: {
+        case find_t::singleton: 
             s.propagate(m_constraints.eq(var2pdd(m_var), m_value), m_viable.explain());
-            return sat::check_result::CR_CONTINUE;
-        }
+            return sat::check_result::CR_CONTINUE;        
         case find_t::multiple:  
             s.add_eq_literal(m_var, m_value);
             return sat::check_result::CR_CONTINUE;

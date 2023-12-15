@@ -60,10 +60,10 @@ namespace polysat {
         // attributes associated with variables
         vector<pdd>             m_vars;                       // for each variable a pdd
         vector<rational>        m_values;                     // current value of assigned variable
-        svector<dependency>     m_justification;  // justification for assignment
-        activity                m_activity;                  // activity of variables
-        var_queue<activity>     m_var_queue;                 // priority queue of variables to assign
-        vector<unsigned_vector> m_watch;                     // watch lists for variables for constraints on m_prop_queue where they occur
+        svector<dependency>     m_justification;              // justification for assignment
+        activity                m_activity;                   // activity of variables
+        var_queue<activity>     m_var_queue;                  // priority queue of variables to assign
+        vector<unsigned_vector> m_watch;                      // watch lists for variables for constraints on m_prop_queue where they occur
 
         // values to split on
         rational    m_value;
@@ -101,6 +101,7 @@ namespace polysat {
         constraint_id register_constraint(signed_constraint& sc, dependency d);
         bool propagate();
         void assign_eh(constraint_id idx, bool sign, unsigned level);
+        pvar next_var() { return m_var_queue.next_var(); }
 
         pdd value(rational const& v, unsigned sz);
         pdd subst(pdd const&);

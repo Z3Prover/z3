@@ -96,7 +96,21 @@ namespace polysat {
     }
 
     lbool op_constraint::eval_ashr(pdd const& p, pdd const& q, pdd const& r) {
-        NOT_IMPLEMENTED_YET();
+        auto& m = p.manager();
+        if (r.is_val() && p.is_val() && q.is_val()) {
+            auto M = m.max_value();
+            auto N = M + 1;
+            if (p.val() >= N/2) {
+                if (q.val() >= m.power_of_2())
+                    return to_lbool(r.val() == M);
+                unsigned k = q.val().get_unsigned();
+                return to_lbool(r.val() == p.val() - rational::power_of_two(k));
+            }
+            else
+                return eval_lshr(p, q, r);
+        }
+        if (q.is_val() && q.is_zero() && p == r)
+            return l_true;
         return l_undef;
     }
 

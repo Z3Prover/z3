@@ -211,25 +211,23 @@ namespace arith {
         if (!ctx.is_relevant(expr2enode(n)))
             return true;
         VERIFY(a.is_band(n, sz, x, y));
-        if (use_nra_model()) {
+        expr_ref vx(m), vy(m),vn(m);
+        if (!get_value(expr2enode(x), vx) || !get_value(expr2enode(y), vy) || !get_value(expr2enode(n), vn)) {
+            IF_VERBOSE(2, verbose_stream() << "could not get value of " << mk_pp(n, m) << "\n");
             found_unsupported(n);
             return true;
         }
-        theory_var vx = expr2enode(x)->get_th_var(get_id());
-        theory_var vy = expr2enode(y)->get_th_var(get_id());
-        theory_var vn = expr2enode(n)->get_th_var(get_id());
-        rational N = rational::power_of_two(sz);
-        if (!get_value(vx).is_int() || !get_value(vy).is_int()) {
-            
-            s().display(verbose_stream());
-            verbose_stream() << vx << " " << vy << " " << mk_pp(n, m) << "\n";
+        rational valn, valx, valy;
+        bool is_int;
+        if (!a.is_numeral(vn, valn, is_int) || !is_int || !a.is_numeral(vx, valx, is_int) || !is_int || !a.is_numeral(vy, valy, is_int) || !is_int) {
+            IF_VERBOSE(2, verbose_stream() << "could not get value of " << mk_pp(n, m) << "\n");
+            found_unsupported(n);
+            return true;
         }
-        SASSERT(get_value(vx).is_int());
-        SASSERT(get_value(vy).is_int());
-        SASSERT(get_value(vn).is_int());
-        rational valx = mod(get_value(vx), N);
-        rational valy = mod(get_value(vy), N);
-        rational valn = get_value(vn);
+        // verbose_stream() << "band: " << mk_pp(n, m) << " " << valn << " := " << valx << "&" << valy << "\n";
+        rational N = rational::power_of_two(sz);
+        valx = mod(valx, N);
+        valy = mod(valy, N);
         SASSERT(0 <= valn && valn < N);
 
         // x mod 2^{i + 1} >= 2^i means the i'th bit is 1.
