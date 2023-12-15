@@ -119,6 +119,7 @@ namespace polysat {
 
         signed_constraint uge(pdd const& p, pdd const& q) { return ule(q, p); }
         signed_constraint uge(pdd const& p, rational const& q) { return ule(q, p); }
+        signed_constraint uge(pdd const& p, int             q) { return ule(q, p); }
 
         signed_constraint ult(pdd const& p, rational const& q) { return ult(p, p.manager().mk_val(q)); }
         signed_constraint ult(rational const& p, pdd const& q) { return ult(q.manager().mk_val(p), q); }
@@ -140,6 +141,9 @@ namespace polysat {
         signed_constraint sgt(pdd const& p, unsigned   q) { return slt(q, p); }
         signed_constraint sgt(int        p, pdd const& q) { return slt(q, p); }
         signed_constraint sgt(unsigned   p, pdd const& q) { return slt(q, p); }
+
+        signed_constraint sge(pdd const& p, pdd const& q) { return ~slt(q, p); }
+        signed_constraint sge(pdd const& p, int q) { return ~slt(q, p); }
 
         signed_constraint umul_ovfl(pdd const& p, rational const& q) { return umul_ovfl(p, p.manager().mk_val(q)); }
         signed_constraint umul_ovfl(rational const& p, pdd const& q) { return umul_ovfl(q.manager().mk_val(p), q); }

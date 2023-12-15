@@ -68,6 +68,7 @@ namespace polysat {
         std::ostream& display(std::ostream& out, char const* eq) const;
 
         void activate_and(core& s, dependency const& d);
+        void activate_ashr(core& s, dependency const& d);
 
     public:
         ~op_constraint() override {}

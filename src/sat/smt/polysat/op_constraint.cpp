@@ -203,6 +203,9 @@ namespace polysat {
         case code::and_op:
             activate_and(c, dep);
             break;
+        case code::ashr_op:
+            activate_ashr(c, dep);
+            break;
         default:
             break;
         }
@@ -309,6 +312,28 @@ namespace polysat {
         }
     }
 
+    void op_constraint::activate_ashr(core& c, dependency const& d) {
+        //
+        // if q = k & p >= 0 -> r*2^k + 
+        // if q = k & p < 0  -> (p / 2^k) - 1 + 2^{N-k}
+        //
+
+        auto& m = p.manager();
+        auto const pv = c.subst(p);
+        auto const qv = c.subst(q);
+        auto const rv = c.subst(r);
+        unsigned const N = m.power_of_2();
+
+        auto& C = c.cs();
+        c.add_clause("q >= N & p < 0 -> p << q = -1", {~C.uge(q, N), ~C.slt(p, 0), C.eq(r, m.max_value())}, true);
+        c.add_clause("q >= N & p >= 0 -> p << q = 0", {~C.uge(q, N), ~C.sge(p, 0), C.eq(r)}, true);
+        c.add_clause("q = 0 -> p << q = p", { ~C.eq(q), C.eq(r, p) }, true);
+        for (unsigned k = 0; k < N; ++k) {
+//            c.add_clause("q = k & p >= 0 -> p << q = p / 2^k", {~C.eq(q, k), ~C.sge(p, 0), ... }, true);
+//            c.add_clause("q = k & p < 0 -> p << q = (p / 2^k) -1 + 2^{N-k}", {~C.eq(q, k), ~C.slt(p, 0), ... }, true);
+        }
+    }
+
 
     void op_constraint::activate_and(core& c, dependency const& d) {
         auto x = p, y = q;
@@ -336,21 +361,7 @@ namespace polysat {
     }   
 
     void op_constraint::propagate_ashr(core& c, dependency const& dep) {
-        //
-        // ashr(x, y)
-        // if q >= N & p < 0 -> -1
-        // if q >= N & p >= 0 -> 0
-        // if q = k & p >= 0 -> p / 2^k   
-        // if q = k & p < 0  -> (p / 2^k) - 1 + 2^{N-k}
-        //
 
-        auto& m = p.manager();
-        auto const pv = c.subst(p);
-        auto const qv = c.subst(q);
-        auto const rv = c.subst(r);
-        unsigned const N = m.power_of_2();
-
-        NOT_IMPLEMENTED_YET();
     }
 
 
