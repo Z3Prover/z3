@@ -25,8 +25,8 @@ Additional possible functionality on constraints:
 
 namespace polysat {
 
-    op_constraint::op_constraint(code c, pdd const& p, pdd const& q, pdd const& r) :
-        m_op(c), m_p(p), m_q(q), m_r(r) {
+    op_constraint::op_constraint(code c, pdd const& _p, pdd const& _q, pdd const& _r) :
+        m_op(c), p(_p), q(_q), r(_r) {
         vars().append(p.free_vars());
         for (auto v : q.free_vars())
             if (!vars().contains(v))
@@ -38,7 +38,7 @@ namespace polysat {
         switch (c) {
         case code::and_op:
             if (p.index() > q.index())
-                std::swap(m_p, m_q);
+                std::swap(p, q);
             break;
         case code::inv_op:
             SASSERT(q.is_zero());
@@ -50,11 +50,11 @@ namespace polysat {
     }
 
     lbool op_constraint::eval() const {
-        return eval(p(), q(), r());
+        return eval(p, q, r);
     }
 
     lbool op_constraint::eval(assignment const& a) const {
-        return eval(a.apply_to(p()), a.apply_to(q()), a.apply_to(r()));
+        return eval(a.apply_to(p), a.apply_to(q), a.apply_to(r));
     }
 
     lbool op_constraint::eval(pdd const& p, pdd const& q, pdd const& r) const {
@@ -67,6 +67,8 @@ namespace polysat {
             return eval_and(p, q, r);
         case code::inv_op:
             return eval_inv(p, r);
+        case code::ashr_op:
+            return eval_ashr(p, q, r);
         default:
             return l_undef;
         }
@@ -90,6 +92,11 @@ namespace polysat {
 
         // TODO: other cases when we know lower bound of q,
         //       e.g, q = 2^k*q1 + q2, where q2 is a constant.
+        return l_undef;
+    }
+
+    lbool op_constraint::eval_ashr(pdd const& p, pdd const& q, pdd const& r) {
+        NOT_IMPLEMENTED_YET();
         return l_undef;
     }
 
@@ -171,9 +178,9 @@ namespace polysat {
 
     std::ostream& op_constraint::display(std::ostream& out, char const* eq) const {
         if (m_op == code::inv_op)
-            return out << r() << " " << eq << " " << m_op << " " << p();
+            return out << r << " " << eq << " " << m_op << " " << p;
 
-        return out << r() << " " << eq << " " << p() << " " << m_op << " " << q();
+        return out << r << " " << eq << " " << p << " " << m_op << " " << q;
     }
 
     void op_constraint::activate(core& c, bool sign, dependency const& dep) {
@@ -239,52 +246,50 @@ namespace polysat {
   * when r, q are variables.
   */
     void op_constraint::propagate_lshr(core& c, dependency const& d) {
-        auto& m = p().manager();
-        auto const pv = c.subst(p());
-        auto const qv = c.subst(q());
-        auto const rv = c.subst(r());
+        auto& m = p.manager();
+        auto const pv = c.subst(p);
+        auto const qv = c.subst(q);
+        auto const rv = c.subst(r);
         unsigned const N = m.power_of_2();
 
-        
-        signed_constraint const lshr(polysat::ckind_t::op_t, this);
         auto& C = c.cs();
 
         if (pv.is_val() && rv.is_val() && rv.val() > pv.val())
-            c.add_clause("lshr 1", { d, C.ule(r(), p()) }, false);
+            c.add_clause("lshr 1", { C.ule(r, p) }, false);
 
         else if (qv.is_val() && qv.val() >= N && rv.is_val() && !rv.is_zero())
             // TODO: instead of rv.is_val() && !rv.is_zero(), we should use !is_forced_zero(r) which checks whether eval(r) = 0 or bvalue(r=0) = true; see saturation.cpp
-            c.add_clause("q >= N -> r = 0", { d, ~C.ule(N, q()), C.eq(r()) }, true);
+            c.add_clause("q >= N -> r = 0", { ~C.ule(N, q), C.eq(r) }, true);
         else if (qv.is_zero() && pv.is_val() && rv.is_val() && pv != rv)
-            c.add_clause("q = 0 -> p = r", { d, ~C.eq(q()), C.eq(p(), r()) } , true);
+            c.add_clause("q = 0 -> p = r", { ~C.eq(q), C.eq(p, r) } , true);
         else if (qv.is_val() && !qv.is_zero() && pv.is_val() && rv.is_val() && !pv.is_zero() && rv.val() >= pv.val())
-            c.add_clause("q != 0 & p > 0 -> r < p", { d, C.eq(q()), C.ule(p(), 0), C.ult(r(), p()) }, true);
+            c.add_clause("q != 0 & p > 0 -> r < p", { C.eq(q), C.ule(p, 0), C.ult(r, p) }, true);
         else if (qv.is_val() && !qv.is_zero() && qv.val() < N && rv.is_val() && rv.val() > rational::power_of_two(N - qv.val().get_unsigned()) - 1)
-            c.add_clause("q >= k -> r <= 2^{N-k} - 1", { d, ~C.ule(qv.val(), q()), C.ule(r(), rational::power_of_two(N - qv.val().get_unsigned()) - 1)}, true);
+            c.add_clause("q >= k -> r <= 2^{N-k} - 1", { ~C.ule(qv.val(), q), C.ule(r, rational::power_of_two(N - qv.val().get_unsigned()) - 1)}, true);
         else if (pv.is_val() && rv.is_val() && qv.is_val() && !qv.is_zero()) {
             unsigned k = qv.val().get_unsigned();
             for (unsigned i = 0; i < N - k; ++i) {
                 if (rv.val().get_bit(i) && !pv.val().get_bit(i + k)) 
-                    c.add_clause("q = k  ->  r[i] = p[i+k] for 0 <= i < N - k", { d, ~C.eq(q(), k), ~C.bit(r(), i), C.bit(p(), i + k) }, true);
+                    c.add_clause("q = k  ->  r[i] = p[i+k] for 0 <= i < N - k", { ~C.eq(q, k), ~C.bit(r, i), C.bit(p, i + k) }, true);
                 
                 if (!rv.val().get_bit(i) && pv.val().get_bit(i + k)) 
-                    c.add_clause("q = k  ->  r[i] = p[i+k] for 0 <= i < N - k", { d, ~C.eq(q(), k), C.bit(r(), i), ~C.bit(p(), i + k) }, true);                
+                    c.add_clause("q = k  ->  r[i] = p[i+k] for 0 <= i < N - k", { ~C.eq(q, k), C.bit(r, i), ~C.bit(p, i + k) }, true);                
             }
         }
         else {
             // forward propagation
             SASSERT(!(pv.is_val() && qv.is_val() && rv.is_val()));
-            // LOG(p() << " = " << pv << " and " << q() << " = " << qv << " yields [>>] " << r() << " = " << (qv.val().is_unsigned() ? machine_div2k(pv.val(), qv.val().get_unsigned()) : rational::zero()));
+            // LOG(p << " = " << pv << " and " << q << " = " << qv << " yields [>>] " << r << " = " << (qv.val().is_unsigned() ? machine_div2k(pv.val(), qv.val().get_unsigned()) : rational::zero()));
             if (qv.is_val() && !rv.is_val()) {
                 rational const& q_val = qv.val();
                 if (q_val >= N)
                     // q >= N ==> r = 0
-                    c.add_clause("q >= N ==> r = 0", { d, ~C.ule(N, q()), C.eq(r()) }, true);
+                    c.add_clause("q >= N ==> r = 0", { ~C.ule(N, q), C.eq(r) }, true);
                 else if (pv.is_val()) {
                     SASSERT(q_val.is_unsigned());
                     // 
                     rational const r_val = machine_div2k(pv.val(), q_val.get_unsigned());
-                    c.add_clause("p = p_val & q = q_val ==> r = p_val / 2^q_val", { d, ~C.eq(p(), pv), ~C.eq(q(), qv), C.eq(r(), r_val) }, true);
+                    c.add_clause("p = p_val & q = q_val ==> r = p_val / 2^q_val", { ~C.eq(p, pv), ~C.eq(q, qv), C.eq(r, r_val) }, true);
                 }
             }
         }
@@ -292,7 +297,7 @@ namespace polysat {
 
 
     void op_constraint::activate_and(core& c, dependency const& d) {
-        auto x = p(), y = q();
+        auto x = p, y = q;
         auto& C = c.cs();
         if (x.is_val())
             std::swap(x, y);
@@ -303,21 +308,35 @@ namespace polysat {
         if (!(yv + 1).is_power_of_two())
             return;
         if (yv == m.max_value())
-            c.add_clause("band-mask-true", { d, C.eq(x, r()) }, false);
+            c.add_clause("band-mask-true", { C.eq(x, r) }, false);
         else if (yv == 0)
-            c.add_clause("band-mask-false", { d, C.eq(r()) }, false);
+            c.add_clause("band-mask-false", { C.eq(r) }, false);
         else {
             unsigned N = m.power_of_2();
             unsigned k = yv.get_num_bits();
             SASSERT(k < N);
             rational exp = rational::power_of_two(N - k);
-            c.add_clause("band-mask 1", { d, C.eq(x * exp, r() * exp) }, false);
-            c.add_clause("band-mask 2", { d, C.ule(r(), y) }, false);  // maybe always activate these constraints regardless?
+            c.add_clause("band-mask 1", { C.eq(x * exp, r * exp) }, false);
+            c.add_clause("band-mask 2", { C.ule(r, y) }, false);  // maybe always activate these constraints regardless?
         }
     }   
 
-    void op_constraint::propagate_ashr(core& s, dependency const& dep) {
+    void op_constraint::propagate_ashr(core& c, dependency const& dep) {
+        //
+        // ashr(x, y)
+        // if q >= N & p < 0 -> -1
+        // if q >= N & p >= 0 -> 0
+        // if q = k & p >= 0 -> p / 2^k   
+        // if q = k & p < 0  -> (p / 2^k) - 1 + 2^{N-k}
+        //
 
+        auto& m = p.manager();
+        auto const pv = c.subst(p);
+        auto const qv = c.subst(q);
+        auto const rv = c.subst(r);
+        unsigned const N = m.power_of_2();
+
+        NOT_IMPLEMENTED_YET();
     }
 
 
@@ -331,49 +350,49 @@ namespace polysat {
      *      q = 0   ->  r = p
      */
     void op_constraint::propagate_shl(core& c, dependency const& d) {
-        auto& m = p().manager();
-        auto const pv = c.subst(p());
-        auto const qv = c.subst(q());
-        auto const rv = c.subst(r());
+        auto& m = p.manager();
+        auto const pv = c.subst(p);
+        auto const qv = c.subst(q);
+        auto const rv = c.subst(r);
         unsigned const N = m.power_of_2();
         auto& C = c.cs();
 
         if (qv.is_val() && qv.val() >= N && rv.is_val() && !rv.is_zero())            
-            c.add_clause("q >= N  ->  r = 0", { d, ~C.ule(N, q()), C.eq(r()) }, true);
+            c.add_clause("q >= N  ->  r = 0", { ~C.ule(N, q), C.eq(r) }, true);
         else if (qv.is_zero() && pv.is_val() && rv.is_val() && rv != pv)
             // 
-            c.add_clause("q = 0  ->  r = p", { d, ~C.eq(q()), C.eq(r(), p()) }, true);
+            c.add_clause("q = 0  ->  r = p", { ~C.eq(q), C.eq(r, p) }, true);
         else if (qv.is_val() && !qv.is_zero() && qv.val() < N && rv.is_val() &&
             !rv.is_zero() && rv.val() < rational::power_of_two(qv.val().get_unsigned()))
             // q >= k  ->  r = 0  \/  r >= 2^k  (intuitive version)
             // q >= k  ->  r - 1 >= 2^k - 1     (equivalent unit constraint to better support narrowing)
-            c.add_clause("q >= k  ->  r - 1 >= 2^k - 1", { d, ~C.ule(qv.val(), q()), C.ule(rational::power_of_two(qv.val().get_unsigned()) - 1, r() - 1) }, true);
+            c.add_clause("q >= k  ->  r - 1 >= 2^k - 1", { ~C.ule(qv.val(), q), C.ule(rational::power_of_two(qv.val().get_unsigned()) - 1, r - 1) }, true);
         else if (pv.is_val() && rv.is_val() && qv.is_val() && !qv.is_zero()) {
             unsigned k = qv.val().get_unsigned();
             // q = k  ->  r[i+k] = p[i] for 0 <= i < N - k
             for (unsigned i = 0; i < N - k; ++i) {
                 if (rv.val().get_bit(i + k) && !pv.val().get_bit(i)) {
-                    c.add_clause("q = k  ->  r[i+k] = p[i] for 0 <= i < N - k", { d, ~C.eq(q(), k), ~C.bit(r(), i + k), C.bit(p(), i) }, true);
+                    c.add_clause("q = k  ->  r[i+k] = p[i] for 0 <= i < N - k", { ~C.eq(q, k), ~C.bit(r, i + k), C.bit(p, i) }, true);
                 }
                 if (!rv.val().get_bit(i + k) && pv.val().get_bit(i)) {
-                    c.add_clause("q = k  ->  r[i+k] = p[i] for 0 <= i < N - k", { d, ~C.eq(q(), k), C.bit(r(), i + k), ~C.bit(p(), i) }, true);
+                    c.add_clause("q = k  ->  r[i+k] = p[i] for 0 <= i < N - k", { ~C.eq(q, k), C.bit(r, i + k), ~C.bit(p, i) }, true);
                 }
             }
         }
         else {
             // forward propagation
             SASSERT(!(pv.is_val() && qv.is_val() && rv.is_val()));
-            // LOG(p() << " = " << pv << " and " << q() << " = " << qv << " yields [<<] " << r() << " = " << (qv.val().is_unsigned() ? rational::power_of_two(qv.val().get_unsigned()) * pv.val() : rational::zero()));
+            // LOG(p << " = " << pv << " and " << q << " = " << qv << " yields [<<] " << r << " = " << (qv.val().is_unsigned() ? rational::power_of_two(qv.val().get_unsigned()) * pv.val() : rational::zero()));
             if (qv.is_val() && !rv.is_val()) {
                 rational const& q_val = qv.val();
                 if (q_val >= N)
                     // q >= N ==> r = 0
-                    c.add_clause("shl forward 1", {d, ~C.ule(N, q()), C.eq(r())}, true);
+                    c.add_clause("shl forward 1", {~C.ule(N, q), C.eq(r)}, true);
                 if (pv.is_val()) {
                     SASSERT(q_val.is_unsigned());
                     // p = p_val & q = q_val ==> r = p_val * 2^q_val
                     rational const r_val = pv.val() * rational::power_of_two(q_val.get_unsigned());
-                    c.add_clause("shl forward 2", {d, ~C.eq(p(), pv), ~C.eq(q(), qv), C.eq(r(), r_val)}, true);
+                    c.add_clause("shl forward 2", {~C.eq(p, pv), ~C.eq(q, qv), C.eq(r, r_val)}, true);
                 }
             }
         }
@@ -393,38 +412,38 @@ namespace polysat {
      * q = 2^k - 1 && r = 0 && p != 0 => p >= 2^k
      */
     void op_constraint::propagate_and(core& c, dependency const& d) {
-        auto& m = p().manager();
-        auto pv = c.subst(p());
-        auto qv = c.subst(q());
-        auto rv = c.subst(r());
+        auto& m = p.manager();
+        auto pv = c.subst(p);
+        auto qv = c.subst(q);
+        auto rv = c.subst(r);
         auto& C = c.cs();
 
         if (pv.is_val() && rv.is_val() && rv.val() > pv.val())
-            c.add_clause("p&q <= p", { d, C.ule(r(), p()) }, true);
+            c.add_clause("p&q <= p", { C.ule(r, p) }, true);
         else if (qv.is_val() && rv.is_val() && rv.val() > qv.val())
-            c.add_clause("p&q <= q", { d, C.ule(r(), q()) }, true);
+            c.add_clause("p&q <= q", { C.ule(r, q) }, true);
         else if (pv.is_val() && qv.is_val() && rv.is_val() && pv == qv && rv != pv)
-            c.add_clause("p = q => r = p", { d, ~C.eq(p(), q()), C.eq(r(), p()) }, true);
+            c.add_clause("p = q => r = p", { ~C.eq(p, q), C.eq(r, p) }, true);
         else if (pv.is_val() && qv.is_val() && rv.is_val()) {
             if (pv.is_max() && qv != rv)
-                c.add_clause("p = -1 => r = q", { d, ~C.eq(p(), m.max_value()), C.eq(q(), r()) }, true);
+                c.add_clause("p = -1 => r = q", { ~C.eq(p, m.max_value()), C.eq(q, r) }, true);
             if (qv.is_max() && pv != rv)
-                c.add_clause("q = -1 => r = p", { d, ~C.eq(q(), m.max_value()), C.eq(p(), r()) }, true);
+                c.add_clause("q = -1 => r = p", { ~C.eq(q, m.max_value()), C.eq(p, r) }, true);
 
             unsigned const N = m.power_of_2();
             unsigned pow;
             if ((pv.val() + 1).is_power_of_two(pow)) {
                 if (rv.is_zero() && !qv.is_zero() && qv.val() <= pv.val())
-                    c.add_clause("p = 2^k - 1 && r = 0 && q != 0 => q >= 2^k", { d, ~C.eq(p(), pv), ~C.eq(r()), C.eq(q()), C.ule(pv + 1, q()) }, true);
+                    c.add_clause("p = 2^k - 1 && r = 0 && q != 0 => q >= 2^k", { ~C.eq(p, pv), ~C.eq(r), C.eq(q), C.ule(pv + 1, q) }, true);
                 if (rv != qv)
-                    c.add_clause("p = 2^k - 1  ==>  r*2^{N - k} = q*2^{N - k}", { d, ~C.eq(p(), pv), C.eq(r() * rational::power_of_two(N - pow), q() * rational::power_of_two(N - pow)) }, true);
+                    c.add_clause("p = 2^k - 1  ==>  r*2^{N - k} = q*2^{N - k}", { ~C.eq(p, pv), C.eq(r * rational::power_of_two(N - pow), q * rational::power_of_two(N - pow)) }, true);
             }
             if ((qv.val() + 1).is_power_of_two(pow)) {
                 if (rv.is_zero() && !pv.is_zero() && pv.val() <= qv.val())
-                    c.add_clause("q = 2^k - 1 && r = 0 && p != 0  ==>  p >= 2^k", { d, ~C.eq(q(), qv), ~C.eq(r()), C.eq(p()), C.ule(qv + 1, p()) }, true);
+                    c.add_clause("q = 2^k - 1 && r = 0 && p != 0  ==>  p >= 2^k", { ~C.eq(q, qv), ~C.eq(r), C.eq(p), C.ule(qv + 1, p) }, true);
                 // 
                 if (rv != pv)
-                    c.add_clause("q = 2^k - 1  ==>  r*2^{N - k} = p*2^{N - k}", { d, ~C.eq(q(), qv), C.eq(r() * rational::power_of_two(N - pow), p() * rational::power_of_two(N - pow)) }, true);
+                    c.add_clause("q = 2^k - 1  ==>  r*2^{N - k} = p*2^{N - k}", { ~C.eq(q, qv), C.eq(r * rational::power_of_two(N - pow), p * rational::power_of_two(N - pow)) }, true);
             }
 
             for (unsigned i = 0; i < N; ++i) {
@@ -434,11 +453,11 @@ namespace polysat {
                 if (rb == (pb && qb))
                     continue;
                 if (pb && qb && !rb)
-                    c.add_clause("p&q[i] = p[i]&q[i]", { d, ~C.bit(p(), i), ~C.bit(q(), i), C.bit(r(), i) }, true);
+                    c.add_clause("p&q[i] = p[i]&q[i]", { ~C.bit(p, i), ~C.bit(q, i), C.bit(r, i) }, true);
                 else if (!pb && rb)
-                    c.add_clause("p&q[i] = p[i]&q[i]", { d, C.bit(p(), i), ~C.bit(r(), i) }, true);
+                    c.add_clause("p&q[i] = p[i]&q[i]", { C.bit(p, i), ~C.bit(r, i) }, true);
                 else if (!qb && rb)
-                    c.add_clause("p&q[i] = p[i]&q[i]", { d, C.bit(q(), i), ~C.bit(r(), i) }, true);
+                    c.add_clause("p&q[i] = p[i]&q[i]", { C.bit(q, i), ~C.bit(r, i) }, true);
                 else
                     UNREACHABLE();
             }
@@ -447,14 +466,14 @@ namespace polysat {
 
         // Propagate r if p or q are 0
         else if (pv.is_zero() && !rv.is_zero())  // rv not necessarily fully evaluated
-            c.add_clause("p = 0 -> p&q = 0", { d, C.ule(r(), p()) }, true);
+            c.add_clause("p = 0 -> p&q = 0", { C.ule(r, p) }, true);
         else if (qv.is_zero() && !rv.is_zero())  // rv not necessarily fully evaluated
-            c.add_clause("q = 0 -> p&q = 0", { d, C.ule(r(), q()) }, true);
+            c.add_clause("q = 0 -> p&q = 0", { C.ule(r, q) }, true);
         // p = a && q = b ==> r = a & b
         else if (pv.is_val() && qv.is_val() && !rv.is_val()) {
             // Just assign by this very weak justification. It will be strengthened in saturation in case of a conflict
-            LOG(p() << " = " << pv << " and " << q() << " = " << qv << " yields [band] " << r() << " = " << bitwise_and(pv.val(), qv.val()));
-            c.add_clause("p = a & q = b => r = a&b", { d, ~C.eq(p(), pv), ~C.eq(q(), qv), C.eq(r(), bitwise_and(pv.val(), qv.val())) }, true);
+            LOG(p << " = " << pv << " and " << q << " = " << qv << " yields [band] " << r << " = " << bitwise_and(pv.val(), qv.val()));
+            c.add_clause("p = a & q = b => r = a&b", { ~C.eq(p, pv), ~C.eq(q, qv), C.eq(r, bitwise_and(pv.val(), qv.val())) }, true);
         }
     }
 
@@ -470,9 +489,9 @@ namespace polysat {
      * parity(p) < k    ==>  r <= 2^(N - k) - 1     (because r is the smallest pseudo-inverse)
      */
     clause_ref op_constraint::lemma_inv(solver& s, assignment const& a) {
-        auto& m = p().manager();
-        auto pv = a.apply_to(p());
-        auto rv = a.apply_to(r());
+        auto& m = p.manager();
+        auto pv = a.apply_to(p);
+        auto rv = a.apply_to(r);
 
         if (eval_inv(pv, rv) == l_true)
             return {};
@@ -481,15 +500,15 @@ namespace polysat {
 
         // p = 0  ==>  r = 0
         if (pv.is_zero())
-            c.add_clause(~invc, ~C.eq(p()), C.eq(r()), true);
+            c.add_clause(~invc, ~C.eq(p), C.eq(r), true);
         // r = 0  ==>  p = 0
         if (rv.is_zero())
-            c.add_clause(~invc, ~C.eq(r()), C.eq(p()), true);
+            c.add_clause(~invc, ~C.eq(r), C.eq(p), true);
 
         // forward propagation: p assigned  ==>  r = pseudo_inverse(eval(p))
         // TODO: (later) this should be propagated instead of adding a clause
         /*if (pv.is_val() && !rv.is_val())
-            c.add_clause(~invc, ~C.eq(p(), pv), C.eq(r(), pv.val().pseudo_inverse(m.power_of_2())), true);*/
+            c.add_clause(~invc, ~C.eq(p, pv), C.eq(r, pv.val().pseudo_inverse(m.power_of_2())), true);*/
 
         if (!pv.is_val() || !rv.is_val())
             return {};
@@ -497,14 +516,14 @@ namespace polysat {
         unsigned parity_pv = pv.val().trailing_zeros();
         unsigned parity_rv = rv.val().trailing_zeros();
 
-        LOG("p: " << p() << " := " << pv << "   parity " << parity_pv);
-        LOG("r: " << r() << " := " << rv << "   parity " << parity_rv);
+        LOG("p: " << p << " := " << pv << "   parity " << parity_pv);
+        LOG("r: " << r << " := " << rv << "   parity " << parity_rv);
 
         // p != 0  ==>  odd(r)
         if (parity_rv != 0)
-            c.add_clause("r = inv p  &  p != 0  ==>  odd(r)", {~invc, C.eq(p()), s.odd(r())}, true);
+            c.add_clause("r = inv p  &  p != 0  ==>  odd(r)", {~invc, C.eq(p), s.odd(r)}, true);
 
-        pdd prod = p() * r();
+        pdd prod = p * r;
         rational prodv = (pv * rv).val();
 //        if (prodv != rational::power_of_two(parity_pv))
 //            verbose_stream() << prodv << " " << rational::power_of_two(parity_pv) << " " << parity_pv << " " << pv << " " << rv << "\n";
@@ -519,12 +538,12 @@ namespace polysat {
                 // parity(p) >= k  ==>  p * r >= 2^k
                 if (prodv < rational::power_of_two(middle))
                     c.add_clause("r = inv p  &  parity(p) >= k  ==>  p*r >= 2^k",
-                        {~invc, ~s.parity_at_least(p(), middle), s.uge(prod, rational::power_of_two(middle))}, false);
+                        {~invc, ~s.parity_at_least(p, middle), s.uge(prod, rational::power_of_two(middle))}, false);
                 // parity(p) >= k  ==>  r <= 2^(N - k) - 1     (because r is the smallest pseudo-inverse)
                 rational const max_rv = rational::power_of_two(m.power_of_2() - middle) - 1;
                 if (rv.val() > max_rv)
                     c.add_clause("r = inv p  &  parity(p) >= k  ==>  r <= 2^(N - k) - 1",
-                        {~invc, ~s.parity_at_least(p(), middle), C.ule(r(), max_rv)}, false);
+                        {~invc, ~s.parity_at_least(p, middle), C.ule(r, max_rv)}, false);
             }
             else { // parity less than middle
                 SASSERT(parity_pv < middle);
@@ -533,7 +552,7 @@ namespace polysat {
                 // parity(p) < k   ==>  p * r <= 2^k - 1
                 if (prodv > rational::power_of_two(middle))
                     c.add_clause("r = inv p  &  parity(p) < k  ==>  p*r <= 2^k - 1",
-                        {~invc, s.parity_at_least(p(), middle), C.ule(prod, rational::power_of_two(middle) - 1)}, false);
+                        {~invc, s.parity_at_least(p, middle), C.ule(prod, rational::power_of_two(middle) - 1)}, false);
             }
         }
          // Why did it evaluate to false in this case?

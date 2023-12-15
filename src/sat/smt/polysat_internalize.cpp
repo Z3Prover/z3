@@ -316,13 +316,24 @@ namespace polysat {
         return true;
     }
 
-    void solver::axiomatize_int2bv(app* e, unsigned & sz, expr* x) {
-        NOT_IMPLEMENTED_YET();
-
+    void solver::axiomatize_int2bv(app* e, unsigned sz, expr* x) {
+        // e = int2bv(x)
+        // bv2int(int2bv(x)) = x mod N   
+        rational N = rational::power_of_two(sz);
+        add_unit(eq_internalize(bv.mk_bv2int(e), m_autil.mk_mod(x, m_autil.mk_int(N))));        
     }
     
     void solver::axiomatize_bv2int(app* e, expr* x) {
-        NOT_IMPLEMENTED_YET();
+        // e := bv2int(x)
+        // e = sum_bits(x)
+        unsigned sz = bv.get_bv_size(x);
+        expr* one = m_autil.mk_int(1);
+        expr* zero = m_autil.mk_int(0);
+        expr* r = zero;
+        pdd p = expr2pdd(x);
+        for (unsigned i = 0; i < sz; ++i)
+            r = m_autil.mk_add(r, m.mk_ite(constraint2expr(m_core.bit(p, i)), one, zero));
+        add_unit(eq_internalize(e, r));
     }
 
 
