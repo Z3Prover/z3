@@ -23,12 +23,7 @@ Author:
 namespace polysat {
 
 
-    void solver::add_value(euf::enode* n, model& mdl, expr_ref_vector& values) {
-        
-        if (m_use_intblast_model) {
-            m_intblast.add_value(n, mdl, values);
-            return;
-        }
+    void solver::add_value(euf::enode* n, model& mdl, expr_ref_vector& values) {        
         auto p = expr2pdd(n->get_expr());
         rational val;
         if (!m_core.try_eval(p, val)) {
@@ -82,8 +77,7 @@ namespace polysat {
         for (unsigned v = 0; v < get_num_vars(); ++v)
             if (m_var2pdd_valid.get(v, false))
                 out << ctx.bpp(var2enode(v)) << " := " << m_var2pdd[v] << "\n";
-        if (m_use_intblast_model)
-            m_intblast.display(out);
+        m_intblast.display(out);
         return out;
     }
 }

@@ -628,9 +628,6 @@ namespace arith {
         }
         else if (use_nra_model() && lp().external_to_local(v) != lp::null_lpvar) {
             anum const& an = nl_value(v, m_nla->tmp1());
-
-
-
             if (a.is_int(o) && !m_nla->am().is_int(an))
                 value = a.mk_numeral(rational::zero(), a.is_int(o));
             else
