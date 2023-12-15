@@ -145,18 +145,21 @@ namespace polysat {
         case OP_BSMOD_I:         
         case OP_BSDIV:            
         case OP_BSDIV_I:
-            expr2pdd(a);
-            m_delayed_axioms.push_back(a);            
-            ctx.push(push_back_vector(m_delayed_axioms));
-            break;
-
-        case OP_BREDAND: // x == 2^K - 1        unary, return single bit, 1 if all input bits are set.
         case OP_BREDOR:  // x > 0               unary, return single bit, 1 if at least one input bit is set.
+        case OP_BREDAND: // x == 2^K - 1        unary, return single bit, 1 if all input bits are set.
         case OP_BCOMP:   // x == y ? 1 : 0      binary, return single bit, 1 if the arguments are equal.
         case OP_ROTATE_LEFT:
         case OP_ROTATE_RIGHT:
         case OP_EXT_ROTATE_LEFT:
         case OP_EXT_ROTATE_RIGHT:
+        case OP_INT2BV:
+        case OP_BV2INT:           
+            if (bv.is_bv(a))
+                expr2pdd(a);
+            m_delayed_axioms.push_back(a);            
+            ctx.push(push_back_vector(m_delayed_axioms));
+            break;
+
         default:
             IF_VERBOSE(0, verbose_stream() << mk_pp(a, m) << "\n");
             NOT_IMPLEMENTED_YET();
@@ -276,6 +279,7 @@ namespace polysat {
         for (; m_delayed_axioms_qhead < m_delayed_axioms.size() && !inconsistent(); ++m_delayed_axioms_qhead) {
             app* e = m_delayed_axioms[m_delayed_axioms_qhead];
             expr* x, *y;
+            unsigned n = 0;
             if (bv.is_bv_sdiv(e, x, y))
                 axiomatize_sdiv(e, x, y);
             else if (bv.is_bv_sdivi(e, x, y))
@@ -288,10 +292,90 @@ namespace polysat {
                 axiomatize_smod(e, x, y);
             else if (bv.is_bv_smodi(e, x, y))
                 axiomatize_smod(e, x, y);
+            else if (bv.is_redand(e, x))
+                axiomatize_redand(e, x);
+            else if (bv.is_redor(e, x))
+                axiomatize_redor(e, x);
+            else if (bv.is_comp(e, x, y))
+                axiomatize_comp(e, x, y);
+            else if (bv.is_rotate_left(e, n, x))
+                axiomatize_rotate_left(e, n, x);
+            else if (bv.is_rotate_right(e, n, x))
+                axiomatize_rotate_right(e, n, x);
+            else if (bv.is_ext_rotate_left(e, x, y))
+                axiomatize_ext_rotate_left(e, x, y);
+            else if (bv.is_ext_rotate_right(e, x, y))
+                axiomatize_ext_rotate_right(e, x, y);
+            else if (bv.is_bv2int(e, x))
+                axiomatize_bv2int(e, x);
+            else if (bv.is_int2bv(e, n, x))
+                axiomatize_int2bv(e, n, x);
             else
                 UNREACHABLE();
         }
         return true;
+    }
+
+    void solver::axiomatize_int2bv(app* e, unsigned & sz, expr* x) {
+        NOT_IMPLEMENTED_YET();
+
+    }
+    
+    void solver::axiomatize_bv2int(app* e, expr* x) {
+        NOT_IMPLEMENTED_YET();
+    }
+
+
+    expr* solver::rotate_left(app* e, unsigned n, expr* x) {
+        unsigned sz = bv.get_bv_size(x);
+        n = n % sz;
+        if (n == 0 || sz == 1)
+            return x;
+        else
+            return bv.mk_concat(bv.mk_extract(n, 0, x), bv.mk_extract(sz - 1, sz - n - 1, x));
+    }    
+
+    void solver::axiomatize_rotate_left(app* e, unsigned n, expr* x) {
+        // e = x[n : 0] ++ x[sz - 1, sz - n - 1] 
+        add_unit(eq_internalize(e, rotate_left(e, n, x)));              
+    }
+
+    void solver::axiomatize_rotate_right(app* e, unsigned n, expr* x) {
+        unsigned sz = bv.get_bv_size(x);
+        axiomatize_rotate_left(e, sz - n, x);
+    }
+
+    void solver::axiomatize_ext_rotate_left(app* e, expr* x, expr* y) {
+        unsigned sz = bv.get_bv_size(x);
+        for (unsigned i = 0; i < sz; ++i)
+            add_clause(~eq_internalize(bv.mk_numeral(i, sz), y), eq_internalize(e, rotate_left(e, i, x)));
+        add_clause(~mk_literal(bv.mk_ule(bv.mk_numeral(sz, sz), y)), eq_internalize(e, bv.mk_zero(sz)));
+    }
+
+    void solver::axiomatize_ext_rotate_right(app* e, expr* x, expr* y) {
+        unsigned sz = bv.get_bv_size(x);
+        for (unsigned i = 0; i < sz; ++i)
+            add_clause(~eq_internalize(bv.mk_numeral(i, sz), y), eq_internalize(e, rotate_left(e, sz - i, x)));
+        add_clause(~mk_literal(bv.mk_ule(bv.mk_numeral(sz, sz), y)), eq_internalize(e, bv.mk_zero(sz)));
+    }
+
+    // x = N - 1
+    void solver::axiomatize_redand(app* e, expr* x) {
+        unsigned sz = bv.get_bv_size(x);
+        rational N = rational::power_of_two(sz);
+        add_equiv(expr2literal(e), eq_internalize(x, bv.mk_numeral(N - 1, sz)));
+    }
+
+    void solver::axiomatize_redor(app* e, expr* x) {
+        unsigned sz = bv.get_bv_size(x);
+        add_equiv(expr2literal(e), ~eq_internalize(x, bv.mk_zero(sz)));
+    }
+
+    void solver::axiomatize_comp(app* e, expr* x, expr* y) {
+        unsigned sz = bv.get_bv_size(x);
+        auto eq = eq_internalize(x, y);
+        add_clause(~eq, eq_internalize(e, bv.mk_numeral(1, sz)));
+        add_clause(eq, eq_internalize(e, bv.mk_numeral(0, sz)));
     }
 
     // y = 0 -> x

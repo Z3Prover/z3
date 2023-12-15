@@ -133,6 +133,16 @@ namespace polysat {
         void axiomatize_srem(app* e, expr* x, expr* y);
         void axiomatize_smod(app* e, expr* x, expr* y);
         void axiomatize_sdiv(app* e, expr* x, expr* y);
+        void axiomatize_redand(app* e, expr* x);
+        void axiomatize_redor(app* e, expr* x);
+        void axiomatize_comp(app* e, expr* x, expr* y);
+        void axiomatize_rotate_left(app* e, unsigned n, expr* x);
+        void axiomatize_rotate_right(app* e, unsigned n, expr* x);
+        void axiomatize_ext_rotate_left(app* e, expr* x, expr* y);
+        void axiomatize_ext_rotate_right(app* e, expr* x, expr* y);
+        void axiomatize_int2bv(app* e, unsigned & sz, expr* x);
+        void axiomatize_bv2int(app* e, expr* x);
+        expr* rotate_left(app* e, unsigned n, expr* x);
         unsigned m_delayed_axioms_qhead = 0;
         ptr_vector<app> m_delayed_axioms;
         bool propagate_delayed_axioms();
