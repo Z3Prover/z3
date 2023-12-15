@@ -468,6 +468,7 @@ namespace intblast {
                 sorts.push_back(a.mk_int());
             }
             else
+
                 sorts.push_back(s);
         }
         b = translated(b);
@@ -701,17 +702,17 @@ namespace intblast {
             //
             // ashr(x, y)
             // if y = k & x >= 0 -> x / 2^k   
-            // if y = k & x < 0  -> - (x / 2^k) 
+            // if y = k & x < 0  -> (x / 2^k) - 1 + 2^{N-k}
             //
-            rational N = rational::power_of_two(bv.get_bv_size(e));
-            expr* x = umod(e, 0);
-            expr* y = umod(e, 1);
-            expr* signbit = a.mk_ge(x, a.mk_int(N / 2));
-            r = m.mk_ite(signbit, a.mk_int(N - 1), a.mk_int(0));
-            for (unsigned i = 0; i < bv.get_bv_size(e); ++i) {
-                expr* d = a.mk_idiv(x, a.mk_int(rational::power_of_two(i)));
+            unsigned sz = bv.get_bv_size(e);
+            rational N = bv_size(e);
+            expr* x = umod(e, 0), *y = umod(e, 1);
+            expr* signx = a.mk_ge(x, a.mk_int(N / 2));
+            r = m.mk_ite(signx, a.mk_int(N - 1), a.mk_int(0));
+            for (unsigned i = 0; i < sz; ++i) {
+                expr* d = a.mk_idiv(x, a.mk_int(rational::power_of_two(i)));              
                 r = m.mk_ite(m.mk_eq(y, a.mk_int(i)),
-                    m.mk_ite(signbit, a.mk_uminus(d), d),
+                    m.mk_ite(signx, a.mk_add(d, a.mk_int(N - rational::power_of_two(sz-i))), d),
                     r);
             }
             break;
@@ -793,12 +794,13 @@ namespace intblast {
         case OP_BSREM: {
             // y = 0 -> x
             // else x - sdiv(x, y) * y
-            bv_expr = e;
-            expr* x = umod(bv_expr, 0), * y = umod(bv_expr, 1);
-            rational N = rational::power_of_two(bv.get_bv_size(bv_expr));
+            expr* x = umod(e, 0), * y = umod(e, 1);
+            rational N = bv_size(e);
             expr* signx = a.mk_ge(x, a.mk_int(N / 2));
             expr* signy = a.mk_ge(y, a.mk_int(N / 2));
-            expr* d = a.mk_idiv(x, y);
+            expr* absx = m.mk_ite(signx, a.mk_sub(a.mk_int(N), x), x);
+            expr* absy = m.mk_ite(signy, a.mk_sub(a.mk_int(N), y), y);
+            expr* d = a.mk_idiv(absx, absy);
             d = m.mk_ite(m.mk_iff(signx, signy), d, a.mk_uminus(d));
             r = a.mk_sub(x, a.mk_mul(d, y));
             r = m.mk_ite(m.mk_eq(y, a.mk_int(0)), x, r);
