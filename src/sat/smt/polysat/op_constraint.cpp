@@ -313,22 +313,12 @@ namespace polysat {
     }
 
     void op_constraint::activate_ashr(core& c, dependency const& d) {
-        //
-        // if q = k & p >= 0 -> r*2^k + 
-        // if q = k & p < 0  -> (p / 2^k) - 1 + 2^{N-k}
-        //
-
         auto& m = p.manager();
         unsigned const N = m.power_of_2();
-
         auto& C = c.cs();
         c.add_clause("q >= N & p < 0 -> p << q = -1", {~C.uge(q, N), ~C.slt(p, 0), C.eq(r, m.max_value())}, false);
         c.add_clause("q >= N & p >= 0 -> p << q = 0", {~C.uge(q, N), ~C.sge(p, 0), C.eq(r)}, false);
         c.add_clause("q = 0 -> p << q = p", { ~C.eq(q), C.eq(r, p) }, false);
-        for (unsigned k = 0; k < N; ++k) {
-//            c.add_clause("q = k & p >= 0 -> p << q = p / 2^k", {~C.eq(q, k), ~C.sge(p, 0), ... }, true);
-//            c.add_clause("q = k & p < 0 -> p << q = (p / 2^k) -1 + 2^{N-k}", {~C.eq(q, k), ~C.slt(p, 0), ... }, true);
-        }
     }
 
 
@@ -361,7 +351,43 @@ namespace polysat {
     }   
 
     void op_constraint::propagate_ashr(core& c, dependency const& dep) {
-
+        //
+        // Suppose q = k, p >= 0:
+        // p = ab, where b has length k, a has length N - k
+        // r = 0a, where 0 has length k, a has length N - k
+        // r*2^k = a0
+        // ab - a0 = 0b = p - r*2^k < 2^k
+        // r < 2^{N-k}
+        // 
+        // Suppose q = k, p < 0
+        // p = ab
+        // r = 111a where 111 has length k
+        // r*2^k = a0
+        // ab - a0 = 0b = p - r*2^k < 2^k
+        // r >= 1110
+        // example:
+        //    1100 = 12 = 16 - 4 = 2^4 - 2^2 = 2^N - 2^k
+        // 
+        // Succinct:
+        // if q = k & p >= 0 -> r*2^k + p < 2^{N-k} && r < 2^k
+        // if q = k & p < 0  -> (p / 2^k) - 2^N + 2^{N-k}
+        //
+        auto& m = p.manager();
+        auto N = m.power_of_2();
+        auto qv = c.subst(q);
+        if (qv.is_val() && 1 <= qv.val() && qv.val() < N) {
+            auto pv = c.subst(p);
+            auto rv = c.subst(r);
+            auto& C = c.cs();
+            unsigned k = qv.val().get_unsigned();
+            rational twoN = rational::power_of_two(N);
+            rational twoK = rational::power_of_two(k);
+            rational twoNk = rational::power_of_two(N - k);
+            auto eqK = C.eq(q, k);
+            c.add_clause("q = k -> r*2^k + p < 2^k", { ~eqK, C.ult(p - r * twoK, twoK) }, true);
+            c.add_clause("q = k & p >= 0 -> r < 2^{N-k}", { ~eqK, ~C.ule(0, p), C.ult(r, twoNk) }, true);            
+            c.add_clause("q = k & p < 0 -> r >= 2^N - 2^{N-k}", { ~eqK, ~C.slt(p, 0), C.uge(r, twoN - twoNk) }, true);
+        }
     }
 
 

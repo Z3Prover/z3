@@ -34,6 +34,7 @@ namespace polysat {
 
     saturation::saturation(core& c) : c(c), C(c.cs()) {}
 
+#if 0
     void saturation::perform(pvar v) {
         for (signed_constraint c : core)
             perform(v, sc, core);
@@ -2186,5 +2187,7 @@ namespace polysat {
             return add_conflict(v, core, c, conseq);
         }
     }
+
+#endif
 
 }

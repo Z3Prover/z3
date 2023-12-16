@@ -87,8 +87,6 @@ namespace polysat {
 
         void add_watch(unsigned idx, unsigned var);
 
-        signed_constraint get_constraint(unsigned idx, bool sign);
-
         lbool eval(signed_constraint const& sc);
         dependency_vector explain_eval(signed_constraint const& sc);
 
