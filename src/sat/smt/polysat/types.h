@@ -22,7 +22,10 @@ namespace polysat {
     using pdd = dd::pdd;
     using pvar = unsigned;
     using theory_var = unsigned;
-    struct constraint_id { unsigned id; };
+    struct constraint_id {
+        unsigned id; bool is_null() const { return id == UINT_MAX; }
+        static constraint_id null() { return constraint_id{ UINT_MAX }; }
+    };
 
     using pvar_vector = unsigned_vector;
     inline const pvar null_var = UINT_MAX;
@@ -80,7 +83,7 @@ namespace polysat {
     using dependency_vector = vector<dependency>;
 
     using core_vector = std::initializer_list<std::variant<signed_constraint, dependency>>;
-
+    using constraint_id_vector = svector<constraint_id>;
 
 
     //

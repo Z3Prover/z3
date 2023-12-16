@@ -31,6 +31,8 @@ namespace polysat {
     class core;
     class solver_interface;
 
+
+
     class core {
         class mk_add_var;
         class mk_dqueue_var;
@@ -54,13 +56,13 @@ namespace polysat {
         unsigned m_qhead = 0, m_vqhead = 0;
         svector<constraint_id> m_prop_queue;
         svector<constraint_info> m_constraint_index;  // index of constraints
-        dependency_vector m_unsat_core;
+        constraint_id_vector m_unsat_core;
 
 
         // attributes associated with variables
         vector<pdd>             m_vars;                       // for each variable a pdd
         vector<rational>        m_values;                     // current value of assigned variable
-        svector<dependency>     m_justification;              // justification for assignment
+        svector<constraint_id>  m_justification;              // justification for assignment
         activity                m_activity;                   // activity of variables
         var_queue<activity>     m_var_queue;                  // priority queue of variables to assign
         vector<unsigned_vector> m_watch;                      // watch lists for variables for constraints on m_prop_queue where they occur
@@ -77,9 +79,9 @@ namespace polysat {
         bool is_assigned(pvar v) { return !m_justification[v].is_null(); }
         void propagate_value(constraint_id idx);
         void propagate_assignment(constraint_id idx);
-        void propagate_assignment(pvar v, rational const& value, dependency dep);
+        void propagate_assignment(pvar v, rational const& value, constraint_id dep);
         void propagate_unsat_core();
-        void propagate(signed_constraint& sc, lbool value, dependency const& d);
+        void propagate(constraint_id id, signed_constraint& sc, lbool value, dependency const& d);
 
         void get_bitvector_prefixes(pvar v, pvar_vector& out);
         void get_fixed_bits(pvar v, svector<justified_fixed_bits>& fixed_bits);
@@ -88,7 +90,8 @@ namespace polysat {
         void add_watch(unsigned idx, unsigned var);
 
         lbool eval(signed_constraint const& sc);
-        dependency_vector explain_eval(signed_constraint const& sc);
+        constraint_id_vector explain_eval(signed_constraint const& sc);
+        dependency_vector get_dependencies(constraint_id_vector const& cc);
 
         void add_axiom(signed_constraint sc);
 

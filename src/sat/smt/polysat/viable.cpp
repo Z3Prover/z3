@@ -809,12 +809,12 @@ namespace polysat {
     /*
     * Explain why the current variable is not viable or signleton.
     */
-    dependency_vector viable::explain() { 
-        dependency_vector result;
+    constraint_id_vector viable::explain() { 
+        constraint_id_vector result;
         for (auto e : m_explain) {
             auto index = e->constraint_index;
             auto const& [sc, d, value] = c.m_constraint_index[index];
-            result.push_back(d);
+            result.push_back({ index });
             result.append(c.explain_eval(sc));
         }
         // TODO: explaination for fixed bits

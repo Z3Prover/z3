@@ -38,7 +38,7 @@ namespace polysat {
     public:
         mk_assign_var(pvar v, core& c) : m_var(v), c(c) {}
         void undo() {
-            c.m_justification[m_var] = null_dependency;
+            c.m_justification[m_var] = constraint_id::null();
             c.m_assignment.pop();
         }
     };
@@ -123,7 +123,7 @@ namespace polysat {
         unsigned v = m_vars.size();
         m_vars.push_back(sz2pdd(sz).mk_var(v));
         m_activity.push_back({ sz, 0 });
-        m_justification.push_back(null_dependency);
+        m_justification.push_back(constraint_id::null());
         m_watch.push_back({});
         m_var_queue.mk_var_eh(v);
         m_viable.ensure_var(v);
@@ -174,11 +174,11 @@ namespace polysat {
         s.trail().push(mk_dqueue_var(m_var, *this));
         switch (m_viable.find_viable(m_var, m_value)) {
         case find_t::empty: 
-            s.set_lemma(m_viable.get_core(), m_viable.explain());
+            s.set_lemma(m_viable.get_core(), get_dependencies(m_viable.explain()));
             // propagate_unsat_core();        
             return sat::check_result::CR_CONTINUE;
         case find_t::singleton: 
-            s.propagate(m_constraints.eq(var2pdd(m_var), m_value), m_viable.explain());
+            s.propagate(m_constraints.eq(var2pdd(m_var), m_value), get_dependencies(m_viable.explain()));
             return sat::check_result::CR_CONTINUE;        
         case find_t::multiple:  
             s.add_eq_literal(m_var, m_value);
@@ -210,7 +210,7 @@ namespace polysat {
         if (value == l_false)
             sc = ~sc;
         if (sc.is_eq(m_var, m_value))
-            propagate_assignment(m_var, m_value, dep);
+            propagate_assignment(m_var, m_value, idx);
         else 
             sc.activate(*this, dep);        
     }
@@ -219,7 +219,7 @@ namespace polysat {
         m_watch[var].push_back(idx);
     }
 
-    void core::propagate_assignment(pvar v, rational const& value, dependency dep) {
+    void core::propagate_assignment(pvar v, rational const& value, constraint_id dep) {
         if (is_assigned(v))
             return;
         if (m_var_queue.contains(v)) {
@@ -255,7 +255,7 @@ namespace polysat {
             // this can create fresh literals and update m_watch, but
             // will not update m_watch[v] (other than copy constructor for m_watch)
             // because v has been assigned a value.
-            propagate(sc, value, dep);
+            propagate({ idx }, sc, value, dep);
             if (s.inconsistent())
                 return;
            
@@ -280,7 +280,7 @@ namespace polysat {
     void core::propagate_value(constraint_id idx) {
         auto [sc, d, value] = m_constraint_index[idx.id];
         // propagate current assignment for sc
-        propagate(sc, value, d);
+        propagate(idx, sc, value, d);
         if (s.inconsistent())
             return;
 
@@ -292,10 +292,10 @@ namespace polysat {
                 auto [sc, d, value] = m_constraint_index[idx1];
                 switch (eval(sc)) {
                 case l_false:
-                    s.propagate(d, true, explain_eval(sc));
+                    s.propagate(d, true, get_dependencies(explain_eval(sc)));
                     break;
                 case l_true:
-                    s.propagate(d, false, explain_eval(sc));
+                    s.propagate(d, false, get_dependencies(explain_eval(sc)));
                     break;
                 default:
                     break;
@@ -304,15 +304,25 @@ namespace polysat {
         }       
     }
 
-    void core::propagate(signed_constraint& sc, lbool value, dependency const& d) {
+    dependency_vector core::get_dependencies(constraint_id_vector const& cc) {
+        dependency_vector result;
+        for (auto idx : cc) {
+            auto [sc, d, value] = m_constraint_index[idx.id];
+            SASSERT(value != l_undef);
+            result.push_back(value == l_false ? ~d : d);
+        }
+        return result;
+    }
+
+    void core::propagate(constraint_id id, signed_constraint& sc, lbool value, dependency const& d) {
         lbool eval_value = eval(sc);
         if (eval_value == l_undef)
             sc.propagate(*this, value, d);
         else if (value == l_undef)
-            s.propagate(d, eval_value != l_true, explain_eval(sc));
+            s.propagate(d, eval_value != l_true, get_dependencies(explain_eval(sc)));
         else if (value != eval_value) {
             m_unsat_core = explain_eval(sc);
-            m_unsat_core.push_back(value == l_false ? ~d : d);
+            m_unsat_core.push_back(id);
             propagate_unsat_core();
         }                   
     }
@@ -333,7 +343,7 @@ namespace polysat {
         // default is to use unsat core:
         // if core is based on viable, use s.set_lemma();
 
-        s.set_conflict(m_unsat_core);       
+        s.set_conflict(get_dependencies(m_unsat_core));       
     }
 
     void core::assign_eh(constraint_id index, bool sign, unsigned level) { 
@@ -352,8 +362,8 @@ namespace polysat {
         s.trail().push(unassign(*this, index.id));
     }
 
-    dependency_vector core::explain_eval(signed_constraint const& sc) { 
-        dependency_vector deps;
+    constraint_id_vector core::explain_eval(signed_constraint const& sc) { 
+        constraint_id_vector deps;
         for (auto v : sc.vars()) 
             if (is_assigned(v))
                 deps.push_back(m_justification[v]);
@@ -379,7 +389,7 @@ namespace polysat {
         for (auto const& [sc, d, value] : m_constraint_index) 
             out << sc << " " << d << " := " << value << "\n";        
         for (unsigned i = 0; i < m_vars.size(); ++i) 
-            out << m_vars[i] << " := " << m_values[i] << " " << m_justification[i] << "\n";
+            out << m_vars[i] << " := " << m_values[i] << " " << m_constraint_index[m_justification[i].id].d << "\n";
         m_var_queue.display(out << "vars ") << "\n";
         return out;
     }
