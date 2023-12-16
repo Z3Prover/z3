@@ -1053,7 +1053,7 @@ namespace arith {
         if (!check_delayed_eqs()) 
             return sat::check_result::CR_CONTINUE;
 
-        if (!int_undef && !check_band_terms())
+        if (!int_undef && !check_bv_terms())
             return sat::check_result::CR_CONTINUE;
 
         if (ctx.get_config().m_arith_ignore_int && int_undef)

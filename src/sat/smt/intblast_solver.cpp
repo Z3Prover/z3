@@ -656,24 +656,58 @@ namespace intblast {
             break;
         }
         case OP_BSHL: {
-            expr* x = arg(0), * y = umod(e, 1);
-            r = a.mk_int(0);
-            for (unsigned i = 0; i < bv.get_bv_size(e); ++i)
-                r = m.mk_ite(m.mk_eq(y, a.mk_int(i)), a.mk_mul(x, a.mk_int(rational::power_of_two(i))), r);            
+            if (!a.is_numeral(arg(0)) && !a.is_numeral(arg(1))) 
+                r = a.mk_shl(bv.get_bv_size(e), arg(0),arg(1));
+            else {
+                expr* x = arg(0), * y = umod(e, 1);
+                r = a.mk_int(0);
+                IF_VERBOSE(2, verbose_stream() << "shl " << mk_bounded_pp(e, m) << " " << bv.get_bv_size(e) << "\n");
+                for (unsigned i = 0; i < bv.get_bv_size(e); ++i)
+                    r = m.mk_ite(m.mk_eq(y, a.mk_int(i)), a.mk_mul(x, a.mk_int(rational::power_of_two(i))), r);   
+            }
             break;
         }
         case OP_BNOT:
             r = bnot(arg(0));
             break;
-        case OP_BLSHR: {
-            expr* x = arg(0), * y = umod(e, 1);
-            r = a.mk_int(0);
-            for (unsigned i = 0; i < bv.get_bv_size(e); ++i)
-                r = m.mk_ite(m.mk_eq(y, a.mk_int(i)), a.mk_idiv(x, a.mk_int(rational::power_of_two(i))), r);
+        case OP_BLSHR: 
+            if (!a.is_numeral(arg(0)) && !a.is_numeral(arg(1)))  
+                r = a.mk_lshr(bv.get_bv_size(e), arg(0), arg(1));
+            else {
+                expr* x = arg(0), * y = umod(e, 1);
+                r = a.mk_int(0);
+                IF_VERBOSE(2, verbose_stream() << "lshr " << mk_bounded_pp(e, m) << " " << bv.get_bv_size(e) << "\n");
+                for (unsigned i = 0; i < bv.get_bv_size(e); ++i)
+                    r = m.mk_ite(m.mk_eq(y, a.mk_int(i)), a.mk_idiv(x, a.mk_int(rational::power_of_two(i))), r);
+            }
             break;
-        }                     
+        case OP_BASHR: 
+            if (!a.is_numeral(arg(1)))
+                r = a.mk_ashr(bv.get_bv_size(e), arg(0), arg(1));
+            else {
+                
+                //
+                // ashr(x, y)
+                // if y = k & x >= 0 -> x / 2^k   
+                // if y = k & x < 0  -> (x / 2^k) - 2^{N-k}
+                //
+                unsigned sz = bv.get_bv_size(e);
+                rational N = bv_size(e);
+                expr* x = umod(e, 0), *y = umod(e, 1);
+                expr* signx = a.mk_ge(x, a.mk_int(N / 2));
+                r = m.mk_ite(signx, a.mk_int(- 1), a.mk_int(0));
+                IF_VERBOSE(1, verbose_stream() << "ashr " << mk_bounded_pp(e, m) << " " << bv.get_bv_size(e) << "\n");
+                for (unsigned i = 0; i < sz; ++i) {
+                    expr* d = a.mk_idiv(x, a.mk_int(rational::power_of_two(i)));              
+                    r = m.mk_ite(m.mk_eq(y, a.mk_int(i)),
+                                 m.mk_ite(signx, a.mk_add(d, a.mk_int(- rational::power_of_two(sz-i))), d),
+                                 r);
+                }
+            }
+            break;
         case OP_BOR: {
             // p | q := (p + q) - band(p, q)
+            IF_VERBOSE(2, verbose_stream() << "bor " << mk_bounded_pp(e, m) << " " << bv.get_bv_size(e) << "\n");
             r = arg(0);
             for (unsigned i = 1; i < args.size(); ++i)
                 r = a.mk_sub(a.mk_add(r, arg(i)), a.mk_band(bv.get_bv_size(e), r, arg(i)));
@@ -683,12 +717,14 @@ namespace intblast {
             r = bnot(band(args));
             break;
         case OP_BAND:
+            IF_VERBOSE(2, verbose_stream() << "band " << mk_bounded_pp(e, m) << " " << bv.get_bv_size(e) << "\n");
             r = band(args);
             break;
         case OP_BXNOR:
         case OP_BXOR: {
             // p ^ q := (p + q) - 2*band(p, q);
             unsigned sz = bv.get_bv_size(e);
+            IF_VERBOSE(2, verbose_stream() << "bxor " << bv.get_bv_size(e) << "\n");
             r = arg(0);
             for (unsigned i = 1; i < args.size(); ++i) {
                 expr* q = arg(i);
@@ -696,25 +732,6 @@ namespace intblast {
             }
             if (e->get_decl_kind() == OP_BXNOR)
                 r = bnot(r);
-            break;
-        }
-        case OP_BASHR: {
-            //
-            // ashr(x, y)
-            // if y = k & x >= 0 -> x / 2^k   
-            // if y = k & x < 0  -> (x / 2^k) - 1 + 2^{N-k}
-            //
-            unsigned sz = bv.get_bv_size(e);
-            rational N = bv_size(e);
-            expr* x = umod(e, 0), *y = umod(e, 1);
-            expr* signx = a.mk_ge(x, a.mk_int(N / 2));
-            r = m.mk_ite(signx, a.mk_int(- 1), a.mk_int(0));
-            for (unsigned i = 0; i < sz; ++i) {
-                expr* d = a.mk_idiv(x, a.mk_int(rational::power_of_two(i)));              
-                r = m.mk_ite(m.mk_eq(y, a.mk_int(i)),
-                    m.mk_ite(signx, a.mk_add(d, a.mk_int(- rational::power_of_two(sz-i))), d),
-                    r);
-            }
             break;
         }
         case OP_ZERO_EXT:

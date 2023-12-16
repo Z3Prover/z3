@@ -508,6 +508,19 @@ static bool is_const_op(decl_kind k) {
         //k == OP_0_PW_0_REAL;
 }
 
+symbol arith_decl_plugin::bv_symbol(decl_kind k) const {
+    switch (k) {
+    case OP_ARITH_BAND: return symbol("band");
+    case OP_ARITH_SHL: return symbol("shl");
+    case OP_ARITH_ASHR: return symbol("ashr");
+    case OP_ARITH_LSHR: return symbol("lshr");
+    default:
+        UNREACHABLE();
+    }
+    return symbol();
+}
+
+
 func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                           unsigned arity, sort * const * domain, sort * range) {
     if (k == OP_NUM)
@@ -523,10 +536,10 @@ func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
         return m_manager->mk_func_decl(symbol("divisible"), 1, &m_int_decl, m_manager->mk_bool_sort(), 
                                        func_decl_info(m_family_id, k, num_parameters, parameters));
     }
-    if (k == OP_ARITH_BAND) {
+    if (k == OP_ARITH_BAND || k == OP_ARITH_SHL || k == OP_ARITH_ASHR || k == OP_ARITH_LSHR) {
         if (arity != 2 || domain[0] != m_int_decl || domain[1] != m_int_decl || num_parameters != 1 || !parameters[0].is_int()) 
             m_manager->raise_exception("invalid bitwise and application. Expects integer parameter and two arguments of sort integer");
-        return m_manager->mk_func_decl(symbol("band"), 2, domain, m_int_decl,
+        return m_manager->mk_func_decl(bv_symbol(k), 2, domain, m_int_decl,
             func_decl_info(m_family_id, k, num_parameters, parameters));
     }
 
@@ -554,11 +567,11 @@ func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
         return m_manager->mk_func_decl(symbol("divisible"), 1, &m_int_decl, m_manager->mk_bool_sort(), 
                                        func_decl_info(m_family_id, k, num_parameters, parameters));
     }
-    if (k == OP_ARITH_BAND) {
+    if (k == OP_ARITH_BAND  || k == OP_ARITH_SHL || k == OP_ARITH_ASHR || k == OP_ARITH_LSHR) {
         if (num_args != 2 || args[0]->get_sort() != m_int_decl || args[1]->get_sort() != m_int_decl || num_parameters != 1 || !parameters[0].is_int())
             m_manager->raise_exception("invalid bitwise and application. Expects integer parameter and two arguments of sort integer");
         sort* domain[2] = { m_int_decl, m_int_decl };
-        return m_manager->mk_func_decl(symbol("band"), 2, domain, m_int_decl,
+        return m_manager->mk_func_decl(bv_symbol(k), 2, domain, m_int_decl,
             func_decl_info(m_family_id, k, num_parameters, parameters));
     }
 
