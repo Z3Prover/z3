@@ -204,13 +204,6 @@ namespace polysat {
         return true;
     }
 
-    signed_constraint core::get_constraint(unsigned idx, bool sign) {
-        auto sc = m_constraint_index[idx].sc;
-        if (sign)
-            sc = ~sc;
-        return sc;
-    }
-
     void core::propagate_assignment(constraint_id idx) { 
         auto [sc, dep, value] = m_constraint_index[idx.id];
         SASSERT(value != l_undef);
@@ -252,7 +245,6 @@ namespace polysat {
             bool swapped = false;
             for (unsigned i = vars.size(); i-- > 2; ) {
                 if (!is_assigned(vars[i])) {
-                    verbose_stream() << "watch instead " << vars[i] << " instead of " << vars[0] << " for " << idx << "\n";
                     add_watch(idx, vars[i]);
                     std::swap(vars[i], vars[0]);
                     swapped = true;
