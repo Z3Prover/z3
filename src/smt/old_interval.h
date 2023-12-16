@@ -92,7 +92,7 @@ public:
     rational const & get_lower_value() const { SASSERT(!minus_infinity()); return m_lower.to_rational(); }
     rational const & get_upper_value() const { SASSERT(!plus_infinity()); return m_upper.to_rational(); }
     old_interval & operator=(old_interval const & other);
-    old_interval & operator=(old_interval && other);
+    old_interval & operator=(old_interval && other) noexcept;
     old_interval & operator+=(old_interval const & other);
     old_interval & operator-=(old_interval const & other);
     old_interval & operator*=(old_interval const & other);

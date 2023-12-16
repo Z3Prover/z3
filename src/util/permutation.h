@@ -31,7 +31,7 @@ public:
     unsigned operator()(unsigned i) const { return m_p[i]; }
     unsigned inv(unsigned i_prime) const { return m_inv_p[i_prime]; }
 
-    void swap(unsigned i, unsigned j);
+    void swap(unsigned i, unsigned j) noexcept;
     void move_after(unsigned i, unsigned j);
     
     void display(std::ostream & out) const;

@@ -59,7 +59,7 @@ namespace datalog {
             dealloc(m_elems);
         }
 
-        void swap(relation_base& other) override {
+        void swap(relation_base& other) noexcept override {
             vector_relation& o = dynamic_cast<vector_relation&>(other);
             if (&o == this) return;
             std::swap(o.m_eqs, m_eqs);

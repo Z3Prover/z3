@@ -28,7 +28,7 @@ public:
     
     typedef unsigned data;
 
-    void swap(uint_set & other) {
+    void swap(uint_set & other) noexcept {
         unsigned_vector::swap(other);
     }
 

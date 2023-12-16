@@ -31,7 +31,7 @@ void permutation::reset(unsigned size) {
     }
 }
 
-void permutation::swap(unsigned i, unsigned j) {
+void permutation::swap(unsigned i, unsigned j) noexcept {
     unsigned i_prime = m_p[i];
     unsigned j_prime = m_p[j];
     std::swap(m_p[i], m_p[j]);

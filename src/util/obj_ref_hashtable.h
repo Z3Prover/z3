@@ -104,7 +104,7 @@ public:
 
     unsigned long long get_num_collision() const { return m_table.get_num_collision(); }
 
-    void swap(obj_ref_map & other) {
+    void swap(obj_ref_map & other) noexcept {
         m_table.swap(other.m_table);
     }
 

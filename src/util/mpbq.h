@@ -40,10 +40,10 @@ public:
     mpbq(int v, unsigned k):m_num(v), m_k(k) {}
     mpz const & numerator() const { return m_num; }
     unsigned k() const { return m_k; }
-    void swap(mpbq & other) { m_num.swap(other.m_num); std::swap(m_k, other.m_k); }
+    void swap(mpbq & other) noexcept { m_num.swap(other.m_num); std::swap(m_k, other.m_k); }
 };
 
-inline void swap(mpbq & m1, mpbq & m2) { m1.swap(m2); }
+inline void swap(mpbq & m1, mpbq & m2) noexcept { m1.swap(m2); }
 
 typedef svector<mpbq> mpbq_vector;
 
@@ -72,7 +72,7 @@ public:
     mpbq_manager(unsynch_mpz_manager & m);
     ~mpbq_manager();
 
-    static void swap(mpbq & a, mpbq & b) { a.swap(b); }
+    static void swap(mpbq & a, mpbq & b) noexcept { a.swap(b); }
 
     void del(mpbq & a) { m_manager.del(a.m_num); }
     void reset(mpbq & a) { m_manager.reset(a.m_num); a.m_k = 0; }

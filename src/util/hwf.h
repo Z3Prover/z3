@@ -35,7 +35,7 @@ class hwf {
     }
 
 public:
-    void swap(hwf & other) { std::swap(value, other.value); }
+    void swap(hwf & other) noexcept { std::swap(value, other.value); }
 };
 
 

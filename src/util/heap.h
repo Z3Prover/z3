@@ -259,7 +259,7 @@ public:
         return m_values.end(); 
     }
 
-    void swap(heap & other) {
+    void swap(heap & other) noexcept {
         if (this != &other) {
             CASSERT("heap", other.check_invariant());
             CASSERT("heap", check_invariant());

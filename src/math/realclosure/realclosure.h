@@ -164,7 +164,7 @@ namespace realclosure {
         void set(numeral & a, mpq const & n);
         void set(numeral & a, numeral const & n);
 
-        void swap(numeral & a, numeral & b);
+        void swap(numeral & a, numeral & b) noexcept;
 
         /**
            \brief Return a^{1/k}

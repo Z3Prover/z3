@@ -97,7 +97,7 @@ public:
         return *this;
     }
 
-    ref & operator=(ref &&r) {
+    ref & operator=(ref &&r) noexcept {
         if (this != &r) {
            dec_ref ();
            m_ptr = r.detach ();
@@ -123,7 +123,7 @@ public:
     friend bool operator!=(const ref & r1, const ref & r2) {
         return r1.m_ptr != r2.m_ptr;
     }
-    friend void swap (ref &r1, ref &r2) {
+    friend void swap (ref &r1, ref &r2) noexcept {
         T* tmp = r1.m_ptr;
         r1.m_ptr = r2.m_ptr;
         r2.m_ptr = tmp;

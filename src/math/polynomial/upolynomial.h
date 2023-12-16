@@ -89,7 +89,7 @@ namespace upolynomial {
             void push_back_swap(numeral_vector & p, unsigned degree);
             
             void swap_factor(unsigned i, numeral_vector & p);
-            void swap(factors & other);
+            void swap(factors & other) noexcept;
             void multiply(numeral_vector & out) const; 
             
             void display(std::ostream & out) const;

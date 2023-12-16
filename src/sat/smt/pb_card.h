@@ -33,7 +33,7 @@ namespace pb {
         literal const* begin() const { return m_lits; }
         literal const* end() const { return static_cast<literal const*>(m_lits) + m_size; }
         void negate() override;
-        void swap(unsigned i, unsigned j) override { std::swap(m_lits[i], m_lits[j]); }
+        void swap(unsigned i, unsigned j) noexcept override { std::swap(m_lits[i], m_lits[j]); }
         literal_vector literals() const override { return literal_vector(m_size, m_lits); }
         bool is_watching(literal l) const override;
         literal get_lit(unsigned i) const override { return m_lits[i]; }

@@ -553,7 +553,7 @@ public:
     iterator begin() const { return iterator(m_table, m_table + m_slots); }
     iterator end() const { return iterator(); }
 
-    void swap(chashtable & other) {
+    void swap(chashtable & other) noexcept {
         std::swap(m_table,       other.m_table);
         std::swap(m_capacity,    other.m_capacity);
         std::swap(m_init_slots,  other.m_init_slots);

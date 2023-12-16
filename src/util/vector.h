@@ -330,7 +330,7 @@ public:
         return *this;
     }
 
-    vector & operator=(vector && source) {
+    vector & operator=(vector && source) noexcept {
         if (this == &source) {
             return *this;
         }

@@ -37,7 +37,7 @@ class inf_s_integer {
 
     struct eq_proc { bool operator()(inf_s_integer const& r1, inf_s_integer const& r2) const { return r1 == r2; } };
 
-    void swap(inf_s_integer & n) { 
+    void swap(inf_s_integer & n) noexcept {
         std::swap(m_first, n.m_first);
         std::swap(m_second, n.m_second);
     }

@@ -135,7 +135,7 @@ namespace realclosure {
     typedef interval_manager<mpbq_config> mpbqi_manager;
     typedef mpbqi_manager::interval       mpbqi;
 
-    void swap(mpbqi & a, mpbqi & b) {
+    void swap(mpbqi & a, mpbqi & b) noexcept {
         swap(a.m_lower, b.m_lower);
         swap(a.m_upper, b.m_upper);
         std::swap(a.m_lower_inf, b.m_lower_inf);
@@ -2534,7 +2534,7 @@ namespace realclosure {
             return depends_on_infinitesimals(a.m_value);
         }
 
-        static void swap(mpbqi & a, mpbqi & b) {
+        static void swap(mpbqi & a, mpbqi & b) noexcept {
             realclosure::swap(a, b);
         }
 
@@ -6313,7 +6313,7 @@ namespace realclosure {
         m_imp->set(a, n);
     }
 
-    void manager::swap(numeral & a, numeral & b) {
+    void manager::swap(numeral & a, numeral & b) noexcept {
         std::swap(a.m_value, b.m_value);
     }
 

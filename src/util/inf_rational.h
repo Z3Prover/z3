@@ -44,7 +44,7 @@ class inf_rational {
 
     struct eq_proc { bool operator()(inf_rational const& r1, inf_rational const& r2) const { return r1 == r2; } };
 
-    void swap(inf_rational & n) { 
+    void swap(inf_rational & n) noexcept {
         m_first.swap(n.m_first);
         m_second.swap(n.m_second);
     }

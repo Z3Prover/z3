@@ -602,15 +602,6 @@ namespace recfun {
         m_args.append(n->get_num_args(), n->get_args());
     }
 
-    case_expansion::case_expansion(case_expansion const & from)
-        : m_lhs(from.m_lhs),
-          m_def(from.m_def),
-          m_args(from.m_args) {}
-    case_expansion::case_expansion(case_expansion && from)
-        : m_lhs(from.m_lhs),
-          m_def(from.m_def),
-          m_args(std::move(from.m_args)) {}
-
     std::ostream& case_expansion::display(std::ostream & out) const {
         return out << "case_exp(" << m_lhs << ")";
     }

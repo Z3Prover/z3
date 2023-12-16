@@ -209,7 +209,7 @@ public:
         }
     }
 
-    void swap(obj_map & other) {
+    void swap(obj_map & other) noexcept {
         m_table.swap(other.m_table);
     }
 };
