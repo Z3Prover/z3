@@ -314,6 +314,16 @@ namespace polysat {
         return result;
     }
 
+    dependency_vector core::get_dependencies(std::initializer_list<constraint_id> const& cc) {
+        dependency_vector result;
+        for (auto idx : cc) {
+            auto [sc, d, value] = m_constraint_index[idx.id];
+            SASSERT(value != l_undef);
+            result.push_back(value == l_false ? ~d : d);
+        }
+        return result;
+    }
+
     void core::propagate(constraint_id id, signed_constraint& sc, lbool value, dependency const& d) {
         lbool eval_value = eval(sc);
         if (eval_value == l_undef)
@@ -327,8 +337,8 @@ namespace polysat {
         }                   
     }
 
-    void core::get_bitvector_prefixes(pvar v, pvar_vector& out) {
-        s.get_bitvector_prefixes(v, out);
+    void core::get_bitvector_suffixes(pvar v, pvar_vector& out) {
+        s.get_bitvector_suffixes(v, out);
     }
 
     void core::get_fixed_bits(pvar v, svector<justified_fixed_bits>& fixed_bits) {
@@ -413,6 +423,19 @@ namespace polysat {
 
     void core::add_clause(char const* name, core_vector const& cs, bool is_redundant) {
         s.add_polysat_clause(name, cs, is_redundant);
+    }
+
+    signed_constraint core::get_constraint(constraint_id idx) {
+        auto [sc, d, value] = m_constraint_index[idx.id];
+        SASSERT(value != l_undef);
+        if (value == l_false)
+            sc = ~sc;
+        return sc;
+    }
+
+    lbool core::eval(constraint_id id) {
+        auto sc = get_constraint(id);
+        return sc.eval(m_assignment);
     }
 
 }

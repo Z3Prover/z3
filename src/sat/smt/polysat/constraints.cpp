@@ -89,4 +89,12 @@ namespace polysat {
         return out << *m_constraint;        
     }
 
+    bool signed_constraint::is_currently_true(core& c) const { 
+        return eval(c.get_assignment()) == l_true; 
+    }
+
+    bool signed_constraint::is_currently_false(core& c) const { 
+        return eval(c.get_assignment()) == l_false; 
+    }
+
 }

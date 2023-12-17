@@ -238,12 +238,14 @@ namespace polysat {
     // Core uses the propagate callback to add unit propagations to the trail.
     // The polysat::solver takes care of translating signed constraints into expressions, which translate into literals.
     // Everything goes over expressions/literals. polysat::core is not responsible for replaying expressions. 
-    dependency solver::propagate(signed_constraint sc, dependency_vector const& deps) {
+    bool solver::propagate(signed_constraint sc, dependency_vector const& deps) {
         sat::literal lit = ctx.mk_literal(constraint2expr(sc));
+        if (s().value(lit) == l_true)
+            return false;
         auto [core, eqs] = explain_deps(deps);
         auto ex = euf::th_explain::propagate(*this, core, eqs, lit, nullptr);
         ctx.propagate(lit, ex);
-        return dependency(lit, s().lvl(lit));
+        return true;
     }
 
     void solver::propagate(dependency const& d, bool sign, dependency_vector const& deps) {
@@ -338,7 +340,7 @@ namespace polysat {
     }
 
     // walk the egraph starting with pvar for overlaps.
-    void solver::get_bitvector_prefixes(pvar pv, pvar_vector& out) {
+    void solver::get_bitvector_suffixes(pvar pv, pvar_vector& out) {
         theory_var v = m_pddvar2var[pv];
         euf::enode_vector todo;
         uint_set seen;
@@ -355,7 +357,7 @@ namespace polysat {
 
                 // identify prefixes
                 if (bv.is_concat(sib->get_expr()))
-                    todo.push_back(sib->get_arg(0));                
+                    todo.push_back(sib->get_arg(sib->num_args() - 1));                
                 if (w == euf::null_theory_var)
                     continue;
                 if (seen.contains(w))

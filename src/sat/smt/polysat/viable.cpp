@@ -104,7 +104,7 @@ namespace polysat {
 #endif
 
         pvar_vector overlaps;
-        c.get_bitvector_prefixes(v, overlaps);
+        c.get_bitvector_suffixes(v, overlaps);
         std::sort(overlaps.begin(), overlaps.end(), [&](pvar x, pvar y) { return c.size(x) > c.size(y); });
 
         uint_set widths_set;

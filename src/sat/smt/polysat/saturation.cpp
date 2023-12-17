@@ -34,28 +34,69 @@ namespace polysat {
 
     saturation::saturation(core& c) : c(c), C(c.cs()) {}
 
-#if 0
-    void saturation::perform(pvar v) {
-        for (signed_constraint c : core)
-            perform(v, sc, core);
+    void saturation::propagate(pvar v) {
+        for (auto id : c.unsat_core())
+            propagate(v, id);
     }
 
-    bool saturation::perform(pvar v, signed_constraint sc) {
-        if (sc.is_currently_true(c))
+    bool saturation::propagate(pvar v, constraint_id id) {
+        if (c.eval(id) == l_true)
             return false;
+        auto sc = c.get_constraint(id);
+        m_propagated = false;
+        if (sc.is_ule())
+            propagate(v, inequality::from_ule(c, id));
+        else
+            ;
 
-        if (sc.is_ule()) {
-            auto i = inequality::from_ule(sc);
-            return try_inequality(v, i);
-        }
-        if (sc.is_umul_ovfl()) 
-            return try_umul_ovfl(v, sc);
-
-        if (sc.is_op())
-            return try_op(v, sc);
-
-        return false;
+        return m_propagated;
     }
+
+    void saturation::propagate(pvar v, inequality const& i) {
+        if (c.size(v) != i.lhs().power_of_2())
+            return;
+        propagate_infer_equality(v, i);
+        return;
+
+    }
+
+    void saturation::propagate(signed_constraint const& sc, std::initializer_list<constraint_id> const& premises) {
+        if (c.propagate(sc, premises))
+            m_propagated = true;
+    }
+
+    /**
+     * p <= q, q <= p => p - q = 0
+    */
+    void saturation::propagate_infer_equality(pvar x, inequality const& a_l_b) {
+        set_rule("[x] p <= q, q <= p => p - q = 0");
+        if (a_l_b.is_strict())
+            return;
+        if (a_l_b.lhs().degree(x) == 0 && a_l_b.rhs().degree(x) == 0)
+            return;
+        for (auto id : c.unsat_core()) {
+            auto sc = c.get_constraint(id);
+            if (!sc.is_ule())
+                continue;
+            auto i = inequality::from_ule(c, id);
+            if (i.lhs() == a_l_b.rhs() && i.rhs() == a_l_b.lhs() && !i.is_strict()) {
+                c.propagate(c.eq(i.lhs(), i.rhs()), { id, a_l_b.id() });
+                return;
+            }
+        }       
+    }
+
+    /**
+     * Determine whether values of x * y is non-overflowing.
+     */
+    bool saturation::is_non_overflow(pdd const& x, pdd const& y) {
+        rational x_val, y_val;
+        rational bound = x.manager().two_to_N();
+        return c.try_eval(x, x_val) && c.try_eval(y, y_val) && x_val * y_val < bound;
+    }
+
+#if 0
+
 
     bool saturation::try_inequality(pvar v, inequality const& i, conflict& core) {
         bool prop = false;
@@ -98,35 +139,6 @@ namespace polysat {
         return prop;
     }
 
-    bool saturation::try_congruence(pvar x, conflict& core, inequality const& i) {
-        set_rule("egraph(x == y) & C(x,y) ==> C(y,y)");
-        // TODO: generalize to other constraint types?
-        // if (!i.is_strict())
-        //     return false;
-        // if (!core.vars().contains(x))
-        //     return false;
-        if (!i.as_signed_constraint().contains_var(x))
-            return false;
-        for (pvar y : s.m_slicing.equivalent_vars(x)) {
-            if (x == y)
-                continue;
-            if (!s.is_assigned(y))
-                continue;
-            if (!core.vars().contains(y))
-                continue;
-            if (!i.as_signed_constraint().contains_var(y))
-                continue;
-            SASSERT(s.m_search.get_pvar_index(y) < s.m_search.get_pvar_index(x));  // y was the earlier one since we are currently resolving x
-            pdd const lhs = i.lhs().subst_pdd(x, s.var(y));
-            pdd const rhs = i.rhs().subst_pdd(x, s.var(y));
-            signed_constraint c = ineq(true, lhs, rhs);
-            m_lemma.reset();
-            s.m_slicing.explain_equal(x, y, [&](sat::literal lit) { m_lemma.insert(~lit); });
-            if (propagate(x, core, i, c))
-                return true;
-        }
-        return false;
-    }
 
     bool saturation::try_nonzero_upper_extract(pvar y, conflict& core, inequality const& i) {
         set_rule("y = x[h:l] & y != 0 ==> x >= 2^l");
@@ -402,172 +414,7 @@ namespace polysat {
         return false;
     }
 
-    /*
-     * Match [v] .. <= v
-     */
-    bool saturation::is_l_v(pvar v, inequality const& i) {
-        return i.rhs() == s.var(v);
-    }
-
-    /*
-     * Match [v] v <= ...
-     */
-    bool saturation::is_g_v(pvar v, inequality const& i) {
-        return i.lhs() == s.var(v);
-    }
-
-    /*
-     * Match [x] x <= y
-     */
-    bool saturation::is_x_l_Y(pvar x, inequality const& i, pdd& y) {
-        y.reset(i.rhs().manager());
-        y = i.rhs();
-        return is_g_v(x, i);
-    }
-
-    /*
-     * Match [x] y <= x
-     */
-    bool saturation::is_Y_l_x(pvar x, inequality const& i, pdd& y) {
-        y.reset(i.lhs().manager());
-        y = i.lhs();
-        return is_l_v(x, i);
-    }
-
-    /*
-     * Match [x] y <= a*x
-     */
-    bool saturation::is_Y_l_Ax(pvar x, inequality const& i, pdd& a, pdd& y) {
-        y.reset(i.lhs().manager());
-        y = i.lhs();
-        return is_xY(x, i.rhs(), a);
-    }
-
-    bool saturation::verify_Y_l_Ax(pvar x, inequality const& i, pdd const& a, pdd const& y) {
-        return i.lhs() == y && i.rhs() == a * s.var(x);
-    }
-
-    /**
-     * Match [x] a*x <= y
-     */
-    bool saturation::is_Ax_l_Y(pvar x, inequality const& i, pdd& a, pdd& y) {
-        y.reset(i.rhs().manager());
-        y = i.rhs();
-        return is_xY(x, i.lhs(), a);
-    }
-
-    bool saturation::verify_Ax_l_Y(pvar x, inequality const& i, pdd const& a, pdd const& y) {
-        return i.rhs() == y && i.lhs() == a * s.var(x);
-    }
-
-    /**
-     * Match [x] a*x + b <= y
-     */
-    bool saturation::is_AxB_l_Y(pvar x, inequality const& i, pdd& a, pdd& b, pdd& y) {
-        y.reset(i.rhs().manager());
-        y = i.rhs();
-        return i.lhs().degree(x) == 1 && (i.lhs().factor(x, 1, a, b), true);
-    }
-
-    bool saturation::verify_AxB_l_Y(pvar x, inequality const& i, pdd const& a, pdd const& b, pdd const& y) {
-        return i.rhs() == y && i.lhs() == a * s.var(x) + b;
-    }
-
-
-    bool saturation::is_Y_l_AxB(pvar x, inequality const& i, pdd& y, pdd& a, pdd& b) {
-        y.reset(i.lhs().manager());
-        y = i.lhs();
-        return i.rhs().degree(x) == 1 && (i.rhs().factor(x, 1, a, b), true);        
-    }
-    
-    bool saturation::verify_Y_l_AxB(pvar x, inequality const& i, pdd const& y, pdd const& a, pdd& b) {
-        return i.lhs() == y && i.rhs() == a * s.var(x) + b;
-    }
-
-
-    /**
-     * Match [x] a*x + b <= y, val(y) = 0
-     */
-    bool saturation::is_AxB_eq_0(pvar x, inequality const& i, pdd& a, pdd& b, pdd& y) {
-        y.reset(i.rhs().manager());
-        y = i.rhs();
-        rational y_val;
-        if (!s.try_eval(y, y_val) || y_val != 0)
-            return false;
-        return i.lhs().degree(x) == 1 && (i.lhs().factor(x, 1, a, b), true);
-    }
-
-    bool saturation::verify_AxB_eq_0(pvar x, inequality const& i, pdd const& a, pdd const& b, pdd const& y) {
-        return y.is_val() && y.val() == 0 && i.rhs() == y && i.lhs() == a * s.var(x) + b;
-    }
-
-    bool saturation::is_AxB_diseq_0(pvar x, inequality const& i, pdd& a, pdd& b, pdd& y) {
-        if (!i.is_strict())
-            return false;
-        y.reset(i.lhs().manager());
-        y = i.lhs();
-        if (i.rhs().is_val() && i.rhs().val() == 1)
-            return false;
-        rational y_val;
-        if (!s.try_eval(y, y_val) || y_val != 0)
-            return false;
-        a.reset(i.rhs().manager());
-        b.reset(i.rhs().manager());
-        return i.rhs().degree(x) == 1 && (i.rhs().factor(x, 1, a, b), true);
-    }
-
-    /**
-     * Match [coeff*x] coeff*x*Y where x is a variable
-     */
-    bool saturation::is_coeffxY(pdd const& x, pdd const& p, pdd& y) {
-        pdd xy = x.manager().zero();
-        return x.is_unary() && p.try_div(x.hi().val(), xy) && xy.factor(x.var(), 1, y);
-    }
-
-    /**
-     * Determine whether values of x * y is non-overflowing.
-     */
-    bool saturation::is_non_overflow(pdd const& x, pdd const& y) {
-        rational x_val, y_val;
-        rational bound = x.manager().two_to_N();
-        return s.try_eval(x, x_val) && s.try_eval(y, y_val) && x_val * y_val < bound;
-    }
-
-    /**
-     * Match [v] v*x <= z*x with x a variable
-     */
-    bool saturation::is_Xy_l_XZ(pvar v, inequality const& i, pdd& x, pdd& z) {
-        return is_xY(v, i.lhs(), x) && is_coeffxY(x, i.rhs(), z);
-    }
-
-    bool saturation::verify_Xy_l_XZ(pvar v, inequality const& i, pdd const& x, pdd const& z) {
-        return i.lhs() == s.var(v) * x && i.rhs() == z * x;
-    }
-
-    /**
-     * Match [z] yx <= zx with x a variable
-     */
-    bool saturation::is_YX_l_zX(pvar z, inequality const& c, pdd& x, pdd& y) {
-        return is_xY(z, c.rhs(), x) && is_coeffxY(x, c.lhs(), y);
-    }
-
-    bool saturation::verify_YX_l_zX(pvar z, inequality const& c, pdd const& x, pdd const& y) {
-        return c.lhs() == y * x && c.rhs() == s.var(z) * x;
-    }
-
-    /**
-     * Match [x] xY <= xZ
-     */
-    bool saturation::is_xY_l_xZ(pvar x, inequality const& c, pdd& y, pdd& z) {
-        return is_xY(x, c.lhs(), y) && is_xY(x, c.rhs(), z);
-    }
-
-    /**
-     * Match xy = x * Y
-     */
-    bool saturation::is_xY(pvar x, pdd const& xy, pdd& y) {
-        return xy.degree(x) == 1 && xy.factor(x, 1, y);
-    }
+ 
 
     // 
     // overall comment: we use value propagation to check if p is val
@@ -1336,30 +1183,7 @@ namespace polysat {
         return false;
     }
 
-    /**
-     * p <= q, q <= p => p - q = 0
-     */
-    bool saturation::try_infer_equality(pvar x, conflict& core, inequality const& a_l_b) {
-        set_rule("[x] p <= q, q <= p => p - q = 0");
-        if (a_l_b.is_strict())
-            return false;
-        if (a_l_b.lhs().degree(x) == 0 && a_l_b.rhs().degree(x) == 0)
-            return false;
-        for (auto c : core) {
-            if (!c->is_ule())
-                continue;
-            auto i = inequality::from_ule(c);
-            if (i.lhs() == a_l_b.rhs() && i.rhs() == a_l_b.lhs() && !i.is_strict()) {
-                m_lemma.reset();
-                m_lemma.insert(~c);
-                if (propagate(x, core, a_l_b, s.eq(i.lhs() - i.rhs()))) {
-                    IF_VERBOSE(1, verbose_stream() << "infer equality " << s.eq(i.lhs() - i.rhs()) << "\n");
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
+
 
     lbool saturation::get_multiple(const pdd& p1, const pdd& p2, pdd& out) {
         LOG("Check if " << p2 << " can be multiplied with something to get " << p1);

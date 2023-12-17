@@ -5,6 +5,7 @@ z3_add_component(polysat
     core.cpp
     fixed_bits.cpp
     forbidden_intervals.cpp
+    inequality.cpp
     op_constraint.cpp
     saturation.cpp
     ule_constraint.cpp

@@ -162,11 +162,11 @@ namespace polysat {
         void add_eq_literal(pvar v, rational const& val) override;
         void set_conflict(dependency_vector const& core) override;
         void set_lemma(core_vector const& aux_core, dependency_vector const& core) override;
-        dependency propagate(signed_constraint sc, dependency_vector const& deps) override;
+        bool propagate(signed_constraint sc, dependency_vector const& deps) override;
         void propagate(dependency const& d, bool sign, dependency_vector const& deps) override;
         trail_stack& trail() override;
         bool inconsistent() const override;
-        void get_bitvector_prefixes(pvar v, pvar_vector& out) override;
+        void get_bitvector_suffixes(pvar v, pvar_vector& out) override;
         void get_fixed_bits(pvar v, svector<justified_fixed_bits>& fixed_bits) override;
         void add_polysat_clause(char const* name, core_vector cs, bool redundant) override;
 

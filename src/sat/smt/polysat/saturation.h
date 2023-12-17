@@ -14,56 +14,9 @@ Author:
 #pragma once
 
 #include "sat/smt/polysat/constraints.h"
+#include "sat/smt/polysat/inequality.h"
 
 namespace polysat {
-
-    struct bilinear {
-        rational a, b, c, d;
-
-        rational eval(rational const& x, rational const& y) const {
-            return a*x*y + b*x + c*y + d;
-        }
-
-        bilinear operator-() const {
-            bilinear r(*this);
-            r.a = -r.a;
-            r.b = -r.b;
-            r.c = -r.c;
-            r.d = -r.d;
-            return r;
-        }
-
-        bilinear operator-(bilinear const& other) const {
-            bilinear r(*this);
-            r.a -= other.a;
-            r.b -= other.b;
-            r.c -= other.c;
-            r.d -= other.d;
-            return r;
-        }
-
-        bilinear operator+(rational const& d) const {
-            bilinear r(*this);
-            r.d += d;
-            return r;
-        }
-        
-        bilinear operator-(rational const& d) const {
-            bilinear r(*this);
-            r.d -= d;
-            return r;
-        }
-
-        bilinear operator-(int d) const {
-            bilinear r(*this);
-            r.d -= d;
-            return r;
-        }
-};
-
-    inline std::ostream& operator<<(std::ostream& out, bilinear const& b) {
-        return out << b.a << "*x*y + " << b.b << "*x + " << b.c << "*y + " << b.d;
-    }
 
     /**
      * Introduce lemmas that derive new (simpler) constraints from the current conflict and partial model.
@@ -73,13 +26,26 @@ namespace polysat {
         core& c;
         constraints& C;
         char const* m_rule = nullptr;
+        bool m_propagated = false;
+        void set_rule(char const* r) { m_rule = r; }
+
+        void propagate(signed_constraint const& sc, std::initializer_list<constraint_id> const& premises);
+
+
+        // a * b does not overflow
+        bool is_non_overflow(pdd const& a, pdd const& b);
+
+        // p := coeff*x*y where coeff_x = coeff*x, x a variable
+        bool is_coeffxY(pdd const& coeff_x, pdd const& p, pdd& y);
+
+        void propagate_infer_equality(pvar x, inequality const& a_l_b);
         
 #if 0
         parity_tracker m_parity_tracker;
         unsigned_vector m_occ;
         unsigned_vector m_occ_cnt;
 
-        void set_rule(char const* r) { m_rule = r; }
+        
 
         bool is_non_overflow(pdd const& x, pdd const& y, signed_constraint& c);
         signed_constraint ineq(bool strict, pdd const& lhs, pdd const& rhs);
@@ -137,61 +103,7 @@ namespace polysat {
         void fix_values(pvar x, pvar y, pdd const& p);
         void fix_values(pvar y, pdd const& p);
         
-        // c := lhs ~ v
-        //  where ~ is < or <=
-        bool is_l_v(pvar v, inequality const& c);
 
-        // c := v ~ rhs
-        bool is_g_v(pvar v, inequality const& c);
-
-        // c := x ~ Y
-        bool is_x_l_Y(pvar x, inequality const& i, pdd& y);
-
-        // c := Y ~ x
-        bool is_Y_l_x(pvar x, inequality const& i, pdd& y);
-
-        // c := X*y ~ X*Z
-        bool is_Xy_l_XZ(pvar y, inequality const& c, pdd& x, pdd& z);
-        bool verify_Xy_l_XZ(pvar y, inequality const& c, pdd const& x, pdd const& z);
-
-        // c := Y ~ Ax
-        bool is_Y_l_Ax(pvar x, inequality const& c, pdd& a, pdd& y);
-        bool verify_Y_l_Ax(pvar x, inequality const& c, pdd const& a, pdd const& y);
-
-        // c := Ax ~ Y
-        bool is_Ax_l_Y(pvar x, inequality const& c, pdd& a, pdd& y);
-        bool verify_Ax_l_Y(pvar x, inequality const& c, pdd const& a, pdd const& y);
-
-        // c := Ax + B ~ Y
-        bool is_AxB_l_Y(pvar x, inequality const& c, pdd& a, pdd& b, pdd& y);
-        bool verify_AxB_l_Y(pvar x, inequality const& c, pdd const& a, pdd const& b, pdd const& y);
-
-        // c := Y ~ Ax + B
-        bool is_Y_l_AxB(pvar x, inequality const& c, pdd& y, pdd& a, pdd& b);
-        bool verify_Y_l_AxB(pvar x, inequality const& c, pdd const& y, pdd const& a, pdd& b);
-
-        // c := Ax + B ~ Y, val(Y) = 0
-        bool is_AxB_eq_0(pvar x, inequality const& c, pdd& a, pdd& b, pdd& y);
-        bool verify_AxB_eq_0(pvar x, inequality const& c, pdd const& a, pdd const& b, pdd const& y);
-
-        // c := Ax + B != Y, val(Y) = 0
-        bool is_AxB_diseq_0(pvar x, inequality const& c, pdd& a, pdd& b, pdd& y);
-
-        // c := Y*X ~ z*X
-        bool is_YX_l_zX(pvar z, inequality const& c, pdd& x, pdd& y);
-        bool verify_YX_l_zX(pvar z, inequality const& c, pdd const& x, pdd const& y);
-
-        // c := xY <= xZ
-        bool is_xY_l_xZ(pvar x, inequality const& c, pdd& y, pdd& z);
-
-        // xy := x * Y
-        bool is_xY(pvar x, pdd const& xy, pdd& y);
-
-        // a * b does not overflow
-        bool is_non_overflow(pdd const& a, pdd const& b);
-
-        // p := coeff*x*y where coeff_x = coeff*x, x a variable
-        bool is_coeffxY(pdd const& coeff_x, pdd const& p, pdd& y);
 
         bool is_add_overflow(pvar x, inequality const& i, pdd& y, bool& is_minus);
 
@@ -222,7 +134,7 @@ namespace polysat {
 
         bool is_forced_true(signed_constraint const& sc);
 
-        bool try_inequality(pvar v, inequality const& i);
+
 
         bool try_umul_ovfl(pvar v, signed_constraint c);
         bool try_umul_ovfl_noovfl(pvar v, signed_constraint c);
@@ -233,9 +145,11 @@ namespace polysat {
         bool try_op(pvar v, signed_constraint c);
 #endif
 
+        void propagate(pvar v);
+        bool propagate(pvar v, constraint_id cid);
+        void propagate(pvar v, inequality const& i);
+
     public:
         saturation(core& c);
-        void perform(pvar v);
-        bool perform(pvar v, signed_constraint sc);
     };
 }

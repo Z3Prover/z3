@@ -83,7 +83,7 @@ namespace polysat {
         void propagate_unsat_core();
         void propagate(constraint_id id, signed_constraint& sc, lbool value, dependency const& d);
 
-        void get_bitvector_prefixes(pvar v, pvar_vector& out);
+        void get_bitvector_suffixes(pvar v, pvar_vector& out);
         void get_fixed_bits(pvar v, svector<justified_fixed_bits>& fixed_bits);
         bool inconsistent() const;
 
@@ -92,6 +92,9 @@ namespace polysat {
         lbool eval(signed_constraint const& sc);
         constraint_id_vector explain_eval(signed_constraint const& sc);
         dependency_vector get_dependencies(constraint_id_vector const& cc);
+        dependency_vector get_dependencies(std::initializer_list<constraint_id> const& cc);
+
+
 
         void add_axiom(signed_constraint sc);
 
@@ -143,6 +146,20 @@ namespace polysat {
         trail_stack& trail();
 
         std::ostream& display(std::ostream& out) const;
+
+        /*
+        * Saturation
+        */
+        signed_constraint get_constraint(constraint_id id);
+        constraint_id_vector const& unsat_core() const { return m_unsat_core; }
+        lbool eval(constraint_id id);
+        bool propagate(signed_constraint const& sc, constraint_id_vector const& ids) { return s.propagate(sc, get_dependencies(ids)); }
+        bool propagate(signed_constraint const& sc, std::initializer_list<constraint_id> const& ids) { return s.propagate(sc, get_dependencies(ids)); }
+
+        /*
+        * Constraints
+        */
+        assignment& get_assignment() { return m_assignment; }
     };
 
 }
