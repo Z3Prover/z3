@@ -97,11 +97,11 @@ namespace polysat {
         virtual void set_conflict(dependency_vector const& core) = 0;
         virtual void set_lemma(core_vector const& aux_core, dependency_vector const& core) = 0;
         virtual void add_polysat_clause(char const* name, core_vector cs, bool redundant) = 0;
-        virtual dependency propagate(signed_constraint sc, dependency_vector const& deps) = 0;
+        virtual bool propagate(signed_constraint sc, dependency_vector const& deps) = 0;
         virtual void propagate(dependency const& d, bool sign, dependency_vector const& deps) = 0;
         virtual trail_stack& trail() = 0;
         virtual bool inconsistent() const = 0;
-        virtual void get_bitvector_prefixes(pvar v, pvar_vector& out) = 0;
+        virtual void get_bitvector_suffixes(pvar v, pvar_vector& out) = 0;
         virtual void get_fixed_bits(pvar v, svector<justified_fixed_bits>& fixed_bits) = 0;
     };
 

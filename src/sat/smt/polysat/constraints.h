@@ -72,6 +72,8 @@ namespace polysat {
         void propagate(core& c, lbool value, dependency const& d) { m_constraint->propagate(c, value, d); }
         bool is_always_true() const { return eval() == l_true; }
         bool is_always_false() const { return eval() == l_false; }
+        bool is_currently_true(core& c) const;
+        bool is_currently_false(core& c) const;
         lbool eval(assignment& a) const;
         lbool eval() const { return m_sign ? ~m_constraint->eval() : m_constraint->eval();}
         ckind_t op() const { return m_op; }
