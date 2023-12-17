@@ -148,7 +148,7 @@ namespace intblast {
             auto a = expr2literal(e);
             auto b = mk_literal(r);
             ctx.mark_relevant(b);
-//            verbose_stream() << "add-predicate-axiom: " << mk_pp(e, m) << " == " << r << "\n";
+            //            verbose_stream() << "add-predicate-axiom: " << mk_pp(e, m) << " == " << r << "\n";
             add_equiv(a, b);
         }
         return true;
@@ -304,28 +304,6 @@ namespace intblast {
                         visited.mark(arg);
                         sorted.push_back(arg);
                     }
-                }
-
-                //
-                // Add ground equalities to ensure the model is valid with respect to the current case splits.
-                // This may cause more conflicts than necessary. Instead could use intblast on the base level, but using literal
-                // assignment from complete level.
-                // E.g., force the solver to completely backtrack, check satisfiability using the assignment obtained under a complete assignment.
-                // If intblast is SAT, then force the model and literal assignment on the rest of the literals.
-                // 
-                if (!is_ground(e))
-                    continue;
-                euf::enode* n = ctx.get_enode(e);
-                if (!n)
-                    continue;
-                if (n == n->get_root())
-                    continue;
-                expr* r = n->get_root()->get_expr();
-                es.push_back(m.mk_eq(e, r));
-                r = es.back();
-                if (!visited.is_marked(r) && !is_translated(r)) {
-                    visited.mark(r);
-                    sorted.push_back(r);
                 }
             }
             else if (is_quantifier(e)) {
@@ -646,7 +624,7 @@ namespace intblast {
         }
         case OP_BUDIV:
         case OP_BUDIV_I: {
-            expr* x = arg(0), * y = umod(e, 1);
+            expr* x = umod(e, 0), * y = umod(e, 1);
             r = m.mk_ite(m.mk_eq(y, a.mk_int(0)), a.mk_int(-1), a.mk_idiv(x, y));
             break;
         }
@@ -978,11 +956,36 @@ namespace intblast {
             arith::arith_value av(ctx);
             rational r;
             VERIFY(av.get_value(b2i->get_expr(), r));
-            verbose_stream() << ctx.bpp(n) << " := " << r << "\n";
             value = bv.mk_numeral(r, bv.get_bv_size(n->get_expr()));
+            verbose_stream() << ctx.bpp(n) << " := " << value << "\n";
         }
         values.set(n->get_root_id(), value);
         TRACE("model", tout << "add_value " << ctx.bpp(n) << " := " << value << "\n");
+    }
+
+    void solver::finalize_model(model& mdl) {
+        for (auto n : ctx.get_egraph().nodes()) {
+            expr* e = n->get_expr();
+            if (!bv.is_bv(e))
+                continue;
+            if (!is_translated(e))
+                continue;
+            expr* f = translated(e);
+            rational r1, r2;
+            expr_ref val1 = mdl(e);
+            expr_ref val2 = mdl(f);
+            if (bv.is_numeral(val1, r1) && a.is_numeral(val2, r2) && r1 != r2) {
+                rational N = rational::power_of_two(bv.get_bv_size(e));
+                r2 = mod(r2, N);
+                if (r1 == r2)
+                    continue;
+                verbose_stream() << "value mismatch : " << mk_bounded_pp(e, m) << " := " << val1 << "\n";
+                verbose_stream() << mk_bounded_pp(f, m) << " := " << r2 << "\n";
+                for (expr* arg : *to_app(e)) {
+                    verbose_stream() << mk_bounded_pp(arg, m) << " := " << mdl(arg) << "\n";
+                }
+            }
+        }
     }
 
     sat::literal_vector const& solver::unsat_core() {

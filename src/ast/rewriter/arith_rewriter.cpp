@@ -1435,7 +1435,7 @@ br_status arith_rewriter::mk_lshr_core(unsigned sz, expr* arg1, expr* arg2, expr
     }
     if (is_num_x && is_num_y) {
         if (y >= sz)
-            result = m_util.mk_int(N-1);
+            result = m_util.mk_int(0);
         else {
             rational d = div(x, rational::power_of_two(y.get_unsigned()));
             result = m_util.mk_int(d);

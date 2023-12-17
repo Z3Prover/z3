@@ -108,6 +108,8 @@ namespace intblast {
 
         bool add_dep(euf::enode* n, top_sort<euf::enode>& dep) override;
 
+        void finalize_model(model& mdl) override;
+
         std::ostream& display(std::ostream& out) const override;
 
         void collect_statistics(statistics& st) const override;
