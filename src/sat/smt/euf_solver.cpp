@@ -141,7 +141,7 @@ namespace euf {
             if (get_config().m_bv_solver == 0)
                 ext = alloc(bv::solver, *this, fid);
             else if (get_config().m_bv_solver == 1)
-                throw default_exception("polysat solver is not integrated");
+                ext = alloc(polysat::solver, *this, fid);
             else if (get_config().m_bv_solver == 2)
                 ext = alloc(intblast::solver, *this);
             else 

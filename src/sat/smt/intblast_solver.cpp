@@ -157,7 +157,6 @@ namespace intblast {
     bool solver::unit_propagate() {
         return add_bound_axioms() || add_predicate_axioms();
     }
-    
     void solver::ensure_translated(expr* e) {
         if (m_translate.get(e->get_id(), nullptr))
             return;
@@ -306,27 +305,6 @@ namespace intblast {
                     }
                 }
 
-                //
-                // Add ground equalities to ensure the model is valid with respect to the current case splits.
-                // This may cause more conflicts than necessary. Instead could use intblast on the base level, but using literal
-                // assignment from complete level.
-                // E.g., force the solver to completely backtrack, check satisfiability using the assignment obtained under a complete assignment.
-                // If intblast is SAT, then force the model and literal assignment on the rest of the literals.
-                // 
-                if (!is_ground(e))
-                    continue;
-                euf::enode* n = ctx.get_enode(e);
-                if (!n)
-                    continue;
-                if (n == n->get_root())
-                    continue;
-                expr* r = n->get_root()->get_expr();
-                es.push_back(m.mk_eq(e, r));
-                r = es.back();
-                if (!visited.is_marked(r) && !is_translated(r)) {
-                    visited.mark(r);
-                    sorted.push_back(r);
-                }
             }
             else if (is_quantifier(e)) {
                 quantifier* q = to_quantifier(e);
@@ -392,8 +370,8 @@ namespace intblast {
             if (nBv2int->get_root() != nxModN->get_root()) {
 	      auto a = eq_internalize(nBv2int, nxModN);
 	      ctx.mark_relevant(a);
-                add_unit(a);
-                return sat::check_result::CR_CONTINUE;
+              add_unit(a);
+              return sat::check_result::CR_CONTINUE;
             }
         }
         return sat::check_result::CR_DONE; 
@@ -505,7 +483,6 @@ namespace intblast {
 
         if (has_bv_sort)
             m_vars.push_back(e);        
-        
         if (m_is_plugin) {
             expr* r = m.mk_app(f, m_args);
             if (has_bv_sort) {
@@ -919,7 +896,7 @@ namespace intblast {
     }
 
     bool solver::add_dep(euf::enode* n, top_sort<euf::enode>& dep) {
-      if (!is_app(n->get_expr()))
+        if (!is_app(n->get_expr()))
             return false;
         app* e = to_app(n->get_expr());
         if (n->num_args() == 0) {
@@ -938,7 +915,6 @@ namespace intblast {
     void solver::add_value_solver(euf::enode* n, model& mdl, expr_ref_vector& values) {
         expr* e = n->get_expr();
         SASSERT(bv.is_bv(e));
-        
         if (bv.is_numeral(e)) {
             values.setx(n->get_root_id(), e);
             return;
