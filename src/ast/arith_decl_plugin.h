@@ -309,14 +309,13 @@ public:
     bool is_int_real(expr const * n) const { return is_int_real(n->get_sort()); }
 
     bool is_band(expr const* n) const { return is_app_of(n, arith_family_id, OP_ARITH_BAND); }
-    bool is_band(expr const* n, unsigned& sz, expr*& x, expr*& y) {
-        if (!is_band(n))
-            return false;
-        x = to_app(n)->get_arg(0);
-        y = to_app(n)->get_arg(1);
-        sz = to_app(n)->get_parameter(0).get_int();
-        return true;
-    }
+    bool is_band(expr const* n, unsigned& sz, expr*& x, expr*& y) { return is_arith_op(n, OP_ARITH_BAND, sz, x, y); }
+    bool is_shl(expr const* n) const { return is_app_of(n, arith_family_id, OP_ARITH_SHL); }
+    bool is_shl(expr const* n, unsigned& sz, expr*& x, expr*& y) { return is_arith_op(n, OP_ARITH_SHL, sz, x, y); }
+    bool is_lshr(expr const* n) const { return is_app_of(n, arith_family_id, OP_ARITH_LSHR); }
+    bool is_lshr(expr const* n, unsigned& sz, expr*& x, expr*& y) { return is_arith_op(n, OP_ARITH_LSHR, sz, x, y); }
+    bool is_ashr(expr const* n) const { return is_app_of(n, arith_family_id, OP_ARITH_ASHR); }
+    bool is_ashr(expr const* n, unsigned& sz, expr*& x, expr*& y) { return is_arith_op(n, OP_ARITH_ASHR, sz, x, y); }
 
     bool is_sin(expr const* n) const { return is_app_of(n, arith_family_id, OP_SIN); }
     bool is_cos(expr const* n) const { return is_app_of(n, arith_family_id, OP_COS); }

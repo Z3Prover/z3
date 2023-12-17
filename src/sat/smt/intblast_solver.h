@@ -95,35 +95,6 @@ namespace intblast {
         void add_value_plugin(euf::enode* n, model& mdl, expr_ref_vector& values);
         void add_value_solver(euf::enode* n, model& mdl, expr_ref_vector& values);
 
-        bool is_translated(expr* e) const { return !!m_translate.get(e->get_id(), nullptr); }
-        expr* translated(expr* e) const { expr* r = m_translate.get(e->get_id(), nullptr); SASSERT(r); return r; }
-        void set_translated(expr* e, expr* r);
-        expr* arg(unsigned i) { return m_args.get(i); }
-
-        expr* umod(expr* bv_expr, unsigned i);
-        expr* smod(expr* bv_expr, unsigned i);
-        rational bv_size(expr* bv_expr);
-
-        void translate_expr(expr* e);
-        void translate_bv(app* e);
-        void translate_basic(app* e);
-        void translate_app(app* e);
-        void translate_quantifier(quantifier* q);
-        void translate_var(var* v);
-
-        void ensure_translated(expr* e);
-        void internalize_bv(app* e);
-
-        unsigned m_vars_qhead = 0, m_preds_qhead = 0;
-        ptr_vector<expr> m_vars, m_preds;
-        bool add_bound_axioms();
-        bool add_predicate_axioms();
-
-        euf::theory_var mk_var(euf::enode* n) override;
-
-        void add_value_plugin(euf::enode* n, model& mdl, expr_ref_vector& values);
-        void add_value_solver(euf::enode* n, model& mdl, expr_ref_vector& values);
-
     public:
         solver(euf::solver& ctx);
         
@@ -165,10 +136,7 @@ namespace intblast {
 
         void eq_internalized(euf::enode* n) override;
 
-        sat::literal_vector const& unsat_core();
-
-        void add_value(euf::enode* n, model& mdl, expr_ref_vector& values) override;
-
+        rational get_value(expr* e) const;
 
     };
 
