@@ -278,7 +278,7 @@ namespace polysat {
         return ctx.get_trail_stack();
     }
 
-    void solver::add_polysat_clause(char const* name, core_vector cs, bool is_redundant) {
+    bool solver::add_polysat_clause(char const* name, core_vector cs, bool is_redundant) {
         sat::literal_vector lits;
         for (auto e : cs) {
             if (std::holds_alternative<dependency>(e)) {
@@ -297,7 +297,11 @@ namespace polysat {
             else if (std::holds_alternative<signed_constraint>(e))
                 lits.push_back(ctx.mk_literal(constraint2expr(*std::get_if<signed_constraint>(&e))));
         }
+        for (auto lit : lits)
+            if (s().value(lit) == l_true)
+                return false;
         s().add_clause(lits.size(), lits.data(), sat::status::th(is_redundant, get_id(), nullptr));
+        return true;
     }
 
     void solver::get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector& r, bool probing) {

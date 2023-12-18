@@ -54,7 +54,7 @@ namespace polysat {
         constraints m_constraints;
         assignment m_assignment;
         unsigned m_qhead = 0, m_vqhead = 0;
-        svector<constraint_id> m_prop_queue;
+        constraint_id_vector m_prop_queue;
         svector<constraint_info> m_constraint_index;  // index of constraints
         constraint_id_vector m_unsat_core;
 
@@ -62,7 +62,7 @@ namespace polysat {
         // attributes associated with variables
         vector<pdd>             m_vars;                       // for each variable a pdd
         vector<rational>        m_values;                     // current value of assigned variable
-        svector<constraint_id>  m_justification;              // justification for assignment
+        constraint_id_vector    m_justification;              // justification for assignment
         activity                m_activity;                   // activity of variables
         var_queue<activity>     m_var_queue;                  // priority queue of variables to assign
         vector<unsigned_vector> m_watch;                      // watch lists for variables for constraints on m_prop_queue where they occur
@@ -136,7 +136,7 @@ namespace polysat {
         * In other words, the clause represents the formula /\ d_i -> \/ sc_j
         * Where d_i are logical interpretations of dependencies and sc_j are signed constraints.
         */
-        void add_clause(char const* name, core_vector const& cs, bool is_redundant);
+        bool add_clause(char const* name, core_vector const& cs, bool is_redundant);
         
         pvar add_var(unsigned sz);
         pdd var(pvar p) { return m_vars[p]; }
@@ -152,6 +152,8 @@ namespace polysat {
         */
         signed_constraint get_constraint(constraint_id id);
         constraint_id_vector const& unsat_core() const { return m_unsat_core; }
+        constraint_id_vector const& assigned_constraints() const { return m_prop_queue; }
+        dependency get_dependency(constraint_id idx) const;
         lbool eval(constraint_id id);
         bool propagate(signed_constraint const& sc, constraint_id_vector const& ids) { return s.propagate(sc, get_dependencies(ids)); }
         bool propagate(signed_constraint const& sc, std::initializer_list<constraint_id> const& ids) { return s.propagate(sc, get_dependencies(ids)); }

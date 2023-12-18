@@ -304,23 +304,23 @@ namespace polysat {
         }       
     }
 
+    dependency core::get_dependency(constraint_id idx) const {
+        auto [sc, d, value] = m_constraint_index[idx.id];
+        SASSERT(value != l_undef);
+        return value == l_false ? ~d : d;
+    }
+
     dependency_vector core::get_dependencies(constraint_id_vector const& cc) {
         dependency_vector result;
-        for (auto idx : cc) {
-            auto [sc, d, value] = m_constraint_index[idx.id];
-            SASSERT(value != l_undef);
-            result.push_back(value == l_false ? ~d : d);
-        }
+        for (auto idx : cc) 
+            result.push_back(get_dependency(idx));        
         return result;
     }
 
     dependency_vector core::get_dependencies(std::initializer_list<constraint_id> const& cc) {
         dependency_vector result;
-        for (auto idx : cc) {
-            auto [sc, d, value] = m_constraint_index[idx.id];
-            SASSERT(value != l_undef);
-            result.push_back(value == l_false ? ~d : d);
-        }
+        for (auto idx : cc)
+            result.push_back(get_dependency(idx));
         return result;
     }
 
@@ -421,8 +421,12 @@ namespace polysat {
         assign_eh(idx, false, 0);
     }
 
-    void core::add_clause(char const* name, core_vector const& cs, bool is_redundant) {
-        s.add_polysat_clause(name, cs, is_redundant);
+    bool core::add_clause(char const* name, core_vector const& cs, bool is_redundant) {
+        for (auto e : cs) 
+            if (std::holds_alternative<signed_constraint>(e) && eval(*std::get_if<signed_constraint>(&e)) == l_true)
+                return false;
+        
+        return s.add_polysat_clause(name, cs, is_redundant);
     }
 
     signed_constraint core::get_constraint(constraint_id idx) {
@@ -434,8 +438,7 @@ namespace polysat {
     }
 
     lbool core::eval(constraint_id id) {
-        auto sc = get_constraint(id);
-        return sc.eval(m_assignment);
+        return get_constraint(id).eval(m_assignment);
     }
 
 }

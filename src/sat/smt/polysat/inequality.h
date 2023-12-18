@@ -34,6 +34,9 @@ namespace polysat {
             dst.reset(src.manager());
             dst = src;
         }
+
+        // p := coeff*x*y where coeff_x = coeff*x, x a variable
+        bool is_coeffxY(pdd const& coeff_x, pdd const& p, pdd& y) const { throw default_exception("nyi"); }
         
     public:
         static inequality from_ule(core& c, constraint_id id);
@@ -41,15 +44,18 @@ namespace polysat {
         pdd const& rhs() const { return m_rhs; }
         bool is_strict() const { return m_src.is_negative(); }
         constraint_id id() const { return m_id; }
+        dependency dep() const;
         signed_constraint as_signed_constraint() const { return m_src; }
         operator signed_constraint() const { return m_src; }
 
         // c := lhs ~ v
         //  where ~ is < or <=
-        bool is_l_v(pvar v) const { return rhs() == c.var(v); }
+        bool is_l_v(pvar v) const { return rhs() == c.var(v); }    
+        static bool is_l_v(pdd const& v, signed_constraint const& sc);
 
         // c := v ~ rhs
         bool is_g_v(pvar v) const { return lhs() == c.var(v); }
+        static bool is_g_v(pdd const& v, signed_constraint const& sc);
 
         // c := x ~ Y
         bool is_x_l_Y(pvar x, pdd& y) const { return is_g_v(x) && (set(y, rhs()), true); }
@@ -87,11 +93,11 @@ namespace polysat {
         bool is_AxB_diseq_0(pvar x, pdd& a, pdd& b, pdd& y) const;
 
         // c := Y*X ~ z*X
-        bool is_YX_l_zX(pvar z, pdd& x, pdd& y) const;
+        bool is_YX_l_zX(pvar z, pdd& x, pdd& y) const { return is_xY(z, rhs(), x) && is_coeffxY(x, lhs(), y); }
         bool verify_YX_l_zX(pvar z, pdd const& x, pdd const& y) const;
 
         // c := xY <= xZ
-        bool is_xY_l_xZ(pvar x, pdd& y, pdd& z) const;
+        bool is_xY_l_xZ(pvar x, pdd& y, pdd& z) const { return is_xY(x, lhs(), y) && is_xY(x, rhs(), z); }
 
         /**
          * Match xy = x * Y

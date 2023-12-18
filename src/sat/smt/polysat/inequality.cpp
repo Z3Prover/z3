@@ -31,6 +31,18 @@ namespace polysat {
     }
 
 
+    dependency inequality::dep() const {
+        return c.get_dependency(id());
+    }
+
+    bool inequality::is_l_v(pdd const& v, signed_constraint const& sc) {
+        return sc.is_ule() && v == (sc.sign() ? sc.to_ule().rhs() : sc.to_ule().lhs());
+    }
+
+    bool inequality::is_g_v(pdd const& v, signed_constraint const& sc) {
+        return sc.is_ule() && v == (sc.sign() ? sc.to_ule().lhs() : sc.to_ule().rhs());
+    }
+
 #if 0
 
 

@@ -168,7 +168,7 @@ namespace polysat {
         bool inconsistent() const override;
         void get_bitvector_suffixes(pvar v, pvar_vector& out) override;
         void get_fixed_bits(pvar v, svector<justified_fixed_bits>& fixed_bits) override;
-        void add_polysat_clause(char const* name, core_vector cs, bool redundant) override;
+        bool add_polysat_clause(char const* name, core_vector cs, bool redundant) override;
 
         std::pair<sat::literal_vector, euf::enode_pair_vector> explain_deps(dependency_vector const& deps);
 

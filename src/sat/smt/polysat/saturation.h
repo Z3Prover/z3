@@ -30,15 +30,23 @@ namespace polysat {
         void set_rule(char const* r) { m_rule = r; }
 
         void propagate(signed_constraint const& sc, std::initializer_list<constraint_id> const& premises);
+        void add_clause(char const* name, core_vector const& cs, bool is_redundant);
+
+        bool match_core(std::function<bool(signed_constraint const& sc)> const& p, constraint_id& id);
+        bool match_constraints(std::function<bool(signed_constraint const& sc)> const& p, constraint_id& id);
 
 
         // a * b does not overflow
         bool is_non_overflow(pdd const& a, pdd const& b);
+        bool is_non_overflow(pdd const& x, pdd const& y, signed_constraint& c);
 
-        // p := coeff*x*y where coeff_x = coeff*x, x a variable
-        bool is_coeffxY(pdd const& coeff_x, pdd const& p, pdd& y);
 
         void propagate_infer_equality(pvar x, inequality const& a_l_b);
+        void try_ugt_x(pvar v, inequality const& i);
+        void try_ugt_y(pvar v, inequality const& i);
+        void try_ugt_z(pvar z, inequality const& i);
+
+        signed_constraint ineq(bool is_strict, pdd const& x, pdd const& y);
         
 #if 0
         parity_tracker m_parity_tracker;
@@ -47,7 +55,7 @@ namespace polysat {
 
         
 
-        bool is_non_overflow(pdd const& x, pdd const& y, signed_constraint& c);
+        
         signed_constraint ineq(bool strict, pdd const& lhs, pdd const& rhs);
 
         void log_lemma(pvar v, conflict& core);
