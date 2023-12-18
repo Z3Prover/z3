@@ -142,12 +142,8 @@ void tbv_manager::set(tbv& dst, rational const& r, unsigned hi, unsigned lo) {
         set(dst, r.get_uint64(), hi, lo);
         return;
     }
-    for (unsigned i = 0; i < hi - lo + 1; ++i) {
-        if (bitwise_and(r, rational::power_of_two(i)).is_zero())
-            set(dst, lo + i, BIT_0);
-        else
-            set(dst, lo + i, BIT_1);
-    }
+    for (unsigned i = 0; i < hi - lo + 1; ++i)
+        set(dst, lo + i, r.get_bit(i) ? BIT_1 : BIT_0);
 }
 
 void tbv_manager::set(tbv& dst, tbv const& other, unsigned hi, unsigned lo) {
