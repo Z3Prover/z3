@@ -182,11 +182,11 @@ std::ostream& model_reconstruction_trail::display(std::ostream& out) const {
             out << "hide " << t->m_decl->get_name() << "\n";
         else if (t->is_def()) {
             for (auto const& [f, def, dep] : t->m_defs)
-                out << f->get_name() << " <- " << mk_pp(def, m) << "\n";
+                out << "def: " << f->get_name() << " <- " << mk_pp(def, m) << "\n";
         }            
         else {
             for (auto const& [v, def] : t->m_subst->sub())
-                out << mk_pp(v, m) << " <- " << mk_pp(def, m) << "\n";            
+                out << "sub: " << mk_pp(v, m) << " -> " << mk_pp(def, m) << "\n";
         }
         for (auto const& d : t->m_removed)
             out << "rm: " << d << "\n";
