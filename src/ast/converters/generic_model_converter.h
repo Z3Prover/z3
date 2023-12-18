@@ -68,6 +68,8 @@ public:
     void get_units(obj_map<expr, bool>& units) override;
 
     vector<entry> const& entries() const { return m_entries; }
+
+    void reset() { m_entries.reset(); }
 };
 
 typedef ref<generic_model_converter> generic_model_converter_ref;

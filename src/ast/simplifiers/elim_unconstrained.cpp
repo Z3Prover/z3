@@ -426,7 +426,7 @@ void elim_unconstrained::reduce() {
     generic_model_converter_ref mc = alloc(generic_model_converter, m, "elim-unconstrained");
     m_inverter.set_model_converter(mc.get());
     m_created_compound = true;
-    for (unsigned rounds = 0; m_created_compound && rounds < 1; ++rounds) {
+    for (unsigned rounds = 0; m_created_compound && rounds < 3; ++rounds) {
         m_created_compound = false;
         init_nodes();
         eliminate();
@@ -434,6 +434,7 @@ void elim_unconstrained::reduce() {
         vector<dependent_expr> old_fmls;
         assert_normalized(old_fmls);
         update_model_trail(*mc, old_fmls);
+        mc->reset();
     }
 
 }

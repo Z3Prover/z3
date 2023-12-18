@@ -555,7 +555,6 @@ br_status bv_rewriter::mk_leq_core(bool is_signed, expr * a, expr * b, expr_ref 
             result = m.mk_and(result, m_util.mk_ule(m_util.mk_numeral(r1-r2, sz), a2));
         else if (r1 < r2) 
             result = m.mk_or(result, m_util.mk_ule(m_util.mk_numeral(r1-r2, sz), a2));
-        verbose_stream() << result << "\n";
         return BR_REWRITE2;
     }
         
