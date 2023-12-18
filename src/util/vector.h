@@ -559,7 +559,7 @@ public:
         for(; pos != e; ++pos, ++prev) {
             *prev = std::move(*pos);
         }
-        reinterpret_cast<SZ *>(m_data)[SIZE_IDX]--;
+        pop_back();
     }
 
     void erase(T const & elem) {
