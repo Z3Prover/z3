@@ -191,8 +191,8 @@ namespace bv {
         case OP_BAND:             internalize_ac(mk_and); break;
         case OP_BOR:              internalize_ac(mk_or); break;
         case OP_BXOR:             internalize_ac(mk_xor); break;
-        case OP_BNAND:            internalize_bin(mk_nand); break;
-        case OP_BNOR:             internalize_bin(mk_nor); break;
+        case OP_BNAND:            if_unary(mk_not); internalize_bin(mk_nand); break;
+        case OP_BNOR:             if_unary(mk_not); internalize_bin(mk_nor); break;
         case OP_BXNOR:            if_unary(mk_not); internalize_bin(mk_xnor); break;
         case OP_BCOMP:            internalize_bin(mk_comp); break;        
         case OP_SIGN_EXT:         internalize_pun(mk_sign_extend); break;
