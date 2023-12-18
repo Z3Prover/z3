@@ -559,8 +559,7 @@ public:
         for(; pos != e; ++pos, ++prev) {
             *prev = std::move(*pos);
         }
-        reinterpret_cast<SZ *>(m_data)[SIZE_IDX]--;
-        // TODO: where is the destructor called?
+        pop_back();
     }
 
     void erase(T const & elem) {
