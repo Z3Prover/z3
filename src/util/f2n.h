@@ -45,7 +45,7 @@ public:
         m_manager.set(m_one, ebits, sbits, 1);
     }
 
-    f2n(f2n && other) : m_manager(other.m_manager), m_mode(other.m_mode), m_ebits(other.m_ebits), m_sbits(other.m_sbits),
+    f2n(f2n && other) noexcept : m_manager(other.m_manager), m_mode(other.m_mode), m_ebits(other.m_ebits), m_sbits(other.m_sbits),
         m_tmp1(std::move(other.m_tmp1)), m_one(std::move(other.m_one)) {}
 
     ~f2n() { 
@@ -86,7 +86,7 @@ public:
     void set(numeral & o, numeral const & x) { m().set(o, x); check(o); }
     void set(numeral & o, mpq const & x) { m().set(o, m_ebits, m_sbits, m_mode, x); check(o); }
     void reset(numeral & o) { m().reset(o, m_ebits, m_sbits); }
-    static void swap(numeral & x, numeral & y) { x.swap(y); }
+    static void swap(numeral & x, numeral & y) noexcept { x.swap(y); }
     
     void add(numeral const & x, numeral const & y, numeral & o) { m().add(m_mode, x, y, o); check(o); }
     void sub(numeral const & x, numeral const & y, numeral & o) { m().sub(m_mode, x, y, o); check(o); }

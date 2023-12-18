@@ -611,4 +611,19 @@ void emonics::set_propagated(monic const& m) {
     m_u_f_stack.push(set_unpropagated(*this, m.var()));
 }
 
+void emonics::set_bound_propagated(monic const& m) {
+    struct set_bound_unpropagated : public trail {
+        emonics& em;
+        unsigned var;
+    public:
+        set_bound_unpropagated(emonics& em, unsigned var): em(em), var(var) {}
+        void undo() override {
+            em[var].set_bound_propagated(false);
+        }
+    };
+    SASSERT(!m.is_bound_propagated());
+    (*this)[m.var()].set_bound_propagated(true);
+    m_u_f_stack.push(set_bound_unpropagated(*this, m.var()));
+}
+
 }

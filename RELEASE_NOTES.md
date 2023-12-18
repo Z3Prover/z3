@@ -12,6 +12,12 @@ Version 4.next
 
 Version 4.12.5
 ==============
+- Fixes to pypi setup and build for MacOS distributions
+- A new theory solver "int-blast" enabled by using:
+  - sat.smt=true smt.bv.solver=2
+  - It solves a few bit-vector problems not handled by bit-blasting, especially if the bit-widths are large.
+  - It is based on encoding bit-vector constraints to non-linear integer arithemtic.
+
 
 Version 4.12.4
 ==============

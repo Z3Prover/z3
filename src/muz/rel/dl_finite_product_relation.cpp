@@ -1835,7 +1835,7 @@ namespace datalog {
         }
     }
 
-    void finite_product_relation::swap(relation_base & r0) {
+    void finite_product_relation::swap(relation_base & r0) noexcept {
         SASSERT(can_swap(r0));
         finite_product_relation & r = finite_product_relation_plugin::get(r0);
         SASSERT(get_signature()==r.get_signature());

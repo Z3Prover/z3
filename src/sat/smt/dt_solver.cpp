@@ -400,7 +400,7 @@ namespace dt {
             return;
         }
         SASSERT(val == l_undef || (val == l_false && !d->m_constructor));
-        ctx.push(set_vector_idx_trail<enode>(d->m_recognizers, c_idx));
+        ctx.push(set_vector_idx_trail(d->m_recognizers, c_idx));
         d->m_recognizers[c_idx] = recognizer;
         if (val == l_false)
             propagate_recognizer(v, recognizer);

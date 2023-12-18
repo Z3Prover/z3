@@ -44,14 +44,14 @@ public:
         m_exponent(0) {
     }
     
-    void swap(mpff & other) { 
+    void swap(mpff & other) noexcept {
         unsigned sign    = m_sign;    m_sign    = other.m_sign;    other.m_sign = sign;
         unsigned sig_idx = m_sig_idx; m_sig_idx = other.m_sig_idx; other.m_sig_idx = sig_idx;
         std::swap(m_exponent, other.m_exponent); 
     }
 };
 
-inline void swap(mpff & m1, mpff & m2) { m1.swap(m2); }
+inline void swap(mpff & m1, mpff & m2) noexcept { m1.swap(m2); }
 
 class mpz;
 class mpq;
@@ -316,7 +316,7 @@ public:
     */
     static void abs(mpff & a) { a.m_sign = 0; }
 
-    static void swap(mpff & a, mpff & b) { a.swap(b); }
+    static void swap(mpff & a, mpff & b) noexcept { a.swap(b); }
 
     /**
        \brief c <- a + b

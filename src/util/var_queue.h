@@ -68,6 +68,8 @@ public:
     void reset() {
         m_queue.reset();
     }
+
+    bool contains(var v) const { return m_queue.contains(v); }
     
     bool empty() const { return m_queue.empty(); }
     

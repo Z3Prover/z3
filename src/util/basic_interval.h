@@ -52,8 +52,8 @@ public:
         interval const & get() const { return m_interval; }
         interval & get() { return m_interval; }
         void reset() { m().reset(m_interval); }
-        void swap(scoped_interval & a) { m().swap(m_interval, a.m_interval); }
-        void swap(interval & a) { m().swap(m_interval, a); }
+        void swap(scoped_interval & a) noexcept { m().swap(m_interval, a.m_interval); }
+        void swap(interval & a) noexcept { m().swap(m_interval, a); }
         bound const & lower() const { return m_interval.lower(); }
         bound const & upper() const { return m_interval.upper(); }
         bound & lower() { return m_interval.lower(); }
@@ -146,7 +146,7 @@ public:
         m().set(a.m_upper, n);
     }
 
-    void swap(interval & a, interval & b) {
+    void swap(interval & a, interval & b) noexcept {
         m().swap(a.m_lower, b.m_lower);
         m().swap(a.m_upper, b.m_upper);
     }

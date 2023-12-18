@@ -130,6 +130,11 @@ namespace dd {
         return p + q - 2*mk_and(p, q);
     }
 
+    pdd pdd_manager::mk_xor(pdd const& p, unsigned x) { 
+        pdd q(mk_val(x)); 
+        return mk_xor(p, q); 
+    }
+
     pdd pdd_manager::mk_not(pdd const& p) {
         if (m_semantics == mod2N_e)
             return -p - 1;
@@ -1802,7 +1807,9 @@ namespace dd {
     pdd& pdd::operator=(pdd const& other) { 
         if (m != other.m) {
             verbose_stream() << "pdd manager confusion: " << *this << " (mod 2^" << power_of_2() << ") := " << other << " (mod 2^" << other.power_of_2() << ")\n";
+            UNREACHABLE();
             // TODO: in the end, this operator should probably be changed to also update the manager. But for now I want to detect such confusions.
+            reset(*other.m);
         }
         SASSERT_EQ(power_of_2(), other.power_of_2());
         VERIFY_EQ(power_of_2(), other.power_of_2());

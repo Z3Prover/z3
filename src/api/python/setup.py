@@ -313,6 +313,8 @@ if 'bdist_wheel' in sys.argv and '--plat-name' not in sys.argv:
             osver = RELEASE_METADATA[3]
             if osver.count('.') > 1:
                 osver = '.'.join(osver.split('.')[:2])
+            if osver.startswith("11"):
+                osver = "11_0"
             if arch == 'x64':
                 plat_name ='macosx_%s_x86_64' % osver.replace('.', '_')
             elif arch == 'arm64':
@@ -339,6 +341,7 @@ setup(
     license='MIT License',
     keywords=['z3', 'smt', 'sat', 'prover', 'theorem'],
     packages=['z3'],
+    install_requires = ['importlib-resources'],
     include_package_data=True,
     package_data={
         'z3': [os.path.join('lib', '*'), os.path.join('include', '*.h'), os.path.join('include', 'c++', '*.h')]

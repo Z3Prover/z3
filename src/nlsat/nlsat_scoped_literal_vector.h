@@ -67,7 +67,7 @@ namespace nlsat {
         void append(scoped_literal_vector const& ls) {
             append(ls.size(), ls.data());
         }
-        void swap(scoped_literal_vector& other) {
+        void swap(scoped_literal_vector& other) noexcept {
             SASSERT(&m_solver == &other.m_solver);
             m_lits.swap(other.m_lits);
         }

@@ -106,7 +106,6 @@ namespace euf {
             attach_node(mk_enode(e, 0, nullptr));        
         return true;
     }
-
     bool solver::post_visit(expr* e, bool sign, bool root) {
         unsigned num = is_app(e) ? to_app(e)->get_num_args() : 0;
         m_args.reset();

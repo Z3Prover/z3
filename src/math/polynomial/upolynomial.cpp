@@ -126,7 +126,7 @@ namespace upolynomial {
         m_factors[i].swap(p);
     }
 
-    void core_manager::factors::swap(factors & other) {
+    void core_manager::factors::swap(factors & other) noexcept {
         m_factors.swap(other.m_factors);
         m_degrees.swap(other.m_degrees);
         nm().swap(m_constant, other.m_constant);

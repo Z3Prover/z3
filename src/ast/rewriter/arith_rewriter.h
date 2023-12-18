@@ -63,6 +63,7 @@ class arith_rewriter : public poly_rewriter<arith_rewriter_core> {
     bool m_eq2ineq;
     unsigned m_max_degree;
 
+    bool get_range(expr* e, rational& lo, rational& hi);
     void get_coeffs_gcd(expr * t, numeral & g, bool & first, unsigned & num_consts);
     enum const_treatment { CT_FLOOR, CT_CEIL, CT_FALSE };
     bool div_polynomial(expr * t, numeral const & g, const_treatment ct, expr_ref & result);
@@ -159,6 +160,10 @@ public:
     br_status mk_mod_core(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_rem_core(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_power_core(expr* arg1, expr* arg2, expr_ref & result);
+    br_status mk_band_core(unsigned sz, expr* arg1, expr* arg2, expr_ref& result);
+    br_status mk_shl_core(unsigned sz, expr* arg1, expr* arg2, expr_ref& result);
+    br_status mk_lshr_core(unsigned sz, expr* arg1, expr* arg2, expr_ref& result);
+    br_status mk_ashr_core(unsigned sz, expr* arg1, expr* arg2, expr_ref& result);
     void mk_div(expr * arg1, expr * arg2, expr_ref & result) {
         if (mk_div_core(arg1, arg2, result) == BR_FAILED)
             result = m.mk_app(get_fid(), OP_DIV, arg1, arg2);

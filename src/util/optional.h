@@ -94,7 +94,7 @@ public:
         return * this;
     }
 
-    optional & operator=(optional && val) {
+    optional & operator=(optional && val) noexcept {
         std::swap(m_obj, val.m_obj);
         return *this;
     }

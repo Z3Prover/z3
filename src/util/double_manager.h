@@ -76,7 +76,7 @@ public:
     static void set(double & a, unsigned val) { a = static_cast<double>(val); }
     static void set(double & a, int64_t val) { a = static_cast<double>(val); }
     static void set(double & a, uint64_t val) { a = static_cast<double>(val); }
-    static void swap(double & a, double & b) { std::swap(a, b); }
+    static void swap(double & a, double & b) noexcept { std::swap(a, b); }
     bool is_pos(double a) const { return a > m_zero_tolerance; }
     bool is_neg(double a) const { return a < m_zero_tolerance; }
     bool is_zero(double a) const { return  -m_zero_tolerance <= a && a <= m_zero_tolerance; }

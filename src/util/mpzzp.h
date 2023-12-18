@@ -183,7 +183,7 @@ public:
         }
     }
     
-    void swap(mpz & a, mpz & b) {
+    void swap(mpz & a, mpz & b) noexcept {
         SASSERT(is_p_normalized(a) && is_p_normalized(b));
         m().swap(a, b);
     }

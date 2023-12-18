@@ -102,7 +102,7 @@ namespace pb {
         
         virtual bool is_watching(literal l) const { UNREACHABLE(); return false; };
         virtual literal_vector literals() const { UNREACHABLE(); return literal_vector(); }
-        virtual void swap(unsigned i, unsigned j) { UNREACHABLE(); }
+        virtual void swap(unsigned i, unsigned j) noexcept { UNREACHABLE(); }
         virtual literal get_lit(unsigned i) const { UNREACHABLE(); return sat::null_literal; }
         virtual void set_lit(unsigned i, literal l) { UNREACHABLE(); }
         virtual void negate() { UNREACHABLE(); }

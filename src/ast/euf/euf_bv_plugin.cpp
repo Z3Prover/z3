@@ -104,8 +104,8 @@ namespace euf {
     }
 
     void bv_plugin::merge_eh(enode* x, enode* y) {
-        SASSERT(x == x->get_root());
-        SASSERT(x == y->get_root());
+        if (!bv.is_bv(x->get_expr()))
+            return;
 
         TRACE("bv", tout << "merge_eh " << g.bpp(x) << " == " << g.bpp(y) << "\n");
         SASSERT(!m_internal);
@@ -343,7 +343,8 @@ namespace euf {
         enode* hi = mk_extract(n, cut, w - 1);
         enode* lo = mk_extract(n, 0, cut - 1);        
         auto& i = info(n);
-        SASSERT(i.value);
+        if (!i.value)
+            i.value = n;
         i.hi = hi;
         i.lo = lo;
         i.cut = cut;

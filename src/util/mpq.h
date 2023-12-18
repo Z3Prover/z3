@@ -761,9 +761,9 @@ public:
         return temp;
     }
 
-    void swap(mpz & a, mpz & b) { mpz_manager<SYNCH>::swap(a, b); }
+    void swap(mpz & a, mpz & b) noexcept { mpz_manager<SYNCH>::swap(a, b); }
 
-    void swap(mpq & a, mpq & b) {
+    void swap(mpq & a, mpq & b) noexcept {
         swap(a.m_num, b.m_num);
         swap(a.m_den, b.m_den);
     }

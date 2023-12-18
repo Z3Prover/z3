@@ -38,7 +38,7 @@ class inf_eps_rational {
 
     struct eq_proc { bool operator()(inf_eps_rational const& r1, inf_eps_rational const& r2) const { return r1 == r2; } };
 
-    void swap(inf_eps_rational & n) { 
+    void swap(inf_eps_rational & n) noexcept {
         m_infty.swap(n.m_infty);
         m_r.swap(n.m_r);
     }

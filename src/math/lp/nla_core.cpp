@@ -1517,6 +1517,9 @@ void core::add_bounds() {
         for (lpvar j : m.vars()) {
             if (!var_is_free(j))
                 continue;
+	    if (m.is_bound_propagated())
+                continue;
+	    m_emons.set_bound_propagated(m);
             // split the free variable (j <= 0, or j > 0), and return
             m_literals.push_back(ineq(j, lp::lconstraint_kind::EQ, rational::zero()));
             TRACE("nla_solver", print_ineq(m_literals.back(), tout) << "\n");                  

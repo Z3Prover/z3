@@ -37,6 +37,7 @@ struct theory_bv_params {
     bool         m_bv_delay = true;
     bool         m_bv_polysat = false;
     bool         m_bv_size_reduce = false;
+    unsigned     m_bv_solver = 0;
     theory_bv_params(params_ref const & p = params_ref()) {
         updt_params(p);
     }

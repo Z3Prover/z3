@@ -184,7 +184,7 @@ public:
     T const * data() const { return m_data; }
     T * data() { return m_data; }
 
-    void swap(array & other) {
+    void swap(array & other) noexcept {
         std::swap(m_data, other.m_data);
     }
 

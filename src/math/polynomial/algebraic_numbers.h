@@ -129,7 +129,7 @@ namespace algebraic_numbers {
         void set(numeral & a, mpq const & n);
         void set(numeral & a, numeral const & n);
 
-        void swap(numeral & a, numeral & b);
+        void swap(numeral & a, numeral & b) noexcept;
 
         /**
            \brief Store in b an integer value smaller than 'a'.

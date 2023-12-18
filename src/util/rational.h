@@ -86,7 +86,7 @@ public:
 
     struct eq_proc { bool operator()(rational const& r1, rational const& r2) const { return r1 == r2; } };
     
-    void swap(rational & n) { m().swap(m_val, n.m_val); }
+    void swap(rational & n) noexcept { m().swap(m_val, n.m_val); }
     
     std::string to_string() const { return m().to_string(m_val); }
 
@@ -671,6 +671,6 @@ inline rational gcd(rational const & r1, rational const & r2, rational & a, rati
   return result;
 }
 
-inline void swap(rational& r1, rational& r2) {
+inline void swap(rational& r1, rational& r2) noexcept {
     r1.swap(r2);
 }

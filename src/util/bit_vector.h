@@ -98,7 +98,7 @@ public:
         m_num_bits = 0;
     }
 
-    void swap(bit_vector & other) {
+    void swap(bit_vector & other) noexcept {
         std::swap(m_data, other.m_data);
         std::swap(m_num_bits, other.m_num_bits);
         std::swap(m_capacity, other.m_capacity);

@@ -447,7 +447,7 @@ namespace polynomial {
         }
     };
 
-    inline void swap(monomial * & m1, monomial * & m2) { std::swap(m1, m2); }
+    inline void swap(monomial * & m1, monomial * & m2) noexcept { std::swap(m1, m2); }
 
     typedef chashtable<monomial*, monomial::hash_proc, monomial::eq_proc> monomial_table;
 

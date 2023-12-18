@@ -53,7 +53,7 @@ lia_move int_branch::create_branch_on_column(int j) {
 int int_branch::find_inf_int_base_column() {
 
 #if 1
-    return lia.select_int_infeasible_var(false);
+    return lia.select_int_infeasible_var();
 #endif
 
     int result = -1;

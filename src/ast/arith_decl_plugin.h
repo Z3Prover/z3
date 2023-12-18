@@ -70,6 +70,11 @@ enum arith_op_kind {
     OP_ASINH,
     OP_ACOSH,
     OP_ATANH,
+    // Bit-vector functions
+    OP_ARITH_BAND,
+    OP_ARITH_SHL,
+    OP_ARITH_ASHR,
+    OP_ARITH_LSHR,
     // constants
     OP_PI,
     OP_E,
@@ -147,6 +152,8 @@ protected:
     ptr_vector<app> m_small_reals;
 
     bool        m_convert_int_numerals_to_real;
+
+    symbol bv_symbol(decl_kind k) const;
 
     func_decl * mk_func_decl(decl_kind k, bool is_real);
     void set_manager(ast_manager * m, family_id id) override;
@@ -231,30 +238,22 @@ public:
    executed in different threads.
 */
 class arith_recognizers {
+    bool is_arith_op(expr const* n, decl_kind k, unsigned& sz, expr*& x, expr*& y) {
+        if (!is_app_of(n, arith_family_id, k))
+            return false;
+        x = to_app(n)->get_arg(0);
+        y = to_app(n)->get_arg(1);
+        sz = to_app(n)->get_parameter(0).get_int();
+        return true;
+    }
 public:
     family_id get_family_id() const { return arith_family_id; }
 
     bool is_arith_expr(expr const * n) const { return is_app(n) && to_app(n)->get_family_id() == arith_family_id; }
-    bool is_irrational_algebraic_numeral(expr const * n) const;
-    bool is_unsigned(expr const * n, unsigned& u) const { 
-        rational val;
-        bool is_int = true;
-        return is_numeral(n, val, is_int) && is_int && val.is_unsigned() && (u = val.get_unsigned(), true); 
-    }
-    bool is_numeral(expr const * n, rational & val, bool & is_int) const;
-    bool is_numeral(expr const * n, rational & val) const { bool is_int; return is_numeral(n, val, is_int); }
-    bool is_numeral(expr const * n) const { return is_app_of(n, arith_family_id, OP_NUM); }
-    bool is_zero(expr const * n) const { rational val; return is_numeral(n, val) && val.is_zero(); }
-    bool is_minus_one(expr * n) const { rational tmp; return is_numeral(n, tmp) && tmp.is_minus_one(); }
-    // return true if \c n is a term of the form (* -1 r)
-    bool is_times_minus_one(expr * n, expr * & r) const {
-        if (is_mul(n) && to_app(n)->get_num_args() == 2 && is_minus_one(to_app(n)->get_arg(0))) {
-            r = to_app(n)->get_arg(1);
-            return true;
-        }
-        return false;
-    }
 
+    bool is_irrational_algebraic_numeral(expr const* n) const;
+
+    bool is_numeral(expr const* n) const { return is_app_of(n, arith_family_id, OP_NUM); }
     bool is_int_expr(expr const * e) const;
 
     bool is_le(expr const * n) const { return is_app_of(n, arith_family_id, OP_LE); }
@@ -308,6 +307,15 @@ public:
     bool is_real(expr const * n) const { return is_real(n->get_sort()); }
     bool is_int_real(sort const * s) const { return s->get_family_id() == arith_family_id; }
     bool is_int_real(expr const * n) const { return is_int_real(n->get_sort()); }
+
+    bool is_band(expr const* n) const { return is_app_of(n, arith_family_id, OP_ARITH_BAND); }
+    bool is_band(expr const* n, unsigned& sz, expr*& x, expr*& y) { return is_arith_op(n, OP_ARITH_BAND, sz, x, y); }
+    bool is_shl(expr const* n) const { return is_app_of(n, arith_family_id, OP_ARITH_SHL); }
+    bool is_shl(expr const* n, unsigned& sz, expr*& x, expr*& y) { return is_arith_op(n, OP_ARITH_SHL, sz, x, y); }
+    bool is_lshr(expr const* n) const { return is_app_of(n, arith_family_id, OP_ARITH_LSHR); }
+    bool is_lshr(expr const* n, unsigned& sz, expr*& x, expr*& y) { return is_arith_op(n, OP_ARITH_LSHR, sz, x, y); }
+    bool is_ashr(expr const* n) const { return is_app_of(n, arith_family_id, OP_ARITH_ASHR); }
+    bool is_ashr(expr const* n, unsigned& sz, expr*& x, expr*& y) { return is_arith_op(n, OP_ARITH_ASHR, sz, x, y); }
 
     bool is_sin(expr const* n) const { return is_app_of(n, arith_family_id, OP_SIN); }
     bool is_cos(expr const* n) const { return is_app_of(n, arith_family_id, OP_COS); }
@@ -387,13 +395,32 @@ public:
         return *m_plugin;
     }
 
-    algebraic_numbers::manager & am() {
+    algebraic_numbers::manager & am() const {
         return plugin().am();
     }
 
+    // return true if \c n is a term of the form (* -1 r)
+    bool is_zero(expr const* n) const { rational val; return is_numeral(n, val) && val.is_zero(); }
+    bool is_minus_one(expr* n) const { rational tmp; return is_numeral(n, tmp) && tmp.is_minus_one(); }
+    bool is_times_minus_one(expr* n, expr*& r) const {
+        if (is_mul(n) && to_app(n)->get_num_args() == 2 && is_minus_one(to_app(n)->get_arg(0))) {
+            r = to_app(n)->get_arg(1);
+            return true;
+        }
+        return false;
+    }
+    bool is_unsigned(expr const* n, unsigned& u) const {
+        rational val;
+        bool is_int = true;
+        return is_numeral(n, val, is_int) && is_int && val.is_unsigned() && (u = val.get_unsigned(), true);
+    }
+    bool is_numeral(expr const* n) const { return arith_recognizers::is_numeral(n); }
+    bool is_numeral(expr const* n, rational& val, bool& is_int) const;
+    bool is_numeral(expr const* n, rational& val) const { bool is_int; return is_numeral(n, val, is_int); }
+
     bool convert_int_numerals_to_real() const { return plugin().convert_int_numerals_to_real(); }
-    bool is_irrational_algebraic_numeral2(expr const * n, algebraic_numbers::anum & val);
-    algebraic_numbers::anum const & to_irrational_algebraic_numeral(expr const * n);
+    bool is_irrational_algebraic_numeral2(expr const * n, algebraic_numbers::anum & val) const;
+    algebraic_numbers::anum const & to_irrational_algebraic_numeral(expr const * n) const;
 
     sort * mk_int() { return m_manager.mk_sort(arith_family_id, INT_SORT); }
     sort * mk_real() { return m_manager.mk_sort(arith_family_id, REAL_SORT); }
@@ -471,6 +498,11 @@ public:
     app * mk_power(expr* arg1, expr* arg2) { return m_manager.mk_app(arith_family_id, OP_POWER, arg1, arg2); }
     app * mk_power0(expr* arg1, expr* arg2) { return m_manager.mk_app(arith_family_id, OP_POWER0, arg1, arg2); }
 
+    app* mk_band(unsigned n, expr* arg1, expr* arg2) { parameter p(n); expr* args[2] = { arg1, arg2 }; return m_manager.mk_app(arith_family_id, OP_ARITH_BAND, 1, &p, 2, args); }
+    app* mk_shl(unsigned n, expr* arg1, expr* arg2) { parameter p(n); expr* args[2] = { arg1, arg2 }; return m_manager.mk_app(arith_family_id, OP_ARITH_SHL, 1, &p, 2, args); }
+    app* mk_ashr(unsigned n, expr* arg1, expr* arg2) { parameter p(n); expr* args[2] = { arg1, arg2 }; return m_manager.mk_app(arith_family_id, OP_ARITH_ASHR, 1, &p, 2, args); }
+    app* mk_lshr(unsigned n, expr* arg1, expr* arg2) { parameter p(n); expr* args[2] = { arg1, arg2 }; return m_manager.mk_app(arith_family_id, OP_ARITH_LSHR, 1, &p, 2, args); }
+
     app * mk_sin(expr * arg) { return m_manager.mk_app(arith_family_id, OP_SIN, arg); }
     app * mk_cos(expr * arg) { return m_manager.mk_app(arith_family_id, OP_COS, arg); }
     app * mk_tan(expr * arg) { return m_manager.mk_app(arith_family_id, OP_TAN, arg); }
@@ -498,11 +530,11 @@ public:
        if none of them are numerals, then the left-hand-side has a smaller id than the right hand side.
     */
     app * mk_eq(expr * lhs, expr * rhs) {
-        if (is_numeral(lhs) || (!is_numeral(rhs) && lhs->get_id() > rhs->get_id()))
+        if (arith_recognizers::is_numeral(lhs) || (!arith_recognizers::is_numeral(rhs) && lhs->get_id() > rhs->get_id()))
             std::swap(lhs, rhs);
         if (lhs == rhs)
             return m_manager.mk_true();
-        if (is_numeral(lhs) && is_numeral(rhs)) {
+        if (arith_recognizers::is_numeral(lhs) && arith_recognizers::is_numeral(rhs)) {
             SASSERT(lhs != rhs);
             return m_manager.mk_false();
         }

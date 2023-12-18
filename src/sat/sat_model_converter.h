@@ -91,7 +91,7 @@ namespace sat {
 
         bool legal_to_flip(bool_var v) const;
 
-        void swap(bool_var v, unsigned sz, literal_vector& clause);
+        void swap(bool_var v, unsigned sz, literal_vector& clause) noexcept;
 
         void add_elim_stack(entry & e);
 

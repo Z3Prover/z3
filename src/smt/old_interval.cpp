@@ -238,7 +238,7 @@ interval & interval::operator=(interval const & other) {
     return *this;
 }
 
-interval & interval::operator=(interval && other) {
+interval & interval::operator=(interval && other) noexcept {
     SASSERT(&m_manager == &other.m_manager);
     m_lower = std::move(other.m_lower);
     m_upper = std::move(other.m_upper);

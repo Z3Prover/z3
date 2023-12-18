@@ -93,7 +93,7 @@ public:
         return *this;
     }
 
-    obj_ref & operator=(obj_ref && n) {
+    obj_ref & operator=(obj_ref && n) noexcept {
         SASSERT(&m_manager == &n.m_manager);
         std::swap(m_obj, n.m_obj);
         n.reset();
@@ -105,7 +105,7 @@ public:
         m_obj = nullptr;
     }
 
-    void swap(obj_ref & n) {
+    void swap(obj_ref & n) noexcept {
         std::swap(m_obj, n.m_obj);
     }
 

@@ -41,7 +41,7 @@ mpf::mpf(unsigned _ebits, unsigned _sbits):
     set(ebits, sbits);
 }
 
-void mpf::swap(mpf & other) {
+void mpf::swap(mpf & other) noexcept {
     unsigned tmp = ebits;
     ebits = other.ebits;
     other.ebits = tmp;

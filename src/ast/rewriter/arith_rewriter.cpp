@@ -91,6 +91,10 @@ br_status arith_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * c
     case OP_SINH: SASSERT(num_args == 1); st = mk_sinh_core(args[0], result); break;
     case OP_COSH: SASSERT(num_args == 1); st = mk_cosh_core(args[0], result); break;
     case OP_TANH: SASSERT(num_args == 1); st = mk_tanh_core(args[0], result); break;
+    case OP_ARITH_BAND: SASSERT(num_args == 2);  st = mk_band_core(f->get_parameter(0).get_int(), args[0], args[1], result); break;
+    case OP_ARITH_SHL: SASSERT(num_args == 2);  st = mk_shl_core(f->get_parameter(0).get_int(), args[0], args[1], result); break;
+    case OP_ARITH_ASHR: SASSERT(num_args == 2);  st = mk_ashr_core(f->get_parameter(0).get_int(), args[0], args[1], result); break;
+    case OP_ARITH_LSHR: SASSERT(num_args == 2);  st = mk_lshr_core(f->get_parameter(0).get_int(), args[0], args[1], result); break;
     default: st = BR_FAILED; break;
     }
     CTRACE("arith_rewriter", st != BR_FAILED, tout << st << ": " << mk_pp(f, m);
@@ -1228,19 +1232,20 @@ static rational symmod(rational const& a, rational const& b) {
     
 br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & result) {
     set_curr_sort(arg1->get_sort());
-    numeral v1, v2;
-    bool is_int;
-    if (m_util.is_numeral(arg1, v1, is_int) && m_util.is_numeral(arg2, v2, is_int) && !v2.is_zero()) {
-        result = m_util.mk_numeral(mod(v1, v2), is_int);
+    numeral x, y;
+    bool is_num_x = m_util.is_numeral(arg1, x);
+    bool is_num_y = m_util.is_numeral(arg2, y);
+    if (is_num_x && is_num_y && !y.is_zero()) {
+        result = m_util.mk_int(mod(x, y));
         return BR_DONE;
     }
 
-    if (m_util.is_numeral(arg2, v2, is_int) && is_int && (v2.is_one() || v2.is_minus_one())) {
+    if (is_num_y && y.is_int() && (y.is_one() || y.is_minus_one())) {
         result = m_util.mk_numeral(numeral(0), true);
         return BR_DONE;
     }
 
-    if (arg1 == arg2 && !m_util.is_numeral(arg2)) {
+    if (arg1 == arg2 && !is_num_y) {
         expr_ref zero(m_util.mk_int(0), m);
         result = m.mk_ite(m.mk_eq(arg2, zero), m_util.mk_mod(zero, zero), zero);
         return BR_DONE;
@@ -1248,29 +1253,35 @@ br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & resul
 
     // mod is idempotent on non-zero modulus.
     expr* t1, *t2;
-    if (m_util.is_mod(arg1, t1, t2) && t2 == arg2 && m_util.is_numeral(arg2, v2, is_int) && is_int && !v2.is_zero()) {
+    if (m_util.is_mod(arg1, t1, t2) && t2 == arg2 && is_num_y && y.is_int() && !y.is_zero()) {
+        result = arg1;
+        return BR_DONE;
+    }
+
+    rational lo, hi;
+    if (is_num_y && get_range(arg1, lo, hi) && 0 <= lo && hi < y) {
         result = arg1;
         return BR_DONE;
     }
 
     // propagate mod inside only if there is something to reduce.
-    if (m_util.is_numeral(arg2, v2, is_int) && is_int && v2.is_pos() && (is_add(arg1) || is_mul(arg1))) {
+    if (is_num_y && y.is_int() && y.is_pos() && (is_add(arg1) || is_mul(arg1))) {
         TRACE("mod_bug", tout << "mk_mod:\n" << mk_ismt2_pp(arg1, m) << "\n" << mk_ismt2_pp(arg2, m) << "\n";);
         expr_ref_buffer args(m);
         bool change = false;
         for (expr* arg : *to_app(arg1)) {
             rational arg_v;
-            if (m_util.is_numeral(arg, arg_v) && mod(arg_v, v2) != arg_v) {
+            if (m_util.is_numeral(arg, arg_v) && mod(arg_v, y) != arg_v) {
                 change = true;
-                args.push_back(m_util.mk_numeral(mod(arg_v, v2), true));
+                args.push_back(m_util.mk_numeral(mod(arg_v, y), true));
             }
             else if (m_util.is_mod(arg, t1, t2) && t2 == arg2) {
                 change = true;
                 args.push_back(t1);
             }
-            else if (m_util.is_mul(arg, t1, t2) && m_util.is_numeral(t1, arg_v) && symmod(arg_v, v2) != arg_v) {
+            else if (m_util.is_mul(arg, t1, t2) && m_util.is_numeral(t1, arg_v) && symmod(arg_v, y) != arg_v) {
                 change = true;
-                args.push_back(m_util.mk_mul(m_util.mk_numeral(symmod(arg_v, v2), true), t2));
+                args.push_back(m_util.mk_mul(m_util.mk_numeral(symmod(arg_v, y), true), t2));
             }
             else {
                 args.push_back(arg);
@@ -1286,6 +1297,27 @@ br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & resul
 
     return BR_FAILED;
 }
+
+bool arith_rewriter::get_range(expr* e, rational& lo, rational& hi) {
+    expr* x, *y;
+    rational r;
+    if (m_util.is_idiv(e, x, y) && m_util.is_numeral(y, r) && get_range(x, lo, hi) && 0 <= lo && r > 0) {
+        lo = div(lo, r);
+        hi = div(hi, r);
+        return true;
+    }
+    if (m_util.is_mod(e, x, y) && m_util.is_numeral(y, r) && r > 0) {
+        lo = 0;
+        hi = r - 1;
+        return true;
+    }
+    if (m_util.is_numeral(e, r)) {
+        lo = hi = r;
+        return true;
+    }
+    return false;
+}
+
 
 br_status arith_rewriter::mk_rem_core(expr * arg1, expr * arg2, expr_ref & result) {
     set_curr_sort(arg1->get_sort());
@@ -1347,6 +1379,134 @@ app* arith_rewriter_core::mk_power(expr* x, rational const& r, sort* s) {
     if (m_util.is_int(s))
         y = m_util.mk_to_int(y);
     return y;
+}
+
+br_status arith_rewriter::mk_shl_core(unsigned sz, expr* arg1, expr* arg2, expr_ref& result) {
+    numeral x, y, N;
+    bool is_num_x = m_util.is_numeral(arg1, x);
+    bool is_num_y = m_util.is_numeral(arg2, y);
+    N = rational::power_of_two(sz);
+    if (is_num_x) 
+        x = mod(x, N);
+    if (is_num_y)
+        y = mod(y, N);
+    if (is_num_x && is_num_y) {
+        if (y >= sz) 
+            result = m_util.mk_int(0);
+        else 
+            result = m_util.mk_int(mod(x * rational::power_of_two(y.get_unsigned()), N));
+        return BR_DONE;
+    }
+    if (is_num_y) {
+        if (y >= sz) 
+            result = m_util.mk_int(0);
+        else 
+            result = m_util.mk_mod(m_util.mk_mul(arg1, m_util.mk_int(rational::power_of_two(y.get_unsigned()))), m_util.mk_int(N));
+        return BR_REWRITE1;
+    }
+    if (is_num_x && x == 0) {
+        result = m_util.mk_int(0);
+        return BR_DONE;
+    }        
+    return BR_FAILED;
+}
+br_status arith_rewriter::mk_ashr_core(unsigned sz, expr* arg1, expr* arg2, expr_ref& result) {
+    numeral x, y, N;
+    bool is_num_x = m_util.is_numeral(arg1, x);
+    bool is_num_y = m_util.is_numeral(arg2, y);
+    N = rational::power_of_two(sz);
+    if (is_num_x) 
+        x = mod(x, N);
+    if (is_num_y)
+        y = mod(y, N);
+    if (is_num_x && x == 0) {
+        result = m_util.mk_int(0);
+        return BR_DONE;
+    }
+    if (is_num_x && is_num_y) {
+        bool signx = x >= N/2;
+        rational d = div(x, rational::power_of_two(y.get_unsigned()));
+        SASSERT(y >= 0);
+        if (signx) {
+            if (y >= sz)
+                result = m_util.mk_int(N-1);
+            else
+                result = m_util.mk_int(d);
+        }
+        else {
+            if (y >= sz) 
+                result = m_util.mk_int(0);
+            else 
+                result = m_util.mk_int(mod(d - rational::power_of_two(sz - y.get_unsigned()), N));
+        }
+        return BR_DONE;
+    }
+    return BR_FAILED;
+}
+
+br_status arith_rewriter::mk_lshr_core(unsigned sz, expr* arg1, expr* arg2, expr_ref& result) {
+    numeral x, y, N;
+    bool is_num_x = m_util.is_numeral(arg1, x);
+    bool is_num_y = m_util.is_numeral(arg2, y);
+    N = rational::power_of_two(sz);
+    if (is_num_x) 
+        x = mod(x, N);
+    if (is_num_y)
+        y = mod(y, N);
+    if (is_num_x && x == 0) {
+        result = m_util.mk_int(0);
+        return BR_DONE;
+    }
+    if (is_num_y && y == 0) {
+        result = arg1;
+        return BR_DONE;
+    }
+    if (is_num_x && is_num_y) {
+        if (y >= sz)
+            result = m_util.mk_int(0);
+        else {
+            rational d = div(x, rational::power_of_two(y.get_unsigned()));
+            result = m_util.mk_int(d);
+        }
+        return BR_DONE;
+    }
+    return BR_FAILED;
+}
+
+br_status arith_rewriter::mk_band_core(unsigned sz, expr* arg1, expr* arg2, expr_ref& result) {
+    numeral x, y, N;
+    bool is_num_x = m_util.is_numeral(arg1, x);
+    bool is_num_y = m_util.is_numeral(arg2, y);
+    N = rational::power_of_two(sz);
+    if (is_num_x) 
+        x = mod(x, N);      
+    if (is_num_y)
+        y = mod(y, N);
+    if (is_num_x && x.is_zero()) {
+        result = m_util.mk_int(0);
+        return BR_DONE;
+    }
+    if (is_num_y && y.is_zero()) {
+        result = m_util.mk_int(0);
+        return BR_DONE;
+    }
+    if (is_num_x && is_num_y) {
+        rational r(0);
+        for (unsigned i = 0; i < sz; ++i)
+            if (x.get_bit(i) && y.get_bit(i))
+                r += rational::power_of_two(i);
+        result = m_util.mk_int(r);
+        return BR_DONE;
+    }
+    if (is_num_x && (x + 1).is_power_of_two()) {
+        result = m_util.mk_mod(arg2, m_util.mk_int(x + 1));
+        return BR_REWRITE1;
+    }
+    if (is_num_y && (y + 1).is_power_of_two()) {
+        result = m_util.mk_mod(arg1, m_util.mk_int(y + 1));
+        return BR_REWRITE1;
+    }
+    return BR_FAILED;
 }
 
 br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & result) {
