@@ -36,7 +36,7 @@ namespace dt {
         typedef sat::bool_var bool_var;
         typedef sat::literal literal;
         typedef sat::literal_vector literal_vector;
-        typedef union_find<solver, euf::solver>  dt_union_find;
+        typedef union_find<solver>  dt_union_find;
 
         struct var_data {
             ptr_vector<enode> m_recognizers; //!< recognizers of this equivalence class that are being watched.
