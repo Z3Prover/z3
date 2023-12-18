@@ -1232,19 +1232,20 @@ static rational symmod(rational const& a, rational const& b) {
     
 br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & result) {
     set_curr_sort(arg1->get_sort());
-    numeral v1, v2;
-    bool is_int;
-    if (m_util.is_numeral(arg1, v1, is_int) && m_util.is_numeral(arg2, v2, is_int) && !v2.is_zero()) {
-        result = m_util.mk_numeral(mod(v1, v2), is_int);
+    numeral x, y;
+    bool is_num_x = m_util.is_numeral(arg1, x);
+    bool is_num_y = m_util.is_numeral(arg2, y);
+    if (is_num_x && is_num_y && !y.is_zero()) {
+        result = m_util.mk_int(mod(x, y));
         return BR_DONE;
     }
 
-    if (m_util.is_numeral(arg2, v2, is_int) && is_int && (v2.is_one() || v2.is_minus_one())) {
+    if (is_num_y && y.is_int() && (y.is_one() || y.is_minus_one())) {
         result = m_util.mk_numeral(numeral(0), true);
         return BR_DONE;
     }
 
-    if (arg1 == arg2 && !m_util.is_numeral(arg2)) {
+    if (arg1 == arg2 && !is_num_y) {
         expr_ref zero(m_util.mk_int(0), m);
         result = m.mk_ite(m.mk_eq(arg2, zero), m_util.mk_mod(zero, zero), zero);
         return BR_DONE;
@@ -1252,29 +1253,35 @@ br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & resul
 
     // mod is idempotent on non-zero modulus.
     expr* t1, *t2;
-    if (m_util.is_mod(arg1, t1, t2) && t2 == arg2 && m_util.is_numeral(arg2, v2, is_int) && is_int && !v2.is_zero()) {
+    if (m_util.is_mod(arg1, t1, t2) && t2 == arg2 && is_num_y && y.is_int() && !y.is_zero()) {
+        result = arg1;
+        return BR_DONE;
+    }
+
+    rational lo, hi;
+    if (is_num_y && get_range(arg1, lo, hi) && 0 <= lo && hi < y) {
         result = arg1;
         return BR_DONE;
     }
 
     // propagate mod inside only if there is something to reduce.
-    if (m_util.is_numeral(arg2, v2, is_int) && is_int && v2.is_pos() && (is_add(arg1) || is_mul(arg1))) {
+    if (is_num_y && y.is_int() && y.is_pos() && (is_add(arg1) || is_mul(arg1))) {
         TRACE("mod_bug", tout << "mk_mod:\n" << mk_ismt2_pp(arg1, m) << "\n" << mk_ismt2_pp(arg2, m) << "\n";);
         expr_ref_buffer args(m);
         bool change = false;
         for (expr* arg : *to_app(arg1)) {
             rational arg_v;
-            if (m_util.is_numeral(arg, arg_v) && mod(arg_v, v2) != arg_v) {
+            if (m_util.is_numeral(arg, arg_v) && mod(arg_v, y) != arg_v) {
                 change = true;
-                args.push_back(m_util.mk_numeral(mod(arg_v, v2), true));
+                args.push_back(m_util.mk_numeral(mod(arg_v, y), true));
             }
             else if (m_util.is_mod(arg, t1, t2) && t2 == arg2) {
                 change = true;
                 args.push_back(t1);
             }
-            else if (m_util.is_mul(arg, t1, t2) && m_util.is_numeral(t1, arg_v) && symmod(arg_v, v2) != arg_v) {
+            else if (m_util.is_mul(arg, t1, t2) && m_util.is_numeral(t1, arg_v) && symmod(arg_v, y) != arg_v) {
                 change = true;
-                args.push_back(m_util.mk_mul(m_util.mk_numeral(symmod(arg_v, v2), true), t2));
+                args.push_back(m_util.mk_mul(m_util.mk_numeral(symmod(arg_v, y), true), t2));
             }
             else {
                 args.push_back(arg);
@@ -1290,6 +1297,27 @@ br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & resul
 
     return BR_FAILED;
 }
+
+bool arith_rewriter::get_range(expr* e, rational& lo, rational& hi) {
+    expr* x, *y;
+    rational r;
+    if (m_util.is_idiv(e, x, y) && m_util.is_numeral(y, r) && get_range(x, lo, hi) && 0 <= lo && r > 0) {
+        lo = div(lo, r);
+        hi = div(hi, r);
+        return true;
+    }
+    if (m_util.is_mod(e, x, y) && m_util.is_numeral(y, r) && r > 0) {
+        lo = 0;
+        hi = r - 1;
+        return true;
+    }
+    if (m_util.is_numeral(e, r)) {
+        lo = hi = r;
+        return true;
+    }
+    return false;
+}
+
 
 br_status arith_rewriter::mk_rem_core(expr * arg1, expr * arg2, expr_ref & result) {
     set_curr_sort(arg1->get_sort());

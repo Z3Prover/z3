@@ -37,7 +37,6 @@ namespace intblast {
     euf::theory_var solver::mk_var(euf::enode* n) {
         auto r = euf::th_euf_solver::mk_var(n);
         ctx.attach_th_var(n, this, r);
-        TRACE("bv", tout << "mk-var: v" << r << " " << ctx.bpp(n) << "\n";);
         return r;
     }
 
@@ -98,7 +97,7 @@ namespace intblast {
             ensure_translated(y);
             m_args.reset();
             m_args.push_back(a.mk_sub(translated(x), translated(y)));
-            set_translated(e, m.mk_eq(umod(x, 0), a.mk_int(0)));
+            set_translated(e, m.mk_eq(umod(x, 0), a.mk_int(0)));            
         }
         m_preds.push_back(e);
         ctx.push(push_back_vector(m_preds));
@@ -148,7 +147,7 @@ namespace intblast {
             auto a = expr2literal(e);
             auto b = mk_literal(r);
             ctx.mark_relevant(b);
-            //            verbose_stream() << "add-predicate-axiom: " << mk_pp(e, m) << " == " << r << "\n";
+            TRACE("intblast", tout << "add-predicate-axiom: " << mk_bounded_pp(e, m) << " \n" << r << "\n");
             add_equiv(a, b);
         }
         return true;
@@ -606,9 +605,10 @@ namespace intblast {
             unsigned lo, hi;
             expr* old_arg;
             VERIFY(bv.is_extract(e, lo, hi, old_arg));
-            r = arg(0);
             if (lo > 0)
-                r = a.mk_idiv(r, a.mk_int(rational::power_of_two(lo)));
+                r = a.mk_idiv(umod(old_arg, 0), a.mk_int(rational::power_of_two(lo)));
+            else 
+                r = arg(0);
             break;
         }
         case OP_BV_NUM: {
