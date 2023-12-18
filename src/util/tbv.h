@@ -128,7 +128,7 @@ private:
         return (fixed_bit_vector::get(index) << 1) | (unsigned)fixed_bit_vector::get(index+1);
     }
 };
-    
+
 class tbv_ref {
     tbv_manager& mgr;
     tbv* d;

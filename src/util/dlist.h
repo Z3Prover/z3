@@ -232,7 +232,6 @@ public:
     dll_iterator<T> end() const { return dll_iterator<T>::mk_end(m_list); }
 };
 
-
 template < typename T
          , typename U = std::enable_if_t<std::is_base_of_v<dll_base<T>, T>>  // should only match if T actually inherits from dll_base<T>
          >
@@ -247,12 +246,3 @@ dll_iterator<T> end(T const& list)
 {
     return dll_iterator<T>::mk_end(&list);
 }
-
-template <typename T>
-class dll_elements {
-    T const* m_list;
-public:
-    dll_elements(T const* list): m_list(list) {}
-    dll_iterator<T> begin() const { return dll_iterator<T>::mk_begin(m_list); }
-    dll_iterator<T> end() const { return dll_iterator<T>::mk_end(m_list); }
-};
