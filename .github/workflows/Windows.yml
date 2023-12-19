@@ -38,12 +38,10 @@ jobs:
       - name: cmd3
         if: ${{ matrix.cmd3 }}
         run: ${{ matrix.cmd3 }}  
-      - name: vscmd
-        uses: seanmiddleditch/gha-setup-vsdevenv@v4
-        with:
-           arch: $${ matrix.arch }}
-      - name: cmake
-        uses: lukka/get-cmake@latest 
+      - name: Setup Visual Studio environment
+        run: |
+          $vcvarsall = "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\VC\\Auxiliary\\Build\\vcvarsall.bat"
+          cmd /c "$vcvarsall" ${{ matrix.arch }}            
       - name: configure
         run: cmake ${{ matrix.bindings }} -G "NMake Makefiles" ../
       - name: make
