@@ -31,17 +31,19 @@ jobs:
         run:  cd build
       - name: cmd1
         if: ${{ matrix.cmd1 }}
-        run: cmd1
+        run: ${{ matrix.cmd1 }}
       - name: cmd2
         if: ${{ matrix.cmd2 }}
-        run: cmd2
+        run: ${{ matrix.cmd2 }}
       - name: cmd3
         if: ${{ matrix.cmd3 }}
-        run: cmd3        
+        run: ${{ matrix.cmd3 }}  
       - name: vscmd
         uses: seanmiddleditch/gha-setup-vsdevenv@v4
         with:
            arch: $${ matrix.arch }}
+      - name: cmake
+        uses: lukka/get-cmake@latest 
       - name: configure
         run: cmake ${{ matrix.bindings }} -G "NMake Makefiles" ../
       - name: make
