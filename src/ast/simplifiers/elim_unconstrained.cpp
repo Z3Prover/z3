@@ -113,7 +113,7 @@ void elim_unconstrained::eliminate() {
 
         IF_VERBOSE(11, verbose_stream() << "replace " << mk_pp(t, m) << " / " << rr << " -> " << r << "\n");
         
-        TRACE("elim_unconstrained", tout << mk_pp(t, m) << " -> " << r << "\n");
+        TRACE("elim_unconstrained", tout << mk_pp(t, m) << " / " << rr << " -> " << r << "\n");
         SASSERT(r->get_sort() == t->get_sort());
         m_stats.m_num_eliminated++;
         m_trail.push_back(r);
@@ -271,12 +271,18 @@ void elim_unconstrained::gc(expr* t) {
     while (!todo.empty()) {
         t = todo.back();
         todo.pop_back();
+        
         node& n = get_node(t);  
         if (n.m_refcount == 0)
             continue;
+        if (n.m_term && !is_node(n.m_term))
+            continue;
+
         dec_ref(t);
         if (n.m_refcount != 0)
             continue;
+        if (n.m_term)
+            t = n.m_term;
         if (is_app(t)) {
             for (expr* arg : *to_app(t))
                 todo.push_back(arg);
@@ -436,5 +442,4 @@ void elim_unconstrained::reduce() {
         update_model_trail(*mc, old_fmls);
         mc->reset();
     }
-
 }

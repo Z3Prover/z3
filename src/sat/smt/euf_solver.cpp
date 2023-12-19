@@ -1112,7 +1112,7 @@ namespace euf {
             if (b != sat::null_bool_var) {
                 r->m_bool_var2expr.setx(b, n->get_expr(), nullptr);
                 SASSERT(r->m.is_bool(n->get_sort()));
-                IF_VERBOSE(11, verbose_stream() << "set bool_var " << b << " " << r->bpp(n) << " " << mk_bounded_pp(n->get_expr(), m) << "\n");
+                IF_VERBOSE(20, verbose_stream() << "set bool_var " << b << " " << r->bpp(n) << " " << mk_bounded_pp(n->get_expr(), m) << "\n");
             }
         }
         for (auto* s_orig : m_id2solver) {
