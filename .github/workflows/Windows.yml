@@ -39,7 +39,9 @@ jobs:
         if: ${{ matrix.cmd3 }}
         run: cmd3        
       - name: vscmd
-        run: call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" ${{ matrix.arch }}
+        uses: seanmiddleditch/gha-setup-vsdevenv@v4
+        with:
+           arch: $${ matrix.arch }}
       - name: configure
         run: cmake ${{ matrix.bindings }} -G "NMake Makefiles" ../
       - name: make
