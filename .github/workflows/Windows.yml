@@ -9,14 +9,14 @@ jobs:
         arch : [x86,x64,amd64_arm64]
         include:
          - arch : x86
-           bindings : -DZ3_BUILD_PYTHON_BINDINGS=True
+           bindings : '-DZ3_BUILD_PYTHON_BINDINGS=True'
          - arch : x64
            cmd1 : 'julia -e "using Pkg; Pkg.add(PackageSpec(name=\"libcxxwrap_julia_jll\", version=\"0.7.0\"))"'
            cmd2 : 'julia -e "using libcxxwrap_julia_jll; print(dirname(libcxxwrap_julia_jll.libcxxwrap_julia_path))" > tmp.env'
            cmd3 : 'set /P JlCxxDir=<tmp.env'
            bindings: '-DJlCxx_DIR=%JlCxxDir%\..\lib\cmake\JlCxx $(cmakeJava) $(cmakeNet) $(cmakePy) -DCMAKE_BUILD_TYPE=RelWithDebInfo'
          - arch : amd64_arm64
-           bindings: -DZ3_BUILD_PYTHON_BINDINGS=True
+           bindings: '-DZ3_BUILD_PYTHON_BINDINGS=True'
 
     runs-on: windows-latest
     steps:
@@ -39,6 +39,6 @@ jobs:
         run: |
           cmd /c "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" ${{ matrix.arch }}            
       - name: configure
-        run: cmake .. ${{ matrix.bindings }} -G "NMake Makefiles"
+        run: cmake -G "NMake Makefiles" ../
       - name: make
         run: nmake
