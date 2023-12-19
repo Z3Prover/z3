@@ -242,7 +242,6 @@ public:
         // gomory will be   t >= k and the current solution has a property t < k
         m_k = 1;
         m_t.clear();
-        mpq m_f  = fractional_part(get_value(m_inf_col));
         TRACE("gomory_cut_detail", tout << "m_f: " << m_f << ", ";
               tout << "1 - m_f: " << 1 - m_f << ", get_value(m_inf_col).x - m_f = " << get_value(m_inf_col).x - m_f << "\n";);
         lp_assert(m_f.is_pos() && (get_value(m_inf_col).x - m_f).is_int());  
@@ -257,7 +256,6 @@ public:
         }
         m_big_number = m_abs_max.expt(2);
 #endif
-        mpq one_min_m_f = 1 - m_f;
         for (const auto & p : m_row) {
             unsigned j = p.var();
             if (j == m_inf_col) {
