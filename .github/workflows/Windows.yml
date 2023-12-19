@@ -1,0 +1,45 @@
+name: Windows
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+jobs:
+  build:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        x86:
+          arch: 'x86'
+          setupCmd1: ''
+          setupCmd2: ''
+          setupCmd3: ''
+          bindings: '$(cmakePy)'
+          runTests: 'False'
+        x64:
+          arch: 'x64'
+          setupCmd1: 'julia -e "using Pkg; Pkg.add(PackageSpec(name=\"libcxxwrap_julia_jll\", version=\"0.7.0\"))"'
+          setupCmd2: 'julia -e "using libcxxwrap_julia_jll; print(dirname(libcxxwrap_julia_jll.libcxxwrap_julia_path))" > tmp.env'
+          setupCmd3: 'set /P JlCxxDir=<tmp.env'
+          bindings:  '-DJlCxx_DIR=%JlCxxDir%\..\lib\cmake\JlCxx $(cmakeJava) $(cmakeNet) $(cmakePy) -DCMAKE_BUILD_TYPE=RelWithDebInfo'
+          runTests:  'False'
+        arm64:
+          arch: 'amd64_arm64'
+          setupCmd1: ''
+          setupCmd2: ''
+          setupCmd3: ''
+          bindings: ''
+          runTests: 'False'
+    steps:
+      - name: Create build directory
+        run: md build
+      - name: Build
+        run: |
+          cd build
+          $(setupCmd1)
+          $(setupCmd2)
+          $(setupCmd3)
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" $(arch)
+          cmake $(bindings) -G "NMake Makefiles" ../
+          nmake
+          cd ..
