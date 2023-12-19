@@ -377,9 +377,7 @@ extern "C" {
         RESET_ERROR_CODE();
         symbol _s = to_symbol(s);
         if (_s.is_numerical()) {
-            std::ostringstream buffer;
-            buffer << _s.get_num();
-            return mk_c(c)->mk_external_string(buffer.str());
+            return mk_c(c)->mk_external_string(std::to_string(_s.get_num()));
         }
         else {
             return mk_c(c)->mk_external_string(_s.str());
@@ -823,7 +821,7 @@ extern "C" {
         param_descrs descrs;
         th_rewriter::get_param_descrs(descrs);
         descrs.display(buffer);
-        return mk_c(c)->mk_external_string(buffer.str());
+        return mk_c(c)->mk_external_string(std::move(buffer).str());
         Z3_CATCH_RETURN("");
     }
 
@@ -1031,7 +1029,7 @@ extern "C" {
         default:
             UNREACHABLE();
         }
-        return mk_c(c)->mk_external_string(buffer.str());
+        return mk_c(c)->mk_external_string(std::move(buffer).str());
         Z3_CATCH_RETURN(nullptr);
     }
 
@@ -1066,7 +1064,7 @@ extern "C" {
             pp.add_assumption(to_expr(assumptions[i]));
         }
         pp.display_smt2(buffer, to_expr(formula));
-        return mk_c(c)->mk_external_string(buffer.str());
+        return mk_c(c)->mk_external_string(std::move(buffer).str());
         Z3_CATCH_RETURN("");
     }
 
