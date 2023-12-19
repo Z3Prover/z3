@@ -37,7 +37,7 @@ jobs:
         run: ${{ matrix.cmd3 }}  
       - name: Setup Visual Studio environment
         run: |
-          cmd /c ""C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" ${{ matrix.arch }}            
+          cmd /c "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" ${{ matrix.arch }}            
       - name: configure
         run: cmake ${{ matrix.bindings }} -G "NMake Makefiles" ../
       - name: make
