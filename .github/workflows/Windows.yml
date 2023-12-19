@@ -22,23 +22,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      - name: Create build directory
-        run: md build
       - name: Build
-        run:  cd build
-      - name: cmd1
-        if: ${{ matrix.cmd1 }}
-        run: ${{ matrix.cmd1 }}
-      - name: cmd2
-        if: ${{ matrix.cmd2 }}
-        run: ${{ matrix.cmd2 }}
-      - name: cmd3
-        if: ${{ matrix.cmd3 }}
-        run: ${{ matrix.cmd3 }}  
-      - name: Setup Visual Studio environment
-        run: |
+        run: |          
+          md build
+          cd build
           cmd /c "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" ${{ matrix.arch }}            
-      - name: configure
-        run: cmake -G "NMake Makefiles" ../
-      - name: make
-        run: nmake
+          cmake -G "NMake Makefiles" ../
+          nmake        
+
