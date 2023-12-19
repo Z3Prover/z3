@@ -573,6 +573,7 @@ namespace intblast {
             r = a.mk_le(smod(bv_expr, 0), smod(bv_expr, 1));
             break;
         case OP_SGEQ:
+            bv_expr = e->get_arg(0);
             r = a.mk_ge(smod(bv_expr, 0), smod(bv_expr, 1));
             break;
         case OP_SLT:
@@ -902,6 +903,12 @@ namespace intblast {
         if (!is_app(n->get_expr()))
             return false;
         app* e = to_app(n->get_expr());
+        expr *th, * el, * c;
+        if (m.is_ite(e, c, th, el)) {
+            dep.add(n, expr2enode(th)->get_root());
+            dep.add(n, expr2enode(el)->get_root());
+            return true;
+        }
         if (n->num_args() == 0) {
             dep.insert(n, nullptr);
             return true;
@@ -940,6 +947,15 @@ namespace intblast {
 
     void solver::add_value_plugin(euf::enode* n, model& mdl, expr_ref_vector& values) {
         expr_ref value(m);
+        expr* e = n->get_expr(), *c, *th, *el;
+        while (m.is_ite(e, c, th, el)) {
+            auto thn = expr2enode(th);
+            if (thn->get_root() == n->get_root())
+                e = th;
+            else
+                e = el;
+            n = expr2enode(e);
+        }        
         if (n->interpreted())
             value = n->get_expr();
         else if (to_app(n->get_expr())->get_family_id() == bv.get_family_id()) {
