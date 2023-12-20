@@ -456,7 +456,7 @@ namespace smt {
     void unmark_enodes2(unsigned num_enodes, enode * const * enodes);
     
     class tmp_enode {
-        tmp_app  m_app;
+        app m_app;
         unsigned m_capacity;
         char *   m_enode_data;
         enode * get_enode() { return reinterpret_cast<enode*>(m_enode_data); }
@@ -465,7 +465,6 @@ namespace smt {
         tmp_enode();
         ~tmp_enode();
         enode * set(func_decl * f, unsigned num_args, enode * const * args);
-        void reset();
     };
 
     inline mk_pp pp(enode* n, ast_manager& m) { return mk_pp(n->get_expr(), m); }

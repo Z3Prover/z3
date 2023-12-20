@@ -327,7 +327,6 @@ namespace smt {
     }
     
     tmp_enode::tmp_enode():
-        m_app(0),
         m_capacity(0),
         m_enode_data(nullptr) {
         SASSERT(m_app.get_app()->get_decl() == 0);
@@ -340,14 +339,13 @@ namespace smt {
 
     void tmp_enode::set_capacity(unsigned new_capacity) {
         SASSERT(new_capacity > m_capacity);
-        if (m_enode_data)
-            dealloc_svect(m_enode_data);
+        dealloc_svect(m_enode_data);
         m_capacity   = new_capacity;
         unsigned sz  = sizeof(enode) + m_capacity * sizeof(enode*);
         m_enode_data = alloc_svect(char, sz);
         memset(m_enode_data, 0, sz);
         enode * n = get_enode();
-        n->m_owner         = m_app.get_app();
+        n->m_owner         = &m_app;
         n->m_root          = n;
         n->m_next          = n;
         n->m_class_size    = 1;
@@ -359,19 +357,11 @@ namespace smt {
         if (num_args > m_capacity)
             set_capacity(num_args * 2);
         enode * r = get_enode();
-        if (m_app.get_app()->get_decl() != f) {
-            r->m_func_decl_id = UINT_MAX;
-        }
-        m_app.set_decl(f);
-        m_app.set_num_args(num_args);
+        m_app.m_decl = f;
+        m_app.m_num_args = num_args;
         r->m_commutative  = num_args == 2 && f->is_commutative();
         memcpy(get_enode()->m_args, args, sizeof(enode*)*num_args);
         return r;
     }
 
-    void tmp_enode::reset() {
-        get_enode()->m_func_decl_id = UINT_MAX;
-    }
-
 };
-

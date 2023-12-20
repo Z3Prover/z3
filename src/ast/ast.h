@@ -707,6 +707,8 @@ struct app_flags {
     app_flags() : m_depth(1), m_ground(1), m_has_quantifiers(0), m_has_labels(0) {}
 };
 
+namespace smt { class tmp_enode; }
+
 class app : public expr {
     friend class ast_manager;
 
@@ -720,8 +722,10 @@ class app : public expr {
     }
 
     friend class tmp_app;
+    friend class smt::tmp_enode;
 
     app(func_decl * decl, unsigned num_args, expr * const * args);
+    app() : expr(AST_APP) {}
 public:
     func_decl * get_decl() const { return m_decl; }
     family_id get_family_id() const { return get_decl()->get_family_id(); }
