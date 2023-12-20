@@ -670,11 +670,11 @@ namespace lp {
             if (abs(value.x) < small_value ||
                 (has_upper(j) && small_value > upper_bound(j).x - value.x) ||
                 (has_lower(j) && small_value > value.x - lower_bound(j).x)) {
-                TRACE("gomory_cut", tout << "small j" << j << "\n");
+                TRACE("int_solver", tout << "small j" << j << "\n");
                 add_column(true, r_small_value, n_small_value, j);
                 continue;
             }
-            TRACE("gomory_cut", tout << "any j" << j << "\n");
+            TRACE("int_solver", tout << "any j" << j << "\n");
             add_column(usage >= prev_usage, r_any_value, n_any_value, j);
             if (usage > prev_usage) 
                 prev_usage = usage;
