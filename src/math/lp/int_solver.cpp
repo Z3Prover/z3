@@ -950,7 +950,6 @@ namespace lp {
 
             if (!feas)
                 return lia_move::conflict;
-            
         }
 
         if (!_check_feasible())
