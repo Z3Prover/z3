@@ -111,7 +111,6 @@ private:
     bool has_upper(unsigned j) const;
     unsigned row_of_basic_column(unsigned j) const;
     bool cut_indices_are_columns() const;
-    lia_move local_cut(unsigned num_cuts, std::function<lia_move(lpvar)>& cut_fn);
         
 public:
     std::ostream& display_column(std::ostream & out, unsigned j) const;
@@ -129,11 +128,9 @@ private:
 public:
     bool is_term(unsigned j) const;
     unsigned column_count() const;
-    bool all_columns_are_bounded() const;
     lia_move hnf_cut();
 
     int select_int_infeasible_var();
-    unsigned_vector gomory_select_int_infeasible_vars(unsigned num_cuts);
-    bool is_gomory_cut_target(lpvar);
+    
 };
 }

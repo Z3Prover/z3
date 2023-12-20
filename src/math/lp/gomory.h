@@ -28,8 +28,11 @@ namespace lp {
         class int_solver& lia;
         class lar_solver& lra;
         lia_move cut(lar_term & t, mpq & k, explanation* ex, unsigned basic_inf_int_j, const row_strip<mpq>& row);
-    public:
-        gomory(int_solver& lia);
+        unsigned_vector gomory_select_int_infeasible_vars(unsigned num_cuts);
+        bool is_gomory_cut_target(lpvar j); 
         lia_move get_cut(lpvar j);
+    public:
+        lia_move gomory::get_gomory_cuts(unsigned num_cuts);
+        gomory(int_solver& lia);
     };
 }

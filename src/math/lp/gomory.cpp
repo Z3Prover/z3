@@ -401,24 +401,177 @@ public:
         m_f(fractional_part(get_value(basic_inf_int_j).x)),
         m_one_minus_f(1 - m_f) {}
     
-};
+    };
 
-lia_move gomory::cut(lar_term & t, mpq & k, explanation* ex, unsigned basic_inf_int_j, const row_strip<mpq>& row) {
-    create_cut cc(t, k, ex, basic_inf_int_j, row, lia);
-    return cc.cut();
-}
+    lia_move gomory::cut(lar_term & t, mpq & k, explanation* ex, unsigned basic_inf_int_j, const row_strip<mpq>& row) {
+        create_cut cc(t, k, ex, basic_inf_int_j, row, lia);
+        return cc.cut();
+    }
     
-lia_move gomory::get_cut(lpvar j) {
-    unsigned r = lia.row_of_basic_column(j);
-    const row_strip<mpq>& row = lra.get_row(r);
-    SASSERT(lra.row_is_correct(r));
-    SASSERT(lia.is_gomory_cut_target(j));
-    lia.m_upper = false;
-    lia.m_cut_vars.push_back(j);
-    return cut(lia.m_t, lia.m_k, lia.m_ex, j, row);    
-}
+    bool gomory::is_gomory_cut_target(lpvar k) {
+        SASSERT(lia.is_base(k));
+        // All non base variables must be at their bounds and assigned to rationals (that is, infinitesimals are not allowed).
+        const row_strip<mpq>& row = lra.get_row(lia.row_of_basic_column(k));
+        unsigned j;
+        for (const auto & p : row) {
+            j = p.var();
+            if ( k != j && (!lia.at_bound(j) || lia.get_value(j).y != 0)) {
+                TRACE("gomory_cut", tout << "row is not gomory cut target:\n";
+                      lia.display_column(tout, j);
+                      tout << "infinitesimal: " << !(lia.get_value(j).y ==0) << "\n";);
+                return false;
+            }
+        }
+        return true;
+    }
 
+    
+    lia_move gomory::get_cut(lpvar j) {
+        unsigned r = lia.row_of_basic_column(j);
+        const row_strip<mpq>& row = lra.get_row(r);
+        SASSERT(lra.row_is_correct(r));
+        SASSERT(is_gomory_cut_target(j));
+        lia.m_upper = false;
+        return cut(lia.m_t, lia.m_k, lia.m_ex, j, row);
+    }
 
-gomory::gomory(int_solver& lia): lia(lia), lra(lia.lra) { }
+ // return the minimal distance from the variable value to an integer
+    mpq get_gomory_score(const int_solver& lia, lpvar j) {
+        const mpq& val = lia.get_value(j).x;
+        auto l = val - floor(val);
+        if (l <= mpq(1, 2))
+            return l;
+        return mpq(1) - l;
+    }
 
+    unsigned_vector gomory::gomory_select_int_infeasible_vars(unsigned num_cuts) {
+        std::list<lpvar> sorted_vars;
+        std::unordered_map<lpvar, mpq> score;
+        for (lpvar j : lra.r_basis()) {
+            if (!lia.column_is_int_inf(j) || !is_gomory_cut_target(j))
+                continue;
+            SASSERT(!lia.is_fixed(j));            
+            sorted_vars.push_back(j);
+            score[j] = get_gomory_score(lia, j);
+        }
+        // prefer the variables with the values close to integers
+        sorted_vars.sort([&](lpvar j, lpvar k) {
+            auto diff = score[j] - score[k];
+            if (diff.is_neg())
+                return true;
+            if (diff.is_pos())
+                return false;
+            return lra.usage_in_terms(j) > lra.usage_in_terms(k);
+        });
+        unsigned_vector ret;
+        unsigned n = static_cast<unsigned>(sorted_vars.size());
+
+        while (num_cuts-- && n > 0) {
+            unsigned k = lia.random() % n;
+           
+            double k_ratio = k / (double) n;
+            k_ratio *= k_ratio*k_ratio;  // square k_ratio to make it smaller
+            k = static_cast<unsigned>(std::floor(k_ratio * n));
+            // these operations move k to the beginning of the indices range
+            SASSERT(0 <= k && k < n);
+            auto it = sorted_vars.begin();
+            while(k--) it++;
+
+            ret.push_back(*it);
+            sorted_vars.erase(it);
+            n--;            
+        }
+        return ret;
+    }
+    
+
+    lia_move gomory::get_gomory_cuts(unsigned num_cuts) {
+        struct ex { explanation m_ex; lar_term m_term; mpq m_k; bool m_is_upper; };
+        unsigned_vector columns_for_cuts = gomory_select_int_infeasible_vars(num_cuts);
+
+        vector<ex> cuts;
+        
+        for (unsigned j : columns_for_cuts) {
+            lia.m_ex->clear();
+            lia.m_t.clear();
+            lia.m_k.reset();
+            auto r = get_cut(j);
+            if (r != lia_move::cut)
+                continue;
+            cuts.push_back({ *lia.m_ex, lia.m_t, lia.m_k, lia.is_upper() });
+            if (lia.settings().get_cancel_flag())
+                return lia_move::undef;
+        }
+
+        auto is_small_cut = [&](ex const& cut) {
+            return all_of(cut.m_term, [&](auto ci) { return ci.coeff().is_small(); });
+        };
+
+        auto add_cut = [&](ex const& cut) {
+            u_dependency* dep = nullptr;
+            for (auto c : cut.m_ex) 
+                dep = lra.join_deps(lra.dep_manager().mk_leaf(c.ci()), dep);
+            lp::lpvar term_index = lra.add_term(cut.m_term.coeffs_as_vector(), UINT_MAX);
+            term_index = lra.map_term_index_to_column_index(term_index);
+            lra.update_column_type_and_bound(term_index,
+                                             cut.m_is_upper ? lp::lconstraint_kind::LE : lp::lconstraint_kind::GE,
+                                             cut.m_k, dep);
+        };
+
+        auto _check_feasible = [&](void) {
+            lra.find_feasible_solution();
+            if (!lra.is_feasible() && !lia.settings().get_cancel_flag()) {
+                lra.get_infeasibility_explanation(*lia.m_ex);
+                return false;
+            }
+            return true;
+        };
+
+        bool has_small = false, has_large = false;
+
+        for (auto const& cut : cuts) {
+            if (!is_small_cut(cut)) {
+                has_large = true;
+                continue;
+            }
+            has_small = true;
+            add_cut(cut);
+        }
+
+        if (has_large) {
+            lra.push();
+        
+            for (auto const& cut : cuts) 
+                if (!is_small_cut(cut))
+                    add_cut(cut);
+
+            bool feas = _check_feasible();
+            lra.pop(1);
+
+            if (lia.settings().get_cancel_flag())
+                return lia_move::undef;
+
+            if (!feas)
+                return lia_move::conflict;
+        }
+
+        if (!_check_feasible())
+            return lia_move::conflict;
+        
+                
+        lia.m_ex->clear();
+        lia.m_t.clear();
+        lia.m_k.reset();
+        if (!lia.has_inf_int())
+            return lia_move::sat;
+
+        if (has_small || has_large)
+            return lia_move::continue_with_check;
+        
+        lra.move_non_basic_columns_to_bounds();
+        return lia_move::undef;
+    }
+    
+    
+    gomory::gomory(int_solver& lia): lia(lia), lra(lia.lra) { }
 }

@@ -198,8 +198,7 @@ namespace lp {
         if (r == lia_move::undef) lra.move_non_basic_columns_to_bounds();
         if (r == lia_move::undef && should_hnf_cut()) r = hnf_cut();
 
-        std::function<lia_move(lpvar)> gomory_fn = [&](lpvar j) { return gomory(*this).get_cut(j); };
-        if (r == lia_move::undef && should_gomory_cut()) r = local_cut(2, gomory_fn);
+        if (r == lia_move::undef && should_gomory_cut()) r = gomory(*this).get_gomory_cuts(2);
 
         if (r == lia_move::undef) r = int_branch(*this)();
         if (settings().get_cancel_flag()) r = lia_move::undef;        
@@ -692,7 +691,6 @@ namespace lp {
     }
 
     void int_solver::simplify(std::function<bool(unsigned)>& is_root) {
-
         return;
 
 #if 0
@@ -829,162 +827,7 @@ namespace lp {
 
 #endif
     }
-    // return the minimal distance from the column value to an integer
-    mpq get_gomory_score(const int_solver& lia, lpvar j) {
-        const mpq& val = lia.get_value(j).x;
-        auto l = val - floor(val);
-        if (l <= mpq(1, 2))
-            return l;
-        return mpq(1) - l;
-    }
-
-    unsigned_vector int_solver::gomory_select_int_infeasible_vars(unsigned num_cuts) {
-        SASSERT(m_cut_vars.size() == 0&& num_cuts >= 0);
-        
-        std::list<lpvar> sorted_vars;
-        std::unordered_map<lpvar, mpq> score;
-        for (lpvar j : lra.r_basis()) {
-            if (!column_is_int_inf(j) || !is_gomory_cut_target(j))
-                continue;
-            SASSERT(!is_fixed(j));            
-            sorted_vars.push_back(j);
-            score[j] = get_gomory_score(*this, j);
-        }
-        // prefer the columns with the values close to integers
-        sorted_vars.sort([&](lpvar j, lpvar k) {
-            auto diff = score[j] - score[k];
-            if (diff.is_neg())
-                return true;
-            if (diff.is_pos())
-                return false;
-            return lra.usage_in_terms(j) > lra.usage_in_terms(k);
-        });
-        unsigned_vector ret;
-        unsigned n = static_cast<unsigned>(sorted_vars.size());
-
-        while (num_cuts-- && n > 0) {
-            unsigned k = random() % n;
-           
-            double k_ratio = k / (double) n;
-            k_ratio *= k_ratio*k_ratio;  // square k_ratio to make it smaller
-            k = static_cast<unsigned>(std::floor(k_ratio * n));
-            // these operations move k to the beginning of the indices range
-            SASSERT(0 <= k && k < n);
-            auto it = sorted_vars.begin();
-            while(k--) it++;
-
-            ret.push_back(*it);
-            sorted_vars.erase(it);
-            n--;            
-        }
-        return ret;
-    }
     
-    lia_move int_solver::local_cut(unsigned num_cuts, std::function<lia_move(lpvar)>& cut_fn) {
-        
-        struct ex { explanation m_ex; lar_term m_term; mpq m_k; bool m_is_upper; };
-        unsigned_vector columns_for_cuts = gomory_select_int_infeasible_vars(num_cuts);
-
-        vector<ex> cuts;
-        
-        for (unsigned j : columns_for_cuts) {
-            m_ex->clear();
-            m_t.clear();
-            m_k.reset();
-            auto r = cut_fn(j);
-            if (r != lia_move::cut)
-                continue;
-            cuts.push_back({ *m_ex, m_t, m_k, is_upper() });
-            if (settings().get_cancel_flag())
-                return lia_move::undef;
-        }
-        m_cut_vars.reset();
-
-        auto is_small_cut = [&](ex const& cut) {
-            return all_of(cut.m_term, [&](auto ci) { return ci.coeff().is_small(); });
-        };
-
-        auto add_cut = [&](ex const& cut) {
-            u_dependency* dep = nullptr;
-            for (auto c : cut.m_ex) 
-                dep = lra.join_deps(lra.dep_manager().mk_leaf(c.ci()), dep);
-            lp::lpvar term_index = lra.add_term(cut.m_term.coeffs_as_vector(), UINT_MAX);
-            term_index = lra.map_term_index_to_column_index(term_index);
-            lra.update_column_type_and_bound(term_index,
-                                             cut.m_is_upper ? lp::lconstraint_kind::LE : lp::lconstraint_kind::GE,
-                                             cut.m_k, dep);
-        };
-
-        auto _check_feasible = [&](void) {
-            lra.find_feasible_solution();
-            if (!lra.is_feasible() && !settings().get_cancel_flag()) {
-                lra.get_infeasibility_explanation(*m_ex);
-                return false;
-            }
-            return true;
-        };
-
-        bool has_small = false, has_large = false;
-
-        for (auto const& cut : cuts) {
-            if (!is_small_cut(cut)) {
-                has_large = true;
-                continue;
-            }
-            has_small = true;
-            add_cut(cut);
-        }
-
-        if (has_large) {
-            lra.push();
-        
-            for (auto const& cut : cuts) 
-                if (!is_small_cut(cut))
-                    add_cut(cut);
-
-            bool feas = _check_feasible();
-            lra.pop(1);
-
-            if (settings().get_cancel_flag())
-                return lia_move::undef;
-
-            if (!feas)
-                return lia_move::conflict;
-        }
-
-        if (!_check_feasible())
-            return lia_move::conflict;
-        
-                
-        m_ex->clear();
-        m_t.clear();
-        m_k.reset();
-        if (!has_inf_int())
-            return lia_move::sat;
-
-        if (has_small || has_large)
-            return lia_move::continue_with_check;
-        
-        lra.move_non_basic_columns_to_bounds();
-        return lia_move::undef;
-    }
-
-    bool int_solver::is_gomory_cut_target(lpvar k) {
-        SASSERT(is_base(k));
-        // All non base variables must be at their bounds and assigned to rationals (that is, infinitesimals are not allowed).
-        const row_strip<mpq>& row = lra.get_row(row_of_basic_column(k));
-        unsigned j;
-        for (const auto & p : row) {
-            j = p.var();
-            if ( k != j && (!at_bound(j) || !is_zero(get_value(j).y))) {
-                TRACE("gomory_cut", tout << "row is not gomory cut target:\n";
-                      display_column(tout, j);
-                      tout << "infinitesimal: " << !is_zero(get_value(j).y) << "\n";);
-                return false;
-            }
-        }
-        return true;
-    }
-
-
+    
+    
 }
