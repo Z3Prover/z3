@@ -58,13 +58,13 @@ inline std::ostream& operator<<(std::ostream & out, mk_pp_vec const & pp) {
 inline std::string operator+(char const* s, mk_pp const& pp) {
     std::ostringstream strm;
     strm << s << pp;
-    return strm.str();
+    return std::move(strm).str();
 }
 
 inline std::string operator+(std::string const& s, mk_pp const& pp) {
     std::ostringstream strm;
     strm << s << pp;
-    return strm.str();
+    return std::move(strm).str();
 }
 
 inline std::string& operator+=(std::string& s, mk_pp const& pp) {

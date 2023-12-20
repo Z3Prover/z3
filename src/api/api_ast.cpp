@@ -146,8 +146,7 @@ extern "C" {
         ast_manager& m = mk_c(c)->m();
         recfun::decl::plugin& p = mk_c(c)->recfun().get_plugin();
         if (!p.has_def(d)) {
-            std::string msg = "function " + mk_pp(d, m) + " needs to be declared using rec_func_decl";
-            SET_ERROR_CODE(Z3_INVALID_ARG, msg.c_str());
+            SET_ERROR_CODE(Z3_INVALID_ARG, "function " + mk_pp(d, m) + " needs to be declared using rec_func_decl");
             return;
         }
         expr_ref abs_body(m);
@@ -168,8 +167,7 @@ extern "C" {
             return;
         }
         if (!pd.get_def()->get_cases().empty()) {
-            std::string msg = "function " + mk_pp(d, m) + " has already been given a definition";
-            SET_ERROR_CODE(Z3_INVALID_ARG, msg.c_str());
+            SET_ERROR_CODE(Z3_INVALID_ARG, "function " + mk_pp(d, m) + " has already been given a definition");
             return;            
         }
                 

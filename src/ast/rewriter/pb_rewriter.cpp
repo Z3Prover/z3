@@ -157,9 +157,7 @@ expr_ref pb_rewriter::mk_validate_rewrite(app_ref& e1, app_ref& e2) {
             continue;
         }
 
-        std::ostringstream strm;
-        strm << 'x' << i;
-        name = symbol(strm.str());
+        name = symbol('x' + std::to_string(i));
         trail.push_back(m.mk_const(name, a.mk_int()));
         expr* x = trail.back();
         m.is_not(e,e);
@@ -188,9 +186,7 @@ void pb_rewriter::validate_rewrite(func_decl* f, unsigned sz, expr*const* args, 
 }
 
 void pb_rewriter::dump_pb_rewrite(expr* fml) {
-    std::ostringstream strm;
-    strm << "pb_rewrite_" << (s_lemma++) << ".smt2";
-    std::ofstream out(strm.str());
+    std::ofstream out("pb_rewrite_" + std::to_string(s_lemma++) + ".smt2");
     ast_smt_pp pp(m());
     pp.display_smt2(out, fml);    
     out.close();

@@ -24,7 +24,6 @@
 #include <algorithm>
 #ifdef lp_for_z3
 #include "util/rational.h"
-#include "util/sstream.h"
 #include "util/z3_exception.h"
 #else
 // include "util/numerics/mpq.h"
