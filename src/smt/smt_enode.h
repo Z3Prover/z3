@@ -465,7 +465,6 @@ namespace smt {
         tmp_enode();
         ~tmp_enode();
         enode * set(func_decl * f, unsigned num_args, enode * const * args);
-        void reset();
     };
 
     inline mk_pp pp(enode* n, ast_manager& m) { return mk_pp(n->get_expr(), m); }

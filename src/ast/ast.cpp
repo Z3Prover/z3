@@ -319,26 +319,6 @@ func_decl::func_decl(symbol const & name, unsigned arity, sort * const * domain,
 //
 // -----------------------------------
 
-static app_flags mk_const_flags() {
-    app_flags r;
-    r.m_depth           = 1;
-    r.m_ground          = true;
-    r.m_has_quantifiers = false;
-    r.m_has_labels      = false;
-    return r;
-}
-
-static app_flags mk_default_app_flags() {
-    app_flags r;
-    r.m_depth           = 1;
-    r.m_ground          = true;
-    r.m_has_quantifiers = false;
-    r.m_has_labels      = false;
-    return r;
-}
-
-app_flags app::g_constant_flags = mk_const_flags();
-
 app::app(func_decl * decl, unsigned num_args, expr * const * args):
     expr(AST_APP),
     m_decl(decl),
@@ -1762,8 +1742,7 @@ ast * ast_manager::register_node_core(ast * n) {
         inc_ref(t->get_decl());
         unsigned num_args = t->get_num_args();
         if (num_args > 0) {
-            app_flags * f     = t->flags();
-            *f = mk_default_app_flags();
+            app_flags * f = &t->m_flags;
             SASSERT(t->is_ground());
             SASSERT(!t->has_quantifiers());
             SASSERT(!t->has_labels());
@@ -1776,13 +1755,13 @@ ast * ast_manager::register_node_core(ast * n) {
                 unsigned arg_depth = 0;
                 switch (arg->get_kind()) {
                 case AST_APP: {
-                    app_flags * arg_flags = to_app(arg)->flags();
-                    arg_depth = arg_flags->m_depth;
-                    if (arg_flags->m_has_quantifiers)
+                    app *app = to_app(arg);
+                    arg_depth = app->get_depth();
+                    if (app->has_quantifiers())
                         f->m_has_quantifiers = true;
-                    if (arg_flags->m_has_labels)
+                    if (app->has_labels())
                         f->m_has_labels = true;
-                    if (!arg_flags->m_ground)
+                    if (!app->is_ground())
                         f->m_ground = false;
                     break;
                 }

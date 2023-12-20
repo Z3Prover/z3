@@ -2280,7 +2280,7 @@ namespace sat {
              << std::setw(4) << m_stats.m_restart 
              << mk_stat(*this)
              << " " << std::setw(6) << std::setprecision(2) << m_stopwatch.get_current_seconds() << ")\n";
-        std::string str(strm.str());
+        std::string str = std::move(strm).str();
         svector<size_t> nums;
         for (size_t i = 0; i < str.size(); ++i) {
             while (i < str.size() && str[i] != ' ') ++i;

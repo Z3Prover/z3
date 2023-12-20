@@ -510,7 +510,7 @@ namespace smt {
 #else
         strm << "lemma_" << (++m_lemma_id) << ".smt2";
 #endif
-        return strm.str();
+        return std::move(strm).str();
     }
 
 
@@ -722,7 +722,7 @@ namespace smt {
              << std::setw(4) << m_stats.m_num_del_clauses << " "
              << std::setw(7) << mem_stat() << ")\n";
 
-        std::string str(strm.str());
+        std::string str = std::move(strm).str();
         svector<size_t> offsets;
         for (size_t i = 0; i < str.size(); ++i) {
             while (i < str.size() && str[i] != ' ') ++i;

@@ -70,8 +70,7 @@ struct well_sorted_proc {
                 strm << "Expected sort: " << mk_pp(expected_sort, m_manager) << '\n';
                 strm << "Actual sort:   " << mk_pp(actual_sort, m_manager) << '\n';
                 strm << "Function sort: " << mk_pp(decl, m_manager) << '.';
-                auto str = strm.str();
-                warning_msg("%s", str.c_str());
+                warning_msg("%s", std::move(strm).str().c_str());
                 m_error = true;
                 return;
             }

@@ -704,6 +704,7 @@ struct app_flags {
     unsigned     m_ground:1;   // application does not have free variables or nested quantifiers.
     unsigned     m_has_quantifiers:1; // application has nested quantifiers.
     unsigned     m_has_labels:1; // application has nested labels.
+    app_flags() : m_depth(1), m_ground(1), m_has_quantifiers(0), m_has_labels(0) {}
 };
 
 class app : public expr {
@@ -711,18 +712,14 @@ class app : public expr {
 
     func_decl *  m_decl;
     unsigned     m_num_args;
+    app_flags    m_flags;
     expr *       m_args[0];
 
-    static app_flags g_constant_flags;
-
-    // remark: store term depth in the end of the app. the depth is only stored if the num_args > 0
     static unsigned get_obj_size(unsigned num_args) {
-        return num_args == 0 ? sizeof(app) : sizeof(app) + num_args * sizeof(expr *) + sizeof(app_flags);
+        return sizeof(app) + num_args * sizeof(expr *);
     }
 
     friend class tmp_app;
-
-    app_flags * flags() const { return m_num_args == 0 ? &g_constant_flags : reinterpret_cast<app_flags*>(const_cast<expr**>(m_args + m_num_args)); }
 
     app(func_decl * decl, unsigned num_args, expr * const * args);
 public:
@@ -744,10 +741,10 @@ public:
     expr * const * end() const { return m_args + m_num_args; }
     sort * _get_sort() const { return get_decl()->get_range(); }
 
-    unsigned get_depth() const { return flags()->m_depth; }
-    bool is_ground() const { return flags()->m_ground; }
-    bool has_quantifiers() const { return flags()->m_has_quantifiers; }
-    bool has_labels() const { return flags()->m_has_labels; }
+    unsigned get_depth() const { return m_flags.m_depth; }
+    bool is_ground() const { return m_flags.m_ground; }
+    bool has_quantifiers() const { return m_flags.m_has_quantifiers; }
+    bool has_labels() const { return m_flags.m_has_labels; }
 };
 
 // -----------------------------------
