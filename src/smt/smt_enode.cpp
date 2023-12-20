@@ -329,7 +329,6 @@ namespace smt {
     tmp_enode::tmp_enode():
         m_capacity(0),
         m_enode_data(nullptr) {
-        SASSERT(m_app.get_app()->get_decl() == 0);
         set_capacity(5);
     }
 
