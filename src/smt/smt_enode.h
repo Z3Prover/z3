@@ -456,7 +456,7 @@ namespace smt {
     void unmark_enodes2(unsigned num_enodes, enode * const * enodes);
     
     class tmp_enode {
-        app m_app;
+        tmp_app  m_app;
         unsigned m_capacity;
         char *   m_enode_data;
         enode * get_enode() { return reinterpret_cast<enode*>(m_enode_data); }
