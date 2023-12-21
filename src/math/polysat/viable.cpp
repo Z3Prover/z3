@@ -199,6 +199,8 @@ namespace polysat {
     }
 
     void viable::propagate(pvar v, rational const& val, ptr_vector<entry> const& reason) {
+        LOG_H2("viable::propagate: v" << v << " := " << val);
+        SASSERT(!s.is_assigned(v));
         SASSERT(m_propagation_reasons[v].begin == 0);
         SASSERT(m_propagation_reasons[v].len == 0);
         unsigned const begin = m_propagation_reason_storage.size();
@@ -223,8 +225,9 @@ namespace polysat {
             for (signed_constraint c : e->src)
                 add_reason(c);
             auto const& i = e->interval;
-            add_reason(s.eq(i.lo(), i.lo_val()));
-            add_reason(s.eq(i.hi(), i.hi_val()));
+            // NOTE: use s.eval(i.lo()) instead of i.lo_val() because when reducing interval bit-width, we adapt the values but not the PDDs
+            add_reason(s.eq(i.lo(), s.eval(i.lo())));
+            add_reason(s.eq(i.hi(), s.eval(i.hi())));
         }
 
         unsigned const len = m_propagation_reason_storage.size() - begin;
@@ -240,11 +243,13 @@ namespace polysat {
     void viable::pop_propagation_reason() {
         pvar const v = m_propagation_trail.back();
         m_propagation_trail.pop_back();
-        unsigned begin = m_propagation_reasons[v].begin;
-        unsigned len = m_propagation_reasons[v].len;
+        unsigned const begin = m_propagation_reasons[v].begin;
+        unsigned const len = m_propagation_reasons[v].len;
         SASSERT(len > 0);
         SASSERT(begin + len == m_propagation_reason_storage.size());
         m_propagation_reason_storage.shrink(begin);
+        m_propagation_reasons[v].begin = 0;
+        m_propagation_reasons[v].len = 0;
     }
 
     bool viable::intersect(pvar v, signed_constraint const& c) {
