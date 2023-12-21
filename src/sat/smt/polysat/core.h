@@ -53,7 +53,7 @@ namespace polysat {
         viable m_viable;
         constraints m_constraints;
         assignment m_assignment;
-        unsigned m_qhead = 0, m_vqhead = 0;
+        unsigned m_qhead = 0;
         constraint_id_vector m_prop_queue;
         svector<constraint_info> m_constraint_index;  // index of constraints
         constraint_id_vector m_unsat_core;
@@ -77,8 +77,8 @@ namespace polysat {
         void del_var();
 
         bool is_assigned(pvar v) { return !m_justification[v].is_null(); }
-        void propagate_value(constraint_id idx);
         void propagate_assignment(constraint_id idx);
+        void propagate_eval(constraint_id idx);
         void propagate_assignment(pvar v, rational const& value, constraint_id dep);
         void propagate_unsat_core();
         void propagate(constraint_id id, signed_constraint& sc, lbool value, dependency const& d);
@@ -94,7 +94,7 @@ namespace polysat {
         dependency_vector get_dependencies(constraint_id_vector const& cc);
         dependency_vector get_dependencies(std::initializer_list<constraint_id> const& cc);
 
-
+        sat::check_result final_check();
 
         void add_axiom(signed_constraint sc);
 

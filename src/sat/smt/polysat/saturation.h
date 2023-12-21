@@ -153,11 +153,12 @@ namespace polysat {
         bool try_op(pvar v, signed_constraint c);
 #endif
 
-        void propagate(pvar v);
-        bool propagate(pvar v, constraint_id cid);
+
         void propagate(pvar v, inequality const& i);
 
     public:
         saturation(core& c);
+        void propagate(pvar v);
+        bool propagate(pvar v, constraint_id cid);
     };
 }

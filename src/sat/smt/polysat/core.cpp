@@ -29,6 +29,7 @@ polysat::core
 --*/
 
 #include "sat/smt/polysat/core.h"
+#include "sat/smt/polysat/saturation.h"
 
 namespace polysat {
 
@@ -66,14 +67,14 @@ namespace polysat {
         core& c;
     public:
         mk_add_watch(core& c) : c(c) {}
-        void undo() override {            
+        void undo() override {
             auto& [sc, lit, val] = c.m_constraint_index.back();
             auto& vars = sc.vars();
             auto idx = c.m_constraint_index.size() - 1;
-            IF_VERBOSE(10, 
-            verbose_stream() << "undo add watch " << sc << " ";
+            IF_VERBOSE(10,
+                verbose_stream() << "undo add watch " << sc << " ";
             if (vars.size() > 0) verbose_stream() << "(" << idx << ": " << c.m_watch[vars[0]] << ") ";
-            if (vars.size() > 1) verbose_stream() << "(" << idx<< ": " << c.m_watch[vars[1]] << ") ";
+            if (vars.size() > 1) verbose_stream() << "(" << idx << ": " << c.m_watch[vars[1]] << ") ";
             verbose_stream() << "\n");
             unsigned n = sc.num_watch();
             SASSERT(n <= vars.size());
@@ -87,8 +88,8 @@ namespace polysat {
                     }
                 }
                 UNREACHABLE();
-            };
-            if (n > 0) 
+                };
+            if (n > 0)
                 del_watch(0);
             if (n > 1)
                 del_watch(1);
@@ -97,7 +98,7 @@ namespace polysat {
     };
 
     core::core(solver_interface& s) :
-        s(s),         
+        s(s),
         m_viable(*this),
         m_constraints(*this),
         m_assignment(*this),
@@ -119,7 +120,7 @@ namespace polysat {
         return sz2pdd(size(v));
     }
 
-    pvar core::add_var(unsigned sz) { 
+    pvar core::add_var(unsigned sz) {
         unsigned v = m_vars.size();
         m_vars.push_back(sz2pdd(sz).mk_var(v));
         m_activity.push_back({ sz, 0 });
@@ -138,7 +139,7 @@ namespace polysat {
         m_activity.pop_back();
         m_justification.pop_back();
         m_watch.pop_back();
-        m_values.pop_back();        
+        m_values.pop_back();
         m_var_queue.del_var_eh(v);
     }
 
@@ -156,9 +157,9 @@ namespace polysat {
         if (j > 1)
             add_watch(idx, vars[1]);
         IF_VERBOSE(10, verbose_stream() << "add watch " << sc << " " << vars << "  ";
-                    if (j > 0) verbose_stream() << "( " << idx << " : " << m_watch[vars[0]] << ") ";
-                    if (j > 1) verbose_stream() << "( " << idx << " : " << m_watch[vars[1]] << ") ";
-                    verbose_stream() << "\n");
+        if (j > 0) verbose_stream() << "( " << idx << " : " << m_watch[vars[0]] << ") ";
+        if (j > 1) verbose_stream() << "( " << idx << " : " << m_watch[vars[1]] << ") ";
+        verbose_stream() << "\n");
         s.trail().push(mk_add_watch(*this));
         return { idx };
     }
@@ -166,21 +167,21 @@ namespace polysat {
     // case split on unassigned variables until all are assigned values.
     // create equality literal for unassigned variable.
     // return new_eq if there is a new literal.
-    
-    sat::check_result core::check() { 
+
+    sat::check_result core::check() {
         if (m_var_queue.empty())
-            return sat::check_result::CR_DONE;
-        m_var = m_var_queue.next_var();       
+            return final_check();
+        m_var = m_var_queue.next_var();
         s.trail().push(mk_dqueue_var(m_var, *this));
         switch (m_viable.find_viable(m_var, m_value)) {
-        case find_t::empty: 
+        case find_t::empty:
             s.set_lemma(m_viable.get_core(), get_dependencies(m_viable.explain()));
             // propagate_unsat_core();        
             return sat::check_result::CR_CONTINUE;
-        case find_t::singleton: 
+        case find_t::singleton:
             s.propagate(m_constraints.eq(var2pdd(m_var), m_value), get_dependencies(m_viable.explain()));
-            return sat::check_result::CR_CONTINUE;        
-        case find_t::multiple:  
+            return sat::check_result::CR_CONTINUE;
+        case find_t::multiple:
             s.add_eq_literal(m_var, m_value);
             return sat::check_result::CR_CONTINUE;
         case find_t::resource_out:
@@ -191,20 +192,62 @@ namespace polysat {
         return sat::check_result::CR_GIVEUP;
     }
 
+    sat::check_result core::final_check() {
+        unsigned conflict_level = UINT_MAX;
+        constraint_id conflict_idx = { UINT_MAX };
+        for (auto idx : m_prop_queue) {
+            auto [sc, d, value] = m_constraint_index[idx.id];
+            SASSERT(value != l_undef);
+            lbool eval_value = eval(sc);
+            SASSERT(eval_value != l_undef);
+            if (eval_value == value)
+                continue;
+            auto explain = explain_eval(sc);
+            unsigned new_conflict_level = d.level(); 
+            for (auto idx2 : explain)
+                new_conflict_level = std::max(new_conflict_level, m_constraint_index[idx2.id].d.level());
+
+            if (new_conflict_level >= conflict_level)
+                continue;
+            conflict_idx = idx;
+            conflict_level = new_conflict_level;            
+        }
+        if (conflict_level == UINT_MAX)
+            return sat::check_result::CR_DONE;
+        auto [sc, d, value] = m_constraint_index[conflict_idx.id];
+        pvar max_var = UINT_MAX;
+        unsigned lvl = 0;
+        for (auto v : sc.vars()) {
+            if (!is_assigned(v))
+                continue;
+            auto new_level = m_constraint_index[m_justification[v].id].d.level();
+            if (new_level > lvl)
+                continue;
+            max_var = v;
+            lvl = new_level;
+        }
+        saturation sat(*this);
+        if (sat.propagate(max_var, conflict_idx))
+            return sat::check_result::CR_CONTINUE;
+
+        m_unsat_core = explain_eval(sc);
+        m_unsat_core.push_back(conflict_idx);
+        propagate_unsat_core();
+        return sat::check_result::CR_CONTINUE;
+    }
+
     // First propagate Boolean assignment, then propagate value assignment
     bool core::propagate() { 
-        if (m_qhead == m_prop_queue.size() && m_vqhead == m_prop_queue.size())
+        if (m_qhead == m_prop_queue.size())
             return false;
         s.trail().push(value_trail(m_qhead));
         for (; m_qhead < m_prop_queue.size() && !s.inconsistent(); ++m_qhead)
-            propagate_assignment(m_prop_queue[m_qhead]);        
-        s.trail().push(value_trail(m_vqhead));
-        for (; m_vqhead < m_prop_queue.size() && !s.inconsistent(); ++m_vqhead) 
-            propagate_value(m_prop_queue[m_vqhead]);        
+            propagate_assignment(m_prop_queue[m_qhead]);               
         return true;
     }
 
     void core::propagate_assignment(constraint_id idx) { 
+
         auto [sc, dep, value] = m_constraint_index[idx.id];
         SASSERT(value != l_undef);
         if (value == l_false)
@@ -255,7 +298,7 @@ namespace polysat {
             // this can create fresh literals and update m_watch, but
             // will not update m_watch[v] (other than copy constructor for m_watch)
             // because v has been assigned a value.
-            propagate({ idx }, sc, value, dep);
+            propagate_eval({ idx });
             if (s.inconsistent())
                 return;
            
@@ -274,34 +317,26 @@ namespace polysat {
         }
         SASSERT(m_watch[v].size() == sz && "size of watch list was not changed");
         m_watch[v].shrink(j);
-        verbose_stream() << "new watch " << v << ": " << m_watch[v] << "\n";
     }
 
-    void core::propagate_value(constraint_id idx) {
+    /*
+    * T-propagation.
+    * Propagate literals that haven't been assigned a truth value if they evaluate to true or false.
+    */
+    void core::propagate_eval(constraint_id idx) {
         auto [sc, d, value] = m_constraint_index[idx.id];
-        // propagate current assignment for sc
-        propagate(idx, sc, value, d);
-        if (s.inconsistent())
+        if (value != l_undef)
             return;
-
-        // if sc is v == value, then check the watch list for v to propagate truth assignments
-        if (sc.is_eq(m_var, m_value)) {
-            for (auto idx1 : m_watch[m_var]) {
-                if (idx.id == idx1)
-                    continue;
-                auto [sc, d, value] = m_constraint_index[idx1];
-                switch (eval(sc)) {
-                case l_false:
-                    s.propagate(d, true, get_dependencies(explain_eval(sc)));
-                    break;
-                case l_true:
-                    s.propagate(d, false, get_dependencies(explain_eval(sc)));
-                    break;
-                default:
-                    break;
-                }
-            }
-        }       
+        switch (eval(sc)) {
+        case l_false:
+            s.propagate(d, true, get_dependencies(explain_eval(sc)));
+            break;
+        case l_true:
+            s.propagate(d, false, get_dependencies(explain_eval(sc)));
+            break;
+        default:
+            break;
+        }
     }
 
     dependency core::get_dependency(constraint_id idx) const {
