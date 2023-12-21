@@ -32,7 +32,7 @@ namespace lp {
         bool is_gomory_cut_target(lpvar j); 
         lia_move get_cut(lpvar j);
     public:
-        lia_move gomory::get_gomory_cuts(unsigned num_cuts);
+        lia_move get_gomory_cuts(unsigned num_cuts);
         gomory(int_solver& lia);
     };
 }
