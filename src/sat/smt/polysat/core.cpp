@@ -193,6 +193,31 @@ namespace polysat {
     }
 
     sat::check_result core::final_check() {
+        constraint_id conflict_idx = find_conflicting_constraint();
+
+        // If all constraints evaluate to true, we are done.
+        if (conflict_idx.is_null())
+            return sat::check_result::CR_DONE;
+        
+        // Extract variables that are of level or above of conflicting constraint and contradict the constraint
+        auto vars = find_conflict_variables(conflict_idx);
+        saturation sat(*this);
+        for (auto v: vars)
+         if (sat.propagate(v, conflict_idx))
+                return sat::check_result::CR_CONTINUE;
+
+        // If no saturation propagation was possible, explain the conflict using the variable assignment.
+        m_unsat_core = explain_eval(get_constraint(conflict_idx));
+        m_unsat_core.push_back(conflict_idx);
+        propagate_unsat_core();
+        return sat::check_result::CR_CONTINUE;
+    }
+
+    /**
+    * Identify a conflicting constraint, if any, that evaluates to false under 
+    * the current assignment.
+    */
+    constraint_id core::find_conflicting_constraint() {
         unsigned conflict_level = UINT_MAX;
         constraint_id conflict_idx = { UINT_MAX };
         for (auto idx : m_prop_queue) {
@@ -203,37 +228,37 @@ namespace polysat {
             if (eval_value == value)
                 continue;
             auto explain = explain_eval(sc);
-            unsigned new_conflict_level = d.level(); 
+            unsigned new_conflict_level = d.level();
             for (auto idx2 : explain)
                 new_conflict_level = std::max(new_conflict_level, m_constraint_index[idx2.id].d.level());
 
             if (new_conflict_level >= conflict_level)
                 continue;
             conflict_idx = idx;
-            conflict_level = new_conflict_level;            
+            conflict_level = new_conflict_level;
         }
-        if (conflict_level == UINT_MAX)
-            return sat::check_result::CR_DONE;
-        auto [sc, d, value] = m_constraint_index[conflict_idx.id];
-        pvar max_var = UINT_MAX;
-        unsigned lvl = 0;
+        return conflict_idx;
+    }
+
+    /**
+    * Find variables at the maximal scope level that are used in the conflicting literal.
+    */
+    svector<pvar> core::find_conflict_variables(constraint_id idx) {
+        svector<pvar> result;
+        auto [sc, d, value] = m_constraint_index[idx.id];
+        unsigned lvl = d.level();
         for (auto v : sc.vars()) {
             if (!is_assigned(v))
                 continue;
             auto new_level = m_constraint_index[m_justification[v].id].d.level();
-            if (new_level > lvl)
+            if (new_level < lvl)
                 continue;
-            max_var = v;
+            if (new_level > lvl)
+                result.reset();
+            result.push_back(v);
             lvl = new_level;
         }
-        saturation sat(*this);
-        if (sat.propagate(max_var, conflict_idx))
-            return sat::check_result::CR_CONTINUE;
-
-        m_unsat_core = explain_eval(sc);
-        m_unsat_core.push_back(conflict_idx);
-        propagate_unsat_core();
-        return sat::check_result::CR_CONTINUE;
+        return result;
     }
 
     // First propagate Boolean assignment, then propagate value assignment

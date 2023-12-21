@@ -95,6 +95,8 @@ namespace polysat {
         dependency_vector get_dependencies(std::initializer_list<constraint_id> const& cc);
 
         sat::check_result final_check();
+        constraint_id find_conflicting_constraint();
+        svector<pvar> find_conflict_variables(constraint_id idx);
 
         void add_axiom(signed_constraint sc);
 
