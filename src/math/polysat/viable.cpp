@@ -1496,9 +1496,10 @@ namespace polysat {
         }
         LOG("widths: " << widths);
 
+        rational const& mod_value = s.var2pdd(v).two_to_N();
         rational const& max_value = s.var2pdd(v).max_value();
 
-        lbool result_lo = find_on_layers(v, widths, overlaps, fbi, rational::zero(), max_value, lo, relevant_entries);
+        lbool result_lo = find_on_layers(v, widths, overlaps, fbi, rational::zero(), mod_value, lo, relevant_entries);
         if (result_lo == l_false)
             return l_false;  // conflict
         if (result_lo == l_undef)
@@ -1510,7 +1511,8 @@ namespace polysat {
             return l_true;
         }
 
-        lbool result_hi = find_on_layers(v, widths, overlaps, fbi, lo + 1, max_value, hi, relevant_entries);
+        SASSERT_EQ(distance(lo + 1, rational(0), mod_value), mod_value - lo - 1);
+        lbool result_hi = find_on_layers(v, widths, overlaps, fbi, lo + 1, mod_value - lo - 1, hi, relevant_entries);
         if (result_hi == l_false)
             hi = lo;  // no other viable value
         if (result_hi == l_undef)
@@ -1654,7 +1656,7 @@ namespace polysat {
             if (s.size(x) < w)  // note that overlaps are sorted by variable size descending
                 break;
             if (entry* e = m_units[x].get_entries(w)) {
-                display_all(std::cerr << "units for width " << w << ":\n", 0, e, "\n");
+                // display_all(std::cerr << "units for width " << w << ":\n", 0, e, "\n");
                 entry_cursor ec;
                 ec.cur = e;  // TODO: e->prev() probably makes it faster when querying 0 (can often save going around the interval list once)
                 // ec.first = nullptr;
