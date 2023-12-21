@@ -1473,6 +1473,12 @@ namespace polysat {
         return r.is_val();
     }
 
+    rational solver::eval(pdd const& p) const {
+        rational r;
+        VERIFY(try_eval(p, r));
+        return r;
+    }
+
     /**
      * Variable activity accounting.
      * As a placeholder we increment activity

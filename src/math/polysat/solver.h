@@ -415,6 +415,7 @@ namespace polysat {
          * Evaluate term under the current assignment.
          */
         bool try_eval(pdd const& p, rational& out_value) const;
+        rational eval(pdd const& p) const;
 
         /**
          * Add variable with bit-size.
