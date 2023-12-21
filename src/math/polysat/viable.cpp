@@ -211,6 +211,8 @@ namespace polysat {
             m_propagation_reason_storage.push_back(c.blit());
         };
 
+        uint_set vars_to_explain;
+
         // NOTE: all propagations must be justified by a prefix of \Gamma,
         //       otherwise dependencies may be missed during conflict resolution.
         //       The propagation reason for v := val consists of the following constraints:
@@ -227,6 +229,14 @@ namespace polysat {
             // NOTE: use s.eval(i.lo()) instead of i.lo_val() because when reducing interval bit-width, we adapt the values but not the PDDs
             add_reason(s.eq(i.lo(), s.eval(i.lo())));
             add_reason(s.eq(i.hi(), s.eval(i.hi())));
+            if (e->var != v)
+                vars_to_explain.insert(e->var);
+        }
+
+        for (pvar x : vars_to_explain) {
+            s.m_slicing.explain_simple_overlap(v, x, [this, &add_reason](sat::literal l) {
+                add_reason(s.lit2cnstr(l));
+            });
         }
 
         unsigned const len = m_propagation_reason_storage.size() - begin;
