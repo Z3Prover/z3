@@ -322,11 +322,7 @@ namespace arith {
         return true;
     }
 
-    /*
-    * 0 <= x&y < 2^sz
-    * x&y <= x
-    * x&y <= y
-    */
+
     void solver::mk_bv_axiom(app* n) {
         unsigned sz;
         expr* _x, * _y;
@@ -336,6 +332,12 @@ namespace arith {
         expr_ref y(a.mk_mod(_y, a.mk_int(N)), m);
 
         if (a.is_band(n)) {
+            
+            // 0 <= x&y < 2^sz
+            // x&y <= x
+            // x&y <= y
+            // TODO? x = y => x&y = x
+
             add_clause(mk_literal(a.mk_ge(n, a.mk_int(0))));
             add_clause(mk_literal(a.mk_le(n, a.mk_int(N - 1))));
             add_clause(mk_literal(a.mk_le(n, x)));
