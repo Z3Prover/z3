@@ -340,7 +340,8 @@ namespace smt {
 
     void tmp_enode::set_capacity(unsigned new_capacity) {
         SASSERT(new_capacity > m_capacity);
-        dealloc_svect(m_enode_data);
+        if (m_enode_data)
+            dealloc_svect(m_enode_data);
         m_capacity   = new_capacity;
         unsigned sz  = sizeof(enode) + m_capacity * sizeof(enode*);
         m_enode_data = alloc_svect(char, sz);
@@ -358,11 +359,18 @@ namespace smt {
         if (num_args > m_capacity)
             set_capacity(num_args * 2);
         enode * r = get_enode();
+        if (m_app.get_app()->get_decl() != f) {
+            r->m_func_decl_id = UINT_MAX;
+        }
         m_app.set_decl(f);
         m_app.set_num_args(num_args);
         r->m_commutative  = num_args == 2 && f->is_commutative();
         memcpy(get_enode()->m_args, args, sizeof(enode*)*num_args);
         return r;
+    }
+
+    void tmp_enode::reset() {
+        get_enode()->m_func_decl_id = UINT_MAX;
     }
 
 };
