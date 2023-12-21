@@ -226,12 +226,6 @@ namespace polysat {
             prop = true;
         if (try_mul_eq_bound(v, core, i))
             prop = true;
-        if (try_ugt_x(v, core, i))
-            prop = true;
-        if (try_ugt_y(v, core, i))
-            prop = true;
-        if (try_ugt_z(v, core, i))
-            prop = true;
         if (try_y_l_ax_and_x_l_z(v, core, i))            
             prop = true;
         if (false && try_tangent(v, core, i))

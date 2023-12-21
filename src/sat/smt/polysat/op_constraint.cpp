@@ -528,6 +528,24 @@ namespace polysat {
         }
     }
 
+
+#if 0
+
+    // introduce multiplication constraint and do away with non-linear polynomials in inequalities.
+    // 
+    // z = x * y
+    // x = 0 or y = 0 => z = 0
+    // x = 1 => z = y
+    // y = 1 => z = y
+    // ~ovfl(x, y) => z >= x & z >= y
+    // ~ovfl(x, y) & x > 1 & y > 1 => z > x, z > y
+    // parity(x) + parity(y) >= N => z = 0
+    // parity(x) + parity(y) < N => parity(z) = parity(x) + parity(y)
+    // blast:
+    // z = sum_i bit(x,i) ? y*2^i : 0
+
+#endif
+
 #if 0
 
     /**
