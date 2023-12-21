@@ -71,6 +71,7 @@ namespace polysat {
         SASSERT(mod_value.is_power_of_two());
         SASSERT(0 <= a && a < mod_value);
         SASSERT(0 <= b && b <= mod_value);
+        SASSERT(b != mod_value || a == 0);  // b == mod_value only allowed when a == 0
         rational x = b - a;
         if (x.is_neg())
             x += mod_value;
@@ -113,10 +114,7 @@ namespace polysat {
             SASSERT(0 <= lo && lo < mod_value);
             SASSERT(0 <= hi && hi <= mod_value);
             SASSERT(hi != mod_value || lo == 0);  // hi == mod_value only allowed when lo == 0
-            rational len = hi - lo;
-            if (len.is_neg())
-                len += mod_value;
-            return len;
+            return distance(lo, hi, mod_value);
         }
 
         rational len(rational const& mod_value) const {
