@@ -163,7 +163,8 @@ namespace polysat {
         params_ref               m_params;
         config_t                 m_config;
 
-        mutable scoped_ptr_vector<dd::pdd_manager> m_pdd;
+        mutable scoped_ptr_vector<pdd_manager> m_pdd;
+        slicing                  m_slicing;
         viable                   m_viable;   // viable sets per variable
         viable_fallback          m_viable_fallback;   // fallback for viable, using bitblasting over univariate constraints
         conflict                 m_conflict;
@@ -178,7 +179,6 @@ namespace polysat {
         // Per constraint state
         constraint_manager       m_constraints;
         name_manager             m_names;
-        slicing                  m_slicing;
 
         // Per variable information
         svector<pvar_kind>       m_kind;

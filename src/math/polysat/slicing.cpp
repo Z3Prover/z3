@@ -649,7 +649,7 @@ namespace polysat {
                 on_lit(d.lit());
             }
             else {
-                // equivalence between to variables cannot be due to value assignment
+                // equivalence between two variables cannot be due to value assignment
                 UNREACHABLE();
             }
         }
@@ -1411,7 +1411,7 @@ namespace polysat {
         (void)add_value(v, value, sat::null_literal);
     }
 
-    void slicing::collect_simple_overlaps(pvar v, pvar_vector& out) {
+    void slicing::collect_prefixes(pvar v, pvar_vector& out) {
         unsigned const first_out = out.size();
         enode* const sv = var2slice(v);
         unsigned const v_width = width(sv);
@@ -1520,7 +1520,7 @@ namespace polysat {
         SASSERT(all_of(m_egraph.nodes(), [](enode* n) { return !n->is_marked1(); }));
     }
 
-    void slicing::explain_simple_overlap(pvar v, pvar x, std::function<void(sat::literal)> const& on_lit) {
+    void slicing::explain_prefix(pvar v, pvar x, std::function<void(sat::literal)> const& on_lit) {
         SASSERT(width(var2slice(x)) <= width(var2slice(v)));
         SASSERT(m_marked_lits.empty());
         SASSERT(m_tmp_deps.empty());
@@ -1557,7 +1557,7 @@ namespace polysat {
                 on_lit(d.lit());
             }
             else {
-                // equivalence between to variables cannot be due to value assignment
+                // equivalence between two variables cannot be due to value assignment
                 UNREACHABLE();
             }
         }

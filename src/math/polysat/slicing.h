@@ -35,7 +35,7 @@ namespace polysat {
 
     class solver;
 
-    class slicing final {
+    class slicing final : public viable_slicing_interface {
 
         friend class test_slicing;
 
@@ -341,7 +341,7 @@ namespace polysat {
         pvar mk_concat(std::initializer_list<pvar> args);
 
         // Find hi, lo such that x = src[hi:lo].
-        bool is_extract(pvar x, pvar src, unsigned& out_hi, unsigned& out_lo);
+        bool is_extract(pvar x, pvar src, unsigned& out_hi, unsigned& out_lo) override;
 
         // Track value assignments to variables (and propagate to subslices)
         void add_value(pvar v, rational const& value);
@@ -363,20 +363,12 @@ namespace polysat {
         void explain_value(pvar v, std::function<void(sat::literal)> const& on_lit, std::function<void(pvar)> const& on_var);
 
         /** For a given variable v, find the set of variables w such that w = v[|w|:0]. */
-        void collect_simple_overlaps(pvar v, pvar_vector& out);
-        void explain_simple_overlap(pvar v, pvar x, std::function<void(sat::literal)> const& on_lit);
-
-        struct justified_fixed_bits : public fixed_bits {
-            enode* just;
-
-            justified_fixed_bits(unsigned hi, unsigned lo, rational value, enode* just): fixed_bits(hi, lo, value), just(just) {}
-        };
-
-        using justified_fixed_bits_vector = vector<justified_fixed_bits>;
+        void collect_prefixes(pvar v, pvar_vector& out) override;
+        void explain_prefix(pvar v, pvar x, std::function<void(sat::literal)> const& on_lit) override;
 
         /** Collect fixed portions of the variable v */
-        void collect_fixed(pvar v, justified_fixed_bits_vector& out);
-        void explain_fixed(enode* just, std::function<void(sat::literal)> const& on_lit, std::function<void(pvar)> const& on_var);
+        void collect_fixed(pvar v, justified_fixed_bits_vector& out) override;
+        void explain_fixed(enode* just, std::function<void(sat::literal)> const& on_lit, std::function<void(pvar)> const& on_var) override;
 
         /**
          * Collect variables that are equivalent to v (including v itself)

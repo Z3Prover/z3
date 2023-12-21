@@ -47,8 +47,9 @@ namespace polysat {
         }
     };
 
-    viable::viable(solver& s):
+    viable::viable(solver& s, viable_slicing_interface& slicing):
         s(s),
+        m_slicing(slicing),
         m_forbidden_intervals(s) {
     }
 
@@ -234,7 +235,7 @@ namespace polysat {
         }
 
         for (pvar x : vars_to_explain) {
-            s.m_slicing.explain_simple_overlap(v, x, [this, &add_reason](sat::literal l) {
+            m_slicing.explain_prefix(v, x, [this, &add_reason](sat::literal l) {
                 add_reason(s.lit2cnstr(l));
             });
         }
@@ -805,7 +806,7 @@ namespace polysat {
                 side_cond.push_back(s.lit2cnstr(lit));
             }
             for (slicing::enode* n : fbi.just_slicing[i]) {
-                s.m_slicing.explain_fixed(n, [&](sat::literal lit) {
+                m_slicing.explain_fixed(n, [&](sat::literal lit) {
                     if (!added_src.contains(lit)) {
                         added_src.insert(lit);
                         src.push_back(s.lit2cnstr(lit));
@@ -909,8 +910,8 @@ namespace polysat {
         vector<sat::literal_vector>& just_src = out_fbi.just_src;
         vector<sat::literal_vector>& just_side_cond = out_fbi.just_side_cond;
 
-        slicing::justified_fixed_bits_vector fbs;
-        s.m_slicing.collect_fixed(v, fbs);
+        justified_fixed_bits_vector fbs;
+        m_slicing.collect_fixed(v, fbs);
 
         for (auto const& fb : fbs) {
             LOG("slicing fixed bits: v" << v << "[" << fb.hi << ":" << fb.lo << "] = " << fb.value);
@@ -953,7 +954,7 @@ namespace polysat {
         };
 
         auto add_slicing = [this, &add_literal](slicing::enode* n) {
-            s.m_slicing.explain_fixed(n, [&](sat::literal lit) {
+            m_slicing.explain_fixed(n, [&](sat::literal lit) {
                 add_literal(lit);
             }, [&](pvar v){
                 LOG("from slicing: v" << v);
@@ -1503,7 +1504,7 @@ namespace polysat {
             return l_false;  // conflict already added
 
         pvar_vector overlaps;
-        s.m_slicing.collect_simple_overlaps(v, overlaps);
+        m_slicing.collect_prefixes(v, overlaps);
         std::sort(overlaps.begin(), overlaps.end(), [&](pvar x, pvar y) { return s.size(x) > s.size(y); });
 
         uint_set widths_set;
@@ -1513,7 +1514,7 @@ namespace polysat {
         LOG("Overlaps with v" << v << ":");
         for (pvar x : overlaps) {
             unsigned hi, lo;
-            if (s.m_slicing.is_extract(x, v, hi, lo))
+            if (m_slicing.is_extract(x, v, hi, lo))
                 LOG("    v" << x << " = v" << v << "[" << hi << ":" << lo << "]");
             else
                 LOG("    v" << x << " not extracted from v" << v << "; size " << s.size(x));
@@ -1939,7 +1940,7 @@ namespace polysat {
             core.insert_vars(c);
         }
         for (pvar x : vars_to_explain) {
-            s.m_slicing.explain_simple_overlap(v, x, [this, &core](sat::literal l) {
+            m_slicing.explain_prefix(v, x, [this, &core](sat::literal l) {
                 core.insert(s.lit2cnstr(l));
             });
         }
@@ -1994,7 +1995,7 @@ namespace polysat {
         }
 
         for (pvar x : vars_to_explain) {
-            s.m_slicing.explain_simple_overlap(v, x, [this, &core, &lemma](sat::literal l) {
+            m_slicing.explain_prefix(v, x, [this, &core, &lemma](sat::literal l) {
                 lemma.insert(~l);
                 core.insert(s.lit2cnstr(l));
             });

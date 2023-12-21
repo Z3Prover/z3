@@ -48,7 +48,8 @@ namespace polysat {
 
     solver::solver(reslimit& lim, smt_params const& p):
         m_lim(lim),
-        m_viable(*this),
+        m_slicing(*this),
+        m_viable(*this, m_slicing),
         m_viable_fallback(*this),
         m_conflict(*this),
         m_simplify_clause(*this),
@@ -58,7 +59,6 @@ namespace polysat {
         m_free_pvars(m_size, m_activity),
         m_constraints(*this),
         m_names(*this),
-        m_slicing(*this),
         m_search(*this) {
         updt_smt_params(p);
         updt_polysat_params(gparams::get_module("polysat"));

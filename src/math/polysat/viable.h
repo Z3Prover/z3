@@ -47,7 +47,8 @@ namespace polysat {
         friend class conflict;
 
         solver& s;
-        forbidden_intervals      m_forbidden_intervals;
+        viable_slicing_interface&   m_slicing;
+        forbidden_intervals         m_forbidden_intervals;
 
         struct entry final : public dll_base<entry>, public fi_record {
             /// whether the entry has been created by refinement (from constraints in 'fi_record::src')
@@ -251,7 +252,7 @@ namespace polysat {
         std::pair<entry*, bool> find_value(rational const& val, entry* entries);
 
     public:
-        viable(solver& s);
+        viable(solver& s, viable_slicing_interface& slicing);
 
         ~viable();
 

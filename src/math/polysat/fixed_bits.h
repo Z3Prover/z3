@@ -17,20 +17,6 @@ Author:
 
 namespace polysat {
 
-    struct fixed_bits {
-        unsigned hi = 0;
-        unsigned lo = 0;
-        rational value;
-
-        /// The constraint is equivalent to setting fixed bits on a variable.
-        // bool is_equivalent;
-
-        fixed_bits() = default;
-        fixed_bits(unsigned hi, unsigned lo, rational value): hi(hi), lo(lo), value(value) {}
-    };
-
-    using fixed_bits_vector = vector<fixed_bits>;
-
     bool get_eq_fixed_lsb(pdd const& p, fixed_bits& out);
     bool get_eq_fixed_bits(pdd const& p, fixed_bits& out);
 

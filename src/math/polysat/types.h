@@ -11,6 +11,7 @@ Author:
 
 --*/
 #pragma once
+#include "ast/euf/euf_egraph.h"
 #include "util/trail.h"
 #include "util/lbool.h"
 #include "util/map.h"
@@ -73,5 +74,45 @@ namespace polysat {
             out << d.val();
         return out << ")";
     }
+
+
+    /// x[hi:lo] = value
+    struct fixed_bits {
+        unsigned hi = 0;
+        unsigned lo = 0;
+        rational value;
+
+        fixed_bits() = default;
+        fixed_bits(unsigned hi, unsigned lo, rational value): hi(hi), lo(lo), value(value) {}
+    };
+
+    struct justified_fixed_bits : public fixed_bits {
+        euf::enode* just;
+
+        justified_fixed_bits(unsigned hi, unsigned lo, rational value, euf::enode* just): fixed_bits(hi, lo, value), just(just) {}
+    };
+
+    using justified_fixed_bits_vector = vector<justified_fixed_bits>;
+
+    class viable_slicing_interface {
+    public:
+        using enode = euf::enode;
+        using enode_vector = euf::enode_vector;
+        using enode_pair = euf::enode_pair;
+        using enode_pair_vector = euf::enode_pair_vector;
+
+        virtual ~viable_slicing_interface() {}
+
+        // Find hi, lo such that x = src[hi:lo].
+        virtual bool is_extract(pvar x, pvar src, unsigned& out_hi, unsigned& out_lo) = 0;
+
+        /** Collect fixed portions of the variable v */
+        virtual void collect_fixed(pvar v, justified_fixed_bits_vector& out) = 0;
+        virtual void explain_fixed(enode* just, std::function<void(sat::literal)> const& on_lit, std::function<void(pvar)> const& on_var) = 0;
+
+        /** For a given variable v, find the set of variables w such that w = v[|w|:0]. */
+        virtual void collect_prefixes(pvar v, pvar_vector& out) = 0;
+        virtual void explain_prefix(pvar v, pvar x, std::function<void(sat::literal)> const& on_lit) = 0;
+    };
 
 }
