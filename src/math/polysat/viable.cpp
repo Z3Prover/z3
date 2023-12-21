@@ -322,6 +322,7 @@ namespace polysat {
                 pdd const& pdd_hi = ne->interval.hi();
                 rational const& lo = ne->interval.lo_val();
                 rational const& hi = ne->interval.hi_val();
+                unsigned const ne_bitwidth = w - k;
 
                 rational new_lo = machine_div2k(lo, k);
                 if (mod2k(lo, k).is_zero())
@@ -330,6 +331,7 @@ namespace polysat {
                     new_lo += 1;
                     ne->side_cond.push_back( ~s.eq(pdd_lo * rational::power_of_two(w - k)) );
                 }
+                new_lo = mod2k(new_lo, ne_bitwidth);
 
                 rational new_hi = machine_div2k(hi, k);
                 if (mod2k(hi, k).is_zero())
@@ -338,21 +340,37 @@ namespace polysat {
                     new_hi += 1;
                     ne->side_cond.push_back( ~s.eq(pdd_hi * rational::power_of_two(w - k)) );
                 }
+                new_hi = mod2k(new_hi, ne_bitwidth);
 
                 // we have to update also the pdd bounds accordingly, but it seems not worth introducing new variables for this eagerly
                 //      new_lo = lo[:k]  etc.
-                // TODO: for now just disable the FI-lemma if this case occurs
+                // (for now just disable the FI-lemma if this case occurs)
                 ne->valid_for_lemma = false;
 
                 if (new_lo == new_hi) {
                     // empty or full
-                    // if (ne->interval.currently_contains(rational::zero()))
-                    NOT_IMPLEMENTED_YET();
+                    if (ne->interval.currently_contains( new_hi * rational::power_of_two(k) )) {
+                        // full interval -> conflict, but to express it we need mk_extract and zero_extend
+                        // u' = mk_extract(hi, w, k)     resp.  mk_extract(hi, w, k) + 1
+                        //
+                        // Need side constraint:
+                        //      u' ++ 0_k \in [lo, hi[
+                        //
+                        // Alternatively:
+                        //      hi - zero_extend(mk_extract(hi, k-1, 0), w-k) \in [lo, hi[
+                        NOT_IMPLEMENTED_YET();
+                    }
+                    else {
+                        // empty interval
+                        LOG("reduced interval is empty");
+                        m_alloc.push_back(ne);
+                        return false;
+                    }
                 }
 
                 ne->coeff = machine_div2k(ne->coeff, k);
                 ne->interval = eval_interval::proper(pdd_lo, new_lo, pdd_hi, new_hi);
-                ne->bit_width -= k;
+                ne->bit_width = ne_bitwidth;
                 display_one(std::cerr << "reduced entry:  ", v, ne) << "\n";
                 LOG("reduced entry to unit in bitwidth " << ne->bit_width);
                 return intersect(v, ne);
