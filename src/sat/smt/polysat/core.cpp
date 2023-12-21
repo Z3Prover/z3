@@ -328,15 +328,14 @@ namespace polysat {
                 return;
            
             SASSERT(!swapped || vars.size() <= 1 || (!is_assigned(vars[0]) && !is_assigned(vars[1])));
-            if (swapped)
-                continue;
-            m_watch[v][j++] = idx;
+            if (!swapped)
+                m_watch[v][j++] = idx;
             if (vars.size() <= 1)
                 continue;
+            auto v0 = vars[0];
             auto v1 = vars[1];
-            if (is_assigned(v1))
+            if (!is_assigned(v0) || is_assigned(v1))
                 continue;
-            SASSERT(is_assigned(vars[0]) && vars.size() >= 2);
             // detect unitary, add to viable, detect conflict?
             m_viable.add_unitary(v1, idx);            
         }
