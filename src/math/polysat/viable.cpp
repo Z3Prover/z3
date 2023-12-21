@@ -73,10 +73,9 @@ namespace polysat {
 
     viable::entry* viable::alloc_entry(pvar var) {
         if (m_alloc.empty())
-            return alloc(entry);
+            return alloc(entry, var);
         auto* e = m_alloc.back();
-        e->reset();
-        e->var = var;
+        e->reset(var);
         m_alloc.pop_back();
         return e;
     }

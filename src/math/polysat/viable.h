@@ -57,13 +57,15 @@ namespace polysat {
             bool valid_for_lemma = true;
             pvar var = null_var;
 
-            void reset() {
+            entry(pvar v) { reset(v); }
+
+            void reset(pvar v) {
                 // dll_base<entry>::init(this);  // we never did this in alloc_entry either
                 fi_record::reset();
                 refined = false;
                 active = true;
                 valid_for_lemma = true;
-                var = null_var;
+                var = v;
             }
         };
 
