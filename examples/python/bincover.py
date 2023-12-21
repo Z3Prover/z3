@@ -92,15 +92,17 @@ class BinCoverSolver(UserPropagateBase):
     def add_bin(self, min_bound):
         assert not self.initialized
         index = len(self.bins)
-        self.bins += [Bin(min_bound, index)]
-        return index
+        bin = Bin(min_bound, index)
+        self.bins += [bin]
+        return bin
         
     def add_item(self, weight):
         assert not self.initialized
         assert weight > 0
         index = len(self.items)
-        self.items += [Item(weight, index)]
-        return index
+        item = Item(weight, index)
+        self.items += [item]
+        return item
         
     def num_items(self):
         return len(self.items)
@@ -243,7 +245,13 @@ class OptimizeBinCoverSolver:
         self.bin_solver = BinCoverSolver(self.solver)
         self.mss_solver = MaximalSatisfyingSubset(self.solver)
 
+    #
     # Facilities to set up solver
+    # First add items and bins.
+    # Keep references to the returned objects.
+    # Then call init
+    # Then add any other custom constraints to the "solver" object.
+    #
     def init(self):
         self.bin_solver.init()
 
@@ -252,12 +260,6 @@ class OptimizeBinCoverSolver:
 
     def add_bin(self, min_bound):
         return self.bin_solver.add_bin(min_bound)
-
-    def item_index2item(self, index):
-        return self.bin_solver.items[index]
-
-    def bin_index2bin(self, index):
-        return self.bin_solver.bins[index]
 
     def optimize(self):
         self.init()
