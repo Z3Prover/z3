@@ -150,7 +150,7 @@ class BinCoverSolver(UserPropagateBase):
     def _exclude_item2bin(self, item, bin):
         # print("exclude", item, "from", bin)
         # Check if bin has already been blocked
-        if bin.slack < bin.weight:
+        if bin.slack < bin.min_bound:
             return
         if bin.weight >= bin.min_bound:
             return
