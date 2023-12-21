@@ -1832,6 +1832,9 @@ struct
   let get (x:statistics) (key:string) =
     try Some(List.find (fun c -> Entry.get_key c = key) (get_entries x)) with
     | Not_found -> None
+
+  let get_estimated_alloc_size =
+    Z3native.get_estimated_alloc_size
 end
 
 

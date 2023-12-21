@@ -308,6 +308,7 @@ let fpa_example ( ctx : context ) =
   (
     let solver = (mk_solver ctx None) in
 	(Solver.add solver [ c5 ]) ;
+    Printf.printf "Memory in use before `check`: %Lu bytes\n" (Statistics.get_estimated_alloc_size());
     if (check solver []) != SATISFIABLE then
 	  raise (TestFailedException "")
     else
