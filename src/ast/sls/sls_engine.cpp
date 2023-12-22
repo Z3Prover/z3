@@ -23,7 +23,6 @@ Notes:
 #include "ast/ast_pp.h"
 #include "ast/rewriter/var_subst.h"
 #include "model/model_pp.h"
-#include "tactic/tactic.h"
 #include "util/luby.h"
 
 #include "params/sls_params.hpp"
@@ -91,14 +90,12 @@ void sls_engine::collect_statistics(statistics& st) const {
     st.update("sls moves/sec", m_stats.m_moves / seconds);
 }
 
-void sls_engine::checkpoint() {
-    tactic::checkpoint(m_manager);
-}
 
 bool sls_engine::full_eval(model & mdl) {
     model::scoped_model_completion _scm(mdl, true);
     for (expr* a : m_assertions) {
-        checkpoint();        
+        if (!m_manager.inc())
+            return false;
         if (!mdl.is_true(a)) {
             TRACE("sls", tout << "Evaluation: false\n";);
             return false;
@@ -422,7 +419,8 @@ lbool sls_engine::search() {
     unsigned sz = m_assertions.size();
 
     while (check_restart(m_stats.m_moves)) {
-        checkpoint();
+        if (!m_manager.inc())
+            return l_undef;
         m_stats.m_moves++;
 
         // Andreas: Every base restart interval ...
@@ -532,7 +530,8 @@ lbool sls_engine::operator()() {
     lbool res = l_undef;
 
     do {
-        checkpoint();
+        if (!m_manager.inc())
+            return l_undef;
 
         // report_tactic_progress("Searching... restarts left:", m_max_restarts - m_stats.m_restarts);
         res = search();

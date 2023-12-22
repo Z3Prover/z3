@@ -117,7 +117,6 @@ public:
     unsynch_mpz_manager& get_mpz_manager() { return m_mpz_manager; }
 
 protected:
-    void checkpoint();
 
     bool what_if(func_decl * fd, const unsigned & fd_inx, const mpz & temp,
                  double & best_score, unsigned & best_const, mpz & best_value);
