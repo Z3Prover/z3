@@ -1796,7 +1796,7 @@ namespace polysat {
                 next_dist = dist;
             }
             SASSERT(!refine_bits<true>(v, val, w, fbi));
-            SASSERT(val != next_val);
+            SASSERT(val != next_val || next_dist == mod_value);
 
             unsigned const lower_w = widths[w_idx - 1];
             rational const lower_mod_value = rational::power_of_two(lower_w);
@@ -1814,7 +1814,7 @@ namespace polysat {
 
             // replace lower bits of 'val' by 'a'
             rational const dist = distance(lower_cover_lo, a, lower_mod_value);
-            val += dist;
+            val = mod(val + dist, mod_value);
             progress += dist;
             LOG("distance(val,      cover_hi) = " << (to_cover_len == mod_value && val == to_cover_lo ? to_cover_len : distance(val, to_cover_hi, mod_value)));
             LOG("distance(next_val, cover_hi) = " << distance(next_val, to_cover_hi, mod_value));
