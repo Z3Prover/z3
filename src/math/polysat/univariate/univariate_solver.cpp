@@ -109,8 +109,7 @@ namespace polysat {
             reg_decl_plugins(m);
             bv = alloc(bv_util, m);
             params_ref p;
-            p.set_bool("bv.polysat", false);
-            // p.set_bool("smt", true);
+            p.set_uint("bv.solver", 0);
             s = mk_solver(m, p, false, true, true, symbol::null);
             m_x_decl = m.mk_const_decl("x", bv->mk_sort(bit_width));
             m_x = m.mk_const(m_x_decl);
@@ -473,8 +472,7 @@ namespace polysat {
             reg_decl_plugins(m);
             a = alloc(arith_util, m);
             params_ref p;
-            p.set_bool("bv.polysat", false);
-            // p.set_bool("smt", true);
+            p.set_uint("bv.solver", 0);
             s = mk_solver(m, p, false, true, true, symbol::null);
             x_decl = m.mk_const_decl("x", a->mk_int());
             x = m.mk_const(x_decl);
