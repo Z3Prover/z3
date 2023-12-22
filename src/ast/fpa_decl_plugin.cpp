@@ -208,8 +208,7 @@ sort * fpa_decl_plugin::mk_float_sort(unsigned ebits, unsigned sbits) {
     if (ebits > 63)
         m_manager->raise_exception("maximum number of exponent bits is 63");
 
-    parameter p1(ebits), p2(sbits);
-    parameter ps[2] = { p1, p2 };
+    parameter ps[2] = { parameter(ebits), parameter(sbits) };
     sort_size sz;
     sz = sort_size::mk_very_big(); // TODO: refine
     return m_manager->mk_sort(symbol("FloatingPoint"), sort_info(m_family_id, FLOATING_POINT_SORT, sz, 2, ps));

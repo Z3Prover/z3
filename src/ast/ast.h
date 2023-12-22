@@ -142,7 +142,7 @@ public:
     explicit parameter(const char *s): m_val(symbol(s)) {}
     explicit parameter(const std::string &s): m_val(symbol(s)) {}
     explicit parameter(unsigned ext_id, bool): m_val(ext_id) {}
-    parameter(parameter const& other) { *this = other; }
+    explicit parameter(parameter const& other);
 
     parameter(parameter && other) noexcept : m_val(std::move(other.m_val)) {
         other.m_val = 0;
@@ -150,7 +150,10 @@ public:
 
     ~parameter();
 
-    parameter& operator=(parameter const& other);
+    parameter& operator=(parameter && other) {
+        std::swap(other.m_val, m_val);
+        return *this;
+    }
 
     kind_t get_kind() const { return static_cast<kind_t>(m_val.index()); }
     bool is_int() const { return get_kind() == PARAM_INT; }
@@ -1099,7 +1102,7 @@ public:
 
     // Event handlers for deleting/translating PARAM_EXTERNAL
     virtual void del(parameter const & p) {}
-    virtual parameter translate(parameter const & p, decl_plugin & target) { UNREACHABLE(); return p; }
+    virtual parameter translate(parameter const & p, decl_plugin & target) { UNREACHABLE(); return {}; }
 
     virtual bool is_considered_uninterpreted(func_decl * f) { return false; }
 };

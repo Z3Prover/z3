@@ -48,21 +48,13 @@ parameter::~parameter() {
     }
 }
 
-parameter& parameter::operator=(parameter const& other) {
-    if (this == &other) {
-        return *this;
-    }
-
-    this->~parameter();
-    m_val = other.m_val;
-
+parameter::parameter(parameter const& other) : m_val(other.m_val) {
     if (auto p = std::get_if<rational*>(&m_val)) {
         m_val = alloc(rational, **p);
     }
     if (auto p = std::get_if<zstring*>(&m_val)) {
         m_val = alloc(zstring, **p);
     }
-    return *this;
 }
 
 void parameter::init_eh(ast_manager & m) {

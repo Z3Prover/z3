@@ -209,10 +209,6 @@ namespace spacer {
 
     static proof_ref  mk_th_lemma(ast_manager &m, ptr_buffer<proof> const &parents,
                                   unsigned num_params, parameter const *params) {
-        buffer<parameter> v;
-        for (unsigned i = 1; i < num_params; ++i)
-            v.push_back(params[i]);
-
         SASSERT(params[0].is_symbol());
         family_id tid = m.mk_family_id(params[0].get_symbol());
         SASSERT(tid != null_family_id);
@@ -220,7 +216,7 @@ namespace spacer {
         proof_ref pf(m);
         pf =  m.mk_th_lemma(tid, m.mk_false(),
                             parents.size(), parents.data(),
-                            v.size(), v.data());
+                            num_params - 1, params + 1);
         return pf;
     }
 
