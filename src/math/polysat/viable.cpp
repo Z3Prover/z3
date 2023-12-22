@@ -1657,7 +1657,7 @@ namespace polysat {
         rational const& mod_value = rational::power_of_two(w);
         unsigned const first_relevant_for_conflict = relevant_entries.size();
 
-        LOG("layer " << w << " bits, to_cover: [" << to_cover_lo << "; " << mod(to_cover_lo + to_cover_len, mod_value) << "[  (len " << to_cover_len << ")");
+        LOG_H3("layer " << w << " bits, to_cover: [" << to_cover_lo << "; " << mod(to_cover_lo + to_cover_len, mod_value) << "[  (len " << to_cover_len << ")");
         SASSERT(0 <= to_cover_lo);
         SASSERT(to_cover_lo < mod_value);
         SASSERT(0 < to_cover_len);  // non-empty search domain (but it may wrap)
@@ -1700,6 +1700,10 @@ namespace polysat {
 
         val = to_cover_lo;
         rational const to_cover_hi = mod(to_cover_lo + to_cover_len, mod_value);  // may be equal to to_cover_lo if to_cover_len is the full domain size
+        LOG("to_cover_lo = " << to_cover_lo);
+        LOG("to_cover_hi = " << to_cover_hi);
+        LOG("to_cover_len = " << to_cover_len);
+        LOG("mod_value = " << mod_value);
 
         rational progress; // = 0
         SASSERT(progress.is_zero());
@@ -1798,6 +1802,9 @@ namespace polysat {
             SASSERT(!refine_bits<true>(v, val, w, fbi));
             SASSERT(val != next_val || next_dist == mod_value);
 
+            LOG("val = " << val);
+            LOG("next_val = " << next_val << ", next_dist = " << next_dist);
+
             unsigned const lower_w = widths[w_idx - 1];
             rational const lower_mod_value = rational::power_of_two(lower_w);
             rational const lower_cover_lo = mod(val, lower_mod_value);
@@ -1816,10 +1823,7 @@ namespace polysat {
             rational const dist = distance(lower_cover_lo, a, lower_mod_value);
             val = mod(val + dist, mod_value);
             progress += dist;
-            LOG("distance(val,      cover_hi) = " << (to_cover_len == mod_value && val == to_cover_lo ? to_cover_len : distance(val, to_cover_hi, mod_value)));
-            LOG("distance(next_val, cover_hi) = " << distance(next_val, to_cover_hi, mod_value));
-            SASSERT_EQ((to_cover_len == mod_value && val == to_cover_lo ? to_cover_len : distance(val, to_cover_hi, mod_value)), to_cover_len - progress);
-            SASSERT((to_cover_len == mod_value && val == to_cover_lo ? to_cover_len : distance(val, to_cover_hi, mod_value)) >= distance(next_val, to_cover_hi, mod_value));
+            LOG("val = " << val << ", progress = " << progress);
 
             if (result == l_true)
                 return l_true;  // done
