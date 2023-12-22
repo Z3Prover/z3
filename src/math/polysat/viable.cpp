@@ -2232,16 +2232,20 @@ namespace polysat {
             rational const& q_ = e->interval.lo().val();
             rational const& r = e->interval.hi_val();
             rational const& s_ = e->interval.hi().val();
-            out << "[ ";
+            out << "diseq [ ";
             out << val_pp(m, p, true) << "*v" << v << " + " << val_pp(m, q_);
             out << (e->src[0].is_positive() ? " > " : " >= ");
             out << val_pp(m, r, true) << "*v" << v << " + " << val_pp(m, s_);
             out << " ] ";
         }
+        else if (e->interval.is_full())
+            out << "full: " << e->interval << " ";
         else if (e->coeff != 1)
             out << e->coeff << " * v" << v << " " << e->interval << " ";
         else
             out << e->interval << " ";
+        if (e->refined)
+            out << "refined ";
         if (e->side_cond.size() <= 5)
             out << e->side_cond << " ";
         else
