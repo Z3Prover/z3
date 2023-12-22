@@ -1,0 +1,8 @@
+z3_add_component(ast_sls
+  SOURCES
+    bvsls_opt_engine.cpp
+    sls_engine.cpp    
+  COMPONENT_DEPENDENCIES
+    ast
+    converters
+)
