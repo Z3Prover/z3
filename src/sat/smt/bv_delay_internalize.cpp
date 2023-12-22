@@ -413,7 +413,7 @@ namespace bv {
     solver::internalize_mode solver::get_internalize_mode(expr* e) {
         if (!reflect())
             return internalize_mode::no_delay_i;
-        if (get_config().m_bv_polysat)
+        if (use_polysat())
             return internalize_mode::polysat_i;
         if (!bv.is_bv(e))
             return internalize_mode::no_delay_i;

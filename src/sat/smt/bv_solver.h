@@ -349,7 +349,7 @@ namespace bv {
         void polysat_add_value(euf::enode* n, model& mdl, expr_ref_vector& values);
         lbool polysat_final();
         void polysat_display(std::ostream& out) const;
-        bool use_polysat() const { return get_config().m_bv_polysat; }
+        bool use_polysat() const { return get_config().m_bv_solver == 1; }
         vector<polysat::pdd> m_var2pdd;
         bool_vector          m_var2pdd_valid;
         unsigned_vector      m_pddvar2var;
