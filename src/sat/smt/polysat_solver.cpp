@@ -208,15 +208,21 @@ namespace polysat {
     // Core uses the propagate callback to add unit propagations to the trail.
     // The polysat::solver takes care of translating signed constraints into expressions, which translate into literals.
     // Everything goes over expressions/literals. polysat::core is not responsible for replaying expressions. 
-    bool solver::propagate(signed_constraint sc, constraint_id_vector const& cs) {
-        sat::literal lit = ctx.mk_literal(constraint2expr(sc));
+    
+    dependency solver::propagate(signed_constraint sc, constraint_id_vector const& cs) {
+        sat::literal lit = ctx.mk_literal(constraint2expr(sc));        
         if (s().value(lit) == l_true)
-            return false;
+            return dependency(lit, s().lvl(lit));
         auto deps = m_core.get_dependencies(cs);
         auto [core, eqs] = explain_deps(deps);
         auto ex = euf::th_explain::propagate(*this, core, eqs, lit, nullptr);
+        unsigned level = 0;
+        for (auto c : core)
+            level = std::max(level, s().lvl(c));
+        if (!eqs.empty()) // over-approximate propagation level if it uses equalities.
+            level = level = s().scope_lvl();
         ctx.propagate(lit, ex);
-        return true;
+        return dependency(lit, level); 
     }
 
     void solver::propagate(dependency const& d, bool sign, constraint_id_vector const& cs) {

@@ -38,11 +38,13 @@ namespace polysat {
         if (c.eval(id) == l_true)
             return false;
         auto sc = c.get_constraint(id);
+        if (!sc.vars().contains(v))
+            return false;
         m_propagated = false;
         if (sc.is_ule())
             propagate(v, inequality::from_ule(c, id));
-        else
-            ;
+        else if (sc.is_umul_ovfl())
+            try_umul_ovfl(v, umul_ovfl(id, sc));
 
         return m_propagated;
     }
@@ -51,33 +53,35 @@ namespace polysat {
         if (c.size(v) != i.lhs().power_of_2())
             return;
         propagate_infer_equality(v, i);
-        try_ugt_x(v, i);
-        return;
-
+        try_ugt_x(v, i);       
+        try_ugt_y(v, i);
+        try_ugt_z(v, i);    
     }
 
     void saturation::propagate(signed_constraint const& sc, std::initializer_list<constraint_id> const& premises) {
-        if (c.propagate(sc, constraint_id_vector(premises)))
-            m_propagated = true;
+        c.propagate(sc, constraint_id_vector(premises));        
     }
 
     void saturation::add_clause(char const* name, clause const& cs, bool is_redundant) { 
-        vector<std::variant<constraint_id, dependency>> core;
+        vector<constraint_or_dependency> lemma;
         for (auto const& e : cs) {
             if (std::holds_alternative<constraint_id>(e)) {
-                core.push_back(*std::get_if<constraint_id>(&e));
-                continue;
+                auto id = *std::get_if<constraint_id>(&e);
+                auto d = c.get_dependency(id);
+                lemma.push_back(~d);
             }
-            auto sc = *std::get_if<signed_constraint>(&e);
-            if (c.eval(sc) != l_false)
-                return;            
-            c.propagate(~sc, c.explain_eval(sc));
-            // retrieve dep/id from propagated ~sc
-            // add to id to ids or ~dep to deps
-        }
-        // TODO
-        //
-        // c.add_axiom(name, core_vector(core.begin(), core.end()), is_redundant);
+            else if (std::holds_alternative<signed_constraint>(e)) {
+                auto sc = *std::get_if<signed_constraint>(&e);
+                if (c.eval(sc) != l_false)
+                    return;
+                auto d = c.propagate(~sc, c.explain_eval(sc));
+                lemma.push_back(~d);
+            }
+            else
+                UNREACHABLE();
+        }        
+        c.add_axiom(name, core_vector(lemma.begin(), lemma.end()), is_redundant);
+        m_propagated = true;
     }
 
     bool saturation::match_core(std::function<bool(signed_constraint const& sc)> const& p, constraint_id& id_out) {
@@ -164,7 +168,7 @@ namespace polysat {
         auto j = inequality::from_ule(c, id);
         pdd const& z_prime = i.lhs();
         bool is_strict = i.is_strict() || j.is_strict();
-        add_clause("[y] z' <= y & yx <= zx", { i, j, C.umul_ovfl(x, y), ineq(is_strict, z_prime * x, z * x) }, false);
+        add_clause("[y] z' <= y & yx <= zx", { i.id(), j.id(), C.umul_ovfl(x, y), ineq(is_strict, z_prime * x, z * x)}, false);
     }
 
     /**
@@ -187,7 +191,7 @@ namespace polysat {
         auto j = inequality::from_ule(c, id);
         auto y_prime = j.rhs();
         bool is_strict = i.is_strict() || j.is_strict();
-        add_clause("[z] z <= y' && yx <= zx", { i, j, c.umul_ovfl(x, y_prime), ineq(is_strict, y * x, y_prime * x) }, false);
+        add_clause("[z] z <= y' && yx <= zx", { i.id(), j.id(), c.umul_ovfl(x, y_prime), ineq(is_strict, y * x, y_prime * x)}, false);
     }
 
 
@@ -202,6 +206,37 @@ namespace polysat {
 
     bool saturation::is_non_overflow(pdd const& x, pdd const& y, signed_constraint& sc) {
         return is_non_overflow(x, y) && (sc = c.umul_ovfl(x, y), true);
+    }
+
+    // Ovfl(x, y) & ~Ovfl(y, z) ==> x > z
+    void saturation::try_umul_ovfl(pvar v, umul_ovfl const& sc) {
+    
+        auto p = sc.p(), q = sc.q();
+        auto& C = c.cs();
+        constraint_id id;
+        auto match_mul_arg = [&](auto const& sc2) { 
+            auto p2 = sc2.to_umul_ovfl().p(), q2 = sc2.to_umul_ovfl().q(); 
+            return p == p2 || p == q2 || q == p2 || q == q2;
+        };
+        auto extract_mul_args = [&](auto const& sc2) -> std::pair<pdd, pdd> {
+            auto p2 = sc2.to_umul_ovfl().p(), q2 = sc2.to_umul_ovfl().q();
+            if (p == p2)
+                return { q, q2 };
+            else if (p == q2)
+                return { q, p2 };
+            else if (q == p2)
+                return { p, q2 };
+            else
+                return { p, p2 };
+        };
+        if (match_constraints([&](auto const& sc2) { return sc2.is_umul_ovfl() && sc.sign() != sc2.sign() && match_mul_arg(sc2); }, id)) {
+            auto sc2 = c.get_constraint(id);
+            auto [q1, q2] = extract_mul_args(sc2);
+            if (sc.sign())
+                add_clause("[y] ~ovfl(p, q1) & ovfl(p, q2) ==> q1 < q2", { sc.id(), id, C.ult(q1, q2) }, false);
+            else 
+                add_clause("[y] ovfl(p, q1) & ~ovfl(p, q2) ==> q1 > q2", { sc.id(), id, C.ult(q2, q1)}, false);
+        }         
     }
 
 #if 0
@@ -277,55 +312,6 @@ namespace polysat {
             SASSERT(!p.hi().is_zero());
             // 0 < a*x for a != 0
             return true;
-        }
-        return false;
-    }
-
-    bool saturation::try_umul_ovfl(pvar v, signed_constraint c, conflict& core) {
-        SASSERT(c->is_umul_ovfl());
-        bool prop = false;
-        if (try_umul_ovfl_noovfl(v, c, core))
-            prop = true;
-#if 0
-        if (c.is_positive()) {
-            prop = try_umul_ovfl_bounds(v, c, core);
-        }
-        else {
-            prop = try_umul_noovfl_bounds(v, c, core);
-            if (false && try_umul_noovfl_lo(v, c, core))
-                prop = true;
-        }
-#endif
-        return prop;
-    }
-
-    // Ovfl(x, y) & ~Ovfl(y, z) ==> x > z
-    // TODO: Ovfl(x, y1) & ~Ovfl(y2, z) & y1 <= y2 ==> x > z
-    bool saturation::try_umul_ovfl_noovfl(pvar v, signed_constraint c1, conflict& core) {
-        set_rule("[y] ovfl(x, y) & ~ovfl(y, z) ==> x > z");
-        SASSERT(c1->is_umul_ovfl());
-        if (!c1.is_positive())  // since we search for both premises in the core, break symmetry by requiring c1 to be positive
-            return false;
-        pdd p = c1->to_umul_ovfl().p();
-        pdd q = c1->to_umul_ovfl().q();
-        for (auto c2 : core) {
-            if (!c2.is_negative())
-                continue;
-            if (!c2->is_umul_ovfl())
-                continue;
-            pdd r = c2->to_umul_ovfl().p();
-            pdd u = c2->to_umul_ovfl().q();
-            if (p == u || q == u)
-                swap(r, u);
-            if (q == r || q == u)
-                swap(p, q);
-            if (p != r)
-                continue;
-            m_lemma.reset();
-            m_lemma.insert(~c1);
-            m_lemma.insert(~c2);
-            if (propagate(v, core, s.ult(u, q)))
-                return true;
         }
         return false;
     }

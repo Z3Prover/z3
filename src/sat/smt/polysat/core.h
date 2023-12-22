@@ -155,7 +155,7 @@ namespace polysat {
         dependency get_dependency(constraint_id idx) const;
         dependency_vector get_dependencies(constraint_id_vector const& ids) const;
         lbool eval(constraint_id id);
-        bool propagate(signed_constraint const& sc, constraint_id_vector const& ids) { return s.propagate(sc, ids); }
+        dependency propagate(signed_constraint const& sc, constraint_id_vector const& ids) { return s.propagate(sc, ids); }
         lbool eval(signed_constraint const& sc);
         constraint_id_vector explain_eval(signed_constraint const& sc);
 

@@ -18,12 +18,14 @@ Author:
 
 namespace polysat {
 
+    class umul_ovfl;
+
     /**
      * Introduce lemmas that derive new (simpler) constraints from the current conflict and partial model.
      */
     class saturation {
 
-        using clause = std::initializer_list<std::variant<constraint_id, signed_constraint>>;
+        using clause = std::initializer_list<constraint_id_or_constraint>;
         core& c;
         constraints& C;
         char const* m_rule = nullptr;
@@ -43,9 +45,11 @@ namespace polysat {
 
 
         void propagate_infer_equality(pvar x, inequality const& a_l_b);
+        void propagate_umul_ovfl(pvar v, umul_ovfl const& sc);
         void try_ugt_x(pvar v, inequality const& i);
         void try_ugt_y(pvar v, inequality const& i);
         void try_ugt_z(pvar z, inequality const& i);
+        void try_umul_ovfl(pvar v, umul_ovfl const& sc);
 
         signed_constraint ineq(bool is_strict, pdd const& x, pdd const& y);
         

@@ -40,4 +40,16 @@ namespace polysat {
         void propagate(core& c, lbool value, dependency const& dep) override;
     };
 
+
+    class umul_ovfl {
+        constraint_id m_id;
+        signed_constraint sc;
+    public:
+        umul_ovfl(constraint_id id, signed_constraint sc) : m_id(id), sc(sc) {}
+        pdd p() const { return sc.to_umul_ovfl().p(); }
+        pdd q() const { return sc.to_umul_ovfl().q(); }
+        bool sign() const { return sc.sign(); }
+        constraint_id id() const { return m_id; }
+    };
+
 }
