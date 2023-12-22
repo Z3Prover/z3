@@ -1518,9 +1518,9 @@ namespace polysat {
                 LOG("    v" << x << " = v" << v << "[" << hi << ":" << lo << "]");
             else
                 LOG("    v" << x << " not extracted from v" << v << "; size " << s.size(x));
-            for (layer const& l : m_units[x].get_layers()) {
-                widths_set.insert(l.bit_width);
-            }
+            for (layer const& l : m_units[x].get_layers())
+                if (l.entries)
+                    widths_set.insert(l.bit_width);
         }
 
         unsigned_vector widths;
@@ -1857,6 +1857,8 @@ namespace polysat {
         LOG("Assignment: " << assignments_pp(s));
         for (pvar x : overlaps) {
             for (layer const& l : m_units[x].get_layers()) {
+                if (!l.entries)
+                    continue;
                 entry const* first = l.entries;
                 entry const* e = first;
                 do {
