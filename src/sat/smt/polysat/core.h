@@ -136,6 +136,7 @@ namespace polysat {
         * Where d_i are logical interpretations of dependencies and sc_j are signed constraints.
         */
         void add_axiom(char const* name, core_vector const& cs, bool is_redundant);
+        void add_axiom(char const* name, constraint_or_dependency const* begin, constraint_or_dependency const* end, bool is_redundant);
         
         pvar add_var(unsigned sz);
         pdd var(pvar p) { return m_vars[p]; }

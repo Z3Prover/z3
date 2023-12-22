@@ -161,13 +161,17 @@ namespace polysat {
         // callbacks from core
         void add_eq_literal(pvar v, rational const& val) override;
         void set_conflict(constraint_id_vector const& core) override;
-        bool add_axiom(char const* name, core_vector const& core, bool redundant) override;
+        bool add_axiom(char const* name, constraint_or_dependency const* begin, constraint_or_dependency const* end, bool redundant) override;
         dependency propagate(signed_constraint sc, constraint_id_vector const& deps) override;
         void propagate(dependency const& d, bool sign, constraint_id_vector const& deps) override;
         trail_stack& trail() override;
         bool inconsistent() const override;
         void get_bitvector_suffixes(pvar v, pvar_vector& out) override;
         void get_fixed_bits(pvar v, svector<justified_fixed_bits>& fixed_bits) override;
+
+        bool add_axiom(char const* name, core_vector const& clause, bool redundant) {
+            return add_axiom(name, clause.begin(), clause.end(), redundant);
+        }
 
         std::pair<sat::literal_vector, euf::enode_pair_vector> explain_deps(dependency_vector const& deps);
 

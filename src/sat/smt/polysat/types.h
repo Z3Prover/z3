@@ -98,7 +98,7 @@ namespace polysat {
     public:
         virtual ~solver_interface() {}
         virtual void add_eq_literal(pvar v, rational const& val) = 0;
-        virtual bool add_axiom(char const* name, core_vector const& core, bool redundant) = 0;
+        virtual bool add_axiom(char const* name, constraint_or_dependency const* begin, constraint_or_dependency const* end, bool redundant) = 0;
         virtual void set_conflict(constraint_id_vector const& core) = 0;
         virtual dependency propagate(signed_constraint sc, constraint_id_vector const& deps) = 0;
         virtual void propagate(dependency const& d, bool sign, constraint_id_vector const& deps) = 0;

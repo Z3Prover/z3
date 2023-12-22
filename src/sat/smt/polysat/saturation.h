@@ -28,9 +28,7 @@ namespace polysat {
         using clause = std::initializer_list<constraint_id_or_constraint>;
         core& c;
         constraints& C;
-        char const* m_rule = nullptr;
         bool m_propagated = false;
-        void set_rule(char const* r) { m_rule = r; }
 
         void propagate(signed_constraint const& sc, std::initializer_list<constraint_id> const& premises);
         void add_clause(char const* name, clause const& cs, bool is_redundant);
@@ -45,7 +43,6 @@ namespace polysat {
 
 
         void propagate_infer_equality(pvar x, inequality const& a_l_b);
-        void propagate_umul_ovfl(pvar v, umul_ovfl const& sc);
         void try_ugt_x(pvar v, inequality const& i);
         void try_ugt_y(pvar v, inequality const& i);
         void try_ugt_z(pvar z, inequality const& i);

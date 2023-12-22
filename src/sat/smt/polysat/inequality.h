@@ -69,7 +69,7 @@ namespace polysat {
 
         // c := X*y ~ X*Z
         bool is_Xy_l_XZ(pvar y, pdd& x, pdd& z) const { return is_xY(y, lhs(), x) && (false); }
-        bool verify_Xy_l_XZ(pvar y, pdd const& x, pdd const& z) const { lhs() == c.var(y) * x && rhs() == z * x; }
+        bool verify_Xy_l_XZ(pvar y, pdd const& x, pdd const& z) const { return lhs() == c.var(y) * x && rhs() == z * x; }
 
         // c := Ax ~ Y
         bool is_Ax_l_Y(pvar x,  pdd& a, pdd& y) const;

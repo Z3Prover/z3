@@ -444,7 +444,11 @@ namespace polysat {
     }
 
     void core::add_axiom(char const* name, core_vector const& cs, bool is_redundant) {
-        s.add_axiom(name, cs, is_redundant);
+        s.add_axiom(name, cs.begin(), cs.end(), is_redundant);
+    }
+
+    void core::add_axiom(char const* name, constraint_or_dependency const* begin, constraint_or_dependency const* end, bool is_redundant) {
+        s.add_axiom(name, begin, end, is_redundant);
     }
 
     std::ostream& core::display(std::ostream& out) const {

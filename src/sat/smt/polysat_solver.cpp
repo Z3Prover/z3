@@ -256,9 +256,10 @@ namespace polysat {
         return ctx.get_trail_stack();
     }
 
-    bool solver::add_axiom(char const* name, core_vector const& cs, bool is_redundant) {
+    bool solver::add_axiom(char const* name, constraint_or_dependency const* begin, constraint_or_dependency const* end, bool is_redundant) {
         sat::literal_vector lits;
-        for (auto e : cs) {
+        for (auto it = begin; it != end; ++it) {
+            auto const& e = *it;
             if (std::holds_alternative<dependency>(e)) {
                 auto d = *std::get_if<dependency>(&e);
                 SASSERT(!d.is_null());

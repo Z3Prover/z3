@@ -80,7 +80,7 @@ namespace polysat {
             else
                 UNREACHABLE();
         }        
-        c.add_axiom(name, core_vector(lemma.begin(), lemma.end()), is_redundant);
+        c.add_axiom(name, lemma.begin(), lemma.end(), is_redundant);
         m_propagated = true;
     }
 
@@ -114,7 +114,6 @@ namespace polysat {
      * p <= q, q <= p => p = q
     */
     void saturation::propagate_infer_equality(pvar x, inequality const& i) {
-        set_rule("[x] p <= q, q <= p => p - q = 0");
         if (i.is_strict())
             return;
         if (i.lhs().degree(x) == 0 && i.rhs().degree(x) == 0)
@@ -226,8 +225,10 @@ namespace polysat {
                 return { q, p2 };
             else if (q == p2)
                 return { p, q2 };
-            else
+            else {
+                SASSERT(q == q2);
                 return { p, p2 };
+            }
         };
         if (match_constraints([&](auto const& sc2) { return sc2.is_umul_ovfl() && sc.sign() != sc2.sign() && match_mul_arg(sc2); }, id)) {
             auto sc2 = c.get_constraint(id);

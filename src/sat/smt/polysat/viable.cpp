@@ -467,6 +467,7 @@ namespace polysat {
     }
 
     bool viable::set_conflict_by_interval_rec(pvar v, unsigned w, entry** intervals, unsigned num_intervals, bool& create_lemma, uint_set& vars_to_explain) {
+#if 0
         SASSERT(std::all_of(intervals, intervals + num_intervals, [w](entry const* e) { return e->bit_width <= w; }));
         // TODO: assert invariants on intervals list
         rational const& mod_value = rational::power_of_two(w);
@@ -499,7 +500,7 @@ namespace polysat {
                 m_alloc.push_back(tmp);
             };
 
-#if 0
+
         while (!longest->interval.currently_contains(e->interval.hi_val())) {
             unsigned j = (i + 1) % num_intervals;
             entry* n = intervals[j];
