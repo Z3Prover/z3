@@ -89,10 +89,7 @@ namespace polysat {
 
         void add_watch(unsigned idx, unsigned var);
 
-        lbool eval(signed_constraint const& sc);
-        constraint_id_vector explain_eval(signed_constraint const& sc);
-        dependency_vector get_dependencies(constraint_id_vector const& cc);
-        dependency_vector get_dependencies(std::initializer_list<constraint_id> const& cc);
+
 
         sat::check_result final_check();
         constraint_id find_conflicting_constraint();
@@ -138,7 +135,7 @@ namespace polysat {
         * In other words, the clause represents the formula /\ d_i -> \/ sc_j
         * Where d_i are logical interpretations of dependencies and sc_j are signed constraints.
         */
-        bool add_clause(char const* name, core_vector const& cs, bool is_redundant);
+        void add_axiom(char const* name, core_vector const& cs, bool is_redundant);
         
         pvar add_var(unsigned sz);
         pdd var(pvar p) { return m_vars[p]; }
@@ -156,9 +153,11 @@ namespace polysat {
         constraint_id_vector const& unsat_core() const { return m_unsat_core; }
         constraint_id_vector const& assigned_constraints() const { return m_prop_queue; }
         dependency get_dependency(constraint_id idx) const;
+        dependency_vector get_dependencies(constraint_id_vector const& ids) const;
         lbool eval(constraint_id id);
-        bool propagate(signed_constraint const& sc, constraint_id_vector const& ids) { return s.propagate(sc, get_dependencies(ids)); }
-        bool propagate(signed_constraint const& sc, std::initializer_list<constraint_id> const& ids) { return s.propagate(sc, get_dependencies(ids)); }
+        bool propagate(signed_constraint const& sc, constraint_id_vector const& ids) { return s.propagate(sc, ids); }
+        lbool eval(signed_constraint const& sc);
+        constraint_id_vector explain_eval(signed_constraint const& sc);
 
         /*
         * Constraints

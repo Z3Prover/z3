@@ -272,25 +272,25 @@ namespace polysat {
         auto& C = c.cs();
 
         if (pv.is_val() && rv.is_val() && rv.val() > pv.val())
-            c.add_clause("lshr 1", { C.ule(r, p) }, false);
+            c.add_axiom("lshr 1", { C.ule(r, p) }, false);
 
         else if (qv.is_val() && qv.val() >= N && rv.is_val() && !rv.is_zero())
             // TODO: instead of rv.is_val() && !rv.is_zero(), we should use !is_forced_zero(r) which checks whether eval(r) = 0 or bvalue(r=0) = true; see saturation.cpp
-            c.add_clause("q >= N -> r = 0", { ~C.ule(N, q), C.eq(r) }, true);
+            c.add_axiom("q >= N -> r = 0", { ~C.ule(N, q), C.eq(r) }, true);
         else if (qv.is_zero() && pv.is_val() && rv.is_val() && pv != rv)
-            c.add_clause("q = 0 -> p = r", { ~C.eq(q), C.eq(p, r) } , true);
+            c.add_axiom("q = 0 -> p = r", { ~C.eq(q), C.eq(p, r) } , true);
         else if (qv.is_val() && !qv.is_zero() && pv.is_val() && rv.is_val() && !pv.is_zero() && rv.val() >= pv.val())
-            c.add_clause("q != 0 & p > 0 -> r < p", { C.eq(q), C.ule(p, 0), C.ult(r, p) }, true);
+            c.add_axiom("q != 0 & p > 0 -> r < p", { C.eq(q), C.ule(p, 0), C.ult(r, p) }, true);
         else if (qv.is_val() && !qv.is_zero() && qv.val() < N && rv.is_val() && rv.val() > rational::power_of_two(N - qv.val().get_unsigned()) - 1)
-            c.add_clause("q >= k -> r <= 2^{N-k} - 1", { ~C.ule(qv.val(), q), C.ule(r, rational::power_of_two(N - qv.val().get_unsigned()) - 1)}, true);
+            c.add_axiom("q >= k -> r <= 2^{N-k} - 1", { ~C.ule(qv.val(), q), C.ule(r, rational::power_of_two(N - qv.val().get_unsigned()) - 1)}, true);
         else if (pv.is_val() && rv.is_val() && qv.is_val() && !qv.is_zero()) {
             unsigned k = qv.val().get_unsigned();
             for (unsigned i = 0; i < N - k; ++i) {
                 if (rv.val().get_bit(i) && !pv.val().get_bit(i + k)) 
-                    c.add_clause("q = k  ->  r[i] = p[i+k] for 0 <= i < N - k", { ~C.eq(q, k), ~C.bit(r, i), C.bit(p, i + k) }, true);
+                    c.add_axiom("q = k  ->  r[i] = p[i+k] for 0 <= i < N - k", { ~C.eq(q, k), ~C.bit(r, i), C.bit(p, i + k) }, true);
                 
                 if (!rv.val().get_bit(i) && pv.val().get_bit(i + k)) 
-                    c.add_clause("q = k  ->  r[i] = p[i+k] for 0 <= i < N - k", { ~C.eq(q, k), C.bit(r, i), ~C.bit(p, i + k) }, true);                
+                    c.add_axiom("q = k  ->  r[i] = p[i+k] for 0 <= i < N - k", { ~C.eq(q, k), C.bit(r, i), ~C.bit(p, i + k) }, true);                
             }
         }
         else {
@@ -301,12 +301,12 @@ namespace polysat {
                 rational const& q_val = qv.val();
                 if (q_val >= N)
                     // q >= N ==> r = 0
-                    c.add_clause("q >= N ==> r = 0", { ~C.ule(N, q), C.eq(r) }, true);
+                    c.add_axiom("q >= N ==> r = 0", { ~C.ule(N, q), C.eq(r) }, true);
                 else if (pv.is_val()) {
                     SASSERT(q_val.is_unsigned());
                     // 
                     rational const r_val = machine_div2k(pv.val(), q_val.get_unsigned());
-                    c.add_clause("p = p_val & q = q_val ==> r = p_val / 2^q_val", { ~C.eq(p, pv), ~C.eq(q, qv), C.eq(r, r_val) }, true);
+                    c.add_axiom("p = p_val & q = q_val ==> r = p_val / 2^q_val", { ~C.eq(p, pv), ~C.eq(q, qv), C.eq(r, r_val) }, true);
                 }
             }
         }
@@ -316,9 +316,9 @@ namespace polysat {
         auto& m = p.manager();
         unsigned const N = m.power_of_2();
         auto& C = c.cs();
-        c.add_clause("q >= N & p < 0 -> p << q = -1", {~C.uge(q, N), ~C.slt(p, 0), C.eq(r, m.max_value())}, false);
-        c.add_clause("q >= N & p >= 0 -> p << q = 0", {~C.uge(q, N), ~C.sge(p, 0), C.eq(r)}, false);
-        c.add_clause("q = 0 -> p << q = p", { ~C.eq(q), C.eq(r, p) }, false);
+        c.add_axiom("q >= N & p < 0 -> p << q = -1", {~C.uge(q, N), ~C.slt(p, 0), C.eq(r, m.max_value())}, false);
+        c.add_axiom("q >= N & p >= 0 -> p << q = 0", {~C.uge(q, N), ~C.sge(p, 0), C.eq(r)}, false);
+        c.add_axiom("q = 0 -> p << q = p", { ~C.eq(q), C.eq(r, p) }, false);
     }
 
 
@@ -326,8 +326,8 @@ namespace polysat {
         auto x = p, y = q;
         auto& C = c.cs();
 
-        c.add_clause("band-mask p&q <= p", { C.ule(r, p) }, false);
-        c.add_clause("band-mask p&q <= q", { C.ule(r, q) }, false);
+        c.add_axiom("band-mask p&q <= p", { C.ule(r, p) }, false);
+        c.add_axiom("band-mask p&q <= q", { C.ule(r, q) }, false);
 
         if (x.is_val())
             std::swap(x, y);
@@ -338,15 +338,15 @@ namespace polysat {
         if (!(yv + 1).is_power_of_two())
             return;
         if (yv == m.max_value())
-            c.add_clause("band-mask-true", { C.eq(x, r) }, false);
+            c.add_axiom("band-mask-true", { C.eq(x, r) }, false);
         else if (yv == 0)
-            c.add_clause("band-mask-false", { C.eq(r) }, false);
+            c.add_axiom("band-mask-false", { C.eq(r) }, false);
         else {
             unsigned N = m.power_of_2();
             unsigned k = yv.get_num_bits();
             SASSERT(k < N);
             rational exp = rational::power_of_two(N - k);
-            c.add_clause("band-mask 1", { C.eq(x * exp, r * exp) }, false);
+            c.add_axiom("band-mask 1", { C.eq(x * exp, r * exp) }, false);
         }
     }   
 
@@ -384,9 +384,9 @@ namespace polysat {
             rational twoK = rational::power_of_two(k);
             rational twoNk = rational::power_of_two(N - k);
             auto eqK = C.eq(q, k);
-            c.add_clause("q = k -> r*2^k + p < 2^k", { ~eqK, C.ult(p - r * twoK, twoK) }, true);
-            c.add_clause("q = k & p >= 0 -> r < 2^{N-k}", { ~eqK, ~C.ule(0, p), C.ult(r, twoNk) }, true);            
-            c.add_clause("q = k & p < 0 -> r >= 2^N - 2^{N-k}", { ~eqK, ~C.slt(p, 0), C.uge(r, twoN - twoNk) }, true);
+            c.add_axiom("q = k -> r*2^k + p < 2^k", { ~eqK, C.ult(p - r * twoK, twoK) }, true);
+            c.add_axiom("q = k & p >= 0 -> r < 2^{N-k}", { ~eqK, ~C.ule(0, p), C.ult(r, twoNk) }, true);            
+            c.add_axiom("q = k & p < 0 -> r >= 2^N - 2^{N-k}", { ~eqK, ~C.slt(p, 0), C.uge(r, twoN - twoNk) }, true);
         }
     }
 
@@ -409,24 +409,24 @@ namespace polysat {
         auto& C = c.cs();
 
         if (qv.is_val() && qv.val() >= N && rv.is_val() && !rv.is_zero())            
-            c.add_clause("q >= N  ->  r = 0", { ~C.ule(N, q), C.eq(r) }, true);
+            c.add_axiom("q >= N  ->  r = 0", { ~C.ule(N, q), C.eq(r) }, true);
         else if (qv.is_zero() && pv.is_val() && rv.is_val() && rv != pv)
             // 
-            c.add_clause("q = 0  ->  r = p", { ~C.eq(q), C.eq(r, p) }, true);
+            c.add_axiom("q = 0  ->  r = p", { ~C.eq(q), C.eq(r, p) }, true);
         else if (qv.is_val() && !qv.is_zero() && qv.val() < N && rv.is_val() &&
             !rv.is_zero() && rv.val() < rational::power_of_two(qv.val().get_unsigned()))
             // q >= k  ->  r = 0  \/  r >= 2^k  (intuitive version)
             // q >= k  ->  r - 1 >= 2^k - 1     (equivalent unit constraint to better support narrowing)
-            c.add_clause("q >= k  ->  r - 1 >= 2^k - 1", { ~C.ule(qv.val(), q), C.ule(rational::power_of_two(qv.val().get_unsigned()) - 1, r - 1) }, true);
+            c.add_axiom("q >= k  ->  r - 1 >= 2^k - 1", { ~C.ule(qv.val(), q), C.ule(rational::power_of_two(qv.val().get_unsigned()) - 1, r - 1) }, true);
         else if (pv.is_val() && rv.is_val() && qv.is_val() && !qv.is_zero()) {
             unsigned k = qv.val().get_unsigned();
             // q = k  ->  r[i+k] = p[i] for 0 <= i < N - k
             for (unsigned i = 0; i < N - k; ++i) {
                 if (rv.val().get_bit(i + k) && !pv.val().get_bit(i)) {
-                    c.add_clause("q = k  ->  r[i+k] = p[i] for 0 <= i < N - k", { ~C.eq(q, k), ~C.bit(r, i + k), C.bit(p, i) }, true);
+                    c.add_axiom("q = k  ->  r[i+k] = p[i] for 0 <= i < N - k", { ~C.eq(q, k), ~C.bit(r, i + k), C.bit(p, i) }, true);
                 }
                 if (!rv.val().get_bit(i + k) && pv.val().get_bit(i)) {
-                    c.add_clause("q = k  ->  r[i+k] = p[i] for 0 <= i < N - k", { ~C.eq(q, k), C.bit(r, i + k), ~C.bit(p, i) }, true);
+                    c.add_axiom("q = k  ->  r[i+k] = p[i] for 0 <= i < N - k", { ~C.eq(q, k), C.bit(r, i + k), ~C.bit(p, i) }, true);
                 }
             }
         }
@@ -438,12 +438,12 @@ namespace polysat {
                 rational const& q_val = qv.val();
                 if (q_val >= N)
                     // q >= N ==> r = 0
-                    c.add_clause("shl forward 1", {~C.ule(N, q), C.eq(r)}, true);
+                    c.add_axiom("shl forward 1", {~C.ule(N, q), C.eq(r)}, true);
                 if (pv.is_val()) {
                     SASSERT(q_val.is_unsigned());
                     // p = p_val & q = q_val ==> r = p_val * 2^q_val
                     rational const r_val = pv.val() * rational::power_of_two(q_val.get_unsigned());
-                    c.add_clause("shl forward 2", {~C.eq(p, pv), ~C.eq(q, qv), C.eq(r, r_val)}, true);
+                    c.add_axiom("shl forward 2", {~C.eq(p, pv), ~C.eq(q, qv), C.eq(r, r_val)}, true);
                 }
             }
         }
@@ -470,31 +470,31 @@ namespace polysat {
         auto& C = c.cs();
 
         if (pv.is_val() && rv.is_val() && rv.val() > pv.val())
-            c.add_clause("p&q <= p", { C.ule(r, p) }, true);
+            c.add_axiom("p&q <= p", { C.ule(r, p) }, true);
         else if (qv.is_val() && rv.is_val() && rv.val() > qv.val())
-            c.add_clause("p&q <= q", { C.ule(r, q) }, true);
+            c.add_axiom("p&q <= q", { C.ule(r, q) }, true);
         else if (pv.is_val() && qv.is_val() && rv.is_val() && pv == qv && rv != pv)
-            c.add_clause("p = q => r = p", { ~C.eq(p, q), C.eq(r, p) }, true);
+            c.add_axiom("p = q => r = p", { ~C.eq(p, q), C.eq(r, p) }, true);
         else if (pv.is_val() && qv.is_val() && rv.is_val()) {
             if (pv.is_max() && qv != rv)
-                c.add_clause("p = -1 => r = q", { ~C.eq(p, m.max_value()), C.eq(q, r) }, true);
+                c.add_axiom("p = -1 => r = q", { ~C.eq(p, m.max_value()), C.eq(q, r) }, true);
             if (qv.is_max() && pv != rv)
-                c.add_clause("q = -1 => r = p", { ~C.eq(q, m.max_value()), C.eq(p, r) }, true);
+                c.add_axiom("q = -1 => r = p", { ~C.eq(q, m.max_value()), C.eq(p, r) }, true);
 
             unsigned const N = m.power_of_2();
             unsigned pow;
             if ((pv.val() + 1).is_power_of_two(pow)) {
                 if (rv.is_zero() && !qv.is_zero() && qv.val() <= pv.val())
-                    c.add_clause("p = 2^k - 1 && r = 0 && q != 0 => q >= 2^k", { ~C.eq(p, pv), ~C.eq(r), C.eq(q), C.ule(pv + 1, q) }, true);
+                    c.add_axiom("p = 2^k - 1 && r = 0 && q != 0 => q >= 2^k", { ~C.eq(p, pv), ~C.eq(r), C.eq(q), C.ule(pv + 1, q) }, true);
                 if (rv != qv)
-                    c.add_clause("p = 2^k - 1  ==>  r*2^{N - k} = q*2^{N - k}", { ~C.eq(p, pv), C.eq(r * rational::power_of_two(N - pow), q * rational::power_of_two(N - pow)) }, true);
+                    c.add_axiom("p = 2^k - 1  ==>  r*2^{N - k} = q*2^{N - k}", { ~C.eq(p, pv), C.eq(r * rational::power_of_two(N - pow), q * rational::power_of_two(N - pow)) }, true);
             }
             if ((qv.val() + 1).is_power_of_two(pow)) {
                 if (rv.is_zero() && !pv.is_zero() && pv.val() <= qv.val())
-                    c.add_clause("q = 2^k - 1 && r = 0 && p != 0  ==>  p >= 2^k", { ~C.eq(q, qv), ~C.eq(r), C.eq(p), C.ule(qv + 1, p) }, true);
+                    c.add_axiom("q = 2^k - 1 && r = 0 && p != 0  ==>  p >= 2^k", { ~C.eq(q, qv), ~C.eq(r), C.eq(p), C.ule(qv + 1, p) }, true);
                 // 
                 if (rv != pv)
-                    c.add_clause("q = 2^k - 1  ==>  r*2^{N - k} = p*2^{N - k}", { ~C.eq(q, qv), C.eq(r * rational::power_of_two(N - pow), p * rational::power_of_two(N - pow)) }, true);
+                    c.add_axiom("q = 2^k - 1  ==>  r*2^{N - k} = p*2^{N - k}", { ~C.eq(q, qv), C.eq(r * rational::power_of_two(N - pow), p * rational::power_of_two(N - pow)) }, true);
             }
 
             for (unsigned i = 0; i < N; ++i) {
@@ -504,11 +504,11 @@ namespace polysat {
                 if (rb == (pb && qb))
                     continue;
                 if (pb && qb && !rb)
-                    c.add_clause("p&q[i] = p[i]&q[i]", { ~C.bit(p, i), ~C.bit(q, i), C.bit(r, i) }, true);
+                    c.add_axiom("p&q[i] = p[i]&q[i]", { ~C.bit(p, i), ~C.bit(q, i), C.bit(r, i) }, true);
                 else if (!pb && rb)
-                    c.add_clause("p&q[i] = p[i]&q[i]", { C.bit(p, i), ~C.bit(r, i) }, true);
+                    c.add_axiom("p&q[i] = p[i]&q[i]", { C.bit(p, i), ~C.bit(r, i) }, true);
                 else if (!qb && rb)
-                    c.add_clause("p&q[i] = p[i]&q[i]", { C.bit(q, i), ~C.bit(r, i) }, true);
+                    c.add_axiom("p&q[i] = p[i]&q[i]", { C.bit(q, i), ~C.bit(r, i) }, true);
                 else
                     UNREACHABLE();
             }
@@ -517,14 +517,14 @@ namespace polysat {
 
         // Propagate r if p or q are 0
         else if (pv.is_zero() && !rv.is_zero())  // rv not necessarily fully evaluated
-            c.add_clause("p = 0 -> p&q = 0", { C.ule(r, p) }, true);
+            c.add_axiom("p = 0 -> p&q = 0", { C.ule(r, p) }, true);
         else if (qv.is_zero() && !rv.is_zero())  // rv not necessarily fully evaluated
-            c.add_clause("q = 0 -> p&q = 0", { C.ule(r, q) }, true);
+            c.add_axiom("q = 0 -> p&q = 0", { C.ule(r, q) }, true);
         // p = a && q = b ==> r = a & b
         else if (pv.is_val() && qv.is_val() && !rv.is_val()) {
             // Just assign by this very weak justification. It will be strengthened in saturation in case of a conflict
             LOG(p << " = " << pv << " and " << q << " = " << qv << " yields [band] " << r << " = " << bitwise_and(pv.val(), qv.val()));
-            c.add_clause("p = a & q = b => r = a&b", { ~C.eq(p, pv), ~C.eq(q, qv), C.eq(r, bitwise_and(pv.val(), qv.val())) }, true);
+            c.add_axiom("p = a & q = b => r = a&b", { ~C.eq(p, pv), ~C.eq(q, qv), C.eq(r, bitwise_and(pv.val(), qv.val())) }, true);
         }
     }
 
@@ -569,15 +569,15 @@ namespace polysat {
 
         // p = 0  ==>  r = 0
         if (pv.is_zero())
-            c.add_clause(~invc, ~C.eq(p), C.eq(r), true);
+            c.add_axiom(~invc, ~C.eq(p), C.eq(r), true);
         // r = 0  ==>  p = 0
         if (rv.is_zero())
-            c.add_clause(~invc, ~C.eq(r), C.eq(p), true);
+            c.add_axiom(~invc, ~C.eq(r), C.eq(p), true);
 
         // forward propagation: p assigned  ==>  r = pseudo_inverse(eval(p))
         // TODO: (later) this should be propagated instead of adding a clause
         /*if (pv.is_val() && !rv.is_val())
-            c.add_clause(~invc, ~C.eq(p, pv), C.eq(r, pv.val().pseudo_inverse(m.power_of_2())), true);*/
+            c.add_axiom(~invc, ~C.eq(p, pv), C.eq(r, pv.val().pseudo_inverse(m.power_of_2())), true);*/
 
         if (!pv.is_val() || !rv.is_val())
             return {};
@@ -590,7 +590,7 @@ namespace polysat {
 
         // p != 0  ==>  odd(r)
         if (parity_rv != 0)
-            c.add_clause("r = inv p  &  p != 0  ==>  odd(r)", {~invc, C.eq(p), s.odd(r)}, true);
+            c.add_axiom("r = inv p  &  p != 0  ==>  odd(r)", {~invc, C.eq(p), s.odd(r)}, true);
 
         pdd prod = p * r;
         rational prodv = (pv * rv).val();
@@ -606,12 +606,12 @@ namespace polysat {
                 LOG("Its in [" << lower << "; " << upper << ")");
                 // parity(p) >= k  ==>  p * r >= 2^k
                 if (prodv < rational::power_of_two(middle))
-                    c.add_clause("r = inv p  &  parity(p) >= k  ==>  p*r >= 2^k",
+                    c.add_axiom("r = inv p  &  parity(p) >= k  ==>  p*r >= 2^k",
                         {~invc, ~s.parity_at_least(p, middle), s.uge(prod, rational::power_of_two(middle))}, false);
                 // parity(p) >= k  ==>  r <= 2^(N - k) - 1     (because r is the smallest pseudo-inverse)
                 rational const max_rv = rational::power_of_two(m.power_of_2() - middle) - 1;
                 if (rv.val() > max_rv)
-                    c.add_clause("r = inv p  &  parity(p) >= k  ==>  r <= 2^(N - k) - 1",
+                    c.add_axiom("r = inv p  &  parity(p) >= k  ==>  r <= 2^(N - k) - 1",
                         {~invc, ~s.parity_at_least(p, middle), C.ule(r, max_rv)}, false);
             }
             else { // parity less than middle
@@ -620,7 +620,7 @@ namespace polysat {
                 LOG("Its in [" << lower << "; " << upper << ")");
                 // parity(p) < k   ==>  p * r <= 2^k - 1
                 if (prodv > rational::power_of_two(middle))
-                    c.add_clause("r = inv p  &  parity(p) < k  ==>  p*r <= 2^k - 1",
+                    c.add_axiom("r = inv p  &  parity(p) < k  ==>  p*r <= 2^k - 1",
                         {~invc, s.parity_at_least(p, middle), C.ule(prod, rational::power_of_two(middle) - 1)}, false);
             }
         }

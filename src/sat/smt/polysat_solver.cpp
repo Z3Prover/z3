@@ -105,8 +105,10 @@ namespace polysat {
         m_core.assign_eh(a->m_index, l.sign(), s().lvl(l));
     }
 
-    void solver::set_conflict(dependency_vector const& core) {
-        auto [lits, eqs] = explain_deps(core);
+    // TBD: add also lemma
+    void solver::set_conflict(constraint_id_vector const& core) {
+        auto deps = m_core.get_dependencies(core);
+        auto [lits, eqs] = explain_deps(deps);
         auto ex = euf::th_explain::conflict(*this, lits, eqs, nullptr);
         ctx.set_conflict(ex);
     }
@@ -140,38 +142,6 @@ namespace polysat {
 
 
         return { core, eqs };
-    }
-
-    void solver::set_lemma(core_vector const& aux_core, dependency_vector const& core) {
-        auto [lits, eqs] = explain_deps(core);
-        unsigned level = 0;
-        for (auto const& [n1, n2] : eqs)
-            ctx.get_eq_antecedents(n1, n2, lits);
-        for (auto lit : lits)
-            level = std::max(level, s().lvl(lit));
-        auto ex = euf::th_explain::conflict(*this, lits, eqs, nullptr);
-        if (level == 0) {
-            ctx.set_conflict(ex);
-            return;
-        }        
-        ctx.push(value_trail<bool>(m_has_lemma));
-        m_has_lemma = true;
-        m_lemma_level = level;
-        m_lemma.reset();
-        for (auto sc : aux_core) {
-            if (std::holds_alternative<dependency>(sc)) {
-                auto d = *std::get_if<dependency>(&sc);
-                if (d.is_literal())
-                    m_lemma.push_back(ctx.literal2expr(d.literal()));
-                else {
-                    auto [v1, v2] = d.eq();
-                    m_lemma.push_back(ctx.mk_eq(var2enode(v1), var2enode(v2)));
-                }
-            }
-            else if (std::holds_alternative<signed_constraint>(sc))
-                m_lemma.push_back(constraint2expr(*std::get_if<signed_constraint>(&sc)));
-        }
-        ctx.set_conflict(ex);
     }
 
     // If an MCSat lemma is added, then backjump based on the lemma level and 
@@ -238,17 +208,19 @@ namespace polysat {
     // Core uses the propagate callback to add unit propagations to the trail.
     // The polysat::solver takes care of translating signed constraints into expressions, which translate into literals.
     // Everything goes over expressions/literals. polysat::core is not responsible for replaying expressions. 
-    bool solver::propagate(signed_constraint sc, dependency_vector const& deps) {
+    bool solver::propagate(signed_constraint sc, constraint_id_vector const& cs) {
         sat::literal lit = ctx.mk_literal(constraint2expr(sc));
         if (s().value(lit) == l_true)
             return false;
+        auto deps = m_core.get_dependencies(cs);
         auto [core, eqs] = explain_deps(deps);
         auto ex = euf::th_explain::propagate(*this, core, eqs, lit, nullptr);
         ctx.propagate(lit, ex);
         return true;
     }
 
-    void solver::propagate(dependency const& d, bool sign, dependency_vector const& deps) {
+    void solver::propagate(dependency const& d, bool sign, constraint_id_vector const& cs) {
+        auto deps = m_core.get_dependencies(cs);
         auto [core, eqs] = explain_deps(deps);
         if (d.is_literal()) {
             auto lit = d.literal();
@@ -278,7 +250,7 @@ namespace polysat {
         return ctx.get_trail_stack();
     }
 
-    bool solver::add_polysat_clause(char const* name, core_vector cs, bool is_redundant) {
+    bool solver::add_axiom(char const* name, core_vector const& cs, bool is_redundant) {
         sat::literal_vector lits;
         for (auto e : cs) {
             if (std::holds_alternative<dependency>(e)) {

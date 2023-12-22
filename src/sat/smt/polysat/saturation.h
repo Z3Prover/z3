@@ -23,6 +23,7 @@ namespace polysat {
      */
     class saturation {
 
+        using clause = std::initializer_list<std::variant<constraint_id, signed_constraint>>;
         core& c;
         constraints& C;
         char const* m_rule = nullptr;
@@ -30,7 +31,7 @@ namespace polysat {
         void set_rule(char const* r) { m_rule = r; }
 
         void propagate(signed_constraint const& sc, std::initializer_list<constraint_id> const& premises);
-        void add_clause(char const* name, core_vector const& cs, bool is_redundant);
+        void add_clause(char const* name, clause const& cs, bool is_redundant);
 
         bool match_core(std::function<bool(signed_constraint const& sc)> const& p, constraint_id& id);
         bool match_constraints(std::function<bool(signed_constraint const& sc)> const& p, constraint_id& id);

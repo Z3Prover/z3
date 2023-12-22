@@ -175,11 +175,11 @@ namespace polysat {
         s.trail().push(mk_dqueue_var(m_var, *this));
         switch (m_viable.find_viable(m_var, m_value)) {
         case find_t::empty:
-            s.set_lemma(m_viable.get_core(), get_dependencies(m_viable.explain()));
+            s.set_conflict(m_viable.explain());
             // propagate_unsat_core();        
             return sat::check_result::CR_CONTINUE;
         case find_t::singleton:
-            s.propagate(m_constraints.eq(var2pdd(m_var), m_value), get_dependencies(m_viable.explain()));
+            s.propagate(m_constraints.eq(var2pdd(m_var), m_value), m_viable.explain());
             return sat::check_result::CR_CONTINUE;
         case find_t::multiple:
             s.add_eq_literal(m_var, m_value);
@@ -353,10 +353,10 @@ namespace polysat {
             return;
         switch (eval(sc)) {
         case l_false:
-            s.propagate(d, true, get_dependencies(explain_eval(sc)));
+            s.propagate(d, true, explain_eval(sc));
             break;
         case l_true:
-            s.propagate(d, false, get_dependencies(explain_eval(sc)));
+            s.propagate(d, false, explain_eval(sc));
             break;
         default:
             break;
@@ -369,17 +369,10 @@ namespace polysat {
         return value == l_false ? ~d : d;
     }
 
-    dependency_vector core::get_dependencies(constraint_id_vector const& cc) {
+    dependency_vector core::get_dependencies(constraint_id_vector const& ids) const {
         dependency_vector result;
-        for (auto idx : cc) 
-            result.push_back(get_dependency(idx));        
-        return result;
-    }
-
-    dependency_vector core::get_dependencies(std::initializer_list<constraint_id> const& cc) {
-        dependency_vector result;
-        for (auto idx : cc)
-            result.push_back(get_dependency(idx));
+        for (auto id : ids)
+            result.push_back(get_dependency(id));
         return result;
     }
 
@@ -388,7 +381,7 @@ namespace polysat {
         if (eval_value == l_undef)
             sc.propagate(*this, value, d);
         else if (value == l_undef)
-            s.propagate(d, eval_value != l_true, get_dependencies(explain_eval(sc)));
+            s.propagate(d, eval_value != l_true, explain_eval(sc));
         else if (value != eval_value) {
             m_unsat_core = explain_eval(sc);
             m_unsat_core.push_back(id);
@@ -411,8 +404,7 @@ namespace polysat {
     void core::propagate_unsat_core() { 
         // default is to use unsat core:
         // if core is based on viable, use s.set_lemma();
-
-        s.set_conflict(get_dependencies(m_unsat_core));       
+        s.set_conflict(m_unsat_core);       
     }
 
     void core::assign_eh(constraint_id index, bool sign, unsigned level) { 
@@ -451,6 +443,10 @@ namespace polysat {
         return s.trail();
     }
 
+    void core::add_axiom(char const* name, core_vector const& cs, bool is_redundant) {
+        s.add_axiom(name, cs, is_redundant);
+    }
+
     std::ostream& core::display(std::ostream& out) const {
         if (m_constraint_index.empty() && m_vars.empty())
             return out;
@@ -478,14 +474,6 @@ namespace polysat {
     void core::add_axiom(signed_constraint sc) {
         auto idx = register_constraint(sc, dependency::axiom());
         assign_eh(idx, false, 0);
-    }
-
-    bool core::add_clause(char const* name, core_vector const& cs, bool is_redundant) {
-        for (auto e : cs) 
-            if (std::holds_alternative<signed_constraint>(e) && eval(*std::get_if<signed_constraint>(&e)) == l_true)
-                return false;
-        
-        return s.add_polysat_clause(name, cs, is_redundant);
     }
 
     signed_constraint core::get_constraint(constraint_id idx) {

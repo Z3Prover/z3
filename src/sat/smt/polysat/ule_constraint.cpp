@@ -346,8 +346,8 @@ namespace polysat {
         auto q = c.subst(rhs());
         auto& C = c.cs();
         if (sign && !lhs().is_val() && !rhs().is_val()) {
-            c.add_clause("lhs > rhs  ==>  -1 > rhs", { d, C.ult(rhs(), -1) }, false);
-            c.add_clause("lhs > rhs  ==>  lhs > 0", { d, C.ult(0, lhs()) }, false);
+            c.add_axiom("lhs > rhs  ==>  -1 > rhs", { d, C.ult(rhs(), -1) }, false);
+            c.add_axiom("lhs > rhs  ==>  lhs > 0", { d, C.ult(0, lhs()) }, false);
         }
     }
 

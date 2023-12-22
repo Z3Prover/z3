@@ -288,6 +288,11 @@ public:
             push_back(data[i]);
         }
     }
+    
+    vector(std::initializer_list<T> const & v) {
+        for (auto e : v)
+            push_back(e);
+    }
 
  
     ~vector() { 
@@ -743,6 +748,7 @@ public:
     svector(SZ s):vector<T, false, SZ>(s) {}
     svector(SZ s, T const & elem):vector<T, false, SZ>(s, elem) {}
     svector(SZ s, T const * data):vector<T, false, SZ>(s, data) {}
+    svector(std::initializer_list<T> const& v) :vector<T, false, SZ>(v) {}
 };
 
 

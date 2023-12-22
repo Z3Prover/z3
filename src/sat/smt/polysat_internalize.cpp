@@ -519,18 +519,18 @@ namespace polysat {
         //      b = 0  ==>  q = -1
         // TODO: when a,b become evaluable, can we actually propagate q,r? doesn't seem like it.
         //       Maybe we need something like an op_constraint for better propagation.
-        add_polysat_clause("[axiom] quot_rem 1", { m_core.eq(b * q + r - a) }, false);
-        add_polysat_clause("[axiom] quot_rem 2", { ~m_core.umul_ovfl(b, q) }, false);
+        add_axiom("[axiom] quot_rem 1", { m_core.eq(b * q + r - a) }, false);
+        add_axiom("[axiom] quot_rem 2", { ~m_core.umul_ovfl(b, q) }, false);
         // r <= b*q+r
         //  { apply equivalence:  p <= q  <=>  q-p <= -p-1 }
         // b*q <= -r-1
-        add_polysat_clause("[axiom] quot_rem 3", { m_core.ule(b * q, -r - 1) }, false);
+        add_axiom("[axiom] quot_rem 3", { m_core.ule(b * q, -r - 1) }, false);
 
         auto c_eq = m_core.eq(b);
         if (!c_eq.is_always_true())
-            add_polysat_clause("[axiom] quot_rem 4", { c_eq, ~m_core.ule(b, r) }, false);
+            add_axiom("[axiom] quot_rem 4", { c_eq, ~m_core.ule(b, r) }, false);
         if (!c_eq.is_always_false())
-            add_polysat_clause("[axiom] quot_rem 5", { ~c_eq, m_core.eq(q + 1) }, false);
+            add_axiom("[axiom] quot_rem 5", { ~c_eq, m_core.eq(q + 1) }, false);
     }
 
     void solver::internalize_sign_extend(app* e) {

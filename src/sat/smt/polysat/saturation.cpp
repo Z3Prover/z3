@@ -34,11 +34,6 @@ namespace polysat {
 
     saturation::saturation(core& c) : c(c), C(c.cs()) {}
 
-    void saturation::propagate(pvar v) {
-        for (auto id : c.unsat_core())
-            propagate(v, id);
-    }
-
     bool saturation::propagate(pvar v, constraint_id id) {
         if (c.eval(id) == l_true)
             return false;
@@ -62,13 +57,27 @@ namespace polysat {
     }
 
     void saturation::propagate(signed_constraint const& sc, std::initializer_list<constraint_id> const& premises) {
-        if (c.propagate(sc, premises))
+        if (c.propagate(sc, constraint_id_vector(premises)))
             m_propagated = true;
     }
 
-    void saturation::add_clause(char const* name, core_vector const& cs, bool is_redundant) {
-        if (c.add_clause(name, cs, is_redundant))
-            m_propagated = true;
+    void saturation::add_clause(char const* name, clause const& cs, bool is_redundant) { 
+        vector<std::variant<constraint_id, dependency>> core;
+        for (auto const& e : cs) {
+            if (std::holds_alternative<constraint_id>(e)) {
+                core.push_back(*std::get_if<constraint_id>(&e));
+                continue;
+            }
+            auto sc = *std::get_if<signed_constraint>(&e);
+            if (c.eval(sc) != l_false)
+                return;            
+            c.propagate(~sc, c.explain_eval(sc));
+            // retrieve dep/id from propagated ~sc
+            // add to id to ids or ~dep to deps
+        }
+        // TODO
+        //
+        // c.add_axiom(name, core_vector(core.begin(), core.end()), is_redundant);
     }
 
     bool saturation::match_core(std::function<bool(signed_constraint const& sc)> const& p, constraint_id& id_out) {
@@ -128,9 +137,9 @@ namespace polysat {
 
         auto ovfl = C.umul_ovfl(x, y);
         if (i.is_strict()) 
-            add_clause("[x] yx < zx ==>  Ω*(x,y) \\/ y < z", { i.dep(), ovfl, C.ult(y, z)}, false);
+            add_clause("[x] yx < zx ==>  Ω*(x,y) \\/ y < z", { i.id(), ovfl, C.ult(y, z)}, false);
         else 
-            add_clause("[x] yx <= zx  ==>  Ω*(x,y) \\/ y <= z \\/ x = 0", { i.dep(), ovfl, C.eq(x), C.ule(y, z) }, false);
+            add_clause("[x] yx <= zx  ==>  Ω*(x,y) \\/ y <= z \\/ x = 0", { i.id(), ovfl, C.eq(x), C.ule(y, z) }, false);
     }
 
     /**
