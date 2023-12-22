@@ -83,8 +83,8 @@ namespace polysat {
         void propagate_unsat_core();
         void propagate(constraint_id id, signed_constraint& sc, lbool value, dependency const& d);
 
-        void get_bitvector_suffixes(pvar v, pvar_vector& out);
-        void get_fixed_bits(pvar v, svector<justified_fixed_bits>& fixed_bits);
+        void get_bitvector_suffixes(pvar v, justified_slices& out);
+        void get_fixed_bits(pvar v, justified_fixed_bits& fixed_bits);
         bool inconsistent() const;
 
         void add_watch(unsigned idx, unsigned var);

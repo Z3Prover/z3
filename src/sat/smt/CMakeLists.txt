@@ -35,6 +35,7 @@ z3_add_component(sat_smt
     pb_internalize.cpp
     pb_pb.cpp
     pb_solver.cpp
+    polysat_egraph.cpp
     polysat_internalize.cpp
     polysat_model.cpp
     polysat_solver.cpp

@@ -166,8 +166,8 @@ namespace polysat {
         void propagate(dependency const& d, bool sign, constraint_id_vector const& deps) override;
         trail_stack& trail() override;
         bool inconsistent() const override;
-        void get_bitvector_suffixes(pvar v, pvar_vector& out) override;
-        void get_fixed_bits(pvar v, svector<justified_fixed_bits>& fixed_bits) override;
+        void get_bitvector_suffixes(pvar v, justified_slices& out) override;
+        void get_fixed_bits(pvar v, justified_fixed_bits& fixed_bits) override;
 
         bool add_axiom(char const* name, core_vector const& clause, bool redundant) {
             return add_axiom(name, clause.begin(), clause.end(), redundant);
@@ -177,6 +177,8 @@ namespace polysat {
 
         expr_ref constraint2expr(signed_constraint const& sc);
         expr_ref pdd2expr(pdd const& p);
+
+        struct scoped_eq_justification;
 	       
     public:
         solver(euf::solver& ctx, theory_id id);

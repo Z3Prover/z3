@@ -103,15 +103,15 @@ namespace polysat {
             return l_false;  // conflict already added
 #endif
 
-        pvar_vector overlaps;
+        justified_slices overlaps;
         c.get_bitvector_suffixes(v, overlaps);
-        std::sort(overlaps.begin(), overlaps.end(), [&](pvar x, pvar y) { return c.size(x) > c.size(y); });
+        std::sort(overlaps.begin(), overlaps.end(), [&](auto const& x, auto const& y) { return c.size(x.first) > c.size(y.first); });
 
         uint_set widths_set;
         // max size should always be present, regardless of whether we have intervals there (to make sure all fixed bits are considered)
         widths_set.insert(c.size(v));
 
-        for (pvar v : overlaps) 
+        for (auto const& [v, j] : overlaps) 
             for (layer const& l : m_units[v].get_layers()) 
                 widths_set.insert(l.bit_width);
                     
@@ -147,7 +147,7 @@ namespace polysat {
     lbool viable::find_on_layers(
         pvar const v,
         unsigned_vector const& widths,
-        pvar_vector const& overlaps,
+        justified_slices const& overlaps,
         fixed_bits_info const& fbi,
         rational const& to_cover_lo,
         rational const& to_cover_hi,
@@ -176,7 +176,7 @@ namespace polysat {
             // however, we probably should rotate to avoid getting stuck in refinement loop on a 'bad' constraint
             bool refined = false;
             for (unsigned i = overlaps.size(); i-- > 0; ) {
-                pvar x = overlaps[i];
+                pvar x = overlaps[i].first;
                 rational const& mod_value = c.var2pdd(x).two_to_N();
                 rational x_val = mod(val, mod_value);
                 if (!refine_viable(x, x_val)) {
@@ -201,7 +201,7 @@ namespace polysat {
         pvar const v,
         unsigned const w_idx,
         unsigned_vector const& widths,
-        pvar_vector const& overlaps,
+        justified_slices const& overlaps,
         fixed_bits_info const& fbi,
         rational const& to_cover_lo,
         rational const& to_cover_hi,
@@ -240,7 +240,7 @@ namespace polysat {
 
         // find relevant interval lists
         svector<entry_cursor> ecs;
-        for (pvar x : overlaps) {
+        for (auto const& [x, j] : overlaps) {
             if (c.size(x) < w)  // note that overlaps are sorted by variable size descending
                 break;
             if (entry* e = m_units[x].get_entries(w)) {
@@ -614,17 +614,17 @@ namespace polysat {
         out_fbi.reset(v_sz);
         auto& [fixed, just_src, just_side_cond, just_slice] = out_fbi;
 
-        svector<justified_fixed_bits> fbs;        
+        justified_fixed_bits fbs;        
         c.get_fixed_bits(v, fbs);
 
-        for (auto const& fb : fbs) {
+        for (auto const& [fb, d] : fbs) {
             LOG("slicing fixed bits: v" << v << "[" << fb.hi << ":" << fb.lo << "] = " << fb.value);
             for (unsigned i = fb.lo; i <= fb.hi; ++i) {
                 SASSERT(out_fbi.just_src[i].empty());  // since we don't get overlapping ranges from collect_fixed.
                 SASSERT(out_fbi.just_side_cond[i].empty());
                 SASSERT(out_fbi.just_slicing[i].empty());
                 out_fbi.fixed[i] = to_lbool(fb.value.get_bit(i - fb.lo));
-                out_fbi.just_slicing[i].push_back(fb);
+                out_fbi.just_slicing[i].push_back({ fb, d });
             }
         }
 

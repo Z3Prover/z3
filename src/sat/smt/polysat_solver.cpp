@@ -269,6 +269,10 @@ namespace polysat {
                     auto [v1, v2] = d.eq();
                     lits.push_back(~eq_internalize(var2enode(v1), var2enode(v2)));
                 }
+                else if (d.is_eqs()) {
+                    for (auto [v1, v2] : d.eqs())
+                        lits.push_back(~eq_internalize(var2enode(v1), var2enode(v2)));
+                }
                 else {
                     SASSERT(d.is_axiom());
                 }
@@ -321,67 +325,4 @@ namespace polysat {
             r = bv.mk_bv_add(r, pdd2expr(p.lo()));
         return expr_ref(r, m);
     }
-
-    // walk the egraph starting with pvar for overlaps.
-    void solver::get_bitvector_suffixes(pvar pv, pvar_vector& out) {
-        theory_var v = m_pddvar2var[pv];
-        euf::enode_vector todo;
-        uint_set seen;
-        unsigned lo, hi;
-        expr* e = nullptr;
-        todo.push_back(var2enode(v));
-        for (unsigned i = 0; i < todo.size(); ++i) {
-            auto n = todo[i]->get_root();
-            if (n->is_marked1())
-                continue;
-            n->mark1();
-            for (auto sib : euf::enode_class(n)) {
-                theory_var w = sib->get_th_var(get_id());
-
-                // identify prefixes
-                if (bv.is_concat(sib->get_expr()))
-                    todo.push_back(sib->get_arg(sib->num_args() - 1));                
-                if (w == euf::null_theory_var)
-                    continue;
-                if (seen.contains(w))
-                    continue;
-                seen.insert(w);
-                auto const& p = m_var2pdd[w];
-                if (p.is_var())
-                    out.push_back(p.var());
-            }
-            for (auto p : euf::enode_parents(n)) {
-                if (p->is_marked1())
-                    continue;
-                // find prefixes: e[hi:0] a parent of n
-                if (bv.is_extract(p->get_expr(), lo, hi, e) && lo == 0) {
-                    SASSERT(n == expr2enode(e)->get_root());
-                    todo.push_back(p);
-                }
-            }  
-        }
-        for (auto n : todo)
-            n->get_root()->unmark1();
-    }
-
-    void solver::get_fixed_bits(pvar pv, svector<justified_fixed_bits>& fixed_bits) {
-        theory_var v = m_pddvar2var[pv];
-        auto n = var2enode(v);
-        auto r = n->get_root();
-        unsigned lo, hi;
-        expr* e = nullptr;
-        for (auto p : euf::enode_parents(r)) {
-            if (!p->interpreted())
-                continue;
-            for (auto sib : euf::enode_class(p)) {
-                if (bv.is_extract(sib->get_expr(), lo, hi, e) && r == expr2enode(e)->get_root()) {
-                    throw default_exception("get_fixed nyi");
-                    // TODO                    
-                    // dependency d = dependency(p->get_th_var(get_id()), n->get_th_var(get_id()), s().scope_lvl());
-                    // fixed_bits.push_back({ hi, lo, rational::zero(), null_dependency()});
-                }
-            }
-        }
-    }
-
 }

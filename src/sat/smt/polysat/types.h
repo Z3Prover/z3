@@ -28,25 +28,31 @@ namespace polysat {
     };
 
     using pvar_vector = unsigned_vector;
+    using theory_var_pair = std::pair<theory_var, theory_var>;
+    using theory_var_pairs = svector<theory_var_pair>;
     inline const pvar null_var = UINT_MAX;
 
     class signed_constraint;
 
+
     class dependency {
         struct axiom_t {};
-        std::variant<axiom_t, sat::literal, std::pair<theory_var, theory_var>> m_data;
+        std::variant<axiom_t, sat::literal, theory_var_pair, theory_var_pairs> m_data;
         unsigned m_level;
         dependency(): m_data(axiom_t()), m_level(0) {}
     public:
         dependency(sat::literal lit, unsigned level) : m_data(lit), m_level(level) {}
         dependency(theory_var v1, theory_var v2, unsigned level) : m_data(std::make_pair(v1, v2)), m_level(level) {} 
+        dependency(theory_var_pairs& j, unsigned level) : m_data(j), m_level(level) {}
         static dependency axiom() { return dependency(); } 
         bool is_null() const { return is_literal() && *std::get_if<sat::literal>(&m_data) == sat::null_literal; }
         bool is_axiom() const { return std::holds_alternative<axiom_t>(m_data); }
-        bool is_eq() const { return std::holds_alternative<std::pair<theory_var, theory_var>>(m_data); }
+        bool is_eqs() const { return std::holds_alternative<theory_var_pairs>(m_data); }
+        bool is_eq() const { return std::holds_alternative<theory_var_pair>(m_data); }
         bool is_literal() const { return std::holds_alternative<sat::literal>(m_data); }
         sat::literal literal() const { SASSERT(is_literal()); return *std::get_if<sat::literal>(&m_data); }
-        std::pair<theory_var, theory_var> eq() const { SASSERT(!is_literal()); return *std::get_if<std::pair<theory_var, theory_var>>(&m_data); }
+        theory_var_pair eq() const { SASSERT(!is_literal()); return *std::get_if<theory_var_pair>(&m_data); }
+        theory_var_pairs const& eqs() const { SASSERT(!is_literal()); return *std::get_if<theory_var_pairs>(&m_data); }
         unsigned level() const { return m_level; }
         void set_level(unsigned level) { m_level = level; }
         dependency operator~() const { SASSERT(is_literal()); return dependency(~literal(), level()); }
@@ -61,8 +67,14 @@ namespace polysat {
             return out << "axiom@" << d.level();
         else if (d.is_literal())
             return out << d.literal() << "@" << d.level();
-        else
+        else if (d.is_eq())
             return out << "v" << d.eq().first << " == v" << d.eq().second << "@" << d.level();
+        else {
+            char const* sep = "";
+            for (auto [v1, v2] : d.eqs())
+                out << sep << "v" << d.eq().first << " == v" << d.eq().second, sep = ", ";
+            return out << " @" << d.level();
+        }
     }
 
 
@@ -78,7 +90,7 @@ namespace polysat {
         fixed_bits(unsigned hi, unsigned lo, rational value) : hi(hi), lo(lo), value(value) {}
     };
 
-    struct justified_fixed_bits : public fixed_bits, public dependency {};
+    using justified_fixed_bits = vector<std::pair<fixed_bits, dependency>>;
 
     using dependency_vector = vector<dependency>;
     using constraint_or_dependency = std::variant<signed_constraint, dependency>;
@@ -88,7 +100,8 @@ namespace polysat {
     using core_vector = std::initializer_list<constraint_or_dependency>;
     using constraint_id_vector = svector<constraint_id>;
     using constraint_id_list = std::initializer_list<constraint_id>;
-
+    using justified_slices = vector<std::pair<pvar, dependency>>;
+    using eq_justification = svector<std::pair<theory_var, theory_var>>;
 
     //
     // The interface that PolySAT uses to the SAT/SMT solver.
@@ -104,8 +117,8 @@ namespace polysat {
         virtual void propagate(dependency const& d, bool sign, constraint_id_vector const& deps) = 0;
         virtual trail_stack& trail() = 0;
         virtual bool inconsistent() const = 0;
-        virtual void get_bitvector_suffixes(pvar v, pvar_vector& out) = 0;
-        virtual void get_fixed_bits(pvar v, svector<justified_fixed_bits>& fixed_bits) = 0;
+        virtual void get_bitvector_suffixes(pvar v, justified_slices& out) = 0;
+        virtual void get_fixed_bits(pvar v, justified_fixed_bits& fixed_bits) = 0;
     };
 
 }
