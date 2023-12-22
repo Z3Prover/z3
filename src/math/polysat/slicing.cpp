@@ -1544,6 +1544,8 @@ namespace polysat {
             SASSERT_EQ(nv->get_root(), nx->get_root());
             explain_equal(nv, nx, m_tmp_deps);
         }
+        v_base.reset();
+        x_base.reset();
 
         for (void* dp : m_tmp_deps) {
             dep_t const d = dep_t::decode(dp);
