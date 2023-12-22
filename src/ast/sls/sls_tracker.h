@@ -25,8 +25,8 @@ Notes:
 #include "ast/bv_decl_plugin.h"
 #include "model/model.h"
 
-#include "tactic/sls/sls_params.hpp"
-#include "tactic/sls/sls_powers.h"
+#include "params/sls_params.hpp"
+#include "ast/sls/sls_powers.h"
 
 class sls_tracker {
     ast_manager         & m_manager;

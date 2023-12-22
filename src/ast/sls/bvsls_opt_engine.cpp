@@ -17,7 +17,7 @@ Notes:
 
 --*/
 #include "ast/normal_forms/nnf.h"
-#include "tactic/sls/bvsls_opt_engine.h"
+#include "ast/sls/bvsls_opt_engine.h"
 
 bvsls_opt_engine::bvsls_opt_engine(ast_manager & m, params_ref const & p) :
     sls_engine(m, p),

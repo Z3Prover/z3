@@ -18,7 +18,7 @@ Notes:
 --*/
 #pragma once
 
-#include "tactic/sls/sls_engine.h"
+#include "ast/sls/sls_engine.h"
 
 class bvsls_opt_engine : public sls_engine {
     sls_tracker   & m_hard_tracker;

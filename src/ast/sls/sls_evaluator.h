@@ -21,8 +21,8 @@ Notes:
 
 #include "model/model_evaluator.h"
 
-#include "tactic/sls/sls_powers.h"
-#include "tactic/sls/sls_tracker.h"
+#include "ast/sls/sls_powers.h"
+#include "ast/sls/sls_tracker.h"
 
 class sls_evaluator {
     ast_manager         & m_manager;

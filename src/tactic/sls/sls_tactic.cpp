@@ -27,8 +27,8 @@ Notes:
 #include "tactic/core/nnf_tactic.h"
 #include "util/stopwatch.h"
 #include "tactic/sls/sls_tactic.h"
-#include "tactic/sls/sls_params.hpp"
-#include "tactic/sls/sls_engine.h"
+#include "params/sls_params.hpp"
+#include "ast/sls/sls_engine.h"
 
 class sls_tactic : public tactic {    
     ast_manager    & m;
@@ -60,6 +60,38 @@ public:
     void collect_param_descrs(param_descrs & r) override {
         sls_params::collect_param_descrs(r);
     }
+
+    void run(goal_ref const& g, model_converter_ref& mc) {
+        if (g->inconsistent()) {
+            mc = nullptr;
+            return;
+        }        
+        
+        for (unsigned i = 0; i < g->size(); i++)
+            m_engine->assert_expr(g->form(i));    
+        
+        lbool res = m_engine->operator()();
+        auto const& stats = m_engine->get_stats();
+        if (res == l_true) {
+            report_tactic_progress("Number of flips:", stats.m_moves);
+            
+            for (unsigned i = 0; i < g->size(); i++)
+                if (!m_engine->get_mpz_manager().is_one(m_engine->get_value(g->form(i)))) {
+                    verbose_stream() << "Terminated before all assertions were SAT!" << std::endl;
+                    NOT_IMPLEMENTED_YET();
+                }
+
+            if (g->models_enabled()) {
+                model_ref mdl = m_engine->get_model();
+                mc = model2model_converter(mdl.get());
+                TRACE("sls_model", mc->display(tout););
+            }
+            g->reset();
+        }
+        else
+            mc = nullptr;
+        
+    }
     
     void operator()(goal_ref const & g, 
                     goal_ref_buffer & result) override {
@@ -69,7 +101,7 @@ public:
         tactic_report report("sls", *g);
         
         model_converter_ref mc;
-        m_engine->operator()(g, mc);
+        run(g, mc);
         g->add(mc.get());
         g->inc_depth();
         result.push_back(g.get());
