@@ -241,8 +241,7 @@ void expr_rand::initialize_bv(unsigned num_vars) {
 
 void expr_rand::initialize_array(unsigned num_vars, sort* dom, sort* rng) {
     family_id afid = m_manager.mk_family_id("array");
-    parameter p1(dom), p2(rng);
-    parameter ps[2] = { p1, p2 };
+    parameter ps[2] = { parameter(dom), parameter(rng) };
     sort* a = m_manager.mk_sort(afid, ARRAY_SORT, 2, ps);
     sort* ss[3] = { a, dom, rng };
     
