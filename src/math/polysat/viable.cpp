@@ -1952,6 +1952,7 @@ namespace polysat {
     }
 
     bool viable::set_conflict_by_interval(pvar v, unsigned w, ptr_vector<entry>& intervals, unsigned first_interval) {
+        LOG_H2("interval conflict: v" << v << " at width " << w << " with " << (intervals.size() - first_interval) << " intervals");
         SASSERT(!intervals.empty());
         SASSERT(first_interval < intervals.size());
         auto& core = s.m_conflict;
@@ -2011,6 +2012,12 @@ namespace polysat {
 
 
     bool viable::set_conflict_by_interval_rec(pvar v, unsigned w, entry** intervals, unsigned num_intervals, conflict& core, bool& create_lemma, clause_builder& lemma, uint_set& vars_to_explain) {
+        // LOG_H3("interval conflict rec: v" << v << " at width " << w << " with " << num_intervals << " intervals");
+        // for (unsigned ii = 0; ii < num_intervals; ++ii) {
+        //     entry* ee = intervals[ii];
+        //     display_one(std::cerr << "      entry " << ii << ": width=" << ee->bit_width << "  ", ee->var, ee) << "\n";
+        // }
+
         SASSERT(std::all_of(intervals, intervals + num_intervals, [w](entry const* e) { return e->bit_width <= w; }));
         // TODO: assert invariants on intervals list
         rational const& mod_value = rational::power_of_two(w);
@@ -2050,6 +2057,7 @@ namespace polysat {
             if (n->bit_width != w) {
                 // we have a hole starting with 'n', to be filled with intervals at lower bit-width.
                 // note that the next lower bit-width is not necessarily n->bit_width (e.g., the next layer may start with a hole itself)
+                // e.g. if bit-widths are: [64, 64, 16, 16, 32, 32, 64]
                 unsigned w2 = n->bit_width;
                 // first, find the next constraint after the hole
                 unsigned last_idx = j;
@@ -2059,16 +2067,22 @@ namespace polysat {
                         w2 = intervals[k]->bit_width;
                     last_idx = k;
                     k = (k + 1) % num_intervals;
+                    // by construction of the interval list, the hole cannot wrap around.
+                    // we need to break out of the loop when k == 0, in case there was also a hole at the start of the intervals list.
+                    if (k == 0)
+                        break;
                 }
                 entry* after = intervals[k];
-                SASSERT(j < last_idx);  // the hole cannot wrap around (but k may be 0)
+                SASSERT(j <= last_idx);  // the hole cannot wrap around, by construction of the interval list (but k may be 0)
 
                 rational const& lower_mod_value = rational::power_of_two(w2);
                 SASSERT(distance(e->interval.hi_val(), after->interval.lo_val(), mod_value) < lower_mod_value);  // otherwise we would have started the conflict at w2 already
 
                 // create temporary entry that covers the hole-complement on the lower level
-                if (!tmp)
+                if (!tmp) {
                     tmp = alloc_entry(v);
+                    tmp->coeff = 1;
+                }
                 pdd dummy = s.var2pdd(v).mk_val(123);  // we could create extract-terms for boundaries but let's skip that for now and just disable the lemma
                 create_lemma = false;
                 tmp->valid_for_lemma = false;
@@ -2103,11 +2117,12 @@ namespace polysat {
 
                 tmp->bit_width = w;
                 tmp->interval = eval_interval::proper(dummy, e->interval.hi_val(), dummy, after->interval.lo_val());
+                i = last_idx;
                 e = tmp;
-                j = k;
-                n = after;
+                continue;
             }
 
+            SASSERT_EQ(n->bit_width, w);
             // We may have a bunch of intervals that contain the current value.
             // Choose the one making the most progress.
             // TODO: it should be the last one, otherwise we wouldn't have added it to relevant_intervals? then we can skip the progress computation.
