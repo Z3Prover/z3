@@ -5,4 +5,5 @@ z3_add_component(ast_sls
   COMPONENT_DEPENDENCIES
     ast
     converters
+    normal_forms
 )

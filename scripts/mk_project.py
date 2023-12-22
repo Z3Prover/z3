@@ -40,7 +40,7 @@ def init_project_def():
     add_lib('model',  ['macros'])
     add_lib('converters', ['model'], 'ast/converters')
     add_lib('simplifiers', ['euf', 'normal_forms', 'bit_blaster', 'converters', 'substitution'], 'ast/simplifiers')
-    add_lib('ast_sls', ['ast'], 'ast/sls')
+    add_lib('ast_sls', ['ast','normal_forms','converters'], 'ast/sls')
     add_lib('tactic', ['simplifiers'])
     add_lib('mbp', ['model', 'simplex'], 'qe/mbp')
     add_lib('qe_lite', ['tactic', 'mbp'], 'qe/lite')
