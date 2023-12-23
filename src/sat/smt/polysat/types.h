@@ -90,6 +90,16 @@ namespace polysat {
         fixed_bits(unsigned hi, unsigned lo, rational value) : hi(hi), lo(lo), value(value) {}
     };
 
+    struct justified_slice {
+        pvar v;
+        unsigned offset;
+        dependency dep;
+    };
+
+    inline std::ostream& operator<<(std::ostream& out, justified_slice const& js) {
+        return out << "v" << js.v << "[" << js.offset << "[ @" << js.dep;
+    }
+
     using justified_fixed_bits = vector<std::pair<fixed_bits, dependency>>;
 
     using dependency_vector = vector<dependency>;
@@ -100,7 +110,7 @@ namespace polysat {
     using core_vector = std::initializer_list<constraint_or_dependency>;
     using constraint_id_vector = svector<constraint_id>;
     using constraint_id_list = std::initializer_list<constraint_id>;
-    using justified_slices = vector<std::pair<pvar, dependency>>;
+    using justified_slices = vector<justified_slice>;
     using eq_justification = svector<std::pair<theory_var, theory_var>>;
 
     //
@@ -118,6 +128,8 @@ namespace polysat {
         virtual trail_stack& trail() = 0;
         virtual bool inconsistent() const = 0;
         virtual void get_bitvector_suffixes(pvar v, justified_slices& out) = 0;
+        virtual void get_bitvector_sub_slices(pvar v, justified_slices& out) = 0;
+        virtual void get_bitvector_super_slices(pvar v, justified_slices& out) = 0;
         virtual void get_fixed_bits(pvar v, justified_fixed_bits& fixed_bits) = 0;
     };
 

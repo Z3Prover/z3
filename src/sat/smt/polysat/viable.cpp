@@ -105,13 +105,13 @@ namespace polysat {
 
         justified_slices overlaps;
         c.get_bitvector_suffixes(v, overlaps);
-        std::sort(overlaps.begin(), overlaps.end(), [&](auto const& x, auto const& y) { return c.size(x.first) > c.size(y.first); });
+        std::sort(overlaps.begin(), overlaps.end(), [&](auto const& x, auto const& y) { return c.size(x.v) > c.size(y.v); });
 
         uint_set widths_set;
         // max size should always be present, regardless of whether we have intervals there (to make sure all fixed bits are considered)
         widths_set.insert(c.size(v));
 
-        for (auto const& [v, j] : overlaps) 
+        for (auto const& [v, offset, j] : overlaps) 
             for (layer const& l : m_units[v].get_layers()) 
                 widths_set.insert(l.bit_width);
                     
@@ -176,7 +176,7 @@ namespace polysat {
             // however, we probably should rotate to avoid getting stuck in refinement loop on a 'bad' constraint
             bool refined = false;
             for (unsigned i = overlaps.size(); i-- > 0; ) {
-                pvar x = overlaps[i].first;
+                pvar x = overlaps[i].v;
                 rational const& mod_value = c.var2pdd(x).two_to_N();
                 rational x_val = mod(val, mod_value);
                 if (!refine_viable(x, x_val)) {
@@ -240,7 +240,7 @@ namespace polysat {
 
         // find relevant interval lists
         svector<entry_cursor> ecs;
-        for (auto const& [x, j] : overlaps) {
+        for (auto const& [x, offset, j] : overlaps) {
             if (c.size(x) < w)  // note that overlaps are sorted by variable size descending
                 break;
             if (entry* e = m_units[x].get_entries(w)) {

@@ -34,7 +34,7 @@ namespace polysat {
         typedef sat::literal literal;
         typedef sat::bool_var bool_var;
         typedef sat::literal_vector literal_vector;
-        using subslice_infos = vector<std::tuple<euf::enode*, unsigned, eq_justification>>;
+        using slice_infos = vector<std::tuple<euf::enode*, unsigned, eq_justification>>;
         using pdd = dd::pdd;
 
         struct stats {
@@ -75,7 +75,8 @@ namespace polysat {
 
         sat::check_result intblast();
 
-        void get_subslices(pvar v, subslice_infos& slices);
+        void get_sub_slices(pvar v, slice_infos& slices);
+        void get_super_slices(pvar v, slice_infos& slices);
 
         // internalize
         bool visit(expr* e) override;
@@ -169,6 +170,8 @@ namespace polysat {
         void propagate(dependency const& d, bool sign, constraint_id_vector const& deps) override;
         trail_stack& trail() override;
         bool inconsistent() const override;
+        void get_bitvector_sub_slices(pvar v, justified_slices& out) override;
+        void get_bitvector_super_slices(pvar v, justified_slices& out) override;
         void get_bitvector_suffixes(pvar v, justified_slices& out) override;
         void get_fixed_bits(pvar v, justified_fixed_bits& fixed_bits) override;
 
