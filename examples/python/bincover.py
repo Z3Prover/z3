@@ -46,7 +46,56 @@ class Item:
 
     def __repr__(self):
         return f"binof-{self.index}:weight-{self.weight}"
-    
+
+class BranchAndBound:
+    """Branch and Bound solver.
+    It keeps track of a current best score and a slack that tracks bins that are set unfilled.
+    It blocks branches that are worse than the current best score.
+    In Final check it blocks the current assignment.
+    """
+    def __init__(self, user_propagator):
+        self.up = user_propagator
+
+    def init(self, soft_literals):
+        self.value = 0
+        self.best = 0
+        self.slack = 0
+        self.id2weight = {}
+        self.assigned_to_false = []
+        for p, weight in soft_literals:
+            self.slack += weight
+            self.id2weight[p.get_id()] = weight
+
+    def fixed(self, p, value):
+        weight = self.id2weight[p.get_id()]
+        if is_true(value):
+            old_value = self.value
+            self.up.trail += [lambda : self._undo_value(old_value)]
+            self.value += weight
+        elif self.best > self.slack - weight:
+            self.assigned_to_false += [ p ]
+            self.up.conflict(self.assigned_to_false)
+            self.assigned_to_false.pop(-1)
+        else:
+            old_slack = self.slack
+            self.up.trail += [lambda : self._undo_slack(old_slack)]
+            self.slack -= weight
+            self.assigned_to_false += [p]
+
+    def final(self):
+        if self.value > self.best:
+            self.best = self.value
+        print("Number of bins filled", self.value)
+        for bin in self.up.bins:
+            print(bin.var, bin.added)
+        self.up.conflict(self.assigned_to_false)
+
+    def _undo_value(self, old_value):
+        self.value = old_value
+
+    def _undo_slack(self, old_slack):
+        self.slack = old_slack
+        self.assigned_to_false.pop(-1)
         
 class BinCoverSolver(UserPropagateBase):
     """Represent a bin-covering problem by associating each bin with a variable
@@ -65,6 +114,7 @@ class BinCoverSolver(UserPropagateBase):
         self.solver = s
         self.initialized = False
         self.add_fixed(lambda x, v : self._fixed(x, v))
+        self.branch_and_bound = None
 
 
     # Initialize bit-vector variables for items.
@@ -86,8 +136,19 @@ class BinCoverSolver(UserPropagateBase):
                 ineq = ULT(item.var, bound)
                 self.solver.add(ineq)
         total_weight = sum(item.weight for item in self.items)
-        for i in range(len(self.bins)):
-            self.bins[i].slack = total_weight
+        for bin in self.bins:
+            bin.slack = total_weight
+
+    #
+    # Register optional branch and bound weighted solver.
+    # If it is registered, it 
+    def init_branch_and_bound(self):
+        soft = [(bin.var, 1) for bin in self.bins]
+        self.branch_and_bound = BranchAndBound(self)
+        self.branch_and_bound.init(soft)
+        for bin in self.bins:
+            self.add(bin.var)
+        self.add_final(lambda : self.branch_and_bound.final())
         
     def add_bin(self, min_bound):
         assert not self.initialized
@@ -165,6 +226,9 @@ class BinCoverSolver(UserPropagateBase):
 
     # Callback from Z3 when an item gets fixed.
     def _fixed(self, _item, value):
+        if self.branch_and_bound and is_bool(value):
+            self.branch_and_bound.fixed(_item, value)
+            return 
         item = self._itemvar2item(_item)
         if item is None:
             print("no item for ", _item)
@@ -271,7 +335,6 @@ class OptimizeBinCoverSolver:
             print(bin, bin.added)
 
 
-
 def example1():
     s = OptimizeBinCoverSolver()
     i1 = s.add_item(2)
@@ -283,6 +346,37 @@ def example1():
     b3 = s.add_bin(1)
     s.optimize()
 
-example1()
+#example1()
 
 
+class BranchAndBoundCoverSolver:
+    def __init__(self):
+        self.solver = Solver()
+        self.bin_solver = BinCoverSolver(self.solver)
+
+    def init(self):
+        self.bin_solver.init()
+        self.bin_solver.init_branch_and_bound()
+
+    def add_item(self, weight):
+        return self.bin_solver.add_item(weight)
+
+    def add_bin(self, min_bound):
+        return self.bin_solver.add_bin(min_bound)
+
+    def optimize(self):
+        self.init()
+        self.solver.check()
+
+def example2():
+    s = BranchAndBoundCoverSolver()
+    i1 = s.add_item(2)
+    i2 = s.add_item(4)
+    i3 = s.add_item(5)
+    i4 = s.add_item(2)
+    b1 = s.add_bin(3)
+    b2 = s.add_bin(6)
+    b3 = s.add_bin(1)
+    s.optimize()
+
+example2()
