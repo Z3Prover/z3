@@ -107,7 +107,7 @@ namespace polysat {
             svector<lbool> fixed;
             vector<vector<signed_constraint>> just_src;
             vector<vector<signed_constraint>> just_side_cond;
-            vector<justified_fixed_bits> just_slicing;
+            vector<fixed_bits_vector> just_slicing;
 
             bool is_empty() const {
                 SASSERT_EQ(fixed.empty(), just_src.empty());
@@ -186,7 +186,7 @@ namespace polysat {
         lbool find_on_layers(
             pvar v,
             unsigned_vector const& widths,
-            justified_slices const& overlaps,
+            offset_slices const& overlaps,
             fixed_bits_info const& fbi,
             rational const& to_cover_lo,
             rational const& to_cover_hi,
@@ -196,7 +196,7 @@ namespace polysat {
             pvar v,
             unsigned w_idx,
             unsigned_vector const& widths,
-            justified_slices const& overlaps,
+            offset_slices const& overlaps,
             fixed_bits_info const& fbi,
             rational const& to_cover_lo,
             rational const& to_cover_hi,

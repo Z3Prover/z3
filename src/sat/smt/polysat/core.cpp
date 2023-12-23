@@ -389,11 +389,11 @@ namespace polysat {
         }                   
     }
 
-    void core::get_bitvector_suffixes(pvar v, justified_slices& out) {
+    void core::get_bitvector_suffixes(pvar v, offset_slices& out) {
         s.get_bitvector_suffixes(v, out);
     }
 
-    void core::get_fixed_bits(pvar v, justified_fixed_bits& fixed_bits) {
+    void core::get_fixed_bits(pvar v, fixed_bits_vector& fixed_bits) {
         s.get_fixed_bits(v, fixed_bits);
     }
 

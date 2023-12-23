@@ -20,6 +20,7 @@ Author:
 #include "math/dd/dd_pdd.h"
 #include "sat/smt/polysat/core.h"
 #include "sat/smt/intblast_solver.h"
+#include "ast/euf/euf_bv_plugin.h"
 
 namespace euf {
     class solver;
@@ -65,6 +66,7 @@ namespace polysat {
         bool_vector              m_var2pdd_valid;             // valid flag
         unsigned_vector          m_pddvar2var;                // pvar -> theory_var
         ptr_vector<atom>         m_bool_var2atom;             // bool_var -> atom
+        euf::bv_plugin* m_bv_plugin = nullptr;
 
         svector<std::pair<euf::theory_var, euf::theory_var>> m_var_eqs;
         unsigned                 m_var_eqs_head = 0;
@@ -77,6 +79,8 @@ namespace polysat {
 
         void get_sub_slices(pvar v, slice_infos& slices);
         void get_super_slices(pvar v, slice_infos& slices);
+        void explain_slice(pvar v, pvar w, unsigned offset, std::function<void(euf::enode*, euf::enode*)>& consume);
+        void explain_fixed(pvar v, unsigned lo, unsigned hi, rational const& value, std::function<void(euf::enode*, euf::enode*)>& consume_eq);
 
         // internalize
         bool visit(expr* e) override;
@@ -170,10 +174,11 @@ namespace polysat {
         void propagate(dependency const& d, bool sign, constraint_id_vector const& deps) override;
         trail_stack& trail() override;
         bool inconsistent() const override;
-        void get_bitvector_sub_slices(pvar v, justified_slices& out) override;
-        void get_bitvector_super_slices(pvar v, justified_slices& out) override;
-        void get_bitvector_suffixes(pvar v, justified_slices& out) override;
-        void get_fixed_bits(pvar v, justified_fixed_bits& fixed_bits) override;
+        void get_bitvector_sub_slices(pvar v, offset_slices& out) override;
+        void get_bitvector_super_slices(pvar v, offset_slices& out) override;
+        void get_bitvector_suffixes(pvar v, offset_slices& out) override;
+        void get_fixed_bits(pvar v, fixed_bits_vector& fixed_bits) override;
+        dependency explain_slice(pvar v, pvar w, unsigned offset);
 
         bool add_axiom(char const* name, core_vector const& clause, bool redundant) {
             return add_axiom(name, clause.begin(), clause.end(), redundant);
@@ -209,7 +214,6 @@ namespace polysat {
         void find_mutexes(literal_vector& lits, vector<literal_vector> & mutexes) override {}
         void gc() override {}
         void pop_reinit() override {}
-        lbool resolve_conflict() override;
         bool validate() override { return true; }
         void init_use_list(sat::ext_use_list& ul) override {}
         bool is_blocked(literal l, sat::ext_constraint_idx) override { return false; }

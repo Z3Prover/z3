@@ -24,7 +24,7 @@ The result of polysat::core::check is one of:
 
 --*/
 
-#include "ast/euf/euf_bv_plugin.h"
+
 #include "sat/smt/polysat_solver.h"
 #include "sat/smt/euf_solver.h"
 #include "sat/smt/polysat/ule_constraint.h"
@@ -144,26 +144,6 @@ namespace polysat {
         return { core, eqs };
     }
 
-    // If an MCSat lemma is added, then backjump based on the lemma level and 
-    // add the lemma to the solver with potentially fresh literals.
-    // return l_false to signal sat::solver that backjumping has been taken care of internally.
-    lbool solver::resolve_conflict() {
-        if (!m_has_lemma)
-            return l_undef;
-
-        SASSERT(m_lemma_level > 0);
-        unsigned num_scopes = s().scope_lvl() - m_lemma_level - 1;
-
-        NOT_IMPLEMENTED_YET();
-        // s().pop_reinit(num_scopes);
-
-        sat::literal_vector lits;
-        for (auto* e : m_lemma)
-            lits.push_back(~ctx.mk_literal(e));
-        s().add_clause(lits.size(), lits.data(), sat::status::th(true, get_id(), nullptr));
-        return l_false;
-    }
-
     // Create an equality literal that represents the value assignment
     // Prefer case split to true.
     // The equality gets added in a callback using asserted().
@@ -269,9 +249,12 @@ namespace polysat {
                     auto [v1, v2] = d.eq();
                     lits.push_back(~eq_internalize(var2enode(v1), var2enode(v2)));
                 }
-                else if (d.is_eqs()) {
-                    for (auto [v1, v2] : d.eqs())
-                        lits.push_back(~eq_internalize(var2enode(v1), var2enode(v2)));
+                else if (d.is_offset_claim()) {
+                    auto [v, w, offset] = d.offset();
+                    std::function<void(euf::enode*, euf::enode*)> consume = [&](auto* a, auto* b) {
+                        lits.push_back(~eq_internalize(a, b));
+                    };
+                    explain_slice(v, w, offset, consume);
                 }
                 else {
                     SASSERT(d.is_axiom());

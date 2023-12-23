@@ -17,8 +17,6 @@ Author:
 
 namespace polysat {
 
-    using fixed_bits_vector = vector<fixed_bits>;
-
     bool get_eq_fixed_lsb(pdd const& p, fixed_bits& out);
     bool get_eq_fixed_bits(pdd const& p, fixed_bits& out);
 
