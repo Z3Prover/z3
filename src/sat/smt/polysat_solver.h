@@ -34,6 +34,7 @@ namespace polysat {
         typedef sat::literal literal;
         typedef sat::bool_var bool_var;
         typedef sat::literal_vector literal_vector;
+        using subslice_infos = vector<std::tuple<euf::enode*, unsigned, eq_justification>>;
         using pdd = dd::pdd;
 
         struct stats {
@@ -73,6 +74,8 @@ namespace polysat {
         expr_ref_vector m_lemma;
 
         sat::check_result intblast();
+
+        void get_subslices(pvar v, subslice_infos& slices);
 
         // internalize
         bool visit(expr* e) override;
