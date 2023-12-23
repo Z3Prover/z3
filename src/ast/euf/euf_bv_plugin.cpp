@@ -352,6 +352,140 @@ namespace euf {
         push_merge(mk_concat(lo, hi), n);        
     }
 
+    void bv_plugin::sub_slices(enode* n, std::function<bool(enode*, unsigned)>& consumer) {
+        m_todo.push_back({ n, 0 });
+        unsigned lo, hi;
+        expr* e;
+
+        for (unsigned i = 0; i < m_todo.size(); ++i) {
+            auto [n, offset] = m_todo[i];
+            m_offsets.reserve(n->get_root_id() + 1);
+            auto& offsets = m_offsets[n->get_root_id()];
+            if (offsets.contains(offset))
+                continue;
+            offsets.push_back(offset);
+            if (!consumer(n, offset))
+                continue;
+            for (auto sib : euf::enode_class(n)) {
+                if (bv.is_concat(sib->get_expr())) {
+                    unsigned delta = 0;
+                    for (unsigned j = sib->num_args(); j-- > 0; ) {
+                        auto arg = sib->get_arg(j);
+                        m_todo.push_back({ arg, offset + delta });
+                        delta += width(arg);
+                    }
+                }
+            }
+            for (auto p : euf::enode_parents(n->get_root())) {
+                if (bv.is_extract(p->get_expr(), lo, hi, e)) {
+                    SASSERT(g.find(e)->get_root() == n->get_root());
+                    m_todo.push_back({ p, offset + lo });
+                }
+            }
+        }
+        clear_offsets();
+    }
+
+    void bv_plugin::super_slices(enode* n, std::function<bool(enode*, unsigned)>& consumer) {
+        m_todo.push_back({ n, 0 });
+        unsigned lo, hi;
+        expr* e;
+
+        for (unsigned i = 0; i < m_todo.size(); ++i) {
+            auto [n, offset] = m_todo[i];
+            m_offsets.reserve(n->get_root_id() + 1);
+            auto& offsets = m_offsets[n->get_root_id()];
+            if (offsets.contains(offset))
+                continue;
+            offsets.push_back(offset);
+            if (!consumer(n, offset))
+                continue;
+            for (auto sib : euf::enode_class(n)) {
+                if (bv.is_extract(sib->get_expr(), lo, hi, e)) {
+                    auto child = g.find(e);
+                    m_todo.push_back({ child, offset + lo });
+                }
+            }
+            for (auto p : euf::enode_parents(n->get_root())) {
+                if (bv.is_concat(p->get_expr())) {
+                    unsigned delta = 0;
+                    for (unsigned j = p->num_args(); j-- > 0; ) {
+                        auto arg = p->get_arg(j);
+                        if (arg->get_root() == n->get_root()) 
+                            m_todo.push_back({ p, offset + delta });
+                        delta += width(arg);                   
+                    }
+                }
+            }
+        }
+        clear_offsets();
+    }
+
+    //
+    // Explain that a is a subslice of b at offset
+    // or that b is a subslice of a at offset
+    // 
+    void bv_plugin::explain_slice(enode* a, unsigned offset, enode* b, std::function<void(enode*, enode*)>& consumer) {
+        if (width(a) < width(b))
+            std::swap(a, b);
+        SASSERT(width(a) >= width(b));
+        svector<std::tuple<enode*, enode*, unsigned>> just;
+        m_jtodo.push_back({ a, 0, UINT_MAX });
+        unsigned lo, hi;
+        expr* e;
+
+        for (unsigned i = 0; i < m_jtodo.size(); ++i) {
+            auto [n, offs, j] = m_jtodo[i];
+            m_offsets.reserve(n->get_root_id() + 1);
+            auto& offsets = m_offsets[n->get_root_id()];
+            if (offsets.contains(offs))
+                continue;
+            offsets.push_back(offs);
+            if (n->get_root() == b->get_root() && offs == offset) {
+                while (j != UINT_MAX) {
+                    auto [x, y, j2] = just[j];
+                    consumer(x, y);
+                    j = j2;
+                }
+                for (auto const& [n, offset, j] : m_jtodo) {
+                    m_offsets.reserve(n->get_root_id() + 1);
+                    m_offsets[n->get_root_id()].reset();
+                }
+                m_jtodo.reset();
+                return;
+            }
+            for (auto sib : euf::enode_class(n)) {
+                if (bv.is_concat(sib->get_expr())) {
+                    unsigned delta = 0;
+                    unsigned j2 = just.size();
+                    just.push_back({ n, sib, j });
+                    for (unsigned j = sib->num_args(); j-- > 0; ) {
+                        auto arg = sib->get_arg(j);
+                        m_jtodo.push_back({ arg, offset + delta, j2 });
+                        delta += width(arg);
+                    }
+                }
+            }
+            for (auto p : euf::enode_parents(n->get_root())) {
+                if (bv.is_extract(p->get_expr(), lo, hi, e)) {
+                    SASSERT(g.find(e)->get_root() == n->get_root());
+                    unsigned j2 = just.size();
+                    just.push_back({ g.find(e), n, j});
+                    m_jtodo.push_back({ p, offset + lo, j2});
+                }
+            }
+        }
+        UNREACHABLE();
+    }
+
+    void bv_plugin::clear_offsets() {
+        for (auto const& [n, offset] : m_todo) {
+            m_offsets.reserve(n->get_root_id() + 1);
+            m_offsets[n->get_root_id()].reset();
+        }
+        m_todo.reset();
+    }
+
     std::ostream& bv_plugin::display(std::ostream& out) const {
         out << "bv\n";
         for (auto const& i : m_info) 

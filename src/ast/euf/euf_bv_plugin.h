@@ -41,6 +41,8 @@ namespace euf {
         bv_util                 bv;
         slice_info_vector       m_info;         // indexed by enode::get_id()
 
+
+
         enode_vector m_xs, m_ys;
 
         bool is_concat(enode* n) const { return bv.is_concat(n->get_expr()); }
@@ -74,6 +76,11 @@ namespace euf {
         void propagate_extract(enode* n);
         void propagate_values(enode* n);
 
+        vector<unsigned_vector> m_offsets;
+        svector<std::pair<enode*, unsigned>> m_todo;
+        svector<std::tuple<enode*, unsigned, unsigned>> m_jtodo;
+        void clear_offsets();
+
         enode_vector m_undo_split;
         void push_undo_split(enode* n);
         
@@ -95,6 +102,12 @@ namespace euf {
         void undo() override;
         
         std::ostream& display(std::ostream& out) const override;
+
+        void sub_slices(enode* n, std::function<bool(enode*, unsigned)>& consumer);
+
+        void super_slices(enode* n, std::function<bool(enode*, unsigned)>& consumer);
+
+        void explain_slice(enode* a, unsigned offset, enode* b, std::function<void(enode*, enode*)>& consumer);
             
     };
 }
