@@ -39,8 +39,9 @@ struct create_cut {
 #if SMALL_CUTS
     mpq                   m_abs_max, m_big_number;
 #endif
-    int                      m_polarity;
-    bool                   m_found_big;
+    int                   m_polarity;
+    bool                  m_found_big;
+    u_dependency*         m_dep;
 
     const impq & get_value(unsigned j) const { return lia.get_value(j); }
     bool is_int(unsigned j) const { return lia.column_is_int(j) || (lia.is_fixed(j) &&
@@ -330,6 +331,10 @@ public:
         if (some_int_columns)
             simplify_inequality();
         
+        m_dep = nullptr;
+        for (auto c : *m_ex) 
+         	m_dep = lia.lra.join_deps(lia.lra.dep_manager().mk_leaf(c.ci()), m_dep);
+
         TRACE("gomory_cut", print_linear_combination_of_column_indices_only(m_t.coeffs_as_vector(), tout << "gomory cut: "); tout << " >= " << m_k << std::endl;);
         TRACE("gomory_cut_detail", dump_cut_and_constraints_as_smt_lemma(tout);
               lia.lra.display(tout));
@@ -512,10 +517,10 @@ public:
     
 
     lia_move gomory::get_gomory_cuts(unsigned num_cuts) {
-        struct cut_result {explanation ex; lar_term t; mpq k; int polarity; lpvar j;};
+        struct cut_result {u_dependency *dep; lar_term t; mpq k; int polarity; lpvar j;};
         vector<cut_result> big_cuts;
-        struct polar_pair {int polarity; lpvar j; u_dependency *dep;};
-        vector<polar_pair> polar_vars;
+        struct polar_pair {int polarity;  u_dependency *dep;};
+        std::unordered_map<lpvar, polar_pair> polar_vars;
         unsigned_vector columns_for_cuts = gomory_select_int_infeasible_vars(num_cuts);
 
         // define inline helper functions
@@ -524,15 +529,12 @@ public:
             return all_of(t, [&](auto ci) { return ci.coeff().is_small(); });
         };
         auto add_cut = [&](cut_result const& cr) {
-            u_dependency* dep = nullptr;
-            for (auto c : cr.ex) 
-                dep = lra.join_deps(lra.dep_manager().mk_leaf(c.ci()), dep);
+            u_dependency* dep = cr.dep;
             lp::lpvar term_index = lra.add_term(cr.t.coeffs_as_vector(), UINT_MAX);
             term_index = lra.map_term_index_to_column_index(term_index);
             lra.update_column_type_and_bound(term_index,
                                              lp::lconstraint_kind::GE,
-                                             lia.m_k, dep);
-            return dep;
+                                             lia.m_k, dep);            
         };
         auto _check_feasible = [&](void) {
             lra.find_feasible_solution();
@@ -552,17 +554,16 @@ public:
                 
             if (r != lia_move::cut)
                 continue;
-            cut_result cr = {*lia.m_ex, lia.m_t, lia.m_k, cc.m_polarity, j};
-   
+            cut_result cr = {cc.m_dep, lia.m_t, lia.m_k, cc.m_polarity, j};
+            if (abs(cr.polarity) == 1)  // need to delay the update of the bounds for j in a polar case, because simplify_inequality relies on the old bounds
+                polar_vars[j] = {cr.polarity,  cc.m_dep}; 
+           
             if (!is_small_cut(lia.m_t)) {
                 big_cuts.push_back(cr);
                 continue;
             }
             has_small_cut = true;
-            auto dep = add_cut(cr);
-            if (abs(cr.polarity) == 1)  // need to delay the update of the bounds for j in a polar case, because simplify_inequality relies on the old bounds
-                polar_vars.push_back({cr.polarity, j, dep}); // todo : polarity for big cuts
-           
+            add_cut(cr);
             if (lia.settings().get_cancel_flag())
                 return lia_move::undef;
         }
@@ -581,12 +582,14 @@ public:
                 return lia_move::conflict;
         }
 
+// this way we create bounds for the variables in polar cases even where the terms had big numbers
         for (auto const& p : polar_vars) {
-            if (p.polarity == 1) {
-                lra.update_column_type_and_bound(p.j, lp::lconstraint_kind::LE, floor(lra.get_column_value(p.j).x), p.dep);
+            if (p.second.polarity == 1) {
+                lra.update_column_type_and_bound(p.first, lp::lconstraint_kind::LE, floor(lra.get_column_value(p.first).x), p.second.dep);
             }
-            else if (p.polarity == -1) {
-                lra.update_column_type_and_bound(p.j, lp::lconstraint_kind::GE, ceil(lra.get_column_value(p.j).x), p.dep);
+            else {
+                SASSERT(p.second.polarity == -1);
+                lra.update_column_type_and_bound(p.first, lp::lconstraint_kind::GE, ceil(lra.get_column_value(p.first).x), p.second.dep);
             }
         }
         
@@ -598,8 +601,6 @@ public:
 
         if (has_small_cut || big_cuts.size())
             return lia_move::continue_with_check;
-
-        
         
         lra.move_non_basic_columns_to_bounds();
         return lia_move::undef;
