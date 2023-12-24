@@ -93,6 +93,10 @@ namespace polysat {
         }
     }
 
+    // fixed bits
+    // suffixes
+    // find one or two values
+    // 
     lbool viable::find_viable(pvar v, rational& lo, rational& hi) {
         return l_undef;
 
@@ -417,192 +421,9 @@ namespace polysat {
     void viable::set_conflict_by_interval(pvar v, unsigned w, ptr_vector<entry>& intervals, unsigned first_interval) {
         SASSERT(!intervals.empty());
         SASSERT(first_interval < intervals.size());
-
-#if 0
-        bool create_lemma = true;
-        uint_set vars_to_explain;
-        char const* lemma_name = nullptr;
-
-        // if there is a full interval, it should be the only one in the given vector
-        if (intervals.size() == 1 && intervals[0]->interval.is_full()) {
-            lemma_name = "viable (full interval)";
-            entry const* e = intervals[0];
-            for (auto sc : e->side_cond)
-                lemma.insert_eval(~sc);
-            for (const auto& src : e->src) {
-                lemma.insert(~src);
-                core.insert(src);
-                core.insert_vars(src);
-            }
-            if (v != e->var)
-                vars_to_explain.insert(e->var);
-        }
-        else {
-            SASSERT(all_of(intervals, [](entry* e) { return e->interval.is_proper(); }));
-            lemma_name = "viable (proper intervals)";
-
-            // allocate one dummy space in intervals storage to simplify recursive calls
-            intervals.push_back(nullptr);
-            entry** intervals_begin = intervals.data() + first_interval;
-            unsigned num_intervals = intervals.size() - first_interval - 1;
-
-            if (!set_conflict_by_interval_rec(v, w, intervals_begin, num_intervals, core, create_lemma, lemma, vars_to_explain))
-                return false;
-        }
-
-        for (pvar x : vars_to_explain) {
-            s.m_slicing.explain_simple_overlap(v, x, [this, &core, &lemma](sat::literal l) {
-                lemma.insert(~l);
-                core.insert(s.lit2cnstr(l));
-                });
-        }
-
-        if (create_lemma)
-            core.add_lemma(lemma_name, lemma.build());
-
-        //core.logger().log(inf_fi(*this, v));
-        core.init_viable_end(v);
-        return true;
-#endif
     }
 
     bool viable::set_conflict_by_interval_rec(pvar v, unsigned w, entry** intervals, unsigned num_intervals, bool& create_lemma, uint_set& vars_to_explain) {
-#if 0
-        SASSERT(std::all_of(intervals, intervals + num_intervals, [w](entry const* e) { return e->bit_width <= w; }));
-        // TODO: assert invariants on intervals list
-        rational const& mod_value = rational::power_of_two(w);
-
-        // heuristic: find longest interval as starting point
-        unsigned longest_idx = UINT_MAX;
-        rational longest_len;
-        for (unsigned i = 0; i < num_intervals; ++i) {
-            entry* e = intervals[i];
-            if (e->bit_width != w)
-                continue;
-            rational len = e->interval.current_len();
-            if (len > longest_len) {
-                longest_idx = i;
-                longest_len = len;
-            }
-        }
-        SASSERT(longest_idx < UINT_MAX);
-        entry* longest = intervals[longest_idx];
-
-        if (!longest->valid_for_lemma)
-            create_lemma = false;
-
-        unsigned i = longest_idx;
-        entry* e = longest;  // e is the current baseline
-
-        entry* tmp = nullptr;
-        on_scope_exit dont_leak_entry = [this, &tmp]() {
-            if (tmp)
-                m_alloc.push_back(tmp);
-            };
-
-
-        while (!longest->interval.currently_contains(e->interval.hi_val())) {
-            unsigned j = (i + 1) % num_intervals;
-            entry* n = intervals[j];
-
-            if (n->bit_width != w) {
-                // we have a hole starting with 'n', to be filled with intervals at lower bit-width.
-                // note that the next lower bit-width is not necessarily n->bit_width (e.g., the next layer may start with a hole itself)
-                unsigned w2 = n->bit_width;
-                // first, find the next constraint after the hole
-                unsigned last_idx = j;
-                unsigned k = j;
-                while (intervals[k]->bit_width != w) {
-                    if (intervals[k]->bit_width > w2)
-                        w2 = intervals[k]->bit_width;
-                    last_idx = k;
-                    k = (k + 1) % num_intervals;
-                }
-                entry* after = intervals[k];
-                SASSERT(j < last_idx);  // the hole cannot wrap around (but k may be 0)
-
-                rational const& lower_mod_value = rational::power_of_two(w2);
-                SASSERT(distance(e->interval.hi_val(), after->interval.lo_val(), mod_value) < lower_mod_value);  // otherwise we would have started the conflict at w2 already
-
-                // create temporary entry that covers the hole-complement on the lower level
-                if (!tmp)
-                    tmp = alloc_entry(v);
-                pdd dummy = s.var2pdd(v).mk_val(123);  // we could create extract-terms for boundaries but let's skip that for now and just disable the lemma
-                create_lemma = false;
-                tmp->valid_for_lemma = false;
-                tmp->bit_width = w2;
-                tmp->interval = eval_interval::proper(dummy, mod(after->interval.lo_val(), lower_mod_value), dummy, mod(e->interval.hi_val(), lower_mod_value));
-
-                // the index "last_idx+1" is always valid because we allocate an extra dummy space at the end before starting the recursion.
-                // we only need a single dummy space because the temporary entry is always at bit-width w2.
-                entry* old = intervals[last_idx + 1];
-                intervals[last_idx + 1] = tmp;
-
-                bool result = set_conflict_by_interval_rec(v, w2, &intervals[j], last_idx - j + 2, create_lemma, vars_to_explain);
-
-                intervals[last_idx + 1] = old;
-
-                if (!result)
-                    return false;
-
-                if (create_lemma) {
-                    // hole_length < 2^w2
-                    signed_constraint c = s.ult(after->interval.lo() - e->interval.hi(), lower_mod_value);
-                    VERIFY(c.is_currently_true(s));
-                    // this constraint may already exist on the stack with opposite bool value,
-                    // in that case we have a different, earlier conflict
-                    if (c.bvalue(s) == l_false) {
-                        core.reset();
-                        core.init(~c);
-                        return false;
-                    }
-                    lemma.insert(~c);
-                }
-
-                tmp->bit_width = w;
-                tmp->interval = eval_interval::proper(dummy, e->interval.hi_val(), dummy, after->interval.lo_val());
-                e = tmp;
-                j = k;
-                n = after;
-            }
-
-            // We may have a bunch of intervals that contain the current value.
-            // Choose the one making the most progress.
-            // TODO: it should be the last one, otherwise we wouldn't have added it to relevant_intervals? then we can skip the progress computation.
-            //       (TODO: should note the relevant invariants of intervals list and assert them above.)
-            SASSERT(n->interval.currently_contains(e->interval.hi_val()));
-            unsigned best_j = j;
-            rational best_progress = distance(e->interval.hi_val(), n->interval.hi_val(), mod_value);
-            while (true) {
-                unsigned j1 = (j + 1) % num_intervals;
-                entry* n1 = intervals[j1];
-                if (n1->bit_width != w)
-                    break;
-                if (!n1->interval.currently_contains(e->interval.hi_val()))
-                    break;
-                j = j1;
-                n = n1;
-                SASSERT(n != longest);  // because of loop condition on outer while loop
-                rational progress = distance(e->interval.hi_val(), n->interval.hi_val(), mod_value);
-                if (progress > best_progress) {
-                    best_j = j;
-                    best_progress = progress;
-                }
-            }
-            j = best_j;
-            n = intervals[best_j];
-
-            if (!update_interval_conflict(v, e->interval.hi(), n, core, create_lemma, lemma, vars_to_explain))
-                return false;
-
-            i = j;
-            e = n;
-        }
-
-        if (!update_interval_conflict(v, e->interval.hi(), longest, core, create_lemma, lemma, vars_to_explain))
-            return false;
-#endif
-
         return true;
     }
 
@@ -633,175 +454,6 @@ namespace polysat {
         entry* first = e1;
         if (!e1 && !e2)
             return true;
-#if 0
-
-        clause_builder builder(s, "bit check");
-        sat::literal_set added;
-        vector<std::pair<entry*, trailing_bits>> postponed;
-
-        auto add_literal = [&builder, &added](sat::literal lit) {
-            if (added.contains(lit))
-                return;
-            added.insert(lit);
-            builder.insert_eval(~lit);
-            };
-
-        auto add_literals = [&add_literal](sat::literal_vector const& lits) {
-            for (sat::literal lit : lits)
-                add_literal(lit);
-            };
-
-        auto add_entry = [&add_literal](entry* e) {
-            for (const auto& sc : e->side_cond)
-                add_literal(sc.blit());
-            for (const auto& src : e->src)
-                add_literal(src.blit());
-            };
-
-        auto add_slicing = [this, &add_literal](slicing::enode* n) {
-            s.m_slicing.explain_fixed(n, [&](sat::literal lit) {
-                add_literal(lit);
-                }, [&](pvar v) {
-                    LOG("from slicing: v" << v);
-                    add_literal(s.cs().eq(c.var(v), c.get_value(v)).blit());
-                    });
-            };
-
-        auto add_bit_justification = [&add_literals, &add_slicing](fixed_bits_info const& fbi, unsigned i) {
-            add_literals(fbi.just_src[i]);
-            add_literals(fbi.just_side_cond[i]);
-            for (slicing::enode* n : fbi.just_slicing[i])
-                add_slicing(n);
-            };
-
-        if (e1) {
-            unsigned largest_lsb = 0;
-            do {
-                if (e1->src.size() != 1) {
-                    // We just consider the ordinary constraints and not already contracted ones
-                    e1 = e1->next();
-                    continue;
-                }
-                signed_constraint& src = e1->src[0];
-                single_bit bit;
-                trailing_bits lsb;
-                if (src.is_ule() &&
-                    simplify_clause::get_bit(s.subst(src.to_ule().lhs()), s.subst(src.to_ule().rhs()), p, bit, src.is_positive()) && p.is_var()) {
-                    lbool prev = fixed[bit.position];
-                    fixed[bit.position] = to_lbool(bit.positive);
-                    //verbose_stream() << "Setting bit " << bit.position << " to " << bit.positive << " because of " << e->src << "\n";
-                    if (prev != l_undef && fixed[bit.position] != prev) {
-                        // LOG("Bit conflicting " << e1->src << " with " << just_src[bit.position][0]);  // NOTE: just_src may be empty if the justification is by slicing
-                        if (add_conflict) {
-                            add_bit_justification(out_fbi, bit.position);
-                            add_entry(e1);
-                            s.set_conflict(*builder.build());
-                        }
-                        return false;
-                    }
-                    // just override; we prefer bit constraints over parity as those are easier for subsumption to remove
-                    // do we just introduce a new justification here that subsumption will remove anyway?
-                    //      the only way it will not is if all bits are overwritten like this.
-                    //      but in that case we basically replace one parity constraint by multiple bit constraints?
-                    // verbose_stream() << "Adding bit constraint: " <<  e->src[0] << " (" << bit.position << ")\n";
-                    if (prev == l_undef) {
-                        out_fbi.set_just(bit.position, e1);
-                    }
-                }
-                else if (src.is_eq() &&
-                    simplify_clause::get_lsb(s.subst(src.to_ule().lhs()), s.subst(src.to_ule().rhs()), p, lsb, src.is_positive()) && p.is_var()) {
-                    if (src.is_positive()) {
-                        for (unsigned i = 0; i < lsb.length; i++) {
-                            lbool prev = fixed[i];
-                            fixed[i] = to_lbool(lsb.bits.get_bit(i));
-                            if (prev == l_undef) {
-                                SASSERT(just_src[i].empty());
-                                out_fbi.set_just(i, e1);
-                                continue;
-                            }
-                            if (fixed[i] != prev) {
-                                // LOG("Positive parity conflicting " << e1->src << " with " << just_src[i][0]);  // NOTE: just_src may be empty if the justification is by slicing
-                                if (add_conflict) {
-                                    add_bit_justification(out_fbi, i);
-                                    add_entry(e1);
-                                    s.set_conflict(*builder.build());
-                                }
-                                return false;
-                            }
-                            // Prefer justifications from larger masks (less premises)
-                            // TODO: Check that we don't override justifications coming from bit constraints
-                            if (largest_lsb < lsb.length)
-                                out_fbi.set_just(i, e1);
-                        }
-                        largest_lsb = std::max(largest_lsb, lsb.length);
-                    }
-                    else
-                        postponed.push_back({ e1, lsb });
-                }
-                e1 = e1->next();
-            } while (e1 != first);
-        }
-
-        // so far every bit is justified by a single constraint
-        SASSERT(all_of(just_src, [](auto const& vec) { return vec.size() <= 1; }));
-
-        // TODO: Incomplete - e.g., if we know the trailing bits are not 00 not 10 not 01 and not 11 we could also detect a conflict
-        // This would require partially clause solving (worth the effort?)
-        bool_vector removed(postponed.size(), false);
-        bool changed;
-        do { // fixed-point required?
-            changed = false;
-            for (unsigned j = 0; j < postponed.size(); j++) {
-                if (removed[j])
-                    continue;
-                const auto& neg = postponed[j];
-                unsigned indet = 0;
-                unsigned last_indet = 0;
-                unsigned i = 0;
-                for (; i < neg.second.length; i++) {
-                    if (fixed[i] != l_undef) {
-                        if (fixed[i] != to_lbool(neg.second.bits.get_bit(i))) {
-                            removed[j] = true;
-                            break; // this is already satisfied
-                        }
-                    }
-                    else {
-                        indet++;
-                        last_indet = i;
-                    }
-                }
-                if (i == neg.second.length) {
-                    if (indet == 0) {
-                        // Already false
-                        LOG("Found conflict with constraint " << neg.first->src);
-                        if (add_conflict) {
-                            for (unsigned k = 0; k < neg.second.length; k++)
-                                add_bit_justification(out_fbi, k);
-                            add_entry(neg.first);
-                            s.set_conflict(*builder.build());
-                        }
-                        return false;
-                    }
-                    else if (indet == 1) {
-                        // Simple BCP
-                        SASSERT(just_src[last_indet].empty());
-                        SASSERT(just_side_cond[last_indet].empty());
-                        for (unsigned k = 0; k < neg.second.length; k++) {
-                            if (k != last_indet) {
-                                SASSERT(fixed[k] != l_undef);
-                                out_fbi.push_from_bit(last_indet, k);
-                            }
-                        }
-                        out_fbi.push_just(last_indet, neg.first);
-                        fixed[last_indet] = neg.second.bits.get_bit(last_indet) ? l_false : l_true;
-                        removed[j] = true;
-                        LOG("Applying fast BCP on bit " << last_indet << " from constraint " << neg.first->src);
-                        changed = true;
-                    }
-                }
-            }
-        } while (changed);
-#endif
 
         return true;
     }
@@ -958,9 +610,6 @@ namespace polysat {
             };
 
         if (ne->interval.is_full()) {
-            // for (auto const& l : m_units[v].get_layers())
-            //     while (l.entries)
-            //         remove_entry(l.entries);
             while (entries)
                 remove_entry(entries);
             entries = create_entry();
@@ -1000,7 +649,8 @@ namespace polysat {
                     return true;
                 }
                 e = e->next();
-            } while (e != first);
+            } 
+            while (e != first);
             // otherwise, append to end of list
             first->insert_before(create_entry());
         }
@@ -1083,7 +733,7 @@ namespace polysat {
             entry* pos = e->prev();
             e->init(e);
             pos->insert_after(e);
-            if (e->interval.lo_val() < entries->interval.lo_val())
+            if (!entries || e->interval.lo_val() < entries->interval.lo_val())
                 entries = e;
         }
         else

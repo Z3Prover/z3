@@ -110,7 +110,7 @@ namespace polysat {
         case OP_BSMUL_NO_OVFL:    internalize_binaryc(a, [&](pdd const& p, pdd const& q) { return m_core.smul_ovfl(p, q); }); break;
         case OP_BSMUL_NO_UDFL:    internalize_binaryc(a, [&](pdd const& p, pdd const& q) { return m_core.smul_udfl(p, q); }); break;
 
-        case OP_BUMUL_OVFL:
+        case OP_BUMUL_OVFL:       
         case OP_BSMUL_OVFL:
         case OP_BSDIV_OVFL:
         case OP_BNEG_OVFL:
@@ -310,6 +310,8 @@ namespace polysat {
                 axiomatize_bv2int(e, x);
             else if (bv.is_int2bv(e, n, x))
                 axiomatize_int2bv(e, n, x);
+            else if (bv.is_extract(e))
+                axioms_for_extract(e);
             else
                 UNREACHABLE();
         }
@@ -610,7 +612,24 @@ namespace polysat {
     }
 
     void solver::internalize_extract(app* e) {
+        m_delayed_axioms.push_back(e);
+        ctx.push(push_back_vector(m_delayed_axioms));
         var2pdd(expr2enode(e)->get_th_var(get_id()));
+    }
+
+    // x[hi:lo] = 0 or x >= 2^lo
+    // x[w-1:lo] = 0 => x < 2^lo
+    void solver::axioms_for_extract(app* e) {
+        unsigned hi, lo;
+        expr* x;
+        VERIFY(bv.is_extract(e, lo, hi, x));
+        auto sz_e = hi - lo + 1;
+        auto sz_x = bv.get_bv_size(x);
+        auto eq0 = eq_internalize(e, bv.mk_numeral(0, sz_e));
+        auto gelo = mk_literal(bv.mk_ule(bv.mk_numeral(rational::power_of_two(lo), sz_x), x));
+        add_clause(eq0, gelo);
+        if (hi + 1 == sz_e) 
+            add_clause(~eq0, ~gelo);        
     }
 
     void solver::internalize_concat(app* e) {

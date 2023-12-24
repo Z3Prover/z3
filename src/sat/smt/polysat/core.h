@@ -134,7 +134,7 @@ namespace polysat {
         * In other words, the clause represents the formula /\ d_i -> \/ sc_j
         * Where d_i are logical interpretations of dependencies and sc_j are signed constraints.
         */
-        void add_axiom(char const* name, core_vector const& cs, bool is_redundant);
+        void add_axiom(char const* name, constraint_or_dependency_list const& cs, bool is_redundant);
         void add_axiom(char const* name, constraint_or_dependency const* begin, constraint_or_dependency const* end, bool is_redundant);
         
         pvar add_var(unsigned sz);

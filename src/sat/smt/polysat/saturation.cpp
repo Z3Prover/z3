@@ -45,9 +45,6 @@ namespace polysat {
         else if (sc.is_umul_ovfl())
             try_umul_ovfl(v, umul_ovfl(id, sc));
 
-        if (!c.inconsistent())
-            try_nonzero_upper_extract(v);
-
         return c.inconsistent();
     }
 
@@ -191,24 +188,6 @@ namespace polysat {
             auto y_prime = j.rhs();
             bool is_strict = i.is_strict() || j.is_strict();
             add_clause("[z] z <= y' && yx <= zx", { i.dep(), j.dep(), c.umul_ovfl(x, y_prime), ineq(is_strict, y * x, y_prime * x) }, true);
-        }
-    }
-
-    void saturation::try_nonzero_upper_extract(pvar y) {
-        rational r;
-        if (!c.try_eval(c.var(y), r) || !r.is_zero())
-            return;
-        auto& C = c.cs();
-        offset_slices slices;
-        c.get_subslices(y, slices);
-        for (auto const& [x, offset] : slices) {
-            if (c.inconsistent())
-                break;
-            offset_claim cl = { x, y, offset};
-            dependency d = dependency(cl, 0); // scope gets computed by polysat_solver
-            pdd px = c.var(x);
-            pdd py = c.var(y);
-            add_clause("y = x[h:l] & y != 0 => x >= 2^l", { d, C.eq(py), C.uge(px, rational::power_of_two(offset))}, true);
         }
     }
 

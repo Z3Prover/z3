@@ -159,7 +159,7 @@ namespace polysat {
         ptr_vector<entry>       m_equal_lin;    // entries that have non-unit multipliers, but are equal
         ptr_vector<entry>       m_diseq_lin;    // entries that have distinct non-zero multipliers
         ptr_vector<entry>       m_explain;      // entries that explain the current propagation or conflict
-        core_vector             m_core;         // forbidden interval core
+        constraint_or_dependency_list             m_core;         // forbidden interval core
         bool m_has_core = false;
 
         bool well_formed(entry* e);
@@ -263,7 +263,7 @@ namespace polysat {
         /*
         * Retrieve lemma corresponding to forbidden interval constraints
         */
-        core_vector const& get_core() { SASSERT(m_has_core);  return m_core; }
+        constraint_or_dependency_list const& get_core() { SASSERT(m_has_core);  return m_core; }
 
         /*
         * Register constraint at index 'idx' as unitary in v.

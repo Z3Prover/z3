@@ -80,10 +80,6 @@ namespace polysat {
         unsigned hi = 0;
         unsigned lo = 0;
         rational value;
-
-        /// The constraint is equivalent to setting fixed bits on a variable.
-        // bool is_equivalent;
-
         fixed_bits() = default;
         fixed_bits(unsigned hi, unsigned lo, rational value) : hi(hi), lo(lo), value(value) {}
     };
@@ -104,11 +100,10 @@ namespace polysat {
     using constraint_id_or_constraint = std::variant<constraint_id, signed_constraint>;
     using constraint_id_or_dependency = std::variant<constraint_id, dependency>;
 
-    using core_vector = std::initializer_list<constraint_or_dependency>;
+    using constraint_or_dependency_list = std::initializer_list<constraint_or_dependency>;
     using constraint_id_vector = svector<constraint_id>;
     using constraint_id_list = std::initializer_list<constraint_id>;
     using offset_slices = vector<offset_slice>;
-    using eq_justification = svector<std::pair<theory_var, theory_var>>;
 
     //
     // The interface that PolySAT uses to the SAT/SMT solver.

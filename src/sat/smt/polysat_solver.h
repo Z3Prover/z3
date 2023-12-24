@@ -35,7 +35,6 @@ namespace polysat {
         typedef sat::literal literal;
         typedef sat::bool_var bool_var;
         typedef sat::literal_vector literal_vector;
-        using slice_infos = vector<std::tuple<euf::enode*, unsigned, eq_justification>>;
         using pdd = dd::pdd;
 
         struct stats {
@@ -77,8 +76,6 @@ namespace polysat {
 
         sat::check_result intblast();
 
-        void get_sub_slices(pvar v, slice_infos& slices);
-        void get_super_slices(pvar v, slice_infos& slices);
         void explain_slice(pvar v, pvar w, unsigned offset, std::function<void(euf::enode*, euf::enode*)>& consume);
         void explain_fixed(pvar v, unsigned lo, unsigned hi, rational const& value, std::function<void(euf::enode*, euf::enode*)>& consume_eq);
 
@@ -151,6 +148,7 @@ namespace polysat {
         void axiomatize_ext_rotate_right(app* e, expr* x, expr* y);
         void axiomatize_int2bv(app* e, unsigned sz, expr* x);
         void axiomatize_bv2int(app* e, expr* x);
+        void axioms_for_extract(app* e);
         expr* rotate_left(app* e, unsigned n, expr* x);
         unsigned m_delayed_axioms_qhead = 0;
         ptr_vector<app> m_delayed_axioms;
@@ -180,7 +178,7 @@ namespace polysat {
         void get_fixed_bits(pvar v, fixed_bits_vector& fixed_bits) override;
         dependency explain_slice(pvar v, pvar w, unsigned offset);
 
-        bool add_axiom(char const* name, core_vector const& clause, bool redundant) {
+        bool add_axiom(char const* name, constraint_or_dependency_list const& clause, bool redundant) {
             return add_axiom(name, clause.begin(), clause.end(), redundant);
         }
 
