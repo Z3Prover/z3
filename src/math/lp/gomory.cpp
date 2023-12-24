@@ -25,7 +25,7 @@
 #define SMALL_CUTS 1
 namespace lp {
 
-class create_cut {
+struct create_cut {
     lar_term   &          m_t; // the term to return in the cut
     mpq        &          m_k; // the right side of the cut
     explanation*          m_ex; // the conflict explanation
@@ -39,7 +39,8 @@ class create_cut {
 #if SMALL_CUTS
     mpq                   m_abs_max, m_big_number;
 #endif
-    struct found_big {};
+    int                      m_polarity;
+    bool                   m_found_big;
 
     const impq & get_value(unsigned j) const { return lia.get_value(j); }
     bool is_int(unsigned j) const { return lia.column_is_int(j) || (lia.is_fixed(j) &&
@@ -70,7 +71,7 @@ class create_cut {
             new_a = m_fj <= m_one_minus_f ? m_fj / m_one_minus_f : ((1 - m_fj) / m_f);
             lp_assert(new_a.is_pos());
             m_k.addmul(new_a, lower_bound(j).x);
-            push_explanation(column_lower_bound_constraint(j));            
+            push_explanation(column_lower_bound_constraint(j)); 
         }
         else {
             lp_assert(at_upper(j));
@@ -78,14 +79,14 @@ class create_cut {
             new_a = - (m_fj <= m_f ? m_fj / m_f  : ((1 - m_fj) / m_one_minus_f));
             lp_assert(new_a.is_neg());
             m_k.addmul(new_a, upper_bound(j).x);
-            push_explanation(column_upper_bound_constraint(j));
-        }
+            push_explanation(column_upper_bound_constraint(j));  
+        }        
         m_t.add_monomial(new_a, j);
         TRACE("gomory_cut_detail", tout << "new_a = " << new_a << ", k = " << m_k << "\n";);
 #if SMALL_CUTS
         // if (numerator(new_a).is_big()) throw found_big(); 
         if (numerator(new_a) > m_big_number)
-            throw found_big(); 
+            m_found_big = true;
 #endif
     }
 
@@ -93,25 +94,45 @@ class create_cut {
         TRACE("gomory_cut_detail_real", tout << "j = " << j << ", a = " << a << ", m_k = " << m_k << "\n";);
         mpq new_a;
         if (at_lower(j)) {
-            if (a.is_pos()) 
+            if (a.is_pos()) { 
                 // the delta is a (x - f) is positive it has to grow and fight m_one_minus_f
                 new_a = a / m_one_minus_f;
-            else 
+                if (m_polarity != 2) {
+                    if (m_polarity == -1) m_polarity = 2;
+                    else m_polarity = 1;
+                }
+            }
+            else {
                 // the delta is negative and it works again m_f
                 new_a = - a / m_f;
+                if (m_polarity != 2) {
+                    if (m_polarity == 1) m_polarity = 2;
+                    else m_polarity = -1;
+                }
+            }
             m_k.addmul(new_a, lower_bound(j).x); // is it a faster operation than
-            // k += lower_bound(j).x * new_a;  
+            // k += lower_bound(j).x * new_a;
             push_explanation(column_lower_bound_constraint(j));
         }
         else {
             lp_assert(at_upper(j));
-            if (a.is_pos()) 
+            if (a.is_pos()) {
                 // the delta is works again m_f
-                new_a =  - a / m_f; 
-            else 
+                new_a =  - a / m_f;
+                if (m_polarity != 2) {
+                    if (m_polarity == 1) m_polarity = 2;
+                    else m_polarity = -1;
+                }
+            }
+            else {
                 // the delta is positive works again m_one_minus_f
-                new_a =   a / m_one_minus_f; 
-            m_k.addmul(new_a, upper_bound(j).x); //  k += upper_bound(j).x * new_a; 
+                new_a =   a / m_one_minus_f;
+                if (m_polarity != 2) {
+                    if (m_polarity == -1) m_polarity = 2;
+                    else m_polarity = 1;
+                }
+            }
+            m_k.addmul(new_a, upper_bound(j).x); //  k += upper_bound(j).x * new_a;
             push_explanation(column_upper_bound_constraint(j));
         }
         m_t.add_monomial(new_a, j);
@@ -121,7 +142,7 @@ class create_cut {
 #if SMALL_CUTS
         // if (numerator(new_a).is_big()) throw found_big(); 
         if (numerator(new_a) > m_big_number)
-            throw found_big(); 
+            m_found_big = true;
 #endif
     }
 
@@ -184,6 +205,7 @@ class create_cut {
     void dump_lower_bound_expl(std::ostream & out, unsigned j) const {
         out << "(assert (>= " << var_name(j) << " " << lower_bound(j).x << "))\n";
     }
+
     void dump_upper_bound_expl(std::ostream & out, unsigned j) const {
         out << "(assert (<= " << var_name(j) << " " << upper_bound(j).x << "))\n";
     }
@@ -238,10 +260,12 @@ public:
 
     lia_move cut() {
         TRACE("gomory_cut", dump(tout););
-        
-        // gomory will be   t >= k and the current solution has a property t < k
+        m_polarity = 0; // 0: means undefined, 1, -1: the polar case, 2: the mixed case
+        // gomory cut will be  m_t >= m_k and the current solution has a property m_t < m_k
         m_k = 1;
         m_t.clear();
+        m_ex->clear();
+        m_found_big = false;
         TRACE("gomory_cut_detail", tout << "m_f: " << m_f << ", ";
               tout << "1 - m_f: " << 1 - m_f << ", get_value(m_inf_col).x - m_f = " << get_value(m_inf_col).x - m_f << "\n";);
         lp_assert(m_f.is_pos() && (get_value(m_inf_col).x - m_f).is_int());  
@@ -258,42 +282,59 @@ public:
 #endif
         for (const auto & p : m_row) {
             unsigned j = p.var();
-            if (j == m_inf_col) {
-                lp_assert(p.coeff() == one_of_type<mpq>());
+            if (j == m_inf_col) continue;
+             // use -p.coeff() to make the format compatible with the format used in: Integrating Simplex with DPLL(T)
+
+            if (lia.is_fixed(j)) {
+                push_explanation(column_lower_bound_constraint(j));
+                push_explanation(column_upper_bound_constraint(j));
                 continue;
             }
-
-             // use -p.coeff() to make the format compatible with the format used in: Integrating Simplex with DPLL(T)
-            try {
-                if (lia.is_fixed(j)) {
-                    push_explanation(column_lower_bound_constraint(j));
-                    push_explanation(column_upper_bound_constraint(j));
-                    continue;
+            if (is_real(j))
+                real_case_in_gomory_cut(- p.coeff(), j);
+            else if (!p.coeff().is_int()) {
+                some_int_columns = true;
+                m_fj = fractional_part(-p.coeff());
+                m_one_minus_fj = 1 - m_fj;
+                int_case_in_gomory_cut(j);
+                if (p.coeff().is_pos()) {
+                    if (at_lower(j)) {
+                        if (m_polarity == -1) m_polarity = 2;
+                        else m_polarity = 1;
+                    }
+                    else {
+                        if (m_polarity == 1) m_polarity = 2;
+                        else m_polarity = -1;
+                    }
                 }
-                if (is_real(j))   
-                    real_case_in_gomory_cut(- p.coeff(), j);
-                else if (!p.coeff().is_int()) {
-                    some_int_columns = true;
-                    m_fj = fractional_part(-p.coeff());
-                    m_one_minus_fj = 1 - m_fj;
-                    int_case_in_gomory_cut(j);
+                else {
+                    if (at_lower(j)) {
+                        if (m_polarity == 1) m_polarity = 2;
+                        else m_polarity = -1;
+                    }
+                    else {
+                        if (m_polarity == -1) m_polarity = 2;
+                        else m_polarity = 1;
+                    }
                 }
             }
-            catch (found_big) {
-                m_ex->clear();
-                m_t.clear();
-                m_k = 1;
+
+            if (m_found_big) {
                 return lia_move::undef;
             }
         }
+
         if (m_t.is_empty())
             return report_conflict_from_gomory_cut();
+        TRACE("gomory_cut", print_linear_combination_of_column_indices_only(m_t.coeffs_as_vector(), tout << "gomory cut: "); tout << " >= " << m_k << std::endl;);
         if (some_int_columns)
             simplify_inequality();
-        lp_assert(lia.current_solution_is_inf_on_cut());  // checks that indices are columns
+        
         TRACE("gomory_cut", print_linear_combination_of_column_indices_only(m_t.coeffs_as_vector(), tout << "gomory cut: "); tout << " >= " << m_k << std::endl;);
         TRACE("gomory_cut_detail", dump_cut_and_constraints_as_smt_lemma(tout);
               lia.lra.display(tout));
+        SASSERT(lia.current_solution_is_inf_on_cut());  // checks that indices are columns
+              
         lia.settings().stats().m_gomory_cuts++;
         return lia_move::cut;
     }
@@ -403,11 +444,6 @@ public:
     
     };
 
-    lia_move gomory::cut(lar_term & t, mpq & k, explanation* ex, unsigned basic_inf_int_j, const row_strip<mpq>& row) {
-        create_cut cc(t, k, ex, basic_inf_int_j, row, lia);
-        return cc.cut();
-    }
-    
     bool gomory::is_gomory_cut_target(lpvar k) {
         SASSERT(lia.is_base(k));
         // All non base variables must be at their bounds and assigned to rationals (that is, infinitesimals are not allowed).
@@ -423,16 +459,6 @@ public:
             }
         }
         return true;
-    }
-
-    
-    lia_move gomory::get_cut(lpvar j) {
-        unsigned r = lia.row_of_basic_column(j);
-        const row_strip<mpq>& row = lra.get_row(r);
-        SASSERT(lra.row_is_correct(r));
-        SASSERT(is_gomory_cut_target(j));
-        lia.m_upper = false;
-        return cut(lia.m_t, lia.m_k, lia.m_ex, j, row);
     }
 
  // return the minimal distance from the variable value to an integer
@@ -486,38 +512,28 @@ public:
     
 
     lia_move gomory::get_gomory_cuts(unsigned num_cuts) {
-        struct ex { explanation m_ex; lar_term m_term; mpq m_k; bool m_is_upper; };
+        struct cut_result {explanation ex; lar_term t; mpq k; int polarity; lpvar j;};
+        vector<cut_result> big_cuts;
+        struct polar_pair {int polarity; lpvar j; u_dependency *dep;};
+        vector<polar_pair> polar_vars;
         unsigned_vector columns_for_cuts = gomory_select_int_infeasible_vars(num_cuts);
 
-        vector<ex> cuts;
-        
-        for (unsigned j : columns_for_cuts) {
-            lia.m_ex->clear();
-            lia.m_t.clear();
-            lia.m_k.reset();
-            auto r = get_cut(j);
-            if (r != lia_move::cut)
-                continue;
-            cuts.push_back({ *lia.m_ex, lia.m_t, lia.m_k, lia.is_upper() });
-            if (lia.settings().get_cancel_flag())
-                return lia_move::undef;
-        }
-
-        auto is_small_cut = [&](ex const& cut) {
-            return all_of(cut.m_term, [&](auto ci) { return ci.coeff().is_small(); });
+        // define inline helper functions
+        bool has_small_cut = false;
+        auto is_small_cut = [&](lar_term const& t) {
+            return all_of(t, [&](auto ci) { return ci.coeff().is_small(); });
         };
-
-        auto add_cut = [&](ex const& cut) {
+        auto add_cut = [&](cut_result const& cr) {
             u_dependency* dep = nullptr;
-            for (auto c : cut.m_ex) 
+            for (auto c : cr.ex) 
                 dep = lra.join_deps(lra.dep_manager().mk_leaf(c.ci()), dep);
-            lp::lpvar term_index = lra.add_term(cut.m_term.coeffs_as_vector(), UINT_MAX);
+            lp::lpvar term_index = lra.add_term(cr.t.coeffs_as_vector(), UINT_MAX);
             term_index = lra.map_term_index_to_column_index(term_index);
             lra.update_column_type_and_bound(term_index,
-                                             cut.m_is_upper ? lp::lconstraint_kind::LE : lp::lconstraint_kind::GE,
-                                             cut.m_k, dep);
+                                             lp::lconstraint_kind::GE,
+                                             lia.m_k, dep);
+            return dep;
         };
-
         auto _check_feasible = [&](void) {
             lra.find_feasible_solution();
             if (!lra.is_feasible() && !lia.settings().get_cancel_flag()) {
@@ -527,24 +543,34 @@ public:
             return true;
         };
 
-        bool has_small = false, has_large = false;
-
-        for (auto const& cut : cuts) {
-            if (!is_small_cut(cut)) {
-                has_large = true;
+// start creating cuts        
+        for (unsigned j : columns_for_cuts) {
+            unsigned row_index = lia.row_of_basic_column(j);
+            const row_strip<mpq>& row = lra.get_row(row_index);
+            create_cut cc(lia.m_t, lia.m_k, lia.m_ex, j, row, lia);
+            auto r = cc.cut();
+                
+            if (r != lia_move::cut)
+                continue;
+            cut_result cr = {*lia.m_ex, lia.m_t, lia.m_k, cc.m_polarity, j};
+   
+            if (!is_small_cut(lia.m_t)) {
+                big_cuts.push_back(cr);
                 continue;
             }
-            has_small = true;
-            add_cut(cut);
+            has_small_cut = true;
+            auto dep = add_cut(cr);
+            if (abs(cr.polarity) == 1)  // need to delay the update of the bounds for j in a polar case, because simplify_inequality relies on the old bounds
+                polar_vars.push_back({cr.polarity, j, dep}); // todo : polarity for big cuts
+           
+            if (lia.settings().get_cancel_flag())
+                return lia_move::undef;
         }
 
-        if (has_large) {
-            lra.push();
-        
-            for (auto const& cut : cuts) 
-                if (!is_small_cut(cut))
-                    add_cut(cut);
-
+        if (big_cuts.size()) {
+            lra.push();        
+            for (auto const& cut : big_cuts) 
+                add_cut(cut);
             bool feas = _check_feasible();
             lra.pop(1);
 
@@ -555,18 +581,25 @@ public:
                 return lia_move::conflict;
         }
 
+        for (auto const& p : polar_vars) {
+            if (p.polarity == 1) {
+                lra.update_column_type_and_bound(p.j, lp::lconstraint_kind::LE, floor(lra.get_column_value(p.j).x), p.dep);
+            }
+            else if (p.polarity == -1) {
+                lra.update_column_type_and_bound(p.j, lp::lconstraint_kind::GE, ceil(lra.get_column_value(p.j).x), p.dep);
+            }
+        }
+        
         if (!_check_feasible())
             return lia_move::conflict;
         
-                
-        lia.m_ex->clear();
-        lia.m_t.clear();
-        lia.m_k.reset();
         if (!lia.has_inf_int())
             return lia_move::sat;
 
-        if (has_small || has_large)
+        if (has_small_cut || big_cuts.size())
             return lia_move::continue_with_check;
+
+        
         
         lra.move_non_basic_columns_to_bounds();
         return lia_move::undef;

@@ -198,7 +198,7 @@ namespace lp {
         if (r == lia_move::undef) lra.move_non_basic_columns_to_bounds();
         if (r == lia_move::undef && should_hnf_cut()) r = hnf_cut();
 
-        if (r == lia_move::undef && should_gomory_cut()) r = gomory(*this).get_gomory_cuts(2);
+        if (r == lia_move::undef && should_gomory_cut()) r = gomory(*this).get_gomory_cuts(1);
 
         if (r == lia_move::undef) r = int_branch(*this)();
         if (settings().get_cancel_flag()) r = lia_move::undef;        
@@ -242,6 +242,7 @@ namespace lp {
         CTRACE("current_solution_is_inf_on_cut", v * sign <= impq(m_k) * sign,
                tout << "m_upper = " << m_upper << std::endl;
                tout << "v = " << v << ", k = " << m_k << std::endl;
+               tout << "term:";lra.print_term(m_t, tout) << "\n";
                );
         return v * sign > impq(m_k) * sign;
     }
