@@ -519,8 +519,8 @@ public:
     lia_move gomory::get_gomory_cuts(unsigned num_cuts) {
         struct cut_result {u_dependency *dep; lar_term t; mpq k; int polarity; lpvar j;};
         vector<cut_result> big_cuts;
-        struct polar_pair {int polarity;  u_dependency *dep;};
-        std::unordered_map<lpvar, polar_pair> polar_vars;
+        struct polar_info {lpvar j; int polarity;  u_dependency *dep;};
+        vector<polar_info> polar_vars;
         unsigned_vector columns_for_cuts = gomory_select_int_infeasible_vars(num_cuts);
 
         // define inline helper functions
@@ -556,7 +556,7 @@ public:
                 continue;
             cut_result cr = {cc.m_dep, lia.m_t, lia.m_k, cc.m_polarity, j};
             if (abs(cr.polarity) == 1)  // need to delay the update of the bounds for j in a polar case, because simplify_inequality relies on the old bounds
-                polar_vars[j] = {cr.polarity,  cc.m_dep}; 
+                polar_vars.push_back( {j, cr.polarity,  cc.m_dep} ); 
            
             if (!is_small_cut(lia.m_t)) {
                 big_cuts.push_back(cr);
@@ -584,12 +584,12 @@ public:
 
 // this way we create bounds for the variables in polar cases even where the terms had big numbers
         for (auto const& p : polar_vars) {
-            if (p.second.polarity == 1) {
-                lra.update_column_type_and_bound(p.first, lp::lconstraint_kind::LE, floor(lra.get_column_value(p.first).x), p.second.dep);
+            if (p.polarity == 1) {
+                lra.update_column_type_and_bound(p.j, lp::lconstraint_kind::LE, floor(lra.get_column_value(p.j).x), p.dep);
             }
             else {
-                SASSERT(p.second.polarity == -1);
-                lra.update_column_type_and_bound(p.first, lp::lconstraint_kind::GE, ceil(lra.get_column_value(p.first).x), p.second.dep);
+                SASSERT(p.polarity == -1);
+                lra.update_column_type_and_bound(p.j, lp::lconstraint_kind::GE, ceil(lra.get_column_value(p.j).x), p.dep);
             }
         }
         
