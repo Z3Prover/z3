@@ -304,11 +304,11 @@ namespace euf {
     void solver::get_eq_antecedents(enode* a, enode* b, literal_vector& r) {
         m_egraph.begin_explain();
         m_explain.reset();
-	m_egraph.explain_eq<size_t>(m_explain, nullptr, a, b);
-	for (unsigned qhead = 0; qhead < m_explain.size(); ++qhead) {
-	    size_t* e = m_explain[qhead];
-	    if (is_literal(e)) 
-	        r.push_back(get_literal(e));            
+        m_egraph.explain_eq<size_t>(m_explain, nullptr, a, b);
+        for (unsigned qhead = 0; qhead < m_explain.size(); ++qhead) {
+            size_t* e = m_explain[qhead];
+            if (is_literal(e))
+                r.push_back(get_literal(e));
             else {
                 size_t idx = get_justification(e);
                 auto* ext = sat::constraint_base::to_extension(idx);

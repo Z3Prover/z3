@@ -57,6 +57,7 @@ namespace polysat {
         constraint_id_vector m_prop_queue;
         svector<constraint_info> m_constraint_index;  // index of constraints
         constraint_id_vector m_unsat_core;
+        random_gen           m_rand;
 
 
         // attributes associated with variables
@@ -83,16 +84,14 @@ namespace polysat {
         void propagate_unsat_core();
         void propagate(constraint_id id, signed_constraint& sc, lbool value, dependency const& d);
 
-        void get_bitvector_suffixes(pvar v, offset_slices& out);
-        void get_fixed_bits(pvar v, fixed_bits_vector& fixed_bits);
-        bool inconsistent() const;
+
+
 
         void add_watch(unsigned idx, unsigned var);
 
 
 
         sat::check_result final_check();
-        constraint_id find_conflicting_constraint();
         svector<pvar> find_conflict_variables(constraint_id idx);
 
         void add_axiom(signed_constraint sc);
@@ -148,6 +147,13 @@ namespace polysat {
         std::ostream& display(std::ostream& out) const;
 
         /*
+        * Viable 
+        */
+        void get_bitvector_suffixes(pvar v, offset_slices& out);
+        void get_fixed_bits(pvar v, fixed_bits_vector& fixed_bits);
+        void get_subslices(pvar v, offset_slices& out);
+
+        /*
         * Saturation
         */
         signed_constraint get_constraint(constraint_id id);
@@ -159,6 +165,7 @@ namespace polysat {
         dependency propagate(signed_constraint const& sc, constraint_id_vector const& ids) { return s.propagate(sc, ids); }
         lbool eval(signed_constraint const& sc);
         constraint_id_vector explain_eval(signed_constraint const& sc);
+        bool inconsistent() const;
 
         /*
         * Constraints

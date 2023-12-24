@@ -199,8 +199,11 @@ namespace polysat {
         unsigned level = 0;
         for (auto c : core)
             level = std::max(level, s().lvl(c));
-        if (!eqs.empty()) // over-approximate propagation level if it uses equalities.
-            level = level = s().scope_lvl();
+        sat::literal_vector eqlits;
+        for (auto [n1, n2] : eqs) 
+            ctx.get_eq_antecedents(n1, n2, eqlits);
+        for (auto lit : eqlits)
+            level = std::max(level, s().lvl(lit));
         ctx.propagate(lit, ex);
         return dependency(lit, level); 
     }

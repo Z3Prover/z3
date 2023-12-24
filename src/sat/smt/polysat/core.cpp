@@ -193,32 +193,7 @@ namespace polysat {
     }
 
     sat::check_result core::final_check() {
-        constraint_id conflict_idx = find_conflicting_constraint();
-
-        // If all constraints evaluate to true, we are done.
-        if (conflict_idx.is_null())
-            return sat::check_result::CR_DONE;
-        
-        // Extract variables that are of level or above of conflicting constraint and contradict the constraint
-        auto vars = find_conflict_variables(conflict_idx);
-        saturation sat(*this);
-        for (auto v: vars)
-         if (sat.propagate(v, conflict_idx))
-                return sat::check_result::CR_CONTINUE;
-
-        // If no saturation propagation was possible, explain the conflict using the variable assignment.
-        m_unsat_core = explain_eval(get_constraint(conflict_idx));
-        m_unsat_core.push_back(conflict_idx);
-        propagate_unsat_core();
-        return sat::check_result::CR_CONTINUE;
-    }
-
-    /**
-    * Identify a conflicting constraint, if any, that evaluates to false under 
-    * the current assignment.
-    */
-    constraint_id core::find_conflicting_constraint() {
-        unsigned conflict_level = UINT_MAX;
+        unsigned n = 0;
         constraint_id conflict_idx = { UINT_MAX };
         for (auto idx : m_prop_queue) {
             auto [sc, d, value] = m_constraint_index[idx.id];
@@ -227,17 +202,25 @@ namespace polysat {
             SASSERT(eval_value != l_undef);
             if (eval_value == value)
                 continue;
-            auto explain = explain_eval(sc);
-            unsigned new_conflict_level = d.level();
-            for (auto idx2 : explain)
-                new_conflict_level = std::max(new_conflict_level, m_constraint_index[idx2.id].d.level());
+            if (0 == (m_rand() % (++n)))
+                conflict_idx = idx;
 
-            if (new_conflict_level >= conflict_level)
-                continue;
-            conflict_idx = idx;
-            conflict_level = new_conflict_level;
+            auto vars = find_conflict_variables(idx);
+            saturation sat(*this);
+            for (auto v : vars)
+                if (sat.resolve(v, conflict_idx))
+                    return sat::check_result::CR_CONTINUE;
         }
-        return conflict_idx;
+
+        // If all constraints evaluate to true, we are done.
+        if (conflict_idx.is_null())
+            return sat::check_result::CR_DONE;
+        
+        // If no saturation propagation was possible, explain the conflict using the variable assignment.
+        m_unsat_core = explain_eval(get_constraint(conflict_idx));
+        m_unsat_core.push_back(conflict_idx);
+        propagate_unsat_core();
+        return sat::check_result::CR_CONTINUE;
     }
 
     /**
@@ -395,6 +378,10 @@ namespace polysat {
 
     void core::get_fixed_bits(pvar v, fixed_bits_vector& fixed_bits) {
         s.get_fixed_bits(v, fixed_bits);
+    }
+
+    void core::get_subslices(pvar v, offset_slices& out) {
+        s.get_bitvector_sub_slices(v, out);
     }
 
     bool core::inconsistent() const {
