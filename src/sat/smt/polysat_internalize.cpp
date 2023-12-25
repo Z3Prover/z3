@@ -181,8 +181,7 @@ namespace polysat {
     void solver::mk_atom(sat::bool_var bv, signed_constraint& sc) {
         if (get_bv2a(bv))
             return;
-        sat::literal lit(bv, false);
-        auto index = m_core.register_constraint(sc, dependency(lit));
+        auto index = m_core.register_constraint(sc, dependency(bv));
         auto a = new (get_region()) atom(bv, index);
         insert_bv2a(bv, a);
         ctx.push(mk_atom_trail(bv, *this));

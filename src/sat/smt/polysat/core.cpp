@@ -348,8 +348,7 @@ namespace polysat {
 
     dependency core::get_dependency(constraint_id idx) const {
         auto [sc, d, value] = m_constraint_index[idx.id];
-        SASSERT(value != l_undef);
-        return value == l_false ? ~d : d;
+        return d;
     }
 
     dependency_vector core::get_dependencies(constraint_id_vector const& ids) const {

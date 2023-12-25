@@ -68,14 +68,14 @@ namespace polysat {
         for (auto const& e : cs) {
             if (std::holds_alternative<dependency>(e)) {
                 auto d = *std::get_if<dependency>(&e);
-                lemma.push_back(~d);
+                lemma.push_back(d);
             }
             else if (std::holds_alternative<signed_constraint>(e)) {
                 auto sc = *std::get_if<signed_constraint>(&e);
                 if (c.eval(sc) != l_false)
                     return;
                 auto d = c.propagate(~sc, c.explain_eval(sc));
-                lemma.push_back(~d);
+                lemma.push_back(d);
             }
             else
                 UNREACHABLE();

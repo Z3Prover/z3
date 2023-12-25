@@ -115,8 +115,10 @@ namespace polysat {
         sat::literal_vector core;
         euf::enode_pair_vector eqs;
         for (auto d : deps) {
-            if (d.is_literal()) {
-                core.push_back(d.literal());
+            if (d.is_bool_var()) {
+                auto bv = d.bool_var();
+                auto lit = sat::literal(bv, s().value(bv) == l_false);
+                core.push_back(lit);
             }
             else {
                 auto const [v1, v2] = d.eq();
@@ -175,12 +177,12 @@ namespace polysat {
             return;
         pdd p = var2pdd(v1);
         pdd q = var2pdd(v2);
-        auto sc = ~m_core.eq(p, q);
-        sat::literal neq = ~expr2literal(ne.eq());
-        auto d = dependency(neq);
+        auto sc = m_core.eq(p, q);
+        sat::literal eq = expr2literal(ne.eq());
+        auto d = dependency(eq.var());
         auto id = m_core.register_constraint(sc, d);
-        TRACE("bv", tout << neq << " := " << s().value(neq) << " @" << s().scope_lvl() << "\n");
-        m_core.assign_eh(id, false, s().lvl(neq));
+        TRACE("bv", tout << eq << " := " << s().value(eq) << " @" << s().scope_lvl() << "\n");
+        m_core.assign_eh(id, false, s().lvl(eq));
     }
 
     // Core uses the propagate callback to add unit propagations to the trail.
@@ -190,16 +192,16 @@ namespace polysat {
     dependency solver::propagate(signed_constraint sc, dependency_vector const& deps) {
         sat::literal lit = ctx.mk_literal(constraint2expr(sc));        
         if (s().value(lit) == l_true)
-            return dependency(lit);
+            return dependency(lit.var());
         auto [core, eqs] = explain_deps(deps);
         auto ex = euf::th_explain::propagate(*this, core, eqs, lit, nullptr);        
         ctx.propagate(lit, ex);
-        return dependency(lit); 
+        return dependency(lit.var()); 
     }
 
     unsigned solver::level(dependency const& d) {
-        if (d.is_literal())
-            return s().lvl(d.literal());
+        if (d.is_bool_var())
+            return s().lvl(d.bool_var());
         else if (d.is_eq()) {
             auto [v1, v2] = d.eq();
             sat::literal_vector lits;
@@ -229,10 +231,9 @@ namespace polysat {
 
     void solver::propagate(dependency const& d, bool sign, dependency_vector const& deps) {
         auto [core, eqs] = explain_deps(deps);
-        if (d.is_literal()) {
-            auto lit = d.literal();
-            if (sign)
-                lit.neg();
+        if (d.is_bool_var()) {
+            auto bv = d.bool_var();
+            auto lit = sat::literal(bv, sign);
             if (s().value(lit) == l_true)
                 return;
             auto ex = euf::th_explain::propagate(*this, core, eqs, lit, nullptr);
@@ -264,8 +265,11 @@ namespace polysat {
             if (std::holds_alternative<dependency>(e)) {
                 auto d = *std::get_if<dependency>(&e);
                 SASSERT(!d.is_null());
-                if (d.is_literal())
-                    lits.push_back(~d.literal());
+                if (d.is_bool_var()) {
+                    auto bv = d.bool_var();
+                    auto lit = sat::literal(bv, s().value(bv) == l_false);
+                    lits.push_back(~lit);
+                }
                 else if (d.is_eq()) {
                     auto [v1, v2] = d.eq();
                     lits.push_back(~eq_internalize(var2enode(v1), var2enode(v2)));

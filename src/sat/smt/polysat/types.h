@@ -37,33 +37,32 @@ namespace polysat {
 
     class dependency {
         struct axiom_t {};
-        std::variant<axiom_t, sat::literal, theory_var_pair, offset_claim> m_data;
+        std::variant<axiom_t, sat::bool_var, theory_var_pair, offset_claim> m_data;
         dependency(): m_data(axiom_t()) {}
     public:
-        dependency(sat::literal lit) : m_data(lit){}
+        dependency(sat::bool_var v) : m_data(v){}
         dependency(theory_var v1, theory_var v2) : m_data(std::make_pair(v1, v2)) {} 
         dependency(offset_claim const& c) : m_data(c) {}
         static dependency axiom() { return dependency(); } 
-        bool is_null() const { return is_literal() && *std::get_if<sat::literal>(&m_data) == sat::null_literal; }
+        bool is_null() const { return is_bool_var() && *std::get_if<sat::bool_var>(&m_data) == sat::null_bool_var; }
         bool is_axiom() const { return std::holds_alternative<axiom_t>(m_data); }
         bool is_eq() const { return std::holds_alternative<theory_var_pair>(m_data); }
-        bool is_literal() const { return std::holds_alternative<sat::literal>(m_data); }
+        bool is_bool_var() const { return std::holds_alternative<sat::bool_var>(m_data); }
         bool is_offset_claim() const { return std::holds_alternative<offset_claim>(m_data); }
-        sat::literal literal() const { SASSERT(is_literal()); return *std::get_if<sat::literal>(&m_data); }
-        theory_var_pair eq() const { SASSERT(!is_literal()); return *std::get_if<theory_var_pair>(&m_data); }
+        sat::bool_var bool_var() const { SASSERT(is_bool_var()); return *std::get_if<sat::bool_var>(&m_data); }
+        theory_var_pair eq() const { SASSERT(is_eq()); return *std::get_if<theory_var_pair>(&m_data); }
         offset_claim offset() const { return *std::get_if<offset_claim>(&m_data); }
-        dependency operator~() const { SASSERT(is_literal()); return dependency(~literal()); }
     };
 
-    inline const dependency null_dependency = dependency(sat::null_literal);
+    inline const dependency null_dependency = dependency(sat::null_bool_var);
 
     inline std::ostream& operator<<(std::ostream& out, dependency d) {
         if (d.is_null())
             return out << "null";
         else if (d.is_axiom())
             return out << "axiom";
-        else if (d.is_literal())
-            return out << d.literal();
+        else if (d.is_bool_var())
+            return out << d.bool_var();
         else if (d.is_eq())
             return out << "v" << d.eq().first << " == v" << d.eq().second;
         else {
