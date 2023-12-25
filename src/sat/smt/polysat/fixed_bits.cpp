@@ -41,11 +41,12 @@ namespace polysat {
     // val          1011
     // next         1100
 
-    // algorith: Let i be the most significant index where fixed bits disagree with val.
+    // algorithm: Let i be the most significant index where fixed bits disagree with val.
+    // Set non-fixed values below i to 0.
     // If m_fixed[i] == l_true; then updating val to mask by fixed bits sufficies.
     // Otherwise, the range above the disagreement has to be incremented.
     // Increment the non-fixed bits by 1
-    // The first non-fixed 0 position is set to 1, non-fixed positions below are set to 0.s
+    // The first non-fixed 0 position is set to 1, non-fixed positions below are set to 0.
     // If there are none, then the value is maximal and we return false.
 
     bool fixed_bits::next(rational& val) {

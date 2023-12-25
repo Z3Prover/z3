@@ -212,12 +212,12 @@ namespace polysat {
             return level;
         }
         else if (d.is_offset_claim()) {
-            auto [v, w, offset] = d.offset();
+            auto const& offs = d.offset();
             sat::literal_vector lits;
             std::function<void(euf::enode*, euf::enode*)> consume = [&](auto* a, auto* b) {
                 ctx.get_eq_antecedents(a, b, lits);                
                 };
-            explain_slice(v, w, offset, consume);
+            explain_slice(offs.v, offs.w, offs.offset, consume);
             unsigned level = 0;
             for (auto lit : lits)
                 level = std::max(level, s().lvl(lit));
@@ -287,11 +287,11 @@ namespace polysat {
                     lits.push_back(~eq_internalize(var2enode(v1), var2enode(v2)));
                 }
                 else if (d.is_offset_claim()) {
-                    auto [v, w, offset] = d.offset();
+                    auto const& o = d.offset();
                     std::function<void(euf::enode*, euf::enode*)> consume = [&](auto* a, auto* b) {
                         lits.push_back(~eq_internalize(a, b));
                     };
-                    explain_slice(v, w, offset, consume);
+                    explain_slice(o.v, o.w, o.offset, consume);
                 }
                 else if (d.is_fixed_claim()) {
                     auto const& f = d.fixed();

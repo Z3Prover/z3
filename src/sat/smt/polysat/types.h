@@ -29,7 +29,7 @@ namespace polysat {
 
     using pvar_vector = unsigned_vector;
     using theory_var_pair = std::pair<theory_var, theory_var>;
-    using offset_claim = std::tuple<pvar, pvar, unsigned>;
+    
     inline const pvar null_var = UINT_MAX;
 
     class signed_constraint;
@@ -52,6 +52,12 @@ namespace polysat {
     struct offset_slice {
         pvar v;
         unsigned offset;
+    };
+
+    struct offset_claim : public offset_slice {
+        pvar w;
+        offset_claim() = default;
+        offset_claim(pvar w, offset_slice const& s) : offset_slice(s), w(w) {}
     };
 
     class dependency {
@@ -87,9 +93,17 @@ namespace polysat {
             return out << d.bool_var();
         else if (d.is_eq())
             return out << "v" << d.eq().first << " == v" << d.eq().second;
+        else if (d.is_offset_claim()) {
+            auto offs = d.offset();
+            return out << "v" << offs.v << " == v" << offs.w << " offset " << offs.offset;
+        }
+        else if (d.is_fixed_claim()) {
+            auto fixed = d.fixed();
+            return out << fixed.value << " == v" << fixed.v << " [" << fixed.hi << ":" << fixed.lo << "]";
+        }
         else {
-            auto [v1, v2, offset] = d.offset();
-            return out << "v" << v1 << " == v" << v2 << " offset " << offset;
+            UNREACHABLE();
+            return out;
         }
     }
 
