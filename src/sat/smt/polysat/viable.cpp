@@ -26,7 +26,7 @@ namespace polysat {
 
     using dd::val_pp;
 
-    viable::viable(core& c) : c(c), cs(c.cs()), m_forbidden_intervals(c) {}
+    viable::viable(core& c) : c(c), cs(c.cs()), m_forbidden_intervals(c), m_fixed_bits(c) {}
 
     viable::~viable() {
         for (auto* e : m_alloc)
@@ -123,7 +123,7 @@ namespace polysat {
 
     lbool viable::find_viable(pvar v, rational& lo, rational& hi) {
         m_explain.reset();
-        init_fixed_bits(v);
+        m_fixed_bits.reset(v);
         init_overlays(v);
         return l_undef;
 
@@ -132,7 +132,7 @@ namespace polysat {
         rational const& max_value = c.var2pdd(v).max_value();
 
         
-        lbool r = find_on_layers(v, m_widths, m_overlaps, m_fbi, rational::zero(), max_value, lo);
+        lbool r = find_on_layers(v, m_widths, m_overlaps, rational::zero(), max_value, lo);
         if (r != l_true)
             return r;
 
@@ -141,7 +141,7 @@ namespace polysat {
             return l_true;
         }
         
-        r = find_on_layers(v, m_widths, m_overlaps, m_fbi, lo + 1, max_value, hi);
+        r = find_on_layers(v, m_widths, m_overlaps, lo + 1, max_value, hi);
 
         if (r != l_false)
             return r;
@@ -156,7 +156,6 @@ namespace polysat {
         pvar const v,
         unsigned_vector const& widths,
         offset_slices const& overlaps,
-        fixed_bits_info const& fbi,
         rational const& to_cover_lo,
         rational const& to_cover_hi,
         rational& val) {
@@ -169,7 +168,7 @@ namespace polysat {
 
         while (refinements--) {
             m_explain.shrink(explain_size);
-            lbool result = find_on_layer(v, widths.size() - 1, widths, overlaps, fbi, to_cover_lo, to_cover_hi, val, refine_todo);
+            lbool result = find_on_layer(v, widths.size() - 1, widths, overlaps, to_cover_lo, to_cover_hi, val, refine_todo);
 
             // store bit-intervals we have used
             for (entry* e : refine_todo)
@@ -183,6 +182,7 @@ namespace polysat {
             // start refinement on smallest variable
             // however, we probably should rotate to avoid getting stuck in refinement loop on a 'bad' constraint
             bool refined = false;
+#if 0
             for (unsigned i = overlaps.size(); i-- > 0; ) {
                 pvar x = overlaps[i].v;
                 rational const& mod_value = c.var2pdd(x).two_to_N();
@@ -192,6 +192,7 @@ namespace polysat {
                     break;
                 }
             }
+#endif
 
             if (!refined)
                 return l_true;
@@ -210,7 +211,6 @@ namespace polysat {
         unsigned const w_idx,
         unsigned_vector const& widths,
         offset_slices const& overlaps,
-        fixed_bits_info const& fbi,
         rational const& to_cover_lo,
         rational const& to_cover_hi,
         rational& val,
@@ -283,6 +283,7 @@ namespace polysat {
                     }
                 }
 
+#if 0
                 // when we cannot make progress by existing intervals any more, try interval from fixed bits
                 if (!e) {
                     e = refine_bits<true>(v, val, w, fbi);
@@ -291,6 +292,7 @@ namespace polysat {
                         display_one(std::cerr << "found entry by bits: ", 0, e) << "\n";
                     }
                 }
+#endif
 
                 // no more progress on current layer
                 if (!e)
@@ -346,6 +348,7 @@ namespace polysat {
                 if (distance(val, n, mod_value) < distance(val, next_val, mod_value))
                     next_val = n;
             }
+#if 0
             if (entry* e = refine_bits<false>(v, next_val, w, fbi)) {
                 refine_todo.push_back(e);
                 rational const& n = e->interval.lo_val();
@@ -353,6 +356,7 @@ namespace polysat {
                 next_val = n;
             }
             SASSERT(!refine_bits<true>(v, val, w, fbi));
+#endif
             SASSERT(val != next_val);
 
             unsigned const lower_w = widths[w_idx - 1];
@@ -366,7 +370,7 @@ namespace polysat {
                 lower_cover_lo = 0;
                 lower_cover_hi = lower_mod_value;
                 rational a;
-                lbool result = find_on_layer(v, w_idx - 1, widths, overlaps, fbi, lower_cover_lo, lower_cover_hi, a, refine_todo);
+                lbool result = find_on_layer(v, w_idx - 1, widths, overlaps, lower_cover_lo, lower_cover_hi, a, refine_todo);
                 VERIFY(result != l_undef);
                 if (result == l_false) {
                     SASSERT(c.inconsistent());
@@ -388,7 +392,7 @@ namespace polysat {
             lower_cover_hi = mod(next_val, lower_mod_value);
 
             rational a;
-            lbool result = find_on_layer(v, w_idx - 1, widths, overlaps, fbi, lower_cover_lo, lower_cover_hi, a, refine_todo);
+            lbool result = find_on_layer(v, w_idx - 1, widths, overlaps, lower_cover_lo, lower_cover_hi, a, refine_todo);
             if (result == l_false) {
                 SASSERT(c.inconsistent());
                 return l_false;  // conflict
@@ -431,38 +435,6 @@ namespace polysat {
         return true;
     }
 
-    // returns true iff no conflict was encountered
-    bool viable::collect_bit_information(pvar v, bool add_conflict, fixed_bits_info& out_fbi) {
-
-        pdd p = c.var(v);
-        unsigned const v_sz = c.size(v);
-        out_fbi.reset(v_sz);
-        auto& [fixed, just_src, just_side_cond, just_slice] = out_fbi;
-
-        fixed_bits_vector fbs;        
-        c.get_fixed_bits(v, fbs);
-
-        for (auto const& fb : fbs) {
-            LOG("slicing fixed bits: v" << v << "[" << fb.hi << ":" << fb.lo << "] = " << fb.value);
-            for (unsigned i = fb.lo; i <= fb.hi; ++i) {
-                SASSERT(out_fbi.just_src[i].empty());  // since we don't get overlapping ranges from collect_fixed.
-                SASSERT(out_fbi.just_side_cond[i].empty());
-                SASSERT(out_fbi.just_slicing[i].empty());
-                out_fbi.fixed[i] = to_lbool(fb.value.get_bit(i - fb.lo));
-                out_fbi.just_slicing[i].push_back(fb);
-            }
-        }
-
-        entry* e1 = m_equal_lin[v];
-        entry* e2 = m_units[v].get_entries(c.size(v));  // TODO: take other widths into account (will be done automatically by tracking fixed bits in the slicing egraph)
-        entry* first = e1;
-        if (!e1 && !e2)
-            return true;
-
-        return true;
-    }
-
-
     /*
     * Explain why the current variable is not viable or signleton.
     */
@@ -474,7 +446,7 @@ namespace polysat {
             result.push_back(d);
             result.append(c.explain_eval(sc));
         }
-        // TODO: explaination for fixed bits
+        result.append(m_fixed_bits.explain());
         return result;
     }
 

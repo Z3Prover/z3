@@ -13,14 +13,95 @@ Author:
 
 #include "sat/smt/polysat/fixed_bits.h"
 #include "sat/smt/polysat/ule_constraint.h"
+#include "sat/smt/polysat/core.h"
 
 namespace polysat {
+
+    // reset with fixed bits information for variable v
+    void fixed_bits::reset(pvar v) {
+        m_fixed_slices.reset();
+        m_var = v;
+        m_fixed.reset();
+        m_fixed.resize(c.size(v), l_undef);
+        m_bits.reserve(c.size(v));
+        fixed_bits_vector fbs;
+        c.get_fixed_bits(v, fbs);
+        for (auto const& fb : fbs) 
+            for (unsigned i = fb.lo; i <= fb.hi; ++i) 
+                m_fixed[i] = to_lbool(fb.value.get_bit(i - fb.lo));
+    }
+
+    // find then next value >= val that agrees with fixed bits, or false if none exists within the maximal value for val.
+    // examples
+    //  fixed bits:  1?0 (least significant bit is last)
+    //  val:         101
+    //  next:        110
+
+    // fixed bits   ?1?0
+    // val          1011
+    // next         1100
+
+    // algorith: Let i be the most significant index where fixed bits disagree with val.
+    // If m_fixed[i] == l_true; then updating val to mask by fixed bits sufficies.
+    // Otherwise, the range above the disagreement has to be incremented.
+    // Increment the non-fixed bits by 1
+    // The first non-fixed 0 position is set to 1, non-fixed positions below are set to 0.s
+    // If there are none, then the value is maximal and we return false.
+
+    bool fixed_bits::next(rational& val) {
+        if (m_fixed_slices.empty())
+            return true;
+        unsigned sz = c.size(m_var);
+        for (unsigned i = 0; i < sz; ++i)
+            m_bits[i] = val.get_bit(i);
+        unsigned i = sz;
+        for (; i-- > 0; )
+            if (m_fixed[i] != l_undef && m_fixed[i] != to_lbool(m_bits[i]))
+                break;
+        if (i == 0)       
+            return true;
+
+        for (unsigned j = 0; j < sz; ++j) {
+            if (m_fixed[j] != l_undef)
+                m_bits[j] = m_fixed[j] == l_true;
+            else if (j < i)
+                m_bits[j] = false;
+        }
+
+        if (m_fixed[i] == l_false) {
+            for (; i < sz; ++i) {
+                if (m_fixed[i] != l_undef)
+                    continue;
+                if (m_bits[i])
+                    m_bits[i] = false;
+                else {
+                    m_bits[i] = true;
+                    break;
+                }
+            }
+            // overflow
+            if (i == sz)
+                return false;
+        }
+        val = 0;
+        for (unsigned i = sz; i-- > 0;)
+            val = val * 2 + rational(m_bits[i]);    
+        return true;
+    }
+
+    // explain the fixed bits ranges.
+    dependency_vector fixed_bits::explain() {
+        dependency_vector result;
+        for (auto const& slice : m_fixed_slices) 
+            result.push_back(dependency({ m_var, slice }));
+        return result;
+    }
 
     /**
      * 2^k * x = 2^k * b
      * ==> x[N-k-1:0] = b[N-k-1:0]
      */
-    bool get_eq_fixed_lsb(pdd const& p, fixed_bits& out) {
+    bool get_eq_fixed_lsb(pdd const& p, fixed_slice& out) {
         SASSERT(!p.is_val());
         unsigned const N = p.power_of_2();
         // Recognize p = 2^k * a * x - 2^k * b
@@ -39,7 +120,7 @@ namespace polysat {
         if (d.parity(N) < k)
             return false;
         rational const b = machine_div2k(d, k);
-        out = fixed_bits(N - k - 1, 0, b);
+        out = fixed_slice(N - k - 1, 0, b);
         SASSERT_EQ(d, b * rational::power_of_two(k));
         SASSERT_EQ(p, (p.manager().mk_var(p.var()) - out.value) * rational::power_of_two(k));
         return true;
@@ -66,7 +147,7 @@ namespace polysat {
 #endif
     }
 
-    bool get_eq_fixed_bits(pdd const& p, fixed_bits& out) {
+    bool get_eq_fixed_slice(pdd const& p, fixed_slice& out) {
         if (get_eq_fixed_lsb(p, out))
             return true;
         return false;
@@ -80,7 +161,7 @@ namespace polysat {
      * ==> x[1:0] = 1
      *    -- TODO: Generalize [the obvious solution does not work]
      */
-    bool get_ule_fixed_lsb(pdd const& lhs, pdd const& rhs, bool is_positive, fixed_bits& out) {
+    bool get_ule_fixed_lsb(pdd const& lhs, pdd const& rhs, bool is_positive, fixed_slice& out) {
         return false;
     }
 
@@ -90,7 +171,7 @@ namespace polysat {
      * x <= 2^k - 1  ==>  x[N-1:k] = 0
      * x <  2^k      ==>  x[N-1:k] = 0
      */
-    bool get_ule_fixed_msb(pdd const& p, pdd const& q, bool is_positive, fixed_bits& out) {
+    bool get_ule_fixed_msb(pdd const& p, pdd const& q, bool is_positive, fixed_slice& out) {
         SASSERT(!q.is_zero());  // equalities are handled elsewhere
         unsigned const N = p.power_of_2();
         pdd const& lhs = is_positive ? p : q;
@@ -117,14 +198,14 @@ namespace polysat {
     }
 
     // 2^(N-1) <= 2^(N-1-i) * x
-    bool get_ule_fixed_bit(pdd const& p, pdd const& q, bool is_positive, fixed_bits& out) {
+    bool get_ule_fixed_bit(pdd const& p, pdd const& q, bool is_positive, fixed_slice& out) {
         return false;
     }
 
-    bool get_ule_fixed_bits(pdd const& lhs, pdd const& rhs, bool is_positive, fixed_bits& out) {
+    bool get_ule_fixed_slice(pdd const& lhs, pdd const& rhs, bool is_positive, fixed_slice& out) {
         SASSERT(ule_constraint::is_simplified(lhs, rhs));
         if (rhs.is_zero())
-            return is_positive ? get_eq_fixed_bits(lhs, out) : false;
+            return is_positive ? get_eq_fixed_slice(lhs, out) : false;
         if (get_ule_fixed_msb(lhs, rhs, is_positive, out))
             return true;
         if (get_ule_fixed_lsb(lhs, rhs, is_positive, out))
@@ -134,10 +215,10 @@ namespace polysat {
         return false;
     }
 
-    bool get_fixed_bits(signed_constraint c, fixed_bits& out) {
+    bool get_fixed_slice(signed_constraint c, fixed_slice& out) {
         SASSERT_EQ(c.vars().size(), 1);  // this only makes sense for univariate constraints
         if (c.is_ule())
-            return get_ule_fixed_bits(c.to_ule().lhs(), c.to_ule().rhs(), c.is_positive(), out);
+            return get_ule_fixed_slice(c.to_ule().lhs(), c.to_ule().rhs(), c.is_positive(), out);
         // if (c->is_op())
         //     ;  // TODO:  x & constant = constant   ==> bitmask ... but we have trouble recognizing that because we introduce a new variable for '&' before we see the equality.
         return false;

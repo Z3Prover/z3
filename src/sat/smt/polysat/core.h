@@ -145,7 +145,7 @@ namespace polysat {
         * Viable 
         */
         void get_bitvector_suffixes(pvar v, offset_slices& out);
-        void get_fixed_bits(pvar v, fixed_bits_vector& fixed_bits);
+        void get_fixed_bits(pvar v, fixed_bits_vector& fixed_slice);
         void get_subslices(pvar v, offset_slices& out);
 
         /*

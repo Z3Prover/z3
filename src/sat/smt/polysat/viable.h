@@ -23,6 +23,8 @@ Author:
 
 #include "sat/smt/polysat/types.h"
 #include "sat/smt/polysat/forbidden_intervals.h"
+#include "sat/smt/polysat/fixed_bits.h"
+
 
 namespace polysat {
 
@@ -103,56 +105,6 @@ namespace polysat {
             entry* get_entries(unsigned bit_width) const { layer const* l = get_layer(bit_width); return l ? l->entries : nullptr; }
         };
 
-        struct fixed_bits_info {
-            svector<lbool> fixed;
-            vector<vector<signed_constraint>> just_src;
-            vector<vector<signed_constraint>> just_side_cond;
-            vector<fixed_bits_vector> just_slicing;
-
-            bool is_empty() const {
-                SASSERT_EQ(fixed.empty(), just_src.empty());
-                SASSERT_EQ(fixed.empty(), just_side_cond.empty());
-                return fixed.empty();
-            }
-
-            bool is_empty_at(unsigned i) const {
-                return fixed[i] == l_undef && just_src[i].empty() && just_side_cond[i].empty();
-            }
-
-            void reset(unsigned num_bits) {
-                fixed.reset();
-                fixed.resize(num_bits, l_undef);
-                just_src.reset();
-                just_src.resize(num_bits);
-                just_side_cond.reset();
-                just_side_cond.resize(num_bits);
-                just_slicing.reset();
-                just_slicing.resize(num_bits);
-            }
-
-            void reset_just(unsigned i) {
-                just_src[i].reset();
-                just_side_cond[i].reset();
-                just_slicing[i].reset();
-            }
-
-            void set_just(unsigned i, entry* e) {
-                reset_just(i);
-                push_just(i, e);
-            }
-
-            void push_just(unsigned i, entry* e) {
-                just_src[i].append(e->src);
-                just_side_cond[i].append(e->side_cond);
-            }
-
-            void push_from_bit(unsigned i, unsigned src) {
-                just_src[i].append(just_src[src]);
-                just_side_cond[i].append(just_side_cond[src]);
-                just_slicing[i].append(just_slicing[src]);
-            }
-        };
-
 
         ptr_vector<entry>       m_alloc;
         vector<layers>          m_units;        // set of viable values based on unit multipliers, layered by bit-width in descending order
@@ -187,7 +139,6 @@ namespace polysat {
             pvar v,
             unsigned_vector const& widths,
             offset_slices const& overlaps,
-            fixed_bits_info const& fbi,
             rational const& to_cover_lo,
             rational const& to_cover_hi,
             rational& out_val);
@@ -197,39 +148,14 @@ namespace polysat {
             unsigned w_idx,
             unsigned_vector const& widths,
             offset_slices const& overlaps,
-            fixed_bits_info const& fbi,
             rational const& to_cover_lo,
             rational const& to_cover_hi,
             rational& out_val,
             ptr_vector<entry>& refine_todo);
 
 
-        template <bool FORWARD>
-        bool refine_viable(pvar v, rational const& val, fixed_bits_info const& fbi) {
-            throw default_exception("refine nyi");
-        }
 
-        bool refine_viable(pvar v, rational const& val) {
-            throw default_exception("refine nyi");
-        }
 
-        template <bool FORWARD>
-        bool refine_bits(pvar v, rational const& val, fixed_bits_info const& fbi) {
-            throw default_exception("refine nyi");
-        }
-
-        template <bool FORWARD>
-        entry* refine_bits(pvar v, rational const& val, unsigned num_bits, fixed_bits_info const& fbi) {
-            throw default_exception("refine nyi");
-        }
-
-        bool refine_equal_lin(pvar v, rational const& val) {
-            throw default_exception("refine nyi");
-        }
-
-        bool refine_disequal_lin(pvar v, rational const& val) {
-            throw default_exception("refine nyi");
-        }
 
         void set_conflict_by_interval(pvar v, unsigned w, ptr_vector<entry>& intervals, unsigned first_interval);
         bool set_conflict_by_interval_rec(pvar v, unsigned w, entry** intervals, unsigned num_intervals, bool& create_lemma, uint_set& vars_to_explain);
@@ -238,10 +164,7 @@ namespace polysat {
             throw default_exception("fine_value nyi");
         }
 
-        bool collect_bit_information(pvar v, bool add_conflict, fixed_bits_info& out_fbi);
-
-
-        fixed_bits_info m_fbi;
+        fixed_bits m_fixed_bits;
         void init_fixed_bits(pvar v);
 
         unsigned_vector m_widths;
@@ -259,7 +182,7 @@ namespace polysat {
         find_t find_viable(pvar v, rational& out_val);
 
         /*
-        * Explain why the current variable is not viable or signleton.
+        * Explain the current variable is not viable or signleton.
         */
         dependency_vector explain();
 

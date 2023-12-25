@@ -107,7 +107,7 @@ namespace polysat {
             unsigned lo = offset, hi = bv.get_bv_size(n->get_expr());
             rational value;
             VERIFY(bv.is_numeral(n->get_expr(), value));
-            out.push_back({ fixed_bits(lo, hi, value) });
+            out.push_back({ fixed_slice(lo, hi, value) });
             return false;
         };
         theory_var v = m_pddvar2var[pv];

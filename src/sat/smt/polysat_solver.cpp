@@ -223,6 +223,18 @@ namespace polysat {
                 level = std::max(level, s().lvl(lit));
             return level;
         }
+        else if (d.is_fixed_claim()) {
+            auto const& f = d.fixed();
+            sat::literal_vector lits;
+            std::function<void(euf::enode*, euf::enode*)> consume = [&](auto* a, auto* b) {
+                ctx.get_eq_antecedents(a, b, lits);
+                };
+            explain_fixed(f.v, f.lo, f.hi, f.value, consume);
+            unsigned level = 0;
+            for (auto lit : lits)
+                level = std::max(level, s().lvl(lit));
+            return level;
+        }
         else {
             SASSERT(d.is_axiom());
             return 0;
@@ -280,6 +292,13 @@ namespace polysat {
                         lits.push_back(~eq_internalize(a, b));
                     };
                     explain_slice(v, w, offset, consume);
+                }
+                else if (d.is_fixed_claim()) {
+                    auto const& f = d.fixed();
+                    std::function<void(euf::enode*, euf::enode*)> consume = [&](auto* a, auto* b) {
+                        lits.push_back(~eq_internalize(a, b));
+                    };
+                    explain_fixed(f.v, f.lo, f.hi, f.value, consume);
                 }
                 else {
                     SASSERT(d.is_axiom());
