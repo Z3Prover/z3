@@ -240,6 +240,14 @@ namespace polysat {
 
         bool collect_bit_information(pvar v, bool add_conflict, fixed_bits_info& out_fbi);
 
+
+        fixed_bits_info m_fbi;
+        void init_fixed_bits(pvar v);
+
+        unsigned_vector m_widths;
+        offset_slices m_overlaps;
+        void init_overlays(pvar v);
+
     public:
         viable(core& c);
 

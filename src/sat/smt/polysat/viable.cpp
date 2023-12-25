@@ -93,54 +93,58 @@ namespace polysat {
         }
     }
 
-    // fixed bits
-    // suffixes
-    // find one or two values
-    // 
-    lbool viable::find_viable(pvar v, rational& lo, rational& hi) {
-        return l_undef;
-
-        fixed_bits_info fbi;
+    void viable::init_fixed_bits(pvar v) {
 
 #if 0
         if (!collect_bit_information(v, true, fbi))
-            return l_false;  // conflict already added
+            return;  // conflict already added
 #endif
+    }
 
-        offset_slices overlaps;
-        c.get_bitvector_suffixes(v, overlaps);
-        std::sort(overlaps.begin(), overlaps.end(), [&](auto const& x, auto const& y) { return c.size(x.v) > c.size(y.v); });
+    void viable::init_overlays(pvar v) {
+        m_widths.reset();
+        m_overlaps.reset();
+        c.get_bitvector_suffixes(v, m_overlaps);
+        std::sort(m_overlaps.begin(), m_overlaps.end(), [&](auto const& x, auto const& y) { return c.size(x.v) > c.size(y.v); });
 
         uint_set widths_set;
         // max size should always be present, regardless of whether we have intervals there (to make sure all fixed bits are considered)
         widths_set.insert(c.size(v));
 
-        for (auto const& [v, offset] : overlaps) 
-            for (layer const& l : m_units[v].get_layers()) 
+        for (auto const& [v, offset] : m_overlaps)
+            for (layer const& l : m_units[v].get_layers())
                 widths_set.insert(l.bit_width);
-                    
-        unsigned_vector widths;
-        for (unsigned w : widths_set) 
-            widths.push_back(w);       
-        LOG("Overlaps with v" << v << ":" << overlaps);
-        LOG("widths: " << widths);
+
+        for (unsigned w : widths_set)
+            m_widths.push_back(w);
+        LOG("Overlaps with v" << v << ":" << m_overlaps);
+        LOG("widths: " << m_widths);
+    }
+
+    lbool viable::find_viable(pvar v, rational& lo, rational& hi) {
+        m_explain.reset();
+        init_fixed_bits(v);
+        init_overlays(v);
+        return l_undef;
+
+        
 
         rational const& max_value = c.var2pdd(v).max_value();
 
-        m_explain.reset();
-        lbool result_lo = find_on_layers(v, widths, overlaps, fbi, rational::zero(), max_value, lo);
-        if (result_lo != l_true)
-            return result_lo;
+        
+        lbool r = find_on_layers(v, m_widths, m_overlaps, m_fbi, rational::zero(), max_value, lo);
+        if (r != l_true)
+            return r;
 
         if (lo == max_value) {
             hi = lo;
             return l_true;
         }
         
-        lbool result_hi = find_on_layers(v, widths, overlaps, fbi, lo + 1, max_value, hi);
+        r = find_on_layers(v, m_widths, m_overlaps, m_fbi, lo + 1, max_value, hi);
 
-        if (result_hi != l_false)
-            return result_hi;
+        if (r != l_false)
+            return r;
         hi = lo;
         return l_true;
     }
