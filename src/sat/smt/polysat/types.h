@@ -38,12 +38,11 @@ namespace polysat {
     class dependency {
         struct axiom_t {};
         std::variant<axiom_t, sat::literal, theory_var_pair, offset_claim> m_data;
-        unsigned m_level;
-        dependency(): m_data(axiom_t()), m_level(0) {}
+        dependency(): m_data(axiom_t()) {}
     public:
-        dependency(sat::literal lit, unsigned level) : m_data(lit), m_level(level) {}
-        dependency(theory_var v1, theory_var v2, unsigned level) : m_data(std::make_pair(v1, v2)), m_level(level) {} 
-        dependency(offset_claim const& c, unsigned level) : m_data(c), m_level(level) {}
+        dependency(sat::literal lit) : m_data(lit){}
+        dependency(theory_var v1, theory_var v2) : m_data(std::make_pair(v1, v2)) {} 
+        dependency(offset_claim const& c) : m_data(c) {}
         static dependency axiom() { return dependency(); } 
         bool is_null() const { return is_literal() && *std::get_if<sat::literal>(&m_data) == sat::null_literal; }
         bool is_axiom() const { return std::holds_alternative<axiom_t>(m_data); }
@@ -53,25 +52,23 @@ namespace polysat {
         sat::literal literal() const { SASSERT(is_literal()); return *std::get_if<sat::literal>(&m_data); }
         theory_var_pair eq() const { SASSERT(!is_literal()); return *std::get_if<theory_var_pair>(&m_data); }
         offset_claim offset() const { return *std::get_if<offset_claim>(&m_data); }
-        unsigned level() const { return m_level; }
-        void set_level(unsigned level) { m_level = level; }
-        dependency operator~() const { SASSERT(is_literal()); return dependency(~literal(), level()); }
+        dependency operator~() const { SASSERT(is_literal()); return dependency(~literal()); }
     };
 
-    inline const dependency null_dependency = dependency(sat::null_literal, UINT_MAX);
+    inline const dependency null_dependency = dependency(sat::null_literal);
 
     inline std::ostream& operator<<(std::ostream& out, dependency d) {
         if (d.is_null())
             return out << "null";
         else if (d.is_axiom())
-            return out << "axiom@" << d.level();
+            return out << "axiom";
         else if (d.is_literal())
-            return out << d.literal() << "@" << d.level();
+            return out << d.literal();
         else if (d.is_eq())
-            return out << "v" << d.eq().first << " == v" << d.eq().second << "@" << d.level();
+            return out << "v" << d.eq().first << " == v" << d.eq().second;
         else {
             auto [v1, v2, offset] = d.offset();
-            return out << "v" << v1 << " == v" << v2 << " offset " << offset << "@" << d.level();
+            return out << "v" << v1 << " == v" << v2 << " offset " << offset;
         }
     }
 
@@ -114,15 +111,16 @@ namespace polysat {
         virtual ~solver_interface() {}
         virtual void add_eq_literal(pvar v, rational const& val) = 0;
         virtual bool add_axiom(char const* name, constraint_or_dependency const* begin, constraint_or_dependency const* end, bool redundant) = 0;
-        virtual void set_conflict(constraint_id_vector const& core) = 0;
-        virtual dependency propagate(signed_constraint sc, constraint_id_vector const& deps) = 0;
-        virtual void propagate(dependency const& d, bool sign, constraint_id_vector const& deps) = 0;
+        virtual void set_conflict(dependency_vector const& core) = 0;
+        virtual dependency propagate(signed_constraint sc, dependency_vector const& deps) = 0;
+        virtual void propagate(dependency const& d, bool sign, dependency_vector const& deps) = 0;
         virtual trail_stack& trail() = 0;
         virtual bool inconsistent() const = 0;
         virtual void get_bitvector_suffixes(pvar v, offset_slices& out) = 0;
         virtual void get_bitvector_sub_slices(pvar v, offset_slices& out) = 0;
         virtual void get_bitvector_super_slices(pvar v, offset_slices& out) = 0;
         virtual void get_fixed_bits(pvar v, fixed_bits_vector& fixed_bits) = 0;
+        virtual unsigned level(dependency const& d) = 0;
     };
 
 }

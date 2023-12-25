@@ -182,7 +182,7 @@ namespace polysat {
         if (get_bv2a(bv))
             return;
         sat::literal lit(bv, false);
-        auto index = m_core.register_constraint(sc, dependency(lit, 0));
+        auto index = m_core.register_constraint(sc, dependency(lit));
         auto a = new (get_region()) atom(bv, index);
         insert_bv2a(bv, a);
         ctx.push(mk_atom_trail(bv, *this));

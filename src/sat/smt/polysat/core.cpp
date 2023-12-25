@@ -218,7 +218,7 @@ namespace polysat {
         
         // If no saturation propagation was possible, explain the conflict using the variable assignment.
         m_unsat_core = explain_eval(get_constraint(conflict_idx));
-        m_unsat_core.push_back(conflict_idx);
+        m_unsat_core.push_back(m_constraint_index[conflict_idx.id].d);
         propagate_unsat_core();
         return sat::check_result::CR_CONTINUE;
     }
@@ -229,11 +229,11 @@ namespace polysat {
     svector<pvar> core::find_conflict_variables(constraint_id idx) {
         svector<pvar> result;
         auto [sc, d, value] = m_constraint_index[idx.id];
-        unsigned lvl = d.level();
+        unsigned lvl = s.level(d);
         for (auto v : sc.vars()) {
             if (!is_assigned(v))
                 continue;
-            auto new_level = m_constraint_index[m_justification[v].id].d.level();
+            auto new_level = s.level(m_constraint_index[m_justification[v].id].d);
             if (new_level < lvl)
                 continue;
             if (new_level > lvl)
@@ -367,7 +367,7 @@ namespace polysat {
             s.propagate(d, eval_value != l_true, explain_eval(sc));
         else if (value != eval_value) {
             m_unsat_core = explain_eval(sc);
-            m_unsat_core.push_back(id);
+            m_unsat_core.push_back(m_constraint_index[id.id].d);
             propagate_unsat_core();
         }                   
     }
@@ -406,15 +406,14 @@ namespace polysat {
         };
         m_prop_queue.push_back(index);
         m_constraint_index[index.id].value = to_lbool(!sign);
-        m_constraint_index[index.id].d.set_level(level);
         s.trail().push(unassign(*this, index.id));
     }
 
-    constraint_id_vector core::explain_eval(signed_constraint const& sc) { 
-        constraint_id_vector deps;
+    dependency_vector core::explain_eval(signed_constraint const& sc) {
+        dependency_vector deps;
         for (auto v : sc.vars()) 
             if (is_assigned(v))
-                deps.push_back(m_justification[v]);
+                deps.push_back(m_constraint_index[m_justification[v].id].d);
         return deps;
     }
 

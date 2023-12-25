@@ -60,7 +60,7 @@ namespace polysat {
     }
 
     void saturation::propagate(signed_constraint const& sc, std::initializer_list<constraint_id> const& premises) {
-        c.propagate(sc, constraint_id_vector(premises));        
+        // c.propagate(sc, constraint_id_vector(premises));        
     }
 
     void saturation::add_clause(char const* name, clause const& cs, bool is_redundant) { 
@@ -84,17 +84,6 @@ namespace polysat {
         SASSERT(c.inconsistent());
     }
 
-    bool saturation::match_core(std::function<bool(signed_constraint const& sc)> const& p, constraint_id& id_out) {
-        for (auto id : c.unsat_core()) {
-            auto sc = c.get_constraint(id);
-            if (p(sc)) {
-                id_out = id;
-                return true;
-            }
-        }
-        return false;
-    }
-
     bool saturation::match_constraints(std::function<bool(signed_constraint const& sc)> const& p, constraint_id& id_out) {
         for (auto id : c.assigned_constraints()) {
             auto sc = c.get_constraint(id);
@@ -108,21 +97,6 @@ namespace polysat {
 
     signed_constraint saturation::ineq(bool is_strict, pdd const& x, pdd const& y) {
         return is_strict ? c.cs().ult(x, y) : c.cs().ule(x, y);
-    }
-
-    /**
-     * TODO: this does not belong in saturation, but on the fly? 
-     * p <= q, q <= p => p = q
-     */
-    void saturation::propagate_infer_equality(pvar x, inequality const& i) {
-        if (i.is_strict())
-            return;
-        if (i.lhs().degree(x) == 0 && i.rhs().degree(x) == 0)
-            return;
-        constraint_id id;
-        if (!match_core([&](auto const& sc) { return sc.is_ule() && !sc.sign() && sc.to_ule().lhs() == i.rhs() && sc.to_ule().rhs() == i.lhs(); }, id))
-            return;
-        c.propagate(c.eq(i.lhs(), i.rhs()), { id, i.id() });     
     }
 
     /**

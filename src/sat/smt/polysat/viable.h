@@ -261,7 +261,7 @@ namespace polysat {
         /*
         * Explain why the current variable is not viable or signleton.
         */
-        constraint_id_vector explain();
+        dependency_vector explain();
 
         /*
         * flag whether there is a forbidden interval core

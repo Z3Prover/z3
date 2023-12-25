@@ -105,9 +105,7 @@ namespace polysat {
         m_core.assign_eh(a->m_index, l.sign(), s().lvl(l));
     }
 
-    // TBD: add also lemma
-    void solver::set_conflict(constraint_id_vector const& core) {
-        auto deps = m_core.get_dependencies(core);
+    void solver::set_conflict(dependency_vector const& deps) {
         auto [lits, eqs] = explain_deps(deps);
         auto ex = euf::th_explain::conflict(*this, lits, eqs, nullptr);
         ctx.set_conflict(ex);
@@ -164,7 +162,7 @@ namespace polysat {
         auto sc = m_core.eq(p, q);        
         m_var_eqs.setx(m_var_eqs_head, {v1, v2}, {v1, v2});
         ctx.push(value_trail<unsigned>(m_var_eqs_head));    
-        auto d = dependency(v1, v2, s().scope_lvl());
+        auto d = dependency(v1, v2);
         constraint_id id = m_core.register_constraint(sc, d);
         m_core.assign_eh(id, false, s().scope_lvl()); 
         m_var_eqs_head++;
@@ -179,7 +177,7 @@ namespace polysat {
         pdd q = var2pdd(v2);
         auto sc = ~m_core.eq(p, q);
         sat::literal neq = ~expr2literal(ne.eq());
-        auto d = dependency(neq, s().lvl(neq));
+        auto d = dependency(neq);
         auto id = m_core.register_constraint(sc, d);
         TRACE("bv", tout << neq << " := " << s().value(neq) << " @" << s().scope_lvl() << "\n");
         m_core.assign_eh(id, false, s().lvl(neq));
@@ -189,27 +187,47 @@ namespace polysat {
     // The polysat::solver takes care of translating signed constraints into expressions, which translate into literals.
     // Everything goes over expressions/literals. polysat::core is not responsible for replaying expressions. 
     
-    dependency solver::propagate(signed_constraint sc, constraint_id_vector const& cs) {
+    dependency solver::propagate(signed_constraint sc, dependency_vector const& deps) {
         sat::literal lit = ctx.mk_literal(constraint2expr(sc));        
         if (s().value(lit) == l_true)
-            return dependency(lit, s().lvl(lit));
-        auto deps = m_core.get_dependencies(cs);
+            return dependency(lit);
         auto [core, eqs] = explain_deps(deps);
-        auto ex = euf::th_explain::propagate(*this, core, eqs, lit, nullptr);
-        unsigned level = 0;
-        for (auto c : core)
-            level = std::max(level, s().lvl(c));
-        sat::literal_vector eqlits;
-        for (auto [n1, n2] : eqs) 
-            ctx.get_eq_antecedents(n1, n2, eqlits);
-        for (auto lit : eqlits)
-            level = std::max(level, s().lvl(lit));
+        auto ex = euf::th_explain::propagate(*this, core, eqs, lit, nullptr);        
         ctx.propagate(lit, ex);
-        return dependency(lit, level); 
+        return dependency(lit); 
     }
 
-    void solver::propagate(dependency const& d, bool sign, constraint_id_vector const& cs) {
-        auto deps = m_core.get_dependencies(cs);
+    unsigned solver::level(dependency const& d) {
+        if (d.is_literal())
+            return s().lvl(d.literal());
+        else if (d.is_eq()) {
+            auto [v1, v2] = d.eq();
+            sat::literal_vector lits;
+            ctx.get_eq_antecedents(var2enode(v1), var2enode(v2), lits);
+            unsigned level = 0;
+            for (auto lit : lits)
+                level = std::max(level, s().lvl(lit));
+            return level;
+        }
+        else if (d.is_offset_claim()) {
+            auto [v, w, offset] = d.offset();
+            sat::literal_vector lits;
+            std::function<void(euf::enode*, euf::enode*)> consume = [&](auto* a, auto* b) {
+                ctx.get_eq_antecedents(a, b, lits);                
+                };
+            explain_slice(v, w, offset, consume);
+            unsigned level = 0;
+            for (auto lit : lits)
+                level = std::max(level, s().lvl(lit));
+            return level;
+        }
+        else {
+            SASSERT(d.is_axiom());
+            return 0;
+        }
+    }
+
+    void solver::propagate(dependency const& d, bool sign, dependency_vector const& deps) {
         auto [core, eqs] = explain_deps(deps);
         if (d.is_literal()) {
             auto lit = d.literal();

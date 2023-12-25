@@ -60,8 +60,6 @@ namespace polysat {
             constraint_filter end() const { return constraint_filter(c, m_filter, c.assigned_constraints().size()); }
         };
         
-
-        bool match_core(std::function<bool(signed_constraint const& sc)> const& p, constraint_id& id);
         bool match_constraints(std::function<bool(signed_constraint const& sc)> const& p, constraint_id& id);
 
         void propagate_infer_equality(pvar x, inequality const& a_l_b);

@@ -166,16 +166,17 @@ namespace polysat {
 
         // callbacks from core
         void add_eq_literal(pvar v, rational const& val) override;
-        void set_conflict(constraint_id_vector const& core) override;
+        void set_conflict(dependency_vector const& core) override;
         bool add_axiom(char const* name, constraint_or_dependency const* begin, constraint_or_dependency const* end, bool redundant) override;
-        dependency propagate(signed_constraint sc, constraint_id_vector const& deps) override;
-        void propagate(dependency const& d, bool sign, constraint_id_vector const& deps) override;
+        dependency propagate(signed_constraint sc, dependency_vector const& deps) override;
+        void propagate(dependency const& d, bool sign, dependency_vector const& deps) override;
         trail_stack& trail() override;
         bool inconsistent() const override;
         void get_bitvector_sub_slices(pvar v, offset_slices& out) override;
         void get_bitvector_super_slices(pvar v, offset_slices& out) override;
         void get_bitvector_suffixes(pvar v, offset_slices& out) override;
         void get_fixed_bits(pvar v, fixed_bits_vector& fixed_bits) override;
+        unsigned level(dependency const& d) override;
         dependency explain_slice(pvar v, pvar w, unsigned offset);
 
         bool add_axiom(char const* name, constraint_or_dependency_list const& clause, bool redundant) {
