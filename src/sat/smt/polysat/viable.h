@@ -94,7 +94,7 @@ namespace polysat {
         };
 
         class layers final {
-	  svector<layer> m_layers;
+            svector<layer> m_layers;
         public:
             svector<layer> const& get_layers() const { return m_layers; }
             layer& ensure_layer(unsigned bit_width);
@@ -121,8 +121,6 @@ namespace polysat {
 
         std::ostream& display_one(std::ostream& out, pvar v, entry const* e) const;
         std::ostream& display_all(std::ostream& out, pvar v, entry const* e, char const* delimiter = "") const;
-        void log();
-        void log(pvar v);
 
         struct pop_viable_trail;
         void pop_viable(entry* e, entry_kind k);
@@ -133,43 +131,16 @@ namespace polysat {
 
         bool intersect(pvar v, entry* e);
 
-        lbool find_viable(pvar v, rational& lo, rational& hi);
+        lbool find_viable(pvar v, rational& val1, rational& val2);
 
-        lbool find_on_layers(
-            pvar v,
-            unsigned_vector const& widths,
-            offset_slices const& overlaps,
-            rational const& to_cover_lo,
-            rational const& to_cover_hi,
-            rational& out_val);
-
-        lbool find_on_layer(
-            pvar v,
-            unsigned w_idx,
-            unsigned_vector const& widths,
-            offset_slices const& overlaps,
-            rational const& to_cover_lo,
-            rational const& to_cover_hi,
-            rational& out_val,
-            ptr_vector<entry>& refine_todo);
-
-
-
-
-
-        void set_conflict_by_interval(pvar v, unsigned w, ptr_vector<entry>& intervals, unsigned first_interval);
-        bool set_conflict_by_interval_rec(pvar v, unsigned w, entry** intervals, unsigned num_intervals, bool& create_lemma, uint_set& vars_to_explain);
-
-        std::pair<entry*, bool> find_value(rational const& val, entry* entries) {
-            throw default_exception("fine_value nyi");
-        }
+        lbool next_viable(pvar, rational& val1);
 
         fixed_bits m_fixed_bits;
         void init_fixed_bits(pvar v);
 
         unsigned_vector m_widths;
-        offset_slices m_overlaps;
-        void init_overlays(pvar v);
+        offset_slices   m_overlaps;
+        void init_overlaps(pvar v);
 
     public:
         viable(core& c);
