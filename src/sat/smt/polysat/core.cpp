@@ -218,7 +218,7 @@ namespace polysat {
         
         // If no saturation propagation was possible, explain the conflict using the variable assignment.
         m_unsat_core = explain_eval(get_constraint(conflict_idx));
-        m_unsat_core.push_back(m_constraint_index[conflict_idx.id].d);
+        m_unsat_core.push_back(get_dependency(conflict_idx));
         propagate_unsat_core();
         return sat::check_result::CR_CONTINUE;
     }
@@ -233,7 +233,7 @@ namespace polysat {
         for (auto v : sc.vars()) {
             if (!is_assigned(v))
                 continue;
-            auto new_level = s.level(m_constraint_index[m_justification[v].id].d);
+            auto new_level = s.level(get_dependency(m_justification[v]));
             if (new_level < lvl)
                 continue;
             if (new_level > lvl)
@@ -412,7 +412,7 @@ namespace polysat {
         dependency_vector deps;
         for (auto v : sc.vars()) 
             if (is_assigned(v))
-                deps.push_back(m_constraint_index[m_justification[v].id].d);
+                deps.push_back(get_dependency(m_justification[v]));
         return deps;
     }
 
@@ -443,7 +443,7 @@ namespace polysat {
         for (auto const& [sc, d, value] : m_constraint_index) 
             out << sc << " " << d << " := " << value << "\n";        
         for (unsigned i = 0; i < m_vars.size(); ++i) 
-            out << m_vars[i] << " := " << m_values[i] << " " << m_constraint_index[m_justification[i].id].d << "\n";
+            out << m_vars[i] << " := " << m_values[i] << " " << get_dependency(m_justification[i]) << "\n";
         m_var_queue.display(out << "vars ") << "\n";
         return out;
     }
