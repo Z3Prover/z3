@@ -93,14 +93,6 @@ namespace polysat {
         }
     }
 
-    void viable::init_fixed_bits(pvar v) {
-
-#if 0
-        if (!collect_bit_information(v, true, fbi))
-            return;  // conflict already added
-#endif
-    }
-
     void viable::init_overlaps(pvar v) {
         m_widths.reset();
         m_overlaps.reset();
@@ -121,19 +113,17 @@ namespace polysat {
         LOG("widths: " << m_widths);
     }
 
-    lbool viable::next_viable(pvar, rational& val1) {
-        return l_undef;
-    }
-
     lbool viable::find_viable(pvar v, rational& val1, rational& val2) {
         m_explain.reset();
+        m_var = v;
+        m_num_bits = c.size(v);
         m_fixed_bits.reset(v);
         init_overlaps(v);
 
         rational const& max_value = c.var2pdd(v).max_value();
 
         val1 = 0;
-        lbool r = next_viable(v, val1);
+        lbool r = next_viable(val1);
         if (r != l_true)
             return r;
 
@@ -143,13 +133,49 @@ namespace polysat {
         }
         val2 = val1 + 1;
         
-        r = next_viable(v, val2);
+        r = next_viable(val2);
 
         if (r != l_false)
             return r;
         val2 = val1;
         return l_true;
     }
+
+    //
+    // Alternate next viable unit and next fixed until convergence.
+    // Check the non-units 
+    // Refine?
+    // 
+    lbool viable::next_viable(rational& val) {
+        rational val0;
+        do {           
+            auto r = next_viable_unit(val);
+            if (r != l_true)
+                return r;
+            val0 = val;
+            if (!m_fixed_bits.next(val))
+                return l_false;
+        } 
+        while (val0 != val);
+        NOT_IMPLEMENTED_YET();
+        // non-units
+        return l_undef;
+    }
+
+    // 
+    // iterate over smallest layers to largest
+    // iterate over smallest overlap to largest
+    //
+    lbool viable::next_viable_unit(rational& val) {
+        return l_undef;
+    }
+
+    // By layer:
+    // var, width := w layer-width := k
+    // layer entry means: 2^{w-k}* x not in [lo, hi[
+    // check if 2^{w-k}* val in [lo, hi[
+    // if so, then increment val such that 2^{w-k}* val' not in [lo, hi[
+    // 
 
     /*
     * Explain why the current variable is not viable or signleton.

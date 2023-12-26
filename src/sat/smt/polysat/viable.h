@@ -133,11 +133,13 @@ namespace polysat {
 
         lbool find_viable(pvar v, rational& val1, rational& val2);
 
-        lbool next_viable(pvar, rational& val1);
+        lbool next_viable(rational& val);
 
-        fixed_bits m_fixed_bits;
-        void init_fixed_bits(pvar v);
+        lbool next_viable_unit(rational& val);
 
+        pvar            m_var = null_var;
+        unsigned        m_num_bits = 0;
+        fixed_bits      m_fixed_bits;
         unsigned_vector m_widths;
         offset_slices   m_overlaps;
         void init_overlaps(pvar v);
