@@ -520,12 +520,19 @@ namespace polysat {
     }
 
     /*
-    * Explain why the current variable is not viable or signleton.
+    * Explain why the current variable is not viable or
+    * or why it can only have a single value.
     */
     dependency_vector viable::explain() {
         dependency_vector result;
+        uint_set seen;
         for (auto e : m_explain) {
             auto index = e->constraint_index;
+            if (seen.contains(index))
+                continue;
+            if (m_var != e->var)
+                result.push_back(offset_claim(m_var, {e->var, 0}));
+            seen.insert(index);
             auto const& [sc, d, value] = c.m_constraint_index[index];
             result.push_back(d);
             result.append(c.explain_eval(sc));
