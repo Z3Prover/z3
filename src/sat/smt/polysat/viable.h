@@ -78,6 +78,7 @@ namespace polysat {
             svector<layer> m_layers;
         public:
             svector<layer> const& get_layers() const { return m_layers; }
+            svector<layer>& get_layers() { return m_layers; }
             layer& ensure_layer(unsigned bit_width);
             layer* get_layer(unsigned bit_width);
             layer* get_layer(entry* e) { return get_layer(e->bit_width); }
@@ -118,9 +119,13 @@ namespace polysat {
 
         lbool next_viable_overlap(pvar w, rational& val);
 
-        lbool next_viable_layer(pvar w, layer const& l, rational& val);
+        lbool next_viable_layer(pvar w, layer& l, rational& val);
 
-        lbool next_viable_non_unit(rational& val);
+        viable::entry* find_overlap(rational const& val, entry* entries);
+
+        bool refine_disequal_lin(pvar v, rational const& val);
+
+        bool refine_equal_lin(pvar v, rational const& val);
 
         pvar            m_var = null_var;
         unsigned        m_num_bits = 0;

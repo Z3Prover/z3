@@ -7,6 +7,7 @@ z3_add_component(polysat
     forbidden_intervals.cpp
     inequality.cpp
     op_constraint.cpp
+    refine.cpp
     saturation.cpp
     ule_constraint.cpp
     umul_ovfl_constraint.cpp
