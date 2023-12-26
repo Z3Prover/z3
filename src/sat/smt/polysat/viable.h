@@ -35,30 +35,11 @@ namespace polysat {
         resource_out,
     };
 
-    struct trailing_bits {
-        unsigned length;
-        rational bits;
-        bool positive;
-        unsigned src_idx;
-    };
-
-    struct leading_bits {
-        unsigned length;
-        bool positive; // either all 0 or all 1
-        unsigned src_idx;
-    };
-
-    struct single_bit {
-        bool positive;
-        unsigned position;
-        unsigned src_idx;
-    };
-
+    std::ostream& operator<<(std::ostream& out, find_t x);
 
     class core;
     class constraints;
 
-    std::ostream& operator<<(std::ostream& out, find_t x);
 
     class viable {
         core& c;
@@ -135,10 +116,15 @@ namespace polysat {
 
         lbool next_viable_unit(rational& val);
 
+        lbool next_viable_overlap(pvar w, rational& val);
+
+        lbool next_viable_layer(pvar w, layer const& l, rational& val);
+
+        lbool next_viable_non_unit(rational& val);
+
         pvar            m_var = null_var;
         unsigned        m_num_bits = 0;
         fixed_bits      m_fixed_bits;
-        unsigned_vector m_widths;
         offset_slices   m_overlaps;
         void init_overlaps(pvar v);
 

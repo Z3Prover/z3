@@ -94,23 +94,10 @@ namespace polysat {
     }
 
     void viable::init_overlaps(pvar v) {
-        m_widths.reset();
         m_overlaps.reset();
         c.get_bitvector_suffixes(v, m_overlaps);
-        std::sort(m_overlaps.begin(), m_overlaps.end(), [&](auto const& x, auto const& y) { return c.size(x.v) > c.size(y.v); });
-
-        uint_set widths_set;
-        // max size should always be present, regardless of whether we have intervals there (to make sure all fixed bits are considered)
-        widths_set.insert(c.size(v));
-
-        for (auto const& [v, offset] : m_overlaps)
-            for (layer const& l : m_units[v].get_layers())
-                widths_set.insert(l.bit_width);
-
-        for (unsigned w : widths_set)
-            m_widths.push_back(w);
+        std::sort(m_overlaps.begin(), m_overlaps.end(), [&](auto const& x, auto const& y) { return c.size(x.v) < c.size(y.v); });
         LOG("Overlaps with v" << v << ":" << m_overlaps);
-        LOG("widths: " << m_widths);
     }
 
     lbool viable::find_viable(pvar v, rational& val1, rational& val2) {
@@ -147,35 +134,90 @@ namespace polysat {
     // Refine?
     // 
     lbool viable::next_viable(rational& val) {
-        rational val0;
-        do {           
+        do {     
+            rational val0 = val;
             auto r = next_viable_unit(val);
             if (r != l_true)
                 return r;
-            val0 = val;
+            if (val0 != val)
+                continue;
             if (!m_fixed_bits.next(val))
                 return l_false;
+            if (val0 != val)
+                continue;
+            r = next_viable_non_unit(val);
+            if (r != l_true)
+                return r;
+            if (val0 != val)
+                continue;
         } 
-        while (val0 != val);
-        NOT_IMPLEMENTED_YET();
-        // non-units
-        return l_undef;
+        while (false);
+        return l_true;
     }
 
     // 
-    // iterate over smallest layers to largest
-    // iterate over smallest overlap to largest
-    //
+    // 
+    // from smallest overlap [w] to largest
+    //     from smallest layer [bit_width, entries] to largest
+    //         check if val is allowed by entries
+    // 
+    // 
     lbool viable::next_viable_unit(rational& val) {
-        return l_undef;
+        for (auto const& [w, offset] : m_overlaps) {
+            auto r = next_viable_overlap(w, val);
+            if (r != l_true)
+                return r;
+        }
+        return l_true;
     }
 
-    // By layer:
-    // var, width := w layer-width := k
-    // layer entry means: 2^{w-k}* x not in [lo, hi[
-    // check if 2^{w-k}* val in [lo, hi[
-    // if so, then increment val such that 2^{w-k}* val' not in [lo, hi[
-    // 
+    lbool viable::next_viable_overlap(pvar w, rational& val) {
+        for (auto const& layer : m_units[w].get_layers()) {
+            auto r = next_viable_layer(w, layer, val);
+            if (r != l_true)
+                return r;
+        }
+        return l_true;
+    }
+
+    lbool viable::next_viable_layer(pvar w, layer const& layer, rational& val) {
+        unsigned num_bits_w = c.size(w);
+        unsigned num_bits_l = layer.bit_width;
+
+        auto is_before = [&](entry* e) {
+            return false;
+            };
+
+        auto is_after = [&](entry* e) {
+            return false;
+            };
+
+        auto is_conflicting = [&](entry* e) {
+            return false;
+            };
+
+        auto increase_value = [&](entry* e) {
+
+            };
+
+        auto first = layer.entries, e = first;
+        do {
+            if (is_conflicting(e))
+                increase_value(e);
+            if (is_before(e))
+                e = e->next();
+            else if (is_after(e))
+                break;
+            else
+                return l_false;
+        } while (e != first);
+        return l_true;
+    }
+
+
+    lbool viable::next_viable_non_unit(rational& val) {
+        return l_undef;
+    }
 
     /*
     * Explain why the current variable is not viable or signleton.
@@ -381,7 +423,7 @@ namespace polysat {
             layer& l = m_layers[i];
             if (l.bit_width == bit_width)
                 return l;
-            else if (l.bit_width < bit_width) {
+            else if (l.bit_width > bit_width) {
                 m_layers.push_back(layer(0));
                 for (unsigned j = m_layers.size(); --j > i; )
                     m_layers[j] = m_layers[j - 1];
@@ -550,18 +592,20 @@ namespace polysat {
     }
 
     /*
-     * Layers are ordered in strictly descending bit-width.
+     * Layers are ordered in strictly ascending bit-width.
      * Entries in each layer are well-formed.
      */
     bool viable::well_formed(layers const& ls) {
-        unsigned prev_width = std::numeric_limits<unsigned>::max();
+        bool first = true;
+        unsigned prev_width = 0;
         for (layer const& l : ls.get_layers()) {
             if (!well_formed(l.entries))
                 return false;
             if (!all_of(dll_elements(l.entries), [&l](entry const& e) { return e.bit_width == l.bit_width; }))
                 return false;
-            if (prev_width <= l.bit_width)
+            if (!first && prev_width >= l.bit_width)
                 return false;
+            first = false;
             prev_width = l.bit_width;
         }
         return true;
