@@ -84,7 +84,6 @@ namespace polysat {
     }
 
     find_t viable::find_viable(pvar v, rational& lo) {
-        display(verbose_stream() << "find viable for v" << v << "\n");
         rational hi;
         switch (find_viable(v, lo, hi)) {
         case l_true:
@@ -193,6 +192,8 @@ namespace polysat {
     *   - set k := l + v.width - w.width, lo' := 2^{v.width-w.width} lo, hi' := 2^{v.width-w.width} hi.
     */
     lbool viable::next_viable_layer(pvar w, layer& layer, rational& val) {
+        if (!layer.entries)
+            return l_true;
         unsigned v_width = m_num_bits;
         unsigned w_width = c.size(w);        
         unsigned l = w_width - layer.bit_width;

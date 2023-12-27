@@ -86,6 +86,8 @@ namespace polysat {
         SASSERT_EQ(lhs.power_of_2(), rhs.power_of_2());
         unsigned const N = lhs.power_of_2();
 
+        // verbose_stream() << "simplify " << lhs << " <= " << rhs << "\n";
+
         // 0 <= p   -->   0 <= 0
         if (lhs.is_zero()) {
             rhs = 0;
@@ -139,13 +141,11 @@ namespace polysat {
             }
         }
 
-        // -p + k <= k      -->  p <= k
         if (rhs.is_val() && !rhs.is_zero() && lhs.offset() == rhs.val()) {
             LOG("-p + k <= k      -->  p <= k");
             lhs = rhs - lhs;
         }
 
-        // k <= p + k       -->  p <= -k-1
         if (lhs.is_val() && !lhs.is_zero() && lhs.val() == rhs.offset()) {
             LOG("k <= p + k       -->  p <= -k-1");
             pdd k = lhs;
@@ -153,7 +153,6 @@ namespace polysat {
             rhs = -k - 1;
         }
 
-        // k <= -p          -->  p-1 <= -k-1
         if (lhs.is_val() && rhs.leading_coefficient().get_bit(N - 1) && !rhs.offset().is_zero()) {
             LOG("k <= -p          -->  p-1 <= -k-1");
             pdd k = lhs;
@@ -161,8 +160,6 @@ namespace polysat {
             rhs = -k - 1;
         }
 
-        // -p <= k          -->  -k-1 <= p-1
-        // if (rhs.is_val() && lhs.leading_coefficient() > rational::power_of_two(N - 1) && !lhs.offset().is_zero()) {
         if (rhs.is_val() && lhs.leading_coefficient().get_bit(N - 1) && !lhs.offset().is_zero()) {
             LOG("-p <= k          -->  -k-1 <= p-1");
             pdd k = rhs;
@@ -170,6 +167,10 @@ namespace polysat {
             lhs = -k - 1;
         }
 
+        if (rhs.is_zero() && lhs.leading_coefficient().get_bit(N - 1) && !lhs.offset().is_zero()) {
+            LOG("-p <= 0          -->  p <= 0");
+            lhs = -lhs;
+        }
         // NOTE: do not use pdd operations in conditions when comparing pdd values.
         //       e.g.: "lhs.offset() == (rhs + 1).val()" is problematic with the following evaluation:
         //          1. return reference into pdd_manager::m_values from lhs.offset()
@@ -177,7 +178,6 @@ namespace polysat {
         //          3. now the reference returned from lhs.offset() may be invalid
         pdd const rhs_plus_one = rhs + 1;
 
-        // p - k <= -k - 1  -->  k <= p
         // TODO: potential bug here: first call offset(), then rhs+1 has to reallocate pdd_manager::m_values, then the reference to offset is broken.
         if (rhs.is_val() && !rhs.is_zero() && lhs.offset() == rhs_plus_one.val()) {
             LOG("p - k <= -k - 1  -->  k <= p");
@@ -231,6 +231,7 @@ namespace polysat {
             lhs *= x;
             SASSERT(lhs.leading_coefficient().is_power_of_two());
         }
+        // verbose_stream() << "simplified " << lhs << " <= " << rhs << "\n";
     } // simplify_impl
 }
 

@@ -106,9 +106,9 @@ namespace polysat {
         case OP_UGT:              internalize_le<false, false, true>(a); break;
         case OP_SGT:              internalize_le<true,  false, true>(a); break;
 
-        case OP_BUMUL_NO_OVFL:    internalize_binaryc(a, [&](pdd const& p, pdd const& q) { return m_core.umul_ovfl(p, q); }); break;
-        case OP_BSMUL_NO_OVFL:    internalize_binaryc(a, [&](pdd const& p, pdd const& q) { return m_core.smul_ovfl(p, q); }); break;
-        case OP_BSMUL_NO_UDFL:    internalize_binaryc(a, [&](pdd const& p, pdd const& q) { return m_core.smul_udfl(p, q); }); break;
+        case OP_BUMUL_NO_OVFL:    internalize_binary_predicate(a, [&](pdd const& p, pdd const& q) { return ~m_core.umul_ovfl(p, q); }); break;
+        case OP_BSMUL_NO_OVFL:    internalize_binary_predicate(a, [&](pdd const& p, pdd const& q) { return ~m_core.smul_ovfl(p, q); }); break;
+        case OP_BSMUL_NO_UDFL:    internalize_binary_predicate(a, [&](pdd const& p, pdd const& q) { return ~m_core.smul_udfl(p, q); }); break;
 
         case OP_BUMUL_OVFL:       
         case OP_BSMUL_OVFL:
@@ -187,10 +187,10 @@ namespace polysat {
         ctx.push(mk_atom_trail(bv, *this));
     }
 
-    void solver::internalize_binaryc(app* e, std::function<polysat::signed_constraint(pdd, pdd)> const& fn) {
+    void solver::internalize_binary_predicate(app* e, std::function<polysat::signed_constraint(pdd, pdd)> const& fn) {
         auto p = expr2pdd(e->get_arg(0));
         auto q = expr2pdd(e->get_arg(1));
-        auto sc = ~fn(p, q);
+        auto sc = fn(p, q);
         sat::literal lit = expr2literal(e);
         if (lit.sign())
             sc = ~sc;

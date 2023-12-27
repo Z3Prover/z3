@@ -25,7 +25,7 @@ namespace polysat {
         pdd lhs = p, rhs = q;
         bool is_positive = true;
         ule_constraint::simplify(is_positive, lhs, rhs);
-        auto* cnstr = alloc(ule_constraint, p, q);
+        auto* cnstr = alloc(ule_constraint, lhs, rhs);
         c.trail().push(new_obj_trail(cnstr));
         auto sc = signed_constraint(ckind_t::ule_t, cnstr);
         return is_positive ? sc : ~sc;

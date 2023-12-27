@@ -39,7 +39,7 @@ namespace polysat {
     public:
         mk_assign_var(pvar v, core& c) : m_var(v), c(c) {}
         void undo() {
-            c.m_justification[m_var] = constraint_id::null();
+            c.m_justification[m_var] = null_dependency;
             c.m_assignment.pop();
         }
     };
@@ -124,7 +124,7 @@ namespace polysat {
         unsigned v = m_vars.size();
         m_vars.push_back(sz2pdd(sz).mk_var(v));
         m_activity.push_back({ sz, 0 });
-        m_justification.push_back(constraint_id::null());
+        m_justification.push_back(null_dependency);
         m_watch.push_back({});
         m_var_queue.mk_var_eh(v);
         m_viable.ensure_var(v);
@@ -173,18 +173,25 @@ namespace polysat {
             return final_check();
         m_var = m_var_queue.next_var();
         s.trail().push(mk_dqueue_var(m_var, *this));
+        
         switch (m_viable.find_viable(m_var, m_value)) {
         case find_t::empty:
+            TRACE("bv", tout << "check-conflict v" << m_var << "\n");
             s.set_conflict(m_viable.explain());
             // propagate_unsat_core();        
             return sat::check_result::CR_CONTINUE;
-        case find_t::singleton:
-            s.propagate(m_constraints.eq(var2pdd(m_var), m_value), m_viable.explain());
+        case find_t::singleton: {
+            TRACE("bv", tout << "check-propagate v" << m_var << " := " << m_value << "\n");
+            auto d = s.propagate(m_constraints.eq(var2pdd(m_var), m_value), m_viable.explain());
+            propagate_assignment(m_var, m_value, d);
             return sat::check_result::CR_CONTINUE;
+        }
         case find_t::multiple:
+            TRACE("bv", tout << "check-multiple v" << m_var << " := " << m_value << "\n");
             s.add_eq_literal(m_var, m_value);
             return sat::check_result::CR_CONTINUE;
         case find_t::resource_out:
+            TRACE("bv", tout << "check-resource out v" << m_var << "\n");
             m_var_queue.unassign_var_eh(m_var);
             return sat::check_result::CR_GIVEUP;
         }
@@ -199,6 +206,8 @@ namespace polysat {
             auto [sc, d, value] = m_constraint_index[idx.id];
             SASSERT(value != l_undef);
             lbool eval_value = eval(sc);
+            sc.display(verbose_stream()) << " eval: " << eval_value << "\n";
+            CTRACE("bv", eval_value == l_undef, sc.display(tout << "eval: ") << " evaluates to " << eval_value << "\n");
             SASSERT(eval_value != l_undef);
             if (eval_value == value)
                 continue;
@@ -233,7 +242,7 @@ namespace polysat {
         for (auto v : sc.vars()) {
             if (!is_assigned(v))
                 continue;
-            auto new_level = s.level(get_dependency(m_justification[v]));
+            auto new_level = s.level(m_justification[v]);
             if (new_level < lvl)
                 continue;
             if (new_level > lvl)
@@ -260,8 +269,9 @@ namespace polysat {
         SASSERT(value != l_undef);
         if (value == l_false)
             sc = ~sc;
+        TRACE("bv", tout << "propagate " << sc << " using " << dep << " := " << value << "\n");
         if (sc.is_eq(m_var, m_value))
-            propagate_assignment(m_var, m_value, idx);
+            propagate_assignment(m_var, m_value, dep);
         else 
             sc.activate(*this, dep);        
     }
@@ -270,13 +280,15 @@ namespace polysat {
         m_watch[var].push_back(idx);
     }
 
-    void core::propagate_assignment(pvar v, rational const& value, constraint_id dep) {
+    void core::propagate_assignment(pvar v, rational const& value, dependency dep) {
+        TRACE("bv", tout << "propagate assignment v" << v << " := " << value << " " << is_assigned(v) << "\n");
         if (is_assigned(v))
             return;
         if (m_var_queue.contains(v)) {
             m_var_queue.del_var_eh(v);
             s.trail().push(mk_dqueue_var(v, *this));
         }
+        
         m_values[v] = value;
         m_justification[v] = dep;   
         m_assignment.push(v , value);
@@ -417,7 +429,7 @@ namespace polysat {
         dependency_vector deps;
         for (auto v : sc.vars()) 
             if (is_assigned(v))
-                deps.push_back(get_dependency(m_justification[v]));
+                deps.push_back(m_justification[v]);
         return deps;
     }
 
@@ -448,7 +460,7 @@ namespace polysat {
         for (auto const& [sc, d, value] : m_constraint_index) 
             out << sc << " " << d << " := " << value << "\n";        
         for (unsigned i = 0; i < m_vars.size(); ++i) {
-            out << m_vars[i] << " := " << m_values[i] << " " << get_dependency(m_justification[i]) << "\n";
+            out << m_vars[i] << " := " << m_values[i] << " " << m_justification[i] << "\n";
         }
         m_var_queue.display(out << "vars ") << "\n";
         return out;

@@ -63,7 +63,7 @@ namespace polysat {
         // attributes associated with variables
         vector<pdd>             m_vars;                       // for each variable a pdd
         vector<rational>        m_values;                     // current value of assigned variable
-        constraint_id_vector    m_justification;              // justification for assignment
+        dependency_vector       m_justification;              // justification for assignment
         activity                m_activity;                   // activity of variables
         var_queue<activity>     m_var_queue;                  // priority queue of variables to assign
         vector<unsigned_vector> m_watch;                      // watch lists for variables for constraints on m_prop_queue where they occur
@@ -80,7 +80,7 @@ namespace polysat {
         bool is_assigned(pvar v) { return !m_justification[v].is_null(); }
         void propagate_assignment(constraint_id idx);
         void propagate_eval(constraint_id idx);
-        void propagate_assignment(pvar v, rational const& value, constraint_id dep);
+        void propagate_assignment(pvar v, rational const& value, dependency dep);
         void propagate_unsat_core();
         void propagate(constraint_id id, signed_constraint& sc, lbool value, dependency const& d);
 

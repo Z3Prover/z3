@@ -531,7 +531,8 @@ namespace euf {
         out << "bv\n";        
         for (auto const& i : m_info) 
             if (i.lo)
-                out << g.bpp(i.value) << " cut " << i.cut << " lo " << g.bpp(i.lo) << " hi " << g.bpp(i.hi) << "\n";                   
+                out << g.bpp(i.value) << " cut " << i.cut << " lo " << g.bpp(i.lo) << " hi " << g.bpp(i.hi) << "\n";           
+
         return out;
     }
 }

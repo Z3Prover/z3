@@ -167,6 +167,7 @@ namespace polysat {
         auto n = var2enode(v);
         auto eq = eq_internalize(n->get_expr(), bv.mk_numeral(val, get_bv_size(v)));
         s().set_phase(eq);
+        ctx.mark_relevant(eq);
     }
 
     void solver::new_eq_eh(euf::th_eq const& eq) {
@@ -205,6 +206,7 @@ namespace polysat {
     // Everything goes over expressions/literals. polysat::core is not responsible for replaying expressions. 
     
     dependency solver::propagate(signed_constraint sc, dependency_vector const& deps) {
+        TRACE("bv", sc.display(tout << "propagate ") << "\n");
         sat::literal lit = ctx.mk_literal(constraint2expr(sc));        
         if (s().value(lit) == l_true)
             return dependency(lit.var());
@@ -257,7 +259,9 @@ namespace polysat {
     }
 
     void solver::propagate(dependency const& d, bool sign, dependency_vector const& deps) {
+        TRACE("bv", tout << "propagate " << d << " " << sign << "\n");
         auto [core, eqs] = explain_deps(deps);
+        SASSERT(d.is_bool_var() || d.is_eq());
         if (d.is_bool_var()) {
             auto bv = d.bool_var();
             auto lit = sat::literal(bv, sign);
@@ -335,16 +339,23 @@ namespace polysat {
     }
 
     expr_ref solver::constraint2expr(signed_constraint const& sc) { 
+        expr_ref result(m);
         switch (sc.op()) {
         case ckind_t::ule_t: {
             auto l = pdd2expr(sc.to_ule().lhs());
             auto h = pdd2expr(sc.to_ule().rhs());
-            return expr_ref(bv.mk_ule(l, h), m);
+            result = bv.mk_ule(l, h);
+            if (sc.sign())
+                result = m.mk_not(result);
+            return result;           
         }
         case ckind_t::umul_ovfl_t: {
             auto l = pdd2expr(sc.to_umul_ovfl().p());
             auto r = pdd2expr(sc.to_umul_ovfl().q());
-            return expr_ref(m.mk_not(bv.mk_bvumul_no_ovfl(l, r)), m);
+            result = bv.mk_bvumul_no_ovfl(l, r);
+            if (!sc.sign())
+                result = m.mk_not(result);
+            return result;
         }
         case ckind_t::smul_fl_t:
         case ckind_t::op_t:
