@@ -103,7 +103,7 @@ namespace euf {
         return mk(e, 0, nullptr);
     }
 
-    void bv_plugin::merge_eh(enode* x, enode* y) {
+    void bv_plugin::propagate_merge(enode* x, enode* y) {
         if (!bv.is_bv(x->get_expr()))
             return;
 
@@ -126,6 +126,35 @@ namespace euf {
         // ensure p := concat(n1[I], n2[J]), n1 ~ n2 ~ n3 I and J are consecutive => p ~ n3[IJ]
         for (auto* n : enode_class(x))
             propagate_extract(n);
+    }
+
+    void bv_plugin::register_node(enode* n) { 
+        m_queue.push_back(n); 
+        m_trail.push_back(new (get_region()) push_back_vector(m_queue));  
+        push_plugin_undo(bv.get_family_id()); 
+    }
+
+    void bv_plugin::merge_eh(enode* n1, enode* n2) { 
+        m_queue.push_back(enode_pair(n1, n2)); 
+        m_trail.push_back(new (get_region()) push_back_vector(m_queue));  
+        push_plugin_undo(bv.get_family_id()); 
+    }
+
+    void bv_plugin::propagate() {
+        if (m_qhead == m_queue.size())
+            return;
+        m_trail.push_back(new (get_region()) value_trail(m_qhead));
+        push_plugin_undo(bv.get_family_id());
+        for (; m_qhead < m_queue.size(); ++m_qhead) {
+            if (std::holds_alternative<enode*>(m_queue[m_qhead])) {
+                auto n = *std::get_if<enode*>(&m_queue[m_qhead]);
+                propagate_register_node(n);
+            }
+            else {
+                auto [a, b] = *std::get_if<enode_pair>(&m_queue[m_qhead]);
+                propagate_merge(a, b);
+            }
+        }
     }
 
     // enforce concat(v1, v2) = v2*2^|v1| + v1
@@ -203,21 +232,32 @@ namespace euf {
         }
     }
 
-    void bv_plugin::push_undo_split(enode* n) { 
-        m_undo_split.push_back(n);
+    class bv_plugin::undo_split : public trail {
+        bv_plugin& p;
+        enode* n;
+    public:
+        undo_split(bv_plugin& p, enode* n): p(p), n(n) {}
+        void undo() override {
+            auto& i = p.info(n);
+            i.value = nullptr;
+            i.lo = nullptr;
+            i.hi = nullptr;
+            i.cut = null_cut;            
+        }
+    };
+
+    void bv_plugin::push_undo_split(enode* n) {
+        m_trail.push_back(new (get_region()) undo_split(*this, n));
         push_plugin_undo(bv.get_family_id());
     }
 
     void bv_plugin::undo() {
-        enode* n = m_undo_split.back();
-        m_undo_split.pop_back();
-        auto& i = info(n);
-        i.lo = nullptr;
-        i.hi = nullptr;
-        i.cut = null_cut;       
+        m_trail.back()->undo();
+        m_trail.pop_back();
     }
+
     
-    void bv_plugin::register_node(enode* n) {
+    void bv_plugin::propagate_register_node(enode* n) {
         TRACE("bv", tout << "register " << g.bpp(n) << "\n");
         auto& i = info(n);
         i.value = n;    
@@ -236,6 +276,7 @@ namespace euf {
                 push_merge(mk_extract(arg, 0, w - 1), arg);
             ensure_slice(arg, lo, hi);
         }
+        TRACE("bv", tout << "done register " << g.bpp(n) << "\n");
     }
 
     //
@@ -487,10 +528,10 @@ namespace euf {
     }
 
     std::ostream& bv_plugin::display(std::ostream& out) const {
-        out << "bv\n";
+        out << "bv\n";        
         for (auto const& i : m_info) 
-            if (i.lo)            
-                out << g.bpp(i.value) << " cut " << i.cut << " lo " << g.bpp(i.lo) << " hi " << g.bpp(i.hi) << "\n";        
+            if (i.lo)
+                out << g.bpp(i.value) << " cut " << i.cut << " lo " << g.bpp(i.lo) << " hi " << g.bpp(i.hi) << "\n";                   
         return out;
     }
 }

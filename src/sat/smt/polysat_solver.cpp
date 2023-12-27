@@ -40,7 +40,8 @@ namespace polysat {
         m_intblast(ctx),
         m_lemma(ctx.get_manager())
     {
-        // ctx.get_egraph().add_plugin(alloc(euf::bv_plugin, ctx.get_egraph()));
+        m_bv_plugin = alloc(euf::bv_plugin, ctx.get_egraph());
+        ctx.get_egraph().add_plugin(m_bv_plugin);
     }
 
     unsigned solver::get_bv_size(euf::enode* n) {
@@ -119,6 +120,20 @@ namespace polysat {
                 auto bv = d.bool_var();
                 auto lit = sat::literal(bv, s().value(bv) == l_false);
                 core.push_back(lit);
+            }
+            else if (d.is_fixed_claim()) {
+                auto const& o = d.fixed();
+                std::function<void(euf::enode*, euf::enode*)> consume = [&](auto* a, auto* b) {
+                    eqs.push_back({ a, b });
+                    };
+                explain_fixed(o.v, o.lo, o.hi, o.value, consume);
+            }
+            else if (d.is_offset_claim()) {
+                auto const& offs = d.offset();
+                std::function<void(euf::enode*, euf::enode*)> consume = [&](auto* a, auto* b) {
+                    eqs.push_back({ a, b });
+                    };
+                explain_slice(offs.v, offs.w, offs.offset, consume);
             }
             else {
                 auto const [v1, v2] = d.eq();

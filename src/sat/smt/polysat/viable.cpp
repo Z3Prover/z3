@@ -84,6 +84,7 @@ namespace polysat {
     }
 
     find_t viable::find_viable(pvar v, rational& lo) {
+        display(verbose_stream() << "find viable for v" << v << "\n");
         rational hi;
         switch (find_viable(v, lo, hi)) {
         case l_true:
@@ -99,7 +100,6 @@ namespace polysat {
         m_overlaps.reset();
         c.get_bitvector_suffixes(v, m_overlaps);
         std::sort(m_overlaps.begin(), m_overlaps.end(), [&](auto const& x, auto const& y) { return c.size(x.v) < c.size(y.v); });
-        LOG("Overlaps with v" << v << ":" << m_overlaps);
     }
 
     lbool viable::find_viable(pvar v, rational& val1, rational& val2) {
@@ -217,6 +217,8 @@ namespace polysat {
             }
             // TODO check if admitted: layer.entries = e;
             m_explain.push_back(e);
+            if (e->interval.is_full())
+                return l_false;            
             auto hi = e->interval.hi_val();
             if (hi < val1) {
                 if (is_zero)
@@ -865,6 +867,25 @@ namespace polysat {
             }
         } 
         while (e != first);
+        return out;
+    }
+
+    std::ostream& viable::display(std::ostream& out) const {
+        for (unsigned v = 0; v < m_units.size(); ++v) {
+            bool first = true;
+            for (auto const& layer : m_units[v].get_layers()) {
+                if (!layer.entries)
+                    continue;
+                if (first)
+                    out << "v" << v << ": ";
+                first = false;
+                if (layer.bit_width != c.size(v))
+                    out << "width[" << layer.bit_width << "] ";
+                display_all(out, v, layer.entries, " ");
+            }
+            if (!first)
+                out << "\n";
+        }
         return out;
     }
 

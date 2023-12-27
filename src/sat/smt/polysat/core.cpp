@@ -320,7 +320,8 @@ namespace polysat {
             if (!is_assigned(v0) || is_assigned(v1))
                 continue;
             // detect unitary, add to viable, detect conflict?
-            m_viable.add_unitary(v1, idx);            
+            if (value != l_undef)
+                m_viable.add_unitary(v1, idx);            
         }
         SASSERT(m_watch[v].size() == sz && "size of watch list was not changed");
         m_watch[v].shrink(j);
@@ -347,16 +348,20 @@ namespace polysat {
     }
 
     dependency core::get_dependency(constraint_id idx) const {
+        if (idx.is_null())
+            return null_dependency;
         auto [sc, d, value] = m_constraint_index[idx.id];
         return d;
     }
 
+#if 0
     dependency_vector core::get_dependencies(constraint_id_vector const& ids) const {
         dependency_vector result;
         for (auto id : ids)
             result.push_back(get_dependency(id));
         return result;
     }
+#endif
 
     void core::propagate(constraint_id id, signed_constraint& sc, lbool value, dependency const& d) {
         lbool eval_value = eval(sc);
@@ -442,8 +447,9 @@ namespace polysat {
         out << "polysat:\n";
         for (auto const& [sc, d, value] : m_constraint_index) 
             out << sc << " " << d << " := " << value << "\n";        
-        for (unsigned i = 0; i < m_vars.size(); ++i) 
+        for (unsigned i = 0; i < m_vars.size(); ++i) {
             out << m_vars[i] << " := " << m_values[i] << " " << get_dependency(m_justification[i]) << "\n";
+        }
         m_var_queue.display(out << "vars ") << "\n";
         return out;
     }

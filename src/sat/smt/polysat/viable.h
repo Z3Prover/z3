@@ -158,6 +158,9 @@ namespace polysat {
         */
         void ensure_var(pvar v);
 
+
+        std::ostream& display(std::ostream& out) const;
+
     };
 
 }

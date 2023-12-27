@@ -19,6 +19,7 @@ Author:
 
 #pragma once
 
+#include "util/trail.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/euf/euf_plugin.h"
 
@@ -81,8 +82,16 @@ namespace euf {
         svector<std::tuple<enode*, unsigned, unsigned>> m_jtodo;
         void clear_offsets();
 
-        enode_vector m_undo_split;
+
+        ptr_vector<trail> m_trail;
+        
+        class undo_split;
         void push_undo_split(enode* n);
+
+        vector<std::variant<enode*, enode_pair>> m_queue;
+        unsigned m_qhead = 0;        
+        void propagate_register_node(enode* n);
+        void propagate_merge(enode* a, enode* b);
         
     public:
         bv_plugin(egraph& g);
@@ -97,7 +106,7 @@ namespace euf {
 
         void diseq_eh(enode* eq) override {}
 
-        void propagate() override {}
+        void propagate() override;
 
         void undo() override;
         

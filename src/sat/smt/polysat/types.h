@@ -110,7 +110,9 @@ namespace polysat {
 
 
     inline std::ostream& operator<<(std::ostream& out, offset_slice const& js) {
-        return out << "v" << js.v << "[" << js.offset << "[ @";
+        if (js.offset == 0)
+            return out << "v" << js.v;
+        return out << "v" << js.v << " at offset " << js.offset;
     }
 
     using fixed_bits_vector = svector<fixed_slice>;

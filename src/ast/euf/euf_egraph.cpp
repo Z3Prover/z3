@@ -107,7 +107,10 @@ namespace euf {
     void egraph::update_children(enode* n) {
         for (enode* child : enode_args(n)) 
             child->get_root()->add_parent(n);
+        for (enode* child : enode_args(n))  
+            SASSERT(child->get_root()->m_parents.back() == n);
         m_updates.push_back(update_record(n, update_record::update_children()));
+        TRACE("euf", tout << "update children " << bpp(n) << "\n"; display(tout));
     }
 
     enode* egraph::mk(expr* f, unsigned generation, unsigned num_args, enode *const* args) {
@@ -441,7 +444,10 @@ namespace euf {
                 p.r1->set_relevant(false);
                 break;
             case update_record::tag_t::is_update_children:
+                TRACE("euf", tout << "reverse update children " << bpp(p.r1) << "\n"; display(tout));
                 for (unsigned i = 0; i < p.r1->num_args(); ++i) {
+                    CTRACE("euf", (p.r1->m_args[i]->get_root()->m_parents.back() != p.r1),
+                           display(tout << bpp(p.r1->m_args[i]) << " " << bpp(p.r1->m_args[i]->get_root()) << " "););
                     SASSERT(p.r1->m_args[i]->get_root()->m_parents.back() == p.r1);
                     p.r1->m_args[i]->get_root()->m_parents.pop_back();
                 }
