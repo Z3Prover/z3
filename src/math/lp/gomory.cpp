@@ -328,7 +328,7 @@ public:
         if (m_t.is_empty())
             return report_conflict_from_gomory_cut();
         TRACE("gomory_cut", print_linear_combination_of_column_indices_only(m_t.coeffs_as_vector(), tout << "gomory cut: "); tout << " >= " << m_k << std::endl;);
-        if (some_int_columns)
+        if (lia.lra.settings().m_gomory_simplify && some_int_columns)
             simplify_inequality();
         
         m_dep = nullptr;

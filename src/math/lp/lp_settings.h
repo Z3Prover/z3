@@ -187,6 +187,7 @@ private:
     random_gen                m_rand;
 
 public:
+    bool         m_gomory_simplify = false;
     void updt_params(params_ref const& p);
     bool enable_hnf() const { return m_enable_hnf; }
     unsigned nlsat_delay() const { return m_nlsat_delay; }
@@ -214,6 +215,7 @@ public:
     bool             backup_costs = true;
     unsigned         column_number_threshold_for_using_lu_in_lar_solver = 4000;
     unsigned         m_int_gomory_cut_period = 4;
+    bool             m_gomory_simpliy = false;
     unsigned         m_int_find_cube_period = 4;
 private:
     unsigned         m_hnf_cut_period = 4;
