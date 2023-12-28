@@ -80,4 +80,23 @@ namespace polysat {
         m_intblast.display(out);
         return out;
     }
+
+    void solver::validate_propagate(sat::literal lit, sat::literal_vector const& core, euf::enode_pair_vector const& eqs) {
+        if (!ctx.get_config().m_core_validate)
+            return;
+        auto r = m_intblast.check_propagation(lit, core, eqs);
+        VERIFY (r != l_true);
+    }
+    void solver::validate_conflict(sat::literal_vector const& core, euf::enode_pair_vector const& eqs) {
+        if (!ctx.get_config().m_core_validate)
+            return;
+        auto r = m_intblast.check_core(core, eqs);
+        VERIFY (r != l_true);
+    }
+    void solver::validate_axiom(sat::literal_vector const& clause) {
+        if (!ctx.get_config().m_core_validate)
+            return;
+        auto r = m_intblast.check_axiom(clause);
+        VERIFY (r != l_true);
+    }
 }

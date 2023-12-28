@@ -321,7 +321,7 @@ namespace polysat {
         // e = int2bv(x)
         // bv2int(int2bv(x)) = x mod N   
         rational N = rational::power_of_two(sz);
-        add_unit(eq_internalize(bv.mk_bv2int(e), m_autil.mk_mod(x, m_autil.mk_int(N))));        
+        add_axiom("int2bv", { eq_internalize(bv.mk_bv2int(e), m_autil.mk_mod(x, m_autil.mk_int(N))) });
     }
     
     void solver::axiomatize_bv2int(app* e, expr* x) {
@@ -334,7 +334,7 @@ namespace polysat {
         pdd p = expr2pdd(x);
         for (unsigned i = 0; i < sz; ++i)
             r = m_autil.mk_add(r, m.mk_ite(constraint2expr(m_core.bit(p, i)), one, zero));
-        add_unit(eq_internalize(e, r));
+        add_axiom("bv2int", { eq_internalize(e, r) });
     }
 
 
@@ -349,7 +349,7 @@ namespace polysat {
 
     void solver::axiomatize_rotate_left(app* e, unsigned n, expr* x) {
         // e = x[n : 0] ++ x[sz - 1, sz - n - 1] 
-        add_unit(eq_internalize(e, rotate_left(e, n, x)));              
+        add_axiom("rotate-left", { eq_internalize(e, rotate_left(e, n, x)) });
     }
 
     void solver::axiomatize_rotate_right(app* e, unsigned n, expr* x) {
@@ -360,49 +360,43 @@ namespace polysat {
     void solver::axiomatize_ext_rotate_left(app* e, expr* x, expr* y) {
         unsigned sz = bv.get_bv_size(x);
         for (unsigned i = 0; i < sz; ++i)
-            add_clause(~eq_internalize(bv.mk_numeral(i, sz), y), eq_internalize(e, rotate_left(e, i, x)));
-        add_clause(~mk_literal(bv.mk_ule(bv.mk_numeral(sz, sz), y)), eq_internalize(e, bv.mk_zero(sz)));
+            add_axiom("ext-rotate-left", { ~eq_internalize(bv.mk_numeral(i, sz), y), eq_internalize(e, rotate_left(e, i, x)) });
+        add_axiom("ext-rotate-left", { ~mk_literal(bv.mk_ule(bv.mk_numeral(sz, sz), y)), eq_internalize(e, bv.mk_zero(sz)) });
     }
 
     void solver::axiomatize_ext_rotate_right(app* e, expr* x, expr* y) {
         unsigned sz = bv.get_bv_size(x);
         for (unsigned i = 0; i < sz; ++i)
-            add_clause(~eq_internalize(bv.mk_numeral(i, sz), y), eq_internalize(e, rotate_left(e, sz - i, x)));
-        add_clause(~mk_literal(bv.mk_ule(bv.mk_numeral(sz, sz), y)), eq_internalize(e, bv.mk_zero(sz)));
+            add_axiom("ext-rotate-right", { ~eq_internalize(bv.mk_numeral(i, sz), y), eq_internalize(e, rotate_left(e, sz - i, x)) });
+        add_axiom("ext-rotate-right", { ~mk_literal(bv.mk_ule(bv.mk_numeral(sz, sz), y)), eq_internalize(e, bv.mk_zero(sz)) });
     }
 
     // x = N - 1
     void solver::axiomatize_redand(app* e, expr* x) {
         unsigned sz = bv.get_bv_size(x);
         rational N = rational::power_of_two(sz);
-        add_equiv(expr2literal(e), eq_internalize(x, bv.mk_numeral(N - 1, sz)));
+        equiv_axiom("redand", expr2literal(e), eq_internalize(x, bv.mk_numeral(N - 1, sz)));
     }
 
     void solver::axiomatize_redor(app* e, expr* x) {
         unsigned sz = bv.get_bv_size(x);
-        add_equiv(expr2literal(e), ~eq_internalize(x, bv.mk_zero(sz)));
+        equiv_axiom("redor", expr2literal(e), ~eq_internalize(x, bv.mk_zero(sz)));
     }
 
     void solver::axiomatize_comp(app* e, expr* x, expr* y) {
         unsigned sz = bv.get_bv_size(x);
         auto eq = eq_internalize(x, y);
-        polysat_proof* hint = nullptr;
-        if (ctx.use_drat())
-            hint = mk_proof_hint("[axiom] bv-comp");
-        add_clause(~eq, eq_internalize(e, bv.mk_numeral(1, sz)), hint);
-        add_clause(eq, eq_internalize(e, bv.mk_numeral(0, sz)), hint);
+        add_axiom("bv-comp", { ~eq, eq_internalize(e, bv.mk_numeral(1, sz)) });
+        add_axiom("bv-comp", { eq, eq_internalize(e, bv.mk_numeral(0, sz)) });
     }
 
     // y = 0 -> x
     // else x - sdiv(x, y) * y
     void solver::axiomatize_srem(app* e, expr* x, expr* y) {
         unsigned sz = bv.get_bv_size(x);
-        sat::literal y_eq0 = eq_internalize(y, bv.mk_zero(sz));
-        polysat_proof* hint = nullptr;
-        if (ctx.use_drat())
-            hint = mk_proof_hint("[axiom] srem");
-        add_clause(~y_eq0, eq_internalize(e, x), hint);
-        add_clause(y_eq0, eq_internalize(e, bv.mk_bv_mul(bv.mk_bv_sdiv(x, y), y)), hint);
+        sat::literal y_eq0 = eq_internalize(y, bv.mk_zero(sz));        
+        add_axiom("srem", { ~y_eq0, eq_internalize(e, x) });
+        add_axiom("srem", { y_eq0, eq_internalize(e, bv.mk_bv_mul(bv.mk_bv_sdiv(x, y), y)) });                     
     }
 
     // u := umod(x, y)
@@ -420,17 +414,16 @@ namespace polysat {
         expr* signy = bv.mk_ule(bv.mk_numeral(N / 2, sz), y);
         sat::literal lsignx = mk_literal(signx);
         sat::literal lsigny = mk_literal(signy);
-        sat::literal u_eq0 = eq_internalize(u, bv.mk_zero(sz)); 
-        sat::literal y_eq0 = eq_internalize(y, bv.mk_zero(sz)); 
-        polysat_proof* hint = nullptr;
-        if (ctx.use_drat())
-            hint = mk_proof_hint("[axiom] smod");
-        add_clause(~u_eq0, eq_internalize(e, bv.mk_zero(sz)), hint);
-        add_clause(u_eq0, ~y_eq0, eq_internalize(e, x), hint);
-        add_clause(~lsignx, ~lsigny, eq_internalize(e, bv.mk_bv_neg(u)), hint);
-        add_clause(y_eq0, ~lsignx, lsigny, eq_internalize(e, bv.mk_bv_sub(y, u)), hint);
-        add_clause(y_eq0, lsignx, ~lsigny, eq_internalize(e, bv.mk_bv_add(y, u)), hint);
-        add_clause(y_eq0, lsignx, lsigny, eq_internalize(e, u), hint);
+        sat::literal u_eq0 = eq_internalize(u, bv.mk_zero(sz));
+        sat::literal y_eq0 = eq_internalize(y, bv.mk_zero(sz));
+        auto name = "smod";
+
+        add_axiom(name, { ~u_eq0, eq_internalize(e, bv.mk_zero(sz)) });
+        add_axiom(name, { u_eq0, ~y_eq0, eq_internalize(e, x) });
+        add_axiom(name, { ~lsignx, ~lsigny, eq_internalize(e, bv.mk_bv_neg(u)) });
+        add_axiom(name, { y_eq0, ~lsignx, lsigny, eq_internalize(e, bv.mk_bv_sub(y, u)) });
+        add_axiom(name, { y_eq0, lsignx, ~lsigny, eq_internalize(e, bv.mk_bv_add(y, u)) });
+        add_axiom(name, { y_eq0, lsignx, lsigny, eq_internalize(e, u) });
     }
 
 
@@ -453,15 +446,13 @@ namespace polysat {
         sat::literal lsignx = mk_literal(signx);
         sat::literal lsigny = mk_literal(signy);
         sat::literal y_eq0 = eq_internalize(y, bv.mk_zero(sz));
-        polysat_proof* hint = nullptr;
-        if (ctx.use_drat())
-            hint = mk_proof_hint("[axiom] sdiv");
-        add_clause(~y_eq0, ~lsignx, eq_internalize(e, bv.mk_numeral(1, sz)), hint);
-        add_clause(~y_eq0, lsignx, eq_internalize(e, bv.mk_numeral(N-1, sz)), hint);
-        add_clause(y_eq0, lsignx, ~lsigny, eq_internalize(e, bv.mk_bv_neg(d)), hint);
-        add_clause(y_eq0, ~lsignx, lsigny, eq_internalize(e, bv.mk_bv_neg(d)), hint);
-        add_clause(y_eq0, lsignx, lsigny, eq_internalize(e, d), hint);
-        add_clause(y_eq0, ~lsignx, ~lsigny, eq_internalize(e, d), hint);
+        auto name = "sdiv";
+        add_axiom(name, { ~y_eq0, ~lsignx, eq_internalize(e, bv.mk_numeral(1, sz)) });
+        add_axiom(name, { ~y_eq0, lsignx, eq_internalize(e, bv.mk_numeral(N - 1, sz)) });
+        add_axiom(name, { y_eq0, lsignx, ~lsigny, eq_internalize(e, bv.mk_bv_neg(d)) });
+        add_axiom(name, { y_eq0, ~lsignx, lsigny, eq_internalize(e, bv.mk_bv_neg(d)) });
+        add_axiom(name, { y_eq0, lsignx, lsigny, eq_internalize(e, d) });
+        add_axiom(name, { y_eq0, ~lsignx, ~lsigny, eq_internalize(e, d) });
     }    
 
     void solver::internalize_urem_i(app* rem) {
@@ -532,18 +523,18 @@ namespace polysat {
         //      b = 0  ==>  q = -1
         // TODO: when a,b become evaluable, can we actually propagate q,r? doesn't seem like it.
         //       Maybe we need something like an op_constraint for better propagation.
-        add_axiom("[axiom] quot-rem", { m_core.eq(b * q + r - a) }, false);
-        add_axiom("[axiom] quot-rem", { ~m_core.umul_ovfl(b, q) }, false);
+        add_axiom("quot-rem", { m_core.eq(b * q + r - a) }, false);
+        add_axiom("quot-rem", { ~m_core.umul_ovfl(b, q) }, false);
         // r <= b*q+r
         //  { apply equivalence:  p <= q  <=>  q-p <= -p-1 }
         // b*q <= -r-1
-        add_axiom("[axiom] quot-rem", { m_core.ule(b * q, -r - 1) }, false);
+        add_axiom("quot-rem", { m_core.ule(b * q, -r - 1) }, false);
 
         auto c_eq = m_core.eq(b);
         if (!c_eq.is_always_true())
-            add_axiom("[axiom] quot-rem", { c_eq, ~m_core.ule(b, r) }, false);
+            add_axiom("quot-rem", { c_eq, ~m_core.ule(b, r) }, false);
         if (!c_eq.is_always_false())
-            add_axiom("[axiom] quot-rem", { ~c_eq, m_core.eq(q + 1) }, false);
+            add_axiom("quot-rem", { ~c_eq, m_core.eq(q + 1) }, false);
     }
 
     void solver::internalize_sign_extend(app* e) {
@@ -552,17 +543,15 @@ namespace polysat {
         unsigned arg_sz = bv.get_bv_size(arg);
         unsigned sz2 = sz - arg_sz;
         var2pdd(expr2enode(e)->get_th_var(get_id()));
-        polysat_proof* hint = nullptr;
-        if (ctx.use_drat())
-            hint = mk_proof_hint("[axiom] sign extend");
+        auto name = "sign extend";
         if (arg_sz == sz) 
-            add_clause(eq_internalize(e, arg), hint);
+            add_axiom(name, { eq_internalize(e, arg) });
         else {
             sat::literal lt0 = ctx.mk_literal(bv.mk_slt(arg, bv.mk_numeral(0, arg_sz)));
             // arg < 0 ==> e = concat(1...1, arg)
             // arg >= 0 ==> e = concat(0...0, arg)
-            add_clause(lt0, eq_internalize(e, bv.mk_concat(bv.mk_numeral(rational::power_of_two(sz2) - 1, sz2), arg)), hint);
-            add_clause(~lt0, eq_internalize(e, bv.mk_concat(bv.mk_numeral(0, sz2), arg)), hint);
+            add_axiom(name, { lt0, eq_internalize(e, bv.mk_concat(bv.mk_numeral(rational::power_of_two(sz2) - 1, sz2), arg)) });
+            add_axiom(name, { ~lt0, eq_internalize(e, bv.mk_concat(bv.mk_numeral(0, sz2), arg)) });
         }
     }
 
@@ -572,14 +561,12 @@ namespace polysat {
         unsigned arg_sz = bv.get_bv_size(arg);
         unsigned sz2 = sz - arg_sz;
         var2pdd(expr2enode(e)->get_th_var(get_id()));
-        polysat_proof* hint = nullptr;
-        if (ctx.use_drat())
-            hint = mk_proof_hint("[axiom] zero extend");
+        auto name = "zero extend";
         if (arg_sz == sz)
-            add_clause(eq_internalize(e, arg), hint);
+            add_axiom(name, { eq_internalize(e, arg) });
         else 
             // e = concat(0...0, arg)
-            add_clause(eq_internalize(e, bv.mk_concat(bv.mk_numeral(0, sz2), arg)), hint);
+            add_axiom(name, { eq_internalize(e, bv.mk_concat(bv.mk_numeral(0, sz2), arg)) });
     }
 
     void solver::internalize_div_rem(app* e, bool is_div) {
@@ -598,11 +585,9 @@ namespace polysat {
         sat::literal eqZ = eq_internalize(arg2, zero);
         sat::literal eqU = eq_internalize(e, is_div ? bv.mk_bv_udiv0(arg1) : bv.mk_bv_urem0(arg1));
         sat::literal eqI = eq_internalize(e, is_div ? bv.mk_bv_udiv_i(arg1, arg2) : bv.mk_bv_urem_i(arg1, arg2));
-        polysat_proof* hint = nullptr;
-        if (ctx.use_drat())
-            hint = mk_proof_hint("[axiom] div-rem");
-        add_clause(~eqZ, eqU, hint);
-        add_clause(eqZ, eqI, hint);
+        auto name = "div-rem";
+        add_axiom(name, { ~eqZ, eqU });
+        add_axiom(name, { eqZ, eqI });
         ctx.add_aux(~eqZ, eqU);
         ctx.add_aux(eqZ, eqI);        
     }
@@ -623,7 +608,7 @@ namespace polysat {
             b2b = bv.mk_bit2bool(a, i);            
             sat::literal bit_i = ctx.internalize(b2b, false, false);
             sat::literal lit = expr2literal(arg);
-            add_equiv(lit, bit_i);
+            equiv_axiom("mkbv", lit, bit_i);
 #if 0
             ctx.add_aux_equiv(lit, bit_i);
 #endif
@@ -647,12 +632,10 @@ namespace polysat {
         auto sz_x = bv.get_bv_size(x);
         auto eq0 = eq_internalize(e, bv.mk_numeral(0, sz_e));
         auto gelo = mk_literal(bv.mk_ule(bv.mk_numeral(rational::power_of_two(lo), sz_x), x));  
-        polysat_proof* hint = nullptr;
-        if (ctx.use_drat())
-            hint = mk_proof_hint("[axiom] extract");
-        add_clause(eq0, gelo, hint);
+        auto name = "extract";
+        add_axiom(name, { eq0, gelo });
         if (hi + 1 == sz_e) 
-            add_clause(~eq0, ~gelo, hint);
+            add_axiom(name, { ~eq0, ~gelo });
     }
 
     void solver::internalize_concat(app* e) {

@@ -100,6 +100,10 @@ namespace intblast {
         
         ~solver() override {}
 
+        lbool check_axiom(sat::literal_vector const& lits);
+        lbool check_core(sat::literal_vector const& lits, euf::enode_pair_vector const& eqs);
+        lbool check_propagation(sat::literal lit, sat::literal_vector const& lits, euf::enode_pair_vector const& eqs);
+
         lbool check_solver_state();
 
         sat::literal_vector const& unsat_core();

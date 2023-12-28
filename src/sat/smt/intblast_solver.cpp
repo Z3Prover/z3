@@ -182,6 +182,67 @@ namespace intblast {
             translate_expr(e);
     }
 
+    lbool solver::check_axiom(sat::literal_vector const& lits) {
+        sat::literal_vector core;
+        for (auto lit : lits)
+            core.push_back(~lit);
+        return check_core(core, {});
+    }
+    lbool solver::check_propagation(sat::literal lit, sat::literal_vector const& lits, euf::enode_pair_vector const& eqs) {
+        sat::literal_vector core;
+        core.append(lits);
+        core.push_back(~lit);
+        return check_core(core, eqs);
+    }
+
+    lbool solver::check_core(sat::literal_vector const& lits, euf::enode_pair_vector const& eqs) {
+        m_core.reset();
+        m_vars.reset();
+        m_is_plugin = false;
+        m_solver = mk_smt2_solver(m, s.params(), symbol::null);
+
+        for (unsigned i = 0; i < m_translate.size(); ++i)
+            m_translate[i] = nullptr;
+
+        expr_ref_vector es(m), original_es(m);
+        for (auto lit : lits)
+            es.push_back(ctx.literal2expr(lit));
+        for (auto [a, b] : eqs)
+            es.push_back(m.mk_eq(a->get_expr(), b->get_expr()));
+        
+        original_es.append(es);
+        translate(es);
+
+        for (auto e : m_vars) {
+            auto v = translated(e);
+            auto b = rational::power_of_two(bv.get_bv_size(e));
+            m_solver->assert_expr(a.mk_le(a.mk_int(0), v));
+            m_solver->assert_expr(a.mk_lt(v, a.mk_int(b)));
+        }
+
+        IF_VERBOSE(10, verbose_stream() << "check\n";
+                   m_solver->display(verbose_stream());
+                   verbose_stream() << es << "\n");
+
+        lbool r = m_solver->check_sat(es);
+
+        m_solver->collect_statistics(m_stats);
+
+        IF_VERBOSE(2, verbose_stream() << "(sat.intblast :result " << r << ")\n");
+        if (r == l_true) {
+            model_ref mdl;
+            m_solver->get_model(mdl);
+            verbose_stream() << original_es << "\n";
+            verbose_stream() << *mdl << "\n";
+            verbose_stream() << es << "\n";
+            m_solver->display(verbose_stream());
+        }
+
+        return r;
+    }
+
+    
+
     lbool solver::check_solver_state() {
         sat::literal_vector literals;
         uint_set selected;
@@ -386,7 +447,7 @@ namespace intblast {
                 return x;
             return a.mk_int(mod(r, N));
         }
-        if (any_of(m_vars, [&](expr* v) { return translated(v) == x && bv.get_bv_size(v) == bv.get_bv_size(bv_expr); }))
+        if (any_of(m_vars, [&](expr* v) { return is_translated(v) && translated(v) == x && bv.get_bv_size(v) == bv.get_bv_size(bv_expr); }))
             return x;
         return a.mk_mod(x, a.mk_int(N));
     }

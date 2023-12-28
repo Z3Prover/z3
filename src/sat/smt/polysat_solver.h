@@ -193,6 +193,12 @@ namespace polysat {
             return add_axiom(name, clause.begin(), clause.end(), redundant);
         }
 
+        void add_axiom(char const* name, std::initializer_list<sat::literal> const& clause);
+        void equiv_axiom(char const* name, sat::literal a, sat::literal b);
+
+        void validate_propagate(sat::literal lit, sat::literal_vector const& core, euf::enode_pair_vector const& eqs);
+        void validate_conflict(sat::literal_vector const& core, euf::enode_pair_vector const& eqs);
+        void validate_axiom(sat::literal_vector const& clause);
 
         void explain_dep(dependency const& d, euf::enode_pair_vector& eqs, sat::literal_vector& lits);
 

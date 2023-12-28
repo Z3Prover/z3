@@ -233,7 +233,8 @@ namespace polysat {
         polysat_proof* hint = nullptr;
         if (ctx.use_drat() && hint_info)
             hint = mk_proof_hint(hint_info);
-        auto ex = euf::th_explain::propagate(*this, core, eqs, lit, hint);        
+        auto ex = euf::th_explain::propagate(*this, core, eqs, lit, hint);     
+        validate_propagate(lit, core, eqs);
         ctx.propagate(lit, ex);
         return dependency(lit.var()); 
     }
@@ -265,6 +266,7 @@ namespace polysat {
             if (s().value(lit) == l_true)
                 return;
             auto ex = euf::th_explain::propagate(*this, core, eqs, lit, hint);
+            validate_propagate(lit, core, eqs);
             ctx.propagate(lit, ex);
         }
         else if (sign) {  
@@ -274,6 +276,7 @@ namespace polysat {
             auto n2 = var2enode(v2);
             eqs.push_back({ n1, n2 });
             auto ex = euf::th_explain::conflict(*this, core, eqs, hint);
+            validate_conflict(core, eqs);
             ctx.set_conflict(ex);
         }
     }
@@ -300,14 +303,32 @@ namespace polysat {
                 lits.push_back(~ctx.mk_literal(constraint2expr(*std::get_if<signed_constraint>(&e))));
         }
         for (auto [n1, n2] : eqs)
-            ctx.get_eq_antecedents(n1, n2, lits);
+            ctx.get_eq_antecedents(n1, n2, lits);        
         for (auto& lit : lits)
             lit.neg();
         for (auto lit : lits)
             if (s().value(lit) == l_true)
                 return false;
+        validate_axiom(lits);
         s().add_clause(lits.size(), lits.data(), sat::status::th(is_redundant, get_id(), mk_proof_hint(name)));
         return true;
+    }
+
+    void solver::add_axiom(char const* name, std::initializer_list<sat::literal> const& clause) {
+        bool is_redundant = false;
+        sat::literal_vector lits;
+        for (auto lit : clause)
+            lits.push_back(lit);
+        validate_axiom(lits);
+        polysat_proof* hint = nullptr;
+        if (ctx.use_drat())
+            hint = mk_proof_hint(name);
+        s().add_clause(lits.size(), lits.data(), sat::status::th(is_redundant, get_id(), hint));
+    }
+
+    void solver::equiv_axiom(char const* name, sat::literal a, sat::literal b) {
+        add_axiom(name, { a, ~b });
+        add_axiom(name, { ~a, b });
     }
 
     void solver::get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector& r, bool probing) {
