@@ -57,6 +57,7 @@ namespace polysat {
     }
 
     sat::check_result solver::check() {
+        TRACE("euf", s().display(tout));
         switch (m_core.check()) {
         case sat::check_result::CR_DONE:
             return sat::check_result::CR_DONE;
@@ -162,12 +163,21 @@ namespace polysat {
     // Create an equality literal that represents the value assignment
     // Prefer case split to true.
     // The equality gets added in a callback using asserted().
-    void solver::add_eq_literal(pvar pvar, rational const& val) {
+    lbool solver::add_eq_literal(pvar pvar, rational const& val, dependency& d) {
         auto v = m_pddvar2var[pvar];
         auto n = var2enode(v);
         auto eq = eq_internalize(n->get_expr(), bv.mk_numeral(val, get_bv_size(v)));
+        euf::enode* eqn = ctx.bool_var2enode(eq.var());
+        if (eqn->get_th_var(get_id()) == euf::null_theory_var)
+            mk_var(eqn);
+        pdd p = m_core.var(pvar);
+        pdd q = m_core.value(val, m_core.size(pvar));
+        auto sc = m_core.eq(p, q);
+        mk_atom(eq.var(), sc);
         s().set_phase(eq);
         ctx.mark_relevant(eq);
+        d = dependency(eq.var());
+        return s().value(eq);
     }
 
     void solver::new_eq_eh(euf::th_eq const& eq) {
@@ -175,15 +185,16 @@ namespace polysat {
         euf::enode* n = var2enode(v1);
         if (!bv.is_bv(n->get_expr()))
             return;
-        pdd p = var2pdd(v1);
-        pdd q = var2pdd(v2);
-        auto sc = m_core.eq(p, q);        
+  
         m_var_eqs.setx(m_var_eqs_head, {v1, v2}, {v1, v2});
         ctx.push(value_trail<unsigned>(m_var_eqs_head));    
-        auto d = dependency(v1, v2);
-        constraint_id id = m_core.register_constraint(sc, d);
-        m_core.assign_eh(id, false, s().scope_lvl()); 
         m_var_eqs_head++;
+        pdd p = var2pdd(v1);
+        pdd q = var2pdd(v2);
+        auto d = dependency(v1, v2);
+        constraint_id id = eq_constraint(p, q, d);
+        m_core.assign_eh(id, false, s().scope_lvl()); 
+
     }
 
     void solver::new_diseq_eh(euf::th_eq const& ne) {
@@ -193,10 +204,9 @@ namespace polysat {
             return;
         pdd p = var2pdd(v1);
         pdd q = var2pdd(v2);
-        auto sc = m_core.eq(p, q);
         sat::literal eq = expr2literal(ne.eq());
         auto d = dependency(eq.var());
-        auto id = m_core.register_constraint(sc, d);
+        auto id = eq_constraint(p, q, d);
         TRACE("bv", tout << eq << " := " << s().value(eq) << " @" << s().scope_lvl() << "\n");
         m_core.assign_eh(id, false, s().lvl(eq));
     }
@@ -342,9 +352,14 @@ namespace polysat {
         expr_ref result(m);
         switch (sc.op()) {
         case ckind_t::ule_t: {
-            auto l = pdd2expr(sc.to_ule().lhs());
-            auto h = pdd2expr(sc.to_ule().rhs());
-            result = bv.mk_ule(l, h);
+            auto p = sc.to_ule().lhs();
+            auto q = sc.to_ule().rhs();
+            auto l = pdd2expr(p);
+            auto h = pdd2expr(q);
+            if (q.is_zero())
+                result = m.mk_eq(l, h);
+            else
+                result = bv.mk_ule(l, h);
             if (sc.sign())
                 result = m.mk_not(result);
             return result;           

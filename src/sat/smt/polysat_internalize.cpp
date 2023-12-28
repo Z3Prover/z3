@@ -724,5 +724,31 @@ namespace polysat {
         SASSERT(m.is_eq(n->get_expr()));
     }
 
+    struct solver::undo_add_eq : public trail {
+        solver& s;
+        unsigned index;
+    public:
+        undo_add_eq(solver& s, unsigned i) : s(s), index(i) {}
+        void undo() override {
+            s.m_eq2constraint.remove(index);
+            s.m_eqs.pop_back();
+        }
+    };
+
+    constraint_id solver::eq_constraint(pdd p, pdd q, dependency d) {
+        pdd r = p - q;
+        constraint_id idx;
+        if (m_eq2constraint.find(r.index(), idx))
+            return idx;
+        auto sc = m_core.eq(p, q);
+        TRACE("bv", tout << "new eq " << sc << "\n");
+        idx = m_core.register_constraint(sc, d);
+
+        m_eq2constraint.insert(r.index(), idx);
+        m_eqs.push_back(r);
+        ctx.push(undo_add_eq(*this, r.index()));
+        return idx;
+    }
+
 
 }

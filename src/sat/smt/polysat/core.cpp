@@ -186,10 +186,27 @@ namespace polysat {
             propagate_assignment(m_var, m_value, d);
             return sat::check_result::CR_CONTINUE;
         }
-        case find_t::multiple:
+        case find_t::multiple: {
             TRACE("bv", tout << "check-multiple v" << m_var << " := " << m_value << "\n");
-            s.add_eq_literal(m_var, m_value);
+            do {
+                dependency d = null_dependency;
+                lbool value = s.add_eq_literal(m_var, m_value, d);
+                switch (value) {
+                case l_true:
+                    propagate_assignment(m_var, m_value, d);
+                    break;
+                case l_false:                    
+                    m_value = mod(m_value + 1, rational::power_of_two(size(m_var)));
+                    continue;
+                default:
+                    // let core assign equality.
+                    m_var_queue.unassign_var_eh(m_var);
+                    break;
+                }
+            } 
+            while (false);
             return sat::check_result::CR_CONTINUE;
+        }
         case find_t::resource_out:
             TRACE("bv", tout << "check-resource out v" << m_var << "\n");
             m_var_queue.unassign_var_eh(m_var);
@@ -206,8 +223,7 @@ namespace polysat {
             auto [sc, d, value] = m_constraint_index[idx.id];
             SASSERT(value != l_undef);
             lbool eval_value = eval(sc);
-            sc.display(verbose_stream()) << " eval: " << eval_value << "\n";
-            CTRACE("bv", eval_value == l_undef, sc.display(tout << "eval: ") << " evaluates to " << eval_value << "\n");
+            CTRACE("bv", eval_value == l_undef, sc.display(tout << "eval: ") << " evaluates to " << eval_value << "\n"; display(tout););
             SASSERT(eval_value != l_undef);
             if (eval_value == value)
                 continue;

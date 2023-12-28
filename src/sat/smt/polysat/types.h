@@ -134,7 +134,7 @@ namespace polysat {
     class solver_interface {
     public:
         virtual ~solver_interface() {}
-        virtual void add_eq_literal(pvar v, rational const& val) = 0;
+        virtual lbool add_eq_literal(pvar v, rational const& val, dependency& d) = 0;
         virtual bool add_axiom(char const* name, constraint_or_dependency const* begin, constraint_or_dependency const* end, bool redundant) = 0;
         virtual void set_conflict(dependency_vector const& core) = 0;
         virtual dependency propagate(signed_constraint sc, dependency_vector const& deps) = 0;

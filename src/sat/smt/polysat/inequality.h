@@ -36,7 +36,10 @@ namespace polysat {
         }
 
         // p := coeff*x*y where coeff_x = coeff*x, x a variable
-        bool is_coeffxY(pdd const& coeff_x, pdd const& p, pdd& y) const { throw default_exception("nyi"); }
+        bool is_coeffxY(pdd const& x, pdd const& p, pdd& y) const { 
+            pdd xy = x.manager().zero();
+            return x.is_unary() && p.try_div(x.hi().val(), xy) && xy.factor(x.var(), 1, y);
+        }
         
     public:
         static inequality from_ule(core& c, constraint_id id);

@@ -163,9 +163,13 @@ namespace polysat {
         void internalize_set(euf::theory_var v, pdd const& p);
         void quot_rem(expr* quot, expr* rem, expr* x, expr* y);
 
+        vector<pdd> m_eqs;
+        u_map<constraint_id> m_eq2constraint;
+        struct undo_add_eq;
+        constraint_id eq_constraint(pdd p, pdd q, dependency d);
 
         // callbacks from core
-        void add_eq_literal(pvar v, rational const& val) override;
+        lbool add_eq_literal(pvar v, rational const& val, dependency& d) override;
         void set_conflict(dependency_vector const& core) override;
         bool add_axiom(char const* name, constraint_or_dependency const* begin, constraint_or_dependency const* end, bool redundant) override;
         dependency propagate(signed_constraint sc, dependency_vector const& deps) override;
@@ -209,7 +213,7 @@ namespace polysat {
         std::ostream& display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const override;
         void collect_statistics(statistics& st) const override;
         euf::th_solver* clone(euf::solver& ctx) override { return alloc(solver, ctx, get_id()); }
-        extension* copy(sat::solver* s) override { throw default_exception("nyi"); }
+        extension* copy(sat::solver* s) override { throw default_exception("polysat copy nyi"); }
         void find_mutexes(literal_vector& lits, vector<literal_vector> & mutexes) override {}
         void gc() override {}
         void pop_reinit() override {}
