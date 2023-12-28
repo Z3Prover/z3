@@ -215,7 +215,6 @@ public:
     bool             backup_costs = true;
     unsigned         column_number_threshold_for_using_lu_in_lar_solver = 4000;
     unsigned         m_int_gomory_cut_period = 4;
-    bool             m_gomory_simpliy = false;
     unsigned         m_int_find_cube_period = 4;
 private:
     unsigned         m_hnf_cut_period = 4;
