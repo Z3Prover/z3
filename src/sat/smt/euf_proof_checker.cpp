@@ -442,6 +442,8 @@ namespace euf {
                 log_verified(proof_hint, true);
                 add_clause(clause);
             }
+            if (clause.empty())
+                std::cout << "(qed)\n";
             return;
         }
         
@@ -471,6 +473,8 @@ namespace euf {
         if (m_checker.vc(proof_hint, clause, vc)) {
             log_verified(proof_hint, true);
             add_clause(clause);
+            if (clause.empty())
+                std::cout << "(qed)\n";
             return;
         }
         
@@ -507,6 +511,8 @@ namespace euf {
             diagnose_rup_failure(clause);
             
         add_clause(clause);
+        if (clause.empty())
+            std::cout << "(qed)\n";
     }
 
     void smt_proof_checker::diagnose_rup_failure(expr_ref_vector const& clause) {
