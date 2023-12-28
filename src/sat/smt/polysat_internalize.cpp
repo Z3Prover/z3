@@ -520,18 +520,18 @@ namespace polysat {
         //      b = 0  ==>  q = -1
         // TODO: when a,b become evaluable, can we actually propagate q,r? doesn't seem like it.
         //       Maybe we need something like an op_constraint for better propagation.
-        add_axiom("[axiom] quot_rem 1", { m_core.eq(b * q + r - a) }, false);
-        add_axiom("[axiom] quot_rem 2", { ~m_core.umul_ovfl(b, q) }, false);
+        add_axiom("[axiom] quot-rem", { m_core.eq(b * q + r - a) }, false);
+        add_axiom("[axiom] quot-rem", { ~m_core.umul_ovfl(b, q) }, false);
         // r <= b*q+r
         //  { apply equivalence:  p <= q  <=>  q-p <= -p-1 }
         // b*q <= -r-1
-        add_axiom("[axiom] quot_rem 3", { m_core.ule(b * q, -r - 1) }, false);
+        add_axiom("[axiom] quot-rem", { m_core.ule(b * q, -r - 1) }, false);
 
         auto c_eq = m_core.eq(b);
         if (!c_eq.is_always_true())
-            add_axiom("[axiom] quot_rem 4", { c_eq, ~m_core.ule(b, r) }, false);
+            add_axiom("[axiom] quot-rem", { c_eq, ~m_core.ule(b, r) }, false);
         if (!c_eq.is_always_false())
-            add_axiom("[axiom] quot_rem 5", { ~c_eq, m_core.eq(q + 1) }, false);
+            add_axiom("[axiom] quot-rem", { ~c_eq, m_core.eq(q + 1) }, false);
     }
 
     void solver::internalize_sign_extend(app* e) {
@@ -540,14 +540,17 @@ namespace polysat {
         unsigned arg_sz = bv.get_bv_size(arg);
         unsigned sz2 = sz - arg_sz;
         var2pdd(expr2enode(e)->get_th_var(get_id()));
+        polysat_proof* hint = nullptr;
+        if (ctx.use_drat())
+            hint = mk_proof_hint("[axiom] sign extend");
         if (arg_sz == sz) 
-            add_clause(eq_internalize(e, arg), nullptr);
+            add_clause(eq_internalize(e, arg), hint);
         else {
             sat::literal lt0 = ctx.mk_literal(bv.mk_slt(arg, bv.mk_numeral(0, arg_sz)));
-            // arg < 0 ==> e = concat(arg, 1...1)
-            // arg >= 0 ==> e = concat(arg, 0...0)
-            add_clause(lt0, eq_internalize(e, bv.mk_concat(arg, bv.mk_numeral(rational::power_of_two(sz2) - 1, sz2))), nullptr);
-            add_clause(~lt0, eq_internalize(e, bv.mk_concat(arg, bv.mk_numeral(0, sz2))), nullptr);
+            // arg < 0 ==> e = concat(1...1, arg)
+            // arg >= 0 ==> e = concat(0...0, arg)
+            add_clause(lt0, eq_internalize(e, bv.mk_concat(bv.mk_numeral(rational::power_of_two(sz2) - 1, sz2), arg)), hint);
+            add_clause(~lt0, eq_internalize(e, bv.mk_concat(bv.mk_numeral(0, sz2), arg)), hint);
         }
     }
 
@@ -557,11 +560,14 @@ namespace polysat {
         unsigned arg_sz = bv.get_bv_size(arg);
         unsigned sz2 = sz - arg_sz;
         var2pdd(expr2enode(e)->get_th_var(get_id()));
+        polysat_proof* hint = nullptr;
+        if (ctx.use_drat())
+            hint = mk_proof_hint("[axiom] zero extend");
         if (arg_sz == sz)
-            add_clause(eq_internalize(e, arg), nullptr);
+            add_clause(eq_internalize(e, arg), hint);
         else 
-            // e = concat(arg, 0...0)
-            add_clause(eq_internalize(e, bv.mk_concat(arg, bv.mk_numeral(0, sz2))), nullptr);
+            // e = concat(0...0, arg)
+            add_clause(eq_internalize(e, bv.mk_concat(bv.mk_numeral(0, sz2), arg)), hint);
     }
 
     void solver::internalize_div_rem(app* e, bool is_div) {
@@ -580,8 +586,11 @@ namespace polysat {
         sat::literal eqZ = eq_internalize(arg2, zero);
         sat::literal eqU = eq_internalize(e, is_div ? bv.mk_bv_udiv0(arg1) : bv.mk_bv_urem0(arg1));
         sat::literal eqI = eq_internalize(e, is_div ? bv.mk_bv_udiv_i(arg1, arg2) : bv.mk_bv_urem_i(arg1, arg2));
-        add_clause(~eqZ, eqU);
-        add_clause(eqZ, eqI);
+        polysat_proof* hint = nullptr;
+        if (ctx.use_drat())
+            hint = mk_proof_hint("[axiom] div-rem");
+        add_clause(~eqZ, eqU, hint);
+        add_clause(eqZ, eqI, hint);
         ctx.add_aux(~eqZ, eqU);
         ctx.add_aux(eqZ, eqI);        
     }
@@ -625,10 +634,13 @@ namespace polysat {
         auto sz_e = hi - lo + 1;
         auto sz_x = bv.get_bv_size(x);
         auto eq0 = eq_internalize(e, bv.mk_numeral(0, sz_e));
-        auto gelo = mk_literal(bv.mk_ule(bv.mk_numeral(rational::power_of_two(lo), sz_x), x));        
-        add_clause(eq0, gelo, mk_proof_hint("extract-1"));
+        auto gelo = mk_literal(bv.mk_ule(bv.mk_numeral(rational::power_of_two(lo), sz_x), x));  
+        polysat_proof* hint = nullptr;
+        if (ctx.use_drat())
+            hint = mk_proof_hint("[axiom] extract");
+        add_clause(eq0, gelo, hint);
         if (hi + 1 == sz_e) 
-            add_clause(~eq0, ~gelo, mk_proof_hint("extract-2"));
+            add_clause(~eq0, ~gelo, hint);
     }
 
     void solver::internalize_concat(app* e) {

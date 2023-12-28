@@ -356,7 +356,9 @@ namespace polysat {
             auto q = sc.to_ule().rhs();
             auto l = pdd2expr(p);
             auto h = pdd2expr(q);
-            if (q.is_zero())
+            if (p == q)
+                result = m.mk_true();
+            else if (q.is_zero())
                 result = m.mk_eq(l, h);
             else
                 result = bv.mk_ule(l, h);
