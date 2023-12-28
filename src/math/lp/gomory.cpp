@@ -261,7 +261,7 @@ public:
 
     lia_move cut() {
         TRACE("gomory_cut", dump(tout););
-        m_polarity = 0; // 0: means undefined, 1, -1: the polar case, 2: the mixed case
+        m_polarity = 0; // 0: means undefined, +-1, the polar case, 2: the mixed case
         // gomory cut will be  m_t >= m_k and the current solution has a property m_t < m_k
         m_k = 1;
         m_t.clear();
@@ -338,7 +338,7 @@ public:
         TRACE("gomory_cut", print_linear_combination_of_column_indices_only(m_t.coeffs_as_vector(), tout << "gomory cut: "); tout << " >= " << m_k << std::endl;);
         TRACE("gomory_cut_detail", dump_cut_and_constraints_as_smt_lemma(tout);
               lia.lra.display(tout));
-        SASSERT(lia.current_solution_is_inf_on_cut());  // checks that indices are columns
+        SASSERT(lia.current_solution_is_inf_on_cut());
               
         lia.settings().stats().m_gomory_cuts++;
         return lia_move::cut;
@@ -522,9 +522,9 @@ public:
         struct polar_info {lpvar j; int polarity;  u_dependency *dep;};
         vector<polar_info> polar_vars;
         unsigned_vector columns_for_cuts = gomory_select_int_infeasible_vars(num_cuts);
+        bool has_small_cut = false;
 
         // define inline helper functions
-        bool has_small_cut = false;
         auto is_small_cut = [&](lar_term const& t) {
             return all_of(t, [&](auto ci) { return ci.coeff().is_small(); });
         };
