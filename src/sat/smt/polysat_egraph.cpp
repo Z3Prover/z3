@@ -117,6 +117,7 @@ namespace polysat {
     void solver::explain_slice(pvar pv, pvar pw, unsigned offset, std::function<void(euf::enode*, euf::enode*)>& consume_eq) {
         euf::theory_var v = m_pddvar2var[pv];
         euf::theory_var w = m_pddvar2var[pw];
+        verbose_stream() << "explain " << ctx.bpp(var2enode(v)) << " " << ctx.bpp(var2enode(w)) << "\n";
         m_bv_plugin->explain_slice(var2enode(v), offset, var2enode(w), consume_eq);
     }
 

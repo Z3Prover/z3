@@ -485,7 +485,8 @@ namespace euf {
             if (n->get_root() == b->get_root() && offs == offset) {
                 while (j != UINT_MAX) {
                     auto [x, y, j2] = just[j];
-                    consumer(x, y);
+                    if (x != y)
+                        consumer(x, y);
                     j = j2;
                 }
                 for (auto const& [n, offset, j] : m_jtodo) {

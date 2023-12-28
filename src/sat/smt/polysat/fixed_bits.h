@@ -37,6 +37,9 @@ namespace polysat {
     public:
         fixed_bits(core& c) : c(c) {}
 
+        // reset without variable reference.
+        void reset();
+
         // reset with fixed bits information for variable v
         void reset(pvar v);
 
@@ -45,5 +48,7 @@ namespace polysat {
 
         // explain the fixed bits ranges.
         dependency_vector explain();
+
+        std::ostream& display(std::ostream& out) const;
     };
 }

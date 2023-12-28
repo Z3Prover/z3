@@ -142,33 +142,33 @@ namespace polysat {
         }
 
         if (rhs.is_val() && !rhs.is_zero() && lhs.offset() == rhs.val()) {
-            LOG("-p + k <= k      -->  p <= k");
+            TRACE("bv", tout << "- p + k <= k-->  p <= k\n");
             lhs = rhs - lhs;
         }
 
         if (lhs.is_val() && !lhs.is_zero() && lhs.val() == rhs.offset()) {
-            LOG("k <= p + k       -->  p <= -k-1");
+            TRACE("bv", tout << "k <= p + k       -->  p <= -k-1\n");
             pdd k = lhs;
             lhs = rhs - lhs;
             rhs = -k - 1;
         }
 
         if (lhs.is_val() && rhs.leading_coefficient().get_bit(N - 1) && !rhs.offset().is_zero()) {
-            LOG("k <= -p          -->  p-1 <= -k-1");
+            TRACE("bv", tout << "k <= -p-->  p - 1 <= -k - 1\n");
             pdd k = lhs;
             lhs = -(rhs + 1);
             rhs = -k - 1;
         }
 
         if (rhs.is_val() && lhs.leading_coefficient().get_bit(N - 1) && !lhs.offset().is_zero()) {
-            LOG("-p <= k          -->  -k-1 <= p-1");
+            TRACE("bv", tout << "-p <= k          -->  -k-1 <= p-1\n");
             pdd k = rhs;
             rhs = -(lhs + 1);
             lhs = -k - 1;
         }
 
         if (rhs.is_zero() && lhs.leading_coefficient().get_bit(N - 1) && !lhs.offset().is_zero()) {
-            LOG("-p <= 0          -->  p <= 0");
+            TRACE("bv", tout << "-p <= 0          -->  p <= 0\n");
             lhs = -lhs;
         }
         // NOTE: do not use pdd operations in conditions when comparing pdd values.
@@ -180,7 +180,7 @@ namespace polysat {
 
         // TODO: potential bug here: first call offset(), then rhs+1 has to reallocate pdd_manager::m_values, then the reference to offset is broken.
         if (rhs.is_val() && !rhs.is_zero() && lhs.offset() == rhs_plus_one.val()) {
-            LOG("p - k <= -k - 1  -->  k <= p");
+            TRACE("bv", tout << "p - k <= -k - 1  -->  k <= p\n");
             pdd k = -(rhs + 1);
             rhs = lhs + k;
             lhs = k;
@@ -190,7 +190,7 @@ namespace polysat {
 
         // k <= 2^(N-1)*p + q + k-1  -->  k <= 2^(N-1)*p - q
         if (lhs.is_val() && rhs.leading_coefficient() == rational::power_of_two(N-1) && rhs.offset() == lhs_minus_one.val()) {
-            LOG("k <= 2^(N-1)*p + q + k-1  -->  k <= 2^(N-1)*p - q");
+            TRACE("bv", tout << "k <= 2^(N-1)*p + q + k-1  -->  k <= 2^(N-1)*p - q\n");
             rhs = (lhs - 1) - rhs;
         }
 

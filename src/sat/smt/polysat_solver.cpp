@@ -113,41 +113,46 @@ namespace polysat {
         if (ctx.use_drat() && hint_info)
             hint = mk_proof_hint(hint_info);
         auto ex = euf::th_explain::conflict(*this, lits, eqs, hint);
-
+        TRACE("bv", ex->display(tout << "conflict: ") << "\n"; s().display(tout));
         ctx.set_conflict(ex);
+    }
+
+    void solver::explain_dep(dependency const& d, euf::enode_pair_vector& eqs, sat::literal_vector& core) {
+        if (d.is_bool_var()) {
+            auto bv = d.bool_var();
+            auto lit = sat::literal(bv, s().value(bv) == l_false);
+            core.push_back(lit);
+        }
+        else if (d.is_fixed_claim()) {
+            auto const& o = d.fixed();
+            std::function<void(euf::enode*, euf::enode*)> consume = [&](auto* a, auto* b) {
+                eqs.push_back({ a, b });
+                };
+            explain_fixed(o.v, o.lo, o.hi, o.value, consume);
+        }
+        else if (d.is_offset_claim()) {
+            auto const& offs = d.offset();
+            std::function<void(euf::enode*, euf::enode*)> consume = [&](auto* a, auto* b) {
+                eqs.push_back({ a, b });
+                };
+            explain_slice(offs.v, offs.w, offs.offset, consume);
+        }
+        else {
+            auto const [v1, v2] = d.eq();
+            euf::enode* const n1 = var2enode(v1);
+            euf::enode* const n2 = var2enode(v2);
+            VERIFY(n1->get_root() == n2->get_root());
+            eqs.push_back(euf::enode_pair(n1, n2));
+        }
     }
 
     std::pair<sat::literal_vector, euf::enode_pair_vector> solver::explain_deps(dependency_vector const& deps) {
         sat::literal_vector core;
         euf::enode_pair_vector eqs;
-        for (auto d : deps) {
-            if (d.is_bool_var()) {
-                auto bv = d.bool_var();
-                auto lit = sat::literal(bv, s().value(bv) == l_false);
-                core.push_back(lit);
-            }
-            else if (d.is_fixed_claim()) {
-                auto const& o = d.fixed();
-                std::function<void(euf::enode*, euf::enode*)> consume = [&](auto* a, auto* b) {
-                    eqs.push_back({ a, b });
-                    };
-                explain_fixed(o.v, o.lo, o.hi, o.value, consume);
-            }
-            else if (d.is_offset_claim()) {
-                auto const& offs = d.offset();
-                std::function<void(euf::enode*, euf::enode*)> consume = [&](auto* a, auto* b) {
-                    eqs.push_back({ a, b });
-                    };
-                explain_slice(offs.v, offs.w, offs.offset, consume);
-            }
-            else {
-                auto const [v1, v2] = d.eq();
-                euf::enode* const n1 = var2enode(v1);
-                euf::enode* const n2 = var2enode(v2);
-                VERIFY(n1->get_root() == n2->get_root());
-                eqs.push_back(euf::enode_pair(n1, n2));
-            }
-        }
+        for (auto d : deps) 
+            explain_dep(d, eqs, core);
+
+        
         IF_VERBOSE(10,
             for (auto lit : core)
                 verbose_stream() << "    " << lit << ":  " << mk_ismt2_pp(literal2expr(lit), m) << " " << s().value(lit) << "\n";
@@ -236,43 +241,15 @@ namespace polysat {
     unsigned solver::level(dependency const& d) {
         if (d.is_bool_var())
             return s().lvl(d.bool_var());
-        else if (d.is_eq()) {
-            auto [v1, v2] = d.eq();
-            sat::literal_vector lits;
-            ctx.get_eq_antecedents(var2enode(v1), var2enode(v2), lits);
-            unsigned level = 0;
-            for (auto lit : lits)
-                level = std::max(level, s().lvl(lit));
-            return level;
-        }
-        else if (d.is_offset_claim()) {
-            auto const& offs = d.offset();
-            sat::literal_vector lits;
-            std::function<void(euf::enode*, euf::enode*)> consume = [&](auto* a, auto* b) {
-                ctx.get_eq_antecedents(a, b, lits);                
-                };
-            explain_slice(offs.v, offs.w, offs.offset, consume);
-            unsigned level = 0;
-            for (auto lit : lits)
-                level = std::max(level, s().lvl(lit));
-            return level;
-        }
-        else if (d.is_fixed_claim()) {
-            auto const& f = d.fixed();
-            sat::literal_vector lits;
-            std::function<void(euf::enode*, euf::enode*)> consume = [&](auto* a, auto* b) {
-                ctx.get_eq_antecedents(a, b, lits);
-                };
-            explain_fixed(f.v, f.lo, f.hi, f.value, consume);
-            unsigned level = 0;
-            for (auto lit : lits)
-                level = std::max(level, s().lvl(lit));
-            return level;
-        }
-        else {
-            SASSERT(d.is_axiom());
-            return 0;
-        }
+        sat::literal_vector lits;
+        euf::enode_pair_vector eqs;
+        explain_dep(d, eqs, lits);
+        for (auto [n1, n2] : eqs)
+            ctx.get_eq_antecedents(n1, n2, lits);
+        unsigned level = 0;
+        for (auto lit : lits)
+            level = std::max(level, s().lvl(lit));
+        return level;
     }
 
     void solver::propagate(dependency const& d, bool sign, dependency_vector const& deps, char const* hint_info) {
@@ -311,41 +288,21 @@ namespace polysat {
 
     bool solver::add_axiom(char const* name, constraint_or_dependency const* begin, constraint_or_dependency const* end, bool is_redundant) {
         sat::literal_vector lits;
+        euf::enode_pair_vector eqs;
         for (auto it = begin; it != end; ++it) {
             auto const& e = *it;
             if (std::holds_alternative<dependency>(e)) {
                 auto d = *std::get_if<dependency>(&e);
                 SASSERT(!d.is_null());
-                if (d.is_bool_var()) {
-                    auto bv = d.bool_var();
-                    auto lit = sat::literal(bv, s().value(bv) == l_false);
-                    lits.push_back(~lit);
-                }
-                else if (d.is_eq()) {
-                    auto [v1, v2] = d.eq();
-                    lits.push_back(~eq_internalize(var2enode(v1), var2enode(v2)));
-                }
-                else if (d.is_offset_claim()) {
-                    auto const& o = d.offset();
-                    std::function<void(euf::enode*, euf::enode*)> consume = [&](auto* a, auto* b) {
-                        lits.push_back(~eq_internalize(a, b));
-                    };
-                    explain_slice(o.v, o.w, o.offset, consume);
-                }
-                else if (d.is_fixed_claim()) {
-                    auto const& f = d.fixed();
-                    std::function<void(euf::enode*, euf::enode*)> consume = [&](auto* a, auto* b) {
-                        lits.push_back(~eq_internalize(a, b));
-                    };
-                    explain_fixed(f.v, f.lo, f.hi, f.value, consume);
-                }
-                else {
-                    SASSERT(d.is_axiom());
-                }
+                explain_dep(d, eqs, lits);
             }
             else if (std::holds_alternative<signed_constraint>(e))
-                lits.push_back(ctx.mk_literal(constraint2expr(*std::get_if<signed_constraint>(&e))));
+                lits.push_back(~ctx.mk_literal(constraint2expr(*std::get_if<signed_constraint>(&e))));
         }
+        for (auto [n1, n2] : eqs)
+            ctx.get_eq_antecedents(n1, n2, lits);
+        for (auto& lit : lits)
+            lit.neg();
         for (auto lit : lits)
             if (s().value(lit) == l_true)
                 return false;

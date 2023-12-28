@@ -41,15 +41,6 @@ namespace polysat {
         void undo() {
             c.m_justification[m_var] = null_dependency;
             c.m_assignment.pop();
-        }
-    };
-
-    class core::mk_dqueue_var : public trail {
-        pvar m_var;
-        core& c;
-    public:
-        mk_dqueue_var(pvar v, core& c) : m_var(v), c(c) {}
-        void undo() {
             c.m_var_queue.unassign_var_eh(m_var);
         }
     };
@@ -171,12 +162,13 @@ namespace polysat {
     sat::check_result core::check() {
         if (m_var_queue.empty())
             return final_check();
-        m_var = m_var_queue.next_var();
-        s.trail().push(mk_dqueue_var(m_var, *this));
+        m_var = m_var_queue.min_var();
+        CTRACE("bv", is_assigned(m_var), display(tout << "v" << m_var << " is assigned\n"););
+        SASSERT(!is_assigned(m_var));
         
         switch (m_viable.find_viable(m_var, m_value)) {
         case find_t::empty:
-            TRACE("bv", tout << "check-conflict v" << m_var << "\n");
+            TRACE("bv", tout << "viable-conflict v" << m_var << "\n");
             s.set_conflict(m_viable.explain(), "viable-conflict");      
             return sat::check_result::CR_CONTINUE;
         case find_t::singleton: {
@@ -186,20 +178,21 @@ namespace polysat {
             return sat::check_result::CR_CONTINUE;
         }
         case find_t::multiple: {
-            TRACE("bv", tout << "check-multiple v" << m_var << " := " << m_value << "\n");
+            
             do {
+                try_again:
                 dependency d = null_dependency;
                 lbool value = s.add_eq_literal(m_var, m_value, d);
+                TRACE("bv", tout << "check-multiple v" << m_var << " := " << m_value << " " << value << "\n");
                 switch (value) {
                 case l_true:
                     propagate_assignment(m_var, m_value, d);
                     break;
                 case l_false:                    
                     m_value = mod(m_value + 1, rational::power_of_two(size(m_var)));
-                    continue;
+                    goto try_again;
                 default:
-                    // let core assign equality.
-                    m_var_queue.unassign_var_eh(m_var);
+                    // let core assign equality.                    
                     break;
                 }
             } 
@@ -208,7 +201,6 @@ namespace polysat {
         }
         case find_t::resource_out:
             TRACE("bv", tout << "check-resource out v" << m_var << "\n");
-            m_var_queue.unassign_var_eh(m_var);
             return sat::check_result::CR_GIVEUP;
         }
         UNREACHABLE();
@@ -232,7 +224,7 @@ namespace polysat {
             auto vars = find_conflict_variables(idx);
             saturation sat(*this);
             for (auto v : vars)
-                if (sat.resolve(v, conflict_idx))
+                if (sat.resolve(v, idx))
                     return sat::check_result::CR_CONTINUE;
         }
 
@@ -287,27 +279,40 @@ namespace polysat {
         TRACE("bv", tout << "propagate " << sc << " using " << dep << " := " << value << "\n");
         if (sc.is_eq(m_var, m_value))
             propagate_assignment(m_var, m_value, dep);
-        else 
-            sc.activate(*this, dep);        
+        else
+            propagate_activation(idx, sc, dep);
     }
 
     void core::add_watch(unsigned idx, unsigned var) {
         m_watch[var].push_back(idx);
     }
 
+    void core::propagate_activation(constraint_id idx, signed_constraint& sc, dependency dep) {
+        sc.activate(*this, dep);
+        pvar v = null_var;
+        for (auto w : sc.vars()) {
+            if (is_assigned(w))
+                continue;
+            if (v != null_var)
+                return;
+            v = w;
+        }
+        if (v != null_var)
+            verbose_stream() << "propagate activation " << v << " " << sc << " " << dep << "\n";
+        if (v != null_var && !m_viable.add_unitary(v, idx.id))
+            s.set_conflict(m_viable.explain(), "viable-conflict");
+    }
+
     void core::propagate_assignment(pvar v, rational const& value, dependency dep) {
         TRACE("bv", tout << "propagate assignment v" << v << " := " << value << " " << is_assigned(v) << "\n");
         if (is_assigned(v))
             return;
-        if (m_var_queue.contains(v)) {
-            m_var_queue.del_var_eh(v);
-            s.trail().push(mk_dqueue_var(v, *this));
-        }
         
         m_values[v] = value;
         m_justification[v] = dep;   
         m_assignment.push(v , value);
         s.trail().push(mk_assign_var(v, *this));
+        m_var_queue.del_var_eh(v);
 
         // update the watch lists for pvars
         // remove constraints from m_watch[v] that have more than 2 free variables.
@@ -347,8 +352,8 @@ namespace polysat {
             if (!is_assigned(v0) || is_assigned(v1))
                 continue;
             // detect unitary, add to viable, detect conflict?
-            if (value != l_undef)
-                m_viable.add_unitary(v1, idx);            
+            if (value != l_undef && !m_viable.add_unitary(v1, idx))
+                s.set_conflict(m_viable.explain(), "viable-conflict");
         }
         SASSERT(m_watch[v].size() == sz && "size of watch list was not changed");
         m_watch[v].shrink(j);
@@ -459,10 +464,10 @@ namespace polysat {
         out << "polysat:\n";
         for (auto const& [sc, d, value] : m_constraint_index) 
             out << sc << " " << d << " := " << value << "\n";        
-        for (unsigned i = 0; i < m_vars.size(); ++i) {
-            out << m_vars[i] << " := " << m_values[i] << " " << m_justification[i] << "\n";
-        }
-        m_var_queue.display(out << "vars ") << "\n";
+        for (unsigned i = 0; i < m_vars.size(); ++i) 
+            out << m_vars[i] << " := " << m_values[i] << " " << m_justification[i] << "\n";        
+        m_var_queue.display(out << "var queue: ") << "\n";
+        m_viable.display(out);
         return out;
     }
 

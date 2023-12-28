@@ -17,6 +17,13 @@ Author:
 
 namespace polysat {
 
+    void fixed_bits::reset() {
+        m_fixed_slices.reset();
+        m_var = null_var;
+        m_fixed.reset();
+        m_bits.reset();
+    }
+
     // reset with fixed bits information for variable v
     void fixed_bits::reset(pvar v) {
         m_fixed_slices.reset();
@@ -80,6 +87,9 @@ namespace polysat {
                     break;
                 }
             }
+
+
+            CTRACE("bv", i == sz, display(tout << "overflow\n"));
             // overflow
             if (i == sz)
                 return false;
@@ -96,6 +106,10 @@ namespace polysat {
         for (auto const& slice : m_fixed_slices) 
             result.push_back(dependency({ m_var, slice }));
         return result;
+    }
+
+    std::ostream& fixed_bits::display(std::ostream& out) const {
+        return out << "fixed bits: v" << m_var << " " << m_fixed << "\n";
     }
 
     /**

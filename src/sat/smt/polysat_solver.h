@@ -193,6 +193,9 @@ namespace polysat {
             return add_axiom(name, clause.begin(), clause.end(), redundant);
         }
 
+
+        void explain_dep(dependency const& d, euf::enode_pair_vector& eqs, sat::literal_vector& lits);
+
         std::pair<sat::literal_vector, euf::enode_pair_vector> explain_deps(dependency_vector const& deps);
 
         expr_ref constraint2expr(signed_constraint const& sc);

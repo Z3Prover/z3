@@ -73,10 +73,10 @@ namespace polysat {
     }
 
     std::ostream& solver::display(std::ostream& out) const {
-        m_core.display(out);
         for (unsigned v = 0; v < get_num_vars(); ++v)
             if (m_var2pdd_valid.get(v, false))
                 out << ctx.bpp(var2enode(v)) << " := " << m_var2pdd[v] << "\n";
+        m_core.display(out);
         m_intblast.display(out);
         return out;
     }

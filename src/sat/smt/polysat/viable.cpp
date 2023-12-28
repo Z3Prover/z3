@@ -112,6 +112,7 @@ namespace polysat {
 
         val1 = 0;
         lbool r = next_viable(val1);
+        TRACE("bv", display_state(tout); display(tout << "next viable v" << v << " " << val1 << " " << r << "\n"));
         if (r != l_true)
             return r;
 
@@ -547,10 +548,10 @@ namespace polysat {
     /*
     * Register constraint at index 'idx' as unitary in v.
     */
-    void viable::add_unitary(pvar v, unsigned idx) {
+    bool viable::add_unitary(pvar v, unsigned idx) {
 
         if (c.is_assigned(v))
-            return;
+            return true;
         auto [sc, d, value] = c.m_constraint_index[idx];
         SASSERT(value != l_undef);
         if (value == l_false)
@@ -559,29 +560,27 @@ namespace polysat {
         entry* ne = alloc_entry(v, idx);
         if (!m_forbidden_intervals.get_interval(sc, v, *ne)) {
             m_alloc.push_back(ne);
-            return;
+            return true;
         }
+
+        // verbose_stream() << "v" << v << " " << sc << " " << ne->interval << "\n";
 
         if (ne->interval.is_currently_empty()) {
             m_alloc.push_back(ne);
-            return;
+            return true;
         }        
 
-        if (ne->coeff == 1) {
-            intersect(v, ne);
-            return;
-        }
-        else if (ne->coeff == -1) {
-            insert(ne, v, m_diseq_lin, entry_kind::diseq_e);
-            return;
-        }
+        if (ne->coeff == 1) 
+            intersect(v, ne);        
+        else if (ne->coeff == -1) 
+            insert(ne, v, m_diseq_lin, entry_kind::diseq_e);        
         else {
             unsigned const w = c.size(v);
             unsigned const k = ne->coeff.parity(w);
             // unsigned const lo_parity = ne->interval.lo_val().parity(w);
             // unsigned const hi_parity = ne->interval.hi_val().parity(w);
 
-            display_one(std::cerr << "try to reduce entry: ", v, ne) << "\n";
+            IF_VERBOSE(1, display_one(verbose_stream() << "try to reduce entry: ", v, ne) << "\n");
 
             if (k > 0 && ne->coeff.is_power_of_two()) {
                 // reduction of coeff gives us a unit entry
@@ -640,8 +639,15 @@ namespace polysat {
             // unsigned const shared_parity = std::min(coeff_parity, std::min(lo_parity, hi_parity));
 
             insert(ne, v, m_equal_lin, entry_kind::equal_e);
-            return;
         }
+        if (ne->interval.is_full()) {
+            m_explain.reset();
+            m_explain.push_back(ne);
+            m_fixed_bits.reset();
+            m_var = v;
+            return false;
+        }
+        return true;
     }
 
     void viable::ensure_var(pvar v) {
@@ -887,6 +893,14 @@ namespace polysat {
             if (!first)
                 out << "\n";
         }
+        return out;
+    }
+
+    std::ostream& viable::display_state(std::ostream& out) const {
+        out << "v" << m_var << ": ";
+        for (auto const& slice : m_overlaps)
+            out << slice.v << " ";
+        out << "\n";
         return out;
     }
 
