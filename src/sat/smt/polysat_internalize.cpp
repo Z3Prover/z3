@@ -625,10 +625,10 @@ namespace polysat {
         auto sz_e = hi - lo + 1;
         auto sz_x = bv.get_bv_size(x);
         auto eq0 = eq_internalize(e, bv.mk_numeral(0, sz_e));
-        auto gelo = mk_literal(bv.mk_ule(bv.mk_numeral(rational::power_of_two(lo), sz_x), x));
-        add_clause(eq0, gelo);
+        auto gelo = mk_literal(bv.mk_ule(bv.mk_numeral(rational::power_of_two(lo), sz_x), x));        
+        add_clause(eq0, gelo, mk_proof_hint("extract-1"));
         if (hi + 1 == sz_e) 
-            add_clause(~eq0, ~gelo);        
+            add_clause(~eq0, ~gelo, mk_proof_hint("extract-2"));
     }
 
     void solver::internalize_concat(app* e) {

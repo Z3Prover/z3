@@ -49,11 +49,17 @@ namespace polysat {
             ~atom() { }
         };
 
+
         class polysat_proof : public euf::th_proof_hint {
+            // assume name is statically allocated
+            char const* name;
         public:
+            polysat_proof(char const* name) : name(name) {}
             ~polysat_proof() override {}
-            expr* get_hint(euf::solver& s) const override { return nullptr; }
+            expr* get_hint(euf::solver& s) const override;
         };
+
+        polysat_proof* mk_proof_hint(char const* name);
 
         bv_util                  bv;
         arith_util               m_autil;

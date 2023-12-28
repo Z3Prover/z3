@@ -339,7 +339,7 @@ namespace polysat {
         for (auto lit : lits)
             if (s().value(lit) == l_true)
                 return false;
-        s().add_clause(lits.size(), lits.data(), sat::status::th(is_redundant, get_id(), nullptr));
+        s().add_clause(lits.size(), lits.data(), sat::status::th(is_redundant, get_id(), mk_proof_hint(name)));
         return true;
     }
 
@@ -392,5 +392,14 @@ namespace polysat {
         if (!p.lo().is_zero())
             r = bv.mk_bv_add(r, pdd2expr(p.lo()));
         return expr_ref(r, m);
+    }
+
+    expr* solver::polysat_proof::get_hint(euf::solver& s) const {
+        auto& m = s.get_manager();
+        return m.mk_app(symbol(name), 0, nullptr, m.mk_proof_sort());
+    }
+
+    solver::polysat_proof* solver::mk_proof_hint(char const* name) {
+        return new (get_region()) polysat_proof(name);
     }
 }
