@@ -466,6 +466,28 @@ static void tst12() {
         std::cout << i << ": " << r.get_bit(i) << "\n";
 }
 
+static void tst13() {
+    std::cout << "test13\n";
+    rational const step = rational(1) / rational(3);
+    for (rational r; r < 5000; r += step) {
+        {
+            unsigned k = r.prev_power_of_two();
+            if (r >= 1) {
+                VERIFY(rational::power_of_two(k) <= r);
+                VERIFY(r < rational::power_of_two(k + 1));
+            }
+            else {
+                VERIFY_EQ(k, 0);
+            }
+        }
+        {
+            unsigned k = r.next_power_of_two();
+            VERIFY(r <= rational::power_of_two(k));
+            VERIFY(k == 0 || rational::power_of_two(k - 1) < r);
+        }
+    }
+}
+
 
 void tst_rational() {
     TRACE("rational", tout << "starting rational test...\n";);
@@ -492,4 +514,5 @@ void tst_rational() {
     tst10(true);
     tst10(false);
     tst12();
+    tst13();
 }
