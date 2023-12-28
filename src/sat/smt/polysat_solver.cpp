@@ -107,9 +107,13 @@ namespace polysat {
         m_core.assign_eh(a->m_index, l.sign(), s().lvl(l));
     }
 
-    void solver::set_conflict(dependency_vector const& deps) {
+    void solver::set_conflict(dependency_vector const& deps, char const* hint_info) {
         auto [lits, eqs] = explain_deps(deps);
-        auto ex = euf::th_explain::conflict(*this, lits, eqs, nullptr);
+        polysat_proof* hint = nullptr;
+        if (ctx.use_drat() && hint_info)
+            hint = mk_proof_hint(hint_info);
+        auto ex = euf::th_explain::conflict(*this, lits, eqs, hint);
+
         ctx.set_conflict(ex);
     }
 
@@ -215,13 +219,16 @@ namespace polysat {
     // The polysat::solver takes care of translating signed constraints into expressions, which translate into literals.
     // Everything goes over expressions/literals. polysat::core is not responsible for replaying expressions. 
     
-    dependency solver::propagate(signed_constraint sc, dependency_vector const& deps) {
+    dependency solver::propagate(signed_constraint sc, dependency_vector const& deps, char const* hint_info) {
         TRACE("bv", sc.display(tout << "propagate ") << "\n");
         sat::literal lit = ctx.mk_literal(constraint2expr(sc));        
         if (s().value(lit) == l_true)
             return dependency(lit.var());
         auto [core, eqs] = explain_deps(deps);
-        auto ex = euf::th_explain::propagate(*this, core, eqs, lit, nullptr);        
+        polysat_proof* hint = nullptr;
+        if (ctx.use_drat() && hint_info)
+            hint = mk_proof_hint(hint_info);
+        auto ex = euf::th_explain::propagate(*this, core, eqs, lit, hint);        
         ctx.propagate(lit, ex);
         return dependency(lit.var()); 
     }
@@ -268,16 +275,19 @@ namespace polysat {
         }
     }
 
-    void solver::propagate(dependency const& d, bool sign, dependency_vector const& deps) {
+    void solver::propagate(dependency const& d, bool sign, dependency_vector const& deps, char const* hint_info) {
         TRACE("bv", tout << "propagate " << d << " " << sign << "\n");
         auto [core, eqs] = explain_deps(deps);
         SASSERT(d.is_bool_var() || d.is_eq());
+        polysat_proof* hint = nullptr;
+        if (ctx.use_drat() && hint_info)
+            hint = mk_proof_hint(hint_info);
         if (d.is_bool_var()) {
             auto bv = d.bool_var();
             auto lit = sat::literal(bv, sign);
             if (s().value(lit) == l_true)
                 return;
-            auto ex = euf::th_explain::propagate(*this, core, eqs, lit, nullptr);
+            auto ex = euf::th_explain::propagate(*this, core, eqs, lit, hint);
             ctx.propagate(lit, ex);
         }
         else if (sign) {  
@@ -286,7 +296,7 @@ namespace polysat {
             auto n1 = var2enode(v1);
             auto n2 = var2enode(v2);
             eqs.push_back({ n1, n2 });
-            auto ex = euf::th_explain::conflict(*this, core, eqs, nullptr);
+            auto ex = euf::th_explain::conflict(*this, core, eqs, hint);
             ctx.set_conflict(ex);
         }
     }

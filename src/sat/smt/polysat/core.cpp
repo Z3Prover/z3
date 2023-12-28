@@ -177,12 +177,11 @@ namespace polysat {
         switch (m_viable.find_viable(m_var, m_value)) {
         case find_t::empty:
             TRACE("bv", tout << "check-conflict v" << m_var << "\n");
-            s.set_conflict(m_viable.explain());
-            // propagate_unsat_core();        
+            s.set_conflict(m_viable.explain(), "viable-conflict");      
             return sat::check_result::CR_CONTINUE;
         case find_t::singleton: {
             TRACE("bv", tout << "check-propagate v" << m_var << " := " << m_value << "\n");
-            auto d = s.propagate(m_constraints.eq(var2pdd(m_var), m_value), m_viable.explain());
+            auto d = s.propagate(m_constraints.eq(var2pdd(m_var), m_value), m_viable.explain(), "viable-propagate");
             propagate_assignment(m_var, m_value, d);
             return sat::check_result::CR_CONTINUE;
         }
@@ -244,7 +243,7 @@ namespace polysat {
         // If no saturation propagation was possible, explain the conflict using the variable assignment.
         m_unsat_core = explain_eval(get_constraint(conflict_idx));
         m_unsat_core.push_back(get_dependency(conflict_idx));
-        propagate_unsat_core();
+        s.set_conflict(m_unsat_core, "polysat-bail-out-conflict");
         return sat::check_result::CR_CONTINUE;
     }
 
@@ -365,10 +364,10 @@ namespace polysat {
             return;
         switch (eval(sc)) {
         case l_false:
-            s.propagate(d, true, explain_eval(sc));
+            s.propagate(d, true, explain_eval(sc), "eval-propagate");
             break;
         case l_true:
-            s.propagate(d, false, explain_eval(sc));
+            s.propagate(d, false, explain_eval(sc), "eval-propagate");
             break;
         default:
             break;
@@ -382,25 +381,16 @@ namespace polysat {
         return d;
     }
 
-#if 0
-    dependency_vector core::get_dependencies(constraint_id_vector const& ids) const {
-        dependency_vector result;
-        for (auto id : ids)
-            result.push_back(get_dependency(id));
-        return result;
-    }
-#endif
-
     void core::propagate(constraint_id id, signed_constraint& sc, lbool value, dependency const& d) {
         lbool eval_value = eval(sc);
         if (eval_value == l_undef)
             sc.propagate(*this, value, d);
         else if (value == l_undef)
-            s.propagate(d, eval_value != l_true, explain_eval(sc));
+            s.propagate(d, eval_value != l_true, explain_eval(sc), "constraint-propagate");
         else if (value != eval_value) {
             m_unsat_core = explain_eval(sc);
             m_unsat_core.push_back(m_constraint_index[id.id].d);
-            propagate_unsat_core();
+            s.set_conflict(m_unsat_core, "polysat-constraint-core");
         }                   
     }
 
@@ -418,12 +408,6 @@ namespace polysat {
 
     bool core::inconsistent() const {
         return s.inconsistent();
-    }
-
-    void core::propagate_unsat_core() { 
-        // default is to use unsat core:
-        // if core is based on viable, use s.set_lemma();
-        s.set_conflict(m_unsat_core);       
     }
 
     void core::assign_eh(constraint_id index, bool sign, unsigned level) { 

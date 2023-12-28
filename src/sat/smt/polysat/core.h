@@ -81,7 +81,6 @@ namespace polysat {
         void propagate_assignment(constraint_id idx);
         void propagate_eval(constraint_id idx);
         void propagate_assignment(pvar v, rational const& value, dependency dep);
-        void propagate_unsat_core();
         void propagate(constraint_id id, signed_constraint& sc, lbool value, dependency const& d);
 
         void add_watch(unsigned idx, unsigned var);
@@ -157,7 +156,7 @@ namespace polysat {
         dependency get_dependency(constraint_id idx) const;
         // dependency_vector get_dependencies(constraint_id_vector const& ids) const;
         lbool eval(constraint_id id);
-        dependency propagate(signed_constraint const& sc, dependency_vector const& deps) { return s.propagate(sc, deps); }
+        dependency propagate(signed_constraint const& sc, dependency_vector const& deps) { return s.propagate(sc, deps, nullptr); }
         lbool eval(signed_constraint const& sc);
         dependency_vector explain_eval(signed_constraint const& sc);
         bool inconsistent() const;

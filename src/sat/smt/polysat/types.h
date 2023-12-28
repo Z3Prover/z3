@@ -136,9 +136,9 @@ namespace polysat {
         virtual ~solver_interface() {}
         virtual lbool add_eq_literal(pvar v, rational const& val, dependency& d) = 0;
         virtual bool add_axiom(char const* name, constraint_or_dependency const* begin, constraint_or_dependency const* end, bool redundant) = 0;
-        virtual void set_conflict(dependency_vector const& core) = 0;
-        virtual dependency propagate(signed_constraint sc, dependency_vector const& deps) = 0;
-        virtual void propagate(dependency const& d, bool sign, dependency_vector const& deps) = 0;
+        virtual void set_conflict(dependency_vector const& core, char const* hint) = 0;
+        virtual dependency propagate(signed_constraint sc, dependency_vector const& deps, char const* hint) = 0;
+        virtual void propagate(dependency const& d, bool sign, dependency_vector const& deps, char const* hint) = 0;
         virtual trail_stack& trail() = 0;
         virtual bool inconsistent() const = 0;
         virtual void get_bitvector_suffixes(pvar v, offset_slices& out) = 0;
