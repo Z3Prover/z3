@@ -69,7 +69,7 @@ The formal properties of saturation have to be established.
 - Saturation does not complete with respect to associativity.
 Instead the claim is along the lines that the resulting E-graph can be used as a canonizer.
 If given a set of equations E that are saturated, and terms t1, t2 that are 
-both simplified with respect to left-associativity of concatentation, and t1, t2 belong to the E-graph,
+both simplified with respect to left-associativity of concatenation, and t1, t2 belong to the E-graph,
 then t1 = t2 iff t1 ~ t2 in the E-graph.
 
 TODO: Is saturation for (7) overkill for the purpose of canonization?

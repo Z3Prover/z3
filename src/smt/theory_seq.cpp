@@ -1244,7 +1244,7 @@ bool theory_seq::get_length(expr* e, expr_ref& len, literal_vector& lits) {
 
 /**
  * solve for fold/map (recursive function that depends on a sequence)
- * Assumption: the Seq argument of fold/map expands into a concatentation of units
+ * Assumption: the Seq argument of fold/map expands into a concatenation of units
  * The assumption is enforced by tracking the length of the seq argument.
  * This is ensured in relevant_eh.
  * Under the assumption, evern occurrence of fold/map gets simplified by expanding
