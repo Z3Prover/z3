@@ -155,6 +155,7 @@ namespace polysat {
         void axiomatize_int2bv(app* e, unsigned sz, expr* x);
         void axiomatize_bv2int(app* e, expr* x);
         void axioms_for_extract(app* e);
+        void axioms_for_concat(app* e);
         expr* rotate_left(app* e, unsigned n, expr* x);
         unsigned m_delayed_axioms_qhead = 0;
         ptr_vector<app> m_delayed_axioms;

@@ -311,6 +311,8 @@ namespace polysat {
                 axiomatize_int2bv(e, n, x);
             else if (bv.is_extract(e))
                 axioms_for_extract(e);
+            else if (bv.is_concat(e))
+                axioms_for_concat(e);
             else
                 UNREACHABLE();
         }
@@ -638,8 +640,28 @@ namespace polysat {
             add_axiom(name, { ~eq0, ~gelo });
     }
 
+    // e = hi lo
+    // hi = 0 <=> e < 2^|lo|
+    void solver::axioms_for_concat(app* e) {
+        if (bv.is_concat(e) && e->get_num_args() == 2) {
+            expr* hi = e->get_arg(0);
+            expr* lo = e->get_arg(1);
+            auto sz_e = bv.get_bv_size(e);
+            auto sz_l = bv.get_bv_size(lo);
+            auto sz_h = bv.get_bv_size(hi);
+            auto name = "concat";
+            auto eq0 = eq_internalize(hi, bv.mk_numeral(0, sz_h));
+            auto gtlo = ~mk_literal(bv.mk_ule(bv.mk_numeral(rational::power_of_two(sz_l), sz_e), e));
+            equiv_axiom(name, eq0, gtlo);
+        }
+        else
+            NOT_IMPLEMENTED_YET();
+    }
+
     void solver::internalize_concat(app* e) {
         SASSERT(bv.is_concat(e));
+        m_delayed_axioms.push_back(e);
+        ctx.push(push_back_vector(m_delayed_axioms));
         var2pdd(expr2enode(e)->get_th_var(get_id()));
     }
 
