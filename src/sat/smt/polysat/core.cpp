@@ -172,8 +172,10 @@ namespace polysat {
             s.set_conflict(m_viable.explain(), "viable-conflict");      
             return sat::check_result::CR_CONTINUE;
         case find_t::singleton: {
-            TRACE("bv", tout << "check-propagate v" << m_var << " := " << m_value << "\n");
-            auto d = s.propagate(m_constraints.eq(var2pdd(m_var), m_value), m_viable.explain(), "viable-propagate");
+            auto p = var2pdd(m_var).mk_var(m_var);
+            auto sc = m_constraints.eq(p, m_value);
+            TRACE("bv", tout << "check-propagate v" << m_var << " := " << m_value << " " << sc << "\n");
+            auto d = s.propagate(sc, m_viable.explain(), "viable-propagate");
             propagate_assignment(m_var, m_value, d);
             return sat::check_result::CR_CONTINUE;
         }
@@ -297,8 +299,6 @@ namespace polysat {
                 return;
             v = w;
         }
-        if (v != null_var)
-            verbose_stream() << "propagate activation " << v << " " << sc << " " << dep << "\n";
         if (v != null_var && !m_viable.add_unitary(v, idx.id))
             s.set_conflict(m_viable.explain(), "viable-conflict");
     }

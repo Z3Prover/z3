@@ -74,13 +74,10 @@ then t1 = t2 iff t1 ~ t2 in the E-graph.
 
 TODO: Is saturation for (7) overkill for the purpose of canonization?
 
-TODO: revisit re-entrancy during register_node. It can be called when creating internal extract terms.
-Instead of allowing re-entrancy we can accumulate nodes that are registered during recursive calls 
-and have the main call perform recursive slicing.
-
 --*/
 
 
+#include "ast/ast_pp.h"
 #include "ast/euf/euf_bv_plugin.h"
 #include "ast/euf/euf_egraph.h"
 
@@ -91,11 +88,11 @@ namespace euf {
         bv(g.get_manager())
     {}
 
-    enode* bv_plugin::mk_value_concat(enode* a, enode* b) {
-        auto v1 = get_value(a);
-        auto v2 = get_value(b);
-        auto v3 = v1 + v2 * power(rational(2), width(a));
-        return mk_value(v3, width(a) + width(b));
+    enode* bv_plugin::mk_value_concat(enode* hi, enode* lo) {
+        auto v1 = get_value(hi);
+        auto v2 = get_value(lo);
+        auto v3 = v2 + v1 * rational::power_of_two(width(lo));
+        return mk_value(v3, width(lo) + width(lo));
     }
 
     enode* bv_plugin::mk_value(rational const& v, unsigned sz) {
@@ -157,7 +154,7 @@ namespace euf {
         }
     }
 
-    // enforce concat(v1, v2) = v2*2^|v1| + v1
+    // enforce concat(v1, v2) = v1*2^|v2| + v2
     void bv_plugin::propagate_values(enode* x) {
         if (!is_value(x))
             return;
@@ -171,9 +168,9 @@ namespace euf {
             if (is_concat(sib, a, b)) {
                 if (!is_value(a) || !is_value(b)) {
                     auto val = get_value(x);
-                    auto v1 = mod2k(val, width(a));
-                    auto v2 = machine_div2k(val, width(a));
-                    push_merge(mk_concat(mk_value(v1, width(a)), mk_value(v2, width(b))), x->get_interpreted());
+                    auto val_a = machine_div2k(val, width(b));
+                    auto val_b = mod2k(val, width(b));
+                    push_merge(mk_concat(mk_value(val_a, width(a)), mk_value(val_b, width(b))), x->get_interpreted());
                 }
             }
         }
@@ -205,18 +202,18 @@ namespace euf {
                 if (is_extract(p1, lo_, hi_) && lo_ == lo && hi_ == hi && p1->get_arg(0)->get_root() == arg_r)
                     return;
             // add the axiom instead of merge(p, mk_extract(arg, lo, hi)), which would require tracking justifications
-            push_merge(mk_concat(mk_extract(arg, lo, mid), mk_extract(arg, mid + 1, hi)), mk_extract(arg, lo, hi));
+            push_merge(mk_concat(mk_extract(arg, mid + 1, hi), mk_extract(arg, lo, mid)), mk_extract(arg, lo, hi));
         };
 
-        auto propagate_left = [&](enode* b) {
-            TRACE("bv", tout << "propagate-left " << g.bpp(b) << "\n");
+        auto propagate_above = [&](enode* b) {
+            TRACE("bv", tout << "propagate-above " << g.bpp(b) << "\n");
             for (enode* sib : enode_class(b))
                 if (is_extract(sib, lo2, hi2) && sib->get_arg(0)->get_root() == arg_r && hi1 + 1 == lo2)
                     ensure_concat(lo1, hi1, hi2);
         };
 
-        auto propagate_right = [&](enode* a) {
-            TRACE("bv", tout << "propagate-right " << g.bpp(a) << "\n");
+        auto propagate_below = [&](enode* a) {
+            TRACE("bv", tout << "propagate-below " << g.bpp(a) << "\n");
             for (enode* sib : enode_class(a))
                 if (is_extract(sib, lo2, hi2) && sib->get_arg(0)->get_root() == arg_r && hi2 + 1 == lo1)
                     ensure_concat(lo2, hi2, hi1);
@@ -225,9 +222,9 @@ namespace euf {
         for (enode* p : enode_parents(n)) {
             if (is_concat(p, a, b)) {
                 if (a->get_root() == n_r)
-                    propagate_left(b);
+                    propagate_below(b);
                 if (b->get_root() == n_r)
-                    propagate_right(a);
+                    propagate_above(a);
             }
         }
     }
@@ -263,9 +260,9 @@ namespace euf {
         i.value = n;    
         enode* a, * b;
         if (is_concat(n, a, b)) {
-            i.lo = a;
-            i.hi = b;
-            i.cut = width(a);
+            i.hi = a;
+            i.lo = b;
+            i.cut = width(b);
             push_undo_split(n);
         }
         unsigned lo, hi;
@@ -328,12 +325,20 @@ namespace euf {
             hi += lo1;
             n = n->get_arg(0);
         }
+        if (n->interpreted()) {
+            auto v = get_value(n);
+            if (lo > 0)
+                v = div(v, rational::power_of_two(lo));
+            if (hi + 1 != width(n))
+                v = mod(v, rational::power_of_two(hi + 1));
+            return mk(bv.mk_numeral(v, hi - lo + 1), 0, nullptr);
+        }
         return mk(bv.mk_extract(hi, lo, n->get_expr()), 1, &n);
     }
 
-    enode* bv_plugin::mk_concat(enode* lo, enode* hi) { 
-        enode* args[2] = { lo, hi }; 
-        return mk(bv.mk_concat(lo->get_expr(), hi->get_expr()), 2, args); 
+    enode* bv_plugin::mk_concat(enode* hi, enode* lo) { 
+        enode* args[2] = { hi, lo }; 
+        return mk(bv.mk_concat(hi->get_expr(), lo->get_expr()), 2, args); 
     }
 
     void bv_plugin::merge(enode_vector& xs, enode_vector& ys, justification dep) {  
@@ -390,7 +395,7 @@ namespace euf {
         i.lo = lo;
         i.cut = cut;
         push_undo_split(n);
-        push_merge(mk_concat(lo, hi), n);        
+        push_merge(mk_concat(hi, lo), n);        
     }
 
     void bv_plugin::sub_slices(enode* n, std::function<bool(enode*, unsigned)>& consumer) {

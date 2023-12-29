@@ -114,6 +114,7 @@ namespace polysat {
             hint = mk_proof_hint(hint_info);
         auto ex = euf::th_explain::conflict(*this, lits, eqs, hint);
         TRACE("bv", ex->display(tout << "conflict: ") << "\n"; s().display(tout));
+        validate_conflict(lits, eqs);
         ctx.set_conflict(ex);
     }
 
@@ -217,7 +218,7 @@ namespace polysat {
         auto d = dependency(eq.var());
         auto id = eq_constraint(p, q, d);
         TRACE("bv", tout << eq << " := " << s().value(eq) << " @" << s().scope_lvl() << "\n");
-        m_core.assign_eh(id, false, s().lvl(eq));
+        m_core.assign_eh(id, true, s().lvl(eq));
     }
 
     // Core uses the propagate callback to add unit propagations to the trail.

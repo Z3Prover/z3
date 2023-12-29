@@ -53,8 +53,8 @@ namespace euf {
         unsigned width(enode* n) const { return bv.get_bv_size(n->get_expr()); }        
 
         enode* mk_extract(enode* n, unsigned lo, unsigned hi);
-        enode* mk_concat(enode* lo, enode* hi);
-        enode* mk_value_concat(enode* lo, enode* hi);
+        enode* mk_concat(enode* hi, enode* lo);
+        enode* mk_value_concat(enode* hi, enode* lo);
         enode* mk_value(rational const& v, unsigned sz);
         unsigned width(enode* n) { return bv.get_bv_size(n->get_expr()); }
         bool  is_value(enode* n) { return n->get_root()->interpreted(); }

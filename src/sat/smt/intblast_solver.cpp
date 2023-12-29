@@ -220,7 +220,8 @@ namespace intblast {
             m_solver->assert_expr(a.mk_lt(v, a.mk_int(b)));
         }
 
-        IF_VERBOSE(10, verbose_stream() << "check\n";
+        IF_VERBOSE(2, verbose_stream() << "check\n" << original_es << "\n");
+        IF_VERBOSE(3, verbose_stream() << "check\n";
                    m_solver->display(verbose_stream());
                    verbose_stream() << es << "\n");
 
@@ -230,13 +231,17 @@ namespace intblast {
 
         IF_VERBOSE(2, verbose_stream() << "(sat.intblast :result " << r << ")\n");
         if (r == l_true) {
-            model_ref mdl;
-            m_solver->get_model(mdl);
-            verbose_stream() << original_es << "\n";
-            verbose_stream() << *mdl << "\n";
-            verbose_stream() << es << "\n";
-            m_solver->display(verbose_stream());
+            IF_VERBOSE(0,
+                model_ref mdl;
+                m_solver->get_model(mdl);
+                verbose_stream() << original_es << "\n";
+                verbose_stream() << *mdl << "\n";
+                verbose_stream() << es << "\n";
+                m_solver->display(verbose_stream()););
+            SASSERT(false);
         }
+
+        m_solver = nullptr;
 
         return r;
     }

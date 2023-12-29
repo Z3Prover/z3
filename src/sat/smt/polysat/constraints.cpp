@@ -75,7 +75,10 @@ namespace polysat {
         if (!l.hi().is_one())
             return false;
         v = l.var();
-        val = -l.lo().val();
+        if (l.lo().val() == 0)
+            val = 0;
+        else 
+            val = l.manager().max_value() + 1 - l.lo().val();
         return true;
     }
 

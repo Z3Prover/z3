@@ -26,6 +26,7 @@ namespace euf {
     }
 
     void plugin::push_merge(enode* a, enode* b, justification j) {
+        TRACE("euf", tout << "push-merge " << g.bpp(a) << " == " << g.bpp(b) << " " << j << "\n");
         g.push_merge(a, b, j);
     }
 

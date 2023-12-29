@@ -23,16 +23,29 @@ Author:
 namespace polysat {
 
 
-    void solver::add_value(euf::enode* n, model& mdl, expr_ref_vector& values) {        
-        auto p = expr2pdd(n->get_expr());
-        rational val;
-        if (!m_core.try_eval(p, val)) {
-            ctx.s().display(verbose_stream());
-            verbose_stream() << ctx.bpp(n) << " := " << p << "\n";
-            UNREACHABLE();
+    void solver::add_value(euf::enode* n, model& mdl, expr_ref_vector& values) {      
+        expr_ref value(m);
+        if (n->interpreted())
+            value = n->get_expr();
+        else if (n->get_decl() && n->get_decl()->get_family_id() == bv.get_family_id()) {
+            bv_rewriter rw(m);
+            expr_ref_vector args(m);
+            for (auto arg : euf::enode_args(n))
+                args.push_back(values.get(arg->get_root_id()));
+            rw.mk_app(n->get_decl(), args.size(), args.data(), value);
         }
-        VERIFY(m_core.try_eval(p, val));
-        values.set(n->get_root_id(), bv.mk_numeral(val, get_bv_size(n)));
+        else {
+            auto p = expr2pdd(n->get_expr());
+            rational val;
+            if (!m_core.try_eval(p, val)) {
+                ctx.s().display(verbose_stream());
+                verbose_stream() << ctx.bpp(n) << " := " << p << "\n";
+                UNREACHABLE();
+            }
+            VERIFY(m_core.try_eval(p, val));
+            value = bv.mk_numeral(val, get_bv_size(n));
+        }
+        values.set(n->get_root_id(), value);
     }   
 
     bool solver::add_dep(euf::enode* n, top_sort<euf::enode>& dep) {
@@ -87,12 +100,14 @@ namespace polysat {
         auto r = m_intblast.check_propagation(lit, core, eqs);
         VERIFY (r != l_true);
     }
+
     void solver::validate_conflict(sat::literal_vector const& core, euf::enode_pair_vector const& eqs) {
         if (!ctx.get_config().m_core_validate)
             return;
         auto r = m_intblast.check_core(core, eqs);
         VERIFY (r != l_true);
     }
+
     void solver::validate_axiom(sat::literal_vector const& clause) {
         if (!ctx.get_config().m_core_validate)
             return;
