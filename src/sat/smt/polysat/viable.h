@@ -53,7 +53,7 @@ namespace polysat {
             bool active = true;
             bool valid_for_lemma = true;
             pvar var = null_var;
-            unsigned constraint_index = UINT_MAX;
+            constraint_id constraint_index;
 
             void reset() {
                 // dll_base<entry>::init(this);  // we never did this in alloc_entry either
@@ -62,7 +62,7 @@ namespace polysat {
                 active = true;
                 valid_for_lemma = true;
                 var = null_var;
-                constraint_index = UINT_MAX;
+                constraint_index = constraint_id::null();
             }
         };
 
@@ -97,7 +97,7 @@ namespace polysat {
         bool well_formed(entry* e);
         bool well_formed(layers const& ls);
 
-        entry* alloc_entry(pvar v, unsigned constraint_index);
+        entry* alloc_entry(pvar v, constraint_id constraint_index);
 
         std::ostream& display_one(std::ostream& out, pvar v, entry const* e) const;
         std::ostream& display_all(std::ostream& out, pvar v, entry const* e, char const* delimiter = "") const;
@@ -152,7 +152,7 @@ namespace polysat {
         /*
         * Register constraint at index 'idx' as unitary in v.
         */
-        bool add_unitary(pvar v, unsigned idx);
+        bool add_unitary(pvar v, constraint_id);
 
         /*
         * Ensure data-structures tracking variable v.

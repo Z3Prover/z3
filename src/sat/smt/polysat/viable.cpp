@@ -68,7 +68,7 @@ namespace polysat {
         }
     };
 
-    viable::entry* viable::alloc_entry(pvar var, unsigned constraint_index) {
+    viable::entry* viable::alloc_entry(pvar var, constraint_id constraint_index) {
         entry* e = nullptr;
         if (m_alloc.empty())
             e = alloc(entry);
@@ -532,12 +532,12 @@ namespace polysat {
         uint_set seen;
         for (auto e : m_explain) {
             auto index = e->constraint_index;
-            if (seen.contains(index))
+            if (seen.contains(index.id))
                 continue;
             if (m_var != e->var)
                 result.push_back(offset_claim(m_var, {e->var, 0}));
-            seen.insert(index);
-            auto const& [sc, d, value] = c.m_constraint_index[index];
+            seen.insert(index.id);
+            auto const& [sc, d, value] = c.m_constraint_index[index.id];
             result.push_back(d);
             result.append(c.explain_eval(sc));
         }
@@ -548,11 +548,11 @@ namespace polysat {
     /*
     * Register constraint at index 'idx' as unitary in v.
     */
-    bool viable::add_unitary(pvar v, unsigned idx) {
+    bool viable::add_unitary(pvar v, constraint_id idx) {
 
         if (c.is_assigned(v))
             return true;
-        auto [sc, d, value] = c.m_constraint_index[idx];
+        auto [sc, d, value] = c.m_constraint_index[idx.id];
         SASSERT(value != l_undef);
         if (value == l_false)
             sc = ~sc;

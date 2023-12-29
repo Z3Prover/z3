@@ -190,7 +190,8 @@ namespace polysat {
                 case l_true:
                     propagate_assignment(m_var, m_value, d);
                     break;
-                case l_false:                    
+                case l_false:   
+                    // add m_var != m_value to m_viable but need a constraint index for that.
                     m_value = mod(m_value + 1, rational::power_of_two(size(m_var)));
                     goto try_again;
                 default:
@@ -299,7 +300,7 @@ namespace polysat {
                 return;
             v = w;
         }
-        if (v != null_var && !m_viable.add_unitary(v, idx.id))
+        if (v != null_var && !m_viable.add_unitary(v, idx))
             s.set_conflict(m_viable.explain(), "viable-conflict");
     }
 
@@ -352,7 +353,7 @@ namespace polysat {
             if (!is_assigned(v0) || is_assigned(v1))
                 continue;
             // detect unitary, add to viable, detect conflict?
-            if (value != l_undef && !m_viable.add_unitary(v1, idx))
+            if (value != l_undef && !m_viable.add_unitary(v1, {idx}))
                 s.set_conflict(m_viable.explain(), "viable-conflict");
         }
         SASSERT(m_watch[v].size() == sz && "size of watch list was not changed");

@@ -23,7 +23,8 @@ namespace polysat {
     using pvar = unsigned;
     using theory_var = unsigned;
     struct constraint_id {
-        unsigned id; bool is_null() const { return id == UINT_MAX; }
+        unsigned id = UINT_MAX; 
+        bool is_null() const { return id == UINT_MAX; }
         static constraint_id null() { return constraint_id{ UINT_MAX }; }
     };
 
