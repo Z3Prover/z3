@@ -97,7 +97,10 @@ namespace euf {
 
     enode* bv_plugin::mk_value(rational const& v, unsigned sz) {
         auto e = bv.mk_numeral(v, sz);
-        return mk(e, 0, nullptr);
+        auto n = mk(e, 0, nullptr);
+        if (m_ensure_th_var)
+            m_ensure_th_var(n);
+        return n;
     }
 
     void bv_plugin::propagate_merge(enode* x, enode* y) {
@@ -331,7 +334,7 @@ namespace euf {
                 v = div(v, rational::power_of_two(lo));
             if (hi + 1 != width(n))
                 v = mod(v, rational::power_of_two(hi + 1));
-            return mk(bv.mk_numeral(v, hi - lo + 1), 0, nullptr);
+            return mk_value(v, hi - lo + 1);
         }
         return mk(bv.mk_extract(hi, lo, n->get_expr()), 1, &n);
     }

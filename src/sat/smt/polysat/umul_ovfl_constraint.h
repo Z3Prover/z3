@@ -38,6 +38,7 @@ namespace polysat {
         lbool eval(assignment const& a) const override;
         void activate(core& c, bool sign, dependency const& dep) override;
         void propagate(core& c, lbool value, dependency const& dep) override;
+        bool is_linear() const override { return p().is_linear() && q().is_linear(); }
     };
 
 

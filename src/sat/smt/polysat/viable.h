@@ -51,7 +51,6 @@ namespace polysat {
             bool refined = false;
             /// whether the entry is part of the current set of intervals, or stashed away for backtracking
             bool active = true;
-            bool valid_for_lemma = true;
             pvar var = null_var;
             constraint_id constraint_index;
 
@@ -60,7 +59,6 @@ namespace polysat {
                 fi_record::reset();
                 refined = false;
                 active = true;
-                valid_for_lemma = true;
                 var = null_var;
                 constraint_index = constraint_id::null();
             }

@@ -41,10 +41,9 @@ namespace euf {
 
         bv_util                 bv;
         slice_info_vector       m_info;         // indexed by enode::get_id()
-
-
-
         enode_vector m_xs, m_ys;
+
+        std::function<void(enode*)> m_ensure_th_var;
 
         bool is_concat(enode* n) const { return bv.is_concat(n->get_expr()); }
         bool is_concat(enode* n, enode*& a, enode*& b) { return is_concat(n) && (a = n->get_arg(0), b = n->get_arg(1), true); }
@@ -109,6 +108,8 @@ namespace euf {
         void propagate() override;
 
         void undo() override;
+
+        void set_ensure_th_var(std::function<void(enode*)>& f) { m_ensure_th_var = f; }
         
         std::ostream& display(std::ostream& out) const override;
 

@@ -167,7 +167,6 @@ namespace polysat {
 
     // Ovfl(x, y) & ~Ovfl(y, z) ==> x > z
     void saturation::try_umul_ovfl(pvar v, umul_ovfl const& sc) {
-    
         auto p = sc.p(), q = sc.q();
         auto& C = c.cs();
         auto match_mul_arg = [&](auto const& sc2) { 

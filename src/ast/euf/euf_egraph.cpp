@@ -160,7 +160,7 @@ namespace euf {
     }
 
     void egraph::add_th_eq(theory_id id, theory_var v1, theory_var v2, enode* c, enode* r) {
-        TRACE("euf_verbose", tout << "eq: " << v1 << " == " << v2 << "\n";);
+        TRACE("euf", tout << "eq: " << v1 << " == " << v2 << " - " << bpp(c) << " == " << bpp(r) << "\n";);
         m_new_th_eqs.push_back(th_eq(id, v1, v2, c, r));
         m_updates.push_back(update_record(update_record::new_th_eq()));
         ++m_stats.m_num_th_eqs;

@@ -35,6 +35,7 @@ namespace polysat {
         std::ostream& display(std::ostream& out) const override;
         lbool eval() const override;
         lbool eval(assignment const& a) const override;
+        bool is_linear() const override { return lhs().is_linear() && rhs().is_linear(); }
         void activate(core& c, bool sign, dependency const& dep);
         void propagate(core& c, lbool value, dependency const& dep) {}
         bool is_eq() const { return m_rhs.is_zero(); }

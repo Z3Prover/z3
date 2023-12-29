@@ -41,6 +41,16 @@ namespace polysat {
         m_lemma(ctx.get_manager())
     {
         m_bv_plugin = alloc(euf::bv_plugin, ctx.get_egraph());
+        std::function<void(euf::enode*)> ensure_th_var = [&](euf::enode* n) {
+            if (get_th_var(n) != euf::null_theory_var)
+                return;
+            auto v = mk_var(n);            
+            rational val;
+            unsigned sz = 0;
+            if (bv.is_numeral(n->get_expr(), val, sz))
+                internalize_set(v, m_core.value(val, sz));
+        };
+        m_bv_plugin->set_ensure_th_var(ensure_th_var);
         ctx.get_egraph().add_plugin(m_bv_plugin);
     }
 

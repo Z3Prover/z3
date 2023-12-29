@@ -46,6 +46,7 @@ namespace polysat {
         virtual lbool eval(assignment const& a) const = 0;
         virtual void activate(core& c, bool sign, dependency const& d) = 0;
         virtual void propagate(core& c, lbool value, dependency const& d) = 0;
+        virtual bool is_linear() const { return false; }
     };
 
     inline std::ostream& operator<<(std::ostream& out, constraint const& c) { return c.display(out); }
@@ -74,14 +75,15 @@ namespace polysat {
         bool is_always_false() const { return eval() == l_false; }
         bool is_currently_true(core& c) const;
         bool is_currently_false(core& c) const;
+        bool is_linear() const { return m_constraint->is_linear(); }
         lbool eval(assignment& a) const;
         lbool eval() const { return m_sign ? ~m_constraint->eval() : m_constraint->eval();}
         ckind_t op() const { return m_op; }
         bool is_ule() const { return m_op == ule_t; }
         bool is_umul_ovfl() const { return m_op == umul_ovfl_t; }
         bool is_smul_fl() const { return m_op == smul_fl_t; }
-        ule_constraint const& to_ule() const { return *reinterpret_cast<ule_constraint*>(m_constraint); }
-        umul_ovfl_constraint const& to_umul_ovfl() const { return *reinterpret_cast<umul_ovfl_constraint*>(m_constraint); }
+        ule_constraint const& to_ule() const { SASSERT(is_ule()); return *reinterpret_cast<ule_constraint*>(m_constraint); }
+        umul_ovfl_constraint const& to_umul_ovfl() const { SASSERT(is_umul_ovfl()); return *reinterpret_cast<umul_ovfl_constraint*>(m_constraint); }
         bool is_eq(pvar& v, rational& val);
         std::ostream& display(std::ostream& out) const;
     };

@@ -168,8 +168,7 @@ namespace polysat {
         
         switch (m_viable.find_viable(m_var, m_value)) {
         case find_t::empty:
-            TRACE("bv", tout << "viable-conflict v" << m_var << "\n");
-            s.set_conflict(m_viable.explain(), "viable-conflict");      
+            viable_conflict(m_var);
             return sat::check_result::CR_CONTINUE;
         case find_t::singleton: {
             auto p = var2pdd(m_var).mk_var(m_var);
@@ -180,7 +179,6 @@ namespace polysat {
             return sat::check_result::CR_CONTINUE;
         }
         case find_t::multiple: {
-            
             do {
                 try_again:
                 dependency d = null_dependency;
@@ -273,6 +271,12 @@ namespace polysat {
         return true;
     }
 
+    void core::viable_conflict(pvar v) {
+        TRACE("bv", tout << "viable-conflict v" << v << "\n");
+        m_var_queue.activity_increased_eh(v);
+        s.set_conflict(m_viable.explain(), "viable-conflict");
+    }
+
     void core::propagate_assignment(constraint_id idx) { 
 
         auto [sc, dep, value] = m_constraint_index[idx.id];
@@ -280,6 +284,10 @@ namespace polysat {
         if (value == l_false)
             sc = ~sc;
         TRACE("bv", tout << "propagate " << sc << " using " << dep << " := " << value << "\n");
+        if (sc.is_always_false()) {
+            s.set_conflict({dep}, "infeasible assignment");
+            return;
+        }
         if (sc.is_eq(m_var, m_value))
             propagate_assignment(m_var, m_value, dep);
         else
@@ -301,7 +309,7 @@ namespace polysat {
             v = w;
         }
         if (v != null_var && !m_viable.add_unitary(v, idx))
-            s.set_conflict(m_viable.explain(), "viable-conflict");
+            viable_conflict(v);
     }
 
     void core::propagate_assignment(pvar v, rational const& value, dependency dep) {
@@ -353,8 +361,8 @@ namespace polysat {
             if (!is_assigned(v0) || is_assigned(v1))
                 continue;
             // detect unitary, add to viable, detect conflict?
-            if (value != l_undef && !m_viable.add_unitary(v1, {idx}))
-                s.set_conflict(m_viable.explain(), "viable-conflict");
+            if (value != l_undef && !m_viable.add_unitary(v1, { idx }))
+                viable_conflict(v1);
         }
         SASSERT(m_watch[v].size() == sz && "size of watch list was not changed");
         m_watch[v].shrink(j);

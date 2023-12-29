@@ -53,7 +53,7 @@ namespace polysat {
         };
         struct constraint_iterator {
             core& c;
-            std::function<bool(signed_constraint const& sc)> const& m_filter;
+            std::function<bool(signed_constraint const& sc)> m_filter;
             constraint_iterator(core& c, std::function<bool(signed_constraint const& sc)> const& filter) :
                 c(c), m_filter(filter) {}
             constraint_filter begin() const { return constraint_filter(c, m_filter, 0); }
