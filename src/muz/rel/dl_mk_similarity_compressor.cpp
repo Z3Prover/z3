@@ -101,7 +101,7 @@ namespace datalog {
 
     /**
        \brief Return 0 if r1 and r2 could be similar. If the rough similarity
-       equaivelance class of r1 is greater than the one of r2, return 1; otherwise return -1.
+       equivalence class of r1 is greater than the one of r2, return 1; otherwise return -1.
 
        Two rules are in the same rough similarity class if they differ only in constant arguments
        of positive uninterpreted predicates.

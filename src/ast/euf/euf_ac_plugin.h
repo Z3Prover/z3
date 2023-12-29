@@ -40,7 +40,7 @@ namespace euf {
         struct node {
             enode* n;        // associated enode
             node* root;      // path compressed root
-            node* next;      // next in equaivalence class
+            node* next;      // next in equivalence class
             justification j; // justification for equality
             node* target = nullptr;    // justified next
             unsigned_vector shared;    // shared occurrences

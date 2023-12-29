@@ -16,7 +16,7 @@ Version 4.12.5
 - A new theory solver "int-blast" enabled by using:
   - sat.smt=true smt.bv.solver=2
   - It solves a few bit-vector problems not handled by bit-blasting, especially if the bit-widths are large.
-  - It is based on encoding bit-vector constraints to non-linear integer arithemtic.
+  - It is based on encoding bit-vector constraints to non-linear integer arithmetic.
 
 
 Version 4.12.4
