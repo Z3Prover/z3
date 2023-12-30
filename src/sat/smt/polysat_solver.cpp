@@ -114,7 +114,7 @@ namespace polysat {
         if (!a)
             return;
         force_push();
-        m_core.assign_eh(a->m_index, l.sign(), s().lvl(l));
+        m_core.assign_eh(a->m_index, l.sign());
     }
 
     void solver::set_conflict(dependency_vector const& deps, char const* hint_info) {
@@ -193,10 +193,15 @@ namespace polysat {
         pdd p = m_core.var(pvar);
         pdd q = m_core.value(val, m_core.size(pvar));
         auto sc = m_core.eq(p, q);
-        mk_atom(eq.var(), sc);
         s().set_phase(eq);
         ctx.mark_relevant(eq);
         d = dependency(eq.var());
+        auto value = s().value(eq);
+        if (!get_bv2a(eq.var())) {
+            auto a = mk_atom(eq.var(), sc);
+            if (value == l_false)
+                m_core.assign_eh(a->m_index, true);
+        }
         return s().value(eq);
     }
 
@@ -213,7 +218,7 @@ namespace polysat {
         pdd q = var2pdd(v2);
         auto d = dependency(v1, v2);
         constraint_id id = eq_constraint(p, q, d);
-        m_core.assign_eh(id, false, s().scope_lvl()); 
+        m_core.assign_eh(id, false); 
 
     }
 
@@ -228,7 +233,7 @@ namespace polysat {
         auto d = dependency(eq.var());
         auto id = eq_constraint(p, q, d);
         TRACE("bv", tout << eq << " := " << s().value(eq) << " @" << s().scope_lvl() << "\n");
-        m_core.assign_eh(id, true, s().lvl(eq));
+        m_core.assign_eh(id, true);
     }
 
     // Core uses the propagate callback to add unit propagations to the trail.

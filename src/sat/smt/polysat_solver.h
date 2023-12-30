@@ -103,7 +103,7 @@ namespace polysat {
         void erase_bv2a(bool_var bv) { m_bool_var2atom[bv] = nullptr; }
         atom* get_bv2a(bool_var bv) const { return m_bool_var2atom.get(bv, nullptr); }
         class mk_atom_trail;
-        void  mk_atom(sat::bool_var bv, signed_constraint& sc);
+        atom* mk_atom(sat::bool_var bv, signed_constraint& sc);
         void set_bit_eh(theory_var v, literal l, unsigned idx);
         void init_bits(expr* e, expr_ref_vector const & bits);
         void mk_bits(theory_var v);

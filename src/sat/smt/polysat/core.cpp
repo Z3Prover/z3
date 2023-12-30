@@ -62,11 +62,6 @@ namespace polysat {
             auto& [sc, lit, val] = c.m_constraint_index.back();
             auto& vars = sc.vars();
             auto idx = c.m_constraint_index.size() - 1;
-            IF_VERBOSE(10,
-                verbose_stream() << "undo add watch " << sc << " ";
-            if (vars.size() > 0) verbose_stream() << "(" << idx << ": " << c.m_watch[vars[0]] << ") ";
-            if (vars.size() > 1) verbose_stream() << "(" << idx << ": " << c.m_watch[vars[1]] << ") ";
-            verbose_stream() << "\n");
             unsigned n = sc.num_watch();
             SASSERT(n <= vars.size());
             auto del_watch = [&](unsigned i) {
@@ -147,10 +142,6 @@ namespace polysat {
             add_watch(idx, vars[0]);
         if (j > 1)
             add_watch(idx, vars[1]);
-        IF_VERBOSE(10, verbose_stream() << "add watch " << sc << " " << vars << "  ";
-        if (j > 0) verbose_stream() << "( " << idx << " : " << m_watch[vars[0]] << ") ";
-        if (j > 1) verbose_stream() << "( " << idx << " : " << m_watch[vars[1]] << ") ";
-        verbose_stream() << "\n");
         s.trail().push(mk_add_watch(*this));
         return { idx };
     }
@@ -166,38 +157,36 @@ namespace polysat {
         CTRACE("bv", is_assigned(m_var), display(tout << "v" << m_var << " is assigned\n"););
         SASSERT(!is_assigned(m_var));
         
-        switch (m_viable.find_viable(m_var, m_value)) {
+        auto& var_value = m_values[m_var];
+        switch (m_viable.find_viable(m_var, var_value)) {
         case find_t::empty:
             viable_conflict(m_var);
             return sat::check_result::CR_CONTINUE;
         case find_t::singleton: {
             auto p = var2pdd(m_var).mk_var(m_var);
-            auto sc = m_constraints.eq(p, m_value);
-            TRACE("bv", tout << "check-propagate v" << m_var << " := " << m_value << " " << sc << "\n");
+            auto sc = m_constraints.eq(p, var_value);
+            TRACE("bv", tout << "check-propagate v" << m_var << " := " << var_value << " " << sc << "\n");
             auto d = s.propagate(sc, m_viable.explain(), "viable-propagate");
-            propagate_assignment(m_var, m_value, d);
+            propagate_assignment(m_var, var_value, d);
             return sat::check_result::CR_CONTINUE;
         }
         case find_t::multiple: {
-            do {
-                try_again:
-                dependency d = null_dependency;
-                lbool value = s.add_eq_literal(m_var, m_value, d);
-                TRACE("bv", tout << "check-multiple v" << m_var << " := " << m_value << " " << value << "\n");
-                switch (value) {
-                case l_true:
-                    propagate_assignment(m_var, m_value, d);
-                    break;
-                case l_false:   
-                    // add m_var != m_value to m_viable but need a constraint index for that.
-                    m_value = mod(m_value + 1, rational::power_of_two(size(m_var)));
-                    goto try_again;
-                default:
-                    // let core assign equality.                    
-                    break;
-                }
-            } 
-            while (false);
+            dependency d = null_dependency;
+            lbool value = s.add_eq_literal(m_var, var_value, d);
+            TRACE("bv", tout << "check-multiple v" << m_var << " := " << var_value << " " << value << "\n");
+            switch (value) {
+            case l_true:
+                propagate_assignment(m_var, var_value, d);
+                break;
+            case l_false:
+                // disequality is forced into propagation queue.
+                var_value = mod(var_value + 1, rational::power_of_two(size(m_var)));
+                propagate();
+                break;
+            default:
+                // let core assign equality.                    
+                break;
+            }
             return sat::check_result::CR_CONTINUE;
         }
         case find_t::resource_out:
@@ -211,14 +200,17 @@ namespace polysat {
     sat::check_result core::final_check() {
         unsigned n = 0;
         constraint_id conflict_idx = { UINT_MAX };
+        // verbose_stream() << "final-check\n";
         for (auto idx : m_prop_queue) {
             auto [sc, d, value] = m_constraint_index[idx.id];
             SASSERT(value != l_undef);
+            // verbose_stream() << "constraint " << (value == l_true ? sc : ~sc) << "\n";
             lbool eval_value = eval(sc);
             CTRACE("bv", eval_value == l_undef, sc.display(tout << "eval: ") << " evaluates to " << eval_value << "\n"; display(tout););
             SASSERT(eval_value != l_undef);
             if (eval_value == value)
                 continue;
+            // verbose_stream() << "violated " << sc << " " << d << " " << eval_value << "\n";
             if (0 == (m_rand() % (++n)))
                 conflict_idx = idx;
 
@@ -288,8 +280,9 @@ namespace polysat {
             s.set_conflict({dep}, "infeasible assignment");
             return;
         }
-        if (sc.is_eq(m_var, m_value))
-            propagate_assignment(m_var, m_value, dep);
+        rational var_value;
+        if (sc.is_eq(m_var, var_value))
+            propagate_assignment(m_var, var_value, dep);
         else
             propagate_activation(idx, sc, dep);
     }
@@ -424,7 +417,7 @@ namespace polysat {
         return s.inconsistent();
     }
 
-    void core::assign_eh(constraint_id index, bool sign, unsigned level) { 
+    void core::assign_eh(constraint_id index, bool sign) { 
         struct unassign : public trail {
             core& c;
             unsigned m_index;
@@ -434,6 +427,8 @@ namespace polysat {
                 c.m_prop_queue.pop_back();
             }
         };
+        if (m_constraint_index[index.id].value != l_undef)
+            return;
         m_prop_queue.push_back(index);
         m_constraint_index[index.id].value = to_lbool(!sign);
         s.trail().push(unassign(*this, index.id));
@@ -494,7 +489,7 @@ namespace polysat {
 
     void core::add_axiom(signed_constraint sc) {
         auto idx = register_constraint(sc, dependency::axiom());
-        assign_eh(idx, false, 0);
+        assign_eh(idx, false);
     }
 
     signed_constraint core::get_constraint(constraint_id idx) {

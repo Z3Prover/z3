@@ -178,13 +178,15 @@ namespace polysat {
         }
     };
 
-    void solver::mk_atom(sat::bool_var bv, signed_constraint& sc) {
-        if (get_bv2a(bv))
-            return;
+    solver::atom* solver::mk_atom(sat::bool_var bv, signed_constraint& sc) {
+        auto a = get_bv2a(bv);
+        if (a)
+            return a;            
         auto index = m_core.register_constraint(sc, dependency(bv));
-        auto a = new (get_region()) atom(bv, index);
+        a = new (get_region()) atom(bv, index);
         insert_bv2a(bv, a);
         ctx.push(mk_atom_trail(bv, *this));
+        return a;
     }
 
     void solver::internalize_binary_predicate(app* e, std::function<polysat::signed_constraint(pdd, pdd)> const& fn) {
@@ -759,6 +761,7 @@ namespace polysat {
     public:
         undo_add_eq(solver& s, unsigned i) : s(s), index(i) {}
         void undo() override {
+            SASSERT(index == s.m_eqs.back().index());
             s.m_eq2constraint.remove(index);
             s.m_eqs.pop_back();
         }
@@ -769,10 +772,8 @@ namespace polysat {
         constraint_id idx;
         if (m_eq2constraint.find(r.index(), idx))
             return idx;
-        auto sc = m_core.eq(p, q);
-        TRACE("bv", tout << "new eq " << sc << "\n");
+        auto sc = m_core.eq(p, q);       
         idx = m_core.register_constraint(sc, d);
-
         m_eq2constraint.insert(r.index(), idx);
         m_eqs.push_back(r);
         ctx.push(undo_add_eq(*this, r.index()));

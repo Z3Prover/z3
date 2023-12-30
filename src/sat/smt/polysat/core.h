@@ -69,7 +69,6 @@ namespace polysat {
         vector<unsigned_vector> m_watch;                      // watch lists for variables for constraints on m_prop_queue where they occur
 
         // values to split on
-        rational    m_value;
         pvar        m_var = 0;
 
         dd::pdd_manager& sz2pdd(unsigned sz) const;
@@ -99,7 +98,7 @@ namespace polysat {
         sat::check_result check();        
         constraint_id register_constraint(signed_constraint& sc, dependency d);
         bool propagate();
-        void assign_eh(constraint_id idx, bool sign, unsigned level);
+        void assign_eh(constraint_id idx, bool sign);
         pvar next_var() { return m_var_queue.next_var(); }
 
         pdd value(rational const& v, unsigned sz);
