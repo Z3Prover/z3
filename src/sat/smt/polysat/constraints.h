@@ -40,10 +40,12 @@ namespace polysat {
         bool contains_var(pvar v) const { return m_vars.contains(v); }
         unsigned num_watch() const { return m_num_watch;  }
         void set_num_watch(unsigned n) { SASSERT(n <= 2);  m_num_watch = n; }
+        virtual unsigned_vector const& unfold_vars() const { return m_vars; }
         virtual std::ostream& display(std::ostream& out, lbool status) const = 0;
         virtual std::ostream& display(std::ostream& out) const = 0;
         virtual lbool eval() const = 0;
         virtual lbool eval(assignment const& a) const = 0;
+        virtual lbool eval_unfold(assignment const& a) const { return eval(a); }
         virtual void activate(core& c, bool sign, dependency const& d) = 0;
         virtual void propagate(core& c, lbool value, dependency const& d) = 0;
         virtual bool is_linear() const { return false; }
@@ -65,6 +67,7 @@ namespace polysat {
         bool is_negative() const { return m_sign; }
         unsigned_vector& vars() { return m_constraint->vars(); }
         unsigned_vector const& vars() const { return m_constraint->vars(); }
+        unsigned_vector const& unfold_vars() const { return m_constraint->unfold_vars(); }
         unsigned var(unsigned idx) const { return m_constraint->var(idx); }
         bool contains_var(pvar v) const { return m_constraint->contains_var(v); }
         unsigned num_watch() const { return m_constraint->num_watch(); }
@@ -77,6 +80,7 @@ namespace polysat {
         bool is_currently_false(core& c) const;
         bool is_linear() const { return m_constraint->is_linear(); }
         lbool eval(assignment& a) const;
+        lbool eval_unfold(assignment& a) const;
         lbool eval() const { return m_sign ? ~m_constraint->eval() : m_constraint->eval();}
         ckind_t op() const { return m_op; }
         bool is_ule() const { return m_op == ule_t; }
@@ -132,6 +136,14 @@ namespace polysat {
         signed_constraint ult(pdd const& p, int q) { return ult(p, rational(q)); }
         signed_constraint ult(pdd const& p, unsigned q) { return ult(p, rational(q)); }
 
+        signed_constraint ugt(pdd const& p, pdd const& q) { return ult(q, p); }
+        signed_constraint ugt(pdd const& p, rational const& q) { return ugt(p, p.manager().mk_val(q)); }
+        signed_constraint ugt(rational const& p, pdd const& q) { return ugt(q.manager().mk_val(p), q); }
+        signed_constraint ugt(int             p, pdd const& q) { return ugt(rational(p), q); }
+        signed_constraint ugt(unsigned        p, pdd const& q) { return ugt(rational(p), q); }
+        signed_constraint ugt(pdd const& p, int q) { return ugt(p, rational(q)); }
+        signed_constraint ugt(pdd const& p, unsigned q) { return ugt(p, rational(q)); }
+
         signed_constraint slt(pdd const& p, rational const& q) { return slt(p, p.manager().mk_val(q)); }
         signed_constraint slt(rational const& p, pdd const& q) { return slt(q.manager().mk_val(p), q); }
         signed_constraint slt(pdd const& p, int             q) { return slt(p, rational(q)); }
@@ -155,6 +167,8 @@ namespace polysat {
         signed_constraint umul_ovfl(pdd const& p, unsigned        q) { return umul_ovfl(p, rational(q)); }
         signed_constraint umul_ovfl(int             p, pdd const& q) { return umul_ovfl(rational(p), q); }
         signed_constraint umul_ovfl(unsigned        p, pdd const& q) { return umul_ovfl(rational(p), q); }
+
+        signed_constraint parity_at_least(pdd const& p, unsigned k);
 
         signed_constraint lshr(pdd const& a, pdd const& b, pdd const& r);
         signed_constraint ashr(pdd const& a, pdd const& b, pdd const& r);

@@ -19,22 +19,27 @@ Author:
 namespace polysat {
 
     class ule_constraint final : public constraint {
-        pdd m_lhs;
-        pdd m_rhs;        
+        pdd m_lhs, m_rhs;
+        unsigned_vector m_unfold_vars;
+        pdd m_unfold_lhs, m_unfold_rhs;        
         static bool is_always_true(bool is_positive, pdd const& lhs, pdd const& rhs) { return eval(lhs, rhs) == to_lbool(is_positive); }
         static bool is_always_false(bool is_positive, pdd const& lhs, pdd const& rhs) { return is_always_true(!is_positive, lhs, rhs); }
         static lbool eval(pdd const& lhs, pdd const& rhs);
 
     public:
-        ule_constraint(pdd const& l, pdd const& r);
+        ule_constraint(pdd const& l, pdd const& r, pdd const& ul, pdd const& ur);
         ~ule_constraint() override {}
         pdd const& lhs() const { return m_lhs; }
         pdd const& rhs() const { return m_rhs; }
+        pdd const& unfold_lhs() const { return m_unfold_lhs; }
+        pdd const& unfold_rhs() const { return m_unfold_rhs; }
         static std::ostream& display(std::ostream& out, lbool status, pdd const& lhs, pdd const& rhs);
+        unsigned_vector const& unfold_vars() const override { return m_unfold_vars; }
         std::ostream& display(std::ostream& out, lbool status) const override;
         std::ostream& display(std::ostream& out) const override;
         lbool eval() const override;
         lbool eval(assignment const& a) const override;
+        lbool eval_unfold(assignment const& a) const override;
         bool is_linear() const override { return lhs().is_linear() && rhs().is_linear(); }
         void activate(core& c, bool sign, dependency const& dep);
         void propagate(core& c, lbool value, dependency const& dep) {}

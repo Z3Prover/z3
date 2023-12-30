@@ -35,7 +35,7 @@ namespace polysat {
     saturation::saturation(core& c) : c(c), C(c.cs()) {}
 
     bool saturation::resolve(pvar v, constraint_id id) {
-        if (c.eval(id) == l_true)
+        if (c.eval_unfold(id) == l_true)
             return false;
         auto sc = c.get_constraint(id);
         if (!sc.vars().contains(v))

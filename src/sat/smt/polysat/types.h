@@ -124,6 +124,7 @@ namespace polysat {
     using constraint_id_or_dependency = std::variant<constraint_id, dependency>;
 
     using constraint_or_dependency_list = std::initializer_list<constraint_or_dependency>;
+    using constraint_or_dependency_vector = vector<constraint_or_dependency>;
     using constraint_id_vector = svector<constraint_id>;
     using constraint_id_list = std::initializer_list<constraint_id>;
     using offset_slices = vector<offset_slice>;

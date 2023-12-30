@@ -25,7 +25,9 @@ namespace polysat {
         pdd lhs = p, rhs = q;
         bool is_positive = true;
         ule_constraint::simplify(is_positive, lhs, rhs);
-        auto* cnstr = alloc(ule_constraint, lhs, rhs);
+        pdd unfold_lhs = c.ms().subst(lhs);
+        pdd unfold_rhs = c.ms().subst(rhs);
+        auto* cnstr = alloc(ule_constraint, lhs, rhs, unfold_lhs, unfold_rhs);
         c.trail().push(new_obj_trail(cnstr));
         auto sc = signed_constraint(ckind_t::ule_t, cnstr);
         return is_positive ? sc : ~sc;
@@ -61,6 +63,25 @@ namespace polysat {
         return signed_constraint(ckind_t::op_t, cnstr);
     }
 
+    // parity p >= k if low order k bits of p are 0
+    signed_constraint constraints::parity_at_least(pdd const& p, unsigned k) {
+        if (k == 0)
+            return uge(p, 0);
+        unsigned N = p.manager().power_of_2();
+        // parity(p) >= k
+        // <=> p * 2^(N - k) == 0
+        if (k > N) 
+            // parity(p) > N is never true
+            return ~eq(p.manager().zero());        
+        else if (k == 0) 
+            // parity(p) >= 0 is a tautology
+            return eq(p.manager().zero());        
+        else if (k == N)
+            return eq(p);
+        else
+            return eq(p * rational::power_of_two(N - k));
+    }
+
     bool signed_constraint::is_eq(pvar& v, rational& val) {
         if (m_sign)
             return false;
@@ -84,6 +105,11 @@ namespace polysat {
 
     lbool signed_constraint::eval(assignment& a) const {
         lbool r = m_constraint->eval(a);
+        return m_sign ? ~r : r;
+    }
+
+    lbool signed_constraint::eval_unfold(assignment& a) const {
+        lbool r = m_constraint->eval_unfold(a);
         return m_sign ? ~r : r;
     }
 

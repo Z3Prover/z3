@@ -25,6 +25,7 @@ Author:
 #include "sat/smt/polysat/constraints.h"
 #include "sat/smt/polysat/viable.h"
 #include "sat/smt/polysat/assignment.h"
+#include "sat/smt/polysat/monomials.h"
 
 namespace polysat {
 
@@ -53,6 +54,7 @@ namespace polysat {
         viable m_viable;
         constraints m_constraints;
         assignment m_assignment;
+        monomials  m_monomials;
         unsigned m_qhead = 0;
         constraint_id_vector m_prop_queue;
         svector<constraint_info> m_constraint_index;  // index of constraints
@@ -92,6 +94,11 @@ namespace polysat {
 
         void add_axiom(signed_constraint sc);
 
+        unsigned m_activity_inc = 128;
+        void inc_activity(pvar v);
+        void rescale_activity();
+        void decay_activity();
+
     public:
         core(solver_interface& s);
 
@@ -123,6 +130,7 @@ namespace polysat {
         void band(pdd const& a, pdd const& b, pdd const& r) { add_axiom(m_constraints.band(a, b, r)); }
 
         pdd bnot(pdd p) { return -p - 1; }
+        pdd mul(unsigned n, pdd const* args) { return m_monomials.mk(n, args); }
 
 
         /*
@@ -132,12 +140,14 @@ namespace polysat {
         */
         void add_axiom(char const* name, constraint_or_dependency_list const& cs, bool is_redundant);
         void add_axiom(char const* name, constraint_or_dependency const* begin, constraint_or_dependency const* end, bool is_redundant);
+        void add_axiom(char const* name, constraint_or_dependency_vector const& cs, bool is_redundant);
         
         pvar add_var(unsigned sz);
         pdd var(pvar p) { return m_vars[p]; }
         unsigned size(pvar v) const { return m_vars[v].power_of_2(); }
 
         constraints& cs() { return m_constraints; }
+        monomials& ms() { return m_monomials; }
         trail_stack& trail();
 
         std::ostream& display(std::ostream& out) const;
@@ -158,8 +168,10 @@ namespace polysat {
         dependency get_dependency(constraint_id idx) const;
         // dependency_vector get_dependencies(constraint_id_vector const& ids) const;
         lbool eval(constraint_id id);
+        lbool eval_unfold(constraint_id id);
         dependency propagate(signed_constraint const& sc, dependency_vector const& deps) { return s.propagate(sc, deps, nullptr); }
         lbool eval(signed_constraint const& sc);
+        lbool eval_unfold(signed_constraint const& sc);
         dependency_vector explain_eval(signed_constraint const& sc);
         bool inconsistent() const;
 
@@ -167,6 +179,8 @@ namespace polysat {
         * Constraints
         */
         assignment& get_assignment() { return m_assignment; }
+
+        random_gen& rand() { return m_rand; }
     };
 
 }

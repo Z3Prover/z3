@@ -238,8 +238,8 @@ namespace polysat {
 
 namespace polysat {
 
-    ule_constraint::ule_constraint(pdd const& l, pdd const& r) :
-        m_lhs(l), m_rhs(r) {
+    ule_constraint::ule_constraint(pdd const& l, pdd const& r, pdd const& ul, pdd const& ur) :
+        m_lhs(l), m_rhs(r), m_unfold_lhs(ul), m_unfold_rhs(ur) {
 
         SASSERT_EQ(m_lhs.power_of_2(), m_rhs.power_of_2());
 
@@ -247,6 +247,11 @@ namespace polysat {
         for (auto v : m_rhs.free_vars())
             if (!vars().contains(v))
                 vars().push_back(v);
+
+        m_unfold_vars.append(m_unfold_lhs.free_vars());
+        for (auto v : m_unfold_rhs.free_vars())
+            if (!m_unfold_vars.contains(v))
+                m_unfold_vars.push_back(v);
     }
 
     void ule_constraint::simplify(bool& is_positive, pdd& lhs, pdd& rhs) {
@@ -312,7 +317,10 @@ namespace polysat {
     }
 
     std::ostream& ule_constraint::display(std::ostream& out) const {
-        return display(out, l_true, m_lhs, m_rhs);
+        display(out, l_true, m_lhs, m_rhs);
+        if (m_lhs != m_unfold_lhs || m_rhs != m_unfold_rhs)
+            display(out << " alias ( ", l_true, m_unfold_lhs, m_unfold_rhs) << ")";
+        return out;
     }
 
     // Evaluate lhs <= rhs
@@ -340,6 +348,10 @@ namespace polysat {
 
     lbool ule_constraint::eval(assignment const& a) const {
         return eval(a.apply_to(lhs()), a.apply_to(rhs()));
+    }
+
+    lbool ule_constraint::eval_unfold(assignment const& a) const {
+        return eval(a.apply_to(unfold_lhs()), a.apply_to(unfold_rhs()));
     }
 
     void ule_constraint::activate(core& c, bool sign, dependency const& d) {

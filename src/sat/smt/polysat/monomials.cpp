@@ -1,0 +1,338 @@
+/*++
+Copyright (c) 2021 Microsoft Corporation
+
+Module Name:
+
+    Polysat monomials
+
+Author:
+
+    Nikolaj Bjorner (nbjorner) 2021-03-19
+    Jakob Rath 2021-04-6
+
+--*/
+
+#include "sat/smt/polysat/monomials.h"
+#include "sat/smt/polysat/core.h"
+#include "sat/smt/polysat/number.h"
+
+namespace polysat {
+
+    monomials::monomials(core& c):
+        c(c), 
+        C(c.cs()),
+        m_hash(*this),
+        m_eq(*this),
+        m_table(DEFAULT_HASHTABLE_INITIAL_CAPACITY, m_hash, m_eq) 
+    {}
+        
+    pdd monomials::mk(unsigned n, pdd const* args) {
+        SASSERT(n > 0);
+        if (n == 1)
+            return args[0];
+        if (n == 2 && args[0].is_val())
+            return args[0]*args[1];
+        if (n == 2 && args[1].is_val())
+            return args[0]*args[1];
+        auto& m = args[0].manager();
+        unsigned sz = m.power_of_2();
+        m_tmp.reset();
+        pdd offset = c.value(rational(1), sz);
+        for (unsigned i = 0; i < n; ++i) {
+            pdd const& p = args[i];
+            if (p.is_val())
+                offset *= p;
+            else 
+                m_tmp.push_back(p);
+        }
+        if (m_tmp.empty())
+            return offset;
+        if (m_tmp.size() == 1)
+            return offset * m_tmp[0];
+
+        std::stable_sort(m_tmp.begin(), m_tmp.end(), 
+                         [&](pdd const& a, pdd const& b) { return a.index() < b.index(); });
+
+        unsigned index = m_monomials.size();
+
+        m_monomials.push_back({m_tmp, offset, offset, {}, rational(0) });
+        unsigned j;
+        if (m_table.find(index, j)) {
+            m_monomials.pop_back();
+            return offset * m_monomials[j].var;
+        }
+
+        struct del_monomial : public trail {
+            monomials& m;
+            del_monomial(monomials& m):m(m) {}
+            void undo() override {
+                unsigned index = m.m_monomials.size()-1;
+                m.m_table.erase(index);
+                m.m_monomials.pop_back();
+            }
+        };
+
+        auto & mon = m_monomials.back();
+        mon.var = c.add_var(sz);
+        mon.def = c.value(rational(1), sz);
+        for (auto p : m_tmp) {
+            mon.arg_vals.push_back(rational(0));
+            mon.def *= p;
+        }
+        m_table.insert(index);
+        c.trail().push(del_monomial(*this));
+        return offset * mon.var;
+    }
+
+    pdd monomials::subst(pdd const& p) {
+        pdd r = p;
+        for (unsigned i = m_monomials.size(); i-- > 0;) 
+            r = r.subst_pdd(m_monomials[i].var.var(), m_monomials[i].def);        
+        return r;
+    }
+        
+    lbool monomials::refine() {
+        init_to_refine();
+        if (m_to_refine.empty())
+            return l_true;
+        shuffle(m_to_refine.size(), m_to_refine.data(), c.rand());
+        if (any_of(m_to_refine, [&](auto i) { return mul0(m_monomials[i]); }))
+            return l_false;
+        if (any_of(m_to_refine, [&](auto i) { return non_overflow_unit(m_monomials[i]); }))
+            return l_false;
+        if (any_of(m_to_refine, [&](auto i) { return parity0(m_monomials[i]); }))
+            return l_false;
+        if (any_of(m_to_refine, [&](auto i) { return prefix_overflow(m_monomials[i]); }))
+            return l_false;
+        if (any_of(m_to_refine, [&](auto i) { return non_overflow_monotone(m_monomials[i]); }))
+            return l_false;
+        if (any_of(m_to_refine, [&](auto i) { return mulp2(m_monomials[i]); }))
+            return l_false;
+        if (any_of(m_to_refine, [&](auto i) { return parity(m_monomials[i]); }))
+            return l_false;
+        return l_undef;
+    }
+
+    // bit blast a monomial definition
+    lbool monomials::bit_blast() {
+        init_to_refine();
+        if (m_to_refine.empty())
+            return l_true;
+        shuffle(m_to_refine.size(), m_to_refine.data(), c.rand());
+        if (any_of(m_to_refine, [&](auto i) { return bit_blast(m_monomials[i]); }))
+            return l_false;
+        return l_undef;
+    }
+
+    void monomials::init_to_refine() {
+        m_to_refine.reset();
+        for (unsigned i = 0; i < m_monomials.size(); ++i) 
+            if (eval_to_false(i))
+                m_to_refine.push_back(i);
+    }
+
+    bool monomials::eval_to_false(unsigned i) {
+        rational rhs, lhs, p_val;
+        auto& mon = m_monomials[i];
+        if (!c.try_eval(mon.var, mon.val))
+            return false;
+        if (!c.try_eval(mon.def, rhs))
+            return false;
+        if (rhs == mon.val)
+            return false;
+        for (unsigned j = mon.size(); j-- > 0; ) {
+            if (!c.try_eval(mon.args[j], p_val))
+                return false;                       
+            mon.arg_vals[j] = p_val;
+        }
+        return true;
+    }
+
+    // check p = 0 => p * q = 0
+    bool monomials::mul0(monomial const& mon) {
+        for (unsigned j = mon.size(); j-- > 0; ) {
+            if (mon.arg_vals[j] == 0) {
+                auto const& p = mon.args[j];
+                c.add_axiom("p = 0 => p * q = 0", { ~C.eq(p), C.eq(mon.var) }, true);
+                return true;
+            }                
+        }
+        return false;
+    }
+
+    // check p = k => p * q = k * q
+    bool monomials::mulp2(monomial const& mon) {
+        unsigned free_index = UINT_MAX;
+        auto& m = mon.args[0].manager();
+        for (unsigned j = mon.size(); j-- > 0; ) {
+            auto const& arg_val = mon.arg_vals[j];
+            if (arg_val == m.max_value() || arg_val.is_power_of_two())
+                continue;
+            if (free_index != UINT_MAX)
+                return false;
+            free_index = j;
+        }
+        constraint_or_dependency_vector cs;
+        pdd offset = c.value(rational(1), m.power_of_2());
+        for (unsigned j = mon.size(); j-- > 0; ) {
+            if (j != free_index) {
+                cs.push_back(~C.eq(mon.args[j], mon.arg_vals[j]));
+                offset *= mon.arg_vals[j];
+            }
+        }
+        if (free_index == UINT_MAX)
+            cs.push_back(C.eq(mon.var, offset));
+        else
+            cs.push_back(C.eq(mon.var, offset * mon.args[free_index]));
+        
+        c.add_axiom("p = k => p * q = k * q", cs, true);
+        return true;
+    }
+
+    // parity p >= i => parity p * q >= i
+    bool monomials::parity(monomial const& mon) {       
+        unsigned parity_val = get_parity(mon.val, mon.num_bits());
+        for (unsigned j = 0; j < mon.args.size(); ++j) {
+            unsigned k = get_parity(mon.arg_vals[j], mon.num_bits());
+            if (k > parity_val) {
+                auto const& p = mon.args[j];
+                c.add_axiom("parity p >= i => parity p * q >= i", { ~C.parity_at_least(p, k), C.parity_at_least(mon.var, k) }, true);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // ~ovfl*(p,q) & q != 0 => p <= p*q    
+    bool monomials::non_overflow_monotone(monomial const& mon) {
+        rational product(1);
+        unsigned big_index = UINT_MAX;
+        for (unsigned i = 0; i < mon.args.size(); ++i) {
+            auto const& val = mon.arg_vals[i];
+            product *= val;
+            if (val > mon.val)
+                big_index = i;
+        }
+        if (big_index == UINT_MAX)
+            return false;
+        if (product > mon.var.manager().max_value())
+            return false;
+        pdd p = mon.args[0];
+        constraint_or_dependency_vector clause;
+        for (unsigned i = 1; i < mon.args.size(); ++i) {
+            clause.push_back(~C.umul_ovfl(p, mon.args[i]));
+            p *= mon.args[i];
+        }
+        for (unsigned i = 0; i < mon.args.size(); ++i)
+            if (i != big_index)
+                clause.push_back(~C.eq(mon.args[i]));
+        clause.push_back(C.ule(mon.args[big_index], mon.var));
+        return false;
+    }
+
+    // ~ovfl*(p,q) & p*q = 1 => p = 1, q = 1
+    bool monomials::non_overflow_unit(monomial const& mon) {
+        if (mon.val != 1)
+            return false;
+        rational product(1);
+        for (auto const& val : mon.arg_vals)
+            product *= val;
+        if (product > mon.var.manager().max_value())
+            return false;
+        constraint_or_dependency_vector clause;
+        pdd p = mon.args[0];
+        clause.push_back(~C.eq(mon.var, 1));
+        for (unsigned i = 1; i < mon.args.size(); ++i) {
+            clause.push_back(~C.umul_ovfl(p, mon.args[i]));
+            p *= mon.args[i];
+        }        
+        for (auto const& q : mon.args) {
+            clause.push_back(C.eq(q, 1));
+            c.add_axiom("~ovfl*(p,q) & p*q = 1 => p = 1", clause, true);
+            clause.pop_back();
+        }
+        return true;
+    }
+
+    // p * q = 0 => p = 0 or even(q)
+    // p * q = 0 => p = 0 or q = 0 or even(q)
+    bool monomials::parity0(monomial const& mon) {
+        if (mon.val != 0)
+            return false;
+        constraint_or_dependency_vector clause;
+        clause.push_back(~C.eq(mon.var, 0));
+        for (auto const& val : mon.arg_vals)
+            if (!val.is_odd() || val == 0)
+                return false;
+        for (auto const& p : mon.args) 
+            clause.push_back(C.eq(p));        
+        for (auto const& p : mon.args) {
+            clause.push_back(C.parity_at_least(p, 1));
+            c.add_axiom("p * q = 0 => p = 0 or q = 0 or even(q)", clause, true);
+            clause.pop_back();
+        }
+        return false;
+    }
+
+    // 0p * 0q >= 2^k => ovfl(p,q), where |p| = |q| = k
+    bool monomials::prefix_overflow(monomial const& mon) {
+        if (mon.size() != 2)
+            return false;
+        if (!mon.args[0].is_var())
+            return false;
+        if (!mon.args[1].is_var())
+            return false;
+        if (mon.val <= mon.arg_vals[0])
+            return false;
+        if (mon.val <= mon.arg_vals[1])
+            return false;
+        auto x = mon.args[0].var();
+        auto y = mon.args[1].var();
+        offset_slices x_suffixes, y_suffixes;
+        c.get_bitvector_suffixes(x, x_suffixes);
+        c.get_bitvector_suffixes(y, y_suffixes);
+        rational x_val, y_val;
+        for (auto const& xslice : x_suffixes) {
+            if (c.size(xslice.v) == mon.num_bits())
+                continue;
+            auto const& xmax_value = c.var(xslice.v).manager().max_value();
+            if (mon.val <= xmax_value)
+                continue;
+            if (!c.try_eval(c.var(xslice.v), x_val) || x_val != mon.arg_vals[0])
+                continue;
+            for (auto const& yslice : y_suffixes) {
+                if (c.size(yslice.v) != c.size(xslice.v))
+                    continue;
+                if (!c.try_eval(c.var(yslice.v), y_val) || y_val != mon.arg_vals[1])
+                    continue;
+                c.add_axiom("0p * 0q >= 2^k => ovfl(p,q), where |p| = |q| = k",
+                    { dependency({x, xslice}), dependency({y, yslice}),
+                     ~C.ule(mon.args[0], xmax_value),
+                     ~C.ule(mon.args[1], xmax_value),
+                     ~C.ugt(mon.var, xmax_value), 
+                      C.umul_ovfl(c.var(xslice.v), c.var(yslice.v)) }, 
+                    true);
+                return true;
+            }
+        }       
+        return false;
+    }
+
+    bool monomials::bit_blast(monomial const& mon) {
+        return false;
+    }
+
+    std::ostream& monomials::display(std::ostream& out) const {
+        for (auto const& mon : m_monomials) {
+            out << mon.var << " := ";
+            char const* sep = "";
+            for (auto p : mon.args) 
+                if (p.is_var())
+                    out << sep << p, sep = " * ";
+                else 
+                    out << sep << "(" << p << ")", sep = " * ";
+            out << "\n";
+        }
+        return out;
+    }
+}

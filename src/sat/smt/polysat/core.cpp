@@ -88,6 +88,7 @@ namespace polysat {
         m_viable(*this),
         m_constraints(*this),
         m_assignment(*this),
+        m_monomials(*this),
         m_var_queue(m_activity)
     {}
 
@@ -200,12 +201,21 @@ namespace polysat {
     sat::check_result core::final_check() {
         unsigned n = 0;
         constraint_id conflict_idx = { UINT_MAX };
-        // verbose_stream() << "final-check\n";
+
+        switch (m_monomials.refine()) {
+        case l_true:
+            break;
+        case l_false:
+            return sat::check_result::CR_CONTINUE;
+        case l_undef:
+            break;
+        }
+        
         for (auto idx : m_prop_queue) {
             auto [sc, d, value] = m_constraint_index[idx.id];
             SASSERT(value != l_undef);
             // verbose_stream() << "constraint " << (value == l_true ? sc : ~sc) << "\n";
-            lbool eval_value = eval(sc);
+            lbool eval_value = eval_unfold(sc);
             CTRACE("bv", eval_value == l_undef, sc.display(tout << "eval: ") << " evaluates to " << eval_value << "\n"; display(tout););
             SASSERT(eval_value != l_undef);
             if (eval_value == value)
@@ -224,11 +234,21 @@ namespace polysat {
         // If all constraints evaluate to true, we are done.
         if (conflict_idx.is_null())
             return sat::check_result::CR_DONE;
+
+        switch (m_monomials.bit_blast()) {
+        case l_true:
+            break;
+        case l_false:
+            return sat::check_result::CR_CONTINUE;
+        case l_undef:
+            break;
+        }
         
         // If no saturation propagation was possible, explain the conflict using the variable assignment.
         m_unsat_core = explain_eval(get_constraint(conflict_idx));
         m_unsat_core.push_back(get_dependency(conflict_idx));
         s.set_conflict(m_unsat_core, "polysat-bail-out-conflict");
+        decay_activity();
         return sat::check_result::CR_CONTINUE;
     }
 
@@ -239,7 +259,7 @@ namespace polysat {
         svector<pvar> result;
         auto [sc, d, value] = m_constraint_index[idx.id];
         unsigned lvl = s.level(d);
-        for (auto v : sc.vars()) {
+        for (auto v : sc.unfold_vars()) {
             if (!is_assigned(v))
                 continue;
             auto new_level = s.level(m_justification[v]);
@@ -265,8 +285,8 @@ namespace polysat {
 
     void core::viable_conflict(pvar v) {
         TRACE("bv", tout << "viable-conflict v" << v << "\n");
-        m_var_queue.activity_increased_eh(v);
         s.set_conflict(m_viable.explain(), "viable-conflict");
+        decay_activity();
     }
 
     void core::propagate_assignment(constraint_id idx) { 
@@ -278,6 +298,7 @@ namespace polysat {
         TRACE("bv", tout << "propagate " << sc << " using " << dep << " := " << value << "\n");
         if (sc.is_always_false()) {
             s.set_conflict({dep}, "infeasible assignment");
+            decay_activity();
             return;
         }
         rational var_value;
@@ -398,6 +419,7 @@ namespace polysat {
             m_unsat_core = explain_eval(sc);
             m_unsat_core.push_back(m_constraint_index[id.id].d);
             s.set_conflict(m_unsat_core, "polysat-constraint-core");
+            decay_activity();
         }                   
     }
 
@@ -436,14 +458,21 @@ namespace polysat {
 
     dependency_vector core::explain_eval(signed_constraint const& sc) {
         dependency_vector deps;
-        for (auto v : sc.vars()) 
-            if (is_assigned(v))
+        for (auto v : sc.vars()) {
+            if (is_assigned(v)) {
+                inc_activity(v);
                 deps.push_back(m_justification[v]);
+            }
+        }
         return deps;
     }
 
     lbool core::eval(signed_constraint const& sc) { 
         return sc.eval(m_assignment);
+    }
+
+    lbool core::eval_unfold(signed_constraint const& sc) {
+        return sc.eval_unfold(m_assignment);
     }
 
     pdd core::subst(pdd const& p) { 
@@ -460,6 +489,10 @@ namespace polysat {
 
     void core::add_axiom(char const* name, constraint_or_dependency const* begin, constraint_or_dependency const* end, bool is_redundant) {
         s.add_axiom(name, begin, end, is_redundant);
+    }
+
+    void core::add_axiom(char const* name, constraint_or_dependency_vector const& cs, bool is_redundant) {
+        s.add_axiom(name, cs.begin(), cs.end(), is_redundant);
     }
 
     std::ostream& core::display(std::ostream& out) const {
@@ -502,6 +535,29 @@ namespace polysat {
 
     lbool core::eval(constraint_id id) {
         return get_constraint(id).eval(m_assignment);
+    }
+
+    lbool core::eval_unfold(constraint_id id) {
+        return get_constraint(id).eval_unfold(m_assignment);
+    }
+
+    void core::inc_activity(pvar v) {
+        unsigned& act = m_activity[v].second;
+        act += m_activity_inc;
+        m_var_queue.activity_increased_eh(v);
+        if (act > (1 << 24))
+            rescale_activity();        
+    }
+
+    void core::rescale_activity() {
+        for (auto& act : m_activity) 
+            act.second >>= 14;        
+        m_activity_inc >>= 14;
+    }
+
+    void core::decay_activity() {
+        m_activity_inc *= 110;
+        m_activity_inc /= 100;
     }
 
 }

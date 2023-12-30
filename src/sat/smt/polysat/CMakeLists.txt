@@ -6,6 +6,7 @@ z3_add_component(polysat
     fixed_bits.cpp
     forbidden_intervals.cpp
     inequality.cpp
+    monomials.cpp
     op_constraint.cpp
     refine.cpp
     saturation.cpp
