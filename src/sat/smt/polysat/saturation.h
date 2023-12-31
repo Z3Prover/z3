@@ -29,7 +29,6 @@ namespace polysat {
         core& c;
         constraints& C;
 
-        void propagate(signed_constraint const& sc, std::initializer_list<constraint_id> const& premises);
         void add_clause(char const* name, clause const& cs, bool is_redundant);
 
         struct constraint_filter {
@@ -62,7 +61,6 @@ namespace polysat {
         
         bool match_constraints(std::function<bool(signed_constraint const& sc)> const& p, constraint_id& id);
 
-        void propagate_infer_equality(pvar x, inequality const& a_l_b);
         void try_ugt_x(pvar v, inequality const& i);
         void try_ugt_y(pvar v, inequality const& i);
         void try_ugt_z(pvar z, inequality const& i);
@@ -71,9 +69,10 @@ namespace polysat {
         signed_constraint ineq(bool is_strict, pdd const& x, pdd const& y);       
 
         void resolve(pvar v, inequality const& i);
+        bool resolve(pvar v, constraint_id cid);
 
     public:
         saturation(core& c);
-        bool resolve(pvar v, constraint_id cid);
+        lbool operator()();
     };
 }

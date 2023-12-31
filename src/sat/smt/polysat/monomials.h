@@ -71,7 +71,9 @@ namespace polysat {
         bool eval_to_false(unsigned i);
 
         bool mul0(monomial const& mon);
+        bool mul1(monomial const& mon);
         bool mulp2(monomial const& mon);
+        bool mul(monomial const& mon, std::function<bool(rational const&)> const& p);
         bool parity(monomial const& mon);
         bool non_overflow_monotone(monomial const& mon);
         bool non_overflow_unit(monomial const& mon);

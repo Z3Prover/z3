@@ -27,12 +27,33 @@ TODO: when we check that 'x' is "unary":
 #include "sat/smt/polysat/saturation.h"
 #include "sat/smt/polysat/umul_ovfl_constraint.h"
 #include "sat/smt/polysat/ule_constraint.h"
-#include "util/log.h"
 
 
 namespace polysat {
 
     saturation::saturation(core& c) : c(c), C(c.cs()) {}
+
+    lbool saturation::operator()() {
+        bool has_conflict = false;
+        for (auto idx : c.assigned_constraints()) {
+            auto sc = c.get_constraint(idx);
+            lbool eval_value = c.eval_unfold(sc);
+            if (eval_value == l_true)
+                continue;
+
+            TRACE("bv", sc.display(tout << "eval: ") << " evaluates to " << eval_value << "\n");
+            SASSERT(eval_value != l_undef);
+
+            has_conflict = true;
+            auto vars = c.find_conflict_variables(idx);
+            for (auto v : vars)
+                if (resolve(v, idx))
+                    return l_false;
+        }
+        if (has_conflict)
+            return l_undef;
+        return l_true;
+    }
 
     bool saturation::resolve(pvar v, constraint_id id) {
         if (c.eval_unfold(id) == l_true)
@@ -57,10 +78,6 @@ namespace polysat {
             try_ugt_y(v, i);
         if (!c.inconsistent())
             try_ugt_z(v, i);    
-    }
-
-    void saturation::propagate(signed_constraint const& sc, std::initializer_list<constraint_id> const& premises) {
-        // c.propagate(sc, constraint_id_vector(premises));        
     }
 
     void saturation::add_clause(char const* name, clause const& cs, bool is_redundant) { 

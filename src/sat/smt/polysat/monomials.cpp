@@ -98,6 +98,8 @@ namespace polysat {
         shuffle(m_to_refine.size(), m_to_refine.data(), c.rand());
         if (any_of(m_to_refine, [&](auto i) { return mul0(m_monomials[i]); }))
             return l_false;
+        if (any_of(m_to_refine, [&](auto i) { return mul1(m_monomials[i]); }))
+            return l_false;
         if (any_of(m_to_refine, [&](auto i) { return non_overflow_unit(m_monomials[i]); }))
             return l_false;
         if (any_of(m_to_refine, [&](auto i) { return parity0(m_monomials[i]); }))
@@ -159,13 +161,24 @@ namespace polysat {
         return false;
     }
 
+    // check p = 1 => p * q = q, p = -1 => p * q = -q
+    bool monomials::mul1(monomial const& mon) {
+        auto& m = mon.args[0].manager();
+        return mul(mon, [&](rational const& r) { return r == m.max_value() || r == 1; });
+    }
+
     // check p = k => p * q = k * q
     bool monomials::mulp2(monomial const& mon) {
+        auto& m = mon.args[0].manager();
+        return mul(mon, [&](rational const& r) { return r == m.max_value() || r.is_power_of_two(); });
+    }
+
+    bool monomials::mul(monomial const& mon, std::function<bool(rational const&)> const& p) {
         unsigned free_index = UINT_MAX;
         auto& m = mon.args[0].manager();
         for (unsigned j = mon.size(); j-- > 0; ) {
             auto const& arg_val = mon.arg_vals[j];
-            if (arg_val == m.max_value() || arg_val.is_power_of_two())
+            if (p(arg_val))
                 continue;
             if (free_index != UINT_MAX)
                 return false;
@@ -183,7 +196,7 @@ namespace polysat {
             cs.push_back(C.eq(mon.var, offset));
         else
             cs.push_back(C.eq(mon.var, offset * mon.args[free_index]));
-        
+
         c.add_axiom("p = k => p * q = k * q", cs, true);
         return true;
     }
@@ -283,8 +296,8 @@ namespace polysat {
         auto x = mon.args[0].var();
         auto y = mon.args[1].var();
         offset_slices x_suffixes, y_suffixes;
-        c.get_bitvector_suffixes(x, x_suffixes);
-        c.get_bitvector_suffixes(y, y_suffixes);
+        bool y_computed = false;
+        c.get_bitvector_suffixes(x, x_suffixes);        
         rational x_val, y_val;
         for (auto const& xslice : x_suffixes) {
             if (c.size(xslice.v) == mon.num_bits())
@@ -294,6 +307,9 @@ namespace polysat {
                 continue;
             if (!c.try_eval(c.var(xslice.v), x_val) || x_val != mon.arg_vals[0])
                 continue;
+            if (!y_computed)
+                c.get_bitvector_suffixes(y, y_suffixes);
+            y_computed = true;
             for (auto const& yslice : y_suffixes) {
                 if (c.size(yslice.v) != c.size(xslice.v))
                     continue;

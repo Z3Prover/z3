@@ -91,7 +91,7 @@ namespace polysat {
         void add_watch(unsigned idx, unsigned var);
 
         sat::check_result final_check();
-        svector<pvar> find_conflict_variables(constraint_id idx);
+        
 
         void add_axiom(signed_constraint sc);
 
@@ -175,6 +175,7 @@ namespace polysat {
         lbool eval_unfold(signed_constraint const& sc);
         dependency_vector explain_eval(signed_constraint const& sc);
         dependency_vector explain_eval_unfold(signed_constraint const& sc);
+        svector<pvar> find_conflict_variables(constraint_id idx);
         bool inconsistent() const;
 
         /*

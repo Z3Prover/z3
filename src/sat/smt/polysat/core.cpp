@@ -199,41 +199,28 @@ namespace polysat {
     }
 
     sat::check_result core::final_check() {
-        unsigned n = 0;
-        constraint_id conflict_idx = { UINT_MAX };
 
+        lbool r = l_true;
         switch (m_monomials.refine()) {
         case l_true:
             break;
         case l_false:
             return sat::check_result::CR_CONTINUE;
         case l_undef:
+            r = l_undef;
             break;
         }
-        
-        for (auto idx : m_prop_queue) {
-            auto [sc, d, value] = m_constraint_index[idx.id];
-            SASSERT(value != l_undef);
-            // verbose_stream() << "constraint " << (value == l_true ? sc : ~sc) << "\n";
-            lbool eval_value = eval_unfold(sc);
-            CTRACE("bv", eval_value == l_undef, sc.display(tout << "eval: ") << " evaluates to " << eval_value << "\n"; display(tout););
-            SASSERT(eval_value != l_undef);
-            if (eval_value == value)
-                continue;
-            // verbose_stream() << "violated " << sc << " " << d << " " << eval_value << "\n";
-            if (0 == (m_rand() % (++n)))
-                conflict_idx = idx;
 
-            auto vars = find_conflict_variables(idx);
-            saturation sat(*this);
-            for (auto v : vars)
-                if (sat.resolve(v, idx))
-                    return sat::check_result::CR_CONTINUE;
+        saturation saturate(*this);
+        switch (saturate()) {
+        case l_true:
+            break;
+        case l_false:
+            return sat::check_result::CR_CONTINUE;
+        case l_undef:
+            r = l_undef;
+            break;
         }
-
-        // If all constraints evaluate to true, we are done.
-        if (conflict_idx.is_null())
-            return sat::check_result::CR_DONE;
 
         switch (m_monomials.bit_blast()) {
         case l_true:
@@ -241,15 +228,23 @@ namespace polysat {
         case l_false:
             return sat::check_result::CR_CONTINUE;
         case l_undef:
+            r = l_undef;
             break;
         }
-        
+
+        if (r == l_true)
+            return sat::check_result::CR_DONE;
+
+        return sat::check_result::CR_GIVEUP;
+
+#if 0        
         // If no saturation propagation was possible, explain the conflict using the variable assignment.
         m_unsat_core = explain_eval_unfold(get_constraint(conflict_idx));
         m_unsat_core.push_back(get_dependency(conflict_idx));
         s.set_conflict(m_unsat_core, "polysat-bail-out-conflict");
         decay_activity();
         return sat::check_result::CR_CONTINUE;
+#endif
     }
 
     /**
