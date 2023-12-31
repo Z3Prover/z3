@@ -397,12 +397,14 @@ namespace polysat {
                 result = m.mk_not(result);
             return result;
         }
-        case ckind_t::smul_fl_t:
         case ckind_t::op_t:
+            UNREACHABLE();
+            break;
+        case ckind_t::smul_fl_t:
             NOT_IMPLEMENTED_YET();
             break;
         }
-        throw default_exception("constraint2expr nyi"); 
+        return result;
     }
 
     expr_ref solver::pdd2expr(pdd const& p) {
@@ -424,12 +426,12 @@ namespace polysat {
         family_id fid = m.get_family_id("bv");
         solver& p = dynamic_cast<solver&>(*s.fid2solver(fid));
         expr_ref_vector args(m);
+        args.push_back(m.mk_const(name, m.mk_proof_sort()));
         for (unsigned i = m_lit_head; i < m_lit_tail; ++i)           
             args.push_back(s.literal2expr(p.m_mk_hint.lit(i)));
         for (unsigned i = m_eq_head; i < m_eq_tail; ++i)
             args.push_back(s.mk_eq(p.m_mk_hint.eq(i).first, p.m_mk_hint.eq(i).second));
-        expr* pr = m.mk_app(symbol(name), args.size(), args.data(), m.mk_proof_sort());
-        return m.mk_app(symbol("bv"), 1, &pr, m.mk_proof_sort());
+        return m.mk_app(symbol("polysat"), args.size(), args.data(), m.mk_proof_sort());
     }
 
     void solver::proof_hint_builder::init(euf::solver& ctx, char const* name) {

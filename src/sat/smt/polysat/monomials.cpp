@@ -102,14 +102,15 @@ namespace polysat {
             return l_false;
         if (any_of(m_to_refine, [&](auto i) { return parity0(m_monomials[i]); }))
             return l_false;
+        if (any_of(m_to_refine, [&](auto i) { return parity(m_monomials[i]); }))
+            return l_false;
         if (any_of(m_to_refine, [&](auto i) { return prefix_overflow(m_monomials[i]); }))
             return l_false;
         if (any_of(m_to_refine, [&](auto i) { return non_overflow_monotone(m_monomials[i]); }))
             return l_false;
         if (any_of(m_to_refine, [&](auto i) { return mulp2(m_monomials[i]); }))
             return l_false;
-        if (any_of(m_to_refine, [&](auto i) { return parity(m_monomials[i]); }))
-            return l_false;
+
         return l_undef;
     }
 
@@ -132,7 +133,7 @@ namespace polysat {
     }
 
     bool monomials::eval_to_false(unsigned i) {
-        rational rhs, lhs, p_val;
+        rational rhs, lhs;
         auto& mon = m_monomials[i];
         if (!c.try_eval(mon.var, mon.val))
             return false;
@@ -140,11 +141,9 @@ namespace polysat {
             return false;
         if (rhs == mon.val)
             return false;
-        for (unsigned j = mon.size(); j-- > 0; ) {
-            if (!c.try_eval(mon.args[j], p_val))
-                return false;                       
-            mon.arg_vals[j] = p_val;
-        }
+        for (unsigned j = mon.size(); j-- > 0; ) 
+            if (!c.try_eval(mon.args[j], mon.arg_vals[j]))
+                return false;                               
         return true;
     }
 
@@ -227,7 +226,8 @@ namespace polysat {
             if (i != big_index)
                 clause.push_back(~C.eq(mon.args[i]));
         clause.push_back(C.ule(mon.args[big_index], mon.var));
-        return false;
+        c.add_axiom("~ovfl*(p,q) & q != 0 => p <= p*q", clause, true);
+        return true;
     }
 
     // ~ovfl*(p,q) & p*q = 1 => p = 1, q = 1
@@ -254,24 +254,18 @@ namespace polysat {
         return true;
     }
 
-    // p * q = 0 => p = 0 or even(q)
-    // p * q = 0 => p = 0 or q = 0 or even(q)
+    // parity(p*q) > 0 => parity(p) > 0 or parity(q) > 0
     bool monomials::parity0(monomial const& mon) {
-        if (mon.val != 0)
+        if (mon.val.is_odd())
+            return false;
+        if (!all_of(mon.arg_vals, [&](auto const& v) { return v.is_odd(); }))
             return false;
         constraint_or_dependency_vector clause;
-        clause.push_back(~C.eq(mon.var, 0));
-        for (auto const& val : mon.arg_vals)
-            if (!val.is_odd() || val == 0)
-                return false;
+        clause.push_back(~C.parity_at_least(mon.var, 1));
         for (auto const& p : mon.args) 
-            clause.push_back(C.eq(p));        
-        for (auto const& p : mon.args) {
-            clause.push_back(C.parity_at_least(p, 1));
-            c.add_axiom("p * q = 0 => p = 0 or q = 0 or even(q)", clause, true);
-            clause.pop_back();
-        }
-        return false;
+            clause.push_back(C.parity_at_least(p, 1));        
+        c.add_axiom("parity(p*q) > 0 => parity(p) > 0 or parity(q) > 0", clause, true);
+        return true;
     }
 
     // 0p * 0q >= 2^k => ovfl(p,q), where |p| = |q| = k
@@ -305,14 +299,15 @@ namespace polysat {
                     continue;
                 if (!c.try_eval(c.var(yslice.v), y_val) || y_val != mon.arg_vals[1])
                     continue;
-                c.add_axiom("0p * 0q >= 2^k => ovfl(p,q), where |p| = |q| = k",
+                bool added = c.add_axiom("0p * 0q >= 2^k => ovfl(p,q), where |p| = |q| = k",
                     { dependency({x, xslice}), dependency({y, yslice}),
                      ~C.ule(mon.args[0], xmax_value),
                      ~C.ule(mon.args[1], xmax_value),
                      ~C.ugt(mon.var, xmax_value), 
                       C.umul_ovfl(c.var(xslice.v), c.var(yslice.v)) }, 
                     true);
-                return true;
+                if (added)
+                    return true;
             }
         }       
         return false;

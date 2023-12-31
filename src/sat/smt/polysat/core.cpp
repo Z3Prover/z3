@@ -491,16 +491,16 @@ namespace polysat {
         return s.trail();
     }
 
-    void core::add_axiom(char const* name, constraint_or_dependency_list const& cs, bool is_redundant) {
-        s.add_axiom(name, cs.begin(), cs.end(), is_redundant);
+    bool core::add_axiom(char const* name, constraint_or_dependency_list const& cs, bool is_redundant) {
+        return s.add_axiom(name, cs.begin(), cs.end(), is_redundant);
     }
 
-    void core::add_axiom(char const* name, constraint_or_dependency const* begin, constraint_or_dependency const* end, bool is_redundant) {
-        s.add_axiom(name, begin, end, is_redundant);
+    bool core::add_axiom(char const* name, constraint_or_dependency const* begin, constraint_or_dependency const* end, bool is_redundant) {
+        return s.add_axiom(name, begin, end, is_redundant);
     }
 
-    void core::add_axiom(char const* name, constraint_or_dependency_vector const& cs, bool is_redundant) {
-        s.add_axiom(name, cs.begin(), cs.end(), is_redundant);
+    bool core::add_axiom(char const* name, constraint_or_dependency_vector const& cs, bool is_redundant) {
+        return s.add_axiom(name, cs.begin(), cs.end(), is_redundant);
     }
 
     std::ostream& core::display(std::ostream& out) const {

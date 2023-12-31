@@ -28,9 +28,6 @@ namespace euf {
 
 namespace polysat {
 
-
-
-
     class solver : public euf::th_euf_solver, public solver_interface {
         typedef euf::theory_var theory_var;
         typedef euf::theory_id theory_id;
@@ -137,6 +134,7 @@ namespace polysat {
         void init_bits(expr* e, expr_ref_vector const & bits);
         void mk_bits(theory_var v);
         void add_def(sat::literal def, sat::literal l);
+
         void internalize_unary(app* e, std::function<pdd(pdd)> const& fn);
         void internalize_binary(app* e, std::function<pdd(pdd, pdd)> const& fn);
         void internalize_binary(app* e, std::function<expr*(expr*, expr*)> const& fn);
@@ -144,7 +142,8 @@ namespace polysat {
         void internalize_par_unary(app* e, std::function<pdd(pdd,unsigned)> const& fn);
         void internalize_novfl(app* n, std::function<void(unsigned, expr* const*, expr* const*, expr_ref&)>& fn);
         void internalize_interp(app* n, std::function<expr*(expr*, expr*)>& ibin, std::function<expr*(expr*)>& un);
-        void internalize_num(app * n);       
+        void internalize_num(app * n);    
+        void internalize_mul(app* e);
         void internalize_concat(app * n);        
         void internalize_bv2int(app* n);
         void internalize_int2bv(app* n);

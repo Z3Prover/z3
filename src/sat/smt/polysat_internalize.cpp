@@ -81,7 +81,7 @@ namespace polysat {
 #define if_unary(F) if (a->get_num_args() == 1) { internalize_unary(a, [&](pdd const& p) { return F(p); }); break; }
 
         switch (a->get_decl_kind()) {
-        case OP_BMUL:             internalize_binary(a, [&](pdd const& p, pdd const& q) { return p * q; }); break;
+        case OP_BMUL:             internalize_mul(a); break;
         case OP_BADD:             internalize_binary(a, [&](pdd const& p, pdd const& q) { return p + q; }); break;
         case OP_BSUB:             internalize_binary(a, [&](pdd const& p, pdd const& q) { return p - q; }); break;
         case OP_BLSHR:            internalize_lshr(a); break;
@@ -110,7 +110,7 @@ namespace polysat {
         case OP_BSMUL_NO_OVFL:    internalize_binary_predicate(a, [&](pdd const& p, pdd const& q) { return ~m_core.smul_ovfl(p, q); }); break;
         case OP_BSMUL_NO_UDFL:    internalize_binary_predicate(a, [&](pdd const& p, pdd const& q) { return ~m_core.smul_udfl(p, q); }); break;
 
-        case OP_BUMUL_OVFL:       
+        case OP_BUMUL_OVFL:       internalize_binary_predicate(a, [&](pdd const& p, pdd const& q) { return m_core.umul_ovfl(p, q); }); break;
         case OP_BSMUL_OVFL:
         case OP_BSDIV_OVFL:
         case OP_BNEG_OVFL:
@@ -602,6 +602,13 @@ namespace polysat {
         VERIFY(bv.is_numeral(a, val, sz));        
         auto p = m_core.value(val, sz);
         internalize_set(a, p);
+    }
+
+    void solver::internalize_mul(app* a) {
+        vector<dd::pdd> args;
+        for (expr* arg : *to_app(a))
+            args.push_back(expr2pdd(arg));
+        internalize_set(a, m_core.mul(args.size(), args.data()));
     }
 
     // TODO - test that internalize works with recursive call on bit2bool

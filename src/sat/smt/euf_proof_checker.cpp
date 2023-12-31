@@ -26,6 +26,7 @@ Author:
 #include "sat/smt/arith_theory_checker.h"
 #include "sat/smt/q_theory_checker.h"
 #include "sat/smt/bv_theory_checker.h"
+#include "sat/smt/polysat_theory_checker.h"
 #include "sat/smt/distinct_theory_checker.h"
 #include "sat/smt/tseitin_theory_checker.h"
 #include "params/solver_params.hpp"
@@ -294,6 +295,7 @@ namespace euf {
         add_plugin(alloc(smt_theory_checker_plugin, m)); 
         add_plugin(alloc(tseitin::theory_checker, m));
         add_plugin(alloc(bv::theory_checker, m));
+        add_plugin(alloc(polysat::theory_checker, m));
     }
 
     theory_checker::~theory_checker() {
