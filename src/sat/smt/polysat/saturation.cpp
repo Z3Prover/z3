@@ -144,7 +144,7 @@ namespace polysat {
             auto j = inequality::from_ule(c, id);
             pdd const& z_prime = i.lhs();
             bool is_strict = i.is_strict() || j.is_strict();
-            add_clause("[y] z' <= y & yx <= zx ==> Ω*(x,y) \/ z'x <= zx", 
+            add_clause("[y] z' <= y & yx <= zx ==> Ω*(x,y) \\/ z'x <= zx", 
                 { i.dep(), j.dep(), C.umul_ovfl(x, y), ineq(is_strict, z_prime * x, z * x) }, true);
         }
     }
@@ -167,7 +167,7 @@ namespace polysat {
             auto j = inequality::from_ule(c, id);
             auto y_prime = j.rhs();
             bool is_strict = i.is_strict() || j.is_strict();
-            add_clause("[z] z <= y' && yx <= zx ==> Ω*(x,y') \/ yx <= y'x", 
+            add_clause("[z] z <= y' && yx <= zx ==> Ω*(x,y') \\/ yx <= y'x", 
                 { i.dep(), j.dep(), c.umul_ovfl(x, y_prime), ineq(is_strict, y * x, y_prime * x) }, true);
         }
     }
@@ -207,11 +207,11 @@ namespace polysat {
     void saturation::try_eq_resolve(pvar v, inequality const& i) {
         if (!i.rhs().is_zero() || i.is_strict())
             return;
-        for (auto id : constraint_iterator(c, [&](auto const& sc) { return sc.is_ule() && !sc.sign() && sc.rhs().is_zero(); })) {
+        for (auto id : constraint_iterator(c, [&](auto const& sc) { return sc.is_ule() && !sc.sign() && sc.to_ule().rhs().is_zero(); })) {
             auto sc = c.get_constraint(id);
             if (!sc.unfold_vars().contains(v))
                 continue;
-            auto j = inequality::from_ule(sc);
+            auto j = inequality::from_ule(c, id);
             SASSERT(!j.is_strict());
             try_eq_resolve(v, i, j);
         }
