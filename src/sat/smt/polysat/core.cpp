@@ -151,25 +151,25 @@ namespace polysat {
     // create equality literal for unassigned variable.
     // return new_eq if there is a new literal.
 
-    sat::check_result core::check() {
+    lbool core::assign_variable() {
         if (m_var_queue.empty())
-            return final_check();
+            return l_true;
         m_var = m_var_queue.min_var();
         CTRACE("bv", is_assigned(m_var), display(tout << "v" << m_var << " is assigned\n"););
         SASSERT(!is_assigned(m_var));
-        
+
         auto& var_value = m_values[m_var];
         switch (m_viable.find_viable(m_var, var_value)) {
         case find_t::empty:
             viable_conflict(m_var);
-            return sat::check_result::CR_CONTINUE;
+            return l_false;
         case find_t::singleton: {
             auto p = var2pdd(m_var).mk_var(m_var);
             auto sc = m_constraints.eq(p, var_value);
             TRACE("bv", tout << "check-propagate v" << m_var << " := " << var_value << " " << sc << "\n");
             auto d = s.propagate(sc, m_viable.explain(), "viable-propagate");
             propagate_assignment(m_var, var_value, d);
-            return sat::check_result::CR_CONTINUE;
+            return l_false;
         }
         case find_t::multiple: {
             dependency d = null_dependency;
@@ -188,19 +188,31 @@ namespace polysat {
                 // let core assign equality.                    
                 break;
             }
-            return sat::check_result::CR_CONTINUE;
+            return l_false;
         }
         case find_t::resource_out:
             TRACE("bv", tout << "check-resource out v" << m_var << "\n");
-            return sat::check_result::CR_GIVEUP;
+            return l_undef;
         }
         UNREACHABLE();
-        return sat::check_result::CR_GIVEUP;
+        return l_undef;
     }
 
-    sat::check_result core::final_check() {
-
+    sat::check_result core::check() {
         lbool r = l_true;
+
+        switch (assign_variable()) {
+        case l_true:
+            break;
+        case l_false:
+            return sat::check_result::CR_CONTINUE;
+        case l_undef:
+            return sat::check_result::CR_GIVEUP;
+            // or:
+            // r = l_undef;
+            // break;
+        }
+
         switch (m_monomials.refine()) {
         case l_true:
             break;
@@ -268,7 +280,6 @@ namespace polysat {
         return result;
     }
 
-    // First propagate Boolean assignment, then propagate value assignment
     bool core::propagate() { 
         if (m_qhead == m_prop_queue.size())
             return false;
@@ -293,7 +304,6 @@ namespace polysat {
         TRACE("bv", tout << "propagate " << sc << " using " << dep << " := " << value << "\n");
         if (sc.is_always_false()) {
             s.set_conflict({dep}, "infeasible assignment");
-            decay_activity();
             return;
         }
         rational var_value;

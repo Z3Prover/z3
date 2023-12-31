@@ -90,9 +90,8 @@ namespace polysat {
 
         void add_watch(unsigned idx, unsigned var);
 
-        sat::check_result final_check();
+        lbool assign_variable();
         
-
         void add_axiom(signed_constraint sc);
 
         unsigned m_activity_inc = 128;

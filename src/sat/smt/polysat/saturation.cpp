@@ -10,18 +10,6 @@ Author:
     Nikolaj Bjorner (nbjorner) 2021-03-19
     Jakob Rath 2021-04-6
 
-
-TODO: preserve falsification
-- each rule selects a certain premises that are problematic.
-  If the problematic premise is false under the current assignment, the newly inferred
-  literal should also be false in the assignment in order to preserve conflicts.
-
-
-TODO: when we check that 'x' is "unary":
-- in principle, 'x' could be any polynomial. However, we need to divide the lhs by x, and we don't have general polynomial division yet.
-  so for now we just allow the form 'value*variable'.
-   (extension to arbitrary monomials for 'x' should be fairly easy too)
-
 --*/
 #include "sat/smt/polysat/core.h"
 #include "sat/smt/polysat/saturation.h"
@@ -125,16 +113,15 @@ namespace polysat {
         pdd x = c.var(v);
         pdd y = x;
         pdd z = x;       
-        auto& C = c.cs();
 
         if (!i.is_xY_l_xZ(v, y, z))
             return;
 
         auto ovfl = C.umul_ovfl(x, y);
         if (i.is_strict()) 
-            add_clause("[x] yx < zx ==>  Ω*(x,y) \\/ y < z", { i.dep(), ovfl, C.ult(y, z)}, false);
+            add_clause("[x] yx < zx ==> Ω*(x,y) \\/ y < z", { i.dep(), ovfl, C.ult(y, z)}, true);
         else 
-            add_clause("[x] yx <= zx  ==>  Ω*(x,y) \\/ y <= z \\/ x = 0", { i.dep(), ovfl, C.eq(x), C.ule(y, z) }, false);
+            add_clause("[x] yx <= zx ==> Ω*(x,y) \\/ y <= z \\/ x = 0", { i.dep(), ovfl, C.eq(x), C.ule(y, z) }, true);
     }
 
     /**
@@ -149,14 +136,14 @@ namespace polysat {
         auto y = c.var(v);
         pdd x = y;
         pdd z = y;
-        auto& C = c.cs();
         if (!i.is_Xy_l_XZ(v, x, z))
             return;
         for (constraint_id id : constraint_iterator(c, [&](auto const& sc) { return inequality::is_l_v(y, sc); })) {
             auto j = inequality::from_ule(c, id);
             pdd const& z_prime = i.lhs();
             bool is_strict = i.is_strict() || j.is_strict();
-            add_clause("[y] z' <= y & yx <= zx", { i.dep(), j.dep(), C.umul_ovfl(x, y), ineq(is_strict, z_prime * x, z * x) }, true);
+            add_clause("[y] z' <= y & yx <= zx ==> Ω*(x,y) \/ z'x <= zx", 
+                { i.dep(), j.dep(), C.umul_ovfl(x, y), ineq(is_strict, z_prime * x, z * x) }, true);
         }
     }
 
@@ -178,14 +165,14 @@ namespace polysat {
             auto j = inequality::from_ule(c, id);
             auto y_prime = j.rhs();
             bool is_strict = i.is_strict() || j.is_strict();
-            add_clause("[z] z <= y' && yx <= zx", { i.dep(), j.dep(), c.umul_ovfl(x, y_prime), ineq(is_strict, y * x, y_prime * x) }, true);
+            add_clause("[z] z <= y' && yx <= zx ==> Ω*(x,y') \/ yx <= y'x", 
+                { i.dep(), j.dep(), c.umul_ovfl(x, y_prime), ineq(is_strict, y * x, y_prime * x) }, true);
         }
     }
 
     // Ovfl(x, y) & ~Ovfl(y, z) ==> x > z
     void saturation::try_umul_ovfl(pvar v, umul_ovfl const& sc) {
         auto p = sc.p(), q = sc.q();
-        auto& C = c.cs();
         auto match_mul_arg = [&](auto const& sc2) { 
             auto p2 = sc2.to_umul_ovfl().p(), q2 = sc2.to_umul_ovfl().q(); 
             return p == p2 || p == q2 || q == p2 || q == q2;
@@ -209,9 +196,9 @@ namespace polysat {
             auto d2 = c.get_dependency(id);
             auto [q1, q2] = extract_mul_args(sc2);
             if (sc.sign())
-                add_clause("[y] ~ovfl(p, q1) & ovfl(p, q2) ==> q1 < q2", { d1, d2, C.ult(q1, q2) }, false);
+                add_clause("[y] ~ovfl(p, q1) & ovfl(p, q2) ==> q1 < q2", { d1, d2, C.ult(q1, q2) }, true);
             else 
-                add_clause("[y] ovfl(p, q1) & ~ovfl(p, q2) ==> q1 > q2", { d1, d2, C.ult(q2, q1)}, false);
+                add_clause("[y] ovfl(p, q1) & ~ovfl(p, q2) ==> q1 > q2", { d1, d2, C.ult(q2, q1)}, true);
         }         
     }
 
