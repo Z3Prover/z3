@@ -66,6 +66,8 @@ namespace polysat {
             try_ugt_y(v, i);
         if (!c.inconsistent())
             try_ugt_z(v, i);    
+        if (!c.inconsistent())
+            try_eq_resolve(v, i);
     }
 
     void saturation::add_clause(char const* name, clause const& cs, bool is_redundant) { 
@@ -200,6 +202,42 @@ namespace polysat {
             else 
                 add_clause("[y] ovfl(p, q1) & ~ovfl(p, q2) ==> q1 > q2", { d1, d2, C.ult(q2, q1)}, true);
         }         
+    }
+
+    void saturation::try_eq_resolve(pvar v, inequality const& i) {
+        if (!i.rhs().is_zero() || i.is_strict())
+            return;
+        for (auto id : constraint_iterator(c, [&](auto const& sc) { return sc.is_ule() && !sc.sign() && sc.rhs().is_zero(); })) {
+            auto sc = c.get_constraint(id);
+            if (!sc.unfold_vars().contains(v))
+                continue;
+            auto j = inequality::from_ule(sc);
+            SASSERT(!j.is_strict());
+            try_eq_resolve(v, i, j);
+        }
+    }
+
+    void saturation::try_eq_resolve(pvar v, inequality const& i, inequality const& j) {
+        // i is true, j is false, both their rhs are 0.
+        SASSERT(i.rhs().is_zero() && j.rhs().is_zero() && !i.is_strict() && !j.is_strict());
+        pdd a = i.lhs();
+        pdd b = j.lhs();
+        unsigned degree_a = a.degree();
+        unsigned degree_b = b.degree();
+        pdd r = a;
+        if (!a.resolve(v, b, r) && !b.resolve(v, a, r))
+            return;            
+        unsigned degree_r = r.degree();
+        if (degree_a < degree_r && degree_b < degree_r)
+            return;
+        // Only keep result if the degree in c2 was reduced.
+        // (this condition might be too strict, but we use it for now to prevent looping)
+        if (b.degree(v) <= r.degree(v))
+            return;
+        if (a.degree(v) <= r.degree(v))
+            return;
+
+        add_clause("ax + b = 0 & cx + d = 0 ==> cb - da = 0", { i.dep(), j.dep(), C.eq(r) }, true);
     }
 
 }

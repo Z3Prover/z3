@@ -71,6 +71,9 @@ namespace polysat {
         void resolve(pvar v, inequality const& i);
         bool resolve(pvar v, constraint_id cid);
 
+        void try_eq_resolve(pvar v, inequality const& i, inequality const& j);
+        void try_eq_resolve(pvar v, inequality const& i);
+
     public:
         saturation(core& c);
         lbool operator()();
