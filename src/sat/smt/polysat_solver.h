@@ -29,6 +29,8 @@ namespace euf {
 namespace polysat {
 
 
+
+
     class solver : public euf::th_euf_solver, public solver_interface {
         typedef euf::theory_var theory_var;
         typedef euf::theory_id theory_id;
@@ -36,6 +38,42 @@ namespace polysat {
         typedef sat::bool_var bool_var;
         typedef sat::literal_vector literal_vector;
         using pdd = dd::pdd;
+
+        struct proof_hint : public euf::th_proof_hint {
+            char const* name;
+            unsigned  m_lit_head, m_lit_tail, m_eq_head, m_eq_tail;
+            proof_hint(char const* name, unsigned lh, unsigned lt, unsigned eh, unsigned et) :
+                name(name), m_lit_head(lh), m_lit_tail(lt), m_eq_head(eh), m_eq_tail(et) {}
+            expr* get_hint(euf::solver& s) const override;
+        };
+
+        class proof_hint_builder {
+            sat::literal_vector    m_literals;
+            euf::enode_pair_vector m_eqs;
+            char const* m_name = nullptr;
+            unsigned               m_lit_head = 0, m_lit_tail = 0, m_eq_head = 0, m_eq_tail = 0;
+            void reset() { m_lit_head = m_lit_tail; m_eq_head = m_eq_tail; }
+            void add(euf::enode* a, euf::enode* b) {
+                if (m_eq_tail < m_eqs.size())
+                    m_eqs[m_eq_tail] = { a, b };
+                else
+                    m_eqs.push_back({ a, b });
+                m_eq_tail++;
+            }
+        public:
+            void init(euf::solver& ctx, char const* name);
+            void add_eq(euf::enode* a, euf::enode* b) { add(a, b); }
+            void add_lit(sat::literal lit) {
+                if (m_lit_tail < m_literals.size())
+                    m_literals[m_lit_tail] = lit;
+                else
+                    m_literals.push_back(lit);
+                m_lit_tail++;
+            }
+            sat::literal const& lit(unsigned i) const { return m_literals[i]; }
+            euf::enode_pair const& eq(unsigned i) const { return m_eqs[i]; }
+            proof_hint* mk(euf::solver& s);
+        };
 
         struct stats {
             void reset() { memset(this, 0, sizeof(stats)); }
@@ -49,17 +87,8 @@ namespace polysat {
             ~atom() { }
         };
 
-
-        class polysat_proof : public euf::th_proof_hint {
-            // assume name is statically allocated
-            char const* name;
-        public:
-            polysat_proof(char const* name) : name(name) {}
-            ~polysat_proof() override {}
-            expr* get_hint(euf::solver& s) const override;
-        };
-
-        polysat_proof* mk_proof_hint(char const* name);
+        proof_hint_builder m_mk_hint;
+        proof_hint* mk_proof_hint(char const* name, sat::literal_vector const& lits, euf::enode_pair_vector const& eqs);
 
         bv_util                  bv;
         arith_util               m_autil;

@@ -245,7 +245,7 @@ namespace polysat {
         }
         
         // If no saturation propagation was possible, explain the conflict using the variable assignment.
-        m_unsat_core = explain_eval(get_constraint(conflict_idx));
+        m_unsat_core = explain_eval_unfold(get_constraint(conflict_idx));
         m_unsat_core.push_back(get_dependency(conflict_idx));
         s.set_conflict(m_unsat_core, "polysat-bail-out-conflict");
         decay_activity();
@@ -456,15 +456,23 @@ namespace polysat {
         s.trail().push(unassign(*this, index.id));
     }
 
-    dependency_vector core::explain_eval(signed_constraint const& sc) {
+    dependency_vector core::explain_eval(unsigned_vector const& vars) {
         dependency_vector deps;
-        for (auto v : sc.vars()) {
+        for (auto v : vars) {
             if (is_assigned(v)) {
                 inc_activity(v);
                 deps.push_back(m_justification[v]);
             }
         }
         return deps;
+    }
+
+    dependency_vector core::explain_eval(signed_constraint const& sc) {
+        return explain_eval(sc.vars());
+    }
+
+    dependency_vector core::explain_eval_unfold(signed_constraint const& sc) {
+        return explain_eval(sc.unfold_vars());
     }
 
     lbool core::eval(signed_constraint const& sc) { 

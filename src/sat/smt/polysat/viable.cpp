@@ -107,8 +107,7 @@ namespace polysat {
         m_num_bits = c.size(v);
         m_fixed_bits.reset(v);
         init_overlaps(v);
-        bool start_at0 = val1 == 0;
-        
+        bool start_at0 = val1 == 0;        
         
         lbool r = next_viable(val1);
         TRACE("bv", display_state(tout); display(tout << "next viable v" << v << " " << val1 << " " << r << "\n"));
@@ -130,6 +129,15 @@ namespace polysat {
         else 
             val2 = val1 + 1;
         
+        r = next_viable(val2);
+
+        if (r != l_false)
+            return r;
+
+        if (!start_at0 && val1 == c.var2pdd(v).max_value()) 
+            return l_false;
+        
+        val2 = 0;
         r = next_viable(val2);
 
         if (r != l_false)

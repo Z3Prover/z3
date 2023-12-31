@@ -119,9 +119,9 @@ namespace polysat {
 
     void solver::set_conflict(dependency_vector const& deps, char const* hint_info) {
         auto [lits, eqs] = explain_deps(deps);
-        polysat_proof* hint = nullptr;
+        proof_hint* hint = nullptr;
         if (ctx.use_drat() && hint_info)
-            hint = mk_proof_hint(hint_info);
+            hint = mk_proof_hint(hint_info, lits, eqs);
         auto ex = euf::th_explain::conflict(*this, lits, eqs, hint);
         TRACE("bv", ex->display(tout << "conflict: ") << "\n"; s().display(tout));
         validate_conflict(lits, eqs);
@@ -246,9 +246,12 @@ namespace polysat {
         if (s().value(lit) == l_true)
             return dependency(lit.var());
         auto [core, eqs] = explain_deps(deps);
-        polysat_proof* hint = nullptr;
-        if (ctx.use_drat() && hint_info)
-            hint = mk_proof_hint(hint_info);
+        proof_hint* hint = nullptr;
+        if (ctx.use_drat() && hint_info) {
+            core.push_back(~lit);
+            hint = mk_proof_hint(hint_info, core, eqs);
+            core.pop_back();
+        }
         auto ex = euf::th_explain::propagate(*this, core, eqs, lit, hint);     
         validate_propagate(lit, core, eqs);
         ctx.propagate(lit, ex);
@@ -273,14 +276,18 @@ namespace polysat {
         TRACE("bv", tout << "propagate " << d << " " << sign << "\n");
         auto [core, eqs] = explain_deps(deps);
         SASSERT(d.is_bool_var() || d.is_eq());
-        polysat_proof* hint = nullptr;
-        if (ctx.use_drat() && hint_info)
-            hint = mk_proof_hint(hint_info);
+        proof_hint* hint = nullptr;
+
         if (d.is_bool_var()) {
             auto bv = d.bool_var();
             auto lit = sat::literal(bv, sign);
             if (s().value(lit) == l_true)
                 return;
+            if (ctx.use_drat() && hint_info) {
+                core.push_back(~lit);
+                hint = mk_proof_hint(hint_info, core, eqs);
+                core.pop_back();
+            }
             auto ex = euf::th_explain::propagate(*this, core, eqs, lit, hint);
             validate_propagate(lit, core, eqs);
             ctx.propagate(lit, ex);
@@ -291,6 +298,8 @@ namespace polysat {
             auto n1 = var2enode(v1);
             auto n2 = var2enode(v2);
             eqs.push_back({ n1, n2 });
+            if (ctx.use_drat() && hint_info)
+                hint = mk_proof_hint(hint_info, core, eqs);
             auto ex = euf::th_explain::conflict(*this, core, eqs, hint);
             validate_conflict(core, eqs);
             ctx.set_conflict(ex);
@@ -319,26 +328,36 @@ namespace polysat {
                 lits.push_back(~ctx.mk_literal(constraint2expr(*std::get_if<signed_constraint>(&e))));
         }
         for (auto [n1, n2] : eqs)
-            ctx.get_eq_antecedents(n1, n2, lits);        
+            ctx.get_eq_antecedents(n1, n2, lits);  
+        proof_hint* hint = nullptr;
+        if (ctx.use_drat()) 
+            hint = mk_proof_hint(name, lits, {});        
         for (auto& lit : lits)
             lit.neg();
         for (auto lit : lits)
             if (s().value(lit) == l_true)
                 return false;
         validate_axiom(lits);
-        s().add_clause(lits.size(), lits.data(), sat::status::th(is_redundant, get_id(), mk_proof_hint(name)));
+        s().add_clause(lits.size(), lits.data(), sat::status::th(is_redundant, get_id(), hint));
         return true;
     }
 
     void solver::add_axiom(char const* name, std::initializer_list<sat::literal> const& clause) {
         bool is_redundant = false;
         sat::literal_vector lits;
-        for (auto lit : clause)
-            lits.push_back(lit);
-        validate_axiom(lits);
-        polysat_proof* hint = nullptr;
-        if (ctx.use_drat())
-            hint = mk_proof_hint(name);
+        proof_hint* hint = nullptr;
+        if (ctx.use_drat()) {
+            for (auto lit : clause)
+                lits.push_back(~lit);
+            hint = mk_proof_hint(name, lits, {});
+            for (auto& lit : lits)
+                lit.neg();
+        }
+        else {
+            for (auto lit : clause)
+                lits.push_back(lit);
+        }
+        validate_axiom(lits);       
         s().add_clause(lits.size(), lits.data(), sat::status::th(is_redundant, get_id(), hint));
     }
 
@@ -400,12 +419,36 @@ namespace polysat {
         return expr_ref(r, m);
     }
 
-    expr* solver::polysat_proof::get_hint(euf::solver& s) const {
-        auto& m = s.get_manager();
-        return m.mk_app(symbol(name), 0, nullptr, m.mk_proof_sort());
+    expr* solver::proof_hint::get_hint(euf::solver& s) const {
+        ast_manager& m = s.get_manager();
+        family_id fid = m.get_family_id("bv");
+        solver& p = dynamic_cast<solver&>(*s.fid2solver(fid));
+        expr_ref_vector args(m);
+        for (unsigned i = m_lit_head; i < m_lit_tail; ++i)           
+            args.push_back(s.literal2expr(p.m_mk_hint.lit(i)));
+        for (unsigned i = m_eq_head; i < m_eq_tail; ++i)
+            args.push_back(s.mk_eq(p.m_mk_hint.eq(i).first, p.m_mk_hint.eq(i).second));
+        expr* pr = m.mk_app(symbol(name), args.size(), args.data(), m.mk_proof_sort());
+        return m.mk_app(symbol("bv"), 1, &pr, m.mk_proof_sort());
     }
 
-    solver::polysat_proof* solver::mk_proof_hint(char const* name) {
-        return new (get_region()) polysat_proof(name);
+    void solver::proof_hint_builder::init(euf::solver& ctx, char const* name) {
+        ctx.push(value_trail<unsigned>(m_eq_tail));
+        ctx.push(value_trail<unsigned>(m_lit_tail));
+        m_name = name;
+        reset();
+    }
+
+    solver::proof_hint* solver::proof_hint_builder::mk(euf::solver& ctx) {
+        return new (ctx.get_region()) proof_hint(m_name, m_lit_head, m_lit_tail, m_eq_head, m_eq_tail);
+    }
+
+    solver::proof_hint* solver::mk_proof_hint(char const* name, sat::literal_vector const& lits, euf::enode_pair_vector const& eqs) {
+        m_mk_hint.init(ctx, name);
+        for (auto lit : lits)
+            m_mk_hint.add_lit(lit);
+        for (auto [a,b] : eqs)
+            m_mk_hint.add_eq(a,b);
+        return m_mk_hint.mk(ctx);        
     }
 }
