@@ -508,6 +508,7 @@ namespace polysat {
             out << m_vars[i] << " := " << m_values[i] << " " << m_justification[i] << "\n";        
         m_var_queue.display(out << "var queue: ") << "\n";
         m_viable.display(out);
+        m_monomials.display(out);
         return out;
     }
 
