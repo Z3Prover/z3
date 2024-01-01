@@ -138,7 +138,7 @@ namespace polysat {
             SASSERT(p_bound * q_bound >= M);
             SASSERT(p_bound * (q_bound - 1) < M);
             // LOG("p_bound: " << p.manager().mk_val(p_bound));
-            c.add_axiom("~Ovfl(p, q) & p <= p_bound ==> q < q_bound", { d, ~C.ule(p0, p_bound), C.ule(q_bound, q0) }, false);
+            c.add_axiom("~Ovfl(p, q) & p <= p_bound -> q < q_bound", { d, ~C.ule(p0, p_bound), C.ule(q_bound, q0) }, true);
         }
         else {
             // Find lowest bound for p such that q_bound is still correct.
@@ -148,7 +148,7 @@ namespace polysat {
             SASSERT(p_bound * q_bound >= M);
             SASSERT(p_bound * (q_bound - 1) < M);
             // LOG("p_bound: " << p.manager().mk_val(p_bound));
-            c.add_axiom("~Ovfl(p, q) & p >= p_bound ==> q < q_bound", { d, ~C.ule(p_bound, p0), C.ult(q0, q_bound) }, false);
+            c.add_axiom("~Ovfl(p, q) & p >= p_bound -> q < q_bound", { d, ~C.ule(p_bound, p0), C.ult(q0, q_bound) }, true);
         }
         return true;
     }

@@ -9,14 +9,6 @@ Author:
 
     Jakob Rath, Nikolaj Bjorner (nbjorner) 2021-12-09
 
-Notes:
-
-Additional possible functionality on constraints:
-
-- bit-wise assignments - narrow based on bit assignment, not entire word assignment.
-- integration with congruence tables
-- integration with conflict resolution
-
 --*/
 
 #include "util/log.h"
@@ -428,12 +420,10 @@ namespace polysat {
             unsigned k = qv.val().get_unsigned();
             // q = k  ->  r[i+k] = p[i] for 0 <= i < N - k
             for (unsigned i = 0; i < N - k; ++i) {
-                if (rv.val().get_bit(i + k) && !pv.val().get_bit(i)) {
-                    c.add_axiom("q = k  ->  p>>q[i+k] = p[i] for 0 <= i < N - k", { ~C.eq(q, k), ~C.bit(r, i + k), C.bit(p, i) }, true);
-                }
-                if (!rv.val().get_bit(i + k) && pv.val().get_bit(i)) {
-                    c.add_axiom("q = k  ->  p>>q[i+k] = p[i] for 0 <= i < N - k", { ~C.eq(q, k), C.bit(r, i + k), ~C.bit(p, i) }, true);
-                }
+                if (rv.val().get_bit(i + k) && !pv.val().get_bit(i)) 
+                    c.add_axiom("q = k  ->  p>>q[i+k] = p[i] for 0 <= i < N - k", { ~C.eq(q, k), ~C.bit(r, i + k), C.bit(p, i) }, true);                
+                else if (!rv.val().get_bit(i + k) && pv.val().get_bit(i)) 
+                    c.add_axiom("q = k  ->  p>>q[i+k] = p[i] for 0 <= i < N - k", { ~C.eq(q, k), C.bit(r, i + k), ~C.bit(p, i) }, true);                
             }
         }
         else {
