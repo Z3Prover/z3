@@ -77,6 +77,7 @@ namespace polysat {
         bool parity(monomial const& mon);
         bool non_overflow_monotone(monomial const& mon);
         bool non_overflow_unit(monomial const& mon);
+        bool non_overflow_zero(monomial const& mon);
         bool parity0(monomial const& mon);
         bool prefix_overflow(monomial const& mon);
 

@@ -102,6 +102,8 @@ namespace polysat {
             return l_false;
         if (any_of(m_to_refine, [&](auto i) { return non_overflow_unit(m_monomials[i]); }))
             return l_false;
+        if (any_of(m_to_refine, [&](auto i) { return non_overflow_zero(m_monomials[i]); }))
+            return l_false;
         if (any_of(m_to_refine, [&](auto i) { return parity0(m_monomials[i]); }))
             return l_false;
         if (any_of(m_to_refine, [&](auto i) { return parity(m_monomials[i]); }))
@@ -234,12 +236,12 @@ namespace polysat {
         pdd p = mon.args[0];
         constraint_or_dependency_vector clause;
         for (unsigned i = 1; i < mon.args.size(); ++i) {
-            clause.push_back(~C.umul_ovfl(p, mon.args[i]));
+            clause.push_back(C.umul_ovfl(p, mon.args[i]));
             p *= mon.args[i];
         }
         for (unsigned i = 0; i < mon.args.size(); ++i)
             if (i != big_index)
-                clause.push_back(~C.eq(mon.args[i]));
+                clause.push_back(C.eq(mon.args[i]));
         clause.push_back(C.ule(mon.args[big_index], mon.var));
         c.add_axiom("~ovfl*(p,q) & q != 0 => p <= p*q", clause, true);
         return true;
@@ -258,7 +260,7 @@ namespace polysat {
         pdd p = mon.args[0];
         clause.push_back(~C.eq(mon.var, 1));
         for (unsigned i = 1; i < mon.args.size(); ++i) {
-            clause.push_back(~C.umul_ovfl(p, mon.args[i]));
+            clause.push_back(C.umul_ovfl(p, mon.args[i]));
             p *= mon.args[i];
         }        
         for (auto const& q : mon.args) {
@@ -267,6 +269,32 @@ namespace polysat {
             clause.pop_back();
         }
         return true;
+    }
+
+    // ~ovfl*(p,q) & p*q = 0 => p = 0 or q = 0
+    bool monomials::non_overflow_zero(monomial const& mon) {
+        if (mon.val != 0)
+            return false;
+        for (auto const& val : mon.arg_vals)
+            if (val == 0)
+                return false;
+        rational product(1);
+        for (auto const& val : mon.arg_vals)
+            product *= val;
+        if (product > mon.var.manager().max_value())
+            return false;
+        constraint_or_dependency_vector clause;
+        clause.push_back(~C.eq(mon.var));
+        pdd p = mon.args[0];
+        for (unsigned i = 1; i < mon.args.size(); ++i) {
+            clause.push_back(C.umul_ovfl(p, mon.args[i]));
+            p *= mon.args[i];
+        }
+        for (auto const& q : mon.args)
+            clause.push_back(C.eq(q));
+        
+        c.add_axiom("~ovfl*(p,q) & p*q = 0 => p = 0 or q = 0", clause, true);
+        return false;
     }
 
     // parity(p*q) > 0 => parity(p) > 0 or parity(q) > 0
