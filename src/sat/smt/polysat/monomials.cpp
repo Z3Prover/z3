@@ -118,6 +118,8 @@ namespace polysat {
 
     // bit blast a monomial definition
     lbool monomials::bit_blast() {
+        // disable for now
+        return l_undef;
         init_to_refine();
         if (m_to_refine.empty())
             return l_true;
@@ -330,7 +332,17 @@ namespace polysat {
     }
 
     bool monomials::bit_blast(monomial const& mon) {
-        return false;
+        if (mon.size() != 2)
+            return false;
+        unsigned sz = mon.num_bits();
+        pdd n = mon.var.manager().mk_val(0);
+        pdd zero = n.manager().mk_val(0);
+        pdd p = mon.args[0];
+        pdd q = mon.args[1];
+        for (unsigned i = 0; i < sz; ++i) 
+            n += c.mk_ite(C.bit(p, i), c.value(rational::power_of_two(i), sz) * q, zero);
+        c.add_axiom("bit-blast", { C.eq(mon.var, n) }, true);
+        return true;
     }
 
     std::ostream& monomials::display(std::ostream& out) const {

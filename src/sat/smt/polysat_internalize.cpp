@@ -720,6 +720,21 @@ namespace polysat {
         mk_atom(lit.var(), sc);
     }
 
+    pdd solver::mk_ite(signed_constraint const& sc, pdd const& p, pdd const& q) {
+        expr_ref cond = constraint2expr(sc);
+        expr_ref th = pdd2expr(p);
+        expr_ref el = pdd2expr(q);
+        expr* ite = m.mk_ite(cond, th, el);
+        ctx.internalize(ite);
+        euf::enode* n = expr2enode(ite);
+        if (!n->is_attached_to(get_id())) {
+            auto v = mk_var(n);
+            pvar r = m_core.add_var(bv.get_bv_size(th));
+            internalize_set(v, m_core.var(r));
+        }
+        return expr2pdd(ite);
+    }
+
     dd::pdd solver::expr2pdd(expr* e) {
         return var2pdd(get_th_var(e));
     }

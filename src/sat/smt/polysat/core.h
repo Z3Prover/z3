@@ -183,6 +183,8 @@ namespace polysat {
         assignment& get_assignment() { return m_assignment; }
 
         random_gen& rand() { return m_rand; }
+
+        pdd mk_ite(signed_constraint const& sc, pdd const& p, pdd const& q) { return s.mk_ite(sc, p, q); }
     };
 
 }
