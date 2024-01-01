@@ -534,7 +534,7 @@ namespace polysat {
 
     }
 
-    void core::add_axiom(signed_constraint sc) {
+    void core::add_opdef(signed_constraint sc) {
         auto idx = register_constraint(sc, dependency::axiom());
         assign_eh(idx, false);
     }

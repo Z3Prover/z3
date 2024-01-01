@@ -92,7 +92,7 @@ namespace polysat {
 
         lbool assign_variable();
         
-        void add_axiom(signed_constraint sc);
+        void add_opdef(signed_constraint sc);
 
         unsigned m_activity_inc = 128;
         void inc_activity(pvar v);
@@ -124,10 +124,10 @@ namespace polysat {
         signed_constraint bit(pdd const& p, unsigned i) { return m_constraints.bit(p, i); }
 
 
-        void lshr(pdd const& a, pdd const& b, pdd const& r) { add_axiom(m_constraints.lshr(a, b, r)); }
-        void ashr(pdd const& a, pdd const& b, pdd const& r) { add_axiom(m_constraints.ashr(a, b, r)); }
-        void shl(pdd const& a, pdd const& b, pdd const& r) { add_axiom(m_constraints.shl(a, b, r)); }
-        void band(pdd const& a, pdd const& b, pdd const& r) { add_axiom(m_constraints.band(a, b, r)); }
+        void lshr(pdd const& a, pdd const& b, pdd const& r) { add_opdef(m_constraints.lshr(a, b, r)); }
+        void ashr(pdd const& a, pdd const& b, pdd const& r) { add_opdef(m_constraints.ashr(a, b, r)); }
+        void shl(pdd const& a, pdd const& b, pdd const& r) { add_opdef(m_constraints.shl(a, b, r)); }
+        void band(pdd const& a, pdd const& b, pdd const& r) { add_opdef(m_constraints.band(a, b, r)); }
 
         pdd bnot(pdd p) { return -p - 1; }
         pdd mul(unsigned n, pdd const* args) { return m_monomials.mk(n, args); }
