@@ -91,6 +91,12 @@ struct create_cut {
 #endif
     }
 
+    void set_polarity(int p) {
+        if (m_polarity == 2) return;
+        if (m_polarity == 0) m_polarity = p;
+        else if (m_polarity != p) m_polarity = 2;
+    }
+
     void real_case_in_gomory_cut(const mpq & a, unsigned j) {
         TRACE("gomory_cut_detail_real", tout << "j = " << j << ", a = " << a << ", m_k = " << m_k << "\n";);
         mpq new_a;
@@ -98,18 +104,12 @@ struct create_cut {
             if (a.is_pos()) { 
                 // the delta is a (x - f) is positive it has to grow and fight m_one_minus_f
                 new_a = a / m_one_minus_f;
-                if (m_polarity != 2) {
-                    if (m_polarity == -1) m_polarity = 2;
-                    else m_polarity = 1;
-                }
+                set_polarity(1);
             }
             else {
                 // the delta is negative and it works again m_f
                 new_a = - a / m_f;
-                if (m_polarity != 2) {
-                    if (m_polarity == 1) m_polarity = 2;
-                    else m_polarity = -1;
-                }
+                set_polarity(-1);                
             }
             m_k.addmul(new_a, lower_bound(j).x); // is it a faster operation than
             // k += lower_bound(j).x * new_a;
@@ -120,18 +120,12 @@ struct create_cut {
             if (a.is_pos()) {
                 // the delta is works again m_f
                 new_a =  - a / m_f;
-                if (m_polarity != 2) {
-                    if (m_polarity == 1) m_polarity = 2;
-                    else m_polarity = -1;
-                }
+                set_polarity(-1);
             }
             else {
                 // the delta is positive works again m_one_minus_f
                 new_a =   a / m_one_minus_f;
-                if (m_polarity != 2) {
-                    if (m_polarity == -1) m_polarity = 2;
-                    else m_polarity = 1;
-                }
+                set_polarity(1);
             }
             m_k.addmul(new_a, upper_bound(j).x); //  k += upper_bound(j).x * new_a;
             push_explanation(column_upper_bound_constraint(j));
@@ -299,24 +293,16 @@ public:
                 m_one_minus_fj = 1 - m_fj;
                 int_case_in_gomory_cut(j);
                 if (p.coeff().is_pos()) {
-                    if (at_lower(j)) {
-                        if (m_polarity == -1) m_polarity = 2;
-                        else m_polarity = 1;
-                    }
-                    else {
-                        if (m_polarity == 1) m_polarity = 2;
-                        else m_polarity = -1;
-                    }
+                    if (at_lower(j))
+                        set_polarity(1);
+                    else
+                        set_polarity(-1);
                 }
                 else {
-                    if (at_lower(j)) {
-                        if (m_polarity == 1) m_polarity = 2;
-                        else m_polarity = -1;
-                    }
-                    else {
-                        if (m_polarity == -1) m_polarity = 2;
-                        else m_polarity = 1;
-                    }
+                    if (at_lower(j))
+                        set_polarity(-1);
+                    else
+                        set_polarity(1);
                 }
             }
 
@@ -325,8 +311,9 @@ public:
             }
         }
 
-        if (m_t.is_empty())
+        if (m_t.is_empty()) {
             return report_conflict_from_gomory_cut();
+        }
         TRACE("gomory_cut", print_linear_combination_of_column_indices_only(m_t.coeffs_as_vector(), tout << "gomory cut: "); tout << " >= " << m_k << std::endl;);
         if (lia.lra.settings().m_gomory_simplify && some_int_columns)
             simplify_inequality();
