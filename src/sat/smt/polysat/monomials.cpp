@@ -208,14 +208,16 @@ namespace polysat {
     bool monomials::non_overflow_monotone(monomial const& mon) {
         rational product(1);
         unsigned big_index = UINT_MAX;
-        for (unsigned i = 0; i < mon.args.size(); ++i) {
-            auto const& val = mon.arg_vals[i];
-            product *= val;
-            if (val > mon.val)
-                big_index = i;
-        }
+        for (auto const& val : mon.arg_vals)
+            if (val == 0)
+                return false;
+        for (unsigned i = 0; i < mon.args.size(); ++i) 
+            if (mon.arg_vals[i] > mon.val)
+                big_index = i;       
         if (big_index == UINT_MAX)
             return false;
+        for (auto const& val : mon.arg_vals)
+            product *= val;
         if (product > mon.var.manager().max_value())
             return false;
         pdd p = mon.args[0];
