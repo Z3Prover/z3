@@ -793,12 +793,13 @@ namespace polysat {
 
     struct solver::undo_add_eq : public trail {
         solver& s;
+        unsigned sz;
         unsigned index;
     public:
-        undo_add_eq(solver& s, unsigned i) : s(s), index(i) {}
+        undo_add_eq(solver& s, unsigned sz, unsigned i) : s(s), sz(sz), index(i) {}
         void undo() override {
             SASSERT(index == s.m_eqs.back().index());
-            s.m_eq2constraint.remove(index);
+            s.m_eq2constraint[sz].remove(index);
             s.m_eqs.pop_back();
         }
     };
@@ -808,7 +809,9 @@ namespace polysat {
         constraint_id idx;
         std::pair<constraint_id, bool> elem;
         bool is_new = true;
-        if (m_eq2constraint.find(r.index(), elem)) {
+        unsigned sz = r.manager().power_of_2();
+        m_eq2constraint.reserve(sz + 1);
+        if (m_eq2constraint[sz].find(r.index(), elem)) {
             if (elem.second == sign)
                 return elem.first;
             is_new = false;
@@ -816,9 +819,9 @@ namespace polysat {
         auto sc = m_core.eq(p, q);       
         idx = m_core.register_constraint(sc, d);
         if (is_new) {
-            m_eq2constraint.insert(r.index(), { idx, sign });
+            m_eq2constraint[sz].insert(r.index(), { idx, sign });
             m_eqs.push_back(r);
-            ctx.push(undo_add_eq(*this, r.index()));
+            ctx.push(undo_add_eq(*this, sz, r.index()));
         }
         return idx;
     }

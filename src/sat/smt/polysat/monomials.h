@@ -36,6 +36,7 @@ namespace polysat {
             rational   val;
             unsigned size() const { return args.size(); }
             unsigned num_bits() const { return args[0].manager().power_of_2(); }
+            std::ostream& display(std::ostream& out) const;
         };
         vector<monomial>   m_monomials;
         pdd_vector         m_tmp;
@@ -73,6 +74,7 @@ namespace polysat {
         std::ostream& display(std::ostream& out) const;
                
     };
+
 
     inline std::ostream& operator<<(std::ostream& out, monomials const& m) {
         return m.display(out);

@@ -337,17 +337,21 @@ namespace polysat {
         return true;
     }
 
+    std::ostream& monomials::monomial::display(std::ostream& out) const {
+        out << var << " := ";
+        char const* sep = "";
+        for (auto p : args) 
+            if (p.is_var())
+                out << sep << p, sep = " * ";
+            else 
+                out << sep << "(" << p << ")", sep = " * ";
+        out << "\n";
+        return out;
+    }
+
     std::ostream& monomials::display(std::ostream& out) const {
-        for (auto const& mon : m_monomials) {
-            out << mon.var << " := ";
-            char const* sep = "";
-            for (auto p : mon.args) 
-                if (p.is_var())
-                    out << sep << p, sep = " * ";
-                else 
-                    out << sep << "(" << p << ")", sep = " * ";
-            out << "\n";
-        }
+        for (auto const& mon : m_monomials) 
+            mon.display(out);
         return out;
     }
 }
