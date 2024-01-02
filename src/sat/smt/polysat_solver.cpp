@@ -341,6 +341,7 @@ namespace polysat {
                 TRACE("bv", tout << "literal is true " << ctx.literal2expr(lit) << "\n");
                 return false;
             }
+        TRACE("bv", tout << name << ": "; for (auto lit : lits) tout << ctx.literal2expr(lit) << " "; tout << "\n");
         validate_axiom(lits);
         s().add_clause(lits.size(), lits.data(), sat::status::th(is_redundant, get_id(), hint));
         return true;
