@@ -950,13 +950,15 @@ namespace lp {
             bool feas = _check_feasible();
             lra.pop(1);
 
-            if (settings().get_cancel_flag())
-                return lia_move::undef;
-
-            if (!feas)
-                return lia_move::conflict;
-            
+            if (!feas) {
+                for (auto const& cut : cuts)
+                    if (!is_small_cut(cut))
+                        add_cut(cut);
+            }            
         }
+
+        if (settings().get_cancel_flag())
+            return lia_move::undef;
 
         if (!_check_feasible())
             return lia_move::conflict;

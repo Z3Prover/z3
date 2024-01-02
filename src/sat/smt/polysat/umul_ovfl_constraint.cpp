@@ -69,9 +69,7 @@ namespace polysat {
     }
 
     lbool umul_ovfl_constraint::eval(assignment const& a) const {
-        auto r = eval(a.apply_to(p()), a.apply_to(q()));
-        CTRACE("bv", r != l_undef, tout << "eval: " << *this << " := " << r << "\n";);
-        return r;
+        return eval(a.apply_to(p()), a.apply_to(q()));
     }
 
     void umul_ovfl_constraint::activate(core& c, bool sign, dependency const& dep) {

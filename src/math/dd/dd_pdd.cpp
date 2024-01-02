@@ -1860,6 +1860,22 @@ namespace dd {
         return (*this) * rational::power_of_two(n);
     }
 
+    bool pdd::has_unit(pdd& x, pdd& rest) const {
+        if (is_val())
+            return false;
+        pdd r = *this;
+        while (!r.is_val()) {
+            if (r.hi().is_one()) {
+                x = m->mk_var(r.var());
+                rest = *this - x;
+                return true;
+            }
+            r = r.lo();
+        }
+        return false;
+    }
+
+
     /**
      * \brief substitute variable v by r.
      * This base line implementation is simplistic and does not use operator caching.

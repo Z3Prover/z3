@@ -124,7 +124,9 @@ namespace polysat {
         if (ctx.use_drat() && hint_info)
             hint = mk_proof_hint(hint_info, lits, eqs);
         auto ex = euf::th_explain::conflict(*this, lits, eqs, hint);
-        TRACE("bv", ex->display(tout << "conflict: ") << "\n"; s().display(tout));
+        TRACE("bv", tout << "conflict: " << lits << " ";
+        for (auto [a, b] : eqs) tout << ctx.bpp(a) << " == " << ctx.bpp(b) << " "; 
+        tout << "\n"; s().display(tout));
         validate_conflict(lits, eqs);
         ctx.set_conflict(ex);
     }
@@ -166,10 +168,11 @@ namespace polysat {
 
         
         IF_VERBOSE(10,
+            verbose_stream() << "explain\n";
             for (auto lit : core)
                 verbose_stream() << "    " << lit << ":  " << mk_ismt2_pp(literal2expr(lit), m) << " " << s().value(lit) << "\n";
-        for (auto const& [n1, n2] : eqs)
-            verbose_stream() << "    " << ctx.bpp(n1) << "  ==  " << ctx.bpp(n2) << "\n";);
+            for (auto const& [n1, n2] : eqs)
+                verbose_stream() << "    " << ctx.bpp(n1) << "  ==  " << ctx.bpp(n2) << "\n";);
         DEBUG_CODE({
             for (auto lit : core)
                 SASSERT(s().value(lit) == l_true);
@@ -381,16 +384,25 @@ namespace polysat {
         expr_ref result(m);
         switch (sc.op()) {
         case ckind_t::ule_t: {
+            
             auto p = sc.to_ule().lhs();
             auto q = sc.to_ule().rhs();
-            auto l = pdd2expr(p);
-            auto h = pdd2expr(q);
-            if (p == q)
-                result = m.mk_true();
-            else if (q.is_zero())
+            pdd x = p, r = p;
+            if (q.is_zero() && p.has_unit(x, r)) {
+                auto l = pdd2expr(x);
+                auto h = pdd2expr(-r);
                 result = m.mk_eq(l, h);
-            else
-                result = bv.mk_ule(l, h);
+            }
+            else {
+                auto l = pdd2expr(p);
+                auto h = pdd2expr(q);
+                if (p == q)
+                    result = m.mk_true();
+                else if (q.is_zero())
+                    result = m.mk_eq(l, h);
+                else
+                    result = bv.mk_ule(l, h);
+            }
             if (sc.sign())
                 result = m.mk_not(result);
             return result;           
@@ -419,12 +431,14 @@ namespace polysat {
             return expr_ref(n, m);
         }
         auto v = var2enode(m_pddvar2var[p.var()]);
-        expr* r = v->get_expr();
+        expr_ref r(m);
+        r = v->get_expr();
         if (!p.hi().is_one())
             r = bv.mk_bv_mul(r, pdd2expr(p.hi()));
         if (!p.lo().is_zero())
             r = bv.mk_bv_add(r, pdd2expr(p.lo()));
-        return expr_ref(r, m);
+        ctx.get_rewriter()(r);
+        return r;
     }
 
     expr* solver::proof_hint::get_hint(euf::solver& s) const {

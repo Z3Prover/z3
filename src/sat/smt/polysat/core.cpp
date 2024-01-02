@@ -343,9 +343,7 @@ namespace polysat {
     }
 
     void core::propagate_assignment(pvar v, rational const& value, dependency dep) {
-        TRACE("bv", tout << "propagate assignment v" << v << " := " << value << " " << is_assigned(v) << "\n");
-        if (is_assigned(v))
-            return;
+        TRACE("bv", tout << "propagate assignment v" << v << " := " << value << "\n");
         
         m_values[v] = value;
         m_justification[v] = dep;   
@@ -404,14 +402,14 @@ namespace polysat {
     */
     void core::propagate_eval(constraint_id idx) {
         auto [sc, d, value] = m_constraint_index[idx.id];
-        if (value != l_undef)
-            return;
         switch (eval(sc)) {
         case l_false:
-            s.propagate(d, true, explain_eval(sc), "eval-propagate");
+            if (value != l_false)
+                s.propagate(d, true, explain_eval(sc), "eval-propagate");
             break;
         case l_true:
-            s.propagate(d, false, explain_eval(sc), "eval-propagate");
+            if (value != l_true)
+                s.propagate(d, false, explain_eval(sc), "eval-propagate");
             break;
         default:
             break;

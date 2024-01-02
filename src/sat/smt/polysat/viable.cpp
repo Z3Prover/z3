@@ -110,7 +110,7 @@ namespace polysat {
         bool start_at0 = val1 == 0;        
         
         lbool r = next_viable(val1);
-        TRACE("bv", display_state(tout); display(tout << "next viable v" << v << " " << val1 << " " << r << "\n"));
+        TRACE("bv", display_state(tout); display(tout << "next viable v" << v << " " << val1 << " " << r << " " << start_at0 << "\n"));
         if (r == l_false && !start_at0) {
             val1 = 0;
             r = next_viable(val1);
@@ -225,6 +225,8 @@ namespace polysat {
 
         while (true) {                
             auto e = find_overlap(val1, layer.entries);
+            TRACE("bv", tout << "next v" << w << " for value " << val1 << "\n";
+                  if (e) tout << e->interval << " " << e->interval.is_full() << "\n"; else tout << "no overlap\n";);
             if (!e) 
                 break;            
             // TODO check if admitted: layer.entries = e;
@@ -232,10 +234,10 @@ namespace polysat {
             if (e->interval.is_full())
                 return l_false;            
             auto hi = e->interval.hi_val();
-            if (hi < e->interval.lo_val())   
-                wrapped = true;
             if (wrapped && start <= hi)
                 return l_false;            
+            if (hi < e->interval.lo_val())   
+                wrapped = true;
             val1 = hi;
             SASSERT(val1 < p2b);
         }
@@ -530,11 +532,13 @@ namespace polysat {
             if (m_var != e->var)
                 result.push_back(offset_claim(m_var, {e->var, 0}));
             seen.insert(index.id);
+            for (auto const& sc : e->side_cond)               
+                result.push_back(c.propagate(sc, c.explain_eval(sc)));            
             auto const& [sc, d, value] = c.m_constraint_index[index.id];
-            result.push_back(d);
-            result.append(c.explain_eval(sc));
+            result.push_back(d);            
         }
         result.append(m_fixed_bits.explain());
+        TRACE("bv", tout << "viable-explain v" << m_var << " - " << result.size() << "\n");
         return result;
     }
 
@@ -579,7 +583,7 @@ namespace polysat {
             unsigned const k = ne->coeff.parity(w);
             SASSERT(k > 0);
 
-            IF_VERBOSE(3, display_one(verbose_stream() << "try to reduce entry: ", v, ne) << "\n");
+            IF_VERBOSE(13, display_one(verbose_stream() << "try to reduce entry: ", v, ne) << "\n");
 
             // reduction of coeff gives us a unit entry
             //
@@ -618,8 +622,8 @@ namespace polysat {
                     ne->side_cond.push_back(cs.eq(lo_eq));
             }
             else {
-                new_lo += 1;
                 new_lo = machine_div2k(new_lo, k);
+                new_lo += 1;
                 if (!lo_eq.is_val() || lo_eq.is_zero())
                     ne->side_cond.push_back(~cs.eq(lo_eq));
             }
@@ -631,18 +635,16 @@ namespace polysat {
                     ne->side_cond.push_back(cs.eq(hi_eq));
             }
             else {
-                new_hi += 1;
                 new_hi = machine_div2k(new_hi, k);
+                new_hi += 1;
                 if (!hi_eq.is_val() || hi_eq.is_zero())
                     ne->side_cond.push_back(~cs.eq(hi_eq));
             }
             
-            // we have to update also the pdd bounds accordingly, but it seems not worth introducing new variables for this eagerly
-            //      new_lo = lo[:k]  etc.
             
             if (new_lo == new_hi) {
+                IF_VERBOSE(0, verbose_stream() << "Check: always true " << "x*" << ne->coeff << " not in " << ne->interval << " " << new_hi << "\n");
                 // empty
-                verbose_stream() << "always true " << "x*" << ne->coeff << " not in " << ne->interval << "\n";
                 m_alloc.push_back(ne);
                 return true;
             }
