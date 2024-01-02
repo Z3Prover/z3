@@ -217,8 +217,9 @@ namespace polysat {
         m_var_eqs_head++;
         pdd p = var2pdd(v1);
         pdd q = var2pdd(v2);
+        TRACE("bv", tout << ctx.bpp(n) << " == " << ctx.bpp(var2enode(v2)) << "\n");
         auto d = dependency(v1, v2);
-        constraint_id id = eq_constraint(p, q, d);
+        constraint_id id = eq_constraint(p, q, false, d);
         m_core.assign_eh(id, false); 
 
     }
@@ -232,7 +233,7 @@ namespace polysat {
         pdd q = var2pdd(v2);
         sat::literal eq = expr2literal(ne.eq());
         auto d = dependency(eq.var());
-        auto id = eq_constraint(p, q, d);
+        auto id = eq_constraint(p, q, true, d);
         TRACE("bv", tout << eq << " := " << s().value(eq) << " @" << s().scope_lvl() << "\n");
         m_core.assign_eh(id, true);
     }

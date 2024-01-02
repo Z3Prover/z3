@@ -20,10 +20,7 @@ namespace polysat {
 
     monomials::monomials(core& c):
         c(c), 
-        C(c.cs()),
-        m_hash(*this),
-        m_eq(*this),
-        m_table(DEFAULT_HASHTABLE_INITIAL_CAPACITY, m_hash, m_eq) 
+        C(c.cs())
     {}
         
     pvar monomials::mk(unsigned n, pdd const* args) {
@@ -31,40 +28,20 @@ namespace polysat {
         auto& m = args[0].manager();
         unsigned sz = m.power_of_2();
         m_tmp.reset();
-        for (unsigned i = 0; i < n; ++i)
+        pdd def = c.value(rational(1), sz);
+        for (unsigned i = 0; i < n; ++i) {
             m_tmp.push_back(args[i]);
-        std::stable_sort(m_tmp.begin(), m_tmp.end(),
-            [&](pdd const& a, pdd const& b) { return a.index() < b.index(); });
-
-        pdd offset = c.value(rational(0), sz);
-        unsigned index = m_monomials.size();
-
-        m_monomials.push_back({m_tmp, offset, offset, {}, rational(0) });
-        unsigned j;
-        if (m_table.find(index, j)) {
-            m_monomials.pop_back();
-            return m_monomials[j].var.var();
+            def *= args[i];
         }
 
-        struct del_monomial : public trail {
-            monomials& m;
-            del_monomial(monomials& m):m(m) {}
-            void undo() override {
-                unsigned index = m.m_monomials.size()-1;
-                m.m_table.erase(index);
-                m.m_monomials.pop_back();
-            }
-        };
-
+        pdd var = c.var(c.add_var(sz));
+        m_monomials.push_back({m_tmp, var, def, {}, rational(0) });
         auto & mon = m_monomials.back();
-        mon.var = c.var(c.add_var(sz));
-        mon.def = c.value(rational(1), sz);
-        for (auto p : m_tmp) {
+              
+        for (auto p : m_tmp) 
             mon.arg_vals.push_back(rational(0));
-            mon.def *= p;
-        }
-        m_table.insert(index);
-        c.trail().push(del_monomial(*this));
+        
+        c.trail().push(push_back_vector(m_monomials));
         return mon.var.var();
     }
 
@@ -175,7 +152,7 @@ namespace polysat {
             free_index = j;
         }
         constraint_or_dependency_vector cs;
-        pdd offset = c.value(rational(1), m.power_of_2());
+        pdd offset = c.value(rational(1), mon.num_bits());
         for (unsigned j = mon.size(); j-- > 0; ) {
             if (j != free_index) {
                 cs.push_back(~C.eq(mon.args[j], mon.arg_vals[j]));

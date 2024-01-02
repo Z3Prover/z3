@@ -803,16 +803,23 @@ namespace polysat {
         }
     };
 
-    constraint_id solver::eq_constraint(pdd p, pdd q, dependency d) {
+    constraint_id solver::eq_constraint(pdd p, pdd q, bool sign, dependency d) {
         pdd r = p - q;
         constraint_id idx;
-        if (m_eq2constraint.find(r.index(), idx))
-            return idx;
+        std::pair<constraint_id, bool> elem;
+        bool is_new = true;
+        if (m_eq2constraint.find(r.index(), elem)) {
+            if (elem.second == sign)
+                return elem.first;
+            is_new = false;
+        }
         auto sc = m_core.eq(p, q);       
         idx = m_core.register_constraint(sc, d);
-        m_eq2constraint.insert(r.index(), idx);
-        m_eqs.push_back(r);
-        ctx.push(undo_add_eq(*this, r.index()));
+        if (is_new) {
+            m_eq2constraint.insert(r.index(), { idx, sign });
+            m_eqs.push_back(r);
+            ctx.push(undo_add_eq(*this, r.index()));
+        }
         return idx;
     }
 

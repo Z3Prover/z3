@@ -40,31 +40,6 @@ namespace polysat {
         vector<monomial>   m_monomials;
         pdd_vector         m_tmp;
         
-        struct mon_eq {
-            monomials& m;
-            mon_eq(monomials& m):m(m) {}
-            bool operator()(unsigned i, unsigned j) const {
-                auto const& a = m.m_monomials[i].args;
-                auto const& b = m.m_monomials[j].args;
-                return a == b;
-            };
-        };
-
-        struct pdd_hash {
-            typedef pdd data_t;
-            unsigned operator()(pdd const& p) const { return p.hash(); }
-        };
-        struct mon_hash {
-            monomials& m;
-            mon_hash(monomials& m):m(m) {}
-            unsigned operator()(unsigned i) const {
-                auto const& a = m.m_monomials[i].args;
-                return vector_hash<pdd_hash>()(a);
-            }
-        };
-        mon_hash m_hash;
-        mon_eq   m_eq;
-        hashtable<unsigned, mon_hash, mon_eq> m_table;
 
         unsigned_vector m_to_refine;
         void init_to_refine();

@@ -199,9 +199,9 @@ namespace polysat {
         void quot_rem(expr* quot, expr* rem, expr* x, expr* y);
 
         vector<pdd> m_eqs;
-        u_map<constraint_id> m_eq2constraint;
+        u_map<std::pair<constraint_id, bool>> m_eq2constraint;
         struct undo_add_eq;
-        constraint_id eq_constraint(pdd p, pdd q, dependency d);
+        constraint_id eq_constraint(pdd p, pdd q, bool sign, dependency d);
 
         // callbacks from core
         lbool add_eq_literal(pvar v, rational const& val, dependency& d) override;

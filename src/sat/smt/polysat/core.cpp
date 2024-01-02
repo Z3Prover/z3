@@ -201,6 +201,9 @@ namespace polysat {
     sat::check_result core::check() {
         lbool r = l_true;
 
+        if (propagate())
+            return sat::check_result::CR_CONTINUE;
+
         switch (assign_variable()) {
         case l_true:
             break;
@@ -462,10 +465,21 @@ namespace polysat {
                 c.m_prop_queue.pop_back();
             }
         };
-        if (m_constraint_index[index.id].value != l_undef)
+
+        auto& value = m_constraint_index[index.id].value;
+        TRACE("bv", tout << "assignment " << index.id << " " << m_constraint_index[index.id].sc << " := " << value << " sign: " << sign << "\n");
+
+        if (value != l_undef &&
+            ((value == l_false && !sign) || (value == l_true && sign))) {
+            TRACE("bv", display(tout << "index " << m_constraint_index[index.id].d << " " << m_constraint_index[index.id].sc << "\n"));
+        }
+        
+        SASSERT(value == l_undef || (value == l_false && sign) || (value == l_true && !sign));
+
+        if (value != l_undef)
             return;
         m_prop_queue.push_back(index);
-        m_constraint_index[index.id].value = to_lbool(!sign);
+        value = to_lbool(!sign);
         s.trail().push(unassign(*this, index.id));
     }
 
