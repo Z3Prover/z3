@@ -87,7 +87,7 @@ namespace polysat {
 
         monomials(core& c);
 
-        pdd mk(unsigned n, pdd const* args);
+        pvar mk(unsigned n, pdd const* args);
 
         pdd subst(pdd const& p);
         

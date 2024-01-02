@@ -130,7 +130,7 @@ namespace polysat {
         void band(pdd const& a, pdd const& b, pdd const& r) { add_opdef(m_constraints.band(a, b, r)); }
 
         pdd bnot(pdd p) { return -p - 1; }
-        pdd mul(unsigned n, pdd const* args) { return m_monomials.mk(n, args); }
+        pvar mul(unsigned n, pdd const* args) { return m_monomials.mk(n, args); }
 
 
         /*

@@ -40,7 +40,7 @@ namespace polysat {
         lbool eval() const override;
         lbool eval(assignment const& a) const override;
         lbool eval_unfold(assignment const& a) const override;
-        bool is_linear() const override { return lhs().is_linear() && rhs().is_linear(); }
+        bool is_linear() const override { return lhs().is_linear_or_value() && rhs().is_linear_or_value(); }
         void activate(core& c, bool sign, dependency const& dep);
         void propagate(core& c, lbool value, dependency const& dep) {}
         bool is_eq() const { return m_rhs.is_zero(); }

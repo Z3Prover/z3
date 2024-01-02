@@ -26,40 +26,24 @@ namespace polysat {
         m_table(DEFAULT_HASHTABLE_INITIAL_CAPACITY, m_hash, m_eq) 
     {}
         
-    pdd monomials::mk(unsigned n, pdd const* args) {
-        SASSERT(n > 0);
-        if (n == 1)
-            return args[0];
-        if (n == 2 && args[0].is_val())
-            return args[0]*args[1];
-        if (n == 2 && args[1].is_val())
-            return args[0]*args[1];
+    pvar monomials::mk(unsigned n, pdd const* args) {
+        SASSERT(n > 1);
         auto& m = args[0].manager();
         unsigned sz = m.power_of_2();
         m_tmp.reset();
-        pdd offset = c.value(rational(1), sz);
-        for (unsigned i = 0; i < n; ++i) {
-            pdd const& p = args[i];
-            if (p.is_val())
-                offset *= p;
-            else 
-                m_tmp.push_back(p);
-        }
-        if (m_tmp.empty())
-            return offset;
-        if (m_tmp.size() == 1)
-            return offset * m_tmp[0];
+        for (unsigned i = 0; i < n; ++i)
+            m_tmp.push_back(args[i]);
+        std::stable_sort(m_tmp.begin(), m_tmp.end(),
+            [&](pdd const& a, pdd const& b) { return a.index() < b.index(); });
 
-        std::stable_sort(m_tmp.begin(), m_tmp.end(), 
-                         [&](pdd const& a, pdd const& b) { return a.index() < b.index(); });
-
+        pdd offset = c.value(rational(0), sz);
         unsigned index = m_monomials.size();
 
         m_monomials.push_back({m_tmp, offset, offset, {}, rational(0) });
         unsigned j;
         if (m_table.find(index, j)) {
             m_monomials.pop_back();
-            return offset * m_monomials[j].var;
+            return m_monomials[j].var.var();
         }
 
         struct del_monomial : public trail {
@@ -73,7 +57,7 @@ namespace polysat {
         };
 
         auto & mon = m_monomials.back();
-        mon.var = c.add_var(sz);
+        mon.var = c.var(c.add_var(sz));
         mon.def = c.value(rational(1), sz);
         for (auto p : m_tmp) {
             mon.arg_vals.push_back(rational(0));
@@ -81,13 +65,15 @@ namespace polysat {
         }
         m_table.insert(index);
         c.trail().push(del_monomial(*this));
-        return offset * mon.var;
+        return mon.var.var();
     }
 
     pdd monomials::subst(pdd const& p) {
         pdd r = p;
-        for (unsigned i = m_monomials.size(); i-- > 0;) 
-            r = r.subst_pdd(m_monomials[i].var.var(), m_monomials[i].def);        
+        for (unsigned i = m_monomials.size(); i-- > 0;) {
+            if (&r.manager() == &m_monomials[i].var.manager())
+                r = r.subst_pdd(m_monomials[i].var.var(), m_monomials[i].def);
+        }
         return r;
     }
         
@@ -201,8 +187,7 @@ namespace polysat {
         else
             cs.push_back(C.eq(mon.var, offset * mon.args[free_index]));
 
-        c.add_axiom("p = k => p * q = k * q", cs, true);
-        return true;
+        return c.add_axiom("p = k => p * q = k * q", cs, true);
     }
 
     // parity p >= i => parity p * q >= i

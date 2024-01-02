@@ -217,6 +217,7 @@ namespace polysat {
         case l_true:
             break;
         case l_false:
+            TRACE("bv", tout << "refine\n");
             return sat::check_result::CR_CONTINUE;
         case l_undef:
             r = l_undef;
@@ -228,6 +229,7 @@ namespace polysat {
         case l_true:
             break;
         case l_false:
+            TRACE("bv", tout << "saturate\n");
             return sat::check_result::CR_CONTINUE;
         case l_undef:
             r = l_undef;
@@ -238,6 +240,7 @@ namespace polysat {
         case l_true:
             break;
         case l_false:
+            TRACE("bv", tout << "blast\n");
             return sat::check_result::CR_CONTINUE;
         case l_undef:
             r = l_undef;

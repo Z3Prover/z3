@@ -432,6 +432,7 @@ namespace dd {
         bool is_one() const { return m->is_one(root); }
         bool is_zero() const { return m->is_zero(root); }
         bool is_linear() const { return m->is_linear(root); }
+        bool is_linear_or_value() const { return is_linear() || is_val(); }
         bool is_var() const { return m->is_var(root); }
         bool is_max() const { return m->is_max(root); }
         /** Polynomial is of the form a * x + b for some numerals a, b. */

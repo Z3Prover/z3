@@ -608,7 +608,21 @@ namespace polysat {
         vector<dd::pdd> args;
         for (expr* arg : *to_app(a))
             args.push_back(expr2pdd(arg));
-        internalize_set(a, m_core.mul(args.size(), args.data()));
+        if (args.size() == 1) {
+            internalize_set(a, args[0]);
+            return;
+        }
+        if (args.size() == 2 && args[0].is_val()) {
+            internalize_set(a, args[0] * args[1]);
+            return;
+        }
+        if (args.size() == 2 && args[1].is_val()) {
+            internalize_set(a, args[0] * args[1]);
+            return;
+        }
+        auto pv = m_core.mul(args.size(), args.data());
+        m_pddvar2var.setx(pv, get_th_var(a), UINT_MAX);
+        internalize_set(a, m_core.var(pv));
     }
 
     // TODO - test that internalize works with recursive call on bit2bool

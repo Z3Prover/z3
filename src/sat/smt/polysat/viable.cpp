@@ -550,9 +550,8 @@ namespace polysat {
         if (value == l_false)
             sc = ~sc;
 
-        if (!sc.is_linear()) {
-            return true;
-        }
+        if (!sc.is_linear()) 
+            return true;        
 
         entry* ne = alloc_entry(v, idx);
         if (!m_forbidden_intervals.get_interval(sc, v, *ne)) {

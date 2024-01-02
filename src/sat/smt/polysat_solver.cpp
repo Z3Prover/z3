@@ -74,7 +74,8 @@ namespace polysat {
         case sat::check_result::CR_CONTINUE:
             return sat::check_result::CR_CONTINUE;
         case sat::check_result::CR_GIVEUP: 
-            return intblast();        
+            return sat::check_result::CR_GIVEUP;
+            // return intblast();        
         }
         UNREACHABLE();
         return sat::check_result::CR_GIVEUP;
@@ -315,6 +316,7 @@ namespace polysat {
     }
 
     bool solver::add_axiom(char const* name, constraint_or_dependency const* begin, constraint_or_dependency const* end, bool is_redundant) {
+        TRACE("bv", tout << "add " << name << "\n");
         sat::literal_vector lits;
         euf::enode_pair_vector eqs;
         for (auto it = begin; it != end; ++it) {
@@ -335,8 +337,10 @@ namespace polysat {
         for (auto& lit : lits)
             lit.neg();
         for (auto lit : lits)
-            if (s().value(lit) == l_true)
+            if (s().value(lit) == l_true) {
+                TRACE("bv", tout << "literal is true " << ctx.literal2expr(lit) << "\n");
                 return false;
+            }
         validate_axiom(lits);
         s().add_clause(lits.size(), lits.data(), sat::status::th(is_redundant, get_id(), hint));
         return true;

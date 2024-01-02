@@ -319,7 +319,7 @@ namespace polysat {
     std::ostream& ule_constraint::display(std::ostream& out) const {
         display(out, l_true, m_lhs, m_rhs);
         if (m_lhs != m_unfold_lhs || m_rhs != m_unfold_rhs)
-            display(out << " alias ( ", l_true, m_unfold_lhs, m_unfold_rhs) << ")";
+            display(out << " alias (", l_true, m_unfold_lhs, m_unfold_rhs) << ")";
         return out;
     }
 
