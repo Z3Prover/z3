@@ -44,10 +44,8 @@ namespace polysat {
     }
 
     bool saturation::resolve(pvar v, constraint_id id) {
-        if (c.eval_unfold(id) == l_true)
-            return false;
         auto sc = c.get_constraint(id);
-        if (!sc.vars().contains(v))
+        if (!sc.unfold_vars().contains(v))
             return false;
         if (sc.is_ule())
             resolve(v, inequality::from_ule(c, id));

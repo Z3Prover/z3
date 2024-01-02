@@ -98,7 +98,7 @@ namespace polysat {
             return l_false;
         if (any_of(m_to_refine, [&](auto i) { return non_overflow_monotone(m_monomials[i]); }))
             return l_false;
-        if (any_of(m_to_refine, [&](auto i) { return mulp2(m_monomials[i]); }))
+        if (false && any_of(m_to_refine, [&](auto i) { return mulp2(m_monomials[i]); }))
             return l_false;
 
         return l_undef;
