@@ -306,11 +306,11 @@ namespace polysat {
             sc = ~sc;
         TRACE("bv", tout << "propagate " << sc << " using " << dep << " := " << value << "\n");
         if (sc.is_always_false()) {
-            s.set_conflict({dep}, "infeasible assignment");
+            s.set_conflict({dep}, "infeasible constraint");
             return;
         }
         rational var_value;
-        if (sc.is_eq(m_var, var_value))
+        if (sc.is_eq(m_var, var_value) && !is_assigned(m_var))
             propagate_assignment(m_var, var_value, dep);
         else
             propagate_activation(idx, sc, dep);
@@ -332,6 +332,11 @@ namespace polysat {
         }
         if (v != null_var && !m_viable.add_unitary(v, idx))
             viable_conflict(v);
+        else if (v == null_var && sc.is_currently_false(*this)) {
+            auto ex = explain_eval(sc);
+            ex.push_back(dep);
+            s.set_conflict(ex, "infeasible propagation");
+        }
     }
 
     void core::propagate_assignment(pvar v, rational const& value, dependency dep) {
