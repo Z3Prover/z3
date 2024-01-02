@@ -561,11 +561,10 @@ public:
             bool feas = _check_feasible();
             lra.pop(1);
 
-            if (lia.settings().get_cancel_flag())
-                return lia_move::undef;
-
-            if (!feas)
-                return lia_move::conflict;
+            if (!feas)       
+                for (auto const& cut : big_cuts) 
+                    add_cut(cut);
+            
         }
 
 // this way we create bounds for the variables in polar cases even where the terms had big numbers
