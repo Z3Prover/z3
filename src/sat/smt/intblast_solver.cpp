@@ -226,11 +226,17 @@ namespace intblast {
                 m_solver->assert_expr(a.mk_le(a.mk_int(0), v));
                 m_solver->assert_expr(a.mk_lt(v, a.mk_int(b)));
             }
-            
+
             IF_VERBOSE(2, verbose_stream() << "check\n" << original_es << "\n");
-            IF_VERBOSE(3, verbose_stream() << "check\n";
-                       m_solver->display(verbose_stream());
-                       verbose_stream() << es << "\n");
+            
+            IF_VERBOSE(2,
+                {
+                    m_solver->push();
+                    m_solver->assert_expr(es);
+                    m_solver->display(verbose_stream()) << "(check-sat)\n";
+                    m_solver->pop(1);
+                });
+
             
             r = m_solver->check_sat(es);
         }
