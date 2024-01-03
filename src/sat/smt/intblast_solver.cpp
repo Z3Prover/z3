@@ -200,10 +200,7 @@ namespace intblast {
         m_core.reset();
         m_vars.reset();
         m_is_plugin = false;
-        params_ref p(s.params());
-        p.set_uint("smt.bv.solver", 0);
-        p.set_bool("sat.smt", false);
-        m_solver = mk_smt_solver(m, p, symbol::null);
+        m_solver = mk_smt2_solver(m, s.params(), symbol::null);
 
         for (unsigned i = 0; i < m_translate.size(); ++i)
             m_translate[i] = nullptr;
@@ -216,16 +213,9 @@ namespace intblast {
         
         original_es.append(es);
 
-        
-        verbose_stream() << es << "\n";
-
         lbool r;
-        if (true) {
-            params_ref p;
-            p.set_uint("smt.bv.solver",0);
-            m_solver->updt_params(p);
-            r = m_solver->check_sat(es);
-            
+        if (false) {
+            r = m_solver->check_sat(es);            
         }
         else {
         
