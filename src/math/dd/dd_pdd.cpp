@@ -1860,14 +1860,11 @@ namespace dd {
         return (*this) * rational::power_of_two(n);
     }
 
-    bool pdd::has_unit(pdd& x, pdd& rest) const {
-        if (is_val())
-            return false;
+    bool pdd::has_unit(pdd& x) const {
         pdd r = *this;
         while (!r.is_val()) {
             if (r.hi().is_one()) {
                 x = m->mk_var(r.var());
-                rest = *this - x;
                 return true;
             }
             r = r.lo();

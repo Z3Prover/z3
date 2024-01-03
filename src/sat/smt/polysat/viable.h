@@ -85,11 +85,15 @@ namespace polysat {
             entry* get_entries(unsigned bit_width) const { layer const* l = get_layer(bit_width); return l ? l->entries : nullptr; }
         };
 
-
+        // short for t in [lo,hi[ 
+        struct interval_member {
+            pdd t, lo, hi;
+        };
         ptr_vector<entry>       m_alloc;
         vector<layers>          m_units;        // set of viable values based on unit multipliers, layered by bit-width in descending order
         ptr_vector<entry>       m_equal_lin;    // entries that have non-unit multipliers, but are equal
-        ptr_vector<entry>       m_diseq_lin;    // entries that have distinct non-zero multipliers
+        ptr_vector<entry>       m_diseq_lin;    // entries that have distinct non-zero multipliers       
+        vector<interval_member> m_ineqs;        // inequalities to justify that values are not viable.
         ptr_vector<entry>       m_explain;      // entries that explain the current propagation or conflict
 
         bool well_formed(entry* e);
@@ -126,6 +130,7 @@ namespace polysat {
         bool refine_equal_lin(pvar v, rational const& val);
 
         pvar            m_var = null_var;
+        scoped_ptr<pdd>  m_value;               // the current symbolid value being checked for viability.
         unsigned        m_num_bits = 0;
         fixed_bits      m_fixed_bits;
         offset_slices   m_overlaps;

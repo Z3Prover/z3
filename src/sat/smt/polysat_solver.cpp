@@ -383,25 +383,24 @@ namespace polysat {
     expr_ref solver::constraint2expr(signed_constraint const& sc) { 
         expr_ref result(m);
         switch (sc.op()) {
-        case ckind_t::ule_t: {
-            
+        case ckind_t::ule_t: {            
             auto p = sc.to_ule().lhs();
             auto q = sc.to_ule().rhs();
-            pdd x = p, r = p;
-            if (q.is_zero() && p.has_unit(x, r)) {
+            pdd x = p;
+            if (q.is_zero() && p.has_unit(x)) {
                 auto l = pdd2expr(x);
-                auto h = pdd2expr(-r);
-                result = m.mk_eq(l, h);
+                auto r = pdd2expr(x - p);
+                result = m.mk_eq(l, r);
             }
             else {
                 auto l = pdd2expr(p);
-                auto h = pdd2expr(q);
+                auto r = pdd2expr(q);
                 if (p == q)
                     result = m.mk_true();
                 else if (q.is_zero())
-                    result = m.mk_eq(l, h);
+                    result = m.mk_eq(l, r);
                 else
-                    result = bv.mk_ule(l, h);
+                    result = bv.mk_ule(l, r);
             }
             if (sc.sign())
                 result = m.mk_not(result);

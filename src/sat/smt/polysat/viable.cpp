@@ -84,6 +84,7 @@ namespace polysat {
     }
 
     find_t viable::find_viable(pvar v, rational& lo) {
+        verbose_stream() << "find viable v" << v << " starting with " << lo << "\n";
         rational hi;
         switch (find_viable(v, lo, hi)) {
         case l_true:
@@ -103,7 +104,9 @@ namespace polysat {
 
     lbool viable::find_viable(pvar v, rational& val1, rational& val2) {
         m_explain.reset();
+        m_ineqs.reset();
         m_var = v;
+        m_value = nullptr;
         m_num_bits = c.size(v);
         m_fixed_bits.reset(v);
         init_overlaps(v);
@@ -128,6 +131,9 @@ namespace polysat {
         }
         else 
             val2 = val1 + 1;
+
+        // instead of m_value use linked list of entries?
+        m_value = alloc(pdd, c.value(val2, m_num_bits)); 
         
         r = next_viable(val2);
 
@@ -231,14 +237,29 @@ namespace polysat {
                 break;            
             // TODO check if admitted: layer.entries = e;
             m_explain.push_back(e);
+                        
             if (e->interval.is_full())
-                return l_false;            
-            auto hi = e->interval.hi_val();
-            if (wrapped && start <= hi)
-                return l_false;            
-            if (hi < e->interval.lo_val())   
+                return l_false;          
+
+            auto hi_val = e->interval.hi_val();
+            auto lo_val = e->interval.lo_val();
+            auto hi = e->interval.hi();
+            auto lo = e->interval.lo();
+
+            
+            if (!m_value) 
+                m_value = alloc(pdd, lo);   
+
+            m_ineqs.push_back({ *m_value, lo, hi });
+            
+            if (wrapped && start <= hi_val) {
+                verbose_stream() << "WRAPPED\n";
+                return l_false;
+            }
+            if (hi_val < lo_val)   
                 wrapped = true;
-            val1 = hi;
+            val1 = hi_val;
+            m_value = alloc(pdd, hi);
             SASSERT(val1 < p2b);
         }
         SASSERT(val1 < p2b);
@@ -533,10 +554,17 @@ namespace polysat {
                 result.push_back(offset_claim(m_var, {e->var, 0}));
             seen.insert(index.id);
             for (auto const& sc : e->side_cond)               
-                result.push_back(c.propagate(sc, c.explain_eval(sc)));            
+                result.push_back(c.propagate(sc, c.explain_eval(sc)));              
             auto const& [sc, d, value] = c.m_constraint_index[index.id];
             result.push_back(d);            
         }
+        for (auto [t, lo, hi] : m_ineqs) {
+            auto sc = cs.ult(t - lo, hi - lo);
+            verbose_stream() << "Overlap " << t << " in [" << lo << ", " << hi << "[: " << sc << "\n";
+            if (!sc.is_always_true())
+                result.push_back(c.propagate(sc, c.explain_eval(sc)));
+        }
+
         result.append(m_fixed_bits.explain());
         TRACE("bv", tout << "viable-explain v" << m_var << " - " << result.size() << "\n");
         return result;
@@ -656,6 +684,7 @@ namespace polysat {
         }
         if (ne->interval.is_full()) {
             m_explain.reset();
+            m_ineqs.reset();
             m_explain.push_back(ne);
             m_fixed_bits.reset();
             m_var = v;

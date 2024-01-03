@@ -441,7 +441,7 @@ namespace dd {
         bool is_unary() const { return !is_val() && lo().is_zero() && hi().is_val(); }
         bool is_offset() const { return !is_val() && lo().is_val() && hi().is_one(); }
         bool is_binary() const { return m->is_binary(root); }
-        bool has_unit(pdd& x, pdd& rest) const; 
+        bool has_unit(pdd& x) const; 
         bool is_monomial() const { return m->is_monomial(root); }
         bool is_univariate() const { return m->is_univariate(root); }
         bool is_univariate_in(unsigned v) const { return m->is_univariate_in(root, v); }
