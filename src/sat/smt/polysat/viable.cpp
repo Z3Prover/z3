@@ -84,101 +84,53 @@ namespace polysat {
     }
 
     find_t viable::find_viable(pvar v, rational& lo) {
-        verbose_stream() << "find viable v" << v << " starting with " << lo << "\n";
-        rational hi;
-        switch (find_viable(v, lo, hi)) {
-        case l_true:
-            return (lo == hi) ? find_t::singleton : find_t::multiple;
-        case l_false:
-            return find_t::empty;
-        default:
-            return find_t::resource_out;
+        m_explain.reset();
+        m_ineqs.reset();
+        m_var = v;
+        m_num_bits = c.size(v);
+        m_fixed_bits.reset(v);
+        init_overlaps(v);
+        m_start = lo;
+
+        entry* e = nullptr;
+        // verbose_stream() << "find viable v" << v << " starting with " << lo << "\n";
+
+        for (unsigned rounds = 0; rounds < 10; ) {
+           
+            auto n = find_overlap(lo);            
+
+            if (!n) {
+                if (refine_disequal_lin(v, lo) &&
+                    refine_equal_lin(v, lo))
+                    return find_t::multiple;
+                ++rounds;
+                continue;
+            }
+
+            update_value_to_high(lo, n);
+
+
+            // TODO:
+            // track evidence n -> e
+            // check for loop.
+            //
+            e = n;
         }
+
+        return find_t::resource_out;        
     }
 
     void viable::init_overlaps(pvar v) {
         m_overlaps.reset();
         c.get_bitvector_suffixes(v, m_overlaps);
         std::sort(m_overlaps.begin(), m_overlaps.end(), [&](auto const& x, auto const& y) { return c.size(x.v) < c.size(y.v); });
+        verbose_stream() << "overlaps v" << v << " - ";
+        for (auto ovl : m_overlaps)
+            verbose_stream() << "v" << ovl.v << " ";
+        verbose_stream() << "\n";
+        display(verbose_stream());
     }
 
-    lbool viable::find_viable(pvar v, rational& val1, rational& val2) {
-        m_explain.reset();
-        m_ineqs.reset();
-        m_var = v;
-        m_value = nullptr;
-        m_num_bits = c.size(v);
-        m_fixed_bits.reset(v);
-        init_overlaps(v);
-        bool start_at0 = val1 == 0;        
-        
-        lbool r = next_viable(val1);
-        TRACE("bv", display_state(tout); display(tout << "next viable v" << v << " " << val1 << " " << r << " " << start_at0 << "\n"));
-        if (r == l_false && !start_at0) {
-            val1 = 0;
-            r = next_viable(val1);
-        }
-        if (r != l_true)
-            return r;
-
-        if (val1 == c.var2pdd(v).max_value()) {
-            if (start_at0) {
-                val2 = val1;
-                return l_true;
-            }
-            else
-                val2 = 0;
-        }
-        else 
-            val2 = val1 + 1;
-
-        // instead of m_value use linked list of entries?
-        m_value = alloc(pdd, c.value(val2, m_num_bits)); 
-        
-        r = next_viable(val2);
-
-        if (r != l_false)
-            return r;
-
-        if (!start_at0 && val1 == c.var2pdd(v).max_value()) 
-            return l_false;
-        
-        val2 = 0;
-        r = next_viable(val2);
-
-        if (r != l_false)
-            return r;
-        val2 = val1;
-        return l_true;
-    }
-
-    //
-    // Alternate next viable unit and next fixed until convergence.
-    // Check the non-units 
-    // Refine?
-    // 
-    lbool viable::next_viable(rational& val) {
-        unsigned rounds = 0;
-        do {     
-            if (rounds > 10)
-                return l_undef;
-            ++rounds;
-            rational val0 = val;
-            auto r = next_viable_unit(val);
-            if (r != l_true)
-                return r;
-            if (!m_fixed_bits.next(val))
-                return l_false;
-            if (refine_equal_lin(m_var, val))
-                continue;
-            if (refine_disequal_lin(m_var, val))
-                continue;
-            if (val0 != val)
-                continue;
-        } 
-        while (false);
-        return l_true;
-    }
 
     // 
     // 
@@ -186,23 +138,54 @@ namespace polysat {
     //     from smallest bit_width layer [bit_width, entries] to largest
     //         check if val is allowed by entries or advance val to next allowed value
     // 
-    lbool viable::next_viable_unit(rational& val) {
-        for (auto const& [w, offset] : m_overlaps) {
-            auto r = next_viable_overlap(w, val);
-            if (r != l_true)
-                return r;
+
+    viable::entry* viable::find_overlap(rational& val) {
+        if (!m_fixed_bits.next(val)) {
+            val = 0;
+            VERIFY(m_fixed_bits.next(val));
         }
-        return l_true;
+
+        for (auto const& [w, offset] : m_overlaps) {
+            for (auto& layer : m_units[w].get_layers()) {
+                entry* e = find_overlap(w, layer, val);
+                if (e)
+                    return e;
+            }
+        }
+        return nullptr;
     }
 
-    lbool viable::next_viable_overlap(pvar w, rational& val) {
-        for (auto& layer : m_units[w].get_layers()) {
-            auto r = next_viable_layer(w, layer, val);
-            if (r != l_true)
-                return r;
-        }
-        return l_true;
+    viable::entry* viable::find_overlap(pvar w, layer& l, rational& val) {
+        if (!l.entries)
+            return nullptr;
+        unsigned v_width = m_num_bits;
+        unsigned b_width = l.bit_width;
+        if (v_width == b_width)
+            return find_overlap(val, l.entries);
+        rational val1 = mod(val, rational::power_of_two(b_width));
+        return find_overlap(val1, l.entries);
     }
+
+    void viable::update_value_to_high(rational& val, entry* e) {
+        unsigned v_width = m_num_bits;
+        unsigned b_width = c.size(e->var);
+        SASSERT(b_width <= v_width);
+
+        auto hi = e->interval.hi_val();
+        auto lo = e->interval.lo_val();
+        if (b_width == v_width) {
+            val = hi;
+            return;
+        }
+
+        auto p2b = rational::power_of_two(b_width);
+        rational val2 = clear_lower_bits(val, b_width);
+        if (lo <= mod(val, p2b) && hi < lo)
+            val2 += p2b;
+        val = val2 + hi;       
+    }
+
+
 
     /*
     * In either case we are checking a constraint $v[u-1:0]\not\in[lo, hi[$ 
@@ -212,71 +195,6 @@ namespace polysat {
     * - $lo > hi$, $v[w-1:w-u]+1 = 2^{w-u}$: $\forward(v) := \bot$
     * - $lo > hi$, $v[w-1:w-u]+1 < 2^{w-u}$: $\forward(v) := \forward(2^u (v[w-1:w-u]+1) + hi)$
     */
-    lbool viable::next_viable_layer(pvar w, layer& layer, rational& val) {
-        if (!layer.entries)
-            return l_true;
-        unsigned v_width = m_num_bits;
-        unsigned w_width = c.size(w);     
-        unsigned b_width = layer.bit_width;
-        SASSERT(b_width <= w_width);
-        SASSERT(w_width <= v_width);
-
-        bool is_zero = val.is_zero(), wrapped = false;
-        rational val1 = val;
-        rational const& p2v = rational::power_of_two(v_width);
-        rational const& p2b = rational::power_of_two(b_width);
-        if (b_width < v_width)
-            val1 = mod(val1, p2b);
-        rational start = val1;
-
-        while (true) {                
-            auto e = find_overlap(val1, layer.entries);
-            TRACE("bv", tout << "next v" << w << " for value " << val1 << "\n";
-                  if (e) tout << e->interval << " " << e->interval.is_full() << "\n"; else tout << "no overlap\n";);
-            if (!e) 
-                break;            
-            // TODO check if admitted: layer.entries = e;
-            m_explain.push_back(e);
-                        
-            if (e->interval.is_full())
-                return l_false;          
-
-            auto hi_val = e->interval.hi_val();
-            auto lo_val = e->interval.lo_val();
-            auto hi = e->interval.hi();
-            auto lo = e->interval.lo();
-
-            
-            if (!m_value) 
-                m_value = alloc(pdd, lo);   
-
-            m_ineqs.push_back({ *m_value, lo, hi });
-            
-            if (wrapped && start <= hi_val) {
-                verbose_stream() << "WRAPPED\n";
-                return l_false;
-            }
-            if (hi_val < lo_val)   
-                wrapped = true;
-            val1 = hi_val;
-            m_value = alloc(pdd, hi);
-            SASSERT(val1 < p2b);
-        }
-        SASSERT(val1 < p2b);
-        if (b_width < v_width) {
-            rational val2 = clear_lower_bits(val, b_width);
-            if (wrapped) {
-                val2 += p2b;
-                if (val2 >= p2v)
-                    return l_false;
-            }
-            val = val1 + val2;
-        }
-        else
-            val = val1;
-      
-        return l_true;
-    }
 
     // Find interval that contains 'val', or, if no such interval exists, null.
    viable::entry* viable::find_overlap(rational const& val, entry* entries) {
@@ -558,7 +476,8 @@ namespace polysat {
             auto const& [sc, d, value] = c.m_constraint_index[index.id];
             result.push_back(d);            
         }
-        for (auto [t, lo, hi] : m_ineqs) {
+        for (auto [p, e] : m_ineqs) {
+            auto t = p->interval.hi(), lo = e->interval.lo(), hi = e->interval.hi();
             auto sc = cs.ult(t - lo, hi - lo);
             verbose_stream() << "Overlap " << t << " in [" << lo << ", " << hi << "[: " << sc << "\n";
             if (!sc.is_always_true())

@@ -87,7 +87,7 @@ namespace polysat {
 
         // short for t in [lo,hi[ 
         struct interval_member {
-            pdd t, lo, hi;
+            entry* prev, * next;
         };
         ptr_vector<entry>       m_alloc;
         vector<layers>          m_units;        // set of viable values based on unit multipliers, layered by bit-width in descending order
@@ -115,11 +115,13 @@ namespace polysat {
 
         lbool find_viable(pvar v, rational& val1, rational& val2);
 
-        lbool next_viable(rational& val);
+        // find the first non-fixed entry that overlaps with val, if any.
+        entry* find_overlap(rational& val);
+        entry* find_overlap(pvar w, rational& val);
+        entry* find_overlap(pvar w, layer& l, rational& val);
 
-        lbool next_viable_unit(rational& val);
+        void update_value_to_high(rational& val, entry* e);
 
-        lbool next_viable_overlap(pvar w, rational& val);
 
         lbool next_viable_layer(pvar w, layer& l, rational& val);
 
@@ -129,8 +131,10 @@ namespace polysat {
 
         bool refine_equal_lin(pvar v, rational const& val);
 
+        
+
         pvar            m_var = null_var;
-        scoped_ptr<pdd>  m_value;               // the current symbolid value being checked for viability.
+        rational        m_start;
         unsigned        m_num_bits = 0;
         fixed_bits      m_fixed_bits;
         offset_slices   m_overlaps;
