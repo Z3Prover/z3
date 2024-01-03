@@ -18,6 +18,7 @@ Author:
 #include "sat/smt/intblast_solver.h"
 #include "sat/smt/euf_solver.h"
 #include "sat/smt/arith_value.h"
+#include "smt/smt_solver.h"
 
 
 namespace intblast {
@@ -199,7 +200,10 @@ namespace intblast {
         m_core.reset();
         m_vars.reset();
         m_is_plugin = false;
-        m_solver = mk_smt2_solver(m, s.params(), symbol::null);
+        params_ref p(s.params());
+        p.set_uint("smt.bv.solver", 0);
+        p.set_bool("sat.smt", false);
+        m_solver = mk_smt_solver(m, p, symbol::null);
 
         for (unsigned i = 0; i < m_translate.size(); ++i)
             m_translate[i] = nullptr;
@@ -211,21 +215,36 @@ namespace intblast {
             es.push_back(m.mk_eq(a->get_expr(), b->get_expr()));
         
         original_es.append(es);
-        translate(es);
 
-        for (auto e : m_vars) {
-            auto v = translated(e);
-            auto b = rational::power_of_two(bv.get_bv_size(e));
-            m_solver->assert_expr(a.mk_le(a.mk_int(0), v));
-            m_solver->assert_expr(a.mk_lt(v, a.mk_int(b)));
+        
+        verbose_stream() << es << "\n";
+
+        lbool r;
+        if (true) {
+            params_ref p;
+            p.set_uint("smt.bv.solver",0);
+            m_solver->updt_params(p);
+            r = m_solver->check_sat(es);
+            
         }
-
-        IF_VERBOSE(2, verbose_stream() << "check\n" << original_es << "\n");
-        IF_VERBOSE(3, verbose_stream() << "check\n";
-                   m_solver->display(verbose_stream());
-                   verbose_stream() << es << "\n");
-
-        lbool r = m_solver->check_sat(es);
+        else {
+        
+            translate(es);
+            
+            for (auto e : m_vars) {
+                auto v = translated(e);
+                auto b = rational::power_of_two(bv.get_bv_size(e));
+                m_solver->assert_expr(a.mk_le(a.mk_int(0), v));
+                m_solver->assert_expr(a.mk_lt(v, a.mk_int(b)));
+            }
+            
+            IF_VERBOSE(2, verbose_stream() << "check\n" << original_es << "\n");
+            IF_VERBOSE(3, verbose_stream() << "check\n";
+                       m_solver->display(verbose_stream());
+                       verbose_stream() << es << "\n");
+            
+            r = m_solver->check_sat(es);
+        }
 
         m_solver->collect_statistics(m_stats);
 
@@ -356,6 +375,8 @@ namespace intblast {
         expr_fast_mark1 visited;
         for (expr* e : es) {
             if (is_translated(e))
+                continue;
+            if (visited.is_marked(e))
                 continue;
             sorted.push_back(e);
             visited.mark(e);
@@ -936,8 +957,11 @@ namespace intblast {
             set_translated(e, m.mk_ite(arg(0), arg(1), arg(2)));
         else if (m_is_plugin)
             set_translated(e, e);
-        else
+        else {
+            verbose_stream() << mk_pp(e, m) << "\n";
+            verbose_stream() << mk_pp(m.mk_app(e->get_decl(), m_args), m) << "\n";
             set_translated(e, m.mk_app(e->get_decl(), m_args));
+        }
     }
 
     rational solver::get_value(expr* e) const {

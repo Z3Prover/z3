@@ -652,6 +652,7 @@ namespace algebraic_numbers {
                 // collect non-basic roots
                 sz = m_isolate_lowers.size();
                 for (unsigned i = 0; i < sz; i++) {
+                    m_limit.inc();
                     mpbq & lower = m_isolate_lowers[i];
                     mpbq & upper = m_isolate_uppers[i];
                     if (!upm().isolating2refinable(f.size(), f.data(), bqm(), lower, upper)) {
@@ -664,6 +665,7 @@ namespace algebraic_numbers {
                         roots.push_back(numeral(c));
                     }
                 }
+                checkpoint();
                 m_isolate_roots.reset();
                 m_isolate_lowers.reset();
                 m_isolate_uppers.reset();

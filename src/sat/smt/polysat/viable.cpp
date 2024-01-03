@@ -160,7 +160,7 @@ namespace polysat {
 
     void viable::update_value_to_high(rational& val, entry* e) {
         unsigned v_width = m_num_bits;
-        unsigned b_width = c.size(e->var);
+        unsigned b_width = e->bit_width;
         SASSERT(b_width <= v_width);
 
         auto hi = e->interval.hi_val();
@@ -456,6 +456,11 @@ namespace polysat {
     bool viable::is_conflict() {
         auto last = m_explain.back();
         unsigned bw = last.e->bit_width;
+        if (last.e->interval.is_full()) {
+            m_explain.reset();
+            m_explain.push_back(last);
+            return true;
+        }
         for (unsigned i = m_explain.size() - 1; i-- > 0; ) {
             auto e = m_explain[i];
             if (bw < e.e->bit_width)
@@ -472,17 +477,27 @@ namespace polysat {
     */
     dependency_vector viable::explain() {
         dependency_vector result;
-        SASSERT(is_conflict());
+        SASSERT(is_conflict());        
         uint_set seen;
         auto last = m_explain.back();
         auto after = last;
         unsigned bw = c.size(last.e->var);
+
+        result.append(m_fixed_bits.explain());
+
+        if (last.e->interval.is_full()) {
+            if (m_var != last.e->var)
+                result.push_back(offset_claim(m_var, { last.e->var, 0 }));
+            for (auto const& sc : last.e->side_cond)
+                result.push_back(c.propagate(sc, c.explain_eval(sc)));
+            result.push_back(c.get_dependency(last.e->constraint_index));
+            SASSERT(m_explain.size() == 1);
+        }
+
         for (unsigned i = m_explain.size() - 1; i-- > 0; ) {
             auto e = m_explain[i];
             auto index = e.e->constraint_index;
             explain_overlap(e, after, result);
-            if (e.e == last.e)
-                break;
             after = e;
             if (seen.contains(index.id))
                 continue;
@@ -492,9 +507,11 @@ namespace polysat {
             for (auto const& sc : e.e->side_cond)
                 result.push_back(c.propagate(sc, c.explain_eval(sc)));
             result.push_back(c.get_dependency(index));
+            if (e.e == last.e)
+                break;
         }
 
-        result.append(m_fixed_bits.explain());
+        
         TRACE("bv", tout << "viable-explain v" << m_var << " - " << result.size() << "\n");
         return result;
     }
@@ -524,18 +541,25 @@ namespace polysat {
 
     void viable::explain_overlap(explanation const& e, explanation const& after, dependency_vector& deps) {
         auto bw = c.size(e.e->var);
+        auto ebw = e.e->bit_width;
         auto bw_after = c.size(after.e->var);
+        auto abw = after.e->bit_width;
         auto t = e.e->interval.hi();
         auto lo = after.e->interval.lo();
         auto hi = after.e->interval.hi();
 
-        verbose_stream() << e.e->interval << " then " << after.e->interval << "\n";
+        verbose_stream() << e.e->interval << " " << e.value << " " << t << " then " << after.e->interval << "\n";
 
         SASSERT(after.e->bit_width <= bw_after);
-        SASSERT(e.e->bit_width <= bw);
+        SASSERT(ebw <= bw);
+
+        if (ebw < bw) {
+            NOT_IMPLEMENTED_YET();
+        }
 
         if (bw_after > bw) {
             auto eq = cs.eq(t, c.value(mod(e.value, rational::power_of_two(bw)), bw));
+            SASSERT(!eq.is_always_false());
             if (!eq.is_always_true())
                 deps.push_back(c.propagate(eq, c.explain_eval(eq)));
             t.reset(lo.manager());
@@ -544,19 +568,20 @@ namespace polysat {
 
         if (bw_after < bw) {
             auto eq = cs.eq(t, c.value(e.value, bw));
+            SASSERT(!eq.is_always_false());
             if (!eq.is_always_true())
                 deps.push_back(c.propagate(eq, c.explain_eval(eq)));
             t.reset(lo.manager());
             t = c.value(mod(e.value, rational::power_of_two(bw_after)), bw_after);
         }
 
-        if (after.e->bit_width < bw_after) 
+        if (abw < bw_after) 
             t *= rational::power_of_two(bw_after - after.e->bit_width);            
         
         auto sc = cs.ult(t - lo, hi - lo);
-        verbose_stream() << "in interval: " << sc << "\n";
         if (sc.is_always_true())
             return;
+        verbose_stream() << "in interval: " << sc << "\n";
         SASSERT(!sc.is_always_false());
         deps.push_back(c.propagate(sc, c.explain_eval(sc)));
     }
