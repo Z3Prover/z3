@@ -92,7 +92,6 @@ namespace polysat {
         init_overlaps(v);
         m_start = lo;
 
-        entry* e = nullptr;
         // verbose_stream() << "find viable v" << v << " starting with " << lo << "\n";
 
         for (unsigned rounds = 0; rounds < 10; ) {
@@ -107,14 +106,11 @@ namespace polysat {
                 continue;
             }
 
+            m_explain.push_back(n);
+            if (is_conflict()) 
+                return find_t::empty;            
+
             update_value_to_high(lo, n);
-
-
-            // TODO:
-            // track evidence n -> e
-            // check for loop.
-            //
-            e = n;
         }
 
         return find_t::resource_out;        
@@ -124,10 +120,7 @@ namespace polysat {
         m_overlaps.reset();
         c.get_bitvector_suffixes(v, m_overlaps);
         std::sort(m_overlaps.begin(), m_overlaps.end(), [&](auto const& x, auto const& y) { return c.size(x.v) < c.size(y.v); });
-        verbose_stream() << "overlaps v" << v << " - ";
-        for (auto ovl : m_overlaps)
-            verbose_stream() << "v" << ovl.v << " ";
-        verbose_stream() << "\n";
+        display_state(verbose_stream());
         display(verbose_stream());
     }
 
@@ -140,7 +133,8 @@ namespace polysat {
     // 
 
     viable::entry* viable::find_overlap(rational& val) {
-        if (!m_fixed_bits.next(val)) {
+        // disable fixed-bits until added to explanation trail.
+        if (false && !m_fixed_bits.next(val)) {
             val = 0;
             VERIFY(m_fixed_bits.next(val));
         }
@@ -458,35 +452,85 @@ namespace polysat {
     }
 
     /*
+    * The current explanation trail is a conflict if the top-most entry
+    * is repeated below and there is no entry with higher bit-width between.
+    */
+    bool viable::is_conflict() {
+        auto last = m_explain.back();
+        unsigned bw = last->bit_width;
+        for (unsigned i = m_explain.size() - 1; i-- > 0; ) {
+            auto e = m_explain[i];
+            if (bw < e->bit_width)
+                return false;
+            if (last == e)
+                return true;
+        }
+        return false;
+    }
+
+    /*
     * Explain why the current variable is not viable or
     * or why it can only have a single value.
     */
     dependency_vector viable::explain() {
         dependency_vector result;
+        SASSERT(is_conflict());
         uint_set seen;
-        for (auto e : m_explain) {
+        auto last = m_explain.back();
+        auto after = last;
+        unsigned bw = c.size(last->var);
+        for (unsigned i = m_explain.size() - 1; i-- > 0; ) {
+            auto e = m_explain[i];
             auto index = e->constraint_index;
+            explain_overlap(e, after, result);
+            if (e == last)
+                break;
+            after = e;
             if (seen.contains(index.id))
                 continue;
-            if (m_var != e->var)
-                result.push_back(offset_claim(m_var, {e->var, 0}));
             seen.insert(index.id);
-            for (auto const& sc : e->side_cond)               
-                result.push_back(c.propagate(sc, c.explain_eval(sc)));              
-            auto const& [sc, d, value] = c.m_constraint_index[index.id];
-            result.push_back(d);            
-        }
-        for (auto [p, e] : m_ineqs) {
-            auto t = p->interval.hi(), lo = e->interval.lo(), hi = e->interval.hi();
-            auto sc = cs.ult(t - lo, hi - lo);
-            verbose_stream() << "Overlap " << t << " in [" << lo << ", " << hi << "[: " << sc << "\n";
-            if (!sc.is_always_true())
+            if (m_var != e->var)
+                result.push_back(offset_claim(m_var, { e->var, 0 }));
+            for (auto const& sc : e->side_cond)
                 result.push_back(c.propagate(sc, c.explain_eval(sc)));
+            result.push_back(c.get_dependency(index));
         }
 
         result.append(m_fixed_bits.explain());
         TRACE("bv", tout << "viable-explain v" << m_var << " - " << result.size() << "\n");
         return result;
+    }
+
+    void viable::explain_overlap(entry* e, entry* after, dependency_vector& deps) {
+        auto bw = c.size(e->var);
+        auto bw_after = c.size(after->var);
+        auto t = e->interval.hi();
+        auto lo = after->interval.lo();
+        auto hi = after->interval.hi();
+
+        SASSERT(after->bit_width <= bw_after);
+        SASSERT(e->bit_width <= bw);
+
+        // if e/after use same bit-width, but different layer, then ..
+        // 
+        if (bw < bw_after) {
+            SASSERT(after->bit_width == bw_after);
+            SASSERT(e->bit_width = bw);
+            verbose_stream() << t << " " << lo << " " << hi << "\n";
+            auto s = c.mk_extract(bw - 1, 0, t);
+            t.reset(lo.manager());
+            t = s;
+        }
+        else if (bw > bw_after) {
+            throw default_exception("Nyi after");
+//            auto s = c.mk_zero_extend(bw - bw_after, t);
+//            t.reset(lo.manager());
+//            t = s;
+        }
+        auto sc = cs.ult(t - lo, hi - lo);
+        if (sc.is_always_true())
+            return;
+        deps.push_back(c.propagate(sc, c.explain_eval(sc)));
     }
 
     /*

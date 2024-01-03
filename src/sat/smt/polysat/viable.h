@@ -121,7 +121,8 @@ namespace polysat {
         entry* find_overlap(pvar w, layer& l, rational& val);
 
         void update_value_to_high(rational& val, entry* e);
-
+        bool is_conflict();
+        void explain_overlap(entry* e, entry* after, dependency_vector& deps);
 
         lbool next_viable_layer(pvar w, layer& l, rational& val);
 
