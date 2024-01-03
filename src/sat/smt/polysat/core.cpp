@@ -449,6 +449,18 @@ namespace polysat {
         s.get_bitvector_sub_slices(v, out);
     }
 
+    pdd core::mk_zero_extend(unsigned sz, pdd const& p) { 
+        if (p.is_val()) 
+            return value(p.val(), p.manager().power_of_2() + sz);        
+        throw default_exception("nyi zero_extend"); 
+    }
+
+    pdd core::mk_extract(unsigned hi, unsigned lo, pdd const& p) {
+        if (p.is_val()) 
+            return value(p.val(), hi - lo + 1);        
+        throw default_exception("nyi extract");
+    }
+
     bool core::inconsistent() const {
         return s.inconsistent();
     }

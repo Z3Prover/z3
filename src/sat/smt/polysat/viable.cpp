@@ -85,7 +85,6 @@ namespace polysat {
 
     find_t viable::find_viable(pvar v, rational& lo) {
         m_explain.reset();
-        m_ineqs.reset();
         m_var = v;
         m_num_bits = c.size(v);
         m_fixed_bits.reset(v);
@@ -106,11 +105,10 @@ namespace polysat {
                 continue;
             }
 
-            m_explain.push_back(n);
-            if (is_conflict()) 
-                return find_t::empty;            
-
             update_value_to_high(lo, n);
+            m_explain.push_back({ n, lo });
+            if (is_conflict()) 
+                return find_t::empty;                        
         }
 
         return find_t::resource_out;        
@@ -457,12 +455,12 @@ namespace polysat {
     */
     bool viable::is_conflict() {
         auto last = m_explain.back();
-        unsigned bw = last->bit_width;
+        unsigned bw = last.e->bit_width;
         for (unsigned i = m_explain.size() - 1; i-- > 0; ) {
             auto e = m_explain[i];
-            if (bw < e->bit_width)
+            if (bw < e.e->bit_width)
                 return false;
-            if (last == e)
+            if (last.e == e.e)
                 return true;
         }
         return false;
@@ -478,20 +476,20 @@ namespace polysat {
         uint_set seen;
         auto last = m_explain.back();
         auto after = last;
-        unsigned bw = c.size(last->var);
+        unsigned bw = c.size(last.e->var);
         for (unsigned i = m_explain.size() - 1; i-- > 0; ) {
             auto e = m_explain[i];
-            auto index = e->constraint_index;
+            auto index = e.e->constraint_index;
             explain_overlap(e, after, result);
-            if (e == last)
+            if (e.e == last.e)
                 break;
             after = e;
             if (seen.contains(index.id))
                 continue;
             seen.insert(index.id);
-            if (m_var != e->var)
-                result.push_back(offset_claim(m_var, { e->var, 0 }));
-            for (auto const& sc : e->side_cond)
+            if (m_var != e.e->var)
+                result.push_back(offset_claim(m_var, { e.e->var, 0 }));
+            for (auto const& sc : e.e->side_cond)
                 result.push_back(c.propagate(sc, c.explain_eval(sc)));
             result.push_back(c.get_dependency(index));
         }
@@ -501,35 +499,65 @@ namespace polysat {
         return result;
     }
 
-    void viable::explain_overlap(entry* e, entry* after, dependency_vector& deps) {
-        auto bw = c.size(e->var);
-        auto bw_after = c.size(after->var);
-        auto t = e->interval.hi();
-        auto lo = after->interval.lo();
-        auto hi = after->interval.hi();
+    /*
+     * For two consecutive intervals 
+     * 
+     * - 2^kx \not\in [lo, hi[, 
+     * - 2^k'y \not\in [lo', hi'[
+     * 
+     * Where:
+     *  - w is the width of x, w' the width of y
+     *  - bw is the bit-width of x, bw' the bit-width of y
+     *  - k = w - bwx, k' = w' - bw'
+     * 
+     * We want to encode the constraint that (2^k' hi)[w'] in [lo', hi'[
+     * 
+     * Note that x in [lo, hi[ <=> x - lo < hi - lo
+     * If k' = 0, w' = w, there is nothing to do.
+     * If w' > w, then hi <- zero_extend(w' - w, hi)
+     * If w' < w, then hi <- hi[w' - 1:0]
+     * If k' > 0, then hi <- 2^k' hi
+     * 
+     * TODO: So far we assume that hi is divisible by 2^k.
+     * 
+     */
 
-        SASSERT(after->bit_width <= bw_after);
-        SASSERT(e->bit_width <= bw);
+    void viable::explain_overlap(explanation const& e, explanation const& after, dependency_vector& deps) {
+        auto bw = c.size(e.e->var);
+        auto bw_after = c.size(after.e->var);
+        auto t = e.e->interval.hi();
+        auto lo = after.e->interval.lo();
+        auto hi = after.e->interval.hi();
 
-        // if e/after use same bit-width, but different layer, then ..
-        // 
-        if (bw < bw_after) {
-            SASSERT(after->bit_width == bw_after);
-            SASSERT(e->bit_width = bw);
-            verbose_stream() << t << " " << lo << " " << hi << "\n";
-            auto s = c.mk_extract(bw - 1, 0, t);
+        verbose_stream() << e.e->interval << " then " << after.e->interval << "\n";
+
+        SASSERT(after.e->bit_width <= bw_after);
+        SASSERT(e.e->bit_width <= bw);
+
+        if (bw_after > bw) {
+            auto eq = cs.eq(t, c.value(mod(e.value, rational::power_of_two(bw)), bw));
+            if (!eq.is_always_true())
+                deps.push_back(c.propagate(eq, c.explain_eval(eq)));
             t.reset(lo.manager());
-            t = s;
+            t = c.value(e.value, bw_after);            
         }
-        else if (bw > bw_after) {
-            throw default_exception("Nyi after");
-//            auto s = c.mk_zero_extend(bw - bw_after, t);
-//            t.reset(lo.manager());
-//            t = s;
+
+        if (bw_after < bw) {
+            auto eq = cs.eq(t, c.value(e.value, bw));
+            if (!eq.is_always_true())
+                deps.push_back(c.propagate(eq, c.explain_eval(eq)));
+            t.reset(lo.manager());
+            t = c.value(mod(e.value, rational::power_of_two(bw_after)), bw_after);
         }
+
+        if (after.e->bit_width < bw_after) 
+            t *= rational::power_of_two(bw_after - after.e->bit_width);            
+        
         auto sc = cs.ult(t - lo, hi - lo);
+        verbose_stream() << "in interval: " << sc << "\n";
         if (sc.is_always_true())
             return;
+        SASSERT(!sc.is_always_false());
         deps.push_back(c.propagate(sc, c.explain_eval(sc)));
     }
 
@@ -647,8 +675,7 @@ namespace polysat {
         }
         if (ne->interval.is_full()) {
             m_explain.reset();
-            m_ineqs.reset();
-            m_explain.push_back(ne);
+            m_explain.push_back({ ne, rational::zero() });
             m_fixed_bits.reset();
             m_var = v;
             return false;

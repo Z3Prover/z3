@@ -86,15 +86,15 @@ namespace polysat {
         };
 
         // short for t in [lo,hi[ 
-        struct interval_member {
-            entry* prev, * next;
+        struct explanation {
+            entry* e;
+            rational value;
         };
         ptr_vector<entry>       m_alloc;
         vector<layers>          m_units;        // set of viable values based on unit multipliers, layered by bit-width in descending order
         ptr_vector<entry>       m_equal_lin;    // entries that have non-unit multipliers, but are equal
         ptr_vector<entry>       m_diseq_lin;    // entries that have distinct non-zero multipliers       
-        vector<interval_member> m_ineqs;        // inequalities to justify that values are not viable.
-        ptr_vector<entry>       m_explain;      // entries that explain the current propagation or conflict
+        vector<explanation>     m_explain;      // entries that explain the current propagation or conflict
 
         bool well_formed(entry* e);
         bool well_formed(layers const& ls);
@@ -122,7 +122,7 @@ namespace polysat {
 
         void update_value_to_high(rational& val, entry* e);
         bool is_conflict();
-        void explain_overlap(entry* e, entry* after, dependency_vector& deps);
+        void explain_overlap(explanation const& e, explanation const& after, dependency_vector& deps);
 
         lbool next_viable_layer(pvar w, layer& l, rational& val);
 
