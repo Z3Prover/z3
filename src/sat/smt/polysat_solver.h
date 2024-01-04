@@ -230,6 +230,8 @@ namespace polysat {
         void validate_conflict(sat::literal_vector const& core, euf::enode_pair_vector const& eqs);
         void validate_axiom(sat::literal_vector const& clause);
 
+        std::ostream& display_clause(char const * name, std::ostream& out, sat::literal_vector const& lits) const;
+
         void explain_dep(dependency const& d, euf::enode_pair_vector& eqs, sat::literal_vector& lits);
 
         std::pair<sat::literal_vector, euf::enode_pair_vector> explain_deps(dependency_vector const& deps);

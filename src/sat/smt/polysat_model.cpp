@@ -114,4 +114,11 @@ namespace polysat {
         auto r = m_intblast.check_axiom(clause);
         VERIFY (r != l_true);
     }
+
+    std::ostream& solver::display_clause(char const* name, std::ostream& out, sat::literal_vector const& lits) const {
+        out << name << ":\n";
+        for (auto lit : lits)
+            out << ctx.literal2expr(lit) << "\n";
+        return out;
+    }
 }

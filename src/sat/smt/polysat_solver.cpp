@@ -345,8 +345,8 @@ namespace polysat {
                 TRACE("bv", tout << "literal is true " << ctx.literal2expr(lit) << "\n");
                 return false;
             }
-        TRACE("bv", tout << name << ": "; for (auto lit : lits) tout << ctx.literal2expr(lit) << " "; tout << "\n");
-        IF_VERBOSE(1, verbose_stream() << name << ": "; for (auto lit : lits) verbose_stream() << ctx.literal2expr(lit) << " "; verbose_stream() << "\n");
+        TRACE("bv", display_clause(name, tout, lits));
+        IF_VERBOSE(1, display_clause(name, verbose_stream(), lits));
         validate_axiom(lits);
         s().add_clause(lits.size(), lits.data(), sat::status::th(is_redundant, get_id(), hint));
         return true;
@@ -368,7 +368,17 @@ namespace polysat {
                 lits.push_back(lit);
         }
         validate_axiom(lits);
-        IF_VERBOSE(1, verbose_stream() << name << ": "; for (auto lit : lits) verbose_stream() << ctx.literal2expr(lit) << " "; verbose_stream() << "\n");
+
+        unsigned j = 0;
+        for (auto lit : lits) {
+            if (s().value(lit) == l_true && s().lvl(lit) == 0)
+                return;
+            if (s().value(lit) == l_false && s().lvl(lit) == 0)
+                continue;
+            lits[j++] = lit;
+        }
+        lits.shrink(j);        
+        IF_VERBOSE(1, display_clause(name, verbose_stream(), lits));
         s().add_clause(lits.size(), lits.data(), sat::status::th(is_redundant, get_id(), hint));
     }
 

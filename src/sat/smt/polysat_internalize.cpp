@@ -658,7 +658,6 @@ namespace polysat {
         auto eq0 = eq_internalize(e, bv.mk_numeral(0, sz_e));
         auto gelo = mk_literal(bv.mk_ule(bv.mk_numeral(rational::power_of_two(lo), sz_x), x));  
         auto name = "extract";
-        verbose_stream() << "extract axiom " << mk_pp(e, m) << " " << eq0 << " " << s().value(eq0) << " " << gelo << " " << s().value(gelo) << "\n";
         add_axiom(name, { eq0, gelo });
         if (hi + 1 == sz_e) 
             add_axiom(name, { ~eq0, ~gelo });
