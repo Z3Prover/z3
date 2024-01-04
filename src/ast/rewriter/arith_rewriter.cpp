@@ -1291,8 +1291,8 @@ br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & resul
     }
 
     expr* x, *y;
-    if (is_num2 && v2.is_pos() && m_util.is_mul(arg1, x, y) && m_util.is_numeral(x, v1, is_int) && divides(v1, v2)) {
-        result = m_util.mk_mul(x, m_util.mk_mod(y, m_util.mk_int(v2/v1)));        
+    if (is_num2 && v2.is_pos() && m_util.is_mul(arg1, x, y) && m_util.is_numeral(x, v1, is_int) && v1 > 0 && divides(v1, v2)) {
+        result = m_util.mk_mul(m_util.mk_int(v1), m_util.mk_mod(y, m_util.mk_int(v2/v1)));        
         return BR_REWRITE1;
     }
 
