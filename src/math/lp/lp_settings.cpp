@@ -32,5 +32,4 @@ void lp::lp_settings::updt_params(params_ref const& _p) {
     report_frequency = p.arith_rep_freq();
     m_simplex_strategy = static_cast<lp::simplex_strategy_enum>(p.arith_simplex_strategy());
     m_nlsat_delay = p.arith_nl_delay();
-    m_gomory_simplify = p.arith_gomory_simplify();
 }

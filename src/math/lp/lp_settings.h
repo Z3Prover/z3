@@ -187,7 +187,6 @@ private:
     random_gen                m_rand;
 
 public:
-    bool         m_gomory_simplify = false;
     void updt_params(params_ref const& p);
     bool enable_hnf() const { return m_enable_hnf; }
     unsigned nlsat_delay() const { return m_nlsat_delay; }

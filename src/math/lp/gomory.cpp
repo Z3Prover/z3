@@ -22,7 +22,6 @@
 #include "math/lp/lar_solver.h"
 #include "math/lp/lp_utils.h"
 
-#define SMALL_CUTS 1
 namespace lp {
 
 struct create_cut {
@@ -36,9 +35,7 @@ struct create_cut {
     mpq                   m_one_minus_f;
     mpq                   m_fj;
     mpq                   m_one_minus_fj;
-#if SMALL_CUTS
     mpq                   m_abs_max, m_big_number;
-#endif
     int                   m_polarity;
     bool                  m_found_big;
     u_dependency*         m_dep;
@@ -84,11 +81,8 @@ struct create_cut {
         }        
         m_t.add_monomial(new_a, j);
         TRACE("gomory_cut_detail", tout << "new_a = " << new_a << ", k = " << m_k << "\n";);
-#if SMALL_CUTS
-        // if (numerator(new_a).is_big()) throw found_big(); 
         if (numerator(new_a) > m_big_number)
             m_found_big = true;
-#endif
     }
 
     void set_polarity(int p) {
@@ -134,11 +128,8 @@ struct create_cut {
         TRACE("gomory_cut_detail_real", tout << "add " << new_a << "*v" << j << ", k: " << m_k << "\n";
               tout << "m_t =  "; lia.lra.print_term(m_t, tout) << "\nk: " << m_k << "\n";);
         
-#if SMALL_CUTS
-        // if (numerator(new_a).is_big()) throw found_big(); 
         if (numerator(new_a) > m_big_number)
             m_found_big = true;
-#endif
     }
 
     lia_move report_conflict_from_gomory_cut() {
@@ -265,8 +256,6 @@ public:
               tout << "1 - m_f: " << 1 - m_f << ", get_value(m_inf_col).x - m_f = " << get_value(m_inf_col).x - m_f << "\n";);
         lp_assert(m_f.is_pos() && (get_value(m_inf_col).x - m_f).is_int());  
 
-        bool some_int_columns = false;
-#if SMALL_CUTS
         m_abs_max = 0;
         for (const auto & p : m_row) {
             mpq t = abs(ceil(p.coeff()));
@@ -274,7 +263,7 @@ public:
                 m_abs_max = t;
         }
         m_big_number = m_abs_max.expt(2);
-#endif
+
         for (const auto & p : m_row) {
             unsigned j = p.var();
             if (j == m_inf_col) continue;
@@ -288,7 +277,6 @@ public:
             if (is_real(j))
                 real_case_in_gomory_cut(- p.coeff(), j);
             else if (!p.coeff().is_int()) {
-                some_int_columns = true;
                 m_fj = fractional_part(-p.coeff());
                 m_one_minus_fj = 1 - m_fj;
                 int_case_in_gomory_cut(j);
@@ -315,8 +303,6 @@ public:
             return report_conflict_from_gomory_cut();
         }
         TRACE("gomory_cut", print_linear_combination_of_column_indices_only(m_t.coeffs_as_vector(), tout << "gomory cut: "); tout << " >= " << m_k << std::endl;);
-        if (lia.lra.settings().m_gomory_simplify && some_int_columns)
-            simplify_inequality();
         
         m_dep = nullptr;
         for (auto c : *m_ex) 
@@ -329,99 +315,6 @@ public:
         lia.settings().stats().m_gomory_cuts++;
         return lia_move::cut;
     }
-
-    // TODO: use this also for HNF cuts?
-    mpq                 m_lcm_den = { mpq(1) };
-    
-    void simplify_inequality() {
-
-        auto divd = [](mpq& r, mpq const& d) {
-            r /= d;
-            if (!r.is_int())
-                r = ceil(r);
-        };
-        SASSERT(!lia.m_upper);
-        lp_assert(!m_t.is_empty());
-        // k = 1 + sum of m_t at bounds
-        lar_term t = lia.lra.unfold_nested_subterms(m_t);
-        auto pol = t.coeffs_as_vector();
-        m_t.clear();
-        if (pol.size() == 1 && is_int(pol[0].second)) {
-            TRACE("gomory_cut_detail", tout << "pol.size() is 1" << std::endl;);
-            auto const& [a, v] = pol[0];
-            lp_assert(is_int(v));
-            if (a.is_pos()) { // we have av >= k
-                divd(m_k, a);
-                m_t.add_monomial(mpq(1), v);
-            }
-            else {
-                // av >= k
-                // a/-a*v >= k / - a
-                // -v >= k / - a
-                // -v >= ceil(k / -a)
-                divd(m_k, -a);
-                m_t.add_monomial(-mpq(1), v);
-            }
-        }
-        else {
-            m_lcm_den = denominator(m_k);
-            for (auto const& [c, v] : pol)
-                m_lcm_den = lcm(m_lcm_den, denominator(c));
-            lp_assert(m_lcm_den.is_pos());
-            bool int_row = all_of(pol, [&](auto const& kv) { return is_int(kv.second); });
-            TRACE("gomory_cut_detail", tout << "pol.size() > 1 den: " << m_lcm_den << std::endl;);
-                
-            if (!m_lcm_den.is_one()) {
-                // normalize coefficients of integer parameters to be integers.
-                for (auto & [c,v]: pol) {
-                    c *= m_lcm_den;
-                    SASSERT(!is_int(v) || c.is_int());
-                }
-                m_k *= m_lcm_den;
-            }
-            // ax + by >= k
-            // b > 0, c1 <= y <= c2
-            // ax + b*c2 >= ax + by >= k
-            // => 
-            // ax >= k - by >= k - b*c1
-            // b < 0
-            // ax + b*c1 >= ax + by >= k
-            // 
-            unsigned j = 0, i = 0;
-            for (auto & [c, v] : pol) {
-                if (lia.is_fixed(v)) {
-                    push_explanation(column_lower_bound_constraint(v));
-                    push_explanation(column_upper_bound_constraint(v));
-                    m_k -= c * lower_bound(v).x;
-                }
-                else
-                    pol[j++] = pol[i];
-                ++i;
-            }
-            pol.shrink(j);
-
-            // gcd reduction is loss-less:
-            mpq g(1);
-            for (const auto & [c, v] : pol)
-                g = gcd(g, c);
-            if (!int_row)
-                g = gcd(g, m_k);
-
-            if (g != 1) {
-                for (auto & [c, v] : pol)
-                    c /= g;
-                divd(m_k, g);
-            }
-                
-            for (const auto & [c, v]: pol) 
-                m_t.add_monomial(c, v);
-            VERIFY(m_t.size() > 0);
-        }
-
-        TRACE("gomory_cut_detail", tout << "k = " << m_k << std::endl;);
-        lp_assert(m_k.is_int());
-    }
-
 
     create_cut(lar_term & t, mpq & k, explanation* ex, unsigned basic_inf_int_j, const row_strip<mpq>& row, int_solver& lia) :
         m_t(t),
@@ -570,7 +463,7 @@ public:
             
         }
 
-// this way we create bounds for the variables in polar cases even where the terms had big numbers
+// this way we create bounds for the variables in polar cases even where the terms have big numbers
         for (auto const& p : polar_vars) {
             if (p.polarity == 1) {
                 lra.update_column_type_and_bound(p.j, lp::lconstraint_kind::LE, floor(lra.get_column_value(p.j).x), p.dep);
