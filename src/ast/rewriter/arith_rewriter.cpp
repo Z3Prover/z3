@@ -546,6 +546,12 @@ br_status arith_rewriter::mk_le_ge_eq_core(expr * arg1, expr * arg2, op_kind kin
         }
     }
 
+    expr* x, * y;
+    if (kind == EQ && is_zero(arg2) && m_util.is_mul(arg1, x, y)) {
+        result = m.mk_or(m.mk_eq(x, arg2), m.mk_eq(y, arg2));
+        return BR_REWRITE2;
+    }
+
 #define ANUM_LE_GE_EQ() {                                                               \
     switch (kind) {                                                                     \
     case LE: result = am.le(v1, v2) ? m.mk_true() : m.mk_false(); return BR_DONE; \
@@ -1293,7 +1299,12 @@ br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & resul
     expr* x, *y;
     if (is_num2 && v2.is_pos() && m_util.is_mul(arg1, x, y) && m_util.is_numeral(x, v1, is_int) && divides(v1, v2)) {
         result = m_util.mk_mul(x, m_util.mk_mod(y, m_util.mk_int(v2/v1)));        
-        return BR_REWRITE1;
+        return BR_REWRITE2;
+    }
+
+    if (is_num2 && v2 == 2 && m_util.is_mul(arg1, x, y)) {
+        result = m_util.mk_mul(m_util.mk_mod(x, m_util.mk_int(2)), m_util.mk_mod(y, m_util.mk_int(2)));
+        return BR_REWRITE2;
     }
 
     return BR_FAILED;

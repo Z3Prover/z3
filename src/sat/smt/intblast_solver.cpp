@@ -227,6 +227,12 @@ namespace intblast {
                 m_solver->assert_expr(a.mk_lt(v, a.mk_int(b)));
             }
 
+            for (unsigned i = 0; i < es.size(); ++i) {
+                expr_ref tmp(es.get(i), m);
+                ctx.get_rewriter()(tmp);
+                es[i] = tmp;
+            }
+
             IF_VERBOSE(2, verbose_stream() << "check\n" << original_es << "\n");
             
             IF_VERBOSE(2,

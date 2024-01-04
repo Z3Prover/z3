@@ -118,8 +118,8 @@ namespace polysat {
         m_overlaps.reset();
         c.get_bitvector_suffixes(v, m_overlaps);
         std::sort(m_overlaps.begin(), m_overlaps.end(), [&](auto const& x, auto const& y) { return c.size(x.v) < c.size(y.v); });
-        display_state(verbose_stream());
-        display(verbose_stream());
+        //display_state(verbose_stream());
+        //display(verbose_stream());
     }
 
 
@@ -531,11 +531,8 @@ namespace polysat {
      * 
      * Note that x in [lo, hi[ <=> x - lo < hi - lo
      * If k' = 0, w' = w, there is nothing to do.
-     * If w' > w, then hi <- zero_extend(w' - w, hi)
-     * If w' < w, then hi <- hi[w' - 1:0]
-     * If k' > 0, then hi <- 2^k' hi
      * 
-     * TODO: So far we assume that hi is divisible by 2^k.
+     * TODO - describe.
      * 
      */
 
@@ -548,40 +545,36 @@ namespace polysat {
         auto lo = after.e->interval.lo();
         auto hi = after.e->interval.hi();
 
-        verbose_stream() << e.e->interval << " " << e.value << " " << t << " then " << after.e->interval << "\n";
-
         SASSERT(after.e->bit_width <= bw_after);
         SASSERT(ebw <= bw);
 
-        if (ebw < bw) {
-            NOT_IMPLEMENTED_YET();
-        }
+        auto const& p2b = rational::power_of_two(bw);
+        auto const& p2eb = rational::power_of_two(bw - ebw);
 
-        if (bw_after > bw) {
-            auto eq = cs.eq(t, c.value(mod(e.value, rational::power_of_two(bw)), bw));
+        auto t_equal_value = [&]() {
+            auto vhi = c.value(mod(e.value * p2eb + 1, p2b), bw);
+            auto vlo = c.value(mod((e.value - 1) * p2eb - 1, p2b), bw);
+            // t in ] (value - 1) * 2^{bw - ebw} ; value * 2^{bw - ebw} ]
+            // t in [ (value - 1) * 2^{bw - ebw} - 1 ; value * 2^{bw - ebw} + 1 [
+            auto eq = cs.ult(t - vlo, vhi - vlo);
             SASSERT(!eq.is_always_false());
             if (!eq.is_always_true())
                 deps.push_back(c.propagate(eq, c.explain_eval(eq)));
-            t.reset(lo.manager());
-            t = c.value(e.value, bw_after);            
-        }
+        };
 
-        if (bw_after < bw) {
-            auto eq = cs.eq(t, c.value(e.value, bw));
-            SASSERT(!eq.is_always_false());
-            if (!eq.is_always_true())
-                deps.push_back(c.propagate(eq, c.explain_eval(eq)));
+
+        if (ebw < bw || bw_after != bw) {
+            t_equal_value();
             t.reset(lo.manager());
             t = c.value(mod(e.value, rational::power_of_two(bw_after)), bw_after);
         }
 
         if (abw < bw_after) 
-            t *= rational::power_of_two(bw_after - after.e->bit_width);            
+            t *= rational::power_of_two(bw_after - abw);            
         
         auto sc = cs.ult(t - lo, hi - lo);
         if (sc.is_always_true())
             return;
-        verbose_stream() << "in interval: " << sc << "\n";
         SASSERT(!sc.is_always_false());
         deps.push_back(c.propagate(sc, c.explain_eval(sc)));
     }
@@ -627,7 +620,7 @@ namespace polysat {
             unsigned const k = ne->coeff.parity(w);
             SASSERT(k > 0);
 
-            IF_VERBOSE(13, display_one(verbose_stream() << "try to reduce entry: ", v, ne) << "\n");
+            IF_VERBOSE(3, display_one(verbose_stream() << "try to reduce entry: ", v, ne) << "\n");
 
             // reduction of coeff gives us a unit entry
             //
