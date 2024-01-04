@@ -538,8 +538,11 @@ public:
             create_cut cc(lia.m_t, lia.m_k, lia.m_ex, j, row, lia);
             auto r = cc.cut();
                 
-            if (r != lia_move::cut)
+            if (r != lia_move::cut) {
+                if (r == lia_move::conflict)
+                    return lia_move::conflict;
                 continue;
+            }
             cut_result cr = {cc.m_dep, lia.m_t, lia.m_k, cc.m_polarity, j};
             if (abs(cr.polarity) == 1)  // need to delay the update of the bounds for j in a polar case, because simplify_inequality relies on the old bounds
                 polar_vars.push_back( {j, cr.polarity,  cc.m_dep} ); 
