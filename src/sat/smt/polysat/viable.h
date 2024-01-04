@@ -135,7 +135,7 @@ namespace polysat {
         
 
         pvar            m_var = null_var;
-        rational        m_start;
+        bool            m_conflict = false;
         unsigned        m_num_bits = 0;
         fixed_bits      m_fixed_bits;
         offset_slices   m_overlaps;

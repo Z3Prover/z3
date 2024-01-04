@@ -346,6 +346,7 @@ namespace polysat {
                 return false;
             }
         TRACE("bv", tout << name << ": "; for (auto lit : lits) tout << ctx.literal2expr(lit) << " "; tout << "\n");
+        IF_VERBOSE(1, verbose_stream() << name << ": "; for (auto lit : lits) verbose_stream() << ctx.literal2expr(lit) << " "; verbose_stream() << "\n");
         validate_axiom(lits);
         s().add_clause(lits.size(), lits.data(), sat::status::th(is_redundant, get_id(), hint));
         return true;
@@ -366,7 +367,8 @@ namespace polysat {
             for (auto lit : clause)
                 lits.push_back(lit);
         }
-        validate_axiom(lits);       
+        validate_axiom(lits);
+        IF_VERBOSE(1, verbose_stream() << name << ": "; for (auto lit : lits) verbose_stream() << ctx.literal2expr(lit) << " "; verbose_stream() << "\n");
         s().add_clause(lits.size(), lits.data(), sat::status::th(is_redundant, get_id(), hint));
     }
 

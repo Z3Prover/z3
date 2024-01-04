@@ -89,7 +89,7 @@ namespace polysat {
         m_num_bits = c.size(v);
         m_fixed_bits.reset(v);
         init_overlaps(v);
-        m_start = lo;
+        m_conflict = false;       
 
         // verbose_stream() << "find viable v" << v << " starting with " << lo << "\n";
 
@@ -97,18 +97,15 @@ namespace polysat {
            
             auto n = find_overlap(lo);            
 
+            if (m_conflict)
+                return find_t::empty;
+
             if (!n) {
                 if (refine_disequal_lin(v, lo) &&
                     refine_equal_lin(v, lo))
                     return find_t::multiple;
                 ++rounds;
-                continue;
-            }
-
-            update_value_to_high(lo, n);
-            m_explain.push_back({ n, lo });
-            if (is_conflict()) 
-                return find_t::empty;                        
+            }                      
         }
 
         return find_t::resource_out;        
@@ -137,14 +134,22 @@ namespace polysat {
             VERIFY(m_fixed_bits.next(val));
         }
 
+        entry* last = nullptr;
         for (auto const& [w, offset] : m_overlaps) {
             for (auto& layer : m_units[w].get_layers()) {
                 entry* e = find_overlap(w, layer, val);
-                if (e)
-                    return e;
+                if (!e)
+                    continue;
+                last = e;
+                update_value_to_high(val, e);
+                m_explain.push_back({ e, val });
+                if (is_conflict()) {
+                    m_conflict = true;
+                    return nullptr;
+                }
             }
         }
-        return nullptr;
+        return last;
     }
 
     viable::entry* viable::find_overlap(pvar w, layer& l, rational& val) {
@@ -521,34 +526,43 @@ namespace polysat {
      * 
      * - 2^kx \not\in [lo, hi[, 
      * - 2^k'y \not\in [lo', hi'[
+     * - a value v such that 
+     *   - 2^kv \not\in [lo, hi[
+     *   - 2^k'v \in [lo', hi'[
+     *   - hi \in ] (v - 1) * 2^{bw - ebw} ; v * 2^{bw - ebw} ]
      * 
      * Where:
-     *  - w is the width of x, w' the width of y
-     *  - bw is the bit-width of x, bw' the bit-width of y
-     *  - k = w - bwx, k' = w' - bw'
+     *  - bw is the width of x, aw the width of y
+     *  - ebw is the bit-width of x, abw the bit-width of y
+     *  - k = bw - ebw, k' = aw - abw
      * 
      * We want to encode the constraint that (2^k' hi)[w'] in [lo', hi'[
      * 
      * Note that x in [lo, hi[ <=> x - lo < hi - lo
-     * If k' = 0, w' = w, there is nothing to do.
+     * If bw = aw, ebw = abw there is nothing else to do.
+     *    - hi \in [lo', hi'[ 
      * 
-     * TODO - describe.
+     * If bw != aw or aw < bw:
+     *    - hi \in ] (v - 1) * 2^{bw - ebw} ; v * 2^{bw - ebw} ]
+     *    - hi := v mod aw
+     * 
+     * - 2^k'hi \in [lo', hi'[
      * 
      */
 
     void viable::explain_overlap(explanation const& e, explanation const& after, dependency_vector& deps) {
         auto bw = c.size(e.e->var);
         auto ebw = e.e->bit_width;
-        auto bw_after = c.size(after.e->var);
+        auto aw = c.size(after.e->var);
         auto abw = after.e->bit_width;
         auto t = e.e->interval.hi();
         auto lo = after.e->interval.lo();
         auto hi = after.e->interval.hi();
 
-        SASSERT(abw <= bw_after);
+        SASSERT(abw <= aw);
         SASSERT(ebw <= bw);
 
-        if (ebw < bw || bw_after != bw) {
+        if (ebw < bw || aw != bw) {
             auto const& p2b = rational::power_of_two(bw);
             auto const& p2eb = rational::power_of_two(bw - ebw);
             auto vhi = c.value(mod(e.value * p2eb + 1, p2b), bw);
@@ -563,11 +577,11 @@ namespace polysat {
             if (!sc.is_always_true())
                 deps.push_back(c.propagate(sc, c.explain_eval(sc)));
             t.reset(lo.manager());
-            t = c.value(mod(e.value, rational::power_of_two(bw_after)), bw_after);
+            t = c.value(mod(e.value, rational::power_of_two(aw)), aw);
         }
 
-        if (abw < bw_after) 
-            t *= rational::power_of_two(bw_after - abw);            
+        if (abw < aw) 
+            t *= rational::power_of_two(aw - abw);            
         
         auto sc = cs.ult(t - lo, hi - lo);
         SASSERT(!sc.is_always_false());

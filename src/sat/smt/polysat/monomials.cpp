@@ -59,19 +59,21 @@ namespace polysat {
         if (m_to_refine.empty())
             return l_true;
         shuffle(m_to_refine.size(), m_to_refine.data(), c.rand());
+        if (any_of(m_to_refine, [&](auto i) { return prefix_overflow(m_monomials[i]); }))
+            return l_false;
+
         if (any_of(m_to_refine, [&](auto i) { return mul0(m_monomials[i]); }))
             return l_false;
         if (any_of(m_to_refine, [&](auto i) { return mul1(m_monomials[i]); }))
             return l_false;
+
         if (any_of(m_to_refine, [&](auto i) { return non_overflow_unit(m_monomials[i]); }))
             return l_false;
         if (any_of(m_to_refine, [&](auto i) { return non_overflow_zero(m_monomials[i]); }))
             return l_false;
-        if (any_of(m_to_refine, [&](auto i) { return parity0(m_monomials[i]); }))
+        if (false && any_of(m_to_refine, [&](auto i) { return parity0(m_monomials[i]); }))
             return l_false;
-        if (any_of(m_to_refine, [&](auto i) { return parity(m_monomials[i]); }))
-            return l_false;
-        if (any_of(m_to_refine, [&](auto i) { return prefix_overflow(m_monomials[i]); }))
+        if (false && any_of(m_to_refine, [&](auto i) { return parity(m_monomials[i]); }))
             return l_false;
         if (any_of(m_to_refine, [&](auto i) { return non_overflow_monotone(m_monomials[i]); }))
             return l_false;
@@ -153,16 +155,16 @@ namespace polysat {
         }
         constraint_or_dependency_vector cs;
         pdd offset = c.value(rational(1), mon.num_bits());
+        if (free_index == UINT_MAX)
+            free_index = c.rand()() % mon.size();
+
         for (unsigned j = mon.size(); j-- > 0; ) {
             if (j != free_index) {
                 cs.push_back(~C.eq(mon.args[j], mon.arg_vals[j]));
                 offset *= mon.arg_vals[j];
             }
         }
-        if (free_index == UINT_MAX)
-            cs.push_back(C.eq(mon.var, offset));
-        else
-            cs.push_back(C.eq(mon.var, offset * mon.args[free_index]));
+        cs.push_back(C.eq(mon.var, offset * mon.args[free_index]));
 
         return c.add_axiom("p = k => p * q = k * q", cs, true);
     }

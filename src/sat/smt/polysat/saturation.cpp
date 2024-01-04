@@ -58,13 +58,13 @@ namespace polysat {
     void saturation::resolve(pvar v, inequality const& i) {
         if (c.size(v) != i.lhs().power_of_2())
             return;
-        if (!c.inconsistent())
+        if (false && !c.inconsistent())
             try_ugt_x(v, i);  
-        if (!c.inconsistent())
+        if (false && !c.inconsistent())
             try_ugt_y(v, i);
-        if (!c.inconsistent())
+        if (false && !c.inconsistent())
             try_ugt_z(v, i);    
-        if (!c.inconsistent())
+        if (false && !c.inconsistent())
             try_eq_resolve(v, i);
     }
 

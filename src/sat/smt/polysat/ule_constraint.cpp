@@ -358,7 +358,7 @@ namespace polysat {
         auto p = c.subst(lhs());
         auto q = c.subst(rhs());
         auto& C = c.cs();
-        if (sign && !lhs().is_val() && !rhs().is_val()) {
+        if (false && sign && !lhs().is_val() && !rhs().is_val()) {
             c.add_axiom("lhs > rhs  ==>  -1 > rhs", { d, C.ult(rhs(), -1) }, false);
             c.add_axiom("lhs > rhs  ==>  lhs > 0", { d, C.ult(0, lhs()) }, false);
         }
