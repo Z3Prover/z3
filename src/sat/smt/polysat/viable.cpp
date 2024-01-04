@@ -545,26 +545,23 @@ namespace polysat {
         auto lo = after.e->interval.lo();
         auto hi = after.e->interval.hi();
 
-        SASSERT(after.e->bit_width <= bw_after);
+        SASSERT(abw <= bw_after);
         SASSERT(ebw <= bw);
 
-        auto const& p2b = rational::power_of_two(bw);
-        auto const& p2eb = rational::power_of_two(bw - ebw);
-
-        auto t_equal_value = [&]() {
+        if (ebw < bw || bw_after != bw) {
+            auto const& p2b = rational::power_of_two(bw);
+            auto const& p2eb = rational::power_of_two(bw - ebw);
             auto vhi = c.value(mod(e.value * p2eb + 1, p2b), bw);
             auto vlo = c.value(mod((e.value - 1) * p2eb - 1, p2b), bw);
             // t in ] (value - 1) * 2^{bw - ebw} ; value * 2^{bw - ebw} ]
             // t in [ (value - 1) * 2^{bw - ebw} - 1 ; value * 2^{bw - ebw} + 1 [
-            auto eq = cs.ult(t - vlo, vhi - vlo);
-            SASSERT(!eq.is_always_false());
-            if (!eq.is_always_true())
-                deps.push_back(c.propagate(eq, c.explain_eval(eq)));
-        };
 
-
-        if (ebw < bw || bw_after != bw) {
-            t_equal_value();
+            if (!t.is_val())
+                IF_VERBOSE(0, verbose_stream() << "symbolic t : " << t << "\n");
+            auto sc = cs.ult(t - vlo, vhi - vlo);
+            SASSERT(!sc.is_always_false());
+            if (!sc.is_always_true())
+                deps.push_back(c.propagate(sc, c.explain_eval(sc)));
             t.reset(lo.manager());
             t = c.value(mod(e.value, rational::power_of_two(bw_after)), bw_after);
         }
@@ -573,10 +570,9 @@ namespace polysat {
             t *= rational::power_of_two(bw_after - abw);            
         
         auto sc = cs.ult(t - lo, hi - lo);
-        if (sc.is_always_true())
-            return;
         SASSERT(!sc.is_always_false());
-        deps.push_back(c.propagate(sc, c.explain_eval(sc)));
+        if (!sc.is_always_true())
+            deps.push_back(c.propagate(sc, c.explain_eval(sc)));
     }
 
     /*
