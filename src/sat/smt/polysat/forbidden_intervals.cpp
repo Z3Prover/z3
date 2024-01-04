@@ -102,13 +102,31 @@ namespace polysat {
                 fi.side_cond.push_back(s.cs().ule(e2, 1));
             }
             else {
+                // A := div(2^N - 1, b2.val())
+                //   := hi_val - 1
+                // max B such that A*B < 2^N
+                //     := ceil(2^N / A) - 1
+                //     := div(2^N + A - 1, A) - 1
+                //     := div(bound + A, A) - 1
                 // [0, div(bound, b2.val()) + 1[
+                rational A = div(bound, b2.val());
+                rational B = div(bound + A, A) - 1;
+
+                if (A >= 4 && B >= 4) {
+                    _backtrack.released = false;
+                    return false;
+                }
                 rational lo_val(0);
-                rational hi_val(div(bound, b2.val()) + 1);
+                rational hi_val = A + 1;
                 pdd lo = m.mk_val(lo_val);
                 pdd hi = m.mk_val(hi_val);
+                
+                SASSERT(b2.val() <= B);
+                SASSERT(A * B <= bound);
+                SASSERT((A + 1) * B > bound);
+                SASSERT(A * (B + 1) > bound);
                 fi.interval = eval_interval::proper(lo, lo_val, hi, hi_val);
-                fi.side_cond.push_back(s.cs().ule(e2, b2.val()));
+                fi.side_cond.push_back(s.cs().ule(e2, B));                
             }
 
         }
@@ -119,8 +137,23 @@ namespace polysat {
             }
             else {
                 // [div(bound, b2.val()) + 1, 0[
-                rational lo_val(div(bound, b2.val()) + 1);
+                // A := div(2^N - 1, b2.val())
+                // min B . A*B >= 2^N
+                //       := ceil(2^N / A)
+                //       := div(2^N + A - 1, A)
+                rational A = div(bound, b2.val()) + 1;
+                rational B = div(bound + A, A);
+                if (A >= 4 && B >= 4) {
+                    _backtrack.released = false;
+                    return false;
+                }
+                rational lo_val = A;
                 rational hi_val(0);
+                SASSERT(A * B > bound);
+                SASSERT(A * (B - 1) <= bound);
+                SASSERT((A - 1) * B <= bound);
+                SASSERT(b2.val() >= B);
+
                 pdd lo = m.mk_val(lo_val);
                 pdd hi = m.mk_val(hi_val);
                 fi.interval = eval_interval::proper(lo, lo_val, hi, hi_val);

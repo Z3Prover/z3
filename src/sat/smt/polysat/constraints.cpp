@@ -103,27 +103,19 @@ namespace polysat {
         return true;
     }
 
-    lbool signed_constraint::eval(assignment& a) const {
-        lbool r = m_constraint->eval(a);
+    lbool signed_constraint::weak_eval(assignment& a) const {
+        lbool r = m_constraint->weak_eval(a);
         return m_sign ? ~r : r;
     }
 
-    lbool signed_constraint::eval_unfold(assignment& a) const {
-        lbool r = m_constraint->eval_unfold(a);
+    lbool signed_constraint::strong_eval(assignment& a) const {
+        lbool r = m_constraint->strong_eval(a);
         return m_sign ? ~r : r;
     }
 
     std::ostream& signed_constraint::display(std::ostream& out) const {
         if (m_sign) out << "~";
         return out << *m_constraint;        
-    }
-
-    bool signed_constraint::is_currently_true(core& c) const { 
-        return eval(c.get_assignment()) == l_true; 
-    }
-
-    bool signed_constraint::is_currently_false(core& c) const { 
-        return eval(c.get_assignment()) == l_false; 
     }
 
 }

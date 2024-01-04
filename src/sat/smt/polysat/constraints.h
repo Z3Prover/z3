@@ -44,8 +44,8 @@ namespace polysat {
         virtual std::ostream& display(std::ostream& out, lbool status) const = 0;
         virtual std::ostream& display(std::ostream& out) const = 0;
         virtual lbool eval() const = 0;
-        virtual lbool eval(assignment const& a) const = 0;
-        virtual lbool eval_unfold(assignment const& a) const { return eval(a); }
+        virtual lbool weak_eval(assignment const& a) const = 0;
+        virtual lbool strong_eval(assignment const& a) const = 0;
         virtual void activate(core& c, bool sign, dependency const& d) = 0;
         virtual void propagate(core& c, lbool value, dependency const& d) = 0;
         virtual bool is_linear() const { return false; }
@@ -76,11 +76,9 @@ namespace polysat {
         void propagate(core& c, lbool value, dependency const& d) { m_constraint->propagate(c, value, d); }
         bool is_always_true() const { return eval() == l_true; }
         bool is_always_false() const { return eval() == l_false; }
-        bool is_currently_true(core& c) const;
-        bool is_currently_false(core& c) const;
         bool is_linear() const { return m_constraint->is_linear(); }
-        lbool eval(assignment& a) const;
-        lbool eval_unfold(assignment& a) const;
+        lbool weak_eval(assignment& a) const;
+        lbool strong_eval(assignment& a) const;
         lbool eval() const { return m_sign ? ~m_constraint->eval() : m_constraint->eval();}
         ckind_t op() const { return m_op; }
         bool is_ule() const { return m_op == ule_t; }

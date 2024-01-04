@@ -25,7 +25,7 @@ namespace polysat {
         bool has_conflict = false;
         for (auto idx : c.assigned_constraints()) {
             auto sc = c.get_constraint(idx);
-            lbool eval_value = c.eval_unfold(sc);
+            lbool eval_value = c.strong_eval(sc);
             if (eval_value == l_true)
                 continue;
 
@@ -77,9 +77,9 @@ namespace polysat {
             }
             else if (std::holds_alternative<signed_constraint>(e)) {
                 auto sc = *std::get_if<signed_constraint>(&e);
-                if (c.eval(sc) != l_false)
+                if (c.strong_eval(sc) != l_false)
                     return;
-                auto d = c.propagate(~sc, c.explain_eval(sc));
+                auto d = c.propagate(~sc, c.explain_strong_eval(sc));
                 lemma.push_back(d);
             }
             else

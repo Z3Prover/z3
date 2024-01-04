@@ -141,6 +141,7 @@ namespace polysat {
         offset_slices   m_overlaps;
         void init_overlaps(pvar v);
         std::ostream& display_state(std::ostream& out) const;
+        std::ostream& display_explain(std::ostream& out) const;
 
     public:
         viable(core& c);
@@ -160,7 +161,7 @@ namespace polysat {
         /*
         * Register constraint at index 'idx' as unitary in v.
         */
-        bool add_unitary(pvar v, constraint_id);
+        bool add_unitary(pvar v, constraint_id, rational& value);
 
         /*
         * Ensure data-structures tracking variable v.

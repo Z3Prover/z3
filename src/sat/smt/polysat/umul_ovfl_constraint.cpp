@@ -68,7 +68,11 @@ namespace polysat {
         return eval(p(), q());
     }
 
-    lbool umul_ovfl_constraint::eval(assignment const& a) const {
+    lbool umul_ovfl_constraint::weak_eval(assignment const& a) const {
+        return eval();
+    }
+
+    lbool umul_ovfl_constraint::strong_eval(assignment const& a) const {
         return eval(a.apply_to(p()), a.apply_to(q()));
     }
 

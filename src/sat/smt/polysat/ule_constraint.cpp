@@ -131,13 +131,10 @@ namespace polysat {
             unsigned const rhs_vars = rhs.free_vars().size();
             unsigned const diff_vars = (lhs - rhs).free_vars().size();
             if (diff_vars < lhs_vars || diff_vars < rhs_vars) {
-                LOG("reduce number of varables");
-                // verbose_stream() << "IN:  " << ule_pp(to_lbool(is_positive), lhs, rhs) << "\n";
                 if (lhs_vars <= rhs_vars)
                     rhs = lhs - rhs - 1;
                 else
                     lhs = rhs - lhs;
-                // verbose_stream() << "OUT: " << ule_pp(to_lbool(is_positive), lhs, rhs) << "\n";
             }
         }
 
@@ -231,7 +228,7 @@ namespace polysat {
             lhs *= x;
             SASSERT(lhs.leading_coefficient().is_power_of_two());
         }
-        // verbose_stream() << "simplified " << lhs << " <= " << rhs << "\n";
+        TRACE("bv", tout << "simplified " << lhs << " <= " << rhs << "\n");
     } // simplify_impl
 }
 
@@ -346,11 +343,11 @@ namespace polysat {
         return eval(lhs(), rhs());
     }
 
-    lbool ule_constraint::eval(assignment const& a) const {
+    lbool ule_constraint::weak_eval(assignment const& a) const {
         return eval(a.apply_to(lhs()), a.apply_to(rhs()));
     }
 
-    lbool ule_constraint::eval_unfold(assignment const& a) const {
+    lbool ule_constraint::strong_eval(assignment const& a) const {
         return eval(a.apply_to(unfold_lhs()), a.apply_to(unfold_rhs()));
     }
 

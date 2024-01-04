@@ -75,7 +75,8 @@ namespace polysat {
         std::ostream& display(std::ostream& out, lbool status) const override;
         std::ostream& display(std::ostream& out) const override;
         lbool eval() const override;
-        lbool eval(assignment const& a) const override;
+        lbool weak_eval(assignment const& a) const override;
+        lbool strong_eval(assignment const& a) const override;
         bool is_always_true() const { return false; }
         bool is_always_false() const { return false; }
         void activate(core& c, bool sign, dependency const& dep) override;

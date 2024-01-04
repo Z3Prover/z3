@@ -45,7 +45,11 @@ namespace polysat {
         return eval(p, q, r);
     }
 
-    lbool op_constraint::eval(assignment const& a) const {
+    lbool op_constraint::weak_eval(assignment const& a) const {
+        return eval();
+    }
+
+    lbool op_constraint::strong_eval(assignment const& a) const {
         return eval(a.apply_to(p), a.apply_to(q), a.apply_to(r));
     }
 

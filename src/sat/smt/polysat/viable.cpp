@@ -488,13 +488,15 @@ namespace polysat {
         auto after = last;
         unsigned bw = c.size(last.e->var);
 
+        TRACE("bv", display_explain(tout));
+
         result.append(m_fixed_bits.explain());
 
         if (last.e->interval.is_full()) {
             if (m_var != last.e->var)
                 result.push_back(offset_claim(m_var, { last.e->var, 0 }));
             for (auto const& sc : last.e->side_cond)
-                result.push_back(c.propagate(sc, c.explain_eval(sc)));
+                result.push_back(c.propagate(sc, c.explain_weak_eval(sc)));
             result.push_back(c.get_dependency(last.e->constraint_index));
             SASSERT(m_explain.size() == 1);
         }
@@ -510,7 +512,7 @@ namespace polysat {
             if (m_var != e.e->var)
                 result.push_back(offset_claim(m_var, { e.e->var, 0 }));
             for (auto const& sc : e.e->side_cond)
-                result.push_back(c.propagate(sc, c.explain_eval(sc)));
+                result.push_back(c.propagate(sc, c.explain_weak_eval(sc)));
             result.push_back(c.get_dependency(index));
             if (e.e == last.e)
                 break;
@@ -575,7 +577,7 @@ namespace polysat {
             auto sc = cs.ult(t - vlo, vhi - vlo);
             SASSERT(!sc.is_always_false());
             if (!sc.is_always_true())
-                deps.push_back(c.propagate(sc, c.explain_eval(sc)));
+                deps.push_back(c.propagate(sc, c.explain_weak_eval(sc)));
             t.reset(lo.manager());
             t = c.value(mod(e.value, rational::power_of_two(aw)), aw);
         }
@@ -586,19 +588,19 @@ namespace polysat {
         auto sc = cs.ult(t - lo, hi - lo);
         SASSERT(!sc.is_always_false());
         if (!sc.is_always_true())
-            deps.push_back(c.propagate(sc, c.explain_eval(sc)));
+            deps.push_back(c.propagate(sc, c.explain_weak_eval(sc)));
     }
 
     /*
     * Register constraint at index 'idx' as unitary in v.
     */
-    bool viable::add_unitary(pvar v, constraint_id idx) {
+    bool viable::add_unitary(pvar v, constraint_id idx, rational& var_value) {
 
         if (c.is_assigned(v))
             return true;
-        auto [sc, d, value] = c.m_constraint_index[idx.id];
-        SASSERT(value != l_undef);
-        if (value == l_false)
+        auto [sc, d, truth_value] = c.m_constraint_index[idx.id];
+        SASSERT(truth_value != l_undef);
+        if (truth_value == l_false)
             sc = ~sc;
 
         if (!sc.is_linear()) 
@@ -707,6 +709,12 @@ namespace polysat {
             m_fixed_bits.reset();
             m_var = v;
             return false;
+        }
+        switch (find_viable(v, var_value)) {
+        case find_t::empty:
+            return false;
+        default:
+            break;
         }
         return true;
     }
@@ -958,6 +966,13 @@ namespace polysat {
         for (auto const& slice : m_overlaps)
             out << slice.v << " ";
         out << "\n";
+        return out;
+    }
+
+    std::ostream& viable::display_explain(std::ostream& out) const {
+        display_state(out);
+        for (auto const& e : m_explain)
+            display_one(out << e.value << " ", m_var, e.e) << "\n";
         return out;
     }
 

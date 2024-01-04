@@ -257,7 +257,7 @@ namespace polysat {
 
 #if 0        
         // If no saturation propagation was possible, explain the conflict using the variable assignment.
-        m_unsat_core = explain_eval_unfold(get_constraint(conflict_idx));
+        m_unsat_core = explain_strong_eval(get_constraint(conflict_idx));
         m_unsat_core.push_back(get_dependency(conflict_idx));
         s.set_conflict(m_unsat_core, "polysat-bail-out-conflict");
         decay_activity();
@@ -333,10 +333,10 @@ namespace polysat {
                 return;
             v = w;
         }
-        if (v != null_var && !m_viable.add_unitary(v, idx))
+        if (v != null_var && !m_viable.add_unitary(v, idx, m_values[v]))
             viable_conflict(v);
-        else if (v == null_var && sc.is_currently_false(*this)) {
-            auto ex = explain_eval(sc);
+        else if (v == null_var && weak_eval(sc) == l_false) {
+            auto ex = explain_weak_eval(sc);
             ex.push_back(dep);
             s.set_conflict(ex, "infeasible propagation");
         }
@@ -389,7 +389,7 @@ namespace polysat {
             if (!is_assigned(v0) || is_assigned(v1))
                 continue;
             // detect unitary, add to viable, detect conflict?
-            if (value != l_undef && !m_viable.add_unitary(v1, { idx }))
+            if (value != l_undef && !m_viable.add_unitary(v1, { idx }, m_values[v]))
                 viable_conflict(v1);
         }
         SASSERT(m_watch[v].size() == sz && "size of watch list was not changed");
@@ -402,14 +402,14 @@ namespace polysat {
     */
     void core::propagate_eval(constraint_id idx) {
         auto [sc, d, value] = m_constraint_index[idx.id];
-        switch (eval(sc)) {
+        switch (weak_eval(sc)) {
         case l_false:
             if (value != l_false)
-                s.propagate(d, true, explain_eval(sc), "eval-propagate");
+                s.propagate(d, true, explain_weak_eval(sc), "eval-propagate");
             break;
         case l_true:
             if (value != l_true)
-                s.propagate(d, false, explain_eval(sc), "eval-propagate");
+                s.propagate(d, false, explain_weak_eval(sc), "eval-propagate");
             break;
         default:
             break;
@@ -424,13 +424,13 @@ namespace polysat {
     }
 
     void core::propagate(constraint_id id, signed_constraint& sc, lbool value, dependency const& d) {
-        lbool eval_value = eval(sc);
+        lbool eval_value = weak_eval(sc);
         if (eval_value == l_undef)
             sc.propagate(*this, value, d);
         else if (value == l_undef)
-            s.propagate(d, eval_value != l_true, explain_eval(sc), "constraint-propagate");
+            s.propagate(d, eval_value != l_true, explain_weak_eval(sc), "constraint-propagate");
         else if (value != eval_value) {
-            m_unsat_core = explain_eval(sc);
+            m_unsat_core = explain_weak_eval(sc);
             m_unsat_core.push_back(m_constraint_index[id.id].d);
             s.set_conflict(m_unsat_core, "polysat-constraint-core");
             decay_activity();
@@ -493,7 +493,7 @@ namespace polysat {
         s.trail().push(unassign(*this, index.id));
     }
 
-    dependency_vector core::explain_eval(unsigned_vector const& vars) {
+    dependency_vector core::explain_weak_eval(unsigned_vector const& vars) {
         dependency_vector deps;
         for (auto v : vars) {
             if (is_assigned(v)) {
@@ -504,20 +504,20 @@ namespace polysat {
         return deps;
     }
 
-    dependency_vector core::explain_eval(signed_constraint const& sc) {
-        return explain_eval(sc.vars());
+    dependency_vector core::explain_weak_eval(signed_constraint const& sc) {
+        return explain_weak_eval(sc.vars());
     }
 
-    dependency_vector core::explain_eval_unfold(signed_constraint const& sc) {
-        return explain_eval(sc.unfold_vars());
+    dependency_vector core::explain_strong_eval(signed_constraint const& sc) {
+        return explain_weak_eval(sc.unfold_vars());
     }
 
-    lbool core::eval(signed_constraint const& sc) { 
-        return sc.eval(m_assignment);
+    lbool core::weak_eval(signed_constraint const& sc) { 
+        return sc.weak_eval(m_assignment);
     }
 
-    lbool core::eval_unfold(signed_constraint const& sc) {
-        return sc.eval_unfold(m_assignment);
+    lbool core::strong_eval(signed_constraint const& sc) {
+        return sc.strong_eval(m_assignment);
     }
 
     pdd core::subst(pdd const& p) { 
@@ -579,12 +579,12 @@ namespace polysat {
         return sc;
     }
 
-    lbool core::eval(constraint_id id) {
-        return get_constraint(id).eval(m_assignment);
+    lbool core::weak_eval(constraint_id id) {
+        return get_constraint(id).weak_eval(m_assignment);
     }
 
-    lbool core::eval_unfold(constraint_id id) {
-        return get_constraint(id).eval_unfold(m_assignment);
+    lbool core::strong_eval(constraint_id id) {
+        return get_constraint(id).strong_eval(m_assignment);
     }
 
     void core::inc_activity(pvar v) {

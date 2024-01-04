@@ -86,7 +86,7 @@ namespace polysat {
         void propagate_assignment(pvar v, rational const& value, dependency dep);
         void propagate_activation(constraint_id idx, signed_constraint& sc, dependency dep);
         void propagate(constraint_id id, signed_constraint& sc, lbool value, dependency const& d);
-        dependency_vector explain_eval(unsigned_vector const& vars);
+        dependency_vector explain_weak_eval(unsigned_vector const& vars);
 
         void add_watch(unsigned idx, unsigned var);
 
@@ -169,13 +169,13 @@ namespace polysat {
         constraint_id_vector const& assigned_constraints() const { return m_prop_queue; }
         dependency get_dependency(constraint_id idx) const;
         // dependency_vector get_dependencies(constraint_id_vector const& ids) const;
-        lbool eval(constraint_id id);
-        lbool eval_unfold(constraint_id id);
+        lbool weak_eval(constraint_id id);
+        lbool strong_eval(constraint_id id);
         dependency propagate(signed_constraint const& sc, dependency_vector const& deps) { return s.propagate(sc, deps, nullptr); }
-        lbool eval(signed_constraint const& sc);
-        lbool eval_unfold(signed_constraint const& sc);
-        dependency_vector explain_eval(signed_constraint const& sc);
-        dependency_vector explain_eval_unfold(signed_constraint const& sc);
+        lbool weak_eval(signed_constraint const& sc);
+        lbool strong_eval(signed_constraint const& sc);
+        dependency_vector explain_weak_eval(signed_constraint const& sc);
+        dependency_vector explain_strong_eval(signed_constraint const& sc);
         svector<pvar> find_conflict_variables(constraint_id idx);
         bool inconsistent() const;
 
