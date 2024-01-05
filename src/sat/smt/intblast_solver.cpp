@@ -465,6 +465,12 @@ namespace intblast {
         return sat::check_result::CR_DONE; 
     }
 
+    bool solver::is_bounded(expr* x, rational const& N) {
+        return any_of(m_vars, [&](expr* v) {
+            return is_translated(v) && translated(v) == x && bv.get_bv_size(v) <= N;
+        });
+    }
+
     expr* solver::umod(expr* bv_expr, unsigned i) {
         expr* x = arg(i);
         rational r;
@@ -474,7 +480,7 @@ namespace intblast {
                 return x;
             return a.mk_int(mod(r, N));
         }
-        if (any_of(m_vars, [&](expr* v) { return is_translated(v) && translated(v) == x && bv.get_bv_size(v) == bv.get_bv_size(bv_expr); }))
+        if (is_bounded(x, N))
             return x;
         return a.mk_mod(x, a.mk_int(N));
     }
@@ -486,7 +492,31 @@ namespace intblast {
         rational r;
         if (a.is_numeral(x, r))
             return a.mk_int(mod(r + shift, N));
-        return a.mk_mod(a.mk_add(x, a.mk_int(shift)), a.mk_int(N));
+        return a.mk_mod(add(x, a.mk_int(shift)), a.mk_int(N));
+    }
+
+    expr_ref solver::mul(expr* x, expr* y) {
+        expr_ref _x(x, m), _y(y, m);
+        if (a.is_zero(x))
+            return _x;
+        if (a.is_zero(y))
+            return _y;
+        if (a.is_one(x))
+            return _y;
+        if (a.is_one(y))
+            return _x;
+        _x = a.mk_mul(x, y);
+        return _x;
+    }
+
+    expr_ref solver::add(expr* x, expr* y) {
+        expr_ref _x(x, m), _y(y, m);
+        if (a.is_zero(x))
+            return _y;
+        if (a.is_zero(y))
+            return _x;
+        _x = a.mk_add(x, y);
+        return _x;
     }
 
     rational solver::bv_size(expr* bv_expr) {
@@ -618,15 +648,15 @@ namespace intblast {
                 auto N = bv_size(e);
                 auto A = rational::power_of_two(sz - n);
                 auto B = rational::power_of_two(n);
-                auto hi = a.mk_mul(r, a.mk_int(A));
+                auto hi = mul(r, a.mk_int(A));
                 auto lo = a.mk_mod(a.mk_idiv(umod(e, 0), a.mk_int(B)), a.mk_int(A));
-                r = a.mk_add(hi, lo);
+                r = add(hi, lo);
             }
             return r;
         };
 
         expr* bv_expr = e;
-        expr* r = nullptr;
+        expr_ref r(m);
         auto const& args = m_args;
         switch (e->get_decl_kind()) {
         case OP_BADD:
@@ -674,12 +704,13 @@ namespace intblast {
             break;
         case OP_CONCAT: {
             unsigned sz = 0;
+            expr_ref new_arg(m);
             for (unsigned i = args.size(); i-- > 0;) {
                 expr* old_arg = e->get_arg(i);
-                expr* new_arg = umod(old_arg, i);
+                new_arg = umod(old_arg, i);
                 if (sz > 0) {
-                    new_arg = a.mk_mul(new_arg, a.mk_int(rational::power_of_two(sz)));
-                    r = a.mk_add(r, new_arg);
+                    new_arg = mul(new_arg, a.mk_int(rational::power_of_two(sz)));
+                    r = add(r, new_arg);
                 }
                 else
                     r = new_arg;
@@ -717,7 +748,7 @@ namespace intblast {
         }
         case OP_BUMUL_NO_OVFL: {
             bv_expr = e->get_arg(0);
-            r = a.mk_lt(a.mk_mul(umod(bv_expr, 0), umod(bv_expr, 1)), a.mk_int(bv_size(bv_expr)));
+            r = a.mk_lt(mul(umod(bv_expr, 0), umod(bv_expr, 1)), a.mk_int(bv_size(bv_expr)));
             break;
         }
         case OP_BSHL: {
@@ -728,7 +759,7 @@ namespace intblast {
                 r = a.mk_int(0);
                 IF_VERBOSE(2, verbose_stream() << "shl " << mk_bounded_pp(e, m) << " " << bv.get_bv_size(e) << "\n");
                 for (unsigned i = 0; i < bv.get_bv_size(e); ++i)
-                    r = m.mk_ite(m.mk_eq(y, a.mk_int(i)), a.mk_mul(x, a.mk_int(rational::power_of_two(i))), r);   
+                    r = m.mk_ite(m.mk_eq(y, a.mk_int(i)), mul(x, a.mk_int(rational::power_of_two(i))), r);   
             }
             break;
         }
@@ -765,7 +796,7 @@ namespace intblast {
                 for (unsigned i = 0; i < sz; ++i) {
                     expr* d = a.mk_idiv(x, a.mk_int(rational::power_of_two(i)));              
                     r = m.mk_ite(m.mk_eq(y, a.mk_int(i)),
-                                 m.mk_ite(signx, a.mk_add(d, a.mk_int(- rational::power_of_two(sz-i))), d),
+                                 m.mk_ite(signx, add(d, a.mk_int(- rational::power_of_two(sz-i))), d),
                                  r);
                 }
             }
@@ -775,7 +806,7 @@ namespace intblast {
             IF_VERBOSE(2, verbose_stream() << "bor " << mk_bounded_pp(e, m) << " " << bv.get_bv_size(e) << "\n");
             r = arg(0);
             for (unsigned i = 1; i < args.size(); ++i)
-                r = a.mk_sub(a.mk_add(r, arg(i)), a.mk_band(bv.get_bv_size(e), r, arg(i)));
+                r = a.mk_sub(add(r, arg(i)), a.mk_band(bv.get_bv_size(e), r, arg(i)));
             break;
         }
         case OP_BNAND:
@@ -793,7 +824,7 @@ namespace intblast {
             r = arg(0);
             for (unsigned i = 1; i < args.size(); ++i) {
                 expr* q = arg(i);
-                r = a.mk_sub(a.mk_add(r, q), a.mk_mul(a.mk_int(2), a.mk_band(sz, r, q)));
+                r = a.mk_sub(add(r, q), mul(a.mk_int(2), a.mk_band(sz, r, q)));
             }
             if (e->get_decl_kind() == OP_BXNOR)
                 r = bnot(r);
@@ -844,7 +875,7 @@ namespace intblast {
             // x >= 0, y < 0 ->  y + u
             // x >= 0, y >= 0 ->  u
             r = a.mk_uminus(u);   
-            r = m.mk_ite(m.mk_and(m.mk_not(signx), signy), a.mk_add(u, y), r);
+            r = m.mk_ite(m.mk_and(m.mk_not(signx), signy), add(u, y), r);
             r = m.mk_ite(m.mk_and(signx, m.mk_not(signy)), a.mk_sub(y, u), r);
             r = m.mk_ite(m.mk_and(m.mk_not(signx), m.mk_not(signy)), u, r);
             r = m.mk_ite(m.mk_eq(u, a.mk_int(0)), a.mk_int(0), r);
@@ -884,7 +915,7 @@ namespace intblast {
             expr* absy = m.mk_ite(signy, a.mk_sub(a.mk_int(N), y), y);
             expr* d = a.mk_idiv(absx, absy);
             d = m.mk_ite(m.mk_iff(signx, signy), d, a.mk_uminus(d));
-            r = a.mk_sub(x, a.mk_mul(d, y));
+            r = a.mk_sub(x, mul(d, y));
             r = m.mk_ite(m.mk_eq(y, a.mk_int(0)), x, r);
             break;  
         }
@@ -922,7 +953,7 @@ namespace intblast {
             rational N = bv_size(e->get_arg(0));
             rational N0 = N;
             for (unsigned i = 1; i < n; ++i)
-                r = a.mk_add(a.mk_mul(a.mk_int(N), x), r), N *= N0;
+                r = add(mul(a.mk_int(N), x), r), N *= N0;
             break;
         }            
         case OP_BREDOR: {
@@ -948,8 +979,15 @@ namespace intblast {
             bool has_bv_arg = any_of(*e, [&](expr* arg) { return bv.is_bv(arg); });
             if (has_bv_arg) {
                 expr* bv_expr = e->get_arg(0);
-                m_args[0] = a.mk_sub(arg(0), arg(1));
-                set_translated(e, m.mk_eq(umod(bv_expr, 0), a.mk_int(0)));
+                rational N = rational::power_of_two(bv.get_bv_size(bv_expr));
+                if (a.is_numeral(arg(0)) || a.is_numeral(arg(1)) || 
+                    is_bounded(arg(0), N) || is_bounded(arg(1), N)) {
+                    set_translated(e, m.mk_eq(umod(bv_expr, 0), umod(bv_expr, 1)));
+                }
+                else {
+                    m_args[0] = a.mk_sub(arg(0), arg(1));
+                    set_translated(e, m.mk_eq(umod(bv_expr, 0), a.mk_int(0)));
+                }
             }
             else
                 set_translated(e, m.mk_eq(arg(0), arg(1)));
@@ -958,11 +996,8 @@ namespace intblast {
             set_translated(e, m.mk_ite(arg(0), arg(1), arg(2)));
         else if (m_is_plugin)
             set_translated(e, e);
-        else {
-            verbose_stream() << mk_pp(e, m) << "\n";
-            verbose_stream() << mk_pp(m.mk_app(e->get_decl(), m_args), m) << "\n";
-            set_translated(e, m.mk_app(e->get_decl(), m_args));
-        }
+        else 
+            set_translated(e, m.mk_app(e->get_decl(), m_args));        
     }
 
     rational solver::get_value(expr* e) const {

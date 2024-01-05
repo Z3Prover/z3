@@ -401,6 +401,7 @@ public:
 
     // return true if \c n is a term of the form (* -1 r)
     bool is_zero(expr const* n) const { rational val; return is_numeral(n, val) && val.is_zero(); }
+    bool is_one(expr const* n) const{ rational val; return is_numeral(n, val) && val.is_one(); }
     bool is_minus_one(expr* n) const { rational tmp; return is_numeral(n, tmp) && tmp.is_minus_one(); }
     bool is_times_minus_one(expr* n, expr*& r) const {
         if (is_mul(n) && to_app(n)->get_num_args() == 2 && is_minus_one(to_app(n)->get_arg(0))) {

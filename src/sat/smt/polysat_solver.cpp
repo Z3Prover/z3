@@ -119,6 +119,8 @@ namespace polysat {
     }
 
     void solver::set_conflict(dependency_vector const& deps, char const* hint_info) {
+        if (inconsistent())
+            return;
         auto [lits, eqs] = explain_deps(deps);
         proof_hint* hint = nullptr;
         if (ctx.use_drat() && hint_info)
@@ -320,6 +322,8 @@ namespace polysat {
     }
 
     bool solver::add_axiom(char const* name, constraint_or_dependency const* begin, constraint_or_dependency const* end, bool is_redundant) {
+        if (inconsistent())
+            return false;
         TRACE("bv", tout << "add " << name << "\n");
         sat::literal_vector lits;
         euf::enode_pair_vector eqs;

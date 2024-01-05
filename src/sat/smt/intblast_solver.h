@@ -73,6 +73,9 @@ namespace intblast {
 
         expr* umod(expr* bv_expr, unsigned i);
         expr* smod(expr* bv_expr, unsigned i);
+        bool is_bounded(expr* v, rational const& N);
+        expr_ref mul(expr* x, expr* y);
+        expr_ref add(expr* x, expr* y);
         rational bv_size(expr* bv_expr);
 
         void translate_expr(expr* e);

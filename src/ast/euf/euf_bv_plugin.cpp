@@ -491,6 +491,8 @@ namespace euf {
                 continue;
             offsets.push_back(offs);
             if (n->get_root() == b->get_root() && offs == offset) {
+                if (n != b)
+                    consumer(n, b);
                 while (j != UINT_MAX) {
                     auto [x, y, j2] = just[j];
                     if (x != y)

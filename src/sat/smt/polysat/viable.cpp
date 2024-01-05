@@ -517,9 +517,6 @@ namespace polysat {
             if (e.e == last.e)
                 break;
         }
-
-        
-        TRACE("bv", tout << "viable-explain v" << m_var << " - " << result.size() << "\n");
         return result;
     }
 
