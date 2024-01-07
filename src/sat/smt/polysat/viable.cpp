@@ -89,7 +89,8 @@ namespace polysat {
         m_num_bits = c.size(v);
         m_fixed_bits.init(v);
         init_overlaps(v);
-        m_conflict = false;       
+        m_conflict = false;     
+        m_propagation = false;
 
         // verbose_stream() << "find viable v" << v << " starting with " << lo << "\n";
 
@@ -100,13 +101,21 @@ namespace polysat {
             if (m_conflict)
                 return find_t::empty;
 
-            if (!n) {
-                if (check_fixed_bits(v, lo) && 
-                    check_disequal_lin(v, lo) &&
-                    check_equal_lin(v, lo))
-                    return find_t::multiple;
-                ++rounds;
-            }                      
+            if (n)
+                continue;
+            ++rounds;
+
+            if (!check_fixed_bits(v, lo))
+                continue;
+            if (!check_disequal_lin(v, lo))
+                continue;
+            if (!check_equal_lin(v, lo))
+                continue;
+            if (is_propagation(lo)) {
+                m_propagation = true;
+                return find_t::singleton;
+            }
+            return find_t::multiple;                        
         }
 
         return find_t::resource_out;        
@@ -487,13 +496,29 @@ namespace polysat {
         return false;
     }
 
+    bool viable::is_propagation(rational const& val) {
+        // disable for now
+        return false;
+        if (m_explain.empty())
+            return false;
+        auto last = m_explain.back();
+        auto first = m_explain[0];
+        if (first.e->interval.lo_val() == val + 1 &&
+            last.e->interval.hi_val() == val &&
+            first.e->bit_width == last.e->bit_width &&
+            first.e->bit_width == c.size(m_var)) {
+            return true;
+        }           
+        return false;
+    }
+
     /*
     * Explain why the current variable is not viable or
     * or why it can only have a single value.
     */
     dependency_vector viable::explain() {
         dependency_vector result;
-        SASSERT(is_conflict());        
+      
         uint_set seen;
         auto last = m_explain.back();
         auto after = last;
@@ -511,6 +536,7 @@ namespace polysat {
             SASSERT(m_explain.size() == 1);
         }
 
+        SASSERT(m_conflict || m_propagation);
         for (unsigned i = m_explain.size() - 1; i-- > 0; ) {
             auto e = m_explain[i];
             auto index = e.e->constraint_index;
@@ -529,6 +555,16 @@ namespace polysat {
                 result.push_back(c.get_dependency(index));            
             if (e.e == last.e)
                 break;
+        }
+        if (m_propagation) {
+            NOT_IMPLEMENTED_YET();
+            auto first = m_explain[0];
+            // add constraint that:            
+            auto sc = cs.eq(last.e->interval.hi() + 1, first.e->interval.lo());
+            result.push_back(c.propagate(sc, c.explain_weak_eval(sc)));
+            // assume first and last have same bit-width
+
+
         }
         return result;
     }

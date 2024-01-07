@@ -134,10 +134,11 @@ namespace polysat {
 
         bool check_fixed_bits(pvar v, rational const& val);
 
-        
+        bool is_propagation(rational const& val);
 
         pvar            m_var = null_var;
         bool            m_conflict = false;
+        bool            m_propagation = false;
         unsigned        m_num_bits = 0;
         fixed_bits      m_fixed_bits;
         offset_slices   m_overlaps;
