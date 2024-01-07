@@ -119,6 +119,7 @@ namespace polysat {
     }
 
     void solver::set_conflict(dependency_vector const& deps, char const* hint_info) {
+        ++m_stats.m_num_conflicts;
         if (inconsistent())
             return;
         auto [lits, eqs] = explain_deps(deps);
@@ -127,8 +128,8 @@ namespace polysat {
             hint = mk_proof_hint(hint_info, lits, eqs);
         auto ex = euf::th_explain::conflict(*this, lits, eqs, hint);
         TRACE("bv", tout << "conflict: " << lits << " ";
-        for (auto [a, b] : eqs) tout << ctx.bpp(a) << " == " << ctx.bpp(b) << " "; 
-        tout << "\n"; s().display(tout));
+                    for (auto [a, b] : eqs) tout << ctx.bpp(a) << " == " << ctx.bpp(b) << " "; 
+                    tout << "\n"; s().display(tout));
         validate_conflict(lits, eqs);
         ctx.set_conflict(ex);
     }
@@ -181,8 +182,7 @@ namespace polysat {
             for (auto const& [n1, n2] : eqs)
                 SASSERT(n1->get_root() == n2->get_root());
             });
-
-
+        
         return { core, eqs };
     }
 
@@ -248,6 +248,7 @@ namespace polysat {
     // Everything goes over expressions/literals. polysat::core is not responsible for replaying expressions. 
     
     dependency solver::propagate(signed_constraint sc, dependency_vector const& deps, char const* hint_info) {
+        ++m_stats.m_num_propagations;
         TRACE("bv", sc.display(tout << "propagate ") << "\n");
         sat::literal lit = ctx.mk_literal(constraint2expr(sc));        
         if (s().value(lit) == l_true)
@@ -280,6 +281,7 @@ namespace polysat {
     }
 
     void solver::propagate(dependency const& d, bool sign, dependency_vector const& deps, char const* hint_info) {
+        ++m_stats.m_num_propagations;
         TRACE("bv", tout << "propagate " << d << " " << sign << "\n");
         auto [core, eqs] = explain_deps(deps);
         SASSERT(d.is_bool_var() || d.is_eq());
@@ -322,6 +324,7 @@ namespace polysat {
     }
 
     bool solver::add_axiom(char const* name, constraint_or_dependency const* begin, constraint_or_dependency const* end, bool is_redundant) {
+        ++m_stats.m_num_axioms;
         if (inconsistent())
             return false;
         TRACE("bv", tout << "add " << name << "\n");
@@ -357,6 +360,7 @@ namespace polysat {
     }
 
     void solver::add_axiom(char const* name, std::initializer_list<sat::literal> const& clause) {
+        ++m_stats.m_num_axioms;
         bool is_redundant = false;
         sat::literal_vector lits;
         proof_hint* hint = nullptr;

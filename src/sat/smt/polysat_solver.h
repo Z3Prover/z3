@@ -74,6 +74,9 @@ namespace polysat {
 
         struct stats {
             void reset() { memset(this, 0, sizeof(stats)); }
+            unsigned m_num_conflicts;
+            unsigned m_num_propagations;
+            unsigned m_num_axioms;
             stats() { reset(); }
         };
 

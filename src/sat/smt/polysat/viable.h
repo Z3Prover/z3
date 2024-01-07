@@ -128,9 +128,11 @@ namespace polysat {
 
         viable::entry* find_overlap(rational const& val, entry* entries);
 
-        bool refine_disequal_lin(pvar v, rational const& val);
+        bool check_disequal_lin(pvar v, rational const& val);
 
-        bool refine_equal_lin(pvar v, rational const& val);
+        bool check_equal_lin(pvar v, rational const& val);
+
+        bool check_fixed_bits(pvar v, rational const& val);
 
         
 

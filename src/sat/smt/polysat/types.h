@@ -116,7 +116,7 @@ namespace polysat {
         return out << "v" << js.v << " at offset " << js.offset;
     }
 
-    using fixed_bits_vector = svector<fixed_slice>;
+    using fixed_bits_vector = vector<fixed_slice>;
 
     using dependency_vector = vector<dependency>;
     using constraint_or_dependency = std::variant<signed_constraint, dependency>;

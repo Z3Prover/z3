@@ -13,6 +13,7 @@ Author:
 #pragma once
 #include "sat/smt/polysat/types.h"
 #include "sat/smt/polysat/constraints.h"
+#include "sat/smt/polysat/forbidden_intervals.h"
 #include "util/vector.h"
 
 namespace polysat {
@@ -31,9 +32,7 @@ namespace polysat {
     class fixed_bits {
         core& c;
         pvar m_var = null_var;
-        vector<fixed_slice> m_fixed_slices;
-        svector<lbool> m_fixed;
-        bool_vector m_bits;
+        fixed_bits_vector m_fixed_slices;
     public:
         fixed_bits(core& c) : c(c) {}
 
@@ -41,13 +40,9 @@ namespace polysat {
         void reset();
 
         // reset with fixed bits information for variable v
-        void reset(pvar v);
+        void init(pvar v);
 
-        // find then next value >= val that agrees with fixed bits, or false if none exists within the maximal value for val.
-        bool next(rational& val);
-
-        // explain the fixed bits ranges.
-        dependency_vector explain();
+        bool check(rational const& val, fi_record& fi);
 
         std::ostream& display(std::ostream& out) const;
     };

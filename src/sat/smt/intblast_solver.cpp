@@ -471,18 +471,25 @@ namespace intblast {
         });
     }
 
+    bool solver::is_non_negative(expr* bv_expr, expr* e) {
+        auto N = rational::power_of_two(bv.get_bv_size(bv_expr));
+        rational r;
+        if (a.is_numeral(e, r))
+            return r >= 0;
+        if (is_bounded(e, N))
+            return true;
+        expr* x, * y;
+        if (a.is_mul(e, x, y)) 
+            return is_non_negative(bv_expr, x) && is_non_negative(bv_expr, y);
+        if (a.is_add(e, x, y))
+            return is_non_negative(bv_expr, x) && is_non_negative(bv_expr, y);
+        return false;
+    }
+
     expr* solver::umod(expr* bv_expr, unsigned i) {
         expr* x = arg(i);
-        rational r;
         rational N = bv_size(bv_expr);
-        if (a.is_numeral(x, r)) {
-            if (0 <= r && r < N)
-                return x;
-            return a.mk_int(mod(r, N));
-        }
-        if (is_bounded(x, N))
-            return x;
-        return a.mk_mod(x, a.mk_int(N));
+        return amod(bv_expr, x, N);
     }
 
     expr* solver::smod(expr* bv_expr, unsigned i) {
@@ -492,7 +499,7 @@ namespace intblast {
         rational r;
         if (a.is_numeral(x, r))
             return a.mk_int(mod(r + shift, N));
-        return a.mk_mod(add(x, a.mk_int(shift)), a.mk_int(N));
+        return amod(bv_expr, add(x, a.mk_int(shift)), N);
     }
 
     expr_ref solver::mul(expr* x, expr* y) {
@@ -505,6 +512,9 @@ namespace intblast {
             return _y;
         if (a.is_one(y))
             return _x;
+        rational v1, v2;
+        if (a.is_numeral(x, v1) && a.is_numeral(y, v2))
+            return expr_ref(a.mk_int(v1 * v2), m);
         _x = a.mk_mul(x, y);
         return _x;
     }
@@ -515,8 +525,35 @@ namespace intblast {
             return _y;
         if (a.is_zero(y))
             return _x;
+        rational v1, v2;
+        if (a.is_numeral(x, v1) && a.is_numeral(y, v2))
+            return expr_ref(a.mk_int(v1 + v2), m);
         _x = a.mk_add(x, y);
         return _x;
+    }
+
+    /*
+    * Perform simplifications that are claimed sound when the bit-vector interpretations of
+    * mod/div always guard the mod and dividend to be non-zero.
+    * Potentially shady area is for arithmetic expressions created by int2bv. 
+    * They will be guarded by a modulus which dose not disappear.
+    */
+    expr* solver::amod(expr* bv_expr, expr* x, rational const& N) {
+        rational v;
+        expr* r, *c, * t, * e;
+        if (m.is_ite(x, c, t, e))
+            r = m.mk_ite(c, amod(bv_expr, t, N), amod(bv_expr, e, N));
+        else if (a.is_idiv(x, t, e) && a.is_numeral(t, v) && 0 <= v && v < N && is_non_negative(bv_expr, e))
+            r = x;
+        else if (a.is_mod(x, t, e) && a.is_numeral(t, v) && 0 <= v && v < N)
+            r = x;
+        else if (a.is_numeral(x, v))
+            r = a.mk_int(mod(v, N));
+        else if (is_bounded(x, N))
+            r = x;
+        else 
+            r = a.mk_mod(x, a.mk_int(N));
+        return r;
     }
 
     rational solver::bv_size(expr* bv_expr) {
@@ -649,7 +686,7 @@ namespace intblast {
                 auto A = rational::power_of_two(sz - n);
                 auto B = rational::power_of_two(n);
                 auto hi = mul(r, a.mk_int(A));
-                auto lo = a.mk_mod(a.mk_idiv(umod(e, 0), a.mk_int(B)), a.mk_int(A));
+                auto lo = amod(e, a.mk_idiv(umod(e, 0), a.mk_int(B)), A);
                 r = add(hi, lo);
             }
             return r;

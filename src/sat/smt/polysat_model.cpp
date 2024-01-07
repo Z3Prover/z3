@@ -75,6 +75,9 @@ namespace polysat {
     void solver::collect_statistics(statistics& st) const {
         m_intblast.collect_statistics(st);
         m_core.collect_statistics(st);
+        st.update("polysat-conflicts", m_stats.m_num_conflicts);
+        st.update("polysat-axioms", m_stats.m_num_axioms);
+        st.update("polysat-propagations", m_stats.m_num_propagations);            
     }
 
     std::ostream& solver::display_justification(std::ostream& out, sat::ext_justification_idx idx) const {

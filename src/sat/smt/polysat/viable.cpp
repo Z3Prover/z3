@@ -87,7 +87,7 @@ namespace polysat {
         m_explain.reset();
         m_var = v;
         m_num_bits = c.size(v);
-        m_fixed_bits.reset(v);
+        m_fixed_bits.init(v);
         init_overlaps(v);
         m_conflict = false;       
 
@@ -101,8 +101,9 @@ namespace polysat {
                 return find_t::empty;
 
             if (!n) {
-                if (refine_disequal_lin(v, lo) &&
-                    refine_equal_lin(v, lo))
+                if (check_fixed_bits(v, lo) && 
+                    check_disequal_lin(v, lo) &&
+                    check_equal_lin(v, lo))
                     return find_t::multiple;
                 ++rounds;
             }                      
@@ -128,11 +129,6 @@ namespace polysat {
     // 
 
     viable::entry* viable::find_overlap(rational& val) {
-        // disable fixed-bits until added to explanation trail.
-        if (false && !m_fixed_bits.next(val)) {
-            val = 0;
-            VERIFY(m_fixed_bits.next(val));
-        }
 
         entry* last = nullptr;
         for (auto const& [w, offset] : m_overlaps) {
@@ -217,7 +213,7 @@ namespace polysat {
         return nullptr;
     }
 
-    bool viable::refine_equal_lin(pvar v, rational const& val) {
+    bool viable::check_equal_lin(pvar v, rational const& val) {
         // LOG_H2("refine-equal-lin with v" << v << ", val = " << val);
         entry const* e = m_equal_lin[v];
         if (!e)
@@ -357,7 +353,22 @@ namespace polysat {
         return true;
     }
 
-    bool viable::refine_disequal_lin(pvar v, rational const& val) {
+    bool viable::check_fixed_bits(pvar v, rational const& val) {
+        // disable fixed bits for now
+        return true;
+
+        auto e = alloc_entry(v, constraint_id::null());
+        if (m_fixed_bits.check(val, *e)) {
+            m_alloc.push_back(e);
+            return true;
+        }
+        else {
+            intersect(v, e);
+            return false;
+        }
+    }
+
+    bool viable::check_disequal_lin(pvar v, rational const& val) {
         // LOG_H2("refine-disequal-lin with v" << v << ", val = " << val);
         entry const* e = m_diseq_lin[v];
         if (!e)
@@ -490,14 +501,13 @@ namespace polysat {
 
         TRACE("bv", display_explain(tout));
 
-        result.append(m_fixed_bits.explain());
-
         if (last.e->interval.is_full()) {
             if (m_var != last.e->var)
                 result.push_back(offset_claim(m_var, { last.e->var, 0 }));
             for (auto const& sc : last.e->side_cond)
                 result.push_back(c.propagate(sc, c.explain_weak_eval(sc)));
-            result.push_back(c.get_dependency(last.e->constraint_index));
+            if (!last.e->constraint_index.is_null())
+                result.push_back(c.get_dependency(last.e->constraint_index));
             SASSERT(m_explain.size() == 1);
         }
 
@@ -506,14 +516,17 @@ namespace polysat {
             auto index = e.e->constraint_index;
             explain_overlap(e, after, result);
             after = e;
-            if (seen.contains(index.id))
+            if (!index.is_null() && seen.contains(index.id))
                 continue;
-            seen.insert(index.id);
+            if (!index.is_null())
+                seen.insert(index.id);
             if (m_var != e.e->var)
-                result.push_back(offset_claim(m_var, { e.e->var, 0 }));
+                result.push_back(offset_claim(m_var, { e.e->var, 0 }));            
             for (auto const& sc : e.e->side_cond)
                 result.push_back(c.propagate(sc, c.explain_weak_eval(sc)));
-            result.push_back(c.get_dependency(index));
+            result.append(e.e->deps);
+            if (!index.is_null())
+                result.push_back(c.get_dependency(index));            
             if (e.e == last.e)
                 break;
         }

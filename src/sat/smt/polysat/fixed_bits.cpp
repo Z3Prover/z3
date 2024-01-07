@@ -20,96 +20,41 @@ namespace polysat {
     void fixed_bits::reset() {
         m_fixed_slices.reset();
         m_var = null_var;
-        m_fixed.reset();
-        m_bits.reset();
     }
 
     // reset with fixed bits information for variable v
-    void fixed_bits::reset(pvar v) {
+    void fixed_bits::init(pvar v) {
         m_fixed_slices.reset();
         m_var = v;
-        m_fixed.reset();
-        m_fixed.resize(c.size(v), l_undef);
-        m_bits.reserve(c.size(v));
-        fixed_bits_vector fbs;
-        c.get_fixed_bits(v, fbs);
-        for (auto const& fb : fbs) 
-            for (unsigned i = fb.lo; i <= fb.hi; ++i) 
-                m_fixed[i] = to_lbool(fb.value.get_bit(i - fb.lo));
+        c.get_fixed_bits(v, m_fixed_slices);
     }
 
-    // find then next value >= val that agrees with fixed bits, or false if none exists within the maximal value for val.
-    // examples
-    //  fixed bits:  1?0 (least significant bit is last)
-    //  val:         101
-    //  next:        110
-
-    // fixed bits   ?1?0
-    // val          1011
-    // next         1100
-
-    // algorithm: Let i be the most significant index where fixed bits disagree with val.
-    // Set non-fixed values below i to 0.
-    // If m_fixed[i] == l_true; then updating val to mask by fixed bits sufficies.
-    // Otherwise, the range above the disagreement has to be incremented.
-    // Increment the non-fixed bits by 1
-    // The first non-fixed 0 position is set to 1, non-fixed positions below are set to 0.
-    // If there are none, then the value is maximal and we return false.
-
-    bool fixed_bits::next(rational& val) {
-        if (m_fixed_slices.empty())
-            return true;
-        unsigned sz = c.size(m_var);
-        for (unsigned i = 0; i < sz; ++i)
-            m_bits[i] = val.get_bit(i);
-        unsigned i = sz;
-        for (; i-- > 0; )
-            if (m_fixed[i] != l_undef && m_fixed[i] != to_lbool(m_bits[i]))
-                break;
-        if (i == 0)       
-            return true;
-
-        for (unsigned j = 0; j < sz; ++j) {
-            if (m_fixed[j] != l_undef)
-                m_bits[j] = m_fixed[j] == l_true;
-            else if (j < i)
-                m_bits[j] = false;
-        }
-
-        if (m_fixed[i] == l_false) {
-            for (; i < sz; ++i) {
-                if (m_fixed[i] != l_undef)
-                    continue;
-                if (m_bits[i])
-                    m_bits[i] = false;
-                else {
-                    m_bits[i] = true;
-                    break;
-                }
-            }
-
-
-            CTRACE("bv", i == sz, display(tout << "overflow\n"));
-            // overflow
-            if (i == sz)
+    // if x[hi:lo] = value, then 
+    // 2^(w-hi+1)* x >= 
+    bool fixed_bits::check(rational const& val, fi_record& fi) {
+        for (auto const& s : m_fixed_slices) {
+            rational bw = rational::power_of_two(s.hi - s.lo + 1);
+            if (s.value != mod(machine_div2k(val, s.lo + 1), bw)) {
+                rational hi_val = s.value;
+                rational lo_val = mod(s.value + 1, bw);
+                unsigned sz = c.size(m_var);
+                pdd lo = c.value(rational::power_of_two(sz - s.hi - 1) * lo_val, c.size(m_var));
+                pdd hi = c.value(rational::power_of_two(sz - s.hi - 1) * hi_val, c.size(m_var));
+                fi.reset();
+                fi.interval = eval_interval::proper(lo, lo_val, hi, hi_val);
+                fi.deps.push_back(dependency({ m_var, s }));
+                fi.bit_width = s.hi - s.lo + 1;
+                fi.coeff = 1;
                 return false;
+            }
         }
-        val = 0;
-        for (unsigned i = sz; i-- > 0;)
-            val = val * 2 + rational(m_bits[i]);    
         return true;
     }
 
-    // explain the fixed bits ranges.
-    dependency_vector fixed_bits::explain() {
-        dependency_vector result;
-        for (auto const& slice : m_fixed_slices) 
-            result.push_back(dependency({ m_var, slice }));
-        return result;
-    }
-
     std::ostream& fixed_bits::display(std::ostream& out) const {
-        return out << "fixed bits: v" << m_var << " " << m_fixed << "\n";
+        for (auto const& s : m_fixed_slices)
+            out << s.hi << " " << s.lo << " " << s.value << "\n";  
+        return out;
     }
 
     /**
