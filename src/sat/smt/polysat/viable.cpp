@@ -517,54 +517,52 @@ namespace polysat {
     * or why it can only have a single value.
     */
     dependency_vector viable::explain() {
-        dependency_vector result;
-      
+        dependency_vector result;      
         uint_set seen;
         auto last = m_explain.back();
         auto after = last;
-        unsigned bw = c.size(last.e->var);
 
         TRACE("bv", display_explain(tout));
 
-        if (last.e->interval.is_full()) {
-            if (m_var != last.e->var)
-                result.push_back(offset_claim(m_var, { last.e->var, 0 }));
-            for (auto const& sc : last.e->side_cond)
+        auto explain_entry = [&](entry* e) {
+            auto index = e->constraint_index;
+            if (!index.is_null() && seen.contains(index.id))
+                return;
+            if (!index.is_null())
+                seen.insert(index.id);
+            if (m_var != e->var)
+                result.push_back(offset_claim(m_var, { e->var, 0 }));
+            for (auto const& sc : e->side_cond)
                 result.push_back(c.propagate(sc, c.explain_weak_eval(sc)));
-            if (!last.e->constraint_index.is_null())
-                result.push_back(c.get_dependency(last.e->constraint_index));
+            result.append(e->deps);
+            if (!index.is_null())
+                result.push_back(c.get_dependency(index));
+            };
+
+        if (last.e->interval.is_full()) {
+            explain_entry(last.e);
             SASSERT(m_explain.size() == 1);
+            return result;
         }
 
         SASSERT(m_conflict || m_propagation);
+
         for (unsigned i = m_explain.size() - 1; i-- > 0; ) {
             auto e = m_explain[i];
-            auto index = e.e->constraint_index;
             explain_overlap(e, after, result);
             after = e;
-            if (!index.is_null() && seen.contains(index.id))
-                continue;
-            if (!index.is_null())
-                seen.insert(index.id);
-            if (m_var != e.e->var)
-                result.push_back(offset_claim(m_var, { e.e->var, 0 }));            
-            for (auto const& sc : e.e->side_cond)
-                result.push_back(c.propagate(sc, c.explain_weak_eval(sc)));
-            result.append(e.e->deps);
-            if (!index.is_null())
-                result.push_back(c.get_dependency(index));            
+            explain_entry(e.e);           
             if (e.e == last.e)
                 break;
         }
         if (m_propagation) {
-            NOT_IMPLEMENTED_YET();
-            auto first = m_explain[0];
-            // add constraint that:            
-            auto sc = cs.eq(last.e->interval.hi() + 1, first.e->interval.lo());
-            result.push_back(c.propagate(sc, c.explain_weak_eval(sc)));
             // assume first and last have same bit-width
-
-
+            auto first = m_explain[0];
+            SASSERT(first.e->bit_width == last.e->bit_width);
+            explain_entry(first.e);
+            // add constraint that there is only a single viable value.         
+            auto sc = cs.eq(last.e->interval.hi() + 1, first.e->interval.lo());
+            result.push_back(c.propagate(sc, c.explain_weak_eval(sc)));            
         }
         return result;
     }
