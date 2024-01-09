@@ -164,11 +164,7 @@ namespace polysat {
             viable_conflict(m_var);
             return l_false;
         case find_t::singleton: {
-            auto p = var2pdd(m_var).mk_var(m_var);
-            auto sc = m_constraints.eq(p, var_value);
-            TRACE("bv", tout << "check-propagate v" << m_var << " := " << var_value << " " << sc << "\n");
-            auto d = s.propagate(sc, m_viable.explain(), "viable-propagate");
-            propagate_assignment(m_var, var_value, d);
+            viable_propagate(m_var, var_value);
             return l_false;
         }
         case find_t::multiple: {
@@ -301,6 +297,14 @@ namespace polysat {
         decay_activity();
     }
 
+    void core::viable_propagate(pvar v, rational const& var_value) {
+        auto p = var2pdd(v).mk_var(v);
+        auto sc = m_constraints.eq(p, var_value);
+        TRACE("bv", tout << "check-propagate v" << v << " := " << var_value << " " << sc << "\n");
+        auto d = s.propagate(sc, m_viable.explain(), "viable-propagate");
+        propagate_assignment(v, var_value, d);
+    }
+
     void core::propagate_assignment(constraint_id idx) { 
 
         auto [sc, dep, value] = m_constraint_index[idx.id];
@@ -333,8 +337,18 @@ namespace polysat {
                 return;
             v = w;
         }
-        if (v != null_var && !m_viable.add_unitary(v, idx, m_values[v]))
-            viable_conflict(v);
+        if (v != null_var) {
+            switch (m_viable.add_unitary(v, idx, m_values[v])) {
+            case find_t::empty:
+                viable_conflict(v);
+                break;
+            case find_t::singleton:
+                viable_propagate(v, m_values[v]);
+                break;
+            default:
+                break;
+            }
+        }           
         else if (v == null_var && weak_eval(sc) == l_false) {
             auto ex = explain_weak_eval(sc);
             ex.push_back(dep);
@@ -388,9 +402,18 @@ namespace polysat {
             auto v1 = vars[1];
             if (!is_assigned(v0) || is_assigned(v1))
                 continue;
-            // detect unitary, add to viable, detect conflict?
-            if (value != l_undef && !m_viable.add_unitary(v1, { idx }, m_values[v]))
-                viable_conflict(v1);
+            if (value != l_undef) {
+                switch (m_viable.add_unitary(v1, { idx }, m_values[v1])) {
+                case find_t::empty:
+                    viable_conflict(v1);
+                    break;
+                case find_t::singleton:
+                    viable_propagate(v1, m_values[v1]);
+                    break;
+                default:
+                    break;
+                }
+            }                
         }
         SASSERT(m_watch[v].size() == sz && "size of watch list was not changed");
         m_watch[v].shrink(j);

@@ -49,10 +49,11 @@ namespace polysat {
         struct entry final : public dll_base<entry>, public fi_record {
             /// whether the entry has been created by refinement (from constraints in 'fi_record::src')
             bool refined = false;
-            /// whether the entry is part of the current set of intervals, or stashed away for backtracking
+            /// whether the entry is part of the current set of intervals, or stashed away for backtracking     
             bool active = true;
             pvar var = null_var;
             constraint_id constraint_index;
+            bool marked = false;
 
             void reset() {
                 // dll_base<entry>::init(this);  // we never did this in alloc_entry either
@@ -61,6 +62,7 @@ namespace polysat {
                 active = true;
                 var = null_var;
                 constraint_index = constraint_id::null();
+                marked = false;
             }
         };
 
@@ -164,7 +166,7 @@ namespace polysat {
         /*
         * Register constraint at index 'idx' as unitary in v.
         */
-        bool add_unitary(pvar v, constraint_id, rational& value);
+        find_t add_unitary(pvar v, constraint_id, rational& value);
 
         /*
         * Ensure data-structures tracking variable v.

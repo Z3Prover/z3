@@ -103,10 +103,10 @@ namespace polysat {
 
             if (n)
                 continue;
-            ++rounds;
 
             if (!check_fixed_bits(v, lo))
                 continue;
+            ++rounds;
             if (!check_disequal_lin(v, lo))
                 continue;
             if (!check_equal_lin(v, lo))
@@ -125,8 +125,6 @@ namespace polysat {
         m_overlaps.reset();
         c.get_bitvector_suffixes(v, m_overlaps);
         std::sort(m_overlaps.begin(), m_overlaps.end(), [&](auto const& x, auto const& y) { return c.size(x.v) < c.size(y.v); });
-        //display_state(verbose_stream());
-        //display(verbose_stream());
     }
 
 
@@ -518,18 +516,21 @@ namespace polysat {
     */
     dependency_vector viable::explain() {
         dependency_vector result;      
-        uint_set seen;
         auto last = m_explain.back();
         auto after = last;
 
         TRACE("bv", display_explain(tout));
 
+        auto unmark = [&]() {
+            for (auto e : m_explain)
+                e.e->marked = false;
+        };
+
         auto explain_entry = [&](entry* e) {
             auto index = e->constraint_index;
-            if (!index.is_null() && seen.contains(index.id))
+            if (e->marked)
                 return;
-            if (!index.is_null())
-                seen.insert(index.id);
+            e->marked = true;
             if (m_var != e->var)
                 result.push_back(offset_claim(m_var, { e->var, 0 }));
             for (auto const& sc : e->side_cond)
@@ -542,6 +543,7 @@ namespace polysat {
         if (last.e->interval.is_full()) {
             explain_entry(last.e);
             SASSERT(m_explain.size() == 1);
+            unmark();
             return result;
         }
 
@@ -564,6 +566,7 @@ namespace polysat {
             auto sc = cs.eq(last.e->interval.hi() + 1, first.e->interval.lo());
             result.push_back(c.propagate(sc, c.explain_weak_eval(sc)));            
         }
+        unmark();
         return result;
     }
 
@@ -638,29 +641,29 @@ namespace polysat {
     /*
     * Register constraint at index 'idx' as unitary in v.
     */
-    bool viable::add_unitary(pvar v, constraint_id idx, rational& var_value) {
+    find_t viable::add_unitary(pvar v, constraint_id idx, rational& var_value) {
 
         if (c.is_assigned(v))
-            return true;
+            return find_t::multiple;
         auto [sc, d, truth_value] = c.m_constraint_index[idx.id];
         SASSERT(truth_value != l_undef);
         if (truth_value == l_false)
             sc = ~sc;
 
         if (!sc.is_linear()) 
-            return true;        
+            return find_t::multiple;        
 
         entry* ne = alloc_entry(v, idx);
         if (!m_forbidden_intervals.get_interval(sc, v, *ne)) {
             m_alloc.push_back(ne);
-            return true;
+            return find_t::multiple;
         }
 
         // verbose_stream() << "v" << v << " " << sc << " " << ne->interval << "\n";
 
         if (ne->interval.is_currently_empty()) {
             m_alloc.push_back(ne);
-            return true;
+            return find_t::multiple;
         }        
 
         if (ne->coeff == 1) 
@@ -739,7 +742,7 @@ namespace polysat {
                 IF_VERBOSE(0, verbose_stream() << "Check: always true " << "x*" << ne->coeff << " not in " << ne->interval << " " << new_hi << "\n");
                 // empty
                 m_alloc.push_back(ne);
-                return true;
+                return find_t::multiple;
             }
 
             ne->coeff = 1;
@@ -752,15 +755,9 @@ namespace polysat {
             m_explain.push_back({ ne, rational::zero() });
             m_fixed_bits.reset();
             m_var = v;
-            return false;
+            return find_t::empty;
         }
-        switch (find_viable(v, var_value)) {
-        case find_t::empty:
-            return false;
-        default:
-            break;
-        }
-        return true;
+        return find_viable(v, var_value);
     }
 
     void viable::ensure_var(pvar v) {

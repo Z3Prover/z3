@@ -79,6 +79,7 @@ namespace polysat {
         void del_var();
 
         void viable_conflict(pvar v);
+        void viable_propagate(pvar v, rational const& var_value);
 
         bool is_assigned(pvar v) { return !m_justification[v].is_null(); }
         void propagate_assignment(constraint_id idx);
