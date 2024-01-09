@@ -261,8 +261,6 @@ namespace euf {
         TRACE("bv", tout << "register " << g.bpp(n) << "\n");
         auto& i = info(n);
         i.value = n;    
-        if (n->get_expr_id() == 255 && false)
-            verbose_stream() << g.bpp(n) << "\n";
         enode* a, * b;
         if (is_concat(n, a, b)) {
             i.hi = a;
