@@ -2389,7 +2389,9 @@ public:
 
     literal_vector m_core2;
 
-    void assign(literal lit, literal_vector const& core, svector<enode_pair> const& eqs, vector<parameter> const& params) {
+    void assign(literal lit, literal_vector const& core, svector<enode_pair> const& eqs, vector<parameter> const& ps) {
+        if (params().m_arith_validate)
+            VERIFY(validate_assign(lit, core, eqs));
         if (core.size() < small_lemma_size() && eqs.empty()) {
             m_core2.reset();
             for (auto const& c : core) {
@@ -2399,7 +2401,7 @@ public:
             justification * js = nullptr;
             if (proofs_enabled()) {
                 js = alloc(theory_lemma_justification, get_id(), ctx(), m_core2.size(), m_core2.data(),
-                           params.size(), params.data());
+                           ps.size(), ps.data());
             }
             ctx().mk_clause(m_core2.size(), m_core2.data(), js, CLS_TH_LEMMA, nullptr);
         }
@@ -2408,7 +2410,7 @@ public:
                 lit, ctx().mk_justification(
                     ext_theory_propagation_justification(
                         get_id(), ctx(), core.size(), core.data(), 
-                        eqs.size(), eqs.data(), lit, params.size(), params.data())));            
+                        eqs.size(), eqs.data(), lit, ps.size(), ps.data())));            
         }
     }
 
@@ -3138,7 +3140,8 @@ public:
         std::function<expr*(void)> fn = [&]() { return m.mk_eq(x->get_expr(), y->get_expr()); };
         scoped_trace_stream _sts(th, fn);
 
-        // VERIFY(validate_eq(x, y));
+        if (params().m_arith_validate)
+            VERIFY(validate_eq(x, y));
         ctx().assign_eq(x, y, eq_justification(js));
     }
     
@@ -3252,8 +3255,9 @@ public:
         for (auto ev : m_explanation) 
             set_evidence(ev.ci(), m_core, m_eqs);
 
-        
-        // VERIFY(validate_conflict(m_core, m_eqs));
+
+        if (params().m_arith_validate)
+            VERIFY(validate_conflict(m_core, m_eqs));
         if (is_conflict) {
             ctx().set_conflict(
                 ctx().mk_justification(
