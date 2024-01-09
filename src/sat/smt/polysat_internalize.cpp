@@ -669,7 +669,6 @@ namespace polysat {
         SASSERT(bv.is_concat(e));
         SASSERT(e->get_num_args() > 0);
         sat::literal_vector neqs;
-        verbose_stream() << mk_pp(e, m) << "\n";
         expr* hi = e->get_arg(e->get_num_args() - 1);
         auto sz_e = bv.get_bv_size(e);
         auto sz_h = bv.get_bv_size(hi);

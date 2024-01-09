@@ -135,7 +135,9 @@ namespace polysat {
     }
 
     void solver::explain_dep(dependency const& d, euf::enode_pair_vector& eqs, sat::literal_vector& core) {
-        if (d.is_bool_var()) {
+        if (d.is_axiom())
+            ;
+        else if (d.is_bool_var()) {
             auto bv = d.bool_var();
             auto lit = sat::literal(bv, s().value(bv) == l_false);
             core.push_back(lit);
@@ -379,7 +381,7 @@ namespace polysat {
                 core.push_back(~lit);
             hint = mk_proof_hint(name, core, {});
         }        
-        IF_VERBOSE(1, display_clause(name, verbose_stream(), lits));
+        IF_VERBOSE(3, display_clause(name, verbose_stream(), lits));
         s().add_clause(lits.size(), lits.data(), sat::status::th(is_redundant, get_id(), hint));
     }
 

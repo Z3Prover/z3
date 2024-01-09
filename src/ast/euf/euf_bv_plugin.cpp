@@ -259,17 +259,24 @@ namespace euf {
     
     void bv_plugin::propagate_register_node(enode* n) {
         TRACE("bv", tout << "register " << g.bpp(n) << "\n");
-        auto& i = info(n);
-        i.value = n;    
         enode* a, * b;
+        unsigned lo, hi;
         if (is_concat(n, a, b)) {
+            auto& i = info(n);
+            i.value = n;
             i.hi = a;
             i.lo = b;
             i.cut = width(b);
             push_undo_split(n);
         }
-        unsigned lo, hi;
-        if (is_extract(n, lo, hi) && (lo != 0 || hi + 1 != width(n->get_arg(0)))) {
+        else if (is_concat(n) && n->num_args() != 2) {
+            SASSERT(n->num_args() != 0);
+            auto last = n->get_arg(n->num_args() - 1);
+            for (unsigned i = n->num_args() - 1; i-- > 0;) 
+                last = mk_concat(n->get_arg(i), last);
+            push_merge(last, n);
+        }
+        else if (is_extract(n, lo, hi) && (lo != 0 || hi + 1 != width(n->get_arg(0)))) {
             enode* arg = n->get_arg(0);   
             unsigned w = width(arg);
             if (all_of(enode_parents(arg), [&](enode* p) { unsigned _lo, _hi;  return !is_extract(p, _lo, _hi) || _lo != 0 || _hi + 1 != w; }))
