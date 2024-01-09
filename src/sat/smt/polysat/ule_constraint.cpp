@@ -228,7 +228,7 @@ namespace polysat {
             lhs *= x;
             SASSERT(lhs.leading_coefficient().is_power_of_two());
         }
-        TRACE("bv", tout << "simplified " << lhs << " <= " << rhs << "\n");
+        TRACE("bv_verbose", tout << "simplified " << lhs << " <= " << rhs << "\n");
     } // simplify_impl
 }
 

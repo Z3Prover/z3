@@ -92,7 +92,7 @@ namespace euf {
         auto v1 = get_value(hi);
         auto v2 = get_value(lo);
         auto v3 = v2 + v1 * rational::power_of_two(width(lo));
-        return mk_value(v3, width(lo) + width(lo));
+        return mk_value(v3, width(lo) + width(hi));
     }
 
     enode* bv_plugin::mk_value(rational const& v, unsigned sz) {
@@ -261,6 +261,8 @@ namespace euf {
         TRACE("bv", tout << "register " << g.bpp(n) << "\n");
         auto& i = info(n);
         i.value = n;    
+        if (n->get_expr_id() == 255 && false)
+            verbose_stream() << g.bpp(n) << "\n";
         enode* a, * b;
         if (is_concat(n, a, b)) {
             i.hi = a;
@@ -291,7 +293,8 @@ namespace euf {
             SASSERT(ub - lb + 1 == width(r));
             if (lb == lo && ub == hi)
                 return;
-            slice_info& i = info(r);
+            slice_info const& i = info(r);
+            
             if (!i.lo) {
                 if (lo > lb) {
                     split(r, lo - lb);
@@ -349,6 +352,7 @@ namespace euf {
             SASSERT(!ys.empty());
             auto x = xs.back();
             auto y = ys.back();
+            TRACE("bv", tout << "merge " << g.bpp(x) << " " << g.bpp(y) << "\n");
             if (unfold_sub(x, xs))
                 continue;
             else if (unfold_sub(y, ys))
@@ -391,9 +395,8 @@ namespace euf {
         SASSERT(0 < cut && cut < w);
         enode* hi = mk_extract(n, cut, w - 1);
         enode* lo = mk_extract(n, 0, cut - 1);        
-        auto& i = info(n);
-        if (!i.value)
-            i.value = n;
+        auto& i = info(n);        
+        i.value = n;
         i.hi = hi;
         i.lo = lo;
         i.cut = cut;
@@ -542,8 +545,7 @@ namespace euf {
         out << "bv\n";        
         for (auto const& i : m_info) 
             if (i.lo)
-                out << g.bpp(i.value) << " cut " << i.cut << " lo " << g.bpp(i.lo) << " hi " << g.bpp(i.hi) << "\n";           
-
+                out << g.bpp(i.value) << " cut " << i.cut << " lo " << g.bpp(i.lo) << " hi " << g.bpp(i.hi) << "\n";
         return out;
     }
 }

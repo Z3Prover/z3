@@ -227,6 +227,8 @@ namespace polysat {
         }
 
         void add_axiom(char const* name, std::initializer_list<sat::literal> const& clause);
+        void add_axiom(char const* name, sat::literal_vector const& clause, bool is_redundant);
+        void add_axiom(char const* name, sat::literal const* begin, sat::literal const* end, bool is_redundant);
         void equiv_axiom(char const* name, sat::literal a, sat::literal b);
 
         void validate_propagate(sat::literal lit, sat::literal_vector const& core, euf::enode_pair_vector const& eqs);

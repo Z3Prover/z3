@@ -359,35 +359,37 @@ namespace polysat {
         return true;
     }
 
-    void solver::add_axiom(char const* name, std::initializer_list<sat::literal> const& clause) {
+    void solver::add_axiom(char const* name, sat::literal const* begin, sat::literal const* end, bool is_redundant) {
         ++m_stats.m_num_axioms;
-        bool is_redundant = false;
         sat::literal_vector lits;
-        proof_hint* hint = nullptr;
-        if (ctx.use_drat()) {
-            for (auto lit : clause)
-                lits.push_back(~lit);
-            hint = mk_proof_hint(name, lits, {});
-            for (auto& lit : lits)
-                lit.neg();
-        }
-        else {
-            for (auto lit : clause)
-                lits.push_back(lit);
-        }
-        validate_axiom(lits);
-
-        unsigned j = 0;
-        for (auto lit : lits) {
+        validate_axiom(sat::literal_vector(static_cast<unsigned>(end - begin), begin));
+        for (auto it = begin; it != end; ++it) {
+            auto lit = *it;
             if (s().value(lit) == l_true && s().lvl(lit) == 0)
                 return;
             if (s().value(lit) == l_false && s().lvl(lit) == 0)
                 continue;
-            lits[j++] = lit;
+            lits.push_back(lit);
         }
-        lits.shrink(j);        
+        
+        proof_hint* hint = nullptr;
+        if (ctx.use_drat()) {
+            sat::literal_vector core;
+            for (auto lit : lits)
+                core.push_back(~lit);
+            hint = mk_proof_hint(name, core, {});
+        }        
         IF_VERBOSE(1, display_clause(name, verbose_stream(), lits));
         s().add_clause(lits.size(), lits.data(), sat::status::th(is_redundant, get_id(), hint));
+    }
+
+    void solver::add_axiom(char const* name, sat::literal_vector const& clause, bool is_redundant) {
+        add_axiom(name, clause.begin(), clause.end(), is_redundant);
+
+    }
+
+    void solver::add_axiom(char const* name, std::initializer_list<sat::literal> const& clause) {      
+        add_axiom(name, clause.begin(), clause.end(), false);
     }
 
     void solver::equiv_axiom(char const* name, sat::literal a, sat::literal b) {

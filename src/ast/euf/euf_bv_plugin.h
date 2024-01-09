@@ -46,7 +46,7 @@ namespace euf {
         std::function<void(enode*)> m_ensure_th_var;
 
         bool is_concat(enode* n) const { return bv.is_concat(n->get_expr()); }
-        bool is_concat(enode* n, enode*& a, enode*& b) { return is_concat(n) && (a = n->get_arg(0), b = n->get_arg(1), true); }
+        bool is_concat(enode* n, enode*& a, enode*& b) { return is_concat(n) && n->num_args() == 2 && (a = n->get_arg(0), b = n->get_arg(1), true); }
         bool is_extract(enode* n, unsigned& lo, unsigned& hi) { expr* body;  return bv.is_extract(n->get_expr(), lo, hi, body); }
         bool is_extract(enode* n) const { return bv.is_extract(n->get_expr()); }
         unsigned width(enode* n) const { return bv.get_bv_size(n->get_expr()); }        
@@ -59,7 +59,6 @@ namespace euf {
         bool  is_value(enode* n) { return n->get_root()->interpreted(); }
         rational get_value(enode* n) { rational val; VERIFY(bv.is_numeral(n->get_interpreted()->get_expr(), val)); return val; }
         slice_info& info(enode* n) { unsigned id = n->get_id(); m_info.reserve(id + 1); return m_info[id]; }
-        slice_info& root_info(enode* n) { unsigned id = n->get_root_id(); m_info.reserve(id + 1); return m_info[id]; }
         bool has_sub(enode* n) { return !!info(n).lo; }
         enode* sub_lo(enode* n) { return info(n).lo; }
         enode* sub_hi(enode* n) { return info(n).hi; }

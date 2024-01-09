@@ -218,7 +218,7 @@ namespace euf {
 
         // plugin related methods
         void push_plugin_undo(unsigned th_id) { m_updates.push_back(update_record(th_id, update_record::plugin_undo())); }
-        void push_merge(enode* a, enode* b, justification j) { m_to_merge.push_back({ a, b, j }); }
+        void push_merge(enode* a, enode* b, justification j) { SASSERT(a->get_sort() == b->get_sort());  m_to_merge.push_back({ a, b, j }); }
         void push_merge(enode* a, enode* b, bool comm) { m_to_merge.push_back({ a, b, comm }); }
         void propagate_plugins();
 
