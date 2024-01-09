@@ -358,7 +358,7 @@ namespace polysat {
 
     void core::propagate_assignment(pvar v, rational const& value, dependency dep) {
         TRACE("bv", tout << "propagate assignment v" << v << " := " << value << "\n");
-        
+        SASSERT(!is_assigned(v));
         m_values[v] = value;
         m_justification[v] = dep;   
         m_assignment.push(v , value);
@@ -390,12 +390,18 @@ namespace polysat {
             // will not update m_watch[v] (other than copy constructor for m_watch)
             // because v has been assigned a value.
             propagate_eval({ idx });
-            if (s.inconsistent())
-                return;
+
            
             SASSERT(!swapped || vars.size() <= 1 || (!is_assigned(vars[0]) && !is_assigned(vars[1])));
             if (!swapped)
                 m_watch[v][j++] = idx;
+            if (s.inconsistent()) {
+                ++k;
+                for (; k < sz; ++k)
+                    m_watch[v][j++] = m_watch[v][k];
+                m_watch[v].shrink(j);
+                return;
+            }
             if (vars.size() <= 1)
                 continue;
             auto v0 = vars[0];
