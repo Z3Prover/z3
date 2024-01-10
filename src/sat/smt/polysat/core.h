@@ -129,6 +129,7 @@ namespace polysat {
         void ashr(pdd const& a, pdd const& b, pdd const& r) { add_opdef(m_constraints.ashr(a, b, r)); }
         void shl(pdd const& a, pdd const& b, pdd const& r) { add_opdef(m_constraints.shl(a, b, r)); }
         void band(pdd const& a, pdd const& b, pdd const& r) { add_opdef(m_constraints.band(a, b, r)); }
+        void bor(pdd const& a, pdd const& b, pdd const& r) { add_opdef(m_constraints.bor(a, b, r)); }
 
         pdd bnot(pdd p) { return -p - 1; }
         pvar mul(unsigned n, pdd const* args) { return m_monomials.mk(n, args); }

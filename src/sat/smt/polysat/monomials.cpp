@@ -86,10 +86,10 @@ namespace polysat {
     // bit blast a monomial definition
     lbool monomials::bit_blast() {
         // disable for now
-        return l_undef;
         init_to_refine();
         if (m_to_refine.empty())
             return l_true;
+        return l_undef;
         shuffle(m_to_refine.size(), m_to_refine.data(), c.rand());
         if (any_of(m_to_refine, [&](auto i) { return bit_blast(m_monomials[i]); }))
             return l_false;

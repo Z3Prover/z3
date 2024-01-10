@@ -35,6 +35,8 @@ namespace polysat {
             shl_op,
             /// r is the bit-wise 'and' of p and q.
             and_op,
+            /// r is the bit-wise 'or' of p and q.
+            or_op,
             /// r is the smallest multiplicative pseudo-inverse of p;
             /// by definition we set r == 0 when p == 0.
             /// Note that in general, there are 2^parity(p) many pseudo-inverses of p.
@@ -56,12 +58,18 @@ namespace polysat {
         static lbool eval_shl(pdd const& p, pdd const& q, pdd const& r);
         static lbool eval_and(pdd const& p, pdd const& q, pdd const& r);
         static lbool eval_inv(pdd const& p, pdd const& r);
+        static lbool eval_or(pdd const& p, pdd const& q, pdd const& r);
 
-        void propagate_lshr(core& s, dependency const& dep);
-        void propagate_ashr(core& s, dependency const& dep);
-        void propagate_shl(core& s, dependency const& dep);
-        void propagate_and(core& s, dependency const& dep);
-        void propagate_inv(core& s, dependency const& dep);
+        void propagate_lshr(core& c);
+        void propagate_ashr(core& c);
+        void propagate_shl(core& c);
+        void propagate_and(core& c);
+        void propagate_or(core& c);
+        void propagate_inv(core& c);
+        bool propagate_mask(core& c, pdd const& p, pdd const& q, pdd const& r, rational const& pv, rational const& qv, rational const& rv);
+
+        void propagate(core& c, signed_constraint const& sc);
+        void add_conflict(core& c, char const* ax, constraint_or_dependency_list const& cs);
 
         
 

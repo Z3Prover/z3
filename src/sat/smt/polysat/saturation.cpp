@@ -51,6 +51,8 @@ namespace polysat {
             resolve(v, inequality::from_ule(c, id));
         else if (sc.is_umul_ovfl())
             try_umul_ovfl(v, umul_ovfl(id, sc));
+        else if (sc.is_op())
+            try_op(v, sc, c.get_dependency(id));
 
         return c.inconsistent();
     }
@@ -237,5 +239,17 @@ namespace polysat {
 
         add_clause("ax + b = 0 & cx + d = 0 ==> cb - da = 0", { i.dep(), j.dep(), C.eq(r) }, true);
     }
+
+
+    void saturation::try_op(pvar v, signed_constraint& sc, dependency const& d) {
+        verbose_stream() << "try op " << sc << "\n";
+        SASSERT(sc.is_op());
+        sc.propagate(c, l_true, d);
+    }
+
+    // possible algebraic rule:
+    // From "Hacker's Delight", section 2-2. Addition Combined with Logical Operations;
+    // found via Int-Blasting paper; see https://doi.org/10.1007/978-3-030-94583-1_24
+    // bor(p,q) = (p + q) - band(p, q); 
 
 }

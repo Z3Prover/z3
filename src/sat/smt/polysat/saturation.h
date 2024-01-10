@@ -65,6 +65,7 @@ namespace polysat {
         void try_ugt_y(pvar v, inequality const& i);
         void try_ugt_z(pvar z, inequality const& i);
         void try_umul_ovfl(pvar v, umul_ovfl const& sc);
+        void try_op(pvar v, signed_constraint& sc, dependency const& d);
 
         signed_constraint ineq(bool is_strict, pdd const& x, pdd const& y);       
 

@@ -8,7 +8,7 @@ Module Name:
 Abstract:
 
     PolySAT internalize
-    
+
 Author:
 
     Nikolaj Bjorner (nbjorner) 2022-01-26
@@ -43,7 +43,7 @@ namespace polysat {
         visit_rec(m, e, false, false);
     }
 
-    bool solver::visit(expr* e) {      
+    bool solver::visit(expr* e) {
         force_push();
         if (!is_app(e) || to_app(e)->get_family_id() != get_id()) {
             ctx.internalize(e);
@@ -55,7 +55,7 @@ namespace polysat {
 
     bool solver::visited(expr* e) {
         euf::enode* n = expr2enode(e);
-        return n && n->is_attached_to(get_id());        
+        return n && n->is_attached_to(get_id());
     }
 
     bool solver::post_visit(expr* e, bool sign, bool root) {
@@ -75,7 +75,7 @@ namespace polysat {
         internalize_polysat(a);
         return true;
     }
-  
+
     void solver::internalize_polysat(app* a) {
 
 #define if_unary(F) if (a->get_num_args() == 1) { internalize_unary(a, [&](pdd const& p) { return F(p); }); break; }
@@ -98,13 +98,13 @@ namespace polysat {
         case OP_MKBV:             internalize_mkbv(a); break;
         case OP_BV_NUM:           internalize_num(a); break;
         case OP_ULEQ:             internalize_le<false, false, false>(a); break;
-        case OP_SLEQ:             internalize_le<true,  false, false>(a); break;
-        case OP_UGEQ:             internalize_le<false, true,  false>(a); break;
-        case OP_SGEQ:             internalize_le<true,  true,  false>(a); break;
-        case OP_ULT:              internalize_le<false, true,  true>(a); break;
-        case OP_SLT:              internalize_le<true,  true,  true>(a); break;
+        case OP_SLEQ:             internalize_le<true, false, false>(a); break;
+        case OP_UGEQ:             internalize_le<false, true, false>(a); break;
+        case OP_SGEQ:             internalize_le<true, true, false>(a); break;
+        case OP_ULT:              internalize_le<false, true, true>(a); break;
+        case OP_SLT:              internalize_le<true, true, true>(a); break;
         case OP_UGT:              internalize_le<false, false, true>(a); break;
-        case OP_SGT:              internalize_le<true,  false, true>(a); break;
+        case OP_SGT:              internalize_le<true, false, true>(a); break;
 
         case OP_BUMUL_NO_OVFL:    internalize_binary_predicate(a, [&](pdd const& p, pdd const& q) { return ~m_core.umul_ovfl(p, q); }); break;
         case OP_BSMUL_NO_OVFL:    internalize_binary_predicate(a, [&](pdd const& p, pdd const& q) { return ~m_core.smul_ovfl(p, q); }); break;
@@ -137,13 +137,13 @@ namespace polysat {
         case OP_EXTRACT:          internalize_extract(a); break;
         case OP_CONCAT:           internalize_concat(a); break;
         case OP_ZERO_EXT:         internalize_zero_extend(a); break;
-        case OP_SIGN_EXT:         internalize_sign_extend(a); break; 
+        case OP_SIGN_EXT:         internalize_sign_extend(a); break;
 
-        case OP_BSREM:          
-        case OP_BSREM_I:          
-        case OP_BSMOD:            
-        case OP_BSMOD_I:         
-        case OP_BSDIV:            
+        case OP_BSREM:
+        case OP_BSREM_I:
+        case OP_BSMOD:
+        case OP_BSMOD_I:
+        case OP_BSDIV:
         case OP_BSDIV_I:
         case OP_BREDOR:  // x > 0               unary, return single bit, 1 if at least one input bit is set.
         case OP_BREDAND: // x == 2^K - 1        unary, return single bit, 1 if all input bits are set.
@@ -153,10 +153,10 @@ namespace polysat {
         case OP_EXT_ROTATE_LEFT:
         case OP_EXT_ROTATE_RIGHT:
         case OP_INT2BV:
-        case OP_BV2INT:           
+        case OP_BV2INT:
             if (bv.is_bv(a))
                 expr2pdd(a);
-            m_delayed_axioms.push_back(a);            
+            m_delayed_axioms.push_back(a);
             ctx.push(push_back_vector(m_delayed_axioms));
             break;
 
@@ -181,7 +181,7 @@ namespace polysat {
     solver::atom* solver::mk_atom(sat::bool_var bv, signed_constraint& sc) {
         auto a = get_bv2a(bv);
         if (a)
-            return a;            
+            return a;
         auto index = m_core.register_constraint(sc, dependency(bv));
         a = new (get_region()) atom(bv, index);
         insert_bv2a(bv, a);
@@ -200,7 +200,7 @@ namespace polysat {
     }
 
     void solver::internalize_udiv_i(app* e) {
-        expr* x, *y;
+        expr* x, * y;
         expr_ref rm(m);
         if (bv.is_bv_udivi(e, x, y))
             rm = bv.mk_bv_urem_i(x, y);
@@ -214,16 +214,29 @@ namespace polysat {
     // From "Hacker's Delight", section 2-2. Addition Combined with Logical Operations;
     // found via Int-Blasting paper; see https://doi.org/10.1007/978-3-030-94583-1_24
     // (p + q) - band(p, q);
-    void solver::internalize_bor(app* n) { 
-        internalize_binary(n, [&](expr* const& x, expr* const& y) { return bv.mk_bv_sub(bv.mk_bv_add(x, y), bv.mk_bv_and(x, y)); });   
+    void solver::internalize_bor(app* n) {
+        if (n->get_num_args() == 2) {
+            expr* x, * y;
+            VERIFY(bv.is_bv_or(n, x, y));
+            m_core.bor(expr2pdd(x), expr2pdd(y), expr2pdd(n));
+        }
+        else {
+            expr_ref z(n->get_arg(0), m);
+            for (unsigned i = 1; i < n->get_num_args(); ++i) {
+                z = bv.mk_bv_or(z, n->get_arg(i));
+                ctx.internalize(z);
+            }
+            internalize_set(n, expr2pdd(z));
+        }
     }
+
 
     // From "Hacker's Delight", section 2-2. Addition Combined with Logical Operations;
     // found via Int-Blasting paper; see https://doi.org/10.1007/978-3-030-94583-1_24
     // (p + q) - 2*band(p, q);
     void solver::internalize_bxor(app* n) {
-        internalize_binary(n, [&](expr* const& x, expr* const& y) { 
-            return bv.mk_bv_sub(bv.mk_bv_add(x, y), bv.mk_bv_add(bv.mk_bv_and(x, y), bv.mk_bv_and(x, y))); 
+        internalize_binary(n, [&](expr* const& x, expr* const& y) {
+            return bv.mk_bv_sub(bv.mk_bv_add(x, y), bv.mk_bv_add(bv.mk_bv_and(x, y), bv.mk_bv_and(x, y)));
             });
     }
 
@@ -279,7 +292,7 @@ namespace polysat {
         ctx.push(value_trail(m_delayed_axioms_qhead));
         for (; m_delayed_axioms_qhead < m_delayed_axioms.size() && !inconsistent(); ++m_delayed_axioms_qhead) {
             app* e = m_delayed_axioms[m_delayed_axioms_qhead];
-            expr* x, *y;
+            expr* x, * y;
             unsigned n = 0;
             if (bv.is_bv_sdiv(e, x, y))
                 axiomatize_sdiv(e, x, y);
@@ -327,7 +340,7 @@ namespace polysat {
         rational N = rational::power_of_two(sz);
         add_axiom("int2bv", { eq_internalize(bv.mk_bv2int(e), m_autil.mk_mod(x, m_autil.mk_int(N))) });
     }
-    
+
     void solver::axiomatize_bv2int(app* e, expr* x) {
         // e := bv2int(x)
         // e = sum_bits(x)
@@ -349,7 +362,7 @@ namespace polysat {
             return x;
         else
             return bv.mk_concat(bv.mk_extract(n, 0, x), bv.mk_extract(sz - 1, sz - n - 1, x));
-    }    
+    }
 
     void solver::axiomatize_rotate_left(app* e, unsigned n, expr* x) {
         // e = x[n : 0] ++ x[sz - 1, sz - n - 1] 
@@ -398,9 +411,9 @@ namespace polysat {
     // else x - sdiv(x, y) * y
     void solver::axiomatize_srem(app* e, expr* x, expr* y) {
         unsigned sz = bv.get_bv_size(x);
-        sat::literal y_eq0 = eq_internalize(y, bv.mk_zero(sz));        
+        sat::literal y_eq0 = eq_internalize(y, bv.mk_zero(sz));
         add_axiom("srem", { ~y_eq0, eq_internalize(e, x) });
-        add_axiom("srem", { y_eq0, eq_internalize(e, bv.mk_bv_mul(bv.mk_bv_sdiv(x, y), y)) });                     
+        add_axiom("srem", { y_eq0, eq_internalize(e, bv.mk_bv_mul(bv.mk_bv_sdiv(x, y), y)) });
     }
 
     // u := umod(x, y)
@@ -442,10 +455,10 @@ namespace polysat {
     void solver::axiomatize_sdiv(app* e, expr* x, expr* y) {
         unsigned sz = bv.get_bv_size(x);
         rational N = rational::power_of_two(bv.get_bv_size(x));
-        expr* signx = bv.mk_ule(bv.mk_numeral(N/2, sz), x);
-        expr* signy = bv.mk_ule(bv.mk_numeral(N/2, sz), y);
-        expr* absx = m.mk_ite(signx, bv.mk_bv_sub(bv.mk_numeral(N-1, sz), x), x);
-        expr* absy = m.mk_ite(signy, bv.mk_bv_sub(bv.mk_numeral(N-1, sz), y), y);
+        expr* signx = bv.mk_ule(bv.mk_numeral(N / 2, sz), x);
+        expr* signy = bv.mk_ule(bv.mk_numeral(N / 2, sz), y);
+        expr* absx = m.mk_ite(signx, bv.mk_bv_sub(bv.mk_numeral(N - 1, sz), x), x);
+        expr* absy = m.mk_ite(signy, bv.mk_bv_sub(bv.mk_numeral(N - 1, sz), y), y);
         expr* d = bv.mk_bv_udiv(absx, absy);
         sat::literal lsignx = mk_literal(signx);
         sat::literal lsigny = mk_literal(signy);
@@ -457,10 +470,10 @@ namespace polysat {
         add_axiom(name, { y_eq0, ~lsignx, lsigny, eq_internalize(e, bv.mk_bv_neg(d)) });
         add_axiom(name, { y_eq0, lsignx, lsigny, eq_internalize(e, d) });
         add_axiom(name, { y_eq0, ~lsignx, ~lsigny, eq_internalize(e, d) });
-    }    
+    }
 
     void solver::internalize_urem_i(app* rem) {
-        expr* x, *y;
+        expr* x, * y;
         euf::enode* n = expr2enode(rem);
         SASSERT(n && n->is_attached_to(get_id()));
         theory_var v = n->get_th_var(get_id());
@@ -478,7 +491,7 @@ namespace polysat {
         m_var2pdd_valid.setx(v, false, false);
         quot_rem(quot, rem, x, y);
     }
-    
+
     void solver::quot_rem(expr* quot, expr* rem, expr* x, expr* y) {
         pdd a = expr2pdd(x);
         pdd b = expr2pdd(y);
@@ -513,8 +526,8 @@ namespace polysat {
             internalize_set(quot, q);
             internalize_set(rem, r);
             return;
-        }       
-        
+        }
+
         pdd r = var2pdd(rn->get_th_var(get_id()));
         pdd q = var2pdd(qn->get_th_var(get_id()));
 
@@ -542,13 +555,13 @@ namespace polysat {
     }
 
     void solver::internalize_sign_extend(app* e) {
-        expr* arg = e->get_arg(0);        
+        expr* arg = e->get_arg(0);
         unsigned sz = bv.get_bv_size(e);
         unsigned arg_sz = bv.get_bv_size(arg);
         unsigned sz2 = sz - arg_sz;
         var2pdd(expr2enode(e)->get_th_var(get_id()));
         auto name = "sign extend";
-        if (arg_sz == sz) 
+        if (arg_sz == sz)
             add_axiom(name, { eq_internalize(e, arg) });
         else {
             sat::literal lt0 = ctx.mk_literal(bv.mk_slt(arg, bv.mk_numeral(0, arg_sz)));
@@ -568,7 +581,7 @@ namespace polysat {
         auto name = "zero extend";
         if (arg_sz == sz)
             add_axiom(name, { eq_internalize(e, arg) });
-        else 
+        else
             // e = concat(0...0, arg)
             add_axiom(name, { eq_internalize(e, bv.mk_concat(bv.mk_numeral(0, sz2), arg)) });
     }
@@ -593,13 +606,13 @@ namespace polysat {
         add_axiom(name, { ~eqZ, eqU });
         add_axiom(name, { eqZ, eqI });
         ctx.add_aux(~eqZ, eqU);
-        ctx.add_aux(eqZ, eqI);        
+        ctx.add_aux(eqZ, eqI);
     }
 
     void solver::internalize_num(app* a) {
         rational val;
         unsigned sz = 0;
-        VERIFY(bv.is_numeral(a, val, sz));        
+        VERIFY(bv.is_numeral(a, val, sz));
         auto p = m_core.value(val, sz);
         internalize_set(a, p);
     }
@@ -630,7 +643,7 @@ namespace polysat {
         unsigned i = 0;
         for (expr* arg : *a) {
             expr_ref b2b(m);
-            b2b = bv.mk_bit2bool(a, i);            
+            b2b = bv.mk_bit2bool(a, i);
             sat::literal bit_i = ctx.internalize(b2b, false, false);
             sat::literal lit = expr2literal(arg);
             equiv_axiom("mkbv", lit, bit_i);
@@ -656,10 +669,10 @@ namespace polysat {
         auto sz_e = hi - lo + 1;
         auto sz_x = bv.get_bv_size(x);
         auto eq0 = eq_internalize(e, bv.mk_numeral(0, sz_e));
-        auto gelo = mk_literal(bv.mk_ule(bv.mk_numeral(rational::power_of_two(lo), sz_x), x));  
+        auto gelo = mk_literal(bv.mk_ule(bv.mk_numeral(rational::power_of_two(lo), sz_x), x));
         auto name = "extract";
         add_axiom(name, { eq0, gelo });
-        if (hi + 1 == sz_e) 
+        if (hi + 1 == sz_e)
             add_axiom(name, { ~eq0, ~gelo });
     }
 
@@ -681,7 +694,7 @@ namespace polysat {
             add_axiom("hi = 0 => concat(hi, lo) < 2^|lo|", neqs, false);
             neqs.pop_back();
             for (auto neq : neqs)
-                add_axiom("concat(hi,lo) < 2^|lo| => hi = 0", {~neq, ~gtlo}); // hi = 0 or e >= 2^|lo|
+                add_axiom("concat(hi,lo) < 2^|lo| => hi = 0", { ~neq, ~gtlo }); // hi = 0 or e >= 2^|lo|
             expr* lo = e->get_arg(i);
             auto sz_l = bv.get_bv_size(lo);
             neqs.push_back(~eq_internalize(lo, bv.mk_numeral(0, sz_l)));
@@ -696,7 +709,7 @@ namespace polysat {
         var2pdd(expr2enode(e)->get_th_var(get_id()));
     }
 
-    void solver::internalize_par_unary(app* e, std::function<pdd(pdd,unsigned)> const& fn) {
+    void solver::internalize_par_unary(app* e, std::function<pdd(pdd, unsigned)> const& fn) {
         pdd const p = expr2pdd(e->get_arg(0));
         unsigned const par = e->get_parameter(0).get_int();
         internalize_set(e, fn(p, par));
@@ -705,7 +718,7 @@ namespace polysat {
     void solver::internalize_binary(app* e, std::function<pdd(pdd, pdd)> const& fn) {
         SASSERT(e->get_num_args() >= 1);
         auto p = expr2pdd(e->get_arg(0));
-        for (unsigned i = 1; i < e->get_num_args(); ++i) 
+        for (unsigned i = 1; i < e->get_num_args(); ++i)
             p = fn(p, expr2pdd(e->get_arg(i)));
         internalize_set(e, p);
     }
@@ -735,7 +748,7 @@ namespace polysat {
         auto sc = Signed ? m_core.sle(p, q) : m_core.ule(p, q);
         if (Negated)
             sc = ~sc;
-        
+
         sat::literal lit = expr2literal(e);
         if (lit.sign())
             sc = ~sc;
@@ -777,7 +790,7 @@ namespace polysat {
         if (!bv.is_bv(n->get_expr()))
             return;
         theory_var v = n->get_th_var(get_id());
-        if (v == euf::null_theory_var) 
+        if (v == euf::null_theory_var)
             v = mk_var(n);
         var2pdd(v);
     }
@@ -824,7 +837,7 @@ namespace polysat {
                 return elem.first;
             is_new = false;
         }
-        auto sc = m_core.eq(p, q);       
+        auto sc = m_core.eq(p, q);
         idx = m_core.register_constraint(sc, d);
         if (is_new) {
             m_eq2constraint[sz].insert(r.index(), { idx, sign });

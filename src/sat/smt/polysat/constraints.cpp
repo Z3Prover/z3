@@ -63,6 +63,12 @@ namespace polysat {
         return signed_constraint(ckind_t::op_t, cnstr);
     }
 
+    signed_constraint constraints::bor(pdd const& a, pdd const& b, pdd const& r) {
+        auto* cnstr = alloc(op_constraint, op_constraint::code::or_op, a, b, r);
+        c.trail().push(new_obj_trail(cnstr));
+        return signed_constraint(ckind_t::op_t, cnstr);
+    }
+
     // parity p >= k if low order k bits of p are 0
     signed_constraint constraints::parity_at_least(pdd const& p, unsigned k) {
         if (k == 0)
@@ -80,6 +86,12 @@ namespace polysat {
             return eq(p);
         else
             return eq(p * rational::power_of_two(N - k));
+    }
+
+    // 2^{N-i-1}* p >= 2^{N-1}
+    signed_constraint constraints::bit(pdd const& p, unsigned i) {
+        unsigned N = p.manager().power_of_2();
+        return uge(p * rational::power_of_two(N - i - 1), rational::power_of_two(N - 1));
     }
 
     bool signed_constraint::is_eq(pvar& v, rational& val) {

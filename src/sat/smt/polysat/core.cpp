@@ -206,6 +206,7 @@ namespace polysat {
         case l_false:
             return sat::check_result::CR_CONTINUE;
         case l_undef:
+            verbose_stream() << "giveup assign\n";
             return sat::check_result::CR_GIVEUP;
             // or:
             // r = l_undef;
@@ -220,6 +221,7 @@ namespace polysat {
             TRACE("bv", tout << "saturate\n");
             return sat::check_result::CR_CONTINUE;
         case l_undef:
+            verbose_stream() << "giveup saturate\n";
             r = l_undef;
             break;
         }
@@ -231,6 +233,7 @@ namespace polysat {
             TRACE("bv", tout << "refine\n");
             return sat::check_result::CR_CONTINUE;
         case l_undef:
+            verbose_stream() << "giveup refine\n";
             r = l_undef;
             break;
         }
@@ -242,6 +245,7 @@ namespace polysat {
             TRACE("bv", tout << "blast\n");
             return sat::check_result::CR_CONTINUE;
         case l_undef:
+            verbose_stream() << "giveup blast\n";
             r = l_undef;
             break;
         }

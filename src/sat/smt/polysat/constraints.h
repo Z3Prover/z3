@@ -22,6 +22,8 @@ namespace polysat {
     class core;
     class ule_constraint;
     class umul_ovfl_constraint;
+    class op_constraint;
+
     class assignment;
 
     using pdd = dd::pdd;
@@ -84,8 +86,10 @@ namespace polysat {
         bool is_ule() const { return m_op == ule_t; }
         bool is_umul_ovfl() const { return m_op == umul_ovfl_t; }
         bool is_smul_fl() const { return m_op == smul_fl_t; }
+        bool is_op() const { return m_op == op_t; }
         ule_constraint const& to_ule() const { SASSERT(is_ule()); return *reinterpret_cast<ule_constraint*>(m_constraint); }
         umul_ovfl_constraint const& to_umul_ovfl() const { SASSERT(is_umul_ovfl()); return *reinterpret_cast<umul_ovfl_constraint*>(m_constraint); }
+        op_constraint const& to_op() const { SASSERT(is_op()); return *reinterpret_cast<op_constraint*>(m_constraint); }
         bool is_eq(pvar& v, rational& val);
         std::ostream& display(std::ostream& out) const;
     };
@@ -108,7 +112,7 @@ namespace polysat {
         signed_constraint umul_ovfl(pdd const& p, pdd const& q);
         signed_constraint smul_ovfl(pdd const& p, pdd const& q) { throw default_exception("smul ovfl nyi"); }
         signed_constraint smul_udfl(pdd const& p, pdd const& q) { throw default_exception("smult-udfl nyi"); }
-        signed_constraint bit(pdd const& p, unsigned i) { throw default_exception("bit nyi"); }
+        signed_constraint bit(pdd const& p, unsigned i);
 
         signed_constraint diseq(pdd const& p) { return ~eq(p); }
         signed_constraint diseq(pdd const& p, pdd const& q) { return diseq(p - q); }
@@ -172,6 +176,7 @@ namespace polysat {
         signed_constraint ashr(pdd const& a, pdd const& b, pdd const& r);
         signed_constraint shl(pdd const& a, pdd const& b, pdd const& r);
         signed_constraint band(pdd const& a, pdd const& b, pdd const& r);
+        signed_constraint bor(pdd const& a, pdd const& b, pdd const& r);
 
         //signed_constraint even(pdd const& p) { return parity_at_least(p, 1); }
         //signed_constraint odd(pdd const& p) { return ~even(p); }
