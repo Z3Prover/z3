@@ -276,10 +276,12 @@ public:
             }
             if (is_real(j))
                 real_case_in_gomory_cut(- p.coeff(), j);
-            else if (!p.coeff().is_int()) {
-                m_fj = fractional_part(-p.coeff());
-                m_one_minus_fj = 1 - m_fj;
-                int_case_in_gomory_cut(j);
+            else {
+                if (!p.coeff().is_int()) {
+                    m_fj = fractional_part(-p.coeff());
+                    m_one_minus_fj = 1 - m_fj;
+                    int_case_in_gomory_cut(j);
+                }
                 if (p.coeff().is_pos()) {
                     if (at_lower(j))
                         set_polarity(1);
