@@ -183,7 +183,7 @@ namespace polysat {
         case op_constraint::code::ashr_op:
             return out << ">>a";
         case op_constraint::code::lshr_op:
-            return out << ">>";
+            return out << ">>l";
         case op_constraint::code::shl_op:
             return out << "<<";
         case op_constraint::code::and_op:
@@ -217,7 +217,13 @@ namespace polysat {
         SASSERT(!sign);
         switch (m_op) {
         case code::and_op:
-            activate_and(c, dep);
+            c.add_axiom("p & q <= p", { C.ule(r, q) }, false);
+            c.add_axiom("p & q <= q", { C.ule(r, q) }, false);
+            c.add_axiom("p = q -> p & q = p", { ~C.eq(p, q), C.eq(r, p) }, false);
+            c.add_axiom("p & 0 = 0", { ~C.eq(q), C.eq(r) }, false);
+            c.add_axiom("0 & q = 0", { ~C.eq(p), C.eq(r) }, false);
+            c.add_axiom("1 & q = q", { ~C.eq(p, m.max_value()), C.eq(r, q) }, false);
+            c.add_axiom("p & 1 = q", { ~C.eq(q, m.max_value()), C.eq(r, p) }, false);
             break;
         case code::or_op:
             c.add_axiom("p | q >= p", { C.ule(p, r) }, false);
@@ -225,19 +231,23 @@ namespace polysat {
             c.add_axiom("p = q -> p | q = p", { ~C.eq(p, q), C.eq(r, p) }, false);
             c.add_axiom("p | 0 = p", { ~C.eq(q), C.eq(r, p) }, false);
             c.add_axiom("0 | q = q", { ~C.eq(p), C.eq(r, q) }, false);
+            c.add_axiom("1 | q = 1", { ~C.eq(p, m.max_value()), C.eq(r, p) }, false);
+            c.add_axiom("p | 1 = 1", { ~C.eq(q, m.max_value()), C.eq(r, q) }, false);
             break;
         case code::ashr_op:
-            c.add_axiom("q >= N & p < 0 -> p <<a q = -1", { ~C.uge(q, N), ~C.slt(p, 0), C.eq(r, m.max_value()) }, false);
-            c.add_axiom("q >= N & p >= 0 -> p <<a q = 0", { ~C.uge(q, N), ~C.sge(p, 0), C.eq(r) }, false);
-            c.add_axiom("q = 0 -> p <<a q = p", { ~C.eq(q), C.eq(r, p) }, false);
+            c.add_axiom("q >= N & p < 0 -> p >>a q = -1", { ~C.uge(q, N), ~C.slt(p, 0), C.eq(r, m.max_value()) }, false);
+            c.add_axiom("q >= N & p >= 0 -> p >>a q = 0", { ~C.uge(q, N), ~C.sge(p, 0), C.eq(r) }, false);
+            c.add_axiom("q = 0 -> p >>a q = p", { ~C.eq(q), C.eq(r, p) }, false);
+            c.add_axiom("p = 0 -> p >>a q = p", { ~C.eq(p), C.eq(r, p) }, false);
             break;
         case code::lshr_op:
-            c.add_axiom("q >= N  -> p <<l q = 0", { ~C.uge(q, N), C.eq(r) }, false);
-            c.add_axiom("q = 0 -> p <<l q = p", { ~C.eq(q), C.eq(r, p) }, false);
+            c.add_axiom("q >= N  -> p >>l q = 0", { ~C.uge(q, N), C.eq(r) }, false);
+            c.add_axiom("q = 0 -> p >>l q = p", { ~C.eq(q), C.eq(r, p) }, false);
+            c.add_axiom("p = 0 -> p >>l q = p", { ~C.eq(p), C.eq(r, p) }, false);
             break;
         case code::shl_op:
-            c.add_axiom("q >= N -> p >> q = 0", { ~C.uge(q, N), C.eq(r) }, false);
-            c.add_axiom("q = 0 -> p >> q = p", { ~C.eq(q), C.eq(r, p) }, false);
+            c.add_axiom("q >= N -> p << q = 0", { ~C.uge(q, N), C.eq(r) }, false);
+            c.add_axiom("q = 0 -> p << q = p", { ~C.eq(q), C.eq(r, p) }, false);
             break;
         case code::inv_op:
             break;
@@ -303,12 +313,6 @@ namespace polysat {
   *
   * when q is a constant, several axioms can be enforced at activation time.
   *
-  * Enforce also inferences and bounds
-  *
-  * TODO: use also
-  * s.m_viable.min_viable();
-  * s.m_viable.max_viable(
-  * when r, q are variables.
   */
     void op_constraint::propagate_lshr(core& c) {
         auto& m = p.manager();
@@ -360,35 +364,6 @@ namespace polysat {
         }
     }
 
-    void op_constraint::activate_and(core& c, dependency const& d) {
-        auto x = p, y = q;
-        auto& C = c.cs();
-
-        c.add_axiom("p & q <= p", { C.ule(r, p) }, false);
-        c.add_axiom("p & q <= q", { C.ule(r, q) }, false);
-        c.add_axiom("p = q -> p & q = p", { ~C.eq(p, q), C.eq(r, p) }, false);
-
-        if (x.is_val())
-            std::swap(x, y);
-        if (!y.is_val())
-            return;
-        auto& m = x.manager();
-        auto yv = y.val();
-        if (!(yv + 1).is_power_of_two())
-            return;
-        if (yv == m.max_value())
-            c.add_axiom("p & 1 = p", { C.eq(x, r) }, false);
-        else if (yv == 0)
-            c.add_axiom("p & 0 = 0", { C.eq(r) }, false);
-        else {
-            unsigned N = m.power_of_2();
-            unsigned k = yv.get_num_bits();
-            SASSERT(k < N);
-            rational exp = rational::power_of_two(N - k);
-            c.add_axiom("(p & 0011)*2^k = p*2^k", { C.eq(x * exp, r * exp) }, false);
-        }
-    }
-
     void op_constraint::propagate_ashr(core& c) {
         //
         // Suppose q = k, p >= 0:
@@ -433,11 +408,11 @@ namespace polysat {
     /**
      * Enforce axioms for constraint: r == p << q
      *
-     *      q >= N  ->  r = 0
+     *      q = k   ->  r = 2^k*p, 0 < k < N
+     *  
+     * Optional:
      *      q >= k  ->  r = 0  \/  r >= 2^k
      *      q >= k  ->  r[i] = 0 for i < k
-     *      q = k   ->  r[i+k] = p[i] for 0 <= i < N - k
-     *      q = 0   ->  r = p
      */
     void op_constraint::propagate_shl(core& c) {
         auto& m = p.manager();
@@ -447,41 +422,21 @@ namespace polysat {
         unsigned const N = m.power_of_2();
         auto& C = c.cs();
 
-        if (qv.is_val() && qv.val() >= N && rv.is_val() && !rv.is_zero())
-            c.add_axiom("q >= N  ->  p >> q = 0", { ~C.ule(N, q), C.eq(r) }, true);
-        else if (qv.is_zero() && pv.is_val() && rv.is_val() && rv != pv)
-            // 
-            c.add_axiom("q = 0  ->  p >> q = p", { ~C.eq(q), C.eq(r, p) }, true);
-        else if (qv.is_val() && !qv.is_zero() && qv.val() < N && rv.is_val() &&
-            !rv.is_zero() && rv.val() < rational::power_of_two(qv.val().get_unsigned()))
-            // q >= k  ->  r = 0  \/  r >= 2^k  (intuitive version)
-            // q >= k  ->  r - 1 >= 2^k - 1     (equivalent unit constraint to better support narrowing)
-            c.add_axiom("q >= k  ->  r - 1 >= 2^k - 1", { ~C.ule(qv.val(), q), C.ule(rational::power_of_two(qv.val().get_unsigned()) - 1, r - 1) }, true);
-        else if (pv.is_val() && rv.is_val() && qv.is_val() && !qv.is_zero()) {
-            unsigned k = qv.val().get_unsigned();
-            // q = k  ->  r[i+k] = p[i] for 0 <= i < N - k
-            for (unsigned i = 0; i < N - k; ++i) {
-                if (rv.val().get_bit(i + k) && !pv.val().get_bit(i))
-                    c.add_axiom("q = k  ->  p>>q[i+k] = p[i] for 0 <= i < N - k", { ~C.eq(q, k), ~C.bit(r, i + k), C.bit(p, i) }, true);
-                else if (!rv.val().get_bit(i + k) && pv.val().get_bit(i))
-                    c.add_axiom("q = k  ->  p>>q[i+k] = p[i] for 0 <= i < N - k", { ~C.eq(q, k), C.bit(r, i + k), ~C.bit(p, i) }, true);
-            }
-        }
-        else {
-            // forward propagation
-            SASSERT(!(pv.is_val() && qv.is_val() && rv.is_val()));
-            if (qv.is_val() && !rv.is_val()) {
-                rational const& q_val = qv.val();
-                if (q_val >= N)
-                    c.add_axiom("q >= N ==> p << q = 0", { ~C.ule(N, q), C.eq(r) }, true);
-                if (pv.is_val()) {
-                    SASSERT(q_val.is_unsigned());
-                    // p = p_val & q = q_val ==> r = p_val * 2^q_val
-                    rational const r_val = pv.val() * rational::power_of_two(q_val.get_unsigned());
-                    c.add_axiom("p = v1, q = v2, p << q -> v1 << v2", { ~C.eq(p, pv), ~C.eq(q, qv), C.eq(r, r_val) }, true);
-                }
-            }
-        }
+        if (!qv.is_val())
+            return;
+
+        if (qv.is_zero() || qv.val() >= N)
+            return;
+
+        auto k = qv.val().get_unsigned();
+
+        auto twoK = rational::power_of_two(k);
+
+#if 0
+        if (rv.is_val() && rv.val() < twoK && !rv.is_zero())
+            return add_conflict(c, "q >= k -> r = 0 or r >= 2^k", { ~C.uge(q, k), C.eq(r), C.uge(r, twoK) });
+#endif
+        add_conflict(c, "p << k = 2^k*p", { ~C.eq(q, k), C.eq(r, p * twoK) });
     }
 
     /**
@@ -506,18 +461,6 @@ namespace polysat {
 
         if (!pv.is_val() || !qv.is_val() || !rv.is_val())
             return;
-
-        if (pv.is_max() && qv != rv)
-            return add_conflict(c, "p = -1 => p & q = q", { ~C.eq(p, m.max_value()), C.eq(q, r) });
-
-        if (qv.is_max() && pv != rv)
-            return add_conflict(c, "q = -1 => p & q = p", { ~C.eq(q, m.max_value()), C.eq(p, r) });
-
-        if (pv.is_zero() && !rv.is_zero())
-            return add_conflict(c, "p = 0 => p & q = 0", { ~C.eq(p), C.eq(r) });
-
-        if (qv.is_zero() && !rv.is_zero())
-            return add_conflict(c, "q = 0 => p & q = 0", { ~C.eq(q), C.eq(r) });
 
         if (propagate_mask(c, p, q, r, pv.val(), qv.val(), rv.val()))
             return;
@@ -550,8 +493,6 @@ namespace polysat {
         auto qv = c.subst(q);
         auto rv = c.subst(r);
         auto& C = c.cs();
-
-        verbose_stream() << "propagate or " << p << " | " << q << " = " << r << "\n";
 
         if (!pv.is_val() || !qv.is_val() || !rv.is_val())
             return;

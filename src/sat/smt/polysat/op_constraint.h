@@ -71,11 +71,7 @@ namespace polysat {
         void propagate(core& c, signed_constraint const& sc);
         void add_conflict(core& c, char const* ax, constraint_or_dependency_list const& cs);
 
-        
-
         std::ostream& display(std::ostream& out, char const* eq) const;
-
-        void activate_and(core& s, dependency const& d);
 
     public:
         ~op_constraint() override {}

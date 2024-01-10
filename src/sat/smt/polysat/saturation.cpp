@@ -242,7 +242,6 @@ namespace polysat {
 
 
     void saturation::try_op(pvar v, signed_constraint& sc, dependency const& d) {
-        verbose_stream() << "try op " << sc << "\n";
         SASSERT(sc.is_op());
         sc.propagate(c, l_true, d);
     }

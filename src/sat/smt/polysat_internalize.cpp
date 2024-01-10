@@ -682,13 +682,13 @@ namespace polysat {
         SASSERT(bv.is_concat(e));
         SASSERT(e->get_num_args() > 0);
         sat::literal_vector neqs;
-        expr* hi = e->get_arg(e->get_num_args() - 1);
+        expr* hi = e->get_arg(0);
         auto sz_e = bv.get_bv_size(e);
         auto sz_h = bv.get_bv_size(hi);
         auto eq0 = eq_internalize(hi, bv.mk_numeral(0, sz_h));
         auto sz_eqs = sz_h;
         neqs.push_back(~eq0);
-        for (unsigned i = e->get_num_args() - 1; i-- > 0; ) {
+        for (unsigned i = 1; i < e->get_num_args(); ++i) {
             auto gtlo = ~mk_literal(bv.mk_ule(bv.mk_numeral(rational::power_of_two(sz_e - sz_eqs), sz_e), e));
             neqs.push_back(gtlo);
             add_axiom("hi = 0 => concat(hi, lo) < 2^|lo|", neqs, false);
