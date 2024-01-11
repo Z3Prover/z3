@@ -9,7 +9,7 @@ Module Name:
     ashr: r == p >>a q
     lshl: r == p << q
     and:  r == p & q
-    not:  r == ~p
+    or:   r == p | q
 
 Author:
 

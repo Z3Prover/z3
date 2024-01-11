@@ -744,18 +744,38 @@ namespace polysat {
                     ne->side_cond.push_back(~cs.eq(hi_eq));
             }
             
-            
+
+            // 
+            // If new_lo = new_hi it means that 
+            //   mod(ceil (lo / 2^k), 2^w) = mod(ceil (hi / 2^k), 2^w)
+            // or
+            //   div (mod(lo + 2^k -1, 2^w), 2^k) = div (mod(hi + 2^k - 1, 2^w), 2^k)
+            // but we also have lo != hi.
+            // Assume lo < hi
+            // - it means 2^k does not divide any of [lo, hi[
+            // so x*2^k cannot be in [lo, hi[
+            // Assume lo > hi
+            // - then the constraint is x*2^k not in [lo, 0[, [0, hi[
+            // - then new_lo = new_hi = 0
+            // - it means 2^k does not divide any of [hi, lo[
+            // - therefore the interval [lo, hi[ contains all the divisors of 2^k
+            //
+
             if (new_lo == new_hi) {
                 if (lo < hi) {
                     m_alloc.push_back(ne);
                     return find_t::multiple;
                 }
                 else {
+                    IF_VERBOSE(0, display_one(verbose_stream() << "full: ", v, ne) << "\n");
                     SASSERT(hi < lo);
-                    // exclude 0
-                    IF_VERBOSE(0, display_one(verbose_stream() << "Exclude 0: ", v, ne) << "\n");
-                    SASSERT(new_lo == 0);
-                    new_hi = 1;
+                    ne->interval = eval_interval::full();
+                    ne->coeff = 1;
+                    m_explain.reset();
+                    m_explain.push_back({ ne, rational::zero() });
+                    m_fixed_bits.reset();
+                    m_var = v;
+                    return find_t::empty;
                 }
             }
 
