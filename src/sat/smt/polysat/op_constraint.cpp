@@ -364,7 +364,9 @@ namespace polysat {
         // r*2^k = a0
         // ab - a0 = 0b = p - r*2^k < 2^k
         // r < 2^{N-k}
-        // 
+        // From p >= 0 we know a[N-k-1] = 0, thus:
+        // r < 2^{N-k-1}
+        //
         // Suppose q = k, p < 0
         // p = ab
         // r = 111a where 111 has length k
@@ -373,7 +375,11 @@ namespace polysat {
         // r >= 1110
         // example:
         //    1100 = 12 = 16 - 4 = 2^4 - 2^2 = 2^N - 2^k
-        // 
+        //     ^^^ a
+        // p = 1ab, where b has length k, a has length N - k - 1
+        // r = 111a, where 111 has length k + 1
+        // r >= 2^N - 2^{N-k-1}
+        //
         // Succinct:
         // if q = k & p >= 0 -> r*2^k + p < 2^{N-k} && r < 2^k
         // if q = k & p < 0  -> (p / 2^k) - 2^N + 2^{N-k}
@@ -388,12 +394,12 @@ namespace polysat {
             unsigned k = qv.val().get_unsigned();
             rational twoN = rational::power_of_two(N);
             rational twoK = rational::power_of_two(k);
-            rational twoNk = rational::power_of_two(N - k);
+            rational twoNk1 = rational::power_of_two(N - k - 1);
 
             bool c1 = add_conflict(c, "q = k & 0 < k < N -> 2^k r <= p", { ~C.eq(q, k), C.ule(r * twoK, p) });
-            bool c2 = add_conflict(c, "q = k & 0 < k < N -> p <= 2^k*x + 2^k - 1", { ~C.eq(q, k), C.ule(p, r * twoK + twoK - 1) });
-            bool c3 = add_conflict(c, "p < 0 & q = k -> r >= 2^N - 2^{N-k}", { ~C.eq(q, k), ~C.slt(p, 0),  C.uge(r, twoN - twoNk) });
-            bool c4 = add_conflict(c, "p >= 0 & q = k -> r < 2^{N-k}", { ~C.eq(q, k), C.slt(p, 0),  C.ult(r, twoNk)});
+            bool c2 = add_conflict(c, "q = k & 0 < k < N -> p <= 2^k*r + 2^k - 1", { ~C.eq(q, k), C.ule(p, r * twoK + twoK - 1) });
+            bool c3 = add_conflict(c, "p < 0 & q = k -> r >= 2^N - 2^{N-k-1}", { ~C.eq(q, k), ~C.slt(p, 0),  C.uge(r, twoN - twoNk1) });
+            bool c4 = add_conflict(c, "p >= 0 & q = k -> r < 2^{N-k-1}", { ~C.eq(q, k), C.slt(p, 0),  C.ult(r, twoNk1)});
             VERIFY(c1 || c2 || c3 || c4);
         }
     }
