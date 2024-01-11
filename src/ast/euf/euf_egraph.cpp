@@ -107,6 +107,8 @@ namespace euf {
     void egraph::update_children(enode* n) {
         for (enode* child : enode_args(n)) 
             child->get_root()->add_parent(n);
+        for (enode* child : enode_args(n))  
+            SASSERT(child->get_root()->m_parents.back() == n);
         m_updates.push_back(update_record(n, update_record::update_children()));
     }
 
@@ -158,7 +160,7 @@ namespace euf {
     }
 
     void egraph::add_th_eq(theory_id id, theory_var v1, theory_var v2, enode* c, enode* r) {
-        TRACE("euf_verbose", tout << "eq: " << v1 << " == " << v2 << "\n";);
+        TRACE("euf", tout << "eq: " << v1 << " == " << v2 << " - " << bpp(c) << " == " << bpp(r) << "\n";);
         m_new_th_eqs.push_back(th_eq(id, v1, v2, c, r));
         m_updates.push_back(update_record(update_record::new_th_eq()));
         ++m_stats.m_num_th_eqs;
@@ -442,6 +444,8 @@ namespace euf {
                 break;
             case update_record::tag_t::is_update_children:
                 for (unsigned i = 0; i < p.r1->num_args(); ++i) {
+                    CTRACE("euf", (p.r1->m_args[i]->get_root()->m_parents.back() != p.r1),
+                           display(tout << bpp(p.r1->m_args[i]) << " " << bpp(p.r1->m_args[i]->get_root()) << " "););
                     SASSERT(p.r1->m_args[i]->get_root()->m_parents.back() == p.r1);
                     p.r1->m_args[i]->get_root()->m_parents.pop_back();
                 }

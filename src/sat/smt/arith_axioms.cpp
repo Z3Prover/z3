@@ -260,9 +260,6 @@ namespace arith {
             if (valy >= sz || valy == 0)
                 return true;
             unsigned k = valy.get_unsigned();
-            rational r = mod(valx * rational::power_of_two(k), N);
-            if (r == valn)
-                return true;
             sat::literal eq = eq_internalize(n, a.mk_mod(a.mk_mul(_x, a.mk_int(rational::power_of_two(k))), a.mk_int(N)));
             if (s().value(eq) == l_true)
                 return true;            
@@ -275,9 +272,6 @@ namespace arith {
             if (valy >= sz || valy == 0)
                 return true;
             unsigned k = valy.get_unsigned();
-            rational r = mod(div(valx, rational::power_of_two(k)), N);
-            if (r == valn)
-                return true;
             sat::literal eq = eq_internalize(n, a.mk_idiv(x, a.mk_int(rational::power_of_two(k))));
             if (s().value(eq) == l_true)
                 return true;            
@@ -290,12 +284,6 @@ namespace arith {
             if (valy >= sz || valy == 0)
                 return true;
             unsigned k = valy.get_unsigned();
-            bool signvalx = x >= N/2;
-            rational valxdiv2k = div(valx, rational::power_of_two(k));
-            if (signvalx)
-                valxdiv2k = mod(valxdiv2k - rational::power_of_two(sz - k), N);
-            if (valn == valxdiv2k)
-                return true;
             sat::literal signx = mk_literal(a.mk_ge(x, a.mk_int(N/2)));
             sat::literal eq;
             expr* xdiv2k;
@@ -334,11 +322,7 @@ namespace arith {
         return true;
     }
 
-    /*
-    * 0 <= x&y < 2^sz
-    * x&y <= x
-    * x&y <= y
-    */
+
     void solver::mk_bv_axiom(app* n) {
         unsigned sz;
         expr* _x, * _y;
@@ -347,10 +331,15 @@ namespace arith {
         expr_ref x(a.mk_mod(_x, a.mk_int(N)), m);
         expr_ref y(a.mk_mod(_y, a.mk_int(N)), m);
 
-        add_clause(mk_literal(a.mk_ge(n, a.mk_int(0))));
-        add_clause(mk_literal(a.mk_le(n, a.mk_int(N - 1))));
-
         if (a.is_band(n)) {
+            
+            // 0 <= x&y < 2^sz
+            // x&y <= x
+            // x&y <= y
+            // TODO? x = y => x&y = x
+
+            add_clause(mk_literal(a.mk_ge(n, a.mk_int(0))));
+            add_clause(mk_literal(a.mk_le(n, a.mk_int(N - 1))));
             add_clause(mk_literal(a.mk_le(n, x)));
             add_clause(mk_literal(a.mk_le(n, y)));
         }

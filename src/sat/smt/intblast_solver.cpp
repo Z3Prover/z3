@@ -37,6 +37,7 @@ namespace intblast {
     euf::theory_var solver::mk_var(euf::enode* n) {
         auto r = euf::th_euf_solver::mk_var(n);
         ctx.attach_th_var(n, this, r);
+        TRACE("bv", tout << "mk-var: v" << r << " " << ctx.bpp(n) << "\n";);
         return r;
     }
 
@@ -97,16 +98,16 @@ namespace intblast {
             ensure_translated(y);
             m_args.reset();
             m_args.push_back(a.mk_sub(translated(x), translated(y)));
-            set_translated(e, m.mk_eq(umod(x, 0), a.mk_int(0)));            
+            set_translated(e, m.mk_eq(umod(x, 0), a.mk_int(0)));
         }
         m_preds.push_back(e);
         ctx.push(push_back_vector(m_preds));
     }
 
-    void solver::set_translated(expr* e, expr* r) {
+    void solver::set_translated(expr* e, expr* r) { 
         SASSERT(r);
-        SASSERT(!is_translated(e));
-        m_translate.setx(e->get_id(), r);
+        SASSERT(!is_translated(e));          
+        m_translate.setx(e->get_id(), r); 
         ctx.push(set_vector_idx_trail(m_translate, e->get_id()));
     }
 
@@ -147,7 +148,7 @@ namespace intblast {
             auto a = expr2literal(e);
             auto b = mk_literal(r);
             ctx.mark_relevant(b);
-            TRACE("intblast", tout << "add-predicate-axiom: " << mk_bounded_pp(e, m) << " \n" << r << "\n");
+//            verbose_stream() << "add-predicate-axiom: " << mk_pp(e, m) << " == " << r << "\n";
             add_equiv(a, b);
         }
         return true;
@@ -156,7 +157,6 @@ namespace intblast {
     bool solver::unit_propagate() {
         return add_bound_axioms() || add_predicate_axioms();
     }
-
     void solver::ensure_translated(expr* e) {
         if (m_translate.get(e->get_id(), nullptr))
             return;
@@ -178,9 +178,95 @@ namespace intblast {
                 }
         }
         std::stable_sort(todo.begin(), todo.end(), [&](expr* a, expr* b) { return get_depth(a) < get_depth(b); });
-        for (expr* e : todo)
+        for (expr* e : todo)            
             translate_expr(e);
     }
+
+    lbool solver::check_axiom(sat::literal_vector const& lits) {
+        sat::literal_vector core;
+        for (auto lit : lits)
+            core.push_back(~lit);
+        return check_core(core, {});
+    }
+    lbool solver::check_propagation(sat::literal lit, sat::literal_vector const& lits, euf::enode_pair_vector const& eqs) {
+        sat::literal_vector core;
+        core.append(lits);
+        core.push_back(~lit);
+        return check_core(core, eqs);
+    }
+
+    lbool solver::check_core(sat::literal_vector const& lits, euf::enode_pair_vector const& eqs) {
+        m_core.reset();
+        m_vars.reset();
+        m_is_plugin = false;
+        m_solver = mk_smt2_solver(m, s.params(), symbol::null);
+
+        for (unsigned i = 0; i < m_translate.size(); ++i)
+            m_translate[i] = nullptr;
+
+        expr_ref_vector es(m), original_es(m);
+        for (auto lit : lits)
+            es.push_back(ctx.literal2expr(lit));
+        for (auto [a, b] : eqs)
+            es.push_back(m.mk_eq(a->get_expr(), b->get_expr()));
+        
+        original_es.append(es);
+
+        lbool r;
+        if (false) {
+            r = m_solver->check_sat(es);            
+        }
+        else {
+        
+            translate(es);
+            
+            for (auto e : m_vars) {
+                auto v = translated(e);
+                auto b = rational::power_of_two(bv.get_bv_size(e));
+                m_solver->assert_expr(a.mk_le(a.mk_int(0), v));
+                m_solver->assert_expr(a.mk_lt(v, a.mk_int(b)));
+            }
+
+            for (unsigned i = 0; i < es.size(); ++i) {
+                expr_ref tmp(es.get(i), m);
+                ctx.get_rewriter()(tmp);
+                es[i] = tmp;
+            }
+
+            IF_VERBOSE(2, verbose_stream() << "check\n" << original_es << "\n");
+            
+            IF_VERBOSE(2,
+                {
+                    m_solver->push();
+                    m_solver->assert_expr(es);
+                    m_solver->display(verbose_stream()) << "(check-sat)\n";
+                    m_solver->pop(1);
+                });
+
+            
+            r = m_solver->check_sat(es);
+        }
+
+        m_solver->collect_statistics(m_stats);
+
+        IF_VERBOSE(2, verbose_stream() << "(sat.intblast :result " << r << ")\n");
+        if (r == l_true) {
+            IF_VERBOSE(0,
+                model_ref mdl;
+                m_solver->get_model(mdl);
+                verbose_stream() << original_es << "\n";
+                verbose_stream() << *mdl << "\n";
+                verbose_stream() << es << "\n";
+                m_solver->display(verbose_stream()););
+            SASSERT(false);
+        }
+
+        m_solver = nullptr;
+
+        return r;
+    }
+
+    
 
     lbool solver::check_solver_state() {
         sat::literal_vector literals;
@@ -291,6 +377,8 @@ namespace intblast {
         for (expr* e : es) {
             if (is_translated(e))
                 continue;
+            if (visited.is_marked(e))
+                continue;
             sorted.push_back(e);
             visited.mark(e);
         }
@@ -304,6 +392,7 @@ namespace intblast {
                         sorted.push_back(arg);
                     }
                 }
+
             }
             else if (is_quantifier(e)) {
                 quantifier* q = to_quantifier(e);
@@ -334,7 +423,7 @@ namespace intblast {
             es[i] = translated(es.get(i));
     }
 
-    sat::check_result solver::check() {
+    sat::check_result solver::check() { 
         // ensure that bv2int is injective
         for (auto e : m_bv2int) {
             euf::enode* n = expr2enode(e);
@@ -346,12 +435,10 @@ namespace intblast {
                     continue;
                 if (sib->get_arg(0)->get_root() == r1)
                     continue;
-                if (sib->get_arg(0)->get_sort() != n->get_arg(0)->get_sort())
-                    continue;
-                auto a = eq_internalize(n, sib);
-                auto b = eq_internalize(sib->get_arg(0), n->get_arg(0));
-                ctx.mark_relevant(a);
-                ctx.mark_relevant(b);
+		auto a = eq_internalize(n, sib);
+		auto b = eq_internalize(sib->get_arg(0), n->get_arg(0));
+		ctx.mark_relevant(a);
+		ctx.mark_relevant(b);
                 add_clause(~a, b, nullptr);
                 return sat::check_result::CR_CONTINUE;
             }
@@ -369,27 +456,40 @@ namespace intblast {
             auto nBv2int = ctx.get_enode(bv2int);
             auto nxModN = ctx.get_enode(xModN);
             if (nBv2int->get_root() != nxModN->get_root()) {
-                auto a = eq_internalize(nBv2int, nxModN);
-                ctx.mark_relevant(a);
-                add_unit(a);
-                return sat::check_result::CR_CONTINUE;
+	      auto a = eq_internalize(nBv2int, nxModN);
+	      ctx.mark_relevant(a);
+              add_unit(a);
+              return sat::check_result::CR_CONTINUE;
             }
         }
-        return sat::check_result::CR_DONE;
+        return sat::check_result::CR_DONE; 
+    }
+
+    bool solver::is_bounded(expr* x, rational const& N) {
+        return any_of(m_vars, [&](expr* v) {
+            return is_translated(v) && translated(v) == x && bv.get_bv_size(v) <= N;
+        });
+    }
+
+    bool solver::is_non_negative(expr* bv_expr, expr* e) {
+        auto N = rational::power_of_two(bv.get_bv_size(bv_expr));
+        rational r;
+        if (a.is_numeral(e, r))
+            return r >= 0;
+        if (is_bounded(e, N))
+            return true;
+        expr* x, * y;
+        if (a.is_mul(e, x, y)) 
+            return is_non_negative(bv_expr, x) && is_non_negative(bv_expr, y);
+        if (a.is_add(e, x, y))
+            return is_non_negative(bv_expr, x) && is_non_negative(bv_expr, y);
+        return false;
     }
 
     expr* solver::umod(expr* bv_expr, unsigned i) {
         expr* x = arg(i);
-        rational r;
         rational N = bv_size(bv_expr);
-        if (a.is_numeral(x, r)) {
-            if (0 <= r && r < N)
-                return x;
-            return a.mk_int(mod(r, N));
-        }
-        if (any_of(m_vars, [&](expr* v) { return translated(v) == x && bv.get_bv_size(v) == bv.get_bv_size(bv_expr); }))
-            return x;
-        return a.mk_mod(x, a.mk_int(N));
+        return amod(bv_expr, x, N);
     }
 
     expr* solver::smod(expr* bv_expr, unsigned i) {
@@ -399,7 +499,61 @@ namespace intblast {
         rational r;
         if (a.is_numeral(x, r))
             return a.mk_int(mod(r + shift, N));
-        return a.mk_mod(a.mk_add(x, a.mk_int(shift)), a.mk_int(N));
+        return amod(bv_expr, add(x, a.mk_int(shift)), N);
+    }
+
+    expr_ref solver::mul(expr* x, expr* y) {
+        expr_ref _x(x, m), _y(y, m);
+        if (a.is_zero(x))
+            return _x;
+        if (a.is_zero(y))
+            return _y;
+        if (a.is_one(x))
+            return _y;
+        if (a.is_one(y))
+            return _x;
+        rational v1, v2;
+        if (a.is_numeral(x, v1) && a.is_numeral(y, v2))
+            return expr_ref(a.mk_int(v1 * v2), m);
+        _x = a.mk_mul(x, y);
+        return _x;
+    }
+
+    expr_ref solver::add(expr* x, expr* y) {
+        expr_ref _x(x, m), _y(y, m);
+        if (a.is_zero(x))
+            return _y;
+        if (a.is_zero(y))
+            return _x;
+        rational v1, v2;
+        if (a.is_numeral(x, v1) && a.is_numeral(y, v2))
+            return expr_ref(a.mk_int(v1 + v2), m);
+        _x = a.mk_add(x, y);
+        return _x;
+    }
+
+    /*
+    * Perform simplifications that are claimed sound when the bit-vector interpretations of
+    * mod/div always guard the mod and dividend to be non-zero.
+    * Potentially shady area is for arithmetic expressions created by int2bv. 
+    * They will be guarded by a modulus which dose not disappear.
+    */
+    expr* solver::amod(expr* bv_expr, expr* x, rational const& N) {
+        rational v;
+        expr* r, *c, * t, * e;
+        if (m.is_ite(x, c, t, e))
+            r = m.mk_ite(c, amod(bv_expr, t, N), amod(bv_expr, e, N));
+        else if (a.is_idiv(x, t, e) && a.is_numeral(t, v) && 0 <= v && v < N && is_non_negative(bv_expr, e))
+            r = x;
+        else if (a.is_mod(x, t, e) && a.is_numeral(t, v) && 0 <= v && v < N)
+            r = x;
+        else if (a.is_numeral(x, v))
+            r = a.mk_int(mod(v, N));
+        else if (is_bounded(x, N))
+            r = x;
+        else 
+            r = a.mk_mod(x, a.mk_int(N));
+        return r;
     }
 
     rational solver::bv_size(expr* bv_expr) {
@@ -483,8 +637,7 @@ namespace intblast {
                 m_args[i] = bv.mk_int2bv(bv.get_bv_size(e->get_arg(i)), m_args.get(i));
 
         if (has_bv_sort)
-            m_vars.push_back(e);
-
+            m_vars.push_back(e);        
         if (m_is_plugin) {
             expr* r = m.mk_app(f, m_args);
             if (has_bv_sort) {
@@ -505,7 +658,7 @@ namespace intblast {
             f = g;
             m_pinned.push_back(f);
         }
-        set_translated(e, m.mk_app(f, m_args));
+        set_translated(e, m.mk_app(f, m_args));        
     }
 
     void solver::translate_bv(app* e) {
@@ -532,15 +685,15 @@ namespace intblast {
                 auto N = bv_size(e);
                 auto A = rational::power_of_two(sz - n);
                 auto B = rational::power_of_two(n);
-                auto hi = a.mk_mul(r, a.mk_int(A));
-                auto lo = a.mk_mod(a.mk_idiv(umod(e, 0), a.mk_int(B)), a.mk_int(A));
-                r = a.mk_add(hi, lo);
+                auto hi = mul(r, a.mk_int(A));
+                auto lo = amod(e, a.mk_idiv(umod(e, 0), a.mk_int(B)), A);
+                r = add(hi, lo);
             }
             return r;
-            };
+        };
 
         expr* bv_expr = e;
-        expr* r = nullptr;
+        expr_ref r(m);
         auto const& args = m_args;
         switch (e->get_decl_kind()) {
         case OP_BADD:
@@ -573,7 +726,6 @@ namespace intblast {
             r = a.mk_le(smod(bv_expr, 0), smod(bv_expr, 1));
             break;
         case OP_SGEQ:
-            bv_expr = e->get_arg(0);
             r = a.mk_ge(smod(bv_expr, 0), smod(bv_expr, 1));
             break;
         case OP_SLT:
@@ -589,12 +741,13 @@ namespace intblast {
             break;
         case OP_CONCAT: {
             unsigned sz = 0;
+            expr_ref new_arg(m);
             for (unsigned i = args.size(); i-- > 0;) {
                 expr* old_arg = e->get_arg(i);
-                expr* new_arg = umod(old_arg, i);
+                new_arg = umod(old_arg, i);
                 if (sz > 0) {
-                    new_arg = a.mk_mul(new_arg, a.mk_int(rational::power_of_two(sz)));
-                    r = a.mk_add(r, new_arg);
+                    new_arg = mul(new_arg, a.mk_int(rational::power_of_two(sz)));
+                    r = add(r, new_arg);
                 }
                 else
                     r = new_arg;
@@ -606,10 +759,9 @@ namespace intblast {
             unsigned lo, hi;
             expr* old_arg;
             VERIFY(bv.is_extract(e, lo, hi, old_arg));
+            r = arg(0);
             if (lo > 0)
-                r = a.mk_idiv(umod(old_arg, 0), a.mk_int(rational::power_of_two(lo)));
-            else 
-                r = arg(0);
+                r = a.mk_idiv(r, a.mk_int(rational::power_of_two(lo)));
             break;
         }
         case OP_BV_NUM: {
@@ -627,32 +779,32 @@ namespace intblast {
         }
         case OP_BUDIV:
         case OP_BUDIV_I: {
-            expr* x = umod(e, 0), * y = umod(e, 1);
+            expr* x = arg(0), * y = umod(e, 1);
             r = m.mk_ite(m.mk_eq(y, a.mk_int(0)), a.mk_int(-1), a.mk_idiv(x, y));
             break;
         }
         case OP_BUMUL_NO_OVFL: {
             bv_expr = e->get_arg(0);
-            r = a.mk_lt(a.mk_mul(umod(bv_expr, 0), umod(bv_expr, 1)), a.mk_int(bv_size(bv_expr)));
+            r = a.mk_lt(mul(umod(bv_expr, 0), umod(bv_expr, 1)), a.mk_int(bv_size(bv_expr)));
             break;
         }
         case OP_BSHL: {
-            if (!a.is_numeral(arg(0)) && !a.is_numeral(arg(1)))
-                r = a.mk_shl(bv.get_bv_size(e), arg(0), arg(1));
+            if (!a.is_numeral(arg(0)) && !a.is_numeral(arg(1))) 
+                r = a.mk_shl(bv.get_bv_size(e), arg(0),arg(1));
             else {
                 expr* x = arg(0), * y = umod(e, 1);
                 r = a.mk_int(0);
                 IF_VERBOSE(2, verbose_stream() << "shl " << mk_bounded_pp(e, m) << " " << bv.get_bv_size(e) << "\n");
                 for (unsigned i = 0; i < bv.get_bv_size(e); ++i)
-                    r = m.mk_ite(m.mk_eq(y, a.mk_int(i)), a.mk_mul(x, a.mk_int(rational::power_of_two(i))), r);
+                    r = m.mk_ite(m.mk_eq(y, a.mk_int(i)), mul(x, a.mk_int(rational::power_of_two(i))), r);   
             }
             break;
         }
         case OP_BNOT:
             r = bnot(arg(0));
             break;
-        case OP_BLSHR:
-            if (!a.is_numeral(arg(0)) && !a.is_numeral(arg(1)))
+        case OP_BLSHR: 
+            if (!a.is_numeral(arg(0)) && !a.is_numeral(arg(1)))  
                 r = a.mk_lshr(bv.get_bv_size(e), arg(0), arg(1));
             else {
                 expr* x = arg(0), * y = umod(e, 1);
@@ -662,11 +814,11 @@ namespace intblast {
                     r = m.mk_ite(m.mk_eq(y, a.mk_int(i)), a.mk_idiv(x, a.mk_int(rational::power_of_two(i))), r);
             }
             break;
-        case OP_BASHR:
+        case OP_BASHR: 
             if (!a.is_numeral(arg(1)))
                 r = a.mk_ashr(bv.get_bv_size(e), arg(0), arg(1));
             else {
-
+                
                 //
                 // ashr(x, y)
                 // if y = k & x >= 0 -> x / 2^k   
@@ -674,15 +826,15 @@ namespace intblast {
                 //
                 unsigned sz = bv.get_bv_size(e);
                 rational N = bv_size(e);
-                expr* x = umod(e, 0), * y = umod(e, 1);
+                expr* x = umod(e, 0), *y = umod(e, 1);
                 expr* signx = a.mk_ge(x, a.mk_int(N / 2));
-                r = m.mk_ite(signx, a.mk_int(-1), a.mk_int(0));
+                r = m.mk_ite(signx, a.mk_int(- 1), a.mk_int(0));
                 IF_VERBOSE(1, verbose_stream() << "ashr " << mk_bounded_pp(e, m) << " " << bv.get_bv_size(e) << "\n");
                 for (unsigned i = 0; i < sz; ++i) {
-                    expr* d = a.mk_idiv(x, a.mk_int(rational::power_of_two(i)));
+                    expr* d = a.mk_idiv(x, a.mk_int(rational::power_of_two(i)));              
                     r = m.mk_ite(m.mk_eq(y, a.mk_int(i)),
-                        m.mk_ite(signx, a.mk_add(d, a.mk_int(-rational::power_of_two(sz - i))), d),
-                        r);
+                                 m.mk_ite(signx, add(d, a.mk_int(- rational::power_of_two(sz-i))), d),
+                                 r);
                 }
             }
             break;
@@ -691,7 +843,7 @@ namespace intblast {
             IF_VERBOSE(2, verbose_stream() << "bor " << mk_bounded_pp(e, m) << " " << bv.get_bv_size(e) << "\n");
             r = arg(0);
             for (unsigned i = 1; i < args.size(); ++i)
-                r = a.mk_sub(a.mk_add(r, arg(i)), a.mk_band(bv.get_bv_size(e), r, arg(i)));
+                r = a.mk_sub(add(r, arg(i)), a.mk_band(bv.get_bv_size(e), r, arg(i)));
             break;
         }
         case OP_BNAND:
@@ -709,7 +861,7 @@ namespace intblast {
             r = arg(0);
             for (unsigned i = 1; i < args.size(); ++i) {
                 expr* q = arg(i);
-                r = a.mk_sub(a.mk_add(r, q), a.mk_mul(a.mk_int(2), a.mk_band(sz, r, q)));
+                r = a.mk_sub(add(r, q), mul(a.mk_int(2), a.mk_band(sz, r, q)));
             }
             if (e->get_decl_kind() == OP_BXNOR)
                 r = bnot(r);
@@ -747,11 +899,11 @@ namespace intblast {
             r = m.mk_ite(m.mk_eq(umod(bv_expr, 0), umod(bv_expr, 1)), a.mk_int(1), a.mk_int(0));
             break;
         case OP_BSMOD_I:
-        case OP_BSMOD: {
-            expr* x = umod(e, 0), * y = umod(e, 1);
-            rational N = bv_size(e);
-            expr* signx = a.mk_ge(x, a.mk_int(N / 2));
-            expr* signy = a.mk_ge(y, a.mk_int(N / 2));
+        case OP_BSMOD: {            
+            expr* x = umod(e, 0), *y = umod(e, 1);
+            rational N = bv_size(e); 
+            expr* signx = a.mk_ge(x, a.mk_int(N/2));
+            expr* signy = a.mk_ge(y, a.mk_int(N/2));
             expr* u = a.mk_mod(x, y);
             // u = 0 ->  0
             // y = 0 ->  x
@@ -759,14 +911,14 @@ namespace intblast {
             // x < 0, y >= 0 ->  y - u
             // x >= 0, y < 0 ->  y + u
             // x >= 0, y >= 0 ->  u
-            r = a.mk_uminus(u);
-            r = m.mk_ite(m.mk_and(m.mk_not(signx), signy), a.mk_add(u, y), r);
+            r = a.mk_uminus(u);   
+            r = m.mk_ite(m.mk_and(m.mk_not(signx), signy), add(u, y), r);
             r = m.mk_ite(m.mk_and(signx, m.mk_not(signy)), a.mk_sub(y, u), r);
             r = m.mk_ite(m.mk_and(m.mk_not(signx), m.mk_not(signy)), u, r);
             r = m.mk_ite(m.mk_eq(u, a.mk_int(0)), a.mk_int(0), r);
             r = m.mk_ite(m.mk_eq(y, a.mk_int(0)), x, r);
             break;
-        }
+        } 
         case OP_BSDIV_I:
         case OP_BSDIV: {
             // d = udiv(abs(x), abs(y))
@@ -800,9 +952,9 @@ namespace intblast {
             expr* absy = m.mk_ite(signy, a.mk_sub(a.mk_int(N), y), y);
             expr* d = a.mk_idiv(absx, absy);
             d = m.mk_ite(m.mk_iff(signx, signy), d, a.mk_uminus(d));
-            r = a.mk_sub(x, a.mk_mul(d, y));
+            r = a.mk_sub(x, mul(d, y));
             r = m.mk_ite(m.mk_eq(y, a.mk_int(0)), x, r);
-            break;
+            break;  
         }
         case OP_ROTATE_LEFT: {
             auto n = e->get_parameter(0).get_int();
@@ -815,11 +967,11 @@ namespace intblast {
             r = rotate_left(sz - n);
             break;
         }
-        case OP_EXT_ROTATE_LEFT: {
+        case OP_EXT_ROTATE_LEFT:  {
             unsigned sz = bv.get_bv_size(e);
             expr* y = umod(e, 1);
             r = a.mk_int(0);
-            for (unsigned i = 0; i < sz; ++i)
+            for (unsigned i = 0; i < sz; ++i) 
                 r = m.mk_ite(m.mk_eq(a.mk_int(i), y), rotate_left(i), r);
             break;
         }
@@ -827,7 +979,7 @@ namespace intblast {
             unsigned sz = bv.get_bv_size(e);
             expr* y = umod(e, 1);
             r = a.mk_int(0);
-            for (unsigned i = 0; i < sz; ++i)
+            for (unsigned i = 0; i < sz; ++i) 
                 r = m.mk_ite(m.mk_eq(a.mk_int(i), y), rotate_left(sz - i), r);
             break;
         }
@@ -838,9 +990,9 @@ namespace intblast {
             rational N = bv_size(e->get_arg(0));
             rational N0 = N;
             for (unsigned i = 1; i < n; ++i)
-                r = a.mk_add(a.mk_mul(a.mk_int(N), x), r), N *= N0;
+                r = add(mul(a.mk_int(N), x), r), N *= N0;
             break;
-        }
+        }            
         case OP_BREDOR: {
             r = umod(e->get_arg(0), 0);
             r = m.mk_not(m.mk_eq(r, a.mk_int(0)));
@@ -864,8 +1016,15 @@ namespace intblast {
             bool has_bv_arg = any_of(*e, [&](expr* arg) { return bv.is_bv(arg); });
             if (has_bv_arg) {
                 expr* bv_expr = e->get_arg(0);
-                m_args[0] = a.mk_sub(arg(0), arg(1));
-                set_translated(e, m.mk_eq(umod(bv_expr, 0), a.mk_int(0)));
+                rational N = rational::power_of_two(bv.get_bv_size(bv_expr));
+                if (a.is_numeral(arg(0)) || a.is_numeral(arg(1)) || 
+                    is_bounded(arg(0), N) || is_bounded(arg(1), N)) {
+                    set_translated(e, m.mk_eq(umod(bv_expr, 0), umod(bv_expr, 1)));
+                }
+                else {
+                    m_args[0] = a.mk_sub(arg(0), arg(1));
+                    set_translated(e, m.mk_eq(umod(bv_expr, 0), a.mk_int(0)));
+                }
             }
             else
                 set_translated(e, m.mk_eq(arg(0), arg(1)));
@@ -874,8 +1033,8 @@ namespace intblast {
             set_translated(e, m.mk_ite(arg(0), arg(1), arg(2)));
         else if (m_is_plugin)
             set_translated(e, e);
-        else
-            set_translated(e, m.mk_app(e->get_decl(), m_args));
+        else 
+            set_translated(e, m.mk_app(e->get_decl(), m_args));        
     }
 
     rational solver::get_value(expr* e) const {
@@ -903,12 +1062,6 @@ namespace intblast {
         if (!is_app(n->get_expr()))
             return false;
         app* e = to_app(n->get_expr());
-        expr *th, * el, * c;
-        if (m.is_ite(e, c, th, el)) {
-            dep.add(n, expr2enode(th)->get_root());
-            dep.add(n, expr2enode(el)->get_root());
-            return true;
-        }
         if (n->num_args() == 0) {
             dep.insert(n, nullptr);
             return true;
@@ -925,7 +1078,6 @@ namespace intblast {
     void solver::add_value_solver(euf::enode* n, model& mdl, expr_ref_vector& values) {
         expr* e = n->get_expr();
         SASSERT(bv.is_bv(e));
-
         if (bv.is_numeral(e)) {
             values.setx(n->get_root_id(), e);
             return;
@@ -947,15 +1099,6 @@ namespace intblast {
 
     void solver::add_value_plugin(euf::enode* n, model& mdl, expr_ref_vector& values) {
         expr_ref value(m);
-        expr* e = n->get_expr(), *c, *th, *el;
-        while (m.is_ite(e, c, th, el)) {
-            auto thn = expr2enode(th);
-            if (thn->get_root() == n->get_root())
-                e = th;
-            else
-                e = el;
-            n = expr2enode(e);
-        }        
         if (n->interpreted())
             value = n->get_expr();
         else if (to_app(n->get_expr())->get_family_id() == bv.get_family_id()) {
@@ -975,33 +1118,10 @@ namespace intblast {
             rational r;
             VERIFY(av.get_value(b2i->get_expr(), r));
             value = bv.mk_numeral(r, bv.get_bv_size(n->get_expr()));
+            verbose_stream() << ctx.bpp(n) << " := " << value << "\n";
         }
         values.set(n->get_root_id(), value);
         TRACE("model", tout << "add_value " << ctx.bpp(n) << " := " << value << "\n");
-    }
-
-    void solver::finalize_model(model& mdl) {
-        for (auto n : ctx.get_egraph().nodes()) {
-            expr* e = n->get_expr();
-            if (!bv.is_bv(e))
-                continue;
-            if (!is_translated(e))
-                continue;
-            expr* f = translated(e);
-            rational r1, r2;
-            expr_ref val1 = mdl(e);
-            expr_ref val2 = mdl(f);
-            if (bv.is_numeral(val1, r1) && a.is_numeral(val2, r2) && r1 != r2) {
-                rational N = rational::power_of_two(bv.get_bv_size(e));
-                r2 = mod(r2, N);
-                if (r1 == r2)
-                    continue;
-                verbose_stream() << "value mismatch : " << mk_bounded_pp(e, m) << " := " << val1 << "\n";
-                verbose_stream() << mk_bounded_pp(f, m) << " := " << r2 << "\n";
-                for (expr* arg : *to_app(e)) 
-                    verbose_stream() << mk_bounded_pp(arg, m) << " := " << mdl(arg) << "\n";
-            }
-        }
     }
 
     sat::literal_vector const& solver::unsat_core() {

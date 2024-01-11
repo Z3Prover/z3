@@ -19,6 +19,7 @@ Author:
 
 #pragma once
 
+#include "util/trail.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/euf/euf_plugin.h"
 
@@ -40,26 +41,24 @@ namespace euf {
 
         bv_util                 bv;
         slice_info_vector       m_info;         // indexed by enode::get_id()
-
-
-
         enode_vector m_xs, m_ys;
 
+        std::function<void(enode*)> m_ensure_th_var;
+
         bool is_concat(enode* n) const { return bv.is_concat(n->get_expr()); }
-        bool is_concat(enode* n, enode*& a, enode*& b) { return is_concat(n) && (a = n->get_arg(0), b = n->get_arg(1), true); }
+        bool is_concat(enode* n, enode*& a, enode*& b) { return is_concat(n) && n->num_args() == 2 && (a = n->get_arg(0), b = n->get_arg(1), true); }
         bool is_extract(enode* n, unsigned& lo, unsigned& hi) { expr* body;  return bv.is_extract(n->get_expr(), lo, hi, body); }
         bool is_extract(enode* n) const { return bv.is_extract(n->get_expr()); }
         unsigned width(enode* n) const { return bv.get_bv_size(n->get_expr()); }        
 
         enode* mk_extract(enode* n, unsigned lo, unsigned hi);
-        enode* mk_concat(enode* lo, enode* hi);
-        enode* mk_value_concat(enode* lo, enode* hi);
+        enode* mk_concat(enode* hi, enode* lo);
+        enode* mk_value_concat(enode* hi, enode* lo);
         enode* mk_value(rational const& v, unsigned sz);
         unsigned width(enode* n) { return bv.get_bv_size(n->get_expr()); }
         bool  is_value(enode* n) { return n->get_root()->interpreted(); }
         rational get_value(enode* n) { rational val; VERIFY(bv.is_numeral(n->get_interpreted()->get_expr(), val)); return val; }
         slice_info& info(enode* n) { unsigned id = n->get_id(); m_info.reserve(id + 1); return m_info[id]; }
-        slice_info& root_info(enode* n) { unsigned id = n->get_root_id(); m_info.reserve(id + 1); return m_info[id]; }
         bool has_sub(enode* n) { return !!info(n).lo; }
         enode* sub_lo(enode* n) { return info(n).lo; }
         enode* sub_hi(enode* n) { return info(n).hi; }
@@ -81,8 +80,16 @@ namespace euf {
         svector<std::tuple<enode*, unsigned, unsigned>> m_jtodo;
         void clear_offsets();
 
-        enode_vector m_undo_split;
+
+        ptr_vector<trail> m_trail;
+        
+        class undo_split;
         void push_undo_split(enode* n);
+
+        vector<std::variant<enode*, enode_pair>> m_queue;
+        unsigned m_qhead = 0;        
+        void propagate_register_node(enode* n);
+        void propagate_merge(enode* a, enode* b);
         
     public:
         bv_plugin(egraph& g);
@@ -97,9 +104,11 @@ namespace euf {
 
         void diseq_eh(enode* eq) override {}
 
-        void propagate() override {}
+        void propagate() override;
 
         void undo() override;
+
+        void set_ensure_th_var(std::function<void(enode*)>& f) { m_ensure_th_var = f; }
         
         std::ostream& display(std::ostream& out) const override;
 

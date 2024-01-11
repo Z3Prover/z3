@@ -73,6 +73,11 @@ namespace intblast {
 
         expr* umod(expr* bv_expr, unsigned i);
         expr* smod(expr* bv_expr, unsigned i);
+        bool is_bounded(expr* v, rational const& N);
+        bool is_non_negative(expr* bv_expr, expr* e);
+        expr_ref mul(expr* x, expr* y);
+        expr_ref add(expr* x, expr* y);
+        expr* amod(expr* bv_expr, expr* x, rational const& N);
         rational bv_size(expr* bv_expr);
 
         void translate_expr(expr* e);
@@ -100,6 +105,10 @@ namespace intblast {
         
         ~solver() override {}
 
+        lbool check_axiom(sat::literal_vector const& lits);
+        lbool check_core(sat::literal_vector const& lits, euf::enode_pair_vector const& eqs);
+        lbool check_propagation(sat::literal lit, sat::literal_vector const& lits, euf::enode_pair_vector const& eqs);
+
         lbool check_solver_state();
 
         sat::literal_vector const& unsat_core();
@@ -107,8 +116,6 @@ namespace intblast {
         void add_value(euf::enode* n, model& mdl, expr_ref_vector& values) override;
 
         bool add_dep(euf::enode* n, top_sort<euf::enode>& dep) override;
-
-        void finalize_model(model& mdl) override;
 
         std::ostream& display(std::ostream& out) const override;
 
