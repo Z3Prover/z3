@@ -36,17 +36,17 @@ namespace polysat {
     class signed_constraint;
 
     struct fixed_slice {
-        unsigned hi = 0;
-        unsigned lo = 0;
+        unsigned offset = 0;
+        unsigned length = 0;
         rational value;
         fixed_slice() = default;
-        fixed_slice(unsigned hi, unsigned lo, rational value) : hi(hi), lo(lo), value(value) {}
+        fixed_slice(rational value, unsigned offset, unsigned length) : offset(offset), length(length), value(value) {}
     };
 
     struct fixed_claim : public fixed_slice {
         pvar v;
         fixed_claim() = default;
-        fixed_claim(pvar v, unsigned hi, unsigned lo, rational value) : fixed_slice(hi, lo, value), v(v) {}
+        fixed_claim(pvar v, rational value, unsigned offset, unsigned length) : fixed_slice(value, offset, length), v(v) {}
         fixed_claim(pvar, fixed_slice const& s) : fixed_slice(s), v(v) {}
     };
 
@@ -100,7 +100,7 @@ namespace polysat {
         }
         else if (d.is_fixed_claim()) {
             auto fixed = d.fixed();
-            return out << fixed.value << " == v" << fixed.v << " [" << fixed.hi << ":" << fixed.lo << "]";
+            return out << fixed.value << " == v" << fixed.v << " [" << fixed.length << "]@" << fixed.offset;
         }
         else {
             UNREACHABLE();

@@ -32,20 +32,27 @@ namespace polysat {
     // if x[hi:lo] = value, then 
     // 2^(w-hi+1)* x >= 
     bool fixed_bits::check(rational const& val, fi_record& fi) {
+        unsigned sz = c.size(m_var);
         for (auto const& s : m_fixed_slices) {
-            rational bw = rational::power_of_two(s.hi - s.lo + 1);
-            if (s.value != mod(machine_div2k(val, s.lo + 1), bw)) {
+            rational bw = rational::power_of_two(s.length);
+            // slice is properly contained in bit-vector variable
+            if (s.length <= sz && s.value != mod(machine_div2k(val, s.offset + 1), bw)) {
+                SASSERT(s.offset + s.length <= sz);
                 rational hi_val = s.value;
-                rational lo_val = mod(s.value + 1, bw);
-                unsigned sz = c.size(m_var);
-                pdd lo = c.value(rational::power_of_two(sz - s.hi - 1) * lo_val, c.size(m_var));
-                pdd hi = c.value(rational::power_of_two(sz - s.hi - 1) * hi_val, c.size(m_var));
+                rational lo_val = mod(s.value + 1, bw);                
+                pdd lo = c.value(rational::power_of_two(sz - s.offset - s.length) * lo_val, c.size(m_var));
+                pdd hi = c.value(rational::power_of_two(sz - s.offset - s.length) * hi_val, c.size(m_var));
                 fi.reset();
                 fi.interval = eval_interval::proper(lo, lo_val, hi, hi_val);
                 fi.deps.push_back(dependency({ m_var, s }));
-                fi.bit_width = s.hi - s.lo + 1;
+                fi.bit_width = s.length;
                 fi.coeff = 1;
                 return false;
+            }
+            // slice, properly contains variable.
+            // s.offset refers to offset in containing value.
+            if (s.length > sz) {
+                NOT_IMPLEMENTED_YET();
             }
         }
         return true;
@@ -53,7 +60,7 @@ namespace polysat {
 
     std::ostream& fixed_bits::display(std::ostream& out) const {
         for (auto const& s : m_fixed_slices)
-            out << s.hi << " " << s.lo << " " << s.value << "\n";  
+            out << s.value << "[" << s.length << "]@" << s.offset << "\n";  
         return out;
     }
 
@@ -80,7 +87,7 @@ namespace polysat {
         if (d.parity(N) < k)
             return false;
         rational const b = machine_div2k(d, k);
-        out = fixed_slice(N - k - 1, 0, b);
+        out = fixed_slice(b, 0, N - k);
         SASSERT_EQ(d, b * rational::power_of_two(k));
         SASSERT_EQ(p, (p.manager().mk_var(p.var()) - out.value) * rational::power_of_two(k));
         return true;
@@ -148,8 +155,8 @@ namespace polysat {
             rational const c = is_strict ? rhs.val() : (rhs.val() + 1);
             unsigned const k = c.next_power_of_two();
             if (k < N) {
-                out.hi = N - 1;
-                out.lo = k;
+                out.length = N - k;
+                out.offset = k;
                 out.value = 0;
                 return true;
             }

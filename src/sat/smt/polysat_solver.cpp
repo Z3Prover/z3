@@ -147,7 +147,7 @@ namespace polysat {
             std::function<void(euf::enode*, euf::enode*)> consume = [&](auto* a, auto* b) {
                 eqs.push_back({ a, b });
                 };
-            explain_fixed(o.v, o.lo, o.hi, o.value, consume);
+            explain_fixed(o.v, o, consume);
         }
         else if (d.is_offset_claim()) {
             auto const& offs = d.offset();

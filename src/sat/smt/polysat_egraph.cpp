@@ -94,8 +94,9 @@ namespace polysat {
 
     // walk the e-graph to retrieve fixed overlaps
     void solver::get_fixed_bits(pvar pv, fixed_bits_vector& out) {
-
+        
         std::function<bool(euf::enode*, unsigned)> consume_slice = [&](euf::enode* n, unsigned offset) {
+            // verbose_stream() << "sub-slice " << ctx.bpp(n) << " " << offset << "\n";
             if (!n->interpreted())
                 return true;
             auto w = n->get_root()->get_th_var(get_id());
@@ -104,13 +105,14 @@ namespace polysat {
             auto const& p = m_var2pdd[w];
             if (!p.is_var())
                 return true;
-            unsigned lo = offset, hi = bv.get_bv_size(n->get_expr());
+            unsigned length = bv.get_bv_size(n->get_expr());
             rational value;
             VERIFY(bv.is_numeral(n->get_expr(), value));
-            out.push_back({ fixed_slice(lo, hi, value) });
+            out.push_back({ fixed_slice(value, offset, length) });
             return false;
         };
         theory_var v = m_pddvar2var[pv];
+        // verbose_stream() << "Get fixed_bits " << ctx.bpp(var2enode(v)) << "\n";
         m_bv_plugin->sub_slices(var2enode(v), consume_slice);
     }
     
@@ -120,12 +122,12 @@ namespace polysat {
         m_bv_plugin->explain_slice(var2enode(v), offset, var2enode(w), consume_eq);
     }
 
-    void solver::explain_fixed(pvar pv, unsigned lo, unsigned hi, rational const& value, std::function<void(euf::enode*, euf::enode*)>& consume_eq) {
+    void solver::explain_fixed(pvar pv, fixed_slice const& slice, std::function<void(euf::enode*, euf::enode*)>& consume_eq) {
         euf::theory_var v = m_pddvar2var[pv];
-        expr_ref val(bv.mk_numeral(value, hi - lo + 1), m);
+        expr_ref val(bv.mk_numeral(slice.value, slice.length), m);
         euf::enode* b = ctx.get_egraph().find(val);
         SASSERT(b);
-        m_bv_plugin->explain_slice(var2enode(v), lo, b, consume_eq);
+        m_bv_plugin->explain_slice(var2enode(v), slice.offset, b, consume_eq);
     }
 
 }
