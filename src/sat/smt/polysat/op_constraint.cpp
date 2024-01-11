@@ -506,9 +506,9 @@ namespace polysat {
             bool rb = rv.val().get_bit(i);
             if (rb == (pb || qb))
                 continue;
-            if (pb && !qb && rb)
+            if (pb && !rb)
                 add_conflict(c, "p[i] => (p|q)[i]", { ~C.bit(p, i), C.bit(r, i) });
-            else if (!pb && qb && rb)
+            else if (qb && !rb)
                 add_conflict(c, "q[i] => (p|q)[i]", { ~C.bit(q, i), C.bit(r, i) });
             else if (!pb && !qb && rb)
                 add_conflict(c, "(p|q)[i] => p[i] or q[i]", { C.bit(p, i), C.bit(q, i), ~C.bit(r, i) });
