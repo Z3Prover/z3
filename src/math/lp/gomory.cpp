@@ -441,7 +441,6 @@ public:
             else if (cc.m_polarity == -1)
                 lra.update_column_type_and_bound(j, lp::lconstraint_kind::GE, ceil(lra.get_column_value(j).x), cc.m_dep);
             
-
             cut_result cr = {cc.m_dep, lia.m_t, lia.m_k, cc.m_polarity, j};
             if (!is_small_cut(lia.m_t)) {
                 big_cuts.push_back(cr);
