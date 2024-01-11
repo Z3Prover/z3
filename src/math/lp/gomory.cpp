@@ -410,12 +410,11 @@ public:
             return all_of(t, [&](auto ci) { return ci.coeff().is_small(); });
         };
         auto add_cut = [&](cut_result const& cr) {
-            u_dependency* dep = cr.dep;
             lp::lpvar term_index = lra.add_term(cr.t.coeffs_as_vector(), UINT_MAX);
             term_index = lra.map_term_index_to_column_index(term_index);
             lra.update_column_type_and_bound(term_index,
                                              lp::lconstraint_kind::GE,
-                                             lia.m_k, dep);            
+                                             cr.k, cr.dep); 
         };
         auto _check_feasible = [&](void) {
             lra.find_feasible_solution();

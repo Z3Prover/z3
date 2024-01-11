@@ -562,7 +562,9 @@ public:
     std::ostream& print_implied_bound(const implied_bound& be, std::ostream& out) const;
     std::ostream& print_values(std::ostream& out) const;
     std::ostream& display(std::ostream& out) const;
-
+    std::ostream& display_constraint(std::ostream& out, constraint_index ci) const {
+        return m_constraints.display(out, ci);
+    }
     bool init_model() const;
     mpq from_model_in_impq_to_mpq(const impq& v) const { return v.x + m_delta * v.y; }
     mpq get_value(column_index const& j) const;
