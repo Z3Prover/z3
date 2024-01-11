@@ -34,10 +34,12 @@ namespace polysat {
     bool fixed_bits::check(rational const& val, fi_record& fi) {
         unsigned sz = c.size(m_var);
         rational bw = rational::power_of_two(sz);
+        // verbose_stream() << "check for fixed bits v" << m_var << "[" << sz << "] := " << val << "\n";
         for (auto const& s : m_fixed_slices) {
             rational sbw = rational::power_of_two(s.length);
             // slice is properly contained in bit-vector variable
-            if (s.length <= sz && s.value != mod(machine_div2k(val, s.offset + 1), sbw)) {
+            // verbose_stream() << "  slice " << s.value << "[" << s.length << "]@" << s.offset << "\n";
+            if (s.length <= sz && s.value != mod(machine_div2k(val, s.offset), sbw)) {
                 SASSERT(s.offset + s.length <= sz);
                 rational hi_val = s.value;
                 rational lo_val = mod(s.value + 1, sbw);                
@@ -46,6 +48,7 @@ namespace polysat {
                 fi.reset();
                 fi.interval = eval_interval::proper(lo, lo_val, hi, hi_val);
                 fi.deps.push_back(dependency({ m_var, s }));
+                
                 fi.bit_width = s.length;
                 fi.coeff = 1;
                 return false;
@@ -59,7 +62,7 @@ namespace polysat {
                 pdd hi = c.value(hi_val, sz);
                 fi.reset();
                 fi.interval = eval_interval::proper(lo, lo_val, hi, hi_val);
-                fi.deps.push_back(dependency({ m_var, s }));
+                fi.deps.push_back(dependency({ m_var, s }));               
                 fi.bit_width = sz;
                 fi.coeff = 1;
                 return false;

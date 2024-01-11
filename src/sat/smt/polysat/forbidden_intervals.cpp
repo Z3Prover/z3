@@ -21,6 +21,11 @@ Author:
 
 namespace polysat {
 
+    std::ostream& operator<<(std::ostream& out, fi_record const& fi) {
+        out << "fi_record(bw = " << fi.bit_width << ", coeff = " << fi.coeff << ", " << fi.interval << ", " << fi.src << fi.side_cond << fi.deps << ")";
+        return out;
+    }
+
     /**
      *
      * \param[in] c                 Original constraint

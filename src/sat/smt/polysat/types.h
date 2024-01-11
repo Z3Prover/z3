@@ -47,7 +47,7 @@ namespace polysat {
         pvar v;
         fixed_claim() = default;
         fixed_claim(pvar v, rational value, unsigned offset, unsigned length) : fixed_slice(value, offset, length), v(v) {}
-        fixed_claim(pvar, fixed_slice const& s) : fixed_slice(s), v(v) {}
+        fixed_claim(pvar v, fixed_slice const& s) : fixed_slice(s), v(v) {}
     };
 
     struct offset_slice {

@@ -92,7 +92,6 @@ namespace polysat {
         m_conflict = false;     
         m_propagation = false;
 
-        // verbose_stream() << "find viable v" << v << " starting with " << lo << "\n";
 
         for (unsigned rounds = 0; rounds < 10; ) {
            
@@ -361,9 +360,6 @@ namespace polysat {
     }
 
     bool viable::check_fixed_bits(pvar v, rational const& val) {
-        // disable fixed bits for now
-        return true;
-
         auto e = alloc_entry(v, constraint_id::null());
         if (m_fixed_bits.check(val, *e)) {
             m_alloc.push_back(e);
@@ -371,6 +367,7 @@ namespace polysat {
         }
         else {
             intersect(v, e);
+            TRACE("bv", tout << "fixed " << *e << "\n");
             return false;
         }
     }
@@ -391,11 +388,6 @@ namespace polysat {
         m_diseq_lin[v] = m_diseq_lin[v]->next();
 
         do {
-            // IF_LOGGING(
-            //         verbose_stream() << "refine-disequal-lin for v" << v << " in src: ";
-            //         for (const auto& src : e->src)
-            //             verbose_stream() << lit_pp(s, src) << "\n";
-            // );
 
             // We compute an interval if the concrete value 'val' violates the constraint:
             //      p*val + q >  r*val + s  if e->src.is_positive()
@@ -806,7 +798,6 @@ namespace polysat {
 
     bool viable::intersect(pvar v, entry* ne) {
         SASSERT(!c.is_assigned(v));
-        SASSERT(!ne->src.empty());
         entry*& entries = m_units[v].ensure_layer(ne->bit_width).entries;
         entry* e = entries;
         if (e && e->interval.is_full()) {

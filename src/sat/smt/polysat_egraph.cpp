@@ -94,16 +94,12 @@ namespace polysat {
 
     // walk the e-graph to retrieve fixed overlaps
     void solver::get_fixed_bits(pvar pv, fixed_bits_vector& out) {
-        
         std::function<bool(euf::enode*, unsigned)> consume_slice = [&](euf::enode* n, unsigned offset) {
-            // verbose_stream() << "sub-slice " << ctx.bpp(n) << " " << offset << "\n";
+            n = n->get_root();
             if (!n->interpreted())
                 return true;
-            auto w = n->get_root()->get_th_var(get_id());
+            auto w = n->get_th_var(get_id());
             if (w == euf::null_theory_var)
-                return true;
-            auto const& p = m_var2pdd[w];
-            if (!p.is_var())
                 return true;
             unsigned length = bv.get_bv_size(n->get_expr());
             rational value;
@@ -111,9 +107,9 @@ namespace polysat {
             out.push_back({ fixed_slice(value, offset, length) });
             return false;
         };
-        theory_var v = m_pddvar2var[pv];
-        // verbose_stream() << "Get fixed_bits " << ctx.bpp(var2enode(v)) << "\n";
+        theory_var v = m_pddvar2var[pv];        
         m_bv_plugin->sub_slices(var2enode(v), consume_slice);
+        m_bv_plugin->super_slices(var2enode(v), consume_slice);
     }
     
     void solver::explain_slice(pvar pv, pvar pw, unsigned offset, std::function<void(euf::enode*, euf::enode*)>& consume_eq) {

@@ -49,6 +49,8 @@ namespace polysat {
         };
     };
 
+    std::ostream& operator<<(std::ostream& out, fi_record const& fi);
+
     class forbidden_intervals {
 
         void push_eq(bool is_trivial, pdd const& p, vector<signed_constraint>& side_cond);
