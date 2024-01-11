@@ -60,16 +60,16 @@ namespace polysat {
         static lbool eval_inv(pdd const& p, pdd const& r);
         static lbool eval_or(pdd const& p, pdd const& q, pdd const& r);
 
-        void propagate_lshr(core& c);
+        bool propagate_lshr(core& c);
         void propagate_ashr(core& c);
         void propagate_shl(core& c);
         void propagate_and(core& c);
-        void propagate_or(core& c);
+        bool propagate_or(core& c);
         void propagate_inv(core& c);
         bool propagate_mask(core& c, pdd const& p, pdd const& q, pdd const& r, rational const& pv, rational const& qv, rational const& rv);
 
-        void propagate(core& c, signed_constraint const& sc);
-        void add_conflict(core& c, char const* ax, constraint_or_dependency_list const& cs);
+        bool propagate(core& c, signed_constraint const& sc);
+        bool add_conflict(core& c, char const* ax, constraint_or_dependency_list const& cs);
 
         std::ostream& display(std::ostream& out, char const* eq) const;
 

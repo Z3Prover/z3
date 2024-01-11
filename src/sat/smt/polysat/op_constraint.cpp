@@ -99,10 +99,17 @@ namespace polysat {
             auto M = m.max_value();
             auto N = M + 1;
             if (p.val() >= N / 2) {
-                if (q.val() >= m.power_of_2())
-                    return to_lbool(r.val() == M);
+                if (q.val() >= m.power_of_2()) {
+                    if (p.is_zero())
+                        return to_lbool(r.val() == 0);
+                    else
+                        return to_lbool(r.val() == M);
+                }
                 unsigned k = q.val().get_unsigned();
-                return to_lbool(r.val() == p.val() - rational::power_of_two(k));
+                // p >>a q = p / 2^k - 2^{N-k}
+                auto pdiv2k = machine_div2k(p.val(), k);
+                auto pNk = rational::power_of_two(m.power_of_2() - k);
+                return to_lbool(r.val() == pdiv2k + N - pNk);
             }
             else
                 return eval_lshr(p, q, r);
@@ -244,6 +251,7 @@ namespace polysat {
             c.add_axiom("q >= N  -> p >>l q = 0", { ~C.uge(q, N), C.eq(r) }, false);
             c.add_axiom("q = 0 -> p >>l q = p", { ~C.eq(q), C.eq(r, p) }, false);
             c.add_axiom("p = 0 -> p >>l q = p", { ~C.eq(p), C.eq(r, p) }, false);
+            c.add_axiom("p >>l q <= p", { C.ule(r, p) }, false);
             break;
         case code::shl_op:
             c.add_axiom("q >= N -> p << q = 0", { ~C.uge(q, N), C.eq(r) }, false);
@@ -288,15 +296,21 @@ namespace polysat {
 
     }
 
-    void op_constraint::propagate(core& c, signed_constraint const& sc) {
+    bool op_constraint::propagate(core& c, signed_constraint const& sc) {
+        if (c.weak_eval(sc) != l_true)
+            return false;
         c.propagate(sc, c.explain_weak_eval(sc));
+        return true;
     }
 
-    void op_constraint::add_conflict(core& c, char const* ax, constraint_or_dependency_list const& cs) {
+    bool op_constraint::add_conflict(core& c, char const* ax, constraint_or_dependency_list const& cs) {
         for (auto sc : cs)
-            if (std::holds_alternative<signed_constraint>(sc))
-                propagate(c, ~*std::get_if<signed_constraint>(&sc));
+            if (std::holds_alternative<signed_constraint>(sc) &&
+                !propagate(c, ~*std::get_if<signed_constraint>(&sc)))
+                return false;
+            
         c.add_axiom(ax, cs, true);
+        return true;
     }
     /**
   * Enforce basic axioms for r == p >> q:
@@ -314,7 +328,7 @@ namespace polysat {
   * when q is a constant, several axioms can be enforced at activation time.
   *
   */
-    void op_constraint::propagate_lshr(core& c) {
+    bool op_constraint::propagate_lshr(core& c) {
         auto& m = p.manager();
         auto const pv = c.subst(p);
         auto const qv = c.subst(q);
@@ -323,45 +337,23 @@ namespace polysat {
 
         auto& C = c.cs();
 
-        if (pv.is_val() && rv.is_val() && rv.val() > pv.val())
-            return add_conflict(c, "lshr 1", { C.ule(r, p) });
+        if (!pv.is_val() || !qv.is_val() || !rv.is_val())
+            return false;
 
-        else if (qv.is_val() && qv.val() >= N && rv.is_val() && !rv.is_zero())
-            // TODO: instead of rv.is_val() && !rv.is_zero(), we should use !is_forced_zero(r) which checks whether eval(r) = 0 or bvalue(r=0) = true; see saturation.cpp
-            c.add_axiom("q >= N -> r = 0", { ~C.ule(N, q), C.eq(r) }, true);
-        else if (qv.is_zero() && pv.is_val() && rv.is_val() && pv != rv)
-            c.add_axiom("q = 0 -> p = r", { ~C.eq(q), C.eq(p, r) }, true);
-        else if (qv.is_val() && !qv.is_zero() && pv.is_val() && rv.is_val() && !pv.is_zero() && rv.val() >= pv.val())
-            c.add_axiom("q != 0 & p > 0 -> r < p", { C.eq(q), C.ule(p, 0), C.ult(r, p) }, true);
-        else if (qv.is_val() && !qv.is_zero() && qv.val() < N && rv.is_val() && rv.val() > rational::power_of_two(N - qv.val().get_unsigned()) - 1)
-            c.add_axiom("q >= k -> r <= 2^{N-k} - 1", { ~C.ule(qv.val(), q), C.ule(r, rational::power_of_two(N - qv.val().get_unsigned()) - 1) }, true);
-        else if (pv.is_val() && rv.is_val() && qv.is_val() && !qv.is_zero()) {
-            unsigned k = qv.val().get_unsigned();
-            for (unsigned i = 0; i < N - k; ++i) {
-                if (rv.val().get_bit(i) && !pv.val().get_bit(i + k))
-                    c.add_axiom("q = k  ->  r[i] = p[i+k] for 0 <= i < N - k", { ~C.eq(q, k), ~C.bit(r, i), C.bit(p, i + k) }, true);
+        SASSERT(!qv.is_zero());
+        SASSERT(qv.val() < N);
 
-                if (!rv.val().get_bit(i) && pv.val().get_bit(i + k))
-                    c.add_axiom("q = k  ->  r[i] = p[i+k] for 0 <= i < N - k", { ~C.eq(q, k), C.bit(r, i), ~C.bit(p, i + k) }, true);
-            }
-        }
-        else {
-            // forward propagation
-            SASSERT(!(pv.is_val() && qv.is_val() && rv.is_val()));
-            // LOG(p << " = " << pv << " and " << q << " = " << qv << " yields [>>] " << r << " = " << (qv.val().is_unsigned() ? machine_div2k(pv.val(), qv.val().get_unsigned()) : rational::zero()));
-            if (qv.is_val() && !rv.is_val()) {
-                rational const& q_val = qv.val();
-                if (q_val >= N)
-                    // q >= N ==> r = 0
-                    c.add_axiom("q >= N ==> r = 0", { ~C.ule(N, q), C.eq(r) }, true);
-                else if (pv.is_val()) {
-                    SASSERT(q_val.is_unsigned());
-                    // 
-                    rational const r_val = machine_div2k(pv.val(), q_val.get_unsigned());
-                    c.add_axiom("p = p_val & q = q_val ==> r = p_val / 2^q_val", { ~C.eq(p, pv), ~C.eq(q, qv), C.eq(r, r_val) }, true);
-                }
-            }
-        }
+        auto k = qv.val().get_unsigned();
+
+        // q = k &  0 < k < N => 2^k r <= p <= 2^k*x + 2^k - 1
+
+        auto twoK = rational::power_of_two(k);
+        auto twoNK = rational::power_of_two(N - k);
+        bool c1 = add_conflict(c, "q = k & 0 < k < N -> 2^k (p >>l q) <= p", { ~C.eq(q, k), C.ule(r * twoK, p)});
+        bool c2 = add_conflict(c, "q = k & 0 < k < N -> p <= 2^k*(p >>l q) + 2^k - 1", { ~C.eq(q, k), C.ule(p, r * twoK + twoK - 1) });
+        bool c3 = add_conflict(c, "q = k & 0 < k < N -> (p >>l q) < 2^{N-k}", { ~C.eq(q, k), C.ult(r, twoNK) });
+        VERIFY(c1 || c2 || c3);
+        return true;
     }
 
     void op_constraint::propagate_ashr(core& c) {
@@ -397,10 +389,12 @@ namespace polysat {
             rational twoN = rational::power_of_two(N);
             rational twoK = rational::power_of_two(k);
             rational twoNk = rational::power_of_two(N - k);
-            auto eqK = C.eq(q, k);
-            c.add_axiom("q = k -> r*2^k + p < 2^k", { ~eqK, C.ult(p - r * twoK, twoK) }, true);
-            c.add_axiom("q = k & p >= 0 -> r < 2^{N-k}", { ~eqK, ~C.ule(0, p), C.ult(r, twoNk) }, true);
-            c.add_axiom("q = k & p < 0 -> r >= 2^N - 2^{N-k}", { ~eqK, ~C.slt(p, 0), C.uge(r, twoN - twoNk) }, true);
+
+            bool c1 = add_conflict(c, "q = k & 0 < k < N -> 2^k r <= p", { ~C.eq(q, k), C.ule(r * twoK, p) });
+            bool c2 = add_conflict(c, "q = k & 0 < k < N -> p <= 2^k*x + 2^k - 1", { ~C.eq(q, k), C.ule(p, r * twoK + twoK - 1) });
+            bool c3 = add_conflict(c, "p < 0 & q = k -> r >= 2^N - 2^{N-k}", { ~C.eq(q, k), ~C.slt(p, 0),  C.uge(r, twoN - twoNk) });
+            bool c4 = add_conflict(c, "p >= 0 & q = k -> r < 2^{N-k}", { ~C.eq(q, k), C.slt(p, 0),  C.ult(r, twoNk)});
+            VERIFY(c1 || c2 || c3 || c4);
         }
     }
 
@@ -432,10 +426,6 @@ namespace polysat {
 
         auto twoK = rational::power_of_two(k);
 
-#if 0
-        if (rv.is_val() && rv.val() < twoK && !rv.is_zero())
-            return add_conflict(c, "q >= k -> r = 0 or r >= 2^k", { ~C.uge(q, k), C.eq(r), C.uge(r, twoK) });
-#endif
         add_conflict(c, "p << k = 2^k*p", { ~C.eq(q, k), C.eq(r, p * twoK) });
     }
 
@@ -487,7 +477,7 @@ namespace polysat {
         }
     }
 
-    void op_constraint::propagate_or(core& c) {
+    bool op_constraint::propagate_or(core& c) {
         auto& m = p.manager();
         auto pv = c.subst(p);
         auto qv = c.subst(q);
@@ -495,7 +485,7 @@ namespace polysat {
         auto& C = c.cs();
 
         if (!pv.is_val() || !qv.is_val() || !rv.is_val())
-            return;
+            return false;
 
         if (pv.is_max() && pv != rv)
             return add_conflict(c, "p = -1 => p & q = p", { ~C.eq(p, m.max_value()), C.eq(p, r)});
@@ -518,8 +508,9 @@ namespace polysat {
                 add_conflict(c, "(p|q)[i] => p[i] or q[i]", { C.bit(p, i), C.bit(q, i), ~C.bit(r, i) });
             else
                 UNREACHABLE();
-            return;
+            return true;
         }
+        return false;
     }
 
     bool op_constraint::propagate_mask(core& c, pdd const& p, pdd const& q, pdd const& r, rational const& pv, rational const& qv, rational const& rv) {

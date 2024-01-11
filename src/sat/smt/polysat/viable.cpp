@@ -619,10 +619,16 @@ namespace polysat {
             // t in ] (value - 1) * 2^{bw - ebw} ; value * 2^{bw - ebw} ]
             // t in [ (value - 1) * 2^{bw - ebw} - 1 ; value * 2^{bw - ebw} + 1 [
 
+#if 0
+            verbose_stream() << e.value << " " << t << "\n";
+            if (t.is_val()) verbose_stream() << "tval " << t.val() << "\n";
+            verbose_stream() << "[" << vlo << " " << vhi << "[\n";
+            verbose_stream() << "bw " << ebw << " " << bw << " " << e.e->interval << " bw " << abw << " " << aw << " " << after.e->coeff << " " << after.e->interval << "\n";
             if (!t.is_val())
                 IF_VERBOSE(0, verbose_stream() << "symbolic t : " << t << "\n");
+#endif
             auto sc = cs.ult(t - vlo, vhi - vlo);
-            SASSERT(!sc.is_always_false());
+            VERIFY(!sc.is_always_false());
             if (!sc.is_always_true())
                 deps.push_back(c.propagate(sc, c.explain_weak_eval(sc)));
             t.reset(lo.manager());
@@ -706,34 +712,35 @@ namespace polysat {
             //          k = 3, lo = 1, hi = 2, new_lo = 1 div 2^3 + 1 = 1, new_hi = 2 div 2^3 + 1 = 1
             // lo > hi
 
+            TRACE("bv", display_one(tout << "try to reduce entry: ", v, ne) << "\n");
             pdd const& pdd_lo = ne->interval.lo();
             pdd const& pdd_hi = ne->interval.hi();
             rational const& lo = ne->interval.lo_val();
             rational const& hi = ne->interval.hi_val();
+            rational twoK = rational::power_of_two(k);
 
-            rational new_lo = machine_div2k(lo, k);
+            rational new_lo = machine_div2k(mod2k(lo + twoK - 1, w), k);
             pdd lo_eq = pdd_lo * rational::power_of_two(w - k);
             if (mod2k(lo, k).is_zero()) {
                 if (!lo_eq.is_zero())
                     ne->side_cond.push_back(cs.eq(lo_eq));
             }
             else {
-                new_lo = machine_div2k(new_lo, k);
-                new_lo += 1;
-                if (!lo_eq.is_val() || lo_eq.is_zero())
+                SASSERT(!lo_eq.is_val() || !lo_eq.is_zero());
+                if (!lo_eq.is_val())
                     ne->side_cond.push_back(~cs.eq(lo_eq));
             }
             
-            rational new_hi = machine_div2k(hi, k);
+
+            rational new_hi = machine_div2k(mod2k(hi + twoK - 1, w), k);
             pdd hi_eq = pdd_hi * rational::power_of_two(w - k);
             if (mod2k(hi, k).is_zero()) {
                 if (!hi_eq.is_zero())
                     ne->side_cond.push_back(cs.eq(hi_eq));
             }
             else {
-                new_hi = machine_div2k(new_hi, k);
-                new_hi += 1;
-                if (!hi_eq.is_val() || hi_eq.is_zero())
+                SASSERT(!hi_eq.is_val() || !hi_eq.is_zero());
+                if (!hi_eq.is_val())
                     ne->side_cond.push_back(~cs.eq(hi_eq));
             }
             
@@ -748,6 +755,8 @@ namespace polysat {
             ne->coeff = 1;
             ne->interval = eval_interval::proper(pdd_lo, new_lo, pdd_hi, new_hi);
             ne->bit_width -= k;
+
+            TRACE("bv", display_one(tout << "reduced: ", v, ne) << "\n");
             intersect(v, ne);            
         }
         if (ne->interval.is_full()) {
@@ -1013,7 +1022,7 @@ namespace polysat {
     std::ostream& viable::display_explain(std::ostream& out) const {
         display_state(out);
         for (auto const& e : m_explain)
-            display_one(out << e.value << " ", m_var, e.e) << "\n";
+            display_one(out << "v" << m_var << "[" << e.e->bit_width << "] : = " << e.value << " ", m_var, e.e) << "\n";
         return out;
     }
 
