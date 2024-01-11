@@ -243,7 +243,7 @@ namespace polysat {
 
     void saturation::try_op(pvar v, signed_constraint& sc, dependency const& d) {
         SASSERT(sc.is_op());
-        sc.propagate(c, l_true, d);
+        VERIFY(sc.propagate(c, l_true, d));
     }
 
     // possible algebraic rule:

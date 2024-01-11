@@ -80,16 +80,17 @@ namespace polysat {
 
     }
 
-    void umul_ovfl_constraint::propagate(core& c, lbool value, dependency const& dep) {
+    bool umul_ovfl_constraint::propagate(core& c, lbool value, dependency const& dep) {
         if (value == l_undef)
-            return;
+            return false;
         auto& C = c.cs();
         auto p1 = c.subst(p());
         auto q1 = c.subst(q());
         if (narrow_bound(c, value == l_true, p(), q(), p1, q1, dep))
-            return;
+            return true;
         if (narrow_bound(c, value == l_true, q(), p(), q1, p1, dep))
-            return;
+            return true;
+        return false;
     }
 
     /**
