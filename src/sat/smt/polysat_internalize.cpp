@@ -679,26 +679,20 @@ namespace polysat {
     // e = hi lo
     // hi = 0 <=> e < 2^|lo|
     void solver::axioms_for_concat(app* e) {
-        SASSERT(bv.is_concat(e));
-        SASSERT(e->get_num_args() > 0);
-        sat::literal_vector neqs;
-        expr* hi = e->get_arg(0);
-        auto sz_e = bv.get_bv_size(e);
-        auto sz_h = bv.get_bv_size(hi);
-        auto eq0 = eq_internalize(hi, bv.mk_numeral(0, sz_h));
-        auto sz_eqs = sz_h;
-        neqs.push_back(~eq0);
-        for (unsigned i = 1; i < e->get_num_args(); ++i) {
-            auto gtlo = ~mk_literal(bv.mk_ule(bv.mk_numeral(rational::power_of_two(sz_e - sz_eqs), sz_e), e));
-            neqs.push_back(gtlo);
-            add_axiom("hi = 0 => concat(hi, lo) < 2^|lo|", neqs, false);
-            neqs.pop_back();
-            for (auto neq : neqs)
-                add_axiom("concat(hi,lo) < 2^|lo| => hi = 0", { ~neq, ~gtlo }); // hi = 0 or e >= 2^|lo|
-            expr* lo = e->get_arg(i);
-            auto sz_l = bv.get_bv_size(lo);
-            neqs.push_back(~eq_internalize(lo, bv.mk_numeral(0, sz_l)));
-            sz_eqs += sz_l;
+        if (e->get_num_args() == 2) {
+            expr* hi = e->get_arg(0);
+            auto sz_e = bv.get_bv_size(e);
+            auto sz_h = bv.get_bv_size(hi);
+            auto eq0 = eq_internalize(hi, bv.mk_numeral(0, sz_h));
+            auto gtlo = ~mk_literal(bv.mk_ule(bv.mk_numeral(rational::power_of_two(sz_e - sz_h), sz_e), e));
+            add_axiom("hi = 0 => concat(hi, lo) < 2^|lo|", { ~eq0, gtlo });
+            add_axiom("concat(hi, lo) < 2^|lo| => hi = 0", { eq0, ~gtlo });
+        }
+        else {
+            expr* last = e->get_arg(e->get_num_args() - 1);
+            for (unsigned i = e->get_num_args() - 1; i-- > 0; )
+                last = bv.mk_concat(e->get_arg(i), last);
+            add_axiom("concat-assoc", { eq_internalize(e, last) });
         }
     }
 
