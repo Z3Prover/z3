@@ -400,8 +400,6 @@ public:
     lia_move gomory::get_gomory_cuts(unsigned num_cuts) {
         struct cut_result {u_dependency *dep; lar_term t; mpq k; int polarity; lpvar j;};
         vector<cut_result> big_cuts;
-        struct polar_info {lpvar j; int polarity;  u_dependency *dep;};
-        vector<polar_info> polar_vars;
         unsigned_vector columns_for_cuts = gomory_select_int_infeasible_vars(num_cuts);
         bool has_small_cut = false;
 
@@ -437,10 +435,14 @@ public:
                     return lia_move::conflict;
                 continue;
             }
+
+            if (cc.m_polarity == 1) 
+                lra.update_column_type_and_bound(j, lp::lconstraint_kind::LE, floor(lra.get_column_value(j).x), cc.m_dep);
+            else if (cc.m_polarity == -1)
+                lra.update_column_type_and_bound(j, lp::lconstraint_kind::GE, ceil(lra.get_column_value(j).x), cc.m_dep);
+            
+
             cut_result cr = {cc.m_dep, lia.m_t, lia.m_k, cc.m_polarity, j};
-            if (abs(cr.polarity) == 1)  // need to delay the update of the bounds for j in a polar case, because simplify_inequality relies on the old bounds
-                polar_vars.push_back( {j, cr.polarity,  cc.m_dep} ); 
-           
             if (!is_small_cut(lia.m_t)) {
                 big_cuts.push_back(cr);
                 continue;
@@ -462,17 +464,6 @@ public:
                 for (auto const& cut : big_cuts) 
                     add_cut(cut);
             
-        }
-
-// this way we create bounds for the variables in polar cases even where the terms have big numbers
-        for (auto const& p : polar_vars) {
-            if (p.polarity == 1) {
-                lra.update_column_type_and_bound(p.j, lp::lconstraint_kind::LE, floor(lra.get_column_value(p.j).x), p.dep);
-            }
-            else {
-                SASSERT(p.polarity == -1);
-                lra.update_column_type_and_bound(p.j, lp::lconstraint_kind::GE, ceil(lra.get_column_value(p.j).x), p.dep);
-            }
         }
         
         if (!_check_feasible())
