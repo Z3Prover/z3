@@ -363,6 +363,12 @@ namespace polysat {
     void core::propagate_assignment(pvar v, rational const& value, dependency dep) {
         TRACE("bv", tout << "propagate assignment v" << v << " := " << value << "\n");
         SASSERT(!is_assigned(v));
+        if (!m_viable.assign(v, value)) {
+            auto deps = m_viable.explain();
+            deps.push_back(dep);
+            s.set_conflict(deps, "non-viable assignment");
+            return;
+        }
         m_values[v] = value;
         m_justification[v] = dep;   
         m_assignment.push(v , value);

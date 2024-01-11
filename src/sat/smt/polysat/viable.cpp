@@ -83,21 +83,42 @@ namespace polysat {
         return e;
     }
 
+    bool viable::assign(pvar v, rational const& value) {
+        m_var = v;
+        m_explain_kind = explain_t::none;
+        m_num_bits = c.size(v);
+        m_fixed_bits.init(v);
+        init_overlaps(v);
+        check_fixed_bits(v, value);
+        check_disequal_lin(v, value);
+        check_equal_lin(v, value);
+        for (auto const& [w, offset] : m_overlaps) {
+            for (auto& layer : m_units[w].get_layers()) {
+                entry* e = find_overlap(w, layer, value);
+                if (!e)
+                    continue;
+                m_explain.push_back({ e, value });
+                m_explain_kind = explain_t::assignment;
+                return false;
+            }
+        }
+        return true;
+    }
+
     find_t viable::find_viable(pvar v, rational& lo) {
         m_explain.reset();
         m_var = v;
         m_num_bits = c.size(v);
         m_fixed_bits.init(v);
         init_overlaps(v);
-        m_conflict = false;     
-        m_propagation = false;
+        m_explain_kind = explain_t::none;
 
 
         for (unsigned rounds = 0; rounds < 10; ) {
            
             auto n = find_overlap(lo);            
 
-            if (m_conflict)
+            if (m_explain_kind == explain_t::conflict)
                 return find_t::empty;
 
             if (n)
@@ -111,7 +132,7 @@ namespace polysat {
             if (!check_equal_lin(v, lo))
                 continue;
             if (is_propagation(lo)) {
-                m_propagation = true;
+                m_explain_kind = explain_t::propagation;
                 return find_t::singleton;
             }
             return find_t::multiple;                        
@@ -146,7 +167,7 @@ namespace polysat {
                 update_value_to_high(val, e);
                 m_explain.push_back({ e, val });
                 if (is_conflict()) {
-                    m_conflict = true;
+                    m_explain_kind = explain_t::conflict;
                     return nullptr;
                 }
             }
@@ -154,7 +175,7 @@ namespace polysat {
         return last;
     }
 
-    viable::entry* viable::find_overlap(pvar w, layer& l, rational& val) {
+    viable::entry* viable::find_overlap(pvar w, layer& l, rational const& val) {
         if (!l.entries)
             return nullptr;
         unsigned v_width = m_num_bits;
@@ -539,7 +560,7 @@ namespace polysat {
             return result;
         }
 
-        SASSERT(m_conflict || m_propagation);
+        SASSERT(m_explain_kind != explain_t::none);
 
         for (unsigned i = m_explain.size() - 1; i-- > 0; ) {
             auto e = m_explain[i];
@@ -549,7 +570,7 @@ namespace polysat {
             if (e.e == last.e)
                 break;
         }
-        if (m_propagation) {
+        if (m_explain_kind == explain_t::propagation) {
             // assume first and last have same bit-width
             auto first = m_explain[0];
             SASSERT(first.e->bit_width == last.e->bit_width);
@@ -557,6 +578,11 @@ namespace polysat {
             // add constraint that there is only a single viable value.         
             auto sc = cs.eq(last.e->interval.hi() + 1, first.e->interval.lo());
             result.push_back(c.propagate(sc, c.explain_weak_eval(sc)));            
+        }
+        if (m_explain_kind == explain_t::assignment) {
+            // there is just one entry
+            SASSERT(m_explain.size() == 1);
+            explain_entry(last.e);
         }
         unmark();
         return result;

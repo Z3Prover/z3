@@ -115,18 +115,15 @@ namespace polysat {
 
         bool intersect(pvar v, entry* e);
 
-        lbool find_viable(pvar v, rational& val1, rational& val2);
 
         // find the first non-fixed entry that overlaps with val, if any.
         entry* find_overlap(rational& val);
         entry* find_overlap(pvar w, rational& val);
-        entry* find_overlap(pvar w, layer& l, rational& val);
+        entry* find_overlap(pvar w, layer& l, rational const& val);
 
         void update_value_to_high(rational& val, entry* e);
         bool is_conflict();
         void explain_overlap(explanation const& e, explanation const& after, dependency_vector& deps);
-
-        lbool next_viable_layer(pvar w, layer& l, rational& val);
 
         viable::entry* find_overlap(rational const& val, entry* entries);
 
@@ -138,9 +135,14 @@ namespace polysat {
 
         bool is_propagation(rational const& val);
 
+        enum class explain_t {
+            conflict,
+            propagation,
+            assignment,
+            none
+        };
         pvar            m_var = null_var;
-        bool            m_conflict = false;
-        bool            m_propagation = false;
+        explain_t       m_explain_kind = explain_t::none;
         unsigned        m_num_bits = 0;
         fixed_bits      m_fixed_bits;
         offset_slices   m_overlaps;
@@ -172,6 +174,11 @@ namespace polysat {
         * Ensure data-structures tracking variable v.
         */
         void ensure_var(pvar v);
+
+        /*
+        * Check if assignment is viable.
+        */
+        bool assign(pvar v, rational const& value);
 
 
         std::ostream& display(std::ostream& out) const;
