@@ -746,10 +746,17 @@ namespace polysat {
             
             
             if (new_lo == new_hi) {
-                IF_VERBOSE(0, verbose_stream() << "Check: always true " << "x*" << ne->coeff << " not in " << ne->interval << " " << new_hi << "\n");
-                // empty
-                m_alloc.push_back(ne);
-                return find_t::multiple;
+                if (lo < hi) {
+                    m_alloc.push_back(ne);
+                    return find_t::multiple;
+                }
+                else {
+                    SASSERT(hi < lo);
+                    // exclude 0
+                    IF_VERBOSE(0, display_one(verbose_stream() << "Exclude 0: ", v, ne) << "\n");
+                    SASSERT(new_lo == 0);
+                    new_hi = 1;
+                }
             }
 
             ne->coeff = 1;

@@ -678,7 +678,7 @@ namespace polysat {
 
     // e = hi lo
     // hi = 0 <=> e < 2^|lo|
-    void solver::axioms_for_concat(app* e) {
+    void solver::axioms_for_concat(app* e) {    
         if (e->get_num_args() == 2) {
             expr* hi = e->get_arg(0);
             auto sz_e = bv.get_bv_size(e);
