@@ -88,6 +88,7 @@ namespace polysat {
         m_explain_kind = explain_t::none;
         m_num_bits = c.size(v);
         m_fixed_bits.init(v);
+        m_explain.reset();
         init_overlaps(v);
         check_fixed_bits(v, value);
         check_disequal_lin(v, value);
@@ -97,6 +98,7 @@ namespace polysat {
                 entry* e = find_overlap(w, layer, value);
                 if (!e)
                     continue;
+                
                 m_explain.push_back({ e, value });
                 m_explain_kind = explain_t::assignment;
                 return false;
@@ -113,9 +115,7 @@ namespace polysat {
         init_overlaps(v);
         m_explain_kind = explain_t::none;
 
-
         for (unsigned rounds = 0; rounds < 10; ) {
-           
             auto n = find_overlap(lo);            
 
             if (m_explain_kind == explain_t::conflict)
@@ -191,18 +191,24 @@ namespace polysat {
         unsigned b_width = e->bit_width;
         SASSERT(b_width <= v_width);
 
-        auto hi = e->interval.hi_val();
-        auto lo = e->interval.lo_val();
+        auto const& hi = e->interval.hi_val();
+        auto const& lo = e->interval.lo_val();
         if (b_width == v_width) {
             val = hi;
+            SASSERT(0 <= val && val <= c.var2pdd(m_var).max_value());
             return;
         }
 
         auto p2b = rational::power_of_two(b_width);
         rational val2 = clear_lower_bits(val, b_width);
-        if (lo <= mod(val, p2b) && hi < lo)
-            val2 += p2b;
-        val = val2 + hi;       
+        if (lo <= mod(val, p2b) && hi < lo) {
+            val2 += p2b;            
+            if (val2 == rational::power_of_two(v_width)) 
+                val2 = 0;            
+        }
+        val = val2 + hi;  
+        SASSERT(0 <= hi && hi < p2b);
+        SASSERT(0 <= val && val <= c.var2pdd(m_var).max_value());
     }
 
 

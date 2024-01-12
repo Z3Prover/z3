@@ -98,7 +98,19 @@ public:
 
     void display_hex(std::ostream & out, unsigned num_bits) const { SASSERT(is_int()); return m().display_hex(out, m_val.numerator(), num_bits); }
 
-    void display_bin(std::ostream & out, unsigned num_bits) const { SASSERT(is_int()); return m().display_bin(out, m_val.numerator(), num_bits); }
+    struct as_bin_wrapper {
+        rational const& r;
+        unsigned bw;
+    };
+
+    as_bin_wrapper as_bin(unsigned bw) const { return as_bin_wrapper{*this, bw}; }
+
+    friend inline std::ostream& operator<<(std::ostream& out, as_bin_wrapper const& ab) {
+        ab.r.display_bin(out, ab.bw);
+        return out;
+    }
+
+    std::ostream& display_bin(std::ostream& out, unsigned num_bits) const { SASSERT(is_int()); m().display_bin(out, m_val.numerator(), num_bits); return out; }
 
     bool is_uint64() const { return m().is_uint64(m_val); }
 
