@@ -30,6 +30,10 @@ class rational {
     
     static synch_mpq_manager & m() { return *g_mpq_manager; }
 
+    void display_hex(std::ostream & out, unsigned num_bits) const { SASSERT(is_int()); m().display_hex(out, m_val.numerator(), num_bits); }
+
+    void display_bin(std::ostream& out, unsigned num_bits) const { SASSERT(is_int()); m().display_bin(out, m_val.numerator(), num_bits);  }
+
 public:
     static void initialize();
     static void finalize();
@@ -96,9 +100,33 @@ public:
 
     void display_smt2(std::ostream & out) const { return m().display_smt2(out, m_val, false); }
 
-    void display_hex(std::ostream & out, unsigned num_bits) const { SASSERT(is_int()); return m().display_hex(out, m_val.numerator(), num_bits); }
 
-    void display_bin(std::ostream & out, unsigned num_bits) const { SASSERT(is_int()); return m().display_bin(out, m_val.numerator(), num_bits); }
+    struct as_hex_wrapper {
+        rational const& r;
+        unsigned bw;
+    };
+
+    as_hex_wrapper as_hex(unsigned bw) const { return as_hex_wrapper{*this, bw}; }
+
+    friend inline std::ostream& operator<<(std::ostream& out, as_hex_wrapper const& ab) {
+        ab.r.display_hex(out, ab.bw);
+        return out;
+    }
+
+
+
+    struct as_bin_wrapper {
+        rational const& r;
+        unsigned bw;
+    };
+
+    as_bin_wrapper as_bin(unsigned bw) const { return as_bin_wrapper{*this, bw}; }
+
+    friend inline std::ostream& operator<<(std::ostream& out, as_bin_wrapper const& ab) {
+        ab.r.display_bin(out, ab.bw);
+        return out;
+    }
+
 
     bool is_uint64() const { return m().is_uint64(m_val); }
 

@@ -188,7 +188,7 @@ extern "C" {
         bool ok = Z3_get_numeral_rational(c, a, r);
         if (ok && r.is_int() && !r.is_neg()) {
             std::stringstream strm;
-            r.display_bin(strm, r.get_num_bits());
+            strm << r.as_bin(r.get_num_bits());
             return mk_c(c)->mk_external_string(std::move(strm).str());
         }
         else {
