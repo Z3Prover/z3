@@ -23,7 +23,8 @@
 #include "math/lp/lp_utils.h"
 
 namespace lp {
-
+    
+enum class row_polarity { UNDEF, MIN, MAX, MIXED};
 struct create_cut {
     lar_term   &          m_t; // the term to return in the cut
     mpq        &          m_k; // the right side of the cut
@@ -36,7 +37,7 @@ struct create_cut {
     mpq                   m_fj;
     mpq                   m_one_minus_fj;
     mpq                   m_abs_max, m_big_number;
-    int                   m_polarity;
+    row_polarity          m_polarity;
     bool                  m_found_big;
     u_dependency*         m_dep;
 
@@ -85,10 +86,10 @@ struct create_cut {
             m_found_big = true;
     }
 
-    void set_polarity(int p) {
-        if (m_polarity == 2) return;
-        if (m_polarity == 0) m_polarity = p;
-        else if (m_polarity != p) m_polarity = 2;
+    void set_polarity(row_polarity p) {
+        if (m_polarity == row_polarity::MIXED) return;
+        if (m_polarity == row_polarity::UNDEF) m_polarity = p;
+        else if (m_polarity != p) m_polarity = row_polarity::MIXED;
     }
 
     void real_case_in_gomory_cut(const mpq & a, unsigned j) {
@@ -98,12 +99,12 @@ struct create_cut {
             if (a.is_pos()) { 
                 // the delta is a (x - f) is positive it has to grow and fight m_one_minus_f
                 new_a = a / m_one_minus_f;
-                set_polarity(1);
+                set_polarity(row_polarity::MAX);
             }
             else {
                 // the delta is negative and it works again m_f
                 new_a = - a / m_f;
-                set_polarity(-1);                
+                set_polarity(row_polarity::MIN);                
             }
             m_k.addmul(new_a, lower_bound(j).x); // is it a faster operation than
             // k += lower_bound(j).x * new_a;
@@ -114,12 +115,12 @@ struct create_cut {
             if (a.is_pos()) {
                 // the delta is works again m_f
                 new_a =  - a / m_f;
-                set_polarity(-1);
+                set_polarity(row_polarity::MIN);
             }
             else {
                 // the delta is positive works again m_one_minus_f
                 new_a =   a / m_one_minus_f;
-                set_polarity(1);
+                set_polarity(row_polarity::MAX);
             }
             m_k.addmul(new_a, upper_bound(j).x); //  k += upper_bound(j).x * new_a;
             push_explanation(column_upper_bound_constraint(j));
@@ -246,7 +247,12 @@ public:
 
     lia_move cut() {
         TRACE("gomory_cut", dump(tout););
-        m_polarity = 0; // 0: means undefined, +-1, the polar case, 2: the mixed case
+        // If m_polarity is MAX, then
+        // the row constraints the base variable to be at the maximum,
+        // MIN - at the minimum,
+        // MIXED : the row does not constraint the base variable to be at an extremum
+        // UNDEF is the initial state
+        m_polarity = row_polarity::UNDEF; 
         // gomory cut will be  m_t >= m_k and the current solution has a property m_t < m_k
         m_k = 1;
         m_t.clear();
@@ -284,15 +290,15 @@ public:
                 }
                 if (p.coeff().is_pos()) {
                     if (at_lower(j))
-                        set_polarity(1);
+                        set_polarity(row_polarity::MAX);
                     else
-                        set_polarity(-1);
+                        set_polarity(row_polarity::MIN);
                 }
                 else {
                     if (at_lower(j))
-                        set_polarity(-1);
+                        set_polarity(row_polarity::MIN);
                     else
-                        set_polarity(1);
+                        set_polarity(row_polarity::MAX);
                 }
             }
 
@@ -398,7 +404,7 @@ public:
     
 
     lia_move gomory::get_gomory_cuts(unsigned num_cuts) {
-        struct cut_result {u_dependency *dep; lar_term t; mpq k; int polarity; lpvar j;};
+        struct cut_result {lar_term t; mpq k; u_dependency *dep;};
         vector<cut_result> big_cuts;
         unsigned_vector columns_for_cuts = gomory_select_int_infeasible_vars(num_cuts);
         bool has_small_cut = false;
@@ -407,12 +413,10 @@ public:
         auto is_small_cut = [&](lar_term const& t) {
             return all_of(t, [&](auto ci) { return ci.coeff().is_small(); });
         };
-        auto add_cut = [&](cut_result const& cr) {
-            lp::lpvar term_index = lra.add_term(cr.t.coeffs_as_vector(), UINT_MAX);
+        auto add_cut = [&](const lar_term& t, const mpq& k, u_dependency * dep) {
+            lp::lpvar term_index = lra.add_term(t.coeffs_as_vector(), UINT_MAX);
             term_index = lra.map_term_index_to_column_index(term_index);
-            lra.update_column_type_and_bound(term_index,
-                                             lp::lconstraint_kind::GE,
-                                             cr.k, cr.dep); 
+            lra.update_column_type_and_bound(term_index, lp::lconstraint_kind::GE,  k, dep); 
         };
         auto _check_feasible = [&](void) {
             lra.find_feasible_solution();
@@ -436,18 +440,17 @@ public:
                 continue;
             }
 
-            if (cc.m_polarity == 1) 
+            if (cc.m_polarity == row_polarity::MAX) 
                 lra.update_column_type_and_bound(j, lp::lconstraint_kind::LE, floor(lra.get_column_value(j).x), cc.m_dep);
-            else if (cc.m_polarity == -1)
+            else if (cc.m_polarity == row_polarity::MIN)
                 lra.update_column_type_and_bound(j, lp::lconstraint_kind::GE, ceil(lra.get_column_value(j).x), cc.m_dep);
-            
-            cut_result cr = {cc.m_dep, lia.m_t, lia.m_k, cc.m_polarity, j};
+
             if (!is_small_cut(lia.m_t)) {
-                big_cuts.push_back(cr);
+                big_cuts.push_back({cc.m_t, cc.m_k, cc.m_dep});
                 continue;
             }
             has_small_cut = true;
-            add_cut(cr);
+            add_cut(cc.m_t, cc.m_k, cc.m_dep);
             if (lia.settings().get_cancel_flag())
                 return lia_move::undef;
         }
@@ -455,14 +458,13 @@ public:
         if (big_cuts.size()) {
             lra.push();        
             for (auto const& cut : big_cuts) 
-                add_cut(cut);
+                add_cut(cut.t, cut.k, cut.dep);
             bool feas = _check_feasible();
             lra.pop(1);
 
             if (!feas)       
                 for (auto const& cut : big_cuts) 
-                    add_cut(cut);
-            
+                    add_cut(cut.t, cut.k, cut.dep);
         }
         
         if (!_check_feasible())
