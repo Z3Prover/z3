@@ -638,20 +638,27 @@ namespace polysat {
         if (ebw < bw || aw != bw) {
             auto const& p2b = rational::power_of_two(bw);
             auto const& p2eb = rational::power_of_two(bw - ebw);
+            // let coeff = 2^{bw - ebw}
+            // let assume coeff * x \not\in [lo, t[
+            // Then value is chosen, min x . coeff * x >= t.
+            // In other words:
+            //
+            // coeff * (value - 1) <= t < coeff*value + 1
+            //
+            auto vlo = c.value(mod((e.value - 1) * p2eb, p2b), bw);
             auto vhi = c.value(mod(e.value * p2eb + 1, p2b), bw);
-            auto vlo = c.value(mod((e.value - 1) * p2eb - 1, p2b), bw);
-            // t in ] (value - 1) * 2^{bw - ebw} ; value * 2^{bw - ebw} ]
-            // t in [ (value - 1) * 2^{bw - ebw} - 1 ; value * 2^{bw - ebw} + 1 [
 
 #if 0
-            verbose_stream() << e.value << " " << t << "\n";
-            if (t.is_val()) verbose_stream() << "tval " << t.val() << "\n";
+            verbose_stream() << "value " << e.value << "\n";
+            verbose_stream() << "t " << t << "\n";
             verbose_stream() << "[" << vlo << " " << vhi << "[\n";
-            verbose_stream() << "bw " << ebw << " " << bw << " " << e.e->interval << " bw " << abw << " " << aw << " " << after.e->coeff << " " << after.e->interval << "\n";
+            verbose_stream() << "before bw " << ebw << " " << bw << " " << *e.e << "\nafter  bw " << abw << " " << aw << " " << *after.e << "\n";
             if (!t.is_val())
                 IF_VERBOSE(0, verbose_stream() << "symbolic t : " << t << "\n");
 #endif
             auto sc = cs.ult(t - vlo, vhi - vlo);
+            CTRACE("bv", sc.is_always_false(), c.display(tout));
+                
             VERIFY(!sc.is_always_false());
             if (!sc.is_always_true())
                 deps.push_back(c.propagate(sc, c.explain_weak_eval(sc)));
@@ -1011,6 +1018,8 @@ namespace polysat {
             out << e->coeff << " * v" << v << " " << e->interval << " ";
         else
             out << e->interval << " ";
+        for (auto const& d : e->deps)
+            out << d << " ";
         if (e->side_cond.size() <= 5)
             out << e->side_cond << " ";
         else
