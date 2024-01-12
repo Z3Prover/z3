@@ -521,7 +521,7 @@ namespace euf {
                     just.push_back({ n, sib, j });
                     for (unsigned j = sib->num_args(); j-- > 0; ) {
                         auto arg = sib->get_arg(j);
-                        m_jtodo.push_back({ arg, offset + delta, j2 });
+                        m_jtodo.push_back({ arg, offs + delta, j2 });
                         delta += width(arg);
                     }
                 }
@@ -531,10 +531,11 @@ namespace euf {
                     SASSERT(g.find(e)->get_root() == n->get_root());
                     unsigned j2 = just.size();
                     just.push_back({ g.find(e), n, j});
-                    m_jtodo.push_back({ p, offset + lo, j2});
+                    m_jtodo.push_back({ p, offs + lo, j2});
                 }
             }
         }
+
         UNREACHABLE();
     }
 
