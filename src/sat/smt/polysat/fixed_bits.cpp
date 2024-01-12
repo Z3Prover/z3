@@ -41,8 +41,8 @@ namespace polysat {
                 SASSERT(s.offset + s.length <= sz);
                 rational hi_val = s.value;
                 rational lo_val = mod(s.value + 1, sbw);                
-                pdd lo = c.value(rational::power_of_two(sz - s.offset - s.length) * lo_val, sz);
-                pdd hi = c.value(rational::power_of_two(sz - s.offset - s.length) * hi_val, sz);
+                pdd lo = c.value(rational::power_of_two(sz - s.length) * lo_val, sz);
+                pdd hi = c.value(rational::power_of_two(sz - s.length) * hi_val, sz);
                 fi.reset();
                 fi.interval = eval_interval::proper(lo, lo_val, hi, hi_val);
                 fi.deps.push_back(dependency({ m_var, s }));
@@ -54,6 +54,7 @@ namespace polysat {
             // slice, properly contains variable.
             // s.offset refers to offset in containing value.
             if (s.length > sz && mod(machine_div2k(s.value, s.offset), bw) != val) {
+                
                 rational hi_val = mod(machine_div2k(s.value, s.offset), bw);
                 rational lo_val = mod(hi_val + 1, bw);
                 pdd lo = c.value(lo_val, sz);

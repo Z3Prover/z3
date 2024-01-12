@@ -195,6 +195,7 @@ namespace polysat {
         void assert_bv2int_axiom(app * n);
         void assert_int2bv_axiom(app* n);
 
+        void ensure_pdd_var(expr* e);
         pdd expr2pdd(expr* e);
         pdd var2pdd(euf::theory_var v);
         void internalize_set(expr* e, pdd const& p);

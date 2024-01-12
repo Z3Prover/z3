@@ -655,6 +655,7 @@ namespace polysat {
     }
 
     void solver::internalize_extract(app* e) {
+        ensure_pdd_var(e->get_arg(0));
         m_delayed_axioms.push_back(e);
         ctx.push(push_back_vector(m_delayed_axioms));
         var2pdd(expr2enode(e)->get_th_var(get_id()));
@@ -696,8 +697,33 @@ namespace polysat {
         }
     }
 
+    void solver::ensure_pdd_var(expr* e) {
+        auto n = expr2enode(e);
+        auto v = n->get_th_var(get_id());
+        auto q = var2pdd(v);
+        if (q.is_val() || q.is_var())
+            return;
+        unsigned bv_size = get_bv_size(v);
+        pvar pv = m_core.add_var(bv_size);
+        pdd p = m_core.var(pv);
+        ctx.push(vector_value_trail(m_var2pdd, v));
+        m_pddvar2var.setx(pv, v, UINT_MAX);
+        m_var2pdd[v] = p;
+        auto sc = m_core.eq(p, q);
+        dependency d = dependency::axiom();
+        auto idx = m_core.register_constraint(sc, d);
+        TRACE("bv", tout << "add definition for " << mk_pp(e, m) << " " << p << ": " << sc << "\n";);
+        m_core.assign_eh(idx, false);
+    }
+
+    //
+    // subterms under concatentation and extract need to be variables or constants such that 
+    // viable can perform proper slices.
+    //
     void solver::internalize_concat(app* e) {
         SASSERT(bv.is_concat(e));
+        for (auto arg : *e)
+            ensure_pdd_var(arg);        
         m_delayed_axioms.push_back(e);
         ctx.push(push_back_vector(m_delayed_axioms));
         var2pdd(expr2enode(e)->get_th_var(get_id()));
