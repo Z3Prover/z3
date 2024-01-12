@@ -773,14 +773,13 @@ namespace polysat {
             // If new_lo = new_hi it means that 
             //   mod(ceil (lo / 2^k), 2^w) = mod(ceil (hi / 2^k), 2^w)
             // or
-            //   div (mod(lo + 2^k -1, 2^w), 2^k) = div (mod(hi + 2^k - 1, 2^w), 2^k)
+            //   div (mod(lo + 2^k - 1, 2^w), 2^k) = div (mod(hi + 2^k - 1, 2^w), 2^k)
             // but we also have lo != hi.
             // Assume lo < hi
             // - it means 2^k does not divide any of [lo, hi[
             // so x*2^k cannot be in [lo, hi[
             // Assume lo > hi
             // - then the constraint is x*2^k not in [lo, 0[, [0, hi[
-            // - then new_lo = new_hi = 0
             // - it means 2^k does not divide any of [hi, lo[
             // - therefore the interval [lo, hi[ contains all the divisors of 2^k
             //
