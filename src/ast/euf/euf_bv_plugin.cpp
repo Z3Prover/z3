@@ -205,7 +205,9 @@ namespace euf {
         enode* arg_r = arg->get_root();       
         enode* n_r = n->get_root();
 
+        m_ensure_concat.reset();
         auto ensure_concat = [&](unsigned lo, unsigned mid, unsigned hi) {
+            // verbose_stream() << lo << " " << mid << " " << hi << "\n";
             TRACE("bv", tout << "ensure-concat " << lo << " " << mid << " " << hi << "\n");
             unsigned lo_, hi_;
             for (enode* p1 : enode_parents(n))
@@ -219,14 +221,14 @@ namespace euf {
             TRACE("bv", tout << "propagate-above " << g.bpp(b) << "\n");
             for (enode* sib : enode_class(b))
                 if (is_extract(sib, lo2, hi2) && sib->get_arg(0)->get_root() == arg_r && hi1 + 1 == lo2)
-                    ensure_concat(lo1, hi1, hi2);
+                    m_ensure_concat.push_back({lo1, hi1, hi2});
         };
 
         auto propagate_below = [&](enode* a) {
             TRACE("bv", tout << "propagate-below " << g.bpp(a) << "\n");
             for (enode* sib : enode_class(a))
                 if (is_extract(sib, lo2, hi2) && sib->get_arg(0)->get_root() == arg_r && hi2 + 1 == lo1)
-                    ensure_concat(lo2, hi2, hi1);
+                    m_ensure_concat.push_back({lo2, hi2, hi1});
         };
         
         for (enode* p : enode_parents(n)) {
@@ -237,6 +239,10 @@ namespace euf {
                     propagate_above(a);
             }
         }
+
+        for (auto [lo, mid, hi] : m_ensure_concat) 
+            ensure_concat(lo, mid, hi);
+        
     }
 
     class bv_plugin::undo_split : public trail {
