@@ -531,12 +531,12 @@ namespace polysat {
 
         // Axioms for quotient/remainder
         // 
-        //      a = b*q + r
+        //      x = y*q + r
         //      multiplication does not overflow in b*q
-        //      addition does not overflow in (b*q) + r; for now expressed as: r <= bq+r
-        //      b ≠ 0  ==>  r < b
-        //      b = 0  ==>  q = -1
-        // TODO: when a,b become evaluable, can we actually propagate q,r? doesn't seem like it.
+        //      addition does not overflow in (y*q) + r; for now expressed as: r <= yq+r
+        //      y ≠ 0  ==>  r < y
+        //      y = 0  ==>  q = -1
+        // TODO: when x,y become evaluable, can we actually propagate q,r? doesn't seem like it.
         //       Maybe we need something like an op_constraint for better propagation.
 
         add_axiom("quot-rem", { eq_internalize(bv.mk_bv_add(bv.mk_bv_mul(y, quot), rem), x)}, false);
@@ -545,12 +545,11 @@ namespace polysat {
         //  { apply equivalence:  p <= q  <=>  q-p <= -p-1 }
         // b*q <= -r-1
         auto minus_one = bv.mk_numeral(rational::power_of_two(sz) - 1, sz);
-        auto one = bv.mk_numeral(1, sz);
         auto zero = bv.mk_numeral(0, sz);
         add_axiom("quot-rem", { mk_literal(bv.mk_ule(bv.mk_bv_mul(y, quot), bv.mk_bv_sub(minus_one, rem))) }, false);
         auto c_eq = eq_internalize(y, zero);
         add_axiom("quot-rem", { c_eq, ~mk_literal(bv.mk_ule(y, rem)) }, false);
-        add_axiom("quot-rem", { ~c_eq, eq_internalize(bv.mk_bv_add(quot, one), zero) }, false);
+        add_axiom("quot-rem", { ~c_eq, eq_internalize(quot, minus_one) }, false);
     }
 
     void solver::internalize_sign_extend(app* e) {

@@ -459,18 +459,42 @@ namespace polysat {
     }
 
     expr_ref solver::pdd2expr(pdd const& p) {
-        if (p.is_val()) {
-            expr* n = bv.mk_numeral(p.val(), p.power_of_2());
-            return expr_ref(n, m);
-        }
-        auto v = var2enode(m_pddvar2var[p.var()]);
+
+        auto mk_num = [&](rational const& c) {
+            return bv.mk_numeral(c, p.power_of_2());
+        };
+
+        auto mk_var = [&](pvar v) {
+            return var2expr(m_pddvar2var[v]);
+        };
+
+        if (p.is_val()) 
+            return expr_ref(mk_num(p.val()), m);
+        
+        expr_ref_vector args(m);
+        for (auto const& mon : p) {
+            auto c = mon.coeff;
+            if (mon.vars.empty())
+                args.push_back(mk_num(c));
+            else if (mon.coeff == 1 && mon.vars.size() == 1)
+                args.push_back(mk_var(mon.vars[0]));
+            else if (mon.vars.size() == 1)
+                args.push_back(bv.mk_bv_mul(mk_num(c), mk_var(mon.vars[0])));
+            else {
+                expr_ref_vector args2(m);
+                for (auto v : mon.vars)
+                    args2.push_back(mk_var(v));
+                if (c == 1)
+                    args.push_back(bv.mk_bv_mul(args2));
+                else
+                    args.push_back(bv.mk_bv_mul(mk_num(c), bv.mk_bv_mul(args2)));
+            }
+        }          
         expr_ref r(m);
-        r = v->get_expr();
-        if (!p.hi().is_one())
-            r = bv.mk_bv_mul(r, pdd2expr(p.hi()));
-        if (!p.lo().is_zero())
-            r = bv.mk_bv_add(r, pdd2expr(p.lo()));
-        ctx.get_rewriter()(r);
+        if (args.size() == 1)
+            r = args.get(0);
+        else
+            r = bv.mk_bv_add(args);
         return r;
     }
 

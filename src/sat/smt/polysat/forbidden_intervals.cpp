@@ -22,7 +22,8 @@ Author:
 namespace polysat {
 
     std::ostream& operator<<(std::ostream& out, fi_record const& fi) {
-        out << "fi_record(bw = " << fi.bit_width << ", coeff = " << fi.coeff << ", " << fi.interval << ", " << fi.src << fi.side_cond << fi.deps << ")";
+        out << "fi_record(bw = " << fi.bit_width << ", coeff = " << fi.coeff << ", " << fi.interval << ", " 
+            << fi.src << (fi.src.empty()?"": " ") << fi.side_cond << (fi.side_cond.empty()?"":" ") << fi.deps << ")";
         return out;
     }
 

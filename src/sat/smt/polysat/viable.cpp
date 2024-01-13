@@ -643,9 +643,15 @@ namespace polysat {
             // Then value is chosen, min x . coeff * x >= t.
             // In other words:
             //
-            // coeff * (value - 1) <= t < coeff*value + 1
-            //
-            auto vlo = c.value(mod((e.value - 1) * p2eb, p2b), bw);
+            // x >= t div coeff
+            // => t <= coeff * x
+            
+            // (x - 1) * coeff < t <= x * coeff
+            
+            // a < x <= b <=>
+            // a + 1 <= x < b + 1
+
+            auto vlo = c.value(mod((e.value - 1) * p2eb + 1, p2b), bw);
             auto vhi = c.value(mod(e.value * p2eb + 1, p2b), bw);
 
 #if 0
@@ -655,6 +661,7 @@ namespace polysat {
             verbose_stream() << "before bw " << ebw << " " << bw << " " << *e.e << "\nafter  bw " << abw << " " << aw << " " << *after.e << "\n";
             if (!t.is_val())
                 IF_VERBOSE(0, verbose_stream() << "symbolic t : " << t << "\n");
+
 #endif
             auto sc = cs.ult(t - vlo, vhi - vlo);
             CTRACE("bv", sc.is_always_false(), c.display(tout));
