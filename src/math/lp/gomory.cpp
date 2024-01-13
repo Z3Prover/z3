@@ -99,12 +99,12 @@ struct create_cut {
             if (a.is_pos()) { 
                 // the delta is a (x - f) is positive it has to grow and fight m_one_minus_f
                 new_a = a / m_one_minus_f;
-                set_polarity(row_polarity::MAX);
+                set_polarity(row_polarity::MIN); // reverse the polarity since a = -p.coeff()
             }
             else {
                 // the delta is negative and it works again m_f
                 new_a = - a / m_f;
-                set_polarity(row_polarity::MIN);                
+                set_polarity(row_polarity::MAX);
             }
             m_k.addmul(new_a, lower_bound(j).x); // is it a faster operation than
             // k += lower_bound(j).x * new_a;
@@ -115,12 +115,12 @@ struct create_cut {
             if (a.is_pos()) {
                 // the delta is works again m_f
                 new_a =  - a / m_f;
-                set_polarity(row_polarity::MIN);
+                set_polarity(row_polarity::MAX);
             }
             else {
                 // the delta is positive works again m_one_minus_f
                 new_a =   a / m_one_minus_f;
-                set_polarity(row_polarity::MAX);
+                set_polarity(row_polarity::MIN);
             }
             m_k.addmul(new_a, upper_bound(j).x); //  k += upper_bound(j).x * new_a;
             push_explanation(column_upper_bound_constraint(j));
@@ -288,14 +288,21 @@ public:
                     m_one_minus_fj = 1 - m_fj;
                     int_case_in_gomory_cut(j);
                 }
+                bool lb = at_lower(j);
+                if (lb) {
+                    push_explanation(column_lower_bound_constraint(j));
+                } else {
+                    SASSERT(at_upper(j));
+                    push_explanation(column_upper_bound_constraint(j));
+                }
                 if (p.coeff().is_pos()) {
-                    if (at_lower(j))
+                    if (lb)
                         set_polarity(row_polarity::MAX);
                     else
                         set_polarity(row_polarity::MIN);
                 }
                 else {
-                    if (at_lower(j))
+                    if (lb)
                         set_polarity(row_polarity::MIN);
                     else
                         set_polarity(row_polarity::MAX);
@@ -402,6 +409,38 @@ public:
         return ret;
     }
     
+    row_polarity test_row_polarity(const int_solver& lia, const row_strip<mpq>& row, lpvar basic_j) {
+        row_polarity ret = row_polarity::UNDEF;
+        for (const auto& p : row) {
+            lpvar j = p.var();
+            if (j == basic_j)
+                continue;
+            if (lia.is_fixed(j))
+                continue;
+
+            row_polarity rp;
+            if (p.coeff().is_pos()) {
+                if (lia.at_lower(j))
+                    rp = row_polarity::MAX;
+                else if (lia.at_upper(j))
+                    rp = row_polarity::MIN;
+                else SASSERT(false);    
+            }
+            else {
+                if (lia.at_lower(j))
+                    rp = row_polarity::MIN;
+                else if (lia.at_upper(j))
+                    rp = row_polarity::MAX;
+                else SASSERT(false);
+                    
+            }
+            if (ret == row_polarity::UNDEF)
+                ret = rp;
+            if (ret != rp)
+                return row_polarity::MIXED;
+        }
+        return ret;
+    }
 
     lia_move gomory::get_gomory_cuts(unsigned num_cuts) {
         struct cut_result {lar_term t; mpq k; u_dependency *dep;};
@@ -429,22 +468,22 @@ public:
 
 // start creating cuts        
         for (unsigned j : columns_for_cuts) {
+            SASSERT(is_gomory_cut_target(j));
             unsigned row_index = lia.row_of_basic_column(j);
             const row_strip<mpq>& row = lra.get_row(row_index);
             create_cut cc(lia.m_t, lia.m_k, lia.m_ex, j, row, lia);
             auto r = cc.cut();
-                
             if (r != lia_move::cut) {
                 if (r == lia_move::conflict)
                     return lia_move::conflict;
                 continue;
             }
-
+            SASSERT(test_row_polarity(lia, row, j) == cc.m_polarity);
             if (cc.m_polarity == row_polarity::MAX) 
                 lra.update_column_type_and_bound(j, lp::lconstraint_kind::LE, floor(lra.get_column_value(j).x), cc.m_dep);
             else if (cc.m_polarity == row_polarity::MIN)
                 lra.update_column_type_and_bound(j, lp::lconstraint_kind::GE, ceil(lra.get_column_value(j).x), cc.m_dep);
-
+            
             if (!is_small_cut(lia.m_t)) {
                 big_cuts.push_back({cc.m_t, cc.m_k, cc.m_dep});
                 continue;

@@ -94,7 +94,6 @@ private:
     // lia_move patch_nbasic_columns();
     bool get_freedom_interval_for_column(unsigned j, bool & inf_l, impq & l, bool & inf_u, impq & u, mpq & m);
     bool is_boxed(unsigned j) const;
-    bool is_fixed(unsigned j) const;
     bool is_free(unsigned j) const;
     bool value_is_int(unsigned j) const;
     bool is_feasible() const;
@@ -113,6 +112,7 @@ private:
     bool cut_indices_are_columns() const;
         
 public:
+    bool is_fixed(unsigned j) const;
     std::ostream& display_column(std::ostream & out, unsigned j) const;
     u_dependency* column_upper_bound_constraint(unsigned j) const;
     u_dependency* column_lower_bound_constraint(unsigned j) const;
