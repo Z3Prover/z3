@@ -161,18 +161,25 @@ namespace euf {
     void bv_plugin::propagate_values(enode* x) {
         if (!is_value(x))
             return;
-        
+
+        auto val_x = get_value(x);
         enode* a, * b;
-        for (enode* p : enode_parents(x))
-            if (is_concat(p, a, b) && is_value(a) && is_value(b) && !is_value(p))
+        unsigned lo, hi;
+        for (enode* p : enode_parents(x)) {
+            if (is_concat(p, a, b) && is_value(a) && is_value(b))
                 push_merge(mk_concat(a->get_interpreted(), b->get_interpreted()), mk_value_concat(a, b));
+
+            if (is_extract(p, lo, hi)) {
+                auto val_p = mod2k(machine_div2k(val_x, lo), hi - lo + 1);
+                push_merge(p, mk_value(val_p, width(p)));
+            }
+        }
         
         for (enode* sib : enode_class(x)) {
             if (is_concat(sib, a, b)) {
                 if (!is_value(a) || !is_value(b)) {
-                    auto val = get_value(x);
-                    auto val_a = machine_div2k(val, width(b));
-                    auto val_b = mod2k(val, width(b));
+                    auto val_a = machine_div2k(val_x, width(b));
+                    auto val_b = mod2k(val_x, width(b));
                     push_merge(mk_concat(mk_value(val_a, width(a)), mk_value(val_b, width(b))), x->get_interpreted());
                 }
             }
