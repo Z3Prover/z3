@@ -36,10 +36,6 @@ namespace euf {
     typedef std::pair<enode*,bool> enode_bool_pair;
     typedef svector<enode_bool_pair> enode_bool_pair_vector;
     typedef id_var_list<> th_var_list;
-    typedef int theory_var;
-    typedef int theory_id;
-    const theory_var null_theory_var = -1;
-    const theory_id null_theory_id = -1;
 
     class enode {
         expr*         m_expr = nullptr;

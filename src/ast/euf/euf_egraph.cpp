@@ -673,7 +673,7 @@ namespace euf {
         SASSERT(n1->get_root()->reaches(n1));
         SASSERT(n1->m_target);
         n1->m_target        = nullptr;
-        n1->m_justification = justification::axiom();
+        n1->m_justification = justification::axiom(null_theory_id);
         n1->get_root()->reverse_justification();
         // ---------------
         // n1 -> ... -> r1
@@ -804,7 +804,10 @@ namespace euf {
                 explain_eq(justifications, cc, a, b, j2);
         }
         else if (j.is_equality()) 
-            explain_eq(justifications, cc, j.lhs(), j.rhs());        
+            explain_eq(justifications, cc, j.lhs(), j.rhs());
+        else if (j.is_axiom() && j.theory_id() != null_theory_id) {
+            IF_VERBOSE(0, verbose_stream() << "TODO add theory axiom to justification");
+        }
         if (cc && j.is_congruence()) 
             cc->push_back(std::tuple(a->get_app(), b->get_app(), j.timestamp(), j.is_commutative()));
     }

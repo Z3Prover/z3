@@ -135,7 +135,7 @@ namespace euf {
         enode* prev = this;
         justification js = m_justification;
         prev->m_target = nullptr;
-        prev->m_justification = justification::axiom();
+        prev->m_justification = justification::axiom(null_theory_id);
         while (curr != nullptr) {
             enode* new_curr = curr->m_target;
             justification new_js = curr->m_justification;
