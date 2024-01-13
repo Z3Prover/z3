@@ -528,8 +528,6 @@ namespace polysat {
             return;
         }
 
-        pdd r = var2pdd(rn->get_th_var(get_id()));
-        pdd q = var2pdd(qn->get_th_var(get_id()));
 
         // Axioms for quotient/remainder
         // 
@@ -540,18 +538,19 @@ namespace polysat {
         //      b = 0  ==>  q = -1
         // TODO: when a,b become evaluable, can we actually propagate q,r? doesn't seem like it.
         //       Maybe we need something like an op_constraint for better propagation.
-        add_axiom("quot-rem", { m_core.eq(b * q + r - a) }, false);
-        add_axiom("quot-rem", { ~m_core.umul_ovfl(b, q) }, false);
+
+        add_axiom("quot-rem", { eq_internalize(bv.mk_bv_add(bv.mk_bv_mul(y, quot), rem), x)}, false);
+        add_axiom("quot-rem", { mk_literal(bv.mk_bvumul_no_ovfl(quot, y)) }, false);
         // r <= b*q+r
         //  { apply equivalence:  p <= q  <=>  q-p <= -p-1 }
         // b*q <= -r-1
-        add_axiom("quot-rem", { m_core.ule(b * q, -r - 1) }, false);
-
-        auto c_eq = m_core.eq(b);
-        if (!c_eq.is_always_true())
-            add_axiom("quot-rem", { c_eq, ~m_core.ule(b, r) }, false);
-        if (!c_eq.is_always_false())
-            add_axiom("quot-rem", { ~c_eq, m_core.eq(q + 1) }, false);
+        auto minus_one = bv.mk_numeral(rational::power_of_two(sz) - 1, sz);
+        auto one = bv.mk_numeral(1, sz);
+        auto zero = bv.mk_numeral(0, sz);
+        add_axiom("quot-rem", { mk_literal(bv.mk_ule(bv.mk_bv_mul(y, quot), bv.mk_bv_sub(minus_one, rem))) }, false);
+        auto c_eq = eq_internalize(y, zero);
+        add_axiom("quot-rem", { c_eq, ~mk_literal(bv.mk_ule(y, rem)) }, false);
+        add_axiom("quot-rem", { ~c_eq, eq_internalize(bv.mk_bv_add(quot, one), zero) }, false);
     }
 
     void solver::internalize_sign_extend(app* e) {
