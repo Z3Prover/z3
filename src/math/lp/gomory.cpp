@@ -69,16 +69,14 @@ struct create_cut {
             // here we have the product of new_a*(xj - lb(j)), so new_a*lb(j) is added to m_k
             new_a = m_fj <= m_one_minus_f ? m_fj / m_one_minus_f : ((1 - m_fj) / m_f);
             lp_assert(new_a.is_pos());
-            m_k.addmul(new_a, lower_bound(j).x);
-            push_explanation(column_lower_bound_constraint(j)); 
+            m_k.addmul(new_a, lower_bound(j).x);            
         }
         else {
             lp_assert(at_upper(j));
             // here we have the expression  new_a*(xj - ub), so new_a*ub(j) is added to m_k
             new_a = - (m_fj <= m_f ? m_fj / m_f  : ((1 - m_fj) / m_one_minus_f));
             lp_assert(new_a.is_neg());
-            m_k.addmul(new_a, upper_bound(j).x);
-            push_explanation(column_upper_bound_constraint(j));  
+            m_k.addmul(new_a, upper_bound(j).x);            
         }        
         m_t.add_monomial(new_a, j);
         TRACE("gomory_cut_detail", tout << "new_a = " << new_a << ", k = " << m_k << "\n";);
