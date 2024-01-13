@@ -805,8 +805,8 @@ namespace euf {
         }
         else if (j.is_equality()) 
             explain_eq(justifications, cc, j.lhs(), j.rhs());
-        else if (j.is_axiom() && j.theory_id() != null_theory_id) {
-            IF_VERBOSE(0, verbose_stream() << "TODO add theory axiom to justification");
+        else if (j.is_axiom() && j.get_theory_id() != null_theory_id) {
+            IF_VERBOSE(20, verbose_stream() << "TODO add theory axiom to justification\n");
         }
         if (cc && j.is_congruence()) 
             cc->push_back(std::tuple(a->get_app(), b->get_app(), j.timestamp(), j.is_commutative()));

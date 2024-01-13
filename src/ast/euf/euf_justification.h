@@ -112,7 +112,7 @@ namespace euf {
         enode* lhs() const { SASSERT(is_equality()); return m_n1; }
         enode* rhs() const { SASSERT(is_equality()); return m_n2; }
         uint64_t timestamp() const { SASSERT(is_congruence()); return m_timestamp; }
-        theory_id theory_id() const { SASSERT(is_axiom()); return m_theory_id; }
+        theory_id get_theory_id() const { SASSERT(is_axiom()); return m_theory_id; }
         template <typename T>
         T*  ext() const { SASSERT(is_external()); return static_cast<T*>(m_external); }            
 
