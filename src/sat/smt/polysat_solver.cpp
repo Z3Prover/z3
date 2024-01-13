@@ -286,10 +286,19 @@ namespace polysat {
         ++m_stats.m_num_propagations;
         TRACE("bv", tout << "propagate " << d << " " << sign << "\n");
         auto [core, eqs] = explain_deps(deps);
-        SASSERT(d.is_bool_var() || d.is_eq());
+        SASSERT(d.is_bool_var() || d.is_eq() || d.is_axiom());
         proof_hint* hint = nullptr;
 
-        if (d.is_bool_var()) {
+        if (d.is_axiom()) {
+            if (sign) {
+                if (ctx.use_drat() && hint_info)
+                    hint = mk_proof_hint(hint_info, core, eqs);
+                auto ex = euf::th_explain::conflict(*this, core, eqs, hint);
+                validate_conflict(core, eqs);
+                ctx.set_conflict(ex);
+            }
+        }
+        else if (d.is_bool_var()) {
             auto bv = d.bool_var();
             auto lit = sat::literal(bv, sign);
             if (s().value(lit) == l_true)
@@ -304,6 +313,7 @@ namespace polysat {
             ctx.propagate(lit, ex);
         }
         else if (sign) {  
+            SASSERT(d.is_eq());
             auto const [v1, v2] = d.eq();
             // equalities are always asserted so a negative propagation is a conflict.
             auto n1 = var2enode(v1);
