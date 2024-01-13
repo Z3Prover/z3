@@ -92,7 +92,7 @@ namespace euf {
             m_egraph.explain_eq<size_t>(m_explain, &m_explain_cc, a, b);
             m_egraph.end_explain();
             // Detect shortcut if equality is explained directly by a theory
-            if (m_explain.size() == 1 && !is_literal(m_explain[0])) {
+            if (m_explain.size() == 1 && is_justification(m_explain[0])) {
                 auto const& [x, y] = th_explain::from_index(get_justification(m_explain[0])).eq_consequent();
                 if (x == a && y == b)
                     continue;

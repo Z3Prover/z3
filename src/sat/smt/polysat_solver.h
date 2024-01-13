@@ -187,6 +187,8 @@ namespace polysat {
         void axiomatize_bv2int(app* e, expr* x);
         void axioms_for_extract(app* e);
         void axioms_for_concat(app* e);
+        expr_ref mk_ite(expr* c, expr* t, expr* e);
+        expr_ref mk_ule(expr* l, expr* r);
         expr* rotate_left(app* e, unsigned n, expr* x);
         unsigned m_delayed_axioms_qhead = 0;
         ptr_vector<app> m_delayed_axioms;

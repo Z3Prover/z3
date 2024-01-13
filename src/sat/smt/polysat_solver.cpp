@@ -424,13 +424,22 @@ namespace polysat {
             if (q.is_zero() && p.has_unit(x)) {
                 auto l = pdd2expr(x);
                 auto r = pdd2expr(x - p);
-                result = m.mk_eq(l, r);
+                if (m.are_equal(l, r))
+                    result = m.mk_true();
+                else if (m.are_distinct(l, r))
+                    result = m.mk_false();
+                else 
+                    result = m.mk_eq(l, r);
             }
             else {
                 auto l = pdd2expr(p);
                 auto r = pdd2expr(q);
-                if (p == q)
+                if (m.are_equal(l, r))
                     result = m.mk_true();
+                else if (m.is_value(l) && m.is_value(r)) {
+                    result = bv.mk_ule(l, r);
+                    ctx.get_rewriter()(result);
+                }
                 else if (q.is_zero())
                     result = m.mk_eq(l, r);
                 else

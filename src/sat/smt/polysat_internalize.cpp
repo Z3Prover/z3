@@ -427,8 +427,8 @@ namespace polysat {
         unsigned sz = bv.get_bv_size(x);
         expr* u = bv.mk_bv_urem(x, y);
         rational N = rational::power_of_two(bv.get_bv_size(x));
-        expr* signx = bv.mk_ule(bv.mk_numeral(N / 2, sz), x);
-        expr* signy = bv.mk_ule(bv.mk_numeral(N / 2, sz), y);
+        expr_ref signx = mk_ule(bv.mk_numeral(N / 2, sz), x);
+        expr_ref signy = mk_ule(bv.mk_numeral(N / 2, sz), y);
         sat::literal lsignx = mk_literal(signx);
         sat::literal lsigny = mk_literal(signy);
         sat::literal u_eq0 = eq_internalize(u, bv.mk_zero(sz));
@@ -443,6 +443,22 @@ namespace polysat {
         add_axiom(name, { y_eq0, lsignx, lsigny, eq_internalize(e, u) });
     }
 
+    expr_ref solver::mk_ite(expr* c, expr* t, expr* e) {
+        expr_ref _c(c, m), _t(t, m), _e(e, m);
+        if (m.is_true(c))
+            return _t;
+        if (m.is_false(c))
+            return _e;
+        return expr_ref(m.mk_ite(c, t, e), m);
+    }
+
+    expr_ref solver::mk_ule(expr* l, expr* r) {
+        expr_ref res(bv.mk_ule(l, r), m);
+        ctx.get_rewriter()(res);
+        return res;
+    }
+
+
 
     // d = udiv(abs(x), abs(y))
     // y = 0, x > 0 -> 1
@@ -455,17 +471,19 @@ namespace polysat {
     void solver::axiomatize_sdiv(app* e, expr* x, expr* y) {
         unsigned sz = bv.get_bv_size(x);
         rational N = rational::power_of_two(bv.get_bv_size(x));
-        expr* signx = bv.mk_ule(bv.mk_numeral(N / 2, sz), x);
-        expr* signy = bv.mk_ule(bv.mk_numeral(N / 2, sz), y);
-        expr* absx = m.mk_ite(signx, bv.mk_bv_sub(bv.mk_numeral(N - 1, sz), x), x);
-        expr* absy = m.mk_ite(signy, bv.mk_bv_sub(bv.mk_numeral(N - 1, sz), y), y);
+        expr_ref signx = mk_ule(bv.mk_numeral(N / 2, sz), x);
+        expr_ref signy = mk_ule(bv.mk_numeral(N / 2, sz), y);
+        expr_ref absx = mk_ite(signx, bv.mk_bv_sub(bv.mk_numeral(N - 1, sz), x), x);
+        expr_ref absy = mk_ite(signy, bv.mk_bv_sub(bv.mk_numeral(N - 1, sz), y), y);
         expr* d = bv.mk_bv_udiv(absx, absy);
         sat::literal lsignx = mk_literal(signx);
         sat::literal lsigny = mk_literal(signy);
         sat::literal y_eq0 = eq_internalize(y, bv.mk_zero(sz));
+        sat::literal x_eq0 = eq_internalize(x, bv.mk_zero(sz));
         auto name = "sdiv";
         add_axiom(name, { ~y_eq0, ~lsignx, eq_internalize(e, bv.mk_numeral(1, sz)) });
         add_axiom(name, { ~y_eq0, lsignx, eq_internalize(e, bv.mk_numeral(N - 1, sz)) });
+        add_axiom(name, { y_eq0, ~x_eq0, eq_internalize(e, bv.mk_zero(sz)) });
         add_axiom(name, { y_eq0, lsignx, ~lsigny, eq_internalize(e, bv.mk_bv_neg(d)) });
         add_axiom(name, { y_eq0, ~lsignx, lsigny, eq_internalize(e, bv.mk_bv_neg(d)) });
         add_axiom(name, { y_eq0, lsignx, lsigny, eq_internalize(e, d) });
@@ -499,6 +517,7 @@ namespace polysat {
         euf::enode* rn = expr2enode(rem);
         auto& m = a.manager();
         unsigned sz = m.power_of_2();
+        verbose_stream() << "quot-rem " << a << " " << b << "\n";
         if (b.is_zero()) {
             // By SMT-LIB specification, b = 0 ==> q = -1, r = a.
             internalize_set(quot, m.mk_val(m.max_value()));
