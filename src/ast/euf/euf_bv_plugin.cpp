@@ -171,7 +171,7 @@ namespace euf {
 
             if (is_extract(p, lo, hi)) {
                 auto val_p = mod2k(machine_div2k(val_x, lo), hi - lo + 1);
-                push_merge(bv.mk_extract(x->get_interpreted(), lo, hi), mk_value(val_p, width(p)));
+                push_merge(mk_extract(x->get_interpreted(), lo, hi), mk_value(val_p, width(p)));
             }
         }
         
