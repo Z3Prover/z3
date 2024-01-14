@@ -80,7 +80,7 @@ namespace euf {
     }
 
     ac_plugin::ac_plugin(egraph& g, func_decl* f) :
-        plugin(g), m_decl(f), m_fid(f->get_family_id()),
+        plugin(g), m_fid(f->get_family_id()), m_decl(f), 
         m_dep_manager(get_region()),
         m_hash(*this), m_eq(*this), m_monomial_table(m_hash, m_eq)
     {
