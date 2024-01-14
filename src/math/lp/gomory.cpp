@@ -261,7 +261,26 @@ public:
         TRACE("gomory_cut_detail", tout << "m_f: " << m_f << ", ";
               tout << "1 - m_f: " << 1 - m_f << ", get_value(m_inf_col).x - m_f = " << get_value(m_inf_col).x - m_f << "\n";);
         lp_assert(m_f.is_pos() && (get_value(m_inf_col).x - m_f).is_int());  
-
+        auto set_polarity_for_int = [&](const mpq & a, lpvar j) {
+            if (a.is_pos()) {
+                if (at_lower(j))
+                    set_polarity(row_polarity::MAX);
+                else if (at_upper(j))
+                    set_polarity(row_polarity::MIN);
+                else 
+                    set_polarity(row_polarity::MIXED);
+            }
+            else {
+                if (at_lower(j))
+                    set_polarity(row_polarity::MIN);
+                else if (at_upper(j))
+                    set_polarity(row_polarity::MAX);
+                else 
+                    set_polarity(row_polarity::MIXED);
+            }
+        };
+          
+        
         m_abs_max = 0;
         for (const auto & p : m_row) {
             mpq t = abs(ceil(p.coeff()));
@@ -288,18 +307,9 @@ public:
                     m_one_minus_fj = 1 - m_fj;
                     int_case_in_gomory_cut(j);
                 }
-                if (p.coeff().is_pos()) {
-                    if (at_lower(j))
-                        set_polarity(row_polarity::MAX);
-                    else
-                        set_polarity(row_polarity::MIN);
-                }
-                else {
-                    if (at_lower(j))
-                        set_polarity(row_polarity::MIN);
-                    else
-                        set_polarity(row_polarity::MAX);
-                }
+                if (m_polarity != row_polarity::MIXED) 
+                    set_polarity_for_int(p.coeff(), j);
+                
             }
 
             if (m_found_big) {
@@ -338,12 +348,22 @@ public:
 
     bool gomory::is_gomory_cut_target(lpvar k) {
         SASSERT(lia.is_base(k));
-        // All non base variables must be at their bounds and assigned to rationals (that is, infinitesimals are not allowed).
         const row_strip<mpq>& row = lra.get_row(lia.row_of_basic_column(k));
+        // Consider monomial c*x from the row, where x is non-basic.
+        // Then, for each such monomial, one of following conditions 
+		// has to hold for the row to be eligible for Gomory cut:
+        // 1) c is integral and x integral varible with an integral value
+        // 2) the value of x is at a bound and has no infinitesimals.
+
+        
         unsigned j;
         for (const auto & p : row) {
             j = p.var();
-            if ( k != j && (!lia.at_bound(j) || lia.get_value(j).y != 0)) {
+            if (k == j) continue;
+            
+            if (p.coeff().is_int() && lia.column_is_int(j) && lia.get_value(j).is_int()) continue;
+            
+            if ( !lia.at_bound(j) || lia.get_value(j).y != 0) {
                 TRACE("gomory_cut", tout << "row is not gomory cut target:\n";
                       lia.display_column(tout, j);
                       tout << "infinitesimal: " << !(lia.get_value(j).y ==0) << "\n";);
@@ -351,6 +371,8 @@ public:
             }
         }
         return true;
+
+        // Condition 1) above can be relaxed even more, allowing any value for x, but it will change the calculation for m_f.
     }
 
  // return the minimal distance from the variable value to an integer
@@ -417,14 +439,16 @@ public:
                     rp = row_polarity::MAX;
                 else if (lia.at_upper(j))
                     rp = row_polarity::MIN;
-                else SASSERT(false);    
+                else 
+				    rp = row_polarity::MIXED;
             }
             else {
                 if (lia.at_lower(j))
                     rp = row_polarity::MIN;
                 else if (lia.at_upper(j))
                     rp = row_polarity::MAX;
-                else SASSERT(false);
+                else
+                    rp = row_polarity::MIXED;
                     
             }
             if (ret == row_polarity::UNDEF)
