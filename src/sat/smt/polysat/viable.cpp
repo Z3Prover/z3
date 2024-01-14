@@ -804,7 +804,7 @@ namespace polysat {
                     return find_t::multiple;
                 }
                 else {
-                    IF_VERBOSE(0, display_one(verbose_stream() << "full: ", v, ne) << "\n");
+                    // IF_VERBOSE(0, display_one(verbose_stream() << "full: ", v, ne) << "\n");
                     SASSERT(hi < lo);
                     ne->interval = eval_interval::full();
                     ne->coeff = 1;

@@ -515,7 +515,6 @@ namespace polysat {
         pdd b = expr2pdd(y);
         auto& m = a.manager();
         unsigned sz = m.power_of_2();
-        verbose_stream() << "quot-rem " << a << " " << b << "\n";
         if (b.is_zero()) {
             // By SMT-LIB specification, b = 0 ==> q = -1, r = a.
             internalize_set(quot, m.mk_val(m.max_value()));
