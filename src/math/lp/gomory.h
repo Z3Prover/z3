@@ -27,7 +27,6 @@ namespace lp {
     class gomory {
         class int_solver& lia;
         class lar_solver& lra;
-        lia_move cut(lar_term & t, mpq & k, explanation* ex, unsigned basic_inf_int_j, const row_strip<mpq>& row);
         unsigned_vector gomory_select_int_infeasible_vars(unsigned num_cuts);
         bool is_gomory_cut_target(lpvar j); 
         u_dependency* add_deps(u_dependency*, const row_strip<mpq>&, lpvar);
