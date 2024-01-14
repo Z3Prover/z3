@@ -393,8 +393,13 @@ namespace polysat {
             return true;
         }
         else {
-            intersect(v, e);
-            TRACE("bv", tout << "fixed " << *e << "\n");
+            TRACE("bv", tout << "fixed " << val << " " << *e << "\n");
+            if (!intersect(v, e)) {
+                display(verbose_stream());
+                display_explain(verbose_stream() << "explain\n");
+                SASSERT(false);
+            }
+            
             return false;
         }
     }
