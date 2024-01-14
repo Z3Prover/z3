@@ -416,6 +416,11 @@ namespace polysat {
 
     expr_ref solver::constraint2expr(signed_constraint const& sc) { 
         expr_ref result(m);
+        if (sc.is_always_false())
+            return expr_ref(m.mk_false(), m);
+        if (sc.is_always_true())
+            return expr_ref(m.mk_true(), m);
+
         switch (sc.op()) {
         case ckind_t::ule_t: {            
             auto p = sc.to_ule().lhs();
@@ -424,23 +429,12 @@ namespace polysat {
             if (q.is_zero() && p.has_unit(x)) {
                 auto l = pdd2expr(x);
                 auto r = pdd2expr(x - p);
-                if (m.are_equal(l, r))
-                    result = m.mk_true();
-                else if (m.are_distinct(l, r))
-                    result = m.mk_false();
-                else 
-                    result = m.mk_eq(l, r);
+                result = m.mk_eq(l, r);
             }
             else {
                 auto l = pdd2expr(p);
                 auto r = pdd2expr(q);
-                if (m.are_equal(l, r))
-                    result = m.mk_true();
-                else if (m.is_value(l) && m.is_value(r)) {
-                    result = bv.mk_ule(l, r);
-                    ctx.get_rewriter()(result);
-                }
-                else if (q.is_zero())
+                if (q.is_zero())
                     result = m.mk_eq(l, r);
                 else
                     result = bv.mk_ule(l, r);

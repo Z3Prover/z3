@@ -174,14 +174,12 @@ namespace euf {
                 push_merge(mk_extract(x->get_interpreted(), lo, hi), mk_value(val_p, width(p)));
             }
         }
-        
+
         for (enode* sib : enode_class(x)) {
             if (is_concat(sib, a, b)) {
-                if (!is_value(a) || !is_value(b)) {
-                    auto val_a = machine_div2k(val_x, width(b));
-                    auto val_b = mod2k(val_x, width(b));
-                    push_merge(mk_concat(mk_value(val_a, width(a)), mk_value(val_b, width(b))), x->get_interpreted());
-                }
+                auto val_a = machine_div2k(val_x, width(b));
+                auto val_b = mod2k(val_x, width(b));
+                push_merge(mk_concat(mk_value(val_a, width(a)), mk_value(val_b, width(b))), x->get_interpreted());
             }
         }
     }
