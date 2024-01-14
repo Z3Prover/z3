@@ -69,14 +69,16 @@ struct create_cut {
             // here we have the product of new_a*(xj - lb(j)), so new_a*lb(j) is added to m_k
             new_a = m_fj <= m_one_minus_f ? m_fj / m_one_minus_f : ((1 - m_fj) / m_f);
             lp_assert(new_a.is_pos());
-            m_k.addmul(new_a, lower_bound(j).x);            
+            m_k.addmul(new_a, lower_bound(j).x);   
+            push_explanation(column_lower_bound_constraint(j));         
         }
         else {
             lp_assert(at_upper(j));
             // here we have the expression  new_a*(xj - ub), so new_a*ub(j) is added to m_k
             new_a = - (m_fj <= m_f ? m_fj / m_f  : ((1 - m_fj) / m_one_minus_f));
             lp_assert(new_a.is_neg());
-            m_k.addmul(new_a, upper_bound(j).x);            
+            m_k.addmul(new_a, upper_bound(j).x);
+            push_explanation(column_upper_bound_constraint(j));
         }        
         m_t.add_monomial(new_a, j);
         TRACE("gomory_cut_detail", tout << "new_a = " << new_a << ", k = " << m_k << "\n";);
@@ -286,21 +288,14 @@ public:
                     m_one_minus_fj = 1 - m_fj;
                     int_case_in_gomory_cut(j);
                 }
-                bool lb = at_lower(j);
-                if (lb) {
-                    push_explanation(column_lower_bound_constraint(j));
-                } else {
-                    SASSERT(at_upper(j));
-                    push_explanation(column_upper_bound_constraint(j));
-                }
                 if (p.coeff().is_pos()) {
-                    if (lb)
+                    if (at_lower(j))
                         set_polarity(row_polarity::MAX);
                     else
                         set_polarity(row_polarity::MIN);
                 }
                 else {
-                    if (lb)
+                    if (at_lower(j))
                         set_polarity(row_polarity::MIN);
                     else
                         set_polarity(row_polarity::MAX);
@@ -440,6 +435,27 @@ public:
         return ret;
     }
 
+    u_dependency* gomory::add_deps(u_dependency* dep,  const row_strip<mpq>& row, lpvar basic_var) {
+        u_dependency* ret = dep;
+        for (const auto& p : row) {
+            lpvar j = p.var();
+            if (j == basic_var)
+                continue;
+            if (lia.is_fixed(j))
+                continue; 
+            if (lia.is_real(j)) continue;
+            if (!p.coeff().is_int()) continue;
+            // the explanation for all above have been already added
+            if (lia.at_lower(j))
+                ret = lia.lra.dep_manager().mk_join(lia.column_lower_bound_constraint(j), ret);
+            else {
+                SASSERT(lia.at_upper(j));
+                ret = lia.lra.dep_manager().mk_join(lia.column_upper_bound_constraint(j), ret);
+            }
+        }
+        return ret;
+    }
+
     lia_move gomory::get_gomory_cuts(unsigned num_cuts) {
         struct cut_result {lar_term t; mpq k; u_dependency *dep;};
         vector<cut_result> big_cuts;
@@ -478,9 +494,9 @@ public:
             }
             SASSERT(test_row_polarity(lia, row, j) == cc.m_polarity);
             if (cc.m_polarity == row_polarity::MAX) 
-                lra.update_column_type_and_bound(j, lp::lconstraint_kind::LE, floor(lra.get_column_value(j).x), cc.m_dep);
+                lra.update_column_type_and_bound(j, lp::lconstraint_kind::LE, floor(lra.get_column_value(j).x), add_deps(cc.m_dep, row, j));
             else if (cc.m_polarity == row_polarity::MIN)
-                lra.update_column_type_and_bound(j, lp::lconstraint_kind::GE, ceil(lra.get_column_value(j).x), cc.m_dep);
+                lra.update_column_type_and_bound(j, lp::lconstraint_kind::GE, ceil(lra.get_column_value(j).x), add_deps(cc.m_dep, row, j));
             
             if (!is_small_cut(lia.m_t)) {
                 big_cuts.push_back({cc.m_t, cc.m_k, cc.m_dep});
