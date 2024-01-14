@@ -268,6 +268,24 @@ namespace polysat {
         return dependency(lit.var()); 
     }
 
+    void solver::propagate_eq(pvar pv, rational const& val, dependency const& d) {
+        auto v = m_pddvar2var[pv];
+        auto a = var2enode(v);
+        auto bval = bv.mk_numeral(val, get_bv_size(v));
+        ctx.internalize(bval);
+        auto b = ctx.get_enode(bval);
+        if (a->get_root() == b->get_root())
+            return;
+        proof_hint* hint = nullptr;
+        sat::literal_vector core;
+        euf::enode_pair_vector eqs;
+        explain_dep(d, eqs, core);
+        if (ctx.use_drat()) 
+            hint = mk_proof_hint("propagate-eq", core, eqs);        
+        auto exp = euf::th_explain::propagate(*this, core, eqs, a, b, hint);
+        ctx.propagate(a, b, exp);
+    }
+
     unsigned solver::level(dependency const& d) {
         if (d.is_bool_var())
             return s().lvl(d.bool_var());

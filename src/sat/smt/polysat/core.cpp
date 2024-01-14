@@ -369,6 +369,9 @@ namespace polysat {
             s.set_conflict(deps, "non-viable assignment");
             return;
         }
+        s.propagate_eq(v, value, dep);
+        if (s.inconsistent())
+            return;
         m_values[v] = value;
         m_justification[v] = dep;   
         m_assignment.push(v , value);

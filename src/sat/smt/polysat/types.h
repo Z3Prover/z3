@@ -141,6 +141,7 @@ namespace polysat {
         virtual void set_conflict(dependency_vector const& core, char const* hint) = 0;
         virtual dependency propagate(signed_constraint sc, dependency_vector const& deps, char const* hint) = 0;
         virtual void propagate(dependency const& d, bool sign, dependency_vector const& deps, char const* hint) = 0;
+        virtual void propagate_eq(pvar v, rational const& val, dependency const& d) = 0;
         virtual trail_stack& trail() = 0;
         virtual bool inconsistent() const = 0;
         virtual void get_bitvector_suffixes(pvar v, offset_slices& out) = 0;

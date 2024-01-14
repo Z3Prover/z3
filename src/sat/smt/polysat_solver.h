@@ -215,6 +215,7 @@ namespace polysat {
         bool add_axiom(char const* name, constraint_or_dependency const* begin, constraint_or_dependency const* end, bool redundant) override;
         dependency propagate(signed_constraint sc, dependency_vector const& deps, char const* hint) override;
         void propagate(dependency const& d, bool sign, dependency_vector const& deps, char const* hint) override;
+        void propagate_eq(pvar v, rational const& val, dependency const& d) override;
         trail_stack& trail() override;
         bool inconsistent() const override;
         void get_bitvector_sub_slices(pvar v, offset_slices& out) override;
