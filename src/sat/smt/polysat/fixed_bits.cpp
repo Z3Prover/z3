@@ -36,7 +36,6 @@ namespace polysat {
     // 2^Kx not in [2^K(value + 1),  2^Kvalue[
     // bit-width : w - K = s.offset + s.length
     //
-    // If y[hi:lo] = value, y[hi':lo'] = x
     //
     bool fixed_bits::check(rational const& val, fi_record& fi) {
         unsigned sz = c.size(m_var);
@@ -49,22 +48,22 @@ namespace polysat {
                 SASSERT(s.offset + s.length <= sz);
                 unsigned bw = s.length + s.offset;
                 unsigned K = sz - bw;
-                pdd lo = c.value(rational::power_of_two(K) * (s.value + 1), sz);
-                pdd hi = c.value(rational::power_of_two(K) * s.value, sz);
+                pdd lo = c.value(rational::power_of_two(sz - s.length) * (s.value + 1), sz);
+                pdd hi = c.value(rational::power_of_two(sz - s.length) * s.value, sz);
                 rational hi_val = rational::power_of_two(s.offset) * s.value;
-                rational lo_val = mod(rational::power_of_two(s.offset) * s.value + 1, rational::power_of_two(bw));
+                rational lo_val = mod(rational::power_of_two(s.offset) * (s.value + 1), rational::power_of_two(bw));
 
                 fi.reset();
                 fi.interval = eval_interval::proper(lo, lo_val, hi, hi_val);
                 fi.deps.push_back(dependency({ m_var, s }));                
                 fi.bit_width = bw;
                 fi.coeff = 1;
-                // verbose_stream() << "fixed bits sub: v" << m_var << " value " << val << " "  << fi << "\n";
+                // verbose_stream() << "fixed bits sub: v" << m_var << " " << sz << " value " << val << " "  << fi << "\n";
                 return false;
             }
             // slice, properly contains variable.
             // s.offset refers to offset in containing value.
-            if (s.length > sz && mod(machine_div2k(s.value, s.offset), bw) != val) {
+            if (false && s.length > sz && mod(machine_div2k(s.value, s.offset), bw) != val) {
                 
                 rational hi_val = mod(machine_div2k(s.value, s.offset), bw);
                 rational lo_val = mod(hi_val + 1, bw);

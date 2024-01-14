@@ -323,6 +323,7 @@ namespace polysat {
     // Evaluate lhs <= rhs
     lbool ule_constraint::eval(pdd const& lhs, pdd const& rhs) {
         // NOTE: don't assume simplifications here because we also call this on partially substituted constraints
+
         if (lhs.is_zero())
             return l_true;      // 0 <= p
         if (lhs == rhs)

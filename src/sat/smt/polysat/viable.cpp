@@ -655,6 +655,7 @@ namespace polysat {
             
             // a < x <= b <=>
             // a + 1 <= x < b + 1
+            // x - a - 1 < b - a
 
             auto vlo = c.value(mod((e.value - 1) * p2eb + 1, p2b), bw);
             auto vhi = c.value(mod(e.value * p2eb + 1, p2b), bw);
@@ -666,6 +667,7 @@ namespace polysat {
             verbose_stream() << "before bw " << ebw << " " << bw << " " << *e.e << "\nafter  bw " << abw << " " << aw << " " << *after.e << "\n";
             if (!t.is_val())
                 IF_VERBOSE(0, verbose_stream() << "symbolic t : " << t << "\n");
+            verbose_stream() << t - vlo << " " << vhi - vlo << "\n";
 
 #endif
             auto sc = cs.ult(t - vlo, vhi - vlo);
@@ -676,6 +678,7 @@ namespace polysat {
                 deps.push_back(c.propagate(sc, c.explain_weak_eval(sc)));
             t.reset(lo.manager());
             t = c.value(mod(e.value, rational::power_of_two(aw)), aw);
+            // verbose_stream() << "after " << t << "\n";
         }
 
         if (abw < aw) 
