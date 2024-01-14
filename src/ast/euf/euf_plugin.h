@@ -40,7 +40,7 @@ namespace euf {
 
         virtual ~plugin() {}
 
-        virtual unsigned get_id() const = 0;
+        virtual theory_id get_id() const = 0;
 
         virtual void register_node(enode* n) = 0;
         
