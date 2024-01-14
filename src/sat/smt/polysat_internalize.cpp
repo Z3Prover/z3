@@ -413,7 +413,7 @@ namespace polysat {
         unsigned sz = bv.get_bv_size(x);
         sat::literal y_eq0 = eq_internalize(y, bv.mk_zero(sz));
         add_axiom("srem", { ~y_eq0, eq_internalize(e, x) });
-        add_axiom("srem", { y_eq0, eq_internalize(e, bv.mk_bv_mul(bv.mk_bv_sdiv(x, y), y)) });
+        add_axiom("srem", { y_eq0, eq_internalize(e, bv.mk_bv_sub(x, bv.mk_bv_mul(bv.mk_bv_sdiv(x, y), y))) });
     }
 
     // u := umod(x, y)
@@ -513,8 +513,6 @@ namespace polysat {
     void solver::quot_rem(expr* quot, expr* rem, expr* x, expr* y) {
         pdd a = expr2pdd(x);
         pdd b = expr2pdd(y);
-        euf::enode* qn = expr2enode(quot);
-        euf::enode* rn = expr2enode(rem);
         auto& m = a.manager();
         unsigned sz = m.power_of_2();
         verbose_stream() << "quot-rem " << a << " " << b << "\n";
