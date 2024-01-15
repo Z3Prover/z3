@@ -154,7 +154,22 @@ namespace polysat {
     lbool core::assign_variable() {
         if (m_var_queue.empty())
             return l_true;
-        m_var = m_var_queue.min_var();
+
+        for (auto v : m_var_queue) {
+            switch (assign_variable(v)) {
+            case l_false:
+                return l_false;
+            case l_true:
+                return l_true;
+            default:
+                break;
+            }
+        }
+        return l_undef;
+    }
+
+    lbool core::assign_variable(pvar v) {
+        m_var = v;
         CTRACE("bv", is_assigned(m_var), display(tout << "v" << m_var << " is assigned\n"););
         SASSERT(!is_assigned(m_var));
 
@@ -206,11 +221,11 @@ namespace polysat {
         case l_false:
             return sat::check_result::CR_CONTINUE;
         case l_undef:
-            verbose_stream() << "giveup assign\n";
-            return sat::check_result::CR_GIVEUP;
+            // verbose_stream() << "giveup assign\n";
+            // return sat::check_result::CR_GIVEUP;
             // or:
-            // r = l_undef;
-            // break;
+            r = l_undef;
+            break;
         }
 
         saturation saturate(*this);

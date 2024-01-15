@@ -148,7 +148,7 @@ namespace polysat {
             }
             return find_t::multiple;                        
         }
-
+        TRACE("bv", display(tout << "resource-out v" << v << "\n"));
         return find_t::resource_out;        
     }
 

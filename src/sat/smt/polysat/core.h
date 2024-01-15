@@ -92,6 +92,7 @@ namespace polysat {
         void add_watch(unsigned idx, unsigned var);
 
         lbool assign_variable();
+        lbool assign_variable(pvar v);
         
         void add_opdef(signed_constraint sc);
 

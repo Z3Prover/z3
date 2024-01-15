@@ -28,9 +28,11 @@ namespace polysat {
             lbool eval_value = c.strong_eval(sc);
             if (eval_value == l_true)
                 continue;
-
+            has_conflict = true;
+            if (eval_value == l_undef)
+                continue;
+            
             TRACE("bv", sc.display(tout << "eval: ") << " evaluates to " << eval_value << "\n");
-            SASSERT(eval_value != l_undef);
 
             has_conflict = true;
             auto vars = c.find_conflict_variables(idx);

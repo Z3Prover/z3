@@ -118,7 +118,7 @@ namespace polysat {
                 rational A = div(bound, b2.val());
                 rational B = div(bound + A, A) - 1;
 
-                if (A >= 4 && B >= 4) {
+                if (!e2.is_val() && A >= 4 && B >= 4) {
                     _backtrack.released = false;
                     return false;
                 }
@@ -149,7 +149,7 @@ namespace polysat {
                 //       := div(2^N + A - 1, A)
                 rational A = div(bound, b2.val()) + 1;
                 rational B = div(bound + A, A);
-                if (A >= 4 && B >= 4) {
+                if (!e2.is_val() && A >= 4 && B >= 4) {
                     _backtrack.released = false;
                     return false;
                 }
