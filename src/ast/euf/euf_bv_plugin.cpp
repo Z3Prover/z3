@@ -445,13 +445,14 @@ namespace euf {
                         delta += width(arg);
                     }
                 }
-            }
-            for (auto p : euf::enode_parents(n->get_root())) {
-                if (bv.is_extract(p->get_expr(), lo, hi, e)) {
-                    SASSERT(g.find(e)->get_root() == n->get_root());
-                    m_todo.push_back({ p, offset + lo });
+                for (auto p : euf::enode_parents(sib)) {
+                    if (bv.is_extract(p->get_expr(), lo, hi, e)) {
+                        SASSERT(g.find(e)->get_root() == n->get_root());
+                        m_todo.push_back({ p, offset + lo });
+                    }
                 }
             }
+
         }
         clear_offsets();
     }
@@ -475,17 +476,17 @@ namespace euf {
                     auto child = g.find(e);
                     m_todo.push_back({ child, offset + lo });
                 }
-            }
-            for (auto p : euf::enode_parents(n->get_root())) {
-                if (bv.is_concat(p->get_expr())) {
-                    unsigned delta = 0;
-                    for (unsigned j = p->num_args(); j-- > 0; ) {
-                        auto arg = p->get_arg(j);
-                        if (arg->get_root() == n->get_root()) 
-                            m_todo.push_back({ p, offset + delta });
-                        delta += width(arg);                   
+                for (auto p : euf::enode_parents(sib)) {
+                    if (bv.is_concat(p->get_expr())) {
+                        unsigned delta = 0;
+                        for (unsigned j = p->num_args(); j-- > 0; ) {
+                            auto arg = p->get_arg(j);
+                            if (arg->get_root() == n->get_root())
+                                m_todo.push_back({ p, offset + delta });
+                            delta += width(arg);
+                        }
                     }
-                }
+                }            
             }
         }
         clear_offsets();
@@ -524,6 +525,9 @@ namespace euf {
                     m_offsets.reserve(n->get_root_id() + 1);
                     m_offsets[n->get_root_id()].reset();
                 }
+                for (auto const& off : m_offsets) {
+                    SASSERT(off.empty());
+                }
                 m_jtodo.reset();
                 return;
             }
@@ -538,17 +542,23 @@ namespace euf {
                         delta += width(arg);
                     }
                 }
-            }
-            for (auto p : euf::enode_parents(n->get_root())) {
-                if (bv.is_extract(p->get_expr(), lo, hi, e)) {
-                    SASSERT(g.find(e)->get_root() == n->get_root());
-                    unsigned j2 = just.size();
-                    just.push_back({ g.find(e), n, j});
-                    m_jtodo.push_back({ p, offs + lo, j2});
+                for (auto p : euf::enode_parents(sib)) {
+                    if (bv.is_extract(p->get_expr(), lo, hi, e)) {
+                        SASSERT(g.find(e)->get_root() == n->get_root());
+                        unsigned j2 = just.size();
+                        just.push_back({ g.find(e), n, j });
+                        m_jtodo.push_back({ p, offs + lo, j2 });
+                    }
                 }
             }
-        }
 
+        }
+        IF_VERBOSE(0,
+            g.display(verbose_stream());
+            verbose_stream() << g.bpp(a) << " offset " << offset << " " << g.bpp(b) << "\n";
+            for (auto const& [n, offset, j] : m_jtodo) 
+                verbose_stream() << g.bpp(n) << " offset " << offset << " " << g.bpp(n->get_root()) << "\n";            
+        );
         UNREACHABLE();
     }
 

@@ -135,6 +135,10 @@ namespace polysat {
     }
 
     void solver::explain_dep(dependency const& d, euf::enode_pair_vector& eqs, sat::literal_vector& core) {
+        std::function<void(euf::enode*, euf::enode*)> consume = [&](auto* a, auto* b) {
+            eqs.push_back({ a, b });
+            };
+
         if (d.is_axiom())
             ;
         else if (d.is_bool_var()) {
@@ -144,16 +148,10 @@ namespace polysat {
         }
         else if (d.is_fixed_claim()) {
             auto const& o = d.fixed();
-            std::function<void(euf::enode*, euf::enode*)> consume = [&](auto* a, auto* b) {
-                eqs.push_back({ a, b });
-                };
             explain_fixed(o.v, o, consume);
         }
         else if (d.is_offset_claim()) {
             auto const& offs = d.offset();
-            std::function<void(euf::enode*, euf::enode*)> consume = [&](auto* a, auto* b) {
-                eqs.push_back({ a, b });
-                };
             explain_slice(offs.v, offs.w, offs.offset, consume);
         }
         else {
