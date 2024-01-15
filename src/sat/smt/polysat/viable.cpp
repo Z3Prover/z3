@@ -90,20 +90,31 @@ namespace polysat {
         m_fixed_bits.init(v);
         m_explain.reset();
         init_overlaps(v);
-        check_fixed_bits(v, value);
-        check_disequal_lin(v, value);
-        check_equal_lin(v, value);
-        for (auto const& [w, offset] : m_overlaps) {
-            for (auto& layer : m_units[w].get_layers()) {
-                entry* e = find_overlap(w, layer, value);
-                if (!e)
-                    continue;
-                
-                m_explain.push_back({ e, value });
-                m_explain_kind = explain_t::assignment;
-                return false;
+        bool first = true;
+        while (true) {
+            for (auto const& [w, offset] : m_overlaps) {
+                for (auto& layer : m_units[w].get_layers()) {
+                    entry* e = find_overlap(w, layer, value);
+                    if (!e)
+                        continue;
+                    
+                    m_explain.push_back({ e, value });
+                    m_explain_kind = explain_t::assignment;
+                    return false;
+                }
             }
+            if (!first)
+                return true;
+            first = false;
+            if (!check_fixed_bits(v, value))
+                continue;
+            if (!check_disequal_lin(v, value))
+                continue;
+            if (!check_equal_lin(v, value))
+                continue;
+            break;
         }
+            
         return true;
     }
 
@@ -397,6 +408,7 @@ namespace polysat {
             if (!intersect(v, e)) {
                 display(verbose_stream());
                 display_explain(verbose_stream() << "explain\n");
+                UNREACHABLE();
                 SASSERT(false);
             }
             
