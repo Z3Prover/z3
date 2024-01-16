@@ -10969,10 +10969,10 @@ def CharVal(ch, ctx=None):
         raise Z3Exception("character value should be an ordinal")
     return _to_expr_ref(Z3_mk_char(ctx.ref(), ch), ctx)
     
-def CharFromBv(ch, ctx=None):
-    if not is_expr(ch):
-        raise Z3Expression("Bit-vector expression needed")
-    return _to_expr_ref(Z3_mk_char_from_bv(ch.ctx_ref(), ch.as_ast()), ch.ctx)
+def CharFromBv(bv):
+    if not is_expr(bv):
+        raise Z3Exception("Bit-vector expression needed")
+    return _to_expr_ref(Z3_mk_char_from_bv(bv.ctx_ref(), bv.as_ast()), bv.ctx)
 
 def CharToBv(ch, ctx=None):
     ch = _coerce_char(ch, ctx)
