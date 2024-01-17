@@ -7184,14 +7184,24 @@ extern "C" {
     void Z3_API Z3_solver_propagate_register_cb(Z3_context c, Z3_solver_callback cb, Z3_ast e);
 
     /**
-       \brief propagate a consequence based on fixed values.
-       This is a callback a client may invoke during the fixed_eh callback.
-       The callback adds a propagation consequence based on the fixed values of the
-       \c ids.
+       \brief propagate a consequence based on fixed values and equalities.       
+       A client may invoke it during the \c propagate_fixed, \c propagate_eq, \c propagate_diseq, and \c propagate_final callbacks.
+       The callback adds a propagation consequence based on the fixed values passed \c ids and equalities \c eqs based on parameters \c lhs, \c rhs.
+       
        The solver might discard the propagation in case it is true in the current state.
        The function returns false in this case; otw. the function returns true.
        At least one propagation in the final callback has to return true in order to
        prevent the solver from finishing.
+
+       Assume the callback has the signature: \c propagate_consequence_eh(context, solver_cb, num_ids, ids, num_eqs, lhs, rhs, consequence).
+       \param c - context
+       \param solver_cb - solver callback
+       \param num_ids - number of fixed terms used as premise to propagation
+       \param ids - array of length \c num_ids containing terms that are fixed in the current scope
+       \param num_eqs - number of equalities used as premise to propagation
+       \param lhs - left side of equalities
+       \param rhs - right side of equalities
+       \param consequence - consequence to propagate. It is typically an atomic formula, but it can be an arbitrary formula. 
 
        def_API('Z3_solver_propagate_consequence', BOOL, (_in(CONTEXT), _in(SOLVER_CALLBACK), _in(UINT), _in_array(2, AST), _in(UINT), _in_array(4, AST), _in_array(4, AST), _in(AST)))
     */
