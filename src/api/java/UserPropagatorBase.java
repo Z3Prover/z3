@@ -60,7 +60,8 @@ public abstract class UserPropagatorBase extends Native.UserPropagatorBase {
         fixed(var, value);
     }
 
-    @Override final void decideWrapper(long lvar, int bit, boolean is_pos) {
+    @Override
+    protected final void decideWrapper(long lvar, int bit, boolean is_pos) {
         Expr var = new Expr(ctx, lvar);
         decide(var, bit, is_pos);
     }
@@ -85,13 +86,18 @@ public abstract class UserPropagatorBase extends Native.UserPropagatorBase {
         Native.propagateAdd(this, ctx.nCtx(), solver.getNativeObject(), javainfo, expr.getNativeObject());
     }
 
-    public final <R extends Sort> void conflict(Expr<R>[] fixed) {
-        conflict(fixed, new Expr[0], new Expr[0]);
+    public final <R extends Sort> boolean conflict(Expr<R>[] fixed) {
+        return conflict(fixed, new Expr[0], new Expr[0]);
     }
 
-    public final <R extends Sort> void conflict(Expr<R>[] fixed, Expr<R>[] lhs, Expr<R>[] rhs) {
+    public final <R extends Sort> boolean conflict(Expr<R>[] fixed, Expr<R>[] lhs, Expr<R>[] rhs) {
         AST conseq = ctx.mkBool(false);
-        Native.propagateConflict(
+        return consequence(fixed, lhs, rhs, conseq);
+    }
+
+    public final <R extends Sort> boolean consequence(Expr<R>[] fixed, Expr<R>[] lhs,
+                                                      Expr<R>[] rhs, Expr<R> conseq) {
+        return Native.propagateConflict(
             this, ctx.nCtx(), solver.getNativeObject(), javainfo,
             fixed.length, AST.arrayToNative(fixed), lhs.length, AST.arrayToNative(lhs), AST.arrayToNative(rhs), conseq.getNativeObject());
     }
