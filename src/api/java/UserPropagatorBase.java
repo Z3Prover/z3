@@ -72,37 +72,36 @@ public abstract class UserPropagatorBase extends Native.UserPropagatorBase {
 
     public abstract UserPropagatorBase fresh(Context ctx);
 
-    public <R extends Sort> void created(Expr<R> ast) {}
+    public void created(Expr<?> ast) {}
 
-    public <R extends Sort> void fixed(Expr<R> var, Expr<R> value) {}
+    public void fixed(Expr<?> var, Expr<?> value) {}
 
-    public <R extends Sort> void eq(Expr<R> x, Expr<R> y) {}
+    public void eq(Expr<?> x, Expr<?> y) {}
 
-    public <R extends Sort> void decide(Expr<R> var, int bit, boolean is_pos) {}
+    public void decide(Expr<?> var, int bit, boolean is_pos) {}
 
     public void fin() {}
 
-    public final <R extends Sort> void add(Expr<R> expr) {
+    public final void add(Expr<?> expr) {
         Native.propagateAdd(this, ctx.nCtx(), solver.getNativeObject(), javainfo, expr.getNativeObject());
     }
 
-    public final <R extends Sort> boolean conflict(Expr<R>[] fixed) {
+    public final boolean conflict(Expr<?>[] fixed) {
         return conflict(fixed, new Expr[0], new Expr[0]);
     }
 
-    public final <R extends Sort> boolean conflict(Expr<R>[] fixed, Expr<R>[] lhs, Expr<R>[] rhs) {
-        AST conseq = ctx.mkBool(false);
-        return consequence(fixed, lhs, rhs, conseq);
+    public final boolean conflict(Expr<?>[] fixed, Expr<?>[] lhs, Expr<?>[] rhs) {
+        return consequence(fixed, lhs, rhs, ctx.mkBool(false));
     }
 
-    public final <R extends Sort> boolean consequence(Expr<R>[] fixed, Expr<R>[] lhs,
-                                                      Expr<R>[] rhs, Expr<R> conseq) {
+    public final boolean consequence(Expr<?>[] fixed, Expr<?>[] lhs,
+                                                      Expr<?>[] rhs, Expr<?> conseq) {
         return Native.propagateConflict(
             this, ctx.nCtx(), solver.getNativeObject(), javainfo,
             fixed.length, AST.arrayToNative(fixed), lhs.length, AST.arrayToNative(lhs), AST.arrayToNative(rhs), conseq.getNativeObject());
     }
 
-    public final <R extends Sort> boolean nextSplit(Expr<R> e, long idx, Z3_lbool phase) {
+    public final boolean nextSplit(Expr<?> e, long idx, Z3_lbool phase) {
         return Native.propagateNextSplit(
             this, ctx.nCtx(), solver.getNativeObject(), javainfo,
             e.getNativeObject(), idx, phase.toInt());
