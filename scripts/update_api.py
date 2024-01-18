@@ -698,6 +698,8 @@ def mk_java(java_src, java_dir, package_name):
     protected abstract void createdWrapper(long le);
 
     protected abstract void fixedWrapper(long lvar, long lvalue);
+
+    protected abstract void decideWrapper(long lvar, int bit, boolean is_pos);
   }
     """)
     java_native.write('\n')

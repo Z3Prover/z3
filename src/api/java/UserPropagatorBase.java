@@ -60,6 +60,11 @@ public abstract class UserPropagatorBase extends Native.UserPropagatorBase {
         fixed(var, value);
     }
 
+    @Override final void decideWrapper(long lvar, int bit, boolean is_pos) {
+        Expr var = new Expr(ctx, lvar);
+        decide(var, bit, is_pos);
+    }
+
     public abstract void push();
 
     public abstract void pop(int number);
@@ -71,6 +76,8 @@ public abstract class UserPropagatorBase extends Native.UserPropagatorBase {
     public <R extends Sort> void fixed(Expr<R> var, Expr<R> value) {}
 
     public <R extends Sort> void eq(Expr<R> x, Expr<R> y) {}
+
+    public <R extends Sort> void decide(Expr<R> var, int bit, boolean is_pos) {}
 
     public void fin() {}
 
