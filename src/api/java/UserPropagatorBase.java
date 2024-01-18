@@ -94,9 +94,8 @@ public abstract class UserPropagatorBase extends Native.UserPropagatorBase {
         return consequence(fixed, lhs, rhs, ctx.mkBool(false));
     }
 
-    public final boolean consequence(Expr<?>[] fixed, Expr<?>[] lhs,
-                                                      Expr<?>[] rhs, Expr<?> conseq) {
-        return Native.propagateConflict(
+    public final boolean consequence(Expr<?>[] fixed, Expr<?>[] lhs, Expr<?>[] rhs, Expr<?> conseq) {
+        return Native.propagateConsequence(
             this, ctx.nCtx(), solver.getNativeObject(), javainfo,
             fixed.length, AST.arrayToNative(fixed), lhs.length, AST.arrayToNative(lhs), AST.arrayToNative(rhs), conseq.getNativeObject());
     }
