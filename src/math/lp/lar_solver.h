@@ -137,7 +137,6 @@ class lar_solver : public column_namer {
 
     // terms
     bool all_vars_are_registered(const vector<std::pair<mpq, var_index>>& coeffs);
-    var_index add_term_undecided(const vector<std::pair<mpq, var_index>>& coeffs);
     bool term_coeffs_are_ok(const vector<std::pair<mpq, var_index>>& coeffs);
     void push_term(lar_term* t);
     void add_row_from_term_no_constraint(const lar_term* term, unsigned term_ext_index);

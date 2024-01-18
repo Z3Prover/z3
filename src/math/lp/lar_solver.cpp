@@ -1577,12 +1577,6 @@ namespace lp {
         }
     }
 
-
-    var_index lar_solver::add_term_undecided(const vector<std::pair<mpq, var_index>>& coeffs) {
-        push_term(new lar_term(coeffs));
-        return tv::mask_term(m_terms.size() - 1);
-    }
-
 #if Z3DEBUG_CHECK_UNIQUE_TERMS
     bool lar_solver::term_coeffs_are_ok(const vector<std::pair<mpq, var_index>>& coeffs) {
 
@@ -1645,9 +1639,9 @@ namespace lp {
         lar_term* t = new lar_term(coeffs);
         subst_known_terms(t);
         m_term_register.add_var(ext_i, term_is_int(t));
-        if (strategy_is_undecided())
-            return add_term_undecided(coeffs);
         push_term(t);
+        if (strategy_is_undecided())
+            return tv::mask_term(m_terms.size() - 1);
         SASSERT(m_terms.size() == m_term_register.size());
         unsigned adjusted_term_index = m_terms.size() - 1;
         var_index ret = tv::mask_term(adjusted_term_index);
