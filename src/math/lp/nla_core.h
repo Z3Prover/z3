@@ -424,18 +424,10 @@ public:
     vector<nla::ineq> const& literals() const { return m_literals; }
     vector<lp::equality> const& equalities() const { return m_equalities; }
     vector<lp::fixed_equality> const& fixed_equalities() const { return m_fixed_equalities; }
-    bool check_feasible() const { return m_check_feasible; }
+    bool should_check_feasible() const { return m_check_feasible; }
 
     void add_fixed_equality(lp::lpvar v, rational const& k, lp::explanation const& e) { m_fixed_equalities.push_back({v, k, e}); }
     void add_equality(lp::lpvar i, lp::lpvar j, lp::explanation const& e) { m_equalities.push_back({i, j, e}); }
-private:
-    void restore_patched_values();
-    void constrain_nl_in_tableau();
-    bool solve_tableau();
-    void restore_tableau();
-    void save_tableau();
-    bool integrality_holds();
-
 
 };  // end of core
 

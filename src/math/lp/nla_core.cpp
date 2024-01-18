@@ -1434,45 +1434,6 @@ void core::patch_monomials_on_to_refine() {
 void core::patch_monomials() {
     m_cautious_patching = true;
     patch_monomials_on_to_refine();
-    if (m_to_refine.size() == 0 || !params().arith_nl_expensive_patching()) {
-        return;
-    }
-    NOT_IMPLEMENTED_YET();
-    m_cautious_patching = false; 
-    patch_monomials_on_to_refine();
-    lra.push();
-    save_tableau();
-    constrain_nl_in_tableau();
-    if (solve_tableau() && integrality_holds()) {
-        lra.pop(1);
-    } else {
-        lra.pop();
-        restore_tableau();
-        lra.clear_inf_heap();
-    }
-    SASSERT(lra.ax_is_correct());
-}
-
-void core::constrain_nl_in_tableau() {
-    NOT_IMPLEMENTED_YET();
-}
-
-bool core::solve_tableau() {
-    NOT_IMPLEMENTED_YET();
-    return false;
-}
-
-void core::restore_tableau() {
-    NOT_IMPLEMENTED_YET();
-}
-
-void core::save_tableau() {
-    NOT_IMPLEMENTED_YET();
-}
-
-bool core::integrality_holds() {
-    NOT_IMPLEMENTED_YET();
-    return false;
 }
 
 /**

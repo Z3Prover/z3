@@ -2151,7 +2151,7 @@ public:
     }
 
     void add_lemmas() {
-        if (m_nla->check_feasible()) {
+        if (m_nla->should_check_feasible()) {
             auto is_sat = make_feasible();
             if (l_false == is_sat) {
                 get_infeasibility_explanation_and_set_conflict();

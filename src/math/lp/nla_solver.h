@@ -53,6 +53,6 @@ namespace nla {
         vector<nla::ineq> const& literals() const;
         vector<lp::fixed_equality> const& fixed_equalities() const;
         vector<lp::equality> const& equalities() const;
-        bool check_feasible() const { return m_core->check_feasible(); }
+        bool should_check_feasible() const { return m_core->should_check_feasible(); }
     };
 }
