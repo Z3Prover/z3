@@ -180,7 +180,7 @@ namespace algebraic_numbers {
             return m_upmanager;
         }
 
-        void del(basic_cell * c) {
+        void del_basic(basic_cell * c) {
             qm().del(c->m_value);
             m_allocator.deallocate(sizeof(basic_cell), c);
         }
@@ -207,7 +207,7 @@ namespace algebraic_numbers {
             if (a.is_null())
                 return;
             if (a.is_basic())
-                del(a.to_basic());
+                del_basic(a.to_basic());
             else
                 del(a.to_algebraic());
             a.clear();
@@ -795,7 +795,7 @@ namespace algebraic_numbers {
                 // root was found
                 scoped_mpq r(qm());
                 to_mpq(qm(), lower(c), r);
-                del(c);
+                del(a);
                 a = mk_basic_cell(r);
                 return false;
             }
