@@ -816,7 +816,7 @@ namespace algebraic_numbers {
                 // actual root was found
                 scoped_mpq r(qm());
                 to_mpq(qm(), lower(c), r);
-                del(c);
+                del(a);
                 a = mk_basic_cell(r);
                 return false;
             }
