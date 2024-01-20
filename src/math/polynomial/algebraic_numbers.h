@@ -360,19 +360,25 @@ namespace algebraic_numbers {
     struct basic_cell;
     struct algebraic_cell;
 
-    enum anum_kind { BASIC = 0, ROOT };
+    
 
-    class anum {
-        friend struct manager::imp;
-        friend class manager;
-        void * m_cell;
-        anum(basic_cell * cell):m_cell(TAG(void*, cell, BASIC)) {}
-        anum(algebraic_cell * cell):m_cell(TAG(void*, cell, ROOT)) {}
+    class anum {   
+        enum anum_kind { BASIC = 0, ROOT };
+        void* m_cell;
+    public:
+        anum() :m_cell(nullptr) {}
+        anum(basic_cell* cell) :m_cell(TAG(void*, cell, BASIC)) { }
+        anum(algebraic_cell * cell):m_cell(TAG(void*, cell, ROOT)) {  }
+
         bool is_basic() const { return GET_TAG(m_cell) == BASIC; }
         basic_cell * to_basic() const { SASSERT(is_basic()); return UNTAG(basic_cell*, m_cell); }
         algebraic_cell * to_algebraic() const { SASSERT(!is_basic()); return UNTAG(algebraic_cell*, m_cell); }
-    public:
-        anum():m_cell(nullptr) {}
+
+        bool is_null() const { return m_cell == nullptr; }
+        void clear() { m_cell = nullptr; }
+        void swap(anum & other) { std::swap(m_cell, other.m_cell); }
+        anum& operator=(basic_cell* cell) { SASSERT(is_null());  m_cell = TAG(void*, cell, BASIC); return *this; }
+        anum& operator=(algebraic_cell* cell) { SASSERT(is_null());  m_cell = TAG(void*, cell, ROOT); return *this; }
     };
 };
 
@@ -427,6 +433,7 @@ AN_MK_BINARY(operator/, div)
 
 #undef AN_MK_BINARY
 #undef AN_MK_BINARY_CORE
+
 
 inline scoped_anum root(scoped_anum const & a, unsigned k) {
     scoped_anum r(a.m());
