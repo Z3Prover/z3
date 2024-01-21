@@ -260,6 +260,9 @@ namespace polysat {
             hint = mk_proof_hint(hint_info, core, eqs);
             core.pop_back();
         }
+        if (s().value(lit) == l_false) {
+            verbose_stream() << "contradictory propagation " << sc << " <- " << deps << "\n";
+        }
         auto ex = euf::th_explain::propagate(*this, core, eqs, lit, hint);     
         validate_propagate(lit, core, eqs);
         ctx.propagate(lit, ex);

@@ -66,6 +66,8 @@ namespace polysat {
             return l_false;
         if (any_of(m_to_refine, [&](auto i) { return mul1(m_monomials[i]); }))
             return l_false;
+        if (any_of(m_to_refine, [&](auto i) { return mul1_inverse(m_monomials[i]); }))
+            return l_false;
 
         if (any_of(m_to_refine, [&](auto i) { return non_overflow_unit(m_monomials[i]); }))
             return l_false;
@@ -167,6 +169,23 @@ namespace polysat {
         cs.push_back(C.eq(mon.var, offset * mon.args[free_index]));
 
         return c.add_axiom("p = k => p * q = k * q", cs, true);
+    }
+
+    // p * q = p => q = 1 or p = 0
+    bool monomials::mul1_inverse(monomial const& mon) {
+        for (unsigned j = mon.size(); j-- > 0; ) {
+            auto const& arg_val = mon.arg_vals[j];
+            if (arg_val == mon.val) {
+                auto const& p = mon.args[j];
+                pdd qs = c.value(rational(1), mon.num_bits());
+                for (unsigned k = mon.size(); k-- > 0; ) 
+                    if (k != j)
+                        qs *= mon.arg_vals[k];                
+                c.add_axiom("p * q = p => q = 1 or p = 0", { ~C.eq(mon.var, p), C.eq(qs, 1), C.eq(p) }, true);
+                return true;
+            }
+        }
+        return false;
     }
 
     // parity p >= i => parity p * q >= i

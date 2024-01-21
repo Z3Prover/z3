@@ -311,8 +311,13 @@ namespace polysat {
     }
 
     void core::viable_conflict(pvar v) {
+        if (s.inconsistent())
+            return;
         TRACE("bv", tout << "viable-conflict v" << v << "\n");
-        s.set_conflict(m_viable.explain(), "viable-conflict");
+        auto exp = m_viable.explain();
+        if (s.inconsistent())
+            verbose_stream() << "inconsistent " << exp << "\n";
+        s.set_conflict(exp, "viable-conflict");
         decay_activity();
     }
 
@@ -371,6 +376,7 @@ namespace polysat {
         else if (v == null_var && weak_eval(sc) == l_false) {
             auto ex = explain_weak_eval(sc);
             ex.push_back(dep);
+            verbose_stream() << "infeasible propagation " << ~sc << " <- " << ex << "\n";
             s.set_conflict(ex, "infeasible propagation");
         }
     }
@@ -381,6 +387,7 @@ namespace polysat {
         if (!m_viable.assign(v, value)) {
             auto deps = m_viable.explain();
             deps.push_back(dep);
+            verbose_stream() << "non-viable assignment v" << v << " == " << value << " <- " << deps << "\n";
             s.set_conflict(deps, "non-viable assignment");
             return;
         }
@@ -489,6 +496,7 @@ namespace polysat {
         else if (value != eval_value) {
             m_unsat_core = explain_weak_eval(sc);
             m_unsat_core.push_back(m_constraint_index[id.id].d);
+            verbose_stream() << "infeasible propagation " << m_unsat_core << "\n";
             s.set_conflict(m_unsat_core, "polysat-constraint-core");
             decay_activity();
         }                   
@@ -645,7 +653,7 @@ namespace polysat {
     }
 
     void core::inc_activity(pvar v) {
-        unsigned& act = m_activity[v].second;
+        unsigned& act = m_activity[v].act;
         act += m_activity_inc;
         m_var_queue.activity_increased_eh(v);
         if (act > (1 << 24))
@@ -654,7 +662,7 @@ namespace polysat {
 
     void core::rescale_activity() {
         for (auto& act : m_activity) 
-            act.second >>= 14;        
+            act.act >>= 14;        
         m_activity_inc >>= 14;
     }
 

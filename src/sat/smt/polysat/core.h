@@ -35,11 +35,23 @@ namespace polysat {
 
 
     class core {
+        struct var_activity {
+            unsigned sz;
+            unsigned act;
+            bool operator<(var_activity const& other) const {
+                if (other.sz != sz)
+                    return sz > other.sz;
+                return act < other.act;
+            };
+            bool operator>(var_activity const& other) const {
+                return other < *this;
+            }
+        };
         class mk_add_var;
         class mk_dqueue_var;
         class mk_assign_var;
         class mk_add_watch;
-        typedef svector<std::pair<unsigned, unsigned>> activity;
+        typedef svector<var_activity> activity;
         friend class viable;
         friend class constraints;
         friend class assignment;

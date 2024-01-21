@@ -555,6 +555,8 @@ namespace polysat {
         auto last = m_explain.back();
         auto after = last;
 
+        if (c.inconsistent())
+            verbose_stream() << "inconistent explain\n";
         TRACE("bv", display_explain(tout));
 
         auto unmark = [&]() {
@@ -564,13 +566,20 @@ namespace polysat {
 
         auto explain_entry = [&](entry* e) {
             auto index = e->constraint_index;
+            if (c.inconsistent())
+                return;
             if (e->marked)
                 return;
             e->marked = true;
             if (m_var != e->var)
                 result.push_back(offset_claim(m_var, { e->var, 0 }));
-            for (auto const& sc : e->side_cond)
-                result.push_back(c.propagate(sc, c.explain_weak_eval(sc)));
+            for (auto const& sc : e->side_cond) {
+                auto d = c.propagate(sc, c.explain_weak_eval(sc));
+                if (c.inconsistent()) {
+                    verbose_stream() << "inconsistent " << d << " " << sc << "\n";
+                }
+                result.push_back(d);
+            }
             result.append(e->deps);
             if (!index.is_null())
                 result.push_back(c.get_dependency(index));
@@ -600,7 +609,11 @@ namespace polysat {
             explain_entry(first.e);
             // add constraint that there is only a single viable value.         
             auto sc = cs.eq(last.e->interval.hi() + 1, first.e->interval.lo());
-            result.push_back(c.propagate(sc, c.explain_weak_eval(sc)));            
+            auto exp = c.propagate(sc, c.explain_weak_eval(sc));
+            if (c.inconsistent()) {
+                verbose_stream() << "inconsistent " << sc << " " << exp << "\n";
+            }
+            result.push_back(exp);            
         }
         if (m_explain_kind == explain_t::assignment) {
             // there is just one entry
@@ -608,6 +621,8 @@ namespace polysat {
             explain_entry(last.e);
         }
         unmark();
+        if (c.inconsistent())
+            verbose_stream() << "inconistent after explain\n";
         return result;
     }
 
@@ -691,6 +706,8 @@ namespace polysat {
             t.reset(lo.manager());
             t = c.value(mod(e.value, rational::power_of_two(aw)), aw);
             // verbose_stream() << "after " << t << "\n";
+            if (c.inconsistent())
+                verbose_stream() << "inconsistent overlap " << sc << " " << "\n";
         }
 
         if (abw < aw) 
@@ -700,6 +717,12 @@ namespace polysat {
         SASSERT(!sc.is_always_false());
         if (!sc.is_always_true())
             deps.push_back(c.propagate(sc, c.explain_weak_eval(sc)));
+        if (c.inconsistent()) {
+            verbose_stream() << "inconsistent ult " << sc << " " << "\n";
+            verbose_stream() << "before bw " << ebw << " " << bw << " " << *e.e << "\nafter  bw " << abw << " " << aw << " " << *after.e << "\n";
+            display(verbose_stream());
+            // UNREACHABLE();
+        }
     }
 
     /*
