@@ -17,7 +17,7 @@ Version 4.12.5
   - sat.smt=true smt.bv.solver=2
   - It solves a few bit-vector problems not handled by bit-blasting, especially if the bit-widths are large.
   - It is based on encoding bit-vector constraints to non-linear integer arithmetic.
-
+- Optimizations to the arithmetic solver. Description: https://github.com/Z3Prover/doc/tree/master/arithmetic
 
 Version 4.12.4
 ==============
