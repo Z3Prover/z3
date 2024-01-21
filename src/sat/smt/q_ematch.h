@@ -90,6 +90,7 @@ namespace q {
         unsigned_vector               m_clause_queue;
         euf::enode_pair_vector        m_evidence;
         bool                          m_enable_propagate = true;
+        symbol                        m_ematch = symbol("ematch");
 
         euf::enode* const* copy_nodes(clause& c, euf::enode* const* _binding);
         binding* tmp_binding(clause& c, app* pat, euf::enode* const* _binding);

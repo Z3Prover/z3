@@ -71,6 +71,8 @@ class bool_rewriter {
 
     void mk_and_as_or(unsigned num_args, expr * const * args, expr_ref & result);
 
+    bool try_ite_eq(expr* lhs, expr* rhs, expr_ref& r);
+
     expr * mk_or_app(unsigned num_args, expr * const * args);
     bool simp_nested_not_or(unsigned num_args, expr * const * args, expr_fast_mark1 & neg_lits, expr_fast_mark2 & pos_lits, expr_ref & result);
     expr * simp_arg(expr * arg, expr_fast_mark1 & neg_lits, expr_fast_mark2 & pos_lits, bool & modified);

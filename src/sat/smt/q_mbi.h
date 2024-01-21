@@ -72,6 +72,7 @@ namespace q {
         unsigned                               m_max_choose_candidates = 10;
         unsigned                               m_generation_bound = UINT_MAX;
         unsigned                               m_generation_max = UINT_MAX;
+        symbol                                 m_mbqi = symbol("mbqi");
         typedef std::tuple<sat::literal, expr_ref, expr_ref_vector, unsigned> instantiation_t;
         vector<instantiation_t> m_instantiations;
         vector<mbp::def>        m_defs;
