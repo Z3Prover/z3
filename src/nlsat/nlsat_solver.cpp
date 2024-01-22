@@ -3081,11 +3081,42 @@ namespace nlsat {
             return out;
         }
 
-        std::ostream& display_smt2(std::ostream & out, root_atom const & a, display_var_proc const & proc) const {
-            return display(out, a, proc);
-        }
         
-        std::ostream& display(std::ostream & out, root_atom const & a, display_var_proc const & proc) const {
+        std::ostream& display_linear_root_smt2(std::ostream & out, root_atom const & a, display_var_proc const & proc) const {
+            polynomial_ref A(m_pm), B(m_pm);
+            polynomial::scoped_numeral one(m_qm);
+            m_pm.m().set(one, 1);
+            A = m_pm.derivative(a.p(), a.x());
+            B = m_pm.substitute(a.p(), a.x(), one);
+
+            // x < root[1](ax + b) == (a > 0 => ax < b) & (a < 0 => ax > b)
+
+            char const* rel1 = "<", *rel2 = ">";
+            switch (a.get_kind()) {
+            case atom::ROOT_LT: rel1 = "<"; rel2 = ">"; break;
+            case atom::ROOT_GT: rel1 = ">"; rel2 = "<"; break;
+            case atom::ROOT_LE: rel1 = "<="; rel2 = ">="; break;
+            case atom::ROOT_GE: rel1 = ">="; rel2 = "<="; break;
+            case atom::ROOT_EQ: rel1 = rel2 = "="; break;
+            default: UNREACHABLE(); break;
+            }
+            
+            out << "(and ";
+            out << "(=> (> "; m_pm.display_smt2(out, A, proc); out << " 0) ";
+            out << "(" << rel1 << " (* "; proc(out, a.x()); out << " "; m_pm.display_smt2(out, A, proc); out << " "; m_pm.display_smt2(out, B, proc); out << ")) ";
+            out << "(=> (< "; m_pm.display_smt2(out, A, proc); out << " 0) ";
+            out << "(" << rel2 << " (* "; proc(out, a.x()); out << " "; m_pm.display_smt2(out, A, proc); out << " "; m_pm.display_smt2(out, B, proc); out << ")) "; 
+            out << ")";
+            
+            return out;
+        }
+
+
+        std::ostream& display_smt2(std::ostream & out, root_atom const & a, display_var_proc const & proc) const {
+#if 0
+            if (a.i() == 1 && m_pm.degree(a.p(), a.x()) == 1)
+                return display_linear_root_smt2(out, a, proc);
+#endif
             proc(out, a.x());
             switch (a.get_kind()) {
             case atom::ROOT_LT: out << " < "; break;
