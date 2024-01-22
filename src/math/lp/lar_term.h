@@ -138,6 +138,12 @@ public:
         }
         return ret;
     }
+
+    lar_term& operator*=(mpq const& k) {
+        for (auto & t : m_coeffs)
+            t.m_value *= k;
+        return *this;
+    }
    
     void clear() {
         m_coeffs.reset();
