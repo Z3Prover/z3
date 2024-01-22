@@ -28,7 +28,7 @@ Revision History:
 #include <fstream>
 #include <functional>
 #include <algorithm>
-#include "math/lp/ul_pair.h"
+#include "math/lp/column.h"
 #include "math/lp/lar_constraints.h"
 #include <sstream>
 #include <cstdlib>

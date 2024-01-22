@@ -325,7 +325,7 @@ namespace lp {
                 
             TRACE("lar_solver_improve_bounds", tout << "d[" << j << "] = " << d_j << "\n";
                                                this->m_mpq_lar_core_solver.m_r_solver.print_column_info(j, tout););
-            const ul_pair& ul = m_columns_to_ul_pairs[j];
+            const column& ul = m_columns_to_ul_pairs[j];
             u_dependency * bound_dep;
             if (d_j.is_pos()) 
                 bound_dep = ul.upper_bound_witness();
@@ -972,7 +972,7 @@ namespace lp {
             // TBD: bounds on terms could also be used, caller may have to track these.
             return false;
         }
-        const ul_pair& ul = m_columns_to_ul_pairs[var];
+        const column& ul = m_columns_to_ul_pairs[var];
         ci = ul.lower_bound_witness();
         if (ci != nullptr) {
             auto& p = m_mpq_lar_core_solver.m_r_lower_bounds()[var];
@@ -991,7 +991,7 @@ namespace lp {
             // TBD: bounds on terms could also be used, caller may have to track these.
             return false;
         }
-        const ul_pair& ul = m_columns_to_ul_pairs[var];
+        const column& ul = m_columns_to_ul_pairs[var];
         ci = ul.upper_bound_witness();
         if (ci != nullptr) {
             auto& p = m_mpq_lar_core_solver.m_r_upper_bounds()[var];
@@ -1049,7 +1049,7 @@ namespace lp {
             unsigned j = it.second;
 
             int adj_sign = coeff.is_pos() ? inf_sign : -inf_sign;
-            const ul_pair& ul = m_columns_to_ul_pairs[j];
+            const column& ul = m_columns_to_ul_pairs[j];
 
             u_dependency* bound_constr_i = adj_sign < 0 ? ul.upper_bound_witness() : ul.lower_bound_witness();
             svector<constraint_index> deps;
@@ -1523,7 +1523,7 @@ namespace lp {
             return local_j;
         lp_assert(m_columns_to_ul_pairs.size() == A_r().column_count());
         local_j = A_r().column_count();
-        m_columns_to_ul_pairs.push_back(ul_pair(false)); // not associated with a row
+        m_columns_to_ul_pairs.push_back(column(false)); // not associated with a row
         m_trail.push(undo_add_column(*this));
         while (m_usage_in_terms.size() <= ext_j) 
             m_usage_in_terms.push_back(0);
@@ -1672,7 +1672,7 @@ namespace lp {
         register_new_ext_var_index(term_ext_index, term_is_int(term));
         // j will be a new variable
         unsigned j = A_r().column_count();
-        ul_pair ul(true); // to mark this column as associated_with_row
+        column ul(true); // to mark this column as associated_with_row
         m_columns_to_ul_pairs.push_back(ul);
         m_trail.push(undo_add_column(*this));
         add_basic_var_to_core_fields();

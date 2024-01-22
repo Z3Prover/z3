@@ -87,7 +87,7 @@ class lar_solver : public column_namer {
     bool m_need_register_terms = false;
     var_register m_var_register;
     var_register m_term_register;
-    svector<ul_pair> m_columns_to_ul_pairs;
+    svector<column> m_columns_to_ul_pairs;
     constraint_set m_constraints;
     // the set of column indices j such that bounds have changed for j
     indexed_uint_set m_columns_with_changed_bounds;
@@ -348,7 +348,7 @@ public:
                 mpq const& a = r.coeff();
                 int a_sign = is_pos(a) ? 1 : -1;
                 int sign = j_sign * a_sign;
-                const ul_pair& ul = m_columns_to_ul_pairs[j];
+                const column& ul = m_columns_to_ul_pairs[j];
                 auto* witness = sign > 0 ? ul.upper_bound_witness() : ul.lower_bound_witness();
                 lp_assert(witness);
                 for (auto ci : flatten(witness))
@@ -595,7 +595,7 @@ public:
     std::pair<constraint_index, constraint_index> add_equality(lpvar j, lpvar k);
 
     u_dependency* get_bound_constraint_witnesses_for_column(unsigned j) {
-        const ul_pair& ul = m_columns_to_ul_pairs[j];
+        const column& ul = m_columns_to_ul_pairs[j];
         return m_dependencies.mk_join(ul.lower_bound_witness(), ul.upper_bound_witness());
     }
     template <typename T>
