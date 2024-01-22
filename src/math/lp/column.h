@@ -45,9 +45,13 @@ class column {
     u_dependency* m_lower_bound_witness = nullptr;
     u_dependency* m_upper_bound_witness = nullptr;
     bool          m_associated_with_row = false;  
+    lpvar         m_j; //the column index
+    lar_term*     m_term = nullptr;
 public:
-    // TODO - seems more straight-forward to just expose column as a struct with direct access to attributes.
-    
+    lar_term*  term() const { return m_term; }
+    lar_term*& term() { return m_term; } // for setting m_term
+    lpvar      j() const { return m_j; } //the column index
+
     u_dependency*& lower_bound_witness() { return m_lower_bound_witness; }
     u_dependency* lower_bound_witness() const { return m_lower_bound_witness; }
     u_dependency*& upper_bound_witness() { return m_upper_bound_witness; }
@@ -65,11 +69,13 @@ public:
             && m_upper_bound_witness == p.m_upper_bound_witness 
             && m_associated_with_row == p.m_associated_with_row;
     }
-    // empty constructor
-    column() {}
+    column()  = delete;
+    column(bool) = delete;
 
-    column(bool associated_with_row) :
-        m_associated_with_row(associated_with_row) {}
+    column(lar_term* term): m_term(term) {}
+
+    column(lpvar j, bool associated_with_row) :
+        m_associated_with_row(associated_with_row), m_j(j) {}
 
     bool associated_with_row() const { return m_associated_with_row; }
 };

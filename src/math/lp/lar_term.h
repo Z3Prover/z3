@@ -26,7 +26,10 @@ namespace lp {
 class lar_term {
     typedef unsigned lpvar;
     u_map<mpq> m_coeffs;
+    lpvar m_j; 
 public:
+    lpvar j() const { return m_j; }
+    lpvar& j() { return m_j; }
     lar_term() {}
     void add_monomial(const mpq& c, unsigned j) {
         if (c.is_zero())

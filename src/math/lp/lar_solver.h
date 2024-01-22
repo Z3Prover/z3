@@ -87,7 +87,7 @@ class lar_solver : public column_namer {
     bool m_need_register_terms = false;
     var_register m_var_register;
     var_register m_term_register;
-    svector<column> m_columns_to_ul_pairs;
+    svector<column> m_columns;
     constraint_set m_constraints;
     // the set of column indices j such that bounds have changed for j
     indexed_uint_set m_columns_with_changed_bounds;
@@ -348,7 +348,7 @@ public:
                 mpq const& a = r.coeff();
                 int a_sign = is_pos(a) ? 1 : -1;
                 int sign = j_sign * a_sign;
-                const column& ul = m_columns_to_ul_pairs[j];
+                const column& ul = m_columns[j];
                 auto* witness = sign > 0 ? ul.upper_bound_witness() : ul.lower_bound_witness();
                 lp_assert(witness);
                 for (auto ci : flatten(witness))
@@ -521,7 +521,7 @@ public:
         if (tv::is_term(j)) {
             j = m_var_register.external_to_local(j);
         }
-        return m_columns_to_ul_pairs[j].upper_bound_witness();
+        return m_columns[j].upper_bound_witness();
     }
 
     inline const impq& get_upper_bound(column_index j) const {
@@ -595,7 +595,7 @@ public:
     std::pair<constraint_index, constraint_index> add_equality(lpvar j, lpvar k);
 
     u_dependency* get_bound_constraint_witnesses_for_column(unsigned j) {
-        const column& ul = m_columns_to_ul_pairs[j];
+        const column& ul = m_columns[j];
         return m_dependencies.mk_join(ul.lower_bound_witness(), ul.upper_bound_witness());
     }
     template <typename T>
@@ -616,7 +616,7 @@ public:
         if (tv::is_term(j)) {
             j = m_var_register.external_to_local(j);
         }
-        return m_columns_to_ul_pairs[j].lower_bound_witness();
+        return m_columns[j].lower_bound_witness();
     }
 
     inline tv column2tv(column_index const& c) const {

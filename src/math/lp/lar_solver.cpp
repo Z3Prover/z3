@@ -257,7 +257,7 @@ namespace lp {
         m_crossed_bounds_column = null_lpvar;
         m_crossed_bounds_deps = nullptr;
         m_trail.pop_scope(k);
-        unsigned n = m_columns_to_ul_pairs.size();
+        unsigned n = m_columns.size();
         m_var_register.shrink(n);
 
         lp_assert(m_mpq_lar_core_solver.m_r_solver.m_costs.size() == A_r().column_count());
@@ -325,7 +325,7 @@ namespace lp {
                 
             TRACE("lar_solver_improve_bounds", tout << "d[" << j << "] = " << d_j << "\n";
                                                this->m_mpq_lar_core_solver.m_r_solver.print_column_info(j, tout););
-            const column& ul = m_columns_to_ul_pairs[j];
+            const column& ul = m_columns[j];
             u_dependency * bound_dep;
             if (d_j.is_pos()) 
                 bound_dep = ul.upper_bound_witness();
@@ -625,13 +625,13 @@ namespace lp {
 
 
     void lar_solver::set_upper_bound_witness(var_index j, u_dependency* dep) {
-        m_trail.push(vector_value_trail(m_columns_to_ul_pairs, j));
-        m_columns_to_ul_pairs[j].upper_bound_witness() = dep;
+        m_trail.push(vector_value_trail(m_columns, j));
+        m_columns[j].upper_bound_witness() = dep;
     }
 
     void lar_solver::set_lower_bound_witness(var_index j, u_dependency* dep) {
-        m_trail.push(vector_value_trail(m_columns_to_ul_pairs, j));
-        m_columns_to_ul_pairs[j].lower_bound_witness() = dep;
+        m_trail.push(vector_value_trail(m_columns, j));
+        m_columns[j].lower_bound_witness() = dep;
     }
 
     void lar_solver::register_monoid_in_map(std::unordered_map<var_index, mpq>& coeffs, const mpq& a, unsigned j) {
@@ -968,11 +968,11 @@ namespace lp {
 
     bool lar_solver::has_lower_bound(var_index var, u_dependency*& ci, mpq& value, bool& is_strict) const {
 
-        if (var >= m_columns_to_ul_pairs.size()) {
+        if (var >= m_columns.size()) {
             // TBD: bounds on terms could also be used, caller may have to track these.
             return false;
         }
-        const column& ul = m_columns_to_ul_pairs[var];
+        const column& ul = m_columns[var];
         ci = ul.lower_bound_witness();
         if (ci != nullptr) {
             auto& p = m_mpq_lar_core_solver.m_r_lower_bounds()[var];
@@ -987,11 +987,11 @@ namespace lp {
 
     bool lar_solver::has_upper_bound(var_index var, u_dependency*& ci, mpq& value, bool& is_strict) const {
 
-        if (var >= m_columns_to_ul_pairs.size()) {
+        if (var >= m_columns.size()) {
             // TBD: bounds on terms could also be used, caller may have to track these.
             return false;
         }
-        const column& ul = m_columns_to_ul_pairs[var];
+        const column& ul = m_columns[var];
         ci = ul.upper_bound_witness();
         if (ci != nullptr) {
             auto& p = m_mpq_lar_core_solver.m_r_upper_bounds()[var];
@@ -1049,7 +1049,7 @@ namespace lp {
             unsigned j = it.second;
 
             int adj_sign = coeff.is_pos() ? inf_sign : -inf_sign;
-            const column& ul = m_columns_to_ul_pairs[j];
+            const column& ul = m_columns[j];
 
             u_dependency* bound_constr_i = adj_sign < 0 ? ul.upper_bound_witness() : ul.lower_bound_witness();
             svector<constraint_index> deps;
@@ -1280,7 +1280,7 @@ namespace lp {
     }
 
     bool lar_solver::column_represents_row_in_tableau(unsigned j) {
-        return m_columns_to_ul_pairs[j].associated_with_row();
+        return m_columns[j].associated_with_row();
     }
 
     void lar_solver::make_sure_that_the_bottom_right_elem_not_zero_in_tableau(unsigned i, unsigned j) {
@@ -1492,8 +1492,8 @@ namespace lp {
         undo_add_column(lar_solver& s) : s(s) {}
         void undo() override {
             s.remove_last_column_from_tableau();            
-            s.m_columns_to_ul_pairs.pop_back();
-            unsigned j = s.m_columns_to_ul_pairs.size();
+            s.m_columns.pop_back();
+            unsigned j = s.m_columns.size();
             if (s.m_columns_with_changed_bounds.contains(j))
                 s.m_columns_with_changed_bounds.remove(j);
             if (s.m_incorrect_columns.contains(j))
@@ -1521,9 +1521,9 @@ namespace lp {
         lp_assert(!tv::is_term(ext_j));
         if (m_var_register.external_is_used(ext_j, local_j))
             return local_j;
-        lp_assert(m_columns_to_ul_pairs.size() == A_r().column_count());
+        lp_assert(m_columns.size() == A_r().column_count());
         local_j = A_r().column_count();
-        m_columns_to_ul_pairs.push_back(column(false)); // not associated with a row
+        m_columns.push_back(column(local_j, false)); // false - not associated with a row
         m_trail.push(undo_add_column(*this));
         while (m_usage_in_terms.size() <= ext_j) 
             m_usage_in_terms.push_back(0);
@@ -1672,8 +1672,8 @@ namespace lp {
         register_new_ext_var_index(term_ext_index, term_is_int(term));
         // j will be a new variable
         unsigned j = A_r().column_count();
-        column ul(true); // to mark this column as associated_with_row
-        m_columns_to_ul_pairs.push_back(ul);
+        column ul(j, true); // true - to mark this column as associated_with_row
+        m_columns.push_back(ul);
         m_trail.push(undo_add_column(*this));
         add_basic_var_to_core_fields();
          
@@ -2511,7 +2511,7 @@ namespace lp {
         SASSERT(m_crossed_bounds_deps == nullptr);
         set_status(lp_status::INFEASIBLE);
         m_crossed_bounds_column = j;
-        const auto& ul = this->m_columns_to_ul_pairs[j];
+        const auto& ul = this->m_columns[j];
         u_dependency* bdep = lower_bound? ul.lower_bound_witness() : ul.upper_bound_witness();
         SASSERT(bdep != nullptr);
         m_crossed_bounds_deps = m_dependencies.mk_join(bdep, dep);
