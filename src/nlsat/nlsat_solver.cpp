@@ -486,7 +486,7 @@ namespace nlsat {
             SASSERT(x == num_vars());
             m_is_int.    push_back(is_int);
             m_watches.   push_back(clause_vector());
-            m_infeasible.push_back(0);
+            m_infeasible.push_back(nullptr);
             m_var2eq.    push_back(nullptr);
             m_perm.      push_back(x);
             m_inv_perm.  push_back(x);
@@ -1006,7 +1006,8 @@ namespace nlsat {
         }
 
         void undo_set_updt(interval_set * old_set) {
-            if (m_xk == null_var) return;
+            if (m_xk == null_var) 
+                return;
             var x = m_xk;
             if (x < m_infeasible.size()) {
                 m_ism.dec_ref(m_infeasible[x]);
@@ -1356,7 +1357,7 @@ namespace nlsat {
                 atom * a   = m_atoms[b];
                 SASSERT(a != nullptr);
                 interval_set_ref curr_set(m_ism);
-                curr_set = m_evaluator.infeasible_intervals(a, l.sign(), &cls);
+                curr_set = m_evaluator.infeasible_intervals(a, is_int(m_xk), l.sign(), &cls);
                 TRACE("nlsat_inf_set", tout << "infeasible set for literal: "; display(tout, l); tout << "\n"; m_ism.display(tout, curr_set); tout << "\n";
                       display(tout, cls) << "\n";); 
                 if (m_ism.is_empty(curr_set)) {

@@ -488,7 +488,7 @@ namespace nlsat {
             return sign;
         }
         
-        interval_set_ref infeasible_intervals(ineq_atom * a, bool neg, clause const* cls) {
+        interval_set_ref infeasible_intervals(ineq_atom * a, bool is_int, bool neg, clause const* cls) {
             sign_table & table = m_sign_table_tmp;
             table.reset();
             TRACE("nlsat_evaluator", m_solver.display(tout, *a) << "\n";);
@@ -685,8 +685,8 @@ namespace nlsat {
         return m_imp->eval(a, neg);
     }
         
-    interval_set_ref evaluator::infeasible_intervals(atom * a, bool neg, clause const* cls) {
-        return m_imp->infeasible_intervals(a, neg, cls);
+    interval_set_ref evaluator::infeasible_intervals(atom * a, bool is_int, bool neg, clause const* cls) {
+        return m_imp->infeasible_intervals(a, is_int, neg, cls);
     }
 
     void evaluator::push() {

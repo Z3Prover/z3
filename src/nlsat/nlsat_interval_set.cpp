@@ -695,12 +695,11 @@ namespace nlsat {
                 scoped_mpq _w(m_am.qm());
                 m_am.qm().set(_w, num, den);
                 m_am.set(w, _w);
-                return;
             }
             else {
                 m_am.set(w, 0);
-                return;
             }
+            return;
         }
         
         unsigned n = 0;
@@ -741,7 +740,7 @@ namespace nlsat {
         for (unsigned i = 1; i < num; i++) {
             if (s->m_intervals[i-1].m_upper_open && s->m_intervals[i].m_lower_open) {
                 SASSERT(m_am.eq(s->m_intervals[i-1].m_upper, s->m_intervals[i].m_lower)); // otherwise we would have found it in the previous step
-                if (m_am.is_rational(s->m_intervals[i-1].m_upper)) {
+                if (m_am.is_rational(s->m_intervals[i-1].m_upper)) {                    
                     m_am.set(w, s->m_intervals[i-1].m_upper);
                     return;
                 }
