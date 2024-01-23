@@ -228,7 +228,7 @@ namespace lp {
 
     bool int_solver::cut_indices_are_columns() const {
         for (lar_term::ival p : m_t) {
-            if (p.column().index() >= lra.A_r().column_count())
+            if (p.j() >= lra.A_r().column_count())
                 return false;
         }
         return true;
@@ -271,7 +271,7 @@ namespace lp {
         return lra.settings();
     }
 
-    bool int_solver::column_is_int(column_index const& j) const {
+    bool int_solver::column_is_int(lpvar j) const {
         return lra.column_is_int(j);
     }
 
@@ -296,7 +296,7 @@ namespace lp {
     }
 
     bool int_solver::is_term(unsigned j) const {
-        return lra.column_corresponds_to_term(j);
+        return lra.column_has_term(j);
     }
 
     unsigned int_solver::column_count() const  {

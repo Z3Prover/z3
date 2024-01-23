@@ -55,7 +55,7 @@ namespace nra {
         /*
           \brief Access model.
         */
-        nlsat::anum const& value(lp::var_index v);
+        nlsat::anum const& value(lp::lpvar v);
 
         nlsat::anum_manager& am();        
 

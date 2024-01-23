@@ -251,7 +251,7 @@ public:
 
     // theory_var to column
     unsigned imp_to_col(unsigned j) const {
-        return lp().external_to_column_index(j);
+        return lp().external_to_local(j);
     }
 
     bool is_int(lpvar j) const {
@@ -261,7 +261,7 @@ public:
     void explain_fixed_in_row(unsigned row, explanation& ex) {
         TRACE("eq", tout << lp().get_row(row) << std::endl);
         for (const auto& c : lp().get_row(row))
-            if (lp().is_fixed(c.var()))
+            if (lp().column_is_fixed(c.var()))
                 explain_fixed_column(c.var(), ex);
     }
 
@@ -269,7 +269,7 @@ public:
         unsigned base = UINT_MAX;
         TRACE("eq", tout << lp().get_row(row) << std::endl);
         for (const auto& c : lp().get_row(row)) {
-            if (lp().is_fixed(c.var())) {
+            if (lp().column_is_fixed(c.var())) {
                 explain_fixed_column(c.var(), ex);
             } 
             else if (lp().is_base(c.var())) {
@@ -288,7 +288,7 @@ public:
 #ifdef Z3DEBUG
     bool all_fixed_in_row(unsigned row) const {
         for (const auto& c : lp().get_row(row))
-            if (!lp().is_fixed(c.var()))
+            if (!lp().column_is_fixed(c.var()))
                 return false;
         return true;
     }

@@ -37,10 +37,10 @@ inline std::ostream& operator<<(std::ostream& out, lconstraint_kind k) {
     return out << "??";
 }
 
-inline bool compare(const std::pair<mpq, var_index> & a, const std::pair<mpq, var_index> & b) {
+inline bool compare(const std::pair<mpq, lpvar> & a, const std::pair<mpq, lpvar> & b) {
     return a.second < b.second;
 }
-
+class lar_term; // forward definition
 class column {
     u_dependency* m_lower_bound_witness = nullptr;
     u_dependency* m_upper_bound_witness = nullptr;
@@ -72,10 +72,9 @@ public:
     column()  = delete;
     column(bool) = delete;
 
-    column(lar_term* term): m_term(term) {}
-
-    column(lpvar j, bool associated_with_row) :
-        m_associated_with_row(associated_with_row), m_j(j) {}
+    
+    column(lpvar j, bool associated_with_row, lar_term* term) :
+        m_associated_with_row(associated_with_row), m_j(j), m_term(term) {}
 
     bool associated_with_row() const { return m_associated_with_row; }
 };

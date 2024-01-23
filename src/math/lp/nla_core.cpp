@@ -68,21 +68,10 @@ bool core::compare_holds(const rational& ls, llc cmp, const rational& rs) const 
 rational core::value(const lp::lar_term& r) const {
     rational ret(0);
     for (lp::lar_term::ival t : r) 
-        ret += t.coeff() * val(t.column());
+        ret += t.coeff() * val(t.j());
     return ret;
 }
 
-lp::lar_term core::subs_terms_to_columns(const lp::lar_term& t) const {
-    lp::lar_term r;
-    for (lp::lar_term::ival p : t) {
-        lpvar j = p.column();
-        if (lp::tv::is_term(j))
-            j = lra.map_term_index_to_column_index(j);
-        r.add_monomial(p.coeff(), j);
-    }
-    return r;
-} 
-    
 bool core::ineq_holds(const ineq& n) const {
     return compare_holds(value(n.term()), n.cmp(), n.rs());
 }
@@ -139,10 +128,7 @@ bool core::canonize_sign(const factorization& f) const {
 void core::add_monic(lpvar v, unsigned sz, lpvar const* vs) {
     m_add_buffer.resize(sz);
     for (unsigned i = 0; i < sz; i++) {
-        lpvar j = vs[i];
-        if (lp::tv::is_term(j))
-            j = lra.map_term_index_to_column_index(j);
-        m_add_buffer[i] = j;
+        m_add_buffer[i] = vs[i];
     }
     m_emons.add(v, m_add_buffer);
     m_monics_with_changed_bounds.insert(v);
@@ -326,25 +312,25 @@ bool core::explain_coeff_lower_bound(const lp::lar_term::ival& p, rational& boun
     const rational& a = p.coeff();
     SASSERT(!a.is_zero());
     if (a.is_pos()) {
-        auto* dep = lra.get_column_lower_bound_witness(p.column());
+        auto* dep = lra.get_column_lower_bound_witness(p.j());
         if (!dep)
             return false;
-        bound = a * lra.get_lower_bound(p.column()).x;
+        bound = a * lra.get_lower_bound(p.j()).x;
         lra.push_explanation(dep, e);
         return true;
     }
     // a.is_neg()
-    auto* dep = lra.get_column_upper_bound_witness(p.column());
+    auto* dep = lra.get_column_upper_bound_witness(p.j());
     if (!dep)
         return false;
-    bound = a * lra.get_upper_bound(p.column()).x;
+    bound = a * lra.get_upper_bound(p.j()).x;
     lra.push_explanation(dep, e);
     return true;
 }
 
 bool core::explain_coeff_upper_bound(const lp::lar_term::ival& p, rational& bound, lp::explanation& e) const {
     const rational& a = p.coeff();
-    lpvar j = p.column();
+    lpvar j = p.j();
     SASSERT(!a.is_zero());
     if (a.is_neg()) {
         auto *dep = lra.get_column_lower_bound_witness(j);
@@ -602,7 +588,7 @@ std::ostream & core::print_ineqs(const lemma& l, std::ostream & out) const {
             print_ineq(in, out);
             if (i + 1 < l.ineqs().size()) out << " or ";
             for (lp::lar_term::ival p: in.term())
-                vars.insert(p.column());
+                vars.insert(p.j());
         }
         out << std::endl;
         for (lpvar j : vars) {
@@ -701,13 +687,13 @@ unsigned core::random() { return lp_settings().random_next(); }
 void core::collect_equivs() {
     const lp::lar_solver& s = lra;
 
-    for (unsigned i = 0; i < s.terms().size(); i++) {
-        if (!s.term_is_used_as_row(i))
+    for (const auto * t : s.terms()) {
+        if (!s.column_associated_with_row(t->j()))
             continue;
-        lpvar j = s.external_to_local(lp::tv::mask_term(i));
+        lpvar j = t->j();
         if (var_is_fixed_to_zero(j)) {
-            TRACE("nla_solver_mons", s.print_term_as_indices(*s.terms()[i], tout << "term = ") << "\n";);
-            add_equivalence_maybe(s.terms()[i], s.get_column_upper_bound_witness(j), s.get_column_lower_bound_witness(j));
+            TRACE("nla_solver_mons", s.print_term_as_indices(*t, tout << "term = ") << "\n";);
+            add_equivalence_maybe(t, s.get_column_upper_bound_witness(j), s.get_column_lower_bound_witness(j));
         }
     }
     m_emons.ensure_canonized();
@@ -732,9 +718,9 @@ bool core::is_octagon_term(const lp::lar_term& t, bool & sign, lpvar& i, lpvar &
             return false;
         }
         if (i == null_lpvar)
-            i = p.column();
+            i = p.j();
         else
-            j = p.column();
+            j = p.j();
     }
     SASSERT(j != null_lpvar);
     sign = (seen_minus && seen_plus)? false : true;
@@ -871,7 +857,7 @@ std::unordered_set<lpvar> core::collect_vars(const lemma& l) const {
     
     for (const auto& i : l.ineqs()) {
         for (lp::lar_term::ival p : i.term()) {                
-            insert_j(p.column());
+            insert_j(p.j());
         }
     }
     for (auto p : l.expl()) {
@@ -1629,17 +1615,9 @@ lbool core::test_check() {
 }
 
 std::ostream& core::print_terms(std::ostream& out) const {
-    for (unsigned i = 0; i < lra.terms().size(); i++) {
-        unsigned ext = lp::tv::mask_term(i);
-        if (!lra.var_is_registered(ext)) {
-            out << "term is not registered\n";
-            continue;
-        }
-        
-        const lp::lar_term & t = *lra.terms()[i];
-        out << "term:"; print_term(t, out) << std::endl;        
-        lpvar j = lra.external_to_local(ext);
-        print_var(j, out);
+    for (const auto * t: lra.terms()) {
+        out << "term:"; print_term(*t, out) << std::endl;        
+        print_var(t->j(), out);
     }
     return out;
 }
@@ -1673,12 +1651,12 @@ std::unordered_set<lpvar> core::get_vars_of_expr_with_opening_terms(const nex *e
     }
     for (unsigned i = 0; i < added.size(); ++i) {
         lpvar j = added[i];
-        if (ls.column_corresponds_to_term(j)) {
-            const auto& t = lra.get_term(lp::tv::raw(ls.local_to_external(j)));
+        if (ls.column_has_term(j)) {
+            const auto& t = lra.get_term(j);
             for (auto p : t) {
-                if (ret.find(p.column()) == ret.end()) {
-                    added.push_back(p.column());
-                    ret.insert(p.column());
+                if (ret.find(p.j()) == ret.end()) {
+                    added.push_back(p.j());
+                    ret.insert(p.j());
                 }
             }
         }
@@ -1729,8 +1707,6 @@ void core::set_active_vars_weights(nex_creator& nc) {
 }
 
 bool core::influences_nl_var(lpvar j) const {
-    if (lp::tv::is_term(j))
-        j = lp::tv::unmask_term(j);
     if (is_nl_var(j))
         return true;
     for (const auto & c : lra.A_r().m_columns[j]) {

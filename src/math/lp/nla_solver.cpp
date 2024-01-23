@@ -83,7 +83,7 @@ namespace nla {
 
     nlsat::anum_manager& solver::am() { return m_core->m_nra.am(); }
 
-    nlsat::anum const& solver::am_value(lp::var_index v) const {
+    nlsat::anum const& solver::am_value(lp::lpvar v) const {
         SASSERT(use_nra_model());
         return m_core->m_nra.value(v);
     }

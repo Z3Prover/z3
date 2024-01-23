@@ -53,9 +53,8 @@ inline std::ostream& operator<<(std::ostream& out, column_type const& t) {
 }
 
 enum class simplex_strategy_enum {
-    undecided = 3,
-    tableau_rows = 0,
-    tableau_costs = 1
+    tableau_rows,
+    tableau_costs
 };
 
 std::string column_type_to_string(column_type t);

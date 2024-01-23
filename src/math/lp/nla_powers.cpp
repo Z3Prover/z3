@@ -80,12 +80,12 @@ namespace nla {
     
     lbool powers::check(lpvar r, lpvar x, lpvar y, vector<lemma>& lemmas) {
         TRACE("nla", tout << r << " == " << x << "^" << y << "\n");
+        core& c = m_core;        
         if (x == null_lpvar || y == null_lpvar || r == null_lpvar)
             return l_undef;
-        if (lp::tv::is_term(x) || lp::tv::is_term(y) || lp::tv::is_term(r))
+        if (c.lra.column_has_term(x) || c.lra.column_has_term(y) || c.lra.column_has_term(r))
             return l_undef;
 
-        core& c = m_core;        
         if (c.use_nra_model()) 
             return l_undef;
 
