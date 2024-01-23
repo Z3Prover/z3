@@ -1251,6 +1251,9 @@ namespace arith {
             for (literal c : m_core) tout << c << ": " << literal2expr(c) << "\n";
             for (auto p : m_eqs) tout << ctx.bpp(p.first) << " == " << ctx.bpp(p.second) << "\n";);
 
+        if (ctx.get_config().m_arith_validate)
+            VERIFY(validate_conflict());
+
         if (is_conflict) {
             DEBUG_CODE(
                 for (literal c : m_core) VERIFY(s().value(c) == l_true);

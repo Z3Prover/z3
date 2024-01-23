@@ -483,6 +483,7 @@ namespace arith {
         arith_proof_hint const* explain_conflict(hint_type ty, sat::literal_vector const& core, euf::enode_pair_vector const& eqs);
         void explain_assumptions(lp::explanation const& e);
 
+        bool validate_conflict();
 
     public:
         solver(euf::solver& ctx, theory_id id);

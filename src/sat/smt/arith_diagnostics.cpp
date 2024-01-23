@@ -15,6 +15,8 @@ Author:
 
 --*/
 
+#include "util/cancel_eh.h"
+#include "util/scoped_timer.h"
 #include "ast/ast_util.h"
 #include "ast/scoped_proof.h"
 #include "sat/smt/euf_solver.h"
@@ -241,5 +243,22 @@ namespace arith {
         }
 
         return m.mk_app(symbol(name), args.size(), args.data(), m.mk_proof_sort());
+    }
+
+    bool solver::validate_conflict() {
+        scoped_ptr<::solver> vs = mk_smt2_solver(m, ctx.s().params(), symbol::null);
+        for (auto lit : m_core)
+            vs->assert_expr(ctx.literal2expr(lit));
+
+        for (auto [a, b] : m_eqs)
+            vs->assert_expr(m.mk_eq(a->get_expr(), b->get_expr()));
+
+        cancel_eh<reslimit> eh(m.limit());
+        scoped_timer timer(1000, &eh);
+        bool result = l_true != vs->check_sat();
+        CTRACE("arith", !result, vs->display(tout));
+        CTRACE("arith", !result, s().display(tout));
+        SASSERT(result);
+        return result;
     }
 }

@@ -472,7 +472,7 @@ namespace arith {
         bool _has_var = has_var(t);
         mk_enode(t);
         theory_var v = mk_evar(t);
-
+                                      
         if (!_has_var) {
             svector<lpvar> vars;
             for (expr* n : *t) {
