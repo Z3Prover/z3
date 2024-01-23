@@ -810,14 +810,19 @@ namespace nlsat {
         void check_lemma(unsigned n, literal const* cls, bool is_valid, assumption_set a) {
             TRACE("nlsat", display(tout << "check lemma: ", n, cls) << "\n";
                   display(tout););
-            IF_VERBOSE(0, display(verbose_stream() << "check lemma: ", n, cls) << "\n");
+            IF_VERBOSE(0, display(verbose_stream() << "check lemma " << (is_valid?"valid: ":"consequence: "), n, cls) << "\n");
             for (clause* c : m_learned) IF_VERBOSE(1, display(verbose_stream() << "lemma: ", *c) << "\n"); 
-            
-            solver solver2(m_ctx);
+            scoped_suspend_rlimit _limit(m_rlimit);
+            ctx c(m_rlimit, m_ctx.m_params, m_ctx.m_incremental);
+            solver solver2(c);
             imp& checker = *(solver2.m_imp);
             checker.m_check_lemmas = false;
             checker.m_log_lemmas = false;
             checker.m_inline_vars = false;
+
+            auto pconvert = [&](poly* p) {
+                return convert(m_pm, p, checker.m_pm);
+            };
 
             // need to translate Boolean variables and literals
             scoped_bool_vars tr(checker);
@@ -834,10 +839,10 @@ namespace nlsat {
                 else if (a->is_ineq_atom()) {
                     ineq_atom& ia = *to_ineq_atom(a);
                     unsigned sz = ia.size();
-                    ptr_vector<poly> ps;
+                    polynomial_ref_vector ps(checker.m_pm);
                     bool_vector is_even;
                     for (unsigned i = 0; i < sz; ++i) {
-                        ps.push_back(ia.p(i));
+                        ps.push_back(pconvert(ia.p(i)));
                         is_even.push_back(ia.is_even(i));
                     }
                     bv = checker.mk_ineq_atom(ia.get_kind(), sz, ps.data(), is_even.data());
@@ -847,7 +852,7 @@ namespace nlsat {
                     if (r.x() >= max_var(r.p())) {
                         // permutation may be reverted after check completes, 
                         // but then root atoms are not used in lemmas.
-                        bv = checker.mk_root_atom(r.get_kind(), r.x(), r.i(), r.p());
+                        bv = checker.mk_root_atom(r.get_kind(), r.x(), r.i(), pconvert(r.p()));
                     }
                 }
                 else {
@@ -872,7 +877,6 @@ namespace nlsat {
                 literal nlit(tr[lit.var()], !lit.sign());
                 checker.mk_clause(1, &nlit, nullptr);
             }
-            IF_VERBOSE(0, verbose_stream() << "check\n";);
             lbool r = checker.check();
             if (r == l_true) {
                 for (bool_var b : tr) {
@@ -902,15 +906,21 @@ namespace nlsat {
                         TRACE("nlsat", display(tout << "violdated tautology clause: ", *c) << "\n";);
                     }                    
                 }
+                throw default_exception("lemma did not check");
                 UNREACHABLE();
             }
         }
 
         void log_lemma(std::ostream& out, clause const& cls) {
-            display_smt2(out);
+            log_lemma(out, cls.size(), cls.data(), false);
+        }
+
+        void log_lemma(std::ostream& out, unsigned n, literal const* cls, bool is_valid) {
+            if (!is_valid)
+                display_smt2(out);
             out << "(assert (not ";
-            display_smt2(out, cls) << "))\n";
-            display(out << "(echo \"#" << m_lemma_count << " ", cls) << "\")\n";
+            display_smt2(out, n, cls) << "))\n";
+            display(out << "(echo \"#" << m_lemma_count << " ", n, cls) << "\")\n";
             out << "(check-sat)\n(reset)\n";
         }
 
@@ -935,7 +945,7 @@ namespace nlsat {
             if (learned && m_log_lemmas) {
                 log_lemma(verbose_stream(), *cls);
             }
-            if (learned && m_check_lemmas) {
+            if (learned && m_check_lemmas && false) {
                 check_lemma(cls->size(), cls->data(), false, cls->assumptions());
             }
             if (learned)
@@ -1634,7 +1644,7 @@ namespace nlsat {
                 restore_order();
             }
             CTRACE("nlsat_model", r == l_true, tout << "model\n"; display_assignment(tout););
-            CTRACE("nlsat", r == l_false, display(tout););
+            CTRACE("nlsat", r == l_false, display(tout << "unsat\n"););
             SASSERT(r != l_true || check_satisfied(m_clauses));
             return r;
         }
@@ -1838,6 +1848,8 @@ namespace nlsat {
                   display(tout, m_lazy_clause.size(), m_lazy_clause.data()) << "\n";);
 
             if (m_check_lemmas) {
+                check_lemma(m_lazy_clause.size(), m_lazy_clause.data(), true, nullptr);
+                log_lemma(verbose_stream(), m_lazy_clause.size(), m_lazy_clause.data(), true);
                 m_valids.push_back(mk_clause_core(m_lazy_clause.size(), m_lazy_clause.data(), false, nullptr));
             }
             
@@ -2076,7 +2088,7 @@ namespace nlsat {
             TRACE("nlsat", tout << "new lemma:\n"; display(tout, m_lemma.size(), m_lemma.data()); tout << "\n";
                   tout << "found_decision: " << found_decision << "\n";);
             
-            if (false && m_check_lemmas) {
+            if (m_check_lemmas) {
                 check_lemma(m_lemma.size(), m_lemma.data(), false, m_lemma_assumptions.get());
             }
     
@@ -2371,13 +2383,9 @@ namespace nlsat {
         }
 
         bool can_reorder() const {
-            for (clause* c : m_learned) {
-                if (has_root_atom(*c)) return false;
-            }
-            for (clause* c : m_clauses) {
-                if (has_root_atom(*c)) return false;
-            }
-            return m_patch_var.empty();
+            return m_patch_var.empty() 
+                && all_of(m_learned, [&](clause* c) { return !has_root_atom(*c); }) 
+                && all_of(m_clauses, [&](clause* c) { return !has_root_atom(*c); });
         }
 
         /**
@@ -2900,7 +2908,8 @@ namespace nlsat {
             var mx = max_var(p0);
             if (mx >= m_is_int.size()) return false;
             for (var x = 0; x <= mx; ++x) {
-                if (m_is_int[x]) continue;
+                if (is_int(x)) 
+                    continue;
                 if (1 == m_pm.degree(p0, x)) {                    
                     p = m_pm.coeff(p0, x, 1, q);
                     if (!m_pm.is_const(p))
@@ -2944,10 +2953,10 @@ namespace nlsat {
             unsigned sz = m_atoms.size();
             for (bool_var b = 0; b < sz; b++) {
                 if (m_atoms[b] == nullptr && m_bvalues[b] != l_undef) {
-                    out << "b" << b << " -> " << (m_bvalues[b] == l_true ? "true" : "false") << "\n";
+                    out << "b" << b << " -> " << (m_bvalues[b] == l_true ? "true" : "false") << " @" << m_levels[b] << "\n";
                 }
                 else if (m_atoms[b] != nullptr && m_bvalues[b] != l_undef) {
-                    display(out << "b" << b << " ", *m_atoms[b]) << " -> " << (m_bvalues[b] == l_true ? "true" : "false") << "\n";
+                    display(out << "b" << b << " ", *m_atoms[b]) << " -> " << (m_bvalues[b] == l_true ? "true" : "false") << " @" << m_levels[b] << "\n";
                 }
             }
             TRACE("nlsat_bool_assignment",
@@ -3330,6 +3339,12 @@ namespace nlsat {
             return display(out, c, m_display_var);
         }
 
+
+        std::ostream& display_smt2(std::ostream & out, unsigned n, literal const* ls) const {
+            return display_smt2(out, n, ls, display_var_proc());
+        }
+
+
         std::ostream& display_smt2(std::ostream & out, unsigned num, literal const * ls, display_var_proc const & proc) const {
             if (num == 0) {
                 out << "false";
@@ -3486,7 +3501,7 @@ namespace nlsat {
         std::ostream& display_smt2_arith_decls(std::ostream & out) const {
             unsigned sz = m_is_int.size();
             for (unsigned i = 0; i < sz; i++) {
-                if (m_is_int[i])
+                if (is_int(i))
                     out << "(declare-fun x" << i << " () Int)\n";
                 else
                     out << "(declare-fun x" << i << " () Real)\n";

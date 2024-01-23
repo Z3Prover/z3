@@ -158,6 +158,8 @@ struct solver::imp {
         for (unsigned i : m_term_set)
             add_term(i);
 
+        TRACE("nra", m_nlsat->display(tout));
+
         lbool r = l_undef;
         try {
             r = m_nlsat->check();
@@ -200,7 +202,7 @@ struct solver::imp {
             for (auto c : core) {
                 unsigned idx = static_cast<unsigned>(static_cast<imp*>(c) - this);
                 ex.push_back(idx);
-                TRACE("arith", tout << "ex: " << idx << "\n";);
+                TRACE("nra", lra.display_constraint(tout << "ex: " << idx << ": ", idx) << "\n";);
             }
             nla::new_lemma lemma(m_nla_core, __FUNCTION__);
             lemma &= ex;

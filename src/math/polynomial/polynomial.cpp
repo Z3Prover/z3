@@ -1285,10 +1285,7 @@ namespace polynomial {
                 }
             });
             monomial_table new_table;
-            monomial_table::iterator it  = m_monomials.begin();
-            monomial_table::iterator end = m_monomials.end();
-            for (; it != end; ++it) {
-                monomial * m = *it;
+            for (monomial * m : m_monomials) {
                 m->rename(sz, xs);
                 SASSERT(!new_table.contains(m));
                 new_table.insert(m);
