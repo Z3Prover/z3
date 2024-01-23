@@ -114,10 +114,10 @@ namespace nlsat {
         unsigned_vector        m_levels;       // bool_var -> level
         svector<justification> m_justifications;
         vector<clause_vector>  m_bwatches;     // bool_var (that are not attached to atoms) -> clauses where it is maximal
-        bool_vector          m_dead;         // mark dead boolean variables
+        bool_vector            m_dead;         // mark dead boolean variables
         id_gen                 m_bid_gen;
 
-        bool_vector          m_is_int;     // m_is_int[x] is true if variable is integer
+        bool_vector            m_is_int;     // m_is_int[x] is true if variable is integer
         vector<clause_vector>  m_watches;    // var -> clauses where variable is maximal
         interval_set_vector    m_infeasible; // var -> to a set of interval where the variable cannot be assigned to.
         atom_vector            m_var2eq;     // var -> to asserted equality
@@ -810,7 +810,7 @@ namespace nlsat {
         void check_lemma(unsigned n, literal const* cls, bool is_valid, assumption_set a) {
             TRACE("nlsat", display(tout << "check lemma: ", n, cls) << "\n";
                   display(tout););
-            IF_VERBOSE(0, display(verbose_stream() << "check lemma " << (is_valid?"valid: ":"consequence: "), n, cls) << "\n");
+            IF_VERBOSE(2, display(verbose_stream() << "check lemma " << (is_valid?"valid: ":"consequence: "), n, cls) << "\n");
             for (clause* c : m_learned) IF_VERBOSE(1, display(verbose_stream() << "lemma: ", *c) << "\n"); 
             scoped_suspend_rlimit _limit(m_rlimit);
             ctx c(m_rlimit, m_ctx.m_params, m_ctx.m_incremental);
@@ -916,10 +916,13 @@ namespace nlsat {
         }
 
         void log_lemma(std::ostream& out, unsigned n, literal const* cls, bool is_valid) {
-            if (!is_valid)
-                display_smt2(out);
-            out << "(assert (not ";
-            display_smt2(out, n, cls) << "))\n";
+            if (is_valid) {
+                display_smt2_bool_decls(out);
+                display_smt2_arith_decls(out);
+            }
+            else             
+                display_smt2(out);            
+            display_smt2(out << "(assert (not ", n, cls) << "))\n";
             display(out << "(echo \"#" << m_lemma_count << " ", n, cls) << "\")\n";
             out << "(check-sat)\n(reset)\n";
         }
@@ -1144,7 +1147,7 @@ namespace nlsat {
            \brief Assign literal using the given justification
          */
         void assign(literal l, justification j) {
-            TRACE("nlsat", 
+            TRACE("nlsat_assign", 
                   display(tout << "assigning literal: ", l); 
                   display(tout << " <- ", j););
 
@@ -1264,7 +1267,9 @@ namespace nlsat {
             m_ism.get_justifications(s, core, clauses);
             if (include_l) 
                 core.push_back(~l);
-            assign(l, mk_lazy_jst(m_allocator, core.size(), core.data(), clauses.size(), clauses.data()));
+            auto j = mk_lazy_jst(m_allocator, core.size(), core.data(), clauses.size(), clauses.data());
+            TRACE("nlsat_resolve", display(tout, j); display_eval(tout, j));
+            assign(l, j);
             SASSERT(value(l) == l_true);
         }
         
@@ -1815,7 +1820,7 @@ namespace nlsat {
         }
 
         void resolve_clause(bool_var b, clause const & c) {
-            TRACE("nlsat_resolve", tout << "resolving clause for b: " << b << "\n"; display(tout, c) << "\n";);
+            TRACE("nlsat_resolve", tout << "resolving clause "; if (b != null_bool_var) tout << "for b: " << b << "\n"; display(tout, c) << "\n";);
             resolve_clause(b, c.size(), c.data());
             m_lemma_assumptions = m_asm.mk_join(static_cast<_assumption_set>(c.assumptions()), m_lemma_assumptions);
         }
@@ -3012,8 +3017,14 @@ namespace nlsat {
             }
             return out;
         }
+
+        bool m_display_eval = false;
+        std::ostream& display_eval(std::ostream& out, justification j) {
+            flet<bool> _display(m_display_eval, true);
+            return display(out, j);
+        }
        
-        std::ostream& display(std::ostream & out, ineq_atom const & a, display_var_proc const & proc, bool use_star = false) const {
+        std::ostream& display_ineq(std::ostream & out, ineq_atom const & a, display_var_proc const & proc, bool use_star = false) const {
             unsigned sz = a.size();
             for (unsigned i = 0; i < sz; i++) {
                 if (use_star && i > 0)
@@ -3021,7 +3032,7 @@ namespace nlsat {
                 bool is_even = a.is_even(i);
                 if (is_even || sz > 1)
                     out << "(";
-                m_pm.display(out, a.p(i), proc, use_star);
+                display_polynomial(out, a.p(i), proc, use_star);
                 if (is_even || sz > 1)
                     out << ")";
                 if (is_even)
@@ -3061,7 +3072,7 @@ namespace nlsat {
             return out;
         }
 
-        std::ostream& display_smt2(std::ostream & out, ineq_atom const & a, display_var_proc const & proc) const {
+        std::ostream& display_ineq_smt2(std::ostream & out, ineq_atom const & a, display_var_proc const & proc) const {
             switch (a.get_kind()) {
             case atom::LT: out << "(< "; break;
             case atom::GT: out << "(> "; break;
@@ -3090,15 +3101,29 @@ namespace nlsat {
             return out;
         }
 
+
+        std::ostream& display_binary_smt2(std::ostream& out,  poly const* p1, char const* rel, poly const* p2, display_var_proc const& proc) const {
+            out << "(" << rel << " ";
+            m_pm.display_smt2(out, p1, proc);
+            out << " ";
+            m_pm.display_smt2(out, p2, proc);
+            out << ")";
+            return out;
+        }
+        
         
         std::ostream& display_linear_root_smt2(std::ostream & out, root_atom const & a, display_var_proc const & proc) const {
-            polynomial_ref A(m_pm), B(m_pm);
-            polynomial::scoped_numeral one(m_qm);
-            m_pm.m().set(one, 1);
+            polynomial_ref A(m_pm), B(m_pm), Z(m_pm), Ax(m_pm);
+            polynomial::scoped_numeral zero(m_qm);
+            m_pm.m().set(zero, 0);
             A = m_pm.derivative(a.p(), a.x());
-            B = m_pm.substitute(a.p(), a.x(), one);
+            B = m_pm.neg(m_pm.substitute(a.p(), a.x(), zero));
+            Z = m_pm.mk_zero();
 
-            // x < root[1](ax + b) == (a > 0 => ax < b) & (a < 0 => ax > b)
+            Ax = m_pm.mul(m_pm.mk_polynomial(a.x()), A);
+
+            // x < root[1](ax + b) == (a > 0 => ax + b < 0) & (a < 0 => ax + b > 0)
+            // x < root[1](ax + b) == (a > 0 => ax < -b) & (a < 0 => ax > -b)
 
             char const* rel1 = "<", *rel2 = ">";
             switch (a.get_kind()) {
@@ -3111,21 +3136,22 @@ namespace nlsat {
             }
             
             out << "(and ";
-            out << "(=> (> "; m_pm.display_smt2(out, A, proc); out << " 0) ";
-            out << "(" << rel1 << " (* "; proc(out, a.x()); out << " "; m_pm.display_smt2(out, A, proc); out << " "; m_pm.display_smt2(out, B, proc); out << ")) ";
-            out << "(=> (< "; m_pm.display_smt2(out, A, proc); out << " 0) ";
-            out << "(" << rel2 << " (* "; proc(out, a.x()); out << " "; m_pm.display_smt2(out, A, proc); out << " "; m_pm.display_smt2(out, B, proc); out << ")) "; 
+            out << "(=> ";  display_binary_smt2(out, A, ">", Z, proc); display_binary_smt2(out, Ax, rel1, B, proc); out << ") ";
+            out << "(=> ";  display_binary_smt2(out, A, "<", Z, proc); display_binary_smt2(out, Ax, rel2, B, proc); out << ") ";
             out << ")";
             
             return out;
         }
 
 
-        std::ostream& display_smt2(std::ostream & out, root_atom const & a, display_var_proc const & proc) const {
-#if 0
+        std::ostream& display_root_smt2(std::ostream& out, root_atom const& a, display_var_proc const& proc) const {
             if (a.i() == 1 && m_pm.degree(a.p(), a.x()) == 1)
                 return display_linear_root_smt2(out, a, proc);
-#endif
+            else
+                return display_root(out, a, proc);
+        }
+
+        std::ostream& display_root(std::ostream & out, root_atom const & a, display_var_proc const & proc) const {
             proc(out, a.x());
             switch (a.get_kind()) {
             case atom::ROOT_LT: out << " < "; break;
@@ -3136,7 +3162,7 @@ namespace nlsat {
             default: UNREACHABLE(); break;
             }
             out << "root[" << a.i() << "](";
-            m_pm.display(out, a.p(), proc);
+            display_polynomial(out, a.p(), proc);
             out << ")";
             return out;
         }
@@ -3164,21 +3190,16 @@ namespace nlsat {
             default: UNREACHABLE(); break;
             }
             out << "Root[";
-            m_pm.display(out, a.p(), mathematica_var_proc(a.x()), true);
+            display_polynomial(out, a.p(), mathematica_var_proc(a.x()), true);
             out << " &, " << a.i() << "]";
-            return out;
-        }
-
-        std::ostream& display_smt2(std::ostream & out, root_atom const & a) const {
-            NOT_IMPLEMENTED_YET();
             return out;
         }
         
         std::ostream& display(std::ostream & out, atom const & a, display_var_proc const & proc) const {
             if (a.is_ineq_atom())
-                return display(out, static_cast<ineq_atom const &>(a), proc);
+                return display_ineq(out, static_cast<ineq_atom const &>(a), proc);
             else
-                return display(out, static_cast<root_atom const &>(a), proc);
+                return display_root(out, static_cast<root_atom const &>(a), proc);
         }
 
         std::ostream& display(std::ostream & out, atom const & a) const {
@@ -3194,9 +3215,9 @@ namespace nlsat {
 
         std::ostream& display_smt2(std::ostream & out, atom const & a, display_var_proc const & proc) const {
             if (a.is_ineq_atom())
-                return display_smt2(out, static_cast<ineq_atom const &>(a), proc);
+                return display_ineq_smt2(out, static_cast<ineq_atom const &>(a), proc);
             else
-                return display_smt2(out, static_cast<root_atom const &>(a), proc);
+                return display_root_smt2(out, static_cast<root_atom const &>(a), proc);
         }
 
         std::ostream& display_atom(std::ostream & out, bool_var b, display_var_proc const & proc) const {
@@ -3339,6 +3360,28 @@ namespace nlsat {
             return display(out, c, m_display_var);
         }
 
+
+        std::ostream& display_polynomial(std::ostream& out, poly* p, display_var_proc const & proc, bool use_star = false) const {
+            if (m_display_eval) {
+                polynomial_ref q(m_pm);
+                q = p;
+                for (var x = 0; x < num_vars(); x++) 
+                    if (m_assignment.is_assigned(x)) {
+                        auto& a = m_assignment.value(x);
+                        if (!m_am.is_rational(a))
+                            continue;
+                        mpq r;
+                        m_am.to_rational(a, r);
+                        q = m_pm.substitute(q, 1, &x, &r);            
+                    }
+                m_pm.display(out, q, proc, use_star);
+            }
+            else 
+                m_pm.display(out, p, proc, use_star);
+            return out;
+        }
+
+        // --
 
         std::ostream& display_smt2(std::ostream & out, unsigned n, literal const* ls) const {
             return display_smt2(out, n, ls, display_var_proc());

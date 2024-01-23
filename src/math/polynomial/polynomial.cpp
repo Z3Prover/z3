@@ -1583,9 +1583,7 @@ namespace polynomial {
                     m_i->display_smt2(out, proc);
                 }
                 else {
-                    out << "(* ";
                     m_i->display_smt2(out, proc);
-                    out << ")";
                 }
             }
             else {
