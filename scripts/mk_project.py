@@ -8,7 +8,7 @@
 from mk_util import *
 
 def init_version():
-    set_version(4, 12, 5, 0) # express a default build version or pick up ci build version
+    set_version(4, 12, 6, 0) # express a default build version or pick up ci build version
     
 # Z3 Project definition
 def init_project_def():
