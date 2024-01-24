@@ -1556,7 +1556,7 @@ namespace lp {
         register_new_external_var(ext_index, term_is_int(term));
         // j will be a new variable
         unsigned j = A_r().column_count();
-        SASSERT(external_to_local(ext_index) == j);
+        SASSERT(ext_index == null_lpvar || external_to_local(ext_index) == j);
         column ul(j, true, term); // true - to mark this column as associated_with_row
         term->j() = j; // point from the term to the column
         m_columns.push_back(ul);
