@@ -138,15 +138,6 @@ namespace lp {
         return false;
     }
 
-    // Returns the column index without changes,
-    // but in the case the column was created as
-    // the slack variable to a term return the term index.
-    // It is the same index that was returned by add_var(), or
-    // by add_term()
-    unsigned lar_solver::column_to_reported_index(unsigned j) const {
-        return m_var_register.local_to_external(j);
-    }
-
     lp_status lar_solver::get_status() const { return m_status; }
 
     void lar_solver::set_status(lp_status s) {
@@ -1642,7 +1633,7 @@ namespace lp {
         // SASSERT(column_is_fixed(k));
         if (j != k && column_is_fixed(k)) {
             SASSERT(column_is_int(j) == column_is_int(k));
-            equal_to_j = column_to_reported_index(k);
+            equal_to_j = k;
             TRACE("lar_solver", tout << "found equal column k = " << k <<
                 ", external = " << equal_to_j << "\n";);
         }

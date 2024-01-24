@@ -516,7 +516,6 @@ public:
     bool column_is_fixed(unsigned j) const;
     bool column_is_free(unsigned j) const;
     bool column_is_feasible(unsigned j) const { return m_mpq_lar_core_solver.m_r_solver.column_is_feasible(j);}
-    unsigned column_to_reported_index(unsigned j) const;
     lp_settings& settings();
     lp_settings const& settings() const;
     statistics& stats();
