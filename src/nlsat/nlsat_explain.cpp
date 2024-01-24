@@ -1439,7 +1439,7 @@ namespace nlsat {
                 literal l = core[i];
                 atom * a  = m_atoms[l.var()];
                 SASSERT(a != 0);
-                interval_set_ref inf = m_evaluator.infeasible_intervals(a, m_solver.is_int(a->max_var()), l.sign(), nullptr);
+                interval_set_ref inf = m_evaluator.infeasible_intervals(a, l.sign(), nullptr);
                 r = ism.mk_union(inf, r);
                 if (ism.is_full(r)) {
                     // Done
@@ -1458,7 +1458,7 @@ namespace nlsat {
                 literal l = todo[i];
                 atom * a  = m_atoms[l.var()];
                 SASSERT(a != 0);
-                interval_set_ref inf = m_evaluator.infeasible_intervals(a, m_solver.is_int(a->max_var()), l.sign(), nullptr);
+                interval_set_ref inf = m_evaluator.infeasible_intervals(a, l.sign(), nullptr);
                 r = ism.mk_union(inf, r);
                 if (ism.is_full(r)) {
                     // literal l must be in the core

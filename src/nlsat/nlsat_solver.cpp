@@ -827,7 +827,7 @@ namespace nlsat {
             // need to translate Boolean variables and literals
             scoped_bool_vars tr(checker);
             for (var x = 0; x < m_is_int.size(); ++x) {
-                checker.register_var(x, m_is_int[x]);
+                checker.register_var(x, is_int(x));
             }
             bool_var bv = 0;
             tr.push_back(bv);
@@ -1357,7 +1357,7 @@ namespace nlsat {
                 atom * a   = m_atoms[b];
                 SASSERT(a != nullptr);
                 interval_set_ref curr_set(m_ism);
-                curr_set = m_evaluator.infeasible_intervals(a, is_int(m_xk), l.sign(), &cls);
+                curr_set = m_evaluator.infeasible_intervals(a, l.sign(), &cls);
                 TRACE("nlsat_inf_set", tout << "infeasible set for literal: "; display(tout, l); tout << "\n"; m_ism.display(tout, curr_set); tout << "\n";
                       display(tout, cls) << "\n";); 
                 if (m_ism.is_empty(curr_set)) {
@@ -1470,7 +1470,7 @@ namespace nlsat {
         void select_witness() {
             scoped_anum w(m_am);
             SASSERT(!m_ism.is_full(m_infeasible[m_xk]));
-            m_ism.peek_in_complement(m_infeasible[m_xk], m_is_int[m_xk], w, m_randomize);
+            m_ism.peek_in_complement(m_infeasible[m_xk], is_int(m_xk), w, m_randomize);
             TRACE("nlsat", 
                   tout << "infeasible intervals: "; m_ism.display(tout, m_infeasible[m_xk]); tout << "\n";
                   tout << "assigning "; m_display_var(tout, m_xk) << "(x" << m_xk << ") -> " << w << "\n";);
@@ -1576,7 +1576,7 @@ namespace nlsat {
                 vector<std::pair<var, rational>> bounds;                
 
                 for (var x = 0; x < num_vars(); x++) {
-                    if (m_is_int[x] && m_assignment.is_assigned(x) && !m_am.is_int(m_assignment.value(x))) {
+                    if (is_int(x) && m_assignment.is_assigned(x) && !m_am.is_int(m_assignment.value(x))) {
                         scoped_anum v(m_am), vlo(m_am);
                         v = m_assignment.value(x);
                         rational lo;
