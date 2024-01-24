@@ -63,14 +63,6 @@ namespace arith {
                 auto w = s.lp().local_to_external(t2);
                 val += to_numeral(arg.coeff()) * m_vars[w].m_best_value;
             }
-            // if (v == 52) {
-            //     verbose_stream() << "update v" << v << " := " << val << "\n";
-            //     for (lp::lar_term::ival const& arg : term) {
-            //         auto t2 = s.lp().column2tv(arg.column());
-            //         auto w = s.lp().local_to_external(t2.id());
-            //         verbose_stream() << "v" << w << " := " << m_vars[w].m_best_value << " * " << to_numeral(arg.coeff()) << "\n";
-            //     }
-            // }
             m_vars[v].m_best_value = val;
         }
 
