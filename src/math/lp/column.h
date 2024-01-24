@@ -50,7 +50,6 @@ class column {
 public:
     lar_term*  term() const { return m_term; }
     lar_term*& term() { return m_term; } // for setting m_term
-    lpvar      j() const { return m_j; } //the column index
 
     u_dependency*& lower_bound_witness() { return m_lower_bound_witness; }
     u_dependency* lower_bound_witness() const { return m_lower_bound_witness; }
@@ -73,8 +72,8 @@ public:
     column(bool) = delete;
 
     
-    column(lpvar j, bool associated_with_row, lar_term* term) :
-        m_associated_with_row(associated_with_row), m_j(j), m_term(term) {}
+    column(bool associated_with_row, lar_term* term) :
+        m_associated_with_row(associated_with_row), m_term(term) {}
 
     bool associated_with_row() const { return m_associated_with_row; }
 };

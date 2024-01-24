@@ -1421,7 +1421,7 @@ namespace lp {
             return local_j;
         lp_assert(m_columns.size() == A_r().column_count());
         local_j = A_r().column_count();
-        m_columns.push_back(column(local_j, false, nullptr)); // false - not associated with a row, nullptr for term
+        m_columns.push_back(column(false, nullptr)); // false - not associated with a row, nullptr for term
         m_trail.push(undo_add_column(*this));
         while (m_usage_in_terms.size() <= ext_j) 
             m_usage_in_terms.push_back(0);
@@ -1548,7 +1548,7 @@ namespace lp {
         // j will be a new variable
         unsigned j = A_r().column_count();
         SASSERT(ext_index == null_lpvar || external_to_local(ext_index) == j);
-        column ul(j, true, term); // true - to mark this column as associated_with_row
+        column ul(true, term); // true - to mark this column as associated_with_row
         term->j() = j; // point from the term to the column
         m_columns.push_back(ul);
         m_trail.push(undo_add_column(*this));
