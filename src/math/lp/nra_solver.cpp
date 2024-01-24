@@ -98,7 +98,7 @@ struct solver::imp {
                 todo.push_back(w);
 
             for (auto ti : var2occurs[v].terms) {
-                for (auto iv : lra.term(ti))
+                for (auto iv : lra.get_term(ti))
                     todo.push_back(iv.j());
                 todo.push_back(ti);
             }

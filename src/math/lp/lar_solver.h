@@ -611,7 +611,7 @@ public:
         return false;
     }
     inline const vector<lar_term*>& terms() const { return m_terms; }
-    inline lar_term const& term(unsigned i) const { return *m_terms[i]; }
+    
     inline void set_int_solver(int_solver* int_slv) { m_int_solver = int_slv; }
     inline int_solver* get_int_solver() { return m_int_solver; }
     inline const int_solver* get_int_solver() const { return m_int_solver; }
