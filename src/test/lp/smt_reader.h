@@ -383,7 +383,7 @@ namespace lp {
         }
         
         void add_constraint_to_solver(lar_solver * solver, formula_constraint & fc, unsigned i) {
-            vector<std::pair<mpq, var_index>> ls;
+            vector<std::pair<mpq, lpvar>> ls;
             for (auto & it : fc.m_coeffs) {
                 ls.push_back(std::make_pair(it.first, solver->add_var(register_name(it.second), false)));
             }
