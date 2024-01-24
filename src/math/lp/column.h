@@ -49,8 +49,7 @@ class column {
     lar_term*     m_term = nullptr;
 public:
     lar_term*  term() const { return m_term; }
-    lar_term*& term() { return m_term; } // for setting m_term
-
+ 
     u_dependency*& lower_bound_witness() { return m_lower_bound_witness; }
     u_dependency* lower_bound_witness() const { return m_lower_bound_witness; }
     u_dependency*& upper_bound_witness() { return m_upper_bound_witness; }
