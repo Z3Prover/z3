@@ -303,6 +303,8 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
     m.method("xnor", &xnor);
     m.method("min", &min);
     m.method("max", &max);
+    m.method("exists", static_cast<expr (*)(expr_vector const &, expr const &)>(&exists));
+    m.method("forall", static_cast<expr (*)(expr_vector const &, expr const &)>(&forall));
     m.method("abs", static_cast<expr (*)(expr const &)>(&abs));
     m.method("sqrt", static_cast<expr (*)(expr const &, expr const &)>(&sqrt));
     m.method("fma", static_cast<expr (*)(expr const &, expr const &, expr const &, expr const &)>(&fma));
