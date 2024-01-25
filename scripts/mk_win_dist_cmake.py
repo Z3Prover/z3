@@ -190,6 +190,8 @@ def mk_build_dir(arch):
         if JAVA_ENABLED:
             cmd.append(' -DZ3_BUILD_JAVA_BINDINGS=ON')
             cmd.append(' -DZ3_INSTALL_JAVA_BINDINGS=ON')
+            cmd.append(' -DZ3_JAVA_JAR_INSTALLDIR=java')
+            cmd.append(' -DZ3_JAVA_JNI_LIB_INSTALLDIR=java')
         if PYTHON_ENABLED:
             cmd.append(' -DZ3_BUILD_PYTHON_BINDINGS=ON')
             cmd.append(' -DZ3_INSTALL_PYTHON_BINDINGS=ON')
@@ -252,11 +254,11 @@ def mk_z3(arch):
     if arch == "arm64":
         arch = "x64_arm64"
     cmds = []
-    cmds.append('call "%VCINSTALLDIR%Auxiliary\\build\\vcvarsall.bat" ' + arch + ' ')
+    cmds.append('call "%VCINSTALLDIR%Auxiliary\\build\\vcvarsall.bat" ' + arch)
     cmds.append('cd %s' % build_dir)
     cmds.append('nmake install')
     if exec_cmds(cmds) != 0:
-        raise MKException("Failed to make z3, x64: %s" % x64)
+        raise MKException("Failed to make z3"))
 
 def mk_z3s():
     global ARCHS
