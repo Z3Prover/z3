@@ -135,7 +135,6 @@ public:
     
     rational value(const lp::lar_term& r) const;
     
-    lp::lar_term subs_terms_to_columns(const lp::lar_term& t) const;
     bool ineq_holds(const ineq& n) const;
     bool lemma_holds(const lemma& l) const;
     bool is_monic_var(lpvar j) const { return m_emons.is_monic_var(j); }
@@ -284,10 +283,10 @@ public:
     }
     const rational& get_upper_bound(unsigned j) const;
     const rational& get_lower_bound(unsigned j) const;    
-    bool has_lower_bound(lp::var_index var, u_dependency*& ci, lp::mpq& value, bool& is_strict) const { 
+    bool has_lower_bound(lp::lpvar var, u_dependency*& ci, lp::mpq& value, bool& is_strict) const { 
         return lra.has_lower_bound(var, ci, value, is_strict); 
     }
-    bool has_upper_bound(lp::var_index var, u_dependency*& ci, lp::mpq& value, bool& is_strict) const {
+    bool has_upper_bound(lp::lpvar var, u_dependency*& ci, lp::mpq& value, bool& is_strict) const {
         return lra.has_upper_bound(var, ci, value, is_strict);
     }
 

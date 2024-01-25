@@ -156,7 +156,7 @@ struct create_cut {
     
     template <typename T>
     void dump_coeff(std::ostream & out, const T& c) const {
-        dump_coeff_val(out << "(* ", c.coeff()) << " " << var_name(c.column().index()) << ")";
+        dump_coeff_val(out << "(* ", c.coeff()) << " " << var_name(c.j()) << ")";
     }
     
     std::ostream& dump_row_coefficients(std::ostream & out) const {
@@ -183,9 +183,8 @@ struct create_cut {
         for (const auto & p : m_row) 
             dump_declaration(out, p.var());
         for (lar_term::ival p : m_t) {
-            auto t = lia.lra.column2tv(p.column());
-            if (t.is_term()) 
-                dump_declaration(out, t.id());            
+            if (lia.lra.column_has_term(p.j()))
+                dump_declaration(out, p.j());            
         }
     }
 
@@ -491,9 +490,8 @@ public:
             return all_of(t, [&](auto ci) { return ci.coeff().is_small(); });
         };
         auto add_cut = [&](const lar_term& t, const mpq& k, u_dependency * dep) {
-            lp::lpvar term_index = lra.add_term(t.coeffs_as_vector(), UINT_MAX);
-            term_index = lra.map_term_index_to_column_index(term_index);
-            lra.update_column_type_and_bound(term_index, lp::lconstraint_kind::GE,  k, dep); 
+            lp::lpvar j = lra.add_term(t.coeffs_as_vector(), UINT_MAX);
+            lra.update_column_type_and_bound(j, lp::lconstraint_kind::GE,  k, dep); 
         };
         auto _check_feasible = [&](void) {
             lra.find_feasible_solution();

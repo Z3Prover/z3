@@ -46,7 +46,7 @@ namespace nla {
         bool use_nra_model() const;
         core& get_core();
         nlsat::anum_manager& am();
-        nlsat::anum const& am_value(lp::var_index v) const;
+        nlsat::anum const& am_value(lp::lpvar v) const;
         scoped_anum& tmp1();
         scoped_anum& tmp2();
         vector<nla::lemma> const& lemmas() const;

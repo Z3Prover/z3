@@ -406,9 +406,8 @@ namespace nla {
                 coeffs.push_back({lc*coeff, m_mon2var.find(vars)->second});
         }                    
 
-        lp::lpvar term_index = c().lra.add_term(coeffs, UINT_MAX);
-        term_index = c().lra.map_term_index_to_column_index(term_index);
-        c().lra.update_column_type_and_bound(term_index, lp::lconstraint_kind::EQ, offset, e.dep());
+        lp::lpvar j = c().lra.add_term(coeffs, UINT_MAX);
+        c().lra.update_column_type_and_bound(j, lp::lconstraint_kind::EQ, offset, e.dep());
         c().m_check_feasible = true; 
         return true;
     }

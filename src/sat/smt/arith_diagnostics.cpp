@@ -45,8 +45,7 @@ namespace arith {
         }
         unsigned nv = get_num_vars();
         for (unsigned v = 0; v < nv; ++v) {
-            auto t = get_tv(v);
-            auto vi = lp().external_to_column_index(v);
+            auto vi = lp().external_to_local(v);
             out << "v" << v << " ";
             if (is_bool(v)) {
                 euf::enode* n = var2enode(v);
@@ -57,10 +56,10 @@ namespace arith {
                 }
             }
             else {
-                if (t.is_null()) 
+                if (vi == lp::null_lpvar) 
                     out << "null"; 
                 else 
-                    out << (t.is_term() ? "t" : "j") << vi;
+                    out << (lp().column_has_term(vi) ? "t" : "j") << vi;
                 if (m_nla && m_nla->use_nra_model() && is_registered_var(v)) {
                     scoped_anum an(m_nla->am());
                     m_nla->am().display(out << " = ", nl_value(v, an));

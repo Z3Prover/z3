@@ -21,15 +21,15 @@ namespace nla {
 
 class mon_eq {
     // fields
-    lp::var_index          m_v;
-    svector<lp::var_index> m_vs;
+    lp::lpvar                 m_v;
+    svector<lp::lpvar> m_vs;
 public:
     // constructors
-    mon_eq(lp::var_index v, unsigned sz, lp::var_index const* vs):
+    mon_eq(lp::lpvar v, unsigned sz, lp::lpvar const* vs):
         m_v(v), m_vs(sz, vs) {
         std::sort(m_vs.begin(), m_vs.end());
     }
-    mon_eq(lp::var_index v, const svector<lp::var_index> &vs):
+    mon_eq(lp::lpvar v, const svector<lp::lpvar> &vs):
         m_v(v), m_vs(vs) {
         std::sort(m_vs.begin(), m_vs.end());
     }
@@ -37,7 +37,7 @@ public:
         
     unsigned var() const { return m_v; }
     unsigned size() const { return m_vs.size(); }
-    const svector<lp::var_index>& vars() const { return m_vs; }
+    const svector<lp::lpvar>& vars() const { return m_vs; }
     bool empty() const { return m_vs.empty(); }
     bool is_sorted() const {
         for (unsigned i = 0; i + 1 < size(); i++)
@@ -49,7 +49,7 @@ public:
         return std::binary_search(m_vs.begin(), m_vs.end(), j);
     }
 protected:
-    svector<lp::var_index>& vars1() { return m_vs; }
+    svector<lp::lpvar>& vars1() { return m_vs; }
 };
 
 // support the congruence    
