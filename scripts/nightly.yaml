@@ -162,7 +162,7 @@ stages:
       inputs:
         script:
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x86 &
-          python scripts\mk_win_dist.py
+          python scripts\mk_win_dist_cmake.py
             --assembly-version=$(AssemblyVersion)
             --x86-only
             --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
@@ -202,7 +202,7 @@ stages:
       inputs:
         script:
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 &
-          python scripts\mk_win_dist.py
+          python scripts\mk_win_dist_cmake.py
             --assembly-version=$(AssemblyVersion)
             --x64-only
             --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
@@ -216,6 +216,46 @@ stages:
       inputs:
         targetPath: $(Build.ArtifactStagingDirectory)
         artifactName: 'Windows64'
+    - task: CopyFiles@2
+      displayName: 'Collect Symbols'
+      inputs:
+        sourceFolder: dist
+        contents: '**/*.pdb'
+        targetFolder: '$(Build.ArtifactStagingDirectory)/symbols'
+    # Publish symbol archive to match nuget package
+    # Index your source code and publish symbols to a file share or Azure Artifacts symbol server
+    - task: PublishSymbols@2
+      inputs:
+        symbolsFolder: '$(Build.ArtifactStagingDirectory)/symbols'
+        searchPattern: '**/*.pdb' 
+        indexSources: false # Github not supported
+        publishSymbols: true
+        symbolServerType: TeamServices
+        detailedLog: true
+
+  - job: WindowsArm64
+    displayName: "Windows ARM64-bit build"
+    pool:
+      vmImage: "windows-latest"
+    steps:
+    - task: CmdLine@2
+      inputs:
+        script:
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64_arm64 &
+          python scripts\mk_win_dist_cmake.py
+            --assembly-version=$(AssemblyVersion)
+            --arm64-only
+            --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
+            --zip
+    - task: CopyFiles@2
+      inputs:
+        sourceFolder: dist
+        contents: '*.zip'
+        targetFolder: $(Build.ArtifactStagingDirectory)
+    - task: PublishPipelineArtifact@1
+      inputs:
+        targetPath: $(Build.ArtifactStagingDirectory)
+        artifactName: 'WindowsArm64'
     - task: CopyFiles@2
       displayName: 'Collect Symbols'
       inputs:
