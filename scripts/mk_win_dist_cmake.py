@@ -11,8 +11,6 @@ import os
 import subprocess
 import zipfile
 from mk_exception import *
-from mk_project import *
-import mk_util
 
 BUILD_DIR = 'build-dist'
 BUILD_X64_DIR = os.path.join('build-dist', 'x64')
@@ -33,6 +31,7 @@ X64ONLY = False
 ARM64ONLY = False  # ARM64 flag
 MAKEJOBS = getenv("MAKEJOBS", "24")
 
+ARCHS = []
 
 def set_verbose(flag):
     global VERBOSE
@@ -46,11 +45,12 @@ def mk_dir(d):
         os.makedirs(d)
 
 def set_build_dir(path):
-    global BUILD_DIR, BUILD_X86_DIR, BUILD_X64_DIR, BUILD_ARM64_DIR
-    BUILD_DIR = mk_util.norm_path(path)
+    global BUILD_DIR, BUILD_X86_DIR, BUILD_X64_DIR, BUILD_ARM64_DIR, ARCHS
+    BUILD_DIR = os.path.expanduser(os.path.normpath(path))
     BUILD_X86_DIR = os.path.join(path, 'x86')
     BUILD_X64_DIR = os.path.join(path, 'x64')
     BUILD_ARM64_DIR = os.path.join(path, 'arm64')  # Set ARM64 build directory
+    ARCHS = {'x64': BUILD_X64_DIR, 'x86':BUILD_X86_DIR, 'arm64':BUILD_ARM64_DIR}
     mk_dir(BUILD_X86_DIR)    
     mk_dir(BUILD_X64_DIR)
     mk_dir(BUILD_ARM64_DIR)
@@ -59,11 +59,12 @@ def display_help():
     print("mk_win_dist.py: Z3 Windows distribution generator\n")
     print("This script generates the zip files containing executables, dlls, header files for Windows.")
     print("It must be executed from the Z3 root directory.")
-    print("\nOptions:")
+    print("\nOptions:")    
     print("  -h, --help                    display this message.")
     print("  -s, --silent                  do not print verbose messages.")
     print("  -b <sudir>, --build=<subdir>  subdirectory where x86 and x64 Z3 versions will be built (default: build-dist).")
     print("  -f, --force                   force script to regenerate Makefiles.")
+    print("  --version=<version>           release version.")
     print("  --assembly-version            assembly version for dll")
     print("  --nodotnet                    do not include .NET bindings in the binary distribution files.")
     print("  --dotnet-key=<file>           strongname sign the .NET assembly with the private key in <file>.")
@@ -134,6 +135,27 @@ def parse_options():
 def check_build_dir(path):
     return os.path.exists(path) and os.path.exists(os.path.join(path, 'Makefile'))
 
+def check_output(cmd):
+    out = subprocess.Popen(cmd, stdout=subprocess.PIPE).communicate()[0]
+    if out != None:
+        enc = sys.getdefaultencoding()
+        if enc != None: return out.decode(enc).rstrip('\r\n')
+        else: return out.rstrip('\r\n')
+    else:
+        return ""
+
+def get_git_hash():
+    try:
+        branch = check_output(['git', 'rev-parse', '--abbrev-ref', 'HEAD'])
+        r = check_output(['git', 'show-ref', '--abbrev=12', 'refs/heads/%s' % branch])
+    except:
+        raise MKException("Failed to retrieve git hash")
+    ls = r.split(' ')
+    if len(ls) != 2:
+        raise MKException("Unexpected git output " + r)
+    return ls[0]
+
+
 # Create a build directory using mk_make.py
 def mk_build_dir(path, arch):
     if not check_build_dir(path) or FORCE_MK:
@@ -149,18 +171,14 @@ def mk_build_dir(path, arch):
         opts = ["cmake", "-S", "."]
         if DOTNET_CORE_ENABLED:
             opts.append('-DZ3_BUILD_DOTNET_BINDINGS=ON')
-            if DOTNET_KEY_FILE is not None:
-                opts.append('-DDOTNET_SIGNING_KEY_FILE=' + DOTNET_KEY_FILE)
-        if ASSEMBLY_VERSION is not None:
-            opts.append('-DZ3_ASSEMBLY_VERSION=' + ASSEMBLY_VERSION)
         if JAVA_ENABLED:
             opts.append('-DZ3_BUILD_JAVA_BINDINGS=ON')
         if GIT_HASH:
-            git_hash = mk_util.git_hash()
+            git_hash = get_git_hash()
             opts.append('-DGIT_HASH=' + git_hash)
         if PYTHON_ENABLED:
             opts.append('-DZ3_BUILD_PYTHON_BINDINGS=ON')
-        opts.append('-DZ3_USE_LIBGMP=OFF')
+        opts.append('-DZ3_USE_LIB_GMP=OFF')
         opts.append('-DZ3_BUILD_LIBZ3_SHARED=ON')
         opts.append('-DCMAKE_INSTALL_PREFIX=' + path)
         opts.append('-G "NMake Makefiles"')
@@ -173,10 +191,10 @@ def mk_build_dir(path, arch):
 
 # Create build directories
 def mk_build_dirs():
-    mk_build_dir(BUILD_X86_DIR, 'x86')
-    mk_build_dir(BUILD_X64_DIR, 'x64')
-    mk_build_dir(BUILD_ARM64_DIR, 'arm64')  # ARM64 build directory creation
-
+    global ARCHS
+    for k in ARCHS:
+        mk_build_dir(ARCHS[k], k)
+    
 # Check if on Visual Studio command prompt
 def check_vc_cmd_prompt():
     try:
@@ -222,18 +240,20 @@ def mk_z3(arch):
         raise MKException("Failed to make z3, x64: %s" % x64)
 
 def mk_z3s():
-    mk_z3('x86')
-    mk_z3('x64')
-    mk_z3('arm64')
+    global ARCHS
+    for k in ARCHS:
+        mk_z3(k)
 
 def get_z3_name(arch):
-    major, minor, build, revision = get_version()
-    print("Assembly version:", major, minor, build, revision)
-    platform = arch
+    global ASSEMBLY_VERSION
+    version = "4"
+    if ASSEMBLY_VERSION:
+        version = ASSEMBLY_VERSION
+    print("Assembly version:", version)
     if GIT_HASH:
-        return 'z3-%s.%s.%s.%s-%s-win' % (major, minor, build, mk_util.git_hash(), platform)
+        return 'z3-%s.%s-%s-win' % (version, get_git_hash(), arch)
     else:
-        return 'z3-%s.%s.%s-%s-win' % (major, minor, build, platform)
+        return 'z3-%s-%s-win' % (version, arch)
 
 def mk_dist_dir(arch):
     build_path = get_build_dir(arch)
@@ -244,10 +264,10 @@ def mk_dist_dir(arch):
         print(f"Generated {platform} distribution folder at '{dist_path}'")
         
 def mk_dist_dirs():
-    mk_dist_dir("x86")
-    mk_dist_dir("x64")
-    mk_dist_dir("arm64")
-
+    global ARCHS
+    for k in ARCHS:
+        mk_dist_dir(k)
+        
 def get_dist_path(arch):
     return get_z3_name(arch)
 
@@ -269,8 +289,9 @@ def mk_zip(arch):
 
 # Create a zip file for each platform
 def mk_zips():
-    mk_zip(False)
-    mk_zip(True)
+    global ARCHS
+    for k in ARCHS:
+        mk_zip(k)
 
 
 VS_RUNTIME_PATS = [re.compile(r'vcomp.*\.dll'),
@@ -311,28 +332,31 @@ def cp_vs_runtime(arch):
             print("Copied '%s' to '%s'" % (f, bin_dist_path))
 
 def cp_vs_runtimes():
-    cp_vs_runtime("x86")
-    cp_vs_runtime("x64")
-    cp_vs_runtime("arm64")
-
+    global ARCHS
+    for k in ARCHS:        
+        cp_vs_runtime(k)
+        
 def cp_license(arch):
     shutil.copy("LICENSE.txt", os.path.join(DIST_DIR, get_dist_path(arch)))
 
 def cp_licenses():
-    cp_license("x86")
-    cp_license("x64")
-    cp_license("arm64")
-
-def init_flags():
-    global DOTNET_KEY_FILE, JAVA_ENABLED, PYTHON_ENABLED, ASSEMBLY_VERSION
-    mk_util.DOTNET_CORE_ENABLED = True
-    mk_util.DOTNET_KEY_FILE = DOTNET_KEY_FILE
-    mk_util.ASSEMBLY_VERSION = ASSEMBLY_VERSION
-    mk_util.JAVA_ENABLED = JAVA_ENABLED
-    mk_util.PYTHON_ENABLED = PYTHON_ENABLED
-    mk_util.ALWAYS_DYNAMIC_BASE = True
+    global ARCHS
+    for k in ARCHS:                
+        cp_license(k)
 
 
+def build_for_arch(arch):
+    global ARCHS
+    build_dir = ARCHS[arch]
+    mk_build_dir(build_dir, arch)
+    mk_z3(arch)
+    init_project_def()
+    mk_dist_dir(arch)
+    cp_license(arch)
+    cp_vs_runtime(arch)
+    if ZIP_BUILD_OUTPUTS:
+        mk_zip(arch)
+    
 # Entry point
 def main():
     if os.name != 'nt':
@@ -340,36 +364,13 @@ def main():
 
     parse_options()
     check_vc_cmd_prompt()
-    init_flags()
 
     if X86ONLY:
-        mk_build_dir(BUILD_X86_DIR, 'x86')
-        mk_z3('x86')
-        init_project_def()
-        mk_dist_dir('x86')
-        cp_license('x86')
-        cp_vs_runtime('x86')
-        if ZIP_BUILD_OUTPUTS:
-            mk_zip('x86')
+        build_for_arch("x86")
     elif X64ONLY:
-        mk_build_dir(BUILD_X64_DIR, 'x64')
-        mk_z3('x64')
-        init_project_def()
-        mk_dist_dir('x64')
-        cp_license('x64')
-        cp_vs_runtime('x64')
-        if ZIP_BUILD_OUTPUTS:
-            mk_zip('x64')
-    elif ARM64ONLY:  # ARM64 build process
-        mk_build_dir(BUILD_ARM64_DIR, 'arm64')
-        mk_z3('arm64')
-        init_project_def()
-        mk_dist_dir('arm64')
-        cp_license('arm64')
-        cp_vs_runtime('arm64')
-        if ZIP_BUILD_OUTPUTS:
-            mk_zip('arm64')
-
+        build_for_arch("x64")
+    elif ARM64ONLY: 
+        build_for_arch("arm64")
     else:
         mk_build_dirs()
         mk_z3s()
