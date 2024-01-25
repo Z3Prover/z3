@@ -10,7 +10,18 @@
 import os
 import subprocess
 import zipfile
+import re
+import getopt
+import sys
+import shutil
 from mk_exception import *
+from fnmatch import fnmatch
+
+def getenv(name, default):
+    try:
+        return os.environ[name].strip(' "\'')
+    except:
+        return default
 
 BUILD_DIR = 'build-dist'
 BUILD_X64_DIR = os.path.join('build-dist', 'x64')
@@ -156,44 +167,55 @@ def get_git_hash():
     return ls[0]
 
 
+
 # Create a build directory using mk_make.py
-def mk_build_dir(path, arch):
-    if not check_build_dir(path) or FORCE_MK:
-        subprocess.call(["call", "md", path, "2>NUL"], shell=True)
+def mk_build_dir(arch):
+    global ARCHS
+    build_path = ARCHS[arch]
+    install_path = DIST_DIR
+    if not check_build_dir(build_path) or FORCE_MK:
+        mk_dir(build_path)
 
         if arch == "arm64":
             arch = "amd64_arm64"
 
-        opts0 = ["cd", path]
-
-        opts1 = ['"C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise\\VC\\Auxiliary\\Build\\vcvarsall.bat"',  arch]
-        
-        opts = ["cmake", "-S", "."]
+        cmds = []
+        cmds.append(f"cd {build_path}")
+        cmds.append(f"call \"C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise\\VC\\Auxiliary\\Build\\vcvarsall.bat\" {arch}")
+        cmd = []
+        cmd.append("cmake -S .")
         if DOTNET_CORE_ENABLED:
-            opts.append('-DZ3_BUILD_DOTNET_BINDINGS=ON')
+            cmd.append(' -DZ3_BUILD_DOTNET_BINDINGS=ON')
+            cmd.append(' -DZ3_INSTALL_DOTNET_BINDINGS=ON')
         if JAVA_ENABLED:
-            opts.append('-DZ3_BUILD_JAVA_BINDINGS=ON')
+            cmd.append(' -DZ3_BUILD_JAVA_BINDINGS=ON')
+            cmd.append(' -DZ3_INSTALL_JAVA_BINDINGS=ON')
+        if PYTHON_ENABLED:
+            cmd.append(' -DZ3_BUILD_PYTHON_BINDINGS=ON')
+            cmd.append(' -DZ3_INSTALL_PYTHON_BINDINGS=ON')
+            cmd.append(' -DCMAKE_INSTALL_PYTHON_PKG_DIR=python')
+
         if GIT_HASH:
             git_hash = get_git_hash()
-            opts.append('-DGIT_HASH=' + git_hash)
-        if PYTHON_ENABLED:
-            opts.append('-DZ3_BUILD_PYTHON_BINDINGS=ON')
-        opts.append('-DZ3_USE_LIB_GMP=OFF')
-        opts.append('-DZ3_BUILD_LIBZ3_SHARED=ON')
-        opts.append('-DCMAKE_INSTALL_PREFIX=' + path)
-        opts.append('-G "NMake Makefiles"')
-        opts.append('../..')
-        args = " ".join(opts0) + "& " + " ".join(opts1) + "& " + " ".join(opts)
-        print(args)
-        if subprocess.call(args, shell=True) != 0:
-            raise MKException("Failed to generate build directory at '%s'" % path)
+            cmd.append(' -DGIT_HASH=' + git_hash)
+        cmd.append(' -DZ3_USE_LIB_GMP=OFF')
+        cmd.append(' -DZ3_BUILD_LIBZ3_SHARED=ON')
+        cmd.append(' -DCMAKE_BUILD_TYPE=RelWithDebInfo')
+        cmd.append(' -DCMAKE_INSTALL_PREFIX=' + install_path)
+        cmd.append(' -G "NMake Makefiles"')
+        cmd.append(' ../..\n')
+        cmds.append("".join(cmd))
+        print(cmds)
+        sys.stdout.flush()
+        if exec_cmds(cmds) != 0:
+            raise MKException("failed to run commands")
 
 
 # Create build directories
 def mk_build_dirs():
     global ARCHS
     for k in ARCHS:
-        mk_build_dir(ARCHS[k], k)
+        mk_build_dir(k)
     
 # Check if on Visual Studio command prompt
 def check_vc_cmd_prompt():
@@ -222,11 +244,8 @@ def exec_cmds(cmds):
     return res
 
 def get_build_dir(arch):
-    if arch == 'x64':
-        return BUILD_X64_DIR
-    if arch == 'x86':
-        return BUILD_X86_DIR
-    return BUILD_ARM64_DIR
+    global ARCHS
+    return ARCHS[arch]
 
 def mk_z3(arch):
     build_dir = get_build_dir(arch)
@@ -235,7 +254,7 @@ def mk_z3(arch):
     cmds = []
     cmds.append('call "%VCINSTALLDIR%Auxiliary\\build\\vcvarsall.bat" ' + arch + ' ')
     cmds.append('cd %s' % build_dir)
-    cmds.append('nmake')
+    cmds.append('nmake install')
     if exec_cmds(cmds) != 0:
         raise MKException("Failed to make z3, x64: %s" % x64)
 
@@ -255,28 +274,16 @@ def get_z3_name(arch):
     else:
         return 'z3-%s-%s-win' % (version, arch)
 
-def mk_dist_dir(arch):
-    build_path = get_build_dir(arch)
-    dist_path = os.path.join(DIST_DIR, get_z3_name(arch))
-    mk_dir(dist_path)
-    mk_win_dist(build_path, dist_path)
-    if is_verbose():
-        print(f"Generated {platform} distribution folder at '{dist_path}'")
-        
-def mk_dist_dirs():
-    global ARCHS
-    for k in ARCHS:
-        mk_dist_dir(k)
-        
-def get_dist_path(arch):
-    return get_z3_name(arch)
-
+     
 def mk_zip(arch):
-    dist_path = get_dist_path(arch)
+    global ARCHS
+    build_dir = ARCHS[arch]
+    dist_dir = os.path.join(build_dir, DIST_DIR)
+    dist_name = get_z3_name(arch)
     old = os.getcwd()
     try:
-        os.chdir(DIST_DIR)
-        zfname = '%s.zip' % dist_path
+        os.chdir(dist_dir)
+        zfname = '%s.zip' % dist_name
         zipout = zipfile.ZipFile(zfname, 'w', zipfile.ZIP_DEFLATED)
         for root, dirs, files in os.walk(dist_path):
             for f in files:
@@ -324,8 +331,9 @@ def cp_vs_runtime(arch):
                         if not os.path.isdir(fname):
                             vs_runtime_files.append(fname)
     if not vs_runtime_files:
-        raise MKException("Did not find any runtime files to include")       
-    bin_dist_path = os.path.join(DIST_DIR, get_dist_path(arch), 'bin')
+        raise MKException("Did not find any runtime files to include")
+    build_dir = get_build_dir(arch)
+    bin_dist_path = os.path.join(build_dir, DIST_DIR, 'bin')
     for f in vs_runtime_files:
         shutil.copy(f, bin_dist_path)
         if is_verbose():
@@ -337,7 +345,7 @@ def cp_vs_runtimes():
         cp_vs_runtime(k)
         
 def cp_license(arch):
-    shutil.copy("LICENSE.txt", os.path.join(DIST_DIR, get_dist_path(arch)))
+    shutil.copy("LICENSE.txt", os.path.join(DIST_DIR, get_z3_name(arch)))
 
 def cp_licenses():
     global ARCHS
@@ -347,11 +355,8 @@ def cp_licenses():
 
 def build_for_arch(arch):
     global ARCHS
-    build_dir = ARCHS[arch]
-    mk_build_dir(build_dir, arch)
+    mk_build_dir(arch)
     mk_z3(arch)
-    init_project_def()
-    mk_dist_dir(arch)
     cp_license(arch)
     cp_vs_runtime(arch)
     if ZIP_BUILD_OUTPUTS:
@@ -374,8 +379,6 @@ def main():
     else:
         mk_build_dirs()
         mk_z3s()
-        init_project_def()
-        mk_dist_dirs()
         cp_licenses()
         cp_vs_runtimes()
         if ZIP_BUILD_OUTPUTS:
