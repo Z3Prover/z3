@@ -258,7 +258,7 @@ def mk_z3(arch):
     cmds.append('cd %s' % build_dir)
     cmds.append('nmake install')
     if exec_cmds(cmds) != 0:
-        raise MKException("Failed to make z3"))
+        raise MKException("Failed to make z3")
 
 def mk_z3s():
     global ARCHS
