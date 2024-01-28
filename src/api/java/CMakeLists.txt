@@ -204,11 +204,13 @@ add_custom_target(build_z3_java_bindings
 
 # Rule to build ``com.microsoft.z3.jar``
 # TODO: Should we set ``CMAKE_JNI_TARGET`` to ``TRUE``?
+# REMARK: removed VERSION to fix issue with using this to create installations.
+
 add_jar(z3JavaJar
   SOURCES ${Z3_JAVA_JAR_SOURCE_FILES_FULL_PATH}
   OUTPUT_NAME ${Z3_JAVA_PACKAGE_NAME}
   OUTPUT_DIR "${PROJECT_BINARY_DIR}"
-  VERSION "${Z3_VERSION}"
+# VERSION "${Z3_VERSION}"
 )
 
 ###############################################################################
@@ -219,21 +221,22 @@ if (Z3_INSTALL_JAVA_BINDINGS)
   # Provide cache variables for the install locations that the user can change.
   # This defaults to ``/usr/local/java`` which seems to be the location for ``.jar``
   # files on Linux distributions
-  set(Z3_JAVA_JAR_INSTALLDIR
-    "${CMAKE_INSTALL_DATAROOTDIR}/java"
-    CACHE
-    PATH
-    "Directory to install Z3 Java jar file relative to install prefix"
-  )
-  # FIXME: I don't think this the right installation location
-  set(Z3_JAVA_JNI_LIB_INSTALLDIR
-    "${CMAKE_INSTALL_LIBDIR}"
-    CACHE
-    PATH
-    "Directory to install Z3 Java JNI bridge library relative to install prefix"
-  )
+  if (NOT Z3_JAVA_JAR_INSTALLDIR)
+     set(Z3_JAVA_JAR_INSTALLDIR
+       "${CMAKE_INSTALL_DATAROOTDIR}/java"
+       CACHE
+       PATH
+       "Directory to install Z3 Java jar file relative to install prefix"
+     )
+  endif()
+  if (NOT Z3_JAVA_JNI_LIB_INSTALLDIR)
+    set(Z3_JAVA_JNI_LIB_INSTALLDIR
+       "${CMAKE_INSTALL_LIBDIR}"
+       CACHE
+       PATH
+       "Directory to install Z3 Java JNI bridge library relative to install prefix"
+     )
+  endif()
   install(TARGETS z3java DESTINATION "${Z3_JAVA_JNI_LIB_INSTALLDIR}")
-  # Note: Don't use ``DESTINATION`` here as the version of ``UseJava.cmake`` shipped
-  # with CMake 2.8.12.2 handles that incorrectly.
   install_jar(z3JavaJar "${Z3_JAVA_JAR_INSTALLDIR}")
 endif()
