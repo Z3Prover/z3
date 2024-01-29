@@ -556,7 +556,7 @@ namespace polysat {
         auto after = last;
 
         if (c.inconsistent())
-            verbose_stream() << "inconistent explain\n";
+            verbose_stream() << "inconsistent explain\n";
         TRACE("bv", display_explain(tout));
 
         auto unmark = [&]() {
@@ -583,7 +583,7 @@ namespace polysat {
             result.append(e->deps);
             if (!index.is_null())
                 result.push_back(c.get_dependency(index));
-            };
+        };
 
         if (last.e->interval.is_full()) {
             explain_entry(last.e);
@@ -619,11 +619,110 @@ namespace polysat {
             // there is just one entry
             SASSERT(m_explain.size() == 1);
             explain_entry(last.e);
+            propagate_from_containing_slice(last.e, last.value, result);
         }
         unmark();
         if (c.inconsistent())
-            verbose_stream() << "inconistent after explain\n";
+            verbose_stream() << "inconsistent after explain\n";
         return result;
+    }
+
+    void viable::propagate_from_containing_slice(entry* e, rational const& value, dependency_vector const& e_deps) {
+        for (auto const& slice : m_overlaps)
+            propagate_from_containing_slice(e, value, e_deps, slice);
+    }
+
+    void viable::propagate_from_containing_slice(entry* e, rational const& value, dependency_vector const& e_deps, offset_slice const& slice) {
+        auto [w, offset] = slice;
+        if (w == m_var)
+            return;
+        unsigned const v_sz = c.size(m_var);
+        unsigned const w_sz = c.size(w);
+        verbose_stream() << "v" << m_var << " size " << v_sz << ", v" << w << " size " << w_sz << " offset " << offset << "\n";
+        rational const& lo = e->interval.lo_val();
+        rational const& hi = e->interval.hi_val();
+        if (v_sz == w_sz) {
+            return;
+#if 0
+            // TODO: copy interval over?
+            rational const& w_lo = lo;
+            rational const& w_hi = hi;
+            verbose_stream() << "=>  v" << w << " not in [" << w_lo << ";" << w_hi << "[\n";
+            auto sc = ~cs.ult(c.var(w) - w_lo, w_hi - w_lo);
+            dependency_vector deps;
+            deps.append(result);  // explains e
+            deps.push_back(offset_claim{m_var, slice});  // v = w
+            auto exp = c.propagate(sc, deps);
+            if (c.inconsistent()) {
+                verbose_stream() << "YYY inconsistent " << sc << " " << exp << "\n";
+            }
+#endif
+            return;
+        }
+        if (offset == 0) {
+            verbose_stream() << "propagate interval " << e->interval << " from v" << m_var << " to v" << w << "\n";
+
+            if (e->interval.current_len() > rational::power_of_two(v_sz) - rational::power_of_two(w_sz)) {
+                verbose_stream() << "generic interval works\n";
+                rational w_lo = mod2k(lo, w_sz);
+                rational w_hi = mod2k(hi, w_sz);
+                verbose_stream() << "=>  v" << w << " not in [" << w_lo << ";" << w_hi << "[\n";
+                SASSERT(w_lo != w_hi);  // otherwise the length of e->interval would have been smaller
+                auto sc = ~cs.ult(c.var(w) - w_lo, w_hi - w_lo);
+                dependency_vector deps;
+                deps.append(e_deps);  // explains e
+                deps.push_back(offset_claim{m_var, slice});  // v[w_sz:0] = w
+                auto exp = c.propagate(sc, deps);
+                if (c.inconsistent()) {
+                    verbose_stream() << "XXX1 inconsistent " << sc << " " << exp << "\n";
+                }
+            }
+
+#if 0
+            // if other part is constant
+            // v[v_sz-1:w_sz] == n, v[w_sz-1:0] == w
+            if (rational n; m_fixed_bits.try_get_value(v_sz - 1, w_sz, n)) {
+                rational lo_d = machine_div2k(lo, w_sz);
+                rational hi_d = machine_div2k(hi, w_sz);
+                rational w_lo = (lo_d == n) ? mod2k(lo, w_sz) : rational(0);
+                rational w_hi = (hi_d == n) ? mod2k(hi, w_sz) : rational(0);
+                if (w_lo != w_hi) {
+                    verbose_stream() << "=>  v" << w << " not in [" << w_lo << ";" << w_hi << "[\n";
+                }
+                else if (ivl.currently_contains(n * rational::power_of_two(w_sz))) {
+                    verbose_stream() << "=>  no value for v" << w << "\n";
+                }
+            }
+#endif
+
+            // we have the assignment for v, thus a fixed value for the upper slice
+            // v[v_sz-1:w_sz] == n, v[w_sz-1:0] == w
+            rational n = machine_div2k(value, w_sz);
+            rational lo_d = machine_div2k(lo, w_sz);
+            rational hi_d = machine_div2k(hi, w_sz);
+            rational w_lo = (lo_d == n) ? mod2k(lo, w_sz) : rational(0);
+            rational w_hi = (hi_d == n) ? mod2k(hi, w_sz) : rational(0);
+            verbose_stream() << "n " << n << " lo_d " << lo_d << " hi_d " << hi_d << " w_lo " << w_lo << " w_hi " << w_hi << "\n";
+
+            if (w_lo != w_hi) {
+                verbose_stream() << "=>  v" << w << " not in [" << w_lo << ";" << w_hi << "[\n";
+                auto sc = ~cs.ult(c.var(w) - w_lo, w_hi - w_lo);
+                dependency_vector deps;
+                deps.append(e_deps);  // explains e
+                deps.push_back(offset_claim{m_var, slice});  // v[w_sz:0] = w
+                deps.push_back(fixed_claim{m_var, n, w_sz, v_sz - w_sz});  // v[v_sz-1:w_sz] = n
+                auto exp = c.propagate(sc, deps);
+                if (c.inconsistent()) {
+                    verbose_stream() << "XXX2 inconsistent " << sc << " " << exp << "\n";
+                }
+            }
+            else if (e->interval.currently_contains(n * rational::power_of_two(w_sz))) {
+                verbose_stream() << "=>  no value for v" << w << "\n";
+            }
+        }
+        else {
+            // TODO
+        }
     }
 
     /*

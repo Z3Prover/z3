@@ -115,6 +115,8 @@ namespace polysat {
 
         bool intersect(pvar v, entry* e);
 
+        void propagate_from_containing_slice(entry* e, rational const& value, dependency_vector const& e_deps);
+        void propagate_from_containing_slice(entry* e, rational const& value, dependency_vector const& e_deps, offset_slice const& slice);
 
         // find the first non-fixed entry that overlaps with val, if any.
         entry* find_overlap(rational& val);
