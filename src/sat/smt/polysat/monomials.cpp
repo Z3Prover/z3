@@ -180,7 +180,7 @@ namespace polysat {
                 pdd qs = c.value(rational(1), mon.num_bits());
                 for (unsigned k = mon.size(); k-- > 0; ) 
                     if (k != j)
-                        qs *= mon.arg_vals[k];                
+                        qs *= mon.args[k];
                 c.add_axiom("p * q = p => q = 1 or p = 0", { ~C.eq(mon.var, p), C.eq(qs, 1), C.eq(p) }, true);
                 return true;
             }
