@@ -172,6 +172,9 @@ namespace polysat {
     }
 
     // p * q = p => q = 1 or p = 0
+    //
+    // In general not true, because there exist a, b >= 2 with a * b = 0; then (a+1) * b = b.
+    // For now, add no-overflow condition on p*q.
     bool monomials::mul1_inverse(monomial const& mon) {
         for (unsigned j = mon.size(); j-- > 0; ) {
             auto const& arg_val = mon.arg_vals[j];
@@ -181,7 +184,7 @@ namespace polysat {
                 for (unsigned k = mon.size(); k-- > 0; ) 
                     if (k != j)
                         qs *= mon.args[k];
-                c.add_axiom("p * q = p => q = 1 or p = 0", { ~C.eq(mon.var, p), C.eq(qs, 1), C.eq(p) }, true);
+                c.add_axiom("p * q = p => q = 1 or p = 0", { ~C.eq(mon.var, p), ~C.umul_ovfl(p, qs), C.eq(qs, 1), C.eq(p) }, true);
                 return true;
             }
         }
