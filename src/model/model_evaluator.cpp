@@ -172,18 +172,20 @@ struct evaluator_cfg : public default_rewriter_cfg {
 
         struct has_redex {};
         struct has_redex_finder {
-            array_util& au;
-            has_redex_finder(array_util& au): au(au) {}
+            evaluator_cfg& ev;
+            has_redex_finder(evaluator_cfg& ev): ev(ev) {}
             void operator()(var* v) {}
             void operator()(quantifier* q) {}
             void operator()(app* a) {
-                if (au.is_as_array(a->get_decl()))
+                if (ev.m_ar.is_as_array(a->get_decl()))
                     throw has_redex();
-                if (au.get_manager().is_eq(a))
+                if (ev.m_ar.get_manager().is_eq(a))
+                    throw has_redex();
+                if (ev.m_fpau.is_fp(a))
                     throw has_redex();
             }
         };
-        has_redex_finder ha(m_ar);
+        has_redex_finder ha(*this);
         try {
             for_each_expr(ha, e);
         }
