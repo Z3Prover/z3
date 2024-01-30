@@ -223,11 +223,11 @@ def mk_build_dir(arch):
             cmd.append(' -DZ3_BUILD_JAVA_BINDINGS=ON')
             cmd.append(' -DZ3_INSTALL_JAVA_BINDINGS=ON')
             cmd.append(' -DZ3_JAVA_JAR_INSTALLDIR=java')
-            cmd.append(' -DZ3_JAVA_JNI_LIB_INSTALLDIR=java')
+            cmd.append(' -DZ3_JAVA_JNI_LIB_INSTALLDIR=bin/java')
         if PYTHON_ENABLED:
             cmd.append(' -DZ3_BUILD_PYTHON_BINDINGS=ON')
             cmd.append(' -DZ3_INSTALL_PYTHON_BINDINGS=ON')
-            cmd.append(' -DCMAKE_INSTALL_PYTHON_PKG_DIR=python')
+            cmd.append(' -DCMAKE_INSTALL_PYTHON_PKG_DIR=bin/python')
         if JULIA_ENABLED:
             cmd.append(' -DJlCxx_DIR=%JlCxxDir%\\..\\lib\\cmake\\JlCxx')
 
