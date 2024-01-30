@@ -230,6 +230,7 @@ def mk_build_dir(arch):
             cmd.append(' -DCMAKE_INSTALL_PYTHON_PKG_DIR=bin/python')
         if JULIA_ENABLED:
             cmd.append(' -DJlCxx_DIR=%JlCxxDir%\\..\\lib\\cmake\\JlCxx')
+            cmd.append(' -DZ3_BUILD_JULIA_BINDINGS=True')
 
         if GIT_HASH:
             git_hash = get_git_hash()
