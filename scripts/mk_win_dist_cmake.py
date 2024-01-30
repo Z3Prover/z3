@@ -215,7 +215,7 @@ def mk_build_dir(arch):
         cmd.append("cmake -S .")
         if DOTNET_CORE_ENABLED:
             cmd.append(' -DZ3_BUILD_DOTNET_BINDINGS=ON')
-            cmd.append(' -DZ3_INSTALL_DOTNET_BINDINGS=ON')
+#           cmd.append(' -DZ3_INSTALL_DOTNET_BINDINGS=ON')
         if JAVA_ENABLED:
             cmd.append(' -DZ3_BUILD_JAVA_BINDINGS=ON')
             cmd.append(' -DZ3_INSTALL_JAVA_BINDINGS=ON')
@@ -273,9 +273,9 @@ def exec_cmds(cmds):
 
 
 
-def mk_z3(arch):
+def build_z3(arch):
     if is_verbose():
-        print("mk z3")
+        print("build z3")
     build_dir = get_build_dir(arch)
     if arch == "arm64":
         arch = "x64_arm64"
@@ -360,6 +360,17 @@ def cp_license(arch):
     mk_dir(path)
     shutil.copy("LICENSE.txt", path)
 
+def cp_dotnet(arch):
+    if not DOTNET_CORE_ENABLED:
+        return
+    if is_verbose():
+        print("copy dotnet")
+    build_dir = get_build_dir(arch)
+    dist_dir = get_build_dist_path(arch)
+    shutil.copytree(os.path.join(build_dir, "Microsoft.Z3"),
+                    os.path.join(dist_dir, "Microsoft.Z3"),
+                    dirs_exist_ok=True)
+
 def cp_pdb(arch):
     if is_verbose():
         print("copy pdb")
@@ -372,9 +383,10 @@ def cp_pdb(arch):
 
 def build_for_arch(arch):
     mk_build_dir(arch)
-    mk_z3(arch)
+    build_z3(arch)
     cp_license(arch)
     cp_pdb(arch)
+    cp_dotnet(arch)
     cp_vs_runtime(arch)
     mk_zip(arch)
     
