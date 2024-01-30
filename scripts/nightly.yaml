@@ -582,6 +582,11 @@ stages:
         artifactName: 'Windows64'
         targetPath: tmp
     - task: DownloadPipelineArtifact@2
+      displayName: "Download windowsARM64"
+      inputs:
+        artifactName: 'WindowsArm64'
+        targetPath: tmp
+    - task: DownloadPipelineArtifact@2
       displayName: "Download Mac"
       inputs:
         artifactName: 'Mac'
