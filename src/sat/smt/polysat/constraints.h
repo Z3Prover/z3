@@ -110,8 +110,6 @@ namespace polysat {
         signed_constraint ult(pdd const& p, pdd const& q) { return ~ule(q, p); }
         signed_constraint slt(pdd const& p, pdd const& q) { return ~sle(q, p); }
         signed_constraint umul_ovfl(pdd const& p, pdd const& q);
-        signed_constraint smul_ovfl(pdd const& p, pdd const& q) { throw default_exception("smul ovfl nyi"); }
-        signed_constraint smul_udfl(pdd const& p, pdd const& q) { throw default_exception("smult-udfl nyi"); }
         signed_constraint bit(pdd const& p, unsigned i);
 
         signed_constraint diseq(pdd const& p) { return ~eq(p); }

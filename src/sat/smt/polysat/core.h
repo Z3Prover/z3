@@ -133,8 +133,6 @@ namespace polysat {
         signed_constraint ule(pdd const& p, pdd const& q) { return m_constraints.ule(p, q); }
         signed_constraint sle(pdd const& p, pdd const& q) { return m_constraints.sle(p, q); }
         signed_constraint umul_ovfl(pdd const& p, pdd const& q) { return m_constraints.umul_ovfl(p, q); }
-        signed_constraint smul_ovfl(pdd const& p, pdd const& q) { return m_constraints.smul_ovfl(p, q); }
-        signed_constraint smul_udfl(pdd const& p, pdd const& q) { return m_constraints.smul_udfl(p, q); }
         signed_constraint bit(pdd const& p, unsigned i) { return m_constraints.bit(p, i); }
 
 

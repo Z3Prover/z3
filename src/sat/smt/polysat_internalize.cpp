@@ -107,9 +107,9 @@ namespace polysat {
         case OP_SGT:              internalize_le<true, false, true>(a); break;
 
         case OP_BUMUL_NO_OVFL:    internalize_binary_predicate(a, [&](pdd const& p, pdd const& q) { return ~m_core.umul_ovfl(p, q); }); break;
-        case OP_BSMUL_NO_OVFL:    internalize_binary_predicate(a, [&](pdd const& p, pdd const& q) { return ~m_core.smul_ovfl(p, q); }); break;
-        case OP_BSMUL_NO_UDFL:    internalize_binary_predicate(a, [&](pdd const& p, pdd const& q) { return ~m_core.smul_udfl(p, q); }); break;
-
+        case OP_BSMUL_NO_OVFL:    internalize_smul_no_ovfl(a); break;
+        case OP_BSMUL_NO_UDFL:    internalize_smul_no_udfl(a); break;
+            
         case OP_BUMUL_OVFL:       internalize_binary_predicate(a, [&](pdd const& p, pdd const& q) { return m_core.umul_ovfl(p, q); }); break;
         case OP_BSMUL_OVFL:
         case OP_BSDIV_OVFL:
@@ -508,6 +508,60 @@ namespace polysat {
         ctx.internalize(quot);
         m_var2pdd_valid.setx(v, false, false);
         quot_rem(quot, rem, x, y);
+    }
+    
+    void solver::internalize_smul_no_ovfl(app* e) {
+        auto x = e->get_arg(0);
+        auto y = e->get_arg(1);
+        auto sz = bv.get_bv_size(x);
+        auto lit = mk_literal(e);
+        // x' = ite(signx, -x, x)
+        // y' = ite(signy, -y, y)
+        // lit <=> signx != signy || (not umul_ovfl(x',y') && x'*y' < 2^{N-1})
+        // expands to:
+        // lit => signx != signy or not umul_ovfl(x',y')
+        // lit => signx != signy or not x'*y' < 2^{N-1}
+        // signx != signy => lit
+        // not umul_ovfl(x',y') & x'*y' < 2^{N-1} => lit
+                
+        auto signx = bv.mk_slt(x, bv.mk_zero(sz));
+        auto signy = bv.mk_slt(y, bv.mk_zero(sz));
+        auto same_sign = eq_internalize(signx, signy);
+        auto x1 = m.mk_ite(signx, bv.mk_bv_neg(x), x);
+        auto y1 = m.mk_ite(signy, bv.mk_bv_neg(y), y);
+        auto umul_noovfl = mk_literal(bv.mk_bvumul_no_ovfl(x1, y1));
+        auto small = ~mk_literal(bv.mk_ule(bv.mk_numeral(rational::power_of_two(sz - 1), sz), bv.mk_bv_mul(x1, y1)));
+        add_axiom("smul_no_ovfl", { ~lit, ~same_sign, ~umul_noovfl }, false);
+        add_axiom("smul_no_ovfl", { ~lit, ~same_sign, small }, false);
+        add_axiom("smul_no_ovfl", { same_sign, lit }, false);
+        add_axiom("smul_no_ovfl", { umul_noovfl, ~small, lit }, false);
+    }
+    
+    void solver::internalize_smul_no_udfl(app* e) {
+        auto x = e->get_arg(0);
+        auto y = e->get_arg(1);
+        auto sz = bv.get_bv_size(x);
+        auto lit = mk_literal(e);
+        // x' = ite(signx, -x, x)
+        // y' = ite(signy, -y, y)
+        // lit <=> signx = signy || (not umul_ovfl(x',y') && x'*y' <= 2^{N-1})
+        // expands to:
+        // lit => signx = signy or not umul_ovfl(x',y')
+        // lit => signx = signy or not x'*y' <= 2^{N-1}
+        // signx = signy => lit
+        // not umul_ovfl(x',y') & x'*y' <= 2^{N-1} => lit
+                
+        auto signx = bv.mk_slt(x, bv.mk_zero(sz));
+        auto signy = bv.mk_slt(y, bv.mk_zero(sz));
+        auto same_sign = eq_internalize(signx, signy);
+        auto x1 = m.mk_ite(signx, bv.mk_bv_neg(x), x);
+        auto y1 = m.mk_ite(signy, bv.mk_bv_neg(y), y);
+        auto umul_noovfl = mk_literal(bv.mk_bvumul_no_ovfl(x1, y1));
+        auto small = mk_literal(bv.mk_ule(bv.mk_bv_mul(x1, y1), bv.mk_numeral(rational::power_of_two(sz - 1), sz)));
+        add_axiom("smul_no_udfl", { ~lit, same_sign, ~umul_noovfl }, false);
+        add_axiom("smul_no_udfl", { ~lit, same_sign, small }, false);
+        add_axiom("smul_no_udfl", { ~same_sign, lit }, false);
+        add_axiom("smul_no_udfl", { umul_noovfl, ~small, lit }, false);
     }
 
     void solver::quot_rem(expr* quot, expr* rem, expr* x, expr* y) {

@@ -788,6 +788,32 @@ namespace intblast {
             r = a.mk_lt(mul(umod(bv_expr, 0), umod(bv_expr, 1)), a.mk_int(bv_size(bv_expr)));
             break;
         }
+        case OP_BSMUL_NO_OVFL: {
+            bv_expr = e->get_arg(0);
+            expr* x = umod(bv_expr, 0), *y = umod(bv_expr, 1);
+            rational N = bv_size(bv_expr);
+            expr* lim = a.mk_int(N/2);
+            expr* signx = a.mk_ge(x, lim);
+            expr* signy = a.mk_ge(y, lim);
+            x = m.mk_ite(signx, a.mk_sub(a.mk_int(N), x), x);
+            y = m.mk_ite(signy, a.mk_sub(a.mk_int(N), y), y);
+            // signx != signy || x * y < N/2
+            r = m.mk_or(m.mk_not(m.mk_eq(signx, signy)), a.mk_lt(a.mk_mul(x, y), lim));
+            break;
+        }
+        case OP_BSMUL_NO_UDFL: {
+            bv_expr = e->get_arg(0);
+            expr* x = umod(bv_expr, 0), *y = umod(bv_expr, 1);
+            rational N = bv_size(bv_expr);
+            expr* lim = a.mk_int(N/2);
+            expr* signx = a.mk_ge(x, lim);
+            expr* signy = a.mk_ge(y, lim);
+            x = m.mk_ite(signx, a.mk_sub(a.mk_int(N), x), x);
+            y = m.mk_ite(signy, a.mk_sub(a.mk_int(N), y), y);
+            // signx == signy || x * y <= N/2
+            r = m.mk_or(m.mk_eq(signx, signy), a.mk_le(a.mk_mul(x, y), lim));
+            break;
+        }
         case OP_BSHL: {
             if (!a.is_numeral(arg(0)) && !a.is_numeral(arg(1))) 
                 r = a.mk_shl(bv.get_bv_size(e), arg(0),arg(1));
