@@ -99,6 +99,7 @@ _z3_op_to_str = {
     Z3_OP_ARRAY_EXT: "Ext",
 
     Z3_OP_PB_AT_MOST: "AtMost",
+    Z3_OP_PB_AT_LEAST: "AtLeast",
     Z3_OP_PB_LE: "PbLe",
     Z3_OP_PB_GE: "PbGe",
     Z3_OP_PB_EQ: "PbEq",
@@ -1111,6 +1112,10 @@ class Formatter:
         k = Z3_get_decl_int_parameter(a.ctx_ref(), a.decl().ast, 0)
         return seq1(self.pp_name(a), [seq3([self.pp_expr(ch, d + 1, xs) for ch in a.children()]), to_format(k)])
 
+    def pp_atleast(self, a, d, f, xs):
+        k = Z3_get_decl_int_parameter(a.ctx_ref(), a.decl().ast, 0)
+        return seq1(self.pp_name(a), [seq3([self.pp_expr(ch, d + 1, xs) for ch in a.children()]), to_format(k)])
+
     def pp_pbcmp(self, a, d, f, xs):
         chs = a.children()
         rchs = range(len(chs))
@@ -1163,6 +1168,8 @@ class Formatter:
                 return self.pp_K(a, d, xs)
             elif k == Z3_OP_PB_AT_MOST:
                 return self.pp_atmost(a, d, f, xs)
+            elif k == Z3_OP_PB_AT_LEAST:
+                return self.pp_atleast(a, d, f, xs)
             elif k == Z3_OP_PB_LE:
                 return self.pp_pbcmp(a, d, f, xs)
             elif k == Z3_OP_PB_GE:

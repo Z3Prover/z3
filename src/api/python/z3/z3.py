@@ -9069,7 +9069,7 @@ def AtMost(*args):
 
 
 def AtLeast(*args):
-    """Create an at-most Pseudo-Boolean k constraint.
+    """Create an at-least Pseudo-Boolean k constraint.
 
     >>> a, b, c = Bools('a b c')
     >>> f = AtLeast(a, b, c, 2)
