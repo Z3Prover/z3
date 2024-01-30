@@ -69,10 +69,13 @@ def get_z3_name(arch):
 def get_build_dir(arch):
     return ARCHITECTURES[arch]
 
-def get_build_dist_path(arch):
+def get_build_dist(arch):
     return os.path.join(get_build_dir(arch), DIST_DIR)
 
-def get_bin_path(arch):
+def get_build_dist_path(arch):
+    return os.path.join(get_build_dir(arch), DIST_DIR, get_z3_name(arch))
+
+def get_bin_dist_path(arch):
     return os.path.join(get_build_dist_path(arch), "bin")
 
 def get_dist_path(arch):
@@ -234,7 +237,7 @@ def mk_build_dir(arch):
         cmd.append(' -DZ3_USE_LIB_GMP=OFF')
         cmd.append(' -DZ3_BUILD_LIBZ3_SHARED=ON')
         cmd.append(' -DCMAKE_BUILD_TYPE=RelWithDebInfo')
-        cmd.append(' -DCMAKE_INSTALL_PREFIX=' + DIST_DIR)
+        cmd.append(' -DCMAKE_INSTALL_PREFIX=' + os.path.join(DIST_DIR, get_z3_name(arch)))
         cmd.append(' -G "Ninja"')
         cmd.append(' ../..\n')
         cmds.append("".join(cmd))
@@ -302,7 +305,7 @@ def mk_zip(arch):
         mk_dir(dist_path)
         zfname = os.path.join(dist_path, '%s.zip' % dist_name)
         zipout = zipfile.ZipFile(zfname, 'w', zipfile.ZIP_DEFLATED)
-        os.chdir(build_dist)
+        os.chdir(get_build_dist(arch))
         for root, dirs, files in os.walk("."):
             for f in files:
                 if is_verbose():
@@ -347,7 +350,7 @@ def cp_vs_runtime(arch):
                             vs_runtime_files.append(fname)
     if not vs_runtime_files:
         raise MKException("Did not find any runtime files to include")
-    bin_dist_path = get_bin_path(arch)
+    bin_dist_path = get_bin_dist_path(arch)
     for f in vs_runtime_files:
         shutil.copy(f, bin_dist_path)
         if is_verbose():
@@ -375,7 +378,7 @@ def cp_pdb(arch):
     if is_verbose():
         print("copy pdb")
     build_dir = get_build_dir(arch)
-    bin_path = get_bin_path(arch)
+    bin_path = get_bin_dist_path(arch)
     mk_dir(bin_path)
     for f in os.listdir(build_dir):
         if f.endswith("pdb"):
