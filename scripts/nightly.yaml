@@ -205,6 +205,7 @@ stages:
           python scripts\mk_win_dist_cmake.py
             --assembly-version=$(AssemblyVersion)
             --x64-only
+	    --julia
             --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
             --zip
     - task: CopyFiles@2
