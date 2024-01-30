@@ -209,6 +209,11 @@ stages:
       ReleaseVersion: $(ReleaseVersion)
       BuildArchitecture: 'x86'
 
+  - template: build-win-signed.yml
+    parameters:
+      ReleaseVersion: $(ReleaseVersion)
+      BuildArchitecture: 'arm64'
+
 
 # Creates Z3 packages in various formats
 - stage: Package
@@ -526,14 +531,19 @@ stages:
         artifact: 'WindowsBuild-x86'
         path: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
-      displayName: "Download Python"
-      inputs:
-        artifactName: 'PythonPackage'
-        path: $(Agent.TempDirectory)
-    - task: DownloadPipelineArtifact@2
       displayName: 'Download Win64 Build'
       inputs:
         artifact: 'WindowsBuild-x64'
+        path: $(Agent.TempDirectory)
+    - task: DownloadPipelineArtifact@2
+      displayName: 'Download Arm64 Build'
+      inputs:
+        artifact: 'WindowsBuild-arm64'
+        path: $(Agent.TempDirectory)	
+    - task: DownloadPipelineArtifact@2
+      displayName: "Download Python"
+      inputs:
+        artifactName: 'PythonPackage'
         path: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
       displayName: 'Download NuGet64 Package'
