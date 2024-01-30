@@ -169,7 +169,7 @@ stages:
             --zip
     - task: CopyFiles@2
       inputs:
-        sourceFolder: build-dist/x86/dist
+        sourceFolder: dist/x86
         contents: '*.zip'
         targetFolder: $(Build.ArtifactStagingDirectory)
     - task: PublishPipelineArtifact@1
@@ -179,7 +179,7 @@ stages:
     - task: CopyFiles@2
       displayName: 'Collect Symbols'
       inputs:
-        sourceFolder: build-dist/x86/dist
+        sourceFolder: build-dist/x86
         contents: '**/*.pdb'
         targetFolder: '$(Build.ArtifactStagingDirectory)/symbols'
     # Publish symbol archive to match nuget package
@@ -209,7 +209,7 @@ stages:
             --zip
     - task: CopyFiles@2
       inputs:
-        sourceFolder: build-dist/x64/dist
+        sourceFolder: dist/x64
         contents: '*.zip'
         targetFolder: $(Build.ArtifactStagingDirectory)
     - task: PublishPipelineArtifact@1
@@ -219,7 +219,7 @@ stages:
     - task: CopyFiles@2
       displayName: 'Collect Symbols'
       inputs:
-        sourceFolder: build-dist/x64/dist
+        sourceFolder: build-dist/x64
         contents: '**/*.pdb'
         targetFolder: '$(Build.ArtifactStagingDirectory)/symbols'
     # Publish symbol archive to match nuget package
@@ -249,7 +249,7 @@ stages:
             --zip
     - task: CopyFiles@2
       inputs:
-        sourceFolder: build-dist/arm64/dist
+        sourceFolder: dist/arm64
         contents: '*.zip'
         targetFolder: $(Build.ArtifactStagingDirectory)
     - task: PublishPipelineArtifact@1
@@ -259,7 +259,7 @@ stages:
     - task: CopyFiles@2
       displayName: 'Collect Symbols'
       inputs:
-        sourceFolder: build-dist/arm64/dist
+        sourceFolder: build-dist/arm64
         contents: '**/*.pdb'
         targetFolder: '$(Build.ArtifactStagingDirectory)/symbols'
     # Publish symbol archive to match nuget package
