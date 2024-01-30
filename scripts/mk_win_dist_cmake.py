@@ -369,9 +369,9 @@ def cp_dotnet(arch):
     if is_verbose():
         print("copy dotnet")
     build_dir = get_build_dir(arch)
-    dist_dir = get_build_dist_path(arch)
+    dist_dir = get_bin_dist_path(arch)
     shutil.copytree(os.path.join(build_dir, "Microsoft.Z3"),
-                    os.path.join(dist_dir, "Microsoft.Z3"),
+                    dist_dir,
                     dirs_exist_ok=True)
 
 def cp_pdb(arch):

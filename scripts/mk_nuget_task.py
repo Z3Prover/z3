@@ -78,8 +78,15 @@ def unpack(packages, symbols, arch):
                 if symbols:
                     files += ["Microsoft.Z3.pdb", "Microsoft.Z3.xml"]
                 for b in files:
-                    zip_ref.extract(f"{package_dir}/bin/{b}", f"{tmp}")
-                    replace(f"{tmp}/{package_dir}/bin/{b}", f"out/lib/netstandard2.0/{b}")
+                    file = f"{package_dir}/bin/{b}"
+                    if os.path.exists(file):
+                        zip_ref.extract(file, f"{tmp}")
+                        replace(f"{tmp}/{package_dir}/bin/{b}", f"out/lib/netstandard2.0/{b}")
+                    file = os.path.join(file,"netstandard2.0")
+                    if os.path.exists(file):
+                        zip_ref.extract(file, f"{tmp}")
+                        replace(f"{tmp}/{package_dir}/bin/netstandard2.0/{b}", f"out/lib/netstandard2.0/{b}")
+
 
 def mk_targets(source_root):
     mk_dir("out/build")
