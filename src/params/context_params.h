@@ -70,5 +70,10 @@ public:
     */
     params_ref merge_default_params(params_ref const & p);
 
+    /**
+       \brief Is this a parameter that can only be set for the shell.
+    */
+    bool is_shell_only_parameter(char const* p) const;
+
 
 };

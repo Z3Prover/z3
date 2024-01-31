@@ -51,15 +51,18 @@ void context_params::set_uint(unsigned & opt, char const * param, char const * v
     }
 }
 
-void context_params::set(char const * param, char const * value) {
-    std::string p = param;
-    unsigned n = static_cast<unsigned>(p.size());
-    for (unsigned i = 0; i < n; i++) {
+static void lower_case(std::string& p) {
+    for (size_t i = 0; i < p.size(); i++) {
         if (p[i] >= 'A' && p[i] <= 'Z')
             p[i] = p[i] - 'A' + 'a';
         else if (p[i] == '-')
             p[i] = '_';
     }
+}
+
+void context_params::set(char const * param, char const * value) {
+    std::string p = param;
+    lower_case(p);
     if (p == "timeout") {
         set_uint(m_timeout, param, value);
     }
@@ -195,5 +198,15 @@ void context_params::get_solver_params(params_ref & p, bool & proofs_enabled, bo
         p.set_bool("auto_config", false);
 }
 
+bool context_params::is_shell_only_parameter(char const* _p) const {
+    std::string p(_p);
+    lower_case(p);
+    if (p == "dump_models" || p == "well_sorted_check" ||
+        p == "model_validate" || p == "smtlib2_compliant" ||
+        p == "stats")
+        return true;
+
+    return false;
+}
 
 
