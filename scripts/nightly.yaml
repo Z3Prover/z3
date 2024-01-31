@@ -95,8 +95,9 @@ stages:
     - script: |
           mkdir dist          
           cd dist
-          CXX=aarch64-linux-gnu-g++ CC=aarch64-linux-gnu-gcc cmake \
+          cmake \
                       -DCMAKE_BUILD_TYPE=RelWithDebInfo\
+		      -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++\
                       -DZ3_BUILD_DOTNET_BINDINGS=ON\
                       -DZ3_INSTALL_DOTNET_BINDINGS=ON \
                       -DZ3_BUILD_JAVA_BINDINGS=ON\
@@ -108,7 +109,7 @@ stages:
                       -DCMAKE_INSTALL_PYTHON_PKG_DIR=bin/python\
                       -DZ3_BUILD_LIBZ3_SHARED=ON\
                       -DCMAKE_INSTALL_PREFIX=dist\
-                      -G "Ninja" /..
+                      -G "Ninja" ../
            ninja install
            zip bin z3-$(NightlyVersion)-ubuntu-arm64.zip
            cd ..
