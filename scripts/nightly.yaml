@@ -49,6 +49,7 @@ stages:
         artifactName: 'Ubuntu-20.04'
         targetPath: $(Build.ArtifactStagingDirectory)
 
+
   - job: Ubuntu
     displayName: "Ubuntu build"
     pool:
@@ -78,6 +79,42 @@ stages:
     - task: PublishPipelineArtifact@0
       inputs:
         artifactName: 'UbuntuArm64'
+        targetPath: $(Build.ArtifactStagingDirectory)
+
+  - job: UbuntuArm64CMAKE
+    displayName: "Ubuntu ARM64 build - CMAKE"
+    pool:
+      vmImage: "ubuntu-latest"
+    steps:
+    - script: sudo apt update
+    - script: sudo apt install gcc-arm-none-eabi -y
+    - script: sudo apt install gcc-arm-linux-gnueabihf -y
+    - script: sudo apt install gcc-aarch64-linux-gnu -y
+    - script: sudo apt install g++-aarch64-linux-gnu -y
+    - script: |
+          mkdir dist          
+          CXX=aarch64-linux-gnu-g++ CC=aarch64-linux-gnu-gcc cmake 
+                      -DCMAKE_BUILD_TYPE=RelWithDebInfo
+                      -DZ3_BUILD_DOTNET_BINDINGS=ON
+                      -DZ3_INSTALL_DOTNET_BINDINGS=ON 
+                      -DZ3_BUILD_JAVA_BINDINGS=ON
+                      -DZ3_INSTALL_JAVA_BINDINGS=ON
+                      -DZ3_JAVA_JAR_INSTALL_DIR=bin
+                      -DZ3_AVA_JNI_LIB_INSTALLDI=bin
+                      -DZ3_BUILD_PYTHON_BINDINGS=ON
+                      -DZ3_INSTALL_PYTHON_BINDINGS=ON
+                      -DCMAKE_INSTALL_PYTHON_PKG_DIR=bin/python
+                      -DZ3_BUILD_LIBZ3_SHARED=ON
+                      -DCMAKE_INSTALL_PREFIX=dist
+                      -G "Ninja" ..
+           ninja install
+    - script: |
+           cd dist
+           zip bin z3-$(NightlyVersion)-ubuntu-arm64.zip
+    - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
+    - task: PublishPipelineArtifact@0
+      inputs:
+        artifactName: 'UbuntuArm64CMAKE'
         targetPath: $(Build.ArtifactStagingDirectory)
 
   - job: UbuntuDoc
@@ -600,6 +637,11 @@ stages:
       displayName: "Download Ubuntu Arm64"
       inputs:
         artifactName: 'UbuntuArm64'
+        targetPath: tmp
+    - task: DownloadPipelineArtifact@2
+      displayName: 'Download Ubuntu ARM64 Build - CMAKE'
+      inputs:
+        artifact: 'UbuntuArm64CMAKE'
         targetPath: tmp
     - task: DownloadPipelineArtifact@2
       displayName: "Download Ubuntu"
