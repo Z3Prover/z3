@@ -94,6 +94,7 @@ stages:
     - script: sudo apt install ninja-build -y
     - script: |
           mkdir dist          
+          cd dist
           CXX=aarch64-linux-gnu-g++ CC=aarch64-linux-gnu-gcc cmake \
                       -DCMAKE_BUILD_TYPE=RelWithDebInfo\
                       -DZ3_BUILD_DOTNET_BINDINGS=ON\
@@ -107,11 +108,10 @@ stages:
                       -DCMAKE_INSTALL_PYTHON_PKG_DIR=bin/python\
                       -DZ3_BUILD_LIBZ3_SHARED=ON\
                       -DCMAKE_INSTALL_PREFIX=dist\
-                      -G "Ninja" ..
+                      -G "Ninja" /..
            ninja install
-    - script: |
-           cd dist
            zip bin z3-$(NightlyVersion)-ubuntu-arm64.zip
+           cd ..
     - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
     - task: PublishPipelineArtifact@0
       inputs:
