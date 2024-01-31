@@ -97,7 +97,7 @@ stages:
           cd dist
           cmake \
                       -DCMAKE_BUILD_TYPE=RelWithDebInfo\
-		      -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++\
+                      -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++\
                       -DZ3_BUILD_DOTNET_BINDINGS=ON\
                       -DZ3_INSTALL_DOTNET_BINDINGS=ON \
                       -DZ3_BUILD_JAVA_BINDINGS=ON\
