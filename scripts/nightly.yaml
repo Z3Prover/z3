@@ -91,6 +91,7 @@ stages:
     - script: sudo apt install gcc-arm-linux-gnueabihf -y
     - script: sudo apt install gcc-aarch64-linux-gnu -y
     - script: sudo apt install g++-aarch64-linux-gnu -y
+    - script: sudo apt install ninja-build -y
     - script: |
           mkdir dist          
           CXX=aarch64-linux-gnu-g++ CC=aarch64-linux-gnu-gcc cmake 
