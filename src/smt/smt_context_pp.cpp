@@ -132,7 +132,7 @@ namespace smt {
 
     void context::display_literal_info(std::ostream & out, literal l) const {
         smt::display_compact(out, l, m_bool_var2expr.data());
-        display_literal_smt2(out, l);
+        display_literal_smt2(out << " " << l << ": ", l);
         out << "relevant: " << is_relevant(bool_var2expr(l.var())) << ", val: " << get_assignment(l) << "\n";
     }
 
