@@ -125,8 +125,8 @@ namespace polysat {
         for (unsigned j = mon.size(); j-- > 0; ) {
             if (mon.arg_vals[j] == 0) {
                 auto const& p = mon.args[j];
-                c.add_axiom("p = 0 => p * q = 0", { ~C.eq(p), C.eq(mon.var) }, true);
-                return true;
+                if (c.add_axiom("p = 0 => p * q = 0", { ~C.eq(p), C.eq(mon.var) }, true))
+                    return true;
             }                
         }
         return false;
@@ -184,8 +184,8 @@ namespace polysat {
                 for (unsigned k = mon.size(); k-- > 0; ) 
                     if (k != j)
                         qs *= mon.args[k];
-                c.add_axiom("p * q = p => q = 1 or p = 0", { ~C.eq(mon.var, p), ~C.umul_ovfl(p, qs), C.eq(qs, 1), C.eq(p) }, true);
-                return true;
+                if (c.add_axiom("p * q = p => q = 1 or p = 0", { ~C.eq(mon.var, p), ~C.umul_ovfl(p, qs), C.eq(qs, 1), C.eq(p) }, true))
+                    return true;
             }
         }
         return false;
@@ -198,8 +198,8 @@ namespace polysat {
             unsigned k = get_parity(mon.arg_vals[j], mon.num_bits());
             if (k > parity_val) {
                 auto const& p = mon.args[j];
-                c.add_axiom("parity p >= i => parity p * q >= i", { ~C.parity_at_least(p, k), C.parity_at_least(mon.var, k) }, true);
-                return true;
+                if (c.add_axiom("parity p >= i => parity p * q >= i", { ~C.parity_at_least(p, k), C.parity_at_least(mon.var, k) }, true))
+                    return true;
             }
         }
         return false;
@@ -231,8 +231,7 @@ namespace polysat {
             if (i != big_index)
                 clause.push_back(C.eq(mon.args[i]));
         clause.push_back(C.ule(mon.args[big_index], mon.var));
-        c.add_axiom("~ovfl*(p,q) & q != 0 => p <= p*q", clause, true);
-        return true;
+        return c.add_axiom("~ovfl*(p,q) & q != 0 => p <= p*q", clause, true);
     }
 
     // ~ovfl*(p,q) & p*q = 1 => p = 1, q = 1
@@ -244,6 +243,7 @@ namespace polysat {
             product *= val;
         if (product > mon.var.manager().max_value())
             return false;
+        bool new_axiom = false;
         constraint_or_dependency_vector clause;
         pdd p = mon.args[0];
         clause.push_back(~C.eq(mon.var, 1));
@@ -253,10 +253,11 @@ namespace polysat {
         }        
         for (auto const& q : mon.args) {
             clause.push_back(C.eq(q, 1));
-            c.add_axiom("~ovfl*(p,q) & p*q = 1 => p = 1", clause, true);
+            if (c.add_axiom("~ovfl*(p,q) & p*q = 1 => p = 1", clause, true))
+                new_axiom = true;
             clause.pop_back();
         }
-        return true;
+        return new_axiom;
     }
 
     // ~ovfl*(p,q) & p*q = 0 => p = 0 or q = 0
@@ -281,8 +282,7 @@ namespace polysat {
         for (auto const& q : mon.args)
             clause.push_back(C.eq(q));
         
-        c.add_axiom("~ovfl*(p,q) & p*q = 0 => p = 0 or q = 0", clause, true);
-        return false;
+        return c.add_axiom("~ovfl*(p,q) & p*q = 0 => p = 0 or q = 0", clause, true);
     }
 
     // parity(p*q) > 0 => parity(p) > 0 or parity(q) > 0
@@ -295,8 +295,7 @@ namespace polysat {
         clause.push_back(~C.parity_at_least(mon.var, 1));
         for (auto const& p : mon.args) 
             clause.push_back(C.parity_at_least(p, 1));        
-        c.add_axiom("parity(p*q) > 0 => parity(p) > 0 or parity(q) > 0", clause, true);
-        return true;
+        return c.add_axiom("parity(p*q) > 0 => parity(p) > 0 or parity(q) > 0", clause, true);
     }
 
     // 0p * 0q >= 2^k => ovfl(p,q), where |p| = |q| = k
@@ -357,8 +356,7 @@ namespace polysat {
         pdd q = mon.args[1];
         for (unsigned i = 0; i < sz; ++i) 
             n += c.mk_ite(C.bit(p, i), c.value(rational::power_of_two(i), sz) * q, zero);
-        c.add_axiom("bit-blast", { C.eq(mon.var, n) }, true);
-        return true;
+        return c.add_axiom("bit-blast", { C.eq(mon.var, n) }, true);
     }
 
     std::ostream& monomials::monomial::display(std::ostream& out) const {
