@@ -94,19 +94,19 @@ stages:
     - script: sudo apt install ninja-build -y
     - script: |
           mkdir dist          
-          CXX=aarch64-linux-gnu-g++ CC=aarch64-linux-gnu-gcc cmake 
-                      -DCMAKE_BUILD_TYPE=RelWithDebInfo
-                      -DZ3_BUILD_DOTNET_BINDINGS=ON
-                      -DZ3_INSTALL_DOTNET_BINDINGS=ON 
-                      -DZ3_BUILD_JAVA_BINDINGS=ON
-                      -DZ3_INSTALL_JAVA_BINDINGS=ON
-                      -DZ3_JAVA_JAR_INSTALL_DIR=bin
-                      -DZ3_AVA_JNI_LIB_INSTALLDI=bin
-                      -DZ3_BUILD_PYTHON_BINDINGS=ON
-                      -DZ3_INSTALL_PYTHON_BINDINGS=ON
-                      -DCMAKE_INSTALL_PYTHON_PKG_DIR=bin/python
-                      -DZ3_BUILD_LIBZ3_SHARED=ON
-                      -DCMAKE_INSTALL_PREFIX=dist
+          CXX=aarch64-linux-gnu-g++ CC=aarch64-linux-gnu-gcc cmake \
+                      -DCMAKE_BUILD_TYPE=RelWithDebInfo\
+                      -DZ3_BUILD_DOTNET_BINDINGS=ON\
+                      -DZ3_INSTALL_DOTNET_BINDINGS=ON \
+                      -DZ3_BUILD_JAVA_BINDINGS=ON\
+                      -DZ3_INSTALL_JAVA_BINDINGS=ON\
+                      -DZ3_JAVA_JAR_INSTALL_DIR=bin\
+                      -DZ3_AVA_JNI_LIB_INSTALLDI=bin\
+                      -DZ3_BUILD_PYTHON_BINDINGS=ON\
+                      -DZ3_INSTALL_PYTHON_BINDINGS=ON\
+                      -DCMAKE_INSTALL_PYTHON_PKG_DIR=bin/python\
+                      -DZ3_BUILD_LIBZ3_SHARED=ON\
+                      -DCMAKE_INSTALL_PREFIX=dist\
                       -G "Ninja" ..
            ninja install
     - script: |
