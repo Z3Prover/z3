@@ -93,7 +93,7 @@ namespace polysat {
         else if (d.is_bool_var())
             return out << d.bool_var();
         else if (d.is_eq())
-            return out << "v" << d.eq().first << " == v" << d.eq().second;
+            return out << "tv" << d.eq().first << " == tv" << d.eq().second;
         else if (d.is_offset_claim()) {
             auto offs = d.offset();
             return out << "v" << offs.v << " == v" << offs.w << " offset " << offs.offset;
