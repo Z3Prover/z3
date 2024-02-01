@@ -73,7 +73,7 @@ stages:
           mkdir $(arch)          
           cd $(arch)
           $(buildenv) cmake \
-                      -DCMAKE_BUILD_TYPE=RelWithDebInfo\
+                      -DCMAKE_BUILD_TYPE=Release\
                       -DCMAKE_CXX_COMPILER=$(compiler)\
                       -DZ3_BUILD_DOTNET_BINDINGS=ON\
                       -DZ3_INSTALL_DOTNET_BINDINGS=ON \
@@ -84,7 +84,6 @@ stages:
                       -DZ3_BUILD_PYTHON_BINDINGS=ON\
                       -DZ3_INSTALL_PYTHON_BINDINGS=ON\
                       -DCMAKE_INSTALL_PYTHON_PKG_DIR=bin/python\
-                      -DZ3_BUILD_LIBZ3_SHARED=ON\
                       -DCMAKE_INSTALL_PREFIX=$(name)\
                       -G "Ninja" ../
            ninja install
