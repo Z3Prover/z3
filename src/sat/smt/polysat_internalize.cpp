@@ -858,6 +858,13 @@ namespace polysat {
         return expr2pdd(ite);
     }
 
+    pdd solver::mk_zero_extend(unsigned n, pdd const& p) {
+        expr_ref pe = pdd2expr(p);
+        auto ze = bv.mk_zero_extend(n, pe);
+        ctx.internalize(ze);
+        return expr2pdd(ze);
+    }
+
     dd::pdd solver::expr2pdd(expr* e) {
         return var2pdd(get_th_var(e));
     }

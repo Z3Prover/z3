@@ -225,6 +225,7 @@ namespace polysat {
         void get_bitvector_suffixes(pvar v, offset_slices& out) override;
         void get_fixed_bits(pvar v, fixed_bits_vector& fixed_bits) override;
         pdd  mk_ite(signed_constraint const& sc, pdd const& p, pdd const& q) override;
+        pdd mk_zero_extend(unsigned sz, pdd const& p) override;
         unsigned level(dependency const& d) override;
         dependency explain_slice(pvar v, pvar w, unsigned offset);
 
