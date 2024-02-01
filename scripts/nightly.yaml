@@ -93,6 +93,8 @@ stages:
     - script: sudo apt install g++-aarch64-linux-gnu -y
     - script: sudo apt install ninja-build -y
     - script: |
+          mkdir build
+          cd build
           cmake \
                       -DCMAKE_BUILD_TYPE=RelWithDebInfo\
                       -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++\
@@ -107,10 +109,11 @@ stages:
                       -DCMAKE_INSTALL_PYTHON_PKG_DIR=bin/python\
                       -DZ3_BUILD_LIBZ3_SHARED=ON\
                       -DCMAKE_INSTALL_PREFIX=dist\
-                      -G "Ninja" .
+                      -G "Ninja" ../
            ninja install
            zip -r z3-$(NightlyVersion)-ubuntu-arm64.zip dist
-    - script: cp *.zip $(Build.ArtifactStagingDirectory)/.
+           cd ..
+    - script: cp build/*.zip $(Build.ArtifactStagingDirectory)/.
     - task: PublishPipelineArtifact@0
       inputs:
         artifactName: 'UbuntuArm64CMAKE'
