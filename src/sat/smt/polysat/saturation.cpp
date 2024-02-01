@@ -208,9 +208,11 @@ namespace polysat {
 
     /**
     * Expand the following axioms:
+    * Ovfl(x, y) & x <= y => y >= 2^{(N + 1) div 2}
     * Ovfl(x, y) & msb(x) <= k => msb(y) >= N - k - 1
     * Ovfl(x, y) & msb(x) <= k & msb(y) <= N - k - 1 => 0x * 0y >= 2^{N-1}
     * 
+    * ~Ovfl(x, y) & x <= y => x < 2^{(N + 1) div 2}
     * ~Ovfl(x,y) & msb(x) >= k => msb(y) <= N - k - 1
     * ~Ovfl(x,y) & msb(x) >= k & msb(y) >= N - k - 1 => 0x * 0y < 2^{N-1}
     */
@@ -231,6 +233,7 @@ namespace polysat {
         if (bx > by) {
             std::swap(bx, by);
             std::swap(x, y);
+            std::swap(vx, vy);
         }
 
         // Keep in mind that
@@ -261,7 +264,12 @@ namespace polysat {
             SASSERT(bx > 1 && by > 1);
             SASSERT(bx + by >= N + 1);
             auto k = bx - 1;
-            if (bx + by > N + 1) 
+            if (bx > (N + 1) / 2) {
+                add_clause("~Ovfl(x, y) & x <= y => x < 2^{(N + 1) div 2}", 
+                    { d, ~C.ule(x, y), C.ult(x, rational::power_of_two((N + 1) / 2)) },
+                    true);
+            }
+            else if (bx + by > N + 1) 
                 add_clause("~Ovfl(x, y) & msb(x) >= k => msb(y) <= N - k - 1", 
                     {d, ~msb_ge(x, k), msb_le(y, N - k - 1)},
                     true);            
@@ -277,8 +285,13 @@ namespace polysat {
         }
         else {
             // Case Ovfl(x,y) 
-            if (bx == 0) {
+            if (bx <= 1) {
                 add_clause("Ovfl(x, y) => x > 1", { d, C.ugt(x, 1) }, true);
+            }
+            else if (bx < (N + 1) / 2) {
+                add_clause("Ovfl(x, y) & x <= y => y >= 2^{(N + 1) div 2}", 
+                    { d, ~C.ule(x, y), C.uge(x, rational::power_of_two((N + 1) / 2)) },
+                    true);
             }
             else if (bx + by < N + 1) {
                 SASSERT(bx <= by);
