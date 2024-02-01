@@ -34,10 +34,6 @@ namespace polysat {
     }
 
     signed_constraint constraints::umul_ovfl(pdd const& p, pdd const& q) {
-        if (p == q) {
-            unsigned N = p.manager().power_of_2();
-            return ule(rational::power_of_two(N - 1), p);
-        }
         auto* cnstr = alloc(umul_ovfl_constraint, p, q);
         c.trail().push(new_obj_trail(cnstr));
         return signed_constraint(ckind_t::umul_ovfl_t, cnstr);
