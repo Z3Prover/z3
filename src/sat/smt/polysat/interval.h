@@ -98,6 +98,8 @@ namespace polysat {
         static r_interval proper(rational lo, rational hi) {
             SASSERT(0 <= lo);
             SASSERT(0 <= hi);
+            if (lo == hi)
+                return empty();
             return {std::move(lo), std::move(hi)};
         }
 
@@ -141,6 +143,13 @@ namespace polysat {
         }
 
     };
+
+    inline std::ostream& operator<<(std::ostream& os, r_interval const& i) {
+        if (i.is_full())
+            return os << "full";
+        else
+            return os << "[" << i.lo() << ";" << i.hi() << "[";
+    }
 
     class eval_interval {
         interval m_symbolic;

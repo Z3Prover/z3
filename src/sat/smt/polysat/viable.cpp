@@ -127,7 +127,7 @@ namespace polysat {
         m_explain_kind = explain_t::none;
 
         for (unsigned rounds = 0; rounds < 10; ) {
-            auto n = find_overlap(lo);            
+            entry* n = find_overlap(lo);
 
             if (m_explain_kind == explain_t::conflict)
                 return find_t::empty;
@@ -633,16 +633,21 @@ namespace polysat {
     }
 
     void viable::propagate_from_containing_slice(entry* e, rational const& value, dependency_vector const& e_deps, offset_slice const& slice) {
-        auto [w, offset] = slice;
-        if (w == m_var)
+        auto [y, offset] = slice;
+        if (y == m_var)
             return;
+        // v = vvvvvvvvvvvvvvvvvvvvvvv
+        //     xxxxxxyyyyyyyyzzzzzzzzz
+        //             y_sz    offset
         unsigned const v_sz = c.size(m_var);
-        unsigned const w_sz = c.size(w);
-        verbose_stream() << "v" << m_var << " size " << v_sz << ", v" << w << " size " << w_sz << " offset " << offset << "\n";
+        unsigned const y_sz = c.size(y);
+        unsigned const z_sz = offset;
+        unsigned const x_sz = v_sz - y_sz - offset;
+        verbose_stream() << "v" << m_var << " size " << v_sz << ", v" << y << " size " << y_sz << " offset " << offset << "\n";
+        SASSERT(!e->interval.is_full());
         rational const& lo = e->interval.lo_val();
         rational const& hi = e->interval.hi_val();
-        if (v_sz == w_sz) {
-            return;
+        if (v_sz == y_sz) {
 #if 0
             // TODO: copy interval over?
             rational const& w_lo = lo;
@@ -659,70 +664,148 @@ namespace polysat {
 #endif
             return;
         }
-        if (offset == 0) {
-            verbose_stream() << "propagate interval " << e->interval << " from v" << m_var << " to v" << w << "\n";
 
-            if (e->interval.current_len() > rational::power_of_two(v_sz) - rational::power_of_two(w_sz)) {
-                verbose_stream() << "generic interval works\n";
-                rational w_lo = mod2k(lo, w_sz);
-                rational w_hi = mod2k(hi, w_sz);
-                verbose_stream() << "=>  v" << w << " not in [" << w_lo << ";" << w_hi << "[\n";
-                SASSERT(w_lo != w_hi);  // otherwise the length of e->interval would have been smaller
-                auto sc = ~cs.ult(c.var(w) - w_lo, w_hi - w_lo);
+        r_interval const v_ivl  = r_interval::proper(lo, hi);
+        verbose_stream() << "propagate interval " << v_ivl << " from v" << m_var << " to v" << y << "\n";
+
+        // more general interval, without taking into account fixed values
+        // TODO: should we always create this? (maybe not here?)
+        {
+            r_interval const yz_ivl = chop_off_upper(v_ivl,  x_sz, y_sz + z_sz);  // chop off x-part
+            r_interval const y_ivl  = chop_off_lower(yz_ivl, y_sz,        z_sz);  // chop off z-part
+
+            if (y_ivl.is_full()) {
+                // no value for y
+                UNREACHABLE();  // without fixed x or z, this is only possible if e->interval was full
+            }
+            else if (!y_ivl.is_empty()) {
+                // proper interval
+                verbose_stream() << "=>  v" << y << " not in " << y_ivl << "\n";
+                auto sc = ~cs.ult(c.var(y) - y_ivl.lo(), y_ivl.hi() - y_ivl.lo());
                 dependency_vector deps;
                 deps.append(e_deps);  // explains e
-                deps.push_back(offset_claim{m_var, slice});  // v[w_sz:0] = w
+                deps.push_back(offset_claim{m_var, slice});  // explains v[...] = y
                 auto exp = c.propagate(sc, deps);
                 if (c.inconsistent()) {
                     verbose_stream() << "XXX1 inconsistent " << sc << " " << exp << "\n";
                 }
             }
-
-#if 0
-            // if other part is constant
-            // v[v_sz-1:w_sz] == n, v[w_sz-1:0] == w
-            if (rational n; m_fixed_bits.try_get_value(v_sz - 1, w_sz, n)) {
-                rational lo_d = machine_div2k(lo, w_sz);
-                rational hi_d = machine_div2k(hi, w_sz);
-                rational w_lo = (lo_d == n) ? mod2k(lo, w_sz) : rational(0);
-                rational w_hi = (hi_d == n) ? mod2k(hi, w_sz) : rational(0);
-                if (w_lo != w_hi) {
-                    verbose_stream() << "=>  v" << w << " not in [" << w_lo << ";" << w_hi << "[\n";
-                }
-                else if (ivl.currently_contains(n * rational::power_of_two(w_sz))) {
-                    verbose_stream() << "=>  no value for v" << w << "\n";
-                }
+            else {
+                SASSERT(y_ivl.is_empty());
+                // y is unconstrained, nothing to do here
             }
-#endif
+        }
 
-            // we have the assignment for v, thus a fixed value for the upper slice
-            // v[v_sz-1:w_sz] == n, v[w_sz-1:0] == w
-            rational n = machine_div2k(value, w_sz);
-            rational lo_d = machine_div2k(lo, w_sz);
-            rational hi_d = machine_div2k(hi, w_sz);
-            rational w_lo = (lo_d == n) ? mod2k(lo, w_sz) : rational(0);
-            rational w_hi = (hi_d == n) ? mod2k(hi, w_sz) : rational(0);
-            verbose_stream() << "n " << n << " lo_d " << lo_d << " hi_d " << hi_d << " w_lo " << w_lo << " w_hi " << w_hi << "\n";
+        // tighter interval, but depends on fixed values
+        {
+            rational const x_value = x_sz > 0 ? machine_div2k(value, y_sz + z_sz) : rational(0);
+            rational const z_value = z_sz > 0 ? mod2k(value, z_sz) : rational(0);
+            r_interval const yz_ivl = chop_off_upper(v_ivl,  x_sz, y_sz + z_sz, &x_value);  // chop off x-part
+            r_interval const y_ivl  = chop_off_lower(yz_ivl, y_sz,        z_sz, &z_value);  // chop off z-part
 
-            if (w_lo != w_hi) {
-                verbose_stream() << "=>  v" << w << " not in [" << w_lo << ";" << w_hi << "[\n";
-                auto sc = ~cs.ult(c.var(w) - w_lo, w_hi - w_lo);
+            if (y_ivl.is_full()) {
+                // no value for y
+                // TODO: the signed_constraint to propagate would be 'false'
+                NOT_IMPLEMENTED_YET();
+            }
+            else if (!y_ivl.is_empty()) {
+                // proper interval
+                verbose_stream() << "=>  v" << y << " not in " << y_ivl << "\n";
+                auto sc = ~cs.ult(c.var(y) - y_ivl.lo(), y_ivl.hi() - y_ivl.lo());
                 dependency_vector deps;
                 deps.append(e_deps);  // explains e
-                deps.push_back(offset_claim{m_var, slice});  // v[w_sz:0] = w
-                deps.push_back(fixed_claim{m_var, n, w_sz, v_sz - w_sz});  // v[v_sz-1:w_sz] = n
+                deps.push_back(offset_claim{m_var, slice});  // explains v[...] = y
+                if (x_sz > 0)
+                    deps.push_back(fixed_claim{m_var, x_value, y_sz + z_sz, x_sz});  // v[upper] = x_value
+                if (z_sz > 0)
+                    deps.push_back(fixed_claim{m_var, z_value, 0, z_sz});  // v[lower] = z_value
                 auto exp = c.propagate(sc, deps);
                 if (c.inconsistent()) {
                     verbose_stream() << "XXX2 inconsistent " << sc << " " << exp << "\n";
                 }
             }
-            else if (e->interval.currently_contains(n * rational::power_of_two(w_sz))) {
-                verbose_stream() << "=>  no value for v" << w << "\n";
+            else {
+                SASSERT(y_ivl.is_empty());
+                // y is unconstrained, nothing to do here
             }
         }
-        else {
-            // TODO
+    }
+
+
+    /// Let x = concat(y, z) and x \not\in [lo;hi[.
+    /// Returns an interval I such that z \not\in I.
+    r_interval viable::chop_off_upper(r_interval const& i, unsigned const Ny, unsigned const Nz, rational const* y_fixed_value) {
+        if (i.is_full())
+            return r_interval::full();
+        if (i.is_empty())
+            return r_interval::empty();
+        if (Ny == 0)
+            return i;
+        unsigned const Nx = Ny + Nz;
+        rational const& lo = i.lo();
+        rational const& hi = i.hi();
+        if (y_fixed_value) {
+            rational const& n = *y_fixed_value;
+            rational const lo_d = machine_div2k(lo, Nz);
+            rational const hi_d = machine_div2k(hi, Nz);
+            rational z_lo = (lo_d == n) ? mod2k(lo, Nz) : rational(0);
+            rational z_hi = (hi_d == n) ? mod2k(hi, Nz) : rational(0);
+            if (z_lo != z_hi)
+                return r_interval::proper(std::move(z_lo), std::move(z_hi));
+            else if (r_interval::contains(lo, hi, n * rational::power_of_two(Nz)))
+                return r_interval::full();  // no value for z
+            else
+                return r_interval::empty();  // z unconstrained
         }
+        else {
+            rational const Mx = rational::power_of_two(Nx);
+            rational const Mz = rational::power_of_two(Nz);
+            rational const len = r_interval::len(lo, hi, Mx);
+            if (len > Mx - Mz)
+                return r_interval::proper(mod2k(lo, Nz), mod2k(hi, Nz));
+            else
+                return r_interval::empty();  // z unconstrained
+        }
+        UNREACHABLE();
+    }
+
+    /// Let x = concat(y, z) and x \not\in [lo;hi[.
+    /// Returns an interval I such that y \not\in I.
+    r_interval viable::chop_off_lower(r_interval const& i, unsigned const Ny, unsigned const Nz, rational const* z_fixed_value) {
+        if (i.is_full())
+            return r_interval::full();
+        if (i.is_empty())
+            return r_interval::empty();
+        if (Nz == 0)
+            return i;
+        unsigned const Nx = Ny + Nz;
+        rational const& lo = i.lo();
+        rational const& hi = i.hi();
+        if (z_fixed_value) {
+            // Note: ceil(a/b) == floor((a-1)/b) + 1 for integers a,b and b > 0
+            rational const& n = *z_fixed_value;
+            rational y_lo = mod2k(machine_div2k(mod2k(lo - n, Nx) - 1, Nz) + 1, Ny);
+            rational y_hi = mod2k(machine_div2k(mod2k(hi - n, Nx) - 1, Nz) + 1, Ny);
+            if (y_lo != y_hi)
+                return r_interval::proper(std::move(y_lo), std::move(y_hi));
+            else if (r_interval::contains(lo, hi, y_hi * rational::power_of_two(Nz) + n))
+                return r_interval::full();  // no value for y
+            else
+                return r_interval::empty();  // y unconstrained
+        }
+        else {
+            rational const Mx = rational::power_of_two(Nx);
+            rational const Mz = rational::power_of_two(Nz);
+            rational const len = r_interval::len(lo, hi, Mx);
+            if (len >= Mz) {
+                rational y_lo = mod2k(machine_div2k(lo - 1, Nz) + 1, Ny);
+                rational y_hi = machine_div2k(hi, Nz);
+                return r_interval::proper(std::move(y_lo), std::move(y_hi));
+            }
+            else
+                return r_interval::empty();  // y unconstrained
+        }
+        UNREACHABLE();
     }
 
     /*
