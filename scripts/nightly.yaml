@@ -107,7 +107,7 @@ stages:
                       -DCMAKE_INSTALL_PYTHON_PKG_DIR=bin/python\
                       -DZ3_BUILD_LIBZ3_SHARED=ON\
                       -DCMAKE_INSTALL_PREFIX=dist\
-                      -G "Ninja" ../
+                      -G "Ninja" .
            ninja install
            zip -r z3-$(NightlyVersion)-ubuntu-arm64.zip dist
     - script: cp *.zip $(Build.ArtifactStagingDirectory)/.
