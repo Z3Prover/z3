@@ -92,11 +92,13 @@ stages:
           buildenv: 'CXX=aarch64-linux-gnu-g++ CC=aarch64-linux-gnu-gcc'
           arch: 'arm64'
           name: 'z3-$(NightlyVersion)-ubuntu-arm64'
+          compiler: 'aarch64-linux-gnu-g++-11'
         x64:
           setupcmds: 'sudo apt update& sudo apt install ninja-build -y'
           buildenv: ''
           arch: 'x64'
           name: 'z3-$(NightlyVersion)-ubuntu-x64'
+          compiler: 'g++'
     steps:
     - script: $(setupcmds)
     - script: |
@@ -104,7 +106,7 @@ stages:
           cd $(arch)
           $(buildenv) cmake \
                       -DCMAKE_BUILD_TYPE=RelWithDebInfo\
-                      -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++\
+                      -DCMAKE_CXX_COMPILER=$(compiler)\
                       -DZ3_BUILD_DOTNET_BINDINGS=ON\
                       -DZ3_INSTALL_DOTNET_BINDINGS=ON \
                       -DZ3_BUILD_JAVA_BINDINGS=ON\
