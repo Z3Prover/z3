@@ -41,8 +41,8 @@ namespace polysat {
         lbool weak_eval(assignment const& a) const override;
         lbool strong_eval(assignment const& a) const override;
         bool is_linear() const override { return lhs().is_linear_or_value() && rhs().is_linear_or_value(); }
-        void activate(core& c, bool sign, dependency const& dep);
-        bool propagate(core& c, lbool value, dependency const& dep) { return false; }
+        void activate(core& c, bool sign, dependency const& dep) override;
+        bool propagate(core& c, lbool value, dependency const& dep) override { return false; }
         bool is_eq() const { return m_rhs.is_zero(); }
         unsigned power_of_2() const { return m_lhs.power_of_2(); }
 
