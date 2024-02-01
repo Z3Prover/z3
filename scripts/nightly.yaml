@@ -149,7 +149,13 @@ stages:
         artifactName: '$(name)Build'
         targetPath: $(Build.ArtifactStagingDirectory)
 
+  - template: build-win-signed.yml
+    parameters:
+      ReleaseVersion: $(ReleaseVersion)
+      BuildArchitecture: 'x86'
+
   - job: Windows32
+    condition: eq(0, 1)
     displayName: "Windows 32-bit build"
     pool:
       vmImage: "windows-latest"
@@ -416,7 +422,7 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: 'Download Win32 Build'
       inputs:
-        artifact: 'Windows32'
+        artifact: 'WindowsBuild-x86'
         path: $(Agent.TempDirectory)\package
     - task: NuGetToolInstaller@0
       inputs:
