@@ -98,7 +98,6 @@ namespace polysat {
         void propagate_eval(constraint_id idx);
         void propagate_assignment(pvar v, rational const& value, dependency dep);
         void propagate_activation(constraint_id idx, signed_constraint& sc, dependency dep);
-        void propagate(constraint_id id, signed_constraint& sc, lbool value, dependency const& d);
         dependency_vector explain_weak_eval(unsigned_vector const& vars);
 
         void add_watch(unsigned idx, unsigned var);

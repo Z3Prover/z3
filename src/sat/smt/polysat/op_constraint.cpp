@@ -264,21 +264,21 @@ namespace polysat {
         }
     }
 
-    bool op_constraint::propagate(core& c, lbool value, dependency const& dep) {
+    bool op_constraint::saturate(core& c, lbool value, dependency const& dep) {
         SASSERT(value == l_true);
         switch (m_op) {
         case code::lshr_op:
-            return propagate_lshr(c);
+            return saturate_lshr(c);
         case code::ashr_op:
-            return propagate_ashr(c);
+            return saturate_ashr(c);
         case code::shl_op:
-            return propagate_shl(c);            
+            return saturate_shl(c);            
         case code::and_op:
-            return propagate_and(c);            
+            return saturate_and(c);            
         case code::or_op:
-            return propagate_or(c);            
+            return saturate_or(c);            
         case code::inv_op:
-            return propagate_inv(c);            
+            return saturate_inv(c);            
         default:
             verbose_stream() << "not implemented yet: " << *this << "\n";
             NOT_IMPLEMENTED_YET();
@@ -287,7 +287,7 @@ namespace polysat {
         return false;
     }
 
-    bool op_constraint::propagate_inv(core& s) {
+    bool op_constraint::saturate_inv(core& s) {
         return false;
     }
 
@@ -323,7 +323,7 @@ namespace polysat {
   * when q is a constant, several axioms can be enforced at activation time.
   *
   */
-    bool op_constraint::propagate_lshr(core& c) {
+    bool op_constraint::saturate_lshr(core& c) {
         auto& m = p.manager();
         auto const pv = c.subst(p);
         auto const qv = c.subst(q);
@@ -350,7 +350,7 @@ namespace polysat {
         return c1 || c2 || c3;        
     }
 
-    bool op_constraint::propagate_ashr(core& c) {
+    bool op_constraint::saturate_ashr(core& c) {
         //
         // Suppose q = k, p >= 0:
         // p = ab, where b has length k, a has length N - k
@@ -409,7 +409,7 @@ namespace polysat {
      *      q >= k  ->  r = 0  \/  r >= 2^k
      *      q >= k  ->  r[i] = 0 for i < k
      */
-    bool op_constraint::propagate_shl(core& c) {
+    bool op_constraint::saturate_shl(core& c) {
         auto& m = p.manager();
         auto const pv = c.subst(p);
         auto const qv = c.subst(q);
@@ -443,7 +443,7 @@ namespace polysat {
      * p = 2^k - 1 && r = 0 && q != 0 => q >= 2^k
      * q = 2^k - 1 && r = 0 && p != 0 => p >= 2^k
      */
-    bool op_constraint::propagate_and(core& c) {
+    bool op_constraint::saturate_and(core& c) {
         auto& m = p.manager();
         auto pv = c.subst(p);
         auto qv = c.subst(q);
@@ -482,7 +482,7 @@ namespace polysat {
         return false;
     }
 
-    bool op_constraint::propagate_or(core& c) {
+    bool op_constraint::saturate_or(core& c) {
         auto& m = p.manager();
         auto pv = c.subst(p);
         auto qv = c.subst(q);

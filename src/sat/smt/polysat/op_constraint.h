@@ -60,12 +60,12 @@ namespace polysat {
         static lbool eval_inv(pdd const& p, pdd const& r);
         static lbool eval_or(pdd const& p, pdd const& q, pdd const& r);
 
-        bool propagate_lshr(core& c);
-        bool propagate_ashr(core& c);
-        bool propagate_shl(core& c);
-        bool propagate_and(core& c);
-        bool propagate_or(core& c);
-        bool propagate_inv(core& c);
+        bool saturate_lshr(core& c);
+        bool saturate_ashr(core& c);
+        bool saturate_shl(core& c);
+        bool saturate_and(core& c);
+        bool saturate_or(core& c);
+        bool saturate_inv(core& c);
         bool propagate_mask(core& c, pdd const& p, pdd const& q, pdd const& r, rational const& pv, rational const& qv, rational const& rv);
 
         bool propagate(core& c, signed_constraint const& sc);
@@ -84,7 +84,7 @@ namespace polysat {
         bool is_always_true() const { return false; }
         bool is_always_false() const { return false; }
         void activate(core& c, bool sign, dependency const& dep) override;
-        bool propagate(core& c, lbool value, dependency const& dep) override;
+        bool saturate(core& c, lbool value, dependency const& dep) override;
     };
 
 }

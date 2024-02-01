@@ -49,7 +49,7 @@ namespace polysat {
         virtual lbool weak_eval(assignment const& a) const = 0;
         virtual lbool strong_eval(assignment const& a) const = 0;
         virtual void activate(core& c, bool sign, dependency const& d) = 0;
-        virtual bool propagate(core& c, lbool value, dependency const& d) = 0;
+        virtual bool saturate(core& c, lbool value, dependency const& d) = 0;
         virtual bool is_linear() const { return false; }
     };
 
@@ -75,7 +75,7 @@ namespace polysat {
         unsigned num_watch() const { return m_constraint->num_watch(); }
         void set_num_watch(unsigned n) { m_constraint->set_num_watch(n); }
         void activate(core& c, dependency const& d) { m_constraint->activate(c, m_sign, d); }
-        bool propagate(core& c, lbool value, dependency const& d) { return m_constraint->propagate(c, value, d); }
+        bool saturate(core& c, lbool value, dependency const& d) { return m_constraint->saturate(c, value, d); }
         bool is_always_true() const { return eval() == l_true; }
         bool is_always_false() const { return eval() == l_false; }
         bool is_linear() const { return m_constraint->is_linear(); }

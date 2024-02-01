@@ -487,21 +487,6 @@ namespace polysat {
         return d;
     }
 
-    void core::propagate(constraint_id id, signed_constraint& sc, lbool value, dependency const& d) {
-        lbool eval_value = weak_eval(sc);
-        if (eval_value == l_undef)
-            sc.propagate(*this, value, d);
-        else if (value == l_undef)
-            s.propagate(d, eval_value != l_true, explain_weak_eval(sc), "constraint-propagate");
-        else if (value != eval_value) {
-            m_unsat_core = explain_weak_eval(sc);
-            m_unsat_core.push_back(m_constraint_index[id.id].d);
-            verbose_stream() << "infeasible propagation " << m_unsat_core << "\n";
-            s.set_conflict(m_unsat_core, "polysat-constraint-core");
-            decay_activity();
-        }                   
-    }
-
     void core::get_bitvector_suffixes(pvar v, offset_slices& out) {
         s.get_bitvector_suffixes(v, out);
     }
