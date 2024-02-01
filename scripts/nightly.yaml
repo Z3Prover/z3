@@ -49,38 +49,6 @@ stages:
         artifactName: 'Ubuntu-20.04'
         targetPath: $(Build.ArtifactStagingDirectory)
 
-
-  - job: Ubuntu
-    displayName: "Ubuntu build"
-    pool:
-      vmImage: "ubuntu-latest"
-    steps:
-    - script: python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
-    - script: git clone https://github.com/z3prover/z3test z3test
-    - script: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2    
-    - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
-    - task: PublishPipelineArtifact@0
-      inputs:
-        artifactName: 'Ubuntu'
-        targetPath: $(Build.ArtifactStagingDirectory)
-
-  - job: UbuntuArm64
-    displayName: "Ubuntu ARM64 build"
-    pool:
-      vmImage: "ubuntu-latest"
-    steps:
-    - script: sudo apt update
-    - script: sudo apt install gcc-arm-none-eabi -y
-    - script: sudo apt install gcc-arm-linux-gnueabihf -y
-    - script: sudo apt install gcc-aarch64-linux-gnu -y
-    - script: sudo apt install g++-aarch64-linux-gnu -y
-    - script: CXX=aarch64-linux-gnu-g++ CC=aarch64-linux-gnu-gcc python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk --arch=arm64
-    - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
-    - task: PublishPipelineArtifact@0
-      inputs:
-        artifactName: 'UbuntuArm64'
-        targetPath: $(Build.ArtifactStagingDirectory)
-
   - job: UbuntuBuilds
     displayName: "Ubuntu Builds"
     pool:
@@ -125,7 +93,7 @@ stages:
     - script: cp $(arch)/*.zip $(Build.ArtifactStagingDirectory)/.
     - task: PublishPipelineArtifact@0
       inputs:
-        artifactName: 'ubuntu-builds'
+        artifactName: 'ubuntu-$(arch)'
         targetPath: $(Build.ArtifactStagingDirectory)
 
   - job: UbuntuDoc
@@ -181,25 +149,6 @@ stages:
       inputs:
         artifactName: '$(name)Build'
         targetPath: $(Build.ArtifactStagingDirectory)
-
-#  - job: MuslLinuxBuild
-#    condition: eq(0,1)
-#    variables:
-#      python: "/opt/python/cp310-cp310/bin/python"
-#      name: MuslLinux
-#    displayName: "MuslLinux build"
-#    pool:
-#      vmImage: "ubuntu-latest"
-#    container: "quay.io/pypa/musllinux_1_1_x86_64:latest"
-#    steps:
-#    - script: $(python) scripts/mk_unix_dist.py --nodotnet --nojava
-#    - script: git clone https://github.com/z3prover/z3test z3test
-#    - script: $(python) z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2
-#    - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/
-#    - task: PublishPipelineArtifact@0
-#      inputs:
-#        artifactName: '$(name)Build'
-#        targetPath: $(Build.ArtifactStagingDirectory)
 
   - job: Windows32
     displayName: "Windows 32-bit build"
@@ -342,11 +291,6 @@ stages:
         artifact: 'Windows64'
         path: $(Agent.TempDirectory)\package
     - task: DownloadPipelineArtifact@2
-      displayName: 'Download Ubuntu Build'
-      inputs:
-        artifact: 'Ubuntu'
-        path: $(Agent.TempDirectory)\package
-    - task: DownloadPipelineArtifact@2
       displayName: 'Download Ubuntu 20.04 Build'
       inputs:
         artifact: 'Ubuntu-20.04'
@@ -354,8 +298,13 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: 'Download Ubuntu ARM64 Build'
       inputs:
-        artifact: 'UbuntuArm64'
+        artifact: 'ubuntu-arm64'
         path: $(Agent.TempDirectory)\package
+    - task: DownloadPipelineArtifact@2
+      displayName: 'Download Ubuntu Build'
+      inputs:
+        artifact: 'ubuntu-x64'
+        path: $(Agent.TempDirectory)\package        
     - task: DownloadPipelineArtifact@2
       displayName: 'Download macOS Build'
       inputs:
@@ -577,11 +526,6 @@ stages:
       inputs:
         artifactName: 'ManyLinuxBuild'
         targetPath: $(Agent.TempDirectory)
-#    - task: DownloadPipelineArtifact@2
-#      displayName: 'Download MuslLinux Build'
-#      inputs:
-#        artifact: 'MuslLinuxBuild'
-#        path: $(Agent.TempDirectory)	
     - task: DownloadPipelineArtifact@2
       inputs:
         artifactName: 'Mac'
@@ -647,17 +591,12 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: "Download Ubuntu Arm64"
       inputs:
-        artifactName: 'UbuntuArm64'
-        targetPath: tmp
-    - task: DownloadPipelineArtifact@2
-      displayName: 'Download Ubuntu Builds'
-      inputs:
-        artifact: 'ubuntu-builds'
+        artifactName: 'ubuntu-arm64'
         targetPath: tmp
     - task: DownloadPipelineArtifact@2
       displayName: "Download Ubuntu"
       inputs:
-        artifactName: 'Ubuntu'
+        artifactName: 'ubuntu-x64'
         targetPath: tmp
     - task: DownloadPipelineArtifact@2
       displayName: "Download Ubuntu-20.04"
