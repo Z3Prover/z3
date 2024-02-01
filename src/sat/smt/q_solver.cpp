@@ -120,7 +120,6 @@ namespace q {
     }
 
     sat::literal solver::instantiate(quantifier* _q, bool negate, std::function<expr* (quantifier*, unsigned)>& mk_var) {
-        sat::literal sk;
         expr_ref tmp(m);
         quantifier_ref q(_q, m);
         expr_ref_vector vars(m);

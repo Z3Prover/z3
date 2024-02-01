@@ -45,7 +45,6 @@ class column {
     u_dependency* m_lower_bound_witness = nullptr;
     u_dependency* m_upper_bound_witness = nullptr;
     bool          m_associated_with_row = false;  
-    lpvar         m_j; //the column index
     lar_term*     m_term = nullptr;
 public:
     lar_term*  term() const { return m_term; }
