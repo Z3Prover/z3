@@ -19,14 +19,15 @@ jobs:
     inputs:
       script:
          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" ${{parameters.BuildArchitecture}} &&
-        python scripts\mk_win_dist.py
+        python scripts\mk_win_dist_cmake.py
             --${{parameters.BuildArchitecture}}-only
+            --assembly-version=${{parameters.ReleaseVersion}}
             --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
   - task: CopyFiles@2
     displayName: 'Collect Symbols'
     inputs:
-      sourceFolder: dist
-      contents: '**/*.pdb'
+      sourceFolder: build-dist/${{parameters.BuildArchitecture}}/
+      contents: '*.pdb'
       targetFolder: '$(Build.ArtifactStagingDirectory)/symbols'
   # Publish symbol archive to match nuget package
   # Index your source code and publish symbols to a file share or Azure Artifacts symbol server
@@ -42,7 +43,7 @@ jobs:
     displayName: Sign
     inputs:
       ConnectedServiceName: 'z3-esrp-signing-2'
-      FolderPath: 'dist/z3-${{parameters.ReleaseVersion}}-${{parameters.BuildArchitecture}}-win/bin'
+      FolderPath: 'build-dist/${{parameters.BuildArchitecture}}/dist/z3-${{parameters.ReleaseVersion}}-${{parameters.BuildArchitecture}}-win/bin'
       Pattern: 'Microsoft.Z3.dll,libz3.dll,libz3java.dll,z3.exe'
       signConfigType: 'inlineSignParams'
       inlineOperation: |
@@ -82,12 +83,12 @@ jobs:
   - task: DeleteFiles@1
     displayName: Cleanup
     inputs:
-      SourceFolder: 'dist/z3-${{parameters.ReleaseVersion}}-${{parameters.BuildArchitecture}}-win/bin'
+      SourceFolder: 'build-dist/${{parameters.BuildArchitecture}}/dist/z3-${{parameters.ReleaseVersion}}-${{parameters.BuildArchitecture}}-win/bin'
       Contents: 'CodeSignSummary*'
   - task: ArchiveFiles@2
     displayName: Zip
     inputs:
-      rootFolderOrFile: 'dist/z3-${{parameters.ReleaseVersion}}-${{parameters.BuildArchitecture}}-win'
+      rootFolderOrFile: 'build-dist/${{parameters.BuildArchitecture}}/dist/z3-${{parameters.ReleaseVersion}}-${{parameters.BuildArchitecture}}-win'
       includeRootFolder: true
       archiveType: 'zip'
       archiveFile: '$(Build.ArtifactStagingDirectory)/z3-${{parameters.ReleaseVersion}}-${{parameters.BuildArchitecture}}-win.zip'

@@ -150,7 +150,7 @@ stages:
         artifactName: '$(name)Build'
         targetPath: $(Build.ArtifactStagingDirectory)
 
-  - template: build-win-signed.yml
+  - template: build-win-signed-cmake.yml
     parameters:
       ReleaseVersion: $(ReleaseVersion)
       BuildArchitecture: 'x86'
