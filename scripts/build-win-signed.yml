@@ -25,7 +25,7 @@ jobs:
   - task: CopyFiles@2
     displayName: 'Collect Symbols'
     inputs:
-      sourceFolder: dist
+      sourceFolder: build-dist/${{parameters.BuildArchitecture}}/
       contents: '**/*.pdb'
       targetFolder: '$(Build.ArtifactStagingDirectory)/symbols'
   # Publish symbol archive to match nuget package
@@ -35,14 +35,14 @@ jobs:
       symbolsFolder: '$(Build.ArtifactStagingDirectory)/symbols'
       searchPattern: '**/*.pdb' 
       indexSources: false # Github sources not supported
-      publishSymbols: true
+      publishSymbols: true.
       symbolServerType: TeamServices
       detailedLog: true
   - task: EsrpCodeSigning@2
     displayName: Sign
     inputs:
       ConnectedServiceName: 'z3-esrp-signing-2'
-      FolderPath: 'dist/${{parameters.BuildArchitecture}}/z3-${{parameters.ReleaseVersion}}-${{parameters.BuildArchitecture}}-win/bin'
+      FolderPath: 'build-dist/${{parameters.BuildArchitecture}}/z3-${{parameters.ReleaseVersion}}-${{parameters.BuildArchitecture}}-win/bin'
       Pattern: 'Microsoft.Z3.dll,libz3.dll,libz3java.dll,z3.exe'
       signConfigType: 'inlineSignParams'
       inlineOperation: |
@@ -82,12 +82,12 @@ jobs:
   - task: DeleteFiles@1
     displayName: Cleanup
     inputs:
-      SourceFolder: 'dist/${{parameters.BuildArchitecture}}/z3-${{parameters.ReleaseVersion}}-${{parameters.BuildArchitecture}}-win/bin'
+      SourceFolder: 'build-dist/${{parameters.BuildArchitecture}}/z3-${{parameters.ReleaseVersion}}-${{parameters.BuildArchitecture}}-win/bin'
       Contents: 'CodeSignSummary*'
   - task: ArchiveFiles@2
     displayName: Zip
     inputs:
-      rootFolderOrFile: 'dist/${{parameters.BuildArchitecture}}/z3-${{parameters.ReleaseVersion}}-${{parameters.BuildArchitecture}}-win'
+      rootFolderOrFile: 'build-dist/${{parameters.BuildArchitecture}}/z3-${{parameters.ReleaseVersion}}-${{parameters.BuildArchitecture}}-win'
       includeRootFolder: true
       archiveType: 'zip'
       archiveFile: '$(Build.ArtifactStagingDirectory)/z3-${{parameters.ReleaseVersion}}-${{parameters.BuildArchitecture}}-win.zip'
