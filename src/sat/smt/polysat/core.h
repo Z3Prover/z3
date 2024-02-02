@@ -183,7 +183,7 @@ namespace polysat {
         // dependency_vector get_dependencies(constraint_id_vector const& ids) const;
         lbool weak_eval(constraint_id id);
         lbool strong_eval(constraint_id id);
-        dependency propagate(signed_constraint const& sc, dependency_vector const& deps) { return s.propagate(sc, deps, nullptr); }
+        dependency propagate(signed_constraint const& sc, dependency_vector const& deps, char const* hint = nullptr) { return s.propagate(sc, deps, hint); }
         lbool weak_eval(signed_constraint const& sc);
         lbool strong_eval(signed_constraint const& sc);
         dependency_vector explain_weak_eval(signed_constraint const& sc);

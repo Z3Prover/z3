@@ -633,20 +633,49 @@ namespace polysat {
     }
 
     void viable::propagate_from_containing_slice(entry* e, rational const& value, dependency_vector const& e_deps, offset_slice const& slice) {
-        auto [y, offset] = slice;
-        if (y == m_var)
+        auto [w, offset] = slice;
+        if (w == m_var)
             return;
-        // v = vvvvvvvvvvvvvvvvvvvvvvv
-        //     xxxxxxyyyyyyyyzzzzzzzzz
-        //             y_sz    offset
-        unsigned const v_sz = c.size(m_var);
-        unsigned const y_sz = c.size(y);
+        verbose_stream() << "v" << m_var << " size " << c.size(m_var) << ", v" << w << " size " << c.size(w) << " offset " << offset << "\n";
+
+        // Let:
+        // v = m_var[e->bit_width-1:0]
+        // v = concat(x, y, z)
+        // y = w[y_sz-1:0]
+
+        //                      e->bit_width
+        // m_var = ???????vvvvvvvvvvvvvvvvvvvvvvv
+        //                      wwwwwwww
+        //                xxxxxxyyyyyyyyzzzzzzzzz
+        //                        y_sz    offset
+        //
+        // or:
+        // m_var = ???????vvvvvvvvvvvvvvvvvvvvvvv
+        //             wwwwwwwwwwwwwwwww
+        //                yyyyyyyyyyyyyyzzzzzzzzz
+        //
+        // or:
+        // m_var = ?????????????????vvvvvvvvvvvvv
+        //             wwwwwwwww
+        unsigned const v_sz = e->bit_width;
+        if (offset >= v_sz)
+            return;
+
+        unsigned const w_sz = c.size(w);
         unsigned const z_sz = offset;
-        unsigned const x_sz = v_sz - y_sz - offset;
-        verbose_stream() << "v" << m_var << " size " << v_sz << ", v" << y << " size " << y_sz << " offset " << offset << "\n";
+        unsigned const y_sz = std::min(w_sz, v_sz - z_sz);
+        unsigned const x_sz = v_sz - y_sz;
+
+        rational const& w_shift = rational::power_of_two(w_sz - y_sz);
+
+        verbose_stream() << "v_sz " << v_sz << " w_sz " << w_sz << " / x_sz " << x_sz << " y_sz " << y_sz << " z_sz " << z_sz << "\n";
+        display_one(verbose_stream() << "entry: ", e) << "\n";
+        verbose_stream() << "value " << value << "\n";
+
         SASSERT(!e->interval.is_full());
         rational const& lo = e->interval.lo_val();
         rational const& hi = e->interval.hi_val();
+
         if (v_sz == y_sz) {
 #if 0
             // TODO: copy interval over?
@@ -665,11 +694,11 @@ namespace polysat {
             return;
         }
 
+
         r_interval const v_ivl  = r_interval::proper(lo, hi);
-        verbose_stream() << "propagate interval " << v_ivl << " from v" << m_var << " to v" << y << "\n";
+        verbose_stream() << "propagate interval " << v_ivl << " from v" << m_var << " to v" << w << "[" << y_sz << "]" << "\n";
 
         // more general interval, without taking into account fixed values
-        // TODO: should we always create this? (maybe not here?)
         {
             r_interval const yz_ivl = chop_off_upper(v_ivl,  x_sz, y_sz + z_sz);  // chop off x-part
             r_interval const y_ivl  = chop_off_lower(yz_ivl, y_sz,        z_sz);  // chop off z-part
@@ -680,12 +709,12 @@ namespace polysat {
             }
             else if (!y_ivl.is_empty()) {
                 // proper interval
-                verbose_stream() << "=>  v" << y << " not in " << y_ivl << "\n";
-                auto sc = ~cs.ult(c.var(y) - y_ivl.lo(), y_ivl.hi() - y_ivl.lo());
+                verbose_stream() << "=>  v" << w << "[" << y_sz << "] not in " << y_ivl << "\n";
+                auto sc = ~cs.ult(w_shift * (c.var(w) - y_ivl.lo()), w_shift * (y_ivl.hi() - y_ivl.lo()));
                 dependency_vector deps;
                 deps.append(e_deps);  // explains e
                 deps.push_back(offset_claim{m_var, slice});  // explains v[...] = y
-                auto exp = c.propagate(sc, deps);
+                auto exp = c.propagate(sc, deps, "propagate from containing slice (general)");
                 if (c.inconsistent()) {
                     verbose_stream() << "XXX1 inconsistent " << sc << " " << exp << "\n";
                 }
@@ -710,8 +739,8 @@ namespace polysat {
             }
             else if (!y_ivl.is_empty()) {
                 // proper interval
-                verbose_stream() << "=>  v" << y << " not in " << y_ivl << "\n";
-                auto sc = ~cs.ult(c.var(y) - y_ivl.lo(), y_ivl.hi() - y_ivl.lo());
+                verbose_stream() << "=>  v" << w << "[" << y_sz << "] not in " << y_ivl << "\n";
+                auto sc = ~cs.ult(w_shift * (c.var(w) - y_ivl.lo()), w_shift * (y_ivl.hi() - y_ivl.lo()));
                 dependency_vector deps;
                 deps.append(e_deps);  // explains e
                 deps.push_back(offset_claim{m_var, slice});  // explains v[...] = y
@@ -719,7 +748,7 @@ namespace polysat {
                     deps.push_back(fixed_claim{m_var, x_value, y_sz + z_sz, x_sz});  // v[upper] = x_value
                 if (z_sz > 0)
                     deps.push_back(fixed_claim{m_var, z_value, 0, z_sz});  // v[lower] = z_value
-                auto exp = c.propagate(sc, deps);
+                auto exp = c.propagate(sc, deps, "propagate from containing slice (fixed)");
                 if (c.inconsistent()) {
                     verbose_stream() << "XXX2 inconsistent " << sc << " " << exp << "\n";
                 }
