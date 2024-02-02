@@ -619,7 +619,11 @@ namespace polysat {
             // there is just one entry
             SASSERT(m_explain.size() == 1);
             explain_entry(last.e);
-            propagate_from_containing_slice(last.e, last.value, result);
+            auto exp = propagate_from_containing_slice(last.e, last.value, result);
+            if (!exp.is_null()) {
+                result.clear();
+                result.push_back(exp);
+            }
         }
         unmark();
         if (c.inconsistent())
@@ -627,15 +631,17 @@ namespace polysat {
         return result;
     }
 
-    void viable::propagate_from_containing_slice(entry* e, rational const& value, dependency_vector const& e_deps) {
+    dependency viable::propagate_from_containing_slice(entry* e, rational const& value, dependency_vector const& e_deps) {
         for (auto const& slice : m_overlaps)
-            propagate_from_containing_slice(e, value, e_deps, slice);
+            if (auto d = propagate_from_containing_slice(e, value, e_deps, slice); !d.is_null())
+                return d;
+        return null_dependency;
     }
 
-    void viable::propagate_from_containing_slice(entry* e, rational const& value, dependency_vector const& e_deps, offset_slice const& slice) {
+    dependency viable::propagate_from_containing_slice(entry* e, rational const& value, dependency_vector const& e_deps, offset_slice const& slice) {
         auto [w, offset] = slice;
         if (w == m_var)
-            return;
+            return null_dependency;
         verbose_stream() << "v" << m_var << " size " << c.size(m_var) << ", v" << w << " size " << c.size(w) << " offset " << offset << "\n";
 
         // Let:
@@ -659,7 +665,7 @@ namespace polysat {
         //             wwwwwwwww
         unsigned const v_sz = e->bit_width;
         if (offset >= v_sz)
-            return;
+            return null_dependency;
 
         unsigned const w_sz = c.size(w);
         unsigned const z_sz = offset;
@@ -700,10 +706,7 @@ namespace polysat {
                 dependency_vector deps;
                 deps.append(e_deps);  // explains e
                 deps.push_back(offset_claim{m_var, slice});  // explains m_var[...] = w
-                auto exp = c.propagate(sc, deps, "propagate from containing slice (general)");
-                if (c.inconsistent()) {
-                    verbose_stream() << "XXX1 inconsistent " << sc << " " << exp << "\n";
-                }
+                return c.propagate(sc, deps, "propagate from containing slice (general)");
             }
             else {
                 SASSERT(y_ivl.is_empty());
@@ -738,16 +741,15 @@ namespace polysat {
                 }
                 if (z_sz > 0)
                     deps.push_back(fixed_claim{m_var, z_value, 0, z_sz});  // v[lower] = z_value
-                auto exp = c.propagate(sc, deps, "propagate from containing slice (fixed)");
-                if (c.inconsistent()) {
-                    verbose_stream() << "XXX2 inconsistent " << sc << " " << exp << "\n";
-                }
+                return c.propagate(sc, deps, "propagate from containing slice (fixed)");
             }
             else {
                 SASSERT(y_ivl.is_empty());
                 // y is unconstrained, nothing to do here
             }
         }
+
+        return null_dependency;
     }
 
 
