@@ -268,7 +268,7 @@ namespace polysat {
                 add_clause("~Ovfl(x, y) & x <= y => x < 2^{(N + 1) div 2}", 
                     { d, ~C.ule(x, y), C.ult(x, rational::power_of_two((N + 1) / 2)) },
                     true);
-            }
+            }            
             else if (bx + by > N + 1) 
                 add_clause("~Ovfl(x, y) & msb(x) >= k => msb(y) <= N - k - 1", 
                     {d, ~msb_ge(x, k), msb_le(y, N - k - 1)},
@@ -276,11 +276,9 @@ namespace polysat {
             else {
                 auto x1 = c.mk_zero_extend(1, x);
                 auto y1 = c.mk_zero_extend(1, y);                
-                add_clause("~Ovfl(x, y) & msb(x) >= k & msb(y) >= N - k - 1 => 0x * 0y < 2^{N-1}",
-                    { d, ~msb_ge(x, k),
-                         ~msb_ge(y, N - k - 1),
-                         C.ult(x1 * y1, rational::power_of_two(N - 1))
-                    }, true);
+                add_clause("~Ovfl(x, y) => 0x * 0y < 2^{N}",
+                    { d, C.ult(x1 * y1, rational::power_of_two(N)) }, 
+                    true);
             }
         }
         else {
@@ -303,7 +301,7 @@ namespace polysat {
                 auto k = bx - 1;
                 auto x1 = c.mk_zero_extend(1, x);
                 auto y1 = c.mk_zero_extend(1, y);
-                add_clause("Ovfl(x, y) & msb(x) <= k & msb(y) <= N - k - 1 = > 0x * 0y >= 2 ^ {N - 1}",
+                add_clause("Ovfl(x, y) & msb(x) <= k & msb(y) <= N - k - 1 => 0x * 0y >= 2 ^ {N - 1}",
                     { d, ~msb_le(x, k), ~msb_le(y, N - k - 1), C.uge(x1 * y1, rational::power_of_two(N - 1)) },
                     true);
             }

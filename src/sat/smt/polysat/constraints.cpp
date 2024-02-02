@@ -88,6 +88,10 @@ namespace polysat {
             return eq(p * rational::power_of_two(N - k));
     }
 
+    signed_constraint constraints::parity_at_most(pdd const& p, unsigned k) {
+        return ~parity_at_least(p, k + 1);
+    }
+
     // 2^{N-i-1}* p >= 2^{N-1}
     signed_constraint constraints::bit(pdd const& p, unsigned i) {
         unsigned N = p.manager().power_of_2();

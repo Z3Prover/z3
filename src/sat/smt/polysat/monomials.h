@@ -49,12 +49,12 @@ namespace polysat {
         bool mul0(monomial const& mon);
         bool mul1(monomial const& mon);
         bool mulp2(monomial const& mon);
-        bool mul1_inverse(monomial const& mon);
+        bool mul_parametric_inverse(monomial const& mon);
         bool mul(monomial const& mon, std::function<bool(rational const&)> const& p);
         bool parity(monomial const& mon);
         bool non_overflow_monotone(monomial const& mon);
-        bool non_overflow_unit(monomial const& mon);
-        bool non_overflow_zero(monomial const& mon);
+        bool mul1_inverse(monomial const& mon);
+        bool mul0_inverse(monomial const& mon);
         bool parity0(monomial const& mon);
         bool prefix_overflow(monomial const& mon);
 

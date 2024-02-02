@@ -66,12 +66,12 @@ namespace polysat {
             return l_false;
         if (any_of(m_to_refine, [&](auto i) { return mul1(m_monomials[i]); }))
             return l_false;
-        if (any_of(m_to_refine, [&](auto i) { return mul1_inverse(m_monomials[i]); }))
+        if (any_of(m_to_refine, [&](auto i) { return mul_parametric_inverse(m_monomials[i]); }))
             return l_false;
 
-        if (any_of(m_to_refine, [&](auto i) { return non_overflow_unit(m_monomials[i]); }))
+        if (any_of(m_to_refine, [&](auto i) { return mul1_inverse(m_monomials[i]); }))
             return l_false;
-        if (any_of(m_to_refine, [&](auto i) { return non_overflow_zero(m_monomials[i]); }))
+        if (any_of(m_to_refine, [&](auto i) { return mul0_inverse(m_monomials[i]); }))
             return l_false;
         if (false && any_of(m_to_refine, [&](auto i) { return parity0(m_monomials[i]); }))
             return l_false;
@@ -171,19 +171,32 @@ namespace polysat {
         return c.add_axiom("p = k => p * q = k * q", cs, true);
     }
 
-    // p * q = p => q = 1 or p = 0
-    //
-    // In general not true, because there exist a, b >= 2 with a * b = 0; then (a+1) * b = b.
-    // For now, add no-overflow condition on p*q.
-    bool monomials::mul1_inverse(monomial const& mon) {
+    // p * q = p => parity(q - 1) + parity(p) >= N
+    // p * q = p & ~Ovfl(p,q) => q = 1 or p = 0
+    bool monomials::mul_parametric_inverse(monomial const& mon) {
         for (unsigned j = mon.size(); j-- > 0; ) {
             auto const& arg_val = mon.arg_vals[j];
             if (arg_val == mon.val) {
                 auto const& p = mon.args[j];
                 pdd qs = c.value(rational(1), mon.num_bits());
+                rational qv(1);
                 for (unsigned k = mon.size(); k-- > 0; ) 
-                    if (k != j)
-                        qs *= mon.args[k];
+                    if (k != j) 
+                        qs *= mon.args[k], qv *= mon.arg_vals[k];
+
+                if (qv == 0) {
+                    if (c.add_axiom("q = 0 & p * q = p => p = 0", { ~C.eq(qs), ~C.eq(mon.var, p), C.eq(p)}, true))
+                        return true;
+                    continue;
+                }
+                qv = qv - 1;
+                unsigned qb = qv.get_num_bits();
+                unsigned pb = arg_val.get_num_bits();
+                unsigned N = p.manager().power_of_2();
+                if (qb + pb < N) {
+                    if (c.add_axiom("p * q = p => parity(q - 1) + parity(p) >= N", { ~C.eq(mon.var, p), ~C.parity_at_most(p, pb), C.parity_at_least(qs - 1, N - pb) }, true))
+                        return true;
+                }
                 if (c.add_axiom("p * q = p => q = 1 or p = 0", { ~C.eq(mon.var, p), ~C.umul_ovfl(p, qs), C.eq(qs, 1), C.eq(p) }, true))
                     return true;
             }
@@ -234,8 +247,21 @@ namespace polysat {
         return c.add_axiom("~ovfl*(p,q) & q != 0 => p <= p*q", clause, true);
     }
 
+    // p * q = 1 => parity(p) = 0 (instance of parity(p*q) >= min(N, parity(p) + parity(q))
     // ~ovfl*(p,q) & p*q = 1 => p = 1, q = 1
-    bool monomials::non_overflow_unit(monomial const& mon) {
+    bool monomials::mul1_inverse(monomial const& mon) {
+        if (!mon.val.is_odd())
+            return false;
+
+        unsigned j = 0;
+        for (auto const& val : mon.arg_vals) {
+            if (val.is_even()) {
+                if (c.add_axiom("odd(p*q) => odd(p)",
+                    {~C.parity_at_most(mon.var, 0), C.parity_at_most(mon.args[j], 0) }, true))
+                    return true;
+            }
+            ++j;
+        }
         if (mon.val != 1)
             return false;
         rational product(1);
@@ -260,8 +286,11 @@ namespace polysat {
         return new_axiom;
     }
 
+
+    // p*q = 0 => parity(p) + parity(q) >= N
+    // TODO: update to use parity instead of overflow
     // ~ovfl*(p,q) & p*q = 0 => p = 0 or q = 0
-    bool monomials::non_overflow_zero(monomial const& mon) {
+    bool monomials::mul0_inverse(monomial const& mon) {
         if (mon.val != 0)
             return false;
         for (auto const& val : mon.arg_vals)

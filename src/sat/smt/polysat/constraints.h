@@ -169,6 +169,7 @@ namespace polysat {
         signed_constraint umul_ovfl(unsigned        p, pdd const& q) { return umul_ovfl(rational(p), q); }
 
         signed_constraint parity_at_least(pdd const& p, unsigned k);
+        signed_constraint parity_at_most(pdd const& p, unsigned k);
 
         signed_constraint lshr(pdd const& a, pdd const& b, pdd const& r);
         signed_constraint ashr(pdd const& a, pdd const& b, pdd const& r);
