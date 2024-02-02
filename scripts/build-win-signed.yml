@@ -26,7 +26,7 @@ jobs:
     displayName: 'Collect Symbols'
     inputs:
       sourceFolder: build-dist/${{parameters.BuildArchitecture}}/
-      contents: '**/*.pdb'
+      contents: '*.pdb'
       targetFolder: '$(Build.ArtifactStagingDirectory)/symbols'
   # Publish symbol archive to match nuget package
   # Index your source code and publish symbols to a file share or Azure Artifacts symbol server
