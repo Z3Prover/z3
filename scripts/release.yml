@@ -209,7 +209,7 @@ stages:
       ReleaseVersion: $(ReleaseVersion)
       BuildArchitecture: 'x86'
 
-  - template: build-win-signed.yml
+  - template: build-win-signed-cmake.yml
     parameters:
       ReleaseVersion: $(ReleaseVersion)
       BuildArchitecture: 'arm64'
