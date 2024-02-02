@@ -14,7 +14,10 @@ make
 
 ## Julia part
 
-The Z3 binaries are provided to [Z3.jl](https://github.com/ahumenberger/Z3.jl) via [z3_jll.jl](https://github.com/JuliaBinaryWrappers/z3_jll.jl). That is, in order to release a new Z3 version one has to update the corresponding [build script](https://github.com/JuliaPackaging/Yggdrasil/tree/master/Z/z3) which triggers a new version of z3_jll.jl.
+The Z3 binaries are provided to [Z3.jl](https://github.com/ahumenberger/Z3.jl) via [z3_jll.jl](https://github.com/JuliaBinaryWrappers/z3_jll.jl). 
+That is, in order to propagate any C++ changes to the Julia side, one has to:
+1. Release a new version of Z3. 
+2. Update the corresponding [build script](https://github.com/JuliaPackaging/Yggdrasil/tree/master/Z/z3) to use the new Z3 release. 
 
 ### Using the compiled version of Z3
 
