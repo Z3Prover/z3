@@ -171,6 +171,12 @@ namespace polysat {
         signed_constraint parity_at_least(pdd const& p, unsigned k);
         signed_constraint parity_at_most(pdd const& p, unsigned k);
 
+        // most significant bit-position counting least significant bit as position 1, most as N.
+        // msb(x) >= k <=> x >= 2^{k-1},    for N >= k > 0
+        // msb(x) <= k <=> x < 2^{k},       for 0 <= k < N
+        signed_constraint msb_ge(pdd const& x, unsigned k);
+        signed_constraint msb_le(pdd const& x, unsigned k);
+
         signed_constraint lshr(pdd const& a, pdd const& b, pdd const& r);
         signed_constraint ashr(pdd const& a, pdd const& b, pdd const& r);
         signed_constraint shl(pdd const& a, pdd const& b, pdd const& r);

@@ -92,6 +92,22 @@ namespace polysat {
         return ~parity_at_least(p, k + 1);
     }
 
+    signed_constraint constraints::msb_ge(pdd const& p, unsigned k) {
+        if (k == 0)
+            return uge(p, 0);
+        if (k > p.manager().power_of_2())
+            return ult(p, 0);
+        return uge(p, rational::power_of_two(k - 1));
+    }
+
+    signed_constraint constraints::msb_le(pdd const& p, unsigned k) {
+        if (k == 0)
+            return eq(p);
+        if (k >= p.manager().power_of_2())
+            return uge(p, 0);
+        return ult(p, rational::power_of_two(k));
+    }
+
     // 2^{N-i-1}* p >= 2^{N-1}
     signed_constraint constraints::bit(pdd const& p, unsigned i) {
         unsigned N = p.manager().power_of_2();
