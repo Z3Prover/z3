@@ -35,7 +35,7 @@ jobs:
       symbolsFolder: '$(Build.ArtifactStagingDirectory)/symbols'
       searchPattern: '**/*.pdb' 
       indexSources: false # Github sources not supported
-      publishSymbols: true.
+      publishSymbols: true
       symbolServerType: TeamServices
       detailedLog: true
   - task: EsrpCodeSigning@2
