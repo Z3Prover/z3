@@ -184,12 +184,12 @@ stages:
       inputs:
         sourceFolder: build-dist/x86
         contents: '**/*.pdb'
-        targetFolder: '$(Build.ArtifactStagingDirectory)/symbols'
+        targetFolder: '$(Build.ArtifactStagingDirectory)/symbols/x86'
     # Publish symbol archive to match nuget package
     # Index your source code and publish symbols to a file share or Azure Artifacts symbol server
     - task: PublishSymbols@2
       inputs:
-        symbolsFolder: '$(Build.ArtifactStagingDirectory)/symbols'
+        symbolsFolder: '$(Build.ArtifactStagingDirectory)/symbols/x86'
         searchPattern: '**/*.pdb' 
         indexSources: false # Github not supported
         publishSymbols: true
@@ -224,12 +224,12 @@ stages:
       inputs:
         sourceFolder: build-dist/x64
         contents: '**/*.pdb'
-        targetFolder: '$(Build.ArtifactStagingDirectory)/symbols'
+        targetFolder: '$(Build.ArtifactStagingDirectory)/symbols/x64'
     # Publish symbol archive to match nuget package
     # Index your source code and publish symbols to a file share or Azure Artifacts symbol server
     - task: PublishSymbols@2
       inputs:
-        symbolsFolder: '$(Build.ArtifactStagingDirectory)/symbols'
+        symbolsFolder: '$(Build.ArtifactStagingDirectory)/symbols/x64'
         searchPattern: '**/*.pdb' 
         indexSources: false # Github not supported
         publishSymbols: true
