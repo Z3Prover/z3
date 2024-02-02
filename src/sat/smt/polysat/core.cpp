@@ -502,7 +502,7 @@ namespace polysat {
     pdd core::mk_zero_extend(unsigned sz, pdd const& p) { 
         if (p.is_val()) 
             return value(p.val(), p.manager().power_of_2() + sz);        
-        throw default_exception("nyi zero_extend"); 
+        return s.mk_zero_extend(sz, p);
     }
 
     pdd core::mk_extract(unsigned hi, unsigned lo, pdd const& p) {
