@@ -948,7 +948,7 @@ namespace polysat {
             unsigned const k = ne->coeff.parity(w);
             SASSERT(k > 0);
 
-            IF_VERBOSE(3, display_one(verbose_stream() << "try to reduce entry: ", v, ne) << "\n");
+            IF_VERBOSE(3, display_one(verbose_stream() << "try to reduce entry: ", ne) << "\n");
 
             // reduction of coeff gives us a unit entry
             //
@@ -975,7 +975,7 @@ namespace polysat {
             //          k = 3, lo = 1, hi = 2, new_lo = 1 div 2^3 + 1 = 1, new_hi = 2 div 2^3 + 1 = 1
             // lo > hi
 
-            TRACE("bv", display_one(tout << "try to reduce entry: ", v, ne) << "\n");
+            TRACE("bv", display_one(tout << "try to reduce entry: ", ne) << "\n");
             pdd const& pdd_lo = ne->interval.lo();
             pdd const& pdd_hi = ne->interval.hi();
             rational const& lo = ne->interval.lo_val();
@@ -1029,7 +1029,7 @@ namespace polysat {
                     return find_t::multiple;
                 }
                 else {
-                    // IF_VERBOSE(0, display_one(verbose_stream() << "full: ", v, ne) << "\n");
+                    // IF_VERBOSE(0, display_one(verbose_stream() << "full: ", ne) << "\n");
                     SASSERT(hi < lo);
                     ne->interval = eval_interval::full();
                     ne->coeff = 1;
@@ -1045,7 +1045,7 @@ namespace polysat {
             ne->interval = eval_interval::proper(pdd_lo, new_lo, pdd_hi, new_hi);
             ne->bit_width -= k;
 
-            TRACE("bv", display_one(tout << "reduced: ", v, ne) << "\n");
+            TRACE("bv", display_one(tout << "reduced: ", ne) << "\n");
             intersect(v, ne);            
         }
         if (ne->interval.is_full()) {
@@ -1193,7 +1193,7 @@ namespace polysat {
     }
 
     void viable::push_viable(entry* e) {
-        // display_one(verbose_stream() << "Push entry: ", v, e) << "\n";
+        // display_one(verbose_stream() << "Push entry: ", e) << "\n";
         auto v = e->var;
         entry*& entries = m_units[v].get_layer(e)->entries;
         SASSERT(e->prev() != e || !entries);
@@ -1229,8 +1229,8 @@ namespace polysat {
     }
 
 
-    std::ostream& viable::display_one(std::ostream& out, pvar v, entry const* e) const {
-        auto& m = c.var2pdd(v);
+    std::ostream& viable::display_one(std::ostream& out, entry const* e) const {
+        auto& m = c.var2pdd(e->var);
         if (e->coeff == -1) {
             //      p*val + q >  r*val + s  if e->src.is_positive()
             //      p*val + q >= r*val + s  if e->src.is_negative()
@@ -1241,15 +1241,19 @@ namespace polysat {
             rational const& r = e->interval.hi_val();
             rational const& s_ = e->interval.hi().val();
             out << "[ ";
-            out << val_pp(m, p, true) << "*v" << v << " + " << val_pp(m, q_);
+            out << val_pp(m, p, true) << "*v" << e->var << " + " << val_pp(m, q_);
             out << (e->src[0].is_positive() ? " > " : " >= ");
-            out << val_pp(m, r, true) << "*v" << v << " + " << val_pp(m, s_);
+            out << val_pp(m, r, true) << "*v" << e->var << " + " << val_pp(m, s_);
             out << " ] ";
         }
-        else if (e->coeff != 1)
-            out << e->coeff << " * v" << v << " " << e->interval << " ";
-        else
-            out << e->interval << " ";
+        else {
+            if (e->coeff != 1)
+                out << e->coeff << " * ";
+            out << "v" << e->var;
+            if (e->bit_width != c.size(e->var))
+                out << "[" << e->bit_width << "]";
+            out << " " << e->interval << " ";
+        }
         for (auto const& d : e->deps)
             out << d << " ";
         if (e->side_cond.size() <= 5)
@@ -1268,13 +1272,13 @@ namespace polysat {
         return out;
     }
 
-    std::ostream& viable::display_all(std::ostream& out, pvar v, entry const* e, char const* delimiter) const {
+    std::ostream& viable::display_all(std::ostream& out, entry const* e, char const* delimiter) const {
         if (!e)
             return out;
         entry const* first = e;
         unsigned count = 0;
         do {
-            display_one(out, v, e) << delimiter;
+            display_one(out, e) << delimiter;
             e = e->next();
             ++count;
             if (count > 10) {
@@ -1294,7 +1298,7 @@ namespace polysat {
                 out << "v" << v << ": ";
                 if (layer.bit_width != c.size(v))
                     out << "width[" << layer.bit_width << "] ";
-                display_all(out, v, layer.entries, " ");
+                display_all(out, layer.entries, " ");
                 out << "\n";
             }
         }
@@ -1303,8 +1307,11 @@ namespace polysat {
 
     std::ostream& viable::display_state(std::ostream& out) const {
         out << "v" << m_var << ": ";
-        for (auto const& slice : m_overlaps)
-            out << slice.v << " ";
+        for (auto const& slice : m_overlaps) {
+            out << "v" << slice.v << ":" << c.size(slice.v) << "@" << slice.offset << " ";
+            if (c.is_assigned(slice.v))
+                out << "value(" << c.get_assignment().value(slice.v) << ") ";
+        }
         out << "\n";
         return out;
     }
@@ -1312,7 +1319,7 @@ namespace polysat {
     std::ostream& viable::display_explain(std::ostream& out) const {
         display_state(out);
         for (auto const& e : m_explain)
-            display_one(out << "v" << m_var << "[" << e.e->bit_width << "] : = " << e.value << " ", m_var, e.e) << "\n";
+            display_one(out << "v" << m_var << "[" << e.e->bit_width << "] : = " << e.value << " ", e.e) << "\n";
         return out;
     }
 

@@ -103,8 +103,8 @@ namespace polysat {
 
         entry* alloc_entry(pvar v, constraint_id constraint_index);
 
-        std::ostream& display_one(std::ostream& out, pvar v, entry const* e) const;
-        std::ostream& display_all(std::ostream& out, pvar v, entry const* e, char const* delimiter = "") const;
+        std::ostream& display_one(std::ostream& out, entry const* e) const;
+        std::ostream& display_all(std::ostream& out, entry const* e, char const* delimiter = "") const;
 
         struct pop_viable_trail;
         void pop_viable(entry* e, entry_kind k);
