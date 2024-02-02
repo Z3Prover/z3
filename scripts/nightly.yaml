@@ -155,127 +155,15 @@ stages:
       ReleaseVersion: $(ReleaseVersion)
       BuildArchitecture: 'x86'
 
-  - job: Windows32
-    condition: eq(0, 1)
-    displayName: "Windows 32-bit build"
-    pool:
-      vmImage: "windows-latest"
-    steps:
-    - task: CmdLine@2
-      inputs:
-        script:
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x86 &
-          python scripts\mk_win_dist_cmake.py
-            --assembly-version=$(AssemblyVersion)
-            --x86-only
-            --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
-            --zip
-    - task: CopyFiles@2
-      inputs:
-        sourceFolder: dist/x86
-        contents: '*.zip'
-        targetFolder: $(Build.ArtifactStagingDirectory)
-    - task: PublishPipelineArtifact@1
-      inputs:
-        targetPath: $(Build.ArtifactStagingDirectory)
-        artifactName: 'WindowsBuild-x86'
-    - task: CopyFiles@2
-      displayName: 'Collect Symbols'
-      inputs:
-        sourceFolder: build-dist/x86
-        contents: '**/*.pdb'
-        targetFolder: '$(Build.ArtifactStagingDirectory)/symbols'
-    # Publish symbol archive to match nuget package
-    # Index your source code and publish symbols to a file share or Azure Artifacts symbol server
-    - task: PublishSymbols@2
-      inputs:
-        symbolsFolder: '$(Build.ArtifactStagingDirectory)/symbols'
-        searchPattern: '**/*.pdb' 
-        indexSources: false # Github not supported
-        publishSymbols: true
-        symbolServerType: TeamServices
-        detailedLog: true
+  - template: build-win-signed-cmake.yml
+    parameters:
+      ReleaseVersion: $(ReleaseVersion)
+      BuildArchitecture: 'x64'
 
-  - job: Windows64
-    displayName: "Windows 64-bit build"
-    pool:
-      vmImage: "windows-latest"
-    steps:
-    - task: CmdLine@2
-      inputs:
-        script:
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 &
-          python scripts\mk_win_dist_cmake.py
-            --assembly-version=$(AssemblyVersion)
-            --x64-only
-            --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
-            --zip
-    - task: CopyFiles@2
-      inputs:
-        sourceFolder: dist/x64
-        contents: '*.zip'
-        targetFolder: $(Build.ArtifactStagingDirectory)
-    - task: PublishPipelineArtifact@1
-      inputs:
-        targetPath: $(Build.ArtifactStagingDirectory)
-        artifactName: 'Windows64'
-    - task: CopyFiles@2
-      displayName: 'Collect Symbols'
-      inputs:
-        sourceFolder: build-dist/x64
-        contents: '**/*.pdb'
-        targetFolder: '$(Build.ArtifactStagingDirectory)/symbols'
-    # Publish symbol archive to match nuget package
-    # Index your source code and publish symbols to a file share or Azure Artifacts symbol server
-    - task: PublishSymbols@2
-      inputs:
-        symbolsFolder: '$(Build.ArtifactStagingDirectory)/symbols'
-        searchPattern: '**/*.pdb' 
-        indexSources: false # Github not supported
-        publishSymbols: true
-        symbolServerType: TeamServices
-        detailedLog: true
-
-  - job: WindowsArm64
-    displayName: "Windows ARM64-bit build"
-    pool:
-      vmImage: "windows-latest"
-    steps:
-    - task: CmdLine@2
-      inputs:
-        script:
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64_arm64 &
-          python scripts\mk_win_dist_cmake.py
-            --assembly-version=$(AssemblyVersion)
-            --arm64-only
-            --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
-            --zip
-    - task: CopyFiles@2
-      inputs:
-        sourceFolder: dist/arm64
-        contents: '*.zip'
-        targetFolder: $(Build.ArtifactStagingDirectory)
-    - task: PublishPipelineArtifact@1
-      inputs:
-        targetPath: $(Build.ArtifactStagingDirectory)
-        artifactName: 'WindowsArm64'
-    - task: CopyFiles@2
-      displayName: 'Collect Symbols'
-      inputs:
-        sourceFolder: build-dist/arm64
-        contents: '**/*.pdb'
-        targetFolder: '$(Build.ArtifactStagingDirectory)/symbols'
-    # Publish symbol archive to match nuget package
-    # Index your source code and publish symbols to a file share or Azure Artifacts symbol server
-    - task: PublishSymbols@2
-      inputs:
-        symbolsFolder: '$(Build.ArtifactStagingDirectory)/symbols'
-        searchPattern: '**/*.pdb' 
-        indexSources: false # Github not supported
-        publishSymbols: true
-        symbolServerType: TeamServices
-        detailedLog: true
-
+- template: build-win-signed-cmake.yml
+    parameters:
+      ReleaseVersion: $(ReleaseVersion)
+      BuildArchitecture: 'arm64'
 
 
 - stage: Package
@@ -294,7 +182,7 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: 'Download Win64 Build'
       inputs:
-        artifact: 'Windows64'
+        artifact: 'WindowsBuild-x64'
         path: $(Agent.TempDirectory)\package
     - task: DownloadPipelineArtifact@2
       displayName: 'Download Ubuntu 20.04 Build'
@@ -526,7 +414,7 @@ stages:
         targetPath: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
       inputs:
-        artifactName: 'Windows64'
+        artifactName: 'WindowsBuild-64'
         targetPath: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
       inputs:
@@ -577,12 +465,12 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: "Download windows64"
       inputs:
-        artifactName: 'Windows64'
+        artifactName: 'WindowsBuild-x64'
         targetPath: tmp
     - task: DownloadPipelineArtifact@2
       displayName: "Download windowsARM64"
       inputs:
-        artifactName: 'WindowsArm64'
+        artifactName: 'WindowsBuild-arm64'
         targetPath: tmp
     - task: DownloadPipelineArtifact@2
       displayName: "Download Mac"
