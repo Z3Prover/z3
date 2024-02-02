@@ -676,27 +676,13 @@ namespace polysat {
         rational const& lo = e->interval.lo_val();
         rational const& hi = e->interval.hi_val();
 
-        if (v_sz == y_sz) {
-#if 0
-            // TODO: copy interval over?
-            rational const& w_lo = lo;
-            rational const& w_hi = hi;
-            verbose_stream() << "=>  v" << w << " not in [" << w_lo << ";" << w_hi << "[\n";
-            auto sc = ~cs.ult(c.var(w) - w_lo, w_hi - w_lo);
-            dependency_vector deps;
-            deps.append(result);  // explains e
-            deps.push_back(offset_claim{m_var, slice});  // v = w
-            auto exp = c.propagate(sc, deps);
-            if (c.inconsistent()) {
-                verbose_stream() << "YYY inconsistent " << sc << " " << exp << "\n";
-            }
-#endif
-            return;
-        }
-
-
         r_interval const v_ivl  = r_interval::proper(lo, hi);
         verbose_stream() << "propagate interval " << v_ivl << " from v" << m_var << " to v" << w << "[" << y_sz << "]" << "\n";
+
+        // TODO: by the time we call viable::assign, m_fixed_bits only contains a single slice with 'value'.
+        //       if we had access to the actually fixed slices (not just fixed because of the latest assignment),
+        //       we could chop off fixed and non-fixed parts according to actually fixed slices;
+        //       getting rid of the distinction into two separate cases below.
 
         // more general interval, without taking into account fixed values
         {
@@ -713,7 +699,7 @@ namespace polysat {
                 auto sc = ~cs.ult(w_shift * (c.var(w) - y_ivl.lo()), w_shift * (y_ivl.hi() - y_ivl.lo()));
                 dependency_vector deps;
                 deps.append(e_deps);  // explains e
-                deps.push_back(offset_claim{m_var, slice});  // explains v[...] = y
+                deps.push_back(offset_claim{m_var, slice});  // explains m_var[...] = w
                 auto exp = c.propagate(sc, deps, "propagate from containing slice (general)");
                 if (c.inconsistent()) {
                     verbose_stream() << "XXX1 inconsistent " << sc << " " << exp << "\n";
@@ -727,7 +713,8 @@ namespace polysat {
 
         // tighter interval, but depends on fixed values
         {
-            rational const x_value = x_sz > 0 ? machine_div2k(value, y_sz + z_sz) : rational(0);
+            rational const var_x_value = x_sz > 0 ? machine_div2k(value, y_sz + z_sz) : rational(0);
+            rational const x_value = x_sz > 0 ? mod2k(machine_div2k(value, y_sz + z_sz), x_sz) : rational(0);
             rational const z_value = z_sz > 0 ? mod2k(value, z_sz) : rational(0);
             r_interval const yz_ivl = chop_off_upper(v_ivl,  x_sz, y_sz + z_sz, &x_value);  // chop off x-part
             r_interval const y_ivl  = chop_off_lower(yz_ivl, y_sz,        z_sz, &z_value);  // chop off z-part
@@ -739,13 +726,16 @@ namespace polysat {
             }
             else if (!y_ivl.is_empty()) {
                 // proper interval
-                verbose_stream() << "=>  v" << w << "[" << y_sz << "] not in " << y_ivl << "\n";
+                verbose_stream() << "=>  v" << w << "[" << y_sz << "] not in " << y_ivl << " using x=" << x_value << " z=" << z_value << "\n";
                 auto sc = ~cs.ult(w_shift * (c.var(w) - y_ivl.lo()), w_shift * (y_ivl.hi() - y_ivl.lo()));
                 dependency_vector deps;
                 deps.append(e_deps);  // explains e
-                deps.push_back(offset_claim{m_var, slice});  // explains v[...] = y
-                if (x_sz > 0)
-                    deps.push_back(fixed_claim{m_var, x_value, y_sz + z_sz, x_sz});  // v[upper] = x_value
+                deps.push_back(offset_claim{m_var, slice});  // explains m_var[...] = w
+                if (x_sz > 0) {
+                    deps.push_back(fixed_claim{m_var, var_x_value, y_sz + z_sz, x_sz + (c.size(m_var) - v_sz)});  // m_var[upper] = var_x_value
+                    // stronger but crashes in bv_plugin::explain_slice, TODO: why?
+                    // deps.push_back(fixed_claim{m_var, x_value, y_sz + z_sz, x_sz});  // v[upper] = x_value
+                }
                 if (z_sz > 0)
                     deps.push_back(fixed_claim{m_var, z_value, 0, z_sz});  // v[lower] = z_value
                 auto exp = c.propagate(sc, deps, "propagate from containing slice (fixed)");
