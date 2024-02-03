@@ -196,7 +196,7 @@ def mk_build_dir(arch):
     if not check_build_dir(build_path) or FORCE_MK:
         mk_dir(build_path)
         if arch == "arm64":
-            arch = "amd64_arm64"
+            arch = "x64_arm64"
 
         cmds = []
         cmds.append(f"cd {build_path}")
