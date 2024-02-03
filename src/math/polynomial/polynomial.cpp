@@ -3624,6 +3624,7 @@ namespace polynomial {
 
             unsigned counter = 0;
             while (true) {
+                (void)counter;
                 SASSERT(degree(pp_u, x) >= degree(pp_v, x));
                 unsigned delta = degree(pp_u, x) - degree(pp_v, x);
                 TRACE("polynomial_gcd_detail",
@@ -4169,6 +4170,7 @@ namespace polynomial {
             unsigned counter   = 0;
 
             for (;; counter++) {
+                (void) counter;
                 while (true) {
                     peek_fresh(interpolator.inputs(), p, val);
                     // the selected value must satisfy lc_g(val) != 0

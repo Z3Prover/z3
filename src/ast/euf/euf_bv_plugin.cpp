@@ -525,9 +525,10 @@ namespace euf {
                     m_offsets.reserve(n->get_root_id() + 1);
                     m_offsets[n->get_root_id()].reset();
                 }
-                for (auto const& off : m_offsets) {
-                    SASSERT(off.empty());
-                }
+                DEBUG_CODE(
+                    for (auto const& off : m_offsets) {
+                        VERIFY(off.empty());
+                    });
                 m_jtodo.reset();
                 return;
             }

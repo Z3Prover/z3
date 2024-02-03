@@ -545,16 +545,9 @@ bool bool_rewriter::local_ctx_simp(unsigned num_args, expr * const * args, expr_
     bool simp     = false;
     bool modified = false;
     bool forward  = true;
-    unsigned rounds = 0;
     expr* narg;
 
     while (true) {
-        rounds++;
-#if 0
-        if (rounds > 10)
-            verbose_stream() << "rounds: " << rounds << "\n";
-#endif
-
 
 #define PROCESS_ARG()                                                                           \
         {                                                                                       \
