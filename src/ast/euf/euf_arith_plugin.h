@@ -35,7 +35,7 @@ namespace euf {
 
         ~arith_plugin() override {}
 
-        unsigned get_id() const override { return a.get_family_id(); }
+        theory_id get_id() const override { return a.get_family_id(); }
 
         void register_node(enode* n) override;
 

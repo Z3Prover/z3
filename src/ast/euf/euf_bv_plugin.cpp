@@ -161,20 +161,27 @@ namespace euf {
     void bv_plugin::propagate_values(enode* x) {
         if (!is_value(x))
             return;
-        
+
+        auto val_x = get_value(x);
         enode* a, * b;
-        for (enode* p : enode_parents(x))
-            if (is_concat(p, a, b) && is_value(a) && is_value(b) && !is_value(p))
+        unsigned lo, hi;
+        for (enode* p : enode_parents(x)) {
+            if (is_concat(p, a, b) && is_value(a) && is_value(b))
                 push_merge(mk_concat(a->get_interpreted(), b->get_interpreted()), mk_value_concat(a, b));
-        
+
+            if (is_extract(p, lo, hi)) {
+                auto val_p = mod2k(machine_div2k(val_x, lo), hi - lo + 1);
+                auto ix = x->get_interpreted();
+                auto ex = mk(bv.mk_extract(hi, lo, ix->get_expr()), 1, &ix);
+                push_merge(ex, mk_value(val_p, width(p)));
+            }
+        }
+
         for (enode* sib : enode_class(x)) {
             if (is_concat(sib, a, b)) {
-                if (!is_value(a) || !is_value(b)) {
-                    auto val = get_value(x);
-                    auto val_a = machine_div2k(val, width(b));
-                    auto val_b = mod2k(val, width(b));
-                    push_merge(mk_concat(mk_value(val_a, width(a)), mk_value(val_b, width(b))), x->get_interpreted());
-                }
+                auto val_a = machine_div2k(val_x, width(b));
+                auto val_b = mod2k(val_x, width(b));
+                push_merge(mk_concat(mk_value(val_a, width(a)), mk_value(val_b, width(b))), x->get_interpreted());
             }
         }
     }
@@ -198,7 +205,9 @@ namespace euf {
         enode* arg_r = arg->get_root();       
         enode* n_r = n->get_root();
 
+        m_ensure_concat.reset();
         auto ensure_concat = [&](unsigned lo, unsigned mid, unsigned hi) {
+            // verbose_stream() << lo << " " << mid << " " << hi << "\n";
             TRACE("bv", tout << "ensure-concat " << lo << " " << mid << " " << hi << "\n");
             unsigned lo_, hi_;
             for (enode* p1 : enode_parents(n))
@@ -212,14 +221,14 @@ namespace euf {
             TRACE("bv", tout << "propagate-above " << g.bpp(b) << "\n");
             for (enode* sib : enode_class(b))
                 if (is_extract(sib, lo2, hi2) && sib->get_arg(0)->get_root() == arg_r && hi1 + 1 == lo2)
-                    ensure_concat(lo1, hi1, hi2);
+                    m_ensure_concat.push_back({lo1, hi1, hi2});
         };
 
         auto propagate_below = [&](enode* a) {
             TRACE("bv", tout << "propagate-below " << g.bpp(a) << "\n");
             for (enode* sib : enode_class(a))
                 if (is_extract(sib, lo2, hi2) && sib->get_arg(0)->get_root() == arg_r && hi2 + 1 == lo1)
-                    ensure_concat(lo2, hi2, hi1);
+                    m_ensure_concat.push_back({lo2, hi2, hi1});
         };
         
         for (enode* p : enode_parents(n)) {
@@ -230,6 +239,10 @@ namespace euf {
                     propagate_above(a);
             }
         }
+
+        for (auto [lo, mid, hi] : m_ensure_concat) 
+            ensure_concat(lo, mid, hi);
+        
     }
 
     class bv_plugin::undo_split : public trail {
@@ -432,13 +445,14 @@ namespace euf {
                         delta += width(arg);
                     }
                 }
-            }
-            for (auto p : euf::enode_parents(n->get_root())) {
-                if (bv.is_extract(p->get_expr(), lo, hi, e)) {
-                    SASSERT(g.find(e)->get_root() == n->get_root());
-                    m_todo.push_back({ p, offset + lo });
+                for (auto p : euf::enode_parents(sib)) {
+                    if (bv.is_extract(p->get_expr(), lo, hi, e)) {
+                        SASSERT(g.find(e)->get_root() == n->get_root());
+                        m_todo.push_back({ p, offset + lo });
+                    }
                 }
             }
+
         }
         clear_offsets();
     }
@@ -462,17 +476,17 @@ namespace euf {
                     auto child = g.find(e);
                     m_todo.push_back({ child, offset + lo });
                 }
-            }
-            for (auto p : euf::enode_parents(n->get_root())) {
-                if (bv.is_concat(p->get_expr())) {
-                    unsigned delta = 0;
-                    for (unsigned j = p->num_args(); j-- > 0; ) {
-                        auto arg = p->get_arg(j);
-                        if (arg->get_root() == n->get_root()) 
-                            m_todo.push_back({ p, offset + delta });
-                        delta += width(arg);                   
+                for (auto p : euf::enode_parents(sib)) {
+                    if (bv.is_concat(p->get_expr())) {
+                        unsigned delta = 0;
+                        for (unsigned j = p->num_args(); j-- > 0; ) {
+                            auto arg = p->get_arg(j);
+                            if (arg->get_root() == n->get_root())
+                                m_todo.push_back({ p, offset + delta });
+                            delta += width(arg);
+                        }
                     }
-                }
+                }            
             }
         }
         clear_offsets();
@@ -511,6 +525,9 @@ namespace euf {
                     m_offsets.reserve(n->get_root_id() + 1);
                     m_offsets[n->get_root_id()].reset();
                 }
+                for (auto const& off : m_offsets) {
+                    SASSERT(off.empty());
+                }
                 m_jtodo.reset();
                 return;
             }
@@ -521,20 +538,27 @@ namespace euf {
                     just.push_back({ n, sib, j });
                     for (unsigned j = sib->num_args(); j-- > 0; ) {
                         auto arg = sib->get_arg(j);
-                        m_jtodo.push_back({ arg, offset + delta, j2 });
+                        m_jtodo.push_back({ arg, offs + delta, j2 });
                         delta += width(arg);
                     }
                 }
-            }
-            for (auto p : euf::enode_parents(n->get_root())) {
-                if (bv.is_extract(p->get_expr(), lo, hi, e)) {
-                    SASSERT(g.find(e)->get_root() == n->get_root());
-                    unsigned j2 = just.size();
-                    just.push_back({ g.find(e), n, j});
-                    m_jtodo.push_back({ p, offset + lo, j2});
+                for (auto p : euf::enode_parents(sib)) {
+                    if (bv.is_extract(p->get_expr(), lo, hi, e)) {
+                        SASSERT(g.find(e)->get_root() == n->get_root());
+                        unsigned j2 = just.size();
+                        just.push_back({ g.find(e), n, j });
+                        m_jtodo.push_back({ p, offs + lo, j2 });
+                    }
                 }
             }
+
         }
+        IF_VERBOSE(0,
+            g.display(verbose_stream());
+            verbose_stream() << g.bpp(a) << " offset " << offset << " " << g.bpp(b) << "\n";
+            for (auto const& [n, offset, j] : m_jtodo) 
+                verbose_stream() << g.bpp(n) << " offset " << offset << " " << g.bpp(n->get_root()) << "\n";            
+        );
         UNREACHABLE();
     }
 

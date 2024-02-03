@@ -137,7 +137,7 @@ namespace euf {
             }
         };
 
-        unsigned                 m_fid = 0;
+        theory_id                m_fid = 0;
         unsigned                 m_op = null_decl_kind;
         func_decl*               m_decl = nullptr;
         vector<eq>               m_eqs;
@@ -273,7 +273,7 @@ namespace euf {
 
         ~ac_plugin() override {}
         
-        unsigned get_id() const override { return m_fid; }
+        theory_id get_id() const override { return m_fid; }
 
         void register_node(enode* n) override;
 

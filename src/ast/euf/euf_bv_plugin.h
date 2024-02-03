@@ -72,6 +72,7 @@ namespace euf {
         bool unfold_width(enode* x, enode_vector& xs, enode* y, enode_vector& ys);
         bool unfold_sub(enode* x, enode_vector& xs);
         void merge(enode_vector& xs, enode_vector& ys, justification j);
+        svector<std::tuple<unsigned, unsigned, unsigned>> m_ensure_concat;
         void propagate_extract(enode* n);
         void propagate_values(enode* n);
 
@@ -96,7 +97,7 @@ namespace euf {
 
         ~bv_plugin() override {}
 
-        unsigned get_id() const override { return bv.get_family_id(); }
+        theory_id get_id() const override { return bv.get_family_id(); }
 
         void register_node(enode* n) override;
 

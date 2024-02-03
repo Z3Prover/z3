@@ -109,7 +109,7 @@ namespace euf {
         m_shared_nodes.setx(n->get_id(), true, false);
         sort(monomial(m));
         m_shared_todo.insert(m_shared.size());
-        m_shared.push_back({ n, m, justification::axiom() });
+        m_shared.push_back({ n, m, justification::axiom(get_id()) });
         push_undo(is_register_shared);
     }
 

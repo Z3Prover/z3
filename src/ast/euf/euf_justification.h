@@ -28,6 +28,11 @@ namespace euf {
 
     class enode;
 
+    typedef int theory_var;
+    typedef int theory_id;
+    const theory_var null_theory_var = -1;
+    const theory_id null_theory_id = -1;
+
     class justification {
     public:
         typedef stacked_dependency_manager<justification>             dependency_manager;
@@ -42,6 +47,7 @@ namespace euf {
         };
         kind_t m_kind;
         union {
+            int    m_theory_id;
             bool   m_comm;
             enode* m_n1;
         };
@@ -76,19 +82,27 @@ namespace euf {
             m_n2(n2)
         {}
 
-    public:
-        justification():
+        justification(int theory_id):
             m_kind(kind_t::axiom_t),
-            m_comm(false),
+            m_theory_id(theory_id),
             m_external(nullptr)
         {}
 
-        static justification axiom() { return justification(); }
+    public:
+
+        justification():
+            m_kind(kind_t::axiom_t),
+            m_theory_id(null_theory_id),
+            m_external(nullptr)
+        {}
+
+        static justification axiom(int theory_id) { return justification(theory_id); }
         static justification congruence(bool c, uint64_t ts) { return justification(c, ts); }
         static justification external(void* ext) { return justification(ext); }
         static justification dependent(dependency* d) { return justification(d, 1); }
         static justification equality(enode* a, enode* b) { return justification(a, b); }
         
+        bool   is_axiom() const { return m_kind == kind_t::axiom_t; }
         bool   is_external() const { return m_kind == kind_t::external_t; }
         bool   is_congruence() const { return m_kind == kind_t::congruence_t; }
         bool   is_commutative() const { return m_comm; }
@@ -98,6 +112,7 @@ namespace euf {
         enode* lhs() const { SASSERT(is_equality()); return m_n1; }
         enode* rhs() const { SASSERT(is_equality()); return m_n2; }
         uint64_t timestamp() const { SASSERT(is_congruence()); return m_timestamp; }
+        theory_id get_theory_id() const { SASSERT(is_axiom()); return m_theory_id; }
         template <typename T>
         T*  ext() const { SASSERT(is_external()); return static_cast<T*>(m_external); }            
 
@@ -106,7 +121,7 @@ namespace euf {
             case kind_t::external_t:
                 return external(copy_justification(m_external));
             case kind_t::axiom_t:
-                return axiom();
+                return axiom(m_theory_id);
             case kind_t::congruence_t:
                 return congruence(m_comm, m_timestamp);
             case kind_t::dependent_t:
@@ -114,7 +129,7 @@ namespace euf {
                 return dependent(m_dependency);
             default:
                 UNREACHABLE();
-                return axiom();
+                return axiom(-1);
             }
         }
 
