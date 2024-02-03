@@ -196,7 +196,7 @@ def mk_build_dir(arch):
     if not check_build_dir(build_path) or FORCE_MK:
         mk_dir(build_path)
         if arch == "arm64":
-            arch = "x64_arm64"
+            arch = "amd64_arm64"
 
         cmds = []
         cmds.append(f"cd {build_path}")
@@ -266,7 +266,7 @@ def build_z3(arch):
         print("build z3")
     build_dir = get_build_dir(arch)
     if arch == "arm64":
-        arch = "x64_arm64"
+        arch = "amd64_arm64"
     cmds = []
     cmds.append('call "%VCINSTALLDIR%Auxiliary\\build\\vcvarsall.bat" ' + arch)
     cmds.append('cd %s' % build_dir)

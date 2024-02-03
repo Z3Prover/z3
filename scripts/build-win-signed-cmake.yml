@@ -1,6 +1,7 @@
 parameters:
   ReleaseVersion: ''
   BuildArchitecture: ''
+  VCArchitecture: ''
 
 jobs:
 - job: WindowsBuild${{parameters.BuildArchitecture}}
@@ -18,6 +19,7 @@ jobs:
     displayName: Build
     inputs:
       script:
+        call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" ${{parameters.VCArchitecture}} &
         python scripts\mk_win_dist_cmake.py
             --${{parameters.BuildArchitecture}}-only
             --assembly-version=${{parameters.ReleaseVersion}}

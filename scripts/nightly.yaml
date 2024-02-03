@@ -154,17 +154,19 @@ stages:
     parameters:
       ReleaseVersion: $(ReleaseVersion)
       BuildArchitecture: 'x86'
+      VCArchitecture: 'x86'
 
   - template: build-win-signed-cmake.yml
     parameters:
       ReleaseVersion: $(ReleaseVersion)
       BuildArchitecture: 'x64'
+      VCArchitecture: 'x64'
 
   - template: build-win-signed-cmake.yml
     parameters:
       ReleaseVersion: $(ReleaseVersion)
       BuildArchitecture: 'arm64'
-
+      VCArchitecture: 'amd64_arm64'
 
 - stage: Package
   jobs:
