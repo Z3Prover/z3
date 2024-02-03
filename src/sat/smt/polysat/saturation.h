@@ -80,5 +80,6 @@ namespace polysat {
     public:
         saturation(core& c);
         lbool operator()();
+        lbool operator()(constraint_id id);
     };
 }

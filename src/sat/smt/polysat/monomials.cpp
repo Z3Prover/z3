@@ -61,21 +61,17 @@ namespace polysat {
         shuffle(m_to_refine.size(), m_to_refine.data(), c.rand());
         if (any_of(m_to_refine, [&](auto i) { return prefix_overflow(m_monomials[i]); }))
             return l_false;
-
         if (any_of(m_to_refine, [&](auto i) { return mul0(m_monomials[i]); }))
             return l_false;
         if (any_of(m_to_refine, [&](auto i) { return mul1(m_monomials[i]); }))
             return l_false;
         if (any_of(m_to_refine, [&](auto i) { return mul_parametric_inverse(m_monomials[i]); }))
             return l_false;
-
-        if (any_of(m_to_refine, [&](auto i) { return mul1_inverse(m_monomials[i]); }))
-            return l_false;
         if (any_of(m_to_refine, [&](auto i) { return mul0_inverse(m_monomials[i]); }))
             return l_false;
-        if (false && any_of(m_to_refine, [&](auto i) { return parity0(m_monomials[i]); }))
+        if (any_of(m_to_refine, [&](auto i) { return parity(m_monomials[i]); }))
             return l_false;
-        if (false && any_of(m_to_refine, [&](auto i) { return parity(m_monomials[i]); }))
+        if (any_of(m_to_refine, [&](auto i) { return mul1_inverse(m_monomials[i]); }))
             return l_false;
         if (any_of(m_to_refine, [&](auto i) { return non_overflow_monotone(m_monomials[i]); }))
             return l_false;
@@ -172,7 +168,6 @@ namespace polysat {
     }
 
     // p * q = p => parity(q - 1) + parity(p) >= N
-    // p * q = p & ~Ovfl(p,q) => q = 1 or p = 0
     bool monomials::mul_parametric_inverse(monomial const& mon) {
         for (unsigned j = mon.size(); j-- > 0; ) {
             auto const& arg_val = mon.arg_vals[j];
@@ -197,16 +192,16 @@ namespace polysat {
                     if (c.add_axiom("p * q = p => parity(q - 1) + parity(p) >= N", { ~C.eq(mon.var, p), ~C.parity_at_most(p, pb), C.parity_at_least(qs - 1, N - pb) }, true))
                         return true;
                 }
-                if (c.add_axiom("p * q = p => q = 1 or p = 0", { ~C.eq(mon.var, p), ~C.umul_ovfl(p, qs), C.eq(qs, 1), C.eq(p) }, true))
-                    return true;
             }
         }
         return false;
     }
 
-    // parity p >= i => parity p * q >= i
+    // parity p * q = min(N, parity(p) + parity(q))
     bool monomials::parity(monomial const& mon) {       
         unsigned parity_val = get_parity(mon.val, mon.num_bits());
+        unsigned sum_parities = 0;
+        unsigned N = mon.var.manager().power_of_2();
         for (unsigned j = 0; j < mon.args.size(); ++j) {
             unsigned k = get_parity(mon.arg_vals[j], mon.num_bits());
             if (k > parity_val) {
@@ -214,8 +209,25 @@ namespace polysat {
                 if (c.add_axiom("parity p >= i => parity p * q >= i", { ~C.parity_at_least(p, k), C.parity_at_least(mon.var, k) }, true))
                     return true;
             }
+            sum_parities += k;
         }
-        return false;
+        if (sum_parities == parity_val)
+            return false;
+        if (sum_parities >= N && N == parity_val)
+            return false;
+        if (sum_parities > parity_val) {
+            constraint_or_dependency_vector clause;
+            for (unsigned j = 0; j < mon.args.size(); ++j) 
+                clause.push_back(~C.parity_at_least(mon.args[j], get_parity(mon.arg_vals[j], mon.num_bits())));
+            clause.push_back(C.parity_at_least(mon.var, sum_parities));
+            return c.add_axiom("N >= pp + qp, pp >= parity(p), qq >= parity(q) => parity p * q >= pp + qp)", clause, true);
+        }
+        // sum_parities < parity_val
+        constraint_or_dependency_vector clause;
+        clause.push_back(~C.parity_at_least(mon.var, sum_parities));
+        for (unsigned j = 0; j < mon.args.size(); ++j)
+            clause.push_back(C.parity_at_least(mon.args[j], 1 + get_parity(mon.arg_vals[j], mon.num_bits())));
+        return c.add_axiom("parity(p * q) > pp + qp => pp < parity(p) or qp < parity(q))", clause, true);
     }
 
     // ~ovfl*(p,q) & q != 0 => p <= p*q    
@@ -247,21 +259,8 @@ namespace polysat {
         return c.add_axiom("~ovfl*(p,q) & q != 0 => p <= p*q", clause, true);
     }
 
-    // p * q = 1 => parity(p) = 0 (instance of parity(p*q) >= min(N, parity(p) + parity(q))
     // ~ovfl*(p,q) & p*q = 1 => p = 1, q = 1
     bool monomials::mul1_inverse(monomial const& mon) {
-        if (!mon.val.is_odd())
-            return false;
-
-        unsigned j = 0;
-        for (auto const& val : mon.arg_vals) {
-            if (val.is_even()) {
-                if (c.add_axiom("odd(p*q) => odd(p)",
-                    {~C.parity_at_most(mon.var, 0), C.parity_at_most(mon.args[j], 0) }, true))
-                    return true;
-            }
-            ++j;
-        }
         if (mon.val != 1)
             return false;
         rational product(1);
@@ -288,43 +287,22 @@ namespace polysat {
 
 
     // p*q = 0 => parity(p) + parity(q) >= N
-    // TODO: update to use parity instead of overflow
-    // ~ovfl*(p,q) & p*q = 0 => p = 0 or q = 0
     bool monomials::mul0_inverse(monomial const& mon) {
         if (mon.val != 0)
             return false;
-        for (auto const& val : mon.arg_vals)
-            if (val == 0)
-                return false;
-        rational product(1);
-        for (auto const& val : mon.arg_vals)
-            product *= val;
-        if (product > mon.var.manager().max_value())
+
+        unsigned sum_parities = 0;
+        unsigned N = mon.var.manager().power_of_2();
+        for (unsigned j = 0; j < mon.args.size(); ++j) 
+            sum_parities += get_parity(mon.arg_vals[j], mon.num_bits());
+        if (sum_parities >= N)
             return false;
         constraint_or_dependency_vector clause;
         clause.push_back(~C.eq(mon.var));
-        pdd p = mon.args[0];
-        for (unsigned i = 1; i < mon.args.size(); ++i) {
-            clause.push_back(C.umul_ovfl(p, mon.args[i]));
-            p *= mon.args[i];
-        }
-        for (auto const& q : mon.args)
-            clause.push_back(C.eq(q));
+        for (unsigned j = 0; j < mon.args.size(); ++j) 
+            clause.push_back(C.parity_at_least(mon.args[j], 1 + get_parity(mon.arg_vals[j], mon.num_bits())));
         
-        return c.add_axiom("~ovfl*(p,q) & p*q = 0 => p = 0 or q = 0", clause, true);
-    }
-
-    // parity(p*q) > 0 => parity(p) > 0 or parity(q) > 0
-    bool monomials::parity0(monomial const& mon) {
-        if (mon.val.is_odd())
-            return false;
-        if (!all_of(mon.arg_vals, [&](auto const& v) { return v.is_odd(); }))
-            return false;
-        constraint_or_dependency_vector clause;
-        clause.push_back(~C.parity_at_least(mon.var, 1));
-        for (auto const& p : mon.args) 
-            clause.push_back(C.parity_at_least(p, 1));        
-        return c.add_axiom("parity(p*q) > 0 => parity(p) > 0 or parity(q) > 0", clause, true);
+        return c.add_axiom("p*q = 0 & pp + qq < N => parity(p) > pp or parity(q) > qp", clause, true);
     }
 
     // 0p * 0q >= 2^k => ovfl(p,q), where |p| = |q| = k

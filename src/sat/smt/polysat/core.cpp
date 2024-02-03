@@ -374,6 +374,11 @@ namespace polysat {
             }
         }           
         else if (v == null_var && weak_eval(sc) == l_false) {
+            saturation sat(*this);
+            if (sat(idx) == l_false) {
+                verbose_stream() << "Saturated conflict " << ~sc << "\n";
+                return;
+            }
             auto ex = explain_weak_eval(sc);
             ex.push_back(dep);
             verbose_stream() << "infeasible propagation " << ~sc << " <- " << ex << "\n";

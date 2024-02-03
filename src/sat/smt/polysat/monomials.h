@@ -55,7 +55,6 @@ namespace polysat {
         bool non_overflow_monotone(monomial const& mon);
         bool mul1_inverse(monomial const& mon);
         bool mul0_inverse(monomial const& mon);
-        bool parity0(monomial const& mon);
         bool prefix_overflow(monomial const& mon);
 
         bool bit_blast(monomial const& mon);

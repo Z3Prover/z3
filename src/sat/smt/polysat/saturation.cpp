@@ -35,14 +35,21 @@ namespace polysat {
             TRACE("bv", sc.display(tout << "eval: ") << " evaluates to " << eval_value << "\n");
 
             has_conflict = true;
-            auto vars = c.find_conflict_variables(idx);
-            for (auto v : vars)
-                if (resolve(v, idx))
-                    return l_false;
+            if (l_false == operator()(idx))
+                return l_false;
         }
         if (has_conflict)
             return l_undef;
         return l_true;
+    }
+
+    lbool saturation::operator()(constraint_id idx) {
+        auto sc = c.get_constraint(idx);
+        auto vars = c.find_conflict_variables(idx);
+        for (auto v : vars)
+            if (resolve(v, idx))
+                return l_false;
+        return l_undef;
     }
 
     bool saturation::resolve(pvar v, constraint_id id) {
@@ -209,12 +216,12 @@ namespace polysat {
     /**
     * Expand the following axioms:
     * Ovfl(x, y) & x <= y => y >= 2^{(N + 1) div 2}
-    * Ovfl(x, y) & msb(x) <= k => msb(y) >= N - k + 2
-    * Ovfl(x, y) & msb(x) <= k & msb(y) <= N - k + 2 => 0x * 0y >= 2^N
+    * Ovfl(x, y) & msb(x) <= k => msb(y) >= N - k + 1
+    * Ovfl(x, y) & msb(x) <= k & msb(y) <= N - k + 1 => 0x * 0y >= 2^N
     * 
     * ~Ovfl(x, y) & x <= y => x < 2^{(N + 1) div 2}
-    * ~Ovfl(x,y) & msb(x) >= k => msb(y) <= N - k + 2
-    * ~Ovfl(x,y) & msb(x) >= k & msb(y) >= N - k + 2 => 0x * 0y < 2^N
+    * ~Ovfl(x,y) & msb(x) >= k => msb(y) <= N - k + 1
+    * ~Ovfl(x,y) & msb(x) >= k & msb(y) >= N - k + 1 => 0x * 0y < 2^N
     */
     void saturation::try_umul_blast(umul_ovfl const& sc) {
         auto x = sc.p();
@@ -245,14 +252,14 @@ namespace polysat {
         if (sc.sign()) {
             // Case ~Ovfl(x,y) is asserted by current assignment x * y is overflow
             SASSERT(bx > 1 && by > 1);
-            SASSERT(bx + by >= N + 2);
+            SASSERT(bx + by >= N + 1);
             if (bx > (N + 1) / 2) {
                 add_clause("~Ovfl(x, y) & x <= y => x < 2^{(N + 1) div 2}", 
                     { d, ~C.ule(x, y), C.ult(x, rational::power_of_two((N + 1) / 2)) }, true);
             }            
-            else if (bx + by > N + 2) 
-                add_clause("~Ovfl(x, y) & msb(x) >= k => msb(y) <= N - k + 2", 
-                    {d, ~C.msb_ge(x, bx), C.msb_le(y, N - bx + 2)}, true);            
+            else if (bx + by > N + 1) 
+                add_clause("~Ovfl(x, y) & msb(x) >= k => msb(y) <= N - k + 1", 
+                    {d, ~C.msb_ge(x, bx), C.msb_le(y, N - bx + 1)}, true);            
             else {
                 auto x1 = c.mk_zero_extend(1, x);
                 auto y1 = c.mk_zero_extend(1, y);                
@@ -269,16 +276,16 @@ namespace polysat {
                 add_clause("Ovfl(x, y) & x <= y => y >= 2^{(N + 1) div 2}", 
                     { d, ~C.ule(x, y), C.uge(x, rational::power_of_two((N + 1) / 2)) }, true);
             }
-            else if (bx + by < N + 2) {
+            else if (bx + by < N + 1) {
                 SASSERT(bx <= by);
-                add_clause("Ovfl(x, y) & msb(x) <= k => msb(y) >= N - k + 2",
-                    { d, ~C.msb_le(x, bx), C.msb_ge(y, N - bx + 2) }, true);
+                add_clause("Ovfl(x, y) & msb(x) <= k => msb(y) >= N - k + 1",
+                    { d, ~C.msb_le(x, bx), C.msb_ge(y, N - bx + 1) }, true);
             }
             else {
                 auto x1 = c.mk_zero_extend(1, x);
                 auto y1 = c.mk_zero_extend(1, y);
-                add_clause("Ovfl(x, y) & msb(x) <= k & msb(y) <= N - k + 2 => 0x * 0y >= 2 ^ N",
-                    { d, ~C.msb_le(x, bx), ~C.msb_le(y, N - bx + 2), C.uge(x1 * y1, rational::power_of_two(N)) }, true);
+                add_clause("Ovfl(x, y) & msb(x) <= k & msb(y) <= N - k + 1 => 0x * 0y >= 2 ^ N",
+                    { d, ~C.msb_le(x, bx), ~C.msb_le(y, N - bx + 1), C.uge(x1 * y1, rational::power_of_two(N)) }, true);
             }
         }
     }
