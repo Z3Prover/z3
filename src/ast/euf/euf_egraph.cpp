@@ -69,7 +69,7 @@ namespace euf {
     }
 
     enode_bool_pair egraph::insert_table(enode* p) {
-        TRACE("euf", tout << "insert_table " << bpp(p) << "\n");
+        TRACE("euf_verbose", tout << "insert_table " << bpp(p) << "\n");
         //SASSERT(!m_table.contains_ptr(p));
         auto rc = m_table.insert(p);
         p->m_cg = rc.first;
@@ -522,7 +522,7 @@ namespace euf {
     }
 
     void egraph::remove_parents(enode* r) {
-        TRACE("euf", tout << bpp(r) << "\n");
+        TRACE("euf_verbose", tout << bpp(r) << "\n");
         SASSERT(all_of(enode_parents(r), [&](enode* p) { return !p->is_marked1(); }));
         for (enode* p : enode_parents(r)) {
             if (p->is_marked1())
@@ -533,7 +533,7 @@ namespace euf {
                 SASSERT(m_table.contains_ptr(p));
                 p->mark1();
                 erase_from_table(p);
-                CTRACE("euf", m_table.contains_ptr(p), tout << bpp(p) << "\n"; display(tout));
+                CTRACE("euf_verbose", m_table.contains_ptr(p), tout << bpp(p) << "\n"; display(tout));
                 SASSERT(!m_table.contains_ptr(p));
             }
             else if (p->is_equality())
@@ -546,11 +546,11 @@ namespace euf {
             if (!p->is_marked1())
                 continue;
             p->unmark1();
-            TRACE("euf", tout << "reinsert " << bpp(r1) << " " << bpp(r2) << " " << bpp(p) << " " << p->cgc_enabled() << "\n";);
+            TRACE("euf_verbose", tout << "reinsert " << bpp(r1) << " " << bpp(r2) << " " << bpp(p) << " " << p->cgc_enabled() << "\n";);
             if (p->cgc_enabled()) {
                 auto [p_other, comm] = insert_table(p);
                 SASSERT(m_table.contains_ptr(p) == (p_other == p));
-                CTRACE("euf", p_other != p, tout << "reinsert " << bpp(p) << " == " << bpp(p_other) << " " << p->value() << " " << p_other->value() << "\n");
+                CTRACE("euf_verbose", p_other != p, tout << "reinsert " << bpp(p) << " == " << bpp(p_other) << " " << p->value() << " " << p_other->value() << "\n");
                 if (p_other != p) 
                     m_to_merge.push_back(to_merge(p_other, p, comm));                
                 else
@@ -584,14 +584,14 @@ namespace euf {
 
     void egraph::undo_eq(enode* r1, enode* n1, unsigned r2_num_parents) {
         enode* r2 = r1->get_root();
-        TRACE("euf", tout << "undo-eq old-root: " << bpp(r1) << " current-root " << bpp(r2) << " node: " << bpp(n1) << "\n";);
+        TRACE("euf_verbose", tout << "undo-eq old-root: " << bpp(r1) << " current-root " << bpp(r2) << " node: " << bpp(n1) << "\n";);
         r2->dec_class_size(r1->class_size());
         r2->set_is_shared(l_undef);
         std::swap(r1->m_next, r2->m_next);
         auto begin = r2->begin_parents() + r2_num_parents, end = r2->end_parents();
         for (auto it = begin; it != end; ++it) {
             enode* p = *it;
-            TRACE("euf", tout << "erase " << bpp(p) << "\n";);
+            TRACE("euf_verbose", tout << "erase " << bpp(p) << "\n";);
             SASSERT(!p->cgc_enabled() || m_table.contains_ptr(p));
             SASSERT(!p->cgc_enabled() || p->is_cgr());
             if (p->cgc_enabled())
@@ -673,7 +673,7 @@ namespace euf {
         SASSERT(n1->get_root()->reaches(n1));
         SASSERT(n1->m_target);
         n1->m_target        = nullptr;
-        n1->m_justification = justification::axiom();
+        n1->m_justification = justification::axiom(null_theory_id);
         n1->get_root()->reverse_justification();
         // ---------------
         // n1 -> ... -> r1
@@ -804,7 +804,10 @@ namespace euf {
                 explain_eq(justifications, cc, a, b, j2);
         }
         else if (j.is_equality()) 
-            explain_eq(justifications, cc, j.lhs(), j.rhs());        
+            explain_eq(justifications, cc, j.lhs(), j.rhs());
+        else if (j.is_axiom() && j.get_theory_id() != null_theory_id) {
+            IF_VERBOSE(20, verbose_stream() << "TODO add theory axiom to justification\n");
+        }
         if (cc && j.is_congruence()) 
             cc->push_back(std::tuple(a->get_app(), b->get_app(), j.timestamp(), j.is_commutative()));
     }
