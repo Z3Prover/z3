@@ -34,7 +34,6 @@ ASSEMBLY_VERSION = None
 DOTNET_CORE_ENABLED = True
 DOTNET_KEY_FILE = None
 JAVA_ENABLED = True
-JULIA_ENABLED = False
 ZIP_BUILD_OUTPUTS = False
 GIT_HASH = False
 PYTHON_ENABLED = True
@@ -81,7 +80,6 @@ def get_bin_dist_path(arch):
 def get_dist_path(arch):
     return os.path.join(DIST_DIR, arch)
 
-
 def set_build_dir(path):
     global BUILD_DIR, BUILD_X86_DIR, BUILD_X64_DIR, BUILD_ARM64_DIR, ARCHITECTURES
     BUILD_DIR = os.path.expanduser(os.path.normpath(path))
@@ -89,9 +87,6 @@ def set_build_dir(path):
     BUILD_X64_DIR = os.path.join(path, 'x64')
     BUILD_ARM64_DIR = os.path.join(path, 'arm64')  # Set ARM64 build directory
     ARCHITECTURES = {'x64': BUILD_X64_DIR, 'x86':BUILD_X86_DIR, 'arm64':BUILD_ARM64_DIR}
-    mk_dir(BUILD_X86_DIR)    
-    mk_dir(BUILD_X64_DIR)
-    mk_dir(BUILD_ARM64_DIR)
 
 def display_help():
     print("mk_win_dist.py: Z3 Windows distribution generator\n")
@@ -108,7 +103,6 @@ def display_help():
     print("  --dotnet-key=<file>           strongname sign the .NET assembly with the private key in <file>.")
     print("  --nojava                      do not include Java bindings in the binary distribution files.")
     print("  --nopython                    do not include Python bindings in the binary distribution files.")
-    print("  --julia                       build Julia bindings.")
     print("  --zip                         package build outputs in zip file.")
     print("  --githash                     include git hash in the Zip file.")
     print("  --x86-only                    x86 dist only.")
@@ -118,7 +112,7 @@ def display_help():
 
 # Parse configuration option for mk_make script
 def parse_options():
-    global FORCE_MK, JAVA_ENABLED, JULIA_ENABLED, ZIP_BUILD_OUTPUTS, GIT_HASH, DOTNET_CORE_ENABLED, DOTNET_KEY_FILE, ASSEMBLY_VERSION, PYTHON_ENABLED, X86ONLY, X64ONLY, ARM64ONLY
+    global FORCE_MK, JAVA_ENABLED, ZIP_BUILD_OUTPUTS, GIT_HASH, DOTNET_CORE_ENABLED, DOTNET_KEY_FILE, ASSEMBLY_VERSION, PYTHON_ENABLED, X86ONLY, X64ONLY, ARM64ONLY
     path = BUILD_DIR
     options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:hsf', ['build=',
                                                                    'help',
@@ -131,7 +125,6 @@ def parse_options():
                                                                    'zip',
                                                                    'githash',
                                                                    'nopython',
-                                                                   'julia',
                                                                    'x86-only',
                                                                    'x64-only',
                                                                    'arm64-only'
@@ -157,8 +150,6 @@ def parse_options():
             DOTNET_KEY_FILE = arg
         elif opt == '--nojava':
             JAVA_ENABLED = False
-        elif opt == '--julia':
-            JULIA_ENABLED = True
         elif opt == '--zip':
             ZIP_BUILD_OUTPUTS = True
         elif opt == '--githash':
@@ -208,10 +199,6 @@ def mk_build_dir(arch):
             arch = "amd64_arm64"
 
         cmds = []
-        if JULIA_ENABLED:
-            cmds.append('julia -e "using Pkg; Pkg.add(PackageSpec(name=\"libcxxwrap_julia_jll\"))"')
-            cmds.append('julia -e "using libcxxwrap_julia_jll; print(dirname(libcxxwrap_julia_jll.libcxxwrap_julia_path))" > tmp.env')
-            cmds.append('set /P JlCxxDir=<tmp.env')
         cmds.append(f"cd {build_path}")
         cmds.append('call "%VCINSTALLDIR%Auxiliary\\build\\vcvarsall.bat" ' + arch)
         cmd = []
@@ -228,9 +215,6 @@ def mk_build_dir(arch):
             cmd.append(' -DZ3_BUILD_PYTHON_BINDINGS=ON')
             cmd.append(' -DZ3_INSTALL_PYTHON_BINDINGS=ON')
             cmd.append(' -DCMAKE_INSTALL_PYTHON_PKG_DIR=bin/python')
-        if JULIA_ENABLED:
-            cmd.append(' -DJlCxx_DIR=%JlCxxDir%\\..\\lib\\cmake\\JlCxx')
-            cmd.append(' -DZ3_BUILD_JULIA_BINDINGS=True')
 
         if GIT_HASH:
             git_hash = get_git_hash()
