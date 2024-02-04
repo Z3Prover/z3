@@ -213,6 +213,7 @@ stages:
     parameters:
       ReleaseVersion: $(ReleaseVersion)
       BuildArchitecture: 'arm64'
+      VCArchitecture: 'amd64_arm64'
 
 
 # Creates Z3 packages in various formats

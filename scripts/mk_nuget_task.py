@@ -21,10 +21,10 @@ def mk_dir(d):
     if not os.path.exists(d):
         os.makedirs(d)
 
-os_info = {  'ubuntu-latest' : ('so', 'linux-x64'),
-             'ubuntu-18' : ('so', 'linux-x64'),
-             'ubuntu-20' : ('so', 'linux-x64'),
-             'ubuntu-22' : ('so', 'linux-x64'),
+os_info = {  'x64-ubuntu-latest' : ('so', 'linux-x64'),
+             'x64-ubuntu-18' : ('so', 'linux-x64'),
+             'x64-ubuntu-20' : ('so', 'linux-x64'),
+             'x64-ubuntu-22' : ('so', 'linux-x64'),
              'x64-glibc-2.35' : ('so', 'linux-x64'),
              'x64-win' : ('dll', 'win-x64'),
              'x86-win' : ('dll', 'win-x86'),
