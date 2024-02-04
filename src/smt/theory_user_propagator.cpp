@@ -345,6 +345,9 @@ void theory_user_propagator::propagate_consequence(prop_info const& prop) {
             for (auto lit : m_lits)
                 clause.push_back(ctx.literal2expr(lit));
             m_clauses_to_replay.push_back(clause);
+            if (m_replay_qhead + 1 < m_clauses_to_replay.size()) 
+                std::swap(m_clauses_to_replay[m_replay_qhead], m_clauses_to_replay[m_clauses_to_replay.size()-1]);
+            ++m_replay_qhead;
         }
         else {
             ctx.mk_th_lemma(get_id(), m_lits);
