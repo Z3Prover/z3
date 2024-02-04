@@ -60,13 +60,13 @@ stages:
           setupcmds: 'sudo apt update& sudo apt install gcc-arm-none-eabi gcc-arm-linux-gnueabihf gcc-aarch64-linux-gnu g++-aarch64-linux-gnu ninja-build -y'
           buildenv: 'CXX=aarch64-linux-gnu-g++ CC=aarch64-linux-gnu-gcc'
           arch: 'arm64'
-          name: 'z3-$(AssemblyVersion)-arm64-ubuntu'
+          name: 'z3-$(AssemblyVersion)-arm64-ubuntu-22'
           compiler: 'aarch64-linux-gnu-g++-11'
         x64:
           setupcmds: 'sudo apt update& sudo apt install ninja-build -y'
           buildenv: ''
           arch: 'x64'
-          name: 'z3-$(AssemblyVersion)-x64-ubuntu'
+          name: 'z3-$(AssemblyVersion)-x64-ubuntu-22'
           compiler: 'g++'
     steps:
     - script: $(setupcmds)
