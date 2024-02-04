@@ -88,6 +88,7 @@ stages:
                       -DCMAKE_INSTALL_PREFIX=$(name)\
                       -G "Ninja" ../
            ninja install
+           cp -r Microsoft.Z3 $(name)/.
            zip -r $(name).zip $(name)
            cd ..
     - script: cp $(arch)/*.zip $(Build.ArtifactStagingDirectory)/.
