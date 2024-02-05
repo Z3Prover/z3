@@ -3163,6 +3163,7 @@ namespace nlsat {
             if (a.i() == 1 && m_pm.degree(a.p(), a.x()) == 1)
                 return display_linear_root_smt2(out, a, proc); 
 #if 1
+            // A first approximation: this encoding assumes roots are distinct
             out << "(exists (";
             for (unsigned j = 0; j < a.i(); ++j) {
                 std::string y = std::string("y") + std::to_string(j);
