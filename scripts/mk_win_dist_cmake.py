@@ -195,7 +195,7 @@ def mk_build_dir(arch):
     build_path = get_build_dir(arch)
     if not check_build_dir(build_path) or FORCE_MK:
         mk_dir(build_path)
-        vsarch = arc
+        vsarch = arch
         if arch == "arm64":
             vsarch = "amd64_arm64"
 
