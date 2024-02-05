@@ -3073,6 +3073,11 @@ namespace nlsat {
             return out;
         }
 
+        std::ostream& display_polynomial_smt2(std::ostream & out, poly const* p, display_var_proc const & proc) const {
+            m_pm.display_smt2(out, p, proc);
+            return out;
+        }
+
         std::ostream& display_ineq_smt2(std::ostream & out, ineq_atom const & a, display_var_proc const & proc) const {
             switch (a.get_kind()) {
             case atom::LT: out << "(< "; break;
@@ -3087,13 +3092,13 @@ namespace nlsat {
                 if (i > 0) out << " ";
                 if (a.is_even(i)) {
                     out << "(* ";
-                    m_pm.display_smt2(out, a.p(i), proc);
+                    display_polynomial_smt2(out, a.p(i), proc);
                     out << " ";
-                    m_pm.display_smt2(out, a.p(i), proc);
+                    display_polynomial_smt2(out, a.p(i), proc);
                     out << ")";
                 }
                 else {
-                    m_pm.display_smt2(out, a.p(i), proc);
+                    display_polynomial_smt2(out, a.p(i), proc);
                 }
             }
             if (sz > 1)
@@ -3102,12 +3107,21 @@ namespace nlsat {
             return out;
         }
 
+        std::ostream& display_poly_root(std::ostream& out, char const* y, root_atom const& a, display_var_proc const& proc) const {
+            out << "(exists (("; proc(out,a.x()); out << " Real))\n";
+            out << "(and (= " << y << " ";
+            proc(out, a.x());
+            out << ") (= 0 ";
+            display_polynomial_smt2(out, a.p(), proc);
+            out << ")))\n";
+            return out;
+        }
 
         std::ostream& display_binary_smt2(std::ostream& out,  poly const* p1, char const* rel, poly const* p2, display_var_proc const& proc) const {
             out << "(" << rel << " ";
-            m_pm.display_smt2(out, p1, proc);
+            display_polynomial_smt2(out, p1, proc);
             out << " ";
-            m_pm.display_smt2(out, p2, proc);
+            display_polynomial_smt2(out, p2, proc);
             out << ")";
             return out;
         }
@@ -3147,9 +3161,39 @@ namespace nlsat {
 
         std::ostream& display_root_smt2(std::ostream& out, root_atom const& a, display_var_proc const& proc) const {
             if (a.i() == 1 && m_pm.degree(a.p(), a.x()) == 1)
-                return display_linear_root_smt2(out, a, proc);
-            else
-                return display_root(out, a, proc);
+                return display_linear_root_smt2(out, a, proc); 
+#if 1
+            out << "(exists (";
+            for (unsigned j = 0; j < a.i(); ++j) {
+                std::string y = std::string("y") + std::to_string(j);
+                out << "(" << y << " Real) ";
+            }
+            out << ")\n";
+            out << "(and\n";
+            for (unsigned j = 0; j < a.i(); ++j) {
+                std::string y = std::string("y") + std::to_string(j);
+                display_poly_root(out, y.c_str(), a, proc);
+            }
+            for (unsigned j = 0; j + 1 < a.i(); ++j) {
+                std::string y1 = std::string("y") + std::to_string(j);
+                std::string y2 = std::string("y") + std::to_string(j+1);
+                out << "(< " << y1 << " " << y2 << ")\n";
+            }
+            std::string y0 = "y0";
+            std::string yn = "y" + std::to_string(a.i() - 1);
+            switch (a.get_kind()) {
+            case atom::ROOT_LT: out << "(< "; proc(out, a.x()); out << " " << y0 << ")"; break;
+            case atom::ROOT_GT: out << "(> "; proc(out, a.x()); out << " " << yn << ")"; break;
+            case atom::ROOT_LE: out << "(<= "; proc(out, a.x()); out << " " << y0 << ")"; break;
+            case atom::ROOT_GE: out << "(>= "; proc(out, a.x()); out << " " << yn << ")"; break;
+            case atom::ROOT_EQ: out << "(= "; proc(out, a.x()); out << " " << y0 << ")"; NOT_IMPLEMENTED_YET(); break;
+            }
+            out << "))";
+            return out;
+#endif
+
+
+            return display_root(out, a, proc);
         }
 
         std::ostream& display_root(std::ostream & out, root_atom const & a, display_var_proc const & proc) const {
