@@ -3182,10 +3182,24 @@ namespace nlsat {
                 std::string y2 = std::string("y") + std::to_string(j+1);
                 out << "(< " << y1 << " " << y2 << ")\n";
             }
+
+            std::string yn = "y" + std::to_string(a.i() - 1);
+
             // TODO we need (forall z : z < yn . p(z) => z = y1 or ... z = y_{n-1})
             // to say y1, .., yn are the first n distinct roots.
             //
-            std::string yn = "y" + std::to_string(a.i() - 1);
+            out << "(forall ((z Real)) (=> (and (< z " << yn << ") "; display_poly_root(out, "z", a, proc) << ") ";
+            if (a.i() == 1) {
+                out << "false))\n";
+            }
+            else {
+                out << "(or ";
+                for (unsigned j = 0; j + 1 < a.i(); ++j) {
+                    std::string y1 = std::string("y") + std::to_string(j);
+                    out << "(= z " << y1 << ") ";
+                }
+                out << ")))\n";
+            }
             switch (a.get_kind()) {
             case atom::ROOT_LT: out << "(< "; proc(out, a.x()); out << " " << yn << ")"; break;
             case atom::ROOT_GT: out << "(> "; proc(out, a.x()); out << " " << yn << ")"; break;
