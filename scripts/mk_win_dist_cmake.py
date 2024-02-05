@@ -195,12 +195,13 @@ def mk_build_dir(arch):
     build_path = get_build_dir(arch)
     if not check_build_dir(build_path) or FORCE_MK:
         mk_dir(build_path)
+        vsarch = arc
         if arch == "arm64":
-            arch = "amd64_arm64"
+            vsarch = "amd64_arm64"
 
         cmds = []
         cmds.append(f"cd {build_path}")
-        cmds.append('call "%VCINSTALLDIR%Auxiliary\\build\\vcvarsall.bat" ' + arch)
+        cmds.append('call "%VCINSTALLDIR%Auxiliary\\build\\vcvarsall.bat" ' + vsarch)
         cmd = []
         cmd.append("cmake -S .")
         if DOTNET_CORE_ENABLED:
