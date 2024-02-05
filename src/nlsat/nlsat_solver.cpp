@@ -916,15 +916,20 @@ namespace nlsat {
         }
 
         void log_lemma(std::ostream& out, unsigned n, literal const* cls, bool is_valid) {
+            ++m_lemma_count;
+            out << "(set-logic NRA)\n";
             if (is_valid) {
                 display_smt2_bool_decls(out);
                 display_smt2_arith_decls(out);
             }
             else             
                 display_smt2(out);            
-            display_smt2(out << "(assert (not ", n, cls) << "))\n";
+            for (unsigned i = 0; i < n; ++i) 
+                display_smt2(out << "(assert ", ~cls[i]) << ")\n";
             display(out << "(echo \"#" << m_lemma_count << " ", n, cls) << "\")\n";
             out << "(check-sat)\n(reset)\n";
+
+            TRACE("nlsat", display(tout << "(echo \"#" << m_lemma_count << " ", n, cls) << "\")\n");
         }
 
         clause * mk_clause_core(unsigned num_lits, literal const * lits, bool learned, _assumption_set a) {
@@ -941,10 +946,9 @@ namespace nlsat {
         clause * mk_clause(unsigned num_lits, literal const * lits, bool learned, _assumption_set a) {
             SASSERT(num_lits > 0);
             clause * cls = mk_clause_core(num_lits, lits, learned, a);
-            ++m_lemma_count;
             TRACE("nlsat_sort", display(tout << "mk_clause:\n", *cls) << "\n";);
             std::sort(cls->begin(), cls->end(), lit_lt(*this));
-            TRACE("nlsat_sort", display(tout << "#" << m_lemma_count << " after sort:\n", *cls) << "\n";);
+            TRACE("nlsat", display(tout << " after sort:\n", *cls) << "\n";);
             if (learned && m_log_lemmas) {
                 log_lemma(verbose_stream(), *cls);
             }
@@ -2100,6 +2104,9 @@ namespace nlsat {
             if (m_check_lemmas) {
                 check_lemma(m_lemma.size(), m_lemma.data(), false, m_lemma_assumptions.get());
             }
+
+            if (m_log_lemmas) 
+                log_lemma(verbose_stream(), m_lemma.size(), m_lemma.data(), false);
     
             // There are two possibilities:
             // 1) m_lemma contains only literals from previous stages, and they
