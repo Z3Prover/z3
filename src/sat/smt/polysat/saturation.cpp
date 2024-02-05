@@ -226,15 +226,14 @@ namespace polysat {
     void saturation::try_umul_blast(umul_ovfl const& sc) {
         auto x = sc.p();
         auto y = sc.q();
-        if (!x.is_val())
+        rational vx, vy;
+        if (!c.try_eval(x, vx))
             return;
-        if (!y.is_val())
+        if (!c.try_eval(y, vy))
             return;
         auto N = x.manager().power_of_2();
         auto d = c.get_dependency(sc.id());
 
-        auto vx = x.val();
-        auto vy = y.val();
         auto bx = vx.get_num_bits();
         auto by = vy.get_num_bits();
         if (bx > by) {
