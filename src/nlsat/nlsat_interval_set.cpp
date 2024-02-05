@@ -663,9 +663,8 @@ namespace nlsat {
                 continue;
             m_already_visited.setx(lidx, true, false);
             js.push_back(l);
-            if (s->m_intervals[i].m_clause) {
+            if (s->m_intervals[i].m_clause) 
                 clauses.push_back(const_cast<clause*>(s->m_intervals[i].m_clause));
-            }
         }
         for (unsigned i = 0; i < num; i++) {
             literal l     = s->m_intervals[i].m_justification;

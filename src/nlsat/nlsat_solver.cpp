@@ -1273,7 +1273,7 @@ namespace nlsat {
             if (include_l) 
                 core.push_back(~l);
             auto j = mk_lazy_jst(m_allocator, core.size(), core.data(), clauses.size(), clauses.data());
-            TRACE("nlsat_resolve", display(tout, j); display_eval(tout, j));
+            TRACE("nlsat_resolve", display(tout, j); display_eval(tout << "evaluated:", j));
             assign(l, j);
             SASSERT(value(l) == l_true);
         }
@@ -1384,7 +1384,9 @@ namespace nlsat {
                 tmp = m_ism.mk_union(curr_set, xk_set);
                 if (m_ism.is_full(tmp)) {
                     TRACE("nlsat_inf_set", tout << "infeasible set + current set = R, skip literal\n";
-                          display(tout, cls) << "\n";);
+                          display(tout, cls) << "\n";
+                          m_ism.display(tout, tmp); tout << "\n";
+                          );
                     R_propagate(~l, tmp, false);
                     continue;
                 }
