@@ -1853,9 +1853,12 @@ namespace nlsat {
                   tout << "new valid clause:\n";
                   display(tout, m_lazy_clause.size(), m_lazy_clause.data()) << "\n";);
 
+            
+            if (m_log_lemmas)
+                log_lemma(verbose_stream(), m_lazy_clause.size(), m_lazy_clause.data(), true);
+
             if (m_check_lemmas) {
                 check_lemma(m_lazy_clause.size(), m_lazy_clause.data(), true, nullptr);
-                log_lemma(verbose_stream(), m_lazy_clause.size(), m_lazy_clause.data(), true);
                 m_valids.push_back(mk_clause_core(m_lazy_clause.size(), m_lazy_clause.data(), false, nullptr));
             }
             
@@ -3163,7 +3166,6 @@ namespace nlsat {
             if (a.i() == 1 && m_pm.degree(a.p(), a.x()) == 1)
                 return display_linear_root_smt2(out, a, proc); 
 #if 1
-            // A first approximation: this encoding assumes roots are distinct
             out << "(exists (";
             for (unsigned j = 0; j < a.i(); ++j) {
                 std::string y = std::string("y") + std::to_string(j);
@@ -3180,14 +3182,16 @@ namespace nlsat {
                 std::string y2 = std::string("y") + std::to_string(j+1);
                 out << "(< " << y1 << " " << y2 << ")\n";
             }
-            std::string y0 = "y0";
+            // TODO we need (forall z : z < yn . p(z) => z = y1 or ... z = y_{n-1})
+            // to say y1, .., yn are the first n distinct roots.
+            //
             std::string yn = "y" + std::to_string(a.i() - 1);
             switch (a.get_kind()) {
-            case atom::ROOT_LT: out << "(< "; proc(out, a.x()); out << " " << y0 << ")"; break;
+            case atom::ROOT_LT: out << "(< "; proc(out, a.x()); out << " " << yn << ")"; break;
             case atom::ROOT_GT: out << "(> "; proc(out, a.x()); out << " " << yn << ")"; break;
-            case atom::ROOT_LE: out << "(<= "; proc(out, a.x()); out << " " << y0 << ")"; break;
+            case atom::ROOT_LE: out << "(<= "; proc(out, a.x()); out << " " << yn << ")"; break;
             case atom::ROOT_GE: out << "(>= "; proc(out, a.x()); out << " " << yn << ")"; break;
-            case atom::ROOT_EQ: out << "(= "; proc(out, a.x()); out << " " << y0 << ")"; NOT_IMPLEMENTED_YET(); break;
+            case atom::ROOT_EQ: out << "(= "; proc(out, a.x()); out << " " << yn << ")"; NOT_IMPLEMENTED_YET(); break;
             }
             out << "))";
             return out;
