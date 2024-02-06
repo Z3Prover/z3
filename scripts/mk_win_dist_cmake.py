@@ -77,6 +77,12 @@ def get_build_dist_path(arch):
 def get_bin_dist_path(arch):
     return os.path.join(get_build_dist_path(arch), "bin")
 
+def get_lib_dist_path(arch):
+    return os.path.join(get_build_dist_path(arch), "lib")
+
+def get_java_dist_path(arch):
+    return os.path.join(get_build_dist_path(arch), "java")
+
 def get_dist_path(arch):
     return os.path.join(DIST_DIR, arch)
 
@@ -360,6 +366,21 @@ def cp_dotnet(arch):
                     dist_dir,
                     dirs_exist_ok=True)
 
+def cp_into_bin(arch):
+    if is_verbose():
+        print("copy lib")
+    lib_dir = get_lib_dist_path(arch)
+    bin_dir = get_bin_dist_path(arch)
+    shutil.copyfile(os.path.join(lib_dir, "libz3.lib"),
+                os.path.join(bin_dir, "libz3.lib"))
+    shutil.rmtree(lib_dir)
+    if JAVA_ENABLED:
+        java_dir = get_java_dist_path(arch)
+        shutil.copytree(java_dir,
+                        bin_dir,
+                        dirs_exist_ok=True)
+        shutil.rmtree(java_dir)
+                
 def cp_pdb(arch):
     if is_verbose():
         print("copy pdb")
@@ -367,7 +388,7 @@ def cp_pdb(arch):
     bin_path = get_bin_dist_path(arch)
     mk_dir(bin_path)
     for f in os.listdir(build_dir):
-        if f.endswith("pdb"):
+        if f.endswith("libz3.pdb"):
             shutil.copy(os.path.join(build_dir, f), bin_path)
 
 def build_for_arch(arch):
@@ -377,6 +398,7 @@ def build_for_arch(arch):
     cp_pdb(arch)
     cp_dotnet(arch)
     cp_vs_runtime(arch)
+    cp_into_bin(arch)
     mk_zip(arch)
     
 # Entry point
