@@ -145,6 +145,9 @@ namespace polysat {
             assignment,
             none
         };
+
+        friend std::ostream& operator<<(std::ostream& out, explain_t e);
+
         pvar            m_var = null_var;
         explain_t       m_explain_kind = explain_t::none;
         unsigned        m_num_bits = 0;

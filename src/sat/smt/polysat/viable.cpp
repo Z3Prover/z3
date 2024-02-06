@@ -546,6 +546,18 @@ namespace polysat {
         return false;
     }
 
+
+    std::ostream& operator<<(std::ostream& out, viable::explain_t e) {
+        switch(e) {
+        case viable::explain_t::conflict: return out << "conflict";
+        case viable::explain_t::propagation: return out << "propagation";
+        case viable::explain_t::assignment: return out << "assignment";
+        case viable::explain_t::none: return out << "none";
+        default: UNREACHABLE();
+        }
+        return out;
+    }
+
     /*
     * Explain why the current variable is not viable or
     * or why it can only have a single value.
@@ -554,6 +566,8 @@ namespace polysat {
         dependency_vector result;      
         auto last = m_explain.back();
         auto after = last;
+
+        verbose_stream() << m_explain_kind << "\n";
 
         if (c.inconsistent())
             verbose_stream() << "inconsistent explain\n";
@@ -631,7 +645,7 @@ namespace polysat {
         return result;
     }
 
-    dependency viable::propagate_from_containing_slice(entry* e, rational const& value, dependency_vector const& e_deps) {
+    dependency viable::propagate_from_containing_slice(entry* e, rational const& value, dependency_vector const& e_deps) {        
         for (auto const& slice : m_overlaps)
             if (auto d = propagate_from_containing_slice(e, value, e_deps, slice); !d.is_null())
                 return d;

@@ -124,6 +124,11 @@ namespace polysat {
         euf::theory_var v = m_pddvar2var[pv];
         expr_ref val(bv.mk_numeral(slice.value, slice.length), m);
         euf::enode* b = ctx.get_egraph().find(val);
+        if (!b) {
+            verbose_stream() << v << " " << val << "\n";
+            ctx.get_egraph().display(verbose_stream());
+        }
+
         SASSERT(b);
         m_bv_plugin->explain_slice(var2enode(v), slice.offset, b, consume_eq);
     }
