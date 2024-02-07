@@ -181,9 +181,12 @@ namespace euf {
             if (is_concat(sib, a, b)) {
                 auto val_a = machine_div2k(val_x, width(b));
                 auto val_b = mod2k(val_x, width(b));
-                push_merge(mk_concat(mk_value(val_a, width(a)), mk_value(val_b, width(b))), x->get_interpreted());
+                a = mk_value(val_a, width(a));
+                b = mk_value(val_b, width(b));
+                push_merge(mk_concat(a, b), x->get_interpreted());
             }
         }
+
     }
 
     //
@@ -306,21 +309,21 @@ namespace euf {
         enode* r = n;
         unsigned lb = 0, ub = width(n) - 1;
         while (true) {   
-            TRACE("bv", tout << "ensure slice " << g.bpp(n) << " " << lb << " [" << lo << ", " << hi << "] " << ub << "\n");
             SASSERT(lb <= lo && hi <= ub);
             SASSERT(ub - lb + 1 == width(r));
             if (lb == lo && ub == hi)
                 return;
             slice_info const& i = info(r);
-            
+
+            TRACE("bv", tout << "ensure slice " << g.bpp(n) << " " << lb << " [" << lo << ", " << hi << "] " << ub << "\n" << "has-lo: " << (!!i.lo) << " " << i.cut << "\n";);
             if (!i.lo) {
                 if (lo > lb) {
                     split(r, lo - lb);
                     if (hi < ub) // or split(info(r).hi, ...)                       
                         ensure_slice(n, lo, hi);                    
                 }
-                else if (hi < ub)
-                    split(r, ub - hi);
+                else if (hi < ub) 
+                    split(r, hi - lo + 1);
                 break;
             }
             auto cut = i.cut;
@@ -407,7 +410,6 @@ namespace euf {
     }
 
     void bv_plugin::split(enode* n, unsigned cut) {
-        TRACE("bv", tout << "split: " << g.bpp(n) << " " << cut << "\n");
         unsigned w = width(n);
         SASSERT(!info(n).hi);
         SASSERT(0 < cut && cut < w);
@@ -419,7 +421,9 @@ namespace euf {
         i.lo = lo;
         i.cut = cut;
         push_undo_split(n);
-        push_merge(mk_concat(hi, lo), n);        
+        auto n0 = mk_concat(hi, lo);
+        TRACE("bv", tout << "split: " << g.bpp(n) << " " << cut << " -> " << g.bpp(n0) << "\n");
+        push_merge(n0, n);        
     }
 
     void bv_plugin::sub_slices(enode* n, std::function<bool(enode*, unsigned)>& consumer) {
