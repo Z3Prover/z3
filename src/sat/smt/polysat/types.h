@@ -21,7 +21,7 @@ namespace polysat {
 
     using pdd = dd::pdd;
     using pvar = unsigned;
-    using theory_var = unsigned;
+    using theory_var = int;
     struct constraint_id {
         unsigned id = UINT_MAX; 
         bool is_null() const { return id == UINT_MAX; }
