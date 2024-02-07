@@ -114,13 +114,13 @@ namespace polysat {
         m_bv_plugin->super_slices(b, consume_slice);
     }
     
-    void solver::explain_slice(pvar pv, pvar pw, unsigned offset, std::function<void(euf::enode*, euf::enode*)>& consume_eq) {
+    void solver::explain_slice(pvar pv, pvar pw, unsigned offset, std::function<void(euf::enode*, euf::enode*)> const& consume_eq) {
         euf::theory_var v = m_pddvar2var[pv];
         euf::theory_var w = m_pddvar2var[pw];
         m_bv_plugin->explain_slice(var2enode(v), offset, var2enode(w), consume_eq);
     }
 
-    void solver::explain_fixed(pvar pv, fixed_slice const& slice, std::function<void(euf::enode*, euf::enode*)>& consume_eq) {
+    void solver::explain_fixed(pvar pv, fixed_slice const& slice, std::function<void(euf::enode*, euf::enode*)> const& consume_eq) {
         euf::theory_var v = m_pddvar2var[pv];
         expr_ref val(bv.mk_numeral(slice.value, slice.length), m);
         euf::enode* b = ctx.get_egraph().find(val);
