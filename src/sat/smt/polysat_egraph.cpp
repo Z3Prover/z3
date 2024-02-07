@@ -122,6 +122,60 @@ namespace polysat {
         m_bv_plugin->sub_slices(b, consume_slice);
         m_bv_plugin->super_slices(b, consume_slice);
     }
+
+    // walk the e-graph to retrieve fixed sub-slices along with justifications,
+    // as well as pvars that correspond to these sub-slices.
+    void solver::get_fixed_sub_slices(pvar pv, fixed_slice_extra_vector& fixed, offset_slice_extra_vector& subslices) {
+        auto consume_slice = [&](euf::enode* n, unsigned offset) -> bool {
+            euf::enode* r = n->get_root();
+            if (!r->interpreted())
+                return true;
+            euf::theory_var w = r->get_th_var(get_id());
+            if (w == euf::null_theory_var)
+                return true;
+            unsigned length = bv.get_bv_size(r->get_expr());
+            rational value;
+            VERIFY(bv.is_numeral(r->get_expr(), value));
+
+            unsigned level = merge_level(n, r);
+
+            euf::theory_var u = n->get_th_var(get_id());
+            dependency dep = (u == euf::null_theory_var) ? dependency::axiom() : dependency(u, w);   // TODO: probably need an enode_pair instead?
+
+#if 0
+            verbose_stream() << "    " << value << "[" << length << "]@" << offset;
+            verbose_stream() << "  node " << ctx.bpp(n);
+            verbose_stream() << "  tv " << u;
+            if (u != euf::null_theory_var)
+                verbose_stream() << " := " << m_var2pdd[u];
+            verbose_stream() << "  merge-level " << level;
+            // verbose_stream() << "  just " << n->get_justification();
+            verbose_stream() << "\n";
+            fixed.push_back(fixed_slice_extra(value, offset, length, level, dep));
+#endif
+
+            for (euf::enode* sib : euf::enode_class(n)) {
+                euf::theory_var s = sib->get_th_var(get_id());
+                if (s == euf::null_theory_var)
+                    continue;
+                auto const& p = m_var2pdd[s];
+                if (!p.is_var())
+                    continue;
+#if 0
+                verbose_stream() << "        pvar " << p;
+                verbose_stream() << "  node " << ctx.bpp(sib);
+                verbose_stream() << "  tv " << s;
+                verbose_stream() << "  merge-level " << merge_level(sib, r);
+                verbose_stream() << "\n";
+#endif
+                subslices.push_back(offset_slice_extra(p.var(), offset, merge_level(sib, r)));
+            }
+
+            return true;
+        };
+        theory_var v = m_pddvar2var[pv];
+        m_bv_plugin->sub_slices(var2enode(v), consume_slice);
+    }
     
     void solver::explain_slice(pvar pv, pvar pw, unsigned offset, std::function<void(euf::enode*, euf::enode*)> const& consume_eq) {
         euf::theory_var v = m_pddvar2var[pv];

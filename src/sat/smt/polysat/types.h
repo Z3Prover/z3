@@ -166,6 +166,7 @@ namespace polysat {
         virtual void get_bitvector_sub_slices(pvar v, offset_slices& out) = 0;
         virtual void get_bitvector_super_slices(pvar v, offset_slices& out) = 0;
         virtual void get_fixed_bits(pvar v, fixed_bits_vector& fixed_slice) = 0;
+        virtual void get_fixed_sub_slices(pvar v, fixed_slice_extra_vector& fixed_slice, offset_slice_extra_vector& subslices) = 0;
         virtual pdd  mk_ite(signed_constraint const& sc, pdd const& p, pdd const& q) = 0;
         virtual pdd mk_zero_extend(unsigned sz, pdd const& p) = 0;
         virtual unsigned level(dependency const& d) = 0;
