@@ -21,7 +21,6 @@ Author:
 #include "sat/smt/sat_smt.h"
 #include "sat/smt/pb_solver.h"
 #include "sat/smt/bv_solver.h"
-#include "sat/smt/intblast_solver.h"
 #include "sat/smt/polysat_solver.h"
 #include "sat/smt/intblast_solver.h"
 #include "sat/smt/euf_solver.h"
