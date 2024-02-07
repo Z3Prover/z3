@@ -645,18 +645,36 @@ namespace polysat {
         return result;
     }
 
-    dependency viable::propagate_from_containing_slice(entry* e, rational const& value, dependency_vector const& e_deps) {        
-        for (auto const& slice : m_overlaps)
-            if (auto d = propagate_from_containing_slice(e, value, e_deps, slice); !d.is_null())
+    dependency viable::propagate_from_containing_slice(entry* e, rational const& value, dependency_vector const& e_deps) {
+        verbose_stream() << "\n\n\n\n\n\nNon-viable assignment for v" << m_var << " size " << c.size(m_var) << "\n";
+        display_one(verbose_stream() << "entry: ", e) << "\n";
+        verbose_stream() << "value " << value << "\n";
+
+        fixed_slice_extra_vector fixed;
+        offset_slice_extra_vector subslices;
+#if 0
+        verbose_stream() << "fixed subslices of v" << m_var << ":\n";
+        c.s.get_fixed_sub_slices(m_var, fixed, subslices);   // TODO: move into m_fixed bits?
+
+        // TODO: the conflict should be from the subslice with highest level. we might want to skip the others.
+        for (auto const& slice : subslices)
+            if (auto d = propagate_from_containing_slice(e, value, e_deps, fixed, slice); !d.is_null())
                 return d;
+#else
+        for (auto const& slice : m_overlaps)
+            if (auto d = propagate_from_containing_slice(e, value, e_deps, fixed, {slice.v, slice.offset, 0}); !d.is_null())
+                return d;
+#endif
         return null_dependency;
     }
 
-    dependency viable::propagate_from_containing_slice(entry* e, rational const& value, dependency_vector const& e_deps, offset_slice const& slice) {
-        auto [w, offset] = slice;
+    dependency viable::propagate_from_containing_slice(entry* e, rational const& value, dependency_vector const& e_deps, fixed_slice_extra_vector const& fixed, offset_slice_extra const& slice) {
+        pvar w = slice.v;
+        unsigned offset = slice.offset;
+        unsigned w_level = slice.level;  // level where value of w was fixed
         if (w == m_var)
             return null_dependency;
-        verbose_stream() << "v" << m_var << " size " << c.size(m_var) << ", v" << w << " size " << c.size(w) << " offset " << offset << "\n";
+        verbose_stream() << "v" << m_var << " size " << c.size(m_var) << ", v" << w << " size " << c.size(w) << " offset " << offset << " level " << w_level << "\n";
 
         // Let:
         // v = m_var[e->bit_width-1:0]
@@ -685,12 +703,8 @@ namespace polysat {
         unsigned const z_sz = offset;
         unsigned const y_sz = std::min(w_sz, v_sz - z_sz);
         unsigned const x_sz = v_sz - y_sz;
-
         rational const& w_shift = rational::power_of_two(w_sz - y_sz);
-
         verbose_stream() << "v_sz " << v_sz << " w_sz " << w_sz << " / x_sz " << x_sz << " y_sz " << y_sz << " z_sz " << z_sz << "\n";
-        display_one(verbose_stream() << "entry: ", e) << "\n";
-        verbose_stream() << "value " << value << "\n";
 
         SASSERT(!e->interval.is_full());
         rational const& lo = e->interval.lo_val();
@@ -699,6 +713,147 @@ namespace polysat {
         r_interval const v_ivl  = r_interval::proper(lo, hi);
         verbose_stream() << "propagate interval " << v_ivl << " from v" << m_var << " to v" << w << "[" << y_sz << "]" << "\n";
 
+#if 0
+
+        dependency_vector deps;
+        deps.append(e_deps);  // explains e
+        deps.push_back(offset_claim{m_var, slice});  // explains m_var[...] = w
+
+        r_interval ivl = v_ivl;
+
+        // chop off x-part, taking fixed values into account whenever possible.
+        unsigned const x_off = y_sz + z_sz;
+        unsigned remaining_x_sz = x_sz;
+        while (remaining_x_sz > 0 && !ivl.is_empty() && !ivl.is_full()) {
+            unsigned remaining_x_end = remaining_x_sz + x_off;
+            // find next fixed slice (prefer lower level)
+            fixed_slice_extra best;
+            unsigned best_end = 0;
+            SASSERT(best_end < x_off);  // because y_sz != 0
+            for (auto const& f : fixed) {
+                if (f.level >= w_level)
+                    continue;
+                // ??????xxxxxxxyyyyyyzzzz
+                //  1111            not useful at this point
+                //    11111         OK
+                //          1111    OK (has gap without fixed value)
+                //            1111  NOT OK (overlaps y) ... although, why would that not be ok? it just restricts values of y too. maybe this can be used to improve interval for y further.
+                //                111111  not useful at this point
+                if (f.offset >= remaining_x_end)
+                    continue;
+                if (f.end() <= x_off)
+                    continue;
+                unsigned const f_end = std::min(remaining_x_end, f.end());  // for comparison, values beyond the current range don't matter
+                if (f_end > best_end)
+                    best = f, best_end = f_end;
+                else if (f_end == best_end && f.level < best.level)
+                    best = f, best_end = f_end;
+            }
+
+            if (best_end < remaining_x_end) {
+                // there is a gap without a fixed value
+                unsigned const b = std::max(best_end, x_off);
+                unsigned const a = remaining_x_end - b;
+                SASSERT(remaining_x_sz >= a);
+                ivl = chop_off_upper(ivl, a, b);
+                remaining_x_sz -= a;
+                remaining_x_end -= a;
+            }
+
+            if (best_end > x_off) {
+                verbose_stream() << "  using fixed slice " << best.value << "[" << best.length << "]@" << best.offset << "\n";
+                SASSERT(remaining_x_end == best_end);
+                SASSERT(remaining_x_end <= best.end());
+                // chop off portion with fixed value
+                unsigned const b = std::max(x_off, best.offset);
+                unsigned const a = remaining_x_end - b;
+                rational value = best.value;
+                if (b > best.offset)
+                    value = machine_div2k(value, b - best.offset);
+                value = mod2k(value, a);
+
+                ivl = chop_off_upper(ivl, a, b, &value);
+                remaining_x_sz -= a;
+                remaining_x_end -= a;
+
+                deps.push_back(best.dep);  // justification for the fixed value
+            }
+        }
+
+        if (ivl.is_empty())
+            return null_dependency;
+
+        // chop off z-part
+        unsigned remaining_z_sz = z_sz;
+        while (remaining_z_sz > 0 && !ivl.is_empty() && !ivl.is_full()) {
+            SASSERT(remaining_x_sz == 0);
+            unsigned remaining_z_off = z_sz - remaining_z_sz;
+            // find next fixed slice (prefer lower level)
+            fixed_slice_extra best;
+            unsigned best_off = UINT_MAX;
+            for (auto const& f : fixed) {
+                if (f.level >= w_level)
+                    continue;
+                // ?????????????yyyyyyzzzzz???
+                //            1111              not useful at this point
+                //                      1111    OK
+                //                  1111        OK (has gap without fixed value)
+                //                         111  not useful
+                if (f.offset >= z_sz)
+                    continue;
+                if (f.end() <= remaining_z_off)
+                    continue;
+                unsigned const f_off = std::max(remaining_z_off, f.offset);  // for comparison, values beyond the current range don't matter
+                if (f_off < best_off)
+                    best = f, best_off = f_off;
+                else if (f_off == best_off && f.level < best.level)
+                    best = f, best_off = f_off;
+            }
+
+            if (best_off > remaining_z_off) {
+                // there is a gap without a fixed value
+                unsigned const b = best_off - remaining_z_off;
+                unsigned const a = y_sz + z_sz - b;
+                SASSERT(remaining_x_sz >= a);
+                ivl = chop_off_lower(ivl, a, b);
+                remaining_z_sz -= b;
+                remaining_z_off += b;
+            }
+
+            if (best_off < z_sz) {
+                verbose_stream() << "  using fixed slice " << best.value << "[" << best.length << "]@" << best.offset << "\n";
+                SASSERT_EQ(best_off, remaining_z_off);
+                unsigned const b = std::min(best.end(), z_sz) - remaining_z_off;
+                unsigned const a = y_sz + z_sz - b;
+                rational value = best.value;
+                if (best.offset < best_off)
+                    value = machine_div2k(value, best_off - best.offset);
+                value = mod2k(value, b);
+
+                ivl = chop_off_lower(ivl, a, b, &value);
+                remaining_z_sz -= b;
+                remaining_z_off += b;
+
+                deps.push_back(best.dep);  // justification for the fixed value
+            }
+
+        }
+
+        if (ivl.is_empty())
+            return null_dependency;
+
+        verbose_stream() << "=>  v" << w << "[" << y_sz << "] not in " << ivl << "\n";  // << " using x=" << x_value << " z=" << z_value << "\n";
+        if (ivl.is_full()) {
+            // TODO: set conflict
+            NOT_IMPLEMENTED_YET();
+        }
+        else {
+            // proper interval
+            auto sc = ~cs.ult(w_shift * (c.var(w) - ivl.lo()), w_shift * (ivl.hi() - ivl.lo()));
+            return c.propagate(sc, deps, "propagate from containing slice");
+        }
+
+#else
         // TODO: by the time we call viable::assign, m_fixed_bits only contains a single slice with 'value'.
         //       if we had access to the actually fixed slices (not just fixed because of the latest assignment),
         //       we could chop off fixed and non-fixed parts according to actually fixed slices;
@@ -762,13 +917,14 @@ namespace polysat {
                 // y is unconstrained, nothing to do here
             }
         }
+#endif
 
         return null_dependency;
     }
 
 
-    /// Let x = concat(y, z) and x \not\in [lo;hi[.
-    /// Returns an interval I such that z \not\in I.
+    /// Let x = concat(y, z) and x  not in [lo;hi[.
+    /// Returns an interval I such that z  not in I.
     r_interval viable::chop_off_upper(r_interval const& i, unsigned const Ny, unsigned const Nz, rational const* y_fixed_value) {
         if (i.is_full())
             return r_interval::full();
@@ -804,8 +960,8 @@ namespace polysat {
         UNREACHABLE();
     }
 
-    /// Let x = concat(y, z) and x \not\in [lo;hi[.
-    /// Returns an interval I such that y \not\in I.
+    /// Let x = concat(y, z) and x not in [lo;hi[.
+    /// Returns an interval I such that y not in I.
     r_interval viable::chop_off_lower(r_interval const& i, unsigned const Ny, unsigned const Nz, rational const* z_fixed_value) {
         if (i.is_full())
             return r_interval::full();

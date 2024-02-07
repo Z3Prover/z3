@@ -116,13 +116,12 @@ namespace polysat {
         bool intersect(pvar v, entry* e);
 
         dependency propagate_from_containing_slice(entry* e, rational const& value, dependency_vector const& e_deps);
-        dependency propagate_from_containing_slice(entry* e, rational const& value, dependency_vector const& e_deps, offset_slice const& slice);
+        dependency propagate_from_containing_slice(entry* e, rational const& value, dependency_vector const& e_deps, fixed_slice_extra_vector const& fixed, offset_slice_extra const& slice);
         static r_interval chop_off_upper(r_interval const& i, unsigned Ny, unsigned Nz, rational const* y_fixed_value = nullptr);
         static r_interval chop_off_lower(r_interval const& i, unsigned Ny, unsigned Nz, rational const* z_fixed_value = nullptr);
 
         // find the first non-fixed entry that overlaps with val, if any.
         entry* find_overlap(rational& val);
-        entry* find_overlap(pvar w, rational& val);
         entry* find_overlap(pvar w, layer& l, rational const& val);
 
         void update_value_to_high(rational& val, entry* e);
