@@ -109,15 +109,15 @@ namespace euf {
 
         void undo() override;
 
-        void set_ensure_th_var(std::function<void(enode*)>& f) { m_ensure_th_var = f; }
+        void set_ensure_th_var(std::function<void(enode*)> f) { m_ensure_th_var = std::move(f); }
         
         std::ostream& display(std::ostream& out) const override;
 
-        void sub_slices(enode* n, std::function<bool(enode*, unsigned)>& consumer);
+        void sub_slices(enode* n, std::function<bool(enode*, unsigned)> const& consumer);
 
-        void super_slices(enode* n, std::function<bool(enode*, unsigned)>& consumer);
+        void super_slices(enode* n, std::function<bool(enode*, unsigned)> const& consumer);
 
-        void explain_slice(enode* a, unsigned offset, enode* b, std::function<void(enode*, enode*)>& consumer);
+        void explain_slice(enode* a, unsigned offset, enode* b, std::function<void(enode*, enode*)> const& consumer);
             
     };
 }

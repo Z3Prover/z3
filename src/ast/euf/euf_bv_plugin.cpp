@@ -426,7 +426,7 @@ namespace euf {
         push_merge(n0, n);        
     }
 
-    void bv_plugin::sub_slices(enode* n, std::function<bool(enode*, unsigned)>& consumer) {
+    void bv_plugin::sub_slices(enode* n, std::function<bool(enode*, unsigned)> const& consumer) {
         m_todo.push_back({ n, 0 });
         unsigned lo, hi;
         expr* e;
@@ -461,7 +461,7 @@ namespace euf {
         clear_offsets();
     }
 
-    void bv_plugin::super_slices(enode* n, std::function<bool(enode*, unsigned)>& consumer) {
+    void bv_plugin::super_slices(enode* n, std::function<bool(enode*, unsigned)> const& consumer) {
         m_todo.push_back({ n, 0 });
         unsigned lo, hi;
         expr* e;
@@ -500,7 +500,7 @@ namespace euf {
     // Explain that a is a subslice of b at offset
     // or that b is a subslice of a at offset
     // 
-    void bv_plugin::explain_slice(enode* a, unsigned offset, enode* b, std::function<void(enode*, enode*)>& consumer) {
+    void bv_plugin::explain_slice(enode* a, unsigned offset, enode* b, std::function<void(enode*, enode*)> const& consumer) {
         if (width(a) < width(b))
             std::swap(a, b);
         SASSERT(width(a) >= width(b));
