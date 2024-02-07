@@ -40,19 +40,21 @@ namespace polysat {
         unsigned length = 0;
         rational value;
         fixed_slice() = default;
-        fixed_slice(rational value, unsigned offset, unsigned length) : offset(offset), length(length), value(value) {}
+        fixed_slice(rational value, unsigned offset, unsigned length) : offset(offset), length(length), value(std::move(value)) {}
     };
 
     struct fixed_claim : public fixed_slice {
         pvar v;
         fixed_claim() = default;
-        fixed_claim(pvar v, rational value, unsigned offset, unsigned length) : fixed_slice(value, offset, length), v(v) {}
+        fixed_claim(pvar v, rational value, unsigned offset, unsigned length) : fixed_slice(std::move(value), offset, length), v(v) {}
         fixed_claim(pvar v, fixed_slice const& s) : fixed_slice(s), v(v) {}
     };
 
     struct offset_slice {
         pvar v;
         unsigned offset;
+        offset_slice() = default;
+        offset_slice(pvar v, unsigned offset) : v(v), offset(offset) {}
     };
 
     struct offset_claim : public offset_slice {
@@ -117,6 +119,22 @@ namespace polysat {
     }
 
     using fixed_bits_vector = vector<fixed_slice>;
+
+    struct fixed_slice_extra : public fixed_slice {
+        unsigned level = 0;  // level when sub-slice was fixed to value
+        dependency dep = null_dependency;
+        fixed_slice_extra() = default;
+        fixed_slice_extra(rational value, unsigned offset, unsigned length, unsigned level, dependency dep):
+            fixed_slice(std::move(value), offset, length), level(level), dep(std::move(dep)) {}
+    };
+    using fixed_slice_extra_vector = vector<fixed_slice_extra>;
+
+    struct offset_slice_extra : public offset_slice {
+        unsigned level = 0;  // level when variable was fixed to value
+        offset_slice_extra() = default;
+        offset_slice_extra(pvar v, unsigned offset, unsigned level) : offset_slice(v, offset), level(level) {}
+    };
+    using offset_slice_extra_vector = vector<offset_slice_extra>;
 
     using dependency_vector = vector<dependency>;
     using constraint_or_dependency = std::variant<signed_constraint, dependency>;
