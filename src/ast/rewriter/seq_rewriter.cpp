@@ -3478,7 +3478,7 @@ expr_ref seq_rewriter::mk_antimirov_deriv_union(expr* d1, expr* d2) {
 // 
 // restrict(d, false) = []
 // 
-// it is already assumed that the restriction takes place witin a branch
+// it is already assumed that the restriction takes place within a branch
 // so the condition is not added explicitly but propagated down in order to eliminate 
 // infeasible cases
 expr_ref seq_rewriter::mk_antimirov_deriv_restrict(expr* e, expr* d, expr* cond) {
@@ -3717,7 +3717,7 @@ expr_ref seq_rewriter::mk_regex_concat(expr* r, expr* s) {
         result = re().mk_plus(re().mk_full_char(ele_sort));
     else if (re().is_concat(r, r1, r2))
         // create the resulting concatenation in right-associative form except for the following case
-        // TODO: maintain the followig invariant for A ++ B{m,n} + C
+        // TODO: maintain the following invariant for A ++ B{m,n} + C
         //       concat(concat(A, B{m,n}), C) (if A != () and C != ()) 
         //       concat(B{m,n}, C) (if A == () and C != ()) 
         // where A, B, C are regexes
@@ -3725,11 +3725,11 @@ expr_ref seq_rewriter::mk_regex_concat(expr* r, expr* s) {
         // In other words, do not make A ++ B{m,n} into right-assoc form, but keep B{m,n} at the top 
         // This will help to identify this situation in the merge routine:
         //               concat(concat(A, B{0,m}), C) | concat(concat(A, B{0,n}), C)
-        // simplies to 
+        // simplifies to
         //               concat(concat(A, B{0,max(m,n)}), C)
         // analogously:
         //               concat(concat(A, B{0,m}), C) & concat(concat(A, B{0,n}), C)
-        // simplies to 
+        // simplifies to
         //               concat(concat(A, B{0,min(m,n)}), C)
         result = mk_regex_concat(r1, mk_regex_concat(r2, s));
     else {
@@ -3850,12 +3850,12 @@ bool seq_rewriter::pred_implies(expr* a, expr* b) {
     Utility function to decide if two BDDs (nested if-then-else terms)
     have exactly the same structure and conditions.
 */
-bool seq_rewriter::ite_bdds_compatabile(expr* a, expr* b) {
+bool seq_rewriter::ite_bdds_compatible(expr* a, expr* b) {
     expr* ca = nullptr, *a1 = nullptr, *a2 = nullptr;
     expr* cb = nullptr, *b1 = nullptr, *b2 = nullptr;
     if (m().is_ite(a, ca, a1, a2) && m().is_ite(b, cb, b1, b2)) {
-        return (ca == cb) && ite_bdds_compatabile(a1, b1)
-                          && ite_bdds_compatabile(a2, b2);
+        return (ca == cb) && ite_bdds_compatible(a1, b1)
+                          && ite_bdds_compatible(a2, b2);
     }
     else if (m().is_ite(a) || m().is_ite(b)) {
         return false;
@@ -3915,7 +3915,7 @@ expr_ref seq_rewriter::mk_der_op_rec(decl_kind k, expr* a, expr* b) {
         // sophisticated: in an antimirov union of n terms, we really
         // want to check if any pair of them is compatible.
         else if (m().is_ite(a) && m().is_ite(b) &&
-                 !ite_bdds_compatabile(a, b)) {
+                 !ite_bdds_compatible(a, b)) {
             k = _OP_RE_ANTIMIROV_UNION;
         }
         #endif
@@ -4269,7 +4269,7 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
     }
     else if (re().is_reverse(r, r1)) {
         if (re().is_to_re(r1, r2)) {
-            // First try to exctract hd and tl such that r = hd ++ tl and |tl|=1
+            // First try to extract hd and tl such that r = hd ++ tl and |tl|=1
             expr_ref hd(m()), tl(m());
             if (get_head_tail_reversed(r2, hd, tl)) {
                 // Use mk_der_cond to normalize

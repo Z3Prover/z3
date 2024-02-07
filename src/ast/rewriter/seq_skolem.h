@@ -8,7 +8,7 @@ Module Name:
 Abstract:
 
     Skolem function support for sequences.
-    Skolem functions are auxiliary funcions useful for axiomatizing sequence
+    Skolem functions are auxiliary functions useful for axiomatizing sequence
     operations.
 
 Author:

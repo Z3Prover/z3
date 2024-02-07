@@ -343,7 +343,7 @@ namespace lp {
             solver->add_constraint(&c);
         }
 
-        void create_equality_contraint_for_var(column* col, bound * b, lar_solver *solver) {
+        void create_equality_constraint_for_var(column* col, bound * b, lar_solver *solver) {
             lar_constraint c(EQ, b->m_fixed_value);
             var_index i = solver->add_var(col->m_name);
             c.add_variable_to_constraint(i, numeric_traits<T>::one());
@@ -366,7 +366,7 @@ namespace lp {
                     create_upper_constraint_for_var(col, b, solver);
                 }
                 if (b->m_value_is_fixed) {
-                    create_equality_contraint_for_var(col, b, solver);
+                    create_equality_constraint_for_var(col, b, solver);
                 }
             }
         }

@@ -11,7 +11,7 @@ Author:
 
 Revision History:
 
-    The implementaton is derived from theory_diff_logic.
+    The implementation is derived from theory_diff_logic.
 
 --*/
 #include "smt/theory_utvpi.h"

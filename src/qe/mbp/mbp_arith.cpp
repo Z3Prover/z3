@@ -674,7 +674,7 @@ namespace mbp {
                     id = mbo.add_var(r, a.is_int(v));
                     tids.insert(v, id);
                 }
-                CTRACE("qe", kv.m_value.is_zero(), tout << mk_pp(v, m) << " has coefficeint 0\n";);
+                CTRACE("qe", kv.m_value.is_zero(), tout << mk_pp(v, m) << " has coefficient 0\n";);
                 if (!kv.m_value.is_zero()) {
                     coeffs.push_back(var(id, kv.m_value));
                 }

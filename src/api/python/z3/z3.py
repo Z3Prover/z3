@@ -8984,7 +8984,7 @@ def substitute_funs(t, *m):
             m = m1
     if z3_debug():
         _z3_assert(is_expr(t), "Z3 expression expected")
-        _z3_assert(all([isinstance(p, tuple) and is_func_decl(p[0]) and is_expr(p[1]) for p in m]), "Z3 invalid substitution, funcion pairs expected.")
+        _z3_assert(all([isinstance(p, tuple) and is_func_decl(p[0]) and is_expr(p[1]) for p in m]), "Z3 invalid substitution, function pairs expected.")
     num = len(m)
     _from = (FuncDecl * num)()
     _to = (Ast * num)()

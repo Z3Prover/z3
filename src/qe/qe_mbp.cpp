@@ -416,7 +416,7 @@ public:
             //don't use mbp_qel on some theories where model evaluation is
             //incomplete This is not a limitation of qel. Fix this either by
             //making mbp choices less dependent on the model evaluation methods
-            //or fix theory rewriters to make terms evalution complete
+            //or fix theory rewriters to make terms evaluation complete
             if (m_use_qel && !has_unsupported_th(fmls)) {
                 bool dsub = m_dont_sub;
                 m_dont_sub = !force_elim;

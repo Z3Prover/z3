@@ -64,7 +64,7 @@ public:
     }
 
     /**
-    * size(), [](), update() and inconsisent() implement the abstract interface of dependent_expr_state
+    * size(), [](), update() and inconsistent() implement the abstract interface of dependent_expr_state
     */
     unsigned qtail() const override { return m_goal->size(); }
 
