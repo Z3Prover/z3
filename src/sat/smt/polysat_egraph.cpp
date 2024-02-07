@@ -23,6 +23,15 @@ Author:
 
 namespace polysat {
 
+    unsigned solver::merge_level(euf::enode* a, euf::enode* b) {
+        sat::literal_vector r;
+        ctx.get_eq_antecedents(a, b, r);
+        unsigned level = 0;
+        for (sat::literal lit : r)
+            level = std::max(level, s().lvl(lit));
+        return level;
+    }
+
     // walk the egraph starting with pvar for suffix overlaps.
     void solver::get_bitvector_suffixes(pvar pv, offset_slices& out) {       
         uint_set seen;

@@ -111,6 +111,7 @@ namespace polysat {
 
         sat::check_result intblast();
 
+        unsigned merge_level(euf::enode* a, euf::enode* b);
         void explain_slice(pvar v, pvar w, unsigned offset, std::function<void(euf::enode*, euf::enode*)> const& consume);
         void explain_fixed(pvar v, fixed_slice const& s, std::function<void(euf::enode*, euf::enode*)> const& consume_eq);
 
