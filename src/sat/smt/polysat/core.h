@@ -146,7 +146,7 @@ namespace polysat {
 
 
         /*
-        * Add a named clause. Dependencies are assumed, signed constraints are guaranteeed.
+        * Add a named clause. Dependencies are assumed, signed constraints are guaranteed.
         * In other words, the clause represents the formula /\ d_i -> \/ sc_j
         * Where d_i are logical interpretations of dependencies and sc_j are signed constraints.
         */

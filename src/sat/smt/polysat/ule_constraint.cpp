@@ -175,7 +175,6 @@ namespace polysat {
         //          3. now the reference returned from lhs.offset() may be invalid
         pdd const rhs_plus_one = rhs + 1;
 
-        // TODO: potential bug here: first call offset(), then rhs+1 has to reallocate pdd_manager::m_values, then the reference to offset is broken.
         if (rhs.is_val() && !rhs.is_zero() && lhs.offset() == rhs_plus_one.val()) {
             TRACE("bv", tout << "p - k <= -k - 1  -->  k <= p\n");
             pdd k = -(rhs + 1);

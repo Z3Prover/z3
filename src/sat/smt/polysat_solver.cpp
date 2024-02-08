@@ -495,16 +495,16 @@ namespace polysat {
         
         expr_ref_vector args(m);
         for (auto const& mon : p) {
-            auto c = mon.coeff;
+            rational const& c = mon.coeff;
             if (mon.vars.empty())
                 args.push_back(mk_num(c));
-            else if (mon.coeff == 1 && mon.vars.size() == 1)
+            else if (c == 1 && mon.vars.size() == 1)
                 args.push_back(mk_var(mon.vars[0]));
             else if (mon.vars.size() == 1)
                 args.push_back(bv.mk_bv_mul(mk_num(c), mk_var(mon.vars[0])));
             else {
                 expr_ref_vector args2(m);
-                for (auto v : mon.vars)
+                for (pvar v : mon.vars)
                     args2.push_back(mk_var(v));
                 if (c == 1)
                     args.push_back(bv.mk_bv_mul(args2));

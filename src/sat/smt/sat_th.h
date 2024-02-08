@@ -177,8 +177,6 @@ namespace euf {
         void add_equiv(sat::literal a, sat::literal b);
         void add_equiv_and(sat::literal a, sat::literal_vector const& bs);
         bool add_redundant(sat::literal_vector const& lits, th_proof_hint const* ps) { return add_clause(lits.size(), lits.data(), ps, true); }
-        bool add_redundant(unsigned n, sat::literal* lits, th_proof_hint const* ps);
-
 
         bool is_true(sat::literal lit);
         bool is_true(sat::literal a, sat::literal b) { return is_true(a) || is_true(b); }

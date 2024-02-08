@@ -1,4 +1,4 @@
-﻿/*++
+/*++
 Copyright (c) 2021 Microsoft Corporation
 
 Module Name:
@@ -131,7 +131,7 @@ namespace polysat {
         if (l.lo().val() == 0)
             val = 0;
         else 
-            val = l.manager().max_value() + 1 - l.lo().val();
+            val = l.manager().two_to_N() - l.lo().val();
         return true;
     }
 
