@@ -702,9 +702,10 @@ namespace polysat {
         unsigned const w_sz = c.size(w);
         unsigned const z_sz = offset;
         unsigned const y_sz = std::min(w_sz, v_sz - z_sz);
-        unsigned const x_sz = v_sz - y_sz;
+        unsigned const x_sz = v_sz - y_sz - z_sz;
         rational const& w_shift = rational::power_of_two(w_sz - y_sz);
         verbose_stream() << "v_sz " << v_sz << " w_sz " << w_sz << " / x_sz " << x_sz << " y_sz " << y_sz << " z_sz " << z_sz << "\n";
+        SASSERT_EQ(v_sz, x_sz + y_sz + z_sz);
 
         SASSERT(!e->interval.is_full());
         rational const& lo = e->interval.lo_val();
