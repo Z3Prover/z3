@@ -503,7 +503,7 @@ namespace smt {
         theory_var x_i = r.get_base_var();
         
         SASSERT(is_int(x_i));
-        // The following assertion is wrong. It may be violated in mixed-real-interger problems.
+        // The following assertion is wrong. It may be violated in mixed-real-integer problems.
         // The check is_gomory_cut_target will discard rows where any variable contains infinitesimals.
         // SASSERT(m_value[x_i].is_rational()); // infinitesimals are not used for integer variables
         SASSERT(!m_value[x_i].is_int());     // the base variable is not assigned to an integer value.

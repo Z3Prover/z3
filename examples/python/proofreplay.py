@@ -86,7 +86,7 @@ if __name__ == "__main__":
     # The pair -inst 2 indicates that two quantifier instantiations were not self-validated
     # They were instead validated using a call to SMT solving. A log for an smt invocation
     # is exemplified in the next line.
-    # Note that the pair +inst 6 indicates that 6 quantifier instantations were validated
+    # Note that the pair +inst 6 indicates that 6 quantifier instantiations were validated
     # using a syntactic (cheap) check. Some quantifier instantiations based on quantifier elimination
     # are not simple substitutions and therefore a simple syntactic check does not suffice.
     set_param("solver.proof.check", True)

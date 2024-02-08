@@ -37,7 +37,7 @@ public:
     }
 
     proof_ref operator()(ast_manager & m, unsigned num_source, proof * const * source) override {
-        // ignore the proofs from the arguments, instead obtain the proofs fromt he subgoals.
+        // ignore the proofs from the arguments, instead obtain the proofs from the subgoals.
         SASSERT(num_source == 0);
         proof_converter_ref_buffer pc_buffer;          
         for (goal_ref g : m_goals) {

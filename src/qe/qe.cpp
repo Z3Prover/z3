@@ -157,8 +157,8 @@ namespace qe {
 
         //
         // Partition variables into buckets.
-        // The var_paritions buckets covering disjoint subsets of
-        // the conjuncts. The remaining variables in vars are non-partioned.
+        // The var_partitions buckets covering disjoint subsets of
+        // the conjuncts. The remaining variables in vars are non-partitioned.
         // 
         bool partition_vars(
             unsigned               num_vars,

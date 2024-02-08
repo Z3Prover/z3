@@ -433,7 +433,7 @@ namespace smtfd {
         void populate_model(model_ref& mdl, expr_ref_vector const& terms);
 
         /**
-         * \brief check consistency properties that can only be achived using a global analysis of terms
+         * \brief check consistency properties that can only be achieved using a global analysis of terms
          */
         void global_check(expr_ref_vector const& core);
 

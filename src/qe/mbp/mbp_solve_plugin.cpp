@@ -248,7 +248,7 @@ namespace mbp {
             return false;
         }
 
-        // returns `true` if a rewritting happened
+        // returns `true` if a rewriting happened
         bool try_int_mul_solve(expr *atom, bool is_pos, expr_ref &res) {
 
             if (!is_pos)
