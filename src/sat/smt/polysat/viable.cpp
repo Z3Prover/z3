@@ -97,7 +97,6 @@ namespace polysat {
                     entry* e = find_overlap(w, layer, value);
                     if (!e)
                         continue;
-                    
                     m_explain.push_back({ e, value });
                     m_explain_kind = explain_t::assignment;
                     return false;
@@ -652,19 +651,27 @@ namespace polysat {
 
         fixed_slice_extra_vector fixed;
         offset_slice_extra_vector subslices;
-#if 0
-        verbose_stream() << "fixed subslices of v" << m_var << ":\n";
         c.s.get_fixed_sub_slices(m_var, fixed, subslices);   // TODO: move into m_fixed bits?
 
-        // TODO: the conflict should be from the subslice with highest level. we might want to skip the others.
+        unsigned max_level = 0;
+        for (auto const& slice : subslices)
+            max_level = std::max(max_level, slice.level);
+
+        // order by:
+        // - level descending
+        //     usually, a sub-slice at higher level is responsible for the assignment.
+        //     not always: e.g., could assign slice at level 5 but merge makes it a sub-slice only at level 10.
+        //     (seems to work by not only considering max-level sub-slices.)
+        // - size ascending
+        //     e.g., prefers constant 'c' if we have pvars for both 'c' and 'concat(c,...)'
+        std::sort(subslices.begin(), subslices.end(), [&](auto const& a, auto const& b) -> bool {
+            return a.level > b.level
+                || (a.level == b.level && c.size(a.v) < c.size(b.v));
+        });
+
         for (auto const& slice : subslices)
             if (auto d = propagate_from_containing_slice(e, value, e_deps, fixed, slice); !d.is_null())
                 return d;
-#else
-        for (auto const& slice : m_overlaps)
-            if (auto d = propagate_from_containing_slice(e, value, e_deps, fixed, {slice.v, slice.offset, 0}); !d.is_null())
-                return d;
-#endif
         return null_dependency;
     }
 
@@ -674,7 +681,7 @@ namespace polysat {
         unsigned w_level = slice.level;  // level where value of w was fixed
         if (w == m_var)
             return null_dependency;
-        verbose_stream() << "v" << m_var << " size " << c.size(m_var) << ", v" << w << " size " << c.size(w) << " offset " << offset << " level " << w_level << "\n";
+        // verbose_stream() << "v" << m_var << " size " << c.size(m_var) << ", v" << w << " size " << c.size(w) << " offset " << offset << " level " << w_level << "\n";
 
         // Let:
         // v = m_var[e->bit_width-1:0]
@@ -704,7 +711,7 @@ namespace polysat {
         unsigned const y_sz = std::min(w_sz, v_sz - z_sz);
         unsigned const x_sz = v_sz - y_sz - z_sz;
         rational const& w_shift = rational::power_of_two(w_sz - y_sz);
-        verbose_stream() << "v_sz " << v_sz << " w_sz " << w_sz << " / x_sz " << x_sz << " y_sz " << y_sz << " z_sz " << z_sz << "\n";
+        // verbose_stream() << "v_sz " << v_sz << " w_sz " << w_sz << " / x_sz " << x_sz << " y_sz " << y_sz << " z_sz " << z_sz << "\n";
         SASSERT_EQ(v_sz, x_sz + y_sz + z_sz);
 
         SASSERT(!e->interval.is_full());
@@ -712,9 +719,9 @@ namespace polysat {
         rational const& hi = e->interval.hi_val();
 
         r_interval const v_ivl  = r_interval::proper(lo, hi);
-        verbose_stream() << "propagate interval " << v_ivl << " from v" << m_var << " to v" << w << "[" << y_sz << "]" << "\n";
-
-#if 0
+        IF_VERBOSE(3, {
+            verbose_stream() << "propagate interval " << v_ivl << " from v" << m_var << " to v" << w << "[" << y_sz << "]" << "\n";
+        });
 
         dependency_vector deps;
         deps.append(e_deps);  // explains e
@@ -756,13 +763,18 @@ namespace polysat {
                 unsigned const b = std::max(best_end, x_off);
                 unsigned const a = remaining_x_end - b;
                 SASSERT(remaining_x_sz >= a);
+
                 ivl = chop_off_upper(ivl, a, b);
                 remaining_x_sz -= a;
                 remaining_x_end -= a;
+
+                IF_VERBOSE(4, {
+                    verbose_stream() << "  chop " << a << " upper bits\n";
+                    verbose_stream() << "  => " << ivl << "\n";
+                });
             }
 
             if (best_end > x_off) {
-                verbose_stream() << "  using fixed slice " << best.value << "[" << best.length << "]@" << best.offset << "\n";
                 SASSERT(remaining_x_end == best_end);
                 SASSERT(remaining_x_end <= best.end());
                 // chop off portion with fixed value
@@ -774,10 +786,14 @@ namespace polysat {
                 value = mod2k(value, a);
 
                 ivl = chop_off_upper(ivl, a, b, &value);
+                deps.push_back(best.dep);  // justification for the fixed value
                 remaining_x_sz -= a;
                 remaining_x_end -= a;
 
-                deps.push_back(best.dep);  // justification for the fixed value
+                IF_VERBOSE(4, {
+                    verbose_stream() << "  chop " << a << " upper bits with value " << value << " from fixed slice " << best.value << "[" << best.length << "]@" << best.offset << "\n";
+                    verbose_stream() << "  => " << ivl << "\n";
+                });
             }
         }
 
@@ -815,14 +831,19 @@ namespace polysat {
                 // there is a gap without a fixed value
                 unsigned const b = best_off - remaining_z_off;
                 unsigned const a = y_sz + z_sz - b;
-                SASSERT(remaining_x_sz >= a);
+                SASSERT(remaining_z_sz >= b);
+
                 ivl = chop_off_lower(ivl, a, b);
                 remaining_z_sz -= b;
                 remaining_z_off += b;
+
+                IF_VERBOSE(4, {
+                    verbose_stream() << "  chop " << b << " lower bits\n";
+                    verbose_stream() << "  => " << ivl << "\n";
+                });
             }
 
             if (best_off < z_sz) {
-                verbose_stream() << "  using fixed slice " << best.value << "[" << best.length << "]@" << best.offset << "\n";
                 SASSERT_EQ(best_off, remaining_z_off);
                 unsigned const b = std::min(best.end(), z_sz) - remaining_z_off;
                 unsigned const a = y_sz + z_sz - b;
@@ -832,18 +853,24 @@ namespace polysat {
                 value = mod2k(value, b);
 
                 ivl = chop_off_lower(ivl, a, b, &value);
+                deps.push_back(best.dep);  // justification for the fixed value
                 remaining_z_sz -= b;
                 remaining_z_off += b;
 
-                deps.push_back(best.dep);  // justification for the fixed value
+                IF_VERBOSE(4, {
+                    verbose_stream() << "  chop " << b << " lower bits with value " << value << " from fixed slice " << best.value << "[" << best.length << "]@" << best.offset << "\n";
+                    verbose_stream() << "  => " << ivl << "\n";
+                });
             }
-
         }
 
         if (ivl.is_empty())
             return null_dependency;
 
-        verbose_stream() << "=>  v" << w << "[" << y_sz << "] not in " << ivl << "\n";  // << " using x=" << x_value << " z=" << z_value << "\n";
+        IF_VERBOSE(3, {
+            verbose_stream() << "=>  v" << w << "[" << y_sz << "] not in " << ivl << "\n";
+        });
+
         if (ivl.is_full()) {
             // TODO: set conflict
             NOT_IMPLEMENTED_YET();
@@ -853,72 +880,6 @@ namespace polysat {
             auto sc = ~cs.ult(w_shift * (c.var(w) - ivl.lo()), w_shift * (ivl.hi() - ivl.lo()));
             return c.propagate(sc, deps, "propagate from containing slice");
         }
-
-#else
-        // TODO: by the time we call viable::assign, m_fixed_bits only contains a single slice with 'value'.
-        //       if we had access to the actually fixed slices (not just fixed because of the latest assignment),
-        //       we could chop off fixed and non-fixed parts according to actually fixed slices;
-        //       getting rid of the distinction into two separate cases below.
-
-        // more general interval, without taking into account fixed values
-        {
-            r_interval const yz_ivl = chop_off_upper(v_ivl,  x_sz, y_sz + z_sz);  // chop off x-part
-            r_interval const y_ivl  = chop_off_lower(yz_ivl, y_sz,        z_sz);  // chop off z-part
-
-            if (y_ivl.is_full()) {
-                // no value for y
-                UNREACHABLE();  // without fixed x or z, this is only possible if e->interval was full
-            }
-            else if (!y_ivl.is_empty()) {
-                // proper interval
-                verbose_stream() << "=>  v" << w << "[" << y_sz << "] not in " << y_ivl << "\n";
-                auto sc = ~cs.ult(w_shift * (c.var(w) - y_ivl.lo()), w_shift * (y_ivl.hi() - y_ivl.lo()));
-                dependency_vector deps;
-                deps.append(e_deps);  // explains e
-                deps.push_back(offset_claim{m_var, slice});  // explains m_var[...] = w
-                return c.propagate(sc, deps, "propagate from containing slice (general)");
-            }
-            else {
-                SASSERT(y_ivl.is_empty());
-                // y is unconstrained, nothing to do here
-            }
-        }
-
-        // tighter interval, but depends on fixed values
-        {
-            rational const var_x_value = x_sz > 0 ? machine_div2k(value, y_sz + z_sz) : rational(0);
-            rational const x_value = x_sz > 0 ? mod2k(machine_div2k(value, y_sz + z_sz), x_sz) : rational(0);
-            rational const z_value = z_sz > 0 ? mod2k(value, z_sz) : rational(0);
-            r_interval const yz_ivl = chop_off_upper(v_ivl,  x_sz, y_sz + z_sz, &x_value);  // chop off x-part
-            r_interval const y_ivl  = chop_off_lower(yz_ivl, y_sz,        z_sz, &z_value);  // chop off z-part
-
-            if (y_ivl.is_full()) {
-                // no value for y
-                // TODO: the signed_constraint to propagate would be 'false'
-                NOT_IMPLEMENTED_YET();
-            }
-            else if (!y_ivl.is_empty()) {
-                // proper interval
-                verbose_stream() << "=>  v" << w << "[" << y_sz << "] not in " << y_ivl << " using x=" << x_value << " z=" << z_value << "\n";
-                auto sc = ~cs.ult(w_shift * (c.var(w) - y_ivl.lo()), w_shift * (y_ivl.hi() - y_ivl.lo()));
-                dependency_vector deps;
-                deps.append(e_deps);  // explains e
-                deps.push_back(offset_claim{m_var, slice});  // explains m_var[...] = w
-                if (x_sz > 0) {
-                    deps.push_back(fixed_claim{m_var, var_x_value, y_sz + z_sz, x_sz + (c.size(m_var) - v_sz)});  // m_var[upper] = var_x_value
-                    // stronger but crashes in bv_plugin::explain_slice, TODO: why?
-                    // deps.push_back(fixed_claim{m_var, x_value, y_sz + z_sz, x_sz});  // v[upper] = x_value
-                }
-                if (z_sz > 0)
-                    deps.push_back(fixed_claim{m_var, z_value, 0, z_sz});  // v[lower] = z_value
-                return c.propagate(sc, deps, "propagate from containing slice (fixed)");
-            }
-            else {
-                SASSERT(y_ivl.is_empty());
-                // y is unconstrained, nothing to do here
-            }
-        }
-#endif
 
         return null_dependency;
     }

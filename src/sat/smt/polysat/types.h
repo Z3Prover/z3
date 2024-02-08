@@ -41,6 +41,7 @@ namespace polysat {
         rational value;
         fixed_slice() = default;
         fixed_slice(rational value, unsigned offset, unsigned length) : offset(offset), length(length), value(std::move(value)) {}
+        unsigned end() const { return offset + length; }
     };
 
     struct fixed_claim : public fixed_slice {
