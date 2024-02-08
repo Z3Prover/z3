@@ -923,6 +923,22 @@ namespace polysat {
     }
 
 
+    rational div2k_floor(rational const& a, unsigned k)
+    {
+        SASSERT(a >= 0);  // machine_div2k rounds towards 0
+        return machine_div2k(a, k);
+    }
+
+    rational div2k_ceil(rational const& a, unsigned k)
+    {
+        // Note: ceil(a/b) == floor((a-1)/b) + 1 for integers a,b and b > 0
+        // Special case for a = 0, because machine_div2k(a, k) does not return floor(a/2^k), but rounds towards 0 instead.
+        if (a.is_zero())
+            return a;
+        return machine_div2k(a - 1, k) + 1;
+    }
+
+
     /// Let x = concat(y, z) and x  not in [lo;hi[.
     /// Returns an interval I such that z  not in I.
     r_interval viable::chop_off_upper(r_interval const& i, unsigned const Ny, unsigned const Nz, rational const* y_fixed_value) {
@@ -937,8 +953,8 @@ namespace polysat {
         rational const& hi = i.hi();
         if (y_fixed_value) {
             rational const& n = *y_fixed_value;
-            rational const lo_d = machine_div2k(lo, Nz);
-            rational const hi_d = machine_div2k(hi, Nz);
+            rational const lo_d = div2k_floor(lo, Nz);
+            rational const hi_d = div2k_floor(hi, Nz);
             rational z_lo = (lo_d == n) ? mod2k(lo, Nz) : rational(0);
             rational z_hi = (hi_d == n) ? mod2k(hi, Nz) : rational(0);
             if (z_lo != z_hi)
@@ -973,10 +989,9 @@ namespace polysat {
         rational const& lo = i.lo();
         rational const& hi = i.hi();
         if (z_fixed_value) {
-            // Note: ceil(a/b) == floor((a-1)/b) + 1 for integers a,b and b > 0
             rational const& n = *z_fixed_value;
-            rational y_lo = mod2k(machine_div2k(mod2k(lo - n, Nx) - 1, Nz) + 1, Ny);
-            rational y_hi = mod2k(machine_div2k(mod2k(hi - n, Nx) - 1, Nz) + 1, Ny);
+            rational y_lo = mod2k(div2k_ceil(mod2k(lo - n, Nx), Nz), Ny);
+            rational y_hi = mod2k(div2k_ceil(mod2k(hi - n, Nx), Nz), Ny);
             if (y_lo != y_hi)
                 return r_interval::proper(std::move(y_lo), std::move(y_hi));
             else if (r_interval::contains(lo, hi, y_hi * rational::power_of_two(Nz) + n))
@@ -989,8 +1004,8 @@ namespace polysat {
             rational const Mz = rational::power_of_two(Nz);
             rational const len = r_interval::len(lo, hi, Mx);
             if (len >= Mz) {
-                rational y_lo = mod2k(machine_div2k(lo - 1, Nz) + 1, Ny);
-                rational y_hi = machine_div2k(hi, Nz);
+                rational y_lo = mod2k(div2k_ceil(lo, Nz), Ny);
+                rational y_hi = div2k_floor(hi, Nz);
                 return r_interval::proper(std::move(y_lo), std::move(y_hi));
             }
             else
