@@ -126,6 +126,7 @@ namespace polysat {
     // walk the e-graph to retrieve fixed sub-slices along with justifications,
     // as well as pvars that correspond to these sub-slices.
     void solver::get_fixed_sub_slices(pvar pv, fixed_slice_extra_vector& fixed, offset_slice_extra_vector& subslices) {
+        #define GET_FIXED_SUB_SLICES_DISPLAY 1
         auto consume_slice = [&](euf::enode* n, unsigned offset) -> bool {
             euf::enode* r = n->get_root();
             if (!r->interpreted())
@@ -142,14 +143,13 @@ namespace polysat {
             euf::theory_var u = n->get_th_var(get_id());
             dependency dep = (u == euf::null_theory_var) ? dependency::axiom() : dependency(u, w);   // TODO: probably need an enode_pair instead?
 
-#if 0
+#if GET_FIXED_SUB_SLICES_DISPLAY
             verbose_stream() << "    " << value << "[" << length << "]@" << offset;
             verbose_stream() << "  node " << ctx.bpp(n);
             verbose_stream() << "  tv " << u;
             if (u != euf::null_theory_var)
                 verbose_stream() << " := " << m_var2pdd[u];
             verbose_stream() << "  merge-level " << level;
-            // verbose_stream() << "  just " << n->get_justification();
             verbose_stream() << "\n";
             fixed.push_back(fixed_slice_extra(value, offset, length, level, dep));
 #endif
@@ -161,18 +161,22 @@ namespace polysat {
                 auto const& p = m_var2pdd[s];
                 if (!p.is_var())
                     continue;
-#if 0
+                unsigned p_level = merge_level(sib, r);
+#if GET_FIXED_SUB_SLICES_DISPLAY
                 verbose_stream() << "        pvar " << p;
                 verbose_stream() << "  node " << ctx.bpp(sib);
                 verbose_stream() << "  tv " << s;
-                verbose_stream() << "  merge-level " << merge_level(sib, r);
+                verbose_stream() << "  merge-level " << p_level;
                 verbose_stream() << "\n";
 #endif
-                subslices.push_back(offset_slice_extra(p.var(), offset, merge_level(sib, r)));
+                subslices.push_back(offset_slice_extra(p.var(), offset, p_level));
             }
 
             return true;
         };
+#if GET_FIXED_SUB_SLICES_DISPLAY
+        verbose_stream() << "fixed subslices of v" << pv << ":\n";
+#endif
         theory_var v = m_pddvar2var[pv];
         m_bv_plugin->sub_slices(var2enode(v), consume_slice);
     }
