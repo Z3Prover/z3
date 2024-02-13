@@ -11570,47 +11570,54 @@ def user_prop_fresh(ctx, _new_ctx):
 
 def user_prop_fixed(ctx, cb, id, value):
     prop = _prop_closures.get(ctx)
-    prop.cb = cb
+    old_cb = prop.cb
+    prop.cb = cb    
     id = _to_expr_ref(to_Ast(id), prop.ctx())
     value = _to_expr_ref(to_Ast(value), prop.ctx())
     prop.fixed(id, value)
-    prop.cb = None
+    prop.cb = old_cb
 
 def user_prop_created(ctx, cb, id):
     prop = _prop_closures.get(ctx)
+    old_cb = prop.cb
     prop.cb = cb
     id = _to_expr_ref(to_Ast(id), prop.ctx())
     prop.created(id)
-    prop.cb = None
+    prop.cb = old_cb
+    
     
 def user_prop_final(ctx, cb):
     prop = _prop_closures.get(ctx)
+    old_cb = prop.cb
     prop.cb = cb
     prop.final()
-    prop.cb = None
+    prop.cb = old_cb
 
 def user_prop_eq(ctx, cb, x, y):
     prop = _prop_closures.get(ctx)
+    old_cb = prop.cb
     prop.cb = cb
     x = _to_expr_ref(to_Ast(x), prop.ctx())
     y = _to_expr_ref(to_Ast(y), prop.ctx())
     prop.eq(x, y)
-    prop.cb = None
+    prop.cb = old_cb
 
 def user_prop_diseq(ctx, cb, x, y):
     prop = _prop_closures.get(ctx)
+    old_cb = prop.cb
     prop.cb = cb
     x = _to_expr_ref(to_Ast(x), prop.ctx())
     y = _to_expr_ref(to_Ast(y), prop.ctx())
     prop.diseq(x, y)
-    prop.cb = None
+    prop.cb = old_cb
 
 def user_prop_decide(ctx, cb, t, idx, phase):
     prop = _prop_closures.get(ctx)
+    old_cb = prop.cb
     prop.cb = cb
     t = _to_expr_ref(to_Ast(t_ref), prop.ctx())
     prop.decide(t, idx, phase)
-    prop.cb = None
+    prop.cb = old_cb
     
 
 _user_prop_push = Z3_push_eh(user_prop_push)
