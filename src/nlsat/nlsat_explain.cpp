@@ -1531,12 +1531,13 @@ namespace nlsat {
                   m_solver.display(tout, num, ls);
                   m_solver.display(tout););
                   
-            DEBUG_CODE(
-                for (unsigned i = 0; i < num; ++i) {
-                    SASSERT(m_solver.value(ls[i]) == l_true);
-                    atom* a = m_atoms[ls[i].var()];
-                    SASSERT(!a || m_evaluator.eval(a, ls[i].sign()));
-                });
+#ifdef Z3DEBUG
+            for (unsigned i = 0; i < num; ++i) {
+                SASSERT(m_solver.value(ls[i]) == l_true);
+                atom* a = m_atoms[ls[i].var()];
+                SASSERT(!a || m_evaluator.eval(a, ls[i].sign()));
+            }
+#endif   
             split_literals(x, num, ls, lits);
             collect_polys(lits.size(), lits.data(), m_ps);
             var mx_var = max_var(m_ps);
@@ -1571,13 +1572,13 @@ namespace nlsat {
             for (unsigned i = 0; i < result.size(); ++i) {
                 result.set(i, ~result[i]);
             }
-            DEBUG_CODE(
-                TRACE("nlsat", m_solver.display(tout, result.size(), result.data()) << "\n"; );
-                for (literal l : result) {
-                    CTRACE("nlsat", l_true != m_solver.value(l), m_solver.display(tout, l) << " " << m_solver.value(l) << "\n";);
-                    SASSERT(l_true == m_solver.value(l));
-                });
-
+#ifdef Z3DEBUG
+            TRACE("nlsat", m_solver.display(tout, result.size(), result.data()) << "\n"; );
+            for (literal l : result) {
+                CTRACE("nlsat", l_true != m_solver.value(l), m_solver.display(tout, l) << " " << m_solver.value(l) << "\n";);
+                SASSERT(l_true == m_solver.value(l));
+            }
+#endif                
         }
 
         void split_literals(var x, unsigned n, literal const* ls, svector<literal>& lits) {

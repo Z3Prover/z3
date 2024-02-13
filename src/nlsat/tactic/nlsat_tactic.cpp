@@ -125,7 +125,9 @@ class nlsat_tactic : public tactic {
                     continue; // don't care
                 md->register_decl(to_app(a)->get_decl(), val == l_true ? m.mk_true() : m.mk_false());
             }
-            DEBUG_CODE(eval_model(*md.get(), g););
+#ifdef Z3DEBUG
+            eval_model(*md.get(), g);
+#endif            
             // VERIFY(eval_model(*md.get(), g));
             mc = model2model_converter(md.get());
             return ok;

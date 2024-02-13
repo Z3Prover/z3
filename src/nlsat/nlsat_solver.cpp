@@ -1868,7 +1868,8 @@ namespace nlsat {
                 m_valids.push_back(mk_clause_core(m_lazy_clause.size(), m_lazy_clause.data(), false, nullptr));
             }
             
-            DEBUG_CODE({
+#ifdef Z3DEBUG
+            {
                 unsigned sz = m_lazy_clause.size();
                 for (unsigned i = 0; i < sz; i++) {
                     literal l = m_lazy_clause[i];
@@ -1881,7 +1882,8 @@ namespace nlsat {
                         SASSERT(l.sign()  || m_bvalues[b] == l_true);
                     }
                 }
-            });
+            }
+#endif
             checkpoint();
             resolve_clause(b, m_lazy_clause.size(), m_lazy_clause.data());
 
@@ -2191,19 +2193,20 @@ namespace nlsat {
         // -----------------------
         
         bool check_watches() const {
-            DEBUG_CODE(
-                for (var x = 0; x < num_vars(); x++) {
+#ifdef Z3DEBUG
+            for (var x = 0; x < num_vars(); x++) {
                     clause_vector const & cs = m_watches[x];
                     unsigned sz = cs.size();
                     for (unsigned i = 0; i < sz; i++) {
                         SASSERT(max_var(*(cs[i])) == x);
                     }
-                });
+                }
+#endif            
             return true;
         }
 
         bool check_bwatches() const {
-            DEBUG_CODE(
+#ifdef Z3DEBUG
                 for (bool_var b = 0; b < m_bwatches.size(); b++) {
                     clause_vector const & cs = m_bwatches[b];
                     unsigned sz = cs.size();
@@ -2212,7 +2215,8 @@ namespace nlsat {
                         SASSERT(max_var(c) == null_var);
                         SASSERT(max_bvar(c) == b);
                     }
-                });
+                }
+#endif                
             return true;
         }
 
@@ -2432,11 +2436,11 @@ namespace nlsat {
             // undo_until_size(0)
             undo_until_stage(null_var);
             m_cache.reset();               
-            DEBUG_CODE({
-                for (var x = 0; x < num_vars(); x++) {
-                    SASSERT(m_watches[x].empty());
-                }
-            });
+#ifdef Z3DEBUG
+            for (var x = 0; x < num_vars(); x++) {
+                SASSERT(m_watches[x].empty());
+            }
+#endif            
             // update m_perm mapping
             for (unsigned ext_x = 0; ext_x < sz; ext_x++) {
                 // p: internal -> new pos
@@ -2452,12 +2456,12 @@ namespace nlsat {
                 SASSERT(m_infeasible[x] == 0);
             }
             m_inv_perm.swap(new_inv_perm);
-            DEBUG_CODE({
-                for (var x = 0; x < num_vars(); x++) {
-                    SASSERT(x == m_inv_perm[m_perm[x]]);
-                    SASSERT(m_watches[x].empty());
-                }
-            });
+#ifdef Z3DEBUG
+            for (var x = 0; x < num_vars(); x++) {
+                SASSERT(x == m_inv_perm[m_perm[x]]);
+                SASSERT(m_watches[x].empty());
+            }
+#endif            
             m_pm.rename(sz, p);
             TRACE("nlsat_bool_assignment_bug", tout << "before reinit cache\n"; display_bool_assignment(tout););
             reinit_cache();
@@ -2477,12 +2481,12 @@ namespace nlsat {
             var_vector p;
             p.append(m_perm);
             reorder(p.size(), p.data());
-            DEBUG_CODE({
-                for (var x = 0; x < num_vars(); x++) {
-                    SASSERT(m_perm[x] == x);
-                    SASSERT(m_inv_perm[x] == x);
-                }
-            });
+#ifdef Z3DEBUG
+            for (var x = 0; x < num_vars(); x++) {
+                SASSERT(m_perm[x] == x);
+                SASSERT(m_inv_perm[x] == x);
+            }
+#endif            
         }
 
         /**
