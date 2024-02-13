@@ -99,7 +99,7 @@ namespace smt {
         theory_var result = null_theory_var;
         numeral range;
         numeral new_range;
-        numeral small_range_thresold(1024);
+        numeral small_range_threshold(1024);
         unsigned n = 0;
         for (row const& row : m_rows) {
             theory_var v = row.get_base_var();
@@ -117,7 +117,7 @@ namespace smt {
             numeral const & u = upper_bound(v).get_rational();
             new_range  = u;
             new_range -= l;
-            if (new_range > small_range_thresold) {
+            if (new_range > small_range_threshold) {
                 //
             }
             else if (result == null_theory_var || new_range < range) {
