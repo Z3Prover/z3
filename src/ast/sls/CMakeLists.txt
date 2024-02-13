@@ -1,7 +1,12 @@
 z3_add_component(ast_sls
   SOURCES
     bvsls_opt_engine.cpp
-    sls_engine.cpp    
+    bv_sls.cpp
+    bv_sls_eval.cpp
+    bv_sls_fixed.cpp
+    bv_sls_terms.cpp
+    sls_engine.cpp
+    sls_valuation.cpp
   COMPONENT_DEPENDENCIES
     ast
     converters
