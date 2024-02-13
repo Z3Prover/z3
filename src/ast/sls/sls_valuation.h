@@ -46,7 +46,9 @@ namespace bv {
         void clear_overflow_bits(svector<digit_t>& bits) const;
         bool can_set(svector<digit_t> const& bits) const;
 
-        bool eq(sls_valuation const& other) const;
+        bool eq(sls_valuation const& other) const { return eq(other.bits); }
+
+        bool eq(svector<digit_t> const& other) const;
 
         bool gt(svector<digit_t> const& a, svector<digit_t> const& b) const {
             return 0 > memcmp(a.data(), b.data(), num_bytes());

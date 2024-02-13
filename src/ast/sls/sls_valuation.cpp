@@ -55,13 +55,14 @@ namespace bv {
             m.compare(bits.data(), nb, hi.data(), nb) < 0;
     }
 
-    bool sls_valuation::eq(sls_valuation const& other) const {
-        SASSERT(bw == other.bw);
-        auto c = 0 == memcmp(bits.data(), other.bits.data(), bw / 8);
+    bool sls_valuation::eq(svector<digit_t> const& other) const {
+        auto c = 0 == memcmp(bits.data(), other.data(), bw / 8);
         if (bw % 8 == 0 || !c)
             return c;
-        NOT_IMPLEMENTED_YET();
-        return false;
+        for (unsigned i = 8 * (bw / 8); i < bw; ++i)
+            if (get(bits, i) != get(other, i))
+                return false;
+        return true;
     }
 
     void sls_valuation::clear_overflow_bits(svector<digit_t>& bits) const { 

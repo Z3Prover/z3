@@ -55,6 +55,7 @@ namespace bv {
                 unsigned index = m_rand(m_repair_down.size());
                 unsigned expr_id = m_repair_down.elem_at(index);
                 auto e = m_terms.term(expr_id);
+                IF_VERBOSE(20, verbose_stream() << "d " << mk_bounded_pp(e, m, 1) << "\n");
                 if (eval_is_correct(e))
                     m_repair_down.remove(expr_id);
                 else
@@ -64,6 +65,7 @@ namespace bv {
                 unsigned index = m_rand(m_repair_up.size());
                 unsigned expr_id = m_repair_up.elem_at(index);
                 auto e = m_terms.term(expr_id);
+                IF_VERBOSE(20, verbose_stream() << "u " << mk_bounded_pp(e, m, 1) << "\n");
                 if (eval_is_correct(e))
                     m_repair_up.remove(expr_id);
                 else
@@ -76,7 +78,6 @@ namespace bv {
     }
 
     bool sls::try_repair_down(app* e) {
-        IF_VERBOSE(20, verbose_stream() << "d " << mk_bounded_pp(e, m, 1) << "\n");
         unsigned n = e->get_num_args();
         unsigned s = m_rand(n);
         for (unsigned i = 0; i < n; ++i) 
@@ -97,7 +98,6 @@ namespace bv {
     }
 
     bool sls::try_repair_up(app* e) {
-        IF_VERBOSE(20, verbose_stream() << "u " << mk_bounded_pp(e, m, 1) << "\n");
         m_repair_up.remove(e->get_id());
         if (m_terms.is_assertion(e)) {
             m_repair_down.insert(e->get_id());
@@ -114,7 +114,7 @@ namespace bv {
         if (m.is_bool(e))
             return m_eval.bval0(e) == m_eval.bval1(e);
         if (bv.is_bv(e))
-            return 0 == memcmp(m_eval.wval0(e).bits.data(), m_eval.wval1(e).data(), m_eval.wval0(e).nw * 8);
+            return 0 == m_eval.wval0(e).eq(m_eval.wval1(e));
         UNREACHABLE();
         return false;
     }
