@@ -54,6 +54,23 @@ namespace bv {
             return 0 > memcmp(a.data(), b.data(), num_bytes());
         }
 
+        bool is_zero() const { return is_zero(bits); }
+        bool is_zero(svector<digit_t> const& a) const { 
+            for (unsigned i = 0; i < nw; ++i) 
+                if (a[i] != 0) 
+                    return false; 
+            return true; 
+        }
+
+        bool sign() const { return get(bits, bw - 1); }
+
+        bool has_overflow(svector<digit_t> const& bits) const {
+            for (unsigned i = bw; i < nw * sizeof(digit_t) * 8; ++i)
+                if (get(bits, i))
+                    return true;
+            return false;
+        }
+
         unsigned parity(svector<digit_t> const& bits) const {
             unsigned i = 0;
             for (; i < bw && !get(bits, i); ++i);
@@ -73,14 +90,26 @@ namespace bv {
             clear_overflow_bits(bits);
         }
 
+
         void set_fixed(svector<digit_t> const& src) {
             for (unsigned i = nw; i-- > 0; )
                 fixed[i] = src[i];
         }
 
+        void set_range(svector<digit_t>& dst, unsigned lo, unsigned hi, bool b) {
+            for (unsigned i = lo; i < hi; ++i)
+                set(dst, i, b);
+        }
+
         void set(svector<digit_t>& d, unsigned bit_idx, bool val) const {
             auto _val = static_cast<digit_t>(0 - static_cast<digit_t>(val));
             get_bit_word(d, bit_idx) ^= (_val ^ get_bit_word(d, bit_idx)) & get_pos_mask(bit_idx);
+        }
+
+        void set(svector<digit_t>& dst, unsigned v) const {
+            dst[0] = v;
+            for (unsigned i = 1; i < nw; ++i)
+                dst[i] = 0;
         }
 
         bool get(svector<digit_t> const& d, unsigned bit_idx) const {

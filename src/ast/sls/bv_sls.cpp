@@ -79,6 +79,8 @@ namespace bv {
 
     bool sls::try_repair_down(app* e) {
         unsigned n = e->get_num_args();
+        if (n == 0)
+            return false;
         unsigned s = m_rand(n);
         for (unsigned i = 0; i < n; ++i) 
             if (try_repair_down(e, (i + s) % n))
@@ -114,7 +116,7 @@ namespace bv {
         if (m.is_bool(e))
             return m_eval.bval0(e) == m_eval.bval1(e);
         if (bv.is_bv(e))
-            return 0 == m_eval.wval0(e).eq(m_eval.wval1(e));
+            return m_eval.wval0(e).eq(m_eval.wval1(e));
         UNREACHABLE();
         return false;
     }

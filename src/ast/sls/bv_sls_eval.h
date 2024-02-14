@@ -30,7 +30,7 @@ namespace bv {
         ast_manager&        m;
         bv_util             bv;
         sls_fixed           m_fix;
-        mpn_manager         mpn;
+        mutable mpn_manager         mpn;
         ptr_vector<expr>    m_todo;
         random_gen          m_rand;
 
@@ -38,7 +38,7 @@ namespace bv {
         bool_vector                      m_eval;   // expr-id -> boolean valuation
         bool_vector                      m_fixed;  // expr-id -> is Boolean fixed
 
-        mutable svector<digit_t> m_tmp, m_tmp2, m_zero;
+        mutable svector<digit_t> m_tmp, m_tmp2, m_zero, m_one;
 
         using bvval = sls_valuation;
 
@@ -78,6 +78,10 @@ namespace bv {
         bool try_repair_uge(bool e, bvval& a, bvval const& b);
         bool try_repair_sle(bool e, bvval& a, bvval const& b);
         bool try_repair_sge(bool e, bvval& a, bvval const& b);
+        bool try_repair_shl(bvval const& e, bvval& a, bvval& b, unsigned i);
+        bool try_repair_ashr(bvval const& e, bvval& a, bvval& b, unsigned i);
+        bool try_repair_lshr(bvval const& e, bvval& a, bvval& b, unsigned i);
+        bool try_repair_bit2bool(bvval& a, unsigned idx);
 
         sls_valuation& wval0(app* e, unsigned i) { return wval0(e->get_arg(i)); }
 
