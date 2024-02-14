@@ -1363,7 +1363,7 @@ typedef enum {
    - Z3_NO_PARSER:     Parser output is not available, that is, user didn't invoke #Z3_parse_smtlib2_string or #Z3_parse_smtlib2_file.
    - Z3_INVALID_PATTERN: Invalid pattern was used to build a quantifier.
    - Z3_MEMOUT_FAIL:   A memory allocation failure was encountered.
-   - Z3_FILE_ACCESS_ERRROR: A file could not be accessed.
+   - Z3_FILE_ACCESS_ERROR: A file could not be accessed.
    - Z3_INVALID_USAGE:   API call is invalid in the current state.
    - Z3_INTERNAL_FATAL: An error internal to Z3 occurred.
    - Z3_DEC_REF_ERROR: Trying to decrement the reference counter of an AST that was deleted or the reference counter was not initialized with #Z3_inc_ref.
