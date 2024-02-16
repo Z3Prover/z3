@@ -343,16 +343,9 @@ namespace bv {
             }
             };
 
-        auto mk_rotate_left = [&](unsigned n) {
+        auto mk_rotate_left = [&](unsigned n) {            
             auto& a = wval0(e->get_arg(0));
-            if (n == 0 || a.bw == 1)
-                val.set(a.bits);
-            else {
-                for (unsigned i = a.bw - n; i < a.bw; ++i)
-                    val.set(val.bits, i + n - a.bw, a.get(a.bits, i));
-                for (unsigned i = 0; i < a.bw - n; ++i)
-                    val.set(val.bits, i + a.bw - n, a.get(a.bits, i));
-            }
+            VERIFY(try_repair_rotate_left(a, val, a.bw - n));
         };
 
         SASSERT(e->get_family_id() == bv.get_fid());
@@ -853,6 +846,7 @@ namespace bv {
         auto child = e->get_arg(i);        
         auto ev = bval0(e);
         if (m.is_bool(child)) {
+            SASSERT(!is_fixed0(child));               
             auto bv = bval0(e->get_arg(1 - i));
             m_eval[child->get_id()] = ev == bv;
             return true;
@@ -863,12 +857,21 @@ namespace bv {
             if (ev) 
                 return a.try_set(b.bits);
             else {
-                // pick random bit to differ              
-                for (unsigned i = 0; i < a.nw; ++i)
-                    m_tmp[i] = a.bits[i];
-                unsigned idx = m_rand(a.bw);                
-                a.set(m_tmp, idx, !b.get(b.bits, idx));
-                return a.try_set(m_tmp);
+                // pick random bit to differ  
+                a.get(m_tmp);
+                unsigned start = m_rand(a.bw);
+                for (unsigned idx = 0; idx < a.bw; ++idx) {
+                    unsigned j = (idx + start) % a.bw;
+                    if (!a.get(a.fixed, j)) {
+                        a.set(m_tmp, idx, !b.get(b.bits, j));
+                        bool r = a.try_set(m_tmp);
+                        if (r)
+                            return true;
+                        a.set(m_tmp, j, b.get(b.bits, j));
+                    }
+                }
+                // could be due to bounds?
+                return false;
             }
         }
         return false;
@@ -1107,9 +1110,9 @@ namespace bv {
         return false;
     }
 
-    bool sls_eval::try_repair_rotate_left(bvval const& e, bvval& a, unsigned n) {
+    bool sls_eval::try_repair_rotate_left(bvval const& e, bvval& a, unsigned n) const {
         // a := rotate_right(e, n)
-        n = (n % a.bw) - n;
+        n = (a.bw - n) % a.bw;
         for (unsigned i = a.bw - n; i < a.bw; ++i)
             a.set(m_tmp, i + n - a.bw, e.get(e.bits, i));
         for (unsigned i = 0; i < a.bw - n; ++i)

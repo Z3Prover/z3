@@ -28,11 +28,10 @@ Author:
 namespace bv {
 
     struct sls_valuation {
-        unsigned bw;           // bit-width
-        unsigned nw;           // num words
-        svector<digit_t> lo,  hi;     // range assignment to bit-vector, as wrap-around interval
+        unsigned bw;                     // bit-width
+        unsigned nw;                     // num words
+        svector<digit_t> lo,  hi;        // range assignment to bit-vector, as wrap-around interval
         svector<digit_t> bits, fixed;    // bit assignment and don't care bit
-        bool is_feasible() const; // the current bit-evaluation is between lo and hi.
         sls_valuation(unsigned bw);
         ~sls_valuation();
         
@@ -44,17 +43,15 @@ namespace bv {
         void add_range(rational lo, rational hi);
         void set1(svector<digit_t>& bits);
         
-
         void clear_overflow_bits(svector<digit_t>& bits) const;
+        bool in_range(svector<digit_t> const& bits) const;        
         bool can_set(svector<digit_t> const& bits) const;
 
         bool eq(sls_valuation const& other) const { return eq(other.bits); }
 
-        bool eq(svector<digit_t> const& other) const;
-
-        bool gt(svector<digit_t> const& a, svector<digit_t> const& b) const {
-            return 0 > memcmp(a.data(), b.data(), num_bytes());
-        }
+        bool eq(svector<digit_t> const& other) const { return eq(other, bits); }
+        bool eq(svector<digit_t> const& a, svector<digit_t> const& b) const;
+        bool gt(svector<digit_t> const& a, svector<digit_t> const& b) const;
 
         bool is_zero() const { return is_zero(bits); }
         bool is_zero(svector<digit_t> const& a) const { 
@@ -78,6 +75,10 @@ namespace bv {
             for (; i < bw && !get(bits, i); ++i);
             return i;               
         }
+
+        // retrieve number at or below src which is feasible
+        // with respect to fixed, lo, hi.
+        bool get_below(svector<digit_t> const& src, svector<digit_t>& dst);
 
         bool try_set(svector<digit_t> const& src) {
             if (!can_set(src))

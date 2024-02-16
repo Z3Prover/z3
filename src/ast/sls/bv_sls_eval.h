@@ -88,9 +88,8 @@ namespace bv {
         bool try_repair_smod(bvval const& e, bvval& a, bvval& b, unsigned i);
         bool try_repair_urem(bvval const& e, bvval& a, bvval& b, unsigned i);
         bool try_repair_srem(bvval const& e, bvval& a, bvval& b, unsigned i);
-        bool try_repair_rotate_left(bvval const& e, bvval& a, unsigned n);
+        bool try_repair_rotate_left(bvval const& e, bvval& a, unsigned n) const;
         bool try_repair_rotate_left(bvval const& e, bvval& a, bvval& b, unsigned i);
-
 
         sls_valuation& wval0(app* e, unsigned i) { return wval0(e->get_arg(i)); }
 

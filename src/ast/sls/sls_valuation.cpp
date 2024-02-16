@@ -33,26 +33,27 @@ namespace bv {
         for (unsigned i = 0; i < nw; ++i)
             lo[i] = 0, hi[i] = 0, bits[i] = 0, fixed[i] = 0;
         for (unsigned i = bw; i < 8 * sizeof(digit_t) * nw; ++i)
-            set(fixed, i, true);
+            set(fixed, i, false);
     }
 
     sls_valuation::~sls_valuation() {
     }
 
-    bool sls_valuation::is_feasible() const {
-        return true;
-        mpn_manager m;
-        unsigned nb = (bw + 7) / 8;
-        auto c = m.compare(lo.data(), nb, hi.data(), nb);
+    bool sls_valuation::in_range(svector<digit_t> const& bits) const {
+        mpn_manager m;    
+        auto c = m.compare(lo.data(), nw, hi.data(), nw);
+        // full range
         if (c == 0)
             return true;
+        // lo < hi: then lo <= bits & bits < hi
         if (c < 0)
-            return 
-                m.compare(lo.data(), nb, bits.data(), nb) <= 0 && 
-                m.compare(bits.data(), nb, hi.data(), nb) < 0;
-        return 
-            m.compare(lo.data(), nb, bits.data(), nb) <= 0 || 
-            m.compare(bits.data(), nb, hi.data(), nb) < 0;
+            return
+            m.compare(lo.data(), nw, bits.data(), nw) <= 0 &&
+            m.compare(bits.data(), nw, hi.data(), nw) < 0;
+        // hi < lo: bits < hi or lo <= bits
+        return
+            m.compare(lo.data(), nw, bits.data(), nw) <= 0 ||
+            m.compare(bits.data(), nw, hi.data(), nw) < 0;
     }
 
     bool sls_valuation::eq(svector<digit_t> const& other) const {
@@ -65,9 +66,32 @@ namespace bv {
         return true;
     }
 
+    bool sls_valuation::gt(svector<digit_t> const& a, svector<digit_t> const& b) const {
+        mpn_manager m;
+        return m.compare(a.data(), nw, b.data(), nw) > 0;
+    }
+
     void sls_valuation::clear_overflow_bits(svector<digit_t>& bits) const { 
         for (unsigned i = bw; i < nw * sizeof(digit_t) * 8; ++i)
             set(bits, i, false);
+    }
+
+    bool sls_valuation::get_below(svector<digit_t> const& src, svector<digit_t>& dst) {
+        for (unsigned i = 0; i < nw; ++i)
+            dst[i] = (src[i] & ~fixed[i]) | (fixed[i] & bits[i]);
+        for (unsigned i = 0; i < nw; ++i)
+            dst[i] = fixed[i] & bits[i];
+        if (gt(dst, src))
+            return false;
+        if (!in_range(dst)) {
+            // lo < hi:
+            // set dst to lo, except for fixed bits
+            // 
+            if (gt(hi, lo)) {
+
+            }
+        }         
+        return true;
     }
 
     void sls_valuation::set_value(svector<digit_t>& bits, rational const& n) {       
@@ -94,11 +118,16 @@ namespace bv {
             set(bits, i, true);
     }
     
-    bool sls_valuation::can_set(svector<digit_t> const& new_bits) const {
+    //
+    // new_bits != bits => ~fixed
+    // 0 = (new_bits ^ bits) & fixed
+    // also check that new_bits are in range
+    //
+    bool sls_valuation::can_set(svector<digit_t> const& new_bits) const {        
         for (unsigned i = 0; i < nw; ++i)
-            if (bits[i] != ((new_bits[i] & ~fixed[i]) | (bits[i] & fixed[i])))
-                return true;
-        return false;
+            if (0 != ((new_bits[i] ^ bits[i]) & fixed[i]))
+                return false;        
+        return in_range(new_bits);
     }
 
     unsigned sls_valuation::to_nat(svector<digit_t> const& d, unsigned max_n) {
@@ -124,10 +153,15 @@ namespace bv {
         h = mod(h, rational::power_of_two(bw));
         if (h == l)
             return;
-        set_value(this->lo, l);
-        set_value(this->hi, h);
+        if (eq(lo, hi)) {
+            set_value(lo, l);
+            set_value(hi, h);
+            return;
+        }
+        
         // TODO: intersect with previous range, if any
-
+        set_value(lo, l);
+        set_value(hi, h);       
     }
 
 }

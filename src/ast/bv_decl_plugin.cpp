@@ -942,3 +942,13 @@ app* bv_util::mk_int2bv(unsigned sz, expr* e) {
     parameter p(sz);
     return m_manager.mk_app(get_fid(), OP_INT2BV, 1, &p, 1, &e);
 }
+
+app* bv_util::mk_bv_rotate_left(expr* arg, unsigned n) {
+    parameter p(n);
+    return m_manager.mk_app(get_fid(), OP_ROTATE_LEFT, 1, &p, 1, &arg);
+}
+
+app* bv_util::mk_bv_rotate_right(expr* arg, unsigned n) {
+    parameter p(n);
+    return m_manager.mk_app(get_fid(), OP_ROTATE_RIGHT, 1, &p, 1, &arg);
+}

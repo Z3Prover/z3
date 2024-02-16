@@ -49,10 +49,11 @@ namespace bv {
         random_gen          m_rand;
         config              m_config;
         
+        std::pair<bool, app*> next_to_repair();
         
         bool eval_is_correct(app* e);
-        bool try_repair_down(app* e);
-        bool try_repair_up(app* e);
+        void try_repair_down(app* e);
+        void try_repair_up(app* e);
 
         bool try_repair_down(app* e, unsigned i);
 

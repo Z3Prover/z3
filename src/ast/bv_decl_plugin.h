@@ -546,6 +546,11 @@ public:
     app * mk_bv2int(expr* e);
     app * mk_int2bv(unsigned sz, expr* e);
 
+    app* mk_bv_rotate_left(expr* arg1, expr* arg2) { return m_manager.mk_app(get_fid(), OP_EXT_ROTATE_LEFT, arg1, arg2); }
+    app* mk_bv_rotate_right(expr* arg1, expr* arg2) { return m_manager.mk_app(get_fid(), OP_EXT_ROTATE_RIGHT, arg1, arg2); }
+    app* mk_bv_rotate_left(expr* arg, unsigned n);
+    app* mk_bv_rotate_right(expr* arg, unsigned n);
+
     // TODO: all these binary ops commute (right?) but it'd be more logical to swap `n` & `m` in the `return`
     app * mk_bvsmul_no_ovfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BSMUL_NO_OVFL, n, m); }
     app * mk_bvsmul_no_udfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BSMUL_NO_UDFL, n, m); }

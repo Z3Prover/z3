@@ -46,46 +46,53 @@ namespace bv {
         m_eval.init_fixed(m_terms.assertions());
     }
 
+    std::pair<bool, app*> sls::next_to_repair() {
+        app* e = nullptr;
+        if (!m_repair_down.empty()) {
+            unsigned index = m_rand(m_repair_down.size());
+            e = m_terms.term(m_repair_down.elem_at(index));
+        }
+        else if (m_repair_up.empty()) {
+            unsigned index = m_rand(m_repair_up.size());
+            e = m_terms.term(m_repair_up.elem_at(index));
+        }
+        return { !m_repair_down.empty(), e };
+    }
+
     lbool sls::operator()() {
         // init and init_eval were invoked.
         unsigned& n = m_stats.m_moves;
         n = 0;
         for (; n < m_config.m_max_repairs && m.inc(); ++n) {
-            if (!m_repair_down.empty()) {
-                unsigned index = m_rand(m_repair_down.size());
-                unsigned expr_id = m_repair_down.elem_at(index);
-                auto e = m_terms.term(expr_id);
-                IF_VERBOSE(20, verbose_stream() << "d " << mk_bounded_pp(e, m, 1) << "\n");
-                if (eval_is_correct(e))
-                    m_repair_down.remove(expr_id);
-                else
-                    try_repair_down(e);
-            }
-            else if (!m_repair_up.empty()) {
-                unsigned index = m_rand(m_repair_up.size());
-                unsigned expr_id = m_repair_up.elem_at(index);
-                auto e = m_terms.term(expr_id);
-                IF_VERBOSE(20, verbose_stream() << "u " << mk_bounded_pp(e, m, 1) << "\n");
-                if (eval_is_correct(e))
-                    m_repair_up.remove(expr_id);
-                else
-                    try_repair_up(e);
-            }
-            else
+            auto [down, e] = next_to_repair();
+            if (!e)
                 return l_true;
+            IF_VERBOSE(20, verbose_stream() << (down?"d ":"u ") << mk_bounded_pp(e, m, 1) << "\n");
+            if (eval_is_correct(e)) {
+                if (down)
+                    m_repair_down.remove(e->get_id());
+                else
+                    m_repair_up.remove(e->get_id());
+            }
+            else if (down) {
+                try_repair_down(e);                
+            }
+            else 
+                try_repair_up(e);            
         }
         return l_undef;
     }
 
-    bool sls::try_repair_down(app* e) {
+    void sls::try_repair_down(app* e) {
         unsigned n = e->get_num_args();
-        if (n == 0)
-            return false;
-        unsigned s = m_rand(n);
-        for (unsigned i = 0; i < n; ++i) 
-            if (try_repair_down(e, (i + s) % n))
-                return true;                    
-        return false;
+        if (n > 0) {
+            unsigned s = m_rand(n);
+            for (unsigned i = 0; i < n; ++i)
+                if (try_repair_down(e, (i + s) % n))
+                    return;
+        }
+        m_repair_down.remove(e->get_id());
+        m_repair_up.insert(e->get_id());
     }
 
     bool sls::try_repair_down(app* e, unsigned i) {
@@ -99,17 +106,16 @@ namespace bv {
         return was_repaired;
     }
 
-    bool sls::try_repair_up(app* e) {
+    void sls::try_repair_up(app* e) {
         m_repair_up.remove(e->get_id());
         if (m_terms.is_assertion(e)) {
             m_repair_down.insert(e->get_id());
-            return false;
         }
-        m_eval.repair_up(e);
-        for (auto p : m_terms.parents(e)) 
-            m_repair_up.insert(p->get_id());     
-        
-        return true;
+        else {
+            m_eval.repair_up(e);
+            for (auto p : m_terms.parents(e))
+                m_repair_up.insert(p->get_id());
+        }
     }
 
     bool sls::eval_is_correct(app* e) {
