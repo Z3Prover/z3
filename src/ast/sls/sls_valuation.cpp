@@ -25,10 +25,10 @@ namespace bv {
     sls_valuation::sls_valuation(unsigned bw): bw(bw) {
         nw = (bw + sizeof(digit_t) * 8 - 1) / (8 * sizeof(digit_t));
         unsigned num_bytes = nw * sizeof(digit_t);
-        lo.reserve(nw);
-        hi.reserve(nw);
-        bits.reserve(nw);
-        fixed.reserve(nw);
+        lo.reserve(nw + 1);
+        hi.reserve(nw + 1);
+        bits.reserve(nw + 1);
+        fixed.reserve(nw + 1);
         // have lo, hi bits, fixed point to memory allocated within this of size num_bytes each allocated        
         for (unsigned i = 0; i < nw; ++i)
             lo[i] = 0, hi[i] = 0, bits[i] = 0, fixed[i] = 0;
@@ -82,6 +82,11 @@ namespace bv {
             r += p * rational(bits[i]);
             p *= rational::power_of_two(bw);
         }
+    }
+
+    void sls_valuation::get(svector<digit_t>& dst) const {
+        for (unsigned i = 0; i < nw; ++i)
+            dst[i] = bits[i];
     }
 
     void sls_valuation::set1(svector<digit_t>& bits) {

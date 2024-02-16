@@ -89,12 +89,14 @@ namespace bv {
 
     sls_valuation* sls_eval::alloc_valuation(unsigned bit_width) {
         auto* r = alloc(sls_valuation, bit_width);
-        while (m_tmp.size() < r->nw) {
+        while (m_tmp.size() < 2 * r->nw) {
             m_tmp.push_back(0);
-            m_tmp2.push_back(0);
-            m_tmp2.push_back(0);
+            m_tmp2.push_back(0);           
+            m_tmp3.push_back(0);
+            m_tmp4.push_back(0);
             m_zero.push_back(0);
             m_one.push_back(0);
+            m_minus_one.push_back(~0);
             m_one[0] = 1;
         }
         return r;
@@ -195,9 +197,11 @@ namespace bv {
             auto& b = wval0(e->get_arg(1));
             unsigned c;
             a.set(m_zero, a.bw - 1, true);
-            mpn.add(a.bits.data(), a.nw, m_zero.data(), a.nw, m_tmp.data(), a.nw, &c);
-            mpn.add(b.bits.data(), a.nw, m_zero.data(), a.nw, m_tmp2.data(), a.nw, &c);
+            mpn.add(a.bits.data(), a.nw, m_zero.data(), a.nw, m_tmp.data(), a.nw + 1, &c);
+            mpn.add(b.bits.data(), a.nw, m_zero.data(), a.nw, m_tmp2.data(), a.nw + 1, &c);
             a.set(m_zero, a.bw - 1, false); 
+            a.clear_overflow_bits(m_tmp);
+            a.clear_overflow_bits(m_tmp2);
             return f(mpn.compare(m_tmp.data(), a.nw, m_tmp2.data(), b.nw));
         };
 
@@ -209,8 +213,7 @@ namespace bv {
             for (unsigned i = a.nw; i < 2 * a.nw; ++i)
                 if (m_tmp2[i] != 0)
                     return true;
-            return !a.has_overflow(m_tmp);
-                return true;
+            return a.has_overflow(m_tmp2);
         };
 
         switch (e->get_decl_kind()) {
@@ -246,7 +249,7 @@ namespace bv {
             auto const& a = wval0(e->get_arg(0));
             auto const& b = wval0(e->get_arg(1));
             digit_t c = 0;
-            mpn.add(a.bits.data(), a.nw, b.bits.data(), b.nw, m_tmp.data(), a.nw, &c);
+            mpn.add(a.bits.data(), a.nw, b.bits.data(), b.nw, m_tmp.data(), a.nw + 1, &c);
             return c != 0 || a.has_overflow(m_tmp);
         }
         case OP_BNEG_OVFL:
@@ -295,6 +298,63 @@ namespace bv {
             val.set(wval0(e).bits);
             return;
         }
+        auto set_sdiv = [&]() {
+            // d = udiv(abs(x), abs(y))
+            // y = 0, x > 0 -> -1
+            // y = 0, x <= 0 -> -1
+            // x = 0, y != 0 -> 0
+            // x > 0, y < 0 -> -d
+            // x < 0, y > 0 -> -d
+            // x > 0, y > 0 -> d
+            // x < 0, y < 0 -> d
+            auto& a = wval0(e->get_arg(0));
+            auto& b = wval0(e->get_arg(1));
+            if (a.is_zero() && b.is_zero())
+                val.set(m_minus_one);
+            else if (a.is_zero())
+                val.set(m_zero);
+            else if (b.is_zero())
+                val.set(m_minus_one);
+            else if (!a.sign() && b.is_zero())
+                val.set(m_one);
+            else {
+                bool sign_a = a.sign();
+                bool sign_b = b.sign();
+                digit_t c;
+
+                if (sign_a)
+                    mpn.sub(m_zero.data(), a.nw, a.bits.data(), a.nw, m_tmp.data(), &c);
+                else
+                    a.get(m_tmp);
+                val.clear_overflow_bits(m_tmp);
+
+                if (sign_b)
+                    mpn.sub(m_zero.data(), a.nw, b.bits.data(), a.nw, m_tmp2.data(), &c);
+                else
+                    b.get(m_tmp2);
+                val.clear_overflow_bits(m_tmp2);
+
+                mpn.div(m_tmp.data(), a.nw, m_tmp2.data(), a.nw, m_tmp3.data(), m_tmp4.data());
+                if (sign_a == sign_b)
+                    val.set(m_tmp3);
+                else
+                    mpn.sub(m_zero.data(), a.nw, m_tmp3.data(), a.nw, m_tmp.data(), &c),
+                    val.set(m_tmp);
+            }
+            };
+
+        auto mk_rotate_left = [&](unsigned n) {
+            auto& a = wval0(e->get_arg(0));
+            if (n == 0 || a.bw == 1)
+                val.set(a.bits);
+            else {
+                for (unsigned i = a.bw - n; i < a.bw; ++i)
+                    val.set(val.bits, i + n - a.bw, a.get(a.bits, i));
+                for (unsigned i = 0; i < a.bw - n; ++i)
+                    val.set(val.bits, i + a.bw - n, a.get(a.bits, i));
+            }
+        };
+
         SASSERT(e->get_family_id() == bv.get_fid());
         switch (e->get_decl_kind()) {
         case OP_BV_NUM: {
@@ -307,7 +367,7 @@ namespace bv {
             SASSERT(e->get_num_args() == 2);
             auto const& a = wval0(e->get_arg(0));
             auto const& b = wval0(e->get_arg(1));
-            for (unsigned i = 0; i < a.bw; ++i)
+            for (unsigned i = 0; i < a.nw; ++i)
                 val.bits[i] = a.bits[i] & b.bits[i];
             break;
         }
@@ -315,7 +375,7 @@ namespace bv {
             SASSERT(e->get_num_args() == 2);
             auto const& a = wval0(e->get_arg(0));
             auto const& b = wval0(e->get_arg(1));
-            for (unsigned i = 0; i < a.bw; ++i)
+            for (unsigned i = 0; i < a.nw; ++i)
                 val.bits[i] = a.bits[i] | b.bits[i];
             break;
         }
@@ -323,7 +383,7 @@ namespace bv {
             SASSERT(e->get_num_args() == 2);
             auto const& a = wval0(e->get_arg(0));
             auto const& b = wval0(e->get_arg(1));
-            for (unsigned i = 0; i < a.bw; ++i)
+            for (unsigned i = 0; i < a.nw; ++i)
                 val.bits[i] = a.bits[i] ^ b.bits[i];
             break;
         }
@@ -331,7 +391,7 @@ namespace bv {
             SASSERT(e->get_num_args() == 2);
             auto const& a = wval0(e->get_arg(0));
             auto const& b = wval0(e->get_arg(1));
-            for (unsigned i = 0; i < a.bw; ++i)
+            for (unsigned i = 0; i < a.nw; ++i)
                 val.bits[i] = ~(a.bits[i] & b.bits[i]);
             break;
         }
@@ -340,7 +400,15 @@ namespace bv {
             auto const& a = wval0(e->get_arg(0));
             auto const& b = wval0(e->get_arg(1));
             digit_t c;
-            mpn.add(a.bits.data(), a.nw, b.bits.data(), b.nw, val.bits.data(), val.nw, &c);
+            mpn.add(a.bits.data(), a.nw, b.bits.data(), b.nw, val.bits.data(), val.nw + 1, &c);
+            break;
+        }
+        case OP_BSUB: {
+            SASSERT(e->get_num_args() == 2);
+            auto const& a = wval0(e->get_arg(0));
+            auto const& b = wval0(e->get_arg(1));
+            digit_t c;
+            mpn.sub(a.bits.data(), a.nw, b.bits.data(), b.nw, val.bits.data(), &c);
             break;
         }
         case OP_BMUL: {
@@ -393,17 +461,13 @@ namespace bv {
             auto& a = wval0(e->get_arg(0));
             auto& b = wval0(e->get_arg(1));
             auto sh = b.to_nat(b.bits, b.bw);
-            if (sh == 0) {
-                for (unsigned i = 0; i < a.nw; ++i)
-                    val.bits[i] = a.bits[i];
-            }
-            else if (sh >= b.bw) {
-                for (unsigned i = 0; i < a.nw; ++i)
-                    val.bits[i] = 0;
-            }
+            if (sh == 0)
+                val.set(a.bits);
+            else if (sh >= b.bw)
+                val.set_zero();
             else {
                 for (unsigned i = 0; i < a.bw; ++i)
-                    val.set(val.bits, i, i >= sh && b.get(b.bits, i - sh));
+                    val.set(val.bits, i, i >= sh && a.get(a.bits, i - sh));
             }
             break;
         }
@@ -411,17 +475,13 @@ namespace bv {
             auto& a = wval0(e->get_arg(0));
             auto& b = wval0(e->get_arg(1));
             auto sh = b.to_nat(b.bits, b.bw);
-            if (sh == 0) {
-                for (unsigned i = 0; i < a.nw; ++i)
-                    val.bits[i] = a.bits[i];
-            }
-            else if (sh >= b.bw) {
-                for (unsigned i = 0; i < a.nw; ++i)
-                    val.bits[i] = 0;
-            }
+            if (sh == 0)
+                val.set(a.bits);
+            else if (sh >= b.bw)
+                val.set_zero();
             else {
                 for (unsigned i = 0; i < a.bw; ++i)
-                    val.set(val.bits, i, i + sh < a.bw && b.get(b.bits, i + sh));
+                    val.set(val.bits, i, i + sh < a.bw && a.get(a.bits, i + sh));
             }
             break;
         }
@@ -429,33 +489,31 @@ namespace bv {
             auto& a = wval0(e->get_arg(0));
             auto& b = wval0(e->get_arg(1));
             auto sh = b.to_nat(b.bits, b.bw);
-            auto sign = a.get(a.bits, a.bw - 1);
-            if (sh == 0) {
-                for (unsigned i = 0; i < a.nw; ++i)
-                    val.bits[i] = a.bits[i];
-            }
+            auto sign = a.sign();
+            if (sh == 0)
+                val.set(a.bits);
             else if (sh >= b.bw) {
                 for (unsigned i = 0; i < a.nw; ++i)
                     val.bits[i] = sign ? ~0 : 0;
             }
             else {
-                for (unsigned i = 0; i < a.bw; ++i)
-                    val.set(val.bits, i, i + sh < a.bw && b.get(b.bits, i + sh));
+                for (unsigned i = 0; i < a.bw; ++i)                    
+                    val.set(val.bits, i, i + sh < a.bw && a.get(a.bits, i + sh));
                 if (sign)
-                    val.set_range(val.bits, 0, a.bw - sh, true);
+                    val.set_range(val.bits, a.bw - sh, a.bw, true);
             }
             break;
         }
         case OP_SIGN_EXT: {
             auto& a = wval0(e->get_arg(0));
-            a.set(val.bits);
-            bool sign = a.get(a.bits, a.bw - 1);
+            val.set(a.bits);
+            bool sign = a.sign();
             val.set_range(val.bits, a.bw, val.bw, sign);
             break;
         }
         case OP_ZERO_EXT: {
             auto& a = wval0(e->get_arg(0));
-            a.set(val.bits);
+            val.set(a.bits);
             val.set_range(val.bits, a.bw, val.bw, false);
             break;
         }
@@ -505,7 +563,7 @@ namespace bv {
                     mpn.sub(b.bits.data(), a.nw, m_tmp2.data(), a.nw, m_tmp.data(), &c),
                     val.set(m_tmp);
                 else if (b.sign())
-                    mpn.add(b.bits.data(), a.nw, m_tmp2.data(), a.nw, m_tmp.data(), a.nw, &c),
+                    mpn.add(b.bits.data(), a.nw, m_tmp2.data(), a.nw, m_tmp.data(), a.nw + 1, &c),
                     val.set(m_tmp);
                 else
                     val.set(m_tmp2);
@@ -518,11 +576,8 @@ namespace bv {
             // x div 0 = -1
             auto& a = wval0(e->get_arg(0));
             auto& b = wval0(e->get_arg(1));
-            if (b.is_zero()) {
-                val.set(m_zero);
-                for (unsigned i = 0; i < a.nw; ++i)
-                    val.bits[i] = ~val.bits[i];
-            }
+            if (b.is_zero()) 
+                val.set(m_minus_one);            
             else {
                 mpn.div(a.bits.data(), a.nw,
                     b.bits.data(), b.nw,
@@ -535,17 +590,57 @@ namespace bv {
 
         case OP_BSDIV:
         case OP_BSDIV_I:
-        case OP_BSDIV0:
-            // d = udiv(abs(x), abs(y))
-            // y = 0, x > 0 -> 1
-            // y = 0, x <= 0 -> -1
-            // x = 0, y != 0 -> 0
-            // x > 0, y < 0 -> -d
-            // x < 0, y > 0 -> -d
-            // x > 0, y > 0 -> d
-            // x < 0, y < 0 -> d
-
-
+        case OP_BSDIV0: {
+            set_sdiv();
+            break;
+        }
+        case OP_BSREM:
+        case OP_BSREM0:
+        case OP_BSREM_I: {
+            // y = 0 -> x
+            // else x - sdiv(x, y) * y
+            // 
+            auto& a = wval0(e->get_arg(0));
+            auto& b = wval0(e->get_arg(1));
+            if (b.is_zero()) 
+                val.set(a.bits);
+            else {
+                digit_t c;
+                set_sdiv();
+                mpn.mul(val.bits.data(), a.nw, b.bits.data(), a.nw, m_tmp.data());
+                mpn.sub(a.bits.data(), a.nw, m_tmp.data(), a.nw, m_tmp2.data(), &c);
+                val.set(m_tmp2);
+            }
+            break;
+        }
+        case OP_ROTATE_LEFT: {
+            unsigned n = e->get_parameter(0).get_int() % val.bw;
+            mk_rotate_left(n);
+            break;
+        }
+        case OP_ROTATE_RIGHT: {
+            unsigned n = e->get_parameter(0).get_int() % val.bw;
+            mk_rotate_left(val.bw - n);
+            break;
+        }
+        case OP_EXT_ROTATE_LEFT: {
+            auto& b = wval0(e->get_arg(1));
+            rational n;
+            b.get_value(b.bits, n);
+            n = mod(n, rational(val.bw));
+            SASSERT(n.is_unsigned());
+            mk_rotate_left(n.get_unsigned());
+            break;
+        }
+        case OP_EXT_ROTATE_RIGHT: {
+            auto& b = wval0(e->get_arg(1));
+            rational n;
+            b.get_value(b.bits, n);
+            n = mod(n, rational(val.bw));
+            SASSERT(n.is_unsigned());
+            mk_rotate_left(val.bw - n.get_unsigned());
+            break;
+        }
         case OP_BREDAND:
         case OP_BREDOR:
         case OP_BXNOR:
@@ -693,22 +788,37 @@ namespace bv {
             VERIFY(bv.is_bit2bool(e, arg, idx));
             return try_repair_bit2bool(wval0(e, 0), idx);
         }
+        case OP_BSDIV:
+        case OP_BSDIV_I:
+        case OP_BSDIV0:
+            return try_repair_sdiv(wval0(e), wval0(e, 0), wval0(e, 1), i);
+        case OP_BUDIV:
+        case OP_BUDIV_I:
+        case OP_BUDIV0:
+            return try_repair_udiv(wval0(e), wval0(e, 0), wval0(e, 1), i);
+        case OP_BUREM:
+        case OP_BUREM_I:
+        case OP_BUREM0:
+            return try_repair_urem(wval0(e), wval0(e, 0), wval0(e, 1), i);
+        case OP_BSREM:
+        case OP_BSREM_I:
+        case OP_BSREM0:
+            return try_repair_srem(wval0(e), wval0(e, 0), wval0(e, 1), i);
+        case OP_BSMOD:
+        case OP_BSMOD_I:
+        case OP_BSMOD0:
+            return try_repair_smod(wval0(e), wval0(e, 0), wval0(e, 1), i);
+        case OP_ROTATE_LEFT:
+            return try_repair_rotate_left(wval0(e), wval0(e, 0), e->get_parameter(0).get_int());
+        case OP_ROTATE_RIGHT:
+            return try_repair_rotate_left(wval0(e), wval0(e, 0), wval0(e).bw - e->get_parameter(0).get_int());
+        case OP_EXT_ROTATE_LEFT:
+            return try_repair_rotate_left(wval0(e), wval0(e, 0), wval0(e, 1), i);
+        case OP_EXT_ROTATE_RIGHT:
         case OP_BCOMP:
         case OP_BNAND:
         case OP_BREDAND:
         case OP_BREDOR:
-        case OP_BSDIV:
-        case OP_BSDIV_I:
-        case OP_BSDIV0:
-        case OP_BUDIV:
-        case OP_BUDIV_I:
-        case OP_BUDIV0:
-        case OP_BUREM:
-        case OP_BUREM_I:
-        case OP_BUREM0:
-        case OP_BSMOD:
-        case OP_BSMOD_I:
-        case OP_BSMOD0:
         case OP_BXNOR:
         case OP_BNEG_OVFL:
         case OP_BSADD_OVFL:
@@ -883,7 +993,7 @@ namespace bv {
             return a.try_set(b.bits);
         else {
             digit_t c;           
-            mpn.add(b.bits.data(), a.nw, m_one.data(), a.nw, &c, a.nw, m_tmp.data());       
+            mpn.add(b.bits.data(), a.nw, m_one.data(), a.nw, &c, a.nw + 1, m_tmp.data());       
             return a.try_set(m_tmp);
         }        
     }
@@ -918,9 +1028,8 @@ namespace bv {
             unsigned sh = b.to_nat(b.bits, b.bw);
             if (sh == 0) 
                 return a.try_set(e.bits);            
-            else if (sh >= b.bw) {
-                return false;
-            }
+            else if (sh >= b.bw) 
+                return false;            
             else {
                 //
                 // e = a << sh
@@ -936,29 +1045,91 @@ namespace bv {
             }
         }
         else {
+            // NB. blind sub-range of possible values for b
             SASSERT(i == 1);
+            unsigned sh = m_rand(a.bw + 1);
+            b.set(m_tmp, sh);
+            return b.try_set(m_tmp);
         }
         return false;
     }
 
     bool sls_eval::try_repair_ashr(bvval const& e, bvval & a, bvval& b, unsigned i) {
         if (i == 0) {
-
+            unsigned sh = b.to_nat(b.bits, b.bw);
+            if (sh == 0)
+                return a.try_set(e.bits);
+            else if (sh >= b.bw)
+                return false;
+            else {
+                // e = a >> sh
+                // a[bw-1:sh] = e[bw-sh-1:0]
+                // a[sh-1:0] = a[sh-1:0]                
+                // ignore sign
+                for (unsigned i = 0; i < a.bw - sh; ++i)
+                    a.set(m_tmp, i + sh, e.get(e.bits, i));
+                for (unsigned i = 0; i < sh; ++i)
+                    a.set(m_tmp, i, a.get(a.bits, i));
+                return a.try_set(m_tmp);
+            }
         }
         else {
-
+            // NB. blind sub-range of possible values for b
+            SASSERT(i == 1);
+            unsigned sh = m_rand(a.bw + 1);
+            b.set(m_tmp, sh);
+            return b.try_set(m_tmp);
         }
         return false;
     }
 
     bool sls_eval::try_repair_lshr(bvval const& e, bvval& a, bvval& b, unsigned i) {
-        if (i == 0) {
+        return try_repair_ashr(e, a, b, i);
+    }
 
+    bool sls_eval::try_repair_sdiv(bvval const& e, bvval& a, bvval& b, unsigned i) {
+        return false;
+    }
+
+    bool sls_eval::try_repair_udiv(bvval const& e, bvval& a, bvval& b, unsigned i) {
+        return false;
+    }
+
+    bool sls_eval::try_repair_smod(bvval const& e, bvval& a, bvval& b, unsigned i) {
+        return false;
+    }
+
+    bool sls_eval::try_repair_urem(bvval const& e, bvval& a, bvval& b, unsigned i) {
+        return false;
+    }
+
+    bool sls_eval::try_repair_srem(bvval const& e, bvval& a, bvval& b, unsigned i) {
+        return false;
+    }
+
+    bool sls_eval::try_repair_rotate_left(bvval const& e, bvval& a, unsigned n) {
+        // a := rotate_right(e, n)
+        n = (n % a.bw) - n;
+        for (unsigned i = a.bw - n; i < a.bw; ++i)
+            a.set(m_tmp, i + n - a.bw, e.get(e.bits, i));
+        for (unsigned i = 0; i < a.bw - n; ++i)
+            a.set(m_tmp, i + a.bw - n, e.get(e.bits, i));
+        return a.try_set(m_tmp);
+    }
+
+    bool sls_eval::try_repair_rotate_left(bvval const& e, bvval& a, bvval& b, unsigned i) {
+        if (i == 0) {
+            rational n;
+            b.get_value(b.bits, n);
+            n = mod(n, rational(b.bw));
+            return try_repair_rotate_left(e, a, n.get_unsigned());
         }
         else {
-
-        }
-        return false;
+            SASSERT(i == 1);
+            unsigned sh = m_rand(b.bw);
+            b.set(m_tmp, sh);
+            return b.try_set(m_tmp);
+        }       
     }
 
     void sls_eval::repair_up(expr* e) {

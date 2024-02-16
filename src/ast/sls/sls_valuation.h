@@ -40,8 +40,10 @@ namespace bv {
 
         void set_value(svector<digit_t>& bits, rational const& r);
         void get_value(svector<digit_t> const& bits, rational& r) const;
+        void get(svector<digit_t>& dst) const;
         void add_range(rational lo, rational hi);
         void set1(svector<digit_t>& bits);
+        
 
         void clear_overflow_bits(svector<digit_t>& bits) const;
         bool can_set(svector<digit_t> const& bits) const;
@@ -88,6 +90,11 @@ namespace bv {
             for (unsigned i = nw; i-- > 0; )
                 bits[i] = src[i];
             clear_overflow_bits(bits);
+        }
+
+        void set_zero() {
+            for (unsigned i = 0; i < nw; ++i)
+                bits[i] = 0;
         }
 
 

@@ -27,10 +27,11 @@ namespace bv {
 
     class sls_eval {
         friend class sls_fixed;
+        friend class sls_test;
         ast_manager&        m;
         bv_util             bv;
         sls_fixed           m_fix;
-        mutable mpn_manager         mpn;
+        mutable mpn_manager mpn;
         ptr_vector<expr>    m_todo;
         random_gen          m_rand;
 
@@ -38,7 +39,7 @@ namespace bv {
         bool_vector                      m_eval;   // expr-id -> boolean valuation
         bool_vector                      m_fixed;  // expr-id -> is Boolean fixed
 
-        mutable svector<digit_t> m_tmp, m_tmp2, m_zero, m_one;
+        mutable svector<digit_t> m_tmp, m_tmp2, m_tmp3, m_tmp4, m_zero, m_one, m_minus_one;
 
         using bvval = sls_valuation;
 
@@ -82,6 +83,14 @@ namespace bv {
         bool try_repair_ashr(bvval const& e, bvval& a, bvval& b, unsigned i);
         bool try_repair_lshr(bvval const& e, bvval& a, bvval& b, unsigned i);
         bool try_repair_bit2bool(bvval& a, unsigned idx);
+        bool try_repair_sdiv(bvval const& e, bvval& a, bvval& b, unsigned i);
+        bool try_repair_udiv(bvval const& e, bvval& a, bvval& b, unsigned i);
+        bool try_repair_smod(bvval const& e, bvval& a, bvval& b, unsigned i);
+        bool try_repair_urem(bvval const& e, bvval& a, bvval& b, unsigned i);
+        bool try_repair_srem(bvval const& e, bvval& a, bvval& b, unsigned i);
+        bool try_repair_rotate_left(bvval const& e, bvval& a, unsigned n);
+        bool try_repair_rotate_left(bvval const& e, bvval& a, bvval& b, unsigned i);
+
 
         sls_valuation& wval0(app* e, unsigned i) { return wval0(e->get_arg(i)); }
 
@@ -122,7 +131,6 @@ namespace bv {
         void set(expr* e, bool b) {
             m_eval[e->get_id()] = b;
         }        
-
 
         /*
         * Try to invert value of child to repair value assignment of parent.

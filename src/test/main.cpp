@@ -267,4 +267,5 @@ int main(int argc, char ** argv) {
     TST(distribution);
     TST(euf_bv_plugin);
     TST(euf_arith_plugin);
+    TST(sls_test);
 }
