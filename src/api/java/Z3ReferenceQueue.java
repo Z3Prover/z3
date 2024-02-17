@@ -68,7 +68,7 @@ class Z3ReferenceQueue {
      * Clean all references stored in {@code referenceList},
      * <b>regardless</b> of whether they are in {@code referenceQueue} or not.
      */
-    @SuppressWarnings("empty-statement")
+    @SuppressWarnings("StatementWithEmptyBody")
     public void forceClear() {
         // Decrement all reference counters
         Reference<?> cur = referenceList.next;
