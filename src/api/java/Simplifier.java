@@ -18,6 +18,8 @@ Author:
 package com.microsoft.z3;
 
 
+import java.lang.ref.ReferenceQueue;
+
 public class Simplifier extends Z3Object {
     /*
      * A string containing a description of parameters accepted by the simplifier.
@@ -32,7 +34,7 @@ public class Simplifier extends Z3Object {
      * Retrieves parameter descriptions for Simplifiers.
      */
     public ParamDescrs getParameterDescriptions() {
-	return new ParamDescrs(getContext(), Native.simplifierGetParamDescrs(getContext().nCtx(), getNativeObject())); 
+        return new ParamDescrs(getContext(), Native.simplifierGetParamDescrs(getContext().nCtx(), getNativeObject()));
     }
 
     Simplifier(Context ctx, long obj)
@@ -53,6 +55,18 @@ public class Simplifier extends Z3Object {
 
     @Override
     void addToReferenceQueue() {
-        getContext().getSimplifierDRQ().storeReference(getContext(), this);
+        getContext().getReferenceQueue().storeReference(this, SimplifierRef::new);
     }
-}	
+
+    private static class SimplifierRef extends Z3ReferenceQueue.Reference<Simplifier> {
+
+        private SimplifierRef(Simplifier referent, ReferenceQueue<Z3Object> q) {
+            super(referent, q);
+        }
+
+        @Override
+        void decRef(Context ctx, long z3Obj) {
+            Native.simplifierDecRef(ctx.nCtx(), z3Obj);
+        }
+    }
+}

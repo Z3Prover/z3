@@ -19,6 +19,8 @@ package com.microsoft.z3;
 
 import com.microsoft.z3.enumerations.Z3_param_kind;
 
+import java.lang.ref.ReferenceQueue;
+
 /**
  * A ParamDescrs describes a set of parameters.
  **/
@@ -97,6 +99,18 @@ public class ParamDescrs extends Z3Object {
 
     @Override
     void addToReferenceQueue() {
-        getContext().getParamDescrsDRQ().storeReference(getContext(), this);
+        getContext().getReferenceQueue().storeReference(this, ParamDescrsRef::new);
+    }
+
+    private static class ParamDescrsRef extends Z3ReferenceQueue.Reference<ParamDescrs> {
+
+        private ParamDescrsRef(ParamDescrs referent, ReferenceQueue<Z3Object> q) {
+            super(referent, q);
+        }
+
+        @Override
+        void decRef(Context ctx, long z3Obj) {
+            Native.paramDescrsDecRef(ctx.nCtx(), z3Obj);
+        }
     }
 }

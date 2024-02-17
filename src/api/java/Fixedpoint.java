@@ -19,6 +19,8 @@ package com.microsoft.z3;
 
 import com.microsoft.z3.enumerations.Z3_lbool;
 
+import java.lang.ref.ReferenceQueue;
+
 /**
  * Object for managing fixedpoints
  **/
@@ -327,9 +329,18 @@ public class Fixedpoint extends Z3Object
 
     @Override
     void addToReferenceQueue() {
-        getContext().getFixedpointDRQ().storeReference(getContext(), this);
+        getContext().getReferenceQueue().storeReference(this, FixedpointRef::new);
     }
 
-    @Override
-    void checkNativeObject(long obj) { }
+    private static class FixedpointRef extends Z3ReferenceQueue.Reference<Fixedpoint> {
+
+        private FixedpointRef(Fixedpoint referent, ReferenceQueue<Z3Object> q) {
+            super(referent, q);
+        }
+
+        @Override
+        void decRef(Context ctx, long z3Obj) {
+            Native.fixedpointDecRef(ctx.nCtx(), z3Obj);
+        }
+    }
 }

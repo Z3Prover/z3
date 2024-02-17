@@ -19,6 +19,8 @@ Notes:
 package com.microsoft.z3;
 
 import com.microsoft.z3.enumerations.Z3_lbool;
+
+import java.lang.ref.ReferenceQueue;
 import java.util.*;
 
 /**
@@ -403,6 +405,18 @@ public class Solver extends Z3Object {
 
     @Override
     void addToReferenceQueue() {
-        getContext().getSolverDRQ().storeReference(getContext(), this);
+        getContext().getReferenceQueue().storeReference(this, SolverRef::new);
+    }
+
+    private static class SolverRef extends Z3ReferenceQueue.Reference<Solver> {
+
+        private SolverRef(Solver referent, ReferenceQueue<Z3Object> q) {
+            super(referent, q);
+        }
+
+        @Override
+        void decRef(Context ctx, long z3Obj) {
+            Native.solverDecRef(ctx.nCtx(), z3Obj);
+        }
     }
 }

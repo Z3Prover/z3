@@ -19,6 +19,8 @@ package com.microsoft.z3;
 
 import com.microsoft.z3.enumerations.Z3_ast_kind;
 
+import java.lang.ref.ReferenceQueue;
+
 /**
  * The abstract syntax tree (AST) class.
  **/
@@ -196,7 +198,7 @@ public class AST extends Z3Object implements Comparable<AST>
 
     @Override
     void addToReferenceQueue() {
-        getContext().getASTDRQ().storeReference(getContext(), this);
+        getContext().getReferenceQueue().storeReference(this, ASTRef::new);
     }
 
     static AST create(Context ctx, long obj)
@@ -215,6 +217,18 @@ public class AST extends Z3Object implements Comparable<AST>
             return Expr.create(ctx, obj);
         default:
             throw new Z3Exception("Unknown AST kind");
+        }
+    }
+
+    private static class ASTRef extends Z3ReferenceQueue.Reference<AST> {
+
+        private ASTRef(AST referent, ReferenceQueue<Z3Object> q) {
+            super(referent, q);
+        }
+
+        @Override
+        void decRef(Context ctx, long z3Obj) {
+            Native.decRef(ctx.nCtx(), z3Obj);
         }
     }
 }

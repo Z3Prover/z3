@@ -17,6 +17,8 @@ Notes:
 
 package com.microsoft.z3;
 
+import java.lang.ref.ReferenceQueue;
+
 /**
  * Vectors of ASTs.
  **/
@@ -99,16 +101,6 @@ public class ASTVector extends Z3Object {
     public ASTVector(Context ctx)
     {
         super(ctx, Native.mkAstVector(ctx.nCtx()));
-    }
-
-    @Override
-    void incRef() {
-        Native.astVectorIncRef(getContext().nCtx(), getNativeObject());
-    }
-
-    @Override
-    void addToReferenceQueue() {
-        getContext().getASTVectorDRQ().storeReference(getContext(), this);
     }
 
     /**
@@ -240,5 +232,27 @@ public class ASTVector extends Z3Object {
         for (int i = 0; i < n; i++)
             res[i] = (RealExpr)Expr.create(getContext(), get(i).getNativeObject());
         return res;
+    }
+
+    @Override
+    void incRef() {
+        Native.astVectorIncRef(getContext().nCtx(), getNativeObject());
+    }
+
+    @Override
+    void addToReferenceQueue() {
+        getContext().getReferenceQueue().storeReference(this, ASTVectorRef::new);
+    }
+
+    private static class ASTVectorRef extends Z3ReferenceQueue.Reference<ASTVector> {
+
+        private ASTVectorRef(ASTVector referent, ReferenceQueue<Z3Object> q) {
+            super(referent, q);
+        }
+
+        @Override
+        void decRef(Context ctx, long z3Obj) {
+            Native.astVectorDecRef(ctx.nCtx(), z3Obj);
+        }
     }
 }
