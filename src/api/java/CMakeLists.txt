@@ -125,9 +125,7 @@ set(Z3_JAVA_JAR_SOURCE_FILES
   FuncDecl.java
   FuncInterp.java
   Global.java
-  GoalDecRefQueue.java
   Goal.java
-  IDecRefQueue.java
   IntExpr.java
   IntNum.java
   IntSort.java
