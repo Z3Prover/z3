@@ -4329,6 +4329,9 @@ public class Context implements AutoCloseable {
     @Override
     public void close()
     {
+        if (m_ctx == 0)
+            return;
+
         m_RefQueue.forceClear();
 
         m_boolSort = null;
