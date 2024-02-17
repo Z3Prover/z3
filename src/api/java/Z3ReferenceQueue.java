@@ -56,8 +56,7 @@ class Z3ReferenceQueue {
     /**
      * Clean all references currently in {@code referenceQueue}.
      */
-    private void clear()
-    {
+    private void clear() {
         Reference<?> ref;
         while ((ref = (Reference<?>)referenceQueue.poll()) != null) {
             ref.cleanup(ctx);
@@ -97,7 +96,7 @@ class Z3ReferenceQueue {
     // ================================================================================================================
 
     @FunctionalInterface
-    interface ReferenceConstructor<T extends Z3Object>{
+    interface ReferenceConstructor<T extends Z3Object> {
         Reference<T> construct(T reference, ReferenceQueue<Z3Object> queue);
     }
 
