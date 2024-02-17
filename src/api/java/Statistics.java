@@ -27,7 +27,7 @@ public class Statistics extends Z3Object {
      * Statistical data is organized into pairs of [Key, Entry], where every
      * Entry is either a {@code DoubleEntry} or a {@code UIntEntry}
      **/
-    public class Entry
+    public static class Entry
     {
         /**
          * The key of the entry.
