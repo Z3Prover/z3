@@ -445,6 +445,11 @@ public:
     MATCH_BINARY(is_bv_sdivi);
     MATCH_BINARY(is_bv_udivi);
     MATCH_BINARY(is_bv_smodi);
+    MATCH_BINARY(is_bv_urem0);
+    MATCH_BINARY(is_bv_srem0);
+    MATCH_BINARY(is_bv_sdiv0);
+    MATCH_BINARY(is_bv_udiv0);
+    MATCH_BINARY(is_bv_smod0);
     MATCH_UNARY(is_bit2bool);
     MATCH_UNARY(is_int2bv);
     bool is_bit2bool(expr* e, expr*& bv, unsigned& idx) const;

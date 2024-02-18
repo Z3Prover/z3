@@ -84,7 +84,7 @@ namespace bv {
                 .push_back(bv.mk_ule(a, b))
                 .push_back(bv.mk_sle(a, b))
                 .push_back(bv.mk_concat(a, b))
-                .push_back(bv.mk_extract(6, 3, a))
+                .push_back(bv.mk_extract(4, 2, a))
                 .push_back(bv.mk_bvuadd_ovfl(a, b))
                 .push_back(bv.mk_bv_rotate_left(a, j))
                 .push_back(bv.mk_bv_rotate_right(a, j))
@@ -97,6 +97,7 @@ namespace bv {
     //            .push_back(bv.mk_bvsmul_ovfl(a, b))
     //            .push_back(bv.mk_bvsdiv_ovfl(a, b))
                 ;
+            return result;
         }
 
 

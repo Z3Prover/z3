@@ -66,6 +66,7 @@ namespace bv {
         };
         unsigned num_args = a->get_num_args();
         expr_ref r(m);
+        expr* x, * y;
 #define FOLD_OP(oper)           \
         r = arg(0);             \
         for (unsigned i = 1; i < num_args; ++i)\
@@ -98,6 +99,15 @@ namespace bv {
         else if (bv.is_concat(e)) {
             FOLD_OP(bv.mk_concat);
         }
+        else if (bv.is_bv_sdiv(e, x, y) || bv.is_bv_sdiv0(e, x, y) || bv.is_bv_sdivi(e, x, y)) {
+            r = mk_sdiv(x, y);
+        }
+        else if (bv.is_bv_smod(e, x, y) || bv.is_bv_smod0(e, x, y) || bv.is_bv_smodi(e, x, y)) {
+            r = mk_smod(x, y);
+        }
+        else if (bv.is_bv_srem(e, x, y) || bv.is_bv_srem0(e, x, y) || bv.is_bv_sremi(e, x, y)) {
+            r = mk_srem(x, y);
+        }
         else {
             for (unsigned i = 0; i < num_args; ++i)
                 m_todo.push_back(arg(i));
@@ -105,6 +115,60 @@ namespace bv {
             m_todo.reset();
         }
         m_translated.setx(e->get_id(), r);
+    }
+
+    expr* sls_terms::mk_sdiv(expr* x, expr* y) {
+        // d = udiv(abs(x), abs(y))
+        // y = 0, x > 0 -> 1
+        // y = 0, x <= 0 -> -1
+        // x = 0, y != 0 -> 0
+        // x > 0, y < 0 -> -d
+        // x < 0, y > 0 -> -d
+        // x > 0, y > 0 -> d
+        // x < 0, y < 0 -> d
+        unsigned sz = bv.get_bv_size(x);
+        rational N = rational::power_of_two(sz);
+        expr_ref z(bv.mk_zero(sz), m);
+        expr* signx = bv.mk_ule(bv.mk_numeral(N / 2, sz), x);
+        expr* signy = bv.mk_ule(bv.mk_numeral(N / 2, sz), y);
+        expr* absx = m.mk_ite(signx, bv.mk_bv_sub(bv.mk_numeral(N - 1, sz), x), x);
+        expr* absy = m.mk_ite(signy, bv.mk_bv_sub(bv.mk_numeral(N - 1, sz), y), y);
+        expr* d = bv.mk_bv_udiv(absx, absy);
+        expr* r = m.mk_ite(m.mk_eq(signx, signy), d, bv.mk_bv_neg(d));
+        r = m.mk_ite(m.mk_eq(z, y),
+                m.mk_ite(signx, bv.mk_numeral(N - 1, sz), bv.mk_one(sz)),
+                m.mk_ite(m.mk_eq(x, z), z, r));
+        return r;
+    }
+
+    expr* sls_terms::mk_smod(expr* x, expr* y) {
+        // u := umod(abs(x), abs(y))
+        // u = 0 ->  0
+        // y = 0 ->  x
+        // x < 0, y < 0 ->  -u
+        // x < 0, y >= 0 ->  y - u
+        // x >= 0, y < 0 ->  y + u
+        // x >= 0, y >= 0 ->  u
+        unsigned sz = bv.get_bv_size(x);
+        expr_ref z(bv.mk_zero(sz), m);
+        expr_ref abs_x(m.mk_ite(bv.mk_sle(z, x), x, bv.mk_bv_neg(x)), m);
+        expr_ref abs_y(m.mk_ite(bv.mk_sle(z, y), y, bv.mk_bv_neg(y)), m);
+        expr_ref u(bv.mk_bv_urem(abs_x, abs_y), m);
+        return
+            m.mk_ite(m.mk_eq(u, z), z,
+                m.mk_ite(m.mk_eq(y, z), x,
+                    m.mk_ite(m.mk_and(bv.mk_sle(z, x), bv.mk_sle(z, x)), u,
+                        m.mk_ite(bv.mk_sle(z, x), bv.mk_bv_add(y, u),
+                            m.mk_ite(bv.mk_sle(z, y), bv.mk_bv_sub(y, u), bv.mk_bv_neg(u))))));
+                      
+    }
+
+    expr* sls_terms::mk_srem(expr* x, expr* y) {
+        // y = 0 -> x
+        // else x - sdiv(x, y) * y
+        return 
+            m.mk_ite(m.mk_eq(y, bv.mk_zero(bv.get_bv_size(x))),
+                     x, bv.mk_bv_sub(x, bv.mk_bv_mul(y, mk_sdiv(x, y))));
     }
 
 

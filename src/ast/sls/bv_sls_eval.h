@@ -83,13 +83,19 @@ namespace bv {
         bool try_repair_ashr(bvval const& e, bvval& a, bvval& b, unsigned i);
         bool try_repair_lshr(bvval const& e, bvval& a, bvval& b, unsigned i);
         bool try_repair_bit2bool(bvval& a, unsigned idx);
-        bool try_repair_sdiv(bvval const& e, bvval& a, bvval& b, unsigned i);
         bool try_repair_udiv(bvval const& e, bvval& a, bvval& b, unsigned i);
-        bool try_repair_smod(bvval const& e, bvval& a, bvval& b, unsigned i);
         bool try_repair_urem(bvval const& e, bvval& a, bvval& b, unsigned i);
-        bool try_repair_srem(bvval const& e, bvval& a, bvval& b, unsigned i);
         bool try_repair_rotate_left(bvval const& e, bvval& a, unsigned n) const;
         bool try_repair_rotate_left(bvval const& e, bvval& a, bvval& b, unsigned i);
+        bool try_repair_ule(bool e, bvval& a, svector<digit_t> const& t);
+        bool try_repair_uge(bool e, bvval& a, svector<digit_t> const& t);
+        void add_p2_1(bvval const& a, svector<digit_t>& t) const;
+
+        bool add_overflow_on_fixed(bvval const& a, svector<digit_t> const& t);
+        bool mul_overflow_on_fixed(bvval const& a, svector<digit_t> const& t);
+
+        digit_t random_bits();
+        bool random_bool() { return m_rand() % 2 == 0; }
 
         sls_valuation& wval0(app* e, unsigned i) { return wval0(e->get_arg(i)); }
 

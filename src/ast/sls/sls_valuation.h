@@ -33,7 +33,6 @@ namespace bv {
         svector<digit_t> lo,  hi;        // range assignment to bit-vector, as wrap-around interval
         svector<digit_t> bits, fixed;    // bit assignment and don't care bit
         sls_valuation(unsigned bw);
-        ~sls_valuation();
         
         unsigned num_bytes() const { return (bw + 7) / 8; }
 
@@ -41,6 +40,7 @@ namespace bv {
         void get_value(svector<digit_t> const& bits, rational& r) const;
         void get(svector<digit_t>& dst) const;
         void add_range(rational lo, rational hi);
+        void init_fixed();
         void set1(svector<digit_t>& bits);
         
         void clear_overflow_bits(svector<digit_t>& bits) const;
@@ -52,6 +52,8 @@ namespace bv {
         bool eq(svector<digit_t> const& other) const { return eq(other, bits); }
         bool eq(svector<digit_t> const& a, svector<digit_t> const& b) const;
         bool gt(svector<digit_t> const& a, svector<digit_t> const& b) const;
+        bool lt(svector<digit_t> const& a, svector<digit_t> const& b) const;
+        bool le(svector<digit_t> const& a, svector<digit_t> const& b) const;
 
         bool is_zero() const { return is_zero(bits); }
         bool is_zero(svector<digit_t> const& a) const { 
@@ -59,6 +61,29 @@ namespace bv {
                 if (a[i] != 0) 
                     return false; 
             return true; 
+        }
+        bool is_ones() const { return is_ones(bits); }
+        bool is_ones(svector<digit_t> const& a) const {
+            auto bound = bw % (sizeof(digit_t) * 8) == 0 ? nw : nw - 1;
+            for (unsigned i = 0; i < bound; ++i)
+                if (a[i] != ~0)
+                    return false;
+            if (bound < nw) {
+                for (unsigned i = bound * sizeof(digit_t) * 8; i < bw; ++i)
+                    if (!get(a, i))
+                        return false;
+            }
+            return true;
+        }
+
+        bool is_one() const { return is_one(bits); }
+        bool is_one(svector<digit_t> const& bits) const {
+            if (1 != bits[0])
+                return false;
+            for (unsigned i = 1; i < nw; ++i)
+                if (0 != bits[i])
+                    return false;
+            return true;
         }
 
         bool sign() const { return get(bits, bw - 1); }
@@ -71,14 +96,25 @@ namespace bv {
         }
 
         unsigned parity(svector<digit_t> const& bits) const {
-            unsigned i = 0;
-            for (; i < bw && !get(bits, i); ++i);
-            return i;               
+            for (unsigned i = 0; i < nw; ++i) 
+                if (bits[i] != 0)
+                    return (8 * sizeof(digit_t) * i) + trailing_zeros(bits[i]);
+            return bw;              
         }
 
-        // retrieve number at or below src which is feasible
+        void min_feasible(svector<digit_t>& out) const;
+        void max_feasible(svector<digit_t>& out) const;
+
+        // most significant bit or bw if src = 0
+        unsigned msb(svector<digit_t> const& src) const;
+
+        // retrieve largest number at or below (above) src which is feasible
         // with respect to fixed, lo, hi.
-        bool get_below(svector<digit_t> const& src, svector<digit_t>& dst);
+        bool get_at_most(svector<digit_t> const& src, svector<digit_t>& dst) const;
+        bool get_at_least(svector<digit_t> const& src, svector<digit_t>& dst) const;
+        bool round_up(svector<digit_t>& dst) const;
+        bool round_down(svector<digit_t>& dst) const;
+        void set_repair(bool try_down, svector<digit_t>& dst);
 
         bool try_set(svector<digit_t> const& src) {
             if (!can_set(src))
@@ -98,11 +134,20 @@ namespace bv {
                 bits[i] = 0;
         }
 
-
-        void set_fixed(svector<digit_t> const& src) {
-            for (unsigned i = nw; i-- > 0; )
-                fixed[i] = src[i];
+        void sub1(svector<digit_t>& out) const {
+            for (unsigned i = 0; i < bw; ++i) {
+                if (get(out, i)) {
+                    set(out, i, false);
+                    return;
+                }
+                else
+                    set(out, i, true);
+            }
         }
+
+        void set_sub(svector<digit_t>& out, svector<digit_t> const& a, svector<digit_t> const& b) const;
+        bool set_add(svector<digit_t>& out, svector<digit_t> const& a, svector<digit_t> const& b) const;
+        bool set_mul(svector<digit_t>& out, svector<digit_t> const& a, svector<digit_t> const& b) const;
 
         void set_range(svector<digit_t>& dst, unsigned lo, unsigned hi, bool b) {
             for (unsigned i = lo; i < hi; ++i)
@@ -118,6 +163,11 @@ namespace bv {
             dst[0] = v;
             for (unsigned i = 1; i < nw; ++i)
                 dst[i] = 0;
+        }
+
+        void set(svector<digit_t>& dst, svector<digit_t> const& src) const {
+            for (unsigned i = 0; i < nw; ++i)
+                dst[i] = src[i];
         }
 
         bool get(svector<digit_t> const& d, unsigned bit_idx) const {

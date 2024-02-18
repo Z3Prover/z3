@@ -40,6 +40,10 @@ namespace bv {
         expr* ensure_binary(expr* e);
         void ensure_binary_core(expr* e);
 
+        expr* mk_sdiv(expr* x, expr* y);
+        expr* mk_smod(expr* x, expr* y);
+        expr* mk_srem(expr* x, expr* y);
+
     public:
         sls_terms(ast_manager& m);
         
@@ -64,7 +68,6 @@ namespace bv {
         app* term(unsigned id) const { return m_terms.get(id); }
 
         bool is_assertion(expr* e) const { return m_assertion_set.contains(e->get_id()); }
-
 
     };
 }

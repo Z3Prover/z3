@@ -54,6 +54,7 @@ namespace bv {
     void sls_fixed::init_range(app* e, bool sign) {
         expr* s, * t, * x, * y;
         rational a, b;
+        unsigned idx;
         auto N = [&](expr* s) {
             auto b = bv.get_bv_size(s);
             return b > 0 ? rational::power_of_two(b - 1) : rational(0);
@@ -97,6 +98,19 @@ namespace bv {
             get_offset(s, x, a);
             get_offset(t, y, b);
             init_range(x, a + N(s), y, b + N(s), !sign);
+        }
+        else if (!sign && m.is_eq(e, s, t)) {
+            if (bv.is_numeral(s, a))
+                // t - a <= 0
+                init_range(t, -a, nullptr, rational(0), !sign);
+            else if (bv.is_numeral(t, a))
+                init_range(s, -a, nullptr, rational(0), !sign);
+        }
+        else if (bv.is_bit2bool(e, s, idx)) {
+            auto& val = wval0(s);
+            val.set(val.bits, idx, !sign);
+            val.set(val.fixed, idx, true);
+            val.init_fixed();
         }
     }
 
@@ -167,6 +181,7 @@ namespace bv {
             auto& val_el = wval0(e->get_arg(2));
             for (unsigned i = 0; i < val.nw; ++i)
                 val.fixed[i] = val_el.fixed[i] & val_th.fixed[i] & ~(val_el.bits[i] ^ val_th.bits[i]);
+            val.init_fixed();
         }
     }
 
@@ -222,6 +237,13 @@ namespace bv {
             // (a.fixed & b.fixed) | (a.fixed & a.bits) | (b.fixed & b.bits)
             for (unsigned i = 0; i < a.nw; ++i)
                 v.fixed[i] = (a.fixed[i] & b.fixed[i]) | (a.fixed[i] & a.bits[i]) | (b.fixed[i] & b.bits[i]);
+            break;
+        }
+        case OP_BXOR: {
+            auto& a = wval0(e->get_arg(0));
+            auto& b = wval0(e->get_arg(1));
+            for (unsigned i = 0; i < a.nw; ++i)
+                v.fixed[i] = a.fixed[i] & b.fixed[i];
             break;
         }
         case OP_BNOT: {
@@ -331,9 +353,9 @@ namespace bv {
             // if 0 < b < v.bw is known, then inherit shift of fixed values of a
             // if 0 < b < v.bw but not known, then inherit run lengths of equal bits of a
             // that are fixed.
-            NOT_IMPLEMENTED_YET();
             break;
         }
+
         case OP_BASHR:
         case OP_BLSHR:
         case OP_INT2BV:
@@ -352,10 +374,9 @@ namespace bv {
         case OP_BUREM0:
         case OP_BSMOD:
         case OP_BSMOD_I:
-        case OP_BSMOD0:
-        case OP_BXOR:
+        case OP_BSMOD0:       
         case OP_BXNOR:
-            NOT_IMPLEMENTED_YET();
+            // NOT_IMPLEMENTED_YET();
             break;
         case OP_BV_NUM:
         case OP_BIT0:
@@ -381,6 +402,7 @@ namespace bv {
         case OP_SLT:
             UNREACHABLE();
             break;
-        }        
+        }      
+        v.init_fixed();
     }
 }
