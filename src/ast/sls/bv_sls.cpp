@@ -46,6 +46,31 @@ namespace bv {
         m_eval.init_fixed(m_terms.assertions());
     }
 
+    void sls::reinit_eval() {
+        std::function<bool(expr*, unsigned)> eval = [&](expr* e, unsigned i) {
+            if (m.is_bool(e)) {
+                if (m_eval.is_fixed0(e))
+                    return m_eval.bval0(e);
+            }
+            else if (bv.is_bv(e)) {
+                auto& w = m_eval.wval0(e);
+                if (w.get(w.fixed, i))
+                    return w.get(w.bits, i);
+                
+            }
+            return m_rand() % 2 == 0;
+        };
+        m_eval.init_eval(m_terms.assertions(), eval);
+        m_repair_down.reset();
+        m_repair_up.reset();
+        for (auto* e : m_terms.assertions()) {
+            if (!m_eval.bval0(e)) {
+                m_eval.set(e, true);
+                m_repair_down.insert(e->get_id());
+            }
+        }
+    }
+
     std::pair<bool, app*> sls::next_to_repair() {
         app* e = nullptr;
         if (!m_repair_down.empty()) {
@@ -59,7 +84,7 @@ namespace bv {
         return { !m_repair_down.empty(), e };
     }
 
-    lbool sls::operator()() {
+    lbool sls::search() {
         // init and init_eval were invoked.
         unsigned& n = m_stats.m_moves;
         n = 0;
@@ -67,7 +92,7 @@ namespace bv {
             auto [down, e] = next_to_repair();
             if (!e)
                 return l_true;
-            IF_VERBOSE(20, verbose_stream() << (down?"d ":"u ") << mk_bounded_pp(e, m, 1) << "\n");
+            IF_VERBOSE(20, verbose_stream() << (down ? "d " : "u ") << mk_bounded_pp(e, m, 1) << "\n");
             if (eval_is_correct(e)) {
                 if (down)
                     m_repair_down.remove(e->get_id());
@@ -75,12 +100,30 @@ namespace bv {
                     m_repair_up.remove(e->get_id());
             }
             else if (down) {
-                try_repair_down(e);                
+                try_repair_down(e);
             }
-            else 
-                try_repair_up(e);            
+            else
+                try_repair_up(e);
         }
         return l_undef;
+    }
+
+    lbool sls::operator()() {
+        lbool res = l_undef;
+        do {
+            if (!m.inc())
+                return l_undef;
+
+            res = search();
+
+            if (res != l_undef)
+                return res;
+
+            reinit_eval();
+        } 
+        while (m_stats.m_restarts++ < m_config.m_max_restarts);
+
+        return res;
     }
 
     void sls::try_repair_down(app* e) {

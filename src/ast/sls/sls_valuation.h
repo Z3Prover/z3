@@ -108,6 +108,8 @@ namespace bv {
         // most significant bit or bw if src = 0
         unsigned msb(svector<digit_t> const& src) const;
 
+        bool is_power_of2(svector<digit_t> const& src) const;
+
         // retrieve largest number at or below (above) src which is feasible
         // with respect to fixed, lo, hi.
         bool get_at_most(svector<digit_t> const& src, svector<digit_t>& dst) const;
@@ -195,6 +197,16 @@ namespace bv {
             out << " ";
             for (unsigned i = 0; i < nw; ++i)
                 out << fixed[i];
+
+            if (!eq(lo, hi)) {
+                out << " [";
+                for (unsigned i = 0; i < nw; ++i)
+                    out << lo[i];
+                out << ", ";
+                for (unsigned i = 0; i < nw; ++i)
+                    out << hi[i];
+                out << "[";
+            }
             out << std::dec;
             return out;
         }

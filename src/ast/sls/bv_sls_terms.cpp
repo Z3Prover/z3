@@ -119,8 +119,8 @@ namespace bv {
 
     expr* sls_terms::mk_sdiv(expr* x, expr* y) {
         // d = udiv(abs(x), abs(y))
-        // y = 0, x > 0 -> 1
-        // y = 0, x <= 0 -> -1
+        // y = 0, x >= 0 -> -1
+        // y = 0, x < 0 -> 1
         // x = 0, y != 0 -> 0
         // x > 0, y < 0 -> -d
         // x < 0, y > 0 -> -d
@@ -136,7 +136,7 @@ namespace bv {
         expr* d = bv.mk_bv_udiv(absx, absy);
         expr* r = m.mk_ite(m.mk_eq(signx, signy), d, bv.mk_bv_neg(d));
         r = m.mk_ite(m.mk_eq(z, y),
-                m.mk_ite(signx, bv.mk_numeral(N - 1, sz), bv.mk_one(sz)),
+                m.mk_ite(signx, bv.mk_one(sz), bv.mk_numeral(N - 1, sz)),
                 m.mk_ite(m.mk_eq(x, z), z, r));
         return r;
     }

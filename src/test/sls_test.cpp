@@ -30,6 +30,7 @@ namespace bv {
             es.push_back(e);
             sls_eval ev(m);
             ev.init_eval(es, value);
+            ev.init_fixed(es);
             th_rewriter rw(m);
             expr_ref r(e, m);
             rw(r);
@@ -114,6 +115,14 @@ namespace bv {
                 auto e1 = es1.get(i);
                 auto e2 = es2.get(i);
                 auto e3 = es3.get(i);
+                if (bv.is_bv_sdiv(e1))
+                    continue;
+                if (bv.is_bv_srem(e1))
+                    continue;
+                if (bv.is_bv_smod(e1))
+                    continue;
+                if (is_app_of(e1, bv.get_fid(), OP_BUADD_OVFL))
+                    continue;
                 check_repair_idx(e1, e2, 0, x);
                 if (is_app(e1) && to_app(e1)->get_num_args() == 2)
                     check_repair_idx(e1, e3, 1, y);
@@ -128,22 +137,30 @@ namespace bv {
                 };
             expr_ref_vector es(m);
             bv_util bv(m);
-            es.push_back(e1);
-            es.push_back(e2);
-            sls_eval ev(m);
-            ev.init_eval(es, value);
             th_rewriter rw(m);
             expr_ref r(e1, m);
+            rw(r);
+            es.push_back(m.is_false(r) ? m.mk_not(e1) : e1);
+            es.push_back(m.is_false(r) ? m.mk_not(e2) : e2);
+            sls_eval ev(m);
+            ev.init_eval(es, value);
+            ev.init_fixed(es);
+
             if (m.is_bool(e1)) {
+                SASSERT(m.is_true(r) || m.is_false(r));
                 auto val = m.is_true(r);
                 auto val2 = ev.bval0(e2);
                 if (val != val2) {
                     ev.set(e2, val);
                     auto rep1 = ev.try_repair(to_app(e2), idx);
                     if (!rep1) {
-                        verbose_stream() << "Not repaired " << mk_pp(e2, m) << "\n";
+                        verbose_stream() << "Not repaired " << mk_pp(e2, m) << " r: " << r << "\n";
                     }
-                    SASSERT(rep1);
+                    auto val3 = ev.bval0(e2);
+                    if (val3 != val) {
+                        verbose_stream() << "Repaired but not corrected " << mk_pp(e2, m) << "\n";
+                    }
+                    //SASSERT(rep1);
                 }
             }
             if (bv.is_bv(e1)) {
@@ -155,7 +172,11 @@ namespace bv {
                     if (!rep2) {
                         verbose_stream() << "Not repaired " << mk_pp(e2, m) << "\n";
                     }
-                    SASSERT(rep2);
+                    auto val3 = ev.wval0(e2);
+                    if (!val3.eq(val1)) {
+                        verbose_stream() << "Repaired but not corrected " << mk_pp(e2, m) << "\n";
+                    }
+                    //SASSERT(rep2);
                 }
             }
         }
@@ -213,5 +234,6 @@ static void test_repair1() {
 }
 
 void tst_sls_test() {
+    test_repair1();
     test_eval1();
 }

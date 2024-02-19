@@ -177,7 +177,7 @@ namespace bv {
 
     bool sls_valuation::round_down(svector<digit_t>& dst) const {
         if (lt(lo, hi)) {
-            if (lt(lo, hi))
+            if (lt(dst, lo))
                 return false;
             if (le(hi, dst)) {
                 set(dst, hi);
@@ -324,79 +324,90 @@ namespace bv {
         }    
         SASSERT(!has_overflow(lo));
         SASSERT(!has_overflow(hi));
+        init_fixed();
     }
 
+    //
+    // tighten lo/hi based on fixed bits.
+    //   lo[bit_i] != fixedbit[bit_i] 
+    //     let bit_i be most significant bit position of disagreement.
+    //     if fixedbit = 1, lo = 0, increment lo
+    //     if fixedbit = 0, lo = 1, lo := fixed & bits
+    //   (hi-1)[bit_i] != fixedbit[bit_i]
+    //     if fixedbit = 0, hi-1 = 1, set hi-1 := 0, maximize below bit_i
+    //     if fixedbit = 1, hi-1 = 0, hi := fixed & bits
+    // tighten fixed bits based on lo/hi
+    //  lo + 1 = hi -> set bits = lo
+    //  lo < hi, set most significant bits based on hi
+    //
     void sls_valuation::init_fixed() {
         if (eq(lo, hi))
             return;
-        bool lo_ok = true;
-        for (unsigned i = 0; i < nw; ++i)
-            lo_ok &= (0 == (fixed[i] & (bits[i] ^ lo[i])));
-        if (!lo_ok) {
-            svector<digit_t> tmp(nw + 1);
-            if (get_at_least(lo, tmp)) {
-                if (lt(lo, hi) && lt(tmp, hi))
-                    set(lo, tmp);                
-                else if (gt(lo, hi))
-                    set(lo, tmp);
+        for (unsigned i = bw; i-- > 0; ) {
+            if (!get(fixed, i))
+                continue;
+            if (get(bits, i) == get(lo, i))
+                continue;
+            if (get(bits, i)) {
+                set(lo, i, true);
+                for (unsigned j = i; j-- > 0; )
+                    set(lo, j, get(fixed, j) && get(bits, j));
             }
-            else if (gt(lo, hi)) {
-                svector<digit_t> zero(nw + 1, (unsigned) 0);
-                if (get_at_least(zero, tmp) && lt(tmp, hi))
-                    set(lo, tmp);
+            else {
+                for (unsigned j = bw; j-- > 0; )
+                    set(lo, j, get(fixed, j) && get(bits, j));
             }
+            break;
         }
-        bool hi_ok = true;
         svector<digit_t> hi1(nw + 1, (unsigned)0);
         svector<digit_t> one(nw + 1, (unsigned)0);
         one[0] = 1;
         digit_t c;
         mpn_manager().sub(hi.data(), nw, one.data(), nw, hi1.data(), &c);
-        for (unsigned i = 0; i < nw; ++i)
-            hi_ok &= (0 == (fixed[i] & (bits[i] ^ hi1[i])));
-        if (!hi_ok) {
-            svector<digit_t> tmp(nw + 1);
-            if (get_at_most(hi1, tmp)) {
-                if (lt(tmp, hi) && (le(lo, tmp) || lt(hi, lo))) {
-                    mpn_manager().add(tmp.data(), nw, one.data(), nw, hi1.data(), nw + 1, &c);
-                    clear_overflow_bits(hi1);
-                    set(hi, hi1);
-                }
+        clear_overflow_bits(hi1);
+        for (unsigned i = bw; i-- > 0; ) {
+            if (!get(fixed, i))
+                continue;
+            if (get(bits, i) == get(hi1, i))
+                continue;
+            if (get(hi1, i)) {
+                set(hi1, i, false);
+                for (unsigned j = i; j-- > 0; )
+                    set(hi1, j, !get(fixed, j) || get(bits, j));
             }
-            // TODO other cases
+            else {
+                for (unsigned j = bw; j-- > 0; )
+                    set(hi1, j, get(fixed, j) && get(bits, j));
+            }
+            mpn_manager().add(hi1.data(), nw, one.data(), nw, hi.data(), nw + 1, &c);
+            clear_overflow_bits(hi);
+            break;
         }
+
+        // set fixed bits based on bounds
+        auto set_fixed_bit = [&](unsigned i, bool b) {
+            if (!get(fixed, i)) {
+                set(fixed, i, true);
+                set(bits, i, b);
+            }
+        };
 
         // set most significant bits
         if (lt(lo, hi)) {
             unsigned i = bw;
-            for (; i-- > 0; ) {
-                if (get(hi, i))
-                    break;
-                if (!get(fixed, i)) {
-                    set(fixed, i, true);
-                    set(bits, i, false);
-                }
-            }
-            bool is_power_of2 = true;
-            for (unsigned j = 0; is_power_of2 && j < i; ++j)
-                is_power_of2 = !get(hi, j);            
-            if (is_power_of2) {
-                if (!get(fixed, i)) {
-                    set(fixed, i, true);
-                    set(bits, i, false);
-                }
-            }
+            for (; i-- > 0 && !get(hi, i); ) 
+                set_fixed_bit(i, false);
+            
+            if (is_power_of2(hi))
+                set_fixed_bit(i, false);
         }
-        svector<digit_t> tmp(nw + 1, (unsigned)0);
-        mpn_manager().add(lo.data(), nw, one.data(), nw, tmp.data(), nw + 1, &c);
-        clear_overflow_bits(tmp);
-        if (eq(tmp, hi)) {
-            for (unsigned i = 0; i < bw; ++i) {
-                if (!get(fixed, i)) {
-                    set(fixed, i, true);
-                    set(bits, i, get(lo, i));
-                }
-            }
+
+        // lo + 1 = hi: then bits = lo
+        mpn_manager().add(lo.data(), nw, one.data(), nw, hi1.data(), nw + 1, &c);
+        clear_overflow_bits(hi1);
+        if (eq(hi1, hi)) {
+            for (unsigned i = 0; i < bw; ++i)
+                set_fixed_bit(i, get(lo, i));            
         }
         SASSERT(!has_overflow(bits));
     }
@@ -422,6 +433,13 @@ namespace bv {
             ovfl |= out[i] != 0;
         clear_overflow_bits(out);
         return ovfl;
+    }
+
+    bool sls_valuation::is_power_of2(svector<digit_t> const& src) const {
+        unsigned c = 0;
+        for (unsigned i = 0; i < nw; ++i)
+            c += get_num_1bits(src[i]);
+        return c == 1;
     }
 
 }

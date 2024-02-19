@@ -71,6 +71,7 @@ namespace bv {
         bool try_repair_band(bvval const& e, bvval& a, bvval const& b);
         bool try_repair_bor(bvval const& e, bvval& a, bvval const& b);
         bool try_repair_add(bvval const& e, bvval& a, bvval const& b);
+        bool try_repair_sub(bvval const& e, bvval& a, bvval& b, unsigned i);
         bool try_repair_mul(bvval const& e, bvval& a, bvval const& b);
         bool try_repair_bxor(bvval const& e, bvval& a, bvval const& b);
         bool try_repair_bnot(bvval const& e, bvval& a);
@@ -87,12 +88,19 @@ namespace bv {
         bool try_repair_urem(bvval const& e, bvval& a, bvval& b, unsigned i);
         bool try_repair_rotate_left(bvval const& e, bvval& a, unsigned n) const;
         bool try_repair_rotate_left(bvval const& e, bvval& a, bvval& b, unsigned i);
+        bool try_repair_rotate_right(bvval const& e, bvval& a, bvval& b, unsigned i);
         bool try_repair_ule(bool e, bvval& a, svector<digit_t> const& t);
         bool try_repair_uge(bool e, bvval& a, svector<digit_t> const& t);
+        bool try_repair_umul_ovfl(bool e, bvval& a, bvval& b, unsigned i);
+        bool try_repair_zero_ext(bvval const& e, bvval& a);
+        bool try_repair_concat(bvval const& e, bvval& a, bvval& b, unsigned i);
+        bool try_repair_extract(bvval const& e, bvval& a, unsigned lo);
         void add_p2_1(bvval const& a, svector<digit_t>& t) const;
 
         bool add_overflow_on_fixed(bvval const& a, svector<digit_t> const& t);
         bool mul_overflow_on_fixed(bvval const& a, svector<digit_t> const& t);
+        void set_div(svector<digit_t> const& a, svector<digit_t> const& b, unsigned nw,
+            svector<digit_t>& quot, svector<digit_t>& rem) const;
 
         digit_t random_bits();
         bool random_bool() { return m_rand() % 2 == 0; }

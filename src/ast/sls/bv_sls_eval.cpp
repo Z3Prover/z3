@@ -319,7 +319,7 @@ namespace bv {
                 else
                     b.get(m_tmp2);
 
-                mpn.div(m_tmp.data(), a.nw, m_tmp2.data(), a.nw, m_tmp3.data(), m_tmp4.data());
+                set_div(m_tmp, m_tmp2, a.bw, m_tmp3, m_tmp4);
                 if (sign_a == sign_b)
                     val.set(m_tmp3);
                 else
@@ -500,10 +500,7 @@ namespace bv {
             if (b.is_zero())
                 val.set(a.bits);
             else {
-                mpn.div(a.bits.data(), a.nw,
-                    b.bits.data(), b.nw,
-                    m_tmp.data(), // quotient
-                    m_tmp2.data()); // remainder
+                set_div(a.bits, b.bits, b.bw, m_tmp, m_tmp2);
                 val.set(m_tmp2);
             }
             break;
@@ -530,11 +527,8 @@ namespace bv {
                 if (b.sign())
                     b.set_sub(m_tmp4, m_zero, b.bits);
                 else
-                    a.set(m_tmp4, b.bits);                
-                mpn.div(m_tmp3.data(), a.nw,
-                    m_tmp4.data(), b.nw,
-                    m_tmp.data(), // quotient
-                    m_tmp2.data()); // remainder
+                    a.set(m_tmp4, b.bits);  
+                set_div(m_tmp3, m_tmp4, a.bw, m_tmp, m_tmp2);
                 if (val.is_zero(m_tmp2))
                     val.set(m_tmp2);
                 else if (a.sign() && b.sign())
@@ -557,10 +551,7 @@ namespace bv {
             if (b.is_zero()) 
                 val.set(m_minus_one);            
             else {
-                mpn.div(a.bits.data(), a.nw,
-                    b.bits.data(), b.nw,
-                    m_tmp.data(), // quotient
-                    m_tmp2.data()); // remainder
+                set_div(a.bits, b.bits, a.bw, m_tmp, m_tmp2);
                 val.set(m_tmp);
             }
             break;
@@ -705,6 +696,8 @@ namespace bv {
             return try_repair_bxor(wval0(e), wval0(e, i), wval0(e, 1 - i));
         case OP_BADD:
             return try_repair_add(wval0(e), wval0(e, i), wval0(e, 1 - i));
+        case OP_BSUB:
+            return try_repair_sub(wval0(e), wval0(e, 0), wval0(e, 1), i);
         case OP_BMUL:
             return try_repair_mul(wval0(e), wval0(e, i), wval0(e, 1 - i));
         case OP_BNOT:
@@ -787,20 +780,35 @@ namespace bv {
         case OP_EXT_ROTATE_LEFT:
             return try_repair_rotate_left(wval0(e), wval0(e, 0), wval0(e, 1), i);
         case OP_EXT_ROTATE_RIGHT:
-        case OP_BCOMP:
+            return try_repair_rotate_right(wval0(e), wval0(e, 0), wval0(e, 1), i);
+        case OP_ZERO_EXT:
+            return try_repair_zero_ext(wval0(e), wval0(e, 0));
+        case OP_SIGN_EXT:
+            return try_repair_zero_ext(wval0(e), wval0(e, 0));
+        case OP_CONCAT:
+            return try_repair_concat(wval0(e), wval0(e, 0), wval0(e, 1), i);
+        case OP_EXTRACT: {
+            unsigned hi, lo;
+            expr* arg;
+            VERIFY(bv.is_extract(e, lo, hi, arg));
+            return try_repair_extract(wval0(e), wval0(arg), lo);
+        }
+        case OP_BUMUL_NO_OVFL:
+            return try_repair_umul_ovfl(!bval0(e), wval0(e, 0), wval0(e, 1), i);
+        case OP_BUMUL_OVFL:
+            return try_repair_umul_ovfl(bval0(e), wval0(e, 0), wval0(e, 1), i);
+        case OP_BUADD_OVFL:
+        case OP_BCOMP:            
         case OP_BNAND:
         case OP_BREDAND:
         case OP_BREDOR:
         case OP_BXNOR:
         case OP_BNEG_OVFL:
         case OP_BSADD_OVFL:
-        case OP_BUADD_OVFL:
         case OP_BSDIV_OVFL:
         case OP_BSMUL_NO_OVFL:
         case OP_BSMUL_NO_UDFL:
         case OP_BSMUL_OVFL:
-        case OP_BUMUL_NO_OVFL:
-        case OP_BUMUL_OVFL:
             return false;
         case OP_BSREM:
         case OP_BSREM_I:
@@ -950,6 +958,21 @@ namespace bv {
         return true;
     }
 
+
+    bool sls_eval::try_repair_sub(bvval const& e, bvval& a, bvval & b, unsigned i) {
+        if (i == 0) {
+            // e = a - b -> a := e + b
+            a.set_add(m_tmp, e.bits, b.bits);
+            a.set_repair(random_bool(), m_tmp);
+        }
+        else {
+            // b := a - e
+            a.set_sub(m_tmp, a.bits, e.bits);
+            a.set_repair(random_bool(), m_tmp);
+        }
+        return true;
+    }
+
     /**
     * e = a*b, then a = e * b^-1
     * 8*e = a*(2b), then a = 4e*b^-1
@@ -998,14 +1021,31 @@ namespace bv {
         return try_repair_uge(e, a, b.bits);
     }
 
+    // a <=s b <-> a + p2 <=u b + p2
+
     bool sls_eval::try_repair_sle(bool e, bvval& a, bvval const& b) {
-        add_p2_1(b, m_tmp4);
-        return try_repair_ule(e, a, m_tmp4);
+        //add_p2_1(b, m_tmp4);
+        a.set(m_tmp, b.bits);
+        if (e) {
+            a.set_repair(true, m_tmp);
+        }
+        else {
+            a.set_add(m_tmp2, m_tmp, m_one);
+            a.set_repair(false, m_tmp2);
+        }
+        return true;
     }
 
     bool sls_eval::try_repair_sge(bool e, bvval& a, bvval const& b) {
-        add_p2_1(b, m_tmp4);
-        return try_repair_uge(e, a, m_tmp4);
+        a.set(m_tmp, b.bits);
+        if (e) {
+            a.set_repair(false, m_tmp);
+        }
+        else {
+            a.set_sub(m_tmp2, m_tmp, m_one);
+            a.set_repair(true, m_tmp2);
+        }
+        return true;
     }
 
     void sls_eval::add_p2_1(bvval const& a, svector<digit_t>& t) const {
@@ -1025,10 +1065,12 @@ namespace bv {
             a.set_add(m_tmp2, t, m_one);
             if (a.is_zero(m_tmp2))
                 return false;
-            if (!a.get_at_least(m_tmp2, m_tmp))
-                return false;           
+            if (!a.get_at_least(m_tmp2, m_tmp)) {
+                verbose_stream() << "could not get at least\n";                    
+                return false;
+            }
         }
-        a.set_repair(random_bool(), m_tmp2);
+        a.set_repair(random_bool(), m_tmp);
         return true;
     }
 
@@ -1090,15 +1132,28 @@ namespace bv {
             unsigned sh = b.to_nat(b.bits, b.bw);
             if (sh == 0)
                 return a.try_set(e.bits);
-            else if (sh >= b.bw)
-                return false;
+            else if (sh >= b.bw) {
+                if (e.get(e.bits, e.bw - 1)) {
+                    if (!a.get(a.bits, a.bw - 1) && !a.get(a.fixed, a.bw - 1))
+                        a.set(a.bits, a.bw - 1, true);
+                    else
+                        return false;
+                }
+                else {
+                    if (a.get(a.bits, a.bw - 1) && !a.get(a.fixed, a.bw - 1))
+                        a.set(a.bits, a.bw - 1, false);
+                    else
+                        return false;
+                }
+                return true;
+            }
             else {
                 // e = a >> sh
                 // a[bw-1:sh] = e[bw-sh-1:0]
                 // a[sh-1:0] = a[sh-1:0]                
                 // ignore sign
-                for (unsigned i = 0; i < a.bw - sh; ++i)
-                    a.set(m_tmp, i + sh, e.get(e.bits, i));
+                for (unsigned i = sh; i < a.bw; ++i)
+                    a.set(m_tmp, i, e.get(e.bits, i - sh));
                 for (unsigned i = 0; i < sh; ++i)
                     a.set(m_tmp, i, a.get(a.bits, i));
                 return a.try_set(m_tmp);
@@ -1142,15 +1197,17 @@ namespace bv {
                 a.set_repair(false, m_tmp);
                 return true;
             }
-            // y * e + r = a
+            // b * e + r = a
             for (unsigned i = 0; i < a.nw; ++i)
-                m_tmp[i] = random_bits();
+                m_tmp[i] = (random_bits() & ~b.fixed[i]) | (b.fixed[i] & b.bits[i]);
+            b.clear_overflow_bits(m_tmp);
             while (mul_overflow_on_fixed(e, m_tmp)) {
                 auto i = b.msb(m_tmp);
                 b.set(m_tmp, i, false);
             }
             for (unsigned i = 0; i < a.nw; ++i)
                 m_tmp2[i] = random_bits();
+            b.clear_overflow_bits(m_tmp2);
             while (b.gt(m_tmp2, b.bits)) 
                 b.set(m_tmp2, b.msb(m_tmp2), false);
             while (a.set_add(m_tmp3, m_tmp, m_tmp2)) 
@@ -1169,11 +1226,11 @@ namespace bv {
             for (unsigned i = 0; i < a.nw; ++i)
                 m_tmp[i] = random_bits();
             a.clear_overflow_bits(m_tmp);
-            // ensure r <= a
+            // ensure r <= m
             while (a.lt(a.bits, m_tmp))
                 a.set(m_tmp, a.msb(m_tmp), false);
             a.set_sub(m_tmp2, a.bits, m_tmp);
-            mpn.div(m_tmp2.data(), a.nw, e.bits.data(), a.nw, m_tmp3.data(), m_tmp4.data());
+            set_div(m_tmp2, e.bits, a.bw, m_tmp3, m_tmp4);
             b.set_repair(random_bool(), m_tmp4);
         }
         return true;
@@ -1205,13 +1262,13 @@ namespace bv {
 
             for (unsigned i = 0; i < a.nw; ++i)
                 m_tmp[i] = random_bits();
+            a.clear_overflow_bits(m_tmp);
             while (mul_overflow_on_fixed(b, m_tmp)) {
                 auto i = b.msb(m_tmp);
                 b.set(m_tmp, i, false);
             }
             while (true) {
                 a.set_mul(m_tmp2, m_tmp, b.bits);
-                a.clear_overflow_bits(m_tmp2);
                 if (!add_overflow_on_fixed(e, m_tmp2))
                     break;
                 auto i = b.msb(m_tmp);
@@ -1232,7 +1289,7 @@ namespace bv {
             for (unsigned i = 0; i < a.nw; ++i)
                 m_tmp[i] = random_bits();
             a.set_sub(m_tmp2, a.bits, e.bits);
-            mpn.div(m_tmp2.data(), a.nw, m_tmp.data(), a.nw, m_tmp3.data(), m_tmp4.data());
+            set_div(m_tmp2, m_tmp, a.bw, m_tmp3, m_tmp4);
             a.clear_overflow_bits(m_tmp3);
             b.set_repair(random_bool(), m_tmp3);
             return true;
@@ -1278,6 +1335,94 @@ namespace bv {
             b.set_repair(random_bool(), m_tmp);
             return true;
         }       
+    }
+
+    bool sls_eval::try_repair_rotate_right(bvval const& e, bvval& a, bvval& b, unsigned i) {
+        if (i == 0) {
+            rational n;
+            b.get_value(b.bits, n);
+            n = mod(b.bw - n, rational(b.bw));
+            return try_repair_rotate_left(e, a, n.get_unsigned());
+        }
+        else {
+            SASSERT(i == 1);
+            unsigned sh = m_rand(b.bw);
+            b.set(m_tmp, sh);
+            b.set_repair(random_bool(), m_tmp);
+            return true;
+        }
+    }
+
+    bool sls_eval::try_repair_umul_ovfl(bool e, bvval& a, bvval& b, unsigned i) {
+        if (e) {
+            // maximize
+            if (i == 0) {
+                a.max_feasible(m_tmp);
+                a.set_repair(false, m_tmp);
+            }
+            else {
+                b.max_feasible(m_tmp);
+                b.set_repair(false, m_tmp);
+            }
+        }
+        else {
+            // minimize
+            if (i == 0) {
+                a.min_feasible(m_tmp);
+                a.set_repair(true, m_tmp);
+            }
+            else {
+                b.min_feasible(m_tmp);
+                b.set_repair(true, m_tmp);
+            }
+        }
+        return true;
+    }
+
+    bool sls_eval::try_repair_zero_ext(bvval const& e, bvval& a) {
+        for (unsigned i = 0; i < e.bw; ++i)
+            if (!a.get(a.fixed, i))
+                a.set(a.bits, i, e.get(e.bits, i));
+        return true;
+    }
+
+    bool sls_eval::try_repair_concat(bvval const& e, bvval& a, bvval& b, unsigned i) {
+        if (i == 0) {
+            for (unsigned i = 0; i < a.bw; ++i)
+                if (!a.get(a.fixed, i))
+                    a.set(a.bits, i, e.get(e.bits, i + b.bw));
+        }
+        else {
+            for (unsigned i = 0; i < b.bw; ++i)
+                if (!b.get(b.fixed, i))
+                    b.set(b.bits, i, e.get(e.bits, i));
+        }
+        return true;
+    }
+
+    bool sls_eval::try_repair_extract(bvval const& e, bvval& a, unsigned lo) {
+        for (unsigned i = 0; i < a.bw; ++i)
+            if (!a.get(a.fixed, i))
+                a.set(a.bits, i, e.get(e.bits, i + lo));
+        return true;
+    }
+
+    void sls_eval::set_div(svector<digit_t> const& a, svector<digit_t> const& b, unsigned bw,
+        svector<digit_t>& quot, svector<digit_t>& rem) const {
+        unsigned nw = (bw + 8 * sizeof(digit_t) - 1) / (8 * sizeof(digit_t));
+        unsigned bnw = nw;
+        while (bnw > 1 && b[bnw - 1] == 0)
+            --bnw;
+        if (b[bnw-1] == 0) {
+            for (unsigned i = 0; i < nw; ++i) {
+                quot[i] = ~0;
+                rem[i] = 0;
+            }
+            quot[nw - 1] = (1 << (bw % (8 * sizeof(digit_t)))) - 1;            
+        }
+        else {
+            mpn.div(a.data(), nw, b.data(), bnw, quot.data(), rem.data());
+        }
     }
 
     void sls_eval::repair_up(expr* e) {

@@ -154,6 +154,7 @@ namespace bv {
             else
                 v.add_range(-b, -a);
         }
+        
     }
 
     void sls_fixed::get_offset(expr* e, expr*& x, rational& offset) {

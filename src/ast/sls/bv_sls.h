@@ -57,6 +57,9 @@ namespace bv {
 
         bool try_repair_down(app* e, unsigned i);
 
+        lbool search();
+        void reinit_eval();
+
     public:
         sls(ast_manager& m);
                 
