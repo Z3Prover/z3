@@ -2086,7 +2086,14 @@ struct
 
   let mk_roots (ctx:context) (a:rcf_num list) =
     let n, r = Z3native.rcf_mk_roots ctx (List.length a) a in
-    List.filteri (fun i _v -> i < n) r
+    let _i, l =
+      (* keep only the first `n` elements of the list `r` *)
+      List.fold_left (fun (i, acc) x ->
+        if i = 0 then i, acc
+        else (i - 1, x :: acc)
+      ) (n, []) r
+    in
+    List.rev l
 
   let add (ctx:context) (a:rcf_num) (b:rcf_num) = Z3native.rcf_add ctx a b
   let sub (ctx:context) (a:rcf_num) (b:rcf_num) = Z3native.rcf_sub ctx a b
