@@ -134,6 +134,7 @@ namespace bv {
          * Retrieve evaluation based on immediate children.         
          */
         bool bval1(app* e) const;
+        bool can_eval1(app* e) const;
 
         svector<digit_t>& wval1(app* e) const;
 

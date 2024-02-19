@@ -171,13 +171,39 @@ namespace bv {
                 auto const& vb = wval0(b);
                 return va.eq(vb);
             }
-            UNREACHABLE();
-            break;
+            return m.are_equal(a, b);
         }
         default:
             UNREACHABLE();
+            break;
         }
         UNREACHABLE();
+        return false;
+    }
+    
+    bool sls_eval::can_eval1(app* e) const {
+        expr* x, * y, * z;
+        if (m.is_eq(e, x, y))
+            return m.is_bool(x) || bv.is_bv(x);
+        if (m.is_ite(e, x, y, z))
+            return m.is_bool(y) || bv.is_bv(y);
+        if (e->get_family_id() == bv.get_fid()) {
+            switch (e->get_decl_kind()) {
+            case OP_BNEG_OVFL:
+            case OP_BSADD_OVFL:
+            case OP_BSDIV_OVFL:
+            case OP_BSMUL_NO_OVFL:
+            case OP_BSMUL_NO_UDFL:
+            case OP_BSMUL_OVFL:
+                return false;
+            default:
+                return true;
+            }
+        }
+        if (e->get_family_id() == basic_family_id)
+            return true;
+        if (is_uninterp_const(e))
+            return m.is_bool(e) || bv.is_bv(e);
         return false;
     }
 
@@ -1182,8 +1208,8 @@ namespace bv {
         if (i == 0) {
             if (e.is_zero() && a.is_ones(a.fixed) && a.is_ones())
                 return false;            
-            if (b.is_zero())
-                return true;
+            if (b.is_zero()) 
+                return false;            
             if (!e.is_ones()) {
                 for (unsigned i = 0; i < a.nw; ++i)
                     m_tmp[i] = ~a.fixed[i] | a.bits[i];
@@ -1215,11 +1241,19 @@ namespace bv {
             a.set_repair(true, m_tmp3);
         }
         else {
+            if (e.is_one() && a.is_zero()) {
+                for (unsigned i = 0; i < a.nw; ++i)
+                    m_tmp[i] = random_bits();
+                a.clear_overflow_bits(m_tmp);
+                b.set_repair(true, m_tmp);
+                return true;
+            }
             if (e.is_one()) {
                 b.set(m_tmp, a.bits);
                 b.set_repair(true, m_tmp);
                 return true;
             }
+
             // e * b + r = a
             // b = (a - r) udiv e 
             // random version of r:

@@ -36,7 +36,7 @@ namespace bv {
 
         struct config {
             unsigned    m_max_restarts = 1000;
-            unsigned    m_max_repairs = 100000;
+            unsigned    m_max_repairs = 1000;
         };
 
         ast_manager&        m;
@@ -59,6 +59,7 @@ namespace bv {
 
         lbool search();
         void reinit_eval();
+        void trace();
 
     public:
         sls(ast_manager& m);
@@ -85,7 +86,7 @@ namespace bv {
         */
         lbool operator()();
 
-        void updt_params(params_ref const& p) {}
+        void updt_params(params_ref const& p);
         void collect_statistics(statistics & st) const { m_stats.collect_statistics(st); }
         void reset_statistics() { m_stats.reset(); }
 

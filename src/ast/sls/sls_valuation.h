@@ -192,19 +192,26 @@ namespace bv {
 
         std::ostream& display(std::ostream& out) const {
             out << std::hex;
-            for (unsigned i = 0; i < nw; ++i)
-                out << bits[i];
+            auto print_bits = [&](svector<digit_t> const& v) {
+                bool nz = false;
+                for (unsigned i = nw; i-- > 0;)
+                    if (nz)
+                        out << std::setw(8) << std::setfill('0') << v[i];
+                    else if (v[i] != 0)
+                        out << v[i], nz = true;
+                if (!nz)
+                    out << "0";
+            };
+
+            print_bits(bits);
             out << " ";
-            for (unsigned i = 0; i < nw; ++i)
-                out << fixed[i];
+            print_bits(fixed);
 
             if (!eq(lo, hi)) {
                 out << " [";
-                for (unsigned i = 0; i < nw; ++i)
-                    out << lo[i];
+                print_bits(lo);
                 out << ", ";
-                for (unsigned i = 0; i < nw; ++i)
-                    out << hi[i];
+                print_bits(hi);
                 out << "[";
             }
             out << std::dec;

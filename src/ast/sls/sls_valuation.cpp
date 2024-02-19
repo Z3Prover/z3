@@ -296,6 +296,7 @@ namespace bv {
         h = mod(h, rational::power_of_two(bw));
         if (h == l)
             return;
+        
         if (eq(lo, hi)) {
             set_value(lo, l);
             set_value(hi, h);

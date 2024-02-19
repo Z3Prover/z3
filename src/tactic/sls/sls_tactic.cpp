@@ -126,14 +126,15 @@ public:
 
 class bv_sls_tactic : public tactic {
     ast_manager& m;
-    params_ref       m_params;
-    bv::sls* m_engine;
+    params_ref   m_params;
+    bv::sls*     m_sls;
+    statistics   m_st;
 
 public:
     bv_sls_tactic(ast_manager& _m, params_ref const& p) :
         m(_m),
         m_params(p) {
-        m_engine = alloc(bv::sls, m);
+        m_sls = alloc(bv::sls, m);
     }
 
     tactic* translate(ast_manager& m) override {
@@ -141,14 +142,14 @@ public:
     }
 
     ~bv_sls_tactic() override {
-        dealloc(m_engine);
+        dealloc(m_sls);
     }
 
     char const* name() const override { return "bv-sls"; }
 
     void updt_params(params_ref const& p) override {
         m_params.append(p);
-        m_engine->updt_params(m_params);
+        m_sls->updt_params(m_params);
     }
 
     void collect_param_descrs(param_descrs& r) override {
@@ -162,23 +163,24 @@ public:
         }
 
         for (unsigned i = 0; i < g->size(); i++)
-            m_engine->assert_expr(g->form(i));
+            m_sls->assert_expr(g->form(i));
 
-        m_engine->init();
+        m_sls->init();
         std::function<bool(expr*, unsigned)> false_eval = [&](expr* e, unsigned idx) {
             return false;
         };
-        m_engine->init_eval(false_eval);
+        m_sls->init_eval(false_eval);
 
-        lbool res = m_engine->operator()();
-        auto const& stats = m_engine->get_stats();
+        lbool res = m_sls->operator()();
+        auto const& stats = m_sls->get_stats();
         report_tactic_progress("Number of flips:", stats.m_moves);
-        IF_VERBOSE(0, verbose_stream() << res << "\n");
-        IF_VERBOSE(0, m_engine->display(verbose_stream()));
-        if (res == l_true) {
-            
+        IF_VERBOSE(20, verbose_stream() << res << "\n");
+        IF_VERBOSE(20, m_sls->display(verbose_stream()));
+        m_st.reset();
+        m_sls->collect_statistics(m_st);
+        if (res == l_true) {            
             if (g->models_enabled()) {
-                model_ref mdl = m_engine->get_model();
+                model_ref mdl = m_sls->get_model();
                 mc = model2model_converter(mdl.get());
                 TRACE("sls_model", mc->display(tout););
             }
@@ -204,17 +206,19 @@ public:
     }
 
     void cleanup() override {
+
         auto* d = alloc(bv::sls, m);
-        std::swap(d, m_engine);
+        std::swap(d, m_sls);
         dealloc(d);
     }
 
     void collect_statistics(statistics& st) const override {
-        m_engine->collect_statistics(st);
+        st.copy(m_st);
     }
 
     void reset_statistics() override {
-        m_engine->reset_statistics();
+        m_sls->reset_statistics();
+        m_st.reset();
     }
 
 };

@@ -35,13 +35,16 @@ namespace bv {
             st.update("sls restarts", m_restarts);
             st.update("sls full evals", m_full_evals);
             st.update("sls incr evals", m_incr_evals);
-            st.update("sls incr evals/sec", m_incr_evals / seconds);
+            if (seconds > 0 && m_incr_evals > 0)
+                st.update("sls incr evals/sec", m_incr_evals / seconds);
+            if (seconds > 0 && m_moves > 0)
+                st.update("sls moves/sec", m_moves / seconds);
             st.update("sls FLIP moves", m_flips);
             st.update("sls INC moves", m_incs);
             st.update("sls DEC moves", m_decs);
             st.update("sls INV moves", m_invs);
             st.update("sls moves", m_moves);
-            st.update("sls moves/sec", m_moves / seconds);
+
         }
         
     };

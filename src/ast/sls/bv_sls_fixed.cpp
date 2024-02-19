@@ -11,6 +11,7 @@ Author:
     
 --*/
 
+#include "ast/ast_pp.h"
 #include "ast/sls/bv_sls_fixed.h"
 #include "ast/sls/bv_sls_eval.h"
 
@@ -137,12 +138,12 @@ namespace bv {
                 v.add_range(-b, a - b);
         }
         else if (!y) {
-            if (mod(b + 1, rational::power_of_two(bv.get_bv_size(x))) == 1)
+            if (mod(b + 1, rational::power_of_two(bv.get_bv_size(x))) == 0)
                 return;
             auto& v = wval0(x);
             if (!sign)
                 v.add_range(-a, b - a + 1);
-            else
+            else 
                 v.add_range(b - a + 1, -a);
         }
         else if (x == y) {
