@@ -1,0 +1,1 @@
+npm login --scope=dtk --auth-type=legacy --registry=https://npm.pkg.github.com
