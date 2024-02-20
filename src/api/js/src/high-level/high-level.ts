@@ -64,6 +64,7 @@ import {
   Context,
   ContextCtor,
   Expr,
+  EnumSort,
   FuncDecl,
   FuncDeclSignature,
   FuncInterp,
@@ -584,6 +585,9 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     /////////////
     const Sort = {
       declare: (name: string) => new SortImpl(Z3.mk_uninterpreted_sort(contextPtr, _toSymbol(name))),
+      // extension
+      enumSort: (name: string, constantNames: string[]) => new EnumSortImpl(name, constantNames),
+
     };
     const Function = {
       declare: <DomainSort extends Sort<Name>[], RangeSort extends Sort<Name>>(
@@ -1321,7 +1325,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       unsatCore(): AstVector<Name, Bool<Name>> {
         return new AstVectorImpl(check(Z3.solver_get_unsat_core(contextPtr, this.ptr)));
       }
-      
+
       toString() {
         return check(Z3.solver_to_string(contextPtr, this.ptr));
       }
@@ -1695,6 +1699,45 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       neqIdentity(other: Sort<Name>) {
         return !this.eqIdentity(other);
       }
+    }
+    // extension 
+    abstract class DatatypeSortBaseImpl extends SortImpl { 
+    }
+    class EnumSortImpl extends DatatypeSortBaseImpl implements EnumSort<Name>{
+      declare readonly __typename: EnumSort['__typename'];
+        private _sortName: string
+        private _constantNames: string[]
+        private _numConstructors: number
+        private _datatypeConstructors: FuncDeclImpl<Sort<Name>[], Sort<Name>>[]
+        private _constants: ExprImpl<Z3_ast,Sort<Name>>[]
+        constructor(sortName: string, constantNames: string[]) {
+            const z3EnumInfo = Z3.mk_enumeration_sort(
+                contextPtr,
+                _toSymbol(sortName),
+                constantNames.map(constantName => _toSymbol(constantName))
+            )
+            super(z3EnumInfo.rv)
+            this._sortName = sortName
+            this._constantNames = constantNames
+            this._numConstructors = constantNames.length
+            this._datatypeConstructors = z3EnumInfo.enum_consts.map(funcDeclAst =>
+                new FuncDeclImpl(funcDeclAst))
+            this._constants = this._datatypeConstructors.map(funcDecl => funcDecl.call())
+        }
+
+        constants() {
+            return this._constants
+        }
+        datatypeConstructors() {
+            return this._datatypeConstructors
+        }
+        numConstructors() {
+            return this._numConstructors
+        }
+        sexpr() {
+            // TODO: refine
+            return this._sortName
+        }
     }
 
     class FuncDeclImpl<DomainSort extends Sort<Name>[], RangeSort extends Sort<Name>>

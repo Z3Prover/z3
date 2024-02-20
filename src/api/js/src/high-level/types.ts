@@ -769,6 +769,19 @@ export interface Model<Name extends string = 'main'> extends Iterable<FuncDecl<N
  */
 export interface SortCreation<Name extends string> {
   declare(name: string): Sort<Name>;
+  // extension
+  enumSort(name: string, constantNames: string[]): EnumSort<Name>
+}
+// extension
+export interface EnumSort<Name extends string = 'main'> extends Sort<Name> {
+  /** @hidden */
+  readonly __typename: 'EnumSort';
+
+  sortName: string
+  constantNames: string[]
+  numConstructors: number
+  datatypeConstructors: FuncDecl<Name, Sort<Name>[], Sort<Name>>[]
+  constants: Expr<Name, Sort<Name>>[]
 }
 
 export interface Sort<Name extends string = 'main'> extends Ast<Name, Z3_sort> {
@@ -778,7 +791,8 @@ export interface Sort<Name extends string = 'main'> extends Ast<Name, Z3_sort> {
     | BoolSort['__typename']
     | ArithSort['__typename']
     | BitVecSort['__typename']
-    | SMTArraySort['__typename'];
+    | SMTArraySort['__typename']
+    | EnumSort['__typename'];
 
   kind(): Z3_sort_kind;
 
