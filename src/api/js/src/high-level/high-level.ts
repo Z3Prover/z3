@@ -1295,14 +1295,12 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return new AstVectorImpl(check(Z3.solver_get_assertions(contextPtr, this.ptr)));
       }
 
-      async check(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): Promise<CheckSatResult> {
+      check(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): CheckSatResult {
         const assumptions = _flattenArgs(exprs).map(expr => {
           _assertContext(expr);
           return expr.ast;
         });
-        const result = await asyncMutex.runExclusive(() =>
-          check(Z3.solver_check_assumptions(contextPtr, this.ptr, assumptions)),
-        );
+        const result = check(Z3.solver_check_assumptions(contextPtr, this.ptr, assumptions))
         switch (result) {
           case Z3_lbool.Z3_L_FALSE:
             return 'unsat';

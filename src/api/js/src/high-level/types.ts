@@ -660,7 +660,7 @@ export interface Solver<Name extends string = 'main'> {
 
   fromString(s: string): void;
 
-  check(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): Promise<CheckSatResult>;
+  check(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): CheckSatResult;
 
   model(): Model<Name>;
 }

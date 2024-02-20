@@ -1,5 +1,9 @@
 // things which you probably want to do off-thread
 // from https://github.com/Z3Prover/z3/issues/5746#issuecomment-1006289146
+
+export const asyncFuncs = [];
+// note: to get Deno to work making sure no async functions are present
+/*
 export const asyncFuncs = [
   'Z3_eval_smtlib2_string',
   'Z3_simplify',
@@ -18,3 +22,4 @@ export const asyncFuncs = [
   'Z3_fixedpoint_query_from_lvl',
   'Z3_polynomial_subresultants',
 ];
+*/
