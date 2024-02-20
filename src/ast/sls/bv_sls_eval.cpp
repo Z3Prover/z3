@@ -1020,7 +1020,7 @@ namespace bv {
         unsigned parity_e = e.parity(e.bits);
         unsigned parity_b = b.parity(b.bits);
 
-#if 1
+#if 0
         
         auto& x = m_tmp;
         auto& y = m_tmp2;

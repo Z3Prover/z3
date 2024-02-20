@@ -59,6 +59,7 @@ namespace bv {
 
         lbool search();
         void reinit_eval();
+        void init_repair();
         void trace();
 
     public:

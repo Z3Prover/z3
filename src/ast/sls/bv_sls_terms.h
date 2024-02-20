@@ -67,6 +67,8 @@ namespace bv {
 
         app* term(unsigned id) const { return m_terms.get(id); }
 
+        app_ref_vector const& terms() const { return m_terms; }
+
         bool is_assertion(expr* e) const { return m_assertion_set.contains(e->get_id()); }
 
     };

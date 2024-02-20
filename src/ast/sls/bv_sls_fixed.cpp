@@ -103,9 +103,9 @@ namespace bv {
         else if (!sign && m.is_eq(e, s, t)) {
             if (bv.is_numeral(s, a))
                 // t - a <= 0
-                init_range(t, -a, nullptr, rational(0), !sign);
+                init_range(t, -a, nullptr, rational(0), false);
             else if (bv.is_numeral(t, a))
-                init_range(s, -a, nullptr, rational(0), !sign);
+                init_range(s, -a, nullptr, rational(0), false);
         }
         else if (bv.is_bit2bool(e, s, idx)) {
             auto& val = wval0(s);

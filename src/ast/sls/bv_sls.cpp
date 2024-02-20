@@ -38,13 +38,22 @@ namespace bv {
 
     void sls::init_eval(std::function<bool(expr*, unsigned)>& eval) {
         m_eval.init_eval(m_terms.assertions(), eval);
+        m_eval.init_fixed(m_terms.assertions());
+        init_repair();
+    }
+
+    void sls::init_repair() {
+        m_repair_down.reset();
+        m_repair_up.reset();
         for (auto* e : m_terms.assertions()) {
             if (!m_eval.bval0(e)) {
                 m_eval.set(e, true);
                 m_repair_down.insert(e->get_id());
             }
         }
-        m_eval.init_fixed(m_terms.assertions());
+        for (app* t : m_terms.terms()) 
+            if (t && !eval_is_correct(t))
+                m_repair_down.insert(t->get_id());
     }
 
     void sls::reinit_eval() {
@@ -64,14 +73,7 @@ namespace bv {
             return m_rand() % 2 == 0;
         };
         m_eval.init_eval(m_terms.assertions(), eval);
-        m_repair_down.reset();
-        m_repair_up.reset();
-        for (auto* e : m_terms.assertions()) {
-            if (!m_eval.bval0(e)) {
-                m_eval.set(e, true);
-                m_repair_down.insert(e->get_id());
-            }
-        }
+        init_repair();
     }
 
     std::pair<bool, app*> sls::next_to_repair() {
@@ -95,12 +97,14 @@ namespace bv {
             auto [down, e] = next_to_repair();
             if (!e)
                 return l_true;
+            bool is_correct = eval_is_correct(e);
             IF_VERBOSE(20, verbose_stream() << (down ? "d #" : "u #")
-                << e->get_id() << ": "
-                << mk_bounded_pp(e, m, 1) << " ";
-            if (bv.is_bv(e)) verbose_stream() << m_eval.wval0(e);
-            verbose_stream() << "\n");
-            if (eval_is_correct(e)) {
+                       << e->get_id() << ": "
+                       << mk_bounded_pp(e, m, 1) << " ";
+                       if (bv.is_bv(e)) verbose_stream() << m_eval.wval0(e) << " ";
+                       if (m.is_bool(e)) verbose_stream() << m_eval.bval0(e) << " ";
+                       verbose_stream() << (is_correct?"C":"U") << "\n");
+            if (is_correct) {
                 if (down)
                     m_repair_down.remove(e->get_id());
                 else
@@ -185,8 +189,8 @@ namespace bv {
 
     model_ref sls::get_model() {
         model_ref mdl = alloc(model, m);
-        m_eval.sort_assertions(m_terms.assertions());
-        for (expr* e : m_todo) {
+        auto& terms = m_eval.sort_assertions(m_terms.assertions());
+        for (expr* e : terms) {
             if (!is_uninterp_const(e))
                 continue;
             auto f = to_app(e)->get_decl();
@@ -199,6 +203,7 @@ namespace bv {
                 mdl->register_decl(f, bv.mk_numeral(n, v.bw));
             }
         }
+        terms.reset();
         return mdl;
     }
 

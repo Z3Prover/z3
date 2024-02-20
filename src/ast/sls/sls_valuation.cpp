@@ -243,9 +243,10 @@ namespace bv {
 
     void sls_valuation::get_value(svector<digit_t> const& bits, rational& r) const {
         rational p(1);
+        r = 0;
         for (unsigned i = 0; i < nw; ++i) {
             r += p * rational(bits[i]);
-            p *= rational::power_of_two(bw);
+            p *= rational::power_of_two(8*sizeof(digit_t));
         }
     }
 
