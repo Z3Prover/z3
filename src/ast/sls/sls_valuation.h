@@ -131,9 +131,19 @@ namespace bv {
             clear_overflow_bits(bits);
         }
 
-        void set_zero() {
+        void set_zero(svector<digit_t>& out) const {
             for (unsigned i = 0; i < nw; ++i)
-                bits[i] = 0;
+                out[i] = 0;
+        }
+
+        void set_one(svector<digit_t>& out) const {
+            for (unsigned i = 1; i < nw; ++i)
+                out[i] = 0;
+            out[0] = 1;
+        }
+
+        void set_zero() {
+            set_zero(bits);
         }
 
         void sub1(svector<digit_t>& out) const {
@@ -149,7 +159,8 @@ namespace bv {
 
         void set_sub(svector<digit_t>& out, svector<digit_t> const& a, svector<digit_t> const& b) const;
         bool set_add(svector<digit_t>& out, svector<digit_t> const& a, svector<digit_t> const& b) const;
-        bool set_mul(svector<digit_t>& out, svector<digit_t> const& a, svector<digit_t> const& b) const;
+        bool set_mul(svector<digit_t>& out, svector<digit_t> const& a, svector<digit_t> const& b, bool check_overflow = true) const;
+        void shift_right(svector<digit_t>& out, unsigned shift) const;
 
         void set_range(svector<digit_t>& dst, unsigned lo, unsigned hi, bool b) {
             for (unsigned i = lo; i < hi; ++i)

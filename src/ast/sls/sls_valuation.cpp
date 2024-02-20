@@ -291,6 +291,15 @@ namespace bv {
         return value;
     }
 
+    void sls_valuation::shift_right(svector<digit_t>& out, unsigned shift) const {
+        SASSERT(shift < bw);
+        unsigned n = shift / (8 * sizeof(digit_t));
+        unsigned s = shift % (8 * sizeof(digit_t));
+        for (unsigned i = 0; i < bw; ++i)
+            set(out, i, i + shift < bw ? get(bits, i + shift) : false);
+        SASSERT(!has_overflow(out));
+    }
+
     void sls_valuation::add_range(rational l, rational h) {
         l = mod(l, rational::power_of_two(bw));
         h = mod(h, rational::power_of_two(bw));
@@ -427,11 +436,15 @@ namespace bv {
         return ovfl;
     }
 
-    bool sls_valuation::set_mul(svector<digit_t>& out, svector<digit_t> const& a, svector<digit_t> const& b) const {
+    bool sls_valuation::set_mul(svector<digit_t>& out, svector<digit_t> const& a, svector<digit_t> const& b, bool check_overflow) const {
         mpn_manager().mul(a.data(), nw, b.data(), nw, out.data());
-        bool ovfl = has_overflow(out);
-        for (unsigned i = nw; i < 2 * nw; ++i)
-            ovfl |= out[i] != 0;
+
+        bool ovfl = false;
+        if (check_overflow) {
+            ovfl = has_overflow(out);
+            for (unsigned i = nw; i < 2 * nw; ++i)
+                ovfl |= out[i] != 0;
+        }
         clear_overflow_bits(out);
         return ovfl;
     }

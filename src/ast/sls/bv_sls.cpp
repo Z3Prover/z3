@@ -50,7 +50,7 @@ namespace bv {
     void sls::reinit_eval() {
         std::function<bool(expr*, unsigned)> eval = [&](expr* e, unsigned i) {
             auto should_keep = [&]() {
-                return m_rand() % 100 >= 95;
+                return m_rand() % 100 >= 98;
             };
             if (m.is_bool(e)) {
                 if (m_eval.is_fixed0(e) || should_keep())
@@ -225,5 +225,6 @@ namespace bv {
     void sls::updt_params(params_ref const& _p) {
         sls_params p(_p);
         m_config.m_max_restarts = p.max_restarts();
+        m_rand.set_seed(p.random_seed());
     }
 }

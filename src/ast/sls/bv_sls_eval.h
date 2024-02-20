@@ -40,6 +40,7 @@ namespace bv {
         bool_vector                      m_fixed;  // expr-id -> is Boolean fixed
 
         mutable svector<digit_t> m_tmp, m_tmp2, m_tmp3, m_tmp4, m_zero, m_one, m_minus_one;
+        svector<digit_t> m_a, m_b, m_nextb, m_nexta, m_aux;
 
         using bvval = sls_valuation;
 

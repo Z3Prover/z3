@@ -96,6 +96,11 @@ namespace bv {
             m_tmp4.push_back(0);
             m_zero.push_back(0);
             m_one.push_back(0);
+            m_a.push_back(0);
+            m_b.push_back(0);
+            m_nexta.push_back(0);
+            m_nextb.push_back(0);
+            m_aux.push_back(0);
             m_minus_one.push_back(~0);
             m_one[0] = 1;
         }
@@ -1011,17 +1016,98 @@ namespace bv {
             }
             return false;
         }
+
+        unsigned parity_e = e.parity(e.bits);
+        unsigned parity_b = b.parity(b.bits);
+
+#if 1
+        
+        auto& x = m_tmp;
+        auto& y = m_tmp2;
+        auto& quot = m_tmp3;
+        auto& rem = m_tmp4;
+        auto& ta = m_a;
+        auto& tb = m_b;
+        auto& nexta = m_nexta;
+        auto& nextb = m_nextb;
+        auto& aux = m_aux;
+        
+
+        // x*ta + y*tb = x
+        b.get(y);
+        if (parity_b > 0)
+            b.shift_right(y, parity_b);
+        y[a.nw] = 0;
+        a.nw = a.nw + 1;
+        a.bw = 8 * sizeof(digit_t) * a.nw;
+        // x = 2 ^ b.bw
+        a.set_zero(x);
+        a.set(x, b.bw, true);        
+
+        a.set_one(ta);
+        a.set_zero(tb);
+        a.set_zero(nexta);
+        a.set_one(nextb);
+
+        rem.reserve(2 * a.nw);
+        SASSERT(a.le(y, x));
+        while (a.gt(y, m_zero)) {
+            SASSERT(a.le(y, x));            
+            set_div(x, y, a.bw, quot, rem); // quot, rem := quot_rem(x, y)
+            SASSERT(a.le(rem, y));
+            a.set(x, y);                    // x := y
+            a.set(y, rem);                  // y := rem
+            a.set(aux, nexta);              // aux := nexta
+            a.set_mul(rem, quot, nexta, false);  
+            a.set_sub(nexta, ta, rem);      // nexta := ta - quot*nexta
+            a.set(ta, aux);                 // ta := aux
+            a.set(aux, nextb);              // aux := nextb
+            a.set_mul(rem, quot, nextb, false);
+            a.set_sub(nextb, tb, rem);      // nextb := tb - quot*nextb
+            a.set(tb, aux);                 // tb := aux
+        }
+
+        a.bw = b.bw;
+        a.nw = b.nw;
+        // x*a + y*b = 1
+    
+#if Z3DEBUG
+        b.get(y);
+        if (parity_b > 0)
+            b.shift_right(y, parity_b);
+        a.set_mul(m_tmp, tb, y);
+#if 0
+        for (unsigned i = a.nw; i-- > 0; )
+            verbose_stream() << tb[i];
+        verbose_stream() << "\n";
+        for (unsigned i = a.nw; i-- > 0; )
+            verbose_stream() << y[i];
+        verbose_stream() << "\n";
+        for (unsigned i = a.nw; i-- > 0; )
+            verbose_stream() << m_tmp[i];
+        verbose_stream() << "\n";
+#endif
+        SASSERT(b.is_one(m_tmp));
+#endif
+        e.get(m_tmp2);
+        if (parity_e > 0 && parity_b > 0)
+            b.shift_right(m_tmp2, std::min(parity_b, parity_e));
+        a.set_mul(m_tmp, tb, m_tmp2);
+        a.set_repair(random_bool(), m_tmp);
+
+#else
+
         rational ne, nb;
         e.get_value(e.bits, ne);
         b.get_value(b.bits, nb);
-        unsigned parity_e = e.parity(e.bits);
-        unsigned parity_b = b.parity(b.bits);
+
         if (parity_b > 0)
             ne /= rational::power_of_two(std::min(parity_b, parity_e));
         auto inv_b = nb.pseudo_inverse(b.bw);
         rational na = mod(inv_b * ne, rational::power_of_two(a.bw));
         a.set_value(m_tmp, na);
         a.set_repair(random_bool(), m_tmp);
+#endif
         return true;        
     }
 
@@ -1454,7 +1540,9 @@ namespace bv {
             }
             quot[nw - 1] = (1 << (bw % (8 * sizeof(digit_t)))) - 1;            
         }
-        else {
+        else {            
+            for (unsigned i = 0; i < nw; ++i) 
+                rem[i] = quot[i] = 0;
             mpn.div(a.data(), nw, b.data(), bnw, quot.data(), rem.data());
         }
     }
