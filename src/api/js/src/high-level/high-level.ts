@@ -1705,11 +1705,11 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
     class EnumSortImpl extends DatatypeSortBaseImpl implements EnumSort<Name>{
       declare readonly __typename: EnumSort['__typename'];
-        private _sortName: string
-        private _constantNames: string[]
-        private _numConstructors: number
-        private _datatypeConstructors: FuncDeclImpl<Sort<Name>[], Sort<Name>>[]
-        private _constants: ExprImpl<Z3_ast,Sort<Name>>[]
+        sortName: string
+        constantNames: string[]
+        numConstructors: number
+        datatypeConstructors: FuncDeclImpl<Sort<Name>[], Sort<Name>>[]
+        constants: ExprImpl<Z3_ast,Sort<Name>>[]
         constructor(sortName: string, constantNames: string[]) {
             const z3EnumInfo = Z3.mk_enumeration_sort(
                 contextPtr,
@@ -1717,26 +1717,17 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
                 constantNames.map(constantName => _toSymbol(constantName))
             )
             super(z3EnumInfo.rv)
-            this._sortName = sortName
-            this._constantNames = constantNames
-            this._numConstructors = constantNames.length
-            this._datatypeConstructors = z3EnumInfo.enum_consts.map(funcDeclAst =>
+            this.sortName = sortName
+            this.constantNames = constantNames
+            this.numConstructors = constantNames.length
+            this.datatypeConstructors = z3EnumInfo.enum_consts.map(funcDeclAst =>
                 new FuncDeclImpl(funcDeclAst))
-            this._constants = this._datatypeConstructors.map(funcDecl => funcDecl.call())
+            this.constants = this.datatypeConstructors.map(funcDecl => funcDecl.call())
         }
 
-        constants() {
-            return this._constants
-        }
-        datatypeConstructors() {
-            return this._datatypeConstructors
-        }
-        numConstructors() {
-            return this._numConstructors
-        }
         sexpr() {
             // TODO: refine
-            return this._sortName
+            return this.sortName
         }
     }
 
