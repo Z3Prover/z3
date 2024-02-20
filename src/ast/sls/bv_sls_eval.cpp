@@ -1020,7 +1020,7 @@ namespace bv {
         unsigned parity_e = e.parity(e.bits);
         unsigned parity_b = b.parity(b.bits);
 
-#if 0
+#if 1
         
         auto& x = m_tmp;
         auto& y = m_tmp2;
@@ -1521,9 +1521,9 @@ namespace bv {
     }
 
     bool sls_eval::try_repair_extract(bvval const& e, bvval& a, unsigned lo) {
-        for (unsigned i = 0; i < a.bw; ++i)
-            if (!a.get(a.fixed, i))
-                a.set(a.bits, i, e.get(e.bits, i + lo));
+        for (unsigned i = 0; i < e.bw; ++i)
+            if (!a.get(a.fixed, i + lo))
+                a.set(a.bits, i + lo, e.get(e.bits, i));
         return true;
     }
 
@@ -1553,6 +1553,6 @@ namespace bv {
         if (m.is_bool(e))
             set(e, bval1(to_app(e)));
         else if (bv.is_bv(e)) 
-            wval0(e).try_set(wval1(to_app(e)));        
+            wval0(e).set(wval1(to_app(e)));        
     }
 }

@@ -171,6 +171,7 @@ namespace bv {
         }
         else {
             m_eval.repair_up(e);
+            SASSERT(eval_is_correct(e));
             for (auto p : m_terms.parents(e))
                 m_repair_up.insert(p->get_id());
         }
@@ -191,8 +192,17 @@ namespace bv {
         model_ref mdl = alloc(model, m);
         auto& terms = m_eval.sort_assertions(m_terms.assertions());
         for (expr* e : terms) {
+            if (!eval_is_correct(to_app(e))) {
+                verbose_stream() << "missed evaluation #" << e->get_id() << " " << mk_bounded_pp(e, m) << "\n";
+                if (bv.is_bv(e)) {
+                    auto const& v0 = m_eval.wval0(e);
+                    auto const& v1 = m_eval.wval1(to_app(e));
+                    verbose_stream() << v0 << "\n" << v1 << "\n";
+                }
+            }
             if (!is_uninterp_const(e))
                 continue;
+
             auto f = to_app(e)->get_decl();
             if (m.is_bool(e))
                 mdl->register_decl(f, m.mk_bool_val(m_eval.bval0(e)));
