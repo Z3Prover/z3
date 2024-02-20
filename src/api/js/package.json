@@ -1,6 +1,6 @@
 {
   "name": "dtk-z3-solver-deno",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "keywords": [
     "Z3",
     "theorem",

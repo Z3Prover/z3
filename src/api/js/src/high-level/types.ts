@@ -663,6 +663,9 @@ export interface Solver<Name extends string = 'main'> {
   check(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): CheckSatResult;
 
   model(): Model<Name>;
+
+   // extensions
+   unsatCore(): AstVector<Name, Bool<Name>>
 }
 
 export interface Optimize<Name extends string = 'main'> {
