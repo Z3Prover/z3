@@ -17,6 +17,8 @@ Notes:
 
 package com.microsoft.z3;
 
+import java.lang.ref.ReferenceQueue;
+
 /**
  * Objects of this class track statistical information about solvers.
  **/
@@ -25,7 +27,7 @@ public class Statistics extends Z3Object {
      * Statistical data is organized into pairs of [Key, Entry], where every
      * Entry is either a {@code DoubleEntry} or a {@code UIntEntry}
      **/
-    public class Entry
+    public static class Entry
     {
         /**
          * The key of the entry.
@@ -191,11 +193,23 @@ public class Statistics extends Z3Object {
 
     @Override
     void incRef() {
-        getContext().getStatisticsDRQ().storeReference(getContext(), this);
+        Native.statsIncRef(getContext().nCtx(), getNativeObject());
     }
 
     @Override
     void addToReferenceQueue() {
-        Native.statsIncRef(getContext().nCtx(), getNativeObject());
+        getContext().getReferenceQueue().storeReference(this, StatisticsRef::new);
+    }
+
+    private static class StatisticsRef extends Z3ReferenceQueue.Reference<Statistics> {
+
+        private StatisticsRef(Statistics referent, ReferenceQueue<Z3Object> q) {
+            super(referent, q);
+        }
+
+        @Override
+        void decRef(Context ctx, long z3Obj) {
+            Native.statsDecRef(ctx.nCtx(), z3Obj);
+        }
     }
 }

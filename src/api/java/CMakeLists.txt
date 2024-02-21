@@ -91,17 +91,13 @@ add_custom_command(OUTPUT ${Z3_JAVA_ENUMERATION_PACKAGE_FILES_FULL_PATH}
 
 set(Z3_JAVA_JAR_SOURCE_FILES
   AlgebraicNum.java
-  ApplyResultDecRefQueue.java
   ApplyResult.java
   ArithExpr.java
   ArithSort.java
   ArrayExpr.java
   ArraySort.java
-  ASTDecRefQueue.java
   AST.java
-  AstMapDecRefQueue.java
   ASTMap.java
-  AstVectorDecRefQueue.java
   ASTVector.java
   BitVecExpr.java
   BitVecNum.java
@@ -109,9 +105,7 @@ set(Z3_JAVA_JAR_SOURCE_FILES
   BoolExpr.java
   BoolSort.java
   CharSort.java
-  ConstructorDecRefQueue.java
   Constructor.java
-  ConstructorListDecRefQueue.java
   ConstructorList.java
   Context.java
   DatatypeExpr.java
@@ -121,7 +115,6 @@ set(Z3_JAVA_JAR_SOURCE_FILES
   FiniteDomainExpr.java
   FiniteDomainNum.java
   FiniteDomainSort.java
-  FixedpointDecRefQueue.java
   Fixedpoint.java
   FPExpr.java
   FPNum.java
@@ -130,13 +123,9 @@ set(Z3_JAVA_JAR_SOURCE_FILES
   FPRMSort.java
   FPSort.java
   FuncDecl.java
-  FuncInterpDecRefQueue.java
-  FuncInterpEntryDecRefQueue.java
   FuncInterp.java
   Global.java
-  GoalDecRefQueue.java
   Goal.java
-  IDecRefQueue.java
   IntExpr.java
   IntNum.java
   IntSort.java
@@ -144,16 +133,11 @@ set(Z3_JAVA_JAR_SOURCE_FILES
   Lambda.java
   ListSort.java
   Log.java
-  ModelDecRefQueue.java
   Model.java
-  OptimizeDecRefQueue.java
   Optimize.java
-  ParamDescrsDecRefQueue.java
   ParamDescrs.java
-  ParamsDecRefQueue.java
   Params.java
   Pattern.java
-  ProbeDecRefQueue.java
   Probe.java
   Quantifier.java
   RatNum.java
@@ -166,16 +150,12 @@ set(Z3_JAVA_JAR_SOURCE_FILES
   SeqSort.java
   SetSort.java
   Simplifier.java
-  SimplifierDecRefQueue.java
-  SolverDecRefQueue.java
   Solver.java
   Sort.java
-  StatisticsDecRefQueue.java
   Statistics.java
   Status.java
   StringSymbol.java
   Symbol.java
-  TacticDecRefQueue.java
   Tactic.java
   TupleSort.java
   UninterpretedSort.java
@@ -183,6 +163,7 @@ set(Z3_JAVA_JAR_SOURCE_FILES
   Version.java
   Z3Exception.java
   Z3Object.java
+  Z3ReferenceQueue.java
 )
 set(Z3_JAVA_JAR_SOURCE_FILES_FULL_PATH "")
 foreach (java_src_file ${Z3_JAVA_JAR_SOURCE_FILES})

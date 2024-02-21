@@ -17,6 +17,8 @@ Notes:
 
 package com.microsoft.z3;
 
+import java.lang.ref.ReferenceQueue;
+
 /**
  * Probes are used to inspect a goal (aka problem) and collect information that
  * may be used to decide which solver and/or preprocessing step will be used.
@@ -56,6 +58,18 @@ public class Probe extends Z3Object {
 
     @Override
     void addToReferenceQueue() {
-        getContext().getProbeDRQ().storeReference(getContext(), this);
+        getContext().getReferenceQueue().storeReference(this, ProbeRef::new);
+    }
+
+    private static class ProbeRef extends Z3ReferenceQueue.Reference<Probe> {
+
+        private ProbeRef(Probe referent, ReferenceQueue<Z3Object> q) {
+            super(referent, q);
+        }
+
+        @Override
+        void decRef(Context ctx, long z3Obj) {
+            Native.probeDecRef(ctx.nCtx(), z3Obj);
+        }
     }
 }

@@ -17,6 +17,8 @@ Notes:
 
 package com.microsoft.z3;
 
+import java.lang.ref.ReferenceQueue;
+
 /**
  * A function interpretation is represented as a finite map and an 'else' value.
  * Each entry in the finite map represents the value of a function given a set
@@ -93,7 +95,19 @@ public class FuncInterp<R extends Sort> extends Z3Object {
 
         @Override
         void addToReferenceQueue() {
-            getContext().getFuncEntryDRQ().storeReference(getContext(), this);
+            getContext().getReferenceQueue().storeReference(this, FuncEntryRef::new);
+        }
+
+        private static class FuncEntryRef extends Z3ReferenceQueue.Reference<Entry<?>> {
+
+            private FuncEntryRef(Entry<?> referent, ReferenceQueue<Z3Object> q) {
+                super(referent, q);
+            }
+
+            @Override
+            void decRef(Context ctx, long z3Obj) {
+                Native.funcEntryDecRef(ctx.nCtx(), z3Obj);
+            }
         }
     }
 
@@ -186,6 +200,18 @@ public class FuncInterp<R extends Sort> extends Z3Object {
 
     @Override
     void addToReferenceQueue() {
-        getContext().getFuncInterpDRQ().storeReference(getContext(), this);
+        getContext().getReferenceQueue().storeReference(this, FuncInterpRef::new);
+    }
+
+    private static class FuncInterpRef extends Z3ReferenceQueue.Reference<FuncInterp<?>> {
+
+        private FuncInterpRef(FuncInterp<?> referent, ReferenceQueue<Z3Object> q) {
+            super(referent, q);
+        }
+
+        @Override
+        void decRef(Context ctx, long z3Obj) {
+            Native.funcInterpDecRef(ctx.nCtx(), z3Obj);
+        }
     }
 }
