@@ -1039,6 +1039,7 @@ namespace bv {
         
 
         // x*ta + y*tb = x
+        auto bw = a.bw;
         b.get(y);
         if (parity_b > 0)
             b.shift_right(y, parity_b);
@@ -1047,7 +1048,7 @@ namespace bv {
         a.bw = 8 * sizeof(digit_t) * a.nw;
         // x = 2 ^ b.bw
         a.set_zero(x);
-        a.set(x, b.bw, true);        
+        a.set(x, bw, true);        
 
         a.set_one(ta);
         a.set_zero(tb);
@@ -1072,8 +1073,8 @@ namespace bv {
             a.set(tb, aux);                 // tb := aux
         }
 
-        a.bw = b.bw;
-        a.nw = b.nw;
+        a.bw = bw;
+        a.nw = a.nw - 1;
         // x*a + y*b = 1
     
 #if Z3DEBUG
