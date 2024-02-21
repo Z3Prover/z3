@@ -571,6 +571,15 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return result;
     }
 
+    function solveSync(...assertions: Bool<Name>[]): Model<Name> | 'unsat' | 'unknown' {
+      const solver = new ctx.Solver();
+      solver.add(...assertions);
+      const result = solver.checkSync();
+      if (result === 'sat') {
+        return solver.model();
+      }
+      return result;
+    }
     ///////////////////////////////
     // expression simplification //
     ///////////////////////////////
@@ -579,7 +588,10 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       const result = await Z3.simplify(contextPtr, e.ast);
       return _toExpr(check(result));
     }
-
+    function simplifySync(e: Expr<Name>): Expr<Name> {
+      const result = Z3.simplify(contextPtr, e.ast);
+      return _toExpr(check(result));
+    }
     /////////////
     // Objects //
     /////////////
@@ -1298,8 +1310,27 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       assertions(): AstVector<Name, Bool<Name>> {
         return new AstVectorImpl(check(Z3.solver_get_assertions(contextPtr, this.ptr)));
       }
+      async check(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): Promise<CheckSatResult> {
+        const assumptions = _flattenArgs(exprs).map(expr => {
+          _assertContext(expr);
+          return expr.ast;
+        });
+        const result = await asyncMutex.runExclusive(() =>
+          check(Z3.solver_check_assumptions(contextPtr, this.ptr, assumptions)),
+        );
+        switch (result) {
+          case Z3_lbool.Z3_L_FALSE:
+            return 'unsat';
+          case Z3_lbool.Z3_L_TRUE:
+            return 'sat';
+          case Z3_lbool.Z3_L_UNDEF:
+            return 'unknown';
+          default:
+            assertExhaustive(result);
+        }
+      }
 
-      check(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): CheckSatResult {
+      checkSync(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): CheckSatResult {
         const assumptions = _flattenArgs(exprs).map(expr => {
           _assertContext(expr);
           return expr.ast;
@@ -1404,6 +1435,25 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         });
         const result = await asyncMutex.runExclusive(() =>
           check(Z3.optimize_check(contextPtr, this.ptr, assumptions)),
+        );
+        switch (result) {
+          case Z3_lbool.Z3_L_FALSE:
+            return 'unsat';
+          case Z3_lbool.Z3_L_TRUE:
+            return 'sat';
+          case Z3_lbool.Z3_L_UNDEF:
+            return 'unknown';
+          default:
+            assertExhaustive(result);
+        }
+      }
+      checkSync(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): CheckSatResult {
+        const assumptions = _flattenArgs(exprs).map(expr => {
+          _assertContext(expr);
+          return expr.ast;
+        });
+        const result = 
+          check(Z3.optimize_check(contextPtr, this.ptr, assumptions)
         );
         switch (result) {
           case Z3_lbool.Z3_L_FALSE:
@@ -2857,7 +2907,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       getVarIndex,
       from,
       solve,
-
+      solveSync,
       /////////////
       // Objects //
       /////////////
@@ -2923,7 +2973,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       substitute,
       simplify,
-
+      simplifySync,
       /////////////
       // Loading //
       /////////////

@@ -1,8 +1,17 @@
+
 # Z3 TypeScript Bindings
 
 This project provides high-level and low-level TypeScript bindings for the [Z3 theorem prover](https://github.com/Z3Prover/z3). It is available on npm as [z3-solver](https://www.npmjs.com/package/z3-solver).
 
 Z3 itself is distributed as a wasm artifact as part of this package.
+
+
+## Compatibility and Workarounds
+
+Note: This is a modification of the [z3-solver package](https://www.npmjs.com/package/z3-solver) that serves as a workaround to be used with Deno to get around the issue described [here](https://github.com/denoland/deno/issues/21695). This workaround modifies asynchronous calls to synchronous calls.
+The async high level function that currently have sync versions are:
+- Solver#checkSync is syncronous version of Solver#check
+
 
 ## Using
 

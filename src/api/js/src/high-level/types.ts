@@ -309,6 +309,8 @@ export interface Context<Name extends string = 'main'> {
    * @category Functions */
   solve(...assertions: Bool<Name>[]): Promise<Model<Name> | 'unsat' | 'unknown'>;
 
+  solveSync(...assertions: Bool<Name>[]): Model<Name> | 'unsat' | 'unknown';
+
   /////////////
   // Classes //
   /////////////
@@ -602,6 +604,8 @@ export interface Context<Name extends string = 'main'> {
   substitute(t: Expr<Name>, ...substitutions: [Expr<Name>, Expr<Name>][]): Expr<Name>;
 
   simplify(expr: Expr<Name>): Promise<Expr<Name>>;
+
+  simplifySync(expr: Expr<Name>): Expr<Name>;
 }
 
 export interface Ast<Name extends string = 'main', Ptr = unknown> {
@@ -660,7 +664,9 @@ export interface Solver<Name extends string = 'main'> {
 
   fromString(s: string): void;
 
-  check(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): CheckSatResult;
+  check(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): Promise<CheckSatResult>;
+
+  checkSync(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): CheckSatResult;
 
   model(): Model<Name>;
 
@@ -696,6 +702,8 @@ export interface Optimize<Name extends string = 'main'> {
   minimize(expr: Arith<Name>): void;
 
   check(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): Promise<CheckSatResult>;
+
+  checkSync(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): CheckSatResult;
 
   model(): Model<Name>;
 }
