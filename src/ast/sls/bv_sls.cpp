@@ -166,11 +166,12 @@ namespace bv {
 
     void sls::try_repair_up(app* e) {
         m_repair_up.remove(e->get_id());
-        if (m_terms.is_assertion(e)) {
-            m_repair_down.insert(e->get_id());
-        }
+        if (m_terms.is_assertion(e) || !m_eval.repair_up(e)) 
+            m_repair_down.insert(e->get_id());        
         else {
-            m_eval.repair_up(e);
+            if (!eval_is_correct(e)) {
+                verbose_stream() << "incorrect eval #" << e->get_id() << " " << mk_bounded_pp(e, m) << "\n";
+            }
             SASSERT(eval_is_correct(e));
             for (auto p : m_terms.parents(e))
                 m_repair_up.insert(p->get_id());

@@ -12,6 +12,7 @@ Author:
 --*/
 
 #include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 #include "ast/sls/bv_sls.h"
 
 namespace bv {
@@ -178,7 +179,9 @@ namespace bv {
             }
             return m.are_equal(a, b);
         }
+        case OP_DISTINCT:
         default:
+            verbose_stream() << mk_bounded_pp(e, m) << "\n";
             UNREACHABLE();
             break;
         }
@@ -511,14 +514,16 @@ namespace bv {
         }
         case OP_SIGN_EXT: {
             auto& a = wval0(e->get_arg(0));
-            val.set(a.bits);
+            for (unsigned i = 0; i < a.bw; ++i)
+                val.set(val.bits, i, a.get(a.bits, i));            
             bool sign = a.sign();
             val.set_range(val.bits, a.bw, val.bw, sign);
             break;
         }
         case OP_ZERO_EXT: {
             auto& a = wval0(e->get_arg(0));
-            val.set(a.bits);
+            for (unsigned i = 0; i < a.bw; ++i)
+                val.set(val.bits, i, a.get(a.bits, i));
             val.set_range(val.bits, a.bw, val.bw, false);
             break;
         }
@@ -1268,6 +1273,7 @@ namespace bv {
                     a.set(m_tmp, i, e.get(e.bits, i - sh));
                 for (unsigned i = 0; i < sh; ++i)
                     a.set(m_tmp, i, a.get(a.bits, i));
+                a.clear_overflow_bits(m_tmp);
                 return a.try_set(m_tmp);
             }
         }
@@ -1500,7 +1506,7 @@ namespace bv {
     }
 
     bool sls_eval::try_repair_zero_ext(bvval const& e, bvval& a) {
-        for (unsigned i = 0; i < e.bw; ++i)
+        for (unsigned i = 0; i < a.bw; ++i)
             if (!a.get(a.fixed, i))
                 a.set(a.bits, i, e.get(e.bits, i));
         return true;
@@ -1509,21 +1515,25 @@ namespace bv {
     bool sls_eval::try_repair_concat(bvval const& e, bvval& a, bvval& b, unsigned i) {
         if (i == 0) {
             for (unsigned i = 0; i < a.bw; ++i)
-                if (!a.get(a.fixed, i))
-                    a.set(a.bits, i, e.get(e.bits, i + b.bw));
+                a.set(m_tmp, i, e.get(e.bits, i + b.bw));
+            a.clear_overflow_bits(m_tmp);
+            a.set_repair(random_bool(), m_tmp);
         }
         else {
             for (unsigned i = 0; i < b.bw; ++i)
-                if (!b.get(b.fixed, i))
-                    b.set(b.bits, i, e.get(e.bits, i));
+                b.set(m_tmp, i, e.get(e.bits, i));
+            b.clear_overflow_bits(m_tmp);
+            b.set_repair(random_bool(), m_tmp);
         }
         return true;
     }
 
     bool sls_eval::try_repair_extract(bvval const& e, bvval& a, unsigned lo) {
         for (unsigned i = 0; i < e.bw; ++i)
-            if (!a.get(a.fixed, i + lo))
-                a.set(a.bits, i + lo, e.get(e.bits, i));
+            if (a.get(a.fixed, i + lo) && a.get(a.bits, i + lo) != e.get(e.bits, i))
+                return false;
+        for (unsigned i = 0; i < e.bw; ++i)
+            a.set(a.bits, i + lo, e.get(e.bits, i));
         return true;
     }
 
@@ -1547,12 +1557,18 @@ namespace bv {
         }
     }
 
-    void sls_eval::repair_up(expr* e) {
+    bool sls_eval::repair_up(expr* e) {
         if (!is_app(e))
-            return;
-        if (m.is_bool(e))
-            set(e, bval1(to_app(e)));
-        else if (bv.is_bv(e)) 
-            wval0(e).set(wval1(to_app(e)));        
+            return false;
+        if (m.is_bool(e)) {
+            auto b = bval1(to_app(e));
+            if (is_fixed0(e))
+                return b == bval0(e);
+            m_eval[e->get_id()] = b;
+            return true;
+        }
+        if (bv.is_bv(e))
+            return wval0(e).try_set(wval1(to_app(e)));
+        return false;
     }
 }

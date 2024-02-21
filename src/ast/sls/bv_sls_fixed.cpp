@@ -12,6 +12,7 @@ Author:
 --*/
 
 #include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 #include "ast/sls/bv_sls_fixed.h"
 #include "ast/sls/bv_sls_eval.h"
 
@@ -138,6 +139,7 @@ namespace bv {
                 v.add_range(-b, a - b);
         }
         else if (!y) {
+
             if (mod(b + 1, rational::power_of_two(bv.get_bv_size(x))) == 0)
                 return;
             auto& v = wval0(x);
@@ -300,21 +302,28 @@ namespace bv {
 
 
             if (j > 0 && k > 0) {
-                for (unsigned i = 0; i < std::min(k, j); ++i)
+                for (unsigned i = 0; i < std::min(k, j); ++i) {
+                    SASSERT(!v.get(v.bits, i));
                     v.set(v.fixed, i, true);
+                }
             }
             // lower zj + jk bits are 0
             if (zk > 0 || zj > 0) {
-                for (unsigned i = 0; i < zk + zj; ++i)
+                for (unsigned i = 0; i < zk + zj; ++i) {
+                    SASSERT(!v.get(v.bits, i));
                     v.set(v.fixed, i, true);
+                }
             }
             // upper bits are 0, if enough high order bits of a, b are 0.
-            if (hzj < v.bw && hzk < v.bw && hzj + hzk > v.bw) {
+            // TODO - buggy
+            if (false && hzj < v.bw && hzk < v.bw && hzj + hzk > v.bw) {
                 hzj = v.bw - hzj;
                 hzk = v.bw - hzk;
-                for (unsigned i = hzj + hzk - 1; i < v.bw; ++i)
+                for (unsigned i = hzj + hzk - 1; i < v.bw; ++i) {
+                    SASSERT(!v.get(v.bits, i));
                     v.set(v.fixed, i, true);
-            }
+                }
+            }            
             break;
         }
         case OP_CONCAT: {

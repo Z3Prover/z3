@@ -99,6 +99,13 @@ namespace bv {
         else if (bv.is_concat(e)) {
             FOLD_OP(bv.mk_concat);
         }
+        else if (m.is_distinct(e)) {
+            expr_ref_vector es(m);
+            for (unsigned i = 0; i < num_args; ++i)
+                for (unsigned j = i + 1; j < num_args; ++j)
+                    es.push_back(m.mk_not(m.mk_eq(arg(i), arg(j))));
+            r = m.mk_and(es);
+        }
         else if (bv.is_bv_sdiv(e, x, y) || bv.is_bv_sdiv0(e, x, y) || bv.is_bv_sdivi(e, x, y)) {
             r = mk_sdiv(x, y);
         }

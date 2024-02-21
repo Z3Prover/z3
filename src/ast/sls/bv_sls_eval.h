@@ -156,6 +156,6 @@ namespace bv {
         /*
         * Propagate repair up to parent
         */
-        void repair_up(expr* e);
+        bool repair_up(expr* e);
     };
 }
