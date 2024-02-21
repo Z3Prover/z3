@@ -31,7 +31,7 @@ namespace bv {
     class sls_terms {
         ast_manager&        m;
         bv_util             bv;
-        ptr_vector<expr>    m_todo;
+        ptr_vector<expr>    m_todo, m_args;
         expr_ref_vector     m_assertions, m_pinned, m_translated;
         app_ref_vector      m_terms;
         vector<ptr_vector<expr>> m_parents;

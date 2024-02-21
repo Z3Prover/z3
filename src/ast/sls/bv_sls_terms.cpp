@@ -18,6 +18,7 @@ Author:
     
 --*/
 
+#include "ast/ast_ll_pp.h"
 #include "ast/sls/bv_sls.h"
 
 namespace bv {
@@ -60,13 +61,15 @@ namespace bv {
     }
 
     void sls_terms::ensure_binary_core(expr* e) {
+        if (m_translated.get(e->get_id(), nullptr))
+            return;
+        
         app* a = to_app(e);
         auto arg = [&](unsigned i) {
             return m_translated.get(a->get_arg(i)->get_id());
         };
         unsigned num_args = a->get_num_args();
         expr_ref r(m);
-        expr* x, * y;
 #define FOLD_OP(oper)           \
         r = arg(0);             \
         for (unsigned i = 1; i < num_args; ++i)\
@@ -106,20 +109,20 @@ namespace bv {
                     es.push_back(m.mk_not(m.mk_eq(arg(i), arg(j))));
             r = m.mk_and(es);
         }
-        else if (bv.is_bv_sdiv(e, x, y) || bv.is_bv_sdiv0(e, x, y) || bv.is_bv_sdivi(e, x, y)) {
-            r = mk_sdiv(x, y);
+        else if (bv.is_bv_sdiv(e) || bv.is_bv_sdiv0(e) || bv.is_bv_sdivi(e)) {
+            r = mk_sdiv(arg(0), arg(1));
         }
-        else if (bv.is_bv_smod(e, x, y) || bv.is_bv_smod0(e, x, y) || bv.is_bv_smodi(e, x, y)) {
-            r = mk_smod(x, y);
+        else if (bv.is_bv_smod(e) || bv.is_bv_smod0(e) || bv.is_bv_smodi(e)) {
+            r = mk_smod(arg(0), arg(1));
         }
-        else if (bv.is_bv_srem(e, x, y) || bv.is_bv_srem0(e, x, y) || bv.is_bv_sremi(e, x, y)) {
-            r = mk_srem(x, y);
+        else if (bv.is_bv_srem(e) || bv.is_bv_srem0(e) || bv.is_bv_sremi(e)) {
+            r = mk_srem(arg(0), arg(1));
         }
         else {
             for (unsigned i = 0; i < num_args; ++i)
-                m_todo.push_back(arg(i));
-            r = m.mk_app(a->get_decl(), num_args, m_todo.data());
-            m_todo.reset();
+                m_args.push_back(arg(i));
+            r = m.mk_app(a->get_decl(), num_args, m_args.data());
+            m_args.reset();
         }
         m_translated.setx(e->get_id(), r);
     }

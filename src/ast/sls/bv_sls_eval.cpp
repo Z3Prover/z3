@@ -429,6 +429,8 @@ namespace bv {
             break;
         }
         case OP_CONCAT: {
+            if (e->get_num_args() != 2)
+                verbose_stream() << mk_bounded_pp(e, m) << "\n";
             SASSERT(e->get_num_args() == 2);
             auto const& a = wval0(e->get_arg(0));
             auto const& b = wval0(e->get_arg(1));
