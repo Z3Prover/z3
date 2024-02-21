@@ -91,7 +91,7 @@ namespace bv {
 
     lbool sls::search() {
         // init and init_eval were invoked
-        unsigned n = 0;  
+        unsigned n = 0;
         for (; n++ < m_config.m_max_repairs && m.inc(); ) {
             ++m_stats.m_moves;
             auto [down, e] = next_to_repair();
@@ -164,7 +164,7 @@ namespace bv {
         return was_repaired;
     }
 
-    void sls::try_repair_up(app* e) {
+    void sls::try_repair_up(app* e) {       
         m_repair_up.remove(e->get_id());
         if (m_terms.is_assertion(e) || !m_eval.repair_up(e)) 
             m_repair_down.insert(e->get_id());        

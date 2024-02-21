@@ -202,6 +202,7 @@ namespace bv {
         }
 
         std::ostream& display(std::ostream& out) const {
+            out << "V:";
             out << std::hex;
             auto print_bits = [&](svector<digit_t> const& v) {
                 bool nz = false;
@@ -215,7 +216,7 @@ namespace bv {
             };
 
             print_bits(bits);
-            out << " ";
+            out << " fix:";
             print_bits(fixed);
 
             if (!eq(lo, hi)) {

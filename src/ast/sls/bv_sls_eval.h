@@ -136,8 +136,8 @@ namespace bv {
          */
         bool bval1(app* e) const;
         bool can_eval1(app* e) const;
-
-        svector<digit_t>& wval1(app* e) const;
+        
+        sls_valuation& wval1(app* e) const;
 
         /**
          * Override evaluaton.

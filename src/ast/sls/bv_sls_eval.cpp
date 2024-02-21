@@ -130,7 +130,7 @@ namespace bv {
     void sls_eval::init_eval_bv(app* e) {
         if (bv.is_bv(e)) {
             auto& v = wval0(e);
-            v.set(wval1(e));
+            v.set(wval1(e).bits);
         }
         else if (m.is_bool(e)) 
             m_eval.setx(e->get_id(), bval1_bv(e), false);        
@@ -299,10 +299,10 @@ namespace bv {
         return bval0(e); 
     }
 
-    svector<digit_t>& sls_eval::wval1(app* e) const {
+    sls_valuation& sls_eval::wval1(app* e) const {
         auto& val = *m_values1[e->get_id()];
         wval1(e, val);
-        return val.bits;
+        return val;        
     }
 
     void sls_eval::wval1(app* e, sls_valuation& val) const {
@@ -429,8 +429,6 @@ namespace bv {
             break;
         }
         case OP_CONCAT: {
-            if (e->get_num_args() != 2)
-                verbose_stream() << mk_bounded_pp(e, m) << "\n";
             SASSERT(e->get_num_args() == 2);
             auto const& a = wval0(e->get_arg(0));
             auto const& b = wval0(e->get_arg(1));
@@ -1005,8 +1003,8 @@ namespace bv {
         }
         else {
             // b := a - e
-            a.set_sub(m_tmp, a.bits, e.bits);
-            a.set_repair(random_bool(), m_tmp);
+            b.set_sub(m_tmp, a.bits, e.bits);
+            b.set_repair(random_bool(), m_tmp);
         }
         return true;
     }
@@ -1186,7 +1184,6 @@ namespace bv {
             if (a.is_zero(m_tmp2))
                 return false;
             if (!a.get_at_least(m_tmp2, m_tmp)) {
-                verbose_stream() << "could not get at least\n";                    
                 return false;
             }
         }
@@ -1571,7 +1568,7 @@ namespace bv {
             return true;
         }
         if (bv.is_bv(e))
-            return wval0(e).try_set(wval1(to_app(e)));
+            return wval0(e).try_set(wval1(to_app(e)).bits);
         return false;
     }
 }
