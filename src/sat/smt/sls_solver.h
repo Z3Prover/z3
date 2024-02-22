@@ -16,6 +16,7 @@ Author:
 --*/
 #pragma once
 
+#include <thread>
 #include "util/rlimit.h"
 #include "ast/sls/bv_sls.h"
 #include "sat/smt/sat_th.h"
