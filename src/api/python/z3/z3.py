@@ -11658,7 +11658,7 @@ class UserPropagateBase:
 
     #
     # Either solver is set or ctx is set.
-    # Propagators that are created throuh callbacks
+    # Propagators that are created through callbacks
     # to "fresh" inherit the context of that is supplied
     # as argument to the callback.
     # This context should not be deleted. It is owned by the solver.
