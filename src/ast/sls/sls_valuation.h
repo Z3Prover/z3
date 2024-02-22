@@ -41,7 +41,7 @@ namespace bv {
 
         digit_t bits(unsigned i) const { return m_bits[i]; }
         svector<digit_t> const& bits() const { return m_bits; }
-        void set_bit(unsigned i, bool v) { set(m_bits, i, v); }
+
         bool get_bit(unsigned i) const { return get(m_bits, i); }
 
         void set_value(svector<digit_t>& bits, rational const& r);
@@ -228,6 +228,9 @@ namespace bv {
             return out;
         }
 
+        // TODO move:
+        void set_bit(unsigned i, bool v) { set(m_bits, i, v); }
+
     private:
         static digit_t get_pos_mask(unsigned bit_idx) {
             return (digit_t)1 << (digit_t)(bit_idx % (8 * sizeof(digit_t)));
@@ -246,6 +249,7 @@ namespace bv {
     public:
         sls_pre_valuation(unsigned bw):sls_valuation(bw) {}
         svector<digit_t>& bits() { return m_bits; }
+        
     };
 
     inline std::ostream& operator<<(std::ostream& out, sls_valuation const& v) { return v.display(out); }

@@ -39,7 +39,8 @@ namespace bv {
                 if (bv.is_bv(e)) {
                     auto& v = wval0(e);
                     for (unsigned i = 0; i < v.bw; ++i)
-                        v.set_bit(i, eval(e, i));
+                        v.set(m_tmp, i, eval(e, i));
+                    v.set(m_tmp);
                 }
                 else if (m.is_bool(e))
                     m_eval.setx(e->get_id(), eval(e, 0), false);
