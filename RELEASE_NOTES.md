@@ -12,7 +12,7 @@ Version 4.next
 
 Version 4.12.6
 ==============
-- remove expensive rewrite that coallesces adjacent stores
+- remove expensive rewrite that coalesces adjacent stores
 - improved Java use of reference queues thanks to Thomas Haas #7131
 - fixes to conditional import of python library thanks to Cal Jacobson #7116
 - include universe for constants that get removed during pre-processing #7121
