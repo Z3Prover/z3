@@ -89,9 +89,7 @@ jobs:
 
     - name: Get date
       id: date
-      run: |
-         echo "::set-output name=date::$(date +'%Y-%m-%d')"
-         echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+      run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
 
     - uses: actions/upload-artifact@v4
       with:
