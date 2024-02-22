@@ -68,7 +68,7 @@ namespace bv {
             else if (bv.is_bv(e)) {
                 auto& w = m_eval.wval0(e);
                 if (w.get(w.fixed, i) || should_keep())
-                    return w.get(w.bits, i);                
+                    return w.get_bit(i);                
             }
             return m_rand() % 2 == 0;
         };
@@ -98,22 +98,24 @@ namespace bv {
             if (!e)
                 return l_true;
             bool is_correct = eval_is_correct(e);
-            IF_VERBOSE(20, verbose_stream() << (down ? "d #" : "u #")
-                       << e->get_id() << ": "
-                       << mk_bounded_pp(e, m, 1) << " ";
-                       if (bv.is_bv(e)) verbose_stream() << m_eval.wval0(e) << " ";
-                       if (m.is_bool(e)) verbose_stream() << m_eval.bval0(e) << " ";
-                       verbose_stream() << (is_correct?"C":"U") << "\n");
             if (is_correct) {
                 if (down)
                     m_repair_down.remove(e->get_id());
                 else
                     m_repair_up.remove(e->get_id());
             }
-            else if (down) 
-                try_repair_down(e);            
-            else
-                try_repair_up(e);
+            else {
+                IF_VERBOSE(20, verbose_stream() << (down ? "d #" : "u #")
+                           << e->get_id() << ": "
+                           << mk_bounded_pp(e, m, 1) << " ";
+                           if (bv.is_bv(e)) verbose_stream() << m_eval.wval0(e) << " " << (m_eval.is_fixed0(e)?"fixed ":" ");
+                           if (m.is_bool(e)) verbose_stream() << m_eval.bval0(e) << " ";
+                           verbose_stream() << "\n");
+                if (down) 
+                    try_repair_down(e);            
+                else
+                    try_repair_up(e);
+            }
         }
         return l_undef;
     }
@@ -210,7 +212,7 @@ namespace bv {
             else if (bv.is_bv(e)) {
                 auto const& v = m_eval.wval0(e);
                 rational n;
-                v.get_value(v.bits, n);
+                v.get_value(v.bits(), n);
                 mdl->register_decl(f, bv.mk_numeral(n, v.bw));
             }
         }

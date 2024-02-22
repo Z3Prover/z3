@@ -35,7 +35,8 @@ namespace bv {
         ptr_vector<expr>    m_todo;
         random_gen          m_rand;
 
-        scoped_ptr_vector<sls_valuation> m_values0, m_values1; // expr-id -> bv valuation
+        scoped_ptr_vector<sls_valuation> m_values0; // expr-id -> bv valuation
+        scoped_ptr_vector<sls_pre_valuation> m_values1; // expr-id -> bv valuation
         bool_vector                      m_eval;   // expr-id -> boolean valuation
         bool_vector                      m_fixed;  // expr-id -> is Boolean fixed
 
@@ -108,7 +109,7 @@ namespace bv {
 
         sls_valuation& wval0(app* e, unsigned i) { return wval0(e->get_arg(i)); }
 
-        void wval1(app* e, sls_valuation& val) const;
+        void wval1(app* e, sls_pre_valuation& val) const;
 
     public:
         sls_eval(ast_manager& m);

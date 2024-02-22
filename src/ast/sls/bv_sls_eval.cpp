@@ -39,7 +39,7 @@ namespace bv {
                 if (bv.is_bv(e)) {
                     auto& v = wval0(e);
                     for (unsigned i = 0; i < v.bw; ++i)
-                        v.set(v.bits, i, eval(e, i));
+                        v.set_bit(i, eval(e, i));
                 }
                 else if (m.is_bool(e))
                     m_eval.setx(e->get_id(), eval(e, 0), false);
@@ -84,7 +84,7 @@ namespace bv {
             return false;
         m_values1.reserve(e->get_id() + 1);
         m_values0.set(e->get_id(), alloc_valuation(bw));
-        m_values1.set(e->get_id(), alloc_valuation(bw));
+        m_values1.set(e->get_id(), alloc(sls_pre_valuation, bw));
         return true;
     }
 
@@ -118,9 +118,9 @@ namespace bv {
             auto& val_th = wval0(e->get_arg(1));
             auto& val_el = wval0(e->get_arg(2));
             if (bval0(e->get_arg(0))) 
-                val.set(val_th.bits);            
+                val.set(val_th.bits());            
             else
-                val.set(val_el.bits); 
+                val.set(val_el.bits()); 
         }
         else {
             UNREACHABLE();
@@ -130,7 +130,7 @@ namespace bv {
     void sls_eval::init_eval_bv(app* e) {
         if (bv.is_bv(e)) {
             auto& v = wval0(e);
-            v.set(wval1(e).bits);
+            v.set(wval1(e).bits());
         }
         else if (m.is_bool(e)) 
             m_eval.setx(e->get_id(), bval1_bv(e), false);        
@@ -222,7 +222,7 @@ namespace bv {
         auto ucompare = [&](std::function<bool(int)> const& f) {
             auto& a = wval0(e->get_arg(0)); 
             auto& b = wval0(e->get_arg(1)); 
-            return f(mpn.compare(a.bits.data(), a.nw, b.bits.data(), b.nw));
+            return f(mpn.compare(a.bits().data(), a.nw, b.bits().data(), b.nw));
         };
 
         // x <s y <=> x + 2^{bw-1} <u y + 2^{bw-1}
@@ -238,7 +238,7 @@ namespace bv {
             SASSERT(e->get_num_args() == 2);
             auto const& a = wval0(e->get_arg(0));
             auto const& b = wval0(e->get_arg(1));
-            return a.set_mul(m_tmp2, a.bits, b.bits);
+            return a.set_mul(m_tmp2, a.bits(), b.bits());
         };
 
         switch (e->get_decl_kind()) {
@@ -263,7 +263,7 @@ namespace bv {
             unsigned idx;
             VERIFY(bv.is_bit2bool(e, child, idx));
             auto& a = wval0(child);
-            return a.get(a.bits, idx);
+            return a.get_bit(idx);
         }
         case OP_BUMUL_NO_OVFL: 
             return !umul_overflow();
@@ -273,7 +273,7 @@ namespace bv {
             SASSERT(e->get_num_args() == 2);
             auto const& a = wval0(e->get_arg(0));
             auto const& b = wval0(e->get_arg(1));
-            return a.set_add(m_tmp, a.bits, b.bits);
+            return a.set_add(m_tmp, a.bits(), b.bits());
         }
         case OP_BNEG_OVFL:
         case OP_BSADD_OVFL:         
@@ -305,20 +305,20 @@ namespace bv {
         return val;        
     }
 
-    void sls_eval::wval1(app* e, sls_valuation& val) const {
+    void sls_eval::wval1(app* e, sls_pre_valuation& val) const {
         SASSERT(bv.is_bv(e));
         if (m.is_ite(e)) {
             SASSERT(bv.is_bv(e->get_arg(1)));
             auto& val_th = wval0(e->get_arg(1));
             auto& val_el = wval0(e->get_arg(2));
             if (bval0(e->get_arg(0)))
-                val.set(val_th.bits);
+                val.set(val_th.bits());
             else
-                val.set(val_el.bits);
+                val.set(val_el.bits());
             return;
         }
         if (e->get_family_id() == null_family_id) {
-            val.set(wval0(e).bits);
+            val.set(wval0(e).bits());
             return;
         }
         auto set_sdiv = [&]() {
@@ -344,12 +344,12 @@ namespace bv {
                 val.set(m_zero);
             else {
                 if (sign_a)
-                    a.set_sub(m_tmp, m_zero, a.bits);
+                    a.set_sub(m_tmp, m_zero, a.bits());
                 else
                     a.get(m_tmp);
 
                 if (sign_b)
-                    b.set_sub(m_tmp2, m_zero, b.bits);
+                    b.set_sub(m_tmp2, m_zero, b.bits());
                 else
                     b.get(m_tmp2);
 
@@ -357,7 +357,7 @@ namespace bv {
                 if (sign_a == sign_b)
                     val.set(m_tmp3);
                 else
-                    val.set_sub(val.bits, m_zero, m_tmp3);
+                    val.set_sub(val.bits(), m_zero, m_tmp3);
             }
         };
 
@@ -371,7 +371,8 @@ namespace bv {
         case OP_BV_NUM: {
             rational n;
             VERIFY(bv.is_numeral(e, n));
-            val.set_value(val.bits, n);
+            val.set_value(m_tmp, n);
+            val.set(m_tmp);
             break;
         }
         case OP_BAND: {
@@ -379,7 +380,7 @@ namespace bv {
             auto const& a = wval0(e->get_arg(0));
             auto const& b = wval0(e->get_arg(1));
             for (unsigned i = 0; i < a.nw; ++i)
-                val.bits[i] = a.bits[i] & b.bits[i];
+                val.bits()[i] = a.bits()[i] & b.bits()[i];
             break;
         }
         case OP_BOR: {
@@ -387,7 +388,7 @@ namespace bv {
             auto const& a = wval0(e->get_arg(0));
             auto const& b = wval0(e->get_arg(1));
             for (unsigned i = 0; i < a.nw; ++i)
-                val.bits[i] = a.bits[i] | b.bits[i];
+                val.bits()[i] = a.bits()[i] | b.bits()[i];
             break;
         }
         case OP_BXOR: {
@@ -395,7 +396,7 @@ namespace bv {
             auto const& a = wval0(e->get_arg(0));
             auto const& b = wval0(e->get_arg(1));
             for (unsigned i = 0; i < a.nw; ++i)
-                val.bits[i] = a.bits[i] ^ b.bits[i];
+                val.bits()[i] = a.bits()[i] ^ b.bits()[i];
             break;
         }
         case OP_BNAND: {
@@ -403,28 +404,28 @@ namespace bv {
             auto const& a = wval0(e->get_arg(0));
             auto const& b = wval0(e->get_arg(1));
             for (unsigned i = 0; i < a.nw; ++i)
-                val.bits[i] = ~(a.bits[i] & b.bits[i]);
+                val.bits()[i] = ~(a.bits()[i] & b.bits()[i]);
             break;
         }
         case OP_BADD: {
             SASSERT(e->get_num_args() == 2);
             auto const& a = wval0(e->get_arg(0));
             auto const& b = wval0(e->get_arg(1));
-            val.set_add(val.bits, a.bits, b.bits);
+            val.set_add(val.bits(), a.bits(), b.bits());
             break;
         }
         case OP_BSUB: {
             SASSERT(e->get_num_args() == 2);
             auto const& a = wval0(e->get_arg(0));
             auto const& b = wval0(e->get_arg(1));
-            val.set_sub(val.bits, a.bits, b.bits);
+            val.set_sub(val.bits(), a.bits(), b.bits());
             break;
         }
         case OP_BMUL: {
             SASSERT(e->get_num_args() == 2);
             auto const& a = wval0(e->get_arg(0));
             auto const& b = wval0(e->get_arg(1));
-            val.set_mul(m_tmp2, a.bits, b.bits);
+            val.set_mul(m_tmp2, a.bits(), b.bits());
             val.set(m_tmp2);
             break;
         }
@@ -433,9 +434,9 @@ namespace bv {
             auto const& a = wval0(e->get_arg(0));
             auto const& b = wval0(e->get_arg(1));
             for (unsigned i = 0; i < b.bw; ++i)
-                val.set(val.bits, i, b.get(b.bits, i));
+                val.set_bit(i, b.get_bit(i));
             for (unsigned i = 0; i < a.bw; ++i)
-                val.set(val.bits, i + b.bw, a.get(a.bits, i));
+                val.set_bit(i + b.bw, a.get_bit(i));
             break;
         }
         case OP_EXTRACT: {
@@ -445,86 +446,92 @@ namespace bv {
             auto const& a = wval0(child);
             SASSERT(lo <= hi && hi + 1 <= a.bw && hi - lo + 1 == val.bw);
             for (unsigned i = lo; i <= hi; ++i)
-                val.set(val.bits, i - lo, a.get(a.bits, i));
+                val.set_bit(i - lo, a.get_bit(i));            
             break;
         }
         case OP_BNOT: {
             auto& a = wval0(e->get_arg(0));
             for (unsigned i = 0; i < a.nw; ++i)
-                val.bits[i] = ~a.bits[i];
+                val.bits()[i] = ~a.bits()[i];
             break;
         }
         case OP_BNEG: {
             auto& a = wval0(e->get_arg(0));
-            val.set_sub(val.bits, m_zero, a.bits);
+            val.set_sub(val.bits(), m_zero, a.bits());
             break;
         }
         case OP_BIT0:
-            val.set(val.bits, 0, false);
+            val.set(val.bits(), 0, false);
             break;
         case OP_BIT1:
-            val.set(val.bits, 0, true);
+            val.set(val.bits(), 0, true);            
             break;
         case OP_BSHL: {
             auto& a = wval0(e->get_arg(0));
             auto& b = wval0(e->get_arg(1));
-            auto sh = b.to_nat(b.bits, b.bw);
+            auto sh = b.to_nat(b.bits(), b.bw);
             if (sh == 0)
-                val.set(a.bits);
+                val.set(a.bits());
             else if (sh >= b.bw)
                 val.set_zero();
             else {
                 for (unsigned i = 0; i < a.bw; ++i)
-                    val.set(val.bits, i, i >= sh && a.get(a.bits, i - sh));
+                    val.set(val.bits(), i, i >= sh && a.get_bit(i - sh));
             }
             break;
         }
         case OP_BLSHR: {
             auto& a = wval0(e->get_arg(0));
             auto& b = wval0(e->get_arg(1));
-            auto sh = b.to_nat(b.bits, b.bw);
+            auto sh = b.to_nat(b.bits(), b.bw);
             if (sh == 0)
-                val.set(a.bits);
+                val.set(a.bits());
             else if (sh >= b.bw)
                 val.set_zero();
             else {
                 for (unsigned i = 0; i < a.bw; ++i)
-                    val.set(val.bits, i, i + sh < a.bw && a.get(a.bits, i + sh));
+                    val.set(val.bits(), i, i + sh < a.bw && a.get_bit(i + sh));
             }
             break;
         }
         case OP_BASHR: {
             auto& a = wval0(e->get_arg(0));
             auto& b = wval0(e->get_arg(1));
-            auto sh = b.to_nat(b.bits, b.bw);
+            auto sh = b.to_nat(b.bits(), b.bw);
             auto sign = a.sign();
             if (sh == 0)
-                val.set(a.bits);
+                val.set(a.bits());
             else if (sh >= b.bw) {
                 for (unsigned i = 0; i < a.nw; ++i)
-                    val.bits[i] = sign ? ~0 : 0;
+                    m_tmp[i] = sign ? ~0 : 0;
+                val.set(m_tmp);
             }
             else {
+                for (unsigned i = 0; i < a.nw; ++i)
+                    m_tmp[i] = 0;
                 for (unsigned i = 0; i < a.bw; ++i)                    
-                    val.set(val.bits, i, i + sh < a.bw && a.get(a.bits, i + sh));
+                    val.set(m_tmp, i, i + sh < a.bw && a.get_bit(i + sh));
                 if (sign)
-                    val.set_range(val.bits, a.bw - sh, a.bw, true);
+                    val.set_range(m_tmp, a.bw - sh, a.bw, true);
+                val.set(m_tmp);
             }
             break;
         }
         case OP_SIGN_EXT: {
             auto& a = wval0(e->get_arg(0));
             for (unsigned i = 0; i < a.bw; ++i)
-                val.set(val.bits, i, a.get(a.bits, i));            
+                val.set(m_tmp, i, a.get_bit(i));            
             bool sign = a.sign();
-            val.set_range(val.bits, a.bw, val.bw, sign);
+            val.set_range(m_tmp, a.bw, val.bw, sign);
+            val.set(m_tmp);
             break;
         }
         case OP_ZERO_EXT: {
             auto& a = wval0(e->get_arg(0));
             for (unsigned i = 0; i < a.bw; ++i)
-                val.set(val.bits, i, a.get(a.bits, i));
-            val.set_range(val.bits, a.bw, val.bw, false);
+                val.set(m_tmp, i, a.get_bit(i));
+            val.set_range(m_tmp, a.bw, val.bw, false);
+            val.set(m_tmp);
             break;
         }
         case OP_BUREM:
@@ -534,9 +541,9 @@ namespace bv {
             auto& b = wval0(e->get_arg(1));
 
             if (b.is_zero())
-                val.set(a.bits);
+                val.set(a.bits());
             else {
-                set_div(a.bits, b.bits, b.bw, m_tmp, m_tmp2);
+                set_div(a.bits(), b.bits(), b.bw, m_tmp, m_tmp2);
                 val.set(m_tmp2);
             }
             break;
@@ -554,25 +561,25 @@ namespace bv {
             auto& a = wval0(e->get_arg(0));
             auto& b = wval0(e->get_arg(1));
             if (b.is_zero())
-                val.set(a.bits);
+                val.set(a.bits());
             else {
                 if (a.sign())
-                    a.set_sub(m_tmp3, m_zero, a.bits);
+                    a.set_sub(m_tmp3, m_zero, a.bits());
                 else
-                    a.set(m_tmp3, a.bits);
+                    a.set(m_tmp3, a.bits());
                 if (b.sign())
-                    b.set_sub(m_tmp4, m_zero, b.bits);
+                    b.set_sub(m_tmp4, m_zero, b.bits());
                 else
-                    a.set(m_tmp4, b.bits);  
+                    a.set(m_tmp4, b.bits());  
                 set_div(m_tmp3, m_tmp4, a.bw, m_tmp, m_tmp2);
                 if (val.is_zero(m_tmp2))
                     val.set(m_tmp2);
                 else if (a.sign() && b.sign())
-                    val.set_sub(val.bits, m_zero, m_tmp2);
+                    val.set_sub(val.bits(), m_zero, m_tmp2);
                 else if (a.sign())
-                    val.set_sub(val.bits, b.bits, m_tmp2);
+                    val.set_sub(val.bits(), b.bits(), m_tmp2);
                 else if (b.sign())
-                    val.set_add(val.bits, b.bits, m_tmp2);
+                    val.set_add(val.bits(), b.bits(), m_tmp2);
                 else
                     val.set(m_tmp2);
             }
@@ -587,7 +594,7 @@ namespace bv {
             if (b.is_zero()) 
                 val.set(m_minus_one);            
             else {
-                set_div(a.bits, b.bits, a.bw, m_tmp, m_tmp2);
+                set_div(a.bits(), b.bits(), a.bw, m_tmp, m_tmp2);
                 val.set(m_tmp);
             }
             break;
@@ -608,11 +615,11 @@ namespace bv {
             auto& a = wval0(e->get_arg(0));
             auto& b = wval0(e->get_arg(1));
             if (b.is_zero()) 
-                val.set(a.bits);
+                val.set(a.bits());
             else {
                 set_sdiv();
-                val.set_mul(m_tmp, val.bits, b.bits);
-                val.set_sub(val.bits, a.bits, m_tmp);
+                val.set_mul(m_tmp, val.bits(), b.bits());
+                val.set_sub(val.bits(), a.bits(), m_tmp);
             }
             break;
         }
@@ -629,7 +636,7 @@ namespace bv {
         case OP_EXT_ROTATE_LEFT: {
             auto& b = wval0(e->get_arg(1));
             rational n;
-            b.get_value(b.bits, n);
+            b.get_value(b.bits(), n);
             n = mod(n, rational(val.bw));
             SASSERT(n.is_unsigned());
             mk_rotate_left(n.get_unsigned());
@@ -638,7 +645,7 @@ namespace bv {
         case OP_EXT_ROTATE_RIGHT: {
             auto& b = wval0(e->get_arg(1));
             rational n;
-            b.get_value(b.bits, n);
+            b.get_value(b.bits(), n);
             n = mod(n, rational(val.bw));
             SASSERT(n.is_unsigned());
             mk_rotate_left(val.bw - n.get_unsigned());
@@ -676,7 +683,7 @@ namespace bv {
             UNREACHABLE();
             break;
         }
-        val.clear_overflow_bits(val.bits);
+        val.clear_overflow_bits(val.bits());
     }
 
     digit_t sls_eval::random_bits() {
@@ -891,7 +898,7 @@ namespace bv {
             auto & a = wval0(e->get_arg(i));
             auto & b = wval0(e->get_arg(1 - i));
             if (ev) 
-                return a.try_set(b.bits);
+                return a.try_set(b.bits());
             else {
                 // pick random bit to differ  
                 a.get(m_tmp);
@@ -899,11 +906,11 @@ namespace bv {
                 for (unsigned idx = 0; idx < a.bw; ++idx) {
                     unsigned j = (idx + start) % a.bw;
                     if (!a.get(a.fixed, j)) {
-                        a.set(m_tmp, idx, !b.get(b.bits, j));
+                        a.set(m_tmp, idx, !b.get_bit(j));
                         bool r = a.try_set(m_tmp);
                         if (r)
                             return true;
-                        a.set(m_tmp, j, b.get(b.bits, j));
+                        a.set(m_tmp, j, b.get_bit(j));
                     }
                 }
                 // could be due to bounds?
@@ -935,7 +942,7 @@ namespace bv {
             return true;
         }
         if (bv.is_bv(e)) 
-            return wval0(child).try_set(wval0(e).bits);        
+            return wval0(child).try_set(wval0(e).bits());        
         return false;
     }
 
@@ -963,9 +970,8 @@ namespace bv {
 
     bool sls_eval::try_repair_band(bvval const& e, bvval& a, bvval const& b) {
         for (unsigned i = 0; i < e.nw; ++i)
-            m_tmp[i] = (e.bits[i] & ~a.fixed[i]) | (~b.bits[i] & ~a.fixed[i] & random_bits());
-        a.set_repair(random_bool(), m_tmp);
-        return true;       
+            m_tmp[i] = (e.bits()[i] & ~a.fixed[i]) | (~b.bits()[i] & ~a.fixed[i] & random_bits());
+        return a.set_repair(random_bool(), m_tmp);
     }
 
     //
@@ -975,39 +981,35 @@ namespace bv {
     //     
     bool sls_eval::try_repair_bor(bvval const& e, bvval& a, bvval const& b) {
         for (unsigned i = 0; i < e.nw; ++i)
-            m_tmp[i] = e.bits[i] & (~b.bits[i] | random_bits());
-        a.set_repair(random_bool(), m_tmp);
-        return true;     
+            m_tmp[i] = e.bits()[i] & (~b.bits()[i] | random_bits());
+        return a.set_repair(random_bool(), m_tmp);
     }
 
     bool sls_eval::try_repair_bxor(bvval const& e, bvval& a, bvval const& b) {
         for (unsigned i = 0; i < e.nw; ++i)
-            m_tmp[i] = e.bits[i] ^ b.bits[i];
+            m_tmp[i] = e.bits()[i] ^ b.bits()[i];
         a.clear_overflow_bits(m_tmp);
-        a.set_repair(random_bool(), m_tmp);
-        return true;        
+        return a.set_repair(random_bool(), m_tmp);
     }
 
 
     bool sls_eval::try_repair_add(bvval const& e, bvval& a, bvval const& b) {
-        a.set_sub(m_tmp, e.bits, b.bits);
-        a.set_repair(random_bool(), m_tmp);
-        return true;
+        a.set_sub(m_tmp, e.bits(), b.bits());
+        return a.set_repair(random_bool(), m_tmp);
     }
 
 
     bool sls_eval::try_repair_sub(bvval const& e, bvval& a, bvval & b, unsigned i) {
         if (i == 0) {
             // e = a - b -> a := e + b
-            a.set_add(m_tmp, e.bits, b.bits);
-            a.set_repair(random_bool(), m_tmp);
+            a.set_add(m_tmp, e.bits(), b.bits());
+            return a.set_repair(random_bool(), m_tmp);
         }
         else {
             // b := a - e
-            b.set_sub(m_tmp, a.bits, e.bits);
-            b.set_repair(random_bool(), m_tmp);
+            b.set_sub(m_tmp, a.bits(), e.bits());
+            return b.set_repair(random_bool(), m_tmp);
         }
-        return true;
     }
 
     /**
@@ -1020,11 +1022,12 @@ namespace bv {
                 a.set(m_tmp, 1);                
                 return a.try_set(m_tmp);
             }
+            verbose_stream() << "cannot repair 0\n";
             return false;
         }
 
-        unsigned parity_e = e.parity(e.bits);
-        unsigned parity_b = b.parity(b.bits);
+        unsigned parity_e = e.parity(e.bits());
+        unsigned parity_b = b.parity(b.bits());
 
 #if 1
         
@@ -1100,7 +1103,7 @@ namespace bv {
         if (parity_e > 0 && parity_b > 0)
             b.shift_right(m_tmp2, std::min(parity_b, parity_e));
         a.set_mul(m_tmp, tb, m_tmp2);
-        a.set_repair(random_bool(), m_tmp);
+        return a.set_repair(random_bool(), m_tmp);
 
 #else
 
@@ -1120,31 +1123,31 @@ namespace bv {
 
     bool sls_eval::try_repair_bnot(bvval const& e, bvval& a) {
         for (unsigned i = 0; i < e.nw; ++i)
-            m_tmp[i] = ~e.bits[i];
+            m_tmp[i] = ~e.bits()[i];
         a.clear_overflow_bits(m_tmp);
         a.set_repair(random_bool(), m_tmp);
         return true;
     }
 
     bool sls_eval::try_repair_bneg(bvval const& e, bvval& a) {
-        a.set_sub(m_tmp, m_zero, e.bits); 
+        a.set_sub(m_tmp, m_zero, e.bits()); 
         a.set_repair(random_bool(), m_tmp);
         return true;
     }
 
     bool sls_eval::try_repair_ule(bool e, bvval& a, bvval const& b) {
-        return try_repair_ule(e, a, b.bits);       
+        return try_repair_ule(e, a, b.bits());       
     }
 
     bool sls_eval::try_repair_uge(bool e, bvval& a, bvval const& b) {
-        return try_repair_uge(e, a, b.bits);
+        return try_repair_uge(e, a, b.bits());
     }
 
     // a <=s b <-> a + p2 <=u b + p2
 
     bool sls_eval::try_repair_sle(bool e, bvval& a, bvval const& b) {
         //add_p2_1(b, m_tmp4);
-        a.set(m_tmp, b.bits);
+        a.set(m_tmp, b.bits());
         if (e) {
             a.set_repair(true, m_tmp);
         }
@@ -1156,7 +1159,7 @@ namespace bv {
     }
 
     bool sls_eval::try_repair_sge(bool e, bvval& a, bvval const& b) {
-        a.set(m_tmp, b.bits);
+        a.set(m_tmp, b.bits());
         if (e) {
             a.set_repair(false, m_tmp);
         }
@@ -1169,7 +1172,7 @@ namespace bv {
 
     void sls_eval::add_p2_1(bvval const& a, svector<digit_t>& t) const {
         a.set(m_zero, a.bw - 1, true);
-        a.set_add(t, a.bits, m_zero);
+        a.set_add(t, a.bits(), m_zero);
         a.set(m_zero, a.bw - 1, false);
         a.clear_overflow_bits(t);
     }
@@ -1209,16 +1212,16 @@ namespace bv {
     }
 
     bool sls_eval::try_repair_bit2bool(bvval& a, unsigned idx) {
-        a.set(m_tmp, a.bits);
-        a.set(m_tmp, idx, !a.get(a.bits, idx));
+        a.set(m_tmp, a.bits());
+        a.set(m_tmp, idx, !a.get_bit(idx));
         return a.try_set(m_tmp);
     }
 
     bool sls_eval::try_repair_shl(bvval const& e, bvval& a, bvval& b, unsigned i) {
         if (i == 0) {
-            unsigned sh = b.to_nat(b.bits, b.bw);
+            unsigned sh = b.to_nat(b.bits(), b.bw);
             if (sh == 0) 
-                return a.try_set(e.bits);            
+                return a.try_set(e.bits());            
             else if (sh >= b.bw) 
                 return false;            
             else {
@@ -1229,9 +1232,9 @@ namespace bv {
                 // a[bw - 1: bw - sh] = unchanged
                 //
                 for (unsigned i = 0; i < e.bw - sh; ++i)
-                    e.set(m_tmp, i, e.get(e.bits, sh + i));
+                    e.set(m_tmp, i, e.get_bit(sh + i));
                 for (unsigned i = e.bw - sh; i < e.bw; ++i)
-                    e.set(m_tmp, i, e.get(a.bits, i));
+                    e.set(m_tmp, i, a.get_bit(i));
                 return a.try_set(m_tmp);
             }
         }
@@ -1247,19 +1250,19 @@ namespace bv {
 
     bool sls_eval::try_repair_ashr(bvval const& e, bvval & a, bvval& b, unsigned i) {
         if (i == 0) {
-            unsigned sh = b.to_nat(b.bits, b.bw);
+            unsigned sh = b.to_nat(b.bits(), b.bw);
             if (sh == 0)
-                return a.try_set(e.bits);
+                return a.try_set(e.bits());
             else if (sh >= b.bw) {
-                if (e.get(e.bits, e.bw - 1)) {
-                    if (!a.get(a.bits, a.bw - 1) && !a.get(a.fixed, a.bw - 1))
-                        a.set(a.bits, a.bw - 1, true);
+                if (e.get_bit(e.bw - 1)) {
+                    if (!a.get_bit(a.bw - 1) && !a.get(a.fixed, a.bw - 1))
+                        a.set_bit(a.bw - 1, true);
                     else
                         return false;
                 }
                 else {
-                    if (a.get(a.bits, a.bw - 1) && !a.get(a.fixed, a.bw - 1))
-                        a.set(a.bits, a.bw - 1, false);
+                    if (a.get_bit(a.bw - 1) && !a.get(a.fixed, a.bw - 1))
+                        a.set_bit(a.bw - 1, false);
                     else
                         return false;
                 }
@@ -1271,9 +1274,9 @@ namespace bv {
                 // a[sh-1:0] = a[sh-1:0]                
                 // ignore sign
                 for (unsigned i = sh; i < a.bw; ++i)
-                    a.set(m_tmp, i, e.get(e.bits, i - sh));
+                    a.set(m_tmp, i, e.get_bit(i - sh));
                 for (unsigned i = 0; i < sh; ++i)
-                    a.set(m_tmp, i, a.get(a.bits, i));
+                    a.set(m_tmp, i, a.get_bit(i));
                 a.clear_overflow_bits(m_tmp);
                 return a.try_set(m_tmp);
             }
@@ -1305,20 +1308,20 @@ namespace bv {
                 return false;            
             if (!e.is_ones()) {
                 for (unsigned i = 0; i < a.nw; ++i)
-                    m_tmp[i] = ~a.fixed[i] | a.bits[i];
+                    m_tmp[i] = ~a.fixed[i] | a.bits()[i];
                 a.clear_overflow_bits(m_tmp);
-                if (a.lt(m_tmp, e.bits))
+                if (a.lt(m_tmp, e.bits()))
                     return false;
             }
             // e = 1 => a := b
             if (e.is_one()) {
-                a.set(m_tmp, b.bits);
+                a.set(m_tmp, b.bits());
                 a.set_repair(false, m_tmp);
                 return true;
             }
             // b * e + r = a
             for (unsigned i = 0; i < a.nw; ++i)
-                m_tmp[i] = (random_bits() & ~b.fixed[i]) | (b.fixed[i] & b.bits[i]);
+                m_tmp[i] = (random_bits() & ~b.fixed[i]) | (b.fixed[i] & b.bits()[i]);
             b.clear_overflow_bits(m_tmp);
             while (mul_overflow_on_fixed(e, m_tmp)) {
                 auto i = b.msb(m_tmp);
@@ -1327,7 +1330,7 @@ namespace bv {
             for (unsigned i = 0; i < a.nw; ++i)
                 m_tmp2[i] = random_bits();
             b.clear_overflow_bits(m_tmp2);
-            while (b.gt(m_tmp2, b.bits)) 
+            while (b.gt(m_tmp2, b.bits())) 
                 b.set(m_tmp2, b.msb(m_tmp2), false);
             while (a.set_add(m_tmp3, m_tmp, m_tmp2)) 
                 b.set(m_tmp2, b.msb(m_tmp2), false);            
@@ -1342,7 +1345,7 @@ namespace bv {
                 return true;
             }
             if (e.is_one()) {
-                b.set(m_tmp, a.bits);
+                b.set(m_tmp, a.bits());
                 b.set_repair(true, m_tmp);
                 return true;
             }
@@ -1354,10 +1357,10 @@ namespace bv {
                 m_tmp[i] = random_bits();
             a.clear_overflow_bits(m_tmp);
             // ensure r <= m
-            while (a.lt(a.bits, m_tmp))
+            while (a.lt(a.bits(), m_tmp))
                 a.set(m_tmp, a.msb(m_tmp), false);
-            a.set_sub(m_tmp2, a.bits, m_tmp);
-            set_div(m_tmp2, e.bits, a.bw, m_tmp3, m_tmp4);
+            a.set_sub(m_tmp2, a.bits(), m_tmp);
+            set_div(m_tmp2, e.bits(), a.bw, m_tmp3, m_tmp4);
             b.set_repair(random_bool(), m_tmp4);
         }
         return true;
@@ -1377,9 +1380,8 @@ namespace bv {
 
         if (i == 0) {
             if (b.is_zero()) {
-                a.set(m_tmp, e.bits);
-                a.set_repair(random_bool(), m_tmp);
-                return true;
+                a.set(m_tmp, e.bits());
+                return a.set_repair(random_bool(), m_tmp);
             }
             // a urem b = e: b*y + e = a
             // ~Ovfl*(b, y)
@@ -1395,13 +1397,13 @@ namespace bv {
                 b.set(m_tmp, i, false);
             }
             while (true) {
-                a.set_mul(m_tmp2, m_tmp, b.bits);
+                a.set_mul(m_tmp2, m_tmp, b.bits());
                 if (!add_overflow_on_fixed(e, m_tmp2))
                     break;
                 auto i = b.msb(m_tmp);
                 b.set(m_tmp, i, false);
             }
-            a.set_add(m_tmp3, m_tmp2, e.bits);
+            a.set_add(m_tmp3, m_tmp2, e.bits());
             a.set_repair(random_bool(), m_tmp3);
             return true;
         }
@@ -1415,7 +1417,7 @@ namespace bv {
             // lower y as long as y*b overflows with fixed bits in b
             for (unsigned i = 0; i < a.nw; ++i)
                 m_tmp[i] = random_bits();
-            a.set_sub(m_tmp2, a.bits, e.bits);
+            a.set_sub(m_tmp2, a.bits(), e.bits());
             set_div(m_tmp2, m_tmp, a.bw, m_tmp3, m_tmp4);
             a.clear_overflow_bits(m_tmp3);
             b.set_repair(random_bool(), m_tmp3);
@@ -1426,14 +1428,14 @@ namespace bv {
     bool sls_eval::add_overflow_on_fixed(bvval const& a, svector<digit_t> const& t) {
         a.set(m_tmp3, m_zero);
         for (unsigned i = 0; i < a.nw; ++i)
-            m_tmp3[i] = a.fixed[i] & a.bits[i];
+            m_tmp3[i] = a.fixed[i] & a.bits()[i];
         return a.set_add(m_tmp4, t, m_tmp3);
     }
 
     bool sls_eval::mul_overflow_on_fixed(bvval const& a, svector<digit_t> const& t) {
         a.set(m_tmp3, m_zero);
         for (unsigned i = 0; i < a.nw; ++i)
-            m_tmp3[i] = a.fixed[i] & a.bits[i];
+            m_tmp3[i] = a.fixed[i] & a.bits()[i];
         return a.set_mul(m_tmp4, m_tmp3, t);
     }
 
@@ -1441,9 +1443,9 @@ namespace bv {
         // a := rotate_right(e, n)
         n = (a.bw - n) % a.bw;
         for (unsigned i = a.bw - n; i < a.bw; ++i)
-            a.set(m_tmp, i + n - a.bw, e.get(e.bits, i));
+            a.set(m_tmp, i + n - a.bw, e.get_bit(i));
         for (unsigned i = 0; i < a.bw - n; ++i)
-            a.set(m_tmp, i + n, e.get(e.bits, i));
+            a.set(m_tmp, i + n, e.get_bit(i));
         a.set_repair(true, m_tmp);
         return true;
     }
@@ -1451,7 +1453,7 @@ namespace bv {
     bool sls_eval::try_repair_rotate_left(bvval const& e, bvval& a, bvval& b, unsigned i) {
         if (i == 0) {
             rational n;
-            b.get_value(b.bits, n);
+            b.get_value(b.bits(), n);
             n = mod(n, rational(b.bw));
             return try_repair_rotate_left(e, a, n.get_unsigned());
         }
@@ -1467,7 +1469,7 @@ namespace bv {
     bool sls_eval::try_repair_rotate_right(bvval const& e, bvval& a, bvval& b, unsigned i) {
         if (i == 0) {
             rational n;
-            b.get_value(b.bits, n);
+            b.get_value(b.bits(), n);
             n = mod(b.bw - n, rational(b.bw));
             return try_repair_rotate_left(e, a, n.get_unsigned());
         }
@@ -1509,20 +1511,20 @@ namespace bv {
     bool sls_eval::try_repair_zero_ext(bvval const& e, bvval& a) {
         for (unsigned i = 0; i < a.bw; ++i)
             if (!a.get(a.fixed, i))
-                a.set(a.bits, i, e.get(e.bits, i));
+                a.set_bit(i, e.get_bit(i));
         return true;
     }
 
     bool sls_eval::try_repair_concat(bvval const& e, bvval& a, bvval& b, unsigned i) {
         if (i == 0) {
             for (unsigned i = 0; i < a.bw; ++i)
-                a.set(m_tmp, i, e.get(e.bits, i + b.bw));
+                a.set(m_tmp, i, e.get_bit(i + b.bw));
             a.clear_overflow_bits(m_tmp);
             return a.set_repair(random_bool(), m_tmp);
         }
         else {
             for (unsigned i = 0; i < b.bw; ++i)
-                b.set(m_tmp, i, e.get(e.bits, i));
+                b.set(m_tmp, i, e.get_bit(i));
             b.clear_overflow_bits(m_tmp);
             return b.set_repair(random_bool(), m_tmp);
         }
@@ -1530,10 +1532,10 @@ namespace bv {
 
     bool sls_eval::try_repair_extract(bvval const& e, bvval& a, unsigned lo) {
         for (unsigned i = 0; i < e.bw; ++i)
-            if (a.get(a.fixed, i + lo) && a.get(a.bits, i + lo) != e.get(e.bits, i))
+            if (a.get(a.fixed, i + lo) && a.get_bit(i + lo) != e.get_bit(i))
                 return false;
         for (unsigned i = 0; i < e.bw; ++i)
-            a.set(a.bits, i + lo, e.get(e.bits, i));
+            a.set_bit(i + lo, e.get_bit(i));
         return true;
     }
 
@@ -1568,7 +1570,7 @@ namespace bv {
             return true;
         }
         if (bv.is_bv(e))
-            return wval0(e).try_set(wval1(to_app(e)).bits);
+            return wval0(e).try_set(wval1(to_app(e)).bits());
         return false;
     }
 }

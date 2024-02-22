@@ -25,7 +25,7 @@ namespace bv {
     {}
 
     void sls_fixed::init(expr_ref_vector const& es) {
-        init_ranges(es);
+        // init_ranges(es);
         ev.sort_assertions(es);
         for (expr* e : ev.m_todo) {
             if (!is_app(e))
@@ -110,7 +110,7 @@ namespace bv {
         }
         else if (bv.is_bit2bool(e, s, idx)) {
             auto& val = wval0(s);
-            val.set(val.bits, idx, !sign);
+            val.set_bit(idx, !sign);
             val.set(val.fixed, idx, true);
             val.init_fixed();
         }
@@ -184,7 +184,7 @@ namespace bv {
             auto& val_th = wval0(e->get_arg(1));
             auto& val_el = wval0(e->get_arg(2));
             for (unsigned i = 0; i < val.nw; ++i)
-                val.fixed[i] = val_el.fixed[i] & val_th.fixed[i] & ~(val_el.bits[i] ^ val_th.bits[i]);
+                val.fixed[i] = val_el.fixed[i] & val_th.fixed[i] & ~(val_el.bits(i) ^ val_th.bits(i));
             val.init_fixed();
         }
     }
@@ -232,7 +232,7 @@ namespace bv {
             auto& b = wval0(e->get_arg(1));
             // (a.fixed & b.fixed) | (a.fixed & ~a.bits) | (b.fixed & ~b.bits)
             for (unsigned i = 0; i < a.nw; ++i)
-                v.fixed[i] = (a.fixed[i] & b.fixed[i]) | (a.fixed[i] & ~a.bits[i]) | (b.fixed[i] & ~b.bits[i]);
+                v.fixed[i] = (a.fixed[i] & b.fixed[i]) | (a.fixed[i] & ~a.bits(i)) | (b.fixed[i] & ~b.bits(i));
             break;
         }
         case OP_BOR: {
@@ -240,7 +240,7 @@ namespace bv {
             auto& b = wval0(e->get_arg(1));
             // (a.fixed & b.fixed) | (a.fixed & a.bits) | (b.fixed & b.bits)
             for (unsigned i = 0; i < a.nw; ++i)
-                v.fixed[i] = (a.fixed[i] & b.fixed[i]) | (a.fixed[i] & a.bits[i]) | (b.fixed[i] & b.bits[i]);
+                v.fixed[i] = (a.fixed[i] & b.fixed[i]) | (a.fixed[i] & a.bits(i)) | (b.fixed[i] & b.bits(i));
             break;
         }
         case OP_BXOR: {
@@ -264,7 +264,7 @@ namespace bv {
                 if (pfixed && a.get(a.fixed, i) && b.get(b.fixed, i)) 
                     v.set(v.fixed, i, true);                
                 else if (!pfixed && a.get(a.fixed, i) && b.get(b.fixed, i) &&
-                    !a.get(a.bits, i) && !b.get(b.bits, i)) {
+                    !a.get_bit(i) && !b.get_bit(i)) {
                     pfixed = true;
                     v.set(v.fixed, i, false);
                 }
@@ -272,6 +272,17 @@ namespace bv {
                     pfixed = false;
                     v.set(v.fixed, i, false);
                 }
+            }
+            rational r, rlo, rhi;
+            if (bv.is_numeral(e->get_arg(0), r) && !b.eq(b.lo, b.hi)) {
+                b.get_value(b.lo, rlo);
+                b.get_value(b.hi, rhi);
+                v.add_range(r + rlo, r + rhi);
+            }
+            if (bv.is_numeral(e->get_arg(1), r) && !a.eq(a.lo, a.hi)) {
+                a.get_value(a.lo, rlo);
+                a.get_value(a.hi, rhi);
+                v.add_range(r + rlo, r + rhi);
             }
             break;
         }
@@ -288,29 +299,29 @@ namespace bv {
                 if (!b.get(b.fixed, k))
                     break;
             for (; zj < v.bw; ++zj)
-                if (!a.get(a.fixed, zj) || a.get(a.bits, zj))
+                if (!a.get(a.fixed, zj) || a.get_bit(zj))
                     break;
             for (; zk < v.bw; ++zk)
-                if (!b.get(b.fixed, zk) || b.get(b.bits, zk))
+                if (!b.get(b.fixed, zk) || b.get_bit(zk))
                     break;
             for (; hzj < v.bw; ++hzj)
-                if (!a.get(a.fixed, v.bw - hzj - 1) || a.get(a.bits, v.bw - hzj - 1))
+                if (!a.get(a.fixed, v.bw - hzj - 1) || a.get_bit(v.bw - hzj - 1))
                     break;
             for (; hzk < v.bw; ++hzk)
-                if (!b.get(b.fixed, v.bw - hzk - 1) || b.get(b.bits, v.bw - hzk - 1))
+                if (!b.get(b.fixed, v.bw - hzk - 1) || b.get_bit(v.bw - hzk - 1))
                     break;
 
 
             if (j > 0 && k > 0) {
                 for (unsigned i = 0; i < std::min(k, j); ++i) {
-                    SASSERT(!v.get(v.bits, i));
+                    SASSERT(!v.get_bit(i));
                     v.set(v.fixed, i, true);
                 }
             }
             // lower zj + jk bits are 0
             if (zk > 0 || zj > 0) {
                 for (unsigned i = 0; i < zk + zj; ++i) {
-                    SASSERT(!v.get(v.bits, i));
+                    SASSERT(!v.get_bit(i));
                     v.set(v.fixed, i, true);
                 }
             }
@@ -320,7 +331,7 @@ namespace bv {
                 hzj = v.bw - hzj;
                 hzk = v.bw - hzk;
                 for (unsigned i = hzj + hzk - 1; i < v.bw; ++i) {
-                    SASSERT(!v.get(v.bits, i));
+                    SASSERT(!v.get_bit(i));
                     v.set(v.fixed, i, true);
                 }
             }            

@@ -12,7 +12,7 @@ Abstract:
 Author:
 
     Nikolaj Bjorner (nbjorner) 2024-02-07
-    
+
 --*/
 #pragma once
 
@@ -27,14 +27,22 @@ Author:
 
 namespace bv {
 
-    struct sls_valuation {
+    class sls_valuation {
+    protected:
+        svector<digit_t> m_bits;
+    public:
         unsigned bw;                     // bit-width
         unsigned nw;                     // num words
-        svector<digit_t> lo,  hi;        // range assignment to bit-vector, as wrap-around interval
-        svector<digit_t> bits, fixed;    // bit assignment and don't care bit
+        svector<digit_t> lo, hi;        // range assignment to bit-vector, as wrap-around interval
+        svector<digit_t> fixed;    // bit assignment and don't care bit
         sls_valuation(unsigned bw);
-        
+
         unsigned num_bytes() const { return (bw + 7) / 8; }
+
+        digit_t bits(unsigned i) const { return m_bits[i]; }
+        svector<digit_t> const& bits() const { return m_bits; }
+        void set_bit(unsigned i, bool v) { set(m_bits, i, v); }
+        bool get_bit(unsigned i) const { return get(m_bits, i); }
 
         void set_value(svector<digit_t>& bits, rational const& r);
         void get_value(svector<digit_t> const& bits, rational& r) const;
@@ -42,27 +50,27 @@ namespace bv {
         void add_range(rational lo, rational hi);
         void init_fixed();
         void set1(svector<digit_t>& bits);
-        
+
         void clear_overflow_bits(svector<digit_t>& bits) const;
-        bool in_range(svector<digit_t> const& bits) const;        
+        bool in_range(svector<digit_t> const& bits) const;
         bool can_set(svector<digit_t> const& bits) const;
 
-        bool eq(sls_valuation const& other) const { return eq(other.bits); }
+        bool eq(sls_valuation const& other) const { return eq(other.m_bits); }
 
-        bool eq(svector<digit_t> const& other) const { return eq(other, bits); }
+        bool eq(svector<digit_t> const& other) const { return eq(other, m_bits); }
         bool eq(svector<digit_t> const& a, svector<digit_t> const& b) const;
         bool gt(svector<digit_t> const& a, svector<digit_t> const& b) const;
         bool lt(svector<digit_t> const& a, svector<digit_t> const& b) const;
         bool le(svector<digit_t> const& a, svector<digit_t> const& b) const;
 
-        bool is_zero() const { return is_zero(bits); }
-        bool is_zero(svector<digit_t> const& a) const { 
-            for (unsigned i = 0; i < nw; ++i) 
-                if (a[i] != 0) 
-                    return false; 
-            return true; 
+        bool is_zero() const { return is_zero(m_bits); }
+        bool is_zero(svector<digit_t> const& a) const {
+            for (unsigned i = 0; i < nw; ++i)
+                if (a[i] != 0)
+                    return false;
+            return true;
         }
-        bool is_ones() const { return is_ones(bits); }
+        bool is_ones() const { return is_ones(m_bits); }
         bool is_ones(svector<digit_t> const& a) const {
             auto bound = bw % (sizeof(digit_t) * 8) == 0 ? nw : nw - 1;
             for (unsigned i = 0; i < bound; ++i)
@@ -76,7 +84,7 @@ namespace bv {
             return true;
         }
 
-        bool is_one() const { return is_one(bits); }
+        bool is_one() const { return is_one(m_bits); }
         bool is_one(svector<digit_t> const& bits) const {
             if (1 != bits[0])
                 return false;
@@ -86,7 +94,7 @@ namespace bv {
             return true;
         }
 
-        bool sign() const { return get(bits, bw - 1); }
+        bool sign() const { return get(m_bits, bw - 1); }
 
         bool has_overflow(svector<digit_t> const& bits) const {
             for (unsigned i = bw; i < nw * sizeof(digit_t) * 8; ++i)
@@ -96,10 +104,10 @@ namespace bv {
         }
 
         unsigned parity(svector<digit_t> const& bits) const {
-            for (unsigned i = 0; i < nw; ++i) 
+            for (unsigned i = 0; i < nw; ++i)
                 if (bits[i] != 0)
                     return (8 * sizeof(digit_t) * i) + trailing_zeros(bits[i]);
-            return bw;              
+            return bw;
         }
 
         void min_feasible(svector<digit_t>& out) const;
@@ -127,8 +135,8 @@ namespace bv {
 
         void set(svector<digit_t> const& src) {
             for (unsigned i = nw; i-- > 0; )
-                bits[i] = src[i];
-            clear_overflow_bits(bits);
+                m_bits[i] = src[i];
+            clear_overflow_bits(m_bits);
         }
 
         void set_zero(svector<digit_t>& out) const {
@@ -143,7 +151,7 @@ namespace bv {
         }
 
         void set_zero() {
-            set_zero(bits);
+            set_zero(m_bits);
         }
 
         void sub1(svector<digit_t>& out) const {
@@ -189,17 +197,7 @@ namespace bv {
 
         unsigned to_nat(svector<digit_t> const& d, unsigned max_n);
 
-        static digit_t get_pos_mask(unsigned bit_idx) {
-            return (digit_t)1 << (digit_t)(bit_idx % (8 * sizeof(digit_t)));
-        }
 
-        static digit_t get_bit_word(svector<digit_t> const& bits, unsigned bit_idx) {
-            return bits[bit_idx / (8 * sizeof(digit_t))];
-        }
-
-        static digit_t& get_bit_word(svector<digit_t>& bits, unsigned bit_idx) {
-            return bits[bit_idx / (8 * sizeof(digit_t))];
-        }
 
         std::ostream& display(std::ostream& out) const {
             out << "V:";
@@ -213,9 +211,9 @@ namespace bv {
                         out << v[i], nz = true;
                 if (!nz)
                     out << "0";
-            };
+                };
 
-            print_bits(bits);
+            print_bits(m_bits);
             out << " fix:";
             print_bits(fixed);
 
@@ -229,6 +227,25 @@ namespace bv {
             out << std::dec;
             return out;
         }
+
+    private:
+        static digit_t get_pos_mask(unsigned bit_idx) {
+            return (digit_t)1 << (digit_t)(bit_idx % (8 * sizeof(digit_t)));
+        }
+
+        static digit_t get_bit_word(svector<digit_t> const& bits, unsigned bit_idx) {
+            return bits[bit_idx / (8 * sizeof(digit_t))];
+        }
+
+        static digit_t& get_bit_word(svector<digit_t>& bits, unsigned bit_idx) {
+            return bits[bit_idx / (8 * sizeof(digit_t))];
+        }
+    };
+
+    class sls_pre_valuation : public sls_valuation {
+    public:
+        sls_pre_valuation(unsigned bw):sls_valuation(bw) {}
+        svector<digit_t>& bits() { return m_bits; }
     };
 
     inline std::ostream& operator<<(std::ostream& out, sls_valuation const& v) { return v.display(out); }
