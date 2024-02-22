@@ -66,7 +66,7 @@ namespace bv {
         bool is_ones(svector<digit_t> const& a) const {
             auto bound = bw % (sizeof(digit_t) * 8) == 0 ? nw : nw - 1;
             for (unsigned i = 0; i < bound; ++i)
-                if (a[i] != ~0)
+                if (a[i] != (a[i] ^ 0))
                     return false;
             if (bound < nw) {
                 for (unsigned i = bound * sizeof(digit_t) * 8; i < bw; ++i)
@@ -116,7 +116,7 @@ namespace bv {
         bool get_at_least(svector<digit_t> const& src, svector<digit_t>& dst) const;
         bool round_up(svector<digit_t>& dst) const;
         bool round_down(svector<digit_t>& dst) const;
-        void set_repair(bool try_down, svector<digit_t>& dst);
+        bool set_repair(bool try_down, svector<digit_t>& dst);
 
         bool try_set(svector<digit_t> const& src) {
             if (!can_set(src))

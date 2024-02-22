@@ -983,6 +983,7 @@ namespace bv {
     bool sls_eval::try_repair_bxor(bvval const& e, bvval& a, bvval const& b) {
         for (unsigned i = 0; i < e.nw; ++i)
             m_tmp[i] = e.bits[i] ^ b.bits[i];
+        a.clear_overflow_bits(m_tmp);
         a.set_repair(random_bool(), m_tmp);
         return true;        
     }
@@ -1517,15 +1518,14 @@ namespace bv {
             for (unsigned i = 0; i < a.bw; ++i)
                 a.set(m_tmp, i, e.get(e.bits, i + b.bw));
             a.clear_overflow_bits(m_tmp);
-            a.set_repair(random_bool(), m_tmp);
+            return a.set_repair(random_bool(), m_tmp);
         }
         else {
             for (unsigned i = 0; i < b.bw; ++i)
                 b.set(m_tmp, i, e.get(e.bits, i));
             b.clear_overflow_bits(m_tmp);
-            b.set_repair(random_bool(), m_tmp);
+            return b.set_repair(random_bool(), m_tmp);
         }
-        return true;
     }
 
     bool sls_eval::try_repair_extract(bvval const& e, bvval& a, unsigned lo) {

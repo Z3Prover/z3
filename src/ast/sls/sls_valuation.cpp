@@ -24,7 +24,6 @@ namespace bv {
 
     sls_valuation::sls_valuation(unsigned bw): bw(bw) {
         nw = (bw + sizeof(digit_t) * 8 - 1) / (8 * sizeof(digit_t));
-        unsigned num_bytes = nw * sizeof(digit_t);
         lo.reserve(nw + 1);
         hi.reserve(nw + 1);
         bits.reserve(nw + 1);
@@ -192,14 +191,17 @@ namespace bv {
         return true;
     }
 
-    void sls_valuation::set_repair(bool try_down, svector<digit_t>& dst) {
+    bool sls_valuation::set_repair(bool try_down, svector<digit_t>& dst) {
         for (unsigned i = 0; i < nw; ++i)
             dst[i] = (~fixed[i] & dst[i]) | (fixed[i] & bits[i]);
         bool ok = try_down ? round_down(dst) : round_up(dst);
         if (!ok)
             VERIFY(try_down ? round_up(dst) : round_down(dst));
+        if (eq(bits, dst))
+            return false;
         set(bits, dst);
         SASSERT(!has_overflow(dst));
+        return true;
     }
 
     void sls_valuation::min_feasible(svector<digit_t>& out) const {
@@ -294,8 +296,6 @@ namespace bv {
 
     void sls_valuation::shift_right(svector<digit_t>& out, unsigned shift) const {
         SASSERT(shift < bw);
-        unsigned n = shift / (8 * sizeof(digit_t));
-        unsigned s = shift % (8 * sizeof(digit_t));
         for (unsigned i = 0; i < bw; ++i)
             set(out, i, i + shift < bw ? get(bits, i + shift) : false);
         SASSERT(!has_overflow(out));
