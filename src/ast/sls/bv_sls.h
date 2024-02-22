@@ -101,5 +101,7 @@ namespace bv {
         sls_valuation const& wval(expr* e) const { return m_eval.wval0(e); }
 
         model_ref get_model();
+
+        void cancel() { m.limit().cancel(); }
     };
 }

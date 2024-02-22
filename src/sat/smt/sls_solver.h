@@ -16,8 +16,10 @@ Author:
 --*/
 #pragma once
 
-#include "sat/smt/sat_th.h"
 #include "util/rlimit.h"
+#include "ast/sls/bv_sls.h"
+#include "sat/smt/sat_th.h"
+
 
 namespace euf {
     class solver;
@@ -29,9 +31,10 @@ namespace sls {
         std::atomic<lbool> m_result;
         std::atomic<bool> m_completed;
         std::thread m_thread;
-        scoped_ptr<reslimit> m_rlimit;
+        scoped_ptr<ast_manager> m_m;
+        scoped_ptr<bv::sls> m_bvsls;
 
-        void run_local_search(solver& s);
+        void run_local_search();
         void init_local_search();
         void sample_local_search();
     public:
