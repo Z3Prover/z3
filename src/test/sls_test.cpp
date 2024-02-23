@@ -39,7 +39,7 @@ namespace bv {
                 auto const& val = ev.wval0(e);
                 rational n1, n2;
 
-                val.get_value(val.bits, n1);
+                n1 = val.get_value();
 
                 VERIFY(bv.is_numeral(r, n2));
                 if (n1 != n2) {
@@ -167,7 +167,7 @@ namespace bv {
                 auto& val1 = ev.wval0(e1);
                 auto& val2 = ev.wval0(e2);
                 if (!val1.eq(val2)) {
-                    val2.set(val1.bits);
+                    val2.set(val1.bits());
                     auto rep2 = ev.try_repair(to_app(e2), idx);
                     if (!rep2) {
                         verbose_stream() << "Not repaired " << mk_pp(e2, m) << "\n";
