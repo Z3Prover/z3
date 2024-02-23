@@ -31,60 +31,33 @@ namespace bv {
         reserve(nw + 1);     
     }
 
-    void bvect::clear_overflow_bits() {
-        SASSERT(nw > 0);
-        (*this)[nw - 1] &= mask;
-        SASSERT(!has_overflow());
-    }
-
-    void bvect::set_sub(bvect const& a, bvect const& b) {
-        digit_t c;
-        mpn_manager().sub(a.data(), a.nw, b.data(), a.nw, data(), &c);
-        set_bw(bw);
-        clear_overflow_bits();
-    }
-
     bool operator==(bvect const& a, bvect const& b) {
         SASSERT(a.nw > 0);
-        SASSERT(!a.has_overflow());
-        SASSERT(!b.has_overflow());
         return 0 == mpn_manager().compare(a.data(), a.nw, b.data(), a.nw);
     }
 
     bool operator<(bvect const& a, bvect const& b) {
-        SASSERT(a.nw > 0);
-        SASSERT(!a.has_overflow());
-        SASSERT(!b.has_overflow());        
+        SASSERT(a.nw > 0);       
         return mpn_manager().compare(a.data(), a.nw, b.data(), a.nw) < 0;
     }
 
     bool operator>(bvect const& a, bvect const& b) {
         SASSERT(a.nw > 0);
-        SASSERT(!a.has_overflow());
-        SASSERT(!b.has_overflow());
         return mpn_manager().compare(a.data(), a.nw, b.data(), a.nw) > 0;
     }
 
     bool operator<=(bvect const& a, bvect const& b) {
         SASSERT(a.nw > 0);
-        SASSERT(!a.has_overflow());
-        SASSERT(!b.has_overflow());
         return mpn_manager().compare(a.data(), a.nw, b.data(), a.nw) <= 0;
     }
 
     bool operator>=(bvect const& a, bvect const& b) {
         SASSERT(a.nw > 0);
-        SASSERT(!a.has_overflow());
-        SASSERT(!b.has_overflow());
         return mpn_manager().compare(a.data(), a.nw, b.data(), a.nw) >= 0;
     }
 
-
-    sls_valuation::sls_valuation(unsigned bw) : bw(bw) {
-        nw = (bw + sizeof(digit_t) * 8 - 1) / (8 * sizeof(digit_t));
-        mask = (1 << (bw % (8 * sizeof(digit_t)))) - 1;
-        if (mask == 0)
-            mask = ~(digit_t)0;
+    sls_valuation::sls_valuation(unsigned bw) {
+        set_bw(bw);
         lo.set_bw(bw);
         hi.set_bw(bw);
         m_bits.set_bw(bw);
@@ -92,8 +65,15 @@ namespace bv {
         // have lo, hi bits, fixed point to memory allocated within this of size num_bytes each allocated        
         for (unsigned i = 0; i < nw; ++i)
             lo[i] = 0, hi[i] = 0, m_bits[i] = 0, fixed[i] = 0;
-        for (unsigned i = bw; i < 8 * sizeof(digit_t) * nw; ++i)
-            set(fixed, i, true);
+        fixed[nw - 1] = ~mask;
+    }
+
+    void sls_valuation::set_bw(unsigned b) {
+        bw = b;
+        nw = (bw + sizeof(digit_t) * 8 - 1) / (8 * sizeof(digit_t));
+        mask = (1 << (bw % (8 * sizeof(digit_t)))) - 1;
+        if (mask == 0)
+            mask = ~(digit_t)0;
     }
 
     bool sls_valuation::in_range(bvect const& bits) const {
@@ -308,11 +288,11 @@ namespace bv {
         for (unsigned i = 0; i < bw; ++i) {
             if (p >= max_n) {
                 for (unsigned j = i; j < bw; ++j)
-                    if (get(d, j))
+                    if (d.get(j))
                         return max_n;
                 return value;
             }
-            if (get(d, i))
+            if (d.get(i))
                 value += p;
             p <<= 1;
         }
@@ -322,7 +302,7 @@ namespace bv {
     void sls_valuation::shift_right(bvect& out, unsigned shift) const {
         SASSERT(shift < bw);
         for (unsigned i = 0; i < bw; ++i)
-            set(out, i, i + shift < bw ? get(m_bits, i + shift) : false);
+            out.set(i, i + shift < bw ? m_bits.get(i + shift) : false);
         SASSERT(well_formed());
     }
 
@@ -384,18 +364,18 @@ namespace bv {
         if (lo == hi)
             return;
         for (unsigned i = bw; i-- > 0; ) {
-            if (!get(fixed, i))
+            if (!fixed.get(i))
                 continue;
-            if (get(m_bits, i) == get(lo, i))
+            if (m_bits.get(i) == lo.get(i))
                 continue;
-            if (get(m_bits, i)) {
-                set(lo, i, true);
+            if (m_bits.get(i)) {
+                lo.set(i, true);
                 for (unsigned j = i; j-- > 0; )
-                    set(lo, j, get(fixed, j) && get(m_bits, j));
+                    lo.set(j, fixed.get(j) && m_bits.get(j));
             }
             else {
                 for (unsigned j = bw; j-- > 0; )
-                    set(lo, j, get(fixed, j) && get(m_bits, j));
+                    lo.set(j, fixed.get(j) && m_bits.get(j));
             }
             break;
         }
@@ -406,18 +386,18 @@ namespace bv {
         mpn_manager().sub(hi.data(), nw, one.data(), nw, hi1.data(), &c);
         clear_overflow_bits(hi1);
         for (unsigned i = bw; i-- > 0; ) {
-            if (!get(fixed, i))
+            if (!fixed.get(i))
                 continue;
-            if (get(m_bits, i) == get(hi1, i))
+            if (m_bits.get(i) == hi1.get(i))
                 continue;
-            if (get(hi1, i)) {
-                set(hi1, i, false);
+            if (hi1.get(i)) {
+                hi1.set(i, false);
                 for (unsigned j = i; j-- > 0; )
-                    set(hi1, j, !get(fixed, j) || get(m_bits, j));
+                    hi1.set(j, !fixed.get(j) || m_bits.get(j));
             }
             else {
                 for (unsigned j = bw; j-- > 0; )
-                    set(hi1, j, get(fixed, j) && get(m_bits, j));
+                    hi1.set(j, fixed.get(j) && m_bits.get(j));
             }
             mpn_manager().add(hi1.data(), nw, one.data(), nw, hi.data(), nw + 1, &c);
             clear_overflow_bits(hi);
@@ -426,16 +406,16 @@ namespace bv {
 
         // set fixed bits based on bounds
         auto set_fixed_bit = [&](unsigned i, bool b) {
-            if (!get(fixed, i)) {
-                set(fixed, i, true);
-                set(m_bits, i, b);
+            if (!fixed.get(i)) {
+                fixed.set(i, true);
+                m_bits.set(i, b);
             }
             };
 
         // set most significant bits
         if (lo < hi) {
             unsigned i = bw;
-            for (; i-- > 0 && !get(hi, i); )
+            for (; i-- > 0 && !hi.get(i); )
                 set_fixed_bit(i, false);
 
             if (is_power_of2(hi))
@@ -447,7 +427,7 @@ namespace bv {
         clear_overflow_bits(hi1);
         if (hi == hi1) {
             for (unsigned i = 0; i < bw; ++i)
-                set_fixed_bit(i, get(lo, i));
+                set_fixed_bit(i, lo.get(i));
         }
         SASSERT(well_formed());
     }

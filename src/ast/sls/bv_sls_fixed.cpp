@@ -111,7 +111,7 @@ namespace bv {
         else if (bv.is_bit2bool(e, s, idx)) {
             auto& val = wval0(s);
             val.try_set_bit(idx, !sign);
-            val.set(val.fixed, idx, true);
+            val.fixed.set(idx, true);
             val.init_fixed();
         }
     }
@@ -222,7 +222,7 @@ namespace bv {
         auto& v = ev.wval0(e);
         if (all_of(*e, [&](expr* arg) { return ev.is_fixed0(arg); })) {
             for (unsigned i = 0; i < v.bw; ++i)
-                v.set(v.fixed, i, true);
+                v.fixed.set(i, true);
             ev.m_fixed.setx(e->get_id(), true, false);
             return;
         }
@@ -272,16 +272,16 @@ namespace bv {
             }
             bool pfixed = true;
             for (unsigned i = 0; i < v.bw; ++i) {
-                if (pfixed && a.get(a.fixed, i) && b.get(b.fixed, i)) 
-                    v.set(v.fixed, i, true);                
-                else if (!pfixed && a.get(a.fixed, i) && b.get(b.fixed, i) &&
+                if (pfixed && a.fixed.get(i) && b.fixed.get(i)) 
+                    v.fixed.set(i, true);                
+                else if (!pfixed && a.fixed.get(i) && b.fixed.get(i) &&
                     !a.get_bit(i) && !b.get_bit(i)) {
                     pfixed = true;
-                    v.set(v.fixed, i, false);
+                    v.fixed.set(i, false);
                 }
                 else {
                     pfixed = false;
-                    v.set(v.fixed, i, false);
+                    v.fixed.set(i, false);
                 }
             }
 
@@ -294,36 +294,36 @@ namespace bv {
             // i'th bit depends on bits j + k = i
             // if the first j, resp k bits are 0, the bits j + k are 0  
             for (; j < v.bw; ++j)
-                if (!a.get(a.fixed, j))
+                if (!a.fixed.get(j))
                     break;
             for (; k < v.bw; ++k)
-                if (!b.get(b.fixed, k))
+                if (!b.fixed.get(k))
                     break;
             for (; zj < v.bw; ++zj)
-                if (!a.get(a.fixed, zj) || a.get_bit(zj))
+                if (!a.fixed.get(zj) || a.get_bit(zj))
                     break;
             for (; zk < v.bw; ++zk)
-                if (!b.get(b.fixed, zk) || b.get_bit(zk))
+                if (!b.fixed.get(zk) || b.get_bit(zk))
                     break;
             for (; hzj < v.bw; ++hzj)
-                if (!a.get(a.fixed, v.bw - hzj - 1) || a.get_bit(v.bw - hzj - 1))
+                if (!a.fixed.get(v.bw - hzj - 1) || a.get_bit(v.bw - hzj - 1))
                     break;
             for (; hzk < v.bw; ++hzk)
-                if (!b.get(b.fixed, v.bw - hzk - 1) || b.get_bit(v.bw - hzk - 1))
+                if (!b.fixed.get(v.bw - hzk - 1) || b.get_bit(v.bw - hzk - 1))
                     break;
 
 
             if (j > 0 && k > 0) {
                 for (unsigned i = 0; i < std::min(k, j); ++i) {
                     SASSERT(!v.get_bit(i));
-                    v.set(v.fixed, i, true);
+                    v.fixed.set(i, true);
                 }
             }
             // lower zj + jk bits are 0
             if (zk > 0 || zj > 0) {
                 for (unsigned i = 0; i < zk + zj; ++i) {
                     SASSERT(!v.get_bit(i));
-                    v.set(v.fixed, i, true);
+                    v.fixed.set(i, true);
                 }
             }
             // upper bits are 0, if enough high order bits of a, b are 0.
@@ -333,7 +333,7 @@ namespace bv {
                 hzk = v.bw - hzk;
                 for (unsigned i = hzj + hzk - 1; i < v.bw; ++i) {
                     SASSERT(!v.get_bit(i));
-                    v.set(v.fixed, i, true);
+                    v.fixed.set(i, true);
                 }
             }            
             break;
@@ -342,9 +342,9 @@ namespace bv {
             auto& a = wval0(e->get_arg(0));
             auto& b = wval0(e->get_arg(1));
             for (unsigned i = 0; i < b.bw; ++i)
-                v.set(v.fixed, i, b.get(b.fixed, i));
+                v.fixed.set(i, b.fixed.get(i));
             for (unsigned i = 0; i < a.bw; ++i)
-                v.set(v.fixed, i + b.bw, a.get(a.fixed, i));
+                v.fixed.set(i + b.bw, a.fixed.get(i));
             break;
         }
         case OP_EXTRACT: {
@@ -353,18 +353,18 @@ namespace bv {
             VERIFY(bv.is_extract(e, lo, hi, child));
             auto& a = wval0(child);
             for (unsigned i = lo; i <= hi; ++i)
-                v.set(v.fixed, i - lo, a.get(a.fixed, i));
+                v.fixed.set(i - lo, a.fixed.get(i));
             break;
         }
         case OP_BNEG: {
             auto& a = wval0(e->get_arg(0));
             bool pfixed = true;
             for (unsigned i = 0; i < v.bw; ++i) {
-                if (pfixed && a.get(a.fixed, i))
-                    v.set(v.fixed, i, true);
+                if (pfixed && a.fixed.get(i))
+                    v.fixed.set(i, true);
                 else {
                     pfixed = false;
-                    v.set(v.fixed, i, false);
+                    v.fixed.set(i, false);
                 }
             }
             break;

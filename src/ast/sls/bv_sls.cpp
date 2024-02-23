@@ -67,7 +67,7 @@ namespace bv {
             }
             else if (bv.is_bv(e)) {
                 auto& w = m_eval.wval0(e);
-                if (w.get(w.fixed, i) || should_keep())
+                if (w.fixed.get(i) || should_keep())
                     return w.get_bit(i);                
             }
             return m_rand() % 2 == 0;
