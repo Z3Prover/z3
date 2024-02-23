@@ -110,7 +110,7 @@ namespace bv {
         }
         else if (bv.is_bit2bool(e, s, idx)) {
             auto& val = wval0(s);
-            val.set_bit(idx, !sign);
+            val.try_set_bit(idx, !sign);
             val.set(val.fixed, idx, true);
             val.init_fixed();
         }
@@ -259,6 +259,17 @@ namespace bv {
         case OP_BADD: {
             auto& a = wval0(e->get_arg(0));
             auto& b = wval0(e->get_arg(1));
+            rational r;
+            if (bv.is_numeral(e->get_arg(0), r) && b.has_range()) {
+                auto rlo = b.get_lo();
+                auto rhi = b.get_hi();
+                v.add_range(r + rlo, r + rhi);
+            }
+            if (bv.is_numeral(e->get_arg(1), r) && a.has_range()) {
+                auto rlo = a.get_lo();
+                auto rhi = a.get_hi();
+                v.add_range(r + rlo, r + rhi);
+            }
             bool pfixed = true;
             for (unsigned i = 0; i < v.bw; ++i) {
                 if (pfixed && a.get(a.fixed, i) && b.get(b.fixed, i)) 
@@ -273,17 +284,7 @@ namespace bv {
                     v.set(v.fixed, i, false);
                 }
             }
-            rational r, rlo, rhi;
-            if (bv.is_numeral(e->get_arg(0), r) && !b.eq(b.lo, b.hi)) {
-                b.get_value(b.lo, rlo);
-                b.get_value(b.hi, rhi);
-                v.add_range(r + rlo, r + rhi);
-            }
-            if (bv.is_numeral(e->get_arg(1), r) && !a.eq(a.lo, a.hi)) {
-                a.get_value(a.lo, rlo);
-                a.get_value(a.hi, rhi);
-                v.add_range(r + rlo, r + rhi);
-            }
+
             break;
         }
         case OP_BMUL: {

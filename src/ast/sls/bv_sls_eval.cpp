@@ -470,7 +470,7 @@ namespace bv {
         case OP_BSHL: {
             auto& a = wval0(e->get_arg(0));
             auto& b = wval0(e->get_arg(1));
-            auto sh = b.to_nat(b.bits(), b.bw);
+            auto sh = b.to_nat(b.bw);
             if (sh == 0)
                 val.set(a.bits());
             else if (sh >= b.bw)
@@ -484,7 +484,7 @@ namespace bv {
         case OP_BLSHR: {
             auto& a = wval0(e->get_arg(0));
             auto& b = wval0(e->get_arg(1));
-            auto sh = b.to_nat(b.bits(), b.bw);
+            auto sh = b.to_nat(b.bw);
             if (sh == 0)
                 val.set(a.bits());
             else if (sh >= b.bw)
@@ -498,7 +498,7 @@ namespace bv {
         case OP_BASHR: {
             auto& a = wval0(e->get_arg(0));
             auto& b = wval0(e->get_arg(1));
-            auto sh = b.to_nat(b.bits(), b.bw);
+            auto sh = b.to_nat(b.bw);
             auto sign = a.sign();
             if (sh == 0)
                 val.set(a.bits());
@@ -636,8 +636,7 @@ namespace bv {
         }
         case OP_EXT_ROTATE_LEFT: {
             auto& b = wval0(e->get_arg(1));
-            rational n;
-            b.get_value(b.bits(), n);
+            rational n = b.get_value();
             n = mod(n, rational(val.bw));
             SASSERT(n.is_unsigned());
             mk_rotate_left(n.get_unsigned());
@@ -645,8 +644,7 @@ namespace bv {
         }
         case OP_EXT_ROTATE_RIGHT: {
             auto& b = wval0(e->get_arg(1));
-            rational n;
-            b.get_value(b.bits(), n);
+            rational n = b.get_value();
             n = mod(n, rational(val.bw));
             SASSERT(n.is_unsigned());
             mk_rotate_left(val.bw - n.get_unsigned());
@@ -694,10 +692,10 @@ namespace bv {
         return r;
     }
 
-    bool sls_eval::try_repair(app* e, unsigned i) {
+    bool sls_eval::try_repair(app* e, unsigned i) {        
         if (is_fixed0(e->get_arg(i)))
             return false;
-        if (e->get_family_id() == basic_family_id)
+        else if (e->get_family_id() == basic_family_id)
             return try_repair_basic(e, i);
         if (e->get_family_id() == bv.get_family_id())
             return try_repair_bv(e, i);
@@ -1049,8 +1047,10 @@ namespace bv {
         if (parity_b > 0)
             b.shift_right(y, parity_b);
         y[a.nw] = 0;
+        
         a.nw = a.nw + 1;
         a.bw = 8 * sizeof(digit_t) * a.nw;
+        y.set_bw(a.bw);
         // x = 2 ^ b.bw
         a.set_zero(x);
         a.set(x, bw, true);        
@@ -1061,11 +1061,11 @@ namespace bv {
         a.set_one(nextb);
 
         rem.reserve(2 * a.nw);
-        SASSERT(a.le(y, x));
-        while (a.gt(y, m_zero)) {
-            SASSERT(a.le(y, x));            
+        SASSERT(y <= x);
+        while (y > m_zero) {
+            SASSERT(y <= x);            
             set_div(x, y, a.bw, quot, rem); // quot, rem := quot_rem(x, y)
-            SASSERT(a.le(rem, y));
+            SASSERT(y >= rem);
             a.set(x, y);                    // x := y
             a.set(y, rem);                  // y := rem
             a.set(aux, nexta);              // aux := nexta
@@ -1080,6 +1080,7 @@ namespace bv {
 
         a.bw = bw;
         a.nw = a.nw - 1;
+        y.set_bw(0);
         // x*a + y*b = 1
     
 #if Z3DEBUG
@@ -1098,7 +1099,7 @@ namespace bv {
             verbose_stream() << m_tmp[i];
         verbose_stream() << "\n";
 #endif
-        SASSERT(b.is_one(m_tmp));
+        SASSERT(m_tmp.is_one());
 #endif
         e.get(m_tmp2);
         if (parity_e > 0 && parity_b > 0)
@@ -1117,23 +1118,20 @@ namespace bv {
         auto inv_b = nb.pseudo_inverse(b.bw);
         rational na = mod(inv_b * ne, rational::power_of_two(a.bw));
         a.set_value(m_tmp, na);
-        a.set_repair(random_bool(), m_tmp);
-#endif
-        return true;        
+        return a.set_repair(random_bool(), m_tmp);
+#endif        
     }
 
     bool sls_eval::try_repair_bnot(bvval const& e, bvval& a) {
         for (unsigned i = 0; i < e.nw; ++i)
             m_tmp[i] = ~e.bits()[i];
         a.clear_overflow_bits(m_tmp);
-        a.set_repair(random_bool(), m_tmp);
-        return true;
+        return a.set_repair(random_bool(), m_tmp);       
     }
 
     bool sls_eval::try_repair_bneg(bvval const& e, bvval& a) {
-        a.set_sub(m_tmp, m_zero, e.bits()); 
-        a.set_repair(random_bool(), m_tmp);
-        return true;
+        e.set_sub(m_tmp, m_zero, e.bits()); 
+        return a.set_repair(random_bool(), m_tmp);        
     }
 
     bool sls_eval::try_repair_ule(bool e, bvval& a, bvval const& b) {
@@ -1147,38 +1145,35 @@ namespace bv {
     // a <=s b <-> a + p2 <=u b + p2
 
     bool sls_eval::try_repair_sle(bool e, bvval& a, bvval const& b) {
-        //add_p2_1(b, m_tmp4);
         a.set(m_tmp, b.bits());
         if (e) {
-            a.set_repair(true, m_tmp);
+            return a.set_repair(true, m_tmp);
         }
         else {
             a.set_add(m_tmp2, m_tmp, m_one);
-            a.set_repair(false, m_tmp2);
+            return a.set_repair(false, m_tmp2);
         }
-        return true;
     }
 
     bool sls_eval::try_repair_sge(bool e, bvval& a, bvval const& b) {
         a.set(m_tmp, b.bits());
         if (e) {
-            a.set_repair(false, m_tmp);
+            return a.set_repair(false, m_tmp);
         }
         else {
             a.set_sub(m_tmp2, m_tmp, m_one);
-            a.set_repair(true, m_tmp2);
-        }
-        return true;
+            return a.set_repair(true, m_tmp2);
+        }        
     }
 
-    void sls_eval::add_p2_1(bvval const& a, svector<digit_t>& t) const {
+    void sls_eval::add_p2_1(bvval const& a, bvect& t) const {
         a.set(m_zero, a.bw - 1, true);
         a.set_add(t, a.bits(), m_zero);
         a.set(m_zero, a.bw - 1, false);
         a.clear_overflow_bits(t);
     }
 
-    bool sls_eval::try_repair_ule(bool e, bvval& a, svector<digit_t> const& t) {
+    bool sls_eval::try_repair_ule(bool e, bvval& a, bvect const& t) {
         if (e) {
             if (!a.get_at_most(t, m_tmp))
                 return false;
@@ -1192,11 +1187,10 @@ namespace bv {
                 return false;
             }
         }
-        a.set_repair(random_bool(), m_tmp);
-        return true;
+        return a.set_repair(random_bool(), m_tmp);        
     }
 
-    bool sls_eval::try_repair_uge(bool e, bvval& a, svector<digit_t> const& t) {
+    bool sls_eval::try_repair_uge(bool e, bvval& a, bvect const& t) {
         if (e) {
             if (!a.get_at_least(t, m_tmp))
                 return false;         
@@ -1208,19 +1202,16 @@ namespace bv {
             if (!a.get_at_most(m_tmp2, m_tmp))
                 return false;
         }
-        a.set_repair(random_bool(), m_tmp);
-        return true;
+        return a.set_repair(random_bool(), m_tmp);        
     }
 
-    bool sls_eval::try_repair_bit2bool(bvval& a, unsigned idx) {
-        a.set(m_tmp, a.bits());
-        a.set(m_tmp, idx, !a.get_bit(idx));
-        return a.try_set(m_tmp);
+    bool sls_eval::try_repair_bit2bool(bvval& a, unsigned idx) {       
+        return a.try_set_bit(idx, !a.get_bit(idx));
     }
 
     bool sls_eval::try_repair_shl(bvval const& e, bvval& a, bvval& b, unsigned i) {
         if (i == 0) {
-            unsigned sh = b.to_nat(b.bits(), b.bw);
+            unsigned sh = b.to_nat(b.bw);
             if (sh == 0) 
                 return a.try_set(e.bits());            
             else if (sh >= b.bw) 
@@ -1251,23 +1242,14 @@ namespace bv {
 
     bool sls_eval::try_repair_ashr(bvval const& e, bvval & a, bvval& b, unsigned i) {
         if (i == 0) {
-            unsigned sh = b.to_nat(b.bits(), b.bw);
+            unsigned sh = b.to_nat(b.bw);
             if (sh == 0)
                 return a.try_set(e.bits());
             else if (sh >= b.bw) {
-                if (e.get_bit(e.bw - 1)) {
-                    if (!a.get_bit(a.bw - 1) && !a.get(a.fixed, a.bw - 1))
-                        a.set_bit(a.bw - 1, true);
-                    else
-                        return false;
-                }
-                else {
-                    if (a.get_bit(a.bw - 1) && !a.get(a.fixed, a.bw - 1))
-                        a.set_bit(a.bw - 1, false);
-                    else
-                        return false;
-                }
-                return true;
+                if (e.get_bit(e.bw - 1)) 
+                    return a.try_set_bit(a.bw - 1, true);                
+                else 
+                    return a.try_set_bit(a.bw - 1, false);
             }
             else {
                 // e = a >> sh
@@ -1289,7 +1271,6 @@ namespace bv {
             b.set(m_tmp, sh);
             return b.try_set(m_tmp);
         }
-        return false;
     }
 
     bool sls_eval::try_repair_lshr(bvval const& e, bvval& a, bvval& b, unsigned i) {
@@ -1303,7 +1284,7 @@ namespace bv {
 
     bool sls_eval::try_repair_udiv(bvval const& e, bvval& a, bvval& b, unsigned i) {
         if (i == 0) {
-            if (e.is_zero() && a.is_ones(a.fixed) && a.is_ones())
+            if (e.is_zero() && a.fixed.is_ones() && a.is_ones())
                 return false;            
             if (b.is_zero()) 
                 return false;            
@@ -1311,14 +1292,13 @@ namespace bv {
                 for (unsigned i = 0; i < a.nw; ++i)
                     m_tmp[i] = ~a.fixed[i] | a.bits()[i];
                 a.clear_overflow_bits(m_tmp);
-                if (a.lt(m_tmp, e.bits()))
+                if (e.bits() > m_tmp)
                     return false;
             }
             // e = 1 => a := b
             if (e.is_one()) {
                 a.set(m_tmp, b.bits());
-                a.set_repair(false, m_tmp);
-                return true;
+                return a.set_repair(false, m_tmp);
             }
             // b * e + r = a
             for (unsigned i = 0; i < a.nw; ++i)
@@ -1331,25 +1311,23 @@ namespace bv {
             for (unsigned i = 0; i < a.nw; ++i)
                 m_tmp2[i] = random_bits();
             b.clear_overflow_bits(m_tmp2);
-            while (b.gt(m_tmp2, b.bits())) 
+            while (b.bits() < m_tmp2)
                 b.set(m_tmp2, b.msb(m_tmp2), false);
             while (a.set_add(m_tmp3, m_tmp, m_tmp2)) 
                 b.set(m_tmp2, b.msb(m_tmp2), false);            
-            a.set_repair(true, m_tmp3);
+            return a.set_repair(true, m_tmp3);
         }
         else {
             if (e.is_one() && a.is_zero()) {
                 for (unsigned i = 0; i < a.nw; ++i)
                     m_tmp[i] = random_bits();
                 a.clear_overflow_bits(m_tmp);
-                b.set_repair(true, m_tmp);
-                return true;
+                return b.set_repair(true, m_tmp);                
             }
             if (e.is_one()) {
-                b.set(m_tmp, a.bits());
-                b.set_repair(true, m_tmp);
-                return true;
-            }
+                a.set(m_tmp, a.bits());
+                return b.set_repair(true, m_tmp);
+            }            
 
             // e * b + r = a
             // b = (a - r) udiv e 
@@ -1358,13 +1336,12 @@ namespace bv {
                 m_tmp[i] = random_bits();
             a.clear_overflow_bits(m_tmp);
             // ensure r <= m
-            while (a.lt(a.bits(), m_tmp))
+            while (a.bits() < m_tmp)
                 a.set(m_tmp, a.msb(m_tmp), false);
             a.set_sub(m_tmp2, a.bits(), m_tmp);
             set_div(m_tmp2, e.bits(), a.bw, m_tmp3, m_tmp4);
-            b.set_repair(random_bool(), m_tmp4);
+            return b.set_repair(random_bool(), m_tmp4);
         }
-        return true;
     }
 
     // table III in Niemetz et al
@@ -1405,8 +1382,7 @@ namespace bv {
                 b.set(m_tmp, i, false);
             }
             a.set_add(m_tmp3, m_tmp2, e.bits());
-            a.set_repair(random_bool(), m_tmp3);
-            return true;
+            return a.set_repair(random_bool(), m_tmp3);
         }
         else {
             // a urem b = e: b*y + e = a
@@ -1421,19 +1397,18 @@ namespace bv {
             a.set_sub(m_tmp2, a.bits(), e.bits());
             set_div(m_tmp2, m_tmp, a.bw, m_tmp3, m_tmp4);
             a.clear_overflow_bits(m_tmp3);
-            b.set_repair(random_bool(), m_tmp3);
-            return true;
+            return b.set_repair(random_bool(), m_tmp3);
         }
     }
 
-    bool sls_eval::add_overflow_on_fixed(bvval const& a, svector<digit_t> const& t) {
+    bool sls_eval::add_overflow_on_fixed(bvval const& a, bvect const& t) {
         a.set(m_tmp3, m_zero);
         for (unsigned i = 0; i < a.nw; ++i)
             m_tmp3[i] = a.fixed[i] & a.bits()[i];
         return a.set_add(m_tmp4, t, m_tmp3);
     }
 
-    bool sls_eval::mul_overflow_on_fixed(bvval const& a, svector<digit_t> const& t) {
+    bool sls_eval::mul_overflow_on_fixed(bvval const& a, bvect const& t) {
         a.set(m_tmp3, m_zero);
         for (unsigned i = 0; i < a.nw; ++i)
             m_tmp3[i] = a.fixed[i] & a.bits()[i];
@@ -1453,8 +1428,7 @@ namespace bv {
 
     bool sls_eval::try_repair_rotate_left(bvval const& e, bvval& a, bvval& b, unsigned i) {
         if (i == 0) {
-            rational n;
-            b.get_value(b.bits(), n);
+            rational n = b.get_value();
             n = mod(n, rational(b.bw));
             return try_repair_rotate_left(e, a, n.get_unsigned());
         }
@@ -1469,8 +1443,7 @@ namespace bv {
 
     bool sls_eval::try_repair_rotate_right(bvval const& e, bvval& a, bvval& b, unsigned i) {
         if (i == 0) {
-            rational n;
-            b.get_value(b.bits(), n);
+            rational n = b.get_value();
             n = mod(b.bw - n, rational(b.bw));
             return try_repair_rotate_left(e, a, n.get_unsigned());
         }
@@ -1478,8 +1451,7 @@ namespace bv {
             SASSERT(i == 1);
             unsigned sh = m_rand(b.bw);
             b.set(m_tmp, sh);
-            b.set_repair(random_bool(), m_tmp);
-            return true;
+            return b.set_repair(random_bool(), m_tmp);
         }
     }
 
@@ -1488,32 +1460,32 @@ namespace bv {
             // maximize
             if (i == 0) {
                 a.max_feasible(m_tmp);
-                a.set_repair(false, m_tmp);
+                return a.set_repair(false, m_tmp);
             }
             else {
                 b.max_feasible(m_tmp);
-                b.set_repair(false, m_tmp);
+                return b.set_repair(false, m_tmp);
             }
         }
         else {
             // minimize
             if (i == 0) {
                 a.min_feasible(m_tmp);
-                a.set_repair(true, m_tmp);
+                return a.set_repair(true, m_tmp);
             }
             else {
                 b.min_feasible(m_tmp);
-                b.set_repair(true, m_tmp);
+                return b.set_repair(true, m_tmp);
             }
         }
-        return true;
     }
 
     bool sls_eval::try_repair_zero_ext(bvval const& e, bvval& a) {
+        bool change = false;
         for (unsigned i = 0; i < a.bw; ++i)
-            if (!a.get(a.fixed, i))
-                a.set_bit(i, e.get_bit(i));
-        return true;
+            if (a.try_set_bit(i, e.get_bit(i)))
+                change = true;
+        return change;
     }
 
     bool sls_eval::try_repair_concat(bvval const& e, bvval& a, bvval& b, unsigned i) {
@@ -1532,16 +1504,15 @@ namespace bv {
     }
 
     bool sls_eval::try_repair_extract(bvval const& e, bvval& a, unsigned lo) {
+        bool change = false;
         for (unsigned i = 0; i < e.bw; ++i)
-            if (a.get(a.fixed, i + lo) && a.get_bit(i + lo) != e.get_bit(i))
-                return false;
-        for (unsigned i = 0; i < e.bw; ++i)
-            a.set_bit(i + lo, e.get_bit(i));
-        return true;
+            if (a.try_set_bit(i + lo, e.get_bit(i)))
+                change = true;
+        return change;
     }
 
-    void sls_eval::set_div(svector<digit_t> const& a, svector<digit_t> const& b, unsigned bw,
-        svector<digit_t>& quot, svector<digit_t>& rem) const {
+    void sls_eval::set_div(bvect const& a, bvect const& b, unsigned bw,
+        bvect& quot, bvect& rem) const {
         unsigned nw = (bw + 8 * sizeof(digit_t) - 1) / (8 * sizeof(digit_t));
         unsigned bnw = nw;
         while (bnw > 1 && b[bnw - 1] == 0)

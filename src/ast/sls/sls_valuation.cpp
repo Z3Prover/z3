@@ -22,12 +22,73 @@ Author:
 
 namespace bv {
 
-    sls_valuation::sls_valuation(unsigned bw): bw(bw) {
+    void bvect::set_bw(unsigned bw) {
+        this->bw = bw;
         nw = (bw + sizeof(digit_t) * 8 - 1) / (8 * sizeof(digit_t));
-        lo.reserve(nw + 1);
-        hi.reserve(nw + 1);
-        m_bits.reserve(nw + 1);
-        fixed.reserve(nw + 1);
+        mask = (1 << (bw % (8 * sizeof(digit_t)))) - 1;
+        if (mask == 0)
+            mask = ~(digit_t)0;
+        reserve(nw + 1);     
+    }
+
+    void bvect::clear_overflow_bits() {
+        SASSERT(nw > 0);
+        (*this)[nw - 1] &= mask;
+        SASSERT(!has_overflow());
+    }
+
+    void bvect::set_sub(bvect const& a, bvect const& b) {
+        digit_t c;
+        mpn_manager().sub(a.data(), a.nw, b.data(), a.nw, data(), &c);
+        set_bw(bw);
+        clear_overflow_bits();
+    }
+
+    bool operator==(bvect const& a, bvect const& b) {
+        SASSERT(a.nw > 0);
+        SASSERT(!a.has_overflow());
+        SASSERT(!b.has_overflow());
+        return 0 == mpn_manager().compare(a.data(), a.nw, b.data(), a.nw);
+    }
+
+    bool operator<(bvect const& a, bvect const& b) {
+        SASSERT(a.nw > 0);
+        SASSERT(!a.has_overflow());
+        SASSERT(!b.has_overflow());        
+        return mpn_manager().compare(a.data(), a.nw, b.data(), a.nw) < 0;
+    }
+
+    bool operator>(bvect const& a, bvect const& b) {
+        SASSERT(a.nw > 0);
+        SASSERT(!a.has_overflow());
+        SASSERT(!b.has_overflow());
+        return mpn_manager().compare(a.data(), a.nw, b.data(), a.nw) > 0;
+    }
+
+    bool operator<=(bvect const& a, bvect const& b) {
+        SASSERT(a.nw > 0);
+        SASSERT(!a.has_overflow());
+        SASSERT(!b.has_overflow());
+        return mpn_manager().compare(a.data(), a.nw, b.data(), a.nw) <= 0;
+    }
+
+    bool operator>=(bvect const& a, bvect const& b) {
+        SASSERT(a.nw > 0);
+        SASSERT(!a.has_overflow());
+        SASSERT(!b.has_overflow());
+        return mpn_manager().compare(a.data(), a.nw, b.data(), a.nw) >= 0;
+    }
+
+
+    sls_valuation::sls_valuation(unsigned bw) : bw(bw) {
+        nw = (bw + sizeof(digit_t) * 8 - 1) / (8 * sizeof(digit_t));
+        mask = (1 << (bw % (8 * sizeof(digit_t)))) - 1;
+        if (mask == 0)
+            mask = ~(digit_t)0;
+        lo.set_bw(bw);
+        hi.set_bw(bw);
+        m_bits.set_bw(bw);
+        fixed.set_bw(bw);
         // have lo, hi bits, fixed point to memory allocated within this of size num_bytes each allocated        
         for (unsigned i = 0; i < nw; ++i)
             lo[i] = 0, hi[i] = 0, m_bits[i] = 0, fixed[i] = 0;
@@ -35,8 +96,8 @@ namespace bv {
             set(fixed, i, true);
     }
 
-    bool sls_valuation::in_range(svector<digit_t> const& bits) const {
-        mpn_manager m;    
+    bool sls_valuation::in_range(bvect const& bits) const {
+        mpn_manager m;
         auto c = m.compare(lo.data(), nw, hi.data(), nw);
         SASSERT(!has_overflow(bits));
         // full range
@@ -53,39 +114,6 @@ namespace bv {
             m.compare(bits.data(), nw, hi.data(), nw) < 0;
     }
 
-    bool sls_valuation::eq(svector<digit_t> const& a, svector<digit_t> const& b) const {
-        SASSERT(!has_overflow(a));
-        SASSERT(!has_overflow(b));
-        return 0 == memcmp(a.data(), b.data(), num_bytes());
-    }
-
-    bool sls_valuation::gt(svector<digit_t> const& a, svector<digit_t> const& b) const {
-        SASSERT(!has_overflow(a));
-        SASSERT(!has_overflow(b));
-        mpn_manager m;
-        return m.compare(a.data(), nw, b.data(), nw) > 0;
-    }
-
-    bool sls_valuation::lt(svector<digit_t> const& a, svector<digit_t> const& b) const {
-        SASSERT(!has_overflow(a));
-        SASSERT(!has_overflow(b));
-        mpn_manager m;
-        return m.compare(a.data(), nw, b.data(), nw) < 0;
-    }
-
-    bool sls_valuation::le(svector<digit_t> const& a, svector<digit_t> const& b) const {
-        SASSERT(!has_overflow(a));
-        SASSERT(!has_overflow(b));
-        mpn_manager m;
-        return m.compare(a.data(), nw, b.data(), nw) <= 0;
-    }
-
-    void sls_valuation::clear_overflow_bits(svector<digit_t>& bits) const { 
-        for (unsigned i = bw; i < nw * sizeof(digit_t) * 8; ++i)
-            set(bits, i, false);
-        SASSERT(!has_overflow(bits));
-    }
-
     //
     // largest dst <= src and dst is feasible
     // set dst := src & (~fixed | bits)
@@ -100,7 +128,7 @@ namespace bv {
     //    set dst := hi - 1
     // 
 
-    bool sls_valuation::get_at_most(svector<digit_t> const& src, svector<digit_t>& dst) const {
+    bool sls_valuation::get_at_most(bvect const& src, bvect& dst) const {
         SASSERT(!has_overflow(src));
         for (unsigned i = 0; i < nw; ++i)
             dst[i] = src[i] & (~fixed[i] | m_bits[i]);
@@ -137,7 +165,7 @@ namespace bv {
     // if hi <= dst < lo
     //    set dst := lo
     // 
-    bool sls_valuation::get_at_least(svector<digit_t> const& src, svector<digit_t>& dst) const {
+    bool sls_valuation::get_at_least(bvect const& src, bvect& dst) const {
         SASSERT(!has_overflow(src));
         for (unsigned i = 0; i < nw; ++i)
             dst[i] = (~fixed[i] & src[i]) | (fixed[i] & m_bits[i]);
@@ -161,51 +189,52 @@ namespace bv {
         return round_up(dst);
     }
 
-    bool sls_valuation::round_up(svector<digit_t>& dst) const {
-        if (lt(lo, hi)) {
-            if (le(hi, dst))
+    bool sls_valuation::round_up(bvect& dst) const {
+        if (lo < hi) {
+            if (hi <= dst)
                 return false;
-            if (lt(dst, lo))
+            if (lo > dst)
                 set(dst, lo);
         }
-        else if (le(hi, dst) && lt(dst, lo))
+        else if (hi <= dst && lo > dst)
             set(dst, lo);
         SASSERT(!has_overflow(dst));
         return true;
     }
 
-    bool sls_valuation::round_down(svector<digit_t>& dst) const {
-        if (lt(lo, hi)) {
-            if (lt(dst, lo))
+    bool sls_valuation::round_down(bvect& dst) const {
+        if (lo < hi) {
+            if (lo > dst)
                 return false;
-            if (le(hi, dst)) {
+            if (hi <= dst) {
                 set(dst, hi);
                 sub1(dst);
             }
         }
-        else if (le(hi, dst) && lt(dst, lo)) {
+        else if (hi <= dst && lo > dst) {
             set(dst, hi);
             sub1(dst);
         }
-        SASSERT(!has_overflow(dst));
+        SASSERT(well_formed());
         return true;
     }
 
-    bool sls_valuation::set_repair(bool try_down, svector<digit_t>& dst) {
+    bool sls_valuation::set_repair(bool try_down, bvect& dst) {
         for (unsigned i = 0; i < nw; ++i)
             dst[i] = (~fixed[i] & dst[i]) | (fixed[i] & m_bits[i]);
         bool ok = try_down ? round_down(dst) : round_up(dst);
         if (!ok)
             VERIFY(try_down ? round_up(dst) : round_down(dst));
-        if (eq(m_bits, dst))
+        DEBUG_CODE(SASSERT(0 == (mask & (fixed[nw-1] & (m_bits[nw-1] ^ dst[nw-1])))); for (unsigned i = 0; i + 1 < nw; ++i) SASSERT(0 == (fixed[i] & (m_bits[i] ^ dst[i]))););
+        if (m_bits == dst)
             return false;
         set(m_bits, dst);
-        SASSERT(!has_overflow(dst));
+        SASSERT(well_formed());
         return true;
     }
 
-    void sls_valuation::min_feasible(svector<digit_t>& out) const {
-        if (gt(hi, lo)) {
+    void sls_valuation::min_feasible(bvect& out) const {
+        if (lo < hi) {
             for (unsigned i = 0; i < nw; ++i)
                 out[i] = lo[i];
         }
@@ -216,8 +245,8 @@ namespace bv {
         SASSERT(!has_overflow(out));
     }
 
-    void sls_valuation::max_feasible(svector<digit_t>& out) const {
-        if (gt(hi, lo)) {        
+    void sls_valuation::max_feasible(bvect& out) const {
+        if (lo < hi) {
             for (unsigned i = 0; i < nw; ++i)
                 out[i] = hi[i];
             sub1(out);
@@ -229,53 +258,49 @@ namespace bv {
         SASSERT(!has_overflow(out));
     }
 
-    unsigned sls_valuation::msb(svector<digit_t> const& src) const {
+    unsigned sls_valuation::msb(bvect const& src) const {
         SASSERT(!has_overflow(src));
-        for (unsigned i = nw; i-- > 0; ) 
+        for (unsigned i = nw; i-- > 0; )
             if (src[i] != 0)
-                return i * 8 * sizeof(digit_t) + log2(src[i]);        
+                return i * 8 * sizeof(digit_t) + log2(src[i]);
         return bw;
     }
 
-    void sls_valuation::set_value(svector<digit_t>& bits, rational const& n) {       
-        for (unsigned i = 0; i < bw; ++i) 
-            set(bits, i, n.get_bit(i)); 
+    void sls_valuation::set_value(bvect& bits, rational const& n) {
+        for (unsigned i = 0; i < bw; ++i)
+            bits.set(i, n.get_bit(i));
         clear_overflow_bits(bits);
     }
 
-    void sls_valuation::get_value(svector<digit_t> const& bits, rational& r) const {
-        rational p(1);
-        r = 0;
+    rational sls_valuation::get_value(bvect const& bits) const {
+        rational p(1), r(0);
         for (unsigned i = 0; i < nw; ++i) {
             r += p * rational(bits[i]);
-            p *= rational::power_of_two(8*sizeof(digit_t));
+            p *= rational::power_of_two(8 * sizeof(digit_t));
         }
+        return r;
     }
 
-    void sls_valuation::get(svector<digit_t>& dst) const {
+    void sls_valuation::get(bvect& dst) const {
         for (unsigned i = 0; i < nw; ++i)
             dst[i] = m_bits[i];
     }
 
-    void sls_valuation::set1(svector<digit_t>& bits) {
-        for (unsigned i = 0; i < bw; ++i)
-            set(bits, i, true);
-    }
-    
     //
     // new_bits != bits => ~fixed
     // 0 = (new_bits ^ bits) & fixed
     // also check that new_bits are in range
     //
-    bool sls_valuation::can_set(svector<digit_t> const& new_bits) const { 
+    bool sls_valuation::can_set(bvect const& new_bits) const {
         SASSERT(!has_overflow(new_bits));
         for (unsigned i = 0; i < nw; ++i)
             if (0 != ((new_bits[i] ^ m_bits[i]) & fixed[i]))
-                return false;        
+                return false;
         return in_range(new_bits);
     }
 
-    unsigned sls_valuation::to_nat(svector<digit_t> const& d, unsigned max_n) {
+    unsigned sls_valuation::to_nat(unsigned max_n) {
+        bvect const& d = m_bits;
         SASSERT(!has_overflow(d));
         SASSERT(max_n < UINT_MAX / 2);
         unsigned p = 1;
@@ -287,34 +312,36 @@ namespace bv {
                         return max_n;
                 return value;
             }
-            if (get(d, i)) 
-                value += p;            
+            if (get(d, i))
+                value += p;
             p <<= 1;
         }
         return value;
     }
 
-    void sls_valuation::shift_right(svector<digit_t>& out, unsigned shift) const {
+    void sls_valuation::shift_right(bvect& out, unsigned shift) const {
         SASSERT(shift < bw);
         for (unsigned i = 0; i < bw; ++i)
             set(out, i, i + shift < bw ? get(m_bits, i + shift) : false);
-        SASSERT(!has_overflow(out));
+        SASSERT(well_formed());
     }
 
     void sls_valuation::add_range(rational l, rational h) {
+        
         l = mod(l, rational::power_of_two(bw));
         h = mod(h, rational::power_of_two(bw));
         if (h == l)
             return;
-        
-        if (eq(lo, hi)) {
+
+        SASSERT(is_zero(fixed)); // ranges can only be added before fixed bits are set.
+
+        if (lo == hi) {
             set_value(lo, l);
             set_value(hi, h);
         }
-        else {
-            rational old_lo, old_hi;
-            get_value(lo, old_lo);
-            get_value(hi, old_hi);
+        else {            
+            auto old_lo = get_value(lo);
+            auto old_hi = get_value(hi);
             if (old_lo < old_hi) {
                 if (old_lo < l && l < old_hi)
                     set_value(lo, l),
@@ -332,10 +359,12 @@ namespace bv {
                 else if (old_hi < old_lo && (h < old_hi || old_lo < h))
                     set_value(hi, h);
             }
-        }    
+        }
         SASSERT(!has_overflow(lo));
         SASSERT(!has_overflow(hi));
-        init_fixed();
+        if (!in_range(m_bits))
+            set(m_bits, lo);
+        SASSERT(well_formed());
     }
 
     //
@@ -352,7 +381,7 @@ namespace bv {
     //  lo < hi, set most significant bits based on hi
     //
     void sls_valuation::init_fixed() {
-        if (eq(lo, hi))
+        if (lo == hi)
             return;
         for (unsigned i = bw; i-- > 0; ) {
             if (!get(fixed, i))
@@ -370,8 +399,8 @@ namespace bv {
             }
             break;
         }
-        svector<digit_t> hi1(nw + 1, (unsigned)0);
-        svector<digit_t> one(nw + 1, (unsigned)0);
+        bvect hi1(nw + 1);
+        bvect one(nw + 1);
         one[0] = 1;
         digit_t c;
         mpn_manager().sub(hi.data(), nw, one.data(), nw, hi1.data(), &c);
@@ -401,14 +430,14 @@ namespace bv {
                 set(fixed, i, true);
                 set(m_bits, i, b);
             }
-        };
+            };
 
         // set most significant bits
-        if (lt(lo, hi)) {
+        if (lo < hi) {
             unsigned i = bw;
-            for (; i-- > 0 && !get(hi, i); ) 
+            for (; i-- > 0 && !get(hi, i); )
                 set_fixed_bit(i, false);
-            
+
             if (is_power_of2(hi))
                 set_fixed_bit(i, false);
         }
@@ -416,30 +445,31 @@ namespace bv {
         // lo + 1 = hi: then bits = lo
         mpn_manager().add(lo.data(), nw, one.data(), nw, hi1.data(), nw + 1, &c);
         clear_overflow_bits(hi1);
-        if (eq(hi1, hi)) {
+        if (hi == hi1) {
             for (unsigned i = 0; i < bw; ++i)
-                set_fixed_bit(i, get(lo, i));            
+                set_fixed_bit(i, get(lo, i));
         }
-        SASSERT(!has_overflow(m_bits));
+        SASSERT(well_formed());
     }
 
-    void sls_valuation::set_sub(svector<digit_t>& out, svector<digit_t> const& a, svector<digit_t> const& b) const {
+    void sls_valuation::set_sub(bvect& out, bvect const& a, bvect const& b) const {
         digit_t c;
         mpn_manager().sub(a.data(), nw, b.data(), nw, out.data(), &c);
         clear_overflow_bits(out);
+        out.set_bw(bw);
     }
 
-    bool sls_valuation::set_add(svector<digit_t>& out, svector<digit_t> const& a, svector<digit_t> const& b) const {
+    bool sls_valuation::set_add(bvect& out, bvect const& a, bvect const& b) const {
         digit_t c;
         mpn_manager().add(a.data(), nw, b.data(), nw, out.data(), nw + 1, &c);
         bool ovfl = out[nw] != 0 || has_overflow(out);
         clear_overflow_bits(out);
+        out.set_bw(bw);
         return ovfl;
     }
 
-    bool sls_valuation::set_mul(svector<digit_t>& out, svector<digit_t> const& a, svector<digit_t> const& b, bool check_overflow) const {
+    bool sls_valuation::set_mul(bvect& out, bvect const& a, bvect const& b, bool check_overflow) const {
         mpn_manager().mul(a.data(), nw, b.data(), nw, out.data());
-
         bool ovfl = false;
         if (check_overflow) {
             ovfl = has_overflow(out);
@@ -447,14 +477,33 @@ namespace bv {
                 ovfl |= out[i] != 0;
         }
         clear_overflow_bits(out);
+        out.set_bw(bw);
         return ovfl;
     }
 
-    bool sls_valuation::is_power_of2(svector<digit_t> const& src) const {
+    bool sls_valuation::is_power_of2(bvect const& src) const {
         unsigned c = 0;
         for (unsigned i = 0; i < nw; ++i)
             c += get_num_1bits(src[i]);
         return c == 1;
     }
+
+    std::ostream& sls_valuation::print_bits(std::ostream& out, bvect const& v) const {
+        bool nz = false;
+        for (unsigned i = nw; i-- > 0;) {
+            auto w = v[i];
+            if (i + 1 == nw)
+                w &= mask;
+            if (nz)
+                out << std::setw(8) << std::setfill('0') << w;
+            else if (w != 0)
+                out << w, nz = true;
+        }
+
+        if (!nz)
+            out << "0";
+        return out;
+    }
+
 
 }

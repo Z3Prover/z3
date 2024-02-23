@@ -40,8 +40,8 @@ namespace bv {
         bool_vector                      m_eval;   // expr-id -> boolean valuation
         bool_vector                      m_fixed;  // expr-id -> is Boolean fixed
 
-        mutable svector<digit_t> m_tmp, m_tmp2, m_tmp3, m_tmp4, m_zero, m_one, m_minus_one;
-        svector<digit_t> m_a, m_b, m_nextb, m_nexta, m_aux;
+        mutable bvect m_tmp, m_tmp2, m_tmp3, m_tmp4, m_zero, m_one, m_minus_one;
+        bvect m_a, m_b, m_nextb, m_nexta, m_aux;
 
         using bvval = sls_valuation;
 
@@ -91,18 +91,18 @@ namespace bv {
         bool try_repair_rotate_left(bvval const& e, bvval& a, unsigned n) const;
         bool try_repair_rotate_left(bvval const& e, bvval& a, bvval& b, unsigned i);
         bool try_repair_rotate_right(bvval const& e, bvval& a, bvval& b, unsigned i);
-        bool try_repair_ule(bool e, bvval& a, svector<digit_t> const& t);
-        bool try_repair_uge(bool e, bvval& a, svector<digit_t> const& t);
+        bool try_repair_ule(bool e, bvval& a, bvect const& t);
+        bool try_repair_uge(bool e, bvval& a, bvect const& t);
         bool try_repair_umul_ovfl(bool e, bvval& a, bvval& b, unsigned i);
         bool try_repair_zero_ext(bvval const& e, bvval& a);
         bool try_repair_concat(bvval const& e, bvval& a, bvval& b, unsigned i);
         bool try_repair_extract(bvval const& e, bvval& a, unsigned lo);
-        void add_p2_1(bvval const& a, svector<digit_t>& t) const;
+        void add_p2_1(bvval const& a, bvect& t) const;
 
-        bool add_overflow_on_fixed(bvval const& a, svector<digit_t> const& t);
-        bool mul_overflow_on_fixed(bvval const& a, svector<digit_t> const& t);
-        void set_div(svector<digit_t> const& a, svector<digit_t> const& b, unsigned nw,
-            svector<digit_t>& quot, svector<digit_t>& rem) const;
+        bool add_overflow_on_fixed(bvval const& a, bvect const& t);
+        bool mul_overflow_on_fixed(bvval const& a, bvect const& t);
+        void set_div(bvect const& a, bvect const& b, unsigned nw,
+            bvect& quot, bvect& rem) const;
 
         digit_t random_bits();
         bool random_bool() { return m_rand() % 2 == 0; }

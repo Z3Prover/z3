@@ -211,8 +211,7 @@ namespace bv {
                 mdl->register_decl(f, m.mk_bool_val(m_eval.bval0(e)));
             else if (bv.is_bv(e)) {
                 auto const& v = m_eval.wval0(e);
-                rational n;
-                v.get_value(v.bits(), n);
+                rational n = v.get_value();
                 mdl->register_decl(f, bv.mk_numeral(n, v.bw));
             }
         }
