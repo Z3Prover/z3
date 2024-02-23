@@ -6,25 +6,41 @@ variables:
   AssemblyVersion: $(Major).$(Minor).$(Patch).$(Build.BuildId)
   NightlyVersion: $(AssemblyVersion)-$(Build.DefinitionName)
 
-stages:
+# Builds Z3 on various platforms
 - stage: Build
   jobs:
-  - job: Mac
-    displayName: "Mac Build"
+
+  - job: MacBuild
+    displayName: "macOS Build"
     pool:
       vmImage: "macOS-11"
     steps:
-    - script: python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
-    - script: git clone https://github.com/z3prover/z3test z3test
-    - script: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2    
-    - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
-    - task: PublishPipelineArtifact@1
+    - task: PythonScript@0
+      displayName: Build
       inputs:
-        artifactName: 'Mac'
+        scriptSource: 'filepath'
+        scriptPath: scripts/mk_unix_dist.py
+        arguments: --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
+    - script: git clone https://github.com/z3prover/z3test z3test
+      displayName: 'Clone z3test'
+    - task: PythonScript@0
+      displayName: Test
+      inputs:
+        scriptSource: 'filepath'
+        scriptPath: z3test/scripts/test_benchmarks.py
+        arguments: build-dist/z3 z3test/regressions/smt2
+    - task: CopyFiles@2
+      inputs:
+        sourceFolder: dist
+        contents: '*.zip'
+        targetFolder: $(Build.ArtifactStagingDirectory)
+    - task: PublishPipelineArtifact@0
+      inputs:
+        artifactName: 'macOSBuild'
         targetPath: $(Build.ArtifactStagingDirectory)
 
-  - job: MacArm64
-    displayName: "Mac ARM64 Build"
+  - job: MacBuildArm64
+    displayName: "macOS ARM64 Build"
     pool:
       vmImage: "macOS-11"
     steps:
@@ -35,68 +51,77 @@ stages:
       inputs:
         artifactName: 'MacArm64'
         targetPath: $(Build.ArtifactStagingDirectory)
+      
+  - job: UbuntuBuild
+    displayName: "Ubuntu build"
+    pool:
+      vmImage: "ubuntu-latest"
+    steps:
+    - task: PythonScript@0
+      displayName: Build
+      inputs:
+        scriptSource: 'filepath'
+        scriptPath: scripts/mk_unix_dist.py
+        arguments: --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
+    - script: git clone https://github.com/z3prover/z3test z3test
+      displayName: 'Clone z3test'
+    - task: PythonScript@0
+      displayName: Test
+      inputs:
+        scriptSource: 'filepath'
+        scriptPath: z3test/scripts/test_benchmarks.py
+        arguments: build-dist/z3 z3test/regressions/smt2
+    - task: CopyFiles@2
+      inputs:
+        sourceFolder: dist
+        contents: '*.zip'
+        targetFolder: $(Build.ArtifactStagingDirectory)
+    - task: PublishPipelineArtifact@0
+      inputs:
+        artifactName: 'UbuntuBuild'
+        targetPath: $(Build.ArtifactStagingDirectory)
 
-  - job: Ubuntu20
-    displayName: "Ubuntu20 build"
+  - job: UbuntuBuild20
+    displayName: "Ubuntu build 20"
     pool:
       vmImage: "ubuntu-20.04"
     steps:
-    - script: python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
+    - task: PythonScript@0
+      displayName: Build
+      inputs:
+        scriptSource: 'filepath'
+        scriptPath: scripts/mk_unix_dist.py
+        arguments: --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
+    - script: git clone https://github.com/z3prover/z3test z3test
+      displayName: 'Clone z3test'
+    - task: PythonScript@0
+      displayName: Test
+      inputs:
+        scriptSource: 'filepath'
+        scriptPath: z3test/scripts/test_benchmarks.py
+        arguments: build-dist/z3 z3test/regressions/smt2
+    - task: CopyFiles@2
+      inputs:
+        sourceFolder: dist
+        contents: '*.zip'
+        targetFolder: $(Build.ArtifactStagingDirectory)
+    - task: PublishPipelineArtifact@0
+      inputs:
+        artifactName: 'UbuntuBuild20'
+        targetPath: $(Build.ArtifactStagingDirectory)
+
+  - job: UbuntuArm64
+    displayName: "Ubuntu ARM64 build"
+    pool:
+      vmImage: "ubuntu-latest"
+    steps:
+    - script: python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk --arch=arm64
     - script: git clone https://github.com/z3prover/z3test z3test
     - script: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2    
     - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
     - task: PublishPipelineArtifact@0
       inputs:
-        artifactName: 'Ubuntu-20.04'
-        targetPath: $(Build.ArtifactStagingDirectory)
-
-  - job: UbuntuBuilds
-    displayName: "Ubuntu Builds"
-    pool:
-      vmImage: "ubuntu-latest"
-    strategy:
-      matrix:
-        arm64:
-          setupcmds: 'sudo apt update& sudo apt install gcc-arm-none-eabi gcc-arm-linux-gnueabihf gcc-aarch64-linux-gnu g++-aarch64-linux-gnu ninja-build -y'
-          buildenv: 'CXX=aarch64-linux-gnu-g++ CC=aarch64-linux-gnu-gcc'
-          arch: 'arm64'
-          name: 'z3-$(AssemblyVersion)-arm64-ubuntu-22'
-          compiler: 'aarch64-linux-gnu-g++-11'
-        x64:
-          setupcmds: 'sudo apt update& sudo apt install ninja-build -y'
-          buildenv: ''
-          arch: 'x64'
-          name: 'z3-$(AssemblyVersion)-x64-ubuntu-22'
-          compiler: 'g++'
-    steps:
-    - script: $(setupcmds)
-    - script: |
-          mkdir $(arch)          
-          cd $(arch)
-          $(buildenv) cmake \
-                      -DCMAKE_BUILD_TYPE=Release\
-                      -DCMAKE_CXX_COMPILER=$(compiler)\
-                      -DZ3_BUILD_DOTNET_BINDINGS=ON\
-                      -DZ3_INSTALL_DOTNET_BINDINGS=ON \
-                      -DZ3_BUILD_JAVA_BINDINGS=ON\
-                      -DZ3_INSTALL_JAVA_BINDINGS=ON\
-                      -DZ3_JAVA_JAR_INSTALLDIR=bin\
-                      -DZ3_JAVA_JNI_LIB_INSTALLDIR=bin\
-                      -DZ3_BUILD_PYTHON_BINDINGS=ON\
-                      -DZ3_INSTALL_PYTHON_BINDINGS=ON\
-                      -DCMAKE_INSTALL_PYTHON_PKG_DIR=bin/python\
-                      -DCMAKE_INSTALL_PREFIX=$(name)\
-                      -G "Ninja" ../
-           ninja install
-           cp -r Microsoft.Z3 $(name)/bin/.
-           cp $(name)/lib/libz3.so $(name)/bin/.
-           rm -rf $(name)/lib
-           zip -r $(name).zip $(name)
-           cd ..
-    - script: cp $(arch)/*.zip $(Build.ArtifactStagingDirectory)/.
-    - task: PublishPipelineArtifact@0
-      inputs:
-        artifactName: 'ubuntu-$(arch)'
+        artifactName: 'UbuntuArm64'
         targetPath: $(Build.ArtifactStagingDirectory)
 
   - job: UbuntuDoc
@@ -135,41 +160,57 @@ stages:
         artifactName: 'UbuntuDoc'
         targetPath: $(Build.ArtifactStagingDirectory)
 
-  - job: ManyLinuxBuild
-    variables:
-      python: "/opt/python/cp37-cp37m/bin/python"
-      name: ManyLinux
+  - job: LinuxBuilds
     displayName: "ManyLinux build"
+    variables:
+      name: ManyLinux
+      python: "/opt/python/cp37-cp37m/bin/python"
     pool:
       vmImage: "ubuntu-latest"
     container: "quay.io/pypa/manylinux2014_x86_64:latest"
     steps:
-    - script: $(python) scripts/mk_unix_dist.py --nodotnet --nojava
+    - task: PythonScript@0
+      displayName: Build
+      inputs:
+        scriptSource: 'filepath'
+        scriptPath: scripts/mk_unix_dist.py
+        arguments: --nodotnet --nojava
+        pythonInterpreter: $(python)
     - script: git clone https://github.com/z3prover/z3test z3test
-    - script: $(python) z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2
-    - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/
+      displayName: 'Clone z3test'
+    - task: PythonScript@0
+      displayName: Test
+      inputs:
+        scriptSource: 'filepath'
+        scriptPath: z3test/scripts/test_benchmarks.py
+        arguments: build-dist/z3 z3test/regressions/smt2
+        pythonInterpreter: $(python)
+    - task: CopyFiles@2
+      inputs:
+        sourceFolder: dist
+        contents: '*.zip'
+        targetFolder: $(Build.ArtifactStagingDirectory)
     - task: PublishPipelineArtifact@0
       inputs:
-        artifactName: '$(name)Build'
+        artifactName: 'ManyLinuxBuild'
         targetPath: $(Build.ArtifactStagingDirectory)
-
-  - template: build-win-signed-cmake.yml
-    parameters:
-      ReleaseVersion: $(ReleaseVersion)
-      BuildArchitecture: 'x86'
-      VCArchitecture: 'x86'
-
-  - template: build-win-signed-cmake.yml
+  
+  - template: build-win-signed.yml
     parameters:
       ReleaseVersion: $(ReleaseVersion)
       BuildArchitecture: 'x64'
-      VCArchitecture: 'x64'
+
+  - template: build-win-signed.yml
+    parameters:
+      ReleaseVersion: $(ReleaseVersion)
+      BuildArchitecture: 'x86'
 
   - template: build-win-signed-cmake.yml
     parameters:
       ReleaseVersion: $(ReleaseVersion)
       BuildArchitecture: 'arm64'
       VCArchitecture: 'amd64_arm64'
+
 
 - stage: Package
   jobs:
