@@ -6,10 +6,9 @@ variables:
   AssemblyVersion: $(Major).$(Minor).$(Patch).$(Build.BuildId)
   NightlyVersion: $(AssemblyVersion)-$(Build.DefinitionName)
 
-# Builds Z3 on various platforms
+stages:
 - stage: Build
   jobs:
-
   - job: MacBuild
     displayName: "macOS Build"
     pool:
@@ -38,9 +37,8 @@ variables:
       inputs:
         artifactName: 'macOSBuild'
         targetPath: $(Build.ArtifactStagingDirectory)
-
   - job: MacBuildArm64
-    displayName: "macOS ARM64 Build"
+    displayName: "Mac ARM64 Build"
     pool:
       vmImage: "macOS-11"
     steps:
@@ -51,8 +49,8 @@ variables:
       inputs:
         artifactName: 'MacArm64'
         targetPath: $(Build.ArtifactStagingDirectory)
-      
-  - job: UbuntuBuild
+
+- job: UbuntuBuild
     displayName: "Ubuntu build"
     pool:
       vmImage: "ubuntu-latest"
@@ -109,8 +107,7 @@ variables:
       inputs:
         artifactName: 'UbuntuBuild20'
         targetPath: $(Build.ArtifactStagingDirectory)
-
-  - job: UbuntuArm64
+ - job: UbuntuArm64
     displayName: "Ubuntu ARM64 build"
     pool:
       vmImage: "ubuntu-latest"
@@ -160,6 +157,7 @@ variables:
         artifactName: 'UbuntuDoc'
         targetPath: $(Build.ArtifactStagingDirectory)
 
+  
   - job: LinuxBuilds
     displayName: "ManyLinux build"
     variables:
@@ -210,7 +208,6 @@ variables:
       ReleaseVersion: $(ReleaseVersion)
       BuildArchitecture: 'arm64'
       VCArchitecture: 'amd64_arm64'
-
 
 - stage: Package
   jobs:
