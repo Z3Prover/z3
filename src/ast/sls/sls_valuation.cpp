@@ -58,13 +58,13 @@ namespace bv {
 
     sls_valuation::sls_valuation(unsigned bw) {
         set_bw(bw);
-        lo.set_bw(bw);
-        hi.set_bw(bw);
+        m_lo.set_bw(bw);
+        m_hi.set_bw(bw);
         m_bits.set_bw(bw);
         fixed.set_bw(bw);
         // have lo, hi bits, fixed point to memory allocated within this of size num_bytes each allocated        
         for (unsigned i = 0; i < nw; ++i)
-            lo[i] = 0, hi[i] = 0, m_bits[i] = 0, fixed[i] = 0;
+            m_lo[i] = 0, m_hi[i] = 0, m_bits[i] = 0, fixed[i] = 0;
         fixed[nw - 1] = ~mask;
     }
 
@@ -78,7 +78,7 @@ namespace bv {
 
     bool sls_valuation::in_range(bvect const& bits) const {
         mpn_manager m;
-        auto c = m.compare(lo.data(), nw, hi.data(), nw);
+        auto c = m.compare(m_lo.data(), nw, m_hi.data(), nw);
         SASSERT(!has_overflow(bits));
         // full range
         if (c == 0)
@@ -86,12 +86,12 @@ namespace bv {
         // lo < hi: then lo <= bits & bits < hi
         if (c < 0)
             return
-            m.compare(lo.data(), nw, bits.data(), nw) <= 0 &&
-            m.compare(bits.data(), nw, hi.data(), nw) < 0;
+            m.compare(m_lo.data(), nw, bits.data(), nw) <= 0 &&
+            m.compare(bits.data(), nw, m_hi.data(), nw) < 0;
         // hi < lo: bits < hi or lo <= bits
         return
-            m.compare(lo.data(), nw, bits.data(), nw) <= 0 ||
-            m.compare(bits.data(), nw, hi.data(), nw) < 0;
+            m.compare(m_lo.data(), nw, bits.data(), nw) <= 0 ||
+            m.compare(bits.data(), nw, m_hi.data(), nw) < 0;
     }
 
     //
@@ -170,29 +170,29 @@ namespace bv {
     }
 
     bool sls_valuation::round_up(bvect& dst) const {
-        if (lo < hi) {
-            if (hi <= dst)
+        if (m_lo < m_hi) {
+            if (m_hi <= dst)
                 return false;
-            if (lo > dst)
-                set(dst, lo);
+            if (m_lo > dst)
+                set(dst, m_lo);
         }
-        else if (hi <= dst && lo > dst)
-            set(dst, lo);
+        else if (m_hi <= dst && m_lo > dst)
+            set(dst, m_lo);
         SASSERT(!has_overflow(dst));
         return true;
     }
 
     bool sls_valuation::round_down(bvect& dst) const {
-        if (lo < hi) {
-            if (lo > dst)
+        if (m_lo < m_hi) {
+            if (m_lo > dst)
                 return false;
-            if (hi <= dst) {
-                set(dst, hi);
+            if (m_hi <= dst) {
+                set(dst, m_hi);
                 sub1(dst);
             }
         }
-        else if (hi <= dst && lo > dst) {
-            set(dst, hi);
+        else if (m_hi <= dst && m_lo > dst) {
+            set(dst, m_hi);
             sub1(dst);
         }
         SASSERT(well_formed());
@@ -214,9 +214,9 @@ namespace bv {
     }
 
     void sls_valuation::min_feasible(bvect& out) const {
-        if (lo < hi) {
+        if (m_lo < m_hi) {
             for (unsigned i = 0; i < nw; ++i)
-                out[i] = lo[i];
+                out[i] = m_lo[i];
         }
         else {
             for (unsigned i = 0; i < nw; ++i)
@@ -226,9 +226,9 @@ namespace bv {
     }
 
     void sls_valuation::max_feasible(bvect& out) const {
-        if (lo < hi) {
+        if (m_lo < m_hi) {
             for (unsigned i = 0; i < nw; ++i)
-                out[i] = hi[i];
+                out[i] = m_hi[i];
             sub1(out);
         }
         else {
@@ -315,35 +315,35 @@ namespace bv {
 
         SASSERT(is_zero(fixed)); // ranges can only be added before fixed bits are set.
 
-        if (lo == hi) {
-            set_value(lo, l);
-            set_value(hi, h);
+        if (m_lo == m_hi) {
+            set_value(m_lo, l);
+            set_value(m_hi, h);
         }
         else {            
-            auto old_lo = get_value(lo);
-            auto old_hi = get_value(hi);
+            auto old_lo = get_value(m_lo);
+            auto old_hi = get_value(m_hi);
             if (old_lo < old_hi) {
                 if (old_lo < l && l < old_hi)
-                    set_value(lo, l),
+                    set_value(m_lo, l),
                     old_lo = l;
                 if (old_hi < h && h < old_hi)
-                    set_value(hi, h);
+                    set_value(m_hi, h);
             }
             else {
                 SASSERT(old_hi < old_lo);
                 if (old_lo < l || l < old_hi)
-                    set_value(lo, l),
+                    set_value(m_lo, l),
                     old_lo = l;
                 if (old_lo < h && h < old_hi)
-                    set_value(hi, h);
+                    set_value(m_hi, h);
                 else if (old_hi < old_lo && (h < old_hi || old_lo < h))
-                    set_value(hi, h);
+                    set_value(m_hi, h);
             }
         }
-        SASSERT(!has_overflow(lo));
-        SASSERT(!has_overflow(hi));
+        SASSERT(!has_overflow(m_lo));
+        SASSERT(!has_overflow(m_hi));
         if (!in_range(m_bits))
-            set(m_bits, lo);
+            set(m_bits, m_lo);
         SASSERT(well_formed());
     }
 
@@ -361,21 +361,21 @@ namespace bv {
     //  lo < hi, set most significant bits based on hi
     //
     void sls_valuation::init_fixed() {
-        if (lo == hi)
+        if (m_lo == m_hi)
             return;
         for (unsigned i = bw; i-- > 0; ) {
             if (!fixed.get(i))
                 continue;
-            if (m_bits.get(i) == lo.get(i))
+            if (m_bits.get(i) == m_lo.get(i))
                 continue;
             if (m_bits.get(i)) {
-                lo.set(i, true);
+                m_lo.set(i, true);
                 for (unsigned j = i; j-- > 0; )
-                    lo.set(j, fixed.get(j) && m_bits.get(j));
+                    m_lo.set(j, fixed.get(j) && m_bits.get(j));
             }
             else {
                 for (unsigned j = bw; j-- > 0; )
-                    lo.set(j, fixed.get(j) && m_bits.get(j));
+                    m_lo.set(j, fixed.get(j) && m_bits.get(j));
             }
             break;
         }
@@ -383,7 +383,7 @@ namespace bv {
         bvect one(nw + 1);
         one[0] = 1;
         digit_t c;
-        mpn_manager().sub(hi.data(), nw, one.data(), nw, hi1.data(), &c);
+        mpn_manager().sub(m_hi.data(), nw, one.data(), nw, hi1.data(), &c);
         clear_overflow_bits(hi1);
         for (unsigned i = bw; i-- > 0; ) {
             if (!fixed.get(i))
@@ -399,8 +399,8 @@ namespace bv {
                 for (unsigned j = bw; j-- > 0; )
                     hi1.set(j, fixed.get(j) && m_bits.get(j));
             }
-            mpn_manager().add(hi1.data(), nw, one.data(), nw, hi.data(), nw + 1, &c);
-            clear_overflow_bits(hi);
+            mpn_manager().add(hi1.data(), nw, one.data(), nw, m_hi.data(), nw + 1, &c);
+            clear_overflow_bits(m_hi);
             break;
         }
 
@@ -413,21 +413,21 @@ namespace bv {
             };
 
         // set most significant bits
-        if (lo < hi) {
+        if (m_lo < m_hi) {
             unsigned i = bw;
-            for (; i-- > 0 && !hi.get(i); )
+            for (; i-- > 0 && !m_hi.get(i); )
                 set_fixed_bit(i, false);
 
-            if (is_power_of2(hi))
+            if (is_power_of2(m_hi))
                 set_fixed_bit(i, false);
         }
 
         // lo + 1 = hi: then bits = lo
-        mpn_manager().add(lo.data(), nw, one.data(), nw, hi1.data(), nw + 1, &c);
+        mpn_manager().add(m_lo.data(), nw, one.data(), nw, hi1.data(), nw + 1, &c);
         clear_overflow_bits(hi1);
-        if (hi == hi1) {
+        if (m_hi == hi1) {
             for (unsigned i = 0; i < bw; ++i)
-                set_fixed_bit(i, lo.get(i));
+                set_fixed_bit(i, m_lo.get(i));
         }
         SASSERT(well_formed());
     }

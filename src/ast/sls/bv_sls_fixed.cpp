@@ -260,16 +260,10 @@ namespace bv {
             auto& a = wval0(e->get_arg(0));
             auto& b = wval0(e->get_arg(1));
             rational r;
-            if (bv.is_numeral(e->get_arg(0), r) && b.has_range()) {
-                auto rlo = b.get_lo();
-                auto rhi = b.get_hi();
-                v.add_range(r + rlo, r + rhi);
-            }
-            if (bv.is_numeral(e->get_arg(1), r) && a.has_range()) {
-                auto rlo = a.get_lo();
-                auto rhi = a.get_hi();
-                v.add_range(r + rlo, r + rhi);
-            }
+            if (bv.is_numeral(e->get_arg(0), r) && b.has_range()) 
+                v.add_range(r + b.lo(), r + b.hi());            
+            else if (bv.is_numeral(e->get_arg(1), r) && a.has_range()) 
+                v.add_range(r + a.lo(), r + a.hi());            
             bool pfixed = true;
             for (unsigned i = 0; i < v.bw; ++i) {
                 if (pfixed && a.fixed.get(i) && b.fixed.get(i)) 

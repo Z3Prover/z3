@@ -80,7 +80,7 @@ namespace bv {
     class sls_valuation {
     protected:
         bvect m_bits;
-        bvect lo, hi;        // range assignment to bit-vector, as wrap-around interval
+        bvect m_lo, m_hi;        // range assignment to bit-vector, as wrap-around interval
 
         unsigned mask;
         rational get_value(bvect const& bits) const;
@@ -119,12 +119,12 @@ namespace bv {
         void set_value(bvect& bits, rational const& r);
 
         rational get_value() const { return get_value(m_bits); }
-        rational get_lo() const { return get_value(lo); }
-        rational get_hi() const { return get_value(hi); }
+        rational lo() const { return get_value(m_lo); }
+        rational hi() const { return get_value(m_hi); }
 
         void get(bvect& dst) const;
         void add_range(rational lo, rational hi);
-        bool has_range() const { return lo != hi; }
+        bool has_range() const { return m_lo != m_hi; }
         void init_fixed();
 
         void clear_overflow_bits(bvect& bits) const {
@@ -257,11 +257,11 @@ namespace bv {
             out << " fix:";
             print_bits(out, fixed);
 
-            if (lo != hi) {
+            if (m_lo != m_hi) {
                 out << " [";
-                print_bits(out, lo);
+                print_bits(out, m_lo);
                 out << ", ";
-                print_bits(out, hi);
+                print_bits(out, m_hi);
                 out << "[";
             }
             out << std::dec;
