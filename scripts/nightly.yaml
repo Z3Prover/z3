@@ -52,163 +52,163 @@ stages:
         targetPath: $(Build.ArtifactStagingDirectory)
 
   - job: UbuntuBuild
-      displayName: "Ubuntu build"
-      pool:
-        vmImage: "ubuntu-latest"
-      steps:
-      - task: PythonScript@0
-        displayName: Build
-        inputs:
-          scriptSource: 'filepath'
-          scriptPath: scripts/mk_unix_dist.py
-          arguments: --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
-      - script: git clone https://github.com/z3prover/z3test z3test
-        displayName: 'Clone z3test'
-      - task: PythonScript@0
-        displayName: Test
-        inputs:
-          scriptSource: 'filepath'
-          scriptPath: z3test/scripts/test_benchmarks.py
-          arguments: build-dist/z3 z3test/regressions/smt2
-      - task: CopyFiles@2
-        inputs:
-          sourceFolder: dist
-          contents: '*.zip'
-          targetFolder: $(Build.ArtifactStagingDirectory)
-      - task: PublishPipelineArtifact@0
-        inputs:
-          artifactName: 'UbuntuBuild'
-          targetPath: $(Build.ArtifactStagingDirectory)
+    displayName: "Ubuntu build"
+    pool:
+      vmImage: "ubuntu-latest"
+    steps:
+    - task: PythonScript@0
+      displayName: Build
+      inputs:
+        scriptSource: 'filepath'
+        scriptPath: scripts/mk_unix_dist.py
+        arguments: --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
+    - script: git clone https://github.com/z3prover/z3test z3test
+      displayName: 'Clone z3test'
+    - task: PythonScript@0
+      displayName: Test
+      inputs:
+        scriptSource: 'filepath'
+        scriptPath: z3test/scripts/test_benchmarks.py
+        arguments: build-dist/z3 z3test/regressions/smt2
+    - task: CopyFiles@2
+      inputs:
+        sourceFolder: dist
+        contents: '*.zip'
+        targetFolder: $(Build.ArtifactStagingDirectory)
+    - task: PublishPipelineArtifact@0
+      inputs:
+        artifactName: 'UbuntuBuild'
+        targetPath: $(Build.ArtifactStagingDirectory)
 
-    - job: UbuntuBuild20
-      displayName: "Ubuntu build 20"
-      pool:
-        vmImage: "ubuntu-20.04"
-      steps:
-      - task: PythonScript@0
-        displayName: Build
-        inputs:
-          scriptSource: 'filepath'
-          scriptPath: scripts/mk_unix_dist.py
-          arguments: --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
-      - script: git clone https://github.com/z3prover/z3test z3test
-        displayName: 'Clone z3test'
-      - task: PythonScript@0
-        displayName: Test
-        inputs:
-          scriptSource: 'filepath'
-          scriptPath: z3test/scripts/test_benchmarks.py
-          arguments: build-dist/z3 z3test/regressions/smt2
-      - task: CopyFiles@2
-        inputs:
-          sourceFolder: dist
-          contents: '*.zip'
-          targetFolder: $(Build.ArtifactStagingDirectory)
-      - task: PublishPipelineArtifact@0
-        inputs:
-          artifactName: 'UbuntuBuild20'
-          targetPath: $(Build.ArtifactStagingDirectory)
+  - job: UbuntuBuild20
+    displayName: "Ubuntu build 20"
+    pool:
+      vmImage: "ubuntu-20.04"
+    steps:
+    - task: PythonScript@0
+      displayName: Build
+      inputs:
+        scriptSource: 'filepath'
+        scriptPath: scripts/mk_unix_dist.py
+        arguments: --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
+    - script: git clone https://github.com/z3prover/z3test z3test
+      displayName: 'Clone z3test'
+    - task: PythonScript@0
+      displayName: Test
+      inputs:
+        scriptSource: 'filepath'
+        scriptPath: z3test/scripts/test_benchmarks.py
+        arguments: build-dist/z3 z3test/regressions/smt2
+    - task: CopyFiles@2
+      inputs:
+        sourceFolder: dist
+        contents: '*.zip'
+        targetFolder: $(Build.ArtifactStagingDirectory)
+    - task: PublishPipelineArtifact@0
+      inputs:
+        artifactName: 'UbuntuBuild20'
+        targetPath: $(Build.ArtifactStagingDirectory)
+
   - job: UbuntuArm64
-      displayName: "Ubuntu ARM64 build"
-      pool:
-        vmImage: "ubuntu-latest"
-      steps:
-      - script: python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk --arch=arm64
-      - script: git clone https://github.com/z3prover/z3test z3test
-      - script: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2    
-      - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
-      - task: PublishPipelineArtifact@0
-        inputs:
-          artifactName: 'UbuntuArm64'
-          targetPath: $(Build.ArtifactStagingDirectory)
+    displayName: "Ubuntu ARM64 build"
+    pool:
+      vmImage: "ubuntu-latest"
+    steps:
+    - script: python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk --arch=arm64
+    - script: git clone https://github.com/z3prover/z3test z3test
+    - script: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2    
+    - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
+    - task: PublishPipelineArtifact@0
+      inputs:
+        artifactName: 'UbuntuArm64'
+        targetPath: $(Build.ArtifactStagingDirectory)
 
-    - job: UbuntuDoc
-      displayName: "Ubuntu Doc build"
-      pool:
-        vmImage: "ubuntu-latest"
-      steps:
-      - script: pip3 install importlib-resources
-      - script: sudo apt-get install ocaml opam libgmp-dev
-      - script: opam init -y
-      - script: eval `opam config env`; opam install zarith ocamlfind -y
-      - script: eval `opam config env`; python scripts/mk_make.py --ml
-      - script: sudo apt-get install doxygen
-      - script: sudo apt-get install graphviz
-      - script: |
-          set -e
-          cd build
-          eval `opam config env` 
-          make -j3
-          make -j3 examples
-          make -j3 test-z3
-          cd ..
-      - script: |
-          set -e
-          eval `opam config env` 
-          cd doc
-          python3 mk_api_doc.py --mld --z3py-package-path=../build/python/z3
-          python3 mk_params_doc.py 
-          mkdir api/html/ml
-          ocamldoc -html -d api/html/ml -sort -hide Z3 -I $( ocamlfind query zarith ) -I ../build/api/ml ../build/api/ml/z3enums.mli ../build/api/ml/z3.mli
-          cd ..
-      - script: zip -r z3doc.zip doc/api
-      - script: cp z3doc.zip $(Build.ArtifactStagingDirectory)/.
-      - task: PublishPipelineArtifact@0
-        inputs:
-          artifactName: 'UbuntuDoc'
-          targetPath: $(Build.ArtifactStagingDirectory)
-
+  - job: UbuntuDoc
+    displayName: "Ubuntu Doc build"
+    pool:
+      vmImage: "ubuntu-latest"
+    steps:
+    - script: pip3 install importlib-resources
+    - script: sudo apt-get install ocaml opam libgmp-dev
+    - script: opam init -y
+    - script: eval `opam config env`; opam install zarith ocamlfind -y
+    - script: eval `opam config env`; python scripts/mk_make.py --ml
+    - script: sudo apt-get install doxygen
+    - script: sudo apt-get install graphviz
+    - script: |
+        set -e
+        cd build
+        eval `opam config env` 
+        make -j3
+        make -j3 examples
+        make -j3 test-z3
+        cd ..
+    - script: |
+        set -e
+        eval `opam config env` 
+        cd doc
+        python3 mk_api_doc.py --mld --z3py-package-path=../build/python/z3
+        python3 mk_params_doc.py 
+        mkdir api/html/ml
+        ocamldoc -html -d api/html/ml -sort -hide Z3 -I $( ocamlfind query zarith ) -I ../build/api/ml ../build/api/ml/z3enums.mli ../build/api/ml/z3.mli
+        cd ..
+    - script: zip -r z3doc.zip doc/api
+    - script: cp z3doc.zip $(Build.ArtifactStagingDirectory)/.
+    - task: PublishPipelineArtifact@0
+      inputs:
+        artifactName: 'UbuntuDoc'
+        targetPath: $(Build.ArtifactStagingDirectory)
     
-    - job: LinuxBuilds
-      displayName: "ManyLinux build"
-      variables:
-        name: ManyLinux
-        python: "/opt/python/cp37-cp37m/bin/python"
-      pool:
-        vmImage: "ubuntu-latest"
-      container: "quay.io/pypa/manylinux2014_x86_64:latest"
-      steps:
-      - task: PythonScript@0
-        displayName: Build
-        inputs:
-          scriptSource: 'filepath'
-          scriptPath: scripts/mk_unix_dist.py
-          arguments: --nodotnet --nojava
-          pythonInterpreter: $(python)
-      - script: git clone https://github.com/z3prover/z3test z3test
-        displayName: 'Clone z3test'
-      - task: PythonScript@0
-        displayName: Test
-        inputs:
-          scriptSource: 'filepath'
-          scriptPath: z3test/scripts/test_benchmarks.py
-          arguments: build-dist/z3 z3test/regressions/smt2
-          pythonInterpreter: $(python)
-      - task: CopyFiles@2
-        inputs:
-          sourceFolder: dist
-          contents: '*.zip'
-          targetFolder: $(Build.ArtifactStagingDirectory)
-      - task: PublishPipelineArtifact@0
-        inputs:
-          artifactName: 'ManyLinuxBuild'
-          targetPath: $(Build.ArtifactStagingDirectory)
-    
-    - template: build-win-signed.yml
-      parameters:
-        ReleaseVersion: $(ReleaseVersion)
-        BuildArchitecture: 'x64'
+  - job: LinuxBuilds
+    displayName: "ManyLinux build"
+    variables:
+      name: ManyLinux
+      python: "/opt/python/cp37-cp37m/bin/python"
+    pool:
+      vmImage: "ubuntu-latest"
+    container: "quay.io/pypa/manylinux2014_x86_64:latest"
+    steps:
+    - task: PythonScript@0
+      displayName: Build
+      inputs:
+        scriptSource: 'filepath'
+        scriptPath: scripts/mk_unix_dist.py
+        arguments: --nodotnet --nojava
+        pythonInterpreter: $(python)
+    - script: git clone https://github.com/z3prover/z3test z3test
+      displayName: 'Clone z3test'
+    - task: PythonScript@0
+      displayName: Test
+      inputs:
+        scriptSource: 'filepath'
+        scriptPath: z3test/scripts/test_benchmarks.py
+        arguments: build-dist/z3 z3test/regressions/smt2
+        pythonInterpreter: $(python)
+    - task: CopyFiles@2
+      inputs:
+        sourceFolder: dist
+        contents: '*.zip'
+        targetFolder: $(Build.ArtifactStagingDirectory)
+    - task: PublishPipelineArtifact@0
+      inputs:
+        artifactName: 'ManyLinuxBuild'
+        targetPath: $(Build.ArtifactStagingDirectory)
+  
+  - template: build-win-signed.yml
+    parameters:
+      ReleaseVersion: $(ReleaseVersion)
+      BuildArchitecture: 'x64'
 
-    - template: build-win-signed.yml
-      parameters:
-        ReleaseVersion: $(ReleaseVersion)
-        BuildArchitecture: 'x86'
+  - template: build-win-signed.yml
+    parameters:
+      ReleaseVersion: $(ReleaseVersion)
+      BuildArchitecture: 'x86'
 
-    - template: build-win-signed-cmake.yml
-      parameters:
-        ReleaseVersion: $(ReleaseVersion)
-        BuildArchitecture: 'arm64'
-        VCArchitecture: 'amd64_arm64'
+  - template: build-win-signed-cmake.yml
+    parameters:
+      ReleaseVersion: $(ReleaseVersion)
+      BuildArchitecture: 'arm64'
+      VCArchitecture: 'amd64_arm64'
 
 - stage: Package
   jobs:
