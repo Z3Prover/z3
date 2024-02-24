@@ -436,7 +436,6 @@ namespace bv {
         digit_t c;
         mpn_manager().sub(a.data(), nw, b.data(), nw, out.data(), &c);
         clear_overflow_bits(out);
-        out.set_bw(bw);
     }
 
     bool sls_valuation::set_add(bvect& out, bvect const& a, bvect const& b) const {
@@ -444,7 +443,6 @@ namespace bv {
         mpn_manager().add(a.data(), nw, b.data(), nw, out.data(), nw + 1, &c);
         bool ovfl = out[nw] != 0 || has_overflow(out);
         clear_overflow_bits(out);
-        out.set_bw(bw);
         return ovfl;
     }
 
@@ -457,7 +455,6 @@ namespace bv {
                 ovfl |= out[i] != 0;
         }
         clear_overflow_bits(out);
-        out.set_bw(bw);
         return ovfl;
     }
 
