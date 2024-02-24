@@ -43,17 +43,18 @@ namespace bv {
     }
 
     void sls::init_repair() {
-        m_repair_down.reset();
+        m_repair_down = UINT_MAX;
         m_repair_up.reset();
+        m_repair_roots.reset();
         for (auto* e : m_terms.assertions()) {
             if (!m_eval.bval0(e)) {
                 m_eval.set(e, true);
-                m_repair_down.insert(e->get_id());
+                m_repair_roots.insert(e->get_id());
             }
         }
         for (app* t : m_terms.terms()) 
             if (t && !eval_is_correct(t))
-                m_repair_down.insert(t->get_id());
+                m_repair_roots.insert(t->get_id());
     }
 
     void sls::reinit_eval() {
@@ -78,15 +79,27 @@ namespace bv {
 
     std::pair<bool, app*> sls::next_to_repair() {
         app* e = nullptr;
-        if (!m_repair_down.empty()) {
-            unsigned index = m_rand(m_repair_down.size());
-            e = m_terms.term(m_repair_down.elem_at(index));
+        if (m_repair_down != UINT_MAX) {
+            e = m_terms.term(m_repair_down);
+            m_repair_down = UINT_MAX;
+            return { true, e };
         }
-        else if (!m_repair_up.empty()) {
+
+        if (!m_repair_up.empty()) {
+            unsigned index = m_rand(m_repair_up.size());
+            m_repair_up.remove(index);
+            e = m_terms.term(m_repair_up.elem_at(index));
+            return { false, e };
+        }
+
+        if (!m_repair_roots.empty()) {
             unsigned index = m_rand(m_repair_up.size());
             e = m_terms.term(m_repair_up.elem_at(index));
+            m_repair_roots.remove(index);
+            return { true, e };
         }
-        return { !m_repair_down.empty(), e };
+
+        return { false, nullptr };
     }
 
     lbool sls::search() {
@@ -97,35 +110,19 @@ namespace bv {
             auto [down, e] = next_to_repair();
             if (!e)
                 return l_true;
-            bool is_correct = eval_is_correct(e);
-            if (is_correct) {
-                if (down)
-                    m_repair_down.remove(e->get_id());
-                else
-                    m_repair_up.remove(e->get_id());
-            }
-            else {
-                IF_VERBOSE(20, verbose_stream() << (down ? "d #" : "u #")
-                           << e->get_id() << ": "
-                           << mk_bounded_pp(e, m, 1) << " ";
-                           if (bv.is_bv(e)) verbose_stream() << m_eval.wval0(e) << " " << (m_eval.is_fixed0(e)?"fixed ":" ");
-                           if (m.is_bool(e)) verbose_stream() << m_eval.bval0(e) << " ";
-                           verbose_stream() << "\n");
-                if (down) 
-                    try_repair_down(e);            
-                else
-                    try_repair_up(e);
-            }
+            if (eval_is_correct(e))
+                continue;
+
+            trace_repair(down, e);
+
+            if (down)
+                try_repair_down(e);
+            else
+                try_repair_up(e);            
         }
         return l_undef;
     }
 
-    void sls::trace() {
-        IF_VERBOSE(2, verbose_stream()
-            << "(bvsls :restarts " << m_stats.m_restarts
-            << " :repair-down " << m_repair_down.size()
-            << " :repair-up " << m_repair_up.size() << ")\n");
-    }
 
     lbool sls::operator()() {
         lbool res = l_undef;
@@ -147,29 +144,21 @@ namespace bv {
         unsigned n = e->get_num_args();
         if (n > 0) {
             unsigned s = m_rand(n);
-            for (unsigned i = 0; i < n; ++i)
-                if (try_repair_down(e, (i + s) % n))
+            for (unsigned i = 0; i < n; ++i) {
+                auto j = (i + s) % n;
+                if (m_eval.try_repair(e, j)) {
+                    set_repair_down(e->get_arg(j));
                     return;
+                }
+            }
         }
-        m_repair_down.remove(e->get_id());
         m_repair_up.insert(e->get_id());
     }
 
-    bool sls::try_repair_down(app* e, unsigned i) {
-        expr* child = e->get_arg(i);
-        bool was_repaired = m_eval.try_repair(e, i);
-        if (was_repaired) {
-            m_repair_down.insert(child->get_id());
-            for (auto p : m_terms.parents(child))
-                m_repair_up.insert(p->get_id());            
-        }
-        return was_repaired;
-    }
-
     void sls::try_repair_up(app* e) {       
-        m_repair_up.remove(e->get_id());
+        
         if (m_terms.is_assertion(e) || !m_eval.repair_up(e)) 
-            m_repair_down.insert(e->get_id());        
+            m_repair_roots.insert(e->get_id());        
         else {
             if (!eval_is_correct(e)) {
                 verbose_stream() << "incorrect eval #" << e->get_id() << " " << mk_bounded_pp(e, m) << "\n";
@@ -225,10 +214,10 @@ namespace bv {
             out << e->get_id() << ": " << mk_bounded_pp(e, m, 1) << " ";
             if (m_eval.is_fixed0(e))
                 out << "f ";
-            if (m_repair_down.contains(e->get_id()))
-                out << "d ";
             if (m_repair_up.contains(e->get_id()))
                 out << "u ";
+            if (m_repair_roots.contains(e->get_id()))
+                out << "r ";
             if (bv.is_bv(e))
                 out << m_eval.wval0(e);
             else if (m.is_bool(e))
@@ -243,5 +232,22 @@ namespace bv {
         sls_params p(_p);
         m_config.m_max_restarts = p.max_restarts();
         m_rand.set_seed(p.random_seed());
+    }
+
+    void sls::trace_repair(bool down, expr* e) {
+        IF_VERBOSE(20,
+            verbose_stream() << (down ? "d #" : "u #")
+            << e->get_id() << ": "
+            << mk_bounded_pp(e, m, 1) << " ";
+        if (bv.is_bv(e)) verbose_stream() << m_eval.wval0(e) << " " << (m_eval.is_fixed0(e) ? "fixed " : " ");
+        if (m.is_bool(e)) verbose_stream() << m_eval.bval0(e) << " ";
+        verbose_stream() << "\n");
+    }
+
+    void sls::trace() {
+        IF_VERBOSE(2, verbose_stream()
+            << "(bvsls :restarts " << m_stats.m_restarts
+            << " :repair-up " << m_repair_up.size()
+            << " :repair-roots " << m_repair_roots.size() << ")\n");
     }
 }

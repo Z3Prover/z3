@@ -44,7 +44,8 @@ namespace bv {
         sls_terms           m_terms;
         sls_eval            m_eval;
         sls_stats           m_stats;
-        indexed_uint_set    m_repair_down, m_repair_up;
+        indexed_uint_set    m_repair_up, m_repair_roots;
+        unsigned            m_repair_down = UINT_MAX;
         ptr_vector<expr>    m_todo;
         random_gen          m_rand;
         config              m_config;
@@ -54,13 +55,13 @@ namespace bv {
         bool eval_is_correct(app* e);
         void try_repair_down(app* e);
         void try_repair_up(app* e);
-
-        bool try_repair_down(app* e, unsigned i);
+        void set_repair_down(expr* e) { m_repair_down = e->get_id(); }
 
         lbool search();
         void reinit_eval();
         void init_repair();
         void trace();
+        void trace_repair(bool down, expr* e);
 
     public:
         sls(ast_manager& m);
