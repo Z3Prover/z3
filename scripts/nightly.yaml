@@ -231,7 +231,7 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: 'Download Ubuntu 20.04 Build'
       inputs:
-        artifact: 'Ubuntu20'
+        artifact: 'UbuntuBuild20'
         path: $(Agent.TempDirectory)\package
     - task: DownloadPipelineArtifact@2
       displayName: 'Download Ubuntu ARM64 Build'
@@ -246,7 +246,7 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: 'Download macOS Build'
       inputs:
-        artifact: 'Mac'
+        artifact: 'macOsBuild'
         path: $(Agent.TempDirectory)\package
     - task: DownloadPipelineArtifact@2
       displayName: 'Download macOS Arm64 Build'
@@ -466,7 +466,7 @@ stages:
         targetPath: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
       inputs:
-        artifactName: 'Mac'
+        artifactName: 'macOsBuild'
         targetPath: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
       inputs:
@@ -519,7 +519,7 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: "Download Mac"
       inputs:
-        artifactName: 'Mac'
+        artifactName: 'macOsBuild'
         targetPath: tmp
     - task: DownloadPipelineArtifact@2
       displayName: "Download MacArm64"
@@ -539,7 +539,7 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: "Download Ubuntu-20.04"
       inputs:
-        artifactName: 'Ubuntu20'
+        artifactName: 'UbuntuBuild20'
         targetPath: tmp
     - task: DownloadPipelineArtifact@2
       displayName: "Download Doc"
