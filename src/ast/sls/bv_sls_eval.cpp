@@ -686,10 +686,7 @@ namespace bv {
     }
 
     digit_t sls_eval::random_bits() {
-        digit_t r = 0;
-        for (digit_t i = 0; i < sizeof(digit_t); ++i)
-            r ^= m_rand() << (8 * i);
-        return r;
+        return sls_valuation::random_bits(m_rand);
     }
 
     bool sls_eval::try_repair(app* e, unsigned i) {        
@@ -826,7 +823,7 @@ namespace bv {
         case OP_ZERO_EXT:
             return try_repair_zero_ext(wval0(e), wval0(e, 0));
         case OP_SIGN_EXT:
-            return try_repair_zero_ext(wval0(e), wval0(e, 0));
+            return try_repair_sign_ext(wval0(e), wval0(e, 0));
         case OP_CONCAT:
             return try_repair_concat(wval0(e), wval0(e, 0), wval0(e, 1), i);
         case OP_EXTRACT: {
@@ -886,33 +883,33 @@ namespace bv {
 
     bool sls_eval::try_repair_eq(app* e, unsigned i) {
         auto child = e->get_arg(i);        
-        auto ev = bval0(e);
+        auto is_true = bval0(e);
         if (m.is_bool(child)) {
             SASSERT(!is_fixed0(child));               
             auto bv = bval0(e->get_arg(1 - i));
-            m_eval[child->get_id()] = ev == bv;
+            m_eval[child->get_id()] = is_true == bv;
             return true;
         }
         else if (bv.is_bv(child)) {
             auto & a = wval0(e->get_arg(i));
             auto & b = wval0(e->get_arg(1 - i));
-            if (ev) 
+            if (is_true) 
                 return a.try_set(b.bits());
             else {
-                // pick random bit to differ  
-                a.get(m_tmp);
-                unsigned start = m_rand(a.bw);
-                for (unsigned idx = 0; idx < a.bw; ++idx) {
-                    unsigned j = (idx + start) % a.bw;
-                    if (!a.fixed.get(j)) {
-                        m_tmp.set(idx, !b.get_bit(j));
-                        bool r = a.try_set(m_tmp);
-                        if (r)
-                            return true;
-                        m_tmp.set(j, b.get_bit(j));
-                    }
+                bool try_above = m_rand() % 2 == 0;
+                if (try_above) {
+                    a.set_add(m_tmp, b.bits(), m_one);
+                    if (!a.is_zero(m_tmp) && a.set_random_at_least(m_tmp, m_tmp2, m_rand))
+                        return true;
                 }
-                // could be due to bounds?
+                a.set_sub(m_tmp, b.bits(), m_one);
+                if (!a.is_zero(m_tmp) && a.set_random_at_most(m_tmp, m_tmp2, m_rand))
+                    return true;
+                if (!try_above) {
+                    a.set_add(m_tmp, b.bits(), m_one);
+                    if (!a.is_zero(m_tmp) && a.set_random_at_least(m_tmp, m_tmp2, m_rand))
+                        return true;
+                }
                 return false;
             }
         }
@@ -1144,6 +1141,18 @@ namespace bv {
 
     // a <=s b <-> a + p2 <=u b + p2
 
+    // 
+    // to solve x for x <=s b:
+    // y := at most (b + p2) - p2
+    // x := random_at_most y
+    // or
+    // x := random_at_least y - p2 if y < p2
+    //
+    // to solve x for x >s b:
+    // infeasible if b + p2 = 0
+    // y := at least (b + 1 + p2) - p2
+    // TODO
+    // 
     bool sls_eval::try_repair_sle(bool e, bvval& a, bvval const& b) {
         a.set(m_tmp, b.bits());
         if (e) {
@@ -1175,33 +1184,30 @@ namespace bv {
 
     bool sls_eval::try_repair_ule(bool e, bvval& a, bvect const& t) {
         if (e) {
-            if (!a.get_at_most(t, m_tmp))
-                return false;
+            // a <= t
+            return a.set_random_at_most(t, m_tmp, m_rand);
         }
         else {
-            // a > b
-            a.set_add(m_tmp2, t, m_one);
-            if (a.is_zero(m_tmp2))
-                return false;
-            if (!a.get_at_least(m_tmp2, m_tmp))
-                return false;            
-        }
-        return a.set_repair(random_bool(), m_tmp);        
+            // a > t
+            a.set_add(m_tmp, t, m_one);
+            if (a.is_zero(m_tmp))
+                return false;   
+            return a.set_random_at_least(m_tmp, m_tmp2, m_rand);
+        }           
     }
 
     bool sls_eval::try_repair_uge(bool e, bvval& a, bvect const& t) {
         if (e) {
-            if (!a.get_at_least(t, m_tmp))
-                return false;         
+            // a >= t
+            return a.set_random_at_least(t, m_tmp, m_rand);
         }
         else {
+            // a < t
             if (a.is_zero(t))
                 return false;
-            a.set_sub(m_tmp2, t, m_one);
-            if (!a.get_at_most(m_tmp2, m_tmp))
-                return false;
-        }
-        return a.set_repair(random_bool(), m_tmp);        
+            a.set_sub(m_tmp, t, m_one);
+            return a.set_random_at_most(m_tmp, m_tmp2, m_rand);
+        }    
     }
 
     bool sls_eval::try_repair_bit2bool(bvval& a, unsigned idx) {       
@@ -1300,13 +1306,12 @@ namespace bv {
                 return a.set_repair(false, m_tmp);
             }
             // b * e + r = a
-            for (unsigned i = 0; i < a.nw; ++i)
-                m_tmp[i] = (random_bits() & ~b.fixed[i]) | (b.fixed[i] & b.bits()[i]);
-            b.clear_overflow_bits(m_tmp);
+            b.get_variant(m_tmp, m_rand);
             while (mul_overflow_on_fixed(e, m_tmp)) {
                 auto i = b.msb(m_tmp);
                 m_tmp.set(i, false);
             }
+
             for (unsigned i = 0; i < a.nw; ++i)
                 m_tmp2[i] = random_bits();
             b.clear_overflow_bits(m_tmp2);
@@ -1477,35 +1482,70 @@ namespace bv {
         }
     }
 
-    bool sls_eval::try_repair_zero_ext(bvval const& e, bvval& a) {
-        bool change = false;
-        for (unsigned i = 0; i < a.bw; ++i)
-            if (a.try_set_bit(i, e.get_bit(i)))
-                change = true;
-        return change;
+    //
+    // prefix of e must be 1s or 0 and match bit position of last bit in a.
+    // set a to suffix of e, matching signs.
+    //  
+    bool sls_eval::try_repair_sign_ext(bvval const& e, bvval& a) {
+        for (unsigned i = a.bw; i < e.bw; ++i)
+            if (e.get_bit(i) != e.get_bit(a.bw - 1))
+                return false;
+        e.get(m_tmp);
+        a.clear_overflow_bits(m_tmp);
+        return a.try_set(m_tmp);
     }
 
-    bool sls_eval::try_repair_concat(bvval const& e, bvval& a, bvval& b, unsigned i) {
-        if (i == 0) {
+    // 
+    // prefix of e must be 0s.
+    // 
+    bool sls_eval::try_repair_zero_ext(bvval const& e, bvval& a) {
+        for (unsigned i = a.bw; i < e.bw; ++i)
+            if (e.get_bit(i))
+                return false;
+        e.get(m_tmp);
+        a.clear_overflow_bits(m_tmp);
+        return a.try_set(m_tmp);
+    }
+
+    bool sls_eval::try_repair_concat(bvval const& e, bvval& a, bvval& b, unsigned idx) {
+        if (idx == 0) {
             for (unsigned i = 0; i < a.bw; ++i)
                 m_tmp.set(i, e.get_bit(i + b.bw));
             a.clear_overflow_bits(m_tmp);
-            return a.set_repair(random_bool(), m_tmp);
+            return a.try_set(m_tmp);
         }
         else {
             for (unsigned i = 0; i < b.bw; ++i)
                 m_tmp.set(i, e.get_bit(i));
             b.clear_overflow_bits(m_tmp);
-            return b.set_repair(random_bool(), m_tmp);
+            return b.try_set(m_tmp);
         }
     }
 
+    //
+    // e = a[hi:lo], where hi = e.bw + lo - 1
+    // for the randomized assignment, 
+    // set a outside of [hi:lo] to random values with preference to 0 or 1 bits
+    // 
     bool sls_eval::try_repair_extract(bvval const& e, bvval& a, unsigned lo) {
-        bool change = false;
+        if (m_rand() % m_config.m_prob_randomize_extract <= 100) {
+            a.get_variant(m_tmp, m_rand);
+            if (0 == (m_rand() % 2)) {
+                auto bit = 0 == (m_rand() % 2);
+                if (!a.try_set_range(m_tmp, 0, lo, bit))
+                    a.try_set_range(m_tmp, 0, lo, !bit);
+            }
+            if (0 == (m_rand() % 2)) {
+                auto bit = 0 == (m_rand() % 2);
+                if (!a.try_set_range(m_tmp, lo + e.bw, a.bw, bit))
+                    a.try_set_range(m_tmp, lo + e.bw, a.bw, !bit);
+            }
+        }
+        else
+            a.get(m_tmp);
         for (unsigned i = 0; i < e.bw; ++i)
-            if (a.try_set_bit(i + lo, e.get_bit(i)))
-                change = true;
-        return change;
+            m_tmp.set(i + lo, e.get_bit(i));
+        return a.try_set(m_tmp);
     }
 
     void sls_eval::set_div(bvect const& a, bvect const& b, unsigned bw,

@@ -186,7 +186,14 @@ namespace bv {
         bool get_at_most(bvect const& src, bvect& dst) const;
         bool get_at_least(bvect const& src, bvect& dst) const;
 
+        bool set_random_at_most(bvect const& src, bvect& tmp, random_gen& r);
+        bool set_random_at_least(bvect const& src, bvect& tmp, random_gen& r);
+
         bool set_repair(bool try_down, bvect& dst);
+
+
+        static digit_t random_bits(random_gen& r);
+        void get_variant(bvect& dst, random_gen& r) const;
 
         bool try_set(bvect const& src) {
             if (!can_set(src))
@@ -235,6 +242,15 @@ namespace bv {
         void set_range(bvect& dst, unsigned lo, unsigned hi, bool b) {
             for (unsigned i = lo; i < hi; ++i)
                 dst.set(i, b);
+        }
+
+        bool try_set_range(bvect& dst, unsigned lo, unsigned hi, bool b) {
+            for (unsigned i = lo; i < hi; ++i)
+                if (fixed.get(i) && get_bit(i) != b)
+                    return false;
+            for (unsigned i = lo; i < hi; ++i)
+                dst.set(i, b);
+            return true;
         }
 
         void set(bvect& dst, unsigned v) const {

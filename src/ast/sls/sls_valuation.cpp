@@ -199,6 +199,44 @@ namespace bv {
         return true;
     }
 
+    bool sls_valuation::set_random_at_most(bvect const& src, bvect& tmp, random_gen& r) {
+        if (!get_at_most(src, tmp))
+            return false;
+        if (is_zero(tmp) || (0 == r() % 2))
+            return try_set(tmp);
+
+        
+        // random value below tmp
+        auto msb_bit = msb(tmp);
+        for (unsigned i = 0; i < nw; ++i)
+            tmp[i] = (random_bits(r) & ~fixed[i]) | (fixed[i] & tmp[i]);
+        for (unsigned i = msb_bit; i < bw; ++i)
+            tmp.set(i, false);
+        if (m_lo == m_hi || is_zero(m_lo) || m_lo <= tmp)
+            return try_set(tmp);
+
+        // for simplicity, bail out if we were not lucky
+        return get_at_most(src, tmp) && try_set(tmp);  
+    }
+
+    bool sls_valuation::set_random_at_least(bvect const& src, bvect& tmp, random_gen& r) {
+        if (!get_at_least(src, tmp))
+            return false;
+        if (is_ones(tmp) || (0 == r() % 2))
+            return try_set(tmp);
+
+        // random value at least tmp
+        auto msb_bit = msb(tmp);
+        for (unsigned i = 0; i < nw; ++i)
+            tmp[i] = (random_bits(r) & ~fixed[i]) | (fixed[i] & tmp[i]);
+        tmp.set(msb_bit, true);
+        if (m_lo == m_hi || is_zero(m_hi) || m_hi > tmp)
+            return try_set(tmp);
+
+        // for simplicity, bail out if we were not lucky
+        return get_at_least(src, tmp) && try_set(tmp);        
+    }
+
     bool sls_valuation::set_repair(bool try_down, bvect& dst) {
         for (unsigned i = 0; i < nw; ++i)
             dst[i] = (~fixed[i] & dst[i]) | (fixed[i] & m_bits[i]);
@@ -264,6 +302,19 @@ namespace bv {
     void sls_valuation::get(bvect& dst) const {
         for (unsigned i = 0; i < nw; ++i)
             dst[i] = m_bits[i];
+    }
+
+    digit_t sls_valuation::random_bits(random_gen& rand) {
+        digit_t r = 0;
+        for (digit_t i = 0; i < sizeof(digit_t); ++i)
+            r ^= rand() << (8 * i);
+        return r;
+    }
+
+    void sls_valuation::get_variant(bvect& dst, random_gen& r) const {
+        for (unsigned i = 0; i < nw; ++i)
+            dst[i] = (random_bits(r) & ~fixed[i]) | (fixed[i] & m_bits[i]);
+        clear_overflow_bits(dst);
     }
 
     //

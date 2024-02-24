@@ -26,6 +26,10 @@ namespace bv {
     class sls_fixed;
 
     class sls_eval {
+        struct config {
+            unsigned m_prob_randomize_extract = 50;
+        };
+
         friend class sls_fixed;
         friend class sls_test;
         ast_manager&        m;
@@ -34,6 +38,9 @@ namespace bv {
         mutable mpn_manager mpn;
         ptr_vector<expr>    m_todo;
         random_gen          m_rand;
+        config              m_config;
+
+
 
         scoped_ptr_vector<sls_valuation> m_values0; // expr-id -> bv valuation
         scoped_ptr_vector<sls_pre_valuation> m_values1; // expr-id -> bv valuation
@@ -95,6 +102,7 @@ namespace bv {
         bool try_repair_uge(bool e, bvval& a, bvect const& t);
         bool try_repair_umul_ovfl(bool e, bvval& a, bvval& b, unsigned i);
         bool try_repair_zero_ext(bvval const& e, bvval& a);
+        bool try_repair_sign_ext(bvval const& e, bvval& a);
         bool try_repair_concat(bvval const& e, bvval& a, bvval& b, unsigned i);
         bool try_repair_extract(bvval const& e, bvval& a, unsigned lo);
         void add_p2_1(bvval const& a, bvect& t) const;
