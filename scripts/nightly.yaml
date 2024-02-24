@@ -4,7 +4,7 @@ variables:
   Patch: '6'
   ReleaseVersion: $(Major).$(Minor).$(Patch)
   AssemblyVersion: $(Major).$(Minor).$(Patch).$(Build.BuildId)
-  NightlyVersion: $(AssemblyVersion)-$(Build.DefinitionName)
+  NightlyVersion: $(AssemblyVersion)-$(Build.buildId)
 
 stages:
 - stage: Build
@@ -237,12 +237,7 @@ stages:
       displayName: 'Download Ubuntu ARM64 Build'
       inputs:
         artifact: 'UbuntuArm64'
-        path: $(Agent.TempDirectory)\package
-    - task: DownloadPipelineArtifact@2
-      displayName: 'Download Ubuntu Build'
-      inputs:
-        artifact: 'ubuntu-x64'
-        path: $(Agent.TempDirectory)\package        
+        path: $(Agent.TempDirectory)\package    
     - task: DownloadPipelineArtifact@2
       displayName: 'Download macOS Build'
       inputs:
@@ -530,11 +525,6 @@ stages:
       displayName: "Download Ubuntu Arm64"
       inputs:
         artifactName: 'ubuntu-arm64'
-        targetPath: tmp
-    - task: DownloadPipelineArtifact@2
-      displayName: "Download Ubuntu"
-      inputs:
-        artifactName: 'ubuntu-x64'
         targetPath: tmp
     - task: DownloadPipelineArtifact@2
       displayName: "Download Ubuntu-20.04"
