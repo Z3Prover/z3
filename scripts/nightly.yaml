@@ -524,7 +524,7 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: "Download Ubuntu Arm64"
       inputs:
-        artifactName: 'ubuntu-arm64'
+        artifactName: 'UbuntuArm64'
         targetPath: tmp
     - task: DownloadPipelineArtifact@2
       displayName: "Download Ubuntu-20.04"
