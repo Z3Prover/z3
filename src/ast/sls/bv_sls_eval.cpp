@@ -989,23 +989,30 @@ namespace bv {
     }
 
 
+    //
+    // first try to set a := e - b
+    // If this fails, set a to a random value
+    // 
     bool sls_eval::try_repair_add(bvval const& e, bvval& a, bvval const& b) {
         a.set_sub(m_tmp, e.bits(), b.bits());
-        return a.set_repair(random_bool(), m_tmp);
+        if (a.try_set(m_tmp))
+            return true;
+        a.get_variant(m_tmp, m_rand);
+        return a.set_repair(random_bool(), m_tmp);          
     }
 
-
     bool sls_eval::try_repair_sub(bvval const& e, bvval& a, bvval & b, unsigned i) {
-        if (i == 0) {
+        if (i == 0) 
             // e = a - b -> a := e + b
-            a.set_add(m_tmp, e.bits(), b.bits());
-            return a.set_repair(random_bool(), m_tmp);
-        }
-        else {
+            a.set_add(m_tmp, e.bits(), b.bits());        
+        else 
             // b := a - e
-            b.set_sub(m_tmp, a.bits(), e.bits());
-            return b.set_repair(random_bool(), m_tmp);
-        }
+            b.set_sub(m_tmp, a.bits(), e.bits());       
+        if (a.try_set(m_tmp))
+            return true;
+        // fall back to a random value
+        a.get_variant(m_tmp, m_rand);
+        return a.set_repair(random_bool(), m_tmp);
     }
 
     /**
@@ -1013,19 +1020,15 @@ namespace bv {
     * 8*e = a*(2b), then a = 4e*b^-1
     */
     bool sls_eval::try_repair_mul(bvval const& e, bvval& a, bvval const& b) {
-        if (b.is_zero()) {
-            if (a.is_zero()) {
-                a.set(m_tmp, 1);                
-                return a.try_set(m_tmp);
-            }
-            verbose_stream() << "cannot repair 0\n";
-            return false;
-        }
-
         unsigned parity_e = e.parity(e.bits());
         unsigned parity_b = b.parity(b.bits());
 
-#if 1
+        if (e.is_zero()) {
+            a.get_variant(m_tmp, m_rand);
+            for (unsigned i = 0; i < e.bw - parity_b; ++i)
+                m_tmp.set(i, false);
+            return a.set_repair(random_bool(), m_tmp);
+        }
         
         auto& x = m_tmp;
         auto& y = m_tmp2;
@@ -1041,8 +1044,11 @@ namespace bv {
         // x*ta + y*tb = x
 
         b.get(y);
-        if (parity_b > 0)
+        if (parity_b > 0) {
             b.shift_right(y, parity_b);
+            for (unsigned i = parity_b; i < e.bw; ++i)
+                y.set(i, m_rand() % 2 == 0);
+        }
 
         y[a.nw] = 0;
         x[a.nw] = 0;
@@ -1084,38 +1090,13 @@ namespace bv {
         if (parity_b > 0)
             b.shift_right(y, parity_b);
         a.set_mul(m_tmp, tb, y);
-#if 0
-        for (unsigned i = a.nw; i-- > 0; )
-            verbose_stream() << tb[i];
-        verbose_stream() << "\n";
-        for (unsigned i = a.nw; i-- > 0; )
-            verbose_stream() << y[i];
-        verbose_stream() << "\n";
-        for (unsigned i = a.nw; i-- > 0; )
-            verbose_stream() << m_tmp[i];
-        verbose_stream() << "\n";
-#endif
         SASSERT(a.is_one(m_tmp));
 #endif
         e.get(m_tmp2);
         if (parity_e > 0 && parity_b > 0)
             b.shift_right(m_tmp2, std::min(parity_b, parity_e));
         a.set_mul(m_tmp, tb, m_tmp2);
-        return a.set_repair(random_bool(), m_tmp);
-
-#else
-
-        rational ne, nb;
-        e.get_value(e.bits, ne);
-        b.get_value(b.bits, nb);
-
-        if (parity_b > 0)
-            ne /= rational::power_of_two(std::min(parity_b, parity_e));
-        auto inv_b = nb.pseudo_inverse(b.bw);
-        rational na = mod(inv_b * ne, rational::power_of_two(a.bw));
-        a.set_value(m_tmp, na);
-        return a.set_repair(random_bool(), m_tmp);
-#endif        
+        return a.set_repair(random_bool(), m_tmp);       
     }
 
     bool sls_eval::try_repair_bnot(bvval const& e, bvval& a) {
