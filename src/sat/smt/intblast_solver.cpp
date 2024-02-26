@@ -233,8 +233,42 @@ namespace intblast {
                 es[i] = tmp;
             }
 
+#if 0
+            namespace fs = std::filesystem;
+            static unsigned num_check = 0;
+            fs::path filename = std::string("validation/int-") + std::to_string(++num_check) + ".smt2";
+            fs::create_directories(filename.parent_path());
+            IF_VERBOSE(1, verbose_stream() << "validation check written to file " << filename << "\n");
+            std::ofstream file(filename);
+            std::string name_esc;
+            if (name) {
+                name_esc = name;
+                for (char& c : name_esc)
+                    if (c == '|')
+                        c = '!';
+            }
+            else
+                name_esc = "<none>";
+
+            file << "(set-logic ALL)\n";
+            file << "(set-info :source |\n";
+            file << "    Name: " << name_esc << "\n";
+            file << original_es << "\n|)\n";
+
+            m_solver->push();
+            m_solver->assert_expr(es);
+            m_solver->display(file) << "(check-sat)\n";
+            m_solver->pop(1);
+
+            file.close();
+
+            // if (num_check == 68)
+            //     std::abort();
+
+            r = l_false;
+#else
             IF_VERBOSE(2, verbose_stream() << "check\n" << original_es << "\n");
-            
+
             IF_VERBOSE(2,
                 {
                     m_solver->push();
@@ -243,8 +277,8 @@ namespace intblast {
                     m_solver->pop(1);
                 });
 
-            
             r = m_solver->check_sat(es);
+#endif
         }
 
         m_solver->collect_statistics(m_stats);
