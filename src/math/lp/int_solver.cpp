@@ -201,12 +201,7 @@ namespace lp {
         if (r == lia_move::undef && should_gomory_cut()) r = gomory(*this).get_gomory_cuts(2);
 
         if (r == lia_move::undef) r = int_branch(*this)();
-        
-        m_cut_vars.reset();
-        if (settings().get_cancel_flag()) 
-            return lia_move::undef;   
-        if (r == lia_move::undef) 
-            r = int_branch(*this)();     
+        if (settings().get_cancel_flag()) r = lia_move::undef;        
         return r;
     }
 
