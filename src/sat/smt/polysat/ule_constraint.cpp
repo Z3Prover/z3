@@ -227,7 +227,6 @@ namespace polysat {
             lhs *= x;
             SASSERT(lhs.leading_coefficient().is_power_of_two());
         }
-        TRACE("bv_verbose", tout << "simplified " << lhs << " <= " << rhs << "\n");
     } // simplify_impl
 }
 
@@ -262,6 +261,7 @@ namespace polysat {
         if (old_is_positive != is_positive || old_lhs != lhs || old_rhs != rhs) {
             ule_pp const old_ule(to_lbool(old_is_positive), old_lhs, old_rhs);
             ule_pp const new_ule(to_lbool(is_positive), lhs, rhs);
+            TRACE("bv", tout << "original: " << old_ule << "\nsimplified: " << new_ule << "\n");
             // always-false and always-true constraints should be rewritten to 0 != 0 and 0 == 0, respectively.
             if (is_always_false(old_is_positive, old_lhs, old_rhs)) {
                 SASSERT(!is_positive);

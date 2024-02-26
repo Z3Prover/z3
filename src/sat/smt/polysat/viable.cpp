@@ -648,10 +648,16 @@ namespace polysat {
         verbose_stream() << "\n\n\n\n\n\nNon-viable assignment for v" << m_var << " size " << c.size(m_var) << "\n";
         display_one(verbose_stream() << "entry: ", e) << "\n";
         verbose_stream() << "value " << value << "\n";
+        m_fixed_bits.display(verbose_stream() << "fixed: ") << "\n";
 
         fixed_slice_extra_vector fixed;
         offset_slice_extra_vector subslices;
         c.s.get_fixed_sub_slices(m_var, fixed, subslices);   // TODO: move into m_fixed bits?
+
+        // this case occurs if e-graph merges e.g. nodes "x - 2" and "3";
+        // polysat will see assignment "x = 5" but no fixed bits
+        if (subslices.empty())
+            return null_dependency;
 
         unsigned max_level = 0;
         for (auto const& slice : subslices)
@@ -681,6 +687,9 @@ namespace polysat {
         unsigned w_level = slice.level;  // level where value of w was fixed
         if (w == m_var)
             return null_dependency;
+        if (w == e->var)
+            return null_dependency;
+
         // verbose_stream() << "v" << m_var << " size " << c.size(m_var) << ", v" << w << " size " << c.size(w) << " offset " << offset << " level " << w_level << "\n";
 
         // Let:
