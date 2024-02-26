@@ -205,13 +205,9 @@ namespace bv {
         if (is_zero(tmp) || (0 == r() % 2))
             return try_set(tmp);
 
-        
+        set_random_below(tmp, r);
         // random value below tmp
-        auto msb_bit = msb(tmp);
-        for (unsigned i = 0; i < nw; ++i)
-            tmp[i] = (random_bits(r) & ~fixed[i]) | (fixed[i] & tmp[i]);
-        for (unsigned i = msb_bit; i < bw; ++i)
-            tmp.set(i, false);
+
         if (m_lo == m_hi || is_zero(m_lo) || m_lo <= tmp)
             return try_set(tmp);
 
@@ -226,15 +222,78 @@ namespace bv {
             return try_set(tmp);
 
         // random value at least tmp
-        auto msb_bit = msb(tmp);
-        for (unsigned i = 0; i < nw; ++i)
-            tmp[i] = (random_bits(r) & ~fixed[i]) | (fixed[i] & tmp[i]);
-        tmp.set(msb_bit, true);
+        set_random_above(tmp, r);
+       
         if (m_lo == m_hi || is_zero(m_hi) || m_hi > tmp)
             return try_set(tmp);
 
         // for simplicity, bail out if we were not lucky
         return get_at_least(src, tmp) && try_set(tmp);        
+    }
+
+    bool sls_valuation::set_random_in_range(bvect const& lo, bvect const& hi, bvect& tmp, random_gen& r) {
+        if (0 == r() % 2) {
+            if (!get_at_least(lo, tmp))
+                return false;
+            SASSERT(in_range(tmp));
+            if (hi < tmp)
+                return false;
+
+            if (is_ones(tmp) || (0 == r() % 2))
+                return try_set(tmp);
+            set_random_above(tmp, r);
+            round_down(tmp, [&](bvect const& t) { return hi >= t && in_range(t); });
+            if (in_range(tmp) && lo <= tmp && hi >= tmp)
+                return try_set(tmp);
+            return get_at_least(lo, tmp) && hi >= tmp && try_set(tmp);
+        }
+        else {
+            if (!get_at_most(hi, tmp))
+                return false;
+            SASSERT(in_range(tmp));
+            if (lo > tmp)
+                return false;
+            if (is_zero(tmp) || (0 == r() % 2))
+                return try_set(tmp);
+            set_random_below(tmp, r);
+            round_up(tmp, [&](bvect const& t) { return lo <= t && in_range(t); });
+            if (in_range(tmp) && lo <= tmp && hi >= tmp)
+                return try_set(tmp);
+            return get_at_most(hi, tmp) && lo <= tmp && try_set(tmp);
+        }
+    }
+
+    void sls_valuation::round_down(bvect& dst, std::function<bool(bvect const&)> const& is_feasible) {      
+        for (unsigned i = bw; !is_feasible(dst) && i-- > 0; )
+            if (!fixed.get(i) && dst.get(i))
+                dst.set(i, false);        
+    }
+
+    void sls_valuation::round_up(bvect& dst, std::function<bool(bvect const&)> const& is_feasible) {
+        for (unsigned i = 0; !is_feasible(dst) && i < bw; ++i)
+            if (!fixed.get(i) && !dst.get(i))
+                dst.set(i, true);
+    }
+
+    void sls_valuation::set_random_above(bvect& dst, random_gen& r) {
+        for (unsigned i = 0; i < nw; ++i)
+            dst[i] = dst[i] | (random_bits(r) & ~fixed[i]);
+    }
+
+    void sls_valuation::set_random_below(bvect& dst, random_gen& r) {
+        if (is_zero(dst))
+            return;
+        unsigned n = 0, idx = UINT_MAX;
+        for (unsigned i = 0; i < bw; ++i)
+            if (dst.get(i) && !fixed.get(i) && (r() % ++n) == 0)
+                idx = i;                
+
+        if (idx == UINT_MAX)
+            return;
+        dst.set(idx, false);
+        for (unsigned i = 0; i < idx; ++i) 
+            if (!fixed.get(i))
+                dst.set(i, r() % 2 == 0);
     }
 
     bool sls_valuation::set_repair(bool try_down, bvect& dst) {

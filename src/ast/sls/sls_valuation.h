@@ -188,8 +188,13 @@ namespace bv {
 
         bool set_random_at_most(bvect const& src, bvect& tmp, random_gen& r);
         bool set_random_at_least(bvect const& src, bvect& tmp, random_gen& r);
+        bool set_random_in_range(bvect const& lo, bvect const& hi, bvect& tmp, random_gen& r);
 
         bool set_repair(bool try_down, bvect& dst);
+        void set_random_above(bvect& dst, random_gen& r);
+        void set_random_below(bvect& dst, random_gen& r);
+        void round_down(bvect& dst, std::function<bool(bvect const&)> const& is_feasible);
+        void round_up(bvect& dst, std::function<bool(bvect const&)> const& is_feasible);
 
 
         static digit_t random_bits(random_gen& r);

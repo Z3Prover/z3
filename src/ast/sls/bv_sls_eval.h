@@ -89,6 +89,8 @@ namespace bv {
         bool try_repair_uge(bool e, bvval& a, bvval const& b);
         bool try_repair_sle(bool e, bvval& a, bvval const& b);
         bool try_repair_sge(bool e, bvval& a, bvval const& b);
+        bool try_repair_sge(bvval& a, bvect const& b, bvect const& p2);
+        bool try_repair_sle(bvval& a, bvect const& b, bvect const& p2);
         bool try_repair_shl(bvval const& e, bvval& a, bvval& b, unsigned i);
         bool try_repair_ashr(bvval const& e, bvval& a, bvval& b, unsigned i);
         bool try_repair_lshr(bvval const& e, bvval& a, bvval& b, unsigned i);

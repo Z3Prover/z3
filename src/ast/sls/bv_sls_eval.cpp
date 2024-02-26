@@ -1122,57 +1122,123 @@ namespace bv {
         for (unsigned i = 0; i < e.nw; ++i)
             m_tmp[i] = ~e.bits()[i];
         a.clear_overflow_bits(m_tmp);
-        return a.set_repair(random_bool(), m_tmp);       
+        return a.try_set(m_tmp);
     }
 
-    bool sls_eval::try_repair_bneg(bvval const& e, bvval& a) {
-        
+    bool sls_eval::try_repair_bneg(bvval const& e, bvval& a) {        
         e.set_sub(m_tmp, m_zero, e.bits()); 
-        return a.set_repair(random_bool(), m_tmp);        
+        return a.try_set(m_tmp);
     }
 
-    bool sls_eval::try_repair_ule(bool e, bvval& a, bvval const& b) {
-        return try_repair_ule(e, a, b.bits());       
-    }
-
-    bool sls_eval::try_repair_uge(bool e, bvval& a, bvval const& b) {
-        return try_repair_uge(e, a, b.bits());
-    }
 
     // a <=s b <-> a + p2 <=u b + p2
-
     // 
-    // to solve x for x <=s b:
-    // y := at most (b + p2) - p2
-    // x := random_at_most y
-    // or
-    // x := random_at_least y - p2 if y < p2
-    //
+    // NB: p2 = -p2
+    // 
     // to solve x for x >s b:
-    // infeasible if b + p2 = 0
-    // y := at least (b + 1 + p2) - p2
-    // TODO
+    // infeasible if b + 1 = p2
+    // solve for x >=s b + 1
     // 
     bool sls_eval::try_repair_sle(bool e, bvval& a, bvval const& b) {
-        a.set(m_tmp, b.bits());
-        if (e) {
-            return a.set_repair(true, m_tmp);
-        }
+        auto& p2 = m_b;
+        b.set_zero(p2);
+        p2.set(b.bw - 1, true);
+        p2.set_bw(b.bw);
+        bool r = false;
+        if (e) 
+            r = try_repair_sle(a, b.bits(), p2);        
         else {
-            a.set_add(m_tmp2, m_tmp, m_one);
-            return a.set_repair(false, m_tmp2);
+            auto& b1 = m_nexta;
+            a.set_add(b1, b.bits(), m_one);
+            if (p2 == b1)
+                r = false;
+            else
+                r = try_repair_sge(a, b1, p2);
         }
+        p2.set_bw(0);
+        return r;
     }
 
+    // to solve x for x <s b:
+    // infeasible if b = 0
+    // solve for x <=s b - 1
+    // 
     bool sls_eval::try_repair_sge(bool e, bvval& a, bvval const& b) {
-        a.set(m_tmp, b.bits());
-        if (e) {
-            return a.set_repair(false, m_tmp);
-        }
+        auto& p2 = m_b;
+        b.set_zero(p2);
+        p2.set(b.bw - 1, true);
+        p2.set_bw(b.bw);
+        bool r = false;
+        if (e)
+            r = try_repair_sge(a, b.bits(), p2);
+        else if (b.is_zero())
+            r = false;
         else {
-            a.set_sub(m_tmp2, m_tmp, m_one);
-            return a.set_repair(true, m_tmp2);
-        }        
+            auto& b1 = m_nexta;
+            a.set_sub(b1, b.bits(), m_one);
+            b1.set_bw(b.bw);
+            r = try_repair_sle(a, b1, p2);
+            b1.set_bw(0);
+        }
+        p2.set_bw(0);
+        return r;
+    }
+
+
+    // to solve x for x <=s b:
+    // let c := b + p2
+    // solve for
+    //    x + p2 <= c
+    // 
+    // x := random x <= b or x >= p2  if c >= p2 (b < p2)
+    // or
+    // x := random p2 <= x <= b       if c < p2  (b >= p2)
+    // 
+    bool sls_eval::try_repair_sle(bvval& a, bvect const& b, bvect const& p2) {
+        bool r = false;
+        if (b < p2) {
+            bool coin = m_rand() % 2 == 0;
+            if (coin)
+                r = a.set_random_at_least(p2, m_tmp3, m_rand);
+            if (!r)
+                r = a.set_random_at_most(b, m_tmp3, m_rand);
+            if (!coin && !r)
+                r = a.set_random_at_least(p2, m_tmp3, m_rand);
+        }
+        else 
+            r = a.set_random_in_range(p2, b, m_tmp3, m_rand);
+        return r;
+    }
+
+    // solve for x >=s b
+    // 
+    // d := b + p2
+    // 
+    // x := random b <= x < p2        if d >= p2 (b < p2)
+    // or
+    // x := random b <= x or x < p2   if d < p2
+    //  
+
+    bool sls_eval::try_repair_sge(bvval& a, bvect const& b, bvect const& p2) {
+        auto& p2_1 = m_tmp4;
+        a.set_sub(p2_1, p2, m_one);
+        p2_1.set_bw(a.bw);
+        bool r = false;
+        if (b < p2) 
+            // random b <= x < p2 
+            r = a.set_random_in_range(b, p2_1, m_tmp3, m_rand);        
+        else {
+            // random b <= x or x < p2
+            bool coin = m_rand() % 2 == 0;
+            if (coin)
+                r = a.set_random_at_most(p2_1, m_tmp3, m_rand);
+            if (!r)
+                r = a.set_random_at_least(b, m_tmp3, m_rand);
+            if (!r && !coin)
+                r = a.set_random_at_most(p2_1, m_tmp3, m_rand);
+        }
+        p2_1.set_bw(0);
+        return r;
     }
 
     void sls_eval::add_p2_1(bvval const& a, bvect& t) const {
@@ -1182,30 +1248,30 @@ namespace bv {
         a.clear_overflow_bits(t);
     }
 
-    bool sls_eval::try_repair_ule(bool e, bvval& a, bvect const& t) {
+    bool sls_eval::try_repair_ule(bool e, bvval& a, bvval const& b) {
         if (e) {
             // a <= t
-            return a.set_random_at_most(t, m_tmp, m_rand);
+            return a.set_random_at_most(b.bits(), m_tmp, m_rand);
         }
         else {
             // a > t
-            a.set_add(m_tmp, t, m_one);
+            a.set_add(m_tmp, b.bits(), m_one);
             if (a.is_zero(m_tmp))
                 return false;   
             return a.set_random_at_least(m_tmp, m_tmp2, m_rand);
         }           
     }
 
-    bool sls_eval::try_repair_uge(bool e, bvval& a, bvect const& t) {
+    bool sls_eval::try_repair_uge(bool e, bvval& a, bvval const& b) {
         if (e) {
             // a >= t
-            return a.set_random_at_least(t, m_tmp, m_rand);
+            return a.set_random_at_least(b.bits(), m_tmp, m_rand);
         }
         else {
             // a < t
-            if (a.is_zero(t))
+            if (b.is_zero())
                 return false;
-            a.set_sub(m_tmp, t, m_one);
+            a.set_sub(m_tmp, b.bits(), m_one);
             return a.set_random_at_most(m_tmp, m_tmp2, m_rand);
         }    
     }
