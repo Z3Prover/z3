@@ -252,7 +252,7 @@ stages:
       displayName: 'Download macOS Arm64 Build'
       inputs:
         artifact: 'MacArm64'
-        path: $(Agent.TempDirectory)\package	
+        path: $(Agent.TempDirectory)\package
     - task: NuGetToolInstaller@0
       inputs:
         versionSpec: 5.x
