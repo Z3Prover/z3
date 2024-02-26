@@ -91,17 +91,13 @@ add_custom_command(OUTPUT ${Z3_JAVA_ENUMERATION_PACKAGE_FILES_FULL_PATH}
 
 set(Z3_JAVA_JAR_SOURCE_FILES
   AlgebraicNum.java
-  ApplyResultDecRefQueue.java
   ApplyResult.java
   ArithExpr.java
   ArithSort.java
   ArrayExpr.java
   ArraySort.java
-  ASTDecRefQueue.java
   AST.java
-  AstMapDecRefQueue.java
   ASTMap.java
-  AstVectorDecRefQueue.java
   ASTVector.java
   BitVecExpr.java
   BitVecNum.java
@@ -109,9 +105,7 @@ set(Z3_JAVA_JAR_SOURCE_FILES
   BoolExpr.java
   BoolSort.java
   CharSort.java
-  ConstructorDecRefQueue.java
   Constructor.java
-  ConstructorListDecRefQueue.java
   ConstructorList.java
   Context.java
   DatatypeExpr.java
@@ -121,7 +115,6 @@ set(Z3_JAVA_JAR_SOURCE_FILES
   FiniteDomainExpr.java
   FiniteDomainNum.java
   FiniteDomainSort.java
-  FixedpointDecRefQueue.java
   Fixedpoint.java
   FPExpr.java
   FPNum.java
@@ -130,13 +123,9 @@ set(Z3_JAVA_JAR_SOURCE_FILES
   FPRMSort.java
   FPSort.java
   FuncDecl.java
-  FuncInterpDecRefQueue.java
-  FuncInterpEntryDecRefQueue.java
   FuncInterp.java
   Global.java
-  GoalDecRefQueue.java
   Goal.java
-  IDecRefQueue.java
   IntExpr.java
   IntNum.java
   IntSort.java
@@ -144,16 +133,11 @@ set(Z3_JAVA_JAR_SOURCE_FILES
   Lambda.java
   ListSort.java
   Log.java
-  ModelDecRefQueue.java
   Model.java
-  OptimizeDecRefQueue.java
   Optimize.java
-  ParamDescrsDecRefQueue.java
   ParamDescrs.java
-  ParamsDecRefQueue.java
   Params.java
   Pattern.java
-  ProbeDecRefQueue.java
   Probe.java
   Quantifier.java
   RatNum.java
@@ -166,16 +150,12 @@ set(Z3_JAVA_JAR_SOURCE_FILES
   SeqSort.java
   SetSort.java
   Simplifier.java
-  SimplifierDecRefQueue.java
-  SolverDecRefQueue.java
   Solver.java
   Sort.java
-  StatisticsDecRefQueue.java
   Statistics.java
   Status.java
   StringSymbol.java
   Symbol.java
-  TacticDecRefQueue.java
   Tactic.java
   TupleSort.java
   UninterpretedSort.java
@@ -183,6 +163,7 @@ set(Z3_JAVA_JAR_SOURCE_FILES
   Version.java
   Z3Exception.java
   Z3Object.java
+  Z3ReferenceQueue.java
 )
 set(Z3_JAVA_JAR_SOURCE_FILES_FULL_PATH "")
 foreach (java_src_file ${Z3_JAVA_JAR_SOURCE_FILES})
@@ -204,11 +185,13 @@ add_custom_target(build_z3_java_bindings
 
 # Rule to build ``com.microsoft.z3.jar``
 # TODO: Should we set ``CMAKE_JNI_TARGET`` to ``TRUE``?
+# REMARK: removed VERSION to fix issue with using this to create installations.
+
 add_jar(z3JavaJar
   SOURCES ${Z3_JAVA_JAR_SOURCE_FILES_FULL_PATH}
   OUTPUT_NAME ${Z3_JAVA_PACKAGE_NAME}
   OUTPUT_DIR "${PROJECT_BINARY_DIR}"
-  VERSION "${Z3_VERSION}"
+# VERSION "${Z3_VERSION}"
 )
 
 ###############################################################################
@@ -219,21 +202,22 @@ if (Z3_INSTALL_JAVA_BINDINGS)
   # Provide cache variables for the install locations that the user can change.
   # This defaults to ``/usr/local/java`` which seems to be the location for ``.jar``
   # files on Linux distributions
-  set(Z3_JAVA_JAR_INSTALLDIR
-    "${CMAKE_INSTALL_DATAROOTDIR}/java"
-    CACHE
-    PATH
-    "Directory to install Z3 Java jar file relative to install prefix"
-  )
-  # FIXME: I don't think this the right installation location
-  set(Z3_JAVA_JNI_LIB_INSTALLDIR
-    "${CMAKE_INSTALL_LIBDIR}"
-    CACHE
-    PATH
-    "Directory to install Z3 Java JNI bridge library relative to install prefix"
-  )
+  if (NOT Z3_JAVA_JAR_INSTALLDIR)
+     set(Z3_JAVA_JAR_INSTALLDIR
+       "${CMAKE_INSTALL_DATAROOTDIR}/java"
+       CACHE
+       PATH
+       "Directory to install Z3 Java jar file relative to install prefix"
+     )
+  endif()
+  if (NOT Z3_JAVA_JNI_LIB_INSTALLDIR)
+    set(Z3_JAVA_JNI_LIB_INSTALLDIR
+       "${CMAKE_INSTALL_LIBDIR}"
+       CACHE
+       PATH
+       "Directory to install Z3 Java JNI bridge library relative to install prefix"
+     )
+  endif()
   install(TARGETS z3java DESTINATION "${Z3_JAVA_JNI_LIB_INSTALLDIR}")
-  # Note: Don't use ``DESTINATION`` here as the version of ``UseJava.cmake`` shipped
-  # with CMake 2.8.12.2 handles that incorrectly.
   install_jar(z3JavaJar "${Z3_JAVA_JAR_INSTALLDIR}")
 endif()

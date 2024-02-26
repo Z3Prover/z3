@@ -172,6 +172,14 @@ struct smt_params : public preprocessor_params,
 
     // -----------------------------------
     //
+    // User propagator configuration
+    //
+    // -----------------------------------
+
+    bool             m_up_persist_clauses = false;
+
+    // -----------------------------------
+    //
     // SMT-LIB (debug) pretty printer
     //
     // -----------------------------------

@@ -1807,7 +1807,7 @@ namespace smt {
 
     bool theory_pb::resolve_conflict(card& c, literal_vector const& confl) {
        
-        TRACE("pb", display(tout, c, true); );
+        TRACE("pb", display(tout << "resolve conflict\n", c, true); );
 
         bool_var v;
         m_conflict_lvl = 0;
@@ -1839,8 +1839,19 @@ namespace smt {
         literal conseq = ~confl[2];
         int bound = 1;
 
+        auto clear_marks = [&]() {
+            while (m_num_marks > 0 && idx > 0) {
+                v = lits[idx].var();
+                if (ctx.is_marked(v)) {
+                    ctx.unset_mark(v);
+                }
+                --idx;
+            }
+        };
+
         while (m_num_marks > 0) {
 
+            TRACE("pb", tout << "conseq: " << conseq << "\n");
             v = conseq.var();
 
             int offset = get_abs_coeff(v);
@@ -1850,13 +1861,7 @@ namespace smt {
             }
             SASSERT(validate_lemma());
             if (offset > 1000) {
-                while (m_num_marks > 0 && idx > 0) {
-                    v = lits[idx].var();
-                    if (ctx.is_marked(v)) {
-                        ctx.unset_mark(v);
-                    }
-                    --idx;
-                }
+                clear_marks();
                 return false;
             }
 
@@ -1884,8 +1889,11 @@ namespace smt {
                 clause& cls = *js.get_clause();
                 justification* cjs = cls.get_justification();
                 unsigned num_lits = cls.get_num_literals();
-                if (cjs && typeid(smt::unit_resolution_justification) == typeid(*cjs))
-                    ;
+                CTRACE("pb", cjs, tout << (typeid(smt::unit_resolution_justification) == typeid(*cjs)) << "\n");
+                if (cjs && typeid(smt::unit_resolution_justification) == typeid(*cjs)) {
+                    clear_marks();
+                    return false;
+                }
                 else if (cjs && !is_proof_justification(*cjs)) {                    
                     TRACE("pb", tout << "not processing justification over: " << conseq << " " << typeid(*cjs).name() << "\n";);
                     break;
@@ -1954,7 +1962,8 @@ namespace smt {
             while (true) {
                 conseq = lits[idx];
                 v = conseq.var();
-                if (ctx.is_marked(v)) break;
+                if (ctx.is_marked(v))
+                    break;
                 SASSERT(idx > 0);
                 --idx;
             }

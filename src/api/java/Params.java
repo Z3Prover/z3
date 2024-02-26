@@ -18,6 +18,8 @@ Notes:
 
 package com.microsoft.z3;
 
+import java.lang.ref.ReferenceQueue;
+
 /**
  * A ParameterSet represents a configuration in the form of Symbol/value pairs.
  **/
@@ -130,6 +132,18 @@ public class Params extends Z3Object {
 
     @Override
     void addToReferenceQueue() {
-        getContext().getParamsDRQ().storeReference(getContext(), this);
+        getContext().getReferenceQueue().storeReference(this, ParamsRef::new);
+    }
+
+    private static class ParamsRef extends Z3ReferenceQueue.Reference<Params> {
+
+        private ParamsRef(Params referent, ReferenceQueue<Z3Object> q) {
+            super(referent, q);
+        }
+
+        @Override
+        void decRef(Context ctx, long z3Obj) {
+            Native.paramsDecRef(ctx.nCtx(), z3Obj);
+        }
     }
 }

@@ -26,8 +26,12 @@ namespace lp {
 class lar_term {
     typedef unsigned lpvar;
     u_map<mpq> m_coeffs;
+    // the column index related to the term
+    lpvar m_j = -1; 
 public:
-    lar_term() {}
+    // the column index related to the term
+    lpvar j() const { return m_j; }
+    lpvar& j() { return m_j; }
     void add_monomial(const mpq& c, unsigned j) {
         if (c.is_zero())
             return;
@@ -62,10 +66,11 @@ public:
         mpq a = it->get_data().m_value;
         this->m_coeffs.erase(term_column);
         for (auto p : t) {
-            this->add_monomial(a * p.coeff(), p.column());
+            this->add_monomial(a * p.coeff(), p.j());
         }
     }
-
+    // constructors
+    lar_term() {}
     lar_term(const vector<std::pair<mpq, unsigned>>& coeffs) {
         for (auto const& p : coeffs) {
             add_monomial(p.first, p.second);
@@ -138,17 +143,23 @@ public:
         }
         return ret;
     }
+
+    lar_term& operator*=(mpq const& k) {
+        for (auto & t : m_coeffs)
+            t.m_value *= k;
+        return *this;
+    }
    
     void clear() {
         m_coeffs.reset();
     }
 
     class ival {
-        unsigned m_var;
+        lpvar m_var;
         const mpq & m_coeff;
     public:
-        ival(unsigned var, const mpq & val) : m_var(var), m_coeff(val) { }
-        column_index column() const { return column_index(m_var); }
+        ival(lpvar var, const mpq & val) : m_var(var), m_coeff(val) { }
+        lpvar j() const { return m_var; }
         const mpq & coeff() const { return m_coeff; }
     };
     
@@ -167,13 +178,13 @@ public:
         lpvar min_var = -1;
         mpq c;
         for (ival p : *this) {
-            if (p.column() < min_var) {
-                min_var = p.column();
+            if (p.j() < min_var) {
+                min_var = p.j();
             }
         }
         lar_term r;
         for (ival p : *this) {
-            if (p.column() == min_var) {
+            if (p.j() == min_var) {
                 return p.coeff().is_one();
             }
         }

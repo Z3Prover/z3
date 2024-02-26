@@ -170,8 +170,8 @@ extern "C" {
             if (g_is_threaded || g_thread_id != std::this_thread::get_id()) {
                 g_is_threaded = true;
                 std::ostringstream strm;
-                strm << smt2log << "-" << std::this_thread::get_id();
-                smt2log = symbol(strm.str());                
+                strm << smt2log << '-' << std::this_thread::get_id();
+                smt2log = symbol(std::move(strm).str());
             }
             to_solver(s)->m_pp = alloc(solver2smt2_pp, mk_c(c)->m(), smt2log.str());
         }
@@ -208,7 +208,7 @@ extern "C" {
         if (!smt_logics::supported_logic(to_symbol(logic))) {
             std::ostringstream strm;
             strm << "logic '" << to_symbol(logic) << "' is not recognized";
-            SET_ERROR_CODE(Z3_INVALID_ARG, strm.str());
+            SET_ERROR_CODE(Z3_INVALID_ARG, std::move(strm).str());
             RETURN_Z3(nullptr);
         }
         else {
@@ -306,7 +306,7 @@ extern "C" {
 
         if (!parse_smt2_commands(*ctx.get(), is)) {
             ctx = nullptr;
-            SET_ERROR_CODE(Z3_PARSER_ERROR, errstrm.str());
+            SET_ERROR_CODE(Z3_PARSER_ERROR, std::move(errstrm).str());
             return;
         }
 
@@ -333,7 +333,7 @@ extern "C" {
         std::stringstream err;
         sat::solver solver(to_solver_ref(s)->get_params(), m.limit());
         if (!parse_dimacs(is, err, solver)) {
-            SET_ERROR_CODE(Z3_PARSER_ERROR, err.str());
+            SET_ERROR_CODE(Z3_PARSER_ERROR, std::move(err).str());
             return;
         }
         sat2goal s2g;
@@ -400,7 +400,7 @@ extern "C" {
         if (!initialized)
             to_solver(s)->m_solver = nullptr;
         descrs.display(buffer);
-        return mk_c(c)->mk_external_string(buffer.str());
+        return mk_c(c)->mk_external_string(std::move(buffer).str());
         Z3_CATCH_RETURN("");
     }
 
@@ -799,7 +799,7 @@ extern "C" {
         init_solver(c, s);
         std::ostringstream buffer;
         to_solver_ref(s)->display(buffer);
-        return mk_c(c)->mk_external_string(buffer.str());
+        return mk_c(c)->mk_external_string(std::move(buffer).str());
         Z3_CATCH_RETURN("");
     }
 
@@ -810,7 +810,7 @@ extern "C" {
         init_solver(c, s);
         std::ostringstream buffer;
         to_solver_ref(s)->display_dimacs(buffer, include_names);
-        return mk_c(c)->mk_external_string(buffer.str());
+        return mk_c(c)->mk_external_string(std::move(buffer).str());
         Z3_CATCH_RETURN("");
     }
 

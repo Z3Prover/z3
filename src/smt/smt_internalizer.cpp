@@ -1830,7 +1830,7 @@ namespace smt {
             // Case) there is a variable old_v in the var-list of n.
             //
             // Remark: This variable was moved to the var-list of n due to a add_eq.
-            SASSERT(th->get_enode(old_v) != n); // this varialbe is not owned by n
+            SASSERT(th->get_enode(old_v) != n); // this variable is not owned by n
             SASSERT(n->get_root()->get_th_var(th_id) != null_theory_var); // the root has also a variable in its var-list.
             n->replace_th_var(v, th_id);
             push_trail(replace_th_var_trail( n, th_id, old_v));

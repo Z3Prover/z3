@@ -68,8 +68,8 @@ bool lt(ast * n1, ast * n2) {
         num = to_sort(n1)->get_num_parameters();
         SASSERT(num > 0);
         for (unsigned i = 0; i < num; i++) {
-            parameter p1 = to_sort(n1)->get_parameter(i);
-            parameter p2 = to_sort(n2)->get_parameter(i);
+            const parameter &p1 = to_sort(n1)->get_parameter(i);
+            const parameter &p2 = to_sort(n2)->get_parameter(i);
             check_parameter(p1, p2);
         }
         UNREACHABLE();
@@ -80,8 +80,8 @@ bool lt(ast * n1, ast * n2) {
         check_value(to_func_decl(n1)->get_num_parameters(), to_func_decl(n2)->get_num_parameters());
         num = to_func_decl(n1)->get_num_parameters();
         for (unsigned i = 0; i < num; i++) {
-            parameter p1 = to_func_decl(n1)->get_parameter(i);
-            parameter p2 = to_func_decl(n2)->get_parameter(i);
+            const parameter &p1 = to_func_decl(n1)->get_parameter(i);
+            const parameter &p2 = to_func_decl(n2)->get_parameter(i);
             check_parameter(p1, p2);
         }
         num = to_func_decl(n1)->get_arity();

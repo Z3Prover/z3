@@ -286,23 +286,24 @@ namespace nlsat {
             }
             
             bool check_invariant() const {
-                DEBUG_CODE(
-                    SASSERT(m_sections.size() == m_sorted_sections.size());
-                    for (unsigned i = 0; i < m_sorted_sections.size(); i++) {
-                        SASSERT(m_sorted_sections[i] < m_sections.size());
-                        SASSERT(m_sections[m_sorted_sections[i]].m_pos == i);
-                    }
-                    unsigned total_num_sections = 0;
-                    unsigned total_num_signs = 0;
-                    for (unsigned i = 0; i < m_info.size(); i++) {
-                        SASSERT(m_info[i].m_first_section <= m_poly_sections.size());
-                        SASSERT(m_info[i].m_num_roots == 0 || m_info[i].m_first_section < m_poly_sections.size());
-                        SASSERT(m_info[i].m_first_sign < m_poly_signs.size());
-                        total_num_sections += m_info[i].m_num_roots;
-                        total_num_signs += m_info[i].m_num_roots + 1;
-                    }
-                    SASSERT(total_num_sections == m_poly_sections.size());
-                    SASSERT(total_num_signs == m_poly_signs.size()););
+#ifdef Z3DEBUG
+                SASSERT(m_sections.size() == m_sorted_sections.size());
+                for (unsigned i = 0; i < m_sorted_sections.size(); i++) {
+                    SASSERT(m_sorted_sections[i] < m_sections.size());
+                    SASSERT(m_sections[m_sorted_sections[i]].m_pos == i);
+                }
+                unsigned total_num_sections = 0;
+                unsigned total_num_signs = 0;
+                for (unsigned i = 0; i < m_info.size(); i++) {
+                    SASSERT(m_info[i].m_first_section <= m_poly_sections.size());
+                    SASSERT(m_info[i].m_num_roots == 0 || m_info[i].m_first_section < m_poly_sections.size());
+                    SASSERT(m_info[i].m_first_sign < m_poly_signs.size());
+                    total_num_sections += m_info[i].m_num_roots;
+                    total_num_signs += m_info[i].m_num_roots + 1;
+                }
+                SASSERT(total_num_sections == m_poly_sections.size());
+                SASSERT(total_num_signs == m_poly_signs.size());
+#endif
                 return true;
             }
 
@@ -491,7 +492,7 @@ namespace nlsat {
         interval_set_ref infeasible_intervals(ineq_atom * a, bool neg, clause const* cls) {
             sign_table & table = m_sign_table_tmp;
             table.reset();
-            TRACE("nsat_evaluator", m_solver.display(tout, *a) << "\n";);
+            TRACE("nlsat_evaluator", m_solver.display(tout, *a) << "\n";);
             unsigned num_ps = a->size();
             var x = a->max_var();
             for (unsigned i = 0; i < num_ps; i++) {
@@ -664,7 +665,7 @@ namespace nlsat {
             return result;
         }
         
-        interval_set_ref infeasible_intervals(atom * a, bool neg, clause const* cls) {
+        interval_set_ref infeasible_intervals(atom * a,  bool neg, clause const* cls) {
             return a->is_ineq_atom() ? infeasible_intervals(to_ineq_atom(a), neg, cls) : infeasible_intervals(to_root_atom(a), neg, cls); 
         }
     };
@@ -685,7 +686,7 @@ namespace nlsat {
         return m_imp->eval(a, neg);
     }
         
-    interval_set_ref evaluator::infeasible_intervals(atom * a, bool neg, clause const* cls) {
+    interval_set_ref evaluator::infeasible_intervals(atom * a,  bool neg, clause const* cls) {
         return m_imp->infeasible_intervals(a, neg, cls);
     }
 

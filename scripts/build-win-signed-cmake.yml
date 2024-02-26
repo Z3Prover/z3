@@ -1,0 +1,99 @@
+parameters:
+  ReleaseVersion: ''
+  BuildArchitecture: ''
+  VCArchitecture: ''
+
+jobs:
+- job: WindowsBuild${{parameters.BuildArchitecture}}
+  displayName: "Windows build (${{parameters.BuildArchitecture}})"
+  pool:
+    vmImage: "windows-latest"
+  steps:
+  - powershell: write-host $(System.TeamProjectId)
+    displayName: 'System.TeamProjectId'
+  - powershell: write-host $(System.DefinitionId)
+    displayName: 'System.DefinitionId'
+  - powershell: write-host $(Build.BuildId)
+    displayName: 'Build.BuildId'
+  - task: CmdLine@2
+    displayName: Build
+    inputs:
+      script:
+        call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" ${{parameters.VCArchitecture}} &
+        python scripts\mk_win_dist_cmake.py
+            --${{parameters.BuildArchitecture}}-only
+            --assembly-version=${{parameters.ReleaseVersion}}
+            --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
+  - task: CopyFiles@2
+    displayName: 'Collect Symbols'
+    inputs:
+      sourceFolder: build-dist/${{parameters.BuildArchitecture}}/
+      contents: '*.pdb'
+      targetFolder: '$(Build.ArtifactStagingDirectory)/symbols'
+  # Publish symbol archive to match nuget package
+  # Index your source code and publish symbols to a file share or Azure Artifacts symbol server
+  - task: PublishSymbols@2
+    inputs:
+      symbolsFolder: '$(Build.ArtifactStagingDirectory)/symbols'
+      searchPattern: '**/*.pdb' 
+      indexSources: false # Github sources not supported
+      publishSymbols: true
+      symbolServerType: TeamServices
+      detailedLog: true
+  - task: EsrpCodeSigning@2
+    displayName: Sign
+    inputs:
+      ConnectedServiceName: 'z3-esrp-signing-2'
+      FolderPath: 'build-dist/${{parameters.BuildArchitecture}}/dist/z3-${{parameters.ReleaseVersion}}-${{parameters.BuildArchitecture}}-win/bin'
+      Pattern: 'Microsoft.Z3.dll,libz3.dll,libz3java.dll,z3.exe'
+      signConfigType: 'inlineSignParams'
+      inlineOperation: |
+        [
+          {
+            "keyCode": "CP-230012",
+            "operationSetCode": "SigntoolSign",
+            "parameters": [
+              {
+                "parameterName": "OpusName",
+                "parameterValue": "Microsoft"
+              },
+              {
+                "parameterName": "OpusInfo",
+                "parameterValue": "http://www.microsoft.com"
+              },
+              {
+                "parameterName": "PageHash",
+                "parameterValue": "/NPH"
+              },
+              {
+                "parameterName": "FileDigest",
+                "parameterValue": "/fd sha256"
+              },
+              {
+                "parameterName": "TimeStamp",
+                "parameterValue": "/tr \"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\" /td sha256"
+              }
+            ],
+            "toolName": "signtool.exe",
+            "toolVersion": "6.2.9304.0"
+          }
+        ]
+      SessionTimeout: '60'
+      MaxConcurrency: '50'
+      MaxRetryAttempts: '5'
+  - task: DeleteFiles@1
+    displayName: Cleanup
+    inputs:
+      SourceFolder: 'build-dist/${{parameters.BuildArchitecture}}/dist/z3-${{parameters.ReleaseVersion}}-${{parameters.BuildArchitecture}}-win/bin'
+      Contents: 'CodeSignSummary*'
+  - task: ArchiveFiles@2
+    displayName: Zip
+    inputs:
+      rootFolderOrFile: 'build-dist/${{parameters.BuildArchitecture}}/dist/z3-${{parameters.ReleaseVersion}}-${{parameters.BuildArchitecture}}-win'
+      includeRootFolder: true
+      archiveType: 'zip'
+      archiveFile: '$(Build.ArtifactStagingDirectory)/z3-${{parameters.ReleaseVersion}}-${{parameters.BuildArchitecture}}-win.zip'
+  - task: PublishPipelineArtifact@1
+    inputs:
+      targetPath: '$(Build.ArtifactStagingDirectory)/z3-${{parameters.ReleaseVersion}}-${{parameters.BuildArchitecture}}-win.zip'
+      artifactName: 'WindowsBuild-${{parameters.BuildArchitecture}}'

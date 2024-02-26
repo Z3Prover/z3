@@ -291,7 +291,6 @@ private:
             int bound_sign = (is_lower_bound ? 1 : -1);
             int j_sign = (coeff_before_j_is_pos ? 1 : -1) * bound_sign;
 
-            SASSERT(!tv::is_term(bound_j));
             u_dependency* ret = nullptr;
             for (auto const& r : lar->get_row(row_index)) {
                 unsigned j = r.var();

@@ -188,6 +188,7 @@ namespace intblast {
             core.push_back(~lit);
         return check_core(name, core, {});
     }
+
     lbool solver::check_propagation(char const* name, sat::literal lit, sat::literal_vector const& lits, euf::enode_pair_vector const& eqs) {
         sat::literal_vector core;
         core.append(lits);
@@ -300,7 +301,6 @@ namespace intblast {
         return r;
     }
 
-    
 
     lbool solver::check_solver_state() {
         sat::literal_vector literals;

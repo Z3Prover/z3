@@ -390,7 +390,7 @@ namespace q {
         m_qs.log_instantiation(lits, &j);
         euf::th_proof_hint* ph = nullptr;
         if (ctx.use_drat()) 
-            ph = q_proof_hint::mk(ctx, j.m_generation, lits, j.m_clause.num_decls(), j.m_binding);
+            ph = q_proof_hint::mk(ctx, m_ematch, j.m_generation, lits, j.m_clause.num_decls(), j.m_binding);
         m_qs.add_clause(lits, ph);               
     }
 

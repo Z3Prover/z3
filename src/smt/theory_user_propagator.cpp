@@ -293,7 +293,7 @@ void theory_user_propagator::pop_scope_eh(unsigned num_scopes) {
 }
 
 bool theory_user_propagator::can_propagate() {
-    return m_qhead < m_prop.size() || m_to_add_qhead < m_to_add.size();
+    return m_qhead < m_prop.size() || m_to_add_qhead < m_to_add.size() || m_replay_qhead < m_clauses_to_replay.size();
 }
 
 void theory_user_propagator::propagate_consequence(prop_info const& prop) {
@@ -321,12 +321,10 @@ void theory_user_propagator::propagate_consequence(prop_info const& prop) {
         ctx.set_conflict(js);
     }
     else {
-#if 1
         for (auto& lit : m_lits)
             lit.neg();
         for (auto const& [a,b] : m_eqs)
             m_lits.push_back(~mk_eq(a->get_expr(), b->get_expr(), false));
-#endif
         
         literal lit; 
         if (has_quantifiers(prop.m_conseq)) {
@@ -340,19 +338,20 @@ void theory_user_propagator::propagate_consequence(prop_info const& prop) {
             lit = mk_literal(prop.m_conseq);
         ctx.mark_as_relevant(lit);
 
-#if 0
-        justification* js =
-            ctx.mk_justification(
-                ext_theory_propagation_justification(
-                    get_id(), ctx, m_lits.size(), m_lits.data(), m_eqs.size(), m_eqs.data(), lit));
-
-        ctx.assign(lit, js);
-#endif
-
-#if 1
         m_lits.push_back(lit);
-        ctx.mk_th_lemma(get_id(), m_lits);
-#endif
+        if (ctx.get_fparams().m_up_persist_clauses) {
+            ctx.mk_th_axiom(get_id(), m_lits);
+            expr_ref_vector clause(m);
+            for (auto lit : m_lits)
+                clause.push_back(ctx.literal2expr(lit));
+            m_clauses_to_replay.push_back(clause);
+            if (m_replay_qhead + 1 < m_clauses_to_replay.size()) 
+                std::swap(m_clauses_to_replay[m_replay_qhead], m_clauses_to_replay[m_clauses_to_replay.size()-1]);
+            ++m_replay_qhead;
+        }
+        else {
+            ctx.mk_th_lemma(get_id(), m_lits);
+        }
         TRACE("user_propagate", ctx.display(tout););
     }
 }
@@ -363,12 +362,20 @@ void theory_user_propagator::propagate_new_fixed(prop_info const& prop) {
 
 
 void theory_user_propagator::propagate() {
-    if (m_qhead == m_prop.size() && m_to_add_qhead == m_to_add.size())
+    if (m_qhead == m_prop.size() && m_to_add_qhead == m_to_add.size() && m_replay_qhead == m_clauses_to_replay.size())
         return;
     TRACE("user_propagate", tout << "propagating queue head: " << m_qhead << " prop queue: " << m_prop.size() << "\n");
     force_push();
 
-    unsigned qhead = m_to_add_qhead;
+    unsigned qhead = m_replay_qhead;
+    if (qhead < m_clauses_to_replay.size()) {
+        for (; qhead < m_clauses_to_replay.size() && !ctx.inconsistent(); ++qhead)
+            replay_clause(m_clauses_to_replay.get(qhead));
+        ctx.push_trail(value_trail<unsigned>(m_replay_qhead));
+        m_replay_qhead = qhead;
+    }
+
+    qhead = m_to_add_qhead;
     if (qhead < m_to_add.size()) {
         for (; qhead < m_to_add.size(); ++qhead)
             add_expr(m_to_add.get(qhead), true);
@@ -390,6 +397,13 @@ void theory_user_propagator::propagate() {
     m_qhead = qhead;
 }
 
+
+void theory_user_propagator::replay_clause(expr_ref_vector const& clause) {
+    m_lits.reset();
+    for (expr* e : clause)
+        m_lits.push_back(mk_literal(e));
+    ctx.mk_th_axiom(get_id(), m_lits);
+}
 
 bool theory_user_propagator::internalize_atom(app* atom, bool gate_ctx) {
     return internalize_term(atom);

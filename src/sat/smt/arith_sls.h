@@ -105,7 +105,7 @@ namespace arith {
         config                       m_config;
         scoped_ptr_vector<ineq>      m_bool_vars;
         vector<var_info>             m_vars;
-        svector<std::pair<lp::tv, euf::theory_var>> m_terms;
+        svector<std::pair<lp::lpvar, euf::theory_var>> m_terms;
         bool                         m_dscore_mode = false;
 
 
@@ -140,7 +140,7 @@ namespace arith {
         void add_vars();
         sls::ineq& new_ineq(ineq_kind op, int64_t const& bound);
         void add_arg(sat::bool_var bv, ineq& ineq, int64_t const& c, var_t v);
-        void add_args(sat::bool_var bv, ineq& ineq, lp::tv t, euf::theory_var v, int64_t sign);
+        void add_args(sat::bool_var bv, ineq& ineq, lp::lpvar j, euf::theory_var v, int64_t sign);
         void init_bool_var(sat::bool_var v);
         void init_bool_var_assignment(sat::bool_var v);
 

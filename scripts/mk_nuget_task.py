@@ -21,9 +21,10 @@ def mk_dir(d):
     if not os.path.exists(d):
         os.makedirs(d)
 
-os_info = {  'ubuntu-latest' : ('so', 'linux-x64'),
-             'ubuntu-18' : ('so', 'linux-x64'),
-             'ubuntu-20' : ('so', 'linux-x64'),
+os_info = {  'x64-ubuntu-latest' : ('so', 'linux-x64'),
+             'x64-ubuntu-18' : ('so', 'linux-x64'),
+             'x64-ubuntu-20' : ('so', 'linux-x64'),
+             'x64-ubuntu-22' : ('so', 'linux-x64'),
              'x64-glibc-2.35' : ('so', 'linux-x64'),
              'x64-win' : ('dll', 'win-x64'),
              'x86-win' : ('dll', 'win-x86'),
@@ -78,8 +79,15 @@ def unpack(packages, symbols, arch):
                 if symbols:
                     files += ["Microsoft.Z3.pdb", "Microsoft.Z3.xml"]
                 for b in files:
-                    zip_ref.extract(f"{package_dir}/bin/{b}", f"{tmp}")
-                    replace(f"{tmp}/{package_dir}/bin/{b}", f"out/lib/netstandard2.0/{b}")
+                    file = f"{package_dir}/bin/{b}"
+                    if os.path.exists(file):
+                        zip_ref.extract(file, f"{tmp}")
+                        replace(f"{tmp}/{package_dir}/bin/{b}", f"out/lib/netstandard2.0/{b}")
+                    file = os.path.join(file,"netstandard2.0")
+                    if os.path.exists(file):
+                        zip_ref.extract(file, f"{tmp}")
+                        replace(f"{tmp}/{package_dir}/bin/netstandard2.0/{b}", f"out/lib/netstandard2.0/{b}")
+
 
 def mk_targets(source_root):
     mk_dir("out/build")

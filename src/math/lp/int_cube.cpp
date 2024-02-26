@@ -55,21 +55,21 @@ namespace lp {
         lia.settings().stats().m_cube_success++;
         return lia_move::sat;
     }
-
+// i is the column index having the term
     bool int_cube::tighten_term_for_cube(unsigned i) {
-        if (!lra.term_is_used_as_row(i))
+        if (!lra.column_associated_with_row(i))
             return true;
-        const lar_term* t = lra.terms()[i];
-        impq delta = get_cube_delta_for_term(*t);
-        TRACE("cube", lra.print_term_as_indices(*t, tout); tout << ", delta = " << delta << "\n";);
+        const lar_term& t = lra.get_term(i);
+        impq delta = get_cube_delta_for_term(t);
+        TRACE("cube", lra.print_term_as_indices(t, tout); tout << ", delta = " << delta << "\n";);
         if (is_zero(delta))
             return true;
-        return lra.tighten_term_bounds_by_delta(tv::term(i), delta);
+        return lra.tighten_term_bounds_by_delta(i, delta);
     }
     
     bool int_cube::tighten_terms_for_cube() {
-        for (unsigned i = 0; i < lra.terms().size(); i++)
-            if (!tighten_term_for_cube(i)) {
+        for (const lar_term* t: lra.terms())
+            if (!tighten_term_for_cube(t->j())) {
                 TRACE("cube", tout << "cannot tighten";);
                 return false;
             }
@@ -86,7 +86,7 @@ namespace lp {
             bool seen_minus = false;
             bool seen_plus = false;
             for(lar_term::ival p : t) {
-                if (!lia.column_is_int(p.column()))
+                if (!lia.column_is_int(p.j()))
                     goto usual_delta;
                 const mpq & c = p.coeff();
                 if (c == one_of_type<mpq>()) {
@@ -104,7 +104,7 @@ namespace lp {
     usual_delta:
         mpq delta = zero_of_type<mpq>();
         for (lar_term::ival p : t)
-            if (lia.column_is_int(p.column()))
+            if (lia.column_is_int(p.j()))
                 delta += abs(p.coeff());
         
         delta *= mpq(1, 2);

@@ -22,7 +22,7 @@ namespace nla {
     typedef lp::lconstraint_kind     llc;
     typedef lp::constraint_index     lpci;
     typedef lp::explanation          expl_set;
-    typedef lp::var_index            lpvar;
+    typedef lp::lpvar                    lpvar;
     const lpvar null_lpvar = UINT_MAX;
 
 

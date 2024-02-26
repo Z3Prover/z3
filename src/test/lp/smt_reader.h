@@ -28,7 +28,7 @@ Revision History:
 #include <fstream>
 #include <functional>
 #include <algorithm>
-#include "math/lp/ul_pair.h"
+#include "math/lp/column.h"
 #include "math/lp/lar_constraints.h"
 #include <sstream>
 #include <cstdlib>
@@ -343,7 +343,7 @@ namespace lp {
             solver->add_constraint(&c);
         }
 
-        void create_equality_contraint_for_var(column* col, bound * b, lar_solver *solver) {
+        void create_equality_constraint_for_var(column* col, bound * b, lar_solver *solver) {
             lar_constraint c(EQ, b->m_fixed_value);
             var_index i = solver->add_var(col->m_name);
             c.add_variable_to_constraint(i, numeric_traits<T>::one());
@@ -366,7 +366,7 @@ namespace lp {
                     create_upper_constraint_for_var(col, b, solver);
                 }
                 if (b->m_value_is_fixed) {
-                    create_equality_contraint_for_var(col, b, solver);
+                    create_equality_constraint_for_var(col, b, solver);
                 }
             }
         }
@@ -383,7 +383,7 @@ namespace lp {
         }
         
         void add_constraint_to_solver(lar_solver * solver, formula_constraint & fc, unsigned i) {
-            vector<std::pair<mpq, var_index>> ls;
+            vector<std::pair<mpq, lpvar>> ls;
             for (auto & it : fc.m_coeffs) {
                 ls.push_back(std::make_pair(it.first, solver->add_var(register_name(it.second), false)));
             }

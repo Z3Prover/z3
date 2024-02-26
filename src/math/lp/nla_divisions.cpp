@@ -19,15 +19,9 @@ Description:
 namespace nla {
 
     void divisions::add_idivision(lpvar q, lpvar x, lpvar y) {
-        auto& lra = m_core.lra;
+        const auto& lra = m_core.lra;
         if (x == null_lpvar || y == null_lpvar || q == null_lpvar)
             return;
-        if (lp::tv::is_term(x))
-            x = lra.map_term_index_to_column_index(x);
-        if (lp::tv::is_term(y))
-            y = lra.map_term_index_to_column_index(y);
-        if (lp::tv::is_term(q))
-            q = lra.map_term_index_to_column_index(q);        
         m_idivisions.push_back({q, x, y});
         m_core.trail().push(push_back_vector(m_idivisions));
     }
@@ -36,13 +30,6 @@ namespace nla {
         auto& lra = m_core.lra;
         if (x == null_lpvar || y == null_lpvar || q == null_lpvar)
             return;
-        if (lp::tv::is_term(x))
-            x = lra.map_term_index_to_column_index(x);
-        if (lp::tv::is_term(y))
-            y = lra.map_term_index_to_column_index(y);
-        if (lp::tv::is_term(q))
-            q = lra.map_term_index_to_column_index(q);        
-
         m_rdivisions.push_back({ q, x, y });
         m_core.trail().push(push_back_vector(m_rdivisions));
     }
@@ -50,7 +37,7 @@ namespace nla {
     void divisions::add_bounded_division(lpvar q, lpvar x, lpvar y) {
         if (x == null_lpvar || y == null_lpvar || q == null_lpvar)
             return;
-        if (lp::tv::is_term(x) || lp::tv::is_term(y) || lp::tv::is_term(q))
+        if (m_core.lra.column_has_term(x) || m_core.lra.column_has_term(y) ||  m_core.lra.column_has_term(q))
             return;
         m_bounded_divisions.push_back({ q, x, y });
         m_core.trail().push(push_back_vector(m_bounded_divisions));

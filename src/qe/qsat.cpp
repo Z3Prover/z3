@@ -1014,7 +1014,6 @@ namespace qe {
                 case AST_APP: {
                     app* a = to_app(e);
                     expr_ref_vector args(m);
-                    unsigned num_args = a->get_num_args();
                     bool all_visited = true;
                     for (expr* arg : *a) {
                         if (visited.find(arg, r)) {

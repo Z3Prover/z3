@@ -1285,10 +1285,7 @@ namespace polynomial {
                 }
             });
             monomial_table new_table;
-            monomial_table::iterator it  = m_monomials.begin();
-            monomial_table::iterator end = m_monomials.end();
-            for (; it != end; ++it) {
-                monomial * m = *it;
+            for (monomial * m : m_monomials) {
                 m->rename(sz, xs);
                 SASSERT(!new_table.contains(m));
                 new_table.insert(m);
@@ -1586,9 +1583,7 @@ namespace polynomial {
                     m_i->display_smt2(out, proc);
                 }
                 else {
-                    out << "(* ";
                     m_i->display_smt2(out, proc);
-                    out << ")";
                 }
             }
             else {
@@ -3629,6 +3624,7 @@ namespace polynomial {
 
             unsigned counter = 0;
             while (true) {
+                (void)counter;
                 SASSERT(degree(pp_u, x) >= degree(pp_v, x));
                 unsigned delta = degree(pp_u, x) - degree(pp_v, x);
                 TRACE("polynomial_gcd_detail",
@@ -4174,6 +4170,7 @@ namespace polynomial {
             unsigned counter   = 0;
 
             for (;; counter++) {
+                (void) counter;
                 while (true) {
                     peek_fresh(interpolator.inputs(), p, val);
                     // the selected value must satisfy lc_g(val) != 0

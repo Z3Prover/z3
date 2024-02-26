@@ -17,6 +17,8 @@ Notes:
 
 package com.microsoft.z3;
 
+import java.lang.ref.ReferenceQueue;
+
 /**
  * ApplyResult objects represent the result of an application of a tactic to a
  * goal. It contains the subgoals that were produced.
@@ -66,6 +68,18 @@ public class ApplyResult extends Z3Object {
 
     @Override
     void addToReferenceQueue() {
-        getContext().getApplyResultDRQ().storeReference(getContext(), this);
+        getContext().getReferenceQueue().storeReference(this, ApplyResultRef::new);
+    }
+
+    private static class ApplyResultRef extends Z3ReferenceQueue.Reference<ApplyResult> {
+
+        private ApplyResultRef(ApplyResult referent, ReferenceQueue<Z3Object> q) {
+            super(referent, q);
+        }
+
+        @Override
+        void decRef(Context ctx, long z3Obj) {
+            Native.applyResultDecRef(ctx.nCtx(), z3Obj);
+        }
     }
 }

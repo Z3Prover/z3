@@ -206,7 +206,9 @@ br_status array_rewriter::mk_store_core(unsigned num_args, expr * const * args, 
 bool array_rewriter::squash_store(unsigned n, expr* const* args, expr_ref& result) {
     ptr_buffer<expr> parents, sargs;
     expr* a = args[0];
-    while (m_util.is_store(a)) {
+    unsigned rounds = 0;
+    while (m_util.is_store(a) && rounds < 10) {
+        ++rounds;
         lbool r = compare_args(n - 2, args + 1, to_app(a)->get_args() + 1);
         switch (r) {
         case l_undef:

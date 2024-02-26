@@ -641,8 +641,8 @@ def mk_java(java_src, java_dir, package_name):
   public static native void propagateRegisterEq(Object o, long ctx, long solver);
   public static native void propagateRegisterDecide(Object o, long ctx, long solver);
   public static native void propagateRegisterFinal(Object o, long ctx, long solver);
-  public static native void propagateConflict(Object o, long ctx, long solver, long javainfo, int num_fixed, long[] fixed, long num_eqs, long[] eq_lhs, long[] eq_rhs, long conseq);
   public static native void propagateAdd(Object o, long ctx, long solver, long javainfo, long e);
+  public static native boolean propagateConsequence(Object o, long ctx, long solver, long javainfo, int num_fixed, long[] fixed, long num_eqs, long[] eq_lhs, long[] eq_rhs, long conseq);
   public static native boolean propagateNextSplit(Object o, long ctx, long solver, long javainfo, long e, long idx, int phase);
   public static native void propagateDestroy(Object o, long ctx, long solver, long javainfo);
 
@@ -698,6 +698,8 @@ def mk_java(java_src, java_dir, package_name):
     protected abstract void createdWrapper(long le);
 
     protected abstract void fixedWrapper(long lvar, long lvalue);
+
+    protected abstract void decideWrapper(long lvar, int bit, boolean is_pos);
   }
     """)
     java_native.write('\n')

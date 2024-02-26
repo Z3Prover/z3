@@ -53,7 +53,6 @@ public:
 private:
     using mpn_sbuffer = sbuffer<mpn_digit>;
 
-    static const mpn_digit zero;
     void display_raw(std::ostream & out, mpn_digit const * a, unsigned lng) const;
 
     unsigned div_normalize(mpn_digit const * numer, unsigned lnum,

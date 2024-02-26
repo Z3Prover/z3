@@ -1363,7 +1363,7 @@ typedef enum {
    - Z3_NO_PARSER:     Parser output is not available, that is, user didn't invoke #Z3_parse_smtlib2_string or #Z3_parse_smtlib2_file.
    - Z3_INVALID_PATTERN: Invalid pattern was used to build a quantifier.
    - Z3_MEMOUT_FAIL:   A memory allocation failure was encountered.
-   - Z3_FILE_ACCESS_ERRROR: A file could not be accessed.
+   - Z3_FILE_ACCESS_ERROR: A file could not be accessed.
    - Z3_INVALID_USAGE:   API call is invalid in the current state.
    - Z3_INTERNAL_FATAL: An error internal to Z3 occurred.
    - Z3_DEC_REF_ERROR: Trying to decrement the reference counter of an AST that was deleted or the reference counter was not initialized with #Z3_inc_ref.
@@ -7184,14 +7184,24 @@ extern "C" {
     void Z3_API Z3_solver_propagate_register_cb(Z3_context c, Z3_solver_callback cb, Z3_ast e);
 
     /**
-       \brief propagate a consequence based on fixed values.
-       This is a callback a client may invoke during the fixed_eh callback.
-       The callback adds a propagation consequence based on the fixed values of the
-       \c ids.
+       \brief propagate a consequence based on fixed values and equalities.       
+       A client may invoke it during the \c propagate_fixed, \c propagate_eq, \c propagate_diseq, and \c propagate_final callbacks.
+       The callback adds a propagation consequence based on the fixed values passed \c ids and equalities \c eqs based on parameters \c lhs, \c rhs.
+       
        The solver might discard the propagation in case it is true in the current state.
        The function returns false in this case; otw. the function returns true.
        At least one propagation in the final callback has to return true in order to
        prevent the solver from finishing.
+
+       Assume the callback has the signature: \c propagate_consequence_eh(context, solver_cb, num_ids, ids, num_eqs, lhs, rhs, consequence).
+       \param c - context
+       \param solver_cb - solver callback
+       \param num_ids - number of fixed terms used as premise to propagation
+       \param ids - array of length \c num_ids containing terms that are fixed in the current scope
+       \param num_eqs - number of equalities used as premise to propagation
+       \param lhs - left side of equalities
+       \param rhs - right side of equalities
+       \param consequence - consequence to propagate. It is typically an atomic formula, but it can be an arbitrary formula. 
 
        def_API('Z3_solver_propagate_consequence', BOOL, (_in(CONTEXT), _in(SOLVER_CALLBACK), _in(UINT), _in_array(2, AST), _in(UINT), _in_array(4, AST), _in_array(4, AST), _in(AST)))
     */

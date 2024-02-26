@@ -282,7 +282,7 @@ namespace euf {
     }
 
     void solver::display_validation_failure(std::ostream& out, model& mdl, enode* n) {
-        out << "Failed to validate " << n->bool_var() << " " << bpp(n) << " " << mdl(n->get_expr()) << "\n";
+        out << "Failed to validate b" << n->bool_var() << " " << bpp(n) << " " << mdl(n->get_expr()) << "\n";
         s().display(out);
         euf::enode_vector nodes;
         nodes.push_back(n);

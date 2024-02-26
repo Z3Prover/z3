@@ -30,6 +30,8 @@ set(MSVC_WARNINGS "/W3")
 set(GCC_AND_CLANG_WARNINGS_AS_ERRORS
   # https://clang.llvm.org/docs/DiagnosticsReference.html#wodr
   "-Werror=odr"
+  # https://clang.llvm.org/docs/DiagnosticsReference.html#wreturn-type
+  "-Werror=return-type"
 )
 set(GCC_WARNINGS_AS_ERRORS
   ""

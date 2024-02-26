@@ -400,6 +400,7 @@ class bv_expr_inverter : public iexpr_inverter {
     }
 
     bool process_concat(func_decl* f, unsigned num, expr* const* args, expr_ref& r) {
+//        return false;
         if (num == 0)
             return false;
         if (!uncnstr(num, args))

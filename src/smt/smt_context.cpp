@@ -4265,9 +4265,11 @@ namespace smt {
                 SASSERT(num_lits == 1);
                 expr * unit     = bool_var2expr(lits[0].var());
                 bool unit_sign  = lits[0].sign();
+                while (m.is_not(unit, unit))
+                    unit_sign = !unit_sign;
                 m_units_to_reassert.push_back(unit);
                 m_units_to_reassert_sign.push_back(unit_sign);
-                TRACE("reassert_units", tout << "asserting #" << unit->get_id() << " " << unit_sign << " @ " << m_scope_lvl << "\n";);
+                TRACE("reassert_units", tout << "asserting " << mk_pp(unit, m) << " #" << unit->get_id() << " " << unit_sign << " @ " << m_scope_lvl << "\n";);
             }
 
             m_conflict_resolution->release_lemma_atoms();

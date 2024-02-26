@@ -59,17 +59,9 @@ namespace arith {
             int64_t val = 0;
             lp::lar_term const& term = s.lp().get_term(t);
             for (lp::lar_term::ival const& arg : term) {
-                auto t2 = s.lp().column2tv(arg.column());
-                auto w = s.lp().local_to_external(t2.id());
+                auto t2 = arg.j();
+                auto w = s.lp().local_to_external(t2);
                 val += to_numeral(arg.coeff()) * m_vars[w].m_best_value;
-            }
-            if (v == 52) {
-                verbose_stream() << "update v" << v << " := " << val << "\n";
-                for (lp::lar_term::ival const& arg : term) {
-                    auto t2 = s.lp().column2tv(arg.column());
-                    auto w = s.lp().local_to_external(t2.id());
-                    verbose_stream() << "v" << w << " := " << m_vars[w].m_best_value << " * " << to_numeral(arg.coeff()) << "\n";
-                }
             }
             m_vars[v].m_best_value = val;
         }
@@ -81,12 +73,12 @@ namespace arith {
                 continue;            
             int64_t new_value = m_vars[v].m_best_value;
             s.ensure_column(v);
-            lp::column_index vj = s.lp().to_column_index(v);
-            SASSERT(!vj.is_null());
-            if (!s.lp().is_base(vj.index())) {
+            lp::lpvar vj = s.lp().external_to_local(v);
+            SASSERT(vj  != lp::null_lpvar);
+            if (!s.lp().is_base(vj)) {
                 rational new_value_(new_value, rational::i64());
                 lp::impq val(new_value_, rational::zero());
-                s.lp().set_value_for_nbasic_column(vj.index(), val);
+                s.lp().set_value_for_nbasic_column(vj, val);
             }
         }
 
@@ -460,18 +452,18 @@ namespace arith {
         return 0;
     }
 
-    void sls::add_args(sat::bool_var bv, ineq& ineq, lp::tv t, theory_var v, int64_t sign) {
-        if (t.is_term()) {
+    void sls::add_args(sat::bool_var bv, ineq& ineq, lp::lpvar t, theory_var v, int64_t sign) {
+        if (s.lp().column_has_term(t)) {
             lp::lar_term const& term = s.lp().get_term(t);
             m_terms.push_back({t,v});
             for (lp::lar_term::ival arg : term) {
-                auto t2 = s.lp().column2tv(arg.column());
-                auto w = s.lp().local_to_external(t2.id());
+                auto t2 = arg.j();
+                auto w = s.lp().local_to_external(t2);
                 add_arg(bv, ineq, sign * to_numeral(arg.coeff()), w);
             }
         }
         else
-            add_arg(bv, ineq, sign, s.lp().local_to_external(t.id()));
+            add_arg(bv, ineq, sign, s.lp().local_to_external(t));
     }
 
     void sls::init_bool_var(sat::bool_var bv) {
@@ -480,7 +472,7 @@ namespace arith {
         api_bound* b = nullptr;
         s.m_bool_var2bound.find(bv, b);
         if (b) {
-            auto t = b->tv();
+            auto t = b->column_index();
             rational bound = b->get_value();
             bool should_minus = false;
             sls::ineq_kind op;
@@ -503,8 +495,8 @@ namespace arith {
         if (e && m.is_eq(e, l, r) && s.a.is_int_real(l)) {
             theory_var u = s.get_th_var(l);
             theory_var v = s.get_th_var(r);
-            lp::tv tu = s.get_tv(u);
-            lp::tv tv = s.get_tv(v);
+            lp::lpvar tu = s.get_column(u);
+            lp::lpvar tv = s.get_column(v);
             auto& ineq = new_ineq(sls::ineq_kind::EQ, 0);            
             add_args(bv, ineq, tu, u, 1);
             add_args(bv, ineq, tv, v, -1);

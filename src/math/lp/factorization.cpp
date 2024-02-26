@@ -1,3 +1,12 @@
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Author:
+Lev Nachmanson (levnach)
+Nikolaj Bjorner (nbjorner)
+
+--*/
+
 #include "util/vector.h"
 #include "math/lp/factorization.h"
 namespace nla {
@@ -7,11 +16,10 @@ void const_iterator_mon::init_vars_by_the_mask(unsigned_vector & k_vars, unsigne
     SASSERT(m_mask.size() + 1  == m_ff->m_vars.size());
     k_vars.push_back(m_ff->m_vars.back()); 
     for (unsigned j = 0; j < m_mask.size(); j++) {
-        if (m_mask[j]) {
-            k_vars.push_back(m_ff->m_vars[j]);
-        } else {
-            j_vars.push_back(m_ff->m_vars[j]);
-        }
+        if (m_mask[j]) 
+            k_vars.push_back(m_ff->m_vars[j]);         
+        else 
+            j_vars.push_back(m_ff->m_vars[j]);        
     }
 }
 // todo : do we need the sign?
@@ -29,9 +37,9 @@ bool const_iterator_mon::get_factors(factor& k, factor& j, rational& sign) const
         m_full_factorization_returned = true;
         return false;
     }
-    if (k_vars.size() == 1) {
-        k.set(k_vars[0], factor_type::VAR);
-    } else {
+    if (k_vars.size() == 1) 
+        k.set(k_vars[0], factor_type::VAR);     
+    else {
         unsigned i;
         if (!m_ff->find_canonical_monic_of_vars(k_vars, i)) {
             ++m_num_failures;
@@ -41,9 +49,9 @@ bool const_iterator_mon::get_factors(factor& k, factor& j, rational& sign) const
     }
     m_num_failures = 0;
 
-    if (j_vars.size() == 1) {
-        j.set(j_vars[0], factor_type::VAR);
-    } else {
+    if (j_vars.size() == 1) 
+        j.set(j_vars[0], factor_type::VAR);    
+    else {
         unsigned i;
         if (!m_ff->find_canonical_monic_of_vars(j_vars, i)) {
             ++m_num_failures;

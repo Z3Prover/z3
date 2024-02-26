@@ -984,7 +984,8 @@ bool arith_util::is_extended_numeral(expr* term, rational& r) const {
             return true;
         }
         return false;
-    } while (false);
+    } 
+    while (true);
     return false;
 }
 

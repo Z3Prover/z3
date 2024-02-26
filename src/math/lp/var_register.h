@@ -41,10 +41,7 @@ public:
 class var_register {
     vector<ext_var_info> m_local_to_external;
     std::unordered_map<unsigned, unsigned> m_external_to_local;
-    unsigned m_locals_mask;
-    unsigned m_locals_mask_inverted;
 public:
-    var_register(bool mask_locals): m_locals_mask(mask_locals? tv::left_most_bit: 0), m_locals_mask_inverted(~m_locals_mask) {}
     
     void set_name(unsigned j, std::string name) {
         m_local_to_external[j].set_name(name);
@@ -63,7 +60,7 @@ public:
         }
         
         m_local_to_external.push_back(ext_var_info(user_var, is_int));
-        unsigned local = ( size() - 1 ) | m_locals_mask;
+        unsigned local = size() - 1;
         if (user_var != UINT_MAX)            
             m_external_to_local[user_var] = local;
         
@@ -79,7 +76,7 @@ public:
 
     // returns UINT_MAX if 
     unsigned local_to_external(unsigned local_var) const {
-        unsigned k = local_var & m_locals_mask_inverted;
+        unsigned k = local_var;
         if (k >= m_local_to_external.size())
             return UINT_MAX;
         return m_local_to_external[k].external_j();
@@ -119,7 +116,7 @@ public:
             local_j = UINT_MAX;
             return false;
         }
-        local_j = it->second & m_locals_mask_inverted;
+        local_j = it->second;
         is_int = m_local_to_external[local_j].is_integer();
         return true;
     }
@@ -129,7 +126,7 @@ public:
     }
     
     bool local_is_int(unsigned j) const {
-        return m_local_to_external[j & m_locals_mask_inverted].is_integer();
+        return m_local_to_external[j].is_integer();
     }
 
     void shrink(unsigned shrunk_size) {

@@ -49,7 +49,7 @@ sort * array_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, paramete
             m_manager->raise_exception("invalid array sort definition, invalid number of parameters");
             return nullptr;
         }
-        parameter params[2] = { parameters[0], parameter(m_manager->mk_bool_sort()) };
+        parameter params[2] = { parameter(parameters[0]), parameter(m_manager->mk_bool_sort()) };
         return mk_sort(ARRAY_SORT, 2, params);
     }
     SASSERT(k == ARRAY_SORT);

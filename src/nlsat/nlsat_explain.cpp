@@ -38,7 +38,7 @@ namespace nlsat {
         polynomial_ref_vector   m_ps;
         polynomial_ref_vector   m_ps2;
         polynomial_ref_vector   m_psc_tmp;
-        polynomial_ref_vector   m_factors;
+        polynomial_ref_vector   m_factors, m_factors_save;
         scoped_anum_vector      m_roots_tmp;
         bool                    m_simplify_cores;
         bool                    m_full_dimensional;
@@ -142,6 +142,7 @@ namespace nlsat {
             m_ps2(m_pm),
             m_psc_tmp(m_pm),
             m_factors(m_pm),
+            m_factors_save(m_pm),
             m_roots_tmp(m_am),
             m_todo(u),
             m_core1(s),
@@ -259,22 +260,42 @@ namespace nlsat {
         */
         ptr_vector<poly>  m_zero_fs;
         bool_vector     m_is_even;
+        struct restore_factors {
+            polynomial_ref_vector&   m_factors, &m_factors_save;
+            unsigned num_saved = 0;
+            restore_factors(polynomial_ref_vector&f, polynomial_ref_vector& fs):
+                m_factors(f), m_factors_save(fs)
+            {
+                num_saved = m_factors_save.size();
+                m_factors_save.append(m_factors);
+            }
+
+            ~restore_factors() {
+                m_factors.reset();
+                m_factors.append(m_factors_save.size() - num_saved, m_factors_save.data() + num_saved);
+                m_factors_save.shrink(num_saved);
+            }
+            
+        };
         void add_zero_assumption(polynomial_ref & p) {
             // If p is of the form p1^n1 * ... * pk^nk,
             // then only the factors that are zero in the current interpretation needed to be considered.
             // I don't want to create a nested conjunction in the clause. 
             // Then, I assert p_i1 * ... * p_im  != 0
-            factor(p, m_factors);
-            unsigned num_factors = m_factors.size();
-            m_zero_fs.reset();
-            m_is_even.reset();
-            polynomial_ref f(m_pm);
-            for (unsigned i = 0; i < num_factors; i++) {
-                f = m_factors.get(i);
-                if (is_zero(sign(f))) {
-                    m_zero_fs.push_back(m_factors.get(i));
-                    m_is_even.push_back(false);
-                } 
+            {
+                restore_factors _restore(m_factors, m_factors_save);
+                factor(p, m_factors);
+                unsigned num_factors = m_factors.size();
+                m_zero_fs.reset();
+                m_is_even.reset();
+                polynomial_ref f(m_pm);
+                for (unsigned i = 0; i < num_factors; i++) {
+                    f = m_factors.get(i);
+                    if (is_zero(sign(f))) {
+                        m_zero_fs.push_back(m_factors.get(i));
+                        m_is_even.push_back(false);
+                    } 
+                }
             }
             SASSERT(!m_zero_fs.empty()); // one of the factors must be zero in the current interpretation, since p is zero in it.
             literal l = m_solver.mk_ineq_literal(atom::EQ, m_zero_fs.size(), m_zero_fs.data(), m_is_even.data());
@@ -582,8 +603,9 @@ namespace nlsat {
             if (is_const(p))
                 return;
             if (m_factor) {
-                TRACE("nlsat_explain", display(tout << "adding factors of\n", p); tout << "\n";);
+                restore_factors _restore(m_factors, m_factors_save);
                 factor(p, m_factors);
+                TRACE("nlsat_explain", display(tout << "adding factors of\n", p); tout << "\n" << m_factors << "\n";);
                 polynomial_ref f(m_pm);
                 for (unsigned i = 0; i < m_factors.size(); i++) {
                     f = m_factors.get(i);
@@ -859,6 +881,7 @@ namespace nlsat {
            
          */
         void mk_linear_root(atom::kind k, var y, unsigned i, poly * p, bool mk_neg) {
+            TRACE("nlsat_explain", display_var(tout, y); m_pm.display(tout << ": ", p, m_solver.display_proc()); tout << "\n");
             polynomial_ref p_prime(m_pm);
             p_prime = p;
             bool lsign = false;
@@ -1379,7 +1402,7 @@ namespace nlsat {
             var max_x = max_var(m_ps);
             TRACE("nlsat_explain", tout << "polynomials in the conflict:\n"; display(tout, m_ps); tout << "\n";);
             elim_vanishing(m_ps);
-            TRACE("nlsat_explain", tout << "elim vanishing\n"; display(tout, m_ps); tout << "\n";);
+            TRACE("nlsat_explain", tout << "elim vanishing x" << max_x << "\n"; display(tout, m_ps); tout << "\n";);
             project(m_ps, max_x);
             TRACE("nlsat_explain", tout << "after projection\n"; display(tout, m_ps); tout << "\n";);
         }
@@ -1508,12 +1531,13 @@ namespace nlsat {
                   m_solver.display(tout, num, ls);
                   m_solver.display(tout););
                   
-            DEBUG_CODE(
-                for (unsigned i = 0; i < num; ++i) {
-                    SASSERT(m_solver.value(ls[i]) == l_true);
-                    atom* a = m_atoms[ls[i].var()];
-                    SASSERT(!a || m_evaluator.eval(a, ls[i].sign()));
-                });
+#ifdef Z3DEBUG
+            for (unsigned i = 0; i < num; ++i) {
+                SASSERT(m_solver.value(ls[i]) == l_true);
+                atom* a = m_atoms[ls[i].var()];
+                SASSERT(!a || m_evaluator.eval(a, ls[i].sign()));
+            }
+#endif   
             split_literals(x, num, ls, lits);
             collect_polys(lits.size(), lits.data(), m_ps);
             var mx_var = max_var(m_ps);
@@ -1548,13 +1572,13 @@ namespace nlsat {
             for (unsigned i = 0; i < result.size(); ++i) {
                 result.set(i, ~result[i]);
             }
-            DEBUG_CODE(
-                TRACE("nlsat", m_solver.display(tout, result.size(), result.data()) << "\n"; );
-                for (literal l : result) {
-                    CTRACE("nlsat", l_true != m_solver.value(l), m_solver.display(tout, l) << " " << m_solver.value(l) << "\n";);
-                    SASSERT(l_true == m_solver.value(l));
-                });
-
+#ifdef Z3DEBUG
+            TRACE("nlsat", m_solver.display(tout, result.size(), result.data()) << "\n"; );
+            for (literal l : result) {
+                CTRACE("nlsat", l_true != m_solver.value(l), m_solver.display(tout, l) << " " << m_solver.value(l) << "\n";);
+                SASSERT(l_true == m_solver.value(l));
+            }
+#endif                
         }
 
         void split_literals(var x, unsigned n, literal const* ls, svector<literal>& lits) {

@@ -43,6 +43,7 @@ void generic_model_converter::operator()(model_ref & md) {
     expr_ref val(m);
     unsigned arity;
     bool reset_ev = false;
+    obj_map<sort, ptr_vector<expr>> uninterpreted;
     for (unsigned i = m_entries.size(); i-- > 0; ) {
         entry const& e = m_entries[i];
         switch (e.m_instruction) {
@@ -62,6 +63,13 @@ void generic_model_converter::operator()(model_ref & md) {
                 else {
                     reset_ev = old_val != nullptr;
                     md->register_decl(e.m_f, val);
+                }
+                // corner case when uninterpreted constants are eliminated
+                sort* s = e.m_f->get_range();
+                if (m.is_uninterp(s) && !md->has_uninterpreted_sort(s)) {
+                    uninterpreted.insert_if_not_there(s, {});
+                    if (!uninterpreted[s].contains(val))
+                        uninterpreted[s].push_back(val);
                 }
             }
             else {
@@ -83,6 +91,9 @@ void generic_model_converter::operator()(model_ref & md) {
             }
             break;
         }
+    }
+    for (auto const& [s, u] : uninterpreted) {
+        md->register_usort(s, u.size(), u.data());
     }
     TRACE("model_converter", tout << "after generic_model_converter\n"; model_v2_pp(tout, *md););
 }

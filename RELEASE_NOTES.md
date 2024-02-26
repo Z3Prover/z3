@@ -10,14 +10,25 @@ Version 4.next
     - native word level bit-vector solving.
   - introduction of simple induction lemmas to handle a limited repertoire of induction proofs.
 
+Version 4.12.6
+==============
+- remove expensive rewrite that coalesces adjacent stores
+- improved Java use of reference queues thanks to Thomas Haas #7131
+- fixes to conditional import of python library thanks to Cal Jacobson #7116
+- include universe for constants that get removed during pre-processing #7121
+- code improvements, Bruce Mitchener #7119
+- fix nested callback handling for user propagators
+- include ARM64 binaries in distribution
+- added Julia API, Thanks to Yisu Remy Yang #7108
+
 Version 4.12.5
 ==============
 - Fixes to pypi setup and build for MacOS distributions
 - A new theory solver "int-blast" enabled by using:
   - sat.smt=true smt.bv.solver=2
   - It solves a few bit-vector problems not handled by bit-blasting, especially if the bit-widths are large.
-  - It is based on encoding bit-vector constraints to non-linear integer arithemtic.
-
+  - It is based on encoding bit-vector constraints to non-linear integer arithmetic.
+- Optimizations to the arithmetic solver. Description: https://github.com/Z3Prover/doc/tree/master/arithmetic
 
 Version 4.12.4
 ==============

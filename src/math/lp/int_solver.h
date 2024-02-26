@@ -33,7 +33,7 @@ class lar_solver;
 class lar_core_solver;
 
 class int_solver {
-    friend class create_cut;
+    friend struct create_cut;
     friend class gomory;
     friend class int_cube;
     friend class int_branch;
@@ -83,7 +83,7 @@ public:
     bool is_real(unsigned j) const;
     const impq & lower_bound(unsigned j) const;
     const impq & upper_bound(unsigned j) const;
-    bool column_is_int(column_index const& j) const;
+    bool column_is_int(lpvar j) const;
     const impq & get_value(unsigned j) const;
     bool at_lower(unsigned j) const;
     bool at_upper(unsigned j) const;
@@ -94,7 +94,6 @@ private:
     // lia_move patch_nbasic_columns();
     bool get_freedom_interval_for_column(unsigned j, bool & inf_l, impq & l, bool & inf_u, impq & u, mpq & m);
     bool is_boxed(unsigned j) const;
-    bool is_fixed(unsigned j) const;
     bool is_free(unsigned j) const;
     bool value_is_int(unsigned j) const;
     bool is_feasible() const;
@@ -111,9 +110,9 @@ private:
     bool has_upper(unsigned j) const;
     unsigned row_of_basic_column(unsigned j) const;
     bool cut_indices_are_columns() const;
-    lia_move local_cut(unsigned num_cuts, std::function<lia_move(lpvar)>& cut_fn);
         
 public:
+    bool is_fixed(unsigned j) const;
     std::ostream& display_column(std::ostream & out, unsigned j) const;
     u_dependency* column_upper_bound_constraint(unsigned j) const;
     u_dependency* column_lower_bound_constraint(unsigned j) const;
@@ -129,11 +128,9 @@ private:
 public:
     bool is_term(unsigned j) const;
     unsigned column_count() const;
-    bool all_columns_are_bounded() const;
     lia_move hnf_cut();
 
     int select_int_infeasible_var();
-    unsigned_vector gomory_select_int_infeasible_vars(unsigned num_cuts);
-    bool is_gomory_cut_target(lpvar);
+    
 };
 }

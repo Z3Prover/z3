@@ -17,7 +17,7 @@ Notes:
 
 --*/
 #include "ast/normal_forms/nnf.h"
-#include "tactic/sls/bvsls_opt_engine.h"
+#include "ast/sls/bvsls_opt_engine.h"
 
 bvsls_opt_engine::bvsls_opt_engine(ast_manager & m, params_ref const & p) :
     sls_engine(m, p),
@@ -68,7 +68,8 @@ bvsls_opt_engine::optimization_result bvsls_opt_engine::optimize(
 
         if (is_sat != l_true) {
             do {
-                checkpoint();
+                if (!m_manager.inc())
+                    return res;
 
                 IF_VERBOSE(1, verbose_stream() << "Satisfying... restarts left:" << (m_max_restarts - m_stats.m_restarts) << std::endl;);
                 is_sat = search();
@@ -136,7 +137,8 @@ expr_ref bvsls_opt_engine::maximize()
 
     while (m_mpz_manager.lt(score, max_score) && check_restart(m_stats.m_moves))
     {
-        checkpoint();
+        if (!m_manager.inc())
+            goto bailout;
         m_stats.m_moves++;
         m_mpz_manager.set(old_score, score);
         new_const = (unsigned)-1;

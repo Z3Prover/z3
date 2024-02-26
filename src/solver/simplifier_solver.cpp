@@ -80,8 +80,10 @@ class simplifier_solver : public solver {
         void flatten_suffix() override {
             expr_mark seen;
             unsigned j = qhead();
+            expr_ref_vector pinned(s.m);
             for (unsigned i = qhead(); i < qtail(); ++i) {
                 expr* f = s.m_fmls[i].fml(), *g = nullptr;
+                pinned.push_back(f);
                 if (seen.is_marked(f))
                     continue;
                 seen.mark(f, true);

@@ -17,6 +17,8 @@ Notes:
 
 package com.microsoft.z3;
 
+import java.lang.ref.ReferenceQueue;
+
 /**
  * Constructors are used for datatype sorts.
  **/
@@ -91,7 +93,7 @@ public class Constructor<R> extends Z3Object {
 
     @Override
     void addToReferenceQueue() {
-        getContext().getConstructorDRQ().storeReference(getContext(), this);
+        getContext().getReferenceQueue().storeReference(this, ConstructorRef::new);
     }
 
     static <R> Constructor<R> of(Context ctx, Symbol name, Symbol recognizer,
@@ -113,5 +115,17 @@ public class Constructor<R> extends Z3Object {
                 Sort.arrayToNative(sorts), sortRefs);
         return new Constructor<>(ctx, n, nativeObj);
 
+    }
+
+    private static class ConstructorRef extends Z3ReferenceQueue.Reference<Constructor<?>> {
+
+        private ConstructorRef(Constructor<?> referent, ReferenceQueue<Z3Object> q) {
+            super(referent, q);
+        }
+
+        @Override
+        void decRef(Context ctx, long z3Obj) {
+            Native.delConstructor(ctx.nCtx(), z3Obj);
+        }
     }
 }

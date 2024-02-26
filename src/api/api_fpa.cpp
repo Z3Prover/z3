@@ -1022,7 +1022,7 @@ extern "C" {
         if (mpfm.is_inf(val)) mpqm.set(q, 0);
         std::stringstream ss;
         mpqm.display_decimal(ss, q, sbits);
-        return mk_c(c)->mk_external_string(ss.str());
+        return mk_c(c)->mk_external_string(std::move(ss).str());
         Z3_CATCH_RETURN("");
     }
 
@@ -1100,7 +1100,7 @@ extern "C" {
         }
         std::stringstream ss;
         ss << exp;
-        return mk_c(c)->mk_external_string(ss.str());
+        return mk_c(c)->mk_external_string(std::move(ss).str());
         Z3_CATCH_RETURN("");
     }
 

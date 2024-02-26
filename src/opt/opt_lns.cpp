@@ -196,7 +196,7 @@ namespace opt {
     }
 
     unsigned lns::improve_linear(model_ref& mdl) {
-        scoped_bounding _scoped_bouding(*this);
+        scoped_bounding _scoped_bounding(*this);
         unsigned num_improved = 0;
         unsigned max_conflicts = m_max_conflicts;
         while (m.inc()) {

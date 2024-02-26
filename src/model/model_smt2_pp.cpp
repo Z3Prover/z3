@@ -68,7 +68,7 @@ static void pp_uninterp_sorts(std::ostream & out, ast_printer_context & ctx, mod
             buffer << " ";
         }
         buffer << "\n-----------";
-        std::string buffer_str = buffer.str();
+        std::string buffer_str = std::move(buffer).str();
         unsigned len = static_cast<unsigned>(buffer_str.length());
         pp_indent(out, indent);
         out << ";; ";
@@ -206,9 +206,7 @@ static void pp_funs(std::ostream & out, ast_printer_context & ctx, model_core co
         if (f_i->is_partial()) {
             body = mk_string(m, "#unspecified");
             for (unsigned j = 0; j < f->get_arity(); j++) {
-                std::stringstream strm;
-                strm << "x!" << (j+1);
-                var_names.push_back(symbol(strm.str()));
+                var_names.push_back(symbol("x!" + std::to_string(j+1)));
             }
         }
         else {

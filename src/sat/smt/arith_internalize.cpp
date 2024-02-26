@@ -472,7 +472,7 @@ namespace arith {
         bool _has_var = has_var(t);
         mk_enode(t);
         theory_var v = mk_evar(t);
-
+                                      
         if (!_has_var) {
             svector<lpvar> vars;
             for (expr* n : *t) {
@@ -507,11 +507,11 @@ namespace arith {
             }
             else {
                 vi = lp().add_term(m_left_side, v);
-                SASSERT(lp::tv::is_term(vi));
+                SASSERT(lp().column_has_term(vi));
                 TRACE("arith_verbose", 
                       tout << "v" << v << " := " << mk_pp(term, m) 
                       << " slack: " << vi << " scopes: " << m_scopes.size() << "\n";
-                      lp().print_term(lp().get_term(lp::tv::raw(vi)), tout) << "\n";);
+                      lp().print_term(lp().get_term(vi), tout) << "\n";);
             }
         }
         return v;
@@ -541,8 +541,6 @@ namespace arith {
             rational const& r = m_columns[var];
             if (!r.is_zero()) {
                 auto vi = register_theory_var_in_lar_solver(var);
-                if (lp::tv::is_term(vi))
-                    vi = lp().map_term_index_to_column_index(vi);
                 m_left_side.push_back(std::make_pair(r, vi));
                 m_columns[var].reset();
             }
@@ -625,9 +623,6 @@ namespace arith {
         return lp().external_to_local(v);
     }
 
-    lp::tv solver::get_tv(theory_var v) const {
-        return lp::tv::raw(get_lpvar(v));
-    }
 
     /**
        \brief We must redefine this method, because theory of arithmetic contains

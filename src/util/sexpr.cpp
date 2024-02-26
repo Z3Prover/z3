@@ -26,11 +26,11 @@ Notes:
 #endif
 
 struct sexpr_composite : public sexpr {
-    unsigned m_num_chilren;
+    unsigned m_num_children;
     sexpr *  m_children[0];
     sexpr_composite(unsigned num_children, sexpr * const * children, unsigned line, unsigned pos):
         sexpr(kind_t::COMPOSITE, line, pos),
-        m_num_chilren(num_children) {
+        m_num_children(num_children) {
         for (unsigned i = 0; i < num_children; i++) {
             m_children[i] = children[i];
             children[i]->inc_ref();
@@ -107,7 +107,7 @@ std::string const & sexpr::get_string() const {
 
 unsigned sexpr::get_num_children() const {
     SASSERT(is_composite());
-    return static_cast<sexpr_composite const *>(this)->m_num_chilren;
+    return static_cast<sexpr_composite const *>(this)->m_num_children;
 }
 
 sexpr * sexpr::get_child(unsigned idx) const {

@@ -160,8 +160,8 @@ extern "C" {
         for (; it != end; ++it) {
             buffer << "\n  (" << mk_ismt2_pp(it->m_key, mng, 3) << "\n   " << mk_ismt2_pp(it->m_value, mng, 3) << ")";
         }
-        buffer << ")";
-        return mk_c(c)->mk_external_string(buffer.str());
+        buffer << ')';
+        return mk_c(c)->mk_external_string(std::move(buffer).str());
         Z3_CATCH_RETURN(nullptr);
     }
 

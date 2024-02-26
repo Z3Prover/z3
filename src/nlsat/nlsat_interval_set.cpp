@@ -98,12 +98,13 @@ namespace nlsat {
     
     // Check if the intervals are valid, ordered, and are disjoint.
     bool check_interval_set(anum_manager & am, unsigned sz, interval const * ints) {
-        DEBUG_CODE(
-            for (unsigned i = 0; i < sz; i++) {
-                interval const & curr = ints[i];
-                SASSERT(check_interval(am, curr));
-                SASSERT(i >= sz - 1 || check_no_overlap(am, curr, ints[i+1]));                
-            });
+#ifdef Z3DEBUG
+        for (unsigned i = 0; i < sz; i++) {
+            interval const & curr = ints[i];
+            SASSERT(check_interval(am, curr));
+            SASSERT(i >= sz - 1 || check_no_overlap(am, curr, ints[i+1]));                
+        }
+#endif            
         return true;
     }
 
@@ -663,9 +664,8 @@ namespace nlsat {
                 continue;
             m_already_visited.setx(lidx, true, false);
             js.push_back(l);
-            if (s->m_intervals[i].m_clause) {
+            if (s->m_intervals[i].m_clause) 
                 clauses.push_back(const_cast<clause*>(s->m_intervals[i].m_clause));
-            }
         }
         for (unsigned i = 0; i < num; i++) {
             literal l     = s->m_intervals[i].m_justification;
@@ -695,12 +695,11 @@ namespace nlsat {
                 scoped_mpq _w(m_am.qm());
                 m_am.qm().set(_w, num, den);
                 m_am.set(w, _w);
-                return;
             }
             else {
                 m_am.set(w, 0);
-                return;
             }
+            return;
         }
         
         unsigned n = 0;
@@ -741,7 +740,7 @@ namespace nlsat {
         for (unsigned i = 1; i < num; i++) {
             if (s->m_intervals[i-1].m_upper_open && s->m_intervals[i].m_lower_open) {
                 SASSERT(m_am.eq(s->m_intervals[i-1].m_upper, s->m_intervals[i].m_lower)); // otherwise we would have found it in the previous step
-                if (m_am.is_rational(s->m_intervals[i-1].m_upper)) {
+                if (m_am.is_rational(s->m_intervals[i-1].m_upper)) {                    
                     m_am.set(w, s->m_intervals[i-1].m_upper);
                     return;
                 }

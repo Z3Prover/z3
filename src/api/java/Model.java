@@ -19,6 +19,8 @@ package com.microsoft.z3;
 
 import com.microsoft.z3.enumerations.Z3_sort_kind;
 
+import java.lang.ref.ReferenceQueue;
+
 /**
  * A Model contains interpretations (assignments) of constants and functions.
  **/
@@ -296,6 +298,18 @@ public class Model extends Z3Object {
 
     @Override
     void addToReferenceQueue() {
-        getContext().getModelDRQ().storeReference(getContext(), this);
+        getContext().getReferenceQueue().storeReference(this, ModelRef::new);
+    }
+
+    private static class ModelRef extends Z3ReferenceQueue.Reference<Model> {
+
+        private ModelRef(Model referent, ReferenceQueue<Z3Object> q) {
+            super(referent, q);
+        }
+
+        @Override
+        void decRef(Context ctx, long z3Obj) {
+            Native.modelDecRef(ctx.nCtx(), z3Obj);
+        }
     }
 }

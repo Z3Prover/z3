@@ -21,12 +21,8 @@ Revision History:
 #include "util/buffer.h"
 #include "util/mpn.h"
 
-#define max(a,b)    (((a) > (b)) ? (a) : (b))
-
 typedef uint64_t mpn_double_digit;
 static_assert(sizeof(mpn_double_digit) == 2 * sizeof(mpn_digit), "size alignment");
-
-const mpn_digit mpn_manager::zero = 0;
 
 int mpn_manager::compare(mpn_digit const * a, unsigned lnga, 
                          mpn_digit const * b, unsigned lngb) const {
@@ -34,11 +30,11 @@ int mpn_manager::compare(mpn_digit const * a, unsigned lnga,
 
     trace(a, lnga);
 
-    unsigned j = max(lnga, lngb);
+    unsigned j = std::max(lnga, lngb);
     for (; j-- > 0 && res == 0;) {
-        mpn_digit const & u_j = (j < lnga) ? a[j] : zero;
-        mpn_digit const & v_j = (j < lngb) ? b[j] : zero;
-        if (u_j > v_j) 
+        mpn_digit u_j = (j < lnga) ? a[j] : 0;
+        mpn_digit v_j = (j < lngb) ? b[j] : 0;
+        if (u_j > v_j)
             res = 1;
         else if (u_j < v_j)
             res = -1;
@@ -56,14 +52,14 @@ bool mpn_manager::add(mpn_digit const * a, unsigned lnga,
                       unsigned * plngc) const {
     trace(a, lnga, b, lngb, "+");
     // Essentially Knuth's Algorithm A
-    unsigned len = max(lnga, lngb);
+    unsigned len = std::max(lnga, lngb);
     SASSERT(lngc_alloc == len+1 && len > 0);    
     mpn_digit k = 0;
     mpn_digit r;
     bool c1, c2;
     for (unsigned j = 0; j < len; j++) {
-        mpn_digit const & u_j = (j < lnga) ? a[j] : zero;
-        mpn_digit const & v_j = (j < lngb) ? b[j] : zero;
+        mpn_digit u_j = (j < lnga) ? a[j] : 0;
+        mpn_digit v_j = (j < lngb) ? b[j] : 0;
         r = u_j + v_j; c1 = r < u_j;
         c[j] = r + k;  c2 = c[j] < r;
         k = c1 | c2;
@@ -81,13 +77,13 @@ bool mpn_manager::sub(mpn_digit const * a, unsigned lnga,
                       mpn_digit * c, mpn_digit * pborrow) const {
     trace(a, lnga, b, lngb, "-");
     // Essentially Knuth's Algorithm S
-    unsigned len = max(lnga, lngb);        
+    unsigned len = std::max(lnga, lngb);
     mpn_digit & k = *pborrow; k = 0;
     mpn_digit r;
     bool c1, c2;
     for (unsigned j = 0; j < len; j++) {
-        mpn_digit const & u_j = (j < lnga) ? a[j] : zero;
-        mpn_digit const & v_j = (j < lngb) ? b[j] : zero;        
+        mpn_digit u_j = (j < lnga) ? a[j] : 0;
+        mpn_digit v_j = (j < lngb) ? b[j] : 0;
         r = u_j - v_j; c1 = r > u_j;
         c[j] = r - k;  c2 = c[j] > r;
         k = c1 | c2;
@@ -112,14 +108,14 @@ bool mpn_manager::mul(mpn_digit const * a, unsigned lnga,
         c[i] = 0;
 
     for (unsigned j = 0; j < lngb; j++) {        
-        mpn_digit const & v_j = b[j];
+        mpn_digit v_j = b[j];
         if (v_j == 0) { // This branch may be omitted according to Knuth.
             c[j+lnga] = 0;
         }
         else {
             k = 0;
             for (i = 0; i < lnga; i++) {
-                mpn_digit const & u_i = a[i];                 
+                mpn_digit u_i = a[i];
                 mpn_double_digit t;
                 t = ((mpn_double_digit)u_i * (mpn_double_digit)v_j) + 
                     (mpn_double_digit) c[i+j] + 
@@ -154,15 +150,6 @@ bool mpn_manager::div(mpn_digit const * numer, unsigned lnum,
         for (unsigned i = 0; i < lden; i++)
             rem[i] = (i < lnum) ? numer[i] : 0;
         return false;
-    }
-
-    bool all_zero = true;
-    for (unsigned i = 0; i < lden && all_zero; i++)
-        if (denom[i] != zero) all_zero = false;
-
-    if (all_zero) {
-        UNREACHABLE();
-        return res;
     }
 
     SASSERT(denom[lden-1] != 0);
