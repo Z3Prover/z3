@@ -4,7 +4,7 @@ variables:
   Patch: '6'
   ReleaseVersion: $(Major).$(Minor).$(Patch)
   AssemblyVersion: $(Major).$(Minor).$(Patch).$(Build.BuildId)
-  NightlyVersion: $(AssemblyVersion)-$(Build.DefinitionName)
+  NightlyVersion: $(AssemblyVersion)-$(Build.buildId)
 
 stages:
 - stage: Build
@@ -231,22 +231,17 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: 'Download Ubuntu 20.04 Build'
       inputs:
-        artifact: 'Ubuntu-20.04'
+        artifact: 'UbuntuBuild20'
         path: $(Agent.TempDirectory)\package
     - task: DownloadPipelineArtifact@2
       displayName: 'Download Ubuntu ARM64 Build'
       inputs:
-        artifact: 'ubuntu-arm64'
-        path: $(Agent.TempDirectory)\package
-    - task: DownloadPipelineArtifact@2
-      displayName: 'Download Ubuntu Build'
-      inputs:
-        artifact: 'ubuntu-x64'
-        path: $(Agent.TempDirectory)\package        
+        artifact: 'UbuntuArm64'
+        path: $(Agent.TempDirectory)\package    
     - task: DownloadPipelineArtifact@2
       displayName: 'Download macOS Build'
       inputs:
-        artifact: 'Mac'
+        artifact: 'macOsBuild'
         path: $(Agent.TempDirectory)\package
     - task: DownloadPipelineArtifact@2
       displayName: 'Download macOS Arm64 Build'
@@ -466,7 +461,7 @@ stages:
         targetPath: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
       inputs:
-        artifactName: 'Mac'
+        artifactName: 'macOsBuild'
         targetPath: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
       inputs:
@@ -519,7 +514,7 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: "Download Mac"
       inputs:
-        artifactName: 'Mac'
+        artifactName: 'macOsBuild'
         targetPath: tmp
     - task: DownloadPipelineArtifact@2
       displayName: "Download MacArm64"
@@ -529,17 +524,12 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: "Download Ubuntu Arm64"
       inputs:
-        artifactName: 'ubuntu-arm64'
-        targetPath: tmp
-    - task: DownloadPipelineArtifact@2
-      displayName: "Download Ubuntu"
-      inputs:
-        artifactName: 'ubuntu-x64'
+        artifactName: 'UbuntuArm64'
         targetPath: tmp
     - task: DownloadPipelineArtifact@2
       displayName: "Download Ubuntu-20.04"
       inputs:
-        artifactName: 'Ubuntu-20.04'
+        artifactName: 'UbuntuBuild20'
         targetPath: tmp
     - task: DownloadPipelineArtifact@2
       displayName: "Download Doc"
