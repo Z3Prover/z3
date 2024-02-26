@@ -97,24 +97,24 @@ namespace polysat {
         return out;
     }
 
-    void solver::validate_propagate(sat::literal lit, sat::literal_vector const& core, euf::enode_pair_vector const& eqs) {
+    void solver::validate_propagate(char const* name, sat::literal lit, sat::literal_vector const& core, euf::enode_pair_vector const& eqs) {
         if (!ctx.get_config().m_core_validate)
             return;
-        auto r = m_intblast.check_propagation(lit, core, eqs);
+        auto r = m_intblast.check_propagation(name, lit, core, eqs);
         VERIFY (r != l_true);
     }
 
-    void solver::validate_conflict(sat::literal_vector const& core, euf::enode_pair_vector const& eqs) {
+    void solver::validate_conflict(char const* name, sat::literal_vector const& core, euf::enode_pair_vector const& eqs) {
         if (!ctx.get_config().m_core_validate)
             return;
-        auto r = m_intblast.check_core(core, eqs);
+        auto r = m_intblast.check_core(name, core, eqs);
         VERIFY (r != l_true);
     }
 
-    void solver::validate_axiom(sat::literal_vector const& clause) {
+    void solver::validate_axiom(char const* name, sat::literal_vector const& clause) {
         if (!ctx.get_config().m_core_validate)
             return;
-        auto r = m_intblast.check_axiom(clause);
+        auto r = m_intblast.check_axiom(name, clause);
         VERIFY (r != l_true);
     }
 

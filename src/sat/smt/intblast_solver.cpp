@@ -182,20 +182,20 @@ namespace intblast {
             translate_expr(e);
     }
 
-    lbool solver::check_axiom(sat::literal_vector const& lits) {
+    lbool solver::check_axiom(char const* name, sat::literal_vector const& lits) {
         sat::literal_vector core;
         for (auto lit : lits)
             core.push_back(~lit);
-        return check_core(core, {});
+        return check_core(name, core, {});
     }
-    lbool solver::check_propagation(sat::literal lit, sat::literal_vector const& lits, euf::enode_pair_vector const& eqs) {
+    lbool solver::check_propagation(char const* name, sat::literal lit, sat::literal_vector const& lits, euf::enode_pair_vector const& eqs) {
         sat::literal_vector core;
         core.append(lits);
         core.push_back(~lit);
-        return check_core(core, eqs);
+        return check_core(name, core, eqs);
     }
 
-    lbool solver::check_core(sat::literal_vector const& lits, euf::enode_pair_vector const& eqs) {
+    lbool solver::check_core(char const* name, sat::literal_vector const& lits, euf::enode_pair_vector const& eqs) {
         m_core.reset();
         m_vars.reset();
         m_is_plugin = false;

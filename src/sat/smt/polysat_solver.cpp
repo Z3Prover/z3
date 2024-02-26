@@ -130,7 +130,7 @@ namespace polysat {
         TRACE("bv", tout << "conflict: " << lits << " ";
                     for (auto [a, b] : eqs) tout << ctx.bpp(a) << " == " << ctx.bpp(b) << " "; 
                     tout << "\n"; s().display(tout));
-        validate_conflict(lits, eqs);
+        validate_conflict(hint_info, lits, eqs);
         ctx.set_conflict(ex);
     }
 
@@ -264,7 +264,7 @@ namespace polysat {
             verbose_stream() << "contradictory propagation " << sc << " <- " << deps << "\n";
         }
         auto ex = euf::th_explain::propagate(*this, core, eqs, lit, hint);     
-        validate_propagate(lit, core, eqs);
+        validate_propagate(hint_info, lit, core, eqs);
         ctx.propagate(lit, ex);
         return dependency(lit.var()); 
     }
@@ -313,7 +313,7 @@ namespace polysat {
                 if (ctx.use_drat() && hint_info)
                     hint = mk_proof_hint(hint_info, core, eqs);
                 auto ex = euf::th_explain::conflict(*this, core, eqs, hint);
-                validate_conflict(core, eqs);
+                validate_conflict(hint_info, core, eqs);
                 ctx.set_conflict(ex);
             }
         }
@@ -328,7 +328,7 @@ namespace polysat {
                 core.pop_back();
             }
             auto ex = euf::th_explain::propagate(*this, core, eqs, lit, hint);
-            validate_propagate(lit, core, eqs);
+            validate_propagate(hint_info, lit, core, eqs);
             ctx.propagate(lit, ex);
         }
         else if (sign) {  
@@ -341,7 +341,7 @@ namespace polysat {
             if (ctx.use_drat() && hint_info)
                 hint = mk_proof_hint(hint_info, core, eqs);
             auto ex = euf::th_explain::conflict(*this, core, eqs, hint);
-            validate_conflict(core, eqs);
+            validate_conflict(hint_info, core, eqs);
             ctx.set_conflict(ex);
         }
     }
@@ -385,7 +385,7 @@ namespace polysat {
             }
         TRACE("bv", display_clause(name, tout, lits));
         IF_VERBOSE(1, display_clause(name, verbose_stream(), lits));
-        validate_axiom(lits);
+        validate_axiom(name, lits);
         s().add_clause(lits.size(), lits.data(), sat::status::th(is_redundant, get_id(), hint));
         return true;
     }
@@ -393,7 +393,7 @@ namespace polysat {
     void solver::add_axiom(char const* name, sat::literal const* begin, sat::literal const* end, bool is_redundant) {
         ++m_stats.m_num_axioms;
         sat::literal_vector lits;
-        validate_axiom(sat::literal_vector(static_cast<unsigned>(end - begin), begin));
+        validate_axiom(name, sat::literal_vector(static_cast<unsigned>(end - begin), begin));
         for (auto it = begin; it != end; ++it) {
             auto lit = *it;
             if (s().value(lit) == l_true && s().lvl(lit) == 0)
