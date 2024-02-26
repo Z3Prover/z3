@@ -42,8 +42,7 @@ namespace bv {
 
 
 
-        scoped_ptr_vector<sls_valuation> m_values0; // expr-id -> bv valuation
-        scoped_ptr_vector<sls_pre_valuation> m_values1; // expr-id -> bv valuation
+        scoped_ptr_vector<sls_valuation> m_values; // expr-id -> bv valuation
         bool_vector                      m_eval;   // expr-id -> boolean valuation
         bool_vector                      m_fixed;  // expr-id -> is Boolean fixed
 
@@ -77,36 +76,36 @@ namespace bv {
         bool try_repair_xor(app* e, unsigned i);
         bool try_repair_ite(app* e, unsigned i);
         bool try_repair_implies(app* e, unsigned i);
-        bool try_repair_band(bvval const& e, bvval& a, bvval const& b);
-        bool try_repair_bor(bvval const& e, bvval& a, bvval const& b);
-        bool try_repair_add(bvval const& e, bvval& a, bvval const& b);
-        bool try_repair_sub(bvval const& e, bvval& a, bvval& b, unsigned i);
-        bool try_repair_mul(bvval const& e, bvval& a, bvval const& b);
-        bool try_repair_bxor(bvval const& e, bvval& a, bvval const& b);
-        bool try_repair_bnot(bvval const& e, bvval& a);
-        bool try_repair_bneg(bvval const& e, bvval& a);
+        bool try_repair_band(bvect const& e, bvval& a, bvval const& b);
+        bool try_repair_bor(bvect const& e, bvval& a, bvval const& b);
+        bool try_repair_add(bvect const& e, bvval& a, bvval const& b);
+        bool try_repair_sub(bvect const& e, bvval& a, bvval& b, unsigned i);
+        bool try_repair_mul(bvect const& e, bvval& a, bvval const& b);
+        bool try_repair_bxor(bvect const& e, bvval& a, bvval const& b);
+        bool try_repair_bnot(bvect const& e, bvval& a);
+        bool try_repair_bneg(bvect const& e, bvval& a);
         bool try_repair_ule(bool e, bvval& a, bvval const& b);
         bool try_repair_uge(bool e, bvval& a, bvval const& b);
         bool try_repair_sle(bool e, bvval& a, bvval const& b);
         bool try_repair_sge(bool e, bvval& a, bvval const& b);
         bool try_repair_sge(bvval& a, bvect const& b, bvect const& p2);
         bool try_repair_sle(bvval& a, bvect const& b, bvect const& p2);
-        bool try_repair_shl(bvval const& e, bvval& a, bvval& b, unsigned i);
-        bool try_repair_ashr(bvval const& e, bvval& a, bvval& b, unsigned i);
-        bool try_repair_lshr(bvval const& e, bvval& a, bvval& b, unsigned i);
+        bool try_repair_shl(bvect const& e, bvval& a, bvval& b, unsigned i);
+        bool try_repair_ashr(bvect const& e, bvval& a, bvval& b, unsigned i);
+        bool try_repair_lshr(bvect const& e, bvval& a, bvval& b, unsigned i);
         bool try_repair_bit2bool(bvval& a, unsigned idx);
-        bool try_repair_udiv(bvval const& e, bvval& a, bvval& b, unsigned i);
-        bool try_repair_urem(bvval const& e, bvval& a, bvval& b, unsigned i);
-        bool try_repair_rotate_left(bvval const& e, bvval& a, unsigned n) const;
-        bool try_repair_rotate_left(bvval const& e, bvval& a, bvval& b, unsigned i);
-        bool try_repair_rotate_right(bvval const& e, bvval& a, bvval& b, unsigned i);
+        bool try_repair_udiv(bvect const& e, bvval& a, bvval& b, unsigned i);
+        bool try_repair_urem(bvect const& e, bvval& a, bvval& b, unsigned i);
+        bool try_repair_rotate_left(bvect const& e, bvval& a, unsigned n) const;
+        bool try_repair_rotate_left(bvect const& e, bvval& a, bvval& b, unsigned i);
+        bool try_repair_rotate_right(bvect const& e, bvval& a, bvval& b, unsigned i);
         bool try_repair_ule(bool e, bvval& a, bvect const& t);
         bool try_repair_uge(bool e, bvval& a, bvect const& t);
         bool try_repair_umul_ovfl(bool e, bvval& a, bvval& b, unsigned i);
-        bool try_repair_zero_ext(bvval const& e, bvval& a);
-        bool try_repair_sign_ext(bvval const& e, bvval& a);
-        bool try_repair_concat(bvval const& e, bvval& a, bvval& b, unsigned i);
-        bool try_repair_extract(bvval const& e, bvval& a, unsigned lo);
+        bool try_repair_zero_ext(bvect const& e, bvval& a);
+        bool try_repair_sign_ext(bvect const& e, bvval& a);
+        bool try_repair_concat(bvect const& e, bvval& a, bvval& b, unsigned i);
+        bool try_repair_extract(bvect const& e, bvval& a, unsigned lo);
         void add_p2_1(bvval const& a, bvect& t) const;
 
         bool add_overflow_on_fixed(bvval const& a, bvect const& t);
@@ -117,9 +116,11 @@ namespace bv {
         digit_t random_bits();
         bool random_bool() { return m_rand() % 2 == 0; }
 
-        sls_valuation& wval0(app* e, unsigned i) { return wval0(e->get_arg(i)); }
+        sls_valuation& wval(app* e, unsigned i) { return wval(e->get_arg(i)); }
 
-        void wval1(app* e, sls_pre_valuation& val) const;
+        void eval(app* e, sls_valuation& val) const;
+
+        bvect const& eval_value(app* e) const { return wval(e).eval; }
 
     public:
         sls_eval(ast_manager& m);
@@ -138,7 +139,7 @@ namespace bv {
         
         bool bval0(expr* e) const { return m_eval[e->get_id()]; }
 
-        sls_valuation& wval0(expr* e) const { return *m_values0[e->get_id()]; }
+        sls_valuation& wval(expr* e) const { return *m_values[e->get_id()]; }
 
         bool is_fixed0(expr* e) const { return m_fixed[e->get_id()]; }
 
@@ -148,7 +149,7 @@ namespace bv {
         bool bval1(app* e) const;
         bool can_eval1(app* e) const;
         
-        sls_valuation& wval1(app* e) const;
+        sls_valuation& eval(app* e) const;
 
         /**
          * Override evaluaton.

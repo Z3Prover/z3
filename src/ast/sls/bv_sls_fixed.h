@@ -41,7 +41,7 @@ namespace bv {
         bool is_fixed1_basic(app* e) const;
         void set_fixed_bw(app* e);
 
-        sls_valuation& wval0(expr* e);
+        sls_valuation& wval(expr* e);
 
     public:
         sls_fixed(sls_eval& ev);

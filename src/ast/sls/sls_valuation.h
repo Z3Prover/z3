@@ -28,10 +28,11 @@ Author:
 namespace bv {
 
     class bvect : public svector<digit_t> {
+    public:
         unsigned bw = 0;
         unsigned nw = 0;
         unsigned mask = 0;
-    public:
+
         bvect() {}
         bvect(unsigned sz) : svector(sz, (unsigned)0) {}
         void set_bw(unsigned bw);
@@ -54,6 +55,7 @@ namespace bv {
         friend bool operator>(bvect const& a, bvect const& b);
         friend bool operator<=(bvect const& a, bvect const& b);
         friend bool operator>=(bvect const& a, bvect const& b);
+        friend std::ostream& operator<<(std::ostream& out, bvect const& v);
 
     private:
 
@@ -76,6 +78,7 @@ namespace bv {
     bool operator>=(bvect const& a, bvect const& b);
     bool operator>(bvect const& a, bvect const& b);
     inline bool operator!=(bvect const& a, bvect const& b) { return !(a == b); }
+    std::ostream& operator<<(std::ostream& out, bvect const& v);
 
     class sls_valuation {
     protected:
@@ -87,13 +90,12 @@ namespace bv {
         bool round_up(bvect& dst) const;
         bool round_down(bvect& dst) const;
 
-        std::ostream& print_bits(std::ostream& out, bvect const& bits) const;
-
 
     public:
         unsigned bw;                     // bit-width
         unsigned nw;                     // num words
         bvect fixed;                     // bit assignment and don't care bit
+        bvect eval;                      // current evaluation
 
         sls_valuation(unsigned bw);
 
@@ -103,24 +105,27 @@ namespace bv {
 
         digit_t bits(unsigned i) const { return m_bits[i]; }
         bvect const& bits() const { return m_bits; }
+        void commit_eval();
 
         bool get_bit(unsigned i) const { return m_bits.get(i); }
         bool try_set_bit(unsigned i, bool b) {
             SASSERT(in_range(m_bits));
             if (fixed.get(i) && get_bit(i) != b)
                 return false;
-            m_bits.set(i, b);
+            eval.set(i, b);
             if (in_range(m_bits))
                 return true;
-            m_bits.set(i, !b);
+            eval.set(i, !b);
             return false;
         }
 
         void set_value(bvect& bits, rational const& r);
 
         rational get_value() const { return get_value(m_bits); }
+        rational get_eval() const { return get_value(eval); }
         rational lo() const { return get_value(m_lo); }
         rational hi() const { return get_value(m_hi); }
+
 
         void get(bvect& dst) const;
         void add_range(rational lo, rational hi);
@@ -209,8 +214,8 @@ namespace bv {
 
         void set(bvect const& src) {
             for (unsigned i = nw; i-- > 0; )
-                m_bits[i] = src[i];
-            clear_overflow_bits(m_bits);
+                eval[i] = src[i];
+            clear_overflow_bits(eval);
         }
 
         void set_zero(bvect& out) const {
@@ -225,7 +230,7 @@ namespace bv {
         }
 
         void set_zero() {
-            set_zero(m_bits);
+            set_zero(eval);
         }
 
         void sub1(bvect& out) const {
@@ -272,20 +277,11 @@ namespace bv {
         unsigned to_nat(unsigned max_n);
 
         std::ostream& display(std::ostream& out) const {
-            out << std::hex;
-
-            print_bits(out, m_bits);
+            out << m_bits;
             out << " fix:";
-            print_bits(out, fixed);
-
-            if (m_lo != m_hi) {
-                out << " [";
-                print_bits(out, m_lo);
-                out << ", ";
-                print_bits(out, m_hi);
-                out << "[";
-            }
-            out << std::dec;
+            out << fixed;
+            if (m_lo != m_hi) 
+                out << " [" << m_lo << ", " << m_hi << "[";            
             return out;
         }
 
@@ -293,13 +289,6 @@ namespace bv {
             return !has_overflow(m_bits) && (!has_range() || in_range(m_bits));
         }
 
-    };
-
-    class sls_pre_valuation : public sls_valuation {
-    public:
-        sls_pre_valuation(unsigned bw) :sls_valuation(bw) {}
-        bvect& bits() { return m_bits; }
-        void set_bit(unsigned i, bool v) { m_bits.set(i, v); }
     };
 
     inline std::ostream& operator<<(std::ostream& out, sls_valuation const& v) { return v.display(out); }

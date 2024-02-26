@@ -99,7 +99,7 @@ namespace bv {
         /**
         * Retrieve valuation
         */
-        sls_valuation const& wval(expr* e) const { return m_eval.wval0(e); }
+        sls_valuation const& wval(expr* e) const { return m_eval.wval(e); }
 
         model_ref get_model();
 

@@ -56,15 +56,34 @@ namespace bv {
         return mpn_manager().compare(a.data(), a.nw, b.data(), a.nw) >= 0;
     }
 
+    std::ostream& operator<<(std::ostream& out, bvect const& v) {
+        out << std::hex;
+        bool nz = false;
+        for (unsigned i = v.nw; i-- > 0;) {
+            auto w = v[i];
+            if (i + 1 == v.nw)
+                w &= v.mask;
+            if (nz)
+                out << std::setw(8) << std::setfill('0') << w;
+            else if (w != 0)
+                out << w, nz = true;
+        }
+        if (!nz)
+            out << "0";
+        out << std::dec;
+        return out;
+    }
+
     sls_valuation::sls_valuation(unsigned bw) {
         set_bw(bw);
         m_lo.set_bw(bw);
         m_hi.set_bw(bw);
         m_bits.set_bw(bw);
         fixed.set_bw(bw);
+        eval.set_bw(bw);
         // have lo, hi bits, fixed point to memory allocated within this of size num_bytes each allocated        
         for (unsigned i = 0; i < nw; ++i)
-            m_lo[i] = 0, m_hi[i] = 0, m_bits[i] = 0, fixed[i] = 0;
+            m_lo[i] = 0, m_hi[i] = 0, m_bits[i] = 0, fixed[i] = 0, eval[i] = 0;
         fixed[nw - 1] = ~mask;
     }
 
@@ -74,6 +93,16 @@ namespace bv {
         mask = (1 << (bw % (8 * sizeof(digit_t)))) - 1;
         if (mask == 0)
             mask = ~(digit_t)0;
+    }
+
+    void sls_valuation::commit_eval() { 
+        DEBUG_CODE(
+            for (unsigned i = 0; i < nw; ++i)
+                VERIFY(0 == (fixed[i] & (m_bits[i] ^ eval[i])));
+        );
+        for (unsigned i = 0; i < nw; ++i) 
+            m_bits[i] = eval[i]; 
+        SASSERT(well_formed()); 
     }
 
     bool sls_valuation::in_range(bvect const& bits) const {
@@ -303,9 +332,7 @@ namespace bv {
         if (!ok)
             VERIFY(try_down ? round_up(dst) : round_down(dst));
         DEBUG_CODE(SASSERT(0 == (mask & (fixed[nw-1] & (m_bits[nw-1] ^ dst[nw-1])))); for (unsigned i = 0; i + 1 < nw; ++i) SASSERT(0 == (fixed[i] & (m_bits[i] ^ dst[i]))););
-        if (m_bits == dst)
-            return false;
-        set(m_bits, dst);
+        set(eval, dst);
         SASSERT(well_formed());
         return true;
     }
@@ -452,8 +479,8 @@ namespace bv {
         }
         SASSERT(!has_overflow(m_lo));
         SASSERT(!has_overflow(m_hi));
-        if (!in_range(m_bits))
-            set(m_bits, m_lo);
+        if (!in_range(eval))
+            set(eval, m_lo);
         SASSERT(well_formed());
     }
 
@@ -518,7 +545,7 @@ namespace bv {
         auto set_fixed_bit = [&](unsigned i, bool b) {
             if (!fixed.get(i)) {
                 fixed.set(i, true);
-                m_bits.set(i, b);
+                eval.set(i, b);
             }
             };
 
@@ -573,23 +600,6 @@ namespace bv {
         for (unsigned i = 0; i < nw; ++i)
             c += get_num_1bits(src[i]);
         return c == 1;
-    }
-
-    std::ostream& sls_valuation::print_bits(std::ostream& out, bvect const& v) const {
-        bool nz = false;
-        for (unsigned i = nw; i-- > 0;) {
-            auto w = v[i];
-            if (i + 1 == nw)
-                w &= mask;
-            if (nz)
-                out << std::setw(8) << std::setfill('0') << w;
-            else if (w != 0)
-                out << w, nz = true;
-        }
-
-        if (!nz)
-            out << "0";
-        return out;
     }
 
 

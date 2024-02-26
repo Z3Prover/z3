@@ -52,9 +52,6 @@ namespace bv {
                 m_repair_roots.insert(e->get_id());
             }
         }
-        for (app* t : m_terms.terms()) 
-            if (t && !eval_is_correct(t))
-                m_repair_roots.insert(t->get_id());
     }
 
     void sls::reinit_eval() {
@@ -67,7 +64,7 @@ namespace bv {
                     return m_eval.bval0(e);
             }
             else if (bv.is_bv(e)) {
-                auto& w = m_eval.wval0(e);
+                auto& w = m_eval.wval(e);
                 if (w.fixed.get(i) || should_keep())
                     return w.get_bit(i);                
             }
@@ -142,17 +139,21 @@ namespace bv {
 
     void sls::try_repair_down(app* e) {
         unsigned n = e->get_num_args();
-        if (n > 0) {
-            unsigned s = m_rand(n);
-            for (unsigned i = 0; i < n; ++i) {
-                auto j = (i + s) % n;
-                if (m_eval.try_repair(e, j)) {
-                    set_repair_down(e->get_arg(j));
-                    return;
-                }
+        if (n == 0) {
+            m_eval.wval(e).commit_eval();
+            m_repair_up.insert(e->get_id());
+        }        
+
+        unsigned s = m_rand(n);
+        for (unsigned i = 0; i < n; ++i) {
+            auto j = (i + s) % n;
+            if (m_eval.try_repair(e, j)) {
+                set_repair_down(e->get_arg(j));
+                return;
             }
         }
-        m_repair_up.insert(e->get_id());
+
+        // search a new root / random walk to repair        
     }
 
     void sls::try_repair_up(app* e) {       
@@ -174,8 +175,10 @@ namespace bv {
             return false;
         if (m.is_bool(e))
             return m_eval.bval0(e) == m_eval.bval1(e);
-        if (bv.is_bv(e))
-            return m_eval.wval0(e).eq(m_eval.wval1(e));
+        if (bv.is_bv(e)) {
+            auto const& v = m_eval.wval(e);
+            return v.eval == v.bits();
+        }
         UNREACHABLE();
         return false;
     }
@@ -187,9 +190,8 @@ namespace bv {
             if (!eval_is_correct(to_app(e))) {
                 verbose_stream() << "missed evaluation #" << e->get_id() << " " << mk_bounded_pp(e, m) << "\n";
                 if (bv.is_bv(e)) {
-                    auto const& v0 = m_eval.wval0(e);
-                    auto const& v1 = m_eval.wval1(to_app(e));
-                    verbose_stream() << v0 << "\n" << v1 << "\n";
+                    auto const& v = m_eval.wval(e);
+                    verbose_stream() << v << "\n" << v.eval << "\n";
                 }
             }
             if (!is_uninterp_const(e))
@@ -199,7 +201,7 @@ namespace bv {
             if (m.is_bool(e))
                 mdl->register_decl(f, m.mk_bool_val(m_eval.bval0(e)));
             else if (bv.is_bv(e)) {
-                auto const& v = m_eval.wval0(e);
+                auto const& v = m_eval.wval(e);
                 rational n = v.get_value();
                 mdl->register_decl(f, bv.mk_numeral(n, v.bw));
             }
@@ -219,7 +221,7 @@ namespace bv {
             if (m_repair_roots.contains(e->get_id()))
                 out << "r ";
             if (bv.is_bv(e))
-                out << m_eval.wval0(e);
+                out << m_eval.wval(e);
             else if (m.is_bool(e))
                 out << (m_eval.bval0(e)?"T":"F");
             out << "\n";
@@ -239,7 +241,7 @@ namespace bv {
             verbose_stream() << (down ? "d #" : "u #")
             << e->get_id() << ": "
             << mk_bounded_pp(e, m, 1) << " ";
-        if (bv.is_bv(e)) verbose_stream() << m_eval.wval0(e) << " " << (m_eval.is_fixed0(e) ? "fixed " : " ");
+        if (bv.is_bv(e)) verbose_stream() << m_eval.wval(e) << " " << (m_eval.is_fixed0(e) ? "fixed " : " ");
         if (m.is_bool(e)) verbose_stream() << m_eval.bval0(e) << " ";
         verbose_stream() << "\n");
     }

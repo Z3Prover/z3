@@ -36,7 +36,7 @@ namespace bv {
             rw(r);
 
             if (bv.is_bv(e)) {
-                auto const& val = ev.wval0(e);
+                auto const& val = ev.wval(e);
                 rational n1, n2;
 
                 n1 = val.get_value();
@@ -164,15 +164,15 @@ namespace bv {
                 }
             }
             if (bv.is_bv(e1)) {
-                auto& val1 = ev.wval0(e1);
-                auto& val2 = ev.wval0(e2);
+                auto& val1 = ev.wval(e1);
+                auto& val2 = ev.wval(e2);
                 if (!val1.eq(val2)) {
                     val2.set(val1.bits());
                     auto rep2 = ev.try_repair(to_app(e2), idx);
                     if (!rep2) {
                         verbose_stream() << "Not repaired " << mk_pp(e2, m) << "\n";
                     }
-                    auto val3 = ev.wval0(e2);
+                    auto val3 = ev.wval(e2);
                     if (!val3.eq(val1)) {
                         verbose_stream() << "Repaired but not corrected " << mk_pp(e2, m) << "\n";
                     }
