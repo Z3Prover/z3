@@ -37,6 +37,10 @@ namespace bv {
         bvect(unsigned sz) : svector(sz, (unsigned)0) {}
         void set_bw(unsigned bw);
 
+        void set(unsigned bit_idx, bool val) {
+            auto _val = static_cast<digit_t>(0 - static_cast<digit_t>(val));
+            get_bit_word(bit_idx) ^= (_val ^ get_bit_word(bit_idx)) & get_pos_mask(bit_idx);
+        }
 
         bool get(unsigned bit_idx) const {
             return (get_bit_word(bit_idx) & get_pos_mask(bit_idx)) != 0;

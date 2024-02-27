@@ -169,5 +169,8 @@ namespace bv {
         * Propagate repair up to parent
         */
         bool repair_up(expr* e);
+
+
+        std::ostream& display(std::ostream& out, expr_ref_vector const& es);
     };
 }

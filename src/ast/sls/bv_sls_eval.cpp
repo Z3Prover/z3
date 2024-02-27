@@ -615,7 +615,7 @@ namespace bv {
                 val.set(a.bits());
             else {
                 set_sdiv();
-                val.set_mul(m_tmp, val.bits(), b.bits());
+                val.set_mul(m_tmp, val.eval, b.bits());
                 val.set_sub(val.eval, a.bits(), m_tmp);
             }
             break;
@@ -685,7 +685,7 @@ namespace bv {
         return sls_valuation::random_bits(m_rand);
     }
 
-    bool sls_eval::try_repair(app* e, unsigned i) {        
+    bool sls_eval::try_repair(app* e, unsigned i) {      
         if (is_fixed0(e->get_arg(i)))
             return false;
         else if (e->get_family_id() == basic_family_id)
@@ -844,6 +844,7 @@ namespace bv {
         case OP_BSMUL_NO_OVFL:
         case OP_BSMUL_NO_UDFL:
         case OP_BSMUL_OVFL:
+            verbose_stream() << mk_pp(e, m) << "\n";
             return false;
         case OP_BSREM:
         case OP_BSREM_I:
@@ -1042,8 +1043,10 @@ namespace bv {
         b.get(y);
         if (parity_b > 0) {
             b.shift_right(y, parity_b);
+#if 0
             for (unsigned i = parity_b; i < b.bw; ++i)
                 y.set(i, m_rand() % 2 == 0);
+#endif
         }
 
         y[a.nw] = 0;
@@ -1127,10 +1130,12 @@ namespace bv {
         else {
             auto& b1 = m_nexta;
             a.set_add(b1, b.bits(), m_one);
+            b1.set_bw(b.bw);
             if (p2 == b1)
                 r = false;
             else
                 r = try_repair_sge(a, b1, p2);
+            b1.set_bw(0);
         }
         p2.set_bw(0);
         return r;
@@ -1148,7 +1153,7 @@ namespace bv {
         bool r = false;
         if (e)
             r = try_repair_sge(a, b.bits(), p2);
-        else if (b.is_zero())
+        else if (b.bits() == p2)
             r = false;
         else {
             auto& b1 = m_nexta;
@@ -1201,7 +1206,7 @@ namespace bv {
         a.set_sub(p2_1, p2, m_one);
         p2_1.set_bw(a.bw);
         bool r = false;
-        if (b < p2) 
+        if (p2 < b) 
             // random b <= x < p2 
             r = a.set_random_in_range(b, p2_1, m_tmp3, m_rand);        
         else {
@@ -1532,7 +1537,7 @@ namespace bv {
             if (e.get(i) != e.get(a.bw - 1))
                 return false;
 
-        for (unsigned i = 0; i < e.bw; ++i)
+        for (unsigned i = 0; i < e.nw; ++i)
             m_tmp[i] = e[i];
         a.clear_overflow_bits(m_tmp);
         return a.try_set(m_tmp);
@@ -1546,7 +1551,7 @@ namespace bv {
             if (e.get(i))
                 return false;
 
-        for (unsigned i = 0; i < e.bw; ++i)
+        for (unsigned i = 0; i < e.nw; ++i)
             m_tmp[i] = e[i];
         a.clear_overflow_bits(m_tmp);
         return a.try_set(m_tmp);
@@ -1629,5 +1634,21 @@ namespace bv {
             return true;
         }
         return false;
+    }
+
+    std::ostream& sls_eval::display(std::ostream& out, expr_ref_vector const& es) {
+        auto& terms = sort_assertions(es);
+        for (expr* e : terms) {
+            out << e->get_id() << ": " << mk_bounded_pp(e, m, 1) << " ";
+            if (is_fixed0(e))
+                out << "f ";
+            if (bv.is_bv(e))
+                out << wval(e);
+            else if (m.is_bool(e))
+                out << (bval0(e) ? "T" : "F");
+            out << "\n";
+        }
+        terms.reset();
+        return out;
     }
 }

@@ -154,11 +154,13 @@ namespace bv {
                     ev.set(e2, val);
                     auto rep1 = ev.try_repair(to_app(e2), idx);
                     if (!rep1) {
-                        verbose_stream() << "Not repaired " << mk_pp(e2, m) << " r: " << r << "\n";
+                        verbose_stream() << "Not repaired " << mk_pp(e1, m) << " " << mk_pp(e2, m) << " r: " << r << "\n";
                     }
                     auto val3 = ev.bval0(e2);
                     if (val3 != val) {
                         verbose_stream() << "Repaired but not corrected " << mk_pp(e2, m) << "\n";
+                        ev.display(std::cout, es);
+                        exit(0);
                     }
                     //SASSERT(rep1);
                 }
@@ -171,8 +173,9 @@ namespace bv {
                     auto rep2 = ev.try_repair(to_app(e2), idx);
                     if (!rep2) {
                         verbose_stream() << "Not repaired " << mk_pp(e2, m) << "\n";
-                    }
+                    }                    
                     auto val3 = ev.wval(e2);
+                    val3.commit_eval();
                     if (!val3.eq(val1)) {
                         verbose_stream() << "Repaired but not corrected " << mk_pp(e2, m) << "\n";
                     }
@@ -234,6 +237,7 @@ static void test_repair1() {
 }
 
 void tst_sls_test() {
-    test_repair1();
     test_eval1();
+    test_repair1();
+
 }
