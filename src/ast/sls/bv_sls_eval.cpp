@@ -297,8 +297,9 @@ namespace bv {
     }
 
     sls_valuation& sls_eval::eval(app* e) const {
-        auto& val = *m_values[e->get_id()];
+        auto& val = *m_values[e->get_id()];        
         eval(e, val);
+        verbose_stream() << "eval " << mk_pp(e, m) << " := " << val << " " << val.eval << "\n";
         return val;        
     }
 
@@ -1020,12 +1021,19 @@ namespace bv {
         unsigned parity_e = b.parity(e);
         unsigned parity_b = b.parity(b.bits());
 
+        verbose_stream() << e << " := " << a << " * " << b << "\n";
         if (b.is_zero(e)) {
             a.get_variant(m_tmp, m_rand);
             for (unsigned i = 0; i < b.bw - parity_b; ++i)
                 m_tmp.set(i, false);
             return a.set_repair(random_bool(), m_tmp);
         }
+
+        if (b.is_zero()) {
+            a.get_variant(m_tmp, m_rand);
+            return a.set_repair(random_bool(), m_tmp);            
+        }
+        
         
         auto& x = m_tmp;
         auto& y = m_tmp2;

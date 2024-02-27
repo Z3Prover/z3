@@ -46,6 +46,7 @@ namespace bv {
         sls_stats           m_stats;
         indexed_uint_set    m_repair_up, m_repair_roots;
         unsigned            m_repair_down = UINT_MAX;
+        unsigned            m_repair_root = UINT_MAX;
         ptr_vector<expr>    m_todo;
         random_gen          m_rand;
         config              m_config;

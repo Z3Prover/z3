@@ -83,16 +83,16 @@ namespace bv {
         }
 
         if (!m_repair_up.empty()) {
-            unsigned index = m_rand(m_repair_up.size());
+            unsigned index = m_repair_up.elem_at(m_rand(m_repair_up.size()));
             m_repair_up.remove(index);
-            e = m_terms.term(m_repair_up.elem_at(index));
+            e = m_terms.term(index);
             return { false, e };
         }
 
         if (!m_repair_roots.empty()) {
-            unsigned index = m_rand(m_repair_up.size());
-            e = m_terms.term(m_repair_up.elem_at(index));
-            m_repair_roots.remove(index);
+            unsigned index = m_repair_roots.elem_at(m_rand(m_repair_roots.size()));
+            e = m_terms.term(index);
+            m_repair_root = index;
             return { true, e };
         }
 
@@ -107,8 +107,6 @@ namespace bv {
             auto [down, e] = next_to_repair();
             if (!e)
                 return l_true;
-            if (eval_is_correct(e))
-                continue;
 
             trace_repair(down, e);
 
@@ -138,10 +136,23 @@ namespace bv {
     }
 
     void sls::try_repair_down(app* e) {
+
+        if (eval_is_correct(e)) {
+            m_repair_roots.remove(m_repair_root);
+            m_repair_root = UINT_MAX;
+            return;
+        }
+
         unsigned n = e->get_num_args();
         if (n == 0) {
-            m_eval.wval(e).commit_eval();
-            m_repair_up.insert(e->get_id());
+            auto& v = m_eval.wval(e);
+            v.commit_eval();
+            verbose_stream() << mk_pp(e, m) << " := " << v << "\n";
+            for (auto p : m_terms.parents(e))
+                m_repair_up.insert(p->get_id());
+            m_repair_roots.remove(m_repair_root);
+            m_repair_root = UINT_MAX;
+            return;
         }        
 
         unsigned s = m_rand(n);
@@ -152,7 +163,6 @@ namespace bv {
                 return;
             }
         }
-
         // search a new root / random walk to repair        
     }
 
