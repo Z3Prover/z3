@@ -338,10 +338,8 @@ namespace bv {
     }
 
     void sls_valuation::min_feasible(bvect& out) const {
-        if (m_lo < m_hi) {
-            for (unsigned i = 0; i < nw; ++i)
-                out[i] = m_lo[i];
-        }
+        if (m_lo < m_hi) 
+            m_lo.copy_to(nw, out);        
         else {
             for (unsigned i = 0; i < nw; ++i)
                 out[i] = fixed[i] & m_bits[i];
@@ -351,8 +349,7 @@ namespace bv {
 
     void sls_valuation::max_feasible(bvect& out) const {
         if (m_lo < m_hi) {
-            for (unsigned i = 0; i < nw; ++i)
-                out[i] = m_hi[i];
+            m_hi.copy_to(nw, out);
             sub1(out);
         }
         else {
@@ -386,8 +383,7 @@ namespace bv {
     }
 
     void sls_valuation::get(bvect& dst) const {
-        for (unsigned i = 0; i < nw; ++i)
-            dst[i] = m_bits[i];
+        m_bits.copy_to(nw, dst);
     }
 
     digit_t sls_valuation::random_bits(random_gen& rand) {

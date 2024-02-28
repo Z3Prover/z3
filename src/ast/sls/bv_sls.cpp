@@ -138,6 +138,8 @@ namespace bv {
     void sls::try_repair_down(app* e) {
 
         if (eval_is_correct(e)) {
+//            if (bv.is_bv(e))
+//                verbose_stream() << mk_pp(e, m) << " := " << m_eval.wval(e) << "\n";
             m_repair_roots.remove(m_repair_root);
             m_repair_root = UINT_MAX;
             return;
@@ -147,7 +149,6 @@ namespace bv {
         if (n == 0) {
             auto& v = m_eval.wval(e);
             v.commit_eval();
-            verbose_stream() << mk_pp(e, m) << " := " << v << "\n";
             for (auto p : m_terms.parents(e))
                 m_repair_up.insert(p->get_id());
             m_repair_roots.remove(m_repair_root);
@@ -193,11 +194,25 @@ namespace bv {
         return false;
     }
 
+
+    bool sls::re_eval_is_correct(app* e) {
+        if (!m_eval.can_eval1(e))
+            return false;
+        if (m.is_bool(e))
+            return m_eval.bval0(e) == m_eval.bval1(e);
+        if (bv.is_bv(e)) {
+            auto const& v = m_eval.eval(e);
+            return v.eval == v.bits();
+        }
+        UNREACHABLE();
+        return false;
+    }
+
     model_ref sls::get_model() {
         model_ref mdl = alloc(model, m);
         auto& terms = m_eval.sort_assertions(m_terms.assertions());
         for (expr* e : terms) {
-            if (!eval_is_correct(to_app(e))) {
+            if (!re_eval_is_correct(to_app(e))) {
                 verbose_stream() << "missed evaluation #" << e->get_id() << " " << mk_bounded_pp(e, m) << "\n";
                 if (bv.is_bv(e)) {
                     auto const& v = m_eval.wval(e);

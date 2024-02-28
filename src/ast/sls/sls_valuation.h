@@ -37,6 +37,12 @@ namespace bv {
         bvect(unsigned sz) : svector(sz, (unsigned)0) {}
         void set_bw(unsigned bw);
 
+        void copy_to(unsigned nw, bvect & dst) const {
+            SASSERT(nw <= this->size());
+            for (unsigned i = 0; i < nw; ++i)
+                dst[i] = (*this)[i];
+        }
+
         void set(unsigned bit_idx, bool val) {
             auto _val = static_cast<digit_t>(0 - static_cast<digit_t>(val));
             get_bit_word(bit_idx) ^= (_val ^ get_bit_word(bit_idx)) & get_pos_mask(bit_idx);
@@ -282,8 +288,11 @@ namespace bv {
 
         std::ostream& display(std::ostream& out) const {
             out << m_bits;
-            out << " fix:";
-            out << fixed;
+            out << " ev: " << eval;
+            if (!is_zero(fixed)) {
+                out << " fix:";
+                out << fixed;
+            }
             if (m_lo != m_hi) 
                 out << " [" << m_lo << ", " << m_hi << "[";            
             return out;

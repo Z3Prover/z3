@@ -54,6 +54,7 @@ namespace bv {
         std::pair<bool, app*> next_to_repair();
         
         bool eval_is_correct(app* e);
+        bool re_eval_is_correct(app* e);
         void try_repair_down(app* e);
         void try_repair_up(app* e);
         void set_repair_down(expr* e) { m_repair_down = e->get_id(); }

@@ -299,7 +299,6 @@ namespace bv {
     sls_valuation& sls_eval::eval(app* e) const {
         auto& val = *m_values[e->get_id()];        
         eval(e, val);
-        verbose_stream() << "eval " << mk_pp(e, m) << " := " << val << " " << val.eval << "\n";
         return val;        
     }
 
@@ -1021,7 +1020,6 @@ namespace bv {
         unsigned parity_e = b.parity(e);
         unsigned parity_b = b.parity(b.bits());
 
-        verbose_stream() << e << " := " << a << " * " << b << "\n";
         if (b.is_zero(e)) {
             a.get_variant(m_tmp, m_rand);
             for (unsigned i = 0; i < b.bw - parity_b; ++i)
@@ -1092,6 +1090,8 @@ namespace bv {
         y.set_bw(0);
         // x*a + y*b = 1
     
+        tb.set_bw(b.bw);
+        tb.set_bw(0);
 #if Z3DEBUG
         b.get(y);
         if (parity_b > 0)
@@ -1099,7 +1099,7 @@ namespace bv {
         a.set_mul(m_tmp, tb, y);
         SASSERT(a.is_one(m_tmp));
 #endif
-        b.get(m_tmp2);
+        e.copy_to(b.nw, m_tmp2);
         if (parity_e > 0 && parity_b > 0)
             b.shift_right(m_tmp2, std::min(parity_b, parity_e));
         a.set_mul(m_tmp, tb, m_tmp2);
