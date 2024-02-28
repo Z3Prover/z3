@@ -504,8 +504,7 @@ namespace bv {
                 val.set(m_tmp);
             }
             else {
-                for (unsigned i = 0; i < a.nw; ++i)
-                    m_tmp[i] = 0;
+                a.set_zero(m_tmp);
                 for (unsigned i = 0; i < a.bw; ++i)                    
                     m_tmp.set(i, i + sh < a.bw && a.get_bit(i + sh));
                 if (sign)
@@ -516,8 +515,7 @@ namespace bv {
         }
         case OP_SIGN_EXT: {
             auto& a = wval(e->get_arg(0));
-            for (unsigned i = 0; i < a.bw; ++i)
-                m_tmp.set(i, a.get_bit(i));            
+            a.get(m_tmp);       
             bool sign = a.sign();
             val.set_range(m_tmp, a.bw, val.bw, sign);
             val.set(m_tmp);
@@ -525,8 +523,7 @@ namespace bv {
         }
         case OP_ZERO_EXT: {
             auto& a = wval(e->get_arg(0));
-            for (unsigned i = 0; i < a.bw; ++i)
-                m_tmp.set(i, a.get_bit(i));
+            a.get(m_tmp);
             val.set_range(m_tmp, a.bw, val.bw, false);
             val.set(m_tmp);
             break;
@@ -1367,9 +1364,7 @@ namespace bv {
                 return a.set_repair(random_bool(), m_tmp);
             }
 
-            for (unsigned i = 0; i < a.nw; ++i)
-                m_tmp2[i] = random_bits();
-            b.clear_overflow_bits(m_tmp2);
+            b.get_variant(m_tmp2, m_rand);
             while (b.bits() < m_tmp2)
                 m_tmp2.set(b.msb(m_tmp2), false);
             while (a.set_add(m_tmp3, m_tmp, m_tmp2)) 
