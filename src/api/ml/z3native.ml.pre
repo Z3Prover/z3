@@ -4,36 +4,36 @@ open Z3enums
 
 (**/**)
 type ptr
-and symbol = ptr
-and config = ptr
-and context = ptr
-and ast = ptr
-and app = ast
-and sort = ast
-and func_decl = ast
-and pattern = ast
-and model = ptr
-and literals = ptr
-and constructor = ptr
-and constructor_list = ptr
-and solver = ptr
-and solver_callback = ptr
-and goal = ptr
-and tactic = ptr
-and simplifier = ptr
-and params = ptr
-and parser_context = ptr
-and probe = ptr
-and stats = ptr
-and ast_vector = ptr
-and ast_map = ptr
-and apply_result = ptr
-and func_interp = ptr
-and func_entry = ptr
-and fixedpoint = ptr
-and optimize = ptr
-and param_descrs = ptr
-and rcf_num = ptr
+type symbol = ptr
+type config = ptr
+type context = ptr
+type ast = ptr
+type app = ast
+type sort = ast
+type func_decl = ast
+type pattern = ast
+type model = ptr
+type literals = ptr
+type constructor = ptr
+type constructor_list = ptr
+type solver = ptr
+type solver_callback = ptr
+type goal = ptr
+type tactic = ptr
+type simplifier = ptr
+type params = ptr
+type parser_context = ptr
+type probe = ptr
+type stats = ptr
+type ast_vector = ptr
+type ast_map = ptr
+type apply_result = ptr
+type func_interp = ptr
+type func_entry = ptr
+type fixedpoint = ptr
+type optimize = ptr
+type param_descrs = ptr
+type rcf_num = ptr
 
 external set_internal_error_handler : ptr -> unit
   = "n_set_internal_error_handler"
