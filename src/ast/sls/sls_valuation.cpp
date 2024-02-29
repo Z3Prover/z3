@@ -95,14 +95,14 @@ namespace bv {
             mask = ~(digit_t)0;
     }
 
-    void sls_valuation::commit_eval() { 
-        DEBUG_CODE(
-            for (unsigned i = 0; i < nw; ++i)
-                VERIFY(0 == (fixed[i] & (m_bits[i] ^ eval[i])));
-        );
+    bool sls_valuation::commit_eval() { 
+        for (unsigned i = 0; i < nw; ++i)
+            if (0 != (fixed[i] & (m_bits[i] ^ eval[i])))
+                return false;        
         for (unsigned i = 0; i < nw; ++i) 
             m_bits[i] = eval[i]; 
         SASSERT(well_formed()); 
+        return true;
     }
 
     bool sls_valuation::in_range(bvect const& bits) const {
@@ -446,6 +446,9 @@ namespace bv {
         if (h == l)
             return;
 
+        //verbose_stream() << "[" << l << ", " << h << "[\n";
+        //verbose_stream() << *this << "\n";
+
         SASSERT(is_zero(fixed)); // ranges can only be added before fixed bits are set.
 
         if (m_lo == m_hi) {
@@ -473,10 +476,13 @@ namespace bv {
                     set_value(m_hi, h);
             }
         }
+
+
+
         SASSERT(!has_overflow(m_lo));
         SASSERT(!has_overflow(m_hi));
-        if (!in_range(eval))
-            set(eval, m_lo);
+        if (!in_range(m_bits))
+            set(m_bits, m_lo);
         SASSERT(well_formed());
     }
 

@@ -25,7 +25,7 @@ namespace bv {
     {}
 
     void sls_fixed::init(expr_ref_vector const& es) {
-        // init_ranges(es);
+        init_ranges(es);
         ev.sort_assertions(es);
         for (expr* e : ev.m_todo) {
             if (!is_app(e))

@@ -46,7 +46,6 @@ namespace bv {
         sls_stats           m_stats;
         indexed_uint_set    m_repair_up, m_repair_roots;
         unsigned            m_repair_down = UINT_MAX;
-        unsigned            m_repair_root = UINT_MAX;
         ptr_vector<expr>    m_todo;
         random_gen          m_rand;
         config              m_config;
@@ -55,6 +54,7 @@ namespace bv {
         
         bool eval_is_correct(app* e);
         bool re_eval_is_correct(app* e);
+        void init_repair_goal(app* e);
         void try_repair_down(app* e);
         void try_repair_up(app* e);
         void set_repair_down(expr* e) { m_repair_down = e->get_id(); }

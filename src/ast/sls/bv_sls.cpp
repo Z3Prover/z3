@@ -52,6 +52,19 @@ namespace bv {
                 m_repair_roots.insert(e->get_id());
             }
         }
+        for (auto* t : m_terms.terms()) {
+            if (t && !re_eval_is_correct(t)) 
+                m_repair_roots.insert(t->get_id());            
+        }
+    }
+
+    void sls::init_repair_goal(app* t) {
+        if (m.is_bool(t)) 
+            m_eval.set(t, m_eval.bval1(t));        
+        else if (bv.is_bv(t)) {
+            auto& v = m_eval.wval(t);
+            v.bits().copy_to(v.nw, v.eval);
+        }
     }
 
     void sls::reinit_eval() {
@@ -89,11 +102,18 @@ namespace bv {
             return { false, e };
         }
 
-        if (!m_repair_roots.empty()) {
+        while (!m_repair_roots.empty()) {
             unsigned index = m_repair_roots.elem_at(m_rand(m_repair_roots.size()));
             e = m_terms.term(index);
-            m_repair_root = index;
-            return { true, e };
+            if (m_terms.is_assertion(e) && !m_eval.bval1(e)) {
+                SASSERT(m_eval.bval0(e));
+                return { true, e };
+            }
+            if (!re_eval_is_correct(e)) {
+                init_repair_goal(e);
+                return { true, e };
+            }
+            m_repair_roots.remove(index);
         }
 
         return { false, nullptr };
@@ -103,10 +123,11 @@ namespace bv {
         // init and init_eval were invoked
         unsigned n = 0;
         for (; n++ < m_config.m_max_repairs && m.inc(); ) {
-            ++m_stats.m_moves;
             auto [down, e] = next_to_repair();
             if (!e)
                 return l_true;
+
+            ++m_stats.m_moves;
 
             trace_repair(down, e);
 
@@ -137,22 +158,12 @@ namespace bv {
 
     void sls::try_repair_down(app* e) {
 
-        if (eval_is_correct(e)) {
-//            if (bv.is_bv(e))
-//                verbose_stream() << mk_pp(e, m) << " := " << m_eval.wval(e) << "\n";
-            m_repair_roots.remove(m_repair_root);
-            m_repair_root = UINT_MAX;
-            return;
-        }
-
         unsigned n = e->get_num_args();
         if (n == 0) {
             auto& v = m_eval.wval(e);
-            v.commit_eval();
+            VERIFY(v.commit_eval());
             for (auto p : m_terms.parents(e))
                 m_repair_up.insert(p->get_id());
-            m_repair_roots.remove(m_repair_root);
-            m_repair_root = UINT_MAX;
             return;
         }        
 

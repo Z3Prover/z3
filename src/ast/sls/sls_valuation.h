@@ -115,7 +115,7 @@ namespace bv {
 
         digit_t bits(unsigned i) const { return m_bits[i]; }
         bvect const& bits() const { return m_bits; }
-        void commit_eval();
+        bool commit_eval();
 
         bool get_bit(unsigned i) const { return m_bits.get(i); }
         bool try_set_bit(unsigned i, bool b) {

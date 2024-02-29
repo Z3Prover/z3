@@ -1100,7 +1100,7 @@ namespace bv {
         if (parity_e > 0 && parity_b > 0)
             b.shift_right(m_tmp2, std::min(parity_b, parity_e));
         a.set_mul(m_tmp, tb, m_tmp2);
-        return a.set_repair(random_bool(), m_tmp);       
+        return a.set_repair(random_bool(), m_tmp);      
     }
 
     bool sls_eval::try_repair_bnot(bvect const& e, bvval& a) {
@@ -1633,6 +1633,11 @@ namespace bv {
         }
         if (bv.is_bv(e)) {
             auto& v = eval(to_app(e));
+            for (unsigned i = 0; i < v.nw; ++i)
+                if (0 != (v.fixed[i] & (v.bits()[i] ^ v.eval[i]))) {
+                    v.bits().copy_to(v.nw, v.eval);
+                    return false;
+                }
             v.commit_eval();
             return true;
         }
