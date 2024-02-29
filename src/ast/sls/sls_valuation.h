@@ -140,7 +140,7 @@ namespace bv {
         void get(bvect& dst) const;
         void add_range(rational lo, rational hi);
         bool has_range() const { return m_lo != m_hi; }
-        void init_fixed();
+        void tighten_range();
 
         void clear_overflow_bits(bvect& bits) const {
             SASSERT(nw > 0);
@@ -156,11 +156,10 @@ namespace bv {
 
         bool is_zero() const { return is_zero(m_bits); }
         bool is_zero(bvect const& a) const { 
-            SASSERT(!has_overflow(a));
-            for (unsigned i = 0; i < nw; ++i)
+            for (unsigned i = 0; i < nw - 1; ++i)
                 if (a[i] != 0)
                     return false;
-            return true;
+            return (a[nw - 1] & mask) == 0;          
         }
 
         bool is_ones() const { return is_ones(m_bits); }

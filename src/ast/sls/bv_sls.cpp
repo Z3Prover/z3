@@ -38,8 +38,10 @@ namespace bv {
 
     void sls::init_eval(std::function<bool(expr*, unsigned)>& eval) {
         m_eval.init_eval(m_terms.assertions(), eval);
-        m_eval.init_fixed(m_terms.assertions());
+        m_eval.tighten_range(m_terms.assertions());
         init_repair();
+        display(verbose_stream());
+        exit(0);
     }
 
     void sls::init_repair() {
@@ -160,8 +162,11 @@ namespace bv {
 
         unsigned n = e->get_num_args();
         if (n == 0) {
-            auto& v = m_eval.wval(e);
-            VERIFY(v.commit_eval());
+            if (m.is_bool(e)) 
+                m_eval.set(e, m_eval.bval1(e));                            
+            else 
+                VERIFY(m_eval.wval(e).commit_eval());
+            
             for (auto p : m_terms.parents(e))
                 m_repair_up.insert(p->get_id());
             return;

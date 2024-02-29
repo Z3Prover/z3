@@ -643,11 +643,21 @@ namespace bv {
             mk_rotate_left(val.bw - n.get_unsigned());
             break;
         }
+        case OP_BCOMP: {
+            auto const& a = wval(e->get_arg(0));
+            auto const& b = wval(e->get_arg(1));
+            if (a.bits() == b.bits())
+                val.set(val.eval, 1);
+            else
+                val.set(val.eval, 0);
+            break;
+        }
         case OP_BREDAND:
         case OP_BREDOR:
         case OP_BXNOR:
         case OP_INT2BV:
-        case OP_BCOMP:
+
+            verbose_stream() << mk_bounded_pp(e, m) << "\n";
             NOT_IMPLEMENTED_YET();
             break;
         case OP_BIT2BOOL:
@@ -829,8 +839,10 @@ namespace bv {
             return try_repair_umul_ovfl(!bval0(e), wval(e, 0), wval(e, 1), i);
         case OP_BUMUL_OVFL:
             return try_repair_umul_ovfl(bval0(e), wval(e, 0), wval(e, 1), i);
+        case OP_BCOMP:
+            return try_repair_comp(eval_value(e), wval(e, 0), wval(e, 1), i);
         case OP_BUADD_OVFL:
-        case OP_BCOMP:            
+         
         case OP_BNAND:
         case OP_BREDAND:
         case OP_BREDOR:
@@ -887,27 +899,31 @@ namespace bv {
         else if (bv.is_bv(child)) {
             auto & a = wval(e->get_arg(i));
             auto & b = wval(e->get_arg(1 - i));
-            if (is_true) 
-                return a.try_set(b.bits());
-            else {
-                bool try_above = m_rand() % 2 == 0;
-                if (try_above) {
-                    a.set_add(m_tmp, b.bits(), m_one);
-                    if (!a.is_zero(m_tmp) && a.set_random_at_least(m_tmp, m_tmp2, m_rand))
-                        return true;
-                }
-                a.set_sub(m_tmp, b.bits(), m_one);
-                if (!a.is_zero(m_tmp) && a.set_random_at_most(m_tmp, m_tmp2, m_rand))
-                    return true;
-                if (!try_above) {
-                    a.set_add(m_tmp, b.bits(), m_one);
-                    if (!a.is_zero(m_tmp) && a.set_random_at_least(m_tmp, m_tmp2, m_rand))
-                        return true;
-                }
-                return false;
-            }
+            return try_repair_eq(is_true, a, b);
         }
         return false;
+    }
+
+    bool sls_eval::try_repair_eq(bool is_true, bvval& a, bvval const& b) {
+        if (is_true)
+            return a.try_set(b.bits());
+        else {
+            bool try_above = m_rand() % 2 == 0;
+            if (try_above) {
+                a.set_add(m_tmp, b.bits(), m_one);
+                if (!a.is_zero(m_tmp) && a.set_random_at_least(m_tmp, m_tmp2, m_rand))
+                    return true;
+            }
+            a.set_sub(m_tmp, b.bits(), m_one);
+            if (!a.is_zero(m_tmp) && a.set_random_at_most(m_tmp, m_tmp2, m_rand))
+                return true;
+            if (!try_above) {
+                a.set_add(m_tmp, b.bits(), m_one);
+                if (!a.is_zero(m_tmp) && a.set_random_at_least(m_tmp, m_tmp2, m_rand))
+                    return true;
+            }
+            return false;
+        }
     }
 
     bool sls_eval::try_repair_xor(app* e, unsigned i) {
@@ -1285,6 +1301,7 @@ namespace bv {
                     m_tmp.set(i, e.get(sh + i));
                 for (unsigned i = a.bw - sh; i < a.bw; ++i)
                     m_tmp.set(i, a.get_bit(i));
+                a.clear_overflow_bits(m_tmp);
                 return a.try_set(m_tmp);
             }
         }
@@ -1335,6 +1352,12 @@ namespace bv {
         return try_repair_ashr(e, a, b, i);
     }
 
+    bool sls_eval::try_repair_comp(bvect const& e, bvval& a, bvval& b, unsigned i) {
+        SASSERT(e[0] == 0 || e[0] == 1);
+        SASSERT(e.bw == 1);
+        return try_repair_eq(e[0] == 1, i == 0 ? a : b, i == 0 ? b : a);
+    }
+
     // e = a udiv b
     // e = 0 => a != ones
     // b = 0 => e = -1        // nothing to repair on a
@@ -1368,7 +1391,8 @@ namespace bv {
             while (b.bits() < m_tmp2)
                 m_tmp2.set(b.msb(m_tmp2), false);
             while (a.set_add(m_tmp3, m_tmp, m_tmp2)) 
-                m_tmp2.set(b.msb(m_tmp2), false);            
+                m_tmp2.set(b.msb(m_tmp2), false);       
+            a.clear_overflow_bits(m_tmp3);
             return a.set_repair(true, m_tmp3);
         }
         else {
@@ -1561,18 +1585,21 @@ namespace bv {
     }
 
     bool sls_eval::try_repair_concat(bvect const& e, bvval& a, bvval& b, unsigned idx) {
+        bool r = false;
         if (idx == 0) {
             for (unsigned i = 0; i < a.bw; ++i)
                 m_tmp.set(i, e.get(i + b.bw));
             a.clear_overflow_bits(m_tmp);
-            return a.try_set(m_tmp);
+            r = a.try_set(m_tmp);
         }
         else {
             for (unsigned i = 0; i < b.bw; ++i)
                 m_tmp.set(i, e.get(i));
             b.clear_overflow_bits(m_tmp);
-            return b.try_set(m_tmp);
+            r = b.try_set(m_tmp);
         }
+        verbose_stream() << e << " := " << a << " " << b << "\n";
+        return r;
     }
 
     //
@@ -1642,6 +1669,11 @@ namespace bv {
             return true;
         }
         return false;
+    }
+
+    sls_valuation& sls_eval::wval(expr* e) const { 
+        if (!m_values[e->get_id()]) verbose_stream() << mk_bounded_pp(e, m) << "\n";  
+        return *m_values[e->get_id()]; 
     }
 
     std::ostream& sls_eval::display(std::ostream& out, expr_ref_vector const& es) {

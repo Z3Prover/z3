@@ -446,8 +446,8 @@ namespace bv {
         if (h == l)
             return;
 
-        //verbose_stream() << "[" << l << ", " << h << "[\n";
-        //verbose_stream() << *this << "\n";
+        verbose_stream() << "[" << l << ", " << h << "[\n";
+        verbose_stream() << *this << "\n";
 
         SASSERT(is_zero(fixed)); // ranges can only be added before fixed bits are set.
 
@@ -481,9 +481,10 @@ namespace bv {
 
         SASSERT(!has_overflow(m_lo));
         SASSERT(!has_overflow(m_hi));
-        if (!in_range(m_bits))
+        if (!in_range(m_bits)) 
             set(m_bits, m_lo);
         SASSERT(well_formed());
+        verbose_stream() << *this << "\n";
     }
 
     //
@@ -499,7 +500,9 @@ namespace bv {
     //  lo + 1 = hi -> set bits = lo
     //  lo < hi, set most significant bits based on hi
     //
-    void sls_valuation::init_fixed() {
+    void sls_valuation::tighten_range() {
+
+        verbose_stream() << "tighten " << *this << "\n";
         if (m_lo == m_hi)
             return;
         for (unsigned i = bw; i-- > 0; ) {
@@ -518,56 +521,47 @@ namespace bv {
             }
             break;
         }
-        bvect hi1(nw + 1);
-        bvect one(nw + 1);
-        one[0] = 1;
-        digit_t c;
-        mpn_manager().sub(m_hi.data(), nw, one.data(), nw, hi1.data(), &c);
-        clear_overflow_bits(hi1);
-        for (unsigned i = bw; i-- > 0; ) {
-            if (!fixed.get(i))
-                continue;
-            if (m_bits.get(i) == hi1.get(i))
-                continue;
-            if (hi1.get(i)) {
-                hi1.set(i, false);
-                for (unsigned j = i; j-- > 0; )
-                    hi1.set(j, !fixed.get(j) || m_bits.get(j));
+
+        if (!in_range(m_bits)) {
+            verbose_stream() << "not in range\n";
+            bool compatible = true;
+            for (unsigned i = 0; i < nw && compatible; ++i)
+                compatible = 0 == (fixed[i] && (m_bits[i] ^ m_lo[i]));
+            verbose_stream() << (fixed[0] && (m_bits[0] ^ m_lo[0])) << "\n";
+
+            if (compatible) {
+                verbose_stream() << "compatible\n";
+                set(m_bits, m_lo);
             }
             else {
-                for (unsigned j = bw; j-- > 0; )
-                    hi1.set(j, fixed.get(j) && m_bits.get(j));
+                bvect tmp(m_bits.nw);
+                tmp.set_bw(bw);
+                set(tmp, m_lo);
+                unsigned max_diff = bw;
+                for (unsigned i = 0; i < bw; ++i) {
+                    if (fixed.get(i) && (m_bits.get(i) ^ m_lo.get(i))) {
+                        tmp.set(i, m_bits.get(i));
+                        max_diff = i;
+                    }
+                }
+                SASSERT(max_diff != bw);
+
+                for (unsigned i = 0; i <= max_diff; ++i)
+                    tmp.set(i, fixed.get(i) && m_bits.get(i));
+
+                bool found0 = false;
+                for (unsigned i = max_diff + 1; i < bw; ++i) {
+                    if (found0 || m_lo.get(i) || fixed.get(i))
+                        tmp.set(i, m_lo.get(i) && fixed.get(i));
+                    else {
+                        tmp.set(i, true);
+                        found0 = true;
+                    }
+                }
+                set(m_bits, tmp);
             }
-            mpn_manager().add(hi1.data(), nw, one.data(), nw, m_hi.data(), nw + 1, &c);
-            clear_overflow_bits(m_hi);
-            break;
         }
 
-        // set fixed bits based on bounds
-        auto set_fixed_bit = [&](unsigned i, bool b) {
-            if (!fixed.get(i)) {
-                fixed.set(i, true);
-                eval.set(i, b);
-            }
-            };
-
-        // set most significant bits
-        if (m_lo < m_hi) {
-            unsigned i = bw;
-            for (; i-- > 0 && !m_hi.get(i); )
-                set_fixed_bit(i, false);
-
-            if (is_power_of2(m_hi))
-                set_fixed_bit(i, false);
-        }
-
-        // lo + 1 = hi: then bits = lo
-        mpn_manager().add(m_lo.data(), nw, one.data(), nw, hi1.data(), nw + 1, &c);
-        clear_overflow_bits(hi1);
-        if (m_hi == hi1) {
-            for (unsigned i = 0; i < bw; ++i)
-                set_fixed_bit(i, m_lo.get(i));
-        }
         SASSERT(well_formed());
     }
 

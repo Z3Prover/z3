@@ -106,6 +106,8 @@ namespace bv {
         bool try_repair_sign_ext(bvect const& e, bvval& a);
         bool try_repair_concat(bvect const& e, bvval& a, bvval& b, unsigned i);
         bool try_repair_extract(bvect const& e, bvval& a, unsigned lo);
+        bool try_repair_comp(bvect const& e, bvval& a, bvval& b, unsigned i);
+        bool try_repair_eq(bool is_true, bvval& a, bvval const& b);
         void add_p2_1(bvval const& a, bvect& t) const;
 
         bool add_overflow_on_fixed(bvval const& a, bvect const& t);
@@ -127,7 +129,7 @@ namespace bv {
 
         void init_eval(expr_ref_vector const& es, std::function<bool(expr*, unsigned)> const& eval);
 
-        void init_fixed(expr_ref_vector const& es) { m_fix.init(es); }
+        void tighten_range(expr_ref_vector const& es) { m_fix.init(es); }
 
         ptr_vector<expr>& sort_assertions(expr_ref_vector const& es);
 
@@ -139,7 +141,7 @@ namespace bv {
         
         bool bval0(expr* e) const { return m_eval[e->get_id()]; }
 
-        sls_valuation& wval(expr* e) const { return *m_values[e->get_id()]; }
+        sls_valuation& wval(expr* e) const;
 
         bool is_fixed0(expr* e) const { return m_fixed[e->get_id()]; }
 

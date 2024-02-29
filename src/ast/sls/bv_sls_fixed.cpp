@@ -112,7 +112,7 @@ namespace bv {
             auto& val = wval(s);
             val.try_set_bit(idx, !sign);
             val.fixed.set(idx, true);
-            val.init_fixed();
+            val.tighten_range();
         }
     }
 
@@ -185,7 +185,7 @@ namespace bv {
             auto& val_el = wval(e->get_arg(2));
             for (unsigned i = 0; i < val.nw; ++i)
                 val.fixed[i] = val_el.fixed[i] & val_th.fixed[i] & ~(val_el.bits(i) ^ val_th.bits(i));
-            val.init_fixed();
+            val.tighten_range();
         }
     }
 
@@ -420,6 +420,6 @@ namespace bv {
             UNREACHABLE();
             break;
         }      
-        v.init_fixed();
+        v.tighten_range();
     }
 }
