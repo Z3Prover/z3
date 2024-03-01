@@ -30,7 +30,7 @@ namespace bv {
             es.push_back(e);
             sls_eval ev(m);
             ev.init_eval(es, value);
-            ev.init_fixed(es);
+            ev.tighten_range(es);
             th_rewriter rw(m);
             expr_ref r(e, m);
             rw(r);
@@ -144,7 +144,7 @@ namespace bv {
             es.push_back(m.is_false(r) ? m.mk_not(e2) : e2);
             sls_eval ev(m);
             ev.init_eval(es, value);
-            ev.init_fixed(es);
+            ev.tighten_range(es);
 
             if (m.is_bool(e1)) {
                 SASSERT(m.is_true(r) || m.is_false(r));
