@@ -25,7 +25,6 @@ namespace bv {
     {}
 
     void sls_fixed::init(expr_ref_vector const& es) {
-        init_ranges(es);
         ev.sort_assertions(es);
         for (expr* e : ev.m_todo) {
             if (!is_app(e))
@@ -40,6 +39,7 @@ namespace bv {
                 ;
         }
         ev.m_todo.reset();
+        init_ranges(es);
     }
 
 
@@ -185,7 +185,6 @@ namespace bv {
             auto& val_el = wval(e->get_arg(2));
             for (unsigned i = 0; i < val.nw; ++i)
                 val.fixed[i] = val_el.fixed[i] & val_th.fixed[i] & ~(val_el.bits(i) ^ val_th.bits(i));
-            val.tighten_range();
         }
     }
 
@@ -420,6 +419,5 @@ namespace bv {
             UNREACHABLE();
             break;
         }      
-        v.tighten_range();
     }
 }

@@ -99,6 +99,8 @@ namespace bv {
         for (unsigned i = 0; i < nw; ++i)
             if (0 != (fixed[i] & (m_bits[i] ^ eval[i])))
                 return false;        
+        if (!in_range(eval))
+            return false;
         for (unsigned i = 0; i < nw; ++i) 
             m_bits[i] = eval[i]; 
         SASSERT(well_formed()); 
@@ -110,6 +112,7 @@ namespace bv {
         auto c = m.compare(m_lo.data(), nw, m_hi.data(), nw);
         SASSERT(!has_overflow(bits));
         // full range
+
         if (c == 0)
             return true;
         // lo < hi: then lo <= bits & bits < hi
@@ -328,13 +331,35 @@ namespace bv {
     bool sls_valuation::set_repair(bool try_down, bvect& dst) {
         for (unsigned i = 0; i < nw; ++i)
             dst[i] = (~fixed[i] & dst[i]) | (fixed[i] & m_bits[i]);
-        bool ok = try_down ? round_down(dst) : round_up(dst);
-        if (!ok)
-            VERIFY(try_down ? round_up(dst) : round_down(dst));
-        DEBUG_CODE(SASSERT(0 == (mask & (fixed[nw-1] & (m_bits[nw-1] ^ dst[nw-1])))); for (unsigned i = 0; i + 1 < nw; ++i) SASSERT(0 == (fixed[i] & (m_bits[i] ^ dst[i]))););
-        set(eval, dst);
-        SASSERT(well_formed());
-        return true;
+
+        if (in_range(dst)) {
+            set(eval, dst);
+            return true;
+        }
+        bool repaired = false;
+        dst.set_bw(bw);
+        if (m_lo < m_hi) {
+            for (unsigned i = bw; m_hi <= dst && !in_range(dst) && i-- > 0; )
+                if (!fixed.get(i) && dst.get(i))
+                    dst.set(i, false);
+            for (unsigned i = 0; i < bw && dst < m_lo && !in_range(dst); ++i)
+                if (!fixed.get(i) && !dst.get(i))
+                    dst.set(i, true);        
+        }
+        else {
+            for (unsigned i = 0; !in_range(dst); ++i)
+                if (!fixed.get(i) && !dst.get(i))
+                    dst.set(i, true);
+            for (unsigned i = bw; !in_range(dst) && i-- > 0;)
+                if (!fixed.get(i) && dst.get(i))
+                    dst.set(i, false);
+        }
+        if (in_range(dst)) {
+            set(eval, dst);
+            repaired = true;
+        }
+        dst.set_bw(0);
+        return repaired;
     }
 
     void sls_valuation::min_feasible(bvect& out) const {
@@ -406,6 +431,7 @@ namespace bv {
     //
     bool sls_valuation::can_set(bvect const& new_bits) const {
         SASSERT(!has_overflow(new_bits));
+        // verbose_stream() << "can set " << bw << " " << new_bits[0] << " " << in_range(new_bits) << "\n";
         for (unsigned i = 0; i < nw; ++i)
             if (0 != ((new_bits[i] ^ m_bits[i]) & fixed[i]))
                 return false;
@@ -446,10 +472,8 @@ namespace bv {
         if (h == l)
             return;
 
-        verbose_stream() << "[" << l << ", " << h << "[\n";
-        verbose_stream() << *this << "\n";
-
-        SASSERT(is_zero(fixed)); // ranges can only be added before fixed bits are set.
+        //verbose_stream() << "[" << l << ", " << h << "[\n";
+        //verbose_stream() << *this << "\n";
 
         if (m_lo == m_hi) {
             set_value(m_lo, l);
@@ -481,13 +505,14 @@ namespace bv {
 
         SASSERT(!has_overflow(m_lo));
         SASSERT(!has_overflow(m_hi));
-        if (!in_range(m_bits)) 
-            set(m_bits, m_lo);
+
+        tighten_range();
         SASSERT(well_formed());
-        verbose_stream() << *this << "\n";
+        // verbose_stream() << *this << "\n";
     }
 
     //
+    // update bits based on ranges
     // tighten lo/hi based on fixed bits.
     //   lo[bit_i] != fixedbit[bit_i] 
     //     let bit_i be most significant bit position of disagreement.
@@ -502,35 +527,19 @@ namespace bv {
     //
     void sls_valuation::tighten_range() {
 
-        verbose_stream() << "tighten " << *this << "\n";
+        // verbose_stream() << "tighten " << *this << "\n";
         if (m_lo == m_hi)
             return;
-        for (unsigned i = bw; i-- > 0; ) {
-            if (!fixed.get(i))
-                continue;
-            if (m_bits.get(i) == m_lo.get(i))
-                continue;
-            if (m_bits.get(i)) {
-                m_lo.set(i, true);
-                for (unsigned j = i; j-- > 0; )
-                    m_lo.set(j, fixed.get(j) && m_bits.get(j));
-            }
-            else {
-                for (unsigned j = bw; j-- > 0; )
-                    m_lo.set(j, fixed.get(j) && m_bits.get(j));
-            }
-            break;
-        }
 
         if (!in_range(m_bits)) {
-            verbose_stream() << "not in range\n";
+            // verbose_stream() << "not in range\n";
             bool compatible = true;
             for (unsigned i = 0; i < nw && compatible; ++i)
-                compatible = 0 == (fixed[i] && (m_bits[i] ^ m_lo[i]));
-            verbose_stream() << (fixed[0] && (m_bits[0] ^ m_lo[0])) << "\n";
-
+                compatible = 0 == (fixed[i] & (m_bits[i] ^ m_lo[i]));
+            //verbose_stream() << (fixed[0] & (m_bits[0] ^ m_lo[0])) << "\n";
+            //verbose_stream() << bw << " " << m_lo[0] << " " << m_bits[0] << "\n";
             if (compatible) {
-                verbose_stream() << "compatible\n";
+                //verbose_stream() << "compatible\n";
                 set(m_bits, m_lo);
             }
             else {
@@ -560,6 +569,24 @@ namespace bv {
                 }
                 set(m_bits, tmp);
             }
+        }
+        // update lo, hi to be feasible.
+        
+        for (unsigned i = bw; i-- > 0; ) {
+            if (!fixed.get(i))
+                continue;
+            if (m_bits.get(i) == m_lo.get(i))
+                continue;
+            if (m_bits.get(i)) {
+                m_lo.set(i, true);
+                for (unsigned j = i; j-- > 0; )
+                    m_lo.set(j, fixed.get(j) && m_bits.get(j));
+            }
+            else {
+                for (unsigned j = bw; j-- > 0; )
+                    m_lo.set(j, fixed.get(j) && m_bits.get(j));
+            }
+            break;
         }
 
         SASSERT(well_formed());

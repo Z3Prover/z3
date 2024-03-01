@@ -40,8 +40,6 @@ namespace bv {
         m_eval.init_eval(m_terms.assertions(), eval);
         m_eval.tighten_range(m_terms.assertions());
         init_repair();
-        display(verbose_stream());
-        exit(0);
     }
 
     void sls::init_repair() {

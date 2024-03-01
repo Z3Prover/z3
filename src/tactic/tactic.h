@@ -62,7 +62,7 @@ public:
     */
     virtual void operator()(goal_ref const & in, goal_ref_buffer& result) = 0;
 
-    virtual void collect_statistics(statistics & st) const { }
+    virtual void collect_statistics(statistics& st) const {  }
     virtual void reset_statistics() {}
     virtual void cleanup() = 0;
     virtual void reset() { cleanup(); }
@@ -130,6 +130,7 @@ public:
     void cleanup() override {}
     tactic * translate(ast_manager & m) override { return this; } 
     char const* name() const override { return "skip"; }
+    void collect_statistics(statistics& st) const override {}
 };
 
 tactic * mk_skip_tactic();

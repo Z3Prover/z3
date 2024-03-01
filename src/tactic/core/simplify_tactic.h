@@ -81,6 +81,8 @@ public:
     static void get_param_descrs(param_descrs & r);
     
     void collect_param_descrs(param_descrs & r) override { get_param_descrs(r); }
+
+    void collect_statistics(statistics& st) const override;
     
     void operator()(goal_ref const & in, goal_ref_buffer & result) override;
     

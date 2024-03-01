@@ -1598,7 +1598,7 @@ namespace bv {
             b.clear_overflow_bits(m_tmp);
             r = b.try_set(m_tmp);
         }
-        verbose_stream() << e << " := " << a << " " << b << "\n";
+        //verbose_stream() << e << " := " << a << " " << b << "\n";
         return r;
     }
 
@@ -1625,7 +1625,12 @@ namespace bv {
             a.get(m_tmp);
         for (unsigned i = 0; i < e.bw; ++i)
             m_tmp.set(i + lo, e.get(i));
-        return a.try_set(m_tmp);
+        if (a.try_set(m_tmp))
+            return true;
+        a.get_variant(m_tmp, m_rand);       
+        bool res = a.set_repair(random_bool(), m_tmp);
+        // verbose_stream() << "try set " << res << " " << m_tmp[0] << " " << a << "\n";
+        return res;
     }
 
     void sls_eval::set_div(bvect const& a, bvect const& b, unsigned bw,
@@ -1660,19 +1665,22 @@ namespace bv {
         }
         if (bv.is_bv(e)) {
             auto& v = eval(to_app(e));
+            // verbose_stream() << "committing: " << v << "\n";
             for (unsigned i = 0; i < v.nw; ++i)
                 if (0 != (v.fixed[i] & (v.bits()[i] ^ v.eval[i]))) {
                     v.bits().copy_to(v.nw, v.eval);
                     return false;
                 }
-            v.commit_eval();
-            return true;
+            if (v.commit_eval())
+                return true;
+            v.bits().copy_to(v.nw, v.eval);
+            return false;
         }
         return false;
     }
 
     sls_valuation& sls_eval::wval(expr* e) const { 
-        if (!m_values[e->get_id()]) verbose_stream() << mk_bounded_pp(e, m) << "\n";  
+        // if (!m_values[e->get_id()]) verbose_stream() << mk_bounded_pp(e, m) << "\n";  
         return *m_values[e->get_id()]; 
     }
 
