@@ -60,6 +60,8 @@ namespace bv {
             return bw;
         }
 
+        rational get_value(unsigned nw) const;
+
         friend bool operator==(bvect const& a, bvect const& b);
         friend bool operator<(bvect const& a, bvect const& b);
         friend bool operator>(bvect const& a, bvect const& b);
@@ -96,7 +98,6 @@ namespace bv {
         bvect m_lo, m_hi;        // range assignment to bit-vector, as wrap-around interval
 
         unsigned mask;
-        rational get_value(bvect const& bits) const;
         bool round_up(bvect& dst) const;
         bool round_down(bvect& dst) const;
 
@@ -131,10 +132,10 @@ namespace bv {
 
         void set_value(bvect& bits, rational const& r);
 
-        rational get_value() const { return get_value(m_bits); }
-        rational get_eval() const { return get_value(eval); }
-        rational lo() const { return get_value(m_lo); }
-        rational hi() const { return get_value(m_hi); }
+        rational get_value() const { return m_bits.get_value(nw); }
+        rational get_eval() const { return eval.get_value(nw); }
+        rational lo() const { return m_lo.get_value(nw); }
+        rational hi() const { return m_hi.get_value(nw); }
 
 
         void get(bvect& dst) const;

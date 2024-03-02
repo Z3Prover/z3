@@ -1043,8 +1043,16 @@ namespace bv {
         if (b.is_zero()) {
             a.get_variant(m_tmp, m_rand);
             return a.set_repair(random_bool(), m_tmp);            
-        }
-        
+        }      
+
+#if 0
+        verbose_stream() << "solve for " << e << "\n";
+
+        rational r = e.get_value(e.nw);
+        rational root;
+        verbose_stream() << r.is_int_perfect_square(root) << "\n";
+#endif
+                
         
         auto& x = m_tmp;
         auto& y = m_tmp2;
@@ -1055,7 +1063,8 @@ namespace bv {
         auto& nexta = m_nexta;
         auto& nextb = m_nextb;
         auto& aux = m_aux;
-        
+        auto bw = b.bw;
+       
 
         // x*ta + y*tb = x
 
@@ -1071,10 +1080,11 @@ namespace bv {
         y[a.nw] = 0;
         x[a.nw] = 0;
 
+        
         a.set_bw((a.nw + 1)* 8 * sizeof(digit_t));
         y.set_bw(a.bw); // enable comparisons        
         a.set_zero(x);
-        x.set(b.bw, true); // x = 2 ^ b.bw       
+        x.set(bw, true); // x = 2 ^ b.bw       
 
         a.set_one(ta);
         a.set_zero(tb);
@@ -1099,11 +1109,10 @@ namespace bv {
             a.set(tb, aux);                 // tb := aux
         }
 
-        a.set_bw(b.bw);
+        a.set_bw(bw);
         y.set_bw(0);
         // x*a + y*b = 1
     
-        tb.set_bw(b.bw);
         tb.set_bw(0);
 #if Z3DEBUG
         b.get(y);
