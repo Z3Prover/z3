@@ -347,7 +347,7 @@ namespace bv {
                     dst.set(i, true);        
         }
         else {
-            for (unsigned i = 0; !in_range(dst); ++i)
+            for (unsigned i = 0; i < bw && !in_range(dst); ++i)
                 if (!fixed.get(i) && !dst.get(i))
                     dst.set(i, true);
             for (unsigned i = bw; !in_range(dst) && i-- > 0;)
@@ -431,7 +431,6 @@ namespace bv {
     //
     bool sls_valuation::can_set(bvect const& new_bits) const {
         SASSERT(!has_overflow(new_bits));
-        // verbose_stream() << "can set " << bw << " " << new_bits[0] << " " << in_range(new_bits) << "\n";
         for (unsigned i = 0; i < nw; ++i)
             if (0 != ((new_bits[i] ^ m_bits[i]) & fixed[i]))
                 return false;
@@ -548,10 +547,8 @@ namespace bv {
                 set(tmp, m_lo);
                 unsigned max_diff = bw;
                 for (unsigned i = 0; i < bw; ++i) {
-                    if (fixed.get(i) && (m_bits.get(i) ^ m_lo.get(i))) {
-                        tmp.set(i, m_bits.get(i));
-                        max_diff = i;
-                    }
+                    if (fixed.get(i) && (m_bits.get(i) ^ m_lo.get(i))) 
+                        max_diff = i;                    
                 }
                 SASSERT(max_diff != bw);
 

@@ -976,7 +976,7 @@ namespace bv {
 
     bool sls_eval::try_repair_band(bvect const& e, bvval& a, bvval const& b) {
         for (unsigned i = 0; i < a.nw; ++i)
-            m_tmp[i] = (e[i] & ~a.fixed[i]) | (~b.bits()[i] & ~a.fixed[i] & random_bits());
+            m_tmp[i] = ~a.fixed[i] & (e[i] | (~b.bits()[i] & random_bits()));
         return a.set_repair(random_bool(), m_tmp);
     }
 
