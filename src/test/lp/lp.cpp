@@ -786,25 +786,25 @@ void test_term() {
     lar_solver solver;
     unsigned _x = 0;
     unsigned _y = 1;
-    var_index x = solver.add_named_var(_x, true, "x");
-    var_index y = solver.add_named_var(_y, true, "y");
+    lpvar x = solver.add_named_var(_x, true, "x");
+    lpvar y = solver.add_named_var(_y, true, "y");
     enable_trace("lar_solver");
     enable_trace("cube");
-    vector<std::pair<mpq, var_index>> pairs;
-    pairs.push_back(std::pair<mpq, var_index>(mpq(2), x));
-    pairs.push_back(std::pair<mpq, var_index>(mpq(1), y));
+    vector<std::pair<mpq, lpvar>> pairs;
+    pairs.push_back(std::pair<mpq, lpvar>(mpq(2), x));
+    pairs.push_back(std::pair<mpq, lpvar>(mpq(1), y));
     int ti = 0;
     unsigned x_plus_y = solver.add_term(pairs, ti++);
     solver.add_var_bound(x_plus_y, lconstraint_kind::GE, mpq(5, 3));
     solver.add_var_bound(x_plus_y, lconstraint_kind::LE, mpq(14, 3));
     pairs.pop_back();
-    pairs.push_back(std::pair<mpq, var_index>(mpq(-1), y));
+    pairs.push_back(std::pair<mpq, lpvar>(mpq(-1), y));
     unsigned x_minus_y = solver.add_term(pairs, ti++);
     solver.add_var_bound(x_minus_y, lconstraint_kind::GE, mpq(5, 3));
     solver.add_var_bound(x_minus_y, lconstraint_kind::LE, mpq(14, 3));
     auto status = solver.solve();
     std::cout << lp_status_to_string(status) << std::endl;
-    std::unordered_map<var_index, mpq> model;
+    std::unordered_map<lpvar, mpq> model;
     if (status != lp_status::OPTIMAL) {
         std::cout << "non optimal" << std::endl;
         return;
@@ -834,24 +834,24 @@ void test_term() {
 
 void test_evidence_for_total_inf_simple(argument_parser &args_parser) {
     lar_solver solver;
-    var_index x = solver.add_var(0, false);
-    var_index y = solver.add_var(1, false);
+    lpvar x = solver.add_var(0, false);
+    lpvar y = solver.add_var(1, false);
     solver.add_var_bound(x, LE, mpq(-1));
     solver.add_var_bound(y, GE, mpq(0));
-    vector<std::pair<mpq, var_index>> ls;
+    vector<std::pair<mpq, lpvar>> ls;
 
-    ls.push_back(std::pair<mpq, var_index>(mpq(1), x));
-    ls.push_back(std::pair<mpq, var_index>(mpq(1), y));
+    ls.push_back(std::pair<mpq, lpvar>(mpq(1), x));
+    ls.push_back(std::pair<mpq, lpvar>(mpq(1), y));
 
     unsigned j = solver.add_term(ls, 1);
     solver.add_var_bound(j, GE, mpq(1));
     ls.pop_back();
-    ls.push_back(std::pair<mpq, var_index>(-mpq(1), y));
+    ls.push_back(std::pair<mpq, lpvar>(-mpq(1), y));
     j = solver.add_term(ls, 2);
     solver.add_var_bound(j, GE, mpq(0));
     auto status = solver.solve();
     std::cout << lp_status_to_string(status) << std::endl;
-    std::unordered_map<var_index, mpq> model;
+    std::unordered_map<lpvar, mpq> model;
     lp_assert(solver.get_status() == lp_status::INFEASIBLE);
 }
 void test_bound_propagation_one_small_sample1() {
@@ -873,20 +873,20 @@ void test_bound_propagation_one_small_sample1() {
     unsigned a = ls.add_var(0, false);
     unsigned b = ls.add_var(1, false);
     unsigned c = ls.add_var(2, false);
-    vector<std::pair<mpq, var_index>> coeffs;
-    coeffs.push_back(std::pair<mpq, var_index>(mpq(1), a));
-    coeffs.push_back(std::pair<mpq, var_index>(mpq(-1), c));
+    vector<std::pair<mpq, lpvar>> coeffs;
+    coeffs.push_back(std::pair<mpq, lpvar>(mpq(1), a));
+    coeffs.push_back(std::pair<mpq, lpvar>(mpq(-1), c));
     ls.add_term(coeffs, -1);
     coeffs.pop_back();
-    coeffs.push_back(std::pair<mpq, var_index>(mpq(-1), b));
+    coeffs.push_back(std::pair<mpq, lpvar>(mpq(-1), b));
     ls.add_term(coeffs, -1);
     coeffs.clear();
-    coeffs.push_back(std::pair<mpq, var_index>(mpq(1), a));
-    coeffs.push_back(std::pair<mpq, var_index>(mpq(-1), b));
+    coeffs.push_back(std::pair<mpq, lpvar>(mpq(1), a));
+    coeffs.push_back(std::pair<mpq, lpvar>(mpq(-1), b));
     // ls.add_constraint(coeffs, LE, zero_of_type<mpq>());
     // coeffs.clear();
-    // coeffs.push_back(std::pair<mpq, var_index>(mpq(1), b));
-    // coeffs.push_back(std::pair<mpq, var_index>(mpq(-1), c));
+    // coeffs.push_back(std::pair<mpq, lpvar>(mpq(1), b));
+    // coeffs.push_back(std::pair<mpq, lpvar>(mpq(-1), c));
     // ls.add_constraint(coeffs, LE, zero_of_type<mpq>());
     // vector<implied_bound> ev;
     // ls.add_var_bound(a, LE, mpq(1));
@@ -942,9 +942,9 @@ void test_bound_propagation_one_row() {
     lar_solver ls;
     unsigned x0 = ls.add_var(0, false);
     unsigned x1 = ls.add_var(1, false);
-    vector<std::pair<mpq, var_index>> c;
-    c.push_back(std::pair<mpq, var_index>(mpq(1), x0));
-    c.push_back(std::pair<mpq, var_index>(mpq(-1), x1));
+    vector<std::pair<mpq, lpvar>> c;
+    c.push_back(std::pair<mpq, lpvar>(mpq(1), x0));
+    c.push_back(std::pair<mpq, lpvar>(mpq(-1), x1));
     // todo : restore test
     // ls.add_constraint(c, EQ, one_of_type<mpq>());
     // vector<implied_bound> ev;
@@ -957,9 +957,9 @@ void test_bound_propagation_one_row_with_bounded_vars() {
     lar_solver ls;
     unsigned x0 = ls.add_var(0, false);
     unsigned x1 = ls.add_var(1, false);
-    vector<std::pair<mpq, var_index>> c;
-    c.push_back(std::pair<mpq, var_index>(mpq(1), x0));
-    c.push_back(std::pair<mpq, var_index>(mpq(-1), x1));
+    vector<std::pair<mpq, lpvar>> c;
+    c.push_back(std::pair<mpq, lpvar>(mpq(1), x0));
+    c.push_back(std::pair<mpq, lpvar>(mpq(-1), x1));
     // todo: restore test
     // ls.add_constraint(c, EQ, one_of_type<mpq>());
     // vector<implied_bound> ev;
@@ -974,9 +974,9 @@ void test_bound_propagation_one_row_mixed() {
     lar_solver ls;
     unsigned x0 = ls.add_var(0, false);
     unsigned x1 = ls.add_var(1, false);
-    vector<std::pair<mpq, var_index>> c;
-    c.push_back(std::pair<mpq, var_index>(mpq(1), x0));
-    c.push_back(std::pair<mpq, var_index>(mpq(-1), x1));
+    vector<std::pair<mpq, lpvar>> c;
+    c.push_back(std::pair<mpq, lpvar>(mpq(1), x0));
+    c.push_back(std::pair<mpq, lpvar>(mpq(-1), x1));
     // todo: restore test
     // ls.add_constraint(c, EQ, one_of_type<mpq>());
     // vector<implied_bound> ev;
@@ -991,16 +991,16 @@ void test_bound_propagation_two_rows() {
     unsigned x = ls.add_var(0, false);
     unsigned y = ls.add_var(1, false);
     unsigned z = ls.add_var(2, false);
-    vector<std::pair<mpq, var_index>> c;
-    c.push_back(std::pair<mpq, var_index>(mpq(1), x));
-    c.push_back(std::pair<mpq, var_index>(mpq(2), y));
-    c.push_back(std::pair<mpq, var_index>(mpq(3), z));
+    vector<std::pair<mpq, lpvar>> c;
+    c.push_back(std::pair<mpq, lpvar>(mpq(1), x));
+    c.push_back(std::pair<mpq, lpvar>(mpq(2), y));
+    c.push_back(std::pair<mpq, lpvar>(mpq(3), z));
     // todo: restore test
     // ls.add_constraint(c, GE, one_of_type<mpq>());
     // c.clear();
-    // c.push_back(std::pair<mpq, var_index>(mpq(3), x));
-    // c.push_back(std::pair<mpq, var_index>(mpq(2), y));
-    // c.push_back(std::pair<mpq, var_index>(mpq(y), z));
+    // c.push_back(std::pair<mpq, lpvar>(mpq(3), x));
+    // c.push_back(std::pair<mpq, lpvar>(mpq(2), y));
+    // c.push_back(std::pair<mpq, lpvar>(mpq(y), z));
     // ls.add_constraint(c, GE, one_of_type<mpq>());
     // ls.add_var_bound(x, LE, mpq(2));
     // vector<implied_bound> ev;
@@ -1016,10 +1016,10 @@ void test_total_case_u() {
     unsigned x = ls.add_var(0, false);
     unsigned y = ls.add_var(1, false);
     unsigned z = ls.add_var(2, false);
-    vector<std::pair<mpq, var_index>> c;
-    c.push_back(std::pair<mpq, var_index>(mpq(1), x));
-    c.push_back(std::pair<mpq, var_index>(mpq(2), y));
-    c.push_back(std::pair<mpq, var_index>(mpq(3), z));
+    vector<std::pair<mpq, lpvar>> c;
+    c.push_back(std::pair<mpq, lpvar>(mpq(1), x));
+    c.push_back(std::pair<mpq, lpvar>(mpq(2), y));
+    c.push_back(std::pair<mpq, lpvar>(mpq(3), z));
     // todo: restore test
     // ls.add_constraint(c, LE, one_of_type<mpq>());
     // ls.add_var_bound(x, GE, zero_of_type<mpq>());
@@ -1044,10 +1044,10 @@ void test_total_case_l() {
     unsigned x = ls.add_var(0, false);
     unsigned y = ls.add_var(1, false);
     unsigned z = ls.add_var(2, false);
-    vector<std::pair<mpq, var_index>> c;
-    c.push_back(std::pair<mpq, var_index>(mpq(1), x));
-    c.push_back(std::pair<mpq, var_index>(mpq(2), y));
-    c.push_back(std::pair<mpq, var_index>(mpq(3), z));
+    vector<std::pair<mpq, lpvar>> c;
+    c.push_back(std::pair<mpq, lpvar>(mpq(1), x));
+    c.push_back(std::pair<mpq, lpvar>(mpq(2), y));
+    c.push_back(std::pair<mpq, lpvar>(mpq(3), z));
     // todo: restore test
     // ls.add_constraint(c, GE, one_of_type<mpq>());
     // ls.add_var_bound(x, LE, one_of_type<mpq>());
@@ -1611,15 +1611,15 @@ void test_maximize_term() {
     int_solver i_solver(solver);  // have to create it too
     unsigned _x = 0;
     unsigned _y = 1;
-    var_index x = solver.add_var(_x, false);
-    var_index y = solver.add_var(_y, true);
-    vector<std::pair<mpq, var_index>> term_ls;
-    term_ls.push_back(std::pair<mpq, var_index>(mpq(1), x));
-    term_ls.push_back(std::pair<mpq, var_index>(mpq(-1), y));
+    lpvar x = solver.add_var(_x, false);
+    lpvar y = solver.add_var(_y, true);
+    vector<std::pair<mpq, lpvar>> term_ls;
+    term_ls.push_back(std::pair<mpq, lpvar>(mpq(1), x));
+    term_ls.push_back(std::pair<mpq, lpvar>(mpq(-1), y));
     unsigned term_x_min_y = solver.add_term(term_ls, -1);
     term_ls.clear();
-    term_ls.push_back(std::pair<mpq, var_index>(mpq(2), x));
-    term_ls.push_back(std::pair<mpq, var_index>(mpq(2), y));
+    term_ls.push_back(std::pair<mpq, lpvar>(mpq(2), x));
+    term_ls.push_back(std::pair<mpq, lpvar>(mpq(2), y));
 
     unsigned term_2x_pl_2y = solver.add_term(term_ls, -1);
     solver.add_var_bound(term_x_min_y, LE, zero_of_type<mpq>());
@@ -1627,7 +1627,7 @@ void test_maximize_term() {
     solver.find_feasible_solution();
     lp_assert(solver.get_status() == lp_status::OPTIMAL);
     std::cout << solver.constraints();
-    std::unordered_map<var_index, mpq> model;
+    std::unordered_map<lpvar, mpq> model;
     solver.get_model(model);
     for (auto p : model) {
         std::cout << "v[" << p.first << "] = " << p.second << std::endl;

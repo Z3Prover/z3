@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    plugin structure for arithetic
+    plugin structure for arithmetic
 Author:
 
     Nikolaj Bjorner (nbjorner) 2023-11-11

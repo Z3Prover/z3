@@ -376,7 +376,7 @@ namespace nla {
         
         // propagate fixed equality
         auto exp = get_explanation(dep);        
-        c().add_fixed_equality(c().lra.column_to_reported_index(m.var()), rational(0), exp);
+        c().add_fixed_equality(m.var(), rational(0), exp);
     }
 
     void monomial_bounds::propagate_fixed(monic const& m, rational const& k) {
@@ -386,22 +386,21 @@ namespace nla {
         
         // propagate fixed equality
         auto exp = get_explanation(dep);        
-        c().add_fixed_equality(c().lra.column_to_reported_index(m.var()), k, exp);
+        c().add_fixed_equality(m.var(), k, exp);
     }
 
     void monomial_bounds::propagate_nonfixed(monic const& m, rational const& k, lpvar w) {
         vector<std::pair<lp::mpq, unsigned>> coeffs;        
         coeffs.push_back({-k, w});
         coeffs.push_back({rational::one(), m.var()});
-        lp::lpvar term_index = c().lra.add_term(coeffs, UINT_MAX);
+        lp::lpvar j = c().lra.add_term(coeffs, UINT_MAX);
         auto* dep = explain_fixed(m, k);
-        term_index = c().lra.map_term_index_to_column_index(term_index);
         TRACE("nla_solver", tout << "propagate nonfixed " << m << " = " << k << " " << w << "\n";);
-        c().lra.update_column_type_and_bound(term_index, lp::lconstraint_kind::EQ, mpq(0), dep);
+        c().lra.update_column_type_and_bound(j, lp::lconstraint_kind::EQ, mpq(0), dep);
 
         if (k == 1) {
             lp::explanation exp = get_explanation(dep);
-            c().add_equality(c().lra.column_to_reported_index(m.var()), c().lra.column_to_reported_index(w), exp);
+            c().add_equality(m.var(), w, exp);
         }
     }
 

@@ -17,6 +17,8 @@ Notes:
 
 package com.microsoft.z3;
 
+import java.lang.ref.ReferenceQueue;
+
 /**
  * Tactics are the basic building block for creating custom solvers for specific
  * problem domains. The complete list of tactics may be obtained using
@@ -98,6 +100,19 @@ public class Tactic extends Z3Object {
 
     @Override
     void addToReferenceQueue() {
-        getContext().getTacticDRQ().storeReference(getContext(), this);
+        //getContext().getTacticDRQ().storeReference(getContext(), this);
+        getContext().getReferenceQueue().storeReference(this, TacticRef::new);
+    }
+
+    private static class TacticRef extends Z3ReferenceQueue.Reference<Tactic> {
+
+        private TacticRef(Tactic referent, ReferenceQueue<Z3Object> q) {
+            super(referent, q);
+        }
+
+        @Override
+        void decRef(Context ctx, long z3Obj) {
+            Native.tacticDecRef(ctx.nCtx(), z3Obj);
+        }
     }
 }

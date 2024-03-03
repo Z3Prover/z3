@@ -188,14 +188,14 @@ class dll_iterator {
     dll_iterator(T const* elem, bool first): m_elem(elem), m_first(first) { }
 
 public:
-    static dll_iterator mk_begin(T const* elem) {
-        // Setting first==(bool)elem makes this also work for elem==nullptr;
+    static dll_iterator mk_begin(T const* list) {
+        // Setting first==(bool)list makes this also work for list==nullptr;
         // but we can't implement top-level begin/end for pointers because it clashes with the definition for arrays.
-        return {elem, (bool)elem};
+        return {list, (bool)list};
     }
 
-    static dll_iterator mk_end(T const* elem) {
-        return {elem, false};
+    static dll_iterator mk_end(T const* list) {
+        return {list, false};
     }
 
     using value_type = T;
@@ -232,18 +232,17 @@ public:
     dll_iterator<T> end() const { return dll_iterator<T>::mk_end(m_list); }
 };
 
-
 template < typename T
          , typename U = std::enable_if_t<std::is_base_of_v<dll_base<T>, T>>  // should only match if T actually inherits from dll_base<T>
          >
-dll_iterator<T> begin(T const& elem) {
-    return dll_iterator<T>::mk_begin(&elem);
+dll_iterator<T> begin(T const& list) {
+    return dll_iterator<T>::mk_begin(&list);
 }
 
 template < typename T
          , typename U = std::enable_if_t<std::is_base_of_v<dll_base<T>, T>>  // should only match if T actually inherits from dll_base<T>
          >
-dll_iterator<T> end(T const& elem)
+dll_iterator<T> end(T const& list)
 {
-    return dll_iterator<T>::mk_end(&elem);
+    return dll_iterator<T>::mk_end(&list);
 }

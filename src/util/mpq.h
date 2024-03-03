@@ -47,7 +47,7 @@ class mpq_manager : public mpz_manager<SYNCH> {
 
     void reset_denominator(mpq & a) {
         del(a.m_den);
-        a.m_den.m_val = 1;
+        a.m_den.set(1);
     }
 
     void normalize(mpq & a) {

@@ -1,28 +1,44 @@
 variables:
   Major: '4'
   Minor: '12'
-  Patch: '5'
+  Patch: '6'
+  ReleaseVersion: $(Major).$(Minor).$(Patch)
   AssemblyVersion: $(Major).$(Minor).$(Patch).$(Build.BuildId)
-  NightlyVersion: $(AssemblyVersion)-$(Build.DefinitionName)
+  NightlyVersion: $(AssemblyVersion)-$(Build.buildId)
 
 stages:
 - stage: Build
   jobs:
-  - job: Mac
-    displayName: "Mac Build"
+  - job: MacBuild
+    displayName: "macOS Build"
     pool:
       vmImage: "macOS-11"
     steps:
-    - script: python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
-    - script: git clone https://github.com/z3prover/z3test z3test
-    - script: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2    
-    - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
-    - task: PublishPipelineArtifact@1
+    - task: PythonScript@0
+      displayName: Build
       inputs:
-        artifactName: 'Mac'
+        scriptSource: 'filepath'
+        scriptPath: scripts/mk_unix_dist.py
+        arguments: --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
+    - script: git clone https://github.com/z3prover/z3test z3test
+      displayName: 'Clone z3test'
+    - task: PythonScript@0
+      displayName: Test
+      inputs:
+        scriptSource: 'filepath'
+        scriptPath: z3test/scripts/test_benchmarks.py
+        arguments: build-dist/z3 z3test/regressions/smt2
+    - task: CopyFiles@2
+      inputs:
+        sourceFolder: dist
+        contents: '*.zip'
+        targetFolder: $(Build.ArtifactStagingDirectory)
+    - task: PublishPipelineArtifact@0
+      inputs:
+        artifactName: 'macOSBuild'
         targetPath: $(Build.ArtifactStagingDirectory)
 
-  - job: MacArm64
+  - job: MacBuildArm64
     displayName: "Mac ARM64 Build"
     pool:
       vmImage: "macOS-11"
@@ -35,32 +51,62 @@ stages:
         artifactName: 'MacArm64'
         targetPath: $(Build.ArtifactStagingDirectory)
 
-  - job: Ubuntu20
-    displayName: "Ubuntu20 build"
-    pool:
-      vmImage: "ubuntu-20.04"
-    steps:
-    - script: python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
-    - script: git clone https://github.com/z3prover/z3test z3test
-    - script: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2    
-    - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
-    - task: PublishPipelineArtifact@0
-      inputs:
-        artifactName: 'Ubuntu-20.04'
-        targetPath: $(Build.ArtifactStagingDirectory)
-
-  - job: Ubuntu
+  - job: UbuntuBuild
     displayName: "Ubuntu build"
     pool:
       vmImage: "ubuntu-latest"
     steps:
-    - script: python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
+    - task: PythonScript@0
+      displayName: Build
+      inputs:
+        scriptSource: 'filepath'
+        scriptPath: scripts/mk_unix_dist.py
+        arguments: --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
     - script: git clone https://github.com/z3prover/z3test z3test
-    - script: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2    
-    - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
+      displayName: 'Clone z3test'
+    - task: PythonScript@0
+      displayName: Test
+      inputs:
+        scriptSource: 'filepath'
+        scriptPath: z3test/scripts/test_benchmarks.py
+        arguments: build-dist/z3 z3test/regressions/smt2
+    - task: CopyFiles@2
+      inputs:
+        sourceFolder: dist
+        contents: '*.zip'
+        targetFolder: $(Build.ArtifactStagingDirectory)
     - task: PublishPipelineArtifact@0
       inputs:
-        artifactName: 'Ubuntu'
+        artifactName: 'UbuntuBuild'
+        targetPath: $(Build.ArtifactStagingDirectory)
+
+  - job: UbuntuBuild20
+    displayName: "Ubuntu build 20"
+    pool:
+      vmImage: "ubuntu-20.04"
+    steps:
+    - task: PythonScript@0
+      displayName: Build
+      inputs:
+        scriptSource: 'filepath'
+        scriptPath: scripts/mk_unix_dist.py
+        arguments: --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
+    - script: git clone https://github.com/z3prover/z3test z3test
+      displayName: 'Clone z3test'
+    - task: PythonScript@0
+      displayName: Test
+      inputs:
+        scriptSource: 'filepath'
+        scriptPath: z3test/scripts/test_benchmarks.py
+        arguments: build-dist/z3 z3test/regressions/smt2
+    - task: CopyFiles@2
+      inputs:
+        sourceFolder: dist
+        contents: '*.zip'
+        targetFolder: $(Build.ArtifactStagingDirectory)
+    - task: PublishPipelineArtifact@0
+      inputs:
+        artifactName: 'UbuntuBuild20'
         targetPath: $(Build.ArtifactStagingDirectory)
 
   - job: UbuntuArm64
@@ -68,12 +114,9 @@ stages:
     pool:
       vmImage: "ubuntu-latest"
     steps:
-    - script: sudo apt update
-    - script: sudo apt install gcc-arm-none-eabi -y
-    - script: sudo apt install gcc-arm-linux-gnueabihf -y
-    - script: sudo apt install gcc-aarch64-linux-gnu -y
-    - script: sudo apt install g++-aarch64-linux-gnu -y
-    - script: CXX=aarch64-linux-gnu-g++ CC=aarch64-linux-gnu-gcc python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk --arch=arm64
+    - script: python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk --arch=arm64
+    - script: git clone https://github.com/z3prover/z3test z3test
+    - script: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2    
     - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
     - task: PublishPipelineArtifact@0
       inputs:
@@ -115,165 +158,57 @@ stages:
       inputs:
         artifactName: 'UbuntuDoc'
         targetPath: $(Build.ArtifactStagingDirectory)
-
-  - job: ManyLinuxBuild
-    variables:
-      python: "/opt/python/cp37-cp37m/bin/python"
-      name: ManyLinux
+    
+  - job: LinuxBuilds
     displayName: "ManyLinux build"
+    variables:
+      name: ManyLinux
+      python: "/opt/python/cp37-cp37m/bin/python"
     pool:
       vmImage: "ubuntu-latest"
     container: "quay.io/pypa/manylinux2014_x86_64:latest"
     steps:
-    - script: $(python) scripts/mk_unix_dist.py --nodotnet --nojava
+    - task: PythonScript@0
+      displayName: Build
+      inputs:
+        scriptSource: 'filepath'
+        scriptPath: scripts/mk_unix_dist.py
+        arguments: --nodotnet --nojava
+        pythonInterpreter: $(python)
     - script: git clone https://github.com/z3prover/z3test z3test
-    - script: $(python) z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2
-    - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/
+      displayName: 'Clone z3test'
+    - task: PythonScript@0
+      displayName: Test
+      inputs:
+        scriptSource: 'filepath'
+        scriptPath: z3test/scripts/test_benchmarks.py
+        arguments: build-dist/z3 z3test/regressions/smt2
+        pythonInterpreter: $(python)
+    - task: CopyFiles@2
+      inputs:
+        sourceFolder: dist
+        contents: '*.zip'
+        targetFolder: $(Build.ArtifactStagingDirectory)
     - task: PublishPipelineArtifact@0
       inputs:
-        artifactName: '$(name)Build'
+        artifactName: 'ManyLinuxBuild'
         targetPath: $(Build.ArtifactStagingDirectory)
+  
+  - template: build-win-signed.yml
+    parameters:
+      ReleaseVersion: $(ReleaseVersion)
+      BuildArchitecture: 'x64'
 
-#  - job: MuslLinuxBuild
-#    condition: eq(0,1)
-#    variables:
-#      python: "/opt/python/cp310-cp310/bin/python"
-#      name: MuslLinux
-#    displayName: "MuslLinux build"
-#    pool:
-#      vmImage: "ubuntu-latest"
-#    container: "quay.io/pypa/musllinux_1_1_x86_64:latest"
-#    steps:
-#    - script: $(python) scripts/mk_unix_dist.py --nodotnet --nojava
-#    - script: git clone https://github.com/z3prover/z3test z3test
-#    - script: $(python) z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2
-#    - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/
-#    - task: PublishPipelineArtifact@0
-#      inputs:
-#        artifactName: '$(name)Build'
-#        targetPath: $(Build.ArtifactStagingDirectory)
+  - template: build-win-signed.yml
+    parameters:
+      ReleaseVersion: $(ReleaseVersion)
+      BuildArchitecture: 'x86'
 
-  - job: Windows32
-    displayName: "Windows 32-bit build"
-    pool:
-      vmImage: "windows-latest"
-    steps:
-    - task: CmdLine@2
-      inputs:
-        script:
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x86 &
-          python scripts\mk_win_dist.py
-            --assembly-version=$(AssemblyVersion)
-            --x86-only
-            --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
-            --zip
-    - task: CopyFiles@2
-      inputs:
-        sourceFolder: dist
-        contents: '*.zip'
-        targetFolder: $(Build.ArtifactStagingDirectory)
-    - task: PublishPipelineArtifact@1
-      inputs:
-        targetPath: $(Build.ArtifactStagingDirectory)
-        artifactName: 'Windows32'
-    - task: CopyFiles@2
-      displayName: 'Collect Symbols'
-      inputs:
-        sourceFolder: dist
-        contents: '**/*.pdb'
-        targetFolder: '$(Build.ArtifactStagingDirectory)/symbols'
-    # Publish symbol archive to match nuget package
-    # Index your source code and publish symbols to a file share or Azure Artifacts symbol server
-    - task: PublishSymbols@2
-      inputs:
-        symbolsFolder: '$(Build.ArtifactStagingDirectory)/symbols'
-        searchPattern: '**/*.pdb' 
-        indexSources: false # Github not supported
-        publishSymbols: true
-        symbolServerType: TeamServices
-        detailedLog: true
-
-  - job: Windows64
-    displayName: "Windows 64-bit build"
-    pool:
-      vmImage: "windows-latest"
-    steps:
-    - task: CmdLine@2
-      inputs:
-        script:
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 &
-          python scripts\mk_win_dist.py
-            --assembly-version=$(AssemblyVersion)
-            --x64-only
-            --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
-            --zip
-    - task: CopyFiles@2
-      inputs:
-        sourceFolder: dist
-        contents: '*.zip'
-        targetFolder: $(Build.ArtifactStagingDirectory)
-    - task: PublishPipelineArtifact@1
-      inputs:
-        targetPath: $(Build.ArtifactStagingDirectory)
-        artifactName: 'Windows64'
-    - task: CopyFiles@2
-      displayName: 'Collect Symbols'
-      inputs:
-        sourceFolder: dist
-        contents: '**/*.pdb'
-        targetFolder: '$(Build.ArtifactStagingDirectory)/symbols'
-    # Publish symbol archive to match nuget package
-    # Index your source code and publish symbols to a file share or Azure Artifacts symbol server
-    - task: PublishSymbols@2
-      inputs:
-        symbolsFolder: '$(Build.ArtifactStagingDirectory)/symbols'
-        searchPattern: '**/*.pdb' 
-        indexSources: false # Github not supported
-        publishSymbols: true
-        symbolServerType: TeamServices
-        detailedLog: true
-
-  - job: "WindowsArm64"
-    displayName: "WindowsArm64"
-    pool: 
-      vmImage: "windows-latest"
-    variables:
-       arch: "amd64_arm64"
-       bindings: "-DCMAKE_BUILD_TYPE=RelWithDebInfo"
-    steps:
-    - script: md build
-    - script: |
-         cd build
-         call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" $(arch)
-         cmake $(bindings) -G "NMake Makefiles" ../
-         nmake
-         cd ..
-    - task: CopyFiles@2
-      inputs:
-        sourceFolder: build
-        contents: '*z3*.*'
-        targetFolder: $(Build.ArtifactStagingDirectory)
-    - task: PublishPipelineArtifact@1
-      inputs:
-        targetPath: $(Build.ArtifactStagingDirectory)
-        artifactName: 'WindowsArm64'
-    - task: CopyFiles@2
-      displayName: 'Collect Symbols'
-      inputs:
-        sourceFolder: build
-        contents: '**/*.pdb'
-        targetFolder: '$(Build.ArtifactStagingDirectory)/symbols'
-    # Publish symbol archive to match nuget package
-    # Index your source code and publish symbols to a file share or Azure Artifacts symbol server
-    - task: PublishSymbols@2
-      inputs:
-        symbolsFolder: '$(Build.ArtifactStagingDirectory)/symbols'
-        searchPattern: '**/*.pdb' 
-        indexSources: false # Github not supported
-        publishSymbols: true
-        symbolServerType: TeamServices
-        detailedLog: true
-
+  - template: build-win-signed-cmake.yml
+    parameters:
+      ReleaseVersion: $(ReleaseVersion)
+      BuildArchitecture: 'arm64'
+      VCArchitecture: 'amd64_arm64'
 
 - stage: Package
   jobs:
@@ -291,27 +226,22 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: 'Download Win64 Build'
       inputs:
-        artifact: 'Windows64'
-        path: $(Agent.TempDirectory)\package
-    - task: DownloadPipelineArtifact@2
-      displayName: 'Download Ubuntu Build'
-      inputs:
-        artifact: 'Ubuntu'
+        artifact: 'WindowsBuild-x64'
         path: $(Agent.TempDirectory)\package
     - task: DownloadPipelineArtifact@2
       displayName: 'Download Ubuntu 20.04 Build'
       inputs:
-        artifact: 'Ubuntu-20.04'
+        artifact: 'UbuntuBuild20'
         path: $(Agent.TempDirectory)\package
     - task: DownloadPipelineArtifact@2
       displayName: 'Download Ubuntu ARM64 Build'
       inputs:
         artifact: 'UbuntuArm64'
-        path: $(Agent.TempDirectory)\package
+        path: $(Agent.TempDirectory)\package    
     - task: DownloadPipelineArtifact@2
       displayName: 'Download macOS Build'
       inputs:
-        artifact: 'Mac'
+        artifact: 'macOsBuild'
         path: $(Agent.TempDirectory)\package
     - task: DownloadPipelineArtifact@2
       displayName: 'Download macOS Arm64 Build'
@@ -420,7 +350,7 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: 'Download Win32 Build'
       inputs:
-        artifact: 'Windows32'
+        artifact: 'WindowsBuild-x86'
         path: $(Agent.TempDirectory)\package
     - task: NuGetToolInstaller@0
       inputs:
@@ -519,24 +449,19 @@ stages:
     steps:
     - task: DownloadPipelineArtifact@2
       inputs:
-        artifactName: 'Windows32'
+        artifactName: 'WindowsBuild-x86'
         targetPath: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
       inputs:
-        artifactName: 'Windows64'
+        artifactName: 'WindowsBuild-x64'
         targetPath: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
       inputs:
         artifactName: 'ManyLinuxBuild'
         targetPath: $(Agent.TempDirectory)
-#    - task: DownloadPipelineArtifact@2
-#      displayName: 'Download MuslLinux Build'
-#      inputs:
-#        artifact: 'MuslLinuxBuild'
-#        path: $(Agent.TempDirectory)	
     - task: DownloadPipelineArtifact@2
       inputs:
-        artifactName: 'Mac'
+        artifactName: 'macOsBuild'
         targetPath: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
       inputs:
@@ -574,22 +499,22 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: "Download windows32"
       inputs:
-        artifactName: 'Windows32'
-        targetPath: tmp
-    - task: DownloadPipelineArtifact@2
-      displayName: "Download windowsArm64"
-      inputs:
-        artifactName: 'WindowsArm64'
+        artifactName: 'WindowsBuild-x86'
         targetPath: tmp
     - task: DownloadPipelineArtifact@2
       displayName: "Download windows64"
       inputs:
-        artifactName: 'Windows64'
+        artifactName: 'WindowsBuild-x64'
+        targetPath: tmp
+    - task: DownloadPipelineArtifact@2
+      displayName: "Download windowsARM64"
+      inputs:
+        artifactName: 'WindowsBuild-arm64'
         targetPath: tmp
     - task: DownloadPipelineArtifact@2
       displayName: "Download Mac"
       inputs:
-        artifactName: 'Mac'
+        artifactName: 'macOsBuild'
         targetPath: tmp
     - task: DownloadPipelineArtifact@2
       displayName: "Download MacArm64"
@@ -602,14 +527,9 @@ stages:
         artifactName: 'UbuntuArm64'
         targetPath: tmp
     - task: DownloadPipelineArtifact@2
-      displayName: "Download Ubuntu"
-      inputs:
-        artifactName: 'Ubuntu'
-        targetPath: tmp
-    - task: DownloadPipelineArtifact@2
       displayName: "Download Ubuntu-20.04"
       inputs:
-        artifactName: 'Ubuntu-20.04'
+        artifactName: 'UbuntuBuild20'
         targetPath: tmp
     - task: DownloadPipelineArtifact@2
       displayName: "Download Doc"

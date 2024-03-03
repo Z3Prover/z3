@@ -319,7 +319,7 @@ func_interp * bv2fpa_converter::convert_func_interp(model_core * mc, func_decl *
 
         if (m_fpa_util.is_to_sbv(f) || m_fpa_util.is_to_ubv(f)) {
             auto k = m_fpa_util.is_to_sbv(f) ? OP_FPA_TO_SBV_I : OP_FPA_TO_UBV_I;
-            parameter param = f->get_parameter(0);
+            const parameter &param = f->get_parameter(0);
             func_decl_ref to_bv_i(m.mk_func_decl(fid, k, 1, &param, dom.size(), dom.data()), m);
             expr_ref else_value(m.mk_app(to_bv_i, dom.size(), dom.data()), m);
             result->set_else(else_value);

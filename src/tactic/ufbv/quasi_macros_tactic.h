@@ -18,7 +18,7 @@ Tactic Documentation
 ## Tactic quasi-macro-finder
 
 ### Short Description
-dentifies and applies quasi-macros.
+Identifies and applies quasi-macros.
 
 ### Long Description
 

@@ -147,8 +147,6 @@ public:
 
 
     void add_bound(mpq const& v, unsigned j, bool is_low, bool strict, std::function<u_dependency* ()> explain_bound) {
-        j = lp().column_to_reported_index(j);
-
         lconstraint_kind kind = is_low ? GE : LE;
         if (strict)
             kind = static_cast<lconstraint_kind>(kind / 2);
@@ -222,14 +220,11 @@ public:
         return out;
     }
 
-    bool add_eq_on_columns(const explanation& exp, lpvar j, lpvar k, bool is_fixed) {
-        lp_assert(j != k && is_int(j) == is_int(k));
-        lp_assert(ival(j) == ival(k));
+    bool add_eq_on_columns(const explanation& exp, lpvar je, lpvar ke, bool is_fixed) {
+        lp_assert(je != ke && is_int(je) == is_int(ke));
+        lp_assert(ival(je) == ival(ke));
 
-        unsigned je = lp().column_to_reported_index(j);
-        unsigned ke = lp().column_to_reported_index(k);
         TRACE("eq",
-              tout << "reporting eq " << j << ", " << k << "\n";
               tout << "reported idx " << je << ", " << ke << "\n";
               print_expl(tout, exp);
               tout << "theory_vars v" << lp().local_to_external(je) << " == v" << lp().local_to_external(ke) << "\n";);
@@ -246,12 +241,12 @@ public:
 
     // column to theory_var
     unsigned col_to_imp(unsigned j) const {
-        return lp().local_to_external(lp().column_to_reported_index(j));
+        return lp().local_to_external(j);
     }
 
     // theory_var to column
     unsigned imp_to_col(unsigned j) const {
-        return lp().external_to_column_index(j);
+        return lp().external_to_local(j);
     }
 
     bool is_int(lpvar j) const {
@@ -261,7 +256,7 @@ public:
     void explain_fixed_in_row(unsigned row, explanation& ex) {
         TRACE("eq", tout << lp().get_row(row) << std::endl);
         for (const auto& c : lp().get_row(row))
-            if (lp().is_fixed(c.var()))
+            if (lp().column_is_fixed(c.var()))
                 explain_fixed_column(c.var(), ex);
     }
 
@@ -269,7 +264,7 @@ public:
         unsigned base = UINT_MAX;
         TRACE("eq", tout << lp().get_row(row) << std::endl);
         for (const auto& c : lp().get_row(row)) {
-            if (lp().is_fixed(c.var())) {
+            if (lp().column_is_fixed(c.var())) {
                 explain_fixed_column(c.var(), ex);
             } 
             else if (lp().is_base(c.var())) {
@@ -288,7 +283,7 @@ public:
 #ifdef Z3DEBUG
     bool all_fixed_in_row(unsigned row) const {
         for (const auto& c : lp().get_row(row))
-            if (!lp().is_fixed(c.var()))
+            if (!lp().column_is_fixed(c.var()))
                 return false;
         return true;
     }

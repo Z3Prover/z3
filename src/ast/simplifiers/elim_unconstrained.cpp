@@ -66,7 +66,6 @@ bool elim_unconstrained::is_var_lt(int v1, int v2) const {
 }
 
 void elim_unconstrained::eliminate() {
-
     while (!m_heap.empty()) {
         expr_ref r(m);
         int v = m_heap.erase_min();
@@ -86,7 +85,12 @@ void elim_unconstrained::eliminate() {
             n.m_refcount = 0;
             continue;
         }
+        if (m_heap.contains(root(e))) {
+            IF_VERBOSE(11, verbose_stream() << "already in heap " << mk_bounded_pp(e, m) << "\n");
+            continue;
+        }
         app* t = to_app(e);
+        TRACE("elim_unconstrained", tout << "eliminating " << mk_pp(t, m) << "\n";);
         unsigned sz = m_args.size();
         for (expr* arg : *to_app(t))
             m_args.push_back(reconstruct_term(get_node(arg)));
@@ -99,14 +103,17 @@ void elim_unconstrained::eliminate() {
             proof * pr  = m.mk_apply_def(s, r, pr1);
             m_trail.push_back(pr);
         }
+        expr_ref rr(m.mk_app(t->get_decl(), t->get_num_args(), m_args.data() + sz), m);
         n.m_refcount = 0;
         m_args.shrink(sz);
         if (!inverted) {
             IF_VERBOSE(11, verbose_stream() << "not inverted " << mk_bounded_pp(e, m) << "\n");
             continue;
         }
+
+        IF_VERBOSE(11, verbose_stream() << "replace " << mk_pp(t, m) << " / " << rr << " -> " << r << "\n");
         
-        TRACE("elim_unconstrained", tout << mk_pp(t, m) << " -> " << r << "\n");
+        TRACE("elim_unconstrained", tout << mk_pp(t, m) << " / " << rr << " -> " << r << "\n");
         SASSERT(r->get_sort() == t->get_sort());
         m_stats.m_num_eliminated++;
         m_trail.push_back(r);
@@ -119,7 +126,8 @@ void elim_unconstrained::eliminate() {
         get_node(e).m_term = r;
         get_node(e).m_proof = pr;
         get_node(e).m_refcount++;
-        IF_VERBOSE(11, verbose_stream() << mk_bounded_pp(e, m) << "\n");
+        get_node(e).m_dirty = false;
+        IF_VERBOSE(11, verbose_stream() << "set " << &get_node(e) << " " << root(e) << " " << mk_bounded_pp(e, m) << " := " << mk_bounded_pp(r, m) << "\n");
         SASSERT(!m_heap.contains(root(e)));
         if (is_uninterp_const(r))
             m_heap.insert(root(e));
@@ -263,12 +271,18 @@ void elim_unconstrained::gc(expr* t) {
     while (!todo.empty()) {
         t = todo.back();
         todo.pop_back();
+        
         node& n = get_node(t);  
         if (n.m_refcount == 0)
             continue;
+        if (n.m_term && !is_node(n.m_term))
+            continue;
+
         dec_ref(t);
         if (n.m_refcount != 0)
             continue;
+        if (n.m_term)
+            t = n.m_term;
         if (is_app(t)) {
             for (expr* arg : *to_app(t))
                 todo.push_back(arg);
@@ -283,13 +297,22 @@ expr_ref elim_unconstrained::reconstruct_term(node& n0) {
     expr* t = n0.m_term;
     if (!n0.m_dirty)
         return expr_ref(t, m);
+    if (!is_node(t))
+        return expr_ref(t, m);
     ptr_vector<expr> todo;
     todo.push_back(t);
     while (!todo.empty()) {
         t = todo.back();
+        if (!is_node(t)) {
+            UNREACHABLE();
+        }
         node& n = get_node(t);
         unsigned sz0 = todo.size();
-        if (is_app(t)) {            
+        if (is_app(t)) {     
+            if (n.m_term != t) {
+                todo.pop_back();
+                continue;
+            }
             for (expr* arg : *to_app(t)) 
                 if (get_node(arg).m_dirty || !get_node(arg).m_term)
                     todo.push_back(arg);
@@ -300,7 +323,6 @@ expr_ref elim_unconstrained::reconstruct_term(node& n0) {
             for (expr* arg : *to_app(t)) 
                 m_args.push_back(get_node(arg).m_term);            
             n.m_term = m.mk_app(to_app(t)->get_decl(), to_app(t)->get_num_args(), m_args.data() + sz);
-
             m_args.shrink(sz);
         }
         else if (is_quantifier(t)) {
@@ -418,6 +440,6 @@ void elim_unconstrained::reduce() {
         vector<dependent_expr> old_fmls;
         assert_normalized(old_fmls);
         update_model_trail(*mc, old_fmls);
+        mc->reset();
     }
-
 }

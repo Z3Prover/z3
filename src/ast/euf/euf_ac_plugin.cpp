@@ -59,9 +59,9 @@ TODOs:
   - The shared terms hash table is not incremental. 
     It could be made incremental by updating it on every merge similar to how the egraph handles it.
 - V2 using multiplicities instead of repeated values in monomials.
-- Squash trail updates when equations or monomials are modified within the same epoque. 
-  - by an epoque counter that can be updated by the egraph class whenever there is a push/pop.
-  - store the epoque as a tick on equations and possibly when updating monomials on equations.
+- Squash trail updates when equations or monomials are modified within the same epoch.
+  - by an epoch counter that can be updated by the egraph class whenever there is a push/pop.
+  - store the epoch as a tick on equations and possibly when updating monomials on equations.
 
 --*/
 
@@ -80,7 +80,7 @@ namespace euf {
     }
 
     ac_plugin::ac_plugin(egraph& g, func_decl* f) :
-        plugin(g), m_fid(f->get_family_id()), m_decl(f), 
+        plugin(g), m_fid(f->get_family_id()), m_decl(f),
         m_dep_manager(get_region()),
         m_hash(*this), m_eq(*this), m_monomial_table(m_hash, m_eq)
     {

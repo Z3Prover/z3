@@ -63,6 +63,7 @@ class arith_rewriter : public poly_rewriter<arith_rewriter_core> {
     bool m_eq2ineq;
     unsigned m_max_degree;
 
+    bool get_range(expr* e, rational& lo, rational& hi);
     void get_coeffs_gcd(expr * t, numeral & g, bool & first, unsigned & num_consts);
     enum const_treatment { CT_FLOOR, CT_CEIL, CT_FALSE };
     bool div_polynomial(expr * t, numeral const & g, const_treatment ct, expr_ref & result);

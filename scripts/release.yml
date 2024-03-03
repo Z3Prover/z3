@@ -6,7 +6,7 @@
 trigger: none
 
 variables:
-  ReleaseVersion: '4.12.5'
+  ReleaseVersion: '4.12.6'
 
 stages:
 
@@ -208,6 +208,12 @@ stages:
     parameters:
       ReleaseVersion: $(ReleaseVersion)
       BuildArchitecture: 'x86'
+
+  - template: build-win-signed-cmake.yml
+    parameters:
+      ReleaseVersion: $(ReleaseVersion)
+      BuildArchitecture: 'arm64'
+      VCArchitecture: 'amd64_arm64'
 
 
 # Creates Z3 packages in various formats
@@ -526,14 +532,19 @@ stages:
         artifact: 'WindowsBuild-x86'
         path: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
-      displayName: "Download Python"
-      inputs:
-        artifactName: 'PythonPackage'
-        path: $(Agent.TempDirectory)
-    - task: DownloadPipelineArtifact@2
       displayName: 'Download Win64 Build'
       inputs:
         artifact: 'WindowsBuild-x64'
+        path: $(Agent.TempDirectory)
+    - task: DownloadPipelineArtifact@2
+      displayName: 'Download Arm64 Build'
+      inputs:
+        artifact: 'WindowsBuild-arm64'
+        path: $(Agent.TempDirectory)	
+    - task: DownloadPipelineArtifact@2
+      displayName: "Download Python"
+      inputs:
+        artifactName: 'PythonPackage'
         path: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
       displayName: 'Download NuGet64 Package'

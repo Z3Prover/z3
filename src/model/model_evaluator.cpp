@@ -20,6 +20,7 @@ Revision History:
 #include "ast/ast_util.h"
 #include "ast/for_each_expr.h"
 #include "ast/recfun_decl_plugin.h"
+#include "ast/polymorphism_util.h"
 #include "ast/rewriter/rewriter_types.h"
 #include "ast/rewriter/bool_rewriter.h"
 #include "ast/rewriter/arith_rewriter.h"
@@ -171,18 +172,20 @@ struct evaluator_cfg : public default_rewriter_cfg {
 
         struct has_redex {};
         struct has_redex_finder {
-            array_util& au;
-            has_redex_finder(array_util& au): au(au) {}
+            evaluator_cfg& ev;
+            has_redex_finder(evaluator_cfg& ev): ev(ev) {}
             void operator()(var* v) {}
             void operator()(quantifier* q) {}
             void operator()(app* a) {
-                if (au.is_as_array(a->get_decl()))
+                if (ev.m_ar.is_as_array(a->get_decl()))
                     throw has_redex();
-                if (au.get_manager().is_eq(a))
+                if (ev.m_ar.get_manager().is_eq(a))
+                    throw has_redex();
+                if (ev.m_fpau.is_fp(a))
                     throw has_redex();
             }
         };
-        has_redex_finder ha(m_ar);
+        has_redex_finder ha(*this);
         try {
             for_each_expr(ha, e);
         }
@@ -371,7 +374,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
     bool get_macro(func_decl * f, expr * & def, quantifier * & , proof * &) {
         func_interp * fi = m_model.get_func_interp(f);
         def = nullptr;
-        if (fi != nullptr) {
+        if (fi) {
             if (fi->is_partial()) {
                 if (m_model_completion) {
                     sort * s   = f->get_range();
@@ -383,6 +386,24 @@ struct evaluator_cfg : public default_rewriter_cfg {
             }
             def = fi->get_interp();
             SASSERT(def != nullptr);
+        }
+        else if (f->is_polymorphic() && (fi = m_model.get_func_interp(m.poly_root(f)))) {
+            if (fi->is_partial()) {
+                if (m_model_completion) {
+                    sort * s   = f->get_range();
+                    expr * val = m_model.get_some_value(s);
+                    fi->set_else(val);
+                }
+                else
+                    return false;
+            }
+            def = fi->get_interp();
+            polymorphism::substitution subst(m);
+            polymorphism::util util(m);
+            util.unify(f, m.poly_root(f), subst);
+            def = subst(def);
+            SASSERT(def != nullptr);
+            
         }
         else if (m_model_completion &&
             (f->get_family_id() == null_family_id ||

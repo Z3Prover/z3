@@ -31,9 +31,10 @@ lia_move int_branch::operator()() {
 
 lia_move int_branch::create_branch_on_column(int j) {
     TRACE("check_main_int", tout << "branching" << std::endl;);
-    lp_assert(lia.m_t.is_empty());
+    lia.m_t.clear();
+
     lp_assert(j != -1);
-    lia.m_t.add_monomial(mpq(1), lra.column_to_reported_index(j));
+    lia.m_t.add_monomial(mpq(1), j);
     if (lia.is_free(j)) {
         lia.m_upper = lia.random() % 2;
         lia.m_k = mpq(0);

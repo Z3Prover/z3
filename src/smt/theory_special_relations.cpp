@@ -893,11 +893,17 @@ namespace smt {
 
         func_decl* memf, *nextf, *connectedf;
 
-        std::string member, next, connected_sym;
-        unsigned index = r.decl()->get_parameter(0).get_int();
-        member = "member" + std::to_string(index);
-        next = "next" + std::to_string(index);
-        connected_sym = "connected" + std::to_string(index);
+        std::string member, next, connected_sym, id;
+        auto const& pa = r.decl()->get_parameter(0);
+        if (pa.is_int())
+            id = std::to_string(pa.get_int());
+        else if (pa.is_ast() && is_func_decl(pa.get_ast()))
+            id = to_func_decl(pa.get_ast())->get_name().str();
+        else
+            throw default_exception("expected an integer or function declaration");        
+        member = "member" + id;
+        next = "next" + id;
+        connected_sym = "connected" + id;
         {
             sort* dom[2] = { s, listS };
             recfun::promise_def mem = p.ensure_def(symbol(member), 2, dom, m.mk_bool_sort(), true);

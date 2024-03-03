@@ -536,7 +536,7 @@ bool emonics::invariant() const {
             do {
                 auto const& m = m_monics[c->m_index];
                 bool found = false;
-                for (lp::var_index w : m.rvars()) {
+                for (lp::lpvar w : m.rvars()) {
                     auto w1 = m_ve.find(w);
                     found |= v1.var() == w1.var();
                 }

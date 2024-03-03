@@ -135,7 +135,6 @@ public:
     
     rational value(const lp::lar_term& r) const;
     
-    lp::lar_term subs_terms_to_columns(const lp::lar_term& t) const;
     bool ineq_holds(const ineq& n) const;
     bool lemma_holds(const lemma& l) const;
     bool is_monic_var(lpvar j) const { return m_emons.is_monic_var(j); }
@@ -284,10 +283,10 @@ public:
     }
     const rational& get_upper_bound(unsigned j) const;
     const rational& get_lower_bound(unsigned j) const;    
-    bool has_lower_bound(lp::var_index var, u_dependency*& ci, lp::mpq& value, bool& is_strict) const { 
+    bool has_lower_bound(lp::lpvar var, u_dependency*& ci, lp::mpq& value, bool& is_strict) const { 
         return lra.has_lower_bound(var, ci, value, is_strict); 
     }
-    bool has_upper_bound(lp::var_index var, u_dependency*& ci, lp::mpq& value, bool& is_strict) const {
+    bool has_upper_bound(lp::lpvar var, u_dependency*& ci, lp::mpq& value, bool& is_strict) const {
         return lra.has_upper_bound(var, ci, value, is_strict);
     }
 
@@ -424,18 +423,10 @@ public:
     vector<nla::ineq> const& literals() const { return m_literals; }
     vector<lp::equality> const& equalities() const { return m_equalities; }
     vector<lp::fixed_equality> const& fixed_equalities() const { return m_fixed_equalities; }
-    bool check_feasible() const { return m_check_feasible; }
+    bool should_check_feasible() const { return m_check_feasible; }
 
     void add_fixed_equality(lp::lpvar v, rational const& k, lp::explanation const& e) { m_fixed_equalities.push_back({v, k, e}); }
     void add_equality(lp::lpvar i, lp::lpvar j, lp::explanation const& e) { m_equalities.push_back({i, j, e}); }
-private:
-    void restore_patched_values();
-    void constrain_nl_in_tableau();
-    bool solve_tableau();
-    void restore_tableau();
-    void save_tableau();
-    bool integrality_holds();
-
 
 };  // end of core
 

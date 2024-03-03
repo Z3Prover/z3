@@ -615,6 +615,8 @@ MK_PARAMETRIC_UNARY_REDUCE(reduce_sign_extend, mk_sign_extend);
         if (m_blast_quant) {   
             if (m_bindings.empty())
                 return false;
+            if (!butil().is_bv(t))
+                return false;
             unsigned shift = m_shifts.back();
             if (t->get_idx() >= m_bindings.size()) {
                 if (shift == 0)

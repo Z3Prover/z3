@@ -77,6 +77,8 @@ namespace user_solver {
         stats                           m_stats;
         sat::bool_var                   m_next_split_var = sat::null_bool_var;
         lbool                           m_next_split_phase = l_undef;
+        vector<expr_ref_vector> m_clauses_to_replay;
+        unsigned                m_replay_qhead = 0;
 
         struct justification {
             unsigned m_propagation_index { 0 };
@@ -104,6 +106,9 @@ namespace user_solver {
         bool post_visit(expr* e, bool sign, bool root) override;
 
         sat::bool_var enode_to_bool(euf::enode* n, unsigned idx);
+
+        void replay_clause(expr_ref_vector const& clause);
+        void persist_clause(sat::literal lit, sat::justification const& j);
 
     public:
         solver(euf::solver& ctx);

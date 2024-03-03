@@ -338,12 +338,12 @@ namespace api {
                 std::ostringstream buffer;
                 app * a = to_app(n);
                 buffer << mk_pp(a->get_decl(), m()) << " applied to: ";
-                if (a->get_num_args() > 1) buffer << "\n";
+                if (a->get_num_args() > 1) buffer << '\n';
                 for (unsigned i = 0; i < a->get_num_args(); ++i) {
                     buffer << mk_bounded_pp(a->get_arg(i), m(), 3) << " of sort ";
-                    buffer << mk_pp(a->get_arg(i)->get_sort(), m()) << "\n";
+                    buffer << mk_pp(a->get_arg(i)->get_sort(), m()) << '\n';
                 }
-                auto str = buffer.str();
+                auto str = std::move(buffer).str();
                 warning_msg("%s", str.c_str());
                 break;
             }

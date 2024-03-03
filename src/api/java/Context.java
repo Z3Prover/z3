@@ -4319,119 +4319,9 @@ public class Context implements AutoCloseable {
                 checkContextMatch(a);
     }
 
-    private ASTDecRefQueue m_AST_DRQ = new ASTDecRefQueue();
-    private ASTMapDecRefQueue m_ASTMap_DRQ = new ASTMapDecRefQueue();
-    private ASTVectorDecRefQueue m_ASTVector_DRQ = new ASTVectorDecRefQueue();
-    private ApplyResultDecRefQueue m_ApplyResult_DRQ = new ApplyResultDecRefQueue();
-    private FuncInterpEntryDecRefQueue m_FuncEntry_DRQ = new FuncInterpEntryDecRefQueue();
-    private FuncInterpDecRefQueue m_FuncInterp_DRQ = new FuncInterpDecRefQueue();
-    private GoalDecRefQueue m_Goal_DRQ = new GoalDecRefQueue();
-    private ModelDecRefQueue m_Model_DRQ = new ModelDecRefQueue();
-    private ParamsDecRefQueue m_Params_DRQ = new ParamsDecRefQueue();
-    private ParamDescrsDecRefQueue m_ParamDescrs_DRQ = new ParamDescrsDecRefQueue();
-    private ProbeDecRefQueue m_Probe_DRQ = new ProbeDecRefQueue();
-    private SolverDecRefQueue m_Solver_DRQ = new SolverDecRefQueue();
-    private StatisticsDecRefQueue m_Statistics_DRQ = new StatisticsDecRefQueue();
-    private TacticDecRefQueue m_Tactic_DRQ = new TacticDecRefQueue();
-    private SimplifierDecRefQueue m_Simplifier_DRQ = new SimplifierDecRefQueue();
-    private FixedpointDecRefQueue m_Fixedpoint_DRQ = new FixedpointDecRefQueue();
-    private OptimizeDecRefQueue m_Optimize_DRQ = new OptimizeDecRefQueue();
-    private ConstructorDecRefQueue m_Constructor_DRQ = new ConstructorDecRefQueue();
-    private ConstructorListDecRefQueue m_ConstructorList_DRQ =
-            new ConstructorListDecRefQueue();
+    private Z3ReferenceQueue m_RefQueue = new Z3ReferenceQueue(this);
 
-    public IDecRefQueue<Constructor<?>> getConstructorDRQ() {
-        return m_Constructor_DRQ;
-    }
-
-    public IDecRefQueue<ConstructorList<?>> getConstructorListDRQ() {
-        return m_ConstructorList_DRQ;
-    }
-
-    public IDecRefQueue<AST> getASTDRQ()
-    {
-        return m_AST_DRQ;
-    }
-
-    public IDecRefQueue<ASTMap> getASTMapDRQ()
-    {
-        return m_ASTMap_DRQ;
-    }
-
-    public IDecRefQueue<ASTVector> getASTVectorDRQ()
-    {
-        return m_ASTVector_DRQ;
-    }
-
-    public IDecRefQueue<ApplyResult> getApplyResultDRQ()
-    {
-        return m_ApplyResult_DRQ;
-    }
-
-    public IDecRefQueue<FuncInterp.Entry<?>> getFuncEntryDRQ()
-    {
-        return m_FuncEntry_DRQ;
-    }
-
-    public IDecRefQueue<FuncInterp<?>> getFuncInterpDRQ()
-    {
-        return m_FuncInterp_DRQ;
-    }
-
-    public IDecRefQueue<Goal> getGoalDRQ()
-    {
-        return m_Goal_DRQ;
-    }
-
-    public IDecRefQueue<Model> getModelDRQ()
-    {
-        return m_Model_DRQ;
-    }
-
-    public IDecRefQueue<Params> getParamsDRQ()
-    {
-        return m_Params_DRQ;
-    }
-
-    public IDecRefQueue<ParamDescrs> getParamDescrsDRQ()
-    {
-        return m_ParamDescrs_DRQ;
-    }
-
-    public IDecRefQueue<Probe> getProbeDRQ()
-    {
-        return m_Probe_DRQ;
-    }
-
-    public IDecRefQueue<Solver> getSolverDRQ()
-    {
-        return m_Solver_DRQ;
-    }
-
-    public IDecRefQueue<Statistics> getStatisticsDRQ()
-    {
-        return m_Statistics_DRQ;
-    }
-
-    public IDecRefQueue<Tactic> getTacticDRQ()
-    {
-        return m_Tactic_DRQ;
-    }
-
-    public IDecRefQueue<Simplifier> getSimplifierDRQ()
-    {
-        return m_Simplifier_DRQ;
-    }
-
-    public IDecRefQueue<Fixedpoint> getFixedpointDRQ()
-    {
-        return m_Fixedpoint_DRQ;
-    }
-
-    public IDecRefQueue<Optimize> getOptimizeDRQ()
-    {
-        return m_Optimize_DRQ;
-    }
+    Z3ReferenceQueue getReferenceQueue() { return m_RefQueue; }
 
     /**
      * Disposes of the context.
@@ -4439,27 +4329,16 @@ public class Context implements AutoCloseable {
     @Override
     public void close()
     {
-        m_AST_DRQ.forceClear(this);
-        m_ASTMap_DRQ.forceClear(this);
-        m_ASTVector_DRQ.forceClear(this);
-        m_ApplyResult_DRQ.forceClear(this);
-        m_FuncEntry_DRQ.forceClear(this);
-        m_FuncInterp_DRQ.forceClear(this);
-        m_Goal_DRQ.forceClear(this);
-        m_Model_DRQ.forceClear(this);
-        m_Params_DRQ.forceClear(this);
-        m_Probe_DRQ.forceClear(this);
-        m_Solver_DRQ.forceClear(this);
-        m_Optimize_DRQ.forceClear(this);
-        m_Statistics_DRQ.forceClear(this);
-        m_Tactic_DRQ.forceClear(this);
-        m_Simplifier_DRQ.forceClear(this);
-        m_Fixedpoint_DRQ.forceClear(this);
+        if (m_ctx == 0)
+            return;
+
+        m_RefQueue.forceClear();
 
         m_boolSort = null;
         m_intSort = null;
         m_realSort = null;
         m_stringSort = null;
+        m_RefQueue = null;
 
         synchronized (creation_lock) {
             Native.delContext(m_ctx);

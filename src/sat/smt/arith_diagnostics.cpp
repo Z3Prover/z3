@@ -15,6 +15,8 @@ Author:
 
 --*/
 
+#include "util/cancel_eh.h"
+#include "util/scoped_timer.h"
 #include "ast/ast_util.h"
 #include "ast/scoped_proof.h"
 #include "sat/smt/euf_solver.h"
@@ -43,8 +45,7 @@ namespace arith {
         }
         unsigned nv = get_num_vars();
         for (unsigned v = 0; v < nv; ++v) {
-            auto t = get_tv(v);
-            auto vi = lp().external_to_column_index(v);
+            auto vi = lp().external_to_local(v);
             out << "v" << v << " ";
             if (is_bool(v)) {
                 euf::enode* n = var2enode(v);
@@ -55,10 +56,10 @@ namespace arith {
                 }
             }
             else {
-                if (t.is_null()) 
+                if (vi == lp::null_lpvar) 
                     out << "null"; 
                 else 
-                    out << (t.is_term() ? "t" : "j") << vi;
+                    out << (lp().column_has_term(vi) ? "t" : "j") << vi;
                 if (m_nla && m_nla->use_nra_model() && is_registered_var(v)) {
                     scoped_anum an(m_nla->am());
                     m_nla->am().display(out << " = ", nl_value(v, an));
@@ -241,5 +242,22 @@ namespace arith {
         }
 
         return m.mk_app(symbol(name), args.size(), args.data(), m.mk_proof_sort());
+    }
+
+    bool solver::validate_conflict() {
+        scoped_ptr<::solver> vs = mk_smt2_solver(m, ctx.s().params(), symbol::null);
+        for (auto lit : m_core)
+            vs->assert_expr(ctx.literal2expr(lit));
+
+        for (auto [a, b] : m_eqs)
+            vs->assert_expr(m.mk_eq(a->get_expr(), b->get_expr()));
+
+        cancel_eh<reslimit> eh(m.limit());
+        scoped_timer timer(1000, &eh);
+        bool result = l_true != vs->check_sat();
+        CTRACE("arith", !result, vs->display(tout));
+        CTRACE("arith", !result, s().display(tout));
+        SASSERT(result);
+        return result;
     }
 }

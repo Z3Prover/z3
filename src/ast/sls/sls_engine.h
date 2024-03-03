@@ -21,10 +21,9 @@ Notes:
 #include "util/stopwatch.h"
 #include "util/lbool.h"
 #include "ast/converters/model_converter.h"
-#include "tactic/goal.h"
 
-#include "tactic/sls/sls_tracker.h"
-#include "tactic/sls/sls_evaluator.h"
+#include "ast/sls/sls_tracker.h"
+#include "ast/sls/sls_evaluator.h"
 #include "util/statistics.h"
 
 class sls_engine {
@@ -62,7 +61,6 @@ protected:
     unsynch_mpz_manager m_mpz_manager;
     powers          m_powers;
     mpz             m_zero, m_one, m_two;
-    bool            m_produce_models;
     bv_util         m_bv_util;
     sls_tracker     m_tracker;
     sls_evaluator   m_evaluator;
@@ -96,7 +94,7 @@ public:
 
     void assert_expr(expr * e) { m_assertions.push_back(e); }
 
-    // stats const & get_stats(void) { return m_stats; }
+    stats const & get_stats(void) { return m_stats; }
     void collect_statistics(statistics & st) const;
     void reset_statistics() { m_stats.reset(); }
 
@@ -111,10 +109,14 @@ public:
     lbool search();
 
     lbool operator()();
-    void operator()(goal_ref const & g, model_converter_ref & mc);
+
+    mpz & get_value(expr * n) { return m_tracker.get_value(n); }
+
+    model_ref get_model() { return m_tracker.get_model(); }
+
+    unsynch_mpz_manager& get_mpz_manager() { return m_mpz_manager; }
 
 protected:
-    void checkpoint();
 
     bool what_if(func_decl * fd, const unsigned & fd_inx, const mpz & temp,
                  double & best_score, unsigned & best_const, mpz & best_value);
@@ -135,5 +137,7 @@ protected:
 
     //double get_restart_armin(unsigned cnt_restarts);    
     unsigned check_restart(unsigned curr_value);
+
+
 };
 

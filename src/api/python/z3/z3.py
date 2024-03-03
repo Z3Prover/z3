@@ -8984,7 +8984,7 @@ def substitute_funs(t, *m):
             m = m1
     if z3_debug():
         _z3_assert(is_expr(t), "Z3 expression expected")
-        _z3_assert(all([isinstance(p, tuple) and is_func_decl(p[0]) and is_expr(p[1]) for p in m]), "Z3 invalid substitution, funcion pairs expected.")
+        _z3_assert(all([isinstance(p, tuple) and is_func_decl(p[0]) and is_expr(p[1]) for p in m]), "Z3 invalid substitution, function pairs expected.")
     num = len(m)
     _from = (FuncDecl * num)()
     _to = (Ast * num)()
@@ -9069,7 +9069,7 @@ def AtMost(*args):
 
 
 def AtLeast(*args):
-    """Create an at-most Pseudo-Boolean k constraint.
+    """Create an at-least Pseudo-Boolean k constraint.
 
     >>> a, b, c = Bools('a b c')
     >>> f = AtLeast(a, b, c, 2)
@@ -10969,10 +10969,10 @@ def CharVal(ch, ctx=None):
         raise Z3Exception("character value should be an ordinal")
     return _to_expr_ref(Z3_mk_char(ctx.ref(), ch), ctx)
     
-def CharFromBv(ch, ctx=None):
-    if not is_expr(ch):
-        raise Z3Expression("Bit-vector expression needed")
-    return _to_expr_ref(Z3_mk_char_from_bv(ch.ctx_ref(), ch.as_ast()), ch.ctx)
+def CharFromBv(bv):
+    if not is_expr(bv):
+        raise Z3Exception("Bit-vector expression needed")
+    return _to_expr_ref(Z3_mk_char_from_bv(bv.ctx_ref(), bv.as_ast()), bv.ctx)
 
 def CharToBv(ch, ctx=None):
     ch = _coerce_char(ch, ctx)
@@ -11570,47 +11570,54 @@ def user_prop_fresh(ctx, _new_ctx):
 
 def user_prop_fixed(ctx, cb, id, value):
     prop = _prop_closures.get(ctx)
-    prop.cb = cb
+    old_cb = prop.cb
+    prop.cb = cb    
     id = _to_expr_ref(to_Ast(id), prop.ctx())
     value = _to_expr_ref(to_Ast(value), prop.ctx())
     prop.fixed(id, value)
-    prop.cb = None
+    prop.cb = old_cb
 
 def user_prop_created(ctx, cb, id):
     prop = _prop_closures.get(ctx)
+    old_cb = prop.cb
     prop.cb = cb
     id = _to_expr_ref(to_Ast(id), prop.ctx())
     prop.created(id)
-    prop.cb = None
+    prop.cb = old_cb
+    
     
 def user_prop_final(ctx, cb):
     prop = _prop_closures.get(ctx)
+    old_cb = prop.cb
     prop.cb = cb
     prop.final()
-    prop.cb = None
+    prop.cb = old_cb
 
 def user_prop_eq(ctx, cb, x, y):
     prop = _prop_closures.get(ctx)
+    old_cb = prop.cb
     prop.cb = cb
     x = _to_expr_ref(to_Ast(x), prop.ctx())
     y = _to_expr_ref(to_Ast(y), prop.ctx())
     prop.eq(x, y)
-    prop.cb = None
+    prop.cb = old_cb
 
 def user_prop_diseq(ctx, cb, x, y):
     prop = _prop_closures.get(ctx)
+    old_cb = prop.cb
     prop.cb = cb
     x = _to_expr_ref(to_Ast(x), prop.ctx())
     y = _to_expr_ref(to_Ast(y), prop.ctx())
     prop.diseq(x, y)
-    prop.cb = None
+    prop.cb = old_cb
 
 def user_prop_decide(ctx, cb, t, idx, phase):
     prop = _prop_closures.get(ctx)
+    old_cb = prop.cb
     prop.cb = cb
     t = _to_expr_ref(to_Ast(t_ref), prop.ctx())
     prop.decide(t, idx, phase)
-    prop.cb = None
+    prop.cb = old_cb
     
 
 _user_prop_push = Z3_push_eh(user_prop_push)
@@ -11651,7 +11658,7 @@ class UserPropagateBase:
 
     #
     # Either solver is set or ctx is set.
-    # Propagators that are created throuh callbacks
+    # Propagators that are created through callbacks
     # to "fresh" inherit the context of that is supplied
     # as argument to the callback.
     # This context should not be deleted. It is owned by the solver.

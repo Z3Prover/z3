@@ -454,9 +454,8 @@ func_decl * bv_decl_plugin::mk_num_decl(unsigned num_parameters, parameter const
     // This cannot be enforced now, since some Z3 modules try to generate these invalid numerals.
     // After SMT-COMP, I should find all offending modules.
     // For now, I will just simplify the numeral here.
-    rational v = parameters[0].get_rational();
-    parameter p0(mod2k(v, bv_size));
-    parameter ps[2] = { std::move(p0), parameters[1] };
+    const rational &v = parameters[0].get_rational();
+    parameter ps[2] = { parameter(mod2k(v, bv_size)), parameter(parameters[1]) };
     sort * bv = get_bv_sort(bv_size);
     return m_manager->mk_const_decl(m_bv_sym, bv, func_decl_info(m_family_id, OP_BV_NUM, num_parameters, ps));
 }
@@ -913,13 +912,9 @@ app * bv_util::mk_numeral(rational const & val, unsigned bv_size) const {
 
     if (m_plugin->log_constant_meaning_prelude(r)) {
         if (bv_size % 4 == 0) {
-            m_manager.trace_stream() << "#x";
-            val.display_hex(m_manager.trace_stream(), bv_size);
-            m_manager.trace_stream() << "\n";
+            m_manager.trace_stream() << "#x" << val.as_hex(bv_size) << "\n";
         } else {
-            m_manager.trace_stream() << "#b";
-            val.display_bin(m_manager.trace_stream(), bv_size);
-            m_manager.trace_stream() << "\n";
+            m_manager.trace_stream() << "#b" << val.as_bin(bv_size) << "\n";
         }
     }
 

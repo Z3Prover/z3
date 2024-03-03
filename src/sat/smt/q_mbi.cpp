@@ -71,7 +71,7 @@ namespace q {
         for (auto const& [qlit, fml, inst, generation] : m_instantiations) {
             euf::solver::scoped_generation sg(ctx, generation + 1);
             sat::literal lit = ~ctx.mk_literal(fml);
-            auto* ph = ctx.use_drat()? q_proof_hint::mk(ctx, generation, ~qlit, lit, inst.size(), inst.data()) : nullptr;
+            auto* ph = ctx.use_drat()? q_proof_hint::mk(ctx, m_mbqi, generation, ~qlit, lit, inst.size(), inst.data()) : nullptr;
             m_qs.add_clause(~qlit, lit, ph);
             m_qs.log_instantiation(~qlit, lit);
         }

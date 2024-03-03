@@ -146,8 +146,7 @@ extern "C" {
         ast_manager& m = mk_c(c)->m();
         recfun::decl::plugin& p = mk_c(c)->recfun().get_plugin();
         if (!p.has_def(d)) {
-            std::string msg = "function " + mk_pp(d, m) + " needs to be declared using rec_func_decl";
-            SET_ERROR_CODE(Z3_INVALID_ARG, msg.c_str());
+            SET_ERROR_CODE(Z3_INVALID_ARG, "function " + mk_pp(d, m) + " needs to be declared using rec_func_decl");
             return;
         }
         expr_ref abs_body(m);
@@ -168,8 +167,7 @@ extern "C" {
             return;
         }
         if (!pd.get_def()->get_cases().empty()) {
-            std::string msg = "function " + mk_pp(d, m) + " has already been given a definition";
-            SET_ERROR_CODE(Z3_INVALID_ARG, msg.c_str());
+            SET_ERROR_CODE(Z3_INVALID_ARG, "function " + mk_pp(d, m) + " has already been given a definition");
             return;            
         }
                 
@@ -377,9 +375,7 @@ extern "C" {
         RESET_ERROR_CODE();
         symbol _s = to_symbol(s);
         if (_s.is_numerical()) {
-            std::ostringstream buffer;
-            buffer << _s.get_num();
-            return mk_c(c)->mk_external_string(buffer.str());
+            return mk_c(c)->mk_external_string(std::to_string(_s.get_num()));
         }
         else {
             return mk_c(c)->mk_external_string(_s.str());
@@ -823,7 +819,7 @@ extern "C" {
         param_descrs descrs;
         th_rewriter::get_param_descrs(descrs);
         descrs.display(buffer);
-        return mk_c(c)->mk_external_string(buffer.str());
+        return mk_c(c)->mk_external_string(std::move(buffer).str());
         Z3_CATCH_RETURN("");
     }
 
@@ -1031,7 +1027,7 @@ extern "C" {
         default:
             UNREACHABLE();
         }
-        return mk_c(c)->mk_external_string(buffer.str());
+        return mk_c(c)->mk_external_string(std::move(buffer).str());
         Z3_CATCH_RETURN(nullptr);
     }
 
@@ -1066,7 +1062,7 @@ extern "C" {
             pp.add_assumption(to_expr(assumptions[i]));
         }
         pp.display_smt2(buffer, to_expr(formula));
-        return mk_c(c)->mk_external_string(buffer.str());
+        return mk_c(c)->mk_external_string(std::move(buffer).str());
         Z3_CATCH_RETURN("");
     }
 

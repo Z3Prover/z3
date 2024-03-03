@@ -89,15 +89,15 @@ jobs:
 
     - name: Get date
       id: date
-      run: echo "::set-output name=date::$(date +'%Y-%m-%d')"
+      run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: coverage-${{steps.date.outputs.date}}
         path: ${{github.workspace}}/coverage.html
         retention-days: 4
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: coverage-details-${{steps.date.outputs.date}}
         path: ${{env.COV_DETAILS_PATH}}

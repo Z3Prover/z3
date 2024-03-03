@@ -273,7 +273,7 @@ namespace sat {
     std::string cut::table2string(unsigned num_input, uint64_t table) {
         std::ostringstream strm;
         display_table(strm, num_input, table);
-        return strm.str();
+        return std::move(strm).str();
     }
 
 

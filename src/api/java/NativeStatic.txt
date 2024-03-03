@@ -150,7 +150,7 @@ static void final_eh(void* _p, Z3_solver_callback cb) {
 static void decide_eh(void* _p, Z3_solver_callback cb, Z3_ast _val, unsigned bit, bool is_pos) {
   JavaInfo *info = static_cast<JavaInfo*>(_p);
   ScopedCB scoped(info, cb);
-  info->jenv->CallVoidMethod(info->jobj, info->decide, (jlong)_val);
+  info->jenv->CallVoidMethod(info->jobj, info->decide, (jlong)_val, bit, is_pos);
 }
 
 DLL_VIS JNIEXPORT jlong JNICALL Java_com_microsoft_z3_Native_propagateInit(JNIEnv *jenv, jclass cls, jobject jobj, jlong ctx, jlong solver) {
@@ -166,7 +166,7 @@ DLL_VIS JNIEXPORT jlong JNICALL Java_com_microsoft_z3_Native_propagateInit(JNIEn
   info->fixed = jenv->GetMethodID(jcls, "fixedWrapper", "(JJ)V");
   info->eq = jenv->GetMethodID(jcls, "eqWrapper", "(JJ)V");
   info->final = jenv->GetMethodID(jcls, "finWrapper", "()V");
-  info->decide = jenv->GetMethodID(jcls, "decideWrapper", "(JII)V");
+  info->decide = jenv->GetMethodID(jcls, "decideWrapper", "(JIZ)V");
 
   if (!info->push || !info->pop || !info->fresh || !info->created || !info->fixed || !info->eq || !info->final || !info->decide) {
     assert(false);
@@ -203,15 +203,16 @@ DLL_VIS JNIEXPORT void JNICALL Java_com_microsoft_z3_Native_propagateRegisterDec
   Z3_solver_propagate_decide((Z3_context)ctx, (Z3_solver)solver, decide_eh);
 }
 
-DLL_VIS JNIEXPORT void JNICALL Java_com_microsoft_z3_Native_propagateConflict(JNIEnv * jenv, jclass cls, jobject jobj, jlong ctx, jlong solver, jlong javainfo, long num_fixed, jlongArray fixed, long num_eqs, jlongArray eq_lhs, jlongArray eq_rhs, jlong conseq) {
+DLL_VIS JNIEXPORT jboolean JNICALL Java_com_microsoft_z3_Native_propagateConsequence(JNIEnv * jenv, jclass cls, jobject jobj, jlong ctx, jlong solver, jlong javainfo, long num_fixed, jlongArray fixed, long num_eqs, jlongArray eq_lhs, jlongArray eq_rhs, jlong conseq) {
   JavaInfo *info = (JavaInfo*)javainfo;
   GETLONGAELEMS(Z3_ast, fixed, _fixed);
   GETLONGAELEMS(Z3_ast, eq_lhs, _eq_lhs);
   GETLONGAELEMS(Z3_ast, eq_rhs, _eq_rhs);
-  Z3_solver_propagate_consequence((Z3_context)ctx, info->cb, num_fixed, _fixed, num_eqs, _eq_lhs, _eq_rhs, (Z3_ast)conseq);
+  bool retval = Z3_solver_propagate_consequence((Z3_context)ctx, info->cb, num_fixed, _fixed, num_eqs, _eq_lhs, _eq_rhs, (Z3_ast)conseq);
   RELEASELONGAELEMS(fixed, _fixed);
   RELEASELONGAELEMS(eq_lhs, _eq_lhs);
   RELEASELONGAELEMS(eq_rhs, _eq_rhs);
+  return (jboolean) retval;
 }
 
 DLL_VIS JNIEXPORT void JNICALL Java_com_microsoft_z3_Native_propagateAdd(JNIEnv * jenv, jclass cls, jobject jobj, jlong ctx, jlong solver, jlong javainfo, jlong e) {
@@ -227,8 +228,8 @@ DLL_VIS JNIEXPORT void JNICALL Java_com_microsoft_z3_Native_propagateAdd(JNIEnv 
 }
 
 
-DLL_VIS JNIEXPORT bool JNICALL Java_com_microsoft_z3_Native_propagateNextSplit(JNIEnv * jenv, jclass cls, jobject jobj, jlong ctx, jlong solver, jlong javainfo, jlong e, long idx, int phase) {
+DLL_VIS JNIEXPORT jboolean JNICALL Java_com_microsoft_z3_Native_propagateNextSplit(JNIEnv * jenv, jclass cls, jobject jobj, jlong ctx, jlong solver, jlong javainfo, jlong e, long idx, int phase) {
   JavaInfo *info = (JavaInfo*)javainfo;
   Z3_solver_callback cb = info->cb;
-  return Z3_solver_next_split((Z3_context)ctx, cb, (Z3_ast)e, idx, Z3_lbool(phase));
+  return (jboolean) Z3_solver_next_split((Z3_context)ctx, cb, (Z3_ast)e, idx, Z3_lbool(phase));
 }

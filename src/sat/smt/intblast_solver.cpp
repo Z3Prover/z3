@@ -182,20 +182,21 @@ namespace intblast {
             translate_expr(e);
     }
 
-    lbool solver::check_axiom(sat::literal_vector const& lits) {
+    lbool solver::check_axiom(char const* name, sat::literal_vector const& lits) {
         sat::literal_vector core;
         for (auto lit : lits)
             core.push_back(~lit);
-        return check_core(core, {});
+        return check_core(name, core, {});
     }
-    lbool solver::check_propagation(sat::literal lit, sat::literal_vector const& lits, euf::enode_pair_vector const& eqs) {
+
+    lbool solver::check_propagation(char const* name, sat::literal lit, sat::literal_vector const& lits, euf::enode_pair_vector const& eqs) {
         sat::literal_vector core;
         core.append(lits);
         core.push_back(~lit);
-        return check_core(core, eqs);
+        return check_core(name, core, eqs);
     }
 
-    lbool solver::check_core(sat::literal_vector const& lits, euf::enode_pair_vector const& eqs) {
+    lbool solver::check_core(char const* name, sat::literal_vector const& lits, euf::enode_pair_vector const& eqs) {
         m_core.reset();
         m_vars.reset();
         m_is_plugin = false;
@@ -233,8 +234,42 @@ namespace intblast {
                 es[i] = tmp;
             }
 
+#if 0
+            namespace fs = std::filesystem;
+            static unsigned num_check = 0;
+            fs::path filename = std::string("validation/int-") + std::to_string(++num_check) + ".smt2";
+            fs::create_directories(filename.parent_path());
+            IF_VERBOSE(1, verbose_stream() << "validation check written to file " << filename << "\n");
+            std::ofstream file(filename);
+            std::string name_esc;
+            if (name) {
+                name_esc = name;
+                for (char& c : name_esc)
+                    if (c == '|')
+                        c = '!';
+            }
+            else
+                name_esc = "<none>";
+
+            file << "(set-logic ALL)\n";
+            file << "(set-info :source |\n";
+            file << "    Name: " << name_esc << "\n";
+            file << original_es << "\n|)\n";
+
+            m_solver->push();
+            m_solver->assert_expr(es);
+            m_solver->display(file) << "(check-sat)\n";
+            m_solver->pop(1);
+
+            file.close();
+
+            // if (num_check == 68)
+            //     std::abort();
+
+            r = l_false;
+#else
             IF_VERBOSE(2, verbose_stream() << "check\n" << original_es << "\n");
-            
+
             IF_VERBOSE(2,
                 {
                     m_solver->push();
@@ -243,8 +278,8 @@ namespace intblast {
                     m_solver->pop(1);
                 });
 
-            
             r = m_solver->check_sat(es);
+#endif
         }
 
         m_solver->collect_statistics(m_stats);
@@ -266,7 +301,6 @@ namespace intblast {
         return r;
     }
 
-    
 
     lbool solver::check_solver_state() {
         sat::literal_vector literals;

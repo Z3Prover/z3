@@ -40,7 +40,7 @@ namespace polymorphism {
         unsigned n = s->get_num_parameters();
         vector<parameter> ps;
         for (unsigned i = 0; i < n; ++i) {
-            auto p = s->get_parameter(i);
+            auto &p = s->get_parameter(i);
             if (p.is_ast() && is_sort(p.get_ast())) {
                 sort_ref s = (*this)(to_sort(p.get_ast()));
                 ps.push_back(parameter(s.get()));
@@ -167,8 +167,8 @@ namespace polymorphism {
         if (s1->get_num_parameters() != s2->get_num_parameters())
             return false;
         for (unsigned i = s1->get_num_parameters(); i-- > 0;) {
-            auto p1 = s1->get_parameter(i);
-            auto p2 = s2->get_parameter(i);
+            auto &p1 = s1->get_parameter(i);
+            auto &p2 = s2->get_parameter(i);
             if (p1.is_ast() && is_sort(p1.get_ast())) {
                 if (!p2.is_ast())
                     return false;
@@ -204,8 +204,8 @@ namespace polymorphism {
         if (s1->get_num_parameters() != s2->get_num_parameters())
             return false;
         for (unsigned i = s1->get_num_parameters(); i-- > 0;) {
-            auto p1 = s1->get_parameter(i);
-            auto p2 = s2->get_parameter(i);
+            auto &p1 = s1->get_parameter(i);
+            auto &p2 = s2->get_parameter(i);
             if (p1.is_ast() && is_sort(p1.get_ast())) {
                 if (!p2.is_ast())
                     return false;
@@ -282,7 +282,7 @@ namespace polymorphism {
         }
         vector<parameter> params;
         for (unsigned i = 0; i < s->get_num_parameters(); ++i) {
-            parameter p = s->get_parameter(i);
+            const parameter &p = s->get_parameter(i);
             if (p.is_ast() && is_sort(p.get_ast())) {
                 sort_ref fs = fresh(to_sort(p.get_ast()));
                 params.push_back(parameter(fs.get()));

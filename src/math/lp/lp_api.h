@@ -31,7 +31,7 @@ namespace lp_api {
     class bound {
         Literal          m_bv;
         theory_var       m_var;
-        lp::lpvar        m_vi;
+        lp::lpvar        m_column_index;
         bool             m_is_int;
         rational         m_value;
         bound_kind       m_bound_kind;
@@ -41,7 +41,7 @@ namespace lp_api {
         bound(Literal bv, theory_var v, lp::lpvar vi, bool is_int, rational const& val, bound_kind k, lp::constraint_index ct, lp::constraint_index cf) :
             m_bv(bv),
             m_var(v),
-            m_vi(vi),
+            m_column_index(vi),
             m_is_int(is_int),
             m_value(val),
             m_bound_kind(k) {
@@ -53,7 +53,7 @@ namespace lp_api {
 
         theory_var get_var() const { return m_var; }
 
-        lp::tv tv() const { return lp::tv::raw(m_vi); }
+        lp::lpvar column_index() const { return m_column_index; }
 
         Literal get_lit() const { return m_bv; }        
 

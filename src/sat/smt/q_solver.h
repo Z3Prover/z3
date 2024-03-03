@@ -30,21 +30,23 @@ namespace euf {
 namespace q {
 
     struct q_proof_hint : public euf::th_proof_hint {
+        symbol        m_method;
         unsigned      m_generation;
         unsigned      m_num_bindings;
         unsigned      m_num_literals;
         sat::literal* m_literals;
         expr*         m_bindings[0];
         
-        q_proof_hint(unsigned g, unsigned b, unsigned l) {
+        q_proof_hint(symbol const& method, unsigned g, unsigned b, unsigned l) {
+            m_method = method;
             m_generation = g;
             m_num_bindings = b;
             m_num_literals = l;
             m_literals = reinterpret_cast<sat::literal*>(m_bindings + m_num_bindings);
         }
         static size_t get_obj_size(unsigned num_bindings, unsigned num_lits) { return sizeof(q_proof_hint) + num_bindings*sizeof(expr*) + num_lits*sizeof(sat::literal); }
-        static q_proof_hint* mk(euf::solver& s, unsigned generation, sat::literal_vector const& lits, unsigned n, euf::enode* const* bindings);
-        static q_proof_hint* mk(euf::solver& s, unsigned generation, sat::literal l1, sat::literal l2, unsigned n, expr* const* bindings);
+        static q_proof_hint* mk(euf::solver& s, symbol const& method, unsigned generation, sat::literal_vector const& lits, unsigned n, euf::enode* const* bindings);
+        static q_proof_hint* mk(euf::solver& s, symbol const& method, unsigned generation, sat::literal l1, sat::literal l2, unsigned n, expr* const* bindings);
         expr* get_hint(euf::solver& s) const override;
     };
 

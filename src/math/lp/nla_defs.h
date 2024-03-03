@@ -17,7 +17,7 @@ namespace nla {
     typedef lp::constraint_index lpci;
     typedef lp::lconstraint_kind llc;
     typedef lp::explanation          expl_set;
-    typedef lp::var_index            lpvar;
+    typedef unsigned                  lpvar;
 
 struct from_index_dummy{};
 class signed_var {
@@ -54,12 +54,12 @@ inline std::ostream& operator<<(std::ostream& out, signed_var const& sv) { retur
  *  where m_vs = [v1, v2, .., vn]
  */
 class monic_coeff  {
-    svector<lp::var_index> m_vs;
+    svector<lp::lpvar> m_vs;
     rational m_coeff;
 public:
-    monic_coeff(const svector<lp::var_index>& vs, rational const& coeff): m_vs(vs), m_coeff(coeff) {}
+    monic_coeff(const svector<lp::lpvar>& vs, rational const& coeff): m_vs(vs), m_coeff(coeff) {}
     rational const& coeff() const { return m_coeff; }
-    const svector<lp::var_index> & vars() const { return m_vs; } 
+    const svector<lp::lpvar> & vars() const { return m_vs; } 
 };
 template <typename T> bool has_zero(const T& product) {
     for (const rational & t : product) {

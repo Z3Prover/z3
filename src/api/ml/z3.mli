@@ -3224,6 +3224,9 @@ sig
 
   (** The value of a particular statistical counter. *)
   val get : statistics -> string -> Entry.statistics_entry option
+
+  (** The estimated allocated memory in bytes. *)
+  val get_estimated_alloc_size : unit -> int64
 end
 
 (** Solvers *)

@@ -50,7 +50,7 @@
     )
 )
 
-; Transition funcion
+; Transition function
 (define-fun body ((f_0 Int) (f Int) (i_0 Int) (i_1 Int)(_A (Array Int Int)) (_x Int)) Bool
     (and
         (= f (ite (= _x (select _A i_0)) 1 f_0))

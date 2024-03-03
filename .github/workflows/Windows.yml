@@ -1,0 +1,64 @@
+name: Windows
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:               
+  build:
+    strategy:
+      matrix:
+        arch : [x86,x64,amd64_arm64]
+        include:
+         - arch : x86
+         - arch : amd64_arm64
+         - arch : x64
+           cmd1 : 'julia -e "using Pkg; Pkg.add(PackageSpec(name=\"libcxxwrap_julia_jll\"))"'
+           cmd2 : 'julia -e "using libcxxwrap_julia_jll; print(dirname(libcxxwrap_julia_jll.libcxxwrap_julia_path))" > tmp.env'
+           cmd3 : 'set /P JlCxxDir=<tmp.env'
+           test : 1
+           bindings: -DJlCxx_DIR=%JlCxxDir%\..\lib\cmake\JlCxx -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_DOTNET_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True 
+
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Add msbuild to PATH
+        uses: microsoft/setup-msbuild@v2
+      - run: |
+          md build
+          cd build
+          ${{ matrix.cmd1 }}
+          ${{ matrix.cmd2 }}
+          ${{ matrix.cmd3 }}
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" ${{ matrix.arch }}
+          cmake ${{ matrix.bindings }} -G "NMake Makefiles" ../
+          nmake    
+          cd ..
+        shell: cmd
+      - name: Run Regressions
+        if: ${{ matrix.test }}
+        run: |
+           git clone https://github.com/z3prover/z3test z3test
+           python z3test\scripts\test_benchmarks.py build\z3.exe z3test\regressions\smt2
+        shell: cmd      
+      - name: Run Tests
+        if: ${{ matrix.test }}
+        run: |
+           pushd build
+           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" ${{ matrix.arch }}
+           pushd build\python
+           python z3test.py z3
+           python z3test.py z3num
+           popd
+           pushd build
+           nmake cpp_example
+           examples\cpp_example_build_dir\cpp_example.exe
+           nmake c_example
+           examples\c_example_build_dir\c_example.exe
+           nmake test-z3
+           test-z3.exe -a
+           popd
+        shell: cmd
+  
+

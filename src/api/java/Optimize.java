@@ -20,6 +20,8 @@ package com.microsoft.z3;
 
 import com.microsoft.z3.enumerations.Z3_lbool;
 
+import java.lang.ref.ReferenceQueue;
+
 
 /**
  * Object for managing optimization context
@@ -421,6 +423,18 @@ public class Optimize extends Z3Object {
 
     @Override
     void addToReferenceQueue() {
-        getContext().getOptimizeDRQ().storeReference(getContext(), this);
+        getContext().getReferenceQueue().storeReference(this, OptimizeRef::new);
+    }
+
+    private static class OptimizeRef extends Z3ReferenceQueue.Reference<Optimize> {
+
+        private OptimizeRef(Optimize referent, ReferenceQueue<Z3Object> q) {
+            super(referent, q);
+        }
+
+        @Override
+        void decRef(Context ctx, long z3Obj) {
+            Native.optimizeDecRef(ctx.nCtx(), z3Obj);
+        }
     }
 }

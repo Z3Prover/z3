@@ -16,7 +16,7 @@ Author:
 #include "util/region.h"
 #include "util/stacked_value.h"
 #include "math/lp/lp_utils.h"
-#include "math/lp/ul_pair.h"
+#include "math/lp/column.h"
 #include "math/lp/lar_term.h"
 #include "math/lp/column_namer.h"
 namespace lp {
@@ -46,7 +46,7 @@ class lar_base_constraint {
 
    public:
 
-    virtual vector<std::pair<mpq, var_index>> coeffs() const = 0;
+    virtual vector<std::pair<mpq, lpvar>> coeffs() const = 0;
     lar_base_constraint(unsigned j, lconstraint_kind kind, u_dependency* dep, const mpq& right_side) :
         m_kind(kind), m_right_side(right_side), m_active(false), m_j(j), m_dep(dep) {}
     virtual ~lar_base_constraint() = default;
@@ -69,8 +69,8 @@ public:
     lar_var_constraint(unsigned j, lconstraint_kind kind, u_dependency* dep, const mpq& right_side) : 
         lar_base_constraint(j, kind, dep, right_side) {}
 
-    vector<std::pair<mpq, var_index>> coeffs() const override {
-        vector<std::pair<mpq, var_index>> ret;
+    vector<std::pair<mpq, lpvar>> coeffs() const override {
+        vector<std::pair<mpq, lpvar>> ret;
         ret.push_back(std::make_pair(one_of_type<mpq>(), column()));
         return ret;
     }
@@ -84,7 +84,7 @@ public:
     lar_term_constraint(unsigned j, const lar_term* t, lconstraint_kind kind, u_dependency* dep, const mpq& right_side) : 
         lar_base_constraint(j, kind, dep, right_side), m_term(t) {}
 
-    vector<std::pair<mpq, var_index>> coeffs() const override { return m_term->coeffs_as_vector(); }
+    vector<std::pair<mpq, lpvar>> coeffs() const override { return m_term->coeffs_as_vector(); }
     unsigned size() const override { return m_term->size();}
 };
 
@@ -168,7 +168,7 @@ public:
         m_region.pop_scope(k);
     }
 
-    constraint_index add_var_constraint(var_index j, lconstraint_kind k, mpq const& rhs) {
+    constraint_index add_var_constraint(lpvar j, lconstraint_kind k, mpq const& rhs) {
         return add(new (m_region) lar_var_constraint(j, k, mk_dep(), rhs));
     }
 

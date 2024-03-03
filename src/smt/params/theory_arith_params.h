@@ -82,6 +82,7 @@ struct theory_arith_params {
     bool                    m_arith_adaptive_gcd = false;
     unsigned                m_arith_propagation_threshold = UINT_MAX;
 
+    bool                    m_arith_validate = false;
     arith_pivot_strategy    m_arith_pivot_strategy = arith_pivot_strategy::ARITH_PIVOT_SMALLEST;
 
     // used in diff-logic

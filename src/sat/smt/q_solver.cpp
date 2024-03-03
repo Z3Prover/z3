@@ -120,7 +120,6 @@ namespace q {
     }
 
     sat::literal solver::instantiate(quantifier* _q, bool negate, std::function<expr* (quantifier*, unsigned)>& mk_var) {
-        sat::literal sk;
         expr_ref tmp(m);
         quantifier_ref q(_q, m);
         expr_ref_vector vars(m);
@@ -364,10 +363,10 @@ namespace q {
         }
     }
 
-    q_proof_hint* q_proof_hint::mk(euf::solver& s, unsigned generation, sat::literal_vector const& lits, unsigned n, euf::enode* const* bindings) {
+    q_proof_hint* q_proof_hint::mk(euf::solver& s, symbol const& method, unsigned generation, sat::literal_vector const& lits, unsigned n, euf::enode* const* bindings) {
         SASSERT(n > 0);
         auto* mem = s.get_region().allocate(q_proof_hint::get_obj_size(n, lits.size()));
-        q_proof_hint* ph = new (mem) q_proof_hint(generation, n, lits.size());
+        q_proof_hint* ph = new (mem) q_proof_hint(method, generation, n, lits.size());
         for (unsigned i = 0; i < n; ++i)
             ph->m_bindings[i] = bindings[i]->get_expr();
         for (unsigned i = 0; i < lits.size(); ++i)
@@ -375,10 +374,10 @@ namespace q {
         return ph;
     }
 
-    q_proof_hint* q_proof_hint::mk(euf::solver& s, unsigned generation, sat::literal l1, sat::literal l2, unsigned n, expr* const* bindings) {
+    q_proof_hint* q_proof_hint::mk(euf::solver& s, symbol const& method, unsigned generation, sat::literal l1, sat::literal l2, unsigned n, expr* const* bindings) {
         SASSERT(n > 0);
         auto* mem = s.get_region().allocate(q_proof_hint::get_obj_size(n, 2));
-        q_proof_hint* ph = new (mem) q_proof_hint(generation, n, 2);
+        q_proof_hint* ph = new (mem) q_proof_hint(method, generation, n, 2);
         for (unsigned i = 0; i < n; ++i)
             ph->m_bindings[i] = bindings[i];
         ph->m_literals[0] = l1;
@@ -402,6 +401,7 @@ namespace q {
             args.push_back(s.literal2expr(~m_literals[i]));
         args.push_back(binding);        
         args.push_back(m.mk_app(symbol("gen"), 1, gens, range));
+        args.push_back(m.mk_const(m_method, range));
         return m.mk_app(symbol("inst"), args.size(), args.data(), range);
     }
 

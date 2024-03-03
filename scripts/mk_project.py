@@ -8,7 +8,7 @@
 from mk_util import *
 
 def init_version():
-    set_version(4, 12, 5, 0) # express a default build version or pick up ci build version
+    set_version(4, 12, 6, 0) # express a default build version or pick up ci build version
     
 # Z3 Project definition
 def init_project_def():
@@ -40,6 +40,7 @@ def init_project_def():
     add_lib('model',  ['macros'])
     add_lib('converters', ['model'], 'ast/converters')
     add_lib('simplifiers', ['euf', 'normal_forms', 'bit_blaster', 'converters', 'substitution'], 'ast/simplifiers')
+    add_lib('ast_sls', ['ast','normal_forms','converters'], 'ast/sls')
     add_lib('tactic', ['simplifiers'])
     add_lib('mbp', ['model', 'simplex'], 'qe/mbp')
     add_lib('qe_lite', ['tactic', 'mbp'], 'qe/lite')
@@ -65,7 +66,7 @@ def init_project_def():
     add_lib('bv_tactics', ['tactic', 'bit_blaster', 'core_tactics'], 'tactic/bv')
     add_lib('fuzzing', ['ast'], 'test/fuzzing')
     add_lib('smt_tactic', ['smt'], 'smt/tactic')
-    add_lib('sls_tactic', ['tactic', 'normal_forms', 'core_tactics', 'bv_tactics'], 'tactic/sls')
+    add_lib('sls_tactic', ['tactic', 'normal_forms', 'core_tactics', 'bv_tactics', 'ast_sls'], 'tactic/sls')
     add_lib('qe', ['smt', 'mbp', 'qe_lite', 'nlsat', 'tactic', 'nlsat_tactic'], 'qe')
     add_lib('sat_solver', ['solver', 'core_tactics', 'aig_tactic', 'bv_tactics', 'arith_tactics', 'sat_tactic'], 'sat/sat_solver')
     add_lib('fd_solver', ['core_tactics', 'arith_tactics', 'sat_solver', 'smt'], 'tactic/fd_solver') 

@@ -25,11 +25,11 @@ namespace smt {
 
     class fingerprint {
     protected:
-        void*         m_data{ nullptr };
-        unsigned      m_data_hash{ 0 };
-        expr*         m_def{ nullptr };
-        unsigned      m_num_args{ 0 };
-        enode**       m_args{ nullptr };
+        void*         m_data = nullptr;
+        unsigned      m_data_hash = 0;
+        expr*         m_def = nullptr;
+        unsigned      m_num_args = 0;
+        enode**       m_args = nullptr;
 
         friend class fingerprint_set;
         fingerprint() {}

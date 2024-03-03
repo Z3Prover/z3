@@ -1235,7 +1235,7 @@ static rational symmod(rational const& a, rational const& b) {
     if (2*r > b) r -= b;
     return r;
 }
-    
+
 br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & result) {
     set_curr_sort(arg1->get_sort());
     numeral v1, v2;
@@ -1297,9 +1297,9 @@ br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & resul
     }
 
     expr* x, *y;
-    if (is_num2 && v2.is_pos() && m_util.is_mul(arg1, x, y) && m_util.is_numeral(x, v1, is_int) && divides(v1, v2)) {
-        result = m_util.mk_mul(x, m_util.mk_mod(y, m_util.mk_int(v2/v1)));        
-        return BR_REWRITE2;
+    if (is_num2 && v2.is_pos() && m_util.is_mul(arg1, x, y) && m_util.is_numeral(x, v1, is_int) && v1 > 0 && divides(v1, v2)) {
+        result = m_util.mk_mul(m_util.mk_int(v1), m_util.mk_mod(y, m_util.mk_int(v2/v1)));        
+        return BR_REWRITE1;
     }
 
     if (is_num2 && v2 == 2 && m_util.is_mul(arg1, x, y)) {
@@ -1309,6 +1309,27 @@ br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & resul
 
     return BR_FAILED;
 }
+
+bool arith_rewriter::get_range(expr* e, rational& lo, rational& hi) {
+    expr* x, *y;
+    rational r;
+    if (m_util.is_idiv(e, x, y) && m_util.is_numeral(y, r) && get_range(x, lo, hi) && 0 <= lo && r > 0) {
+        lo = div(lo, r);
+        hi = div(hi, r);
+        return true;
+    }
+    if (m_util.is_mod(e, x, y) && m_util.is_numeral(y, r) && r > 0) {
+        lo = 0;
+        hi = r - 1;
+        return true;
+    }
+    if (m_util.is_numeral(e, r)) {
+        lo = hi = r;
+        return true;
+    }
+    return false;
+}
+
 
 br_status arith_rewriter::mk_rem_core(expr * arg1, expr * arg2, expr_ref & result) {
     set_curr_sort(arg1->get_sort());
@@ -1454,7 +1475,7 @@ br_status arith_rewriter::mk_lshr_core(unsigned sz, expr* arg1, expr* arg2, expr
     }
     if (is_num_x && is_num_y) {
         if (y >= sz)
-            result = m_util.mk_int(N-1);
+            result = m_util.mk_int(0);
         else {
             rational d = div(x, rational::power_of_two(y.get_unsigned()));
             result = m_util.mk_int(d);

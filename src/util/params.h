@@ -32,12 +32,12 @@ class param_descrs;
 class params_ref {
     static params_ref g_empty_params_ref;
     
-    params * m_params;
+    params * m_params = nullptr;
     void init();
     void copy_core(params const * p);
     void set(params_ref const& p);
 public:
-    params_ref():m_params(nullptr) {}
+    params_ref() = default;
     params_ref(params_ref const & p);
     ~params_ref();
     

@@ -1366,10 +1366,10 @@ class JavaGenericExample
         System.out.println("EnumExample");
         Log.append("EnumExample");
 
-        Symbol name = ctx.mkSymbol("fruit");
+        Symbol name = ctx.mkSymbol("fruit2");
 
-        EnumSort<Object> fruit = ctx.mkEnumSort(name, ctx.mkSymbol("apple"),
-                ctx.mkSymbol("banana"), ctx.mkSymbol("orange"));
+        EnumSort<Object> fruit = ctx.mkEnumSort(name, ctx.mkSymbol("apple2"),
+                ctx.mkSymbol("banana2"), ctx.mkSymbol("orange2"));
 
         System.out.println((fruit.getConsts()[0]));
         System.out.println((fruit.getConsts()[1]));

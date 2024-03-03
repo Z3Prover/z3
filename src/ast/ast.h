@@ -142,7 +142,7 @@ public:
     explicit parameter(const char *s): m_val(symbol(s)) {}
     explicit parameter(const std::string &s): m_val(symbol(s)) {}
     explicit parameter(unsigned ext_id, bool): m_val(ext_id) {}
-    parameter(parameter const& other) { *this = other; }
+    explicit parameter(parameter const& other);
 
     parameter(parameter && other) noexcept : m_val(std::move(other.m_val)) {
         other.m_val = 0;
@@ -150,7 +150,10 @@ public:
 
     ~parameter();
 
-    parameter& operator=(parameter const& other);
+    parameter& operator=(parameter && other) {
+        std::swap(other.m_val, m_val);
+        return *this;
+    }
 
     kind_t get_kind() const { return static_cast<kind_t>(m_val.index()); }
     bool is_int() const { return get_kind() == PARAM_INT; }
@@ -704,6 +707,7 @@ struct app_flags {
     unsigned     m_ground:1;   // application does not have free variables or nested quantifiers.
     unsigned     m_has_quantifiers:1; // application has nested quantifiers.
     unsigned     m_has_labels:1; // application has nested labels.
+    app_flags() : m_depth(1), m_ground(1), m_has_quantifiers(0), m_has_labels(0) {}
 };
 
 class app : public expr {
@@ -711,18 +715,14 @@ class app : public expr {
 
     func_decl *  m_decl;
     unsigned     m_num_args;
+    app_flags    m_flags;
     expr *       m_args[0];
 
-    static app_flags g_constant_flags;
-
-    // remark: store term depth in the end of the app. the depth is only stored if the num_args > 0
     static unsigned get_obj_size(unsigned num_args) {
-        return num_args == 0 ? sizeof(app) : sizeof(app) + num_args * sizeof(expr *) + sizeof(app_flags);
+        return sizeof(app) + num_args * sizeof(expr *);
     }
 
     friend class tmp_app;
-
-    app_flags * flags() const { return m_num_args == 0 ? &g_constant_flags : reinterpret_cast<app_flags*>(const_cast<expr**>(m_args + m_num_args)); }
 
     app(func_decl * decl, unsigned num_args, expr * const * args);
 public:
@@ -744,10 +744,10 @@ public:
     expr * const * end() const { return m_args + m_num_args; }
     sort * _get_sort() const { return get_decl()->get_range(); }
 
-    unsigned get_depth() const { return flags()->m_depth; }
-    bool is_ground() const { return flags()->m_ground; }
-    bool has_quantifiers() const { return flags()->m_has_quantifiers; }
-    bool has_labels() const { return flags()->m_has_labels; }
+    unsigned get_depth() const { return m_flags.m_depth; }
+    bool is_ground() const { return m_flags.m_ground; }
+    bool has_quantifiers() const { return m_flags.m_has_quantifiers; }
+    bool has_labels() const { return m_flags.m_has_labels; }
 };
 
 // -----------------------------------
@@ -1102,7 +1102,7 @@ public:
 
     // Event handlers for deleting/translating PARAM_EXTERNAL
     virtual void del(parameter const & p) {}
-    virtual parameter translate(parameter const & p, decl_plugin & target) { UNREACHABLE(); return p; }
+    virtual parameter translate(parameter const & p, decl_plugin & target) { UNREACHABLE(); return {}; }
 
     virtual bool is_considered_uninterpreted(func_decl * f) { return false; }
 };

@@ -51,6 +51,7 @@ void smt_params::updt_local_params(params_ref const & _p) {
     m_core_validate = p.core_validate();
     m_logic = _p.get_sym("logic", m_logic);
     m_string_solver = p.string_solver();
+    m_up_persist_clauses = p.up_persist_clauses();
     validate_string_solver(m_string_solver);
     if (_p.get_bool("arith.greatest_error_pivot", false))
         m_arith_pivot_strategy = arith_pivot_strategy::ARITH_PIVOT_GREATEST_ERROR;
@@ -145,6 +146,7 @@ void smt_params::display(std::ostream & out) const {
     DISPLAY_PARAM(m_agility_factor);
     DISPLAY_PARAM(m_restart_agility_threshold);
 
+    DISPLAY_PARAM(m_up_persist_clauses);
     DISPLAY_PARAM(m_lemma_gc_strategy);
     DISPLAY_PARAM(m_lemma_gc_half);
     DISPLAY_PARAM(m_recent_lemmas_size);
