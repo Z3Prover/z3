@@ -194,8 +194,8 @@ stages:
         artifactName: 'ManyLinuxBuild'
         targetPath: $(Build.ArtifactStagingDirectory)
   
-  - job: LinuxBuildsArm64
-    displayName: "ManyLinux ARM64 build"
+  - job: LinuxBuildsAarch64
+    displayName: "ManyLinux AARCH64 build"
     variables:
       name: ManyLinux
       python: "/opt/python/cp37-cp37m/bin/python"
@@ -208,7 +208,7 @@ stages:
       inputs:
         scriptSource: 'filepath'
         scriptPath: scripts/mk_unix_dist.py
-        arguments: --nodotnet --nojava --arch=arm64
+        arguments: --nodotnet --nojava --arch=aarch64
         pythonInterpreter: $(python)
     - script: git clone https://github.com/z3prover/z3test z3test
       displayName: 'Clone z3test'
@@ -226,7 +226,7 @@ stages:
         targetFolder: $(Build.ArtifactStagingDirectory)
     - task: PublishPipelineArtifact@0
       inputs:
-        artifactName: 'ManyLinuxBuildArm64'
+        artifactName: 'ManyLinuxBuildAarch64'
         targetPath: $(Build.ArtifactStagingDirectory)
 
   - template: build-win-signed.yml
@@ -496,7 +496,7 @@ stages:
         targetPath: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
       inputs:
-        artifactName: 'ManyLinuxBuildArm64'
+        artifactName: 'ManyLinuxBuildAarch64'
         targetPath: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
       inputs:
@@ -509,7 +509,7 @@ stages:
     - script: cd $(Agent.TempDirectory); mkdir osx-x64-bin; cd osx-x64-bin; unzip ../*x64-osx*.zip
     - script: cd $(Agent.TempDirectory); mkdir osx-arm64-bin; cd osx-arm64-bin; unzip ../*arm64-osx*.zip
     - script: cd $(Agent.TempDirectory); mkdir libc-x64-bin; cd libc-x64-bin; unzip ../*x64-glibc*.zip
-    - script: cd $(Agent.TempDirectory); mkdir libc-arm64-bin; cd libc-arm64-bin; unzip ../*arm64-glibc*.zip
+    - script: cd $(Agent.TempDirectory); mkdir libc-aarch64-bin; cd libc-aarch64-bin; unzip ../*aarch64-glibc*.zip
 #    - script: cd $(Agent.TempDirectory); mkdir musl-bin; cd musl-bin; unzip ../*-linux.zip
     - script: cd $(Agent.TempDirectory); mkdir win32-bin; cd win32-bin; unzip ../*x86-win*.zip
     - script: cd $(Agent.TempDirectory); mkdir win64-bin; cd win64-bin; unzip ../*x64-win*.zip
@@ -517,7 +517,7 @@ stages:
     - script: cd src/api/python; python3 setup.py sdist
     # take a look at this PREMIUM HACK I came up with to get around the fact that the azure variable syntax overloads the bash syntax for subshells
     - script: cd src/api/python; echo $(Agent.TempDirectory)/libc-x64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
-    - script: cd src/api/python; echo $(Agent.TempDirectory)/libc-arm64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
+    - script: cd src/api/python; echo $(Agent.TempDirectory)/libc-aarch64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
 #   - script: cd src/api/python; echo $(Agent.TempDirectory)/musl-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
     - script: cd src/api/python; echo $(Agent.TempDirectory)/win32-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
     - script: cd src/api/python; echo $(Agent.TempDirectory)/win64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel

@@ -297,8 +297,8 @@ if 'bdist_wheel' in sys.argv and '--plat-name' not in sys.argv:
         elif distos == 'glibc':
             if arch == 'x64':
                 plat_name = 'manylinux2014_x86_64'
-            elif arch == 'arm64':
-                plat_name = 'manylinux2014_arm64'                
+            elif arch == 'aarch64':
+                plat_name = 'manylinux2014_aarch64'
             else:
                 plat_name = 'manylinux2014_i686'
         elif distos == 'linux' and os_id == 'alpine':
