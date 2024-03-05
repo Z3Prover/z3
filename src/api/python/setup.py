@@ -298,7 +298,14 @@ if 'bdist_wheel' in sys.argv and '--plat-name' not in sys.argv:
             if arch == 'x64':
                 plat_name = 'manylinux2014_x86_64'
             elif arch == 'arm64':
-                plat_name = 'manylinux2014_arm64'                
+                # context on why are we match on arm64
+                # but use aarch64 on the plat_name is
+                # due to a workaround current python
+                # legacy build doesn't support aarch64
+                # so using the currently supported arm64
+                # build and simply rename it to aarch64
+                # see full context on #7148
+                plat_name = 'manylinux2014_aarch64'                
             else:
                 plat_name = 'manylinux2014_i686'
         elif distos == 'linux' and os_id == 'alpine':
