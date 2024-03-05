@@ -307,18 +307,21 @@ namespace bv {
     void sls_valuation::round_down(bvect& dst, std::function<bool(bvect const&)> const& is_feasible) {      
         for (unsigned i = bw; !is_feasible(dst) && i-- > 0; )
             if (!fixed.get(i) && dst.get(i))
-                dst.set(i, false);        
+                dst.set(i, false);      
+        repair_sign_bits(dst);
     }
 
     void sls_valuation::round_up(bvect& dst, std::function<bool(bvect const&)> const& is_feasible) {
         for (unsigned i = 0; !is_feasible(dst) && i < bw; ++i)
             if (!fixed.get(i) && !dst.get(i))
                 dst.set(i, true);
+        repair_sign_bits(dst);
     }
 
     void sls_valuation::set_random_above(bvect& dst, random_gen& r) {
         for (unsigned i = 0; i < nw; ++i)
             dst[i] = dst[i] | (random_bits(r) & ~fixed[i]);
+        repair_sign_bits(dst);
     }
 
     void sls_valuation::set_random_below(bvect& dst, random_gen& r) {
@@ -335,12 +338,14 @@ namespace bv {
         for (unsigned i = 0; i < idx; ++i) 
             if (!fixed.get(i))
                 dst.set(i, r() % 2 == 0);
+        repair_sign_bits(dst);
     }
 
     bool sls_valuation::set_repair(bool try_down, bvect& dst) {
         for (unsigned i = 0; i < nw; ++i)
             dst[i] = (~fixed[i] & dst[i]) | (fixed[i] & m_bits[i]);
 
+        repair_sign_bits(dst);
         if (in_range(dst)) {
             set(eval, dst);
             return true;
@@ -363,6 +368,7 @@ namespace bv {
                 if (!fixed.get(i) && dst.get(i))
                     dst.set(i, false);
         }
+        repair_sign_bits(dst);
         if (in_range(dst)) {
             set(eval, dst);
             repaired = true;
@@ -378,6 +384,7 @@ namespace bv {
             for (unsigned i = 0; i < nw; ++i)
                 out[i] = fixed[i] & m_bits[i];
         }
+        repair_sign_bits(out);
         SASSERT(!has_overflow(out));
     }
 
@@ -390,6 +397,7 @@ namespace bv {
             for (unsigned i = 0; i < nw; ++i)
                 out[i] = ~fixed[i] | m_bits[i];
         }
+        repair_sign_bits(out);
         SASSERT(!has_overflow(out));
     }
 
@@ -421,7 +429,26 @@ namespace bv {
     void sls_valuation::get_variant(bvect& dst, random_gen& r) const {
         for (unsigned i = 0; i < nw; ++i)
             dst[i] = (random_bits(r) & ~fixed[i]) | (fixed[i] & m_bits[i]);
+        repair_sign_bits(dst);
         clear_overflow_bits(dst);
+    }
+
+    void sls_valuation::repair_sign_bits(bvect& dst) const {
+        if (m_signed_prefix == 0)
+            return;
+        bool sign = dst.get(bw - 1);
+        for (unsigned i = bw; i-- >= bw - m_signed_prefix; ) {
+            if (dst.get(i) != sign) {
+                if (fixed.get(i)) {
+                    for (unsigned i = bw; i-- >= bw - m_signed_prefix; )
+                        if (!fixed.get(i))
+                            dst.set(i, !sign);
+                    return;
+                }
+                else
+                    dst.set(i, sign);
+            }
+        }
     }
 
     //

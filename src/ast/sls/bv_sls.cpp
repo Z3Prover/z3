@@ -70,7 +70,7 @@ namespace bv {
     void sls::reinit_eval() {
         std::function<bool(expr*, unsigned)> eval = [&](expr* e, unsigned i) {
             auto should_keep = [&]() {
-                return m_rand() % 100 >= 98;
+                return m_rand() % 100 <= 92;
             };
             if (m.is_bool(e)) {
                 if (m_eval.is_fixed0(e) || should_keep())
@@ -127,11 +127,12 @@ namespace bv {
             if (!e)
                 return l_true;
 
-            ++m_stats.m_moves;
 
             trace_repair(down, e);
 
-            if (down)
+            ++m_stats.m_moves;
+
+            if (down) 
                 try_repair_down(e);
             else
                 try_repair_up(e);            

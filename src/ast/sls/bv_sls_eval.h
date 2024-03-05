@@ -59,8 +59,8 @@ namespace bv {
         * Register e as a bit-vector. 
         * Return true if not already registered, false if already registered.
         */
-        bool add_bit_vector(expr* e);
-        sls_valuation* alloc_valuation(unsigned bit_width);
+        bool add_bit_vector(app* e);
+        sls_valuation* alloc_valuation(app* e);
 
         bool bval1_basic(app* e) const;
         bool bval1_bv(app* e) const;  
@@ -143,7 +143,7 @@ namespace bv {
 
         sls_valuation& wval(expr* e) const;
 
-        bool is_fixed0(expr* e) const { return m_fixed[e->get_id()]; }
+        bool is_fixed0(expr* e) const { return m_fixed.get(e->get_id(), false); }
 
         /**
          * Retrieve evaluation based on immediate children.         

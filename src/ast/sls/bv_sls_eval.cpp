@@ -30,7 +30,7 @@ namespace bv {
                 continue;
             app* a = to_app(e);
             if (bv.is_bv(e)) 
-                add_bit_vector(e);
+                add_bit_vector(a);
             if (a->get_family_id() == basic_family_id)
                 init_eval_basic(a);
             else if (a->get_family_id() == bv.get_family_id())
@@ -40,7 +40,7 @@ namespace bv {
                     auto& v = wval(e);
                     for (unsigned i = 0; i < v.bw; ++i)
                         m_tmp.set(i, eval(e, i));
-                    v.set(m_tmp);
+                    v.set_repair(random_bool(), m_tmp);
                 }
                 else if (m.is_bool(e))
                     m_eval.setx(e->get_id(), eval(e, 0), false);
@@ -78,16 +78,21 @@ namespace bv {
         return m_todo;
     }
 
-    bool sls_eval::add_bit_vector(expr* e) {
-        auto bw = bv.get_bv_size(e);
+    bool sls_eval::add_bit_vector(app* e) {
         m_values.reserve(e->get_id() + 1);
         if (m_values.get(e->get_id()))
             return false;
-        m_values.set(e->get_id(), alloc_valuation(bw));
+        auto v = alloc_valuation(e);
+        m_values.set(e->get_id(), v);
+        if (bv.is_sign_ext(e)) {
+            unsigned p = e->get_parameter(0).get_int();
+            v->set_signed(p);
+        }
         return true;
     }
 
-    sls_valuation* sls_eval::alloc_valuation(unsigned bit_width) {
+    sls_valuation* sls_eval::alloc_valuation(app* e) {
+        auto bit_width = bv.get_bv_size(e);
         auto* r = alloc(sls_valuation, bit_width);
         while (m_tmp.size() < 2 * r->nw) {
             m_tmp.push_back(0);
@@ -905,8 +910,14 @@ namespace bv {
     }
 
     bool sls_eval::try_repair_eq(bool is_true, bvval& a, bvval const& b) {
-        if (is_true)
-            return a.try_set(b.bits());
+        if (is_true) {
+            if (m_rand() % 20 != 0) 
+                if (a.try_set(b.bits()))
+                    return true;
+            
+            a.get_variant(m_tmp, m_rand);
+            return a.set_repair(random_bool(), m_tmp);
+        }
         else {
             bool try_above = m_rand() % 2 == 0;
             if (try_above) {
@@ -1004,22 +1015,26 @@ namespace bv {
     // If this fails, set a to a random value
     // 
     bool sls_eval::try_repair_add(bvect const& e, bvval& a, bvval const& b) {
-        a.set_sub(m_tmp, e, b.bits());
-        if (a.try_set(m_tmp))
-            return true;
+        if (m_rand() % 20 != 0) {
+            a.set_sub(m_tmp, e, b.bits());
+            if (a.try_set(m_tmp))
+                return true;
+        }
         a.get_variant(m_tmp, m_rand);
         return a.set_repair(random_bool(), m_tmp);          
     }
 
     bool sls_eval::try_repair_sub(bvect const& e, bvval& a, bvval & b, unsigned i) {
-        if (i == 0) 
-            // e = a - b -> a := e + b
-            a.set_add(m_tmp, e, b.bits());        
-        else 
-            // b := a - e
-            b.set_sub(m_tmp, a.bits(), e);       
-        if (a.try_set(m_tmp))
-            return true;
+        if (m_rand() % 20 != 0) {
+            if (i == 0) 
+                // e = a - b -> a := e + b
+                a.set_add(m_tmp, e, b.bits());        
+            else 
+                // b := a - e
+                b.set_sub(m_tmp, a.bits(), e);       
+            if (a.try_set(m_tmp))
+                return true;
+        }
         // fall back to a random value
         a.get_variant(m_tmp, m_rand);
         return a.set_repair(random_bool(), m_tmp);
@@ -1044,6 +1059,11 @@ namespace bv {
             a.get_variant(m_tmp, m_rand);
             return a.set_repair(random_bool(), m_tmp);            
         }      
+
+        if (m_rand() % 20 == 0) {
+            a.get_variant(m_tmp, m_rand);
+            return a.set_repair(random_bool(), m_tmp);            
+        }
 
 #if 0
         verbose_stream() << "solve for " << e << "\n";
@@ -1125,7 +1145,11 @@ namespace bv {
         if (parity_e > 0 && parity_b > 0)
             b.shift_right(m_tmp2, std::min(parity_b, parity_e));
         a.set_mul(m_tmp, tb, m_tmp2);
-        return a.set_repair(random_bool(), m_tmp);      
+        if (a.set_repair(random_bool(), m_tmp))
+            return true;
+
+        a.get_variant(m_tmp, m_rand);
+        return a.set_repair(random_bool(), m_tmp);
     }
 
     bool sls_eval::try_repair_bnot(bvect const& e, bvval& a) {

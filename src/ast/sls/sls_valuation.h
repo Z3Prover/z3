@@ -96,10 +96,13 @@ namespace bv {
     protected:
         bvect m_bits;
         bvect m_lo, m_hi;        // range assignment to bit-vector, as wrap-around interval
+        unsigned m_signed_prefix = 0;
 
         unsigned mask;
         bool round_up(bvect& dst) const;
         bool round_down(bvect& dst) const;
+
+        void repair_sign_bits(bvect& dst) const;
 
 
     public:
@@ -111,6 +114,7 @@ namespace bv {
         sls_valuation(unsigned bw);
 
         void set_bw(unsigned bw);
+        void set_signed(unsigned prefix) { m_signed_prefix = prefix; }
 
         unsigned num_bytes() const { return (bw + 7) / 8; }
 
