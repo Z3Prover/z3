@@ -118,7 +118,9 @@ def check_build_dir(path):
 
 # Create a build directory using mk_make.py
 def mk_build_dir(path):
+    global LINUX_X64
     if not check_build_dir(path) or FORCE_MK:
+        env = os.environ
         opts = [sys.executable, os.path.join('scripts', 'mk_make.py'), "-b", path, "--staticlib"]
         if DOTNET_CORE_ENABLED:
             opts.append('--dotnet')
@@ -133,7 +135,17 @@ def mk_build_dir(path):
             opts.append('--python')
         if mk_util.IS_ARCH_ARM64:
             opts.append('--arm64=true')
-        if subprocess.call(opts) != 0:
+        if mk_util.IS_ARCH_ARM64 and LINUX_X64:
+            # we are machine x64 but build against arm64
+            # so we have to do cross compiling
+            # the cross compiler is download from ARM GNU
+            # toolchain
+            myvar = {
+                "CC":  "aarch64-none-linux-gnu-gcc",
+                "CXX": "aarch64-none-linux-gnu-g++"
+            }
+            env.update(myvar)
+        if subprocess.call(opts, env=env) != 0:
             raise MKException("Failed to generate build directory at '%s'" % path)
 
 # Create build directories
