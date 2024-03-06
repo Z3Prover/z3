@@ -297,7 +297,7 @@ if 'bdist_wheel' in sys.argv and '--plat-name' not in sys.argv:
         elif distos == 'glibc':
             if arch == 'x64':
                 plat_name = 'manylinux2014_x86_64'
-            elif arch == 'arm64':
+            elif arch == 'arm64' or arch == 'aarch64':
                 # context on why are we match on arm64
                 # but use aarch64 on the plat_name is
                 # due to a workaround current python
