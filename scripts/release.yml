@@ -492,6 +492,11 @@ stages:
         artifact: 'ManyLinuxBuild'
         path: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
+      displayName: 'Download ManyLinux Arm64 Build'
+      inputs:
+        artifact: 'ManyLinuxBuildArm64'
+        path: $(Agent.TempDirectory)
+    - task: DownloadPipelineArtifact@2
       displayName: 'Download Win32 Build'
       inputs:
         artifact: 'WindowsBuild-x86'
