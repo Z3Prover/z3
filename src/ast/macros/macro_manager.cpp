@@ -319,14 +319,21 @@ struct macro_manager::macro_expander_cfg : public default_rewriter_cfg {
             if (m.proofs_enabled()) {
                 expr_ref instance = s(q->get_expr(), num, subst_args.data());
                 expr* eq, * lhs, * rhs;
+
+                expr* q_inst = m.mk_or(m.mk_not(q), instance);
+                proof * qi_pr = m.mk_quant_inst(q_inst, num, subst_args.data());
                 if (m.is_not(instance, eq) && m.is_eq(eq, lhs, rhs)) {
+                    expr_ref instance2(m);
                     if (revert)
-                        instance = m.mk_eq(m.mk_not(lhs), rhs);
+                        instance2 = m.mk_eq(m.mk_not(lhs), rhs);
                     else
-                        instance = m.mk_eq(lhs, m.mk_not(rhs));
+                        instance2 = m.mk_eq(lhs, m.mk_not(rhs));
+                    expr* q_inst2 = m.mk_or(m.mk_not(q), instance2);
+                    proof* eq_pr = m.mk_rewrite(q_inst, q_inst2);
+                    qi_pr = m.mk_modus_ponens(qi_pr, eq_pr);
+                    instance = instance2;
                 }
                 SASSERT(m.is_eq(instance));
-                proof * qi_pr = m.mk_quant_inst(m.mk_or(m.mk_not(q), instance), num, subst_args.data());
                 proof * q_pr  = mm.m_decl2macro_pr.find(d);
                 proof * prs[2] = { qi_pr, q_pr };
                 p = m.mk_unit_resolution(2, prs);
