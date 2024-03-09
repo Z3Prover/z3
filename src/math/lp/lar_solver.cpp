@@ -1531,7 +1531,7 @@ namespace lp {
         SASSERT(all_vars_are_registered(coeffs));
         lar_term* t = new lar_term(coeffs);
         subst_known_terms(t);
-        SASSERT(t->is_empty() == false);
+        SASSERT (!t->is_empty());
         m_terms.push_back(t);
         lpvar ret = A_r().column_count();
         add_row_from_term_no_constraint(t, ext_i);
@@ -2266,12 +2266,22 @@ namespace lp {
         return false;
     }
 
+    bool lar_solver::are_equal(lpvar j, lpvar k) {
+        vector<std::pair<mpq, lpvar>> coeffs;        
+        coeffs.push_back(std::make_pair(mpq(1), j));
+        coeffs.push_back(std::make_pair(mpq(-1), k));
+        lar_term t(coeffs);
+        subst_known_terms(&t);
+        return t.is_empty();
+    }
+
     std::pair<constraint_index, constraint_index> lar_solver::add_equality(lpvar j, lpvar k) {
         vector<std::pair<mpq, lpvar>> coeffs;
         
         coeffs.push_back(std::make_pair(mpq(1), j));
         coeffs.push_back(std::make_pair(mpq(-1), k));
         unsigned ej = add_term(coeffs, UINT_MAX); // UINT_MAX is the external null var
+            
 
         if (get_column_value(j) != get_column_value(k))
             set_status(lp_status::UNKNOWN);

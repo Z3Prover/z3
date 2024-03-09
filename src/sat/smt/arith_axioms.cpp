@@ -331,15 +331,17 @@ namespace arith {
         expr_ref x(a.mk_mod(_x, a.mk_int(N)), m);
         expr_ref y(a.mk_mod(_y, a.mk_int(N)), m);
 
+        // 0 <= n < 2^sz
+
+        add_clause(mk_literal(a.mk_ge(n, a.mk_int(0))));
+        add_clause(mk_literal(a.mk_le(n, a.mk_int(N - 1))));
+
         if (a.is_band(n)) {
-            
-            // 0 <= x&y < 2^sz
+                       
             // x&y <= x
             // x&y <= y
             // TODO? x = y => x&y = x
 
-            add_clause(mk_literal(a.mk_ge(n, a.mk_int(0))));
-            add_clause(mk_literal(a.mk_le(n, a.mk_int(N - 1))));
             add_clause(mk_literal(a.mk_le(n, x)));
             add_clause(mk_literal(a.mk_le(n, y)));
         }
@@ -537,6 +539,8 @@ namespace arith {
         euf::enode* n2 = var2enode(v2);
         lpvar w1 = register_theory_var_in_lar_solver(v1);
         lpvar w2 = register_theory_var_in_lar_solver(v2);
+        if (lp().are_equal(w1, w2))
+            return;
         auto cs = lp().add_equality(w1, w2);            
         add_eq_constraint(cs.first, n1, n2);
         add_eq_constraint(cs.second, n1, n2);
