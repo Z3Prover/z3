@@ -559,6 +559,7 @@ public:
         return m_mpq_lar_core_solver.m_r_solver.calc_current_x_is_feasible_include_non_basis();
     }
 
+    bool are_equal(lpvar j, lpvar k);
     std::pair<constraint_index, constraint_index> add_equality(lpvar j, lpvar k);
 
     u_dependency* get_bound_constraint_witnesses_for_column(unsigned j) {
