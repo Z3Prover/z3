@@ -986,7 +986,7 @@ void ast_smt_pp::display_smt2(std::ostream& strm, expr* n) {
     ast_mark sort_mark;
     for (sort* s : decls.get_sorts()) {
         if (!(*m_is_declared)(s)) {
-            smt_printer p(strm, m, ql, rn, m_logic, true, true, m_simplify_implies, 0);
+            smt_printer p(strm, m, ql, rn, m_logic, true, m_simplify_implies, 0);
             p.pp_sort_decl(sort_mark, s);
         }
     }
@@ -994,7 +994,7 @@ void ast_smt_pp::display_smt2(std::ostream& strm, expr* n) {
     for (unsigned i = 0; i < decls.get_num_decls(); ++i) {
         func_decl* d = decls.get_func_decls()[i];
         if (!(*m_is_declared)(d)) {
-            smt_printer p(strm, m, ql, rn, m_logic, true, true, m_simplify_implies, 0);
+            smt_printer p(strm, m, ql, rn, m_logic, true, m_simplify_implies, 0);
             p(d);
             strm << "\n";
         }
@@ -1003,20 +1003,20 @@ void ast_smt_pp::display_smt2(std::ostream& strm, expr* n) {
 #endif
 
     for (expr* a : m_assumptions) {
-        smt_printer p(strm, m, ql, rn, m_logic, false, true, m_simplify_implies, 1);
+        smt_printer p(strm, m, ql, rn, m_logic, false, m_simplify_implies, 1);
         strm << "(assert\n ";
         p(a);
         strm << ")\n";
     }
 
     for (expr* a : m_assumptions_star) {
-        smt_printer p(strm, m, ql, rn, m_logic, false, true, m_simplify_implies, 1);
+        smt_printer p(strm, m, ql, rn, m_logic, false, m_simplify_implies, 1);
         strm << "(assert\n ";
         p(a);
         strm << ")\n";
     }
 
-    smt_printer p(strm, m, ql, rn, m_logic, false, true, m_simplify_implies, 0);
+    smt_printer p(strm, m, ql, rn, m_logic, false, m_simplify_implies, 0);
     if (m.is_bool(n)) {
         if (!m.is_true(n)) {
             strm << "(assert\n ";
