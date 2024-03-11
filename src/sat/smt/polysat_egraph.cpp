@@ -151,9 +151,8 @@ namespace polysat {
                 verbose_stream() << " := " << m_var2pdd[u];
             verbose_stream() << "  merge-level " << level;
             verbose_stream() << "\n";
-            fixed.push_back(fixed_slice_extra(value, offset, length, level, dep));
 #endif
-
+            fixed.push_back(fixed_slice_extra(value, offset, length, level, dep));
             for (euf::enode* sib : euf::enode_class(n)) {
                 euf::theory_var s = sib->get_th_var(get_id());
                 if (s == euf::null_theory_var)
