@@ -816,7 +816,7 @@ namespace polysat {
             unsigned remaining_z_off = z_sz - remaining_z_sz;
             // find next fixed slice (prefer lower level)
             fixed_slice_extra best;
-            unsigned best_off = UINT_MAX;
+            unsigned best_off = z_sz;
             for (auto const& f : fixed) {
                 if (f.level >= w_level)
                     continue;
