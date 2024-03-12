@@ -922,8 +922,8 @@ namespace polysat {
     }
 
 
-    /// Let x = concat(y, z) and x  not in [lo;hi[.
-    /// Returns an interval I such that z  not in I.
+    /// Let x = concat(y, z) and x not in [lo;hi[.
+    /// Returns an interval I such that z not in I.
     r_interval viable::chop_off_upper(r_interval const& i, unsigned const Ny, unsigned const Nz, rational const* y_fixed_value) {
         if (i.is_full())
             return r_interval::full();
@@ -1097,8 +1097,9 @@ namespace polysat {
     }
 
     /*
-    * Register constraint at index 'idx' as unitary in v.
-    */
+     * Register constraint at index 'idx' as unitary in v.
+     * Returns 'multiple' when either intervals are unchanged or there really are multiple values left.
+     */
     find_t viable::add_unitary(pvar v, constraint_id idx, rational& var_value) {
 
         if (c.is_assigned(v))
@@ -1471,7 +1472,7 @@ namespace polysat {
             e = e->next();
             ++count;
             if (count > 10) {
-                out << " ...";
+                out << " ... (total: " << count << " entries)";
                 break;
             }
         } 
@@ -1484,9 +1485,7 @@ namespace polysat {
             for (auto const& layer : m_units[v].get_layers()) {
                 if (!layer.entries)
                     continue;
-                out << "v" << v << ": ";
-                if (layer.bit_width != c.size(v))
-                    out << "width[" << layer.bit_width << "] ";
+                out << "v" << v << "[" << layer.bit_width << "]: ";
                 display_all(out, layer.entries, " ");
                 out << "\n";
             }
@@ -1495,11 +1494,11 @@ namespace polysat {
     }
 
     std::ostream& viable::display_state(std::ostream& out) const {
-        out << "v" << m_var << ": ";
+        out << "v" << m_var << ":";
         for (auto const& slice : m_overlaps) {
-            out << "v" << slice.v << ":" << c.size(slice.v) << "@" << slice.offset << " ";
+            out << "  v" << slice.v << ":" << c.size(slice.v) << "@" << slice.offset;
             if (c.is_assigned(slice.v))
-                out << "value(" << c.get_assignment().value(slice.v) << ") ";
+                out << " value=" << c.get_assignment().value(slice.v);
         }
         out << "\n";
         return out;
@@ -1508,7 +1507,7 @@ namespace polysat {
     std::ostream& viable::display_explain(std::ostream& out) const {
         display_state(out);
         for (auto const& e : m_explain)
-            display_one(out << "v" << m_var << "[" << e.e->bit_width << "] : = " << e.value << " ", e.e) << "\n";
+            display_one(out << "v" << m_var << "[" << e.e->bit_width << "] := " << e.value << " ", e.e) << "\n";
         return out;
     }
 
