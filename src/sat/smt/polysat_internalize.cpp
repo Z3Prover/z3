@@ -1,4 +1,4 @@
-﻿/*++
+/*++
 Copyright (c) 2022 Microsoft Corporation
 
 Module Name:
@@ -741,7 +741,7 @@ namespace polysat {
         auto gelo = mk_literal(bv.mk_ule(bv.mk_numeral(rational::power_of_two(lo), sz_x), x));
         auto name = "extract";
         add_axiom(name, { eq0, gelo });
-        if (hi + 1 == sz_e)
+        if (hi + 1 == sz_x)
             add_axiom(name, { ~eq0, ~gelo });
     }
 
