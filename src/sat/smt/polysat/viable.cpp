@@ -566,7 +566,7 @@ namespace polysat {
         auto last = m_explain.back();
         auto after = last;
 
-        verbose_stream() << m_explain_kind << "\n";
+        verbose_stream() << "viable::explain: " << m_explain_kind << " v" << m_var << "\n";
 
         if (c.inconsistent())
             verbose_stream() << "inconsistent explain\n";
@@ -594,8 +594,12 @@ namespace polysat {
                 result.push_back(d);
             }
             result.append(e->deps);
-            if (!index.is_null())
+            if (!index.is_null()) {
+                VERIFY_EQ(e->src.size(), 1);
+                VERIFY_EQ(c.get_constraint(index), e->src[0]);
                 result.push_back(c.get_dependency(index));
+                // result.append(c.explain_weak_eval(c.get_constraint(index)));
+            }
         };
 
         if (last.e->interval.is_full()) {
@@ -636,6 +640,13 @@ namespace polysat {
             if (!exp.is_null()) {
                 result.clear();
                 result.push_back(exp);
+            }
+            else {
+                // could not propagate to subslice
+                // conflict depends on evaluation
+                auto index = last.e->constraint_index;
+                if (!index.is_null())
+                    result.append(c.explain_weak_eval(c.get_constraint(index)));
             }
         }
         unmark();
