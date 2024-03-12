@@ -892,8 +892,9 @@ namespace polysat {
         });
 
         if (ivl.is_full()) {
-            // TODO: set conflict
-            NOT_IMPLEMENTED_YET();
+            pdd zero = c.var2pdd(m_var).zero();
+            auto sc = cs.ult(zero, zero);  // false
+            return c.propagate(sc, deps, "propagate from containing slice (conflict)");
         }
         else {
             // proper interval
