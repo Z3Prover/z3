@@ -110,6 +110,7 @@ inline param_descrs * to_param_descrs_ptr(Z3_param_descrs p) { return p == nullp
     Z3_TRY;                                                     \
     RESET_ERROR_CODE();                                         \
     EXTRA_CODE;                                                 \
+    CHECK_IS_EXPR(n, nullptr);                                  \
     expr * _n = to_expr(n);                                     \
     ast* a = mk_c(c)->m().mk_app(FID, OP, 0, 0, 1, &_n);        \
     mk_c(c)->save_ast_trail(a);                                 \
@@ -127,6 +128,8 @@ Z3_ast Z3_API NAME(Z3_context c, Z3_ast n) {    \
     Z3_TRY;                                                     \
     RESET_ERROR_CODE();                                         \
     EXTRA_CODE;                                                 \
+    CHECK_IS_EXPR(n1, nullptr);                                 \
+    CHECK_IS_EXPR(n2, nullptr);                                 \
     expr * args[2] = { to_expr(n1), to_expr(n2) };              \
     ast* a = mk_c(c)->m().mk_app(FID, OP, 0, 0, 2, args);       \
     mk_c(c)->save_ast_trail(a);                                 \
