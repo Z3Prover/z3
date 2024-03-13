@@ -308,6 +308,7 @@ namespace intblast {
 
         IF_VERBOSE(2, verbose_stream() << "(sat.intblast :result " << r << ")\n");
         if (r == l_true) {
+            verbose_stream() << "validation failed: " << name << "\n";
             IF_VERBOSE(0,
                 model_ref mdl;
                 m_solver->get_model(mdl);
