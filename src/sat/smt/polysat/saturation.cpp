@@ -144,7 +144,7 @@ namespace polysat {
      * [y] z' <  y /\ yx <  zx  ==>  Ω*(x,y) \/ (z' + 1)x < zx   (TODO?)
      */
     void saturation::try_ugt_y(pvar v, inequality const& i) {
-        auto y = c.var(v);
+        pdd const y = c.var(v);
         pdd x = y;
         pdd z = y;
         if (!i.is_Xy_l_XZ(v, x, z))
@@ -214,15 +214,17 @@ namespace polysat {
     }
 
     /**
-    * Expand the following axioms:
-    * Ovfl(x, y) & x <= y => y >= 2^{(N + 1) div 2}
-    * Ovfl(x, y) & msb(x) <= k => msb(y) >= N - k + 1
-    * Ovfl(x, y) & msb(x) <= k & msb(y) <= N - k + 1 => 0x * 0y >= 2^N
-    * 
-    * ~Ovfl(x, y) & x <= y => x < 2^{(N + 1) div 2}
-    * ~Ovfl(x,y) & msb(x) >= k => msb(y) <= N - k + 1
-    * ~Ovfl(x,y) & msb(x) >= k & msb(y) >= N - k + 1 => 0x * 0y < 2^N
-    */
+     * Expand the following axioms:
+     * Ovfl(x, y) & x <= y => y >= 2^{(N + 1) div 2}
+     * [ as approximation of Ovfl(x, y) & x <= y => y >= ceil(sqrt(2^N)) ]
+     * Ovfl(x, y) & msb(x) <= k => msb(y) >= N - k + 1
+     * Ovfl(x, y) & msb(x) <= k & msb(y) <= N - k + 1 => 0x * 0y >= 2^N
+     *
+     * ~Ovfl(x, y) & x <= y => x < 2^{(N + 1) div 2}
+     * [ as approximation of ~Ovfl(x, y) & x <= y => x < ceil(sqrt(2^N)) ]
+     * ~Ovfl(x,y) & msb(x) >= k => msb(y) <= N - k + 1
+     * ~Ovfl(x,y) & msb(x) >= k & msb(y) >= N - k + 1 => 0x * 0y < 2^N
+     */
     void saturation::try_umul_blast(umul_ovfl const& sc) {
         auto x = sc.p();
         auto y = sc.q();
@@ -231,7 +233,7 @@ namespace polysat {
             return;
         if (!c.try_eval(y, vy))
             return;
-        auto N = x.manager().power_of_2();
+        unsigned N = x.manager().power_of_2();
         auto d = c.get_dependency(sc.id());
 
         auto bx = vx.get_num_bits();
@@ -258,7 +260,7 @@ namespace polysat {
             }            
             else if (bx + by > N + 1) 
                 add_clause("~Ovfl(x, y) & msb(x) >= k => msb(y) <= N - k + 1", 
-                    {d, ~C.msb_ge(x, bx), C.msb_le(y, N - bx + 1)}, true);            
+                    { d, ~C.msb_ge(x, bx), C.msb_le(y, N - bx + 1) }, true);            
             else {
                 auto x1 = c.mk_zero_extend(1, x);
                 auto y1 = c.mk_zero_extend(1, y);                
@@ -271,9 +273,9 @@ namespace polysat {
             if (bx <= 1) {
                 add_clause("Ovfl(x, y) => x > 1", { d, C.ugt(x, 1) }, true);
             }
-            else if (bx < (N + 1) / 2) {
-                add_clause("Ovfl(x, y) & x <= y => y >= 2^{(N + 1) div 2}", 
-                    { d, ~C.ule(x, y), C.uge(x, rational::power_of_two((N + 1) / 2)) }, true);
+            else if (by < N / 2) {
+                add_clause("Ovfl(x, y) & x <= y => y >= 2^{N div 2}", 
+                    { d, ~C.ule(x, y), C.uge(y, rational::power_of_two(N / 2)) }, true);
             }
             else if (bx + by < N + 1) {
                 SASSERT(bx <= by);
