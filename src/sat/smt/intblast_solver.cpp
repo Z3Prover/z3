@@ -467,7 +467,7 @@ namespace intblast {
 
     bool solver::is_bounded(expr* x, rational const& N) {
         return any_of(m_vars, [&](expr* v) {
-            return is_translated(v) && translated(v) == x && bv.get_bv_size(v) <= N;
+            return is_translated(v) && translated(v) == x && bv_size(v) <= N;
         });
     }
 
@@ -536,7 +536,7 @@ namespace intblast {
     * Perform simplifications that are claimed sound when the bit-vector interpretations of
     * mod/div always guard the mod and dividend to be non-zero.
     * Potentially shady area is for arithmetic expressions created by int2bv. 
-    * They will be guarded by a modulus which dose not disappear.
+    * They will be guarded by a modulus which does not disappear.
     */
     expr* solver::amod(expr* bv_expr, expr* x, rational const& N) {
         rational v;
