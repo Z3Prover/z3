@@ -148,11 +148,11 @@ namespace polysat {
         }
         else if (d.is_fixed_claim()) {
             auto const& o = d.fixed();
-            explain_fixed(o.v, o, consume);
+            explain_fixed(o.parent, o, consume);
         }
         else if (d.is_offset_claim()) {
             auto const& offs = d.offset();
-            explain_slice(offs.v, offs.w, offs.offset, consume);
+            explain_slice(offs.child, offs.parent, offs.offset, consume);
         }
         else {
             auto const [v1, v2] = d.eq();

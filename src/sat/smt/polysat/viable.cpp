@@ -154,7 +154,7 @@ namespace polysat {
     void viable::init_overlaps(pvar v) {
         m_overlaps.reset();
         c.get_bitvector_suffixes(v, m_overlaps);
-        std::sort(m_overlaps.begin(), m_overlaps.end(), [&](auto const& x, auto const& y) { return c.size(x.v) < c.size(y.v); });
+        std::sort(m_overlaps.begin(), m_overlaps.end(), [&](auto const& x, auto const& y) { return c.size(x.child) < c.size(y.child); });
     }
 
 
@@ -683,7 +683,7 @@ namespace polysat {
         //     e.g., prefers constant 'c' if we have pvars for both 'c' and 'concat(c,...)'
         std::sort(subslices.begin(), subslices.end(), [&](auto const& a, auto const& b) -> bool {
             return a.level > b.level
-                || (a.level == b.level && c.size(a.v) < c.size(b.v));
+                || (a.level == b.level && c.size(a.child) < c.size(b.child));
         });
 
         for (auto const& slice : subslices)
@@ -693,7 +693,7 @@ namespace polysat {
     }
 
     dependency viable::propagate_from_containing_slice(entry* e, rational const& value, dependency_vector const& e_deps, fixed_slice_extra_vector const& fixed, offset_slice_extra const& slice) {
-        pvar w = slice.v;
+        pvar w = slice.child;
         unsigned offset = slice.offset;
         unsigned w_level = slice.level;  // level where value of w was fixed
         if (w == m_var)
@@ -1496,9 +1496,9 @@ namespace polysat {
     std::ostream& viable::display_state(std::ostream& out) const {
         out << "v" << m_var << ":";
         for (auto const& slice : m_overlaps) {
-            out << "  v" << slice.v << ":" << c.size(slice.v) << "@" << slice.offset;
-            if (c.is_assigned(slice.v))
-                out << " value=" << c.get_assignment().value(slice.v);
+            out << "  v" << slice.child << ":" << c.size(slice.child) << "@" << slice.offset;
+            if (c.is_assigned(slice.child))
+                out << " value=" << c.get_assignment().value(slice.child);
         }
         out << "\n";
         return out;

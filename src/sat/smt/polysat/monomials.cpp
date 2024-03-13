@@ -324,27 +324,27 @@ namespace polysat {
         c.get_bitvector_suffixes(x, x_suffixes);        
         rational x_val, y_val;
         for (auto const& xslice : x_suffixes) {
-            if (c.size(xslice.v) == mon.num_bits())
+            if (c.size(xslice.child) == mon.num_bits())
                 continue;
-            auto const& xmax_value = c.var(xslice.v).manager().max_value();
+            auto const& xmax_value = c.var(xslice.child).manager().max_value();
             if (mon.val <= xmax_value)
                 continue;
-            if (!c.try_eval(c.var(xslice.v), x_val) || x_val != mon.arg_vals[0])
+            if (!c.try_eval(c.var(xslice.child), x_val) || x_val != mon.arg_vals[0])
                 continue;
             if (!y_computed)
                 c.get_bitvector_suffixes(y, y_suffixes);
             y_computed = true;
             for (auto const& yslice : y_suffixes) {
-                if (c.size(yslice.v) != c.size(xslice.v))
+                if (c.size(yslice.child) != c.size(xslice.child))
                     continue;
-                if (!c.try_eval(c.var(yslice.v), y_val) || y_val != mon.arg_vals[1])
+                if (!c.try_eval(c.var(yslice.child), y_val) || y_val != mon.arg_vals[1])
                     continue;
                 bool added = c.add_axiom("0p * 0q >= 2^k => ovfl(p,q), where |p| = |q| = k",
                     { dependency({x, xslice}), dependency({y, yslice}),
                      ~C.ule(mon.args[0], xmax_value),
                      ~C.ule(mon.args[1], xmax_value),
                      ~C.ugt(mon.var, xmax_value), 
-                      C.umul_ovfl(c.var(xslice.v), c.var(yslice.v)) }, 
+                      C.umul_ovfl(c.var(xslice.child), c.var(yslice.child)) }, 
                     true);
                 if (added)
                     return true;

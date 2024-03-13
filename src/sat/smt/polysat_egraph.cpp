@@ -115,7 +115,7 @@ namespace polysat {
             unsigned length = bv.get_bv_size(r->get_expr());
             rational value;
             VERIFY(bv.is_numeral(r->get_expr(), value));
-            out.push_back({ fixed_slice(value, offset, length) });
+            out.push_back({ fixed_slice(null_var, value, offset, length) });
             return false;
         };
    
@@ -186,6 +186,10 @@ namespace polysat {
         m_bv_plugin->explain_slice(var2enode(v), offset, var2enode(w), consume_eq);
     }
 
+    //
+    // explain that pv contains a fixed sub-slice at offset/length
+    // in addition, if slice.child is not null_var, then explain that
+    //
     void solver::explain_fixed(pvar pv, fixed_slice const& slice, std::function<void(euf::enode*, euf::enode*)> const& consume_eq) {
         euf::theory_var v = m_pddvar2var[pv];
         expr_ref val(bv.mk_numeral(slice.value, slice.length), m);
@@ -197,6 +201,12 @@ namespace polysat {
 
         SASSERT(b);
         m_bv_plugin->explain_slice(var2enode(v), slice.offset, b, consume_eq);
+
+        if (slice.child != null_var) {
+            auto c = var2enode(m_pddvar2var[slice.child]);
+            if (b != c)
+                m_bv_plugin->explain_slice(b, 0, c, consume_eq);
+        }
     }
 
 }
