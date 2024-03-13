@@ -35,7 +35,7 @@ namespace polysat {
     // walk the egraph starting with pvar for suffix overlaps.
     void solver::get_bitvector_suffixes(pvar pv, offset_slices& out) {       
         uint_set seen;
-        std::function<bool(euf::enode*, unsigned)> consume_slice = [&](euf::enode* n, unsigned offset) {
+        auto consume_slice = [&](euf::enode* n, unsigned offset) -> bool {
             if (offset != 0)
                 return false;
             for (auto sib : euf::enode_class(n)) {
@@ -59,7 +59,7 @@ namespace polysat {
     // walk the egraph starting with pvar for any overlaps.
     void solver::get_bitvector_sub_slices(pvar pv, offset_slices& out) {
         uint_set seen;
-        std::function<bool(euf::enode*, unsigned)> consume_slice = [&](euf::enode* n, unsigned offset) {
+        auto consume_slice = [&](euf::enode* n, unsigned offset) -> bool {
             for (auto sib : euf::enode_class(n)) {
                 auto w = sib->get_th_var(get_id());
                 if (w == euf::null_theory_var)
@@ -81,7 +81,7 @@ namespace polysat {
     // walk the egraph for bit-vectors that contain pv.
     void solver::get_bitvector_super_slices(pvar pv, offset_slices& out) {
         uint_set seen;
-        std::function<bool(euf::enode*, unsigned)> consume_slice = [&](euf::enode* n, unsigned offset) {
+        auto consume_slice = [&](euf::enode* n, unsigned offset) -> bool {
             for (auto sib : euf::enode_class(n)) {
                 auto w = sib->get_th_var(get_id());
                 if (w == euf::null_theory_var)
@@ -105,7 +105,7 @@ namespace polysat {
     void solver::get_fixed_bits(pvar pv, fixed_bits_vector& out) {
         theory_var v = m_pddvar2var[pv];
         euf::enode* b = var2enode(v);
-        std::function<bool(euf::enode*, unsigned)> consume_slice = [&](euf::enode* n, unsigned offset) {
+        auto consume_slice = [&](euf::enode* n, unsigned offset) -> bool {
             auto r = n->get_root();
             if (!r->interpreted())
                 return true;
