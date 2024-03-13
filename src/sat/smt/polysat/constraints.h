@@ -56,7 +56,7 @@ namespace polysat {
     inline std::ostream& operator<<(std::ostream& out, constraint const& c) { return c.display(out); }
 
 
-    class signed_constraint {
+    class signed_constraint final {
         bool m_sign = false;
         ckind_t m_op = ule_t;
         constraint* m_constraint = nullptr;
@@ -92,6 +92,8 @@ namespace polysat {
         op_constraint const& to_op() const { SASSERT(is_op()); return *reinterpret_cast<op_constraint*>(m_constraint); }
         bool is_eq(pvar& v, rational& val);
         std::ostream& display(std::ostream& out) const;
+        bool operator==(signed_constraint const& other) { return m_sign == other.m_sign && m_op == other.m_op && m_constraint == other.m_constraint; }
+        bool operator!=(signed_constraint const& other) { return !operator==(other); }
     };
 
     inline std::ostream& operator<<(std::ostream& out, signed_constraint const& c) { return c.display(out); }

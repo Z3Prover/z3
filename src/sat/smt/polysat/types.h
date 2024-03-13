@@ -36,33 +36,36 @@ namespace polysat {
     class signed_constraint;
 
     struct fixed_slice {
+        pvar child;
         unsigned offset = 0;
         unsigned length = 0;
         rational value;
         fixed_slice() = default;
-        fixed_slice(rational value, unsigned offset, unsigned length) : offset(offset), length(length), value(std::move(value)) {}
+        fixed_slice(pvar child, rational value, unsigned offset, unsigned length) : 
+            child(child), offset(offset), length(length), value(std::move(value)) {}
         unsigned end() const { return offset + length; }
     };
 
     struct fixed_claim : public fixed_slice {
-        pvar v;
+        pvar parent;
         fixed_claim() = default;
-        fixed_claim(pvar v, rational value, unsigned offset, unsigned length) : fixed_slice(std::move(value), offset, length), v(v) {}
-        fixed_claim(pvar v, fixed_slice const& s) : fixed_slice(s), v(v) {}
+        fixed_claim(pvar v, rational value, unsigned offset, unsigned length) : fixed_slice(child, std::move(value), offset, length), parent(v) {}
+        fixed_claim(pvar v, fixed_slice const& s) : fixed_slice(s), parent(v) {}
     };
 
     struct offset_slice {
-        pvar v;
+        pvar child;
         unsigned offset;
         offset_slice() = default;
-        offset_slice(pvar v, unsigned offset) : v(v), offset(offset) {}
+        offset_slice(pvar v, unsigned offset) : child(v), offset(offset) {}
     };
 
     struct offset_claim : public offset_slice {
-        pvar w;
+        pvar parent;
         offset_claim() = default;
-        offset_claim(pvar w, offset_slice const& s) : offset_slice(s), w(w) {}
+        offset_claim(pvar w, offset_slice const& s) : offset_slice(s), parent(w) {}
     };
+
 
     class dependency {
         struct axiom_t {};
@@ -99,11 +102,11 @@ namespace polysat {
             return out << "tv" << d.eq().first << " == tv" << d.eq().second;
         else if (d.is_offset_claim()) {
             auto offs = d.offset();
-            return out << "v" << offs.v << " == v" << offs.w << " offset " << offs.offset;
+            return out << "v" << offs.child << " == v" << offs.parent << " offset " << offs.offset;
         }
         else if (d.is_fixed_claim()) {
             auto fixed = d.fixed();
-            return out << fixed.value << " == v" << fixed.v << " [" << fixed.length << "]@" << fixed.offset;
+            return out << fixed.value << " == v" << fixed.parent << " [" << fixed.length << "]@" << fixed.offset;
         }
         else {
             UNREACHABLE();
@@ -115,8 +118,8 @@ namespace polysat {
 
     inline std::ostream& operator<<(std::ostream& out, offset_slice const& js) {
         if (js.offset == 0)
-            return out << "v" << js.v;
-        return out << "v" << js.v << " at offset " << js.offset;
+            return out << "v" << js.child;
+        return out << "v" << js.child << " at offset " << js.offset;
     }
 
     using fixed_bits_vector = vector<fixed_slice>;
@@ -125,8 +128,8 @@ namespace polysat {
         unsigned level = 0;  // level when sub-slice was fixed to value
         dependency dep = null_dependency;
         fixed_slice_extra() = default;
-        fixed_slice_extra(rational value, unsigned offset, unsigned length, unsigned level, dependency dep):
-            fixed_slice(std::move(value), offset, length), level(level), dep(std::move(dep)) {}
+        fixed_slice_extra(rational value, unsigned offset, unsigned length, unsigned level, dependency dep) :
+            fixed_slice(child, std::move(value), offset, length), level(level), dep(std::move(dep)) {}
     };
     using fixed_slice_extra_vector = vector<fixed_slice_extra>;
 
@@ -136,6 +139,7 @@ namespace polysat {
         offset_slice_extra(pvar v, unsigned offset, unsigned level) : offset_slice(v, offset), level(level) {}
     };
     using offset_slice_extra_vector = vector<offset_slice_extra>;
+
 
     using dependency_vector = vector<dependency>;
     using constraint_or_dependency = std::variant<signed_constraint, dependency>;

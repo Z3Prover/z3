@@ -227,6 +227,32 @@ namespace polysat {
             lhs *= x;
             SASSERT(lhs.leading_coefficient().is_power_of_two());
         }
+
+        // shared parity of LHS/RHS __without__ the constant terms
+        unsigned const lhs_parity = (lhs - lhs.offset()).min_parity();
+        unsigned const rhs_parity = (rhs - rhs.offset()).min_parity();
+        unsigned const parity = std::min(lhs_parity, rhs_parity);
+        SASSERT(parity < N);  // since at least one side is a non-constant
+
+        if (parity > lhs.offset().parity(N) || parity > rhs.offset().parity(N)) {
+            verbose_stream() << "lhs = " << lhs << "   rhs = " << rhs << "   parity = " << parity << "\n";
+            // 2^k p + a <= 2^k q + b   with 0 <= a < 2^k and 0 <= b < 2^k
+            //      --> 2^k p <= 2^k q  if a <= b
+            //      --> 2^k p <  2^k q  if a >  b
+            rational a = mod2k(lhs.offset(), parity);
+            rational b = mod2k(rhs.offset(), parity);
+            SASSERT(!a.is_zero() || !b.is_zero());
+            lhs = lhs - a;
+            rhs = rhs - b;
+            if (a > b) {
+                swap(lhs, rhs);
+                is_positive = !is_positive;
+            }
+            // one more round to detect trivial constraints
+            return simplify_impl(is_positive, lhs, rhs);
+            verbose_stream() << "lhs' = " << lhs << "   rhs' = " << rhs << "\n";
+        }
+
     } // simplify_impl
 }
 
@@ -256,6 +282,7 @@ namespace polysat {
         pdd const old_lhs = lhs;
         pdd const old_rhs = rhs;
 #endif
+        // verbose_stream() << "simplify: sign " << !is_positive << " lhs " << lhs << " rhs " << rhs << "\n";
         simplify_impl(is_positive, lhs, rhs);
 #ifndef NDEBUG
         if (old_is_positive != is_positive || old_lhs != lhs || old_rhs != rhs) {
@@ -274,6 +301,14 @@ namespace polysat {
                 SASSERT(rhs.is_zero());
             }
         }
+        CTRACE("bv_verbose", !is_simplified(lhs, rhs), {
+            tout << "Result of simplify_impl is not fully simplified:\n    " << ule_pp(to_lbool(is_positive), lhs, rhs) << "\n";
+            bool pos2 = is_positive;
+            pdd lhs2 = lhs;
+            pdd rhs2 = rhs;
+            simplify_impl(pos2, lhs2, rhs2);
+            tout << "It should be:\n    " << ule_pp(to_lbool(pos2), lhs2, rhs2) << "\n";
+        });
         SASSERT(is_simplified(lhs, rhs));  // rewriting should be idempotent
 #endif
     }
@@ -352,6 +387,7 @@ namespace polysat {
     }
 
     void ule_constraint::activate(core& c, bool sign, dependency const& d) {
+        /*
         auto p = c.subst(lhs());
         auto q = c.subst(rhs());
         auto& C = c.cs();
@@ -359,6 +395,7 @@ namespace polysat {
             c.add_axiom("lhs > rhs  ==>  -1 > rhs", { d, C.ult(rhs(), -1) }, false);
             c.add_axiom("lhs > rhs  ==>  lhs > 0", { d, C.ult(0, lhs()) }, false);
         }
+        */
     }
 
 

@@ -235,12 +235,6 @@ namespace intblast {
             }
 
 #if 0
-            namespace fs = std::filesystem;
-            static unsigned num_check = 0;
-            fs::path filename = std::string("validation/int-") + std::to_string(++num_check) + ".smt2";
-            fs::create_directories(filename.parent_path());
-            IF_VERBOSE(1, verbose_stream() << "validation check written to file " << filename << "\n");
-            std::ofstream file(filename);
             std::string name_esc;
             if (name) {
                 name_esc = name;
@@ -251,19 +245,47 @@ namespace intblast {
             else
                 name_esc = "<none>";
 
-            file << "(set-logic ALL)\n";
-            file << "(set-info :source |\n";
-            file << "    Name: " << name_esc << "\n";
-            file << original_es << "\n|)\n";
+            namespace fs = std::filesystem;
+            static unsigned num_check = 0;
+            num_check += 1;
 
-            m_solver->push();
-            m_solver->assert_expr(es);
-            m_solver->display(file) << "(check-sat)\n";
-            m_solver->pop(1);
+            {
+                fs::path filename = std::string("validation/int-") + std::to_string(num_check) + ".smt2";
+                fs::create_directories(filename.parent_path());
+                IF_VERBOSE(1, verbose_stream() << "validation check written to file " << filename << "\n");
+                std::ofstream file(filename);
 
-            file.close();
+                file << "(set-logic ALL)\n";
+                file << "(set-info :source |\n";
+                file << "    Name: " << name_esc << "\n";
+                file << original_es << "\n|)\n";
 
-            // if (num_check == 68)
+                m_solver->push();
+                m_solver->assert_expr(es);
+                m_solver->display(file) << "(check-sat)\n";
+                m_solver->pop(1);
+
+                file.close();
+            }
+
+            {
+                fs::path filename = std::string("validation/bv-") + std::to_string(num_check) + ".smt2";
+                std::ofstream file(filename);
+
+                file << "(set-logic ALL)\n";
+                file << "(set-info :source |\n";
+                file << "    Name: " << name_esc << "\n";
+                file << original_es << "\n|)\n";
+
+                m_solver->push();
+                m_solver->assert_expr(original_es);
+                m_solver->display(file) << "(check-sat)\n";
+                m_solver->pop(1);
+
+                file.close();
+            }
+
+            // if (num_check == 62)
             //     std::abort();
 
             r = l_false;
@@ -286,6 +308,7 @@ namespace intblast {
 
         IF_VERBOSE(2, verbose_stream() << "(sat.intblast :result " << r << ")\n");
         if (r == l_true) {
+            verbose_stream() << "validation failed: " << name << "\n";
             IF_VERBOSE(0,
                 model_ref mdl;
                 m_solver->get_model(mdl);
@@ -469,10 +492,10 @@ namespace intblast {
                     continue;
                 if (sib->get_arg(0)->get_root() == r1)
                     continue;
-		auto a = eq_internalize(n, sib);
-		auto b = eq_internalize(sib->get_arg(0), n->get_arg(0));
-		ctx.mark_relevant(a);
-		ctx.mark_relevant(b);
+                auto a = eq_internalize(n, sib);
+                auto b = eq_internalize(sib->get_arg(0), n->get_arg(0));
+                ctx.mark_relevant(a);
+                ctx.mark_relevant(b);
                 add_clause(~a, b, nullptr);
                 return sat::check_result::CR_CONTINUE;
             }
@@ -490,10 +513,10 @@ namespace intblast {
             auto nBv2int = ctx.get_enode(bv2int);
             auto nxModN = ctx.get_enode(xModN);
             if (nBv2int->get_root() != nxModN->get_root()) {
-	      auto a = eq_internalize(nBv2int, nxModN);
-	      ctx.mark_relevant(a);
-              add_unit(a);
-              return sat::check_result::CR_CONTINUE;
+                auto a = eq_internalize(nBv2int, nxModN);
+                ctx.mark_relevant(a);
+                add_unit(a);
+                return sat::check_result::CR_CONTINUE;
             }
         }
         return sat::check_result::CR_DONE; 
@@ -501,7 +524,7 @@ namespace intblast {
 
     bool solver::is_bounded(expr* x, rational const& N) {
         return any_of(m_vars, [&](expr* v) {
-            return is_translated(v) && translated(v) == x && bv.get_bv_size(v) <= N;
+            return is_translated(v) && translated(v) == x && bv_size(v) <= N;
         });
     }
 
@@ -570,7 +593,7 @@ namespace intblast {
     * Perform simplifications that are claimed sound when the bit-vector interpretations of
     * mod/div always guard the mod and dividend to be non-zero.
     * Potentially shady area is for arithmetic expressions created by int2bv. 
-    * They will be guarded by a modulus which dose not disappear.
+    * They will be guarded by a modulus which does not disappear.
     */
     expr* solver::amod(expr* bv_expr, expr* x, rational const& N) {
         rational v;
