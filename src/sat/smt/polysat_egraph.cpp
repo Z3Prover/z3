@@ -204,8 +204,7 @@ namespace polysat {
 
         if (slice.child != null_var) {
             auto c = var2enode(m_pddvar2var[slice.child]);
-            if (b != c)
-                m_bv_plugin->explain_slice(b, 0, c, consume_eq);
+            m_bv_plugin->explain_slice(b, 0, c, consume_eq);
         }
     }
 
