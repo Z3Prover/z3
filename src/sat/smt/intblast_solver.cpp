@@ -235,12 +235,6 @@ namespace intblast {
             }
 
 #if 0
-            namespace fs = std::filesystem;
-            static unsigned num_check = 0;
-            fs::path filename = std::string("validation/int-") + std::to_string(++num_check) + ".smt2";
-            fs::create_directories(filename.parent_path());
-            IF_VERBOSE(1, verbose_stream() << "validation check written to file " << filename << "\n");
-            std::ofstream file(filename);
             std::string name_esc;
             if (name) {
                 name_esc = name;
