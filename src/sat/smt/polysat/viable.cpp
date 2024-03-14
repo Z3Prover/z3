@@ -587,7 +587,7 @@ namespace polysat {
             if (m_var != e->var)
                 result.push_back(offset_claim(m_var, { e->var, 0 }));
             for (auto const& sc : e->side_cond) {
-                auto d = c.propagate(sc, c.explain_weak_eval(sc));
+                auto d = c.propagate(sc, c.explain_weak_eval(sc), "entry weak eval");
                 if (c.inconsistent()) {
                     verbose_stream() << "inconsistent " << d << " " << sc << "\n";
                 }
@@ -603,6 +603,7 @@ namespace polysat {
         };
 
         if (last.e->interval.is_full()) {
+            SASSERT(m_explain_kind == explain_t::none);
             explain_entry(last.e);
             SASSERT(m_explain.size() == 1);
             unmark();
@@ -1151,19 +1152,6 @@ namespace polysat {
             //          hi[w-1:k] + 1  otherwise
             //
             // Reference: Fig. 1 (dtrim) in BitvectorsMCSAT
-            //
-            //
-            // Suppose new_lo = new_hi
-            // Then since ne is not full, then lo != hi
-            // Cases
-            // lo < hi, 2^k|lo, new_lo = lo / 2^k != new_hi = hi / 2^k
-            // lo < hi, not 2^k|lo, 2^k|hi, new_lo = lo / 2^k + 1, new_hi = hi / 2^k
-            //          new_lo = new_hi -> empty
-            //          k = 3, lo = 1, hi = 8, new_lo = 1, new_hi = 1
-            // lo < hi, not 2^k|lo, not 2^k|hi, new_lo = lo / 2^k + 1, new_hi = hi / 2^k + 1
-            //          new_lo = new_hi -> empty
-            //          k = 3, lo = 1, hi = 2, new_lo = 1 div 2^3 + 1 = 1, new_hi = 2 div 2^3 + 1 = 1
-            // lo > hi
 
             TRACE("bv", display_one(tout << "try to reduce entry: ", ne) << "\n");
             pdd const& pdd_lo = ne->interval.lo();
@@ -1197,30 +1185,50 @@ namespace polysat {
                     ne->side_cond.push_back(~cs.eq(hi_eq));
             }
             
-
-            // 
-            // If new_lo = new_hi it means that 
-            //   mod(ceil (lo / 2^k), 2^w) = mod(ceil (hi / 2^k), 2^w)
+            //
+            // If new_lo = new_hi it means that
+            //   mod(ceil(lo / 2^k), 2^(w-k)) = mod(ceil(hi / 2^k), 2^(w-k))
             // or
-            //   div (mod(lo + 2^k - 1, 2^w), 2^k) = div (mod(hi + 2^k - 1, 2^w), 2^k)
+            //   div(mod(lo + 2^k - 1, 2^w), 2^k) = div(mod(hi + 2^k - 1, 2^w), 2^k)
             // but we also have lo != hi.
-            // Assume lo < hi
-            // - it means 2^k does not divide any of [lo, hi[
-            // so x*2^k cannot be in [lo, hi[
-            // Assume lo > hi
-            // - then the constraint is x*2^k not in [lo, 0[, [0, hi[
-            // - it means 2^k does not divide any of [hi, lo[
-            // - therefore the interval [lo, hi[ contains all the divisors of 2^k
+            //
+            // Cases:
+            //   0 < lo < hi:     empty  (2^k does not divide any of [lo, hi[)
+            //   0 == lo < hi:    full
+            //   0 < hi < lo:     full
+            //   0 == hi < lo:    empty
             //
 
             if (new_lo == new_hi) {
+                bool is_empty_ivl;
                 if (lo < hi) {
+                    ne->side_cond.push_back(cs.ult(pdd_lo, pdd_hi));
+                    if (lo == 0) {
+                        ne->side_cond.push_back(cs.eq(pdd_lo));
+                        is_empty_ivl = false;
+                    }
+                    else {
+                        ne->side_cond.push_back(~cs.eq(pdd_lo));
+                        is_empty_ivl = true;
+                    }
+                }
+                else {
+                    SASSERT(hi < lo);
+                    ne->side_cond.push_back(cs.ult(pdd_hi, pdd_lo));
+                    if (hi == 0) {
+                        ne->side_cond.push_back(cs.eq(pdd_hi));
+                        is_empty_ivl = true;
+                    }
+                    else {
+                        ne->side_cond.push_back(~cs.eq(pdd_hi));
+                        is_empty_ivl = false;
+                    }
+                }
+                if (is_empty_ivl) {
                     m_alloc.push_back(ne);
                     return find_t::multiple;
                 }
                 else {
-                    // IF_VERBOSE(0, display_one(verbose_stream() << "full: ", ne) << "\n");
-                    SASSERT(hi < lo);
                     ne->interval = eval_interval::full();
                     ne->coeff = 1;
                     m_explain.reset();
@@ -1444,12 +1452,15 @@ namespace polysat {
                 out << "[" << e->bit_width << "]";
             out << " " << e->interval << " ";
         }
-        for (auto const& d : e->deps)
-            out << d << " ";
-        if (e->side_cond.size() <= 5)
-            out << e->side_cond << " ";
+        if (!e->deps.empty())
+            out << " deps " << e->deps;
+        if (e->side_cond.empty())
+            ;
+        else if (e->side_cond.size() <= 5)
+            out << " side-conds " << e->side_cond;
         else
-            out << e->side_cond.size() << " side-conditions ";
+            out << " side-conds " << e->side_cond.size() << " side-conditions";
+        out << " src ";
         unsigned count = 0;
         for (const auto& src : e->src) {
             ++count;
@@ -1505,6 +1516,7 @@ namespace polysat {
     }
 
     std::ostream& viable::display_explain(std::ostream& out) const {
+        out << "explain_kind " << m_explain_kind << "\n";
         display_state(out);
         for (auto const& e : m_explain)
             display_one(out << "v" << m_var << "[" << e.e->bit_width << "] := " << e.value << " ", e.e) << "\n";
