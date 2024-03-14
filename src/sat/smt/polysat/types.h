@@ -49,21 +49,21 @@ namespace polysat {
     struct fixed_claim : public fixed_slice {
         pvar parent;
         fixed_claim() = default;
-        fixed_claim(pvar v, rational value, unsigned offset, unsigned length) : fixed_slice(child, std::move(value), offset, length), parent(v) {}
-        fixed_claim(pvar v, fixed_slice const& s) : fixed_slice(s), parent(v) {}
+        fixed_claim(pvar parent, pvar child, rational value, unsigned offset, unsigned length) : fixed_slice(child, std::move(value), offset, length), parent(parent) {}
+        fixed_claim(pvar parent, fixed_slice const& s) : fixed_slice(s), parent(parent) {}
     };
 
     struct offset_slice {
         pvar child;
         unsigned offset;
         offset_slice() = default;
-        offset_slice(pvar v, unsigned offset) : child(v), offset(offset) {}
+        offset_slice(pvar child, unsigned offset) : child(child), offset(offset) {}
     };
 
     struct offset_claim : public offset_slice {
         pvar parent;
         offset_claim() = default;
-        offset_claim(pvar w, offset_slice const& s) : offset_slice(s), parent(w) {}
+        offset_claim(pvar parent, offset_slice const& s) : offset_slice(s), parent(parent) {}
     };
 
 
@@ -128,7 +128,7 @@ namespace polysat {
         unsigned level = 0;  // level when sub-slice was fixed to value
         dependency dep = null_dependency;
         fixed_slice_extra() = default;
-        fixed_slice_extra(rational value, unsigned offset, unsigned length, unsigned level, dependency dep) :
+        fixed_slice_extra(pvar child, rational value, unsigned offset, unsigned length, unsigned level, dependency dep) :
             fixed_slice(child, std::move(value), offset, length), level(level), dep(std::move(dep)) {}
     };
     using fixed_slice_extra_vector = vector<fixed_slice_extra>;
@@ -136,7 +136,7 @@ namespace polysat {
     struct offset_slice_extra : public offset_slice {
         unsigned level = 0;  // level when variable was fixed to value
         offset_slice_extra() = default;
-        offset_slice_extra(pvar v, unsigned offset, unsigned level) : offset_slice(v, offset), level(level) {}
+        offset_slice_extra(pvar child, unsigned offset, unsigned level) : offset_slice(child, offset), level(level) {}
     };
     using offset_slice_extra_vector = vector<offset_slice_extra>;
 
