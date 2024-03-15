@@ -17,11 +17,17 @@ Author:
 #include "util/trail.h"
 #include "util/sat_literal.h"
 
+namespace euf {
+    class enode;
+}
+
 namespace polysat {
 
     using pdd = dd::pdd;
     using pvar = unsigned;
     using theory_var = int;
+    using enode_pair = std::pair<euf::enode*, euf::enode*>;
+
     struct constraint_id {
         unsigned id = UINT_MAX; 
         bool is_null() const { return id == UINT_MAX; }
@@ -60,6 +66,8 @@ namespace polysat {
         offset_slice(pvar child, unsigned offset) : child(child), offset(offset) {}
     };
 
+    // parent[X:offset] = child
+    // where X = offset + size(child) - 1
     struct offset_claim : public offset_slice {
         pvar parent;
         offset_claim() = default;
@@ -69,22 +77,25 @@ namespace polysat {
 
     class dependency {
         struct axiom_t {};
-        std::variant<axiom_t, sat::bool_var, theory_var_pair, offset_claim, fixed_claim> m_data;
+        std::variant<axiom_t, sat::bool_var, theory_var_pair, enode_pair, offset_claim, fixed_claim> m_data;
         dependency(): m_data(axiom_t()) {}
     public:
         dependency(sat::bool_var v) : m_data(v){}
-        dependency(theory_var v1, theory_var v2) : m_data(std::make_pair(v1, v2)) {}         
+        dependency(theory_var v1, theory_var v2) : m_data(std::make_pair(v1, v2)) {}
+        dependency(euf::enode* n1, euf::enode* n2) : m_data(std::make_pair(n1, n2)) {}
         dependency(offset_claim const& c) : m_data(c) {}
         dependency(fixed_claim const& c): m_data(c) {}
         static dependency axiom() { return dependency(); } 
         bool is_null() const { return is_bool_var() && *std::get_if<sat::bool_var>(&m_data) == sat::null_bool_var; }
         bool is_axiom() const { return std::holds_alternative<axiom_t>(m_data); }
         bool is_eq() const { return std::holds_alternative<theory_var_pair>(m_data); }
+        bool is_enode_eq() const { return std::holds_alternative<enode_pair>(m_data); }
         bool is_bool_var() const { return std::holds_alternative<sat::bool_var>(m_data); }
         bool is_offset_claim() const { return std::holds_alternative<offset_claim>(m_data); }
         bool is_fixed_claim() const { return std::holds_alternative<fixed_claim>(m_data); }
         sat::bool_var bool_var() const { SASSERT(is_bool_var()); return *std::get_if<sat::bool_var>(&m_data); }
         theory_var_pair eq() const { SASSERT(is_eq()); return *std::get_if<theory_var_pair>(&m_data); }
+        enode_pair enode_eq() const { SASSERT(is_enode_eq()); return *std::get_if<enode_pair>(&m_data); }
         offset_claim offset() const { return *std::get_if<offset_claim>(&m_data); }
         fixed_claim fixed() const { return *std::get_if<fixed_claim>(&m_data); }
     };
@@ -100,6 +111,8 @@ namespace polysat {
             return out << d.bool_var();
         else if (d.is_eq())
             return out << "tv" << d.eq().first << " == tv" << d.eq().second;
+        else if (d.is_enode_eq())
+            return out << "enode " << d.enode_eq().first << " == enode " << d.enode_eq().second;
         else if (d.is_offset_claim()) {
             auto offs = d.offset();
             return out << "v" << offs.child << " == v" << offs.parent << " offset " << offs.offset;
@@ -125,6 +138,10 @@ namespace polysat {
     using fixed_bits_vector = vector<fixed_slice>;
 
     struct fixed_slice_extra : public fixed_slice {
+        // pvar child;
+        // unsigned offset = 0;
+        // unsigned length = 0;
+        // rational value;
         unsigned level = 0;  // level when sub-slice was fixed to value
         dependency dep = null_dependency;
         fixed_slice_extra() = default;
@@ -134,9 +151,13 @@ namespace polysat {
     using fixed_slice_extra_vector = vector<fixed_slice_extra>;
 
     struct offset_slice_extra : public offset_slice {
-        unsigned level = 0;  // level when variable was fixed to value
+        // pvar child;
+        // unsigned offset;
+        unsigned level = 0;                 // level when child was fixed to value
+        dependency dep = null_dependency;   // justification for fixed value
+        rational value;                     // fixed value of child
         offset_slice_extra() = default;
-        offset_slice_extra(pvar child, unsigned offset, unsigned level) : offset_slice(child, offset), level(level) {}
+        offset_slice_extra(pvar child, unsigned offset, unsigned level, dependency dep, rational value) : offset_slice(child, offset), level(level), dep(std::move(dep)), value(std::move(value)) {}
     };
     using offset_slice_extra_vector = vector<offset_slice_extra>;
 
@@ -172,7 +193,7 @@ namespace polysat {
         virtual void get_bitvector_super_slices(pvar v, offset_slices& out) = 0;
         virtual void get_fixed_bits(pvar v, fixed_bits_vector& fixed_slice) = 0;
         virtual void get_fixed_sub_slices(pvar v, fixed_slice_extra_vector& fixed_slice, offset_slice_extra_vector& subslices) = 0;
-        virtual pdd  mk_ite(signed_constraint const& sc, pdd const& p, pdd const& q) = 0;
+        virtual pdd mk_ite(signed_constraint const& sc, pdd const& p, pdd const& q) = 0;
         virtual pdd mk_zero_extend(unsigned sz, pdd const& p) = 0;
         virtual unsigned level(dependency const& d) = 0;
     };
