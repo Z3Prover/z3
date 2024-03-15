@@ -174,7 +174,8 @@ namespace polysat {
                 if (!e)
                     continue;
                 last = e;
-                update_value_to_high(val, e);
+                if (e->interval.is_proper())
+                   update_value_to_high(val, e);
                 m_explain.push_back({ e, val });
                 if (is_conflict()) {
                     m_explain_kind = explain_t::conflict;
