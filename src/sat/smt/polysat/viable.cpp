@@ -598,7 +598,6 @@ namespace polysat {
                 VERIFY_EQ(e->src.size(), 1);
                 VERIFY_EQ(c.get_constraint(index), e->src[0]);
                 result.push_back(c.get_dependency(index));
-                // result.append(c.explain_weak_eval(c.get_constraint(index)));
             }
         };
 
@@ -637,17 +636,18 @@ namespace polysat {
             // there is just one entry
             SASSERT(m_explain.size() == 1);
             explain_entry(last.e);
+
+            // assignment conflict and propagation from containing slice depends on concrete values,
+            // so we also need the evaluations of linear terms
+            auto index = last.e->constraint_index;
+            if (!index.is_null())
+                result.append(c.explain_weak_eval(c.get_constraint(index)));
+
             auto exp = propagate_from_containing_slice(last.e, last.value, result);
+            // verbose_stream() << "exp is " << exp << "\n";
             if (!exp.is_null()) {
                 result.clear();
                 result.push_back(exp);
-            }
-            else {
-                // could not propagate to subslice
-                // conflict depends on evaluation
-                auto index = last.e->constraint_index;
-                if (!index.is_null())
-                    result.append(c.explain_weak_eval(c.get_constraint(index)));
             }
         }
         unmark();
