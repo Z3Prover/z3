@@ -154,6 +154,11 @@ namespace polysat {
             auto const& offs = d.offset();
             explain_slice(offs.child, offs.parent, offs.offset, consume);
         }
+        else if (d.is_enode_eq()) {
+            auto const [n1, n2] = d.enode_eq();
+            VERIFY(n1->get_root() == n2->get_root());
+            eqs.push_back(euf::enode_pair(n1, n2));
+        }
         else {
             auto const [v1, v2] = d.eq();
             euf::enode* const n1 = var2enode(v1);
@@ -169,7 +174,6 @@ namespace polysat {
         for (auto d : deps) 
             explain_dep(d, eqs, core);
 
-        
         IF_VERBOSE(10,
             verbose_stream() << "explain\n";
             for (auto lit : core)
@@ -270,7 +274,7 @@ namespace polysat {
     }
 
     void solver::propagate_eq(pvar pv, rational const& val, dependency const& d) {
-        auto v = m_pddvar2var[pv];
+        theory_var v = m_pddvar2var[pv];
         auto a = var2enode(v);
         auto bval = bv.mk_numeral(val, get_bv_size(v));
         ctx.internalize(bval);

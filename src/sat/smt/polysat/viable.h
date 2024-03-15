@@ -115,8 +115,10 @@ namespace polysat {
 
         bool intersect(pvar v, entry* e);
 
-        dependency propagate_from_containing_slice(entry* e, rational const& value, dependency_vector const& e_deps);
-        dependency propagate_from_containing_slice(entry* e, rational const& value, dependency_vector const& e_deps, fixed_slice_extra_vector const& fixed, offset_slice_extra const& slice);
+        lbool propagate_from_containing_slice(entry* e, rational const& value, dependency_vector const& e_deps);
+        lbool propagate_from_containing_slice(entry* e, rational const& value, dependency_vector const& e_deps, fixed_slice_extra_vector const& fixed, offset_slice_extra const& slice);
+        dependency_vector m_containing_slice_deps;
+
         static r_interval chop_off_upper(r_interval const& i, unsigned Ny, unsigned Nz, rational const* y_fixed_value = nullptr);
         static r_interval chop_off_lower(r_interval const& i, unsigned Ny, unsigned Nz, rational const* z_fixed_value = nullptr);
 
@@ -149,6 +151,7 @@ namespace polysat {
 
         pvar            m_var = null_var;
         explain_t       m_explain_kind = explain_t::none;
+        dependency      m_assign_dep = null_dependency;
         unsigned        m_num_bits = 0;
         fixed_bits      m_fixed_bits;
         offset_slices   m_overlaps;
@@ -167,25 +170,24 @@ namespace polysat {
         find_t find_viable(pvar v, rational& out_val);
 
         /*
-        * Explain the current variable is not viable or signleton.
-        */
+         * Explain the current variable is not viable or singleton.
+         */
         dependency_vector explain();
 
         /*
-        * Register constraint at index 'idx' as unitary in v.
-        */
+         * Register constraint at index 'idx' as unitary in v.
+         */
         find_t add_unitary(pvar v, constraint_id, rational& value);
 
         /*
-        * Ensure data-structures tracking variable v.
-        */
+         * Ensure data-structures tracking variable v.
+         */
         void ensure_var(pvar v);
 
         /*
-        * Check if assignment is viable.
-        */
-        bool assign(pvar v, rational const& value);
-
+         * Check if assignment is viable.
+         */
+        bool assign(pvar v, rational const& value, dependency dep);
 
         std::ostream& display(std::ostream& out) const;
 

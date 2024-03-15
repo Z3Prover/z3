@@ -83,12 +83,13 @@ namespace polysat {
         return e;
     }
 
-    bool viable::assign(pvar v, rational const& value) {
+    bool viable::assign(pvar v, rational const& value, dependency dep) {
         m_var = v;
         m_explain_kind = explain_t::none;
         m_num_bits = c.size(v);
         m_fixed_bits.init(v);
         m_explain.reset();
+        m_assign_dep = null_dependency;
         init_overlaps(v);
         bool first = true;
         while (true) {
@@ -99,6 +100,7 @@ namespace polysat {
                         continue;
                     m_explain.push_back({ e, value });
                     m_explain_kind = explain_t::assignment;
+                    m_assign_dep = dep;
                     return false;
                 }
             }
@@ -124,6 +126,7 @@ namespace polysat {
         m_fixed_bits.init(v);
         init_overlaps(v);
         m_explain_kind = explain_t::none;
+        m_assign_dep = null_dependency;
 
         for (unsigned rounds = 0; rounds < 10; ) {
             entry* n = find_overlap(lo);
@@ -559,9 +562,9 @@ namespace polysat {
     }
 
     /*
-    * Explain why the current variable is not viable or
-    * or why it can only have a single value.
-    */
+     * Explain why the current variable is not viable or
+     * or why it can only have a single value.
+     */
     dependency_vector viable::explain() {
         dependency_vector result;      
         auto last = m_explain.back();
@@ -588,7 +591,7 @@ namespace polysat {
             if (m_var != e->var)
                 result.push_back(offset_claim(m_var, { e->var, 0 }));
             for (auto const& sc : e->side_cond) {
-                auto d = c.propagate(sc, c.explain_weak_eval(sc));
+                auto d = c.propagate(sc, c.explain_weak_eval(sc), "entry weak eval");
                 if (c.inconsistent()) {
                     verbose_stream() << "inconsistent " << d << " " << sc << "\n";
                 }
@@ -599,11 +602,11 @@ namespace polysat {
                 VERIFY_EQ(e->src.size(), 1);
                 VERIFY_EQ(c.get_constraint(index), e->src[0]);
                 result.push_back(c.get_dependency(index));
-                // result.append(c.explain_weak_eval(c.get_constraint(index)));
             }
         };
 
         if (last.e->interval.is_full()) {
+            SASSERT(m_explain_kind == explain_t::none);
             explain_entry(last.e);
             SASSERT(m_explain.size() == 1);
             unmark();
@@ -636,19 +639,32 @@ namespace polysat {
         if (m_explain_kind == explain_t::assignment) {
             // there is just one entry
             SASSERT(m_explain.size() == 1);
+            SASSERT(!m_assign_dep.is_null());
             explain_entry(last.e);
-            auto exp = propagate_from_containing_slice(last.e, last.value, result);
-            if (!exp.is_null()) {
-                result.clear();
-                result.push_back(exp);
-            }
-            else {
-                // could not propagate to subslice
-                // conflict depends on evaluation
-                auto index = last.e->constraint_index;
-                if (!index.is_null())
-                    result.append(c.explain_weak_eval(c.get_constraint(index)));
-            }
+
+            // assignment conflict and propagation from containing slice depends on concrete values,
+            // so we also need the evaluations of linear terms
+            SASSERT(!c.is_assigned(m_var));             // assignment of m_var is justified by m_assign_dep
+            auto index = last.e->constraint_index;
+            if (!index.is_null())
+                result.append(c.explain_weak_eval(c.get_constraint(index)));
+
+            // 'result' so far contains explanation for entry and its weak evaluation
+            switch (propagate_from_containing_slice(last.e, last.value, result)) {
+            case l_true:
+                // propagated interval onto subslice
+                result = m_containing_slice_deps;
+                break;
+            case l_false:
+                // conflict (projected interval is full)
+                result = m_containing_slice_deps;
+                break;
+            case l_undef:
+                // unable to propagate interval to containing slice
+                // fallback explanation uses assignment of m_var
+                result.push_back(m_assign_dep);
+                break;
+            };
         }
         unmark();
         if (c.inconsistent())
@@ -656,20 +672,32 @@ namespace polysat {
         return result;
     }
 
-    dependency viable::propagate_from_containing_slice(entry* e, rational const& value, dependency_vector const& e_deps) {
+    /*
+     * l_true: successfully projected interval onto subslice
+     * l_false: also successfully projected interval onto subslice, resulted in full interval
+     * l_undef: failed
+     *
+     * In case of l_true/l_false, conflict will be in m_containing_slice_deps.
+     */
+    lbool viable::propagate_from_containing_slice(entry* e, rational const& value, dependency_vector const& e_deps) {
         verbose_stream() << "\n\n\n\n\n\nNon-viable assignment for v" << m_var << " size " << c.size(m_var) << "\n";
         display_one(verbose_stream() << "entry: ", e) << "\n";
         verbose_stream() << "value " << value << "\n";
+        // verbose_stream() << "m_overlaps " << m_overlaps << "\n";
         m_fixed_bits.display(verbose_stream() << "fixed: ") << "\n";
 
+        // TODO: each of subslices corresponds to one in fixed, but may occur with different pvars
+        //       for each offset/length with pvar we need to do the projection only once.
         fixed_slice_extra_vector fixed;
         offset_slice_extra_vector subslices;
         c.s.get_fixed_sub_slices(m_var, fixed, subslices);   // TODO: move into m_fixed bits?
 
+        TRACE("bv", c.display(tout));
+
         // this case occurs if e-graph merges e.g. nodes "x - 2" and "3";
         // polysat will see assignment "x = 5" but no fixed bits
         if (subslices.empty())
-            return null_dependency;
+            return l_undef;
 
         unsigned max_level = 0;
         for (auto const& slice : subslices)
@@ -688,19 +716,19 @@ namespace polysat {
         });
 
         for (auto const& slice : subslices)
-            if (auto d = propagate_from_containing_slice(e, value, e_deps, fixed, slice); !d.is_null())
-                return d;
-        return null_dependency;
+            if (auto r = propagate_from_containing_slice(e, value, e_deps, fixed, slice); r != l_undef)
+                return r;
+        return l_undef;
     }
 
-    dependency viable::propagate_from_containing_slice(entry* e, rational const& value, dependency_vector const& e_deps, fixed_slice_extra_vector const& fixed, offset_slice_extra const& slice) {
+    lbool viable::propagate_from_containing_slice(entry* e, rational const& value, dependency_vector const& e_deps, fixed_slice_extra_vector const& fixed, offset_slice_extra const& slice) {
         pvar w = slice.child;
         unsigned offset = slice.offset;
         unsigned w_level = slice.level;  // level where value of w was fixed
         if (w == m_var)
-            return null_dependency;
+            return l_undef;
         if (w == e->var)
-            return null_dependency;
+            return l_undef;
 
         // verbose_stream() << "v" << m_var << " size " << c.size(m_var) << ", v" << w << " size " << c.size(w) << " offset " << offset << " level " << w_level << "\n";
 
@@ -725,7 +753,7 @@ namespace polysat {
         //             wwwwwwwww
         unsigned const v_sz = e->bit_width;
         if (offset >= v_sz)
-            return null_dependency;
+            return l_undef;
 
         unsigned const w_sz = c.size(w);
         unsigned const z_sz = offset;
@@ -744,9 +772,8 @@ namespace polysat {
             verbose_stream() << "propagate interval " << v_ivl << " from v" << m_var << " to v" << w << "[" << y_sz << "]" << "\n";
         });
 
-        dependency_vector deps;
-        deps.append(e_deps);  // explains e
-        deps.push_back(offset_claim{m_var, slice});  // explains m_var[...] = w
+        dependency_vector& deps = m_containing_slice_deps;
+        deps.reset();
 
         r_interval ivl = v_ivl;
 
@@ -756,6 +783,8 @@ namespace polysat {
         while (remaining_x_sz > 0 && !ivl.is_empty() && !ivl.is_full()) {
             unsigned remaining_x_end = remaining_x_sz + x_off;
             // find next fixed slice (prefer lower level)
+        // sort fixed claims by bound (upper: decreasing, lower: increasing), then by merge-level (prefer lower merge level), ignore merge level higher than var? (or just max?)
+        // note that we might choose multiple overlapping ones, if they allow to make more progress?
             fixed_slice_extra best;
             unsigned best_end = 0;
             SASSERT(best_end < x_off);  // because y_sz != 0
@@ -819,7 +848,7 @@ namespace polysat {
         }
 
         if (ivl.is_empty())
-            return null_dependency;
+            return l_undef;
 
         // chop off z-part
         unsigned remaining_z_sz = z_sz;
@@ -886,24 +915,44 @@ namespace polysat {
         }
 
         if (ivl.is_empty())
-            return null_dependency;
+            return l_undef;
 
         IF_VERBOSE(3, {
             verbose_stream() << "=>  v" << w << "[" << y_sz << "] not in " << ivl << "\n";
         });
 
+        deps.append(e_deps);  // explains e
+        deps.push_back(offset_claim{m_var, slice});  // explains m_var[...] = w
+
         if (ivl.is_full()) {
-            pdd zero = c.var2pdd(m_var).zero();
-            auto sc = cs.ult(zero, zero);  // false
-            return c.propagate(sc, deps, "propagate from containing slice (conflict)");
+            // deps is a conflict
+            return l_false;
         }
         else {
             // proper interval
-            auto sc = ~cs.ult(w_shift * (c.var(w) - ivl.lo()), w_shift * (ivl.hi() - ivl.lo()));
-            return c.propagate(sc, deps, "propagate from containing slice");
+            SASSERT(ivl.is_proper() && !ivl.is_empty());
+            // deps => 2^w_shift w not in ivl
+            signed_constraint sc = ~cs.ult(w_shift * (c.var(w) - ivl.lo()), w_shift * (ivl.hi() - ivl.lo()));
+            dependency d = c.propagate(sc, deps, "propagate from containing slice");
+
+            verbose_stream() << "v" << w << " value " << slice.value << "\n";
+            verbose_stream() << "v" << w << " value-dep " << slice.dep << "\n";
+
+            if (ivl.contains(slice.value)) {
+                // the conflict is projected interval + fixed value
+                deps.reset();
+                deps.push_back(d);
+                deps.push_back(slice.dep);
+                return l_true;
+            }
+            else {
+                // interval propagation worked but it doesn't conflict the currently assigned value
+                // TODO: also skip propagation of the signed constraint in this case?
+                return l_undef;
+            }
         }
 
-        return null_dependency;
+        return l_undef;
     }
 
 
@@ -1120,6 +1169,7 @@ namespace polysat {
         }
 
         // verbose_stream() << "v" << v << " " << sc << " " << ne->interval << "\n";
+        TRACE("bv", tout << "v" << v << " " << sc << " " << ne->interval << "\n"; display_one(tout, ne) << "\n");
 
         if (ne->interval.is_currently_empty()) {
             m_alloc.push_back(ne);
@@ -1152,19 +1202,6 @@ namespace polysat {
             //          hi[w-1:k] + 1  otherwise
             //
             // Reference: Fig. 1 (dtrim) in BitvectorsMCSAT
-            //
-            //
-            // Suppose new_lo = new_hi
-            // Then since ne is not full, then lo != hi
-            // Cases
-            // lo < hi, 2^k|lo, new_lo = lo / 2^k != new_hi = hi / 2^k
-            // lo < hi, not 2^k|lo, 2^k|hi, new_lo = lo / 2^k + 1, new_hi = hi / 2^k
-            //          new_lo = new_hi -> empty
-            //          k = 3, lo = 1, hi = 8, new_lo = 1, new_hi = 1
-            // lo < hi, not 2^k|lo, not 2^k|hi, new_lo = lo / 2^k + 1, new_hi = hi / 2^k + 1
-            //          new_lo = new_hi -> empty
-            //          k = 3, lo = 1, hi = 2, new_lo = 1 div 2^3 + 1 = 1, new_hi = 2 div 2^3 + 1 = 1
-            // lo > hi
 
             TRACE("bv", display_one(tout << "try to reduce entry: ", ne) << "\n");
             pdd const& pdd_lo = ne->interval.lo();
@@ -1198,30 +1235,50 @@ namespace polysat {
                     ne->side_cond.push_back(~cs.eq(hi_eq));
             }
             
-
-            // 
-            // If new_lo = new_hi it means that 
-            //   mod(ceil (lo / 2^k), 2^w) = mod(ceil (hi / 2^k), 2^w)
+            //
+            // If new_lo = new_hi it means that
+            //   mod(ceil(lo / 2^k), 2^(w-k)) = mod(ceil(hi / 2^k), 2^(w-k))
             // or
-            //   div (mod(lo + 2^k - 1, 2^w), 2^k) = div (mod(hi + 2^k - 1, 2^w), 2^k)
+            //   div(mod(lo + 2^k - 1, 2^w), 2^k) = div(mod(hi + 2^k - 1, 2^w), 2^k)
             // but we also have lo != hi.
-            // Assume lo < hi
-            // - it means 2^k does not divide any of [lo, hi[
-            // so x*2^k cannot be in [lo, hi[
-            // Assume lo > hi
-            // - then the constraint is x*2^k not in [lo, 0[, [0, hi[
-            // - it means 2^k does not divide any of [hi, lo[
-            // - therefore the interval [lo, hi[ contains all the divisors of 2^k
+            //
+            // Cases:
+            //   0 < lo < hi:     empty  (2^k does not divide any of [lo, hi[)
+            //   0 == lo < hi:    full
+            //   0 < hi < lo:     full
+            //   0 == hi < lo:    empty
             //
 
             if (new_lo == new_hi) {
+                bool is_empty_ivl;
                 if (lo < hi) {
+                    ne->side_cond.push_back(cs.ult(pdd_lo, pdd_hi));
+                    if (lo == 0) {
+                        ne->side_cond.push_back(cs.eq(pdd_lo));
+                        is_empty_ivl = false;
+                    }
+                    else {
+                        ne->side_cond.push_back(~cs.eq(pdd_lo));
+                        is_empty_ivl = true;
+                    }
+                }
+                else {
+                    SASSERT(hi < lo);
+                    ne->side_cond.push_back(cs.ult(pdd_hi, pdd_lo));
+                    if (hi == 0) {
+                        ne->side_cond.push_back(cs.eq(pdd_hi));
+                        is_empty_ivl = true;
+                    }
+                    else {
+                        ne->side_cond.push_back(~cs.eq(pdd_hi));
+                        is_empty_ivl = false;
+                    }
+                }
+                if (is_empty_ivl) {
                     m_alloc.push_back(ne);
                     return find_t::multiple;
                 }
                 else {
-                    // IF_VERBOSE(0, display_one(verbose_stream() << "full: ", ne) << "\n");
-                    SASSERT(hi < lo);
                     ne->interval = eval_interval::full();
                     ne->coeff = 1;
                     m_explain.reset();
@@ -1445,12 +1502,15 @@ namespace polysat {
                 out << "[" << e->bit_width << "]";
             out << " " << e->interval << " ";
         }
-        for (auto const& d : e->deps)
-            out << d << " ";
-        if (e->side_cond.size() <= 5)
-            out << e->side_cond << " ";
+        if (!e->deps.empty())
+            out << " deps " << e->deps;
+        if (e->side_cond.empty())
+            ;
+        else if (e->side_cond.size() <= 5)
+            out << " side-conds " << e->side_cond;
         else
-            out << e->side_cond.size() << " side-conditions ";
+            out << " side-conds " << e->side_cond.size() << " side-conditions";
+        out << " src ";
         unsigned count = 0;
         for (const auto& src : e->src) {
             ++count;
@@ -1506,6 +1566,7 @@ namespace polysat {
     }
 
     std::ostream& viable::display_explain(std::ostream& out) const {
+        out << "explain_kind " << m_explain_kind << "\n";
         display_state(out);
         for (auto const& e : m_explain)
             display_one(out << "v" << m_var << "[" << e.e->bit_width << "] := " << e.value << " ", e.e) << "\n";

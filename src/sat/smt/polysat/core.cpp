@@ -387,11 +387,11 @@ namespace polysat {
     }
 
     void core::propagate_assignment(pvar v, rational const& value, dependency dep) {
-        TRACE("bv", tout << "propagate assignment v" << v << " := " << value << "\n");
+        TRACE("bv", tout << "propagate assignment v" << v << " := " << value << " justified by " << dep << "\n");
+        // verbose_stream() << "propagate assignment v" << v << " := " << value << " justified by " << dep << "\n";
         SASSERT(!is_assigned(v));
-        if (!m_viable.assign(v, value)) {
+        if (!m_viable.assign(v, value, dep)) {
             auto deps = m_viable.explain();
-            deps.push_back(dep);
             verbose_stream() << "non-viable assignment v" << v << " == " << value << " <- " << deps << "\n";
             s.set_conflict(deps, "non-viable assignment");
             return;
@@ -532,7 +532,7 @@ namespace polysat {
         };
 
         auto& value = m_constraint_index[index.id].value;
-        TRACE("bv", tout << "assignment " << index.id << " " << m_constraint_index[index.id].sc << " := " << value << " sign: " << sign << "\n");
+        TRACE("bv", tout << "assignment cid=" << index.id << " " << m_constraint_index[index.id].sc << " := " << value << " sign: " << sign << "\n");
 
         if (value != l_undef &&
             ((value == l_false && !sign) || (value == l_true && sign))) {

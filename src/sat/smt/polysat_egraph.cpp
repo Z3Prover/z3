@@ -125,7 +125,7 @@ namespace polysat {
 
     // walk the e-graph to retrieve fixed sub-slices along with justifications,
     // as well as pvars that correspond to these sub-slices.
-    void solver::get_fixed_sub_slices(pvar pv, fixed_slice_extra_vector& fixed, offset_slice_extra_vector& subslices) {
+    void solver::get_fixed_sub_slices(pvar pv, fixed_slice_extra_vector& fixed, offset_slice_extra_vector& pvars) {
         #define GET_FIXED_SUB_SLICES_DISPLAY 1
         auto consume_slice = [&](euf::enode* n, unsigned offset) -> bool {
             euf::enode* r = n->get_root();
@@ -141,7 +141,8 @@ namespace polysat {
             unsigned level = merge_level(n, r);
 
             euf::theory_var u = n->get_th_var(get_id());
-            dependency dep = (u == euf::null_theory_var) ? dependency::axiom() : dependency(u, w);   // TODO: probably need an enode_pair instead?
+            // dependency dep = (u == euf::null_theory_var || u == w) ? dependency::axiom() : dependency(u, w);   // TODO: probably need an enode_pair instead?
+            dependency dep = dependency(n, r);
 
 #if GET_FIXED_SUB_SLICES_DISPLAY
             verbose_stream() << "    " << value << "[" << length << "]@" << offset;
@@ -152,7 +153,9 @@ namespace polysat {
             verbose_stream() << "  merge-level " << level;
             verbose_stream() << "\n";
 #endif
-            fixed.push_back(fixed_slice_extra(value, offset, length, level, dep));
+
+            fixed.push_back(fixed_slice_extra(null_var, value, offset, length, level, dep));
+
             for (euf::enode* sib : euf::enode_class(n)) {
                 euf::theory_var s = sib->get_th_var(get_id());
                 if (s == euf::null_theory_var)
@@ -166,9 +169,13 @@ namespace polysat {
                 verbose_stream() << "  node " << ctx.bpp(sib);
                 verbose_stream() << "  tv " << s;
                 verbose_stream() << "  merge-level " << p_level;
+                verbose_stream() << "  assigned? " << m_core.get_assignment().contains(p.var());
+                if (m_core.get_assignment().contains(p.var()))
+                    verbose_stream() << "  value " << m_core.get_assignment().value(p.var());
                 verbose_stream() << "\n";
 #endif
-                subslices.push_back(offset_slice_extra(p.var(), offset, p_level));
+                dependency d = dependency(r, sib);
+                pvars.push_back(offset_slice_extra(p.var(), offset, p_level, d, value));
             }
 
             return true;
