@@ -264,6 +264,11 @@ namespace polysat {
 
         SASSERT_EQ(m_lhs.power_of_2(), m_rhs.power_of_2());
 
+        if (ul.is_linear_or_value())
+            m_lhs = ul;
+        if (ur.is_linear_or_value())            
+            m_rhs = ur;        
+
         vars().append(m_lhs.free_vars());
         for (auto v : m_rhs.free_vars())
             if (!vars().contains(v))
