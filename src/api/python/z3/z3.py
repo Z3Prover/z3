@@ -5445,10 +5445,10 @@ def EnumSort(name, values, ctx=None):
     num = len(values)
     _val_names = (Symbol * num)()
     for i in range(num):
-        _val_names[i] = to_symbol(values[i])
+        _val_names[i] = to_symbol(values[i], ctx)
     _values = (FuncDecl * num)()
     _testers = (FuncDecl * num)()
-    name = to_symbol(name)
+    name = to_symbol(name, ctx)
     S = DatatypeSortRef(Z3_mk_enumeration_sort(ctx.ref(), name, num, _val_names, _values, _testers), ctx)
     V = []
     for i in range(num):
