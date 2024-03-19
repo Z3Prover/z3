@@ -62,7 +62,7 @@ public:
         if (m_simp)
             pop(1);
     }
-
+    
     /**
     * size(), [](), update() and inconsistent() implement the abstract interface of dependent_expr_state
     */
@@ -140,6 +140,12 @@ public:
         cleanup();
     }
 
+    void collect_statistics(statistics& st) const override {
+        if (m_simp)
+            m_simp->collect_statistics(st);
+        st.copy(m_st);
+    }
+
     void cleanup() override {
         if (m_simp) {
             m_simp->collect_statistics(m_st);
@@ -149,13 +155,6 @@ public:
         m_model_trail = nullptr;
         m_goal = nullptr;
         m_dep = dependent_expr(m, m.mk_true(), nullptr, nullptr);
-    }
-
-    void collect_statistics(statistics& st) const override {
-        if (m_simp)
-            m_simp->collect_statistics(st);
-        else
-            st.copy(m_st);
     }
 
     void reset_statistics() override {

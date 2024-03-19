@@ -118,7 +118,9 @@ def check_build_dir(path):
 
 # Create a build directory using mk_make.py
 def mk_build_dir(path):
+    global LINUX_X64
     if not check_build_dir(path) or FORCE_MK:
+        env = os.environ
         opts = [sys.executable, os.path.join('scripts', 'mk_make.py'), "-b", path, "--staticlib"]
         if DOTNET_CORE_ENABLED:
             opts.append('--dotnet')
@@ -133,7 +135,17 @@ def mk_build_dir(path):
             opts.append('--python')
         if mk_util.IS_ARCH_ARM64:
             opts.append('--arm64=true')
-        if subprocess.call(opts) != 0:
+        if mk_util.IS_ARCH_ARM64 and LINUX_X64:
+            # we are machine x64 but build against arm64
+            # so we have to do cross compiling
+            # the cross compiler is download from ARM GNU
+            # toolchain
+            myvar = {
+                "CC":  "aarch64-none-linux-gnu-gcc",
+                "CXX": "aarch64-none-linux-gnu-g++"
+            }
+            env.update(myvar)
+        if subprocess.call(opts, env=env) != 0:
             raise MKException("Failed to generate build directory at '%s'" % path)
 
 # Create build directories
@@ -159,12 +171,22 @@ def mk_z3():
             return 1
 
 def get_os_name():
+    global LINUX_X64
     if OS_NAME is not None:
         return OS_NAME
     import platform
     basic = os.uname()[0].lower()
     if basic == 'linux':
-        dist = platform.libc_ver()
+        if mk_util.IS_ARCH_ARM64 and LINUX_X64:
+            # handle cross compiling
+            # example: 'ldd (GNU) 2.34'
+            lines = subprocess.check_output(["ldd", "--version"]).decode('ascii')
+            first_line = lines.split("\n")[0]
+            ldd_version = first_line.split()[-1]
+            # coerce the format to platform.libc_ver() return type
+            dist = ('glibc', ldd_version)
+        else:
+            dist = platform.libc_ver()
         if len(dist) == 2 and len(dist[0]) > 0 and len(dist[1]) > 0:
             return '%s-%s' % (dist[0].lower(), dist[1].lower())
         else:
@@ -187,8 +209,14 @@ def get_os_name():
         return basic
 
 def get_z3_name():
+    import platform as platform_module
+    # Note that the platform name this function return
+    # has to work together with setup.py
+    # It's not the typical output from platform.machine()
     major, minor, build, revision = get_version()
-    if mk_util.IS_ARCH_ARM64:
+    if mk_util.IS_ARCH_ARM64 or platform_module.machine() == "aarch64":
+        # the second case handle native build on aarch64
+        # TODO: we don't handle cross compile on host aarch64 to target x64
         platform = "arm64"    
     elif sys.maxsize >= 2**32:
         platform = "x64"

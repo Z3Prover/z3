@@ -42,6 +42,10 @@ struct simplify_tactic::imp {
         m_num_steps = 0;
     }
 
+    void collect_statistics(statistics& st) {
+        st.update("rewriter.steps", m_num_steps);
+    }
+
     void operator()(goal & g) {
         tactic_report report("simplifier", g);
         m_num_steps = 0;
@@ -106,6 +110,11 @@ void simplify_tactic::cleanup() {
     params_ref p = std::move(m_params);
     m_imp->~imp();
     new (m_imp) imp(m, p);
+}
+
+void simplify_tactic::collect_statistics(statistics& st) const {
+    if (m_imp)
+        m_imp->collect_statistics(st);
 }
 
 unsigned simplify_tactic::get_num_steps() const {

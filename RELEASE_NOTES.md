@@ -10,6 +10,10 @@ Version 4.next
     - native word level bit-vector solving.
   - introduction of simple induction lemmas to handle a limited repertoire of induction proofs.
 
+Version 4.13.0
+==============
+- add ARM64 wheels for Python, thanks to Steven Moy, smoy
+
 Version 4.12.6
 ==============
 - remove expensive rewrite that coalesces adjacent stores

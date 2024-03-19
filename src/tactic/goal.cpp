@@ -696,7 +696,7 @@ bool goal::is_cnf() const {
                 if (!is_literal(lit)) 
                     return false;
         }
-        if (!is_literal(f)) 
+        else if (!is_literal(f)) 
             return false;
     }
     return true;

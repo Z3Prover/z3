@@ -20,6 +20,7 @@ Notes:
 #pragma once
 
 #include "util/mpz.h"
+#include "util/map.h"
 
 class powers : public u_map<mpz*> {
     unsynch_mpz_manager & m;

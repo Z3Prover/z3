@@ -1190,6 +1190,9 @@ public:
     tactic * translate(ast_manager & m) override {
         return this;
     }
+
+    void collect_statistics(statistics& st) const override {
+    }
 };
 
 tactic * fail_if(probe * p) {
@@ -1216,6 +1219,7 @@ public:
     }
 
     tactic * translate(ast_manager & m) override { return translate_core<if_no_proofs_tactical>(m); }
+   
 };
 
 class if_no_unsat_cores_tactical : public unary_tactical {

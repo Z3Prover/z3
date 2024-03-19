@@ -202,6 +202,7 @@ ATOMIC_CMD(get_proof_cmd, "get-proof", "retrieve proof", {
         cmd_is_declared isd(ctx);
         pp.set_is_declared(&isd);
         pp.set_logic(ctx.get_logic());
+        pp.set_simplify_implies(params.simplify_implies());
         pp.display_smt2(ctx.regular_stream(), pr);
         ctx.regular_stream() << std::endl;
     }
