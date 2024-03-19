@@ -138,11 +138,12 @@ namespace polysat {
             rational value;
             VERIFY(bv.is_numeral(r->get_expr(), value));
 
-            unsigned level = merge_level(n, r);
+            unsigned level = merge_level(n, r);  // TODO: WRONG -- n is not actually guaranteed to be the subslice of pv
 
             euf::theory_var u = n->get_th_var(get_id());
             // dependency dep = (u == euf::null_theory_var || u == w) ? dependency::axiom() : dependency(u, w);   // TODO: probably need an enode_pair instead?
-            dependency dep = dependency(n, r);
+            // dependency dep = dependency(n, r);
+            dependency dep = fixed_claim(pv, null_var, value, offset, length);
 
 #if GET_FIXED_SUB_SLICES_DISPLAY
             verbose_stream() << "    " << value << "[" << length << "]@" << offset;
