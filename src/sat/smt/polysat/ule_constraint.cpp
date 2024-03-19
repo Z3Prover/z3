@@ -82,11 +82,8 @@ namespace polysat {
     // NOTE: the result should not depend on the initial value of is_positive;
     //       the purpose of is_positive is to allow flipping the sign as part of a rewrite rule.
     static void simplify_impl(bool& is_positive, pdd& lhs, pdd& rhs) {
-        
         SASSERT_EQ(lhs.power_of_2(), rhs.power_of_2());
         unsigned const N = lhs.power_of_2();
-
-        // verbose_stream() << "simplify " << lhs << " <= " << rhs << "\n";
 
         // 0 <= p   -->   0 <= 0
         if (lhs.is_zero()) {
@@ -235,7 +232,6 @@ namespace polysat {
         SASSERT(parity < N);  // since at least one side is a non-constant
 
         if (parity > lhs.offset().parity(N) || parity > rhs.offset().parity(N)) {
-            verbose_stream() << "lhs = " << lhs << "   rhs = " << rhs << "   parity = " << parity << "\n";
             // 2^k p + a <= 2^k q + b   with 0 <= a < 2^k and 0 <= b < 2^k
             //      --> 2^k p <= 2^k q  if a <= b
             //      --> 2^k p <  2^k q  if a >  b
@@ -250,14 +246,8 @@ namespace polysat {
             }
             // one more round to detect trivial constraints
             return simplify_impl(is_positive, lhs, rhs);
-            verbose_stream() << "lhs' = " << lhs << "   rhs' = " << rhs << "\n";
         }
-
     } // simplify_impl
-}
-
-
-namespace polysat {
 
     ule_constraint::ule_constraint(pdd const& l, pdd const& r, pdd const& ul, pdd const& ur) :
         m_lhs(l), m_rhs(r), m_unfold_lhs(ul), m_unfold_rhs(ur) {
@@ -402,6 +392,5 @@ namespace polysat {
         }
         */
     }
-
 
 }
