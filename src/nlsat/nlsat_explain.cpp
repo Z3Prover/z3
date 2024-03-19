@@ -277,6 +277,7 @@ namespace nlsat {
             }
             
         };
+
         void add_zero_assumption(polynomial_ref& p) {
             // If p is of the form p1^n1 * ... * pk^nk,
             // then only the factors that are zero in the current interpretation needed to be considered.
@@ -300,7 +301,7 @@ namespace nlsat {
                     }
                 }
             }
- 
+
             if (!is_linear) {
                 scoped_anum_vector& roots = m_roots_tmp;
                 roots.reset();
@@ -312,6 +313,7 @@ namespace nlsat {
                         int s = m_am.compare(x_val, roots[i]);
                         if (s != 0)
                             continue;
+                        TRACE("nlsat_explain", tout << "adding (zero assumption) root " << "\n");
                         add_root_literal(atom::ROOT_EQ, x, i + 1, p);
                         return;
                     }
@@ -321,12 +323,11 @@ namespace nlsat {
                 }
             }
             SASSERT(!m_zero_fs.empty()); // one of the factors must be zero in the current interpretation, since p is zero in it.
- 
+
             literal l = m_solver.mk_ineq_literal(atom::EQ, m_zero_fs.size(), m_zero_fs.data(), m_is_even.data());
             l.neg();
             TRACE("nlsat_explain", tout << "adding (zero assumption) literal:\n"; display(tout, l); tout << "\n";);
             add_literal(l);
- 
         }
 
         void add_simple_assumption(atom::kind k, poly * p, bool sign = false) {
