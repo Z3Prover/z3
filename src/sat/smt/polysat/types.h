@@ -52,6 +52,8 @@ namespace polysat {
         unsigned end() const { return offset + length; }
     };
 
+    // parent[offset+length-1:offset] ~ value
+    // child ~ value, if child != null_var
     struct fixed_claim : public fixed_slice {
         pvar parent;
         fixed_claim() = default;
@@ -66,7 +68,7 @@ namespace polysat {
         offset_slice(pvar child, unsigned offset) : child(child), offset(offset) {}
     };
 
-    // parent[X:offset] = child
+    // parent[X:offset] ~ child
     // where X = offset + size(child) - 1
     struct offset_claim : public offset_slice {
         pvar parent;
@@ -137,29 +139,29 @@ namespace polysat {
 
     using fixed_bits_vector = vector<fixed_slice>;
 
-    struct fixed_slice_extra : public fixed_slice {
-        // pvar child;
-        // unsigned offset = 0;
-        // unsigned length = 0;
-        // rational value;
-        unsigned level = 0;  // level when sub-slice was fixed to value
-        dependency dep = null_dependency;
-        fixed_slice_extra() = default;
-        fixed_slice_extra(pvar child, rational value, unsigned offset, unsigned length, unsigned level, dependency dep) :
-            fixed_slice(child, std::move(value), offset, length), level(level), dep(std::move(dep)) {}
-    };
-    using fixed_slice_extra_vector = vector<fixed_slice_extra>;
+    // struct fixed_slice_extra : public fixed_slice {
+    //     // pvar child;
+    //     // unsigned offset = 0;
+    //     // unsigned length = 0;
+    //     // rational value;
+    //     unsigned level = 0;  // level when sub-slice was fixed to value
+    //     dependency dep = null_dependency;
+    //     fixed_slice_extra() = default;
+    //     fixed_slice_extra(pvar child, rational value, unsigned offset, unsigned length, unsigned level, dependency dep) :
+    //         fixed_slice(child, std::move(value), offset, length), level(level), dep(std::move(dep)) {}
+    // };
+    // using fixed_slice_extra_vector = vector<fixed_slice_extra>;
 
-    struct offset_slice_extra : public offset_slice {
-        // pvar child;
-        // unsigned offset;
-        unsigned level = 0;                 // level when child was fixed to value
-        dependency dep = null_dependency;   // justification for fixed value
-        rational value;                     // fixed value of child
-        offset_slice_extra() = default;
-        offset_slice_extra(pvar child, unsigned offset, unsigned level, dependency dep, rational value) : offset_slice(child, offset), level(level), dep(std::move(dep)), value(std::move(value)) {}
-    };
-    using offset_slice_extra_vector = vector<offset_slice_extra>;
+    // struct offset_slice_extra : public offset_slice {
+    //     // pvar child;
+    //     // unsigned offset;
+    //     unsigned level = 0;                 // level when child was fixed to value
+    //     dependency dep = null_dependency;   // justification for fixed value
+    //     rational value;                     // fixed value of child
+    //     offset_slice_extra() = default;
+    //     offset_slice_extra(pvar child, unsigned offset, unsigned level, dependency dep, rational value) : offset_slice(child, offset), level(level), dep(std::move(dep)), value(std::move(value)) {}
+    // };
+    // using offset_slice_extra_vector = vector<offset_slice_extra>;
 
 
     using dependency_vector = vector<dependency>;
@@ -192,7 +194,7 @@ namespace polysat {
         virtual void get_bitvector_sub_slices(pvar v, offset_slices& out) = 0;
         virtual void get_bitvector_super_slices(pvar v, offset_slices& out) = 0;
         virtual void get_fixed_bits(pvar v, fixed_bits_vector& fixed_slice) = 0;
-        virtual void get_fixed_sub_slices(pvar v, fixed_slice_extra_vector& fixed_slice, offset_slice_extra_vector& subslices) = 0;
+        virtual void get_fixed_sub_slices(pvar v, fixed_bits_vector& fixed) = 0;
         virtual pdd mk_ite(signed_constraint const& sc, pdd const& p, pdd const& q) = 0;
         virtual pdd mk_zero_extend(unsigned sz, pdd const& p) = 0;
         virtual unsigned level(dependency const& d) = 0;

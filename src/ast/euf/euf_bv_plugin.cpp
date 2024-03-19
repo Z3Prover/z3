@@ -69,7 +69,7 @@ The formal properties of saturation have to be established.
 - Saturation does not complete with respect to associativity.
 Instead the claim is along the lines that the resulting E-graph can be used as a canonizer.
 If given a set of equations E that are saturated, and terms t1, t2 that are 
-both simplified with respect to left-associativity of concatentation, and t1, t2 belong to the E-graph,
+both simplified with respect to left-associativity of concatenation, and t1, t2 belong to the E-graph,
 then t1 = t2 iff t1 ~ t2 in the E-graph.
 
 TODO: Is saturation for (7) overkill for the purpose of canonization?
@@ -451,6 +451,7 @@ namespace euf {
                 }
                 for (auto p : euf::enode_parents(sib)) {
                     if (bv.is_extract(p->get_expr(), lo, hi, e)) {
+                        // p = sib[hi:lo]
                         SASSERT(g.find(e)->get_root() == n->get_root());
                         m_todo.push_back({ p, offset + lo });
                     }
@@ -505,7 +506,7 @@ namespace euf {
             std::swap(a, b);
         SASSERT(width(a) >= width(b));
         svector<std::tuple<enode*, enode*, unsigned>> just;
-        m_jtodo.push_back({ a, 0, UINT_MAX });
+        m_jtodo.push_back({ a, 0, UINT_MAX });  // enode, offset, idx into just
         unsigned lo, hi;
         expr* e;
 
@@ -555,7 +556,6 @@ namespace euf {
                     }
                 }
             }
-
         }
         IF_VERBOSE(0,
             g.display(verbose_stream());

@@ -686,22 +686,48 @@ namespace polysat {
         // verbose_stream() << "m_overlaps " << m_overlaps << "\n";
         m_fixed_bits.display(verbose_stream() << "fixed: ") << "\n";
 
-        // TODO: each of subslices corresponds to one in fixed, but may occur with different pvars
+        // TODO: each of subslices corresponds to one in fixed, but may occur with different pvars.
         //       for each offset/length with pvar we need to do the projection only once.
-        fixed_slice_extra_vector fixed;
-        offset_slice_extra_vector subslices;
-        c.s.get_fixed_sub_slices(m_var, fixed, subslices);   // TODO: move into m_fixed bits?
+        //       although, the max admissible level of fixed slices depends on the child pvar under consideration, so we may not get the optimal interval anymore?
+        //       (pvars on the same slice only differ by level. the fixed value is the same for all. so we can limit by the max level of pvars and then the projection will work for at least one.)
+        fixed_bits_vector fixed;
+        c.s.get_fixed_sub_slices(m_var, fixed);   // TODO: move into m_fixed bits?
 
-        TRACE("bv", c.display(tout));
+        bool has_pvar = any_of(fixed, [](fixed_slice const& f) { return f.child != null_var; });
 
         // this case occurs if e-graph merges e.g. nodes "x - 2" and "3";
         // polysat will see assignment "x = 5" but no fixed bits
-        if (subslices.empty())
+        if (!has_pvar)
             return l_undef;
 
-        unsigned max_level = 0;
-        for (auto const& slice : subslices)
-            max_level = std::max(max_level, slice.level);
+        // level when subslice of m_var became fixed
+        unsigned_vector fixed_levels;
+        for (auto const& f : fixed) {
+            dependency dep = fixed_claim(m_var, null_var, f.value, f.offset, f.length);
+            unsigned level = c.s.level(dep);
+            fixed_levels.push_back(level);
+        }
+
+        // level when target pvars became fixed
+        unsigned_vector pvar_levels;
+        for (auto const& f : fixed) {
+            unsigned level = UINT_MAX;
+            if (f.child != null_var) {
+                dependency dep = fixed_claim(f.child, null_var, f.value, 0, f.length);
+                level = c.s.level(dep);
+            }
+            pvar_levels.push_back(level);
+        }
+
+        TRACE("bv", c.display(tout));
+
+        unsigned_vector order;
+        for (unsigned i = 0; i < fixed.size(); ++i) {
+            fixed_slice const& f = fixed[i];
+            if (f.child == null_var)
+                continue;
+            order.push_back(i);
+        }
 
         // order by:
         // - level descending
@@ -709,22 +735,33 @@ namespace polysat {
         //     not always: e.g., could assign slice at level 5 but merge makes it a sub-slice only at level 10.
         //     (seems to work by not only considering max-level sub-slices.)
         // - size ascending
-        //     e.g., prefers constant 'c' if we have pvars for both 'c' and 'concat(c,...)'
-        std::sort(subslices.begin(), subslices.end(), [&](auto const& a, auto const& b) -> bool {
-            return a.level > b.level
-                || (a.level == b.level && c.size(a.child) < c.size(b.child));
+        //     e.g., prefers 'c' if we have pvars for both 'c' and 'concat(c,...)'
+        std::sort(order.begin(), order.end(), [&](auto const& i1, auto const& i2) -> bool {
+            unsigned lvl1 = pvar_levels[i1];
+            unsigned lvl2 = pvar_levels[i2];
+            pvar v1 = fixed[i1].child;
+            pvar v2 = fixed[i2].child;
+            return lvl1 > lvl2
+                || (lvl1 == lvl2 && c.size(v1) < c.size(v2));
         });
 
-        for (auto const& slice : subslices)
-            if (auto r = propagate_from_containing_slice(e, value, e_deps, fixed, slice); r != l_undef)
+        for (auto const& i : order) {
+            auto const& slice = fixed[i];
+            unsigned const slice_level = pvar_levels[i];
+            SASSERT(slice.child != null_var);
+            lbool r = propagate_from_containing_slice(e, value, e_deps, fixed, fixed_levels, slice, slice_level);
+            if (r != l_undef)
                 return r;
+        }
         return l_undef;
     }
 
-    lbool viable::propagate_from_containing_slice(entry* e, rational const& value, dependency_vector const& e_deps, fixed_slice_extra_vector const& fixed, offset_slice_extra const& slice) {
-        pvar w = slice.child;
-        unsigned offset = slice.offset;
-        unsigned w_level = slice.level;  // level where value of w was fixed
+    lbool viable::propagate_from_containing_slice(entry* e, rational const& value, dependency_vector const& e_deps, fixed_bits_vector const& fixed, unsigned_vector const& fixed_levels, fixed_slice const& slice, unsigned slice_level) {
+        pvar const w = slice.child;
+        unsigned const offset = slice.offset;
+        unsigned const w_level = slice_level;  // level where value of w was fixed
+        SASSERT(w != null_var);
+        SASSERT_EQ(c.size(w), slice.length);
         if (w == m_var)
             return l_undef;
         if (w == e->var)
@@ -755,7 +792,7 @@ namespace polysat {
         if (offset >= v_sz)
             return l_undef;
 
-        unsigned const w_sz = c.size(w);
+        unsigned const w_sz = slice.length;
         unsigned const z_sz = offset;
         unsigned const y_sz = std::min(w_sz, v_sz - z_sz);
         unsigned const x_sz = v_sz - y_sz - z_sz;
@@ -783,13 +820,14 @@ namespace polysat {
         while (remaining_x_sz > 0 && !ivl.is_empty() && !ivl.is_full()) {
             unsigned remaining_x_end = remaining_x_sz + x_off;
             // find next fixed slice (prefer lower level)
-        // sort fixed claims by bound (upper: decreasing, lower: increasing), then by merge-level (prefer lower merge level), ignore merge level higher than var? (or just max?)
-        // note that we might choose multiple overlapping ones, if they allow to make more progress?
-            fixed_slice_extra best;
+            fixed_slice best;
             unsigned best_end = 0;
+            unsigned best_level = UINT_MAX;
             SASSERT(best_end < x_off);  // because y_sz != 0
-            for (auto const& f : fixed) {
-                if (f.level >= w_level)
+            for (unsigned i = 0; i < fixed.size(); ++i) {
+                auto const& f = fixed[i];
+                unsigned const f_level = fixed_levels[i];
+                if (f_level >= w_level)
                     continue;
                 // ??????xxxxxxxyyyyyyzzzz
                 //  1111            not useful at this point
@@ -803,9 +841,9 @@ namespace polysat {
                     continue;
                 unsigned const f_end = std::min(remaining_x_end, f.end());  // for comparison, values beyond the current range don't matter
                 if (f_end > best_end)
-                    best = f, best_end = f_end;
-                else if (f_end == best_end && f.level < best.level)
-                    best = f, best_end = f_end;
+                    best = f, best_end = f_end, best_level = f_level;
+                else if (f_end == best_end && f_level < best_level)
+                    best = f, best_end = f_end, best_level = f_level;
             }
 
             if (best_end < remaining_x_end) {
@@ -836,7 +874,8 @@ namespace polysat {
                 value = mod2k(value, a);
 
                 ivl = chop_off_upper(ivl, a, b, &value);
-                deps.push_back(best.dep);  // justification for the fixed value
+                dependency best_dep = fixed_claim(m_var, null_var, best.value, best.offset, best.length);
+                deps.push_back(best_dep);  // justification for the fixed value
                 remaining_x_sz -= a;
                 remaining_x_end -= a;
 
@@ -856,10 +895,13 @@ namespace polysat {
             SASSERT(remaining_x_sz == 0);
             unsigned remaining_z_off = z_sz - remaining_z_sz;
             // find next fixed slice (prefer lower level)
-            fixed_slice_extra best;
+            fixed_slice best;
             unsigned best_off = z_sz;
-            for (auto const& f : fixed) {
-                if (f.level >= w_level)
+            unsigned best_level = UINT_MAX;
+            for (unsigned i = 0; i < fixed.size(); ++i) {
+                auto const& f = fixed[i];
+                unsigned const f_level = fixed_levels[i];
+                if (f_level >= w_level)
                     continue;
                 // ?????????????yyyyyyzzzzz???
                 //            1111              not useful at this point
@@ -872,9 +914,9 @@ namespace polysat {
                     continue;
                 unsigned const f_off = std::max(remaining_z_off, f.offset);  // for comparison, values beyond the current range don't matter
                 if (f_off < best_off)
-                    best = f, best_off = f_off;
-                else if (f_off == best_off && f.level < best.level)
-                    best = f, best_off = f_off;
+                    best = f, best_off = f_off, best_level = f_level;
+                else if (f_off == best_off && f_level < best_level)
+                    best = f, best_off = f_off, best_level = f_level;
             }
 
             if (best_off > remaining_z_off) {
@@ -903,7 +945,8 @@ namespace polysat {
                 value = mod2k(value, b);
 
                 ivl = chop_off_lower(ivl, a, b, &value);
-                deps.push_back(best.dep);  // justification for the fixed value
+                dependency best_dep = fixed_claim(m_var, null_var, best.value, best.offset, best.length);
+                deps.push_back(best_dep);  // justification for the fixed value
                 remaining_z_sz -= b;
                 remaining_z_off += b;
 
@@ -918,11 +961,15 @@ namespace polysat {
             return l_undef;
 
         IF_VERBOSE(3, {
-            verbose_stream() << "=>  v" << w << "[" << y_sz << "] not in " << ivl << "\n";
+            verbose_stream() << "=> " << ivl << "\n";
         });
 
         deps.append(e_deps);  // explains e
-        deps.push_back(offset_claim{m_var, slice});  // explains m_var[...] = w
+        deps.push_back(offset_claim{m_var, offset_slice{w, slice.offset}});  // explains m_var[...] = w
+        // deps.push_back(offset_claim{m_var, slice});  // explains m_var[...] = w
+
+        // TODO: try first the most general projection (without assuming fixed slices; purpose: get lemma with less dependencies)
+        // TODO: for each fixed slice with multiple pvars, do the projection only once?
 
         if (ivl.is_full()) {
             // deps is a conflict
@@ -935,14 +982,18 @@ namespace polysat {
             signed_constraint sc = ~cs.ult(w_shift * (c.var(w) - ivl.lo()), w_shift * (ivl.hi() - ivl.lo()));
             dependency d = c.propagate(sc, deps, "propagate from containing slice");
 
-            verbose_stream() << "v" << w << " value " << slice.value << "\n";
-            verbose_stream() << "v" << w << " value-dep " << slice.dep << "\n";
+            // verbose_stream() << "v" << w << " value " << slice.value << "\n";
+            // verbose_stream() << "v" << w << " value-dep " << slice.dep << "\n";
 
             if (ivl.contains(slice.value)) {
+                IF_VERBOSE(3, {
+                    verbose_stream() << "=>  v" << w << "[" << y_sz << "] not in " << ivl << "\n";
+                });
                 // the conflict is projected interval + fixed value
                 deps.reset();
                 deps.push_back(d);
-                deps.push_back(slice.dep);
+                deps.push_back(fixed_claim(w, null_var, slice.value, 0, w_sz));
+                // deps.push_back(slice.dep);
                 return l_true;
             }
             else {

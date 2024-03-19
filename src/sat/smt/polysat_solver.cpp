@@ -137,7 +137,7 @@ namespace polysat {
     void solver::explain_dep(dependency const& d, euf::enode_pair_vector& eqs, sat::literal_vector& core) {
         std::function<void(euf::enode*, euf::enode*)> consume = [&](auto* a, auto* b) {
             eqs.push_back({ a, b });
-            };
+        };
 
         if (d.is_axiom())
             ;
