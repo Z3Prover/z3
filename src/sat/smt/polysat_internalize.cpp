@@ -473,8 +473,8 @@ namespace polysat {
         rational N = rational::power_of_two(bv.get_bv_size(x));
         expr_ref signx = mk_ule(bv.mk_numeral(N / 2, sz), x);
         expr_ref signy = mk_ule(bv.mk_numeral(N / 2, sz), y);
-        expr_ref absx = mk_ite(signx, bv.mk_bv_sub(bv.mk_numeral(N - 1, sz), x), x);
-        expr_ref absy = mk_ite(signy, bv.mk_bv_sub(bv.mk_numeral(N - 1, sz), y), y);
+        expr_ref absx = mk_ite(signx, bv.mk_bv_neg(x), x);
+        expr_ref absy = mk_ite(signy, bv.mk_bv_neg(y), y);
         expr* d = bv.mk_bv_udiv(absx, absy);
         sat::literal lsignx = mk_literal(signx);
         sat::literal lsigny = mk_literal(signy);
