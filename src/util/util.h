@@ -142,7 +142,7 @@ static inline unsigned get_num_1bits(uint64_t v) {
     v = (v + (v >> 4)) & 0x0F0F0F0F0F0F0F0F;
     uint64_t r = (v * 0x0101010101010101) >> 56;
     SASSERT(c == r);
-    return r;
+    return static_cast<unsigned>(r);
 #endif
 }
 
