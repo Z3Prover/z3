@@ -142,7 +142,7 @@ namespace polysat {
 
     bool monomials::mul(monomial const& mon, std::function<bool(rational const&)> const& p) {
         unsigned free_index = UINT_MAX;
-        auto& m = mon.args[0].manager();
+        // auto& m = mon.args[0].manager();
         for (unsigned j = mon.size(); j-- > 0; ) {
             auto const& arg_val = mon.arg_vals[j];
             if (p(arg_val))

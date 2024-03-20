@@ -47,7 +47,7 @@ namespace polysat {
 
                 SASSERT(s.offset + s.length <= sz);
                 unsigned bw = s.length + s.offset;
-                unsigned K = sz - bw;
+                // unsigned K = sz - bw;
                 pdd lo = c.value(rational::power_of_two(sz - s.length) * (s.value + 1), sz);
                 pdd hi = c.value(rational::power_of_two(sz - s.length) * s.value, sz);
                 rational hi_val = rational::power_of_two(s.offset) * s.value;

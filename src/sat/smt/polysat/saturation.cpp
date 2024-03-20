@@ -38,13 +38,14 @@ namespace polysat {
             if (l_false == operator()(idx))
                 return l_false;
         }
+        // found conflict but no applicable saturation -> give up
         if (has_conflict)
             return l_undef;
         return l_true;
     }
 
     lbool saturation::operator()(constraint_id idx) {
-        auto sc = c.get_constraint(idx);
+        // auto sc = c.get_constraint(idx);
         auto vars = c.find_conflict_variables(idx);
         for (auto v : vars)
             if (resolve(v, idx))
@@ -95,7 +96,7 @@ namespace polysat {
             }
             else
                 UNREACHABLE();
-        }        
+        }
         c.add_axiom(name, lemma.begin(), lemma.end(), is_redundant);
         SASSERT(c.inconsistent());
     }
