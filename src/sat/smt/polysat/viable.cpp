@@ -1007,22 +1007,6 @@ namespace polysat {
     }
 
 
-    rational div2k_floor(rational const& a, unsigned k)
-    {
-        SASSERT(a >= 0);  // machine_div2k rounds towards 0
-        return machine_div2k(a, k);
-    }
-
-    rational div2k_ceil(rational const& a, unsigned k)
-    {
-        // Note: ceil(a/b) == floor((a-1)/b) + 1 for integers a,b and b > 0
-        // Special case for a = 0, because machine_div2k(a, k) does not return floor(a/2^k), but rounds towards 0 instead.
-        if (a.is_zero())
-            return a;
-        return machine_div2k(a - 1, k) + 1;
-    }
-
-
     /// Let x = concat(y, z) and x not in [lo;hi[.
     /// Returns an interval I such that z not in I.
     r_interval viable::chop_off_upper(r_interval const& i, unsigned const Ny, unsigned const Nz, rational const* y_fixed_value) {
