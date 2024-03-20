@@ -67,8 +67,10 @@ namespace polysat {
             return;
         }
         for (auto const& f : m_fixed) {
-            unsigned level = c.level(dep_fixed(f));
+            dependency dep = dep_fixed(f);
+            unsigned level = c.level(dep);
             m_fixed_levels.push_back(level);
+            IF_VERBOSE(4, verbose_stream() << "dep_fixed " << dep << " at level " << level << "\n");
         }
     }
 
@@ -92,7 +94,10 @@ namespace polysat {
         auto compute_target_level = [&](fixed_slice const& f) -> unsigned {
             if (f.child == null_var)
                 return UINT_MAX;
-            return c.level(dep_target(f));
+            dependency dep = dep_target(f);
+            unsigned level = c.level(dep);
+            IF_VERBOSE(4, verbose_stream() << "dep_target " << dep << " at level " << level << "\n");
+            return level;
         };
 
         for (auto const& f : m_fixed) {
