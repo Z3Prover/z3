@@ -151,29 +151,10 @@ namespace polysat {
             verbose_stream() << "  tv " << u;
             if (u != euf::null_theory_var)
                 verbose_stream() << " := " << m_var2pdd[u];
-            // verbose_stream() << "  merge-level " << level;
             verbose_stream() << "\n";
 #endif
 
-            // fixed.push_back(fixed_slice_extra(null_var, value, offset, length, level, dep));
-
-            // verbose_stream() << "     n: " << n << "    " << ctx.bpp(n) << "    tv" << u << "\n";
-            // verbose_stream() << "     r: " << r << "    " << ctx.bpp(r) << "    tv" << w << "\n";
-            // verbose_stream() << "     dep: " << dep << "\n";
-            // sat::literal_vector ante;
-            // ctx.get_eq_antecedents(n, r, ante);
-            // // verbose_stream() << "     ante1: " << ante << "\n";
-            // if (u != euf::null_theory_var) {
-            //     sat::literal_vector ante2;
-            //     ctx.get_eq_antecedents(var2enode(u), var2enode(w), ante2);
-            //     // verbose_stream() << "     ante2: " << ante2 << "\n";
-            //     std::sort(ante.begin(), ante.end());
-            //     std::sort(ante2.begin(), ante2.end());
-            //     VERIFY_EQ(ante, ante2);
-            // }
-
             bool found_pvar = false;
-
             for (euf::enode* sib : euf::enode_class(n)) {
                 euf::theory_var s = sib->get_th_var(get_id());
                 if (s == euf::null_theory_var)
@@ -183,20 +164,15 @@ namespace polysat {
                     continue;
                 if (p.var() == pv)
                     continue;
-                // unsigned p_level = merge_level(sib, r);  // this is ok
 #if GET_FIXED_SUB_SLICES_DISPLAY
                 verbose_stream() << "        pvar " << p;
                 verbose_stream() << "  node " << ctx.bpp(sib);
                 verbose_stream() << "  tv " << s;
-                // verbose_stream() << "  merge-level " << p_level;
                 verbose_stream() << "  assigned? " << m_core.get_assignment().contains(p.var());
                 if (m_core.get_assignment().contains(p.var()))
                     verbose_stream() << "  value " << m_core.get_assignment().value(p.var());
                 verbose_stream() << "\n";
 #endif
-                // dependency d = dependency(r, sib);
-                // // dependency d = fixed_claim(pv, p.var(), value, offset, length);
-                // pvars.push_back(offset_slice_extra(p.var(), offset, p_level, d, value));
 
                 found_pvar = true;
                 fixed.push_back(fixed_slice(p.var(), value, offset, length));
