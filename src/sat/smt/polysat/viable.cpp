@@ -691,7 +691,7 @@ namespace polysat {
         //       although, the max admissible level of fixed slices depends on the child pvar under consideration, so we may not get the optimal interval anymore?
         //       (pvars on the same slice only differ by level. the fixed value is the same for all. so we can limit by the max level of pvars and then the projection will work for at least one.)
         fixed_bits_vector fixed;
-        c.s.get_fixed_sub_slices(e->var, fixed);   // TODO: move into m_fixed bits?
+        c.get_fixed_subslices(e->var, fixed);
 
         bool has_pvar = any_of(fixed, [](fixed_slice const& f) { return f.child != null_var; });
 

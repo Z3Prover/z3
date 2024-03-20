@@ -168,8 +168,9 @@ namespace polysat {
         * Viable 
         */
         void get_bitvector_suffixes(pvar v, offset_slices& out);
-        void get_fixed_bits(pvar v, fixed_bits_vector& fixed_slice);
+        void get_fixed_bits(pvar v, fixed_bits_vector& fixed_slices);
         void get_subslices(pvar v, offset_slices& out);
+        void get_fixed_subslices(pvar v, fixed_bits_vector& fixed_subslices);
         pdd  mk_zero_extend(unsigned sz, pdd const& p);
         pdd  mk_extract(unsigned hi, unsigned lo, pdd const& p);
 

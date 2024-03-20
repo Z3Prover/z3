@@ -504,6 +504,10 @@ namespace polysat {
         s.get_bitvector_sub_slices(v, out);
     }
 
+    void core::get_fixed_subslices(pvar v, fixed_bits_vector& fixed_subslices) {
+        s.get_fixed_sub_slices(v, fixed_subslices);
+    }
+
     pdd core::mk_zero_extend(unsigned sz, pdd const& p) { 
         if (p.is_val()) 
             return value(p.val(), p.manager().power_of_2() + sz);        
