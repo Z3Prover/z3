@@ -651,6 +651,14 @@ namespace polysat {
             if (!index.is_null())
                 result.append(c.explain_weak_eval(c.get_constraint(index)));
 
+            IF_VERBOSE(4, {
+                verbose_stream() << "\n\n\n\n\n\nNon-viable assignment for v" << m_var << " size " << c.size(m_var) << "\n";
+                display_one(verbose_stream() << "entry: ", e) << "\n";
+                verbose_stream() << "value " << last.value << "\n";
+                verbose_stream() << "m_overlaps " << m_overlaps << "\n";
+                m_fixed_bits.display(verbose_stream() << "fixed: ") << "\n";
+            });
+
             // 'result' so far contains explanation for e and its weak evaluation
             m_projection.init(e->var, e->interval, e->bit_width, result);
 

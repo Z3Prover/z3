@@ -28,7 +28,7 @@ namespace polysat {
 
         /* source variable and interval */
         pvar                m_var = null_var;
-        eval_interval       m_interval = eval_interval::full();
+        r_interval          m_interval = r_interval::full();
         unsigned            m_width = 0;
 
         /* fixed subslices of source variable */
@@ -70,6 +70,9 @@ namespace polysat {
          */
         static r_interval chop_off_lower(r_interval const& i, unsigned Ny, unsigned Nz, rational const* z_fixed_value = nullptr);
 
+        r_interval chop_off_upper(r_interval ivl, unsigned max_level, unsigned x_sz, unsigned y_sz, unsigned z_sz);
+        r_interval chop_off_lower(r_interval ivl, unsigned max_level, unsigned y_sz, unsigned z_sz);
+
         lbool try_generic();
 
         lbool try_specific();
@@ -82,7 +85,7 @@ namespace polysat {
          *
          *      v[width-1:0] \not\in interval
          */
-        void init(pvar v, eval_interval interval, unsigned width, dependency_vector const& deps);
+        void init(pvar v, r_interval interval, unsigned width, dependency_vector const& deps);
 
         /**
          * l_true: successfully projected interval onto subslice

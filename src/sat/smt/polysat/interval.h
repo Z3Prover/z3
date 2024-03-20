@@ -17,6 +17,8 @@ Author:
 
 namespace polysat {
 
+    class eval_interval;
+
     struct pdd_bounds {
         pdd lo;  ///< lower bound, inclusive
         pdd hi;  ///< upper bound, exclusive
@@ -86,6 +88,8 @@ namespace polysat {
         {}
 
     public:
+
+        r_interval(eval_interval const& i);
 
         static r_interval empty() {
             return {rational::zero(), rational::zero()};
@@ -229,5 +233,7 @@ namespace polysat {
             return os << i.symbolic() << " := [" << m.normalize(i.lo_val()) << ";" << m.normalize(i.hi_val()) << "[";
         }
     }
+
+    inline r_interval::r_interval(eval_interval const& i) : m_lo(i.lo_val()), m_hi(i.hi_val()) {}
 
 }
