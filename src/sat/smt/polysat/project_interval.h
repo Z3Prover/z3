@@ -38,6 +38,12 @@ namespace polysat {
         void ensure_fixed_levels();
         void ensure_target_levels();
 
+        // target slices for which we will try projection.
+        // - first entry is target with lowest level (more generic: possibly smaller interval, but less dependencies)
+        // - second entry is target with highest level (more specific: possibly larger interval, but more dependencies)
+        using target_t = std::pair<unsigned, unsigned>;  // indices into m_fixed
+        svector<target_t>   m_targets;
+
         dependency_vector   m_deps;
         unsigned            m_deps_initial_size = 0;    // number of external deps
         void reset_deps();
@@ -57,6 +63,7 @@ namespace polysat {
          * w ~ value
          */
         dependency dep_target(fixed_slice const& target);
+        dependency dep_target(pvar w, rational const& value);
 
         /**
          * Let x = concat(y, z) and x not in [lo;hi[.
@@ -70,13 +77,13 @@ namespace polysat {
          */
         static r_interval chop_off_lower(r_interval const& i, unsigned Ny, unsigned Nz, rational const* z_fixed_value = nullptr);
 
+        lbool try_project(pvar const w, unsigned const w_off, unsigned const w_sz, rational const& value, unsigned const max_level);
         r_interval chop_off_upper(r_interval ivl, unsigned max_level, unsigned x_sz, unsigned y_sz, unsigned z_sz);
         r_interval chop_off_lower(r_interval ivl, unsigned max_level, unsigned y_sz, unsigned z_sz);
 
+        void select_targets();
         lbool try_generic();
-
         lbool try_specific();
-        lbool try_specific(fixed_slice const& target, unsigned target_level);
 
     public:
         project_interval(core& c);

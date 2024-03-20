@@ -17,10 +17,10 @@ Notes:
 
 
 #include "util/debug.h"
-#include "util/log.h"
 #include "sat/smt/polysat/project_interval.h"
 #include "sat/smt/polysat/core.h"
 #include "sat/smt/polysat/number.h"
+#include <algorithm>
 
 namespace polysat {
 
@@ -74,7 +74,13 @@ namespace polysat {
 
     dependency project_interval::dep_target(fixed_slice const& target) {
         SASSERT(target.child != null_var);
-        return fixed_claim(target.child, null_var, target.value, 0, target.length);
+        SASSERT(target.length == c.size(target.child));
+        return dep_target(target.child, target.value);
+    }
+
+    dependency project_interval::dep_target(pvar w, rational const& value) {
+        SASSERT(w != null_var);
+        return fixed_claim(w, null_var, value, 0, c.size(w));
     }
 
     void project_interval::ensure_target_levels() {
@@ -96,6 +102,7 @@ namespace polysat {
     }
 
     lbool project_interval::operator()() {
+        select_targets();
         if (lbool r = try_generic(); r != l_undef)
             return r;
         if (lbool r = try_specific(); r != l_undef)
@@ -103,39 +110,73 @@ namespace polysat {
         return l_undef;
     }
 
-    /**
-     * Try projection without taking fixed subslices into account.
-     * The projected interval may be worse, but it may be propagated at an earlier level.
-     * TODO: should take into account fixed slices from even earlier levels too? (e.g. zero_extend)
-     */
     lbool project_interval::try_generic() {
-        // TODO
-        return l_undef;
-    }
-
-    /**
-     * Try projection, taking as many fixed subslices into account as possible.
-     */
-    lbool project_interval::try_specific() {
-        ensure_target_levels();
-        // TODO: only compute once for subsequent equivalent slices
-        for (unsigned i = 0; i < m_fixed.size(); ++i) {
-            auto const& target = m_fixed[i];
-            unsigned const target_level = m_target_levels[i];
-            if (target.child == null_var)
-                continue;
-            lbool r = try_specific(target, target_level);
+        for (auto [i, _] : m_targets) {
+            fixed_slice const& target = m_fixed[i];
+            unsigned level = m_target_levels[i];
+            lbool r = try_project(target.child, target.offset, target.length, target.value, level);
             if (r != l_undef)
                 return r;
         }
         return l_undef;
     }
 
-    lbool project_interval::try_specific(fixed_slice const& target, unsigned target_level) {
-        pvar const w = target.child;
-        unsigned const w_off = target.offset;
-        unsigned const w_sz = target.length;
-        unsigned const w_level = target_level;  // level where value of w was fixed
+    lbool project_interval::try_specific() {
+        for (auto [i, j] : m_targets) {
+            fixed_slice const& target = m_fixed[j];
+            unsigned level = m_target_levels[j];
+
+            // did we try the same thing already in try_generic?
+            unsigned prev_level = m_target_levels[i];
+            if (prev_level == level)
+                continue;
+
+            lbool r = try_project(target.child, target.offset, target.length, target.value, level);
+            if (r != l_undef)
+                return r;
+        }
+        return l_undef;
+    }
+
+    void project_interval::select_targets() {
+        ensure_target_levels();
+        m_targets.reset();
+
+        unsigned i = 0;
+        unsigned j = 0;
+        for (; i < m_fixed.size(); i = j) {
+            j = i + 1;
+
+            if (m_fixed[i].child == null_var)
+                continue;
+
+            unsigned generic_target = i;   // lowest level
+            unsigned specific_target = i;  // highest level
+
+            // Find other slices with the same offset
+            // NOTE: core::get_fixed_subslices returns all slices with the same offset consecutively
+            for (; j < m_fixed.size(); ++j) {
+                if (m_fixed[i].offset != m_fixed[j].offset)
+                    break;
+                if (m_fixed[i].length != m_fixed[j].length)
+                    break;
+                SASSERT(m_fixed[i].value == m_fixed[j].value);
+                if (m_target_levels[j] < m_target_levels[generic_target])
+                    generic_target = j;
+                if (m_target_levels[j] < m_target_levels[specific_target])
+                    specific_target = j;
+            }
+
+            m_targets.push_back({generic_target, specific_target});
+        }
+
+        // try targets with lower level first, to try and get more general projections
+        std::sort(m_targets.begin(), m_targets.end(), [&](target_t const& a, target_t const& b) -> bool {
+            return m_target_levels[a.first] < m_target_levels[b.first];
+        });
+    }
+
+    lbool project_interval::try_project(pvar const w, unsigned const w_off, unsigned const w_sz, rational const& value, unsigned const max_level) {
         SASSERT(w != null_var);
         SASSERT_EQ(c.size(w), w_sz);
         if (w == m_var)
@@ -181,21 +222,19 @@ namespace polysat {
         ensure_fixed_levels();
 
         r_interval ivl = m_interval;
-        ivl = chop_off_upper(ivl, w_level, x_sz, y_sz, z_sz);
-        ivl = chop_off_lower(ivl, w_level, y_sz, z_sz);
+        ivl = chop_off_upper(ivl, max_level, x_sz, y_sz, z_sz);
+        ivl = chop_off_lower(ivl, max_level, y_sz, z_sz);
         IF_VERBOSE(3, verbose_stream() << "=> " << ivl << "\n");
 
         if (ivl.is_empty())
             return l_undef;
 
-        // m_deps currently contains:
+        // m_deps contains at this point:
         // - external explanation for the interval on m_var
         // - explanation for the fixed parts that were used for projection
 
-        m_deps.push_back(offset_claim{m_var, offset_slice{w, w_off}});  // explains m_var[...] = w
-
-        // TODO: try first the most general projection (without assuming fixed slices; purpose: get lemma with less dependencies)
-        // TODO: for each fixed slice with multiple pvars, do the projection only once?
+        // add explanation for m_var[...] = w
+        m_deps.push_back(offset_claim{m_var, offset_slice{w, w_off}});
 
         SASSERT(m_result == l_undef);
         SASSERT(m_explain.empty());
@@ -210,7 +249,7 @@ namespace polysat {
         SASSERT(ivl.is_proper() && !ivl.is_empty());
 
         // interval propagation worked but it doesn't conflict the currently assigned value
-        if (!ivl.contains(target.value))
+        if (!ivl.contains(value))
             return l_undef;
 
         // now: m_deps implies 2^w_shift * w is not in ivl
@@ -218,7 +257,7 @@ namespace polysat {
         dependency d = c.propagate(sc, m_deps, "propagate from containing slice");
 
         m_explain.push_back(d);
-        m_explain.push_back(dep_target(target));
+        m_explain.push_back(dep_target(w, value));
 
         IF_VERBOSE(3, {
             verbose_stream() << "=>  v" << w << "[" << y_sz << "] not in " << ivl << "\n";
