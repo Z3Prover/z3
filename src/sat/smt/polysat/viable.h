@@ -115,8 +115,8 @@ namespace polysat {
 
         bool intersect(pvar v, entry* e);
 
-        lbool propagate_from_containing_slice(entry* e, rational const& value, dependency_vector const& e_deps);
-        lbool propagate_from_containing_slice(entry* e, rational const& value, dependency_vector const& e_deps, fixed_bits_vector const& fixed, unsigned_vector const& fixed_levels, fixed_slice const& slice, unsigned slice_level);
+        lbool propagate_from_containing_slice(entry* e, dependency_vector const& e_deps);
+        lbool propagate_from_containing_slice(entry* e, dependency_vector const& e_deps, fixed_bits_vector const& fixed, unsigned_vector const& fixed_levels, fixed_slice const& slice, unsigned slice_level);
         dependency_vector m_containing_slice_deps;
 
         static r_interval chop_off_upper(r_interval const& i, unsigned Ny, unsigned Nz, rational const* y_fixed_value = nullptr);

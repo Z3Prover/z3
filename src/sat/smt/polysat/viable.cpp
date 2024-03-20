@@ -650,7 +650,7 @@ namespace polysat {
                 result.append(c.explain_weak_eval(c.get_constraint(index)));
 
             // 'result' so far contains explanation for entry and its weak evaluation
-            switch (propagate_from_containing_slice(last.e, last.value, result)) {
+            switch (propagate_from_containing_slice(last.e, result)) {
             case l_true:
                 // propagated interval onto subslice
                 result = m_containing_slice_deps;
@@ -679,10 +679,10 @@ namespace polysat {
      *
      * In case of l_true/l_false, conflict will be in m_containing_slice_deps.
      */
-    lbool viable::propagate_from_containing_slice(entry* e, rational const& value, dependency_vector const& e_deps) {
+    lbool viable::propagate_from_containing_slice(entry* e, dependency_vector const& e_deps) {
         verbose_stream() << "\n\n\n\n\n\nNon-viable assignment for v" << m_var << " size " << c.size(m_var) << "\n";
         display_one(verbose_stream() << "entry: ", e) << "\n";
-        verbose_stream() << "value " << value << "\n";
+        // verbose_stream() << "value " << value << "\n";
         // verbose_stream() << "m_overlaps " << m_overlaps << "\n";
         m_fixed_bits.display(verbose_stream() << "fixed: ") << "\n";
 
@@ -691,7 +691,7 @@ namespace polysat {
         //       although, the max admissible level of fixed slices depends on the child pvar under consideration, so we may not get the optimal interval anymore?
         //       (pvars on the same slice only differ by level. the fixed value is the same for all. so we can limit by the max level of pvars and then the projection will work for at least one.)
         fixed_bits_vector fixed;
-        c.s.get_fixed_sub_slices(m_var, fixed);   // TODO: move into m_fixed bits?
+        c.s.get_fixed_sub_slices(e->var, fixed);   // TODO: move into m_fixed bits?
 
         bool has_pvar = any_of(fixed, [](fixed_slice const& f) { return f.child != null_var; });
 
@@ -703,7 +703,7 @@ namespace polysat {
         // level when subslice of m_var became fixed
         unsigned_vector fixed_levels;
         for (auto const& f : fixed) {
-            dependency dep = fixed_claim(m_var, null_var, f.value, f.offset, f.length);
+            dependency dep = fixed_claim(e->var, null_var, f.value, f.offset, f.length);
             unsigned level = c.s.level(dep);
             fixed_levels.push_back(level);
         }
@@ -749,21 +749,23 @@ namespace polysat {
             auto const& slice = fixed[i];
             unsigned const slice_level = pvar_levels[i];
             SASSERT(slice.child != null_var);
-            lbool r = propagate_from_containing_slice(e, value, e_deps, fixed, fixed_levels, slice, slice_level);
+            lbool r = propagate_from_containing_slice(e, e_deps, fixed, fixed_levels, slice, slice_level);
             if (r != l_undef)
                 return r;
         }
         return l_undef;
     }
 
-    lbool viable::propagate_from_containing_slice(entry* e, rational const& value, dependency_vector const& e_deps, fixed_bits_vector const& fixed, unsigned_vector const& fixed_levels, fixed_slice const& slice, unsigned slice_level) {
+    lbool viable::propagate_from_containing_slice(entry* e, dependency_vector const& e_deps, fixed_bits_vector const& fixed, unsigned_vector const& fixed_levels, fixed_slice const& slice, unsigned slice_level) {
         pvar const w = slice.child;
         unsigned const offset = slice.offset;
         unsigned const w_level = slice_level;  // level where value of w was fixed
         SASSERT(w != null_var);
         SASSERT_EQ(c.size(w), slice.length);
-        if (w == m_var)
+        if (w == m_var) {
+            VERIFY(m_var == e->var);
             return l_undef;
+        }
         if (w == e->var)
             return l_undef;
 
@@ -806,7 +808,7 @@ namespace polysat {
 
         r_interval const v_ivl  = r_interval::proper(lo, hi);
         IF_VERBOSE(3, {
-            verbose_stream() << "propagate interval " << v_ivl << " from v" << m_var << " to v" << w << "[" << y_sz << "]" << "\n";
+            verbose_stream() << "propagate interval " << v_ivl << " from v" << e->var << " to v" << w << "[" << y_sz << "]" << "\n";
         });
 
         dependency_vector& deps = m_containing_slice_deps;
@@ -874,7 +876,7 @@ namespace polysat {
                 value = mod2k(value, a);
 
                 ivl = chop_off_upper(ivl, a, b, &value);
-                dependency best_dep = fixed_claim(m_var, null_var, best.value, best.offset, best.length);
+                dependency best_dep = fixed_claim(e->var, null_var, best.value, best.offset, best.length);
                 deps.push_back(best_dep);  // justification for the fixed value
                 remaining_x_sz -= a;
                 remaining_x_end -= a;
@@ -945,7 +947,7 @@ namespace polysat {
                 value = mod2k(value, b);
 
                 ivl = chop_off_lower(ivl, a, b, &value);
-                dependency best_dep = fixed_claim(m_var, null_var, best.value, best.offset, best.length);
+                dependency best_dep = fixed_claim(e->var, null_var, best.value, best.offset, best.length);
                 deps.push_back(best_dep);  // justification for the fixed value
                 remaining_z_sz -= b;
                 remaining_z_off += b;
@@ -965,8 +967,7 @@ namespace polysat {
         });
 
         deps.append(e_deps);  // explains e
-        deps.push_back(offset_claim{m_var, offset_slice{w, slice.offset}});  // explains m_var[...] = w
-        // deps.push_back(offset_claim{m_var, slice});  // explains m_var[...] = w
+        deps.push_back(offset_claim{e->var, offset_slice{w, slice.offset}});  // explains m_var[...] = w
 
         // TODO: try first the most general projection (without assuming fixed slices; purpose: get lemma with less dependencies)
         // TODO: for each fixed slice with multiple pvars, do the projection only once?
