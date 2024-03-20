@@ -257,7 +257,7 @@ namespace polysat {
             for (unsigned i = 0; i < m_fixed.size(); ++i) {
                 auto const& f = m_fixed[i];
                 unsigned const f_level = m_fixed_levels[i];
-                if (f_level >= w_level)
+                if (f_level > w_level)
                     continue;
                 // ??????xxxxxxxyyyyyyzzzz
                 //  1111            not useful at this point
@@ -330,7 +330,7 @@ namespace polysat {
             for (unsigned i = 0; i < m_fixed.size(); ++i) {
                 auto const& f = m_fixed[i];
                 unsigned const f_level = m_fixed_levels[i];
-                if (f_level >= w_level)
+                if (f_level > w_level)
                     continue;
                 // ?????????????yyyyyyzzzzz???
                 //            1111              not useful at this point
