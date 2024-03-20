@@ -179,6 +179,7 @@ namespace polysat {
     lbool project_interval::try_project(pvar const w, unsigned const w_off, unsigned const w_sz, rational const& value, unsigned const max_level) {
         SASSERT(w != null_var);
         SASSERT_EQ(c.size(w), w_sz);
+        SASSERT(w != m_var);
         if (w == m_var)
             return l_undef;
 

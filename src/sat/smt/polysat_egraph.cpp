@@ -125,7 +125,8 @@ namespace polysat {
 
     // walk the e-graph to retrieve fixed sub-slices along with justifications,
     // as well as pvars that correspond to these sub-slices.
-    void solver::get_fixed_sub_slices(pvar pv, fixed_bits_vector& fixed) {
+    // does not retrieve a slice corresponding to 'pv' itself.
+    void solver::get_fixed_sub_slices(pvar const pv, fixed_bits_vector& fixed) {
         #define GET_FIXED_SUB_SLICES_DISPLAY 1
         auto consume_slice = [&](euf::enode* n, unsigned offset) -> bool {
             euf::enode* r = n->get_root();
@@ -179,6 +180,8 @@ namespace polysat {
                     continue;
                 auto const& p = m_var2pdd[s];
                 if (!p.is_var())
+                    continue;
+                if (p.var() == pv)
                     continue;
                 // unsigned p_level = merge_level(sib, r);  // this is ok
 #if GET_FIXED_SUB_SLICES_DISPLAY
