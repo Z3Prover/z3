@@ -23,6 +23,7 @@ Author:
 
 #include "sat/smt/polysat/types.h"
 #include "sat/smt/polysat/forbidden_intervals.h"
+#include "sat/smt/polysat/project_interval.h"
 #include "sat/smt/polysat/fixed_bits.h"
 
 
@@ -42,9 +43,10 @@ namespace polysat {
 
 
     class viable {
-        core& c;
-        constraints& cs;
-        forbidden_intervals      m_forbidden_intervals;
+        core&                   c;
+        constraints&            cs;
+        forbidden_intervals     m_forbidden_intervals;
+        project_interval        m_projection;
 
         struct entry final : public dll_base<entry>, public fi_record {
             /// whether the entry has been created by refinement (from constraints in 'fi_record::src')
@@ -114,13 +116,6 @@ namespace polysat {
         void insert(entry* e, pvar v, ptr_vector<entry>& entries, entry_kind k);
 
         bool intersect(pvar v, entry* e);
-
-        lbool propagate_from_containing_slice(entry* e, dependency_vector const& e_deps);
-        lbool propagate_from_containing_slice(entry* e, dependency_vector const& e_deps, fixed_bits_vector const& fixed, unsigned_vector const& fixed_levels, fixed_slice const& slice, unsigned slice_level);
-        dependency_vector m_containing_slice_deps;
-
-        static r_interval chop_off_upper(r_interval const& i, unsigned Ny, unsigned Nz, rational const* y_fixed_value = nullptr);
-        static r_interval chop_off_lower(r_interval const& i, unsigned Ny, unsigned Nz, rational const* z_fixed_value = nullptr);
 
         // find the first non-fixed entry that overlaps with val, if any.
         entry* find_overlap(rational& val);

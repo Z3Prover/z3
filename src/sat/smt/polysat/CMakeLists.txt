@@ -8,6 +8,7 @@ z3_add_component(polysat
     inequality.cpp
     monomials.cpp
     op_constraint.cpp
+    project_interval.cpp
     refine.cpp
     saturation.cpp
     ule_constraint.cpp

@@ -162,6 +162,8 @@ namespace polysat {
         monomials& ms() { return m_monomials; }
         trail_stack& trail();
 
+        unsigned level(dependency const& d) { return s.level(d); }
+
         std::ostream& display(std::ostream& out) const;
 
         /*

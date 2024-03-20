@@ -9,13 +9,10 @@ Author:
 --*/
 #pragma once
 
-#include <variant>
-
-
-
 #include "math/dd/dd_pdd.h"
 #include "util/trail.h"
 #include "util/sat_literal.h"
+#include <variant>
 
 namespace euf {
     class enode;
@@ -138,31 +135,6 @@ namespace polysat {
     }
 
     using fixed_bits_vector = vector<fixed_slice>;
-
-    // struct fixed_slice_extra : public fixed_slice {
-    //     // pvar child;
-    //     // unsigned offset = 0;
-    //     // unsigned length = 0;
-    //     // rational value;
-    //     unsigned level = 0;  // level when sub-slice was fixed to value
-    //     dependency dep = null_dependency;
-    //     fixed_slice_extra() = default;
-    //     fixed_slice_extra(pvar child, rational value, unsigned offset, unsigned length, unsigned level, dependency dep) :
-    //         fixed_slice(child, std::move(value), offset, length), level(level), dep(std::move(dep)) {}
-    // };
-    // using fixed_slice_extra_vector = vector<fixed_slice_extra>;
-
-    // struct offset_slice_extra : public offset_slice {
-    //     // pvar child;
-    //     // unsigned offset;
-    //     unsigned level = 0;                 // level when child was fixed to value
-    //     dependency dep = null_dependency;   // justification for fixed value
-    //     rational value;                     // fixed value of child
-    //     offset_slice_extra() = default;
-    //     offset_slice_extra(pvar child, unsigned offset, unsigned level, dependency dep, rational value) : offset_slice(child, offset), level(level), dep(std::move(dep)), value(std::move(value)) {}
-    // };
-    // using offset_slice_extra_vector = vector<offset_slice_extra>;
-
 
     using dependency_vector = vector<dependency>;
     using constraint_or_dependency = std::variant<signed_constraint, dependency>;
