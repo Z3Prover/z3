@@ -74,18 +74,23 @@ namespace polysat {
         }
     }
 
-    dependency project_interval::dep_target(fixed_slice const& target) {
+    dependency project_interval::dep_target_sub(fixed_slice const& target) {
         SASSERT(target.child != null_var);
         SASSERT(target.length == c.size(target.child));
-        return dep_target(target.child, target.value);
+        return dep_target_sub(target.child, target.offset);
     }
 
-    dependency project_interval::dep_target(pvar w, rational const& value) {
+    dependency project_interval::dep_target_sub(pvar w, unsigned w_off) {
+        SASSERT(w != null_var);
+        return offset_claim{m_var, offset_slice{w, w_off}};
+    }
+
+    dependency project_interval::dep_target_fixed(pvar w, rational const& value) {
         SASSERT(w != null_var);
         return fixed_claim(w, null_var, value, 0, c.size(w));
     }
 
-    void project_interval::ensure_target_levels() {
+    void project_interval::ensure_target_levels(unsigned ext_level) {
         if (!m_target_levels.empty()) {
             SASSERT_EQ(m_target_levels.size(), m_fixed.size());
             return;
@@ -94,8 +99,8 @@ namespace polysat {
         auto compute_target_level = [&](fixed_slice const& f) -> unsigned {
             if (f.child == null_var)
                 return UINT_MAX;
-            dependency dep = dep_target(f);
-            unsigned level = c.level(dep);
+            dependency dep = dep_target_sub(f);
+            unsigned level = std::max(c.level(dep), ext_level);
             IF_VERBOSE(4, verbose_stream() << "dep_target " << dep << " at level " << level << "\n");
             return level;
         };
@@ -144,7 +149,14 @@ namespace polysat {
     }
 
     void project_interval::select_targets() {
-        ensure_target_levels();
+
+        // compute level of external dependencies (i.e., of m_var \not\in m_interval)
+        SASSERT(m_deps.size() == m_deps_initial_size);
+        unsigned ext_level = 0;
+        for (dependency const& d : m_deps)
+            ext_level = std::max(ext_level, c.level(d));
+
+        ensure_target_levels(ext_level);
         m_targets.reset();
 
         unsigned i = 0;
@@ -239,8 +251,8 @@ namespace polysat {
         // - external explanation for the interval on m_var
         // - explanation for the fixed parts that were used for projection
 
-        // add explanation for m_var[...] = w
-        m_deps.push_back(offset_claim{m_var, offset_slice{w, w_off}});
+        // add explanation for m_var[...] ~ w
+        m_deps.push_back(dep_target_sub(w, w_off));
 
         SASSERT(m_result == l_undef);
         SASSERT(m_explain.empty());
@@ -263,7 +275,7 @@ namespace polysat {
         dependency d = c.propagate(sc, m_deps, "propagate from containing slice");
 
         m_explain.push_back(d);
-        m_explain.push_back(dep_target(w, value));
+        m_explain.push_back(dep_target_fixed(w, value));  // w ~ value
 
         IF_VERBOSE(3, {
             verbose_stream() << "=>  v" << w << "[" << y_sz << "] not in " << ivl << "\n";

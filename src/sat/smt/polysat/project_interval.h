@@ -34,9 +34,9 @@ namespace polysat {
         /* fixed subslices of source variable */
         fixed_bits_vector   m_fixed;
         unsigned_vector     m_fixed_levels;     // cache for level(dep_fixed(m_fixed[i]))
-        unsigned_vector     m_target_levels;    // cache for level(dep_target(m_fixed[i]))
+        unsigned_vector     m_target_levels;    // cache for max(level(dep_target_sub(m_fixed[i])), level(m_deps))
         void ensure_fixed_levels();
-        void ensure_target_levels();
+        void ensure_target_levels(unsigned ext_level);
 
         // target slices for which we will try projection.
         // - first entry is target with lowest level (more generic: possibly smaller interval, but less dependencies)
@@ -62,8 +62,14 @@ namespace polysat {
          * target pvar is fixed
          * w ~ value
          */
-        dependency dep_target(fixed_slice const& target);
-        dependency dep_target(pvar w, rational const& value);
+        dependency dep_target_fixed(pvar w, rational const& value);
+
+        /**
+         * target pvar is subslice of m_var
+         * m_var[...] ~ w
+         */
+        dependency dep_target_sub(fixed_slice const& target);
+        dependency dep_target_sub(pvar w, unsigned w_off);
 
         /**
          * Let x = concat(y, z) and x not in [lo;hi[.
