@@ -127,7 +127,7 @@ namespace polysat {
     // as well as pvars that correspond to these sub-slices.
     // does not retrieve a slice corresponding to 'pv' itself.
     void solver::get_fixed_sub_slices(pvar const pv, fixed_bits_vector& fixed) {
-        #define GET_FIXED_SUB_SLICES_DISPLAY 1
+        #define GET_FIXED_SUB_SLICES_DISPLAY 0
         auto consume_slice = [&](euf::enode* n, unsigned offset) -> bool {
             euf::enode* r = n->get_root();
             if (!r->interpreted())
