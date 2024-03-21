@@ -39,7 +39,6 @@ namespace polysat {
         c.get_fixed_subslices(m_var, m_fixed);
 
         m_fixed_levels.reset();
-        m_target_levels.reset();
 
         m_deps.reset();
         m_deps = deps;
@@ -85,63 +84,22 @@ namespace polysat {
         return offset_claim{m_var, offset_slice{w, w_off}};
     }
 
+    dependency project_interval::dep_target_fixed(fixed_slice const& target) {
+        SASSERT(target.child != null_var);
+        SASSERT(target.length == c.size(target.child));
+        return dep_target_fixed(target.child, target.value);
+    }
+
     dependency project_interval::dep_target_fixed(pvar w, rational const& value) {
         SASSERT(w != null_var);
         return fixed_claim(w, null_var, value, 0, c.size(w));
     }
 
-    void project_interval::ensure_target_levels(unsigned ext_level) {
-        if (!m_target_levels.empty()) {
-            SASSERT_EQ(m_target_levels.size(), m_fixed.size());
-            return;
-        }
-
-        auto compute_target_level = [&](fixed_slice const& f) -> unsigned {
-            if (f.child == null_var)
-                return UINT_MAX;
-            dependency dep = dep_target_sub(f);
-            unsigned level = std::max(c.level(dep), ext_level);
-            IF_VERBOSE(4, verbose_stream() << "dep_target " << dep << " at level " << level << "\n");
-            return level;
-        };
-
-        for (auto const& f : m_fixed) {
-            unsigned level = compute_target_level(f);
-            m_target_levels.push_back(level);
-        }
-    }
-
     lbool project_interval::operator()() {
         select_targets();
-        if (lbool r = try_generic(); r != l_undef)
-            return r;
-        if (lbool r = try_specific(); r != l_undef)
-            return r;
-        return l_undef;
-    }
-
-    lbool project_interval::try_generic() {
-        for (auto [i, _] : m_targets) {
-            fixed_slice const& target = m_fixed[i];
-            unsigned level = m_target_levels[i];
-            lbool r = try_project(target.child, target.offset, target.length, target.value, level);
-            if (r != l_undef)
-                return r;
-        }
-        return l_undef;
-    }
-
-    lbool project_interval::try_specific() {
-        for (auto [i, j] : m_targets) {
-            fixed_slice const& target = m_fixed[j];
-            unsigned level = m_target_levels[j];
-
-            // did we try the same thing already in try_generic?
-            unsigned prev_level = m_target_levels[i];
-            if (prev_level == level)
-                continue;
-
-            lbool r = try_project(target.child, target.offset, target.length, target.value, level);
+        for (auto const& t : m_targets) {
+            fixed_slice const& target = m_fixed[t.idx];
+            lbool r = try_project(target.child, target.offset, target.length, target.value, t.lvl);
             if (r != l_undef)
                 return r;
         }
@@ -149,47 +107,60 @@ namespace polysat {
     }
 
     void project_interval::select_targets() {
-
         // compute level of external dependencies (i.e., of m_var \not\in m_interval)
         SASSERT(m_deps.size() == m_deps_initial_size);
         unsigned ext_level = 0;
         for (dependency const& d : m_deps)
             ext_level = std::max(ext_level, c.level(d));
 
-        ensure_target_levels(ext_level);
         m_targets.reset();
 
-        unsigned i = 0;
-        unsigned j = 0;
-        for (; i < m_fixed.size(); i = j) {
-            j = i + 1;
-
+        for (unsigned i = 0; i < m_fixed.size(); ++i) {
             if (m_fixed[i].child == null_var)
                 continue;
 
-            unsigned generic_target = i;   // lowest level
-            unsigned specific_target = i;  // highest level
+            unsigned generic_target = UINT_MAX;
+            unsigned generic_level = 0;
+            unsigned specific_target = UINT_MAX;
+            unsigned specific_level = 0;
 
             // Find other slices with the same offset
             // NOTE: core::get_fixed_subslices returns all slices with the same offset consecutively
-            for (; j < m_fixed.size(); ++j) {
+            for (unsigned j = i; j < m_fixed.size(); ++j) {
                 if (m_fixed[i].offset != m_fixed[j].offset)
                     break;
                 if (m_fixed[i].length != m_fixed[j].length)
                     break;
                 SASSERT(m_fixed[i].value == m_fixed[j].value);
-                if (m_target_levels[j] < m_target_levels[generic_target])
-                    generic_target = j;
-                if (m_target_levels[j] < m_target_levels[specific_target])
-                    specific_target = j;
+                i = j;
+
+                unsigned lvl_sub = c.level(dep_target_sub(m_fixed[j]));
+                unsigned lvl_fixed = c.level(dep_target_fixed(m_fixed[j]));
+
+                // dependencies of this level will appear in the lemma anyway
+                unsigned g_level = std::max(lvl_sub, ext_level);
+
+                // allowing dependencies up to this level may give stronger intervals
+                unsigned s_level = std::max(lvl_fixed, g_level);
+                if (s_level > 0)
+                    s_level -= 1;
+
+                // among this equivalence class, choose the maximal g_level (otherwise we may get stuck projecting onto the same target over and over)
+                if (generic_target == UINT_MAX || g_level > generic_level)
+                    generic_target = j, generic_level = g_level;
+
+                if (specific_target == UINT_MAX || s_level > specific_level)
+                    specific_target = j, specific_level = s_level;
             }
 
-            m_targets.push_back({generic_target, specific_target});
+            m_targets.push_back(target_t{ .idx = generic_target, .lvl = generic_level });
+            if (specific_level > generic_level)
+                m_targets.push_back(target_t{ .idx = specific_target, .lvl = specific_level });
         }
 
         // try targets with lower level first, to try and get more general projections
         std::sort(m_targets.begin(), m_targets.end(), [&](target_t const& a, target_t const& b) -> bool {
-            return m_target_levels[a.first] < m_target_levels[b.first];
+            return a.lvl < b.lvl;
         });
     }
 
