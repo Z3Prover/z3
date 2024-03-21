@@ -17,6 +17,7 @@ Notes:
 
 --*/
 #include "params/rewriter_params.hpp"
+#include "params/poly_rewriter_params.hpp"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/rewriter/bool_rewriter.h"
 #include "ast/rewriter/arith_rewriter.h"
@@ -83,7 +84,8 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
 
     void updt_local_params(params_ref const & _p) {
         rewriter_params p(_p);
-        m_flat           = true;
+        poly_rewriter_params pp(_p);
+        m_flat           = pp.flat();
         m_max_memory     = megabytes_to_bytes(p.max_memory());
         m_max_steps      = p.max_steps();
         m_pull_cheap_ite = p.pull_cheap_ite();
