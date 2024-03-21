@@ -665,10 +665,12 @@ namespace polysat {
             switch (m_projection()) {
             case l_true:
                 // propagated interval onto subslice
+                result.reset();
                 m_projection.explain(result);
                 break;
             case l_false:
                 // conflict (projected interval is full)
+                result.reset();
                 m_projection.explain(result);
                 break;
             case l_undef:
