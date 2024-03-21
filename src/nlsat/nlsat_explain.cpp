@@ -1094,12 +1094,12 @@ namespace nlsat {
             if (x < max_x)
                 add_cell_lits(ps, x);
             while (true) {
+                TRACE("nlsat_explain", tout << "project loop, processing var "; display_var(tout, x); tout << "\npolynomials\n";
+                      display(tout, ps); tout << "\n";);
                 if (all_univ(ps, x) && m_todo.empty()) {
                     m_todo.reset();
                     break;
                 }
-                TRACE("nlsat_explain", tout << "project loop, processing var "; display_var(tout, x); tout << "\npolynomials\n";
-                      display(tout, ps); tout << "\n";);
                 add_lc(ps, x);
                 psc_discriminant(ps, x);
                 psc_resultant(ps, x);
