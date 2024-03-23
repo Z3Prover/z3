@@ -327,7 +327,7 @@ def test_atomic_required(cc):
         ++y;
         ++w;
         return ++x;
-    }")
+    }
     """)
     t.commit()
     fails_without = exec_compiler_cmd([cc, CPPFLAGS, '', 'tstatomic.cpp', LDFLAGS, '']) != 0
