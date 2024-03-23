@@ -330,7 +330,10 @@ def test_atomic_required(cc):
     }")
     """)
     t.commit()
-    return exec_compiler_cmd([cc, CPPFLAGS, '', 'tstatomic.cpp', LDFLAGS, '']) != 0
+    fails_without = exec_compiler_cmd([cc, CPPFLAGS, '', 'tstatomic.cpp', LDFLAGS, '']) != 0
+    ok_with = exec_compiler_cmd([cc, CPPFLAGS, '', 'tstatomic.cpp', LDFLAGS + ' -latomic', '']) == 0
+    return fails_without and ok_with
+
 
 def find_jni_h(path):
     for root, dirs, files in os.walk(path):
