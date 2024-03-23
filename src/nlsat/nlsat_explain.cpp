@@ -1744,7 +1744,16 @@ namespace nlsat {
                     solve_eq(x, eq_index, ps);
                 }
                 else {
-                    project_pairs(x, eq_index, ps);
+                    add_zero_assumption(p);
+
+                    for (unsigned j = 0; j < ps.size(); ++j) {
+                        if (j == eq_index)
+                            continue;
+                        p = ps.get(j);
+                        int s = sign(p);
+                        atom::kind k = (s == 0)?(atom::EQ):((s < 0)?(atom::LT):(atom::GT));
+                        add_simple_assumption(k, p, false);
+                    }
                 }
                 return;
             }

@@ -480,8 +480,10 @@ namespace qe {
                 num_scopes = 2*(level()/2);
             }
             else {
-                SASSERT(clevel.max() + 2 <= level());
-                num_scopes = level() - clevel.max();
+                if (clevel.max() + 2 <= level())                    
+                    num_scopes = level() - clevel.max();
+                else
+                    num_scopes = 2; // the projection contains auxiliary variables from root objects.
                 SASSERT(num_scopes >= 2);
             }
             
