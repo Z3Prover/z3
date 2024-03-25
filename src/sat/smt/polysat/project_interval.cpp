@@ -131,6 +131,12 @@ namespace polysat {
                     break;
                 if (m_fixed[i].length != m_fixed[j].length)
                     break;
+                if (m_fixed[i].value != m_fixed[j].value) {
+                    // same subslice, but with different values;
+                    // this should not happen in a fully saturated egraph (wrt. bv_plugin).
+                    break;
+                }
+                VERIFY(m_fixed[j].child != null_var);
                 SASSERT(m_fixed[i].value == m_fixed[j].value);
                 i = j;
 
