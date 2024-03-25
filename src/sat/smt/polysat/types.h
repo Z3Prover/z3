@@ -126,7 +126,15 @@ namespace polysat {
         }
     }
 
-
+    inline std::ostream& operator<<(std::ostream& out, fixed_slice const& f) {
+        out << "fixed_slice";
+        if (f.child != null_var)
+            out << " child v" << f.child;
+        out << " offset " << f.offset;
+        out << " length " << f.length;
+        out << " value " << f.value;
+        return out;
+    }
 
     inline std::ostream& operator<<(std::ostream& out, offset_slice const& js) {
         if (js.offset == 0)
