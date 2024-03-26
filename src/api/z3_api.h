@@ -7455,6 +7455,13 @@ extern "C" {
 
     /**@}*/
 
+    /**
+    \brief Set exit action to throw exception.
+
+    def_API('Z3_set_exit_action_to_throw_exception', VOID, ())
+    */
+    void Z3_API Z3_set_exit_action_to_throw_exception();
+
 #ifdef __cplusplus
 }
 #endif // __cplusplus

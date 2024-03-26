@@ -316,6 +316,11 @@ def get_param(name):
         return r
     raise Z3Exception("failed to retrieve value for '%s'" % name)
 
+
+def set_exit_action_to_throw_exception():
+    """Set the debug exit action to throw exception"""
+    Z3_set_exit_action_to_throw_exception()
+
 #########################################
 #
 # ASTs base class
