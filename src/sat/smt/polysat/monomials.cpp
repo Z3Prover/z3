@@ -102,7 +102,7 @@ namespace polysat {
     }
 
     bool monomials::eval_to_false(unsigned i) {
-        rational rhs, lhs;
+        rational rhs;
         auto& mon = m_monomials[i];
         if (!c.try_eval(mon.var, mon.val))
             return false;
@@ -198,12 +198,12 @@ namespace polysat {
     }
 
     // parity p * q = min(N, parity(p) + parity(q))
-    bool monomials::parity(monomial const& mon) {       
-        unsigned parity_val = get_parity(mon.val, mon.num_bits());
+    bool monomials::parity(monomial const& mon) {
+        unsigned N = mon.num_bits();
+        unsigned parity_val = get_parity(mon.val, N);
         unsigned sum_parities = 0;
-        unsigned N = mon.var.manager().power_of_2();
         for (unsigned j = 0; j < mon.args.size(); ++j) {
-            unsigned k = get_parity(mon.arg_vals[j], mon.num_bits());
+            unsigned k = get_parity(mon.arg_vals[j], N);
             if (k > parity_val) {
                 auto const& p = mon.args[j];
                 if (c.add_axiom("parity p >= i => parity p * q >= i", { ~C.parity_at_least(p, k), C.parity_at_least(mon.var, k) }, true))
@@ -218,16 +218,18 @@ namespace polysat {
         if (sum_parities > parity_val) {
             constraint_or_dependency_vector clause;
             for (unsigned j = 0; j < mon.args.size(); ++j) 
-                clause.push_back(~C.parity_at_least(mon.args[j], get_parity(mon.arg_vals[j], mon.num_bits())));
-            clause.push_back(C.parity_at_least(mon.var, sum_parities));
+                clause.push_back(~C.parity_at_least(mon.args[j], get_parity(mon.arg_vals[j], N)));
+            unsigned min_var_parity = std::min(N, sum_parities);
+            clause.push_back(C.parity_at_least(mon.var, min_var_parity));
             return c.add_axiom("N >= pp + qp, pp >= parity(p), qq >= parity(q) => parity p * q >= pp + qp)", clause, true);
         }
         // sum_parities < parity_val
+        SASSERT(sum_parities < N);
         constraint_or_dependency_vector clause;
-        clause.push_back(~C.parity_at_least(mon.var, sum_parities));
+        clause.push_back(~C.parity_at_least(mon.var, 1 + sum_parities));
         for (unsigned j = 0; j < mon.args.size(); ++j)
-            clause.push_back(C.parity_at_least(mon.args[j], 1 + get_parity(mon.arg_vals[j], mon.num_bits())));
-        return c.add_axiom("parity(p * q) > pp + qp => pp < parity(p) or qp < parity(q))", clause, true);
+            clause.push_back(C.parity_at_least(mon.args[j], 1 + get_parity(mon.arg_vals[j], N)));
+        return c.add_axiom("parity(p * q) > pp + qp => parity(p) > pp or parity(q) > qp", clause, true);
     }
 
     // ~ovfl*(p,q) & q != 0 => p <= p*q    
@@ -374,13 +376,15 @@ namespace polysat {
                 out << sep << p, sep = " * ";
             else 
                 out << sep << "(" << p << ")", sep = " * ";
-        out << "\n";
+        // out << " arg_vals " << arg_vals;
+        // out << " def " << def;
+        // out << " val " << val;
         return out;
     }
 
     std::ostream& monomials::display(std::ostream& out) const {
         for (auto const& mon : m_monomials) 
-            mon.display(out);
+            mon.display(out) << "\n";
         return out;
     }
 }

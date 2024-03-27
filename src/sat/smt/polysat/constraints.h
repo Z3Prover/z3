@@ -64,6 +64,7 @@ namespace polysat {
         signed_constraint() {}
         signed_constraint(ckind_t c, constraint* p) : m_op(c), m_constraint(p) {}
         signed_constraint operator~() const { signed_constraint r(*this); r.m_sign = !r.m_sign; return r; }
+        bool is_null() const { return m_constraint == nullptr; }
         bool sign() const { return m_sign; }
         bool is_positive() const { return !m_sign; }
         bool is_negative() const { return m_sign; }

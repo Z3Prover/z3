@@ -29,18 +29,19 @@ namespace polysat {
         constraints& C;
 
         struct monomial {
-            pdd_vector args;
-            pdd        var;
-            pdd        def;
-            rational_vector arg_vals;
-            rational   val;
+            pdd_vector      args;
+            pdd             var;
+            pdd             def;
+            rational_vector arg_vals;   // values of 'args'
+            rational        val;        // value of 'var'
             unsigned size() const { return args.size(); }
-            unsigned num_bits() const { return args[0].manager().power_of_2(); }
+            unsigned num_bits() const { return var.manager().power_of_2(); }
             std::ostream& display(std::ostream& out) const;
         };
         vector<monomial>   m_monomials;
         pdd_vector         m_tmp;
-        
+
+        friend std::ostream& operator<<(std::ostream& out, monomials::monomial const& mon) { return mon.display(out); }
 
         unsigned_vector m_to_refine;
         void init_to_refine();

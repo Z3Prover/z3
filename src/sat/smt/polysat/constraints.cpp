@@ -69,26 +69,33 @@ namespace polysat {
         return signed_constraint(ckind_t::op_t, cnstr);
     }
 
-    // parity p >= k if low order k bits of p are 0
+    // parity(p) >= k if low order k bits of p are 0.
+    // Requires 0 <= k <= N.
     signed_constraint constraints::parity_at_least(pdd const& p, unsigned k) {
+        auto& m = p.manager();
+        unsigned N = m.power_of_2();
+        // NOTE: it is ambiguous at this point what we want for k > N:
+        //  - as a condition, parity(p) > N is never true
+        //  - as an implied constraint, we usually want p == 0 instead
+        VERIFY(k <= N);
         if (k == 0)
-            return uge(p, 0);
-        unsigned N = p.manager().power_of_2();
+            // parity(p) >= 0 is a tautology
+            return eq(m.zero());
+        if (k == N)
+            return eq(p);
         // parity(p) >= k
         // <=> p * 2^(N - k) == 0
-        if (k > N) 
-            // parity(p) > N is never true
-            return ~eq(p.manager().zero());        
-        else if (k == 0) 
-            // parity(p) >= 0 is a tautology
-            return eq(p.manager().zero());        
-        else if (k == N)
-            return eq(p);
-        else
-            return eq(p * rational::power_of_two(N - k));
+        return eq(p * rational::power_of_two(N - k));
     }
 
+    // parity(p) <= k.
+    // Requires 0 <= k <= N.
     signed_constraint constraints::parity_at_most(pdd const& p, unsigned k) {
+        auto& m = p.manager();
+        unsigned N = m.power_of_2();
+        if (k == N)
+            // parity(p) <= N is a tautology
+            return eq(m.zero());
         return ~parity_at_least(p, k + 1);
     }
 
