@@ -153,6 +153,7 @@ namespace polysat {
         void init_overlaps(pvar v);
         std::ostream& display_state(std::ostream& out) const;
         std::ostream& display_explain(std::ostream& out) const;
+        std::ostream& display_explain(std::ostream& out, explanation const& e) const;
 
     public:
         viable(core& c);

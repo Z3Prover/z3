@@ -1208,11 +1208,15 @@ namespace polysat {
         out << "explain_kind " << m_explain_kind << "\n";
         display_state(out);
         for (auto const& e : m_explain)
-            display_one(out << "v" << m_var << "[" << e.e->bit_width << "] := " << e.value << " ", e.e) << "\n";
+            display_explain(out, e) << "\n";
         return out;
     }
 
-      /*
+    std::ostream& viable::display_explain(std::ostream& out, explanation const& e) const {
+        return display_one(out << "v" << e.e->var << "[" << e.e->bit_width << "] := " << e.value << " ", e.e);
+    }
+
+    /*
      * Lower bounds are strictly ascending.
      * Intervals don't contain each-other (since lower bounds are ascending, it suffices to check containment in one direction).
      */
