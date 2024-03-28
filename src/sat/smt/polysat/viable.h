@@ -123,7 +123,8 @@ namespace polysat {
 
         void update_value_to_high(rational& val, entry* e);
         bool is_conflict();
-        void explain_overlap(explanation const& e, explanation const& after, dependency_vector& deps);
+        void explain_overlap(explanation const& e, explanation const& after, dependency_vector& out_deps);
+        void explain_hole(explanation const& before, explanation const& after, unsigned hole_bits, dependency_vector& out_deps);
 
         viable::entry* find_overlap(rational const& val, entry* entries);
 

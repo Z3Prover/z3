@@ -568,10 +568,10 @@ namespace polysat {
      */
     dependency_vector viable::explain() {
         dependency_vector result;      
-        auto last = m_explain.back();
-        auto after = last;
+        explanation const& last = m_explain.back();
 
-        verbose_stream() << "viable::explain: " << m_explain_kind << " v" << m_var << "\n";
+        verbose_stream() << "\n\n\n\n\nviable::explain: " << m_explain_kind << " v" << m_var << "\n";
+        display_explain(verbose_stream()) << "\n";
 
         if (c.inconsistent())
             verbose_stream() << "inconsistent explain\n";
@@ -592,9 +592,9 @@ namespace polysat {
             if (m_var != e->var)
                 result.push_back(offset_claim(m_var, { e->var, 0 }));
             for (auto const& sc : e->side_cond) {
-                auto d = c.propagate(sc, c.explain_weak_eval(sc), "entry weak eval");
+                auto d = c.propagate(sc, c.explain_weak_eval(sc), "entry side_cond weak eval");
                 if (c.inconsistent()) {
-                    verbose_stream() << "inconsistent " << d << " " << sc << "\n";
+                    verbose_stream() << "inconsistent side_cond " << d << " " << sc << "\n";
                 }
                 result.push_back(d);
             }
@@ -616,9 +616,32 @@ namespace polysat {
 
         SASSERT(m_explain_kind != explain_t::none);
 
+        explanation after = last;
         for (unsigned i = m_explain.size() - 1; i-- > 0; ) {
-            auto e = m_explain[i];
+            explanation const& e = m_explain[i];
             explain_overlap(e, after, result);
+
+            // display_explain(verbose_stream() << "explaining ", e) << "\n";
+
+            // explain_holes(&m_explain[0], &m_explain[i], after)
+            SASSERT(e.e->bit_width <= last.e->bit_width);
+            if (e.e->bit_width < after.e->bit_width) {
+                SASSERT(e.e->bit_width < last.e->bit_width);
+                // find all holes that end with 'after'
+                unsigned hole_bits = e.e->bit_width;
+                // display_explain(verbose_stream() << "finding holes (width " << hole_bits << ") ending at ", after) << "\n";
+                for (unsigned j = i; j-- > 0; ) {
+                    // display_explain(verbose_stream() << "   potential before: ", m_explain[j]) << "\n";
+                    if (m_explain[j].e->bit_width <= hole_bits)
+                        continue;
+                    explanation const& before = m_explain[j];
+                    explain_hole(before, after, hole_bits, result);
+                    hole_bits = before.e->bit_width;
+                    if (hole_bits >= after.e->bit_width)
+                        break;
+                }
+            }
+
             after = e;
             explain_entry(e.e);           
             if (e.e == last.e)
@@ -631,7 +654,7 @@ namespace polysat {
             explain_entry(first.e);
             // add constraint that there is only a single viable value.         
             auto sc = cs.eq(last.e->interval.hi() + 1, first.e->interval.lo());
-            auto exp = c.propagate(sc, c.explain_weak_eval(sc));
+            auto exp = c.propagate(sc, c.explain_weak_eval(sc), "single viable value weak eval");
             if (c.inconsistent()) {
                 verbose_stream() << "inconsistent " << sc << " " << exp << "\n";
             }
@@ -762,7 +785,7 @@ namespace polysat {
                 
             VERIFY(!sc.is_always_false());
             if (!sc.is_always_true())
-                deps.push_back(c.propagate(sc, c.explain_weak_eval(sc)));
+                deps.push_back(c.propagate(sc, c.explain_weak_eval(sc), "explain_overlap value bounds"));
             t.reset(lo.manager());
             t = c.value(mod(e.value, rational::power_of_two(aw)), aw);
             // verbose_stream() << "after " << t << "\n";
@@ -776,13 +799,73 @@ namespace polysat {
         auto sc = cs.ult(t - lo, hi - lo);
         SASSERT(!sc.is_always_false());
         if (!sc.is_always_true())
-            deps.push_back(c.propagate(sc, c.explain_weak_eval(sc)));
+            deps.push_back(c.propagate(sc, c.explain_weak_eval(sc), "explain_overlap linking constraint"));
         if (c.inconsistent()) {
             verbose_stream() << "inconsistent ult " << sc << " " << "\n";
             verbose_stream() << "before bw " << ebw << " " << bw << " " << *e.e << "\nafter  bw " << abw << " " << aw << " " << *after.e << "\n";
             display(verbose_stream());
             // UNREACHABLE();
         }
+    }
+
+    void viable::explain_hole(explanation const& before, explanation const& after, unsigned hole_bits, dependency_vector& deps)
+    {
+        //  before      hole       after
+        // [----------[     [----------[    bit-width k
+        //           [-------[              bit-width hole_bits < k
+        //
+        // The hole can only be covered by lower intervals if
+        //
+        //          hole_size < 2^hole_bits
+        //
+        // i.e., after->lo() - before->hi() < 2^hole_bits.
+
+        unsigned const bw = c.size(before.e->var);
+        unsigned const bew = before.e->bit_width;
+        unsigned const aw = c.size(after.e->var);
+        unsigned const aew = after.e->bit_width;
+
+        verbose_stream() << "explain_hole: " << hole_bits << " bits\n";
+        display_explain(verbose_stream() << "    before: " << bew << " " << bw << "   ", before) << "\n";
+        display_explain(verbose_stream() << "    after:  " << aew << " " << aw << "   ", after)  << "\n";
+
+        // hole is from t1 to t2
+        pdd t1 = before.e->interval.hi();
+        pdd t2 = after.e->interval.lo();
+
+        rational after_len = r_interval::len(after.e->interval.lo_val(), after.e->interval.hi_val(), rational::power_of_two(aew));
+        rational after_covered_lo = mod2k(after.value - after_len, m_num_bits);
+        auto after_covered_ivl = r_interval::proper(after_covered_lo, after.value);
+        // verbose_stream() << "   after_len " << after_len << "\n";
+        // verbose_stream() << "   after_covered_lo " << after_covered_lo << "\n";
+        // verbose_stream() << "   after_covered_ivl " << after_covered_ivl << "\n";
+        SASSERT_EQ(after_covered_ivl.len(rational::power_of_two(m_num_bits)), after_len);
+        if (after_covered_ivl.contains(before.value)) {
+            verbose_stream() << "    not a real hole (subsumption opportunity)\n";
+            return;
+        }
+
+        // no constraint needed for constant bounds
+        if (t1.is_val() && t2.is_val())
+            return;
+
+        if (aw != bw) {
+            // TODO: eval bounds?
+            return;
+            NOT_IMPLEMENTED_YET();
+        }
+
+        if (bew != bw || aew != aw) {
+            // TODO: multiply with 2^k appropriately
+            return;
+            NOT_IMPLEMENTED_YET();
+        }
+
+        auto sc = cs.ult(t2 - t1, rational::power_of_two(hole_bits));
+        verbose_stream() << "    constraint " << sc << "\n";
+        VERIFY(!sc.is_always_false());
+        if (!sc.is_always_true())
+            deps.push_back(c.propagate(sc, c.explain_weak_eval(sc), "explain_hole"));
     }
 
     /*
