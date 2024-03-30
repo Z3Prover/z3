@@ -421,6 +421,7 @@ lbool sls_engine::search() {
 
         // get candidate variables
         ptr_vector<func_decl> & to_evaluate = m_tracker.get_unsat_constants(m_assertions);
+        
         if (to_evaluate.empty())
         {
             res = l_true;
@@ -514,6 +515,12 @@ lbool sls_engine::operator()() {
     if (m_restart_init)
         m_tracker.randomize(m_assertions);
 
+    return search_loop();
+}
+
+
+lbool sls_engine::search_loop() {
+
     lbool res = l_undef;
 
     do {
@@ -533,7 +540,6 @@ lbool sls_engine::operator()() {
     } while (res != l_true && m_stats.m_restarts++ < m_max_restarts);
 
     verbose_stream() << "(restarts: " << m_stats.m_restarts << " flips: " << m_stats.m_moves << " fps: " << (m_stats.m_moves / m_stats.m_stopwatch.get_current_seconds()) << ")" << std::endl;
-    
     return res;
 }
 

@@ -25,12 +25,15 @@ Author:
 
 namespace bv {
 
-    sls::sls(ast_manager& m): 
+    sls::sls(ast_manager& m, params_ref const& p): 
         m(m), 
         bv(m),
         m_terms(m),
-        m_eval(m)
-    {}
+        m_eval(m),
+        m_engine(m, p)
+    {
+        updt_params(p);
+    }
 
     void sls::init() {
         m_terms.init(); 
@@ -67,20 +70,48 @@ namespace bv {
         }
     }
 
+    void sls::init_repair_candidates() {
+        m_to_repair.reset();
+        ptr_vector<expr> todo;
+        expr_fast_mark1 mark;
+        for (auto index : m_repair_roots) 
+            todo.push_back(m_terms.term(index));
+        for (unsigned i = 0; i < todo.size(); ++i) {
+            expr* e = todo[i];
+            if (mark.is_marked(e))
+                continue;
+            mark.mark(e);
+            if (!is_app(e))
+                continue;
+            for (expr* arg : *to_app(e))
+                todo.push_back(arg);
+
+            if (is_uninterp_const(e))
+                m_to_repair.insert(e->get_id());
+
+        }
+    }
+
+
     void sls::reinit_eval() {
+        init_repair_candidates();
+
+        if (m_to_repair.empty())
+            return;
+           
         std::function<bool(expr*, unsigned)> eval = [&](expr* e, unsigned i) {
-            auto should_keep = [&]() {
-                return m_rand() % 100 <= 92;
-            };
-            if (m.is_bool(e)) {
-                if (m_eval.is_fixed0(e) || should_keep())
-                    return m_eval.bval0(e);
-            }
+            unsigned id = e->get_id();
+            bool keep = (m_rand() % 100 <= 50) || !m_to_repair.contains(id);
+            if (m.is_bool(e) && (m_eval.is_fixed0(e) || keep))
+                return m_eval.bval0(e);
             else if (bv.is_bv(e)) {
                 auto& w = m_eval.wval(e);
-                if (w.fixed.get(i) || should_keep())
-                    return w.get_bit(i);                
-            }
+                if (w.fixed.get(i) || keep)
+                    return w.get_bit(i);
+                //auto const& z = m_engine.get_value(e);
+                //return rational(z).get_bit(i);
+            }            
+            
             return m_rand() % 2 == 0;
         };
         m_eval.init_eval(m_terms.assertions(), eval);
@@ -119,14 +150,13 @@ namespace bv {
         return { false, nullptr };
     }
 
-    lbool sls::search() {
+    lbool sls::search1() {
         // init and init_eval were invoked
         unsigned n = 0;
         for (; n++ < m_config.m_max_repairs && m.inc(); ) {
             auto [down, e] = next_to_repair();
             if (!e)
                 return l_true;
-
 
             trace_repair(down, e);
 
@@ -140,16 +170,32 @@ namespace bv {
         return l_undef;
     }
 
+    lbool sls::search2() {
+        lbool res = l_undef;
+        if (m_stats.m_restarts == 0)
+            res = m_engine();
+        else if (m_stats.m_restarts % 1000 == 0)
+            res = m_engine.search_loop();
+        if (res != l_undef) 
+            m_engine_model = true;          
+        return res;
+    }
+
 
     lbool sls::operator()() {
         lbool res = l_undef;
         m_stats.reset();
         m_stats.m_restarts = 0;
+        m_engine_model = false;
+
         do {
-            res = search();
+            res = search1();
             if (res != l_undef)
                 break;
             trace();
+            res = search2();
+            if (res != l_undef)
+                break;
             reinit_eval();
         } 
         while (m.inc() && m_stats.m_restarts++ < m_config.m_max_restarts);
@@ -158,34 +204,60 @@ namespace bv {
     }
 
     void sls::try_repair_down(app* e) {
-
         unsigned n = e->get_num_args();
         if (n == 0) {
-            if (m.is_bool(e)) 
-                m_eval.set(e, m_eval.bval1(e));                            
-            else 
+            if (m.is_bool(e)) {
+                m_eval.set(e, m_eval.bval1(e));
+            }
+            else {
                 VERIFY(m_eval.wval(e).commit_eval());
+            }
             
             for (auto p : m_terms.parents(e))
                 m_repair_up.insert(p->get_id());
+            
             return;
         }        
 
-        unsigned s = m_rand(n);
-        for (unsigned i = 0; i < n; ++i) {
-            auto j = (i + s) % n;
-            if (m_eval.try_repair(e, j)) {
-                set_repair_down(e->get_arg(j));
+        if (n == 2) {
+            auto d1 = get_depth(e->get_arg(0));
+            auto d2 = get_depth(e->get_arg(1));
+            unsigned s = m_rand(d1 + d2 + 2);
+            if (s <= d1 && m_eval.try_repair(e, 0)) {
+                set_repair_down(e->get_arg(0));
+                return;
+            }
+            if (m_eval.try_repair(e, 1)) {
+                set_repair_down(e->get_arg(1));
+                return;
+            }
+            if (m_eval.try_repair(e, 0)) {
+                set_repair_down(e->get_arg(0));
                 return;
             }
         }
-        // search a new root / random walk to repair        
+        else {
+            unsigned s = m_rand(n);
+            for (unsigned i = 0; i < n; ++i) {
+                auto j = (i + s) % n;
+                if (m_eval.try_repair(e, j)) {
+                    set_repair_down(e->get_arg(j));
+                    return;
+                }
+            }
+        }
+        // repair was not successful, so reset the state to find a different way to repair
+        init_repair();
     }
 
     void sls::try_repair_up(app* e) {       
         
-        if (m_terms.is_assertion(e) || !m_eval.repair_up(e)) 
-            m_repair_roots.insert(e->get_id());        
+        if (m_terms.is_assertion(e)) 
+            m_repair_roots.insert(e->get_id());    
+        else if (!m_eval.repair_up(e)) {
+            //m_repair_roots.insert(e->get_id());
+            init_repair();
+        }
         else {
             if (!eval_is_correct(e)) {
                 verbose_stream() << "incorrect eval #" << e->get_id() << " " << mk_bounded_pp(e, m) << "\n";
@@ -224,7 +296,10 @@ namespace bv {
     }
 
     model_ref sls::get_model() {
-        model_ref mdl = alloc(model, m);
+        if (m_engine_model)
+            return m_engine.get_model();
+
+        model_ref mdl = alloc(model, m);         
         auto& terms = m_eval.sort_assertions(m_terms.assertions());
         for (expr* e : terms) {
             if (!re_eval_is_correct(to_app(e))) {
@@ -273,7 +348,12 @@ namespace bv {
     void sls::updt_params(params_ref const& _p) {
         sls_params p(_p);
         m_config.m_max_restarts = p.max_restarts();
+        m_config.m_max_repairs = p.max_repairs();
         m_rand.set_seed(p.random_seed());
+        m_terms.updt_params(_p);
+        params_ref q = _p;
+        q.set_uint("max_restarts", 10);
+        m_engine.updt_params(q);
     }
 
     void sls::trace_repair(bool down, expr* e) {

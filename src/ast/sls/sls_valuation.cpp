@@ -106,10 +106,12 @@ namespace bv {
 
     bool sls_valuation::commit_eval() { 
         for (unsigned i = 0; i < nw; ++i)
-            if (0 != (fixed[i] & (m_bits[i] ^ eval[i])))
-                return false;        
-        if (!in_range(eval))
+            if (0 != (fixed[i] & (m_bits[i] ^ eval[i])))                 
+                return false;
+            
+        if (!in_range(eval)) 
             return false;
+        
         for (unsigned i = 0; i < nw; ++i) 
             m_bits[i] = eval[i]; 
         SASSERT(well_formed()); 
@@ -491,8 +493,8 @@ namespace bv {
         SASSERT(well_formed());
     }
 
-    void sls_valuation::add_range(rational l, rational h) {
-        
+    void sls_valuation::add_range(rational l, rational h) {              
+
         l = mod(l, rational::power_of_two(bw));
         h = mod(h, rational::power_of_two(bw));
         if (h == l)
@@ -509,21 +511,28 @@ namespace bv {
             auto old_lo = lo();
             auto old_hi = hi();
             if (old_lo < old_hi) {
-                if (old_lo < l && l < old_hi)
+                if (old_lo < l && l < old_hi && old_hi <= h)
                     set_value(m_lo, l),
                     old_lo = l;
-                if (old_hi < h && h < old_hi)
+                if (l <= old_lo && old_lo < h && h < old_hi)
                     set_value(m_hi, h);
             }
             else {
                 SASSERT(old_hi < old_lo);
-                if (old_lo < l || l < old_hi)
-                    set_value(m_lo, l),
-                    old_lo = l;
-                if (old_lo < h && h < old_hi)
+                if (h <= old_hi && old_lo <= l) {
+                    set_value(m_lo, l);
                     set_value(m_hi, h);
-                else if (old_hi < old_lo && (h < old_hi || old_lo < h))
+                }
+                else if (old_lo <= l && l <= h) {
+                    set_value(m_lo, l);
                     set_value(m_hi, h);
+                }
+                else if (old_lo + 1 == l) {
+                    set_value(m_lo, l);
+                }
+                else if (old_hi == h + 1) {
+                    set_value(m_hi, h);
+                }
             }
         }
 
@@ -552,8 +561,7 @@ namespace bv {
     //  lo < hi, set most significant bits based on hi
     //
     void sls_valuation::tighten_range() {
-
-        // verbose_stream() << "tighten " << *this << "\n";
+        
         if (m_lo == m_hi)
             return;
 
@@ -613,6 +621,9 @@ namespace bv {
             break;
         }
 
+        if (has_range() && !in_range(m_bits)) 
+            m_bits = m_lo;
+        
         SASSERT(well_formed());
     }
 

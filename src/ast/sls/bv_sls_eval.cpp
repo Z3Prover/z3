@@ -24,8 +24,8 @@ namespace bv {
     {}   
 
     void sls_eval::init_eval(expr_ref_vector const& es, std::function<bool(expr*, unsigned)> const& eval) {
-        sort_assertions(es);
-        for (expr* e : m_todo) {
+        auto& terms = sort_assertions(es);
+        for (expr* e : terms) {
             if (!is_app(e))
                 continue;
             app* a = to_app(e);
@@ -49,7 +49,7 @@ namespace bv {
                 TRACE("sls", tout << "Unhandled expression " << mk_pp(e, m) << "\n");
             }
         }
-        m_todo.reset();
+        terms.reset();
     }
 
     /**
@@ -1698,7 +1698,7 @@ namespace bv {
         }
         if (bv.is_bv(e)) {
             auto& v = eval(to_app(e));
-            // verbose_stream() << "committing: " << v << "\n";
+            
             for (unsigned i = 0; i < v.nw; ++i)
                 if (0 != (v.fixed[i] & (v.bits()[i] ^ v.eval[i]))) {
                     v.bits().copy_to(v.nw, v.eval);

@@ -79,7 +79,11 @@ public:
     void mk_inv(unsigned bv_sz, const mpz & old_value, mpz & inverted);
     void mk_flip(sort * s, const mpz & old_value, unsigned bit, mpz & flipped);            
 
-    lbool search();
+
+
+    lbool search();  
+
+    lbool search_loop();
 
     lbool operator()();
 

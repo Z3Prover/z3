@@ -61,9 +61,10 @@ namespace sls {
         m_m = alloc(ast_manager, m);
         ast_translation tr(m, *m_m);
         
+        params_ref p;
         m_completed = false;
         m_result = l_undef;
-        m_bvsls = alloc(bv::sls, *m_m);
+        m_bvsls = alloc(bv::sls, *m_m, p);
         // walk clauses, add them
         // walk trail stack until search level, add units
         // encapsulate bvsls within the arguments of run-local-search.

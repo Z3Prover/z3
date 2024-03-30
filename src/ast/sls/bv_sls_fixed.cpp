@@ -108,6 +108,13 @@ namespace bv {
             else if (bv.is_numeral(t, a))
                 init_range(s, -a, nullptr, rational(0), false);
         }
+        else if (sign && m.is_eq(e, s, t)) {
+            if (bv.is_numeral(s, a))
+                // 1 <= t - a
+                init_range(nullptr, rational(1), t, -a, false);
+            else if (bv.is_numeral(t, a))
+                init_range(nullptr, rational(1), s, -a, false);
+        }
         else if (bv.is_bit2bool(e, s, idx)) {
             auto& val = wval(s);
             val.try_set_bit(idx, !sign);
@@ -157,7 +164,6 @@ namespace bv {
             else
                 v.add_range(-b, -a);
         }
-        
     }
 
     void sls_fixed::get_offset(expr* e, expr*& x, rational& offset) {
