@@ -30,7 +30,8 @@ protected:
     T *      m_buffer = reinterpret_cast<T*>(m_initial_buffer);
     unsigned m_pos = 0;
     unsigned m_capacity = INITIAL_SIZE;
-    typename std::aligned_storage<sizeof(T), alignof(T)>::type m_initial_buffer[INITIAL_SIZE];
+    alignas(T) std::byte m_initial_buffer[sizeof(T)*INITIAL_SIZE];
+//    typename std::aligned_storage<sizeof(T), alignof(T)>::type m_initial_buffer[INITIAL_SIZE];
 
     void free_memory() {
         if (m_buffer != reinterpret_cast<T*>(m_initial_buffer)) {
