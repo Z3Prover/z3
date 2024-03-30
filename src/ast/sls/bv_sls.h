@@ -52,6 +52,7 @@ namespace bv {
         config              m_config;
         sls_engine          m_engine;
         bool                m_engine_model = false;
+        bool                m_engine_init = false;
         
         std::pair<bool, app*> next_to_repair();
         

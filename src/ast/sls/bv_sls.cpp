@@ -101,16 +101,24 @@ namespace bv {
            
         std::function<bool(expr*, unsigned)> eval = [&](expr* e, unsigned i) {
             unsigned id = e->get_id();
-            bool keep = (m_rand() % 100 <= 50) || !m_to_repair.contains(id);
-            if (m.is_bool(e) && (m_eval.is_fixed0(e) || keep))
-                return m_eval.bval0(e);
+            bool keep = !m_to_repair.contains(id);
+            if (m.is_bool(e)) {
+                if (m_eval.is_fixed0(e) || keep)
+                    return m_eval.bval0(e);
+                if (m_engine_init) {
+                    auto const& z = m_engine.get_value(e);
+                    return rational(z).get_bit(0);
+                }
+            }
             else if (bv.is_bv(e)) {
                 auto& w = m_eval.wval(e);
                 if (w.fixed.get(i) || keep)
                     return w.get_bit(i);
-                //auto const& z = m_engine.get_value(e);
-                //return rational(z).get_bit(i);
-            }            
+                if (m_engine_init) {
+                    auto const& z = m_engine.get_value(e);
+                    return rational(z).get_bit(i);
+                }
+            }
             
             return m_rand() % 2 == 0;
         };
@@ -177,7 +185,8 @@ namespace bv {
         else if (m_stats.m_restarts % 1000 == 0)
             res = m_engine.search_loop();
         if (res != l_undef) 
-            m_engine_model = true;          
+            m_engine_model = true;   
+        m_engine_init = true;
         return res;
     }
 
@@ -187,6 +196,7 @@ namespace bv {
         m_stats.reset();
         m_stats.m_restarts = 0;
         m_engine_model = false;
+        m_engine_init = false;
 
         do {
             res = search1();
