@@ -170,10 +170,11 @@ namespace polysat {
     // 
 
     viable::entry* viable::find_overlap(rational& val) {
-
         entry* last = nullptr;
+        // TODO: this doesn't always make sure we prefer smaller sizes... different suffixes would have to be interleaved.
         for (auto const& [w, offset] : m_overlaps) {
             for (auto& layer : m_units[w].get_layers()) {
+again:
                 entry* e = find_overlap(w, layer, val);
                 if (!e)
                     continue;
@@ -185,12 +186,13 @@ namespace polysat {
                     m_explain_kind = explain_t::conflict;
                     return nullptr;
                 }
+                goto again;
             }
         }
         return last;
     }
 
-    viable::entry* viable::find_overlap(pvar w, layer& l, rational const& val) {
+    viable::entry* viable::find_overlap(pvar /* w */, layer& l, rational const& val) {
         if (!l.entries)
             return nullptr;
         unsigned v_width = m_num_bits;
