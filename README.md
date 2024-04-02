@@ -36,7 +36,7 @@ python scripts/mk_make.py
 or instead, for a 64-bit build:
 
 ```bash
-python scripts/mk_make.py -x
+python scripts/mk_make.py opt=-x
 ```
 
 then:
