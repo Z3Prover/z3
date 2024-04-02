@@ -121,10 +121,13 @@ namespace polysat {
         entry* find_overlap(rational& val);
         entry* find_overlap(pvar w, layer& l, rational const& val);
 
+        void remove_redundant_explanations();
+
         void update_value_to_high(rational& val, entry* e);
         bool is_conflict();
         void explain_overlap(explanation const& e, explanation const& after, dependency_vector& out_deps);
         void explain_hole(explanation const& before, explanation const& after, unsigned hole_bits, dependency_vector& out_deps);
+        r_interval get_covered_interval(explanation const& e) const;
 
         viable::entry* find_overlap(rational const& val, entry* entries);
 

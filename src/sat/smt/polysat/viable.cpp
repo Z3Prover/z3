@@ -616,6 +616,11 @@ namespace polysat {
 
         SASSERT(m_explain_kind != explain_t::none);
 
+        // prune redundant intervals
+        remove_redundant_explanations();
+
+        SASSERT(all_of(m_explain, [](auto const& e) { return !e.e->marked; }));
+
         explanation after = last;
         for (unsigned i = m_explain.size() - 1; i-- > 0; ) {
             explanation const& e = m_explain[i];
@@ -707,6 +712,76 @@ namespace polysat {
         if (c.inconsistent())
             verbose_stream() << "inconsistent after explain\n";
         return result;
+    }
+
+    // Remove entries at the end of m_explain that are subsumed by the new entry e.
+    //
+    // Consider the following (partial) example from 1ZjKiWGg7I3v.smt2:
+    //
+    //      v0[28] := 0 v0 [28*v1 + 28 ; 28*v1[ := [28;0[  src -28*v1 + v0 <= 27;       covers [28;0[
+    //      v0[2] := 1 v0[2] [2^26+1 ; 2^26[ := [2;1[  src 2^26*v0 + -2^26 == 0;        covers [-2;1[       REDUNDANT
+    //      v0[28] := 4 v0 [0 ; 4[ := [0;4[  src 4 <= v0;                               covers [0;4[
+    //      v0[2] := 5 v0[2] [2^26+1 ; 2^26[ := [2;1[  src 2^26*v0 + -2^26 == 0;        covers [2;5[        REDUNDANT
+    //      v0[5] := 33 v0[5] [2^24 ; 2^23[ := [2;1[  deps 1 == v0 [5]@0 src            covers [2;33[
+    //      v0[28] := 0 v0 [28*v1 + 28 ; 28*v1[ := [28;0[  src -28*v1 + v0 <= 27;       covers [28;0[
+    //
+    // We can skip the entry v0[2] := 5 because v0[5] := 33 already covers that part.
+    //
+    // We add lower-width intervals such as v0[2] first, to be able to detect conflicts on lower widths.
+    // But it means we sometimes get redundant entries like this.
+    void viable::remove_redundant_explanations() {
+        verbose_stream() << "SUBSUMPTION\n";
+        SASSERT(all_of(m_explain, [](auto const& e) { return !e.e->marked; }));
+        explanation const& last = m_explain.back();
+
+        if (m_explain.size() <= 1)
+            return;
+        // In conflicts, 'last' is a repeated entry. So m_explain.size() == 2 does not make sense here.
+        SASSERT(m_explain.size() > 2);
+
+        // Find index of first entry
+        unsigned k = m_explain.size() - 1;
+        while (k-- > 0)
+            if (m_explain[k].e == last.e)
+                break;
+        SASSERT(m_explain[k].e == last.e);
+
+        // For each endpoint, keep only the interval that furthest extends
+        for (unsigned i = k; i < m_explain.size() - 1; ++i) {
+            explanation const& cur = m_explain[i];
+
+            display_explain(verbose_stream() << "check subsumption:   cur: ", cur) << "\n";
+
+            if (m_explain[i].e->marked)
+                continue;  // already pruned
+
+            // next interval contains current endpoint (because of how it was chosen)
+            explanation const& next = m_explain[i + 1];
+            SASSERT(get_covered_interval(next).contains(cur.value));
+
+            // if the interval after 'next' still contains 'cur.value', we may skip 'next' (and so on)
+            unsigned j = i + 2;
+            for (; j < m_explain.size(); ++j) {
+                r_interval ivl = get_covered_interval(m_explain[j]);
+                if (ivl.contains(cur.value)) {
+                    display_explain(verbose_stream() << "  subsumed: ", m_explain[j-1]) << "\n";
+#if 0  // TODO: disabled for testing
+                    m_explain[j - 1].e->marked = true;
+#endif
+                }
+                else
+                    break;
+            }
+        }
+
+        // Actually perform the removal
+        m_explain.erase_if([](auto const& e) {
+            if (e.e->marked) {
+                e.e->marked = false;
+                return true;
+            }
+            return false;
+        });
     }
 
     /*
@@ -808,8 +883,17 @@ namespace polysat {
         }
     }
 
-    void viable::explain_hole(explanation const& before, explanation const& after, unsigned hole_bits, dependency_vector& deps)
-    {
+    r_interval viable::get_covered_interval(explanation const& e) const {
+        rational const& lo = e.e->interval.lo_val();
+        rational const& hi = e.e->interval.hi_val();
+        rational const& mod_value = rational::power_of_two(e.e->bit_width);
+        rational const& len = r_interval::len(lo, hi, mod_value);
+        rational const& covered_hi = e.value;
+        rational const& covered_lo = mod2k(covered_hi - len, m_num_bits);
+        return r_interval::proper(covered_lo, covered_hi);
+    }
+
+    void viable::explain_hole(explanation const& before, explanation const& after, unsigned hole_bits, dependency_vector& deps) {
         //  before      hole       after
         // [----------[     [----------[    bit-width k
         //           [-------[              bit-width hole_bits < k
