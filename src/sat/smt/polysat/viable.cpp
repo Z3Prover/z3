@@ -902,7 +902,7 @@ again:
         //
         // The hole can only be covered by lower intervals if
         //
-        //          hole_size < 2^hole_bits
+        //          hole_len < 2^hole_bits
         //
         // i.e., after->lo() - before->hi() < 2^hole_bits.
 
@@ -919,17 +919,16 @@ again:
         pdd t1 = before.e->interval.hi();
         pdd t2 = after.e->interval.lo();
 
-        rational after_len = r_interval::len(after.e->interval.lo_val(), after.e->interval.hi_val(), rational::power_of_two(aew));
-        rational after_covered_lo = mod2k(after.value - after_len, m_num_bits);
-        auto after_covered_ivl = r_interval::proper(after_covered_lo, after.value);
-        // verbose_stream() << "   after_len " << after_len << "\n";
-        // verbose_stream() << "   after_covered_lo " << after_covered_lo << "\n";
-        // verbose_stream() << "   after_covered_ivl " << after_covered_ivl << "\n";
-        SASSERT_EQ(after_covered_ivl.len(rational::power_of_two(m_num_bits)), after_len);
-        if (after_covered_ivl.contains(before.value)) {
+        if (get_covered_interval(after).contains(before.value)) {
+            // this check is still needed as long as we do not prune the 'last' interval
             verbose_stream() << "    not a real hole (subsumption opportunity)\n";
             return;
         }
+
+        SASSERT(!get_covered_interval(after).contains(before.value));
+
+        rational hole_len = r_interval::len(before.value, get_covered_interval(after).lo(), rational::power_of_two(m_num_bits));
+        SASSERT(hole_len < rational::power_of_two(hole_bits));  // otherwise we missed a conflict at lower bit-width
 
         // no constraint needed for constant bounds
         if (t1.is_val() && t2.is_val())
