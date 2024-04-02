@@ -91,10 +91,10 @@ namespace polysat {
         m_fixed_bits.init(v);
         m_explain.reset();
         m_assign_dep = null_dependency;
-        init_overlaps(v);
+        init_suffixes(v);
         bool first = true;
         while (true) {
-            for (auto const& [w, offset] : m_overlaps) {
+            for (auto const& [w, offset] : m_suffixes) {
                 for (auto& layer : m_units[w].get_layers()) {
                     entry* e = find_overlap(w, layer, value);
                     if (!e)
@@ -125,7 +125,7 @@ namespace polysat {
         m_var = v;
         m_num_bits = c.size(v);
         m_fixed_bits.init(v);
-        init_overlaps(v);
+        init_suffixes(v);
         m_explain_kind = explain_t::none;
         m_assign_dep = null_dependency;
 
@@ -155,16 +155,16 @@ namespace polysat {
         return find_t::resource_out;        
     }
 
-    void viable::init_overlaps(pvar v) {
-        m_overlaps.reset();
-        c.get_bitvector_suffixes(v, m_overlaps);
-        std::sort(m_overlaps.begin(), m_overlaps.end(), [&](auto const& x, auto const& y) { return c.size(x.child) < c.size(y.child); });
+    void viable::init_suffixes(pvar v) {
+        m_suffixes.reset();
+        c.get_bitvector_suffixes(v, m_suffixes);
+        std::sort(m_suffixes.begin(), m_suffixes.end(), [&](auto const& x, auto const& y) { return c.size(x.child) < c.size(y.child); });
     }
 
 
     // 
     // 
-    // from smallest size(w) overlap [w] to largest
+    // from smallest size(w) suffix [w] to largest
     //     from smallest bit_width layer [bit_width, entries] to largest
     //         check if val is allowed by entries or advance val to next allowed value
     // 
@@ -172,7 +172,7 @@ namespace polysat {
     viable::entry* viable::find_overlap(rational& val) {
         entry* last = nullptr;
         // TODO: this doesn't always make sure we prefer smaller sizes... different suffixes would have to be interleaved.
-        for (auto const& [w, offset] : m_overlaps) {
+        for (auto const& [w, offset] : m_suffixes) {
             for (auto& layer : m_units[w].get_layers()) {
                 while (entry* e = find_overlap(w, layer, val)) {
                     last = e;
@@ -682,7 +682,7 @@ namespace polysat {
                 verbose_stream() << "\n\n\n\n\n\nNon-viable assignment for v" << m_var << " size " << c.size(m_var) << "\n";
                 display_one(verbose_stream() << "entry: ", e) << "\n";
                 verbose_stream() << "value " << last.value << "\n";
-                verbose_stream() << "m_overlaps " << m_overlaps << "\n";
+                verbose_stream() << "m_suffixes " << m_suffixes << "\n";
                 m_fixed_bits.display(verbose_stream() << "fixed: ") << "\n";
             });
 
@@ -1360,7 +1360,7 @@ namespace polysat {
 
     std::ostream& viable::display_state(std::ostream& out) const {
         out << "v" << m_var << ":";
-        for (auto const& slice : m_overlaps) {
+        for (auto const& slice : m_suffixes) {
             out << "  v" << slice.child << ":" << c.size(slice.child) << "@" << slice.offset;
             if (c.is_assigned(slice.child))
                 out << " value=" << c.get_assignment().value(slice.child);

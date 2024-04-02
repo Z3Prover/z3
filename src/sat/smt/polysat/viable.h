@@ -153,8 +153,8 @@ namespace polysat {
         dependency      m_assign_dep = null_dependency;
         unsigned        m_num_bits = 0;
         fixed_bits      m_fixed_bits;
-        offset_slices   m_overlaps;
-        void init_overlaps(pvar v);
+        offset_slices   m_suffixes;
+        void init_suffixes(pvar v);
         std::ostream& display_state(std::ostream& out) const;
         std::ostream& display_explain(std::ostream& out) const;
         std::ostream& display_explain(std::ostream& out, explanation const& e) const;
