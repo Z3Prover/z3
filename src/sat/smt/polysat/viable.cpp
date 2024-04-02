@@ -174,19 +174,16 @@ namespace polysat {
         // TODO: this doesn't always make sure we prefer smaller sizes... different suffixes would have to be interleaved.
         for (auto const& [w, offset] : m_overlaps) {
             for (auto& layer : m_units[w].get_layers()) {
-again:
-                entry* e = find_overlap(w, layer, val);
-                if (!e)
-                    continue;
-                last = e;
-                if (e->interval.is_proper())
-                   update_value_to_high(val, e);
-                m_explain.push_back({ e, val });
-                if (is_conflict()) {
-                    m_explain_kind = explain_t::conflict;
-                    return nullptr;
+                while (entry* e = find_overlap(w, layer, val)) {
+                    last = e;
+                    if (e->interval.is_proper())
+                    update_value_to_high(val, e);
+                    m_explain.push_back({ e, val });
+                    if (is_conflict()) {
+                        m_explain_kind = explain_t::conflict;
+                        return nullptr;
+                    }
                 }
-                goto again;
             }
         }
         return last;
