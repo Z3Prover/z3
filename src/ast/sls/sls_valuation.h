@@ -60,13 +60,27 @@ namespace bv {
             return bw;
         }
 
+        void set_zero()  {
+            for (unsigned i = 0; i < nw; ++i)
+                (*this)[i] = 0;
+        }
+
+        bvect& set_shift_right(bvect const& a, bvect const& b);
+        bvect& set_shift_right(bvect const& a, unsigned shift);
+        bvect& set_shift_left(bvect const& a, bvect const& b);
+
         rational get_value(unsigned nw) const;
+
+        unsigned to_nat(unsigned max_n) const;
+
 
         friend bool operator==(bvect const& a, bvect const& b);
         friend bool operator<(bvect const& a, bvect const& b);
         friend bool operator>(bvect const& a, bvect const& b);
         friend bool operator<=(bvect const& a, bvect const& b);
         friend bool operator>=(bvect const& a, bvect const& b);
+        friend bool operator<=(digit_t a, bvect const& b);
+        friend bool operator<=(bvect const& a, digit_t b);
         friend std::ostream& operator<<(std::ostream& out, bvect const& v);
 
     private:
@@ -198,6 +212,8 @@ namespace bv {
         // most significant bit or bw if src = 0
         unsigned msb(bvect const& src) const;
 
+        unsigned clz(bvect const& src) const;
+
         bool is_power_of2(bvect const& src) const;
 
         // retrieve largest number at or below (above) src which is feasible
@@ -232,7 +248,7 @@ namespace bv {
             clear_overflow_bits(eval);
         }
 
-        void set_zero(bvect& out) const {
+        void set_zero(bvect& out) const {            
             for (unsigned i = 0; i < nw; ++i)
                 out[i] = 0;
         }
@@ -288,7 +304,7 @@ namespace bv {
                 dst[i] = src[i];
         }
 
-        unsigned to_nat(unsigned max_n);
+        unsigned to_nat(unsigned max_n) const;
 
         std::ostream& display(std::ostream& out) const {
             out << m_bits;

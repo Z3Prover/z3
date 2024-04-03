@@ -84,10 +84,13 @@ namespace bv {
             return false;
         auto v = alloc_valuation(e);
         m_values.set(e->get_id(), v);
-        if (bv.is_sign_ext(e)) {
-            unsigned p = e->get_parameter(0).get_int();
-            v->set_signed(p);
-        }
+        expr* x, * y;
+        rational val;
+        if (bv.is_sign_ext(e))          
+            v->set_signed(e->get_parameter(0).get_int());        
+        else if (bv.is_bv_ashr(e, x, y) && bv.is_numeral(y, val) && 
+            val.is_unsigned() && val.get_unsigned() <= bv.get_bv_size(e)) 
+            v->set_signed(val.get_unsigned());        
         return true;
     }
 
@@ -1349,6 +1352,13 @@ namespace bv {
     }
 
     bool sls_eval::try_repair_ashr(bvect const& e, bvval & a, bvval& b, unsigned i) {
+        if (true) {
+            if (i == 0)
+                return try_repair_ashr0(e, a, b);
+            else
+                return try_repair_ashr1(e, a, b);
+        }
+
         if (i == 0) {
             unsigned sh = b.to_nat(b.bw);
             if (sh == 0)
@@ -1382,7 +1392,259 @@ namespace bv {
     }
 
     bool sls_eval::try_repair_lshr(bvect const& e, bvval& a, bvval& b, unsigned i) {
+#if 0
         return try_repair_ashr(e, a, b, i);
+#else
+        if (i == 0)
+            return try_repair_lshr0(e, a, b);
+        else
+            return try_repair_lshr1(e, a, b);
+#endif
+    }
+
+    /**
+    * strong: 
+    * - e = (e << b) >> b -> a := e << b, upper b bits set random
+    * weak:
+    *   - e = 0 -> a := random 
+    *   - e > 0 -> a := random with msb(a) >= msb(e)
+    */
+    bool sls_eval::try_repair_lshr0(bvect const& e, bvval& a, bvval const& b) {
+        
+        auto& t = m_tmp;
+        // t := e << b
+        // t := t >> b
+        t.set_shift_left(e, b.bits());
+        t.set_shift_right(t, b.bits());
+        bool use_strong = m_rand(10) != 0;
+        if (t == e && use_strong) {
+            t.set_shift_left(e, b.bits());
+            unsigned n = b.bits().to_nat(e.bw);
+            for (unsigned i = e.bw; i-- > e.bw - n;) 
+                t.set(i, a.get_bit(i)); 
+            a.clear_overflow_bits(t);
+            if (a.set_repair(random_bool(), t))
+                return true;                      
+        }
+
+        unsigned sh = b.to_nat(b.bw);
+        if (sh == 0 && a.try_set(e))
+            return true;
+        else if (sh >= b.bw)
+            return true;        
+        else if (sh < b.bw && m_rand(20) != 0) {
+            // e = a >> sh
+            // a[bw-1:sh] = e[bw-sh-1:0]
+            // a[sh-1:0] = a[sh-1:0]                
+            for (unsigned i = sh; i < a.bw; ++i)
+                t.set(i, e.get(i - sh));
+            for (unsigned i = 0; i < sh; ++i)
+                t.set(i, a.get_bit(i));
+            a.clear_overflow_bits(t);
+            if (a.try_set(t))
+                return true;
+        }
+        
+        //bool r = try_repair_ashr(e, a, const_cast<bvval&>(b), 0);
+        //verbose_stream() << "repair lshr0 " << e << " b: " << b << " a: " << a << "\n";
+        //return r;
+
+        a.get_variant(t, m_rand);
+        
+        unsigned msb = a.msb(e);
+        if (msb > a.msb(t)) {
+            unsigned num_flex = 0;
+            for (unsigned i = e.bw; i-- >= msb;) 
+                if (!a.fixed.get(i))
+                    ++num_flex;
+            if (num_flex == 0)
+                return false;
+            unsigned n = m_rand(num_flex);
+            for (unsigned i = e.bw; i-- >= msb;) {
+                if (!a.fixed.get(i)) {
+                    if (n == 0) {
+                        t.set(i, true);
+                        break;
+                    }
+                    else
+                        n--;
+                }
+            }
+        }
+        return a.set_repair(random_bool(), t);
+    }
+
+    /**
+    * strong:
+    * - clz(a) <= clz(e), e = 0 or (a >> (clz(e) - clz(a)) = e
+    * - e = 0 and a = 0:  b := random
+    * - e = 0 and a != 0: b := random, such that shift <= b 
+    * - e != 0:           b := shift
+    * where shift := clz(e) - clz(a)
+    * 
+    * weak:
+    * - e = 0:  b := random
+    * - e > 0:  b := random >= clz(e)
+    */
+    bool sls_eval::try_repair_lshr1(bvect const& e, bvval const& a, bvval& b) {
+
+        auto& t = m_tmp;
+        auto clza = a.clz(a.bits());
+        auto clze = a.clz(e);
+        t.set_bw(a.bw);
+
+        // strong
+        if (m_rand(10) != 0 && clza <= clze && (a.is_zero(e) || t.set_shift_right(a.bits(), clze - clza) == e)) {
+            if (a.is_zero(e) && a.is_zero()) 
+                return true;            
+            unsigned shift = clze - clza;
+            if (a.is_zero(e)) 
+                shift = m_rand(a.bw + 1 - shift) + shift;            
+            
+            b.set(t, shift);
+            if (b.try_set(t))
+                return true;            
+        }
+
+        // no change
+        if (m_rand(10) != 0) {
+            if (a.is_zero(e))
+                return true;
+            if (b.bits() <= clze)
+                return true;
+        }
+
+        // weak
+        b.get_variant(t, m_rand);
+        if (a.is_zero(e))             
+            return b.set_repair(random_bool(), t);        
+        else {
+            for (unsigned i = 0; i < 4; ++i) {
+                for (unsigned i = a.bw; !(t <= clze) && i-- > 0; )
+                    if (!b.fixed.get(i))
+                        t.set(i, false);
+                if (t <= clze && b.set_repair(random_bool(), t))
+                    return true;                
+                b.get_variant(t, m_rand);
+            }
+            return false;
+        }        
+    }
+
+    /**
+    * strong:
+    *   b  < |b| => (e << b) >>a b = e) 
+    *   b >= |b| => (e = ones || e = 0)
+    * - if b  < |b|: a := e << b
+    * - if b >= |b|: a[bw-1] := e = ones
+    * weak:
+    *   
+    */
+    bool sls_eval::try_repair_ashr0(bvect const& e, bvval& a, bvval const& b) {
+        auto& t = m_tmp;
+        t.set_bw(b.bw);
+        auto n = b.msb(b.bits());
+        bool use_strong = m_rand(20) != 0;
+        if (use_strong && n < b.bw) {
+            t.set_shift_left(e, b.bits());
+            bool sign = t.get(b.bw-1);
+            t.set_shift_right(t, b.bits());
+            if (sign) {
+                for (unsigned i = b.bw; i-- > b.bw - n; )
+                    t.set(i, true);
+            }            
+            use_strong &= t == e;
+        }
+        else {
+            use_strong &= a.is_zero(e) || a.is_ones(e);
+        }
+        if (use_strong) {
+            if (n < b.bw) {
+                t.set_shift_left(e, b.bits());
+                for (unsigned i = 0; i < n; ++i)
+                    t.set(i, a.get_bit(i));
+            }
+            else {                
+                for (unsigned i = 0; i < b.nw; ++i)
+                    t[i] = a.bits()[i];
+                t.set(b.bw - 1, a.is_ones(e));
+            }   
+            a.clear_overflow_bits(t);
+            if (a.set_repair(random_bool(), t))
+                return true;
+        }
+        if (m_rand(10) != 0) {
+            if (n < b.bw) {
+                t.set_shift_left(e, b.bits());
+                for (unsigned i = 0; i < n; ++i)
+                    t.set(i, random_bool());
+            }
+            else {
+                a.get_variant(t, m_rand);
+                t.set(b.bw - 1, a.is_ones(e));
+            }
+            a.clear_overflow_bits(t);
+            if (a.set_repair(random_bool(), t))
+                return true;
+        }            
+
+        a.get_variant(t, m_rand);
+        return a.set_repair(random_bool(), t);
+    }
+
+    /*
+    * strong:
+    * - clz(a) <= clz(e), e = 0 or (a >>a (clz(e) - clz(a)) = e
+    * - e = 0 and a = 0:  b := random
+    * - e = 0 and a != 0: b := random, such that shift <= b 
+    * - e != 0:           b := shift
+    * where shift := clz(e) - clz(a)
+    * 
+    * weak:
+    * - e = 0:  b := random
+    * - e > 0:  b := random >= clz(e)
+    */
+
+    bool sls_eval::try_repair_ashr1(bvect const& e, bvval const& a, bvval& b) {
+
+        auto& t = m_tmp;
+        auto clza = a.clz(a.bits());
+        auto clze = a.clz(e);
+        t.set_bw(a.bw);
+
+        // strong unsigned
+        if (!a.get_bit(a.bw - 1) && m_rand(10) != 0 && clza <= clze && (a.is_zero(e) || t.set_shift_right(a.bits(), clze - clza) == e)) {
+            if (a.is_zero(e) && a.is_zero())
+                return true;
+            unsigned shift = clze - clza;
+            if (a.is_zero(e))
+                shift = m_rand(a.bw + 1 - shift) + shift;
+
+            b.set(t, shift);
+            if (b.try_set(t))
+                return true;
+        }
+        // strong signed
+        if (a.get_bit(a.bw - 1) && m_rand(10) != 0 && clza >= clze) {
+            t.set_shift_right(a.bits(), clza - clze);
+            for (unsigned i = a.bw; i-- > a.bw - clza + clze; )
+                t.set(i, true);
+            if (e == t) {
+                if (a.is_zero(e) && a.is_zero())
+                    return true;
+                unsigned shift = clze - clza;
+                if (a.is_zero(e))
+                    shift = m_rand(a.bw + 1 - shift) + shift;
+
+                b.set(t, shift);
+                if (b.try_set(t))
+                    return true;
+            }
+        }
+
+        // weak
+        b.get_variant(t, m_rand);
+        return b.set_repair(random_bool(), t);
     }
 
     bool sls_eval::try_repair_comp(bvect const& e, bvval& a, bvval& b, unsigned i) {

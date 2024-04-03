@@ -203,7 +203,7 @@ namespace bv {
             if (res != l_undef)
                 break;
             trace();
-            res = search2();
+            // res = search2();
             if (res != l_undef)
                 break;
             reinit_eval();

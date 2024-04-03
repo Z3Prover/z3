@@ -93,6 +93,10 @@ namespace bv {
         bool try_repair_shl(bvect const& e, bvval& a, bvval& b, unsigned i);
         bool try_repair_ashr(bvect const& e, bvval& a, bvval& b, unsigned i);
         bool try_repair_lshr(bvect const& e, bvval& a, bvval& b, unsigned i);
+        bool try_repair_lshr0(bvect const& e, bvval& a, bvval const& b);
+        bool try_repair_lshr1(bvect const& e, bvval const& a, bvval& b);
+        bool try_repair_ashr0(bvect const& e, bvval& a, bvval const& b);
+        bool try_repair_ashr1(bvect const& e, bvval const& a, bvval& b);
         bool try_repair_bit2bool(bvval& a, unsigned idx);
         bool try_repair_udiv(bvect const& e, bvval& a, bvval& b, unsigned i);
         bool try_repair_urem(bvect const& e, bvval& a, bvval& b, unsigned i);

@@ -56,6 +56,20 @@ namespace bv {
         return mpn_manager().compare(a.data(), a.nw, b.data(), a.nw) >= 0;
     }
 
+    bool operator<=(digit_t a, bvect const& b) {
+        for (unsigned i = 1; i < b.nw; ++i)
+            if (0 != b[i])
+                return true;
+        return mpn_manager().compare(&a, 1, b.data(), 1) <= 0;
+    }
+
+    bool operator<=(bvect const& a, digit_t b) {
+        for (unsigned i = 1; i < a.nw; ++i)
+            if (0 != a[i])
+                return false;
+        return mpn_manager().compare(a.data(), 1, &b, 1) <= 0;
+    }
+
     std::ostream& operator<<(std::ostream& out, bvect const& v) {
         out << std::hex;
         bool nz = false;
@@ -81,6 +95,57 @@ namespace bv {
             p *= rational::power_of_two(8 * sizeof(digit_t));
         }
         return r;
+    }
+
+
+    unsigned bvect::to_nat(unsigned max_n) const {
+        SASSERT(max_n < UINT_MAX / 2);
+        unsigned p = 1;
+        unsigned value = 0;
+        for (unsigned i = 0; i < bw; ++i) {
+            if (p >= max_n) {
+                for (unsigned j = i; j < bw; ++j)
+                    if (get(j))
+                        return max_n;
+                return value;
+            }
+            if (get(i))
+                value += p;
+            p <<= 1;
+        }
+        return value;
+    }
+
+    bvect& bvect::set_shift_right(bvect const& a, bvect const& b) {
+        SASSERT(a.bw == b.bw);
+        unsigned shift = b.to_nat(b.bw);
+        return set_shift_right(a, shift);
+    }
+
+    bvect& bvect::set_shift_right(bvect const& a, unsigned shift) {
+        set_bw(a.bw);
+        if (shift == 0)
+            a.copy_to(a.nw, *this);
+        else if (shift >= a.bw)
+            set_zero();
+        else
+            for (unsigned i = 0; i < bw; ++i)
+                set(i, i + shift < bw ? a.get(i + shift) : false);
+        return *this;
+    }
+
+    bvect& bvect::set_shift_left(bvect const& a, bvect const& b) {
+        set_bw(a.bw);
+        SASSERT(a.bw == b.bw);
+        unsigned shift = b.to_nat(b.bw);
+        if (shift == 0)
+            a.copy_to(a.nw, *this);
+        else if (shift >= a.bw)
+            set_zero();
+        else
+            for (unsigned i = bw; i-- > 0; )
+                set(i, i >= shift ? a.get(i - shift) : false);
+        return *this;
     }
 
     sls_valuation::sls_valuation(unsigned bw) {
@@ -411,6 +476,16 @@ namespace bv {
         return bw;
     }
 
+    unsigned sls_valuation::clz(bvect const& src) const {
+        SASSERT(!has_overflow(src));
+        unsigned i = bw;
+        for (; i-- > 0; )
+            if (!src.get(i))
+                return bw - 1 - i;
+        return bw;
+    }
+
+
     void sls_valuation::set_value(bvect& bits, rational const& n) {
         for (unsigned i = 0; i < bw; ++i)
             bits.set(i, n.get_bit(i));
@@ -438,11 +513,14 @@ namespace bv {
     void sls_valuation::repair_sign_bits(bvect& dst) const {
         if (m_signed_prefix == 0)
             return;
-        bool sign = dst.get(bw - 1);
-        for (unsigned i = bw; i-- >= bw - m_signed_prefix; ) {
+        bool sign = m_signed_prefix == bw ? dst.get(bw - 1) : dst.get(bw - m_signed_prefix - 1);
+        for (unsigned i = bw; i-- > bw - m_signed_prefix; ) {
             if (dst.get(i) != sign) {
                 if (fixed.get(i)) {
-                    for (unsigned i = bw; i-- >= bw - m_signed_prefix; )
+                    unsigned j = bw - m_signed_prefix;
+                    if (j > 0 && !fixed.get(j - 1))
+                        dst.set(j - 1, !sign);
+                    for (unsigned i = bw; i-- > bw - m_signed_prefix; )
                         if (!fixed.get(i))
                             dst.set(i, !sign);
                     return;
@@ -466,24 +544,11 @@ namespace bv {
         return in_range(new_bits);
     }
 
-    unsigned sls_valuation::to_nat(unsigned max_n) {
+    unsigned sls_valuation::to_nat(unsigned max_n) const {
+
         bvect const& d = m_bits;
         SASSERT(!has_overflow(d));
-        SASSERT(max_n < UINT_MAX / 2);
-        unsigned p = 1;
-        unsigned value = 0;
-        for (unsigned i = 0; i < bw; ++i) {
-            if (p >= max_n) {
-                for (unsigned j = i; j < bw; ++j)
-                    if (d.get(j))
-                        return max_n;
-                return value;
-            }
-            if (d.get(i))
-                value += p;
-            p <<= 1;
-        }
-        return value;
+        return d.to_nat(max_n);
     }
 
     void sls_valuation::shift_right(bvect& out, unsigned shift) const {
@@ -493,7 +558,9 @@ namespace bv {
         SASSERT(well_formed());
     }
 
-    void sls_valuation::add_range(rational l, rational h) {              
+    void sls_valuation::add_range(rational l, rational h) {   
+
+        //return;
 
         l = mod(l, rational::power_of_two(bw));
         h = mod(h, rational::power_of_two(bw));
