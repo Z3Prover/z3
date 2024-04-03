@@ -497,8 +497,6 @@ namespace bv {
     }
 
     void sls_valuation::add_range(rational l, rational h) {   
-        //return;
-        //verbose_stream() << *this << " " << l << " " << h << " --> \n";
 
         l = mod(l, rational::power_of_two(bw));
         h = mod(h, rational::power_of_two(bw));
@@ -555,17 +553,6 @@ namespace bv {
 
     //
     // update bits based on ranges
-    // tighten lo/hi based on fixed bits.
-    //   lo[bit_i] != fixedbit[bit_i] 
-    //     let bit_i be most significant bit position of disagreement.
-    //     if fixedbit = 1, lo = 0, increment lo
-    //     if fixedbit = 0, lo = 1, lo := fixed & bits
-    //   (hi-1)[bit_i] != fixedbit[bit_i]
-    //     if fixedbit = 0, hi-1 = 1, set hi-1 := 0, maximize below bit_i
-    //     if fixedbit = 1, hi-1 = 0, hi := fixed & bits
-    // tighten fixed bits based on lo/hi
-    //  lo + 1 = hi -> set bits = lo
-    //  lo < hi, set most significant bits based on hi
     //
 
     unsigned sls_valuation::diff_index(bvect const& a) const {
@@ -637,6 +624,57 @@ namespace bv {
         sup_feasible(hi1);
         add1(hi1);
         hi1.copy_to(nw, m_hi);
+
+        /*
+        unsigned lo_index = 0, hi_index = 0;        
+        for (unsigned i = nw; i-- > 0; ) {
+            auto lo_diff = (fixed[i] & (m_bits[i] ^ m_lo[i]));
+            if (lo_diff != 0 && lo_index == 0)
+                lo_index = 1 + i * 8 * sizeof(digit_t) + log2(lo_diff);
+            auto hi_diff = (fixed[i] & (m_bits[i] ^ hi1[i]));
+            if (hi_diff != 0 && hi_index == 0)
+                hi_index = 1 + i * 8 * sizeof(digit_t) + log2(hi_diff);
+        }
+
+        if (lo_index != 0) {
+            lo_index--;
+            SASSERT(m_lo.get(lo_index) != m_bits.get(lo_index));
+            SASSERT(fixed.get(lo_index));
+            for (unsigned i = 0; i <= lo_index; ++i) {
+                if (!fixed.get(i))
+                    m_lo.set(i, false);
+                else if (fixed.get(i))
+                    m_lo.set(i, m_bits.get(i));
+            }
+            if (!m_bits.get(lo_index)) {
+                for (unsigned i = lo_index + 1; i < bw; ++i)
+                    if (!fixed.get(i) && !m_lo.get(i)) {
+                        m_lo.set(i, true);
+                        break;
+                    }
+            }
+        }
+        if (hi_index != 0) {
+            hi_index--;
+            SASSERT(hi1.get(hi_index) != m_bits.get(hi_index));
+            SASSERT(fixed.get(hi_index));
+            for (unsigned i = 0; i <= hi_index; ++i) {
+                if (!fixed.get(i))
+                    hi1.set(i, true);
+                else if (fixed.get(i))
+                    hi1.set(i, m_bits.get(i));
+            }
+            if (m_bits.get(hi_index)) {
+                for (unsigned i = hi_index + 1; i < bw; ++i)
+                    if (!fixed.get(i) && hi1.get(i)) {
+                        hi1.set(i, false);
+                        break;
+                    }
+            }
+            add1(hi1);
+            hi1.copy_to(nw, m_hi);
+        }
+        */
 
         if (has_range() && !in_range(m_bits)) 
             m_bits = m_lo;
