@@ -30,28 +30,33 @@ namespace polysat {
     }
 
     //
-    // If x[hi:lo] = value, then 
-    // let K = w - hi - 1 = w - s.length - s.offset
-    // 2^Kvalue <= 2^Kx < 2^K(value + 1)
-    // 2^Kx not in [2^K(value + 1),  2^Kvalue[
-    // bit-width : w - K = s.offset + s.length
+    // Assume x[hi:lo] = value.
+    // Then 2^lo value <= x[hi:0] < 2^lo (value + 1),
+    // and further 2^(lo + k) value <= 2^k x < 2^(lo + k) (value + 1)
+    // where k = w - hi - 1, lo = s.offset, hi = s.offset + s.length - 1.
     //
+    // k = w - s.offset - s.length
+    // lo + k = w - s.length
+    // entry bit-width = w - k = s.offset + s.length
     //
     bool fixed_bits::check(rational const& val, fi_record& fi) {
         unsigned sz = c.size(m_var);
-        rational bw = rational::power_of_two(sz);
         for (auto const& s : m_fixed_slices) {
             rational sbw = rational::power_of_two(s.length);
             // slice is properly contained in bit-vector variable
             if (s.length <= sz && s.value != mod(machine_div2k(val, s.offset), sbw)) {
-
                 SASSERT(s.offset + s.length <= sz);
                 unsigned bw = s.length + s.offset;
-                // unsigned K = sz - bw;
-                pdd lo = c.value(rational::power_of_two(sz - s.length) * (s.value + 1), sz);
-                pdd hi = c.value(rational::power_of_two(sz - s.length) * s.value, sz);
-                rational hi_val = rational::power_of_two(s.offset) * s.value;
-                rational lo_val = mod(rational::power_of_two(s.offset) * (s.value + 1), rational::power_of_two(bw));
+                rational p2lok = rational::power_of_two(sz - s.length);
+                rational p2lo = rational::power_of_two(s.offset);
+                pdd lo = c.value(p2lok * (s.value + 1), sz);
+                pdd hi = c.value(p2lok * s.value, sz);
+                rational lo_val = mod(p2lo * (s.value + 1), rational::power_of_two(bw));
+                rational hi_val = p2lo * s.value;
+                // verbose_stream() << "sz " << sz << "\n";
+                // verbose_stream() << "slice len " << s.length << " off " << s.offset << " value " << s.value << "\n";
+                // verbose_stream() << "lo " << lo.val() << " hi " << hi.val() << "\n";
+                // verbose_stream() << "lo_val " << lo_val << " hi_val " << hi_val << "\n";
 
                 fi.reset();
                 fi.interval = eval_interval::proper(lo, lo_val, hi, hi_val);
@@ -61,10 +66,11 @@ namespace polysat {
                 // verbose_stream() << "fixed bits sub: v" << m_var << " " << sz << " value " << val << " "  << fi << "\n";
                 return false;
             }
+#if 0
             // slice, properly contains variable.
             // s.offset refers to offset in containing value.
-            if (false && s.length > sz && mod(machine_div2k(s.value, s.offset), bw) != val) {
-                
+            rational bw = rational::power_of_two(sz);
+            if (s.length > sz && mod(machine_div2k(s.value, s.offset), bw) != val) {
                 rational hi_val = mod(machine_div2k(s.value, s.offset), bw);
                 rational lo_val = mod(hi_val + 1, bw);
                 pdd lo = c.value(lo_val, sz);
@@ -77,6 +83,7 @@ namespace polysat {
                 verbose_stream() << "fixed bits sup: v" << m_var << " " << fi << "\n";
                 return false;
             }
+#endif
         }
         return true;
     }

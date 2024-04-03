@@ -23,6 +23,9 @@ namespace polysat {
     class core;
 
     struct fi_record {
+        // eval_interval has both symbolic and concrete bounds:
+        // - symbolic pdd bounds are bounds on 2^(w - bit_width) * coeff * var[w-1:0] (modulo w = size(var))
+        // - concrete bounds are bounds on coeff * var[bit_width-1:0] (modulo bit_width)
         eval_interval               interval;
         vector<signed_constraint>   side_cond;
         vector<signed_constraint>   src;            // there is either 0 or 1 src.
