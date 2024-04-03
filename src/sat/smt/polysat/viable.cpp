@@ -96,7 +96,7 @@ namespace polysat {
         while (true) {
             for (auto const& [w, offset] : m_suffixes) {
                 for (auto& layer : m_units[w].get_layers()) {
-                    entry* e = find_overlap(w, layer, value);
+                    entry* e = find_overlap(layer, value);
                     if (!e)
                         continue;
                     m_explain.push_back({ e, value });
@@ -171,30 +171,54 @@ namespace polysat {
 
     viable::entry* viable::find_overlap(rational& val) {
         entry* last = nullptr;
-        // TODO: this doesn't always make sure we prefer smaller sizes... different suffixes would have to be interleaved.
-next:
-        for (auto const& [w, offset] : m_suffixes) {
-            for (auto& layer : m_units[w].get_layers()) {
-                entry* e = find_overlap(w, layer, val);
-                if (!e)
-                    continue;
-                last = e;
-                if (e->interval.is_proper())
-                    update_value_to_high(val, e);
-                // display_explain(verbose_stream() << "found: ", {e,val}) << "\n";
-                m_explain.push_back({ e, val });
-                if (is_conflict()) {
-                    verbose_stream() << "find_overlap conflict\n";
-                    m_explain_kind = explain_t::conflict;
-                    return nullptr;
+
+#if 0
+        {
+            verbose_stream() << "\n\n\n\n\nfind_overlap v" << m_var << ", starting val = " << val << "\n";
+            for (auto const& [w, offset] : m_suffixes) {
+                for (auto& layer : m_units[w].get_layers()) {
+                    verbose_stream() << "  layer width = " << layer.bit_width << "\n";
+                    entry const* e = layer.entries;
+                    if (!e)
+                        continue;
+                    entry const* first = e;
+                    do {
+                        display_one(verbose_stream() << "    ", e) << "\n";
+                        e = e->next();
+                    }
+                    while (e != first);
                 }
-                goto next;
             }
+        }
+#endif
+
+        ptr_vector<layer const> layers;
+        for (auto const& [w, offset] : m_suffixes)
+            for (auto const& layer : m_units[w].get_layers())
+                layers.push_back(&layer);
+        std::sort(layers.begin(), layers.end(), [](layer const* l1, layer const* l2) { return l1->bit_width < l2->bit_width; });
+
+next:
+        for (layer const* layer : layers) {
+            entry* e = find_overlap(*layer, val);
+            if (!e)
+                continue;
+            last = e;
+            if (e->interval.is_proper())
+                update_value_to_high(val, e);
+            display_explain(verbose_stream() << "found: ", {e,val}) << "\n";
+            m_explain.push_back({ e, val });
+            if (is_conflict()) {
+                verbose_stream() << "find_overlap conflict\n";
+                m_explain_kind = explain_t::conflict;
+                return nullptr;
+            }
+            goto next;
         }
         return last;
     }
 
-    viable::entry* viable::find_overlap(pvar /* w */, layer& l, rational const& val) {
+    viable::entry* viable::find_overlap(layer const& l, rational const& val) {
         if (!l.entries)
             return nullptr;
         unsigned v_width = m_num_bits;

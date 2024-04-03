@@ -120,7 +120,7 @@ namespace polysat {
 
         // find the first non-fixed entry that overlaps with val, if any.
         entry* find_overlap(rational& val);
-        entry* find_overlap(pvar w, layer& l, rational const& val);
+        entry* find_overlap(layer const& l, rational const& val);
 
         void remove_redundant_explanations();
 
