@@ -1001,9 +1001,11 @@ namespace polysat {
             //
             // new_lo = lo[w-1:k]      if lo[k-1:0] = 0
             //          lo[w-1:k] + 1  otherwise
+            //        = ceil( lo / 2^k )
             //
             // new_hi = hi[w-1:k]      if hi[k-1:0] = 0
             //          hi[w-1:k] + 1  otherwise
+            //        = ceil( hi / 2^k )
             //
             // Reference: Fig. 1 (dtrim) in BitvectorsMCSAT
 
@@ -1052,33 +1054,22 @@ namespace polysat {
             //   0 < hi < lo:     full
             //   0 == hi < lo:    empty
             //
-
             if (new_lo == new_hi) {
-                bool is_empty_ivl;
-                if (lo < hi) {
-                    ne->side_cond.push_back(cs.ult(pdd_lo, pdd_hi));
-                    if (lo == 0) {
-                        ne->side_cond.push_back(cs.eq(pdd_lo));
-                        is_empty_ivl = false;
-                    }
-                    else {
-                        ne->side_cond.push_back(~cs.eq(pdd_lo));
-                        is_empty_ivl = true;
-                    }
+                bool is_empty = true;
+                if (lo.is_zero()) {
+                    SASSERT(!hi.is_zero());
+                    // 0 == lo < hi
+                    ne->side_cond.push_back(cs.eq(pdd_lo));
+                    ne->side_cond.push_back(~cs.eq(pdd_hi));
+                    is_empty = false;
                 }
-                else {
-                    SASSERT(hi < lo);
+                else if (!hi.is_zero() && hi < lo) {
+                    // 0 < hi < lo
+                    ne->side_cond.push_back(~cs.eq(pdd_hi));
                     ne->side_cond.push_back(cs.ult(pdd_hi, pdd_lo));
-                    if (hi == 0) {
-                        ne->side_cond.push_back(cs.eq(pdd_hi));
-                        is_empty_ivl = true;
-                    }
-                    else {
-                        ne->side_cond.push_back(~cs.eq(pdd_hi));
-                        is_empty_ivl = false;
-                    }
+                    is_empty = false;
                 }
-                if (is_empty_ivl) {
+                if (is_empty) {
                     m_alloc.push_back(ne);
                     return find_t::multiple;
                 }
