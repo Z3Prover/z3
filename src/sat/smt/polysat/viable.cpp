@@ -923,7 +923,8 @@ namespace polysat {
         SASSERT(!get_covered_interval(after).contains(before.value));
 
         rational hole_len = r_interval::len(before.value, get_covered_interval(after).lo(), rational::power_of_two(m_num_bits));
-        SASSERT(hole_len < rational::power_of_two(hole_bits));  // otherwise we missed a conflict at lower bit-width
+        // verbose_stream() << "    hole_len " << hole_len << " should be < " << rational::power_of_two(hole_bits) << "\n";
+        VERIFY(hole_len < rational::power_of_two(hole_bits));  // otherwise we missed a conflict at lower bit-width
 
         // no constraint needed for constant bounds
         if (t1.is_val() && t2.is_val())
