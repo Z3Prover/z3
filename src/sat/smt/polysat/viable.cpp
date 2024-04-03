@@ -729,7 +729,6 @@ namespace polysat {
     // We add lower-width intervals such as v0[2] first, to be able to detect conflicts on lower widths.
     // But it means we sometimes get redundant entries like this.
     void viable::remove_redundant_explanations() {
-        verbose_stream() << "SUBSUMPTION\n";
         SASSERT(all_of(m_explain, [](auto const& e) { return !e.e->marked; }));
         explanation const& last = m_explain.back();
 
@@ -749,29 +748,31 @@ namespace polysat {
         for (unsigned i = k; i < m_explain.size() - 1; ++i) {
             explanation const& cur = m_explain[i];
 
-            display_explain(verbose_stream() << "check subsumption:   cur: ", cur) << "\n";
-
             if (m_explain[i].e->marked)
                 continue;  // already pruned
 
             // next interval contains current endpoint (because of how it was chosen)
-            explanation const& next = m_explain[i + 1];
-            SASSERT(get_covered_interval(next).contains(cur.value));
+            DEBUG_CODE({
+                explanation const& next = m_explain[i + 1];
+                SASSERT(get_covered_interval(next).contains(cur.value));
+            });
 
             // if the interval after 'next' still contains 'cur.value', we may skip 'next' (and so on)
             unsigned j = i + 2;
             for (; j < m_explain.size(); ++j) {
                 r_interval ivl = get_covered_interval(m_explain[j]);
-                if (ivl.contains(cur.value)) {
-                    display_explain(verbose_stream() << "  subsumed: ", m_explain[j-1]) << "\n";
-#if 0  // TODO: disabled for testing
+                if (ivl.contains(cur.value))
                     m_explain[j - 1].e->marked = true;
-#endif
-                }
                 else
                     break;
             }
         }
+
+        IF_VERBOSE(1, {
+            for (auto const& e : m_explain)
+                if (e.e->marked)
+                    display_explain(verbose_stream() << "redundant: ", e) << "\n";
+        });
 
         // Actually perform the removal
         m_explain.erase_if([](auto const& e) {
