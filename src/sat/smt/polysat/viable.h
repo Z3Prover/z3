@@ -93,6 +93,7 @@ namespace polysat {
         struct explanation {
             entry* e;
             rational value;
+            bool mark = false;
         };
         ptr_vector<entry>       m_alloc;
         vector<layers>          m_units;        // set of viable values based on unit multipliers, layered by bit-width in descending order

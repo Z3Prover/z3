@@ -618,7 +618,10 @@ namespace polysat {
         // prune redundant intervals
         remove_redundant_explanations();
 
+        // display_explain(verbose_stream()) << "\n";
+
         SASSERT(all_of(m_explain, [](auto const& e) { return !e.e->marked; }));
+        SASSERT(all_of(m_explain, [](auto const& e) { return !e.mark; }));
 
         explanation after = last;
         for (unsigned i = m_explain.size() - 1; i-- > 0; ) {
@@ -729,7 +732,7 @@ namespace polysat {
     // We add lower-width intervals such as v0[2] first, to be able to detect conflicts on lower widths.
     // But it means we sometimes get redundant entries like this.
     void viable::remove_redundant_explanations() {
-        SASSERT(all_of(m_explain, [](auto const& e) { return !e.e->marked; }));
+        SASSERT(all_of(m_explain, [](auto const& e) { return !e.mark; }));
         explanation const& last = m_explain.back();
 
         if (m_explain.size() <= 1)
@@ -748,7 +751,7 @@ namespace polysat {
         for (unsigned i = k; i < m_explain.size() - 1; ++i) {
             explanation const& cur = m_explain[i];
 
-            if (m_explain[i].e->marked)
+            if (m_explain[i].mark)
                 continue;  // already pruned
 
             // next interval contains current endpoint (because of how it was chosen)
@@ -762,7 +765,7 @@ namespace polysat {
             for (; j < m_explain.size(); ++j) {
                 r_interval ivl = get_covered_interval(m_explain[j]);
                 if (ivl.contains(cur.value))
-                    m_explain[j - 1].e->marked = true;
+                    m_explain[j - 1].mark = true;
                 else
                     break;
             }
@@ -770,18 +773,12 @@ namespace polysat {
 
         IF_VERBOSE(1, {
             for (auto const& e : m_explain)
-                if (e.e->marked)
+                if (e.mark)
                     display_explain(verbose_stream() << "redundant: ", e) << "\n";
         });
 
         // Actually perform the removal
-        m_explain.erase_if([](auto const& e) {
-            if (e.e->marked) {
-                e.e->marked = false;
-                return true;
-            }
-            return false;
-        });
+        m_explain.erase_if([](auto const& e) { return e.mark; });
     }
 
     /*
