@@ -274,6 +274,17 @@ namespace bv {
             }
         }
 
+        void add1(bvect& out) const {
+            for (unsigned i = 0; i < bw; ++i) {
+                if (!out.get(i)) {
+                    out.set(i, true);
+                    return;
+                }
+                else
+                    out.set(i, false);
+            }
+        }
+
         void set_sub(bvect& out, bvect const& a, bvect const& b) const;
         bool set_add(bvect& out, bvect const& a, bvect const& b) const;
         bool set_mul(bvect& out, bvect const& a, bvect const& b, bool check_overflow = true) const;

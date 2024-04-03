@@ -567,9 +567,6 @@ namespace bv {
         if (h == l)
             return;
 
-        //verbose_stream() << "[" << l << ", " << h << "[\n";
-        //verbose_stream() << *this << "\n";
-
         if (m_lo == m_hi) {
             set_value(m_lo, l);
             set_value(m_hi, h);
@@ -603,14 +600,11 @@ namespace bv {
             }
         }
 
-
-
         SASSERT(!has_overflow(m_lo));
         SASSERT(!has_overflow(m_hi));
 
         tighten_range();
         SASSERT(well_formed());
-        // verbose_stream() << *this << "\n";
     }
 
     //
@@ -632,60 +626,53 @@ namespace bv {
         if (m_lo == m_hi)
             return;
 
-        if (!in_range(m_bits)) {
-            // verbose_stream() << "not in range\n";
-            bool compatible = true;
-            for (unsigned i = 0; i < nw && compatible; ++i)
-                compatible = 0 == (fixed[i] & (m_bits[i] ^ m_lo[i]));
-            //verbose_stream() << (fixed[0] & (m_bits[0] ^ m_lo[0])) << "\n";
-            //verbose_stream() << bw << " " << m_lo[0] << " " << m_bits[0] << "\n";
-            if (compatible) {
-                //verbose_stream() << "compatible\n";
-                set(m_bits, m_lo);
-            }
-            else {
-                bvect tmp(m_bits.nw);
-                tmp.set_bw(bw);
-                set(tmp, m_lo);
-                unsigned max_diff = bw;
-                for (unsigned i = 0; i < bw; ++i) {
-                    if (fixed.get(i) && (m_bits.get(i) ^ m_lo.get(i))) 
-                        max_diff = i;                    
-                }
-                SASSERT(max_diff != bw);
-
-                for (unsigned i = 0; i <= max_diff; ++i)
-                    tmp.set(i, fixed.get(i) && m_bits.get(i));
-
-                bool found0 = false;
-                for (unsigned i = max_diff + 1; i < bw; ++i) {
-                    if (found0 || m_lo.get(i) || fixed.get(i))
-                        tmp.set(i, m_lo.get(i) && fixed.get(i));
-                    else {
-                        tmp.set(i, true);
-                        found0 = true;
-                    }
-                }
-                set(m_bits, tmp);
-            }
+        bvect hi1(nw);
+        hi1.set_bw(bw);
+        m_hi.copy_to(nw, hi1);
+        sub1(hi1);
+        unsigned lo_index = 0, hi_index = 0;        
+        for (unsigned i = nw; i-- > 0; ) {
+            auto lo_diff = (fixed[i] & (m_bits[i] ^ m_lo[i]));
+            if (lo_diff != 0 && lo_index == 0)
+                lo_index = 1 + i * 8 * sizeof(digit_t) + log2(lo_diff);
+            auto hi_diff = (fixed[i] & (m_bits[i] ^ hi1[i]));
+            if (hi_diff != 0 && hi_index == 0)
+                hi_index = 1 + i * 8 * sizeof(digit_t) + log2(hi_diff);
         }
-        // update lo, hi to be feasible.
-        
-        for (unsigned i = bw; i-- > 0; ) {
-            if (!fixed.get(i))
-                continue;
-            if (m_bits.get(i) == m_lo.get(i))
-                continue;
-            if (m_bits.get(i)) {
-                m_lo.set(i, true);
-                for (unsigned j = i; j-- > 0; )
-                    m_lo.set(j, fixed.get(j) && m_bits.get(j));
+
+        if (lo_index != 0) {
+            lo_index--;
+            SASSERT(m_lo.get(lo_index) != m_bits.get(lo_index));
+            SASSERT(fixed.get(lo_index));
+            for (unsigned i = 0; i <= lo_index; ++i) {
+                if (!fixed.get(i))
+                    m_lo.set(i, false);
+                else if (fixed.get(i))
+                    m_lo.set(i, m_bits.get(i));
             }
-            else {
-                for (unsigned j = bw; j-- > 0; )
-                    m_lo.set(j, fixed.get(j) && m_bits.get(j));
+            for (unsigned i = lo_index + 1; i < bw; ++i)
+                if (!fixed.get(i) && !m_lo.get(i)) {
+                    m_lo.set(i, true);
+                    break;
+                }
+        }
+        if (hi_index != 0) {
+            hi_index--;
+            SASSERT(hi1.get(hi_index) != m_bits.get(hi_index));
+            SASSERT(fixed.get(hi_index));
+            for (unsigned i = 0; i <= hi_index; ++i) {
+                if (!fixed.get(i))
+                    hi1.set(i, true);
+                else if (fixed.get(i))
+                    hi1.set(i, m_bits.get(i));
             }
-            break;
+            for (unsigned i = hi_index + 1; i < bw; ++i)
+                if (!fixed.get(i) && hi1.get(i)) {
+                    hi1.set(i, false);
+                    break;
+                }
+            add1(hi1);
+            hi1.copy_to(nw, m_hi);
         }
 
         if (has_range() && !in_range(m_bits)) 
