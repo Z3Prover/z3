@@ -572,7 +572,7 @@ next:
      */
     dependency_vector viable::explain() {
         dependency_vector result;      
-        explanation const& last = m_explain.back();
+        explanation const last = m_explain.back();
 
         verbose_stream() << "\n\n\n\n\nviable::explain: " << m_explain_kind << " v" << m_var << "\n";
         display_explain(verbose_stream()) << "\n";
