@@ -596,7 +596,19 @@ next:
      */
     dependency_vector viable::explain() {
         dependency_vector result;      
+
+        // display_explain(verbose_stream()) << "\n";
+
+        // prune redundant intervals
+        remove_redundant_explanations();
+
         explanation const last = m_explain.back();
+
+        // if there's more than one interval, we cannot have any full intervals
+        SASSERT(m_explain.size() <= 1 || all_of(m_explain, [](auto const& e) { return !e.e->interval.is_full(); }));
+
+        SASSERT(all_of(m_explain, [](auto const& e) { return !e.e->marked; }));
+        SASSERT(all_of(m_explain, [](auto const& e) { return !e.mark; }));
 
         verbose_stream() << "\n\n\n\n\nviable::explain: " << m_explain_kind << " v" << m_var << "\n";
         display_explain(verbose_stream()) << "\n";
@@ -643,14 +655,6 @@ next:
         }
 
         SASSERT(m_explain_kind != explain_t::none);
-
-        // prune redundant intervals
-        remove_redundant_explanations();
-
-        // display_explain(verbose_stream()) << "\n";
-
-        SASSERT(all_of(m_explain, [](auto const& e) { return !e.e->marked; }));
-        SASSERT(all_of(m_explain, [](auto const& e) { return !e.mark; }));
 
         explanation after = last;
         for (unsigned i = m_explain.size() - 1; i-- > 0; ) {
