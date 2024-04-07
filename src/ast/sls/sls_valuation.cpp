@@ -204,139 +204,69 @@ namespace bv {
 
     //
     // largest dst <= src and dst is feasible
-    // set dst := src & (~fixed | bits)
-    // 
-    // increment dst if dst < src by setting bits below msb(src & ~dst) to 1
-    // 
-    // if dst < lo < hi:
-    //    return false
-    // if lo < hi <= dst:
-    //    set dst := hi - 1
-    // if hi <= dst < lo
-    //    set dst := hi - 1
-    // 
+    //
 
     bool sls_valuation::get_at_most(bvect const& src, bvect& dst) const {
         SASSERT(!has_overflow(src));
-        for (unsigned i = 0; i < nw; ++i)
-            dst[i] = src[i] & (~fixed[i] | m_bits[i]);
-
-        //
-        // If dst < src, then find the most significant 
-        // bit where src[idx] = 1, dst[idx] = 0
-        // set dst[j] = bits_j | ~fixed_j for j < idx
-        //
-        for (unsigned i = nw; i-- > 0; ) {
-            if (0 != (~dst[i] & src[i])) {
-                auto idx = log2(~dst[i] & src[i]);
-                auto mask = (1 << idx) - 1;
-                dst[i] = (~fixed[i] & mask) | dst[i];
-                for (unsigned j = i; j-- > 0; )
-                    dst[j] = (~fixed[j] | m_bits[j]);
-                break;
-            }
-        }
-        SASSERT(!has_overflow(dst));
-        return round_down(dst);
+        src.copy_to(nw, dst);
+        sup_feasible(dst);
+        if (in_range(dst)) {
+            SASSERT(can_set(dst));
+            return true;
+        }        
+        if (dst < m_lo && m_lo < m_hi) // dst < lo < hi 
+            return false;
+        if (is_zero(m_hi))
+            return false;
+        m_hi.copy_to(nw, dst); // hi <= dst < lo or lo < hi <= dst
+        sub1(dst);       
+        SASSERT(can_set(dst));
+        return true;
     }
 
     //
     // smallest dst >= src and dst is feasible with respect to this.
-    // set dst := (src & ~fixed) | (fixed & bits)
-    // 
-    // decrement dst if dst > src by setting bits below msb to 0 unless fixed
-    // 
-    // if lo < hi <= dst
-    //    return false
-    // if dst < lo < hi:
-    //    set dst := lo
-    // if hi <= dst < lo
-    //    set dst := lo
-    // 
     bool sls_valuation::get_at_least(bvect const& src, bvect& dst) const {
         SASSERT(!has_overflow(src));
-        for (unsigned i = 0; i < nw; ++i)
-            dst[i] = (~fixed[i] & src[i]) | (fixed[i] & m_bits[i]);
+        src.copy_to(nw, dst);
+        dst.set_bw(bw);
+        inf_feasible(dst);
+        if (in_range(dst)) {
+            SASSERT(can_set(dst));
+            return true;
+        }
 
-        //
-        // If dst > src, then find the most significant 
-        // bit where src[idx] = 0, dst[idx] = 1
-        // set dst[j] = dst[j] & fixed_j for j < idx
-        //
-        for (unsigned i = nw; i-- > 0; ) {
-            if (0 != (dst[i] & ~src[i])) {
-                auto idx = log2(dst[i] & ~src[i]);
-                auto mask = (1 << idx);
-                dst[i] = dst[i] & (fixed[i] | mask);
-                for (unsigned j = i; j-- > 0; )
-                    dst[j] = dst[j] & fixed[j];
-                break;
-            }
-        }
-        SASSERT(!has_overflow(dst));
-        return round_up(dst);
-    }
-
-    bool sls_valuation::round_up(bvect& dst) const {
-        if (m_lo < m_hi) {
-            if (m_hi <= dst)
-                return false;
-            if (m_lo > dst)
-                set(dst, m_lo);
-        }
-        else if (m_hi <= dst && m_lo > dst)
-            set(dst, m_lo);
-        SASSERT(!has_overflow(dst));
-        return true;
-    }
-
-    bool sls_valuation::round_down(bvect& dst) const {
-        if (m_lo < m_hi) {
-            if (m_lo > dst)
-                return false;
-            if (m_hi <= dst) {
-                set(dst, m_hi);
-                sub1(dst);
-            }
-        }
-        else if (m_hi <= dst && m_lo > dst) {
-            set(dst, m_hi);
-            sub1(dst);
-        }
-        SASSERT(well_formed());
+        if (dst > m_lo)
+            return false;
+        m_lo.copy_to(nw, dst);
+        SASSERT(can_set(dst));
         return true;
     }
 
     bool sls_valuation::set_random_at_most(bvect const& src, bvect& tmp, random_gen& r) {
         if (!get_at_most(src, tmp))
             return false;
-        if (is_zero(tmp) || (0 == r() % 2))
+
+        if (is_zero(tmp) || (0 != r(10)))
             return try_set(tmp);
 
-        set_random_below(tmp, r);
         // random value below tmp
-
-        if (m_lo == m_hi || is_zero(m_lo) || m_lo <= tmp)
-            return try_set(tmp);
-
-        // for simplicity, bail out if we were not lucky
-        return get_at_most(src, tmp) && try_set(tmp);  
+        set_random_below(tmp, r);
+        
+        return (can_set(tmp) || get_at_most(src, tmp)) && try_set(tmp);
     }
 
     bool sls_valuation::set_random_at_least(bvect const& src, bvect& tmp, random_gen& r) {
         if (!get_at_least(src, tmp))
             return false;
-        if (is_ones(tmp) || (0 == r() % 2))
+
+        if (is_ones(tmp) || (0 != r(10)))
             return try_set(tmp);
 
         // random value at least tmp
         set_random_above(tmp, r);
-       
-        if (m_lo == m_hi || is_zero(m_hi) || m_hi > tmp)
-            return try_set(tmp);
 
-        // for simplicity, bail out if we were not lucky
-        return get_at_least(src, tmp) && try_set(tmp);        
+        return (can_set(tmp) || get_at_least(src, tmp)) && try_set(tmp);
     }
 
     bool sls_valuation::set_random_in_range(bvect const& lo, bvect const& hi, bvect& tmp, random_gen& r) {
@@ -533,7 +463,7 @@ namespace bv {
 
     //
     // new_bits != bits => ~fixed
-    // 0 = (new_bits ^ bits) & fixed
+    // 0 = (new_bits ^ bits) & fixedf
     // also check that new_bits are in range
     //
     bool sls_valuation::can_set(bvect const& new_bits) const {
@@ -559,13 +489,15 @@ namespace bv {
     }
 
     void sls_valuation::add_range(rational l, rational h) {   
-
-        //return;
+        return;
+        //verbose_stream() << *this << " " << l << " " << h << " --> \n";
 
         l = mod(l, rational::power_of_two(bw));
         h = mod(h, rational::power_of_two(bw));
         if (h == l)
             return;
+
+//        verbose_stream() << *this << " " << l << " " << h << " --> ";
 
         if (m_lo == m_hi) {
             set_value(m_lo, l);
@@ -591,19 +523,25 @@ namespace bv {
                     set_value(m_lo, l);
                     set_value(m_hi, h);
                 }
-                else if (old_lo + 1 == l) {
+                else if (old_lo + 1 == l) 
+                    set_value(m_lo, l);                
+                else if (old_hi == h + 1)
+                    set_value(m_hi, h);                
+                else if (old_hi == h && old_lo < l)
                     set_value(m_lo, l);
-                }
-                else if (old_hi == h + 1) {
+                else if (old_lo == l && h < old_hi)
                     set_value(m_hi, h);
-                }
             }
         }
 
         SASSERT(!has_overflow(m_lo));
         SASSERT(!has_overflow(m_hi));
 
+        //verbose_stream() << *this << " --> ";
+
         tighten_range();
+
+        //verbose_stream() << *this << "\n";
         SASSERT(well_formed());
     }
 
@@ -621,59 +559,76 @@ namespace bv {
     //  lo + 1 = hi -> set bits = lo
     //  lo < hi, set most significant bits based on hi
     //
+
+    unsigned sls_valuation::diff_index(bvect const& a) const {
+        unsigned index = 0;
+        for (unsigned i = nw; i-- > 0; ) {
+            auto diff = fixed[i] & (m_bits[i] ^ a[i]);
+            if (diff != 0 && index == 0)
+                index = 1 + i * 8 * sizeof(digit_t) + log2(diff);
+        }
+        return index;
+    }
+
+    void sls_valuation::inf_feasible(bvect& a) const {
+        unsigned lo_index = diff_index(a);
+        
+        if (lo_index != 0) {
+            lo_index--;
+            SASSERT(a.get(lo_index) != m_bits.get(lo_index));
+            SASSERT(fixed.get(lo_index));
+            for (unsigned i = 0; i <= lo_index; ++i) {
+                if (!fixed.get(i))
+                    a.set(i, false);
+                else if (fixed.get(i))
+                    a.set(i, m_bits.get(i));
+            }
+            if (!a.get(lo_index)) {
+                for (unsigned i = lo_index + 1; i < bw; ++i)
+                    if (!fixed.get(i) && !a.get(i)) {
+                        a.set(i, true);
+                        break;
+                    }
+            }
+        }
+    }
+
+    void sls_valuation::sup_feasible(bvect& a) const {
+        unsigned hi_index = diff_index(a);
+        if (hi_index != 0) {
+            hi_index--;
+            SASSERT(a.get(hi_index) != m_bits.get(hi_index));
+            SASSERT(fixed.get(hi_index));
+            for (unsigned i = 0; i <= hi_index; ++i) {
+                if (!fixed.get(i))
+                    a.set(i, true);
+                else if (fixed.get(i))
+                    a.set(i, m_bits.get(i));
+            }
+            if (a.get(hi_index)) {
+                for (unsigned i = hi_index + 1; i < bw; ++i)
+                    if (!fixed.get(i) && a.get(i)) {
+                        a.set(i, false);
+                        break;
+                    }
+            }
+        }
+    }
+
     void sls_valuation::tighten_range() {
         
         if (m_lo == m_hi)
             return;
 
+        inf_feasible(m_lo);
+
         bvect hi1(nw);
         hi1.set_bw(bw);
         m_hi.copy_to(nw, hi1);
         sub1(hi1);
-        unsigned lo_index = 0, hi_index = 0;        
-        for (unsigned i = nw; i-- > 0; ) {
-            auto lo_diff = (fixed[i] & (m_bits[i] ^ m_lo[i]));
-            if (lo_diff != 0 && lo_index == 0)
-                lo_index = 1 + i * 8 * sizeof(digit_t) + log2(lo_diff);
-            auto hi_diff = (fixed[i] & (m_bits[i] ^ hi1[i]));
-            if (hi_diff != 0 && hi_index == 0)
-                hi_index = 1 + i * 8 * sizeof(digit_t) + log2(hi_diff);
-        }
-
-        if (lo_index != 0) {
-            lo_index--;
-            SASSERT(m_lo.get(lo_index) != m_bits.get(lo_index));
-            SASSERT(fixed.get(lo_index));
-            for (unsigned i = 0; i <= lo_index; ++i) {
-                if (!fixed.get(i))
-                    m_lo.set(i, false);
-                else if (fixed.get(i))
-                    m_lo.set(i, m_bits.get(i));
-            }
-            for (unsigned i = lo_index + 1; i < bw; ++i)
-                if (!fixed.get(i) && !m_lo.get(i)) {
-                    m_lo.set(i, true);
-                    break;
-                }
-        }
-        if (hi_index != 0) {
-            hi_index--;
-            SASSERT(hi1.get(hi_index) != m_bits.get(hi_index));
-            SASSERT(fixed.get(hi_index));
-            for (unsigned i = 0; i <= hi_index; ++i) {
-                if (!fixed.get(i))
-                    hi1.set(i, true);
-                else if (fixed.get(i))
-                    hi1.set(i, m_bits.get(i));
-            }
-            for (unsigned i = hi_index + 1; i < bw; ++i)
-                if (!fixed.get(i) && hi1.get(i)) {
-                    hi1.set(i, false);
-                    break;
-                }
-            add1(hi1);
-            hi1.copy_to(nw, m_hi);
-        }
+        sup_feasible(hi1);
+        add1(hi1);
+        hi1.copy_to(nw, m_hi);
 
         if (has_range() && !in_range(m_bits)) 
             m_bits = m_lo;

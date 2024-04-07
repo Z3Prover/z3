@@ -1351,55 +1351,18 @@ namespace bv {
         return false;
     }
 
-    bool sls_eval::try_repair_ashr(bvect const& e, bvval & a, bvval& b, unsigned i) {
-        if (true) {
+    bool sls_eval::try_repair_ashr(bvect const& e, bvval & a, bvval& b, unsigned i) {       
             if (i == 0)
                 return try_repair_ashr0(e, a, b);
             else
                 return try_repair_ashr1(e, a, b);
-        }
-
-        if (i == 0) {
-            unsigned sh = b.to_nat(b.bw);
-            if (sh == 0)
-                return a.try_set(e);
-            else if (sh >= b.bw) {
-                if (e.get(a.bw - 1)) 
-                    return a.try_set_bit(a.bw - 1, true);                
-                else 
-                    return a.try_set_bit(a.bw - 1, false);
-            }
-            else {
-                // e = a >> sh
-                // a[bw-1:sh] = e[bw-sh-1:0]
-                // a[sh-1:0] = a[sh-1:0]                
-                // ignore sign
-                for (unsigned i = sh; i < a.bw; ++i)
-                    m_tmp.set(i, e.get(i - sh));
-                for (unsigned i = 0; i < sh; ++i)
-                    m_tmp.set(i, a.get_bit(i));
-                a.clear_overflow_bits(m_tmp);
-                return a.try_set(m_tmp);
-            }
-        }
-        else {
-            // NB. blind sub-range of possible values for b
-            SASSERT(i == 1);
-            unsigned sh = m_rand(a.bw + 1);
-            b.set(m_tmp, sh);
-            return b.try_set(m_tmp);
-        }
     }
 
     bool sls_eval::try_repair_lshr(bvect const& e, bvval& a, bvval& b, unsigned i) {
-#if 0
-        return try_repair_ashr(e, a, b, i);
-#else
         if (i == 0)
             return try_repair_lshr0(e, a, b);
         else
             return try_repair_lshr1(e, a, b);
-#endif
     }
 
     /**
@@ -1427,22 +1390,25 @@ namespace bv {
                 return true;                      
         }
 
+
         unsigned sh = b.to_nat(b.bw);
-        if (sh == 0 && a.try_set(e))
-            return true;
-        else if (sh >= b.bw)
-            return true;        
-        else if (sh < b.bw && m_rand(20) != 0) {
-            // e = a >> sh
-            // a[bw-1:sh] = e[bw-sh-1:0]
-            // a[sh-1:0] = a[sh-1:0]                
-            for (unsigned i = sh; i < a.bw; ++i)
-                t.set(i, e.get(i - sh));
-            for (unsigned i = 0; i < sh; ++i)
-                t.set(i, a.get_bit(i));
-            a.clear_overflow_bits(t);
-            if (a.try_set(t))
+        if (m_rand(20) != 0) {
+            if (sh == 0 && a.try_set(e))
                 return true;
+            else if (sh >= b.bw)
+                return true;
+            else if (sh < b.bw && m_rand(20) != 0) {
+                // e = a >> sh
+                // a[bw-1:sh] = e[bw-sh-1:0]
+                // a[sh-1:0] = a[sh-1:0]                
+                for (unsigned i = sh; i < a.bw; ++i)
+                    t.set(i, e.get(i - sh));
+                for (unsigned i = 0; i < sh; ++i)
+                    t.set(i, a.get_bit(i));
+                a.clear_overflow_bits(t);
+                if (a.try_set(t))
+                    return true;
+            }
         }
         
         //bool r = try_repair_ashr(e, a, const_cast<bvval&>(b), 0);

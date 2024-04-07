@@ -175,8 +175,8 @@ public:
         m_st.reset();
         m_sls->collect_statistics(m_st);
         report_tactic_progress("Number of flips:", m_sls->get_num_moves());
-        IF_VERBOSE(20, verbose_stream() << res << "\n");
-        IF_VERBOSE(20, m_sls->display(verbose_stream()));
+        IF_VERBOSE(10, verbose_stream() << res << "\n");
+        IF_VERBOSE(10, m_sls->display(verbose_stream()));
 
         if (res == l_true) {            
             if (g->models_enabled()) {

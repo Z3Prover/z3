@@ -113,8 +113,6 @@ namespace bv {
         unsigned m_signed_prefix = 0;
 
         unsigned mask;
-        bool round_up(bvect& dst) const;
-        bool round_down(bvect& dst) const;
 
         void repair_sign_bits(bvect& dst) const;
 
@@ -141,9 +139,11 @@ namespace bv {
             SASSERT(in_range(m_bits));
             if (fixed.get(i) && get_bit(i) != b)
                 return false;
+            m_bits.set(i, b);   
             eval.set(i, b);
             if (in_range(m_bits))
                 return true;
+            m_bits.set(i, !b);
             eval.set(i, !b);
             return false;
         }
@@ -155,6 +155,9 @@ namespace bv {
         rational lo() const { return m_lo.get_value(nw); }
         rational hi() const { return m_hi.get_value(nw); }
 
+        unsigned diff_index(bvect const& a) const;
+        void inf_feasible(bvect& a) const;
+        void sup_feasible(bvect& a) const;
 
         void get(bvect& dst) const;
         void add_range(rational lo, rational hi);

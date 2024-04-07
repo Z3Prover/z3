@@ -68,7 +68,7 @@ namespace bv {
         void reinit_eval();
         void init_repair();
         void trace();
-        void trace_repair(bool down, expr* e);
+        std::ostream& trace_repair(bool down, expr* e);
 
         indexed_uint_set m_to_repair;
         void init_repair_candidates();

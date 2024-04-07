@@ -124,6 +124,7 @@ namespace bv {
         };
         m_eval.init_eval(m_terms.assertions(), eval);
         init_repair();
+        // m_engine_init = false;
     }
 
     std::pair<bool, app*> sls::next_to_repair() {
@@ -161,17 +162,18 @@ namespace bv {
     lbool sls::search1() {
         // init and init_eval were invoked
         unsigned n = 0;
-        for (; n++ < m_config.m_max_repairs && m.inc(); ) {
+        for (; n < m_config.m_max_repairs && m.inc(); ) {
             auto [down, e] = next_to_repair();
             if (!e)
                 return l_true;
 
-            trace_repair(down, e);
-
+            IF_VERBOSE(20, trace_repair(down, e));
+            
             ++m_stats.m_moves;
-
-            if (down) 
+            if (down) {
                 try_repair_down(e);
+                ++n;
+            }
             else
                 try_repair_up(e);            
         }
@@ -181,12 +183,13 @@ namespace bv {
     lbool sls::search2() {
         lbool res = l_undef;
         if (m_stats.m_restarts == 0)
-            res = m_engine();
+            res = m_engine(),
+            m_engine_init = true;
         else if (m_stats.m_restarts % 1000 == 0)
-            res = m_engine.search_loop();
+            res = m_engine.search_loop(),
+            m_engine_init = true;
         if (res != l_undef) 
             m_engine_model = true;   
-        m_engine_init = true;
         return res;
     }
 
@@ -203,7 +206,7 @@ namespace bv {
             if (res != l_undef)
                 break;
             trace();
-            // res = search2();
+            //res = search2();
             if (res != l_undef)
                 break;
             reinit_eval();
@@ -223,6 +226,7 @@ namespace bv {
                 VERIFY(m_eval.wval(e).commit_eval());
             }
             
+            IF_VERBOSE(3, verbose_stream() << "done\n");
             for (auto p : m_terms.parents(e))
                 m_repair_up.insert(p->get_id());
             
@@ -256,6 +260,7 @@ namespace bv {
                 }
             }
         }
+        IF_VERBOSE(3, verbose_stream() << "init-repair " << mk_bounded_pp(e, m) << "\n");
         // repair was not successful, so reset the state to find a different way to repair
         init_repair();
     }
@@ -265,7 +270,7 @@ namespace bv {
         if (m_terms.is_assertion(e)) 
             m_repair_roots.insert(e->get_id());    
         else if (!m_eval.repair_up(e)) {
-            //m_repair_roots.insert(e->get_id());
+            IF_VERBOSE(2, verbose_stream() << "repair-up "; trace_repair(true, e));
             init_repair();
         }
         else {
@@ -366,14 +371,14 @@ namespace bv {
         m_engine.updt_params(q);
     }
 
-    void sls::trace_repair(bool down, expr* e) {
-        IF_VERBOSE(20,
+    std::ostream& sls::trace_repair(bool down, expr* e) {
             verbose_stream() << (down ? "d #" : "u #")
             << e->get_id() << ": "
             << mk_bounded_pp(e, m, 1) << " ";
         if (bv.is_bv(e)) verbose_stream() << m_eval.wval(e) << " " << (m_eval.is_fixed0(e) ? "fixed " : " ");
         if (m.is_bool(e)) verbose_stream() << m_eval.bval0(e) << " ";
-        verbose_stream() << "\n");
+        verbose_stream() << "\n";
+        return verbose_stream();
     }
 
     void sls::trace() {
