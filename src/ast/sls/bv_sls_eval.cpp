@@ -914,15 +914,14 @@ namespace bv {
 
     bool sls_eval::try_repair_eq(bool is_true, bvval& a, bvval const& b) {
         if (is_true) {
-            if (m_rand() % 20 != 0) 
+            if (m_rand(20) != 0) 
                 if (a.try_set(b.bits()))
                     return true;
             
-            a.get_variant(m_tmp, m_rand);
-            return a.set_repair(random_bool(), m_tmp);
+            return a.set_random(m_rand);
         }
         else {
-            bool try_above = m_rand() % 2 == 0;
+            bool try_above = m_rand(2) == 0;
             if (try_above) {
                 a.set_add(m_tmp, b.bits(), m_one);
                 if (!a.is_zero(m_tmp) && a.set_random_at_least(m_tmp, m_tmp2, m_rand))
@@ -1018,17 +1017,16 @@ namespace bv {
     // If this fails, set a to a random value
     // 
     bool sls_eval::try_repair_add(bvect const& e, bvval& a, bvval const& b) {
-        if (m_rand() % 20 != 0) {
+        if (m_rand(20) != 0) {
             a.set_sub(m_tmp, e, b.bits());
             if (a.try_set(m_tmp))
                 return true;
         }
-        a.get_variant(m_tmp, m_rand);
-        return a.set_repair(random_bool(), m_tmp);          
+        return a.set_random(m_rand);        
     }
 
     bool sls_eval::try_repair_sub(bvect const& e, bvval& a, bvval & b, unsigned i) {
-        if (m_rand() % 20 != 0) {
+        if (m_rand(20) != 0) {
             if (i == 0) 
                 // e = a - b -> a := e + b
                 a.set_add(m_tmp, e, b.bits());        
@@ -1039,8 +1037,7 @@ namespace bv {
                 return true;
         }
         // fall back to a random value
-        a.get_variant(m_tmp, m_rand);
-        return a.set_repair(random_bool(), m_tmp);
+        return a.set_random(m_rand);        
     }
 
     /**
@@ -1058,15 +1055,11 @@ namespace bv {
             return a.set_repair(random_bool(), m_tmp);
         }
 
-        if (b.is_zero()) {
-            a.get_variant(m_tmp, m_rand);
-            return a.set_repair(random_bool(), m_tmp);            
-        }      
-
-        if (m_rand() % 20 == 0) {
-            a.get_variant(m_tmp, m_rand);
-            return a.set_repair(random_bool(), m_tmp);            
-        }
+        if (b.is_zero()) 
+            return a.set_random(m_rand);          
+        
+        if (m_rand(20) == 0) 
+            return a.set_random(m_rand);
 
 #if 0
         verbose_stream() << "solve for " << e << "\n";
@@ -1096,7 +1089,7 @@ namespace bv {
             b.shift_right(y, parity_b);
 #if 0
             for (unsigned i = parity_b; i < b.bw; ++i)
-                y.set(i, m_rand() % 2 == 0);
+                y.set(i, m_rand(2) == 0);
 #endif
         }
 
@@ -1151,8 +1144,7 @@ namespace bv {
         if (a.set_repair(random_bool(), m_tmp))
             return true;
 
-        a.get_variant(m_tmp, m_rand);
-        return a.set_repair(random_bool(), m_tmp);
+        return a.set_random(m_rand);
     }
 
     bool sls_eval::try_repair_bnot(bvect const& e, bvval& a) {
@@ -1236,7 +1228,7 @@ namespace bv {
     bool sls_eval::try_repair_sle(bvval& a, bvect const& b, bvect const& p2) {
         bool r = false;
         if (b < p2) {
-            bool coin = m_rand() % 2 == 0;
+            bool coin = m_rand(2) == 0;
             if (coin)
                 r = a.set_random_at_least(p2, m_tmp3, m_rand);
             if (!r)
@@ -1268,7 +1260,7 @@ namespace bv {
             r = a.set_random_in_range(b, p2_1, m_tmp3, m_rand);        
         else {
             // random b <= x or x < p2
-            bool coin = m_rand() % 2 == 0;
+            bool coin = m_rand(2) == 0;
             if (coin)
                 r = a.set_random_at_most(p2_1, m_tmp3, m_rand);
             if (!r)
@@ -1657,12 +1649,9 @@ namespace bv {
             return a.set_repair(true, m_tmp3);
         }
         else {
-            if (a.is_one(e) && a.is_zero()) {
-                for (unsigned i = 0; i < a.nw; ++i)
-                    m_tmp[i] = random_bits();
-                a.clear_overflow_bits(m_tmp);
-                return b.set_repair(true, m_tmp);                
-            }
+            if (a.is_one(e) && a.is_zero()) 
+                return b.set_random(m_rand);              
+            
             if (a.is_one(e)) {
                 a.set(m_tmp, a.bits());
                 return b.set_repair(true, m_tmp);
@@ -1858,8 +1847,7 @@ namespace bv {
                 m_tmp.set(i, e.get(i));
             b.clear_overflow_bits(m_tmp);
             r = b.try_set(m_tmp);
-        }
-        //verbose_stream() << e << " := " << a << " " << b << "\n";
+        }       
         return r;
     }
 
@@ -1869,15 +1857,15 @@ namespace bv {
     // set a outside of [hi:lo] to random values with preference to 0 or 1 bits
     // 
     bool sls_eval::try_repair_extract(bvect const& e, bvval& a, unsigned lo) {
-        if (m_rand() % m_config.m_prob_randomize_extract <= 100) {
+        if (m_rand(m_config.m_prob_randomize_extract)  <= 100) {
             a.get_variant(m_tmp, m_rand);
-            if (0 == (m_rand() % 2)) {
-                auto bit = 0 == (m_rand() % 2);
+            if (0 == (m_rand(2))) {
+                auto bit = 0 == (m_rand(2));
                 if (!a.try_set_range(m_tmp, 0, lo, bit))
                     a.try_set_range(m_tmp, 0, lo, !bit);
             }
-            if (0 == (m_rand() % 2)) {
-                auto bit = 0 == (m_rand() % 2);
+            if (0 == (m_rand(2))) {
+                auto bit = 0 == (m_rand(2));
                 if (!a.try_set_range(m_tmp, lo + e.bw, a.bw, bit))
                     a.try_set_range(m_tmp, lo + e.bw, a.bw, !bit);
             }
@@ -1888,10 +1876,7 @@ namespace bv {
             m_tmp.set(i + lo, e.get(i));
         if (a.try_set(m_tmp))
             return true;
-        a.get_variant(m_tmp, m_rand);       
-        bool res = a.set_repair(random_bool(), m_tmp);
-        // verbose_stream() << "try set " << res << " " << m_tmp[0] << " " << a << "\n";
-        return res;
+        return a.set_random(m_rand);
     }
 
     void sls_eval::set_div(bvect const& a, bvect const& b, unsigned bw,
@@ -1945,6 +1930,66 @@ namespace bv {
         return *m_values[e->get_id()]; 
     }
 
+    void sls_eval::init_eval(app* t) {
+        if (m.is_bool(t))
+            set(t, bval1(t));
+        else if (bv.is_bv(t)) {
+            auto& v = wval(t);
+            v.bits().copy_to(v.nw, v.eval);
+        }
+    }
+
+    void sls_eval::commit_eval(app* e) {
+        if (m.is_bool(e)) {
+            set(e, bval1(e));
+        }
+        else {
+            VERIFY(wval(e).commit_eval());
+        }
+    }
+
+    void sls_eval::set_random(app* e) {
+        if (bv.is_bv(e))
+            eval(e).set_random(m_rand);
+    }
+
+    bool sls_eval::eval_is_correct(app* e) {
+        if (!can_eval1(e))
+            return false;
+        if (m.is_bool(e))
+            return bval0(e) == bval1(e);
+        if (bv.is_bv(e)) {
+            auto const& v = wval(e);
+            return v.eval == v.bits();
+        }
+        UNREACHABLE();
+        return false;
+    }
+
+    bool sls_eval::re_eval_is_correct(app* e) {
+        if (!can_eval1(e))
+            return false;
+        if (m.is_bool(e))
+            return bval0(e) ==bval1(e);
+        if (bv.is_bv(e)) {
+            auto const& v = eval(e);
+            return v.eval == v.bits();
+        }
+        UNREACHABLE();
+        return false;
+    }
+
+    expr_ref sls_eval::get_value(app* e) {
+        if (m.is_bool(e))
+            return expr_ref(m.mk_bool_val(bval0(e)), m);
+        else if (bv.is_bv(e)) {
+            auto const& v = wval(e);
+            rational n = v.get_value();
+            return expr_ref(bv.mk_numeral(n, v.bw), m);
+        }
+        return expr_ref(m);
+    }
+
     std::ostream& sls_eval::display(std::ostream& out, expr_ref_vector const& es) {
         auto& terms = sort_assertions(es);
         for (expr* e : terms) {
@@ -1959,5 +2004,13 @@ namespace bv {
         }
         terms.reset();
         return out;
+    }
+
+    std::ostream& sls_eval::display_value(std::ostream& out, expr* e) {
+        if (bv.is_bv(e)) 
+            return out << wval(e);
+        if (m.is_bool(e))
+            return out << (bval0(e)?"T":"F");
+        return out << "?";
     }
 }

@@ -157,6 +157,18 @@ namespace bv {
         
         sls_valuation& eval(app* e) const;
 
+        void commit_eval(app* e);
+
+        void init_eval(app* e);
+
+        void set_random(app* e);
+
+        bool eval_is_correct(app* e);
+
+        bool re_eval_is_correct(app* e);
+
+        expr_ref get_value(app* e);
+
         /**
          * Override evaluaton.
          */
@@ -178,5 +190,7 @@ namespace bv {
 
 
         std::ostream& display(std::ostream& out, expr_ref_vector const& es);
+
+        std::ostream& display_value(std::ostream& out, expr* e);
     };
 }

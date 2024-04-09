@@ -38,8 +38,8 @@ namespace bv {
             else
                 ;
         }
-        ev.m_todo.reset();
         init_ranges(es);
+        ev.m_todo.reset();        
     }
 
 
@@ -48,6 +48,44 @@ namespace bv {
             bool sign = m.is_not(e, e);
             if (is_app(e))
                 init_range(to_app(e), sign);
+        }
+        
+        for (expr* e : ev.m_todo)
+            propagate_range_up(e);
+    }
+
+    void sls_fixed::propagate_range_up(expr* e) {
+        expr* t, * s;
+        rational v;
+        if (bv.is_concat(e, t, s)) {
+            auto& val = wval(s);
+            if (val.lo() != val.hi() && (val.lo() < val.hi() || val.hi() == 0))
+                // lo <= e
+                add_range(e, val.lo(), rational::zero(), false);
+            auto valt = wval(t);
+#if 0
+            if (val.lo() < val.hi())
+                // e < (2^|s|) * hi
+                add_range(e, rational::zero(), val.hi() * rational::power_of_two(bv.get_bv_size(s)), false);
+#endif
+        }        
+        else if (bv.is_bv_add(e, s, t) && bv.is_numeral(s, v)) {
+            auto& val = wval(t);
+            if (val.lo() != val.hi()) 
+                add_range(e, v + val.lo(), v + val.hi(), false);  
+        }
+        else if (bv.is_bv_add(e, t, s) && bv.is_numeral(s, v)) {
+            auto& val = wval(t);
+            if (val.lo() != val.hi()) 
+                add_range(e, v + val.lo(), v + val.hi(), false);          
+        }
+        // x in [1, 4[   => -x in [-3, 0[
+        // x in [lo, hi[ => -x in [-hi + 1, -lo + 1[
+        else if (bv.is_bv_mul(e, s, t) && bv.is_numeral(s, v) && 
+            v + 1 == rational::power_of_two(bv.get_bv_size(e))) {
+            auto& val = wval(t);
+            if (val.lo() != val.hi())
+                add_range(e, -val.hi() + 1, - val.lo() + 1, false);
         }
     }
 
@@ -117,6 +155,7 @@ namespace bv {
             val.tighten_range();
             return true;
         }
+
         return false;
     }
 
@@ -138,9 +177,8 @@ namespace bv {
             init_eq(s, b, false);
             return true;
         }
-        if (!sign && bv.is_concat(t) && to_app(t)->get_num_args() == 2) {
-            auto x = to_app(t)->get_arg(0);
-            auto y = to_app(t)->get_arg(1);
+        expr* x, * y;
+        if (!sign && bv.is_concat(t, x, y)) {
             auto sz = bv.get_bv_size(y);
             auto k = rational::power_of_two(sz);
             init_eq(y, mod(a, k), false);
@@ -206,9 +244,8 @@ namespace bv {
         if (sign)
             std::swap(lo, hi);
         v.add_range(lo, hi);
-        if (v.lo() == 0 && bv.is_concat(e) && to_app(e)->get_num_args() == 2) {
-            auto x = to_app(e)->get_arg(0);
-            auto y = to_app(e)->get_arg(1);
+        expr* x, * y;
+        if (v.lo() == 0 && bv.is_concat(e, x, y)) {
             auto sz = bv.get_bv_size(y);
             auto k = rational::power_of_two(sz);
             lo = v.lo();

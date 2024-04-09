@@ -153,6 +153,7 @@ namespace bv {
         m_lo.set_bw(bw);
         m_hi.set_bw(bw);
         m_bits.set_bw(bw);
+        m_tmp.set_bw(bw);
         fixed.set_bw(bw);
         eval.set_bw(bw);
         // have lo, hi bits, fixed point to memory allocated within this of size num_bytes each allocated        
@@ -440,6 +441,11 @@ namespace bv {
         clear_overflow_bits(dst);
     }
 
+    bool sls_valuation::set_random(random_gen& r) {
+        get_variant(m_tmp, r);
+        return set_repair(r(2) == 0, m_tmp);
+    }
+
     void sls_valuation::repair_sign_bits(bvect& dst) const {
         if (m_signed_prefix == 0)
             return;
@@ -489,7 +495,7 @@ namespace bv {
     }
 
     void sls_valuation::add_range(rational l, rational h) {   
-        return;
+        //return;
         //verbose_stream() << *this << " " << l << " " << h << " --> \n";
 
         l = mod(l, rational::power_of_two(bw));
@@ -622,7 +628,7 @@ namespace bv {
 
         inf_feasible(m_lo);
 
-        bvect hi1(nw);
+        bvect& hi1 = m_tmp;
         hi1.set_bw(bw);
         m_hi.copy_to(nw, hi1);
         sub1(hi1);

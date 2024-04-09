@@ -31,6 +31,7 @@ namespace bv {
 
         void init_ranges(expr_ref_vector const& es);
         bool init_range(app* e, bool sign);
+        void propagate_range_up(expr* e);
         bool init_range(expr* x, rational const& a, expr* y, rational const& b, bool sign);
         void get_offset(expr* e, expr*& x, rational& offset);
         bool init_eq(expr* e, rational const& v, bool sign);

@@ -110,6 +110,7 @@ namespace bv {
     protected:
         bvect m_bits;
         bvect m_lo, m_hi;        // range assignment to bit-vector, as wrap-around interval
+        bvect m_tmp;
         unsigned m_signed_prefix = 0;
 
         unsigned mask;
@@ -122,6 +123,7 @@ namespace bv {
         unsigned nw;                     // num words
         bvect fixed;                     // bit assignment and don't care bit
         bvect eval;                      // current evaluation
+
 
         sls_valuation(unsigned bw);
 
@@ -231,12 +233,14 @@ namespace bv {
         bool set_repair(bool try_down, bvect& dst);
         void set_random_above(bvect& dst, random_gen& r);
         void set_random_below(bvect& dst, random_gen& r);
+        bool set_random(random_gen& r);
         void round_down(bvect& dst, std::function<bool(bvect const&)> const& is_feasible);
         void round_up(bvect& dst, std::function<bool(bvect const&)> const& is_feasible);
 
 
         static digit_t random_bits(random_gen& r);
         void get_variant(bvect& dst, random_gen& r) const;
+        
 
         bool try_set(bvect const& src) {
             if (!can_set(src))

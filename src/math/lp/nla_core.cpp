@@ -1062,6 +1062,8 @@ new_lemma::~new_lemma() {
     if (current().is_conflict()) {
         c.m_conflicts++;
     }
+    IF_VERBOSE(4, verbose_stream() << name << "\n");
+    IF_VERBOSE(4, verbose_stream() << *this << "\n");
     TRACE("nla_solver", tout << name << " " << (++i) << "\n" << *this; );
 }
 
@@ -1519,6 +1521,12 @@ lbool core::check() {
         if (!m_lemmas.empty() || !m_literals.empty() || m_check_feasible)
             return l_false;
     }
+
+    if (no_effect() && params().arith_nl_nra()) {
+        ret = m_nra.check();
+        lp_settings().stats().m_nra_calls++;
+    }
+
     
     if (no_effect() && should_run_bounded_nlsat()) 
         ret = bounded_nlsat();
@@ -1530,12 +1538,16 @@ lbool core::check() {
         m_basics.basic_lemma(false);
 
     if (no_effect()) 
-        m_divisions.check();    
+        m_divisions.check();
 
-    if (no_effect()) {
-        std::function<void(void)> check1 = [&]() { m_order.order_lemma(); };
-        std::function<void(void)> check2 = [&]() { m_monotone.monotonicity_lemma(); };
-        std::function<void(void)> check3 = [&]() { m_tangents.tangent_lemma(); };
+
+    if (false && no_effect()) {
+        std::function<void(void)> check1 = [&]() { m_order.order_lemma();
+        };
+        std::function<void(void)> check2 = [&]() { m_monotone.monotonicity_lemma();
+        };
+        std::function<void(void)> check3 = [&]() { m_tangents.tangent_lemma();
+        };
         
         std::pair<unsigned, std::function<void(void)>> checks[] = 
             { { 6, check1 }, 
