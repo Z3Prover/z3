@@ -1522,11 +1522,6 @@ lbool core::check() {
             return l_false;
     }
 
-    if (no_effect() && params().arith_nl_nra()) {
-        ret = m_nra.check();
-        lp_settings().stats().m_nra_calls++;
-    }
-
     
     if (no_effect() && should_run_bounded_nlsat()) 
         ret = bounded_nlsat();
