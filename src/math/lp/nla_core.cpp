@@ -1536,7 +1536,7 @@ lbool core::check() {
         m_divisions.check();
 
 
-    if (false && no_effect()) {
+    if (no_effect()) {
         std::function<void(void)> check1 = [&]() { m_order.order_lemma();
         };
         std::function<void(void)> check2 = [&]() { m_monotone.monotonicity_lemma();
