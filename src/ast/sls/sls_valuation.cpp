@@ -245,6 +245,7 @@ namespace bv {
     }
 
     bool sls_valuation::set_random_at_most(bvect const& src, random_gen& r) {
+        m_tmp.set_bw(bw);
         if (!get_at_most(src, m_tmp))
             return false;
 
@@ -639,6 +640,14 @@ namespace bv {
 
         if (has_range() && !in_range(m_bits)) 
             m_bits = m_lo;
+
+        if (mod(lo() + 1, rational::power_of_two(bw)) == hi())
+            for (unsigned i = 0; i < nw; ++i)
+                fixed[i] = ~0;      
+        if (lo() < hi() && hi() < rational::power_of_two(bw - 1))
+            for (unsigned i = 0; i < bw; ++i)
+                if (hi() < rational::power_of_two(i))
+                    fixed.set(i, true);
         
         SASSERT(well_formed());
     }

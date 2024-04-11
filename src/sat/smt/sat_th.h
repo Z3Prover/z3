@@ -148,6 +148,8 @@ namespace euf {
 
         virtual void set_bounds(enode* n) {}
 
+        virtual void finalize() {}
+
     };
 
     class th_proof_hint : public sat::proof_hint {
@@ -224,6 +226,7 @@ namespace euf {
         bool is_root(theory_var v) const { return var2enode(v)->is_root(); }
         void push() override { m_num_scopes++; }
         void pop(unsigned n) override;
+
 
         unsigned random();
     };

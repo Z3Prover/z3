@@ -58,16 +58,16 @@ namespace bv {
         expr* t, * s;
         rational v;
         if (bv.is_concat(e, t, s)) {
-            auto& val = wval(s);
-            if (val.lo() != val.hi() && (val.lo() < val.hi() || val.hi() == 0))
+            auto& vals = wval(s);
+            if (vals.lo() != vals.hi() && (vals.lo() < vals.hi() || vals.hi() == 0))
                 // lo <= e
-                add_range(e, val.lo(), rational::zero(), false);
+                add_range(e, vals.lo(), rational::zero(), false);
             auto valt = wval(t);
-#if 0
-            if (val.lo() < val.hi())
-                // e < (2^|s|) * hi
-                add_range(e, rational::zero(), val.hi() * rational::power_of_two(bv.get_bv_size(s)), false);
-#endif
+            if (valt.lo() != valt.hi() && (valt.lo() < valt.hi() || valt.hi() == 0)) {
+                // (2^|s|) * lo <= e < (2^|s|) * hi
+                auto p = rational::power_of_two(bv.get_bv_size(s));
+                add_range(e, valt.lo() * p, valt.hi() * p, false);
+            }
         }        
         else if (bv.is_bv_add(e, s, t) && bv.is_numeral(s, v)) {
             auto& val = wval(t);

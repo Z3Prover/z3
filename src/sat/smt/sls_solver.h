@@ -30,30 +30,43 @@ namespace sls {
 
     class solver : public euf::th_euf_solver {
         std::atomic<lbool> m_result;
-        std::atomic<bool> m_completed;
+        std::atomic<bool> m_completed, m_has_units;
         std::thread m_thread;
+        std::mutex  m_mutex;
         scoped_ptr<ast_manager> m_m;
         scoped_ptr<bv::sls> m_bvsls;
+        model_ref m_model;
+        unsigned m_trail_lim = 0;
+        expr_ref_vector m_units;
+        statistics m_st;
 
         void run_local_search();
         void init_local_search();
         void sample_local_search();
+
+        bool is_unit(expr*);
     public:
         solver(euf::solver& ctx);
         ~solver();
 
+        void simplify() override;
+        void init_search() override;
+
         void push_core() override;
         void pop_core(unsigned n) override;
-        void simplify() override;
 
         sat::literal internalize(expr* e, bool sign, bool root) override { UNREACHABLE();  return sat::null_literal; }
         void internalize(expr* e) override { UNREACHABLE(); }
         th_solver* clone(euf::solver& ctx) override { return alloc(solver, ctx); }
-       
+        void collect_statistics(statistics& st) const override { st.copy(m_st); }
 
-        bool unit_propagate() override { return false; }
+        model_ref get_model() { return m_model;  }
+
+        void finalize() override;
+
+        bool unit_propagate() override;
         void get_antecedents(sat::literal l, sat::ext_justification_idx idx, sat::literal_vector & r, bool probing) override { UNREACHABLE(); }
-        sat::check_result check() override { return sat::check_result::CR_DONE; }
+        sat::check_result check() override;
         std::ostream & display(std::ostream & out) const override { return out; }
         std::ostream & display_justification(std::ostream & out, sat::ext_justification_idx idx) const override { UNREACHABLE(); return out; }
         std::ostream & display_constraint(std::ostream & out, sat::ext_constraint_idx idx) const override { UNREACHABLE(); return out; }

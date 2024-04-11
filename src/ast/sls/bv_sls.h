@@ -53,6 +53,7 @@ namespace bv {
         sls_engine          m_engine;
         bool                m_engine_model = false;
         bool                m_engine_init = false;
+        std::function<expr_ref()> m_get_unit;
         
         std::pair<bool, app*> next_to_repair();
         
@@ -81,7 +82,6 @@ namespace bv {
 
         /*
         * Invoke init after all expressions are asserted. 
-        * No other expressions can be asserted after init.
         */
         void init();
 
@@ -90,6 +90,11 @@ namespace bv {
         * uninterpreted constants.
         */
         void init_eval(std::function<bool(expr*, unsigned)>& eval);
+
+        /**
+        * add callback to retrieve new units
+        */
+        void init_unit(std::function<expr_ref()> get_unit) { m_get_unit = get_unit; }
 
         /**
         * Run (bounded) local search to find feasible assignments.

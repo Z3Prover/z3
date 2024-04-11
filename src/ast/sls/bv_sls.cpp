@@ -93,6 +93,18 @@ namespace bv {
 
         if (m_to_repair.empty())
             return;
+
+        // add fresh units, if any
+        bool new_assertion = false;
+        while (m_get_unit) {
+            auto e = m_get_unit();
+            if (!e)
+                break;
+            new_assertion = true;
+            assert_expr(e);
+        }
+        if (new_assertion) 
+            init();        
            
         std::function<bool(expr*, unsigned)> eval = [&](expr* e, unsigned i) {
             unsigned id = e->get_id();
@@ -212,9 +224,7 @@ namespace bv {
     void sls::try_repair_down(app* e) {
         unsigned n = e->get_num_args();
         if (n == 0) {
-            m_eval.commit_eval(e);
-            
-            IF_VERBOSE(3, verbose_stream() << "done\n");
+            m_eval.commit_eval(e);           
             for (auto p : m_terms.parents(e))
                 m_repair_up.insert(p->get_id());
             

@@ -114,6 +114,7 @@ struct smt_params : public preprocessor_params,
     bool             m_induction = false;
     bool             m_clause_proof = false;
     symbol           m_proof_log;
+    bool             m_sls_enable = false;
 
     // -----------------------------------
     //

@@ -1314,7 +1314,7 @@ namespace sat {
     }
 
     bool solver::should_cancel() {
-        if (limit_reached() || memory_exceeded()) {
+        if (limit_reached() || memory_exceeded() || m_solver_canceled) {
             return true;
         }
         if (m_config.m_restart_max <= m_restarts) {
@@ -1959,6 +1959,7 @@ namespace sat {
 
     void solver::init_search() {
         m_model_is_current        = false;
+        m_solver_canceled         = false;
         m_phase_counter           = 0;
         m_search_state            = s_unsat;
         m_search_unsat_conflicts  = m_config.m_search_unsat_conflicts;

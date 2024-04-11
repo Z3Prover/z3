@@ -895,6 +895,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         process(n, true);
         CTRACE("goal2sat", !m_result_stack.empty(), tout << m_result_stack << "\n";);
         SASSERT(m_result_stack.empty());
+        add_assertion(n);
     }
 
     void insert_dep(expr* dep0, expr* dep, bool sign) {
@@ -987,6 +988,12 @@ struct goal2sat::imp : public sat::sat_internalizer {
         skip_dep:
             ;
         }
+    }
+
+    void add_assertion(expr* f) {
+        auto* ext = dynamic_cast<euf::solver*>(m_solver.get_extension());
+        if (ext)
+            ext->add_assertion(f);
     }
 
     void update_model(model_ref& mdl) {

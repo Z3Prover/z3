@@ -206,6 +206,7 @@ namespace bv {
                 m_todo.push_back(arg);
         }       
         // populate parents
+        m_parents.reset();
         m_parents.reserve(m_terms.size());
         for (expr* e : m_terms) {
             if (!e || !is_app(e))
@@ -213,6 +214,7 @@ namespace bv {
             for (expr* arg : *to_app(e))
                 m_parents[arg->get_id()].push_back(e);                
         }
+        m_assertion_set.reset();
         for (auto a : m_assertions)
             m_assertion_set.insert(a->get_id());
     }
