@@ -675,7 +675,8 @@ next:
                     if (m_explain[j].e->bit_width <= hole_bits)
                         continue;
                     explanation const& before = m_explain[j];
-                    explain_hole(before, after, hole_bits, result);
+                    explain_hole_overlap(before, e, after, result);
+                    explain_hole_size(before, after, hole_bits, result);
                     hole_bits = before.e->bit_width;
                     if (hole_bits >= after.e->bit_width)
                         break;
@@ -979,6 +980,150 @@ next:
         }
     }
 
+    void viable::pin(pdd& t, rational const& value, unsigned ebw, dd::pdd_manager& target, dependency_vector& deps) {
+        unsigned const bw = t.power_of_2();
+        auto const& p2b = t.manager().two_to_N();
+        auto const& p2eb = rational::power_of_two(bw - ebw);
+        // let coeff = 2^{bw - ebw}
+        // let assume coeff * x \not\in [s, t[
+        // Then value is chosen, min x . coeff * x >= t.
+        // In other words:
+        //
+        // x >= t div coeff
+        // => t <= coeff * x
+        
+        // (x - 1) * coeff < t <= x * coeff
+        
+        // a < x <= b <=>
+        // a + 1 <= x < b + 1
+        // x - a - 1 < b - a
+
+        auto vlo = c.value(mod((value - 1) * p2eb + 1, p2b), bw);
+        auto vhi = c.value(mod(value * p2eb + 1, p2b), bw);
+
+        verbose_stream() << "    assignment: " << c.get_assignment() << "\n";
+        if (c.is_assigned(1))
+            verbose_stream() << "    v1 = " << c.get_assignment().value(1) << "\n";
+#if 1
+        verbose_stream() << "    value " << value << "\n";
+        verbose_stream() << "    t " << t << "\n";
+        verbose_stream() << "    [" << vlo << " " << vhi << "[\n";
+        // verbose_stream() << "    before bw " << ebw << " " << bw << " " << *e.e << "\n";
+        // verbose_stream() << "    after  bw " << abw << " " << aw << " " << *after.e << "\n";
+        if (!t.is_val())
+            verbose_stream() << "    symbolic t : " << t << "\n";
+        verbose_stream() << "    " << t - vlo << " " << vhi - vlo << "\n";
+#endif
+        auto sc = cs.ult(t - vlo, vhi - vlo);
+        verbose_stream() << "    sc " << sc << "\n";
+        CTRACE("bv", sc.is_always_false(), c.display(tout));
+
+        VERIFY(!sc.is_always_false());
+        if (!sc.is_always_true())
+            deps.push_back(c.propagate(sc, c.explain_weak_eval(sc), "explain_overlap value bounds"));
+        t.reset(target);
+        t = c.value(value, target.power_of_2());
+        // verbose_stream() << "    t' " << t << "\n";
+        if (c.inconsistent())
+            verbose_stream() << "inconsistent pin " << sc << " " << "\n";
+    }
+
+    /*
+     * We have
+     * - before  2^k   x \not\in [?,hi[  effective bit-width bew   pdd-size bw   (k = bw - bew)
+     * - after   2^k'  y \not\in [lo,?[  effective bit-width aew   pdd-size aw   (k' = aw - aew)
+     * - e       2^k'' z \not\in [?,t[   effective bit-width eew   pdd-size ew   (k'' = ew - eew)
+     * - eew < bew, eew < aew
+     *
+     * where '?' is a placeholder for terms we don't care about.
+     *
+     *
+     *  before  x[bew] \not\in [?,ceil(hi/2^k)[
+     *  after   y[aew] \not\in [ceil(lo/2^k'),?[
+     *  e       z[eew] \not\in [?,ceil(t/2^k'')[
+     *
+     * Conceptually:
+     * - link last interval of the hole ('e') with the complement of the hole projected onto [eew]
+     * - Encode: ceil(t/2^k'') \in [ ceil(lo/2^k')[eew], ceil(hi/2^k)[eew] [
+     *
+     * If bw == aw == ew:
+     *  If bew == aew:
+     * 
+     * Else, normalize to aw always? then we don't have to evaluate lo.
+     */
+    void viable::explain_hole_overlap(explanation const& before, explanation const& e, explanation const& after, dependency_vector& deps) {
+        //  before      hole       after
+        // [----------[     [----------[    bit-width k
+        //          [--[--[--[              bit-width hole_bits < k
+        //
+        // e is the last entry of the hole.
+        // we need the constraint:
+        //      e.hi in [ after.lo[ebw] ; before.hi[ebw] [
+        pdd t = e.e->interval.hi();
+        pdd lo = after.e->interval.lo();
+        pdd hi = before.e->interval.hi();
+
+        unsigned const bw = c.size(before.e->var);
+        unsigned const bew = before.e->bit_width;
+        unsigned const ew = c.size(e.e->var);       // e width
+        unsigned const eew = e.e->bit_width;        // e effective width
+        unsigned const aw = c.size(after.e->var);
+        unsigned const aew = after.e->bit_width;
+
+        SASSERT(eew < bew);
+        SASSERT(eew < aew);
+        // return;
+
+        verbose_stream() << "explain_hole_overlap:\n";
+        display_explain(verbose_stream() << "    before ", before) << "\n";
+        display_explain(verbose_stream() << "    e      ", e) << "\n";
+        display_explain(verbose_stream() << "    after  ", after) << "\n";
+        verbose_stream() << "    bw " << bw << " bew " << bew << "\n";
+        verbose_stream() << "    ew " << ew << " eew " << eew << "\n";
+        verbose_stream() << "    aw " << aw << " aew " << aew << "\n";
+        verbose_stream() << "    t " << t << "\n";
+        verbose_stream() << "    lo " << lo << " hi " << hi << "\n";
+        verbose_stream() << "    hole size " << r_interval::len(get_covered_interval(before).hi(), get_covered_interval(after).lo(), rational::power_of_two(m_num_bits)) << "\n";
+
+        if (t.is_val() && lo.is_val() && hi.is_val()) {
+            return;  // can abort early
+        }
+
+        if (bw == aw && aw == ew && bew == aew) {
+
+            static int counter = 0;
+            ++counter;
+            verbose_stream() << "hole_overlap counter " << counter << "\n";
+            if (counter != 3)
+                return;
+
+            // encode: ceil(t/2^k'') \in [ ceil(lo/2^k)[eew], ceil(hi/2^k)[eew] [
+
+/*
+From ZstJOJYeMR15.smt2
+
+explain_kind conflict
+v0:  v4:5@0 value=16  v0:20@0
+v0[5] := 16 v0[5] [-491520 ; 2^19[ := [17;16[  deps 16 == v0 [5]@0 src
+v0[20] := 1048561 v0 [20*v1 + 21 ; 20*v1 + 1[ := [5;-15[  src -20 <= 20*v1 + -1*v0;
+v0[5] := 16 v0[5] [-491520 ; 2^19[ := [17;16[  deps 16 == v0 [5]@0 src
+v0[20] := 1048561 v0 [20*v1 + 21 ; 20*v1 + 1[ := [5;-15[  src -20 <= 20*v1 + -1*v0;
+*/
+
+            if (eew < ew || ew != aw) {
+                // evaluate t
+                pin(t, e.value, eew, lo.manager(), deps);
+            }
+
+            t *= rational::power_of_two(aew - eew);
+            lo *= rational::power_of_two(aew - eew);
+            hi *= rational::power_of_two(aew - eew);
+
+            // TODO
+        }
+
+    }
+
     r_interval viable::get_covered_interval(explanation const& e) const {
         rational const& lo = e.e->interval.lo_val();
         rational const& hi = e.e->interval.hi_val();
@@ -989,7 +1134,26 @@ next:
         return r_interval::proper(covered_lo, covered_hi);
     }
 
-    void viable::explain_hole(explanation const& before, explanation const& after, unsigned hole_bits, dependency_vector& deps) {
+    /*
+     * We have:
+     * - before  2^k   x \not\in [?,lo[  effective bit-width bew   pdd-size bw   (k = bw - bew)
+     * - after   2^k'  y \not\in [hi,?[  effective bit-width aew   pdd-size aw   (k' = aw - aew)
+     * - hole [lo,hi[ that is filled by intervals of bit-width 'hole_bits'
+     *
+     * where '?' is a placeholder for terms we don't care about.
+     *
+     * before  x[bew] \not\in [?,ceil(lo/2^k)[
+     * after   y[aew] \not\in [ceil(hi/2^k'),?[
+     * Let ew := min(bew, aew)
+     *
+     * Conceptually:
+     * - the hole, projected onto lower size ew, must be of size < 2^hole_bits
+     * - Encode: ceil(hi/2^k')[ew] - ceil(lo/2^k)[ew] < 2^hole_bits
+     *
+     *
+     *
+     */
+    void viable::explain_hole_size(explanation const& before, explanation const& after, unsigned hole_bits, dependency_vector& deps) {
         //  before      hole       after
         // [----------[     [----------[    bit-width k
         //           [-------[              bit-width hole_bits < k
@@ -1004,14 +1168,33 @@ next:
         unsigned const bew = before.e->bit_width;
         unsigned const aw = c.size(after.e->var);
         unsigned const aew = after.e->bit_width;
+        SASSERT(bew <= bw);
+        SASSERT(aew <= aw);
+        SASSERT(hole_bits < aew);
+        SASSERT(hole_bits < bew);
 
         verbose_stream() << "explain_hole: " << hole_bits << " bits\n";
         display_explain(verbose_stream() << "    before: " << bew << " " << bw << "   ", before) << "\n";
         display_explain(verbose_stream() << "    after:  " << aew << " " << aw << "   ", after)  << "\n";
+        verbose_stream() << "    before covers: " << get_covered_interval(before) << "\n";
+        verbose_stream() << "    after covers:  " << get_covered_interval(after)  << "\n";
 
         // hole is from t1 to t2
         pdd t1 = before.e->interval.hi();
         pdd t2 = after.e->interval.lo();
+        verbose_stream() << "    t1 " << t1 << " t2 " << t2 << "\n";
+        verbose_stream() << "    (" << t2 << ") - (" << t1 << ") < " << rational::power_of_two(hole_bits) << "\n";
+        rational a;
+        verbose_stream() << "    ok? " << c.try_eval(t1, a) << " eval(t1) = " << a << "\n";
+        verbose_stream() << "    ok? " << c.try_eval(t2, a) << " eval(t2) = " << a << "\n";
+
+        // rational after_len = r_interval::len(after.e->interval.lo_val(), after.e->interval.hi_val(), rational::power_of_two(aew));
+        // rational after_covered_lo = mod2k(after.value - after_len, m_num_bits);
+        // auto after_covered_ivl = r_interval::proper(after_covered_lo, after.value);
+        // // verbose_stream() << "   after_len " << after_len << "\n";
+        // // verbose_stream() << "   after_covered_lo " << after_covered_lo << "\n";
+        // // verbose_stream() << "   after_covered_ivl " << after_covered_ivl << "\n";
+        // SASSERT_EQ(after_covered_ivl.len(rational::power_of_two(m_num_bits)), after_len);
 
         if (get_covered_interval(after).contains(before.value)) {
             // this check is still needed as long as we do not prune the 'last' interval
@@ -1022,7 +1205,7 @@ next:
         SASSERT(!get_covered_interval(after).contains(before.value));
 
         rational hole_len = r_interval::len(before.value, get_covered_interval(after).lo(), rational::power_of_two(m_num_bits));
-        // verbose_stream() << "    hole_len " << hole_len << " should be < " << rational::power_of_two(hole_bits) << "\n";
+        verbose_stream() << "    hole_len " << hole_len << " should be < " << rational::power_of_two(hole_bits) << "\n";
         VERIFY(hole_len < rational::power_of_two(hole_bits));  // otherwise we missed a conflict at lower bit-width
 
         // no constraint needed for constant bounds
@@ -1031,14 +1214,14 @@ next:
 
         if (aw != bw) {
             // TODO: eval bounds?
-            return;
             NOT_IMPLEMENTED_YET();
+            return;
         }
 
         if (bew != bw || aew != aw) {
             // TODO: multiply with 2^k appropriately
-            return;
             NOT_IMPLEMENTED_YET();
+            return;
         }
 
         auto sc = cs.ult(t2 - t1, rational::power_of_two(hole_bits));
@@ -1076,7 +1259,7 @@ next:
         if (ne->interval.is_currently_empty()) {
             m_alloc.push_back(ne);
             return find_t::multiple;
-        }        
+        }
 
         if (ne->coeff == 1) 
             intersect(v, ne);        
@@ -1125,7 +1308,6 @@ next:
                 if (!lo_eq.is_val())
                     ne->side_cond.push_back(~cs.eq(lo_eq));
             }
-            
 
             rational new_hi = machine_div2k(mod2k(hi + twoK - 1, w), k);
             pdd hi_eq = pdd_hi * rational::power_of_two(w - k);
@@ -1138,7 +1320,7 @@ next:
                 if (!hi_eq.is_val())
                     ne->side_cond.push_back(~cs.eq(hi_eq));
             }
-            
+
             //
             // If new_lo = new_hi it means that
             //   mod(ceil(lo / 2^k), 2^(w-k)) = mod(ceil(hi / 2^k), 2^(w-k))
@@ -1182,12 +1364,15 @@ next:
                 }
             }
 
+            // display_one(verbose_stream() << "original: ", ne) << "\n";
             ne->coeff = 1;
             ne->interval = eval_interval::proper(pdd_lo, new_lo, pdd_hi, new_hi);
             ne->bit_width -= k;
 
+            // display_one(verbose_stream() << "reduced: ", ne) << "\n";
+            // verbose_stream() << "to bw " << ne->bit_width << "\n";
             TRACE("bv", display_one(tout << "reduced: ", ne) << "\n");
-            intersect(v, ne);            
+            intersect(v, ne);
         }
         if (ne->interval.is_full()) {
             m_explain.reset();
@@ -1225,13 +1410,13 @@ next:
             c.trail().push(pop_viable_trail(*this, ne, entry_kind::unit_e));
             ne->init(ne);
             return ne;
-            };
+        };
 
         auto remove_entry = [&](entry* e) {
             c.trail().push(push_viable_trail(*this, e));
             e->remove_from(entries, e);
             e->active = false;
-            };
+        };
 
         if (ne->interval.is_full()) {
             while (entries)

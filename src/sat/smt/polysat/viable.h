@@ -94,6 +94,7 @@ namespace polysat {
             entry* e;
             rational value;
             bool mark = false;
+            bool operator==(explanation const& other) const { return e == other.e && value == other.value && mark == other.mark; }
         };
         ptr_vector<entry>       m_alloc;
         vector<layers>          m_units;        // set of viable values based on unit multipliers, layered by bit-width in descending order
@@ -127,7 +128,9 @@ namespace polysat {
         void update_value_to_high(rational& val, entry* e);
         bool is_conflict();
         void explain_overlap(explanation const& e, explanation const& after, dependency_vector& out_deps);
-        void explain_hole(explanation const& before, explanation const& after, unsigned hole_bits, dependency_vector& out_deps);
+        void explain_hole_overlap(explanation const& before, explanation const& e, explanation const& after, dependency_vector& out_deps);
+        void explain_hole_size(explanation const& before, explanation const& after, unsigned hole_bits, dependency_vector& out_deps);
+        void pin(pdd& p, rational const& value, unsigned ebw, dd::pdd_manager& target, dependency_vector& out_deps);
         r_interval get_covered_interval(explanation const& e) const;
 
         viable::entry* find_overlap(rational const& val, entry* entries);
