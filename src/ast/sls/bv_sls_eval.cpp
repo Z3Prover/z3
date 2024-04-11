@@ -1996,11 +1996,7 @@ namespace bv {
             out << e->get_id() << ": " << mk_bounded_pp(e, m, 1) << " ";
             if (is_fixed0(e))
                 out << "f ";
-            if (bv.is_bv(e))
-                out << wval(e);
-            else if (m.is_bool(e))
-                out << (bval0(e) ? "T" : "F");
-            out << "\n";
+            display_value(out, e) << "\n";
         }
         terms.reset();
         return out;

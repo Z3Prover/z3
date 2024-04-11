@@ -49,7 +49,17 @@ Notes:
 #include "parsers/smt2/smt2parser.h"
 #include "sat/sat_params.hpp"
 
+tactic* mk_tactic_for_logic(ast_manager& m, params_ref const& p, symbol const& logic);
 
+
+class smt_nested_solver_factory : public solver_factory {
+public:
+    solver* operator()(ast_manager& m, params_ref const& p, bool proofs_enabled, bool models_enabled, bool unsat_core_enabled, symbol const& logic) override {
+        auto t = mk_tactic_for_logic(m, p, logic);
+        auto s = mk_tactic2solver(m, t, p, proofs_enabled, models_enabled, unsat_core_enabled, logic);
+        return s;
+    }
+};
 
 tactic * mk_tactic_for_logic(ast_manager & m, params_ref const & p, symbol const & logic) {
     if (logic=="QF_UF")

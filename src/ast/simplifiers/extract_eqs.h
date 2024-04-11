@@ -31,8 +31,9 @@ namespace euf {
         expr* orig;       // original expression that encoded equation
         app* var;         // isolated variable
         expr_ref term;    // defined term
-        expr_dependency* dep;
-        dependent_eq(expr* orig, app* var, expr_ref const& term, expr_dependency* d) : orig(orig), var(var), term(term), dep(d) {}
+        expr_dependency_ref dep;
+        dependent_eq(expr* orig, app* var, expr_ref const& term, expr_dependency* d) : 
+            orig(orig), var(var), term(term), dep(d, term.get_manager()) {}
     };
 
     typedef vector<dependent_eq> dep_eq_vector;
