@@ -244,34 +244,35 @@ namespace bv {
         return true;
     }
 
-    bool sls_valuation::set_random_at_most(bvect const& src, bvect& tmp, random_gen& r) {
-        if (!get_at_most(src, tmp))
+    bool sls_valuation::set_random_at_most(bvect const& src, random_gen& r) {
+        if (!get_at_most(src, m_tmp))
             return false;
 
-        if (is_zero(tmp) || (0 != r(10)))
-            return try_set(tmp);
+        if (is_zero(m_tmp) || (0 != r(10)))
+            return try_set(m_tmp);
 
         // random value below tmp
-        set_random_below(tmp, r);
+        set_random_below(m_tmp, r);
         
-        return (can_set(tmp) || get_at_most(src, tmp)) && try_set(tmp);
+        return (can_set(m_tmp) || get_at_most(src, m_tmp)) && try_set(m_tmp);
     }
 
-    bool sls_valuation::set_random_at_least(bvect const& src, bvect& tmp, random_gen& r) {
-        if (!get_at_least(src, tmp))
+    bool sls_valuation::set_random_at_least(bvect const& src, random_gen& r) {
+        if (!get_at_least(src, m_tmp))
             return false;
 
-        if (is_ones(tmp) || (0 != r(10)))
-            return try_set(tmp);
+        if (is_ones(m_tmp) || (0 != r(10)))
+            return try_set(m_tmp);
 
         // random value at least tmp
-        set_random_above(tmp, r);
+        set_random_above(m_tmp, r);
 
-        return (can_set(tmp) || get_at_least(src, tmp)) && try_set(tmp);
+        return (can_set(m_tmp) || get_at_least(src, m_tmp)) && try_set(m_tmp);
     }
 
-    bool sls_valuation::set_random_in_range(bvect const& lo, bvect const& hi, bvect& tmp, random_gen& r) {
-        if (0 == r() % 2) {
+    bool sls_valuation::set_random_in_range(bvect const& lo, bvect const& hi, random_gen& r) {
+        bvect& tmp = m_tmp;
+        if (0 == r(2)) {
             if (!get_at_least(lo, tmp))
                 return false;
             SASSERT(in_range(tmp));
@@ -342,7 +343,7 @@ namespace bv {
     bool sls_valuation::set_repair(bool try_down, bvect& dst) {
         for (unsigned i = 0; i < nw; ++i)
             dst[i] = (~fixed[i] & dst[i]) | (fixed[i] & m_bits[i]);
-
+        clear_overflow_bits(dst);
         repair_sign_bits(dst);
         if (in_range(dst)) {
             set(eval, dst);
@@ -674,6 +675,4 @@ namespace bv {
             c += get_num_1bits(src[i]);
         return c == 1;
     }
-
-
 }

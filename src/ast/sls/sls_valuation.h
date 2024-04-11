@@ -226,9 +226,9 @@ namespace bv {
         bool get_at_most(bvect const& src, bvect& dst) const;
         bool get_at_least(bvect const& src, bvect& dst) const;
 
-        bool set_random_at_most(bvect const& src, bvect& tmp, random_gen& r);
-        bool set_random_at_least(bvect const& src, bvect& tmp, random_gen& r);
-        bool set_random_in_range(bvect const& lo, bvect const& hi, bvect& tmp, random_gen& r);
+        bool set_random_at_most(bvect const& src, random_gen& r);
+        bool set_random_at_least(bvect const& src, random_gen& r);
+        bool set_random_in_range(bvect const& lo, bvect const& hi, random_gen& r);
 
         bool set_repair(bool try_down, bvect& dst);
         void set_random_above(bvect& dst, random_gen& r);

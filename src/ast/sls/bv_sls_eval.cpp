@@ -924,15 +924,15 @@ namespace bv {
             bool try_above = m_rand(2) == 0;
             if (try_above) {
                 a.set_add(m_tmp, b.bits(), m_one);
-                if (!a.is_zero(m_tmp) && a.set_random_at_least(m_tmp, m_tmp2, m_rand))
+                if (!a.is_zero(m_tmp) && a.set_random_at_least(m_tmp,  m_rand))
                     return true;
             }
             a.set_sub(m_tmp, b.bits(), m_one);
-            if (!a.is_zero(m_tmp) && a.set_random_at_most(m_tmp, m_tmp2, m_rand))
+            if (!a.is_zero(m_tmp) && a.set_random_at_most(m_tmp, m_rand))
                 return true;
             if (!try_above) {
                 a.set_add(m_tmp, b.bits(), m_one);
-                if (!a.is_zero(m_tmp) && a.set_random_at_least(m_tmp, m_tmp2, m_rand))
+                if (!a.is_zero(m_tmp) && a.set_random_at_least(m_tmp, m_rand))
                     return true;
             }
             return false;
@@ -1007,7 +1007,6 @@ namespace bv {
     bool sls_eval::try_repair_bxor(bvect const& e, bvval& a, bvval const& b) {
         for (unsigned i = 0; i < a.nw; ++i)
             m_tmp[i] = e[i] ^ b.bits()[i];
-        a.clear_overflow_bits(m_tmp);
         return a.set_repair(random_bool(), m_tmp);
     }
 
@@ -1149,7 +1148,7 @@ namespace bv {
 
     bool sls_eval::try_repair_bnot(bvect const& e, bvval& a) {
         for (unsigned i = 0; i < a.nw; ++i)
-            m_tmp[i] = ~e[i];
+            m_tmp[i] = ~e[i];        
         a.clear_overflow_bits(m_tmp);
         return a.try_set(m_tmp);
     }
@@ -1230,14 +1229,14 @@ namespace bv {
         if (b < p2) {
             bool coin = m_rand(2) == 0;
             if (coin)
-                r = a.set_random_at_least(p2, m_tmp3, m_rand);
+                r = a.set_random_at_least(p2, m_rand);
             if (!r)
-                r = a.set_random_at_most(b, m_tmp3, m_rand);
+                r = a.set_random_at_most(b, m_rand);
             if (!coin && !r)
-                r = a.set_random_at_least(p2, m_tmp3, m_rand);
+                r = a.set_random_at_least(p2, m_rand);
         }
         else 
-            r = a.set_random_in_range(p2, b, m_tmp3, m_rand);
+            r = a.set_random_in_range(p2, b, m_rand);
         return r;
     }
 
@@ -1257,16 +1256,16 @@ namespace bv {
         bool r = false;
         if (p2 < b) 
             // random b <= x < p2 
-            r = a.set_random_in_range(b, p2_1, m_tmp3, m_rand);        
+            r = a.set_random_in_range(b, p2_1, m_rand);        
         else {
             // random b <= x or x < p2
             bool coin = m_rand(2) == 0;
             if (coin)
-                r = a.set_random_at_most(p2_1, m_tmp3, m_rand);
+                r = a.set_random_at_most(p2_1,m_rand);
             if (!r)
-                r = a.set_random_at_least(b, m_tmp3, m_rand);
+                r = a.set_random_at_least(b,  m_rand);
             if (!r && !coin)
-                r = a.set_random_at_most(p2_1, m_tmp3, m_rand);
+                r = a.set_random_at_most(p2_1,  m_rand);
         }
         p2_1.set_bw(0);
         return r;
@@ -1282,28 +1281,28 @@ namespace bv {
     bool sls_eval::try_repair_ule(bool e, bvval& a, bvval const& b) {
         if (e) {
             // a <= t
-            return a.set_random_at_most(b.bits(), m_tmp, m_rand);
+            return a.set_random_at_most(b.bits(),  m_rand);
         }
         else {
             // a > t
             a.set_add(m_tmp, b.bits(), m_one);
             if (a.is_zero(m_tmp))
                 return false;   
-            return a.set_random_at_least(m_tmp, m_tmp2, m_rand);
+            return a.set_random_at_least(m_tmp, m_rand);
         }           
     }
 
     bool sls_eval::try_repair_uge(bool e, bvval& a, bvval const& b) {
         if (e) {
             // a >= t
-            return a.set_random_at_least(b.bits(), m_tmp, m_rand);
+            return a.set_random_at_least(b.bits(), m_rand);
         }
         else {
             // a < t
             if (b.is_zero())
                 return false;
             a.set_sub(m_tmp, b.bits(), m_one);
-            return a.set_random_at_most(m_tmp, m_tmp2, m_rand);
+            return a.set_random_at_most(m_tmp, m_rand);
         }    
     }
 
@@ -1377,7 +1376,6 @@ namespace bv {
             unsigned n = b.bits().to_nat(e.bw);
             for (unsigned i = e.bw; i-- > e.bw - n;) 
                 t.set(i, a.get_bit(i)); 
-            a.clear_overflow_bits(t);
             if (a.set_repair(random_bool(), t))
                 return true;                      
         }
@@ -1527,7 +1525,6 @@ namespace bv {
                     t[i] = a.bits()[i];
                 t.set(b.bw - 1, a.is_ones(e));
             }   
-            a.clear_overflow_bits(t);
             if (a.set_repair(random_bool(), t))
                 return true;
         }
@@ -1541,13 +1538,10 @@ namespace bv {
                 a.get_variant(t, m_rand);
                 t.set(b.bw - 1, a.is_ones(e));
             }
-            a.clear_overflow_bits(t);
             if (a.set_repair(random_bool(), t))
                 return true;
         }            
-
-        a.get_variant(t, m_rand);
-        return a.set_repair(random_bool(), t);
+        return a.set_random(m_rand);
     }
 
     /*
@@ -1645,7 +1639,6 @@ namespace bv {
                 m_tmp2.set(b.msb(m_tmp2), false);
             while (a.set_add(m_tmp3, m_tmp, m_tmp2)) 
                 m_tmp2.set(b.msb(m_tmp2), false);       
-            a.clear_overflow_bits(m_tmp3);
             return a.set_repair(true, m_tmp3);
         }
         else {
@@ -1723,7 +1716,6 @@ namespace bv {
                 m_tmp[i] = random_bits();
             a.set_sub(m_tmp2, a.bits(), e);
             set_div(m_tmp2, m_tmp, a.bw, m_tmp3, m_tmp4);
-            a.clear_overflow_bits(m_tmp3);
             return b.set_repair(random_bool(), m_tmp3);
         }
     }
