@@ -102,7 +102,7 @@ namespace polysat {
     std::ostream& assignment::display(std::ostream& out) const {
         char const* delim = "";
         for (auto const& [var, value] : m_pairs) 
-            out << delim << var << " == " << value, delim = " ";	  
+            out << delim << "v" << var << " == " << value, delim = " ";
         return out;
     }
 }

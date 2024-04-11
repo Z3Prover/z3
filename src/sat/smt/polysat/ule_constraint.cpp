@@ -136,7 +136,7 @@ namespace polysat {
         }
 
         if (rhs.is_val() && !rhs.is_zero() && lhs.offset() == rhs.val()) {
-            TRACE("bv", tout << "- p + k <= k-->  p <= k\n");
+            TRACE("bv", tout << "- p + k <= k     -->  p <= k\n");
             lhs = rhs - lhs;
         }
 
@@ -148,7 +148,7 @@ namespace polysat {
         }
 
         if (lhs.is_val() && rhs.leading_coefficient().get_bit(N - 1) && !rhs.offset().is_zero()) {
-            TRACE("bv", tout << "k <= -p-->  p - 1 <= -k - 1\n");
+            TRACE("bv", tout << "k <= -p          -->  p - 1 <= -k - 1\n");
             pdd k = lhs;
             lhs = -(rhs + 1);
             rhs = -k - 1;
