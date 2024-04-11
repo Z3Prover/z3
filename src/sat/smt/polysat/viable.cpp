@@ -815,51 +815,94 @@ next:
     }
 
     /*
-     * For two consecutive intervals 
-     * 
-     * - 2^kx \not\in [lo, hi[, 
-     * - 2^k'y \not\in [lo', hi'[
-     * - a value v such that 
-     *   - 2^kv \not\in [lo, hi[
-     *   - 2^k'v \in [lo', hi'[
-     *   - hi \in ] (v - 1) * 2^{bw - ebw} ; v * 2^{bw - ebw} ]
-     * 
+     * For two consecutive intervals
+     *
+     * - 2^k x \not\in [lo, hi[         (entry 'e')
+     * - 2^k' y \not\in [lo', hi'[      (entry 'after')
+     * - value v such that
+     *   - 2^k v \not\in [lo, hi[
+     *   - 2^k' v \in [lo', hi'[
+     *   - hi \in ] (v - 1) * 2^k ; v * 2^k ]
+     *
      * Where:
      *  - bw is the width of x, aw the width of y
      *  - ebw is the bit-width of x, abw the bit-width of y
      *  - k = bw - ebw, k' = aw - abw
-     * 
-     * We want to encode the constraint that (2^k' hi)[w'] in [lo', hi'[
-     * 
-     * Note that x in [lo, hi[ <=> x - lo < hi - lo
-     * If bw = aw, ebw = abw there is nothing else to do.
-     *    - hi \in [lo', hi'[ 
-     * 
-     * If bw != aw or aw < bw:
-     *    - hi \in ] (v - 1) * 2^{bw - ebw} ; v * 2^{bw - ebw} ]
-     *    - hi := v mod aw
-     * 
-     * - 2^k'hi \in [lo', hi'[
-     * 
+     *
+     * We have the reduced intervals:
+     *  - x[ebw] \not\in [ ceil(lo/2^k), ceil(hi/2^k) [
+     *  - y[abw] \not\in [ ceil(lo'/2^k'), ceil(hi'/2^k') [
+     *  - ceil(lo/2^k) != ceil(hi/2^k)      ... ensured by side conditions from interval reduction
+     *  - ceil(lo'/2^k') != ceil(hi'/2^k')  ... ensured by side conditions from interval reduction
+     *
+     * Case ebw = abw:
+     *  - Regular intervals that link up
+     *  - Encode that ceil(hi/2^k) \in [ ceil(lo'/2^k'), ceil(hi'/2^k') [
+     *  - This is equivalent to 2^k' ceil(hi/2^k) \in [ lo', hi' [
+     *
+     * Case ebw < abw:
+     *  - 'e' is last entry of a hole.
+     *  - project 'after' onto the hole: [?,ceil(hi/2^k)[ links up with [ceil(lo'/2^k')[ebw],ceil(hi'/2^k')[ebw][
+     *  - We want to encode:   ceil(hi/2^k) \in [ceil(lo'/2^k')[ebw],ceil(hi'/2^k')[ebw][
+     *  - However, if 'after' is too small the projected interval may be empty and we do not get a useful constraint
+     *  - The correct choice is to use the complement of the hole rather than the next interval alone.
+     *  - This case is handled in explain_hole_overlap.
+     *
+     * Case ebw > abw:
+     *  - 'after' is first entry of a hole.
+     *  - conceptually: project complement of hole onto lower bit-width,
+     *    i.e., have interval [?,ceil(hi/2^k)[abw][ link up with [ceil(lo'/2^k'),ceil(hi'/2^k')[
+     *  - Encode: ceil(hi/2^k)[abw] \in [ceil(lo'/2^k'),ceil(hi'/2^k')[
+     *  - Equivalently: 2^k' ceil(hi/2^k)[abw] \in [lo',hi'[
+     *  - Equivalently: 2^k' ceil(hi/2^k) \in [lo',hi'[ because k' = aw - abw
+     *
+     * In both relevant cases, we want to encode the constraint
+     *      2^k' ceil(hi/2^k) \in [lo',hi'[
+     *
+     * - Note that x in [lo, hi[ <=> x - lo < hi - lo.
+     * - If k > 0 (i.e., ebw < bw) then evaluate ceil(hi/2^k) (since we cannot express it as pdd).
+     *          TODO: possible exception: if all coefficients of 'hi' are divisible by 2^k
+     * - If bw != aw, likewise (since we cannot mix different pdd sizes in one expression).
+     *          TODO: possible exception: if lo', hi' are values, just translate them to other pdd manager?
+     *
+     * Evaluating ceil(hi/2^k) means:
+     *  - hi \in ] (v - 1) * 2^{bw - ebw} ; v * 2^{bw - ebw} ]
+     *  - hi := v mod aw
+     *
      */
-
     void viable::explain_overlap(explanation const& e, explanation const& after, dependency_vector& deps) {
-        auto bw = c.size(e.e->var);
-        auto ebw = e.e->bit_width;
-        auto aw = c.size(after.e->var);
-        auto abw = after.e->bit_width;
-        auto t = e.e->interval.hi();
-        auto lo = after.e->interval.lo();
-        auto hi = after.e->interval.hi();
+#define DEBUG_EXPLAIN_OVERLAP 0
+        unsigned const bw = c.size(e.e->var);
+        unsigned const ebw = e.e->bit_width;
+        unsigned const aw = c.size(after.e->var);
+        unsigned const abw = after.e->bit_width;
+        pdd t = e.e->interval.hi();
+        pdd lo = after.e->interval.lo();
+        pdd hi = after.e->interval.hi();
+
+#if DEBUG_EXPLAIN_OVERLAP
+        verbose_stream() << "explain_overlap\n";
+        display_explain(verbose_stream() << "    e     ", e) << "\n";
+        display_explain(verbose_stream() << "    after ", after) << "\n";
+        verbose_stream() << "    bw " << bw << " ebw " << ebw << " aw " << aw << " abw " << abw << "\n";
+#endif
 
         SASSERT(abw <= aw);
         SASSERT(ebw <= bw);
+        SASSERT_EQ(mod2k(e.value, ebw), e.e->interval.hi_val());
+        SASSERT(r_interval::proper(after.e->interval.lo_val(), after.e->interval.hi_val()).contains(mod2k(e.value, abw)));
+
+        if (ebw < abw) {
+            // 'e' is the last entry of a hole.
+            // This case is handled in explain_hole_overlap.
+            return;
+        }
 
         if (ebw < bw || aw != bw) {
             auto const& p2b = rational::power_of_two(bw);
             auto const& p2eb = rational::power_of_two(bw - ebw);
             // let coeff = 2^{bw - ebw}
-            // let assume coeff * x \not\in [lo, t[
+            // let assume coeff * x \not\in [s, t[
             // Then value is chosen, min x . coeff * x >= t.
             // In other words:
             //
@@ -874,34 +917,57 @@ next:
 
             auto vlo = c.value(mod((e.value - 1) * p2eb + 1, p2b), bw);
             auto vhi = c.value(mod(e.value * p2eb + 1, p2b), bw);
-
-#if 0
-            verbose_stream() << "value " << e.value << "\n";
-            verbose_stream() << "t " << t << "\n";
-            verbose_stream() << "[" << vlo << " " << vhi << "[\n";
-            verbose_stream() << "before bw " << ebw << " " << bw << " " << *e.e << "\nafter  bw " << abw << " " << aw << " " << *after.e << "\n";
-            if (!t.is_val())
-                IF_VERBOSE(0, verbose_stream() << "symbolic t : " << t << "\n");
-            verbose_stream() << t - vlo << " " << vhi - vlo << "\n";
-
-#endif
             auto sc = cs.ult(t - vlo, vhi - vlo);
+
+#if DEBUG_EXPLAIN_OVERLAP
+            verbose_stream() << "    assignment: " << c.get_assignment() << "\n";
+            if (c.is_assigned(1))
+                verbose_stream() << "    v1 = " << c.get_assignment().value(1) << "\n";
+            verbose_stream() << "    value " << e.value << "\n";
+            verbose_stream() << "    t " << t << "\n";
+            verbose_stream() << "    [" << vlo << " " << vhi << "[\n";
+            verbose_stream() << "    before bw " << ebw << " " << bw << " " << *e.e << "\n";
+            verbose_stream() << "    after  bw " << abw << " " << aw << " " << *after.e << "\n";
+            if (!t.is_val())
+                verbose_stream() << "    symbolic t : " << t << "\n";
+            verbose_stream() << "    " << t - vlo << " " << vhi - vlo << "\n";
+            verbose_stream() << "    sc " << sc << "\n";
+#endif
+
             CTRACE("bv", sc.is_always_false(), c.display(tout));
-                
             VERIFY(!sc.is_always_false());
             if (!sc.is_always_true())
                 deps.push_back(c.propagate(sc, c.explain_weak_eval(sc), "explain_overlap value bounds"));
             t.reset(lo.manager());
             t = c.value(mod(e.value, rational::power_of_two(aw)), aw);
-            // verbose_stream() << "after " << t << "\n";
+#if DEBUG_EXPLAIN_OVERLAP
+            verbose_stream() << "    t' " << t << "\n";
+#endif
             if (c.inconsistent())
                 verbose_stream() << "inconsistent overlap " << sc << " " << "\n";
         }
 
-        if (abw < aw) 
-            t *= rational::power_of_two(aw - abw);            
-        
+/*
+        if (ebw < abw) {
+            // NOTE: this doesn't work, because the projected interval may be empty if we just project 'after' instead of the hole's complement
+            t *= rational::power_of_two(abw - ebw);
+            lo *= rational::power_of_two(abw - ebw);
+            hi *= rational::power_of_two(abw - ebw);
+        }
+*/
+
+        if (abw < aw)
+            t *= rational::power_of_two(aw - abw);
+
         auto sc = cs.ult(t - lo, hi - lo);
+#if DEBUG_EXPLAIN_OVERLAP
+        // verbose_stream() << "    lhs: " << t  << " - (" << lo << ")     ==     " << (t  - lo) << "\n";
+        // verbose_stream() << "    rhs: " << hi << " - (" << lo << ")     ==     " << (hi - lo) << "\n";
+        // verbose_stream() << "    ult: " << sc << "\n";
+        // verbose_stream() << "    eval " << sc.eval() << "\n";
+        // verbose_stream() << "    weval " << sc.weak_eval(c.get_assignment()) << "\n";
+        // verbose_stream() << "    seval " << sc.strong_eval(c.get_assignment()) << "\n";
+#endif
         SASSERT(!sc.is_always_false());
         if (!sc.is_always_true())
             deps.push_back(c.propagate(sc, c.explain_weak_eval(sc), "explain_overlap linking constraint"));
