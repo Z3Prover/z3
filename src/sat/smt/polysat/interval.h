@@ -146,6 +146,27 @@ namespace polysat {
                 return contains(lo(), hi(), val);
         }
 
+        bool contains(r_interval const& other) const {
+            if (is_full())
+                return true;
+            if (other.is_full())
+                return false;
+            // lo <= lo' <= hi' <= hi
+            if (lo() <= other.lo() && other.lo() <= other.hi() && other.hi() <= hi())
+                return true;
+            if (lo() <= hi())
+                return false;
+            // hi < lo <= lo' <= hi'
+            if (lo() <= other.lo() && other.lo() <= other.hi())
+                return true;
+            // lo' <= hi' <= hi < lo
+            if (other.lo() <= other.hi() && other.hi() <= hi())
+                return true;
+            // hi' <= hi < lo <= lo'
+            if (other.hi() <= hi() && lo() <= other.lo())
+                return true;
+            return false;
+        }
     };
 
     inline std::ostream& operator<<(std::ostream& os, r_interval const& i) {
@@ -206,7 +227,7 @@ namespace polysat {
                 return true;
             if (other.is_full())
                 return false;
-            // lo <= lo' <= hi' <= hi'
+            // lo <= lo' <= hi' <= hi
             if (lo_val() <= other.lo_val() && other.lo_val() <= other.hi_val() && other.hi_val() <= hi_val())
                 return true;
             if (lo_val() <= hi_val())
