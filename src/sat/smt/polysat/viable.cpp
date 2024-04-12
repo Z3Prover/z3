@@ -896,7 +896,7 @@ next:
         if (ebw < abw) {
             // 'e' is the last entry of a hole.
             // This case is handled in explain_hole_overlap.
-            return;
+            // return;  // TODO: disabled for now
         }
 
         if (ebw < bw || aw != bw) {
@@ -1072,7 +1072,7 @@ next:
 
         SASSERT(eew < bew);
         SASSERT(eew < aew);
-        // return;
+        return;   // TODO: disabled for now
 
         verbose_stream() << "explain_hole_overlap:\n";
         display_explain(verbose_stream() << "    before ", before) << "\n";
