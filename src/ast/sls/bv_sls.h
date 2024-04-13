@@ -54,10 +54,13 @@ namespace bv {
         bool                m_engine_model = false;
         bool                m_engine_init = false;
         std::function<expr_ref()> m_get_unit;
+        std::function<void(model& mdl)> m_set_model;
+        unsigned            m_min_repair_size = UINT_MAX;
         
         std::pair<bool, app*> next_to_repair();
         
         void init_repair_goal(app* e);
+        void set_model();
         void try_repair_down(app* e);
         void try_repair_up(app* e);
         void set_repair_down(expr* e) { m_repair_down = e->get_id(); }
@@ -95,6 +98,11 @@ namespace bv {
         * add callback to retrieve new units
         */
         void init_unit(std::function<expr_ref()> get_unit) { m_get_unit = get_unit; }
+
+        /**
+        * Add callback to set model
+        */
+        void set_model(std::function<void(model& mdl)> f) { m_set_model = f; }
 
         /**
         * Run (bounded) local search to find feasible assignments.

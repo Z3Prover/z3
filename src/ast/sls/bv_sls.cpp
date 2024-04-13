@@ -61,6 +61,17 @@ namespace bv {
         }
     }
 
+
+    void sls::set_model() {
+        if (!m_set_model)
+            return;
+        if (m_repair_roots.size() >= m_min_repair_size)
+            return;
+        m_min_repair_size = m_repair_roots.size();
+        IF_VERBOSE(2, verbose_stream() << "(sls-update-model :num-unsat " << m_min_repair_size << ")\n");
+        m_set_model(*get_model());
+    }
+
     void sls::init_repair_goal(app* t) {
         m_eval.init_eval(t);
     }
@@ -93,6 +104,9 @@ namespace bv {
 
         if (m_to_repair.empty())
             return;
+
+        // refresh the best model so far to a callback
+        set_model();
 
         // add fresh units, if any
         bool new_assertion = false;
@@ -130,7 +144,7 @@ namespace bv {
             return m_rand() % 2 == 0;
         };
         m_eval.init_eval(m_terms.assertions(), eval);
-        init_repair();
+        init_repair();        
         // m_engine_init = false;
     }
 
@@ -295,10 +309,12 @@ namespace bv {
         model_ref mdl = alloc(model, m);         
         auto& terms = m_eval.sort_assertions(m_terms.assertions());
         for (expr* e : terms) {
+#if 0
             if (!m_eval.re_eval_is_correct(to_app(e))) {
                 verbose_stream() << "missed evaluation #" << e->get_id() << " " << mk_bounded_pp(e, m) << "\n";
                 m_eval.display_value(verbose_stream(), e) << "\n";
             }
+#endif
             if (!is_uninterp_const(e))
                 continue;
 

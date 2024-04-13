@@ -22,29 +22,35 @@ Author:
 
 namespace sls {
 
+#ifdef SINGLE_THREAD
+
+    solver::solver(euf::solver& ctx) :
+        th_euf_solver(ctx, symbol("sls"), ctx.get_manager().mk_family_id("sls"))
+        {}
+
+#else
     solver::solver(euf::solver& ctx):
-        th_euf_solver(ctx, symbol("sls"), ctx.get_manager().mk_family_id("sls")),
-        m_units(m) {}
+        th_euf_solver(ctx, symbol("sls"), ctx.get_manager().mk_family_id("sls"))
+        {}
 
     solver::~solver() {
         finalize();
     }
 
     void solver::finalize() {
-        if (!m_completed && m_bvsls) {
-            m_bvsls->cancel();
+        if (!m_completed && m_sls) {
+            m_sls->cancel();
             m_thread.join();
-            m_bvsls->collect_statistics(m_st);
-            m_bvsls = nullptr;
+            m_sls->collect_statistics(m_st);
+            m_sls = nullptr;
+            m_shared = nullptr;
+            m_slsm = nullptr;
+            m_units = nullptr;
         }
     }
 
     sat::check_result solver::check() { 
-
         return sat::check_result::CR_DONE; 
-    }
-
-    void solver::simplify() {    
     }
 
     bool solver::unit_propagate() {
@@ -66,10 +72,6 @@ namespace sls {
         return false;
     }
 
-    void solver::push_core() {
-
-    }
-
     void solver::pop_core(unsigned n) {
         for (; m_trail_lim < s().init_trail_size(); ++m_trail_lim) {
             auto lit = s().trail_literal(m_trail_lim);
@@ -77,60 +79,63 @@ namespace sls {
             if (is_unit(e)) {
                 // IF_VERBOSE(1, verbose_stream() << "add unit " << mk_pp(e, m) << "\n");
                 std::lock_guard<std::mutex> lock(m_mutex);
-                m_units.push_back(e);
+                ast_translation tr(m, *m_shared);
+                m_units->push_back(tr(e.get()));
                 m_has_units = true;
             }
         }
-    }
-        
-    void solver::init_search() {
-        init_local_search();
-    }
+    }       
 
-    void solver::init_local_search() {
-        if (m_bvsls) {
-            m_bvsls->cancel();
+    void solver::init_search() {
+        if (m_sls) {
+            m_sls->cancel();
             m_thread.join();
             m_result = l_undef;
             m_completed = false;
             m_has_units = false;
             m_model = nullptr;
-            m_units.reset();
+            m_units = nullptr;
         }
         // set up state for local search solver here
 
-        m_m = alloc(ast_manager, m);
-        ast_translation tr(m, *m_m);
+        m_shared = alloc(ast_manager);
+        m_slsm = alloc(ast_manager);
+        m_units = alloc(expr_ref_vector, *m_shared);
+        ast_translation tr(m, *m_slsm);
         
-        params_ref p;
         m_completed = false;
         m_result = l_undef;
         m_model = nullptr;
-        m_bvsls = alloc(bv::sls, *m_m, p);
+        m_sls = alloc(bv::sls, *m_slsm, s().params());
         
         for (expr* a : ctx.get_assertions())
-            m_bvsls->assert_expr(tr(a));
+            m_sls->assert_expr(tr(a));
 
         std::function<bool(expr*, unsigned)> eval = [&](expr* e, unsigned r) {
             return false;
         };
 
-        m_bvsls->init();
-        m_bvsls->init_eval(eval);
-        m_bvsls->updt_params(s().params());
-        m_bvsls->init_unit([&]() { 
+        m_sls->init();
+        m_sls->init_eval(eval);
+        m_sls->updt_params(s().params());
+        m_sls->init_unit([&]() { 
             if (!m_has_units)
-                return expr_ref(*m_m);
-            expr_ref e(m);
+                return expr_ref(*m_slsm);
+            expr_ref e(*m_slsm);
             {
                 std::lock_guard<std::mutex> lock(m_mutex);
-                if (m_units.empty())
-                    return expr_ref(*m_m);
-                e = m_units.back();
-                m_units.pop_back();
+                if (m_units->empty())
+                    return expr_ref(*m_slsm);
+                ast_translation tr(*m_shared, *m_slsm);
+                e = tr(m_units->back());
+                m_units->pop_back();
             }
-            ast_translation tr(m, *m_m);
-            return expr_ref(tr(e.get()), *m_m); 
+            return e;
+        });
+        m_sls->set_model([&](model& mdl) {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            ast_translation tr(*m_shared, m);
+            m_model = mdl.translate(tr);
         });
                                      
         m_thread = std::thread([this]() { run_local_search(); });        
@@ -141,20 +146,21 @@ namespace sls {
             return;        
         m_thread.join();
         m_completed = false;
-        m_bvsls->collect_statistics(m_st);
+        m_sls->collect_statistics(m_st);
         if (m_result == l_true) {
             IF_VERBOSE(2, verbose_stream() << "(sat.sls :model-completed)\n";);
-            auto mdl = m_bvsls->get_model();
-            ast_translation tr(*m_m, m);
+            auto mdl = m_sls->get_model();
+            ast_translation tr(*m_slsm, m);
             m_model = mdl->translate(tr);
             s().set_canceled();
         }
-        m_bvsls = nullptr;
+        m_sls = nullptr;
     }
 
     void solver::run_local_search() {
-        m_result = (*m_bvsls)();
+        m_result = (*m_sls)();
         m_completed = true;
     }
 
+#endif
 }

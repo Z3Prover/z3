@@ -1069,7 +1069,7 @@ namespace intblast {
         if (e->get_family_id() != bv.get_family_id())
             return false;
         for (euf::enode* arg : euf::enode_args(n))
-            dep.add(n, arg->get_root());
+            dep.add(n, arg);
         return true;
     }
 
