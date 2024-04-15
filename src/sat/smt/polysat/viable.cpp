@@ -162,12 +162,12 @@ namespace polysat {
     }
 
 
-    // 
-    // 
-    // from smallest size(w) suffix [w] to largest
-    //     from smallest bit_width layer [bit_width, entries] to largest
-    //         check if val is allowed by entries or advance val to next allowed value
-    // 
+    //
+    // find set of layers across all suffixes, sort by bit-width
+    //
+    // from smallest bit_width layer [bit_width, entries] to largest
+    //     check if val is allowed by entries or advance val to next allowed value
+    //
 
     viable::entry* viable::find_overlap(rational& val) {
         entry* last = nullptr;
@@ -198,11 +198,7 @@ namespace polysat {
                 layers.push_back(&layer);
         std::sort(layers.begin(), layers.end(), [](layer const* l1, layer const* l2) { return l1->bit_width < l2->bit_width; });
 
-next:
-        for (layer const* layer : layers) {
-            entry* e = find_overlap(*layer, val);
-            if (!e)
-                continue;
+        while (entry* e = find_overlap(layers, val)) {
             last = e;
             if (e->interval.is_proper())
                 update_value_to_high(val, e);
@@ -213,9 +209,15 @@ next:
                 m_explain_kind = explain_t::conflict;
                 return nullptr;
             }
-            goto next;
         }
         return last;
+    }
+
+    viable::entry* viable::find_overlap(ptr_vector<layer const> const& layers, rational const& val) {
+        for (layer const* layer : layers)
+            if (entry* e = find_overlap(*layer, val))
+                return e;
+        return nullptr;
     }
 
     viable::entry* viable::find_overlap(layer const& l, rational const& val) {
