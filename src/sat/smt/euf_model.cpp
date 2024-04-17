@@ -327,7 +327,7 @@ namespace euf {
         out << mdl << "\n";
     }
 
-    void solver::validate_model(model& mdl) {
+    void solver::validate_model(model& mdl) {       
         if (!m_unhandled_functions.empty())
             return;
         if (get_config().m_arith_ignore_int)

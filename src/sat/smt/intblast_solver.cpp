@@ -726,6 +726,7 @@ namespace intblast {
             r = a.mk_le(smod(bv_expr, 0), smod(bv_expr, 1));
             break;
         case OP_SGEQ:
+            bv_expr = e->get_arg(0);
             r = a.mk_ge(smod(bv_expr, 0), smod(bv_expr, 1));
             break;
         case OP_SLT:
