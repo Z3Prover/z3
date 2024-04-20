@@ -144,7 +144,7 @@ namespace bv {
             return m_rand() % 2 == 0;
         };
         m_eval.init_eval(m_terms.assertions(), eval);
-        init_repair();        
+        init_repair();
         // m_engine_init = false;
     }
 
@@ -284,8 +284,7 @@ namespace bv {
         else if (!m_eval.repair_up(e)) {
             IF_VERBOSE(2, verbose_stream() << "repair-up "; trace_repair(true, e));
             if (m_rand(10) != 0) {
-                m_eval.set_random(e);
-                
+                m_eval.set_random(e);                
                 m_repair_roots.insert(e->get_id());
             }
             else
@@ -309,15 +308,8 @@ namespace bv {
         model_ref mdl = alloc(model, m);         
         auto& terms = m_eval.sort_assertions(m_terms.assertions());
         for (expr* e : terms) {
-#if 0
-            if (!m_eval.re_eval_is_correct(to_app(e))) {
-                verbose_stream() << "missed evaluation #" << e->get_id() << " " << mk_bounded_pp(e, m) << "\n";
-                m_eval.display_value(verbose_stream(), e) << "\n";
-            }
-#endif
             if (!is_uninterp_const(e))
                 continue;
-
             auto f = to_app(e)->get_decl();
             auto v = m_eval.get_value(to_app(e));
             if (v)
