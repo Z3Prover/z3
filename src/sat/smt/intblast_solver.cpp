@@ -49,6 +49,7 @@ namespace intblast {
         sat::literal lit = expr2literal(e);
         if (sign)
             lit.neg();
+        TRACE("bv", tout << mk_pp(e, m) << " -> " << literal2expr(lit) << "\n");
         return lit;
     }
 
@@ -101,6 +102,7 @@ namespace intblast {
             set_translated(e, m.mk_eq(umod(x, 0), a.mk_int(0)));
         }
         m_preds.push_back(e);
+        TRACE("bv", tout << mk_pp(e, m) << " " << mk_pp(translated(e), m) << "\n");
         ctx.push(push_back_vector(m_preds));
     }
 
@@ -456,10 +458,10 @@ namespace intblast {
             auto nBv2int = ctx.get_enode(bv2int);
             auto nxModN = ctx.get_enode(xModN);
             if (nBv2int->get_root() != nxModN->get_root()) {
-	      auto a = eq_internalize(nBv2int, nxModN);
-	      ctx.mark_relevant(a);
-              add_unit(a);
-              return sat::check_result::CR_CONTINUE;
+                auto a = eq_internalize(nBv2int, nxModN);
+                ctx.mark_relevant(a);
+                add_unit(a);
+                return sat::check_result::CR_CONTINUE;
             }
         }
         return sat::check_result::CR_DONE; 
@@ -585,12 +587,12 @@ namespace intblast {
     }
 
     void solver::translate_quantifier(quantifier* q) {
-        if (is_lambda(q))
-            throw default_exception("lambdas are not supported in intblaster");
         if (m_is_plugin) {
             set_translated(q, q);
             return;
         }
+        if (is_lambda(q))
+            throw default_exception("lambdas are not supported in intblaster");
         expr* b = q->get_expr();
         unsigned nd = q->get_num_decls();
         ptr_vector<sort> sorts;
@@ -601,7 +603,6 @@ namespace intblast {
                 sorts.push_back(a.mk_int());
             }
             else
-
                 sorts.push_back(s);
         }
         b = translated(b);
@@ -775,13 +776,13 @@ namespace intblast {
         case OP_BUREM:
         case OP_BUREM_I: {
             expr* x = umod(e, 0), * y = umod(e, 1);
-            r = m.mk_ite(m.mk_eq(y, a.mk_int(0)), x, a.mk_mod(x, y));
+            r = if_eq(y, 0, x, a.mk_mod(x, y));
             break;
         }
         case OP_BUDIV:
         case OP_BUDIV_I: {
-            expr* x = arg(0), * y = umod(e, 1);
-            r = m.mk_ite(m.mk_eq(y, a.mk_int(0)), a.mk_int(-1), a.mk_idiv(x, y));
+            expr* x = umod(e, 0), * y = umod(e, 1);
+            r = if_eq(y, 0, a.mk_int(-1), a.mk_idiv(x, y));
             break;
         }
         case OP_BUMUL_NO_OVFL: {
@@ -797,7 +798,7 @@ namespace intblast {
                 r = a.mk_int(0);
                 IF_VERBOSE(2, verbose_stream() << "shl " << mk_bounded_pp(e, m) << " " << bv.get_bv_size(e) << "\n");
                 for (unsigned i = 0; i < bv.get_bv_size(e); ++i)
-                    r = m.mk_ite(m.mk_eq(y, a.mk_int(i)), mul(x, a.mk_int(rational::power_of_two(i))), r);   
+                    r = if_eq(y, i, mul(x, a.mk_int(rational::power_of_two(i))), r);   
             }
             break;
         }
@@ -812,7 +813,7 @@ namespace intblast {
                 r = a.mk_int(0);
                 IF_VERBOSE(2, verbose_stream() << "lshr " << mk_bounded_pp(e, m) << " " << bv.get_bv_size(e) << "\n");
                 for (unsigned i = 0; i < bv.get_bv_size(e); ++i)
-                    r = m.mk_ite(m.mk_eq(y, a.mk_int(i)), a.mk_idiv(x, a.mk_int(rational::power_of_two(i))), r);
+                    r = if_eq(y, i, a.mk_idiv(x, a.mk_int(rational::power_of_two(i))), r);
             }
             break;
         case OP_BASHR: 
@@ -833,20 +834,19 @@ namespace intblast {
                 IF_VERBOSE(1, verbose_stream() << "ashr " << mk_bounded_pp(e, m) << " " << bv.get_bv_size(e) << "\n");
                 for (unsigned i = 0; i < sz; ++i) {
                     expr* d = a.mk_idiv(x, a.mk_int(rational::power_of_two(i)));              
-                    r = m.mk_ite(m.mk_eq(y, a.mk_int(i)),
+                    r = if_eq(y, i,
                                  m.mk_ite(signx, add(d, a.mk_int(- rational::power_of_two(sz-i))), d),
                                  r);
                 }
             }
             break;
-        case OP_BOR: {
+        case OP_BOR: 
             // p | q := (p + q) - band(p, q)
             IF_VERBOSE(2, verbose_stream() << "bor " << mk_bounded_pp(e, m) << " " << bv.get_bv_size(e) << "\n");
             r = arg(0);
             for (unsigned i = 1; i < args.size(); ++i)
                 r = a.mk_sub(add(r, arg(i)), a.mk_band(bv.get_bv_size(e), r, arg(i)));
-            break;
-        }
+            break;        
         case OP_BNAND:
             r = bnot(band(args));
             break;
@@ -916,8 +916,8 @@ namespace intblast {
             r = m.mk_ite(m.mk_and(m.mk_not(signx), signy), add(u, y), r);
             r = m.mk_ite(m.mk_and(signx, m.mk_not(signy)), a.mk_sub(y, u), r);
             r = m.mk_ite(m.mk_and(m.mk_not(signx), m.mk_not(signy)), u, r);
-            r = m.mk_ite(m.mk_eq(u, a.mk_int(0)), a.mk_int(0), r);
-            r = m.mk_ite(m.mk_eq(y, a.mk_int(0)), x, r);
+            r = if_eq(u, 0, a.mk_int(0), r);
+            r = if_eq(y, 0, x, r);
             break;
         } 
         case OP_BSDIV_I:
@@ -938,7 +938,7 @@ namespace intblast {
             y = m.mk_ite(signy, a.mk_sub(a.mk_int(N), y), y);
             expr* d = a.mk_idiv(x, y);
             r = m.mk_ite(m.mk_iff(signx, signy), d, a.mk_uminus(d));
-            r = m.mk_ite(m.mk_eq(y, a.mk_int(0)), m.mk_ite(signx, a.mk_int(1), a.mk_int(-1)), r);
+            r = if_eq(y, 0, m.mk_ite(signx, a.mk_int(1), a.mk_int(-1)), r);
             break;
         }
         case OP_BSREM_I:
@@ -954,7 +954,7 @@ namespace intblast {
             expr* d = a.mk_idiv(absx, absy);
             d = m.mk_ite(m.mk_iff(signx, signy), d, a.mk_uminus(d));
             r = a.mk_sub(x, mul(d, y));
-            r = m.mk_ite(m.mk_eq(y, a.mk_int(0)), x, r);
+            r = if_eq(y, 0, x, r);
             break;  
         }
         case OP_ROTATE_LEFT: {
@@ -973,7 +973,7 @@ namespace intblast {
             expr* y = umod(e, 1);
             r = a.mk_int(0);
             for (unsigned i = 0; i < sz; ++i) 
-                r = m.mk_ite(m.mk_eq(a.mk_int(i), y), rotate_left(i), r);
+                r = if_eq(y, i, rotate_left(i), r);
             break;
         }
         case OP_EXT_ROTATE_RIGHT: {
@@ -981,7 +981,7 @@ namespace intblast {
             expr* y = umod(e, 1);
             r = a.mk_int(0);
             for (unsigned i = 0; i < sz; ++i) 
-                r = m.mk_ite(m.mk_eq(a.mk_int(i), y), rotate_left(sz - i), r);
+                r = if_eq(y, i, rotate_left(sz - i), r);
             break;
         }
         case OP_REPEAT: {
@@ -1010,6 +1010,18 @@ namespace intblast {
             NOT_IMPLEMENTED_YET();
         }
         set_translated(e, r);
+    }
+
+    expr_ref solver::if_eq(expr* n, unsigned k, expr* th, expr* el) {
+        rational r;
+        expr_ref _th(th, m), _el(el, m);
+        if (bv.is_numeral(n, r)) {
+            if (r == k)
+                return expr_ref(th, m);
+            else
+                return expr_ref(el, m);
+        }
+        return expr_ref(m.mk_ite(m.mk_eq(n, a.mk_int(k)), th, el), m);
     }
 
     void solver::translate_basic(app* e) {
@@ -1123,6 +1135,27 @@ namespace intblast {
         }
         values.set(n->get_root_id(), value);
         TRACE("model", tout << "add_value " << ctx.bpp(n) << " := " << value << "\n");
+    }
+
+    void solver::finalize_model(model& mdl) {
+        return;
+        for (auto n : ctx.get_egraph().nodes()) {
+            auto e = n->get_expr();            
+            if (!is_translated(e))
+                continue;
+            if (!bv.is_bv(e))
+                continue;
+            auto t = translated(e);
+            
+            expr_ref ei(bv.mk_bv2int(e), m);
+            expr_ref ti(a.mk_mod(t, a.mk_int(rational::power_of_two(bv.get_bv_size(e)))), m);
+            auto ev = mdl(ei);
+            auto tv = mdl(ti);
+            if (ev != tv) {
+                IF_VERBOSE(0, verbose_stream() << mk_pp(e, m) << " <- " << ev << "\n");
+                IF_VERBOSE(0, verbose_stream() << mk_pp(t, m) << " <- " << tv << "\n");
+            }
+        }
     }
 
     sat::literal_vector const& solver::unsat_core() {
