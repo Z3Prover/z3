@@ -437,10 +437,12 @@ namespace intblast {
                     continue;
                 if (sib->get_arg(0)->get_root() == r1)
                     continue;
-		auto a = eq_internalize(n, sib);
-		auto b = eq_internalize(sib->get_arg(0), n->get_arg(0));
-		ctx.mark_relevant(a);
-		ctx.mark_relevant(b);
+                if (bv.get_bv_size(r1->get_expr()) != bv.get_bv_size(sib->get_arg(0)->get_expr()))
+                    continue;
+                auto a = eq_internalize(n, sib);
+                auto b = eq_internalize(sib->get_arg(0), n->get_arg(0));
+                ctx.mark_relevant(a);
+                ctx.mark_relevant(b);
                 add_clause(~a, b, nullptr);
                 return sat::check_result::CR_CONTINUE;
             }
