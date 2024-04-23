@@ -29,7 +29,7 @@ namespace polysat {
     using pdd = dd::pdd;
     using pvar = unsigned;
 
-    enum ckind_t { ule_t, umul_ovfl_t, smul_fl_t, op_t };
+    enum ckind_t { ule_t, umul_ovfl_t, op_t };
 
     class constraint {
         unsigned_vector     m_vars;
@@ -86,7 +86,6 @@ namespace polysat {
         ckind_t op() const { return m_op; }
         bool is_ule() const { return m_op == ule_t; }
         bool is_umul_ovfl() const { return m_op == umul_ovfl_t; }
-        bool is_smul_fl() const { return m_op == smul_fl_t; }
         bool is_op() const { return m_op == op_t; }
         ule_constraint const& to_ule() const { SASSERT(is_ule()); return *reinterpret_cast<ule_constraint*>(m_constraint); }
         umul_ovfl_constraint const& to_umul_ovfl() const { SASSERT(is_umul_ovfl()); return *reinterpret_cast<umul_ovfl_constraint*>(m_constraint); }

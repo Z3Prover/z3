@@ -477,9 +477,6 @@ namespace polysat {
         case ckind_t::op_t:
             UNREACHABLE();
             break;
-        case ckind_t::smul_fl_t:
-            NOT_IMPLEMENTED_YET();
-            break;
         }
         return result;
     }
