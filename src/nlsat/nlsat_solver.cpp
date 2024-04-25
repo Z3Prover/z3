@@ -3863,6 +3863,10 @@ namespace nlsat {
         return out;
     }
 
+    std::ostream& solver::display_smt2(std::ostream & out) const {
+        return m_imp->display_smt2(out);
+    }
+
     std::ostream& solver::display_smt2(std::ostream & out, literal_vector const& ls) const {
         return display_smt2(out, ls.size(), ls.data());
     }

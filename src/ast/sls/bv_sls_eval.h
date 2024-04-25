@@ -25,6 +25,12 @@ namespace bv {
 
     class sls_fixed;
 
+    class sls_eval_plugin {
+    public:
+        virtual ~sls_eval_plugin() {}
+        
+    };
+
     class sls_eval {
         struct config {
             unsigned m_prob_randomize_extract = 50;
@@ -39,6 +45,8 @@ namespace bv {
         ptr_vector<expr>    m_todo;
         random_gen          m_rand;
         config              m_config;
+
+        scoped_ptr_vector<sls_eval_plugin> m_plugins;
 
 
 

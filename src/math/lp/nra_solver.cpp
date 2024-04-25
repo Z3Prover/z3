@@ -3,6 +3,10 @@
   Author: Nikolaj Bjorner, Lev Nachmanson
 */
 
+#ifndef SINGLE_THREAD
+#include <thread>
+#endif
+#include <fstream>
 #include "math/lp/lar_solver.h"
 #include "math/lp/nra_solver.h"
 #include "nlsat/nlsat_solver.h"
@@ -11,6 +15,7 @@
 #include "util/map.h"
 #include "util/uint_set.h"
 #include "math/lp/nla_core.h"
+#include "smt/params/smt_params_helper.hpp"
 
 
 namespace nra {
@@ -156,6 +161,23 @@ struct solver::imp {
             add_term(i);
 
         TRACE("nra", m_nlsat->display(tout));
+
+        smt_params_helper p(m_params);
+        if (p.arith_nl_log()) {
+            static unsigned id = 0;
+            std::stringstream strm;
+
+#ifndef SINGLE_THREAD            
+            std::thread::id this_id = std::this_thread::get_id();
+            strm << "nla_" << this_id << "." << (++id) << ".smt2";
+#else
+            strm << "nla_" << (++id) << ".smt2";
+#endif
+            std::ofstream out(strm.str());
+            m_nlsat->display_smt2(out);
+            out << "(check-sat)\n";
+            out.close();
+        }
 
         lbool r = l_undef;
         try {
