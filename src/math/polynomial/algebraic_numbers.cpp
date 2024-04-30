@@ -2599,6 +2599,7 @@ namespace algebraic_numbers {
                 qm().dec(v);
             }
             else {
+                refine_until_prec(const_cast<numeral&>(a), 1);
                 bqm().floor(qm(), lower(a.to_algebraic()), v);
             }
             m_wrapper.set(b, v);
@@ -2611,6 +2612,7 @@ namespace algebraic_numbers {
                 qm().inc(v);
             }
             else {
+                refine_until_prec(const_cast<numeral&>(a), 1);
                 bqm().ceil(qm(), upper(a.to_algebraic()), v);
             }
             m_wrapper.set(b, v);
