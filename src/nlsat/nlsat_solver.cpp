@@ -2742,10 +2742,8 @@ namespace nlsat {
 
                 while (elim_uncnstr())
                     ;
-
                 while (fm())
                     ;
-
                 if (!solve_eqs())
                     return false;
 
@@ -3017,6 +3015,8 @@ namespace nlsat {
             if (apply_fm_equality(x, clauses, lo, hi))
                 return true;
 
+            return false;
+
             if (!all_solved)
                 return false;
 
@@ -3104,6 +3104,13 @@ namespace nlsat {
             a1 = m_asm.mk_join(a1, a2);
             m_lemma_assumptions = a1;
 
+            polynomial_ref A(l.A), B(l.B);
+           
+            if (m_pm.is_neg(l.A)) {
+                A = -A;
+                B = -B;
+            }
+
             // TODO: this can also replace solve_eqs
             for (auto c : clauses) {
                 if (c->is_removed())
@@ -3114,7 +3121,7 @@ namespace nlsat {
                 m_lemma.reset();
                 bool is_tautology = false;
                 for (literal lit : *c) {
-                    lit = substitute_var(x, l.A, l.B, lit);
+                    lit = substitute_var(x, A, B, lit);
                     m_lemma.push_back(lit);
                     if (lit == true_literal)
                         is_tautology = true;
@@ -3126,7 +3133,7 @@ namespace nlsat {
 
                 IF_VERBOSE(3,
                     if (cls) {
-                        verbose_stream() << "x" << x << " * " << l.A << " = " << l.B << "\n";
+                        m_display_var(verbose_stream(), x) << " * " << l.A << " = " << l.B << "\n";
                         display(verbose_stream(), *c) << " -> ";
                         display(verbose_stream(), *cls) << "\n";
                     });

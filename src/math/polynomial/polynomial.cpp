@@ -6317,6 +6317,27 @@ namespace polynomial {
             return R.mk();
         }        
 
+        // x*q = p
+        // 
+        // md = degree of x in p
+        // P = m0 + ...
+        // m0 = x^dm*m1
+        // m1 * p^dm * q^{md - dm}  
+        // P' = m1 + ...
+        // property would be that x*q = p => P > 0 <=> P' > 0
+        // requires that q > 0
+        // Reasoning:
+        //    P > 0 
+        // <=> { since q > 0 }
+        //    q^md * P > 0
+        // <=>
+        //    q^md*x^dm*m0 + .. > 0
+        // <=>
+        //    q^{md-dm}*(xq)^dm*m0 + ... > 0
+        // <=>
+        //    q^{md-dm}*p^dm + .. > 0
+        // <=>
+        //    P' > 0
         void substitute(polynomial const* r, var x, polynomial const* p, polynomial const* q, polynomial_ref& result) {
             unsigned md = degree(r, x);
             if (md == 0) {
