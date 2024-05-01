@@ -470,6 +470,7 @@ namespace z3 {
         context * m_ctx;
     public:
         object(context & c):m_ctx(&c) {}
+        virtual ~object() = default;
         context & ctx() const { return *m_ctx; }
         Z3_error_code check_error() const { return m_ctx->check_error(); }
         friend void check_context(object const & a, object const & b);
