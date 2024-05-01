@@ -3179,7 +3179,7 @@ namespace z3 {
         probe(context & c, double val):object(c) { Z3_probe r = Z3_probe_const(c, val); check_error(); init(r); }
         probe(context & c, Z3_probe s):object(c) { init(s); }
         probe(probe const & s):object(s) { init(s.m_probe); }
-        ~probe() public override { Z3_probe_dec_ref(ctx(), m_probe); }
+        ~probe() override { Z3_probe_dec_ref(ctx(), m_probe); }
         operator Z3_probe() const { return m_probe; }
         probe & operator=(probe const & s) {
             Z3_probe_inc_ref(s.ctx(), s.m_probe);
