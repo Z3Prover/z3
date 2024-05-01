@@ -3033,7 +3033,7 @@ namespace nlsat {
             var x, ptr_vector<clause>& clauses, 
             vector<bound_constraint>& lo, vector<bound_constraint>& hi) {
 
-            polynomial_ref C(m_pm);
+            polynomial_ref C(m_pm), D(m_pm);
             for (auto c : clauses) 
                 c->set_removed();
 
@@ -3043,7 +3043,8 @@ namespace nlsat {
                     // h.A * x + h.B, h.is_strict; h.A > 0
                     // (l.A x + l.B)*h.A + (h.A x + h.B)*|l.A| >= 0
                     C = m_pm.mul(l.B, h.A);
-                    C = m_pm.sub(C, m_pm.mul(h.B, l.A));
+                    D = m_pm.mul(h.B, l.A);
+                    C = m_pm.sub(C, D);
                     poly* p = C.get();
                     bool is_even = false;
                     m_lemma.reset();
@@ -3101,6 +3102,7 @@ namespace nlsat {
             auto a1 = static_cast<_assumption_set>(l.c->assumptions());
             auto a2 = static_cast<_assumption_set>(h.c->assumptions());
             a1 = m_asm.mk_join(a1, a2);
+            m_lemma_assumptions = a1;
 
             // TODO: this can also replace solve_eqs
             for (auto c : clauses) {
