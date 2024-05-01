@@ -29,7 +29,10 @@ namespace nlsat {
         unsigned         m_size;
         unsigned         m_capacity:31;
         unsigned         m_learned:1;
-        unsigned         m_activity;
+        unsigned         m_active:1;
+        unsigned         m_removed:1;
+        unsigned         m_marked:1;
+        unsigned         m_var_hash;
         assumption_set   m_assumptions;
         literal          m_lits[0];
         static size_t get_obj_size(unsigned num_lits) { return sizeof(clause) + num_lits * sizeof(literal); }
@@ -46,9 +49,15 @@ namespace nlsat {
         literal const * begin() const { return m_lits; }
         literal const * end() const { return m_lits + m_size; }
         literal const * data() const { return m_lits; }
-        void inc_activity() { m_activity++; }
-        void set_activity(unsigned v) { m_activity = v; }
-        unsigned get_activity() const { return m_activity; }
+        void set_active(bool b) { m_active = b; }
+        bool is_active() const { return m_active; }
+        void set_removed() { m_removed = true; }
+        bool is_removed() const { return m_removed; }
+        unsigned var_hash() const { return m_var_hash; }
+        void set_var_hash(unsigned h) { m_var_hash = h; }
+        bool is_marked() const { return m_marked; }
+        void mark() { m_marked = true; }
+        void unmark() { m_marked = false; }
         bool contains(literal l) const;
         bool contains(bool_var v) const;
         void shrink(unsigned num_lits) { SASSERT(num_lits <= m_size); if (num_lits < m_size) { m_size = num_lits; } }

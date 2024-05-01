@@ -25,7 +25,10 @@ namespace nlsat {
         m_size(sz),
         m_capacity(sz),
         m_learned(learned),
-        m_activity(0),
+        m_active(false),
+        m_removed(false),
+        m_marked(false),
+        m_var_hash(0),
         m_assumptions(as) {
         for (unsigned i = 0; i < sz; i++) {
             m_lits[i] = lits[i];
