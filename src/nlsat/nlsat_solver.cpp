@@ -2981,7 +2981,9 @@ namespace nlsat {
                     m_display_var(verbose_stream(), x);
                     display(verbose_stream() << " ", *c) << "\n";
                     bound_constraint l(x, A, B, false, c);
-                    bound_constraint h(x, -A, -B, false, c);
+                    A = -A;
+                    B = -B;
+                    bound_constraint h(x, A, B, false, c);
                     apply_fm_equality(x, clauses, l, h);
                     return true;
                 }
