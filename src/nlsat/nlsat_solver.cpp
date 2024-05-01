@@ -2761,6 +2761,7 @@ namespace nlsat {
         }       
 
         //
+        // Remove unconstrained assertions.
         //
         bool elim_uncnstr() {
             // compute variable occurrences
