@@ -472,7 +472,7 @@ public:
        that was already in the table.
      */
     data const & insert_if_not_there(data const & e) {
-        entry * et;
+        entry * et = nullptr;
         insert_if_not_there_core(e, et);
         return et->get_data();
     }
@@ -482,7 +482,7 @@ public:
        Return the entry that contains e.
     */
     entry * insert_if_not_there2(data const & e) {
-        entry * et;
+        entry * et = nullptr;
         insert_if_not_there_core(e, et);
         return et;
     }
