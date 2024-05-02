@@ -1574,7 +1574,7 @@ namespace nlsat {
         }
 
         void gc() {
-            if (m_learned.size() <= 2*m_clauses.size())
+            if (m_learned.size() <= 4*m_clauses.size())
                 return;
             reset_watches();
             reinit_cache();
@@ -1595,7 +1595,7 @@ namespace nlsat {
 
         unsigned m_next_conflict = 100;
         void log() {
-            if (m_conflicts < m_next_conflict)
+            if (m_conflicts != 1 && m_conflicts < m_next_conflict)
                 return;
             m_next_conflict += 100;
             IF_VERBOSE(2, verbose_stream() << "(nlsat :conflicts " << m_conflicts << " :decisions " << m_decisions << " :propagations " << m_propagations << " :clauses " << m_clauses.size() << " :learned " << m_learned.size() << ")\n");
@@ -1605,7 +1605,7 @@ namespace nlsat {
         lbool search_check() {
             lbool r = l_undef;
             m_conflicts = 0;
-            m_next_conflict = 100;
+            m_next_conflict = 0;
             while (true) {
                 r = search();
                 if (r != l_true) break; 
@@ -3015,7 +3015,7 @@ namespace nlsat {
             if (apply_fm_equality(x, clauses, lo, hi))
                 return true;
 
-            return false;
+            // return false;
 
             if (!all_solved)
                 return false;
