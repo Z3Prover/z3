@@ -837,6 +837,7 @@ namespace polysat {
      *  - y[abw] \not\in [ ceil(lo'/2^k'), ceil(hi'/2^k') [
      *  - ceil(lo/2^k) != ceil(hi/2^k)      ... ensured by side conditions from interval reduction
      *  - ceil(lo'/2^k') != ceil(hi'/2^k')  ... ensured by side conditions from interval reduction
+     *  - ceil(lo/2^k) = lo[w-1:k]  or  ceil(lo/2^k) = lo[w-1:k] + 1  ... which case is ensured by side conditions
      *
      * Case ebw = abw:
      *  - Regular intervals that link up
@@ -1040,6 +1041,8 @@ namespace polysat {
      * where '?' is a placeholder for terms we don't care about.
      *
      *
+     * TODO: maybe here: after.lo[eew] \in [e.lo+1, e.hi+1] ????  (+1 on value level, so needs proper 2^k adjustment)
+     *
      *  before  x[bew] \not\in [?,ceil(hi/2^k)[
      *  after   y[aew] \not\in [ceil(lo/2^k'),?[
      *  e       z[eew] \not\in [?,ceil(t/2^k'')[
@@ -1060,7 +1063,7 @@ namespace polysat {
         //
         // e is the last entry of the hole.
         // we need the constraint:
-        //      e.hi in [ after.lo[ebw] ; before.hi[ebw] [
+        //      e.hi in [ after.lo[eew] ; before.hi[eew] [
         pdd t = e.e->interval.hi();
         pdd lo = after.e->interval.lo();
         pdd hi = before.e->interval.hi();
@@ -1106,9 +1109,8 @@ From ZstJOJYeMR15.smt2
 
 explain_kind conflict
 v0:  v4:5@0 value=16  v0:20@0
-v0[5] := 16 v0[5] [-491520 ; 2^19[ := [17;16[  deps 16 == v0 [5]@0 src
 v0[20] := 1048561 v0 [20*v1 + 21 ; 20*v1 + 1[ := [5;-15[  src -20 <= 20*v1 + -1*v0;
-v0[5] := 16 v0[5] [-491520 ; 2^19[ := [17;16[  deps 16 == v0 [5]@0 src
+v0[5] := 16 v0[5] [-491520 = (2^15*17) ; 2^15*16[ := [17;16[  deps 16 == v0 [5]@0 src
 v0[20] := 1048561 v0 [20*v1 + 21 ; 20*v1 + 1[ := [5;-15[  src -20 <= 20*v1 + -1*v0;
 */
 
@@ -1120,6 +1122,7 @@ v0[20] := 1048561 v0 [20*v1 + 21 ; 20*v1 + 1[ := [5;-15[  src -20 <= 20*v1 + -1*
             t *= rational::power_of_two(aew - eew);
             lo *= rational::power_of_two(aew - eew);
             hi *= rational::power_of_two(aew - eew);
+            NOT_IMPLEMENTED_YET();
 
             // TODO
         }
@@ -1151,6 +1154,14 @@ v0[20] := 1048561 v0 [20*v1 + 21 ; 20*v1 + 1[ := [5;-15[  src -20 <= 20*v1 + -1*
      * Conceptually:
      * - the hole, projected onto lower size ew, must be of size < 2^hole_bits
      * - Encode: ceil(hi/2^k')[ew] - ceil(lo/2^k)[ew] < 2^hole_bits
+     *
+     *
+     * (If aw == bw)
+     * If bew < aew:
+     *    ceil(hi/2^k')[bew] - ceil(lo/2^k)[bew] < 2^hole_bits
+     *    2^k*ceil(hi/2^k') - 2^k*ceil(lo/2^k) < 2^(k+hole_bits)
+     *          (note hole_bits < bew, thus k + hole_bits < k + bew = bw)
+     *
      *
      *
      *
@@ -1216,14 +1227,24 @@ v0[20] := 1048561 v0 [20*v1 + 21 ; 20*v1 + 1[ := [5;-15[  src -20 <= 20*v1 + -1*
 
         if (aw != bw) {
             // TODO: eval bounds?
-            NOT_IMPLEMENTED_YET();
+            // TODO: eval t1 because it is a "high" value, and project/embed into pdd of t2
             return;
+            NOT_IMPLEMENTED_YET();
         }
 
-        if (bew != bw || aew != aw) {
+        if (aew != bew) {
             // TODO: multiply with 2^k appropriately
-            NOT_IMPLEMENTED_YET();
+            SASSERT(aw == bw);
+            if (bew < aew)
+                t1 *= rational::power_of_two(aew - bew);
+            if (aew < bew)
+                t2 *= rational::power_of_two(bew - aew);
             return;
+            NOT_IMPLEMENTED_YET();
+        }
+        if (bew != bw || aew != aw) {
+            return;
+            NOT_IMPLEMENTED_YET();
         }
 
         auto sc = cs.ult(t2 - t1, rational::power_of_two(hole_bits));
