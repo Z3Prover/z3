@@ -231,7 +231,10 @@ namespace polysat {
         unsigned const parity = std::min(lhs_parity, rhs_parity);
         SASSERT(parity < N);  // since at least one side is a non-constant
 
-        if (parity > lhs.offset().parity(N) || parity > rhs.offset().parity(N)) {
+        unsigned const lhs_offset_parity = lhs.offset().parity(N);
+        unsigned const rhs_offset_parity = rhs.offset().parity(N);
+
+        if (lhs_offset_parity < parity || rhs_offset_parity < parity) {
             // 2^k p + a <= 2^k q + b   with 0 <= a < 2^k and 0 <= b < 2^k
             //      --> 2^k p <= 2^k q  if a <= b
             //      --> 2^k p <  2^k q  if a >  b
@@ -246,6 +249,15 @@ namespace polysat {
             }
             // one more round to detect trivial constraints
             return simplify_impl(is_positive, lhs, rhs);
+        }
+
+        // detect always-false constraints like these:
+        //      4*v0 > -4       (mod 2^4)
+        //      8*v0 > 8        (mod 2^4)
+        if (rhs.is_val() && rhs.val() + rational::power_of_two(lhs_parity) >= rational::power_of_two(N)) {
+            SASSERT(lhs_offset_parity >= lhs_parity);  // would have been adapted in previous block otherwise
+            lhs = 0;
+            rhs = 0;
         }
     } // simplify_impl
 
