@@ -28,7 +28,8 @@ namespace polysat {
                 vars().push_back(v);
 
         switch (c) {
-        case code::and_op:
+        case code::and_op: Z3_fallthrough;
+        case code::or_op:
             if (p.index() > q.index())
                 std::swap(p, q);
             break;
