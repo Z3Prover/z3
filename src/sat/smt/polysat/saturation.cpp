@@ -316,6 +316,8 @@ namespace polysat {
         SASSERT(i.rhs().is_zero() && j.rhs().is_zero() && !i.is_strict() && !j.is_strict());
         pdd a = i.lhs();
         pdd b = j.lhs();
+        if (a == b)
+            return;
         unsigned degree_a = a.degree();
         unsigned degree_b = b.degree();
         pdd r = a;
@@ -326,9 +328,9 @@ namespace polysat {
             return;
         // Only keep result if the degree in c2 was reduced.
         // (this condition might be too strict, but we use it for now to prevent looping)
-        if (b.degree(v) <= r.degree(v))
+        if (b.degree(v) < r.degree(v))
             return;
-        if (a.degree(v) <= r.degree(v))
+        if (a.degree(v) < r.degree(v))
             return;
 
         add_clause("ax + b = 0 & cx + d = 0 ==> cb - da = 0", { i.dep(), j.dep(), C.eq(r) }, true);
