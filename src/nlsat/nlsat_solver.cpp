@@ -220,12 +220,19 @@ namespace nlsat {
         unsigned               m_max_conflicts;
         unsigned               m_lemma_count;
 
+        struct stats {
+            unsigned               m_simplifications;
+            unsigned               m_restarts;
+            unsigned               m_conflicts;
+            unsigned               m_propagations;
+            unsigned               m_decisions;
+            unsigned               m_stages;
+            unsigned               m_irrational_assignments; // number of irrational witnesses
+            void reset() { memset(this, 0, sizeof(*this)); }
+            stats() { reset(); }
+        };
         // statistics
-        unsigned               m_conflicts;
-        unsigned               m_propagations;
-        unsigned               m_decisions;
-        unsigned               m_stages;
-        unsigned               m_irrational_assignments; // number of irrational witnesses
+        stats                  m_stats;
 
         imp(solver& s, ctx& c):
             m_ctx(c),
@@ -594,7 +601,7 @@ namespace nlsat {
         }
 
 
-        ineq_atom* mk_ineq_atom(atom::kind k, unsigned sz, poly * const * ps, bool const * is_even, bool& is_new) {
+        ineq_atom* mk_ineq_atom(atom::kind k, unsigned sz, poly * const * ps, bool const * is_even, bool& is_new, bool simplify) {
             SASSERT(sz >= 1);
             SASSERT(k == atom::LT || k == atom::GT || k == atom::EQ);
             int sign = 1;
@@ -609,6 +616,24 @@ namespace nlsat {
                 var curr_max = max_var(p.get());
                 if (curr_max > max || max == null_var)
                     max = curr_max;
+                if (sz == 1 && simplify) {
+                    if (sign < 0)
+                        k = atom::flip(k);
+                    sign = 1;
+                    polynomial::manager::ineq_type t;
+                    switch (k) {
+                    case atom::EQ: t = polynomial::manager::ineq_type::EQ; break;
+                    case atom::LT: t = polynomial::manager::ineq_type::LT; break;
+                    case atom::GT: t = polynomial::manager::ineq_type::GT; break;
+                    default: UNREACHABLE(); break;
+                    }
+                    polynomial::var_vector vars;
+                    m_pm.vars(p, vars);
+                    bool all_int = all_of(vars, [&](var x) { return is_int(x); });
+                    if (!all_int) 
+                        t = polynomial::manager::ineq_type::EQ;                    
+                    m_pm.gcd_simplify(p, t);
+                }
                 uniq_ps.push_back(m_cache.mk_unique(p));
                 TRACE("nlsat_table_bug", tout << "p: " << p << ", uniq: " << uniq_ps.back() << "\n";);
             }
@@ -633,9 +658,9 @@ namespace nlsat {
             return atom;
         }
 
-        bool_var mk_ineq_atom(atom::kind k, unsigned sz, poly * const * ps, bool const * is_even) {
+        bool_var mk_ineq_atom(atom::kind k, unsigned sz, poly * const * ps, bool const * is_even, bool simplify = false) {
             bool is_new = false;
-            ineq_atom* atom = mk_ineq_atom(k, sz, ps, is_even, is_new);
+            ineq_atom* atom = mk_ineq_atom(k, sz, ps, is_even, is_new, simplify);
             if (!is_new) {
                 return atom->bvar();
             }
@@ -648,7 +673,7 @@ namespace nlsat {
             }
         }
 
-        literal mk_ineq_literal(atom::kind k, unsigned sz, poly * const * ps, bool const * is_even) {
+        literal mk_ineq_literal(atom::kind k, unsigned sz, poly * const * ps, bool const * is_even, bool simplify = false) {
             SASSERT(k == atom::LT || k == atom::GT || k == atom::EQ);
             bool is_const = true;
             polynomial::manager::scoped_numeral cnst(m_pm.m());
@@ -676,7 +701,7 @@ namespace nlsat {
                 if (m_pm.m().is_zero(cnst) && k == atom::EQ) return true_literal;
                 return false_literal;
             }
-            return literal(mk_ineq_atom(k, sz, ps, is_even), false);            
+            return literal(mk_ineq_atom(k, sz, ps, is_even, simplify), false);            
         }
 
         bool_var mk_root_atom(atom::kind k, var x, unsigned i, poly * p) {
@@ -879,13 +904,13 @@ namespace nlsat {
                     for (literal lit : *c) {
                         lits.push_back(literal(tr[lit.var()], lit.sign()));
                     }
-                    checker.mk_clause(lits.size(), lits.data(), nullptr);
+                    checker.mk_external_clause(lits.size(), lits.data(), nullptr);
                 }
             }
             for (unsigned i = 0; i < n; ++i) {
                 literal lit = cls[i];
                 literal nlit(tr[lit.var()], !lit.sign());
-                checker.mk_clause(1, &nlit, nullptr);
+                checker.mk_external_clause(1, &nlit, nullptr);
             }
             lbool r = checker.check();
             if (r == l_true) {
@@ -973,7 +998,7 @@ namespace nlsat {
             return cls;
         }
 
-        void mk_clause(unsigned num_lits, literal const * lits, assumption a) {
+        void mk_external_clause(unsigned num_lits, literal const * lits, assumption a) {
             _assumption_set as = nullptr;
             if (a != nullptr)
                 as = m_asm.mk_leaf(a);
@@ -1170,9 +1195,9 @@ namespace nlsat {
             SASSERT(j != null_justification);
             SASSERT(!j.is_null());
             if (j.is_decision())
-                m_decisions++;
+                m_stats.m_decisions++;
             else
-                m_propagations++;
+                m_stats.m_propagations++;
             bool_var b   = l.var();
             m_bvalues[b] = to_lbool(!l.sign());
             m_levels[b]  = m_scope_lvl;
@@ -1472,7 +1497,7 @@ namespace nlsat {
            \brief Create a new stage. See Dejan and Leo's paper.
         */
         void new_stage() {
-            m_stages++;
+            m_stats.m_stages++;
             save_new_stage_trail();
             if (m_xk == null_var)
                 m_xk = 0;
@@ -1492,7 +1517,7 @@ namespace nlsat {
                   tout << "assigning "; m_display_var(tout, m_xk) << "(x" << m_xk << ") -> " << w << "\n";);
             TRACE("nlsat_root", tout << "value as root object: "; m_am.display_root(tout, w); tout << "\n";);
             if (!m_am.is_rational(w))
-                m_irrational_assignments++;
+                m_stats.m_irrational_assignments++;
             m_assignment.set_core(m_xk, w);
         }
 
@@ -1556,7 +1581,7 @@ namespace nlsat {
                         break;
                     if (!resolve(*conflict_clause)) 
                         return l_false;                    
-                    if (m_conflicts >= m_max_conflicts)
+                    if (m_stats.m_conflicts >= m_max_conflicts)
                         return l_undef;
                     log();
                 }
@@ -1595,20 +1620,27 @@ namespace nlsat {
 
         unsigned m_next_conflict = 100;
         void log() {
-            if (m_conflicts != 1 && m_conflicts < m_next_conflict)
+            if (m_stats.m_conflicts != 1 && m_stats.m_conflicts < m_next_conflict)
                 return;
             m_next_conflict += 100;
-            IF_VERBOSE(2, verbose_stream() << "(nlsat :conflicts " << m_conflicts << " :decisions " << m_decisions << " :propagations " << m_propagations << " :clauses " << m_clauses.size() << " :learned " << m_learned.size() << ")\n");
+            IF_VERBOSE(2, verbose_stream() << "(nlsat :conflicts " << m_stats.m_conflicts 
+                << " :decisions " << m_stats.m_decisions 
+                << " :propagations " << m_stats.m_propagations 
+                << " :clauses " << m_clauses.size() 
+                << " :learned " << m_learned.size() << ")\n");
         }
 
 
         lbool search_check() {
             lbool r = l_undef;
-            m_conflicts = 0;
+            m_stats.m_conflicts = 0;
+            m_stats.m_restarts = 0;
             m_next_conflict = 0;
             while (true) {
                 r = search();
-                if (r != l_true) break; 
+                if (r != l_true) 
+                    break; 
+                ++m_stats.m_restarts;
                 vector<std::pair<var, rational>> bounds;                
 
                 for (var x = 0; x < num_vars(); x++) {
@@ -1631,11 +1663,22 @@ namespace nlsat {
                         bounds.push_back(std::make_pair(x, lo));
                     }
                 }
-                if (bounds.empty()) break;
+                if (bounds.empty()) 
+                    break;
 
                 gc();
+                if (m_stats.m_restarts % 10 == 0) {
+                    if (m_reordered)
+                        restore_order();
+                    apply_reorder();
+                }
+
                 init_search();
-                IF_VERBOSE(2, verbose_stream() << "(nlsat-b&b :conflicts " << m_conflicts << " :decisions " << m_decisions << " :propagations " << m_propagations << " :clauses " << m_clauses.size() << " :learned " << m_learned.size() << ")\n");
+                IF_VERBOSE(2, verbose_stream() << "(nlsat-b&b :conflicts " << m_stats.m_conflicts 
+                    << " :decisions " << m_stats.m_decisions 
+                    << " :propagations " << m_stats.m_propagations 
+                    << " :clauses " << m_clauses.size() 
+                    << " :learned " << m_learned.size() << ")\n");
                 for (auto const& b : bounds) {
                     var x = b.first;
                     rational lo = b.second;
@@ -1653,6 +1696,7 @@ namespace nlsat {
                     
                     // perform branch and bound
                     clause * cls = mk_clause(m_lemma.size(), m_lemma.data(), true, nullptr);
+                    IF_VERBOSE(4, display(verbose_stream(), *cls) << "\n");
                     if (cls) {
                         TRACE("nlsat", display(tout << "conflict " << lo << " " << hi, *cls); tout << "\n";);
                     }
@@ -1661,35 +1705,40 @@ namespace nlsat {
             return r;
         }
 
+        bool m_reordered = false;
+
+        void apply_reorder() {
+            m_reordered = false;
+            if (!can_reorder())
+                ;
+            else if (m_random_order) {
+                shuffle_vars();
+                m_reordered = true;
+            }
+            else if (m_reorder) {
+                heuristic_reorder();
+                m_reordered = true;
+            }
+        }
+
         lbool check() {
             TRACE("nlsat_smt2", display_smt2(tout););
             TRACE("nlsat_fd", tout << "is_full_dimensional: " << is_full_dimensional() << "\n";);
             init_search();
             m_explain.set_full_dimensional(is_full_dimensional());
-            bool reordered = false;
+
+            apply_reorder();
 
             if (!m_incremental && m_inline_vars) {
-                if (!simplify()) 
+                if (!simplify())
                     return l_false;
             }
-            
-            if (!can_reorder()) {
 
-            }
-            else if (m_random_order) {
-                shuffle_vars();
-                reordered = true;
-            }
-            else if (m_reorder) {
-                heuristic_reorder();
-                reordered = true;
-            }
             sort_watched_clauses();
             lbool r = search_check();
             CTRACE("nlsat_model", r == l_true, tout << "model before restore order\n"; display_assignment(tout););
-            if (reordered) {
-                restore_order();
-            }
+            if (m_reordered) 
+                restore_order();            
             CTRACE("nlsat_model", r == l_true, tout << "model\n"; display_assignment(tout););
             CTRACE("nlsat", r == l_false, display(tout << "unsat\n"););
             SASSERT(r != l_true || check_satisfied(m_clauses));
@@ -1713,7 +1762,7 @@ namespace nlsat {
             unsigned sz = assumptions.size();
             literal const* ptr = assumptions.data();
             for (unsigned i = 0; i < sz; ++i) {
-                mk_clause(1, ptr+i, (assumption)(ptr+i));
+                mk_external_clause(1, ptr+i, (assumption)(ptr+i));
             }
             display_literal_assumption dla(*this, assumptions);
             scoped_display_assumptions _scoped_display(*this, dla);
@@ -1910,6 +1959,8 @@ namespace nlsat {
                 for (unsigned i = 0; i < sz; i++) {
                     literal l = m_lazy_clause[i];
                     if (l.var() != b) {
+                        if (value(l) != l_false)
+                            display(verbose_stream() << value(l) << " ", 1, &l);
                         SASSERT(value(l) == l_false || m_rlimit.is_canceled());
                     }
                     else {
@@ -2052,7 +2103,7 @@ namespace nlsat {
             SASSERT(check_marks());
             TRACE("nlsat_proof", tout << "STARTING RESOLUTION\n";);
             TRACE("nlsat_proof_sk", tout << "STARTING RESOLUTION\n";);
-            m_conflicts++;
+            m_stats.m_conflicts++;
             TRACE("nlsat", tout << "resolve, conflicting clause:\n"; display(tout, *conflict_clause) << "\n";
                   tout << "xk: "; if (m_xk != null_var) m_display_var(tout, m_xk); else tout << "<null>"; tout << "\n";
                   tout << "scope_lvl: " << scope_lvl() << "\n";
@@ -2197,8 +2248,7 @@ namespace nlsat {
                     VERIFY(process_clause(*conflict_clause, true));
                     return true;
                 }
-                new_cls = mk_clause(sz, m_lemma.data(), true, m_lemma_assumptions.get());
-                
+                new_cls = mk_clause(sz, m_lemma.data(), true, m_lemma_assumptions.get());                
             }
             NLSAT_VERBOSE(display(verbose_stream(), *new_cls) << "\n";);
             if (!process_clause(*new_cls, true)) {
@@ -2303,19 +2353,17 @@ namespace nlsat {
         // -----------------------
 
         void collect_statistics(statistics & st) {
-            st.update("nlsat conflicts", m_conflicts);
-            st.update("nlsat propagations", m_propagations);
-            st.update("nlsat decisions", m_decisions);
-            st.update("nlsat stages", m_stages);
-            st.update("nlsat irrational assignments", m_irrational_assignments);
+            st.update("nlsat conflicts", m_stats.m_conflicts);
+            st.update("nlsat propagations", m_stats.m_propagations);
+            st.update("nlsat decisions", m_stats.m_decisions);
+            st.update("nlsat restarts", m_stats.m_restarts);
+            st.update("nlsat stages", m_stats.m_stages);
+            st.update("nlsat simplifications", m_stats.m_simplifications);
+            st.update("nlsat irrational assignments", m_stats.m_irrational_assignments);
         }
 
         void reset_statistics() {
-            m_conflicts              = 0;
-            m_propagations           = 0;
-            m_decisions              = 0;
-            m_stages                 = 0;
-            m_irrational_assignments = 0;
+            m_stats.reset();
         }
 
         // -----------------------
@@ -2327,6 +2375,7 @@ namespace nlsat {
         struct var_info_collector {
             pmanager &          pm;
             atom_vector const & m_atoms;
+            var_vector          m_shuffle;
             unsigned_vector     m_max_degree;
             unsigned_vector     m_num_occs;
 
@@ -2402,7 +2451,7 @@ namespace nlsat {
                     return false;
                 if (m_info.m_num_occs[x] > m_info.m_num_occs[y])
                     return true;
-                return x < y;
+                return m_info.m_shuffle[x] < m_info.m_shuffle[y];
             }
         };
 
@@ -2412,11 +2461,12 @@ namespace nlsat {
             var_info_collector collector(m_pm, m_atoms, num);
             collector.collect(m_clauses);
             collector.collect(m_learned);
+            init_shuffle(collector.m_shuffle);
             TRACE("nlsat_reorder", collector.display(tout, m_display_var););
             var_vector new_order;
-            for (var x = 0; x < num; x++) {
+            for (var x = 0; x < num; x++) 
                 new_order.push_back(x);
-            }
+            
             std::sort(new_order.begin(), new_order.end(), reorder_lt(collector));
             TRACE("nlsat_reorder", 
                   tout << "new order: "; for (unsigned i = 0; i < num; i++) tout << new_order[i] << " "; tout << "\n";);
@@ -2429,20 +2479,23 @@ namespace nlsat {
             SASSERT(check_invariant());
         }
 
-        void shuffle_vars() {
-            var_vector p;
+        void init_shuffle(var_vector& p) {
             unsigned num = num_vars();
-            for (var x = 0; x < num; x++) {
+            for (var x = 0; x < num; x++)
                 p.push_back(x);
-            }
+
             random_gen r(++m_random_seed);
             shuffle(p.size(), p.data(), r);
+        }
+
+        void shuffle_vars() {
+            var_vector p;
+            init_shuffle(p);
             reorder(p.size(), p.data());
         }
 
         bool can_reorder() const {
-            return m_bounds.empty() 
-                && all_of(m_learned, [&](clause* c) { return !has_root_atom(*c); }) 
+            return all_of(m_learned, [&](clause* c) { return !has_root_atom(*c); }) 
                 && all_of(m_clauses, [&](clause* c) { return !has_root_atom(*c); });
         }
 
@@ -2499,6 +2552,8 @@ namespace nlsat {
             }
 #endif            
             m_pm.rename(sz, p);
+            for (auto& b : m_bounds) 
+                b.x = p[b.x];                                   
             TRACE("nlsat_bool_assignment_bug", tout << "before reinit cache\n"; display_bool_assignment(tout););
             reinit_cache();
             m_assignment.swap(new_assignment);
@@ -2740,16 +2795,23 @@ namespace nlsat {
             unsigned sz = m_clauses.size();
             while (true) {
 
+                subsumption_simplify();
+
                 while (elim_uncnstr())
                     ;
+
+                simplify_literals();
+
                 while (fm())
                     ;
                 if (!solve_eqs())
                     return false;
-
-                subsumption_simplify();
+                
                 if (m_clauses.size() >= sz)
                     break;
+
+                split_factors();
+
                 sz = m_clauses.size();
             }
 
@@ -2757,6 +2819,151 @@ namespace nlsat {
             
             return true;
         }       
+
+        //
+        // Replace unit literals p*q > 0 by clauses.
+        // 
+        void split_factors() {
+            auto sz = m_clauses.size();
+            for (unsigned i = 0; i < sz; ++i) {
+                auto& c = *m_clauses[i];
+                if (c.size() != 1)
+                    continue;
+                auto lit = c[0];
+                auto a1 = m_atoms[lit.var()];
+                if (!a1)
+                    continue;
+                auto& a = *to_ineq_atom(a1);
+                if (a.size() != 2)
+                    continue;
+
+                auto* p = a.p(0);
+                auto* q = a.p(1);
+                auto is_evenp = a.is_even(0);
+                auto is_evenq = a.is_even(1);
+
+                auto asum = static_cast<_assumption_set>(c.assumptions());
+                literal lits[2];
+
+                c.set_removed();
+                ++m_stats.m_simplifications;
+                switch (a.get_kind()) {
+                case atom::EQ: {
+                    auto l1 = mk_ineq_literal(atom::EQ, 1, &p, &is_evenp, false);
+                    auto l2 = mk_ineq_literal(atom::EQ, 1, &q, &is_evenq, false);
+                    if (lit.sign()) {
+                        lits[0] = ~l1;
+                        mk_clause(1, lits, false, asum);
+                        lits[0] = ~l2;
+                        mk_clause(1, lits, false, asum);
+                    }
+                    else {
+                        lits[0] = l1;
+                        lits[1] = l2;
+                        mk_clause(2, lits, false, asum);
+                    }
+                    break;
+                }
+                case atom::LT:
+                    if (lit.sign()) {
+                        // p*q >= 0 <=> (p <= 0 => q <= 0) & (q <= 0 => p <= 0)
+                        // (p > 0 or !(q > 0)) & (q > 0 or !(p > 0))
+
+                        auto l1 = mk_ineq_literal(atom::GT, 1, &p, &is_evenp, false);
+                        auto l2 = mk_ineq_literal(atom::GT, 1, &q, &is_evenq, false);
+                        lits[0] = l1;
+                        lits[1] = ~l2;
+                        mk_clause(2, lits, false, asum);
+                        lits[0] = ~l1;
+                        lits[1] = l2;
+                        mk_clause(2, lits, false, asum);
+                    }
+                    else {
+                        // p*q < 0
+                        // (p > 0 & q < 0) or (q > 0 & p < 0)
+                        // (p > 0 or q > 0) and (p < 0 or q < 0)
+                        auto pgt = mk_ineq_literal(atom::GT, 1, &p, &is_evenp, false);
+                        auto plt = mk_ineq_literal(atom::LT, 1, &p, &is_evenp, false);
+                        auto qgt = mk_ineq_literal(atom::GT, 1, &q, &is_evenq, false);
+                        auto qlt = mk_ineq_literal(atom::LT, 1, &q, &is_evenq, false);
+                        lits[0] = pgt;
+                        lits[1] = qgt;
+                        mk_clause(2, lits, false, asum);
+                        lits[0] = plt;
+                        lits[1] = qlt;
+                        mk_clause(2, lits, false, asum);
+                    }
+                    break;
+                case atom::GT: {
+                    auto pgt = mk_ineq_literal(atom::GT, 1, &p, &is_evenp, false);
+                    auto plt = mk_ineq_literal(atom::LT, 1, &p, &is_evenp, false);
+                    auto qgt = mk_ineq_literal(atom::GT, 1, &q, &is_evenq, false);
+                    auto qlt = mk_ineq_literal(atom::LT, 1, &q, &is_evenq, false);
+                    if (lit.sign()) {
+                        // p*q <= 0
+                        // (p >= 0 => q <= 0) & 
+                        // (p < 0 or !(q > 0)) & (q < 0 or !(p > 0))
+
+                        lits[0] = plt;
+                        lits[1] = ~qgt;
+                        mk_clause(2, lits, false, asum);
+                        lits[0] = qlt;
+                        lits[1] = ~plt;
+                        mk_clause(2, lits, false, asum);
+                    }
+                    else {
+                        // p*q > 0
+                        // (p > 0 or q < 0) & (p < 0 or q > 0)
+                        lits[0] = plt;
+                        lits[1] = qgt;
+                        mk_clause(2, lits, false, asum);
+                        lits[0] = qlt;
+                        lits[1] = plt;
+                        mk_clause(2, lits, false, asum);
+                    }
+                    break;
+                }
+                }
+            }
+            cleanup_removed();
+        }
+        
+        //
+        // Apply gcd simplification to literals
+        // 
+        void simplify_literals() {
+            u_map<literal> b2l;
+            scoped_literal_vector lits(m_solver);
+            polynomial_ref_vector factors(m_pm);
+            ptr_buffer<poly> ps;
+            buffer<bool> is_even;
+            unsigned num_atoms = m_atoms.size();
+            for (unsigned j = 0; j < num_atoms; ++j) {
+                atom* a1 = m_atoms[j];
+                if (a1 && a1->is_ineq_atom()) {
+                    ineq_atom const& a = *to_ineq_atom(a1);
+                    ps.reset();
+                    is_even.reset();
+                    for (unsigned i = 0; i < a.size(); ++i) {
+                        factors.reset();
+                        m_cache.factor(a.p(i), factors);
+                        for (auto q : factors) {
+                            ps.push_back(q);
+                            is_even.push_back(a.is_even(i));
+                        }
+                    }
+                    literal l = mk_ineq_literal(a.get_kind(), ps.size(), ps.data(), is_even.data(), true);
+                    if (l == null_literal)
+                        continue;
+                    lits.push_back(l);
+                    if (a.m_bool_var != l.var()) {
+                        IF_VERBOSE(3, display(verbose_stream() << "simplify ", l) << "\n");
+                        b2l.insert(a.m_bool_var, l);
+                    }
+                }
+            }
+            update_clauses(b2l, nullptr);
+        }
 
         //
         // Remove unconstrained assertions.
@@ -2777,6 +2984,7 @@ namespace nlsat {
                     continue;
                 if (!is_unconstrained(v, c))
                     continue;
+                ++m_stats.m_simplifications;
                 c.set_removed();
                 to_delete.push_back(&c);
             }
@@ -2874,16 +3082,17 @@ namespace nlsat {
             compute_occurs();
 
             for (unsigned v = m_var_occurs.size(); v-- > 0; ) 
-                apply_fm(v, m_var_occurs[v]);            
+                apply_fm(v, m_var_occurs[v]);  
 
             return cleanup_removed();
         }
 
-        // progression of features
-        // unit literals
-        // single occurrence of x in C
-        // (x <= t or x <= s or C) == (x <= max(s, t) or C)
-
+        // progression of possible features:
+        // . Current: unit literals
+        // . Either lower or upper bound is unit coefficient
+        // . single occurrence of x in C
+        // . (x <= t or x <= s or C) == (x <= max(s, t) or C)
+        //
 
         bool is_invertible(var x, polynomial_ref & A) {
             if (!m_pm.is_const(A))
@@ -2974,10 +3183,8 @@ namespace nlsat {
                     break;
                 case atom::EQ: {
                     all_solved = false;
-                    continue;
-                    // unsound:
-                    m_display_var(verbose_stream(), x);
-                    display(verbose_stream() << " ", *c) << "\n";
+                    if (!m_pm.is_const(B))
+                        continue;
                     bound_constraint l(x, A, B, false, c);
                     A = -A;
                     B = -B;
@@ -3049,16 +3256,16 @@ namespace nlsat {
                     bool is_even = false;
                     m_lemma.reset();
                     if (l.is_strict || h.is_strict) 
-                        m_lemma.push_back(mk_ineq_literal(atom::GT, 1, &p, &is_even));
+                        m_lemma.push_back(mk_ineq_literal(atom::GT, 1, &p, &is_even, true));
                     else 
-                        m_lemma.push_back(~mk_ineq_literal(atom::LT, 1, &p, &is_even));
+                        m_lemma.push_back(~mk_ineq_literal(atom::LT, 1, &p, &is_even, true));
                     if (m_lemma[0] == true_literal)
                         continue;
                     auto a1 = static_cast<_assumption_set>(l.c->assumptions());
                     auto a2 = static_cast<_assumption_set>(h.c->assumptions());
                     auto cls = mk_clause(m_lemma.size(), m_lemma.data(), false, m_asm.mk_join(a1, a2));
                     if (cls)
-                        compute_occurs(*cls);
+                        compute_occurs(*cls);                    
                     IF_VERBOSE(3, display(verbose_stream() << "add resolvent ", *cls) << "\n");
                 }
             }
@@ -3088,6 +3295,7 @@ namespace nlsat {
                     l.A = -l.A;
                     l.B = -l.B;
                     apply_fm_equality(x, clauses, l, h);
+                    ++m_stats.m_simplifications;
                     return true;
                 }
                 l.A = -l.A;
@@ -3102,7 +3310,6 @@ namespace nlsat {
             auto a1 = static_cast<_assumption_set>(l.c->assumptions());
             auto a2 = static_cast<_assumption_set>(h.c->assumptions());
             a1 = m_asm.mk_join(a1, a2);
-            m_lemma_assumptions = a1;
 
             polynomial_ref A(l.A), B(l.B);
            
@@ -3142,26 +3349,59 @@ namespace nlsat {
             }
             // track updates for model reconstruction
             m_bounds.push_back(l);
-            m_bounds.push_back(h);           
+            m_bounds.push_back(h);    
+            ++m_stats.m_simplifications;
         }
 
+        bool unit_subsumption_simplify(clause& src, clause& c) {
+            if (src.size() != 1)
+                return false;
+            auto u = src[0];
+            for (auto lit : c) {
+                if (subsumes(u, ~lit)) {
+                    auto a1 = static_cast<_assumption_set>(c.assumptions());
+                    auto a2 = static_cast<_assumption_set>(src.assumptions());
+                    auto a = m_asm.mk_join(a1, a2);
+                    literal_vector lits;
+                    for (auto lit2 : c)
+                        if (lit2 != lit)
+                            lits.push_back(lit2);
+                    auto cls = mk_clause(lits.size(), lits.data(), false, a);
+                    if (cls)
+                        compute_occurs(*cls);
+                    return true;
+                }
+            }
+            return false;
+        }
+        
         //
         // Subsumption simplification
-        //
+        // 
+        // Remove D if C subsumes D
+        //                
+        // Unit subsumption resolution
+        // u is a unit literal (lit or C) is a clause
+        // u => ~lit, then simplify (lit or C) to C
+        // 
         void subsumption_simplify() {
             compute_occurs();
             for (unsigned v = m_var_occurs.size(); v-- > 0; ) {
                 auto& clauses = m_var_occurs[v];
-                for (auto c : clauses) {
+                unsigned sz = clauses.size();
+                for (unsigned i = 0; i < sz; ++i) {
+                    auto c = clauses[i];
                     if (c->is_marked() || c->is_removed())
                         continue;
-                    c->mark();
-                    for (auto c2 : clauses) {
+                    c->mark();                    
+                    for (unsigned j = 0; j < sz; ++j) {
+                        auto c2 = clauses[j];
                         if (c == c2 || c2->is_removed())
                             continue;
-                        if (subsumes(*c, *c2)) {
+                        if (subsumes(*c, *c2) || unit_subsumption_simplify(*c, *c2)) {
                             IF_VERBOSE(3, display(verbose_stream() << "subsumes ", *c);
                             display(verbose_stream() << " ", *c2) << "\n");
+                            ++m_stats.m_simplifications;
                             c2->set_removed();
                         }
                     }
@@ -3274,6 +3514,7 @@ namespace nlsat {
                         del_clause(c, m_clauses);
                         TRACE("nlsat", display(tout << "simplified\n"););
                         change = true;
+                        ++m_stats.m_simplifications;
                         break;
                     }
                 }
@@ -3426,7 +3667,7 @@ namespace nlsat {
             }
             if (!change)
                 return null_literal;                
-            return mk_ineq_literal(k, ps.size(), ps.data(), even.data());
+            return mk_ineq_literal(k, ps.size(), ps.data(), even.data(), true);
         }
 
         bool substitute_var(var x, poly* p, poly* q, clause& src) {
@@ -3446,19 +3687,23 @@ namespace nlsat {
                     }
                 }
             }
-            return update_clauses(b2l, src);
+            
+            return update_clauses(b2l, &src);
         }
 
 
-        bool update_clauses(u_map<literal> const& b2l, clause& src) {
+        bool update_clauses(u_map<literal> const& b2l, clause* src) {
             bool is_sat = true;
             literal_vector lits;
             clause_vector to_delete;
             unsigned n = m_clauses.size();
-            auto a1 = static_cast<_assumption_set>(src.assumptions()); 
+            _assumption_set a1 = nullptr;
+            if (src) 
+                a1 = static_cast<_assumption_set>(src->assumptions());
+            
             for (unsigned i = 0; i < n; ++i) {
                 clause* c = m_clauses[i];
-                if (c == &src)
+                if (c == src)
                     continue;
                 lits.reset();
                 bool changed = false;
@@ -4501,7 +4746,7 @@ namespace nlsat {
     }
         
     void solver::mk_clause(unsigned num_lits, literal * lits, assumption a) {
-        return m_imp->mk_clause(num_lits, lits, a);
+        return m_imp->mk_external_clause(num_lits, lits, a);
     }
 
     std::ostream& solver::display(std::ostream & out) const {

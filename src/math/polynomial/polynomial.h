@@ -285,7 +285,8 @@ namespace polynomial {
         /**
            \brief Normalize coefficients by dividing by their gcd
         */
-        void gcd_simplify(polynomial* p);
+        enum ineq_type { EQ, LT, GT };
+        void gcd_simplify(polynomial_ref& p, ineq_type t);
 
         /**
            \brief Return true if \c m is the unit monomial.

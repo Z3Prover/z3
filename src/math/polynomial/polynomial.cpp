@@ -2504,30 +2504,124 @@ namespace polynomial {
             return p;
         }
 
-        void gcd_simplify(polynomial * p) {
-            if (m_manager.finite()) return;
+        void gcd_simplify(polynomial_ref& p, manager::ineq_type t) {
             auto& m = m_manager.m();
             unsigned sz = p->size();
             if (sz == 0) 
                 return;
             unsigned g = 0;
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; i++) {                
                 if (!m.is_int(p->a(i))) {
+                    gcd_simplify_slow(p, t);
                     return;
                 }
+                if (t != EQ && is_unit(p->m(i)))
+                    continue;
                 int j = m.get_int(p->a(i));
-                if (j == INT_MIN || j == 1 || j == -1)
+                if (j == INT_MIN) {
+                    gcd_simplify_slow(p, t);
+                    return;
+                }
+                if (j == 1 || j == -1)
                     return;
                 g = u_gcd(abs(j), g);
                 if (g == 1) 
                     return;
             }
-            scoped_mpz r(m), gg(m);
+            scoped_mpz gg(m);
             m.set(gg, g);
-            for (unsigned i = 0; i < sz; ++i) {
-                m.div_gcd(p->a(i), gg, r);
-                m.set(p->a(i), r);
+            apply_gcd_simplify(gg, p, t);            
+        }
+
+        void apply_gcd_simplify(mpz & g, polynomial_ref& p, manager::ineq_type t) {
+           
+            auto& m = m_manager.m();
+
+//            m.display(verbose_stream() << "gcd ", g);
+//            p->display(verbose_stream() << "\n", m_manager, false);
+            char const* tt = "";
+            switch (t) {
+            case ineq_type::GT: tt = ">"; break;
+            case ineq_type::LT: tt = "<"; break;
+            case ineq_type::EQ: tt = "="; break;
             }
+//            verbose_stream() << " " << tt << " 0\n ->\n";
+            scoped_mpz r(m);
+            unsigned sz = p->size();
+            bool has_zero = false;
+            for (unsigned i = 0; i < sz; ++i) {
+                if (t != EQ && is_unit(p->m(i))) {
+                    scoped_mpz one(m);
+                    m.set(one, 1);
+                    if (t == GT) {
+                        // p - 2 - 1 >= 0
+                        // p div 2 + floor((-2 - 1 ) / 2) >= 0
+                        // p div 2 + floor(-3 / 2) >= 0
+                        // p div 2 - 2 >= 0
+                        // p div 2 - 1 > 0
+                        // 
+                        // p + k > 0
+                        // p + k - 1 >= 0
+                        // p div g + (k - 1) div g >= 0
+                        // p div g + (k - 1) div g + 1 > 0
+                        m.sub(p->a(i), one, r);
+                        bool is_neg = m.is_neg(r);
+                        if (is_neg) {
+                            m.neg(r);
+                            m.add(r, g, r);
+                            m.sub(r, one, r);
+                            m.div_gcd(r, g, r);
+                            m.neg(r);
+                        }
+                        else {
+                            m.div_gcd(r, g, r);
+                        }
+                        m.add(r, one, r);
+                    }
+                    else {
+                        // p + k < 0 
+                        // p + k + 1 <= 0
+                        // p div g + (k + 1 + g - 1) div g <= 0
+                        // p div g + (k + 1 + g - 1) div g - 1 < 0
+                        m.add(p->a(i), g, r);
+                        m.div_gcd(r, g, r);
+                        m.sub(r, one, r);
+                    }
+                }
+                else {
+                    m.div_gcd(p->a(i), g, r);                    
+                }
+                m.set(p->a(i), r);
+                if (m.is_zero(r))
+                    has_zero = true;
+            }
+            if (has_zero) {
+                m_som_buffer.reset();
+                for (unsigned i = 0; i < sz; ++i) 
+                    if (!m.is_zero(p->a(i)))
+                        m_som_buffer.add(p->a(i), p->m(i));                 
+                p = m_som_buffer.mk();
+            }
+ //           p->display(verbose_stream(), m_manager, false);
+ //           verbose_stream() << " " << tt << " 0\n";
+        }
+
+        void gcd_simplify_slow(polynomial_ref& p, manager::ineq_type t) {
+            auto& m = m_manager.m();
+            unsigned sz = p->size();
+            scoped_mpz g(m);
+            m.set(g, 0);
+            for (unsigned i = 0; i < sz; i++) {
+                auto const& a = p->a(i);
+                if (m.is_one(a) || m.is_minus_one(a))
+                    return;
+                if (t != EQ && is_unit(p->m(i)))
+                    continue;
+                m.gcd(a, g, g);
+                if (m.is_one(g))
+                    return;
+            }
+            apply_gcd_simplify(g, p, t);
         }
 
         polynomial * mk_zero() {
@@ -6971,8 +7065,8 @@ namespace polynomial {
         return m_imp->hash(p);
     }
 
-    void manager::gcd_simplify(polynomial * p) {
-        m_imp->gcd_simplify(p);
+    void manager::gcd_simplify(polynomial_ref& p, ineq_type t) {
+        m_imp->gcd_simplify(p, t);
     }
 
     polynomial * manager::coeff(polynomial const * p, var x, unsigned k) {
