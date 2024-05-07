@@ -2796,6 +2796,8 @@ namespace nlsat {
             unsigned sz = m_clauses.size();
             while (true) {
 
+                IF_VERBOSE(3, display(verbose_stream() << "subsuming\n"));
+
                 subsumption_simplify();
 
                 while (elim_uncnstr())
@@ -2919,7 +2921,7 @@ namespace nlsat {
                         lits[1] = qgt;
                         mk_clause(2, lits, false, asum);
                         lits[0] = qlt;
-                        lits[1] = plt;
+                        lits[1] = pgt;
                         mk_clause(2, lits, false, asum);
                     }
                     break;
@@ -3371,6 +3373,8 @@ namespace nlsat {
                     for (auto lit2 : c)
                         if (lit2 != lit)
                             lits.push_back(lit2);
+                    if (lits.empty())
+                        return false;
                     auto cls = mk_clause(lits.size(), lits.data(), false, a);
                     if (cls)
                         compute_occurs(*cls);
