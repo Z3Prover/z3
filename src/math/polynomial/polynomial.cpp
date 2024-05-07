@@ -6181,9 +6181,11 @@ namespace polynomial {
                     }
                     return false;
                 }
-                if (!m_manager.ge(a1, a2))
-                    return false;
-                ++i, ++j;               
+                if (m_manager.eq(a1, a2) || (m1->is_square() && m_manager.ge(a1, a2))) {
+                    ++i, ++j;
+                    continue;
+                }
+                return false;               
             }
             return i == sz1 && j == sz2;           
         }

@@ -343,10 +343,10 @@ namespace nlsat {
 
         void dec_ref(assumption) {}
 
-        void inc_ref(_assumption_set a) {
+        void inc_ref(_assumption_set a) {            
             if (a != nullptr) m_asm.inc_ref(a);
         }
-
+        
         void dec_ref(_assumption_set a) {
             if (a != nullptr) m_asm.dec_ref(a);
         }
@@ -1733,7 +1733,7 @@ namespace nlsat {
                 if (!simplify())
                     return l_false;
             }
-
+            IF_VERBOSE(3, verbose_stream() << "search\n");
             sort_watched_clauses();
             lbool r = search_check();
             CTRACE("nlsat_model", r == l_true, tout << "model before restore order\n"; display_assignment(tout););
@@ -2792,6 +2792,7 @@ namespace nlsat {
         vector<ptr_vector<clause>> m_var_occurs;
 
         bool simplify() {
+            IF_VERBOSE(3, display(verbose_stream() << "before\n"));
             unsigned sz = m_clauses.size();
             while (true) {
 
@@ -2815,7 +2816,7 @@ namespace nlsat {
                 sz = m_clauses.size();
             }
 
-            IF_VERBOSE(3, display(verbose_stream()));
+            IF_VERBOSE(3, display(verbose_stream() << "after\n"));
             
             return true;
         }       
@@ -2957,7 +2958,8 @@ namespace nlsat {
                         continue;
                     lits.push_back(l);
                     if (a.m_bool_var != l.var()) {
-                        IF_VERBOSE(3, display(verbose_stream() << "simplify ", l) << "\n");
+                        IF_VERBOSE(3, display(verbose_stream() << "simplify ", a) << " -> ";
+                        display(verbose_stream(), l) << "\n");
                         b2l.insert(a.m_bool_var, l);
                     }
                 }
@@ -3182,6 +3184,8 @@ namespace nlsat {
                     }
                     break;
                 case atom::EQ: {
+                    if (sign)
+                        continue;
                     all_solved = false;
                     if (!m_pm.is_const(B))
                         continue;
@@ -3212,20 +3216,19 @@ namespace nlsat {
             if (lo.empty() && hi.empty())
                 return false;
 
-            IF_VERBOSE(3,
-                verbose_stream() << "x" << x << " lo " << lo.size() << " hi " << hi.size() << "\n";
-                for (auto c : clauses)
-                    if (!c->is_removed())
-                        display(verbose_stream(), *c) << "\n";
-            );
-
             if (apply_fm_equality(x, clauses, lo, hi))
                 return true;
 
-            // return false;
 
             if (!all_solved)
                 return false;
+
+            IF_VERBOSE(3,
+                verbose_stream() << "x" << x << " lo " << lo.size() << " hi " << hi.size() << "\n";
+            for (auto c : clauses)
+                if (!c->is_removed())
+                    display(verbose_stream(), *c) << "\n";
+            );
 
             auto num_lo = lo.size(), num_hi = hi.size();
             if (num_lo >= 2 && num_hi >= 2 && (num_lo > 2 || num_hi > 2))
@@ -3310,6 +3313,7 @@ namespace nlsat {
             auto a1 = static_cast<_assumption_set>(l.c->assumptions());
             auto a2 = static_cast<_assumption_set>(h.c->assumptions());
             a1 = m_asm.mk_join(a1, a2);
+            inc_ref(a1);
 
             polynomial_ref A(l.A), B(l.B);
            
@@ -3347,6 +3351,7 @@ namespace nlsat {
                 if (cls)
                     compute_occurs(*cls);
             }
+            dec_ref(a1);
             // track updates for model reconstruction
             m_bounds.push_back(l);
             m_bounds.push_back(h);    
@@ -3482,7 +3487,7 @@ namespace nlsat {
         //
         // Equality simplificadtion (TODO, this should is deprecated by fm)
         // 
-        bool solve_eqs() {
+        bool solve_eqs() {            
             polynomial_ref p(m_pm), q(m_pm);
             var v;
             init_var_signs();
@@ -3508,7 +3513,7 @@ namespace nlsat {
                             continue;
                         TRACE("nlsat", tout << "p: " << p << "\nq: " << q << "\n x" << v << "\n";);
                         m_bounds.push_back(bound_constraint(v, p, q, false, nullptr));
-                                                   
+                        IF_VERBOSE(3, display(verbose_stream(), *c) << "\n");
                         if (!substitute_var(v, p, q, *c))
                             return false;
                         del_clause(c, m_clauses);
@@ -4303,12 +4308,14 @@ namespace nlsat {
         }
             
         std::ostream& display_assumptions(std::ostream & out, _assumption_set s) const {
+            if (!m_display_assumption)
+                return out;
             vector<assumption, false> deps;
             m_asm.linearize(s, deps);
             bool first = true;
             for (auto dep : deps) {
                 if (first) first = false; else out << " ";
-                if (m_display_assumption) (*m_display_assumption)(out, dep); 
+                (*m_display_assumption)(out, dep); 
             }
             return out;
         }
