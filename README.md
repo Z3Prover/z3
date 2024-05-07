@@ -226,7 +226,7 @@ to Z3's C API. For more information, see [MachineArithmetic/README.md](https://g
 * Default input format is [SMTLIB2](http://smtlib.cs.uiowa.edu)
 
 * Other native foreign function interfaces:
-* [C++ API](https://z3prover.github.io/api/html/group__cppapi.html)
+* [C++ API](https://z3prover.github.io/api/html/namespacez3.html)
 * [.NET API](https://z3prover.github.io/api/html/namespace_microsoft_1_1_z3.html)
 * [Java API](https://z3prover.github.io/api/html/namespacecom_1_1microsoft_1_1z3.html)
 * [Python API](https://z3prover.github.io/api/html/namespacez3py.html) (also available in [pydoc format](https://z3prover.github.io/api/html/z3.html))
