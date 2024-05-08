@@ -2937,7 +2937,8 @@ namespace nlsat {
         void simplify_literals() {
             u_map<literal> b2l;
             scoped_literal_vector lits(m_solver);
-            polynomial_ref_vector factors(m_pm);
+            polynomial_ref p(m_pm);
+            polynomial::factors factors(m_pm);
             ptr_buffer<poly> ps;
             buffer<bool> is_even;
             unsigned num_atoms = m_atoms.size();
@@ -2949,10 +2950,11 @@ namespace nlsat {
                     is_even.reset();
                     for (unsigned i = 0; i < a.size(); ++i) {
                         factors.reset();
-                        m_cache.factor(a.p(i), factors);
-                        for (auto q : factors) {
-                            ps.push_back(q);
-                            is_even.push_back(a.is_even(i));
+                        p = a.p(i);
+                        factor(p, factors);
+                        for (unsigned i = 0; i < factors.distinct_factors(); ++i) {
+                            ps.push_back(factors[i]);
+                            is_even.push_back(a.is_even(i) || (factors.get_degree(i) % 2 == 0));
                         }
                     }
                     literal l = mk_ineq_literal(a.get_kind(), ps.size(), ps.data(), is_even.data(), true);
