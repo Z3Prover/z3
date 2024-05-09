@@ -11210,6 +11210,19 @@ def Length(s):
     s = _coerce_seq(s)
     return ArithRef(Z3_mk_seq_length(s.ctx_ref(), s.as_ast()), s.ctx)
 
+def SeqMap(f, s):
+    """Map function 'f' over sequence 's'"""
+    ctx = _get_ctx2(f, s)
+    s = _coerce_seq(s, ctx)
+    return _to_expr_ref(Z3_mk_seq_map(s.ctx_ref(), f.as_ast(), s.as_ast()), ctx)
+
+def SeqMapI(f, i, s):
+    """Map function 'f' over sequence 's' at index 'i'"""
+    ctx = _get_ctx(f, s)
+    s = _coerce_seq(s, ctx)
+    if not is_expr(i):
+        i = _py2expr(i)
+    return _to_expr_ref(Z3_mk_seq_mapi(s.ctx_ref(), f.as_ast(), i.as_ast(), s.as_ast()), ctx)
 
 def StrToInt(s):
     """Convert string expression to integer
