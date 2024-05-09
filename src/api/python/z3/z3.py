@@ -11224,6 +11224,19 @@ def SeqMapI(f, i, s):
         i = _py2expr(i)
     return _to_expr_ref(Z3_mk_seq_mapi(s.ctx_ref(), f.as_ast(), i.as_ast(), s.as_ast()), ctx)
 
+def SeqFoldLeft(f, a, s):
+    ctx = _get_ctx2(f, s)
+    s = _coerce_seq(s, ctx)
+    a = _py2expr(a)
+    return _to_expr_ref(Z3_mk_seq_foldl(s.ctx_ref(), f.as_ast(), a.as_ast(), s.as_ast()), ctx)
+
+def SeqFoldLeftI(f, i, a, s):
+    ctx = _get_ctx2(f, s)
+    s = _coerce_seq(s, ctx)
+    a = _py2expr(a)
+    i = _py2epxr(i)
+    return _to_expr_ref(Z3_mk_seq_foldli(s.ctx_ref(), f.as_ast(), i.as_ast(), a.as_ast(), s.as_ast()), ctx)
+
 def StrToInt(s):
     """Convert string expression to integer
     >>> a = StrToInt("1")
