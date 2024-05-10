@@ -32,6 +32,7 @@ namespace nlsat {
 #define NLSAT_VB_LVL 10
     typedef void *                     assumption;
     typedef void *                     assumption_set;
+    typedef void *                     internal_assumption;
 
     typedef sat::bool_var              bool_var;
     typedef sat::bool_var_vector       bool_var_vector;
@@ -74,6 +75,7 @@ namespace nlsat {
         }
     protected:
         friend class solver;
+        friend class simplify;
         kind     m_kind;
         unsigned m_ref_count;
         bool_var m_bool_var;

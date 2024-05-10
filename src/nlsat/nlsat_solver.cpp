@@ -33,6 +33,7 @@ Revision History:
 #include "nlsat/nlsat_evaluator.h"
 #include "nlsat/nlsat_explain.h"
 #include "nlsat/nlsat_params.hpp"
+#include "nlsat/nlsat_simplify.h"
 
 #define NLSAT_EXTRA_VERBOSE
 
@@ -71,28 +72,24 @@ namespace nlsat {
     };
 
     struct solver::imp {
+
+
         struct dconfig {
             typedef imp                      value_manager;
             typedef small_object_allocator   allocator;
-            typedef void *                   value;
-            static const bool ref_count =    false;
+            typedef void* value;
+            static const bool ref_count = false;
         };
+
         typedef dependency_manager<dconfig>  assumption_manager;
-        typedef assumption_manager::dependency * _assumption_set;
+        typedef assumption_manager::dependency* _assumption_set;
+
         typedef obj_ref<assumption_manager::dependency, assumption_manager> assumption_set_ref;
         
 
         typedef polynomial::cache cache;
         typedef ptr_vector<interval_set> interval_set_vector;
 
-        struct bound_constraint {
-            var x;
-            polynomial_ref A, B;
-            bool is_strict;
-            clause* c;
-            bound_constraint(var x, polynomial_ref& A, polynomial_ref& B, bool is_strict, clause* c):
-                x(x), A(A), B(B), is_strict(is_strict), c(c) {}
-        };
 
 
         ctx&                    m_ctx;
@@ -111,6 +108,7 @@ namespace nlsat {
         ineq_atom_table        m_ineq_atoms;
         root_atom_table        m_root_atoms;
 
+
         vector<bound_constraint> m_bounds;
         
         id_gen                 m_cid_gen;
@@ -126,6 +124,8 @@ namespace nlsat {
         vector<clause_vector>  m_bwatches;     // bool_var (that are not attached to atoms) -> clauses where it is maximal
         bool_vector            m_dead;         // mark dead boolean variables
         id_gen                 m_bid_gen;
+
+        simplify               m_simplify;
 
         bool_vector            m_is_int;     // m_is_int[x] is true if variable is integer
         vector<clause_vector>  m_watches;    // var -> clauses where variable is maximal
@@ -248,6 +248,7 @@ namespace nlsat {
             m_assignment(m_am), m_lo(m_am), m_hi(m_am),
             m_evaluator(s, m_assignment, m_pm, m_allocator), 
             m_ism(m_evaluator.ism()),
+            m_simplify(s, m_atoms, m_clauses, m_pm),
             m_num_bool_vars(0),
             m_display_var(m_perm),
             m_display_assumption(nullptr),
@@ -2789,748 +2790,9 @@ namespace nlsat {
            The method ignores lemmas and assumes constraints don't use roots.
         */
 
-        vector<ptr_vector<clause>> m_var_occurs;
 
         bool simplify() {
-            IF_VERBOSE(3, display(verbose_stream() << "before\n"));
-            unsigned sz = m_clauses.size();
-            while (true) {
-
-                IF_VERBOSE(3, display(verbose_stream() << "subsuming\n"));
-
-                subsumption_simplify();
-
-                while (elim_uncnstr())
-                    ;
-
-                simplify_literals();
-
-                while (fm())
-                    ;
-                if (!solve_eqs())
-                    return false;
-                
-                if (m_clauses.size() >= sz)
-                    break;
-
-                split_factors();
-
-                sz = m_clauses.size();
-            }
-
-            IF_VERBOSE(3, display(verbose_stream() << "after\n"));
-            
-            return true;
-        }       
-
-        //
-        // Replace unit literals p*q > 0 by clauses.
-        // 
-        void split_factors() {
-            auto sz = m_clauses.size();
-            for (unsigned i = 0; i < sz; ++i) {
-                auto& c = *m_clauses[i];
-                if (c.size() != 1)
-                    continue;
-                auto lit = c[0];
-                auto a1 = m_atoms[lit.var()];
-                if (!a1)
-                    continue;
-                auto& a = *to_ineq_atom(a1);
-                if (a.size() != 2)
-                    continue;
-
-                auto* p = a.p(0);
-                auto* q = a.p(1);
-                auto is_evenp = a.is_even(0);
-                auto is_evenq = a.is_even(1);
-
-                auto asum = static_cast<_assumption_set>(c.assumptions());
-                literal lits[2];
-
-                c.set_removed();
-                ++m_stats.m_simplifications;
-                switch (a.get_kind()) {
-                case atom::EQ: {
-                    auto l1 = mk_ineq_literal(atom::EQ, 1, &p, &is_evenp, false);
-                    auto l2 = mk_ineq_literal(atom::EQ, 1, &q, &is_evenq, false);
-                    if (lit.sign()) {
-                        lits[0] = ~l1;
-                        mk_clause(1, lits, false, asum);
-                        lits[0] = ~l2;
-                        mk_clause(1, lits, false, asum);
-                    }
-                    else {
-                        lits[0] = l1;
-                        lits[1] = l2;
-                        mk_clause(2, lits, false, asum);
-                    }
-                    break;
-                }
-                case atom::LT:
-                    if (lit.sign()) {
-                        // p*q >= 0 <=> (p <= 0 => q <= 0) & (q <= 0 => p <= 0)
-                        // (p > 0 or !(q > 0)) & (q > 0 or !(p > 0))
-
-                        auto l1 = mk_ineq_literal(atom::GT, 1, &p, &is_evenp, false);
-                        auto l2 = mk_ineq_literal(atom::GT, 1, &q, &is_evenq, false);
-                        lits[0] = l1;
-                        lits[1] = ~l2;
-                        mk_clause(2, lits, false, asum);
-                        lits[0] = ~l1;
-                        lits[1] = l2;
-                        mk_clause(2, lits, false, asum);
-                    }
-                    else {
-                        // p*q < 0
-                        // (p > 0 & q < 0) or (q > 0 & p < 0)
-                        // (p > 0 or q > 0) and (p < 0 or q < 0)
-                        auto pgt = mk_ineq_literal(atom::GT, 1, &p, &is_evenp, false);
-                        auto plt = mk_ineq_literal(atom::LT, 1, &p, &is_evenp, false);
-                        auto qgt = mk_ineq_literal(atom::GT, 1, &q, &is_evenq, false);
-                        auto qlt = mk_ineq_literal(atom::LT, 1, &q, &is_evenq, false);
-                        lits[0] = pgt;
-                        lits[1] = qgt;
-                        mk_clause(2, lits, false, asum);
-                        lits[0] = plt;
-                        lits[1] = qlt;
-                        mk_clause(2, lits, false, asum);
-                    }
-                    break;
-                case atom::GT: {
-                    auto pgt = mk_ineq_literal(atom::GT, 1, &p, &is_evenp, false);
-                    auto plt = mk_ineq_literal(atom::LT, 1, &p, &is_evenp, false);
-                    auto qgt = mk_ineq_literal(atom::GT, 1, &q, &is_evenq, false);
-                    auto qlt = mk_ineq_literal(atom::LT, 1, &q, &is_evenq, false);
-                    if (lit.sign()) {
-                        // p*q <= 0
-                        // (p >= 0 => q <= 0) & 
-                        // (p < 0 or !(q > 0)) & (q < 0 or !(p > 0))
-
-                        lits[0] = plt;
-                        lits[1] = ~qgt;
-                        mk_clause(2, lits, false, asum);
-                        lits[0] = qlt;
-                        lits[1] = ~plt;
-                        mk_clause(2, lits, false, asum);
-                    }
-                    else {
-                        // p*q > 0
-                        // (p > 0 or q < 0) & (p < 0 or q > 0)
-                        lits[0] = plt;
-                        lits[1] = qgt;
-                        mk_clause(2, lits, false, asum);
-                        lits[0] = qlt;
-                        lits[1] = pgt;
-                        mk_clause(2, lits, false, asum);
-                    }
-                    break;
-                }
-                }
-            }
-            cleanup_removed();
-        }
-        
-        //
-        // Apply gcd simplification to literals
-        // 
-        void simplify_literals() {
-            u_map<literal> b2l;
-            scoped_literal_vector lits(m_solver);
-            polynomial_ref p(m_pm);
-            polynomial::factors factors(m_pm);
-            ptr_buffer<poly> ps;
-            buffer<bool> is_even;
-            unsigned num_atoms = m_atoms.size();
-            for (unsigned j = 0; j < num_atoms; ++j) {
-                atom* a1 = m_atoms[j];
-                if (a1 && a1->is_ineq_atom()) {
-                    ineq_atom const& a = *to_ineq_atom(a1);
-                    ps.reset();
-                    is_even.reset();
-                    for (unsigned i = 0; i < a.size(); ++i) {
-                        factors.reset();
-                        p = a.p(i);
-                        factor(p, factors);
-                        for (unsigned i = 0; i < factors.distinct_factors(); ++i) {
-                            ps.push_back(factors[i]);
-                            is_even.push_back(a.is_even(i) || (factors.get_degree(i) % 2 == 0));
-                        }
-                    }
-                    literal l = mk_ineq_literal(a.get_kind(), ps.size(), ps.data(), is_even.data(), true);
-                    if (l == null_literal)
-                        continue;
-                    lits.push_back(l);
-                    if (a.m_bool_var != l.var()) {
-                        IF_VERBOSE(3, display(verbose_stream() << "simplify ", a) << " -> ";
-                        display(verbose_stream(), l) << "\n");
-                        b2l.insert(a.m_bool_var, l);
-                    }
-                }
-            }
-            update_clauses(b2l, nullptr);
-        }
-
-        //
-        // Remove unconstrained assertions.
-        //
-        bool elim_uncnstr() {
-            // compute variable occurrences
-            if (any_of(m_clauses, [&](clause* c) { return has_root_atom(*c); }))
-                return false;
-            compute_occurs();
-            // for each variable occurrence, figure out if it is unconstrained.
-            ptr_vector<clause> to_delete;
-            for (unsigned v = m_var_occurs.size(); v-- > 0; ) {
-                auto& clauses = m_var_occurs[v];
-                if (clauses.size() != 1)
-                    continue;
-                auto& c = *clauses[0];
-                if (c.is_removed())
-                    continue;
-                if (!is_unconstrained(v, c))
-                    continue;
-                ++m_stats.m_simplifications;
-                c.set_removed();
-                to_delete.push_back(&c);
-            }
-            for (auto* c : to_delete)
-                del_clause(c, m_clauses);
-
-            return !to_delete.empty();
-        }
-
-        void compute_occurs(clause& c) {
-            var_vector vars;          
-            m_pm.begin_vars_incremental();
-            for (auto lit : c) {
-                bool_var b = lit.var();
-                atom* a = m_atoms[b];
-                if (!a)
-                    continue;
-                if (a->is_ineq_atom()) {
-                    auto sz = to_ineq_atom(a)->size();
-                    for (unsigned i = 0; i < sz; ++i) {
-                        auto* p = to_ineq_atom(a)->p(i);
-                        m_pm.vars_incremental(p, vars);
-                    }
-                }
-            }
-            m_pm.end_vars_incremental(vars);
-            unsigned h = 0;
-            for (auto v : vars) {
-                m_var_occurs.reserve(v + 1);
-                m_var_occurs[v].push_back(&c);
-                h |= (1ul << (v % 32ul));
-            }
-            c.set_var_hash(h);
-        }
-
-        void compute_occurs() {
-            m_var_occurs.reset();            
-            for (auto c : m_clauses) 
-                compute_occurs(*c);            
-        }
-
-        bool is_unconstrained(var x, clause& c) {
-            poly* p;
-            polynomial_ref A(m_pm), B(m_pm);
-            for (auto lit : c) {
-                bool_var b = lit.var();
-                if (!m_atoms[b])
-                    continue;
-                auto& a = *to_ineq_atom(m_atoms[b]);
-                if (!is_single_poly(a, p))
-                    continue;
-
-                if (1 != m_pm.degree(p, x))
-                    continue;
-
-                A = m_pm.coeff(p, x, 1, B);
-
-                if (a.is_eq() && !lit.sign()) {
-                    // A*x + B = 0
-                    if (is_int(x) && is_unit(A)) {
-                        m_bounds.push_back(bound_constraint(x, A, B, false, nullptr));
-                        return true;
-                    }
-
-                    if (!is_int(x) && m_pm.is_const(A)) {
-                        m_bounds.push_back(bound_constraint(x, A, B, false, nullptr));
-                        return true;
-                    }
-                }
-                // TODO: add other cases for LT and GT atoms
-            }
-            return false;
-        }
-        
-        bool cleanup_removed() {
-            unsigned j = 0, sz = m_clauses.size();
-            for (unsigned i = 0; i < sz; ++i) {
-                auto c = m_clauses[i];
-                if (c->is_removed()) 
-                    del_clause(c);
-                else
-                    m_clauses[j++] = c;
-            }
-            m_clauses.shrink(j);
-            return j < sz;
-        }
-
-        //
-        // Fourier Motzkin elimination
-        //
-
-        bool fm() {
-            if (any_of(m_clauses, [&](clause* c) { return has_root_atom(*c); }))
-                return false;
-            compute_occurs();
-
-            for (unsigned v = m_var_occurs.size(); v-- > 0; ) 
-                apply_fm(v, m_var_occurs[v]);  
-
-            return cleanup_removed();
-        }
-
-        // progression of possible features:
-        // . Current: unit literals
-        // . Either lower or upper bound is unit coefficient
-        // . single occurrence of x in C
-        // . (x <= t or x <= s or C) == (x <= max(s, t) or C)
-        //
-
-        bool is_invertible(var x, polynomial_ref & A) {
-            if (!m_pm.is_const(A))
-                return false;
-            if (is_int(x) && !is_unit(A))
-                return false;
-            return true;
-        }
-        
-        bool apply_fm(var x, ptr_vector<clause>& clauses) {
-            polynomial_ref A(m_pm), B(m_pm);
-            vector<bound_constraint> lo, hi;
-            poly* p = nullptr;
-            bool all_solved = true;
-            for (auto c : clauses) {
-                if (c->is_removed())
-                    continue;
-                if (c->size() != 1) {
-                    all_solved = false;
-                    continue;
-                }
-                literal lit = (*c)[0];
-                bool sign = lit.sign();
-                ineq_atom const& a = *to_ineq_atom(m_atoms[lit.var()]);
-                if (sign && a.is_eq()) {
-                    all_solved = false;
-                    continue;
-                }
-                if (!is_single_poly(a, p)) {
-                    all_solved = false;
-                    continue;
-                }
-                if (1 != m_pm.degree(p, x)) {
-                    all_solved = false;
-                    continue;
-                }
-                A = m_pm.coeff(p, x, 1, B);
-                if (!is_invertible(x, A)) {
-                    all_solved = false;
-                    continue;
-                }
-                auto const& A_value = m_pm.coeff(A, 0);
-                bool is_pos = m_pm.m().is_pos(A_value);
-                bool is_strict = false;
-                switch (a.get_kind()) {
-                case atom::LT:
-                    //  !(Ax + B < 0) == Ax + B >= 0
-                    if (sign)
-                        is_strict = false;
-                    else {
-                        // Ax + B < 0 == -Ax - B > 0
-                        A = -A;
-                        B = -B;
-                        is_pos = !is_pos;
-                        if (is_int(x)) {
-                            // Ax + B > 0 == Ax + B - |A| >= 0
-                            if (is_pos)
-                                B = m_pm.add(B, A);
-                            else
-                                B = m_pm.sub(B, A);
-                            is_strict = false;
-                        }
-                        else
-                            is_strict = true;
-                    }
-                    break;
-                case atom::GT:
-                    //  !(Ax + B > 0) == -Ax + -B >= 0
-                    if (sign) {
-                        A = -A;
-                        B = -B;
-                        is_pos = !is_pos;
-                        is_strict = false;
-                    }
-                    else {
-                        // Ax + B > 0
-                        if (is_int(x)) {
-                            // Ax + B - |A| >= 0
-                            if (is_pos)
-                                B = m_pm.sub(B, A);
-                            else
-                                B = m_pm.add(B, A);
-                            is_strict = false;
-                        }
-                        else
-                            is_strict = true;
-                    }
-                    break;
-                case atom::EQ: {
-                    if (sign)
-                        continue;
-                    all_solved = false;
-                    if (!m_pm.is_const(B))
-                        continue;
-                    bound_constraint l(x, A, B, false, c);
-                    A = -A;
-                    B = -B;
-                    bound_constraint h(x, A, B, false, c);
-                    apply_fm_equality(x, clauses, l, h);
-                    return true;
-                }
-                default:
-                    UNREACHABLE();
-                    break;
-                }
-                auto& set = is_pos ? hi : lo;
-                bool found = false;
-                for (auto const& bound : set) {
-                    if (is_strict == bound.is_strict && m_pm.eq(A, bound.A) && m_pm.eq(B, bound.B))
-                        found = true;
-                }
-                if (found)
-                    continue;
-
-                set.push_back(bound_constraint(x, A, B, is_strict, c));
-
-            }
-
-            if (lo.empty() && hi.empty())
-                return false;
-
-            if (apply_fm_equality(x, clauses, lo, hi))
-                return true;
-
-
-            if (!all_solved)
-                return false;
-
-            IF_VERBOSE(3,
-                verbose_stream() << "x" << x << " lo " << lo.size() << " hi " << hi.size() << "\n";
-            for (auto c : clauses)
-                if (!c->is_removed())
-                    display(verbose_stream(), *c) << "\n";
-            );
-
-            auto num_lo = lo.size(), num_hi = hi.size();
-            if (num_lo >= 2 && num_hi >= 2 && (num_lo > 2 || num_hi > 2))
-                return false;
-
-            apply_fm_inequality(x, clauses, lo, hi);
-
-            return true;
-        }
-
-        void apply_fm_inequality(
-            var x, ptr_vector<clause>& clauses, 
-            vector<bound_constraint>& lo, vector<bound_constraint>& hi) {
-
-            polynomial_ref C(m_pm), D(m_pm);
-            for (auto c : clauses) 
-                c->set_removed();
-
-            for (auto const& l : lo) {
-                // l.A * x + l.B, l.is_strict;, l.A < 0
-                for (auto const& h : hi) {
-                    // h.A * x + h.B, h.is_strict; h.A > 0
-                    // (l.A x + l.B)*h.A + (h.A x + h.B)*|l.A| >= 0
-                    C = m_pm.mul(l.B, h.A);
-                    D = m_pm.mul(h.B, l.A);
-                    C = m_pm.sub(C, D);
-                    poly* p = C.get();
-                    bool is_even = false;
-                    m_lemma.reset();
-                    if (l.is_strict || h.is_strict) 
-                        m_lemma.push_back(mk_ineq_literal(atom::GT, 1, &p, &is_even, true));
-                    else 
-                        m_lemma.push_back(~mk_ineq_literal(atom::LT, 1, &p, &is_even, true));
-                    if (m_lemma[0] == true_literal)
-                        continue;
-                    auto a1 = static_cast<_assumption_set>(l.c->assumptions());
-                    auto a2 = static_cast<_assumption_set>(h.c->assumptions());
-                    auto cls = mk_clause(m_lemma.size(), m_lemma.data(), false, m_asm.mk_join(a1, a2));
-                    if (cls)
-                        compute_occurs(*cls);                    
-                    IF_VERBOSE(3, display(verbose_stream() << "add resolvent ", *cls) << "\n");
-                }
-            }
-
-            // track updates for model reconstruction
-            for (auto const& l : lo)
-                m_bounds.push_back(l);
-            for (auto const& h : hi)
-                m_bounds.push_back(h);
-        }
-
-        bool apply_fm_equality(
-            var x, ptr_vector<clause>& clauses,
-            vector<bound_constraint>& lo, vector<bound_constraint>& hi) {
-            for (auto& l : lo) {
-                if (l.is_strict)
-                    continue;
-                l.A = -l.A;
-                l.B = -l.B;
-                for (auto& h : hi) {
-                    if (h.is_strict)
-                        continue;
-                    if (!m_pm.eq(l.B, h.B))
-                        continue;
-                    if (!m_pm.eq(l.A, h.A))
-                        continue;
-                    l.A = -l.A;
-                    l.B = -l.B;
-                    apply_fm_equality(x, clauses, l, h);
-                    ++m_stats.m_simplifications;
-                    return true;
-                }
-                l.A = -l.A;
-                l.B = -l.B;
-            }
-            return false;
-        }
-
-        void apply_fm_equality(
-            var x, ptr_vector<clause>& clauses, 
-            bound_constraint& l, bound_constraint& h) {
-            auto a1 = static_cast<_assumption_set>(l.c->assumptions());
-            auto a2 = static_cast<_assumption_set>(h.c->assumptions());
-            a1 = m_asm.mk_join(a1, a2);
-            inc_ref(a1);
-
-            polynomial_ref A(l.A), B(l.B);
-           
-            if (m_pm.is_neg(l.A)) {
-                A = -A;
-                B = -B;
-            }
-
-            // TODO: this can also replace solve_eqs
-            for (auto c : clauses) {
-                if (c->is_removed())
-                    continue;
-                c->set_removed();
-                if (c == l.c || c == h.c)
-                    continue;
-                m_lemma.reset();
-                bool is_tautology = false;
-                for (literal lit : *c) {
-                    lit = substitute_var(x, A, B, lit);
-                    m_lemma.push_back(lit);
-                    if (lit == true_literal)
-                        is_tautology = true;
-                }
-                if (is_tautology)
-                    continue;
-                a2 = static_cast<_assumption_set>(c->assumptions());
-                auto cls = mk_clause(m_lemma.size(), m_lemma.data(), false, m_asm.mk_join(a1, a2));
-
-                IF_VERBOSE(3,
-                    if (cls) {
-                        m_display_var(verbose_stream(), x) << " * " << l.A << " = " << l.B << "\n";
-                        display(verbose_stream(), *c) << " -> ";
-                        display(verbose_stream(), *cls) << "\n";
-                    });
-                if (cls)
-                    compute_occurs(*cls);
-            }
-            dec_ref(a1);
-            // track updates for model reconstruction
-            m_bounds.push_back(l);
-            m_bounds.push_back(h);    
-            ++m_stats.m_simplifications;
-        }
-
-        bool unit_subsumption_simplify(clause& src, clause& c) {
-            if (src.size() != 1)
-                return false;
-            auto u = src[0];
-            for (auto lit : c) {
-                if (subsumes(u, ~lit)) {
-                    auto a1 = static_cast<_assumption_set>(c.assumptions());
-                    auto a2 = static_cast<_assumption_set>(src.assumptions());
-                    auto a = m_asm.mk_join(a1, a2);
-                    literal_vector lits;
-                    for (auto lit2 : c)
-                        if (lit2 != lit)
-                            lits.push_back(lit2);
-                    if (lits.empty())
-                        return false;
-                    auto cls = mk_clause(lits.size(), lits.data(), false, a);
-                    if (cls)
-                        compute_occurs(*cls);
-                    return true;
-                }
-            }
-            return false;
-        }
-        
-        //
-        // Subsumption simplification
-        // 
-        // Remove D if C subsumes D
-        //                
-        // Unit subsumption resolution
-        // u is a unit literal (lit or C) is a clause
-        // u => ~lit, then simplify (lit or C) to C
-        // 
-        void subsumption_simplify() {
-            compute_occurs();
-            for (unsigned v = m_var_occurs.size(); v-- > 0; ) {
-                auto& clauses = m_var_occurs[v];
-                unsigned sz = clauses.size();
-                for (unsigned i = 0; i < sz; ++i) {
-                    auto c = clauses[i];
-                    if (c->is_marked() || c->is_removed())
-                        continue;
-                    c->mark();                    
-                    for (unsigned j = 0; j < sz; ++j) {
-                        auto c2 = clauses[j];
-                        if (c == c2 || c2->is_removed())
-                            continue;
-                        if (subsumes(*c, *c2) || unit_subsumption_simplify(*c, *c2)) {
-                            IF_VERBOSE(3, display(verbose_stream() << "subsumes ", *c);
-                            display(verbose_stream() << " ", *c2) << "\n");
-                            ++m_stats.m_simplifications;
-                            c2->set_removed();
-                        }
-                    }
-                }
-            }
-            for (auto c : m_clauses)
-                c->unmark();
-
-            cleanup_removed();
-        }
-
-        // does c1 subsume c2?
-        bool subsumes(clause const& c1, clause const& c2) {
-            if (c1.size() > c2.size())
-                return false;
-            if ((c1.var_hash() & c2.var_hash()) != c1.var_hash())
-                return false;
-            for (auto lit1 : c1) {
-                if (!any_of(c2, [&](auto lit2) { return subsumes(lit1, lit2); }))
-                    return false;
-            }
-            return true;
-        }
-
-        bool subsumes(literal lit1, literal lit2) {
-            if (lit1 == lit2)
-                return true;
-
-            atom* a1 = m_atoms[lit1.var()];
-            atom* a2 = m_atoms[lit2.var()];
-            if (!a1 || !a2)
-                return false;
-
-            // use m_pm.ge(p1, p2) 
-            // whenever lit1 = p1 < 0,    lit2 = p2 < 0
-            // or       lit1 = p1 < 0,    lit2 = !(p2 > 0)
-            // or       lit1 = !(p1 > 0), lit2 = !(p2 > 0)
-            // use m_pm.ge(p2, p1)
-            // whenever lit1 = p1 > 0,    lit2 = p2 > 0
-            // or       lit1 = !(p1 < 0), lit2 = !(p2 < 0)
-            // or       lit1 = p1 > 0,    lit2 = !(p2 < 0)
-            // or       lit1 = !(p1 > 0), lit2 = p2 < 0
-            //
-            if (a1->is_ineq_atom() && a2->is_ineq_atom()) {
-                auto& i1 = *to_ineq_atom(a1);
-                auto& i2 = *to_ineq_atom(a2);
-                auto is_lt1 = !lit1.sign() && a1->get_kind() == atom::kind::LT;
-                auto is_le1 = lit1.sign()  && a1->get_kind() == atom::kind::GT;
-                auto is_gt1 = !lit1.sign() && a1->get_kind() == atom::kind::GT;
-                auto is_ge1 = lit1.sign()  && a1->get_kind() == atom::kind::LT;
-
-                auto is_lt2 = !lit2.sign() && a2->get_kind() == atom::kind::LT;
-                auto is_le2 = lit2.sign()  && a2->get_kind() == atom::kind::GT;
-                auto is_gt2 = !lit2.sign() && a2->get_kind() == atom::kind::GT;
-                auto is_ge2 = lit2.sign()  && a2->get_kind() == atom::kind::LT;
-
-                auto check_ge = (is_lt1 && (is_lt2 || is_le2)) || (is_le1 && is_le2);
-                auto check_le = (is_gt1 && (is_gt2 || is_ge2)) || (is_ge1 && is_ge2);
-
-                if (i1.size() != i2.size())
-                    ;
-                else if (check_ge) {
-                    for (unsigned i = 0; i < i1.size(); ++i)
-                        if (!m_pm.ge(i1.p(i), i2.p(i)))
-                            return false;
-                    return true;
-                }
-                else if (check_le) {
-                    for (unsigned i = 0; i < i1.size(); ++i)
-                        if (!m_pm.ge(i2.p(i), i1.p(i)))
-                            return false;
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        //
-        // Equality simplificadtion (TODO, this should is deprecated by fm)
-        // 
-        bool solve_eqs() {            
-            polynomial_ref p(m_pm), q(m_pm);
-            var v;
-            init_var_signs();
-            SASSERT(m_learned.empty());
-            bool change = true;
-            while (change) {
-                change = false;
-                for (clause* c : m_clauses) {
-                    if (solve_var(*c, v, p, q)) {
-                        if (!m_pm.is_const(p))
-                            continue;
-                        // optional throttles to restrict where solved variables are used
-                        if (false && !m_pm.is_linear(q))
-                            continue;
-                        if (false && !m_pm.is_univariate(q))
-                            continue;
-                        bool is_small = true;
-                        for (unsigned i = 0; i < m_pm.size(q) && is_small ; ++i) {
-                            auto const& c = m_pm.coeff(q, i);
-                            is_small &= m_pm.m().is_small(c);
-                        }
-                        if (!is_small && false)
-                            continue;
-                        TRACE("nlsat", tout << "p: " << p << "\nq: " << q << "\n x" << v << "\n";);
-                        m_bounds.push_back(bound_constraint(v, p, q, false, nullptr));
-                        IF_VERBOSE(3, display(verbose_stream(), *c) << "\n");
-                        if (!substitute_var(v, p, q, *c))
-                            return false;
-                        del_clause(c, m_clauses);
-                        TRACE("nlsat", display(tout << "simplified\n"););
-                        change = true;
-                        ++m_stats.m_simplifications;
-                        break;
-                    }
-                }
-            }
-            return true;
+            return m_simplify();
         }
 
         // Eliminated variables are tracked in m_bounds.
@@ -3632,130 +2894,7 @@ namespace nlsat {
                     m_hi.set_core(x, val);
             }        
         }
-
-        literal substitute_var(var x, poly* p, poly* q, literal lit) {
-            auto b = lit.var();
-            auto a = m_atoms[b];
-            if (!a)
-                return lit;
-            SASSERT(a->is_ineq_atom());
-            auto& a1 = *to_ineq_atom(a);
-            auto r = substitute_var(x, p, q, a1);
-            if (r == null_literal)
-                r = lit;
-            else if (lit.sign())
-                r.neg();
-            return r;
-        }
-
-        literal substitute_var(var x, poly* p, poly* q, ineq_atom const& a) {
-            unsigned sz = a.size();
-            bool_vector even;
-            polynomial_ref pr(m_pm), qq(q, m_pm);
-            qq = -qq;
-            polynomial_ref_vector ps(m_pm);
-            bool change = false;
-            auto k = a.get_kind();
-            for (unsigned i = 0; i < sz; ++i) {
-                poly* po = a.p(i);
-                m_pm.substitute(po, x, qq, p, pr);
-                change |= pr != po;
-                TRACE("nlsat", tout << pr << "\n";);
-                if (m_pm.is_zero(pr)) {
-                    ps.reset();
-                    even.reset();
-                    ps.push_back(pr);
-                    even.push_back(false);
-                    break;
-                }
-                if (m_pm.is_const(pr)) {
-                    if (!a.is_even(i) && m_pm.m().is_neg(m_pm.coeff(pr, 0)))
-                        k = atom::flip(k);                    
-                    continue;
-                }
-                ps.push_back(pr);
-                even.push_back(a.is_even(i));
-            }
-            if (!change)
-                return null_literal;                
-            return mk_ineq_literal(k, ps.size(), ps.data(), even.data(), true);
-        }
-
-        bool substitute_var(var x, poly* p, poly* q, clause& src) {
-            u_map<literal> b2l;
-            scoped_literal_vector lits(m_solver);
-            unsigned num_atoms = m_atoms.size();
-            for (unsigned j = 0; j < num_atoms; ++j) {
-                atom* a = m_atoms[j];
-                if (a && a->is_ineq_atom()) {
-                    ineq_atom const& a1 = *to_ineq_atom(a);
-                    literal l = substitute_var(x, p, q, a1);
-                    if (l == null_literal)
-                        continue;
-                    lits.push_back(l);
-                    if (a1.m_bool_var != l.var()) {                        
-                        b2l.insert(a1.m_bool_var, l);
-                    }
-                }
-            }
-            
-            return update_clauses(b2l, &src);
-        }
-
-
-        bool update_clauses(u_map<literal> const& b2l, clause* src) {
-            bool is_sat = true;
-            literal_vector lits;
-            clause_vector to_delete;
-            unsigned n = m_clauses.size();
-            _assumption_set a1 = nullptr;
-            if (src) 
-                a1 = static_cast<_assumption_set>(src->assumptions());
-            
-            for (unsigned i = 0; i < n; ++i) {
-                clause* c = m_clauses[i];
-                if (c == src)
-                    continue;
-                lits.reset();
-                bool changed = false;
-                bool is_tautology = false;
-                for (literal l : *c) {               
-                    literal lit = null_literal;
-                    if (b2l.find(l.var(), lit)) {
-                        lit = l.sign() ? ~lit : lit;
-                        if (lit == true_literal) {
-                            is_tautology = true;
-                        }
-                        else if (lit != false_literal) {                            
-                            lits.push_back(lit);
-                        }
-                        changed = true;
-                    }
-                    else {
-                        lits.push_back(l);
-                    }
-                }
-                if (changed) {
-                    to_delete.push_back(c);
-                    if (is_tautology) {
-                        continue;
-                    }
-                    if (lits.empty()) {
-                        is_sat = false;
-                    }
-                    else {
-                        auto a2 = static_cast<_assumption_set>(c->assumptions());
-                        auto a = m_asm.mk_join(a1, a2);
-                        mk_clause(lits.size(), lits.data(), c->is_learned(), a);
-                    }
-                }                        
-            }        
-            for (clause* c : to_delete) {
-                del_clause(c, m_clauses);
-            }
-            return is_sat;
-        }
-
+       
         bool is_unit_ineq(clause const& c) const {
             return 
                 c.size() == 1 &&
@@ -3816,65 +2955,7 @@ namespace nlsat {
         bool is_single_poly(ineq_atom const& a, poly*& p) {
             unsigned sz = a.size();
             return sz == 1 && a.is_odd(0) && (p = a.p(0), true);
-        }
-
-        svector<lbool> m_var_signs;
-
-        void init_var_signs() {
-            m_var_signs.reset();
-            for (clause* cp : m_clauses) {
-                clause& c = *cp;
-                var x = 0;
-                lbool cmp = is_cmp0(c, x);
-                switch (cmp) {
-                case l_true:
-                    m_var_signs.setx(x, l_true, l_undef);
-                    break;
-                case l_false:
-                    m_var_signs.setx(x, l_false, l_undef);
-                    break;
-                default:
-                    break;                
-                }
-            }
-        }
-
-        /**
-           \brief returns true then c is an equality that is equivalent to v*p + q, 
-           and p > 0, v does not occur in p, q.
-        */
-        bool solve_var(clause& c, var& v, polynomial_ref& p, polynomial_ref& q) {
-            poly* p0;
-            if (!is_unit_eq(c))
-                return false;
-            ineq_atom & a = *to_ineq_atom(m_atoms[c[0].var()]);
-            if (!is_single_poly(a, p0))
-                return false;
-            var mx = max_var(p0);
-            if (mx >= m_is_int.size())
-                return false;
-            for (var x = 0; x <= mx; ++x) {
-                if (1 == m_pm.degree(p0, x)) {                    
-                    p = m_pm.coeff(p0, x, 1, q);
-                    if (!is_invertible(x, p))
-                        continue;
-                    switch (m_pm.sign(p, m_var_signs)) {
-                    case l_true:
-                        v = x;
-                        return true;
-                    case l_false:
-                        v = x;
-                        p = -p;
-                        q = -q;
-                        return true;
-                    default:
-                        break;
-                    }
-                }
-            }
-            return false;
-        }
-
+        } 
 
         bool is_unit(polynomial_ref const& p) {
             if (!m_pm.is_const(p))
@@ -4733,6 +3814,10 @@ namespace nlsat {
 #endif
         TRACE("nlsat", display(tout););
     }
+
+    void solver::del_clause(clause* c) {
+        m_imp->del_clause(c);
+    }
     
     var solver::mk_var(bool is_int) {
         return m_imp->mk_var(is_int);
@@ -4742,8 +3827,8 @@ namespace nlsat {
         return m_imp->mk_ineq_atom(k, sz, ps, is_even);
     }
 
-    literal solver::mk_ineq_literal(atom::kind k, unsigned sz, poly * const * ps, bool const * is_even) {
-        return m_imp->mk_ineq_literal(k, sz, ps, is_even);
+    literal solver::mk_ineq_literal(atom::kind k, unsigned sz, poly * const * ps, bool const * is_even, bool simplify) {
+        return m_imp->mk_ineq_literal(k, sz, ps, is_even, simplify);
     }
 
     bool_var solver::mk_root_atom(atom::kind k, var x, unsigned i, poly * p) {
@@ -4756,6 +3841,14 @@ namespace nlsat {
 
     void solver::dec_ref(bool_var b) {
         m_imp->dec_ref(b);
+    }
+
+    void solver::inc_ref(assumption a) {
+        m_imp->inc_ref(static_cast<imp::_assumption_set>(a));
+    }
+
+    void solver::dec_ref(assumption a) {
+        m_imp->dec_ref(static_cast<imp::_assumption_set>(a));
     }
         
     void solver::mk_clause(unsigned num_lits, literal * lits, assumption a) {
@@ -4792,6 +3885,10 @@ namespace nlsat {
             out << "  ";
         }
         return out;
+    }
+
+    std::ostream& solver::display(std::ostream& out, clause const& c) const {
+        return m_imp->display(out, c);
     }
 
     std::ostream& solver::display_smt2(std::ostream & out) const {
@@ -4840,5 +3937,24 @@ namespace nlsat {
         return m_imp->collect_statistics(st);
     }
 
+    clause* solver::mk_clause(unsigned n, literal const* lits, bool learned, internal_assumption a) {
+         return m_imp->mk_clause(n, lits, learned, static_cast<imp::_assumption_set>(a));
+    }
+
+    void solver::inc_simplify() {
+        m_imp->m_stats.m_simplifications++;
+    }
+
+    bool solver::has_root_atom(clause const& c) const {
+        return m_imp->has_root_atom(c);
+    }
+
+    void solver::add_bound(bound_constraint const& c) {
+        m_imp->m_bounds.push_back(c);
+    }
+
+    assumption solver::join(assumption a, assumption b) {
+        return (m_imp->m_asm.mk_join(static_cast<imp::_assumption_set>(a), static_cast<imp::_assumption_set>(b)));
+    }
 
 };

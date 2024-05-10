@@ -24,6 +24,7 @@ Revision History:
 #include "util/params.h"
 #include "util/statistics.h"
 #include "util/rlimit.h"
+#include "util/dependency.h"
 
 namespace nlsat {
 
@@ -34,6 +35,15 @@ namespace nlsat {
     public:
         virtual ~display_assumption_proc() = default;
         virtual std::ostream& operator()(std::ostream& out, assumption a) const = 0;
+    };
+
+    struct bound_constraint {
+        var x;
+        polynomial_ref A, B;
+        bool is_strict;
+        clause* c;
+        bound_constraint(var x, polynomial_ref& A, polynomial_ref& B, bool is_strict, clause* c) :
+            x(x), A(A), B(B), is_strict(is_strict), c(c) {}
     };
 
     class solver {
@@ -103,7 +113,7 @@ namespace nlsat {
            e[i] = 1 if is_even[i] is false
            e[i] = 2 if is_even[i] is true
         */
-        literal mk_ineq_literal(atom::kind k, unsigned sz, poly * const * ps, bool const * is_even);
+        literal mk_ineq_literal(atom::kind k, unsigned sz, poly * const * ps, bool const * is_even, bool simplify = false);
 
         /**
            \brief Create an atom of the form: x=root[i](p), x<root[i](p), x>root[i](p)
@@ -114,6 +124,9 @@ namespace nlsat {
         void inc_ref(literal l) { inc_ref(l.var()); }
         void dec_ref(bool_var b);
         void dec_ref(literal l) { dec_ref(l.var()); }
+        void inc_ref(assumption a);
+        void dec_ref(assumption a);
+        
         
         /**
            \brief Create a new clause.
@@ -171,6 +184,17 @@ namespace nlsat {
 
         void get_bvalues(svector<bool_var> const& bvars, svector<lbool>& vs);
         void set_bvalues(svector<lbool> const& vs);
+
+        /**
+        * \brief Access functions for simplify module.
+        */
+        void del_clause(clause* c);
+        clause* mk_clause(unsigned n, literal const* lits, bool learned, internal_assumption a);
+        bool has_root_atom(clause const& c) const;
+        assumption join(assumption a, assumption b);
+
+        void inc_simplify();
+        void add_bound(bound_constraint const& c);
 
         /**
            \brief reorder variables. 
@@ -244,6 +268,8 @@ namespace nlsat {
 
         std::ostream& display(std::ostream & out, unsigned n, literal const* ls) const;
 
+        std::ostream& display(std::ostream& out, clause const& c) const;
+
         std::ostream& display(std::ostream & out, literal_vector const& ls) const;
 
         std::ostream& display(std::ostream & out, atom const& a) const;
@@ -254,8 +280,9 @@ namespace nlsat {
 
         std::ostream& display_smt2(std::ostream & out, literal_vector const& ls) const;
 
-                std::ostream& display_smt2(std::ostream & out) const;
 
+
+        std::ostream& display_smt2(std::ostream & out) const;
 
         /**
            \brief Display variable
