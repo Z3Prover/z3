@@ -1731,7 +1731,7 @@ namespace nlsat {
             apply_reorder();
 
             if (!m_incremental && m_inline_vars) {
-                if (!simplify())
+                if (!m_simplify())
                     return l_false;
             }
             IF_VERBOSE(3, verbose_stream() << "search\n");
@@ -2791,9 +2791,6 @@ namespace nlsat {
         */
 
 
-        bool simplify() {
-            return m_simplify();
-        }
 
         // Eliminated variables are tracked in m_bounds.
         // Each element in m_bounds tracks the eliminated variable and an upper or lower bound
