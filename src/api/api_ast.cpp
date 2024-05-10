@@ -1152,6 +1152,7 @@ extern "C" {
             case OP_REM: return Z3_OP_REM;
             case OP_MOD: return Z3_OP_MOD;
             case OP_POWER: return Z3_OP_POWER;
+            case OP_ABS: return Z3_OP_ABS;
             case OP_TO_REAL: return Z3_OP_TO_REAL;
             case OP_TO_INT: return Z3_OP_TO_INT;
             case OP_IS_INT: return Z3_OP_IS_INT;
