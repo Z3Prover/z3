@@ -1023,6 +1023,7 @@ typedef enum {
     Z3_OP_TO_INT,
     Z3_OP_IS_INT,
     Z3_OP_POWER,
+    Z3_OP_ABS,
 
     // Arrays & Sets
     Z3_OP_STORE = 0x300,
@@ -2548,6 +2549,13 @@ extern "C" {
     */
     Z3_ast Z3_API Z3_mk_power(Z3_context c, Z3_ast arg1, Z3_ast arg2);
 
+    /**
+       \brief Take the absolute value of an integer
+
+       def_API('Z3_mk_abs', AST, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_abs(Z3_context c, Z3_ast arg);
+    
     /**
         \brief Create less than.
 
