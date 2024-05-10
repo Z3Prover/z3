@@ -2497,6 +2497,34 @@ namespace z3 {
         return expr(ctx, r);
     }
 
+    inline expr map(expr const& f, expr const& list) {
+        context& ctx = f.ctx();
+        Z3_ast r = Z3_mk_seq_map(ctx, f, list);
+        ctx.check_error();
+        return expr(ctx, r);
+    }
+
+    inline expr mapi(expr const& f, expr const& i, expr const& list) {
+        context& ctx = f.ctx();
+        Z3_ast r = Z3_mk_seq_mapi(ctx, f, i, list);
+        ctx.check_error();
+        return expr(ctx, r);
+    }
+
+    inline expr foldl(expr const& f, expr const& a, expr const& list) {
+        context& ctx = f.ctx();
+        Z3_ast r = Z3_mk_seq_foldl(ctx, f, a, list);
+        ctx.check_error();
+        return expr(ctx, r);
+    }
+
+    inline expr foldli(expr const& f, expr const& i, expr const& a, expr const& list) {
+        context& ctx = f.ctx();
+        Z3_ast r = Z3_mk_seq_foldli(ctx, f, i, a, list);
+        ctx.check_error();
+        return expr(ctx, r);
+    }
+
     inline expr mk_or(expr_vector const& args) {
         array<Z3_ast> _args(args);
         Z3_ast r = Z3_mk_or(args.ctx(), _args.size(), _args.ptr());
