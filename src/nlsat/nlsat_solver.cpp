@@ -248,8 +248,8 @@ namespace nlsat {
             m_assignment(m_am), m_lo(m_am), m_hi(m_am),
             m_evaluator(s, m_assignment, m_pm, m_allocator), 
             m_ism(m_evaluator.ism()),
-            m_simplify(s, m_atoms, m_clauses, m_pm),
             m_num_bool_vars(0),
+            m_simplify(s, m_atoms, m_clauses, m_pm),
             m_display_var(m_perm),
             m_display_assumption(nullptr),
             m_explain(s, m_assignment, m_cache, m_atoms, m_var2eq, m_evaluator),
@@ -3229,6 +3229,7 @@ namespace nlsat {
             case atom::ROOT_LE: out << "(<= "; proc(out, a.x()); out << " " << yn << ")"; break;
             case atom::ROOT_GE: out << "(>= "; proc(out, a.x()); out << " " << yn << ")"; break;
             case atom::ROOT_EQ: out << "(= "; proc(out, a.x()); out << " " << yn << ")"; NOT_IMPLEMENTED_YET(); break;
+            default: UNREACHABLE(); break;
             }
             out << "))";
             return out;
