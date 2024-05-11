@@ -438,6 +438,7 @@ public:
     MATCH_BINARY(is_bv_xor);
     MATCH_BINARY(is_bv_nand);
     MATCH_BINARY(is_bv_nor);
+    MATCH_BINARY(is_concat);
 
 
     MATCH_BINARY(is_bv_uremi);

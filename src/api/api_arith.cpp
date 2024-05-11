@@ -123,6 +123,7 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
+    MK_UNARY(Z3_mk_abs, mk_c(c)->get_arith_fid(), OP_ABS, SKIP);
     MK_UNARY(Z3_mk_int2real, mk_c(c)->get_arith_fid(), OP_TO_REAL, SKIP);
     MK_UNARY(Z3_mk_real2int, mk_c(c)->get_arith_fid(), OP_TO_INT, SKIP);
     MK_UNARY(Z3_mk_is_int,   mk_c(c)->get_arith_fid(), OP_IS_INT, SKIP);

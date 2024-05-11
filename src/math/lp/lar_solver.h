@@ -393,6 +393,7 @@ public:
     bool external_is_used(unsigned) const;
     void pop(unsigned k);
     unsigned num_scopes() const { return m_trail.get_num_scopes(); }
+    trail_stack& trail() { return m_trail; }
     bool compare_values(lpvar j, lconstraint_kind kind, const mpq& right_side);
     lpvar add_term(const vector<std::pair<mpq, lpvar>>& coeffs, unsigned ext_i);
     void register_existing_terms();

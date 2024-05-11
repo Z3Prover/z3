@@ -288,7 +288,8 @@ void bound_simplifier::tighten_bound(dependent_expr const& de) {
 
 void bound_simplifier::assert_upper(expr* x, rational const& n, bool strict) {
     scoped_mpq c(nm);
-    nm.set(c, n.to_mpq());    
+    nm.set(c, n.to_mpq());
+    TRACE("propagate-ineqs", tout << to_var(x) << ": " << mk_pp(x, m) << (strict ? " < " : " <= ") << n << "\n");
     bp.assert_upper(to_var(x), c, strict);
 }
 
@@ -296,6 +297,7 @@ void bound_simplifier::assert_upper(expr* x, rational const& n, bool strict) {
 void bound_simplifier::assert_lower(expr* x, rational const& n, bool strict) {
     scoped_mpq c(nm);
     nm.set(c, n.to_mpq());
+    TRACE("propagate-ineqs", tout <<  to_var(x) << ": " << mk_pp(x, m) << (strict ? " > " : " >= ") << n << "\n");
     bp.assert_lower(to_var(x), c, strict);
 }
 
@@ -306,6 +308,7 @@ bool bound_simplifier::has_lower(expr* x, rational& n, bool& strict) {
         return false;
     strict = m_interval.lower_is_open(i);
     n = m_interval.lower(i);
+    TRACE("propagate-ineqs", tout <<  to_var(x) << ": " << mk_pp(x, m) << (strict ? " > " : " >= ") << n << "\n");
     return true;
 }
 
@@ -316,6 +319,7 @@ bool bound_simplifier::has_upper(expr* x, rational& n, bool& strict) {
         return false;
     strict = m_interval.upper_is_open(i);
     n = m_interval.upper(i);
+    TRACE("propagate-ineqs", tout << to_var(x) << ": " << mk_pp(x, m) << (strict ? " < " : " <= ") << n << "\n");
     return true;  
 }
 

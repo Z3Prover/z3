@@ -77,6 +77,7 @@ namespace intblast {
         bool is_non_negative(expr* bv_expr, expr* e);
         expr_ref mul(expr* x, expr* y);
         expr_ref add(expr* x, expr* y);
+        expr_ref if_eq(expr* n, unsigned k, expr* th, expr* el);
         expr* amod(expr* bv_expr, expr* x, rational const& N);
         rational bv_size(expr* bv_expr);
 
@@ -147,6 +148,7 @@ namespace intblast {
 
         rational get_value(expr* e) const;
 
+        void finalize_model(model& mdl) override;
     };
 
 }

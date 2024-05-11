@@ -29,6 +29,7 @@ Author:
 #include "sat/smt/q_solver.h"
 #include "sat/smt/fpa_solver.h"
 #include "sat/smt/dt_solver.h"
+#include "sat/smt/sls_solver.h"
 #include "sat/smt/recfun_solver.h"
 #include "sat/smt/specrel_solver.h"
 
@@ -55,6 +56,7 @@ namespace euf {
         m_smt_proof_checker(m, p),
         m_clause(m),       
         m_expr_args(m),
+        m_assertions(m),
         m_values(m)
     {
         updt_params(p);
@@ -78,6 +80,7 @@ namespace euf {
             };
             m_egraph.set_on_merge(on_merge);
         }
+        
     }
 
     void solver::updt_params(params_ref const& p) {
@@ -186,7 +189,9 @@ namespace euf {
         IF_VERBOSE(0, verbose_stream() << mk_pp(f, m) << " not handled\n");
     }
 
-    void solver::init_search() {        
+    void solver::init_search() {   
+        if (get_config().m_sls_enable)
+            add_solver(alloc(sls::solver, *this));
         TRACE("before_search", s().display(tout););
         m_reason_unknown.clear();
         for (auto* s : m_solvers)
@@ -218,7 +223,7 @@ namespace euf {
         mark_relevant(lit);
         s().assign(lit, sat::justification::mk_ext_justification(s().scope_lvl(), idx));
     }
-
+    
     lbool solver::resolve_conflict() {
         for (auto* s : m_solvers) {
             lbool r = s->resolve_conflict();
@@ -665,7 +670,9 @@ namespace euf {
         if (give_up)
             return sat::check_result::CR_GIVEUP;  
         if (m_qsolver && m_config.m_arith_ignore_int)
-            return sat::check_result::CR_GIVEUP;            
+            return sat::check_result::CR_GIVEUP; 
+        for (auto s : m_solvers)
+            s->finalize();
         return sat::check_result::CR_DONE;
     }
 

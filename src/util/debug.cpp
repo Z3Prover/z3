@@ -75,6 +75,37 @@ bool is_debug_enabled(const char * tag) {
     return g_enabled_debug_tags->contains(tag);
 }
 
+atomic<exit_action> g_default_exit_action(exit_action::exit);
+
+exit_action get_default_exit_action() {
+    return g_default_exit_action;
+}
+
+void set_default_exit_action(exit_action a) {
+    g_default_exit_action = a;
+}
+
+void invoke_exit_action(unsigned int code) {
+    exit_action a = get_default_exit_action();
+    switch (a) {
+    case exit_action::exit:
+        exit(code);
+    case exit_action::throw_exception:
+        switch (code) {
+            case ERR_INTERNAL_FATAL:
+                throw default_exception("internal fatal");
+            case ERR_UNREACHABLE:
+                throw default_exception("unreachable");
+            case ERR_NOT_IMPLEMENTED_YET:
+                throw default_exception("not implemented yet");
+            default:
+                throw default_exception("unknown");
+        }
+    default:
+        exit(code);
+    }
+}
+
 atomic<debug_action> g_default_debug_action(debug_action::ask);
 
 debug_action get_default_debug_action() {

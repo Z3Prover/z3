@@ -277,11 +277,14 @@ namespace nlsat {
             }
             
         };
-        void add_zero_assumption(polynomial_ref & p) {
+
+        void add_zero_assumption(polynomial_ref& p) {
             // If p is of the form p1^n1 * ... * pk^nk,
             // then only the factors that are zero in the current interpretation needed to be considered.
             // I don't want to create a nested conjunction in the clause. 
             // Then, I assert p_i1 * ... * p_im  != 0
+            bool is_linear = true;
+            unsigned x = max_var(p);
             {
                 restore_factors _restore(m_factors, m_factors_save);
                 factor(p, m_factors);
@@ -294,10 +297,33 @@ namespace nlsat {
                     if (is_zero(sign(f))) {
                         m_zero_fs.push_back(m_factors.get(i));
                         m_is_even.push_back(false);
-                    } 
+                        is_linear &= m_pm.degree(f, x) <= 1;
+                    }
+                }
+            }
+
+            if (!is_linear) {
+                scoped_anum_vector& roots = m_roots_tmp;
+                roots.reset();
+                m_am.isolate_roots(p, undef_var_assignment(m_assignment, x), roots);
+                unsigned num_roots = roots.size();
+                if (num_roots > 0) {
+                    anum const& x_val = m_assignment.value(x);
+                    for (unsigned i = 0; i < num_roots; i++) {
+                        int s = m_am.compare(x_val, roots[i]);
+                        if (s != 0)
+                            continue;
+                        TRACE("nlsat_explain", tout << "adding (zero assumption) root " << "\n");
+                        add_root_literal(atom::ROOT_EQ, x, i + 1, p);
+                        return;
+                    }
+                    display(verbose_stream() << "polynomial ", p);
+                    m_solver.display(verbose_stream());
+                    UNREACHABLE();
                 }
             }
             SASSERT(!m_zero_fs.empty()); // one of the factors must be zero in the current interpretation, since p is zero in it.
+
             literal l = m_solver.mk_ineq_literal(atom::EQ, m_zero_fs.size(), m_zero_fs.data(), m_is_even.data());
             l.neg();
             TRACE("nlsat_explain", tout << "adding (zero assumption) literal:\n"; display(tout, l); tout << "\n";);
@@ -647,6 +673,52 @@ namespace nlsat {
                 SASSERT(!is_const(lc));
                 add_factors(lc);
             }
+        }
+
+        void add_zero_assumption_on_factor(polynomial_ref& f) {
+            display(std::cout << "zero factors \n", f); 
+        }
+        // this function also explains the value 0, if met
+        bool coeffs_are_zeroes(polynomial_ref &s) {
+            restore_factors _restore(m_factors, m_factors_save);
+            factor(s, m_factors);
+            unsigned num_factors = m_factors.size();
+            m_zero_fs.reset();
+            m_is_even.reset();
+            polynomial_ref f(m_pm);
+            bool have_zero = false;
+            for (unsigned i = 0; i < num_factors; i++) {
+                f = m_factors.get(i);
+              //  std::cout << "f=";display(std::cout, f) << "\n";
+                if (coeffs_are_zeroes_in_factor(f)) {
+                    have_zero = true;
+                    break;
+                } 
+            }
+            if (!have_zero)
+                return false;
+            var x = max_var(f);
+            unsigned n = degree(f, x);
+            auto c = polynomial_ref(this->m_pm);
+            for (unsigned j = 0; j <= n; j++) {
+                c = m_pm.coeff(s, x, j);
+                SASSERT(sign(c) == 0);
+                ensure_sign(c);
+            }
+            return true;
+        }
+    
+
+        bool coeffs_are_zeroes_in_factor(polynomial_ref & s) {
+            var x = max_var(s);
+            unsigned n = degree(s, x);
+            auto c = polynomial_ref(this->m_pm);
+            for (unsigned j = 0; j <= n; j++) {
+                c = m_pm.coeff(s, x, j);
+                if (sign(c) != 0)
+                    return false;
+            }
+            return true;
         }
 
         /**
@@ -1022,12 +1094,12 @@ namespace nlsat {
             if (x < max_x)
                 add_cell_lits(ps, x);
             while (true) {
+                TRACE("nlsat_explain", tout << "project loop, processing var "; display_var(tout, x); tout << "\npolynomials\n";
+                      display(tout, ps); tout << "\n";);
                 if (all_univ(ps, x) && m_todo.empty()) {
                     m_todo.reset();
                     break;
                 }
-                TRACE("nlsat_explain", tout << "project loop, processing var "; display_var(tout, x); tout << "\npolynomials\n";
-                      display(tout, ps); tout << "\n";);
                 add_lc(ps, x);
                 psc_discriminant(ps, x);
                 psc_resultant(ps, x);
@@ -1672,7 +1744,16 @@ namespace nlsat {
                     solve_eq(x, eq_index, ps);
                 }
                 else {
-                    project_pairs(x, eq_index, ps);
+                    add_zero_assumption(p);
+
+                    for (unsigned j = 0; j < ps.size(); ++j) {
+                        if (j == eq_index)
+                            continue;
+                        p = ps.get(j);
+                        int s = sign(p);
+                        atom::kind k = (s == 0)?(atom::EQ):((s < 0)?(atom::LT):(atom::GT));
+                        add_simple_assumption(k, p, false);
+                    }
                 }
                 return;
             }

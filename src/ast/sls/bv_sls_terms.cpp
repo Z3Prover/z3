@@ -20,12 +20,14 @@ Author:
 
 #include "ast/ast_ll_pp.h"
 #include "ast/sls/bv_sls.h"
+#include "ast/rewriter/th_rewriter.h"
 
 namespace bv {
 
     sls_terms::sls_terms(ast_manager& m): 
         m(m), 
         bv(m),
+        m_rewriter(m),
         m_assertions(m),
         m_pinned(m),
         m_translated(m), 
@@ -40,18 +42,20 @@ namespace bv {
         expr* top = e;
         m_pinned.push_back(e);
         m_todo.push_back(e);
-        expr_fast_mark1 mark;
-        for (unsigned i = 0; i < m_todo.size(); ++i) {
-            expr* e = m_todo[i];
-            if (!is_app(e))
-                continue;
-            if (m_translated.get(e->get_id(), nullptr))
-                continue;
-            if (mark.is_marked(e))
-                continue;
-            mark.mark(e);
-            for (auto arg : *to_app(e))
-                m_todo.push_back(arg);
+        {
+            expr_fast_mark1 mark;
+            for (unsigned i = 0; i < m_todo.size(); ++i) {
+                expr* e = m_todo[i];
+                if (!is_app(e))
+                    continue;
+                if (m_translated.get(e->get_id(), nullptr))
+                    continue;
+                if (mark.is_marked(e))
+                    continue;
+                mark.mark(e);
+                for (auto arg : *to_app(e))
+                    m_todo.push_back(arg);
+            }
         }
         std::stable_sort(m_todo.begin(), m_todo.end(), [&](expr* a, expr* b) { return get_depth(a) < get_depth(b); });
         for (expr* e : m_todo)
@@ -127,7 +131,7 @@ namespace bv {
         m_translated.setx(e->get_id(), r);
     }
 
-    expr* sls_terms::mk_sdiv(expr* x, expr* y) {
+    expr_ref sls_terms::mk_sdiv(expr* x, expr* y) {
         // d = udiv(abs(x), abs(y))
         // y = 0, x >= 0 -> -1
         // y = 0, x < 0 -> 1
@@ -141,17 +145,18 @@ namespace bv {
         expr_ref z(bv.mk_zero(sz), m);
         expr* signx = bv.mk_ule(bv.mk_numeral(N / 2, sz), x);
         expr* signy = bv.mk_ule(bv.mk_numeral(N / 2, sz), y);
-        expr* absx = m.mk_ite(signx, bv.mk_bv_sub(bv.mk_numeral(N - 1, sz), x), x);
-        expr* absy = m.mk_ite(signy, bv.mk_bv_sub(bv.mk_numeral(N - 1, sz), y), y);
+        expr* absx = m.mk_ite(signx, bv.mk_bv_neg(x), x);
+        expr* absy = m.mk_ite(signy, bv.mk_bv_neg(y), y);
         expr* d = bv.mk_bv_udiv(absx, absy);
-        expr* r = m.mk_ite(m.mk_eq(signx, signy), d, bv.mk_bv_neg(d));
+        expr_ref r(m.mk_ite(m.mk_eq(signx, signy), d, bv.mk_bv_neg(d)), m);
         r = m.mk_ite(m.mk_eq(z, y),
-                m.mk_ite(signx, bv.mk_one(sz), bv.mk_numeral(N - 1, sz)),
-                m.mk_ite(m.mk_eq(x, z), z, r));
+                     m.mk_ite(signx, bv.mk_one(sz), bv.mk_numeral(N - 1, sz)),
+                     m.mk_ite(m.mk_eq(x, z), z, r));
+        m_rewriter(r);
         return r;
     }
 
-    expr* sls_terms::mk_smod(expr* x, expr* y) {
+    expr_ref sls_terms::mk_smod(expr* x, expr* y) {
         // u := umod(abs(x), abs(y))
         // u = 0 ->  0
         // y = 0 ->  x
@@ -164,21 +169,24 @@ namespace bv {
         expr_ref abs_x(m.mk_ite(bv.mk_sle(z, x), x, bv.mk_bv_neg(x)), m);
         expr_ref abs_y(m.mk_ite(bv.mk_sle(z, y), y, bv.mk_bv_neg(y)), m);
         expr_ref u(bv.mk_bv_urem(abs_x, abs_y), m);
-        return
-            m.mk_ite(m.mk_eq(u, z), z,
+        expr_ref r(m);
+        r = m.mk_ite(m.mk_eq(u, z), z,
                 m.mk_ite(m.mk_eq(y, z), x,
                     m.mk_ite(m.mk_and(bv.mk_sle(z, x), bv.mk_sle(z, x)), u,
                         m.mk_ite(bv.mk_sle(z, x), bv.mk_bv_add(y, u),
                             m.mk_ite(bv.mk_sle(z, y), bv.mk_bv_sub(y, u), bv.mk_bv_neg(u))))));
-                      
+        m_rewriter(r);
+        return r;
     }
 
-    expr* sls_terms::mk_srem(expr* x, expr* y) {
+    expr_ref sls_terms::mk_srem(expr* x, expr* y) {
         // y = 0 -> x
         // else x - sdiv(x, y) * y
-        return 
-            m.mk_ite(m.mk_eq(y, bv.mk_zero(bv.get_bv_size(x))),
+        expr_ref r(m);
+        r = m.mk_ite(m.mk_eq(y, bv.mk_zero(bv.get_bv_size(x))),
                      x, bv.mk_bv_sub(x, bv.mk_bv_mul(y, mk_sdiv(x, y))));
+        m_rewriter(r);
+        return r;
     }
 
 
@@ -198,6 +206,7 @@ namespace bv {
                 m_todo.push_back(arg);
         }       
         // populate parents
+        m_parents.reset();
         m_parents.reserve(m_terms.size());
         for (expr* e : m_terms) {
             if (!e || !is_app(e))
@@ -205,8 +214,16 @@ namespace bv {
             for (expr* arg : *to_app(e))
                 m_parents[arg->get_id()].push_back(e);                
         }
+        m_assertion_set.reset();
         for (auto a : m_assertions)
             m_assertion_set.insert(a->get_id());
     }
+
+    void sls_terms::updt_params(params_ref const& p) {
+        params_ref q = p;
+        q.set_bool("flat", false);
+        m_rewriter.updt_params(q);
+    }
+
 
 }

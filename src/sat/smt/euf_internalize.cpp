@@ -525,4 +525,8 @@ namespace euf {
         return n;
     }
 
+    void solver::add_assertion(expr* f) {
+        m_assertions.push_back(f);
+        m_trail.push(push_back_vector(m_assertions));
+    }
 }

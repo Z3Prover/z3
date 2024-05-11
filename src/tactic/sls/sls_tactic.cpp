@@ -134,7 +134,7 @@ public:
     bv_sls_tactic(ast_manager& _m, params_ref const& p) :
         m(_m),
         m_params(p) {
-        m_sls = alloc(bv::sls, m);
+        m_sls = alloc(bv::sls, m, p);
     }
 
     tactic* translate(ast_manager& m) override {
@@ -172,12 +172,12 @@ public:
         m_sls->init_eval(false_eval);
 
         lbool res = m_sls->operator()();
-        auto const& stats = m_sls->get_stats();
-        report_tactic_progress("Number of flips:", stats.m_moves);
-        IF_VERBOSE(20, verbose_stream() << res << "\n");
-        IF_VERBOSE(20, m_sls->display(verbose_stream()));
         m_st.reset();
         m_sls->collect_statistics(m_st);
+        report_tactic_progress("Number of flips:", m_sls->get_num_moves());
+        IF_VERBOSE(10, verbose_stream() << res << "\n");
+        IF_VERBOSE(10, m_sls->display(verbose_stream()));
+
         if (res == l_true) {            
             if (g->models_enabled()) {
                 model_ref mdl = m_sls->get_model();
@@ -207,7 +207,7 @@ public:
 
     void cleanup() override {
 
-        auto* d = alloc(bv::sls, m);
+        auto* d = alloc(bv::sls, m, m_params);
         std::swap(d, m_sls);
         dealloc(d);
     }
@@ -235,12 +235,6 @@ tactic* mk_bv_sls_tactic(ast_manager& m, params_ref const& p) {
 
 
 static tactic * mk_preamble(ast_manager & m, params_ref const & p) {
-    params_ref main_p;
-    main_p.set_bool("elim_and", true);
-    // main_p.set_bool("pull_cheap_ite", true);
-    main_p.set_bool("push_ite_bv", true);
-    main_p.set_bool("blast_distinct", true);
-    main_p.set_bool("hi_div0", true);
 
     params_ref simp2_p = p;
     simp2_p.set_bool("som", true);
@@ -249,18 +243,15 @@ static tactic * mk_preamble(ast_manager & m, params_ref const & p) {
     simp2_p.set_bool("local_ctx", true);
     simp2_p.set_uint("local_ctx_limit", 10000000);
 
-    params_ref hoist_p;
+    params_ref hoist_p = p;
     hoist_p.set_bool("hoist_mul", true);
     hoist_p.set_bool("som", false);
 
-    params_ref gaussian_p;
+    params_ref gaussian_p = p;
     // conservative gaussian elimination. 
     gaussian_p.set_uint("gaussian_max_occs", 2); 
 
-    params_ref ctx_p;
-    ctx_p.set_uint("max_depth", 32);
-    ctx_p.set_uint("max_steps", 5000000);
-    return and_then(and_then(mk_simplify_tactic(m),                             
+    return and_then(and_then(mk_simplify_tactic(m, p),                             
                              mk_propagate_values_tactic(m),
                              using_params(mk_solve_eqs_tactic(m), gaussian_p),
                              mk_elim_uncnstr_tactic(m),
@@ -278,7 +269,9 @@ tactic * mk_qfbv_sls_tactic(ast_manager & m, params_ref const & p) {
 }
 
 tactic* mk_qfbv_new_sls_tactic(ast_manager& m, params_ref const& p) {
-    tactic* t = and_then(mk_preamble(m, p), mk_bv_sls_tactic(m, p));
-    t->updt_params(p);
+    params_ref q = p;
+    q.set_bool("elim_sign_ext", false);
+    tactic* t = and_then(mk_preamble(m, q), mk_bv_sls_tactic(m, q));
+    t->updt_params(q);
     return t;
 }

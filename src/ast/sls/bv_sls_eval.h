@@ -25,6 +25,12 @@ namespace bv {
 
     class sls_fixed;
 
+    class sls_eval_plugin {
+    public:
+        virtual ~sls_eval_plugin() {}
+        
+    };
+
     class sls_eval {
         struct config {
             unsigned m_prob_randomize_extract = 50;
@@ -39,6 +45,8 @@ namespace bv {
         ptr_vector<expr>    m_todo;
         random_gen          m_rand;
         config              m_config;
+
+        scoped_ptr_vector<sls_eval_plugin> m_plugins;
 
 
 
@@ -93,6 +101,10 @@ namespace bv {
         bool try_repair_shl(bvect const& e, bvval& a, bvval& b, unsigned i);
         bool try_repair_ashr(bvect const& e, bvval& a, bvval& b, unsigned i);
         bool try_repair_lshr(bvect const& e, bvval& a, bvval& b, unsigned i);
+        bool try_repair_lshr0(bvect const& e, bvval& a, bvval const& b);
+        bool try_repair_lshr1(bvect const& e, bvval const& a, bvval& b);
+        bool try_repair_ashr0(bvect const& e, bvval& a, bvval const& b);
+        bool try_repair_ashr1(bvect const& e, bvval const& a, bvval& b);
         bool try_repair_bit2bool(bvval& a, unsigned idx);
         bool try_repair_udiv(bvect const& e, bvval& a, bvval& b, unsigned i);
         bool try_repair_urem(bvect const& e, bvval& a, bvval& b, unsigned i);
@@ -153,6 +165,18 @@ namespace bv {
         
         sls_valuation& eval(app* e) const;
 
+        void commit_eval(app* e);
+
+        void init_eval(app* e);
+
+        void set_random(app* e);
+
+        bool eval_is_correct(app* e);
+
+        bool re_eval_is_correct(app* e);
+
+        expr_ref get_value(app* e);
+
         /**
          * Override evaluaton.
          */
@@ -174,5 +198,7 @@ namespace bv {
 
 
         std::ostream& display(std::ostream& out, expr_ref_vector const& es);
+
+        std::ostream& display_value(std::ostream& out, expr* e);
     };
 }

@@ -60,13 +60,27 @@ namespace bv {
             return bw;
         }
 
+        void set_zero()  {
+            for (unsigned i = 0; i < nw; ++i)
+                (*this)[i] = 0;
+        }
+
+        bvect& set_shift_right(bvect const& a, bvect const& b);
+        bvect& set_shift_right(bvect const& a, unsigned shift);
+        bvect& set_shift_left(bvect const& a, bvect const& b);
+
         rational get_value(unsigned nw) const;
+
+        unsigned to_nat(unsigned max_n) const;
+
 
         friend bool operator==(bvect const& a, bvect const& b);
         friend bool operator<(bvect const& a, bvect const& b);
         friend bool operator>(bvect const& a, bvect const& b);
         friend bool operator<=(bvect const& a, bvect const& b);
         friend bool operator>=(bvect const& a, bvect const& b);
+        friend bool operator<=(digit_t a, bvect const& b);
+        friend bool operator<=(bvect const& a, digit_t b);
         friend std::ostream& operator<<(std::ostream& out, bvect const& v);
 
     private:
@@ -96,11 +110,10 @@ namespace bv {
     protected:
         bvect m_bits;
         bvect m_lo, m_hi;        // range assignment to bit-vector, as wrap-around interval
+        bvect m_tmp;
         unsigned m_signed_prefix = 0;
 
         unsigned mask;
-        bool round_up(bvect& dst) const;
-        bool round_down(bvect& dst) const;
 
         void repair_sign_bits(bvect& dst) const;
 
@@ -110,6 +123,7 @@ namespace bv {
         unsigned nw;                     // num words
         bvect fixed;                     // bit assignment and don't care bit
         bvect eval;                      // current evaluation
+
 
         sls_valuation(unsigned bw);
 
@@ -127,9 +141,11 @@ namespace bv {
             SASSERT(in_range(m_bits));
             if (fixed.get(i) && get_bit(i) != b)
                 return false;
+            m_bits.set(i, b);   
             eval.set(i, b);
             if (in_range(m_bits))
                 return true;
+            m_bits.set(i, !b);
             eval.set(i, !b);
             return false;
         }
@@ -141,6 +157,9 @@ namespace bv {
         rational lo() const { return m_lo.get_value(nw); }
         rational hi() const { return m_hi.get_value(nw); }
 
+        unsigned diff_index(bvect const& a) const;
+        void inf_feasible(bvect& a) const;
+        void sup_feasible(bvect& a) const;
 
         void get(bvect& dst) const;
         void add_range(rational lo, rational hi);
@@ -198,6 +217,8 @@ namespace bv {
         // most significant bit or bw if src = 0
         unsigned msb(bvect const& src) const;
 
+        unsigned clz(bvect const& src) const;
+
         bool is_power_of2(bvect const& src) const;
 
         // retrieve largest number at or below (above) src which is feasible
@@ -205,19 +226,21 @@ namespace bv {
         bool get_at_most(bvect const& src, bvect& dst) const;
         bool get_at_least(bvect const& src, bvect& dst) const;
 
-        bool set_random_at_most(bvect const& src, bvect& tmp, random_gen& r);
-        bool set_random_at_least(bvect const& src, bvect& tmp, random_gen& r);
-        bool set_random_in_range(bvect const& lo, bvect const& hi, bvect& tmp, random_gen& r);
+        bool set_random_at_most(bvect const& src, random_gen& r);
+        bool set_random_at_least(bvect const& src, random_gen& r);
+        bool set_random_in_range(bvect const& lo, bvect const& hi, random_gen& r);
 
         bool set_repair(bool try_down, bvect& dst);
         void set_random_above(bvect& dst, random_gen& r);
         void set_random_below(bvect& dst, random_gen& r);
+        bool set_random(random_gen& r);
         void round_down(bvect& dst, std::function<bool(bvect const&)> const& is_feasible);
         void round_up(bvect& dst, std::function<bool(bvect const&)> const& is_feasible);
 
 
         static digit_t random_bits(random_gen& r);
         void get_variant(bvect& dst, random_gen& r) const;
+        
 
         bool try_set(bvect const& src) {
             if (!can_set(src))
@@ -232,7 +255,7 @@ namespace bv {
             clear_overflow_bits(eval);
         }
 
-        void set_zero(bvect& out) const {
+        void set_zero(bvect& out) const {            
             for (unsigned i = 0; i < nw; ++i)
                 out[i] = 0;
         }
@@ -255,6 +278,17 @@ namespace bv {
                 }
                 else
                     out.set(i, true);
+            }
+        }
+
+        void add1(bvect& out) const {
+            for (unsigned i = 0; i < bw; ++i) {
+                if (!out.get(i)) {
+                    out.set(i, true);
+                    return;
+                }
+                else
+                    out.set(i, false);
             }
         }
 
@@ -288,7 +322,7 @@ namespace bv {
                 dst[i] = src[i];
         }
 
-        unsigned to_nat(unsigned max_n);
+        unsigned to_nat(unsigned max_n) const;
 
         std::ostream& display(std::ostream& out) const {
             out << m_bits;

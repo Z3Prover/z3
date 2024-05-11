@@ -18,6 +18,7 @@ Author:
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
 #include "sat/smt/euf_solver.h"
+#include "sat/smt/sls_solver.h"
 #include "model/value_factory.h"
 
 namespace euf {
@@ -65,6 +66,14 @@ namespace euf {
 
     void solver::save_model(model_ref& mdl) {
         m_qmodel = mdl;
+    }
+
+    model_ref solver::get_sls_model() {
+        model_ref mdl;
+        auto s = get_solver(m.mk_family_id("sls"), nullptr);
+        if (s)
+            mdl = dynamic_cast<sls::solver*>(s)->get_model();
+        return mdl;
     }
 
     void solver::update_model(model_ref& mdl, bool validate) {
@@ -318,7 +327,7 @@ namespace euf {
         out << mdl << "\n";
     }
 
-    void solver::validate_model(model& mdl) {
+    void solver::validate_model(model& mdl) {       
         if (!m_unhandled_functions.empty())
             return;
         if (get_config().m_arith_ignore_int)

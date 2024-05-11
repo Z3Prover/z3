@@ -921,6 +921,13 @@ namespace polynomial {
         */
         bool is_nonneg(polynomial const * p);
 
+
+        /**
+           \brief Return true if p is always greater or equal to q.
+           This is an incomplete check
+        */
+        bool ge(polynomial const* p, polynomial const* q);
+
         /**
            \brief Make sure the monomials in p are sorted using lexicographical order.
            Remark: the maximal monomial is at position 0.
@@ -931,6 +938,9 @@ namespace polynomial {
            \brief Collect variables that occur in p into xs
         */
         void vars(polynomial const * p, var_vector & xs);
+        void vars_incremental(polynomial const * p, var_vector & xs);
+        void begin_vars_incremental();
+        void end_vars_incremental(var_vector & xs);
 
         /**
            \brief Evaluate polynomial p using the assignment [x_1 -> v_1, ..., x_n -> v_n].
@@ -1019,15 +1029,14 @@ namespace polynomial {
         */
         void exact_pseudo_division_mod_d(polynomial const * p, polynomial const * q, var x, var2degree const & x2d, polynomial_ref & Q, polynomial_ref & R);
 
-        void display(std::ostream & out, monomial const * m, display_var_proc const & proc = display_var_proc(), bool use_star = true) const;
+        std::ostream& display(std::ostream & out, monomial const * m, display_var_proc const & proc = display_var_proc(), bool use_star = true) const;
 
-        void display(std::ostream & out, polynomial const * p, display_var_proc const & proc = display_var_proc(), bool use_star = false) const;
+        std::ostream& display(std::ostream & out, polynomial const * p, display_var_proc const & proc = display_var_proc(), bool use_star = false) const;
 
-        void display_smt2(std::ostream & out, polynomial const * p, display_var_proc const & proc = display_var_proc()) const;
+        std::ostream& display_smt2(std::ostream & out, polynomial const * p, display_var_proc const & proc = display_var_proc()) const;
 
         friend std::ostream & operator<<(std::ostream & out, polynomial_ref const & p) {
-            p.m().display(out, p);
-            return out;
+            return p.m().display(out, p);
         }
     };
 

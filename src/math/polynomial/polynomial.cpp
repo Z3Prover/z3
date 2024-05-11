@@ -190,6 +190,10 @@ namespace polynomial {
             }
         };
 
+        bool operator==(monomial const& other) const {
+            return eq_proc()(this, &other);
+        }
+
         static unsigned get_obj_size(unsigned sz) { return sizeof(monomial) + sz * sizeof(power); }
         
         monomial(unsigned id, unsigned sz, power const * pws, unsigned h):
@@ -3221,9 +3225,16 @@ namespace polynomial {
         };
 
         bool_vector  m_found_vars;
-        void vars(polynomial const * p, var_vector & xs) {
-            xs.reset();
+        void begin_vars_incremental() {
             m_found_vars.reserve(num_vars(), false);
+        }
+        void end_vars_incremental(var_vector& xs) {
+            // reset m_found_vars
+            unsigned sz = xs.size();
+            for (unsigned i = 0; i < sz; i++)
+                m_found_vars[xs[i]] = false;
+        }
+        void vars(polynomial const * p, var_vector & xs) {
             unsigned sz = p->size();
             for (unsigned i = 0; i < sz; i++) {
                 monomial * m = p->m(i);
@@ -3236,10 +3247,6 @@ namespace polynomial {
                     }
                 }
             }
-            // reset m_found_vars
-            sz = xs.size();
-            for (unsigned i = 0; i < sz; i++)
-                m_found_vars[xs[i]] = false;
         }
 
         typedef sbuffer<power, 32>    power_buffer;
@@ -6045,6 +6052,47 @@ namespace polynomial {
             }
             return true;
         }
+       
+        bool ge(polynomial const* p, polynomial const* q) {
+            unsigned sz1 = p->size();
+            unsigned sz2 = q->size();
+            unsigned i = 0, j = 0;
+            while (i < sz1 || j < sz2) {
+                auto * m1 = i < sz1 ? p->m(i) : q->m(j);
+                auto & a1 = i < sz1 ? p->a(i) : q->a(j);
+                auto * m2 = j < sz2 ? q->m(j) : p->m(i);
+                auto & a2 = j < sz2 ? q->a(j) : p->a(i);
+
+                if (i < sz1 && j == sz2 && m1->is_unit()) {
+                    if (!m_manager.is_pos(a1))
+                        return false;
+                    ++i;
+                    continue;
+                }
+
+                if (i == sz1 && j < sz2 && m2->is_unit()) {
+                    if (!m_manager.is_neg(a2))
+                        return false;
+                    ++j;
+                    continue;
+                }
+
+                if (i == sz1 || j == sz2)
+                    break;
+
+                if (!(*m1 == *m2)) {
+                    if (m_manager.is_pos(a1) && m1->is_square()) {
+                        ++i;
+                        continue;
+                    }
+                    return false;
+                }
+                if (!m_manager.ge(a1, a2))
+                    return false;
+                ++i, ++j;               
+            }
+            return i == sz1 && j == sz2;           
+        }
 
         // Functor used to compute the maximal degree of each variable in a polynomial p.
         class var_max_degree {
@@ -6269,6 +6317,27 @@ namespace polynomial {
             return R.mk();
         }        
 
+        // x*q = p
+        // 
+        // md = degree of x in p
+        // P = m0 + ...
+        // m0 = x^dm*m1
+        // m1 * p^dm * q^{md - dm}  
+        // P' = m1 + ...
+        // property would be that x*q = p => P > 0 <=> P' > 0
+        // requires that q > 0
+        // Reasoning:
+        //    P > 0 
+        // <=> { since q > 0 }
+        //    q^md * P > 0
+        // <=>
+        //    q^md*x^dm*m0 + .. > 0
+        // <=>
+        //    q^{md-dm}*(xq)^dm*m0 + ... > 0
+        // <=>
+        //    q^{md-dm}*p^dm + .. > 0
+        // <=>
+        //    P' > 0
         void substitute(polynomial const* r, var x, polynomial const* p, polynomial const* q, polynomial_ref& result) {
             unsigned md = degree(r, x);
             if (md == 0) {
@@ -7228,13 +7297,33 @@ namespace polynomial {
         return m_imp->is_nonneg(p);
     }
 
+    bool manager::ge(polynomial const* p, polynomial const* q) {
+        return m_imp->ge(p, q);
+    }
+
+
     void manager::rename(unsigned sz, var const * xs) {
         return m_imp->rename(sz, xs);
     }
 
     void manager::vars(polynomial const * p, var_vector & xs) {
+        xs.reset();
+        m_imp->begin_vars_incremental();
+        m_imp->vars(p, xs);
+        m_imp->end_vars_incremental(xs);
+    }
+
+    void manager::vars_incremental(polynomial const * p, var_vector & xs) {
         m_imp->vars(p, xs);
     }
+    void manager::begin_vars_incremental() {
+        m_imp->begin_vars_incremental();
+    }
+    
+    void manager::end_vars_incremental(var_vector & xs) {
+        m_imp->end_vars_incremental(xs);        
+    }
+
 
     polynomial * manager::substitute(polynomial const * p, var2mpq const & x2v) {
         return m_imp->substitute(p, x2v);
@@ -7293,17 +7382,20 @@ namespace polynomial {
         return m_imp->eval(p, x2v, r);
     }
 
-    void manager::display(std::ostream & out, monomial const * m, display_var_proc const & proc, bool user_star) const {
+    std::ostream& manager::display(std::ostream & out, monomial const * m, display_var_proc const & proc, bool user_star) const {
         m->display(out, proc, user_star);
+        return out;
     }
 
-    void manager::display(std::ostream & out, polynomial const * p, display_var_proc const & proc, bool use_star) const {
+    std::ostream& manager::display(std::ostream & out, polynomial const * p, display_var_proc const & proc, bool use_star) const {
         SASSERT(m_imp->consistent_coeffs(p));
         p->display(out, m_imp->m_manager, proc, use_star);
+        return out;
     }
 
-    void manager::display_smt2(std::ostream & out, polynomial const * p, display_var_proc const & proc) const {
+    std::ostream& manager::display_smt2(std::ostream & out, polynomial const * p, display_var_proc const & proc) const {
         p->display_smt2(out, m_imp->m_manager, proc);
+        return out;
     }
 };
 

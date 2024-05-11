@@ -1894,6 +1894,8 @@ void cmd_context::add_declared_functions(model& mdl) {
     model_params p;
     if (!p.user_functions())
         return;
+    if (m_params.m_smtlib2_compliant)
+        return;
     for (auto const& kv : m_func_decls) {
         func_decl* f = kv.m_value.first();
         if (f->get_family_id() == null_family_id && !mdl.has_interpretation(f)) {
@@ -2066,7 +2068,10 @@ void cmd_context::complete_model(model_ref& md) const {
                 
             if (m_macros.find(k, decls)) 
                 body = decls.find(f->get_arity(), f->get_domain());
+            if (body && m_params.m_smtlib2_compliant)
+                continue;
             sort * range = f->get_range();
+            
             if (!body)
                 body = m().get_some_value(range);
             if (f->get_arity() > 0) {

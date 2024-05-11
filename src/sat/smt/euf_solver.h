@@ -154,6 +154,7 @@ namespace euf {
         svector<scope>                   m_scopes;
         scoped_ptr_vector<th_solver>     m_solvers;
         ptr_vector<th_solver>            m_id2solver;
+        
 
         constraint* m_conflict = nullptr;
         constraint* m_eq = nullptr;
@@ -173,6 +174,7 @@ namespace euf {
         symbol                           m_smt = symbol("smt");            
         expr_ref_vector                  m_clause;
         expr_ref_vector                  m_expr_args;
+        expr_ref_vector                  m_assertions;
 
 
         // internalization
@@ -481,6 +483,10 @@ namespace euf {
         bool is_beta_redex(euf::enode* p, euf::enode* n) const;
         bool enable_ackerman_axioms(expr* n) const;
         bool is_fixed(euf::enode* n, expr_ref& val, sat::literal_vector& explain);
+
+        void add_assertion(expr* f);
+        expr_ref_vector const& get_assertions() { return m_assertions; }
+        model_ref get_sls_model();
 
         // relevancy
 

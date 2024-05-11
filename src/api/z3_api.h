@@ -1023,6 +1023,7 @@ typedef enum {
     Z3_OP_TO_INT,
     Z3_OP_IS_INT,
     Z3_OP_POWER,
+    Z3_OP_ABS,
 
     // Arrays & Sets
     Z3_OP_STORE = 0x300,
@@ -1193,6 +1194,10 @@ typedef enum {
     Z3_OP_SEQ_LAST_INDEX,
     Z3_OP_SEQ_TO_RE,
     Z3_OP_SEQ_IN_RE,
+    Z3_OP_SEQ_MAP,            
+    Z3_OP_SEQ_MAPI,           
+    Z3_OP_SEQ_FOLDL,          
+    Z3_OP_SEQ_FOLDLI,         
 
     // strings
     Z3_OP_STR_TO_INT,
@@ -2545,6 +2550,13 @@ extern "C" {
     Z3_ast Z3_API Z3_mk_power(Z3_context c, Z3_ast arg1, Z3_ast arg2);
 
     /**
+       \brief Take the absolute value of an integer
+
+       def_API('Z3_mk_abs', AST, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_abs(Z3_context c, Z3_ast arg);
+    
+    /**
         \brief Create less than.
 
         The nodes \c t1 and \c t2 must have the same sort, and must be int or real.
@@ -3797,6 +3809,30 @@ extern "C" {
        def_API('Z3_mk_seq_last_index', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_seq_last_index(Z3_context c, Z3_ast s, Z3_ast substr);
+
+    /**
+      \brief Create a map of the function \c f over the sequence \c s.
+      def_API('Z3_mk_seq_map', AST ,(_in(CONTEXT), _in(AST), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_seq_map(Z3_context c, Z3_ast f, Z3_ast s);
+
+    /**
+     \brief Create a map of the function \c f over the sequence \c s starting at index \c i.
+     def_API('Z3_mk_seq_mapi', AST ,(_in(CONTEXT), _in(AST), _in(AST), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_seq_mapi(Z3_context c, Z3_ast f, Z3_ast i, Z3_ast s);
+
+    /**
+      \brief Create a fold of the function \c f over the sequence \c s with accumulator a.
+      def_API('Z3_mk_seq_foldl', AST ,(_in(CONTEXT), _in(AST), _in(AST), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_seq_foldl(Z3_context c, Z3_ast f, Z3_ast a, Z3_ast s);
+
+    /**
+       \brief Create a fold with index tracking of the function \c f over the sequence \c s with accumulator \c a starting at index \c i.
+       def_API('Z3_mk_seq_foldli', AST ,(_in(CONTEXT), _in(AST), _in(AST), _in(AST), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_seq_foldli(Z3_context c, Z3_ast f, Z3_ast i, Z3_ast a, Z3_ast s);
 
     /**
        \brief Convert string to integer.

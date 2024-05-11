@@ -329,6 +329,7 @@ namespace euf {
         m_config.m_context_solve = p.get_bool("context_solve", tp.solve_eqs_context_solve());
         for (auto* ex : m_extract_plugins)
             ex->updt_params(p);
+        m_rewriter.updt_params(p);
     }
 
     void solve_eqs::collect_param_descrs(param_descrs& r) {

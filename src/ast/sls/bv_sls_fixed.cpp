@@ -38,8 +38,8 @@ namespace bv {
             else
                 ;
         }
-        ev.m_todo.reset();
         init_ranges(es);
+        ev.m_todo.reset();        
     }
 
 
@@ -49,11 +49,49 @@ namespace bv {
             if (is_app(e))
                 init_range(to_app(e), sign);
         }
+        
+        for (expr* e : ev.m_todo)
+            propagate_range_up(e);
+    }
+
+    void sls_fixed::propagate_range_up(expr* e) {
+        expr* t, * s;
+        rational v;
+        if (bv.is_concat(e, t, s)) {
+            auto& vals = wval(s);
+            if (vals.lo() != vals.hi() && (vals.lo() < vals.hi() || vals.hi() == 0))
+                // lo <= e
+                add_range(e, vals.lo(), rational::zero(), false);
+            auto valt = wval(t);
+            if (valt.lo() != valt.hi() && (valt.lo() < valt.hi() || valt.hi() == 0)) {
+                // (2^|s|) * lo <= e < (2^|s|) * hi
+                auto p = rational::power_of_two(bv.get_bv_size(s));
+                add_range(e, valt.lo() * p, valt.hi() * p, false);
+            }
+        }        
+        else if (bv.is_bv_add(e, s, t) && bv.is_numeral(s, v)) {
+            auto& val = wval(t);
+            if (val.lo() != val.hi()) 
+                add_range(e, v + val.lo(), v + val.hi(), false);  
+        }
+        else if (bv.is_bv_add(e, t, s) && bv.is_numeral(s, v)) {
+            auto& val = wval(t);
+            if (val.lo() != val.hi()) 
+                add_range(e, v + val.lo(), v + val.hi(), false);          
+        }
+        // x in [1, 4[   => -x in [-3, 0[
+        // x in [lo, hi[ => -x in [-hi + 1, -lo + 1[
+        else if (bv.is_bv_mul(e, s, t) && bv.is_numeral(s, v) && 
+            v + 1 == rational::power_of_two(bv.get_bv_size(e))) {
+            auto& val = wval(t);
+            if (val.lo() != val.hi())
+                add_range(e, -val.hi() + 1, - val.lo() + 1, false);
+        }
     }
 
     // s <=s t           <=> s + K <= t + K,   K = 2^{bw-1}
 
-    void sls_fixed::init_range(app* e, bool sign) {
+    bool sls_fixed::init_range(app* e, bool sign) {
         expr* s, * t, * x, * y;
         rational a, b;
         unsigned idx;
@@ -64,56 +102,116 @@ namespace bv {
         if (bv.is_ule(e, s, t)) {
             get_offset(s, x, a);
             get_offset(t, y, b);
-            init_range(x, a, y, b, sign);
+            return init_range(x, a, y, b, sign);
         }
         else if (bv.is_ult(e, s, t)) {
             get_offset(s, x, a);
             get_offset(t, y, b);
-            init_range(y, b, x, a, !sign);
+            return init_range(y, b, x, a, !sign);
         }            
         else if (bv.is_uge(e, s, t)) {
             get_offset(s, x, a);
             get_offset(t, y, b);
-            init_range(y, b, x, a, sign);
+            return init_range(y, b, x, a, sign);
         }            
         else if (bv.is_ugt(e, s, t)) {
             get_offset(s, x, a);
             get_offset(t, y, b);
-            init_range(x, a, y, b, !sign);
+            return init_range(x, a, y, b, !sign);
         }            
         else if (bv.is_sle(e, s, t)) {
             get_offset(s, x, a);
             get_offset(t, y, b);
-            init_range(x, a + N(s), y, b + N(s), sign);
+            return init_range(x, a + N(s), y, b + N(s), sign);
         }            
         else if (bv.is_slt(e, s, t)) {
             get_offset(s, x, a);
             get_offset(t, y, b);
-            init_range(y, b + N(s), x, a + N(s), !sign);
+            return init_range(y, b + N(s), x, a + N(s), !sign);
         }
         else if (bv.is_sge(e, s, t)) {
             get_offset(s, x, a);
             get_offset(t, y, b);
-            init_range(y, b + N(s), x, a + N(s), sign);
+            return init_range(y, b + N(s), x, a + N(s), sign);
         }
         else if (bv.is_sgt(e, s, t)) {
             get_offset(s, x, a);
             get_offset(t, y, b);
-            init_range(x, a + N(s), y, b + N(s), !sign);
+            return init_range(x, a + N(s), y, b + N(s), !sign);
         }
-        else if (!sign && m.is_eq(e, s, t)) {
+        else if (m.is_eq(e, s, t)) {
             if (bv.is_numeral(s, a))
-                // t - a <= 0
-                init_range(t, -a, nullptr, rational(0), false);
+                init_eq(t, a, sign);
             else if (bv.is_numeral(t, a))
-                init_range(s, -a, nullptr, rational(0), false);
+                init_eq(s, a, sign);
+            else
+                return false;
+            return true;
         }
         else if (bv.is_bit2bool(e, s, idx)) {
             auto& val = wval(s);
             val.try_set_bit(idx, !sign);
             val.fixed.set(idx, true);
             val.tighten_range();
+            return true;
         }
+
+        return false;
+    }
+
+    bool sls_fixed::init_eq(expr* t, rational const& a, bool sign) {        
+        unsigned lo, hi;
+        rational b(0);
+        // verbose_stream() << mk_bounded_pp(t, m) << " == " << a << "\n";
+        expr* s = nullptr;        
+        if (sign)
+            // 1 <= t - a
+            init_range(nullptr, rational(1), t, -a, false);
+        else
+            // t - a <= 0
+            init_range(t, -a, nullptr, rational::zero(), false);
+        if (!sign && bv.is_bv_not(t, s)) {
+            for (unsigned i = 0; i < bv.get_bv_size(s); ++i)
+                if (!a.get_bit(i))
+                    b += rational::power_of_two(i);
+            init_eq(s, b, false);
+            return true;
+        }
+        expr* x, * y;
+        if (!sign && bv.is_concat(t, x, y)) {
+            auto sz = bv.get_bv_size(y);
+            auto k = rational::power_of_two(sz);
+            init_eq(y, mod(a, k), false);
+            init_eq(x, div(a + k - 1, k), false);
+            return true;
+        }
+        if (bv.is_extract(t, lo, hi, s)) {
+            if (hi == lo) {
+                sign = sign ? a == 1 : a == 0;
+                auto& val = wval(s);
+                if (val.try_set_bit(lo, !sign)) 
+                    val.fixed.set(lo, true);                                    
+                val.tighten_range();
+            }
+            else if (!sign) {
+                auto& val = wval(s);
+                for (unsigned i = lo; i <= hi; ++i) 
+                    if (val.try_set_bit(i, a.get_bit(i - lo)))
+                        val.fixed.set(i, true);                
+                val.tighten_range();
+                // verbose_stream() << lo << " " << hi << " " << val << " := " << a << "\n";
+            }
+
+            if (!sign && hi + 1 == bv.get_bv_size(s)) {
+                // s < 2^lo * (a + 1) 
+                rational b = rational::power_of_two(lo) * (a + 1) - 1;
+                rational offset;
+                get_offset(s, t, offset);
+                // t + offset <= b
+                init_range(t, offset, nullptr, b, false);
+            }
+        }
+        return true;
     }
 
     // 
@@ -125,52 +223,65 @@ namespace bv {
     // a < x + b         <=> ! (x + b <= a) <=> x not in [-a, b - a [ <=> x in [b - a, -a [         a != -1
     // x + a < x + b     <=> ! (x + b <= x + a) <=> x in [-a, -b [                                  a != b
     // 
-    void sls_fixed::init_range(expr* x, rational const& a, expr* y, rational const& b, bool sign) {
+    bool sls_fixed::init_range(expr* x, rational const& a, expr* y, rational const& b, bool sign) {
         if (!x && !y)
-            return;
-        if (!x) {
-            // a <= y + b
-            if (a == 0)
-                return;
-            auto& v = wval(y);
-            if (!sign)
-                v.add_range(a - b, -b);
-            else
-                v.add_range(-b, a - b);
-        }
-        else if (!y) {
+            return false;
+        if (!x) 
+            return add_range(y, a - b, -b, sign);
+        else if (!y) 
+            return add_range(x, -a, b - a + 1, sign);        
+        else if (x == y) 
+            return add_range(x, -a, -b, sign);
+        return false;
+    }
 
-            if (mod(b + 1, rational::power_of_two(bv.get_bv_size(x))) == 0)
-                return;
-            auto& v = wval(x);
-            if (!sign)
-                v.add_range(-a, b - a + 1);
-            else 
-                v.add_range(b - a + 1, -a);
+    bool sls_fixed::add_range(expr* e, rational lo, rational hi, bool sign) {
+        auto& v = wval(e);
+        lo = mod(lo, rational::power_of_two(bv.get_bv_size(e)));
+        hi = mod(hi, rational::power_of_two(bv.get_bv_size(e)));
+        if (lo == hi)
+            return false;
+        if (sign)
+            std::swap(lo, hi);
+        v.add_range(lo, hi);
+        expr* x, * y;
+        if (v.lo() == 0 && bv.is_concat(e, x, y)) {
+            auto sz = bv.get_bv_size(y);
+            auto k = rational::power_of_two(sz);
+            lo = v.lo();
+            hi = v.hi();
+            if (hi <= k) {
+                add_range(y, lo, hi, false);
+                init_eq(x, lo, false);
+            }
+            else {
+                hi = div(hi + k - 1, k);
+                add_range(x, lo, hi, false);
+            }
         }
-        else if (x == y) {
-            if (a == b)
-                return;
-            auto& v = wval(x);
-            if (!sign)
-                v.add_range(-a, -b);
-            else
-                v.add_range(-b, -a);
-        }
-        
+        return true;
     }
 
     void sls_fixed::get_offset(expr* e, expr*& x, rational& offset) {
         expr* s, * t;
         x = e;
         offset = 0;
-        if (bv.is_bv_add(e, s, t)) {
-            if (bv.is_numeral(s, offset))
+        rational n;
+        while (true) {
+            if (bv.is_bv_add(x, s, t) && bv.is_numeral(s, n)) {
                 x = t;
-            else if (bv.is_numeral(t, offset))
+                offset += n;
+                continue;
+            }
+            if (bv.is_bv_add(x, s, t) && bv.is_numeral(t, n)) {
                 x = s;
+                offset += n;
+                continue;
+            }
+            break;
         }
-        else if (bv.is_numeral(e, offset))
+        if (bv.is_numeral(e, n))
+            offset += n,
             x = nullptr;
     }
 
@@ -258,11 +369,6 @@ namespace bv {
         case OP_BADD: {
             auto& a = wval(e->get_arg(0));
             auto& b = wval(e->get_arg(1));
-            rational r;
-            if (bv.is_numeral(e->get_arg(0), r) && b.has_range()) 
-                v.add_range(r + b.lo(), r + b.hi());            
-            else if (bv.is_numeral(e->get_arg(1), r) && a.has_range()) 
-                v.add_range(r + a.lo(), r + a.hi());            
             bool pfixed = true;
             for (unsigned i = 0; i < v.bw; ++i) {
                 if (pfixed && a.fixed.get(i) && b.fixed.get(i)) 
@@ -277,7 +383,6 @@ namespace bv {
                     v.fixed.set(i, false);
                 }
             }
-
             break;
         }
         case OP_BMUL: {

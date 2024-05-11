@@ -30,9 +30,12 @@ namespace bv {
         bv_util&            bv;
 
         void init_ranges(expr_ref_vector const& es);
-        void init_range(app* e, bool sign);
-        void init_range(expr* x, rational const& a, expr* y, rational const& b, bool sign);
+        bool init_range(app* e, bool sign);
+        void propagate_range_up(expr* e);
+        bool init_range(expr* x, rational const& a, expr* y, rational const& b, bool sign);
         void get_offset(expr* e, expr*& x, rational& offset);
+        bool init_eq(expr* e, rational const& v, bool sign);
+        bool add_range(expr* e, rational lo, rational hi, bool sign);
 
         void init_fixed_basic(app* e);
         void init_fixed_bv(app* e);
