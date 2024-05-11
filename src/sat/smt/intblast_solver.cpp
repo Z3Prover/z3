@@ -214,14 +214,52 @@ namespace intblast {
         
         original_es.append(es);
 
+        static unsigned num_check = 0;
+        num_check += 1;
+
         lbool r;
         if (false) {
             r = m_solver->check_sat(es);            
         }
         else {
         
+#if 0
+            std::string name_esc;
+            if (name) {
+                name_esc = name;
+                for (char& c : name_esc)
+                    if (c == '|')
+                        c = '!';
+            }
+            else
+                name_esc = "<none>";
+
+            namespace fs = std::filesystem;
+
+            {
+                fs::path filename = std::string("validation/bv-") + std::to_string(num_check) + ".smt2";
+                fs::create_directories(filename.parent_path());
+                IF_VERBOSE(1, verbose_stream() << "validation check written to file " << filename << "\n");
+                std::ofstream file(filename);
+
+                file << "(set-logic ALL)\n";
+                file << "(set-info :source |\n";
+                file << "    Name: " << name_esc << "\n";
+                // file << original_es << "\n";
+                file << "|)\n";
+
+                m_solver->push();
+                m_solver->assert_expr(original_es);
+                m_solver->display(file) << "(check-sat)\n";
+                m_solver->pop(1);
+
+                file.close();
+            }
+
+            r = l_false;
+#else
             translate(es);
-            
+
             for (auto e : m_vars) {
                 auto v = translated(e);
                 auto b = rational::power_of_two(bv.get_bv_size(e));
@@ -235,62 +273,6 @@ namespace intblast {
                 es[i] = tmp;
             }
 
-#if 0
-            std::string name_esc;
-            if (name) {
-                name_esc = name;
-                for (char& c : name_esc)
-                    if (c == '|')
-                        c = '!';
-            }
-            else
-                name_esc = "<none>";
-
-            namespace fs = std::filesystem;
-            static unsigned num_check = 0;
-            num_check += 1;
-
-            {
-                fs::path filename = std::string("validation/int-") + std::to_string(num_check) + ".smt2";
-                fs::create_directories(filename.parent_path());
-                IF_VERBOSE(1, verbose_stream() << "validation check written to file " << filename << "\n");
-                std::ofstream file(filename);
-
-                file << "(set-logic ALL)\n";
-                file << "(set-info :source |\n";
-                file << "    Name: " << name_esc << "\n";
-                file << original_es << "\n|)\n";
-
-                m_solver->push();
-                m_solver->assert_expr(es);
-                m_solver->display(file) << "(check-sat)\n";
-                m_solver->pop(1);
-
-                file.close();
-            }
-
-            {
-                fs::path filename = std::string("validation/bv-") + std::to_string(num_check) + ".smt2";
-                std::ofstream file(filename);
-
-                file << "(set-logic ALL)\n";
-                file << "(set-info :source |\n";
-                file << "    Name: " << name_esc << "\n";
-                file << original_es << "\n|)\n";
-
-                m_solver->push();
-                m_solver->assert_expr(original_es);
-                m_solver->display(file) << "(check-sat)\n";
-                m_solver->pop(1);
-
-                file.close();
-            }
-
-            // if (num_check == 62)
-            //     std::abort();
-
-            r = l_false;
-#else
             IF_VERBOSE(2, verbose_stream() << "check\n" << original_es << "\n");
 
             IF_VERBOSE(2,
@@ -310,6 +292,7 @@ namespace intblast {
         IF_VERBOSE(2, verbose_stream() << "(sat.intblast :result " << r << ")\n");
         if (r == l_true) {
             verbose_stream() << "validation failed: " << name << "\n";
+            verbose_stream() << "validation num_check: " << num_check << "\n";
             IF_VERBOSE(0,
                 model_ref mdl;
                 m_solver->get_model(mdl);
