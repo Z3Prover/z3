@@ -170,14 +170,14 @@ namespace polysat {
         });
     }
 
-    lbool project_interval::try_project(pvar const w, unsigned const w_off, unsigned const w_sz, rational const& value, unsigned const max_level) {
+    lbool project_interval::try_project(pvar const w, unsigned const w_off, unsigned const w_sz, rational const& w_value, unsigned const max_level) {
         SASSERT(w != null_var);
         SASSERT_EQ(c.size(w), w_sz);
         SASSERT(w != m_var);
         if (w == m_var)
             return l_undef;
 
-        // verbose_stream() << "v" << m_var << " size " << c.size(m_var) << " -> v" << w << " size " << w_sz << " offset " << w_off << " level " << w_level << "\n";
+        // verbose_stream() << "v" << m_var << " size " << c.size(m_var) << " -> v" << w << " size " << w_sz << " offset " << w_off << " max_level " << max_level << "\n";
 
         // Let:
         // v = m_var[m_width-1:0]
@@ -244,15 +244,23 @@ namespace polysat {
         SASSERT(ivl.is_proper() && !ivl.is_empty());
 
         // interval propagation worked but it doesn't conflict the currently assigned value
-        if (!ivl.contains(value))
+        rational const& y_value = mod2k(w_value, y_sz);
+        // verbose_stream() << "interval: " << ivl << "\n";
+        // verbose_stream() << "w_value: " << w_value << "  contained: " << ivl.contains(w_value) << "\n";
+        // verbose_stream() << "y_value: " << y_value << "  contained: " << ivl.contains(y_value) << "\n";
+        if (!ivl.contains(y_value))
             return l_undef;
 
         // now: m_deps implies 2^w_shift * w is not in ivl
         signed_constraint sc = ~cs().ult(w_shift * (c.var(w) - ivl.lo()), w_shift * (ivl.hi() - ivl.lo()));
+        // verbose_stream() << "propagate sc: " << sc << "    weak-eval: " << c.weak_eval(sc) << "\n";
+        VERIFY(c.weak_eval(sc) != l_true);
         dependency d = c.propagate(sc, m_deps, "propagate from containing slice");
+        // verbose_stream() << "     sc is dep " << d << "\n";
+        // TODO: add as axiom instead???
 
         m_explain.push_back(d);
-        m_explain.push_back(dep_target_fixed(w, value));  // w ~ value
+        m_explain.push_back(dep_target_fixed(w, w_value));  // w ~ w_value
 
         IF_VERBOSE(3, {
             verbose_stream() << "=>  v" << w << "[" << y_sz << "] not in " << ivl << "\n";

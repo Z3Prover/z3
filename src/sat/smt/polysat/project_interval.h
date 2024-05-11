@@ -83,7 +83,7 @@ namespace polysat {
          */
         static r_interval chop_off_lower(r_interval const& i, unsigned Ny, unsigned Nz, rational const* z_fixed_value = nullptr);
 
-        lbool try_project(pvar const w, unsigned const w_off, unsigned const w_sz, rational const& value, unsigned const max_level);
+        lbool try_project(pvar const w, unsigned const w_off, unsigned const w_sz, rational const& w_value, unsigned const max_level);
         r_interval chop_off_upper(r_interval ivl, unsigned max_level, unsigned x_sz, unsigned y_sz, unsigned z_sz);
         r_interval chop_off_lower(r_interval ivl, unsigned max_level, unsigned y_sz, unsigned z_sz);
 
