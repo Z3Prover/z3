@@ -599,10 +599,12 @@ namespace polysat {
     dependency_vector viable::explain() {
         dependency_vector result;      
 
-        // display_explain(verbose_stream()) << "\n";
+        // verbose_stream() << "\n\n\n\n\nviable::explain: " << m_explain_kind << " v" << m_var << "\n";
+        // display_explain(verbose_stream() << "before subsumption:\n") << "\n";
 
         // prune redundant intervals
-        remove_redundant_explanations();
+        while (remove_redundant_explanations())
+            /* repeat */;
 
         explanation const last = m_explain.back();
 
@@ -612,8 +614,7 @@ namespace polysat {
         SASSERT(all_of(m_explain, [](auto const& e) { return !e.e->marked; }));
         SASSERT(all_of(m_explain, [](auto const& e) { return !e.mark; }));
 
-        verbose_stream() << "\n\n\n\n\nviable::explain: " << m_explain_kind << " v" << m_var << "\n";
-        display_explain(verbose_stream()) << "\n";
+        // display_explain(verbose_stream() << "after subsumption:\n") << "\n";
 
         if (c.inconsistent())
             verbose_stream() << "inconsistent explain\n";
@@ -767,12 +768,24 @@ namespace polysat {
     //
     // We add lower-width intervals such as v0[2] first, to be able to detect conflicts on lower widths.
     // But it means we sometimes get redundant entries like this.
-    void viable::remove_redundant_explanations() {
+    bool viable::remove_redundant_explanations() {
+
+/*
+TODO: handle case like this properly (from alive/181g9c97IsNV.smt2 when calling remove_redundant_explanations() exactly once)
+v0[19] := 0 v0 [-131062 ; 0[ := [-131062;0[  src ~4 <= 43691*v0; 
+v0[2] := 1 v0[2] [0 ; 1[ := [0;1[  src ~2^17*v0 == 0; 
+v0[2] := 2 v0[2] [2^17 ; 2^17+1[ := [1;2[  src ~2^17*v0 + -2^17 == 0; 
+v0[19] := 524280 v0 [0 ; 12*v1[ := [0;-8[  side-conds ~4*v1 == 0 src 12*v1 <= v0; 
+v0[2] := 524281 v0[2] [0 ; 1[ := [0;1[  src ~2^17*v0 == 0; 
+v0[2] := 524282 v0[2] [2^17 ; 2^17+1[ := [1;2[  src ~2^17*v0 + -2^17 == 0; 
+v0[19] := 0 v0 [-131062 ; 0[ := [-131062;0[  src ~4 <= 43691*v0; 
+*/
+
         SASSERT(all_of(m_explain, [](auto const& e) { return !e.mark; }));
         explanation const& last = m_explain.back();
 
         if (m_explain.size() <= 1)
-            return;
+            return false;
         // In conflicts, 'last' is a repeated entry. So m_explain.size() == 2 does not make sense here.
         SASSERT(m_explain.size() > 2);
 
@@ -814,7 +827,8 @@ namespace polysat {
         });
 
         // Actually perform the removal
-        m_explain.erase_if([](auto const& e) { return e.mark; });
+        unsigned erased = m_explain.erase_if([](auto const& e) { return e.mark; });
+        return erased > 0;
     }
 
     /*

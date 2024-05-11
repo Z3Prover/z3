@@ -124,7 +124,7 @@ namespace polysat {
         entry* find_overlap(ptr_vector<layer const> const& layers, rational const& val);
         entry* find_overlap(layer const& l, rational const& val);
 
-        void remove_redundant_explanations();
+        bool remove_redundant_explanations();
 
         void update_value_to_high(rational& val, entry* e);
         bool is_conflict();
