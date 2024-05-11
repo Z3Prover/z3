@@ -18,6 +18,7 @@ Author:
 #include "sat/smt/intblast_solver.h"
 #include "sat/smt/euf_solver.h"
 #include "sat/smt/arith_value.h"
+#include <filesystem>
 
 
 namespace intblast {
