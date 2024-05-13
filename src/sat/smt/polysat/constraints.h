@@ -153,14 +153,13 @@ namespace polysat {
         signed_constraint slt(int             p, pdd const& q) { return slt(rational(p), q); }
         signed_constraint slt(unsigned        p, pdd const& q) { return slt(rational(p), q); }
 
-
         signed_constraint sgt(pdd const& p, pdd const& q) { return slt(q, p); }
         signed_constraint sgt(pdd const& p, int        q) { return slt(q, p); }
         signed_constraint sgt(pdd const& p, unsigned   q) { return slt(q, p); }
         signed_constraint sgt(int        p, pdd const& q) { return slt(q, p); }
         signed_constraint sgt(unsigned   p, pdd const& q) { return slt(q, p); }
 
-        signed_constraint sge(pdd const& p, pdd const& q) { return ~slt(q, p); }
+        signed_constraint sge(pdd const& p, pdd const& q) { return sle(q, p); }
         signed_constraint sge(pdd const& p, int q) { return sge(p, p.manager().mk_val(q)); }
 
         signed_constraint umul_ovfl(pdd const& p, rational const& q) { return umul_ovfl(p, p.manager().mk_val(q)); }
