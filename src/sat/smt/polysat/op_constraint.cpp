@@ -247,6 +247,8 @@ namespace polysat {
             c.add_axiom("q >= N & p >= 0 -> p >>a q = 0", { ~C.uge(q, N), ~C.sge(p, 0), C.eq(r) }, false);
             c.add_axiom("q = 0 -> p >>a q = p", { ~C.eq(q), C.eq(r, p) }, false);
             c.add_axiom("p = 0 -> p >>a q = p", { ~C.eq(p), C.eq(r, p) }, false);
+            // resolvent of the first two axioms, independent of p
+            c.add_axiom("q >= N -> p >>a q in {-1, 0}", { ~C.uge(q, N), C.ule(r + 1, 1) }, false);
             break;
         case code::lshr_op:
             c.add_axiom("q >= N  -> p >>l q = 0", { ~C.uge(q, N), C.eq(r) }, false);
@@ -382,6 +384,9 @@ namespace polysat {
         auto& m = p.manager();
         auto N = m.power_of_2();
         auto qv = c.subst(q);
+        // std::cerr << "saturate_ashr: p " << p << " q " << q << " r " << r << "\n";
+        // std::cerr << "               pv " << c.subst(p) << " qv " << qv << " rv " << c.subst(r) << "\n";
+        // std::cerr << "               N " << N << "\n";
         if (qv.is_val() && 1 <= qv.val() && qv.val() < N) {
             auto pv = c.subst(p);
             auto rv = c.subst(r);
