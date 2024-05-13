@@ -100,12 +100,13 @@ namespace polysat {
         bool verify_YX_l_zX(pvar z, pdd const& x, pdd const& y) const;
 
         // c := xY <= xZ
-        bool is_xY_l_xZ(pvar x, pdd& y, pdd& z) const { return is_xY(x, lhs(), y) && is_xY(x, rhs(), z); }
+        bool is_xY_l_xZ(pvar x, pdd& y, pdd& z) const { return is_xY_2(x, lhs(), y) && is_xY_2(x, rhs(), z); }
 
-        /**
-         * Match xy = x * Y
-        */
+        /// Match xy = x * Y s.t. Y is free of x
         static bool is_xY(pvar x, pdd const& xy, pdd& y) { return xy.degree(x) == 1 && xy.factor(x, 1, y); }
+
+        /// Match xy = x * Y
+        static bool is_xY_2(pvar x, pdd const& xy, pdd& y) { return xy.factor(x, 1, y); }
 
         /**
          * Rewrite to one of six equivalent forms:
@@ -165,7 +166,7 @@ namespace polysat {
             r.d -= d;
             return r;
         }
-};
+    };
 
     inline std::ostream& operator<<(std::ostream& out, bilinear const& b) {
         return out << b.a << "*x*y + " << b.b << "*x + " << b.c << "*y + " << b.d;

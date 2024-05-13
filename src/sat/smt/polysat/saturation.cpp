@@ -118,22 +118,48 @@ namespace polysat {
 
     /**
      * Implement the inferences
-     *  [x] yx < zx   ==>  Ω*(x,y) \/ y < z
-     *  [x] yx <= zx  ==>  Ω*(x,y) \/ y <= z \/ x = 0
+     *  [x] px < qx   ==>  p != q
+     *  [x] px < qx   ==>  Ω*(p,x) \/ p < q
+     *  [x] px < qx   ==>  Ω*(-q,x) \/ p < q
+     *  [x] px < qx   ==>  Ω*(q,-x) \/ p > q \/ p = 0
+     *  [x] px < qx   ==>  Ω*(-p,-x) \/ p > q \/ p = 0
+     *
+     *  [x] px <= qx  ==>  Ω*(p,x) \/ p <= q \/ x = 0
+     *  [x] px <= qx  ==>  Ω*(-q,x) \/ p <= q \/ x = 0 \/ q = 0
+     *  [x] px <= qx  ==>  Ω*(q,-x) \/ p >= q \/ x = 0 \/ p = 0
+     *  [x] px <= qx  ==>  Ω*(-p,-x) \/ p >= q \/ x = 0 \/ p = 0
      */
     void saturation::try_ugt_x(pvar v, inequality const& i) {
         pdd x = c.var(v);
-        pdd y = x;
-        pdd z = x;       
+        pdd p = x;
+        pdd q = x;
+        auto const& d = i.dep();
 
-        if (!i.is_xY_l_xZ(v, y, z))
+        if (!i.is_xY_l_xZ(v, p, q))
             return;
 
-        auto ovfl = C.umul_ovfl(x, y);
-        if (i.is_strict()) 
-            add_clause("[x] yx < zx ==> Ω*(x,y) \\/ y < z", { i.dep(), ovfl, C.ult(y, z)}, true);
-        else 
-            add_clause("[x] yx <= zx ==> Ω*(x,y) \\/ y <= z \\/ x = 0", { i.dep(), ovfl, C.eq(x), C.ule(y, z) }, true);
+        if (i.is_strict()) {
+            if (!c.inconsistent())
+                add_clause("[x] px < qx ==> p != q", { d, C.diseq(p, q) });
+            if (!c.inconsistent())
+                add_clause("[x] px < qx ==> Ω*(p,x) \\/ p < q", { d, C.umul_ovfl(p, x), C.ult(p, q) });
+            if (!c.inconsistent())
+                add_clause("[x] px < qx ==> Ω*(-q,x) \\/ p < q", { d, C.umul_ovfl(-q, x), C.ult(p, q) });
+            if (!c.inconsistent())
+                add_clause("[x] px < qx ==> Ω*(q,-x) \\/ p > q \\/ p = 0", { d, C.umul_ovfl(q, -x), C.ugt(p, q), C.eq(p) });
+            if (!c.inconsistent())
+                add_clause("[x] px < qx ==> Ω*(-p,-x) \\/ p > q \\/ p = 0", { d, C.umul_ovfl(-p, -x), C.ugt(p, q), C.eq(p) });
+        }
+        else {
+            if (!c.inconsistent())
+                add_clause("[x] px <= qx ==> Ω*(p,x) \\/ p <= q \\/ x = 0", { d, C.umul_ovfl(p, x), C.eq(x), C.ule(p, q) });
+            if (!c.inconsistent())
+                add_clause("[x] px <= qx ==> Ω*(-q,x) \\/ p <= q \\/ x = 0 \\/ q = 0", { d, C.umul_ovfl(-q, x), C.eq(x), C.eq(q), C.ule(p, q) });
+            if (!c.inconsistent())
+                add_clause("[x] px <= qx ==> Ω*(q,-x) \\/ p >= q \\/ x = 0 \\/ p = 0", { d, C.umul_ovfl(q, -x), C.eq(x), C.eq(p), C.uge(p, q) });
+            if (!c.inconsistent())
+                add_clause("[x] px <= qx ==> Ω*(-p,-x) \\/ p >= q \\/ x = 0 \\/ p = 0", { d, C.umul_ovfl(-p, -x), C.eq(x), C.eq(p), C.uge(p, q) });
+        }
     }
 
     /**

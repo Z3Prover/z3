@@ -29,7 +29,7 @@ namespace polysat {
         core& c;
         constraints& C;
 
-        void add_clause(char const* name, clause const& cs, bool is_redundant);
+        void add_clause(char const* name, clause const& cs, bool is_redundant = true);
 
         struct constraint_filter {
             core& c;
