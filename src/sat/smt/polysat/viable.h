@@ -147,10 +147,11 @@ namespace polysat {
         bool is_propagation(rational const& val);
 
         enum class explain_t {
-            conflict,
+            conflict,  // conflict due to overlapping intervals
             propagation,
             assignment,
-            none
+            none,
+            explained,
         };
 
         friend std::ostream& operator<<(std::ostream& out, explain_t e);

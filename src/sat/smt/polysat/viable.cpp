@@ -590,6 +590,7 @@ namespace polysat {
         case viable::explain_t::propagation: return out << "propagation";
         case viable::explain_t::assignment: return out << "assignment";
         case viable::explain_t::none: return out << "none";
+        case viable::explain_t::explained: return out << "explained";
         default: UNREACHABLE();
         }
         return out;
@@ -607,6 +608,7 @@ namespace polysat {
         verbose_stream() << "\n\n\n\n\nviable::explain: " << m_explain_kind << " v" << m_var << "\n";
         display_explain(verbose_stream() << "before subsumption:\n") << "\n";
 #endif
+        SASSERT(m_explain_kind != explain_t::explained);
 
         // prune redundant intervals
         while (remove_redundant_explanations())
@@ -795,6 +797,7 @@ namespace polysat {
 #if DEBUG_EXPLAIN
         verbose_stream() << "explain done: " << result << "\n";
 #endif
+        m_explain_kind = explain_t::explained;
         return result;
     }
 
@@ -1676,7 +1679,7 @@ v0[20] := 1048561 v0 [20*v1 + 21 ; 20*v1 + 1[ := [5;-15[  src -20 <= 20*v1 + -1*
                 else {
                     ne->interval = eval_interval::full();
                     ne->coeff = 1;
-                    m_explain_kind = explain_t::none;
+                    m_explain_kind = explain_t::conflict;
                     m_explain.reset();
                     m_explain.push_back({ ne, rational::zero() });
                     m_fixed_bits.reset();
@@ -1696,7 +1699,7 @@ v0[20] := 1048561 v0 [20*v1 + 21 ; 20*v1 + 1[ := [5;-15[  src -20 <= 20*v1 + -1*
             intersect(v, ne);
         }
         if (ne->interval.is_full()) {
-            m_explain_kind = explain_t::none;
+            m_explain_kind = explain_t::conflict;
             m_explain.reset();
             m_explain.push_back({ ne, rational::zero() });
             m_fixed_bits.reset();
