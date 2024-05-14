@@ -659,33 +659,35 @@ namespace polysat {
 
         SASSERT(m_explain_kind != explain_t::none);
 
-        static unsigned counter = 0;
-        counter += 1;
-
-if (counter == 17) {
-        unsigned i;
-        for (i = m_explain.size() - 1; i-- > 0; )
-            if (m_explain[i].e == last.e)
-                break;
-        explanation* first_it = &m_explain[i];
-        explanation* last_it = &m_explain.back();
-        SASSERT(first_it->e == last_it->e);
-        SASSERT(first_it != last_it);
+#if 1  // explain_overlap NEW
+        if (m_explain.size() >= 2) {
+            unsigned i;
+            for (i = m_explain.size() - 1; i-- > 0; )
+                if (m_explain[i].e == last.e)
+                    break;
+            explanation* first_it = &m_explain[i];
+            explanation* last_it = &m_explain.back();
+            SASSERT(first_it->e == last_it->e);
+            SASSERT(first_it != last_it);
+            verbose_stream() << "Relevant entries:\n";
+            for (explanation const* e = first_it; e != last_it+1; ++e) {
+                display_explain(verbose_stream() << "  ", *e) << "\n";
+            }
+            verbose_stream() << "\n";
 #if 1
-        // the version discussed on whiteboard, no hole treatment needed
-        rational prefix(0);
-        for (explanation const* e = first_it; e != last_it; ++e) {
-            explanation const* after = e + 1;
+            // the version discussed on whiteboard, no hole treatment needed
+            rational prefix(0);
+            for (explanation const* e = first_it; e != last_it; ++e) {
+                explanation const* after = e + 1;
 
-            explain_entry(e->e);
-            explain_overlap_v1(*e, *after, prefix, result);
-        }
+                explain_entry(e->e);
+                explain_overlap_v1(*e, *after, prefix, result);
+            }
 #else
-        explain_overlaps_v2(first_it, last_it, result);
+            explain_overlaps_v2(first_it, last_it, result);
 #endif
-
-} else {
-        verbose_stream() << "counter = " << counter << "\n";
+        }
+#else  // explain_overlap OLD
         explanation after = last;
         for (unsigned i = m_explain.size() - 1; i-- > 0; ) {
             explanation const& e = m_explain[i];
@@ -718,7 +720,7 @@ if (counter == 17) {
             if (e.e == last.e)
                 break;
         }
-}
+#endif
 
         if (m_explain_kind == explain_t::propagation) {
             // assume first and last have same bit-width
