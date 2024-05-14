@@ -980,7 +980,7 @@ v0[19] := 0 v0 [-131062 ; 0[ := [-131062;0[  src ~4 <= 43691*v0;
         }
 
         // if there is wrap-around, increment prefix
-        if (after.e->interval.lo_val() > after.e->interval.hi_val()) {
+        if (e.e->interval.lo_val() > e.e->interval.hi_val()) {
             prefix++;
             verbose_stream() << "    incremented stored prefix: " << prefix << "\n";
         }
