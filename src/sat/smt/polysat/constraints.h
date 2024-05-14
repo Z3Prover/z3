@@ -184,6 +184,9 @@ namespace polysat {
         signed_constraint band(pdd const& a, pdd const& b, pdd const& r);
         signed_constraint bor(pdd const& a, pdd const& b, pdd const& r);
 
+        // p[hi:lo] = val, represented as inequality
+        signed_constraint fixed(pdd const& p, unsigned hi, unsigned lo, rational const& val);
+
         //signed_constraint even(pdd const& p) { return parity_at_least(p, 1); }
         //signed_constraint odd(pdd const& p) { return ~even(p); }
     };

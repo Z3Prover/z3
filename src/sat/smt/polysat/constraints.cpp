@@ -115,10 +115,21 @@ namespace polysat {
         return ult(p, rational::power_of_two(k));
     }
 
-    // 2^{N-i-1}* p >= 2^{N-1}
+    // 2^{N-i-1} p >= 2^{N-1}
     signed_constraint constraints::bit(pdd const& p, unsigned i) {
         unsigned N = p.manager().power_of_2();
         return uge(p * rational::power_of_two(N - i - 1), rational::power_of_two(N - 1));
+    }
+
+    // 2^k p - 2^{k+lo} val < 2^{k+lo}
+    // where k = N - hi - 1
+    signed_constraint constraints::fixed(pdd const& p, unsigned hi, unsigned lo, rational const& val) {
+        unsigned const N = p.manager().power_of_2();
+        SASSERT(lo <= hi && hi < N);
+        unsigned const k = N - hi - 1;
+        rational const& ttk = rational::power_of_two(k);
+        rational const& ttkl = rational::power_of_two(k + lo);
+        return ult(ttk * p - ttkl * val, ttkl);
     }
 
     bool signed_constraint::is_eq(pvar& v, rational& val) {
