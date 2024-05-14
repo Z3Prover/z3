@@ -635,8 +635,8 @@ namespace polysat {
             sat::literal lt0 = ctx.mk_literal(bv.mk_slt(arg, bv.mk_numeral(0, arg_sz)));
             // arg < 0 ==> e = concat(1...1, arg)
             // arg >= 0 ==> e = concat(0...0, arg)
-            add_axiom(name, { lt0, eq_internalize(e, bv.mk_concat(bv.mk_numeral(rational::power_of_two(sz2) - 1, sz2), arg)) });
-            add_axiom(name, { ~lt0, eq_internalize(e, bv.mk_concat(bv.mk_numeral(0, sz2), arg)) });
+            add_axiom(name, { ~lt0, eq_internalize(e, bv.mk_concat(bv.mk_numeral(rational::power_of_two(sz2) - 1, sz2), arg)) });
+            add_axiom(name, { lt0, eq_internalize(e, bv.mk_concat(bv.mk_numeral(0, sz2), arg)) });
         }
     }
 
