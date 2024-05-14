@@ -964,7 +964,7 @@ v0[19] := 0 v0 [-131062 ; 0[ := [-131062;0[  src ~4 <= 43691*v0;
             rational const store_val = mod2k(machine_div2k(e.value, abw), store_sz);
             prefix = prefix * rational::power_of_two(store_sz) + store_val;
 #if DEBUG_EXPLAIN
-            verbose_stream() << "    store_val = " << store_val << "\n";
+            verbose_stream() << "    store_val = " << store_val << " (storing " << store_sz << " bits)\n";
             verbose_stream() << "    new stored prefix: " << prefix << "\n";
 #endif
             // for simplicity, we fix the evaluation of the stored upper bits
@@ -982,6 +982,14 @@ v0[19] := 0 v0 [-131062 ; 0[ := [-131062;0[  src ~4 <= 43691*v0;
                 deps.push_back(c.propagate(sc, c.explain_weak_eval(sc), "explain_overlap prefix evaluation"));
         }
 
+        // if there is wrap-around, increment prefix
+        if (after.e->interval.lo_val() > after.e->interval.hi_val()) {
+            prefix++;
+#if DEBUG_EXPLAIN
+            verbose_stream() << "    incremented stored prefix: " << prefix << "\n";
+#endif
+        }
+
         rational restore_val;
         if (ebw < abw) {
             // restore bits from prefix
@@ -989,19 +997,11 @@ v0[19] := 0 v0 [-131062 ; 0[ := [-131062;0[  src ~4 <= 43691*v0;
             /*rational const*/ restore_val = mod2k(prefix, restore_sz);
             prefix = machine_div2k(prefix, restore_sz);
 #if DEBUG_EXPLAIN
-            verbose_stream() << "    restore_val = " << restore_val << "\n";
+            verbose_stream() << "    restore_val = " << restore_val << " (restoring " << restore_sz << " bits)\n";
             verbose_stream() << "    new stored prefix: " << prefix << "\n";
 #endif
             // restore_val * rational::power_of_two(ebw) + t(?)
             SASSERT(ebw < bw || aw != bw);
-        }
-
-        // if there is wrap-around, increment prefix
-        if (e.e->interval.lo_val() > e.e->interval.hi_val()) {
-            prefix++;
-#if DEBUG_EXPLAIN
-            verbose_stream() << "    incremented stored prefix: " << prefix << "\n";
-#endif
         }
 
         if (ebw < bw || aw != bw) {
@@ -1054,7 +1054,9 @@ v0[19] := 0 v0 [-131062 ; 0[ := [-131062;0[  src ~4 <= 43691*v0;
         }
 
         if (ebw < abw) {
-            t = restore_val * rational::power_of_two(ebw) + t;
+            // NOTE: currently we fix the stored prefix to the current value and evaluate t (see above)
+            //       the value of t from e.value already has the correct prefix 'baked in'
+            // t = restore_val * rational::power_of_two(ebw) + t;
 #if DEBUG_EXPLAIN
             verbose_stream() << "    restored t: " << t << "\n";
 #endif
