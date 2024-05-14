@@ -199,6 +199,19 @@ namespace intblast {
         return check_core(name, core, eqs);
     }
 
+    std::string smtlib_escape(const char* str) {
+        std::string out;
+        if (str) {
+            out = str;
+            for (char& c : out)
+                if (c == '|')
+                    c = '!';
+        }
+        else
+            out = "<none>";
+        return out;
+    }
+
     lbool solver::check_core(char const* name, sat::literal_vector const& lits, euf::enode_pair_vector const& eqs) {
         m_core.reset();
         m_vars.reset();
@@ -224,29 +237,18 @@ namespace intblast {
             r = m_solver->check_sat(es);            
         }
         else {
-        
-#if 0
-            std::string name_esc;
-            if (name) {
-                name_esc = name;
-                for (char& c : name_esc)
-                    if (c == '|')
-                        c = '!';
-            }
-            else
-                name_esc = "<none>";
-
             namespace fs = std::filesystem;
 
+#if 0
             {
                 fs::path filename = std::string("validation/bv-") + std::to_string(num_check) + ".smt2";
                 fs::create_directories(filename.parent_path());
-                IF_VERBOSE(1, verbose_stream() << "validation check written to file " << filename << "\n");
+                IF_VERBOSE(1, verbose_stream() << "bv-validation check written to file " << filename << "\n");
                 std::ofstream file(filename);
 
                 file << "(set-logic ALL)\n";
                 file << "(set-info :source |\n";
-                file << "    Name: " << name_esc << "\n";
+                file << "    Name: " << smtlib_escape(name) << "\n";
                 // file << original_es << "\n";
                 file << "|)\n";
 
@@ -284,6 +286,26 @@ namespace intblast {
                     m_solver->display(verbose_stream()) << "(check-sat)\n";
                     m_solver->pop(1);
                 });
+
+            if (false) {
+                fs::path filename = std::string("validation/int-") + std::to_string(num_check) + ".smt2";
+                fs::create_directories(filename.parent_path());
+                IF_VERBOSE(1, verbose_stream() << "int-validation check written to file " << filename << "\n");
+                std::ofstream file(filename);
+
+                file << "(set-logic ALL)\n";
+                file << "(set-info :source |\n";
+                file << "    Name: " << smtlib_escape(name) << "\n";
+                // file << original_es << "\n";
+                file << "|)\n";
+
+                m_solver->push();
+                m_solver->assert_expr(es);
+                m_solver->display(file) << "(check-sat)\n";
+                m_solver->pop(1);
+
+                file.close();
+            }
 
             r = m_solver->check_sat(es);
 #endif
@@ -951,7 +973,7 @@ namespace intblast {
             rational N = rational::power_of_two(sz);
             rational M = rational::power_of_two(arg_sz);
             expr* signbit = a.mk_ge(r, a.mk_int(M / 2));
-            r = m.mk_ite(signbit, a.mk_uminus(r), r);
+            r = m.mk_ite(signbit, a.mk_add(a.mk_int(N - M), r), r);
             break;
         }
         case OP_INT2BV:
