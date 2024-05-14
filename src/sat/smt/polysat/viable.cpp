@@ -672,7 +672,14 @@ if (counter == 17) {
         SASSERT(first_it->e == last_it->e);
         SASSERT(first_it != last_it);
 #if 1
-        explain_overlaps_v1(first_it, last_it, result);
+        // the version discussed on whiteboard, no hole treatment needed
+        rational prefix(0);
+        for (explanation const* e = first_it; e != last_it; ++e) {
+            explanation const* after = e + 1;
+
+            explain_entry(e->e);
+            explain_overlap_v1(*e, *after, prefix, result);
+        }
 #else
         explain_overlaps_v2(first_it, last_it, result);
 #endif
@@ -707,7 +714,7 @@ if (counter == 17) {
             }
 
             after = e;
-            explain_entry(e.e);           
+            explain_entry(e.e);
             if (e.e == last.e)
                 break;
         }
@@ -854,20 +861,9 @@ v0[19] := 0 v0 [-131062 ; 0[ := [-131062;0[  src ~4 <= 43691*v0;
         return erased > 0;
     }
 
-    void viable::explain_overlaps_v1(explanation const* first, explanation const* last, dependency_vector& deps) {
-        // version discussed on whiteboard, no hole stuff needed
-        SASSERT(first->e == last->e);
-
-        for (explanation const* e = first; e != last; ++e) {
-            explanation const* after = e + 1;
-
-            explain_overlap_v1(*e, *after, deps);
-        }
-
-        NOT_IMPLEMENTED_YET();
-    }
-
     /*
+     * TODO: update explanation! (see appendix/notes)
+     *
      * For two consecutive intervals
      *
      * - 2^k x \not\in [lo, hi[         (entry 'e')
@@ -924,8 +920,8 @@ v0[19] := 0 v0 [-131062 ; 0[ := [-131062;0[  src ~4 <= 43691*v0;
      *  - hi := v mod aw
      *
      */
-    void viable::explain_overlap_v1(explanation const& e, explanation const& after, dependency_vector& deps) {
-#define DEBUG_EXPLAIN_OVERLAP 1
+    void viable::explain_overlap_v1(explanation const& e, explanation const& after, rational& prefix, dependency_vector& deps) {
+#define DEBUG_EXPLAIN_OVERLAP 0
         unsigned const bw = c.size(e.e->var);
         unsigned const ebw = e.e->bit_width;
         unsigned const aw = c.size(after.e->var);
@@ -939,6 +935,10 @@ v0[19] := 0 v0 [-131062 ; 0[ := [-131062;0[  src ~4 <= 43691*v0;
         display_explain(verbose_stream() << "    e     ", e) << "\n";
         display_explain(verbose_stream() << "    after ", after) << "\n";
         verbose_stream() << "    bw " << bw << " ebw " << ebw << " aw " << aw << " abw " << abw << "\n";
+        verbose_stream() << "    t0: " << t << "\n";
+        verbose_stream() << "    lo0: " << lo << "\n";
+        verbose_stream() << "    hi0: " << hi << "\n";
+        verbose_stream() << "    stored prefix: " << prefix << "\n";
 #endif
 
         SASSERT(abw <= aw);
@@ -946,12 +946,43 @@ v0[19] := 0 v0 [-131062 ; 0[ := [-131062;0[  src ~4 <= 43691*v0;
         SASSERT_EQ(mod2k(e.value, ebw), e.e->interval.hi_val());
         SASSERT(r_interval::proper(after.e->interval.lo_val(), after.e->interval.hi_val()).contains(mod2k(e.value, abw)));
 
-        if (ebw < abw) {
-            // 'e' is the last entry of a hole.
-            // This case is handled in explain_hole_overlap.
-            // return;  // TODO: disabled for now
+        if (ebw > abw) {
+            // effective bit-width reduces => store upper bits of value in prefix
+            unsigned const store_sz = ebw - abw;
+            rational const store_val = mod2k(machine_div2k(e.value, abw), store_sz);
+            prefix = prefix * rational::power_of_two(store_sz) + store_val;
+            verbose_stream() << "    store_val = " << store_val << "\n";
+            verbose_stream() << "    new stored prefix: " << prefix << "\n";
+            // for simplicity, we fix the evaluation of the stored upper bits
+            // (alternative would be to track sub-ranges of extracted symbolic bounds)
+            auto sc = cs.fixed(t, ebw - 1, abw, store_val);
+            verbose_stream() << "    t[" << (ebw - 1) << ":" << abw << "] = " << store_val << "\n";
+            verbose_stream() << "    fixed prefix constraint " << sc << "\n";
+            verbose_stream() << "        eval " << sc.eval() << "\n";
+            verbose_stream() << "        weval " << sc.weak_eval(c.get_assignment()) << "\n";
+            verbose_stream() << "        seval " << sc.strong_eval(c.get_assignment()) << "\n";
+            VERIFY(!sc.is_always_false());
+            if (!sc.is_always_true())
+                deps.push_back(c.propagate(sc, c.explain_weak_eval(sc), "explain_overlap prefix evaluation"));
+        }
 
-            verbose_stream() << "THIS IS IT\n";
+        rational restore_val;
+        if (ebw < abw) {
+            // restore bits from prefix
+            unsigned const restore_sz = abw - ebw;
+            /*rational const*/ restore_val = mod2k(prefix, restore_sz);
+            prefix = machine_div2k(prefix, restore_sz);
+            verbose_stream() << "    restore_val = " << restore_val << "\n";
+            verbose_stream() << "    new stored prefix: " << prefix << "\n";
+
+            // restore_val * rational::power_of_two(ebw) + t(?)
+            SASSERT(ebw < bw || aw != bw);
+        }
+
+        // if there is wrap-around, increment prefix
+        if (after.e->interval.lo_val() > after.e->interval.hi_val()) {
+            prefix++;
+            verbose_stream() << "    incremented stored prefix: " << prefix << "\n";
         }
 
         if (ebw < bw || aw != bw) {
@@ -1003,28 +1034,29 @@ v0[19] := 0 v0 [-131062 ; 0[ := [-131062;0[  src ~4 <= 43691*v0;
                 verbose_stream() << "inconsistent overlap " << sc << " " << "\n";
         }
 
-/*
         if (ebw < abw) {
-            // NOTE: this doesn't work, because the projected interval may be empty if we just project 'after' instead of the hole's complement
-            t *= rational::power_of_two(abw - ebw);
-            lo *= rational::power_of_two(abw - ebw);
-            hi *= rational::power_of_two(abw - ebw);
+            t = restore_val * rational::power_of_two(ebw) + t;
+            verbose_stream() << "    restored t: " << t << "\n";
         }
-*/
 
-        if (abw < aw)
+        if (abw < aw) {
             t *= rational::power_of_two(aw - abw);
+            verbose_stream() << "    shifted t: " << t << "\n";
+        }
 
         auto sc = cs.ult(t - lo, hi - lo);
 #if DEBUG_EXPLAIN_OVERLAP
-        // verbose_stream() << "    lhs: " << t  << " - (" << lo << ")     ==     " << (t  - lo) << "\n";
-        // verbose_stream() << "    rhs: " << hi << " - (" << lo << ")     ==     " << (hi - lo) << "\n";
-        // verbose_stream() << "    ult: " << sc << "\n";
-        // verbose_stream() << "    eval " << sc.eval() << "\n";
-        // verbose_stream() << "    weval " << sc.weak_eval(c.get_assignment()) << "\n";
-        // verbose_stream() << "    seval " << sc.strong_eval(c.get_assignment()) << "\n";
+        verbose_stream() << "    t: " << t << "\n";
+        verbose_stream() << "    lo: " << lo << "\n";
+        verbose_stream() << "    hi: " << hi << "\n";
+        verbose_stream() << "    lhs: " << t  << " - (" << lo << ")     ==     " << (t  - lo) << "\n";
+        verbose_stream() << "    rhs: " << hi << " - (" << lo << ")     ==     " << (hi - lo) << "\n";
+        verbose_stream() << "    ult: " << sc << "\n";
+        verbose_stream() << "    eval " << sc.eval() << "\n";
+        verbose_stream() << "    weval " << sc.weak_eval(c.get_assignment()) << "\n";
+        verbose_stream() << "    seval " << sc.strong_eval(c.get_assignment()) << "\n";
 #endif
-        SASSERT(!sc.is_always_false());
+        VERIFY(!sc.is_always_false());
         if (!sc.is_always_true())
             deps.push_back(c.propagate(sc, c.explain_weak_eval(sc), "explain_overlap linking constraint"));
         if (c.inconsistent()) {

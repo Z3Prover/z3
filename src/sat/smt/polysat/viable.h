@@ -128,8 +128,7 @@ namespace polysat {
 
         void update_value_to_high(rational& val, entry* e);
         bool is_conflict();
-        void explain_overlaps_v1(explanation const* first, explanation const* last, dependency_vector& out_deps);
-        void explain_overlap_v1(explanation const& e, explanation const& after, dependency_vector& out_deps);
+        void explain_overlap_v1(explanation const& e, explanation const& after, rational& prefix, dependency_vector& out_deps);
         void explain_overlaps_v2(explanation const* first, explanation const* last, dependency_vector& out_deps);
         void explain_overlap(explanation const& e, explanation const& after, dependency_vector& out_deps);
         void explain_hole_overlap(explanation const& before, explanation const& e, explanation const& after, dependency_vector& out_deps);
