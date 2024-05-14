@@ -122,6 +122,7 @@ namespace polysat {
     }
 
     find_t viable::find_viable(pvar v, rational& lo) {
+        // verbose_stream() << "find_viable v" << v << "\n";
         m_explain.reset();
         m_var = v;
         m_num_bits = c.size(v);
@@ -551,6 +552,7 @@ namespace polysat {
         auto last = m_explain.back();
         unsigned bw = last.e->bit_width;
         if (last.e->interval.is_full()) {
+            // this may happen if full interval is created from check_equal_lin or check_disequal_lin
             m_explain.reset();
             m_explain.push_back(last);
             return true;
@@ -656,7 +658,7 @@ namespace polysat {
         };
 
         if (last.e->interval.is_full()) {
-            SASSERT(m_explain_kind == explain_t::none);
+            VERIFY(m_explain_kind == explain_t::none || m_explain_kind == explain_t::conflict);
             explain_entry(last.e);
             SASSERT(m_explain.size() == 1);
             unmark();
@@ -1571,7 +1573,7 @@ v0[20] := 1048561 v0 [20*v1 + 21 ; 20*v1 + 1[ := [5;-15[  src -20 <= 20*v1 + -1*
             return find_t::multiple;
         }
 
-        // verbose_stream() << "v" << v << " " << sc << " " << ne->interval << "\n";
+        // verbose_stream() << "add_unitary v" << v << " " << sc << " " << ne->interval << "\n"; display_one(verbose_stream() << "  ", ne) << "\n";
         TRACE("bv", tout << "v" << v << " " << sc << " " << ne->interval << "\n"; display_one(tout, ne) << "\n");
 
         if (ne->interval.is_currently_empty()) {
@@ -1674,6 +1676,7 @@ v0[20] := 1048561 v0 [20*v1 + 21 ; 20*v1 + 1[ := [5;-15[  src -20 <= 20*v1 + -1*
                 else {
                     ne->interval = eval_interval::full();
                     ne->coeff = 1;
+                    m_explain_kind = explain_t::none;
                     m_explain.reset();
                     m_explain.push_back({ ne, rational::zero() });
                     m_fixed_bits.reset();
@@ -1693,6 +1696,7 @@ v0[20] := 1048561 v0 [20*v1 + 21 ; 20*v1 + 1[ := [5;-15[  src -20 <= 20*v1 + -1*
             intersect(v, ne);
         }
         if (ne->interval.is_full()) {
+            m_explain_kind = explain_t::none;
             m_explain.reset();
             m_explain.push_back({ ne, rational::zero() });
             m_fixed_bits.reset();
