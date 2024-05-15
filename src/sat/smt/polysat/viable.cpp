@@ -991,6 +991,47 @@ v0[19] := 0 v0 [-131062 ; 0[ := [-131062;0[  src ~4 <= 43691*v0;
             VERIFY(!sc.is_always_false());
             if (!sc.is_always_true())
                 deps.push_back(c.propagate(sc, c.explain_weak_eval(sc), "explain_overlap prefix evaluation"));
+            /*
+            from smtlib-2023-ni/QF_BV/sage/app5/bench_1002.smt2
+                v2[16] := 0 v2 [256 ; 0[ := [256;0[  src ~256 <= v2;
+                v2[16] := 6 v2 [0 ; v5 + 1[ := [0;6[  side-conds ~v5 + 1 == 0 src ~v2 <= v5;
+                v2[8] := 261 v2[8] [1536 ; 1280[ := [6;5[  deps 5 == v2 [8]@0 src
+                v2[16] := 0 v2 [256 ; 0[ := [256;0[  src ~256 <= v2;
+
+            consider:
+                v2[16] := 6 v2 [0 ; v5 + 1[ := [0;6[  side-conds ~v5 + 1 == 0 src ~v2 <= v5;
+                v2[8] := 261 v2[8] [1536 ; 1280[ := [6;5[  deps 5 == v2 [8]@0 src
+            we fix the prefix of v5+1 to 00000000
+            for the lower part we say (v5+1)[8] \in [6;5[, but [6;5[ has wrap-around
+            this will allow the wrong assignment v5 = 0.
+            as a patch, prevent choosing values for t after the wraparound (or before the wraparound, depending on the current value)
+            (this is only necessary when ebw == bw && aw == bw, because otherwise, 't' will be evaluated anyway.)
+            */
+            if (ebw == bw && aw == bw && !(lo.is_val() && hi.is_val() && lo.val() <= (hi - 1).val())) {
+                // third condition: if [lo;hi[ is a value interval without wraparound, this constraint would be subsumed by the interval constraint
+                pdd const tt = t * rational::power_of_two(aw - abw);
+                pdd const tt_val = c.subst(tt);
+                pdd const lo_val = c.subst(lo);
+                VERIFY(tt_val.is_val());
+                VERIFY(lo_val.is_val());
+                signed_constraint sc;
+                if (lo_val.val() <= tt_val.val())
+                    sc = cs.ule(lo, tt);
+                else
+                    sc = cs.ule(tt, hi - 1);
+#if DEBUG_EXPLAIN
+                verbose_stream() << "    lo     " << lo << "  val " << lo_val.val() << "\n";
+                verbose_stream() << "    hi     " << hi << "  val " << c.subst(hi).val() << "\n";
+                verbose_stream() << "    2^k' t " << tt << "  val " << tt_val.val() << "\n";
+                verbose_stream() << "    prefix no-wraparound constraint " << sc << "\n";
+                verbose_stream() << "        eval " << sc.eval() << "\n";
+                verbose_stream() << "        weval " << sc.weak_eval(c.get_assignment()) << "\n";
+                verbose_stream() << "        seval " << sc.strong_eval(c.get_assignment()) << "\n";
+#endif
+                VERIFY(!sc.is_always_false());
+                if (!sc.is_always_true())
+                    deps.push_back(c.propagate(sc, c.explain_weak_eval(sc), "explain_overlap prefix no-wraparound evaluation"));
+            }
         }
 
         // if there is wrap-around, increment prefix

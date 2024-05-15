@@ -580,6 +580,8 @@ namespace polysat {
     }
 
     pdd core::subst(pdd const& p) { 
+        if (p.is_val())
+            return p;
         return m_assignment.apply_to(p);
     }
 
