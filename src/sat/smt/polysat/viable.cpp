@@ -974,10 +974,14 @@ v0[19] := 0 v0 [-131062 ; 0[ := [-131062;0[  src ~4 <= 43691*v0;
 #endif
             // for simplicity, we fix the evaluation of the stored upper bits
             // (alternative would be to track sub-ranges of extracted symbolic bounds)
+            pdd const t_val = c.subst(t);  // we have to take the actual value of 't', because e.value is computed after bit-width-reduction, which may include a wrap-around
+            VERIFY(t_val.is_val());
             unsigned const k = bw - ebw;
-            auto const sc = cs.fixed(t, ebw - 1 + k, abw + k, store_val);
+            rational const t_fixed = machine_div2k(t_val.val(), abw + k);
+            auto const sc = cs.fixed(t, ebw - 1 + k, abw + k, t_fixed);
 #if DEBUG_EXPLAIN
-            verbose_stream() << "    t     " << t << "\n";
+            verbose_stream() << "    t       " << t << "\n";
+            verbose_stream() << "    eval(t) " << c.subst(t) << " val " << c.subst(t).val() << "\n";
             verbose_stream() << "    t[" << (ebw - 1 + k) << ":" << (abw + k) << "] = " << store_val << "\n";
             verbose_stream() << "    fixed prefix constraint " << sc << "\n";
             verbose_stream() << "        eval " << sc.eval() << "\n";
