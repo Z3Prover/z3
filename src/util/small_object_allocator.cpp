@@ -28,7 +28,6 @@ Revision History:
 # include <iostream>
 #endif
 
-#define DEBUG_SMALL_ALLOC(_x_) {}
 
 small_object_allocator::small_object_allocator(char const * id) {
     for (unsigned i = 0; i < NUM_SLOTS; i++) {
@@ -77,7 +76,6 @@ void small_object_allocator::reset() {
 void small_object_allocator::deallocate(size_t size, void * p) {
     if (size == 0) return;
 
-    DEBUG_SMALL_ALLOC(verbose_stream() << "deallocate " << size << " " << p << " bytes\n");
 #if defined(Z3DEBUG) && !defined(_WINDOWS)
     // Valgrind friendly
     memory::deallocate(p);
@@ -114,9 +112,6 @@ void * small_object_allocator::allocate(size_t size) {
     if (size >= SMALL_OBJ_SIZE - (1 << PTR_ALIGNMENT)) {
         return memory::allocate(size);
     }
-DEBUG_SMALL_ALLOC(
-    static unsigned count = 0;
-    ++count);
 
 
 #ifdef Z3DEBUG
@@ -130,7 +125,6 @@ DEBUG_SMALL_ALLOC(
     if (m_free_list[slot_id] != nullptr) {
         void * r = m_free_list[slot_id];
         m_free_list[slot_id] = *(reinterpret_cast<void **>(r));
-        DEBUG_SMALL_ALLOC(verbose_stream() << "allocate " << size << " " << r << " " << count << " bytes\n");
         return r;
     }
     chunk * c = m_chunks[slot_id]; 
@@ -141,7 +135,6 @@ DEBUG_SMALL_ALLOC(
         if (new_curr < c->m_data + CHUNK_SIZE) {
             void * r = c->m_curr;
             c->m_curr = new_curr;
-            DEBUG_SMALL_ALLOC(verbose_stream() << "allocate " << size << " " << r << " " << count << " bytes\n");
             return r;
         }
     }
@@ -150,7 +143,6 @@ DEBUG_SMALL_ALLOC(
     m_chunks[slot_id] = new_c;
     void * r = new_c->m_curr;
     new_c->m_curr += size;
-    DEBUG_SMALL_ALLOC(verbose_stream() << "allocate " << size << " " << r << " " << count << " bytes\n");
     return r;
 }
 
