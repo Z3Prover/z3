@@ -207,7 +207,7 @@ namespace polysat {
             // display_explain(verbose_stream() << "found: ", {e,val}) << "\n";
             m_explain.push_back({ e, val });
             if (is_conflict()) {
-                verbose_stream() << "find_overlap conflict\n";
+                // verbose_stream() << "find_overlap conflict\n";
                 m_explain_kind = explain_t::conflict;
                 return nullptr;
             }

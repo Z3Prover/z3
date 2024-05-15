@@ -392,7 +392,7 @@ namespace polysat {
         SASSERT(!is_assigned(v));
         if (!m_viable.assign(v, value, dep)) {
             auto deps = m_viable.explain();
-            verbose_stream() << "non-viable assignment v" << v << " == " << value << " <- " << deps << "\n";
+            TRACE("bv", tout << "non-viable assignment v" << v << " == " << value << " <- " << deps << "\n");
             s.set_conflict(deps, "non-viable assignment");
             return;
         }
