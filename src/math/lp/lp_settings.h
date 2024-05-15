@@ -128,8 +128,12 @@ struct statistics {
     unsigned m_grobner_conflicts;
     unsigned m_offset_eqs;
     unsigned m_fixed_eqs;
+    ::statistics m_st;
     statistics() { reset(); }
-    void reset() { memset(this, 0, sizeof(*this)); }
+    void reset() {
+        memset(this, 0, sizeof(*this));
+        m_st.reset();
+    }
     void collect_statistics(::statistics& st) const {
         st.update("arith-factorizations", m_num_factorizations);
         st.update("arith-make-feasible", m_make_feasible);
@@ -157,7 +161,7 @@ struct statistics {
         st.update("arith-nla-lemmas", m_nla_lemmas);
         st.update("arith-nra-calls", m_nra_calls);   
         st.update("arith-bounds-improvements", m_nla_bounds_improvements);
-
+        st.copy(m_st);
     }
 };
 

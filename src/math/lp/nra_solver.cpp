@@ -34,7 +34,7 @@ struct solver::imp {
     scoped_ptr<scoped_anum_vector>   m_values; // values provided by LRA solver
     scoped_ptr<scoped_anum> m_tmp1, m_tmp2;
     nla::core&                m_nla_core;
-
+    
     imp(lp::lar_solver& s, reslimit& lim, params_ref const& p, nla::core& nla_core): 
         lra(s), 
         m_limit(lim),
@@ -180,6 +180,7 @@ struct solver::imp {
         }
 
         lbool r = l_undef;
+        statistics& st = m_nla_core.lp_settings().stats().m_st;
         try {
             r = m_nlsat->check();
         }
@@ -188,9 +189,11 @@ struct solver::imp {
                 r = l_undef;
             }
             else {
+                m_nlsat->collect_statistics(st);
                 throw;
             }
         }
+        m_nlsat->collect_statistics(st);
         TRACE("nra",
               m_nlsat->display(tout << r << "\n");
               display(tout);
@@ -233,6 +236,7 @@ struct solver::imp {
         }
         return r;
     }   
+
 
     void add_monic_eq_bound(mon_eq const& m) {
         if (!lra.column_has_lower_bound(m.var()) && 
@@ -374,6 +378,7 @@ struct solver::imp {
         }
         
         lbool r = l_undef;
+        statistics& st = m_nla_core.lp_settings().stats().m_st;
         try {
             r = m_nlsat->check();
         }
@@ -382,9 +387,11 @@ struct solver::imp {
                 r = l_undef;
             }
             else {
+                m_nlsat->collect_statistics(st);
                 throw;
             }
         }
+        m_nlsat->collect_statistics(st);
         
         switch (r) {
         case l_true:
@@ -665,7 +672,7 @@ nlsat::anum_manager& solver::am() {
 scoped_anum& solver::tmp1() { return m_imp->tmp1(); }
 
 scoped_anum& solver::tmp2() { return m_imp->tmp2(); }
-
+ 
 
 void solver::updt_params(params_ref& p) {
     m_imp->updt_params(p);

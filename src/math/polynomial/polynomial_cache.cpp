@@ -117,20 +117,14 @@ namespace polynomial {
         }
 
         void reset_psc_chain_cache() {
-            psc_chain_cache::iterator it  = m_psc_chain_cache.begin();
-            psc_chain_cache::iterator end = m_psc_chain_cache.end();
-            for (; it != end; ++it) {
-                del_psc_chain_entry(*it);
-            }
+            for (auto & k : m_psc_chain_cache)
+                del_psc_chain_entry(k);            
             m_psc_chain_cache.reset();
         }
 
         void reset_factor_cache() {
-            factor_cache::iterator it  = m_factor_cache.begin();
-            factor_cache::iterator end = m_factor_cache.end();
-            for (; it != end; ++it) {
-                del_factor_entry(*it);
-            }
+            for (auto & e : m_factor_cache)
+                del_factor_entry(e);            
             m_factor_cache.reset();
         }
 
@@ -139,7 +133,6 @@ namespace polynomial {
         polynomial * mk_unique(polynomial * p) {
             if (m_in_cache.get(pid(p), false))
                 return p;
-            // m.gcd_simplify(p);
             polynomial * p_prime = m_poly_table.insert_if_not_there(p);
             if (p == p_prime) {
                 m_cached_polys.push_back(p_prime); 
