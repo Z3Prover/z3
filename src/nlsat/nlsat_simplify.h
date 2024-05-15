@@ -8,9 +8,9 @@ namespace nlsat {
         struct imp;
         imp * m_imp;
     public:
-        simplify(solver& s, atom_vector& atoms, clause_vector& clauses, pmanager& pm);
+        simplify(solver& s, atom_vector& atoms, clause_vector& clauses, clause_vector& learned, pmanager & pm);
         ~simplify();
 
-        bool operator()();
+        void operator()();
     };
 }

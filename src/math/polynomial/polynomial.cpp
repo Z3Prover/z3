@@ -2537,18 +2537,20 @@ namespace polynomial {
            
             auto& m = m_manager.m();
 
-//            m.display(verbose_stream() << "gcd ", g);
-//            p->display(verbose_stream() << "\n", m_manager, false);
+#if 0
+            m.display(verbose_stream() << "gcd ", g);
+            p->display(verbose_stream() << "\n", m_manager, false);
             char const* tt = "";
             switch (t) {
             case ineq_type::GT: tt = ">"; break;
             case ineq_type::LT: tt = "<"; break;
             case ineq_type::EQ: tt = "="; break;
             }
-//            verbose_stream() << " " << tt << " 0\n ->\n";
+            verbose_stream() << " " << tt << " 0\n ->\n";
+#endif
             scoped_mpz r(m);
             unsigned sz = p->size();
-            bool has_zero = false;
+            m_som_buffer.reset();
             for (unsigned i = 0; i < sz; ++i) {
                 if (t != EQ && is_unit(p->m(i))) {
                     scoped_mpz one(m);
@@ -2583,27 +2585,40 @@ namespace polynomial {
                         // p + k + 1 <= 0
                         // p div g + (k + 1 + g - 1) div g <= 0
                         // p div g + (k + 1 + g - 1) div g - 1 < 0
-                        m.add(p->a(i), g, r);
-                        m.div_gcd(r, g, r);
-                        m.sub(r, one, r);
+
+                        m.add(p->a(i), one, r);
+                        bool is_neg = m.is_neg(r);
+
+                        if (is_neg) {
+                            // p - k <= 0
+                            // p <= k
+                            // p div g <= k div g
+                            // p div g - k div g <= 0
+                            // p div g - k div g - 1 < 0
+                            m.neg(r);
+                            m.div_gcd(r, g, r);
+                            m.neg(r);
+                            m.sub(r, one, r);
+                        }
+                        else {
+                            m.div_gcd(p->a(i), g, r);
+                            m.add(p->a(i), g, r);
+                            m.div_gcd(r, g, r);
+                            m.sub(r, one, r);
+                        }
+
                     }
                 }
                 else {
                     m.div_gcd(p->a(i), g, r);                    
                 }
-                m.set(p->a(i), r);
-                if (m.is_zero(r))
-                    has_zero = true;
+                if (!m.is_zero(r))
+                    m_som_buffer.add(r, p->m(i));
             }
-            if (has_zero) {
-                m_som_buffer.reset();
-                for (unsigned i = 0; i < sz; ++i) 
-                    if (!m.is_zero(p->a(i)))
-                        m_som_buffer.add(p->a(i), p->m(i));                 
-                p = m_som_buffer.mk();
-            }
- //           p->display(verbose_stream(), m_manager, false);
- //           verbose_stream() << " " << tt << " 0\n";
+            p = m_som_buffer.mk();
+            
+            // p->display(verbose_stream(), m_manager, false);
+            // verbose_stream() << " " << tt << " 0\n";
         }
 
         void gcd_simplify_slow(polynomial_ref& p, manager::ineq_type t) {

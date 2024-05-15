@@ -117,11 +117,8 @@ namespace polynomial {
         }
 
         void reset_psc_chain_cache() {
-            psc_chain_cache::iterator it  = m_psc_chain_cache.begin();
-            psc_chain_cache::iterator end = m_psc_chain_cache.end();
-            for (; it != end; ++it) {
-                del_psc_chain_entry(*it);
-            }
+            for (auto & k : m_psc_chain_cache)
+                del_psc_chain_entry(k);            
             m_psc_chain_cache.reset();
         }
 

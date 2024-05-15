@@ -45,6 +45,7 @@ Revision History:
 
 namespace nlsat {
 
+
     typedef chashtable<ineq_atom*, ineq_atom::hash_proc, ineq_atom::eq_proc> ineq_atom_table;
     typedef chashtable<root_atom*, root_atom::hash_proc, root_atom::eq_proc> root_atom_table;
 
@@ -249,7 +250,7 @@ namespace nlsat {
             m_evaluator(s, m_assignment, m_pm, m_allocator), 
             m_ism(m_evaluator.ism()),
             m_num_bool_vars(0),
-            m_simplify(s, m_atoms, m_clauses, m_pm),
+            m_simplify(s, m_atoms, m_clauses, m_learned, m_pm),
             m_display_var(m_perm),
             m_display_assumption(nullptr),
             m_explain(s, m_assignment, m_cache, m_atoms, m_var2eq, m_evaluator),
@@ -637,6 +638,7 @@ namespace nlsat {
                 }
                 uniq_ps.push_back(m_cache.mk_unique(p));
                 TRACE("nlsat_table_bug", tout << "p: " << p << ", uniq: " << uniq_ps.back() << "\n";);
+                //verbose_stream() << "p: " << p.get() << ", uniq: " << uniq_ps.back() << "\n";
             }
             void * mem = m_allocator.allocate(ineq_atom::get_obj_size(sz));
             if (sign < 0)
@@ -980,6 +982,10 @@ namespace nlsat {
         }
 
         clause * mk_clause(unsigned num_lits, literal const * lits, bool learned, _assumption_set a) {
+            if (num_lits == 0) {
+                num_lits = 1;
+                lits = &false_literal;
+            }
             SASSERT(num_lits > 0);
             clause * cls = mk_clause_core(num_lits, lits, learned, a);
             TRACE("nlsat_sort", display(tout << "mk_clause:\n", *cls) << "\n";);
@@ -1550,6 +1556,17 @@ namespace nlsat {
             m_xk = null_var;
 
             while (true) {
+                if (should_reorder())
+                    do_reorder();
+
+#if 0
+                if (should_gc())
+                    do_gc();
+#endif
+
+                if (should_simplify())
+                    do_simplify();
+
                 CASSERT("nlsat", check_satisfied());
                 if (m_xk == null_var) {
                     peek_next_bool_var();
@@ -1618,6 +1635,49 @@ namespace nlsat {
             reattach_arith_clauses(m_clauses);
             reattach_arith_clauses(m_learned);
         }
+
+
+        bool should_gc() {
+            return m_learned.size() > 10 * m_clauses.size();
+        }
+
+        void do_gc() {
+            undo_to_base();
+            gc();
+        }
+
+        void undo_to_base() {
+            init_search();
+            m_bk = 0;
+            m_xk = null_var;
+        }
+
+        unsigned m_restart_threshold = 10000;
+        bool should_reorder() {
+            return m_stats.m_conflicts > 0 && m_stats.m_conflicts % m_restart_threshold == 0;
+        }
+
+        void do_reorder() {
+            undo_to_base();
+            m_stats.m_restarts++; 
+            m_stats.m_conflicts++;
+            if (m_reordered)
+                restore_order();
+            apply_reorder();
+        }
+
+        bool m_did_simplify = false;
+        bool should_simplify() {
+            return 
+                !m_did_simplify && m_inline_vars && 
+                !m_incremental && m_stats.m_conflicts > 100;
+        }
+
+        void do_simplify() {
+            undo_to_base();
+            m_did_simplify = true;
+            m_simplify();
+        }        
 
         unsigned m_next_conflict = 100;
         void log() {
@@ -1730,10 +1790,12 @@ namespace nlsat {
 
             apply_reorder();
 
+#if 0
             if (!m_incremental && m_inline_vars) {
                 if (!m_simplify())
                     return l_false;
             }
+#endif
             IF_VERBOSE(3, verbose_stream() << "search\n");
             sort_watched_clauses();
             lbool r = search_check();
@@ -2504,7 +2566,10 @@ namespace nlsat {
            \brief Reorder variables using the giving permutation.
            p maps internal variables to their new positions
         */
+
+
         void reorder(unsigned sz, var const * p) {
+
             remove_learned_roots();
             SASSERT(can_reorder());
             TRACE("nlsat_reorder", tout << "solver before variable reorder\n"; display(tout);
@@ -2512,6 +2577,8 @@ namespace nlsat {
                   tout << "\npermutation:\n";
                   for (unsigned i = 0; i < sz; i++) tout << p[i] << " "; tout << "\n";                  
                   );
+            // verbose_stream() << "\npermutation: " << p[0] << " count " << count << " " << m_rlimit.is_canceled() << "\n";
+            reinit_cache();
             SASSERT(num_vars() == sz);
             TRACE("nlsat_bool_assignment_bug", tout << "before reset watches\n"; display_bool_assignment(tout););
             reset_watches();

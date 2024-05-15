@@ -10,19 +10,28 @@ namespace nlsat {
 
         solver& s;
         atom_vector&  m_atoms;
-        clause_vector& m_clauses;
+        clause_vector& m_clauses, m_learned;
         pmanager& m_pm;
         literal_vector m_lemma;
         vector<ptr_vector<clause>> m_var_occurs;
 
 
-        imp(solver& s, atom_vector& atoms, clause_vector& clauses, pmanager& pm):
+        imp(solver& s, atom_vector& atoms, clause_vector& clauses, clause_vector& learned, pmanager& pm):
             s(s), 
             m_atoms(atoms), 
             m_clauses(clauses), 
+            m_learned(learned),
             m_pm(pm) {}
 
-        bool operator()() {
+        void operator()() {
+
+            // for now just remove all learned clauses.
+            // TODO; check if main clauses are subsumed by learned, 
+            // then promote learned to main.
+            for (auto c : m_learned)
+                s.del_clause(c);
+            m_learned.reset();
+            
             IF_VERBOSE(3, s.display(verbose_stream() << "before\n"));
             unsigned sz = m_clauses.size();
             while (true) {
@@ -32,8 +41,7 @@ namespace nlsat {
                 while (elim_uncnstr())
                     ;
 
-                if (!simplify_literals())
-                    return false;
+                simplify_literals();
 
                 while (fm())
                     ;
@@ -47,17 +55,15 @@ namespace nlsat {
             }
 
             IF_VERBOSE(3, s.display(verbose_stream() << "after\n"));
-            return true;
         }
 
         //
         // Apply gcd simplification to literals
         // 
-        bool simplify_literals() {
+        void simplify_literals() {
             u_map<literal> b2l;
             scoped_literal_vector lits(s);
             polynomial_ref p(m_pm);
-            polynomial::factors factors(m_pm);
             ptr_buffer<poly> ps;
             buffer<bool> is_even;
             unsigned num_atoms = m_atoms.size();
@@ -67,38 +73,26 @@ namespace nlsat {
                     ineq_atom const& a = *to_ineq_atom(a1);
                     ps.reset();
                     is_even.reset();
-                    for (unsigned i = 0; i < a.size(); ++i) {
-                        
+                    for (unsigned i = 0; i < a.size(); ++i) {                        
                         p = a.p(i);
-#if 1
                         ps.push_back(p);
                         is_even.push_back(a.is_even(i));
-#else
-                        factors.reset();
-                        factor(p, factors);
-                        for (unsigned j = 0; j < factors.distinct_factors(); ++j) {
-                            ps.push_back(factors[j]);
-                            is_even.push_back(a.is_even(i) || (factors.get_degree(j) % 2 == 0));
-                            if (factors.get_degree(j) != 1)
-                                UNREACHABLE();
-                        }
-#endif
                     }
                     literal l = s.mk_ineq_literal(a.get_kind(), ps.size(), ps.data(), is_even.data(), true);
                     if (l == null_literal)
                         continue;
                     lits.push_back(l);
                     if (a.m_bool_var != l.var()) {
-                        IF_VERBOSE(2, s.display(verbose_stream() << "simplify ", a) << " -> ";
+                        IF_VERBOSE(3, s.display(verbose_stream() << "simplify ", a) << " -> ";
                         s.display(verbose_stream(), l) << "\n");
                         b2l.insert(a.m_bool_var, l);
                     }
                 }
             }
-            return update_clauses(b2l);
+            update_clauses(b2l);
         }
 
-        bool update_clauses(u_map<literal> const& b2l) {
+        void update_clauses(u_map<literal> const& b2l) {
             bool is_sat = true;
             literal_vector lits;
             unsigned n = m_clauses.size();
@@ -125,14 +119,10 @@ namespace nlsat {
                     c->set_removed();
                     if (is_tautology) 
                         continue;                    
-                    if (lits.empty()) 
-                        is_sat = false;                    
-                    else 
-                        s.mk_clause(lits.size(), lits.data(), c->is_learned(), c->assumptions());                    
+                    s.mk_clause(lits.size(), lits.data(), c->is_learned(), c->assumptions());                    
                 }
             }
             cleanup_removed();
-            return is_sat;
         }
 
         //
@@ -159,6 +149,7 @@ namespace nlsat {
 
                 auto asum = c.assumptions();
                 literal lits[2];
+                clause* c1 = nullptr, * c2 = nullptr;
 
                 c.set_removed();
                 s.inc_simplify();
@@ -168,47 +159,47 @@ namespace nlsat {
                     auto l2 = s.mk_ineq_literal(atom::EQ, 1, &q, &is_evenq, false);
                     if (lit.sign()) {
                         lits[0] = ~l1;
-                        s.mk_clause(1, lits, false, asum);
+                        c1 = s.mk_clause(1, lits, false, asum);
                         lits[0] = ~l2;
-                        s.mk_clause(1, lits, false, asum);
+                        c2 = s.mk_clause(1, lits, false, asum);
                     }
                     else {
                         lits[0] = l1;
                         lits[1] = l2;
-                        s.mk_clause(2, lits, false, asum);
+                        c1 = s.mk_clause(2, lits, false, asum);
                     }
                     break;
                 }
-                case atom::LT:
+                case atom::LT: {
+                    auto pgt = s.mk_ineq_literal(atom::GT, 1, &p, &is_evenp, false);
+                    auto plt = s.mk_ineq_literal(atom::LT, 1, &p, &is_evenp, false);
+                    auto qgt = s.mk_ineq_literal(atom::GT, 1, &q, &is_evenq, false);
+                    auto qlt = s.mk_ineq_literal(atom::LT, 1, &q, &is_evenq, false);
                     if (lit.sign()) {
-                        // p*q >= 0 <=> (p <= 0 => q <= 0) & (q <= 0 => p <= 0)
-                        // (p > 0 or !(q > 0)) & (q > 0 or !(p > 0))
+                        // p*q >= 0 <=> (p < 0 => q <= 0) & (q < 0 => p <= 0)
+                        // (!(p < 0) or !(q > 0)) & (!(q < 0) or !(p > 0))
 
-                        auto l1 = s.mk_ineq_literal(atom::GT, 1, &p, &is_evenp, false);
-                        auto l2 = s.mk_ineq_literal(atom::GT, 1, &q, &is_evenq, false);
-                        lits[0] = l1;
-                        lits[1] = ~l2;
-                        s.mk_clause(2, lits, false, asum);
-                        lits[0] = ~l1;
-                        lits[1] = l2;
-                        s.mk_clause(2, lits, false, asum);
+                        lits[0] = ~plt;
+                        lits[1] = ~qgt;
+                        c1 = s.mk_clause(2, lits, false, asum);
+                        lits[0] = ~qlt;
+                        lits[1] = ~pgt;
+                        c2 = s.mk_clause(2, lits, false, asum);
                     }
                     else {
                         // p*q < 0
                         // (p > 0 & q < 0) or (q > 0 & p < 0)
                         // (p > 0 or q > 0) and (p < 0 or q < 0)
-                        auto pgt = s.mk_ineq_literal(atom::GT, 1, &p, &is_evenp, false);
-                        auto plt = s.mk_ineq_literal(atom::LT, 1, &p, &is_evenp, false);
-                        auto qgt = s.mk_ineq_literal(atom::GT, 1, &q, &is_evenq, false);
-                        auto qlt = s.mk_ineq_literal(atom::LT, 1, &q, &is_evenq, false);
+
                         lits[0] = pgt;
                         lits[1] = qgt;
-                        s.mk_clause(2, lits, false, asum);
+                        c1 = s.mk_clause(2, lits, false, asum);
                         lits[0] = plt;
                         lits[1] = qlt;
-                        s.mk_clause(2, lits, false, asum);
+                        c2 = s.mk_clause(2, lits, false, asum);
                     }
                     break;
+                }
                 case atom::GT: {
                     auto pgt = s.mk_ineq_literal(atom::GT, 1, &p, &is_evenp, false);
                     auto plt = s.mk_ineq_literal(atom::LT, 1, &p, &is_evenp, false);
@@ -216,29 +207,33 @@ namespace nlsat {
                     auto qlt = s.mk_ineq_literal(atom::LT, 1, &q, &is_evenq, false);
                     if (lit.sign()) {
                         // p*q <= 0
-                        // (p >= 0 => q <= 0) & 
-                        // (p < 0 or !(q > 0)) & (q < 0 or !(p > 0))
+                        // (p > 0 => q <= 0) & (p < 0 => q >= 0)
+                        // (!(p > 0) or !(q > 0)) & (!(p < 0) or !(q < 0))
 
-                        lits[0] = plt;
+                        lits[0] = ~pgt;
                         lits[1] = ~qgt;
-                        s.mk_clause(2, lits, false, asum);
-                        lits[0] = qlt;
+                        c1 = s.mk_clause(2, lits, false, asum);
+                        lits[0] = ~qlt;
                         lits[1] = ~plt;
-                        s.mk_clause(2, lits, false, asum);
+                        c2 = s.mk_clause(2, lits, false, asum);
                     }
                     else {
                         // p*q > 0
                         // (p > 0 or q < 0) & (p < 0 or q > 0)
                         lits[0] = plt;
                         lits[1] = qgt;
-                        s.mk_clause(2, lits, false, asum);
+                        c1 = s.mk_clause(2, lits, false, asum);
                         lits[0] = qlt;
                         lits[1] = pgt;
-                        s.mk_clause(2, lits, false, asum);
+                        c2 = s.mk_clause(2, lits, false, asum);
                     }
                     break;
                 }
                 }
+                IF_VERBOSE(3, 
+                s.display(verbose_stream(), c) << " ->\n";
+                if (c1) s.display(verbose_stream(), *c1) << "\n";
+                if (c2) s.display(verbose_stream(), *c2) << "\n");
             }
             cleanup_removed();
         }
@@ -551,9 +546,9 @@ namespace nlsat {
                         if (s.is_int(x)) {
                             // Ax + B > 0 == Ax + B - |A| >= 0
                             if (is_pos)
-                                B = m_pm.add(B, A);
-                            else
                                 B = m_pm.sub(B, A);
+                            else
+                                B = m_pm.add(B, A);
                             is_strict = false;
                         }
                         else
@@ -583,6 +578,7 @@ namespace nlsat {
                     }
                     break;
                 case atom::EQ: {
+                    all_solved = false;
                     if (sign)
                         continue;
                     bound_constraint l(x, A, B, false, c);
@@ -813,16 +809,16 @@ namespace nlsat {
         }
     };
 
-    simplify::simplify(solver& s, atom_vector& atoms, clause_vector& clauses, pmanager& pm) {
-        m_imp = alloc(imp, s, atoms, clauses, pm);
+    simplify::simplify(solver& s, atom_vector& atoms, clause_vector& clauses, clause_vector& learned, pmanager& pm) {
+        m_imp = alloc(imp, s, atoms, clauses, learned, pm);
     }
 
     simplify::~simplify() {
         dealloc(m_imp);
     }
 
-    bool simplify::operator()() {
-        return (*m_imp)();
+    void simplify::operator()() {
+        (*m_imp)();
     }
 
 };

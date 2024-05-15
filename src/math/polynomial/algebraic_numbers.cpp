@@ -2594,27 +2594,28 @@ namespace algebraic_numbers {
 
         void int_lt(numeral const & a, numeral & b) {
             scoped_mpz v(qm());
+            if (!a.is_basic())
+                refine_until_prec(const_cast<numeral&>(a), 1);
             if (a.is_basic()) {
                 qm().floor(basic_value(a), v);
                 qm().dec(v);
             }
-            else {
-                refine_until_prec(const_cast<numeral&>(a), 1);
-                bqm().floor(qm(), lower(a.to_algebraic()), v);
-            }
+            else                 
+                bqm().floor(qm(), lower(a.to_algebraic()), v);            
             m_wrapper.set(b, v);
         }
 
         void int_gt(numeral const & a, numeral & b) {
             scoped_mpz v(qm());
+            if (!a.is_basic()) 
+                refine_until_prec(const_cast<numeral&>(a), 1);
             if (a.is_basic()) {
                 qm().ceil(basic_value(a), v);
                 qm().inc(v);
             }
-            else {
-                refine_until_prec(const_cast<numeral&>(a), 1);
+            else                
                 bqm().ceil(qm(), upper(a.to_algebraic()), v);
-            }
+            
             m_wrapper.set(b, v);
         }
 
