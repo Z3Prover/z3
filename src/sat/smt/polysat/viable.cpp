@@ -974,23 +974,25 @@ v0[19] := 0 v0 [-131062 ; 0[ := [-131062;0[  src ~4 <= 43691*v0;
 #endif
             // for simplicity, we fix the evaluation of the stored upper bits
             // (alternative would be to track sub-ranges of extracted symbolic bounds)
-            pdd const t_val = c.subst(t);  // we have to take the actual value of 't', because e.value is computed after bit-width-reduction, which may include a wrap-around
-            VERIFY(t_val.is_val());
-            unsigned const k = bw - ebw;
-            rational const t_fixed = machine_div2k(t_val.val(), abw + k);
-            auto const sc = cs.fixed(t, ebw - 1 + k, abw + k, t_fixed);
+            {
+                pdd const t_val = c.subst(t);  // we have to take the actual value of 't', because e.value is computed after bit-width-reduction, which may include a wrap-around
+                VERIFY(t_val.is_val());
+                unsigned const k = bw - ebw;
+                rational const t_fixed = machine_div2k(t_val.val(), abw + k);
+                auto const sc = cs.fixed(t, ebw - 1 + k, abw + k, t_fixed);
 #if DEBUG_EXPLAIN
-            verbose_stream() << "    t       " << t << "\n";
-            verbose_stream() << "    eval(t) " << c.subst(t) << " val " << c.subst(t).val() << "\n";
-            verbose_stream() << "    t[" << (ebw - 1 + k) << ":" << (abw + k) << "] = " << store_val << "\n";
-            verbose_stream() << "    fixed prefix constraint " << sc << "\n";
-            verbose_stream() << "        eval " << sc.eval() << "\n";
-            verbose_stream() << "        weval " << sc.weak_eval(c.get_assignment()) << "\n";
-            verbose_stream() << "        seval " << sc.strong_eval(c.get_assignment()) << "\n";
+                verbose_stream() << "    t       " << t << "\n";
+                verbose_stream() << "    eval(t) " << c.subst(t) << " val " << c.subst(t).val() << "\n";
+                verbose_stream() << "    t[" << (ebw - 1 + k) << ":" << (abw + k) << "] = " << store_val << "\n";
+                verbose_stream() << "    fixed prefix constraint " << sc << "\n";
+                verbose_stream() << "        eval " << sc.eval() << "\n";
+                verbose_stream() << "        weval " << sc.weak_eval(c.get_assignment()) << "\n";
+                verbose_stream() << "        seval " << sc.strong_eval(c.get_assignment()) << "\n";
 #endif
-            VERIFY(!sc.is_always_false());
-            if (!sc.is_always_true())
-                deps.push_back(c.propagate(sc, c.explain_weak_eval(sc), "explain_overlap prefix evaluation"));
+                VERIFY(!sc.is_always_false());
+                if (!sc.is_always_true())
+                    deps.push_back(c.propagate(sc, c.explain_weak_eval(sc), "explain_overlap prefix evaluation"));
+            }
             /*
             from smtlib-2023-ni/QF_BV/sage/app5/bench_1002.smt2
                 v2[16] := 0 v2 [256 ; 0[ := [256;0[  src ~256 <= v2;
