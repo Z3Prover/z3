@@ -712,14 +712,14 @@ namespace smt {
         };
         std::stringstream strm;
         strm << "(smt.stats " 
-             << std::setw(4) << m_stats.m_num_restarts << " "
-             << std::setw(6) << m_stats.m_num_conflicts << " "
-             << std::setw(6) << m_stats.m_num_decisions << " " 
-             << std::setw(6) << m_stats.m_num_propagations << " "
-             << std::setw(5) << (m_aux_clauses.size() + bin_clauses) << "/" << bin_clauses << "/" << num_units()
-             << std::setw(7) << m_lemmas.size(); if (bin_lemmas > 0) strm << "/" << bin_lemmas << " ";
-        strm << std::setw(5) << m_stats.m_num_simplifications << " "
-             << std::setw(4) << m_stats.m_num_del_clauses << " "
+             << std::setw(4) << m_stats.m_num_restarts << ' '
+             << std::setw(6) << m_stats.m_num_conflicts << ' '
+             << std::setw(6) << m_stats.m_num_decisions << ' '
+             << std::setw(6) << m_stats.m_num_propagations << ' '
+             << std::setw(5) << (m_aux_clauses.size() + bin_clauses) << '/' << bin_clauses << '/' << num_units() << ' '
+             << std::setw(7) << m_lemmas.size() << '/' << bin_lemmas << ' '
+             << std::setw(5) << m_stats.m_num_simplifications << ' '
+             << std::setw(4) << m_stats.m_num_del_clauses << ' '
              << std::setw(7) << mem_stat() << ")\n";
 
         std::string str = std::move(strm).str();
@@ -745,7 +745,7 @@ namespace smt {
             m_last_position_log = m_stats.m_num_restarts;
             // restarts       decisions      clauses    simplifications  memory
             //      conflicts       propagations    lemmas       deletions
-            int adjust[9] = { -3, -3, -3, -3, -3, -4, -4, -4, -1 };
+            const int adjust[9] = { -3, -3, -3, -3, -3, -4, -4, -4, -1 };
             char const* tag[9] = { ":restarts ", ":conflicts ", ":decisions ", ":propagations ", ":clauses/bin/units ", ":lemmas ", ":simplify ", ":deletions", ":memory" };
 
             std::stringstream l1, l2;
