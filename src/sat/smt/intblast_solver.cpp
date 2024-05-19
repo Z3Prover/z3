@@ -881,10 +881,10 @@ namespace intblast {
             SASSERT(bv.get_bv_size(e) >= bv.get_bv_size(bv_expr));
             unsigned arg_sz = bv.get_bv_size(bv_expr);
             unsigned sz = bv.get_bv_size(e);
-            rational N = rational::power_of_two(sz);
+            // rational N = rational::power_of_two(sz);
             rational M = rational::power_of_two(arg_sz);
             expr* signbit = a.mk_ge(r, a.mk_int(M / 2));
-            r = m.mk_ite(signbit, a.mk_uminus(r), r);
+            r = m.mk_ite(signbit, a.mk_sub(r, a.mk_int(M)), r);
             break;
         }
         case OP_INT2BV:
