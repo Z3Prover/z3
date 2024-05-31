@@ -79,6 +79,7 @@ namespace user_solver {
         lbool                           m_next_split_phase = l_undef;
         vector<expr_ref_vector> m_clauses_to_replay;
         unsigned                m_replay_qhead = 0;
+        uint_set                m_fixed;
 
         struct justification {
             unsigned m_propagation_index { 0 };
