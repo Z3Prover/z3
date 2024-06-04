@@ -624,10 +624,8 @@ struct goal2sat::imp : public sat::sat_internalizer {
         sat::literal  l2 = m_result_stack[sz-2];
         m_result_stack.shrink(sz - 2);
         if (root) {
-            if (m.is_xor(t))
-                sign = !sign;
             SASSERT(sz == 2);
-            if (sign) {
+            if (m.is_xor(t) ^ sign) {
                 mk_root_clause(l1, l2);
                 mk_root_clause(~l1, ~l2);
             }
