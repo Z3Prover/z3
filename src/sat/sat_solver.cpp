@@ -3712,6 +3712,8 @@ namespace sat {
     }
 
     void solver::user_pop(unsigned num_scopes) {
+        if (m_user_scope_literals.empty())
+            return;
         unsigned old_sz = m_user_scope_literals.size() - num_scopes;
         bool_var max_var = m_user_scope_literals[old_sz].var();        
         m_user_scope_literals.shrink(old_sz);
