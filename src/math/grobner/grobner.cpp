@@ -468,12 +468,23 @@ void grobner::merge_monomials(ptr_vector<monomial> & monomials) {
 void grobner::normalize_coeff(ptr_vector<monomial> & monomials) {
     if (monomials.empty())
         return;
+    unsigned sz = monomials.size();
     rational c  = monomials[0]->m_coeff;
     if (c.is_one())
         return;
-    unsigned sz = monomials.size();
-    for (unsigned i = 0; i < sz; i++)
+    if (c.is_minus_one()) {
+        for (unsigned i = 0; i < sz && m_manager.inc(); i++) 
+            monomials[i]->m_coeff.neg();        
+        return;
+    }
+    if (c.bitsize() > 1000)
+        return;
+        
+    for (unsigned i = 0; i < sz && m_manager.inc(); i++) {
+        if (monomials[i]->m_coeff.bitsize() > 1000)
+            continue;
         monomials[i]->m_coeff /= c;
+    }
 }
 
 /**
@@ -611,6 +622,8 @@ grobner::equation * grobner::simplify(equation const * source, equation * target
     TRACE("grobner", tout << "simplifying: "; display_equation(tout, *target); tout << "using: "; display_equation(tout, *source););
     if (source->get_num_monomials() == 0)
         return nullptr;
+    if (!m_manager.inc())
+        return target;
     m_stats.m_simplify++;
     bool result = false;
     bool simplified;
