@@ -43,6 +43,13 @@ namespace euf {
         m_proof_initialized = true;        
     }
 
+    enode_pair solver::get_justification_eq(size_t j) {
+        auto* ext = sat::constraint_base::to_extension(j);
+        SASSERT(ext != this);
+        auto s = fid2solver(ext->get_id());
+        return s->get_justification_eq(j);
+    }
+
     /**
     * Log justifications.
     * is_euf - true if l is justified by congruence closure. In this case create a congruence closure proof.
@@ -63,7 +70,8 @@ namespace euf {
                 if (is_literal(e))
                     m_hint_lits.push_back(get_literal(e));
                 else {
-                    auto [x, y] = th_explain::from_index(get_justification(e)).eq_consequent();
+                    SASSERT(is_justification(e));
+                    auto [x, y] = get_justification_eq(get_justification(e));
                     eqs.push_back(m.mk_eq(x->get_expr(), y->get_expr()));
                     set_tmp_bool_var(nv, eqs.back());
                     m_hint_lits.push_back(literal(nv, false));

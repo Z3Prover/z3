@@ -301,6 +301,28 @@ namespace bv {
     bool solver::is_extended_binary(sat::ext_justification_idx idx, literal_vector& r) { return false; }
     bool solver::is_external(bool_var v) { return true; }
 
+    euf::enode_pair solver::get_justification_eq(size_t j) {
+        auto& c = bv_justification::from_index(j);
+        TRACE("bv", display_constraint(tout, j) << "\n";);
+        switch (c.m_kind) {
+        case bv_justification::kind_t::eq2bit:
+            UNREACHABLE();
+            return euf::enode_pair();
+        case bv_justification::kind_t::ne2bit: 
+            UNREACHABLE();
+            return euf::enode_pair();        
+        case bv_justification::kind_t::bit2eq: 
+            return { var2enode(c.m_v1), var2enode(c.m_v2) };        
+        case bv_justification::kind_t::bit2ne: 
+            UNREACHABLE();
+            return euf::enode_pair();
+        case bv_justification::kind_t::bv2int: 
+            UNREACHABLE();
+            return euf::enode_pair();        
+        }
+        return euf::enode_pair();
+    }
+
     void solver::get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector& r, bool probing) {
         auto& c = bv_justification::from_index(idx);
         TRACE("bv", display_constraint(tout, idx) << "\n";);

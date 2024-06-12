@@ -51,6 +51,10 @@ namespace euf {
         return true;
     }
 
+    enode_pair th_solver::get_justification_eq(size_t j) {
+        return th_explain::from_index(j).eq_consequent();
+    }
+
     th_euf_solver::th_euf_solver(euf::solver& ctx, symbol const& name, euf::theory_id id):
         th_solver(ctx.get_manager(), name, id),
         ctx(ctx)

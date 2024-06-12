@@ -231,6 +231,7 @@ namespace euf {
         void log_antecedents(literal l, literal_vector const& r, th_proof_hint* hint);
         void log_justification(literal l, th_explain const& jst);
         void log_justifications(literal l, unsigned explain_size, bool is_euf);
+        enode_pair get_justification_eq(size_t j);
         void log_rup(literal l, literal_vector const& r);
 
 

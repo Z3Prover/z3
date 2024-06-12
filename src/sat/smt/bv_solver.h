@@ -349,6 +349,7 @@ namespace bv {
         bool is_extended_binary(sat::ext_justification_idx idx, literal_vector& r) override;
         bool is_external(bool_var v) override;
         void get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector & r, bool probing) override;
+        euf::enode_pair get_justification_eq(size_t j) override;
         void asserted(literal l) override;
         sat::check_result check() override;
         void push_core() override;

@@ -231,7 +231,7 @@ namespace euf {
             for (auto const& q : euf::enode_th_vars(r2))
                 if (p.get_id() == q.get_id()) 
                     add_th_diseq(p.get_id(), p.get_var(), q.get_var(), n);
-    }
+        }
     }
 
 

@@ -137,6 +137,8 @@ namespace euf {
 
         sat::status status() const { return sat::status::th(false, get_id()); }
 
+        virtual euf::enode_pair get_justification_eq(size_t j);
+
         /**
         * Local search interface
         */
