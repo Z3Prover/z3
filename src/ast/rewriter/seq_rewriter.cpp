@@ -3201,6 +3201,7 @@ expr_ref seq_rewriter::mk_antimirov_deriv(expr* e, expr* r, expr* path) {
 
 void seq_rewriter::mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref& result) {
     sort* seq_sort = nullptr, * ele_sort = nullptr;
+    expr_ref _r(r, m()), _path(path, m());
     VERIFY(m_util.is_re(r, seq_sort));
     VERIFY(m_util.is_seq(seq_sort, ele_sort));
     SASSERT(ele_sort == e->get_sort());
@@ -3347,8 +3348,10 @@ void seq_rewriter::mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref
     else if (re().is_loop(r, r1, lo, hi)) {
         if ((lo == 0 && hi == 0) || hi < lo)
             result = nothing();
-        else
-            result = mk_antimirov_deriv_concat(mk_antimirov_deriv(e, r1, path), re().mk_loop_proper(r1, (lo == 0 ? 0 : lo - 1), hi - 1));
+        else {
+            expr_ref t(re().mk_loop_proper(r1, (lo == 0 ? 0 : lo - 1), hi - 1), m());
+            result = mk_antimirov_deriv_concat(mk_antimirov_deriv(e, r1, path), t);
+        }
     }
     else if (re().is_opt(r, r1))
         result = mk_antimirov_deriv(e, r1, path);
@@ -3414,15 +3417,18 @@ expr_ref seq_rewriter::mk_antimirov_deriv_intersection(expr* e, expr* d1, expr* 
 
 expr_ref seq_rewriter::mk_antimirov_deriv_concat(expr* d, expr* r) {
     expr_ref result(m());
-    // Take reference count of r and d
     expr_ref _r(r, m()), _d(d, m());
     expr* c, * t, * e;
-    if (m().is_ite(d, c, t, e))
-        result = m().mk_ite(c, mk_antimirov_deriv_concat(t, r), mk_antimirov_deriv_concat(e, r));
+    if (m().is_ite(d, c, t, e)) {
+        auto r2 = mk_antimirov_deriv_concat(e, r);
+        auto r1 = mk_antimirov_deriv_concat(t, r);
+        result = m().mk_ite(c, r1, r2);
+    }
     else if (re().is_union(d, t, e))
         result = mk_antimirov_deriv_union(mk_antimirov_deriv_concat(t, r), mk_antimirov_deriv_concat(e, r));
     else
         result = mk_re_append(d, r);
+    SASSERT(result.get());
     return result;
 }
 

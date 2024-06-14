@@ -1164,11 +1164,13 @@ expr* seq_util::rex::mk_loop_proper(expr* r, unsigned lo, unsigned hi)
         // avoid creating a loop with both bounds 0
         // such an expression is invalid as a loop
         // it is BY DEFINITION = epsilon
-        return mk_epsilon(seq_sort);
+        r = mk_epsilon(seq_sort);
+        return r;
     }
-    if (lo == 1 && hi == 1)
+    if (lo == 1 && hi == 1) {
         // do not create a loop unless it actually is a loop
         return r;
+    }
     parameter params[2] = { parameter(lo), parameter(hi) };
     return m.mk_app(m_fid, OP_RE_LOOP, 2, params, 1, &r);
 }
