@@ -259,8 +259,9 @@ namespace opt {
         if (!m_models[i]) 
             m_models.set(i, m_last_model.get());
 
-        if (val > m_objective_values[i])
-            m_objective_values[i] = val;    
+        if (val > m_objective_values[i]) {
+            m_objective_values[i] = val;
+        }
 
         if (!m_last_model)
             return true;
@@ -284,14 +285,7 @@ namespace opt {
         // 
         auto check_bound = [&]() {
             SASSERT(has_shared);
-            bool ok = bound_value(i, val);
-            if (l_true != m_context.check(0, nullptr))  
-                return false;
-            m_context.get_model(m_last_model);
-            if (!m_last_model)
-                return false;
-            update_objective();
-            return ok;
+            return bound_value(i, val) && l_true == m_context.check(0, nullptr);
         };
 
         if (!val.is_finite()) {
