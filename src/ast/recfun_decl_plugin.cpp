@@ -301,7 +301,6 @@ namespace recfun {
                         // skip
                     }
                     else if (m.is_ite(e)) {
-                        verbose_stream() << "unfold " << mk_pp(e, m) << "\n";
                         // need to do a case split on `e`, forking the search space
                         b.to_split = st.cons_ite(to_app(e), b.to_split);
                     } 
