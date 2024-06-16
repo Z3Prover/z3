@@ -271,7 +271,8 @@ namespace recfun {
         SASSERT(!n || !n->is_attached_to(get_id()));
         if (!n) 
             n = mk_enode(e, false);
-        SASSERT(!n->is_attached_to(get_id()));
+        if (n->is_attached_to(get_id()))
+            return true;
         euf::theory_var w = mk_var(n);
         ctx.attach_th_var(n, this, w);
         if (u().is_defined(e) && u().has_defs()) 

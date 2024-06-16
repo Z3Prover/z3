@@ -342,7 +342,7 @@ namespace smt {
             activate_guard(pred_applied, guards);
         }
 
-        TRACEFN("assert core " << preds);
+        TRACEFN("assert cases " << preds);
         // the disjunction of branches is asserted
         // to close the available cases. 
 

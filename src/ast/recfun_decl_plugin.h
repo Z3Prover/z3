@@ -251,6 +251,8 @@ namespace recfun {
         bool is_macro(func_decl* f) { return is_defined(f) && get_def(f).is_macro(); }
         bool is_num_rounds(expr * e) const { return is_app_of(e, m_fid, OP_NUM_ROUNDS); }
         bool owns_app(app * e) const { return e->get_family_id() == m_fid; }
+        bool contains_def(expr* e); // expression contains a def
+
 
         //<! don't use native theory if recursive function declarations are not populated with defs
         bool has_defs() const { return m_plugin->has_defs(); }
