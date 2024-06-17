@@ -17,7 +17,6 @@ Author:
 #include <string>
 #include <algorithm>
 #include <utility>
-#include "math/lp/column_info.h"
 #include "math/lp/lp_types.h"
 
 namespace lp {

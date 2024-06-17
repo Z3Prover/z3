@@ -10,7 +10,6 @@
   --*/
 #pragma once
 #include "math/lp/lp_types.h"
-#include "math/lp/column_info.h"
 #include "math/lp/explanation.h"
 
 namespace nla {
