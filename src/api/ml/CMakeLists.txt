@@ -1,10 +1,10 @@
+###############################################################################
+# Install
+###############################################################################
 find_package(OCaml REQUIRED)
-# ${PROJECT_SOURCE_DIR}:       /vendor/z3
-# ${PROJECT_BINARY_DIR}:       /vendor/z3/build
-# ${CMAKE_CURRENT_SOURCE_DIR}: /vendor/z3/src/api/ml
-# ${CMAKE_CURRENT_BINARY_DIR}: /vendor/z3/build/src/api/ml
 
 set(exe_ext ${CMAKE_EXECUTABLE_SUFFIX})
+set(so_ext ${CMAKE_SHARED_LIBRARY_SUFFIX})
 set(bc_ext ".byte")
 
 set(z3ml_src ${CMAKE_CURRENT_SOURCE_DIR})
@@ -13,7 +13,7 @@ set(z3ml_bin ${CMAKE_CURRENT_BINARY_DIR})
 if (Z3_BUILD_OCAML_EXTERNAL_LIBZ3)
   add_custom_target(libz3_z3ml
     ALL
-    DEPENDS "${Z3_BUILD_OCAML_EXTERNAL_LIBZ3}/libz3.so"
+    DEPENDS "${Z3_BUILD_OCAML_EXTERNAL_LIBZ3}/libz3${so_ext}"
   )
   set(libz3_path ${Z3_BUILD_OCAML_EXTERNAL_LIBZ3})
 else()
@@ -73,6 +73,10 @@ set(z3ml_common_flags  "-package" "zarith"
                        "-I" "${z3ml_bin}")
 
 # z3native_stubs.c depends on nothing
+execute_process(
+  COMMAND ${OCAMLFIND} ocamlc "-where"
+  OUTPUT_VARIABLE ocaml_stub_lib_path
+  OUTPUT_STRIP_TRAILING_WHITESPACE)
 
 add_custom_command(
   OUTPUT "${z3ml_bin}/z3native_stubs.o"
@@ -80,11 +84,11 @@ add_custom_command(
           "-o" "${z3ml_bin}/z3native_stubs.o"
           "-I" "${z3ml_src}"
           "-I" "${PROJECT_SOURCE_DIR}/src/api"
-          "-I" "$$(ocamlfind ocamlc -where)"
+          "-I" "${ocaml_stub_lib_path}"
           "-c" "${z3ml_bin}/z3native_stubs.c"
   DEPENDS "${z3ml_bin}/z3native_stubs.c"
   COMMENT "Building z3native_stubs.o"
-  USES_TERMINAL)
+  VERBATIM)
 
 # z3enum.ml depends on nothing
 
@@ -159,6 +163,7 @@ set(ocamlmklib_flags "-o" "z3ml"
                      "-ocamlcflags" "-bin-annot"
                      "-package" "zarith"
                      "-lz3" "-lstdc++" "-lpthread"
+                     $<$<BOOL:${Z3_USE_LIB_GMP}>:-lgmp>
                      "-L${libz3_path}"
                      "-dllpath" "${libz3_path}"
                      "-L${ocaml_stublibs_path}"
@@ -166,7 +171,7 @@ set(ocamlmklib_flags "-o" "z3ml"
                      "-I" "${z3ml_bin}")
 
 add_custom_command(
-  OUTPUT "${z3ml_bin}/dllz3ml.so"
+  OUTPUT "${z3ml_bin}/dllz3ml${so_ext}"
          "${z3ml_bin}/libz3ml.a"
          "${z3ml_bin}/z3ml.cma"
          "${z3ml_bin}/z3ml.cmxa"
@@ -180,7 +185,7 @@ add_custom_command(
     "${z3ml_bin}/z3enums.cmx"
     "${z3ml_bin}/z3native.cmx"
     "${z3ml_bin}/z3native_stubs.o"
-    "${z3ml_bin}/z3.cmx"  
+    "${z3ml_bin}/z3.cmx"
   COMMAND "${OCAMLFIND}" "ocamlopt" "-linkall" "-shared"
     "-o" "${z3ml_bin}/z3ml.cmxs"
     "-I" "${z3ml_bin}"
@@ -194,10 +199,35 @@ add_custom_command(
     "${z3ml_bin}/z3enums.cmx"
     "${z3ml_bin}/z3native.cmx"
     "${z3ml_bin}/z3.cmx"
-  COMMENT "Building z3ml.{cma,cmxa,cmxs}, dllz3ml.so, and libz3ml.a"
+  COMMENT "Building z3ml.{cma,cmxa,cmxs}, dllz3ml${so_ext}, and libz3ml.a"
   VERBATIM)
 
+# Hacky: When the os is APPLE, a fix command will mutate `libz3.dylib` and `dlllibz3.so` inplace.
+# I don't know how to use conditional `COMMAND` nor specify a file dependency for itself
+# Renaming it and back seems a simple solution.
+
+#   COMMAND mv "${z3ml_bin}/dllz3ml${so_ext}" "${z3ml_bin}/dllz3ml.pre${so_ext}"
+# if (NOT APPLE)
+#   add_custom_command(
+#     OUTPUT "${z3ml_bin}/dllz3ml${so_ext}"
+#     COMMAND mv "${z3ml_bin}/dllz3ml.pre${so_ext}" "${z3ml_bin}/dllz3ml${so_ext}"
+#     DEPENDS "${z3ml_bin}/dllz3ml.pre${so_ext}"
+#   )
+# else()
+#   # if IS_OSX:
+#   # install_name_tool -id ${stubs_install_path}/libz3.dylib libz3.dylib
+#   # install_name_tool -change libz3.dylib ${stubs_install_path}/libz3.dylib api/ml/dllz3ml.so
+#   add_custom_command(
+#     OUTPUT "${z3ml_bin}/dllz3ml${so_ext}"
+#     COMMAND mv "${z3ml_bin}/dllz3ml.pre${so_ext}" "${z3ml_bin}/dllz3ml${so_ext}"
+#     DEPENDS "${z3ml_bin}/dllz3ml.pre${so_ext}"
+#   )
+# endif()
+
+###############################################################################
 # Example
+###############################################################################
+ 
 add_custom_command(
   OUTPUT  "${z3ml_bin}/ml_example.ml"
   COMMAND "${CMAKE_COMMAND}" "-E" 
@@ -229,6 +259,7 @@ add_custom_command(
     ">" "${z3ml_bin}/ml_example.bc.log"
   DEPENDS
     "${z3ml_bin}/z3ml.cma"
+    "${z3ml_bin}/dllz3ml${so_ext}"
     "${z3ml_bin}/ml_example.ml"
   COMMENT "Testing build and run ml_example bytecode"
   VERBATIM)
@@ -248,6 +279,7 @@ add_custom_command(
     ">" "${z3ml_bin}/ml_example.log"
   DEPENDS
     "${z3ml_bin}/z3ml.cmxa"
+    "${z3ml_bin}/dllz3ml${so_ext}"
     "${z3ml_bin}/ml_example.ml"
   COMMENT "Testing build and run ml_example natively"
   VERBATIM)
@@ -265,7 +297,11 @@ add_custom_target(build_z3_ocaml_bindings
     "${z3ml_bin}/z3ml.cma"
     "${z3ml_bin}/z3ml.cmxa"
     "${z3ml_bin}/z3ml.cmxs"
-    "${z3ml_bin}/dllz3ml.so"
+    "${z3ml_bin}/dllz3ml${so_ext}"
     "${z3ml_bin}/libz3ml.a"
     build_ocaml_example
 )
+
+###############################################################################
+# Install
+###############################################################################
