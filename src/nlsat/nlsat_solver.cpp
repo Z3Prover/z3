@@ -3698,10 +3698,12 @@ namespace nlsat {
         std::ostream& display_smt2_arith_decls(std::ostream & out) const {
             unsigned sz = m_is_int.size();
             for (unsigned i = 0; i < sz; i++) {
-                if (is_int(i))
-                    out << "(declare-fun x" << i << " () Int)\n";
-                else
-                    out << "(declare-fun x" << i << " () Real)\n";
+                if (is_int(i)) {
+                    out << "(declare-fun "; m_display_var(out, i) << " () Int)\n";
+                }
+                else {
+                    out << "(declare-fun "; m_display_var(out, i) << " () Real)\n";
+                }
             }
             return out;
         }
@@ -3720,7 +3722,7 @@ namespace nlsat {
             display_smt2_arith_decls(out);
             out << "(assert (and true\n";
             for (clause* c : m_clauses) {
-                display_smt2(out, *c) << "\n";
+                display_smt2(out, *c, m_display_var) << "\n";
             }
             out << "))\n" << std::endl;
             return out;
