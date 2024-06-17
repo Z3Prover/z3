@@ -17,6 +17,7 @@
 # find_library(ocaml)
 # include(FindOCaml)
 # Todo: use DEPFILE in https://cmake.org/cmake/help/latest/command/add_custom_command.html
+# for rpath, see https://discourse.cmake.org/t/how-to-get-an-lc-rpath-and-rpath-prefix-on-a-dylib-on-macos/5540
 
 # Generate ``z3native.ml`` and ``z3native_stubs.c``
 
@@ -127,6 +128,9 @@
 
 #          "${z3ml_bin}/z3enums.cmi"
 
+ML_LIB=/home/ex/.opam/5.2.0/lib
+ML_LIB=/Users/ex/.opam/5.2.0/lib
+ROOT=$$(pwd)
 
 ml0:
 	mkdir -p build
@@ -176,10 +180,11 @@ ml:
 	-DCMAKE_VERBOSE_MAKEFILE=TRUE \
 	-DZ3_BUILD_LIBZ3_SHARED=TRUE \
 	-DZ3_BUILD_OCAML_BINDINGS=TRUE \
-	-DZ3_BUILD_OCAML_EXTERNAL_LIBZ3=/home/ex/my_z3 \
-	-DZ3_USE_LIB_GMP=TRUE \
 	--debug-trycompile \
 	../
+
+# -DZ3_BUILD_OCAML_EXTERNAL_LIBZ3=/home/ex/my_z3 \
+# -DZ3_USE_LIB_GMP=TRUE \
 
 # LD_LIBRARY_PATH=build ./build/src/api/ml/ml_example
 
@@ -210,10 +215,10 @@ MKLIB_FLAGS = \
 	-package zarith \
 	-lz3 -lstdc++ -lpthread\
 	-lgmp \
-	-L/home/ex/code/ocaml-build-examples/vendor/z3/build \
-	-dllpath /home/ex/code/ocaml-build-examples/vendor/z3/build \
-	-L/home/ex/.opam/5.1.1/lib/stublibs \
-	-dllpath /home/ex/.opam/5.1.1/lib/stublibs \
+	-L$(ROOT)/build \
+	-dllpath $(ROOT)/build \
+	-L$(ML_LIB)/stublibs \
+	-dllpath $(ML_LIB)/stublibs \
 	-I build/src/api/ml \
 	-o build/src/api/ml/z3ml	
 
@@ -232,74 +237,74 @@ om:
 
 # why?
 # DEPENDS "${z3ml_bin}/z3enums.cmo"
+# 	-I +threads \
 
 or1:
 	ocamlfind ocamlc -verbose \
 	-o ml_example.byte \
 	-package zarith \
-	-I +threads \
-	-I /home/ex/code/ocaml-build-examples/vendor/z3/build/src/api/ml \
-	-dllpath /home/ex/code/ocaml-build-examples/vendor/z3/build/src/api/ml \
-	-I /home/ex/.opam/5.1.1/lib/stublibs \
-	-dllpath /home/ex/.opam/5.1.1/lib/stublibs \
-	/home/ex/.opam/5.1.1/lib/zarith/zarith.cma \
-	/home/ex/code/ocaml-build-examples/vendor/z3/build/src/api/ml/z3ml.cma \
-	/home/ex/code/ocaml-build-examples/vendor/z3/build/src/api/ml/ml_example.ml \
+	-I $(ROOT)/build/src/api/ml \
+	-dllpath $(ROOT)/build/src/api/ml \
+	-I $(ML_LIB)/stublibs \
+	-dllpath $(ML_LIB)/stublibs \
+	$(ML_LIB)/zarith/zarith.cma \
+	$(ROOT)/build/src/api/ml/z3ml.cma \
+	$(ROOT)/build/src/api/ml/ml_example.ml \
 
 # 	-linkpkg \
 
 or2:
 	ocamlrun ml_example.byte
 
-# -I /home/ex/.opam/5.1.1/lib/stublibs \
+# -I $(ML_LIB)/stublibs \
     # "-cclib" "-L${PROJECT_BINARY_DIR}"
     # "-cclib" [[-L. -lpthread -lstdc++ -lz3]]
     # "-linkpkg"
 # "-cclib" "-L${PROJECT_BINARY_DIR}"
 # "-cclib" [[-L. -lpthread -lstdc++ -lz3]]
     
+# 	-I +threads \
 
 oc1:
 	ocamlfind ocamlopt \
-	-I +threads \
 	-o ml_example \
 	-package zarith \
 	-linkpkg \
-	-I /home/ex/code/ocaml-build-examples/vendor/z3/build/src/api/ml \
+	-I $(ROOT)/build/src/api/ml \
 	z3ml.cmxa \
-	/home/ex/code/ocaml-build-examples/vendor/z3/build/src/api/ml/ml_example.ml
+	$(ROOT)/build/src/api/ml/ml_example.ml
 
 oc2:
 	./ml_example
 
 # must have
-# /home/ex/.opam/5.1.1/lib/zarith/zarith.cma 
-# -I /home/ex/code/ocaml-build-examples/vendor/z3/build/src/api/ml
+# $(ML_LIB)/zarith/zarith.cma 
+# -I $(ROOT)/build/src/api/ml
 
 # can be removed
 # -cclib "-lstdc++ -lz3"
-# -cclib "-L. -L/home/ex/.opam/5.1.1/lib/stublibs -L/home/ex/.opam/5.1.1/lib/zarith "
-# -L/home/ex/code/ocaml-build-examples/vendor/z3/build
+# -cclib "-L. -L$(ML_LIB)/stublibs -L$(ML_LIB)/zarith "
+# -L$(ROOT)/build
 # -package zarith
 # -linkpkg
 # -lpthread
 # -package z3
-# -I /home/ex/.opam/5.1.1/lib/zarith 
+# -I $(ML_LIB)/zarith 
 
 # must not have
 # -custom
 
-# -o /home/ex/code/ocaml-build-examples/vendor/z3/build/src/api/ml/ml_example.byte
+# -o $(ROOT)/build/src/api/ml/ml_example.byte
 
-# CAML_LD_LIBRARY_PATH=/home/ex/.opam/5.1.1/lib/stublibs:/home/ex/code/ocaml-build-examples/vendor/z3/build:/home/ex/code/ocaml-build-examples/vendor/z3/build/src/api/ml:/home/ex/.opam/5.1.1/lib/zarith
+# CAML_LD_LIBRARY_PATH=$(ML_LIB)/stublibs:$(ROOT)/build:$(ROOT)/build/src/api/ml:$(ML_LIB)/zarith
 
 or3:
-	ocamlrun -I /home/ex/.opam/5.1.1/lib/zarith -I /home/ex/.opam/5.1.1/lib/stublibs -I /home/ex/.opam/5.1.1/lib/zarith ml_example.byte
+	ocamlrun -I $(ML_LIB)/zarith -I $(ML_LIB)/stublibs -I $(ML_LIB)/zarith ml_example.byte
 
-# -I /home/ex/.opam/5.1.1/lib/zarith 
-# -I /home/ex/.opam/5.1.1/lib/stublibs
-# -I /home/ex/code/ocaml-build-examples/vendor/z3/build
-# -I /home/ex/code/ocaml-build-examples/vendor/z3/build/src/api/ml
+# -I $(ML_LIB)/zarith 
+# -I $(ML_LIB)/stublibs
+# -I $(ROOT)/build
+# -I $(ROOT)/build/src/api/ml
 # -t -b
 
 

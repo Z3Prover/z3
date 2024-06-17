@@ -153,19 +153,36 @@ execute_process(
 
 set(ocaml_stublibs_path "${ocaml_destdir_path}/stublibs")
 
+set(c_lib_deps "-lz3" "-lstdc++" "-lpthread")
+if (Z3_USE_LIB_GMP)
+  list(APPEND c_lib_deps "-lgmp")
+endif()
+
+if( APPLE )
+  set(ocaml_rpath "@executable_path/../libz3${so_ext}")
+elseif( UNIX )
+  set(ocaml_rpath "\\$ORIGIN/../libz3${so_ext}")
+endif()
+list(APPEND c_lib_deps "-dllpath" ${ocaml_rpath})
+
+# We may not directly use CMake's BUILD_RPATH or INSTALL_RPATH since they don't set 
+# the ocaml stub libraries as a normal library target.
+
 set(ocamlmklib_flags "-o" "z3ml"
                      "-ocamlcflags" "-bin-annot"
                      "-package" "zarith"
-                     "-lz3" "-lstdc++" "-lpthread"
-                     $<$<BOOL:${Z3_USE_LIB_GMP}>:-lgmp>
+                     ${c_lib_deps}
                      "-L${libz3_path}"
                      "-dllpath" "${libz3_path}"
                      "-L${ocaml_stublibs_path}"
                      "-dllpath" "${ocaml_stublibs_path}"
+                     "-dllpath" "@rpath/dllz3ml.so"
                      "-I" "${z3ml_bin}")
 
+# OCaml's dll stublib hava platform-independent name `dll<pkg>.so`
+
 add_custom_command(
-  OUTPUT ${z3ml_bin}/dllz3ml${so_ext}
+  OUTPUT ${z3ml_bin}/dllz3ml.so
          ${z3ml_bin}/libz3ml.a
          ${z3ml_bin}/z3ml.cma
          ${z3ml_bin}/z3ml.cmxa
@@ -184,7 +201,7 @@ add_custom_command(
           "-o" "${z3ml_bin}/z3ml.cmxs"
           "-I" "${z3ml_bin}"
           "${z3ml_bin}/z3ml.cmxa"
-   DEPENDS
+  DEPENDS
           libz3_z3ml
           ${z3ml_bin}/z3native_stubs.o
           ${z3ml_bin}/z3enums.cmo
@@ -193,7 +210,7 @@ add_custom_command(
           ${z3ml_bin}/z3enums.cmx
           ${z3ml_bin}/z3native.cmx
           ${z3ml_bin}/z3.cmx
-  COMMENT "Building z3ml.{cma,cmxa,cmxs}, dllz3ml${so_ext}, and libz3ml.a"
+  COMMENT "Building z3ml.{cma,cmxa,cmxs}, dllz3ml.so, and libz3ml.a"
   VERBATIM)
 
 ###############################################################################
@@ -212,13 +229,14 @@ execute_process(
   OUTPUT_VARIABLE ocaml_pkg_zarith_path
   OUTPUT_STRIP_TRAILING_WHITESPACE)
 
+#     "-I" "+threads"
+
 add_custom_command(
   OUTPUT ${z3ml_bin}/ml_example${bc_ext}
          ${z3ml_bin}/ml_example.bc.log
   COMMAND "${OCAMLFIND}" "ocamlc"
     "-o" "${z3ml_bin}/ml_example${bc_ext}"
     "-package" "zarith"
-    "-I" "+threads"
     "-I" "${z3ml_bin}"
     "-dllpath" "${z3ml_bin}"
     "-I" ${ocaml_stublibs_path}
@@ -231,17 +249,18 @@ add_custom_command(
     ">" "${z3ml_bin}/ml_example.bc.log"
   DEPENDS
     ${z3ml_bin}/z3ml.cma
-    ${z3ml_bin}/dllz3ml${so_ext}
+    ${z3ml_bin}/dllz3ml.so
     ${z3ml_bin}/ml_example.ml
   COMMENT "Testing build and run ml_example bytecode"
   VERBATIM)
+
+#     "-I" "+threads"
 
 add_custom_command(
   OUTPUT ${z3ml_bin}/ml_example${exe_ext}
          ${z3ml_bin}/ml_example.log
   COMMAND "${OCAMLFIND}" "ocamlopt"
     "-o" "${z3ml_bin}/ml_example${exe_ext}"
-    "-I" "+threads"
     "-package" "zarith"
     "-linkpkg"
     "-I" "${z3ml_bin}"
@@ -251,7 +270,7 @@ add_custom_command(
     ">" "${z3ml_bin}/ml_example.log"
   DEPENDS
     ${z3ml_bin}/z3ml.cmxa
-    ${z3ml_bin}/dllz3ml${so_ext}
+    ${z3ml_bin}/dllz3ml.so
     ${z3ml_bin}/ml_example.ml
   COMMENT "Testing build and run ml_example natively"
   VERBATIM)
@@ -269,7 +288,7 @@ add_custom_target(build_z3_ocaml_bindings
     ${z3ml_bin}/z3ml.cma
     ${z3ml_bin}/z3ml.cmxa
     ${z3ml_bin}/z3ml.cmxs
-    ${z3ml_bin}/dllz3ml${so_ext}
+    ${z3ml_bin}/dllz3ml.so
     ${z3ml_bin}/libz3ml.a
     build_ocaml_example
 )
@@ -282,20 +301,20 @@ add_custom_target(build_z3_ocaml_bindings
 # I don't know how to use conditional `COMMAND` nor specify a file dependency for itself
 # Renaming it and back seems a simple solution.
 
-#   COMMAND mv "${z3ml_bin}/dllz3ml${so_ext}" "${z3ml_bin}/dllz3ml.pre${so_ext}"
+#   COMMAND mv "${z3ml_bin}/dllz3ml.so" "${z3ml_bin}/dllz3ml.pre.so"
 # if (NOT APPLE)
 #   add_custom_command(
-#     OUTPUT "${z3ml_bin}/dllz3ml${so_ext}"
-#     COMMAND mv "${z3ml_bin}/dllz3ml.pre${so_ext}" "${z3ml_bin}/dllz3ml${so_ext}"
-#     DEPENDS "${z3ml_bin}/dllz3ml.pre${so_ext}"
+#     OUTPUT "${z3ml_bin}/dllz3ml.so"
+#     COMMAND mv "${z3ml_bin}/dllz3ml.pre.so" "${z3ml_bin}/dllz3ml.so}"
+#     DEPENDS "${z3ml_bin}/dllz3ml.pre.so"
 #   )
 # else()
 #   # if IS_OSX:
 #   # install_name_tool -id ${stubs_install_path}/libz3.dylib libz3.dylib
 #   # install_name_tool -change libz3.dylib ${stubs_install_path}/libz3.dylib api/ml/dllz3ml.so
 #   add_custom_command(
-#     OUTPUT "${z3ml_bin}/dllz3ml${so_ext}"
-#     COMMAND mv "${z3ml_bin}/dllz3ml.pre${so_ext}" "${z3ml_bin}/dllz3ml${so_ext}"
-#     DEPENDS "${z3ml_bin}/dllz3ml.pre${so_ext}"
+#     OUTPUT "${z3ml_bin}/dllz3ml.so"
+#     COMMAND mv "${z3ml_bin}/dllz3ml.pre.so" "${z3ml_bin}/dllz3ml.so"
+#     DEPENDS "${z3ml_bin}/dllz3ml.so"
 #   )
 # endif()
