@@ -190,10 +190,13 @@ build-mk:
 	cd build && make -j16 build_z3_ocaml_bindings
 .PHONY:build
 
-# /bin/sh: 1: ocamlfind ocamlc -where: not found
+build-nj:
+	cd build && ninja
+.PHONY:build-nj
+
 build:
 	cd build && ninja build_z3_ocaml_bindings
-.PHONY:build-nj
+.PHONY:build
 
 dot:
 	cd build && dot -Tpng -o deps.png deps.dot
