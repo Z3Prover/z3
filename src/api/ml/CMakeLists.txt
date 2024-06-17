@@ -24,12 +24,12 @@ else()
   set(libz3_path ${PROJECT_BINARY_DIR})
 endif()
 
-message(libz3_path "${libz3_path}")
+set(Z3ml_native_stubs_c "${z3ml_bin}/z3native_stubs.c")
 
 add_custom_command(
   OUTPUT
     "${z3ml_bin}/z3native.ml"
-    "${z3ml_bin}/z3native_stubs.c"
+    ${Z3ml_native_stubs_c}
   COMMAND "${PYTHON_EXECUTABLE}"
     "${PROJECT_SOURCE_DIR}/scripts/update_api.py"
     ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}
@@ -41,12 +41,14 @@ add_custom_command(
     ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}
     "${PROJECT_SOURCE_DIR}/scripts/update_api.py"
     ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
-  COMMENT "Generatinging ${z3ml_bin}/z3native.ml and ${z3ml_bin}/z3native_stubs.c"
+  COMMENT "Generatinging ${z3ml_bin}/z3native.ml and ${Z3ml_native_stubs_c}"
   VERBATIM
 )
 
-set(z3ml_enums_ml "${z3ml_bin}/z3enums.ml")
-add_custom_command(OUTPUT "${z3ml_enums_ml}"
+set(gen_z3enum "${z3ml_bin}/z3enums.ml")
+add_custom_command(
+  OUTPUT 
+    ${gen_z3enum}
   COMMAND "${PYTHON_EXECUTABLE}"
     "${PROJECT_SOURCE_DIR}/scripts/mk_consts_files.py"
     ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}
@@ -56,7 +58,7 @@ add_custom_command(OUTPUT "${z3ml_enums_ml}"
     ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}
     "${PROJECT_SOURCE_DIR}/scripts/mk_consts_files.py"
     ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
-  COMMENT "Generating ${z3ml_enums_ml}"
+  COMMENT "Generating ${gen_z3enum}"
   VERBATIM
 )
 
@@ -79,14 +81,14 @@ execute_process(
   OUTPUT_STRIP_TRAILING_WHITESPACE)
 
 add_custom_command(
-  OUTPUT "${z3ml_bin}/z3native_stubs.o"
+  OUTPUT ${z3ml_bin}/z3native_stubs.o
   COMMAND "${OCAMLFIND}" "ocamlc" ${z3ml_common_flags}
           "-o" "${z3ml_bin}/z3native_stubs.o"
           "-I" "${z3ml_src}"
           "-I" "${PROJECT_SOURCE_DIR}/src/api"
           "-I" "${ocaml_stub_lib_path}"
           "-c" "${z3ml_bin}/z3native_stubs.c"
-  DEPENDS "${z3ml_bin}/z3native_stubs.c"
+  DEPENDS ${Z3ml_native_stubs_c}
   COMMENT "Building z3native_stubs.o"
   VERBATIM)
 
@@ -107,7 +109,7 @@ add_custom_command(
          "-c" "${z3ml_bin}/z3enums.ml"
   COMMAND "${OCAMLFIND}" "ocamlopt" ${z3ml_common_flags}
           "-c" "${z3ml_bin}/z3enums.ml"
-  DEPENDS "${z3ml_enums_ml}"
+  DEPENDS ${gen_z3enum}
   COMMENT "Building z3enums.{mli,cmi,cmo,cmx}"
   VERBATIM)
 
@@ -192,7 +194,7 @@ add_custom_command(
     "${z3ml_bin}/z3ml.cmxa"
    DEPENDS
     libz3_z3ml
-    "${z3ml_bin}/z3native_stubs.o"
+    ${z3ml_bin}/z3native_stubs.o
     "${z3ml_bin}/z3enums.cmo"
     "${z3ml_bin}/z3native.cmo"
     "${z3ml_bin}/z3.cmo"
@@ -294,6 +296,12 @@ add_custom_target(build_ocaml_example
 add_custom_target(build_z3_ocaml_bindings
   ALL
   DEPENDS
+    ${gen_z3enum}
+    "${z3ml_bin}/z3enums.mli"
+    ${Z3ml_native_stubs_c}
+    "${z3ml_bin}/z3native.ml"
+    "${z3ml_bin}/z3native.mli"  
+  
     "${z3ml_bin}/z3ml.cma"
     "${z3ml_bin}/z3ml.cmxa"
     "${z3ml_bin}/z3ml.cmxs"
