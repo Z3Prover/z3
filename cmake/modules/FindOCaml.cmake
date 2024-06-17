@@ -30,6 +30,7 @@
 # OCAML_${pkg}_VERSION
 
 include( FindPackageHandleStandardArgs )
+include(AddOCaml)
 
 find_program(OCAMLFIND
              NAMES ocamlfind)

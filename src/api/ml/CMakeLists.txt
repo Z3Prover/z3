@@ -1,15 +1,4 @@
-# find_program(OCAMLFIND
-#              NAMES ocamlfind)
-# find_library(ocaml)
-
 find_package(OCaml REQUIRED)
-include(FindOCaml)
-include(AddOCaml)
-
-# A file is either copy-ed or gen-ed
-# Why do I need to copy
-
-# Generate ``z3native.ml`` and ``z3native_stubs.c``
 # ${PROJECT_SOURCE_DIR}:       /vendor/z3
 # ${PROJECT_BINARY_DIR}:       /vendor/z3/build
 # ${CMAKE_CURRENT_SOURCE_DIR}: /vendor/z3/src/api/ml
@@ -21,13 +10,26 @@ set(bc_ext ".byte")
 set(z3ml_src ${CMAKE_CURRENT_SOURCE_DIR})
 set(z3ml_bin ${CMAKE_CURRENT_BINARY_DIR})
 
-set(z3_api_src "${PROJECT_SOURCE_DIR}/src/api")
+if (Z3_BUILD_OCAML_EXTERNAL_LIBZ3)
+  add_custom_target(libz3_z3ml
+    ALL
+    DEPENDS "${Z3_BUILD_OCAML_EXTERNAL_LIBZ3}/libz3.so"
+  )
+  set(libz3_path ${Z3_BUILD_OCAML_EXTERNAL_LIBZ3})
+else()
+  add_custom_target(libz3_z3ml
+    ALL
+    DEPENDS libz3
+  )
+  set(libz3_path ${PROJECT_BINARY_DIR})
+endif()
 
-set(Z3ml_native_stubs_c "${z3ml_bin}/z3native_stubs.c")
+message(libz3_path "${libz3_path}")
+
 add_custom_command(
   OUTPUT
     "${z3ml_bin}/z3native.ml"
-    "${Z3ml_native_stubs_c}"
+    "${z3ml_bin}/z3native_stubs.c"
   COMMAND "${PYTHON_EXECUTABLE}"
     "${PROJECT_SOURCE_DIR}/scripts/update_api.py"
     ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}
@@ -39,7 +41,7 @@ add_custom_command(
     ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}
     "${PROJECT_SOURCE_DIR}/scripts/update_api.py"
     ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
-  COMMENT "Generatinging ${z3ml_bin}/z3native.ml and ${Z3ml_native_stubs_c}"
+  COMMENT "Generatinging ${z3ml_bin}/z3native.ml and ${z3ml_bin}/z3native_stubs.c"
   VERBATIM
 )
 
@@ -58,133 +60,87 @@ add_custom_command(OUTPUT "${z3ml_enums_ml}"
   VERBATIM
 )
 
-# set(z3ml_generated_files
-#   "${z3ml_bin}/z3native.ml"
-#   "${Z3ml_native_stubs_c}"
-#   "${z3ml_enums_ml}"
-# )
-
-# add_custom_target(ocaml_generated DEPENDS
-#   ${z3ml_generated_files}
-# )
-
-# add_dependencies(z3ml ocaml_generated)
-
 add_custom_command(
   OUTPUT  "${z3ml_bin}/z3.ml"
           "${z3ml_bin}/z3.mli"
   COMMAND "${CMAKE_COMMAND}" "-E" "copy" "${z3ml_src}/z3.ml" "${z3ml_bin}/z3.ml"
   COMMAND "${CMAKE_COMMAND}" "-E" "copy" "${z3ml_src}/z3.mli" "${z3ml_bin}/z3.mli"
-  DEPENDS "${z3ml_src}/z3.mli"
-  COMMENT "Copying z3.mli to build area")
+  DEPENDS "${z3ml_src}/z3.ml"
+          "${z3ml_src}/z3.mli"
+  COMMENT "Copying z3.ml and z3.mli to build area")
 
-add_custom_command(
-  OUTPUT "${z3ml_bin}/z3enums.mli"
-  COMMAND "${OCAMLFIND}" "ocamlc" 
-          "-package" "zarith"
-          "-i" 
-          "-I" "${z3ml_bin}"
-          "-c" "${z3ml_bin}/z3enums.ml"
-          ">" "${z3ml_bin}/z3enums.mli"
-  DEPENDS "${z3ml_enums_ml}"
-  COMMENT "Building z3enums.mli"
-  VERBATIM)
+set(z3ml_common_flags  "-package" "zarith"
+                       "-I" "${z3ml_bin}")
 
-add_custom_command(
-  OUTPUT "${z3ml_bin}/z3enums.cmo"
-  COMMAND "${OCAMLFIND}" "ocamlc" 
-          "-package" "zarith"
-          "-I" "${z3ml_bin}"
-          "-c" "${z3ml_bin}/z3enums.ml"
-  DEPENDS "${z3ml_enums_ml}"
-  COMMENT "Building z3enums.cmo"
-  VERBATIM)
-
-if( HAVE_OCAMLOPT )
-  add_custom_command(
-    OUTPUT "${z3ml_bin}/z3enums.cmx"
-    COMMAND "${OCAMLFIND}" "ocamlopt" 
-            "-package" "zarith"
-            "-I" "${z3ml_bin}"
-            "-c" "${z3ml_bin}/z3enums.ml"
-    DEPENDS "${z3ml_enums_ml}"
-    COMMENT "Building z3enums.cmx"
-    VERBATIM)
-endif()
+# z3native_stubs.c depends on nothing
 
 add_custom_command(
   OUTPUT "${z3ml_bin}/z3native_stubs.o"
-  COMMAND "${OCAMLFIND}" "ocamlc"
-          "-package" "zarith"
+  COMMAND "${OCAMLFIND}" "ocamlc" ${z3ml_common_flags}
           "-o" "${z3ml_bin}/z3native_stubs.o"
-          "-I" "${z3ml_bin}"
           "-I" "${z3ml_src}"
-          "-I" "${z3_api_src}"
+          "-I" "${PROJECT_SOURCE_DIR}/src/api"
           "-I" "$$(ocamlfind ocamlc -where)"
-          "-c" "${Z3ml_native_stubs_c}"
-  DEPENDS "${z3ml_bin}/z3enums.cmo"
-          "${Z3ml_native_stubs_c}"
+          "-c" "${z3ml_bin}/z3native_stubs.c"
+  DEPENDS "${z3ml_bin}/z3native_stubs.c"
   COMMENT "Building z3native_stubs.o"
-  USES_TERMINAL
-  )
+  USES_TERMINAL)
+
+# z3enum.ml depends on nothing
+
+add_custom_command(
+  OUTPUT "${z3ml_bin}/z3enums.mli"
+         "${z3ml_bin}/z3enums.cmi"
+         "${z3ml_bin}/z3enums.cmo"
+         "${z3ml_bin}/z3enums.cmx"
+  COMMAND "${OCAMLFIND}" "ocamlc"   ${z3ml_common_flags}
+         "-i" 
+         "-c" "${z3ml_bin}/z3enums.ml"
+         ">" "${z3ml_bin}/z3enums.mli"
+  COMMAND "${OCAMLFIND}" "ocamlc"   ${z3ml_common_flags}
+         "-c" "${z3ml_bin}/z3enums.mli"  
+  COMMAND "${OCAMLFIND}" "ocamlc"   ${z3ml_common_flags}
+         "-c" "${z3ml_bin}/z3enums.ml"
+  COMMAND "${OCAMLFIND}" "ocamlopt" ${z3ml_common_flags}
+          "-c" "${z3ml_bin}/z3enums.ml"
+  DEPENDS "${z3ml_enums_ml}"
+  COMMENT "Building z3enums.{mli,cmi,cmo,cmx}"
+  VERBATIM)
+
+# z3native.ml depends on z3enums
 
 add_custom_command(
   OUTPUT "${z3ml_bin}/z3native.mli"
-  COMMAND "${OCAMLFIND}" "ocamlc" 
-          "-package" "zarith"
-          "-i" 
-          "-I" "${z3ml_bin}"
-          "-c" "${z3ml_bin}/z3native.ml"
-          ">" "${z3ml_bin}/z3native.mli"
-  DEPENDS "${z3ml_enums_ml}"
-          "${z3ml_bin}/z3enums.cmo"
-          "${z3ml_bin}/z3native.ml"
-  COMMENT "Building z3native.mli"
-  VERBATIM)
-
-add_custom_command(
-  OUTPUT "${z3ml_bin}/z3native.cmi"
+         "${z3ml_bin}/z3native.cmi"
          "${z3ml_bin}/z3native.cmo"
-  COMMAND "${OCAMLFIND}" "ocamlc" 
-         "-package" "zarith"
-         "-I" "${z3ml_bin}"
+         "${z3ml_bin}/z3native.cmx"
+  COMMAND "${OCAMLFIND}" "ocamlc"   ${z3ml_common_flags}
+         "-i" 
+         "-c" "${z3ml_bin}/z3native.ml"
+         ">" "${z3ml_bin}/z3native.mli"
+  COMMAND "${OCAMLFIND}" "ocamlc"   ${z3ml_common_flags}
          "-c" "${z3ml_bin}/z3native.mli"  
-  COMMAND "${OCAMLFIND}" "ocamlc" 
-          "-package" "zarith"
-          "-I" "${z3ml_bin}"
+  COMMAND "${OCAMLFIND}" "ocamlc"   ${z3ml_common_flags}
+          "-c" "${z3ml_bin}/z3native.ml"
+  COMMAND "${OCAMLFIND}" "ocamlopt" ${z3ml_common_flags}
           "-c" "${z3ml_bin}/z3native.ml"
   DEPENDS "${z3ml_bin}/z3enums.cmo"
-          "${z3ml_bin}/z3native.mli"
           "${z3ml_bin}/z3native.ml"
-  COMMENT "Building z3native.cmo"
+  COMMENT "Building z3native.{mli,cmi,cmo,cmx}"
   VERBATIM)
 
-if( HAVE_OCAMLOPT )
-  add_custom_command(
-    OUTPUT "${z3ml_bin}/z3native.cmx"
-    COMMAND "${OCAMLFIND}" "ocamlopt" 
-            "-package" "zarith"
-            "-I" "${z3ml_bin}"
-            "-c" "${z3ml_bin}/z3native.ml"
-    DEPENDS "${z3ml_bin}/z3enums.cmo"
-            "${z3ml_bin}/z3native.mli"
-            "${z3ml_bin}/z3native.cmi"
-            "${z3ml_bin}/z3native.ml"
-    COMMENT "Building z3native.cmx"
-    VERBATIM)
-endif()
+# z3.ml depends on z3enums and z3native
 
 add_custom_command(
   OUTPUT "${z3ml_bin}/z3.cmi"
          "${z3ml_bin}/z3.cmo"
-  COMMAND "${OCAMLFIND}" "ocamlc"
-          "-package" "zarith"
-          "-I" "${z3ml_bin}"
+         "${z3ml_bin}/z3.cmx"
+  COMMAND "${OCAMLFIND}" "ocamlc"   ${z3ml_common_flags}
           "-c" "${z3ml_bin}/z3.mli"
-  COMMAND "${OCAMLFIND}" "ocamlc"
-          "-package" "zarith"
-          "-I" "${z3ml_bin}"
+  COMMAND "${OCAMLFIND}" "ocamlc"   ${z3ml_common_flags}
           "-c" "${z3ml_bin}/z3.ml"
+  COMMAND "${OCAMLFIND}" "ocamlopt" ${z3ml_common_flags}
+          "-c" "${z3ml_bin}/z3.ml" 
   DEPENDS "${z3ml_bin}/z3enums.cmo"
           "${z3ml_bin}/z3native.cmo"
           "${z3ml_bin}/z3.ml"
@@ -192,85 +148,54 @@ add_custom_command(
   COMMENT "Building z3.cmo"
   VERBATIM)
 
-if( HAVE_OCAMLOPT )
-  add_custom_command(
-    OUTPUT "${z3ml_bin}/z3.cmx"
-    COMMAND "${OCAMLFIND}" "ocamlopt" 
-            "-package" "zarith"
-            "-I" "${z3ml_bin}"
-            "-c" "${z3ml_bin}/z3.ml"  
-    DEPENDS "${z3ml_bin}/z3enums.cmo"
-            "${z3ml_bin}/z3native.cmo"
-            "${z3ml_bin}/z3.ml"
-            "${z3ml_bin}/z3.mli"
-            "${z3ml_bin}/z3.cmi"
-    COMMENT "Building z3.cmx"
-    VERBATIM)
-endif()
+execute_process(
+  COMMAND ${OCAMLFIND} printconf destdir
+  OUTPUT_VARIABLE ocaml_destdir_path
+  OUTPUT_STRIP_TRAILING_WHITESPACE)
 
-set(ocamlmklib_flags "-lz3" "-lstdc++" "-ldopt" "-L${PROJECT_BINARY_DIR}"
-                     "-ccopt" "-L\\$CAMLORIGIN/../.."
-                     "-ccopt" "-Wl,-rpath,\\$CAMLORIGIN/../.."
-                     "-package" "zarith")
+set(ocaml_stublibs_path "${ocaml_destdir_path}/stublibs")
+
+set(ocamlmklib_flags "-o" "z3ml"
+                     "-ocamlcflags" "-bin-annot"
+                     "-package" "zarith"
+                     "-lz3" "-lstdc++" "-lpthread"
+                     "-L${libz3_path}"
+                     "-dllpath" "${libz3_path}"
+                     "-L${ocaml_stublibs_path}"
+                     "-dllpath" "${ocaml_stublibs_path}"
+                     "-I" "${z3ml_bin}")
 
 add_custom_command(
-  OUTPUT "${z3ml_bin}/z3ml.cma"
-         "${z3ml_bin}/dllz3ml.so"
+  OUTPUT "${z3ml_bin}/dllz3ml.so"
          "${z3ml_bin}/libz3ml.a"
-  COMMAND "${OCAMLFIND}" "ocamlmklib" "-ocamlcflags" "-bin-annot" "-L."
-    "-o" z3ml
-    ${ocamlmklib_flags}
+         "${z3ml_bin}/z3ml.cma"
+         "${z3ml_bin}/z3ml.cmxa"
+         "${z3ml_bin}/z3ml.cmxs"
+  COMMAND "${OCAMLFIND}" "ocamlmklib" ${ocamlmklib_flags}
+    "${z3ml_bin}/z3enums.cmo"
+    "${z3ml_bin}/z3native.cmo"
+    "${z3ml_bin}/z3native_stubs.o"
+    "${z3ml_bin}/z3.cmo"
+  COMMAND "${OCAMLFIND}" "ocamlmklib" ${ocamlmklib_flags}
+    "${z3ml_bin}/z3enums.cmx"
+    "${z3ml_bin}/z3native.cmx"
+    "${z3ml_bin}/z3native_stubs.o"
+    "${z3ml_bin}/z3.cmx"  
+  COMMAND "${OCAMLFIND}" "ocamlopt" "-linkall" "-shared"
+    "-o" "${z3ml_bin}/z3ml.cmxs"
     "-I" "${z3ml_bin}"
+    "${z3ml_bin}/z3ml.cmxa"
+   DEPENDS
+    libz3_z3ml
+    "${z3ml_bin}/z3native_stubs.o"
     "${z3ml_bin}/z3enums.cmo"
     "${z3ml_bin}/z3native.cmo"
-    "${z3ml_bin}/z3native_stubs.o"
     "${z3ml_bin}/z3.cmo"
-  DEPENDS
-    libz3
-    "${z3ml_bin}/z3enums.cmo"
-    "${z3ml_bin}/z3native.cmo"
-    "${z3ml_bin}/z3native_stubs.o"
-    "${z3ml_bin}/z3.cmo"
-  COMMENT "Building OCaml library ${name}"
+    "${z3ml_bin}/z3enums.cmx"
+    "${z3ml_bin}/z3native.cmx"
+    "${z3ml_bin}/z3.cmx"
+  COMMENT "Building z3ml.{cma,cmxa,cmxs}, dllz3ml.so, and libz3ml.a"
   VERBATIM)
-
-if( HAVE_OCAMLOPT )
-  add_custom_command(
-    OUTPUT "${z3ml_bin}/z3ml.cmxa"
-    COMMAND "${OCAMLFIND}" "ocamlmklib" "-ocamlcflags" "-bin-annot" "-L."
-      "-o" z3ml
-      ${ocamlmklib_flags}
-      "-I" "${z3ml_bin}"
-      "${z3ml_bin}/z3enums.cmx"
-      "${z3ml_bin}/z3native.cmx"
-      "${z3ml_bin}/z3native_stubs.o"
-      "${z3ml_bin}/z3.cmx"
-    DEPENDS
-      libz3
-      "${z3ml_bin}/z3enums.cmx"
-      "${z3ml_bin}/z3native.cmx"
-      "${z3ml_bin}/z3native_stubs.o"
-      "${z3ml_bin}/z3.cmx"
-    COMMENT "Building OCaml library ${name}"
-    VERBATIM)
-
-  add_custom_command(
-    OUTPUT "${z3ml_bin}/z3ml.cmxs"
-    COMMAND "${OCAMLFIND}" "ocamlopt" "-linkall" "-shared"
-      "-o" "${z3ml_bin}/z3ml.cmxs"
-      "-I" "."
-      "-I" "${z3ml_bin}"
-      "${z3ml_bin}/z3ml.cmxa"
-    DEPENDS
-      "${z3ml_bin}/z3ml.cmxa"
-    COMMENT "Building OCaml library ${name}"
-    VERBATIM)
-endif()
-
-# -cclib "-L. -lpthread -lstdc++ -lz3"
-
-# set (cc_flags "\"-L. -lpthread -lstdc++ -lz3\"")
-#"LD_LIBRARY_PATH=${PROJECT_BINARY_DIR}"
 
 # Example
 add_custom_command(
@@ -280,22 +205,27 @@ add_custom_command(
   DEPENDS "${PROJECT_SOURCE_DIR}/examples/ml/ml_example.ml"
   COMMENT "Copying ml_example.ml to build area")
 
+execute_process(
+  COMMAND ${OCAMLFIND} query zarith
+  OUTPUT_VARIABLE ocaml_pkg_zarith_path
+  OUTPUT_STRIP_TRAILING_WHITESPACE)
+
 add_custom_command(
   OUTPUT "${z3ml_bin}/ml_example${bc_ext}"
-          "${z3ml_bin}/ml_example.bc.log"
-  COMMAND "${OCAMLFIND}" "ocamlc" "-custom"
+         "${z3ml_bin}/ml_example.bc.log"
+  COMMAND "${OCAMLFIND}" "ocamlc"
     "-o" "${z3ml_bin}/ml_example${bc_ext}"
-    "-I" "${z3ml_bin}"
-    "-cclib" "-L${PROJECT_BINARY_DIR}"
-    "-cclib" [[-L. -lpthread -lstdc++ -lz3]]
     "-package" "zarith"
-    "-linkpkg"
-    "z3ml.cma"
-    "\$(ocamlfind query zarith)/zarith.cma"
+    "-I" "+threads"
+    "-I" "${z3ml_bin}"
+    "-dllpath" "${z3ml_bin}"
+    "-I" ${ocaml_stublibs_path}
+    "-dllpath" ${ocaml_stublibs_path}
+    "${ocaml_pkg_zarith_path}/zarith.cma"
+    "${z3ml_bin}/z3ml.cma"
     "${z3ml_bin}/ml_example.ml"
   COMMAND 
-    "ocamlrun"
-    "${z3ml_bin}/ml_example${bc_ext}"
+    "ocamlrun" "${z3ml_bin}/ml_example${bc_ext}"
     ">" "${z3ml_bin}/ml_example.bc.log"
   DEPENDS
     "${z3ml_bin}/z3ml.cma"
@@ -308,15 +238,13 @@ add_custom_command(
          "${z3ml_bin}/ml_example.log"
   COMMAND "${OCAMLFIND}" "ocamlopt"
     "-o" "${z3ml_bin}/ml_example${exe_ext}"
-    "-I" "${z3ml_bin}"
-    "-cclib" "-L${PROJECT_BINARY_DIR}"
-    "-cclib" [[-L. -lpthread -lstdc++ -lz3]]
+    "-I" "+threads"
     "-package" "zarith"
     "-linkpkg"
-    "z3ml.cmxa"
+    "-I" "${z3ml_bin}"
+    "${z3ml_bin}/z3ml.cmxa"
     "${z3ml_bin}/ml_example.ml"
-  COMMAND "LD_LIBRARY_PATH=${PROJECT_BINARY_DIR}" 
-    "${z3ml_bin}/ml_example${exe_ext}"
+  COMMAND "${z3ml_bin}/ml_example${exe_ext}"
     ">" "${z3ml_bin}/ml_example.log"
   DEPENDS
     "${z3ml_bin}/z3ml.cmxa"
@@ -324,7 +252,6 @@ add_custom_command(
   COMMENT "Testing build and run ml_example natively"
   VERBATIM)
 
-# LD_LIBRARY_PATH=build ./build/src/api/ml/ml_example
 add_custom_target(build_ocaml_example
   ALL
   DEPENDS
@@ -342,87 +269,3 @@ add_custom_target(build_z3_ocaml_bindings
     "${z3ml_bin}/libz3ml.a"
     build_ocaml_example
 )
-
-# Link libz3 into the python directory so bindings work out of the box
-# add_custom_command(OUTPUT "${z3py_bindings_build_dest}/libz3${CMAKE_SHARED_MODULE_SUFFIX}"
-#   COMMAND "${CMAKE_COMMAND}" "-E" "${LINK_COMMAND}"
-#     "${PROJECT_BINARY_DIR}/libz3${CMAKE_SHARED_MODULE_SUFFIX}"
-#     "${z3py_bindings_build_dest}/libz3${CMAKE_SHARED_MODULE_SUFFIX}"
-#   DEPENDS libz3
-#   COMMENT "Linking libz3 into python directory"
-# )
-
-# add_ocaml_library(z3ml
-#   OCAML    z3enums z3native z3
-#   # OCAMLDEP llvm
-#   PKG      zarith
-#   C        z3native_stubs
-#   CFLAGS   "-I${Z3_C_API_PATH} -I${CMAKE_CURRENT_SOURCE_DIR} -I\$\(ocamlfind ocamlc -where\)"
-#   GEN      "${OCAML_GENERATED_FILES}"
-#   # -I${CMAKE_CURRENT_SOURCE_DIR}/../llvm
-#   # LLVM     IRReader)
-# )
-
-
-# set(z3_c_api_path "${PROJECT_SOURCE_DIR}/src/api")
-# target_sources(z3ml PRIVATE
-#                 z3native_stubs.h
-#                 ${z3_c_api_path})
-
-
-# message(heads "--${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}")
-# message(extra deps "--${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}")
-
-# add_custom_target(z3natives_stubs.c DEPENDS "${Z3_OCAML_NATIVE_STUB_PRE_FILE}")
-# target_sources(ocaml_z3 
-#               PRIVATE ${Z3_OCAML_NATIVE_FILE} ${Z3_OCAML_NATIVE_STUB_FILE})
-
-# target_include_directories(ocaml_z3
-#     PUBLIC ${CMAKE_CURRENT_BINARY_DIR}
-# )
-
-# add_custom_target (LibCoreBC DEPENDS libcore.bc)
-
-# target_sources(src/api/ml/z3natives_stubs.c
-#                 PUBLIC Z3_OCAML_NATIVE_STUB_FILE)
-
-# add_custom_target(${Z3_OCAML_NATIVE_STUB_FILE} DEPENDS 
-#                  ${Z3_OCAML_NATIVE_STUB_PRE_FILE})
-
-# target_precompile_headers(
-#   ocaml_z3 PRIVATE
-#   z3native_stubs.h
-# )
-
-# target_sources(ocaml_z3 PRIVATE
-#                 "${PROJECT_SOURCE_DIR}/src/api/ml/z3native.ml"
-#                 "${PROJECT_SOURCE_DIR}/src/api/ml/z3native_stubs.c")
-
-# add_dependencies(ocaml_z3
-#               "${PROJECT_SOURCE_DIR}/src/api"
-#               "${PROJECT_BINARY_DIR}/src/api"
-#             )
-
-# find_package(OCaml)
-# message("DDDebug ${OCAMLFIND}")
-# message("DDDebug ${pkg}")
-# find_ocamlfind_package(ctypes)
-# # find_ocamlfind_package("nonexist")
-# message(small " ${HAVE_OCAML_ctype}")
-# message(caps " ${HAVE_OCAML_CTYPES}")
-# message(small " ${OCAML_ctype_VERSION}")
-# message(caps " ${OCAML_CTYPES_VERSION}")
-# find_package(ocaml REQUIRED)
-
-# add_custom_target(ocaml_post_z3enums DEPENDS
-#   "${CMAKE_CURRENT_BINARY_DIR}/z3enums.ml"
-#   "${CMAKE_CURRENT_BINARY_DIR}/z3enums.mli"
-#   "${CMAKE_CURRENT_BINARY_DIR}/z3enums.cmo"
-#   "${CMAKE_CURRENT_BINARY_DIR}/z3enums.cmx"
-# )
-# add_custom_target(z3.ml DEPENDS
-#   ocaml_post_z3enums
-# )
-# add_custom_target(z3native.ml DEPENDS
-#   ocaml_post_z3enums
-# )
