@@ -131,6 +131,8 @@
 ML_LIB=/home/ex/.opam/5.2.0/lib
 ML_LIB=/Users/ex/.opam/5.2.0/lib
 ROOT=$$(pwd)
+MY_Z3=/home/ex/my_z3
+MY_Z3=/Users/ex/code/tmp/my-z3
 
 ml0:
 	mkdir -p build
@@ -159,7 +161,7 @@ ml-mk:
 	-DCMAKE_VERBOSE_MAKEFILE=TRUE \
 	-DZ3_BUILD_LIBZ3_SHARED=TRUE \
 	-DZ3_BUILD_OCAML_BINDINGS=TRUE \
-	-DZ3_BUILD_OCAML_EXTERNAL_LIBZ3=/home/ex/my_z3 \
+	-DZ3_BUILD_OCAML_EXTERNAL_LIBZ3=$(MY_Z3) \
 	--debug-trycompile \
 	../
 
@@ -183,7 +185,7 @@ ml:
 	--debug-trycompile \
 	../
 
-# -DZ3_BUILD_OCAML_EXTERNAL_LIBZ3=/home/ex/my_z3 \
+# -DZ3_BUILD_OCAML_EXTERNAL_LIBZ3=$(MY_Z3) \
 # -DZ3_USE_LIB_GMP=TRUE \
 
 # LD_LIBRARY_PATH=build ./build/src/api/ml/ml_example
