@@ -508,6 +508,7 @@ extern "C" {
         LOG_Z3_solver_reset(c, s);
         RESET_ERROR_CODE();
         to_solver(s)->m_solver = nullptr;
+        to_solver(s)->m_cmd_context = nullptr;
         if (to_solver(s)->m_pp) to_solver(s)->m_pp->reset();
         Z3_CATCH;
     }
