@@ -31,6 +31,7 @@ jobs:
   # Publish symbol archive to match nuget package
   # Index your source code and publish symbols to a file share or Azure Artifacts symbol server
   - task: PublishSymbols@2
+    condition: eq(1,0)
     inputs:
       symbolsFolder: '$(Build.ArtifactStagingDirectory)/symbols'
       searchPattern: '**/*.pdb' 
@@ -40,6 +41,7 @@ jobs:
       detailedLog: true
   - task: EsrpCodeSigning@2
     displayName: Sign
+    condition: eq(1,0)
     inputs:
       ConnectedServiceName: 'z3-esrp-signing-2'
       FolderPath: 'dist/z3-${{parameters.ReleaseVersion}}-${{parameters.BuildArchitecture}}-win/bin'
