@@ -481,6 +481,10 @@ struct evaluator_cfg : public default_rewriter_cfg {
                 return BR_DONE;
             }
         }
+        else if (m_dt.is_constructor(f)) {
+            result = m.mk_app(f, num, args);
+            return BR_DONE;
+        }
 
         if (fi) {
             if (fi->is_partial())
