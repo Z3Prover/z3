@@ -87,9 +87,15 @@ namespace sat {
     parallel::parallel(solver& s): m_num_clauses(0), m_consumer_ready(false), m_scoped_rlimit(s.rlimit()) {}
 
     parallel::~parallel() {
+        reset();
+    }
+
+    void parallel::reset() {
         m_limits.reset();
+        m_scoped_rlimit.reset();
         for (auto* s : m_solvers)
             dealloc(s);
+        m_solvers.reset();
     }
 
     void parallel::init_solvers(solver& s, unsigned num_extra_solvers) {

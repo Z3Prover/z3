@@ -78,6 +78,8 @@ namespace sat {
 
         ~parallel();
 
+        void reset();
+
         void init_solvers(solver& s, unsigned num_extra_solvers);
 
         void push_child(reslimit& rl);
