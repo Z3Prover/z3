@@ -362,7 +362,7 @@ namespace sat {
             set_phase(i, phase[i]);
     }
 
-    void local_search::import(solver const& s, bool _init) {        
+    void local_search::import(solver const& s, bool _init) {
         flet<bool> linit(m_initializing, true);
         m_is_pb = false;
         m_vars.reset();
@@ -412,9 +412,10 @@ namespace sat {
             [&](unsigned sz, literal const* c, unsigned k) { add_cardinality(sz, c, k); };
         std::function<void(unsigned sz, literal const* c, unsigned const* coeffs, unsigned k)> pb = 
             [&](unsigned sz, literal const* c, unsigned const* coeffs, unsigned k) { add_pb(sz, c, coeffs, k); };
-        if (ext && (!ext->is_pb() || !ext->extract_pb(card, pb)))
+        if (ext && (!ext->is_pb() || !ext->extract_pb(card, pb))) {
+            IF_VERBOSE(0, verbose_stream() << (ext) << " is-pb " << (!ext && ext->is_pb()) << "\n");
             throw default_exception("local search is incomplete with extensions beyond PB");
-        
+        }
         if (_init) 
             init();        
     }
