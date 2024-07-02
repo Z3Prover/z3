@@ -7018,7 +7018,7 @@ extern "C" {
 
        def_API('Z3_solver_from_string', VOID, (_in(CONTEXT), _in(SOLVER), _in(STRING)))
     */
-    void Z3_API Z3_solver_from_string(Z3_context c, Z3_solver s, Z3_string file_name);
+    void Z3_API Z3_solver_from_string(Z3_context c, Z3_solver s, Z3_string str);
 
     /**
        \brief Return the set of asserted formulas on the solver.
