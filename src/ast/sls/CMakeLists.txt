@@ -4,8 +4,11 @@ z3_add_component(ast_sls
     bv_sls.cpp
     bv_sls_eval.cpp
     bv_sls_fixed.cpp
-    bv_sls_terms.cpp
+    bv_sls_terms.cpp    
+    sls_arith_int.cpp
+    sls_cc.cpp
     sls_engine.cpp
+    sls_smt.cpp
     sls_valuation.cpp
   COMPONENT_DEPENDENCIES
     ast

@@ -55,7 +55,6 @@ namespace euf {
         m_smt_proof_checker(m, p),
         m_clause(m),       
         m_expr_args(m),
-        m_assertions(m),
         m_values(m)
     {
         updt_params(p);

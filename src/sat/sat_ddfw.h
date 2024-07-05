@@ -24,6 +24,7 @@
 #include "util/rlimit.h"
 #include "util/params.h"
 #include "util/ema.h"
+#include "util/sat_sls.h"
 #include "sat/sat_clause.h"
 #include "sat/sat_types.h"
 
@@ -40,7 +41,6 @@ namespace sat {
         virtual ~local_search_plugin() {}
         virtual void init_search() = 0;
         virtual void finish_search() = 0;
-        virtual void flip(bool_var v) = 0;
         virtual double reward(bool_var v) = 0;
         virtual void on_rescale() = 0;
         virtual void on_save_model() = 0;
@@ -48,30 +48,6 @@ namespace sat {
     };
 
     class ddfw : public i_local_search {
-        friend class arith::sls;
-    public:
-        struct clause_info {
-            clause_info(clause* cl, double init_weight): m_weight(init_weight), m_clause(cl) {}
-            double   m_weight;           // weight of clause
-            unsigned m_trues = 0;        // set of literals that are true
-            unsigned m_num_trues = 0;    // size of true set
-            clause*  m_clause;
-            bool is_true() const { return m_num_trues > 0; }
-            void add(literal lit) { ++m_num_trues; m_trues += lit.index(); }
-            void del(literal lit) { SASSERT(m_num_trues > 0); --m_num_trues; m_trues -= lit.index(); }
-        };
-
-        class use_list {
-            ddfw& p;
-            unsigned i;
-        public:
-            use_list(ddfw& p, literal lit) :
-                p(p), i(lit.index()) {}
-            unsigned const* begin() { return p.m_flat_use_list.data() + p.m_use_list_index[i]; }
-            unsigned const* end() { return p.m_flat_use_list.data() + p.m_use_list_index[i + 1]; }
-            unsigned size() const { return p.m_use_list_index[i + 1] - p.m_use_list_index[i]; }
-        };
-
     protected:
 
         struct config {
@@ -96,6 +72,7 @@ namespace sat {
 
         struct var_info {
             var_info() {}
+            bool     m_internal = false;
             bool     m_value = false;
             double   m_reward = 0;
             double   m_last_reward = 0;
@@ -107,8 +84,7 @@ namespace sat {
         
         config               m_config;
         reslimit             m_limit;
-        clause_allocator     m_alloc;
-        svector<clause_info> m_clauses;
+        vector<clause_info>  m_clauses;
         literal_vector       m_assumptions;        
         svector<var_info>    m_vars;        // var -> info
         svector<double>      m_probs;       // var -> probability of flipping
@@ -132,7 +108,7 @@ namespace sat {
         stopwatch        m_stopwatch;
 
         parallel*        m_par;
-        local_search_plugin* m_plugin = nullptr;
+        scoped_ptr<local_search_plugin> m_plugin = nullptr;
 
         void flatten_use_list(); 
 
@@ -142,17 +118,13 @@ namespace sat {
          */
         inline double score(double r) { return r; } 
 
-        inline unsigned num_vars() const { return m_vars.size(); }
-
         inline unsigned& make_count(bool_var v) { return m_vars[v].m_make_count; }
 
         inline bool& value(bool_var v) { return m_vars[v].m_value; }
 
         inline bool value(bool_var v) const { return m_vars[v].m_value; }
 
-        inline double& reward(bool_var v) { return m_vars[v].m_reward; }
-
-        inline double reward(bool_var v) const { return m_vars[v].m_reward; }
+        inline double& reward(bool_var v) { return m_vars[v].m_reward; }        
 
         inline double plugin_reward(bool_var v) { return is_external(v) ? (m_vars[v].m_last_reward = m_plugin->reward(v)) : reward(v); }
 
@@ -166,7 +138,7 @@ namespace sat {
 
         inline bool is_true(literal lit) const { return value(lit.var()) != lit.sign(); }
 
-        inline clause const& get_clause(unsigned idx) const { return *m_clauses[idx].m_clause; }
+        inline sat::literal_vector const& get_clause(unsigned idx) const { return m_clauses[idx].m_clause; }
 
         inline double get_weight(unsigned idx) const { return m_clauses[idx].m_weight; }
 
@@ -203,11 +175,6 @@ namespace sat {
         template<bool uses_plugin>
         bool apply_flip(bool_var v, double reward);
 
-        template<bool uses_plugin>
-        bool do_literal_flip();
-
-        template<bool uses_plugin>
-        bool_var pick_literal_var();
 
         void save_best_values();
         void save_model();
@@ -241,7 +208,7 @@ namespace sat {
 
         void invariant();
 
-        void add(unsigned sz, literal const* c);
+
 
         void del();
 
@@ -257,7 +224,7 @@ namespace sat {
 
         ~ddfw() override;
 
-        void set(local_search_plugin* p) { m_plugin = p; }
+        void set_plugin(local_search_plugin* p) { m_plugin = p; }
 
         lbool check(unsigned sz, literal const* assumptions, parallel* p) override;
 
@@ -286,7 +253,7 @@ namespace sat {
         // access clause information and state of Boolean search
         indexed_uint_set& unsat_set() { return m_unsat; }
 
-        unsigned num_clauses() const { return m_clauses.size(); }
+        vector<clause_info> const& clauses() const { return m_clauses; }
 
         clause_info& get_clause_info(unsigned idx) { return m_clauses[idx]; }
 
@@ -294,7 +261,27 @@ namespace sat {
 
         void flip(bool_var v);
 
-        use_list get_use_list(literal lit) { return use_list(*this, lit); }
+        inline double get_reward(bool_var v) const { return m_vars[v].m_reward; }
+
+        void add(unsigned sz, literal const* c);
+
+        sat::bool_var add_var(bool is_internal = true);
+
+        // is this a variable that was added during initialization?
+        bool is_initial_var(sat::bool_var v) const {
+            return m_vars.size() > v && !m_vars[v].m_internal;
+        }
+
+        void reinit();
+
+        inline unsigned num_vars() const { return m_vars.size(); }
+
+        std::initializer_list<unsigned> use_list(literal lit) { 
+            unsigned i = lit.index();
+            auto const* b = m_flat_use_list.data() + m_use_list_index[i];
+            auto const* e = m_flat_use_list.data() + m_use_list_index[i + 1];
+            return std::initializer_list(b, e);
+        }
 
     };
 }

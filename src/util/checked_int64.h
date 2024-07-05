@@ -163,6 +163,11 @@ public:
         return *this;
     }
 
+    checked_int64& operator/=(checked_int64 const& other) {
+        m_value /= other.m_value;
+        return *this;
+    }
+
     friend inline checked_int64 abs(checked_int64 const& i) {
         return i.abs();
     }
@@ -175,8 +180,18 @@ inline bool operator!=(checked_int64<CHECK> const & i1, checked_int64<CHECK> con
 }
 
 template<bool CHECK>
+inline bool operator!=(checked_int64<CHECK> const& i1, int64_t const& i2) {
+    return !operator==(i1, i2);
+}
+
+template<bool CHECK>
 inline bool operator>(checked_int64<CHECK> const & i1, checked_int64<CHECK> const & i2) { 
     return operator<(i2, i1); 
+}
+
+template<bool CHECK>
+inline bool operator>(checked_int64<CHECK> const& i1, int64_t i2) {
+    return operator<(i2, i1);
 }
 
 template<bool CHECK>
@@ -185,8 +200,19 @@ inline bool operator<=(checked_int64<CHECK> const & i1, checked_int64<CHECK> con
 }
 
 template<bool CHECK>
+inline bool operator<=(checked_int64<CHECK> const& i1, int64_t const& i2) {
+    return !operator>(i1, i2);
+}
+
+template<bool CHECK>
 inline bool operator>=(checked_int64<CHECK> const & i1, checked_int64<CHECK> const & i2) { 
     return !operator<(i1, i2); 
+}
+
+
+template<bool CHECK>
+inline bool operator>=(checked_int64<CHECK> const& i1, int64_t const& i2) {
+    return !operator<(i1, i2);
 }
 
 template<bool CHECK>
@@ -203,6 +229,14 @@ inline checked_int64<CHECK> operator+(checked_int64<CHECK> const& a, checked_int
 }
 
 template<bool CHECK>
+inline checked_int64<CHECK> operator+(checked_int64<CHECK> const& a, int64_t const& b) {
+    checked_int64<CHECK> result(a);
+    checked_int64<CHECK> _b(b);
+    result += _b;
+    return result;
+}
+
+template<bool CHECK>
 inline checked_int64<CHECK> operator-(checked_int64<CHECK> const& a, checked_int64<CHECK> const& b) {
     checked_int64<CHECK> result(a);
     result -= b;
@@ -210,8 +244,38 @@ inline checked_int64<CHECK> operator-(checked_int64<CHECK> const& a, checked_int
 }
 
 template<bool CHECK>
+inline checked_int64<CHECK> operator-(checked_int64<CHECK> const& a, int64_t const& b) {
+    checked_int64<CHECK> result(a);
+    checked_int64<CHECK> _b(b);
+    result -= _b;
+    return result;
+}
+
+template<bool CHECK>
 inline checked_int64<CHECK> operator*(checked_int64<CHECK> const& a, checked_int64<CHECK> const& b) {
     checked_int64<CHECK> result(a);
     result *= b;
+    return result;
+}
+
+template<bool CHECK>
+inline checked_int64<CHECK> operator*(int64_t const& a, checked_int64<CHECK> const& b) {
+    checked_int64<CHECK> result(a);
+    result *= b;
+    return result;
+}
+
+template<bool CHECK>
+inline checked_int64<CHECK> operator*(checked_int64<CHECK> const& a, int64_t const& b) {
+    checked_int64<CHECK> result(a);
+    checked_int64<CHECK> _b(b);
+    result *= _b;
+    return result;
+}
+
+template<bool CHECK>
+inline checked_int64<CHECK> div(checked_int64<CHECK> const& a, checked_int64<CHECK> const& b) {
+    checked_int64<CHECK> result(a);
+    result /= b;
     return result;
 }

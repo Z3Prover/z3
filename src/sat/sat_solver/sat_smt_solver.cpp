@@ -581,8 +581,9 @@ private:
 
     void add_assumption(expr* a) {
         init_goal2sat();
-        m_dep.insert(a, m_goal2sat.internalize(a));
-        get_euf()->add_assertion(a);
+        auto lit = m_goal2sat.internalize(a);
+        m_dep.insert(a, lit);
+        get_euf()->add_clause(1, &lit);
     }
 
     void internalize_assumptions(expr_ref_vector const& asms) {     
