@@ -28,7 +28,7 @@ namespace sls {
 
     // local search portion for arithmetic
     template<typename num_t>
-    class arith_plugin : public plugin {
+    class arith_base : public plugin {
         enum class ineq_kind { EQ, LE, LT};
         enum class var_kind { INT, REAL };
         typedef unsigned var_t;
@@ -166,8 +166,8 @@ namespace sls {
         void check_ineqs();
 
     public:
-        arith_plugin(context& ctx);
-        ~arith_plugin() override {}
+        arith_base(context& ctx);
+        ~arith_base() override {}
         void init_bool_var(sat::bool_var v) override;
         void register_term(expr* e) override;
         expr_ref get_value(expr* e) override;
@@ -182,11 +182,11 @@ namespace sls {
     };
 
 
-    inline std::ostream& operator<<(std::ostream& out, typename arith_plugin<checked_int64<true>>::ineq const& ineq) {
+    inline std::ostream& operator<<(std::ostream& out, typename arith_base<checked_int64<true>>::ineq const& ineq) {
         return ineq.display(out);
     }
 
-    inline std::ostream& operator<<(std::ostream& out, typename arith_plugin<rational>::ineq const& ineq) {
+    inline std::ostream& operator<<(std::ostream& out, typename arith_base<rational>::ineq const& ineq) {
         return ineq.display(out);
     }
 }

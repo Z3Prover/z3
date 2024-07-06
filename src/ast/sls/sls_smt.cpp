@@ -18,7 +18,7 @@ Author:
 
 #include "ast/sls/sls_smt.h"
 #include "ast/sls/sls_cc.h"
-#include "ast/sls/sls_arith_int.h"
+#include "ast/sls/sls_arith_plugin.h"
 
 namespace sls {
 
@@ -42,8 +42,6 @@ namespace sls {
         m_atoms.setx(v, e); 
         m_atom2bool_var.setx(e->get_id(), v, UINT_MAX);
     }
-
-    typedef arith_plugin<checked_int64<true>> arith64;
     
     void context::reset() {
         m_plugins.reset();
@@ -55,7 +53,7 @@ namespace sls {
         m_visited.reset();
         m_subterms.reset();
         register_plugin(alloc(cc_plugin, *this));
-        register_plugin(alloc(arith64, *this));
+        register_plugin(alloc(arith_plugin, *this));
     }
     
     lbool context::check() {
