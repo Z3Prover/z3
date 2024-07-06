@@ -123,8 +123,9 @@ namespace sls {
         void repair_add(add_def const& ad);
         unsigned_vector m_defs_to_update;
         vector<std::pair<var_t, num_t>> m_vars_to_update;
-        void propagate_updates();
+        void repair_defs_and_updates();
         void repair_defs();
+        void repair_updates();
         void repair(sat::literal lit);
         void repair(sat::literal lit, ineq const& ineq);
 

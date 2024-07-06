@@ -330,7 +330,6 @@ namespace sls {
         vi.m_value = new_value;
         for (auto idx : vi.m_muls) {
             auto const& [v, monomial] = m_muls[idx];
-
             num_t prod(1);
             for (auto w : monomial)
                 prod *= value(w);
@@ -348,7 +347,7 @@ namespace sls {
                 m_vars_to_update.push_back({ v, sum });
         }
         if (vi.m_add_idx != UINT_MAX || vi.m_mul_idx != UINT_MAX)
-            // add repair actions for additions.
+            // add repair actions for additions and multiplications
             m_defs_to_update.push_back(v);
     }
 
@@ -389,28 +388,21 @@ namespace sls {
     template<typename num_t>
     void arith_plugin<num_t>::add_args(linear_term& term, expr* e, num_t const& coeff) {
         auto v = m_expr2var.get(e->get_id(), UINT_MAX);
-        if (v != UINT_MAX) {
-            add_arg(term, coeff, v);
-            return;
-        }
         expr* x, * y;
         num_t i;
-        if (is_num(e, i)) {
-            term.m_coeff += coeff * i;
-            return;
-        }
-        if (a.is_add(e)) {
+        if (v != UINT_MAX) 
+            add_arg(term, coeff, v);        
+        else if (is_num(e, i)) 
+            term.m_coeff += coeff * i;        
+        else if (a.is_add(e)) {
             for (expr* arg : *to_app(e))
                 add_args(term, arg, coeff);
-            return;
         }
-        if (a.is_sub(e, x, y)) {
+        else if (a.is_sub(e, x, y)) {
             add_args(term, x, coeff);
             add_args(term, y, -coeff);
-            return;
         }
-
-        if (a.is_mul(e)) {
+        else if (a.is_mul(e)) {
             unsigned_vector m;
             num_t c = coeff;
             for (expr* arg : *to_app(e))
@@ -426,7 +418,7 @@ namespace sls {
                 add_arg(term, c, m[0]);
                 break;
             default: {
-                auto v = mk_var(e);
+                v = mk_var(e);
                 unsigned idx = m_muls.size();
                 m_muls.push_back({ v, m });
                 num_t prod(1);
@@ -438,20 +430,13 @@ namespace sls {
                 break;
             }
             }
-            return;
         }
-        if (a.is_uminus(e, x)) {
-            add_args(term, x, -coeff);
-            return;
-        }
-
-        if (is_uninterp(e)) {
-            auto v = mk_var(e);
-            add_arg(term, coeff, v);
-            return;
-        }
-
-        UNREACHABLE();
+        else if (a.is_uminus(e, x)) 
+            add_args(term, x, -coeff);        
+        else if (is_uninterp(e)) 
+            add_arg(term, coeff, mk_var(e));
+        else
+            NOT_IMPLEMENTED_YET();
     }
 
     template<typename num_t>
@@ -555,14 +540,19 @@ namespace sls {
     }
 
     template<typename num_t>
-    void arith_plugin<num_t>::propagate_updates() {
+    void arith_plugin<num_t>::repair_defs_and_updates() {
         while (!m_defs_to_update.empty() || !m_vars_to_update.empty()) {
-            while (!m_vars_to_update.empty()) {
-                auto [w, new_value1] = m_vars_to_update.back();
-                m_vars_to_update.pop_back();
-                update(w, new_value1);
-            }
+            repair_updates();
             repair_defs();
+        }
+    }
+
+    template<typename num_t>
+    void arith_plugin<num_t>::repair_updates() {
+        while (!m_vars_to_update.empty()) {
+            auto [w, new_value1] = m_vars_to_update.back();
+            m_vars_to_update.pop_back();
+            update(w, new_value1);
         }
     }
 
@@ -769,7 +759,7 @@ namespace sls {
         for (sat::literal lit : ctx.root_literals())
             repair(lit);
 
-        propagate_updates();
+        repair_defs_and_updates();
 
         // update literal assignment based on current model
         for (unsigned v = 0; v < ctx.num_bool_vars(); ++v)
@@ -814,6 +804,19 @@ namespace sls {
             out << mk_bounded_pp(vi.m_expr, m) << " - ";
             for (auto [c, bv] : vi.m_bool_vars)
                 out << c << "@" << bv << " ";
+            out << "\n";
+        }
+        for (auto md : m_muls) {
+            out << "v" << md.m_var << " := ";
+            for (auto w : md.m_monomial)
+                out << "v" << w << " ";
+            out << "\n";
+        }
+        for (auto ad : m_adds) {
+            out << "v" << ad.m_var << " := ";
+            for (auto [c, w] : ad.m_args)
+                out << c << "* v" << w << " + ";
+            out << ad.m_coeff;
             out << "\n";
         }
         return out;
