@@ -27,7 +27,7 @@ namespace sls {
     using theory_var = int;
 
     // local search portion for arithmetic
-    template<typename int_t>
+    template<typename num_t>
     class arith_plugin : public plugin {
         enum class ineq_kind { EQ, LE, LT};
         enum class var_kind { INT, REAL };
@@ -46,17 +46,15 @@ namespace sls {
             unsigned m_num_flips = 0;
         };
 
-        // typedef checked_int64<true> int_t;
-
     public:
         struct linear_term {
-            vector<std::pair<int_t, var_t>> m_args;
-            int_t      m_coeff;
+            vector<std::pair<num_t, var_t>> m_args;
+            num_t      m_coeff{ 0 };
         };
         // encode args <= bound, args = bound, args < bound
         struct ineq : public linear_term {            
             ineq_kind  m_op = ineq_kind::LE;            
-            int_t      m_args_value;
+            num_t      m_args_value;
             unsigned   m_var_to_flip = UINT_MAX;
 
             bool is_true() const {
@@ -90,12 +88,12 @@ namespace sls {
         struct var_info {
             var_info(expr* e, var_kind k): m_expr(e), m_kind(k) {}
             expr*        m_expr;
-            int_t        m_value{ 0 };
-            int_t        m_best_value{ 0 };
+            num_t        m_value{ 0 };
+            num_t        m_best_value{ 0 };
             var_kind     m_kind;
             unsigned     m_add_idx = UINT_MAX;
             unsigned     m_mul_idx = UINT_MAX;
-            vector<std::pair<int_t, sat::bool_var>> m_bool_vars;
+            vector<std::pair<num_t, sat::bool_var>> m_bool_vars;
             unsigned_vector m_muls;
             unsigned_vector m_adds;
         };
@@ -124,7 +122,7 @@ namespace sls {
         void repair_mul(mul_def const& md);
         void repair_add(add_def const& ad);
         unsigned_vector m_defs_to_update;
-        vector<std::pair<var_t, int_t>> m_vars_to_update;
+        vector<std::pair<var_t, num_t>> m_vars_to_update;
         void propagate_updates();
         void repair_defs();
         void repair(sat::literal lit);
@@ -136,33 +134,33 @@ namespace sls {
         ineq* atom(sat::bool_var bv) const { return m_bool_vars.get(bv, nullptr); }
 
         
-        int_t dtt(bool sign, ineq const& ineq) const { return dtt(sign, ineq.m_args_value, ineq); }
-        int_t dtt(bool sign, int_t const& args_value, ineq const& ineq) const;
-        int_t dtt(bool sign, ineq const& ineq, var_t v, int_t const& new_value) const;
-        int_t dtt(bool sign, ineq const& ineq, int_t const& coeff, int_t const& old_value, int_t const& new_value) const;
-        int_t dts(unsigned cl, var_t v, int_t const& new_value) const;
-        int_t compute_dts(unsigned cl) const;
-        bool cm(ineq const& ineq, var_t v, int_t& new_value);
-        bool cm(ineq const& ineq, var_t v, int_t const& coeff, int_t& new_value);
-        int cm_score(var_t v, int_t const& new_value);
-        void update(var_t v, int_t const& new_value);
+        num_t dtt(bool sign, ineq const& ineq) const { return dtt(sign, ineq.m_args_value, ineq); }
+        num_t dtt(bool sign, num_t const& args_value, ineq const& ineq) const;
+        num_t dtt(bool sign, ineq const& ineq, var_t v, num_t const& new_value) const;
+        num_t dtt(bool sign, ineq const& ineq, num_t const& coeff, num_t const& old_value, num_t const& new_value) const;
+        num_t dts(unsigned cl, var_t v, num_t const& new_value) const;
+        num_t compute_dts(unsigned cl) const;
+        bool cm(ineq const& ineq, var_t v, num_t& new_value);
+        bool cm(ineq const& ineq, var_t v, num_t const& coeff, num_t& new_value);
+        int cm_score(var_t v, num_t const& new_value);
+        void update(var_t v, num_t const& new_value);
         double dscore_reward(sat::bool_var v);
         double dtt_reward(sat::literal lit);
-        double dscore(var_t v, int_t const& new_value) const;
+        double dscore(var_t v, num_t const& new_value) const;
         void save_best_values();
         void store_best_values();
         unsigned mk_var(expr* e);
-        ineq& new_ineq(ineq_kind op, int_t const& bound);
-        void add_arg(linear_term& term, int_t const& c, var_t v);
-        void add_args(linear_term& term, expr* e, int_t const& sign);
+        ineq& new_ineq(ineq_kind op, num_t const& bound);
+        void add_arg(linear_term& term, num_t const& c, var_t v);
+        void add_args(linear_term& term, expr* e, num_t const& sign);
         var_t mk_term(expr* e);
         void init_ineq(sat::bool_var bv, ineq& i);
+        num_t divide(var_t v, num_t const& delta, num_t const& coeff);
         
         void init_bool_var_assignment(sat::bool_var v);
 
-        int_t value(var_t v) const { return m_vars[v].m_value; }
-        bool is_int64(expr* e, int_t& i);
-        bool is_int(expr* e, int_t& i);
+        num_t value(var_t v) const { return m_vars[v].m_value; }
+        bool is_num(expr* e, num_t& i);
 
         void check_ineqs();
 

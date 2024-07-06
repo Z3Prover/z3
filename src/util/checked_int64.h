@@ -26,6 +26,10 @@ Revision History:
 #include "util/z3_exception.h"
 #include "util/rational.h"
 
+class overflow_exception : public z3_exception {
+    char const* msg() const override { return "checked_int64 overflow/underflow"; }
+};
+
 template<bool CHECK>
 class checked_int64 {
     int64_t m_value;
@@ -37,10 +41,6 @@ public:
 
     checked_int64(): m_value(0) {}
     checked_int64(int64_t v): m_value(v) {}
-
-    class overflow_exception : public z3_exception {
-        char const * msg() const override { return "checked_int64 overflow/underflow";}
-    };
 
     bool is_zero() const { return m_value == 0; }
     bool is_pos() const { return m_value > 0; }
@@ -275,6 +275,13 @@ inline checked_int64<CHECK> operator*(checked_int64<CHECK> const& a, int64_t con
 
 template<bool CHECK>
 inline checked_int64<CHECK> div(checked_int64<CHECK> const& a, checked_int64<CHECK> const& b) {
+    checked_int64<CHECK> result(a);
+    result /= b;
+    return result;
+}
+
+template<bool CHECK>
+inline checked_int64<CHECK> operator/(checked_int64<CHECK> const& a, checked_int64<CHECK> const& b) {
     checked_int64<CHECK> result(a);
     result /= b;
     return result;
