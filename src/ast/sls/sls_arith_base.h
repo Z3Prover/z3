@@ -3,7 +3,7 @@ Copyright (c) 2020 Microsoft Corporation
 
 Module Name:
 
-    arith_local_search.h
+    sls_arith_base.h
 
 Abstract:
 
@@ -30,7 +30,7 @@ namespace sls {
     template<typename num_t>
     class arith_base : public plugin {
         enum class ineq_kind { EQ, LE, LT};
-        enum class var_kind { INT, REAL };
+        enum class var_sort { INT, REAL };
         typedef unsigned var_t;
         typedef unsigned atom_t;
 
@@ -86,13 +86,13 @@ namespace sls {
     private:
 
         struct var_info {
-            var_info(expr* e, var_kind k): m_expr(e), m_kind(k) {}
+            var_info(expr* e, var_sort k): m_expr(e), m_sort(k) {}
             expr*        m_expr;
             num_t        m_value{ 0 };
             num_t        m_best_value{ 0 };
-            var_kind     m_kind;
-            unsigned     m_add_idx = UINT_MAX;
-            unsigned     m_mul_idx = UINT_MAX;
+            var_sort     m_sort;
+            arith_op_kind m_op = arith_op_kind::LAST_ARITH_OP;
+            unsigned     m_def_idx = UINT_MAX;
             vector<std::pair<num_t, sat::bool_var>> m_bool_vars;
             unsigned_vector m_muls;
             unsigned_vector m_adds;
@@ -106,6 +106,12 @@ namespace sls {
         struct add_def : public linear_term {
             unsigned        m_var;
         };
+
+        struct op_def {
+            unsigned m_var;
+            arith_op_kind m_op;
+            unsigned m_arg1, m_arg2;
+        };
        
         stats                        m_stats;
         config                       m_config;
@@ -113,16 +119,25 @@ namespace sls {
         vector<var_info>             m_vars;
         vector<mul_def>              m_muls;
         vector<add_def>              m_adds;
+        vector<op_def>               m_ops;
         unsigned_vector              m_expr2var;
         bool                         m_dscore_mode = false;
         arith_util                   a;
+        unsigned_vector              m_defs_to_update;
+        vector<std::pair<var_t, num_t>> m_vars_to_update;
 
         unsigned get_num_vars() const { return m_vars.size(); }
 
         void repair_mul(mul_def const& md);
         void repair_add(add_def const& ad);
-        unsigned_vector m_defs_to_update;
-        vector<std::pair<var_t, num_t>> m_vars_to_update;
+        void repair_mod(op_def const& od);
+        void repair_idiv(op_def const& od);
+        void repair_div(op_def const& od);
+        void repair_rem(op_def const& od);
+        void repair_power(op_def const& od);
+        void repair_abs(op_def const& od);
+        void repair_to_int(op_def const& od);
+        void repair_to_real(op_def const& od);
         void repair_defs_and_updates();
         void repair_defs();
         void repair_updates();
@@ -149,12 +164,13 @@ namespace sls {
         double dtt_reward(sat::literal lit);
         double dscore(var_t v, num_t const& new_value) const;
         void save_best_values();
-        void store_best_values();
-        unsigned mk_var(expr* e);
-        ineq& new_ineq(ineq_kind op, num_t const& bound);
+
+        var_t mk_var(expr* e);
+        var_t mk_term(expr* e);
+        var_t mk_op(arith_op_kind k, expr* e, expr* x, expr* y);
         void add_arg(linear_term& term, num_t const& c, var_t v);
         void add_args(linear_term& term, expr* e, num_t const& sign);
-        var_t mk_term(expr* e);
+        ineq& new_ineq(ineq_kind op, num_t const& bound);
         void init_ineq(sat::bool_var bv, ineq& i);
         num_t divide(var_t v, num_t const& delta, num_t const& coeff);
         

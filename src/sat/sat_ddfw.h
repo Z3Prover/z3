@@ -25,12 +25,9 @@
 #include "util/params.h"
 #include "util/ema.h"
 #include "util/sat_sls.h"
-#include "sat/sat_clause.h"
+#include "util/map.h"
 #include "sat/sat_types.h"
 
-namespace arith {
-    class sls;
-}
 
 namespace sat {
     class solver;

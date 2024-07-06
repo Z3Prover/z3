@@ -28,7 +28,7 @@
 #include "util/luby.h"
 #include "sat/sat_ddfw.h"
 #include "sat/sat_solver.h"
-#include "sat/sat_params.hpp"
+#include "params/sat_params.hpp"
 
 namespace sat {
 

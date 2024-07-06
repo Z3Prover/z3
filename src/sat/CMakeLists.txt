@@ -43,7 +43,6 @@ z3_add_component(sat
     params
   PYG_FILES
     sat_asymm_branch_params.pyg
-    sat_params.pyg
     sat_scc_params.pyg
     sat_simplifier_params.pyg
 )

@@ -44,7 +44,7 @@ Notes:
 #include "sat/smt/pb_solver.h"
 #include "sat/smt/euf_solver.h"
 #include "sat/smt/sat_th.h"
-#include "sat/sat_params.hpp"
+#include "params/sat_params.hpp"
 #include<sstream>
 
 struct goal2sat::imp : public sat::sat_internalizer {

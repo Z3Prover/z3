@@ -22,7 +22,7 @@ Notes:
 #include "sat/tactic/goal2sat.h"
 #include "sat/tactic/sat2goal.h"
 #include "sat/sat_solver.h"
-#include "sat/sat_params.hpp"
+#include "params/sat_params.hpp"
 
 class sat_tactic : public tactic {
 

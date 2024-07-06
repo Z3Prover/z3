@@ -16,9 +16,9 @@ Author:
 Revision History:
 
 --*/
+#include "params/sat_params.hpp"
 #include "sat/sat_config.h"
 #include "sat/sat_types.h"
-#include "sat/sat_params.hpp"
 #include "sat/sat_simplifier_params.hpp"
 #include "params/solver_params.hpp"
 

@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    Local search dispatch for NIA
+    Local search dispatch for arithmetic
 
 Author:
 
@@ -39,10 +39,6 @@ namespace sls {
         for (auto& v : m_vars)
             v.m_best_value = v.m_value;
         check_ineqs();
-    }
-
-    template<typename num_t>
-    void arith_base<num_t>::store_best_values() {
     }
 
     // distance to true
@@ -111,7 +107,7 @@ namespace sls {
 
     template<typename num_t>
     num_t arith_base<num_t>::divide(var_t v, num_t const& delta, num_t const& coeff) {
-        if (m_vars[v].m_kind == var_kind::REAL)
+        if (m_vars[v].m_sort == var_sort::REAL)
             return delta / coeff;
         return div(delta + abs(coeff) - 1, coeff);
     }
@@ -346,7 +342,7 @@ namespace sls {
             if (value(v) != sum)
                 m_vars_to_update.push_back({ v, sum });
         }
-        if (vi.m_add_idx != UINT_MAX || vi.m_mul_idx != UINT_MAX)
+        if (vi.m_def_idx != UINT_MAX)
             // add repair actions for additions and multiplications
             m_defs_to_update.push_back(v);
     }
@@ -363,7 +359,6 @@ namespace sls {
     void arith_base<num_t>::add_arg(linear_term& ineq, num_t const& c, var_t v) {
         ineq.m_args.push_back({ c, v });
     }
-
 
     bool arith_base<checked_int64<true>>::is_num(expr* e, checked_int64<true>& i) {
         rational r;
@@ -390,10 +385,10 @@ namespace sls {
         auto v = m_expr2var.get(e->get_id(), UINT_MAX);
         expr* x, * y;
         num_t i;
-        if (v != UINT_MAX) 
-            add_arg(term, coeff, v);        
-        else if (is_num(e, i)) 
-            term.m_coeff += coeff * i;        
+        if (v != UINT_MAX)
+            add_arg(term, coeff, v);
+        else if (is_num(e, i))
+            term.m_coeff += coeff * i;
         else if (a.is_add(e)) {
             for (expr* arg : *to_app(e))
                 add_args(term, arg, coeff);
@@ -424,19 +419,80 @@ namespace sls {
                 num_t prod(1);
                 for (auto w : m)
                     m_vars[w].m_muls.push_back(idx), prod *= value(w);
-                m_vars[v].m_mul_idx = idx;
+                m_vars[v].m_def_idx = idx;
+                m_vars[v].m_op = arith_op_kind::OP_MUL;
                 m_vars[v].m_value = prod;
                 add_arg(term, c, v);
                 break;
             }
             }
         }
-        else if (a.is_uminus(e, x)) 
-            add_args(term, x, -coeff);        
-        else if (is_uninterp(e)) 
+        else if (a.is_uminus(e, x))
+            add_args(term, x, -coeff);
+        else if (a.is_mod(e, x, y) || a.is_mod0(e, x, y))
+            add_arg(term, coeff, mk_op(arith_op_kind::OP_MOD, e, x, y));
+        else if (a.is_idiv(e, x, y) || a.is_idiv0(e, x, y))
+            add_arg(term, coeff, mk_op(arith_op_kind::OP_IDIV, e, x, y));
+        else if (a.is_div(e, x, y) || a.is_div0(e, x, y))
+            add_arg(term, coeff, mk_op(arith_op_kind::OP_DIV, e, x, y));
+        else if (a.is_rem(e, x, y))
+            add_arg(term, coeff, mk_op(arith_op_kind::OP_REM, e, x, y));
+        else if (a.is_power(e, x, y) || a.is_power0(e, x, y))
+            add_arg(term, coeff, mk_op(arith_op_kind::OP_POWER, e, x, y));
+        else if (a.is_abs(e, x))
+            add_arg(term, coeff, mk_op(arith_op_kind::OP_ABS, e, x, x));
+        else if (a.is_to_int(e, x))
+            add_arg(term, coeff, mk_op(arith_op_kind::OP_TO_INT, e, x, x));
+        else if (a.is_to_real(e, x))
+            add_arg(term, coeff, mk_op(arith_op_kind::OP_TO_REAL, e, x, x));
+        else if (is_uninterp(e))
             add_arg(term, coeff, mk_var(e));
-        else
+        else if (a.is_arith_expr(e)) {
             NOT_IMPLEMENTED_YET();
+        }
+        else {
+            NOT_IMPLEMENTED_YET();
+        }
+    }
+
+    template<typename num_t>
+    typename arith_base<num_t>::var_t arith_base<num_t>::mk_op(arith_op_kind k, expr* e, expr* x, expr* y) {
+        auto v = mk_var(e);
+        auto w = mk_term(x);
+        auto u = mk_term(y);
+        unsigned idx = m_ops.size();
+        num_t val;
+        switch (k) {
+        case arith_op_kind::OP_MOD:
+            if (value(v) != 0)
+                val = mod(value(w), value(v));
+            break;
+        case arith_op_kind::OP_REM:
+            if (value(v) != 0) {
+                val = value(w);
+                val %= value(v);
+            }
+            break;
+        case arith_op_kind::OP_IDIV:
+            if (value(v) != 0)
+                val = div(value(w), value(v));
+            break;
+        case arith_op_kind::OP_DIV:
+            if (value(v) != 0)
+                val = value(w) / value(v);
+            break;
+        case arith_op_kind::OP_ABS:
+            val = abs(value(w));
+            break;
+        default:
+            NOT_IMPLEMENTED_YET();
+            break;
+        }
+        m_ops.push_back({v, k, v, w});
+        m_vars[v].m_def_idx = idx;
+        m_vars[v].m_op = k;
+        m_vars[v].m_value = val;
+        return v;
     }
 
     template<typename num_t>
@@ -454,18 +510,19 @@ namespace sls {
         m_adds.push_back({ t.m_args, t.m_coeff, v });
         for (auto const& [c, w] : t.m_args)
             m_vars[w].m_adds.push_back(idx), sum += c * value(w);
-        m_vars[v].m_add_idx = idx;
+        m_vars[v].m_def_idx = idx;
+        m_vars[v].m_op = arith_op_kind::OP_ADD;
         m_vars[v].m_value = sum;
         return v;
     }
 
     template<typename num_t>
-    unsigned arith_base<num_t>::mk_var(expr* e) {
-        unsigned v = m_expr2var.get(e->get_id(), UINT_MAX);
+    typename arith_base<num_t>::var_t arith_base<num_t>::mk_var(expr* e) {
+        var_t v = m_expr2var.get(e->get_id(), UINT_MAX);
         if (v == UINT_MAX) {
             v = m_vars.size();
             m_expr2var.setx(e->get_id(), v, UINT_MAX);
-            m_vars.push_back(var_info(e, a.is_int(e) ? var_kind::INT : var_kind::REAL));
+            m_vars.push_back(var_info(e, a.is_int(e) ? var_sort::INT : var_sort::REAL));
         }
         return v;
     }
@@ -504,6 +561,14 @@ namespace sls {
             add_args(ineq, y, num_t(-1));
             init_ineq(bv, ineq);
         }
+        else if (a.is_is_int(e, x))
+        {
+            NOT_IMPLEMENTED_YET();
+        }
+#if 0
+        else if (a.is_idivides(e, x, y))
+            NOT_IMPLEMENTED_YET();
+#endif
         else {
             SASSERT(!a.is_arith_expr(e));
         }
@@ -562,10 +627,42 @@ namespace sls {
             auto v = m_defs_to_update.back();
             m_defs_to_update.pop_back();
             auto const& vi = m_vars[v];
-            if (vi.m_mul_idx != UINT_MAX)
-                repair_mul(m_muls[vi.m_mul_idx]);
-            if (vi.m_add_idx != UINT_MAX)
-                repair_add(m_adds[vi.m_add_idx]);
+            switch (vi.m_op) {
+            case arith_op_kind::LAST_ARITH_OP:
+                break;
+            case arith_op_kind::OP_ADD:
+                repair_add(m_adds[vi.m_def_idx]);
+                break;
+            case arith_op_kind::OP_MUL:
+                repair_mul(m_muls[vi.m_def_idx]);
+                break;
+            case arith_op_kind::OP_MOD:
+                repair_mod(m_ops[vi.m_def_idx]);
+                break;
+            case arith_op_kind::OP_REM:
+                repair_rem(m_ops[vi.m_def_idx]);
+                break;
+            case arith_op_kind::OP_POWER:
+                repair_power(m_ops[vi.m_def_idx]);
+                break;
+            case arith_op_kind::OP_IDIV:
+                repair_idiv(m_ops[vi.m_def_idx]);
+                break;
+            case arith_op_kind::OP_DIV:
+                repair_div(m_ops[vi.m_def_idx]);
+                break;
+            case arith_op_kind::OP_ABS:
+                repair_abs(m_ops[vi.m_def_idx]);
+                break;
+            case arith_op_kind::OP_TO_INT:
+                repair_to_int(m_ops[vi.m_def_idx]);
+                break;
+            case arith_op_kind::OP_TO_REAL:
+                repair_to_real(m_ops[vi.m_def_idx]);
+                break;
+            default:
+                NOT_IMPLEMENTED_YET();
+            }                
         }
     }
 
@@ -584,7 +681,7 @@ namespace sls {
         else {
             auto const& [c, w] = coeffs[rand() % coeffs.size()];
             num_t delta = sum - val;
-            bool is_real = m_vars[w].m_kind == var_kind::REAL;
+            bool is_real = m_vars[w].m_sort == var_sort::REAL;
             bool round_down = rand() % 2 == 0;
             num_t new_value = value(w) + (is_real ? delta / c : round_down ? div(delta, c) : div(delta + c - 1, c));
             update(w, new_value);
@@ -627,7 +724,7 @@ namespace sls {
             auto w = md.m_monomial[rand() % md.m_monomial.size()];
             auto old_value = value(w);
             num_t new_value;
-            if (m_vars[w].m_kind == var_kind::REAL) 
+            if (m_vars[w].m_sort == var_sort::REAL) 
                 new_value = old_value * val / product;
             else
                 new_value = divide(w, old_value * val, product);
@@ -648,6 +745,112 @@ namespace sls {
             else
                 update(v, val * value(v));
         }
+    }
+
+    template<typename num_t>
+    void arith_base<num_t>::repair_rem(op_def const& od) {
+        auto val = value(od.m_var);
+        auto v1 = value(od.m_arg1);
+        auto v2 = value(od.m_arg2);
+        if (v2 == 0)
+            return;
+
+        IF_VERBOSE(0, verbose_stream() << "todo repair rem");
+        // bail
+        v1 %= v2;
+        update(od.m_var, v1);
+    }
+
+    template<typename num_t>
+    void arith_base<num_t>::repair_abs(op_def const& od) {
+        auto val = value(od.m_var);
+        auto v1 = value(od.m_arg1);
+        if (val < 0)
+            update(od.m_var, abs(v1));
+        else if (rand() % 2 == 0)
+            update(od.m_arg1, val);
+        else
+            update(od.m_arg1, -val);        
+    }
+
+    template<typename num_t>
+    void arith_base<num_t>::repair_to_int(op_def const& od) {
+        NOT_IMPLEMENTED_YET();
+    }
+
+    template<typename num_t>
+    void arith_base<num_t>::repair_to_real(op_def const& od) {
+        if (rand() % 20 == 0)
+            update(od.m_var, value(od.m_arg1));
+        else 
+            update(od.m_arg1, value(od.m_arg1));
+    }
+
+    template<typename num_t>
+    void arith_base<num_t>::repair_power(op_def const& od) {
+        auto val = value(od.m_var);
+        auto v1 = value(od.m_arg1);
+        auto v2 = value(od.m_arg2);
+        if (v1 == 0 && v2 == 0)
+            return;
+        IF_VERBOSE(0, verbose_stream() << "todo repair ^");
+        NOT_IMPLEMENTED_YET();
+    }
+
+    template<typename num_t>
+    void arith_base<num_t>::repair_mod(op_def const& od) {        
+        auto val = value(od.m_var);
+        auto v1 = value(od.m_arg1);
+        auto v2 = value(od.m_arg2);
+        // repair first argument
+        if (val >= 0 && val < v2) {
+            auto v3 = mod(v1, v2);
+            if (v3 == val)
+                return;
+            // find r, such that mod(v1 + r, v2) = val
+            // v1 := v1 + val - v3 (+/- v2)
+            v1 += val - v3;
+            switch (rand() % 6) {
+            case 0:
+                v1 += v2;
+                break;
+            case 1:
+                v1 -= v2;
+                break;
+            default:
+                break;
+            }
+            update(od.m_arg1, v1);
+            return;
+        }
+        if (v2 == 0)
+            return;
+        // bail
+        update(od.m_var, mod(v1, v2));
+    }
+
+    template<typename num_t>
+    void arith_base<num_t>::repair_idiv(op_def const& od) {
+        auto val = value(od.m_var);
+        auto v1 = value(od.m_arg1);
+        auto v2 = value(od.m_arg2);
+        if (v2 == 0)
+            return;
+        IF_VERBOSE(0, verbose_stream() << "todo repair div");
+        // bail
+        update(od.m_var, div(v1, v2));
+    }
+    
+    template<typename num_t>
+    void arith_base<num_t>::repair_div(op_def const& od) {
+        auto val = value(od.m_var);
+        auto v1 = value(od.m_arg1);
+        auto v2 = value(od.m_arg2);
+        if (v2 == 0)
+            return;
+        IF_VERBOSE(0, verbose_stream() << "todo repair /");
+        // bail
+        update(od.m_var, v1 / v2);
     }
 
     template<typename num_t>
@@ -818,6 +1021,10 @@ namespace sls {
                 out << c << "* v" << w << " + ";
             out << ad.m_coeff;
             out << "\n";
+        }
+        for (auto od : m_ops) {
+            out << "v" << od.m_var << " := ";
+            out << "v" << od.m_arg1 << " op-" << od.m_op << " v" << od.m_arg2 << "\n";
         }
         return out;
     }

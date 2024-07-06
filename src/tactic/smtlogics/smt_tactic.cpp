@@ -17,7 +17,7 @@ Author:
 --*/
 #include "smt/tactic/smt_tactic_core.h"
 #include "sat/tactic/sat_tactic.h"
-#include "sat/sat_params.hpp"
+#include "params/sat_params.hpp"
 #include "solver/solver2tactic.h"
 #include "solver/solver.h"
 

@@ -168,6 +168,11 @@ public:
         return *this;
     }
 
+    checked_int64& operator%=(checked_int64 const& other) {
+        m_value %= other.m_value;
+        return *this;
+    }
+
     friend inline checked_int64 abs(checked_int64 const& i) {
         return i.abs();
     }
@@ -286,3 +291,17 @@ inline checked_int64<CHECK> operator/(checked_int64<CHECK> const& a, checked_int
     result /= b;
     return result;
 }
+
+template<bool CHECK>
+inline checked_int64<CHECK> mod(checked_int64<CHECK> const& a, checked_int64<CHECK> const& b) {
+    checked_int64<CHECK> result(a);
+    result %= b;
+    if (result < 0) {
+        if (b > 0)
+            result += b;
+        else
+            result -= b;
+    }
+    return result;
+}
+

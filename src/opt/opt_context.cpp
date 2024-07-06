@@ -42,7 +42,7 @@ Notes:
 #include "ast/converters/generic_model_converter.h"
 #include "ackermannization/ackermannize_bv_tactic.h"
 #include "sat/sat_solver/inc_sat_solver.h"
-#include "sat/sat_params.hpp"
+#include "params/sat_params.hpp"
 #include "opt/opt_context.h"
 #include "opt/opt_solver.h"
 #include "opt/opt_params.hpp"
