@@ -16,13 +16,14 @@ Author:
 Notes:
 
 --*/
+#include "params/sat_params.hpp"
 #include "ast/ast_pp.h"
 #include "model/model_v2_pp.h"
 #include "tactic/tactical.h"
 #include "sat/tactic/goal2sat.h"
 #include "sat/tactic/sat2goal.h"
 #include "sat/sat_solver.h"
-#include "params/sat_params.hpp"
+
 
 class sat_tactic : public tactic {
 

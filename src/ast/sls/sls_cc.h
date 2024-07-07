@@ -46,6 +46,8 @@ namespace sls {
         void init_bool_var(sat::bool_var v) override {}
         std::ostream& display(std::ostream& out) const override;
         void mk_model(model& mdl) override;
+        void set_value(expr* e, expr* v) override {}
+        void set_shared(expr* e) override {}
     };
     
 }

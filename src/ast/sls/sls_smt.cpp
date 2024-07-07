@@ -101,7 +101,9 @@ namespace sls {
     }
     
     void context::set_value(expr* e, expr* v) {
-        NOT_IMPLEMENTED_YET();
+        for (auto p : m_plugins)
+            if (p)
+                p->set_value(e, v);       
     }
     
     bool context::is_relevant(expr* e) {

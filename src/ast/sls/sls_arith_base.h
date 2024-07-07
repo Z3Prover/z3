@@ -90,6 +90,7 @@ namespace sls {
             expr*        m_expr;
             num_t        m_value{ 0 };
             num_t        m_best_value{ 0 };
+            bool         m_shared = false;
             var_sort     m_sort;
             arith_op_kind m_op = arith_op_kind::LAST_ARITH_OP;
             unsigned     m_def_idx = UINT_MAX;
@@ -147,9 +148,7 @@ namespace sls {
         double reward(sat::literal lit);
 
         bool sign(sat::bool_var v) const { return !ctx.is_true(sat::literal(v, false)); }
-        ineq* atom(sat::bool_var bv) const { return m_bool_vars.get(bv, nullptr); }
-
-        
+        ineq* atom(sat::bool_var bv) const { return m_bool_vars.get(bv, nullptr); }        
         num_t dtt(bool sign, ineq const& ineq) const { return dtt(sign, ineq.m_args_value, ineq); }
         num_t dtt(bool sign, num_t const& args_value, ineq const& ineq) const;
         num_t dtt(bool sign, ineq const& ineq, var_t v, num_t const& new_value) const;
@@ -178,19 +177,19 @@ namespace sls {
 
         num_t value(var_t v) const { return m_vars[v].m_value; }
         bool is_num(expr* e, num_t& i);
-
+        expr_ref from_num(sort* s, num_t const& n);
         void check_ineqs();
-
     public:
         arith_base(context& ctx);
         ~arith_base() override {}
         void init_bool_var(sat::bool_var v) override;
         void register_term(expr* e) override;
+        void set_shared(expr* e) override;
+        void set_value(expr* e, expr* v) override;
         expr_ref get_value(expr* e) override;
         lbool check() override;
         bool is_sat() override;
         void reset() override;
-
         void on_rescale() override;
         void on_restart() override;
         std::ostream& display(std::ostream& out) const override;

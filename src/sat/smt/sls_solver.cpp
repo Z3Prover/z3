@@ -201,13 +201,13 @@ namespace sls {
 
     void solver::run_local_search_async() {
         if (m_ddfw) {
-            m_result = m_ddfw->check(0, nullptr, nullptr);
+            m_result = m_ddfw->check(0, nullptr);
             m_completed = true;
         }
     }
 
     void solver::run_local_search_sync() {
-        m_result = m_ddfw->check(0, nullptr, nullptr);
+        m_result = m_ddfw->check(0, nullptr);
         local_search_done();
     }
 

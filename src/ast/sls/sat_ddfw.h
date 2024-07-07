@@ -26,12 +26,12 @@
 #include "util/ema.h"
 #include "util/sat_sls.h"
 #include "util/map.h"
-#include "sat/sat_types.h"
+#include "util/sat_literal.h"
+#include "util/statistics.h"
+#include "util/stopwatch.h"
 
 
 namespace sat {
-    class solver;
-    class parallel;
 
     class local_search_plugin {
     public:
@@ -43,8 +43,9 @@ namespace sat {
         virtual void on_save_model() = 0;
         virtual void on_restart() = 0;
     };
-
-    class ddfw : public i_local_search {
+    
+    class ddfw {
+        friend class ddfw_wrapper;
     protected:
 
         struct config {
@@ -86,7 +87,7 @@ namespace sat {
         svector<var_info>    m_vars;        // var -> info
         svector<double>      m_probs;       // var -> probability of flipping
         svector<double>      m_scores;      // reward -> score
-        model                m_model;       // var -> best assignment
+        svector<lbool>       m_model;       // var -> best assignment
         unsigned             m_init_weight = 2; 
         
         vector<unsigned_vector> m_use_list;
@@ -97,15 +98,15 @@ namespace sat {
         indexed_uint_set m_unsat_vars;  // set of variables that are in unsat clauses
         random_gen       m_rand;
         unsigned         m_num_non_binary_clauses = 0;
-        unsigned         m_restart_count = 0, m_reinit_count = 0, m_parsync_count = 0;
-        uint64_t         m_restart_next = 0, m_reinit_next = 0, m_parsync_next = 0;
+        unsigned         m_restart_count = 0, m_reinit_count = 0;
+        uint64_t         m_restart_next = 0, m_reinit_next = 0;
         uint64_t         m_flips = 0, m_last_flips = 0, m_shifts = 0;
         unsigned         m_min_sz = 0, m_steps_since_progress = 0;
         u_map<unsigned>  m_models;
         stopwatch        m_stopwatch;
 
-        parallel*        m_par;
         scoped_ptr<local_search_plugin> m_plugin = nullptr;
+        std::function<bool(void)> m_parallel_sync;
 
         void flatten_use_list(); 
 
@@ -191,11 +192,7 @@ namespace sat {
         void do_restart();
         void reinit_values();
 
-        unsigned select_random_true_clause();
-
-        // parallel integration
-        bool should_parallel_sync();
-        void do_parallel_sync();
+        unsigned select_random_true_clause();        
 
         void log();
 
@@ -204,8 +201,6 @@ namespace sat {
         void init_clause_data();
 
         void invariant();
-
-
 
         void del();
 
@@ -217,35 +212,33 @@ namespace sat {
 
     public:
 
-        ddfw(): m_par(nullptr) {}
+        ddfw() {}
 
-        ~ddfw() override;
+        ~ddfw();
 
         void set_plugin(local_search_plugin* p) { m_plugin = p; }
 
-        lbool check(unsigned sz, literal const* assumptions, parallel* p) override;
+        lbool check(unsigned sz, literal const* assumptions);
 
-        void updt_params(params_ref const& p) override;
+        void updt_params(params_ref const& p);
 
-        model const& get_model() const override { return m_model; }
+        svector<lbool> const& get_model() const { return m_model; }
 
-        reslimit& rlimit() override { return m_limit; }
+        reslimit& rlimit() { return m_limit; }
 
-        void set_seed(unsigned n) override { m_rand.set_seed(n); }
+        void set_seed(unsigned n) { m_rand.set_seed(n); }
 
-        void add(solver const& s) override;
 
-        bool get_value(bool_var v) const override { return value(v); }
+        bool get_value(bool_var v) const { return value(v); }
        
         std::ostream& display(std::ostream& out) const;
 
         // for parallel integration
-        unsigned num_non_binary_clauses() const override { return m_num_non_binary_clauses; }
-        void reinit(solver& s, bool_vector const& phase) override;
+        unsigned num_non_binary_clauses() const { return m_num_non_binary_clauses; }
 
-        void collect_statistics(statistics& st) const override {} 
+        void collect_statistics(statistics& st) const {} 
 
-        double get_priority(bool_var v) const override { return m_probs[v]; }
+        double get_priority(bool_var v) const { return m_probs[v]; }
 
         // access clause information and state of Boolean search
         indexed_uint_set& unsat_set() { return m_unsat; }

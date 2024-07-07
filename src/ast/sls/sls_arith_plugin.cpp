@@ -29,6 +29,8 @@ namespace sls {
             }
             catch (overflow_exception&) {
                 m_arith = alloc(arith_base<rational>, ctx);
+                for (auto e : m_shared)
+                    m_arith->set_shared(e);
                 return; // initialization happens on check-sat calls
             }
         }
@@ -44,6 +46,8 @@ namespace sls {
             }
             catch (overflow_exception&) {
                 m_arith = alloc(arith_base<rational>, ctx);
+                for (auto e : m_shared)
+                    m_arith->set_shared(e);
             }
         }
         m_arith->register_term(e);
@@ -56,6 +60,8 @@ namespace sls {
             }
             catch (overflow_exception&) {
                 m_arith = alloc(arith_base<rational>, ctx);
+                for (auto e : m_shared)
+                    m_arith->set_shared(e);
             }
         }
         return m_arith->get_value(e);
@@ -68,6 +74,8 @@ namespace sls {
             }
             catch (overflow_exception&) {
                 m_arith = alloc(arith_base<rational>, ctx);
+                for (auto e : m_shared)
+                    m_arith->set_shared(e);
             }
         }            
         return m_arith->check();
@@ -79,35 +87,54 @@ namespace sls {
         return m_arith->is_sat();
     }
     void arith_plugin::reset() {
-        if (!m_arith) 
-            m_arith64->reset();        
-        else 
+        if (m_arith) 
             m_arith->reset();        
+        else 
+            m_arith64->reset();    
+        m_shared.reset();
     }
 
     void arith_plugin::on_rescale() {
-        if (!m_arith) 
-            m_arith64->on_rescale();
-        else 
+        if (m_arith) 
             m_arith->on_rescale();
-    }
-    void arith_plugin::on_restart() {
-        if (!m_arith) 
-            m_arith64->on_restart();
         else 
-            m_arith->on_restart();        
+            m_arith64->on_rescale();
+    }
+
+    void arith_plugin::on_restart() {
+        if (m_arith) 
+            m_arith->on_restart();
+        else 
+            m_arith64->on_restart();        
     }
 
     std::ostream& arith_plugin::display(std::ostream& out) const {
-        if (!m_arith) 
-            return m_arith64->display(out);        
-        return m_arith->display(out);
+        if (m_arith) 
+            return m_arith->display(out);
+        else
+            return m_arith64->display(out);                
     }
 
     void arith_plugin::mk_model(model& mdl) {
-        if (!m_arith) 
-            m_arith64->mk_model(mdl);        
-        else 
+        if (m_arith) 
             m_arith->mk_model(mdl);        
+        else 
+            m_arith64->mk_model(mdl);        
+    }
+
+    void arith_plugin::set_shared(expr* e) {
+        if (m_arith)
+            m_arith->set_shared(e);
+        else {
+            m_arith64->set_shared(e);
+            m_shared.push_back(e);
+        }
+    }
+
+    void arith_plugin::set_value(expr* e, expr* v) {
+        if (m_arith)
+            m_arith->set_value(e, v);
+        else 
+            m_arith->set_value(e, v);
     }
 }

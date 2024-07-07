@@ -324,6 +324,11 @@ namespace sls {
             SASSERT(dtt(sign(bv), ineq) == 0);
         }
         vi.m_value = new_value;
+        if (vi.m_shared) {
+            sort* s = vi.m_sort == var_sort::INT ? a.mk_int() : a.mk_real();
+            expr_ref num = from_num(s, new_value);
+            ctx.set_value(vi.m_expr, num);
+        }
         for (auto idx : vi.m_muls) {
             auto const& [v, monomial] = m_muls[idx];
             num_t prod(1);
@@ -378,6 +383,20 @@ namespace sls {
     template<typename num_t>
     bool arith_base<num_t>::is_num(expr* e, num_t& i) {
         return false;
+    }
+
+
+    expr_ref arith_base<rational>::from_num(sort* s, rational const& n) {
+        return expr_ref(a.mk_numeral(n, s), m);
+    }
+
+    expr_ref arith_base<checked_int64<true>>::from_num(sort* s, checked_int64<true> const& n) {
+        return expr_ref(a.mk_numeral(rational(n.get_int64(), rational::i64()), s), m);
+    }
+
+    template<typename num_t>
+    expr_ref arith_base<num_t>::from_num(sort* s, num_t const& n) {
+        return expr_ref(m);
     }
 
     template<typename num_t>
@@ -444,15 +463,12 @@ namespace sls {
         else if (a.is_to_int(e, x))
             add_arg(term, coeff, mk_op(arith_op_kind::OP_TO_INT, e, x, x));
         else if (a.is_to_real(e, x))
-            add_arg(term, coeff, mk_op(arith_op_kind::OP_TO_REAL, e, x, x));
-        else if (is_uninterp(e))
-            add_arg(term, coeff, mk_var(e));
+            add_arg(term, coeff, mk_op(arith_op_kind::OP_TO_REAL, e, x, x));       
         else if (a.is_arith_expr(e)) {
             NOT_IMPLEMENTED_YET();
         }
-        else {
-            NOT_IMPLEMENTED_YET();
-        }
+        else 
+            add_arg(term, coeff, mk_var(e));
     }
 
     template<typename num_t>
@@ -948,6 +964,29 @@ namespace sls {
 
     template<typename num_t>
     void arith_base<num_t>::register_term(expr* e) {
+    }
+
+    template<typename num_t>
+    void arith_base<num_t>::set_shared(expr* e) {
+        if (!a.is_int_real(e))
+            return;
+        var_t v = m_expr2var.get(e->get_id(), UINT_MAX);
+        if (v == UINT_MAX)
+            v = mk_term(e);            
+        m_vars[v].m_shared = true;
+    }
+
+    template<typename num_t>
+    void arith_base<num_t>::set_value(expr* e, expr* v) {
+        auto w = m_expr2var.get(e->get_id(), UINT_MAX);
+        if (w == UINT_MAX)
+            return;
+        num_t n;
+        if (!is_num(v, n))
+            return;
+        if (n == value(w))
+            return;
+        update(w, n);        
     }
 
     template<typename num_t>

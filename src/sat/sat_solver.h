@@ -228,7 +228,7 @@ namespace sat {
         friend class parallel;
         friend class lookahead;
         friend class local_search;
-        friend class ddfw;
+        friend class ddfw_wrapper;
         friend class prob;
         friend class unit_walk;
         friend struct mk_stat;

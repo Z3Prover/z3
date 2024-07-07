@@ -46,6 +46,8 @@ namespace sls {
         virtual void on_restart() {};
         virtual std::ostream& display(std::ostream& out) const = 0;
         virtual void mk_model(model& mdl) = 0;
+        virtual void set_shared(expr* e) = 0;
+        virtual void set_value(expr* e, expr* v) = 0;
     };
 
     using clause = std::initializer_list <sat::literal>;
@@ -110,6 +112,7 @@ namespace sls {
         double reward(sat::bool_var v) { return s.reward(v); }
         indexed_uint_set const& unsat() const { return s.unsat(); }
         unsigned rand() { return m_rand(); }
+        unsigned rand(unsigned n) { return m_rand(n); }
         sat::literal_vector const& root_literals() const { return m_root_literals; }
 
         void reinit_relevant();

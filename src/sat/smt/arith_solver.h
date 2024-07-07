@@ -28,7 +28,6 @@ Author:
 #include "math/polynomial/algebraic_numbers.h"
 #include "math/polynomial/polynomial.h"
 #include "sat/smt/sat_th.h"
-#include "sat/sat_ddfw.h"
 
 namespace euf {
     class solver;
