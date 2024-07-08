@@ -277,7 +277,7 @@ if 'bdist_wheel' in sys.argv and '--plat-name' not in sys.argv:
             # linux builds should be built in the centos 5 vm for maximum compatibility
             # see https://github.com/pypa/manylinux
             # see also https://github.com/angr/angr-dev/blob/master/admin/bdist.py
-            plat_name = 'manylinux2014_' + platform.machine()
+            plat_name = 'manylinux_2_28_' + platform.machine()
         elif 'mingw' in name:
             if platform.architecture()[0] == '64bit':
                 plat_name = 'win_amd64'
@@ -296,7 +296,7 @@ if 'bdist_wheel' in sys.argv and '--plat-name' not in sys.argv:
             )
         elif distos == 'glibc':
             if arch == 'x64':
-                plat_name = 'manylinux2014_x86_64'
+                plat_name = 'manylinux_2_28_x86_64'
             elif arch == 'arm64' or arch == 'aarch64':
                 # context on why are we match on arm64
                 # but use aarch64 on the plat_name is
@@ -305,9 +305,9 @@ if 'bdist_wheel' in sys.argv and '--plat-name' not in sys.argv:
                 # so using the currently supported arm64
                 # build and simply rename it to aarch64
                 # see full context on #7148
-                plat_name = 'manylinux2014_aarch64'                
+                plat_name = 'manylinux_2_28_aarch64'                
             else:
-                plat_name = 'manylinux2014_i686'
+                plat_name = 'manylinux_2_28_i686'
         elif distos == 'linux' and os_id == 'alpine':
             if arch == 'x64':
                 plat_name = 'musllinux_1_1_x86_64'
