@@ -11,8 +11,7 @@
 
   Author:        
 
-    Nikolaj Bjorner, Marijn Heule 2019-4-23
-     
+    Nikolaj Bjorner, Marijn Heule 2019-4-23     
 
   Notes:
   

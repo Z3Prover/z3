@@ -17,63 +17,41 @@ Author:
 #pragma once
 
 #include "util/lbool.h"
-#include "util/params.h"
 #include "util/scoped_ptr_vector.h"
 #include "util/uint_set.h"
 #include "ast/ast.h"
-#include "ast/rewriter/th_rewriter.h"
+#include "ast/bv_decl_plugin.h"
 #include "ast/sls/sls_stats.h"
 #include "ast/sls/sls_powers.h"
 #include "ast/sls/sls_valuation.h"
-#include "ast/bv_decl_plugin.h"
+#include "ast/sls/sls_smt.h"
 
 namespace bv {
 
     class sls_terms {
+        sls::context&       ctx;
         ast_manager&        m;
         bv_util             bv;
-        th_rewriter         m_rewriter;
-        ptr_vector<expr>    m_todo, m_args;
-        expr_ref_vector     m_assertions, m_pinned, m_translated;
-        app_ref_vector      m_terms;
-        vector<ptr_vector<expr>> m_parents;
-        tracked_uint_set    m_assertion_set;
+        expr_ref_vector     m_translated;
+        ptr_vector<expr>    m_subterms;
 
-        expr* ensure_binary(expr* e);
-        void ensure_binary_core(expr* e);
+        void ensure_binary(expr* e);
 
         expr_ref mk_sdiv(expr* x, expr* y);
         expr_ref mk_smod(expr* x, expr* y);
         expr_ref mk_srem(expr* x, expr* y);
 
     public:
-        sls_terms(ast_manager& m);
-
-        void updt_params(params_ref const& p);
-        
-        /**
-        * Add constraints
-        */
-        void assert_expr(expr* e);
+        sls_terms(sls::context& ctx);       
 
         /**
          * Initialize structures: assertions, parents, terms
          */        
         void init();
 
-        /**
-         * Accessors.
-         */
-        
-        ptr_vector<expr> const& parents(expr* e) const { return m_parents[e->get_id()]; }
+        expr* translated(expr* e) const { return m_translated.get(e->get_id(), nullptr); }
 
-        expr_ref_vector const& assertions() const { return m_assertions; }
-
-        app* term(unsigned id) const { return m_terms.get(id); }
-
-        app_ref_vector const& terms() const { return m_terms; }
-
-        bool is_assertion(expr* e) const { return m_assertion_set.contains(e->get_id()); }
+        ptr_vector<expr> const& subterms() const { return m_subterms; }
 
     };
 }

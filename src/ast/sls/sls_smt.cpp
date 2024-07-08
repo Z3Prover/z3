@@ -29,7 +29,7 @@ namespace sls {
     }
 
     context::context(ast_manager& m, sat_solver_context& s) : 
-        m(m), s(s), m_atoms(m), m_subterms(m) {
+        m(m), s(s), m_atoms(m), m_allterms(m) {
         reset();
     }
 
@@ -40,7 +40,7 @@ namespace sls {
 
     void context::register_atom(sat::bool_var v, expr* e) { 
         m_atoms.setx(v, e); 
-        m_atom2bool_var.setx(e->get_id(), v, UINT_MAX);
+        m_atom2bool_var.setx(e->get_id(), v, sat::null_bool_var);
     }
     
     void context::reset() {
@@ -51,7 +51,7 @@ namespace sls {
         m_parents.reset();
         m_relevant.reset();
         m_visited.reset();
-        m_subterms.reset();
+        m_allterms.reset();
         register_plugin(alloc(cc_plugin, *this));
         register_plugin(alloc(arith_plugin, *this));
     }
@@ -84,6 +84,18 @@ namespace sls {
             }
         }
         return l_undef;
+    }
+
+    bool context::is_true(expr* e) {
+        SASSERT(m.is_bool(e));
+        auto v = m_atom2bool_var.get(e->get_id(), sat::null_bool_var);
+        SASSERT(v != sat::null_bool_var);
+        return is_true(sat::literal(v, false));
+    }
+
+    bool context::is_fixed(expr* e) {
+        // is this a Boolean literal that is a unit?
+        return false;
     }
 
     expr_ref context::get_value(expr* e) {
@@ -144,7 +156,7 @@ namespace sls {
         auto v = m_atom2bool_var.get(e->get_id(), sat::null_bool_var);
         if (v == sat::null_bool_var) {
             v = s.add_var();
-            register_subterms(e);
+            register_terms(e);
             register_atom(v, e);
             init_bool_var(v);
         }
@@ -170,18 +182,19 @@ namespace sls {
     void context::register_terms() {
         for (auto a : m_atoms)
             if (a)
-                register_subterms(a);
+                register_terms(a);
     }
 
-    void context::register_subterms(expr* e) {
+    void context::register_terms(expr* e) {
         auto is_visited = [&](expr* e) {
-            return nullptr != m_subterms.get(e->get_id(), nullptr);
+            return nullptr != m_allterms.get(e->get_id(), nullptr);
         };
         auto visit = [&](expr* e) {
-            m_subterms.setx(e->get_id(), e);
+            m_allterms.setx(e->get_id(), e);
         };
         if (is_visited(e))
             return;
+        m_subterms.reset();
         m_todo.push_back(e);
         while (!m_todo.empty()) {
             expr* e = m_todo.back();
@@ -214,6 +227,17 @@ namespace sls {
         for (auto p : m_plugins)
             if (p)
                 p->register_term(e);
+    }
+
+    ptr_vector<expr> const& context::subterms() {
+        if (!m_subterms.empty())
+            return m_subterms;
+        for (auto e : m_allterms)
+            if (e)
+                m_subterms.push_back(e);
+        std::stable_sort(m_subterms.begin(), m_subterms.end(), 
+            [](expr* a, expr* b) { return a->get_id() < b->get_id(); });
+        return m_subterms;
     }
 
     void context::reinit_relevant() {

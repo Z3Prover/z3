@@ -23,14 +23,13 @@ Author:
 #include "ast/ast_ll_pp.h"
 #include "params/sls_params.hpp"
 
-namespace bv {
+namespace bvu {
 
     sls::sls(ast_manager& m, params_ref const& p): 
         m(m), 
         bv(m),
         m_terms(m),
-        m_eval(m),
-        m_engine(m, p)
+        m_eval(m)
     {
         updt_params(p);
     }
@@ -100,55 +99,12 @@ namespace bv {
 
 
     void sls::reinit_eval() {
-        init_repair_candidates();
-
-        if (m_to_repair.empty())
-            return;
-
-        // refresh the best model so far to a callback
-        set_model();
-
-        // add fresh units, if any
-        bool new_assertion = false;
-        while (m_get_unit) {
-            auto e = m_get_unit();
-            if (!e)
-                break;
-            new_assertion = true;
-            assert_expr(e);
-        }
-        if (new_assertion) 
-            init();        
-           
-        std::function<bool(expr*, unsigned)> eval = [&](expr* e, unsigned i) {
-            unsigned id = e->get_id();
-            bool keep = !m_to_repair.contains(id);
-            if (m.is_bool(e)) {
-                if (m_eval.is_fixed0(e) || keep)
-                    return m_eval.bval0(e);
-                if (m_engine_init) {
-                    auto const& z = m_engine.get_value(e);
-                    return rational(z).get_bit(0);
-                }
-            }
-            else if (bv.is_bv(e)) {
-                auto& w = m_eval.wval(e);
-                if (w.fixed.get(i) || keep)
-                    return w.get_bit(i);
-                if (m_engine_init) {
-                    auto const& z = m_engine.get_value(e);
-                    return rational(z).get_bit(i);
-                }
-            }
-            
-            return m_rand() % 2 == 0;
-        };
-        m_eval.init_eval(m_terms.assertions(), eval);
         init_repair();
-        // m_engine_init = false;
     }
 
+
     std::pair<bool, app*> sls::next_to_repair() {
+#if 0
         app* e = nullptr;
         if (m_repair_down != UINT_MAX) {
             e = m_terms.term(m_repair_down);
@@ -176,7 +132,7 @@ namespace bv {
             }
             m_repair_roots.remove(index);
         }
-
+#endif
         return { false, nullptr };
     }
 
@@ -199,35 +155,17 @@ namespace bv {
         return l_undef;
     }
 
-    lbool sls::search2() {
-        lbool res = l_undef;
-        if (m_stats.m_restarts == 0)
-            res = m_engine(),
-            m_engine_init = true;
-        else if (m_stats.m_restarts % 1000 == 0)
-            res = m_engine.search_loop(),
-            m_engine_init = true;
-        if (res != l_undef) 
-            m_engine_model = true;   
-        return res;
-    }
-
 
     lbool sls::operator()() {
         lbool res = l_undef;
         m_stats.reset();
         m_stats.m_restarts = 0;
-        m_engine_model = false;
-        m_engine_init = false;
 
         do {
             res = search1();
             if (res != l_undef)
                 break;
             trace();
-            //res = search2();
-            if (res != l_undef)
-                break;
             reinit_eval();
         } 
         while (m.inc() && m_stats.m_restarts++ < m_config.m_max_restarts);
@@ -300,26 +238,8 @@ namespace bv {
         }
     }
 
-
-    model_ref sls::get_model() {
-        if (m_engine_model)
-            return m_engine.get_model();
-
-        model_ref mdl = alloc(model, m);         
-        auto& terms = m_eval.sort_assertions(m_terms.assertions());
-        for (expr* e : terms) {
-            if (!is_uninterp_const(e))
-                continue;
-            auto f = to_app(e)->get_decl();
-            auto v = m_eval.get_value(to_app(e));
-            if (v)
-                mdl->register_decl(f, v);
-        }
-        terms.reset();
-        return mdl;
-    }
-
     std::ostream& sls::display(std::ostream& out) { 
+#if 0
         auto& terms = m_eval.sort_assertions(m_terms.assertions());
         for (expr* e : terms) {
             out << e->get_id() << ": " << mk_bounded_pp(e, m, 1) << " ";
@@ -333,6 +253,7 @@ namespace bv {
             out << "\n";
         }
         terms.reset();
+#endif
         return out; 
     }
 
@@ -344,7 +265,6 @@ namespace bv {
         m_terms.updt_params(_p);
         params_ref q = _p;
         q.set_uint("max_restarts", 10);
-        m_engine.updt_params(q);
     }
 
     std::ostream& sls::trace_repair(bool down, expr* e) {

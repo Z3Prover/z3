@@ -6,8 +6,8 @@ namespace sls {
     bv_plugin::bv_plugin(context& ctx): 
         plugin(ctx),
         bv(m),
-        m_terms(m),
-        m_eval(m)
+        m_terms(ctx),
+        m_eval(m_terms, ctx)
     {}
 
     void bv_plugin::init_bool_var(sat::bool_var v) {
@@ -55,39 +55,9 @@ namespace sls {
     }
 
     std::pair<bool, app*> bv_plugin::next_to_repair() {
-        app* e = nullptr;
-        if (m_repair_down != UINT_MAX) {
-            e = m_terms.term(m_repair_down);
-            m_repair_down = UINT_MAX;
-            return { true, e };
-        }
 
-        if (!m_repair_up.empty()) {
-            unsigned index = m_repair_up.elem_at(ctx.rand(m_repair_up.size()));
-            m_repair_up.remove(index);
-            e = m_terms.term(index);
-            return { false, e };
-        }
-
-        while (!m_repair_roots.empty()) {
-            unsigned index = m_repair_roots.elem_at(ctx.rand(m_repair_roots.size()));
-            e = m_terms.term(index);
-            if (m_terms.is_assertion(e) && !m_eval.bval1(e)) {
-                SASSERT(m_eval.bval0(e));
-                return { true, e };
-            }
-            if (!m_eval.re_eval_is_correct(e)) {
-                init_repair_goal(e);
-                return { true, e };
-            }
-            m_repair_roots.remove(index);
-        }
 
         return { false, nullptr };
-    }
-
-    void bv_plugin::init_repair_goal(app* e) {
-        m_eval.init_eval(e);
     }
 
 }

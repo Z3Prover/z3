@@ -33,7 +33,7 @@ namespace sls {
         unsigned            m_repair_down = UINT_MAX;
 
         std::pair<bool, app*> next_to_repair();
-        void init_repair_goal(app* e);
+
     public:
         bv_plugin(context& ctx);
         ~bv_plugin() override {}

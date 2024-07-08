@@ -19,8 +19,8 @@ Author:
 
 #include "util/rlimit.h"
 #include "ast/sls/bv_sls.h"
-#include "sat/smt/sat_th.h"
 #include "ast/sls/sat_ddfw.h"
+#include "sat/smt/sat_th.h"
 
 
 #ifdef SINGLE_THREAD

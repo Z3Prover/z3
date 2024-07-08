@@ -80,7 +80,8 @@ namespace sls {
         random_gen m_rand;
         bool m_initialized = false;
         bool m_new_constraint = false;
-        expr_ref_vector m_subterms;
+        expr_ref_vector m_allterms;
+        ptr_vector<expr> m_subterms;
 
         void register_plugin(plugin* p);
 
@@ -88,7 +89,7 @@ namespace sls {
         void init_bool_var(sat::bool_var v);
         void register_terms();
         ptr_vector<expr> m_todo;
-        void register_subterms(expr* e);
+        void register_terms(expr* e);
         void register_term(expr* e);
         sat::bool_var mk_atom(expr* e);
         
@@ -119,9 +120,12 @@ namespace sls {
 
         // Between plugin solvers
         expr_ref get_value(expr* e);
+        bool is_true(expr* e);
+        bool is_fixed(expr* e);
         void set_value(expr* e, expr* v);
         bool is_relevant(expr* e);  
         void add_constraint(expr* e);
+        ptr_vector<expr> const& subterms();        
         ast_manager& get_manager() { return m; }
         std::ostream& display(std::ostream& out) const;
     };

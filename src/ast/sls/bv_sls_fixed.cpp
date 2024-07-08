@@ -14,55 +14,48 @@ Author:
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/sls/bv_sls_fixed.h"
+#include "ast/sls/bv_sls_terms.h"
 #include "ast/sls/bv_sls_eval.h"
 
 namespace bv {
 
-    sls_fixed::sls_fixed(sls_eval& ev):
+    sls_fixed::sls_fixed(sls_eval& ev, sls_terms& terms, sls::context& ctx):
         ev(ev),
+        terms(terms),
         m(ev.m),
-        bv(ev.bv)
+        bv(ev.bv),
+        ctx(ctx)
     {}
 
-    void sls_fixed::init(expr_ref_vector const& es) {
-        ev.sort_assertions(es);
-        for (expr* e : ev.m_todo) {
-            if (!is_app(e))
-                continue;
-            app* a = to_app(e);
-            ev.m_fixed.setx(a->get_id(), is_fixed1(a), false);
-            if (a->get_family_id() == basic_family_id)
-                init_fixed_basic(a);
-            else if (a->get_family_id() == bv.get_family_id())
-                init_fixed_bv(a);
-            else
-                ;
-        }
-        init_ranges(es);
-        ev.m_todo.reset();        
-    }
+    void sls_fixed::init() {
+        for (auto e : terms.subterms())
+            set_fixed(e);
 
-
-    void sls_fixed::init_ranges(expr_ref_vector const& es) {
-        for (expr* e : es) {
-            bool sign = m.is_not(e, e);
-            if (is_app(e))
-                init_range(to_app(e), sign);
+        for (auto const& c : ctx.clauses()) {
+            if (c.m_clause.size() == 1) {
+                auto lit = c.m_clause[0];
+                auto a = ctx.atom(lit.var());
+                if (!a)
+                    continue;
+                a = terms.translated(a);
+                if (is_app(a))
+                    init_range(to_app(a), lit.sign());
+                ev.m_fixed.setx(a->get_id(), true, false);
+            }
         }
-        
-        for (expr* e : ev.m_todo)
-            propagate_range_up(e);
+        for (auto e : terms.subterms())
+            propagate_range_up(e);    
     }
 
     void sls_fixed::propagate_range_up(expr* e) {
         expr* t, * s;
         rational v;
         if (bv.is_concat(e, t, s)) {
-            auto& vals = wval(s);
+            auto& vals = ev.wval(s);
             if (vals.lo() != vals.hi() && (vals.lo() < vals.hi() || vals.hi() == 0))
                 // lo <= e
                 add_range(e, vals.lo(), rational::zero(), false);
-            auto valt = wval(t);
+            auto valt = ev.wval(t);
             if (valt.lo() != valt.hi() && (valt.lo() < valt.hi() || valt.hi() == 0)) {
                 // (2^|s|) * lo <= e < (2^|s|) * hi
                 auto p = rational::power_of_two(bv.get_bv_size(s));
@@ -70,12 +63,12 @@ namespace bv {
             }
         }        
         else if (bv.is_bv_add(e, s, t) && bv.is_numeral(s, v)) {
-            auto& val = wval(t);
+            auto& val = ev.wval(t);
             if (val.lo() != val.hi()) 
                 add_range(e, v + val.lo(), v + val.hi(), false);  
         }
         else if (bv.is_bv_add(e, t, s) && bv.is_numeral(s, v)) {
-            auto& val = wval(t);
+            auto& val = ev.wval(t);
             if (val.lo() != val.hi()) 
                 add_range(e, v + val.lo(), v + val.hi(), false);          
         }
@@ -83,7 +76,7 @@ namespace bv {
         // x in [lo, hi[ => -x in [-hi + 1, -lo + 1[
         else if (bv.is_bv_mul(e, s, t) && bv.is_numeral(s, v) && 
             v + 1 == rational::power_of_two(bv.get_bv_size(e))) {
-            auto& val = wval(t);
+            auto& val = ev.wval(t);
             if (val.lo() != val.hi())
                 add_range(e, -val.hi() + 1, - val.lo() + 1, false);
         }
@@ -149,7 +142,7 @@ namespace bv {
             return true;
         }
         else if (bv.is_bit2bool(e, s, idx)) {
-            auto& val = wval(s);
+            auto& val = ev.wval(s);
             val.try_set_bit(idx, !sign);
             val.fixed.set(idx, true);
             val.tighten_range();
@@ -188,13 +181,13 @@ namespace bv {
         if (bv.is_extract(t, lo, hi, s)) {
             if (hi == lo) {
                 sign = sign ? a == 1 : a == 0;
-                auto& val = wval(s);
+                auto& val = ev.wval(s);
                 if (val.try_set_bit(lo, !sign)) 
                     val.fixed.set(lo, true);                                    
                 val.tighten_range();
             }
             else if (!sign) {
-                auto& val = wval(s);
+                auto& val = ev.wval(s);
                 for (unsigned i = lo; i <= hi; ++i) 
                     if (val.try_set_bit(i, a.get_bit(i - lo)))
                         val.fixed.set(i, true);                
@@ -236,7 +229,7 @@ namespace bv {
     }
 
     bool sls_fixed::add_range(expr* e, rational lo, rational hi, bool sign) {
-        auto& v = wval(e);
+        auto& v = ev.wval(e);
         lo = mod(lo, rational::power_of_two(bv.get_bv_size(e)));
         hi = mod(hi, rational::power_of_two(bv.get_bv_size(e)));
         if (lo == hi)
@@ -285,50 +278,19 @@ namespace bv {
             x = nullptr;
     }
 
-    sls_valuation& sls_fixed::wval(expr* e) {
-        return ev.wval(e);
-    }
-
-    void sls_fixed::init_fixed_basic(app* e) {
-        if (bv.is_bv(e) && m.is_ite(e)) {
-            auto& val = wval(e);
-            auto& val_th = wval(e->get_arg(1));
-            auto& val_el = wval(e->get_arg(2));
-            for (unsigned i = 0; i < val.nw; ++i)
-                val.fixed[i] = val_el.fixed[i] & val_th.fixed[i] & ~(val_el.bits(i) ^ val_th.bits(i));
-        }
-    }
-
-    void sls_fixed::init_fixed_bv(app* e) {
-        if (bv.is_bv(e))
-            set_fixed_bw(e);
-    }
-
     bool sls_fixed::is_fixed1(app* e) const {
         if (is_uninterp(e))
             return false;
-        if (e->get_family_id() == basic_family_id)
-            return is_fixed1_basic(e);
         return all_of(*e, [&](expr* arg) { return ev.is_fixed0(arg); });
     }
-
-    bool sls_fixed::is_fixed1_basic(app* e) const {
-        switch (e->get_decl_kind()) {
-        case OP_TRUE:
-        case OP_FALSE:
-            return true;
-        case OP_AND:
-            return any_of(*e, [&](expr* arg) { return ev.is_fixed0(arg) && !ev.bval0(e); });
-        case OP_OR:
-            return any_of(*e, [&](expr* arg) { return ev.is_fixed0(arg) && ev.bval0(e); });
-        default:
-            return all_of(*e, [&](expr* arg) { return ev.is_fixed0(arg); });
-        }
-    }
     
-    void sls_fixed::set_fixed_bw(app* e) {
-        SASSERT(bv.is_bv(e));
-        SASSERT(e->get_family_id() == bv.get_fid());
+    void sls_fixed::set_fixed(expr* _e) {
+        if (!is_app(_e))
+            return;
+        auto e = to_app(_e);
+        if (!bv.is_bv(e))
+            return;
+
         auto& v = ev.wval(e);
         if (all_of(*e, [&](expr* arg) { return ev.is_fixed0(arg); })) {
             for (unsigned i = 0; i < v.bw; ++i)
@@ -336,39 +298,54 @@ namespace bv {
             ev.m_fixed.setx(e->get_id(), true, false);
             return;
         }
+
+        if (m.is_ite(e)) {
+            auto& val_th = ev.wval(e->get_arg(1));
+            auto& val_el = ev.wval(e->get_arg(2));
+            for (unsigned i = 0; i < v.nw; ++i)
+                v.fixed[i] = val_el.fixed[i] & val_th.fixed[i] & ~(val_el.bits(i) ^ val_th.bits(i));
+            return;
+        }
+
+        if (e->get_family_id() != bv.get_fid())
+            return;
         switch (e->get_decl_kind()) {
         case OP_BAND: {
-            auto& a = wval(e->get_arg(0));
-            auto& b = wval(e->get_arg(1));
+            SASSERT(e->get_num_args() == 2);
+            auto& a = ev.wval(e->get_arg(0));
+            auto& b = ev.wval(e->get_arg(1));
             // (a.fixed & b.fixed) | (a.fixed & ~a.bits) | (b.fixed & ~b.bits)
             for (unsigned i = 0; i < a.nw; ++i)
                 v.fixed[i] = (a.fixed[i] & b.fixed[i]) | (a.fixed[i] & ~a.bits(i)) | (b.fixed[i] & ~b.bits(i));
             break;
         }
         case OP_BOR: {
-            auto& a = wval(e->get_arg(0));
-            auto& b = wval(e->get_arg(1));
+            SASSERT(e->get_num_args() == 2);
+            auto& a = ev.wval(e->get_arg(0));
+            auto& b = ev.wval(e->get_arg(1));
             // (a.fixed & b.fixed) | (a.fixed & a.bits) | (b.fixed & b.bits)
             for (unsigned i = 0; i < a.nw; ++i)
                 v.fixed[i] = (a.fixed[i] & b.fixed[i]) | (a.fixed[i] & a.bits(i)) | (b.fixed[i] & b.bits(i));
             break;
         }
         case OP_BXOR: {
-            auto& a = wval(e->get_arg(0));
-            auto& b = wval(e->get_arg(1));
+            SASSERT(e->get_num_args() == 2);
+            auto& a = ev.wval(e->get_arg(0));
+            auto& b = ev.wval(e->get_arg(1));
             for (unsigned i = 0; i < a.nw; ++i)
                 v.fixed[i] = a.fixed[i] & b.fixed[i];
             break;
         }
         case OP_BNOT: {
-            auto& a = wval(e->get_arg(0));
+            auto& a = ev.wval(e->get_arg(0));
             for (unsigned i = 0; i < a.nw; ++i)
                 v.fixed[i] = a.fixed[i];
             break;
         }
         case OP_BADD: {
-            auto& a = wval(e->get_arg(0));
-            auto& b = wval(e->get_arg(1));
+            SASSERT(e->get_num_args() == 2);
+            auto& a = ev.wval(e->get_arg(0));
+            auto& b = ev.wval(e->get_arg(1));
             bool pfixed = true;
             for (unsigned i = 0; i < v.bw; ++i) {
                 if (pfixed && a.fixed.get(i) && b.fixed.get(i)) 
@@ -386,8 +363,9 @@ namespace bv {
             break;
         }
         case OP_BMUL: {
-            auto& a = wval(e->get_arg(0));
-            auto& b = wval(e->get_arg(1));
+            SASSERT(e->get_num_args() == 2);
+            auto& a = ev.wval(e->get_arg(0));
+            auto& b = ev.wval(e->get_arg(1));
             unsigned j = 0, k = 0, zj = 0, zk = 0, hzj = 0, hzk = 0;
             // i'th bit depends on bits j + k = i
             // if the first j, resp k bits are 0, the bits j + k are 0  
@@ -437,8 +415,9 @@ namespace bv {
             break;
         }
         case OP_CONCAT: {
-            auto& a = wval(e->get_arg(0));
-            auto& b = wval(e->get_arg(1));
+            SASSERT(e->get_num_args() == 2);
+            auto& a = ev.wval(e->get_arg(0));
+            auto& b = ev.wval(e->get_arg(1));
             for (unsigned i = 0; i < b.bw; ++i)
                 v.fixed.set(i, b.fixed.get(i));
             for (unsigned i = 0; i < a.bw; ++i)
@@ -449,13 +428,13 @@ namespace bv {
             expr* child;
             unsigned lo, hi;
             VERIFY(bv.is_extract(e, lo, hi, child));
-            auto& a = wval(child);
+            auto& a = ev.wval(child);
             for (unsigned i = lo; i <= hi; ++i)
                 v.fixed.set(i - lo, a.fixed.get(i));
             break;
         }
         case OP_BNEG: {
-            auto& a = wval(e->get_arg(0));
+            auto& a = ev.wval(e->get_arg(0));
             bool pfixed = true;
             for (unsigned i = 0; i < v.bw; ++i) {
                 if (pfixed && a.fixed.get(i))

@@ -17,65 +17,31 @@ Author:
 
 namespace bv {
 
-    sls_eval::sls_eval(ast_manager& m): 
-        m(m), 
+    sls_eval::sls_eval(sls_terms& terms, sls::context& ctx): 
+        m(ctx.get_manager()),
+        ctx(ctx),
+        terms(terms),
         bv(m),
-        m_fix(*this)
+        m_fix(*this, terms, ctx)
     {}   
 
-    void sls_eval::init_eval(expr_ref_vector const& es, std::function<bool(expr*, unsigned)> const& eval) {
-        auto& terms = sort_assertions(es);
-        for (expr* e : terms) {
+    void sls_eval::init_eval(std::function<bool(expr*, unsigned)> const& eval) {
+        for (expr* e : terms.subterms()) {
             if (!is_app(e))
                 continue;
             app* a = to_app(e);
-            if (bv.is_bv(e)) 
-                add_bit_vector(a);
-            if (a->get_family_id() == basic_family_id)
-                init_eval_basic(a);
-            else if (a->get_family_id() == bv.get_family_id())
+            if (!bv.is_bv(e))
+                continue;
+            add_bit_vector(a);
+            if (a->get_family_id() == bv.get_family_id())
                 init_eval_bv(a);
             else if (is_uninterp(e)) {
-                if (bv.is_bv(e)) {
-                    auto& v = wval(e);
-                    for (unsigned i = 0; i < v.bw; ++i)
-                        m_tmp.set(i, eval(e, i));
-                    v.set_repair(random_bool(), m_tmp);
-                }
-                else if (m.is_bool(e))
-                    m_eval.setx(e->get_id(), eval(e, 0), false);
-            }
-            else {
-                TRACE("sls", tout << "Unhandled expression " << mk_pp(e, m) << "\n");
+                auto& v = wval(e);
+                for (unsigned i = 0; i < v.bw; ++i)
+                    m_tmp.set(i, eval(e, i));
+                v.set_repair(random_bool(), m_tmp);                
             }
         }
-        terms.reset();
-    }
-
-    /**
-    * Sort all sub-expressions by depth, smallest first.
-    */
-    ptr_vector<expr>& sls_eval::sort_assertions(expr_ref_vector const& es) {
-        expr_fast_mark1 mark;
-        for (expr* e : es) {
-            if (!mark.is_marked(e)) {
-                mark.mark(e);
-                m_todo.push_back(e);
-            }
-        }
-        for (unsigned i = 0; i < m_todo.size(); ++i) {
-            auto e = m_todo[i];
-            if (!is_app(e))
-                continue;
-            for (expr* arg : *to_app(e)) {
-                if (!mark.is_marked(arg)) {
-                    mark.mark(arg);
-                    m_todo.push_back(arg);
-                }
-            }
-        }
-        std::stable_sort(m_todo.begin(), m_todo.end(), [&](expr* a, expr* b) { return get_depth(a) < get_depth(b); });
-        return m_todo;
     }
 
     bool sls_eval::add_bit_vector(app* e) {
@@ -115,83 +81,10 @@ namespace bv {
         return r;
     }
 
-    void sls_eval::init_eval_basic(app* e) {
-        auto id = e->get_id();
-        if (m.is_bool(e)) 
-            m_eval.setx(id, bval1(e), false);                    
-        else if (m.is_ite(e)) {
-            SASSERT(bv.is_bv(e->get_arg(1)));
-            auto& val = wval(e);
-            auto& val_th = wval(e->get_arg(1));
-            auto& val_el = wval(e->get_arg(2));
-            if (bval0(e->get_arg(0))) 
-                val.set(val_th.bits());            
-            else
-                val.set(val_el.bits()); 
-        }
-        else {
-            UNREACHABLE();
-        }             
-    }
 
     void sls_eval::init_eval_bv(app* e) {
         if (bv.is_bv(e)) 
-            eval(e).commit_eval();        
-        else if (m.is_bool(e)) 
-            m_eval.setx(e->get_id(), bval1_bv(e), false);        
-    }
-
-    bool sls_eval::bval1_basic(app* e) const {
-        SASSERT(m.is_bool(e));
-        SASSERT(e->get_family_id() == basic_family_id);
-
-        auto id = e->get_id();
-        switch (e->get_decl_kind()) {
-        case OP_TRUE:
-            return true;
-        case OP_FALSE:
-            return false;
-        case OP_AND:
-            return all_of(*to_app(e), [&](expr* arg) { return bval0(arg); });
-        case OP_OR:
-            return any_of(*to_app(e), [&](expr* arg) { return bval0(arg); });
-        case OP_NOT:
-            return !bval0(e->get_arg(0));
-        case OP_XOR: {
-            bool r = false;
-            for (auto* arg : *to_app(e))
-                r ^= bval0(arg);
-            return r;
-        }
-        case OP_IMPLIES: {
-            auto a = e->get_arg(0);
-            auto b = e->get_arg(1);
-            return !bval0(a) || bval0(b);
-        }
-        case OP_ITE: {
-            auto c = bval0(e->get_arg(0));
-            return bval0(c ? e->get_arg(1) : e->get_arg(2));
-        }
-        case OP_EQ: {
-            auto a = e->get_arg(0);
-            auto b = e->get_arg(1);
-            if (m.is_bool(a))
-                return bval0(a) == bval0(b);
-            else if (bv.is_bv(a)) {
-                auto const& va = wval(a);
-                auto const& vb = wval(b);
-                return va.eq(vb);
-            }
-            return m.are_equal(a, b);
-        }
-        case OP_DISTINCT:
-        default:
-            verbose_stream() << mk_bounded_pp(e, m) << "\n";
-            UNREACHABLE();
-            break;
-        }
-        UNREACHABLE();
-        return false;
+            eval(e).commit_eval();               
     }
     
     bool sls_eval::can_eval1(app* e) const {
@@ -296,12 +189,10 @@ namespace bv {
     }
 
     bool sls_eval::bval1(app* e) const {
-        if (e->get_family_id() == basic_family_id)
-            return bval1_basic(e);
         if (e->get_family_id() == bv.get_fid())
             return bval1_bv(e);
-        SASSERT(is_uninterp_const(e));
-        return bval0(e); 
+        UNREACHABLE();
+        return false;
     }
 
     sls_valuation& sls_eval::eval(app* e) const {
@@ -701,39 +592,9 @@ namespace bv {
     }
 
     bool sls_eval::try_repair(app* e, unsigned i) {      
-        if (is_fixed0(e->get_arg(i)))
-            return false;
-        else if (e->get_family_id() == basic_family_id)
-            return try_repair_basic(e, i);
         if (e->get_family_id() == bv.get_family_id())
             return try_repair_bv(e, i);
         return false;
-    }
-
-    bool sls_eval::try_repair_basic(app* e, unsigned i) {
-        switch (e->get_decl_kind()) {
-        case OP_AND:
-            return try_repair_and_or(e, i);
-        case OP_OR:
-            return try_repair_and_or(e, i);
-        case OP_NOT:
-            return try_repair_not(e);
-        case OP_FALSE:             
-            return false;
-        case OP_TRUE:             
-            return false;
-        case OP_EQ:
-            return try_repair_eq(e, i);
-        case OP_IMPLIES: 
-            return try_repair_implies(e, i);
-        case OP_XOR:
-            return try_repair_xor(e, i);
-        case OP_ITE:
-            return try_repair_ite(e, i);
-        default:
-            UNREACHABLE();
-            return false;
-        }
     }
 
     bool sls_eval::try_repair_bv(app* e, unsigned i) {
@@ -880,21 +741,7 @@ namespace bv {
         }
     }
 
-    bool sls_eval::try_repair_and_or(app* e, unsigned i) {
-        auto b = bval0(e);
-        auto child = e->get_arg(i);
-        if (b == bval0(child))
-            return false;
-        m_eval[child->get_id()] = b;
-        return true;
-    }
-
-    bool sls_eval::try_repair_not(app* e) {
-        auto child = e->get_arg(0);
-        m_eval[child->get_id()] = !bval0(e);
-        return true;
-    }
-
+#if 0
     bool sls_eval::try_repair_eq(app* e, unsigned i) {
         auto child = e->get_arg(i);        
         auto is_true = bval0(e);
@@ -911,6 +758,7 @@ namespace bv {
         }
         return false;
     }
+#endif
 
     bool sls_eval::try_repair_eq(bool is_true, bvval& a, bvval const& b) {
         if (is_true) {
@@ -937,47 +785,6 @@ namespace bv {
             }
             return false;
         }
-    }
-
-    bool sls_eval::try_repair_xor(app* e, unsigned i) {
-        bool ev = bval0(e);
-        bool bv = bval0(e->get_arg(1 - i));
-        auto child = e->get_arg(i);
-        m_eval[child->get_id()] = ev != bv;
-        return true;
-    }
-
-    bool sls_eval::try_repair_ite(app* e, unsigned i) {
-        auto child = e->get_arg(i);
-        bool c = bval0(e->get_arg(0));
-        if (i == 0) {
-            m_eval[child->get_id()] = !c;
-            return true;
-        }
-        if (c != (i == 1))
-            return false;
-        if (m.is_bool(e)) {
-            m_eval[child->get_id()] = bval0(e);
-            return true;
-        }
-        if (bv.is_bv(e)) 
-            return wval(child).try_set(wval(e).bits());        
-        return false;
-    }
-
-    bool sls_eval::try_repair_implies(app* e, unsigned i) {
-        auto child = e->get_arg(i);
-        bool ev = bval0(e);
-        bool av = bval0(child);
-        bool bv = bval0(e->get_arg(1 - i));
-        if (i == 0) {
-            if (ev == (!av || bv))
-                return false;
-        }
-        else if (ev != (!bv || av))
-            return false;
-        m_eval[child->get_id()] = ev;
-        return true;
     }
 
     //
@@ -1892,28 +1699,18 @@ namespace bv {
     }
 
     bool sls_eval::repair_up(expr* e) {
-        if (!is_app(e))
+        if (!bv.is_bv(e) || !is_app(e))
             return false;
-        if (m.is_bool(e)) {
-            auto b = bval1(to_app(e));
-            if (is_fixed0(e))
-                return b == bval0(e);
-            m_eval[e->get_id()] = b;
+        auto& v = eval(to_app(e));
+        for (unsigned i = 0; i < v.nw; ++i) {
+            if (0 != (v.fixed[i] & (v.bits()[i] ^ v.eval[i]))) {
+                v.bits().copy_to(v.nw, v.eval);
+                return false;
+            }
+        }
+        if (v.commit_eval())
             return true;
-        }
-        if (bv.is_bv(e)) {
-            auto& v = eval(to_app(e));
-            
-            for (unsigned i = 0; i < v.nw; ++i)
-                if (0 != (v.fixed[i] & (v.bits()[i] ^ v.eval[i]))) {
-                    v.bits().copy_to(v.nw, v.eval);
-                    return false;
-                }
-            if (v.commit_eval())
-                return true;
-            v.bits().copy_to(v.nw, v.eval);
-            return false;
-        }
+        v.bits().copy_to(v.nw, v.eval);
         return false;
     }
 
@@ -1923,21 +1720,15 @@ namespace bv {
     }
 
     void sls_eval::init_eval(app* t) {
-        if (m.is_bool(t))
-            set(t, bval1(t));
-        else if (bv.is_bv(t)) {
+        if (bv.is_bv(t)) {
             auto& v = wval(t);
             v.bits().copy_to(v.nw, v.eval);
         }
     }
 
     void sls_eval::commit_eval(app* e) {
-        if (m.is_bool(e)) {
-            set(e, bval1(e));
-        }
-        else {
-            VERIFY(wval(e).commit_eval());
-        }
+        if (bv.is_bv(e)) 
+            VERIFY(wval(e).commit_eval());        
     }
 
     void sls_eval::set_random(app* e) {
@@ -1983,6 +1774,7 @@ namespace bv {
     }
 
     std::ostream& sls_eval::display(std::ostream& out, expr_ref_vector const& es) {
+#if 0
         auto& terms = sort_assertions(es);
         for (expr* e : terms) {
             out << e->get_id() << ": " << mk_bounded_pp(e, m, 1) << " ";
@@ -1991,14 +1783,13 @@ namespace bv {
             display_value(out, e) << "\n";
         }
         terms.reset();
+#endif
         return out;
     }
 
     std::ostream& sls_eval::display_value(std::ostream& out, expr* e) {
         if (bv.is_bv(e)) 
             return out << wval(e);
-        if (m.is_bool(e))
-            return out << (bval0(e)?"T":"F");
         return out << "?";
     }
 }
