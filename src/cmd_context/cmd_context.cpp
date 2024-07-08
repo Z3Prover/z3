@@ -1070,9 +1070,11 @@ void cmd_context::insert_rec_fun(func_decl* f, expr_ref_vector const& binding, s
 }
 
 func_decl * cmd_context::find_func_decl(symbol const & s) const {
+#if 0
     if (contains_macro(s)) {
         throw cmd_exception("invalid function declaration reference, named expressions (aka macros) cannot be referenced ", s);
     }
+#endif
     func_decls fs;
     if (m_func_decls.find(s, fs)) {
         if (fs.more_than_one())
