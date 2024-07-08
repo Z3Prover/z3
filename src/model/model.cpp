@@ -248,6 +248,7 @@ void model::compress(bool force_inline) {
     // by substituting in auxiliary definitions that can be eliminated.
 
     func_decl_ref_vector pinned(m);
+    ptr_vector<func_decl> sorted_decls;
     while (true) {
         top_sort ts(m);
         collect_deps(ts);
@@ -259,6 +260,7 @@ void model::compress(bool force_inline) {
         ts.m_occur_count.reset();
         for (func_decl * f : ts.top_sorted()) 
             collect_occs(ts, f);
+        sorted_decls.reset();
         
         // remove auxiliary declarations that are not used.
         for (func_decl * f : ts.top_sorted()) {
@@ -267,11 +269,13 @@ void model::compress(bool force_inline) {
                 unregister_decl(f);
                 removed.insert(f);
             }
+            else
+                sorted_decls.push_back(f);
         }
+        std::swap(m_decls, sorted_decls);
         if (removed.empty())
             break;
         TRACE("model", tout << "remove\n"; for (func_decl* f : removed) tout << f->get_name() << "\n";);
-        remove_decls(m_decls, removed);
         remove_decls(m_func_decls, removed);
         remove_decls(m_const_decls, removed);
     }
