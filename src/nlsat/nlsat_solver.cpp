@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    Nonlinear arithmetic satisfiability procedure.  The procedure is
+    Nonlinear arithmetic satisfiability procedure. The procedure is
     complete for nonlinear real arithmetic, but it also has limited
     support for integers.
 
