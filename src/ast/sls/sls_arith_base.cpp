@@ -28,13 +28,6 @@ namespace sls {
     }
 
     template<typename num_t>
-    void arith_base<num_t>::reset() {
-        m_bool_vars.reset();
-        m_vars.reset();
-        m_expr2var.reset();
-    }
-
-    template<typename num_t>
     void arith_base<num_t>::save_best_values() {
         for (auto& v : m_vars)
             v.m_best_value = v.m_value;
@@ -1070,11 +1063,6 @@ namespace sls {
 
     template<typename num_t>
     void arith_base<num_t>::mk_model(model& mdl) {
-        for (auto const& v : m_vars) {
-            expr* e = v.m_expr;
-            if (is_uninterp_const(e))
-                mdl.register_decl(to_app(e)->get_decl(), get_value(e));
-        }
     }
 }
 

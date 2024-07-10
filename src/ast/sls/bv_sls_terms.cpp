@@ -3,14 +3,11 @@ Copyright (c) 2024 Microsoft Corporation
 
 Module Name:
 
-    bv_sls.cpp
+    bv_sls_terms.cpp
 
 Abstract:
 
-    A Stochastic Local Search (SLS) engine
-    Uses invertibility conditions, 
-    interval annotations
-    don't care annotations
+    normalize bit-vector expressions to use only binary operators.
 
 Author:
 
@@ -19,7 +16,7 @@ Author:
 --*/
 
 #include "ast/ast_ll_pp.h"
-#include "ast/sls/bv_sls.h"
+#include "ast/sls/bv_sls_terms.h"
 #include "ast/rewriter/bool_rewriter.h"
 #include "ast/rewriter/bv_rewriter.h"
 
@@ -29,38 +26,16 @@ namespace bv {
         ctx(ctx),
         m(ctx.get_manager()), 
         bv(m),
-        m_translated(m) {}
+       m_axioms(m) {}
 
-    void sls_terms::init() {
-        for (auto t : ctx.subterms())
-            ensure_binary(t);
-
-        m_subterms.reset();
-        expr_fast_mark1 visited;
-        for (auto t : ctx.subterms())
-            m_subterms.push_back(translated(t));
-        for (auto t : m_subterms)
-            visited.mark(t, true);
-        for (unsigned i = 0; i < m_subterms.size(); ++i) {
-            auto t = m_subterms[i];
-            if (!is_app(t))
-                continue;
-            app* a = to_app(t);
-            for (expr* arg : *a) {
-                if (visited.is_marked(arg))
-                    continue;
-                visited.mark(arg, true);
-                m_subterms.push_back(arg);
-            }
-        }
-        std::stable_sort(m_subterms.begin(), m_subterms.end(), 
-            [](expr* a, expr* b) { return a->get_id() < b->get_id(); });
+    void sls_terms::register_term(expr* e) {
+        auto r = ensure_binary(e);
+        if (r != e)
+            m_axioms.push_back(m.mk_eq(e, r));
     }
 
-    void sls_terms::ensure_binary(expr* e) {
-        if (m_translated.get(e->get_id(), nullptr))
-            return;
-        
+    expr_ref sls_terms::ensure_binary(expr* e) {
+
         app* a = to_app(e);
         auto arg = [&](unsigned i) {
             return a->get_arg(i);
@@ -72,22 +47,7 @@ namespace bv {
         for (unsigned i = 1; i < num_args; ++i)\
             r = oper(r, arg(i)); \
 
-        if (bv.is_bv_and(e)) {
-            FOLD_OP(bv.mk_bv_and);
-        }
-        else if (bv.is_bv_or(e)) {
-            FOLD_OP(bv.mk_bv_or);
-        }
-        else if (bv.is_bv_xor(e)) {
-            FOLD_OP(bv.mk_bv_xor);
-        }
-        else if (bv.is_bv_add(e)) {
-            FOLD_OP(bv.mk_bv_add);
-        }
-        else if (bv.is_bv_mul(e)) {
-            FOLD_OP(bv.mk_bv_mul);
-        }
-        else if (bv.is_concat(e)) {
+        if (bv.is_concat(e)) {
             FOLD_OP(bv.mk_concat);
         }
         else if (bv.is_bv_sdiv(e) || bv.is_bv_sdiv0(e) || bv.is_bv_sdivi(e)) {
@@ -101,7 +61,7 @@ namespace bv {
         }
         else
             r = e;                   
-        m_translated.setx(e->get_id(), r);
+        return r;
     }
 
     expr_ref sls_terms::mk_sdiv(expr* x, expr* y) {
@@ -118,14 +78,16 @@ namespace bv {
         unsigned sz = bv.get_bv_size(x);
         rational N = rational::power_of_two(sz);
         expr_ref z(bv.mk_zero(sz), m);
-        expr* signx = bvr.mk_ule(bv.mk_numeral(N / 2, sz), x);
-        expr* signy = bvr.mk_ule(bv.mk_numeral(N / 2, sz), y);
-        expr* absx = br.mk_ite(signx, bvr.mk_bv_neg(x), x);
-        expr* absy = br.mk_ite(signy, bvr.mk_bv_neg(y), y);
-        expr* d = bv.mk_bv_udiv(absx, absy);
-        expr_ref r(br.mk_ite(br.mk_eq(signx, signy), d, bvr.mk_bv_neg(d)), m);
+        expr_ref o(bv.mk_one(sz), m);
+        expr_ref n1(bv.mk_numeral(N - 1, sz), m);
+        expr_ref signx = bvr.mk_ule(bv.mk_numeral(N / 2, sz), x);
+        expr_ref signy = bvr.mk_ule(bv.mk_numeral(N / 2, sz), y);
+        expr_ref absx = br.mk_ite(signx, bvr.mk_bv_neg(x), x);
+        expr_ref absy = br.mk_ite(signy, bvr.mk_bv_neg(y), y);
+        expr_ref d = expr_ref(bv.mk_bv_udiv(absx, absy), m);
+        expr_ref r = br.mk_ite(br.mk_eq(signx, signy), d, bvr.mk_bv_neg(d));
         r = br.mk_ite(br.mk_eq(z, y),
-                     br.mk_ite(signx, bv.mk_one(sz), bv.mk_numeral(N - 1, sz)),
+                br.mk_ite(signx, o, n1),
                      br.mk_ite(br.mk_eq(x, z), z, r));
         return r;
     }
@@ -142,9 +104,9 @@ namespace bv {
         bv_rewriter bvr(m);
         unsigned sz = bv.get_bv_size(x);
         expr_ref z(bv.mk_zero(sz), m);
-        expr_ref abs_x(br.mk_ite(bvr.mk_sle(z, x), x, bvr.mk_bv_neg(x)), m);
-        expr_ref abs_y(br.mk_ite(bvr.mk_sle(z, y), y, bvr.mk_bv_neg(y)), m);
-        expr_ref u(bvr.mk_bv_urem(abs_x, abs_y), m);
+        expr_ref abs_x = br.mk_ite(bvr.mk_sle(z, x), x, bvr.mk_bv_neg(x));
+        expr_ref abs_y = br.mk_ite(bvr.mk_sle(z, y), y, bvr.mk_bv_neg(y));
+        expr_ref u = bvr.mk_bv_urem(abs_x, abs_y);
         expr_ref r(m);
         r = br.mk_ite(br.mk_eq(u, z), z,
                 br.mk_ite(br.mk_eq(y, z), x,

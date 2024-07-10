@@ -47,7 +47,7 @@ namespace bv {
 
         scoped_ptr_vector<sls_valuation> m_values; // expr-id -> bv valuation
 
-        mutable bvect m_tmp, m_tmp2, m_tmp3, m_tmp4, m_zero, m_one, m_minus_one;
+        mutable bvect m_tmp, m_tmp2, m_tmp3, m_tmp4, m_mul_tmp, m_zero, m_one, m_minus_one;
         bvect m_a, m_b, m_nextb, m_nexta, m_aux;
 
         using bvval = sls_valuation;
@@ -64,16 +64,21 @@ namespace bv {
         //bool bval1_basic(app* e) const;
         bool bval1_bv(app* e) const;  
 
+        void fold_oper(bvect& out, app* e, unsigned i, std::function<void(bvect&, bvval const&)> const& f);
         /**
         * Repair operations
         */
         bool try_repair_bv(app * e, unsigned i);
         bool try_repair_band(bvect const& e, bvval& a, bvval const& b);
+        bool try_repair_band(app* t, unsigned i);
         bool try_repair_bor(bvect const& e, bvval& a, bvval const& b);
+        bool try_repair_bor(app* t, unsigned i);
         bool try_repair_add(bvect const& e, bvval& a, bvval const& b);
+        bool try_repair_add(app* t, unsigned i);
         bool try_repair_sub(bvect const& e, bvval& a, bvval& b, unsigned i);
-        bool try_repair_mul(bvect const& e, bvval& a, bvval const& b);
+        bool try_repair_mul(bvect const& e, bvval& a, bvect const& b);
         bool try_repair_bxor(bvect const& e, bvval& a, bvval const& b);
+        bool try_repair_bxor(app* t, unsigned i);
         bool try_repair_bnot(bvect const& e, bvval& a);
         bool try_repair_bneg(bvect const& e, bvval& a);
         bool try_repair_ule(bool e, bvval& a, bvval const& b);
@@ -125,7 +130,7 @@ namespace bv {
         /**
          * Retrieve evaluation based on immediate children.
          */
-        bool bval1(app* e) const;
+
         bool can_eval1(app* e) const;
 
     public:
@@ -158,6 +163,8 @@ namespace bv {
         bool re_eval_is_correct(app* e);
 
         expr_ref get_value(app* e);
+
+        bool bval1(app* e) const;
       
         /*
          * Try to invert value of child to repair value assignment of parent.
@@ -171,7 +178,7 @@ namespace bv {
         bool repair_up(expr* e);
 
 
-        std::ostream& display(std::ostream& out, expr_ref_vector const& es);
+        std::ostream& display(std::ostream& out);
 
         std::ostream& display_value(std::ostream& out, expr* e);
     };

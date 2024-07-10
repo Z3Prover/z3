@@ -36,7 +36,6 @@ namespace sls {
         expr_ref get_value(expr* e) override;
         lbool check() override;
         bool is_sat() override;
-        void reset() override;
 
         void on_rescale() override;
         void on_restart() override;

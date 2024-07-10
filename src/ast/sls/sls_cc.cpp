@@ -34,10 +34,6 @@ namespace sls {
         UNREACHABLE();
         return expr_ref(m);
     }
-        
-    void cc_plugin::reset() {
-        m_app.reset();
-    }
 
     void cc_plugin::register_term(expr* e) {
         if (!is_app(e))

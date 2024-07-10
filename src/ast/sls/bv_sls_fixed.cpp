@@ -28,7 +28,7 @@ namespace bv {
     {}
 
     void sls_fixed::init() {
-        for (auto e : terms.subterms())
+        for (auto e : ctx.subterms())
             set_fixed(e);
 
         for (auto const& c : ctx.clauses()) {
@@ -37,13 +37,12 @@ namespace bv {
                 auto a = ctx.atom(lit.var());
                 if (!a)
                     continue;
-                a = terms.translated(a);
                 if (is_app(a))
                     init_range(to_app(a), lit.sign());
                 ev.m_fixed.setx(a->get_id(), true, false);
             }
         }
-        for (auto e : terms.subterms())
+        for (auto e : ctx.subterms())
             propagate_range_up(e);    
     }
 

@@ -41,7 +41,6 @@ namespace sls {
         virtual void init_bool_var(sat::bool_var v) = 0;
         virtual lbool check() = 0;
         virtual bool is_sat() = 0;
-        virtual void reset() {};
         virtual void on_rescale() {};
         virtual void on_restart() {};
         virtual std::ostream& display(std::ostream& out) const = 0;
@@ -98,7 +97,7 @@ namespace sls {
 
         // Between SAT/SMT solver and context.
         void register_atom(sat::bool_var v, expr* e);
-        void reset();
+        // void reset();
         lbool check();       
 
         // expose sat_solver to plugins
@@ -109,6 +108,8 @@ namespace sls {
         unsigned num_bool_vars() const { return s.num_vars(); }
         bool is_true(sat::literal lit) { return s.is_true(lit); }  
         expr* atom(sat::bool_var v) { return m_atoms.get(v, nullptr); }
+        expr* term(unsigned id) const { return m_allterms.get(id); }
+        sat::bool_var atom2bool_var(expr* e) const { return m_atom2bool_var.get(e->get_id(), sat::null_bool_var); }
         void flip(sat::bool_var v) { s.flip(v); }
         double reward(sat::bool_var v) { return s.reward(v); }
         indexed_uint_set const& unsat() const { return s.unsat(); }
@@ -117,6 +118,11 @@ namespace sls {
         sat::literal_vector const& root_literals() const { return m_root_literals; }
 
         void reinit_relevant();
+
+        ptr_vector<expr> const& parents(expr* e) { 
+            m_parents.reserve(e->get_id() + 1); 
+            return m_parents[e->get_id()]; 
+        }
 
         // Between plugin solvers
         expr_ref get_value(expr* e);

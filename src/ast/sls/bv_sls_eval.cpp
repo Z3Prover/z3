@@ -26,7 +26,7 @@ namespace bv {
     {}   
 
     void sls_eval::init_eval(std::function<bool(expr*, unsigned)> const& eval) {
-        for (expr* e : terms.subterms()) {
+        for (expr* e : ctx.subterms()) {
             if (!is_app(e))
                 continue;
             app* a = to_app(e);
@@ -68,6 +68,7 @@ namespace bv {
             m_tmp2.push_back(0);           
             m_tmp3.push_back(0);
             m_tmp4.push_back(0);
+            m_mul_tmp.push_back(0);
             m_zero.push_back(0);
             m_one.push_back(0);
             m_a.push_back(0);
@@ -272,31 +273,46 @@ namespace bv {
             break;
         }
         case OP_BAND: {
-            SASSERT(e->get_num_args() == 2);
+            SASSERT(e->get_num_args() >= 2);
             auto const& a = wval(e->get_arg(0));
             auto const& b = wval(e->get_arg(1));
             for (unsigned i = 0; i < a.nw; ++i)
                 val.eval[i] = a.bits()[i] & b.bits()[i];
+            for (unsigned j = 2; j < e->get_num_args(); ++j) {
+                auto const& c = wval(e->get_arg(j));
+                for (unsigned i = 0; i < a.nw; ++i)
+                    val.eval[i] &= c.bits()[i];
+            }
             break;
         }
         case OP_BOR: {
-            SASSERT(e->get_num_args() == 2);
+            SASSERT(e->get_num_args() >= 2);
             auto const& a = wval(e->get_arg(0));
             auto const& b = wval(e->get_arg(1));
             for (unsigned i = 0; i < a.nw; ++i)
                 val.eval[i] = a.bits()[i] | b.bits()[i];
+            for (unsigned j = 2; j < e->get_num_args(); ++j) {
+                auto const& c = wval(e->get_arg(j));
+                for (unsigned i = 0; i < a.nw; ++i)
+                    val.eval[i] |= c.bits()[i];
+            }
             break;
         }
         case OP_BXOR: {
-            SASSERT(e->get_num_args() == 2);
+            SASSERT(e->get_num_args() >= 2);
             auto const& a = wval(e->get_arg(0));
             auto const& b = wval(e->get_arg(1));
             for (unsigned i = 0; i < a.nw; ++i)
                 val.eval[i] = a.bits()[i] ^ b.bits()[i];
+            for (unsigned j = 2; j < e->get_num_args(); ++j) {
+                auto const& c = wval(e->get_arg(j));
+                for (unsigned i = 0; i < a.nw; ++i)
+                    val.eval[i] ^= c.bits()[i];
+            }
             break;
         }
         case OP_BNAND: {
-            SASSERT(e->get_num_args() == 2);
+            VERIFY(e->get_num_args() == 2);
             auto const& a = wval(e->get_arg(0));
             auto const& b = wval(e->get_arg(1));
             for (unsigned i = 0; i < a.nw; ++i)
@@ -304,10 +320,15 @@ namespace bv {
             break;
         }
         case OP_BADD: {
-            SASSERT(e->get_num_args() == 2);
+            SASSERT(e->get_num_args() >= 2);
             auto const& a = wval(e->get_arg(0));
             auto const& b = wval(e->get_arg(1));
-            val.set_add(val.eval, a.bits(), b.bits());
+            for (unsigned i = 0; i < a.nw; ++i)
+                val.set_add(val.eval, a.bits(), b.bits());
+            for (unsigned j = 2; j < e->get_num_args(); ++j) {
+                auto const& c = wval(e->get_arg(j));
+                val.set_add(val.eval, val.eval, c.bits());
+            }
             break;
         }
         case OP_BSUB: {
@@ -318,11 +339,14 @@ namespace bv {
             break;
         }
         case OP_BMUL: {
-            SASSERT(e->get_num_args() == 2);
             auto const& a = wval(e->get_arg(0));
             auto const& b = wval(e->get_arg(1));
-            val.set_mul(m_tmp2, a.bits(), b.bits());
-            val.set(m_tmp2);
+            for (unsigned i = 0; i < a.nw; ++i)
+                val.set_mul(val.eval, a.bits(), b.bits());
+            for (unsigned j = 2; j < e->get_num_args(); ++j) {
+                auto const& c = wval(e->get_arg(j));
+                val.set_mul(val.eval, val.eval, c.bits());
+            }
             break;
         }
         case OP_CONCAT: {
@@ -600,17 +624,43 @@ namespace bv {
     bool sls_eval::try_repair_bv(app* e, unsigned i) {
         switch (e->get_decl_kind()) {
         case OP_BAND:
-            return try_repair_band(eval_value(e), wval(e, i), wval(e, 1 - i));
+            SASSERT(e->get_num_args() >= 2);
+            if (e->get_num_args() == 2)
+                return try_repair_band(eval_value(e), wval(e, i), wval(e, 1 - i));
+            else
+                return try_repair_band(e, i);
         case OP_BOR:
-            return try_repair_bor(eval_value(e), wval(e, i), wval(e, 1 - i));
+            SASSERT(e->get_num_args() >= 2);
+            if (e->get_num_args() == 2)
+                return try_repair_bor(eval_value(e), wval(e, i), wval(e, 1 - i));
+            else
+                return try_repair_bor(e, i);
         case OP_BXOR:
-            return try_repair_bxor(eval_value(e), wval(e, i), wval(e, 1 - i));
+            SASSERT(e->get_num_args() >= 2);
+            if (e->get_num_args() == 2)
+                return try_repair_bxor(eval_value(e), wval(e, i), wval(e, 1 - i));
+            else
+                return try_repair_bxor(e, i);
         case OP_BADD:
-            return try_repair_add(eval_value(e), wval(e, i), wval(e, 1 - i));
+            SASSERT(e->get_num_args() >= 2);
+            if (e->get_num_args() == 2)
+                return try_repair_add(eval_value(e), wval(e, i), wval(e, 1 - i));
+            else
+                return try_repair_add(e, i);
         case OP_BSUB:
             return try_repair_sub(eval_value(e), wval(e, 0), wval(e, 1), i);
         case OP_BMUL:
-            return try_repair_mul(eval_value(e), wval(e, i), wval(e, 1 - i));
+            SASSERT(e->get_num_args() >= 2);
+            if (e->get_num_args() == 2)
+                return try_repair_mul(eval_value(e), wval(e, i), eval_value(to_app(e->get_arg(1 - i))));
+            else {
+                auto const& a = wval(e, 0);
+                auto f = [&](bvect& out, bvval const& c) {
+                    a.set_mul(out, out, c.bits());
+                };
+                fold_oper(m_mul_tmp, e, i, f);
+                return try_repair_mul(eval_value(e), wval(e, i), m_mul_tmp);
+            }
         case OP_BNOT:
             return try_repair_bnot(eval_value(e), wval(e, i));
         case OP_BNEG:
@@ -734,8 +784,9 @@ namespace bv {
         case OP_BSDIV_I:
         case OP_BSDIV0:
             // these are currently compiled to udiv and urem.
-            UNREACHABLE();
-            return false;
+            // there is an equation that enforces equality between the semantics
+            // of these operators.
+            return true;
         default:
             return false;
         }
@@ -787,6 +838,19 @@ namespace bv {
         }
     }
 
+    void sls_eval::fold_oper(bvect& out, app* t, unsigned i, std::function<void(bvect&, bvval const&)> const& f) {
+        auto i2 = i == 0 ? 1 : 0;
+        auto const& c = wval(t->get_arg(i2));
+        for (unsigned j = 0; j < c.nw; ++j)
+            out[j] = c.bits()[j];
+        for (unsigned k = 1; k < t->get_num_args(); ++k) {
+            if (k == i || k == i2)
+                continue;
+            bvval const& c = wval(t->get_arg(k));
+            f(out, c);
+        }
+    }
+
     //
     // e = a & b
     // e[i] = 1 -> a[i] = 1
@@ -797,6 +861,21 @@ namespace bv {
     bool sls_eval::try_repair_band(bvect const& e, bvval& a, bvval const& b) {
         for (unsigned i = 0; i < a.nw; ++i)
             m_tmp[i] = ~a.fixed[i] & (e[i] | (~b.bits()[i] & random_bits()));
+        return a.set_repair(random_bool(), m_tmp);
+    }
+
+    bool sls_eval::try_repair_band(app* t, unsigned i) {
+        bvect const& e = eval_value(t);
+        auto f = [&](bvect& out, bvval const& c) {
+            for (unsigned j = 0; j < c.nw; ++j)
+                out[j] &= c.bits()[j];
+        };
+        fold_oper(m_tmp2, t, i, f);
+
+        bvval& a = wval(t, i);
+        for (unsigned j = 0; j < a.nw; ++j) 
+            m_tmp[j] = ~a.fixed[j] & (e[j] | (~m_tmp2[j] & random_bits()));
+
         return a.set_repair(random_bool(), m_tmp);
     }
 
@@ -811,9 +890,40 @@ namespace bv {
         return a.set_repair(random_bool(), m_tmp);
     }
 
+    bool sls_eval::try_repair_bor(app* t, unsigned i) {
+        bvect const& e = eval_value(t);
+        auto f = [&](bvect& out, bvval const& c) {
+            for (unsigned j = 0; j < c.nw; ++j)
+                out[j] |= c.bits()[j];
+        };
+        fold_oper(m_tmp2, t, i, f);
+        bvval& a = wval(t, i);
+        for (unsigned j = 0; j < a.nw; ++j)
+            m_tmp[j] = e[i] & (~m_tmp2[i] | random_bits());
+
+        return a.set_repair(random_bool(), m_tmp);
+    }
+
     bool sls_eval::try_repair_bxor(bvect const& e, bvval& a, bvval const& b) {
         for (unsigned i = 0; i < a.nw; ++i)
             m_tmp[i] = e[i] ^ b.bits()[i];
+        return a.set_repair(random_bool(), m_tmp);
+    }
+
+
+
+    bool sls_eval::try_repair_bxor(app* t, unsigned i) {
+        bvect const& e = eval_value(t);
+        auto f = [&](bvect& out, bvval const& c) {
+            for (unsigned j = 0; j < c.nw; ++j)
+                out[j] ^= c.bits()[j];
+        };
+        fold_oper(m_tmp2, t, i, f);
+
+        bvval& a = wval(t, i);
+        for (unsigned j = 0; j < a.nw; ++j)
+            m_tmp[j] = e[i] ^ m_tmp2[i];
+
         return a.set_repair(random_bool(), m_tmp);
     }
 
@@ -829,6 +939,22 @@ namespace bv {
                 return true;
         }
         return a.set_random(m_rand);        
+    }
+
+    bool sls_eval::try_repair_add(app* t, unsigned i) {
+        bvval& a = wval(t, i);
+        bvect const& e = eval_value(t);
+        if (m_rand(20) != 0) {
+            auto f = [&](bvect& out, bvval const& c) {
+                a.set_add(m_tmp2, m_tmp2, c.bits());
+            };
+            fold_oper(m_tmp2, t, i, f);
+            a.set_sub(m_tmp, e, m_tmp2);
+            if (a.try_set(m_tmp))
+                return true;
+        }
+        return a.set_random(m_rand);
+       
     }
 
     bool sls_eval::try_repair_sub(bvect const& e, bvval& a, bvval & b, unsigned i) {
@@ -850,11 +976,11 @@ namespace bv {
     * e = a*b, then a = e * b^-1
     * 8*e = a*(2b), then a = 4e*b^-1
     */
-    bool sls_eval::try_repair_mul(bvect const& e, bvval& a, bvval const& b) {
-        unsigned parity_e = b.parity(e);
-        unsigned parity_b = b.parity(b.bits());
+    bool sls_eval::try_repair_mul(bvect const& e, bvval& a, bvect const& b) {
+        unsigned parity_e = a.parity(e);
+        unsigned parity_b = a.parity(b);
 
-        if (b.is_zero(e)) {
+        if (a.is_zero(e)) {
             a.get_variant(m_tmp, m_rand);
             if (m_rand(10) != 0)
                 for (unsigned i = 0; i < b.bw - parity_b; ++i)
@@ -862,7 +988,7 @@ namespace bv {
             return a.set_repair(random_bool(), m_tmp);
         }
 
-        if (b.is_zero() || m_rand(20) == 0) {
+        if (m_rand(20) == 0) {
             a.get_variant(m_tmp, m_rand);
             return a.set_repair(random_bool(), m_tmp);            
         }      
@@ -890,9 +1016,9 @@ namespace bv {
 
         // x*ta + y*tb = x
 
-        b.get(y);
+        b.copy_to(a.nw, y);
         if (parity_b > 0) {
-            b.shift_right(y, parity_b);
+            a.shift_right(y, parity_b);
 #if 0
             for (unsigned i = parity_b; i < b.bw; ++i)
                 y.set(i, m_rand(2) == 0);
@@ -937,15 +1063,15 @@ namespace bv {
     
         tb.set_bw(0);
 #if Z3DEBUG
-        b.get(y);
+        b.copy_to(a.nw, y);
         if (parity_b > 0)
-            b.shift_right(y, parity_b);
+            a.shift_right(y, parity_b);
         a.set_mul(m_tmp, tb, y);
         SASSERT(a.is_one(m_tmp));
 #endif
         e.copy_to(b.nw, m_tmp2);
         if (parity_e > 0 && parity_b > 0)
-            b.shift_right(m_tmp2, std::min(parity_b, parity_e));
+            a.shift_right(m_tmp2, std::min(parity_b, parity_e));
         a.set_mul(m_tmp, tb, m_tmp2);
         if (a.set_repair(random_bool(), m_tmp))
             return true;
@@ -1773,17 +1899,16 @@ namespace bv {
         return expr_ref(m);
     }
 
-    std::ostream& sls_eval::display(std::ostream& out, expr_ref_vector const& es) {
-#if 0
-        auto& terms = sort_assertions(es);
+    std::ostream& sls_eval::display(std::ostream& out) {
+        auto& terms = ctx.subterms();
         for (expr* e : terms) {
+            if (!bv.is_bv(e))
+                continue;
             out << e->get_id() << ": " << mk_bounded_pp(e, m, 1) << " ";
             if (is_fixed0(e))
                 out << "f ";
             display_value(out, e) << "\n";
         }
-        terms.reset();
-#endif
         return out;
     }
 

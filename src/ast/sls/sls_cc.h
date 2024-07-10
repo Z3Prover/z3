@@ -41,7 +41,6 @@ namespace sls {
         expr_ref get_value(expr* e) override;
         lbool check() override;
         bool is_sat() override;
-        void reset() override;
         void register_term(expr* e) override;
         void init_bool_var(sat::bool_var v) override {}
         std::ostream& display(std::ostream& out) const override;

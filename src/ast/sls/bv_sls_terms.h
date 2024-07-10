@@ -32,10 +32,9 @@ namespace bv {
         sls::context&       ctx;
         ast_manager&        m;
         bv_util             bv;
-        expr_ref_vector     m_translated;
-        ptr_vector<expr>    m_subterms;
+        expr_ref_vector     m_axioms;
 
-        void ensure_binary(expr* e);
+        expr_ref ensure_binary(expr* e);
 
         expr_ref mk_sdiv(expr* x, expr* y);
         expr_ref mk_smod(expr* x, expr* y);
@@ -44,14 +43,8 @@ namespace bv {
     public:
         sls_terms(sls::context& ctx);       
 
-        /**
-         * Initialize structures: assertions, parents, terms
-         */        
-        void init();
+        void register_term(expr* e);
 
-        expr* translated(expr* e) const { return m_translated.get(e->get_id(), nullptr); }
-
-        ptr_vector<expr> const& subterms() const { return m_subterms; }
-
+        expr_ref_vector& axioms() { return m_axioms; }
     };
 }

@@ -7,7 +7,8 @@ z3_add_component(ast_sls
     sat_ddfw.cpp
     sls_arith_base.cpp
     sls_arith_plugin.cpp
-    sls_bv.cpp
+    sls_basic_plugin.cpp
+    sls_bv_plugin.cpp
     sls_cc.cpp
     sls_engine.cpp
     sls_smt.cpp

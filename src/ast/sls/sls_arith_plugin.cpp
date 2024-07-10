@@ -86,13 +86,6 @@ namespace sls {
             return m_arith64->is_sat();
         return m_arith->is_sat();
     }
-    void arith_plugin::reset() {
-        if (m_arith) 
-            m_arith->reset();        
-        else 
-            m_arith64->reset();    
-        m_shared.reset();
-    }
 
     void arith_plugin::on_rescale() {
         if (m_arith) 

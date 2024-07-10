@@ -3,7 +3,7 @@ Copyright (c) 2020 Microsoft Corporation
 
 Module Name:
 
-    sls_bv.h
+    sls_bv_plugin.h
 
 Abstract:
 
@@ -31,23 +31,34 @@ namespace sls {
 
         indexed_uint_set    m_repair_up, m_repair_roots;
         unsigned            m_repair_down = UINT_MAX;
+        bool                m_initialized = false;
 
-        std::pair<bool, app*> next_to_repair();
+        void repair_literal(sat::literal lit);
+
+        void repair_defs_and_updates();
+
+        void init_bool_var_assignment(sat::bool_var v);
+
+        void try_repair_down(app* e);
+        void set_repair_down(expr* e) { m_repair_down = e->get_id(); }
+        void try_repair_up(app* e);
+
+        std::ostream& bv_plugin::trace_repair(bool down, expr* e);
+        void trace();
 
     public:
         bv_plugin(context& ctx);
         ~bv_plugin() override {}
-        void init_bool_var(sat::bool_var v) override;
+        void init_bool_var(sat::bool_var v) override {}
         void register_term(expr* e) override;
         expr_ref get_value(expr* e) override;
         lbool check() override;
         bool is_sat() override;
-        void reset() override;
 
-        void on_rescale() override;
-        void on_restart() override;
+        void on_rescale() override {}
+        void on_restart() override {}
         std::ostream& display(std::ostream& out) const override;
-        void mk_model(model& mdl) override;
+        void mk_model(model& mdl) override {}
         void set_shared(expr* e) override;
         void set_value(expr* e, expr* v) override;
     };

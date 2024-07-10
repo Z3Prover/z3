@@ -19,18 +19,22 @@ Author:
 #include "ast/sls/sls_smt.h"
 #include "ast/sls/sls_cc.h"
 #include "ast/sls/sls_arith_plugin.h"
+#include "ast/sls/sls_bv_plugin.h"
+#include "ast/sls/sls_basic_plugin.h"
 
 namespace sls {
 
     plugin::plugin(context& c): 
         ctx(c), 
         m(c.get_manager()) {
-        reset();
     }
 
     context::context(ast_manager& m, sat_solver_context& s) : 
         m(m), s(s), m_atoms(m), m_allterms(m) {
-        reset();
+        register_plugin(alloc(cc_plugin, *this));
+        register_plugin(alloc(arith_plugin, *this));
+        register_plugin(alloc(bv_plugin, *this));
+        register_plugin(alloc(basic_plugin, *this));
     }
 
     void context::register_plugin(plugin* p) {
@@ -41,19 +45,6 @@ namespace sls {
     void context::register_atom(sat::bool_var v, expr* e) { 
         m_atoms.setx(v, e); 
         m_atom2bool_var.setx(e->get_id(), v, sat::null_bool_var);
-    }
-    
-    void context::reset() {
-        m_plugins.reset();
-        m_atoms.reset();
-        m_atom2bool_var.reset();
-        m_initialized = false;
-        m_parents.reset();
-        m_relevant.reset();
-        m_visited.reset();
-        m_allterms.reset();
-        register_plugin(alloc(cc_plugin, *this));
-        register_plugin(alloc(arith_plugin, *this));
     }
     
     lbool context::check() {
@@ -75,6 +66,9 @@ namespace sls {
                 return l_undef;
             if (all_of(m_plugins, [&](auto* p) { return !p || p->is_sat(); })) {
                 model_ref mdl = alloc(model, m);
+                for (expr* e : subterms()) 
+                    if (is_uninterp_const(e))
+                        mdl->register_decl(to_app(e)->get_decl(), get_value(e));                
                 for (auto p : m_plugins)
                     if (p)
                         p->mk_model(*mdl);
@@ -99,10 +93,6 @@ namespace sls {
     }
 
     expr_ref context::get_value(expr* e) {
-        if (m.is_bool(e)) {
-            auto v = m_atom2bool_var[e->get_id()];
-            return expr_ref(is_true(sat::literal(v, false)) ? m.mk_true() : m.mk_false(), m);
-        }
         sort* s = e->get_sort();
         auto fid = s->get_family_id();
         auto p = m_plugins.get(fid, nullptr);
