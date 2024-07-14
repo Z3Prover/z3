@@ -28,7 +28,8 @@ namespace sls {
         auto a = ctx.atom(lit.var());
         if (!a || !is_app(a))
             return;
-        SASSERT(to_app(a)->get_family_id() != basic_family_id);
+        if (to_app(a)->get_family_id() != basic_family_id)
+            return;
         if (bval1(to_app(a)) != bval0(to_app(a)))
             ctx.new_value_eh(a);
     }
@@ -62,10 +63,7 @@ namespace sls {
     void basic_plugin::set_value(expr* e, expr* v) {
         if (!m.is_bool(e))
             return;
-        SASSERT(m.is_bool(v));
         SASSERT(m.is_true(v) || m.is_false(v));
-        if (bval0(e) != m.is_true(v))
-            return;
         set_value(e, m.is_true(v));
     }
 
@@ -198,16 +196,21 @@ namespace sls {
     }
 
     bool basic_plugin::try_repair_ite(app* e, unsigned i) {
-        auto child = e->get_arg(i);
-        bool c = bval0(e->get_arg(0));
-        if (i == 0) 
-            return set_value(child, !c);
-        
-        if (c != (i == 1))
+        if (!m.is_bool(e))
             return false;
-        if (m.is_bool(e)) 
-            return set_value(child, bval0(e));        
-        return false;
+        auto child = e->get_arg(i);
+        auto cond = e->get_arg(0);
+        bool c = bval0(cond);
+        if (i == 0) {
+            if (ctx.rand(2) == 0)        
+                return set_value(cond, true) && set_value(e->get_arg(1), bval0(e));
+            else
+                return set_value(cond, false) && set_value(e->get_arg(2), bval0(e));
+        }
+
+        if (!set_value(child, bval0(e)))
+            return false;
+        return (c == (i == 1)) || set_value(cond, !c);                  
     }
 
     bool basic_plugin::try_repair_implies(app* e, unsigned i) {
@@ -234,12 +237,10 @@ namespace sls {
             return true;
         if (i == 1 && bv && !av)
             return true;
-        if (i == 0) {
-            return set_value(child, true) && set_value(sibling, false);
-        }
-        if (i == 1) {
-            return set_value(child, false) && set_value(sibling, true);          
-        }
+        if (i == 0) 
+            return set_value(child, true) && set_value(sibling, false);        
+        if (i == 1) 
+            return set_value(child, false) && set_value(sibling, true);                  
         return false;
     }
 
