@@ -24,24 +24,21 @@ namespace sls {
         return expr_ref(m.mk_bool_val(bval0(e)), m);
     }
 
-    lbool basic_plugin::check() {
-        init();
-        for (sat::literal lit : ctx.root_literals())
-            repair_literal(lit);
-        repair_defs_and_updates();
-        return ctx.unsat().empty() ? l_true : l_undef;
+    void basic_plugin::propagate_literal(sat::literal lit) {
+        auto a = ctx.atom(lit.var());
+        if (!a || !is_app(a))
+            return;
+        SASSERT(to_app(a)->get_family_id() != basic_family_id);
+        if (bval1(to_app(a)) != bval0(to_app(a)))
+            ctx.new_value_eh(a);
     }
 
-    void basic_plugin::init() {
-        m_repair_down = UINT_MAX;
-        m_repair_roots.reset();
-        m_repair_up.reset();
-        if (m_initialized)
-            return;
-        m_initialized = true;
-        for (auto t : ctx.subterms())
-            if (is_app(t) && m.is_bool(t) && to_app(t)->get_family_id() == basic_family_id)
-                m_values.setx(t->get_id(), bval1(to_app(t)), false);
+    void basic_plugin::register_term(expr* e) {
+        if (is_app(e) && m.is_bool(e) && to_app(e)->get_family_id() == basic_family_id)
+            m_values.setx(e->get_id(), bval1(to_app(e)), false);
+    }
+
+    void basic_plugin::initialize() {
     }
 
     bool basic_plugin::is_sat() {
@@ -70,7 +67,6 @@ namespace sls {
         if (bval0(e) != m.is_true(v))
             return;
         set_value(e, m.is_true(v));
-        m_repair_roots.insert(e->get_id());
     }
 
     bool basic_plugin::bval1(app* e) const {
@@ -133,7 +129,7 @@ namespace sls {
         if (v == sat::null_bool_var)
             return m_values.get(e->get_id(), false);
         else
-            return ctx.is_true(sat::literal(v, false));
+            return ctx.is_true(v);
     }
 
     bool basic_plugin::try_repair(app* e, unsigned i) {
@@ -157,8 +153,7 @@ namespace sls {
         case OP_ITE:
             return try_repair_ite(e, i);
         case OP_DISTINCT:
-            NOT_IMPLEMENTED_YET();
-            return false;
+            return try_repair_distinct(e, i);
         default:
             UNREACHABLE();
             return false;
@@ -167,17 +162,21 @@ namespace sls {
 
     bool basic_plugin::try_repair_and_or(app* e, unsigned i) {
         auto b = bval0(e);
+        if ((b && m.is_and(e)) || (!b && m.is_or(e))) {
+            for (auto arg : *e)
+                if (!set_value(arg, b))
+                    return false;
+            return true;
+        }      
         auto child = e->get_arg(i);
         if (b == bval0(child))
             return false;
-        set_value(child, b);
-        return true;
+        return set_value(child, b);
     }
 
     bool basic_plugin::try_repair_not(app* e) {
         auto child = e->get_arg(0);
-        set_value(child, !bval0(e));
-        return true;
+        return set_value(child, !bval0(e));
     }
 
     bool basic_plugin::try_repair_eq(app* e, unsigned i) {
@@ -185,129 +184,111 @@ namespace sls {
         auto sibling = e->get_arg(1 - i);
         if (!m.is_bool(child))
             return false;
-        set_value(child, bval0(e) == bval0(sibling));
-        return true;
+        return set_value(child, bval0(e) == bval0(sibling));
     }
 
     bool basic_plugin::try_repair_xor(app* e, unsigned i) {
-        bool ev = bval0(e);
-        bool bv = bval0(e->get_arg(1 - i));
         auto child = e->get_arg(i);
-        set_value(child, ev != bv);
-        return true;
+        bool bv = false;
+        for (unsigned j = 0; j < e->get_num_args(); ++j)
+            if (j != i)
+                bv ^= bval0(e->get_arg(j));
+        bool ev = bval0(e);
+        return set_value(child, ev != bv);
     }
 
     bool basic_plugin::try_repair_ite(app* e, unsigned i) {
         auto child = e->get_arg(i);
         bool c = bval0(e->get_arg(0));
-        if (i == 0) {
-            set_value(child, !c);
-            return true;
-        }
+        if (i == 0) 
+            return set_value(child, !c);
+        
         if (c != (i == 1))
             return false;
-        if (m.is_bool(e)) {
-            set_value(child, bval0(e));
-            return true;
-        }
+        if (m.is_bool(e)) 
+            return set_value(child, bval0(e));        
         return false;
     }
 
     bool basic_plugin::try_repair_implies(app* e, unsigned i) {
         auto child = e->get_arg(i);
+        auto sibling = e->get_arg(1 - i);
         bool ev = bval0(e);
         bool av = bval0(child);
-        bool bv = bval0(e->get_arg(1 - i));
-        if (i == 0) {
-            if (ev == (!av || bv))
-                return false;
-        }
-        else if (ev != (!bv || av))
+        bool bv = bval0(sibling);
+        if (ev) {
+
+            if (i == 0 && (!av || bv))
+                return true;
+            if (i == 1 && (!bv || av))
+                return true;
+            if (i == 0) {
+                return set_value(child, false);
+            }
+            if (i == 1) {
+                return set_value(child, true);
+            }
             return false;
-        set_value(child, ev);
-        return true;
+        }
+        if (i == 0 && av && !bv)
+            return true;
+        if (i == 1 && bv && !av)
+            return true;
+        if (i == 0) {
+            return set_value(child, true) && set_value(sibling, false);
+        }
+        if (i == 1) {
+            return set_value(child, false) && set_value(sibling, true);          
+        }
+        return false;
     }
 
-    bool basic_plugin::repair_up(expr* e) {
-        if (!m.is_bool(e))
-            return false;
-        auto b = bval1(to_app(e));
+    void basic_plugin::repair_up(app* e) {
+        if (!m.is_bool(e) || e->get_family_id() != basic_family_id)
+            return;
+        auto b = bval1(e);
+        if (bval0(e) == b)
+            return;
         set_value(e, b);
-        return true;
     }
 
     void basic_plugin::repair_down(app* e) {
         SASSERT(m.is_bool(e));
         unsigned n = e->get_num_args();
-        if (n == 0 || e->get_family_id() != m.get_basic_family_id()) {
-            for (auto p : ctx.parents(e))               
-                m_repair_up.insert(p->get_id());
-            ctx.set_value(e, m.mk_bool_val(bval0(e)));
+        if (n == 0 || e->get_family_id() != m.get_basic_family_id()) 
             return;
-        }
+        
         if (bval0(e) == bval1(e))
             return;
         unsigned s = ctx.rand(n);
         for (unsigned i = 0; i < n; ++i) {
             auto j = (i + s) % n;
-            if (try_repair(e, j)) {
-                m_repair_down = e->get_arg(j)->get_id();
-                return;
-            }
+            if (try_repair(e, j)) 
+                return;            
         }
-        m_repair_up.insert(e->get_id());
+        set_value(e, bval1(e));
     }
 
-
-    void basic_plugin::repair_defs_and_updates() {
-        if (!m_repair_roots.empty() ||
-            !m_repair_up.empty() ||
-            m_repair_down != UINT_MAX) {
-
-            while (m_repair_down != UINT_MAX) {
-                auto e = ctx.term(m_repair_down);
-                repair_down(to_app(e));
-            }
-
-            while (!m_repair_up.empty()) {
-                auto id = m_repair_up.elem_at(rand() % m_repair_up.size());
-                auto e = ctx.term(id);
-                m_repair_up.remove(id);
-                repair_up(to_app(e));
-            }
-
-            if (!m_repair_roots.empty()) {
-                auto id = m_repair_roots.elem_at(rand() % m_repair_roots.size());
-                m_repair_roots.remove(id);
-                m_repair_down = id;
-            }
-        }
+    bool basic_plugin::try_repair_distinct(app* e, unsigned i) {
+        return false;
     }
 
-    void basic_plugin::set_value(expr* e, bool b) {
+    bool basic_plugin::set_value(expr* e, bool b) {
+        if (m.is_true(e) && !b)
+            return false;
+        if (m.is_false(e) && b)
+            return false;
         sat::bool_var v = ctx.atom2bool_var(e);
         if (v == sat::null_bool_var) {
             if (m_values.get(e->get_id(), b) != b) {
                 m_values.set(e->get_id(), b);
-                ctx.set_value(e, m.mk_bool_val(b));
+                ctx.new_value_eh(e);
             }
         }
-        else if (ctx.is_true(sat::literal(v, false)) != b) {
+        else if (ctx.is_true(v) != b) {
             ctx.flip(v);
-            ctx.set_value(e, m.mk_bool_val(b));
+            ctx.new_value_eh(e);
         }
+        return true;
     }
-
-    void basic_plugin::repair_literal(sat::literal lit) {
-        if (!ctx.is_true(lit))
-            return;
-        auto a = ctx.atom(lit.var());
-        if (!a || !is_app(a))
-            return;
-        if (to_app(a)->get_family_id() != basic_family_id)
-            return;
-        if (bval1(to_app(a)) != bval0(to_app(a)))
-            m_repair_roots.insert(a->get_id());
-    }
-
 }

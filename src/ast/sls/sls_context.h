@@ -3,7 +3,7 @@ Copyright (c) 2024 Microsoft Corporation
 
 Module Name:
 
-    smt_sls.h
+    sls_context.h
 
 Abstract:
 
@@ -22,6 +22,7 @@ Author:
 #include "model/model.h"
 #include "util/scoped_ptr_vector.h"
 #include "util/obj_hashtable.h"
+#include "util/heap.h"
 
 namespace sls {
 
@@ -38,14 +39,16 @@ namespace sls {
         virtual family_id fid() { return m_fid; }
         virtual void register_term(expr* e) = 0;
         virtual expr_ref get_value(expr* e) = 0;
-        virtual void init_bool_var(sat::bool_var v) = 0;
-        virtual lbool check() = 0;
+        virtual void initialize() = 0;
+        virtual bool propagate() = 0;
+        virtual void propagate_literal(sat::literal lit) = 0;
+        virtual void repair_down(app* e) = 0;
+        virtual void repair_up(app* e) = 0;
         virtual bool is_sat() = 0;
         virtual void on_rescale() {};
         virtual void on_restart() {};
         virtual std::ostream& display(std::ostream& out) const = 0;
         virtual void mk_model(model& mdl) = 0;
-        virtual void set_shared(expr* e) = 0;
         virtual void set_value(expr* e, expr* v) = 0;
     };
 
@@ -68,6 +71,22 @@ namespace sls {
     };
     
     class context {
+        struct greater_depth {
+            context& c;
+            greater_depth(context& c) : c(c) {}
+            bool operator()(unsigned x, unsigned y) const {
+                return get_depth(c.term(x)) > get_depth(c.term(y));
+            }
+        };
+
+        struct less_depth {
+            context& c;
+            less_depth(context& c) : c(c) {}
+            bool operator()(unsigned x, unsigned y) const {
+                return get_depth(c.term(x)) < get_depth(c.term(y));
+            }
+        };
+
         ast_manager& m;
         sat_solver_context& s;
         scoped_ptr_vector<plugin> m_plugins;
@@ -81,23 +100,27 @@ namespace sls {
         bool m_new_constraint = false;
         expr_ref_vector m_allterms;
         ptr_vector<expr> m_subterms;
+        greater_depth m_gd;
+        less_depth m_ld;
+        heap<greater_depth> m_repair_down;
+        heap<less_depth> m_repair_up;
 
         void register_plugin(plugin* p);
 
         void init();
-        void init_bool_var(sat::bool_var v);
-        void register_terms();
         ptr_vector<expr> m_todo;
         void register_terms(expr* e);
         void register_term(expr* e);
         sat::bool_var mk_atom(expr* e);
+
+        void propagate_boolean_assignment();
+        void propagate_literal(sat::literal lit);
         
     public:
         context(ast_manager& m, sat_solver_context& s);
 
         // Between SAT/SMT solver and context.
         void register_atom(sat::bool_var v, expr* e);
-        // void reset();
         lbool check();       
 
         // expose sat_solver to plugins
@@ -107,6 +130,7 @@ namespace sls {
         double get_weight(unsigned clause_idx) { return s.get_weigth(clause_idx); }
         unsigned num_bool_vars() const { return s.num_vars(); }
         bool is_true(sat::literal lit) { return s.is_true(lit); }  
+        bool is_true(sat::bool_var v) { return s.is_true(sat::literal(v, false)); }
         expr* atom(sat::bool_var v) { return m_atoms.get(v, nullptr); }
         expr* term(unsigned id) const { return m_allterms.get(id); }
         sat::bool_var atom2bool_var(expr* e) const { return m_atom2bool_var.get(e->get_id(), sat::null_bool_var); }
@@ -126,13 +150,15 @@ namespace sls {
 
         // Between plugin solvers
         expr_ref get_value(expr* e);
-        bool is_true(expr* e);
-        bool is_fixed(expr* e);
         void set_value(expr* e, expr* v);
+        void new_value_eh(expr* e);
+        bool is_true(expr* e);
+        bool is_fixed(expr* e);        
         bool is_relevant(expr* e);  
         void add_constraint(expr* e);
         ptr_vector<expr> const& subterms();        
         ast_manager& get_manager() { return m; }
         std::ostream& display(std::ostream& out) const;
+
     };
 }

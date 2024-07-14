@@ -84,7 +84,7 @@ namespace sls {
         return true;
     }
 
-    lbool cc_plugin::check() {        
+    bool cc_plugin::propagate() {        
         bool new_constraint = false;
         for (auto & [f, ts] : m_app) {
             if (ts.size() <= 1)
@@ -108,7 +108,7 @@ namespace sls {
                     m_values.insert(t);
             }
         }
-        return new_constraint ? l_undef : l_true;
+        return new_constraint;
     }
 
     std::ostream& cc_plugin::display(std::ostream& out) const {

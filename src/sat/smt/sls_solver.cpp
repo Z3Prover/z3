@@ -17,7 +17,7 @@ Author:
 
 #include "sat/smt/sls_solver.h"
 #include "sat/smt/euf_solver.h"
-#include "ast/sls/sls_smt.h"
+#include "ast/sls/sls_context.h"
 
 namespace sls {
 

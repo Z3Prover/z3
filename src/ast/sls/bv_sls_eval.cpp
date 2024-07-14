@@ -14,6 +14,7 @@ Author:
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/sls/bv_sls.h"
+#include "ast/rewriter/th_rewriter.h"
 
 namespace bv {
 
@@ -25,29 +26,28 @@ namespace bv {
         m_fix(*this, terms, ctx)
     {}   
 
-    void sls_eval::init_eval(std::function<bool(expr*, unsigned)> const& eval) {
-        for (expr* e : ctx.subterms()) {
-            if (!is_app(e))
-                continue;
-            app* a = to_app(e);
-            if (!bv.is_bv(e))
-                continue;
-            add_bit_vector(a);
-            if (a->get_family_id() == bv.get_family_id())
-                init_eval_bv(a);
-            else if (is_uninterp(e)) {
-                auto& v = wval(e);
-                for (unsigned i = 0; i < v.bw; ++i)
-                    m_tmp.set(i, eval(e, i));
-                v.set_repair(random_bool(), m_tmp);                
-            }
+
+    void sls_eval::register_term(expr* e) {
+        if (!is_app(e))
+            return;
+        app* a = to_app(e);
+        add_bit_vector(a);
+        if (a->get_family_id() == bv.get_family_id())
+            init_eval_bv(a);
+        else if (bv.is_bv(e)) {
+            auto& v = wval(e);
+            for (unsigned i = 0; i < v.bw; ++i)
+                m_tmp.set(i, false);
+            v.set_repair(random_bool(), m_tmp);
         }
     }
 
-    bool sls_eval::add_bit_vector(app* e) {
+    void sls_eval::add_bit_vector(app* e) {
+        if (!bv.is_bv(e))
+            return;
         m_values.reserve(e->get_id() + 1);
         if (m_values.get(e->get_id()))
-            return false;
+            return;
         auto v = alloc_valuation(e);
         m_values.set(e->get_id(), v);
         expr* x, * y;
@@ -57,7 +57,7 @@ namespace bv {
         else if (bv.is_bv_ashr(e, x, y) && bv.is_numeral(y, val) && 
             val.is_unsigned() && val.get_unsigned() <= bv.get_bv_size(e)) 
             v->set_signed(val.get_unsigned());        
-        return true;
+        return;
     }
 
     sls_valuation* sls_eval::alloc_valuation(app* e) {
@@ -575,11 +575,19 @@ namespace bv {
                 val.set(val.eval, 0);
             break;
         }
+        case OP_INT2BV: {
+            expr_ref v = ctx.get_value(e->get_arg(0));
+            th_rewriter rw(m);
+            v = bv.mk_int2bv(bv.get_bv_size(e), v);
+            rw(v);
+            rational r;
+            VERIFY(bv.is_numeral(v, r));
+            val.set_value(m_tmp, r);
+            break;
+        }
         case OP_BREDAND:
         case OP_BREDOR:
         case OP_BXNOR:
-        case OP_INT2BV:
-
             verbose_stream() << mk_bounded_pp(e, m) << "\n";
             NOT_IMPLEMENTED_YET();
             break;
@@ -672,7 +680,7 @@ namespace bv {
         case OP_BV2INT:
             return false;
         case OP_INT2BV:
-            return false;
+            return try_repair_int2bv(eval_value(e), e->get_arg(0));          
         case OP_ULEQ:
             if (i == 0)
                 return try_repair_ule(bval0(e), wval(e, i), wval(e, 1 - i));
@@ -1804,6 +1812,16 @@ namespace bv {
         return a.set_random(m_rand);
     }
 
+    bool sls_eval::try_repair_int2bv(bvect const& e, expr* arg) {
+        expr_ref intval(m);
+        intval = bv.mk_bv2int(bv.mk_numeral(e.get_value(e.nw), e.bw));
+        th_rewriter rw(m);
+        rw(intval);
+        verbose_stream() << "repair " << mk_pp(arg, m) << " " << intval << "\n";
+        ctx.set_value(arg, intval);
+        return true;
+    }
+
     void sls_eval::set_div(bvect const& a, bvect const& b, unsigned bw,
         bvect& quot, bvect& rem) const {
         unsigned nw = (bw + 8 * sizeof(digit_t) - 1) / (8 * sizeof(digit_t));
@@ -1853,8 +1871,10 @@ namespace bv {
     }
 
     void sls_eval::commit_eval(app* e) {
-        if (bv.is_bv(e)) 
-            VERIFY(wval(e).commit_eval());        
+        if (!bv.is_bv(e))
+            return;
+        VERIFY(wval(e).commit_eval());        
+        // todo: if e is shared, then ctx.set_value().
     }
 
     void sls_eval::set_random(app* e) {
@@ -1899,7 +1919,7 @@ namespace bv {
         return expr_ref(m);
     }
 
-    std::ostream& sls_eval::display(std::ostream& out) {
+    std::ostream& sls_eval::display(std::ostream& out) const {
         auto& terms = ctx.subterms();
         for (expr* e : terms) {
             if (!bv.is_bv(e))
@@ -1912,7 +1932,7 @@ namespace bv {
         return out;
     }
 
-    std::ostream& sls_eval::display_value(std::ostream& out, expr* e) {
+    std::ostream& sls_eval::display_value(std::ostream& out, expr* e) const {
         if (bv.is_bv(e)) 
             return out << wval(e);
         return out << "?";

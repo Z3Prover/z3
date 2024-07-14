@@ -21,21 +21,9 @@ Author:
 
 namespace sls {
 
-    void arith_plugin::init_bool_var(sat::bool_var v) {
-        if (!m_arith) {
-            try {
-                m_arith64->init_bool_var(v);
-                return;
-            }
-            catch (overflow_exception&) {
-                m_arith = alloc(arith_base<rational>, ctx);
-                for (auto e : m_shared)
-                    m_arith->set_shared(e);
-                return; // initialization happens on check-sat calls
-            }
-        }
-        m_arith->init_bool_var(v);
-
+    void arith_plugin::init_backup() {
+        m_arith = alloc(arith_base<rational>, ctx);
+        m_arith->initialize();
     }
 
     void arith_plugin::register_term(expr* e) {
@@ -45,9 +33,7 @@ namespace sls {
                 return;
             }
             catch (overflow_exception&) {
-                m_arith = alloc(arith_base<rational>, ctx);
-                for (auto e : m_shared)
-                    m_arith->set_shared(e);
+                init_backup();
             }
         }
         m_arith->register_term(e);
@@ -59,32 +45,49 @@ namespace sls {
                 return m_arith64->get_value(e);
             }
             catch (overflow_exception&) {
-                m_arith = alloc(arith_base<rational>, ctx);
-                for (auto e : m_shared)
-                    m_arith->set_shared(e);
+                init_backup();
             }
         }
         return m_arith->get_value(e);
     }
 
-    lbool arith_plugin::check() {
+    void arith_plugin::initialize() {
+        if (m_arith) 
+            m_arith->initialize();
+        else 
+            m_arith64->initialize();
+    }
+
+    void arith_plugin::propagate_literal(sat::literal lit) {
         if (!m_arith) {
             try {
-                return m_arith64->check();
+                m_arith64->propagate_literal(lit);
+                return;
             }
             catch (overflow_exception&) {
-                m_arith = alloc(arith_base<rational>, ctx);
-                for (auto e : m_shared)
-                    m_arith->set_shared(e);
+                init_backup();
             }
-        }            
-        return m_arith->check();
+        }
+        m_arith->propagate_literal(lit);
+    }
+
+    bool arith_plugin::propagate() {
+        if (!m_arith) {
+            try {
+                return m_arith64->propagate();
+            }
+            catch (overflow_exception&) {
+                init_backup();
+            }
+        }
+        return m_arith->propagate();
     }
 
     bool arith_plugin::is_sat() {
-        if (!m_arith) 
+        if (m_arith) 
+            return m_arith->is_sat();
+        else
             return m_arith64->is_sat();
-        return m_arith->is_sat();
     }
 
     void arith_plugin::on_rescale() {
@@ -115,19 +118,30 @@ namespace sls {
             m_arith64->mk_model(mdl);        
     }
 
-    void arith_plugin::set_shared(expr* e) {
+    void arith_plugin::repair_down(app* e) {
+        if (m_arith) 
+            m_arith->repair_down(e);
+        else 
+            m_arith64->repair_down(e);
+    }
+
+    void arith_plugin::repair_up(app* e) {
         if (m_arith)
-            m_arith->set_shared(e);
-        else {
-            m_arith64->set_shared(e);
-            m_shared.push_back(e);
-        }
+            m_arith->repair_up(e);
+        else
+            m_arith64->repair_up(e);
     }
 
     void arith_plugin::set_value(expr* e, expr* v) {
-        if (m_arith)
-            m_arith->set_value(e, v);
-        else 
-            m_arith->set_value(e, v);
+        if (!m_arith) {
+            try {
+                m_arith64->set_value(e, v);
+                return;
+            }
+            catch (overflow_exception&) {
+                init_backup();
+            }
+        }
+        m_arith->set_value(e, v);
     }
 }

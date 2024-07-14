@@ -16,11 +16,12 @@ Author:
 --*/
 #pragma once
 
-#include "ast/sls/sls_smt.h"
+#include "ast/sls/sls_context.h"
 #include "ast/sls/sls_cc.h"
 #include "ast/sls/sls_arith_plugin.h"
 #include "ast/sls/sls_bv_plugin.h"
 #include "ast/sls/sls_basic_plugin.h"
+#include "ast/ast_ll_pp.h"
 
 namespace sls {
 
@@ -30,7 +31,11 @@ namespace sls {
     }
 
     context::context(ast_manager& m, sat_solver_context& s) : 
-        m(m), s(s), m_atoms(m), m_allterms(m) {
+        m(m), s(s), m_atoms(m), m_allterms(m),
+        m_gd(*this),
+        m_ld(*this),
+        m_repair_down(m.get_num_asts(), m_gd),
+        m_repair_up(m.get_num_asts(), m_ld) {
         register_plugin(alloc(cc_plugin, *this));
         register_plugin(alloc(arith_plugin, *this));
         register_plugin(alloc(bv_plugin, *this));
@@ -56,14 +61,12 @@ namespace sls {
         // 
         init();
         while (unsat().empty()) {
-            reinit_relevant();
-            for (auto p : m_plugins) {
-                lbool r;
-                if (p && (r = p->check()) != l_true)
-                    return r;
-            }
-            if (m_new_constraint)
+
+            propagate_boolean_assignment();
+
+            if (m_new_constraint || !unsat().empty())
                 return l_undef;
+
             if (all_of(m_plugins, [&](auto* p) { return !p || p->is_sat(); })) {
                 model_ref mdl = alloc(model, m);
                 for (expr* e : subterms()) 
@@ -74,17 +77,72 @@ namespace sls {
                         p->mk_model(*mdl);
                 s.on_model(mdl);
                 verbose_stream() << *mdl << "\n";
+                TRACE("sls", display(tout));
                 return l_true;
             }
         }
         return l_undef;
     }
 
+    void context::propagate_boolean_assignment() {
+        reinit_relevant();
+
+        for (sat::literal lit : root_literals()) {
+            if (m_new_constraint)
+                break;
+            propagate_literal(lit);
+        }
+
+        while (!m_new_constraint && (!m_repair_up.empty() || !m_repair_down.empty())) {
+            while (!m_repair_down.empty() && !m_new_constraint) {
+                auto id = m_repair_down.erase_min();
+                expr* e = term(id);                
+                if (is_app(e)) {
+                    auto p = m_plugins.get(to_app(e)->get_family_id(), nullptr);
+                    if (p)
+                        p->repair_down(to_app(e));
+                }
+            }
+            while (!m_repair_up.empty() && !m_new_constraint) {
+                auto id = m_repair_up.erase_min();
+                expr* e = term(id);
+                if (is_app(e)) {
+                    auto p = m_plugins.get(to_app(e)->get_family_id(), nullptr);
+                    if (p)
+                        p->repair_up(to_app(e));
+                }
+            }
+        }
+        // propagate "final checks"
+        bool propagated = true;
+        while (propagated && !m_new_constraint) {
+            propagated = false;
+            for (auto p : m_plugins)
+                propagated |= p && !m_new_constraint && p->propagate();
+        }        
+    }
+
+    void context::propagate_literal(sat::literal lit) {
+        if (!is_true(lit))
+            return;
+        auto a = atom(lit.var());
+        if (!a || !is_app(a))
+            return;
+        family_id fid = to_app(a)->get_family_id();
+        if (m.is_eq(a) || m.is_distinct(a))
+            fid = to_app(a)->get_arg(0)->get_sort()->get_family_id();
+        auto p = m_plugins.get(fid, nullptr);
+        if (p)
+            p->propagate_literal(lit);
+    }
+
     bool context::is_true(expr* e) {
         SASSERT(m.is_bool(e));
         auto v = m_atom2bool_var.get(e->get_id(), sat::null_bool_var);
-        SASSERT(v != sat::null_bool_var);
-        return is_true(sat::literal(v, false));
+        if (v != sat::null_bool_var)
+            return m.is_true(m_plugins[basic_family_id]->get_value(e));
+        else
+            return is_true(v);
     }
 
     bool context::is_fixed(expr* e) {
@@ -101,11 +159,11 @@ namespace sls {
         UNREACHABLE();
         return expr_ref(e, m);
     }
-    
-    void context::set_value(expr* e, expr* v) {
+
+    void context::set_value(expr * e, expr * v) {
         for (auto p : m_plugins)
             if (p)
-                p->set_value(e, v);       
+                p->set_value(e, v);        
     }
     
     bool context::is_relevant(expr* e) {
@@ -148,15 +206,8 @@ namespace sls {
             v = s.add_var();
             register_terms(e);
             register_atom(v, e);
-            init_bool_var(v);
         }
         return v;
-    }
-
-    void context::init_bool_var(sat::bool_var v) {
-        for (auto p : m_plugins)
-            if (p)
-                p->init_bool_var(v);
     }
 
     void context::init() {
@@ -164,15 +215,12 @@ namespace sls {
         if (m_initialized)
             return;
         m_initialized = true;
-        register_terms();
-        for (sat::bool_var v = 0; v < num_bool_vars(); ++v)
-            init_bool_var(v);
-    }
-  
-    void context::register_terms() {
         for (auto a : m_atoms)
             if (a)
                 register_terms(a);
+        for (auto p : m_plugins)
+            if (p)
+                p->initialize();
     }
 
     void context::register_terms(expr* e) {
@@ -210,6 +258,23 @@ namespace sls {
                 visit(e);
                 m_todo.pop_back();
             }
+        }
+    }
+
+    void context::new_value_eh(expr* e) {
+        DEBUG_CODE(
+            if (m.is_bool(e)) {
+                auto v = m_atom2bool_var.get(e->get_id(), sat::null_bool_var);
+                if (v != sat::null_bool_var) {
+                    SASSERT(m.is_true(get_value(e)) == is_true(v));
+                }                    
+            }
+        );
+        m_repair_down.reserve(e->get_id() + 1);
+        m_repair_down.insert(e->get_id());
+        for (auto p : parents(e)) {
+            m_repair_up.reserve(p->get_id() + 1);
+            m_repair_up.insert(p->get_id());
         }
     }
 
@@ -261,10 +326,14 @@ namespace sls {
     }
 
     std::ostream& context::display(std::ostream& out) const {
-        for (auto p : m_plugins) {
+        for (auto id : m_repair_down)
+            out << "d " << mk_bounded_pp(term(id), m) << "\n";
+        for (auto id : m_repair_up)
+            out << "u " << mk_bounded_pp(term(id), m) << "\n";
+        for (auto p : m_plugins) 
             if (p)
                 p->display(out);
-        }
+        
         return out;
     }
 }

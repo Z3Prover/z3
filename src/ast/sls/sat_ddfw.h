@@ -243,9 +243,13 @@ namespace sat {
         // access clause information and state of Boolean search
         indexed_uint_set& unsat_set() { return m_unsat; }
 
+        indexed_uint_set const& unsat_set() const { return m_unsat; }
+
         vector<clause_info> const& clauses() const { return m_clauses; }
 
         clause_info& get_clause_info(unsigned idx) { return m_clauses[idx]; }
+
+        clause_info const& get_clause_info(unsigned idx) const { return m_clauses[idx]; }
 
         void remove_assumptions();
 

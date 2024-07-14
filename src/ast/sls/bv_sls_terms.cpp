@@ -26,7 +26,7 @@ namespace bv {
         ctx(ctx),
         m(ctx.get_manager()), 
         bv(m),
-       m_axioms(m) {}
+        m_axioms(m) {}
 
     void sls_terms::register_term(expr* e) {
         auto r = ensure_binary(e);

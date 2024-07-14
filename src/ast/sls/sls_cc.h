@@ -17,7 +17,7 @@ Author:
 #pragma once
 
 #include "util/hashtable.h"
-#include "ast/sls/sls_smt.h"
+#include "ast/sls/sls_context.h"
 
 namespace sls {
     
@@ -39,14 +39,16 @@ namespace sls {
         ~cc_plugin() override;
         family_id fid() { return m_fid; }
         expr_ref get_value(expr* e) override;
-        lbool check() override;
+        void initialize() override {}
+        void propagate_literal(sat::literal lit) override {}       
+        bool propagate() override;
         bool is_sat() override;
         void register_term(expr* e) override;
-        void init_bool_var(sat::bool_var v) override {}
         std::ostream& display(std::ostream& out) const override;
         void mk_model(model& mdl) override;
         void set_value(expr* e, expr* v) override {}
-        void set_shared(expr* e) override {}
+        void repair_up(app* e) override {}
+        void repair_down(app* e) override {}
     };
     
 }

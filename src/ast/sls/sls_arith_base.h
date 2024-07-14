@@ -20,7 +20,7 @@ Author:
 #include "util/checked_int64.h"
 #include "ast/ast_trail.h"
 #include "ast/arith_decl_plugin.h"
-#include "ast/sls/sls_smt.h"
+#include "ast/sls/sls_context.h"
 
 namespace sls {
 
@@ -75,11 +75,11 @@ namespace sls {
                     out << " + " << m_coeff;
                 switch (m_op) {
                 case ineq_kind::LE:
-                    return out << " <= " << 0 << "(" << m_args_value << ")";
+                    return out << " <= " << 0 << "(" << m_args_value + m_coeff << ")";
                 case ineq_kind::EQ:
-                    return out << " == " << 0 << "(" << m_args_value << ")";
+                    return out << " == " << 0 << "(" << m_args_value + m_coeff << ")";
                 default:
-                    return out << " < " << 0 << "(" << m_args_value << ")";
+                    return out << " < " << 0 << "(" << m_args_value + m_coeff << ")";
                 }
             }
         };
@@ -101,6 +101,7 @@ namespace sls {
 
         struct mul_def {
             unsigned        m_var;
+            num_t           m_coeff;
             unsigned_vector m_monomial;
         };
 
@@ -109,8 +110,8 @@ namespace sls {
         };
 
         struct op_def {
-            unsigned m_var;
-            arith_op_kind m_op;
+            unsigned m_var = UINT_MAX;
+            arith_op_kind m_op = LAST_ARITH_OP;
             unsigned m_arg1, m_arg2;
         };
        
@@ -124,8 +125,6 @@ namespace sls {
         unsigned_vector              m_expr2var;
         bool                         m_dscore_mode = false;
         arith_util                   a;
-        unsigned_vector              m_defs_to_update;
-        vector<std::pair<var_t, num_t>> m_vars_to_update;
 
         unsigned get_num_vars() const { return m_vars.size(); }
 
@@ -139,10 +138,6 @@ namespace sls {
         void repair_abs(op_def const& od);
         void repair_to_int(op_def const& od);
         void repair_to_real(op_def const& od);
-        void repair_defs_and_updates();
-        void repair_defs();
-        void repair_updates();
-        void repair(sat::literal lit);
         void repair(sat::literal lit, ineq const& ineq);
 
         double reward(sat::literal lit);
@@ -179,15 +174,18 @@ namespace sls {
         bool is_num(expr* e, num_t& i);
         expr_ref from_num(sort* s, num_t const& n);
         void check_ineqs();
+        void init_bool_var(sat::bool_var v);
     public:
         arith_base(context& ctx);
-        ~arith_base() override {}
-        void init_bool_var(sat::bool_var v) override;
+        ~arith_base() override {}        
         void register_term(expr* e) override;
-        void set_shared(expr* e) override;
         void set_value(expr* e, expr* v) override;
         expr_ref get_value(expr* e) override;
-        lbool check() override;
+        void initialize() override {}
+        void propagate_literal(sat::literal lit) override;
+        bool propagate() override;
+        void repair_up(app* e) override;
+        void repair_down(app* e) override;
         bool is_sat() override;
         void on_rescale() override;
         void on_restart() override;

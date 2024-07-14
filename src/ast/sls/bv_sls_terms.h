@@ -24,7 +24,7 @@ Author:
 #include "ast/sls/sls_stats.h"
 #include "ast/sls/sls_powers.h"
 #include "ast/sls/sls_valuation.h"
-#include "ast/sls/sls_smt.h"
+#include "ast/sls/sls_context.h"
 
 namespace bv {
 

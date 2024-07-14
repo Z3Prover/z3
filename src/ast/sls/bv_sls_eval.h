@@ -19,7 +19,7 @@ Author:
 #include "ast/ast.h"
 #include "ast/sls/sls_valuation.h"
 #include "ast/sls/bv_sls_fixed.h"
-#include "ast/sls/sls_smt.h"
+#include "ast/sls/sls_context.h"
 #include "ast/bv_decl_plugin.h"
 
 namespace bv {
@@ -58,7 +58,7 @@ namespace bv {
         * Register e as a bit-vector. 
         * Return true if not already registered, false if already registered.
         */
-        bool add_bit_vector(app* e);
+        void add_bit_vector(app* e);
         sls_valuation* alloc_valuation(app* e);
 
         //bool bval1_basic(app* e) const;
@@ -109,6 +109,7 @@ namespace bv {
         bool try_repair_extract(bvect const& e, bvval& a, unsigned lo);
         bool try_repair_comp(bvect const& e, bvval& a, bvval& b, unsigned i);
         bool try_repair_eq(bool is_true, bvval& a, bvval const& b);
+        bool try_repair_int2bv(bvect const& e, expr* arg);
         void add_p2_1(bvval const& a, bvect& t) const;
 
         bool add_overflow_on_fixed(bvval const& a, bvect const& t);
@@ -136,9 +137,11 @@ namespace bv {
     public:
         sls_eval(sls_terms& terms, sls::context& ctx);
 
-        void init_eval(std::function<bool(expr*, unsigned)> const& eval);
+//        void init_eval(std::function<bool(expr*, unsigned)> const& eval);
 
         void tighten_range() { m_fix.init(); }
+
+        void register_term(expr* e);
 
         /**
          * Retrieve evaluation based on cache.
@@ -178,8 +181,8 @@ namespace bv {
         bool repair_up(expr* e);
 
 
-        std::ostream& display(std::ostream& out);
+        std::ostream& display(std::ostream& out) const;
 
-        std::ostream& display_value(std::ostream& out, expr* e);
+        std::ostream& display_value(std::ostream& out, expr* e) const;
     };
 }

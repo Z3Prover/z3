@@ -18,7 +18,7 @@ Author:
 
 #include "ast/ast.h"
 #include "ast/sls/sls_valuation.h"
-#include "ast/sls/sls_smt.h"
+#include "ast/sls/sls_context.h"
 #include "ast/bv_decl_plugin.h"
 
 namespace bv {
