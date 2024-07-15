@@ -57,31 +57,8 @@ namespace sls {
             num_t      m_args_value;
             unsigned   m_var_to_flip = UINT_MAX;
 
-            bool is_true() const {
-                switch (m_op) {
-                case ineq_kind::LE:
-                    return m_args_value + m_coeff <= 0;
-                case ineq_kind::EQ:
-                    return m_args_value + m_coeff == 0;
-                default:
-                    return m_args_value + m_coeff < 0;
-                }
-            }
-            std::ostream& display(std::ostream& out) const {
-                bool first = true;
-                for (auto const& [c, v] : m_args)
-                    out << (first ? "" : " + ") << c << " * v" << v, first = false;
-                if (m_coeff != 0)
-                    out << " + " << m_coeff;
-                switch (m_op) {
-                case ineq_kind::LE:
-                    return out << " <= " << 0 << "(" << m_args_value + m_coeff << ")";
-                case ineq_kind::EQ:
-                    return out << " == " << 0 << "(" << m_args_value + m_coeff << ")";
-                default:
-                    return out << " < " << 0 << "(" << m_args_value + m_coeff << ")";
-                }
-            }
+            bool is_true() const;
+            std::ostream& display(std::ostream& out) const;
         };
     private:
 
