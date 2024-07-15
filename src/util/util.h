@@ -326,6 +326,16 @@ void force_ptr_array_size(T & v, unsigned sz) {
     }
 }
 
+template<typename T>
+class ptr_iterator {
+    T const* b;
+    T const* e;
+public:
+    ptr_iterator(T const* b, T const* e): b(b), e(e) {}
+    T const* begin() const { return b; }
+    T const* end() const { return e; }
+};
+
 class random_gen {
     unsigned m_data;
 public:

@@ -270,11 +270,12 @@ namespace sat {
 
         inline unsigned num_vars() const { return m_vars.size(); }
 
-        std::initializer_list<unsigned> use_list(literal lit) { 
+
+        ptr_iterator<unsigned> use_list(literal lit) { 
             unsigned i = lit.index();
             auto const* b = m_flat_use_list.data() + m_use_list_index[i];
             auto const* e = m_flat_use_list.data() + m_use_list_index[i + 1];
-            return std::initializer_list(b, e);
+            return { b, e };            
         }
 
     };

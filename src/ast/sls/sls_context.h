@@ -52,13 +52,13 @@ namespace sls {
         virtual void set_value(expr* e, expr* v) = 0;
     };
 
-    using clause = std::initializer_list <sat::literal>;
+    using clause = ptr_iterator<sat::literal>;
 
     class sat_solver_context {
     public:
         virtual vector<sat::clause_info> const& clauses() const = 0;
         virtual sat::clause_info const& get_clause(unsigned idx) const = 0;
-        virtual std::initializer_list<unsigned> get_use_list(sat::literal lit) = 0;
+        virtual ptr_iterator<unsigned> get_use_list(sat::literal lit) = 0;
         virtual void flip(sat::bool_var v) = 0;
         virtual double reward(sat::bool_var v) = 0;
         virtual double get_weigth(unsigned clause_idx) = 0;
@@ -126,7 +126,7 @@ namespace sls {
         // expose sat_solver to plugins
         vector<sat::clause_info> const& clauses() const { return s.clauses(); }
         sat::clause_info const& get_clause(unsigned idx) const { return s.get_clause(idx); }
-        std::initializer_list<unsigned> get_use_list(sat::literal lit) { return s.get_use_list(lit); }
+        ptr_iterator<unsigned> get_use_list(sat::literal lit) { return s.get_use_list(lit); }
         double get_weight(unsigned clause_idx) { return s.get_weigth(clause_idx); }
         unsigned num_bool_vars() const { return s.num_vars(); }
         bool is_true(sat::literal lit) { return s.is_true(lit); }  
