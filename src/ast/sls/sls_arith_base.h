@@ -67,7 +67,6 @@ namespace sls {
             expr*        m_expr;
             num_t        m_value{ 0 };
             num_t        m_best_value{ 0 };
-            bool         m_shared = false;
             var_sort     m_sort;
             arith_op_kind m_op = arith_op_kind::LAST_ARITH_OP;
             unsigned     m_def_idx = UINT_MAX;
