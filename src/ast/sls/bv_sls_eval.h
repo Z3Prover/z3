@@ -148,6 +148,8 @@ namespace bv {
 
         sls_valuation& wval(expr* e) const;
 
+        void set(expr* e, sls_valuation const& val);
+
         bool is_fixed0(expr* e) const { return m_fixed.get(e->get_id(), false); }
         
         sls_valuation& eval(app* e) const;

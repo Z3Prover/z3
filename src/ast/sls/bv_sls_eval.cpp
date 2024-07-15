@@ -13,7 +13,7 @@ Author:
 
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
-#include "ast/sls/bv_sls.h"
+#include "ast/sls/bv_sls_eval.h"
 #include "ast/rewriter/th_rewriter.h"
 
 namespace bv {
@@ -204,6 +204,10 @@ namespace bv {
         auto& val = *m_values[e->get_id()];        
         eval(e, val);
         return val;        
+    }
+
+    void sls_eval::set(expr* e, sls_valuation const& val) {
+        m_values[e->get_id()]->set(val.bits());
     }
 
     void sls_eval::eval(app* e, sls_valuation& val) const {
