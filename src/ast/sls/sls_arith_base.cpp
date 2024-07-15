@@ -371,6 +371,7 @@ namespace sls {
         ineq.m_args.push_back({ c, v });
     }
 
+    template<>
     bool arith_base<checked_int64<true>>::is_num(expr* e, checked_int64<true>& i) {
         rational r;
         if (a.is_numeral(e, r)) {            
@@ -382,6 +383,7 @@ namespace sls {
         return false;
     }
 
+    template<>
     bool arith_base<rational>::is_num(expr* e, rational& i) {
         return a.is_numeral(e, i);
     }
@@ -392,10 +394,12 @@ namespace sls {
         return false;
     }
 
+    template<>
     expr_ref arith_base<rational>::from_num(sort* s, rational const& n) {
         return expr_ref(a.mk_numeral(n, s), m);
     }
 
+    template<>
     expr_ref arith_base<checked_int64<true>>::from_num(sort* s, checked_int64<true> const& n) {
         return expr_ref(a.mk_numeral(rational(n.get_int64(), rational::i64()), s), m);
     }
