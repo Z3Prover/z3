@@ -554,7 +554,7 @@ namespace sls {
             add_args(ineq, y, num_t(-1));
             init_ineq(bv, ineq);
         }
-        else if (m.is_distinct(e) && a.is_int_real(e->get_arg(0))) {
+        else if (m.is_distinct(e) && a.is_int_real(to_app(e)->get_arg(0))) {
             NOT_IMPLEMENTED_YET();
         }
         else if (a.is_is_int(e, x))

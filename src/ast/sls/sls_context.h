@@ -94,7 +94,7 @@ namespace sls {
         expr_ref_vector m_atoms;
         unsigned_vector m_atom2bool_var;
         vector<ptr_vector<expr>> m_parents;
-        sat::literal_vector m_root_literals;
+        sat::literal_vector m_root_literals, m_unit_literals;
         random_gen m_rand;
         bool m_initialized = false;
         bool m_new_constraint = false;
@@ -140,6 +140,7 @@ namespace sls {
         unsigned rand() { return m_rand(); }
         unsigned rand(unsigned n) { return m_rand(n); }
         sat::literal_vector const& root_literals() const { return m_root_literals; }
+        sat::literal_vector const& unit_literals() const { return m_unit_literals; }
 
         void reinit_relevant();
 

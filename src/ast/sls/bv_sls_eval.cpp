@@ -38,7 +38,11 @@ namespace bv {
             auto& v = wval(e);
             for (unsigned i = 0; i < v.bw; ++i)
                 m_tmp.set(i, false);
-            v.set_repair(random_bool(), m_tmp);
+            v.set_repair(random_bool(), m_tmp);                     
+        }
+        if (bv.is_bv(e)) {
+            auto& v = wval(e);
+            v.bits().copy_to(v.nw, v.eval);
         }
     }
 
@@ -89,11 +93,13 @@ namespace bv {
     }
     
     bool sls_eval::can_eval1(app* e) const {
-        expr* x, * y, * z;
+        expr* x, * y;
         if (m.is_eq(e, x, y))
-            return m.is_bool(x) || bv.is_bv(x);
-        if (m.is_ite(e, x, y, z))
-            return m.is_bool(y) || bv.is_bv(y);
+            return bv.is_bv(x);
+        if (m.is_ite(e))
+            return bv.is_bv(e);
+        if (m.is_distinct(e))
+            return bv.is_bv(e->get_arg(0));
         if (e->get_family_id() == bv.get_fid()) {
             switch (e->get_decl_kind()) {
             case OP_BNEG_OVFL:
@@ -107,10 +113,8 @@ namespace bv {
                 return true;
             }
         }
-        if (e->get_family_id() == basic_family_id)
-            return true;
         if (is_uninterp_const(e))
-            return m.is_bool(e) || bv.is_bv(e);
+            return bv.is_bv(e);
         return false;
     }
 
@@ -1843,7 +1847,19 @@ namespace bv {
     }
 
     bool sls_eval::repair_up(expr* e) {
-        if (!bv.is_bv(e) || !is_app(e))
+        if (!is_app(e) || !can_eval1(to_app(e)))
+            return false;
+        if (m.is_bool(e)) {
+            bool b = bval1(to_app(e));
+            auto v = ctx.atom2bool_var(e);
+            if (v == sat::null_bool_var)
+                ctx.set_value(e, b ? m.mk_true() : m.mk_false());
+            else if (ctx.is_true(v) != b)
+                ctx.flip(v);
+            return true;
+        }
+
+        if (!bv.is_bv(e))
             return false;
         auto& v = eval(to_app(e));
         for (unsigned i = 0; i < v.nw; ++i) {
@@ -1863,18 +1879,11 @@ namespace bv {
         return *m_values[e->get_id()]; 
     }
 
-    void sls_eval::init_eval(app* t) {
-        if (bv.is_bv(t)) {
-            auto& v = wval(t);
-            v.bits().copy_to(v.nw, v.eval);
-        }
-    }
 
     void sls_eval::commit_eval(app* e) {
         if (!bv.is_bv(e))
             return;
-        VERIFY(wval(e).commit_eval());        
-        // todo: if e is shared, then ctx.set_value().
+        VERIFY(wval(e).commit_eval());
     }
 
     void sls_eval::set_random(app* e) {
@@ -1889,19 +1898,6 @@ namespace bv {
             return bval0(e) == bval1(e);
         if (bv.is_bv(e)) {
             auto const& v = wval(e);
-            return v.eval == v.bits();
-        }
-        UNREACHABLE();
-        return false;
-    }
-
-    bool sls_eval::re_eval_is_correct(app* e) {
-        if (!can_eval1(e))
-            return false;
-        if (m.is_bool(e))
-            return bval0(e) ==bval1(e);
-        if (bv.is_bv(e)) {
-            auto const& v = eval(e);
             return v.eval == v.bits();
         }
         UNREACHABLE();

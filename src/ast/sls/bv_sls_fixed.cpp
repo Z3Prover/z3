@@ -31,17 +31,15 @@ namespace bv {
         for (auto e : ctx.subterms())
             set_fixed(e);
 
-        for (auto const& c : ctx.clauses()) {
-            if (c.m_clause.size() == 1) {
-                auto lit = c.m_clause[0];
-                auto a = ctx.atom(lit.var());
-                if (!a)
-                    continue;
-                if (is_app(a))
-                    init_range(to_app(a), lit.sign());
-                ev.m_fixed.setx(a->get_id(), true, false);
-            }
+        for (auto lit : ctx.unit_literals()) {
+            auto a = ctx.atom(lit.var());
+            if (!a)
+                continue;
+            if (is_app(a))
+                init_range(to_app(a), lit.sign());
+            ev.m_fixed.setx(a->get_id(), true, false);
         }
+
         for (auto e : ctx.subterms())
             propagate_range_up(e);    
     }

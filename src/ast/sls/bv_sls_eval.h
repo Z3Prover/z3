@@ -61,7 +61,6 @@ namespace bv {
         void add_bit_vector(app* e);
         sls_valuation* alloc_valuation(app* e);
 
-        //bool bval1_basic(app* e) const;
         bool bval1_bv(app* e) const;  
 
         void fold_oper(bvect& out, app* e, unsigned i, std::function<void(bvect&, bvval const&)> const& f);
@@ -137,8 +136,6 @@ namespace bv {
     public:
         sls_eval(sls_terms& terms, sls::context& ctx);
 
-//        void init_eval(std::function<bool(expr*, unsigned)> const& eval);
-
         void tighten_range() { m_fix.init(); }
 
         void register_term(expr* e);
@@ -157,13 +154,9 @@ namespace bv {
 
         void commit_eval(app* e);
 
-        void init_eval(app* e);
-
         void set_random(app* e);
 
         bool eval_is_correct(app* e);
-
-        bool re_eval_is_correct(app* e);
 
         expr_ref get_value(app* e);
 

@@ -29,6 +29,7 @@ namespace sls {
 
     void bv_plugin::register_term(expr* e) {
         m_terms.register_term(e);
+        m_eval.register_term(e);
     }
     
     expr_ref bv_plugin::get_value(expr* e) {
@@ -59,7 +60,7 @@ namespace sls {
 
     void bv_plugin::initialize() {
         if (!m_initialized) {
-            // compute fixed ranges
+            m_eval.tighten_range();
             m_initialized = true;
         }
     }
@@ -92,8 +93,9 @@ namespace sls {
             return;
         rational val;
         VERIFY(bv.is_numeral(v, val));
-        NOT_IMPLEMENTED_YET();
-        // set value of e to val,
+        auto& w = m_eval.eval(to_app(e));
+        w.set_value(w.eval, val);
+        w.commit_eval();
     }
 
     void bv_plugin::repair_down(app* e) {
@@ -135,17 +137,14 @@ namespace sls {
     }
 
     void bv_plugin::repair_up(app* e) {
-        if (!bv.is_bv(e))
-            ;
-        else if (m_eval.repair_up(e)) {
+        if (m_eval.repair_up(e)) {
             if (!m_eval.eval_is_correct(e)) {
                 verbose_stream() << "incorrect eval #" << e->get_id() << " " << mk_bounded_pp(e, m) << "\n";
             }
             SASSERT(m_eval.eval_is_correct(e));
-            for (auto p : ctx.parents(e))
-                ctx.new_value_eh(p);
+            ctx.new_value_eh(e);
         }
-        else if (ctx.rand(10) != 0) {
+        else if (bv.is_bv(e)) {
             IF_VERBOSE(2, verbose_stream() << "repair-up "; trace_repair(true, e));             
             m_eval.set_random(e);
             ctx.new_value_eh(e);
@@ -163,5 +162,4 @@ namespace sls {
         IF_VERBOSE(2, verbose_stream()
             << "(bvsls :restarts " << m_stats.m_restarts << ")\n");
     }
-
 }

@@ -299,6 +299,7 @@ namespace sls {
         m_relevant.reset();
         m_visited.reset();
         m_root_literals.reset();
+        m_unit_literals.reset();
         for (auto const& clause : s.clauses()) {
             bool has_relevant = false;
             unsigned n = 0;
@@ -317,6 +318,8 @@ namespace sls {
                 if (m_rand() % ++n == 0)
                     selected_lit = lit;
             }               
+            if (clause.m_clause.size() == 1)
+                m_unit_literals.push_back(clause.m_clause[0]);
             if (!has_relevant && selected_lit != sat::null_literal) {
                 m_relevant.insert(m_atoms[selected_lit.var()]->get_id());
                 m_root_literals.push_back(selected_lit);
