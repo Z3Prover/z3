@@ -24,28 +24,28 @@ namespace sls {
     bool arith_base<num_t>::ineq::is_true() const {
         switch (m_op) {
         case ineq_kind::LE:
-            return m_args_value + m_coeff <= 0;
+            return m_args_value + this->m_coeff <= 0;
         case ineq_kind::EQ:
-            return m_args_value + m_coeff == 0;
+            return m_args_value + this->m_coeff == 0;
         default:
-            return m_args_value + m_coeff < 0;
+            return m_args_value + this->m_coeff < 0;
         }
     }
 
     template<typename num_t>
     std::ostream& arith_base<num_t>::ineq::display(std::ostream& out) const {
         bool first = true;
-        for (auto const& [c, v] : m_args)
+        for (auto const& [c, v] : this->m_args)
             out << (first ? "" : " + ") << c << " * v" << v, first = false;
-        if (m_coeff != 0)
-            out << " + " << m_coeff;
+        if (this->m_coeff != 0)
+            out << " + " << this->m_coeff;
         switch (m_op) {
         case ineq_kind::LE:
-            return out << " <= " << 0 << "(" << m_args_value + m_coeff << ")";
+            return out << " <= " << 0 << "(" << m_args_value + this->m_coeff << ")";
         case ineq_kind::EQ:
-            return out << " == " << 0 << "(" << m_args_value + m_coeff << ")";
+            return out << " == " << 0 << "(" << m_args_value + this->m_coeff << ")";
         default:
-            return out << " < " << 0 << "(" << m_args_value + m_coeff << ")";
+            return out << " < " << 0 << "(" << m_args_value + this->m_coeff << ")";
         }
     }    
 
@@ -486,7 +486,7 @@ namespace sls {
     typename arith_base<num_t>::var_t arith_base<num_t>::mk_op(arith_op_kind k, expr* e, expr* x, expr* y) {
         auto v = mk_var(e);
         auto w = mk_term(x);
-        auto u = mk_term(y);
+	//        auto u = mk_term(y);
         unsigned idx = m_ops.size();
         num_t val;
         switch (k) {
@@ -533,7 +533,7 @@ namespace sls {
         v = mk_var(e);
         auto idx = m_adds.size();
         num_t sum(t.m_coeff);
-        m_adds.push_back({ t.m_args, t.m_coeff, v });
+        m_adds.push_back({ { t.m_args, t.m_coeff }, v });
         for (auto const& [c, w] : t.m_args)
             m_vars[w].m_adds.push_back(idx), sum += c * value(w);
         m_vars[v].m_def_idx = idx;
@@ -829,7 +829,6 @@ namespace sls {
 
     template<typename num_t>
     void arith_base<num_t>::repair_rem(op_def const& od) {
-        auto val = value(od.m_var);
         auto v1 = value(od.m_arg1);
         auto v2 = value(od.m_arg2);
         if (v2 == 0) {
@@ -874,7 +873,6 @@ namespace sls {
 
     template<typename num_t>
     void arith_base<num_t>::repair_power(op_def const& od) {
-        auto val = value(od.m_var);
         auto v1 = value(od.m_arg1);
         auto v2 = value(od.m_arg2);
         if (v1 == 0 && v2 == 0) {
@@ -916,7 +914,6 @@ namespace sls {
 
     template<typename num_t>
     void arith_base<num_t>::repair_idiv(op_def const& od) {
-        auto val = value(od.m_var);
         auto v1 = value(od.m_arg1);
         auto v2 = value(od.m_arg2);
         IF_VERBOSE(0, verbose_stream() << "todo repair div");
@@ -926,7 +923,6 @@ namespace sls {
     
     template<typename num_t>
     void arith_base<num_t>::repair_div(op_def const& od) {
-        auto val = value(od.m_var);
         auto v1 = value(od.m_arg1);
         auto v2 = value(od.m_arg2);
         IF_VERBOSE(0, verbose_stream() << "todo repair /");
@@ -954,7 +950,7 @@ namespace sls {
             if (!cm(*ineq, x, coeff, new_value))
                 continue;
             double result = 0;
-            auto old_value = m_vars[x].m_value;
+	    //            auto old_value = m_vars[x].m_value;
             for (auto const& [coeff, bv] : m_vars[x].m_bool_vars) {
                 result += ctx.reward(bv);
 #if 0

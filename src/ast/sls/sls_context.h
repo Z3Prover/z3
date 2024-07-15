@@ -56,6 +56,7 @@ namespace sls {
 
     class sat_solver_context {
     public:
+        virtual ~sat_solver_context() {}
         virtual vector<sat::clause_info> const& clauses() const = 0;
         virtual sat::clause_info const& get_clause(unsigned idx) const = 0;
         virtual ptr_iterator<unsigned> get_use_list(sat::literal lit) = 0;

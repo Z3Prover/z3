@@ -68,14 +68,13 @@ namespace sls {
     }       
 
     class solver::smt_plugin : public sat::local_search_plugin, public sls::sat_solver_context {
-        ast_manager& m;
-        sat::ddfw* m_ddfw;
         solver& s;
+        sat::ddfw* m_ddfw;
         sls::context m_context;
         bool m_new_clause_added = false;
     public:
         smt_plugin(ast_manager& m, solver& s, sat::ddfw* d) : 
-            m(m), s(s), m_ddfw(d), m_context(m, *this) {}
+	    s(s), m_ddfw(d), m_context(m, *this) {}
 
         void init_search() override {}
 

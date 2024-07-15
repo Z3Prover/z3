@@ -15,7 +15,6 @@ Author:
     
 --*/
 
-#pragma once
 #include "ast/sls/sls_context.h"
 #include "ast/sls/sat_ddfw.h"
 #include "ast/sls/sls_smt_solver.h"
