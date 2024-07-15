@@ -346,6 +346,11 @@ namespace sls {
             SASSERT(dtt(sign(bv), ineq) == 0);
         }
         vi.m_value = new_value;
+        if (vi.m_shared) {
+            sort* s = vi.m_sort == var_sort::INT ? a.mk_int() : a.mk_real();
+            expr_ref num = from_num(s, new_value);
+            ctx.set_value(vi.m_expr, num);
+        }
         for (auto idx : vi.m_muls) {
             auto const& [w, coeff, monomial] = m_muls[idx];
             ctx.new_value_eh(m_vars[w].m_expr);

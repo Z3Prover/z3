@@ -151,7 +151,7 @@ namespace sls {
         bool is_num(expr* e, num_t& i);
         expr_ref from_num(sort* s, num_t const& n);
         void check_ineqs();
-        void init_bool_var(sat::bool_var v);
+        void init_bool_var(sat::bool_var bv);
     public:
         arith_base(context& ctx);
         ~arith_base() override {}        

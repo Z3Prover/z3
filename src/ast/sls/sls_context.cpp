@@ -160,6 +160,7 @@ namespace sls {
         return expr_ref(e, m);
     }
 
+
     void context::set_value(expr * e, expr * v) {
         for (auto p : m_plugins)
             if (p)

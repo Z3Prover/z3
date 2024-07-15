@@ -47,6 +47,7 @@ namespace sls {
         std::ostream& display(std::ostream& out) const override;
         void mk_model(model& mdl) override;
         void set_value(expr* e, expr* v) override {}
+
         void repair_up(app* e) override {}
         void repair_down(app* e) override {}
     };
