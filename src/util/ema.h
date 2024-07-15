@@ -23,7 +23,7 @@ Revision History:
 class ema {
     double m_alpha, m_beta, m_value;
     unsigned m_period, m_wait;
-    bool invariant() const { return 0 <= m_alpha && m_alpha <= m_beta && m_beta <= 1; }
+    bool invariant() const { return 0 <= m_alpha && m_alpha <= m_beta && m_beta <= 1 && m_wait <= m_period; }
  public:
     ema(): m_alpha(0), m_beta(1), m_value(0), m_period(0), m_wait(0) {
         SASSERT(invariant());
