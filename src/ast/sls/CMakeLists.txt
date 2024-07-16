@@ -9,9 +9,9 @@ z3_add_component(ast_sls
     sls_arith_plugin.cpp
     sls_basic_plugin.cpp
     sls_bv_plugin.cpp
-    sls_cc.cpp
     sls_context.cpp
     sls_engine.cpp
+    sls_euf_plugin.cpp
     sls_smt_solver.cpp
     sls_valuation.cpp
   COMPONENT_DEPENDENCIES

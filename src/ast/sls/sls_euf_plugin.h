@@ -3,7 +3,7 @@ Copyright (c) 2024 Microsoft Corporation
 
 Module Name:
 
-    cc_sls.h
+    sls_euf_plugin.h
 
 Abstract:
 
@@ -21,22 +21,22 @@ Author:
 
 namespace sls {
     
-    class cc_plugin : public plugin {
+    class euf_plugin : public plugin {
         obj_map<func_decl, ptr_vector<app>> m_app;
         struct value_hash {
-            cc_plugin& cc;
-            value_hash(cc_plugin& cc) : cc(cc) {}
+            euf_plugin& cc;
+            value_hash(euf_plugin& cc) : cc(cc) {}
             unsigned operator()(app* t) const;
         };
         struct value_eq {
-            cc_plugin& cc;
-            value_eq(cc_plugin& cc) : cc(cc) {}
+            euf_plugin& cc;
+            value_eq(euf_plugin& cc) : cc(cc) {}
             bool operator()(app* a, app* b) const;
         };
         hashtable<app*, value_hash, value_eq> m_values;
     public:
-        cc_plugin(context& c);
-        ~cc_plugin() override;
+        euf_plugin(context& c);
+        ~euf_plugin() override;
         family_id fid() { return m_fid; }
         expr_ref get_value(expr* e) override;
         void initialize() override {}

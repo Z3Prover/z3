@@ -56,7 +56,7 @@ namespace sls {
     std::ostream& basic_plugin::display(std::ostream& out) const {
         for (auto t : ctx.subterms())
             if (is_app(t) && m.is_bool(t) && to_app(t)->get_family_id() == basic_family_id)
-                out << mk_bounded_pp(t, m) << " " << bval0(t) << " ~ " << bval1(to_app(t)) << "\n";
+                out << mk_bounded_pp(t, m) << " := " << (bval0(t)?"T":"F") << " eval: " << (bval1(to_app(t))?"T":"F") << "\n";
         return out;
     }
 

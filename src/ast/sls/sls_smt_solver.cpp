@@ -51,6 +51,7 @@ namespace sls {
                 m_context.check();
                 if (!m_new_clause_added)
                     break;
+                TRACE("sls", display(tout));
                 m_ddfw.reinit();
                 m_new_clause_added = false;
             }

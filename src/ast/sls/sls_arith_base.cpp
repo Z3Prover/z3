@@ -558,7 +558,7 @@ namespace sls {
         if (m_bool_vars.get(bv, nullptr))
             return;
         expr* e = ctx.atom(bv);
-        verbose_stream() << "bool var " << bv << " " << mk_bounded_pp(e, m) << "\n";
+        // verbose_stream() << "bool var " << bv << " " << mk_bounded_pp(e, m) << "\n";
         if (!e)
             return;
         expr* x, * y;
@@ -1048,7 +1048,7 @@ namespace sls {
         num_t n;
         if (!is_num(v, n))
             return;
-        verbose_stream() << "set value " << w << " " << mk_bounded_pp(e, m) << " " << n << " " << value(w) << "\n";
+        // verbose_stream() << "set value " << w << " " << mk_bounded_pp(e, m) << " " << n << " " << value(w) << "\n";
         if (n == value(w))
             return;
         update(w, n);        

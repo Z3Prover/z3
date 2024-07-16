@@ -14,10 +14,9 @@ Author:
     Nikolaj Bjorner (nbjorner) 2024-06-24
     
 --*/
-#pragma once
 
 #include "ast/sls/sls_context.h"
-#include "ast/sls/sls_cc.h"
+#include "ast/sls/sls_euf_plugin.h"
 #include "ast/sls/sls_arith_plugin.h"
 #include "ast/sls/sls_bv_plugin.h"
 #include "ast/sls/sls_basic_plugin.h"
@@ -36,7 +35,7 @@ namespace sls {
         m_ld(*this),
         m_repair_down(m.get_num_asts(), m_gd),
         m_repair_up(m.get_num_asts(), m_ld) {
-        register_plugin(alloc(cc_plugin, *this));
+        register_plugin(alloc(euf_plugin, *this));
         register_plugin(alloc(arith_plugin, *this));
         register_plugin(alloc(bv_plugin, *this));
         register_plugin(alloc(basic_plugin, *this));
@@ -63,6 +62,8 @@ namespace sls {
         while (unsat().empty()) {
 
             propagate_boolean_assignment();
+
+            // display(verbose_stream());
 
             if (m_new_constraint || !unsat().empty())
                 return l_undef;
@@ -96,7 +97,8 @@ namespace sls {
         while (!m_new_constraint && (!m_repair_up.empty() || !m_repair_down.empty())) {
             while (!m_repair_down.empty() && !m_new_constraint) {
                 auto id = m_repair_down.erase_min();
-                expr* e = term(id);                
+                expr* e = term(id);             
+                // verbose_stream() << "repair down " << mk_bounded_pp(e, m) << "\n";
                 if (is_app(e)) {
                     auto p = m_plugins.get(to_app(e)->get_family_id(), nullptr);
                     if (p)
@@ -106,6 +108,7 @@ namespace sls {
             while (!m_repair_up.empty() && !m_new_constraint) {
                 auto id = m_repair_up.erase_min();
                 expr* e = term(id);
+                // verbose_stream() << "repair up " << mk_bounded_pp(e, m) << "\n";
                 if (is_app(e)) {
                     auto p = m_plugins.get(to_app(e)->get_family_id(), nullptr);
                     if (p)
@@ -205,8 +208,8 @@ namespace sls {
         auto v = m_atom2bool_var.get(e->get_id(), sat::null_bool_var);
         if (v == sat::null_bool_var) {
             v = s.add_var();
-            register_terms(e);
             register_atom(v, e);
+            register_terms(e);
         }
         return v;
     }
@@ -271,11 +274,14 @@ namespace sls {
                 }                    
             }
         );
+        // verbose_stream() << "new value " << mk_bounded_pp(e, m) << " " << mk_bounded_pp(get_value(e), m) << "\n";
         m_repair_down.reserve(e->get_id() + 1);
-        m_repair_down.insert(e->get_id());
+        if (!m_repair_down.contains(e->get_id()))
+            m_repair_down.insert(e->get_id());
         for (auto p : parents(e)) {
             m_repair_up.reserve(p->get_id() + 1);
-            m_repair_up.insert(p->get_id());
+            if (!m_repair_up.contains(p->get_id()))
+                m_repair_up.insert(p->get_id());
         }
     }
 

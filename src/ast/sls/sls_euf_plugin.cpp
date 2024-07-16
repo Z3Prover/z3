@@ -3,7 +3,7 @@ Copyright (c) 2024 Microsoft Corporation
 
 Module Name:
 
-    sls_cc.cpp
+    sls_euf_plugin.cpp
 
 Abstract:
 
@@ -15,27 +15,27 @@ Author:
     
 --*/
 
-#include "ast/sls/sls_cc.h"
+#include "ast/sls/sls_euf_plugin.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_pp.h"
 
 
 namespace sls {
     
-    cc_plugin::cc_plugin(context& c): 
+    euf_plugin::euf_plugin(context& c): 
         plugin(c), 
         m_values(8U, value_hash(*this), value_eq(*this)) {
         m_fid = m.mk_family_id("cc");
     }
     
-    cc_plugin::~cc_plugin() {}
+    euf_plugin::~euf_plugin() {}
     
-    expr_ref cc_plugin::get_value(expr* e) {
+    expr_ref euf_plugin::get_value(expr* e) {
         UNREACHABLE();
         return expr_ref(m);
     }
 
-    void cc_plugin::register_term(expr* e) {
+    void euf_plugin::register_term(expr* e) {
         if (!is_app(e))
             return;
         if (!is_uninterp(e))
@@ -49,14 +49,14 @@ namespace sls {
         m_app[f].push_back(a);
     }
 
-    unsigned cc_plugin::value_hash::operator()(app* t) const {
+    unsigned euf_plugin::value_hash::operator()(app* t) const {
         unsigned r = 0;
         for (auto arg : *t)
             r *= 3, r += cc.ctx.get_value(arg)->hash();
         return r;
     }
 
-    bool cc_plugin::value_eq::operator()(app* a, app* b) const {
+    bool euf_plugin::value_eq::operator()(app* a, app* b) const {
         SASSERT(a->get_num_args() == b->get_num_args());
         for (unsigned i = a->get_num_args(); i-- > 0; )
             if (cc.ctx.get_value(a->get_arg(i)) != cc.ctx.get_value(b->get_arg(i)))
@@ -64,7 +64,7 @@ namespace sls {
         return true;
     }
 
-    bool cc_plugin::is_sat() {
+    bool euf_plugin::is_sat() {
         for (auto& [f, ts] : m_app) {
             if (ts.size() <= 1)
                 continue;
@@ -84,7 +84,7 @@ namespace sls {
         return true;
     }
 
-    bool cc_plugin::propagate() {        
+    bool euf_plugin::propagate() {        
         bool new_constraint = false;
         for (auto & [f, ts] : m_app) {
             if (ts.size() <= 1)
@@ -101,6 +101,12 @@ namespace sls {
                     for (unsigned i = t->get_num_args(); i-- > 0; )
                         ors.push_back(m.mk_not(m.mk_eq(t->get_arg(i), u->get_arg(i))));
                     ors.push_back(m.mk_eq(t, u));
+#if 0
+                    verbose_stream() << "conflict: " << mk_bounded_pp(t, m) << " != " << mk_bounded_pp(u, m) << "\n";
+                    verbose_stream() << "value " << ctx.get_value(t) << " != " << ctx.get_value(u) << "\n";
+                    for (unsigned i = t->get_num_args(); i-- > 0; )
+                        verbose_stream() << ctx.get_value(t->get_arg(i)) << " == " << ctx.get_value(u->get_arg(i)) << "\n";
+#endif
                     ctx.add_constraint(m.mk_or(ors));
                     new_constraint = true;
                 }
@@ -111,7 +117,7 @@ namespace sls {
         return new_constraint;
     }
 
-    std::ostream& cc_plugin::display(std::ostream& out) const {
+    std::ostream& euf_plugin::display(std::ostream& out) const {
         for (auto& [f, ts] : m_app) {
             for (auto* t : ts)
                 out << mk_bounded_pp(t, m) << "\n";
@@ -120,7 +126,7 @@ namespace sls {
         return out;
     }
 
-    void cc_plugin::mk_model(model& mdl) {
+    void euf_plugin::mk_model(model& mdl) {
         expr_ref_vector args(m);
         for (auto& [f, ts] : m_app) {
             func_interp* fi = alloc(func_interp, m, f->get_arity());

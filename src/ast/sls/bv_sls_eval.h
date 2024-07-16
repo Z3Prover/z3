@@ -123,7 +123,7 @@ namespace bv {
 
         void eval(app* e, sls_valuation& val) const;
 
-        bvect const& eval_value(app* e) const { return wval(e).eval; }
+        bvect const& assign_value(app* e) const { return wval(e).bits(); }
 
         bool bval0(expr* e) const { return ctx.is_true(e); }
 

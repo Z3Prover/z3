@@ -16,6 +16,7 @@ Author:
 --*/
 #include "ast/sls/sls_bv_plugin.h"
 #include "ast/ast_ll_pp.h"
+#include "ast/ast_pp.h"
 
 namespace sls {
 
@@ -124,7 +125,7 @@ namespace sls {
                     return;                
             }
         }
-        IF_VERBOSE(3, verbose_stream() << "revert repair: " << mk_bounded_pp(e, m) << "\n");
+        IF_VERBOSE(0, verbose_stream() << "revert repair: " << mk_bounded_pp(e, m) << "\n");
         repair_up(e);
     }
 
