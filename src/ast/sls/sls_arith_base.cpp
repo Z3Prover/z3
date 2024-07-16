@@ -486,7 +486,6 @@ namespace sls {
     typename arith_base<num_t>::var_t arith_base<num_t>::mk_op(arith_op_kind k, expr* e, expr* x, expr* y) {
         auto v = mk_var(e);
         auto w = mk_term(x);
-	//        auto u = mk_term(y);
         unsigned idx = m_ops.size();
         num_t val;
         switch (k) {

@@ -55,6 +55,9 @@ namespace bv {
             sls::context ctx(m, solver);
             sls_terms terms(ctx);
             sls_eval ev(terms, ctx);
+            for (auto e : es)
+                ev.register_term(e);
+            ev.init();
             th_rewriter rw(m);
             expr_ref r(e, m);
             rw(r);
@@ -171,6 +174,9 @@ namespace bv {
             sls::context ctx(m, solver);
             sls_terms terms(ctx);
             sls_eval ev(terms, ctx);
+            for (auto e : es)
+                ev.register_term(e);
+            ev.init();
 
             if (m.is_bool(e1)) {
                 SASSERT(m.is_true(r) || m.is_false(r));

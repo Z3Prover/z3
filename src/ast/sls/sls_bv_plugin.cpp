@@ -61,7 +61,7 @@ namespace sls {
 
     void bv_plugin::initialize() {
         if (!m_initialized) {
-            m_eval.tighten_range();
+            m_eval.init();
             m_initialized = true;
         }
     }

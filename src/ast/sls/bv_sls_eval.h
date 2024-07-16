@@ -138,7 +138,7 @@ namespace bv {
     public:
         sls_eval(sls_terms& terms, sls::context& ctx);
 
-        void tighten_range() { m_fix.init(); }
+        void init() { m_fix.init(); }
 
         void register_term(expr* e);
 
