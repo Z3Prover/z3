@@ -631,9 +631,11 @@ namespace bv {
         return sls_valuation::random_bits(m_rand);
     }
 
-    bool sls_eval::try_repair(app* e, unsigned i) {      
-        if (e->get_family_id() == bv.get_family_id())
-            return try_repair_bv(e, i);
+    bool sls_eval::repair_down(app* e, unsigned i) {      
+        if (e->get_family_id() == bv.get_family_id() && try_repair_bv(e, i)) {
+            ctx.new_value_eh(e->get_arg(i));
+            return true;
+        }
         return false;
     }
 
@@ -985,7 +987,7 @@ namespace bv {
                 return true;
         }
         // fall back to a random value
-        return a.set_random(m_rand);        
+        return i == 0 ? a.set_random(m_rand) : b.set_random(m_rand);        
     }
 
     /**

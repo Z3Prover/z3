@@ -168,7 +168,7 @@ namespace bv {
          * Try to invert value of child to repair value assignment of parent.
          */
 
-        bool try_repair(app* e, unsigned i);
+        bool repair_down(app* e, unsigned i);
 
         /*
         * Propagate repair up to parent

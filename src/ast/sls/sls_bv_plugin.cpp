@@ -99,7 +99,6 @@ namespace sls {
     }
 
     void bv_plugin::repair_down(app* e) {
-
         unsigned n = e->get_num_args();
         if (n == 0 || m_eval.eval_is_correct(e)) {
             m_eval.commit_eval(e);
@@ -110,30 +109,25 @@ namespace sls {
             auto d1 = get_depth(e->get_arg(0));
             auto d2 = get_depth(e->get_arg(1));
             unsigned s = ctx.rand(d1 + d2 + 2);
-            if (s <= d1 && m_eval.try_repair(e, 0)) {
-                ctx.new_value_eh(e->get_arg(0));
+            if (s <= d1 && m_eval.repair_down(e, 0)) 
                 return;
-            }
-            if (m_eval.try_repair(e, 1)) {
-                ctx.new_value_eh(e->get_arg(1));
+            
+            if (m_eval.repair_down(e, 1)) 
                 return;
-            }
-            if (m_eval.try_repair(e, 0)) {
-                ctx.new_value_eh(e->get_arg(0));
-                return;
-            }
+            
+            if (m_eval.repair_down(e, 0)) 
+                return;            
         }
         else {
             unsigned s = ctx.rand(n);
             for (unsigned i = 0; i < n; ++i) {
                 auto j = (i + s) % n;
-                if (m_eval.try_repair(e, j)) {
-                    ctx.new_value_eh(e->get_arg(j));
-                    return;
-                }
+                if (m_eval.repair_down(e, j)) 
+                    return;                
             }
         }
-        IF_VERBOSE(3, verbose_stream() << "init-repair " << mk_bounded_pp(e, m) << "\n");
+        IF_VERBOSE(3, verbose_stream() << "revert repair: " << mk_bounded_pp(e, m) << "\n");
+        repair_up(e);
     }
 
     void bv_plugin::repair_up(app* e) {
