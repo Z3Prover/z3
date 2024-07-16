@@ -178,7 +178,7 @@ namespace bv {
                 auto val2 = ev.bval0(e2);
                 if (val != val2) {
                     ev.set(e2, val);
-                    auto rep1 = ev.try_repair(to_app(e2), idx);
+                    auto rep1 = ev.repair_down(to_app(e2), idx);
                     if (!rep1) {
                         verbose_stream() << "Not repaired " << mk_pp(e1, m) << " " << mk_pp(e2, m) << " r: " << r << "\n";
                     }
@@ -196,7 +196,7 @@ namespace bv {
                 auto& val2 = ev.wval(e2);
                 if (!val1.eq(val2)) {
                     val2.set(val1.bits());
-                    auto rep2 = ev.try_repair(to_app(e2), idx);
+                    auto rep2 = ev.repair_down(to_app(e2), idx);
                     if (!rep2) {
                         verbose_stream() << "Not repaired " << mk_pp(e2, m) << "\n";
                     }                    

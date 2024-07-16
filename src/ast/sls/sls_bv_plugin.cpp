@@ -100,10 +100,8 @@ namespace sls {
 
     void bv_plugin::repair_down(app* e) {
         unsigned n = e->get_num_args();
-        if (n == 0 || m_eval.eval_is_correct(e)) {
-            m_eval.commit_eval(e);
-            return;
-        }
+        if (n == 0 || m_eval.eval_is_correct(e)) 
+            return;        
 
         if (n == 2) {
             auto d1 = get_depth(e->get_arg(0));

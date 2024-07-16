@@ -267,7 +267,7 @@ namespace sls {
             if (try_repair(e, j)) 
                 return;            
         }
-        set_value(e, bval1(e));
+        repair_up(e);        
     }
 
     bool basic_plugin::try_repair_distinct(app* e, unsigned i) {

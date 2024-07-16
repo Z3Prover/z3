@@ -634,6 +634,10 @@ namespace bv {
     bool sls_eval::repair_down(app* e, unsigned i) {      
         if (e->get_family_id() == bv.get_family_id() && try_repair_bv(e, i)) {
             ctx.new_value_eh(e->get_arg(i));
+            if (eval_is_correct(e))
+                commit_eval(e);
+            else
+                ctx.new_value_eh(e); // re-queue repair
             return true;
         }
         return false;

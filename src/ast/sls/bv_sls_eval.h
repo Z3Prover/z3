@@ -133,6 +133,8 @@ namespace bv {
 
         bool can_eval1(app* e) const;
 
+        void commit_eval(app* e);
+
     public:
         sls_eval(sls_terms& terms, sls::context& ctx);
 
@@ -153,8 +155,6 @@ namespace bv {
         bool is_fixed0(expr* e) const { return m_fixed.get(e->get_id(), false); }
         
         sls_valuation& eval(app* e) const;
-
-        void commit_eval(app* e);
 
         void set_random(app* e);
 
