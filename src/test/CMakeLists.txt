@@ -37,6 +37,7 @@ add_executable(test-z3
   dl_table.cpp
   dl_util.cpp
   doc.cpp
+  dlist.cpp
   egraph.cpp
   escaped.cpp
   euf_bv_plugin.cpp
