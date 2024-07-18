@@ -160,8 +160,8 @@ public:
         const T* slow = static_cast<const T*>(this); 
         const T* fast = m_next; 
         bool looped = false; 
-     // m_next of each node should point back to m_prev of the following node,  
-     // and m_prev of each node should point forward to m_next of the preceding node. 
+        // m_next of each node should point back to m_prev of the following node,
+        // and m_prev of each node should point forward to m_next of the preceding node.
         while (slow != fast) { 
             if (fast->m_prev->m_next != fast || fast->m_next->m_prev != fast) { 
                 return false; 
