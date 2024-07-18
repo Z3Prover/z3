@@ -36,7 +36,7 @@ add_executable(test-z3
   dl_relation.cpp
   dl_table.cpp
   dl_util.cpp
-  doc.cpp
+  doc.cpp  
   dlist.cpp
   egraph.cpp
   escaped.cpp

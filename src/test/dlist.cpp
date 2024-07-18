@@ -151,7 +151,7 @@ void test_contains() {
     std::cout << "test_contains passed." << std::endl;
 }
 
-int tst_dlist() {
+void tst_dlist() {
     test_prev();
     test_next();
     test_const_prev();
@@ -166,5 +166,4 @@ int tst_dlist() {
     test_invariant();
     test_contains();
     std::cout << "All tests passed." << std::endl;
-    return 0;
 }
