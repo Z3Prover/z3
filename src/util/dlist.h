@@ -255,4 +255,4 @@ template < typename T
 dll_iterator<T> end(T const& list)
 {
     return dll_iterator<T>::mk_end(&list);
-}
+} 
