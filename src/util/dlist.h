@@ -163,17 +163,15 @@ public:
         // m_next of each node should point back to m_prev of the following node,
         // and m_prev of each node should point forward to m_next of the preceding node.
         while (slow != fast) { 
-            if (fast->m_prev->m_next != fast || fast->m_next->m_prev != fast) { 
-                return false; 
-            } 
+            if (fast->m_prev->m_next != fast || fast->m_next->m_prev != fast) 
+                return false;             
             fast = fast->m_next; 
             looped = looped || (fast == static_cast<const T*>(this)); 
-            if (!looped && fast == m_next) { 
+            if (!looped && fast == m_next)  
                 // We should be able to traverse back to the starting node. 
-                return false; 
-            } 
+                return false;             
         } 
-    return true; 
+        return true; 
     }
 
     static bool contains(T const* list, T const* elem) {
