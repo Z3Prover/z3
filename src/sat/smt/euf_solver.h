@@ -237,8 +237,6 @@ namespace euf {
 
         eq_proof_hint* mk_hint(symbol const& th, literal lit);
 
-
-
         void init_proof();
         void on_clause(unsigned n, literal const* lits, sat::status st) override;
         void on_lemma(unsigned n, literal const* lits, sat::status st);
