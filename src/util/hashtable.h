@@ -12,6 +12,7 @@ Abstract:
 Author:
 
     Leonardo de Moura (leonardo) 2006-09-11.
+    Chuyue Sun (liviasun) 2024-07-18.
 
 Revision History:
 
@@ -639,6 +640,19 @@ public:
 
 #ifdef Z3DEBUG
     bool check_invariant() {
+        // The capacity must always be a power of two.
+        if (!is_power_of_two(m_capacity))
+            return false;
+
+        // The number of deleted plus the size must not exceed the capacity.
+        if (m_num_deleted + m_size > m_capacity)
+            return false;
+
+        // Checking that m_num_deleted is less than or equal to m_size.
+        if (m_num_deleted > m_size) {
+            return false;
+        }
+
         entry * curr = m_table;
         entry * end  = m_table + m_capacity;
         unsigned num_deleted = 0;

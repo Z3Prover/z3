@@ -1,3 +1,20 @@
+/*++
+Copyright (c) 2024 Microsoft Corporation
+
+Module Name:
+
+    tst_dlist.cpp
+
+Abstract:
+
+    Test dlist module
+
+Author:
+
+    Chuyue Sun 2024-07-18.
+
+--*/
+
 #include <cassert>
 #include <iostream>
 #include "util/dlist.h"
