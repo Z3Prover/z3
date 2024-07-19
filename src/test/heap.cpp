@@ -38,7 +38,7 @@ static void tst1() {
     for (int i = 0; i < N * 3; i++) {
         int val = heap_rand() % N;
         if (!h.contains(val)) {
-            ENSURE(!t.contains(val));
+            VERIFY(!t.contains(val));
             h.insert(val);
             t.insert(val);
         }
@@ -46,26 +46,26 @@ static void tst1() {
             if (!t.contains(val)) {
                 for (int v : t) std::cout << v << "\n";
             }
-            ENSURE(t.contains(val));
+            VERIFY(t.contains(val));
         }
     }
-    ENSURE(h.check_invariant());
+    VERIFY(h.check_invariant());
     for (int v : t) {
-        ENSURE(h.contains(v));
+        VERIFY(h.contains(v));
     }
     while (!h.empty()) {
         int m1 = h.min_value();
         int m2 = h.erase_min();
         (void)m1;
         (void)m2;
-        ENSURE(m1 == m2);
-        ENSURE(-1 < m2);
+        VERIFY(m1 == m2);
+        VERIFY(-1 < m2);
     }
 }
 
 int g_value[N];
 
-struct lt_proc2 { bool operator()(int v1, int v2) const { ENSURE(v1 < N && v2 < N); return g_value[v1] < g_value[v2]; } };
+struct lt_proc2 { bool operator()(int v1, int v2) const { VERIFY(v1 < N && v2 < N); return g_value[v1] < g_value[v2]; } };
 typedef heap<lt_proc2> int_heap2;
 
 static void init_values() {
@@ -98,7 +98,7 @@ static void tst2() {
                 TRACE("heap", tout << "inserting: " << val << "\n";);
                 h.insert(val);
                 TRACE("heap", dump_heap(h, tout););
-                ENSURE(h.contains(val));
+                VERIFY(h.contains(val));
             }
         }
         else if (cmd <= 6) {
@@ -107,7 +107,7 @@ static void tst2() {
                 TRACE("heap", tout << "removing: " << val << "\n";);
                 h.erase(val);
                 TRACE("heap", dump_heap(h, tout););
-                ENSURE(!h.contains(val));
+                VERIFY(!h.contains(val));
             }
         }
         else if (cmd <= 8) {
@@ -128,10 +128,12 @@ static void tst2() {
             }
         }
         else {
-            ENSURE(h.check_invariant());
+            VERIFY(h.check_invariant());
         }
     }
-    ENSURE(h.check_invariant());
+    VERIFY(h.check_invariant());
+    h.reset();
+    VERIFY(h.check_invariant());
 }
 
 void tst_heap() {
