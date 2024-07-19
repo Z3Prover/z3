@@ -59,14 +59,18 @@ namespace sls {
         // Use timestamps to make it incremental.
         // 
         init();
+        verbose_stream() << "check " << unsat().size() << "\n";
         while (unsat().empty()) {
 
             propagate_boolean_assignment();
 
+            verbose_stream() << "propagate " << unsat().size() << " " << m_new_constraint << "\n";
             // display(verbose_stream());
 
             if (m_new_constraint || !unsat().empty())
                 return l_undef;
+
+            verbose_stream() << unsat().size() << " " << m_new_constraint << "\n";
 
             if (all_of(m_plugins, [&](auto* p) { return !p || p->is_sat(); })) {
                 model_ref mdl = alloc(model, m);
@@ -97,8 +101,8 @@ namespace sls {
         while (!m_new_constraint && (!m_repair_up.empty() || !m_repair_down.empty())) {
             while (!m_repair_down.empty() && !m_new_constraint) {
                 auto id = m_repair_down.erase_min();
-                expr* e = term(id);             
-                // verbose_stream() << "repair down " << mk_bounded_pp(e, m) << "\n";
+                expr* e = term(id);
+                TRACE("sls", tout << "repair down " << mk_bounded_pp(e, m) << "\n");
                 if (is_app(e)) {
                     auto p = m_plugins.get(to_app(e)->get_family_id(), nullptr);
                     if (p)
@@ -108,7 +112,7 @@ namespace sls {
             while (!m_repair_up.empty() && !m_new_constraint) {
                 auto id = m_repair_up.erase_min();
                 expr* e = term(id);
-                // verbose_stream() << "repair up " << mk_bounded_pp(e, m) << "\n";
+                TRACE("sls", tout << "repair up " << mk_bounded_pp(e, m) << "\n");
                 if (is_app(e)) {
                     auto p = m_plugins.get(to_app(e)->get_family_id(), nullptr);
                     if (p)

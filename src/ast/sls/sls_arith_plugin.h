@@ -28,11 +28,7 @@ namespace sls {
 
         void init_backup();
     public:
-        arith_plugin(context& ctx) : 
-            plugin(ctx), m_shared(ctx.get_manager()) { 
-            m_arith64 = alloc(arith_base<checked_int64<true>>,ctx); 
-            m_fid = m_arith64->fid();
-        }
+        arith_plugin(context& ctx);
         ~arith_plugin() override {}
         void register_term(expr* e) override;
         expr_ref get_value(expr* e) override;

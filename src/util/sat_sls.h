@@ -32,6 +32,10 @@ namespace sat {
         void add(literal lit) { ++m_num_trues; m_trues += lit.index(); }
         void del(literal lit) { SASSERT(m_num_trues > 0); --m_num_trues; m_trues -= lit.index(); }
     };
+
+    inline std::ostream& operator<<(std::ostream& out, clause_info const& ci) {
+        return out << ci.m_clause << " w: " << ci.m_weight << " nt: " << ci.m_num_trues;
+    }
 };
 
 

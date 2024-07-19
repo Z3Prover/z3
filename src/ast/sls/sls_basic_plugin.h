@@ -19,7 +19,8 @@ namespace sls {
     class basic_plugin : public plugin {
         bool_vector        m_values;
         bool               m_initialized = false;
-
+        
+        bool is_basic(expr* e) const;
         bool bval1(app* e) const;
         bool bval0(expr* e) const;
         bool try_repair(app* e, unsigned i);
@@ -32,6 +33,8 @@ namespace sls {
         bool try_repair_distinct(app* e, unsigned i);
         bool set_value(expr* e, bool b);
 
+        void add_clause(app* e);
+
     public:
         basic_plugin(context& ctx) : 
             plugin(ctx) { 
@@ -42,7 +45,7 @@ namespace sls {
         expr_ref get_value(expr* e) override;
         void initialize() override;
         void propagate_literal(sat::literal lit) override;
-        bool propagate() override { return false; }
+        bool propagate() override;
         void repair_down(app* e) override;
         void repair_up(app* e) override;
         bool is_sat() override;

@@ -21,34 +21,35 @@ Author:
 
 namespace sls {
 
+#define WITH_FALLBACK(_fn_) \
+    if (!m_arith) { \
+        try {\
+            return m_arith64->_fn_;\
+        }\
+        catch (overflow_exception&) {\
+            init_backup();\
+        }\
+    }\
+    return m_arith->_fn_; \
+
+    arith_plugin::arith_plugin(context& ctx) :
+        plugin(ctx), m_shared(ctx.get_manager()) {
+        m_arith64 = alloc(arith_base<checked_int64<true>>, ctx);
+        m_fid = m_arith64->fid();
+        init_backup();
+    }
+
     void arith_plugin::init_backup() {
         m_arith = alloc(arith_base<rational>, ctx);
         m_arith->initialize();
     }
 
     void arith_plugin::register_term(expr* e) {
-        if (!m_arith) {
-            try {
-                m_arith64->register_term(e);
-                return;
-            }
-            catch (overflow_exception&) {
-                init_backup();
-            }
-        }
-        m_arith->register_term(e);
+        WITH_FALLBACK(register_term(e));
     }
 
     expr_ref arith_plugin::get_value(expr* e) {
-        if (!m_arith) {
-            try {
-                return m_arith64->get_value(e);
-            }
-            catch (overflow_exception&) {
-                init_backup();
-            }
-        }
-        return m_arith->get_value(e);
+        WITH_FALLBACK(get_value(e));
     }
 
     void arith_plugin::initialize() {
@@ -59,28 +60,11 @@ namespace sls {
     }
 
     void arith_plugin::propagate_literal(sat::literal lit) {
-        if (!m_arith) {
-            try {
-                m_arith64->propagate_literal(lit);
-                return;
-            }
-            catch (overflow_exception&) {
-                init_backup();
-            }
-        }
-        m_arith->propagate_literal(lit);
+        WITH_FALLBACK(propagate_literal(lit));
     }
 
     bool arith_plugin::propagate() {
-        if (!m_arith) {
-            try {
-                return m_arith64->propagate();
-            }
-            catch (overflow_exception&) {
-                init_backup();
-            }
-        }
-        return m_arith->propagate();
+        WITH_FALLBACK(propagate());
     }
 
     bool arith_plugin::is_sat() {
@@ -119,29 +103,14 @@ namespace sls {
     }
 
     void arith_plugin::repair_down(app* e) {
-        if (m_arith) 
-            m_arith->repair_down(e);
-        else 
-            m_arith64->repair_down(e);
+        WITH_FALLBACK(repair_down(e));
     }
 
     void arith_plugin::repair_up(app* e) {
-        if (m_arith)
-            m_arith->repair_up(e);
-        else
-            m_arith64->repair_up(e);
+        WITH_FALLBACK(repair_up(e));
     }
 
     void arith_plugin::set_value(expr* e, expr* v) {
-        if (!m_arith) {
-            try {
-                m_arith64->set_value(e, v);
-                return;
-            }
-            catch (overflow_exception&) {
-                init_backup();
-            }
-        }
-        m_arith->set_value(e, v);
+        WITH_FALLBACK(set_value(e, v));       
     }
 }

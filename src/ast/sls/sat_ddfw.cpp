@@ -61,13 +61,20 @@ namespace sat {
         m_steps_since_progress = 0;
         unsigned steps = 0;
         save_best_values();
-        while (m_min_sz != 0 && m_steps_since_progress++ <= 1500000) {
-            if (should_reinit_weights()) do_reinit_weights();
-            else if (steps % 5000 == 0) shift_weights(), m_plugin->on_rescale();
-            else if (should_restart()) do_restart(), m_plugin->on_restart();
-            else if (do_flip<true>());
-            else shift_weights(), m_plugin->on_rescale();
-            ++steps;
+        try {
+            while (m_min_sz != 0 && m_steps_since_progress++ <= 1500000) {
+                if (should_reinit_weights()) do_reinit_weights();
+                else if (steps % 5000 == 0) shift_weights(), m_plugin->on_rescale();
+                else if (should_restart()) do_restart(), m_plugin->on_restart();
+                else if (do_flip<true>());
+                else shift_weights(), m_plugin->on_rescale();
+                verbose_stream() << "steps: " << steps << " min_sz: " << m_min_sz << " unsat: " << m_unsat.size() << "\n";
+                ++steps;
+            }
+        }
+        catch (z3_exception& ex) {
+            IF_VERBOSE(0, verbose_stream() << "Exception: " << ex.msg() << "\n");
+            throw;
         }
         m_plugin->finish_search();
     }

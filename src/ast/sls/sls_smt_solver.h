@@ -29,9 +29,12 @@ namespace sls {
         solver_ctx* m_solver_ctx = nullptr;        
         expr_ref_vector m_assertions;
         statistics m_st;
-        obj_map<expr, sat::bool_var> m_expr2var;
+        obj_map<expr, sat::literal> m_expr2lit;
+        unsigned m_num_vars = 0;
 
         sat::literal mk_literal(expr* e);
+        sat::literal mk_literal();
+        void add_clause(expr* f);
     public:
         smt_solver(ast_manager& m, params_ref const& p);
         ~smt_solver();

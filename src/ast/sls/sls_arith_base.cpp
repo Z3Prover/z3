@@ -214,19 +214,20 @@ namespace sls {
     // or flip on first non-negative score
     template<typename num_t>
     void arith_base<num_t>::repair(sat::literal lit, ineq const& ineq) {
-        num_t new_value;
+        num_t new_value, old_value;
         if (UINT_MAX == ineq.m_var_to_flip)
             dtt_reward(lit);
         auto v = ineq.m_var_to_flip;
+        
         if (v == UINT_MAX) {
-            IF_VERBOSE(1, verbose_stream() << "no var to flip\n");
+            IF_VERBOSE(0, verbose_stream() << "no var to flip\n");
             return;
         }
-        // verbose_stream() << "var to flip " << v << "\n";
         if (!cm(ineq, v, new_value)) {
-            IF_VERBOSE(1, verbose_stream() << "no critical move for " << v << "\n");
+            IF_VERBOSE(0, verbose_stream() << "no critical move for " << v << "\n");
             return;
         }
+        verbose_stream() << "repair " << lit << ": " << ineq << " var: v" << v << " := " << value(v) << " -> " << new_value << "\n";
         update(v, new_value);
     }
 
@@ -331,9 +332,11 @@ namespace sls {
     template<typename num_t>
     void arith_base<num_t>::update(var_t v, num_t const& new_value) {
         auto& vi = m_vars[v];
+        expr* e = vi.m_expr;
         auto old_value = vi.m_value;
         if (old_value == new_value)
             return;
+        verbose_stream() << mk_bounded_pp(e, m) << " := " << new_value << "\n";
         for (auto const& [coeff, bv] : vi.m_bool_vars) {
             auto& ineq = *atom(bv);
             bool old_sign = sign(bv);
@@ -354,7 +357,8 @@ namespace sls {
             auto const& ad = m_adds[idx];
             ctx.new_value_eh(m_vars[ad.m_var].m_expr);
         }
-        expr* e = vi.m_expr;
+
+        SASSERT(!m.is_value(e));
         ctx.new_value_eh(e);
     }
 
@@ -374,7 +378,7 @@ namespace sls {
     template<>
     bool arith_base<checked_int64<true>>::is_num(expr* e, checked_int64<true>& i) {
         rational r;
-        if (a.is_numeral(e, r)) {            
+        if (a.is_extended_numeral(e, r)) {            
             if (!r.is_int64())
                 throw overflow_exception();
             i = r.get_int64();
@@ -385,7 +389,7 @@ namespace sls {
 
     template<>
     bool arith_base<rational>::is_num(expr* e, rational& i) {
-        return a.is_numeral(e, i);
+        return a.is_extended_numeral(e, i);
     }
 
     template<typename num_t>
@@ -431,7 +435,7 @@ namespace sls {
             unsigned_vector m;
             num_t c = coeff;
             for (expr* arg : *to_app(e))
-                if (is_num(x, i))
+                if (is_num(arg, i))
                     c *= i;
                 else
                     m.push_back(mk_term(arg));
@@ -620,16 +624,14 @@ namespace sls {
     }
 
     template<typename num_t>
-    void arith_base<num_t>::propagate_literal(sat::literal lit) {
-        TRACE("sls", tout << "repair is-true: " << ctx.is_true(lit) << " lit: " << lit << "\n");
+    void arith_base<num_t>::propagate_literal(sat::literal lit) {        
         if (!ctx.is_true(lit))
             return;
         auto const* ineq = atom(lit.var());
         if (!ineq)
-            return;
-        TRACE("sls", tout << "repair lit: " << lit << " ineq-is-true: " << ineq->is_true() << "\n");
+            return;      
         if (ineq->is_true() != lit.sign())
-            return;        
+            return;
         repair(lit, *ineq);
     }
 
@@ -750,6 +752,9 @@ namespace sls {
         auto const& coeffs = ad.m_args;
         num_t sum(ad.m_coeff);
         num_t val = value(v);
+
+        verbose_stream() << mk_bounded_pp(m_vars[v].m_expr, m) << " := " << value(v) << "\n";
+
         for (auto const& [c, w] : coeffs)
             sum += c * value(w);
         if (val == sum)
@@ -771,13 +776,14 @@ namespace sls {
         auto const& [v, coeff, monomial] = md;
         num_t product(coeff);
         num_t val = value(v);
+        num_t new_value;
         for (auto v : monomial)
             product *= value(v);
         if (product == val)
             return;
-        if (rand() % 20 == 0) {
-            update(v, product);
-        }
+        verbose_stream() << "repair mul " << mk_bounded_pp(m_vars[v].m_expr, m) << " := " << val << "(" << product << ")\n";
+        if (rand() % 20 == 0) 
+            update(v, product);        
         else if (val == 0) {
             auto v = monomial[ctx.rand(monomial.size())];
             num_t zero(0);
@@ -801,28 +807,30 @@ namespace sls {
             // value1(v) * product / value(v) = val
             // value1(v) = value(v) * val / product
             auto w = monomial[ctx.rand(monomial.size())];
-            auto old_value = value(w);
-            num_t new_value;
-            if (m_vars[w].m_sort == var_sort::REAL) 
-                new_value = old_value * val / product;
-            else
-                new_value = divide(w, old_value * val, product);
+            auto old_value = value(w);            
+            new_value = divide(w, old_value * val, product);
             update(w, new_value);
         }
         else {
-            product = coeff;
+            auto w = monomial[ctx.rand(monomial.size())];
+            num_t prod(coeff);
             for (auto v : monomial) {
-                num_t new_value{ 1 };
+                if (v == w)
+                    continue;
+                num_t new_value(1);
                 if (rand() % 2 == 0)
                     new_value = -1;
-                product *= new_value;
+                prod *= new_value;
                 update(v, new_value);
             }
-            auto v = monomial[ctx.rand(monomial.size())];
-            if ((product < 0 && 0 < val) || (val < 0 && 0 < product))
-                update(v, -val * value(v));
+
+            verbose_stream() << "select random " << coeff << " " << val << " v" << w << "\n";
+            new_value = divide(w, val * value(w), coeff);
+
+            if ((product < 0 && 0 < new_value) || (new_value < 0 && 0 < product))
+                update(w, -new_value);
             else
-                update(v, val * value(v));
+                update(w, new_value);
         }
     }
 
@@ -1076,6 +1084,19 @@ namespace sls {
                     break;
                 }
             }
+            if (sat)
+                continue;
+            verbose_stream() << clause << "\n";
+            for (auto lit : clause.m_clause) {
+                verbose_stream() << lit << " (" << ctx.is_true(lit) << ") ";
+                auto ineq = atom(lit.var());
+                if (!ineq)
+                    continue;
+                verbose_stream() << *ineq << "\n";
+                for (auto const& [coeff, v] : ineq->m_args)
+                    verbose_stream() << coeff << " " << v << " " << mk_bounded_pp(m_vars[v].m_expr, m) << " := " << value(v) << "\n";
+            }
+            exit(0);
             if (!sat)
                 return false;
         }

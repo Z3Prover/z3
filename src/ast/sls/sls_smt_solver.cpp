@@ -108,32 +108,73 @@ namespace sls {
         // send clauses to ddfw
         // send expression mapping to m_solver_ctx
         
-        sat::literal_vector clause;
-        for (auto f : m_assertions) {
-            if (m.is_or(f)) {
-                clause.reset();
-                for (auto arg : *to_app(f))
-                    clause.push_back(mk_literal(arg));
-                m_solver_ctx->add_clause(clause.size(), clause.data());
-            }
-            else {
-                sat::literal lit = mk_literal(f);
-                m_solver_ctx->add_clause(1, &lit);
-            }
-        }
+        for (auto f : m_assertions) 
+            add_clause(f);
+        
         IF_VERBOSE(10, m_solver_ctx->display(verbose_stream()));
         return m_ddfw.check(0, nullptr);
     }
 
-    sat::literal smt_solver::mk_literal(expr* e) {
-        bool neg = m.is_not(e, e);
-        sat::bool_var v;
-        if (!m_expr2var.find(e, v)) {
-            v = m_expr2var.size();
-            m_expr2var.insert(e, v);
-            m_solver_ctx->register_atom(v, e);
+    void smt_solver::add_clause(expr* f) {
+        sat::literal_vector clause;
+        if (m.is_or(f)) {
+            clause.reset();
+            for (auto arg : *to_app(f))
+                clause.push_back(mk_literal(arg));
+            m_solver_ctx->add_clause(clause.size(), clause.data());
         }
-        return sat::literal(v, neg);
+        else if (m.is_and(f)) {
+            for (auto arg : *to_app(f))
+                add_clause(arg);
+        }
+        else {
+            sat::literal lit = mk_literal(f);
+            m_solver_ctx->add_clause(1, &lit);
+        }
+    }
+
+    sat::literal smt_solver::mk_literal(expr* e) {
+        sat::literal lit;
+        bool neg = false;
+        while (m.is_not(e,e))
+            neg = !neg;
+        if (m_expr2lit.find(e, lit))
+            return neg ? ~lit : lit;
+        sat::literal_vector clause;
+        if (m.is_and(e)) {
+            lit = mk_literal();
+            for (expr* arg : *to_app(e)) {
+                auto lit2 = mk_literal(arg);
+                clause.push_back(~lit2);
+                sat::literal lits[2] = { ~lit, lit2 };
+                m_solver_ctx->add_clause(2, lits);
+            }
+            clause.push_back(lit);
+            m_solver_ctx->add_clause(clause.size(), clause.data());
+        }
+        else if (m.is_or(e)) {
+            lit = mk_literal();
+            for (expr* arg : *to_app(e)) {
+                auto lit2 = mk_literal(arg);
+                clause.push_back(lit2);
+                sat::literal lits[2] = { lit, ~lit2 };
+                m_solver_ctx->add_clause(2, lits);                
+            }
+            clause.push_back(~lit);
+            m_solver_ctx->add_clause(clause.size(), clause.data());
+        }
+        else {
+            sat::bool_var v = m_num_vars++;
+            lit = sat::literal(v, false);
+            m_solver_ctx->register_atom(lit.var(), e);
+        }
+        m_expr2lit.insert(e, lit);
+        return neg ? ~lit : lit;
+    }
+
+    sat::literal smt_solver::mk_literal() {
+        sat::bool_var v = m_num_vars++;
+        return sat::literal(v, false);
     }
     
     model_ref smt_solver::get_model() {
