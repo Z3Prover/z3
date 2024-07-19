@@ -67,7 +67,7 @@ void permutation::display(std::ostream & out) const {
 bool permutation::check_invariant() const {
     SASSERT(m_p.size() == m_inv_p.size());
     unsigned n = m_p.size();
-    std::vector<bool> check_vector(n, false); // To check for duplicate and out-of-range values
+    bool_vector check_vector(n, false); // To check for duplicate and out-of-range values
     for (unsigned i = 0; i < n; i++) {
         unsigned pi = m_p[i];
         SASSERT(m_p[i] < n);
