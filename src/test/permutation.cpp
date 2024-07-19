@@ -1,84 +1,97 @@
-/*++
-Copyright (c) 2012 Microsoft Corporation
-
-Module Name:
-
-    permutation.cpp
-
-Abstract:
-
-    Simple abstraction for managing permutations.
-
-Author:
-
-    Leonardo de Moura (leonardo) 2012-01-04
-
-Revision History:
-
---*/
-#include "util/permutation.h"
+#include <iostream>
+#include "permutation.h"
 #include "util/util.h"
-#include "util/vector.h"
 
-void apply_permutation_copy(unsigned sz, unsigned const * src, unsigned const * p, unsigned * target) {
-    for (unsigned i = 0; i < sz; i++) {
-        target[i] = src[p[i]];
+void swap(unsigned m1, unsigned m2) noexcept { std::swap(m1, m2); }
+
+void test_constructor() {
+    permutation p(5);
+    for (unsigned i = 0; i < 5; ++i) {
+        SASSERT(p(i) == i);
+        SASSERT(p.inv(i) == i);
     }
 }
 
-static void tst1(unsigned sz, unsigned num_tries, unsigned max = UINT_MAX) {
-#if 0
-    unsigned_vector data;
-    unsigned_vector p;
-    unsigned_vector new_data;
-    data.resize(sz);
-    p.resize(sz);
-    new_data.resize(sz);
-    random_gen g;
-    for (unsigned i = 0; i < sz; i++)
-        p[i] = i;
-    // fill data with random numbers
-    for (unsigned i = 0; i < sz; i++)
-        data[i] = g() % max;
-    for (unsigned k = 0; k < num_tries; k ++) {
-        shuffle(p.size(), p.c_ptr(), g);
-        // std::cout << "p:    "; display(std::cout, p.begin(), p.end()); std::cout << "\n";
-        // std::cout << "data: "; display(std::cout, data.begin(), data.end()); std::cout << "\n";
-        apply_permutation_copy(sz, data.c_ptr(), p.c_ptr(), new_data.c_ptr());
-        apply_permutation(sz, data.c_ptr(), p.c_ptr());
-        // std::cout << "data: "; display(std::cout, data.begin(), data.end()); std::cout << "\n";
-        for (unsigned i = 0; i < 0; i++)
-            ENSURE(data[i] == new_data[i]);
+void test_reset() {
+    permutation p(3);
+    p.swap(0, 2);
+    p.reset(3);
+    for (unsigned i = 0; i < 3; ++i) {
+        SASSERT(p(i) == i);
+        SASSERT(p.inv(i) == i);
     }
-#endif
+}
+
+void test_swap() {
+    permutation p(4);
+    p.swap(1, 3);
+    SASSERT(p(1) == 3);
+    SASSERT(p(3) == 1);
+    SASSERT(p.inv(1) == 3);
+    SASSERT(p.inv(3) == 1);
+}
+
+void test_move_after() {
+    permutation p(5);
+    p.move_after(1, 3);
+    SASSERT(p(0) == 0);
+    SASSERT(p(1) == 2);
+    SASSERT(p(2) == 3);
+    SASSERT(p(3) == 1);
+    SASSERT(p(4) == 4);
+}
+
+void test_apply_permutation() {
+    permutation p(4);
+    p.swap(0, 2);
+    int data[] = {10, 20, 30, 40};
+    unsigned perm[] = {2, 1, 0, 3};
+    apply_permutation(4, data, perm);
+    SASSERT(data[0] == 30);
+    SASSERT(data[1] == 20);
+    SASSERT(data[2] == 10);
+    SASSERT(data[3] == 40);
+}
+
+void test_apply_permutation_core() 
+{
+    permutation p(4);
+    p.swap(0, 2);
+    int data[] = {10, 20, 30, 40};
+    unsigned perm[] = {2, 1, 0, 3};
+    apply_permutation_core(4, data, perm);
+
+    SASSERT(data[0] == 30);
+    SASSERT(data[1] == 20);
+    SASSERT(data[2] == 10);
+    SASSERT(data[3] == 40);
+}
+
+void test_check_invariant() {
+    permutation p(4);
+    SASSERT(p.check_invariant());
+    p.swap(0, 2);
+    SASSERT(p.check_invariant());
+    p.move_after(1, 3);
+    SASSERT(p.check_invariant());
+}
+
+void test_display() {
+    permutation p(4);
+    std::ostringstream out;
+    p.display(out);
+    SASSERT(out.str() == "0:0 1:1 2:2 3:3");
 }
 
 void tst_permutation() {
-    tst1(10, 1000, 5);
-    tst1(10, 1000, 1000);
-    tst1(10, 1000, UINT_MAX);
-    tst1(100, 1000, 33);
-    tst1(100, 1000, 1000);
-    tst1(100, 1000, UINT_MAX);
-    tst1(1000, 1000, 121);
-    tst1(1000, 1000, 1000);
-    tst1(1000, 1000, UINT_MAX);
-    tst1(33, 1000, 121);
-    tst1(33, 1000, 1000);
-    tst1(33, 1000, UINT_MAX);
-    tst1(121, 1000, 121);
-    tst1(121, 1000, 1000);
-    tst1(121, 1000, UINT_MAX);
-    for (unsigned i = 0; i < 1000; i++) {
-        tst1(1000, 2, 333);
-        tst1(1000, 2, 10000);
-        tst1(1000, 2, UINT_MAX);
-    }
-    random_gen g;
-    for (unsigned i = 0; i < 100000; i++) {
-        unsigned sz = (g() % 131) + 1;
-        tst1(sz, 1, sz*2);
-        tst1(sz, 1, UINT_MAX);
-        tst1(sz, 1, sz/2 + 1);
-    }
+    test_constructor();
+    test_reset();
+    test_swap();
+    test_move_after();
+    test_apply_permutation();
+    test_apply_permutation_core();
+    test_check_invariant();
+    test_display();
+    
+    std::cout << "All tests passed!" << std::endl;
 }
