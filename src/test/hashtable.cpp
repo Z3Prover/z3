@@ -21,7 +21,6 @@ Revision History:
 #include<iostream>
 #include<unordered_set>
 #include<stdlib.h>
-#include <cassert>
 #include "util/hashtable.h"
 
 
@@ -131,69 +130,69 @@ struct my_eq {
 
 void test_hashtable_constructors() {
     hashtable<int, my_hash, my_eq> ht;
-    assert(ht.empty());
-    assert(ht.size() == 0);
-    assert(ht.capacity() == DEFAULT_HASHTABLE_INITIAL_CAPACITY);
+    VERIFY(ht.empty());
+    VERIFY(ht.size() == 0);
+    VERIFY(ht.capacity() == DEFAULT_HASHTABLE_INITIAL_CAPACITY);
 
     // Copy constructor
     hashtable<int, my_hash, my_eq> ht_copy(ht);
-    assert(ht_copy.empty());
-    assert(ht_copy.size() == 0);
-    assert(ht_copy.capacity() == ht.capacity());
+    VERIFY(ht_copy.empty());
+    VERIFY(ht_copy.size() == 0);
+    VERIFY(ht_copy.capacity() == ht.capacity());
 
     // Move constructor
     hashtable<int, my_hash, my_eq> ht_move(std::move(ht));
-    assert(ht_move.empty());
-    assert(ht_move.size() == 0);
-    assert(ht_move.capacity() == ht_copy.capacity());
+    VERIFY(ht_move.empty());
+    VERIFY(ht_move.size() == 0);
+    VERIFY(ht_move.capacity() == ht_copy.capacity());
 }
 
 void test_hashtable_insert() {
     hashtable<int, my_hash, my_eq> ht;
     ht.insert(1);
-    assert(!ht.empty());
-    assert(ht.size() == 1);
+    VERIFY(!ht.empty());
+    VERIFY(ht.size() == 1);
     int value;
-    assert(ht.find(1, value) && value == 1);
+    VERIFY(ht.find(1, value) && value == 1);
 }
 
 void test_hashtable_remove() {
     hashtable<int, my_hash, my_eq> ht;
     ht.insert(1);
     ht.remove(1);
-    assert(ht.empty());
-    assert(ht.size() == 0);
+    VERIFY(ht.empty());
+    VERIFY(ht.size() == 0);
 }
 
 void test_hashtable_find() {
     hashtable<int, my_hash, my_eq> ht;
     ht.insert(1);
     int value;
-    assert(ht.find(1, value) && value == 1);
-    assert(!ht.find(2, value));
+    VERIFY(ht.find(1, value) && value == 1);
+    VERIFY(!ht.find(2, value));
 }
 
 void test_hashtable_contains() {
     hashtable<int, my_hash, my_eq> ht;
     ht.insert(1);
-    assert(ht.contains(1));
-    assert(!ht.contains(2));
+    VERIFY(ht.contains(1));
+    VERIFY(!ht.contains(2));
 }
 
 void test_hashtable_reset() {
     hashtable<int, my_hash, my_eq> ht;
     ht.insert(1);
     ht.reset();
-    assert(ht.empty());
-    assert(ht.size() == 0);
+    VERIFY(ht.empty());
+    VERIFY(ht.size() == 0);
 }
 
 void test_hashtable_finalize() {
     hashtable<int, my_hash, my_eq> ht;
     ht.insert(1);
     ht.finalize();
-    assert(ht.empty());
-    assert(ht.size() == 0);
+    VERIFY(ht.empty());
+    VERIFY(ht.size() == 0);
 }
 
 void test_hashtable_iterators() {
@@ -206,7 +205,7 @@ void test_hashtable_iterators() {
     for(auto it = ht.begin(); it != ht.end(); ++it) {
         ++count;
     }
-    assert(count == 3);
+    VERIFY(count == 3);
 }
 
 void test_hashtable_operators() {
@@ -217,12 +216,12 @@ void test_hashtable_operators() {
     ht2.insert(2);
     
     ht1 |= ht2;
-    assert(ht1.contains(1));
-    assert(ht1.contains(2));
+    VERIFY(ht1.contains(1));
+    VERIFY(ht1.contains(2));
     
     ht1 &= ht2;
-    assert(!ht1.contains(1));
-    assert(ht1.contains(2));
+    VERIFY(!ht1.contains(1));
+    VERIFY(ht1.contains(2));
 }
 
 void tst_hashtable() {
