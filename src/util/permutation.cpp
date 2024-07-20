@@ -36,6 +36,7 @@ void permutation::swap(unsigned i, unsigned j) noexcept {
     unsigned j_prime = m_p[j];
     std::swap(m_p[i], m_p[j]);
     std::swap(m_inv_p[i_prime], m_inv_p[j_prime]); 
+    SASSERT(check_invariant());
 }
 
 /**
@@ -66,11 +67,19 @@ void permutation::display(std::ostream & out) const {
 bool permutation::check_invariant() const {
     SASSERT(m_p.size() == m_inv_p.size());
     unsigned n = m_p.size();
+    bool_vector check_vector(n, false); // To check for duplicate and out-of-range values
     for (unsigned i = 0; i < n; i++) {
+        unsigned pi = m_p[i];
         SASSERT(m_p[i] < n);
         SASSERT(m_inv_p[i] < n);
         SASSERT(m_p[m_inv_p[i]] == i);
         SASSERT(m_inv_p[m_p[i]] == i);
+        // Check the inversion hasn't been checked yet
+        if (check_vector[pi]) {
+            return false;
+        }
+        // Mark this value as checked
+        check_vector[pi] = true;
     }
     return true;
 }
