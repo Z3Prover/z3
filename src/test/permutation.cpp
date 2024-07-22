@@ -1,5 +1,5 @@
 #include <iostream>
-#include "permutation.h"
+#include "util/permutation.h"
 #include "util/util.h"
 
 void swap(unsigned m1, unsigned m2) noexcept { std::swap(m1, m2); }
