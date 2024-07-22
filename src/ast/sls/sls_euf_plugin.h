@@ -49,7 +49,7 @@ namespace sls {
         void set_value(expr* e, expr* v) override {}
 
         void repair_up(app* e) override {}
-        void repair_down(app* e) override {}
+        bool repair_down(app* e) override { return false; }
     };
     
 }

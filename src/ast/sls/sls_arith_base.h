@@ -18,6 +18,7 @@ Author:
 
 #include "util/obj_pair_set.h"
 #include "util/checked_int64.h"
+#include "util/optional.h"
 #include "ast/ast_trail.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/sls/sls_context.h"
@@ -31,6 +32,7 @@ namespace sls {
     class arith_base : public plugin {
         enum class ineq_kind { EQ, LE, LT};
         enum class var_sort { INT, REAL };
+        struct bound { bool is_strict = false; num_t value; };
         typedef unsigned var_t;
         typedef unsigned atom_t;
 
@@ -73,6 +75,7 @@ namespace sls {
             vector<std::pair<num_t, sat::bool_var>> m_bool_vars;
             unsigned_vector m_muls;
             unsigned_vector m_adds;
+            optional<bound> m_lo, m_hi;
         };
 
         struct mul_def {
@@ -104,17 +107,24 @@ namespace sls {
 
         unsigned get_num_vars() const { return m_vars.size(); }
 
-        void repair_mul(mul_def const& md);
-        void repair_add(add_def const& ad);
-        void repair_mod(op_def const& od);
-        void repair_idiv(op_def const& od);
-        void repair_div(op_def const& od);
-        void repair_rem(op_def const& od);
-        void repair_power(op_def const& od);
-        void repair_abs(op_def const& od);
-        void repair_to_int(op_def const& od);
-        void repair_to_real(op_def const& od);
+        bool repair_mul1(mul_def const& md);
+        bool repair_square(mul_def const& md);
+        bool repair_mul(mul_def const& md);
+        bool repair_add(add_def const& ad);
+        bool repair_mod(op_def const& od);
+        bool repair_idiv(op_def const& od);
+        bool repair_div(op_def const& od);
+        bool repair_rem(op_def const& od);
+        bool repair_power(op_def const& od);
+        bool repair_abs(op_def const& od);
+        bool repair_to_int(op_def const& od);
+        bool repair_to_real(op_def const& od);
         void repair(sat::literal lit, ineq const& ineq);
+        bool in_bounds(var_t v, num_t const& value);
+
+        vector<num_t> m_factors;
+        vector<num_t> const& factor(num_t n);
+        num_t sqrt(num_t n);
 
         double reward(sat::literal lit);
 
@@ -129,7 +139,7 @@ namespace sls {
         bool cm(ineq const& ineq, var_t v, num_t& new_value);
         bool cm(ineq const& ineq, var_t v, num_t const& coeff, num_t& new_value);
         int cm_score(var_t v, num_t const& new_value);
-        void update(var_t v, num_t const& new_value);
+        bool update(var_t v, num_t const& new_value);
         double dscore_reward(sat::bool_var v);
         double dtt_reward(sat::literal lit);
         double dscore(var_t v, num_t const& new_value) const;
@@ -146,22 +156,30 @@ namespace sls {
         
         void init_bool_var_assignment(sat::bool_var v);
 
+        bool is_int(var_t v) const { return m_vars[v].m_sort == var_sort::INT; }
+
         num_t value(var_t v) const { return m_vars[v].m_value; }
         bool is_num(expr* e, num_t& i);
         expr_ref from_num(sort* s, num_t const& n);
         void check_ineqs();
         void init_bool_var(sat::bool_var bv);
+        void initialize(sat::literal lit);
+        void add_le(var_t v, num_t const& n);
+        void add_ge(var_t v, num_t const& n);
+        void add_lt(var_t v, num_t const& n);
+        void add_gt(var_t v, num_t const& n);
+        std::ostream& display(std::ostream& out, var_t v) const;
     public:
         arith_base(context& ctx);
         ~arith_base() override {}        
         void register_term(expr* e) override;
         void set_value(expr* e, expr* v) override;
         expr_ref get_value(expr* e) override;
-        void initialize() override {}
+        void initialize() override;
         void propagate_literal(sat::literal lit) override;
         bool propagate() override;
         void repair_up(app* e) override;
-        void repair_down(app* e) override;
+        bool repair_down(app* e) override;
         bool is_sat() override;
         void on_rescale() override;
         void on_restart() override;

@@ -42,7 +42,7 @@ namespace sls {
         virtual void initialize() = 0;
         virtual bool propagate() = 0;
         virtual void propagate_literal(sat::literal lit) = 0;
-        virtual void repair_down(app* e) = 0;
+        virtual bool repair_down(app* e) = 0;
         virtual void repair_up(app* e) = 0;
         virtual bool is_sat() = 0;
         virtual void on_rescale() {};
@@ -116,6 +116,8 @@ namespace sls {
 
         void propagate_boolean_assignment();
         void propagate_literal(sat::literal lit);
+
+        family_id get_fid(expr* e) const;
         
     public:
         context(ast_manager& m, sat_solver_context& s);

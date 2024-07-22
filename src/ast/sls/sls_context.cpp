@@ -104,9 +104,11 @@ namespace sls {
                 expr* e = term(id);
                 TRACE("sls", tout << "repair down " << mk_bounded_pp(e, m) << "\n");
                 if (is_app(e)) {
-                    auto p = m_plugins.get(to_app(e)->get_family_id(), nullptr);
-                    if (p)
-                        p->repair_down(to_app(e));
+                    auto p = m_plugins.get(get_fid(e), nullptr);
+                    if (p && !p->repair_down(to_app(e)) && !m_repair_up.contains(e->get_id())) {
+                        IF_VERBOSE(0, verbose_stream() << "revert repair: " << mk_bounded_pp(e, m) << "\n");
+                        m_repair_up.insert(e->get_id());
+                    }
                 }
             }
             while (!m_repair_up.empty() && !m_new_constraint) {
@@ -114,7 +116,7 @@ namespace sls {
                 expr* e = term(id);
                 TRACE("sls", tout << "repair up " << mk_bounded_pp(e, m) << "\n");
                 if (is_app(e)) {
-                    auto p = m_plugins.get(to_app(e)->get_family_id(), nullptr);
+                    auto p = m_plugins.get(get_fid(e), nullptr);
                     if (p)
                         p->repair_up(to_app(e));
                 }
@@ -129,15 +131,24 @@ namespace sls {
         }        
     }
 
+    family_id context::get_fid(expr* e) const {
+        if (!is_app(e))
+            return null_family_id;
+        family_id fid = to_app(e)->get_family_id();
+        if (m.is_eq(e) || m.is_distinct(e))
+            fid = to_app(e)->get_arg(0)->get_sort()->get_family_id();   
+        else if (m.is_ite(e))
+            fid = to_app(e)->get_arg(1)->get_sort()->get_family_id();
+        return fid;
+    }
+
     void context::propagate_literal(sat::literal lit) {
         if (!is_true(lit))
             return;
         auto a = atom(lit.var());
-        if (!a || !is_app(a))
+        if (!a)
             return;
-        family_id fid = to_app(a)->get_family_id();
-        if (m.is_eq(a) || m.is_distinct(a))
-            fid = to_app(a)->get_arg(0)->get_sort()->get_family_id();
+        family_id fid = get_fid(a);
         auto p = m_plugins.get(fid, nullptr);
         if (p)
             p->propagate_literal(lit);
@@ -223,6 +234,11 @@ namespace sls {
         if (m_initialized)
             return;
         m_initialized = true;
+        m_unit_literals.reset();
+        for (auto const& clause : s.clauses())
+           if (clause.m_clause.size() == 1)
+                m_unit_literals.push_back(clause.m_clause[0]);
+        verbose_stream() << "UNITS " << m_unit_literals << "\n";
         for (auto a : m_atoms)
             if (a)
                 register_terms(a);
@@ -310,7 +326,7 @@ namespace sls {
         m_relevant.reset();
         m_visited.reset();
         m_root_literals.reset();
-        m_unit_literals.reset();
+
         for (auto const& clause : s.clauses()) {
             bool has_relevant = false;
             unsigned n = 0;
@@ -329,8 +345,6 @@ namespace sls {
                 if (m_rand() % ++n == 0)
                     selected_lit = lit;
             }               
-            if (clause.m_clause.size() == 1)
-                m_unit_literals.push_back(clause.m_clause[0]);
             if (!has_relevant && selected_lit != sat::null_literal) {
                 m_relevant.insert(m_atoms[selected_lit.var()]->get_id());
                 m_root_literals.push_back(selected_lit);

@@ -335,21 +335,23 @@ namespace sls {
         set_value(e, b);
     }
 
-    void basic_plugin::repair_down(app* e) {
+    bool basic_plugin::repair_down(app* e) {
         SASSERT(m.is_bool(e));
         unsigned n = e->get_num_args();
-        if (n == 0 || !is_basic(e)) 
-            return;
+        if (!is_basic(e))
+            return false;
+        if (n == 0) 
+            return true;
         
         if (bval0(e) == bval1(e))
-            return;
+            return true;
         unsigned s = ctx.rand(n);
         for (unsigned i = 0; i < n; ++i) {
             auto j = (i + s) % n;
             if (try_repair(e, j)) 
-                return;            
+                return true;            
         }
-        repair_up(e);        
+        return false;
     }
 
     bool basic_plugin::try_repair_distinct(app* e, unsigned i) {

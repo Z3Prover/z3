@@ -102,7 +102,7 @@ namespace sls {
             m_arith64->mk_model(mdl);        
     }
 
-    void arith_plugin::repair_down(app* e) {
+    bool arith_plugin::repair_down(app* e) {
         WITH_FALLBACK(repair_down(e));
     }
 

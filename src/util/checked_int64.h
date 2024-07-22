@@ -35,7 +35,7 @@ class checked_int64 {
     int64_t m_value;
     typedef checked_int64 ci;
     
-    rational r64(int64_t i) { return rational(i, rational::i64()); }
+    rational r64(int64_t i) const { return rational(i, rational::i64()); }
 
 public:
 
@@ -56,6 +56,7 @@ public:
     static checked_int64 minus_one() { return ci(-1);}
 
     int64_t get_int64() const { return m_value; }
+    rational to_rational() const { return r64(m_value); }
 
     checked_int64 abs() const { 
         if (m_value >= 0) {
@@ -305,3 +306,21 @@ inline checked_int64<CHECK> mod(checked_int64<CHECK> const& a, checked_int64<CHE
     return result;
 }
 
+template<bool CHECK>
+inline bool divides(checked_int64<CHECK> const& a, checked_int64<CHECK> const& b) {
+    return mod(b, a) == 0;
+}
+
+template <bool CHECK>
+inline checked_int64<CHECK> gcd(checked_int64<CHECK> const& a, checked_int64<CHECK> const& b) {
+    checked_int64<CHECK> _a = abs(a);
+    checked_int64<CHECK> _b = abs(b);
+    if (_a == 0) 
+        return _b;
+    while (_b != 0) {
+        checked_int64<CHECK> r = mod(_a, _b);
+        _a = _b;
+        _b = r;
+    }
+    return _a;
+}

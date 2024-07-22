@@ -18,6 +18,7 @@ Author:
 #include "ast/sls/sls_context.h"
 #include "ast/sls/sat_ddfw.h"
 #include "ast/sls/sls_smt_solver.h"
+#include "ast/ast_ll_pp.h"
 
 
 namespace sls {
@@ -101,7 +102,12 @@ namespace sls {
     }
     
     void smt_solver::assert_expr(expr* e) {
-        m_assertions.push_back(e);
+        if (m.is_and(e)) {
+            for (expr* arg : *to_app(e))
+                assert_expr(arg);
+        }
+        else 
+            m_assertions.push_back(e);
     }
     
     lbool smt_solver::check() {
@@ -116,7 +122,11 @@ namespace sls {
     }
 
     void smt_solver::add_clause(expr* f) {
+        expr* g;
         sat::literal_vector clause;
+        if (m.is_not(f, g) && m.is_not(g, g)) {
+            add_clause(g);
+        }
         if (m.is_or(f)) {
             clause.reset();
             for (auto arg : *to_app(f))
@@ -126,6 +136,18 @@ namespace sls {
         else if (m.is_and(f)) {
             for (auto arg : *to_app(f))
                 add_clause(arg);
+        }
+        else if (m.is_not(f, g) && m.is_or(g)) {
+            for (auto arg : *to_app(g)) {
+                expr_ref fml(m.mk_not(arg), m);;
+                add_clause(fml);
+            }
+        }
+        else if (m.is_not(f, g) && m.is_and(g)) {
+            clause.reset();
+            for (auto arg : *to_app(g))
+                clause.push_back(~mk_literal(arg));
+            m_solver_ctx->add_clause(clause.size(), clause.data());
         }
         else {
             sat::literal lit = mk_literal(f);
