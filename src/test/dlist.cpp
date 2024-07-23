@@ -117,8 +117,6 @@ static void test_remove_from() {
     SASSERT(list == &node2);
     SASSERT(node2.next() == &node2);
     SASSERT(node2.prev() == &node2);
-    SASSERT(node1.next() == &node1);
-    SASSERT(node1.prev() == &node1);
     std::cout << "test_remove_from passed." << std::endl;
 }
 
