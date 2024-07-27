@@ -64,7 +64,10 @@ namespace sls {
 
             propagate_boolean_assignment();
 
+
             verbose_stream() << "propagate " << unsat().size() << " " << m_new_constraint << "\n";
+
+
             // display(verbose_stream());
 
             if (m_new_constraint || !unsat().empty())
@@ -129,6 +132,16 @@ namespace sls {
             for (auto p : m_plugins)
                 propagated |= p && !m_new_constraint && p->propagate();
         }        
+
+        for (sat::bool_var v = 0; v < s.num_vars(); ++v) {
+            auto a = atom(v);
+            if (!a)
+                continue;
+            sat::literal lit(v, !is_true(v));
+            auto p = m_plugins.get(get_fid(a), nullptr);
+            if (p)
+                p->repair_literal(lit);
+        }
     }
 
     family_id context::get_fid(expr* e) const {

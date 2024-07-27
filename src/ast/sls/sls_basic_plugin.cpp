@@ -335,8 +335,17 @@ namespace sls {
         set_value(e, b);
     }
 
+    void basic_plugin::repair_literal(sat::literal lit) {
+        auto a = ctx.atom(lit.var());
+        if (!is_basic(a))
+            return;
+        if (bval1(to_app(a)) != bval0(to_app(a)))
+            ctx.flip(lit.var());
+    }
+
     bool basic_plugin::repair_down(app* e) {
         SASSERT(m.is_bool(e));
+        
         unsigned n = e->get_num_args();
         if (!is_basic(e))
             return false;
@@ -345,6 +354,7 @@ namespace sls {
         
         if (bval0(e) == bval1(e))
             return true;
+        verbose_stream() << "basic repair down " << mk_bounded_pp(e, m) << "\n";
         unsigned s = ctx.rand(n);
         for (unsigned i = 0; i < n; ++i) {
             auto j = (i + s) % n;

@@ -143,6 +143,15 @@ namespace sls {
         }
     }
 
+    void bv_plugin::repair_literal(sat::literal lit) {
+        SASSERT(ctx.is_true(lit));
+        auto a = ctx.atom(lit.var());
+        if (!a || !is_app(a))
+            return;
+        if (!m_eval.eval_is_correct(to_app(a)))
+            ctx.flip(lit.var());
+    }
+
     std::ostream& bv_plugin::trace_repair(bool down, expr* e) {
         verbose_stream() << (down ? "d #" : "u #")
             << e->get_id() << ": "

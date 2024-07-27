@@ -324,3 +324,28 @@ inline checked_int64<CHECK> gcd(checked_int64<CHECK> const& a, checked_int64<CHE
     }
     return _a;
 }
+
+// Compute the extended GCD such that ax + by = gcd(a,b)
+template <bool CHECK>
+inline checked_int64<CHECK> gcd(checked_int64<CHECK> const& a, checked_int64<CHECK> const& b,
+    checked_int64<CHECK>& x, checked_int64<CHECK>& y) {
+    checked_int64<CHECK> _a = a;
+    checked_int64<CHECK> _b = b;
+    x = 0;
+    y = 0;
+    checked_int64<CHECK> lastx = 1;
+    checked_int64<CHECK> lasty = 0;
+    while (_b != 0) {
+        checked_int64<CHECK> q = div(_a, _b);
+        checked_int64<CHECK> r = mod(_a, _b);
+        _a = _b;
+        _b = r;
+        checked_int64<CHECK> temp = x;
+        x = lastx - q * x;
+        lastx = temp;
+        temp = y;
+        y = lasty - q * y;
+        lasty = temp;
+    }
+    return _a;
+}

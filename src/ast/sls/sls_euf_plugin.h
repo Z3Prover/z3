@@ -41,7 +41,7 @@ namespace sls {
         expr_ref get_value(expr* e) override;
         void initialize() override {}
         void propagate_literal(sat::literal lit) override {}       
-        bool propagate() override;
+        bool propagate() override;       
         bool is_sat() override;
         void register_term(expr* e) override;
         std::ostream& display(std::ostream& out) const override;
@@ -50,6 +50,7 @@ namespace sls {
 
         void repair_up(app* e) override {}
         bool repair_down(app* e) override { return false; }
+        void repair_literal(sat::literal lit) override {}
     };
     
 }

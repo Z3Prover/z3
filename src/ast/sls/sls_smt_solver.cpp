@@ -122,7 +122,7 @@ namespace sls {
     }
 
     void smt_solver::add_clause(expr* f) {
-        expr* g;
+        expr* g, * h;
         sat::literal_vector clause;
         if (m.is_not(f, g) && m.is_not(g, g)) {
             add_clause(g);
@@ -147,6 +147,18 @@ namespace sls {
             clause.reset();
             for (auto arg : *to_app(g))
                 clause.push_back(~mk_literal(arg));
+            m_solver_ctx->add_clause(clause.size(), clause.data());
+        }
+        else if (m.is_eq(f, g, h) && m.is_bool(g)) {
+            auto lit1 = mk_literal(g);
+            auto lit2 = mk_literal(h);
+            clause.reset();
+            clause.push_back(~lit1);
+            clause.push_back(lit2);
+            m_solver_ctx->add_clause(clause.size(), clause.data());
+            clause.reset();
+            clause.push_back(lit1);
+            clause.push_back(~lit2);
             m_solver_ctx->add_clause(clause.size(), clause.data());
         }
         else {

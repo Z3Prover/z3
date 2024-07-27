@@ -42,6 +42,7 @@ namespace sls {
         virtual void initialize() = 0;
         virtual bool propagate() = 0;
         virtual void propagate_literal(sat::literal lit) = 0;
+        virtual void repair_literal(sat::literal lit) = 0;
         virtual bool repair_down(app* e) = 0;
         virtual void repair_up(app* e) = 0;
         virtual bool is_sat() = 0;
@@ -69,6 +70,7 @@ namespace sls {
         virtual void on_model(model_ref& mdl) = 0;
         virtual sat::bool_var add_var() = 0;
         virtual void add_clause(unsigned n, sat::literal const* lits) = 0;
+        virtual std::ostream& display(std::ostream& out) = 0;
     };
     
     class context {

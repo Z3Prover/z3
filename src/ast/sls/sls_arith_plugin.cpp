@@ -110,6 +110,10 @@ namespace sls {
         WITH_FALLBACK(repair_up(e));
     }
 
+    void arith_plugin::repair_literal(sat::literal lit) {
+        WITH_FALLBACK(repair_literal(lit));
+    }
+
     void arith_plugin::set_value(expr* e, expr* v) {
         WITH_FALLBACK(set_value(e, v));       
     }

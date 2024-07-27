@@ -37,6 +37,7 @@ namespace sls {
         bool propagate() override;
         bool repair_down(app* e) override;
         void repair_up(app* e) override;
+        void repair_literal(sat::literal lit) override;
         bool is_sat() override;
 
         void on_rescale() override;

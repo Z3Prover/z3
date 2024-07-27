@@ -38,7 +38,6 @@ namespace sat {
         virtual ~local_search_plugin() {}
         virtual void init_search() = 0;
         virtual void finish_search() = 0;
-        virtual double reward(bool_var v) = 0;
         virtual void on_rescale() = 0;
         virtual void on_save_model() = 0;
         virtual void on_restart() = 0;
@@ -123,8 +122,6 @@ namespace sat {
         inline bool value(bool_var v) const { return m_vars[v].m_value; }
 
         inline double& reward(bool_var v) { return m_vars[v].m_reward; }        
-
-        inline double plugin_reward(bool_var v) { return is_external(v) ? (m_vars[v].m_last_reward = m_plugin->reward(v)) : reward(v); }
 
         void set_external(bool_var v) { m_vars[v].m_external = true; }
 

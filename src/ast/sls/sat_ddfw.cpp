@@ -68,8 +68,9 @@ namespace sat {
                 else if (should_restart()) do_restart(), m_plugin->on_restart();
                 else if (do_flip<true>());
                 else shift_weights(), m_plugin->on_rescale();
-                verbose_stream() << "steps: " << steps << " min_sz: " << m_min_sz << " unsat: " << m_unsat.size() << "\n";
+                //verbose_stream() << "steps: " << steps << " min_sz: " << m_min_sz << " unsat: " << m_unsat.size() << "\n";
                 ++steps;
+                SASSERT(m_unsat.size() >= m_min_sz);
             }
         }
         catch (z3_exception& ex) {
@@ -114,7 +115,7 @@ namespace sat {
         
         if (reward > 0 || (reward == 0 && m_rand(100) <= m_config.m_use_reward_zero_pct)) {
             flip(v);
-            if (m_unsat.size() <= m_min_sz) 
+            if (m_unsat.size() <= m_min_sz)
                 save_best_values();
             return true;
         }
@@ -124,32 +125,46 @@ namespace sat {
     template<bool uses_plugin>
     bool_var ddfw::pick_var(double& r) {
         double sum_pos = 0;
-        unsigned n = 1;
+        unsigned n = 1, m = 1;
         bool_var v0 = null_bool_var;
+        bool_var v1 = null_bool_var;
+        if (m_unsat_vars.empty())
+            return null_bool_var;
         for (bool_var v : m_unsat_vars) {
-            r = uses_plugin ? plugin_reward(v) : reward(v);
+            r = reward(v);
             if (r > 0.0)    
                 sum_pos += score(r);            
             else if (r == 0.0 && sum_pos == 0 && (m_rand() % (n++)) == 0) 
                 v0 = v;            
+            else if (m_rand(m++) == 0) 
+                v1 = v;
         }
+        
+
+        if (v0 != null_bool_var && m_rand(20) == 0) 
+            return v0;        
+
+        if (v1 != null_bool_var && m_rand(20) == 0) 
+            return v1;        
+
         if (sum_pos > 0) {
-            double lim_pos = ((double) m_rand() / (1.0 + m_rand.max_value())) * sum_pos;                
+            double lim_pos = ((double) m_rand() / (1.0 + m_rand.max_value())) * sum_pos;  
             for (bool_var v : m_unsat_vars) {
-                r = uses_plugin && is_external(v) ? m_vars[v].m_last_reward : reward(v);
+                r = reward(v);
                 if (r > 0) {
                     lim_pos -= score(r);
-                    if (lim_pos <= 0) 
-                        return v;                    
+                    if (lim_pos <= 0) {
+                        return v;
+                    }
                 }
             }
         }
         r = 0;
-        if (v0 != null_bool_var) 
-            return v0;
-        if (m_unsat_vars.empty())
-            return null_bool_var;
-        return m_unsat_vars.elem_at(m_rand(m_unsat_vars.size()));
+        
+        if (v0 == null_bool_var)           
+            v0 = m_unsat_vars.elem_at(m_rand(m_unsat_vars.size()));
+        
+        return v0;
     }
 
     void ddfw::add(unsigned n, literal const* c) {        
@@ -351,13 +366,15 @@ namespace sat {
                 break;
             }
         }
+        save_best_values();
     }
 
     bool ddfw::should_restart() {
         return m_flips >= m_restart_next;
     }
     
-    void ddfw::do_restart() {        
+    void ddfw::do_restart() {    
+        verbose_stream() << "restart\n";
         reinit_values();
         init_clause_data();
         m_restart_next += m_config.m_restart_base*get_luby(++m_restart_count);
@@ -403,6 +420,11 @@ namespace sat {
             if (m_unsat.size() < 50 || m_min_sz * 10 > m_unsat.size() * 11)
                 save_model();
         }
+#if 0
+        if (m_unsat.size() <= m_min_sz) {
+            verbose_stream() << "unsat " << m_clauses[m_unsat[0]] << "\n";
+        }
+#endif
         if (m_unsat.size() < m_min_sz) {
             m_models.reset();
             // skip saving the first model.

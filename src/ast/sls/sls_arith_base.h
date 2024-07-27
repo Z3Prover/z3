@@ -102,8 +102,12 @@ namespace sls {
         vector<add_def>              m_adds;
         vector<op_def>               m_ops;
         unsigned_vector              m_expr2var;
+        svector<double>              m_probs;
         bool                         m_dscore_mode = false;
         arith_util                   a;
+
+        void invariant();
+        void invariant(ineq const& i);
 
         unsigned get_num_vars() const { return m_vars.size(); }
 
@@ -120,7 +124,9 @@ namespace sls {
         bool repair_to_int(op_def const& od);
         bool repair_to_real(op_def const& od);
         void repair(sat::literal lit, ineq const& ineq);
+        bool repair_eq(sat::literal lit, ineq const& ineq);
         bool in_bounds(var_t v, num_t const& value);
+        bool is_fixed(var_t v);
 
         vector<num_t> m_factors;
         vector<num_t> const& factor(num_t n);
@@ -144,6 +150,8 @@ namespace sls {
         double dtt_reward(sat::literal lit);
         double dscore(var_t v, num_t const& new_value) const;
         void save_best_values();
+        bool solve_eq_pairs(ineq const& ineq);
+        bool solve_eq_pairs(num_t const& a, var_t x, num_t const& b, var_t y, num_t const& r);
 
         var_t mk_var(expr* e);
         var_t mk_term(expr* e);
@@ -180,6 +188,7 @@ namespace sls {
         bool propagate() override;
         void repair_up(app* e) override;
         bool repair_down(app* e) override;
+        void repair_literal(sat::literal lit) override;
         bool is_sat() override;
         void on_rescale() override;
         void on_restart() override;
