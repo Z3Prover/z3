@@ -26,11 +26,10 @@ static void on_ctrl_c(int) {
         g_obj->m_cancel_eh(CTRL_C_EH_CALLER);
         if (g_obj->m_once) {
             g_obj->m_first = false;
-            signal(SIGINT, on_ctrl_c); // re-install the handler
         }
     }
     else {
-        signal(SIGINT, g_obj->m_old_handler); 
+        sigaction(SIGINT, &g_obj->m_old_action, nullptr);
         raise(SIGINT);
     }
 }
@@ -43,15 +42,17 @@ scoped_ctrl_c::scoped_ctrl_c(event_handler & eh, bool once, bool enabled):
     m_old_scoped_ctrl_c(g_obj) {
     if (m_enabled) {
         g_obj = this;
-        m_old_handler = signal(SIGINT, on_ctrl_c); 
+        struct sigaction sa;
+        sa.sa_handler = on_ctrl_c;
+        sa.sa_flags = SA_ONSTACK;
+        sigemptyset(&sa.sa_mask);
+        sigaction(SIGINT, &sa, &m_old_action);
     }
 }
 
 scoped_ctrl_c::~scoped_ctrl_c() { 
     if (m_enabled) {
         g_obj = m_old_scoped_ctrl_c;
-        if (m_old_handler != SIG_ERR) {
-            signal(SIGINT, m_old_handler);
-        }
+        sigaction(SIGINT, &m_old_action, nullptr);
     }
 }
