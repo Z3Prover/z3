@@ -79,7 +79,7 @@ public:
         ref(static_matrix & m, unsigned row, unsigned col):m_matrix(m), m_row(row), m_col(col) {}
         ref & operator=(T const & v) { m_matrix.set( m_row, m_col, v); return *this; }
 
-        ref operator=(ref & v) { m_matrix.set(m_row, m_col, v.m_matrix.get(v.m_row, v.m_col)); return *this; }
+        ref operator=(ref & v) { m_matrix.set(m_row, m_col, v.m_matrix.get_elem(v.m_row, v.m_col)); return *this; }
 
         operator T () const { return m_matrix.get_elem(m_row, m_col); }
     };
