@@ -216,23 +216,6 @@ namespace datatype {
             void log_axiom_definitions(symbol const& s, sort * new_sort);
 
 
-            friend class util;
-            obj_map<sort, ptr_vector<func_decl>*>       m_datatype2constructors;
-            obj_map<sort, cnstr_depth>                  m_datatype2nonrec_constructor;
-            obj_map<func_decl, ptr_vector<func_decl>*>  m_constructor2accessors;
-            obj_map<func_decl, func_decl*>              m_constructor2recognizer;
-            obj_map<func_decl, func_decl*>              m_recognizer2constructor;
-            obj_map<func_decl, func_decl*>              m_accessor2constructor;
-            obj_map<sort, bool>                         m_is_recursive;
-            obj_map<sort, bool>                         m_is_enum;
-            mutable obj_map<sort, bool>                 m_is_fully_interp;
-            mutable ast_ref_vector *                    m_asts = nullptr;
-            sref_vector<param_size::size>               m_refs;
-            ptr_vector<ptr_vector<func_decl> >          m_vectors;
-            unsigned                                    m_start = 0;
-            mutable ptr_vector<sort>                    m_fully_interp_trail;
-            void add_ast(ast* a) const { if (!m_asts) m_asts = alloc(ast_ref_vector, *m_manager);  m_asts->push_back(a); }
-
         public:
             plugin(): m_id_counter(0), m_class_id(0), m_has_nested_rec(false) {}
             ~plugin() override;
@@ -280,6 +263,23 @@ namespace datatype {
             bool has_nested_rec() const { return m_has_nested_rec; }
 
             void reset();
+
+
+            obj_map<sort, ptr_vector<func_decl>*>       m_datatype2constructors;
+            obj_map<sort, cnstr_depth>                  m_datatype2nonrec_constructor;
+            obj_map<func_decl, ptr_vector<func_decl>*>  m_constructor2accessors;
+            obj_map<func_decl, func_decl*>              m_constructor2recognizer;
+            obj_map<func_decl, func_decl*>              m_recognizer2constructor;
+            obj_map<func_decl, func_decl*>              m_accessor2constructor;
+            obj_map<sort, bool>                         m_is_recursive;
+            obj_map<sort, bool>                         m_is_enum;
+            mutable obj_map<sort, bool>                 m_is_fully_interp;
+            mutable ast_ref_vector* m_asts = nullptr;
+            sref_vector<param_size::size>               m_refs;
+            ptr_vector<ptr_vector<func_decl> >          m_vectors;
+            unsigned                                    m_start = 0;
+            mutable ptr_vector<sort>                    m_fully_interp_trail;
+            void add_ast(ast* a) const { if (!m_asts) m_asts = alloc(ast_ref_vector, *m_manager);  m_asts->push_back(a); }
 
         private:
             bool is_value_visit(bool unique, expr * arg, ptr_buffer<app> & todo) const;
