@@ -220,19 +220,17 @@ namespace datatype {
     }
 
     namespace decl {
-
+        
         plugin::~plugin() {
             finalize();
         }
 
         void plugin::finalize() {
-            for (auto& kv : m_defs) {
-                dealloc(kv.m_value);
-            }
+            for (auto& kv : m_defs) 
+                dealloc(kv.m_value);            
             m_defs.reset();
             m_util = nullptr; // force deletion
-            dealloc(m_asts);
-            std::for_each(m_vectors.begin(), m_vectors.end(), delete_proc<ptr_vector<func_decl> >());
+            reset();
         }
 
         void plugin::reset() {
