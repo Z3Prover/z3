@@ -106,6 +106,7 @@ add_executable(test-z3
   sat_lookahead.cpp
   sat_user_scope.cpp
   scoped_timer.cpp
+  scoped_vector.cpp
   simple_parser.cpp
   simplex.cpp
   simplifier.cpp

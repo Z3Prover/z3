@@ -15,7 +15,6 @@ Author:
 
 --*/
 
-#include <cassert>
 #include <iostream>
 #include "util/dlist.h"
 
@@ -30,28 +29,28 @@ public:
 // Test the prev() method
 void test_prev() {
     TestNode node(1);
-    assert(node.prev() == &node);
+    SASSERT(node.prev() == &node);
     std::cout << "test_prev passed." << std::endl;
 }
 
 // Test the next() method
 void test_next() {
     TestNode node(1);
-    assert(node.next() == &node);
+    SASSERT(node.next() == &node);
     std::cout << "test_next passed." << std::endl;
 }
 
 // Test the const prev() method
 void test_const_prev() {
     const TestNode node(1);
-    assert(node.prev() == &node);
+    SASSERT(node.prev() == &node);
     std::cout << "test_const_prev passed." << std::endl;
 }
 
 // Test the const next() method
 void test_const_next() {
     const TestNode node(1);
-    assert(node.next() == &node);
+    SASSERT(node.next() == &node);
     std::cout << "test_const_next passed." << std::endl;
 }
 
@@ -59,9 +58,9 @@ void test_const_next() {
 void test_init() {
     TestNode node(1);
     node.init(&node);
-    assert(node.next() == &node);
-    assert(node.prev() == &node);
-    assert(node.invariant());
+    SASSERT(node.next() == &node);
+    SASSERT(node.prev() == &node);
+    SASSERT(node.invariant());
     std::cout << "test_init passed." << std::endl;
 }
 
@@ -71,10 +70,10 @@ void test_pop() {
     TestNode node1(1);
     TestNode::push_to_front(list, &node1);
     TestNode* popped = TestNode::pop(list);
-    assert(popped == &node1);
-    assert(list == nullptr);
-    assert(popped->next() == popped);
-    assert(popped->prev() == popped);
+    SASSERT(popped == &node1);
+    SASSERT(list == nullptr);
+    SASSERT(popped->next() == popped);
+    SASSERT(popped->prev() == popped);
     std::cout << "test_pop passed." << std::endl;
 }
 
@@ -83,12 +82,12 @@ void test_insert_after() {
     TestNode node1(1);
     TestNode node2(2);
     node1.insert_after(&node2);
-    assert(node1.next() == &node2);
-    assert(node2.prev() == &node1);
-    assert(node1.prev() == &node2);
-    assert(node2.next() == &node1);
-    assert(node1.invariant());
-    assert(node2.invariant());
+    SASSERT(node1.next() == &node2);
+    SASSERT(node2.prev() == &node1);
+    SASSERT(node1.prev() == &node2);
+    SASSERT(node2.next() == &node1);
+    SASSERT(node1.invariant());
+    SASSERT(node2.invariant());
     std::cout << "test_insert_after passed." << std::endl;
 }
 
@@ -97,12 +96,12 @@ void test_insert_before() {
     TestNode node1(1);
     TestNode node2(2);
     node1.insert_before(&node2);
-    assert(node1.prev() == &node2);
-    assert(node2.next() == &node1);
-    assert(node1.next() == &node2);
-    assert(node2.prev() == &node1);
-    assert(node1.invariant());
-    assert(node2.invariant());
+    SASSERT(node1.prev() == &node2);
+    SASSERT(node2.next() == &node1);
+    SASSERT(node1.next() == &node2);
+    SASSERT(node2.prev() == &node1);
+    SASSERT(node1.invariant());
+    SASSERT(node2.invariant());
     std::cout << "test_insert_before passed." << std::endl;
 }
 
@@ -114,11 +113,9 @@ void test_remove_from() {
     TestNode::push_to_front(list, &node1);
     TestNode::push_to_front(list, &node2);
     TestNode::remove_from(list, &node1);
-    assert(list == &node2);
-    assert(node2.next() == &node2);
-    assert(node2.prev() == &node2);
-    assert(node1.next() == &node1);
-    assert(node1.prev() == &node1);
+    SASSERT(list == &node2);
+    SASSERT(node2.next() == &node2);
+    SASSERT(node2.prev() == &node2);
     std::cout << "test_remove_from passed." << std::endl;
 }
 
@@ -127,9 +124,9 @@ void test_push_to_front() {
     TestNode* list = nullptr;
     TestNode node1(1);
     TestNode::push_to_front(list, &node1);
-    assert(list == &node1);
-    assert(node1.next() == &node1);
-    assert(node1.prev() == &node1);
+    SASSERT(list == &node1);
+    SASSERT(node1.next() == &node1);
+    SASSERT(node1.prev() == &node1);
     std::cout << "test_push_to_front passed." << std::endl;
 }
 
@@ -137,20 +134,20 @@ void test_push_to_front() {
 void test_detach() {
     TestNode node(1);
     TestNode::detach(&node);
-    assert(node.next() == &node);
-    assert(node.prev() == &node);
-    assert(node.invariant());
+    SASSERT(node.next() == &node);
+    SASSERT(node.prev() == &node);
+    SASSERT(node.invariant());
     std::cout << "test_detach passed." << std::endl;
 }
 
 // Test the invariant() method
 void test_invariant() {
     TestNode node1(1);
-    assert(node1.invariant());
+    SASSERT(node1.invariant());
     TestNode node2(2);
     node1.insert_after(&node2);
-    assert(node1.invariant());
-    assert(node2.invariant());
+    SASSERT(node1.invariant());
+    SASSERT(node2.invariant());
     std::cout << "test_invariant passed." << std::endl;
 }
 
@@ -161,10 +158,10 @@ void test_contains() {
     TestNode node2(2);
     TestNode::push_to_front(list, &node1);
     TestNode::push_to_front(list, &node2);
-    assert(TestNode::contains(list, &node1));
-    assert(TestNode::contains(list, &node2));
+    SASSERT(TestNode::contains(list, &node1));
+    SASSERT(TestNode::contains(list, &node2));
     TestNode node3(3);
-    assert(!TestNode::contains(list, &node3));
+    SASSERT(!TestNode::contains(list, &node3));
     std::cout << "test_contains passed." << std::endl;
 }
 
