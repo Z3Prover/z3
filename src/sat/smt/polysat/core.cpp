@@ -212,11 +212,11 @@ namespace polysat {
     sat::check_result core::check() {
         lbool r = l_true;
 
-        verbose_stream() << "check-propagate\n";
+        //verbose_stream() << "check-propagate\n";
         if (propagate())
             return sat::check_result::CR_CONTINUE;
 
-        verbose_stream() << "check-assign-variable\n";
+        //verbose_stream() << "check-assign-variable\n";
         switch (assign_variable()) {
         case l_true:
             break;
@@ -230,7 +230,7 @@ namespace polysat {
             break;
         }
 
-        verbose_stream() << "check-saturate\n";
+        //verbose_stream() << "check-saturate\n";
         saturation saturate(*this);
         switch (saturate()) {
         case l_true:
@@ -239,12 +239,12 @@ namespace polysat {
             TRACE("bv", tout << "saturate\n");
             return sat::check_result::CR_CONTINUE;
         case l_undef:
-            verbose_stream() << "giveup saturate\n";
+            //verbose_stream() << "giveup saturate\n";
             r = l_undef;
             break;
         }
         
-        verbose_stream() << "check-refine\n";
+        //verbose_stream() << "check-refine\n";
         switch (m_monomials.refine()) {
         case l_true:
             break;
@@ -252,12 +252,12 @@ namespace polysat {
             TRACE("bv", tout << "refine\n");
             return sat::check_result::CR_CONTINUE;
         case l_undef:
-            verbose_stream() << "giveup refine\n";
+            //verbose_stream() << "giveup refine\n";
             r = l_undef;
             break;
         }
 
-        verbose_stream() << "check-blast\n";
+        //verbose_stream() << "check-blast\n";
         switch (m_monomials.bit_blast()) {
         case l_true:
             break;
@@ -265,7 +265,7 @@ namespace polysat {
             TRACE("bv", tout << "blast\n");
             return sat::check_result::CR_CONTINUE;
         case l_undef:
-            verbose_stream() << "giveup blast\n";
+            //verbose_stream() << "giveup blast\n";
             r = l_undef;
             break;
         }

@@ -358,10 +358,7 @@ namespace polysat {
             return;
         if (a.degree(v) < r.degree(v))
             return;
-
-        verbose_stream() << "resolve: " << a << " = " << b << " => " << r << "\n";
         add_clause("ax + b = 0 & cx + d = 0 ==> cb - da = 0", { i.dep(), j.dep(), C.eq(r) }, true);
-        exit(0);
     }
 
 
