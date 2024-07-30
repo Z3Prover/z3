@@ -101,7 +101,7 @@ struct mbp_basic_tg::impl {
                 bool is_or = m.is_or(term);
                 app *c = to_app(term);
                 bool t = is_or ? any_of(*c, is_true) : all_of(*c, is_true);
-                bool f = is_or ? all_of(*c, is_false) : all_of(*c, is_false);
+                bool f = is_or ? all_of(*c, is_false) : any_of(*c, is_false);
                 if (t || f) {
                     mark_seen(term);
                     progress = true;
