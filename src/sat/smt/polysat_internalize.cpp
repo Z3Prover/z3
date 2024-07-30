@@ -18,6 +18,7 @@ Author:
 #include "params/bv_rewriter_params.hpp"
 #include "sat/smt/polysat_solver.h"
 #include "sat/smt/euf_solver.h"
+#include "ast/rewriter/bit_blaster/bit_blaster.h"
 
 namespace polysat {
 
@@ -159,7 +160,9 @@ namespace polysat {
             m_delayed_axioms.push_back(a);
             ctx.push(push_back_vector(m_delayed_axioms));
             break;
-
+        case OP_BIT2BOOL:
+            internalize_bit2bool(a);
+            break;
         default:
             IF_VERBOSE(0, verbose_stream() << mk_pp(a, m) << "\n");
             NOT_IMPLEMENTED_YET();
@@ -285,6 +288,16 @@ namespace polysat {
         VERIFY(bv.is_bv_shl(n, x, y));
         m_core.shl(expr2pdd(x), expr2pdd(y), expr2pdd(n));
     }
+
+    void solver::internalize_bit2bool(app* n) {
+        expr* b = nullptr;
+        unsigned idx;
+        VERIFY(bv.is_bit2bool(n, b, idx));
+        pdd p = expr2pdd(b);
+        auto sc = m_core.bit(p, idx);
+        add_axiom("bit2bool", { eq_internalize(n, constraint2expr(sc)) });
+    }
+
 
     bool solver::propagate_delayed_axioms() {
         if (m_delayed_axioms_qhead == m_delayed_axioms.size())
@@ -687,7 +700,7 @@ namespace polysat {
 
     void solver::internalize_mul(app* a) {
         vector<dd::pdd> args;
-        for (expr* arg : *to_app(a))
+        for (expr* arg : *a)
             args.push_back(expr2pdd(arg));
         if (args.size() == 1) {
             internalize_set(a, args[0]);
@@ -701,6 +714,29 @@ namespace polysat {
             internalize_set(a, args[0] * args[1]);
             return;
         }
+
+#if 0
+        // experiment with eagerly bit-blasting multiplication.
+        if (args.size() == 2) {
+            unsigned sz = bv.get_bv_size(a);
+            expr_ref_vector xs(m), ys(m), zs(m);
+            for (unsigned i = 0; i < sz; ++i) {
+                xs.push_back(bv.mk_bit2bool(a->get_arg(0), i));
+                ys.push_back(bv.mk_bit2bool(a->get_arg(1), i));
+            }
+            bit_blaster_params p;
+            bit_blaster bb(m, p);
+            bb.mk_multiplier(xs.size(), xs.data(), ys.data(), zs);
+            pdd z = expr2pdd(a);
+            for (unsigned i = 0; i < sz; ++i) {
+                //                sat::literal bit_i = ctx.internalize(zs.get(i), false, false);
+                auto sc = m_core.bit(z, i);
+                add_axiom("mul", { eq_internalize(constraint2expr(sc), zs.get(i)) });
+            }
+            return;
+        }
+#endif
+        
         auto pv = m_core.mul(args.size(), args.data());
         m_pddvar2var.setx(pv, get_th_var(a), UINT_MAX);
         internalize_set(a, m_core.var(pv));

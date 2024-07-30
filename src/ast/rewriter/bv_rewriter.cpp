@@ -2108,6 +2108,7 @@ br_status bv_rewriter::mk_bv_not(expr * arg, expr_ref & result) {
 }
 
 br_status bv_rewriter::mk_bv_and(unsigned num, expr * const * args, expr_ref & result) {
+    return BR_FAILED;
     ptr_buffer<expr> new_args;
     for (unsigned i = 0; i < num; i++) {
         new_args.push_back(m_util.mk_bv_not(args[i]));

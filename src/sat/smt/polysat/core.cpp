@@ -212,9 +212,11 @@ namespace polysat {
     sat::check_result core::check() {
         lbool r = l_true;
 
+        verbose_stream() << "check-propagate\n";
         if (propagate())
             return sat::check_result::CR_CONTINUE;
 
+        verbose_stream() << "check-assign-variable\n";
         switch (assign_variable()) {
         case l_true:
             break;
@@ -228,6 +230,7 @@ namespace polysat {
             break;
         }
 
+        verbose_stream() << "check-saturate\n";
         saturation saturate(*this);
         switch (saturate()) {
         case l_true:
@@ -240,7 +243,8 @@ namespace polysat {
             r = l_undef;
             break;
         }
-
+        
+        verbose_stream() << "check-refine\n";
         switch (m_monomials.refine()) {
         case l_true:
             break;
@@ -253,6 +257,7 @@ namespace polysat {
             break;
         }
 
+        verbose_stream() << "check-blast\n";
         switch (m_monomials.bit_blast()) {
         case l_true:
             break;

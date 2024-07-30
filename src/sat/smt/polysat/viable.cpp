@@ -868,7 +868,7 @@ v0[19] := 0 v0 [-131062 ; 0[ := [-131062;0[  src ~4 <= 43691*v0;
             }
         }
 
-        IF_VERBOSE(1, {
+        IF_VERBOSE(3, {
             for (auto const& e : m_explain)
                 if (e.mark)
                     display_explain(verbose_stream() << "redundant: ", e) << "\n";

@@ -456,6 +456,8 @@ namespace polysat {
         auto rv = c.subst(r);
         auto& C = c.cs();
 
+        verbose_stream() << "saturate and: " << p << " & " << q << " = " << r << "\n";
+
         if (!pv.is_val() || !qv.is_val() || !rv.is_val())
             return false;
 
