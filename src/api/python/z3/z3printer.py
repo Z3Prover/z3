@@ -1412,8 +1412,10 @@ class HTMLFormatter(Formatter):
         ys_pp = group(seq(ys))
         if a.is_forall():
             header = "&forall;"
-        else:
+        elif a.is_exists():
             header = "&exist;"
+        else:
+            header = "&lambda;"
         return group(compose(to_format(header, 1),
                              indent(1, compose(ys_pp, to_format(" :"), line_break(), body_pp))))
 
