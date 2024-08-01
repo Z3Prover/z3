@@ -97,42 +97,41 @@ public:
 };
 
 struct statistics {
-    unsigned m_make_feasible;
-    unsigned m_total_iterations;
-    unsigned m_iters_with_no_cost_growing;
-    unsigned m_num_factorizations;
-    unsigned m_num_of_implied_bounds;
-    unsigned m_need_to_solve_inf;
-    unsigned m_max_cols;
-    unsigned m_max_rows;
-    unsigned m_gcd_calls;
-    unsigned m_gcd_conflicts;
-    unsigned m_cube_calls;
-    unsigned m_cube_success;
-    unsigned m_patches;
-    unsigned m_patches_success;
-    unsigned m_hnf_cutter_calls;
-    unsigned m_hnf_cuts;
-    unsigned m_nla_calls;
-    unsigned m_gomory_cuts;
-    unsigned m_nla_add_bounds;
-    unsigned m_nla_propagate_bounds;
-    unsigned m_nla_propagate_eq;
-    unsigned m_nla_lemmas;
-    unsigned m_nra_calls;
-    unsigned m_nla_bounds_improvements;
-    unsigned m_horner_calls;
-    unsigned m_horner_conflicts;
-    unsigned m_cross_nested_forms;
-    unsigned m_grobner_calls;
-    unsigned m_grobner_conflicts;
-    unsigned m_offset_eqs;
-    unsigned m_fixed_eqs;
-    ::statistics m_st;
-    statistics() { reset(); }
+    unsigned m_make_feasible = 0;
+    unsigned m_total_iterations = 0;
+    unsigned m_iters_with_no_cost_growing = 0;
+    unsigned m_num_factorizations = 0;
+    unsigned m_num_of_implied_bounds = 0;
+    unsigned m_need_to_solve_inf = 0;
+    unsigned m_max_cols = 0;
+    unsigned m_max_rows = 0;
+    unsigned m_gcd_calls = 0;
+    unsigned m_gcd_conflicts = 0;
+    unsigned m_cube_calls = 0;
+    unsigned m_cube_success = 0;
+    unsigned m_patches = 0;
+    unsigned m_patches_success = 0;
+    unsigned m_hnf_cutter_calls = 0;
+    unsigned m_hnf_cuts = 0;
+    unsigned m_nla_calls = 0;
+    unsigned m_gomory_cuts = 0;
+    unsigned m_nla_add_bounds = 0;
+    unsigned m_nla_propagate_bounds = 0;
+    unsigned m_nla_propagate_eq = 0;
+    unsigned m_nla_lemmas = 0;
+    unsigned m_nra_calls = 0;
+    unsigned m_nla_bounds_improvements = 0;
+    unsigned m_horner_calls = 0;
+    unsigned m_horner_conflicts = 0;
+    unsigned m_cross_nested_forms = 0;
+    unsigned m_grobner_calls = 0;
+    unsigned m_grobner_conflicts = 0;
+    unsigned m_offset_eqs = 0;
+    unsigned m_fixed_eqs = 0;
+    ::statistics m_st = {};
+
     void reset() {
-        memset(this, 0, sizeof(*this));
-        m_st.reset();
+        *this = statistics{};
     }
     void collect_statistics(::statistics& st) const {
         st.update("arith-factorizations", m_num_factorizations);

@@ -92,7 +92,7 @@ static_matrix<T, X>::static_matrix(static_matrix const &A, unsigned * /* basis *
     init_row_columns(m, m);
     for (; m-- > 0; ) 
         for (auto & col : A.m_columns[m]) 
-            set(col.var(), m, A.get_value_of_column_cell(col));
+            set(col.var(), m, A.get_column_cell(col));
 }
 
 template <typename T, typename X> void static_matrix<T, X>::clear() {

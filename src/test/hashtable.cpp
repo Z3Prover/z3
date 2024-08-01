@@ -12,6 +12,7 @@ Abstract:
 Author:
 
     Leonardo de Moura (leonardo) 2006-09-12.
+    Chuyue Sun (liviasun) 2024-07-18.
 
 Revision History:
 
@@ -20,7 +21,6 @@ Revision History:
 #include<iostream>
 #include<unordered_set>
 #include<stdlib.h>
-
 #include "util/hashtable.h"
 
 
@@ -119,11 +119,126 @@ static void tst3() {
     ENSURE(h2.size() == 2);
 }
 
+// Custom hash and equality functions for testing
+struct my_hash {
+    unsigned operator()(int x) const { return x; }
+};
+
+struct my_eq {
+    bool operator()(int x, int y) const { return x == y; }
+};
+
+void test_hashtable_constructors() {
+    hashtable<int, my_hash, my_eq> ht;
+    VERIFY(ht.empty());
+    VERIFY(ht.size() == 0);
+    VERIFY(ht.capacity() == DEFAULT_HASHTABLE_INITIAL_CAPACITY);
+
+    // Copy constructor
+    hashtable<int, my_hash, my_eq> ht_copy(ht);
+    VERIFY(ht_copy.empty());
+    VERIFY(ht_copy.size() == 0);
+    VERIFY(ht_copy.capacity() == ht.capacity());
+
+    // Move constructor
+    hashtable<int, my_hash, my_eq> ht_move(std::move(ht));
+    VERIFY(ht_move.empty());
+    VERIFY(ht_move.size() == 0);
+    VERIFY(ht_move.capacity() == ht_copy.capacity());
+}
+
+void test_hashtable_insert() {
+    hashtable<int, my_hash, my_eq> ht;
+    ht.insert(1);
+    VERIFY(!ht.empty());
+    VERIFY(ht.size() == 1);
+    int value;
+    VERIFY(ht.find(1, value) && value == 1);
+}
+
+void test_hashtable_remove() {
+    hashtable<int, my_hash, my_eq> ht;
+    ht.insert(1);
+    ht.remove(1);
+    VERIFY(ht.empty());
+    VERIFY(ht.size() == 0);
+}
+
+void test_hashtable_find() {
+    hashtable<int, my_hash, my_eq> ht;
+    ht.insert(1);
+    int value;
+    VERIFY(ht.find(1, value) && value == 1);
+    VERIFY(!ht.find(2, value));
+}
+
+void test_hashtable_contains() {
+    hashtable<int, my_hash, my_eq> ht;
+    ht.insert(1);
+    VERIFY(ht.contains(1));
+    VERIFY(!ht.contains(2));
+}
+
+void test_hashtable_reset() {
+    hashtable<int, my_hash, my_eq> ht;
+    ht.insert(1);
+    ht.reset();
+    VERIFY(ht.empty());
+    VERIFY(ht.size() == 0);
+}
+
+void test_hashtable_finalize() {
+    hashtable<int, my_hash, my_eq> ht;
+    ht.insert(1);
+    ht.finalize();
+    VERIFY(ht.empty());
+    VERIFY(ht.size() == 0);
+}
+
+void test_hashtable_iterators() {
+    hashtable<int, my_hash, my_eq> ht;
+    ht.insert(1);
+    ht.insert(2);
+    ht.insert(3);
+    
+    int count = 0;
+    for(auto it = ht.begin(); it != ht.end(); ++it) {
+        ++count;
+    }
+    VERIFY(count == 3);
+}
+
+void test_hashtable_operators() {
+    hashtable<int, my_hash, my_eq> ht1;
+    hashtable<int, my_hash, my_eq> ht2;
+    
+    ht1.insert(1);
+    ht2.insert(2);
+    
+    ht1 |= ht2;
+    VERIFY(ht1.contains(1));
+    VERIFY(ht1.contains(2));
+    
+    ht1 &= ht2;
+    VERIFY(!ht1.contains(1));
+    VERIFY(ht1.contains(2));
+}
+
 void tst_hashtable() {
     tst3();
     for (int i = 0; i < 100; i++) 
         tst2();
     tst1();
+    test_hashtable_constructors();
+    test_hashtable_insert();
+    test_hashtable_remove();
+    test_hashtable_find();
+    test_hashtable_contains();
+    test_hashtable_reset();
+    test_hashtable_finalize();
+    test_hashtable_iterators();
+    test_hashtable_operators();
+    std::cout << "All tests passed!" << std::endl;
 }
 #else
 void tst_hashtable() {
