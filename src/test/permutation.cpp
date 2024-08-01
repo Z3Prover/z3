@@ -42,34 +42,35 @@ void test_move_after() {
     SASSERT(p(4) == 4);
 }
 
-void test_apply_permutation() {
-    permutation p(4);
-    int data[] = {10, 20, 30, 40};
-    unsigned perm[] = {2, 1, 0, 3};
-    apply_permutation(4, data, perm);
-    std::cout << "000 " << data[0] << std::endl;
-    std::cout << "222 " << data[2] << std::endl;
 
-    SASSERT(data[0] == 10);
-    SASSERT(data[1] == 20);
-    SASSERT(data[2] == 30);
-    SASSERT(data[3] == 40);
+void apply_permutation_copy(unsigned sz, unsigned const * src, unsigned const * p, unsigned * target) {
+    for (unsigned i = 0; i < sz; i++) {
+        target[i] = src[p[i]];
+    }
 }
 
-void test_apply_permutation_core() 
-{
-    permutation p(4);
-    int data[] = {10, 20, 30, 40};
-    unsigned perm[] = {2, 1, 0, 3};
-    apply_permutation_core(4, data, perm);
-    std::cout << "000 " << data[0] << std::endl;
-    std::cout << "222 " << data[2] << std::endl;
-
-    SASSERT(data[0] == 10);
-    SASSERT(data[1] == 20);
-    SASSERT(data[2] == 30);
-    SASSERT(data[3] == 40);
+static void test_apply_permutation(unsigned sz, unsigned num_tries, unsigned max = UINT_MAX) {
+    unsigned_vector data;
+    unsigned_vector p;
+    unsigned_vector new_data;
+    data.resize(sz);
+    p.resize(sz);
+    new_data.resize(sz);
+    random_gen g;
+    for (unsigned i = 0; i < sz; i++)
+        p[i] = i;
+    // fill data with random numbers
+    for (unsigned i = 0; i < sz; i++)
+        data[i] = g() % max;
+    for (unsigned k = 0; k < num_tries; k ++) {
+        shuffle(p.size(), p.data(), g);
+        apply_permutation_copy(sz, data.data(), p.data(), new_data.data());
+        apply_permutation(sz, data.data(), p.data());
+        for (unsigned i = 0; i < 0; i++)
+            ENSURE(data[i] == new_data[i]);
+    }
 }
+
 
 void test_check_invariant() {
     permutation p(4);
@@ -92,10 +93,22 @@ void tst_permutation() {
     test_reset();
     test_swap();
     test_move_after();
-    // test_apply_permutation();
-    // test_apply_permutation_core();
     test_check_invariant();
     test_display();
-    
+    test_apply_permutation(10, 1000, 5);
+    test_apply_permutation(10, 1000, 1000);
+    test_apply_permutation(10, 1000, UINT_MAX);
+    test_apply_permutation(100, 1000, 33);
+    test_apply_permutation(100, 1000, 1000);
+    test_apply_permutation(100, 1000, UINT_MAX);
+    test_apply_permutation(1000, 1000, 121);
+    test_apply_permutation(1000, 1000, 1000);
+    test_apply_permutation(1000, 1000, UINT_MAX);
+    test_apply_permutation(33, 1000, 121);
+    test_apply_permutation(33, 1000, 1000);
+    test_apply_permutation(33, 1000, UINT_MAX);
+    test_apply_permutation(121, 1000, 121);
+    test_apply_permutation(121, 1000, 1000);
+    test_apply_permutation(121, 1000, UINT_MAX);
     std::cout << "All tests passed!" << std::endl;
 }
