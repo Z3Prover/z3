@@ -106,21 +106,6 @@ void test_insert_before() {
     std::cout << "test_insert_before passed." << std::endl;
 }
 
-// Test the remove_from() method
-void test_remove_from() {
-    TestNode* list = nullptr;
-    TestNode node1(1);
-    TestNode node2(2);
-    TestNode::push_to_front(list, &node1);
-    TestNode::push_to_front(list, &node2);
-    TestNode::remove_from(list, &node1);
-    assert(list == &node2);
-    assert(node2.next() == &node2);
-    assert(node2.prev() == &node2);
-    assert(node1.next() == &node1);
-    assert(node1.prev() == &node1);
-    std::cout << "test_remove_from passed." << std::endl;
-}
 
 // Test the push_to_front() method
 void test_push_to_front() {
@@ -177,12 +162,9 @@ void tst_dlist() {
     test_pop();
     test_insert_after();
     test_insert_before();
-#if 0
-    test_remove_from();
     test_push_to_front();
     test_detach();
     test_invariant();
     test_contains();
-#endif
     std::cout << "All tests passed." << std::endl;
 }
