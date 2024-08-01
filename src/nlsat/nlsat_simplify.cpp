@@ -141,6 +141,8 @@ namespace nlsat {
                 auto& a = *to_ineq_atom(a1);
                 if (a.size() != 2)
                     continue;
+                if (a.is_root_atom())
+                    continue;
 
                 auto* p = a.p(0);
                 auto* q = a.p(1);
@@ -229,6 +231,10 @@ namespace nlsat {
                     }
                     break;
                 }
+                default:
+                    SASSERT(a.is_root_atom());
+                    UNREACHABLE();
+                    break;
                 }
                 IF_VERBOSE(3, 
                 s.display(verbose_stream(), c) << " ->\n";
