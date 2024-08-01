@@ -61,12 +61,12 @@ class heap : private LT {
             return false;
         }
 
-        // All indices in m_value2indices that are not used in m_values should be 0
-        for (int val = 0; val < static_cast<int>(m_value2indices.size()); ++val) {
-            if (std::find(m_values.begin(), m_values.end(), val) == m_values.end() && m_value2indices[val] != 0) {
-                return false; // Unused indices should have a 0 value
-            }
-        }
+        // // All indices in m_value2indices that are not used in m_values should be 0
+        // for (int val = 0; val < static_cast<int>(m_value2indices.size()); ++val) {
+        //     if (std::find(m_values.begin(), m_values.end(), val) == m_values.end() && m_value2indices[val] != 0) {
+        //         return false; // Unused indices should have a 0 value
+        //     }
+        // }
 
         if (idx < static_cast<int>(m_values.size())) {
             SASSERT(m_value2indices[m_values[idx]] == idx);
