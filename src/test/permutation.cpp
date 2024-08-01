@@ -43,10 +43,11 @@ void test_move_after() {
 }
 
 
-void apply_permutation_copy(unsigned sz, unsigned const * src, unsigned const * p, unsigned * target) {
-    for (unsigned i = 0; i < sz; i++) {
-        target[i] = src[p[i]];
-    }
+
+    SASSERT(data[0] == 10);
+    SASSERT(data[1] == 20);
+    SASSERT(data[2] == 30);
+    SASSERT(data[3] == 40);
 }
 
 static void test_apply_permutation(unsigned sz, unsigned num_tries, unsigned max = UINT_MAX) {
@@ -110,5 +111,6 @@ void tst_permutation() {
     test_apply_permutation(121, 1000, 121);
     test_apply_permutation(121, 1000, 1000);
     test_apply_permutation(121, 1000, UINT_MAX);
+
     std::cout << "All tests passed!" << std::endl;
 }
