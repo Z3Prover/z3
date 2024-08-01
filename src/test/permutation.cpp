@@ -1,4 +1,5 @@
 #include <iostream>
+#include <sstream>
 #include "util/permutation.h"
 #include "util/util.h"
 
