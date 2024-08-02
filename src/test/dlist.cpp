@@ -35,28 +35,28 @@ void test_prev() {
 }
 
 // Test the next() method
-void test_next() {
+static void test_next() {
     TestNode node(1);
     SASSERT(node.next() == &node);
     std::cout << "test_next passed." << std::endl;
 }
 
 // Test the const prev() method
-void test_const_prev() {
+static void test_const_prev() {
     const TestNode node(1);
     SASSERT(node.prev() == &node);
     std::cout << "test_const_prev passed." << std::endl;
 }
 
 // Test the const next() method
-void test_const_next() {
+static void test_const_next() {
     const TestNode node(1);
     SASSERT(node.next() == &node);
     std::cout << "test_const_next passed." << std::endl;
 }
 
 // Test the init() method
-void test_init() {
+static void test_init() {
     TestNode node(1);
     node.init(&node);
     SASSERT(node.next() == &node);
@@ -66,7 +66,7 @@ void test_init() {
 }
 
 // Test the pop() method
-void test_pop() {
+static void test_pop() {
     TestNode* list = nullptr;
     TestNode node1(1);
     TestNode::push_to_front(list, &node1);
@@ -79,7 +79,7 @@ void test_pop() {
 }
 
 // Test the insert_after() method
-void test_insert_after() {
+static void test_insert_after() {
     TestNode node1(1);
     TestNode node2(2);
     node1.insert_after(&node2);
@@ -93,7 +93,7 @@ void test_insert_after() {
 }
 
 // Test the insert_before() method
-void test_insert_before() {
+static void test_insert_before() {
     TestNode node1(1);
     TestNode node2(2);
     node1.insert_before(&node2);
@@ -107,7 +107,7 @@ void test_insert_before() {
 }
 
 // Test the remove_from() method
-void test_remove_from() {
+static void test_remove_from() {
     TestNode* list = nullptr;
     TestNode node1(1);
     TestNode node2(2);
@@ -123,7 +123,7 @@ void test_remove_from() {
 }
 
 // Test the push_to_front() method
-void test_push_to_front() {
+static void test_push_to_front() {
     TestNode* list = nullptr;
     TestNode node1(1);
     TestNode::push_to_front(list, &node1);
@@ -134,7 +134,7 @@ void test_push_to_front() {
 }
 
 // Test the detach() method
-void test_detach() {
+static void test_detach() {
     TestNode node(1);
     TestNode::detach(&node);
     SASSERT(node.next() == &node);
@@ -144,7 +144,7 @@ void test_detach() {
 }
 
 // Test the invariant() method
-void test_invariant() {
+static void test_invariant() {
     TestNode node1(1);
     SASSERT(node1.invariant());
     TestNode node2(2);
@@ -155,7 +155,7 @@ void test_invariant() {
 }
 
 // Test the contains() method
-void test_contains() {
+static void test_contains() {
     TestNode* list = nullptr;
     TestNode node1(1);
     TestNode node2(2);
