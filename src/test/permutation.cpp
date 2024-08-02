@@ -4,7 +4,7 @@
 #include "util/util.h"
 #include "util/debug.h"
 
-static void swap(unsigned m1, unsigned m2) noexcept { std::swap(m1, m2); }
+ void swap(unsigned m1, unsigned m2) noexcept { std::swap(m1, m2); }
 
 static void test_constructor() {
     permutation p(5);
@@ -41,6 +41,12 @@ static void test_move_after() {
     SASSERT(p(2) == 3);
     SASSERT(p(3) == 1);
     SASSERT(p(4) == 4);
+}
+
+void apply_permutation_copy(unsigned sz, unsigned const * src, unsigned const * p, unsigned * target) {
+    for (unsigned i = 0; i < sz; i++) {
+        target[i] = src[p[i]];
+    }
 }
 
 static void test_apply_permutation(unsigned sz, unsigned num_tries, unsigned max = UINT_MAX) {
