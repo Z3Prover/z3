@@ -34,7 +34,8 @@ namespace nlsat {
         imp * m_imp;
     public:
         explain(solver & s, assignment const & x2v, polynomial::cache & u, 
-                atom_vector const& atoms, atom_vector const& x2eq, evaluator & ev);
+                atom_vector const& atoms, atom_vector const& x2eq, evaluator & ev, bool is_sample);
+
         ~explain();
 
         void reset();
