@@ -2,6 +2,7 @@
 #include <sstream>
 #include "util/permutation.h"
 #include "util/util.h"
+#include "util/debug.h"
 
 void swap(unsigned m1, unsigned m2) noexcept { std::swap(m1, m2); }
 
