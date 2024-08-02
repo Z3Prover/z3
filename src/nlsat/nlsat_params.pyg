@@ -14,6 +14,7 @@ def_module_params('nlsat',
                           ('shuffle_vars', BOOL, False, "use a random variable order."),
                           ('inline_vars', BOOL, False, "inline variables that can be isolated from equations (not supported in incremental mode)"),
                           ('seed', UINT, 0, "random seed."),
-                          ('factor', BOOL, True, "factor polynomials produced during conflict resolution.")     
+                          ('factor', BOOL, True, "factor polynomials produced during conflict resolution."),
+                          ('cell_sample', BOOL, True, "cell sample projection"),                          
                           ))         
                 
