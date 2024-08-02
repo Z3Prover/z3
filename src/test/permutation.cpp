@@ -4,9 +4,9 @@
 #include "util/util.h"
 #include "util/debug.h"
 
-void swap(unsigned m1, unsigned m2) noexcept { std::swap(m1, m2); }
+static void swap(unsigned m1, unsigned m2) noexcept { std::swap(m1, m2); }
 
-void test_constructor() {
+static void test_constructor() {
     permutation p(5);
     for (unsigned i = 0; i < 5; ++i) {
         SASSERT(p(i) == i);
@@ -14,7 +14,7 @@ void test_constructor() {
     }
 }
 
-void test_reset() {
+static void test_reset() {
     permutation p(3);
     p.swap(0, 2);
     p.reset(3);
@@ -24,7 +24,7 @@ void test_reset() {
     }
 }
 
-void test_swap() {
+static void test_swap() {
     permutation p(4);
     p.swap(1, 3);
     SASSERT(p(1) == 3);
@@ -33,7 +33,7 @@ void test_swap() {
     SASSERT(p.inv(3) == 1);
 }
 
-void test_move_after() {
+static void test_move_after() {
     permutation p(5);
     p.move_after(1, 3);
     SASSERT(p(0) == 0);
@@ -41,14 +41,6 @@ void test_move_after() {
     SASSERT(p(2) == 3);
     SASSERT(p(3) == 1);
     SASSERT(p(4) == 4);
-}
-
-
-
-    SASSERT(data[0] == 10);
-    SASSERT(data[1] == 20);
-    SASSERT(data[2] == 30);
-    SASSERT(data[3] == 40);
 }
 
 static void test_apply_permutation(unsigned sz, unsigned num_tries, unsigned max = UINT_MAX) {
@@ -74,7 +66,7 @@ static void test_apply_permutation(unsigned sz, unsigned num_tries, unsigned max
 }
 
 
-void test_check_invariant() {
+static void test_check_invariant() {
     permutation p(4);
     SASSERT(p.check_invariant());
     p.swap(0, 2);
@@ -83,7 +75,7 @@ void test_check_invariant() {
     SASSERT(p.check_invariant());
 }
 
-void test_display() {
+static void test_display() {
     permutation p(4);
     std::ostringstream out;
     p.display(out);
