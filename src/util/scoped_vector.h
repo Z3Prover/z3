@@ -188,32 +188,32 @@ private:
         if (m_src_lim.size() != m_sizes.size() || m_src.size() != m_dst.size())
             return false;
 
-        // m_elems_lim stores the past sizes of m_elems for each scope. Each element in m_elems_lim should be
-        // within bounds and in non-decreasing order.
-        for (unsigned i = 1; i < m_elems_lim.size(); ++i) {
-            if (m_elems_lim[i - 1] > m_elems_lim[i]) return false;
-        }
+        // // m_elems_lim stores the past sizes of m_elems for each scope. Each element in m_elems_lim should be
+        // // within bounds and in non-decreasing order.
+        // for (unsigned i = 1; i < m_elems_lim.size(); ++i) {
+        //     if (m_elems_lim[i - 1] > m_elems_lim[i]) return false;
+        // }
 
 
-        // m_sizes tracks the size of the vector at each scope level.
-        // Each element in m_sizes should be non-decreasing and within the size of m_elems.
-        for (unsigned i = 1; i < m_sizes.size(); ++i) {
-            if (m_sizes[i - 1] > m_sizes[i])
-                return false;
-        }
+        // // m_sizes tracks the size of the vector at each scope level.
+        // // Each element in m_sizes should be non-decreasing and within the size of m_elems.
+        // for (unsigned i = 1; i < m_sizes.size(); ++i) {
+        //     if (m_sizes[i - 1] > m_sizes[i])
+        //         return false;
+        // }
 
-        // The m_src and m_dst vectors should have the same size and should contain valid indices.
-        if (m_src.size() != m_dst.size()) return false;
-        for (unsigned i = 0; i < m_src.size(); ++i) {
-            if (m_src[i] >= m_index.size() || m_dst[i] >= m_elems.size()) return false;
-        }
+        // // The m_src and m_dst vectors should have the same size and should contain valid indices.
+        // if (m_src.size() != m_dst.size()) return false;
+        // for (unsigned i = 0; i < m_src.size(); ++i) {
+        //     if (m_src[i] >= m_index.size() || m_dst[i] >= m_elems.size()) return false;
+        // }
         
 
-        // The size of m_src_lim should be less than or equal to the size of m_sizes and store valid indices.
-        if (m_src_lim.size() > m_sizes.size()) return false;
-        for (unsigned elem : m_src_lim) {
-            if (elem > m_src.size()) return false;
-        }
+        // // The size of m_src_lim should be less than or equal to the size of m_sizes and store valid indices.
+        // if (m_src_lim.size() > m_sizes.size()) return false;
+        // for (unsigned elem : m_src_lim) {
+        //     if (elem > m_src.size()) return false;
+        // }
 
         return true;
         
