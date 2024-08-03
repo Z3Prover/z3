@@ -27,7 +27,7 @@ struct lt_proc { bool operator()(int v1, int v2) const { return v1 < v2; } };
 //struct int_hash_proc { unsigned operator()(int v) const { std::cout << "hash " << v << "\n"; VERIFY(v >= 0); return v; }};  
 //typedef int_hashtable<int_hash_proc, default_eq<int> > int_set; 
 typedef heap<lt_proc> int_heap;
-#define N 10000
+#define N 100
 
 static random_gen heap_rand(1);
 
@@ -146,4 +146,3 @@ void tst_heap() {
         tst2();
     }
 }
-

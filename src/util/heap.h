@@ -55,6 +55,19 @@ class heap : private LT {
     }
 
     bool check_invariant_core(int idx) const {
+        
+        // Check that m_values starts with a dummy value at index 0.
+        if (m_values.empty() || m_values[0] != -1) {
+            return false;
+        }
+
+        // // All indices in m_value2indices that are not used in m_values should be 0
+        // for (int val = 0; val < static_cast<int>(m_value2indices.size()); ++val) {
+        //     if (std::find(m_values.begin(), m_values.end(), val) == m_values.end() && m_value2indices[val] != 0) {
+        //         return false; // Unused indices should have a 0 value
+        //     }
+        // }
+
         if (idx < static_cast<int>(m_values.size())) {
             SASSERT(m_value2indices[m_values[idx]] == idx);
             SASSERT(parent(idx) == 0 || !less_than(m_values[idx], m_values[parent(idx)]));
