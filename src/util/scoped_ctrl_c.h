@@ -20,13 +20,14 @@ Revision History:
 
 #include "util/event_handler.h"
 #include "util/util.h"
+#include <signal.h>
 
 struct scoped_ctrl_c {
     event_handler & m_cancel_eh;
     bool m_first;
     bool m_once;
     bool m_enabled;
-    void  (STD_CALL *m_old_handler)(int);
+    struct sigaction m_old_action;
     scoped_ctrl_c * m_old_scoped_ctrl_c;
 public:
     // If once == true, then the cancel_eh is invoked only at the first Ctrl-C.
@@ -36,4 +37,3 @@ public:
     ~scoped_ctrl_c();
     void reset() { m_first = true; }
 };
-
