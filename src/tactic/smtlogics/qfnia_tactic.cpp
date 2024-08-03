@@ -45,6 +45,7 @@ static tactic * mk_qfnia_bv_solver(ast_manager & m, params_ref const & p_ref) {
 
     params_ref mem_p = p;
     mem_p.set_uint("max_memory", 100);
+    mem_p.set_uint("max_conflicts", 500);
 
     
     tactic * r = using_params(and_then(mk_simplify_tactic(m),
@@ -52,7 +53,7 @@ static tactic * mk_qfnia_bv_solver(ast_manager & m, params_ref const & p_ref) {
                                        using_params(mk_simplify_tactic(m), simp2_p),
                                        mk_max_bv_sharing_tactic(m),
                                        using_params(mk_bit_blaster_tactic(m), mem_p),
-                                       mk_sat_tactic(m)),
+                                       mk_sat_tactic(m, mem_p)),
                               p);
     return r;
 }
