@@ -562,7 +562,7 @@ namespace smt {
                 theory_var v2 = *it2;
                 enode *    n2 = get_enode(v2);
                 sort *     s2 = n2->get_expr()->get_sort();
-                if (s1 == s2 && !ctx.is_diseq(n1, n2)) {
+                if (s1 == s2 && !ctx.is_diseq(n1, n2) && !m.are_distinct(n1->get_expr(), n2->get_expr())) {
                     app * eq  = mk_eq_atom(n1->get_expr(), n2->get_expr());
                     if (!ctx.b_internalized(eq) || !ctx.is_relevant(eq)) {
                         result++;
