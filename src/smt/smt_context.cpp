@@ -1117,7 +1117,7 @@ namespace smt {
     */
     bool context::is_diseq(enode * n1, enode * n2) const {
         SASSERT(n1->get_sort() == n2->get_sort());
-        if (m.are_distinct(n1->get_expr(), n2->get_expr()))
+        if (m.are_distinct(n1->get_root()->get_expr(), n2->get_root()->get_expr()))
             return true;
         context * _this = const_cast<context*>(this);
         if (!m_is_diseq_tmp) {
