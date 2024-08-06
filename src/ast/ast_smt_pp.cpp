@@ -31,6 +31,7 @@ Revision History:
 #include "ast/datatype_decl_plugin.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/fpa_decl_plugin.h"
+#include "ast/recfun_decl_plugin.h"
 #include "ast/for_each_ast.h"
 #include "ast/decl_collector.h"
 #include "math/polynomial/algebraic_numbers.h"
@@ -999,6 +1000,18 @@ void ast_smt_pp::display_smt2(std::ostream& strm, expr* n) {
             strm << "\n";
         }
     }
+
+    vector<std::pair<func_decl*, expr*>> recfuns;
+    recfun::util u(m);
+    for (auto f : decls.get_rec_decls()) 
+        recfuns.push_back({f, u.get_def(f).get_rhs()});
+
+
+    if (!recfuns.empty()) {
+        smt2_pp_environment_dbg env(m);
+        ast_smt2_pp_recdefs(strm, recfuns, env);
+    }
+
 
 #endif
 
