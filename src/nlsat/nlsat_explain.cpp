@@ -45,7 +45,7 @@ namespace nlsat {
         bool                    m_minimize_cores;
         bool                    m_factor;
         bool                    m_signed_project;
-        bool m_cell_sample;
+        bool                    m_cell_sample;
 
 
         struct todo_set {
@@ -677,12 +677,6 @@ namespace nlsat {
         void psc_resultant_sample(polynomial_ref_vector &ps, var x, polynomial_ref_vector & samples){
             polynomial_ref p(m_pm);
             polynomial_ref q(m_pm);
-
-
-            // polynomial_ref_vector samples(m_pm);
-            // samples.reset();
-            // sample_poly(ps, x, samples);
-            
             SASSERT(samples.size() <= 2);
 
             for (unsigned i = 0; i < ps.size(); i++){
@@ -1088,28 +1082,6 @@ namespace nlsat {
                         all_lt = false;
                         break;
                     }
-                    // else if (s < 0) {
-                    //     // y_val < roots[i]
-                        
-                    //     // check if roots[i] is a better upper bound
-                    //     if (upper_inf || m_am.lt(roots[i], upper)) {
-                    //         upper_inf = false;
-                    //         m_am.set(upper, roots[i]);
-                    //         p_upper = p;
-                    //         i_upper = i+1;
-                    //     }
-                    // }
-                    // else if (s > 0) {
-                    //     // roots[i] < y_val
-
-                    //     // check if roots[i] is a better lower bound
-                    //     if (lower_inf || m_am.lt(lower, roots[i])) {
-                    //         lower_inf = false;
-                    //         m_am.set(lower, roots[i]);
-                    //         p_lower = p;
-                    //         i_lower = i+1;
-                    //     }
-                    // }
                 }
                 if (all_lt && num_roots > 0) {
                     int j = num_roots - 1;
@@ -1214,28 +1186,6 @@ namespace nlsat {
                         all_lt = false;
                         break;
                     }
-                    // else if (s < 0) {
-                    //     // y_val < roots[i]
-                        
-                    //     // check if roots[i] is a better upper bound
-                    //     if (upper_inf || m_am.lt(roots[i], upper)) {
-                    //         upper_inf = false;
-                    //         m_am.set(upper, roots[i]);
-                    //         p_upper = p;
-                    //         i_upper = i+1;
-                    //     }
-                    // }
-                    // else if (s > 0) {
-                    //     // roots[i] < y_val
-
-                    //     // check if roots[i] is a better lower bound
-                    //     if (lower_inf || m_am.lt(lower, roots[i])) {
-                    //         lower_inf = false;
-                    //         m_am.set(lower, roots[i]);
-                    //         p_lower = p;
-                    //         i_lower = i+1;
-                    //     }
-                    // }
                 }
                 if (all_lt && num_roots > 0) {
                     int j = num_roots - 1;
@@ -1305,7 +1255,6 @@ namespace nlsat {
             }
         }
         void project_cdcac(polynomial_ref_vector & ps, var max_x) {
-            // whz
             bool first = true;
             
 
@@ -1362,6 +1311,7 @@ namespace nlsat {
                 cac_add_cell_lits(ps, x, samples);
             }
         }
+
         void project(polynomial_ref_vector & ps, var max_x) {
             if (m_cell_sample) {
                 project_cdcac(ps, max_x);
@@ -2197,8 +2147,8 @@ namespace nlsat {
     };
 
     explain::explain(solver & s, assignment const & x2v, polynomial::cache & u, 
-                     atom_vector const& atoms, atom_vector const& x2eq, evaluator & ev, bool is_sample) {
-        m_imp = alloc(imp, s, x2v, u, atoms, x2eq, ev, is_sample);
+                     atom_vector const& atoms, atom_vector const& x2eq, evaluator & ev, bool use_cell_sample) {
+        m_imp = alloc(imp, s, x2v, u, atoms, x2eq, ev, use_cell_sample);
     }
 
     explain::~explain() {
