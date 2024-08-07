@@ -733,7 +733,6 @@ namespace nlsat {
             bool have_zero = false;
             for (unsigned i = 0; i < num_factors; i++) {
                 f = m_factors.get(i);
-              //  std::cout << "f=";display(std::cout, f) << "\n";
                 if (coeffs_are_zeroes_in_factor(f)) {
                     have_zero = true;
                     break;
@@ -1043,7 +1042,6 @@ namespace nlsat {
                 // Otherwise, the isolate_roots procedure will assume p is a constant polynomial.
                 m_am.isolate_roots(p, undef_var_assignment(m_assignment, y), roots);
                 unsigned num_roots = roots.size();
-//#linxi begin add_cell_lits faster
                 bool all_lt = true;
                 for (unsigned i = 0; i < num_roots; i++) {
                     int s = m_am.compare(y_val, roots[i]);
@@ -1092,7 +1090,6 @@ namespace nlsat {
                         i_lower = j + 1;
                     }
                 }
-//#linxi end add_cell_lits faster
             }
 
             if (!lower_inf) {
@@ -1148,7 +1145,6 @@ namespace nlsat {
                 // Otherwise, the isolate_roots procedure will assume p is a constant polynomial.
                 m_am.isolate_roots(p, undef_var_assignment(m_assignment, y), roots);
                 unsigned num_roots = roots.size();
-//#linxi begin add_cell_lits faster
                 bool all_lt = true;
                 for (unsigned i = 0; i < num_roots; i++) {
                     int s = m_am.compare(y_val, roots[i]);
@@ -1196,7 +1192,6 @@ namespace nlsat {
                         i_lower = j + 1;
                     }
                 }
-//#linxi end add_cell_lits faster
             }
 
             if (!lower_inf) {
@@ -1254,12 +1249,18 @@ namespace nlsat {
                 add_cell_lits(ps, x);
             }
         }
-        void project_cdcac(polynomial_ref_vector & ps, var max_x) {
-            bool first = true;
-            
 
+        /**
+         * Sample Projection
+         * Reference:
+         * Haokun Li and Bican Xia. 
+         * "Solving Satisfiability of Polynomial Formulas By Sample - Cell Projection"
+         * https://arxiv.org/abs/2003.00409 
+         */
+        void project_cdcac(polynomial_ref_vector & ps, var max_x) {
             if (ps.empty())
                 return;
+            bool first = true;
             m_todo.reset();
             for (poly* p : ps) {
                 m_todo.insert(p);
@@ -1282,22 +1283,12 @@ namespace nlsat {
                 TRACE("nlsat_explain", tout << "project loop, processing var "; display_var(tout, x); tout << "\npolynomials\n";
                       display(tout, ps); tout << "\n";);
 
-
-                /**
-                 * Sample Projection
-                 * Reference:
-                 * Haokun Li and Bican Xia. 
-                 * "Solving Satisfiability of Polynomial Formulas By Sample - Cell Projection"
-                 * https://arxiv.org/abs/2003.00409 
-                 */
-
                 if (first) {
                     add_lc(ps, x);
                     psc_discriminant(ps, x);
                     psc_resultant(ps, x);
                     first = false;
                 }
-
                 else {
                     add_lc(ps, x);
                     // add_sample_coeff(ps, x);
