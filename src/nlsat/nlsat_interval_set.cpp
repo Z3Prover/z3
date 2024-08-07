@@ -703,7 +703,7 @@ namespace nlsat {
     }
 
 
-    void interval_set_manager::pick_in_complement(interval_set const * s, bool is_int, anum & w, bool randomize, bool look_for_zero) {
+    void interval_set_manager::pick_in_complement(interval_set const * s, bool is_int, anum & w, bool randomize) {
         SASSERT(!is_full(s));
         if (s == nullptr) {
             m_am.set(w, 0);
@@ -711,24 +711,24 @@ namespace nlsat {
         }
         unsigned n = 0;
         unsigned num = num_intervals(s);
-        if (look_for_zero) {
-            scoped_anum zero(m_am);
-            m_am.set(zero, 0);
-            bool available = true;
-            for (unsigned i = 0; i < num; ++i) {
-                int sgn = compare_interval_with_zero(s->m_intervals[i], zero, m_am);
-                if (sgn == 0) {
-                    available = false;
-                    break;
-                }
-                if (sgn > 0)
-                    break;
+        // try to assign w to zero first to simplify the polynomials
+        scoped_anum zero(m_am);
+        m_am.set(zero, 0);
+        bool available = true;
+        for (unsigned i = 0; i < num; ++i) {
+            int sgn = compare_interval_with_zero(s->m_intervals[i], zero, m_am);
+            if (sgn == 0) {
+                available = false;
+                break;
             }
-            if (available) {
-                m_am.set(w, 0);
-                return ;
-            }
+            if (sgn > 0)
+                break;
         }
+        if (available) {
+            m_am.set(w, 0);
+            return ;
+        }
+        // cannot assign w to zero
         if (!s->m_intervals[num-1].m_upper_inf) {
             // upper is not oo
             n++;
