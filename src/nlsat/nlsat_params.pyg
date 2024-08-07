@@ -4,8 +4,6 @@ def_module_params('nlsat',
                   export=True,
                   params=(max_memory_param(),
                           ('cell_sample', BOOL, True, "cell sample projection"),
-                          ('look_for_zero_witness', BOOL, True, "look for 0 witness"),
-                          
                           ('lazy', UINT, 0, "how lazy the solver is."),
                           ('reorder', BOOL, True, "reorder variables."),
                           ('log_lemmas', BOOL, False, "display lemmas as self-contained SMT formulas"),

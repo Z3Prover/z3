@@ -108,7 +108,7 @@ namespace nlsat {
            
            \pre !is_full(s)
         */
-        void pick_in_complement(interval_set const * s, bool is_int, anum & w, bool randomize, bool look_for_zero);
+        void pick_in_complement(interval_set const * s, bool is_int, anum & w, bool randomize);
     };
 
     typedef obj_ref<interval_set, interval_set_manager> interval_set_ref;
