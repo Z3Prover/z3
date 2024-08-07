@@ -218,6 +218,7 @@ namespace nlsat {
         bool                   m_inline_vars;
         bool                   m_log_lemmas;
         bool                   m_check_lemmas;
+        bool                   m_look_for_0_witness;
         unsigned               m_max_conflicts;
         unsigned               m_lemma_count;
 
@@ -289,6 +290,7 @@ namespace nlsat {
             m_inline_vars    = p.inline_vars();
             m_log_lemmas     = p.log_lemmas();
             m_check_lemmas   = p.check_lemmas();
+            m_look_for_0_witness = p.look_for_zero_witness();
             m_ism.set_seed(m_random_seed);
             m_explain.set_simplify_cores(m_simplify_cores);
             m_explain.set_minimize_cores(min_cores);
@@ -1518,7 +1520,7 @@ namespace nlsat {
         void select_witness() {
             scoped_anum w(m_am);
             SASSERT(!m_ism.is_full(m_infeasible[m_xk]));
-            m_ism.peek_in_complement(m_infeasible[m_xk], is_int(m_xk), w, m_randomize);
+            m_ism.pick_in_complement(m_infeasible[m_xk], is_int(m_xk), w, m_randomize, m_look_for_0_witness);
             TRACE("nlsat", 
                   tout << "infeasible intervals: "; m_ism.display(tout, m_infeasible[m_xk]); tout << "\n";
                   tout << "assigning "; m_display_var(tout, m_xk) << "(x" << m_xk << ") -> " << w << "\n";);

@@ -3,6 +3,9 @@ def_module_params('nlsat',
                   description='nonlinear solver',
                   export=True,
                   params=(max_memory_param(),
+                          ('cell_sample', BOOL, True, "cell sample projection"),
+                          ('look_for_zero_witness', BOOL, True, "look for 0 witness"),
+                          
                           ('lazy', UINT, 0, "how lazy the solver is."),
                           ('reorder', BOOL, True, "reorder variables."),
                           ('log_lemmas', BOOL, False, "display lemmas as self-contained SMT formulas"),
@@ -14,7 +17,6 @@ def_module_params('nlsat',
                           ('shuffle_vars', BOOL, False, "use a random variable order."),
                           ('inline_vars', BOOL, False, "inline variables that can be isolated from equations (not supported in incremental mode)"),
                           ('seed', UINT, 0, "random seed."),
-                          ('factor', BOOL, True, "factor polynomials produced during conflict resolution."),
-                          ('cell_sample', BOOL, True, "cell sample projection"),                          
+                          ('factor', BOOL, True, "factor polynomials produced during conflict resolution.")
                           ))         
                 
