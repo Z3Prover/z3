@@ -301,6 +301,7 @@ namespace nlsat {
             if (kd == atom::GT)
                 return GT;
             UNREACHABLE();
+            return EQ;
         }
         bool update_interval_intersection(Domain_Interval &ia, const Domain_Interval &ib) {
             TRACE("linxi_simple_checker",
