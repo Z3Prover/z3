@@ -36,7 +36,6 @@ Revision History:
 #include "nlsat/nlsat_simplify.h"
 #include "nlsat/nlsat_simple_checker.h"
 #include "nlsat/nlsat_variable_ordering_strategy.h"
-#include "nlsat/nlsat_symmetry_checker.h"
 
 #define NLSAT_EXTRA_VERBOSE
 
@@ -226,7 +225,6 @@ namespace nlsat {
 //#linxi begin
         bool m_linxi_simple_check;
         unsigned m_linxi_variable_ordering_strategy;
-        bool m_linxi_symmetry_check;
         bool m_linxi_set_0_more;
         bool m_cell_sample;
 //#linxi end
@@ -302,7 +300,6 @@ namespace nlsat {
 //#linxi begin
             m_linxi_simple_check = p.linxi_simple_check();
             m_linxi_variable_ordering_strategy = p.linxi_variable_ordering_strategy();
-            m_linxi_symmetry_check = p.linxi_symmetry_check();
 //#linxi end
     
 
@@ -1836,41 +1833,7 @@ namespace nlsat {
 
 //#linxi end Variable Ordering Strategy
 
-//#linxi begin symmetry check
-        void symmetry_check() {
-            unsigned arith_num = m_is_int.size();
-            if (arith_num > 10000)
-                return ;
-            Symmetry_Checker checker(m_pm, m_qm, m_clauses, m_atoms, m_is_int, arith_num);
-            for (var x = 0; x < arith_num; ++x) {
-                for (var y = x + 1; y < arith_num; ++y) {
-                    if (checker.check_symmetry(x, y)) {
-                        TRACE("linxi_symmetry_checker",
-                            tout << "symmetry: " << x << ", " << y << "\n";
-                        );
 
-                        rational zero(0);
-                        vector<rational> as;
-                        vector<var> xs;
-                        as.push_back(rational(1));
-                        xs.push_back(x);
-                        as.push_back(rational(-1));
-                        xs.push_back(y);
-                        polynomial_ref pr(m_pm);
-                        pr = m_pm.mk_linear(2, as.data(), xs.data(), zero);
-                        poly* p = pr.get();
-                        bool is_even = false;
-                        literal lit = ~mk_ineq_literal(atom::GT, 1, &p, &is_even);
-                        clause *cla = mk_clause(1, &lit, true, nullptr);
-                    }
-                }
-            }
-            TRACE("linxi_symmetry_checker",
-                display(tout);
-            );
-            
-        }
-//#linxi end symmetry check
         void apply_reorder() {
             m_reordered = false;
             if (!can_reorder())
@@ -1887,13 +1850,6 @@ namespace nlsat {
 
         lbool check() {
             
-//#linxi begin symmetry check
-            if (m_linxi_symmetry_check) {
-                symmetry_check();
-            }
-            // exit(0);
-//#linxi end symmetry check
-
 //#linxi begin simple check
             if (m_linxi_simple_check) {
                 if (!simple_check()) {
