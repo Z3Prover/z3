@@ -3,8 +3,8 @@ def_module_params('nlsat',
                   description='nonlinear solver',
                   export=True,
                   params=(max_memory_param(),
-                          ('linxi_simple_check', BOOL, False, "linxi precheck about variables sign"),
-                          ('linxi_variable_ordering_strategy', UINT, 0, "linxi Variable Ordering Strategy, 0 for none, 1 for BROWN, 2 for TRIANGULAR, 3 for ONLYPOLY"),
+                          ('simple_check', BOOL, False, "precheck polynomials using variables sign"),
+                          ('variable_ordering_strategy', UINT, 0, "Variable Ordering Strategy, 0 for none, 1 for BROWN, 2 for TRIANGULAR, 3 for ONLYPOLY"),
                           ('cell_sample', BOOL, True, "cell sample projection"),
                           ('lazy', UINT, 0, "how lazy the solver is."),
                           ('reorder', BOOL, True, "reorder variables."),
@@ -19,4 +19,3 @@ def_module_params('nlsat',
                           ('seed', UINT, 0, "random seed."),
                           ('factor', BOOL, True, "factor polynomials produced during conflict resolution.")
                           ))         
-                
