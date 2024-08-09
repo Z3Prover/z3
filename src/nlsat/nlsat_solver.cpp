@@ -1838,7 +1838,6 @@ namespace nlsat {
 
 //#linxi begin symmetry check
         void symmetry_check() {
-            std::cout << "sym called\n";
             unsigned arith_num = m_is_int.size();
             if (arith_num > 10000)
                 return ;
@@ -1923,7 +1922,6 @@ namespace nlsat {
             }
 //#linxi begin Variable Ordering Strategy
             else if (m_linxi_variable_ordering_strategy > 0) {
-                std::cout << "m_linxi_variable_ordering_strategy=" << m_linxi_variable_ordering_strategy << "\n";
                 run_variable_ordering_strategy();
                 reordered = true;
             }
