@@ -222,12 +222,10 @@ namespace nlsat {
         bool                   m_check_lemmas;
         unsigned               m_max_conflicts;
         unsigned               m_lemma_count;
-//#linxi begin
-        bool m_linxi_simple_check;
-        unsigned m_linxi_variable_ordering_strategy;
-        bool m_linxi_set_0_more;
+        bool m_simple_check;
+        unsigned m_variable_ordering_strategy;
+        bool m_set_0_more;
         bool m_cell_sample;
-//#linxi end
 
         struct stats {
             unsigned               m_simplifications;
@@ -297,10 +295,7 @@ namespace nlsat {
             m_inline_vars    = p.inline_vars();
             m_log_lemmas     = p.log_lemmas();
             m_check_lemmas   = p.check_lemmas();
-//#linxi begin
-            m_linxi_simple_check = p.linxi_simple_check();
-            m_linxi_variable_ordering_strategy = p.linxi_variable_ordering_strategy();
-//#linxi end
+            m_variable_ordering_strategy = p.variable_ordering_strategy();
     
 
             m_cell_sample = p.cell_sample();
@@ -1784,24 +1779,11 @@ namespace nlsat {
         }
 
         bool m_reordered = false;
-//#linxi begin Simple Check
-// test
-        void test_anum() {
-            scoped_anum x(m_am), y(m_am);
-            m_am.set(x, 3);
-            m_am.set(y, 5);
-            TRACE("linxi_simple_checker", 
-                tout << x << " " << y << std::endl;
-            );
-        }
         bool simple_check() {
             // test_anum();
             literal_vector learned_unit;
             // Simple_Checker checker(m_solver, m_pm, m_am, m_clauses, m_learned, m_atoms, m_is_int.size());
             Simple_Checker checker(m_pm, m_am, m_clauses, learned_unit, m_atoms, m_is_int.size());
-            // TRACE("linxi_simple_checker", 
-            //     tout << "here" << std::endl;
-            // );
             if (!checker())
                 return false;
             for (unsigned i = 0, sz = learned_unit.size(); i < sz; ++i) {
@@ -1809,30 +1791,23 @@ namespace nlsat {
                 if (m_atoms[learned_unit[i].var()] == nullptr) {
                     assign(learned_unit[i], mk_clause_jst(cla));
                 }
-                // decide(learned_unit[i]);
             }
             return true;
         }
 
-//#linxi end Simple Check
 
-//#linxi begin Variable Ordering Strategy
         void run_variable_ordering_strategy() {
-            TRACE("linxi_reorder", tout << "runing vos: " << m_linxi_variable_ordering_strategy << '\n';);
+            TRACE("reorder", tout << "runing vos: " << m_variable_ordering_strategy << '\n';);
 
             unsigned num = num_vars();
-            VOS_Var_Info_Collector vos_collector(m_pm, m_atoms, num, m_linxi_variable_ordering_strategy);
+            VOS_Var_Info_Collector vos_collector(m_pm, m_atoms, num, m_variable_ordering_strategy);
             vos_collector.collect(m_clauses);
             vos_collector.collect(m_learned);
-            // TRACE("linxi_reorder", vos_collector.display(tout, m_display_var););
             
             var_vector perm;
             vos_collector(perm);
             reorder(perm.size(), perm.data());
         }
-
-//#linxi end Variable Ordering Strategy
-
 
         void apply_reorder() {
             m_reordered = false;
@@ -1850,21 +1825,15 @@ namespace nlsat {
 
         lbool check() {
             
-//#linxi begin simple check
-            if (m_linxi_simple_check) {
+            if (m_simple_check) {
                 if (!simple_check()) {
-                    TRACE("linxi_simple_check", tout << "real unsat\n";);
+                    TRACE("simple_check", tout << "real unsat\n";);
                     return l_false;
                 }
-                TRACE("linxi_simple_checker_learned",
+                TRACE("simple_checker_learned",
                     tout << "simple check done\n";
                 );
-                // exit(0);
-                // return l_undef;
             }
-            // exit(0);
-            // return l_false;
-//#linxi end simple check
 
             TRACE("nlsat_smt2", display_smt2(tout););
             TRACE("nlsat_fd", tout << "is_full_dimensional: " << is_full_dimensional() << "\n";);
@@ -1876,12 +1845,10 @@ namespace nlsat {
             if (!can_reorder()) {
 
             }
-//#linxi begin Variable Ordering Strategy
-            else if (m_linxi_variable_ordering_strategy > 0) {
+            else if (m_variable_ordering_strategy > 0) {
                 run_variable_ordering_strategy();
                 reordered = true;
             }
-//#linxi end Variable Ordering Strategy
             else if (m_random_order) {
                 shuffle_vars();
                 reordered = true;
@@ -2866,7 +2833,6 @@ namespace nlsat {
             TRACE("nlsat_reorder_clauses", tout << "after:\n"; for (unsigned i = 0; i < sz; i++) { display(tout, *(cs[i])); tout << "\n"; });
         }
 
-//#linxi begin
         
         struct degree_lit_num_lt {
             unsigned_vector & m_degrees;
@@ -2909,20 +2875,17 @@ namespace nlsat {
             TRACE("nlsat_reorder_clauses", tout << "after:\n"; for (unsigned i = 0; i < sz; i++) { display(tout, *(cs[i])); tout << "\n"; });
         }
 
-//#linxi end
         void sort_watched_clauses() {
             unsigned num = num_vars();
             for (unsigned i = 0; i < num; i++) {
                 clause_vector & ws = m_watches[i];
-//#linxi begin
                 // sort_clauses_by_degree(ws.size(), ws.data());
-                if (m_linxi_simple_check) {
+                if (m_simple_check) {
                     sort_clauses_by_degree_lit_num(ws.size(), ws.data());
                 }
                 else {
                     sort_clauses_by_degree(ws.size(), ws.data());
                 }
-//#linxi end
             }
         }
 

@@ -41,11 +41,11 @@ tactic * mk_multilinear_ls_tactic(ast_manager & m, params_ref const & p, unsigne
     return using_params(mk_smt_tactic(m), p_mls);
 }
 
-tactic * linxi_mk_qfnra_very_small_solver(ast_manager& m, params_ref const& p) {
+tactic * mk_qfnra_very_small_solver(ast_manager& m, params_ref const& p) {
     ptr_vector<tactic> ts;
     {
         params_ref p_sc = p;
-        p_sc.set_bool("linxi_simple_check", true);
+        p_sc.set_bool("simple_check", true);
         // p_sc.set_uint("seed", 997);
         ts.push_back(try_for(and_then(mk_qfnra_nlsat_tactic(m, p_sc), mk_fail_if_undecided_tactic()), 10 * 1000));
     }
@@ -55,24 +55,24 @@ tactic * linxi_mk_qfnra_very_small_solver(ast_manager& m, params_ref const& p) {
         ts.push_back(try_for(mk_qfnra_nlsat_tactic(m, p_heuristic), 4 * 1000));
 
         params_ref p_order_4 = p;
-        p_order_4.set_uint("linxi_variable_ordering_strategy", 4);
+        p_order_4.set_uint("variable_ordering_strategy", 4);
         ts.push_back(try_for(mk_qfnra_nlsat_tactic(m, p_order_4), 4 * 1000));
 
         params_ref p_order_3 = p;
-        p_order_3.set_uint("linxi_variable_ordering_strategy", 3);
+        p_order_3.set_uint("variable_ordering_strategy", 3);
         // p_order_3.set_uint("seed", 17);
         ts.push_back(try_for(mk_qfnra_nlsat_tactic(m, p_order_3), 6 * 1000));
 
         params_ref p_order_1 = p;
-        p_order_1.set_uint("linxi_variable_ordering_strategy", 1);
+        p_order_1.set_uint("variable_ordering_strategy", 1);
         ts.push_back(try_for(mk_qfnra_nlsat_tactic(m, p_order_1), 8 * 1000));
 
         params_ref p_order_5 = p;
-        p_order_5.set_uint("linxi_variable_ordering_strategy", 5);
+        p_order_5.set_uint("variable_ordering_strategy", 5);
         ts.push_back(try_for(mk_qfnra_nlsat_tactic(m, p_order_5), 8 * 1000));
 
         params_ref p_order_2 = p;
-        p_order_2.set_uint("linxi_variable_ordering_strategy", 2);
+        p_order_2.set_uint("variable_ordering_strategy", 2);
         ts.push_back(try_for(mk_qfnra_nlsat_tactic(m, p_order_2), 10 * 1000));
     }
     {
@@ -97,11 +97,11 @@ tactic * linxi_mk_qfnra_very_small_solver(ast_manager& m, params_ref const& p) {
     return or_else(ts.size(), ts.data());
 }
 
-tactic * linxi_mk_qfnra_small_solver(ast_manager& m, params_ref const& p) {
+tactic * mk_qfnra_small_solver(ast_manager& m, params_ref const& p) {
     ptr_vector<tactic> ts;
     {
         params_ref p_sc = p;
-        p_sc.set_bool("linxi_simple_check", true);
+        p_sc.set_bool("simple_check", true);
         // p_sc.set_uint("seed", 997);
         ts.push_back(try_for(and_then(mk_qfnra_nlsat_tactic(m, p_sc), mk_fail_if_undecided_tactic()), 20 * 1000));
     }
@@ -111,26 +111,26 @@ tactic * linxi_mk_qfnra_small_solver(ast_manager& m, params_ref const& p) {
         ts.push_back(try_for(mk_qfnra_nlsat_tactic(m, p_heuristic), 5 * 1000));
 
         params_ref p_order_4 = p;
-        p_order_4.set_uint("linxi_variable_ordering_strategy", 4);
+        p_order_4.set_uint("variable_ordering_strategy", 4);
         ts.push_back(try_for(mk_qfnra_nlsat_tactic(m, p_order_4), 5 * 1000));
 
         params_ref p_order_3 = p;
-        p_order_3.set_uint("linxi_variable_ordering_strategy", 3);
+        p_order_3.set_uint("variable_ordering_strategy", 3);
         // p_order_3.set_uint("seed", 17);
         ts.push_back(try_for(mk_qfnra_nlsat_tactic(m, p_order_3), 10 * 1000));
 
         params_ref p_order_1 = p;
-        p_order_1.set_uint("linxi_variable_ordering_strategy", 1);
+        p_order_1.set_uint("variable_ordering_strategy", 1);
         ts.push_back(try_for(mk_qfnra_nlsat_tactic(m, p_order_1), 15 * 1000));
 
         
         params_ref p_order_5 = p;
-        p_order_5.set_uint("linxi_variable_ordering_strategy", 5);
+        p_order_5.set_uint("variable_ordering_strategy", 5);
         ts.push_back(try_for(mk_qfnra_nlsat_tactic(m, p_order_5), 15 * 1000));
         
 
         params_ref p_order_2 = p;
-        p_order_2.set_uint("linxi_variable_ordering_strategy", 2);
+        p_order_2.set_uint("variable_ordering_strategy", 2);
         ts.push_back(try_for(mk_qfnra_nlsat_tactic(m, p_order_2), 20 * 1000));
     }
     {
@@ -155,12 +155,11 @@ tactic * linxi_mk_qfnra_small_solver(ast_manager& m, params_ref const& p) {
     return or_else(ts.size(), ts.data());
 }
 
-tactic * linxi_mk_qfnra_middle_solver(ast_manager& m, params_ref const& p) {
+tactic * mk_qfnra_middle_solver(ast_manager& m, params_ref const& p) {
     ptr_vector<tactic> ts;
     {
         params_ref p_sc = p;
-        p_sc.set_bool("linxi_simple_check", true);
-        // p_sc.set_uint("seed", 997);
+        p_sc.set_bool("simple_check", true);
         ts.push_back(try_for(and_then(mk_qfnra_nlsat_tactic(m, p_sc), mk_fail_if_undecided_tactic()), 30 * 1000));
     }
     {
@@ -170,27 +169,26 @@ tactic * linxi_mk_qfnra_middle_solver(ast_manager& m, params_ref const& p) {
 
         
         params_ref p_order_4 = p;
-        p_order_4.set_uint("linxi_variable_ordering_strategy", 4);
+        p_order_4.set_uint("variable_ordering_strategy", 4);
         ts.push_back(try_for(mk_qfnra_nlsat_tactic(m, p_order_4), 15 * 1000));
         
 
         params_ref p_order_3 = p;
-        p_order_3.set_uint("linxi_variable_ordering_strategy", 3);
-        // p_order_3.set_uint("seed", 17);
+        p_order_3.set_uint("variable_ordering_strategy", 3);
         ts.push_back(try_for(mk_qfnra_nlsat_tactic(m, p_order_3), 15 * 1000));
 
         params_ref p_order_1 = p;
-        p_order_1.set_uint("linxi_variable_ordering_strategy", 1);
+        p_order_1.set_uint("variable_ordering_strategy", 1);
         ts.push_back(try_for(mk_qfnra_nlsat_tactic(m, p_order_1), 20 * 1000));
 
         
         params_ref p_order_5 = p;
-        p_order_5.set_uint("linxi_variable_ordering_strategy", 5);
+        p_order_5.set_uint("variable_ordering_strategy", 5);
         ts.push_back(try_for(mk_qfnra_nlsat_tactic(m, p_order_5), 20 * 1000));
         
 
         params_ref p_order_2 = p;
-        p_order_2.set_uint("linxi_variable_ordering_strategy", 2);
+        p_order_2.set_uint("variable_ordering_strategy", 2);
         ts.push_back(try_for(mk_qfnra_nlsat_tactic(m, p_order_2), 25 * 1000));
     }
     {
@@ -215,38 +213,36 @@ tactic * linxi_mk_qfnra_middle_solver(ast_manager& m, params_ref const& p) {
     return or_else(ts.size(), ts.data());
 }
 
-tactic * linxi_mk_qfnra_large_solver(ast_manager& m, params_ref const& p) {
+tactic * mk_qfnra_large_solver(ast_manager& m, params_ref const& p) {
     ptr_vector<tactic> ts;
     {
         params_ref p_sc = p;
-        p_sc.set_bool("linxi_simple_check", true);
-        // p_sc.set_uint("seed", 997);
+        p_sc.set_bool("simple_check", true);
         ts.push_back(try_for(and_then(mk_qfnra_nlsat_tactic(m, p_sc), mk_fail_if_undecided_tactic()), 50 * 1000));
     }
     {
 
         params_ref p_order_4 = p;
-        p_order_4.set_uint("linxi_variable_ordering_strategy", 4);
+        p_order_4.set_uint("variable_ordering_strategy", 4);
         ts.push_back(try_for(mk_qfnra_nlsat_tactic(m, p_order_4), 15 * 1000));
         
 
         params_ref p_order_3 = p;
-        p_order_3.set_uint("linxi_variable_ordering_strategy", 3);
-        // p_order_3.set_uint("seed", 17);
+        p_order_3.set_uint("variable_ordering_strategy", 3);
         ts.push_back(try_for(mk_qfnra_nlsat_tactic(m, p_order_3), 30 * 1000));
 
         params_ref p_order_1 = p;
-        p_order_1.set_uint("linxi_variable_ordering_strategy", 1);
+        p_order_1.set_uint("variable_ordering_strategy", 1);
         ts.push_back(try_for(mk_qfnra_nlsat_tactic(m, p_order_1), 40 * 1000));
 
         
         params_ref p_order_5 = p;
-        p_order_5.set_uint("linxi_variable_ordering_strategy", 5);
+        p_order_5.set_uint("variable_ordering_strategy", 5);
         ts.push_back(try_for(mk_qfnra_nlsat_tactic(m, p_order_5), 40 * 1000));
         
 
         params_ref p_order_2 = p;
-        p_order_2.set_uint("linxi_variable_ordering_strategy", 2);
+        p_order_2.set_uint("variable_ordering_strategy", 2);
         ts.push_back(try_for(mk_qfnra_nlsat_tactic(m, p_order_2), 50 * 1000));
     }
     {
@@ -271,27 +267,26 @@ tactic * linxi_mk_qfnra_large_solver(ast_manager& m, params_ref const& p) {
     return or_else(ts.size(), ts.data());
 }
 
-tactic * linxi_mk_qfnra_very_large_solver(ast_manager& m, params_ref const& p) {
+tactic * mk_qfnra_very_large_solver(ast_manager& m, params_ref const& p) {
     ptr_vector<tactic> ts;
     {
         params_ref p_sc = p;
-        p_sc.set_bool("linxi_simple_check", true);
-        // p_sc.set_uint("seed", 997);
+        p_sc.set_bool("simple_check", true);
         ts.push_back(try_for(and_then(mk_qfnra_nlsat_tactic(m, p_sc), mk_fail_if_undecided_tactic()), 100 * 1000));
     }
     {
         params_ref p_order_1 = p;
-        p_order_1.set_uint("linxi_variable_ordering_strategy", 1);
+        p_order_1.set_uint("variable_ordering_strategy", 1);
         ts.push_back(try_for(mk_qfnra_nlsat_tactic(m, p_order_1), 80 * 1000));
 
         
         params_ref p_order_5 = p;
-        p_order_5.set_uint("linxi_variable_ordering_strategy", 5);
+        p_order_5.set_uint("variable_ordering_strategy", 5);
         ts.push_back(try_for(mk_qfnra_nlsat_tactic(m, p_order_5), 80 * 1000));
         
 
         params_ref p_order_2 = p;
-        p_order_2.set_uint("linxi_variable_ordering_strategy", 2);
+        p_order_2.set_uint("variable_ordering_strategy", 2);
         ts.push_back(try_for(mk_qfnra_nlsat_tactic(m, p_order_2), 100 * 1000));
     }
     {
@@ -312,16 +307,16 @@ const double VERY_SMALL_THRESHOLD = 30.0;
 const double SMALL_THRESHOLD = 80.0;
 const double MIDDLE_THRESHOLD = 300.0;
 const double LARGE_THRESHOLD = 600.0;
-tactic * linxi_mk_qfnra_mixed_solver(ast_manager& m, params_ref const& p) {
+tactic * mk_qfnra_mixed_solver(ast_manager& m, params_ref const& p) {
     return cond(mk_lt(mk_memory_probe(), mk_const_probe(VERY_SMALL_THRESHOLD)), 
-                linxi_mk_qfnra_very_small_solver(m, p),
+                mk_qfnra_very_small_solver(m, p),
                 cond(mk_lt(mk_memory_probe(), mk_const_probe(SMALL_THRESHOLD)), 
-                     linxi_mk_qfnra_small_solver(m, p),
+                     mk_qfnra_small_solver(m, p),
                      cond(mk_lt(mk_memory_probe(), mk_const_probe(MIDDLE_THRESHOLD)),
-                          linxi_mk_qfnra_middle_solver(m, p),
+                          mk_qfnra_middle_solver(m, p),
                           cond(mk_lt(mk_memory_probe(), mk_const_probe(LARGE_THRESHOLD)),
-                               linxi_mk_qfnra_large_solver(m, p),
-                               linxi_mk_qfnra_very_large_solver(m, p)
+                               mk_qfnra_large_solver(m, p),
+                               mk_qfnra_very_large_solver(m, p)
                         )
                     )
                 )
@@ -332,7 +327,6 @@ tactic * mk_qfnra_tactic(ast_manager & m, params_ref const& p) {
 
     return and_then(mk_simplify_tactic(m, p), 
                     mk_propagate_values_tactic(m, p),
-                    // mk_multilinear_ls_tactic(m, p)
-                    linxi_mk_qfnra_mixed_solver(m, p)
+                    mk_qfnra_mixed_solver(m, p)
                 );
 }
