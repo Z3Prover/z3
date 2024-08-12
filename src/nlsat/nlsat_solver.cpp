@@ -1780,9 +1780,7 @@ namespace nlsat {
 
         bool m_reordered = false;
         bool simple_check() {
-            // test_anum();
             literal_vector learned_unit;
-            // Simple_Checker checker(m_solver, m_pm, m_am, m_clauses, m_learned, m_atoms, m_is_int.size());
             simple_checker checker(m_pm, m_am, m_clauses, learned_unit, m_atoms, m_is_int.size());
             if (!checker())
                 return false;
