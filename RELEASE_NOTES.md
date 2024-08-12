@@ -10,6 +10,13 @@ Version 4.next
     - native word level bit-vector solving.
   - introduction of simple induction lemmas to handle a limited repertoire of induction proofs.
 
+Version 4.13.1
+==============
+- single-sample cell projection in nlsat was designed by Haokun Li and Bican Xia. 
+- using simple-checker together with and variable ordering supported by qfnra_tactic was developed by Mengyu Zhao (Linxi) and Shaowei Cai.
+
+   The projection is described in paper by Haokun Li and Bican Xia,   [Solving Satisfiability of Polynomial Formulas By Sample - Cell Projection](https://arxiv.org/abs/2003.00409). The code ported from https://github.com/hybridSMT/hybridSMT.git 
+
 Version 4.13.0
 ==============
 - add ARM64 wheels for Python, thanks to Steven Moy, smoy
