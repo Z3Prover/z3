@@ -1,25 +1,7 @@
 #include "nlsat/nlsat_simple_checker.h"
 
-struct Debug_Tracer {
-    std::string tag_str;
-    Debug_Tracer(std::string _tag_str) {
-        tag_str = _tag_str;
-        TRACE("simple_checker", 
-            tout << "Debug_Tracer begin\n";
-            tout << tag_str << "\n";
-        );
-    }
-    ~Debug_Tracer() {
-        TRACE("simple_checker", 
-            tout << "Debug_Tracer end\n";
-            tout << tag_str << "\n";
-        );
-    }
-};
-
-
 namespace nlsat {
-    struct Simple_Checker::imp {
+    struct simple_checker::imp {
         // solver              &sol;
         pmanager            &pm;
         anum_manager        &am;
@@ -1569,13 +1551,13 @@ else { // ( == 0) + (c > 0) -> > 0
             return true;
         }
     };
-    Simple_Checker::Simple_Checker(pmanager &_pm, anum_manager &_am, const clause_vector &_clauses, literal_vector &_learned_unit, const atom_vector &_atoms, const unsigned &_arith_var_num) {
+    simple_checker::simple_checker(pmanager &_pm, anum_manager &_am, const clause_vector &_clauses, literal_vector &_learned_unit, const atom_vector &_atoms, const unsigned &_arith_var_num) {
         m_imp = alloc(imp, _pm, _am, _clauses, _learned_unit, _atoms, _arith_var_num);
     }
-    Simple_Checker::~Simple_Checker() {
+    simple_checker::~simple_checker() {
         dealloc(m_imp);
     }
-    bool Simple_Checker::operator()() {
+    bool simple_checker::operator()() {
         return m_imp->operator()();
     }
 }

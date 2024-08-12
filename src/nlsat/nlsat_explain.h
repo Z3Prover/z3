@@ -8,7 +8,8 @@ Module Name:
 Abstract:
 
     Functor that implements the "explain" procedure defined in Dejan and Leo's paper.
-
+    Uses paper Haokun Li and Bican Xia, "Solving Satisfiability of Polynomial Formulas By Sample - Cell Projection",https://arxiv.org/abs/2003.00409, 
+    and code from https://github.com/hybridSMT/hybridSMT.git 
 Author:
 
     Leonardo de Moura (leonardo) 2012-01-13.

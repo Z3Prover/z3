@@ -1783,7 +1783,7 @@ namespace nlsat {
             // test_anum();
             literal_vector learned_unit;
             // Simple_Checker checker(m_solver, m_pm, m_am, m_clauses, m_learned, m_atoms, m_is_int.size());
-            Simple_Checker checker(m_pm, m_am, m_clauses, learned_unit, m_atoms, m_is_int.size());
+            simple_checker checker(m_pm, m_am, m_clauses, learned_unit, m_atoms, m_is_int.size());
             if (!checker())
                 return false;
             for (unsigned i = 0, sz = learned_unit.size(); i < sz; ++i) {
@@ -1800,7 +1800,7 @@ namespace nlsat {
             TRACE("reorder", tout << "runing vos: " << m_variable_ordering_strategy << '\n';);
 
             unsigned num = num_vars();
-            VOS_Var_Info_Collector vos_collector(m_pm, m_atoms, num, m_variable_ordering_strategy);
+            vos_var_info_collector vos_collector(m_pm, m_atoms, num, m_variable_ordering_strategy);
             vos_collector.collect(m_clauses);
             vos_collector.collect(m_learned);
             

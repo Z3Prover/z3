@@ -1,7 +1,7 @@
 #include "nlsat/nlsat_variable_ordering_strategy.h"
 
 namespace nlsat {
-    struct VOS_Var_Info_Collector::imp {
+    struct vos_var_info_collector::imp {
         pmanager &          pm;
         atom_vector const & m_atoms;
         unsigned num_vars;
@@ -138,8 +138,8 @@ namespace nlsat {
 
         
        struct univariate_reorder_lt {
-            VOS_Var_Info_Collector::imp const *m_info;
-            univariate_reorder_lt(VOS_Var_Info_Collector::imp const *info):m_info(info) {}
+            vos_var_info_collector::imp const *m_info;
+            univariate_reorder_lt(vos_var_info_collector::imp const *info):m_info(info) {}
             bool operator()(var x, var y) const {
                 if (m_info->m_num_uni[x] != m_info->m_num_uni[y])
                     return m_info->m_num_uni[x] > m_info->m_num_uni[y];
@@ -148,8 +148,8 @@ namespace nlsat {
         };
 
         struct feature_reorder_lt {
-            VOS_Var_Info_Collector::imp const *m_info;
-            feature_reorder_lt(VOS_Var_Info_Collector::imp const * info): m_info(info){}
+            vos_var_info_collector::imp const *m_info;
+            feature_reorder_lt(vos_var_info_collector::imp const * info): m_info(info){}
             bool operator()(var x, var y) const {
                 if (m_info->m_max_degree[x] != m_info->m_max_degree[y])
                     return m_info->m_max_degree[x] > m_info->m_max_degree[y];
@@ -162,8 +162,8 @@ namespace nlsat {
             }
         };
         struct brown_reorder_lt {
-            VOS_Var_Info_Collector::imp const *m_info;
-            brown_reorder_lt(VOS_Var_Info_Collector::imp const *info):m_info(info) {}
+            vos_var_info_collector::imp const *m_info;
+            brown_reorder_lt(vos_var_info_collector::imp const *info):m_info(info) {}
             bool operator()(var x, var y) const {
                 // if (a.max_degree != b.max_degree)
                 //     return a.max_degree > b.max_degree;
@@ -180,8 +180,8 @@ namespace nlsat {
             }
         };
         struct triangular_reorder_lt {
-            const VOS_Var_Info_Collector::imp *m_info;
-            triangular_reorder_lt(VOS_Var_Info_Collector::imp const *info):m_info(info) {}
+            const vos_var_info_collector::imp *m_info;
+            triangular_reorder_lt(vos_var_info_collector::imp const *info):m_info(info) {}
             bool operator()(var x, var y) const {
                 // if (a.max_degree != b.max_degree)
                 //     return a.max_degree > b.max_degree;
@@ -198,8 +198,8 @@ namespace nlsat {
             }
         };
         struct onlypoly_reorder_lt {
-            const VOS_Var_Info_Collector::imp *m_info;
-            onlypoly_reorder_lt(VOS_Var_Info_Collector::imp const *info):m_info(info) {}
+            const vos_var_info_collector::imp *m_info;
+            onlypoly_reorder_lt(vos_var_info_collector::imp const *info):m_info(info) {}
             bool operator()(var x, var y) const {
                 // high degree first
                 if (m_info->m_max_degree[x] != m_info->m_max_degree[y])
@@ -267,16 +267,16 @@ namespace nlsat {
         //     return out;
         // }
     };
-    VOS_Var_Info_Collector::VOS_Var_Info_Collector(pmanager & _pm, atom_vector const & _atoms, unsigned _num_vars, unsigned _vos_type) {
+    vos_var_info_collector::vos_var_info_collector(pmanager & _pm, atom_vector const & _atoms, unsigned _num_vars, unsigned _vos_type) {
         m_imp = alloc(imp, _pm, _atoms, _num_vars, _vos_type);
     }
-    VOS_Var_Info_Collector::~VOS_Var_Info_Collector() {
+    vos_var_info_collector::~vos_var_info_collector() {
         dealloc(m_imp);
     }
-    void VOS_Var_Info_Collector::collect(clause_vector const & cs) {
+    void vos_var_info_collector::collect(clause_vector const & cs) {
         m_imp->collect(cs);
     }
-    void VOS_Var_Info_Collector::operator()(var_vector &perm) {
+    void vos_var_info_collector::operator()(var_vector &perm) {
         m_imp->operator()(perm);
     }
 }
