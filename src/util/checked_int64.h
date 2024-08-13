@@ -107,7 +107,7 @@ public:
     
     checked_int64 & operator--() {
         if (CHECK && m_value == INT64_MIN) {
-            throw overflo9w_exception();
+            throw overflow_exception();
         }                    
         --m_value;
         return *this;
