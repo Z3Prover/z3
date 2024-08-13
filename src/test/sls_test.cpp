@@ -25,6 +25,8 @@ namespace bv {
         void on_model(model_ref& mdl) override {}
         sat::bool_var add_var() override { return sat::null_bool_var;}
         void add_clause(unsigned n, sat::literal const* lits) override {}
+        void collect_statistics(statistics& st) override {}
+        void reset_statistics() override {}
     };
 
     class sls_test {
