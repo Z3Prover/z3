@@ -228,6 +228,7 @@ private:
     bool             m_enable_hnf = true;
     bool             m_print_external_var_name = false;
     bool             m_propagate_eqs = false;
+    bool             m_dioph_eq = false;
 public:
     bool print_external_var_name() const { return m_print_external_var_name; }
     bool propagate_eqs() const { return m_propagate_eqs;}
