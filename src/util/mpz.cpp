@@ -50,7 +50,7 @@ Revision History:
     #define HAS_BUILTIN(X) __has_builtin(X)
 #else
     #define HAS_BUILTIN(X) 0
-#end
+#endif
 #if HAS_BUILTIN(__builtin_ctz)
 #define _trailing_zeros32(X) __builtin_ctz(X)
 #elif defined(_WINDOWS) && (defined(_M_X86) || (defined(_M_X64) && !defined(_M_ARM64EC))) && !defined(__clang__)
