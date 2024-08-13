@@ -45,7 +45,7 @@ namespace sls {
         };
 
         struct stats {
-            unsigned m_num_flips = 0;
+            unsigned m_num_steps = 0;
         };
 
     public:
@@ -53,11 +53,16 @@ namespace sls {
             vector<std::pair<num_t, var_t>> m_args;
             num_t      m_coeff{ 0 };
         };
+        struct nonlinear_coeff {
+            var_t v;     // variable or multiplier containing x
+            num_t coeff; // coeff of v in inequality
+            unsigned p;  // power
+        };
         // encode args <= bound, args = bound, args < bound
-        struct ineq : public linear_term {            
+        struct ineq : public linear_term {    
+            vector<std::pair<var_t, vector<nonlinear_coeff>>> m_nonlinear;
             ineq_kind  m_op = ineq_kind::LE;            
             num_t      m_args_value;
-            unsigned   m_var_to_flip = UINT_MAX;
 
             bool is_true() const;
             std::ostream& display(std::ostream& out) const;
@@ -76,6 +81,27 @@ namespace sls {
             unsigned_vector m_muls;
             unsigned_vector m_adds;
             optional<bound> m_lo, m_hi;
+            num_t        m_range{ 100000000 };
+            bool in_range(num_t const& n) const {
+                if (-m_range < n && n < m_range)
+                    return true;
+                if (m_lo && !m_hi)
+                    return n < m_lo->value + m_range;
+                if (!m_lo && m_hi)
+                    return n > m_hi->value - m_range;
+                return false;                
+            }
+            unsigned m_tabu_pos = 0, m_tabu_neg = 0;
+            unsigned m_last_pos = 0, m_last_neg = 0;
+            bool is_tabu(unsigned step, num_t const& delta) {
+                return (delta > 0 ? m_tabu_pos : m_tabu_neg) > step;
+            }
+            void set_step(unsigned step, unsigned tabu_step, num_t const& delta) {
+                if (delta > 0)
+                    m_tabu_pos = tabu_step, m_last_pos = step;
+                else
+                    m_tabu_neg = tabu_step, m_last_neg = step;
+            }
         };
 
         struct mul_def {
@@ -93,6 +119,12 @@ namespace sls {
             arith_op_kind m_op = LAST_ARITH_OP;
             unsigned m_arg1, m_arg2;
         };
+
+        struct var_change {
+            unsigned m_var;
+            num_t    m_delta;
+            double   m_score;
+        };
        
         stats                        m_stats;
         config                       m_config;
@@ -104,6 +136,10 @@ namespace sls {
         unsigned_vector              m_expr2var;
         svector<double>              m_probs;
         bool                         m_dscore_mode = false;
+        vector<var_change>           m_updates;
+        var_t                        m_last_var = 0;
+        num_t                        m_last_delta { 0 };
+        bool                         m_tabu = false;
         arith_util                   a;
 
         void invariant();
@@ -111,6 +147,7 @@ namespace sls {
 
         unsigned get_num_vars() const { return m_vars.size(); }
 
+        bool eval_is_correct(var_t v);
         bool repair_mul_one(mul_def const& md);
         bool repair_power(mul_def const& md);
         bool repair_mul_factors(mul_def const& md);
@@ -126,10 +163,15 @@ namespace sls {
         bool repair_abs(op_def const& od);
         bool repair_to_int(op_def const& od);
         bool repair_to_real(op_def const& od);
-        void repair(sat::literal lit, ineq const& ineq);
-        bool repair_eq(sat::literal lit, ineq const& ineq);
+        bool repair(sat::literal lit);
         bool in_bounds(var_t v, num_t const& value);
         bool is_fixed(var_t v);
+        bool is_linear(var_t x, vector<nonlinear_coeff> const& nlc, num_t& b);
+        bool is_quadratic(var_t x, vector<nonlinear_coeff> const& nlc, num_t& a, num_t& b);
+        num_t mul_value_without(var_t m, var_t x);
+
+        void add_update(var_t v, num_t delta);
+        bool is_permitted_update(var_t v, num_t& delta);
 
         vector<num_t> m_factors;
         vector<num_t> const& factor(num_t n);
@@ -174,25 +216,32 @@ namespace sls {
 
         monomials monomial_iterator(mul_def const& md) { return monomials(*this, md); }
 
-        double reward(sat::literal lit);
+        // double reward(sat::literal lit);
 
         bool sign(sat::bool_var v) const { return !ctx.is_true(sat::literal(v, false)); }
         ineq* atom(sat::bool_var bv) const { return m_bool_vars.get(bv, nullptr); }        
         num_t dtt(bool sign, ineq const& ineq) const { return dtt(sign, ineq.m_args_value, ineq); }
         num_t dtt(bool sign, num_t const& args_value, ineq const& ineq) const;
         num_t dtt(bool sign, ineq const& ineq, var_t v, num_t const& new_value) const;
-        num_t dtt(bool sign, ineq const& ineq, num_t const& coeff, num_t const& old_value, num_t const& new_value) const;
+        num_t dtt(bool sign, ineq const& ineq, num_t const& coeff, num_t const& delta) const;
         num_t dts(unsigned cl, var_t v, num_t const& new_value) const;
         num_t compute_dts(unsigned cl) const;
-        bool cm(ineq const& ineq, var_t v, num_t& new_value);
-        bool cm(ineq const& ineq, var_t v, num_t const& coeff, num_t& new_value);
-        int cm_score(var_t v, num_t const& new_value);
+
+        bool is_mul(var_t v) const { return m_vars[v].m_op == arith_op_kind::OP_MUL; }
+        bool is_add(var_t v) const { return m_vars[v].m_op == arith_op_kind::OP_ADD; }
+        mul_def const& get_mul(var_t v) const { SASSERT(is_mul(v));  return m_muls[m_vars[v].m_def_idx]; }
+        add_def const& get_add(var_t v) const { SASSERT(is_add(v));  return m_adds[m_vars[v].m_def_idx]; }
+
         bool update(var_t v, num_t const& new_value);
-        double dscore_reward(sat::bool_var v);
-        double dtt_reward(sat::literal lit);
-        double dscore(var_t v, num_t const& new_value) const;
+        bool apply_update();
+        void find_moves(sat::literal lit);
+        void find_reset_moves(sat::literal lit);
+        void add_reset_update(var_t v);
+        void find_linear_moves(ineq const& i, var_t x, num_t const& coeff, num_t const& sum);
+        void find_quadratic_moves(ineq const& i, var_t x, num_t const& a, num_t const& b, num_t const& sum);
+        double compute_score(var_t x, num_t const& delta);
         void save_best_values();
-        bool solve_eq_pairs(ineq const& ineq);
+        bool solve_eq_pairs(var_t v, ineq const& ineq);
         bool solve_eq_pairs(num_t const& a, var_t x, num_t const& b, var_t y, num_t const& r);
 
         var_t mk_var(expr* e);
@@ -203,6 +252,8 @@ namespace sls {
         ineq& new_ineq(ineq_kind op, num_t const& bound);
         void init_ineq(sat::bool_var bv, ineq& i);
         num_t divide(var_t v, num_t const& delta, num_t const& coeff);
+        num_t divide_floor(var_t v, num_t const& a, num_t const& b);
+        num_t divide_ceil(var_t v, num_t const& a, num_t const& b);
         
         void init_bool_var_assignment(sat::bool_var v);
 
@@ -219,11 +270,12 @@ namespace sls {
         void add_lt(var_t v, num_t const& n);
         void add_gt(var_t v, num_t const& n);
         std::ostream& display(std::ostream& out, var_t v) const;
+        std::ostream& display(std::ostream& out, add_def const& ad) const;
     public:
         arith_base(context& ctx);
         ~arith_base() override {}        
         void register_term(expr* e) override;
-        void set_value(expr* e, expr* v) override;
+        bool set_value(expr* e, expr* v) override;
         expr_ref get_value(expr* e) override;
         void initialize() override;
         void propagate_literal(sat::literal lit) override;
@@ -236,6 +288,8 @@ namespace sls {
         void on_restart() override;
         std::ostream& display(std::ostream& out) const override;
         void mk_model(model& mdl) override;
+        void collect_statistics(statistics& st) const override;
+        void reset_statistics() override;
     };
 
 

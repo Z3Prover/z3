@@ -88,6 +88,16 @@ namespace sls {
             m_new_clause_added = true;
         }
         model_ref get_model() { return m_model; }
+
+        void collect_statistics(statistics& st) {
+            m_ddfw.collect_statistics(st);
+            m_context.collect_statistics(st);
+        }
+
+        void reset_statistics() {
+            m_ddfw.reset_statistics();
+            m_context.reset_statistics();
+        }
     };
 
     smt_solver::smt_solver(ast_manager& m, params_ref const& p):
@@ -118,48 +128,60 @@ namespace sls {
             add_clause(f);
         
         IF_VERBOSE(10, m_solver_ctx->display(verbose_stream()));
-        return m_ddfw.check(0, nullptr);
+        auto r = m_ddfw.check(0, nullptr);
+
+        return r;
     }
 
     void smt_solver::add_clause(expr* f) {
-        expr* g, * h;
+        expr* g, * h, * k;
         sat::literal_vector clause;
         if (m.is_not(f, g) && m.is_not(g, g)) {
             add_clause(g);
+            return;
         }
-        if (m.is_or(f)) {
+        bool sign = m.is_not(f, f);
+        if (!sign && m.is_or(f)) {
             clause.reset();
             for (auto arg : *to_app(f))
                 clause.push_back(mk_literal(arg));
             m_solver_ctx->add_clause(clause.size(), clause.data());
         }
-        else if (m.is_and(f)) {
+        else if (!sign && m.is_and(f)) {
             for (auto arg : *to_app(f))
                 add_clause(arg);
         }
-        else if (m.is_not(f, g) && m.is_or(g)) {
-            for (auto arg : *to_app(g)) {
+        else if (sign && m.is_or(f)) {
+            for (auto arg : *to_app(f)) {
                 expr_ref fml(m.mk_not(arg), m);;
                 add_clause(fml);
             }
         }
-        else if (m.is_not(f, g) && m.is_and(g)) {
+        else if (sign && m.is_and(f)) {
             clause.reset();
-            for (auto arg : *to_app(g))
+            for (auto arg : *to_app(f))
                 clause.push_back(~mk_literal(arg));
             m_solver_ctx->add_clause(clause.size(), clause.data());
         }
-        else if (m.is_eq(f, g, h) && m.is_bool(g)) {
+        else if (m.is_iff(f, g, h)) {
             auto lit1 = mk_literal(g);
             auto lit2 = mk_literal(h);
-            clause.reset();
-            clause.push_back(~lit1);
-            clause.push_back(lit2);
-            m_solver_ctx->add_clause(clause.size(), clause.data());
-            clause.reset();
-            clause.push_back(lit1);
-            clause.push_back(~lit2);
-            m_solver_ctx->add_clause(clause.size(), clause.data());
+            sat::literal cls1[2] = { sign ? lit1 :~lit1, lit2 };
+            sat::literal cls2[2] = { sign ? ~lit1 : lit1, ~lit2 };
+            m_solver_ctx->add_clause(2, cls1);
+            m_solver_ctx->add_clause(2, cls2);
+        }
+        else if (m.is_ite(f, g, h, k)) {
+            auto lit1 = mk_literal(g);
+            auto lit2 = mk_literal(h);
+            auto lit3 = mk_literal(k);
+            // (g -> h) & (~g -> k)
+            // (g & h) | (~g & k)
+            // negated: (g -> ~h) & (g -> ~k)
+            sat::literal cls1[2] = { ~lit1, sign ? ~lit2 : lit2 };
+            sat::literal cls2[2] = { lit1, sign ? ~lit3 : lit3 };
+            m_solver_ctx->add_clause(2, cls1);
+            m_solver_ctx->add_clause(2, cls2);
         }
         else {
             sat::literal lit = mk_literal(f);
@@ -170,6 +192,7 @@ namespace sls {
     sat::literal smt_solver::mk_literal(expr* e) {
         sat::literal lit;
         bool neg = false;
+        expr* a, * b, * c;
         while (m.is_not(e,e))
             neg = !neg;
         if (m_expr2lit.find(e, lit))
@@ -197,6 +220,33 @@ namespace sls {
             clause.push_back(~lit);
             m_solver_ctx->add_clause(clause.size(), clause.data());
         }
+        else if (m.is_iff(e, a, b)) {
+            lit = mk_literal();
+            auto lit1 = mk_literal(a);
+            auto lit2 = mk_literal(b);
+            sat::literal cls1[3] = { ~lit,  ~lit1, lit2 };
+            sat::literal cls2[3] = { ~lit,  lit1, ~lit2 };
+            sat::literal cls3[3] = {  lit,  lit1, lit2 };
+            sat::literal cls4[3] = {  lit, ~lit1, ~lit2 };
+            m_solver_ctx->add_clause(3, cls1);
+            m_solver_ctx->add_clause(3, cls2);
+            m_solver_ctx->add_clause(3, cls3);
+            m_solver_ctx->add_clause(3, cls4);
+        }
+        else if (m.is_ite(e, a, b, c)) {
+            lit = mk_literal();
+            auto lit1 = mk_literal(a);
+            auto lit2 = mk_literal(b);
+            auto lit3 = mk_literal(c);
+            sat::literal cls1[3] = { ~lit, ~lit1, lit2 };
+            sat::literal cls2[3] = { ~lit,  lit1, lit3 };
+            sat::literal cls3[3] = {  lit, ~lit1, ~lit2 };
+            sat::literal cls4[3] = {  lit,  lit1, ~lit3 };
+            m_solver_ctx->add_clause(3, cls1);
+            m_solver_ctx->add_clause(3, cls2);
+            m_solver_ctx->add_clause(3, cls3);
+            m_solver_ctx->add_clause(3, cls4);
+        }
         else {
             sat::bool_var v = m_num_vars++;
             lit = sat::literal(v, false);
@@ -217,5 +267,13 @@ namespace sls {
 
     std::ostream& smt_solver::display(std::ostream& out) {
         return m_solver_ctx->display(out);
+    }
+
+    void smt_solver::collect_statistics(statistics& st) {
+        m_solver_ctx->collect_statistics(st);
+    }
+
+    void smt_solver::reset_statistics() {
+        m_solver_ctx->reset_statistics();
     }
 }

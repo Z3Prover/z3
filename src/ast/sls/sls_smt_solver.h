@@ -42,8 +42,8 @@ namespace sls {
         lbool check();
         model_ref get_model();
         void updt_params(params_ref& p) {}
-        void collect_statistics(statistics& st) { st.copy(m_st); }
+        void collect_statistics(statistics& st);
         std::ostream& display(std::ostream& out);
-        void reset_statistics() { m_st.reset(); }
+        void reset_statistics();
     };
 }

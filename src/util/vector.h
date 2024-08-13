@@ -290,6 +290,10 @@ public:
         }
     }
 
+    vector(std::initializer_list<T> const& l) {
+        for (auto const& t : l) 
+            push_back(t);        
+    }
  
     ~vector() { 
         destroy();

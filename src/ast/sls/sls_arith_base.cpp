@@ -13,6 +13,31 @@ Author:
 
     Nikolaj Bjorner (nbjorner) 2023-02-07
 
+    Uses quadratic solver method from nia_ls in hybrid-smt
+    (with a bug fix for when order of roots are swapped)
+    Other features from nia_ls are also used as a starting point, 
+    such as tabu and fallbacks.
+
+Todo:
+
+- add fairness for which variable to flip and direction (by age fifo).
+  - maintain age per variable, per sign
+
+- include more general tabu measure
+  - 
+
+- random walk when there is no applicable update
+  - repair_down can fail repeatedely. Then allow a mode to reset arguments similar to 
+    repair of literals.
+
+- avoid overflow for nested products
+
+Done:
+- add tabu for flipping variable back to the same value.
+  - remember last variable/delta and block -delta = last_delta && last_variable = current_variable
+- include measures for bounded updates
+  - per variable maintain increasing range 
+
 --*/
 
 #include "ast/sls/sls_arith_base.h"
@@ -24,11 +49,11 @@ namespace sls {
     bool arith_base<num_t>::ineq::is_true() const {
         switch (m_op) {
         case ineq_kind::LE:
-            return m_args_value + this->m_coeff <= 0;
+            return m_args_value <= 0;
         case ineq_kind::EQ:
-            return m_args_value + this->m_coeff == 0;
+            return m_args_value== 0;
         default:
-            return m_args_value + this->m_coeff < 0;
+            return m_args_value < 0;
         }
     }
 
@@ -43,12 +68,25 @@ namespace sls {
             out << " + " << this->m_coeff;
         switch (m_op) {
         case ineq_kind::LE:
-            return out << " <= " << 0 << "(" << m_args_value + this->m_coeff << ")";
+            out << " <= " << 0 << "(" << m_args_value << ")";
+            break;
         case ineq_kind::EQ:
-            return out << " == " << 0 << "(" << m_args_value + this->m_coeff << ")";
+            out << " == " << 0 << "(" << m_args_value << ")";
+            break;
         default:
-            return out << " < " << 0 << "(" << m_args_value + this->m_coeff << ")";
+            out << " < " << 0 << "(" << m_args_value << ")";
+            break;
         }
+        for (auto const& [x, nl] : this->m_nonlinear) {
+            if (nl.size() == 1 && nl[0].v == x)
+                continue;
+            for (auto const& [v, c, p] : nl) {
+                out << " v" << x; 
+                if (p > 1) out << "^" << p;
+                out << " in " << c << " * v" << v;
+            }
+        }
+        return out;
     }    
 
     template<typename num_t>
@@ -117,16 +155,8 @@ namespace sls {
     }
 
     template<typename num_t>
-    num_t arith_base<num_t>::dtt(bool sign, ineq const& ineq, num_t const& coeff, num_t const& old_value, num_t const& new_value) const {
-        return dtt(sign, ineq.m_args_value + coeff * (new_value - old_value), ineq);
-    }
-
-    template<typename num_t>
-    bool arith_base<num_t>::cm(ineq const& ineq, var_t v, num_t& new_value) {
-        for (auto const& [coeff, w] : ineq.m_args)
-            if (w == v)
-                return cm(ineq, v, coeff, new_value);
-        return false;
+    num_t arith_base<num_t>::dtt(bool sign, ineq const& ineq, num_t const& coeff, num_t const& delta) const {
+        return dtt(sign, ineq.m_args_value + coeff * delta, ineq);
     }
 
     template<typename num_t>
@@ -138,77 +168,238 @@ namespace sls {
     }
 
     template<typename num_t>
-    bool arith_base<num_t>::cm(ineq const& ineq, var_t v, num_t const& coeff, num_t& new_value) {
-        auto bound = -ineq.m_coeff;
-        auto argsv = ineq.m_args_value;
-        bool solved = false;
-        num_t delta = argsv - bound;
-        auto const& lo = m_vars[v].m_lo;
-        auto const& hi = m_vars[v].m_hi;
+    num_t arith_base<num_t>::divide_floor(var_t v, num_t const& a, num_t const& b) {
+        if (!is_int(v))
+            return a / b;
+        if (b > 0)
+            return div(a, b);
+        else if (a > 0)
+            return -div(a - b - 1, -b);
+        else
+            return div(-a, -b);
+    }
 
-        if (is_fixed(v))
-            return false;
+    template<typename num_t>
+    num_t arith_base<num_t>::divide_ceil(var_t v, num_t const& a, num_t const& b) {
+        if (!is_int(v))
+            return a / b;
+        if (b > 0)
+            return div(a + b - 1, b);
+        else if (a > 0)
+            return -div(a, -b);
+        else
+            return div(-a - b - 1, -b);
+    }
 
-        auto well_formed = [&]() {
-            num_t new_args = argsv + coeff * (new_value - value(v));
-            if (ineq.is_true()) {
-                switch (ineq.m_op) {
-                case ineq_kind::LE: return new_args > bound;
-                case ineq_kind::LT: return new_args >= bound;
-                case ineq_kind::EQ: return new_args != bound;
-                }
-            }
-            else {
-                switch (ineq.m_op) {
-                case ineq_kind::LE: return new_args <= bound;
-                case ineq_kind::LT: return new_args < bound;
-                case ineq_kind::EQ: return new_args == bound;
-                }
-            }
-            return false;
-        };
+    //
+    // i = 1,     3,     5,     7,      9, ...
+    //     d, d - 1, d - 4, d - 9, d - 16,  
+    //
+    template<typename num_t>
+    static num_t sqrt(num_t d) {
+        if (d <= 1)
+            return d;
+        auto sq = 2*sqrt(div(d, num_t(4))) + 1;
+        if (sq * sq <= d)
+            return sq;
+        return sq - 1;
+    }
 
-        auto move_to_bounds = [&]() {
-            VERIFY(well_formed());
-            if (!in_bounds(v, value(v)))
-                return true;
-            if (in_bounds(v, new_value))
-                return true;
-            if (lo && lo->value > new_value) {
-                new_value = lo->value;
-                if (!well_formed())
-                    new_value += 1;
-            }
-            if (hi && hi->value < new_value) {
-                new_value = hi->value;
-                if (!well_formed())
-                    new_value -= 1;
-            }
-            return well_formed() && in_bounds(v, new_value);
-        };
+    //
+    // a*x^2 + b*x + c = sum
+    // 
+    template<typename num_t>
+    void arith_base<num_t>::find_quadratic_moves(ineq const& ineq, var_t x, num_t const& a, num_t const& b, num_t const& sum) {
+        num_t c, d;
+        try {
+            c = sum - a * value(x) * value(x) - b * value(x);
+            d = b * b - 4 * a * c;
+        }
+        catch (overflow_exception const&) {
+            return;
+        }
+        if (d < 0)
+            return;
+        num_t root = sqrt(d);
+        bool is_square = root * root == d;
+        num_t ll = divide_floor(x, -b - root, 2 * a);
+        num_t lh = divide_ceil(x, -b - root, 2 * a);
+        num_t rl = divide_floor(x, -b + root, 2 * a);
+        num_t rh = divide_ceil(x, -b + root, 2 * a);
+        if (lh > rl) {
+            std::swap(ll, rl);
+            std::swap(lh, rh);
+        }
+        num_t eps(1);
+        if (!is_int(x) &&  abs(rh - lh) <= eps)
+            eps = abs(rh - lh) / num_t(2);
+//        verbose_stream() << a << " " << b << " " << c << "\n";
+//        verbose_stream() << (-b - root) << " " << (2 * a) << " " << ll << " " << lh << "\n";
+//        verbose_stream() << (-b + root) << " " << (2 * a) << " " << rl << " " << rh << "\n";
+        SASSERT(ll <= lh && ll + 1 >= lh);
+        SASSERT(rl <= rh && rl + 1 >= rh);
+        SASSERT(!is_square || ll != lh || a * ll * ll + b * ll + c == 0);
+        SASSERT(!is_square || rl != rh || a * rl * rl + b * rl + c == 0);
+        if (d > 0 && lh == rh)
+            return;
+        if (d == 0 && ll != lh)
+            return;
 
         if (ineq.is_true()) {
             switch (ineq.m_op) {
             case ineq_kind::LE:
-                // args <= bound -> args > bound
-                SASSERT(argsv <= bound);
-                SASSERT(delta <= 0);
-                delta -= 1;
-                new_value = value(v) + divide(v, abs(delta - ctx.rand(3)), coeff);
-                return move_to_bounds();  
+                SASSERT(sum <= 0);
+                if (d == 0)
+                    break;
+                if (a < 0) {
+                    if (a * lh * lh + b * lh + c <= 0)
+                        lh += eps;
+                    if (a * rl * rl + b * rl + c <= 0)
+                        rl -= eps;
+                    if (is_square && a * lh * lh + b * lh + c <= 0) {
+                        num_t ll = divide_floor(x, -b - root, 2 * a);
+                        num_t lh = divide_ceil(x, -b - root, 2 * a);
+                        num_t rl = divide_floor(x, -b + root, 2 * a);
+                        num_t rh = divide_ceil(x, -b + root, 2 * a);
+
+                        verbose_stream() << a << " " << b << " " << c << "\n";
+                        verbose_stream() << (-b - root) << " " << (2 * a) << " " << ll << " " << lh << "\n";
+                        verbose_stream() << (-b + root) << " " << (2 * a) << " " << rl << " " << rh << "\n";
+                        verbose_stream() << "root " << root << "\n";
+                        UNREACHABLE();
+                    }
+
+                    SASSERT(!is_square || a * lh * lh + b * lh + c > 0);
+                    SASSERT(!is_square || a * rl * rl + b * rl + c > 0);
+                    add_update(x, lh - value(x));
+                    add_update(x, rl - value(x));
+                }
+                else {
+                    if (a * ll * ll + b * ll + c <= 0)
+                        ll -= eps;
+                    if (a * rh * rh + b * rh + c <= 0)
+                        rh += eps;
+                    SASSERT(!is_square || a * ll * ll + b * ll + c > 0);
+                    SASSERT(!is_square || a * rh * rh + b * rh + c > 0);
+                    add_update(x, ll - value(x));
+                    add_update(x, rh - value(x));
+                }
+                break;
+            case ineq_kind::LT: 
+                SASSERT(sum < 0);
+                SASSERT(!is_int(x));
+                SASSERT(ll == lh);
+                SASSERT(rl == rh);
+                if (d == 0)
+                    break;
+
+                if (a > 0) {
+                    SASSERT(!is_square || a * (ll + eps) * (ll + eps) + b * (ll + eps) + c >= 0);
+                    SASSERT(!is_square || a * (rl - eps) * (rl - eps) + b * (rl - eps) + c >= 0);
+                    add_update(x, lh - value(x) + eps);
+                    if (ll != rl)
+                        add_update(x, rh - value(x) - eps);
+                }
+                else {
+                    SASSERT(!is_square || a * (ll - eps) * (ll - eps) + b * (ll - eps) + c >= 0);
+                    SASSERT(!is_square || a * (rl + eps) * (rl + eps) + b * (rl + eps) + c >= 0);
+                    add_update(x, ll - value(x) - eps);
+                    if (ll != rl)
+                        add_update(x, rl - value(x) + eps);
+                }
+                break;            
+            case ineq_kind::EQ:
+                SASSERT(sum == 0);
+                SASSERT(!is_square || a * (value(x) + 1) * (value(x) + 1) + b * (value(x) + 1) + c != 0);
+                SASSERT(!is_square || a * (value(x) - 1) * (value(x) - 1) + b * (value(x) - 1) + c != 0);
+                add_update(x, num_t(1));
+                add_update(x, num_t(-1));
+                break;
+            }
+        }
+        else {
+            switch (ineq.m_op) {
+            case ineq_kind::LE:
+                SASSERT(sum > 0);
+                if (d == 0) {
+                    SASSERT(!is_square || !is_int(x) || a <= 0 || ll != lh || a * ll * ll + b * ll + c <= 0);
+                    if (a > 0 && ll == lh)
+                        add_update(x, ll - value(x));
+                    break;
+                }
+                SASSERT(d > 0);
+                if (a > 0) {
+                    if (a * lh * lh + b * lh + c > 0)
+                        lh += eps;
+                    if (a * rl * rl + b * rl + c > 0)
+                        rl -= eps;
+                    SASSERT(!is_square || a * lh * lh + b * lh + c <= 0);
+                    SASSERT(!is_square || a * rl * rl + b * rl + c <= 0);
+                    add_update(x, lh - value(x));
+                    add_update(x, rl - value(x));
+                }
+                else {
+                    if (a * ll * ll + b * ll + c > 0)
+                        ll += eps;
+                    if (a * rh * rh + b * rh + c > 0)
+                        rh -= eps;
+                    SASSERT(!is_square || a * ll * ll + b * ll + c <= 0);
+                    SASSERT(!is_square || a * rh * rh + b * rh + c <= 0);
+                    add_update(x, ll - value(x));
+                    add_update(x, rh - value(x));
+                }
+                break;
+            case ineq_kind::LT:                    
+                SASSERT(sum >= 0);
+                SASSERT(!is_int(x));
+                if (d == 0)
+                    break;
+                SASSERT(d > 0);
+                if (a > 0) {
+                    SASSERT(!is_square || a * (ll - eps) * (ll - eps) + b * (ll - eps) + c < 0);
+                    SASSERT(!is_square || a * (rl + eps) * (rl + eps) + b * (rl + eps) + c < 0);
+                    add_update(x, lh - value(x) - eps);
+                    if (ll != rl)
+                        add_update(x, rh - value(x) + eps);
+                }
+                else {
+                    SASSERT(!is_square || a* (ll + eps)* (ll + eps) + b * (ll + eps) + c < 0);
+                    SASSERT(!is_square || a* (rl - eps)* (rl - eps) + b * (rl - eps) + c < 0);
+                    add_update(x, ll - value(x) + eps);
+                    if (ll != rl)
+                        add_update(x, rl - value(x) - eps);
+                }
+                break;            
+            case ineq_kind::EQ:
+                SASSERT(sum != 0);
+                if (!is_square)
+                    break;
+                if (ll == lh) 
+                    add_update(x, ll - value(x));
+                if (rl == rh && lh != rh)
+                    add_update(x, rl - value(x));                
+                break;
+            }
+        }
+    }
+
+    template<typename num_t>
+    void arith_base<num_t>::find_linear_moves(ineq const& ineq, var_t v, num_t const& coeff, num_t const& sum) {
+        if (ineq.is_true()) {
+            switch (ineq.m_op) {
+            case ineq_kind::LE:
+                SASSERT(sum <= 0);
+                add_update(v, divide(v, -sum + 1, coeff));
+                break;
             case ineq_kind::LT:
-                // args < bound -> args >= bound
-                SASSERT(argsv <= bound);
-                SASSERT(delta <= 0);
-                delta = abs(delta);
-                new_value = value(v) + divide(v, delta + ctx.rand(3), coeff);
-                VERIFY(argsv + coeff * (new_value - value(v)) >= bound);
-                return move_to_bounds();
+                SASSERT(sum < 0);
+                add_update(v, divide(v, -sum, coeff));
+                break;
             case ineq_kind::EQ: {
-                delta = abs(delta) + 1 + ctx.rand(10);
-                int sign = ctx.rand(2) == 0 ? 1 : -1;
-                new_value = value(v) + sign * divide(v, abs(delta), coeff);
-                return move_to_bounds();             
+                SASSERT(sum == 0);
+                add_update(v, num_t(1));
+                add_update(v, num_t(- 1));
+                break;
             }
             default:
                 UNREACHABLE();
@@ -218,40 +409,88 @@ namespace sls {
         else {
             switch (ineq.m_op) {
             case ineq_kind::LE:
-                SASSERT(argsv > bound);
-                SASSERT(delta > 0);
-                delta += ctx.rand(10);
-                new_value = value(v) - divide(v, delta + ctx.rand(3), coeff);
-                return move_to_bounds();
+                SASSERT(sum > 0);
+                add_update(v, - divide(v, sum, coeff));
+                break;
             case ineq_kind::LT:
-                SASSERT(argsv >= bound);
-                SASSERT(delta >= 0);
-                delta += 1 + ctx.rand(10);
-                new_value = value(v) - divide(v, delta + ctx.rand(3), coeff);
-                return move_to_bounds();
-            case ineq_kind::EQ:
-                SASSERT(delta != 0);
-                if (delta < 0)
-                    new_value = value(v) + divide(v, abs(delta), coeff);
+                SASSERT(sum >= 0);
+                add_update(v, - divide(v, sum + 1, coeff));
+                break;
+            case ineq_kind::EQ: {
+                num_t delta = sum;
+                SASSERT(sum != 0);
+                delta = sum < 0 ? divide(v, abs(sum), coeff) : -divide(v, sum, coeff);
+                if (sum + coeff * delta != 0)
+                    solve_eq_pairs(v, ineq);
                 else
-                    new_value = value(v) - divide(v, delta, coeff);
-                solved = argsv + coeff * (new_value - value(v)) == bound;
-                return solved && move_to_bounds();
+                    add_update(v, delta);
+                break;
+            }
             default:
                 UNREACHABLE();
                 break;
             }
         }
-        return false;
     }
 
     template<typename num_t>
-    bool arith_base<num_t>::solve_eq_pairs(ineq const& ineq) {
+    bool arith_base<num_t>::is_permitted_update(var_t v, num_t& delta) {
+        auto& vi = m_vars[v];
+
+        if (m_last_var == v && m_last_delta == -delta)
+            return false;
+
+        if (m_tabu && vi.is_tabu(m_stats.m_num_steps, delta))
+            return false;
+
+        auto old_value = value(v);
+        auto new_value = old_value + delta;
+        if (!vi.in_range(new_value))
+            return false;
+
+        if (!in_bounds(v, new_value) && in_bounds(v, old_value)) {
+            auto const& lo = m_vars[v].m_lo;
+            auto const& hi = m_vars[v].m_hi;
+            if (lo && (lo->is_strict ? lo->value >= new_value : lo->value > new_value)) {
+                if (lo->is_strict && delta < 0 && lo->value <= old_value) {
+                    num_t eps(1);
+                    if (hi && hi->value - lo->value <= eps)
+                        eps = (hi->value - lo->value) / num_t(2);
+                    delta = lo->value - old_value + eps;
+                }
+                else if (!lo->is_strict && delta < 0 && lo->value < old_value)
+                    delta = lo->value - old_value;
+                else
+                    return false;
+            }
+            if (hi && (hi->is_strict ? hi->value <= new_value : hi->value < new_value)) {
+                if (hi->is_strict && delta >= 0 && hi->value >= old_value) {
+                    num_t eps(1);
+                    if (lo && hi->value - lo->value <= eps)
+                        eps = (hi->value - lo->value) / num_t(2);
+                    delta = hi->value - old_value - eps;
+                }
+                else if (!hi->is_strict && delta > 0 && hi->value > old_value)
+                    delta = hi->value - old_value;
+                else
+                    return false;
+            }
+        }
+        return delta != 0;
+    }
+
+    template<typename num_t>
+    void arith_base<num_t>::add_update(var_t v, num_t delta) { 
+        if (!is_permitted_update(v, delta))
+            return;
+        m_updates.push_back({ v, delta, compute_score(v, delta) }); 
+    }
+
+    template<typename num_t>
+    bool arith_base<num_t>::solve_eq_pairs(var_t v, ineq const& ineq) {
         SASSERT(ineq.m_op == ineq_kind::EQ);
-        auto v = ineq.m_var_to_flip;
         if (is_fixed(v))
             return false;
-        auto bound = -ineq.m_coeff;
         auto argsv = ineq.m_args_value;
         num_t a;
         for (auto const& [c, w] : ineq.m_args)
@@ -261,7 +500,7 @@ namespace sls {
             }
         if (abs(a) == 1)
             return false;
-        verbose_stream() << "solve_eq_pairs " << ineq << " for v" << v << "\n";
+        IF_VERBOSE(3, verbose_stream() << "solve_eq_pairs " << ineq << " for v" << v << "\n");
         unsigned start = ctx.rand();
         for (unsigned i = 0; i < ineq.m_args.size(); ++i) {
             unsigned j = (start + i) % ineq.m_args.size();
@@ -271,8 +510,7 @@ namespace sls {
             if (b == 1 || b == -1)
                 continue;
             argsv -= value(w) * b;
-            if (solve_eq_pairs(a, v, b, w, bound - argsv))
-                return true;
+            solve_eq_pairs(a, v, b, w, - argsv);
             argsv += value(w) * b;
         }
         return false;
@@ -296,10 +534,6 @@ namespace sls {
         //verbose_stream() << g << " == " << a << "*" << x0 << " + " << b << "*" << y0  << "\n";
         x0 *= div(r, g);
         y0 *= div(r, g); 
-
-        //verbose_stream() << r << " == " << a << "*" << x0 << " + " << b << "*" << y0 << "\n";
-
-
 
         auto adjust_lo = [&](num_t& x0, num_t& y0, num_t a, num_t b, optional<bound> const& lo, optional<bound> const& hi) {
             if (!lo || lo->value <= x0)
@@ -363,9 +597,8 @@ namespace sls {
             return false;
         if (abs(value(y)) * 2 < abs(y0))
             return false;
-        update(x, x0);
-        update(y, y0);
-        
+        add_update(x, x0 - value(x));
+        // add_update(y, y0 - value(y)); add pairwise update?
         return true;
     }
 
@@ -373,124 +606,59 @@ namespace sls {
     // it could be changed to flip on maximal positive score
     // or flip on maximal non-negative score
     // or flip on first non-negative score
-    template<typename num_t>
-    void arith_base<num_t>::repair(sat::literal lit, ineq const& ineq) {
-        num_t new_value, old_value;
-        dtt_reward(lit);
 
-        auto v = ineq.m_var_to_flip;
-        
-        if (v == UINT_MAX) {
-            IF_VERBOSE(0, verbose_stream() << "no var to flip\n");
-            return;
-        }
-
-        if (repair_eq(lit, ineq))
-            return;
-
-        if (!cm(ineq, v, new_value)) {
-            display(verbose_stream(), v) << "\n";
-            IF_VERBOSE(0, verbose_stream() << "no critical move for " << v << "\n");
-            if (dtt(!ctx.is_true(lit), ineq) != 0)
-                ctx.flip(lit.var());
-            return;
-        }
-        verbose_stream() << "repair " << lit << ": " << ineq << " var: v" << v << " := " << value(v) << " -> " << new_value << "\n";
-        //for (auto const& [coeff, w] : ineq.m_args)
-        //    display(verbose_stream(), w) << "\n";
-        update(v, new_value);
-        invariant(ineq);
-        if (dtt(!ctx.is_true(lit), ineq) != 0)
-            ctx.flip(lit.var());
-    }
-
-    template<typename num_t>
-    bool arith_base<num_t>::repair_eq(sat::literal lit, ineq const& ineq) {
-        if (lit.sign() || ineq.m_op != ineq_kind::EQ)
-            return false;
-        auto v = ineq.m_var_to_flip;
-        num_t new_value;
-        verbose_stream() << ineq << "\n";
-        for (auto const& [coeff, w] : ineq.m_args)
-            display(verbose_stream(), w) << "\n";
-        if (ctx.rand(10) == 0 && solve_eq_pairs(ineq)) {
-            verbose_stream() << ineq << "\n";
-            for (auto const& [coeff, w] : ineq.m_args)
-                display(verbose_stream(), w) << "\n";
-        }
-        else if (cm(ineq, v, new_value) && update(v, new_value))
-            ;
-        else if (solve_eq_pairs(ineq)) {
-            verbose_stream() << ineq << "\n";
-            for (auto const& [coeff, w] : ineq.m_args)
-                display(verbose_stream(), w) << "\n";
-        }
-        else
-            return false;
-        SASSERT(dtt(!ctx.is_true(lit), ineq) == 0);
-        if (dtt(!ctx.is_true(lit), ineq) != 0)
-            ctx.flip(lit.var());
-        return true;
-    }
-
-    //
-    // dscore(op) = sum_c (dts(c,alpha) - dts(c,alpha_after)) * weight(c)
-    // TODO - use cached dts instead of computed dts
-    // cached dts has to be updated when the score of literals are updated.
+    // prefer maximal score
+    // prefer v/delta with oldest occurrence with same direction
     // 
+
     template<typename num_t>
-    double arith_base<num_t>::dscore(var_t v, num_t const& new_value) const {
-        double score = 0;
-        auto const& vi = m_vars[v];
-        for (auto const& [coeff, bv] : vi.m_bool_vars) {
-            sat::literal lit(bv, false);
-            for (auto cl : ctx.get_use_list(lit))
-                score += (compute_dts(cl) - dts(cl, v, new_value)).get_int64() * ctx.get_weight(cl);
-            for (auto cl : ctx.get_use_list(~lit))
-                score += (compute_dts(cl) - dts(cl, v, new_value)).get_int64() * ctx.get_weight(cl);
+    bool arith_base<num_t>::apply_update() {
+        double sum_score = 0;
+
+        for (auto const& [v, delta, score] : m_updates)
+            sum_score += score;
+
+        while (!m_updates.empty()) {
+
+            unsigned i = m_updates.size();
+            double lim = sum_score * ((double)ctx.rand() / random_gen().max_value());
+            do {
+                lim -= m_updates[--i].m_score;
+            } while (lim >= 0 && i > 0);
+
+            auto [v, delta, score] = m_updates[i];
+
+            num_t new_value = value(v) + delta;
+
+            IF_VERBOSE(10, verbose_stream() << "repair: v" << v << " := " << value(v) << " -> " << new_value << "\n");
+            if (update(v, new_value)) {
+                m_last_var = v;
+                m_last_delta = delta;
+                m_stats.m_num_steps++;
+                m_vars[v].set_step(m_stats.m_num_steps, m_stats.m_num_steps + 3 + ctx.rand(10), delta);
+                return true;
+            }
+            sum_score -= score;
+            m_updates[i] = m_updates.back();
+            m_updates.pop_back();
         }
-        return score;
+        return false;
     }
 
-    //
-    // cm_score is costly. It involves several cache misses.
-    // Note that
-    // - get_use_list(lit).size() is "often" 1 or 2
-    // - dtt_old can be saved
-    //
     template<typename num_t>
-    int arith_base<num_t>::cm_score(var_t v, num_t const& new_value) {
-        int score = 0;
-        auto& vi = m_vars[v];
-        num_t old_value = vi.m_value;
-        for (auto const& [coeff, bv] : vi.m_bool_vars) {
-            auto const& ineq = *atom(bv);
-            bool old_sign = sign(bv);
-            num_t dtt_old = dtt(old_sign, ineq);
-            num_t dtt_new = dtt(old_sign, ineq, coeff, old_value, new_value);
-            if ((dtt_old == 0) == (dtt_new == 0))
-                continue;
-            sat::literal lit(bv, old_sign);
-            if (dtt_old == 0)
-                // flip from true to false
-                lit.neg();
+    bool arith_base<num_t>::repair(sat::literal lit) {
+        
+        find_moves(lit);
+       
+        if (apply_update())
+            return true;
 
-            // lit flips form false to true:           
+        find_reset_moves(lit);
 
-            for (auto cl : ctx.get_use_list(lit)) {
-                auto const& clause = ctx.get_clause(cl);
-                if (!clause.is_true())
-                    ++score;
-            }
+        if (apply_update())
+            return true;
 
-            // ignore the situation where clause contains multiple literals using v
-            for (auto cl : ctx.get_use_list(~lit)) {
-                auto const& clause = ctx.get_clause(cl);
-                if (clause.m_num_trues == 1)
-                    --score;
-            }
-        }
-        return score;
+        return false;
     }
 
     template<typename num_t>
@@ -560,34 +728,30 @@ namespace sls {
     bool arith_base<num_t>::update(var_t v, num_t const& new_value) {
         auto& vi = m_vars[v];
         expr* e = vi.m_expr;
+        SASSERT(!m.is_value(e));
         auto old_value = vi.m_value;
         if (old_value == new_value)
             return true;
-        display(verbose_stream(), v) << " := " << new_value << "\n";
-        if (!in_bounds(v, new_value)) {
-            auto const& lo = vi.m_lo;
-            auto const& hi = vi.m_hi;
-            if (is_int(v) && lo && !lo->is_strict && new_value < lo->value) {
-                if (lo->value != old_value) 
-                    return update(v, lo->value);
-                if (in_bounds(v, old_value + 1))
-                    return update(v, old_value + 1);
-                else
-                    return false;                
+        if (!vi.in_range(new_value))
+            return false;
+        if (!in_bounds(v, new_value) && in_bounds(v, old_value))
+            return false;
+
+        // check for overflow
+        try {
+            for (auto idx : vi.m_muls) {
+                auto const& [w, coeff, monomial] = m_muls[idx];
+                num_t prod(coeff);
+                for (auto [w, p] : monomial)
+                    prod *= power_of(v == w ? new_value : value(w), p);
             }
-            if (is_int(v) && hi && !hi->is_strict && new_value > hi->value) {
-                if (hi->value != old_value) 
-                    return update(v, hi->value);
-                else if (in_bounds(v, old_value - 1))
-                    return update(v, old_value - 1);
-                else
-                    return false;                                
-            }
-            verbose_stream() << "out of bounds old value " << old_value << "\n";
-            display(verbose_stream(), v) << "\n";
-            SASSERT(false);
+        }
+        catch (overflow_exception const&) {
             return false;
         }
+
+        IF_VERBOSE(10, display(verbose_stream(), v) << " := " << new_value << "\n");
+
         for (auto const& [coeff, bv] : vi.m_bool_vars) {
             auto& ineq = *atom(bv);
             bool old_sign = sign(bv);
@@ -601,27 +765,26 @@ namespace sls {
             SASSERT(dtt(sign(bv), ineq) == 0);
         }
         vi.m_value = new_value;
-
-
-        SASSERT(!m.is_value(e));
-        verbose_stream() << "new value eh " << mk_bounded_pp(e, m) << "\n";
         ctx.new_value_eh(e);
+
+        IF_VERBOSE(10, verbose_stream() << "new value eh " << mk_bounded_pp(e, m) << "\n");
+
         for (auto idx : vi.m_muls) {
             auto const& [w, coeff, monomial] = m_muls[idx];
             num_t prod(coeff);
-            for (auto [w, p]:monomial)
+            for (auto [w, p] : monomial)
                 prod *= power_of(value(w), p);
-            if (value(w) != prod) 
-                update(w, prod);            
+            if (value(w) != prod && !update(w, prod))
+                return false;
         }
+
         for (auto idx : vi.m_adds) {
             auto const& ad = m_adds[idx];
             num_t sum(ad.m_coeff);
             for (auto const& [coeff, w] : ad.m_args)
                 sum += coeff * value(w);
-            if (sum != ad.m_coeff) 
-                update(ad.m_var, sum);
-            
+            if (!update(ad.m_var, sum)) 
+                return false;
         }
 
         return true;
@@ -828,7 +991,7 @@ namespace sls {
         if (v == UINT_MAX) {
             v = m_vars.size();
             m_expr2var.setx(e->get_id(), v, UINT_MAX);
-            m_vars.push_back(var_info(e, a.is_int(e) ? var_sort::INT : var_sort::REAL));            
+            m_vars.push_back(var_info(e, a.is_int(e) ? var_sort::INT : var_sort::REAL));     
         }
         return v;
     }
@@ -885,11 +1048,59 @@ namespace sls {
 
     template<typename num_t>
     void arith_base<num_t>::init_ineq(sat::bool_var bv, ineq& i) {
-        i.m_args_value = 0;
+
+        // ensure that variables are unique in the linear term:
+        std::stable_sort(i.m_args.begin(), i.m_args.end(), [&](auto const& a, auto const& b) { return a.second < b.second; });
+        unsigned k = 0;
+        for (unsigned j = 0; j < i.m_args.size(); ++j) {
+            if (j > k && i.m_args[k].second == i.m_args[j].second) 
+                i.m_args[k].first += i.m_args[j].first;            
+            else
+                i.m_args[k++] = i.m_args[j];
+        }
+        i.m_args.shrink(k);
+        // compute the value of the linear term, and accumulate non-linear sub-terms
+        i.m_args_value = i.m_coeff;
         for (auto const& [coeff, v] : i.m_args) {
             m_vars[v].m_bool_vars.push_back({ coeff, bv });
             i.m_args_value += coeff * value(v);
+            if (is_mul(v)) {
+                auto const& [w, c, monomial] = get_mul(v);
+                for (auto [w, p] : monomial) 
+                    i.m_nonlinear.push_back({ w, { {v, coeff, p} } });
+            }
+            else
+                i.m_nonlinear.push_back({ v, { { v, coeff, 1 } } });
         }
+        std::stable_sort(i.m_nonlinear.begin(), i.m_nonlinear.end(), [&](auto const& a, auto const& b) { return a.first < b.first; });
+
+        // ensure that non-linear terms are have a unique summary.
+        k = 0;
+        for (unsigned j = 0; j < i.m_nonlinear.size(); ++j) {
+            if (j > k && i.m_nonlinear[k].first == i.m_nonlinear[j].first) 
+                i.m_nonlinear[k].second.append(i.m_nonlinear[j].second);            
+            else
+                i.m_nonlinear[k++] = i.m_nonlinear[j];
+        }
+        i.m_nonlinear.shrink(k);
+
+        // Ensure that non-linear term occurrences are sorted, and
+        // that terms with the same variable are combined.
+        for (auto& [x, nl] : i.m_nonlinear) {
+            if (nl.size() == 1)
+                continue;
+            std::stable_sort(nl.begin(), nl.end(), [&](auto const& a, auto const& b) { return a.p < b.p; });
+            k = 0;
+            for (unsigned j = 0; j < nl.size(); ++j) {
+                if (j > k && nl[k].v == nl[j].v) 
+                    nl[k].coeff += nl[j].coeff;
+                else
+                    nl[k++] = nl[j];
+            }
+            nl.shrink(k);
+        }
+
+        // attach i to bv
         m_bool_vars.set(bv, &i);
     }
 
@@ -909,7 +1120,7 @@ namespace sls {
             return;      
         if (ineq->is_true() != lit.sign())
             return;
-        repair(lit, *ineq);
+        repair(lit);
     }
 
     template<typename num_t>
@@ -1128,26 +1339,40 @@ namespace sls {
     template<typename num_t>
     bool arith_base<num_t>::repair_add(add_def const& ad) {
         auto v = ad.m_var;
+        auto old_value = value(v);
         auto const& coeffs = ad.m_args;
         num_t sum(ad.m_coeff);
-        num_t val = value(v);
-
-        verbose_stream() << mk_bounded_pp(m_vars[v].m_expr, m) << " := " << value(v) << "\n";
 
         for (auto const& [c, w] : coeffs)
             sum += c * value(w);
-        if (val == sum)
+
+        if (old_value == sum)
             return true;
-        if (ctx.rand(20) == 0)
-            return update(v, sum);
-        else {
-            auto const& [c, w] = coeffs[ctx.rand(coeffs.size())];
-            num_t delta = sum - val;
-            bool is_real = m_vars[w].m_sort == var_sort::REAL;
-            bool round_down = ctx.rand(2) == 0;
-            num_t new_value = value(w) + (is_real ? delta / c : round_down ? div(delta, c) : div(delta + c - 1, c));
-            return update(w, new_value);
-        }
+
+        m_updates.reset();
+//        display(verbose_stream(), v) << " ";
+//        verbose_stream() << mk_bounded_pp(m_vars[v].m_expr, m) << " := " << old_value << " " << sum << "\n";
+
+        for (auto const& [coeff, w] : coeffs) 
+            add_update(v, divide(w, old_value - sum, coeff));        
+
+        if (apply_update())
+            return eval_is_correct(v);
+
+        m_updates.reset();
+        for (auto const& [coeff, w] : coeffs)
+            if (is_mul(w)) {
+                auto const& [w1, c, monomial] = get_mul(w);
+                for (auto [w1, p] : monomial)
+                    add_reset_update(w1);
+            }
+            else
+                add_reset_update(w);    
+
+        if (apply_update())
+            return eval_is_correct(v);
+
+        return update(v, sum);
     }
 
     template<typename num_t>
@@ -1155,7 +1380,9 @@ namespace sls {
         auto const& [v, coeff, monomial] = md;
         if (!is_int(v))
             return false;
-        for (auto [c, v, p] : monomial_iterator(md)) {           
+        for (auto [c, v, p] : monomial_iterator(md)) {    
+            if (c == 0)
+                continue;
             num_t val1 = div(value(v), c);
             if (val1 < 0 && p % 2 == 0)
                 continue;
@@ -1290,7 +1517,7 @@ namespace sls {
             product *= power_of(value(v), p);
         if (product == val)
             return true;
-        verbose_stream() << "repair mul " << mk_bounded_pp(m_vars[v].m_expr, m) << " := " << val << "(product: " << product << ")\n";
+        IF_VERBOSE(10, verbose_stream() << "repair mul " << mk_bounded_pp(m_vars[v].m_expr, m) << " := " << val << "(product: " << product << ")\n");
         unsigned sz = monomial.size();
         if (ctx.rand(20) == 0)
             return update(v, product);
@@ -1308,8 +1535,13 @@ namespace sls {
             return true;        
         else if (repair_mul_factors(md))
             return true;
+        else if (repair_mul_one(md))
+            return true;
         else {
-            NOT_IMPLEMENTED_YET();
+            IF_VERBOSE(0, verbose_stream() << "repair mul " << mk_bounded_pp(m_vars[v].m_expr, m) << " := " << val << "(product: " << product << ")\n");
+
+            //NOT_IMPLEMENTED_YET();
+            return false;
         }
         return false;
     }
@@ -1323,6 +1555,8 @@ namespace sls {
         num_t n = div(val, coeff);
         if (!divides(coeff, val) && ctx.rand(2) == 0)
             n = div(val + coeff - 1, coeff);
+        if (n == 0)
+            return false;
         auto const& fs = factor(abs(n));
         unsigned sz = monomial.size();
         vector<num_t> coeffs(sz, num_t(1));
@@ -1463,73 +1697,141 @@ namespace sls {
     }
 
     template<typename num_t>
-    double arith_base<num_t>::reward(sat::literal lit) {
-        if (m_dscore_mode)
-            return dscore_reward(lit.var());
+    double arith_base<num_t>::compute_score(var_t x, num_t const& delta) {
+        int result = 0;
+        for (auto const& [coeff, bv] : m_vars[x].m_bool_vars) {
+            bool old_sign = sign(bv);
+            auto dtt_old = dtt(old_sign, *atom(bv));
+            auto dtt_new = dtt(old_sign, *atom(bv), coeff, delta);
+            if (dtt_new == 0 && dtt_old != 0)
+                result += 1;
+            if (dtt_new != 0 && dtt_old == 0)
+                result -= 1;
+        }
+
+        if (result < 0)
+            return 0.1;            
+        else if (result == 0)
+            return 0.2;
         else
-            return dtt_reward(lit);
+            return result;
     }
 
     template<typename num_t>
-    double arith_base<num_t>::dtt_reward(sat::literal lit) {
-        auto* ineq = atom(lit.var());
-        if (!ineq)
-            return -1;
-        num_t new_value;
-        double max_result = -100;
-        unsigned n = 0, mult = 2;
-        double sum_prob = 0;
-        unsigned i = 0;
-        m_probs.reserve(ineq->m_args.size());
-        for (auto const& [coeff, x] : ineq->m_args) {
-            double result = 0;
-            double prob = 0;
-            if (is_fixed(x))
-                prob = 0;
-            else if (!cm(*ineq, x, coeff, new_value)) 
-                prob = 0.5;              
-            else {
+    num_t arith_base<num_t>::mul_value_without(var_t m, var_t x) {
+        auto const& vi = m_vars[m];
+        auto const& [w, coeff, monomial] = m_muls[vi.m_def_idx];
+        SASSERT(m == w);
+        num_t r(coeff);
+        for (auto [y, p] : monomial)
+            if (x != y)
+                for (unsigned i = 0; i < p; ++i)
+                    r *= value(y);
+        return r;
+    }
 
-                auto old_value = m_vars[x].m_value;
-                for (auto const& [coeff, bv] : m_vars[x].m_bool_vars) {
-                    bool old_sign = sign(bv);
-                    auto dtt_old = dtt(old_sign, *atom(bv));
-                    auto dtt_new = dtt(old_sign, *atom(bv), coeff, old_value, new_value);
-                    if (dtt_new == 0 && dtt_old != 0)
-                        result += 1;
-                    if (dtt_new != 0 && dtt_old == 0)
-                        result -= 1;
-                }                
-
-                if (result > max_result || max_result == -100 || (result == max_result && (ctx.rand(++n) == 0))) 
-                    max_result = result;
-
-                if (result < 0)
-                    prob = 0.1;
-                else if (result == 0)
-                    prob = 0.2;
-                else
-                    prob = result;
-                    
-            }
-            // verbose_stream() << "prob v" << x << " " << prob << "\n";
-            m_probs[i++] = prob;
-            sum_prob += prob;
+    template<typename num_t>
+    bool arith_base<num_t>::is_linear(var_t x, vector<nonlinear_coeff> const& nl, num_t& b) {
+        if (nl.size() == 1 && nl[0].v == x) {
+            b = nl[0].coeff;
+            return true;
         }
-        double lim = sum_prob * ((double)ctx.rand() / random_gen().max_value());
-        do {
-            lim -= m_probs[--i];
-        } 
-        while (lim >= 0 && i > 0);
+        b = 0;
+        for (auto const& [v, c, p] : nl) {
+            if (p > 1)
+                return false;
+            if (x == v)
+                b += c;
+            else
+                b += c * mul_value_without(v, x);
+        }
+        return b != 0;
+    }
 
-        ineq->m_var_to_flip = ineq->m_args[i].second;
+    template<typename num_t>
+    bool arith_base<num_t>::is_quadratic(var_t x, vector<nonlinear_coeff> const& nl, num_t& a, num_t& b) {
+        a = 0;
+        b = 0;
+        for (auto const& [v, c, p] : nl) {
+            if (p == 1) {
+                if (x == v)
+                    b += c;                
+                else 
+                    b += c * mul_value_without(v, x);                
+            }
+            else if (p == 2) {
+                SASSERT(v != x);
+                a += c * mul_value_without(v, x);
+            }
+            else
+                return false;
+        }
+        return a != 0 || b != 0;
+    }
 
-        return max_result;
+    template<typename num_t>
+    void arith_base<num_t>::find_moves(sat::literal lit) {
+        m_updates.reset();
+        auto* ineq = atom(lit.var());
+        num_t a, b;
+        if (!ineq)
+            return;
+        for (auto const& [x, nl] : ineq->m_nonlinear) {
+            if (is_fixed(x))
+                continue;
+            if (is_linear(x, nl, b))
+                find_linear_moves(*ineq, x, b, ineq->m_args_value);
+            else if (is_quadratic(x, nl, a, b))
+                find_quadratic_moves(*ineq, x, a, b, ineq->m_args_value);
+            else
+                ;
+        }            
+    }
+
+    template<typename num_t>
+    void arith_base<num_t>::add_reset_update(var_t x) {
+        m_last_delta = 0;
+        if (is_fixed(x))
+            return;
+        auto const& vi = m_vars[x];
+        auto const& lo = vi.m_lo;
+        auto const& hi = vi.m_hi;
+        auto new_value = num_t(ctx.rand(5) - 2);
+        if (lo && lo->value > new_value)
+            new_value = lo->value;
+        else if (hi && hi->value < new_value)
+            new_value = hi->value;
+        if (new_value != value(x))
+            add_update(x, new_value - value(x));
+        else {
+            add_update(x, num_t(1));
+            add_update(x, -num_t(1));
+        }
+    }
+
+    template<typename num_t>
+    void arith_base<num_t>::find_reset_moves(sat::literal lit) {
+        auto* ineq = atom(lit.var());        
+        num_t a, b;
+        if (!ineq)
+            return;
+        for (auto const& [x, nl] : ineq->m_nonlinear) 
+            add_reset_update(x);
+        
+        IF_VERBOSE(10,
+            if (m_updates.empty()) {
+                verbose_stream() << *ineq << "\n";
+                for (auto const& [x, nl] : ineq->m_nonlinear) {
+                    auto const& vi = m_vars[x];
+                    display(verbose_stream() << "v" << x << "\n", x) << "\n";
+                }
+            }
+            verbose_stream() << "RESET moves num updates: " << lit << " " << m_updates.size() << "\n");
     }
 
     template<typename num_t>
     num_t arith_base<num_t>::power_of(num_t x, unsigned k) {
-        num_t r = x;
+        num_t r(1);
         while (k > 1) {
             if (k % 2 == 1) {
                 r = x * r;
@@ -1565,6 +1867,8 @@ namespace sls {
     template<typename num_t>
     vector<num_t> const& arith_base<num_t>::factor(num_t n) {
         m_factors.reset();
+        if (n == 0)
+            return m_factors;
         for (auto d : { 2, 3, 5 }) {
             while (mod(n, num_t(d)) == 0) {
                 m_factors.push_back(num_t(d));
@@ -1586,31 +1890,6 @@ namespace sls {
         return m_factors;
     }
 
-
-    template<typename num_t>
-    double arith_base<num_t>::dscore_reward(sat::bool_var bv) {
-        m_dscore_mode = false;
-        bool old_sign = sign(bv);
-        sat::literal litv(bv, old_sign);
-        auto* ineq = atom(bv);
-        if (!ineq)
-            return 0;
-        SASSERT(ineq->is_true() != old_sign);
-        num_t new_value;
-
-        for (auto const& [coeff, v] : ineq->m_args) {
-            double result = 0;
-            if (cm(*ineq, v, coeff, new_value))
-                result = dscore(v, new_value);
-            // just pick first positive, or pick a max?
-            if (result > 0) {
-                ineq->m_var_to_flip = v;
-                return result;
-            }
-        }
-        return 0;
-    }
-
     // switch to dscore mode
     template<typename num_t>
     void arith_base<num_t>::on_rescale() {
@@ -1626,19 +1905,17 @@ namespace sls {
 
     template<typename num_t>
     void arith_base<num_t>::check_ineqs() {
-        auto check_bool_var = [&](sat::bool_var bv) {
+        for (unsigned bv = 0; bv < ctx.num_bool_vars(); ++bv) {
             auto const* ineq = atom(bv);
             if (!ineq)
-                return;
+                continue;
             num_t d = dtt(sign(bv), *ineq);
             sat::literal lit(bv, sign(bv));
             if (ctx.is_true(lit) != (d == 0)) {
                 verbose_stream() << "invalid assignment " << bv << " " << *ineq << "\n";
             }
             VERIFY(ctx.is_true(lit) == (d == 0));
-            };
-        for (unsigned v = 0; v < ctx.num_bool_vars(); ++v)
-            check_bool_var(v);
+        }
     }
 
     template<typename num_t>
@@ -1656,20 +1933,20 @@ namespace sls {
     }
 
     template<typename num_t>
-    void arith_base<num_t>::set_value(expr* e, expr* v) {
+    bool arith_base<num_t>::set_value(expr* e, expr* v) {
         if (!a.is_int_real(e))
-            return;
+            return false;
         var_t w = m_expr2var.get(e->get_id(), UINT_MAX);
         if (w == UINT_MAX)
             w = mk_term(e);
 
         num_t n;
         if (!is_num(v, n))
-            return;
+            return false;
         // verbose_stream() << "set value " << w << " " << mk_bounded_pp(e, m) << " " << n << " " << value(w) << "\n";
         if (n == value(w))
-            return;
-        update(w, n);        
+            return true;
+        return update(w, n);        
     }
 
     template<typename num_t>
@@ -1720,6 +1997,34 @@ namespace sls {
     }
 
     template<typename num_t>
+    std::ostream& arith_base<num_t>::display(std::ostream& out, add_def const& ad) const {
+        bool first = true;
+        for (auto [c, w] : ad.m_args) {
+            if (first && c == 1)
+                ;
+            else if (first && c == -1)
+                out << "-";
+            else if (first)
+                out << c << "*";
+            else if (c == 1)
+                out << " + ";
+            else if (c == - 1)
+                out << " - ";
+            else if (c > 0)
+                out << " + " << c << "*";
+            else
+                out << " - " << -c << "*";
+            first = false;
+            out << "v" << w;
+        }
+        if (ad.m_coeff > 0)
+            out << " + " << ad.m_coeff;
+        else if (ad.m_coeff < 0)
+            out << " - " << -ad.m_coeff;
+        return out;
+    }
+
+    template<typename num_t>
     std::ostream& arith_base<num_t>::display(std::ostream& out, var_t v) const {
         auto const& vi = m_vars[v];
         auto const& lo = vi.m_lo;
@@ -1737,9 +2042,28 @@ namespace sls {
                 out << ")";
             out << " ";
         }
-        out << mk_bounded_pp(vi.m_expr, m) << " : ";
+        out << mk_bounded_pp(vi.m_expr, m) << " ";
+        if (is_add(v)) 
+            display(out << "add: ", get_add(v)) << " ";
+
+        if (!vi.m_adds.empty()) {
+            out << " adds: ";
+            for (auto v : vi.m_adds)
+                out << "v" << m_adds[v].m_var << " ";
+            out << " ";
+        }
+
+        if (!vi.m_muls.empty()) {
+            out << " muls: ";
+            for (auto v : vi.m_muls)
+                out << "v" << m_muls[v].m_var << " ";
+            out << " ";
+        }
+        
+        if (!vi.m_bool_vars.empty())
+            out << " bool: ";
         for (auto [c, bv] : vi.m_bool_vars)
-            out << c << "@" << bv << " ";
+            out << c << "@" << bv << " ";       
         return out;
     }
 
@@ -1764,15 +2088,9 @@ namespace sls {
 
             out << "\n";
         }
-        for (auto ad : m_adds) {
-            out << "v" << ad.m_var << " := ";
-            bool first = true;
-            for (auto [c, w] : ad.m_args)
-                out << (first?"":" + ") << c << "* v" << w;
-            if (ad.m_coeff != 0)
-                out << " + " << ad.m_coeff;
-            out << "\n";
-        }
+        for (auto ad : m_adds) 
+            display(out, ad) << "\n";
+
         for (auto od : m_ops) {
             out << "v" << od.m_var << " := ";
             out << "v" << od.m_arg1 << " op-" << od.m_op << " v" << od.m_arg2 << "\n";
@@ -1780,6 +2098,71 @@ namespace sls {
         return out;
     }
 
+    template<typename num_t>
+    bool arith_base<num_t>::eval_is_correct(var_t v) {
+        auto const& vi = m_vars[v];
+        if (vi.m_def_idx == UINT_MAX)
+            return true;
+        TRACE("sls", tout << "repair def " << mk_bounded_pp(vi.m_expr, m) << "\n");
+        switch (vi.m_op) {
+        case arith_op_kind::LAST_ARITH_OP:
+            break;
+        case arith_op_kind::OP_ADD: {
+            auto ad = m_adds[vi.m_def_idx];
+            num_t sum(ad.m_coeff);
+            for (auto [c, w] : ad.m_args)
+                sum += c * value(w);
+            return sum == value(v);
+        }
+        case arith_op_kind::OP_MUL: {
+            auto md = m_muls[vi.m_def_idx];
+            num_t prod(md.m_coeff);
+            for (auto [w, p] : md.m_monomial)
+                prod *= power_of(value(w), p);
+            return prod == value(v);
+        }
+        case arith_op_kind::OP_MOD: {
+            auto od = m_ops[vi.m_def_idx];
+            return value(v) == (value(od.m_arg2) == 0 ? num_t(0) : mod(value(od.m_arg1), value(od.m_arg2)));
+        }
+        case arith_op_kind::OP_REM: {
+            auto od = m_ops[vi.m_def_idx];
+            return value(v) == (value(od.m_arg2) == 0 ? num_t(0) : mod(value(od.m_arg1), value(od.m_arg2)));
+        }
+        case arith_op_kind::OP_POWER: {
+            auto od = m_ops[vi.m_def_idx];
+            NOT_IMPLEMENTED_YET();
+            break;
+        }
+        case arith_op_kind::OP_IDIV: {
+            auto od = m_ops[vi.m_def_idx];
+            return value(v) == (value(od.m_arg2) == 0 ? num_t(0) : div(value(od.m_arg1), value(od.m_arg2)));
+        }           
+        case arith_op_kind::OP_DIV: {
+            auto od = m_ops[vi.m_def_idx];
+            return value(v) == (value(od.m_arg2) == 0 ? num_t(0) : value(od.m_arg1) / value(od.m_arg2));
+        }
+        case arith_op_kind::OP_ABS: {
+            auto od = m_ops[vi.m_def_idx];
+            return value(v) == abs(value(od.m_arg1));
+        }
+        case arith_op_kind::OP_TO_INT: {
+            auto od = m_ops[vi.m_def_idx];
+            NOT_IMPLEMENTED_YET();
+            break;
+        }
+        case arith_op_kind::OP_TO_REAL: {
+            auto od = m_ops[vi.m_def_idx];
+            NOT_IMPLEMENTED_YET();
+            break;
+        }
+        default: {
+            NOT_IMPLEMENTED_YET();
+            break;
+        }
+        }
+        return true;
+    }
 
     template<typename num_t>
     void arith_base<num_t>::invariant() {
@@ -1789,49 +2172,43 @@ namespace sls {
                 invariant(*ineq);
         }
         auto& out = verbose_stream();
-        for (auto md : m_muls) {
-            auto const& [w, coeff, monomial] = md;
-            num_t prod(coeff);
-            for (auto [v,p] : monomial)
-                prod *= power_of(value(v), p);
-            //verbose_stream() << "check " << w << " " << monomial << "\n";
-            if (prod != value(w)) {
-                out << prod << " " << value(w) << "\n";
-                out << "v" << w << " := ";
-                for (auto [w, p] : monomial) {
-                    out << "v" << w;
-                    if (p > 1)
-                        out << "^" << p;
-                    out << " ";
+        for (var_t v = 0; v < m_vars.size(); ++v) {
+            if (!eval_is_correct(v)) {
+
+                display(out);
+                display(out, v) << "\n";
+                out << mk_bounded_pp(m_vars[v].m_expr, m) << "\n";
+
+                if (is_mul(v)) {
+                    auto const& [w, coeff, monomial] = get_mul(v);
+                    num_t prod(coeff);
+                    for (auto [v, p] : monomial)
+                        prod *= power_of(value(v), p);
+                    out << "product " << prod << " value " << value(w) << "\n";
+                    out << "coeff " << coeff << "\n";
+                    out << "v" << w << " := ";
+                    for (auto [w, p] : monomial) {
+                        out << "(v" << w;
+                        if (p > 1)
+                            out << "^" << p;
+                        out << " := " << value(w);
+                        out << ") ";
+                    }
+                    out << "\n";
                 }
-                out << "\n";
+                else if (is_add(v)) {
+                    auto const& ad = get_add(v);
+                    out << "v" << ad.m_var << " := ";
+                    display(out, ad) << "\n";
+                }
+                UNREACHABLE();
             }
-            SASSERT(prod == value(w));
-
-        }
-        for (auto ad : m_adds) {
-            //out << "check add " << ad.m_var << "\n";
-            num_t sum(ad.m_coeff);
-            for (auto [c, w] : ad.m_args)
-                sum += c * value(w);
-            if (sum != value(ad.m_var)) {
-
-
-                out << "v" << ad.m_var << " := ";
-                bool first = true;
-                for (auto [c, w] : ad.m_args)
-                    out << (first ? "" : " + ") << c << "* v" << w;
-                if (ad.m_coeff != 0)
-                    out << " + " << ad.m_coeff;
-                out << "\n";
-            }
-            SASSERT(sum == value(ad.m_var));
         }
     }
 
     template<typename num_t>
     void arith_base<num_t>::invariant(ineq const& i) {
-        num_t val(0);
+        num_t val = i.m_coeff;
         for (auto const& [c, v] : i.m_args)
             val += c * value(v);
         //verbose_stream() << "invariant " << i << "\n";
@@ -1842,6 +2219,16 @@ namespace sls {
 
     template<typename num_t>
     void arith_base<num_t>::mk_model(model& mdl) {
+    }
+
+    template<typename num_t>
+    void arith_base<num_t>::collect_statistics(statistics& st) const {
+        st.update("sls-arith-flips", m_stats.m_num_steps);
+    }
+
+    template<typename num_t>
+    void arith_base<num_t>::reset_statistics() {
+        m_stats.m_num_steps = 0;
     }
 }
 

@@ -59,13 +59,13 @@ namespace sls {
         // Use timestamps to make it incremental.
         // 
         init();
-        verbose_stream() << "check " << unsat().size() << "\n";
-        while (unsat().empty()) {
+        //verbose_stream() << "check " << unsat().size() << "\n";
+        while (unsat().empty() && m.inc()) {
 
             propagate_boolean_assignment();
 
 
-            verbose_stream() << "propagate " << unsat().size() << " " << m_new_constraint << "\n";
+          //  verbose_stream() << "propagate " << unsat().size() << " " << m_new_constraint << "\n";
 
 
             // display(verbose_stream());
@@ -73,7 +73,7 @@ namespace sls {
             if (m_new_constraint || !unsat().empty())
                 return l_undef;
 
-            verbose_stream() << unsat().size() << " " << m_new_constraint << "\n";
+            //verbose_stream() << unsat().size() << " " << m_new_constraint << "\n";
 
             if (all_of(m_plugins, [&](auto* p) { return !p || p->is_sat(); })) {
                 model_ref mdl = alloc(model, m);
@@ -84,7 +84,7 @@ namespace sls {
                     if (p)
                         p->mk_model(*mdl);
                 s.on_model(mdl);
-                verbose_stream() << *mdl << "\n";
+                // verbose_stream() << *mdl << "\n";
                 TRACE("sls", display(tout));
                 return l_true;
             }
@@ -109,7 +109,7 @@ namespace sls {
                 if (is_app(e)) {
                     auto p = m_plugins.get(get_fid(e), nullptr);
                     if (p && !p->repair_down(to_app(e)) && !m_repair_up.contains(e->get_id())) {
-                        IF_VERBOSE(0, verbose_stream() << "revert repair: " << mk_bounded_pp(e, m) << "\n");
+                        IF_VERBOSE(3, verbose_stream() << "revert repair: " << mk_bounded_pp(e, m) << "\n");
                         m_repair_up.insert(e->get_id());
                     }
                 }
@@ -192,10 +192,11 @@ namespace sls {
     }
 
 
-    void context::set_value(expr * e, expr * v) {
+    bool context::set_value(expr * e, expr * v) {
         for (auto p : m_plugins)
-            if (p)
-                p->set_value(e, v);        
+            if (p && p->set_value(e, v))
+                return true;
+        return false;
     }
     
     bool context::is_relevant(expr* e) {
@@ -376,5 +377,17 @@ namespace sls {
                 p->display(out);
         
         return out;
+    }
+
+    void context::collect_statistics(statistics& st) const {
+        for (auto p : m_plugins)
+            if (p)
+                p->collect_statistics(st);
+    }
+
+    void context::reset_statistics() {
+        for (auto p : m_plugins)
+            if (p)
+                p->reset_statistics();
     }
 }

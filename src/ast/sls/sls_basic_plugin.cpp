@@ -86,11 +86,11 @@ namespace sls {
         return out;
     }
 
-    void basic_plugin::set_value(expr* e, expr* v) {
+    bool basic_plugin::set_value(expr* e, expr* v) {
         if (!is_basic(e))
-            return;
+            return false;
         SASSERT(m.is_true(v) || m.is_false(v));
-        set_value(e, m.is_true(v));
+        return set_value(e, m.is_true(v));
     }
 
     bool basic_plugin::bval1(app* e) const {
@@ -229,6 +229,7 @@ namespace sls {
         case OP_XOR:
             NOT_IMPLEMENTED_YET();
         case OP_ITE:
+
             NOT_IMPLEMENTED_YET();
         case OP_DISTINCT:
             NOT_IMPLEMENTED_YET();
@@ -278,8 +279,35 @@ namespace sls {
     }
 
     bool basic_plugin::try_repair_ite(app* e, unsigned i) {
-        if (!m.is_bool(e))
+        if (m.is_bool(e))
+            return try_repair_ite_bool(e, i);
+        else
+            return try_repair_ite_nonbool(e, i);
+    }
+
+    bool basic_plugin::try_repair_ite_nonbool(app* e, unsigned i) {
+        auto child = e->get_arg(i);
+        auto cond = e->get_arg(0);
+        bool c = bval0(cond);
+
+        if (i == 0) {
+            auto eval = ctx.get_value(e);
+            auto eval1 = ctx.get_value(e->get_arg(1));
+            auto eval2 = ctx.get_value(e->get_arg(2));
+            if (eval == eval1 && eval == eval2)
+                return true;
+            if (eval == eval1)
+                return set_value(cond, true);
+            if (eval == eval2)
+                return set_value(cond, false);
             return false;
+        }
+        if (c != (i == 1))
+            return false;
+        return ctx.set_value(child, ctx.get_value(e));
+    }
+
+    bool basic_plugin::try_repair_ite_bool(app* e, unsigned i) {
         auto child = e->get_arg(i);
         auto cond = e->get_arg(0);
         bool c = bval0(cond);

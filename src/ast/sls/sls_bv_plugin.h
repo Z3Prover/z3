@@ -52,7 +52,9 @@ namespace sls {
         void on_restart() override {}
         std::ostream& display(std::ostream& out) const override;
         void mk_model(model& mdl) override {}
-        void set_value(expr* e, expr* v) override;
+        bool set_value(expr* e, expr* v) override;
+        void collect_statistics(statistics& st) const override {}
+        void reset_statistics() override {}
     };
 
 }

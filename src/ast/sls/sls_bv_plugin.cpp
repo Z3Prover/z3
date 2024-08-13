@@ -89,14 +89,14 @@ namespace sls {
         return m_eval.display(out);
     }
     
-    void bv_plugin::set_value(expr* e, expr* v) {
+    bool bv_plugin::set_value(expr* e, expr* v) {
         if (!bv.is_bv(e))
-            return;
+            return false;
         rational val;
         VERIFY(bv.is_numeral(v, val));
         auto& w = m_eval.eval(to_app(e));
         w.set_value(w.eval, val);
-        w.commit_eval();
+        return w.commit_eval();
     }
 
     bool bv_plugin::repair_down(app* e) {

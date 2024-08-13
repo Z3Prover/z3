@@ -233,7 +233,9 @@ namespace sat {
         // for parallel integration
         unsigned num_non_binary_clauses() const { return m_num_non_binary_clauses; }
 
-        void collect_statistics(statistics& st) const {} 
+        void collect_statistics(statistics& st) const;
+
+        void reset_statistics();
 
         double get_priority(bool_var v) const { return m_probs[v]; }
 

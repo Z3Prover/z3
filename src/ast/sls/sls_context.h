@@ -18,6 +18,7 @@ Author:
 
 #include "util/sat_literal.h"
 #include "util/sat_sls.h"
+#include "util/statistics.h"
 #include "ast/ast.h"
 #include "model/model.h"
 #include "util/scoped_ptr_vector.h"
@@ -50,7 +51,9 @@ namespace sls {
         virtual void on_restart() {};
         virtual std::ostream& display(std::ostream& out) const = 0;
         virtual void mk_model(model& mdl) = 0;
-        virtual void set_value(expr* e, expr* v) = 0;
+        virtual bool set_value(expr* e, expr* v) = 0;
+        virtual void collect_statistics(statistics& st) const = 0;
+        virtual void reset_statistics() = 0;
     };
 
     using clause = ptr_iterator<sat::literal>;
@@ -156,7 +159,7 @@ namespace sls {
 
         // Between plugin solvers
         expr_ref get_value(expr* e);
-        void set_value(expr* e, expr* v);
+        bool set_value(expr* e, expr* v);
         void new_value_eh(expr* e);
         bool is_true(expr* e);
         bool is_fixed(expr* e);        
@@ -165,6 +168,9 @@ namespace sls {
         ptr_vector<expr> const& subterms();        
         ast_manager& get_manager() { return m; }
         std::ostream& display(std::ostream& out) const;
+
+        void collect_statistics(statistics& st) const;
+        void reset_statistics();
 
     };
 }

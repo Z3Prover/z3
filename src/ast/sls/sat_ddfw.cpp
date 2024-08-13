@@ -374,7 +374,6 @@ namespace sat {
     }
     
     void ddfw::do_restart() {    
-        verbose_stream() << "restart\n";
         reinit_values();
         init_clause_data();
         m_restart_next += m_config.m_restart_base*get_luby(++m_restart_count);
@@ -624,6 +623,20 @@ namespace sat {
         m_config.m_reinit_base = p.ddfw_reinit_base();
         m_config.m_restart_base = p.ddfw_restart_base();        
     }
+
+    void ddfw::collect_statistics(statistics& st) const {
+        st.update("sls-ddfw-flips", (double)m_flips);
+        st.update("sls-ddfw-restarts", m_restart_count);
+        st.update("sls-ddfw-reinits", m_reinit_count);
+        st.update("sls-ddfw-shifts", (double)m_shifts);
+    }
     
+    void ddfw::reset_statistics() {
+        m_flips = 0;
+        m_restart_count = 0;
+        m_reinit_count = 0;
+        m_shifts = 0;
+    }
+
 }
 

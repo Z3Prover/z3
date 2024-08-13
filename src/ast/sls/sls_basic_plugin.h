@@ -29,6 +29,8 @@ namespace sls {
         bool try_repair_eq(app* e, unsigned i);
         bool try_repair_xor(app* e, unsigned i);
         bool try_repair_ite(app* e, unsigned i);
+        bool try_repair_ite_nonbool(app* e, unsigned i);
+        bool try_repair_ite_bool(app* e, unsigned i);
         bool try_repair_implies(app* e, unsigned i);
         bool try_repair_distinct(app* e, unsigned i);
         bool set_value(expr* e, bool b);
@@ -55,7 +57,9 @@ namespace sls {
         void on_restart() override {}
         std::ostream& display(std::ostream& out) const override;
         void mk_model(model& mdl) override {}
-        void set_value(expr* e, expr* v) override;
+        bool set_value(expr* e, expr* v) override;
+        void collect_statistics(statistics& st) const override {}
+        void reset_statistics() override {}
     };
 
 }
