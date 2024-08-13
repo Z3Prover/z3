@@ -18,6 +18,6 @@ jobs:
   
     - name: Build
       run: |
-        cmake -B build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DZ3_BUILD_LIBZ3_SHARED=OFF -DZ3_BUILD_LIBZ3_MSVC_STATIC=ON -T ClangCL -DCMAKE_C_FLAGS_INIT="/EHsc" -DCMAKE_CXX_FLAGS_INIT="/EHsc"
+        cmake -B build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DZ3_BUILD_LIBZ3_SHARED=OFF -DZ3_BUILD_LIBZ3_MSVC_STATIC=ON -T ClangCL -DCMAKE_C_FLAGS="/EHsc" -DCMAKE_CXX_FLAGS="/EHsc"
         cmake --build build --config ${{ env.BUILD_TYPE }} --parallel
         
