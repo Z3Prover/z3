@@ -69,7 +69,11 @@ namespace sls {
         };
     private:
 
-        struct var_info {
+        class var_info {
+            num_t        m_range{ 100000000 };
+            num_t        m_update_value{ 0 };
+            unsigned     m_update_timestamp = 0;
+        public:
             var_info(expr* e, var_sort k): m_expr(e), m_sort(k) {}
             expr*        m_expr;
             num_t        m_value{ 0 };
@@ -81,7 +85,16 @@ namespace sls {
             unsigned_vector m_muls;
             unsigned_vector m_adds;
             optional<bound> m_lo, m_hi;
-            num_t        m_range{ 100000000 };
+
+            // retrieve temporary value during an update.
+            void set_update_value(num_t const& v, unsigned timestamp) {
+                m_update_value = v;
+                m_update_timestamp = timestamp;
+            }
+            num_t const& get_update_value(unsigned ts) const { 
+                return ts == m_update_timestamp ? m_update_value : m_value; 
+            }
+
             bool in_range(num_t const& n) const {
                 if (-m_range < n && n < m_range)
                     return true;
@@ -139,7 +152,7 @@ namespace sls {
         vector<var_change>           m_updates;
         var_t                        m_last_var = 0;
         num_t                        m_last_delta { 0 };
-        bool                         m_tabu = false;
+        bool                         m_use_tabu = true;
         arith_util                   a;
 
         void invariant();
@@ -172,6 +185,10 @@ namespace sls {
 
         void add_update(var_t v, num_t delta);
         bool is_permitted_update(var_t v, num_t& delta);
+        unsigned m_update_timestamp = 0;
+        svector<var_t> m_update_trail;
+        bool check_update(var_t v, num_t new_value);
+        void apply_checked_update();
 
         vector<num_t> m_factors;
         vector<num_t> const& factor(num_t n);
@@ -260,11 +277,12 @@ namespace sls {
         bool is_int(var_t v) const { return m_vars[v].m_sort == var_sort::INT; }
 
         num_t value(var_t v) const { return m_vars[v].m_value; }
+        num_t const& get_update_value(var_t v) const { return m_vars[v].get_update_value(m_update_timestamp); }
         bool is_num(expr* e, num_t& i);
         expr_ref from_num(sort* s, num_t const& n);
         void check_ineqs();
         void init_bool_var(sat::bool_var bv);
-        void initialize(sat::literal lit);
+        void initialize_unit(sat::literal lit);
         void add_le(var_t v, num_t const& n);
         void add_ge(var_t v, num_t const& n);
         void add_lt(var_t v, num_t const& n);

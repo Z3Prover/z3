@@ -46,7 +46,11 @@ namespace sls {
 
         void on_restart() override {}
 
+        bool m_on_save_model = false;
         void on_save_model() override {
+            if (m_on_save_model)
+                return;
+            flet<bool> _on_save_model(m_on_save_model, true);
             TRACE("sls", display(tout));
             while (unsat().empty()) {
                 m_context.check();
@@ -185,6 +189,8 @@ namespace sls {
         }
         else {
             sat::literal lit = mk_literal(f);
+            if (sign)
+                lit.neg();
             m_solver_ctx->add_clause(1, &lit);
         }
     }

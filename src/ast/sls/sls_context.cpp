@@ -101,8 +101,8 @@ namespace sls {
             propagate_literal(lit);
         }
 
-        while (!m_new_constraint && (!m_repair_up.empty() || !m_repair_down.empty())) {
-            while (!m_repair_down.empty() && !m_new_constraint) {
+        while (!m_new_constraint && m.inc() && (!m_repair_up.empty() || !m_repair_down.empty())) {
+            while (!m_repair_down.empty() && !m_new_constraint && m.inc()) {
                 auto id = m_repair_down.erase_min();
                 expr* e = term(id);
                 TRACE("sls", tout << "repair down " << mk_bounded_pp(e, m) << "\n");
@@ -114,7 +114,7 @@ namespace sls {
                     }
                 }
             }
-            while (!m_repair_up.empty() && !m_new_constraint) {
+            while (!m_repair_up.empty() && !m_new_constraint && m.inc()) {
                 auto id = m_repair_up.erase_min();
                 expr* e = term(id);
                 TRACE("sls", tout << "repair up " << mk_bounded_pp(e, m) << "\n");
@@ -308,12 +308,14 @@ namespace sls {
                 }                    
             }
         );
-        // verbose_stream() << "new value " << mk_bounded_pp(e, m) << " " << mk_bounded_pp(get_value(e), m) << "\n";
+
         m_repair_down.reserve(e->get_id() + 1);
+        m_repair_up.reserve(e->get_id() + 1);
         if (!m_repair_down.contains(e->get_id()))
             m_repair_down.insert(e->get_id());
         for (auto p : parents(e)) {
             m_repair_up.reserve(p->get_id() + 1);
+            m_repair_down.reserve(p->get_id() + 1);
             if (!m_repair_up.contains(p->get_id()))
                 m_repair_up.insert(p->get_id());
         }
