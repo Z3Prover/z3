@@ -31,7 +31,7 @@ Revision History:
 namespace lp {
 class lar_solver;
 class lar_core_solver;
-class patcher;
+class imp;
 class int_solver {
     friend struct create_cut;
     friend class gomory;
