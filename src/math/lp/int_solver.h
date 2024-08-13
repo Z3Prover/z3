@@ -31,7 +31,7 @@ Revision History:
 namespace lp {
 class lar_solver;
 class lar_core_solver;
-
+class patcher;
 class int_solver {
     friend struct create_cut;
     friend class gomory;
@@ -39,27 +39,12 @@ class int_solver {
     friend class int_branch;
     friend class int_gcd_test;
     friend class hnf_cutter;
-
-    class patcher {
-        int_solver&         lia;
-        lar_solver&         lra;
-        lar_core_solver&    lrac;
-    public:
-        patcher(int_solver& lia);
-        bool should_apply() const { return true; }
-        lia_move operator()() { return patch_basic_columns(); }
-        void patch_basic_column(unsigned j);
-        bool try_patch_column(unsigned v, unsigned j, mpq const& delta);
-        unsigned count_non_int();
-    private:
-        bool patch_basic_column_on_row_cell(unsigned v, row_cell<mpq> const& c);
-        lia_move patch_basic_columns();
-    };
+    friend class imp;
 
     lar_solver&         lra;
     lar_core_solver&    lrac;
     int_gcd_test        m_gcd;
-    patcher             m_patcher;
+    imp                 *m_imp;
     unsigned            m_number_of_calls;
     lar_term            m_t;               // the term to return in the cut
     mpq                 m_k;               // the right side of the cut
@@ -72,7 +57,7 @@ class int_solver {
     vector<equality>       m_equalities;
 public:
     int_solver(lar_solver& lp);
-    
+    ~int_solver();
     // main function to check that the solution provided by lar_solver is valid for integral values,
     // or provide a way of how it can be adjusted.
     lia_move check(explanation *);

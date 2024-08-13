@@ -11,35 +11,107 @@
 #include "math/lp/int_cube.h"
 
 namespace lp {
-
-    int_solver::patcher::patcher(int_solver& lia):
-        lia(lia),
-        lra(lia.lra),
-        lrac(lia.lrac)
-    {}
-    
-    unsigned int_solver::patcher::count_non_int() {
-        unsigned non_int = 0;
-        for (auto j : lra.r_basis()) 
-            if (lra.column_is_int(j) && !lra.column_value_is_int(j))
-                ++non_int;
-        return non_int;
-    }
-
-    lia_move int_solver::patcher::patch_basic_columns() {
-        lia.settings().stats().m_patches++;
-        lra.remove_fixed_vars_from_base();
-        lp_assert(lia.is_feasible());
-        for (unsigned j : lra.r_basis()) 
-            if (!lra.get_value(j).is_int() && lra.column_is_int(j) && !lia.is_fixed(j))
-                patch_basic_column(j);
-        if (!lia.has_inf_int()) {
-            lia.settings().stats().m_patches_success++;
-            return lia_move::sat;
+    bool get_patching_deltas(const rational& x, const rational& alpha,
+                             rational& delta_plus, rational& delta_minus);
+    class imp {
+        int_solver&         lia;
+        lar_solver&         lra;
+        lar_core_solver&    lrac;
+    public:
+        imp(int_solver& lia): lia(lia), lra(lia.lra), lrac(lia.lrac) {} 
+        bool should_apply() const { return true; }
+        void patch_basic_column(unsigned v) {
+            SASSERT(!lia.is_fixed(v));
+            for (auto const& c : lra.basic2row(v))
+                if (patch_basic_column_on_row_cell(v, c))
+                    return;    
         }
-        return lia_move::undef;
-    }
+        bool try_patch_column(unsigned v, unsigned j, mpq const& delta) {
+            const auto & A = lra.A_r();
+            if (delta < 0) {
+                if (lia.has_lower(j) && lia.get_value(j) + impq(delta) < lra.get_lower_bound(j))
+                    return false;
+            }
+            else {
+                if (lia.has_upper(j) && lia.get_value(j) + impq(delta) > lra.get_upper_bound(j))
+                    return false;
+            }
+            for (auto const& c : A.column(j)) {
+                unsigned row_index = c.var();
+                unsigned bj = lrac.m_r_basis[row_index];
+                auto old_val = lia.get_value(bj);
+                auto new_val = old_val - impq(c.coeff()*delta);
+                if (lia.has_lower(bj) && new_val < lra.get_lower_bound(bj))
+                    return false;
+                if (lia.has_upper(bj) && new_val > lra.get_upper_bound(bj))
+                    return false;
+                if (old_val.is_int() && !new_val.is_int()){
+                    return false; // do not waste resources on this case
+                }
+                // if bj == v, then, because we are patching the lra.get_value(v),
+                // we just need to assert that the lra.get_value(v) would be integral.
+                lp_assert(bj != v || lra.from_model_in_impq_to_mpq(new_val).is_int());
+            }
+        
+            lra.set_value_for_nbasic_column(j, lia.get_value(j) + impq(delta));
+            return true;
+        }
 
+        unsigned count_non_int() {
+            unsigned non_int = 0;
+            for (auto j : lra.r_basis()) 
+                if (lra.column_is_int(j) && !lra.column_value_is_int(j))
+                    ++non_int;
+            return non_int;
+        }
+
+        bool patch_basic_column_on_row_cell(unsigned v, row_cell<mpq> const& c) {
+            if (v == c.var())
+                return false;
+            if (!lra.column_is_int(c.var()))  // could use real to patch integer
+                return false;
+            if (c.coeff().is_int())
+                return false;
+            mpq a = fractional_part(c.coeff());
+            mpq r = fractional_part(lra.get_value(v));
+            lp_assert(0 < r && r < 1);
+            lp_assert(0 < a && a < 1);
+            mpq delta_plus, delta_minus;
+            if (!get_patching_deltas(r, a, delta_plus, delta_minus))
+                return false;
+            
+            if (lia.random() % 2) 
+                return try_patch_column(v, c.var(), delta_plus) ||
+                    try_patch_column(v, c.var(), delta_minus);
+            else 
+                return try_patch_column(v, c.var(), delta_minus) ||
+                    try_patch_column(v, c.var(), delta_plus);
+        }
+        
+        lia_move patch_basic_columns() {
+            lia.settings().stats().m_patches++;
+            lra.remove_fixed_vars_from_base();
+            lp_assert(lia.is_feasible());
+            for (unsigned j : lra.r_basis()) 
+                if (!lra.get_value(j).is_int() && lra.column_is_int(j) && !lia.is_fixed(j))
+                    patch_basic_column(j);
+            if (!lia.has_inf_int()) {
+                lia.settings().stats().m_patches_success++;
+                return lia_move::sat;
+            }
+            return lia_move::undef;     
+        }
+        
+        bool should_solve_dioph_eq() { return lia.settings().dioph_eq(); }
+
+        lia_move solve_dioph_eq() {
+            return lia_move::undef;
+        }
+        
+    };
+
+    
+    
     // clang-format on
     /**
      * \brief find integral and minimal, in the absolute values, deltas such that x - alpha*delta is integral too.
@@ -80,82 +152,22 @@ namespace lp {
 
         return true;
     }
-    /**
-     * \brief try to patch the basic column v
-     */
-    bool int_solver::patcher::patch_basic_column_on_row_cell(unsigned v, row_cell<mpq> const& c) {
-        if (v == c.var())
-            return false;
-        if (!lra.column_is_int(c.var()))  // could use real to patch integer
-            return false;
-        if (c.coeff().is_int())
-            return false;
-        mpq a = fractional_part(c.coeff());
-        mpq r = fractional_part(lra.get_value(v));
-        lp_assert(0 < r && r < 1);
-        lp_assert(0 < a && a < 1);
-        mpq delta_plus, delta_minus;
-        if (!get_patching_deltas(r, a, delta_plus, delta_minus))
-            return false;
-
-        if (lia.random() % 2) 
-            return try_patch_column(v, c.var(), delta_plus) ||
-                   try_patch_column(v, c.var(), delta_minus);
-        else 
-            return try_patch_column(v, c.var(), delta_minus) ||
-                   try_patch_column(v, c.var(), delta_plus);
-    }
-        
-    bool int_solver::patcher::try_patch_column(unsigned v, unsigned j, mpq const& delta) {
-        const auto & A = lra.A_r();
-        if (delta < 0) {
-            if (lia.has_lower(j) && lia.get_value(j) + impq(delta) < lra.get_lower_bound(j))
-                return false;
-        }
-        else {
-            if (lia.has_upper(j) && lia.get_value(j) + impq(delta) > lra.get_upper_bound(j))
-                return false;
-        }
-        for (auto const& c : A.column(j)) {
-            unsigned row_index = c.var();
-            unsigned bj = lrac.m_r_basis[row_index];
-            auto old_val = lia.get_value(bj);
-            auto new_val = old_val - impq(c.coeff()*delta);
-            if (lia.has_lower(bj) && new_val < lra.get_lower_bound(bj))
-                return false;
-            if (lia.has_upper(bj) && new_val > lra.get_upper_bound(bj))
-                return false;
-            if (old_val.is_int() && !new_val.is_int()){
-                return false; // do not waste resources on this case
-            }
-            // if bj == v, then, because we are patching the lra.get_value(v),
-            // we just need to assert that the lra.get_value(v) would be integral.
-            lp_assert(bj != v || lra.from_model_in_impq_to_mpq(new_val).is_int());
-        }
-        
-        lra.set_value_for_nbasic_column(j, lia.get_value(j) + impq(delta));
-        return true;
-    }
     
-    void int_solver::patcher::patch_basic_column(unsigned v) {
-        SASSERT(!lia.is_fixed(v));
-        for (auto const& c : lra.basic2row(v))
-            if (patch_basic_column_on_row_cell(v, c))
-                return;                                       
-    }
-
-
+        
+    
     int_solver::int_solver(lar_solver& lar_slv) :
         lra(lar_slv),
         lrac(lra.m_mpq_lar_core_solver),
         m_gcd(*this),
-        m_patcher(*this),
         m_number_of_calls(0),
         m_hnf_cutter(*this),
         m_hnf_cut_period(settings().hnf_cut_period()) {
+        m_imp = alloc(imp, *this);
         lra.set_int_solver(this);
     }
-
+    
+    int_solver::~int_solver() { dealloc(m_imp); }
+    
     // this will allow to enable and disable tracking of the pivot rows
     struct check_return_helper {
         lar_solver&      lra;
@@ -193,9 +205,9 @@ namespace lp {
             return lia_move::undef;
 
         ++m_number_of_calls;
-        if (r == lia_move::undef && m_patcher.should_apply()) r = m_patcher();
+        if (r == lia_move::undef && m_imp->should_apply()) r = m_imp->patch_basic_columns();
         if (r == lia_move::undef && should_find_cube()) r = int_cube(*this)();
-        // if (r == lia_move::undef && should_solve_dioph_eq()) r = solve_dioph_eq();
+        if (r == lia_move::undef && m_imp->should_solve_dioph_eq()) r = m_imp->solve_dioph_eq();
         if (r == lia_move::undef) lra.move_non_basic_columns_to_bounds();
         if (r == lia_move::undef && should_hnf_cut()) r = hnf_cut();
 
