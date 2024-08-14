@@ -475,124 +475,6 @@ namespace sls {
         m_updates.push_back({ v, delta, compute_score(v, delta) }); 
     }
 
-    template<typename num_t>
-    bool arith_base<num_t>::solve_eq_pairs(var_t v, ineq const& ineq) {
-        SASSERT(ineq.m_op == ineq_kind::EQ);
-        if (is_fixed(v))
-            return false;
-        auto argsv = ineq.m_args_value;
-        num_t a(0);
-        for (auto const& [c, w] : ineq.m_args)
-            if (v == w) {
-                a = c;
-                argsv -= value(v) * c;
-            }
-        if (abs(a) == 1)
-            return false;
-        IF_VERBOSE(3, verbose_stream() << "solve_eq_pairs " << ineq << " for v" << v << "\n");
-        SASSERT(a != 0);
-        unsigned start = ctx.rand();
-        for (unsigned i = 0; i < ineq.m_args.size(); ++i) {
-            unsigned j = (start + i) % ineq.m_args.size();
-            auto const& [b, w] = ineq.m_args[j];
-            if (w == v)
-                continue;
-            if (b == 1 || b == -1)
-                continue;
-            argsv -= value(w) * b;
-            solve_eq_pairs(a, v, b, w, - argsv);
-            argsv += value(w) * b;
-        }
-        return false;
-    }
-
-    // ax0 + by0 = r
-    // (x, y) = (x0 - k*b/g, y0 + k*a/g)
-    // find the min x1 >= x0 satisfying progression and where x1 >= lo(x)
-    // k*ab/g - k*ab/g = 0
-    template<typename num_t>
-    bool arith_base<num_t>::solve_eq_pairs(num_t const& _a, var_t x, num_t const& _b, var_t y, num_t const& r) {
-        if (is_fixed(y))
-            return false;
-        num_t x0, y0;
-        std::cout << "solve_eq_pairs " << _a << " v" << x << " " << _b << " v" << y << " " << r << "\n";
-        num_t a = _a, b = _b;
-        num_t g = gcd(a, b, x0, y0);
-        SASSERT(g >= 1);
-        SASSERT(g == a * x0 + b * y0);
-        if (!divides(g, r))
-            return false;
-        //verbose_stream() << g << " == " << a << "*" << x0 << " + " << b << "*" << y0  << "\n";
-        x0 *= div(r, g);
-        y0 *= div(r, g); 
-
-        auto adjust_lo = [&](num_t& x0, num_t& y0, num_t a, num_t b, optional<bound> const& lo, optional<bound> const& hi) {
-            if (!lo || lo->value <= x0)
-                return true;
-            // x0 + k*b/g >= lo
-            // k*(b/g) >= lo - x0
-            // k >= (lo - x0)/(b/g)
-            // x1 := x0 + k*b/g
-            auto delta = lo->value - x0;
-            auto bg = abs(div(b, g));
-            verbose_stream() << g << " " << bg << " " << " " << delta << "\n";
-            auto k = divide(x, delta, bg);
-            auto x1 = x0 + k * bg;
-            if (hi && hi->value < x1)
-                return false;
-            x0 = x1;
-            y0 = y0 + k * (div(b, g) > 0 ? -div(a, g) : div(a, g));
-            SASSERT(r == a * x0 + b * y0);    
-            return true;
-        };
-        auto adjust_hi = [&](num_t& x0, num_t& y0, num_t a, num_t b, optional<bound> const& lo, optional<bound> const& hi) {
-            if (!hi || hi->value >= x0)
-                return true;
-            // x0 + k*b/g <= hi
-            // k <= (x0 - hi)/(b/g)
-            auto delta = x0 - hi->value;
-            auto bg = abs(div(b, g));
-            auto k = div(delta, bg);
-            auto x1 = x0 - k * bg;
-            if (lo && lo->value < x1)
-                return false;
-            x0 = x1;
-            y0 = y0 - k * (div(b, g) > 0 ? -div(a, g) : div(a, g));
-            SASSERT(r == a * x0 + b * y0);
-            return true;
-        };
-        auto const& lo_x = m_vars[x].m_lo;
-        auto const& hi_x = m_vars[x].m_hi;
-
-        if (!adjust_lo(x0, y0, a, b, lo_x, hi_x))
-            return false;
-        if (!adjust_hi(x0, y0, a, b, lo_x, hi_x))
-            return false;
-       
-        auto const& lo_y = m_vars[y].m_lo;
-        auto const& hi_y = m_vars[y].m_hi;
-
-        if (!adjust_lo(y0, x0, b, a, lo_y, hi_y))
-            return false;
-        if (!adjust_hi(y0, x0, b, a, lo_y, hi_y))
-            return false;
-
-        if (lo_x && lo_x->value > x0)
-            return false;
-        if (hi_x && hi_x->value < x0)
-            return false;
-
-        if (x0 == value(x))
-            return false;
-        if (abs(value(x)) * 2 < abs(x0))
-            return false;
-        if (abs(value(y)) * 2 < abs(y0))
-            return false;
-        add_update(x, x0 - value(x));
-        // add_update(y, y0 - value(y)); add pairwise update?
-        return true;
-    }
-
     // flip on the first positive score
     // it could be changed to flip on maximal positive score
     // or flip on maximal non-negative score
@@ -1351,10 +1233,7 @@ namespace sls {
                 }
                 break;
             case ineq_kind::EQ:
-                if (lit.sign()) {
-                    verbose_stream() << "INITIALIZE " << lit << " " << *ineq << "\n";
-                }
-                else {
+                if (!lit.sign()) {
                     if (c == -1) {
                         add_ge(v, ineq->m_coeff);
                         add_le(v, ineq->m_coeff);

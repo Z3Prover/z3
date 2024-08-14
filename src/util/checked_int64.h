@@ -27,6 +27,7 @@ Revision History:
 #include "util/rational.h"
 #include "util/mpn.h"
 
+
 class overflow_exception : public z3_exception {
     char const* msg() const override { return "checked_int64 overflow/underflow"; }
 };
@@ -120,8 +121,10 @@ public:
             uint64_t x = static_cast<uint64_t>(m_value);
             uint64_t y = static_cast<uint64_t>(other.m_value);
             int64_t r = static_cast<int64_t>(x + y);
-            if (m_value > 0 && other.m_value > 0 && r <= 0) throw overflow_exception();
-            if (m_value < 0 && other.m_value < 0 && r >= 0) throw overflow_exception();
+            if (m_value > 0 && other.m_value > 0 && r <= 0) 
+                throw overflow_exception();
+            if (m_value < 0 && other.m_value < 0 && r >= 0) 
+                throw overflow_exception();
             m_value = r;
         }
         else {
@@ -152,12 +155,22 @@ public:
             if (INT_MIN < m_value && m_value <= INT_MAX && INT_MIN < other.m_value && other.m_value <= INT_MAX) {
                 m_value *= other.m_value;
             }
+            else if (m_value == 0 || other.m_value == 0 || m_value == 1 || other.m_value == 1) {
+                m_value *= other.m_value;
+            }
+            else if (m_value == INT64_MIN || other.m_value == INT64_MIN)
+                throw overflow_exception();
             else {
-                uint64_t x = m_value, y = other.m_value;
-                uint64_t z = x * y;
-                if (y != 0 && z / y != x)
+                uint64_t x = m_value < 0 ? -m_value : m_value;
+                uint64_t y = other.m_value < 0 ? -other.m_value : other.m_value;
+                uint64_t r = x * y;
+                if ((y != 0 && r / y != x) || r > INT64_MAX)
                     throw overflow_exception();
-                m_value = z;
+                m_value = r;
+                if (m_value < 0 && other.m_value > 0)
+                    m_value = -m_value;
+                if (m_value > 0 && other.m_value < 0)
+                    m_value = -m_value;
             }
         }
         else {

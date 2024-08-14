@@ -73,9 +73,16 @@ public:
             m_sls->assert_expr(g->form(i));
 
 
-        lbool res = m_sls->check();
         m_st.reset();
-        m_sls->collect_statistics(m_st);
+        lbool res = l_undef;
+        try {
+            res = m_sls->check();
+        }
+        catch (z3_exception& ex) {
+            m_sls->collect_statistics(m_st);
+            throw;
+        }
+
 //        report_tactic_progress("Number of flips:", m_sls->get_num_moves());
         IF_VERBOSE(10, verbose_stream() << res << "\n");
         IF_VERBOSE(10, m_sls->display(verbose_stream()));

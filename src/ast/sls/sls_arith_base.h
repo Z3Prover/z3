@@ -258,8 +258,6 @@ namespace sls {
         void find_quadratic_moves(ineq const& i, var_t x, num_t const& a, num_t const& b, num_t const& sum);
         double compute_score(var_t x, num_t const& delta);
         void save_best_values();
-        bool solve_eq_pairs(var_t v, ineq const& ineq);
-        bool solve_eq_pairs(num_t const& a, var_t x, num_t const& b, var_t y, num_t const& r);
 
         var_t mk_var(expr* e);
         var_t mk_term(expr* e);
