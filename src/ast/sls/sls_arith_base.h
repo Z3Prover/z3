@@ -179,7 +179,7 @@ namespace sls {
         num_t mul_value_without(var_t m, var_t x);
 
         void add_update(var_t v, num_t delta);
-        bool is_permitted_update(var_t v, num_t& delta);
+        bool is_permitted_update(var_t v, num_t const& delta, num_t& delta_out);
         unsigned m_update_timestamp = 0;
         svector<var_t> m_update_trail;
         bool check_update(var_t v, num_t new_value);
