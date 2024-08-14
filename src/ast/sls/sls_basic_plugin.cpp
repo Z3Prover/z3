@@ -38,6 +38,8 @@ namespace sls {
             return false;
         if (m.is_distinct(e) && !m.is_bool(to_app(e)->get_arg(0)))
             return false;
+        if (m.is_not(e, x))
+            return is_basic(x);
         return true;
     }
 
@@ -50,7 +52,7 @@ namespace sls {
     }
 
     void basic_plugin::register_term(expr* e) {
-        if (is_basic(e))
+        if (is_basic(e) && m.is_bool(e))
             m_values.setx(e->get_id(), bval1(to_app(e)), false);
     }
 
@@ -94,6 +96,7 @@ namespace sls {
     }
 
     bool basic_plugin::bval1(app* e) const {
+        verbose_stream() << mk_bounded_pp(e, m) << "\n";
         if (m.is_not(e))
             return bval1(to_app(e->get_arg(0)));
         SASSERT(m.is_bool(e));

@@ -160,12 +160,7 @@ namespace sls {
 
         unsigned get_num_vars() const { return m_vars.size(); }
 
-        bool eval_is_correct(var_t v);
-        bool repair_mul_one(mul_def const& md);
-        bool repair_power(mul_def const& md);
-        bool repair_mul_factors(mul_def const& md);
-        bool repair_mul_ones(mul_def const& md);
-        bool repair_mul_inc(mul_def const& md);        
+        bool eval_is_correct(var_t v);      
         bool repair_mul(mul_def const& md);
         bool repair_add(add_def const& ad);
         bool repair_mod(op_def const& od);
@@ -200,38 +195,6 @@ namespace sls {
             var_t v;
             unsigned p; // power
         };
-
-        struct monomial_iterator_base {
-            arith_base& a;
-            mul_def const& md;
-            unsigned m_seed = 0;
-            unsigned m_idx;
-            monomial_iterator_base(arith_base& a, mul_def const& md, unsigned idx, unsigned seed) : a(a), md(md), m_seed(seed), m_idx(idx) {}
-            monomial_elem operator*() {
-                auto [v, p] = md.m_monomial[(m_idx + m_seed) % md.m_monomial.size()];
-                num_t prod(md.m_coeff);
-                for (auto [w, q] : md.m_monomial)
-                    if (w != v)
-                        prod *= a.power_of(a.value(w), q);
-                return { prod, v, p };
-            }
-            monomial_iterator_base& operator++() {
-                ++m_idx;
-                return *this;
-            }
-            bool operator==(monomial_iterator_base const& other) const { return m_idx == other.m_idx; }
-            bool operator!=(monomial_iterator_base const& other) const { return m_idx != other.m_idx; }
-        };
-
-        struct monomials {
-            arith_base& a;
-            mul_def const& md;
-            monomials(arith_base & a, mul_def const& md) : a(a), md(md) {}
-            monomial_iterator_base begin() { return monomial_iterator_base(a, md, 0, a.ctx.rand()); }
-            monomial_iterator_base end() { return monomial_iterator_base(a, md, md.m_monomial.size(), 0); }
-        };
-
-        monomials monomial_iterator(mul_def const& md) { return monomials(*this, md); }
 
         // double reward(sat::literal lit);
 

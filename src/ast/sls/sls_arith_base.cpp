@@ -650,9 +650,13 @@ namespace sls {
 
         IF_VERBOSE(10, verbose_stream() << "new value eh " << mk_bounded_pp(e, m) << "\n");
 
+        for (auto idx : vi.m_muls)
+            ctx.new_value_eh(m_vars[m_muls[idx].m_var].m_expr);
+        for (auto idx : vi.m_adds) 
+            ctx.new_value_eh(m_vars[m_adds[idx].m_var].m_expr);
+
         for (auto idx : vi.m_muls) {
             auto const& [w, coeff, monomial] = m_muls[idx];
-            ctx.new_value_eh(m_vars[w].m_expr);
             num_t prod(coeff);
             try {
                 for (auto [w, p] : monomial)
@@ -669,7 +673,6 @@ namespace sls {
         for (auto idx : vi.m_adds) {
             auto const& ad = m_adds[idx];
             auto w = ad.m_var;
-            ctx.new_value_eh(m_vars[w].m_expr);
             num_t sum(ad.m_coeff);
             for (auto const& [coeff, w] : ad.m_args)
                 sum += coeff * value(w);
@@ -948,7 +951,6 @@ namespace sls {
 
     template<typename num_t>
     typename arith_base<num_t>::var_t arith_base<num_t>::mk_var(expr* e) {
-        SASSERT(!m.is_value(e));
         var_t v = m_expr2var.get(e->get_id(), UINT_MAX);
         if (v == UINT_MAX) {
             v = m_vars.size();
@@ -1338,224 +1340,54 @@ namespace sls {
     }
 
     template<typename num_t>
-    bool arith_base<num_t>::repair_power(mul_def const& md) {
-        auto const& [v, coeff, monomial] = md;
-        if (!is_int(v))
-            return false;
-        for (auto [c, v, p] : monomial_iterator(md)) {    
-            if (c == 0)
-                continue;
-            num_t val1 = div(value(v), c);
-            if (val1 < 0 && p % 2 == 0)
-                continue;
-            num_t root = root_of(p, val1);
-            if (in_bounds(v, -root) && (((p % 2 == 0) && ctx.rand(3) == 0) || val1 < 0))
-                root = -root;
-            if (update(v, root))
-                return true;
-        }
-        return false;
-    }
-
-    // increment/decrement the value of one of the variables as long
-    // as it improves the repair distance.
-    template<typename num_t>
-    bool arith_base<num_t>::repair_mul_inc(mul_def const& md) {
-        num_t inc;
-        unsigned i = 0;
-        double sum_probs = 0;
-        unsigned sz = md.m_monomial.size();
-        m_probs.reserve(sz);
-        for (auto [c, v, p] : monomial_iterator(md)) {
-            int r = -1; // repair_delta(v, inc);
-            auto prob = r <= 0 ? 0.1 : r;
-            sum_probs += prob;
-            m_probs[i++] = prob;
-
-        }
-        i = sz;
-        double lim = sum_probs * ((double)ctx.rand() / random_gen().max_value());
-        do {
-            lim -= m_probs[--i];
-        } while (lim >= 0 && i > 0);
-
-        return false;
-    }
-
-    // update entries to +/- 1, except for one, which is set to be +/- value(v)
-    template<typename num_t>
-    bool arith_base<num_t>::repair_mul_ones(mul_def const& md) {
-        auto const& [v, coeff, monomial] = md;
-        auto val = value(v);
-        vector<num_t> coeffs(monomial.size(), num_t(1));
-        for (auto [c, v, p] : monomial_iterator(md)) {
-            if (c == 0)
-                continue;
-            auto new_value = root_of(p, abs(val));
-            int sign = ctx.rand(2) == 0 ? 1 : -1;
-            if (sign == -1)
-                new_value = -new_value;
-            if (!in_bounds(v, new_value)) {
-                new_value = -new_value;
-                if (p % 2 != 0)
-                    sign *= -1;
-            }
-            if (!in_bounds(v, new_value))
-                continue;
-            
-            unsigned i = 0;
-            bool failed = false;
-            for (auto [w, q] : monomial) {
-                if (w == v) 
-                    coeffs[i] = new_value;                                   
-                else if (q % 2 == 0) 
-                    coeffs[i] = num_t(ctx.rand(2) == 0 ? 1 : -1);
-                else {
-                    auto sign1 = ctx.rand(2) == 0 ? 1 : -1;
-                    coeffs[i] = num_t(sign1);
-                    if (!in_bounds(w, coeffs[i])) {
-                        sign1 = -sign1;
-                        coeffs[i] = num_t(sign1);
-                    }
-                    if (!in_bounds(w, coeffs[i]))
-                        failed = true;
-                    sign *= sign1;
-                }
-                ++i;
-            }
-            if (failed)
-                continue;
-
-            if ((sign == 1) != val > 0) {
-                bool fixed = false;
-                for (auto [w, q] : monomial) {
-                    if (q % 2 == 1 && in_bounds(w, -coeffs[i])) {
-                        coeffs[i] = -coeffs[i];
-                        fixed = true;
-                        break;
-                    }
-                }
-                if (!fixed)
-                    continue;
-            }           
-            i = 0;
-            for (auto [w, q] : monomial) {
-                if (!update(w, coeffs[i]))
-                    return false;
-                ++i;
-            }
-            return true;
-        }
-        return false;
-    }
-
-    // update one of the variables such that the product aligns with value(v)
-    template<typename num_t>
-    bool arith_base<num_t>::repair_mul_one(mul_def const& md) {
-        auto const& [v, coeff, monomial] = md;
-        if (!is_int(v))
-            return false;
-        num_t val = value(v);
-        if (!divides(coeff, val))
-            return false;
-        for (auto [c, v, p] : monomial_iterator(md)) {
-            if (c == 0 || !divides(c, val))
-                continue;
-            auto val1 = div(val, c);
-            val1 = root_of(p, val);
-            if (update(v, val1))
-                return true;
-        }
-        return false;
-    }
-
-    template<typename num_t>
     bool arith_base<num_t>::repair_mul(mul_def const& md) {
         auto const& [v, coeff, monomial] = md;
         num_t product(coeff);
         num_t val = value(v);
-        num_t new_value;
         for (auto [v, p]: monomial)
             product *= power_of(value(v), p);
+        IF_VERBOSE(10, verbose_stream() << "v" << v << " repair mul " << mk_bounded_pp(m_vars[v].m_expr, m) << " : = " << val << "(product : " << product << ")\n");
         if (product == val)
             return true;
-        IF_VERBOSE(10, verbose_stream() << "repair mul " << mk_bounded_pp(m_vars[v].m_expr, m) << " := " << val << "(product: " << product << ")\n");
-        unsigned sz = monomial.size();
-        if (ctx.rand(20) == 0)
-            return update(v, product);
-        else if (val == 0) {
-            for (auto [c, v, p] : monomial_iterator(md))
-                if (update(v, num_t(0)))
-                    return true;
-            return false;
+        
+
+        m_updates.reset();
+        if (val == 0) {
+            for (auto [x, p] : monomial)
+                add_update(x, -value(x));
         }
-        else if (abs(val) == 1 && repair_mul_one(md))
-            return true;
-        else if (repair_power(md))
-            return true;
-        else if (ctx.rand(4) != 0 && repair_mul_one(md)) 
-            return true;        
-        else if (repair_mul_factors(md))
-            return true;
-        else if (repair_mul_one(md))
-            return true;
+        else if (val == 1 || val == -1) {
+            for (auto [x, p] : monomial) {
+                add_update(x, num_t(1) - value(x));                
+                add_update(x, num_t(-1) - value(x));
+            }
+        }
         else {
-            IF_VERBOSE(0, verbose_stream() << "repair mul " << mk_bounded_pp(m_vars[v].m_expr, m) << " := " << val << "(product: " << product << ")\n");
-
-            //NOT_IMPLEMENTED_YET();
-            return false;
-        }
-        return false;
-    }
-
-    template<typename num_t>
-    bool arith_base<num_t>::repair_mul_factors(mul_def const& md) {
-        auto const& [v, coeff, monomial] = md;
-        auto val = value(v);
-        if (!is_int(v))
-            return false;
-        num_t n = div(val, coeff);
-        if (!divides(coeff, val) && ctx.rand(2) == 0)
-            n = div(val + coeff - 1, coeff);
-        if (n == 0)
-            return false;
-        auto const& fs = factor(abs(n));
-        unsigned sz = monomial.size();
-        vector<num_t> coeffs(sz, num_t(1));
-        vector<num_t> gcds(sz, num_t(0));
-        num_t sign(1);
-        for (auto c : coeffs)
-            sign *= c;
-        unsigned i = 0;
-        for (auto [w, p] : monomial) {
-            for (auto idx : m_vars[w].m_muls) {
-                auto const& [w1, coeff1, monomial1] = m_muls[idx];
-                gcds[i] = gcd(gcds[i], abs(value(w1)));
-            }
-            auto const& vi = m_vars[w];
-            if (vi.m_lo && vi.m_lo->value >= 0)
-                coeffs[i] = 1;
-            else if (vi.m_hi && vi.m_hi->value < 0)
-                coeffs[i] = -1;
-            else
-                coeffs[i] = num_t(ctx.rand(2) == 0 ? 1 : -1);
-            ++i;
-        }
-        for (auto f : fs)
-            coeffs[ctx.rand(sz)] *= f;
-        if ((sign == 0) != (n == 0))
-            coeffs[ctx.rand(sz)] *= -1;
-        verbose_stream() << "value " << val << " coeff: " << coeff << " coeffs: " << coeffs << " factors: " << fs << "\n";
-        i = 0;
-        for (auto [w, p] : monomial) {
-            if (!update(w, coeffs[i++])) {
-                verbose_stream() << "failed to update v" << w << " to " << coeffs[i - 1] << "\n";
-                return false;
+            for (auto [x, p] : monomial) {
+                auto mx = mul_value_without(v, x);
+                // val / mx = x^p
+                if (mx == 0)
+                    continue;
+                auto valmx = divide(x, val, mx);
+                auto r = root_of(p, valmx);
+                add_update(x, r - value(x));
+                if (p % 2 == 0) 
+                    add_update(x, -r - value(x));
             }
         }
-        verbose_stream() << "all updated for v" << v << " := " << value(v) << "\n";
-        return true;
-    }
+
+        if (apply_update())
+            return eval_is_correct(v);
+
+        m_updates.reset();
+        for (auto [x, p] : monomial)
+            add_reset_update(x);
+
+        if (apply_update())
+            return eval_is_correct(v);
+
+        return update(v, product); 
+    }    
 
     template<typename num_t>
     bool arith_base<num_t>::repair_rem(op_def const& od) {
@@ -1687,8 +1519,7 @@ namespace sls {
         num_t r(coeff);
         for (auto [y, p] : monomial)
             if (x != y)
-                for (unsigned i = 0; i < p; ++i)
-                    r *= value(y);
+                r *= power_of(value(y), p);
         return r;
     }
 
