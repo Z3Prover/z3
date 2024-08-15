@@ -78,7 +78,7 @@ public:
         try {
             res = m_sls->check();
         }
-        catch (z3_exception& ex) {
+        catch (z3_exception&) {
             m_sls->collect_statistics(m_st);
             throw;
         }

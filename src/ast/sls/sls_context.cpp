@@ -21,6 +21,7 @@ Author:
 #include "ast/sls/sls_bv_plugin.h"
 #include "ast/sls/sls_basic_plugin.h"
 #include "ast/ast_ll_pp.h"
+#include "ast/ast_pp.h"
 
 namespace sls {
 
@@ -96,9 +97,9 @@ namespace sls {
         reinit_relevant();
 
         for (sat::literal lit : root_literals()) {
-            if (m_new_constraint)
-                break;
             propagate_literal(lit);
+            if (m_new_constraint)
+                return;
         }
 
         while (!m_new_constraint && m.inc() && (!m_repair_up.empty() || !m_repair_down.empty())) {
@@ -125,15 +126,20 @@ namespace sls {
                 }
             }
         }
+
+
         // propagate "final checks"
         bool propagated = true;
         while (propagated && !m_new_constraint) {
             propagated = false;
             for (auto p : m_plugins)
                 propagated |= p && !m_new_constraint && p->propagate();
-        }        
+        }     
 
-        for (sat::bool_var v = 0; v < s.num_vars(); ++v) {
+        if (m_new_constraint)
+            return;
+
+        for (sat::bool_var v = 0; v < s.num_vars() && !m_new_constraint; ++v) {
             auto a = atom(v);
             if (!a)
                 continue;
@@ -148,10 +154,8 @@ namespace sls {
         if (!is_app(e))
             return null_family_id;
         family_id fid = to_app(e)->get_family_id();
-        if (m.is_eq(e) || m.is_distinct(e))
+        if (m.is_eq(e))
             fid = to_app(e)->get_arg(0)->get_sort()->get_family_id();   
-        else if (m.is_ite(e))
-            fid = to_app(e)->get_arg(1)->get_sort()->get_family_id();
         return fid;
     }
 
@@ -191,7 +195,6 @@ namespace sls {
         return expr_ref(e, m);
     }
 
-
     bool context::set_value(expr * e, expr * v) {
         for (auto p : m_plugins)
             if (p && p->set_value(e, v))
@@ -215,33 +218,150 @@ namespace sls {
         return false;
     }
 
-    void context::add_constraint(expr* e) {
-        expr_ref _e(e, m);
-        sat::literal_vector lits;
-        auto add_literal = [&](expr* e) {
-            bool is_neg = m.is_not(e, e);
-            auto v = mk_atom(e);
-            lits.push_back(sat::literal(v, is_neg));
-        };
-        if (m.is_or(e))
-            for (auto arg : *to_app(e))
-                add_literal(arg);
-        else
-            add_literal(e);
-        TRACE("sls", tout << "new clause " << lits << "\n");
-        s.add_clause(lits.size(), lits.data());  
+    void context::add_constraint(expr* e) {        
+        add_clause(e);        
         m_new_constraint = true;
     }
 
-    sat::bool_var context::mk_atom(expr* e) {
-        auto v = m_atom2bool_var.get(e->get_id(), sat::null_bool_var);
-        if (v == sat::null_bool_var) {
-            v = s.add_var();
-            register_atom(v, e);
-            register_terms(e);
+    void context::add_clause(expr* f)  {
+        expr_ref _e(f, m);
+        verbose_stream() << "add constraint " << _e << "\n";
+        expr* g, * h, * k;
+        sat::literal_vector clause;
+        if (m.is_not(f, g) && m.is_not(g, g)) {
+            add_clause(g);
+            return;
         }
-        return v;
+        bool sign = m.is_not(f, f);
+        if (!sign && m.is_or(f)) {
+            clause.reset();
+            for (auto arg : *to_app(f))
+                clause.push_back(mk_literal(arg));
+            s.add_clause(clause.size(), clause.data());
+        }
+        else if (!sign && m.is_and(f)) {
+            for (auto arg : *to_app(f))
+                add_clause(arg);
+        }
+        else if (sign && m.is_or(f)) {
+            for (auto arg : *to_app(f)) {
+                expr_ref fml(m.mk_not(arg), m);;
+                add_clause(fml);
+            }
+        }
+        else if (sign && m.is_and(f)) {
+            clause.reset();
+            for (auto arg : *to_app(f))
+                clause.push_back(~mk_literal(arg));
+            s.add_clause(clause.size(), clause.data());
+        }
+        else if (m.is_iff(f, g, h)) {
+            auto lit1 = mk_literal(g);
+            auto lit2 = mk_literal(h);
+            sat::literal cls1[2] = { sign ? lit1 : ~lit1, lit2 };
+            sat::literal cls2[2] = { sign ? ~lit1 : lit1, ~lit2 };
+            s.add_clause(2, cls1);
+            s.add_clause(2, cls2);
+        }
+        else if (m.is_ite(f, g, h, k)) {
+            auto lit1 = mk_literal(g);
+            auto lit2 = mk_literal(h);
+            auto lit3 = mk_literal(k);
+            // (g -> h) & (~g -> k)
+            // (g & h) | (~g & k)
+            // negated: (g -> ~h) & (g -> ~k)
+            sat::literal cls1[2] = { ~lit1, sign ? ~lit2 : lit2 };
+            sat::literal cls2[2] = { lit1, sign ? ~lit3 : lit3 };
+            s.add_clause(2, cls1);
+            s.add_clause(2, cls2);
+        }
+        else {
+            sat::literal lit = mk_literal(f);
+            if (sign)
+                lit.neg();
+            s.add_clause(1, &lit);
+        }
     }
+
+    sat::literal context::mk_literal() {
+        sat::bool_var v = s.add_var();
+        return sat::literal(v, false);
+    }
+
+    sat::literal context::mk_literal(expr* e) {
+        sat::literal lit;
+        bool neg = false;
+        expr* a, * b, * c;
+        while (m.is_not(e, e))
+            neg = !neg;
+        auto v = m_atom2bool_var.get(e->get_id(), sat::null_bool_var);
+        if (v != sat::null_bool_var) 
+            return sat::literal(v, neg);
+        sat::literal_vector clause;
+        lit = mk_literal();
+        if (m.is_true(e)) {
+            clause.push_back(lit);
+            s.add_clause(clause.size(), clause.data());
+        }
+        else if (m.is_false(e)) {
+            clause.push_back(~lit);
+            s.add_clause(clause.size(), clause.data());
+        }
+        else if (m.is_and(e)) {
+            for (expr* arg : *to_app(e)) {
+                auto lit2 = mk_literal(arg);
+                clause.push_back(~lit2);
+                sat::literal lits[2] = { ~lit, lit2 };
+                s.add_clause(2, lits);
+            }
+            clause.push_back(lit);
+            s.add_clause(clause.size(), clause.data());
+        }
+        else if (m.is_or(e)) {
+            for (expr* arg : *to_app(e)) {
+                auto lit2 = mk_literal(arg);
+                clause.push_back(lit2);
+                sat::literal lits[2] = { lit, ~lit2 };
+                s.add_clause(2, lits);
+            }
+            clause.push_back(~lit);
+            s.add_clause(clause.size(), clause.data());
+        }
+        else if (m.is_iff(e, a, b) || m.is_xor(e, a, b)) {
+            auto lit1 = mk_literal(a);
+            auto lit2 = mk_literal(b);
+            if (m.is_xor(e))
+                lit2.neg();
+            sat::literal cls1[3] = { ~lit,  ~lit1, lit2 };
+            sat::literal cls2[3] = { ~lit,  lit1, ~lit2 };
+            sat::literal cls3[3] = { lit,  lit1, lit2 };
+            sat::literal cls4[3] = { lit, ~lit1, ~lit2 };
+            s.add_clause(3, cls1);
+            s.add_clause(3, cls2);
+            s.add_clause(3, cls3);
+            s.add_clause(3, cls4);
+        }
+        else if (m.is_ite(e, a, b, c)) {
+            auto lit1 = mk_literal(a);
+            auto lit2 = mk_literal(b);
+            auto lit3 = mk_literal(c);
+            sat::literal cls1[3] = { ~lit, ~lit1, lit2 };
+            sat::literal cls2[3] = { ~lit,  lit1, lit3 };
+            sat::literal cls3[3] = { lit, ~lit1, ~lit2 };
+            sat::literal cls4[3] = { lit,  lit1, ~lit3 };
+            s.add_clause(3, cls1);
+            s.add_clause(3, cls2);
+            s.add_clause(3, cls3);
+            s.add_clause(3, cls4);
+        }           
+        else 
+            register_terms(e);        
+        
+        register_atom(lit.var(), e);
+
+        return neg ? ~lit : lit;
+    }
+
 
     void context::init() {
         m_new_constraint = false;

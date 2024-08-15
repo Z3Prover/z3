@@ -104,12 +104,13 @@ namespace sls {
         random_gen m_rand;
         bool m_initialized = false;
         bool m_new_constraint = false;
+        bool m_dirty = false;
         expr_ref_vector m_allterms;
         ptr_vector<expr> m_subterms;
         greater_depth m_gd;
         less_depth m_ld;
         heap<greater_depth> m_repair_down;
-        heap<less_depth> m_repair_up;
+        heap<less_depth> m_repair_up;        
 
         void register_plugin(plugin* p);
 
@@ -117,12 +118,14 @@ namespace sls {
         ptr_vector<expr> m_todo;
         void register_terms(expr* e);
         void register_term(expr* e);
-        sat::bool_var mk_atom(expr* e);
 
         void propagate_boolean_assignment();
         void propagate_literal(sat::literal lit);
 
         family_id get_fid(expr* e) const;
+
+
+        sat::literal mk_literal();
         
     public:
         context(ast_manager& m, sat_solver_context& s);
@@ -142,6 +145,8 @@ namespace sls {
         expr* atom(sat::bool_var v) { return m_atoms.get(v, nullptr); }
         expr* term(unsigned id) const { return m_allterms.get(id); }
         sat::bool_var atom2bool_var(expr* e) const { return m_atom2bool_var.get(e->get_id(), sat::null_bool_var); }
+        sat::literal mk_literal(expr* e);
+        void add_clause(expr* f);
         void flip(sat::bool_var v) { s.flip(v); }
         double reward(sat::bool_var v) { return s.reward(v); }
         indexed_uint_set const& unsat() const { return s.unsat(); }

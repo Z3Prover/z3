@@ -17,25 +17,20 @@ Author:
 namespace sls {
 
     class basic_plugin : public plugin {
-        bool_vector        m_values;
         bool               m_initialized = false;
+        expr_mark          m_axiomatized;
         
         bool is_basic(expr* e) const;
-        bool bval1(app* e) const;
         bool bval0(expr* e) const;
         bool try_repair(app* e, unsigned i);
-        bool try_repair_and_or(app* e, unsigned i);
-        bool try_repair_not(app* e);
-        bool try_repair_eq(app* e, unsigned i);
         bool try_repair_xor(app* e, unsigned i);
         bool try_repair_ite(app* e, unsigned i);
-        bool try_repair_ite_nonbool(app* e, unsigned i);
-        bool try_repair_ite_bool(app* e, unsigned i);
-        bool try_repair_implies(app* e, unsigned i);
         bool try_repair_distinct(app* e, unsigned i);
         bool set_value(expr* e, bool b);
 
-        void add_clause(app* e);
+        expr_ref eval_ite(app* e);
+        expr_ref eval_distinct(app* e);
+        expr_ref eval_xor(app* e);
 
     public:
         basic_plugin(context& ctx) : 

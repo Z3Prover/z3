@@ -604,10 +604,9 @@ namespace sls {
     bool arith_base<num_t>::update(var_t v, num_t const& new_value) {
         auto& vi = m_vars[v];
         expr* e = vi.m_expr;
-        SASSERT(!m.is_value(e));
         auto old_value = vi.m_value;
         if (old_value == new_value)
-            return true;
+            return true;                   
         if (!vi.in_range(new_value))
             return false;
         if (!in_bounds(v, new_value) && in_bounds(v, old_value))
