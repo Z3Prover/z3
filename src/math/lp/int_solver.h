@@ -45,6 +45,20 @@ class int_solver {
     lar_core_solver&    lrac;
     imp*                m_imp; 
     vector<equality>       m_equalities;
+    bool get_freedom_interval_for_column(unsigned j, bool & inf_l, impq & l, bool & inf_u, impq & u, mpq & m);
+    bool is_boxed(unsigned j) const;
+    bool is_free(unsigned j) const;
+    bool value_is_int(unsigned j) const;
+    bool is_feasible() const;
+    bool column_is_int_inf(unsigned j) const;
+    std::ostream& display_inf_rows(std::ostream&) const;
+   
+    lp_settings& settings();
+    const lp_settings& settings() const;
+    bool at_bound(unsigned j) const;
+    bool has_lower(unsigned j) const;
+    bool has_upper(unsigned j) const;
+    unsigned row_of_basic_column(unsigned j) const;
 public:
     int_solver(lar_solver& lp);
     ~int_solver();
@@ -66,26 +80,6 @@ public:
     bool at_upper(unsigned j) const;
     void simplify(std::function<bool(unsigned)>& is_root);
     vector<equality> const& equalities() const { return m_equalities; }
-
-private:
-    // lia_move patch_nbasic_columns();
-    bool get_freedom_interval_for_column(unsigned j, bool & inf_l, impq & l, bool & inf_u, impq & u, mpq & m);
-    bool is_boxed(unsigned j) const;
-    bool is_free(unsigned j) const;
-    bool value_is_int(unsigned j) const;
-    bool is_feasible() const;
-    bool column_is_int_inf(unsigned j) const;
-    std::ostream& display_inf_rows(std::ostream&) const;
-   
-    lp_settings& settings();
-    const lp_settings& settings() const;
-    bool at_bound(unsigned j) const;
-    bool has_lower(unsigned j) const;
-    bool has_upper(unsigned j) const;
-    unsigned row_of_basic_column(unsigned j) const;
-   
-        
-public:
     bool is_fixed(unsigned j) const;
     std::ostream& display_column(std::ostream & out, unsigned j) const;
     u_dependency* column_upper_bound_constraint(unsigned j) const;
@@ -95,11 +89,9 @@ public:
     bool shift_var(unsigned j, unsigned range);
     std::ostream&  display_row_info(std::ostream & out, unsigned row_index) const;
     std::ostream & display_row(std::ostream & out, vector<row_cell<rational>> const & row) const;
-
-public:
     bool is_term(unsigned j) const;
     unsigned column_count() const;
     int select_int_infeasible_var();
-    explanation * explanation();
+    explanation * expl();
 };
 }

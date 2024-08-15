@@ -496,7 +496,7 @@ public:
         auto _check_feasible = [&](void) {
             lra.find_feasible_solution();
             if (!lra.is_feasible() && !lia.settings().get_cancel_flag()) {
-                lra.get_infeasibility_explanation(*(lia.explanation()));
+                lra.get_infeasibility_explanation(*(lia.expl()));
                 return false;
             }
             return true;
@@ -507,7 +507,7 @@ public:
             SASSERT(is_gomory_cut_target(j));
             unsigned row_index = lia.row_of_basic_column(j);
             const row_strip<mpq>& row = lra.get_row(row_index);
-            create_cut cc(lia.get_term(), lia.offset(), lia.explanation(), j, row, lia);
+            create_cut cc(lia.get_term(), lia.offset(), lia.expl(), j, row, lia);
             auto r = cc.cut();
             if (r != lia_move::cut) {
                 if (r == lia_move::conflict)
