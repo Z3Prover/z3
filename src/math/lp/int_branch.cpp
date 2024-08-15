@@ -31,22 +31,22 @@ lia_move int_branch::operator()() {
 
 lia_move int_branch::create_branch_on_column(int j) {
     TRACE("check_main_int", tout << "branching" << std::endl;);
-    lia.m_t.clear();
+    lia.get_term().clear();
 
     lp_assert(j != -1);
-    lia.m_t.add_monomial(mpq(1), j);
+    lia.get_term().add_monomial(mpq(1), j);
     if (lia.is_free(j)) {
-        lia.m_upper = lia.random() % 2;
-        lia.m_k = mpq(0);
+        lia.is_upper() = lia.settings().random_next() % 2;
+        lia.offset() = mpq(0);
     }
     else {
-        lia.m_upper = lia.random() % 2;
-        lia.m_k = lia.m_upper? floor(lia.get_value(j)) : ceil(lia.get_value(j));        
+        lia.is_upper() = lia.settings().random_next() % 2;
+        lia.offset() = lia.is_upper()? floor(lia.get_value(j)) : ceil(lia.get_value(j));        
     }
         
     TRACE("int_solver",
           lia.display_column(tout << "branching v" << j << " = " << lia.get_value(j) << "\n", j);
-          tout << "k = " << lia.m_k << std::endl;);
+          tout << "k = " << lia.offset() << std::endl;);
     return lia_move::branch;        
 }
 
@@ -86,7 +86,7 @@ int int_branch::find_inf_int_base_column() {
             result = j;
             prev_usage = usage;
             n = 1;
-        } else if (usage == prev_usage && (lia.random() % (++n) == 0)) {
+        } else if (usage == prev_usage && (lia.settings().random_next() % (++n) == 0)) {
             result = j;
         }
     }
@@ -103,7 +103,7 @@ int int_branch::find_inf_int_base_column() {
             n = 1;
             result = j;
             range = new_range;
-        } else if (new_range == range && (lia.random() % (++n) == 0)) {
+        } else if (new_range == range && (lia.settings().random_next() % (++n) == 0)) {
             result = j;                    
         }
     }

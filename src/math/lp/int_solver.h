@@ -31,7 +31,7 @@ Revision History:
 namespace lp {
 class lar_solver;
 class lar_core_solver;
-class imp;
+struct imp;
 class int_solver {
     friend struct create_cut;
     friend class gomory;
@@ -39,31 +39,23 @@ class int_solver {
     friend class int_branch;
     friend class int_gcd_test;
     friend class hnf_cutter;
-    friend class imp;
+    friend struct imp;
 
     lar_solver&         lra;
     lar_core_solver&    lrac;
-    int_gcd_test        m_gcd;
-    imp                 *m_imp;
-    unsigned            m_number_of_calls;
-    lar_term            m_t;               // the term to return in the cut
-    mpq                 m_k;               // the right side of the cut
-    bool                m_upper;           // cut is an upper bound
-    explanation         *m_ex;             // the conflict explanation
-    hnf_cutter          m_hnf_cutter;
-    unsigned            m_hnf_cut_period;
-    unsigned_vector     m_cut_vars;        // variables that should not be selected for cuts
-    
+    imp*                m_imp; 
     vector<equality>       m_equalities;
 public:
     int_solver(lar_solver& lp);
     ~int_solver();
-    // main function to check that the solution provided by lar_solver is valid for integral values,
-    // or provide a way of how it can be adjusted.
+    // the function that doing the main job
     lia_move check(explanation *);
-    lar_term const& get_term() const { return m_t; }
-    mpq const& get_offset() const { return m_k; }
-    bool is_upper() const { return m_upper; }
+    lar_term const& get_term() const;
+    lar_term & get_term();
+    mpq const& offset() const;
+    mpq & offset();
+    bool is_upper() const;
+    bool& is_upper();
     bool is_base(unsigned j) const;
     bool is_real(unsigned j) const;
     const impq & lower_bound(unsigned j) const;
@@ -84,17 +76,14 @@ private:
     bool is_feasible() const;
     bool column_is_int_inf(unsigned j) const;
     std::ostream& display_inf_rows(std::ostream&) const;
-    bool should_find_cube();
-    bool should_gomory_cut();
-    bool should_hnf_cut();
-
+   
     lp_settings& settings();
     const lp_settings& settings() const;
     bool at_bound(unsigned j) const;
     bool has_lower(unsigned j) const;
     bool has_upper(unsigned j) const;
     unsigned row_of_basic_column(unsigned j) const;
-    bool cut_indices_are_columns() const;
+   
         
 public:
     bool is_fixed(unsigned j) const;
@@ -107,15 +96,10 @@ public:
     std::ostream&  display_row_info(std::ostream & out, unsigned row_index) const;
     std::ostream & display_row(std::ostream & out, vector<row_cell<rational>> const & row) const;
 
-private:
-    unsigned random();
-    bool has_inf_int() const;
 public:
     bool is_term(unsigned j) const;
     unsigned column_count() const;
-    lia_move hnf_cut();
-
     int select_int_infeasible_var();
-    
+    explanation * explanation();
 };
 }
