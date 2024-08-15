@@ -873,7 +873,7 @@ namespace lp {
     
     bool int_solver::is_upper() const { return m_imp->m_upper; }
     bool& int_solver::is_upper() { return m_imp->m_upper; }
-    explanation* int_solver::explanation() { return m_imp->m_ex; }
+    explanation* int_solver::expl() { return m_imp->m_ex; }
     bool int_solver::column_is_int_inf(unsigned j) const {
         return m_imp->column_is_int_inf(j);
     }
