@@ -1888,7 +1888,7 @@ public:
         case lp::lia_move::branch: {
             TRACE("arith", tout << "branch\n";);
             bool u = m_lia->is_upper();
-            auto const & k = m_lia->get_offset();
+            auto const & k = m_lia->offset();
             rational offset;
             expr_ref t(m);
             expr_ref b = mk_bound(m_lia->get_term(), k, !u, offset, t);
@@ -1919,13 +1919,13 @@ public:
             }
             // The call mk_bound() can set the m_infeasible_column in lar_solver
             // so the explanation is safer to take before this call.
-            expr_ref b = mk_bound(m_lia->get_term(), m_lia->get_offset(), !m_lia->is_upper());
+            expr_ref b = mk_bound(m_lia->get_term(), m_lia->offset(), !m_lia->is_upper());
             if (m.has_trace_stream()) {
                 th.log_axiom_instantiation(b);
                 m.trace_stream() << "[end-of-instance]\n";
             }
             IF_VERBOSE(4, verbose_stream() << "cut " << b << "\n");
-            TRACE("arith", dump_cut_lemma(tout, m_lia->get_term(), m_lia->get_offset(), m_explanation, m_lia->is_upper()););
+            TRACE("arith", dump_cut_lemma(tout, m_lia->get_term(), m_lia->offset(), m_explanation, m_lia->is_upper()););
             literal lit(ctx().get_bool_var(b), false);
             TRACE("arith", 
                   ctx().display_lemma_as_smt_problem(tout << "new cut:\n", m_core.size(), m_core.data(), m_eqs.size(), m_eqs.data(), lit);

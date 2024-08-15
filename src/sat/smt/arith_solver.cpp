@@ -1176,7 +1176,7 @@ namespace arith {
             TRACE("arith", tout << "branch\n";);
             app_ref b(m);
             bool u = m_lia->is_upper();
-            auto const& k = m_lia->get_offset();
+            auto const& k = m_lia->offset();
             rational offset;
             expr_ref t(m);
             b = mk_bound(m_lia->get_term(), k, !u, offset, t);
@@ -1199,7 +1199,7 @@ namespace arith {
                 set_evidence(ev.ci());
             // The call mk_bound() can set the m_infeasible_column in lar_solver
             // so the explanation is safer to take before this call.
-            app_ref b = mk_bound(m_lia->get_term(), m_lia->get_offset(), !m_lia->is_upper());
+            app_ref b = mk_bound(m_lia->get_term(), m_lia->offset(), !m_lia->is_upper());
             IF_VERBOSE(4, verbose_stream() << "cut " << b << "\n");
             literal lit = expr2literal(b);
             assign(lit, m_core, m_eqs, explain(hint_type::cut_h, lit));

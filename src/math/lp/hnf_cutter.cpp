@@ -260,7 +260,7 @@ branch y_i >= ceil(y0_i) is impossible.
 #ifdef Z3DEBUG
         vector<mpq> x0 = transform_to_local_columns(lra.r_x());
 #endif
-        lia_move r =  create_cut(lia.m_t, lia.m_k, lia.m_ex, lia.m_upper
+        lia_move r =  create_cut(lia.get_term(), lia.offset(), lia.explanation(), lia.is_upper()
 #ifdef Z3DEBUG
                                  , x0
 #endif
@@ -268,18 +268,18 @@ branch y_i >= ceil(y0_i) is impossible.
         
         if (r == lia_move::cut) {      
             TRACE("hnf_cut",
-                  lra.print_term(lia.m_t, tout << "cut:"); 
-                  tout << " <= " << lia.m_k << std::endl;
+                  lra.print_term(lia.get_term(), tout << "cut:"); 
+                  tout << " <= " << lia.offset() << std::endl;
                   for (auto* dep : constraints_for_explanation()) 
                       for (auto ci : lra.flatten(dep))
                           lra.constraints().display(tout, ci);                  
                   );
             lp_assert(lia.current_solution_is_inf_on_cut());
             lia.settings().stats().m_hnf_cuts++;
-            lia.m_ex->clear();        
+            lia.explanation()->clear();        
             for (u_dependency* dep : constraints_for_explanation()) 
                 for (auto ci : lia.lra.flatten(dep))
-                    lia.m_ex->push_back(ci);            
+                    lia.explanation()->push_back(ci);            
         } 
         return r;
     }
