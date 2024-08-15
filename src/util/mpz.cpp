@@ -46,10 +46,14 @@ Revision History:
 #define LEHMER_GCD
 #endif
 
-
-#if defined(__GNUC__)
+#ifdef __has_builtin
+    #define HAS_BUILTIN(X) __has_builtin(X)
+#else
+    #define HAS_BUILTIN(X) 0
+#endif
+#if HAS_BUILTIN(__builtin_ctz)
 #define _trailing_zeros32(X) __builtin_ctz(X)
-#elif defined(_WINDOWS) && (defined(_M_X86) || (defined(_M_X64) && !defined(_M_ARM64EC)))
+#elif defined(_WINDOWS) && (defined(_M_X86) || (defined(_M_X64) && !defined(_M_ARM64EC))) && !defined(__clang__)
 // This is needed for _tzcnt_u32 and friends.
 #include <immintrin.h>
 #define _trailing_zeros32(X) _tzcnt_u32(X)
@@ -62,11 +66,11 @@ static uint32_t _trailing_zeros32(uint32_t x) {
 #endif
 
 #if (defined(__LP64__) || defined(_WIN64)) && defined(_M_X64) && !defined(_M_ARM64EC)
- #if defined(__GNUC__)
- #define _trailing_zeros64(X) __builtin_ctzll(X)
- #else
- #define _trailing_zeros64(X) _tzcnt_u64(X)
- #endif
+#if HAS_BUILTIN(__builtin_ctzll)
+#define _trailing_zeros64(X) __builtin_ctzll(X)
+#elif !defined(__clang__)
+#define _trailing_zeros64(X) _tzcnt_u64(X)
+#endif
 #else
 static uint64_t _trailing_zeros64(uint64_t x) {
     uint64_t r = 0;
@@ -74,6 +78,8 @@ static uint64_t _trailing_zeros64(uint64_t x) {
     return r;
 }
 #endif
+
+#undef HAS_BUILTIN
 
 unsigned trailing_zeros(uint32_t x) {
     return static_cast<unsigned>(_trailing_zeros32(x));
