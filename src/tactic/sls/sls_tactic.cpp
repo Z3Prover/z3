@@ -82,6 +82,7 @@ public:
             m_sls->collect_statistics(m_st);
             throw;
         }
+        m_sls->collect_statistics(m_st);
 
 //        report_tactic_progress("Number of flips:", m_sls->get_num_moves());
         IF_VERBOSE(10, verbose_stream() << res << "\n");

@@ -141,7 +141,7 @@ namespace sls {
         double get_weight(unsigned clause_idx) { return s.get_weigth(clause_idx); }
         unsigned num_bool_vars() const { return s.num_vars(); }
         bool is_true(sat::literal lit) { return s.is_true(lit); }  
-        bool is_true(sat::bool_var v) { return s.is_true(sat::literal(v, false)); }
+        bool is_true(sat::bool_var v) const { return s.is_true(sat::literal(v, false)); }
         expr* atom(sat::bool_var v) { return m_atoms.get(v, nullptr); }
         expr* term(unsigned id) const { return m_allterms.get(id); }
         sat::bool_var atom2bool_var(expr* e) const { return m_atom2bool_var.get(e->get_id(), sat::null_bool_var); }

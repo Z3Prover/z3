@@ -250,6 +250,7 @@ namespace sls {
         void add_gt(var_t v, num_t const& n);
         std::ostream& display(std::ostream& out, var_t v) const;
         std::ostream& display(std::ostream& out, add_def const& ad) const;
+        std::ostream& display(std::ostream& out, mul_def const& md) const;
     public:
         arith_base(context& ctx);
         ~arith_base() override {}        

@@ -29,7 +29,7 @@ namespace sls {
     bool basic_plugin::is_basic(expr* e) const {
         if (!e || !is_app(e))
             return false;
-        if (m.is_ite(e) && !m.is_bool(e))
+        if (m.is_ite(e) && !m.is_bool(e) && false)
             return true;
         if (m.is_xor(e) && to_app(e)->get_num_args() != 2)
             return true;
@@ -42,6 +42,11 @@ namespace sls {
     }
 
     void basic_plugin::register_term(expr* e) {
+        expr* c, * th, * el;
+        if (m.is_ite(e, c, th, el) && !m.is_bool(e)) {
+            ctx.add_clause(m.mk_or(mk_not(m, c), m.mk_eq(e, th)));
+            ctx.add_clause(m.mk_or(c, m.mk_eq(e, el)));
+        }
     }
 
     void basic_plugin::initialize() {

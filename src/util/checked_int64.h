@@ -166,10 +166,11 @@ public:
                 uint64_t r = x * y;
                 if ((y != 0 && r / y != x) || r > INT64_MAX)
                     throw overflow_exception();
+                int64_t old_value = m_value;
                 m_value = r;
-                if (m_value < 0 && other.m_value > 0)
+                if (old_value < 0 && other.m_value > 0)
                     m_value = -m_value;
-                if (m_value > 0 && other.m_value < 0)
+                else if (old_value > 0 && other.m_value < 0)
                     m_value = -m_value;
             }
         }

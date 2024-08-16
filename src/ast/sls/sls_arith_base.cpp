@@ -42,6 +42,7 @@ Done:
 
 #include "ast/sls/sls_arith_base.h"
 #include "ast/ast_ll_pp.h"
+#include "ast/ast_pp.h"
 
 namespace sls {
 
@@ -51,7 +52,7 @@ namespace sls {
         case ineq_kind::LE:
             return m_args_value <= 0;
         case ineq_kind::EQ:
-            return m_args_value== 0;
+            return m_args_value == 0;
         default:
             return m_args_value < 0;
         }
@@ -431,7 +432,7 @@ namespace sls {
         if (m_last_var == v && m_last_delta == -delta)
             return false;
 
-        if (false && m_use_tabu && vi.is_tabu(m_stats.m_num_steps, delta))
+        if (m_use_tabu && vi.is_tabu(m_stats.m_num_steps, delta))
             return false;
 
         auto old_value = value(v);
@@ -625,7 +626,7 @@ namespace sls {
             return false;
         }
 
-        IF_VERBOSE(10, display(verbose_stream(), v) << " := " << new_value << "\n");
+        // IF_VERBOSE(0, display(verbose_stream(), v) << " := " << new_value << "\n");
 
 
 
@@ -965,10 +966,9 @@ namespace sls {
 
     template<typename num_t>
     void arith_base<num_t>::init_bool_var(sat::bool_var bv) {
+        expr* e = ctx.atom(bv);
         if (m_bool_vars.get(bv, nullptr))
             return;
-        expr* e = ctx.atom(bv);
-        // verbose_stream() << "bool var " << bv << " " << mk_bounded_pp(e, m) << "\n";
         if (!e)
             return;
         expr* x, * y;
@@ -1069,7 +1069,7 @@ namespace sls {
 
         // attach i to bv
         m_bool_vars.set(bv, &i);
-    }
+     }
 
     template<typename num_t>
     void arith_base<num_t>::init_bool_var_assignment(sat::bool_var v) {
@@ -1209,6 +1209,7 @@ namespace sls {
             auto const& vi = m_vars[v];
             if (vi.m_lo || vi.m_hi)
                 continue;
+            expr* e = vi.m_expr;
             if (is_add(v)) {
                 auto const& ad = get_add(v);
                 num_t lo(ad.m_coeff), hi(ad.m_coeff);
@@ -1261,10 +1262,11 @@ namespace sls {
                     if (!lo_valid && !hi_valid)
                         break;
                     auto const& wi = m_vars[w];
-                    if (lo_valid) {
-                        // TODO
+                    if (wi.m_lo && !wi.m_lo->is_strict && wi.m_lo->value >= 0)
+                        lo *= power_of(value(w), p);
+                    else
                         lo_valid = false;
-                    }
+                    
                     if (hi_valid) {
                         // TODO
                         hi_valid = false;
@@ -1283,6 +1285,20 @@ namespace sls {
                         add_le(v, hi);
                 }
             }
+            expr* c, * th, * el;
+            if (m.is_ite(e, c, th, el)) {
+                auto vth = m_expr2var.get(th->get_id(), UINT_MAX);
+                auto vel = m_expr2var.get(el->get_id(), UINT_MAX);
+                if (vth == UINT_MAX || vel == UINT_MAX)
+                    continue;
+                auto const& vith = m_vars[vth];
+                auto const& viel = m_vars[vel];
+                if (vith.m_lo && viel.m_lo && !vith.m_lo->is_strict && !viel.m_lo->is_strict)
+                    add_ge(v, std::min(vith.m_lo->value, viel.m_lo->value));
+                if (vith.m_hi && viel.m_hi && !vith.m_hi->is_strict && !viel.m_hi->is_strict)
+                    add_le(v, std::max(vith.m_hi->value, viel.m_hi->value));
+
+            }
             // TBD: can also do with other operators.
         }
     }
@@ -1296,7 +1312,7 @@ namespace sls {
 
         if (ineq->m_args.size() != 1)
             return;
-        auto [c, v] = ineq->m_args[0];
+        auto [c, v] = ineq->m_args[0];        
         
         switch (ineq->m_op) {
             case ineq_kind::LE:
@@ -1396,17 +1412,26 @@ namespace sls {
         if (old_value == sum)
             return true;
 
+        //display(verbose_stream() << "repair add v" << v << " ", ad) << " " << old_value << " sum " << sum << "\n";
+
         m_updates.reset();
 //        display(verbose_stream(), v) << " ";
 //        verbose_stream() << mk_bounded_pp(m_vars[v].m_expr, m) << " := " << old_value << " " << sum << "\n";
 
-        for (auto const& [coeff, w] : coeffs) 
-            add_update(v, divide(w, old_value - sum, coeff));        
-
+        for (auto const& [coeff, w] : coeffs) {
+            auto delta = divide(w, sum - old_value, coeff);
+            if (sum == coeff*delta + old_value)
+                add_update(w, delta);
+        }
         if (apply_update())
             return eval_is_correct(v);
 
         m_updates.reset();
+        for (auto const& [coeff, w] : coeffs) {
+            auto delta = divide(w, sum - old_value, coeff);
+            if (sum != coeff*delta + old_value)
+                add_update(w, delta);
+        }
         for (auto const& [coeff, w] : coeffs)
             if (is_mul(w)) {
                 auto const& [w1, c, monomial] = get_mul(w);
@@ -1433,7 +1458,6 @@ namespace sls {
         if (product == val)
             return true;
         
-
         m_updates.reset();
         if (val == 0) {
             for (auto [x, p] : monomial)
@@ -1458,6 +1482,8 @@ namespace sls {
                     add_update(x, -r - value(x));
             }
         }
+
+        // verbose_stream() << "repair product v" << v << "\n";
 
         if (apply_update())
             return eval_is_correct(v);
@@ -1873,6 +1899,23 @@ namespace sls {
     }
 
     template<typename num_t>
+    std::ostream& arith_base<num_t>::display(std::ostream& out, mul_def const& md) const {
+        auto const& [w, coeff, monomial] = md;
+        bool first = true;
+        if (coeff != 1)
+            out << coeff, first = false;
+        for (auto [v, p] : monomial) {
+            if (!first)
+                out << " * ";
+            out << "v" << v;
+            if (p > 1)
+                out << "^" << p;
+            first = false;
+        }
+        return out;
+    }
+
+    template<typename num_t>
     std::ostream& arith_base<num_t>::display(std::ostream& out, add_def const& ad) const {
         bool first = true;
         for (auto [c, w] : ad.m_args) {
@@ -1893,7 +1936,9 @@ namespace sls {
             first = false;
             out << "v" << w;
         }
-        if (ad.m_coeff > 0)
+        if (ad.m_args.empty())
+            out << ad.m_coeff;
+        else if (ad.m_coeff > 0)
             out << " + " << ad.m_coeff;
         else if (ad.m_coeff < 0)
             out << " - " << -ad.m_coeff;
@@ -1921,6 +1966,8 @@ namespace sls {
         out << mk_bounded_pp(vi.m_expr, m) << " ";
         if (is_add(v)) 
             display(out << "add: ", get_add(v)) << " ";
+        if (is_mul(v))
+            display(out << "mul: ", get_mul(v)) << " ";
 
         if (!vi.m_adds.empty()) {
             out << " adds: ";
@@ -1936,10 +1983,11 @@ namespace sls {
             out << " ";
         }
         
-        if (!vi.m_bool_vars.empty())
+        if (!vi.m_bool_vars.empty()) {
             out << " bool: ";
-        for (auto [c, bv] : vi.m_bool_vars)
-            out << c << "@" << bv << " ";       
+            for (auto [c, bv] : vi.m_bool_vars)
+                out << c << "@" << bv << " ";
+        }
         return out;
     }
 
@@ -1964,8 +2012,6 @@ namespace sls {
 
             out << "\n";
         }
-        for (auto ad : m_adds) 
-            display(out, ad) << "\n";
 
         for (auto od : m_ops) {
             out << "v" << od.m_var << " := ";
@@ -2077,6 +2123,7 @@ namespace sls {
                     out << "v" << ad.m_var << " := ";
                     display(out, ad) << "\n";
                 }
+
                 UNREACHABLE();
             }
         }

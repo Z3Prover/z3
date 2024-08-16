@@ -28,6 +28,7 @@ namespace sls {
         sat::ddfw& m_ddfw;
         context m_context;
         bool m_dirty = false;
+        bool m_new_constraint = false;
         model_ref m_model;
         obj_map<expr, sat::literal> m_expr2lit;
     public:
@@ -55,11 +56,11 @@ namespace sls {
             TRACE("sls", display(tout));
             while (unsat().empty()) {
                 m_context.check();
-                if (!m_dirty)
+                if (!m_new_constraint)
                     break;
                 TRACE("sls", display(tout));
                 m_ddfw.reinit();
-                m_dirty = false;
+                m_new_constraint = false;
             }
         }
 
@@ -87,16 +88,12 @@ namespace sls {
         bool is_true(sat::literal lit) override { return m_ddfw.get_value(lit.var()) != lit.sign(); }
         unsigned num_vars() const override { return m_ddfw.num_vars(); }
         indexed_uint_set const& unsat() const override { return m_ddfw.unsat_set(); }
-        sat::bool_var add_var() override { m_dirty = true;  return m_ddfw.add_var(); }
-
-  
-        void add_clause(expr* f) {
-            m_context.add_clause(f);
-        }
+        sat::bool_var add_var() override { m_dirty = true;  return m_ddfw.add_var(); }  
+        void add_clause(expr* f) { m_context.add_clause(f); }
 
         void add_clause(unsigned n, sat::literal const* lits) override {
             m_ddfw.add(n, lits);
-            m_dirty = true;
+            m_new_constraint = true;
         }
 
         sat::literal mk_literal() {
@@ -124,8 +121,7 @@ namespace sls {
         m_ddfw.updt_params(p);
     }
     
-    smt_solver::~smt_solver() {
-        
+    smt_solver::~smt_solver() {        
     }
     
     void smt_solver::assert_expr(expr* e) {
@@ -137,17 +133,11 @@ namespace sls {
             m_assertions.push_back(e);
     }
     
-    lbool smt_solver::check() {
-        // send clauses to ddfw
-        // send expression mapping to m_solver_ctx
-        
+    lbool smt_solver::check() {        
         for (auto f : m_assertions) 
-            m_solver_ctx->add_clause(f);
-        
+            m_solver_ctx->add_clause(f);        
         IF_VERBOSE(10, m_solver_ctx->display(verbose_stream()));
-        auto r = m_ddfw.check(0, nullptr);
-
-        return r;
+        return m_ddfw.check(0, nullptr);
     }
     
     model_ref smt_solver::get_model() {

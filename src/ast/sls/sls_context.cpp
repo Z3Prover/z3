@@ -48,7 +48,7 @@ namespace sls {
     }
 
     void context::register_atom(sat::bool_var v, expr* e) { 
-        m_atoms.setx(v, e); 
+        m_atoms.setx(v, e);
         m_atom2bool_var.setx(e->get_id(), v, sat::null_bool_var);
     }
     
@@ -225,7 +225,6 @@ namespace sls {
 
     void context::add_clause(expr* f)  {
         expr_ref _e(f, m);
-        verbose_stream() << "add constraint " << _e << "\n";
         expr* g, * h, * k;
         sat::literal_vector clause;
         if (m.is_not(f, g) && m.is_not(g, g)) {
@@ -289,6 +288,7 @@ namespace sls {
     }
 
     sat::literal context::mk_literal(expr* e) {
+        expr_ref _e(e, m);
         sat::literal lit;
         bool neg = false;
         expr* a, * b, * c;
@@ -299,6 +299,7 @@ namespace sls {
             return sat::literal(v, neg);
         sat::literal_vector clause;
         lit = mk_literal();
+        register_atom(lit.var(), e);
         if (m.is_true(e)) {
             clause.push_back(lit);
             s.add_clause(clause.size(), clause.data());
@@ -355,9 +356,7 @@ namespace sls {
             s.add_clause(3, cls4);
         }           
         else 
-            register_terms(e);        
-        
-        register_atom(lit.var(), e);
+            register_terms(e);                    
 
         return neg ? ~lit : lit;
     }
@@ -392,6 +391,8 @@ namespace sls {
             return;
         m_subterms.reset();
         m_todo.push_back(e);
+        if (m_todo.size() > 1)
+            return;
         while (!m_todo.empty()) {
             expr* e = m_todo.back();
             if (is_visited(e)) 
@@ -402,6 +403,8 @@ namespace sls {
                         m_parents.reserve(arg->get_id() + 1);
                         m_parents[arg->get_id()].push_back(e);
                     }
+                    if (m.is_bool(e))
+                        mk_literal(e);
                     register_term(e);
                     visit(e);
                     m_todo.pop_back();
@@ -494,6 +497,12 @@ namespace sls {
             out << "d " << mk_bounded_pp(term(id), m) << "\n";
         for (auto id : m_repair_up)
             out << "u " << mk_bounded_pp(term(id), m) << "\n";
+        for (unsigned v = 0; v < m_atoms.size(); ++v) {
+            auto e = m_atoms[v];
+            if (e)
+                out << v << ": " << mk_bounded_pp(e, m) << " := " << (is_true(v)?"T":"F") << "\n";
+
+        }
         for (auto p : m_plugins) 
             if (p)
                 p->display(out);
