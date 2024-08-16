@@ -4,8 +4,9 @@
 #include "math/lp/lp_utils.h"
 
 namespace lp {
-    struct imp {
-    
+
+    class dioph_eq::imp {
+    public:
         int_solver& lia;
         lar_solver& lra;
 
@@ -13,9 +14,9 @@ namespace lp {
         vector<lar_term> m_e;
             
         void init() {
-            int n_of_rows = lra.r_basis().size();
+            unsigned n_of_rows = static_cast<unsigned>(lra.r_basis().size());
             unsigned skipped = 0;
-            for (unsigned i = 0; i < lra.r_basis().size(); i++) {
+            for (unsigned i = 0; i < n_of_rows; i++) {
                 auto & row = lra.get_row(i);
                 lar_term t;
                 bool is_int = true;

@@ -19,9 +19,10 @@ Revision History:
 #include "math/lp/lia_move.h"
 
 namespace lp {
-    struct imp;
+    
     class int_solver;
     class dioph_eq {
+        class imp;
         int_solver& lia;
         imp*        m_imp;
     public:
