@@ -2,6 +2,7 @@ z3_add_component(lp
   SOURCES
     core_solver_pretty_printer.cpp
     dense_matrix.cpp
+    dioph_eq.cpp
     emonics.cpp
     factorization.cpp
     factorization_factory_imp.cpp

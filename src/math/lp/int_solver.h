@@ -40,7 +40,7 @@ class int_solver {
     friend class int_gcd_test;
     friend class hnf_cutter;
     friend struct imp;
-
+    friend class dioph_eq;
     lar_solver&         lra;
     lar_core_solver&    lrac;
     imp*                m_imp; 
