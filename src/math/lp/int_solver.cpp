@@ -29,7 +29,8 @@ namespace lp {
 
     };
     
-    struct imp {
+    class int_solver::imp {
+        public:
         int_solver&         lia;
         lar_solver&         lra;
         lar_core_solver&    lrac;

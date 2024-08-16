@@ -31,16 +31,17 @@ Revision History:
 namespace lp {
 class lar_solver;
 class lar_core_solver;
-struct imp;
 class int_solver {
+
     friend struct create_cut;
     friend class gomory;
     friend class int_cube;
     friend class int_branch;
     friend class int_gcd_test;
     friend class hnf_cutter;
-    friend struct imp;
+    friend class imp;
     friend class dioph_eq;
+    class imp;
     lar_solver&         lra;
     lar_core_solver&    lrac;
     imp*                m_imp; 
