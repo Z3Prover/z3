@@ -9,6 +9,7 @@
 #include "math/lp/gomory.h"
 #include "math/lp/int_branch.h"
 #include "math/lp/int_cube.h"
+#include "math/lp/dioph_eq.h"
 
 namespace lp {
     bool get_patching_deltas(const rational& x, const rational& alpha,
@@ -39,7 +40,6 @@ namespace lp {
         mpq                 m_k;               // the right side of the cut
         hnf_cutter          m_hnf_cutter;
         unsigned            m_hnf_cut_period;
-        unsigned_vector     m_cut_vars;        // variables that should not be selected for cuts
         int_gcd_test        m_gcd;
 
         bool column_is_int_inf(unsigned j) const {
@@ -163,11 +163,8 @@ namespace lp {
             return lia_move::undef;     
         }
 
-        void init_dioph_eq() {
-        }
-
         lia_move solve_dioph_eq() {
-            init_dioph_eq();
+            //dioph_eq de(lia);
             return lia_move::undef;
         }
 
@@ -209,7 +206,6 @@ namespace lp {
             m_ex = e;
             m_ex->clear();
             m_upper = false;
-            m_cut_vars.reset();
         
             lia_move r = lia_move::undef;
 
@@ -277,8 +273,6 @@ namespace lp {
         
             for (unsigned j : lra.r_basis()) {
                 if (!column_is_int_inf(j))
-                    continue;
-                if (m_cut_vars.contains(j))
                     continue;
 
                 SASSERT(!lia.is_fixed(j));
@@ -488,7 +482,8 @@ namespace lp {
     unsigned int_solver::column_count() const  {
         return lra.column_count();
     }
-
+
+
     static void set_lower(impq & l, bool & inf_l, impq const & v ) {
         if (inf_l || v > l) {
             l = v;

@@ -45,6 +45,8 @@ typedef vector<column_cell> column_strip;
 
 template <typename T>
 using row_strip = vector<row_cell<T>>; 
+mpq get_denominators_lcm(const row_strip<mpq> & row);
+    
 template <typename T>
 std::ostream& operator<<(std::ostream& out, const row_strip<T>& r) {
     for (auto const& c : r)

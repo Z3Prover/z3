@@ -18,6 +18,8 @@ Revision History:
 
 --*/
 #pragma once
+#include <string>
+#include "util/debug.h"
 namespace lp {
     enum class lia_move {
         sat,
