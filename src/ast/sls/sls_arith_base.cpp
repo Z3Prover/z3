@@ -437,8 +437,8 @@ namespace sls {
 
         auto old_value = value(v);
         auto new_value = old_value + delta;
-        if (!vi.in_range(new_value))
-            return false;
+        if (!vi.in_range(new_value)) 
+            return false;        
 
         if (m_use_tabu && !in_bounds(v, new_value) && in_bounds(v, old_value)) {
             auto const& lo = m_vars[v].m_lo;
@@ -474,9 +474,11 @@ namespace sls {
     template<typename num_t>
     void arith_base<num_t>::add_update(var_t v, num_t delta) { 
         num_t delta_out;
-        if (!is_permitted_update(v, delta, delta_out))
+        if (!is_permitted_update(v, delta, delta_out)) 
             return;
-        m_updates.push_back({ v, delta_out, compute_score(v, delta_out) }); 
+
+        
+        m_updates.push_back({ v, delta_out, 0 }); 
     }
 
     // flip on the first positive score
@@ -490,6 +492,16 @@ namespace sls {
 
     template<typename num_t>
     bool arith_base<num_t>::apply_update() {
+
+        while (m_updates.size() > m_updates_max_size) {
+            auto idx = ctx.rand(m_updates.size());
+            m_updates[idx] = m_updates.back();
+            m_updates.pop_back();
+        }
+
+        for (auto & [v, delta, score] : m_updates)
+            score = compute_score(v, delta);
+
         double sum_score = 0;
 
         for (auto const& [v, delta, score] : m_updates)
@@ -509,7 +521,6 @@ namespace sls {
 
             IF_VERBOSE(10, verbose_stream() << "repair: v" << v << " := " << value(v) << " -> " << new_value << "\n");
             if (update(v, new_value)) {
-                m_last_var = v;
                 m_last_delta = delta;
                 m_stats.m_num_steps++;
                 m_vars[v].set_step(m_stats.m_num_steps, m_stats.m_num_steps + 3 + ctx.rand(10), delta);
@@ -525,16 +536,28 @@ namespace sls {
     template<typename num_t>
     bool arith_base<num_t>::repair(sat::literal lit) {
         
+        verbose_stream() << "repair " << lit << " " << (ctx.is_unit(lit)?"unit":"") << "\n";
+        //flet<bool> _tabu(m_use_tabu, m_use_tabu && lit != m_last_literal);
+        m_last_literal = lit;
         find_moves(lit);
+        static unsigned num_fail = 0;
        
-        if (apply_update())
+        if (apply_update()) 
             return true;
+        
 
         find_reset_moves(lit);
 
-        if (apply_update())
+        if (apply_update()) 
             return true;
+        
+        ++num_fail;
 
+        if (num_fail > 3) {
+
+            ctx.force_restart();
+            num_fail = 0;
+        }
         return false;
     }
 
@@ -650,6 +673,7 @@ namespace sls {
         }
         vi.m_value = new_value;
         ctx.new_value_eh(e);
+        m_last_var = v;
 
         IF_VERBOSE(10, verbose_stream() << "new value eh " << mk_bounded_pp(e, m) << "\n");
 
@@ -1100,6 +1124,7 @@ namespace sls {
 
     template<typename num_t>
     bool arith_base<num_t>::propagate() {
+       // m_last_var = UINT_MAX; // allow to change last variable.
         return false;
     }
 
@@ -1259,16 +1284,25 @@ namespace sls {
                 bool lo_valid = true, hi_valid = true;
                 bool lo_strict = false, hi_strict = false;
                 for (auto [w, p] : monomial) {
-                    if (!lo_valid && !hi_valid)
+                    if (!lo_valid)
                         break;
                     auto const& wi = m_vars[w];
                     if (wi.m_lo && !wi.m_lo->is_strict && wi.m_lo->value >= 0)
-                        lo *= power_of(value(w), p);
+                        lo *= power_of(wi.m_lo->value, p);
                     else
                         lo_valid = false;
-                    
-                    if (hi_valid) {
-                        // TODO
+                }
+                for (auto [w, p] : monomial) {
+                    if (!lo_valid && !hi_valid)
+                        break;
+                    auto const& wi = m_vars[w];
+                    try {
+                        if (wi.m_hi && !wi.m_hi->is_strict)
+                            hi *= power_of(wi.m_hi->value, p);
+                        else
+                            hi_valid = false;
+                    }
+                    catch (overflow_exception&) {
                         hi_valid = false;
                     }
                 }
@@ -1278,7 +1312,7 @@ namespace sls {
                     else
                         add_ge(v, lo);
                 }
-                if (hi_valid) {
+                if (lo_valid && hi_valid) {
                     if (hi_strict)
                         add_lt(v, hi);
                     else
@@ -1297,6 +1331,33 @@ namespace sls {
                     add_ge(v, std::min(vith.m_lo->value, viel.m_lo->value));
                 if (vith.m_hi && viel.m_hi && !vith.m_hi->is_strict && !viel.m_hi->is_strict)
                     add_le(v, std::max(vith.m_hi->value, viel.m_hi->value));
+
+            }
+            switch (vi.m_op) {
+            case LAST_ARITH_OP:
+            case OP_ADD: 
+            case OP_MUL: 
+                break;
+            case OP_MOD: {
+                auto v2 = m_ops[vi.m_def_idx].m_arg2;
+                auto const& vi2 = m_vars[v2];
+                if (vi2.m_lo && vi2.m_hi && vi2.m_lo->value == vi2.m_hi->value && vi2.m_lo->value > 0) {
+                    add_le(v, vi2.m_lo->value - 1);
+                    add_ge(v, num_t(0));
+                }
+                break;
+            }
+            case OP_DIV:
+                break;
+            case OP_IDIV:
+                break;
+            case OP_REM:
+                break;
+            case OP_ABS:
+                add_ge(v, num_t(0));
+                break;
+            default:
+                NOT_IMPLEMENTED_YET();
 
             }
             // TBD: can also do with other operators.
@@ -1604,12 +1665,17 @@ namespace sls {
         int result = 0;
         for (auto const& [coeff, bv] : m_vars[x].m_bool_vars) {
             bool old_sign = sign(bv);
+            auto lit = sat::literal(bv, old_sign);
             auto dtt_old = dtt(old_sign, *atom(bv));
             auto dtt_new = dtt(old_sign, *atom(bv), coeff, delta);
-            if (dtt_new == 0 && dtt_old != 0)
+            if (dtt_new == 0 && dtt_old != 0) 
                 result += 1;
-            if (dtt_new != 0 && dtt_old == 0)
+            
+            if (dtt_new != 0 && dtt_old == 0) {
+                if (m_use_tabu && ctx.is_unit(lit))
+                    return 0;
                 result -= 1;
+            }
         }
 
         if (result < 0)
@@ -1698,7 +1764,7 @@ namespace sls {
         auto const& vi = m_vars[x];
         auto const& lo = vi.m_lo;
         auto const& hi = vi.m_hi;
-        auto new_value = num_t(ctx.rand(5) - 2);
+        auto new_value = num_t(-2 + (int)ctx.rand(5));
         if (lo && lo->value > new_value)
             new_value = lo->value;
         else if (hi && hi->value < new_value)
@@ -1706,8 +1772,12 @@ namespace sls {
         if (new_value != value(x))
             add_update(x, new_value - value(x));
         else {
-            add_update(x, num_t(1));
-            add_update(x, -num_t(1));
+            add_update(x, num_t(1) - value(x));
+            add_update(x, -num_t(1) - value(x));
+            if (value(x) != 0) {
+                add_update(x, num_t(1));
+                add_update(x, -num_t(1));
+            }
         }
     }
 
@@ -1722,10 +1792,9 @@ namespace sls {
         
         IF_VERBOSE(10,
             if (m_updates.empty()) {
-                verbose_stream() << *ineq << "\n";
+                verbose_stream() << lit << ": " << * ineq << "\n";
                 for (auto const& [x, nl] : ineq->m_nonlinear) {
-                    auto const& vi = m_vars[x];
-                    display(verbose_stream() << "v" << x << "\n", x) << "\n";
+                    display(verbose_stream(), x) << "\n";
                 }
             }
             verbose_stream() << "RESET moves num updates: " << lit << " " << m_updates.size() << "\n");

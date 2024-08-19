@@ -267,6 +267,8 @@ namespace sat {
 
         void reinit();
 
+        void force_restart() { m_restart_next = m_flips; }
+
         inline unsigned num_vars() const { return m_vars.size(); }
 
 

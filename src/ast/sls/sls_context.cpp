@@ -368,9 +368,13 @@ namespace sls {
             return;
         m_initialized = true;
         m_unit_literals.reset();
+        m_unit_indices.reset();
         for (auto const& clause : s.clauses())
-           if (clause.m_clause.size() == 1)
+            if (clause.m_clause.size() == 1) 
                 m_unit_literals.push_back(clause.m_clause[0]);
+        for (sat::literal lit : m_unit_literals)
+            m_unit_indices.insert(lit.index());
+            
         verbose_stream() << "UNITS " << m_unit_literals << "\n";
         for (auto a : m_atoms)
             if (a)

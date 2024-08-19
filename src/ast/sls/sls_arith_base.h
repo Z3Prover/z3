@@ -151,8 +151,10 @@ namespace sls {
         bool                         m_dscore_mode = false;
         vector<var_change>           m_updates;
         var_t                        m_last_var = 0;
+        sat::literal                 m_last_literal = sat::null_literal;
         num_t                        m_last_delta { 0 };
         bool                         m_use_tabu = true;
+        unsigned                     m_updates_max_size = 45;
         arith_util                   a;
 
         void invariant();

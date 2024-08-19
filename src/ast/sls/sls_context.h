@@ -73,6 +73,7 @@ namespace sls {
         virtual void on_model(model_ref& mdl) = 0;
         virtual sat::bool_var add_var() = 0;
         virtual void add_clause(unsigned n, sat::literal const* lits) = 0;
+        virtual void force_restart() = 0;
         virtual std::ostream& display(std::ostream& out) = 0;
     };
     
@@ -101,6 +102,7 @@ namespace sls {
         unsigned_vector m_atom2bool_var;
         vector<ptr_vector<expr>> m_parents;
         sat::literal_vector m_root_literals, m_unit_literals;
+        indexed_uint_set m_unit_indices;
         random_gen m_rand;
         bool m_initialized = false;
         bool m_new_constraint = false;
@@ -154,8 +156,9 @@ namespace sls {
         unsigned rand(unsigned n) { return m_rand(n); }
         sat::literal_vector const& root_literals() const { return m_root_literals; }
         sat::literal_vector const& unit_literals() const { return m_unit_literals; }
-
+        bool is_unit(sat::literal lit) const { return m_unit_indices.contains(lit.index()); }
         void reinit_relevant();
+        void force_restart() { s.force_restart(); }
 
         ptr_vector<expr> const& parents(expr* e) { 
             m_parents.reserve(e->get_id() + 1); 
@@ -173,6 +176,7 @@ namespace sls {
         ptr_vector<expr> const& subterms();        
         ast_manager& get_manager() { return m; }
         std::ostream& display(std::ostream& out) const;
+        std::ostream& display_all(std::ostream& out) const { return s.display(out); }
 
         void collect_statistics(statistics& st) const;
         void reset_statistics();

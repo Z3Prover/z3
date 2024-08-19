@@ -136,6 +136,7 @@ namespace sls {
             m_ddfw->add(n, lits);
             m_new_clause_added = true;
         }
+        void force_restart() override { m_ddfw->force_restart(); }
     };
 
     void solver::init_search() {

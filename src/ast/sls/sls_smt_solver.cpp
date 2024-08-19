@@ -91,6 +91,8 @@ namespace sls {
         sat::bool_var add_var() override { m_dirty = true;  return m_ddfw.add_var(); }  
         void add_clause(expr* f) { m_context.add_clause(f); }
 
+        void force_restart() override { m_ddfw.force_restart(); }
+
         void add_clause(unsigned n, sat::literal const* lits) override {
             m_ddfw.add(n, lits);
             m_new_constraint = true;
