@@ -165,7 +165,8 @@ namespace lp {
         }
 
         lia_move solve_dioph_eq() {
-            //dioph_eq de(lia);
+            dioph_eq de(lia);
+            de.check();
             return lia_move::undef;
         }
 

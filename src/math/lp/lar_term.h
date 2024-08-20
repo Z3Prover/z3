@@ -25,6 +25,7 @@ namespace lp {
 // represents a linear expressieon
 class lar_term {
     typedef unsigned lpvar;
+protected:
     u_map<mpq> m_coeffs;
     // the column index related to the term
     lpvar m_j = -1; 
