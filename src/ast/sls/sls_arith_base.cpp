@@ -536,7 +536,7 @@ namespace sls {
     template<typename num_t>
     bool arith_base<num_t>::repair(sat::literal lit) {
         
-        verbose_stream() << "repair " << lit << " " << (ctx.is_unit(lit)?"unit":"") << "\n";
+        //verbose_stream() << "repair " << lit << " " << (ctx.is_unit(lit)?"unit":"") << "\n";
         //flet<bool> _tabu(m_use_tabu, m_use_tabu && lit != m_last_literal);
         m_last_literal = lit;
         find_moves(lit);
