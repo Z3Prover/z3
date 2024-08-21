@@ -7,32 +7,91 @@
 namespace lp {
     // This class represents a term with an added constant number c, in form sum {x_i*a_i} + c.
     
-    class term_o:public lar_term {        
-        mpq m_c;        
-    public:
-        const mpq& c() const { return m_c; }
-        mpq& c() { return m_c; }
-        term_o():m_c(0) {}
-        term_o& operator*=(mpq const& k) {
-            for (auto & t : m_coeffs)
-                t.m_value *= k;
-            return *this;
-        }   
-    };
     class dioph_eq::imp {
+
+        class term_o:public lar_term {        
+            mpq m_c;        
+        public:
+            const mpq& c() const { return m_c; }
+            mpq& c() { return m_c; }
+            term_o():m_c(0) {}
+            term_o& operator*=(mpq const& k) {
+                for (auto & t : m_coeffs)
+                    t.m_value *= k;
+                return *this;
+            }   
+            void substitute(const term_o& t, unsigned term_column) {
+                auto it = this->m_coeffs.find_core(term_column);
+                if (it == nullptr) return;
+                mpq a = it->get_data().m_value;
+                this->m_coeffs.erase(term_column);
+                for (auto p : t) {
+                    this->add_monomial(a * p.coeff(), p.j());
+                }
+                this->c() += a * t.c();
+            }
+        };
+
+        std::ostream& print_term(term_o const& term, std::ostream& out, const std::string & var_prefix) const {
+            if (term.size() == 0) {
+                out << "0";
+                return out;
+            }
+            bool first = true;
+            for (const auto p : term) {
+                mpq val = p.coeff();
+                if (first) {
+                    first = false;
+                }
+                else if (is_pos(val)) {
+                    out << " + ";
+                }
+                else {
+                    out << " - ";
+                    val = -val;
+                }
+                if (val == -numeric_traits<mpq>::one())
+                    out << " - ";
+                else if (val != numeric_traits<mpq>::one())
+                    out << T_to_string(val);
+                out << var_prefix << p.j();
+            }
+            
+            if (!term.c().is_zero())
+                 out << " + " << term.c();
+            return out;
+        }
+    
+        /*
+          An annotated state is a triple ⟨E′, λ, σ⟩, where E′ is a set of pairs ⟨e, ℓ⟩ in which
+          e is an equation and ℓ is a linear combination of variables from L
+        */
+        struct eprime_pair {
+            term_o * m_e;
+            lar_term * m_l;
+        };
+        vector<eprime_pair> m_eprime;
+        /*
+          Let L be a set of variables disjoint from X, and let λ be a mapping from variables in
+          L to linear combinations of variables in X and of integer constants
+        */
+        u_map<unsigned> m_lambda; // maps to the index of the term in m_eprime
+        /* let σ be a partial mapping from variables in L united with X to linear combinations
+           of variables in X and of integer constants showing the substitutions
+        */
+        u_map<lar_term*> m_sigma;
+        
     public:
         int_solver& lia;
         lar_solver& lra;
-        unsigned    m_fresh_x_vars_start;
         unsigned    m_last_fresh_x_var;
         
         // set F 
-        std::list<term_o*> m_f;
+        std::list<unsigned> m_f;  // F = {λ(t):t in m_f} 
         // set S
-        std::list<term_o*> m_s;
+        std::list<unsigned> m_s;     // S = {λ(t): t in m_s}
         
-    t    imp(int_solver& lia, lar_solver& lra): lia(lia), lra(lra) {
-            m_fresh_x_vars_start = lra.number_of_vars();
+        imp(int_solver& lia, lar_solver& lra): lia(lia), lra(lra) {
             m_last_fresh_x_var = -1;
         }
         
@@ -71,7 +130,14 @@ namespace lp {
                             t->c() += lia.lower_bound(p.var()).x;
                         }
                     }
-                    m_f.push_back(t);
+                    unsigned lvar = static_cast<unsigned>(m_f.size());
+                    lar_term* lt = new lar_term();
+                    lt->add_var(lvar);
+                    eprime_pair pair = {t, lt};
+                    m_eprime.push_back(pair);
+                    m_lambda.insert(lvar, lvar);
+                    m_f.push_back(lvar);
+                    
                 }
             }
             
@@ -103,7 +169,8 @@ namespace lp {
         }
         // returns true if no conflict is found and false otherwise
         bool normalize_by_gcd() {
-            for (auto * e: m_f) {
+            for (unsigned l: m_f) {
+                term_o* e = m_eprime[l].m_e;
                 if (!normalize_e_by_gcd(*e)) {
                     return false;
                 }
@@ -120,17 +187,27 @@ namespace lp {
             }
             return lia_move::sat;
         }
-        std::list<term_o*>::iterator pick_eh() {
+        std::list<unsigned>::iterator pick_eh() {
             return m_f.begin(); // TODO: make a smarter joice
         }
 
         void substitute(unsigned k, term_o* s)  {
-            NOT_IMPLEMENTED_YET();
+            print_term(*s, std::cout<< k<< "->", "x") << std::endl;
+            for (unsigned e_index: m_f) {
+                term_o* e = m_eprime[e_index].m_e;
+                if (!e->contains(k)) continue;
+                print_term(*e, std::cout << "before:", "x") << std::endl;
+                e->substitute(*s, k);
+                print_term(*e, std::cout << "after :", "x") << std::endl;
+            }
         }
         // this is the step 6 or 7 of the algorithm
         void rewrite_eqs() {
-            auto eh_it = pick_eh();
-            term_o* eh = *eh_it;
+            auto eh_it = pick_eh();            
+            auto eprime_entry = m_eprime[*eh_it];
+            std
+            term_o* eh = m_eprime[*eh_it].m_e;
+
             // looking for minimal in absolute value coefficient
             bool first = true;
             mpq ahk;
@@ -154,14 +231,15 @@ namespace lp {
                     if (p.j() == k) continue;
                     s_term->add_monomial(-k_sign*p.coeff(), p.j());
                 }
+                m_s.push_back(*eh_it);                
                 m_f.erase(eh_it);
-                m_s.push_back(s_term);
+                m_sigma.insert(k, s_term);
                 substitute(k, s_term);
             } else {
                 // step 7
                 // the fresh variable 
-                unsigned xt = m_last_fresh_x_var == -1? m_fresh_x_vars_start: m_last_fresh_x_var++;
-                
+                unsigned xt = m_last_fresh_x_var++;
+                NOT_IMPLEMENTED_YET();
                 
             }
                 
