@@ -168,8 +168,9 @@ namespace lp {
             dioph_eq de(lia);
             lia_move r = de.check();
 
-            if (r == lia_move::unsat) {
+            if (r == lia_move::conflict) {
                 de.explain(*this->m_ex);
+                return lia_move::conflict;
             } else if (r == lia_move::sat)  {
                 NOT_IMPLEMENTED_YET();
             }

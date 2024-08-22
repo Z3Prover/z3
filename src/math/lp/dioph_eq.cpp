@@ -211,7 +211,7 @@ namespace lp {
             init();
             while(m_f.size()) {
                 if (!normalize_by_gcd()) 
-                    return lia_move::unsat;
+                    return lia_move::conflict;
                 rewrite_eqs();
             }
             return lia_move::sat;
@@ -298,11 +298,12 @@ namespace lp {
                 remove_fresh_variables(m_eprime[p.j()].m_e);
             }
             u_dependency* dep = nullptr;
-            for (const auto & p : ep.m_l) {
-                if (lra.column_is_fixed(p.j()))  {
-                    lra.explain_fixed_column(p.j(), ex);
-                }
-            }
+            for (const auto & pl : ep.m_l)
+                for (const auto & p : m_eprime[pl.j()].m_e)
+                    if (lra.column_is_fixed(p.j()))
+                        lra.explain_fixed_column(p.j(), ex);
+            
+            TRACE("dioph_eq", lra.print_expl(tout, ex););
         }
         void remove_fresh_variables(term_o& t) {
             // TODO implement

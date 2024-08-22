@@ -213,20 +213,13 @@ public:
         m_visited_rows.reset();
     }
 
-    std::ostream& print_expl(std::ostream& out, const explanation& exp) const {
-        for (auto p : exp)
-            lp().constraints().display(
-                out, [this](lpvar j) { return lp().get_variable_name(j); }, p.ci());
-        return out;
-    }
-
     bool add_eq_on_columns(const explanation& exp, lpvar je, lpvar ke, bool is_fixed) {
         lp_assert(je != ke && is_int(je) == is_int(ke));
         lp_assert(ival(je) == ival(ke));
 
         TRACE("eq",
               tout << "reported idx " << je << ", " << ke << "\n";
-              print_expl(tout, exp);
+              lp().print_expl(tout, exp);
               tout << "theory_vars v" << lp().local_to_external(je) << " == v" << lp().local_to_external(ke) << "\n";);
 
         bool added = m_imp.add_eq(je, ke, exp, is_fixed);
@@ -257,7 +250,7 @@ public:
         TRACE("eq", tout << lp().get_row(row) << std::endl);
         for (const auto& c : lp().get_row(row))
             if (lp().column_is_fixed(c.var()))
-                explain_fixed_column(c.var(), ex);
+                lp().explain_fixed_column(c.var(), ex);
     }
 
     unsigned explain_fixed_in_row_and_get_base(unsigned row, explanation& ex) {
@@ -265,7 +258,7 @@ public:
         TRACE("eq", tout << lp().get_row(row) << std::endl);
         for (const auto& c : lp().get_row(row)) {
             if (lp().column_is_fixed(c.var())) {
-                explain_fixed_column(c.var(), ex);
+                lp().explain_fixed_column(c.var(), ex);
             } 
             else if (lp().is_base(c.var())) {
                 base = c.var();
@@ -357,7 +350,7 @@ public:
               );
         explanation ex;  
         explain_fixed_in_row(row_index, ex);
-        explain_fixed_column(j, ex);
+        lp().explain_fixed_column(j, ex);
         add_eq_on_columns(ex, j, v_j, true);
     }
 
