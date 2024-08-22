@@ -17,6 +17,7 @@ Revision History:
 --*/
 #pragma once
 #include "math/lp/lia_move.h"
+#include "math/lp/explanation.h"
 
 namespace lp {
     

@@ -591,6 +591,14 @@ public:
         }
         return dep;
     }
+
+    std::ostream& print_expl(std::ostream& out, const explanation& exp) const {
+        for (auto p : exp)
+            constraints().display(
+                out, [this](lpvar j) { return get_variable_name(j); }, p.ci());
+        return out;
+    }
+
     void explain_fixed_column(unsigned j, explanation& ex);
     u_dependency* join_deps(u_dependency* a, u_dependency *b) { return m_dependencies.mk_join(a, b); }
     inline constraint_set const& constraints() const { return m_constraints; }
