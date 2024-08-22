@@ -1826,6 +1826,9 @@ namespace sls {
        
         auto x0 = div(a, num_t(k));
 
+        if (x0 == 0)
+            return x0;
+
         auto x1 = div((x0 * num_t(k - 1)) + div(a, power_of(x0, k - 1)), num_t(k));
 
         while (x1 < x0)	{
