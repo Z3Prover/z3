@@ -134,12 +134,14 @@ namespace lp {
                 if (all_vars_are_int) {
                     term_o t;
                     const auto lcm = get_denominators_lcm(row);
-                    for (const auto & p: row) {
-                        t.add_monomial(lcm * p.coeff(), p.var());
-                        if(lia.is_fixed(p.var())) {
+                    for (const auto & p: row) 
+                        if (lia.is_fixed(p.var())) 
                             t.c() += lia.lower_bound(p.var()).x;
-                        }
-                    }
+                        else 
+                            t.add_monomial(lcm * p.coeff(), p.var());
+                    
+                    t.j() = i; //hijach this field to point to the original tableau row
+
                     unsigned lvar = static_cast<unsigned>(m_f.size());
                     lar_term lt = lar_term(lvar);
                     eprime_pair pair = {t, lt};
@@ -293,16 +295,17 @@ namespace lp {
                 
         }
         void explain(lp::explanation& ex) {
+            SASSERT(ex.empty());
             auto & ep = m_eprime[m_conflict_index];
             for (const auto & p : ep.m_l) {
                 remove_fresh_variables(m_eprime[p.j()].m_e);
             }
             u_dependency* dep = nullptr;
-            for (const auto & pl : ep.m_l)
-                for (const auto & p : m_eprime[pl.j()].m_e)
-                    if (lra.column_is_fixed(p.j()))
-                        lra.explain_fixed_column(p.j(), ex);
-            
+            for (const auto & pl : ep.m_l) {
+                for (const auto & p : lra.get_row(m_eprime[pl.j()].m_e.j()))
+                    if (lra.column_is_fixed(p.var()))
+                        lra.explain_fixed_column(p.var(), ex);
+            }
             TRACE("dioph_eq", lra.print_expl(tout, ex););
         }
         void remove_fresh_variables(term_o& t) {
