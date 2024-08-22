@@ -273,13 +273,7 @@ public:
         }
         return base;
     }
-
-    void explain_fixed_column(unsigned j, explanation& ex) {
-        SASSERT(column_is_fixed(j));
-        auto* deps = lp().get_bound_constraint_witnesses_for_column(j);
-        for (auto ci : lp().flatten(deps))
-            ex.push_back(ci);
-    }
+    
 #ifdef Z3DEBUG
     bool all_fixed_in_row(unsigned row) const {
         for (const auto& c : lp().get_row(row))

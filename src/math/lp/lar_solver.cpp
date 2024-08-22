@@ -760,6 +760,13 @@ namespace lp {
     }
 
 
+    void lar_solver::explain_fixed_column(unsigned j, explanation& ex) {
+        SASSERT(column_is_fixed(j));
+        auto* deps = get_bound_constraint_witnesses_for_column(j);
+        for (auto ci : flatten(deps))
+            ex.push_back(ci);
+    }
+
     void lar_solver::remove_fixed_vars_from_base() {
         // this will allow to disable and restore the tracking of the touched rows
         flet<indexed_uint_set*> f(m_mpq_lar_core_solver.m_r_solver.m_touched_rows, nullptr);

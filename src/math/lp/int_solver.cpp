@@ -166,7 +166,14 @@ namespace lp {
 
         lia_move solve_dioph_eq() {
             dioph_eq de(lia);
-            de.check();
+            lia_move r = de.check();
+
+            if (r == lia_move::unsat) {
+                de.explain(*this->m_ex);
+            } else if (r == lia_move::sat)  {
+                NOT_IMPLEMENTED_YET();
+            }
+
             return lia_move::undef;
         }
 

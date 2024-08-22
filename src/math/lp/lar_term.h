@@ -118,6 +118,12 @@ public:
         m_coeffs.erase(j);
     }
 
+    
+    const mpq & get_coeff(unsigned j) const {
+        auto* it = m_coeffs.find_core(j);
+        SASSERT(it != nullptr);
+        return it->get_data().m_value;        
+    }
     // the monomial ax[j] is substituted by ax[k]
     void subst_index(unsigned j, unsigned k) {
         auto* it = m_coeffs.find_core(j);
@@ -145,6 +151,33 @@ public:
         return ret;
     }
 
+
+    lar_term clone() const {
+        lar_term ret;
+        for (const auto& p : *this) {
+            ret.add_monomial(p.coeff(), p.j());
+        }
+        return ret;
+    }
+    
+    
+    lar_term operator+(const lar_term& other) const {
+        lar_term ret = other.clone();
+        for (const auto& p : *this) {
+            ret.add_monomial(p.coeff(), p.j());
+        }
+        return ret;
+    }
+
+    
+    friend lar_term operator*(const mpq& k, const lar_term& term) {
+            lar_term result;
+            for (const auto& p : term) {
+                result.add_monomial(p.coeff()*k, p.j());
+            }
+            return result;
+        }
+    
     lar_term& operator*=(mpq const& k) {
         for (auto & t : m_coeffs)
             t.m_value *= k;
