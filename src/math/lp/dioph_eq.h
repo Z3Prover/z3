@@ -29,5 +29,6 @@ namespace lp {
         dioph_eq(int_solver& lia);
         ~dioph_eq();
         lia_move check();
+        void explain(lp::explanation&);
     };
 }

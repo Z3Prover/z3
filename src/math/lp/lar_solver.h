@@ -591,6 +591,7 @@ public:
         }
         return dep;
     }
+    void explain_fixed_column(unsigned j, explanation& ex);
     u_dependency* join_deps(u_dependency* a, u_dependency *b) { return m_dependencies.mk_join(a, b); }
     inline constraint_set const& constraints() const { return m_constraints; }
     void push();
