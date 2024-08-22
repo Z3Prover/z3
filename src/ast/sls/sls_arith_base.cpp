@@ -553,7 +553,7 @@ namespace sls {
         
         ++num_fail;
 
-        if (num_fail > 3) {
+        if (num_fail > 3 && false) {
 
             ctx.force_restart();
             num_fail = 0;
@@ -1822,13 +1822,11 @@ namespace sls {
             return a;
         if (k == 1)
             return a;
+        if (a <= k)
+            return num_t(1);
         SASSERT(k > 1);
        
         auto x0 = div(a, num_t(k));
-
-        if (x0 == 0)
-            return x0;
-
         auto x1 = div((x0 * num_t(k - 1)) + div(a, power_of(x0, k - 1)), num_t(k));
 
         while (x1 < x0)	{
