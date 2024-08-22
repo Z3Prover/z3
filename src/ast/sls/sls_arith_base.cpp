@@ -304,8 +304,8 @@ namespace sls {
                 SASSERT(sum == 0);
                 SASSERT(!is_square || a * (value(x) + 1) * (value(x) + 1) + b * (value(x) + 1) + c != 0);
                 SASSERT(!is_square || a * (value(x) - 1) * (value(x) - 1) + b * (value(x) - 1) + c != 0);
-                add_update(x, num_t(1));
-                add_update(x, num_t(-1));
+                add_update(x, num_t(1) - value(x));
+                add_update(x, num_t(-1) - value(x));
                 break;
             }
         }
@@ -546,6 +546,7 @@ namespace sls {
             return true;
         
 
+        flet<bool> _tabu(m_use_tabu, false);
         find_reset_moves(lit);
 
         if (apply_update()) 
@@ -553,7 +554,7 @@ namespace sls {
         
         ++num_fail;
 
-        if (num_fail > 3 && false) {
+        if (num_fail > 3) {
 
             ctx.force_restart();
             num_fail = 0;
@@ -1672,7 +1673,7 @@ namespace sls {
                 result += 1;
             
             if (dtt_new != 0 && dtt_old == 0) {
-                if (m_use_tabu && ctx.is_unit(lit))
+                if (/*m_use_tabu && */ctx.is_unit(lit))
                     return 0;
                 result -= 1;
             }
@@ -1766,11 +1767,11 @@ namespace sls {
         auto const& hi = vi.m_hi;
         auto new_value = num_t(-2 + (int)ctx.rand(5));
         if (lo && lo->value > new_value)
-            new_value = lo->value;
+            new_value = lo->value + num_t(ctx.rand(2));
         else if (hi && hi->value < new_value)
-            new_value = hi->value;
+            new_value = hi->value - num_t(ctx.rand(2));
         if (new_value != value(x))
-            add_update(x, new_value - value(x));
+            add_update(x, new_value - value(x) + num_t(-1 + (int)ctx.rand(3)));
         else {
             add_update(x, num_t(1) - value(x));
             add_update(x, -num_t(1) - value(x));
