@@ -45,8 +45,18 @@ static void tst3() {
   ENSURE(strcmp(b.c_str(), "Hello World") == 0);
 }
 
+static void tst_small_buffer_expand(){
+  string_buffer<4> b;
+  b << "Hello";
+  ENSURE(strcmp(b.c_str(), "Hello") == 0);
+
+  b << " World";
+  ENSURE(strcmp(b.c_str(), "Hello World") == 0);
+}
+
 void tst_string_buffer() {
   tst1();
   tst2();
   tst3();
+  tst_small_buffer_expand();
 }
