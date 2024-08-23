@@ -27,33 +27,32 @@
 // This string buffer will not use the heap if the data consumes less than INITIAL_SIZE bytes. 
 template<unsigned INITIAL_SIZE=64>
 class string_buffer {
-    char   m_initial_buffer[INITIAL_SIZE];
-    char * m_buffer;
+    char m_initial_buffer[INITIAL_SIZE];
+    std::unique_ptr<char[]> m_buffer = nullptr;
     size_t m_pos;
     size_t m_capacity;
 
     void expand() {
         size_t new_capacity = m_capacity << 1;
-        char * new_buffer   = alloc_svect(char, new_capacity);
-        memcpy(new_buffer, m_buffer, m_pos);
-        if (m_capacity > INITIAL_SIZE) {
-            dealloc_svect(m_buffer);
-        }
+        std::unique_ptr<char[]> new_buffer = std::make_unique<char[]>(new_capacity);
+        memcpy(new_buffer.get(), buffer(), m_pos);
+        m_buffer = std::move(new_buffer);
         m_capacity = new_capacity;
-        m_buffer   = new_buffer;
+    }
+
+    char* buffer() {
+        return m_buffer ? m_buffer.get() : m_initial_buffer;
+    }
+
+    const char* buffer() const {
+        return m_buffer ? m_buffer.get() : m_initial_buffer;
     }
 
 public:  
     string_buffer():
-        m_buffer(m_initial_buffer),
         m_pos(0),
         m_capacity(INITIAL_SIZE) {
-    }
-
-    ~string_buffer() {
-        if (m_capacity > INITIAL_SIZE) {
-            dealloc_svect(m_buffer);
-        }
+        // Initially, no dynamic allocation, so m_buffer is null.
     }
 
     void reset() {
@@ -64,28 +63,22 @@ public:
         if (m_pos >= m_capacity) {
             expand();
         }
-        m_buffer[m_pos] = c;
+        buffer()[m_pos] = c;
         m_pos++;
     }
 
     void append(const char * str) {
-        size_t len       = strlen(str);
+        size_t len = strlen(str);
         size_t new_pos = m_pos + len;
         while (new_pos > m_capacity) {
             expand();
         }
-        memcpy(m_buffer + m_pos, str, len);
+        memcpy(buffer() + m_pos, str, len);
         m_pos += len;
     }
 
     void append(const std::string &str) {
-        size_t len     = str.size();
-        size_t new_pos = m_pos + len;
-        while (new_pos > m_capacity) {
-            expand();
-        }
-        memcpy(m_buffer + m_pos, str.c_str(), len);
-        m_pos += len;
+        append(str.c_str());
     }
 
     void append(int n) {
@@ -117,10 +110,10 @@ public:
     
     const char * c_str() const {
         if (m_pos >= m_capacity) {
-            const_cast<string_buffer * const>(this)->expand();
+            const_cast<string_buffer*>(this)->expand();
         }
-        const_cast<string_buffer * const>(this)->m_buffer[m_pos] = 0;
-        return m_buffer;
+        const_cast<string_buffer*>(this)->buffer()[m_pos] = 0;
+        return buffer();
     }
 };
 
