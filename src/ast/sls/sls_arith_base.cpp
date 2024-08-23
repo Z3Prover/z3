@@ -558,7 +558,6 @@ namespace sls {
             ctx.force_restart();
             num_fail = 0;
         }
-//        m_stats.m_num_steps++;
         return false;
     }
 
@@ -1673,7 +1672,7 @@ namespace sls {
                 result += 1;
             
             if (dtt_new != 0 && dtt_old == 0) {
-                if (/*m_use_tabu && */ctx.is_unit(lit))
+                if (m_use_tabu && ctx.is_unit(lit))
                     return 0;
                 result -= 1;
             }
