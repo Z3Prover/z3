@@ -27,24 +27,21 @@ class aig_manager;
 class aig_tactic : public tactic {
     unsigned long long m_max_memory;
     bool               m_aig_gate_encoding;
-    aig_manager *      m_aig_manager;
+    std::unique_ptr<aig_manager> m_aig_manager;
 
     struct mk_aig_manager {
         aig_tactic & m_owner;
 
         mk_aig_manager(aig_tactic & o, ast_manager & m):m_owner(o) {
             aig_manager * mng = alloc(aig_manager, m, o.m_max_memory, o.m_aig_gate_encoding);
-            m_owner.m_aig_manager = mng;            
+            m_owner.m_aig_manager.reset(mng);  
         }
         
-        ~mk_aig_manager() {
-            dealloc(m_owner.m_aig_manager);
-            m_owner.m_aig_manager = nullptr;
-        }
+        ~mk_aig_manager() {}
     };
 
 public:
-    aig_tactic(params_ref const & p = params_ref()):m_aig_manager(nullptr) {
+    aig_tactic(params_ref const & p = params_ref()) {
         updt_params(p); 
     }
 
