@@ -595,19 +595,19 @@ br_status arith_rewriter::factor_le_ge_eq(expr * arg1, expr * arg2, op_kind kind
             return BR_FAILED;
         expr_ref f2 = remove_factor(f, arg1);
         expr* z = m_util.mk_numeral(rational(0), m_util.is_int(arg1));
+        result = m.mk_or(m_util.mk_eq(f, z), m_util.mk_eq(f2, z));
         switch (kind) {
         case EQ: 
-            result = m.mk_or(m_util.mk_eq(f, z), m_util.mk_eq(f2, z));
             break;
         case GE:
-            result = m.mk_iff(m_util.mk_ge(f, z), m_util.mk_ge(f2, z));
+            result = m.mk_or(m.mk_iff(m_util.mk_ge(f, z), m_util.mk_ge(f2, z)), result);
             break;
         case LE:
-            result = m.mk_xor(m_util.mk_ge(f, z), m_util.mk_ge(f2, z));
+            result = m.mk_or(m.mk_not(m.mk_iff(m_util.mk_ge(f, z), m_util.mk_ge(f2, z))), result);
             break;
             
         }
-        return BR_REWRITE2;                    
+        return BR_REWRITE3;                    
     }
     return BR_FAILED;
 }

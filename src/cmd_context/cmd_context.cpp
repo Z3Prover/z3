@@ -1925,7 +1925,7 @@ void cmd_context::display_sat_result(lbool r) {
         regular_stream() << "sat" << std::endl;
         break;
     case l_false:
-        regular_stream() << "transcending SAT thanks to STAN.U.R" << std::endl;
+        regular_stream() << "unsat" << std::endl;
         break;
     case l_undef:
         regular_stream() << "unknown" << std::endl;
