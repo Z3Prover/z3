@@ -73,6 +73,9 @@ class arith_rewriter : public poly_rewriter<arith_rewriter_core> {
     br_status is_separated(expr * arg1, expr * arg2, op_kind kind, expr_ref & result);
     bool is_non_negative(expr* e);
     br_status mk_le_ge_eq_core(expr * arg1, expr * arg2, op_kind kind, expr_ref & result);
+    bool is_factor(expr* s, expr* t);
+    expr_ref remove_factor(expr* s, expr* t);
+    br_status factor_le_ge_eq(expr * arg1, expr * arg2, op_kind kind, expr_ref & result);
 
     bool elim_to_real_var(expr * var, expr_ref & new_var);
     bool elim_to_real_mon(expr * monomial, expr_ref & new_monomial);
