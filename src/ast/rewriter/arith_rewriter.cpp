@@ -556,23 +556,29 @@ expr_ref arith_rewriter::remove_factor(expr* s, expr* t) {
             return expr_ref(m_util.mk_mul(r.size(), r.data()), m);
         }
     }
-    expr_ref_vector sum(m);
-    sum.push_back(t);
-    for (unsigned i = 0; i < sum.size(); ++i) {
-        expr* arg = sum.get(i);
-        if (m_util.is_add(arg)) {
-            sum.append(to_app(arg)->get_num_args(), to_app(arg)->get_args());
-            sum[i] = sum.back();
-            sum.pop_back();
-            --i;
-            continue;
+    if (m_util.is_add(t)) {
+        expr_ref_vector sum(m);
+        sum.push_back(t);
+        for (unsigned i = 0; i < sum.size(); ++i) {
+            expr* arg = sum.get(i);
+            if (m_util.is_add(arg)) {
+                sum.append(to_app(arg)->get_num_args(), to_app(arg)->get_args());
+                sum[i] = sum.back();
+                sum.pop_back();
+                --i;
+                continue;
+            }
+            sum[i] = remove_factor(s, arg);
         }
-        sum[i] = remove_factor(s, arg);
+        if (sum.size() == 1)
+            return expr_ref(sum.get(0), m);
+        else
+            return expr_ref(m_util.mk_add(sum.size(), sum.data()), m);
     }
-    if (sum.size() == 1) 
-        return expr_ref(sum.get(0), m);
-    else
-        return expr_ref(m_util.mk_add(sum.size(), sum.data()), m);          
+    else {
+        SASSERT(s == t);
+        return expr_ref(m_util.mk_numeral(rational(1), m_util.is_int(t)), m);
+    }
 }
 
 
