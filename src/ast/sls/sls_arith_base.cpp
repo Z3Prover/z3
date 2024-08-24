@@ -642,7 +642,7 @@ namespace sls {
 
 
 
-#if 1      
+#if 0      
         if (!check_update(v, new_value))
             return false;
         apply_checked_update();
