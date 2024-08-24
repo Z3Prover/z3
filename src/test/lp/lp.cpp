@@ -491,6 +491,7 @@ void setup_args_parser(argument_parser &parser) {
         "-nla_blnt_fm",
         "test_basic_lemma_for_mon_neutral_from_factors_to_monomial");
     parser.add_option_with_help_string("-hnf", "test hermite normal form");
+    parser.add_option_with_help_string("-dio", "dioph equalities");
     parser.add_option_with_help_string("-gomory", "gomory");
     parser.add_option_with_help_string("-intd", "test integer_domain");
     parser.add_option_with_help_string("-xyz_sample",
@@ -1605,6 +1606,7 @@ void test_larger_generated_hnf() {
     std::cout << "test_larger_generated_rank_hnf passed" << std::endl;
 }
 #endif
+
 void test_maximize_term() {
     std::cout << "test_maximize_term\n";
     lar_solver solver;
@@ -1645,6 +1647,64 @@ void test_maximize_term() {
     for (auto p : model) {
         std::cout << "v[" << p.first << "] = " << p.second << std::endl;
     }
+}
+
+void test_dio() {
+    std::cout << "test dio\n";
+    lar_solver solver;
+    int_solver i_solver(solver); 
+    lp::explanation exp;
+    i_solver.set_expl(&exp);
+    unsigned _x1 = 0;
+    unsigned _x2 = 1;
+    unsigned _x3 = 2;
+    unsigned _fx_7 = 3;
+    unsigned _fx_17 = 4;
+/*
+    3x1 + 3x2 + 14x3 − 7 = 0
+    7x1 + 12x2 + 31x3 − 17 = 0
+*/
+    lpvar x1 = solver.add_var(_x1, true);
+    lpvar x2 = solver.add_var(_x2, true);
+    lpvar x3 = solver.add_var(_x3, true);
+    lpvar fx_7 = solver.add_var(_fx_7, true);
+    lpvar fx_17 = solver.add_var(_fx_17, true);
+    vector<std::pair<mpq, lpvar>> term_ls;
+    /* 3x1 + 3x2 + 14x3 − 7 */
+    term_ls.push_back(std::pair<mpq, lpvar>(mpq(3), x1));
+    term_ls.push_back(std::pair<mpq, lpvar>(mpq(3), x2));
+    term_ls.push_back(std::pair<mpq, lpvar>(mpq(14), x3));
+    term_ls.push_back(std::pair<mpq, lpvar>(mpq(-1), fx_7));
+    for (auto & p: term_ls) {
+        p.first = -p.first;
+    }
+    unsigned t0 = solver.add_term(term_ls, 10);
+    term_ls.clear();
+    /* 7x1 + 12x2 + 31x3 − 17 = 0*/
+    term_ls.push_back(std::pair<mpq, lpvar>(mpq(7), x1));
+    term_ls.push_back(std::pair<mpq, lpvar>(mpq(12), x2));
+    term_ls.push_back(std::pair<mpq, lpvar>(mpq(31), x3));
+    term_ls.push_back(std::pair<mpq, lpvar>(mpq(-1), fx_17));
+    
+    for (auto & p: term_ls) {
+        p.first = -p.first;
+    }
+    unsigned t1 = solver.add_term(term_ls, 11);
+
+    solver.add_var_bound(fx_7, LE, mpq(-7));
+    solver.add_var_bound(fx_7, GE, mpq(-7));
+    solver.add_var_bound(fx_17, LE, mpq(-17));
+    solver.add_var_bound(fx_17, GE, mpq(-17));
+    solver.add_var_bound(t0, LE, mpq(0));
+    solver.add_var_bound(t0, GE, mpq(0));
+    solver.add_var_bound(t1, LE, mpq(0));
+    solver.add_var_bound(t1, GE, mpq(0));
+//    solver.find_feasible_solution();
+    //lp_assert(solver.get_status() == lp_status::OPTIMAL);
+    enable_trace("dioph_eq");
+    enable_trace("dioph_eq_fresh");
+    auto r = i_solver.dio_test();
+    
 }
 #ifdef Z3DEBUG
 void test_hnf() {
@@ -1781,6 +1841,12 @@ void test_lp_local(int argn, char **argv) {
 #endif
         return finalize(0);
     }
+
+    if (args_parser.option_is_used("-dio")) {
+        test_dio();
+        return finalize(0);
+    }
+
 
     if (args_parser.option_is_used("-gomory")) {
         test_gomory_cut();

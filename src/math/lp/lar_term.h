@@ -171,12 +171,19 @@ public:
 
     
     friend lar_term operator*(const mpq& k, const lar_term& term) {
-            lar_term result;
-            for (const auto& p : term) {
-                result.add_monomial(p.coeff()*k, p.j());
-            }
-            return result;
+        lar_term r;
+        for (const auto& p : term) {
+            r.add_monomial(p.coeff()*k, p.j());
         }
+        return r;
+    }
+   
+    lar_term& operator+=(const lar_term& a) {
+        for (const auto& p : a) {
+            add_monomial(p.coeff(), p.j());
+        }
+        return *this;
+    }
     
     lar_term& operator*=(mpq const& k) {
         for (auto & t : m_coeffs)

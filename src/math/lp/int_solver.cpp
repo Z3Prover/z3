@@ -228,9 +228,9 @@ namespace lp {
                 return lia_move::undef;
 
             ++m_number_of_calls;
-            if (r == lia_move::undef) r = patch_basic_columns();
-            if (r == lia_move::undef && should_find_cube()) r = int_cube(lia)();
-            if (r == lia_move::undef && should_solve_dioph_eq()) r = solve_dioph_eq();
+            // if (r == lia_move::undef) r = patch_basic_columns();
+            // if (r == lia_move::undef && should_find_cube()) r = int_cube(lia)();
+            if (r == lia_move::undef && (true||should_solve_dioph_eq())) r = solve_dioph_eq();
             if (r == lia_move::undef) lra.move_non_basic_columns_to_bounds();
             if (r == lia_move::undef && should_hnf_cut()) r = hnf_cut();
 
@@ -879,6 +879,7 @@ namespace lp {
     bool int_solver::is_upper() const { return m_imp->m_upper; }
     bool& int_solver::is_upper() { return m_imp->m_upper; }
     explanation* int_solver::expl() { return m_imp->m_ex; }
+    void int_solver::set_expl(lp::explanation * ex) { m_imp->m_ex = ex; }
     bool int_solver::column_is_int_inf(unsigned j) const {
         return m_imp->column_is_int_inf(j);
     }
@@ -895,5 +896,7 @@ namespace lp {
     bool int_solver::current_solution_is_inf_on_cut() const { return m_imp->current_solution_is_inf_on_cut(); }
     const impq & int_solver::lower_bound(unsigned j) const { return m_imp->lower_bound(j);}
     const impq & int_solver::upper_bound(unsigned j) const { return m_imp->upper_bound(j);}
-
+    #if Z3DEBUG
+    lia_move int_solver::dio_test() {return m_imp->solve_dioph_eq();}
+    #endif
 }

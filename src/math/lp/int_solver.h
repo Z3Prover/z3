@@ -93,6 +93,10 @@ public:
     bool is_term(unsigned j) const;
     unsigned column_count() const;
     int select_int_infeasible_var();
+    void set_expl(lp::explanation * ex);
     explanation * expl();
+    #if Z3DEBUG
+    lia_move dio_test(); 
+    #endif
 };
 }
