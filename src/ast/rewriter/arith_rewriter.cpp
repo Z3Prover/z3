@@ -651,11 +651,6 @@ br_status arith_rewriter::mk_le_ge_eq_core(expr * arg1, expr * arg2, op_kind kin
         arg1 = new_arg1;
         arg2 = new_arg2;
     }
-    {
-        br_status st1 = factor_le_ge_eq(arg1, arg2, kind, result);
-        if (st1 != BR_FAILED)
-            return st1;
-    }
     expr_ref new_new_arg1(m);
     expr_ref new_new_arg2(m);
     if (m_elim_to_real && elim_to_real(arg1, arg2, new_new_arg1, new_new_arg2)) {
@@ -783,7 +778,7 @@ br_status arith_rewriter::mk_le_ge_eq_core(expr * arg1, expr * arg2, op_kind kin
         default: result = m.mk_eq(arg1, arg2); return BR_DONE;
         }
     }
-    return BR_FAILED;
+    return factor_le_ge_eq(arg1, arg2, kind, result);
 }
 
 
