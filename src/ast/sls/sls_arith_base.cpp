@@ -553,7 +553,7 @@ namespace sls {
         
         ++num_fail;
 
-        if (num_fail > 3) {
+        if (false && num_fail > 3) {
 
             ctx.force_restart();
             num_fail = 0;
