@@ -519,7 +519,7 @@ namespace sls {
 
             num_t new_value = value(v) + delta;
 
-            IF_VERBOSE(10, verbose_stream() << "repair: v" << v << " := " << value(v) << " -> " << new_value << "\n");
+
             if (update(v, new_value)) {
                 m_last_delta = delta;
                 m_stats.m_num_steps++;
@@ -642,7 +642,7 @@ namespace sls {
 
 
 
-#if 0      
+#if 1      
         if (!check_update(v, new_value))
             return false;
         apply_checked_update();
@@ -660,6 +660,7 @@ namespace sls {
                 ctx.flip(bv);
             SASSERT(dtt(sign(bv), ineq) == 0);
         }
+        IF_VERBOSE(5, verbose_stream() << "repair: v" << v << " := " << old_value << " -> " << new_value << "\n");
         vi.m_value = new_value;
         ctx.new_value_eh(e);
         m_last_var = v;
@@ -843,13 +844,14 @@ namespace sls {
             add_args(term, y, -coeff);
         }
         else if (a.is_mul(e)) {
-            unsigned_vector m;
+            unsigned_vector ms;
             num_t c(1);
             ptr_buffer<expr> muls;
             muls.append(to_app(e)->get_num_args(), to_app(e)->get_args());
             for (unsigned j = 0; j < muls.size(); ++j) {
                 expr* arg = muls[j];
                 if (a.is_mul(arg)) {
+                    //verbose_stream() << "nested " << mk_bounded_pp(arg, m) << "\n";
                     muls.append(to_app(arg)->get_num_args(), to_app(arg)->get_args());
                     muls[j] = muls.back();
                     muls.pop_back();
@@ -858,25 +860,25 @@ namespace sls {
                 else if (is_num(arg, i))
                     c *= i;
                 else
-                    m.push_back(mk_term(arg));
+                    ms.push_back(mk_term(arg));
             }
 
-            switch (m.size()) {
+            switch (ms.size()) {
             case 0:
                 term.m_coeff += c*coeff;
                 break;
             case 1:
-                add_arg(term, c*coeff, m[0]);
+                add_arg(term, c*coeff, ms[0]);
                 break;
             default: {
                 v = mk_var(e);
                 unsigned idx = m_muls.size();
-                std::stable_sort(m.begin(), m.end(), [&](unsigned a, unsigned b) { return a < b; });
+                std::stable_sort(ms.begin(), ms.end(), [&](unsigned a, unsigned b) { return a < b; });
                 svector<std::pair<unsigned, unsigned>> mp;
-                for (unsigned i = 0; i < m.size(); ++i) {
-                    auto w = m[i];
+                for (unsigned i = 0; i < ms.size(); ++i) {
+                    auto w = ms[i];
                     auto p = 1;
-                    while (i + 1 < m.size() && m[i + 1] == w)
+                    while (i + 1 < ms.size() && ms[i + 1] == w)
                         ++p, ++i;
                     mp.push_back({ w, p });
                 }
@@ -1519,9 +1521,10 @@ namespace sls {
         num_t val = value(v);
         for (auto [v, p]: monomial)
             product *= power_of(value(v), p);
-        IF_VERBOSE(10, verbose_stream() << "v" << v << " repair mul " << mk_bounded_pp(m_vars[v].m_expr, m) << " : = " << val << "(product : " << product << ")\n");
         if (product == val)
             return true;
+        IF_VERBOSE(10, verbose_stream() << "v" << v << " repair mul " << mk_bounded_pp(m_vars[v].m_expr, m) << " : = " << val << " (product : " << product << ")\n");
+
         
         m_updates.reset();
         if (val == 0) {
