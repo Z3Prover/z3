@@ -845,11 +845,22 @@ namespace sls {
         else if (a.is_mul(e)) {
             unsigned_vector m;
             num_t c(1);
-            for (expr* arg : *to_app(e))
-                if (is_num(arg, i))
+            ptr_buffer<expr> muls;
+            muls.append(to_app(e)->get_num_args(), to_app(e)->get_args());
+            for (unsigned j = 0; j < muls.size(); ++j) {
+                expr* arg = muls[j];
+                if (a.is_mul(arg)) {
+                    muls.append(to_app(arg)->get_num_args(), to_app(arg)->get_args());
+                    muls[j] = muls.back();
+                    muls.pop_back();
+                    --j;
+                }
+                else if (is_num(arg, i))
                     c *= i;
                 else
                     m.push_back(mk_term(arg));
+            }
+
             switch (m.size()) {
             case 0:
                 term.m_coeff += c*coeff;
@@ -970,6 +981,7 @@ namespace sls {
     typename arith_base<num_t>::var_t arith_base<num_t>::mk_var(expr* e) {
         var_t v = m_expr2var.get(e->get_id(), UINT_MAX);
         if (v == UINT_MAX) {
+            // verbose_stream() << "mk-var " << mk_bounded_pp(e, m) << "\n";
             v = m_vars.size();
             m_expr2var.setx(e->get_id(), v, UINT_MAX);
             m_vars.push_back(var_info(e, a.is_int(e) ? var_sort::INT : var_sort::REAL));     
@@ -1186,6 +1198,7 @@ namespace sls {
             return false;
         flet<bool> _tabu(m_use_tabu, false);
         TRACE("sls", tout << "repair def " << mk_bounded_pp(vi.m_expr, m) << "\n");
+        // verbose_stream() << "repair down " << mk_bounded_pp(e, m) << "\n";
         switch (vi.m_op) {
         case arith_op_kind::LAST_ARITH_OP:
             break;
