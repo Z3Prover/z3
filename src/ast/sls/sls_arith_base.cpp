@@ -1500,13 +1500,7 @@ namespace sls {
                 add_update(w, delta);
         }
         for (auto const& [coeff, w] : coeffs)
-            if (is_mul(w)) {
-                auto const& [w1, c, monomial] = get_mul(w);
-                for (auto [w1, p] : monomial)
-                    add_reset_update(w1);
-            }
-            else
-                add_reset_update(w);    
+            add_reset_update(w);    
 
         if (apply_update())
             return eval_is_correct(v);
@@ -1769,6 +1763,16 @@ namespace sls {
         m_last_delta = 0;
         if (is_fixed(x))
             return;
+        if (is_mul(x)) {
+            auto const& [w1, c, monomial] = get_mul(x);
+            for (auto [w1, p] : monomial)
+                add_reset_update(w1);
+        }
+        if (is_add(x)) {
+            auto const& ad = get_add(x);
+            for (auto [c, w] : ad.m_args)
+                add_reset_update(w);
+        }
         auto const& vi = m_vars[x];
         auto const& lo = vi.m_lo;
         auto const& hi = vi.m_hi;
