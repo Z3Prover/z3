@@ -547,18 +547,7 @@ namespace sls {
 
         flet<bool> _tabu(m_use_tabu, false);
         find_reset_moves(lit);
-
-        if (apply_update()) 
-            return true;
-        
-        ++num_fail;
-
-        if (false && num_fail > 3) {
-
-            ctx.force_restart();
-            num_fail = 0;
-        }
-        return false;
+        return apply_update();
     }
 
     template<typename num_t>
@@ -1487,6 +1476,8 @@ namespace sls {
         if (apply_update())
             return eval_is_correct(v);
 
+        flet<bool> _use_tabu(m_use_tabu, false);
+
         m_updates.reset();
         for (auto const& [coeff, w] : coeffs) {
             auto delta = divide(w, sum - old_value, coeff);
@@ -1549,6 +1540,7 @@ namespace sls {
         if (apply_update())
             return eval_is_correct(v);
 
+        flet<bool> _use_tabu(m_use_tabu, false);
         m_updates.reset();
         for (auto [x, p] : monomial)
             add_reset_update(x);
