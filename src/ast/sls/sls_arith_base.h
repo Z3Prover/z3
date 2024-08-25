@@ -63,6 +63,7 @@ namespace sls {
             vector<std::pair<var_t, vector<nonlinear_coeff>>> m_nonlinear;
             ineq_kind  m_op = ineq_kind::LE;            
             num_t      m_args_value;
+            bool       m_is_linear = true;
 
             bool is_true() const;
             std::ostream& display(std::ostream& out) const;

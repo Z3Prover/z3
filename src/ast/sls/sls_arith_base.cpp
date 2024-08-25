@@ -1062,6 +1062,7 @@ namespace sls {
                 auto const& [w, c, monomial] = get_mul(v);
                 for (auto [w, p] : monomial) 
                     i.m_nonlinear.push_back({ w, { {v, coeff, p} } });
+                i.m_is_linear = false;
             }
             else
                 i.m_nonlinear.push_back({ v, { { v, coeff, 1 } } });
@@ -1755,7 +1756,14 @@ namespace sls {
                 find_quadratic_moves(*ineq, x, a, b, ineq->m_args_value);
             else
                 ;
-        }            
+        }        
+        if (!ineq->m_is_linear) {
+            for (auto const& [coeff, x] : ineq->m_args) {
+                if (is_fixed(x))
+                    continue;
+                find_linear_moves(*ineq, x, coeff, ineq->m_args_value);
+            }
+        }
     }
 
     template<typename num_t>
