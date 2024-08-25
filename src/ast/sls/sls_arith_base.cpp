@@ -645,8 +645,8 @@ namespace sls {
         // check for overflow
         try {
             for (auto idx : vi.m_muls) {
-                auto const& [w, coeff, monomial] = m_muls[idx];
-                num_t prod(coeff);
+                auto const& [w, monomial] = m_muls[idx];
+                num_t prod(1);
                 for (auto [w, p] : monomial)
                     prod *= power_of(v == w ? new_value : value(w), p);
             }
@@ -690,8 +690,8 @@ namespace sls {
             ctx.new_value_eh(m_vars[m_adds[idx].m_var].m_expr);
 
         for (auto idx : vi.m_muls) {
-            auto const& [w, coeff, monomial] = m_muls[idx];
-            num_t prod(coeff);
+            auto const& [w, monomial] = m_muls[idx];
+            num_t prod(1);
             try {
                 for (auto [w, p] : monomial)
                     prod *= power_of(value(w), p);
@@ -737,8 +737,8 @@ namespace sls {
             auto v = m_update_trail[i];
             auto& vi = m_vars[v];
             for (auto idx : vi.m_muls) {
-                auto const& [w, coeff, monomial] = m_muls[idx];
-                num_t prod(coeff);
+                auto const& [w, monomial] = m_muls[idx];
+                num_t prod(1);
                 try {
                     for (auto [w, p] : monomial)
                         prod *= power_of(get_update_value(w), p);
@@ -865,16 +865,15 @@ namespace sls {
         }
         else if (a.is_mul(e)) {
             unsigned_vector ms;
-            num_t c(1);
             for (expr* arg : *to_app(e)) 
                 ms.push_back(mk_term(arg));            
 
             switch (ms.size()) {
             case 0:
-                term.m_coeff += c*coeff;
+                term.m_coeff += coeff;
                 break;
             case 1:
-                add_arg(term, c*coeff, ms[0]);
+                add_arg(term, coeff, ms[0]);
                 break;
             default: {
                 v = mk_var(e);
@@ -888,8 +887,8 @@ namespace sls {
                         ++p, ++i;
                     mp.push_back({ w, p });
                 }
-                m_muls.push_back({ v, c, mp });
-                num_t prod(c);
+                m_muls.push_back({ v, mp });
+                num_t prod(1);
                 for (auto [w, p] : mp)
                     m_vars[w].m_muls.push_back(idx), prod *= power_of(value(w), p);
                 m_vars[v].m_def_idx = idx;
@@ -1065,7 +1064,7 @@ namespace sls {
             m_vars[v].m_bool_vars.push_back({ coeff, bv });
             i.m_args_value += coeff * value(v);
             if (is_mul(v)) {
-                auto const& [w, c, monomial] = get_mul(v);
+                auto const& [w, monomial] = get_mul(v);
                 for (auto [w, p] : monomial) 
                     i.m_nonlinear.push_back({ w, { {v, coeff, p} } });
                 i.m_is_linear = false;
@@ -1164,8 +1163,8 @@ namespace sls {
             break;
         }
         case OP_MUL: {
-            auto const& [w, coeff, monomial] = m_muls[vi.m_def_idx];
-            new_value = coeff;
+            auto const& [w, monomial] = m_muls[vi.m_def_idx];
+            new_value = num_t(1);
             for (auto [w, p] : monomial)
                 new_value *= power_of(value(w), p);
             break;
@@ -1294,8 +1293,8 @@ namespace sls {
                 }
             }
             if (is_mul(v)) {
-                auto const& [w, c, monomial] = get_mul(v);
-                num_t lo(c), hi(c);
+                auto const& [w, monomial] = get_mul(v);
+                num_t lo(1), hi(1);
                 bool lo_valid = true, hi_valid = true;
                 bool lo_strict = false, hi_strict = false;
                 for (auto [w, p] : monomial) {
@@ -1521,8 +1520,8 @@ namespace sls {
 
     template<typename num_t>
     bool arith_base<num_t>::repair_mul(mul_def const& md) {
-        auto const& [v, coeff, monomial] = md;
-        num_t product(coeff);
+        auto const& [v, monomial] = md;
+        num_t product(1);
         num_t val = value(v);
         for (auto [v, p]: monomial)
             product *= power_of(value(v), p);
@@ -1702,9 +1701,9 @@ namespace sls {
     template<typename num_t>
     num_t arith_base<num_t>::mul_value_without(var_t m, var_t x) {
         auto const& vi = m_vars[m];
-        auto const& [w, coeff, monomial] = m_muls[vi.m_def_idx];
+        auto const& [w, monomial] = m_muls[vi.m_def_idx];
         SASSERT(m == w);
-        num_t r(coeff);
+        num_t r(1);
         for (auto [y, p] : monomial)
             if (x != y)
                 r *= power_of(value(y), p);
@@ -1776,7 +1775,7 @@ namespace sls {
         if (is_fixed(x))
             return;
         if (is_mul(x)) {
-            auto const& [w1, c, monomial] = get_mul(x);
+            auto const& [w1, monomial] = get_mul(x);
             for (auto [w1, p] : monomial)
                 add_reset_update(w1);
         }
@@ -1997,10 +1996,8 @@ namespace sls {
 
     template<typename num_t>
     std::ostream& arith_base<num_t>::display(std::ostream& out, mul_def const& md) const {
-        auto const& [w, coeff, monomial] = md;
+        auto const& [w, monomial] = md;
         bool first = true;
-        if (coeff != 1)
-            out << coeff, first = false;
         for (auto [v, p] : monomial) {
             if (!first)
                 out << " * ";
@@ -2135,7 +2132,7 @@ namespace sls {
         }
         case arith_op_kind::OP_MUL: {
             auto md = m_muls[vi.m_def_idx];
-            num_t prod(md.m_coeff);
+            num_t prod(1);
             for (auto [w, p] : md.m_monomial)
                 prod *= power_of(value(w), p);
             return prod == value(v);
@@ -2199,12 +2196,11 @@ namespace sls {
                 out << mk_bounded_pp(m_vars[v].m_expr, m) << "\n";
 
                 if (is_mul(v)) {
-                    auto const& [w, coeff, monomial] = get_mul(v);
-                    num_t prod(coeff);
+                    auto const& [w, monomial] = get_mul(v);
+                    num_t prod(1);
                     for (auto [v, p] : monomial)
                         prod *= power_of(value(v), p);
                     out << "product " << prod << " value " << value(w) << "\n";
-                    out << "coeff " << coeff << "\n";
                     out << "v" << w << " := ";
                     for (auto [w, p] : monomial) {
                         out << "(v" << w;

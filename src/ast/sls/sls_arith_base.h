@@ -120,7 +120,6 @@ namespace sls {
 
         struct mul_def {
             unsigned        m_var;
-            num_t           m_coeff;
             svector<std::pair<unsigned, unsigned>> m_monomial;
         };
 
