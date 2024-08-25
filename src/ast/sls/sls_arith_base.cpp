@@ -560,7 +560,7 @@ namespace sls {
             return true;
 
         flet<bool> _tabu(m_use_tabu, false);
-        if (find_nl_moves(lit))
+        if (false && find_nl_moves(lit))
             return true;
         if (false && find_lin_moves(lit))
             return true;
