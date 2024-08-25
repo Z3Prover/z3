@@ -555,7 +555,7 @@ namespace sls {
         
         //verbose_stream() << "repair " << lit << " " << (ctx.is_unit(lit)?"unit":"") << "\n";
         m_last_literal = lit;
-        if (ctx.rand(20) != 0 && find_nl_moves(lit))
+        if (find_nl_moves(lit))
             return true;
 
         if (find_lin_moves(lit))
