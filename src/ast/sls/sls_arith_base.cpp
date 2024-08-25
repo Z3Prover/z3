@@ -558,7 +558,7 @@ namespace sls {
         if (find_nl_moves(lit))
             return true;
 
-        if (false && find_lin_moves(lit))
+        if (find_lin_moves(lit))
             return true;
         
 
@@ -867,7 +867,7 @@ namespace sls {
             muls.append(to_app(e)->get_num_args(), to_app(e)->get_args());
             for (unsigned j = 0; j < muls.size(); ++j) {
                 expr* arg = muls[j];
-                if (false && a.is_mul(arg)) {
+                if (a.is_mul(arg)) {
                     //verbose_stream() << "nested " << mk_bounded_pp(arg, m) << "\n";
                     muls.append(to_app(arg)->get_num_args(), to_app(arg)->get_args());
                     muls[j] = muls.back();
