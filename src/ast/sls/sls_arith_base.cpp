@@ -534,15 +534,32 @@ namespace sls {
     }
 
     template<typename num_t>
+    bool arith_base<num_t>::find_lin_moves(sat::literal lit) {
+        m_updates.reset();
+        auto* ineq = atom(lit.var());
+        num_t a, b;
+        if (!ineq)
+            return false;
+        if (!ineq->m_is_linear) {
+            for (auto const& [coeff, x] : ineq->m_args) {
+                if (is_fixed(x))
+                    continue;
+                find_linear_moves(*ineq, x, coeff, ineq->m_args_value);
+            }
+        }
+        return apply_update();
+    }
+
+    template<typename num_t>
     bool arith_base<num_t>::repair(sat::literal lit) {
         
         //verbose_stream() << "repair " << lit << " " << (ctx.is_unit(lit)?"unit":"") << "\n";
-        if (ctx.rand(20) != 0) {
-            m_last_literal = lit;
-            find_moves(lit);
-            if (apply_update())
-                return true;
-        }
+        m_last_literal = lit;
+        if (ctx.rand(20) != 0 && find_nl_moves(lit))
+            return true;
+
+        if (find_lin_moves(lit))
+            return true;
         
 
         flet<bool> _tabu(m_use_tabu, false);
@@ -1741,12 +1758,12 @@ namespace sls {
     }
 
     template<typename num_t>
-    void arith_base<num_t>::find_moves(sat::literal lit) {
+    bool arith_base<num_t>::find_nl_moves(sat::literal lit) {
         m_updates.reset();
         auto* ineq = atom(lit.var());
         num_t a, b;
         if (!ineq)
-            return;
+            return false;
         for (auto const& [x, nl] : ineq->m_nonlinear) {
             if (is_fixed(x))
                 continue;
@@ -1757,13 +1774,7 @@ namespace sls {
             else
                 ;
         }        
-        if (false && !ineq->m_is_linear) {
-            for (auto const& [coeff, x] : ineq->m_args) {
-                if (is_fixed(x))
-                    continue;
-                find_linear_moves(*ineq, x, coeff, ineq->m_args_value);
-            }
-        }
+        return apply_update();
     }
 
     template<typename num_t>

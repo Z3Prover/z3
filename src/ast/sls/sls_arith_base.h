@@ -217,7 +217,8 @@ namespace sls {
 
         bool update(var_t v, num_t const& new_value);
         bool apply_update();
-        void find_moves(sat::literal lit);
+        bool find_nl_moves(sat::literal lit);
+        bool find_lin_moves(sat::literal lit);
         void find_reset_moves(sat::literal lit);
         void add_reset_update(var_t v);
         void find_linear_moves(ineq const& i, var_t x, num_t const& coeff, num_t const& sum);
