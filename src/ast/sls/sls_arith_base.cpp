@@ -558,7 +558,7 @@ namespace sls {
         if (find_nl_moves(lit))
             return true;
 
-        if (find_lin_moves(lit))
+        if (false && find_lin_moves(lit))
             return true;
         
 
