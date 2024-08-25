@@ -127,6 +127,7 @@ namespace sls {
             }
         }
 
+        repair_literals();
 
         // propagate "final checks"
         bool propagated = true;
@@ -136,9 +137,9 @@ namespace sls {
                 propagated |= p && !m_new_constraint && p->propagate();
         }     
 
-        if (m_new_constraint)
-            return;
+    }
 
+    void context::repair_literals() {
         for (sat::bool_var v = 0; v < s.num_vars() && !m_new_constraint; ++v) {
             auto a = atom(v);
             if (!a)

@@ -553,18 +553,18 @@ namespace sls {
     template<typename num_t>
     bool arith_base<num_t>::repair(sat::literal lit) {
         
-        //verbose_stream() << "repair " << lit << " " << (ctx.is_unit(lit)?"unit":"") << "\n";
+        //verbose_stream() << "repair " << lit << " " << (ctx.is_unit(lit)?"unit":"") << " " << mk_bounded_pp(ctx.atom(lit.var()), m) << "\n";
+        //verbose_stream() << *atom(lit.var()) << "\n";
         m_last_literal = lit;
         if (find_nl_moves(lit))
             return true;
 
-        if (find_lin_moves(lit))
-            return true;
-        
-
         flet<bool> _tabu(m_use_tabu, false);
-        find_reset_moves(lit);
-        return apply_update();
+        if (find_nl_moves(lit))
+            return true;
+        if (false && find_lin_moves(lit))
+            return true;
+        return find_reset_moves(lit);
     }
 
     template<typename num_t>
@@ -860,25 +860,14 @@ namespace sls {
             add_args(term, x, coeff);
             add_args(term, y, -coeff);
         }
+        else if (a.is_mul(e, x, y) && is_num(x, i)) {
+            add_args(term, y, i * coeff);
+        }
         else if (a.is_mul(e)) {
             unsigned_vector ms;
             num_t c(1);
-            ptr_buffer<expr> muls;
-            muls.append(to_app(e)->get_num_args(), to_app(e)->get_args());
-            for (unsigned j = 0; j < muls.size(); ++j) {
-                expr* arg = muls[j];
-                if (a.is_mul(arg)) {
-                    //verbose_stream() << "nested " << mk_bounded_pp(arg, m) << "\n";
-                    muls.append(to_app(arg)->get_num_args(), to_app(arg)->get_args());
-                    muls[j] = muls.back();
-                    muls.pop_back();
-                    --j;
-                }
-                else if (is_num(arg, i))
-                    c *= i;
-                else
-                    ms.push_back(mk_term(arg));
-            }
+            for (expr* arg : *to_app(e)) 
+                ms.push_back(mk_term(arg));            
 
             switch (ms.size()) {
             case 0:
@@ -1118,8 +1107,8 @@ namespace sls {
 
     template<typename num_t>
     void arith_base<num_t>::init_bool_var_assignment(sat::bool_var v) {
-        auto* ineq = m_bool_vars.get(v, nullptr);
-        if (ineq && ctx.is_true(sat::literal(v, false)) != (dtt(false, *ineq) == 0))
+        auto* ineq = atom(v);
+        if (ineq && ineq->is_true() != ctx.is_true(v))
             ctx.flip(v);
     }
 
@@ -1137,10 +1126,7 @@ namespace sls {
 
     template<typename num_t>
     void arith_base<num_t>::repair_literal(sat::literal lit) {
-        auto v = lit.var();
-        auto const* ineq = atom(v);
-        if (ineq && ineq->is_true() != ctx.is_true(v)) 
-            ctx.flip(v);
+        init_bool_var_assignment(lit.var());      
     }
 
     template<typename num_t>
@@ -1151,6 +1137,13 @@ namespace sls {
 
     template<typename num_t>
     void arith_base<num_t>::repair_up(app* e) {        
+        if (m.is_bool(e)) {
+            auto v = ctx.atom2bool_var(e);
+            auto const* ineq = atom(v);
+            if (ineq && ineq->is_true() != ctx.is_true(v))
+                ctx.flip(v);
+            return;
+        }
         auto v = m_expr2var.get(e->get_id(), UINT_MAX);
         if (v == UINT_MAX)
             return;
@@ -1813,11 +1806,12 @@ namespace sls {
     }
 
     template<typename num_t>
-    void arith_base<num_t>::find_reset_moves(sat::literal lit) {
+    bool arith_base<num_t>::find_reset_moves(sat::literal lit) {
+        m_updates.reset();
         auto* ineq = atom(lit.var());        
         num_t a, b;
         if (!ineq)
-            return;
+            return false;
         for (auto const& [x, nl] : ineq->m_nonlinear) 
             add_reset_update(x);
         
@@ -1829,6 +1823,8 @@ namespace sls {
                 }
             }
             verbose_stream() << "RESET moves num updates: " << lit << " " << m_updates.size() << "\n");
+
+        return apply_update();
     }
 
     template<typename num_t>

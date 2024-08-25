@@ -123,6 +123,7 @@ namespace sls {
 
         void propagate_boolean_assignment();
         void propagate_literal(sat::literal lit);
+        void repair_literals();
 
         family_id get_fid(expr* e) const;
 
