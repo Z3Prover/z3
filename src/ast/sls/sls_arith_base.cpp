@@ -537,12 +537,12 @@ namespace sls {
     bool arith_base<num_t>::repair(sat::literal lit) {
         
         //verbose_stream() << "repair " << lit << " " << (ctx.is_unit(lit)?"unit":"") << "\n";
-        m_last_literal = lit;
-        find_moves(lit);
-        static unsigned num_fail = 0;
-       
-        if (apply_update()) 
-            return true;
+        if (ctx.rand(20) != 0) {
+            m_last_literal = lit;
+            find_moves(lit);
+            if (apply_update())
+                return true;
+        }
         
 
         flet<bool> _tabu(m_use_tabu, false);
@@ -1757,7 +1757,7 @@ namespace sls {
             else
                 ;
         }        
-        if (!ineq->m_is_linear) {
+        if (false && !ineq->m_is_linear) {
             for (auto const& [coeff, x] : ineq->m_args) {
                 if (is_fixed(x))
                     continue;
