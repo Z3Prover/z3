@@ -613,7 +613,7 @@ namespace sat {
             out << ci.m_num_trues << " " << ci.m_weight << "\n";
         }
         for (unsigned v = 0; v < num_vars(); ++v) {
-            out << v << ": " << reward(v) << "\n";
+            out << v << ": rw " << reward(v) << "\n";
         }
         out << "unsat vars: ";
         for (bool_var v : m_unsat_vars) {
