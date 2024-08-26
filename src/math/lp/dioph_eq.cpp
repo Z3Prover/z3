@@ -18,6 +18,7 @@ namespace lp {
                     ret.add_monomial(p.coeff(), p.j());
                 }
                 ret.c() = c();
+                ret.j() = j();
                 return ret;
             }
             const mpq& c() const { return m_c; }
@@ -58,6 +59,14 @@ namespace lp {
             }
 
         };
+        std::ostream& print_S(std::ostream & out) const {
+			out << "S:\n";
+            for (unsigned i : m_s) {
+                out << "x" << m_eprime[i].m_e.j() << " ->\n";
+                print_eprime_entry(i, out);
+            }
+            return out;
+        }
 
         std::ostream& print_lar_term_L(const lar_term & t, std::ostream & out) const {
             return print_linear_combination_customized(t.coeffs_as_vector(), [](int j)->std::string {return "y"+std::to_string(j);}, out );
@@ -66,6 +75,7 @@ namespace lp {
         std::ostream& print_term_o(term_o const& term, std::ostream& out) const {
             if (term.size() == 0) {
                 out << "0";
+                out << ", j():"<< term.j();
                 return out;
             }
             bool first = true;
@@ -90,6 +100,7 @@ namespace lp {
                 } else {
                     out <<  "x~" << (UINT_MAX - p.j()); // ~ is for a fresh variable
                 }
+
             }
             
             if (!term.c().is_zero()) {
@@ -98,6 +109,7 @@ namespace lp {
                 else 
                    out << " - " << -term.c();
             }
+            out << ", j():"<< term.j();
             return out;
         }
     
@@ -107,7 +119,7 @@ namespace lp {
         */
         struct eprime_pair {
             term_o   m_e;
-            lar_term m_l; // this term keeps the history of m_e : originally m_l = k, where k is the index of eprime_pair in m_eprime
+            lar_term m_l; // this term keeps the history of m_e : originally m_l is i, the index of row m_e was constructed from
         };
         vector<eprime_pair> m_eprime;
         
@@ -133,16 +145,16 @@ namespace lp {
         imp(int_solver& lia, lar_solver& lra): lia(lia), lra(lra) {}
 
         term_o row_to_term(const row_strip<mpq>& row) const {
-            term_o t;
             const auto lcm = get_denominators_lcm(row);
+            term_o t;
             for (const auto & p: row) 
                 if (lia.is_fixed(p.var())) 
                     t.c() += lia.lower_bound(p.var()).x;
                 else 
                     t.add_monomial(lcm * p.coeff(), p.var());
+            t.c() *= lcm;                            
             return t;
         }
-    
         
         void init() {
             unsigned n_of_rows = lra.A_r().row_count();
@@ -160,17 +172,12 @@ namespace lp {
             for (unsigned i = 0; i < n_of_rows; i++) {
                 auto & row = lra.get_row(i);
                 if (!all_vars_are_int(row)) continue;
-                const auto lcm = get_denominators_lcm(row);
                 term_o t = row_to_term(row);
-                t.j() = i; //highjack this field to point to the original tableau row, TODO - is it used?
-                TRACE("dioph_eq", tout << "row = "; lra.print_row(row, tout) << std::endl;);
-                    
-                unsigned lvar = static_cast<unsigned>(m_f.size());
-                lar_term lt = lar_term(lvar);
-                eprime_pair pair = {t, lt};
+                TRACE("dioph_eq", tout << "row = "; lra.print_row(row, tout) << std::endl;);                    
+                eprime_pair pair = {t, lar_term(i)};
+                m_f.push_back(m_f.size());                
                 m_eprime.push_back(pair);
-                m_f.push_back(lvar);
-                TRACE("dioph_eq", print_eprime_entry(lvar, tout););
+                TRACE("dioph_eq", print_eprime_entry(m_f.size() - 1, tout););
             }
             
         }
@@ -236,17 +243,17 @@ namespace lp {
         }
 
         lia_move check() {
-            std::cout << "ddd = " << ++lp_settings::ddd << std::endl;
-            if (lp::lp_settings::ddd == 5) {
-                enable_trace("dioph_eq");
-                enable_trace("dioph_eq_fresh");
-            }
+            // if (lp::lp_settings::ddd == 5) {
+            //     enable_trace("dioph_eq");
+            //     enable_trace("dioph_eq_fresh");
+            // }
             init();
             while(m_f.size()) {
                 if (!normalize_by_gcd()) 
                     return lia_move::conflict;
                 rewrite_eqs();
             }
+            TRACE("dioph_eq", print_S(tout););                
             return lia_move::sat;
         }
         std::list<unsigned>::iterator pick_eh() {
@@ -346,7 +353,7 @@ namespace lp {
             TRACE("dioph_eq", tout << "xt_subs: x~"<< fresh_index(xt) << " -> ";  print_term_o(xt_subs, tout) << std::endl;);               
             m_sigma.insert(xt, xt_subs);
         }
-        std::ostream& print_eprime_entry(unsigned i, std::ostream& out) {
+        std::ostream& print_eprime_entry(unsigned i, std::ostream& out) const {
             out << "m_eprime[" << i << "]:{\n";
                   print_term_o(m_eprime[i].m_e, out << "\tm_e:") << "," << std::endl;
                   print_lar_term_L(m_eprime[i].m_l, out<< "\tm_l:") << "\n}"<< std::endl;
@@ -355,12 +362,14 @@ namespace lp {
         // this is the step 6 or 7 of the algorithm
         void rewrite_eqs() {
             auto eh_it = pick_eh();            
-            auto eprime_entry = m_eprime[*eh_it];
+            auto& eprime_entry = m_eprime[*eh_it];
             TRACE("dioph_eq", print_eprime_entry(*eh_it, tout););                  
             term_o& eh = eprime_entry.m_e;
             auto [ahk, k, k_sign] = find_minimal_abs_coeff(eh);
             TRACE("dioph_eq", tout << "ahk:" << ahk << ", k:" << k << ", k_sign:" << k_sign << std::endl;);
             if (ahk.is_one()) {
+                eprime_entry.m_e.j() = k;
+                TRACE("dioph_eq", tout << "push to S:\n"; print_eprime_entry(*eh_it, tout););
                 m_s.push_back(*eh_it);                
                 m_f.erase(eh_it);
                 eliminate_var(eprime_entry, k , k_sign);                
@@ -376,7 +385,8 @@ namespace lp {
             auto & ep = m_eprime[m_conflict_index];
             u_dependency* dep = nullptr;
             for (const auto & pl : ep.m_l) {
-                for (const auto & p : lra.get_row(m_eprime[pl.j()].m_e.j()))
+                unsigned row_index = pl.j();
+                for (const auto & p : lra.get_row(row_index))
                     if (lra.column_is_fixed(p.var()))
                         lra.explain_fixed_column(p.var(), ex);
             }
