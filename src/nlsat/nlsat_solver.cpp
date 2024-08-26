@@ -2835,7 +2835,7 @@ namespace nlsat {
         struct degree_lit_num_lt {
             unsigned_vector & m_degrees;
             unsigned_vector & m_lit_num;
-            degree_lit_num_lt(unsigned_vector & ds, unsigned_vector ln) :
+            degree_lit_num_lt(unsigned_vector & ds, unsigned_vector & ln) :
             m_degrees(ds),
             m_lit_num(ln) {
             }
