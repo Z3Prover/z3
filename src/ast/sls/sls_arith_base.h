@@ -37,7 +37,7 @@ namespace sls {
         typedef unsigned atom_t;
 
         struct config {
-            double cb = 0.0;
+            double cb = 2.85;
             unsigned L = 20;
             unsigned t = 45;
             unsigned max_no_improve = 500000;
@@ -160,6 +160,7 @@ namespace sls {
         bool                         m_use_tabu = true;
         unsigned                     m_updates_max_size = 45;
         arith_util                   a;
+        svector<double>              m_prob_break;
 
         void invariant();
         void invariant(ineq const& i);
