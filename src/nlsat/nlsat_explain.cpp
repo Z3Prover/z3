@@ -146,11 +146,10 @@ namespace nlsat {
             m_factors(m_pm),
             m_factors_save(m_pm),
             m_roots_tmp(m_am),
+            m_cell_sample(is_sample),
             m_todo(u),
             m_core1(s),
             m_core2(s),
-            m_cell_sample(is_sample),
-
             m_evaluator(ev) {
             m_simplify_cores   = false;
             m_full_dimensional = false;
