@@ -214,10 +214,8 @@ class fix_dl_var_tactic : public tactic {
 
         app * operator()(goal const & g) {
             try {
-                if (m_visited != nullptr) {
-                    dealloc(m_visited);
-                }
-                m_visited = alloc(expr_fast_mark1);
+                expr_fast_mark1 visited;
+                flet<expr_fast_mark1*> _visited(m_visited, &visited);
                 unsigned sz = g.size();
                 for (unsigned i = 0; i < sz; i++) {
                     process(g.form(i));
