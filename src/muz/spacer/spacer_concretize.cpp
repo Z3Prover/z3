@@ -27,7 +27,7 @@ struct proc {
     void operator()(var *n) const {}
     void operator()(quantifier *q) const {}
     void operator()(app const *n) const {
-        expr *e1, *e2;
+        expr *e1 = nullptr, *e2 = nullptr;
         if (m_arith.is_mul(n, e1, e2)) {
             if (is_var(e1) && !is_var(e2))
                 m_marks.mark(e2);
@@ -71,7 +71,7 @@ bool pob_concretizer::apply(const expr_ref_vector &cube, expr_ref_vector &out) {
 }
 
 bool pob_concretizer::is_split_var(expr *e, expr *&var, bool &pos) {
-    expr *e1, *e2;
+    expr *e1 = nullptr, *e2 = nullptr;
     rational n;
 
     if (m_var_marks.is_marked(e)) {
@@ -89,7 +89,7 @@ bool pob_concretizer::is_split_var(expr *e, expr *&var, bool &pos) {
 }
 
 void pob_concretizer::split_lit_le_lt(expr *_lit, expr_ref_vector &out) {
-    expr *e1, *e2;
+    expr *e1 = nullptr, *e2 = nullptr;
 
     expr *lit = _lit;
     m.is_not(_lit, lit);
@@ -133,7 +133,7 @@ void pob_concretizer::split_lit_le_lt(expr *_lit, expr_ref_vector &out) {
 }
 
 void pob_concretizer::split_lit_ge_gt(expr *_lit, expr_ref_vector &out) {
-    expr *e1, *e2;
+    expr *e1 = nullptr, *e2 = nullptr;
 
     expr *lit = _lit;
     m.is_not(_lit, lit);
@@ -182,7 +182,7 @@ bool pob_concretizer::apply_lit(expr *_lit, expr_ref_vector &out) {
 
     // split literals of the form a1*x1 + ... + an*xn ~ c, where c is a
     // constant, ~ is <, <=, >, or >=, and the top level operator of LHS is +
-    expr *e1, *e2;
+    expr *e1 = nullptr, *e2 = nullptr;
     if ((m_arith.is_lt(lit, e1, e2) || m_arith.is_le(lit, e1, e2)) &&
         m_arith.is_add(e1)) {
         SASSERT(m_arith.is_numeral(e2));

@@ -93,7 +93,6 @@ namespace nlsat {
         }
 
         void update_clauses(u_map<literal> const& b2l) {
-            bool is_sat = true;
             literal_vector lits;
             unsigned n = m_clauses.size();
 

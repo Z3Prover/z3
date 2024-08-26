@@ -145,7 +145,6 @@ namespace bv {
         SASSERT(m.is_bool(e));
         SASSERT(e->get_family_id() == basic_family_id);
 
-        auto id = e->get_id();
         switch (e->get_decl_kind()) {
         case OP_TRUE:
             return true;

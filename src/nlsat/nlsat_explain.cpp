@@ -126,7 +126,7 @@ namespace nlsat {
         scoped_literal_vector   m_core2;
 
         // temporary fields for storing the result
-        scoped_literal_vector * m_result;
+        scoped_literal_vector * m_result = nullptr;
         svector<char>           m_already_added_literal;
 
         evaluator &             m_evaluator;
@@ -149,8 +149,6 @@ namespace nlsat {
             m_todo(u),
             m_core1(s),
             m_core2(s),
-            m_result(nullptr),
-
             m_cell_sample(is_sample),
 
             m_evaluator(ev) {

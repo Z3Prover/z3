@@ -534,7 +534,7 @@ namespace sat {
     }
 
     cut_val aig_cuts::eval(node const& n, cut_eval const& env) const {
-        uint64_t result;
+        uint64_t result = 0;
         switch (n.op()) {
         case var_op:
             UNREACHABLE();
