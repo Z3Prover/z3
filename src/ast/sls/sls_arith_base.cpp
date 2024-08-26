@@ -1708,12 +1708,13 @@ namespace sls {
 
     template<typename num_t>
     double arith_base<num_t>::compute_score(var_t x, num_t const& delta) {
-        int result = 0;
+        double result = 0;
         for (auto const& [coeff, bv] : m_vars[x].m_bool_vars) {
             bool old_sign = sign(bv);
             auto lit = sat::literal(bv, old_sign);
             auto dtt_old = dtt(old_sign, *atom(bv));
             auto dtt_new = dtt(old_sign, *atom(bv), coeff, delta);
+#if 0
             if (dtt_new == 0 && dtt_old != 0) 
                 result += 1;
             
@@ -1722,6 +1723,14 @@ namespace sls {
                     return 0;
                 result -= 1;
             }
+#else
+            if (dtt_new == dtt_old)
+                continue;
+            if (m_use_tabu && ctx.is_unit(lit) && dtt_new != 0)
+                return 0;
+            double reward = ctx.reward(bv);
+            result += reward;
+#endif
         }
 
         if (result < 0)
