@@ -60,7 +60,7 @@ namespace mbp {
         ast_manager&                m;
         array_util                  m_arr_u;
         model_ref                   M;
-        model_evaluator*            m_mev;
+        model_evaluator*            m_mev = nullptr;
         app_ref                     m_v;    // array var to eliminate
         ast_mark                    m_has_stores_v; // has stores for m_v
         expr_ref                    m_subst_term_v; // subst term for m_v
@@ -499,7 +499,7 @@ namespace mbp {
             model_evaluator mev(mdl);
             mev.set_model_completion(true);
             M = &mdl;
-            m_mev = &mev;
+            flet<model_evaluator*> _mev(m_mev, &mev);
 
             unsigned j = 0;
             for (unsigned i = 0; i < arr_vars.size (); i++) {
@@ -546,7 +546,7 @@ namespace mbp {
         expr_ref_vector             m_pinned;   // to ensure a reference
         expr_ref_vector             m_idx_lits;
         model_ref                   M;
-        model_evaluator*            m_mev;
+        model_evaluator*            m_mev = nullptr;
         th_rewriter                 m_rw;
         ast_mark                    m_arr_test;
         ast_mark                    m_has_stores;
@@ -726,7 +726,7 @@ namespace mbp {
             model_evaluator mev(mdl);
             mev.set_model_completion(true);
             M = &mdl;
-            m_mev = &mev;
+            flet<model_evaluator*> _mev(m_mev, &mev);
             m_reduce_all_selects = reduce_all_selects;
 
             // mark vars to eliminate
@@ -778,7 +778,7 @@ namespace mbp {
         app_ref_vector              m_sel_consts;
         expr_ref_vector             m_idx_lits;
         model_ref                   M;
-        model_evaluator*            m_mev;
+        model_evaluator*            m_mev = nullptr;
         expr_safe_replace           m_sub;
         ast_mark                    m_arr_test;
 
@@ -1010,7 +1010,7 @@ namespace mbp {
             model_evaluator mev(mdl);
             mev.set_model_completion(true);
             M = &mdl;
-            m_mev = &mev;
+            flet<model_evaluator*> _mev(m_mev, &mev);
 
             // mark vars to eliminate
             // alloc empty map from array var to sel terms over it

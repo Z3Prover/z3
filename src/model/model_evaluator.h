@@ -32,6 +32,7 @@ class model_evaluator {
     struct imp;
     imp *  m_imp;
 public:
+    model_evaluator(model_evaluator & mev);
     model_evaluator(model_core & m, params_ref const & p = params_ref());
     ~model_evaluator();
 
