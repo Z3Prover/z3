@@ -1155,6 +1155,7 @@ namespace smt {
         bool guess(bool_var var, lbool phase);
 
     protected:
+        bool m_has_case_split = true;
         bool decide();
 
         void update_phase_cache_counter();

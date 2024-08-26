@@ -1858,8 +1858,10 @@ namespace smt {
             lbool phase = l_undef;
             m_case_split_queue->next_case_split(var, phase);
             used_queue = true;
-            if (var == null_bool_var)
+            if (var == null_bool_var) {
+                push_trail(value_trail(m_has_case_split, false));
                 return false;
+            }
 
             TRACE_CODE({
                 static unsigned counter = 0;
@@ -4642,6 +4644,9 @@ namespace smt {
     }
 
     bool context::has_case_splits() {
+        if (!m_has_case_split)
+            return false;
+        
         for (unsigned i = get_num_b_internalized(); i-- > 0; ) {
             if (is_relevant(i) && get_assignment(i) == l_undef)
                 return true;
