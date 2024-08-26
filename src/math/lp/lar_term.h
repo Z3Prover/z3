@@ -169,12 +169,12 @@ public:
         return ret;
     }
 
-    
+
     friend lar_term operator*(const mpq& k, const lar_term& term) {
         lar_term r;
-        for (const auto& p : term) {
+            for (const auto& p : term) {
             r.add_monomial(p.coeff()*k, p.j());
-        }
+            }
         return r;
     }
    
