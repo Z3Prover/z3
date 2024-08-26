@@ -191,6 +191,8 @@ namespace sls {
         bool check_update(var_t v, num_t new_value);
         void apply_checked_update();
 
+        num_t value1(var_t v);
+
         vector<num_t> m_factors;
         vector<num_t> const& factor(num_t n);
         num_t root_of(unsigned n, num_t a);

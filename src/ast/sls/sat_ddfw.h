@@ -155,7 +155,7 @@ namespace sat {
 
         inline void inc_reward(literal lit, double w) { reward(lit.var()) += w; }
 
-        inline void dec_reward(literal lit, double w) { reward(lit.var()) -= w; }
+        inline void dec_reward(literal lit, double w) { if (reward(lit.var()) >= w) reward(lit.var()) -= w; }
 
         void check_with_plugin();
         void check_without_plugin();

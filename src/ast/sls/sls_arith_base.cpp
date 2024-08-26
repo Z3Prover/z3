@@ -1159,6 +1159,61 @@ namespace sls {
         return false;
     }
 
+
+    template<typename num_t>
+    num_t arith_base<num_t>::value1(var_t v) {
+        auto const& vi = m_vars[v];
+        if (vi.m_def_idx == UINT_MAX)
+            return value(v);
+
+        num_t result, v1, v2;
+        switch (vi.m_op) {
+        case LAST_ARITH_OP:
+            break;
+        case OP_ADD: {
+            auto const& ad = m_adds[vi.m_def_idx];
+            auto const& args = ad.m_args;
+            result = ad.m_coeff;
+            for (auto [c, w] : args)
+                result += c * value(w);
+            break;
+        }
+        case OP_MUL: {
+            auto const& [w, monomial] = m_muls[vi.m_def_idx];
+            result = num_t(1);
+            for (auto [w, p] : monomial)
+                result *= power_of(value(w), p);
+            break;
+        }
+        case OP_MOD:
+            v1 = value(m_ops[vi.m_def_idx].m_arg1);
+            v2 = value(m_ops[vi.m_def_idx].m_arg2);
+            result = v2 == 0 ? num_t(0) : mod(v1, v2);
+            break;
+        case OP_DIV:
+            v1 = value(m_ops[vi.m_def_idx].m_arg1);
+            v2 = value(m_ops[vi.m_def_idx].m_arg2);
+            result = v2 == 0 ? num_t(0) : v1 / v2;
+            break;
+        case OP_IDIV:
+            v1 = value(m_ops[vi.m_def_idx].m_arg1);
+            v2 = value(m_ops[vi.m_def_idx].m_arg2);
+            result = v2 == 0 ? num_t(0) : div(v1, v2);
+            break;
+        case OP_REM:
+            v1 = value(m_ops[vi.m_def_idx].m_arg1);
+            v2 = value(m_ops[vi.m_def_idx].m_arg2);
+            result = v2 == 0 ? num_t(0) : v1 %= v2;
+            break;
+        case OP_ABS:
+            result = abs(value(m_ops[vi.m_def_idx].m_arg1));
+            break;
+        default:
+            NOT_IMPLEMENTED_YET();
+        }
+        return result;
+    }
+
     template<typename num_t>
     void arith_base<num_t>::repair_up(app* e) {        
         if (m.is_bool(e)) {
@@ -1174,53 +1229,7 @@ namespace sls {
         auto const& vi = m_vars[v];
         if (vi.m_def_idx == UINT_MAX)
             return;
-
-        num_t new_value, v1, v2;
-        switch (vi.m_op) {
-        case LAST_ARITH_OP:
-            break;
-        case OP_ADD: {
-            auto const& ad = m_adds[vi.m_def_idx];
-            auto const& args = ad.m_args;
-            new_value = ad.m_coeff;
-            for (auto [c, w] : args)
-                new_value += c * value(w);
-            break;
-        }
-        case OP_MUL: {
-            auto const& [w, monomial] = m_muls[vi.m_def_idx];
-            new_value = num_t(1);
-            for (auto [w, p] : monomial)
-                new_value *= power_of(value(w), p);
-            break;
-        }
-        case OP_MOD:
-            v1 = value(m_ops[vi.m_def_idx].m_arg1);
-            v2 = value(m_ops[vi.m_def_idx].m_arg2);
-            new_value = v2 == 0 ? num_t(0) : mod(v1, v2);
-            break;
-        case OP_DIV:
-            v1 = value(m_ops[vi.m_def_idx].m_arg1);
-            v2 = value(m_ops[vi.m_def_idx].m_arg2);
-            new_value = v2 == 0 ? num_t(0) : v1 / v2;
-            break;
-        case OP_IDIV:
-            v1 = value(m_ops[vi.m_def_idx].m_arg1);
-            v2 = value(m_ops[vi.m_def_idx].m_arg2);
-            new_value = v2 == 0 ? num_t(0) : div(v1, v2);
-            break;
-        case OP_REM:
-            v1 = value(m_ops[vi.m_def_idx].m_arg1);
-            v2 = value(m_ops[vi.m_def_idx].m_arg2);
-            new_value = v2 == 0 ? num_t(0) : v1 %= v2;
-            break;
-        case OP_ABS:
-            new_value = abs(value(m_ops[vi.m_def_idx].m_arg1));
-            break;
-        default:
-            NOT_IMPLEMENTED_YET();
-        }
-
+        auto new_value = value1(v);
         if (!update(v, new_value))
             ctx.new_value_eh(e);
     }
@@ -1921,6 +1930,39 @@ namespace sls {
 
     template<typename num_t>
     void arith_base<num_t>::on_restart() {
+#if 0
+        for (var_t v = 0; v < m_vars.size(); ++v) {
+            auto& vi = m_vars[v];
+            num_t new_value;
+            if (vi.m_def_idx == UINT_MAX) {
+                auto val = value(v);
+                
+                if (ctx.rand(10) != 0) {
+                    new_value = num_t((int)ctx.rand(2));
+                    if (!in_bounds(v, new_value))
+                        new_value = val;
+                }
+                else
+                    new_value = val;
+                //verbose_stream() << v << " " << vi.m_value << " -> " << new_value << "\n";
+                vi.m_value = new_value;
+            }
+            else {
+                vi.m_value = value1(v);
+            }
+            ctx.new_value_eh(vi.m_expr);           
+        }
+
+        for (sat::bool_var v = 0; v < ctx.num_bool_vars(); ++v) {
+            auto* ineq = atom(v);
+            if (!ineq)
+                continue;
+            ineq->m_args_value = ineq->m_coeff;
+            for (auto const& [coeff, w] : ineq->m_args) 
+                ineq->m_args_value += coeff * value(w);
+            init_bool_var(v);
+        }
+#endif
     }
 
     template<typename num_t>
