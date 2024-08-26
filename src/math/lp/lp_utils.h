@@ -86,6 +86,10 @@ bool is_non_decreasing(const K& v) {
 
 template <typename T>
 std::ostream& print_linear_combination_customized(const vector<std::pair<T, unsigned>> & coeffs, std::function<std::string (unsigned)> var_str, std::ostream & out) {
+    if (coeffs.size() == 0) {
+        out << "0";
+        return out;
+    }
     bool first = true;
     for (const auto & it : coeffs) {
         T val = it.first;
