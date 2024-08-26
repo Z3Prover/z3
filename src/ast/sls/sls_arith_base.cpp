@@ -63,8 +63,23 @@ namespace sls {
     template<typename num_t>
     std::ostream& arith_base<num_t>::ineq::display(std::ostream& out) const {
         bool first = true;
-        for (auto const& [c, v] : this->m_args)
-            out << (first ? "" : " + ") << c << " * v" << v, first = false;
+        unsigned j = 0;
+        for (auto const& [c, v] : this->m_args) {
+            out << (first ? (c > 0 ? "" : "-") : (c > 0 ? " + " : " - "));
+            bool first2 = abs(c) == 1;
+            if (abs(c) != 1)
+                out << abs(c);
+            auto const& m = this->m_monomials[j];
+
+            for (auto [w, p] : m) {
+                out << (first2 ? "" : " * ") << "v" << w;
+                if (p > 1)
+                    out << "^" << p;
+                first2 = false;
+            }
+            first = false;
+            ++j;
+        }
         if (this->m_coeff != 0)
             out << " + " << this->m_coeff;
         switch (m_op) {
@@ -78,15 +93,17 @@ namespace sls {
             out << " < " << 0 << "(" << m_args_value << ")";
             break;
         }
+#if 0
         for (auto const& [x, nl] : this->m_nonlinear) {
             if (nl.size() == 1 && nl[0].v == x)
                 continue;
             for (auto const& [v, c, p] : nl) {
                 out << " v" << x; 
                 if (p > 1) out << "^" << p;
-                out << " in " << c << " * v" << v;
+                out << " in v" << v;
             }
         }
+#endif
         return out;
     }    
 
@@ -1058,6 +1075,14 @@ namespace sls {
                 i.m_args[k++] = i.m_args[j];
         }
         i.m_args.shrink(k);
+        i.m_monomials.reserve(k);
+        for (unsigned j = 0; j < i.m_args.size(); ++j) {
+            auto const& [c, v] = i.m_args[j];
+            if (is_mul(v))
+                i.m_monomials[j].append(get_mul(v).m_monomial);
+            else
+                i.m_monomials[j].push_back({ v, 1 });
+        }
         // compute the value of the linear term, and accumulate non-linear sub-terms
         i.m_args_value = i.m_coeff;
         for (auto const& [coeff, v] : i.m_args) {
@@ -1896,9 +1921,6 @@ namespace sls {
 
     template<typename num_t>
     void arith_base<num_t>::on_restart() {
-        for (unsigned v = 0; v < ctx.num_bool_vars(); ++v)
-            init_bool_var_assignment(v);
-        check_ineqs();
     }
 
     template<typename num_t>

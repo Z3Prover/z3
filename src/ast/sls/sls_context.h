@@ -137,6 +137,9 @@ namespace sls {
         void register_atom(sat::bool_var v, expr* e);
         lbool check();       
 
+        void on_restart();
+        void updt_params(params_ref const& p);
+
         // expose sat_solver to plugins
         vector<sat::clause_info> const& clauses() const { return s.clauses(); }
         sat::clause_info const& get_clause(unsigned idx) const { return s.get_clause(idx); }

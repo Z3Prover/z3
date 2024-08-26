@@ -46,7 +46,9 @@ namespace sls {
 
         void on_rescale() override {}
 
-        void on_restart() override {}
+        void on_restart() override {
+            m_context.on_restart();
+        }
 
         bool m_on_save_model = false;
         void on_save_model() override {
@@ -114,13 +116,19 @@ namespace sls {
             m_ddfw.reset_statistics();
             m_context.reset_statistics();
         }
+
+        void updt_params(params_ref const& p) {
+            m_ddfw.updt_params(p);
+            m_context.updt_params(p);
+        }
     };
 
     smt_solver::smt_solver(ast_manager& m, params_ref const& p):
         m(m),
         m_solver_ctx(alloc(solver_ctx, m, m_ddfw)),
         m_assertions(m) {
-        m_ddfw.updt_params(p);
+
+        m_solver_ctx->updt_params(p);
     }
     
     smt_solver::~smt_solver() {        

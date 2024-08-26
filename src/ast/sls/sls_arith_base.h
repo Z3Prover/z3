@@ -58,9 +58,13 @@ namespace sls {
             num_t coeff; // coeff of v in inequality
             unsigned p;  // power
         };
+
+        typedef svector<std::pair<unsigned, unsigned>> monomial_t;
+
         // encode args <= bound, args = bound, args < bound
         struct ineq : public linear_term {    
             vector<std::pair<var_t, vector<nonlinear_coeff>>> m_nonlinear;
+            vector<monomial_t> m_monomials;
             ineq_kind  m_op = ineq_kind::LE;            
             num_t      m_args_value;
             bool       m_is_linear = true;
@@ -120,7 +124,7 @@ namespace sls {
 
         struct mul_def {
             unsigned        m_var;
-            svector<std::pair<unsigned, unsigned>> m_monomial;
+            monomial_t      m_monomial;
         };
 
         struct add_def : public linear_term {

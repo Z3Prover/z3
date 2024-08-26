@@ -22,6 +22,7 @@ Author:
 #include "ast/sls/sls_basic_plugin.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_pp.h"
+#include "smt/params/smt_params_helper.hpp"
 
 namespace sls {
 
@@ -42,6 +43,11 @@ namespace sls {
         register_plugin(alloc(basic_plugin, *this));
     }
 
+    void context::updt_params(params_ref const& p) {
+        smt_params_helper smtp(p);
+        m_rand.set_seed(smtp.random_seed());
+    }
+
     void context::register_plugin(plugin* p) {
         m_plugins.reserve(p->fid() + 1);
         m_plugins.set(p->fid(), p);
@@ -50,6 +56,12 @@ namespace sls {
     void context::register_atom(sat::bool_var v, expr* e) { 
         m_atoms.setx(v, e);
         m_atom2bool_var.setx(e->get_id(), v, sat::null_bool_var);
+    }
+
+    void context::on_restart() {
+        for (auto p : m_plugins)
+            if (p)
+                p->on_restart();
     }
     
     lbool context::check() {
