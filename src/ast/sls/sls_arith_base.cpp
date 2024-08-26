@@ -43,6 +43,7 @@ Done:
 #include "ast/sls/sls_arith_base.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_pp.h"
+#include <cmath>
 
 namespace sls {
 
@@ -1740,7 +1741,7 @@ namespace sls {
         else if (result == 0)
             return 0.2;        
         for (int i = m_prob_break.size(); i <= breaks; ++i) 
-            m_prob_break.push_back(pow(m_config.cb, -i));
+            m_prob_break.push_back(std::pow(m_config.cb, -i));
         return m_prob_break[breaks];
     }
 
