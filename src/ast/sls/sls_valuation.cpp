@@ -249,26 +249,27 @@ namespace bv {
         if (!get_at_most(src, m_tmp))
             return false;
 
-        if (is_zero(m_tmp) || (0 != r(10)))
-            return try_set(m_tmp);
+        if (is_zero(m_tmp) && (0 != r(10)))
+            return try_set(m_tmp) && m_tmp <= src;
 
         // random value below tmp
         set_random_below(m_tmp, r);
         
-        return (can_set(m_tmp) || get_at_most(src, m_tmp)) && try_set(m_tmp);
+        return (can_set(m_tmp) || get_at_most(src, m_tmp)) && m_tmp <= src && try_set(m_tmp);
     }
 
     bool sls_valuation::set_random_at_least(bvect const& src, random_gen& r) {
+        m_tmp.set_bw(bw);
         if (!get_at_least(src, m_tmp))
             return false;
 
-        if (is_ones(m_tmp) || (0 != r(10)))
+        if (is_ones(m_tmp) && (0 != r(10)))
             return try_set(m_tmp);
 
         // random value at least tmp
         set_random_above(m_tmp, r);
 
-        return (can_set(m_tmp) || get_at_least(src, m_tmp)) && try_set(m_tmp);
+        return (can_set(m_tmp) || get_at_least(src, m_tmp)) && src <= m_tmp && try_set(m_tmp);
     }
 
     bool sls_valuation::set_random_in_range(bvect const& lo, bvect const& hi, random_gen& r) {
