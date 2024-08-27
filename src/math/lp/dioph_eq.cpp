@@ -156,7 +156,6 @@ namespace lp {
         
         void init() {
             unsigned n_of_rows = lra.A_r().row_count();
-            unsigned skipped = 0;
             unsigned fn = 0;
                 
             auto all_vars_are_int = [this](const auto& row) {
@@ -189,7 +188,7 @@ namespace lp {
 
         mpq gcd_of_coeffs(const term_o& t) {
             mpq g(0);
-            for (auto & p : t) {
+            for (const auto & p : t) {
                 if (g.is_zero()) {
                     g = abs(p.coeff());
                 } else {
@@ -287,7 +286,7 @@ namespace lp {
             unsigned k;
             int k_sign;
             mpq t;
-            for (auto& p : eh) {
+            for (const auto& p : eh) {
                 t = abs(p.coeff());
                 if (first || t < ahk) {
                     ahk = t;
