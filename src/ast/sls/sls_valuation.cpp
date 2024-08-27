@@ -503,7 +503,7 @@ namespace bv {
         if (h == l)
             return;
 
-//        verbose_stream() << *this << " " << l << " " << h << " --> ";
+        //verbose_stream() << *this << " lo " << l << " hi " << h << " --> ";
 
         if (m_lo == m_hi) {
             set_value(m_lo, l);
@@ -614,6 +614,12 @@ namespace bv {
         
         if (m_lo == m_hi)
             return;
+
+        if (!in_range(m_bits))
+            m_bits = m_lo;
+
+        if (is_zero(m_hi)) 
+            return;        
 
         inf_feasible(m_lo);
 

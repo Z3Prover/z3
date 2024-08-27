@@ -196,6 +196,11 @@ namespace bv {
     bool sls_eval::bval1(app* e) const {
         if (e->get_family_id() == bv.get_fid())
             return bval1_bv(e);
+        expr* x, * y;
+        if (m.is_eq(e, x, y) && bv.is_bv(x)) {
+            return wval(x).bits() == wval(y).bits();
+        }
+        verbose_stream() << mk_bounded_pp(e, m) << "\n";
         UNREACHABLE();
         return false;
     }
