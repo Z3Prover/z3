@@ -777,8 +777,8 @@ namespace bv {
             return try_repair_zero_ext(assign_value(e), wval(e, 0));
         case OP_SIGN_EXT:
             return try_repair_sign_ext(assign_value(e), wval(e, 0));
-        case OP_CONCAT:
-            return try_repair_concat(assign_value(e), wval(e, 0), wval(e, 1), i);
+        case OP_CONCAT: 
+            return try_repair_concat(e, i);        
         case OP_EXTRACT: {
             unsigned hi, lo;
             expr* arg;
@@ -1218,18 +1218,18 @@ namespace bv {
         a.set_sub(p2_1, p2, m_one);
         p2_1.set_bw(a.bw);
         bool r = false;
-        if (p2 < b) 
+        if (b < p2) 
             // random b <= x < p2 
             r = a.set_random_in_range(b, p2_1, m_rand);        
         else {
             // random b <= x or x < p2
             bool coin = m_rand(2) == 0;
             if (coin)
-                r = a.set_random_at_most(p2_1,m_rand);
+                r = a.set_random_at_most(p2_1, m_rand);
             if (!r)
-                r = a.set_random_at_least(b,  m_rand);
+                r = a.set_random_at_least(b, m_rand);
             if (!r && !coin)
-                r = a.set_random_at_most(p2_1,  m_rand);
+                r = a.set_random_at_most(p2_1, m_rand);
         }
         p2_1.set_bw(0);
         return r;
@@ -1790,21 +1790,16 @@ namespace bv {
         return a.try_set(m_tmp);
     }
 
-    bool sls_eval::try_repair_concat(bvect const& e, bvval& a, bvval& b, unsigned idx) {
-        bool r = false;
-        if (idx == 0) {
-            for (unsigned i = 0; i < a.bw; ++i)
-                m_tmp.set(i, e.get(i + b.bw));
-            a.clear_overflow_bits(m_tmp);
-            r = a.try_set(m_tmp);
-        }
-        else {
-            for (unsigned i = 0; i < b.bw; ++i)
-                m_tmp.set(i, e.get(i));
-            b.clear_overflow_bits(m_tmp);
-            r = b.try_set(m_tmp);
-        }       
-        return r;
+    bool sls_eval::try_repair_concat(app* e, unsigned idx) {
+        unsigned bw = 0;
+        auto& ve = assign_value(e);
+        for (unsigned j = 0; j < idx; ++j)
+            bw += bv.get_bv_size(e->get_arg(j));
+        auto& a = wval(e, idx);
+        for (unsigned i = 0; i < a.bw; ++i)
+            m_tmp.set(i, ve.get(i + bw));
+        a.clear_overflow_bits(m_tmp);
+        return a.try_set(m_tmp);
     }
 
     //

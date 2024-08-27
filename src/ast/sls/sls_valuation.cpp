@@ -279,14 +279,10 @@ namespace bv {
             SASSERT(in_range(tmp));
             if (hi < tmp)
                 return false;
-
-            if (is_ones(tmp) || (0 == r() % 2))
-                return try_set(tmp);
             set_random_above(tmp, r);
             round_down(tmp, [&](bvect const& t) { return hi >= t && in_range(t); });
-            if (in_range(tmp) && lo <= tmp && hi >= tmp)
-                return try_set(tmp);
-            return get_at_least(lo, tmp) && hi >= tmp && try_set(tmp);
+            if (in_range(tmp) || get_at_least(lo, tmp))
+                return lo <= tmp && tmp <= hi && try_set(tmp);
         }
         else {
             if (!get_at_most(hi, tmp))
@@ -294,14 +290,12 @@ namespace bv {
             SASSERT(in_range(tmp));
             if (lo > tmp)
                 return false;
-            if (is_zero(tmp) || (0 == r() % 2))
-                return try_set(tmp);
             set_random_below(tmp, r);
             round_up(tmp, [&](bvect const& t) { return lo <= t && in_range(t); });
-            if (in_range(tmp) && lo <= tmp && hi >= tmp)
-                return try_set(tmp);
-            return get_at_most(hi, tmp) && lo <= tmp && try_set(tmp);
+            if (in_range(tmp) || get_at_most(hi, tmp))
+                return lo <= tmp && tmp <= hi && try_set(tmp);
         }
+        return false;
     }
 
     void sls_valuation::round_down(bvect& dst, std::function<bool(bvect const&)> const& is_feasible) {      

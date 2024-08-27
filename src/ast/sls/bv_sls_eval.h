@@ -104,7 +104,7 @@ namespace bv {
         bool try_repair_umul_ovfl(bool e, bvval& a, bvval& b, unsigned i);
         bool try_repair_zero_ext(bvect const& e, bvval& a);
         bool try_repair_sign_ext(bvect const& e, bvval& a);
-        bool try_repair_concat(bvect const& e, bvval& a, bvval& b, unsigned i);
+        bool try_repair_concat(app* e, unsigned i);
         bool try_repair_extract(bvect const& e, bvval& a, unsigned lo);
         bool try_repair_comp(bvect const& e, bvval& a, bvval& b, unsigned i);
         bool try_repair_eq(bool is_true, bvval& a, bvval const& b);
