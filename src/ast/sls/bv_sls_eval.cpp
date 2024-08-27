@@ -635,6 +635,28 @@ namespace bv {
     digit_t sls_eval::random_bits() {
         return sls_valuation::random_bits(m_rand);
     }
+
+
+    bool sls_eval::is_uninterpreted(app* e) const {
+        if (is_uninterp(e))
+            return true;
+        if (e->get_family_id() != bv.get_family_id())
+            return false;
+        switch (e->get_decl_kind()) {
+        case OP_BSREM:
+        case OP_BSREM_I:
+        case OP_BSREM0:
+        case OP_BSMOD:
+        case OP_BSMOD_I:
+        case OP_BSMOD0:
+        case OP_BSDIV:
+        case OP_BSDIV_I:
+        case OP_BSDIV0:
+            return true;
+        default:
+            return false;
+        }
+    }
     
     bool sls_eval::repair_down(app* e, unsigned i) {      
         if (e->get_family_id() == bv.get_family_id() && try_repair_bv(e, i)) {
@@ -807,6 +829,7 @@ namespace bv {
         case OP_BSDIV:
         case OP_BSDIV_I:
         case OP_BSDIV0:
+            UNREACHABLE();
             // these are currently compiled to udiv and urem.
             // there is an equation that enforces equality between the semantics
             // of these operators.
@@ -1900,9 +1923,9 @@ namespace bv {
     void sls_eval::commit_eval(app* e) {
         if (!bv.is_bv(e))
             return;
-        //verbose_stream() << mk_bounded_pp(e, m) << " " << wval(e) << "\n";
+        // verbose_stream() << mk_bounded_pp(e, m) << " " << wval(e) << "\n";
         //
-        // SASSERT(wval(e).commit_eval());
+        SASSERT(wval(e).commit_eval());
         VERIFY(wval(e).commit_eval());
     }
 

@@ -160,6 +160,8 @@ namespace bv {
 
         bool eval_is_correct(app* e);
 
+        bool is_uninterpreted(app* e) const;
+
         expr_ref get_value(app* e);
 
         bool bval1(app* e) const;

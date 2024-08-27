@@ -107,7 +107,7 @@ namespace sls {
 
     bool bv_plugin::repair_down(app* e) {
         unsigned n = e->get_num_args();
-        if (n == 0 || m_eval.eval_is_correct(e)) 
+        if (n == 0 || m_eval.is_uninterpreted(e) || m_eval.eval_is_correct(e)) 
             return true;        
 
         if (n == 2) {
