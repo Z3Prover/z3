@@ -640,13 +640,6 @@ namespace bv {
         if (e->get_family_id() == bv.get_family_id() && try_repair_bv(e, i)) {
             commit_eval(to_app(e->get_arg(i)));     
             ctx.new_value_eh(e->get_arg(i));
-            if (bv.is_bv(e)) {
-                auto& val = eval(e);
-                if (val.eval != val.bits()) {
-                    commit_eval(e);
-                    ctx.new_value_eh(e);
-                }
-            }
             return true;
         }
         return false;
@@ -852,6 +845,7 @@ namespace bv {
         }
         else {
             bool try_above = m_rand(2) == 0;
+            m_tmp.set_bw(a.bw);
             if (try_above) {
                 a.set_add(m_tmp, b.bits(), m_one);
                 if (!a.is_zero(m_tmp) && a.set_random_at_least(m_tmp,  m_rand))
@@ -1249,6 +1243,7 @@ namespace bv {
         }
         else {
             // a > t
+            m_tmp.set_bw(a.bw);
             a.set_add(m_tmp, b.bits(), m_one);
             if (a.is_zero(m_tmp))
                 return false;   
@@ -1263,6 +1258,7 @@ namespace bv {
         }
         else {
             // a < t
+            m_tmp.set_bw(a.bw);
             if (b.is_zero())
                 return false;
             a.set_sub(m_tmp, b.bits(), m_one);
@@ -1895,6 +1891,9 @@ namespace bv {
     void sls_eval::commit_eval(app* e) {
         if (!bv.is_bv(e))
             return;
+        //verbose_stream() << mk_bounded_pp(e, m) << " " << wval(e) << "\n";
+        //
+        // SASSERT(wval(e).commit_eval());
         VERIFY(wval(e).commit_eval());
     }
 
