@@ -26,9 +26,7 @@ namespace lp {
             term_o():m_c(0) {}
             void substitute(const term_o& t, unsigned term_column) {
                 SASSERT(!t.contains(term_column));
-                auto it = this->m_coeffs.find_core(term_column);
-                if (it == nullptr) return;
-                const mpq& a = it->get_data().m_value;
+                mpq a = get_coeff(term_column);  // need to copy it becase the pointer value can be changed during the next loop
                 for (auto p : t) {
                     this->add_monomial(a * p.coeff(), p.j());
                 }
@@ -73,7 +71,7 @@ namespace lp {
         }
         
         std::ostream& print_term_o(term_o const& term, std::ostream& out) const {
-            if (term.size() == 0) {
+            if (term.size() == 0 && term.c().is_zero()) {
                 out << "0";
                 out << ", j():"<< term.j();
                 return out;
@@ -149,7 +147,7 @@ namespace lp {
             term_o t;
             for (const auto & p: row) 
                 if (lia.is_fixed(p.var())) 
-                    t.c() += lia.lower_bound(p.var()).x;
+                    t.c() += p.coeff()*lia.lower_bound(p.var()).x;
                 else 
                     t.add_monomial(lcm * p.coeff(), p.var());
             t.c() *= lcm;                            
@@ -171,9 +169,16 @@ namespace lp {
             };
             for (unsigned i = 0; i < n_of_rows; i++) {
                 auto & row = lra.get_row(i);
+                TRACE("dioph_eq", tout << "row "<< i <<":"; lia.display_row_info(tout, i) << "\n";);
+                unsigned basic_var = lra.r_basis()[i];
+                if (!lia.column_is_int(basic_var)) continue;
                 if (!all_vars_are_int(row)) continue;
                 term_o t = row_to_term(row);
-                TRACE("dioph_eq", tout << "row = "; lra.print_row(row, tout) << std::endl;);                    
+                TRACE("dioph_eq", tout << "row = "; lra.print_row(row, tout) << std::endl;);
+                if (t.size() == 0) {
+                    SASSERT(t.c().is_zero());
+                    continue;
+                }
                 eprime_pair pair = {t, lar_term(i)};
                 m_f.push_back(m_f.size());                
                 m_eprime.push_back(pair);
@@ -182,21 +187,28 @@ namespace lp {
             
         }
 
-        // returns true if no conflict is found and false otherwise
-        bool normalize_e_by_gcd(eprime_pair& ep) {
+        mpq gcd_of_coeffs(const term_o& t) {
             mpq g(0);
-            TRACE("dioph_eq", print_term_o(ep.m_e, tout << "m_e:") << std::endl; 
-                              print_lar_term_L(ep.m_l, tout << "m_l:") << std::endl;
-            );
-            for (auto & p : ep.m_e) {
+            for (auto & p : t) {
                 if (g.is_zero()) {
                     g = abs(p.coeff());
                 } else {
                     g = gcd(g, p.coeff());
                 }                
             }
+            return g;
+        }
+        // returns true if no conflict is found and false otherwise
+        bool normalize_e_by_gcd(eprime_pair& ep) {
+            TRACE("dioph_eq", print_term_o(ep.m_e, tout << "m_e:") << std::endl; 
+                  print_lar_term_L(ep.m_l, tout << "m_l:") << std::endl;
+                );
+            mpq g = gcd_of_coeffs(ep.m_e);
+
             if (g.is_zero()) {
-                UNREACHABLE();
+                if (ep.m_e.c().is_zero())
+                    return true;
+                return false;
             }
             if (g.is_one())
                 return true;
@@ -243,10 +255,6 @@ namespace lp {
         }
 
         lia_move check() {
-            // if (lp::lp_settings::ddd == 5) {
-            //     enable_trace("dioph_eq");
-            //     enable_trace("dioph_eq_fresh");
-            // }
             init();
             while(m_f.size()) {
                 if (!normalize_by_gcd()) 
