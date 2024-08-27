@@ -1002,11 +1002,13 @@ namespace bv {
     * 8*e = a*(2b), then a = 4e*b^-1
     */
     bool sls_eval::try_repair_mul(bvect const& e, bvval& a, bvect const& b) {
-        verbose_stream() << e << " := " << a << " * " << b << "\n";
+        //verbose_stream() << e << " := " << a << " * " << b << "\n";
         unsigned parity_e = a.parity(e);
         unsigned parity_b = a.parity(b);
 
         if (a.is_zero(b)) {
+            if (a.try_set(e))
+                return true;
             a.get_variant(m_tmp, m_rand);
             if (m_rand(10) != 0)
                 for (unsigned i = 0; i < b.bw - parity_b; ++i)
@@ -1044,14 +1046,18 @@ namespace bv {
 
         // x*ta + y*tb = x
 
+        y.set_bw(a.bw);
         b.copy_to(a.nw, y);
+        //verbose_stream() << "a.nw " << a.nw << " b.nw " << b.nw << " b " << b << " y.nw " << y.nw << " y "   << y << "\n";
         if (parity_b > 0) {
             a.shift_right(y, parity_b);
+            
 #if 0
             for (unsigned i = parity_b; i < b.bw; ++i)
                 y.set(i, m_rand(2) == 0);
 #endif
         }
+        //verbose_stream() << parity_b << " y " << y << "\n";
 
         y[a.nw] = 0;
         x[a.nw] = 0;
@@ -1094,7 +1100,7 @@ namespace bv {
         b.copy_to(a.nw, y);
         if (parity_b > 0)
             a.shift_right(y, parity_b);
-        a.set_mul(m_tmp, tb, y);
+        a.set_mul(m_tmp, tb, y, false);
         SASSERT(a.is_one(m_tmp));
 #endif
         e.copy_to(b.nw, m_tmp2);

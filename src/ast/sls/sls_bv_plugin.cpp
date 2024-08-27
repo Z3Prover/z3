@@ -148,7 +148,7 @@ namespace sls {
                 ctx.new_value_eh(e);
         }
         else if (bv.is_bv(e)) {
-            IF_VERBOSE(2, verbose_stream() << "repair-up "; trace_repair(true, e));             
+            IF_VERBOSE(5, verbose_stream() << "repair-up "; trace_repair(true, e));             
             m_eval.set_random(e);
             ctx.new_value_eh(e);
         }

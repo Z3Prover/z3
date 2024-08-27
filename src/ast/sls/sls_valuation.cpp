@@ -487,7 +487,7 @@ namespace bv {
     void sls_valuation::shift_right(bvect& out, unsigned shift) const {
         SASSERT(shift < bw);
         for (unsigned i = 0; i < bw; ++i)
-            out.set(i, i + shift < bw ? m_bits.get(i + shift) : false);
+            out.set(i, i + shift < bw ? out.get(i + shift) : false);
         SASSERT(well_formed());
     }
 
