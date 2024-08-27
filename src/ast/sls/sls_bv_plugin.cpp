@@ -39,13 +39,19 @@ namespace sls {
         return expr_ref(bv.mk_numeral(val.get_value(), e->get_sort()), m);
     }
 
+    bool bv_plugin::is_bv_predicate(expr* e) {
+        return e && is_app(e) && to_app(e)->get_family_id() == bv.get_family_id();
+    }
+
     void bv_plugin::propagate_literal(sat::literal lit) {       
         SASSERT(ctx.is_true(lit));
-        auto a = ctx.atom(lit.var());
-        if (!a || !is_app(a))
+        auto e = ctx.atom(lit.var());
+        if (!is_bv_predicate(e))
             return;
-        if (!m_eval.eval_is_correct(to_app(a)))
-            ctx.new_value_eh(a);
+        auto a = to_app(e);
+
+        if (!m_eval.eval_is_correct(a))
+            ctx.new_value_eh(e);
     }
 
     bool bv_plugin::propagate() {
@@ -145,10 +151,11 @@ namespace sls {
 
     void bv_plugin::repair_literal(sat::literal lit) {
         SASSERT(ctx.is_true(lit));
-        auto a = ctx.atom(lit.var());
-        if (!a || !is_app(a))
+        auto e = ctx.atom(lit.var());
+        if (!is_bv_predicate(e))
             return;
-        if (!m_eval.eval_is_correct(to_app(a)))
+        auto a = to_app(e);
+        if (!m_eval.eval_is_correct(a))
             ctx.flip(lit.var());
     }
 

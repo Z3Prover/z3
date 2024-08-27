@@ -401,6 +401,7 @@ namespace sls {
         auto is_visited = [&](expr* e) {
             return nullptr != m_allterms.get(e->get_id(), nullptr);
         };
+        
         auto visit = [&](expr* e) {
             m_allterms.setx(e->get_id(), e);
         };
@@ -451,6 +452,7 @@ namespace sls {
 
         m_repair_down.reserve(e->get_id() + 1);
         m_repair_up.reserve(e->get_id() + 1);
+        SASSERT(e == term(e->get_id()));
         if (!m_repair_down.contains(e->get_id()))
             m_repair_down.insert(e->get_id());
         for (auto p : parents(e)) {

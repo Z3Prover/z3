@@ -34,6 +34,7 @@ namespace sls {
         std::ostream& trace_repair(bool down, expr* e);
         void trace();
         bool can_propagate();
+        bool is_bv_predicate(expr* e);
 
     public:
         bv_plugin(context& ctx);
