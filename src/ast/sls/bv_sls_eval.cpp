@@ -352,13 +352,13 @@ namespace bv {
             break;
         }
         case OP_BMUL: {
+            SASSERT(e->get_num_args() > 1);
             auto const& a = wval(e->get_arg(0));
             auto const& b = wval(e->get_arg(1));
-            for (unsigned i = 0; i < a.nw; ++i)
-                val.set_mul(val.eval, a.bits(), b.bits());
+            val.set_mul(val.eval, a.bits(), b.bits(), false);
             for (unsigned j = 2; j < e->get_num_args(); ++j) {
                 auto const& c = wval(e->get_arg(j));
-                val.set_mul(val.eval, val.eval, c.bits());
+                val.set_mul(val.eval, val.eval, c.bits(), false);
             }
             break;
         }

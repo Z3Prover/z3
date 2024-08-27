@@ -705,6 +705,8 @@ namespace bv {
     }
 
     bool sls_valuation::set_mul(bvect& out, bvect const& a, bvect const& b, bool check_overflow) const {
+        out.reserve(2 * nw);
+        SASSERT(out.size() >= 2 * nw);
         mpn_manager().mul(a.data(), nw, b.data(), nw, out.data());
         bool ovfl = false;
         if (check_overflow) {
