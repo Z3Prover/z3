@@ -204,11 +204,9 @@ namespace lp {
                   print_lar_term_L(ep.m_l, tout << "m_l:") << std::endl;
                 );
             mpq g = gcd_of_coeffs(ep.m_e);
-
             if (g.is_zero()) {
-                if (ep.m_e.c().is_zero())
-                    return true;
-                return false;
+                SASSERT(ep.m_e.c().is_zero());
+                return true;                
             }
             if (g.is_one())
                 return true;
