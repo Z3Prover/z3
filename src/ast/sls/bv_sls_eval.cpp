@@ -1002,10 +1002,11 @@ namespace bv {
     * 8*e = a*(2b), then a = 4e*b^-1
     */
     bool sls_eval::try_repair_mul(bvect const& e, bvval& a, bvect const& b) {
+        verbose_stream() << e << " := " << a << " * " << b << "\n";
         unsigned parity_e = a.parity(e);
         unsigned parity_b = a.parity(b);
 
-        if (a.is_zero(e)) {
+        if (a.is_zero(b)) {
             a.get_variant(m_tmp, m_rand);
             if (m_rand(10) != 0)
                 for (unsigned i = 0; i < b.bw - parity_b; ++i)
@@ -1017,6 +1018,8 @@ namespace bv {
             a.get_variant(m_tmp, m_rand);
             return a.set_repair(random_bool(), m_tmp);            
         }      
+
+
 
 #if 0
         verbose_stream() << "solve for " << e << "\n";

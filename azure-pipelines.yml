@@ -66,15 +66,6 @@ jobs:
       scriptPath: scripts/mk_unix_dist.py
       arguments: --nodotnet --nojava --arch=arm64
       pythonInterpreter: $(python)
-  - task: CopyFiles@2
-    inputs:
-      sourceFolder: dist
-      contents: '*.zip'
-      targetFolder: $(Build.ArtifactStagingDirectory)
-  - task: PublishPipelineArtifact@0
-    inputs:
-      artifactName: 'ManyLinuxBuildArm64'
-      targetPath: $(Build.ArtifactStagingDirectory)
 
 - job: "Ubuntu20OCaml"
   displayName: "Ubuntu 20 with OCaml"
