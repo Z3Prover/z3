@@ -363,13 +363,13 @@ namespace bv {
             break;
         }
         case OP_CONCAT: {
-            SASSERT(e->get_num_args() == 2);
-            auto const& a = wval(e->get_arg(0));
-            auto const& b = wval(e->get_arg(1));
-            for (unsigned i = 0; i < b.bw; ++i)
-                val.eval.set(i, b.get_bit(i));
-            for (unsigned i = 0; i < a.bw; ++i)
-                val.eval.set(i + b.bw, a.get_bit(i));
+            unsigned bw = 0;
+            for (unsigned i = e->get_num_args(); i-- > 0; ) {
+                auto const& a = wval(e->get_arg(i));
+                for (unsigned j = 0; j < a.bw; ++j)
+                    val.eval.set(j + bw, a.get_bit(j));
+                bw += a.bw;
+            }
             break;
         }
         case OP_EXTRACT: {

@@ -340,85 +340,88 @@ namespace bv {
             break;
         }
         case OP_BADD: {
-            SASSERT(e->get_num_args() == 2);
-            auto& a = ev.wval(e->get_arg(0));
-            auto& b = ev.wval(e->get_arg(1));
             bool pfixed = true;
             for (unsigned i = 0; i < v.bw; ++i) {
-                if (pfixed && a.fixed.get(i) && b.fixed.get(i)) 
-                    v.fixed.set(i, true);                
-                else if (!pfixed && a.fixed.get(i) && b.fixed.get(i) &&
-                    !a.get_bit(i) && !b.get_bit(i)) {
-                    pfixed = true;
-                    v.fixed.set(i, false);
+                for (unsigned j = 0; pfixed && j < e->get_num_args(); ++j) {
+                    auto& a = ev.wval(e->get_arg(j));
+                    pfixed &= a.fixed.get(i);
                 }
-                else {
-                    pfixed = false;
-                    v.fixed.set(i, false);
-                }
+                v.fixed.set(i, pfixed);
             }
             break;
         }
         case OP_BMUL: {
-            SASSERT(e->get_num_args() == 2);
-            auto& a = ev.wval(e->get_arg(0));
-            auto& b = ev.wval(e->get_arg(1));
-            unsigned j = 0, k = 0, zj = 0, zk = 0, hzj = 0, hzk = 0;
-            // i'th bit depends on bits j + k = i
-            // if the first j, resp k bits are 0, the bits j + k are 0  
-            for (; j < v.bw; ++j)
-                if (!a.fixed.get(j))
-                    break;
-            for (; k < v.bw; ++k)
-                if (!b.fixed.get(k))
-                    break;
-            for (; zj < v.bw; ++zj)
-                if (!a.fixed.get(zj) || a.get_bit(zj))
-                    break;
-            for (; zk < v.bw; ++zk)
-                if (!b.fixed.get(zk) || b.get_bit(zk))
-                    break;
-            for (; hzj < v.bw; ++hzj)
-                if (!a.fixed.get(v.bw - hzj - 1) || a.get_bit(v.bw - hzj - 1))
-                    break;
-            for (; hzk < v.bw; ++hzk)
-                if (!b.fixed.get(v.bw - hzk - 1) || b.get_bit(v.bw - hzk - 1))
-                    break;
+            if (e->get_num_args() == 2) {
+                SASSERT(e->get_num_args() == 2);
+                auto& a = ev.wval(e->get_arg(0));
+                auto& b = ev.wval(e->get_arg(1));
+                unsigned j = 0, k = 0, zj = 0, zk = 0, hzj = 0, hzk = 0;
+                // i'th bit depends on bits j + k = i
+                // if the first j, resp k bits are 0, the bits j + k are 0  
+                for (; j < v.bw; ++j)
+                    if (!a.fixed.get(j))
+                        break;
+                for (; k < v.bw; ++k)
+                    if (!b.fixed.get(k))
+                        break;
+                for (; zj < v.bw; ++zj)
+                    if (!a.fixed.get(zj) || a.get_bit(zj))
+                        break;
+                for (; zk < v.bw; ++zk)
+                    if (!b.fixed.get(zk) || b.get_bit(zk))
+                        break;
+                for (; hzj < v.bw; ++hzj)
+                    if (!a.fixed.get(v.bw - hzj - 1) || a.get_bit(v.bw - hzj - 1))
+                        break;
+                for (; hzk < v.bw; ++hzk)
+                    if (!b.fixed.get(v.bw - hzk - 1) || b.get_bit(v.bw - hzk - 1))
+                        break;
 
 
-            if (j > 0 && k > 0) {
-                for (unsigned i = 0; i < std::min(k, j); ++i) {
-                    SASSERT(!v.get_bit(i));
-                    v.fixed.set(i, true);
+                if (j > 0 && k > 0) {
+                    for (unsigned i = 0; i < std::min(k, j); ++i) {
+                        SASSERT(!v.get_bit(i));
+                        v.fixed.set(i, true);
+                    }
+                }
+                // lower zj + jk bits are 0
+                if (zk > 0 || zj > 0) {
+                    for (unsigned i = 0; i < zk + zj; ++i) {
+                        SASSERT(!v.get_bit(i));
+                        v.fixed.set(i, true);
+                    }
+                }
+                // upper bits are 0, if enough high order bits of a, b are 0.
+                // TODO - buggy
+                if (false && hzj < v.bw && hzk < v.bw && hzj + hzk > v.bw) {
+                    hzj = v.bw - hzj;
+                    hzk = v.bw - hzk;
+                    for (unsigned i = hzj + hzk - 1; i < v.bw; ++i) {
+                        SASSERT(!v.get_bit(i));
+                        v.fixed.set(i, true);
+                    }
                 }
             }
-            // lower zj + jk bits are 0
-            if (zk > 0 || zj > 0) {
-                for (unsigned i = 0; i < zk + zj; ++i) {
-                    SASSERT(!v.get_bit(i));
-                    v.fixed.set(i, true);
+            else {
+                bool pfixed = true;
+                for (unsigned i = 0; i < v.bw; ++i) {
+                    for (unsigned j = 0; pfixed && j < e->get_num_args(); ++j) {
+                        auto& a = ev.wval(e->get_arg(j));
+                        pfixed &= a.fixed.get(i);
+                    }
+                    v.fixed.set(i, pfixed);
                 }
             }
-            // upper bits are 0, if enough high order bits of a, b are 0.
-            // TODO - buggy
-            if (false && hzj < v.bw && hzk < v.bw && hzj + hzk > v.bw) {
-                hzj = v.bw - hzj;
-                hzk = v.bw - hzk;
-                for (unsigned i = hzj + hzk - 1; i < v.bw; ++i) {
-                    SASSERT(!v.get_bit(i));
-                    v.fixed.set(i, true);
-                }
-            }            
             break;
         }
         case OP_CONCAT: {
-            SASSERT(e->get_num_args() == 2);
-            auto& a = ev.wval(e->get_arg(0));
-            auto& b = ev.wval(e->get_arg(1));
-            for (unsigned i = 0; i < b.bw; ++i)
-                v.fixed.set(i, b.fixed.get(i));
-            for (unsigned i = 0; i < a.bw; ++i)
-                v.fixed.set(i + b.bw, a.fixed.get(i));
+            unsigned bw = 0;
+            for (unsigned i = e->get_num_args(); i-- > 0; ) {
+                auto& a = ev.wval(e->get_arg(i));
+                for (unsigned j = 0; j < a.bw; ++j)
+                    v.fixed.set(bw + j, a.fixed.get(j));
+                bw += a.bw;
+            }
             break;
         }
         case OP_EXTRACT: {
