@@ -236,4 +236,7 @@ to Z3's C API. For more information, see [MachineArithmetic/README.md](https://g
 * [Julia](https://github.com/ahumenberger/Z3.jl)
 * [Smalltalk](https://github.com/shingarov/MachineArithmetic/blob/pure-z3/MachineArithmetic/README.md) (supports Pharo and Smalltalk/X)
 
+## Power Tools
+* The [Axiom Profiler](https://github.com/viperproject/axiom-profiler-2) currently developed by ETH Zurich
+
 
