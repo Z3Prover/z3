@@ -135,6 +135,7 @@ namespace bv {
         digit_t bits(unsigned i) const { return m_bits[i]; }
         bvect const& bits() const { return m_bits; }
         bool commit_eval();
+        bool is_fixed() const { for (unsigned i = bw; i-- > 0; ) if (!fixed.get(i)) return false; return true; }
 
         bool get_bit(unsigned i) const { return m_bits.get(i); }
         bool try_set_bit(unsigned i, bool b) {

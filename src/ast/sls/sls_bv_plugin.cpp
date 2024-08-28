@@ -85,9 +85,12 @@ namespace sls {
     }
 
     bool bv_plugin::is_sat() {
+        bool is_sat = true;
         for (auto t : ctx.subterms())
-            if (is_app(t) && bv.is_bv(t) && !m_eval.eval_is_correct(to_app(t)))
-                return false;
+            if (is_app(t) && bv.is_bv(t) && to_app(t)->get_family_id() == bv.get_fid() && !m_eval.eval_is_correct(to_app(t))) {
+                ctx.new_value_eh(t);
+                is_sat = false;
+            }
         return true;
     }
     
@@ -107,38 +110,44 @@ namespace sls {
 
     bool bv_plugin::repair_down(app* e) {
         unsigned n = e->get_num_args();
+        bool status = true;
         if (n == 0 || m_eval.is_uninterpreted(e) || m_eval.eval_is_correct(e)) 
-            return true;        
-
+            goto done;
+        
         if (n == 2) {
             auto d1 = get_depth(e->get_arg(0));
             auto d2 = get_depth(e->get_arg(1));
             unsigned s = ctx.rand(d1 + d2 + 2);
             if (s <= d1 && m_eval.repair_down(e, 0)) 
-                return true;
+                goto done;
             
             if (m_eval.repair_down(e, 1)) 
-                return true;
+                goto done;
             
             if (m_eval.repair_down(e, 0)) 
-                return true;            
+                goto done;
         }
         else {
             unsigned s = ctx.rand(n);
             for (unsigned i = 0; i < n; ++i) {
                 auto j = (i + s) % n;
                 if (m_eval.repair_down(e, j)) 
-                    return true;                
+                    goto done;
             }
         }
-        return false;
+        status = false;
+        
+    done:
+        log(e, false, status);
+        return status;
     }
 
     void bv_plugin::repair_up(app* e) {
         if (m_eval.repair_up(e)) {
             if (!m_eval.eval_is_correct(e)) {
-                verbose_stream() << "incorrect eval #" << e->get_id() << " " << mk_bounded_pp(e, m) << "\n";
+                verbose_stream() << "Incorrect eval #" << e->get_id() << " " << mk_bounded_pp(e, m) << "\n";
             }
+            log(e, true, true);
             SASSERT(m_eval.eval_is_correct(e));
             if (m.is_bool(e)) {
                 if (ctx.is_true(e) != m_eval.bval1(e))
@@ -148,10 +157,14 @@ namespace sls {
                 ctx.new_value_eh(e);
         }
         else if (bv.is_bv(e)) {
+            log(e, true, false);
             IF_VERBOSE(5, verbose_stream() << "repair-up "; trace_repair(true, e));             
             m_eval.set_random(e);
             ctx.new_value_eh(e);
         }
+        else
+            log(e, true, false);
+
     }
 
     void bv_plugin::repair_literal(sat::literal lit) {
@@ -175,4 +188,14 @@ namespace sls {
         IF_VERBOSE(2, verbose_stream()
             << "(bvsls :restarts " << m_stats.m_restarts << ")\n");
     }
+
+    void bv_plugin::log(expr* e, bool up_down, bool success) {
+        //        unsigned value = 0;
+        // if (bv.is_bv(e))
+        //    value = svector_hash<unsigned_hash>()(m_eval.wval(e).bits());
+        IF_VERBOSE(2, verbose_stream() << mk_bounded_pp(e, m) << " " << (up_down?"u":"d") << " " << (success ? "S" : "F");
+                   // if (bv.is_bv(e)) verbose_stream() << " " << m_eval.wval(e).bits();
+                   verbose_stream() << "\n");
+    }
+
 }

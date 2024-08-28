@@ -36,6 +36,8 @@ namespace sls {
         bool can_propagate();
         bool is_bv_predicate(expr* e);
 
+        void log(expr* e, bool up_down, bool success); 
+
     public:
         bv_plugin(context& ctx);
         ~bv_plugin() override {}

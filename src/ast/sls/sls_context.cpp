@@ -86,8 +86,6 @@ namespace sls {
             if (m_new_constraint || !unsat().empty())
                 return l_undef;
 
-            //verbose_stream() << unsat().size() << " " << m_new_constraint << "\n";
-
             if (all_of(m_plugins, [&](auto* p) { return !p || p->is_sat(); })) {
                 model_ref mdl = alloc(model, m);
                 for (expr* e : subterms()) 

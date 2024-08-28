@@ -366,7 +366,7 @@ namespace bv {
             unsigned bw = 0;
             for (unsigned i = e->get_num_args(); i-- > 0; ) {
                 auto const& a = wval(e->get_arg(i));
-                for (unsigned j = 0; j < a.bw; ++j)
+                for (unsigned j = 0; false && j < a.bw; ++j)
                     val.eval.set(j + bw, a.get_bit(j));
                 bw += a.bw;
             }
@@ -1269,6 +1269,7 @@ namespace bv {
     }
 
     bool sls_eval::try_repair_ule(bool e, bvval& a, bvval const& b) {
+        verbose_stream() << "try-repair-ule " << e << " " << a << " " << b << "\n";
         if (e) {
             // a <= t
             return a.set_random_at_most(b.bits(),  m_rand);
@@ -1284,6 +1285,7 @@ namespace bv {
     }
 
     bool sls_eval::try_repair_uge(bool e, bvval& a, bvval const& b) {
+        verbose_stream() << "try-repair-uge " << e << " " << a << " " << b << "\n";
         if (e) {
             // a >= t
             return a.set_random_at_least(b.bits(), m_rand);
@@ -1821,7 +1823,7 @@ namespace bv {
     bool sls_eval::try_repair_concat(app* e, unsigned idx) {
         unsigned bw = 0;
         auto& ve = assign_value(e);
-        for (unsigned j = 0; j < idx; ++j)
+        for (unsigned j = e->get_num_args() - 1; j > idx; --j)
             bw += bv.get_bv_size(e->get_arg(j));
         auto& a = wval(e, idx);
         for (unsigned i = 0; i < a.bw; ++i)
@@ -1923,7 +1925,6 @@ namespace bv {
     void sls_eval::commit_eval(app* e) {
         if (!bv.is_bv(e))
             return;
-        // verbose_stream() << mk_bounded_pp(e, m) << " " << wval(e) << "\n";
         //
         SASSERT(wval(e).commit_eval());
         VERIFY(wval(e).commit_eval());
@@ -1939,7 +1940,9 @@ namespace bv {
             return false;
         if (m.is_bool(e))
             return bval0(e) == bval1(e);
-        if (bv.is_bv(e)) {            
+        if (bv.is_bv(e)) {
+            if (m.is_ite(e))
+                return true;
             auto const& v = eval(e);
             return v.eval == v.bits();
         }

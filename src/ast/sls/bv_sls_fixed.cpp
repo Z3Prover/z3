@@ -285,16 +285,20 @@ namespace bv {
         if (!is_app(_e))
             return;
         auto e = to_app(_e);
-        if (!bv.is_bv(e))
-            return;
-
-        auto& v = ev.wval(e);
-        if (all_of(*e, [&](expr* arg) { return ev.is_fixed0(arg); })) {
-            for (unsigned i = 0; i < v.bw; ++i)
-                v.fixed.set(i, true);
+        
+        if (e->get_family_id() == bv.get_family_id() && all_of(*e, [&](expr* arg) { return ev.is_fixed0(arg); })) {
+            if (bv.is_bv(e)) {    
+                auto& v = ev.wval(e);
+                for (unsigned i = 0; i < v.bw; ++i)
+                    v.fixed.set(i, true);
+            }
             ev.m_fixed.setx(e->get_id(), true, false);
             return;
         }
+
+        if (!bv.is_bv(e))
+            return;
+        auto& v = ev.wval(e);
 
         if (m.is_ite(e)) {
             auto& val_th = ev.wval(e->get_arg(1));
