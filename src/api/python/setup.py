@@ -7,14 +7,12 @@ import multiprocessing
 import re
 import glob
 from setuptools import setup
-from distutils.util import get_platform
-from distutils.errors import LibError
-from distutils.command.build import build as _build
-from distutils.command.sdist import sdist as _sdist
-from distutils.command.clean import clean as _clean
+from setuptools.command.build import build as _build
+from setuptools.command.sdist import sdist as _sdist
 from setuptools.command.develop import develop as _develop
-from setuptools.command.bdist_egg import bdist_egg as _bdist_egg
 
+class LibError(Exception):
+    pass
 
 build_env = dict(os.environ)
 build_env['PYTHON'] = sys.executable
@@ -238,26 +236,11 @@ class develop(_develop):
         self.execute(_copy_bins, (), msg="Copying binaries")
         _develop.run(self)
 
-class bdist_egg(_bdist_egg):
-    def run(self):
-        self.run_command('build')
-        _bdist_egg.run(self)
-
 class sdist(_sdist):
     def run(self):
         self.execute(_clean_bins, (), msg="Cleaning binary files and headers")
         self.execute(_copy_sources, (), msg="Copying source files")
         _sdist.run(self)
-
-class clean(_clean):
-    def run(self):
-        self.execute(_clean_bins, (), msg="Cleaning binary files and headers")
-        self.execute(_clean_native_build, (), msg="Cleaning native build")
-        _clean.run(self)
-
-# the build directory needs to exist
-#try: os.makedirs(os.path.join(ROOT_DIR, 'build'))
-#except OSError: pass
 
 # platform.freedesktop_os_release was added in 3.10
 os_id = ''
@@ -268,75 +251,6 @@ if hasattr(platform, 'freedesktop_os_release'):
         os_id = osr['ID']
     except OSError:
         pass
-
-if 'bdist_wheel' in sys.argv and '--plat-name' not in sys.argv:
-    if RELEASE_DIR is None:
-        name = get_platform()
-        if 'linux' in name:
-            # linux_* platform tags are disallowed because the python ecosystem is fubar
-            # linux builds should be built in the centos 5 vm for maximum compatibility
-            # see https://github.com/pypa/manylinux
-            # see also https://github.com/angr/angr-dev/blob/master/admin/bdist.py
-            plat_name = 'manylinux_2_28_' + platform.machine()
-        elif 'mingw' in name:
-            if platform.architecture()[0] == '64bit':
-                plat_name = 'win_amd64'
-            else:
-                plat_name ='win32'
-        else:
-            # https://www.python.org/dev/peps/pep-0425/
-            plat_name = name.replace('.', '_').replace('-', '_')
-    else:
-        # extract the architecture of the release from the directory name
-        arch = RELEASE_METADATA[1]
-        distos = RELEASE_METADATA[2]
-        if distos in ('debian', 'ubuntu'):
-            raise Exception(
-                "Linux binary distributions must be built on centos to conform to PEP 513 or alpine if targeting musl"
-            )
-        elif distos == 'glibc':
-            if arch == 'x64':
-                plat_name = 'manylinux_2_28_x86_64'
-            elif arch == 'arm64' or arch == 'aarch64':
-                # context on why are we match on arm64
-                # but use aarch64 on the plat_name is
-                # due to a workaround current python
-                # legacy build doesn't support aarch64
-                # so using the currently supported arm64
-                # build and simply rename it to aarch64
-                # see full context on #7148
-                plat_name = 'manylinux_2_28_aarch64'                
-            else:
-                plat_name = 'manylinux_2_28_i686'
-        elif distos == 'linux' and os_id == 'alpine':
-            if arch == 'x64':
-                plat_name = 'musllinux_1_1_x86_64'
-            else:
-                plat_name = 'musllinux_1_1_i686'
-        elif distos == 'win':
-            if arch == 'x64':
-                plat_name = 'win_amd64'
-            else:
-                plat_name = 'win32'
-        elif distos == 'osx':
-            osver = RELEASE_METADATA[3]
-            if osver.count('.') > 1:
-                osver = '.'.join(osver.split('.')[:2])
-            if osver.startswith("11"):
-                osver = "11_0"
-            if arch == 'x64':
-                plat_name ='macosx_%s_x86_64' % osver.replace('.', '_')
-            elif arch == 'arm64':
-                plat_name ='macosx_%s_arm64' % osver.replace('.', '_')
-            else:
-                raise Exception(f"idk how os {distos} {osver} works. what goes here?")
-        else:
-            raise Exception(f"idk how to translate between this z3 release os {distos} and the python naming scheme")
-
-    idx = sys.argv.index('bdist_wheel') + 1
-    sys.argv.insert(idx, '--plat-name')
-    sys.argv.insert(idx + 1, plat_name)
-    sys.argv.insert(idx + 2, '--universal')   # supports py2+py3. if --plat-name is not specified this will also mean that the package can be installed on any machine regardless of architecture, so watch out!
 
 setup(
     name='z3-solver',
@@ -356,5 +270,5 @@ setup(
         'z3': [os.path.join('lib', '*'), os.path.join('include', '*.h'), os.path.join('include', 'c++', '*.h')]
     },
     data_files=[('bin',[os.path.join('bin',EXECUTABLE_FILE)])],
-    cmdclass={'build': build, 'develop': develop, 'sdist': sdist, 'bdist_egg': bdist_egg, 'clean': clean},
+    cmdclass={'build': build, 'develop': develop, 'sdist': sdist},
 )
