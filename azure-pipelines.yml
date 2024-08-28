@@ -73,7 +73,6 @@ jobs:
   - script: echo '##vso[task.prependpath]/tmp/arm-toolchain/aarch64-none-linux-gnu/libc/usr/bin'
   - script: echo $PATH
   - script: "stat `which aarch64-none-linux-gnu-gcc`"
-  - script: "pip install build git+https://github.com/rhelmot/auditwheel"  # @TODO remove when patches make it upstream
   - script: "cd src/api/python && CC=aarch64-none-linux-gnu-gcc CXX=aarch64-none-linux-gnu-g++ AR=aarch64-none-linux-gnu-ar LD=aarch64-none-linux-gnu-ld python -m build && AUDITWHEEL_PLAT= auditwheel repair --best-plat dist/*.whl && cd ../../.."
 
 - job: "Ubuntu20OCaml"
