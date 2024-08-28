@@ -6798,7 +6798,7 @@ class Statistics:
         sat
         >>> st = s.statistics()
         >>> len(st)
-        6
+        7
         """
         return int(Z3_stats_size(self.ctx.ref(), self.stats))
 
@@ -6812,11 +6812,11 @@ class Statistics:
         sat
         >>> st = s.statistics()
         >>> len(st)
-        6
+        7
         >>> st[0]
         ('nlsat propagations', 2)
         >>> st[1]
-        ('nlsat stages', 2)
+        ('nlsat restarts', 1)
         """
         if idx >= len(self):
             raise IndexError
@@ -10220,7 +10220,7 @@ def FPs(names, fpsort, ctx=None):
     >>> x.ebits()
     8
     >>> fpMul(RNE(), fpAdd(RNE(), x, y), z)
-    x + y * z
+    (x + y) * z
     """
     ctx = _get_ctx(ctx)
     if isinstance(names, str):
