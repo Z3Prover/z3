@@ -266,15 +266,23 @@ namespace lp {
         }
                 
 
-        void substitute_var_on_f(unsigned k, int k_sign, const term_o& k_subst, const lar_term& l_term)  {
+        void substitute_var_on_f(unsigned k, int k_sign, const term_o& k_subst, const lar_term& l_term, unsigned index_to_avoid)  {
             TRACE("dioph_eq", print_term_o(k_subst, tout<< "x" << k<< " -> ") << std::endl; tout << "l_term:"; print_lar_term_L(l_term, tout) << std::endl;);
             for (unsigned e_index: m_f) {
+                if (e_index == index_to_avoid) continue;
                 term_o& e = m_eprime[e_index].m_e;
                 if (!e.contains(k)) continue;
+                
                 const mpq& k_coeff = e.get_coeff(k);
                 TRACE("dioph_eq", print_eprime_entry(e_index, tout << "before:") << std::endl;
                        tout << "k_coeff:" << k_coeff << std::endl;);
-                m_eprime[e_index].m_l += mpq(-k_sign)*k_coeff*l_term;
+                if (!l_term.is_empty()) {
+                    if (k_sign == 1)
+                        m_eprime[e_index].m_l -= k_coeff*l_term;
+                    else {
+                        m_eprime[e_index].m_l += k_coeff*l_term;
+                    }
+                }
                 e.substitute(k_subst, k);
                 TRACE("dioph_eq", print_eprime_entry(e_index, tout << "after :") << std::endl;);                       
             }
@@ -310,47 +318,54 @@ namespace lp {
             TRACE("dioph_eq", tout << "subst_term:"; print_term_o(t, tout) << std::endl;);
             return t;
         }
-        void eliminate_var(eprime_pair& e_pair, unsigned k, int k_sign) {
+        void eliminate_var_in_f(eprime_pair& e_pair, unsigned k, int k_sign) {
             term_o t = get_term_to_subst(e_pair.m_e, k, k_sign);
-            substitute_var_on_f(k, k_sign, t, e_pair.m_l) ;
+            substitute_var_on_f(k, k_sign, t, e_pair.m_l, -1) ; // -1 is for the index to ignore
         }
 
 // k is the variable to substitute
-        void fresh_var_step(eprime_pair & e_pair, mpq& ahk, unsigned k) {
+        void fresh_var_step(unsigned e_index, unsigned k) {
+            eprime_pair & e_pair = m_eprime[e_index];
 // step 7 from the paper
             auto & eh = e_pair.m_e;
             // xt is the fresh variable 
             unsigned xt = m_last_fresh_x_var--;
             TRACE("dioph_eq", tout << "introduce fresh xt:" << "~x"<< fresh_index(xt) << std::endl;
                   tout << "eh:"; print_term_o(eh,tout) << std::endl;);
-            /* Let eh = sum (a_i*x_i) + c = 0. 
+            /* Let eh = sum (a_i*x_i) + c  
                For each i != k, let a_i = a_qi*ahk + a_ri, and let c = c_q * ahk + c_r
                eh = ahk * (x_k + sum {a_qi*x_i) + c_q | i != k }) + sum {a_ri*x_i | i != k} + c_r = 0
-               x_t = x_k + sum {a_qi*x_i) + c_q | i != k }, it will be xt_term
-               Then x_k -> - sum {a_qi*x_i) + c_q | i != k } + x_t, it will be subs_k
-               eh = ahk*x_t + ...
+               xt = x_k + sum {a_qi*x_i) + c_q | i != k }, it will be xt_term
+               Then x_k -> - sum {a_qi*x_i) + c_q | i != k } + xt, it will be subs_k
+               eh = ahk*xt + ...
             */
             term_o xt_term;
             term_o k_subs;
+            // copy it aside
+            const mpq ahk = eh.get_coeff(k);
             mpq r, q = machine_div_rem(eh.c(), ahk, r);
             xt_term.add_var(k);
             xt_term.c() = q;
             xt_term.add_monomial(mpq(-1), xt);
             k_subs.add_var(xt);
             k_subs.c() = - q; 
-
+            term_o et; //et is the elimination k from eh, which is an optimization
+            et.add_monomial(ahk, xt);
+            et.c() = r;
             for (const auto & p: eh) {
                 if (p.j() == k) continue;
                 q = machine_div_rem(p.coeff(), ahk, r);
                 xt_term.add_monomial(q, p.j());
                 k_subs.add_monomial(-q, p.j());
+                et.add_monomial(r, p.j());
             }
+            m_eprime[e_index].m_e = et;
             eprime_pair xt_entry = {xt_term, lar_term()};  // 0 for m_l field
             m_eprime.push_back(xt_entry);
             TRACE("dioph_eq", tout << "xt_term:"; print_term_o(xt_term, tout) << std::endl;
                   tout << "k_subs:"; print_term_o(k_subs, tout) << std::endl;
                   print_eprime_entry(m_eprime.size()-1, tout););
-            substitute_var_on_f(k, 1, k_subs, xt_entry.m_l);
+            substitute_var_on_f(k, 1, k_subs, xt_entry.m_l, e_index);
 
              // the term to eliminate the fresh variable
             term_o xt_subs = xt_term.clone();
@@ -377,10 +392,9 @@ namespace lp {
                 TRACE("dioph_eq", tout << "push to S:\n"; print_eprime_entry(*eh_it, tout););
                 m_s.push_back(*eh_it);                
                 m_f.erase(eh_it);
-                eliminate_var(eprime_entry, k , k_sign);                
+                eliminate_var_in_f(eprime_entry, k , k_sign);                
             } else {
-                ahk *= k_sign; // restore the original coefficient
-                fresh_var_step(eprime_entry, ahk, k);
+                fresh_var_step(*eh_it, k);
             }
         }
 
