@@ -6,6 +6,7 @@ rebase.cmd
 callgrind.out.*
 # .hpp files are automatically generated
 *.hpp
+.env
 .z3-trace
 # OCaml generated files
 *.a
