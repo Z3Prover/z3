@@ -97,6 +97,7 @@ namespace sls {
         struct stats {
             unsigned m_num_repair_down = 0;
             unsigned m_num_repair_up = 0;
+            unsigned m_num_pelis = 0;
             void reset() { memset(this, 0, sizeof(*this)); }
         };
 
