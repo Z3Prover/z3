@@ -23,6 +23,8 @@ ocamlz3
 # Emacs temp files
 \#*\#
 # Directories with generated code and documentation
+node_modules/*
+.genaiscript/*
 release/*
 build/*
 trace/*
