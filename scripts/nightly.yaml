@@ -182,7 +182,7 @@ stages:
     - script: "pip install ./src/api/python/wheelhouse/*.whl && python - <src/api/python/z3test.py z3 && python - <src/api/python/z3test.py z3num"
     - task: CopyFiles@2
       inputs:
-        sourceFolder: dist
+        sourceFolder: wheelhouse
         contents: '*.zip'
         targetFolder: $(Build.ArtifactStagingDirectory)
     - task: PublishPipelineArtifact@0
@@ -212,7 +212,7 @@ stages:
     - script: "cd src/api/python && CC=aarch64-none-linux-gnu-gcc CXX=aarch64-none-linux-gnu-g++ AR=aarch64-none-linux-gnu-ar LD=aarch64-none-linux-gnu-ld python -m build && AUDITWHEEL_PLAT= auditwheel repair --best-plat dist/*.whl && cd ../../.."
     - task: CopyFiles@2
       inputs:
-        sourceFolder: dist
+        sourceFolder: wheelhouse
         contents: '*.zip'
         targetFolder: $(Build.ArtifactStagingDirectory)
     - task: PublishPipelineArtifact@0
