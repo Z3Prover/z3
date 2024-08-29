@@ -45,6 +45,20 @@ public:
                 m_coeffs.erase(j);
         }
     }
+
+    void sub_monomial(const mpq& c, unsigned j) {
+        if (c.is_zero())
+            return;
+        auto *e = m_coeffs.find_core(j);        
+        if (e == nullptr) {
+            m_coeffs.insert(j, c);
+        } else {
+            e->get_data().m_value -= c;
+            if (e->get_data().m_value.is_zero())
+                m_coeffs.erase(j);
+        }
+    }
+
     
     void add_var(lpvar j) {
         rational c(1);
@@ -172,9 +186,9 @@ public:
 
     friend lar_term operator*(const mpq& k, const lar_term& term) {
         lar_term r;
-            for (const auto& p : term) {
+        for (const auto& p : term) {
             r.add_monomial(p.coeff()*k, p.j());
-            }
+        }
         return r;
     }
    
@@ -184,6 +198,14 @@ public:
         }
         return *this;
     }
+
+    lar_term& operator-=(const lar_term& a) {
+        for (const auto& p : a) {
+            sub_monomial(p.coeff(), p.j());
+        }
+        return *this;
+    }
+
     
     lar_term& operator*=(mpq const& k) {
         for (auto & t : m_coeffs)
