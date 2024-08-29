@@ -91,7 +91,7 @@ namespace sls {
                 ctx.new_value_eh(t);
                 is_sat = false;
             }
-        return true;
+        return is_sat;
     }
     
     std::ostream& bv_plugin::display(std::ostream& out) const {

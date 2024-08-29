@@ -312,29 +312,32 @@ namespace bv {
             return;
         switch (e->get_decl_kind()) {
         case OP_BAND: {
-            SASSERT(e->get_num_args() == 2);
-            auto& a = ev.wval(e->get_arg(0));
-            auto& b = ev.wval(e->get_arg(1));
-            // (a.fixed & b.fixed) | (a.fixed & ~a.bits) | (b.fixed & ~b.bits)
-            for (unsigned i = 0; i < a.nw; ++i)
-                v.fixed[i] = (a.fixed[i] & b.fixed[i]) | (a.fixed[i] & ~a.bits(i)) | (b.fixed[i] & ~b.bits(i));
+            if (e->get_num_args() == 2) {
+                auto& a = ev.wval(e->get_arg(0));
+                auto& b = ev.wval(e->get_arg(1));
+                // (a.fixed & b.fixed) | (a.fixed & ~a.bits) | (b.fixed & ~b.bits)
+                for (unsigned i = 0; i < a.nw; ++i)
+                    v.fixed[i] = (a.fixed[i] & b.fixed[i]) | (a.fixed[i] & ~a.bits(i)) | (b.fixed[i] & ~b.bits(i));
+            }
             break;
         }
         case OP_BOR: {
-            SASSERT(e->get_num_args() == 2);
-            auto& a = ev.wval(e->get_arg(0));
-            auto& b = ev.wval(e->get_arg(1));
-            // (a.fixed & b.fixed) | (a.fixed & a.bits) | (b.fixed & b.bits)
-            for (unsigned i = 0; i < a.nw; ++i)
-                v.fixed[i] = (a.fixed[i] & b.fixed[i]) | (a.fixed[i] & a.bits(i)) | (b.fixed[i] & b.bits(i));
+            if (e->get_num_args() == 2) {
+                auto& a = ev.wval(e->get_arg(0));
+                auto& b = ev.wval(e->get_arg(1));
+                // (a.fixed & b.fixed) | (a.fixed & a.bits) | (b.fixed & b.bits)
+                for (unsigned i = 0; i < a.nw; ++i)
+                    v.fixed[i] = (a.fixed[i] & b.fixed[i]) | (a.fixed[i] & a.bits(i)) | (b.fixed[i] & b.bits(i));
+            }
             break;
         }
         case OP_BXOR: {
-            SASSERT(e->get_num_args() == 2);
-            auto& a = ev.wval(e->get_arg(0));
-            auto& b = ev.wval(e->get_arg(1));
-            for (unsigned i = 0; i < a.nw; ++i)
-                v.fixed[i] = a.fixed[i] & b.fixed[i];
+            if (e->get_num_args() == 2) {
+                auto& a = ev.wval(e->get_arg(0));
+                auto& b = ev.wval(e->get_arg(1));
+                for (unsigned i = 0; i < a.nw; ++i)
+                    v.fixed[i] = a.fixed[i] & b.fixed[i];
+            }
             break;
         }
         case OP_BNOT: {

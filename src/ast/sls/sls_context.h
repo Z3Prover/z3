@@ -94,6 +94,12 @@ namespace sls {
             }
         };
 
+        struct stats {
+            unsigned m_num_repair_down = 0;
+            unsigned m_num_repair_up = 0;
+            void reset() { memset(this, 0, sizeof(*this)); }
+        };
+
         ast_manager& m;
         sat_solver_context& s;
         scoped_ptr_vector<plugin> m_plugins;
@@ -113,6 +119,7 @@ namespace sls {
         less_depth m_ld;
         heap<greater_depth> m_repair_down;
         heap<less_depth> m_repair_up;        
+        stats m_stats;
 
         void register_plugin(plugin* p);
 

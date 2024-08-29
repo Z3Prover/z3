@@ -1001,8 +1001,7 @@ namespace bv {
             if (a.try_set(m_tmp))
                 return true;
         }
-        return a.set_random(m_rand);
-       
+        return a.set_random(m_rand);     
     }
 
     bool sls_eval::try_repair_sub(bvect const& e, bvval& a, bvval & b, unsigned i) {
@@ -1269,7 +1268,7 @@ namespace bv {
     }
 
     bool sls_eval::try_repair_ule(bool e, bvval& a, bvval const& b) {
-        verbose_stream() << "try-repair-ule " << e << " " << a << " " << b << "\n";
+        //verbose_stream() << "try-repair-ule " << e << " " << a << " " << b << "\n";
         if (e) {
             // a <= t
             return a.set_random_at_most(b.bits(),  m_rand);
@@ -1285,7 +1284,7 @@ namespace bv {
     }
 
     bool sls_eval::try_repair_uge(bool e, bvval& a, bvval const& b) {
-        verbose_stream() << "try-repair-uge " << e << " " << a << " " << b << "\n";
+        //verbose_stream() << "try-repair-uge " << e << " " << a << " " << b << "\n";
         if (e) {
             // a >= t
             return a.set_random_at_least(b.bits(), m_rand);

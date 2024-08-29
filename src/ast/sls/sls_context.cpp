@@ -119,6 +119,7 @@ namespace sls {
                 TRACE("sls", tout << "repair down " << mk_bounded_pp(e, m) << "\n");
                 if (is_app(e)) {
                     auto p = m_plugins.get(get_fid(e), nullptr);
+                    ++m_stats.m_num_repair_down;
                     if (p && !p->repair_down(to_app(e)) && !m_repair_up.contains(e->get_id())) {
                         IF_VERBOSE(3, verbose_stream() << "revert repair: " << mk_bounded_pp(e, m) << "\n");
                         m_repair_up.insert(e->get_id());
@@ -128,6 +129,7 @@ namespace sls {
             while (!m_repair_up.empty() && !m_new_constraint && m.inc()) {
                 auto id = m_repair_up.erase_min();
                 expr* e = term(id);
+                ++m_stats.m_num_repair_up;
                 TRACE("sls", tout << "repair up " << mk_bounded_pp(e, m) << "\n");
                 if (is_app(e)) {
                     auto p = m_plugins.get(get_fid(e), nullptr);
@@ -531,11 +533,14 @@ namespace sls {
         for (auto p : m_plugins)
             if (p)
                 p->collect_statistics(st);
+        st.update("sls-repair-down", m_stats.m_num_repair_down);
+        st.update("sls-repair-up", m_stats.m_num_repair_up);
     }
 
     void context::reset_statistics() {
         for (auto p : m_plugins)
             if (p)
                 p->reset_statistics();
+        m_stats.reset();
     }
 }
