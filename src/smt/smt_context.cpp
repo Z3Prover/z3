@@ -99,13 +99,16 @@ namespace smt {
         m_model_generator->set_context(this);
     }
 
-
+    ::
     /**
        \brief retrieve flag for when cancelation is possible.
     */
 
     bool context::get_cancel_flag() {
-        return !m.limit().inc();
+        if (m.limit().inc())
+            return false;
+        m_last_search_failure = CANCELED;
+        return true;
     }
 
     void context::updt_params(params_ref const& p) {
@@ -3745,8 +3748,9 @@ namespace smt {
             VERIFY(!resolve_conflict());
             return l_false;
         }
-        if (get_cancel_flag())
+        if (get_cancel_flag()) 
             return l_undef;
+        
         timeit tt(get_verbosity_level() >= 100, "smt.stats");
         reset_model();
         SASSERT(at_search_level());
@@ -3959,10 +3963,8 @@ namespace smt {
             if (m_last_search_failure != OK)
                 return true;
 
-            if (get_cancel_flag()) {
-                m_last_search_failure = CANCELED;
-                return true;
-            }
+            if (get_cancel_flag()) 
+                return true;            
 
             if (m_progress_callback) {
                 m_progress_callback->fast_progress_sample();
@@ -3973,10 +3975,8 @@ namespace smt {
             }
         }
 
-        if (get_cancel_flag()) {
-            m_last_search_failure = CANCELED;
-            return true;
-        }
+        if (get_cancel_flag()) 
+            return true;        
 
         if (memory::above_high_watermark()) {
             m_last_search_failure = MEMOUT;
