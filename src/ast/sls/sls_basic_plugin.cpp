@@ -43,7 +43,6 @@ namespace sls {
 
     void basic_plugin::register_term(expr* e) {
         expr* c, * th, * el;
-        verbose_stream() << "register term " << mk_bounded_pp(e, m) << "\n";
         if (m.is_ite(e, c, th, el) && !m.is_bool(e)) {
             ctx.add_clause(m.mk_or(mk_not(m, c), m.mk_eq(e, th)));
             ctx.add_clause(m.mk_or(c, m.mk_eq(e, el)));

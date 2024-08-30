@@ -102,7 +102,7 @@ namespace sls {
         }
         return l_undef;
     }
-
+    
     void context::propagate_boolean_assignment() {
         reinit_relevant();
 
