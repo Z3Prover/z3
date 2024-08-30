@@ -7,6 +7,11 @@ callgrind.out.*
 # .hpp files are automatically generated
 *.hpp
 .z3-trace
+.env
+.genaiscript
+package-lock.json
+package.json
+node_modules
 # OCaml generated files
 *.a
 *.o
