@@ -40,7 +40,14 @@ namespace sls {
     }
 
     bool bv_plugin::is_bv_predicate(expr* e) {
-        return e && is_app(e) && to_app(e)->get_family_id() == bv.get_family_id();
+        if (!e || !is_app(e))
+            return false;
+        auto a = to_app(e);
+        if (a->get_family_id() == bv.get_family_id())
+            return true;
+        if (m.is_eq(e) && bv.is_bv(a->get_arg(0)))
+            return true;
+        return false;
     }
 
     void bv_plugin::propagate_literal(sat::literal lit) {       
@@ -50,6 +57,7 @@ namespace sls {
             return;
         auto a = to_app(e);
 
+        // verbose_stream() << "propagate " << mk_bounded_pp(e, m) << " " << m_eval.eval_is_correct(a) << "\n";
         if (!m_eval.eval_is_correct(a))
             ctx.new_value_eh(e);
     }

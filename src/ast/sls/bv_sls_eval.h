@@ -108,6 +108,7 @@ namespace bv {
         bool try_repair_extract(bvect const& e, bvval& a, unsigned lo);
         bool try_repair_comp(bvect const& e, bvval& a, bvval& b, unsigned i);
         bool try_repair_eq(bool is_true, bvval& a, bvval const& b);
+        bool try_repair_eq(app* e, unsigned i);
         bool try_repair_int2bv(bvect const& e, expr* arg);
         void add_p2_1(bvval const& a, bvect& t) const;
 

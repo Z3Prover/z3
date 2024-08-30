@@ -97,8 +97,6 @@ namespace bv {
         if (m.is_eq(e, x, y))
             return bv.is_bv(x);
         if (m.is_ite(e))
-            return bv.is_bv(e);
-        if (m.is_distinct(e))
             return bv.is_bv(e->get_arg(0));
         if (e->get_family_id() == bv.get_fid()) {
             switch (e->get_decl_kind()) {
@@ -659,9 +657,17 @@ namespace bv {
     }
     
     bool sls_eval::repair_down(app* e, unsigned i) {      
+        expr* arg = e->get_arg(i);
+        if (m.is_value(arg))
+            return false;
         if (e->get_family_id() == bv.get_family_id() && try_repair_bv(e, i)) {
-            commit_eval(to_app(e->get_arg(i)));     
-            ctx.new_value_eh(e->get_arg(i));
+            commit_eval(to_app(arg));
+            ctx.new_value_eh(arg);
+            return true;
+        }
+        if (m.is_eq(e) && bv.is_bv(arg) && try_repair_eq(e, i)) {
+            commit_eval(to_app(arg));
+            ctx.new_value_eh(arg);
             return true;
         }
         return false;
@@ -839,24 +845,16 @@ namespace bv {
         }
     }
 
-#if 0
     bool sls_eval::try_repair_eq(app* e, unsigned i) {
         auto child = e->get_arg(i);        
         auto is_true = bval0(e);
-        if (m.is_bool(child)) {
-            SASSERT(!is_fixed0(child));               
-            auto bv = bval0(e->get_arg(1 - i));
-            m_eval[child->get_id()] = is_true == bv;
-            return true;
-        }
-        else if (bv.is_bv(child)) {
+        if (bv.is_bv(child)) {
             auto & a = wval(e->get_arg(i));
             auto & b = wval(e->get_arg(1 - i));
             return try_repair_eq(is_true, a, b);
         }
         return false;
     }
-#endif
 
     bool sls_eval::try_repair_eq(bool is_true, bvval& a, bvval const& b) {
         if (is_true) {
