@@ -258,7 +258,8 @@ namespace lp {
                     return lia_move::conflict;
                 rewrite_eqs();
             }
-            TRACE("dioph_eq", print_S(tout););                
+            TRACE("dioph_eq", print_S(tout););
+            NOT_IMPLEMENTED_YET();
             return lia_move::sat;
         }
         std::list<unsigned>::iterator pick_eh() {
@@ -282,7 +283,7 @@ namespace lp {
                 TRACE("dioph_eq", print_eprime_entry(e_index, tout << "before:") << std::endl;
                        tout << "k_coeff:" << k_coeff << std::endl;);
                 if (!l_term.is_empty()) {
-                    add_operator(m_eprime[e_index].m_l, -k_coeff, l_term);
+                    add_operator(m_eprime[e_index].m_l, -k_sign*k_coeff, l_term);
                 }
                 e.substitute(k_subst, k);
                 TRACE("dioph_eq", print_eprime_entry(e_index, tout << "after :") << std::endl;);                       
