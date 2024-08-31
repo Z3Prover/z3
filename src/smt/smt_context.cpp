@@ -99,7 +99,6 @@ namespace smt {
         m_model_generator->set_context(this);
     }
 
-    ::
     /**
        \brief retrieve flag for when cancelation is possible.
     */
