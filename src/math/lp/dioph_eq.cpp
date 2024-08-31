@@ -264,7 +264,12 @@ namespace lp {
         std::list<unsigned>::iterator pick_eh() {
             return m_f.begin(); // TODO: make a smarter joice
         }
-                
+
+        void add_operator(lar_term& t, const mpq& k, const lar_term& l) {
+            for (const auto& p: l) {
+                t.add_monomial(k*p.coeff(), p.j());
+            }
+        }
 
         void substitute_var_on_f(unsigned k, int k_sign, const term_o& k_subst, const lar_term& l_term, unsigned index_to_avoid)  {
             TRACE("dioph_eq", print_term_o(k_subst, tout<< "x" << k<< " -> ") << std::endl; tout << "l_term:"; print_lar_term_L(l_term, tout) << std::endl;);
@@ -277,11 +282,7 @@ namespace lp {
                 TRACE("dioph_eq", print_eprime_entry(e_index, tout << "before:") << std::endl;
                        tout << "k_coeff:" << k_coeff << std::endl;);
                 if (!l_term.is_empty()) {
-                    if (k_sign == 1)
-                        m_eprime[e_index].m_l -= k_coeff*l_term;
-                    else {
-                        m_eprime[e_index].m_l += k_coeff*l_term;
-                    }
+                    add_operator(m_eprime[e_index].m_l, -k_coeff, l_term);
                 }
                 e.substitute(k_subst, k);
                 TRACE("dioph_eq", print_eprime_entry(e_index, tout << "after :") << std::endl;);                       
