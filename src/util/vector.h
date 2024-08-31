@@ -45,7 +45,7 @@ Revision History:
 template <typename T>
 using std_vector = std::vector<T, std_allocator<T>>;
 
-#if 1
+#if 0
 
 template<typename T, bool CallDestructors = true, typename SZ = unsigned>
 class vector {
