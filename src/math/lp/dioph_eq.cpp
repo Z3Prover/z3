@@ -259,7 +259,7 @@ namespace lp {
                 rewrite_eqs();
             }
             TRACE("dioph_eq", print_S(tout););
-            NOT_IMPLEMENTED_YET();
+            //NOT_IMPLEMENTED_YET();
             return lia_move::sat;
         }
         std::list<unsigned>::iterator pick_eh() {
