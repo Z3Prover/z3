@@ -16,25 +16,25 @@ Author:
 --*/
 
 #include "ast/ast_ll_pp.h"
-#include "ast/sls/bv_sls_terms.h"
+#include "ast/sls/sls_bv_terms.h"
 #include "ast/rewriter/bool_rewriter.h"
 #include "ast/rewriter/bv_rewriter.h"
 
-namespace bv {
+namespace sls {
 
-    sls_terms::sls_terms(sls::context& ctx):
+    bv_terms::bv_terms(sls::context& ctx):
         ctx(ctx),
         m(ctx.get_manager()), 
         bv(m),
         m_axioms(m) {}
 
-    void sls_terms::register_term(expr* e) {
+    void bv_terms::register_term(expr* e) {
         auto r = ensure_binary(e);
         if (r != e)
             m_axioms.push_back(m.mk_eq(e, r));
     }
 
-    expr_ref sls_terms::ensure_binary(expr* e) {
+    expr_ref bv_terms::ensure_binary(expr* e) {
 
         app* a = to_app(e);
         auto arg = [&](unsigned i) {
@@ -64,7 +64,7 @@ namespace bv {
         return r;
     }
 
-    expr_ref sls_terms::mk_sdiv(expr* x, expr* y) {
+    expr_ref bv_terms::mk_sdiv(expr* x, expr* y) {
         // d = udiv(abs(x), abs(y))
         // y = 0, x >= 0 -> -1
         // y = 0, x < 0 -> 1
@@ -92,7 +92,7 @@ namespace bv {
         return r;
     }
 
-    expr_ref sls_terms::mk_smod(expr* x, expr* y) {
+    expr_ref bv_terms::mk_smod(expr* x, expr* y) {
         // u := umod(abs(x), abs(y))
         // u = 0 ->  0
         // y = 0 ->  x
@@ -116,7 +116,7 @@ namespace bv {
         return r;
     }
 
-    expr_ref sls_terms::mk_srem(expr* x, expr* y) {
+    expr_ref bv_terms::mk_srem(expr* x, expr* y) {
         // y = 0 -> x
         // else x - sdiv(x, y) * y
         expr_ref r(m);

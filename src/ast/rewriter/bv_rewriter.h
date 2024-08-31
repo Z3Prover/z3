@@ -222,7 +222,7 @@ public:
 
 #define MK_BV_BINARY(OP)                         \
     expr_ref OP(expr* a, expr* b) {              \
-        expr_ref result(m);                      \
+        expr_ref result(m), _a(a, m), _b(b, m);  \
         if (BR_FAILED == OP(a, b, result))       \
             result = m_util.OP(a, b);            \
         return result;                           \

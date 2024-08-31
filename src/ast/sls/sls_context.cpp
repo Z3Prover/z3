@@ -36,7 +36,8 @@ namespace sls {
         m_gd(*this),
         m_ld(*this),
         m_repair_down(m.get_num_asts(), m_gd),
-        m_repair_up(m.get_num_asts(), m_ld) {
+        m_repair_up(m.get_num_asts(), m_ld),
+        m_todo(m) {
         register_plugin(alloc(euf_plugin, *this));
         register_plugin(alloc(arith_plugin, *this));
         register_plugin(alloc(bv_plugin, *this));
@@ -417,6 +418,8 @@ namespace sls {
                 m_todo.pop_back();            
             else if (is_app(e)) {
                 if (all_of(*to_app(e), [&](expr* arg) { return is_visited(arg); })) {
+                    expr_ref _e(e, m);
+                    m_todo.pop_back();
                     for (expr* arg : *to_app(e)) {
                         m_parents.reserve(arg->get_id() + 1);
                         m_parents[arg->get_id()].push_back(e);
@@ -425,7 +428,6 @@ namespace sls {
                         mk_literal(e);
                     register_term(e);
                     visit(e);
-                    m_todo.pop_back();
                 }
                 else {
                     for (expr* arg : *to_app(e)) 
@@ -433,9 +435,10 @@ namespace sls {
                 }
             }
             else {
+                expr_ref _e(e, m);
+                m_todo.pop_back();
                 register_term(e);
                 visit(e);
-                m_todo.pop_back();
             }
         }
     }
@@ -452,6 +455,8 @@ namespace sls {
 
         m_repair_down.reserve(e->get_id() + 1);
         m_repair_up.reserve(e->get_id() + 1);
+        if (!term(e->get_id()))
+            verbose_stream() << "no term " << mk_bounded_pp(e, m) << "\n";
         SASSERT(e == term(e->get_id()));
         if (!m_repair_down.contains(e->get_id()))
             m_repair_down.insert(e->get_id());

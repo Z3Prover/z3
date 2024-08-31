@@ -1,19 +1,19 @@
 z3_add_component(ast_sls
   SOURCES
     bvsls_opt_engine.cpp
-    bv_sls_eval.cpp
-    bv_sls_fixed.cpp
-    bv_sls_terms.cpp  
     sat_ddfw.cpp
     sls_arith_base.cpp
     sls_arith_plugin.cpp
     sls_basic_plugin.cpp
+    sls_bv_eval.cpp
+    sls_bv_fixed.cpp
     sls_bv_plugin.cpp
+    sls_bv_terms.cpp
+    sls_bv_valuation.cpp
     sls_context.cpp
     sls_engine.cpp
     sls_euf_plugin.cpp
     sls_smt_solver.cpp
-    sls_valuation.cpp
   COMPONENT_DEPENDENCIES
     ast
     converters

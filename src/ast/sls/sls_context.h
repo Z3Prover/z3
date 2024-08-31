@@ -124,7 +124,7 @@ namespace sls {
         void register_plugin(plugin* p);
 
         void init();
-        ptr_vector<expr> m_todo;
+        expr_ref_vector m_todo;
         void register_terms(expr* e);
         void register_term(expr* e);
 

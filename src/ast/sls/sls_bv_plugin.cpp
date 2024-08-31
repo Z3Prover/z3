@@ -57,7 +57,6 @@ namespace sls {
             return;
         auto a = to_app(e);
 
-        // verbose_stream() << "propagate " << mk_bounded_pp(e, m) << " " << m_eval.eval_is_correct(a) << "\n";
         if (!m_eval.eval_is_correct(a))
             ctx.new_value_eh(e);
     }
@@ -201,7 +200,7 @@ namespace sls {
         //        unsigned value = 0;
         // if (bv.is_bv(e))
         //    value = svector_hash<unsigned_hash>()(m_eval.wval(e).bits());
-        IF_VERBOSE(2, verbose_stream() << mk_bounded_pp(e, m) << " " << (up_down?"u":"d") << " " << (success ? "S" : "F");
+        IF_VERBOSE(11, verbose_stream() << mk_bounded_pp(e, m) << " " << (up_down?"u":"d") << " " << (success ? "S" : "F");
                    // if (bv.is_bv(e)) verbose_stream() << " " << m_eval.wval(e).bits();
                    verbose_stream() << "\n");
     }

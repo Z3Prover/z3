@@ -18,15 +18,15 @@ Author:
 
 #include "ast/sls/sls_context.h"
 #include "ast/bv_decl_plugin.h"
-#include "ast/sls/bv_sls_terms.h"
-#include "ast/sls/bv_sls_eval.h"
+#include "ast/sls/sls_bv_terms.h"
+#include "ast/sls/sls_bv_eval.h"
 
 namespace sls {
 
     class bv_plugin : public plugin {
         bv_util             bv;
-        bv::sls_terms       m_terms;
-        bv::sls_eval        m_eval;
+        sls::bv_terms       m_terms;
+        bv_eval             m_eval;
         bv::sls_stats       m_stats;
         bool                m_initialized = false;
 

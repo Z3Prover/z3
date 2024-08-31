@@ -17,18 +17,19 @@ Author:
 #pragma once
 
 #include "ast/ast.h"
-#include "ast/sls/sls_valuation.h"
+#include "ast/sls/sls_bv_valuation.h"
 #include "ast/sls/sls_context.h"
 #include "ast/bv_decl_plugin.h"
 
-namespace bv {
 
-    class sls_eval;
-    class sls_terms;
+namespace sls {
+
+    class bv_terms;
+    class bv_eval;
     
-    class sls_fixed {
-        sls_eval&           ev;
-        sls_terms&          terms;
+    class bv_fixed {
+        typename bv_eval&           ev;
+        typename bv_terms&          terms;
         ast_manager&        m;
         bv_util&            bv;
         sls::context&       ctx;
@@ -44,7 +45,7 @@ namespace bv {
         void set_fixed(expr* e);
 
     public:
-        sls_fixed(sls_eval& ev, sls_terms& terms, sls::context& ctx);
+        bv_fixed(bv_eval& ev, bv_terms& terms, sls::context& ctx);
         void init();
     };
 }

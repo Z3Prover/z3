@@ -23,12 +23,12 @@ Author:
 #include "ast/bv_decl_plugin.h"
 #include "ast/sls/sls_stats.h"
 #include "ast/sls/sls_powers.h"
-#include "ast/sls/sls_valuation.h"
+#include "ast/sls/sls_bv_valuation.h"
 #include "ast/sls/sls_context.h"
 
-namespace bv {
+namespace sls {
 
-    class sls_terms {
+    class bv_terms {
         sls::context&       ctx;
         ast_manager&        m;
         bv_util             bv;
@@ -41,7 +41,7 @@ namespace bv {
         expr_ref mk_srem(expr* x, expr* y);
 
     public:
-        sls_terms(sls::context& ctx);       
+        bv_terms(sls::context& ctx);       
 
         void register_term(expr* e);
 

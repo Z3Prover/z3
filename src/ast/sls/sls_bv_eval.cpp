@@ -3,7 +3,7 @@ Copyright (c) 2024 Microsoft Corporation
 
 Module Name:
 
-    bv_sls_eval.cpp
+    sls_bv_eval.cpp
 
 Author:
 
@@ -13,12 +13,12 @@ Author:
 
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
-#include "ast/sls/bv_sls_eval.h"
+#include "ast/sls/sls_bv_eval.h"
 #include "ast/rewriter/th_rewriter.h"
 
-namespace bv {
+namespace sls {
 
-    sls_eval::sls_eval(sls_terms& terms, sls::context& ctx): 
+    bv_eval::bv_eval(sls::bv_terms& terms, sls::context& ctx): 
         m(ctx.get_manager()),
         ctx(ctx),
         terms(terms),
@@ -27,7 +27,7 @@ namespace bv {
     {}   
 
 
-    void sls_eval::register_term(expr* e) {
+    void bv_eval::register_term(expr* e) {
         if (!is_app(e))
             return;
         app* a = to_app(e);
@@ -46,7 +46,7 @@ namespace bv {
         }
     }
 
-    void sls_eval::add_bit_vector(app* e) {
+    void bv_eval::add_bit_vector(app* e) {
         if (!bv.is_bv(e))
             return;
         m_values.reserve(e->get_id() + 1);
@@ -64,9 +64,9 @@ namespace bv {
         return;
     }
 
-    sls_valuation* sls_eval::alloc_valuation(app* e) {
+    sls::bv_valuation* bv_eval::alloc_valuation(app* e) {
         auto bit_width = bv.get_bv_size(e);
-        auto* r = alloc(sls_valuation, bit_width);
+        auto* r = alloc(sls::bv_valuation, bit_width);
         while (m_tmp.size() < 2 * r->nw) {
             m_tmp.push_back(0);
             m_tmp2.push_back(0);           
@@ -87,12 +87,12 @@ namespace bv {
     }
 
 
-    void sls_eval::init_eval_bv(app* e) {
+    void bv_eval::init_eval_bv(app* e) {
         if (bv.is_bv(e)) 
             eval(e).commit_eval();               
     }
     
-    bool sls_eval::can_eval1(app* e) const {
+    bool bv_eval::can_eval1(app* e) const {
         expr* x, * y;
         if (m.is_eq(e, x, y))
             return bv.is_bv(x);
@@ -116,7 +116,7 @@ namespace bv {
         return false;
     }
 
-    bool sls_eval::bval1_bv(app* e) const {
+    bool bv_eval::bval1_bv(app* e) const {
         SASSERT(m.is_bool(e));
         SASSERT(e->get_family_id() == bv.get_fid());
 
@@ -191,7 +191,7 @@ namespace bv {
         return false;
     }
 
-    bool sls_eval::bval1(app* e) const {
+    bool bv_eval::bval1(app* e) const {
         if (e->get_family_id() == bv.get_fid())
             return bval1_bv(e);
         expr* x, * y;
@@ -203,17 +203,17 @@ namespace bv {
         return false;
     }
 
-    sls_valuation& sls_eval::eval(app* e) const {
+    sls::bv_valuation& bv_eval::eval(app* e) const {
         auto& val = *m_values[e->get_id()];        
         eval(e, val);
         return val;        
     }
 
-    void sls_eval::set(expr* e, sls_valuation const& val) {
+    void bv_eval::set(expr* e, sls::bv_valuation const& val) {
         m_values[e->get_id()]->set(val.bits());
     }
 
-    void sls_eval::eval(app* e, sls_valuation& val) const {
+    void bv_eval::eval(app* e, sls::bv_valuation& val) const {
         SASSERT(bv.is_bv(e));
         if (m.is_ite(e)) {
             SASSERT(bv.is_bv(e->get_arg(1)));
@@ -630,12 +630,12 @@ namespace bv {
         val.clear_overflow_bits(val.eval);
     }
 
-    digit_t sls_eval::random_bits() {
-        return sls_valuation::random_bits(m_rand);
+    digit_t bv_eval::random_bits() {
+        return sls::bv_valuation::random_bits(m_rand);
     }
 
 
-    bool sls_eval::is_uninterpreted(app* e) const {
+    bool bv_eval::is_uninterpreted(app* e) const {
         if (is_uninterp(e))
             return true;
         if (e->get_family_id() != bv.get_family_id())
@@ -656,7 +656,7 @@ namespace bv {
         }
     }
     
-    bool sls_eval::repair_down(app* e, unsigned i) {      
+    bool bv_eval::repair_down(app* e, unsigned i) {      
         expr* arg = e->get_arg(i);
         if (m.is_value(arg))
             return false;
@@ -673,7 +673,7 @@ namespace bv {
         return false;
     }
 
-    bool sls_eval::try_repair_bv(app* e, unsigned i) {
+    bool bv_eval::try_repair_bv(app* e, unsigned i) {
         switch (e->get_decl_kind()) {
         case OP_BAND:
             SASSERT(e->get_num_args() >= 2);
@@ -845,7 +845,7 @@ namespace bv {
         }
     }
 
-    bool sls_eval::try_repair_eq(app* e, unsigned i) {
+    bool bv_eval::try_repair_eq(app* e, unsigned i) {
         auto child = e->get_arg(i);        
         auto is_true = bval0(e);
         if (bv.is_bv(child)) {
@@ -856,7 +856,7 @@ namespace bv {
         return false;
     }
 
-    bool sls_eval::try_repair_eq(bool is_true, bvval& a, bvval const& b) {
+    bool bv_eval::try_repair_eq(bool is_true, bvval& a, bvval const& b) {
         if (is_true) {
             if (m_rand(20) != 0) 
                 if (a.try_set(b.bits()))
@@ -884,7 +884,7 @@ namespace bv {
         }
     }
 
-    void sls_eval::fold_oper(bvect& out, app* t, unsigned i, std::function<void(bvect&, bvval const&)> const& f) {
+    void bv_eval::fold_oper(bvect& out, app* t, unsigned i, std::function<void(bvect&, bvval const&)> const& f) {
         auto i2 = i == 0 ? 1 : 0;
         auto const& c = wval(t->get_arg(i2));
         for (unsigned j = 0; j < c.nw; ++j)
@@ -904,13 +904,13 @@ namespace bv {
     // e[i] = 0 & b[i] = 0 -> a[i] = random
     // a := e[i] | (~b[i] & a[i])
 
-    bool sls_eval::try_repair_band(bvect const& e, bvval& a, bvval const& b) {
+    bool bv_eval::try_repair_band(bvect const& e, bvval& a, bvval const& b) {
         for (unsigned i = 0; i < a.nw; ++i)
             m_tmp[i] = ~a.fixed[i] & (e[i] | (~b.bits()[i] & random_bits()));
         return a.set_repair(random_bool(), m_tmp);
     }
 
-    bool sls_eval::try_repair_band(app* t, unsigned i) {
+    bool bv_eval::try_repair_band(app* t, unsigned i) {
         bvect const& e = assign_value(t);
         auto f = [&](bvect& out, bvval const& c) {
             for (unsigned j = 0; j < c.nw; ++j)
@@ -930,13 +930,13 @@ namespace bv {
     // set a[i] to 1 where b[i] = 0, e[i] = 1
     // set a[i] to 0 where e[i] = 0, a[i] = 1
     //     
-    bool sls_eval::try_repair_bor(bvect const& e, bvval& a, bvval const& b) {
+    bool bv_eval::try_repair_bor(bvect const& e, bvval& a, bvval const& b) {
         for (unsigned i = 0; i < a.nw; ++i)
             m_tmp[i] = e[i] & (~b.bits()[i] | random_bits());
         return a.set_repair(random_bool(), m_tmp);
     }
 
-    bool sls_eval::try_repair_bor(app* t, unsigned i) {
+    bool bv_eval::try_repair_bor(app* t, unsigned i) {
         bvect const& e = assign_value(t);
         auto f = [&](bvect& out, bvval const& c) {
             for (unsigned j = 0; j < c.nw; ++j)
@@ -945,12 +945,12 @@ namespace bv {
         fold_oper(m_tmp2, t, i, f);
         bvval& a = wval(t, i);
         for (unsigned j = 0; j < a.nw; ++j)
-            m_tmp[j] = e[i] & (~m_tmp2[i] | random_bits());
+            m_tmp[j] = e[j] & (~m_tmp2[j] | random_bits());
 
         return a.set_repair(random_bool(), m_tmp);
     }
 
-    bool sls_eval::try_repair_bxor(bvect const& e, bvval& a, bvval const& b) {
+    bool bv_eval::try_repair_bxor(bvect const& e, bvval& a, bvval const& b) {
         for (unsigned i = 0; i < a.nw; ++i)
             m_tmp[i] = e[i] ^ b.bits()[i];
         return a.set_repair(random_bool(), m_tmp);
@@ -958,7 +958,7 @@ namespace bv {
 
 
 
-    bool sls_eval::try_repair_bxor(app* t, unsigned i) {
+    bool bv_eval::try_repair_bxor(app* t, unsigned i) {
         bvect const& e = assign_value(t);
         auto f = [&](bvect& out, bvval const& c) {
             for (unsigned j = 0; j < c.nw; ++j)
@@ -968,7 +968,7 @@ namespace bv {
 
         bvval& a = wval(t, i);
         for (unsigned j = 0; j < a.nw; ++j)
-            m_tmp[j] = e[i] ^ m_tmp2[i];
+            m_tmp[j] = e[j] ^ m_tmp2[j];
 
         return a.set_repair(random_bool(), m_tmp);
     }
@@ -978,7 +978,7 @@ namespace bv {
     // first try to set a := e - b
     // If this fails, set a to a random value
     // 
-    bool sls_eval::try_repair_add(bvect const& e, bvval& a, bvval const& b) {
+    bool bv_eval::try_repair_add(bvect const& e, bvval& a, bvval const& b) {
         if (m_rand(20) != 0) {
             a.set_sub(m_tmp, e, b.bits());
             if (a.try_set(m_tmp))
@@ -987,7 +987,7 @@ namespace bv {
         return a.set_random(m_rand);        
     }
 
-    bool sls_eval::try_repair_add(app* t, unsigned i) {
+    bool bv_eval::try_repair_add(app* t, unsigned i) {
         bvval& a = wval(t, i);
         bvect const& e = assign_value(t);
         if (m_rand(20) != 0) {
@@ -1002,7 +1002,7 @@ namespace bv {
         return a.set_random(m_rand);     
     }
 
-    bool sls_eval::try_repair_sub(bvect const& e, bvval& a, bvval & b, unsigned i) {
+    bool bv_eval::try_repair_sub(bvect const& e, bvval& a, bvval & b, unsigned i) {
         if (m_rand(20) != 0) {
             if (i == 0) 
                 // e = a - b -> a := e + b
@@ -1021,7 +1021,7 @@ namespace bv {
     * e = a*b, then a = e * b^-1
     * 8*e = a*(2b), then a = 4e*b^-1
     */
-    bool sls_eval::try_repair_mul(bvect const& e, bvval& a, bvect const& b) {
+    bool bv_eval::try_repair_mul(bvect const& e, bvval& a, bvect const& b) {
         //verbose_stream() << e << " := " << a << " * " << b << "\n";
         unsigned parity_e = a.parity(e);
         unsigned parity_b = a.parity(b);
@@ -1133,14 +1133,14 @@ namespace bv {
         return a.set_random(m_rand);
     }
 
-    bool sls_eval::try_repair_bnot(bvect const& e, bvval& a) {
+    bool bv_eval::try_repair_bnot(bvect const& e, bvval& a) {
         for (unsigned i = 0; i < a.nw; ++i)
             m_tmp[i] = ~e[i];        
         a.clear_overflow_bits(m_tmp);
         return a.try_set(m_tmp);
     }
 
-    bool sls_eval::try_repair_bneg(bvect const& e, bvval& a) {
+    bool bv_eval::try_repair_bneg(bvect const& e, bvval& a) {
         a.set_sub(m_tmp, m_zero, e); 
         return a.try_set(m_tmp);
     }
@@ -1154,7 +1154,7 @@ namespace bv {
     // infeasible if b + 1 = p2
     // solve for x >=s b + 1
     // 
-    bool sls_eval::try_repair_sle(bool e, bvval& a, bvval const& b) {
+    bool bv_eval::try_repair_sle(bool e, bvval& a, bvval const& b) {
         auto& p2 = m_b;
         b.set_zero(p2);
         p2.set(b.bw - 1, true);
@@ -1180,7 +1180,7 @@ namespace bv {
     // infeasible if b = 0
     // solve for x <=s b - 1
     // 
-    bool sls_eval::try_repair_sge(bool e, bvval& a, bvval const& b) {
+    bool bv_eval::try_repair_sge(bool e, bvval& a, bvval const& b) {
         auto& p2 = m_b;
         b.set_zero(p2);
         p2.set(b.bw - 1, true);
@@ -1211,7 +1211,7 @@ namespace bv {
     // or
     // x := random p2 <= x <= b       if c < p2  (b >= p2)
     // 
-    bool sls_eval::try_repair_sle(bvval& a, bvect const& b, bvect const& p2) {
+    bool bv_eval::try_repair_sle(bvval& a, bvect const& b, bvect const& p2) {
         bool r = false;
         if (b < p2) {
             bool coin = m_rand(2) == 0;
@@ -1236,7 +1236,7 @@ namespace bv {
     // x := random b <= x or x < p2   if d < p2
     //  
 
-    bool sls_eval::try_repair_sge(bvval& a, bvect const& b, bvect const& p2) {
+    bool bv_eval::try_repair_sge(bvval& a, bvect const& b, bvect const& p2) {
         auto& p2_1 = m_tmp4;
         a.set_sub(p2_1, p2, m_one);
         p2_1.set_bw(a.bw);
@@ -1258,14 +1258,14 @@ namespace bv {
         return r;
     }
 
-    void sls_eval::add_p2_1(bvval const& a, bvect& t) const {
+    void bv_eval::add_p2_1(bvval const& a, bvect& t) const {
         m_zero.set(a.bw - 1, true);
         a.set_add(t, a.bits(), m_zero);
         m_zero.set(a.bw - 1, false);
         a.clear_overflow_bits(t);
     }
 
-    bool sls_eval::try_repair_ule(bool e, bvval& a, bvval const& b) {
+    bool bv_eval::try_repair_ule(bool e, bvval& a, bvval const& b) {
         //verbose_stream() << "try-repair-ule " << e << " " << a << " " << b << "\n";
         if (e) {
             // a <= t
@@ -1281,7 +1281,7 @@ namespace bv {
         }           
     }
 
-    bool sls_eval::try_repair_uge(bool e, bvval& a, bvval const& b) {
+    bool bv_eval::try_repair_uge(bool e, bvval& a, bvval const& b) {
         //verbose_stream() << "try-repair-uge " << e << " " << a << " " << b << "\n";
         if (e) {
             // a >= t
@@ -1297,11 +1297,11 @@ namespace bv {
         }    
     }
 
-    bool sls_eval::try_repair_bit2bool(bvval& a, unsigned idx) {       
+    bool bv_eval::try_repair_bit2bool(bvval& a, unsigned idx) {       
         return a.try_set_bit(idx, !a.get_bit(idx));
     }
 
-    bool sls_eval::try_repair_shl(bvect const& e, bvval& a, bvval& b, unsigned i) {
+    bool bv_eval::try_repair_shl(bvect const& e, bvval& a, bvval& b, unsigned i) {
         if (i == 0) {
             unsigned sh = b.to_nat(b.bw);
             if (sh == 0) 
@@ -1324,23 +1324,39 @@ namespace bv {
             }
         }
         else {
-            // NB. blind sub-range of possible values for b
             SASSERT(i == 1);
-            unsigned sh = m_rand(a.bw + 1);
-            b.set(m_tmp, sh);
-            return b.try_set(m_tmp);
+            if (a.is_zero())
+                return b.set_random(m_rand);
+
+            unsigned start = m_rand();
+            for (unsigned j = 0; j <= a.bw; ++j) {
+                unsigned sh = (j + start) % (a.bw + 1);
+                m_tmp.set_bw(a.bw);
+                m_tmp2.set_bw(a.bw);
+                b.set(m_tmp, sh);
+                if (!b.can_set(m_tmp))
+                    continue;
+                m_tmp2.set_shift_left(a.bits(), m_tmp);
+                if (m_tmp2 == e && b.try_set(m_tmp)) 
+                    return true;                
+            }
+            
+            if (m_rand(2) == 0)
+                return false;
+
+            return b.set_random(m_rand);
         }
         return false;
     }
 
-    bool sls_eval::try_repair_ashr(bvect const& e, bvval & a, bvval& b, unsigned i) {
+    bool bv_eval::try_repair_ashr(bvect const& e, bvval & a, bvval& b, unsigned i) {
         if (i == 0)
             return try_repair_ashr0(e, a, b);
         else
             return try_repair_ashr1(e, a, b);
     }
 
-    bool sls_eval::try_repair_lshr(bvect const& e, bvval& a, bvval& b, unsigned i) {
+    bool bv_eval::try_repair_lshr(bvect const& e, bvval& a, bvval& b, unsigned i) {
         if (i == 0)
             return try_repair_lshr0(e, a, b);
         else
@@ -1354,7 +1370,7 @@ namespace bv {
     *   - e = 0 -> a := random 
     *   - e > 0 -> a := random with msb(a) >= msb(e)
     */
-    bool sls_eval::try_repair_lshr0(bvect const& e, bvval& a, bvval const& b) {
+    bool bv_eval::try_repair_lshr0(bvect const& e, bvval& a, bvval const& b) {
         
         auto& t = m_tmp;
         // t := e << b
@@ -1433,7 +1449,7 @@ namespace bv {
     * - e = 0:  b := random
     * - e > 0:  b := random >= clz(e)
     */
-    bool sls_eval::try_repair_lshr1(bvect const& e, bvval const& a, bvval& b) {
+    bool bv_eval::try_repair_lshr1(bvect const& e, bvval const& a, bvval& b) {
 
         auto& t = m_tmp;
         auto clza = a.clz(a.bits());
@@ -1487,7 +1503,7 @@ namespace bv {
     * weak:
     *   
     */
-    bool sls_eval::try_repair_ashr0(bvect const& e, bvval& a, bvval const& b) {
+    bool bv_eval::try_repair_ashr0(bvect const& e, bvval& a, bvval const& b) {
         auto& t = m_tmp;
         t.set_bw(b.bw);
         auto n = b.msb(b.bits());
@@ -1548,7 +1564,7 @@ namespace bv {
     * - e > 0:  b := random >= clz(e)
     */
 
-    bool sls_eval::try_repair_ashr1(bvect const& e, bvval const& a, bvval& b) {
+    bool bv_eval::try_repair_ashr1(bvect const& e, bvval const& a, bvval& b) {
 
         auto& t = m_tmp;
         auto clza = a.clz(a.bits());
@@ -1590,7 +1606,7 @@ namespace bv {
         return b.set_repair(random_bool(), t);
     }
 
-    bool sls_eval::try_repair_comp(bvect const& e, bvval& a, bvval& b, unsigned i) {
+    bool bv_eval::try_repair_comp(bvect const& e, bvval& a, bvval& b, unsigned i) {
         SASSERT(e[0] == 0 || e[0] == 1);
         SASSERT(e.bw == 1);
         return try_repair_eq(e[0] == 1, i == 0 ? a : b, i == 0 ? b : a);
@@ -1601,7 +1617,7 @@ namespace bv {
     // b = 0 => e = -1        // nothing to repair on a
     // e != -1 => max(a) >=u e
 
-    bool sls_eval::try_repair_udiv(bvect const& e, bvval& a, bvval& b, unsigned i) {
+    bool bv_eval::try_repair_udiv(bvect const& e, bvval& a, bvval& b, unsigned i) {
         if (i == 0) {
             if (a.is_zero(e) && a.is_ones(a.fixed) && a.is_ones())
                 return false;            
@@ -1666,7 +1682,7 @@ namespace bv {
     //      (s != t => exists y . (mcb(x, y) and y >u t and (s - t) mod y = 0)
 
 
-    bool sls_eval::try_repair_urem(bvect const& e, bvval& a, bvval& b, unsigned i) {
+    bool bv_eval::try_repair_urem(bvect const& e, bvval& a, bvval& b, unsigned i) {
 
         if (i == 0) {
             if (b.is_zero()) {
@@ -1711,21 +1727,21 @@ namespace bv {
         }
     }
 
-    bool sls_eval::add_overflow_on_fixed(bvval const& a, bvect const& t) {
+    bool bv_eval::add_overflow_on_fixed(bvval const& a, bvect const& t) {
         a.set(m_tmp3, m_zero);
         for (unsigned i = 0; i < a.nw; ++i)
             m_tmp3[i] = a.fixed[i] & a.bits()[i];
         return a.set_add(m_tmp4, t, m_tmp3);
     }
 
-    bool sls_eval::mul_overflow_on_fixed(bvval const& a, bvect const& t) {
+    bool bv_eval::mul_overflow_on_fixed(bvval const& a, bvect const& t) {
         a.set(m_tmp3, m_zero);
         for (unsigned i = 0; i < a.nw; ++i)
             m_tmp3[i] = a.fixed[i] & a.bits()[i];
         return a.set_mul(m_tmp4, m_tmp3, t);
     }
 
-    bool sls_eval::try_repair_rotate_left(bvect const& e, bvval& a, unsigned n) const {
+    bool bv_eval::try_repair_rotate_left(bvect const& e, bvval& a, unsigned n) const {
         // a := rotate_right(e, n)
         n = (a.bw - n) % a.bw;
         for (unsigned i = a.bw - n; i < a.bw; ++i)
@@ -1735,7 +1751,7 @@ namespace bv {
         return a.set_repair(true, m_tmp);       
     }
 
-    bool sls_eval::try_repair_rotate_left(bvect const& e, bvval& a, bvval& b, unsigned i) {
+    bool bv_eval::try_repair_rotate_left(bvect const& e, bvval& a, bvval& b, unsigned i) {
         if (i == 0) {
             rational n = b.get_value();
             n = mod(n, rational(b.bw));
@@ -1749,7 +1765,7 @@ namespace bv {
         }       
     }
 
-    bool sls_eval::try_repair_rotate_right(bvect const& e, bvval& a, bvval& b, unsigned i) {
+    bool bv_eval::try_repair_rotate_right(bvect const& e, bvval& a, bvval& b, unsigned i) {
         if (i == 0) {
             rational n = b.get_value();
             n = mod(b.bw - n, rational(b.bw));
@@ -1763,7 +1779,7 @@ namespace bv {
         }
     }
 
-    bool sls_eval::try_repair_umul_ovfl(bool e, bvval& a, bvval& b, unsigned i) {
+    bool bv_eval::try_repair_umul_ovfl(bool e, bvval& a, bvval& b, unsigned i) {
         if (e) {
             // maximize
             if (i == 0) {
@@ -1792,7 +1808,7 @@ namespace bv {
     // prefix of e must be 1s or 0 and match bit position of last bit in a.
     // set a to suffix of e, matching signs.
     //  
-    bool sls_eval::try_repair_sign_ext(bvect const& e, bvval& a) {
+    bool bv_eval::try_repair_sign_ext(bvect const& e, bvval& a) {
         for (unsigned i = a.bw; i < e.bw; ++i)
             if (e.get(i) != e.get(a.bw - 1))
                 return false;
@@ -1806,7 +1822,7 @@ namespace bv {
     // 
     // prefix of e must be 0s.
     // 
-    bool sls_eval::try_repair_zero_ext(bvect const& e, bvval& a) {
+    bool bv_eval::try_repair_zero_ext(bvect const& e, bvval& a) {
         for (unsigned i = a.bw; i < e.bw; ++i)
             if (e.get(i))
                 return false;
@@ -1817,7 +1833,7 @@ namespace bv {
         return a.try_set(m_tmp);
     }
 
-    bool sls_eval::try_repair_concat(app* e, unsigned idx) {
+    bool bv_eval::try_repair_concat(app* e, unsigned idx) {
         unsigned bw = 0;
         auto& ve = assign_value(e);
         for (unsigned j = e->get_num_args() - 1; j > idx; --j)
@@ -1834,7 +1850,7 @@ namespace bv {
     // for the randomized assignment, 
     // set a outside of [hi:lo] to random values with preference to 0 or 1 bits
     // 
-    bool sls_eval::try_repair_extract(bvect const& e, bvval& a, unsigned lo) {
+    bool bv_eval::try_repair_extract(bvect const& e, bvval& a, unsigned lo) {
         if (m_rand(m_config.m_prob_randomize_extract)  <= 100) {
             a.get_variant(m_tmp, m_rand);
             if (0 == (m_rand(2))) {
@@ -1857,7 +1873,7 @@ namespace bv {
         return a.set_random(m_rand);
     }
 
-    bool sls_eval::try_repair_int2bv(bvect const& e, expr* arg) {
+    bool bv_eval::try_repair_int2bv(bvect const& e, expr* arg) {
         rational r = e.get_value(e.nw);
         arith_util a(m);
         expr_ref intval(a.mk_int(r), m);
@@ -1865,7 +1881,7 @@ namespace bv {
         return true;
     }
 
-    void sls_eval::set_div(bvect const& a, bvect const& b, unsigned bw,
+    void bv_eval::set_div(bvect const& a, bvect const& b, unsigned bw,
         bvect& quot, bvect& rem) const {
         unsigned nw = (bw + 8 * sizeof(digit_t) - 1) / (8 * sizeof(digit_t));
         unsigned bnw = nw;
@@ -1885,7 +1901,7 @@ namespace bv {
         }
     }
 
-    bool sls_eval::repair_up(expr* e) {
+    bool bv_eval::repair_up(expr* e) {
         if (!is_app(e) || !can_eval1(to_app(e)))
             return false;
         if (m.is_bool(e)) {
@@ -1913,13 +1929,13 @@ namespace bv {
         return false;
     }
 
-    sls_valuation& sls_eval::wval(expr* e) const { 
+    sls::bv_valuation& bv_eval::wval(expr* e) const { 
         // if (!m_values[e->get_id()]) verbose_stream() << mk_bounded_pp(e, m) << "\n";  
         return *m_values[e->get_id()]; 
     }
 
 
-    void sls_eval::commit_eval(app* e) {
+    void bv_eval::commit_eval(app* e) {
         if (!bv.is_bv(e))
             return;
         //
@@ -1927,12 +1943,12 @@ namespace bv {
         VERIFY(wval(e).commit_eval());
     }
 
-    void sls_eval::set_random(app* e) {
+    void bv_eval::set_random(app* e) {
         if (bv.is_bv(e))
             eval(e).set_random(m_rand);
     }
 
-    bool sls_eval::eval_is_correct(app* e) {
+    bool bv_eval::eval_is_correct(app* e) {
         if (!can_eval1(e))
             return false;
         if (m.is_bool(e))
@@ -1947,7 +1963,7 @@ namespace bv {
         return false;
     }
 
-    expr_ref sls_eval::get_value(app* e) {
+    expr_ref bv_eval::get_value(app* e) {
         if (m.is_bool(e))
             return expr_ref(m.mk_bool_val(bval0(e)), m);
         else if (bv.is_bv(e)) {
@@ -1958,7 +1974,7 @@ namespace bv {
         return expr_ref(m);
     }
 
-    std::ostream& sls_eval::display(std::ostream& out) const {
+    std::ostream& bv_eval::display(std::ostream& out) const {
         auto& terms = ctx.subterms();
         for (expr* e : terms) {
             if (!bv.is_bv(e))
@@ -1971,7 +1987,7 @@ namespace bv {
         return out;
     }
 
-    std::ostream& sls_eval::display_value(std::ostream& out, expr* e) const {
+    std::ostream& bv_eval::display_value(std::ostream& out, expr* e) const {
         if (bv.is_bv(e)) 
             return out << wval(e);
         return out << "?";

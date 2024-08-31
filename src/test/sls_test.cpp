@@ -1,6 +1,6 @@
 
-#include "ast/sls/bv_sls_eval.h"
-#include "ast/sls/bv_sls_terms.h"
+#include "ast/sls/sls_bv_eval.h"
+#include "ast/sls/sls_bv_terms.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/ast_pp.h"
@@ -57,8 +57,8 @@ namespace bv {
 
             my_sat_solver_context solver;
             sls::context ctx(m, solver);
-            sls_terms terms(ctx);
-            sls_eval ev(terms, ctx);
+            sls::bv_terms terms(ctx);
+            sls::bv_eval ev(terms, ctx);
             for (auto e : es)
                 ev.register_term(e);
             ev.init();
@@ -176,8 +176,8 @@ namespace bv {
 
             my_sat_solver_context solver;
             sls::context ctx(m, solver);
-            sls_terms terms(ctx);
-            sls_eval ev(terms, ctx);
+            sls::bv_terms terms(ctx);
+            sls::bv_eval ev(terms, ctx);
             for (auto e : es)
                 ev.register_term(e);
             ev.init();

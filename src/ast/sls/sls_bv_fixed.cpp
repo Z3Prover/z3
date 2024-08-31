@@ -13,13 +13,13 @@ Author:
 
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
-#include "ast/sls/bv_sls_fixed.h"
-#include "ast/sls/bv_sls_terms.h"
-#include "ast/sls/bv_sls_eval.h"
+#include "ast/sls/sls_bv_fixed.h"
+#include "ast/sls/sls_bv_terms.h"
+#include "ast/sls/sls_bv_eval.h"
 
-namespace bv {
+namespace sls {
 
-    sls_fixed::sls_fixed(sls_eval& ev, sls_terms& terms, sls::context& ctx):
+    bv_fixed::bv_fixed(bv_eval& ev, bv_terms& terms, sls::context& ctx):
         ev(ev),
         terms(terms),
         m(ev.m),
@@ -27,7 +27,7 @@ namespace bv {
         ctx(ctx)
     {}
 
-    void sls_fixed::init() {
+    void bv_fixed::init() {
         for (auto e : ctx.subterms())
             set_fixed(e);
 
@@ -44,7 +44,7 @@ namespace bv {
             propagate_range_up(e);    
     }
 
-    void sls_fixed::propagate_range_up(expr* e) {
+    void bv_fixed::propagate_range_up(expr* e) {
         expr* t, * s;
         rational v;
         if (bv.is_concat(e, t, s)) {
@@ -81,7 +81,7 @@ namespace bv {
 
     // s <=s t           <=> s + K <= t + K,   K = 2^{bw-1}
 
-    bool sls_fixed::init_range(app* e, bool sign) {
+    bool bv_fixed::init_range(app* e, bool sign) {
         expr* s, * t, * x, * y;
         rational a, b;
         unsigned idx;
@@ -149,7 +149,7 @@ namespace bv {
         return false;
     }
 
-    bool sls_fixed::init_eq(expr* t, rational const& a, bool sign) {        
+    bool bv_fixed::init_eq(expr* t, rational const& a, bool sign) {        
         unsigned lo, hi;
         rational b(0);
         // verbose_stream() << mk_bounded_pp(t, m) << " == " << a << "\n";
@@ -213,7 +213,7 @@ namespace bv {
     // a < x + b         <=> ! (x + b <= a) <=> x not in [-a, b - a [ <=> x in [b - a, -a [         a != -1
     // x + a < x + b     <=> ! (x + b <= x + a) <=> x in [-a, -b [                                  a != b
     // 
-    bool sls_fixed::init_range(expr* x, rational const& a, expr* y, rational const& b, bool sign) {
+    bool bv_fixed::init_range(expr* x, rational const& a, expr* y, rational const& b, bool sign) {
         if (!x && !y)
             return false;
         if (!x) 
@@ -225,7 +225,7 @@ namespace bv {
         return false;
     }
 
-    bool sls_fixed::add_range(expr* e, rational lo, rational hi, bool sign) {
+    bool bv_fixed::add_range(expr* e, rational lo, rational hi, bool sign) {
         auto& v = ev.wval(e);
         lo = mod(lo, rational::power_of_two(bv.get_bv_size(e)));
         hi = mod(hi, rational::power_of_two(bv.get_bv_size(e)));
@@ -252,7 +252,7 @@ namespace bv {
         return true;
     }
 
-    void sls_fixed::get_offset(expr* e, expr*& x, rational& offset) {
+    void bv_fixed::get_offset(expr* e, expr*& x, rational& offset) {
         expr* s, * t;
         x = e;
         offset = 0;
@@ -275,13 +275,13 @@ namespace bv {
             x = nullptr;
     }
 
-    bool sls_fixed::is_fixed1(app* e) const {
+    bool bv_fixed::is_fixed1(app* e) const {
         if (is_uninterp(e))
             return false;
         return all_of(*e, [&](expr* arg) { return ev.is_fixed0(arg); });
     }
     
-    void sls_fixed::set_fixed(expr* _e) {
+    void bv_fixed::set_fixed(expr* _e) {
         if (!is_app(_e))
             return;
         auto e = to_app(_e);

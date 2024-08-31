@@ -17,27 +17,31 @@ Author:
 #pragma once
 
 #include "ast/ast.h"
-#include "ast/sls/sls_valuation.h"
-#include "ast/sls/bv_sls_fixed.h"
+#include "ast/sls/sls_bv_valuation.h"
+#include "ast/sls/sls_bv_fixed.h"
 #include "ast/sls/sls_context.h"
 #include "ast/bv_decl_plugin.h"
 
-namespace bv {
+ 
+namespace sls {
 
-    class sls_terms;
+    class bv_terms;
 
-    class sls_eval {
+
+    using bvect = sls::bvect;
+
+    class bv_eval {
         struct config {
             unsigned m_prob_randomize_extract = 50;
         };
 
-        friend class sls_fixed;
+        friend class sls::bv_fixed;
         friend class sls_test;
         ast_manager&        m;
         sls::context&       ctx;
-        sls_terms&          terms;
+        sls::bv_terms&      terms;
         bv_util             bv;
-        sls_fixed           m_fix;
+        sls::bv_fixed       m_fix;
         mutable mpn_manager mpn;
         ptr_vector<expr>    m_todo;
         random_gen          m_rand;
@@ -45,12 +49,12 @@ namespace bv {
         bool_vector         m_fixed;
         
 
-        scoped_ptr_vector<sls_valuation> m_values; // expr-id -> bv valuation
+        scoped_ptr_vector<sls::bv_valuation> m_values; // expr-id -> bv valuation
 
         mutable bvect m_tmp, m_tmp2, m_tmp3, m_tmp4, m_mul_tmp, m_zero, m_one, m_minus_one;
         bvect m_a, m_b, m_nextb, m_nexta, m_aux;
 
-        using bvval = sls_valuation;
+        using bvval = sls::bv_valuation;
 
         void init_eval_bv(app* e);
        
@@ -59,7 +63,7 @@ namespace bv {
         * Return true if not already registered, false if already registered.
         */
         void add_bit_vector(app* e);
-        sls_valuation* alloc_valuation(app* e);
+        sls::bv_valuation* alloc_valuation(app* e);
 
         bool bval1_bv(app* e) const;  
 
@@ -120,13 +124,12 @@ namespace bv {
         digit_t random_bits();
         bool random_bool() { return m_rand() % 2 == 0; }
 
-        sls_valuation& wval(app* e, unsigned i) { return wval(e->get_arg(i)); }
+        sls::bv_valuation& wval(app* e, unsigned i) { return wval(e->get_arg(i)); }
 
-        void eval(app* e, sls_valuation& val) const;
+        void eval(app* e, sls::bv_valuation& val) const;
 
         bvect const& assign_value(app* e) const { return wval(e).bits(); }
 
-        bool bval0(expr* e) const { return ctx.is_true(e); }
 
         /**
          * Retrieve evaluation based on immediate children.
@@ -137,7 +140,7 @@ namespace bv {
         void commit_eval(app* e);
 
     public:
-        sls_eval(sls_terms& terms, sls::context& ctx);
+        bv_eval(sls::bv_terms& terms, sls::context& ctx);
 
         void init() { m_fix.init(); }
 
@@ -149,13 +152,13 @@ namespace bv {
          * wval - Word (bit-vector) values
          */        
 
-        sls_valuation& wval(expr* e) const;
+        sls::bv_valuation& wval(expr* e) const;
 
-        void set(expr* e, sls_valuation const& val);
+        void set(expr* e, sls::bv_valuation const& val);
 
         bool is_fixed0(expr* e) const { return m_fixed.get(e->get_id(), false); }
         
-        sls_valuation& eval(app* e) const;
+        sls::bv_valuation& eval(app* e) const;
 
         void set_random(app* e);
 
@@ -165,6 +168,7 @@ namespace bv {
 
         expr_ref get_value(app* e);
 
+        bool bval0(expr* e) const { return ctx.is_true(e); }
         bool bval1(app* e) const;
       
         /*
