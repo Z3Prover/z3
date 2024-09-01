@@ -362,9 +362,9 @@ namespace sls {
         }
         case OP_CONCAT: {
             unsigned bw = 0;
-            for (unsigned i = e->get_num_args(); i-- > 0; ) {
+            for (unsigned i = e->get_num_args(); i-- > 0;) {
                 auto const& a = wval(e->get_arg(i));
-                for (unsigned j = 0; false && j < a.bw; ++j)
+                for (unsigned j = 0; j < a.bw; ++j)
                     val.eval.set(j + bw, a.get_bit(j));
                 bw += a.bw;
             }
@@ -656,7 +656,7 @@ namespace sls {
         }
     }
     
-    bool bv_eval::repair_down(app* e, unsigned i) {      
+    bool bv_eval::repair_down(app* e, unsigned i) {  
         expr* arg = e->get_arg(i);
         if (m.is_value(arg))
             return false;
@@ -1838,6 +1838,7 @@ namespace sls {
         auto& ve = assign_value(e);
         for (unsigned j = e->get_num_args() - 1; j > idx; --j)
             bw += bv.get_bv_size(e->get_arg(j));
+        //verbose_stream() << m_bounded_pp(e, m) << " " << idx << " " << bw << "\n";
         auto& a = wval(e, idx);
         for (unsigned i = 0; i < a.bw; ++i)
             m_tmp.set(i, ve.get(i + bw));
