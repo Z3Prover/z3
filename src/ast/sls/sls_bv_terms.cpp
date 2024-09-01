@@ -47,10 +47,7 @@ namespace sls {
         for (unsigned i = 1; i < num_args; ++i)\
             r = oper(r, arg(i)); \
 
-        if (bv.is_concat(e)) {
-            FOLD_OP(bv.mk_concat);
-        }
-        else if (bv.is_bv_sdiv(e) || bv.is_bv_sdiv0(e) || bv.is_bv_sdivi(e)) {
+        if (bv.is_bv_sdiv(e) || bv.is_bv_sdiv0(e) || bv.is_bv_sdivi(e)) {
             r = mk_sdiv(arg(0), arg(1));
         }
         else if (bv.is_bv_smod(e) || bv.is_bv_smod0(e) || bv.is_bv_smodi(e)) {
