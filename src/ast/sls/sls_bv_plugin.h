@@ -25,8 +25,8 @@ namespace sls {
 
     class bv_plugin : public plugin {
         bv_util             bv;
-        sls::bv_terms       m_terms;
-        bv_eval             m_eval;
+        bv_terms       m_terms;
+        bv_eval        m_eval;
         bv::sls_stats       m_stats;
         bool                m_initialized = false;
 
