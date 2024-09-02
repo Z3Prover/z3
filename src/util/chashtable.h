@@ -52,9 +52,8 @@ public:
 
 protected:
     struct cell {
-        cell *  m_next;
+        cell *  m_next = (cell*)1;
         T       m_data;
-        cell():m_next(reinterpret_cast<cell*>(1)) {}
         bool is_free() const { return GET_TAG(m_next) == 1; }
         void mark_free() { m_next = TAG(cell*, m_next, 1); }
         void unmark_free() { m_next = UNTAG(cell*, m_next); }

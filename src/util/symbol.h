@@ -29,7 +29,7 @@ template<typename T>
 class symbol_table;
 
 class symbol {
-    char const * m_data;
+    char const * m_data = nullptr;
 
     template<typename T>
     friend class symbol_table;
@@ -50,9 +50,7 @@ class symbol {
     }
     static symbol m_dummy;
 public:
-    symbol():
-        m_data(nullptr) {
-    }
+    symbol() = default;
     explicit symbol(char const * d);
     explicit symbol(const std::string & str) : symbol(str.c_str()) {}
     explicit symbol(unsigned idx):

@@ -114,9 +114,9 @@ class pattern_inference_cfg :  public default_rewriter_cfg {
     //
     class collect {
         struct entry {
-            expr *    m_node;
-            unsigned  m_delta;
-            entry():m_node(nullptr), m_delta(0) {}
+            expr *    m_node = nullptr;
+            unsigned  m_delta = 0;
+            entry() = default;
             entry(expr * n, unsigned d):m_node(n), m_delta(d) {}
             unsigned hash() const { 
                 return hash_u_u(m_node->get_id(), m_delta);
