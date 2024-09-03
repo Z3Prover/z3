@@ -1,3 +1,4 @@
+// https://microsoft.github.io/genaiscript/guides/auto-git-commit-message/
 import { select, input, confirm } from "@inquirer/prompts"
 
 // Check for staged changes and stage all changes if none are staged
