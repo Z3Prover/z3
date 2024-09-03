@@ -28,7 +28,7 @@ Notes:
 #include "util/stopwatch.h"
 #include "tactic/sls/sls_tactic.h"
 #include "params/sls_params.hpp"
-#include "ast/sls/sls_engine.h"
+#include "ast/sls/sls_bv_engine.h"
 #include "ast/sls/sls_smt_solver.h"
 
 class sls_smt_tactic : public tactic {

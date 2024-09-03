@@ -23,8 +23,8 @@ Notes:
 #include "ast/converters/model_converter.h"
 
 #include "ast/sls/sls_stats.h"
-#include "ast/sls/sls_tracker.h"
-#include "ast/sls/sls_evaluator.h"
+#include "ast/sls/sls_bv_tracker.h"
+#include "ast/sls/sls_bv_evaluator.h"
 
 class sls_engine {
 

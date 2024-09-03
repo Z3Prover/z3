@@ -5,13 +5,13 @@ z3_add_component(ast_sls
     sls_arith_base.cpp
     sls_arith_plugin.cpp
     sls_basic_plugin.cpp
+    sls_bv_engine.cpp
     sls_bv_eval.cpp
     sls_bv_fixed.cpp
     sls_bv_plugin.cpp
     sls_bv_terms.cpp
     sls_bv_valuation.cpp
     sls_context.cpp
-    sls_engine.cpp
     sls_euf_plugin.cpp
     sls_smt_solver.cpp
   COMPONENT_DEPENDENCIES
