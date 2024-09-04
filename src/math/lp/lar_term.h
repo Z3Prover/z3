@@ -59,7 +59,6 @@ public:
         }
     }
 
-    
     void add_var(lpvar j) {
         rational c(1);
         add_monomial(c, j);
@@ -71,10 +70,15 @@ public:
     
     unsigned size() const { return static_cast<unsigned>(m_coeffs.size()); }
 
-    u_map<mpq> const &   coeffs() const {
+    u_map<mpq> const &coeffs() const {
         return m_coeffs;
     }
     
+    u_map<mpq>  &coeffs() {
+        return m_coeffs;
+    }
+    
+
     void subst_by_term(const lar_term& t, unsigned term_column) {
         auto it = this->m_coeffs.find_core(term_column);
         if (it == nullptr) return;
@@ -137,6 +141,16 @@ public:
         auto* it = m_coeffs.find_core(j);
         SASSERT(it != nullptr);
         return it->get_data().m_value;        
+    }
+
+    mpq & get_coeff(unsigned j){
+        auto* it = m_coeffs.find_core(j);
+        SASSERT(it != nullptr);
+        return it->get_data().m_value;        
+    }
+
+    void erase_var(unsigned j) {
+        m_coeffs.erase(j);
     }
     // the monomial ax[j] is substituted by ax[k]
     void subst_index(unsigned j, unsigned k) {
