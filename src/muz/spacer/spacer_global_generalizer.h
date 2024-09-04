@@ -161,7 +161,6 @@ class lemma_global_generalizer : public lemma_generalizer {
 
   public:
     lemma_global_generalizer(context &ctx);
-    ~lemma_global_generalizer() override {}
 
     void operator()(lemma_ref &lemma) override;
 

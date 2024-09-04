@@ -33,8 +33,6 @@ namespace euf {
     public:
         arith_plugin(egraph& g);
 
-        ~arith_plugin() override {}
-
         theory_id get_id() const override { return a.get_family_id(); }
 
         void register_node(enode* n) override;

@@ -32,10 +32,8 @@ class progress_callback;
 typedef ptr_buffer<goal> goal_buffer;
 
 class tactic : public user_propagator::core {
-    unsigned m_ref_count;
+    unsigned m_ref_count = 0;
 public:
-    tactic():m_ref_count(0) {}
-
     void inc_ref() { m_ref_count++; }
     void dec_ref() { SASSERT(m_ref_count > 0); m_ref_count--; if (m_ref_count == 0) dealloc(this); }
 

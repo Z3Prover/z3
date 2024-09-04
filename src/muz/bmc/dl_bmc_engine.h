@@ -51,8 +51,6 @@ namespace datalog {
     public:
         bmc(context& ctx);
 
-        ~bmc() override;
-
         lbool query(expr* query) override;
 
         void display_certificate(std::ostream& out) const override;

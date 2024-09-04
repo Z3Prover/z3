@@ -1058,7 +1058,6 @@ namespace mbp {
         scoped_ptr<contains_app> m_var;
 
         imp(ast_manager& m): m(m), a(m), m_stores(m) {}
-        ~imp() {}
 
         bool solve(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
             return false;

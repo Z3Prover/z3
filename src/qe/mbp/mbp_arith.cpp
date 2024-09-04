@@ -43,8 +43,6 @@ namespace mbp {
         imp(ast_manager& m) :
             m(m), a(m) {}
 
-        ~imp() {}
-
         void insert_mul(expr* x, rational const& v, obj_map<expr, rational>& ts) {
             rational w;
             if (ts.find(x, w))

@@ -112,7 +112,6 @@ namespace datalog {
      public:
         mk_array_instantiation(context & ctx, unsigned priority);
         rule_set * operator()(rule_set const & source) override;
-        ~mk_array_instantiation() override{}
     };
 
 

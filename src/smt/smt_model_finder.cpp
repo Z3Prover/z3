@@ -223,8 +223,6 @@ namespace smt {
                 m_sort(s) {
             }
 
-            ~node() {}
-
             unsigned get_id() const { return m_id; }
 
             sort* get_sort() const { return m_sort; }

@@ -23,13 +23,10 @@ Notes:
 template<class T>
 class queue {
     vector<T> m_elems;
-    unsigned  m_head;
-    unsigned  m_capacity;
+    unsigned  m_head = 0;
+    unsigned  m_capacity = 0;
     
 public:
-    
-    queue(): m_head(0), m_capacity(0) {}
-
     void push(T const& t) { m_elems.push_back(t); }
 
     bool empty() const { 

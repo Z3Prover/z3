@@ -117,8 +117,6 @@ public:
         m_replace = mk_default_expr_replacer(m, false);
     }
 
-    ~imp() {}
-
     void operator()(goal & g) {
         if (g.inconsistent())
             return;        
@@ -202,10 +200,10 @@ private:
     // a |-> c1, b |-> c2 <c1,c2> |-> c
     // 
     struct u_pair {
-        unsigned m_first;
-        unsigned m_second;
+        unsigned m_first = 0;
+        unsigned m_second = 0;
         u_pair(unsigned f, unsigned s) : m_first(f), m_second(s) {}
-        u_pair(): m_first(0), m_second(0) {}
+        u_pair() = default;
 
         struct hash {
             unsigned operator()(u_pair const& p) const {
@@ -324,8 +322,6 @@ private:
     class parents {
         app_parents m_use_funs;        
     public:
-        parents() {}
-
         app_parents const& get_parents() { return m_use_funs; }
 
         void operator()(app* n) {

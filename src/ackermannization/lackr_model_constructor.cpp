@@ -41,8 +41,6 @@ public:
         , m_ackr_helper(m)
     {}
     
-    ~imp() { }
-    
     //
     // Returns true iff model was successfully constructed.
     // Conflicts are saved as a side effect.

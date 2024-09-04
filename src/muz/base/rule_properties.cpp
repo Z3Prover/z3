@@ -31,8 +31,6 @@ rule_properties::rule_properties(ast_manager & m, rule_manager& rm, context& ctx
     m_dt(m), m_dl(m), m_a(m), m_bv(m), m_ar(m), m_rec(m), 
     m_generate_proof(false), m_collected(false), m_is_monotone(true) {}
 
-rule_properties::~rule_properties() {}
-
 void rule_properties::collect(rule_set const& rules) {
     reset();
     m_collected = true;

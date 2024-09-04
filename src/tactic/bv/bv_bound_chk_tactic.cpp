@@ -41,8 +41,6 @@ struct bv_bound_chk_rewriter_cfg : public default_rewriter_cfg {
     bv_bound_chk_rewriter_cfg(ast_manager & m, bv_bound_chk_stats& stats)
         : m_m(m), m_b_rw(m), m_stats(stats) {}
 
-    ~bv_bound_chk_rewriter_cfg() {}
-
     void updt_params(params_ref const & _p) {
         rewriter_params p(_p);
         m_bv_ineq_consistency_test_max = p.bv_ineq_consistency_test_max();        
@@ -146,8 +144,6 @@ public:
     imp(ast_manager & m, params_ref const & p, bv_bound_chk_stats& stats)
         : m_rw(m, p, stats) {    }
 
-    virtual ~imp() = default;
-
     ast_manager& m() { return m_rw.m(); }
 
     void operator()(goal_ref const & g) {
@@ -164,7 +160,7 @@ public:
         m_rw.m_cfg.cleanup();
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) {
         m_rw.updt_params(p);
     }
 

@@ -43,7 +43,6 @@ class lemma_expand_bnd_generalizer : public lemma_generalizer {
 
   public:
     lemma_expand_bnd_generalizer(context &ctx);
-    ~lemma_expand_bnd_generalizer() override {}
 
     void operator()(lemma_ref &lemma) override;
 

@@ -1443,8 +1443,6 @@ namespace datalog {
         m_rule_trace(ctx.get_rule_manager()) {
     }
 
-    bmc::~bmc() {}
-
     lbool bmc::query(expr* query) {
         m_solver = nullptr;
         m_answer = nullptr;

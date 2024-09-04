@@ -58,7 +58,6 @@ namespace sat {
                 m_stack(std::move(stack)) {
                 m_counter = ++counter;
             }
-            ~elim_stack() { }
             void inc_ref() { ++m_refcount; }
             void dec_ref() { if (0 == --m_refcount) { dealloc(this); } }
             elim_stackv const& stack() const { return m_stack; }

@@ -40,10 +40,9 @@ public:
     };
 
 private:
-    unsigned m_ref_count;
+    unsigned m_ref_count = 0;
 
 public:
-    probe():m_ref_count(0) {}
     virtual ~probe() = default;
 
     void inc_ref() { ++m_ref_count; }

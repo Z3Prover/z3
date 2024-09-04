@@ -187,8 +187,6 @@ class term {
         m_is_peq = is_partial_eq(to_app(m_expr));
     }
 
-    ~term() {}
-
     class parents {
         term const &t;
 

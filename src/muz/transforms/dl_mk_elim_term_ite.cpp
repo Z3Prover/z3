@@ -80,8 +80,6 @@ namespace datalog {
         rm(ctx.get_rule_manager()),
         m_ground(m) {}
 
-    mk_elim_term_ite::~mk_elim_term_ite() {}
-
     /**
        \brief map free variables in e to ground, fresh, constants
        m_ground is reset on every new rule so it is safe to assume

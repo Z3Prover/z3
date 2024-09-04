@@ -144,9 +144,8 @@ struct ctx_simplify_tactic::imp {
     };
 
     struct cache_cell {
-        expr *          m_from;
-        cached_result * m_result;
-        cache_cell():m_from(nullptr), m_result(nullptr) {}
+        expr *          m_from = nullptr;
+        cached_result * m_result = nullptr;
     };
 
     ast_manager &               m;

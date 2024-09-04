@@ -30,8 +30,6 @@ namespace datalog {
         m_refs(m) {        
     }
 
-    mk_loop_counter::~mk_loop_counter() { }
-
     app_ref mk_loop_counter::add_arg(rule_set const& src, rule_set& dst, app* fn, unsigned idx) {
         expr_ref_vector args(m);
         func_decl* new_fn, *old_fn = fn->get_decl();

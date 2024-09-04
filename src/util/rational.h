@@ -41,8 +41,8 @@ public:
       ADD_INITIALIZER('rational::initialize();')
       ADD_FINALIZER('rational::finalize();')
     */
-    rational() {}
-    
+    rational() = default;
+
     rational(rational const & r) { m().set(m_val, r.m_val); }
     rational(rational&&) = default;
 

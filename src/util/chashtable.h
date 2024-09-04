@@ -609,7 +609,7 @@ public:
     struct key_value {
         Key    m_key;
         Value  m_value;
-        key_value() {}
+        key_value() = default;
         key_value(Key const & k):m_key(k) {}
         key_value(Key const & k, Value const & v):m_key(k), m_value(v) {}
     };

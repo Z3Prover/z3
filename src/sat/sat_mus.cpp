@@ -24,8 +24,6 @@ Notes:
 namespace sat {
 
     mus::mus(solver& s):s(s), m_is_active(false), m_max_num_restarts(UINT_MAX) {}
-
-    mus::~mus() {}
    
     void mus::reset() {
         m_core.reset();

@@ -146,8 +146,6 @@ namespace datalog {
             m_dst(nullptr)
         {}
 
-        ~expand_mkbv_cfg() {}
-
         void set_src(rule_set const* src) { m_src = src; }
         void set_dst(rule_set* dst) { m_dst = dst; }
         func_decl_ref_vector const& old_funcs() const { return m_old_funcs; }

@@ -47,7 +47,6 @@ namespace euf {
             unsigned_vector eqs;       // equality occurrences
             
             unsigned root_id() const { return root->n->get_id(); }
-            ~node() {}
             static node* mk(region& r, enode* n);
         };
 
@@ -270,8 +269,6 @@ namespace euf {
         ac_plugin(egraph& g, unsigned fid, unsigned op);
 
         ac_plugin(egraph& g, func_decl* f);
-
-        ~ac_plugin() override {}
         
         theory_id get_id() const override { return m_fid; }
 

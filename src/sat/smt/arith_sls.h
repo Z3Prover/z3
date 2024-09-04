@@ -153,7 +153,6 @@ namespace arith {
 
     public:
         sls(solver& s);
-        ~sls() override {}
         void set(sat::ddfw* d);
         void init_search() override;
         void finish_search() override;

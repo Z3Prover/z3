@@ -146,8 +146,6 @@ tactic * mk_trace_tactic(char const * tag) {
 
 class fail_if_undecided_tactic : public skip_tactic {
 public:
-    fail_if_undecided_tactic() {}
-
     void operator()(goal_ref const & in, goal_ref_buffer& result) override {
         if (!in->is_decided()) 
             throw tactic_exception("undecided");

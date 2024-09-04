@@ -29,7 +29,6 @@ namespace datalog {
         app_ref      mk_query(app* q);
     public:
         mk_magic_symbolic(context & ctx, unsigned priority = 33037);
-        ~mk_magic_symbolic() override;
         rule_set * operator()(rule_set const & source) override;
     };
 

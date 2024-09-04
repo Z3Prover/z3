@@ -134,7 +134,6 @@ namespace smt {
             unsigned_vector                   m_limit;
         public:
             exclusion_table(ast_manager& m): m(m), m_lhs(m), m_rhs(m) {}
-            ~exclusion_table() { }
             bool empty() const { return m_table.empty(); }
             void update(expr* e, expr* r);
             bool contains(expr* e, expr* r) const;
