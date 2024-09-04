@@ -57,7 +57,7 @@ namespace lp {
             }
 
         };
-        std::ostream& print_S(std::ostream & out) const {
+        std::ostream& print_S(std::ostream & out) {
             out << "S:\n";
             for (unsigned i : m_s) {
                 out << "x" << m_eprime[i].m_e.j() << " ->\n";
@@ -117,7 +117,7 @@ namespace lp {
         */
         struct eprime_pair {
             term_o   m_e;
-            lar_term m_l; // this term keeps the history of m_e : originally m_l is i, the index of row m_e was constructed from
+            u_dependency *m_l; // this term keeps the history of m_e : originally m_l is i, the index of row m_e was constructed from
         };
         vector<eprime_pair> m_eprime;
         
@@ -179,12 +179,24 @@ namespace lp {
                     SASSERT(t.c().is_zero());
                     continue;
                 }
-                eprime_pair pair = {t, lar_term(i)};
+//				eprime_pair pair = {t, lar_term(i)};
+                eprime_pair pair = {t, get_dep_from_row(row)};
                 m_f.push_back(static_cast<unsigned>(m_f.size()));                
                 m_eprime.push_back(pair);
                 TRACE("dioph_eq", print_eprime_entry(static_cast<unsigned>(m_f.size()) - 1, tout););
             }
             
+        }
+
+        // look only at the fixed columns
+        u_dependency * get_dep_from_row(const row_strip<mpq>& row) {
+            u_dependency* dep = nullptr;
+            for (const auto & p: row) {
+                if (!lia.is_fixed(p.var())) continue;
+                u_dependency * bound_dep = lra.get_bound_constraint_witnesses_for_column(p.var());
+                dep = lra.mk_join(dep, bound_dep);
+            }
+            return dep;
         }
 
         mpq gcd_of_coeffs(const term_o& t) {
@@ -198,10 +210,14 @@ namespace lp {
             }
             return g;
         }
+        std::ostream & print_dep(std::ostream& out, u_dependency* dep) {
+            explanation ex(lra.flatten(dep));
+            return lra.print_expl(out, ex);
+        }
         // returns true if no conflict is found and false otherwise
         bool normalize_e_by_gcd(eprime_pair& ep) {
             TRACE("dioph_eq", print_term_o(ep.m_e, tout << "m_e:") << std::endl; 
-                  print_lar_term_L(ep.m_l, tout << "m_l:") << std::endl;
+                  print_dep(tout << "m_l:", ep.m_l) << std::endl;
                 );
             mpq g = gcd_of_coeffs(ep.m_e);
             if (g.is_zero()) {
@@ -216,11 +232,8 @@ namespace lp {
                 TRACE("dioph_eq",
                       print_term_o(ep.m_e, tout << "conflict m_e:") << std::endl; 
                       tout << "g:" << g << std::endl; 
-                      print_lar_term_L(ep.m_l, tout << "m_l:") << std::endl;
-                      for (const auto & p: ep.m_l) {
-                          tout << p.coeff() << "("; print_term_o(m_eprime[p.j()].m_e, tout) << ")"<< std::endl;
-                      }
-                      tout << "S:\n";
+                      print_dep(tout << "m_l:", ep.m_l) << std::endl;
+                                      tout << "S:\n";
                       for (const auto& t : m_sigma) {
                           tout << "x" << t.m_key << " -> ";
                           print_term_o(t.m_value, tout) << std::endl;
@@ -232,11 +245,11 @@ namespace lp {
                     p.m_value /= g;
                 }
                 ep.m_e.c() = new_c;
-                ep.m_l *= (1/g);
+//                ep.m_l *= (1/g);
                 TRACE("dioph_eq",
                       tout << "ep_m_e:"; print_term_o(ep.m_e, tout) << std::endl;
                       tout << "ep.ml:";
-                      print_lar_term_L(ep.m_l, tout ) << std::endl;);
+                      print_dep(tout, ep.m_l) << std::endl;);
 
             }
             return true;
@@ -358,8 +371,8 @@ namespace lp {
             }
         }
 
-        void substitute_var_on_f(unsigned k, int k_sign, const term_o& k_subst, const lar_term& l_term, unsigned index_to_avoid)  {
-            TRACE("dioph_eq", print_term_o(k_subst, tout<< "x" << k<< " -> ") << std::endl; tout << "l_term:"; print_lar_term_L(l_term, tout) << std::endl;);
+        void substitute_var_on_f(unsigned k, int k_sign, const term_o& k_subst, u_dependency * dep, unsigned index_to_avoid)  {
+            TRACE("dioph_eq", print_term_o(k_subst, tout<< "x" << k<< " -> ") << std::endl; tout << "dep:"; print_dep(tout, dep) << std::endl;);
             for (unsigned e_index: m_f) {
                 if (e_index == index_to_avoid) continue;
                 term_o& e = m_eprime[e_index].m_e;
@@ -368,12 +381,16 @@ namespace lp {
                 const mpq& k_coeff = e.get_coeff(k);
                 TRACE("dioph_eq", print_eprime_entry(e_index, tout << "before:") << std::endl;
                       tout << "k_coeff:" << k_coeff << std::endl;);
+                
+/*
                 if (!l_term.is_empty()) {
                     if (k_sign == 1)
                         add_operator(m_eprime[e_index].m_l, -k_coeff, l_term);
                     else
                         add_operator(m_eprime[e_index].m_l, k_coeff, l_term);
                 }
+*/
+                dep = lra.mk_join(dep, m_eprime[e_index].m_l);
                 e.substitute(k_subst, k);
                 TRACE("dioph_eq", print_eprime_entry(e_index, tout << "after :") << std::endl;);                       
             }
@@ -451,7 +468,8 @@ namespace lp {
                 et.add_monomial(r, p.j());
             }
             m_eprime[e_index].m_e = et;
-            eprime_pair xt_entry = {xt_term, lar_term()};  // 0 for m_l field
+			// eprime_pair xt_entry = {xt_term, lar_term()};  // 0 for m_l field
+            eprime_pair xt_entry = {xt_term, nullptr};  // 0 for m_l field
             m_eprime.push_back(xt_entry);
             TRACE("dioph_eq", tout << "xt_term:"; print_term_o(xt_term, tout) << std::endl;
                   tout << "k_subs:"; print_term_o(k_subs, tout) << std::endl;
@@ -464,10 +482,10 @@ namespace lp {
             TRACE("dioph_eq", tout << "xt_subs: x~"<< fresh_index(xt) << " -> ";  print_term_o(xt_subs, tout) << std::endl;);               
             m_sigma.insert(xt, xt_subs);
         }
-        std::ostream& print_eprime_entry(unsigned i, std::ostream& out) const {
+        std::ostream& print_eprime_entry(unsigned i, std::ostream& out) {
             out << "m_eprime[" << i << "]:{\n";
             print_term_o(m_eprime[i].m_e, out << "\tm_e:") << "," << std::endl;
-            print_lar_term_L(m_eprime[i].m_l, out<< "\tm_l:") << "\n}"<< std::endl;
+            print_dep(out<< "\tm_l:", m_eprime[i].m_l) << "\n}"<< std::endl;
             return out;
         }
 
@@ -501,11 +519,16 @@ namespace lp {
             TRACE("dioph_eq", tout << "conflict:"; print_eprime_entry(m_conflict_index, tout) << std::endl;);
             auto & ep = m_eprime[m_conflict_index];
             u_dependency* dep = nullptr;
-            for (const auto & pl : ep.m_l) {
+			/*
+			 for (const auto & pl : ep.m_l) {
                 unsigned row_index = pl.j();
                 for (const auto & p : lra.get_row(row_index))
                     if (lra.column_is_fixed(p.var()))
                         lra.explain_fixed_column(p.var(), ex);
+            }
+			*/
+            for (auto ci: lra.flatten(ep.m_l)) {
+                ex.push_back(ci);
             }
             TRACE("dioph_eq", lra.print_expl(tout, ex););
         }
