@@ -28,6 +28,7 @@ namespace sls {
     {}
 
     void bv_fixed::init() {
+
         for (auto e : ctx.subterms())
             set_fixed(e);
 
@@ -39,6 +40,8 @@ namespace sls {
                 init_range(to_app(a), lit.sign());
             ev.m_fixed.setx(a->get_id(), true, false);
         }
+
+
 
         for (auto e : ctx.subterms())
             propagate_range_up(e);    

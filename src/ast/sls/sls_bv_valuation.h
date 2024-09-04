@@ -132,6 +132,7 @@ namespace sls {
 
         digit_t bits(unsigned i) const { return m_bits[i]; }
         bvect const& bits() const { return m_bits; }
+        bvect const& tmp_bits(bool use_current) const { return use_current ? m_bits : m_tmp; }
         bool commit_eval();
         bool is_fixed() const { for (unsigned i = bw; i-- > 0; ) if (!fixed.get(i)) return false; return true; }
 
@@ -164,6 +165,9 @@ namespace sls {
         void add_range(rational lo, rational hi);
         bool has_range() const { return m_lo != m_hi; }
         void tighten_range();
+
+        void save_value() { m_tmp = m_bits; }
+        void restore_value() { m_bits = m_tmp; }
 
         void clear_overflow_bits(bvect& bits) const {
             SASSERT(nw > 0);

@@ -247,14 +247,17 @@ namespace sls {
 
     bool bv_valuation::set_random_at_most(bvect const& src, random_gen& r) {
         m_tmp.set_bw(bw);
+        //verbose_stream() << "set_random_at_most " << src << "\n";
         if (!get_at_most(src, m_tmp))
             return false;
 
-        if (is_zero(m_tmp) && (0 != r(10)))
+        if (is_zero(m_tmp) && (0 != r(2)))
             return try_set(m_tmp) && m_tmp <= src;
 
         // random value below tmp
         set_random_below(m_tmp, r);
+
+        //verbose_stream() << "can set " << m_tmp << " " << can_set(m_tmp) << "\n";
         
         return (can_set(m_tmp) || get_at_most(src, m_tmp)) && m_tmp <= src && try_set(m_tmp);
     }
@@ -354,7 +357,7 @@ namespace sls {
                     dst.set(i, false);
             for (unsigned i = 0; i < bw && dst < m_lo && !in_range(dst); ++i)
                 if (!fixed.get(i) && !dst.get(i))
-                    dst.set(i, true);        
+                    dst.set(i, true);
         }
         else {
             for (unsigned i = 0; !in_range(dst) && i < bw; ++i)
@@ -441,7 +444,35 @@ namespace sls {
 
     bool bv_valuation::set_random(random_gen& r) {
         get_variant(m_tmp, r);
-        return set_repair(r(2) == 0, m_tmp);
+        repair_sign_bits(m_tmp);
+        if (in_range(m_tmp)) {
+            set(eval, m_tmp);
+            return true;
+        }
+        for (unsigned i = 0; i < nw; ++i)
+            m_tmp[i] = random_bits(r);
+        clear_overflow_bits(m_tmp);
+        // find a random offset within [lo, hi[
+        SASSERT(m_lo != m_hi);
+        set_sub(eval, m_hi, m_lo);        
+        for (unsigned i = bw; i-- > 0 && m_tmp >= eval; ) 
+            m_tmp.set(i, false);
+        
+        // set eval back to m_bits. It was garbage.
+        set(eval, m_bits);
+
+        // tmp := lo + tmp is within [lo, hi[
+        set_add(m_tmp, m_tmp, m_lo);
+        // respect fixed bits
+        for (unsigned i = 0; i < bw; ++i)
+            if (fixed.get(i))
+                m_tmp.set(i, m_bits.get(i));                
+        // decrease tmp until it is in range again
+        for (unsigned i = bw; i-- > 0 && !in_range(m_tmp); )
+            if (!fixed.get(i))
+                m_tmp.set(i, false);
+        repair_sign_bits(m_tmp);
+        return try_set(m_tmp);      
     }
 
     void bv_valuation::repair_sign_bits(bvect& dst) const {

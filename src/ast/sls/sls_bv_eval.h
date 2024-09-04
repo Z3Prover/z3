@@ -57,6 +57,14 @@ namespace sls {
         using bvval = sls::bv_valuation;
 
         void init_eval_bv(app* e);
+
+        ptr_vector<expr> m_restore;
+        vector<ptr_vector<expr>> m_update_stack;
+        expr_mark m_on_restore;
+        void insert_update_stack(expr* e);
+        bool insert_update(expr* e);
+        double lookahead(expr* e, bvect const& new_value);
+        void restore_lookahead();
        
         /**
         * Register e as a bit-vector. 
@@ -65,7 +73,9 @@ namespace sls {
         void add_bit_vector(app* e);
         sls::bv_valuation* alloc_valuation(app* e);
 
-        bool bval1_bv(app* e) const;  
+        bool bval1_bv(app* e, bool use_current) const;  
+        bool bval1_tmp(app* e) const;
+
 
         void fold_oper(bvect& out, app* e, unsigned i, std::function<void(bvect&, bvval const&)> const& f);
         /**
@@ -113,8 +123,9 @@ namespace sls {
         bool try_repair_comp(bvect const& e, bvval& a, bvval& b, unsigned i);
         bool try_repair_eq(bool is_true, bvval& a, bvval const& b);
         bool try_repair_eq(app* e, unsigned i);
+        bool try_repair_eq_lookahead(app* e);
         bool try_repair_int2bv(bvect const& e, expr* arg);
-        void add_p2_1(bvval const& a, bvect& t) const;
+        void add_p2_1(bvval const& a, bool use_current, bvect& t) const;
 
         bool add_overflow_on_fixed(bvval const& a, bvect const& t);
         bool mul_overflow_on_fixed(bvval const& a, bvect const& t);
@@ -137,7 +148,7 @@ namespace sls {
 
         bool can_eval1(app* e) const;
 
-        void commit_eval(app* e);
+        void commit_eval(expr* p, app* e);
 
     public:
         bv_eval(sls::bv_terms& terms, sls::context& ctx);

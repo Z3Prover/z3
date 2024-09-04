@@ -32,30 +32,18 @@ namespace sls {
         auto r = ensure_binary(e);
         if (r != e)
             m_axioms.push_back(m.mk_eq(e, r));
+        register_uninterp(e);
     }
 
     expr_ref bv_terms::ensure_binary(expr* e) {
-
-        app* a = to_app(e);
-        auto arg = [&](unsigned i) {
-            return a->get_arg(i);
-        };
-        unsigned num_args = a->get_num_args();
+        expr* x, * y;
         expr_ref r(m);
-#define FOLD_OP(oper)           \
-        r = arg(0);             \
-        for (unsigned i = 1; i < num_args; ++i)\
-            r = oper(r, arg(i)); \
-
-        if (bv.is_bv_sdiv(e) || bv.is_bv_sdiv0(e) || bv.is_bv_sdivi(e)) {
-            r = mk_sdiv(arg(0), arg(1));
-        }
-        else if (bv.is_bv_smod(e) || bv.is_bv_smod0(e) || bv.is_bv_smodi(e)) {
-            r = mk_smod(arg(0), arg(1));
-        }
-        else if (bv.is_bv_srem(e) || bv.is_bv_srem0(e) || bv.is_bv_sremi(e)) {
-            r = mk_srem(arg(0), arg(1));
-        }
+        if (bv.is_bv_sdiv(e, x, y) || bv.is_bv_sdiv0(e, x, y) || bv.is_bv_sdivi(e, x, y))
+            r = mk_sdiv(x, y);
+        else if (bv.is_bv_smod(e, x, y) || bv.is_bv_smod0(e, x, y) || bv.is_bv_smodi(e, x, y))
+            r = mk_smod(x, y);
+        else if (bv.is_bv_srem(e, x, y) || bv.is_bv_srem0(e, x, y) || bv.is_bv_sremi(e, x, y)) 
+            r = mk_srem(x, y);        
         else
             r = e;                   
         return r;
@@ -124,4 +112,33 @@ namespace sls {
         return r;
     }
 
+    void bv_terms::register_uninterp(expr* e) {
+        if (!m.is_bool(e))
+            return;
+        expr* x, *y;
+
+        if (m.is_eq(e, x, y) && bv.is_bv(x))
+            ;
+        else if (is_app(e) && to_app(e)->get_family_id() == bv.get_fid())
+            ;
+        else
+            return;
+        m_uninterp_occurs.reserve(e->get_id() + 1);
+        auto& occs = m_uninterp_occurs[e->get_id()];
+        ptr_vector<expr> todo;
+        todo.append(to_app(e)->get_num_args(), to_app(e)->get_args());
+        expr_mark marked;
+        for (unsigned i = 0; i < todo.size(); ++i) {
+            e = todo[i];
+            if (marked.is_marked(e))
+                continue;
+            marked.mark(e);
+            if (is_app(e) && to_app(e)->get_family_id() == bv.get_fid()) {
+                for (expr* arg : *to_app(e))
+                    todo.push_back(arg);
+            }
+            else if (bv.is_bv(e))
+                occs.push_back(e);
+        }
+    }
 }

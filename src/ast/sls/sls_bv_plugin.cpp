@@ -165,8 +165,11 @@ namespace sls {
         }
         else if (bv.is_bv(e)) {
             log(e, true, false);
-            IF_VERBOSE(5, verbose_stream() << "repair-up "; trace_repair(true, e));             
+            IF_VERBOSE(5, verbose_stream() << "repair-up "; trace_repair(true, e)); 
+            verbose_stream() << "set random " << m_eval.wval(e) << " --> ";
+            auto& v = m_eval.wval(e);
             m_eval.set_random(e);
+            verbose_stream() << m_eval.wval(e) << "\n";
             ctx.new_value_eh(e);
         }
         else
@@ -197,11 +200,8 @@ namespace sls {
     }
 
     void bv_plugin::log(expr* e, bool up_down, bool success) {
-        //        unsigned value = 0;
-        // if (bv.is_bv(e))
-        //    value = svector_hash<unsigned_hash>()(m_eval.wval(e).bits());
         IF_VERBOSE(11, verbose_stream() << mk_bounded_pp(e, m) << " " << (up_down?"u":"d") << " " << (success ? "S" : "F");
-                   // if (bv.is_bv(e)) verbose_stream() << " " << m_eval.wval(e).bits();
+                   if (bv.is_bv(e)) verbose_stream() << " " << m_eval.wval(e);
                    verbose_stream() << "\n");
     }
 

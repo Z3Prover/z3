@@ -14,6 +14,7 @@ Author:
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/sls/sls_bv_eval.h"
+#include "ast/sls/sls_bv_terms.h"
 #include "ast/rewriter/th_rewriter.h"
 
 namespace sls {
@@ -116,22 +117,24 @@ namespace sls {
         return false;
     }
 
-    bool bv_eval::bval1_bv(app* e) const {
+    bool bv_eval::bval1_bv(app* e, bool use_current) const {
         SASSERT(m.is_bool(e));
         SASSERT(e->get_family_id() == bv.get_fid());
 
+        bool use_current1 = use_current || (e->get_num_args() > 0 && !m_on_restore.is_marked(e->get_arg(0)));
+        bool use_current2 = use_current || (e->get_num_args() > 1 && !m_on_restore.is_marked(e->get_arg(1)));
         auto ucompare = [&](std::function<bool(int)> const& f) {
             auto& a = wval(e->get_arg(0)); 
             auto& b = wval(e->get_arg(1)); 
-            return f(mpn.compare(a.bits().data(), a.nw, b.bits().data(), b.nw));
+            return f(mpn.compare(a.tmp_bits(use_current1).data(), a.nw, b.tmp_bits(use_current2).data(), b.nw));
         };
 
         // x <s y <=> x + 2^{bw-1} <u y + 2^{bw-1}
         auto scompare = [&](std::function<bool(int)> const& f) {
             auto& a = wval(e->get_arg(0));
             auto& b = wval(e->get_arg(1));
-            add_p2_1(a, m_tmp);
-            add_p2_1(b, m_tmp2);
+            add_p2_1(a, use_current1, m_tmp);
+            add_p2_1(b, use_current2, m_tmp2);
             return f(mpn.compare(m_tmp.data(), a.nw, m_tmp2.data(), b.nw));
         };
 
@@ -139,7 +142,7 @@ namespace sls {
             SASSERT(e->get_num_args() == 2);
             auto const& a = wval(e->get_arg(0));
             auto const& b = wval(e->get_arg(1));
-            return a.set_mul(m_tmp2, a.bits(), b.bits());
+            return a.set_mul(m_tmp2, a.tmp_bits(use_current1), b.tmp_bits(use_current2));
         };
 
         switch (e->get_decl_kind()) {
@@ -164,7 +167,7 @@ namespace sls {
             unsigned idx;
             VERIFY(bv.is_bit2bool(e, child, idx));
             auto& a = wval(child);
-            return a.get_bit(idx);
+            return a.tmp_bits(use_current1).get(idx);
         }
         case OP_BUMUL_NO_OVFL: 
             return !umul_overflow();
@@ -174,7 +177,7 @@ namespace sls {
             SASSERT(e->get_num_args() == 2);
             auto const& a = wval(e->get_arg(0));
             auto const& b = wval(e->get_arg(1));
-            return a.set_add(m_tmp, a.bits(), b.bits());
+            return a.set_add(m_tmp, a.tmp_bits(use_current1), b.tmp_bits(use_current1));
         }
         case OP_BNEG_OVFL:
         case OP_BSADD_OVFL:         
@@ -193,7 +196,7 @@ namespace sls {
 
     bool bv_eval::bval1(app* e) const {
         if (e->get_family_id() == bv.get_fid())
-            return bval1_bv(e);
+            return bval1_bv(e, true);
         expr* x, * y;
         if (m.is_eq(e, x, y) && bv.is_bv(x)) {
             return wval(x).bits() == wval(y).bits();
@@ -202,6 +205,22 @@ namespace sls {
         UNREACHABLE();
         return false;
     }
+
+    bool bv_eval::bval1_tmp(app* e) const {
+        if (e->get_family_id() == bv.get_fid())
+            return bval1_bv(e, false);
+        expr* x, * y;
+        if (m.is_eq(e, x, y) && bv.is_bv(x)) {
+            bool use_current1 = !m_on_restore.is_marked(x);
+            bool use_current2 = !m_on_restore.is_marked(y);
+            return wval(x).tmp_bits(use_current1) == wval(y).tmp_bits(use_current2);
+        }
+        verbose_stream() << mk_bounded_pp(e, m) << "\n";
+        UNREACHABLE();
+        return false;
+    }
+
+    // unsigned ddt_orig(expr* e);
 
     sls::bv_valuation& bv_eval::eval(app* e) const {
         auto& val = *m_values[e->get_id()];        
@@ -661,14 +680,17 @@ namespace sls {
         if (m.is_value(arg))
             return false;
         if (e->get_family_id() == bv.get_family_id() && try_repair_bv(e, i)) {
-            commit_eval(to_app(arg));
+            commit_eval(e, to_app(arg));
             ctx.new_value_eh(arg);
             return true;
         }
         if (m.is_eq(e) && bv.is_bv(arg) && try_repair_eq(e, i)) {
-            commit_eval(to_app(arg));
+            commit_eval(e, to_app(arg));
             ctx.new_value_eh(arg);
             return true;
+        }
+        if (m.is_eq(e) && bv.is_bv(arg)) {
+            return try_repair_eq_lookahead(e);
         }
         return false;
     }
@@ -856,13 +878,46 @@ namespace sls {
         return false;
     }
 
+    bool bv_eval::try_repair_eq_lookahead(app* e) {
+        auto is_true = bval0(e);
+        if (!is_true)
+            return false;
+        auto const& uninterp = terms.uninterp_occurs(e);
+        if (uninterp.empty())
+            return false;
+        for (auto e : uninterp)
+            verbose_stream() << mk_bounded_pp(e, m) << " ";
+        verbose_stream() << "\n";
+
+        expr* t = uninterp[m_rand() % uninterp.size()];
+
+        auto& v = wval(t);
+        if (v.set_random(m_rand)) {
+            verbose_stream() << "set random " << mk_bounded_pp(t, m) << "\n";
+            ctx.new_value_eh(t);
+            return true;
+        }
+        return false;
+
+
+        for (auto e : uninterp) {
+            auto& v = wval(e);
+            v.get_variant(m_tmp, m_rand);
+            auto d = lookahead(e, m_tmp);
+            verbose_stream() << mk_bounded_pp(e, m) << " " << d << "\n";
+        }
+        return false;
+    }
+
     bool bv_eval::try_repair_eq(bool is_true, bvval& a, bvval const& b) {
         if (is_true) {
             if (m_rand(20) != 0) 
                 if (a.try_set(b.bits()))
                     return true;
-            
-            return a.set_random(m_rand);
+
+            if (m_rand(20) == 0)
+                return a.set_random(m_rand);
+            return false; 
         }
         else {
             bool try_above = m_rand(2) == 0;
@@ -980,7 +1035,9 @@ namespace sls {
     // 
     bool bv_eval::try_repair_add(bvect const& e, bvval& a, bvval const& b) {
         if (m_rand(20) != 0) {
+            m_tmp.set_bw(a.bw);
             a.set_sub(m_tmp, e, b.bits());
+            // verbose_stream() << "set-sub " << e << " - " << b.bits() << " = " << m_tmp << "\n";
             if (a.try_set(m_tmp))
                 return true;
         }
@@ -1258,9 +1315,9 @@ namespace sls {
         return r;
     }
 
-    void bv_eval::add_p2_1(bvval const& a, bvect& t) const {
+    void bv_eval::add_p2_1(bvval const& a, bool use_current, bvect& t) const {
         m_zero.set(a.bw - 1, true);
-        a.set_add(t, a.bits(), m_zero);
+        a.set_add(t, a.tmp_bits(use_current), m_zero);
         m_zero.set(a.bw - 1, false);
         a.clear_overflow_bits(t);
     }
@@ -1851,6 +1908,7 @@ namespace sls {
     // set a outside of [hi:lo] to random values with preference to 0 or 1 bits
     // 
     bool bv_eval::try_repair_extract(bvect const& e, bvval& a, unsigned lo) {
+        //verbose_stream() << "repair extract a[" << lo << ":" << lo + e.bw - 1 << "] = " << e << "\n";
         if (m_rand(m_config.m_prob_randomize_extract)  <= 100) {
             a.get_variant(m_tmp, m_rand);
             if (0 == (m_rand(2))) {
@@ -1868,9 +1926,13 @@ namespace sls {
             a.get(m_tmp);
         for (unsigned i = 0; i < e.bw; ++i)
             m_tmp.set(i + lo, e.get(i));
-        if (a.try_set(m_tmp))
+        m_tmp.set_bw(a.bw);
+        //verbose_stream() << a << " := " << m_tmp << "\n";
+        if (m_rand(5) != 0 && a.try_set(m_tmp))
             return true;
-        return a.set_random(m_rand);
+        bool ok = a.set_random(m_rand);
+        //verbose_stream() << "set random " << ok << " " << a << "\n";
+        return ok;
     }
 
     bool bv_eval::try_repair_int2bv(bvect const& e, expr* arg) {
@@ -1917,14 +1979,21 @@ namespace sls {
         if (!bv.is_bv(e))
             return false;
         auto& v = eval(to_app(e));
+
         for (unsigned i = 0; i < v.nw; ++i) {
             if (0 != (v.fixed[i] & (v.bits()[i] ^ v.eval[i]))) {
+                verbose_stream() << "Fail to set " << mk_bounded_pp(e, m) << " " << i << " " << v.fixed[i] << " " << v.bits()[i] << " " << v.eval[i] << "\n";
                 v.bits().copy_to(v.nw, v.eval);
+
                 return false;
             }
         }
+        //verbose_stream() << "repair up " << mk_bounded_pp(e, m) << " " << v << "\n";
         if (v.commit_eval())
             return true;
+        verbose_stream() << "could not repair up " << mk_bounded_pp(e, m) << " " << v << "\n";
+        for (expr* arg : *to_app(e))
+            verbose_stream() << mk_bounded_pp(arg, m) << " " << wval(arg) << "\n";
         v.bits().copy_to(v.nw, v.eval);
         return false;
     }
@@ -1935,17 +2004,25 @@ namespace sls {
     }
 
 
-    void bv_eval::commit_eval(app* e) {
+    void bv_eval::commit_eval(expr* p, app* e) {
         if (!bv.is_bv(e))
             return;
+
+        if (e->get_id() == 5) {
+            //verbose_stream() << e->get_id() << " " << mk_bounded_pp(e, m) << " " << wval(e) << "\n";
+            //verbose_stream() << "parent " << mk_bounded_pp(p, m) << " := " << wval(p) << "\n";
+        }
         //
         SASSERT(wval(e).commit_eval());
         VERIFY(wval(e).commit_eval());
     }
 
     void bv_eval::set_random(app* e) {
-        if (bv.is_bv(e))
-            eval(e).set_random(m_rand);
+        if (bv.is_bv(e)) {
+            auto& v = wval(e);
+            if (v.set_random(m_rand))
+                VERIFY(v.commit_eval());
+        }
     }
 
     bool bv_eval::eval_is_correct(app* e) {
@@ -1991,5 +2068,75 @@ namespace sls {
         if (bv.is_bv(e)) 
             return out << wval(e);
         return out << "?";
+    }
+
+    double bv_eval::lookahead(expr* e, bvect const& new_value) {
+        SASSERT(bv.is_bv(e));
+        SASSERT(is_uninterp(e));
+        SASSERT(m_restore.empty());
+
+        bool has_tabu = false;
+        double break_count = 0, make_count = 0;
+
+        wval(e).eval = new_value;
+        if (!insert_update(e)) {
+            restore_lookahead();
+            return -1000000;
+        }
+        insert_update_stack(e);
+        unsigned max_depth = get_depth(e);
+        for (unsigned depth = max_depth; depth <= max_depth; ++depth) {
+            for (unsigned i = 0; !has_tabu && i < m_update_stack[depth].size(); ++i) {
+                e = m_update_stack[depth][i];
+                if (bv.is_bv(e)) {
+                    auto& v = eval(to_app(e));
+                    if (insert_update(e)) {
+                        for (auto p : ctx.parents(e)) {
+                            insert_update_stack(p);
+                            max_depth = std::max(max_depth, get_depth(p));
+                        }
+                    }
+                    else
+                        has_tabu = true;                
+                }
+                else if (m.is_bool(e) && can_eval1(to_app(e))) {
+                    bool is_true = ctx.is_true(e);
+                    bool is_true_new = bval1(to_app(e));
+                    bool is_true_old = bval1_tmp(to_app(e));
+                    verbose_stream() << "parent " << mk_bounded_pp(e, m) << " " << is_true << " " << is_true_new << " " << is_true_old << "\n";
+                    if (is_true == is_true_new && is_true_new != is_true_old)
+                        ++make_count;
+                    if (is_true == is_true_old && is_true_new != is_true_old)
+                        ++break_count;
+                }
+            }
+            m_update_stack[depth].reset();
+        }
+        restore_lookahead();
+        if (has_tabu)
+            return -10000;
+        return make_count - break_count;
+    }
+
+    bool bv_eval::insert_update(expr* e) {
+        m_restore.push_back(e);
+        m_on_restore.mark(e);
+        auto& v = wval(e);
+        v.save_value();
+        return v.commit_eval();
+    }
+
+    void bv_eval::insert_update_stack(expr* e) {
+        unsigned depth = get_depth(e);
+        m_update_stack.reserve(depth + 1);
+        if (!m_update_stack[depth].contains(e))
+            m_update_stack[depth].push_back(e);
+    }
+
+    void bv_eval::restore_lookahead() {
+        for (auto e : m_restore) 
+            wval(e).restore_value();
+        m_restore.reset();
+        m_on_restore.reset();
     }
 }
