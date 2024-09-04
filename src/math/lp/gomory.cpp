@@ -323,7 +323,7 @@ public:
         
         m_dep = nullptr;
         for (auto c : *m_ex) 
-         	m_dep = lia.lra.join_deps(lia.lra.dep_manager().mk_leaf(c.ci()), m_dep);
+         	m_dep = lia.lra.mk_join(lia.lra.dep_manager().mk_leaf(c.ci()), m_dep);
 
         TRACE("gomory_cut_detail", dump_cut_and_constraints_as_smt_lemma(tout);
               lia.lra.display(tout));

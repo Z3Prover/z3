@@ -300,7 +300,7 @@ private:
                 int a_sign = is_pos(a) ? 1 : -1;
                 int sign = j_sign * a_sign;
                 u_dependency* witness = sign > 0 ? lar->get_column_upper_bound_witness(j) : lar->get_column_lower_bound_witness(j);
-                ret = lar->join_deps(ret, witness);
+                ret = lar->mk_join(ret, witness);
             }
             return ret;
         };
