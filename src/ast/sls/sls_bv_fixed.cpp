@@ -41,8 +41,6 @@ namespace sls {
             ev.m_fixed.setx(a->get_id(), true, false);
         }
 
-
-
         for (auto e : ctx.subterms())
             propagate_range_up(e);    
     }

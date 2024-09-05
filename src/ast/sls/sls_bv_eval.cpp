@@ -885,15 +885,15 @@ namespace sls {
         auto const& uninterp = terms.uninterp_occurs(e);
         if (uninterp.empty())
             return false;
-        for (auto e : uninterp)
-            verbose_stream() << mk_bounded_pp(e, m) << " ";
-        verbose_stream() << "\n";
+//        for (auto e : uninterp)
+//            verbose_stream() << mk_bounded_pp(e, m) << " ";
+//        verbose_stream() << "\n";
 
         expr* t = uninterp[m_rand() % uninterp.size()];
 
         auto& v = wval(t);
         if (v.set_random(m_rand)) {
-            verbose_stream() << "set random " << mk_bounded_pp(t, m) << "\n";
+            //verbose_stream() << "set random " << mk_bounded_pp(t, m) << "\n";
             ctx.new_value_eh(t);
             return true;
         }
@@ -1908,8 +1908,8 @@ namespace sls {
     // set a outside of [hi:lo] to random values with preference to 0 or 1 bits
     // 
     bool bv_eval::try_repair_extract(bvect const& e, bvval& a, unsigned lo) {
-        //verbose_stream() << "repair extract a[" << lo << ":" << lo + e.bw - 1 << "] = " << e << "\n";
-        if (m_rand(m_config.m_prob_randomize_extract)  <= 100) {
+        // verbose_stream() << "repair extract a[" << lo << ":" << lo + e.bw - 1 << "] = " << e << "\n";
+        if (false && m_rand(m_config.m_prob_randomize_extract)  <= 100) {
             a.get_variant(m_tmp, m_rand);
             if (0 == (m_rand(2))) {
                 auto bit = 0 == (m_rand(2));
@@ -1927,11 +1927,11 @@ namespace sls {
         for (unsigned i = 0; i < e.bw; ++i)
             m_tmp.set(i + lo, e.get(i));
         m_tmp.set_bw(a.bw);
-        //verbose_stream() << a << " := " << m_tmp << "\n";
+        // verbose_stream() << a << " := " << m_tmp << "\n";
         if (m_rand(5) != 0 && a.try_set(m_tmp))
             return true;
         bool ok = a.set_random(m_rand);
-        //verbose_stream() << "set random " << ok << " " << a << "\n";
+        // verbose_stream() << "set random " << ok << " " << a << "\n";
         return ok;
     }
 
@@ -1982,7 +1982,7 @@ namespace sls {
 
         for (unsigned i = 0; i < v.nw; ++i) {
             if (0 != (v.fixed[i] & (v.bits()[i] ^ v.eval[i]))) {
-                verbose_stream() << "Fail to set " << mk_bounded_pp(e, m) << " " << i << " " << v.fixed[i] << " " << v.bits()[i] << " " << v.eval[i] << "\n";
+                //verbose_stream() << "Fail to set " << mk_bounded_pp(e, m) << " " << i << " " << v.fixed[i] << " " << v.bits()[i] << " " << v.eval[i] << "\n";
                 v.bits().copy_to(v.nw, v.eval);
 
                 return false;
@@ -1991,9 +1991,9 @@ namespace sls {
         //verbose_stream() << "repair up " << mk_bounded_pp(e, m) << " " << v << "\n";
         if (v.commit_eval())
             return true;
-        verbose_stream() << "could not repair up " << mk_bounded_pp(e, m) << " " << v << "\n";
-        for (expr* arg : *to_app(e))
-            verbose_stream() << mk_bounded_pp(arg, m) << " " << wval(arg) << "\n";
+        //verbose_stream() << "could not repair up " << mk_bounded_pp(e, m) << " " << v << "\n";
+        //for (expr* arg : *to_app(e))
+        //    verbose_stream() << mk_bounded_pp(arg, m) << " " << wval(arg) << "\n";
         v.bits().copy_to(v.nw, v.eval);
         return false;
     }
@@ -2007,12 +2007,6 @@ namespace sls {
     void bv_eval::commit_eval(expr* p, app* e) {
         if (!bv.is_bv(e))
             return;
-
-        if (e->get_id() == 5) {
-            //verbose_stream() << e->get_id() << " " << mk_bounded_pp(e, m) << " " << wval(e) << "\n";
-            //verbose_stream() << "parent " << mk_bounded_pp(p, m) << " := " << wval(p) << "\n";
-        }
-        //
         SASSERT(wval(e).commit_eval());
         VERIFY(wval(e).commit_eval());
     }
@@ -2103,7 +2097,7 @@ namespace sls {
                     bool is_true = ctx.is_true(e);
                     bool is_true_new = bval1(to_app(e));
                     bool is_true_old = bval1_tmp(to_app(e));
-                    verbose_stream() << "parent " << mk_bounded_pp(e, m) << " " << is_true << " " << is_true_new << " " << is_true_old << "\n";
+                    // verbose_stream() << "parent " << mk_bounded_pp(e, m) << " " << is_true << " " << is_true_new << " " << is_true_old << "\n";
                     if (is_true == is_true_new && is_true_new != is_true_old)
                         ++make_count;
                     if (is_true == is_true_old && is_true_new != is_true_old)

@@ -166,8 +166,8 @@ namespace sls {
         bool has_range() const { return m_lo != m_hi; }
         void tighten_range();
 
-        void save_value() { m_tmp = m_bits; }
-        void restore_value() { m_bits = m_tmp; }
+        void save_value() { m_bits.copy_to(nw, m_tmp); }
+        void restore_value() { m_tmp.copy_to(nw, m_bits); }
 
         void clear_overflow_bits(bvect& bits) const {
             SASSERT(nw > 0);

@@ -166,10 +166,10 @@ namespace sls {
         else if (bv.is_bv(e)) {
             log(e, true, false);
             IF_VERBOSE(5, verbose_stream() << "repair-up "; trace_repair(true, e)); 
-            verbose_stream() << "set random " << m_eval.wval(e) << " --> ";
+            //verbose_stream() << "set random " << m_eval.wval(e) << " --> ";
             auto& v = m_eval.wval(e);
             m_eval.set_random(e);
-            verbose_stream() << m_eval.wval(e) << "\n";
+            //verbose_stream() << m_eval.wval(e) << "\n";
             ctx.new_value_eh(e);
         }
         else

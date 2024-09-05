@@ -592,58 +592,85 @@ namespace sls {
         return index;
     }
 
+    // The least a' >= a, such that the fixed bits in bits agree with a'.
+    // 0 if there is no such a'.
     void bv_valuation::inf_feasible(bvect& a) const {
         unsigned lo_index = diff_index(a);
         
-        if (lo_index != 0) {
-            lo_index--;
-            SASSERT(a.get(lo_index) != m_bits.get(lo_index));
-            SASSERT(fixed.get(lo_index));
-            for (unsigned i = 0; i <= lo_index; ++i) {
-                if (!fixed.get(i))
-                    a.set(i, false);
-                else if (fixed.get(i))
-                    a.set(i, m_bits.get(i));
-            }
-            if (!a.get(lo_index)) {
-                for (unsigned i = lo_index + 1; i < bw; ++i)
-                    if (!fixed.get(i) && !a.get(i)) {
-                        a.set(i, true);
-                        break;
-                    }
+        if (lo_index == 0)
+            return;
+        --lo_index;
+
+        // decrement a[lo_index:0] maximally
+        SASSERT(a.get(lo_index) != m_bits.get(lo_index));
+        SASSERT(fixed.get(lo_index));
+        for (unsigned i = 0; i <= lo_index; ++i) {
+            if (!fixed.get(i))
+                a.set(i, false);
+            else if (fixed.get(i))
+                a.set(i, m_bits.get(i));
+        }
+
+        // the previous value of a[lo_index] was 0.
+        // a[lo_index:0] was incremented, so no need to adjust bits a[:lo_index+1]
+        if (a.get(lo_index))
+            return;
+
+        // find the minimal increment within a[:lo_index+1]
+        for (unsigned i = lo_index + 1; i < bw; ++i) {
+            if (!fixed.get(i) && !a.get(i)) {
+                a.set(i, true);
+                return;
             }
         }
+        // there is no feasiable value a' >= a, so find the least
+        // feasiable value a' >= 0.
+        for (unsigned i = 0; i < bw; ++i)
+            if (!fixed.get(i))
+                a.set(i, false);
     }
+
+    // The greatest a' <= a, such that the fixed bits in bits agree with a'.
+    // the greatest a' <= -1 if there is no such a'.
 
     void bv_valuation::sup_feasible(bvect& a) const {
         unsigned hi_index = diff_index(a);
-        if (hi_index != 0) {
-            hi_index--;
-            SASSERT(a.get(hi_index) != m_bits.get(hi_index));
-            SASSERT(fixed.get(hi_index));
-            for (unsigned i = 0; i <= hi_index; ++i) {
-                if (!fixed.get(i))
-                    a.set(i, true);
-                else if (fixed.get(i))
-                    a.set(i, m_bits.get(i));
-            }
-            if (a.get(hi_index)) {
-                for (unsigned i = hi_index + 1; i < bw; ++i)
-                    if (!fixed.get(i) && a.get(i)) {
-                        a.set(i, false);
-                        break;
-                    }
+        if (hi_index == 0)
+            return;
+        --hi_index;
+        SASSERT(a.get(hi_index) != m_bits.get(hi_index));
+        SASSERT(fixed.get(hi_index));
+
+        // increment a[hi_index:0] maximally
+        for (unsigned i = 0; i <= hi_index; ++i) {
+            if (!fixed.get(i))
+                a.set(i, true);
+            else if (fixed.get(i))
+                a.set(i, m_bits.get(i));
+        }
+
+        // If a[hi_index:0] was decremented, then no need to adjust bits a[:hi_index+1]
+        if (!a.get(hi_index))
+            return;
+
+        // find the minimal decrement within a[:hi_index+1]
+        for (unsigned i = hi_index + 1; i < bw; ++i) {
+            if (!fixed.get(i) && a.get(i)) {
+                a.set(i, false);
+                return;
             }
         }
+
+        // a[hi_index:0] was incremented, but a[:hi_index+1] cannot be decremented.
+
+
     }
 
     void bv_valuation::tighten_range() {
         
+        // verbose_stream() << "tighten " << m_lo << " " << m_hi << " " << m_bits << "\n";
         if (m_lo == m_hi)
             return;
-
-        if (!in_range(m_bits))
-            m_bits = m_lo;
 
         if (is_zero(m_hi)) 
             return;        
@@ -658,59 +685,8 @@ namespace sls {
         add1(hi1);
         hi1.copy_to(nw, m_hi);
 
-        /*
-        unsigned lo_index = 0, hi_index = 0;        
-        for (unsigned i = nw; i-- > 0; ) {
-            auto lo_diff = (fixed[i] & (m_bits[i] ^ m_lo[i]));
-            if (lo_diff != 0 && lo_index == 0)
-                lo_index = 1 + i * 8 * sizeof(digit_t) + log2(lo_diff);
-            auto hi_diff = (fixed[i] & (m_bits[i] ^ hi1[i]));
-            if (hi_diff != 0 && hi_index == 0)
-                hi_index = 1 + i * 8 * sizeof(digit_t) + log2(hi_diff);
-        }
-
-        if (lo_index != 0) {
-            lo_index--;
-            SASSERT(m_lo.get(lo_index) != m_bits.get(lo_index));
-            SASSERT(fixed.get(lo_index));
-            for (unsigned i = 0; i <= lo_index; ++i) {
-                if (!fixed.get(i))
-                    m_lo.set(i, false);
-                else if (fixed.get(i))
-                    m_lo.set(i, m_bits.get(i));
-            }
-            if (!m_bits.get(lo_index)) {
-                for (unsigned i = lo_index + 1; i < bw; ++i)
-                    if (!fixed.get(i) && !m_lo.get(i)) {
-                        m_lo.set(i, true);
-                        break;
-                    }
-            }
-        }
-        if (hi_index != 0) {
-            hi_index--;
-            SASSERT(hi1.get(hi_index) != m_bits.get(hi_index));
-            SASSERT(fixed.get(hi_index));
-            for (unsigned i = 0; i <= hi_index; ++i) {
-                if (!fixed.get(i))
-                    hi1.set(i, true);
-                else if (fixed.get(i))
-                    hi1.set(i, m_bits.get(i));
-            }
-            if (m_bits.get(hi_index)) {
-                for (unsigned i = hi_index + 1; i < bw; ++i)
-                    if (!fixed.get(i) && hi1.get(i)) {
-                        hi1.set(i, false);
-                        break;
-                    }
-            }
-            add1(hi1);
-            hi1.copy_to(nw, m_hi);
-        }
-        */
-
         if (has_range() && !in_range(m_bits)) 
-            m_bits = m_lo;
+            m_lo.copy_to(nw, m_bits);
 
         if (mod(lo() + 1, rational::power_of_two(bw)) == hi())
             for (unsigned i = 0; i < nw; ++i)
@@ -720,6 +696,7 @@ namespace sls {
                 if (hi() < rational::power_of_two(i))
                     fixed.set(i, true);
         
+        // verbose_stream() << "post tighten " << m_lo << " " << m_hi << " " << m_bits << "\n";
         SASSERT(well_formed());
     }
 
