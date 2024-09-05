@@ -32,6 +32,8 @@ namespace sls {
         for (auto e : ctx.subterms())
             set_fixed(e);
 
+        return;
+
         for (auto lit : ctx.unit_literals()) {
             auto a = ctx.atom(lit.var());
             if (!a)
