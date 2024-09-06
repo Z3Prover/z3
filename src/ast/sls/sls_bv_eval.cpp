@@ -681,11 +681,13 @@ namespace sls {
             return false;
         if (e->get_family_id() == bv.get_family_id() && try_repair_bv(e, i)) {
             commit_eval(e, to_app(arg));
+            IF_VERBOSE(11, verbose_stream() << "repair " << mk_bounded_pp(e, m) << " : " << mk_bounded_pp(arg, m) << " := " << wval(arg) << "\n";);
             ctx.new_value_eh(arg);
             return true;
         }
         if (m.is_eq(e) && bv.is_bv(arg) && try_repair_eq(e, i)) {
             commit_eval(e, to_app(arg));
+            IF_VERBOSE(11, verbose_stream() << mk_bounded_pp(arg, m) << " := " << wval(arg) << "\n";);
             ctx.new_value_eh(arg);
             return true;
         }
@@ -1339,7 +1341,6 @@ namespace sls {
     }
 
     bool bv_eval::try_repair_uge(bool e, bvval& a, bvval const& b) {
-        //verbose_stream() << "try-repair-uge " << e << " " << a << " " << b << "\n";
         if (e) {
             // a >= t
             return a.set_random_at_least(b.bits(), m_rand);
@@ -1988,9 +1989,14 @@ namespace sls {
                 return false;
             }
         }
-        //verbose_stream() << "repair up " << mk_bounded_pp(e, m) << " " << v << "\n";
-        if (v.commit_eval())
+
+        if (v.eval == v.bits())
             return true;
+        //verbose_stream() << "repair up " << mk_bounded_pp(e, m) << " " << v << "\n";
+        if (v.commit_eval()) {
+            ctx.new_value_eh(e);
+            return true;
+        }
         //verbose_stream() << "could not repair up " << mk_bounded_pp(e, m) << " " << v << "\n";
         //for (expr* arg : *to_app(e))
         //    verbose_stream() << mk_bounded_pp(arg, m) << " " << wval(arg) << "\n";

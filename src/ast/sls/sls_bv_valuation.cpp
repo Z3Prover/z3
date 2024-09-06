@@ -181,6 +181,7 @@ namespace sls {
         
         for (unsigned i = 0; i < nw; ++i) 
             m_bits[i] = eval[i]; 
+
         SASSERT(well_formed()); 
         return true;
     }
@@ -662,8 +663,10 @@ namespace sls {
         }
 
         // a[hi_index:0] was incremented, but a[:hi_index+1] cannot be decremented.
-
-
+        // maximize a[:hi_index+1] to model wrap around behavior.
+        for (unsigned i = hi_index + 1; i < bw; ++i) 
+            if (!fixed.get(i)) 
+                a.set(i, true);       
     }
 
     void bv_valuation::tighten_range() {

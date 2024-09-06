@@ -160,8 +160,6 @@ namespace sls {
                 if (ctx.is_true(e) != m_eval.bval1(e))
                     ctx.flip(ctx.atom2bool_var(e));
             }
-            else
-                ctx.new_value_eh(e);
         }
         else if (bv.is_bv(e)) {
             log(e, true, false);
