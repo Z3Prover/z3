@@ -926,15 +926,15 @@ namespace sls {
             m_tmp.set_bw(a.bw);
             if (try_above) {
                 a.set_add(m_tmp, b.bits(), m_one);
-                if (!a.is_zero(m_tmp) && a.set_random_at_least(m_tmp,  m_rand))
+                if (a.set_random_at_least(m_tmp,  m_rand) && m_tmp != b.bits())
                     return true;
             }
             a.set_sub(m_tmp, b.bits(), m_one);
-            if (!a.is_zero(m_tmp) && a.set_random_at_most(m_tmp, m_rand))
+            if (a.set_random_at_most(m_tmp, m_rand) && m_tmp != b.bits())
                 return true;
             if (!try_above) {
                 a.set_add(m_tmp, b.bits(), m_one);
-                if (!a.is_zero(m_tmp) && a.set_random_at_least(m_tmp, m_rand))
+                if (a.set_random_at_least(m_tmp, m_rand) && m_tmp != b.bits())
                     return true;
             }
             return false;
@@ -1001,9 +1001,11 @@ namespace sls {
         };
         fold_oper(m_tmp2, t, i, f);
         bvval& a = wval(t, i);
+        m_tmp.set_bw(a.bw);
         for (unsigned j = 0; j < a.nw; ++j)
             m_tmp[j] = e[j] & (~m_tmp2[j] | random_bits());
 
+        //verbose_stream() << wval(t) << " " << m_tmp << "\n";
         return a.set_repair(random_bool(), m_tmp);
     }
 

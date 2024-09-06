@@ -32,6 +32,8 @@ namespace sls {
         for (auto e : ctx.subterms())
             set_fixed(e);
 
+        //ctx.display(verbose_stream());
+
         for (auto lit : ctx.unit_literals()) {
             auto a = ctx.atom(lit.var());
             if (!a)
@@ -40,9 +42,12 @@ namespace sls {
                 init_range(to_app(a), lit.sign());
             ev.m_fixed.setx(a->get_id(), true, false);
         }
+        //ctx.display(verbose_stream());
 
         for (auto e : ctx.subterms())
-            propagate_range_up(e);    
+            propagate_range_up(e);  
+
+        //ctx.display(verbose_stream());
     }
 
     void bv_fixed::propagate_range_up(expr* e) {
@@ -150,17 +155,17 @@ namespace sls {
         return false;
     }
 
-    bool bv_fixed::init_eq(expr* t, rational const& a, bool sign) {        
+    bool bv_fixed::init_eq(expr* t, rational const& a, bool sign) {     
         unsigned lo, hi;
         rational b(0);
-        // verbose_stream() << mk_bounded_pp(t, m) << " == " << a << "\n";
         expr* s = nullptr;        
-        if (sign)
+        if (sign && true)
             // 1 <= t - a
             init_range(nullptr, rational(1), t, -a, false);
-        else
+        if (!sign)
             // t - a <= 0
             init_range(t, -a, nullptr, rational::zero(), false);
+
         if (!sign && bv.is_bv_not(t, s)) {
             for (unsigned i = 0; i < bv.get_bv_size(s); ++i)
                 if (!a.get_bit(i))
@@ -178,11 +183,13 @@ namespace sls {
         }
         if (bv.is_extract(t, lo, hi, s)) {
             if (hi == lo) {
-                sign = sign ? a == 1 : a == 0;
+                auto sign1 = sign ? a == 1 : a == 0;
                 auto& val = ev.wval(s);
-                if (val.try_set_bit(lo, !sign)) 
-                    val.fixed.set(lo, true);                                    
+                if (val.try_set_bit(lo, !sign1)) 
+                    val.fixed.set(lo, true);
+
                 val.tighten_range();
+
             }
             else if (!sign) {
                 auto& val = ev.wval(s);
@@ -190,8 +197,7 @@ namespace sls {
                     if (val.try_set_bit(i, a.get_bit(i - lo)))
                         val.fixed.set(i, true);                
                 val.tighten_range();
-                // verbose_stream() << lo << " " << hi << " " << val << " := " << a << "\n";
-            }
+            }            
 
             if (!sign && hi + 1 == bv.get_bv_size(s)) {
                 // s < 2^lo * (a + 1) 

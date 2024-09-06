@@ -673,10 +673,7 @@ namespace sls {
         
         // verbose_stream() << "tighten " << m_lo << " " << m_hi << " " << m_bits << "\n";
         if (m_lo == m_hi)
-            return;
-
-        if (is_zero(m_hi)) 
-            return;        
+            return;     
 
         inf_feasible(m_lo);
 
