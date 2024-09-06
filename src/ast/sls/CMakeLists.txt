@@ -4,6 +4,7 @@ z3_add_component(ast_sls
     sat_ddfw.cpp
     sls_arith_base.cpp
     sls_arith_plugin.cpp
+    sls_array_plugin.cpp
     sls_basic_plugin.cpp
     sls_bv_engine.cpp
     sls_bv_eval.cpp
@@ -16,6 +17,7 @@ z3_add_component(ast_sls
     sls_smt_solver.cpp
   COMPONENT_DEPENDENCIES
     ast
+    euf
     converters
     normal_forms
 )

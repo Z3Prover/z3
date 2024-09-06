@@ -881,6 +881,7 @@ namespace sls {
     }
 
     bool bv_eval::try_repair_eq_lookahead(app* e) {
+        return false;
         auto is_true = bval0(e);
         if (!is_true)
             return false;
@@ -913,6 +914,27 @@ namespace sls {
 
     bool bv_eval::try_repair_eq(bool is_true, bvval& a, bvval const& b) {
         if (is_true) {
+#if 0
+            if (bv.is_bv_add(t)) {
+                bvval tmp(b);
+                unsigned start = m_rand();
+                unsigned sz = to_app(t)->get_num_args();
+                for (unsigned i = 0; i < sz; ++i) {
+                    unsigned j = (start + i) % sz;
+                    for (unsigned k = 0; k < sz; ++k) {
+                        if (k == j)
+                            continue;
+                        auto& c = wval(to_app(t)->get_arg(k));
+                        set_sub(tmp, tmp, c.bits());
+                    }
+                    
+                    auto& c = wval(to_app(t)->get_arg(j));
+                    verbose_stream() << "TRY " << c << " := " << tmp << "\n";
+                    
+
+                }
+            }
+#endif
             if (m_rand(20) != 0) 
                 if (a.try_set(b.bits()))
                     return true;
@@ -1190,7 +1212,7 @@ namespace sls {
         a.set_mul(m_tmp, tb, m_tmp2);
         if (a.set_repair(random_bool(), m_tmp))
             return true;
-
+        
         return a.set_random(m_rand);
     }
 
@@ -1931,8 +1953,10 @@ namespace sls {
             m_tmp.set(i + lo, e.get(i));
         m_tmp.set_bw(a.bw);
         // verbose_stream() << a << " := " << m_tmp << "\n";
-        if (m_rand(5) != 0 && a.try_set(m_tmp))
+        if (m_rand(20) != 0 && a.try_set(m_tmp))
             return true;
+        if (m_rand(20) != 0)
+            return false;
         bool ok = a.set_random(m_rand);
         // verbose_stream() << "set random " << ok << " " << a << "\n";
         return ok;
