@@ -18,8 +18,11 @@ Author:
 #include "ast/sls/sls_context.h"
 #include "ast/sls/sls_euf_plugin.h"
 #include "ast/sls/sls_arith_plugin.h"
+#include "ast/sls/sls_array_plugin.h"
 #include "ast/sls/sls_bv_plugin.h"
 #include "ast/sls/sls_basic_plugin.h"
+#include "ast/sls/sls_model_value_plugin.h"
+#include "ast/sls/sls_user_sort_plugin.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_pp.h"
 #include "smt/params/smt_params_helper.hpp"
@@ -42,6 +45,9 @@ namespace sls {
         register_plugin(alloc(arith_plugin, *this));
         register_plugin(alloc(bv_plugin, *this));
         register_plugin(alloc(basic_plugin, *this));
+        register_plugin(alloc(array_plugin, *this));
+        register_plugin(alloc(user_sort_plugin, *this));
+        register_plugin(alloc(model_value_plugin, *this));
     }
 
     void context::updt_params(params_ref const& p) {
@@ -205,6 +211,7 @@ namespace sls {
         auto p = m_plugins.get(fid, nullptr);
         if (p) 
             return p->get_value(e);      
+        verbose_stream() << fid << " " << m.get_family_name(fid) << " " << mk_pp(e, m) << "\n";
         UNREACHABLE();
         return expr_ref(e, m);
     }

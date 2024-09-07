@@ -1,9 +1,9 @@
 /*++
-Copyright (c) 2020 Microsoft Corporation
+Copyright (c) 2024 Microsoft Corporation
 
 Module Name:
 
-    sls_array_plugin.h
+    sls_user_sort_plugin.h
 
 Abstract:
 
@@ -17,34 +17,22 @@ Author:
 #pragma once
 
 #include "ast/sls/sls_context.h"
-#include "ast/array_decl_plugin.h"
 #include "ast/euf/euf_egraph.h"
 
 namespace sls {
 
-    class array_plugin : public plugin {
-        typedef obj_map<euf::enode, obj_map<euf::enode, euf::enode*>> kv;
-
-        array_util     a;
+    class user_sort_plugin : public plugin {
         scoped_ptr<euf::egraph> m_g;
-        scoped_ptr<kv> m_kv;
-        bool m_add_conflicts = true;
+        scoped_ptr<obj_map<sort, unsigned>> m_num_elems;
+        scoped_ptr<obj_map<euf::enode, expr*>> m_root2value;
+        scoped_ptr<expr_ref_vector> m_pinned;
 
         void init_egraph(euf::egraph& g);
-        void init_kv(euf::egraph& g, kv& kv);
-        void saturate_store(euf::egraph& g);
-        void force_store_axiom1(euf::egraph& g, euf::enode* n);
-        void force_store_axiom2_down(euf::egraph& g, euf::enode* sto, euf::enode* sel);
-        void force_store_axiom2_up(euf::egraph& g, euf::enode* sto, euf::enode* sel);
-        void add_store_axiom1(app* sto);
-        void add_store_axiom2(app* sto, app* sel);
-        bool are_distinct(euf::enode* a, euf::enode* b);
-        bool eq_args(euf::enode* sto, euf::enode* sel);
-        euf::enode* mk_select(euf::egraph& g, euf::enode* b, euf::enode* sel);
+        bool is_user_sort(sort* s) { return s->get_family_id() == user_sort_family_id; }
         
     public:
-        array_plugin(context& ctx);
-        ~array_plugin() override {}
+        user_sort_plugin(context& ctx);
+        ~user_sort_plugin() override {}
         void register_term(expr* e) override { }
         expr_ref get_value(expr* e) override;
         void initialize() override { m_g = nullptr; }
@@ -53,7 +41,7 @@ namespace sls {
         bool repair_down(app* e) override { return true; }
         void repair_up(app* e) override {}
         void repair_literal(sat::literal lit) override { m_g = nullptr; }
-        bool is_sat() override;
+        bool is_sat() override { return true; }
 
         void on_rescale() override {}
         void on_restart() override {}

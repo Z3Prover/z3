@@ -33,7 +33,7 @@ def init_project_def():
     add_lib('macros', ['rewriter'], 'ast/macros')
     add_lib('model',  ['macros'])
     add_lib('converters', ['model'], 'ast/converters')
-    add_lib('ast_sls', ['ast','normal_forms','converters','smt_params'], 'ast/sls')
+    add_lib('ast_sls', ['ast','normal_forms','converters','smt_params','euf'], 'ast/sls')
     add_lib('sat', ['params', 'util', 'dd', 'ast_sls', 'grobner'])    
     add_lib('nlsat', ['polynomial', 'sat'])
     add_lib('lp', ['util', 'nlsat', 'grobner', 'interval', 'smt_params'], 'math/lp')
