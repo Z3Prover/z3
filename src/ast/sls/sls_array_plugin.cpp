@@ -193,7 +193,7 @@ namespace sls {
             g.merge(n1, n2, nullptr);
         }
         for (auto lit : ctx.root_literals()) {
-            if (!ctx.is_true(lit))
+            if (!ctx.is_true(lit) || lit.sign())
                 continue;
             auto e = ctx.atom(lit.var());
             expr* x, * y;
@@ -209,16 +209,14 @@ namespace sls {
         for (auto n : g.nodes()) {
             if (!n->is_root() || !a.is_array(n->get_expr()))
                 continue;
-            kv.insert(n, obj_map<euf::enode, euf::enode*>());
+            kv.insert(n, select2value());
             for (auto p : euf::enode_parents(n)) {
                 if (!a.is_select(p->get_expr()))
                     continue;
-                SASSERT(p->num_args() == 2);
                 if (p->get_arg(0)->get_root() != n->get_root())
                     continue;
-                auto idx = p->get_arg(1)->get_root();
                 auto val = p->get_root();
-                kv[n].insert(idx, val);
+                kv[n].insert(select_args(p), val);
             }
         }
         display(verbose_stream());
@@ -242,7 +240,7 @@ namespace sls {
         for (auto [k, v] : kv[n]) {
             ptr_vector<expr> args;
             args.push_back(r);
-            args.push_back(k->get_expr());
+            args.push_back(k.sel->get_arg(1)->get_expr());
             args.push_back(v->get_expr());
             r = a.mk_store(args);
         }
@@ -257,7 +255,10 @@ namespace sls {
                 out << m_g->pp(n) << " -> {";
                 char const* sp = "";
                 for (auto& [k, v] : kvs) {
-                    out << sp << m_g->pp(k) << " -> " << m_g->pp(v);
+                    out << sp;
+                    for (unsigned i = 1; i < k.sel->num_args(); ++i)
+                        out << m_g->pp(k.sel->get_arg(i)->get_root()) << " ";
+                    out << "-> " << m_g->pp(v);
                     sp = " ";
                 }
                 out << "}\n";

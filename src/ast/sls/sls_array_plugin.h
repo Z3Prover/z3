@@ -23,7 +23,30 @@ Author:
 namespace sls {
 
     class array_plugin : public plugin {
-        typedef obj_map<euf::enode, obj_map<euf::enode, euf::enode*>> kv;
+        struct select_args {
+            euf::enode* sel = nullptr;
+            select_args(euf::enode* s) : sel(s) {}
+            select_args() {}
+        };
+        struct select_args_hash {
+            unsigned operator()(select_args const& a) const { 
+                unsigned h = 0;
+                for (unsigned i = 1; i < a.sel->num_args(); ++i)
+                    h ^= a.sel->get_arg(i)->get_root()->hash(); 
+                return h;
+            };
+        };
+        struct select_args_eq {
+            bool operator()(select_args const& a, select_args const& b) const { 
+                SASSERT(a.sel->num_args() == b.sel->num_args());
+                for (unsigned i = 1; i < a.sel->num_args(); ++i)
+                    if (a.sel->get_arg(i)->get_root() != b.sel->get_arg(i)->get_root())
+                        return false;
+                return true;
+            }
+        };
+        typedef map<select_args, euf::enode*, select_args_hash, select_args_eq> select2value;
+        typedef obj_map<euf::enode, select2value> kv;
 
         array_util     a;
         scoped_ptr<euf::egraph> m_g;
