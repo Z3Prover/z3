@@ -77,6 +77,21 @@ namespace sls {
                     ctx.flip(flit.var());                    
             }
         }
+        else if (e && m.is_distinct(e) && !lit.sign()) {
+            auto n = to_app(e)->get_num_args();
+            for (unsigned i = 0; i < n; ++i) {
+                auto a = m_g->find(to_app(e)->get_arg(i));
+                for (unsigned j = i + 1; j < n; ++j) {
+                    auto b = m_g->find(to_app(e)->get_arg(j));
+                    if (a->get_root() == b->get_root()) {
+                        verbose_stream() << "block " << mk_bounded_pp(e, m) << "\n";
+                        auto flit = block(a, b);
+                        if (flit != sat::null_literal)
+                            ctx.flip(flit.var());
+                    }
+                }
+            }
+        }
         else if (e && lit.sign()) {
             auto a = m_g->find(e);
             auto b = m_g->find(m.mk_true());

@@ -181,6 +181,8 @@ namespace sls {
         family_id fid = to_app(e)->get_family_id();
         if (m.is_eq(e))
             fid = to_app(e)->get_arg(0)->get_sort()->get_family_id();   
+        if (m.is_distinct(e))
+            fid = to_app(e)->get_arg(0)->get_sort()->get_family_id();
         return fid;
     }
 
