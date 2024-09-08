@@ -64,6 +64,22 @@ namespace sls {
         return true;
     }
 
+    void euf_plugin::propagate_literal(sat::literal lit) {        
+        if (!ctx.is_true(lit))
+            return;
+        auto e = ctx.atom(lit.var());
+        expr* x, * y;
+        if (e && m.is_eq(e, x, y) && m.is_uninterp(x->get_sort())) {
+            auto vx = ctx.get_value(x);
+            auto vy = ctx.get_value(y);
+            verbose_stream() << "check " << mk_bounded_pp(x, m) << " == " << mk_bounded_pp(y, m) << "\n";
+            if (lit.sign() && vx == vy)
+                ctx.flip(lit.var());
+            else if (!lit.sign() && vx != vy)
+                ctx.flip(lit.var());
+        }
+    }
+
     bool euf_plugin::is_sat() {
         for (auto& [f, ts] : m_app) {
             if (ts.size() <= 1)
@@ -84,7 +100,8 @@ namespace sls {
         return true;
     }
 
-    bool euf_plugin::propagate() {        
+    bool euf_plugin::propagate() {  
+        return false;
         bool new_constraint = false;
         for (auto & [f, ts] : m_app) {
             if (ts.size() <= 1)

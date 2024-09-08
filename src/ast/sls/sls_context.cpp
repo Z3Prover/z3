@@ -85,7 +85,7 @@ namespace sls {
             propagate_boolean_assignment();
 
 
-          //  verbose_stream() << "propagate " << unsat().size() << " " << m_new_constraint << "\n";
+            // verbose_stream() << "propagate " << unsat().size() << " " << m_new_constraint << "\n";
 
 
             // display(verbose_stream());
@@ -113,11 +113,16 @@ namespace sls {
     void context::propagate_boolean_assignment() {
         reinit_relevant();
 
-        for (sat::literal lit : root_literals()) {
+        for (auto p : m_plugins)
+            if (p)
+                p->start_propagation();
+
+        for (sat::literal lit : root_literals()) 
             propagate_literal(lit);
-            if (m_new_constraint)
-                return;
-        }
+
+        if (m_new_constraint)
+            return;
+        
 
         while (!m_new_constraint && m.inc() && (!m_repair_up.empty() || !m_repair_down.empty())) {
             while (!m_repair_down.empty() && !m_new_constraint && m.inc()) {
@@ -230,6 +235,8 @@ namespace sls {
         if (m_visited.contains(id))
             return false;
         m_visited.insert(id);
+        if (m_parents.size() <= id)
+            verbose_stream() << "not in map " << mk_bounded_pp(e, m) << "\n";
         for (auto p : m_parents[id]) {
             if (is_relevant(p)) {
                 m_relevant.insert(id);
@@ -242,6 +249,7 @@ namespace sls {
     void context::add_constraint(expr* e) {        
         add_clause(e);        
         m_new_constraint = true;
+        ++m_stats.m_num_constraints;
     }
 
     void context::add_clause(expr* f)  {
@@ -301,6 +309,13 @@ namespace sls {
                 lit.neg();
             s.add_clause(1, &lit);
         }
+    }
+
+    void context::add_clause(sat::literal_vector const& lits) {
+        //verbose_stream() << lits << "\n";
+        s.add_clause(lits.size(), lits.data());
+        m_new_constraint = true;
+        ++m_stats.m_num_constraints;
     }
 
     sat::literal context::mk_literal() {
@@ -427,6 +442,7 @@ namespace sls {
                 if (all_of(*to_app(e), [&](expr* arg) { return is_visited(arg); })) {
                     expr_ref _e(e, m);
                     m_todo.pop_back();
+                    m_parents.reserve(to_app(e)->get_id() + 1);
                     for (expr* arg : *to_app(e)) {
                         m_parents.reserve(arg->get_id() + 1);
                         m_parents[arg->get_id()].push_back(e);
@@ -488,7 +504,7 @@ namespace sls {
             if (e)
                 m_subterms.push_back(e);
         std::stable_sort(m_subterms.begin(), m_subterms.end(), 
-            [](expr* a, expr* b) { return a->get_id() < b->get_id(); });
+            [](expr* a, expr* b) { return get_depth(a) < get_depth(b); });        
         return m_subterms;
     }
 
@@ -547,6 +563,7 @@ namespace sls {
                 p->collect_statistics(st);
         st.update("sls-repair-down", m_stats.m_num_repair_down);
         st.update("sls-repair-up", m_stats.m_num_repair_up);
+        st.update("sls-constraints", m_stats.m_num_constraints);
     }
 
     void context::reset_statistics() {

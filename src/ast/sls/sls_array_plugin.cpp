@@ -30,6 +30,8 @@ namespace sls {
     }
 
     bool array_plugin::is_sat() {
+        if (!m_has_arrays)
+            return true;
         m_g = alloc(euf::egraph, m);
         m_kv = nullptr;
         init_egraph(*m_g);
@@ -88,8 +90,10 @@ namespace sls {
         auto nsel = mk_select(g, n, n);
         if (are_distinct(nsel, val))
             add_store_axiom1(n->get_app());
-        else 
+        else {
             g.merge(nsel, val, nullptr);
+            VERIFY(g.propagate());
+        }
     }
 
     // i /~ j, b ~ a[i->v], b[j] occurs -> a[j] = b[j] 
@@ -103,8 +107,10 @@ namespace sls {
         auto nsel = mk_select(g, sto->get_arg(0), sel);
         if (are_distinct(nsel, sel))
             add_store_axiom2(sto->get_app(), sel->get_app());
-        else
+        else {
             g.merge(nsel, sel, nullptr);
+            VERIFY(g.propagate());
+        }
     }
 
     // a ~ b, i /~ j, b[j] occurs -> a[i -> v][j] = b[j] 
@@ -118,8 +124,10 @@ namespace sls {
         auto nsel = mk_select(g, sto, sel);
         if (are_distinct(nsel, sel))
             add_store_axiom2(sto->get_app(), sel->get_app());
-        else
+        else {
             g.merge(nsel, sel, nullptr);
+            VERIFY(g.propagate());
+        }
     }
 
     bool array_plugin::are_distinct(euf::enode* a, euf::enode* b) {

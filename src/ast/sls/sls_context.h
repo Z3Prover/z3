@@ -41,6 +41,7 @@ namespace sls {
         virtual void register_term(expr* e) = 0;
         virtual expr_ref get_value(expr* e) = 0;
         virtual void initialize() = 0;
+        virtual void start_propagation() {};
         virtual bool propagate() = 0;
         virtual void propagate_literal(sat::literal lit) = 0;
         virtual void repair_literal(sat::literal lit) = 0;
@@ -97,6 +98,7 @@ namespace sls {
         struct stats {
             unsigned m_num_repair_down = 0;
             unsigned m_num_repair_up = 0;
+            unsigned m_num_constraints = 0;
             void reset() { memset(this, 0, sizeof(*this)); }
         };
 
@@ -160,6 +162,7 @@ namespace sls {
         sat::bool_var atom2bool_var(expr* e) const { return m_atom2bool_var.get(e->get_id(), sat::null_bool_var); }
         sat::literal mk_literal(expr* e);
         void add_clause(expr* f);
+        void add_clause(sat::literal_vector const& lits);
         void flip(sat::bool_var v) { s.flip(v); }
         double reward(sat::bool_var v) { return s.reward(v); }
         indexed_uint_set const& unsat() const { return s.unsat(); }

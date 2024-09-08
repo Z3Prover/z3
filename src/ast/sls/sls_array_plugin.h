@@ -52,6 +52,7 @@ namespace sls {
         scoped_ptr<euf::egraph> m_g;
         scoped_ptr<kv> m_kv;
         bool m_add_conflicts = true;
+        bool m_has_arrays = false;
 
         void init_egraph(euf::egraph& g);
         void init_kv(euf::egraph& g, kv& kv);
@@ -68,7 +69,7 @@ namespace sls {
     public:
         array_plugin(context& ctx);
         ~array_plugin() override {}
-        void register_term(expr* e) override { }
+        void register_term(expr* e) override { if (a.is_array(e->get_sort())) m_has_arrays = true; }
         expr_ref get_value(expr* e) override;
         void initialize() override { m_g = nullptr; }
         void propagate_literal(sat::literal lit) override { m_g = nullptr; }

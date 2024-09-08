@@ -40,7 +40,7 @@ namespace sls {
         family_id fid() { return m_fid; }
         expr_ref get_value(expr* e) override;
         void initialize() override {}
-        void propagate_literal(sat::literal lit) override {}       
+        void propagate_literal(sat::literal lit) override;
         bool propagate() override;       
         bool is_sat() override;
         void register_term(expr* e) override;

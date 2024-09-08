@@ -29,6 +29,9 @@ namespace sls {
 
         void init_egraph(euf::egraph& g);
         bool is_user_sort(sort* s) { return s->get_family_id() == user_sort_family_id; }
+
+        size_t* to_ptr(sat::literal l) { return reinterpret_cast<size_t*>((size_t)(l.index() << 4)); };
+        sat::literal to_literal(size_t* p) { return sat::to_literal(static_cast<unsigned>(reinterpret_cast<size_t>(p) >> 4)); };
         
     public:
         user_sort_plugin(context& ctx);
@@ -36,12 +39,13 @@ namespace sls {
         void register_term(expr* e) override { }
         expr_ref get_value(expr* e) override;
         void initialize() override { m_g = nullptr; }
-        void propagate_literal(sat::literal lit) override { m_g = nullptr; }
+        void start_propagation() override;
+        void propagate_literal(sat::literal lit) override;
         bool propagate() override { return false; }
         bool repair_down(app* e) override { return true; }
         void repair_up(app* e) override {}
         void repair_literal(sat::literal lit) override { m_g = nullptr; }
-        bool is_sat() override { return true; }
+        bool is_sat() override;
 
         void on_rescale() override {}
         void on_restart() override {}
