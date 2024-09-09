@@ -446,6 +446,7 @@ namespace sls {
         auto visit = [&](expr* e) {
             m_allterms.setx(e->get_id(), e);
             ensure_plugin(e);
+            register_term(e);
         };
         if (is_visited(e))
             return;
@@ -468,7 +469,6 @@ namespace sls {
                     }
                     if (m.is_bool(e))
                         mk_literal(e);
-                    register_term(e);
                     visit(e);
                 }
                 else {
@@ -479,7 +479,6 @@ namespace sls {
             else {
                 expr_ref _e(e, m);
                 m_todo.pop_back();
-                register_term(e);
                 visit(e);
             }
         }

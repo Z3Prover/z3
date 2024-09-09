@@ -227,8 +227,37 @@ namespace sls {
                 }
                 else
                     m_values.insert(t);
+           }
+        }
+
+        for (auto lit : ctx.root_literals()) {
+            if (!ctx.is_true(lit))
+                lit.neg();
+            auto e = ctx.atom(lit.var());
+            if (lit.sign() && e && m.is_distinct(e)) {
+                auto n = to_app(e)->get_num_args();
+                expr_ref_vector eqs(m);
+                for (unsigned i = 0; i < n; ++i) {
+                    auto arg = to_app(e)->get_arg(i);
+                    auto a = ctx.get_value(arg);
+                    for (unsigned j = i + 1; j < n; ++j) {
+                        auto argb = to_app(e)->get_arg(j);
+                        auto b = ctx.get_value(argb);
+                        if (a == b)
+                            goto done_distinct;
+                        eqs.push_back(m.mk_eq(arg, argb));
+                    }
+                }
+                // distinct(a, b, c) or a = b or a = c or b = c
+                eqs.push_back(e);
+                ctx.add_constraint(m.mk_or(eqs));
+                new_constraint = true;
+            done_distinct:
+                ;
             }
         }
+
+        
         return new_constraint;
     }
 
