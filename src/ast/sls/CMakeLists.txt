@@ -15,7 +15,6 @@ z3_add_component(ast_sls
     sls_context.cpp
     sls_euf_plugin.cpp
     sls_smt_solver.cpp
-    sls_user_sort_plugin.cpp
   COMPONENT_DEPENDENCIES
     ast
     euf

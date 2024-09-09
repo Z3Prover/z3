@@ -134,6 +134,7 @@ namespace sls {
         void propagate_literal(sat::literal lit);
         void repair_literals();
 
+        void ensure_plugin(expr* e);
         family_id get_fid(expr* e) const;
 
 

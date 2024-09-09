@@ -18,6 +18,7 @@ Author:
 
 #include "util/hashtable.h"
 #include "ast/sls/sls_context.h"
+#include "ast/euf/euf_egraph.h"
 
 namespace sls {
     
@@ -34,12 +35,25 @@ namespace sls {
             bool operator()(app* a, app* b) const;
         };
         hashtable<app*, value_hash, value_eq> m_values;
+
+        scoped_ptr<euf::egraph> m_g;
+        scoped_ptr<obj_map<sort, unsigned>> m_num_elems;
+        scoped_ptr<obj_map<euf::enode, expr*>> m_root2value;
+        scoped_ptr<expr_ref_vector> m_pinned;
+
+        void init_egraph(euf::egraph& g);
+        bool is_user_sort(sort* s) { return s->get_family_id() == user_sort_family_id; }
+
+        size_t* to_ptr(sat::literal l) { return reinterpret_cast<size_t*>((size_t)(l.index() << 4)); };
+        sat::literal to_literal(size_t* p) { return sat::to_literal(static_cast<unsigned>(reinterpret_cast<size_t>(p) >> 4)); };
+
     public:
         euf_plugin(context& c);
         ~euf_plugin() override;
         family_id fid() { return m_fid; }
         expr_ref get_value(expr* e) override;
         void initialize() override {}
+        void start_propagation() override;
         void propagate_literal(sat::literal lit) override;
         bool propagate() override;       
         bool is_sat() override;

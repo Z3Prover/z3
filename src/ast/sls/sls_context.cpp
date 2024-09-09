@@ -21,8 +21,6 @@ Author:
 #include "ast/sls/sls_array_plugin.h"
 #include "ast/sls/sls_bv_plugin.h"
 #include "ast/sls/sls_basic_plugin.h"
-#include "ast/sls/sls_model_value_plugin.h"
-#include "ast/sls/sls_user_sort_plugin.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_pp.h"
 #include "smt/params/smt_params_helper.hpp"
@@ -41,13 +39,6 @@ namespace sls {
         m_repair_down(m.get_num_asts(), m_gd),
         m_repair_up(m.get_num_asts(), m_ld),
         m_todo(m) {
-        register_plugin(alloc(euf_plugin, *this));
-        register_plugin(alloc(arith_plugin, *this));
-        register_plugin(alloc(bv_plugin, *this));
-        register_plugin(alloc(basic_plugin, *this));
-        register_plugin(alloc(array_plugin, *this));
-        register_plugin(alloc(user_sort_plugin, *this));
-        register_plugin(alloc(model_value_plugin, *this));
     }
 
     void context::updt_params(params_ref const& p) {
@@ -59,6 +50,27 @@ namespace sls {
         m_plugins.reserve(p->fid() + 1);
         m_plugins.set(p->fid(), p);
     }
+
+    void context::ensure_plugin(expr* e) {
+        auto fid = get_fid(e);
+        if (m_plugins.get(fid, nullptr))
+            return;
+        else if (fid == arith_family_id)
+            register_plugin(alloc(arith_plugin, *this));
+        else if (fid == user_sort_family_id)
+            register_plugin(alloc(euf_plugin, *this));
+        else if (fid == basic_family_id)
+            register_plugin(alloc(basic_plugin, *this));
+        else if (fid == bv_util(m).get_family_id())
+            register_plugin(alloc(bv_plugin, *this));
+        else if (fid == array_util(m).get_family_id())
+            register_plugin(alloc(array_plugin, *this));
+        else
+            verbose_stream() << "did not find plugin for " << mk_bounded_pp(e, m) << "\n";
+            
+        // add arrays and bv dynamically too.
+    }
+
 
     void context::register_atom(sat::bool_var v, expr* e) { 
         m_atoms.setx(v, e);
@@ -177,12 +189,14 @@ namespace sls {
 
     family_id context::get_fid(expr* e) const {
         if (!is_app(e))
-            return null_family_id;
+            return user_sort_family_id;
         family_id fid = to_app(e)->get_family_id();
         if (m.is_eq(e))
             fid = to_app(e)->get_arg(0)->get_sort()->get_family_id();   
         if (m.is_distinct(e))
             fid = to_app(e)->get_arg(0)->get_sort()->get_family_id();
+        if (fid == null_family_id || fid == model_value_family_id)
+            fid = user_sort_family_id;
         return fid;
     }
 
@@ -196,6 +210,8 @@ namespace sls {
         auto p = m_plugins.get(fid, nullptr);
         if (p)
             p->propagate_literal(lit);
+        if (!is_true(lit))
+            m_new_constraint = true;
     }
 
     bool context::is_true(expr* e) {
@@ -429,6 +445,7 @@ namespace sls {
         
         auto visit = [&](expr* e) {
             m_allterms.setx(e->get_id(), e);
+            ensure_plugin(e);
         };
         if (is_visited(e))
             return;
