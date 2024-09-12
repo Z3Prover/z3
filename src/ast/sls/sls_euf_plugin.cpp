@@ -12,6 +12,12 @@ Abstract:
 Author:
 
     Nikolaj Bjorner (nbjorner) 2024-06-24
+
+Todo:
+
+- try incremental CC with backtracking for changing assignments
+- try determining plateau moves.
+- try generally a model rotation move.
     
 --*/
 
