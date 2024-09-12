@@ -158,7 +158,6 @@ namespace sat {
         m_lookahead_delta_fraction = p.lookahead_delta_fraction();
         m_lookahead_use_learned = p.lookahead_use_learned();
         if (m_lookahead_delta_fraction < 0 || m_lookahead_delta_fraction > 1.0) {
-            verbose_stream() << m_lookahead_delta_fraction << "\n";
             throw sat_param_exception("invalid value for delta fraction. It should be a number in the interval 0 to 1"); 
         }
 
