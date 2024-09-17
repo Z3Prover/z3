@@ -7926,9 +7926,12 @@ _on_model_eh = on_model_eh_type(_global_on_model)
 class Optimize(Z3PPObject):
     """Optimize API provides methods for solving using objective functions and weighted soft constraints"""
 
-    def __init__(self, ctx=None):
+    def __init__(self, optimize=None, ctx=None):
         self.ctx = _get_ctx(ctx)
-        self.optimize = Z3_mk_optimize(self.ctx.ref())
+        if optimize is None:
+            self.optimize = Z3_mk_optimize(self.ctx.ref())
+        else:
+            self.optimize = optimize
         self._on_models_id = None
         Z3_optimize_inc_ref(self.ctx.ref(), self.optimize)
 
