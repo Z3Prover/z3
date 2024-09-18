@@ -848,6 +848,8 @@ namespace qe {
         void collect_param_descrs(param_descrs & r) override {
         }
 
+        void user_propagate_initialize_value(expr* var, expr* value) override { }
+
         
         void operator()(/* in */  goal_ref const & in, 
                         /* out */ goal_ref_buffer & result) override {

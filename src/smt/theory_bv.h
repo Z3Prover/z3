@@ -251,6 +251,7 @@ namespace smt {
         bool merge_zero_one_bits(theory_var r1, theory_var r2);
         bool can_propagate() override { return m_prop_diseqs_qhead < m_prop_diseqs.size(); }
         void propagate() override;
+        void initialize_value(expr* var, expr* value) override;
 
         // -----------------------------------
         //

@@ -151,6 +151,7 @@ public:
             throw tactic_exception("undecided");
         skip_tactic::operator()(in, result);
     }
+    void user_propagate_initialize_value(expr* var, expr* value) override { }
 };
 
 tactic * mk_fail_if_undecided_tactic() {

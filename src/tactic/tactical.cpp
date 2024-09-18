@@ -382,6 +382,12 @@ public:
     }
 
     tactic * translate(ast_manager & m) override { return translate_core<or_else_tactical>(m); }
+
+    void user_propagate_initialize_value(expr* var, expr* value) override {
+        for (auto t : m_ts)
+            t->user_propagate_initialize_value(var, value);
+    }
+
 };
 
 tactic * or_else(unsigned num, tactic * const * ts) {
@@ -1162,6 +1168,11 @@ public:
         tactic * new_t1 = m_t1->translate(m);
         tactic * new_t2 = m_t2->translate(m);
         return alloc(cond_tactical, m_p.get(), new_t1, new_t2);
+    }
+
+    void user_propagate_initialize_value(expr* var, expr* value) override {
+        m_t1->user_propagate_initialize_value(var, value);
+        m_t2->user_propagate_initialize_value(var, value);
     }
 };
 

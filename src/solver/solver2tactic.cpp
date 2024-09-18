@@ -189,6 +189,11 @@ public:
     }    
 
     char const* name() const override { return "solver2tactic"; }
+
+
+    void user_propagate_initialize_value(expr* var, expr* value) override {
+        m_solver->user_propagate_initialize_value(var, value);
+    }
 };
 
 tactic* mk_solver2tactic(solver* s) { return alloc(solver2tactic, s); }

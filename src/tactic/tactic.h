@@ -129,6 +129,7 @@ public:
     tactic * translate(ast_manager & m) override { return this; } 
     char const* name() const override { return "skip"; }
     void collect_statistics(statistics& st) const override {}
+    void user_propagate_initialize_value(expr* var, expr* value) override { }
 };
 
 tactic * mk_skip_tactic();

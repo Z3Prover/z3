@@ -154,7 +154,6 @@ class theory_lra::imp {
     svector<delayed_atom>  m_asserted_atoms;        
     ptr_vector<expr>       m_not_handled;
     ptr_vector<app>        m_underspecified;
-    vector<std::pair<lpvar, rational>> m_values;
     vector<ptr_vector<api_bound> > m_use_list;        // bounds where variables are used.
 
     // attributes for incremental version:
@@ -998,8 +997,7 @@ public:
             IF_VERBOSE(5, verbose_stream() << "numeric constant expected in initialization " << mk_pp(var, m) << " := " << mk_pp(value, m) << "\n");
             return;
         }
-        ctx().push_trail(push_back_vector(m_values));
-        m_values.push_back({get_lpvar(var), r});
+        lp().move_lpvar_to_value(get_lpvar(var), r);
     }
 
     void new_eq_eh(theory_var v1, theory_var v2) {
@@ -1420,8 +1418,6 @@ public:
     void init_search_eh() {
         m_arith_eq_adapter.init_search_eh();
         m_num_conflicts = 0;
-        for (auto const& [v, r] : m_values)
-            lp().move_lpvar_to_value(v, r);
     }
 
     bool can_get_value(theory_var v) const {

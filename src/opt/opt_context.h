@@ -277,8 +277,8 @@ namespace opt {
 
         void add_offset(unsigned id, rational const& o) override;
 
-        void initialize_value(expr* var, expr* value);
-
+        void initialize_value(expr* var, expr* value) override;
+        
         void register_on_model(on_model_t& ctx, std::function<void(on_model_t&, model_ref&)>& on_model) { 
             m_on_model_ctx = ctx; 
             m_on_model_eh  = on_model; 

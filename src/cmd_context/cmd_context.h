@@ -173,6 +173,8 @@ public:
     virtual void set_logic(symbol const& s) = 0;
     virtual void get_box_model(model_ref& mdl, unsigned index) = 0;
     virtual void updt_params(params_ref const& p) = 0;
+    virtual void initialize_value(expr* var, expr* value) = 0;
+
 };
 
 class ast_context_params : public context_params { 

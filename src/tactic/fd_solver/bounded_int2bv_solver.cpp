@@ -375,6 +375,9 @@ private:
             return m_assertions.get(idx);
         }
     }
+
+    void user_propagate_initialize_value(expr* var, expr* value) override {
+    }
 };
 
 solver * mk_bounded_int2bv_solver(ast_manager & m, params_ref const & p, solver* s) {

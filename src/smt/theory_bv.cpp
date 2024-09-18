@@ -1789,6 +1789,26 @@ namespace smt {
         return false;
     }
 
+    void theory_bv::initialize_value(expr* var, expr* value) {
+        rational val;
+        unsigned sz;
+        if (!m_util.is_numeral(value, val, sz)) {
+            IF_VERBOSE(5, verbose_stream() << "value should be a bit-vector " << mk_pp(value, m) << "\n");
+            return;
+        }
+        if (!is_app(var))
+            return;
+        enode* n = mk_enode(to_app(var));
+        auto v = get_var(n);
+        unsigned idx = 0;
+        for (auto lit : m_bits[v]) {
+            auto & b = ctx.get_bdata(lit.var());
+            b.m_phase_available = true;
+            b.m_phase = val.get_bit(idx);
+            ++idx;
+        }
+    }
+
     void theory_bv::init_model(model_generator & mg) {
         m_factory = alloc(bv_factory, m);
         mg.register_factory(m_factory);

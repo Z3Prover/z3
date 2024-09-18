@@ -246,6 +246,11 @@ public:
         m_stats.reset();
     }
 
+    void user_propagate_initialize_value(expr* var, expr* value) override {
+
+    }
+
+
 protected:
 
 };

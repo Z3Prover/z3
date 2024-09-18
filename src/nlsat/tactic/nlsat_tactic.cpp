@@ -262,6 +262,9 @@ public:
     void reset_statistics() override {
         m_stats.reset();
     }
+
+    void user_propagate_initialize_value(expr* var, expr* value) override { }
+
 };
 
 tactic * mk_nlsat_tactic(ast_manager & m, params_ref const & p) {
