@@ -189,6 +189,8 @@ namespace euf {
         euf::enode* mk_true();
         euf::enode* mk_false();
 
+        vector<std::pair<expr_ref, expr_ref>> m_initial_values;
+
         // replay
         typedef std::tuple<expr_ref, unsigned, sat::bool_var> reinit_t;
         vector<reinit_t>    m_reinit;

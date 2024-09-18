@@ -152,6 +152,8 @@ namespace euf {
 
         virtual void finalize() {}
 
+        virtual void initialize_value(expr* v, expr* value) { IF_VERBOSE(5, verbose_stream() << "value initialzation is not supported for theory\n"); }
+
     };
 
     class th_proof_hint : public sat::proof_hint {

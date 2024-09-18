@@ -1422,7 +1422,6 @@ public:
         m_num_conflicts = 0;
         for (auto const& [v, r] : m_values)
             lp().move_lpvar_to_value(v, r);
-        display(verbose_stream() << "init search\n");
     }
 
     bool can_get_value(theory_var v) const {

@@ -195,6 +195,30 @@ namespace euf {
         m_reason_unknown.clear();
         for (auto* s : m_solvers)
             s->init_search();
+
+        for (auto const& [var, value] : m_initial_values) {
+            if (m.is_bool(var)) {
+                auto lit = expr2literal(var);
+                if (lit == sat::null_literal) {
+                    IF_VERBOSE(5, verbose_stream() << "no literal associated with " << mk_pp(var, m) << " := " << mk_pp(value, m) << "\n");
+                    continue;
+                }
+                if (m.is_true(value))
+                    s().set_phase(lit);
+                else if (m.is_false(value))
+                    s().set_phase(~lit);
+                else
+                    IF_VERBOSE(5, verbose_stream() << "malformed value " << mk_pp(var, m) << " := " << mk_pp(value, m) << "\n");                
+                continue;
+            }
+            auto* th = m_id2solver.get(var->get_sort()->get_family_id(), nullptr);
+            if (!th) {
+                IF_VERBOSE(5, verbose_stream() << "no default initialization associated with " << mk_pp(var, m) << " := " << mk_pp(value, m) << "\n");
+                continue;
+            }
+            th->initialize_value(var, value);
+        }
+
     }
 
     bool solver::is_external(bool_var v) {
@@ -1257,27 +1281,10 @@ namespace euf {
     }
 
     void solver::user_propagate_initialize_value(expr* var, expr* value) {
-        if (m.is_bool(var)) {
-            auto lit = expr2literal(var);
-            if (lit == sat::null_literal) {
-                IF_VERBOSE(5, verbose_stream() << "no literal associated with " << mk_pp(var, m) << " := " << mk_pp(value, m) << "\n");
-                return;
-            }
-            if (m.is_true(value))
-                s().set_phase(lit);
-            else if (m.is_false(value))
-                s().set_phase(~lit);
-            else
-                IF_VERBOSE(5, verbose_stream() << "malformed value " << mk_pp(var, m) << " := " << mk_pp(value, m) << "\n");                
-            return;
-        }
-        auto* th = m_id2solver.get(var->get_sort()->get_family_id(), nullptr);
-        if (!th) {
-            IF_VERBOSE(5, verbose_stream() << "no default initialization associated with " << mk_pp(var, m) << " := " << mk_pp(value, m) << "\n");
-            return;
-        }
-        // th->initialize_value(var, value);
-        IF_VERBOSE(5, verbose_stream() << "no default initialization associated with " << mk_pp(var, m) << " := " << mk_pp(value, m) << "\n");
+
+        m_initial_values.push_back({expr_ref(var, m), expr_ref(value, m)});
+        push(push_back_vector(m_initial_values));
+        
     }
 
 

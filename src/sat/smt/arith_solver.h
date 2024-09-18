@@ -485,6 +485,8 @@ namespace arith {
 
         bool validate_conflict();
 
+        
+
     public:
         solver(euf::solver& ctx, theory_id id);
         ~solver() override;
@@ -512,6 +514,7 @@ namespace arith {
         void internalize(expr* e) override;
         void eq_internalized(euf::enode* n) override;
         void apply_sort_cnstr(euf::enode* n, sort* s) override {}
+        void initialize_value(expr* var, expr* value) override;
         bool is_shared(theory_var v) const override;
         lbool get_phase(bool_var v) override;
         bool include_func_interp(func_decl* f) const override;
