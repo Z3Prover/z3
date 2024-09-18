@@ -322,6 +322,8 @@ namespace smt {
 
         void user_propagate_register_decide(user_propagator::decide_eh_t& r);
 
+        void user_propagate_initialize_value(expr* var, expr* value);
+
         /**
            \brief Return a reference to smt::context.
            This breaks abstractions. 

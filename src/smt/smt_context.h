@@ -123,6 +123,7 @@ namespace smt {
         unsigned                    m_par_index = 0;
         bool                        m_internalizing_assertions = false;
 
+
         // -----------------------------------
         //
         // Equality & Uninterpreted functions
@@ -245,6 +246,16 @@ namespace smt {
         uint_set m_all_th_case_split_literals;
         vector<literal_vector> m_th_case_split_sets;
         u_map< vector<literal_vector> > m_literal2casesplitsets; // returns the case split literal sets that a literal participates in
+
+
+        // ----------------------------------
+        //
+        // Value initialization
+        //
+        // ----------------------------------
+        vector<std::pair<expr_ref, expr_ref>> m_values;
+        void initialize_value(expr* var, expr* value);
+
 
         // -----------------------------------
         //
@@ -1776,6 +1787,8 @@ namespace smt {
                 throw default_exception("user propagator must be initialized");
             m_user_propagator->register_decide(r);
         }
+
+        void user_propagate_initialize_value(expr* var, expr* value);
 
         bool watches_fixed(enode* n) const;
 

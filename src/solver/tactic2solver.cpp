@@ -119,6 +119,10 @@ public:
     void user_propagate_register_expr(expr* e) override {
         m_tactic->user_propagate_register_expr(e);
     }
+    
+    void user_propagate_initialize_value(expr* var, expr* value) override {
+        m_tactic->user_propagate_initialize_value(var, value);
+    }
 
     void user_propagate_register_created(user_propagator::created_eh_t& created_eh) override {
         m_tactic->user_propagate_register_created(created_eh);

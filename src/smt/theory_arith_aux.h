@@ -2249,6 +2249,21 @@ namespace smt {
         return false;
     }
 
+    template<typename Ext>
+    void theory_arith<Ext>::initialize_value(expr* var, expr* value) {
+        theory_var v = expr2var(var);
+        rational r;
+        if (!m_util.is_numeral(value, r)) {
+            IF_VERBOSE(5, verbose_stream() << "numeric constant expected in initialization " << mk_pp(var, m) << " := " << mk_pp(value, m) << "\n");
+            return;
+        }
+        if (v == null_theory_var)
+            return;
+        if (is_base(v))
+            return;
+        update_value(v, inf_numeral(r));
+    }
+
 
 #if 0
     /**

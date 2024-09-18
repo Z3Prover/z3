@@ -252,6 +252,10 @@ namespace {
             m_context.user_propagate_register_decide(c);
         }
 
+        void user_propagate_initialize_value(expr* var, expr* value) override {
+            m_context.user_propagate_initialize_value(var, value);
+        }
+
         struct scoped_minimize_core {
             smt_solver& s;
             expr_ref_vector m_assumptions;

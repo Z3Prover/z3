@@ -564,6 +564,8 @@ namespace euf {
             m_user_propagator->add_expr(e);
         }
 
+        void user_propagate_initialize_value(expr* var, expr* value);
+
         // solver factory
         ::solver* mk_solver() { return m_mk_solver(); }
         void set_mk_solver(std::function<::solver*(void)>& mk) { m_mk_solver = mk; }

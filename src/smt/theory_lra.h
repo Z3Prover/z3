@@ -80,6 +80,8 @@ namespace smt {
         void apply_sort_cnstr(enode * n, sort * s) override;
 
         void init_model(model_generator & m) override;
+
+        void initialize_value(expr* var, expr* value) override;
         
         model_value_proc * mk_value(enode * n, model_generator & mg) override;
         void validate_model(proto_model& mdl) override;

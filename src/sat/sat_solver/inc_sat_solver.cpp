@@ -702,6 +702,10 @@ public:
         ensure_euf()->user_propagate_register_decide(r);
     }
 
+    void user_propagate_initialize_value(expr* var, expr* value) override {
+        ensure_euf()->user_propagate_initialize_value(var, value);
+    }
+
 
 private:
 

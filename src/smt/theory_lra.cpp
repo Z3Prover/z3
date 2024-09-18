@@ -154,6 +154,7 @@ class theory_lra::imp {
     svector<delayed_atom>  m_asserted_atoms;        
     ptr_vector<expr>       m_not_handled;
     ptr_vector<app>        m_underspecified;
+    vector<std::pair<lpvar, rational>> m_values;
     vector<ptr_vector<api_bound> > m_use_list;        // bounds where variables are used.
 
     // attributes for incremental version:
@@ -991,6 +992,16 @@ public:
         return lp().compare_values(vi, k, b->get_value()) ? l_true : l_false;
     }
 
+    void initialize_value(expr* var, expr* value) {
+        rational r;
+        if (!a.is_numeral(value, r)) {
+            IF_VERBOSE(5, verbose_stream() << "numeric constant expected in initialization " << mk_pp(var, m) << " := " << mk_pp(value, m) << "\n");
+            return;
+        }
+        ctx().push_trail(push_back_vector(m_values));
+        m_values.push_back({get_lpvar(var), r});
+    }
+
     void new_eq_eh(theory_var v1, theory_var v2) {
         TRACE("arith", tout << "eq " << v1 << " == " << v2 << "\n";);
         if (!is_int(v1) && !is_real(v1)) 
@@ -1409,6 +1420,9 @@ public:
     void init_search_eh() {
         m_arith_eq_adapter.init_search_eh();
         m_num_conflicts = 0;
+        for (auto const& [v, r] : m_values)
+            lp().move_lpvar_to_value(v, r);
+        display(verbose_stream() << "init search\n");
     }
 
     bool can_get_value(theory_var v) const {
@@ -3878,6 +3892,9 @@ void theory_lra::assign_eh(bool_var v, bool is_true) {
 lbool theory_lra::get_phase(bool_var v) {
     return m_imp->get_phase(v);
 }
+void theory_lra::initialize_value(expr* var, expr* value) {
+    m_imp->initialize_value(var, value);
+}
 void theory_lra::new_eq_eh(theory_var v1, theory_var v2) {
     m_imp->new_eq_eh(v1, v2);
 }
@@ -3912,7 +3929,7 @@ final_check_status theory_lra::final_check_eh() {
 }
 bool theory_lra::is_shared(theory_var v) const {
     return m_imp->is_shared(v);
-}
+}    
 bool theory_lra::can_propagate() {
     return m_imp->can_propagate();
 }

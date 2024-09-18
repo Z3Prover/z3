@@ -116,6 +116,7 @@ namespace opt {
         phase* get_phase() override { return m_context.get_phase(); }
         void set_phase(phase* p) override { m_context.set_phase(p); }
         void move_to_front(expr* e) override { m_context.move_to_front(e); }
+        void user_propagate_initialize_value(expr* var, expr* value) override { m_context.user_propagate_initialize_value(var, value); }
 
         void set_logic(symbol const& logic);
 

@@ -549,6 +549,10 @@ namespace smt {
             return get_manager().mk_eq(lhs, rhs);
         }
 
+        virtual void initialize_value(expr* var, expr* value) {
+            IF_VERBOSE(5, verbose_stream() << "no default initialization associated with " << mk_pp(var, m) << " := " << mk_pp(value, m) << "\n");
+        }
+
         literal mk_eq(expr * a, expr * b, bool gate_ctx);
 
         literal mk_preferred_eq(expr* a, expr* b);

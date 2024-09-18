@@ -58,8 +58,9 @@ namespace opt {
     }
 
     void context::scoped_state::pop() {
-        m_hard.resize(m_hard_lim.back());
-        m_asms.resize(m_asms_lim.back());
+        m_hard.shrink(m_hard_lim.back());
+        m_asms.shrink(m_asms_lim.back());
+        m_values.shrink(m_values_lim.back());
         unsigned k = m_objectives_term_trail_lim.back();
         while (m_objectives_term_trail.size() > k) {
             unsigned idx = m_objectives_term_trail.back();
@@ -79,6 +80,7 @@ namespace opt {
         m_objectives_lim.pop_back();            
         m_hard_lim.pop_back();   
         m_asms_lim.pop_back();
+        m_values_lim.pop_back();
     }
     
     void context::scoped_state::add(expr* hard) {
@@ -306,13 +308,11 @@ namespace opt {
         if (contains_quantifiers()) {
             warning_msg("optimization with quantified constraints is not supported");
         }
-#if 0
-        if (is_qsat_opt()) {
-            return run_qsat_opt();
-        }
-#endif
         solver& s = get_solver();
         s.assert_expr(m_hard_constraints);
+        for (auto const& [var, value] : m_scoped_state.m_values) {
+            s.user_propagate_initialize_value(var, value);
+        }
         
         opt_params optp(m_params);
         symbol pri = optp.priority();
@@ -696,6 +696,11 @@ namespace opt {
             gparams::set("smt.arith.solver", str.c_str());
         }
     }
+
+    void context::initialize_value(expr* var, expr* value) {
+        m_scoped_state.m_values.push_back({expr_ref(var, m), expr_ref(value, m)});
+    }
+
 
     /**
      * Set the solver to the SAT core.

@@ -2914,6 +2914,44 @@ namespace smt {
         register_plugin(m_user_propagator);
     }
 
+    void context::user_propagate_initialize_value(expr* var, expr* value) {
+        m_values.push_back({expr_ref(var, m), expr_ref(value, m)});
+        push_trail(push_back_vector(m_values));
+    }
+
+    void context::initialize_value(expr* var, expr* value) {
+        IF_VERBOSE(10, verbose_stream() << "context initialize " << mk_pp(var, m) << " := " << mk_pp(value, m) << "\n");
+        sort* s = var->get_sort();
+        ensure_internalized(var);
+            
+        if (m.is_bool(s)) {
+            auto v = get_bool_var_of_id_option(var->get_id());
+            if (v == null_bool_var) {
+                IF_VERBOSE(5, verbose_stream() << "Boolean variable has no literal " << mk_pp(var, m) << " := " << mk_pp(value, m) << "\n");
+                return;
+            }
+            m_bdata[v].m_phase_available = true;         
+            if (m.is_true(value))
+                m_bdata[v].m_phase = true;
+            else if (m.is_false(value))
+                m_bdata[v].m_phase = false;
+            else
+                IF_VERBOSE(5, verbose_stream() << "Boolean value is not constant " << mk_pp(var, m) << " := " << mk_pp(value, m) << "\n");
+            return;                
+        }
+
+        if (!e_internalized(var))
+            return;
+        enode* n = get_enode(var);
+        theory* th = m_theories.get_plugin(s->get_family_id());
+        if (!th) {
+            IF_VERBOSE(5, verbose_stream() << "No theory is attached to variable " << mk_pp(var, m) << " := " << mk_pp(value, m) << "\n");
+            return;
+        }
+        th->initialize_value(var, value);
+
+    }
+
     bool context::watches_fixed(enode* n) const {
         return m_user_propagator && m_user_propagator->has_fixed() && n->get_th_var(m_user_propagator->get_family_id()) != null_theory_var;
     }
@@ -3756,6 +3794,9 @@ namespace smt {
         TRACE("search", display(tout); display_enodes_lbls(tout););
         TRACE("search_detail", m_asserted_formulas.display(tout););
         init_search();
+        for (auto const& [var, value] : m_values)
+            initialize_value(var, value);
+            
         flet<bool> l(m_searching, true);
         TRACE("after_init_search", display(tout););
         IF_VERBOSE(2, verbose_stream() << "(smt.searching)\n";);

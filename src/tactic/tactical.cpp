@@ -213,6 +213,10 @@ public:
         m_t2->user_propagate_register_decide(decide_eh);
     }
 
+    void user_propagate_initialize_value(expr* var, expr* value) override {
+        m_t2->user_propagate_initialize_value(var, value);
+    }
+
 };
 
 tactic * and_then(tactic * t1, tactic * t2) {
@@ -884,6 +888,7 @@ public:
     void set_progress_callback(progress_callback * callback) override { m_t->set_progress_callback(callback); }
     void user_propagate_register_expr(expr* e) override { m_t->user_propagate_register_expr(e); }
     void user_propagate_clear() override { m_t->user_propagate_clear(); }
+    void user_propagate_initialize_value(expr* var, expr* value) override { m_t->user_propagate_initialize_value(var, value); }
 
 protected:
 

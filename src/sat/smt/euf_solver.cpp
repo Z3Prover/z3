@@ -1256,6 +1256,31 @@ namespace euf {
         add_solver(m_user_propagator);
     }
 
+    void solver::user_propagate_initialize_value(expr* var, expr* value) {
+        if (m.is_bool(var)) {
+            auto lit = expr2literal(var);
+            if (lit == sat::null_literal) {
+                IF_VERBOSE(5, verbose_stream() << "no literal associated with " << mk_pp(var, m) << " := " << mk_pp(value, m) << "\n");
+                return;
+            }
+            if (m.is_true(value))
+                s().set_phase(lit);
+            else if (m.is_false(value))
+                s().set_phase(~lit);
+            else
+                IF_VERBOSE(5, verbose_stream() << "malformed value " << mk_pp(var, m) << " := " << mk_pp(value, m) << "\n");                
+            return;
+        }
+        auto* th = m_id2solver.get(var->get_sort()->get_family_id(), nullptr);
+        if (!th) {
+            IF_VERBOSE(5, verbose_stream() << "no default initialization associated with " << mk_pp(var, m) << " := " << mk_pp(value, m) << "\n");
+            return;
+        }
+        // th->initialize_value(var, value);
+        IF_VERBOSE(5, verbose_stream() << "no default initialization associated with " << mk_pp(var, m) << " := " << mk_pp(value, m) << "\n");
+    }
+
+
     bool solver::watches_fixed(enode* n) const {
         return m_user_propagator && m_user_propagator->has_fixed() && n->get_th_var(m_user_propagator->get_id()) != null_theory_var;
     }
