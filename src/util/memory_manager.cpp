@@ -13,19 +13,17 @@ Copyright (c) 2015 Microsoft Corporation
 #include "util/error_codes.h"
 #include "util/debug.h"
 #include "util/scoped_timer.h"
-#ifdef __GLIBC__
+#ifndef HAS_MALLOC_USABLE_SIZE
+// drop calls to malloc_usable_size
+#elif defined(__GLIBC__)
 # include <malloc.h>
-# define HAS_MALLOC_USABLE_SIZE
 #elif defined(__APPLE__)
 # include <malloc/malloc.h>
-# define HAS_MALLOC_USABLE_SIZE
 # define malloc_usable_size malloc_size
 #elif defined(__FreeBSD__)
 # include <malloc_np.h>
-# define HAS_MALLOC_USABLE_SIZE
 #elif defined(_WINDOWS)
 # include <malloc.h>
-# define HAS_MALLOC_USABLE_SIZE
 # define malloc_usable_size _msize
 #endif
 

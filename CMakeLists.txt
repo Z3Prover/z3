@@ -208,6 +208,17 @@ list(APPEND Z3_COMPONENT_EXTRA_INCLUDE_DIRS
 )
 
 ################################################################################
+# malloc_usable_size()
+################################################################################
+option(Z3_USE_MALLOC_USABLE_SIZE "Use malloc_usable_size (or equivalents like malloc_size or _msize)" ON)
+if (Z3_USE_MALLOC_USABLE_SIZE)
+  message(STATUS "Using malloc_usable_size")
+  list(APPEND Z3_COMPONENT_CXX_DEFINES "-DHAS_MALLOC_USABLE_SIZE")
+else()
+  message(STATUS "Not using malloc_usable_size")
+endif()
+
+################################################################################
 # GNU multiple precision library support
 ################################################################################
 option(Z3_USE_LIB_GMP "Use GNU Multiple Precision Library" OFF)
