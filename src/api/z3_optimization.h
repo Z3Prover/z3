@@ -149,7 +149,7 @@ extern "C" {
        def_API('Z3_optimize_set_initial_value', VOID, (_in(CONTEXT), _in(OPTIMIZE), _in(AST), _in(AST)))
      */
 
-    void Z3_API Z3_optimize_set_initial_value(Z3_context c, Z3_optimize o, Z3_ast var, Z3_ast value);
+    void Z3_API Z3_optimize_set_initial_value(Z3_context c, Z3_optimize o, Z3_ast v, Z3_ast val);
     
     /**
        \brief Check consistency and produce optimal values.
