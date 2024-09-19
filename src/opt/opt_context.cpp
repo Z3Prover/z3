@@ -53,6 +53,7 @@ namespace opt {
     void context::scoped_state::push() {
         m_asms_lim.push_back(m_asms.size());
         m_hard_lim.push_back(m_hard.size());
+        m_values_lim.push_back(m_values.size());
         m_objectives_lim.push_back(m_objectives.size());        
         m_objectives_term_trail_lim.push_back(m_objectives_term_trail.size());
     }
