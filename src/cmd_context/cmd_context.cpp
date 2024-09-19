@@ -629,6 +629,7 @@ cmd_context::~cmd_context() {
     finalize_cmds();
     finalize_tactic_manager();
     m_proof_cmds = nullptr;
+    m_var2values.reset();
     reset(true);
     m_mcs.reset();
     m_solver = nullptr;
@@ -654,6 +655,8 @@ void cmd_context::set_opt(opt_wrapper* opt) {
     m_opt = opt;
     for (unsigned i = 0; i < m_scopes.size(); ++i) 
         m_opt->push();
+    for (auto const& [var, value] : m_var2values)
+        m_opt->initialize_value(var, value);
     m_opt->set_logic(m_logic);
 }
 
@@ -1873,6 +1876,17 @@ void cmd_context::display_dimacs() {
         m_solver->updt_params(p);
     }
 }
+
+void cmd_context::set_initial_value(expr* var, expr* value) {
+    if (get_opt()) {
+        get_opt()->initialize_value(var, value);
+        return;
+    }
+    if (get_solver()) 
+        get_solver()->user_propagate_initialize_value(var, value);
+    m_var2values.push_back({expr_ref(var, m()), expr_ref(value, m())});    
+}
+
 
 void cmd_context::display_model(model_ref& mdl) {
     if (mdl) {

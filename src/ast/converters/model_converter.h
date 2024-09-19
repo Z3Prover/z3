@@ -86,6 +86,8 @@ public:
     
     virtual void set_env(ast_pp_util* visitor);
 
+    virtual void convert_initialize_value(expr_ref& var, expr_ref& value) { }
+
     /**
        \brief we are adding a formula to the context of the model converter.
        The operator has as side effect of adding definitions as assertions to the

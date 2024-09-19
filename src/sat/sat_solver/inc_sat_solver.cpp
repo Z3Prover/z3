@@ -703,7 +703,14 @@ public:
     }
 
     void user_propagate_initialize_value(expr* var, expr* value) override {
-        ensure_euf()->user_propagate_initialize_value(var, value);
+        expr_ref _var(var, m), _value(value, m);
+        if (m_mcs.back())
+            m_mcs.back()->convert_initialize_value(_var, _value);
+        sat::bool_var b = m_map.to_bool_var(_var);
+        if (b != sat::null_bool_var)
+            m_solver.set_phase(sat::literal(b, m.is_false(_value)));
+        else if (get_euf())  
+           ensure_euf()->user_propagate_initialize_value(_var, _value);
     }
 
 

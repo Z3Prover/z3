@@ -130,6 +130,47 @@ generic_model_converter * generic_model_converter::copy(ast_translation & transl
     return res;
 }
 
+void generic_model_converter::convert_initialize_value(expr_ref& var, expr_ref& value) {
+    for (auto const& e : m_entries) {
+        switch (e.m_instruction) {
+        case HIDE: 
+            break;
+        case ADD: 
+            if (is_uninterp_const(var) && e.m_f == to_app(var)->get_decl())
+                convert_initialize_value(e.m_def, var, value);                
+            break;
+        }
+    }
+}
+
+void generic_model_converter::convert_initialize_value(expr* def, expr_ref& var, expr_ref& value) {
+
+    // var = if(c, th, el) = value
+    // th = value => c = true
+    // el = value => c = false
+    expr* c = nullptr, *th = nullptr, *el = nullptr;
+    if (m.is_ite(def, c, th, el)) {
+        if (value == th) {
+            var = c;
+            value = m.mk_true();
+            return;
+        }
+        if (value == el) {
+            var = c;
+            value = m.mk_false();
+            return;
+        }
+    }
+
+    // var = def = value
+    // => def = value
+    if (is_uninterp(def)) 
+        var = def;        
+    
+
+}
+
+
 
 void generic_model_converter::set_env(ast_pp_util* visitor) { 
     if (!visitor) {

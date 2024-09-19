@@ -311,7 +311,9 @@ namespace opt {
         }
         solver& s = get_solver();
         s.assert_expr(m_hard_constraints);
-        for (auto const& [var, value] : m_scoped_state.m_values) {
+        for (auto & [var, value] : m_scoped_state.m_values) {
+            if (m_model_converter)
+                m_model_converter->convert_initialize_value(var, value);
             s.user_propagate_initialize_value(var, value);
         }
         

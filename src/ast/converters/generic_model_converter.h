@@ -37,6 +37,7 @@ private:
     vector<entry> m_entries;
 
     expr_ref simplify_def(entry const& e);
+    void convert_initialize_value(expr* def, expr_ref& var, expr_ref& value);
 
 public:
     generic_model_converter(ast_manager & m, char const* orig) : m(m), m_orig(orig) {}
@@ -60,6 +61,8 @@ public:
     void display(std::ostream & out) override;
 
     model_converter * translate(ast_translation & translator) override { return copy(translator); }
+
+    void convert_initialize_value(expr_ref& var, expr_ref& value) override;
 
     generic_model_converter* copy(ast_translation & translator);
 

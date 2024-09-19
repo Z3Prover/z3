@@ -330,10 +330,7 @@ public:
     void set_next_arg(cmd_context& ctx, expr* e) override { if (m_var) m_value = e; else m_var = e; }
     void execute(cmd_context& ctx) override {
         SASSERT(m_var && m_value);
-        if (ctx.get_opt())
-            ctx.get_opt()->initialize_value(m_var, m_value);
-        else if (ctx.get_solver())
-            ctx.get_solver()->user_propagate_initialize_value(m_var, m_value);
+        ctx.set_initial_value(m_var, m_value);
     }    
 };
 
