@@ -26,7 +26,8 @@ namespace lp {
         conflict,
         continue_with_check,
         undef,
-        unsat
+        unsat,
+        cancelled
     };
     inline std::string lia_move_to_string(lia_move m) {
         switch (m) {
