@@ -323,12 +323,12 @@ class set_initial_value_cmd : public cmd {
 public:
     set_initial_value_cmd(): cmd("set-initial-value") {}
     char const* get_usage() const override { return "<var> <value>"; }
-    char const* get_descr(cmd_context& ctx) const { return "set an initial value for search as a hint to the solver"; }
-    unsigned get_arity() const { return 2; }
-    void prepare(cmd_context& ctx) { m_var = m_value = nullptr; }
-    cmd_arg_kind next_arg_kind(cmd_context& ctx) const { return CPK_EXPR; }
-    void set_next_arg(cmd_context& ctx, expr* e) { if (m_var) m_value = e; else m_var = e; }
-    void execute(cmd_context& ctx) {
+    char const* get_descr(cmd_context& ctx) const override { return "set an initial value for search as a hint to the solver"; }
+    unsigned get_arity() const override { return 2; }
+    void prepare(cmd_context& ctx) override { m_var = m_value = nullptr; }
+    cmd_arg_kind next_arg_kind(cmd_context& ctx) const override { return CPK_EXPR; }
+    void set_next_arg(cmd_context& ctx, expr* e) override { if (m_var) m_value = e; else m_var = e; }
+    void execute(cmd_context& ctx) override {
         SASSERT(m_var && m_value);
         if (ctx.get_opt())
             ctx.get_opt()->initialize_value(m_var, m_value);
