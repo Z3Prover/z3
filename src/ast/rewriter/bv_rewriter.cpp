@@ -618,6 +618,31 @@ br_status bv_rewriter::mk_leq_core(bool is_signed, expr * a, expr * b, expr_ref 
             return BR_REWRITE3;
         }
 
+        // #x000f <=_u a <=> not (a <=_u #x000f) or a = #x000f
+        i = bv_sz;
+        first_non_zero = UINT_MAX;
+        while (i > 0) {
+            --i;
+            if (!is_zero_bit(a, i)) {
+                first_non_zero = i;
+                break;
+            }
+        }        
+
+        if (first_non_zero == UINT_MAX) {
+            // all bits are zero
+            result = m.mk_eq(b, mk_zero(bv_sz));
+            return BR_REWRITE1;
+        }
+        else if (first_non_zero < bv_sz - 1 && m_le2extract) {
+            result = m.mk_and(m.mk_eq(m_mk_extract(bv_sz - 1, first_non_zero + 1, b), mk_zero(bv_sz - first_non_zero - 1)),
+                                m_util.mk_ule(m_mk_extract(first_non_zero, 0, b), m_mk_extract(first_non_zero, 0, a)));
+            result = m.mk_or(m.mk_not(result), m.mk_eq(a, b));
+            return BR_REWRITE_FULL;
+        }
+
+
+
     }
 #endif
 
