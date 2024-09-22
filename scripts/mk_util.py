@@ -2500,7 +2500,7 @@ def mk_config():
     config = open(os.path.join(BUILD_DIR, 'config.mk'), 'w')
     global CXX, CC, GMP, GUARD_CF, STATIC_BIN, GIT_HASH, CPPFLAGS, CXXFLAGS, LDFLAGS, EXAMP_DEBUG_FLAG, FPMATH_FLAGS, LOG_SYNC, SINGLE_THREADED, IS_ARCH_ARM64
     if IS_WINDOWS:
-        CXXFLAGS = '/nologo /Zi /D WIN32 /D _WINDOWS /EHsc /GS /Gd /std:C++20'
+        CXXFLAGS = '/nologo /Zi /D WIN32 /D _WINDOWS /EHsc /GS /Gd /std:c++20'
         config.write(
             'CC=cl\n'
             'CXX=cl\n'
@@ -2616,7 +2616,7 @@ def mk_config():
             CPPFLAGS = '%s -D_MP_INTERNAL' % CPPFLAGS
         if GIT_HASH:
             CPPFLAGS = '%s -DZ3GITHASH=%s' % (CPPFLAGS, GIT_HASH)
-        CXXFLAGS = '%s -std=C++20' % CXXFLAGS
+        CXXFLAGS = '%s -std=c++20' % CXXFLAGS
         CXXFLAGS = '%s -fvisibility=hidden -fvisibility-inlines-hidden -c' % CXXFLAGS
         FPMATH = test_fpmath(CXX)
         CXXFLAGS = '%s %s' % (CXXFLAGS, FPMATH_FLAGS)
@@ -2699,7 +2699,7 @@ def mk_config():
         config.write('CC=%s\n' % CC)
         config.write('CXX=%s\n' % CXX)
         config.write('CXXFLAGS=%s %s\n' % (CPPFLAGS, CXXFLAGS))
-        config.write('CFLAGS=%s %s\n' % (CPPFLAGS, CXXFLAGS.replace('-std=C++20', '')))
+        config.write('CFLAGS=%s %s\n' % (CPPFLAGS, CXXFLAGS.replace('-std=c++20', '')))
         config.write('EXAMP_DEBUG_FLAG=%s\n' % EXAMP_DEBUG_FLAG)
         config.write('CXX_OUT_FLAG=-o \n')
         config.write('C_OUT_FLAG=-o \n')
