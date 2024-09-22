@@ -22,6 +22,7 @@ Notes:
 #include "ast/for_each_expr.h"
 #include "ast/ast_util.h"
 #include "ast/occurs.h"
+#include "ast/bv_decl_plugin.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/converters/generic_model_converter.h"
@@ -130,25 +131,32 @@ generic_model_converter * generic_model_converter::copy(ast_translation & transl
     return res;
 }
 
-void generic_model_converter::convert_initialize_value(expr_ref& var, expr_ref& value) {
-    for (auto const& e : m_entries) {
-        switch (e.m_instruction) {
-        case HIDE: 
-            break;
-        case ADD: 
-            if (is_uninterp_const(var) && e.m_f == to_app(var)->get_decl())
-                convert_initialize_value(e.m_def, var, value);                
-            break;
+void generic_model_converter::convert_initialize_value(vector<std::pair<expr_ref, expr_ref>> & var2value) {
+    if (var2value.empty() || m_entries.empty())
+        return;
+    for (unsigned i = 0; i < var2value.size(); ++i) {
+        auto& [var, value] = var2value[i];
+        for (auto const& e : m_entries) {
+            switch (e.m_instruction) {
+            case HIDE: 
+                break;
+            case ADD: 
+                if (is_uninterp_const(var) && e.m_f == to_app(var)->get_decl())
+                    convert_initialize_value(e.m_def, i, var2value);                
+                break;
+            }
         }
     }
 }
 
-void generic_model_converter::convert_initialize_value(expr* def, expr_ref& var, expr_ref& value) {
+void generic_model_converter::convert_initialize_value(expr* def, unsigned i, vector<std::pair<expr_ref, expr_ref>>& var2value) {
 
     // var = if(c, th, el) = value
     // th = value => c = true
     // el = value => c = false
     expr* c = nullptr, *th = nullptr, *el = nullptr;
+    auto& [var, value] = var2value[i];
+    verbose_stream() << "def " << mk_pp(def, m) << "\n";
     if (m.is_ite(def, c, th, el)) {
         if (value == th) {
             var = c;
@@ -164,8 +172,15 @@ void generic_model_converter::convert_initialize_value(expr* def, expr_ref& var,
 
     // var = def = value
     // => def = value
-    if (is_uninterp(def)) 
-        var = def;        
+    if (is_uninterp(def)) {
+        var = def;
+        return;
+    }
+
+    bv_util bv(m);
+    if (bv.is_mkbv(def)) {
+        verbose_stream() << "def\n";
+    }
     
 
 }

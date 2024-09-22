@@ -2920,7 +2920,7 @@ namespace smt {
     }
 
     void context::initialize_value(expr* var, expr* value) {
-        IF_VERBOSE(10, verbose_stream() << "context initialize " << mk_pp(var, m) << " := " << mk_pp(value, m) << "\n");
+        IF_VERBOSE(10, verbose_stream() << "initialize " << mk_pp(var, m) << " := " << mk_pp(value, m) << "\n");
         sort* s = var->get_sort();
         ensure_internalized(var);
             

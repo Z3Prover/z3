@@ -86,7 +86,7 @@ public:
     
     virtual void set_env(ast_pp_util* visitor);
 
-    virtual void convert_initialize_value(expr_ref& var, expr_ref& value) { }
+    virtual void convert_initialize_value(vector<std::pair<expr_ref, expr_ref>> & var2value) { }
 
     /**
        \brief we are adding a formula to the context of the model converter.

@@ -1792,6 +1792,7 @@ namespace smt {
     void theory_bv::initialize_value(expr* var, expr* value) {
         rational val;
         unsigned sz;
+        TRACE("bv", tout << "initializing " << mk_pp(var, m) << " := " << mk_pp(value, m) << "\n");
         if (!m_util.is_numeral(value, val, sz)) {
             IF_VERBOSE(5, verbose_stream() << "value should be a bit-vector " << mk_pp(value, m) << "\n");
             return;

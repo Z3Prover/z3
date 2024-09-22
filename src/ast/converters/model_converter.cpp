@@ -108,9 +108,9 @@ public:
         m_c1->get_units(fmls);
     }
 
-    void convert_initialize_value(expr_ref& var, expr_ref& value) override {
-        m_c2->convert_initialize_value(var, value);
-        m_c1->convert_initialize_value(var, value);
+    void convert_initialize_value(vector<std::pair<expr_ref, expr_ref>>& var2value) override {
+        m_c2->convert_initialize_value(var2value);
+        m_c1->convert_initialize_value(var2value);
     }
 
   

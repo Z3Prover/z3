@@ -32,12 +32,25 @@ class sat_tactic : public tactic {
         sat2goal        m_sat2goal;
         scoped_ptr<sat::solver> m_solver;
         params_ref      m_params;
+        vector<std::pair<expr_ref, expr_ref>>& m_var2value;
         
-        imp(ast_manager & _m, params_ref const & p):
+        imp(ast_manager & _m, params_ref const & p, vector<std::pair<expr_ref, expr_ref>>& var2value):
             m(_m),
             m_solver(alloc(sat::solver, p, m.limit())),
-            m_params(p) {
+            m_params(p),
+            m_var2value(var2value) {
             updt_params(p);
+        }
+
+        void initialize_values(goal_ref const& g, atom2bool_var& map) {
+            g->mc()->convert_initialize_value(m_var2value);
+            for (auto & [var, value] : m_var2value) {
+                if (!m.is_bool(var))
+                    continue;
+                sat::bool_var b = map.to_bool_var(var);
+                if (b != sat::null_bool_var)
+                    m_solver->set_phase(sat::literal(b, m.is_false(value)));                
+            }
         }
         
         void operator()(goal_ref const & g, 
@@ -65,6 +78,8 @@ class sat_tactic : public tactic {
 
             g->reset();
             g->m().compact_memory();
+
+            initialize_values(g, map);
 
             CASSERT("sat_solver", m_solver->check_invariant());
             IF_VERBOSE(TACTIC_VERBOSITY_LVL, m_solver->display_status(verbose_stream()););
@@ -184,11 +199,14 @@ class sat_tactic : public tactic {
     imp *      m_imp;
     params_ref m_params;
     statistics m_stats;
+    ast_manager& m;
+    vector<std::pair<expr_ref, expr_ref>> m_var2value;
 
 public:
     sat_tactic(ast_manager & m, params_ref const & p):
         m_imp(nullptr),
-        m_params(p) {
+        m_params(p),
+        m(m) {
         sat_params p1(p);
     }
 
@@ -215,7 +233,7 @@ public:
     
     void operator()(goal_ref const & g, 
                     goal_ref_buffer & result) override {
-        imp proc(g->m(), m_params);
+        imp proc(g->m(), m_params, m_var2value);
         scoped_set_imp set(this, &proc);
         try {
             proc(g, result);
@@ -247,7 +265,8 @@ public:
     }
 
     void user_propagate_initialize_value(expr* var, expr* value) override {
-
+        verbose_stream() << "initialize-value\n";
+        m_var2value.push_back({ expr_ref(var, m), expr_ref(value, m) });
     }
 
 
