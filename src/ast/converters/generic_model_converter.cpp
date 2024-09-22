@@ -156,7 +156,6 @@ void generic_model_converter::convert_initialize_value(expr* def, unsigned i, ve
     // el = value => c = false
     expr* c = nullptr, *th = nullptr, *el = nullptr;
     auto& [var, value] = var2value[i];
-    verbose_stream() << "def " << mk_pp(def, m) << "\n";
     if (m.is_ite(def, c, th, el)) {
         if (value == th) {
             var = c;
@@ -175,13 +174,7 @@ void generic_model_converter::convert_initialize_value(expr* def, unsigned i, ve
     if (is_uninterp(def)) {
         var = def;
         return;
-    }
-
-    bv_util bv(m);
-    if (bv.is_mkbv(def)) {
-        verbose_stream() << "def\n";
-    }
-    
+    }    
 
 }
 
