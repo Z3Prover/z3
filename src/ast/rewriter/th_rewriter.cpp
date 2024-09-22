@@ -685,7 +685,16 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             st = m_seq_rw.mk_eq_core(a, b, result);
         if (st != BR_FAILED)
             return st;
+        st = extended_bv_eq(a, b, result);
+        if (st != BR_FAILED)
+            return st;        
         return apply_tamagotchi(a, b, result);        
+    }
+
+    br_status extended_bv_eq(expr* a, expr* b, expr_ref& result) {
+        if (m_bv_util.is_bv2int(a) || m_bv_util.is_bv2int(b))
+            return m_bv_rw.mk_eq_bv2int(a, b, result);
+        return BR_FAILED;        
     }
 
     expr_ref mk_eq(expr* a, expr* b) {

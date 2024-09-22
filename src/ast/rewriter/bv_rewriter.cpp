@@ -1445,18 +1445,49 @@ br_status bv_rewriter::mk_bv_smod_core(expr * arg1, expr * arg2, bool hi_div0, e
 br_status bv_rewriter::mk_int2bv(unsigned bv_size, expr * arg, expr_ref & result) {
     numeral val;
     bool is_int;
-
+    expr* x;
     if (m_autil.is_numeral(arg, val, is_int)) {
         val = m_util.norm(val, bv_size);
         result = mk_numeral(val, bv_size);
         return BR_DONE;
     }
 
-    // (int2bv (bv2int x)) --> x
-    if (m_util.is_bv2int(arg) && bv_size == get_bv_size(to_app(arg)->get_arg(0))) {
-        result = to_app(arg)->get_arg(0);
+    // int2bv (bv2int x) --> x
+    if (m_util.is_bv2int(arg, x) && bv_size == get_bv_size(x)) {
+        result = x;
         return BR_DONE;
     }
+
+    // int2bv (bv2int x) --> 0000x
+    if (m_util.is_bv2int(arg, x) && bv_size > get_bv_size(x)) {
+        mk_zero_extend(bv_size - get_bv_size(x), x, result);
+        return BR_REWRITE1;
+    }
+
+    // int2bv (bv2int x) --> x[sz-1:0]
+    if (m_util.is_bv2int(arg, x) && bv_size < get_bv_size(x)) {
+        result = m_mk_extract(bv_size - 1, 0, x);
+        return BR_REWRITE1;
+    }
+
+#if 0
+    // int2bv (a + b) --> int2bv(a) + int2bv(b)
+    if (m_autil.is_add(arg)) {
+        expr_ref_vector args(m);
+        for (expr* e : *to_app(arg)) 
+            args.push_back(m_util.mk_int2bv(bv_size, e));
+        result = m_util.mk_bv_add(args);
+        return BR_REWRITE3;
+    }
+        // int2bv (a * b) --> int2bv(a) * int2bv(b)
+    if (m_autil.is_mul(arg)) {
+        expr_ref_vector args(m);
+        for (expr* e : *to_app(arg)) 
+            args.push_back(m_util.mk_int2bv(bv_size, e));
+        result = m_util.mk_bv_mul(args);
+        return BR_REWRITE3;
+    }
+#endif
 
     return BR_FAILED;
 }
@@ -2740,6 +2771,27 @@ bool bv_rewriter::is_urem_any(expr * e, expr * & dividend,  expr * & divisor) {
     return true;
 }
 
+br_status bv_rewriter::mk_eq_bv2int(expr* lhs, expr* rhs, expr_ref& result) {
+    rational r;
+    expr* x, *y;
+    if (m_autil.is_numeral(lhs))
+        std::swap(lhs, rhs);
+   
+    if (m_autil.is_numeral(rhs, r) && m_util.is_bv2int(lhs, x)) {
+        unsigned bv_size = m_util.get_bv_size(x);
+        if (0 <= r && r < rational::power_of_two(bv_size)) 
+            result = m.mk_eq(m_util.mk_numeral(r, bv_size), x);
+        else
+            result = m.mk_false();        
+        return BR_REWRITE1;
+    }
+    if (m_util.is_bv2int(lhs, x) && m_util.is_bv2int(rhs, y)) {
+        result = m.mk_eq(x, y);
+        return BR_REWRITE1;
+    }
+    return BR_FAILED;
+}
+
 br_status bv_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
     if (lhs == rhs) {
         result = m.mk_true();
@@ -2782,6 +2834,7 @@ br_status bv_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
         TRACE("mk_mul_eq", tout << mk_pp(lhs, m) << "\n=\n" << mk_pp(rhs, m) << "\n----->\n" << mk_pp(result,m) << "\n";);
         return st;
     }
+
 
     if (m_blast_eq_value) {
         st = mk_blast_eq_value(lhs, rhs, result);

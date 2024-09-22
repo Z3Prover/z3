@@ -203,6 +203,7 @@ public:
 
     bool is_urem_any(expr * e, expr * & dividend,  expr * & divisor);
     br_status mk_eq_core(expr * lhs, expr * rhs, expr_ref & result);
+    br_status mk_eq_bv2int(expr* lhs, expr* rhs, expr_ref& result);
     br_status mk_ite_core(expr * c, expr * t, expr * e, expr_ref & result);
     br_status mk_distinct(unsigned num_args, expr * const * args, expr_ref & result);
 
