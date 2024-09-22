@@ -2060,6 +2060,10 @@ br_status seq_rewriter::mk_seq_replace_all(expr* a, expr* b, expr* c, expr_ref& 
         result = m().mk_ite(str().mk_is_empty(b), str().mk_empty(a->get_sort()), c);
         return BR_REWRITE2;
     }
+    if (str().is_empty(a) && str().is_empty(c)) {
+        result = a;
+        return BR_DONE;
+    }
     zstring s1, s2;
     expr_ref_vector strs(m());
     if (str().is_string(a, s1) && str().is_string(b, s2)) {
