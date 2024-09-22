@@ -109,17 +109,20 @@ br_status bv_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
         break;
     case OP_BNEG_OVFL:
         SASSERT(num_args == 1);
-        return mk_bvneg_overflow(args[0], result);
-
+        st = mk_bvneg_overflow(args[0], result);
+        break;
     case OP_BSHL:
         SASSERT(num_args == 2);
-        return mk_bv_shl(args[0], args[1], result);
+        st = mk_bv_shl(args[0], args[1], result);
+        break;
     case OP_BLSHR:
         SASSERT(num_args == 2);
-        return mk_bv_lshr(args[0], args[1], result);
+        st = mk_bv_lshr(args[0], args[1], result);
+        break;
     case OP_BASHR:
         SASSERT(num_args == 2);
-        return mk_bv_ashr(args[0], args[1], result);
+        st = mk_bv_ashr(args[0], args[1], result);
+        break;
     case OP_BSDIV:
         SASSERT(num_args == 2);
         return mk_bv_sdiv(args[0], args[1], result);
@@ -151,13 +154,16 @@ br_status bv_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
         SASSERT(num_args == 2);
         return mk_bv_smod_i(args[0], args[1], result);
     case OP_CONCAT:
-        return mk_concat(num_args, args, result);
+        st = mk_concat(num_args, args, result);
+        break;
     case OP_EXTRACT:
         SASSERT(num_args == 1);
-        return mk_extract(m_util.get_extract_high(f), m_util.get_extract_low(f), args[0], result);
+        st = mk_extract(m_util.get_extract_high(f), m_util.get_extract_low(f), args[0], result);
+        break;
     case OP_REPEAT:
         SASSERT(num_args == 1);
-        return mk_repeat(f->get_parameter(0).get_int(), args[0], result);
+        st = mk_repeat(f->get_parameter(0).get_int(), args[0], result);
+        break;
     case OP_ZERO_EXT:
         SASSERT(num_args == 1);
         return mk_zero_extend(f->get_parameter(0).get_int(), args[0], result);
@@ -596,53 +602,45 @@ br_status bv_rewriter::mk_leq_core(bool is_signed, expr * a, expr * b, expr_ref 
         //
         // a <=_u #x000f
         //
-        unsigned bv_sz = m_util.get_bv_size(b);
-        unsigned i     = bv_sz;
-        unsigned first_non_zero = UINT_MAX;
-        while (i > 0) {
-            --i;
-            if (!is_zero_bit(b, i)) {
-                first_non_zero = i;
-                break;
-            }
-        }
+        unsigned bv_sz = m_util.get_bv_size(a);
+        auto last_non_zero = [&](expr* x) {
+            for (unsigned i = bv_sz; i-- > 0; ) 
+                if (!is_zero_bit(x, i)) 
+                    return i;
+            return UINT_MAX;
+        };
+        
+        unsigned lnz = last_non_zero(b);
 
-        if (first_non_zero == UINT_MAX) {
+        if (lnz == UINT_MAX) {
             // all bits are zero
             result = m.mk_eq(a, mk_zero(bv_sz));
             return BR_REWRITE1;
         }
-        else if (first_non_zero < bv_sz - 1 && m_le2extract) {
-            result = m.mk_and(m.mk_eq(m_mk_extract(bv_sz - 1, first_non_zero + 1, a), mk_zero(bv_sz - first_non_zero - 1)),
-                                m_util.mk_ule(m_mk_extract(first_non_zero, 0, a), m_mk_extract(first_non_zero, 0, b)));
+        else if (lnz < bv_sz - 1 && m_le2extract) {
+            // a[sz-1:lnz+1] = 0 & a[lnz:0] <= b[lnz:0]
+            result = m.mk_and(m.mk_eq(m_mk_extract(bv_sz - 1, lnz + 1, a), mk_zero(bv_sz - lnz - 1)),
+                              m_util.mk_ule(m_mk_extract(lnz, 0, a), m_mk_extract(lnz, 0, b)));
+
             return BR_REWRITE3;
         }
 
-        // #x000f <=_u a <=> not (a <=_u #x000f) or a = #x000f
-        i = bv_sz;
-        first_non_zero = UINT_MAX;
-        while (i > 0) {
-            --i;
-            if (!is_zero_bit(a, i)) {
-                first_non_zero = i;
-                break;
-            }
-        }        
 
-        if (first_non_zero == UINT_MAX) {
+        lnz = last_non_zero(a);
+
+        if (lnz == UINT_MAX) {
             // all bits are zero
-            result = m.mk_eq(b, mk_zero(bv_sz));
-            return BR_REWRITE1;
+            result = m.mk_true();
+            return BR_DONE;
         }
-        else if (first_non_zero < bv_sz - 1 && m_le2extract) {
-            result = m.mk_and(m.mk_eq(m_mk_extract(bv_sz - 1, first_non_zero + 1, b), mk_zero(bv_sz - first_non_zero - 1)),
-                                m_util.mk_ule(m_mk_extract(first_non_zero, 0, b), m_mk_extract(first_non_zero, 0, a)));
-            result = m.mk_or(m.mk_not(result), m.mk_eq(a, b));
+        else if (lnz < bv_sz - 1 && m_le2extract) {
+            // use the equivalence to simplify:
+            // #x000f <=_u b <=> b[sz-1:lnz+1] != 0 or #xf <= b[lnz:0])
+
+            result = m.mk_implies(m.mk_eq(m_mk_extract(bv_sz - 1, lnz + 1, b), mk_zero(bv_sz - lnz - 1)),
+                                  m_util.mk_ule(m_mk_extract(lnz, 0, a), m_mk_extract(lnz, 0, b)));
             return BR_REWRITE_FULL;
         }
-
-
-
     }
 #endif
 
