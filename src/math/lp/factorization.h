@@ -88,8 +88,7 @@ struct const_iterator_mon {
     self_type operator++(int);
 
     const_iterator_mon(const bool_vector& mask, const factorization_factory *f);
-    
-    bool operator==(const self_type &other) const;
+
     bool operator!=(const self_type &other) const;
             
     factorization create_binary_factorization(factor j, factor k) const;

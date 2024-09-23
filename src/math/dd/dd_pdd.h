@@ -571,8 +571,7 @@ namespace dd {
         pdd_monomial const* operator->() const { return &m_mono; }
         pdd_iterator& operator++() { next(); return *this; }
         pdd_iterator operator++(int) { auto tmp = *this; next(); return tmp; }
-        bool operator==(pdd_iterator const& other) const { return m_nodes == other.m_nodes; }
-        bool operator!=(pdd_iterator const& other) const { return !operator==(other); }
+        bool operator!=(pdd_iterator const& other) const { return m_nodes != other.m_nodes; }
     };
 
     class pdd_linear_iterator {
@@ -591,7 +590,6 @@ namespace dd {
         pointer operator->() const { return &m_mono; }
         pdd_linear_iterator& operator++() { next(); return *this; }
         pdd_linear_iterator operator++(int) { auto tmp = *this; next(); return tmp; }
-        bool operator==(pdd_linear_iterator const& other) const { return m_next == other.m_next; }
         bool operator!=(pdd_linear_iterator const& other) const { return m_next != other.m_next; }
     };
 

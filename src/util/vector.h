@@ -311,9 +311,6 @@ public:
             return *this;
         }
 
-        bool operator==(reverse_iterator const& other) const {
-            return other.v == v;
-        }
         bool operator!=(reverse_iterator const& other) const {
             return other.v != v;
         }
@@ -883,9 +880,6 @@ public:
             return *this;
         }
 
-        bool operator==(reverse_iterator const& other) const {
-            return other.v == v;
-        }
         bool operator!=(reverse_iterator const& other) const {
             return other.v != v;
         }

@@ -188,7 +188,6 @@ namespace sat {
             iterator(clause_wrapper const& c, unsigned idx): m_idx(idx), m_cw(c) {}
             iterator& operator++() { ++m_idx; return *this; }
             literal operator*() { return m_cw[m_idx]; }
-            bool operator==(iterator const& other) const { SASSERT(&m_cw == &other.m_cw); return m_idx == other.m_idx; }
             bool operator!=(iterator const& other) const { SASSERT(&m_cw == &other.m_cw); return m_idx != other.m_idx; }
         };
         iterator begin() const { return iterator(*this, 0); }

@@ -123,7 +123,6 @@ namespace qe {
             iterator(conj_enum& c, bool first) : m_super(&c), m_index(first?0:c.m_conjs.size()) {}
             expr* operator*() { return m_super->m_conjs[m_index].get(); }
             iterator& operator++() { m_index++; return *this; }
-            bool operator==(iterator const& it) const { return m_index == it.m_index; }
             bool operator!=(iterator const& it) const { return m_index != it.m_index; }
         };
 

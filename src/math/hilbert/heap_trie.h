@@ -369,7 +369,6 @@ public:
         }
         iterator& operator++() { fwd(); return *this; }
         iterator operator++(int) { iterator tmp = *this; ++*this; return tmp; }
-        bool operator==(iterator const& it) const {return m_count == it.m_count; }
         bool operator!=(iterator const& it) const {return m_count != it.m_count; }
 
     private:

@@ -44,7 +44,6 @@ public:
         T const & operator*() const { return m_curr->head(); }
         iterator & operator++() { m_curr = m_curr->tail(); return *this; }
         iterator operator++(int) { iterator tmp = *this; ++*this; return tmp; }
-        bool operator==(iterator const & it) { return m_curr == it.m_curr; }
         bool operator!=(iterator const & it) { return m_curr != it.m_curr; }
     };        
 

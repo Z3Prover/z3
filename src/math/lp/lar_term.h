@@ -170,8 +170,7 @@ public:
         const_iterator operator++() { const_iterator i = *this; m_it++; return i;  }
         const_iterator operator++(int) { m_it++; return *this; }
         const_iterator(u_map<mpq>::iterator it) : m_it(it) {}
-        bool operator==(const const_iterator &other) const { return m_it == other.m_it; }
-        bool operator!=(const const_iterator &other) const { return !(*this == other); }
+        bool operator!=(const const_iterator &other) const { return m_it != other.m_it; }
     };
    
     bool is_normalized() const {

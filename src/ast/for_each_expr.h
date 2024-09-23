@@ -190,7 +190,6 @@ public:
         expr* operator*();
         iterator operator++(int);
         iterator& operator++();
-        bool operator==(iterator const& other) const;
         bool operator!=(iterator const& other) const;
     };
 
@@ -220,7 +219,6 @@ public:
         expr* operator*();
         iterator operator++(int);
         iterator& operator++();
-        bool operator==(iterator const& other) const;
         bool operator!=(iterator const& other) const;
     };
     static subterms_postorder all(expr_ref_vector const& es) { return subterms_postorder(es, true); }

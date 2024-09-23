@@ -71,7 +71,6 @@ public:
         unsigned const* operator->() const { return &m_column; }
         col_iterator& operator++() { next(); return *this; }
         col_iterator operator++(int) { auto tmp = *this; next(); return tmp; }
-        bool operator==(col_iterator const& other) const { return m_column == other.m_column; }
         bool operator!=(col_iterator const& other) const { return m_column != other.m_column; }  
     };
 
@@ -88,7 +87,6 @@ public:
         row* operator->() { return &m_row; }
         row_iterator& operator++() { next(); return *this; }
         row_iterator operator++(int) { auto tmp = *this; next(); return tmp; }
-        bool operator==(row_iterator const& other) const { return m_index == other.m_index; }
         bool operator!=(row_iterator const& other) const { return m_index != other.m_index; }  
     };
 

@@ -106,8 +106,7 @@ public:
         unsigned m_index;
     public:
         iterator(scoped_vector const& v, unsigned idx): m_vec(v), m_index(idx) {}
-        
-        bool operator==(iterator const& other) const { return &other.m_vec == &m_vec && other.m_index == m_index; }
+
         bool operator!=(iterator const& other) const { return &other.m_vec != &m_vec || other.m_index != m_index; }
         T const& operator*() { return m_vec[m_index]; }
 

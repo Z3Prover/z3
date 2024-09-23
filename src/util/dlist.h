@@ -213,13 +213,8 @@ public:
     T const& operator*() const {
         return *m_elem;
     }
-
-    bool operator==(dll_iterator const& other) const {
-        return m_elem == other.m_elem && m_first == other.m_first;
-    }
-
     bool operator!=(dll_iterator const& other) const {
-        return !operator==(other);
+        return m_elem != other.m_elem || m_first != other.m_first;
     }
 };
 

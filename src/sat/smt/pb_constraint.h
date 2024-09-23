@@ -125,7 +125,6 @@ namespace pb {
             iterator(constraint const& c, unsigned idx) : c(c), idx(idx) {}
             literal operator*() { return c.get_lit(idx); }
             iterator& operator++() { ++idx; return *this; }
-            bool operator==(iterator const& other) const { SASSERT(&c == &other.c); return idx == other.idx; }
             bool operator!=(iterator const& other) const { SASSERT(&c == &other.c); return idx != other.idx; }
         };
         

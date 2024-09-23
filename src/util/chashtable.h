@@ -551,7 +551,6 @@ public:
             return *this;
         }
         iterator operator++(int) { iterator tmp = *this; ++*this; return tmp; }
-        bool operator==(iterator const & it) const { return m_list_it == it.m_list_it; }
         bool operator!=(iterator const & it) const { return m_list_it != it.m_list_it; }
     };
     

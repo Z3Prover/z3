@@ -194,7 +194,6 @@ public:
             SASSERT(invariant());
         }
         unsigned operator*() const { return m_index; }
-        bool operator==(iterator const& it) const { return m_index == it.m_index; }
         bool operator!=(iterator const& it) const { return m_index != it.m_index; }
         iterator & operator++() { ++m_index; scan(); return *this; }
         iterator operator++(int) { iterator tmp = *this; ++*this; return tmp; }

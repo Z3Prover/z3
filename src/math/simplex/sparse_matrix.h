@@ -198,7 +198,6 @@ namespace simplex {
             row_entry * operator->() const { return &(operator*()); }
             row_iterator & operator++() { ++m_curr; move_to_used(); return *this; }
             row_iterator operator++(int) { row_iterator tmp = *this; ++*this; return tmp; }
-            bool operator==(row_iterator const & it) const { return m_curr == it.m_curr; }
             bool operator!=(row_iterator const & it) const { return m_curr != it.m_curr; }           
         };
 
@@ -308,7 +307,6 @@ namespace simplex {
             row operator*() { return row(m_curr); }
             all_row_iterator & operator++() { m_curr++; move_to_next(); return *this; }
             all_row_iterator operator++(int) { all_row_iterator tmp = *this; ++*this; return tmp; }
-            bool operator==(all_row_iterator const& it) const { return m_curr == it.m_curr; }
             bool operator!=(all_row_iterator const& it) const { return m_curr != it.m_curr; }
         };
         

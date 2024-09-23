@@ -197,10 +197,6 @@ public:
             ++*this; 
             return tmp; 
         }
-
-        bool operator==(iterator const & it) const { 
-            return m_set == it.m_set;
-        }
         
         bool operator!=(iterator const & it) const { 
             return m_set != it.m_set; 

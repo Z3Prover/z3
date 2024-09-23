@@ -95,7 +95,6 @@ public:
             next_index();
             return *this;
         }
-        bool operator==(iterator const& other) const { return m_sz == other.m_sz; }
         bool operator!=(iterator const& other) const { return m_sz != other.m_sz; }
     };
 

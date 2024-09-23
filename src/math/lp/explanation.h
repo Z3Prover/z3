@@ -106,11 +106,10 @@ public:
         iterator(bool run_on_vector, pair_vec::const_iterator vi, ci_set::iterator cii) :
             m_run_on_vector(run_on_vector), m_vi(vi), m_ci(cii)
         {}
-        bool operator==(const iterator &other) const {
+        bool operator!=(const iterator &other) const {
             SASSERT(m_run_on_vector == other.m_run_on_vector);
-            return  m_run_on_vector? m_vi == other.m_vi : m_ci == other.m_ci;
+            return  m_run_on_vector ? m_vi != other.m_vi : m_ci != other.m_ci;
         }
-        bool operator!=(const iterator &other) const { return !(*this == other); }
     };
 
     iterator begin() const {

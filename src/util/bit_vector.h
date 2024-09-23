@@ -220,7 +220,6 @@ public:
         bool operator*() const { return b.get(m_curr); }
         iterator& operator++() { ++m_curr; return *this; }
         iterator operator++(int) { iterator tmp = *this; ++* this; return tmp; }
-        bool operator==(iterator const& it) const { return m_curr == it.m_curr; }
         bool operator!=(iterator const& it) const { return m_curr != it.m_curr; }        
     };
 
