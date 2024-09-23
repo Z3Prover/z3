@@ -265,7 +265,6 @@ public:
     }
 
     void user_propagate_initialize_value(expr* var, expr* value) override {
-        verbose_stream() << "initialize-value\n";
         m_var2value.push_back({ expr_ref(var, m), expr_ref(value, m) });
     }
 

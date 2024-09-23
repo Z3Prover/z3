@@ -179,8 +179,6 @@ public:
     void initialize_values() {
         if (m_mcs.back())
             m_mcs.back()->convert_initialize_value(m_var2value);
-        if (m_mcs.back())
-            m_mcs.back()->display(verbose_stream());
 
         for (auto & [var, value] : m_var2value) {
             sat::bool_var b = m_map.to_bool_var(var);
