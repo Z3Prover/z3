@@ -222,7 +222,7 @@ struct bit_blaster_model_converter : public model_converter {
         // no-op
     }
 
-    void convert_initialize_value(vector<std::pair<expr_ref, expr_ref>>& var2value) {
+    void convert_initialize_value(vector<std::pair<expr_ref, expr_ref>>& var2value) override {
         if (m_vars.empty() || var2value.empty())
             return;
         rational r;
