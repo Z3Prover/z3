@@ -222,7 +222,7 @@ namespace nlsat {
         bool                   m_check_lemmas;
         unsigned               m_max_conflicts;
         unsigned               m_lemma_count;
-        bool m_simple_check;
+        bool m_simple_check =  false;
         unsigned m_variable_ordering_strategy;
         bool m_set_0_more;
         bool m_cell_sample;
