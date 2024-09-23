@@ -56,8 +56,7 @@ struct dl_context {
         m_cmd(ctx),
         m_collected_cmds(collected_cmds),
         m_ref_count(0),
-        m_decl_plugin(nullptr),
-        m_trail() {}
+        m_decl_plugin(nullptr) {}
 
     void inc_ref() {
         ++m_ref_count;

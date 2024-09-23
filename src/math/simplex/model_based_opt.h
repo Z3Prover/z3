@@ -43,7 +43,7 @@ namespace opt {
         struct var {
             unsigned m_id { 0 };
             rational m_coeff;
-            var() {}
+            var() = default;
             var(unsigned id, rational const& c): m_id(id), m_coeff(c) {}
             struct compare {
                 bool operator()(var x, var y) {
@@ -76,11 +76,11 @@ namespace opt {
 
         // A definition is a linear term of the form (vars + coeff) / div 
         struct def {
-            def(): m_div(1) {}
+            def() = default;
             def(row const& r, unsigned x);
             vector<var> m_vars;
             rational    m_coeff;
-            rational    m_div; 
+            rational    m_div{1};
             def operator+(def const& other) const;
             def operator/(unsigned n) const { return *this / rational(n); }
             def operator/(rational const& n) const;

@@ -3806,19 +3806,10 @@ public:
      * Facility to put a small box around integer variables used in branch and bounds.
      */
 
-    struct bound_info {
-        rational m_offset;
-        unsigned m_range;
-        bound_info() {}
-        bound_info(rational const& o, unsigned r):m_offset(o), m_range(r) {}
-    };
     unsigned                  m_bounded_range_idx;  // current size of bounded range.
     literal                   m_bounded_range_lit;  // current bounded range literal
     expr_ref_vector           m_bound_terms; // predicates used for bounds
     expr_ref                  m_bound_predicate;
-    
-    obj_map<expr, expr*>      m_predicate2term;
-    obj_map<expr, bound_info> m_term2bound_info;
 
     unsigned init_range() const { return 5; }
     unsigned max_range() const { return 20; }
@@ -3828,8 +3819,6 @@ public:
         m_bounded_range_lit = null_literal;
         m_bound_terms.reset();
         m_bound_predicate = nullptr;
-        m_predicate2term.reset();
-        m_term2bound_info.reset();
     }
 
 

@@ -24,7 +24,7 @@ class factor {
     factor_type  m_type = factor_type::VAR;
     bool         m_sign = false;
 public:
-    factor() { }
+    factor() = default;
     explicit factor(lpvar v, factor_type t) : m_var(v), m_type(t) {}
     unsigned var() const { return m_var; }
     factor_type type() const { return m_type; }

@@ -393,8 +393,6 @@ namespace datalog {
 
     class skip_model_converter : public model_converter {
     public:
-        skip_model_converter() {}
- 
         model_converter * translate(ast_translation & translator) override { 
             return alloc(skip_model_converter);
         }

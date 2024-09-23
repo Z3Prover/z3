@@ -105,7 +105,7 @@ public:
     void init_row_columns(unsigned m, unsigned n);
 
         // constructor with no parameters
-    static_matrix() {}
+    static_matrix() = default;
 
     // constructor
     static_matrix(unsigned m, unsigned n): m_vector_of_row_offsets(n, -1)  {

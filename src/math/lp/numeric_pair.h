@@ -116,10 +116,7 @@ template <typename T>
 struct numeric_pair {
     T x;
     T y;
-    // empty constructor
-    numeric_pair() {}
-    // another constructor
-
+    numeric_pair() = default;
     numeric_pair(T xp, T yp) : x(xp), y(yp) {}
 
     template <typename X>

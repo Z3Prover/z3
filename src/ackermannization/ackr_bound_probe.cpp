@@ -60,8 +60,6 @@ class ackr_bound_probe : public probe {
     };
 
 public:
-    ackr_bound_probe() {}
-
     result operator()(goal const & g) override {
         proc p(g.m());
         unsigned sz = g.size();

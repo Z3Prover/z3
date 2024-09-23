@@ -35,7 +35,7 @@ private:
     mpz *      m_as;        // precise coefficients
     double *   m_approx_as; // approximated coefficients
     var *      m_xs;        // var ids
-    linear_equation() {}
+    linear_equation() = default;
 public:
     unsigned size() const { return m_size; }
     mpz const & a(unsigned idx) const { SASSERT(idx < m_size); return m_as[idx]; }

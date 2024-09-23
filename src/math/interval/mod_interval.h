@@ -26,7 +26,7 @@ namespace bv {
         bool tight = true;
         
         interval_tpl(T const& l, T const& h, unsigned sz, bool tight = false): l(l), h(h), sz(sz), tight(tight) {}
-        interval_tpl() {}
+        interval_tpl() = default;
 
         bool invariant() const {
             return 
@@ -167,7 +167,7 @@ namespace bv {
         iinterval i;
         rinterval r;
         
-        interval() {}
+        interval() = default;
            
         interval(rational const& l, rational const& h, unsigned sz, bool tight = false) {
             if (sz <= 64) {

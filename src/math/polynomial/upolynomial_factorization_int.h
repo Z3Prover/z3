@@ -64,7 +64,7 @@ namespace upolynomial {
         
     public:
 
-        factorization_degree_set() { }
+        factorization_degree_set() = default;
 
         factorization_degree_set(zp_factors const & factors)
         {

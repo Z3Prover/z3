@@ -417,7 +417,6 @@ namespace recfun {
     }
 
     namespace decl {
-        plugin::plugin() : decl_plugin(), m_defs(), m_case_defs() {}
         plugin::~plugin() { finalize(); }
 
         void plugin::finalize() {

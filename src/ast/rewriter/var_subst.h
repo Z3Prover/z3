@@ -94,7 +94,7 @@ class expr_free_vars {
     ptr_vector<sort> m_sorts;
     ptr_vector<expr> m_todo;
 public:
-    expr_free_vars() {}
+    expr_free_vars() = default;
     expr_free_vars(expr* e) { (*this)(e); }
     void reset();
     void operator()(expr* e);

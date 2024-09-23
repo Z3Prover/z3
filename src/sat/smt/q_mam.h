@@ -39,7 +39,7 @@ namespace q {
     class mam {
         friend class mam_impl;
 
-        mam() {}
+        mam() = default;
 
     public:
 

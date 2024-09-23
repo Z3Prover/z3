@@ -777,7 +777,7 @@ public:
         ptr_vector<expr> es;
         unsigned         k = 0;
         rational         weight;
-        bound_info() {}
+        bound_info() = default;
         bound_info(ptr_vector<expr> const& es, unsigned k, rational const& weight):
             es(es), k(k), weight(weight) {}
         bound_info(expr_ref_vector const& es, unsigned k, rational const& weight):

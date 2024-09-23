@@ -173,7 +173,6 @@ namespace recfun {
             void compute_scores(expr* e, obj_map<expr, unsigned>& scores);
 
         public:
-            plugin();
             ~plugin() override;
             void finalize() override;
 

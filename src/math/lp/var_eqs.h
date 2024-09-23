@@ -81,7 +81,7 @@ class var_eqs {
         
     mutable stats m_stats;
 public:    
-    var_eqs(): m_merge_handler(nullptr), m_uf(*this), m_stack() {}    
+    var_eqs(): m_merge_handler(nullptr), m_uf(*this) {}    
     /**
        \brief push a scope    */
     void push() {

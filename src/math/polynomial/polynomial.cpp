@@ -91,7 +91,7 @@ namespace polynomial {
     */
     class power : public std::pair<var, unsigned> {
     public:
-        power():std::pair<var, unsigned>() {}
+        power() = default;
         power(var v, unsigned d):std::pair<var, unsigned>(v, d) {}
         var get_var() const { return first; }
         unsigned degree() const { return second; }
@@ -1895,7 +1895,7 @@ namespace polynomial {
            Invoke add(...), addmul(...) several times, and then invoke mk() to obtain the final polynomial.
         */
         class som_buffer {
-            imp *              m_owner;
+            imp *              m_owner = nullptr;
             monomial2pos       m_m2pos;
             numeral_vector     m_tmp_as;
             monomial_vector    m_tmp_ms;
@@ -1939,8 +1939,6 @@ namespace polynomial {
             }
 
         public:
-            som_buffer():m_owner(nullptr) {}
-
             void reset() {
                 if (empty())
                     return;
@@ -2236,12 +2234,10 @@ namespace polynomial {
            In this buffer, each monomial can be added at most once.
         */
         class cheap_som_buffer {
-            imp *              m_owner;
+            imp *              m_owner = nullptr;
             numeral_vector     m_tmp_as;
             monomial_vector    m_tmp_ms;
         public:
-            cheap_som_buffer():m_owner(nullptr) {}
-
             void set_owner(imp * o) { m_owner = o; }
             bool empty() const { return m_tmp_ms.empty(); }
 
@@ -3072,11 +3068,9 @@ namespace polynomial {
         }
 
         class newton_interpolator_vector {
-            imp *                           m_imp;
+            imp *                           m_imp = nullptr;
             ptr_vector<newton_interpolator> m_data;
         public:
-            newton_interpolator_vector():m_imp(nullptr) {}
-
             ~newton_interpolator_vector() {
                 flush();
             }

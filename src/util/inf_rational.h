@@ -65,7 +65,7 @@ class inf_rational {
         return s;
     }
 
-    inf_rational() {}
+    inf_rational() = default;
 
     explicit inf_rational(int n):
         m_first(rational(n)),

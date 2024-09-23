@@ -428,19 +428,11 @@ namespace arith {
          * Facility to put a small box around integer variables used in branch and bounds.
          */
 
-        struct bound_info {
-            rational m_offset;
-            unsigned m_range;
-            bound_info() {}
-            bound_info(rational const& o, unsigned r) :m_offset(o), m_range(r) {}
-        };
         unsigned                  m_bounded_range_idx;  // current size of bounded range.
         literal                   m_bounded_range_lit;  // current bounded range literal
         expr_ref_vector           m_bound_terms; // predicates used for bounds
         expr_ref                  m_bound_predicate;
 
-        obj_map<expr, expr*>      m_predicate2term;
-        obj_map<expr, bound_info> m_term2bound_info;
         bool                      m_model_is_initialized = false;
 
         unsigned small_lemma_size() const { return get_config().m_arith_small_lemma_size; }

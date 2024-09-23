@@ -71,9 +71,6 @@ protected:
     void display_del(std::ostream& out, func_decl* f) const;
     void display_add(std::ostream& out, ast_manager& m);
 public:
-
-    model_converter() {}
-
     void set_completion(bool f) { m_completion = f; }
 
     virtual void operator()(model_ref & m) = 0;

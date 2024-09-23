@@ -674,8 +674,6 @@ namespace datalog {
 
     class karr_relation_plugin::union_fn : public relation_union_fn {
     public:
-        union_fn() {}
-
         void operator()(relation_base & _r, const relation_base & _src, relation_base * _delta) override {
 
             karr_relation& r = get(_r);

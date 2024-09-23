@@ -95,7 +95,6 @@ namespace sat {
         };
 
         struct var_info {
-            var_info() {}
             bool     m_value = false;
             double   m_reward = 0;
             double   m_last_reward = 0;

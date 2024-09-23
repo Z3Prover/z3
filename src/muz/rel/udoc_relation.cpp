@@ -491,8 +491,6 @@ namespace datalog {
     }
     class udoc_plugin::union_fn : public relation_union_fn {
     public:
-        union_fn() {}
-
         void operator()(relation_base & _r, const relation_base & _src, relation_base * _delta) override {
             TRACE("doc", _r.display(tout << "dst:\n"); _src.display(tout  << "src:\n"););
             udoc_relation& r = get(_r);
@@ -1040,8 +1038,6 @@ namespace datalog {
 
     class udoc_plugin::join_project_and_fn : public relation_join_fn {
     public:
-      join_project_and_fn() {}
-
       relation_base* operator()(relation_base const& t1, relation_base const& t2) override {
           udoc_relation *result = get(t1.clone());
           result->get_udoc().intersect(result->get_dm(), get(t2).get_udoc());

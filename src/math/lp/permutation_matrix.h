@@ -52,7 +52,7 @@ class permutation_matrix
         };
 
     public:
-        permutation_matrix() {}
+        permutation_matrix() = default;
         permutation_matrix(unsigned length);
 
         permutation_matrix(unsigned length, vector<unsigned> const & values);

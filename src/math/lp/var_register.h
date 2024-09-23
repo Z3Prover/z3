@@ -27,7 +27,7 @@ class ext_var_info {
     bool m_is_integer;
     std::string m_name;
 public:
-    ext_var_info() {}
+    ext_var_info() = default;
     ext_var_info(unsigned j): ext_var_info(j, true) {}
     ext_var_info(unsigned j , bool is_int) : m_external_j(j), m_is_integer(is_int) {}
     ext_var_info(unsigned j , bool is_int, std::string name) : m_external_j(j), m_is_integer(is_int), m_name(name) {}

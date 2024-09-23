@@ -98,9 +98,6 @@ private:
         }
     }
 public:
-
-    stacked_vector() { }
-
     ref operator[] (unsigned a) {
         return ref(*this, a);
     }

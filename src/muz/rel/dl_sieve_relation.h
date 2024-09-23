@@ -36,7 +36,7 @@ namespace datalog {
             /**
                Create uninitialized rel_spec.
             */
-            rel_spec() {} 
+            rel_spec() = default; 
             /**
                \c inner_kind==null_family_id means we will not specify a relation kind when requesting
                the relation object from the relation_manager.

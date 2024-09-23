@@ -92,7 +92,7 @@ public:
     virtual const rational& coeff() const { return rational::one(); }
 
     #ifdef Z3DEBUG
-    virtual void sort() {};
+    virtual void sort() {}
     #endif
     bool virtual is_linear() const = 0;
 };
