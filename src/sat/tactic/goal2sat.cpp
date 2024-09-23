@@ -261,16 +261,23 @@ struct goal2sat::imp : public sat::sat_internalizer {
 
     void cache(app* t, sat::literal l) override {
         force_push();
+        m_cache_trail.push_back(t);
+        // Only memoize nodes that can be revisited: a singly-referenced
+        // node appears once in the goal, so it never produces a cache hit.
+        // Skipping it keeps m_app2lit and m_lit2app in sync (both empty for
+        // such nodes) so pop()/uncache() clean up consistently.
+        if (t->get_ref_count() <= 1)
+            return;
         SASSERT(!m_app2lit.contains(t));
         SASSERT(!m_lit2app.contains(l.index()));
         m_app2lit.insert(t, l);
         m_lit2app.insert(l.index(), t);
-        m_cache_trail.push_back(t);
     }
 
     sat::literal get_cached(app* t) const override {
         sat::literal lit = sat::null_literal;
-        m_app2lit.find(t, lit);
+        if (t->get_ref_count() > 1)
+            m_app2lit.find(t, lit);
         return lit;
     }
 
@@ -279,7 +286,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         SASSERT(lit == sat::null_literal || l == lit);
         return l == lit;
     }
-    
+
     void convert_atom(expr * t, bool root, bool sign) {       
         SASSERT(m.is_bool(t));
         sat::literal  l;
@@ -346,7 +353,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
 
     bool process_cached(app* t, bool root, bool sign) {
         sat::literal l = sat::null_literal;
-        if (!m_app2lit.find(t, l))
+        if (t->get_ref_count() <= 1 || !m_app2lit.find(t, l))
             return false;
         if (sign)
             l.neg();
