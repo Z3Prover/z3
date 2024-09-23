@@ -99,7 +99,7 @@ jobs:
     - template: scripts/generate-doc.yml
 
 
-- job: "Ubuntu20OCamlStatic"
+- job: "UbuntuOCamlStatic"
   displayName: "Ubuntu with OCaml on z3-static"
   pool:
     vmImage: "Ubuntu-latest"
