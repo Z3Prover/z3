@@ -1573,7 +1573,7 @@ namespace lp {
         local_j = A_r().column_count();
         m_columns.push_back(column(false, nullptr)); // false - not associated with a row, nullptr for term
         m_trail.push(undo_add_column(*this));
-        while (m_usage_in_terms.size() <= ext_j) 
+        while (m_usage_in_terms.size() <= local_j) 
             m_usage_in_terms.push_back(0);
         add_non_basic_var_to_core_fields(ext_j, is_int);
         lp_assert(sizes_are_correct());
