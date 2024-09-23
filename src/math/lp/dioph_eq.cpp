@@ -129,7 +129,7 @@ namespace lp {
     public:
         int_solver& lia;
         lar_solver& lra;
-        // we start assigning with UINT_MAX an go down, print it as l(UINT_MAX - m_last_fresh_x_var)
+        // we start assigning with UINT_MAX and go down, print it as l(UINT_MAX - m_last_fresh_x_var)
         unsigned  m_last_fresh_x_var = UINT_MAX; 
 
         
@@ -179,7 +179,7 @@ namespace lp {
                     SASSERT(t.c().is_zero());
                     continue;
                 }
-//				eprime_pair pair = {t, lar_term(i)};
+                // eprime_pair pair = {t, lar_term(i)};
                 eprime_pair pair = {t, get_dep_from_row(row)};
                 m_f.push_back(static_cast<unsigned>(m_f.size()));                
                 m_eprime.push_back(pair);
@@ -245,7 +245,7 @@ namespace lp {
                     p.m_value /= g;
                 }
                 ep.m_e.c() = new_c;
-//                ep.m_l *= (1/g);
+                // ep.m_l *= (1/g);
                 TRACE("dioph_eq",
                       tout << "ep_m_e:"; print_term_o(ep.m_e, tout) << std::endl;
                       tout << "ep.ml:";
@@ -519,14 +519,14 @@ namespace lp {
             TRACE("dioph_eq", tout << "conflict:"; print_eprime_entry(m_conflict_index, tout) << std::endl;);
             auto & ep = m_eprime[m_conflict_index];
             u_dependency* dep = nullptr;
-			/*
-			 for (const auto & pl : ep.m_l) {
-                unsigned row_index = pl.j();
-                for (const auto & p : lra.get_row(row_index))
-                    if (lra.column_is_fixed(p.var()))
-                        lra.explain_fixed_column(p.var(), ex);
-            }
-			*/
+            /*
+              for (const auto & pl : ep.m_l) {
+              unsigned row_index = pl.j();
+              for (const auto & p : lra.get_row(row_index))
+              if (lra.column_is_fixed(p.var()))
+              lra.explain_fixed_column(p.var(), ex);
+              }
+            */
             for (auto ci: lra.flatten(ep.m_l)) {
                 ex.push_back(ci);
             }
