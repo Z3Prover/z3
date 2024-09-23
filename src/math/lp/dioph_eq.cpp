@@ -117,7 +117,9 @@ namespace lp {
         */
         struct eprime_pair {
             term_o   m_e;
-            u_dependency *m_l; // this term keeps the history of m_e : originally m_l is i, the index of row m_e was constructed from
+            // we keep the dependency of the equation in m_l
+            // a more expensive alternative is to keep the history term of m_e : originally m_l is i, the index of row m_e was constructed from
+            u_dependency *m_l;             
         };
         vector<eprime_pair> m_eprime;
         
@@ -158,6 +160,7 @@ namespace lp {
         void init() {
             unsigned n_of_rows = lra.A_r().row_count();
             unsigned fn = 0;
+            m_conflict_index = -1;
                 
             auto all_vars_are_int = [this](const auto& row) {
                 for (const auto& p : row) {
@@ -278,7 +281,11 @@ namespace lp {
             if (is_one) {
                 for (const auto& p: e.m_e) {
                     if (p.j() == k) continue;
-                    t.add_monomial(-p.coeff(), p.j());
+                    unsigned j = p.j();
+                    if (is_fresh_var(p.j())) {
+                        j = lra.add_var(p.j(), true);
+                    }
+                    t.add_monomial(-p.coeff(), j);
                     if (m_k2s.contains(p.j()))
                         q.push(p.j());
                 }
@@ -293,19 +300,21 @@ namespace lp {
                 t.c() += e.m_e.c();                    
             }                
         }
-        void process_q_with_S(std::queue<unsigned> &q, term_o& t, const lar_base_constraint& c) {
+        void process_q_with_S(std::queue<unsigned> &q, term_o& t, const lar_base_constraint& c, u_dependency* &dep) {
             while (!q.empty()) {
                 unsigned k = q.front();
-                TRACE("dioph_eq", tout << "k:" << k << std::endl;);
                 q.pop();
                 const eprime_pair& e = m_eprime[m_k2s[k]];
                 TRACE("dioph_eq", tout << "k:" << k << " in: "; print_eprime_entry(m_k2s[k], tout) << std::endl;);
                 subs_k(e, k, t, q);
+                dep = lra.mk_join(dep, e.m_l);
             }
             TRACE("dioph_eq", tout << "substituted t:"; print_term_o(t, tout) << std::endl;);
         }
 
-        void tighten_with_S(const lar_base_constraint& c) {
+        void tighten_constraint_with_S(constraint_index ci) {
+            const lar_base_constraint& c = lra.constraints()[ci];
+            u_dependency * dep = lra.dep_manager().mk_leaf(ci);
             TRACE("dioph_eq", tout << "constraint:"; lra.constraints().display(tout, c) << std::endl;);
             SASSERT(c.is_active());
             term_o t;
@@ -317,13 +326,14 @@ namespace lp {
             if (q.empty()) return;
             init_term_from_constraint(t, c);
             TRACE("dioph_eq", tout << "t:"; print_term_o(t, tout) << std::endl;);
-            process_q_with_S(q, t, c);
+            process_q_with_S(q, t, c, dep);
             TRACE("dioph_eq", tout << "tighten:"; print_term_o(t, tout) << std::endl;);
             mpq g = gcd_of_coeffs(t);
             if (g.is_one()) return;
             mpq new_c = t.c() / g;
             if (new_c.is_int()) return;
-            std::cout << "."; return;
+            TRACE("dioph_eq", tout << "tighten:"; print_term_o(t, tout) << std::endl;
+                  tout << "g:"<< g << std::endl;);
             if (c.kind() == lconstraint_kind::EQ) {
                 TRACE("dioph_eq", tout << "conflict:" <<std::endl;);
                 NOT_IMPLEMENTED_YET();
@@ -338,16 +348,27 @@ namespace lp {
                 }
                 t.c() = floor(new_c);
             }
-            TRACE("dioph_eq", tout << "tighten/g:"; print_term_o(t, tout) << std::endl;);
-            NOT_IMPLEMENTED_YET();
+
+            TRACE("dioph_eq", tout << "tighten/g:"; print_term_o(t, tout) << " " << lconstraint_kind_string(c.kind()) <<  std::endl;);
+            lp::lpvar j = lra.add_term(t.coeffs_as_vector(), UINT_MAX);
+            lra.update_column_type_and_bound(j, c.kind(), -t.c(), dep); 
         }
         
 
         lia_move tighten_with_S() {
-            for (const auto& c: lra.constraints().active()) {
-                tighten_with_S(c);
+            std::vector<constraint_index> active_constraints_idx;
+            for (constraint_index ci: lra.constraints().indices()) {
+                active_constraints_idx.push_back(ci);
             }
-            return lia_move::undef;
+                
+            for (constraint_index ci: active_constraints_idx) {
+                tighten_constraint_with_S(ci);
+            }
+            auto st = lra.find_feasible_solution();
+            if (st != lp::lp_status::FEASIBLE && st != lp::lp_status::OPTIMAL) {
+                return lia_move::conflict;
+            }
+            return lia_move::sat;
         }
 
         lia_move check() {
@@ -358,7 +379,6 @@ namespace lp {
                 rewrite_eqs();
             }
             TRACE("dioph_eq", print_S(tout););
-            return lia_move::sat;
             return tighten_with_S();            
         }
         std::list<unsigned>::iterator pick_eh() {
@@ -514,7 +534,12 @@ namespace lp {
             }
         }
 
-        void explain(lp::explanation& ex) {
+        void explain(explanation& ex) {
+            if (m_conflict_index == -1) {
+                SASSERT(!(lra.get_status() == lp_status::FEASIBLE || lra.get_status() == lp_status::OPTIMAL));
+                lra.get_infeasibility_explanation(ex);
+                return; 
+            }
             SASSERT(ex.empty());
             TRACE("dioph_eq", tout << "conflict:"; print_eprime_entry(m_conflict_index, tout) << std::endl;);
             auto & ep = m_eprime[m_conflict_index];
@@ -532,6 +557,7 @@ namespace lp {
             }
             TRACE("dioph_eq", lra.print_expl(tout, ex););
         }
+
         unsigned fresh_index(unsigned j) const {return UINT_MAX - j;}
         
         void remove_fresh_variables(term_o& t) {
