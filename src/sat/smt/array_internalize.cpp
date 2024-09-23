@@ -128,7 +128,7 @@ namespace array {
             internalize_lambda_eh(n);
             break;
         case OP_SET_SUBSET: {
-            expr* x, *y;
+            expr* x = nullptr, *y = nullptr;
             VERIFY(a.is_subset(n->get_expr(), x, y));
             expr_ref diff(a.mk_setminus(x, y), m);
             expr_ref emp(a.mk_empty_set(x->get_sort()), m);

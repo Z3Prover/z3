@@ -907,7 +907,6 @@ namespace euf {
         m_dst_r.reset();
         m_dst_r.append(monomial(dst.r).m_nodes);
         unsigned src_r_size = m_src_r.size();
-        unsigned dst_r_size = m_dst_r.size();
         SASSERT(src_r_size == monomial(src.r).size());
         // dst_r contains C
         // src_r contains E

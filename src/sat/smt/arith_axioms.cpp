@@ -325,7 +325,7 @@ namespace arith {
 
     void solver::mk_bv_axiom(app* n) {
         unsigned sz;
-        expr* _x, * _y;
+        expr* _x = nullptr, * _y = nullptr;
         VERIFY(a.is_band(n, sz, _x, _y) || a.is_shl(n, sz, _x, _y) || a.is_ashr(n, sz, _x, _y) || a.is_lshr(n, sz, _x, _y));
         rational N = rational::power_of_two(sz);
         expr_ref x(a.mk_mod(_x, a.mk_int(N)), m);

@@ -136,7 +136,7 @@ namespace euf {
         };
 
         theory_id                m_fid = 0;
-        unsigned                 m_op = null_decl_kind;
+        decl_kind                m_op = null_decl_kind;
         func_decl*               m_decl = nullptr;
         vector<eq>               m_eqs;
         ptr_vector<node>         m_nodes;

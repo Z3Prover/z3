@@ -452,7 +452,7 @@ public:
                 var = vars.back();
                 vars.pop_back();
                 mbp::project_plugin* p = get_plugin(var);
-                if (p && (*p)(model, var, vars, fmls)) {
+                if (p && p->project1(model, var, vars, fmls)) {
                     progress = true;
                 }
                 else {

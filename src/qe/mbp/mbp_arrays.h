@@ -31,7 +31,7 @@ namespace mbp {
     public:
         array_project_plugin(ast_manager& m);
         ~array_project_plugin() override;
-        bool operator()(model& model, app* var, app_ref_vector& vars, expr_ref_vector& lits) override;
+        bool project1(model& model, app* var, app_ref_vector& vars, expr_ref_vector& lits) override;
         bool solve(model& model, app_ref_vector& vars, expr_ref_vector& lits) override;
         void operator()(model& model, app_ref_vector& vars, expr_ref& fml, app_ref_vector& aux_vars, bool reduce_all_selects);
         family_id get_family_id() override;

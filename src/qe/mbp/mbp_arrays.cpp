@@ -1444,7 +1444,7 @@ namespace mbp {
         dealloc(m_imp);
     }
 
-    bool array_project_plugin::operator()(model& model, app* var, app_ref_vector& vars, expr_ref_vector& lits) {
+    bool array_project_plugin::project1(model& model, app* var, app_ref_vector& vars, expr_ref_vector& lits) {
         ast_manager& m = vars.get_manager();
         app_ref_vector vvars(m, 1, &var);
         expr_ref fml = mk_and(lits);

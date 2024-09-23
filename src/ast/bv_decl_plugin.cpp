@@ -927,7 +927,7 @@ sort * bv_util::mk_sort(unsigned bv_size) {
 }
 
 unsigned bv_util::get_int2bv_size(parameter const& p) {
-    int sz;
+    int sz = 0;
     VERIFY(m_plugin->get_int2bv_size(1, &p, sz));
     return static_cast<unsigned>(sz);
 }

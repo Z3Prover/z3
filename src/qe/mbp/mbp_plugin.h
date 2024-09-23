@@ -60,7 +60,7 @@ namespace mbp {
     public:
         project_plugin(ast_manager& m) :m(m), m_cache(m), m_args(m), m_pure_eqs(m) {}
         virtual ~project_plugin() = default;
-        virtual bool operator()(model& model, app* var, app_ref_vector& vars, expr_ref_vector& lits) { return false; }
+        virtual bool project1(model& model, app* var, app_ref_vector& vars, expr_ref_vector& lits) { return false; }
         /**
            \brief partial solver.
         */

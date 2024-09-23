@@ -40,7 +40,7 @@ namespace mbp {
             return lift_foreign(vars, lits);
         }
 
-        bool operator()(model& model, app* var, app_ref_vector& vars, expr_ref_vector& lits) {
+        bool project1(model& model, app* var, app_ref_vector& vars, expr_ref_vector& lits) {
             expr_ref val = model(var);
             SASSERT(is_app(val));
             TRACE("qe", tout << mk_pp(var, m) << " := " << val << "\n";);
@@ -292,8 +292,8 @@ namespace mbp {
         dealloc(m_imp);
     }
     
-    bool datatype_project_plugin::operator()(model& model, app* var, app_ref_vector& vars, expr_ref_vector& lits) {
-        return (*m_imp)(model, var, vars, lits);
+    bool datatype_project_plugin::project1(model& model, app* var, app_ref_vector& vars, expr_ref_vector& lits) {
+        return m_imp->project1(model, var, vars, lits);
     }
 
     bool datatype_project_plugin::solve(model& model, app_ref_vector& vars, expr_ref_vector& lits) {

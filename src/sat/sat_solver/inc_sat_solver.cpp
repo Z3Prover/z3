@@ -193,8 +193,6 @@ public:
         m_solver.pop_to_base_level();
         m_core.reset();
 
-
-
         if (m_solver.inconsistent()) return l_false;
         expr_ref_vector _assumptions(m);
         obj_map<expr, expr*> asm2fml;
