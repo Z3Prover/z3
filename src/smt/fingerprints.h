@@ -32,7 +32,7 @@ namespace smt {
         enode**       m_args = nullptr;
 
         friend class fingerprint_set;
-        fingerprint() {}
+        fingerprint() = default;
     public:
         fingerprint(region & r, void * d, unsigned d_hash, expr* def, unsigned n, enode * const * args);
         void * get_data() const { return m_data; }

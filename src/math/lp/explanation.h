@@ -29,7 +29,7 @@ class explanation {
     vector<std::pair<constraint_index, mpq>> m_vector;
     ci_set  m_set;   
 public:
-    explanation() {}
+    explanation() = default;
     
     template <typename T>
     explanation(const T& t) {

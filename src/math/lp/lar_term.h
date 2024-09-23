@@ -70,7 +70,7 @@ public:
         }
     }
     // constructors
-    lar_term() {}
+    lar_term() = default;
     lar_term(const vector<std::pair<mpq, unsigned>>& coeffs) {
         for (auto const& p : coeffs) {
             add_monomial(p.first, p.second);

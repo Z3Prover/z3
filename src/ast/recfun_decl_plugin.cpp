@@ -170,8 +170,6 @@ namespace recfun {
         vector<branch>      m_branches;
 
     public:
-        case_state() : m_reg(), m_branches() {}
-        
         bool empty() const { return m_branches.empty(); }
 
         branch pop_branch() {

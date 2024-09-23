@@ -48,7 +48,7 @@ public:
         friend class grobner;
         friend struct monomial_lt;
 
-        monomial() {}
+        monomial() = default;
     public:
         rational const & get_coeff() const { return m_coeff; }
         unsigned get_degree() const { return m_vars.size(); }
@@ -63,7 +63,7 @@ public:
         ptr_vector<monomial> m_monomials;     //!< sorted monomials
         v_dependency *         m_dep;           //!< justification for the equality
         friend class grobner;
-        equation() {}
+        equation() = default;
     public:
         unsigned get_num_monomials() const { return m_monomials.size(); }
         monomial const * get_monomial(unsigned idx) const { return m_monomials[idx]; }

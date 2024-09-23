@@ -23,12 +23,12 @@ Revision History:
 
 class mpq {
     mpz m_num;
-    mpz m_den;
+    mpz m_den = 1;
     friend class mpq_manager<true>;
     friend class mpq_manager<false>;
 public:
-    mpq(int v):m_num(v), m_den(1) {}
-    mpq():m_den(1) {}
+    mpq(int v) : m_num(v) {}
+    mpq() = default;
     mpq(mpq &&) noexcept = default;
     mpq & operator=(mpq&&) = default;
     mpq & operator=(mpq const&) = delete;

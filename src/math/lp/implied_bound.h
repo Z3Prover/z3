@@ -44,7 +44,7 @@ class implied_bound {
             k = static_cast<lconstraint_kind>(k / 2);
         return k;
     }
-    implied_bound(){}
+    implied_bound() = default;
     implied_bound(const mpq & a,
                   unsigned j,
                   bool is_lower_bound,

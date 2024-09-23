@@ -180,7 +180,7 @@ public:
         m_column_permutation.transpose_from_left(j, k);
     }
     
-    general_matrix(){}
+    general_matrix() = default;
     general_matrix(unsigned n) :
         m_row_permutation(n),
         m_column_permutation(n),

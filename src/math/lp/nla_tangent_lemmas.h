@@ -17,7 +17,7 @@ struct point {
     rational x;
     rational y;
     point(const rational& a, const rational& b): x(a), y(b) {}
-    point() {}
+    point() = default;
     inline point& operator*=(rational a) {
         x *= a;
         y *= a;

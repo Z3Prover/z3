@@ -76,7 +76,7 @@ public:
 
     }
 
-    indexed_vector() {}
+    indexed_vector() = default;
 
     void resize(unsigned data_size);
     unsigned data_size() const {

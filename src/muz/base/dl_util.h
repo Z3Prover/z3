@@ -347,7 +347,6 @@ namespace datalog {
 
     class rule_counter : public var_counter {        
     public:
-        rule_counter(){}
         void count_rule_vars(const rule * r, int coef = 1);
         unsigned get_max_rule_var(const rule& r);
     };
