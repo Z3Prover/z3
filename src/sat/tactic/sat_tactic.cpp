@@ -43,7 +43,8 @@ class sat_tactic : public tactic {
         }
 
         void initialize_values(goal_ref const& g, atom2bool_var& map) {
-            g->mc()->convert_initialize_value(m_var2value);
+            if (g->mc())
+                g->mc()->convert_initialize_value(m_var2value);
             for (auto & [var, value] : m_var2value) {
                 if (!m.is_bool(var))
                     continue;
