@@ -163,7 +163,7 @@ See [``examples/ml``](examples/ml) for examples.
 
 ### ``Python``
 
-You can install the Python wrapper for Z3 for the latest release from pypi using the command
+You can install the Python wrapper for Z3 for the latest release from pypi using the command:
 
 ```bash
    pip install z3-solver
@@ -206,7 +206,7 @@ See [``examples/python``](examples/python) for examples.
 
 ### ``Julia``
 
-The Julia package [Z3.jl](https://github.com/ahumenberger/Z3.jl) wraps the C++ API of Z3. Information about updating and building the Julia bindings can be found in [src/api/julia](src/api/julia).
+The Julia package [Z3.jl](https://github.com/ahumenberger/Z3.jl) wraps the C API of Z3. A previous version of it wrapped the C++ API: Information about updating and building the Julia bindings can be found in [src/api/julia](src/api/julia).
 
 ### ``Web Assembly`` / ``TypeScript`` / ``JavaScript``
 
