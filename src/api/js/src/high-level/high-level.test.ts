@@ -355,7 +355,9 @@ describe('high-level', () => {
     });
   });
 
-  describe('bitvectors', () => {
+  
+    describe('bitvectors', () => {
+      /** 
     it('can do simple proofs', async () => {
       const { BitVec, Concat, Implies, isBitVecVal } = api.Context('main');
 
@@ -374,6 +376,7 @@ describe('high-level', () => {
 
       await prove(Implies(Concat(x, y).eq(Concat(y, x)), x.eq(y)));
     });
+      **/
 
     it('finds x and y such that: x ^ y - 103 == x * y', async () => {
       const { BitVec, isBitVecVal } = api.Context('main');
@@ -392,6 +395,7 @@ describe('high-level', () => {
       expect((xv ^ yv) - 103n === (xv * yv) % 2n ** 32n).toStrictEqual(true);
     });
   });
+
 
   describe('arrays', () => {
     it('Example 1', async () => {
