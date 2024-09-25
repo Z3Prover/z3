@@ -48,7 +48,7 @@ jobs:
           source $(dirname $(which emsdk))/emsdk_env.sh
           which node
           which clang++
-          npm run build:wasm -- -sINITIAL_MEMORY=128MB -sALLOW_MEMORY_GROWTH
+          npm run build:wasm
 
       - name: Test
         run: npm test
