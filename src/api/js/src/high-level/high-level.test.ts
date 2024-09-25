@@ -4,6 +4,12 @@ import { init, killThreads } from '../jest';
 import { Arith, Bool, Model, Quantifier, Z3AssertionError, Z3HighLevel, AstVector } from './types';
 import { expectType } from 'ts-expect';
 
+// this should not be necessary but there may be a Jest bug
+// https://github.com/jestjs/jest/issues/7874
+afterEach(() => {
+  global.gc && global.gc();
+});
+
 /**
  * Generate all possible solutions from given assumptions.
  *
@@ -356,8 +362,7 @@ describe('high-level', () => {
   });
 
   
-    describe('bitvectors', () => {
-      /** 
+  describe('bitvectors', () => {
     it('can do simple proofs', async () => {
       const { BitVec, Concat, Implies, isBitVecVal } = api.Context('main');
 
@@ -376,7 +381,6 @@ describe('high-level', () => {
 
       await prove(Implies(Concat(x, y).eq(Concat(y, x)), x.eq(y)));
     });
-      **/
 
     it('finds x and y such that: x ^ y - 103 == x * y', async () => {
       const { BitVec, isBitVecVal } = api.Context('main');
