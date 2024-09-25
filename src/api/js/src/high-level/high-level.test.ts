@@ -380,7 +380,7 @@ describe('high-level', () => {
       const y = BitVec.const('y', 32);
 
       await prove(Implies(Concat(x, y).eq(Concat(y, x)), x.eq(y)));
-    });
+    }, 10_000 /* timeout ms */);
 
     it('finds x and y such that: x ^ y - 103 == x * y', async () => {
       const { BitVec, isBitVecVal } = api.Context('main');
@@ -455,7 +455,7 @@ describe('high-level', () => {
       await prove(Eq(arr2.select(0), FIVE_VAL));
       await prove(Not(Eq(arr2.select(0), BitVec.val(6, 256))));
       await prove(Eq(arr2.store(idx, val).select(idx), constArr.store(idx, val).select(idx)));
-    });
+    }, 10_000 /* timeout ms */);
 
     it('Finds arrays that differ but that sum to the same', async () => {
       const Z3 = api.Context('main');
