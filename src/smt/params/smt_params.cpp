@@ -331,7 +331,7 @@ void smt_params::setup_QF_BV() {
 }
 
 void smt_params::setup_QF_AUFBV() {
-    m_array_mode          = AR_SIMPLE;
+    m_array_mode          = AR_FULL;
     m_relevancy_lvl       = 0;
     m_bv_cc               = false;
     m_bb_ext_gates        = true;
