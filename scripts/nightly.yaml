@@ -10,7 +10,7 @@ stages:
 - stage: Build
   jobs:
   - job: MacBuild
-    displayName: "macOS Build"
+    displayName: "Mac Build"
     pool:
       vmImage: "macOS-latest"
     steps:
@@ -35,7 +35,7 @@ stages:
         targetFolder: $(Build.ArtifactStagingDirectory)
     - task: PublishPipelineArtifact@0
       inputs:
-        artifactName: 'macOSBuild'
+        artifactName: 'macOsBuild'
         targetPath: $(Build.ArtifactStagingDirectory)
 
   - job: MacBuildArm64
@@ -227,7 +227,7 @@ stages:
         artifact: 'WindowsBuild-x64'
         path: $(Agent.TempDirectory)\package
     - task: DownloadPipelineArtifact@2
-      displayName: 'Download Ubuntu 20.04 Build'
+      displayName: 'Download Ubuntu Build'
       inputs:
         artifact: 'UbuntuBuild'
         path: $(Agent.TempDirectory)\package
@@ -449,29 +449,35 @@ stages:
     pool:
       vmImage: "ubuntu-latest"
     steps:
-    - task: DownloadPipelineArtifact@2
-      inputs:
-        artifactName: 'WindowsBuild-x86'
-        targetPath: $(Agent.TempDirectory)
-    - task: DownloadPipelineArtifact@2
-      inputs:
-        artifactName: 'WindowsBuild-x64'
-        targetPath: $(Agent.TempDirectory)
-    - task: DownloadPipelineArtifact@2
-      inputs:
-        artifactName: 'ManyLinuxPythonBuildAMD64'
-        targetPath: $(Agent.TempDirectory)
-    - task: DownloadPipelineArtifact@2
-      inputs:
-        artifactName: 'ManyLinuxPythonBuildArm64'
-        targetPath: $(Agent.TempDirectory)
-    - task: DownloadPipelineArtifact@2
+     - task: DownloadPipelineArtifact@2
+      displayName: 'Download macOS Build'
       inputs:
         artifactName: 'macOsBuild'
         targetPath: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
+      displayName: 'Download macOS Arm64 Build'
       inputs:
         artifactName: 'MacArm64'
+        targetPath: $(Agent.TempDirectory)
+    - task: DownloadPipelineArtifact@2
+      displayName: 'Download Win64 Build'    
+      inputs:
+        artifactName: 'WindowsBuild-x64'
+        targetPath: $(Agent.TempDirectory)
+    - task: DownloadPipelineArtifact@2
+      displayName: 'Download Win32 Build'
+      inputs:
+        artifactName: 'WindowsBuild-x86'
+        targetPath: $(Agent.TempDirectory)	
+    - task: DownloadPipelineArtifact@2
+      displayName: 'Download ManyLinux Build'    
+      inputs:
+        artifactName: 'ManyLinuxPythonBuildAMD64'
+        targetPath: $(Agent.TempDirectory)
+    - task: DownloadPipelineArtifact@2
+      displayName: 'Download ManyLinux Arm64 Build'
+      inputs:
+        artifactName: 'ManyLinuxPythonBuildArm64'
         targetPath: $(Agent.TempDirectory)
     - script: cd $(Agent.TempDirectory); mkdir osx-x64-bin; cd osx-x64-bin; unzip ../*x64-osx*.zip
     - script: cd $(Agent.TempDirectory); mkdir osx-arm64-bin; cd osx-arm64-bin; unzip ../*arm64-osx*.zip
