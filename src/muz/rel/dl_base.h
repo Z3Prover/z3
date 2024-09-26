@@ -93,7 +93,7 @@ namespace datalog {
         */
         class signature_base : public signature_base_base {
         public:
-            bool operator==(const signature & o) const {
+            bool operator==(const signature_base & o) const {
                 unsigned n=signature_base_base::size();
                 if (n!=o.size()) {
                     return false;
