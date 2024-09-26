@@ -58,7 +58,7 @@ parameter::parameter(parameter const& other) : m_val(other.m_val) {
 }
 
 void parameter::init_eh(ast_manager & m) {
-    if (is_ast()) { x
+    if (is_ast()) { 
         m.inc_ref(get_ast());
     }
 }
