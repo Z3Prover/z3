@@ -95,6 +95,32 @@ tactic * mk_skip_tactic() {
     return alloc(skip_tactic);
 }
 
+class lazy_tactic : public tactic {
+    ast_manager& m;
+    params_ref p;
+    std::function<tactic* (ast_manager& m, params_ref const& p)> m_mk_tactic;
+    tactic* m_tactic = nullptr;
+    void ensure_tactic() { if (!m_tactic) m_tactic = m_mk_tactic(m, p); }
+public:
+    lazy_tactic(ast_manager& m, params_ref const& p, std::function<tactic* (ast_manager&, params_ref const&)> mk_tactic) : m(m), p(p), m_mk_tactic(mk_tactic) {}
+    ~lazy_tactic() override { dealloc(m_tactic); }
+    void operator()(goal_ref const& in, goal_ref_buffer& result) override {
+        ensure_tactic();
+        (*m_tactic)(in, result);
+    }
+    void cleanup() override { if (m_tactic) m_tactic->cleanup(); }
+    char const* name() const override { return "lazy tactic"; }
+    void collect_statistics(statistics& st) const override { if (m_tactic) m_tactic->collect_statistics(st); }
+    void user_propagate_initialize_value(expr* var, expr* value) override { if (m_tactic) m_tactic->user_propagate_initialize_value(var, value); }
+    tactic* translate(ast_manager& m) override { ensure_tactic(); return m_tactic->translate(m); }
+    void reset() override { if (m_tactic) m_tactic->reset(); }
+};
+
+
+tactic* mk_lazy_tactic(ast_manager& m, params_ref const& p, std::function<tactic*(ast_manager& m, params_ref const& p)> mkt) {
+    return alloc(lazy_tactic, m, p, mkt);
+}
+
 class fail_tactic : public tactic {
 public:
     void operator()(goal_ref const & in, goal_ref_buffer & result) override {

@@ -135,6 +135,7 @@ public:
 tactic * mk_skip_tactic();
 tactic * mk_fail_tactic();
 tactic * mk_fail_if_undecided_tactic();
+tactic*  mk_lazy_tactic(ast_manager& m, params_ref const& p, std::function<tactic*(ast_manager& m, params_ref const& p)>);
 
 /*
   ADD_TACTIC("skip", "do nothing tactic.", "mk_skip_tactic()")

@@ -98,6 +98,7 @@ void simplify_tactic::operator()(goal_ref const & in,
         (*m_imp)(*(in.get()));
         in->inc_depth();
         result.push_back(in.get());
+        m_clean = false;
     }
     catch (rewriter_exception & ex) {
         throw tactic_exception(ex.msg());
@@ -106,10 +107,13 @@ void simplify_tactic::operator()(goal_ref const & in,
 
 
 void simplify_tactic::cleanup() {
+    if (m_clean)
+        return;
     ast_manager & m = m_imp->m();
     params_ref p = std::move(m_params);
     m_imp->~imp();
     new (m_imp) imp(m, p);
+    m_clean = true;
 }
 
 void simplify_tactic::collect_statistics(statistics& st) const {

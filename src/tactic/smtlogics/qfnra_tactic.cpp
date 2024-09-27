@@ -89,7 +89,7 @@ tactic * mk_qfnra_very_small_solver(ast_manager& m, params_ref const& p) {
         p_i.set_bool("shuffle_vars", true);
         // if ((i & 1) == 0)
         //     p_i.set_bool("randomize", false);
-        ts.push_back(try_for(mk_qfnra_nlsat_tactic(m, p_i), 3 * 1000));
+        ts.push_back(mk_lazy_tactic(m, p_i, [&](ast_manager& m, params_ref const& p) { return try_for(mk_qfnra_nlsat_tactic(m, p_i), 3 * 1000); }));
     }
     {
         ts.push_back(mk_qfnra_nlsat_tactic(m, p));
@@ -147,7 +147,7 @@ tactic * mk_qfnra_small_solver(ast_manager& m, params_ref const& p) {
         p_i.set_bool("shuffle_vars", true);
         // if ((i & 1) == 0)
         //     p_i.set_bool("randomize", false);
-        ts.push_back(try_for(mk_qfnra_nlsat_tactic(m, p_i), 5 * 1000));
+        ts.push_back(mk_lazy_tactic(m, p_i, [&](ast_manager& m, params_ref const& p) { return try_for(mk_qfnra_nlsat_tactic(m, p_i), 5 * 1000); }));
     }
     {
         ts.push_back(mk_qfnra_nlsat_tactic(m, p));
@@ -308,15 +308,20 @@ const double SMALL_THRESHOLD = 80.0;
 const double MIDDLE_THRESHOLD = 300.0;
 const double LARGE_THRESHOLD = 600.0;
 tactic * mk_qfnra_mixed_solver(ast_manager& m, params_ref const& p) {
+    auto very_small_t = mk_lazy_tactic(m, p, [&](ast_manager& m, params_ref const& p) {return mk_qfnra_very_small_solver(m, p); });
+    auto small_t = mk_lazy_tactic(m, p, [&](ast_manager& m, params_ref const& p) {return mk_qfnra_small_solver(m, p); });
+    auto middle_t = mk_lazy_tactic(m, p, [&](ast_manager& m, params_ref const& p) {return mk_qfnra_middle_solver(m, p); });
+    auto large_t = mk_lazy_tactic(m, p, [&](ast_manager& m, params_ref const& p) {return mk_qfnra_large_solver(m, p); });
+    auto very_large_t = mk_lazy_tactic(m, p, [&](ast_manager& m, params_ref const& p) {return mk_qfnra_very_large_solver(m, p); });
     return cond(mk_lt(mk_memory_probe(), mk_const_probe(VERY_SMALL_THRESHOLD)), 
-                mk_qfnra_very_small_solver(m, p),
+        very_small_t,
                 cond(mk_lt(mk_memory_probe(), mk_const_probe(SMALL_THRESHOLD)), 
-                     mk_qfnra_small_solver(m, p),
+                    small_t,
                      cond(mk_lt(mk_memory_probe(), mk_const_probe(MIDDLE_THRESHOLD)),
-                          mk_qfnra_middle_solver(m, p),
+                         middle_t,
                           cond(mk_lt(mk_memory_probe(), mk_const_probe(LARGE_THRESHOLD)),
-                               mk_qfnra_large_solver(m, p),
-                               mk_qfnra_very_large_solver(m, p)
+                             large_t,
+                             very_large_t
                         )
                     )
                 )
