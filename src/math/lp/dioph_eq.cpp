@@ -7,7 +7,7 @@
 
 namespace lp {
     // This class represents a term with an added constant number c, in form sum {x_i*a_i} + c.
-    int global_max_change = 100000;       // 9 , 10
+//    int global_max_change_ = 100000;       // 9 , 10
     class dioph_eq::imp {
         class term_o:public lar_term {
             mpq m_c;
@@ -339,7 +339,7 @@ namespace lp {
             }
             if (!change)
                 return lia_move::undef;
-            std::cout << "change " << change << std::endl;
+//            std::cout << "change " << change << std::endl;
             auto st = lra.find_feasible_solution();
             if (st != lp::lp_status::FEASIBLE && st != lp::lp_status::OPTIMAL) {
                 lra.get_infeasibility_explanation(m_infeas_explanation);
@@ -384,9 +384,9 @@ namespace lp {
             bool is_strict;
             bool change = false;
             u_dependency *b_dep = nullptr;
-            if (global_max_change <= 0) {
-                return change;
-            }
+            // if (global_max_change <= 0) {
+            //     return change;
+            // }
             
             if (lra.has_upper_bound(j, b_dep, rs, is_strict)) {
                 TRACE("dioph_eq", tout << "tighten upper bound for x" << j << " with rs:" << rs << std::endl;);
@@ -397,12 +397,12 @@ namespace lp {
                 if (!rs.is_int() || !t.c().is_zero()) {
                     tighten_bound_for_term(t, g, j, lra.mk_join(dep, b_dep), rs, true);
                     change = true;
-                    global_max_change--;
+                    //global_max_change--;
                 }
             }
-            if (global_max_change <= 0) {
-                return change;
-            }
+            // if (global_max_change <= 0) {
+            //     return change;
+            // }
                 
             if (lra.has_lower_bound(j, b_dep, rs, is_strict)) {
                 TRACE("dioph_eq", tout << "tighten lower bound for x" << j << " with rs:" << rs << std::endl;);
@@ -413,7 +413,7 @@ namespace lp {
                 if (!rs.is_int()|| !t.c().is_zero()) {
                     tighten_bound_for_term(t, g, j, lra.mk_join(b_dep, dep), rs, false);
                     change = true;
-                    global_max_change--;
+                    //global_max_change--;
                 }
             }
             return change;
