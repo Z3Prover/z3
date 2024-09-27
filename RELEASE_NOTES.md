@@ -10,6 +10,10 @@ Version 4.next
     - native word level bit-vector solving.
   - introduction of simple induction lemmas to handle a limited repertoire of induction proofs.
 
+Version 4.13.2
+==============
+- Performance regression fix. #7404
+
 Version 4.13.1
 ==============
 - single-sample cell projection in nlsat was designed by Haokun Li and Bican Xia. 
