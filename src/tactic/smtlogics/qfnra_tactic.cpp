@@ -89,7 +89,7 @@ tactic * mk_qfnra_very_small_solver(ast_manager& m, params_ref const& p) {
         p_i.set_bool("shuffle_vars", true);
         // if ((i & 1) == 0)
         //     p_i.set_bool("randomize", false);
-        ts.push_back(mk_lazy_tactic(m, p_i, [&](ast_manager& m, params_ref const& p) { return try_for(mk_qfnra_nlsat_tactic(m, p_i), 3 * 1000); }));
+        ts.push_back(mk_lazy_tactic(m, p_i, [&](ast_manager& m, params_ref const& p) { return try_for(mk_qfnra_nlsat_tactic(m, p), 3 * 1000); }));
     }
     {
         ts.push_back(mk_qfnra_nlsat_tactic(m, p));
@@ -147,7 +147,7 @@ tactic * mk_qfnra_small_solver(ast_manager& m, params_ref const& p) {
         p_i.set_bool("shuffle_vars", true);
         // if ((i & 1) == 0)
         //     p_i.set_bool("randomize", false);
-        ts.push_back(mk_lazy_tactic(m, p_i, [&](ast_manager& m, params_ref const& p) { return try_for(mk_qfnra_nlsat_tactic(m, p_i), 5 * 1000); }));
+        ts.push_back(mk_lazy_tactic(m, p_i, [&](ast_manager& m, params_ref const& p) { return try_for(mk_qfnra_nlsat_tactic(m, p), 5 * 1000); }));
     }
     {
         ts.push_back(mk_qfnra_nlsat_tactic(m, p));

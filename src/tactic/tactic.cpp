@@ -114,6 +114,11 @@ public:
     void user_propagate_initialize_value(expr* var, expr* value) override { if (m_tactic) m_tactic->user_propagate_initialize_value(var, value); }
     tactic* translate(ast_manager& m) override { ensure_tactic(); return m_tactic->translate(m); }
     void reset() override { if (m_tactic) m_tactic->reset(); }
+    void reset_statistics() override { if (m_tactic) m_tactic->reset_statistics(); }
+    void register_on_clause(void* ctx, user_propagator::on_clause_eh_t& on_clause) override {
+        ensure_tactic();
+        m_tactic->register_on_clause(ctx, on_clause);
+    }
 };
 
 
