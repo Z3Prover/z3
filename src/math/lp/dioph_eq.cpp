@@ -141,7 +141,7 @@ namespace lp {
         std::list<unsigned> m_f;  // F = {λ(t):t in m_f}
         // set S
         std::list<unsigned> m_s;     // S = {λ(t): t in m_s}
-        u_map<unsigned> m_k2s; // k is substituted by using equation in m_eprime[m_k2s[k]]
+        vector<unsigned> m_k2s; // k is substituted by using equation in m_eprime[m_k2s[k]]
 
         unsigned            m_conflict_index = -1;  // m_eprime[m_conflict_index] gives the conflict
 
@@ -161,6 +161,8 @@ namespace lp {
 
         void init() {
             unsigned n_of_rows = lra.A_r().row_count();
+            m_k2s.clear();
+            m_k2s.resize(lra.column_count(), -1);
             m_conflict_index = -1;
             m_infeas_explanation.clear();
 
@@ -292,12 +294,13 @@ namespace lp {
                 unsigned j = p.j();
                 if (is_fresh_var(j)) {
                     j = lra.add_var(p.j(), true);
+                    m_k2s.push_back(null_lpvar);
                 }
                 t.add_monomial(coeff*p.coeff(), j);
             }
             t.c() += coeff*e.m_e.c();
             for (const auto& p: t) {
-                if (m_k2s.contains(p.j()))
+                if (m_k2s[p.j()] != null_lpvar)
                     q.push(p.j());
             }
 
@@ -354,7 +357,7 @@ namespace lp {
             term_o t;
             std::queue<unsigned> q;
             for (const auto& p: lar_t) {
-                if (m_k2s.contains(p.j()))
+                if (m_k2s[p.j()] != null_lpvar)
                     q.push(p.j());
                 t.add_monomial(p.coeff(), p.j());
             }
@@ -609,7 +612,8 @@ namespace lp {
         // k is the index of the index of the variable with the coefficient +-1 that is being substituted
         void move_from_f_to_s(unsigned k, std::list<unsigned>::iterator it) {
             m_s.push_back(*it);
-            m_k2s.insert(k, *it);
+            if (!is_fresh_var(k))
+                m_k2s[k] = *it; 
             m_f.erase(it);
         }
 
@@ -632,7 +636,7 @@ namespace lp {
         }
 
         void explain(explanation& ex) {
-            if (m_conflict_index == static_cast<unsigned>(-1)) {
+            if (m_conflict_index == UINT_MAX) {
                 SASSERT(!(lra.get_status() == lp_status::FEASIBLE || lra.get_status() == lp_status::OPTIMAL));
                 for (auto ci: m_infeas_explanation) {
                     ex.push_back(ci.ci());
