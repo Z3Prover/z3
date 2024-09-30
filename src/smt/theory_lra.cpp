@@ -1572,7 +1572,7 @@ public:
     }
 
     final_check_status eval_power(expr* e) {
-        expr* x, * y;
+        expr* x = nullptr, * y = nullptr;
         rational r;
         VERIFY(a.is_power(e, x, y));
         if (a.is_numeral(x, r) && r == 0 && a.is_numeral(y, r) && r == 0)

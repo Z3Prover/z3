@@ -158,7 +158,7 @@ void anti_unifier::operator()(expr *e1, expr *e2, expr_ref &res,
         m_todo.pop_back();
     }
 
-    expr *r;
+    expr *r = nullptr;
     VERIFY(m_cache.find(e1, e2, r));
     res = r;
 

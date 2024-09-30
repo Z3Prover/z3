@@ -207,7 +207,7 @@ namespace arith {
 
     bool solver::check_bv_term(app* n) {
         unsigned sz;
-        expr* _x, * _y;
+        expr* _x = nullptr, * _y = nullptr;
         if (!ctx.is_relevant(expr2enode(n)))
             return true;
         expr_ref vx(m), vy(m),vn(m);
