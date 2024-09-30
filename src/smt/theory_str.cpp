@@ -4089,6 +4089,7 @@ namespace smt {
             expr_ref_vector arrangement_disjunction(mgr);
 
             int pos = 1;
+            (void)pos;
             for (unsigned int i = 0; i <= strValue.length(); i++) {
                 zstring part1Str = strValue.extract(0, i);
                 zstring part2Str = strValue.extract(i, strValue.length() - i);
@@ -4522,6 +4523,7 @@ namespace smt {
 
         expr_ref_vector arrangement_disjunction(mgr);
         int pos = 1;
+        (void)pos;
 
         if (!avoidLoopCut || !has_self_cut(m, y)) {
             expr_ref_vector and_item(mgr);

@@ -228,20 +228,20 @@ public:
 
 
 class dlexer {
-    std::istream*   m_input;
-    char_reader*    m_reader;
-    char            m_prev_char;
-    char            m_curr_char;
-    int             m_line;
-    int             m_pos;
-    int             m_tok_pos;
+    std::istream*   m_input = nullptr;
+    char_reader*    m_reader = nullptr;
+    int             m_prev_char = 0;
+    int             m_curr_char = 0;
+    int             m_line = 1;
+    int             m_pos = 0;
+    int             m_tok_pos = 0;
     string_buffer<> m_buffer;
     reserved_symbols m_reserved_symbols;
 
 public:
     //when parsing domains, we want '.' character to be allowed in IDs, but elsewhere 
     //we don't (because of the "y." in rules like "P(x,y):-x=y.")
-    bool m_parsing_domains;
+    bool m_parsing_domains = false;
 
     bool eos() const {
         return m_curr_char == EOF;
@@ -267,15 +267,7 @@ public:
         next();
     }
 
-    dlexer():
-        m_input(nullptr),
-        m_reader(nullptr),
-        m_prev_char(0),
-        m_curr_char(0),
-        m_line(1),
-        m_pos(0),
-        m_tok_pos(0),
-        m_parsing_domains(false) {
+    dlexer() {
     }
 
     void set_stream(std::istream* s, char_reader* r) { 
