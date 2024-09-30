@@ -442,7 +442,7 @@ namespace euf {
             // simplify eq using processed
             TRACE("plugin", 
                   for (auto other_eq : backward_iterator(eq_id))
-                      tout << "backward iterator " << eq_id << " vs " << other_eq << " " << is_processed(other_eq) << "\n"););
+                      tout << "backward iterator " << eq_id << " vs " << other_eq << " " << is_processed(other_eq) << "\n");
             for (auto other_eq : backward_iterator(eq_id))
                 if (is_processed(other_eq) && backward_simplify(eq_id, other_eq))
                     goto loop_start;
