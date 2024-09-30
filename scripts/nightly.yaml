@@ -449,7 +449,7 @@ stages:
     pool:
       vmImage: "ubuntu-latest"
     steps:
-     - task: DownloadPipelineArtifact@2
+    - task: DownloadPipelineArtifact@2
       displayName: 'Download macOS Build'
       inputs:
         artifactName: 'macOsBuild'
