@@ -263,6 +263,12 @@ class bdist_wheel(_bdist_wheel):
                 ("win", "x86"): "win32",
                 ("osx", "x64"): f"macosx_{os_version_tag}_x86_64",
                 ("osx", "arm64"): f"macosx_{os_version_tag}_arm64",
+                ("darwin", "x86_64"): f"macosx_{os_version_tag}_x86_64",
+                ("darwin", "x64"): f"macosx_{os_version_tag}_x86_64",
+                ("darwin", "arm64"): f"macosx_{os_version_tag}_arm64",
+                ("sequoia", "x64"): f"macosx_{os_version_tag}_x86_64",
+                ("sequoia", "x86_64"): f"macosx_{os_version_tag}_x86_64",
+                ("sequoia", "xarm64"): f"macosx_{os_version_tag}_arm64",
             }  # type: dict[tuple[str, str], str]
             self.plat_name = TAGS[(BUILD_PLATFORM, BUILD_ARCH)]
         return super().finalize_options()
