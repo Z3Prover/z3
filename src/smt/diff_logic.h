@@ -1872,13 +1872,11 @@ public:
                     // found path.
                     reset_marks();
                     m_heap.reset();              
-                    unsigned length = 0;
                     do {
                         inc_activity(m_parent[w]);
                         edge const& ee = m_edges[m_parent[w]];
                         f(ee.get_explanation());
                         w = ee.get_source();
-                        ++length;
                     }
                     while (w != src2);
                     return;

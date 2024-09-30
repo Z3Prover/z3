@@ -1554,6 +1554,7 @@ namespace smt {
             min_gain.reset();
             ++round;
 
+            (void)round;
             TRACE("opt", tout << "round: " << round << ", max: " << max << "\n"; display_row(tout, r, true); tout << "state:\n"; display(tout););
             typename vector<row_entry>::const_iterator it  = r.begin_entries();
             typename vector<row_entry>::const_iterator end = r.end_entries();
