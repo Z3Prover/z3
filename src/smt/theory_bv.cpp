@@ -1988,6 +1988,7 @@ namespace smt {
             while (curr != v);
 
             zero_one_bits const & _bits = m_zero_one_bits[v];
+            (void)num_bits;
             SASSERT(_bits.size() == num_bits);
             bool_vector already_found;
             already_found.resize(bv_sz, false);

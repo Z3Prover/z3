@@ -25,14 +25,6 @@ Notes:
 
 #include "tactic/smtlogics/qflra_tactic.h"
 
-static tactic * mk_qfnra_sat_solver(ast_manager& m, params_ref const& p, unsigned bv_size) {
-    params_ref nra2sat_p = p;
-    nra2sat_p.set_uint("nla2bv_max_bv_size", p.get_uint("nla2bv_max_bv_size", bv_size));   
-    
-    return and_then(mk_nla2bv_tactic(m, nra2sat_p),
-                    mk_smt_tactic(m),
-                    mk_fail_if_undecided_tactic());
-}
 
 tactic * mk_multilinear_ls_tactic(ast_manager & m, params_ref const & p, unsigned ls_time = 60) {
     params_ref p_mls = p;

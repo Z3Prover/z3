@@ -902,7 +902,6 @@ protected:
         unsigned arg_idx = 0;
         tok = m_lexer->next_token();
         while (tok != TK_EOS && tok != TK_ERROR) {
-            symbol alias;
             sort* s = nullptr;
 
             if(!f) {
@@ -939,7 +938,6 @@ protected:
                 }
                 s = f->get_domain(arg_idx);
 
-                symbol var_symbol;
                 tok = parse_arg(tok, s, args);
             }
 
@@ -1067,7 +1065,7 @@ protected:
 
     bool read_line(std::istream& strm, std::string& line) {
         line.clear();
-        char ch = strm.get();
+        int ch = strm.get();
         while (ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r') {
             ch = strm.get();
         }

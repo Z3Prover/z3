@@ -19,7 +19,6 @@ Description:
 namespace nla {
 
     void divisions::add_idivision(lpvar q, lpvar x, lpvar y) {
-        const auto& lra = m_core.lra;
         if (x == null_lpvar || y == null_lpvar || q == null_lpvar)
             return;
         m_idivisions.push_back({q, x, y});
@@ -27,7 +26,6 @@ namespace nla {
     }
 
     void divisions::add_rdivision(lpvar q, lpvar x, lpvar y) {
-        auto& lra = m_core.lra;
         if (x == null_lpvar || y == null_lpvar || q == null_lpvar)
             return;
         m_rdivisions.push_back({ q, x, y });

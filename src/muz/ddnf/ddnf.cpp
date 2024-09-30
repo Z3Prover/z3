@@ -678,14 +678,9 @@ namespace datalog {
         }
 
         bool compile_rules1(rule_set const& rules, rule_set& new_rules) {
-            datalog::rule_set::iterator it  = rules.begin();
-            datalog::rule_set::iterator end = rules.end();
-            unsigned idx = 0;
-            for (; it != end; ++idx, ++it) {
-                if (!compile_rule1(**it, rules, new_rules)) {
+            for (auto const & r : rules) 
+                if (!compile_rule1(*r, rules, new_rules)) 
                     return false;
-                }
-            }
             return true;            
         }
 

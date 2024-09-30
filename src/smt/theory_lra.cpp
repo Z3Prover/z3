@@ -3495,10 +3495,8 @@ public:
 
     bool validate_eq(enode* x, enode* y) {
         static bool s_validating = false;
-        static unsigned s_count = 0;
         if (s_validating)
             return true;
-        ++s_count;
         flet<bool> _svalid(s_validating, true);
         context nctx(m, ctx().get_fparams(), ctx().get_params());
         add_background(nctx);

@@ -569,6 +569,7 @@ public:
     void traverse_neg_cycle2(bool try_relax, Functor & f) {
         static unsigned num_conflicts = 0;
         ++num_conflicts;
+        (void)num_conflicts;
         SASSERT(!is_feasible(m_edges[m_last_enabled_edge]));
         vector<numeral>  potentials;
         svector<edge_id> edges;

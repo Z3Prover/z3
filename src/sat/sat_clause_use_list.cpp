@@ -25,13 +25,13 @@ namespace sat {
         unsigned sz = 0;
         for (clause* c : m_clauses) 
             if (!c->was_removed())
-                sz++;
-        SASSERT(sz == m_size);
+                sz++;        
+        VERIFY(sz == m_size);
         unsigned redundant = 0;
         for (clause* c : m_clauses) 
             if (c->is_learned())
                 redundant++;
-        SASSERT(redundant == m_num_redundant);
+        VERIFY(redundant == m_num_redundant);
 
         return true;
     }

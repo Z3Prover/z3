@@ -2127,9 +2127,9 @@ namespace smt {
               tout << "sum: " << sum << " " << maxsum << " ";
               tout << ctx.get_assignment(c.lit()) << "\n";);
 
-        SASSERT(sum <= maxsum);
-        SASSERT((sum >= c.k()) == (ctx.get_assignment(c.lit()) == l_true));
-        SASSERT((maxsum < c.k()) == (ctx.get_assignment(c.lit()) == l_false));        
+        VERIFY(sum <= maxsum);
+        VERIFY((sum >= c.k()) == (ctx.get_assignment(c.lit()) == l_true));
+        VERIFY((maxsum < c.k()) == (ctx.get_assignment(c.lit()) == l_false));        
     }
 
     void theory_pb::validate_final_check(ineq& c) {
