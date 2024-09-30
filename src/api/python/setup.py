@@ -17,7 +17,7 @@ class LibError(Exception):
 
 build_env = dict(os.environ)
 build_env['PYTHON'] = sys.executable
-build_env['CXXFLAGS'] = build_env.get('CXXFLAGS', '') + " -std=c++17"
+build_env['CXXFLAGS'] = build_env.get('CXXFLAGS', '') + " -std=c++20"
 
 # determine where we're building and where sources are
 ROOT_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -56,7 +56,7 @@ HEADERS_DIR = os.path.join(ROOT_DIR, 'z3', 'include')
 BINS_DIR = os.path.join(ROOT_DIR, 'bin')
 
 # determine platform-specific filenames
-if BUILD_PLATFORM in ('darwin', 'osx'):
+if BUILD_PLATFORM in ('sequoia','darwin', 'osx'):
     LIBRARY_FILE = "libz3.dylib"
     EXECUTABLE_FILE = "z3"
 elif BUILD_PLATFORM in ('win32', 'cygwin', 'win'):
@@ -199,7 +199,7 @@ def _copy_bins():
     link_name = None
     if BUILD_PLATFORM in ('win32', 'cygwin', 'win'):
         pass # TODO: When windows VMs work on M1, fill this in
-    elif BUILD_PLATFORM in ('darwin', 'osx'):
+    elif BUILD_PLATFORM in ('sequoia', 'darwin', 'osx'):
         split = LIBRARY_FILE.split('.')
         link_name = split[0] + '.' + major_minor + '.' + split[1]
     else:
