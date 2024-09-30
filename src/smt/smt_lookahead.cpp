@@ -79,7 +79,7 @@ namespace smt {
         compare comp(ctx);
         std::sort(vars.begin(), vars.end(), comp);
         
-        unsigned nf = 0, nc = 0, ns = 0, n = 0;
+        unsigned ns = 0, n = 0;
         for (bool_var v : vars) {
             if (!ctx.bool_var2expr(v)) 
                 continue;
@@ -98,7 +98,6 @@ namespace smt {
             if (inconsistent) {
                 ctx.assign(~lit, b_justification::mk_axiom(), false);
                 ctx.propagate();           
-                ++nf;
                 continue;
             }
 
@@ -114,7 +113,6 @@ namespace smt {
             if (inconsistent) {
                 ctx.assign(lit, b_justification::mk_axiom(), false);
                 ctx.propagate(); 
-                ++nf;
                 continue;
             }
             double score = score1 + score2 + 1024*score1*score2;
@@ -132,7 +130,6 @@ namespace smt {
                 best_v = v;
                 ns = 0;
             } 
-            ++nc;
             ++ns;
             if (ns > budget) {
                 break;

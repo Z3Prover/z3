@@ -2942,7 +2942,6 @@ namespace smt {
 
         if (!e_internalized(var))
             return;
-        enode* n = get_enode(var);
         theory* th = m_theories.get_plugin(s->get_family_id());
         if (!th) {
             IF_VERBOSE(5, verbose_stream() << "No theory is attached to variable " << mk_pp(var, m) << " := " << mk_pp(value, m) << "\n");

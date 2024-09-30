@@ -86,7 +86,6 @@ static void track_clauses(sat::solver const& src,
         dst.mk_var(false, true);
     }
     sat::literal_vector lits;
-    sat::literal lit;
     sat::clause * const * it  = src.begin_clauses();
     sat::clause * const * end = src.end_clauses();
     svector<sat::solver::bin_clause> bin_clauses;
