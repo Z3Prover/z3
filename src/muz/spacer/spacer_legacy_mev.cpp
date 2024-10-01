@@ -568,7 +568,7 @@ void model_evaluator::eval_eq(app* e, expr* arg1, expr* arg2)
 
 void model_evaluator::eval_basic(app* e)
 {
-    expr* arg1, *arg2;
+    expr* arg1 = nullptr, *arg2 = nullptr;
     expr *argCond = nullptr, *argThen = nullptr, *argElse = nullptr, *arg = nullptr;
     bool has_x = false;
     unsigned arity = e->get_num_args();

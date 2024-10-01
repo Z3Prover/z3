@@ -1089,7 +1089,7 @@ namespace smt {
 
     void theory_str::instantiate_axiom_CharAt(enode * e) {
         ast_manager & m = get_manager();
-        expr* arg0, *arg1;
+        expr* arg0 = nullptr, *arg1 = nullptr;
         app * expr = e->get_expr();
         if (axiomatized_terms.contains(expr)) {
             TRACE("str", tout << "already set up CharAt axiom for " << mk_pp(expr, m) << std::endl;);

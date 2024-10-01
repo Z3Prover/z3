@@ -179,5 +179,6 @@ void tst_dlist() {
     test_detach();
     test_invariant();
     test_contains();
+    (void)test_remove_from;
     std::cout << "All tests passed." << std::endl;
 }

@@ -906,9 +906,9 @@ namespace {
         void linearise_core() {
             m_aux.reset();
             app *         first_app = nullptr;
-            unsigned      first_app_reg;
-            unsigned      first_app_sz;
-            unsigned      first_app_num_unbound_vars;
+            unsigned      first_app_reg = 0;
+            unsigned      first_app_sz = 0;
+            unsigned      first_app_num_unbound_vars = 0;
             // generate first the non-BIND operations
             for (unsigned reg : m_todo) {
                 expr *  p    = m_registers[reg];
