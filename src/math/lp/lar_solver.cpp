@@ -1061,15 +1061,15 @@ namespace lp {
         return ret;
     }
 
-    bool lar_solver::has_lower_bound(lpvar var, u_dependency*& ci, mpq& value, bool& is_strict) const {
+    bool lar_solver::has_lower_bound(lpvar var, u_dependency*& dep, mpq& value, bool& is_strict) const {
 
         if (var >= m_columns.size()) {
             // TBD: bounds on terms could also be used, caller may have to track these.
             return false;
         }
         const column& ul = m_columns[var];
-        ci = ul.lower_bound_witness();
-        if (ci != nullptr) {
+        dep = ul.lower_bound_witness();
+        if (dep != nullptr) {
             auto& p = m_mpq_lar_core_solver.m_r_lower_bounds()[var];
             value = p.x;
             is_strict = p.y.is_pos();
