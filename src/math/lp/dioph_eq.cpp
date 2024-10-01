@@ -325,11 +325,11 @@ namespace lp {
 
 
         lia_move tighten_with_S() {
-            // following the pattern of int_cube
+             // Following the pattern of int_cube, but do not push/pop the state. Instead, we keep the new bounds.
             int change = 0;
             for (unsigned j = 0; j < lra.column_count(); j++) {
                 if (!lra.column_has_term(j) || lra.column_is_free(j) ||
-                lra.column_is_fixed(j) || !lia.column_is_int(j)) continue;
+                    lra.column_is_fixed(j) || !lia.column_is_int(j)) continue;
                 if (tighten_bounds_for_column(j)) {
                     change++;
                 }
@@ -379,7 +379,6 @@ namespace lp {
                 return false;
             } 
             
-            
             return tighten_bounds_for_term(t, g, j, dep);
         }
         void handle_constant_term(term_o& t, unsigned j, u_dependency* dep) {
@@ -397,8 +396,8 @@ namespace lp {
                     for (const auto& p: lra.flatten(b_dep)) {
                         m_infeas_explanation.push_back(p);
                     }
+                    return;
                 }
-                return;
             }
             if (lra.has_lower_bound(j, b_dep, rs, is_strict)) {
                 if (t.c() < rs || is_strict && t.c() == rs) {
@@ -516,23 +515,37 @@ namespace lp {
         }
 
         std::tuple<mpq, unsigned, int> find_minimal_abs_coeff(const term_o& eh) const {
-            bool first = true;
-            mpq ahk;
-            unsigned k;
-            int k_sign;
+            bool first = true, first_fresh = true;
+            mpq ahk, ahk_fresh;
+            unsigned k, k_fresh;
+            int k_sign, k_sign_fresh;
             mpq t;
             for (const auto& p : eh) {
                 t = abs(p.coeff());
-                if (first || t < ahk) {
+                if (first_fresh || t < ahk_fresh) {
+                    ahk_fresh = t;
+                    k_sign_fresh = p.coeff().is_pos() ? 1 : -1;
+                    k_fresh = p.j();
+                    first_fresh = false;
+                } else if (first || t < ahk) { 
                     ahk = t;
                     k_sign = p.coeff().is_pos() ? 1 : -1;
                     k = p.j();
+                    first = false;
                     if (ahk.is_one())
                         break;
-                    first = false;
+                    
                 }
             }
-            return std::make_tuple(ahk, k, k_sign);
+            if (first_fresh) // did not find any fresh variables
+                return std::make_tuple(ahk, k, k_sign);
+            if (first) // only fresh vars
+                return std::make_tuple(ahk_fresh, k_fresh, k_sign_fresh);
+            SASSERT(!first && !first_fresh);
+            if (ahk <= ahk_fresh) {
+                return std::make_tuple(ahk, k, k_sign);
+            }
+            return std::make_tuple(ahk_fresh, k_fresh, k_sign_fresh);
         }
 
         term_o get_term_to_subst(const term_o& eh, unsigned k, int k_sign) {
