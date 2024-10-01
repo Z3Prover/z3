@@ -401,9 +401,24 @@ namespace opt {
     void context::set_model(model_ref& m) { 
         m_model = m;
         opt_params optp(m_params);
-        if (optp.dump_models() && m) {
+        symbol prefix = optp.solution_prefix();
+        bool model2console = optp.dump_models();
+        bool model2file = prefix != symbol::null && prefix != symbol("");
+    
+        if ((model2console || model2file) && m) {
             model_ref md = m->copy();
             fix_model(md);
+            if (model2file) {
+                std::ostringstream buffer;
+                buffer << prefix << (m_model_counter++) << ".smt2";
+                std::ofstream out(buffer.str());        
+                if (out) {
+                    out << *md;
+                    out.close();
+                }
+            }
+            if (model2console)
+                std::cout << *md;
         }
         if (m_on_model_eh && m) {
             model_ref md = m->copy();
@@ -1168,20 +1183,6 @@ namespace opt {
     void context::model_updated(model* md) {
         model_ref mdl = md;
         set_model(mdl);
-#if 0
-        opt_params optp(m_params);
-        symbol prefix = optp.solution_prefix();
-        if (prefix == symbol::null || prefix == symbol("")) return;        
-        model_ref mdl = md->copy();
-        fix_model(mdl);
-        std::ostringstream buffer;
-        buffer << prefix << (m_model_counter++) << ".smt2";
-        std::ofstream out(buffer.str());        
-        if (out) {
-            out << *mdl;
-            out.close();
-        }
-#endif
     }
 
     rational context::adjust(unsigned id, rational const& v) {
