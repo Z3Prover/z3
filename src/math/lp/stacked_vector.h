@@ -62,7 +62,7 @@ public:
             return m_vec.m_vector[m_i] == other.m_vec.m_vector[other.m_i];
         }
         bool operator!=(ref  const& other) const {
-            return m_vec.m_vector[m_i] != other.m_vec.m_vectpr[other.m_i];
+            return m_vec.m_vector[m_i] != other.m_vec.m_vector[other.m_i];
         }
 
 
@@ -90,7 +90,7 @@ public:
             return m_vec.m_vector[m_i] == other.m_vec.m_vector[other.m_i];
         }
         bool operator!=(ref_const const& other) const {
-            return m_vec.m_vector[m_i] != other.m_vec.m_vectpr[other.m_i];
+            return m_vec.m_vector[m_i] != other.m_vec.m_vector[other.m_i];
         }
     };
 

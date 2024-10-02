@@ -1930,9 +1930,10 @@ namespace lp {
             default:
                 UNREACHABLE();
         }
-        if (m_mpq_lar_core_solver.m_r_upper_bounds[j] == m_mpq_lar_core_solver.m_r_lower_bounds[j]) {
+        numeric_pair<mpq> const& lo = m_mpq_lar_core_solver.m_r_lower_bounds[j];
+        numeric_pair<mpq> const& hi = m_mpq_lar_core_solver.m_r_upper_bounds[j];
+        if (lo == hi)
             m_mpq_lar_core_solver.m_column_types[j] = column_type::fixed;
-        }
     }
     
     void lar_solver::update_bound_with_no_ub_lb(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep) {
