@@ -127,7 +127,7 @@ namespace lp {
            of variables in X and of integer constants showing the substitutions
         */
         u_map<term_o> m_sigma;
-
+        
     public:
         int_solver& lia;
         lar_solver& lra;
@@ -135,7 +135,7 @@ namespace lp {
 
         // we start assigning with UINT_MAX and go down, print it as l(UINT_MAX - m_last_fresh_x_var)
         unsigned  m_last_fresh_x_var = UINT_MAX;
-
+        bool m_report_branch = false;
 
         // set F
         std::list<unsigned> m_f;  // F = {λ(t):t in m_f}
@@ -144,7 +144,6 @@ namespace lp {
         vector<unsigned> m_k2s; // k is substituted by using equation in m_eprime[m_k2s[k]]
 
         unsigned            m_conflict_index = -1;  // m_eprime[m_conflict_index] gives the conflict
-
         imp(int_solver& lia, lar_solver& lra): lia(lia), lra(lra) {}
 
         term_o row_to_term(const row_strip<mpq>& row) const {
@@ -160,11 +159,13 @@ namespace lp {
         }
 
         void init() {
+            m_report_branch = false;
             unsigned n_of_rows = lra.A_r().row_count();
             m_k2s.clear();
             m_k2s.resize(lra.column_count(), -1);
             m_conflict_index = -1;
             m_infeas_explanation.clear();
+            lia.get_term().clear();
 
             auto all_vars_are_int = [this](const auto& row) {
                 for (const auto& p : row) {
@@ -222,6 +223,8 @@ namespace lp {
             return lra.print_expl(out, ex);
         }
         // returns true if no conflict is found and false otherwise
+        // this function devides all cooficients, and the free constant, of the ep.m_e  by the gcd of all coefficients, 
+        // it is needed by the next steps
         bool normalize_e_by_gcd(eprime_pair& ep) {
             TRACE("dioph_eq", print_term_o(ep.m_e, tout << "m_e:") << std::endl;
                   print_dep(tout << "m_l:", ep.m_l) << std::endl;
@@ -235,7 +238,7 @@ namespace lp {
                 return true;
             TRACE("dioph_eq", tout << "g:" << g << std::endl;);
             mpq new_c = ep.m_e.c() / g;
-            if (new_c.is_int() == false) {
+            if (!new_c.is_int()) {
                 TRACE("dioph_eq",
                       print_term_o(ep.m_e, tout << "conflict m_e:") << std::endl;
                       tout << "g:" << g << std::endl;
@@ -246,6 +249,21 @@ namespace lp {
                           print_term_o(t.m_value, tout) << std::endl;
                       }
                     );
+                /* We have ep.m_e/g = 0, or sum((coff_i/g)*x_i) + new_c = 0,
+                or sum((coeff_i/g)*x_i) = -new_c, where new_c is not an integer
+                Then sum((coeff_i/g)*x_i) <= floor(-new_c) or sum((coeff_i/g)*x_i) >= ceil(-new_c)
+                */
+                if (lra.settings().stats().m_dio_conflicts % lra.settings().dio_cut_from_proof_period() == 0) {
+                    // prepare int_solver for reporting
+                    lar_term& t = lia.get_term();
+                    for (auto& p: ep.m_e) {
+                        t.add_monomial(p.coeff()/g, p.j());
+                    }
+                    lia.offset() = floor(-new_c);
+                    lia.is_upper() = true;
+                    m_report_branch = true;
+                    TRACE("dioph_eq", tout << "prepare branch:"; print_lar_term_L(t, tout) << " <= " << lia.offset() << std::endl;);
+                }
                 return false;
             } else {
                 for (auto& p: ep.m_e.coeffs()) {
@@ -467,13 +485,20 @@ namespace lp {
         lia_move check() {
             init();
             while(m_f.size()) {
-                if (!normalize_by_gcd())
+                if (!normalize_by_gcd()) {
+                    lra.settings().stats().m_dio_conflicts++;
+                    if (m_report_branch) {
+                        m_report_branch = false;
+                        return lia_move::branch;
+                    }
                     return lia_move::conflict;
+                }
                 rewrite_eqs();
             }
             TRACE("dioph_eq", print_S(tout););
             lia_move ret = tighten_with_S();
             if (ret == lia_move::conflict) {
+                lra.settings().stats().m_dio_conflicts++;
                 return lia_move::conflict;
             }
             return lia_move::undef;

@@ -128,6 +128,7 @@ struct statistics {
     unsigned m_grobner_conflicts = 0;
     unsigned m_offset_eqs = 0;
     unsigned m_fixed_eqs = 0;
+    unsigned m_dio_conflicts = 0;
     ::statistics m_st = {};
 
     void reset() {
@@ -217,7 +218,7 @@ public:
     unsigned         column_number_threshold_for_using_lu_in_lar_solver = 4000;
     unsigned         m_int_gomory_cut_period = 4;
     unsigned         m_int_find_cube_period = 4;
-    unsigned         m_dioph_eq_period = 4;
+    unsigned         m_dioph_eq_period = 1;
 private:
     unsigned         m_hnf_cut_period = 4;
     bool             m_int_run_gcd_test = true;
@@ -229,7 +230,10 @@ private:
     bool             m_enable_hnf = true;
     bool             m_print_external_var_name = false;
     bool             m_propagate_eqs = false;
-    bool             m_dioph_eq = false;
+    bool             m_dio_eqs = false;
+    bool             m_dio_cuts = false;
+    unsigned         m_dio_cut_from_proof_period = 3;
+
 public:
     bool print_external_var_name() const { return m_print_external_var_name; }
     bool propagate_eqs() const { return m_propagate_eqs;}
@@ -237,9 +241,11 @@ public:
     void set_hnf_cut_period(unsigned period) { m_hnf_cut_period = period;  }
     unsigned random_next() { return m_rand(); }
     unsigned random_next(unsigned u ) { return m_rand(u); }
-    bool dioph_eq() { return m_dioph_eq; }
+    bool dio_eqs() { return m_dio_eqs; }
+    bool dio_cuts() { return m_dio_eqs && m_dio_cuts; }
+    unsigned dio_cut_from_proof_period() { return m_dio_cut_from_proof_period; }
     void set_random_seed(unsigned s) { m_rand.set_seed(s); }
-
+    
     bool bound_progation() const { 
         return m_bound_propagation;
     }
