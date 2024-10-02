@@ -256,7 +256,7 @@ namespace lp {
                 if (lra.settings().stats().m_dio_conflicts % lra.settings().dio_cut_from_proof_period() == 0) {
                     // prepare int_solver for reporting
                     lar_term& t = lia.get_term();
-                    for (auto& p: ep.m_e) {
+                    for (const auto& p: ep.m_e) {
                         t.add_monomial(p.coeff()/g, p.j());
                     }
                     lia.offset() = floor(-new_c);
@@ -407,7 +407,7 @@ namespace lp {
             bool is_strict;
             u_dependency *b_dep = nullptr;
             if (lra.has_upper_bound(j, b_dep, rs, is_strict)) {
-                if (t.c() > rs || is_strict && t.c() == rs) {
+                if (t.c() > rs || (is_strict && t.c() == rs)) {
                     for (const auto& p: lra.flatten(dep)) {
                         m_infeas_explanation.push_back(p);
                     }
@@ -418,7 +418,7 @@ namespace lp {
                 }
             }
             if (lra.has_lower_bound(j, b_dep, rs, is_strict)) {
-                if (t.c() < rs || is_strict && t.c() == rs) {
+                if (t.c() < rs || (is_strict && t.c() == rs)) {
                     for (const auto& p: lra.flatten(dep)) {
                         m_infeas_explanation.push_back(p);
                     }
@@ -521,9 +521,8 @@ namespace lp {
                 term_o& e = m_eprime[e_index].m_e;
                 if (!e.contains(k)) continue;
 
-                const mpq& k_coeff = e.get_coeff(k);
                 TRACE("dioph_eq", print_eprime_entry(e_index, tout << "before:") << std::endl;
-                      tout << "k_coeff:" << k_coeff << std::endl;);
+                      tout << "k_coeff:" << e.get_coeff(k) << std::endl;);
 
 /*
                 if (!l_term.is_empty()) {
@@ -684,7 +683,6 @@ namespace lp {
             SASSERT(ex.empty());
             TRACE("dioph_eq", tout << "conflict:"; print_eprime_entry(m_conflict_index, tout) << std::endl;);
             auto & ep = m_eprime[m_conflict_index];
-            u_dependency* dep = nullptr;
             /*
               for (const auto & pl : ep.m_l) {
               unsigned row_index = pl.j();
