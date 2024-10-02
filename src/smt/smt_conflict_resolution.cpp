@@ -52,9 +52,6 @@ namespace smt {
     {
     }
 
-    conflict_resolution::~conflict_resolution() {
-    }
-
     /**
        \brief Mark all enodes in a 'proof' tree branch starting at n
        n -> ... -> root

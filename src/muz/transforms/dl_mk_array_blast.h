@@ -64,8 +64,6 @@ namespace datalog {
            \brief Create rule transformer that removes array stores and selects by ackermannization.
         */
         mk_array_blast(context & ctx, unsigned priority);
-
-        ~mk_array_blast() override;
         
         rule_set * operator()(rule_set const & source) override;
 

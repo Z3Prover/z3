@@ -1995,9 +1995,6 @@ namespace {
             m_args.resize(INIT_ARGS_SIZE);
         }
 
-        ~interpreter() {
-        }
-
         void init(code_tree * t) {
             TRACE("mam_bug", tout << "preparing to match tree:\n" << *t << "\n";);
             m_registers.reserve(t->get_num_regs(), nullptr);

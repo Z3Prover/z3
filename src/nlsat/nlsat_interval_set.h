@@ -33,7 +33,6 @@ namespace nlsat {
         void del(interval_set * s);
     public:
         interval_set_manager(anum_manager & m, small_object_allocator & a);
-        ~interval_set_manager();
         
         void set_seed(unsigned s) { m_rand.set_seed(s); }
 

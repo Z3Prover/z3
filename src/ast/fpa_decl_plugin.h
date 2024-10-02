@@ -175,7 +175,6 @@ public:
     bool is_float_sort(sort * s) const { return is_sort_of(s, m_family_id, FLOATING_POINT_SORT); }
     bool is_rm_sort(sort * s) const { return is_sort_of(s, m_family_id, ROUNDING_MODE_SORT); }
 
-    ~fpa_decl_plugin() override;
     void finalize() override;
 
     decl_plugin * mk_fresh() override;
@@ -216,7 +215,6 @@ class fpa_util {
 
 public:
     fpa_util(ast_manager & m);
-    ~fpa_util();
 
     ast_manager & m() const { return m_manager; }
     mpf_manager & fm() const { return m_plugin->fm(); }

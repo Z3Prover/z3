@@ -34,9 +34,6 @@ namespace datalog {
     {
     }
 
-    external_relation::~external_relation() {
-    }
-
     void external_relation::mk_accessor(decl_kind k, func_decl_ref& fn, const relation_fact& f, bool destructive, expr_ref& res) const {
         ast_manager& m = m_rel.get_manager();
         family_id fid = get_plugin().get_family_id();

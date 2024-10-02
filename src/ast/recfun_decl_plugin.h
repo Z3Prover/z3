@@ -237,7 +237,6 @@ namespace recfun {
 
     public:
         util(ast_manager &m);
-        ~util();
 
         ast_manager & m() { return m_manager; }
         family_id get_family_id() const { return m_fid; }

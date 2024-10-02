@@ -60,7 +60,6 @@ class quasi_macros {
 
 public:
     quasi_macros(ast_manager & m, macro_manager & mm);
-    ~quasi_macros();
 
     /**
        \brief Find pure function macros and apply them.

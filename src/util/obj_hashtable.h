@@ -60,7 +60,7 @@ public:
         Value  m_value;
         key_data() = default;
         key_data(Key * k):
-            m_key(k), m_value() {
+            m_key(k) {
         }
         key_data(Key * k, Value const & v):
             m_key(k),

@@ -89,10 +89,6 @@ hwf_manager::hwf_manager() :
     // to the precision (not sure about the rounding modes though).
 }
 
-hwf_manager::~hwf_manager()
-{
-}
-
 uint64_t RAW(double X) { uint64_t tmp; memcpy(&tmp, &(X), sizeof(uint64_t)); return tmp; }
 double DBL(uint64_t X) { double tmp; memcpy(&tmp, &(X), sizeof(double)); return tmp; }
 

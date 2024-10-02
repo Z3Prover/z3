@@ -102,7 +102,6 @@ class default_expr2polynomial : public expr2polynomial {
     bool_vector m_is_int;
 public:
     default_expr2polynomial(ast_manager & am, polynomial::manager & pm);
-    ~default_expr2polynomial() override;
     bool is_int(polynomial::var x) const override;
 protected:
     polynomial::var mk_var(bool is_int) override;

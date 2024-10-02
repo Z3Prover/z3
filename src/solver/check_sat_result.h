@@ -98,7 +98,6 @@ struct simple_check_sat_result : public check_sat_result {
     std::string     m_unknown;
     
     simple_check_sat_result(ast_manager & m);
-    ~simple_check_sat_result() override;
     ast_manager& get_manager() const override { return m_proof.get_manager(); }
     void collect_statistics(statistics & st) const override;
     void get_unsat_core(expr_ref_vector & r) override;

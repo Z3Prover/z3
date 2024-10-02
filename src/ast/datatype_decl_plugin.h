@@ -338,7 +338,6 @@ namespace datatype {
 
     public:
         util(ast_manager & m);
-        ~util();
         ast_manager & get_manager() const { return m; }
         // sort * mk_datatype_sort(symbol const& name, unsigned n, sort* const* params); 
         bool is_datatype(sort const* s) const { return is_sort_of(s, fid(), DATATYPE_SORT); }

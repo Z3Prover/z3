@@ -39,7 +39,6 @@ namespace specrel {
         
     public:
         solver(euf::solver& ctx, theory_id id);
-        ~solver() override;
 
         bool is_external(bool_var v) override { return false; }
         void get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector& r, bool probing) override {}

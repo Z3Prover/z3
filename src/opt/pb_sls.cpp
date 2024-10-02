@@ -123,9 +123,6 @@ namespace smt {
             one = mpz(1);
         }
 
-        ~imp() {
-        }
-
         void reset() {
             init_max_flips();
             m_non_greedy_percent = 30;

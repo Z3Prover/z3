@@ -67,8 +67,6 @@ template <typename T, typename X> void core_solver_pretty_printer<T, X>::init_co
     
 }
 
-template <typename T, typename X> core_solver_pretty_printer<T, X>::~core_solver_pretty_printer() {
-}
 template <typename T, typename X> void core_solver_pretty_printer<T, X>::init_rs_width() {
     m_rs_width = static_cast<unsigned>(T_to_string(m_core_solver.get_cost()).size());
     for (unsigned i = 0; i < nrows(); i++) {

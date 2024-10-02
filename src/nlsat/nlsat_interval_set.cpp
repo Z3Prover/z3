@@ -112,9 +112,6 @@ namespace nlsat {
         m_am(m),
         m_allocator(a) {
     }
-     
-    interval_set_manager::~interval_set_manager() {
-    }
     
     void interval_set_manager::del(interval_set * s) {
         if (s == nullptr)

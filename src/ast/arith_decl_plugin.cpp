@@ -34,9 +34,6 @@ struct arith_decl_plugin::algebraic_numbers_wrapper {
         m_nums(m_amanager) {
     }
 
-    ~algebraic_numbers_wrapper() {
-    }
-
     unsigned mk_id(algebraic_numbers::anum const & val) {
         SASSERT(!m_amanager.is_rational(val));
         unsigned idx = m_id_gen.mk();

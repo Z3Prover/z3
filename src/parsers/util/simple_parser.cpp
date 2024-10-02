@@ -28,9 +28,6 @@ simple_parser::simple_parser(ast_manager & m):
     m_exprs(m) {
 }
 
-simple_parser::~simple_parser() {
-}
-
 void simple_parser::add_builtin_op(symbol const & s, family_id fid, decl_kind kind) {
     SASSERT(!m_builtin.contains(s));
     SASSERT(!m_vars.contains(s));

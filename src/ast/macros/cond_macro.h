@@ -39,10 +39,7 @@ public:
         m_weight(weight) {
         SASSERT(!m_hint || !m_cond);
     }
-    
-    ~cond_macro() {
-    }
-    
+
     func_decl * get_f() const { return m_f; }
     
     expr * get_def() const { return m_def; }

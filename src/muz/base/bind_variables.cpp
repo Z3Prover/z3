@@ -25,9 +25,6 @@ bind_variables::bind_variables(ast_manager & m):
     m_vars(m),
     m_pinned(m)
 {}
-
-bind_variables::~bind_variables() {
-}
     
 expr_ref bind_variables::operator()(expr* fml, bool is_forall) {
     if (m_vars.empty()) {

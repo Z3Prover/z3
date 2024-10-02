@@ -1040,11 +1040,6 @@ namespace datatype {
         return m_family_id;
     }
 
-
-    util::~util() {
-        
-    }
-
     ptr_vector<func_decl> const * util::get_datatype_constructors(sort * ty) {
         SASSERT(is_datatype(ty));
         ptr_vector<func_decl> * r = nullptr;

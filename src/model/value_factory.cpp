@@ -25,9 +25,6 @@ value_factory::value_factory(ast_manager & m, family_id fid):
     m_fid(fid) {
 }
 
-value_factory::~value_factory() {
-}
-
 basic_factory::basic_factory(ast_manager & m, unsigned seed):
     value_factory(m, m.get_basic_family_id()), m_rand(seed) {
 }

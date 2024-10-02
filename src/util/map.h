@@ -24,19 +24,6 @@ template<typename Key, typename Value>
 struct _key_data {
     Key   m_key;
     Value m_value;
-    _key_data() {
-    }
-    _key_data(Key const & k):
-        m_key(k) {
-    }
-    _key_data(Key const & k, Value const & v):
-        m_key(k),
-        m_value(v) {
-    }
-    _key_data(Key const& k, Value&& v):
-        m_key(k),
-        m_value(std::move(v)) {
-    }
 };
 
 template<typename Entry, typename HashProc, typename EqProc>
@@ -108,27 +95,27 @@ public:
     }
     
     void insert(key const & k, value const & v) {
-        m_table.insert(key_data(k, v));
+        m_table.insert(key_data{k, v});
     }
 
     void insert(key const& k, value&& v) {
-        m_table.insert(key_data(k, std::move(v)));
+        m_table.insert(key_data{k, std::move(v)});
     }
   
     bool insert_if_not_there_core(key const & k, value const & v, entry *& et) {
-        return m_table.insert_if_not_there_core(key_data(k,v), et);
+        return m_table.insert_if_not_there_core(key_data{k,v}, et);
     }
 
     value & insert_if_not_there(key const & k, value const & v) {
-        return m_table.insert_if_not_there2(key_data(k, v))->get_data().m_value;
+        return m_table.insert_if_not_there2(key_data{k, v})->get_data().m_value;
     }
     
     entry * insert_if_not_there3(key const & k, value const & v) {
-        return m_table.insert_if_not_there2(key_data(k, v));
+        return m_table.insert_if_not_there2(key_data{k, v});
     }
         
     entry * find_core(key const & k) const {
-        return m_table.find_core(key_data(k));
+        return m_table.find_core(key_data{k});
     }
 
     bool find(key const & k, value & v) const {
@@ -150,7 +137,7 @@ public:
     }
         
     iterator find_iterator(key const & k) const { 
-        return m_table.find(key_data(k));
+        return m_table.find(key_data{k});
     }
     
     value const & find(key const& k) const {
@@ -175,7 +162,7 @@ public:
     }
 
     void remove(key const & k) {
-        m_table.remove(key_data(k));
+        m_table.remove(key_data{k});
     }
     
     void erase(key const & k) {

@@ -58,9 +58,6 @@ simple_check_sat_result::simple_check_sat_result(ast_manager & m):
     m_proof(m) {
     }
 
-simple_check_sat_result::~simple_check_sat_result() {
-}
-
 void simple_check_sat_result::collect_statistics(statistics & st) const { 
     st.copy(m_stats); 
 }

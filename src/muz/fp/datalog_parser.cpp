@@ -267,9 +267,6 @@ public:
         next();
     }
 
-    dlexer() {
-    }
-
     void set_stream(std::istream* s, char_reader* r) { 
         m_input = s; 
         m_reader = r;

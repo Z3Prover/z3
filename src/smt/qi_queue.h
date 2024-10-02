@@ -80,7 +80,6 @@ namespace smt {
 
     public:
         qi_queue(quantifier_manager & qm, context & ctx, qi_params & params);
-        ~qi_queue();
         void setup();
         /**
            \brief Insert a new quantifier in the queue, f contains the quantifier and bindings.

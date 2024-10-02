@@ -353,9 +353,6 @@ namespace sat {
         DEBUG_CODE(verify_unsat_stack(););
     }
 
-    local_search::local_search() {
-    }
-
     void local_search::reinit(solver& s, bool_vector const& phase) {
         import(s, true);
         for (unsigned i = phase.size(); i-- > 0; )
@@ -419,10 +416,6 @@ namespace sat {
         if (_init) 
             init();        
     }
-    
-    local_search::~local_search() {
-    }
-    
 
     lbool local_search::check() {
         return check(0, nullptr, nullptr);

@@ -1738,10 +1738,6 @@ namespace smt {
     }
 
     template<typename Ext>
-    theory_arith<Ext>::~theory_arith() {
-    }
-
-    template<typename Ext>
     theory* theory_arith<Ext>::mk_fresh(context* new_ctx) {
         return alloc(theory_arith<Ext>, *new_ctx);
     }

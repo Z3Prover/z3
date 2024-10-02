@@ -63,7 +63,6 @@ class mpz_matrix_manager {
     bool solve_core(mpz_matrix const & A, mpz * b, bool int_solver);
 public:
     mpz_matrix_manager(unsynch_mpz_manager & nm, small_object_allocator & a);
-    ~mpz_matrix_manager();
     unsynch_mpz_manager & nm() const { return m_nm; }
     void mk(unsigned m, unsigned n, mpz_matrix & A);
     void del(mpz_matrix & r);

@@ -85,7 +85,6 @@ namespace opt {
         bool                m_was_unknown;
     public:
         opt_solver(ast_manager & m, params_ref const & p, generic_model_converter& fm);
-        ~opt_solver() override;
 
         solver* translate(ast_manager& m, params_ref const& p) override;
         void updt_params(params_ref const& p) override;

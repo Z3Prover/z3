@@ -31,9 +31,6 @@ quasi_macros::quasi_macros(ast_manager & m, macro_manager & mm) :
   m_new_qsorts(m) {
 }
 
-quasi_macros::~quasi_macros() {
-}
-
 void quasi_macros::find_occurrences(expr * e) {
     unsigned j;
     m_todo.reset();

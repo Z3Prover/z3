@@ -2464,9 +2464,6 @@ cmd_context::dt_eh::dt_eh(cmd_context & owner):
     m_dt_util(owner.m()) {
 }
 
-cmd_context::dt_eh::~dt_eh() {
-}
-
 void cmd_context::dt_eh::operator()(sort * dt, pdecl* pd) {
     TRACE("new_dt_eh", tout << "new datatype: "; m_owner.pm().display(tout, dt); tout << "\n";);
     for (func_decl * c : *m_dt_util.get_datatype_constructors(dt)) {

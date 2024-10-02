@@ -57,7 +57,7 @@ struct defined_names::impl {
     unsigned_vector m_lims;          //!< Backtracking support.
 
     impl(ast_manager & m, char const * prefix);
-    virtual ~impl();
+    virtual ~impl() = default;
 
     app * gen_name(expr * e, sort_ref_buffer & var_sorts, buffer<symbol> & var_names);
     void cache_new_name(expr * e, app * name);
@@ -88,9 +88,6 @@ defined_names::impl::impl(ast_manager & m, char const * prefix):
     m_apply_proofs(m) {
     if (prefix)
         m_z3name = prefix;
-}
-
-defined_names::impl::~impl() {
 }
 
 /**

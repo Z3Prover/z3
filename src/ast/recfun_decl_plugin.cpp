@@ -366,9 +366,6 @@ namespace recfun {
           m_plugin(dynamic_cast<decl::plugin*>(m.get_plugin(m_fid))) {
     }
 
-    util::~util() {
-    }
-
     def * util::decl_fun(symbol const& name, unsigned n, sort *const * domain, sort * range, bool is_generated) {
         return alloc(def, m(), m_fid, name, n, domain, range, is_generated);
     }

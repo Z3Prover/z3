@@ -156,9 +156,6 @@ namespace nlsat {
             m_minimize_cores   = false;
             m_signed_project   = false;
         }
-        
-        ~imp() {
-        }
 
         std::ostream& display(std::ostream & out, polynomial_ref const & p) const {
             m_pm.display(out, p, m_solver.display_proc());

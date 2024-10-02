@@ -21,7 +21,7 @@ Revision History:
 
 template<typename T>
 class ref {
-    T * m_ptr;
+    T * m_ptr = nullptr;
 
     void inc_ref() {
         if (m_ptr) {
@@ -36,9 +36,7 @@ class ref {
     }
 
 public:
-    ref():
-        m_ptr(nullptr) {
-    }
+    ref() = default;
 
     ref(T * ptr):
         m_ptr(ptr) {
@@ -50,9 +48,9 @@ public:
         inc_ref();
     }
 
-   ref (ref && r) noexcept : m_ptr(nullptr) {
-       std::swap(m_ptr, r.m_ptr);
-   }
+    ref(ref && r) noexcept {
+        std::swap(m_ptr, r.m_ptr);
+    }
 
     ~ref() {
         dec_ref();

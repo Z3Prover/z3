@@ -1493,9 +1493,6 @@ namespace smt {
         m_bb.set_flat_and_or(false);
     }
 
-    theory_bv::~theory_bv() {
-    }
-
     theory* theory_bv::mk_fresh(context* new_ctx) {
         return alloc(theory_bv, *new_ctx);
     }

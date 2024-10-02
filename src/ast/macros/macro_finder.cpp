@@ -269,9 +269,6 @@ macro_finder::macro_finder(ast_manager & m, macro_manager & mm):
     m_autil(m) {
 }
 
-macro_finder::~macro_finder() {
-}
-
 bool macro_finder::expand_macros(expr_ref_vector const& exprs, proof_ref_vector const& prs, expr_dependency_ref_vector const& deps,  expr_ref_vector & new_exprs, proof_ref_vector & new_prs, expr_dependency_ref_vector & new_deps) {
     TRACE("macro_finder", tout << "starting expand_macros:\n";
           m_macro_manager.display(tout););

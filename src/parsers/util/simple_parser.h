@@ -45,7 +45,7 @@ protected:
     expr * parse_expr(scanner & s);
 public:
     simple_parser(ast_manager & m);
-    virtual ~simple_parser();
+    virtual ~simple_parser() = default;
     void add_builtin_op(symbol const & s, family_id fid, decl_kind kind);
     void add_builtin_op(char const * str, family_id fid, decl_kind kind);
     void add_var(symbol const & s, var * v);

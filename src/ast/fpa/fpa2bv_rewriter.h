@@ -36,9 +36,6 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
 
     fpa2bv_rewriter_cfg(ast_manager & m, fpa2bv_converter & c, params_ref const & p);
 
-    ~fpa2bv_rewriter_cfg() {
-    }
-
     void cleanup_buffers() {
         m_out.finalize();
     }

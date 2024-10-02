@@ -36,9 +36,6 @@ mpz_matrix_manager::mpz_matrix_manager(unsynch_mpz_manager & nm, small_object_al
     m_allocator(a) {
 }
 
-mpz_matrix_manager::~mpz_matrix_manager() {
-}
-
 void mpz_matrix_manager::mk(unsigned m, unsigned n, mpz_matrix & A) {
     SASSERT(m > 0 && n > 0);
     del(A);

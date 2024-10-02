@@ -121,9 +121,6 @@ namespace algebraic_numbers {
             m_y = pm().mk_var();
         }
 
-        ~imp() {
-        }
-
         bool acell_inv(algebraic_cell const& c) {
             auto s = upm().eval_sign_at(c.m_p_sz, c.m_p, lower(&c));
             return s == sign_zero || c.m_sign_lower == (s == sign_neg);

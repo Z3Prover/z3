@@ -1054,7 +1054,6 @@ namespace smt {
         // -----------------------------------
     public:
         theory_arith(context& ctx);
-        ~theory_arith() override;
         
         theory * mk_fresh(context * new_ctx) override;
 

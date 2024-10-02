@@ -268,7 +268,6 @@ namespace smt {
         typedef std::pair<enode*, unsigned> var_enode_pos;
         
         theory_bv(context& ctx);
-        ~theory_bv() override;
         
         theory * mk_fresh(context * new_ctx) override;
 

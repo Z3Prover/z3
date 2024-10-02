@@ -388,7 +388,7 @@ namespace smt {
 
     public:
         theory(context& ctx, family_id fid);
-        virtual ~theory();
+        virtual ~theory() = default;
         
         virtual void setup() {}
 

@@ -227,10 +227,6 @@ namespace sat {
         unsigned num_vars() const { return m_vars.size() - 1; }     // var index from 1 to num_vars
 
     public:
-
-        local_search();
-
-        ~local_search() override;
         
         reslimit& rlimit() override { return m_limit; }
 
