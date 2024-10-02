@@ -171,9 +171,8 @@ namespace lp {
             if (r == lia_move::conflict) {
                 de.explain(*this->m_ex);
                 return lia_move::conflict;
-            } else if (r == lia_move::sat)  {
-                return lia_move::undef;
-                NOT_IMPLEMENTED_YET();
+            } else if (r == lia_move::branch)  {
+                return lia_move::branch;
             }
 
             return lia_move::undef;
@@ -186,11 +185,12 @@ namespace lp {
         }
 
         bool should_gomory_cut() {
-            return m_number_of_calls % settings().m_int_gomory_cut_period == 0;
+            return !settings().dio_cuts()
+                && m_number_of_calls % settings().m_int_gomory_cut_period == 0;
         }
 
         bool should_solve_dioph_eq() {
-            return lia.settings().dioph_eq() && m_number_of_calls % settings().m_dioph_eq_period == 0;
+            return lia.settings().dio_eqs() && m_number_of_calls % settings().m_dioph_eq_period == 0;
         }
 
         bool should_hnf_cut() {

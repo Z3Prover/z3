@@ -32,5 +32,7 @@ void lp::lp_settings::updt_params(params_ref const& _p) {
     report_frequency = p.arith_rep_freq();
     m_simplex_strategy = static_cast<lp::simplex_strategy_enum>(p.arith_simplex_strategy());
     m_nlsat_delay = p.arith_nl_delay();
-    m_dioph_eq = p.arith_lp_dioph_eq();
+    m_dio_eqs = p.arith_lp_dio_eqs();
+    m_dio_cuts = m_dio_eqs && p.arith_lp_dio_cuts();
+    m_dio_cut_from_proof_period = p.arith_lp_dio_cut_from_proof_period();
 }
