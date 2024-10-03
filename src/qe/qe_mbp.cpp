@@ -77,50 +77,50 @@ namespace  {
     };
 // rewrite all occurrences of (as const arr c) to (as const arr v) where v = m_eval(c)
     struct app_const_arr_rewriter : public default_rewriter_cfg {
-            ast_manager &m;
-            array_util m_arr;
-            datatype_util m_dt_util;
-            model_evaluator m_eval;
-            expr_ref val;
-
-            app_const_arr_rewriter(ast_manager& man, model& mdl): m(man), m_arr(m), m_dt_util(m), m_eval(mdl), val(m) {
-                m_eval.set_model_completion(false);
+        ast_manager &m;
+        array_util m_arr;
+        datatype_util m_dt_util;
+        model_evaluator m_eval;
+        expr_ref val;
+        
+        app_const_arr_rewriter(ast_manager& man, model& mdl): m(man), m_arr(m), m_dt_util(m), m_eval(mdl), val(m) {
+            m_eval.set_model_completion(false);
+        }
+        br_status reduce_app(func_decl *f, unsigned num, expr *const *args,
+                             expr_ref &result, proof_ref &result_pr) {
+            if (m_arr.is_const(f) && !m.is_value(args[0])) {
+                val = m_eval(args[0]);
+                SASSERT(m.is_value(val));
+                result = m_arr.mk_const_array(f->get_range(), val);
+                return BR_DONE;
             }
-            br_status reduce_app(func_decl *f, unsigned num, expr *const *args,
-                                 expr_ref &result, proof_ref &result_pr) {
-                if (m_arr.is_const(f) && !m.is_value(args[0])) {
-                    val = m_eval(args[0]);
-                    SASSERT(m.is_value(val));
-                    result = m_arr.mk_const_array(f->get_range(), val);
-                    return BR_DONE;
+            if (m_dt_util.is_constructor(f)) {
+                // cons(head(x), tail(x)) --> x
+                ptr_vector<func_decl> const *accessors =
+                    m_dt_util.get_constructor_accessors(f);
+                
+                SASSERT(num == accessors->size());
+                // -- all accessors must have exactly one argument
+                if (any_of(*accessors, [&](const func_decl* acc) { return acc->get_arity() != 1; })) {
+                    return BR_FAILED;
                 }
-                if (m_dt_util.is_constructor(f)) {
-                    // cons(head(x), tail(x)) --> x
-                    ptr_vector<func_decl> const *accessors =
-                        m_dt_util.get_constructor_accessors(f);
-
-                    SASSERT(num == accessors->size());
-                    // -- all accessors must have exactly one argument
-                    if (any_of(*accessors, [&](const func_decl* acc) { return acc->get_arity() != 1; })) {
-                        return BR_FAILED;
+                
+                if (num >= 1 && is_app(args[0]) && to_app(args[0])->get_decl() == accessors->get(0)) {
+                    bool is_all = true;
+                    expr* t = to_app(args[0])->get_arg(0);
+                    for(unsigned i = 1; i < num && is_all; ++i) {
+                        is_all &= (is_app(args[i]) &&
+                                   to_app(args[i])->get_decl() == accessors->get(i) &&
+                                   to_app(args[i])->get_arg(0) == t);
                     }
-
-                    if (num >= 1 && is_app(args[0]) && to_app(args[0])->get_decl() == accessors->get(0)) {
-                        bool is_all = true;
-                        expr* t = to_app(args[0])->get_arg(0);
-                        for(unsigned i = 1; i < num && is_all; ++i) {
-                            is_all &= (is_app(args[i]) &&
-                                       to_app(args[i])->get_decl() == accessors->get(i) &&
-                                       to_app(args[i])->get_arg(0) == t);
-                        }
-                        if (is_all) {
-                            result = t;
-                            return BR_DONE;
-                        }
+                    if (is_all) {
+                        result = t;
+                        return BR_DONE;
                     }
                 }
-                return BR_FAILED;
             }
+            return BR_FAILED;
+        }
     };
 }
 
