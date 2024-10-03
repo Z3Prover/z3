@@ -245,7 +245,7 @@ jobs:
     vmImage: "macOS-latest"
   steps:
     - script: brew install ninja
-#   - script: brew install --cask julia
+    - script: brew install --cask julia
     - script: |
         julia -e "using Pkg; Pkg.add(PackageSpec(name=\"libcxxwrap_julia_jll\"))"
         JlCxxDir=$(julia -e "using libcxxwrap_julia_jll; println(joinpath(dirname(libcxxwrap_julia_jll.libcxxwrap_julia_path), \"cmake\", \"JlCxx\"))")
