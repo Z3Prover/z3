@@ -33,6 +33,7 @@ Notes:
 #include "ast/datatype_decl_plugin.h"
 #include "ast/recfun_decl_plugin.h"
 #include "ast/rewriter/seq_rewriter.h"
+#include "ast/rewriter/var_subst.h"
 #include "ast/converters/generic_model_converter.h"
 #include "solver/solver.h"
 #include "solver/check_logic.h"
@@ -280,6 +281,7 @@ protected:
     ptr_vector<expr>             m_assertions;
     std::vector<std::string>     m_assertion_strings;
     ptr_vector<expr>             m_assertion_names; // named assertions are represented using boolean variables.
+    scoped_ptr<var_subst>        m_std_subst, m_rev_subst;
 
     struct scope {
         unsigned m_func_decls_stack_lim;
@@ -316,6 +318,9 @@ protected:
 
     scoped_ptr<pp_env>            m_pp_env;
     pp_env & get_pp_env() const;
+
+    var_subst& std_subst() { if (!m_std_subst) m_std_subst = alloc(var_subst, m(), true); return *m_std_subst; }
+    var_subst& rev_subst() { if (!m_rev_subst) m_rev_subst = alloc(var_subst, m(), false); return *m_rev_subst; }
 
     void register_builtin_sorts(decl_plugin * p);
     void register_builtin_ops(decl_plugin * p);

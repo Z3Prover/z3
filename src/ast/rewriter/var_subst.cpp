@@ -52,6 +52,20 @@ expr_ref var_subst::operator()(expr * n, unsigned num_args, expr * const * args)
         rep(n, result);
         return result;
     }
+    if (is_app(n) && all_of(*to_app(n), [&](expr* arg) { return is_ground(arg) || is_var(arg); })) {
+        ptr_buffer<expr> new_args;
+        for (auto arg : *to_app(n)) {
+            if (is_ground(arg))
+                new_args.push_back(arg);
+            else {
+                unsigned idx = to_var(arg)->get_idx();
+                new_args.push_back(m_std_order ? args[idx] : args[num_args - idx - 1]);
+            }
+        }
+        result = m.mk_app(to_app(n)->get_decl(), new_args.size(), new_args.data());
+        //        verbose_stream() << result << "\n";
+        return result;
+    }
     SASSERT(is_well_sorted(result.m(), n));
     m_reducer.reset();
     if (m_std_order)
