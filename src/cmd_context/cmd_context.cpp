@@ -1514,14 +1514,15 @@ void cmd_context::reset(bool finalize) {
     m_opt = nullptr;
     m_pp_env = nullptr;
     m_dt_eh  = nullptr;
+    m_std_subst = nullptr;
+    m_rev_subst = nullptr;
     if (m_manager) {
         dealloc(m_pmanager);
         m_pmanager = nullptr;
         if (m_own_manager) {
             dealloc(m_manager);
             m_manager = nullptr;
-            m_std_subst = nullptr;
-            m_rev_subst = nullptr;
+
             m_manager_initialized = false;
         }
         else {
