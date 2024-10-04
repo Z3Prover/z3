@@ -59,14 +59,15 @@ expr_ref var_subst::operator()(expr * n, unsigned num_args, expr * const * args)
                 new_args.push_back(arg);
             else {
                 unsigned idx = to_var(arg)->get_idx();
-                expr* new_arg = m_std_order ? args[num_args - idx - 1] : args[idx];
+                expr* new_arg = nullptr;
+                if (idx < num_args)
+                    new_arg = m_std_order ? args[num_args - idx - 1] : args[idx];
                 if (!new_arg)
                     new_arg = arg;
                 new_args.push_back(new_arg);
             }
         }
         result = m.mk_app(to_app(n)->get_decl(), new_args.size(), new_args.data());
-        //        verbose_stream() << result << "\n";
         return result;
     }
     SASSERT(is_well_sorted(result.m(), n));
