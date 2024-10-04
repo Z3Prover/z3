@@ -71,6 +71,11 @@ interface PromptLike extends PromptDefinition {
 
 type SystemPromptId = OptionsOrString<
     | "system"
+    | "system.agent_fs"
+    | "system.agent_git"
+    | "system.agent_github"
+    | "system.agent_interpreter"
+    | "system.agent_user_input"
     | "system.annotations"
     | "system.changelog"
     | "system.diagrams"
@@ -78,8 +83,15 @@ type SystemPromptId = OptionsOrString<
     | "system.explanations"
     | "system.files"
     | "system.files_schema"
+    | "system.fs_diff_files"
     | "system.fs_find_files"
     | "system.fs_read_file"
+    | "system.git"
+    | "system.github_actions"
+    | "system.github_files"
+    | "system.github_info"
+    | "system.github_issues"
+    | "system.github_pulls"
     | "system.math"
     | "system.md_frontmatter"
     | "system.python"
@@ -92,18 +104,47 @@ type SystemPromptId = OptionsOrString<
     | "system.technical"
     | "system.tools"
     | "system.typescript"
+    | "system.user_input"
     | "system.zero_shot_cot"
 >
 
 type SystemToolId = OptionsOrString<
+    | "agent_fs"
+    | "agent_git"
+    | "agent_github"
+    | "agent_interpreter"
+    | "agent_user_input"
+    | "fs_diff_files"
     | "fs_find_files"
     | "fs_read_file"
+    | "git_branch_current"
+    | "git_branch_list"
+    | "git_diff"
+    | "git_last_tag"
+    | "git_log"
+    | "git_status"
+    | "github_actions_job_logs_diff"
+    | "github_actions_job_logs_get"
+    | "github_actions_jobs_list"
+    | "github_actions_workflows_list"
+    | "github_files_get"
+    | "github_files_list"
+    | "github_issues_comments_list"
+    | "github_issues_get"
+    | "github_issues_list"
+    | "github_pulls_get"
+    | "github_pulls_list"
+    | "github_pulls_review_comments_list"
     | "math_eval"
     | "md_read_frontmatter"
-    | "python_code_interpreter"
+    | "python_code_interpreter_copy_files"
+    | "python_code_interpreter_run"
     | "retrieval_fuzz_search"
     | "retrieval_vector_search"
     | "retrieval_web_search"
+    | "user_input_confirm"
+    | "user_input_select"
+    | "user_input_text"
 >
 
 type FileMergeHandler = (
@@ -419,6 +460,11 @@ interface PromptScript
      * Set if this is a system prompt.
      */
     isSystem?: boolean
+
+    /**
+     * List of tools defined in the script
+     */
+    defTools?: { id: string, description: string }[]
 }
 
 /**
@@ -608,9 +654,24 @@ interface WorkspaceFileSystem {
     readJSON(path: string | Awaitable<WorkspaceFile>): Promise<any>
 
     /**
+     * Reads the content of a file and parses to YAML.
+     * @param path
+     */
+    readYAML(path: string | Awaitable<WorkspaceFile>): Promise<any>
+
+    /**
      * Reads the content of a file and parses to XML, using the XML parser.
      */
-    readXML(path: string | Awaitable<WorkspaceFile>): Promise<any>
+    readXML(path: string | Awaitable<WorkspaceFile>, options?: XMLParseOptions): Promise<any>
+
+    /**
+     * Reads the content of a CSV file.
+     * @param path
+     */
+    readCSV<T extends object>(
+        path: string | Awaitable<WorkspaceFile>,
+        options?: CSVParseOptions
+    ): Promise<T[]>
 
     /**
      * Writes a file as text to the file system
@@ -630,6 +691,7 @@ interface WorkspaceFileSystem {
 }
 
 interface ToolCallContext {
+    log(message: string): void
     trace: ToolCallTrace
 }
 
@@ -701,7 +763,7 @@ interface ExpansionVariables {
 
 type MakeOptional<T, P extends keyof T> = Partial<Pick<T, P>> & Omit<T, P>
 
-type PromptArgs = Omit<PromptScript, "text" | "id" | "jsSource" | "activation">
+type PromptArgs = Omit<PromptScript, "text" | "id" | "jsSource" | "activation" | "defTools">
 
 type PromptSystemArgs = Omit<
     PromptArgs,
@@ -717,6 +779,7 @@ type PromptSystemArgs = Omit<
     | "responseSchema"
     | "files"
     | "modelConcurrency"
+    | "parameters"
 >
 
 type StringLike = string | WorkspaceFile | WorkspaceFile[]
@@ -764,18 +827,22 @@ interface ContextExpansionOptions {
      * It defaults to 1 on all elements.
      */
     flex?: number
+    /**
+     * This text is likely to change and will probably break the prefix cache.
+     */
+    ephemeral?: boolean
 }
 
 interface DefOptions extends FenceOptions, ContextExpansionOptions, DataFilter {
     /**
      * Filename filter based on file suffix. Case insensitive.
      */
-    endsWith?: string
+    endsWith?: ElementOrArray<string>
 
     /**
      * Filename filter using glob syntax.
      */
-    glob?: string
+    glob?: ElementOrArray<string>
 
     /**
      * By default, throws an error if the value in def is empty.
@@ -832,6 +899,7 @@ type JSONSchemaType =
 
 interface JSONSchemaString {
     type: "string"
+    enum?: string[]
     description?: string
     default?: string
 }
@@ -900,6 +968,7 @@ interface RunPromptResult {
         | "content_filter"
         | "cancel"
         | "fail"
+    usages?: ChatCompletionUsages
 }
 
 /**
@@ -1002,6 +1071,11 @@ interface ParseZipOptions {
 
 type TokenEncoder = (text: string) => number[]
 
+interface CSVParseOptions {
+    delimiter?: string
+    headers?: string[]
+}
+
 interface Parsers {
     /**
      * Parses text as a JSON5 payload
@@ -1067,7 +1141,7 @@ interface Parsers {
      */
     CSV(
         content: string | WorkspaceFile,
-        options?: { delimiter?: string; headers?: string[] }
+        options?: CSVParseOptions
     ): object[] | undefined
 
     /**
@@ -1177,6 +1251,11 @@ interface Parsers {
      * Renders a jinja template
      */
     jinja(text: string | WorkspaceFile, data: Record<string, any>): string
+
+    /**
+     * Computes a diff between two files
+     */
+    diff(left: WorkspaceFile, right: WorkspaceFile, options?: DefDiffOptions): string
 }
 
 interface AICIGenOptions {
@@ -1292,6 +1371,90 @@ interface HTML {
     convertToMarkdown(html: string): Promise<string>
 }
 
+interface GitCommit {
+    sha: string
+    message: string
+}
+
+interface Git {
+    /**
+     * Resolves the default branch for this repository
+     */
+    defaultBranch(): Promise<string>
+
+    /**
+     * Gets the last tag in the repository
+     */
+    lastTag(): Promise<string>
+
+    /**
+     * Gets the current branch of the repository
+     */
+    branch(): Promise<string>
+
+    /**
+     * Executes a git command in the repository and returns the stdout
+     * @param cmd
+     */
+    exec(args: string[] | string, options?: { label?: string }): Promise<string>
+
+    /**
+     * Lists the branches in the git repository
+     */
+    listBranches(): Promise<string[]>
+
+    /**
+     * Finds specific files in the git repository.
+     * By default, work
+     * @param options
+     */
+    listFiles(
+        scope: "modified-base" | "staged" | "modified",
+        options?: {
+            base?: string
+            /**
+             * Ask the user to stage the changes if the diff is empty.
+             */
+            askStageOnEmpty?: boolean
+            paths?: ElementOrArray<string>
+            excludedPaths?: ElementOrArray<string>
+        }
+    ): Promise<WorkspaceFile[]>
+
+    /**
+     *
+     * @param options
+     */
+    diff(options?: {
+        staged?: boolean
+        /**
+         * Ask the user to stage the changes if the diff is empty.
+         */
+        askStageOnEmpty?: boolean
+        base?: string
+        head?: string
+        paths?: ElementOrArray<string>
+        excludedPaths?: ElementOrArray<string>
+        unified?: number
+        /**
+         * Modifies the diff to be in a more LLM friendly format
+         */
+        llmify?: boolean
+    }): Promise<string>
+
+    /**
+     * Lists the commits in the git repository
+     */
+    log(options?: {
+        base?: string
+        head?: string
+        merges?: boolean
+        excludedGrep?: string | RegExp
+        paths?: ElementOrArray<string>
+        excludedPaths?: ElementOrArray<string>
+    }): Promise<GitCommit[]>
+}
+
 interface GitHubOptions {
     owner: string
     repo: string
@@ -1350,7 +1513,22 @@ interface GitHubIssue {
     number: number
     state: string
     state_reason?: "completed" | "reopened" | "not_planned" | null
-    html_url: string
+    html_url: string 
+    draft?: boolean
+    reactions?: GitHubReactions
+}
+
+interface GitHubReactions {
+    url: string
+    total_count: number
+    "+1": number
+    "-1": number
+    laugh: number
+    confused: number
+    heart: number
+    hooray: number
+    eyes: number
+    rocket: number
 }
 
 interface GitHubComment {
@@ -1359,9 +1537,11 @@ interface GitHubComment {
     created_at: string
     updated_at: string
     html_url: string
+    reactions?: GitHubReactions
 }
 
-interface GitHubPullRequest extends GitHubIssue {}
+interface GitHubPullRequest extends GitHubIssue {
+}
 
 interface GitHubCodeSearchResult {
     name: string
@@ -1379,13 +1559,19 @@ interface GitHubWorkflow {
 }
 
 interface GitHubPaginationOptions {
-    page?: number
-    per_page?: number
+    /**
+     * Default number of items to fetch, default is 50.
+     */
+    count?: number
 }
 
 interface GitHubFile extends WorkspaceFile {
     type: "file" | "dir" | "submodule" | "symlink"
     size: number
+}
+
+interface GitHubUser {
+    login: string
 }
 
 interface GitHub {
@@ -1423,6 +1609,20 @@ interface GitHub {
     ): Promise<GitHubWorkflowJob[]>
 
     /**
+     * Downloads a GitHub Action workflow run log
+     * @param jobId
+     */
+    downloadWorkflowJobLog(
+        jobId: number,
+        options?: { llmify?: boolean }
+    ): Promise<string>
+
+    /**
+     * Diffs two GitHub Action workflow job logs
+     */
+    diffWorkflowJobLogs(job_id: number, other_job_id: number): Promise<string>
+
+    /**
      * Lists issues for a given repository
      * @param options
      */
@@ -1435,6 +1635,13 @@ interface GitHub {
         } & GitHubPaginationOptions
     ): Promise<GitHubIssue[]>
 
+
+    /**
+     * Gets the details of a GitHub issue
+     * @param number issue number (not the issue id!)
+     */
+    async getIssue(number: number): Promise<GitHubIssue>
+    
     /**
      * Lists comments for a given issue
      * @param issue_number
@@ -1456,6 +1663,12 @@ interface GitHub {
             direction?: "asc" | "desc"
         } & GitHubPaginationOptions
     ): Promise<GitHubPullRequest[]>
+
+    /**
+     * Gets the details of a GitHub pull request
+     * @param pull_number pull request number (not the pull request id!)
+     */
+    getPullRequest(pull_number: number): Promise<GitHubPullRequest>
 
     /**
      * Lists comments for a given pull request
@@ -1511,6 +1724,11 @@ interface GitHub {
             type?: (typeof GitHubFile)["type"]
         }
     ): Promise<GitHubFile[]>
+
+    /**
+     * Gets the underlying Octokit client
+     */
+    client(): Promise<any>
 }
 
 interface MD {
@@ -1882,7 +2100,7 @@ interface ChatGenerationContext extends ChatTurnGenerationContext {
         options?: ChatParticipantOptions
     ): void
     defFileOutput(
-        pattern: string | string[],
+        pattern: ElementOrArray<string | WorkspaceFile>,
         description?: string,
         options?: FileOutputOptions
     ): void
@@ -2765,7 +2983,7 @@ declare function def(
  * @param options expectations about the generated file content
  */
 declare function defFileOutput(
-    pattern: string | string[],
+    pattern: ElementOrArray<string | WorkspaceFile>,
     description?: string,
     options?: FileOutputOptions
 ): void
@@ -2868,6 +3086,11 @@ declare var host: PromptHost
  * Access to GitHub queries for the current repository
  */
 declare var github: GitHub
+
+/**
+ * Access to Git operations for the current repository
+ */
+declare var git: Git
 
 /**
  * Fetches a given URL and returns the response.
