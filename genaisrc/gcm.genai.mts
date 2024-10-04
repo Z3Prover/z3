@@ -6,28 +6,16 @@ script({
     description: "Generate a commit message for all staged changes",
 })
 
-// TODO: update this diff command to match your workspace
-const diffCmd = "git diff --cached -- . :!**/genaiscript.d.ts"
-
 // Check for staged changes and stage all changes if none are staged
-let diff = await host.exec(diffCmd)
-if (!diff.stdout) {
-    /**
-     * Ask user to stage all changes if none are staged
-     */
-    const stage = await host.confirm("No staged changes. Stage all changes?", {
-        default: true,
-    })
-    if (stage) {
-        // Stage all changes and recompute diff
-        await host.exec("git add .")
-        diff = await host.exec(diffCmd)
-    }
-    if (!diff.stdout) cancel("no staged changes")
-}
+const diff = await git.diff({
+    staged: true,
+    excludedPaths: "**/genaiscript.d.ts",
+    askStageOnEmpty: true,
+})
+if (!diff) cancel("no staged changes")
 
 // show diff in the console
-console.log(diff.stdout)
+console.log(diff)
 
 let choice
 let message
@@ -79,9 +67,9 @@ Please generate a concise, one-line commit message for these changes.
     }
     // Regenerate message
     if (choice === "commit" && message) {
-        console.log((await host.exec("git", ["commit", "-m", message])).stdout)
+        console.log(await git.exec(["commit", "-m", message]))
         if (await host.confirm("Push changes?", { default: true }))
-            console.log((await host.exec("git push")).stdout)
+            console.log(await git.exec("push"))
         break
     }
 } while (choice !== "commit")
