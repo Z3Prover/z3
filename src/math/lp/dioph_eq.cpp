@@ -4,7 +4,7 @@
 #include "math/lp/lp_utils.h"
 #include <list>
 #include <queue>
-
+#include <util/heap.h>
 namespace lp {
     // This class represents a term with an added constant number c, in form sum {x_i*a_i} + c.
     class dioph_eq::imp {
@@ -23,7 +23,7 @@ namespace lp {
             const mpq& c() const { return m_c; }
             mpq& c() { return m_c; }
             term_o():m_c(0) {}
-            void substitute(const term_o& t, unsigned term_column) {
+            void substitute_var_with_term(const term_o& t, unsigned term_column) {
                 SASSERT(!t.contains(term_column));
                 mpq a = get_coeff(term_column);  // need to copy it becase the pointer value can be changed during the next loop
                 for (auto p : t) {
@@ -68,13 +68,7 @@ namespace lp {
         std::ostream& print_lar_term_L(const lar_term & t, std::ostream & out) const {
             return print_linear_combination_customized(t.coeffs_as_vector(), [](int j)->std::string {return "y"+std::to_string(j);}, out );
         }
-
-        unsigned from_fresh(unsigned j) const {
-            if (is_fresh_var(j))
-                return UINT_MAX - j;
-            return j;
-        }
-
+        
         std::ostream& print_term_o(term_o const& term, std::ostream& out) const {
             if (term.size() == 0 && term.c().is_zero()) {
                 out << "0";
@@ -97,8 +91,9 @@ namespace lp {
                     out << " - ";
                 else if (val != numeric_traits<mpq>::one())
                     out << T_to_string(val);
-                out << "x" << from_fresh(p.j());
-
+                out << "x";
+                if (is_fresh_var(p.j())) out << "~";
+                out << p.j();
             }
 
             if (!term.c().is_zero()) {
@@ -134,15 +129,16 @@ namespace lp {
         explanation m_infeas_explanation;
 
         // we start assigning with UINT_MAX and go down, print it as l(UINT_MAX - m_last_fresh_x_var)
-        unsigned  m_last_fresh_x_var = UINT_MAX;
+        unsigned  m_last_fresh_x_var;
         bool m_report_branch = false;
 
         // set F
         std::list<unsigned> m_f;  // F = {λ(t):t in m_f}
         // set S
         std::list<unsigned> m_s;     // S = {λ(t): t in m_s}
-        vector<unsigned> m_k2s; // k is substituted by using equation in m_eprime[m_k2s[k]]
-
+        vector<std::pair<unsigned, unsigned>> m_k2s; // k is substituted by using equation in m_eprime[m_k2s[k].first] and m_k2s[k].second  
+        // gives the order of substitution
+        
         unsigned            m_conflict_index = -1;  // m_eprime[m_conflict_index] gives the conflict
         imp(int_solver& lia, lar_solver& lra): lia(lia), lra(lra) {}
 
@@ -159,19 +155,22 @@ namespace lp {
         }
 
         void init() {
+            m_last_fresh_x_var = lra.column_count();
             m_report_branch = false;
             unsigned n_of_rows = lra.A_r().row_count();
             m_k2s.clear();
-            m_k2s.resize(lra.column_count(), -1);
+            m_k2s.resize(lra.column_count(), std::make_pair(-1,-1));
             m_conflict_index = -1;
             m_infeas_explanation.clear();
             lia.get_term().clear();
 
-            auto all_vars_are_int = [this](const auto& row) {
+            auto all_vars_are_int_and_small = [this](const auto& row) {
                 for (const auto& p : row) {
                     if (!lia.column_is_int(p.var())) {
                         return false;
                     }
+                    if (p.coeff().is_big())
+                        return false;
                 }
                 return true;
             };
@@ -179,8 +178,10 @@ namespace lp {
                 auto & row = lra.get_row(i);
                 TRACE("dioph_eq", tout << "row "<< i <<":"; lia.display_row_info(tout, i) << "\n";);
                 unsigned basic_var = lra.r_basis()[i];
-                if (!lia.column_is_int(basic_var)) continue;
-                if (!all_vars_are_int(row)) continue;
+                if (!all_vars_are_int_and_small(row)) {
+                    TRACE("dioph_eq", tout << "not all vars are int and small\n";);
+                    continue;
+                }
                 term_o t = row_to_term(row);
                 TRACE("dioph_eq", tout << "row = "; lra.print_row(row, tout) << std::endl;);
                 if (t.size() == 0) {
@@ -222,6 +223,10 @@ namespace lp {
             explanation ex(lra.flatten(dep));
             return lra.print_expl(out, ex);
         }
+
+        std::string var_str(unsigned j) {
+            return std::string(is_fresh_var(j)? "~":"") + std::to_string(j);
+        }
         // returns true if no conflict is found and false otherwise
         // this function devides all cooficients, and the free constant, of the ep.m_e  by the gcd of all coefficients, 
         // it is needed by the next steps
@@ -245,7 +250,7 @@ namespace lp {
                       print_dep(tout << "m_l:", ep.m_l) << std::endl;
                                       tout << "S:\n";
                       for (const auto& t : m_sigma) {
-                          tout << "x" << from_fresh(t.m_key) << " -> ";
+                          tout << "x" << var_str(t.m_key) << " -> ";
                           print_term_o(t.m_value, tout) << std::endl;
                       }
                     );
@@ -254,15 +259,20 @@ namespace lp {
                 Then sum((coeff_i/g)*x_i) <= floor(-new_c) or sum((coeff_i/g)*x_i) >= ceil(-new_c)
                 */
                 if (lra.settings().stats().m_dio_conflicts % lra.settings().dio_cut_from_proof_period() == 0) {
-                    // prepare int_solver for reporting
-                    lar_term& t = lia.get_term();
-                    for (const auto& p: ep.m_e) {
-                        t.add_monomial(p.coeff()/g, p.j());
+                    bool has_fresh = std::any_of(ep.m_e.begin(), ep.m_e.end(), [this](const auto& p) {
+                        return is_fresh_var(p.j());
+                    });
+                    if (!has_fresh) { // consider remove all fresh variables in a copy of m_e and report the conflict
+                        // prepare int_solver for reporting
+                        lar_term& t = lia.get_term();
+                        for (const auto& p: ep.m_e) {
+                            t.add_monomial(p.coeff()/g, p.j());
+                        }
+                        lia.offset() = floor(-new_c);
+                        lia.is_upper() = true;
+                        m_report_branch = true;
+                        TRACE("dioph_eq", tout << "prepare branch:"; print_lar_term_L(t, tout) << " <= " << lia.offset() << std::endl;);
                     }
-                    lia.offset() = floor(-new_c);
-                    lia.is_upper() = true;
-                    m_report_branch = true;
-                    TRACE("dioph_eq", tout << "prepare branch:"; print_lar_term_L(t, tout) << " <= " << lia.offset() << std::endl;);
                 }
                 return false;
             } else {
@@ -297,8 +307,11 @@ namespace lp {
             t.c() = - c.rhs();
         }
 
-        void subs_k(const eprime_pair& e, unsigned k, term_o& t, std::queue<unsigned> & q) {
-            SASSERT (t.contains(k));
+        // We look at term e.m_e: it is in form (+-)x_k + sum {a_i*x_i} + c = 0.
+        // We substitute x_k in t by (+-)coeff*(sum {a_i*x_i} + c), where coeff is the coefficient of x_k in t.
+
+        void substitute_k_with_S_entry_for_tigthening(const eprime_pair& e, unsigned k, term_o& t, std::queue<unsigned> & q) {
+            SASSERT (t.contains(k) && e.m_e.contains(k));
             mpq coeff = t.get_coeff(k); // need to copy it because the pointer value can be changed during the next loop
             const mpq& k_coeff_in_e = e.m_e.get_coeff(k);
             bool is_one = k_coeff_in_e.is_one();
@@ -309,32 +322,42 @@ namespace lp {
             }
             for (const auto& p: e.m_e) {
                 if (p.j() == k) continue;
-                unsigned j = p.j();
-                if (is_fresh_var(j)) {
-                    j = lra.add_var(p.j(), true);
-                    m_k2s.push_back(null_lpvar);
-                }
-                t.add_monomial(coeff*p.coeff(), j);
+                t.add_monomial(coeff*p.coeff(), p.j());
             }
             t.c() += coeff*e.m_e.c();
+            TRACE("dioph_eq", tout << "after subs_k\n"; print_term_o(t, tout) << std::endl;);
             for (const auto& p: t) {
-                if (m_k2s[p.j()] != null_lpvar)
+                if (is_fresh_var(p.j())) {
+                    continue;
+                }
+                if (m_k2s[p.j()].first != null_lpvar)
                     q.push(p.j());
             }
 
         }
 
-        void process_q_with_S(std::queue<unsigned> &q, term_o& t, u_dependency* &dep) {
+        const eprime_pair& k_th_entry(unsigned k) const {
+            return m_eprime[m_k2s[k].first];
+        }
+
+        const unsigned sub_index(unsigned k) const {
+            return m_k2s[k].first;
+        }
+        
+        void substitude_term_on_q_with_S_for_tightening(std::queue<unsigned> &q, term_o& t, u_dependency* &dep) {
            TRACE("dioph_eq_dep", tout << "dep:"; print_dep(tout, dep) << std::endl;);
             while (!q.empty()) {
                 unsigned k = q.front();
                 q.pop();
-                const eprime_pair& e = m_eprime[m_k2s[k]];
+                const eprime_pair& e = k_th_entry(k);
                 if (!t.contains(k)) {
                     continue;
                 }
-                TRACE("dioph_eq", tout << "k:" << k << " in: "; print_eprime_entry(m_k2s[k], tout) << std::endl;);
-                subs_k(e, k, t, q);
+                TRACE("dioph_eq", tout << "k:" << k << " in: "; print_eprime_entry(sub_index(k), tout) << std::endl;);
+                substitute_k_with_S_entry_for_tigthening(e, k, t, q);
+                
+                TRACE("dioph_eq", print_queue(q, tout););
+                
                 dep = lra.mk_join(dep, e.m_l);
                 TRACE("dioph_eq", tout << "substituted t:"; print_term_o(t, tout) << std::endl;
                 tout << "\ndep:"; print_dep(tout, dep) << std::endl;);
@@ -364,8 +387,15 @@ namespace lp {
             }
             return lia_move::undef;
         }
-
-        // j is the index of the column
+        void print_queue(std::queue<unsigned> q, std::ostream& out) {
+            out << "qu: ";
+            while (!q.empty()) {
+                out << q.front() << " ";
+                q.pop();
+            }   
+            out<< std::endl;
+        }   
+        // j is the index of the column representing a term
         // return true if there is a change
         bool tighten_bounds_for_column(unsigned j) {
             TRACE("dioph_eq", tout << "j:"; tout << j << std::endl;);
@@ -375,15 +405,15 @@ namespace lp {
             term_o t;
             std::queue<unsigned> q;
             for (const auto& p: lar_t) {
-                if (m_k2s[p.j()] != null_lpvar)
+                if (sub_index(p.j()) != null_lpvar)
                     q.push(p.j());
                 t.add_monomial(p.coeff(), p.j());
             }
             u_dependency * dep = nullptr;
-
+        
             TRACE("dioph_eq", tout << "t:"; print_term_o(t, tout) << std::endl;
-                  /*tout << "dep:"; print_dep(tout, dep) << std::endl;*/);
-            process_q_with_S(q, t, dep);
+            /*tout << "dep:"; print_dep(tout, dep) << std::endl;*/);
+            substitude_term_on_q_with_S_for_tightening(q, t, dep);
             TRACE("dioph_eq", tout << "after process_q_with_S\n t:"; print_term_o(t, tout) << std::endl;
                   tout << "dep:"; print_dep(tout, dep) << std::endl;);
             mpq g = gcd_of_coeffs(t);
@@ -443,7 +473,7 @@ namespace lp {
                 TRACE("dioph_eq", tout << "tighten upper bound for x" << j << " with rs:" << rs << std::endl;);
 
                 if (!rs.is_int()) {
-                    tighten_bound_for_term(t, g, j, lra.mk_join(dep, b_dep), rs, true);
+                    tighten_bound_for_term_for_bound_kind(t, g, j, lra.mk_join(dep, b_dep), rs, true);
                     change = true;
                 }
             }
@@ -454,14 +484,14 @@ namespace lp {
                 TRACE("dioph_eq", tout << "tighten lower bound for x" << j << " with rs:" << rs << std::endl;);
 
                 if (!rs.is_int()) {
-                    tighten_bound_for_term(t, g, j, lra.mk_join(b_dep, dep), rs, false);
+                    tighten_bound_for_term_for_bound_kind(t, g, j, lra.mk_join(b_dep, dep), rs, false);
                     change = true;
                 }
             }
             return change;
         }
 
-        void tighten_bound_for_term(term_o& t,
+        void tighten_bound_for_term_for_bound_kind(term_o& t,
                                          const mpq& g, unsigned j, u_dependency* dep, const mpq & ub, bool upper) {
             // ub = (upper_bound(j) - t.c())/g.
             // we have x[j] = t = g*t_+ t.c() <= upper_bound(j), then
@@ -483,6 +513,7 @@ namespace lp {
         }
 
         lia_move check() {
+            return lia_move::undef;
             init();
             while(m_f.size()) {
                 if (!normalize_by_gcd()) {
@@ -533,7 +564,7 @@ namespace lp {
                 }
 */
                 m_eprime[e_index].m_l = lra.mk_join(dep, m_eprime[e_index].m_l);
-                e.substitute(k_subst, k);
+                e.substitute_var_with_term(k_subst, k);
                 TRACE("dioph_eq", print_eprime_entry(e_index, tout << "after :") << std::endl;);
             }
         }
@@ -593,7 +624,7 @@ namespace lp {
 // step 7 from the paper
             auto & eh = e_pair.m_e;
             // xt is the fresh variable
-            unsigned xt = m_last_fresh_x_var--;
+            unsigned xt = m_last_fresh_x_var++;
             TRACE("dioph_eq", tout << "introduce fresh xt:" << "~x"<< fresh_index(xt) << std::endl;
                   tout << "eh:"; print_term_o(eh,tout) << std::endl;);
             /* Let eh = sum (a_i*x_i) + c
@@ -642,17 +673,21 @@ namespace lp {
         std::ostream& print_eprime_entry(unsigned i, std::ostream& out) {
             out << "m_eprime[" << i << "]:{\n";
             print_term_o(m_eprime[i].m_e, out << "\tm_e:") << "," << std::endl;
-            // print_dep(out<< "\tm_l:", m_eprime[i].m_l) << "\n}"<< std::endl;
+            // print_dep(out<< "\tm_l:", m_eprime[i].m_l) << "\n"
+            out << "}"<< std::endl;
             return out;
         }
 
         // k is the index of the index of the variable with the coefficient +-1 that is being substituted
-        void move_from_f_to_s(unsigned k, std::list<unsigned>::iterator it) {
+        void move_entry_from_f_to_s(unsigned k, std::list<unsigned>::iterator it) {
+            if (k >= m_k2s.size()) { // k is a fresh variable
+                m_k2s.resize(k+1, std::make_pair(-1,-1));
+            }
             m_s.push_back(*it);
-            if (!is_fresh_var(k))
-                m_k2s[k] = *it; 
+            TRACE("dioph_eq", tout << "removed " << *it << "th entry from F" << std::endl;);
+            m_k2s[k] = std::make_pair(*it, static_cast<unsigned>(m_s.size()));            
             m_f.erase(it);
-        }
+         }
 
         // this is the step 6 or 7 of the algorithm
         void rewrite_eqs() {
@@ -665,7 +700,7 @@ namespace lp {
             if (ahk.is_one()) {
                 eprime_entry.m_e.j() = k;
                 TRACE("dioph_eq", tout << "push to S:\n"; print_eprime_entry(*eh_it, tout););
-                move_from_f_to_s(k, eh_it);
+                move_entry_from_f_to_s(k, eh_it);
                 eliminate_var_in_f(eprime_entry, k , k_sign);
             } else {
                 fresh_var_step(*eh_it, k);
@@ -698,31 +733,37 @@ namespace lp {
         }
 
         unsigned fresh_index(unsigned j) const {return UINT_MAX - j;}
+        struct subs_lt {
+            const vector<std::pair<unsigned, unsigned>> & m_order;
+            subs_lt(const vector<std::pair<unsigned, unsigned>>& order) : m_order(order){}
+            bool operator()(unsigned v1, unsigned v2) const {
+                return m_order[v1].second < m_order[v2].second;
+            }
+        };
 
         void remove_fresh_variables(term_o& t) {
-            std::queue<unsigned> q;
+            heap<subs_lt> q(static_cast<int>(lra.column_count()), subs_lt(m_k2s));
             for (auto p : t) {
                 if (is_fresh_var(p.j())) {
-                    q.push(p.j());
+                    q.insert(p.j());
                 }
             }
             CTRACE("dioph_eq_fresh", q.empty() == false, print_term_o(t, tout)<< std::endl);
             while (!q.empty()) {
-                unsigned j = q.front();
-                q.pop();
+                unsigned j = q.erase_min();
                 const term_o& sub_t = m_sigma.find(j);
                 TRACE("dioph_eq_fresh", tout << "x~" << fresh_index(j) << "; sub_t:"; print_term_o(sub_t, tout) << std::endl;);
-                t.substitute(sub_t, j);
+                t.substitute_var_with_term(sub_t, j);
                 TRACE("dioph_eq_fresh", tout << "sub_t:"; print_term_o(sub_t, tout) << std::endl;
                       tout << "after sub:";print_term_o(t, tout) << std::endl;);
                 for (auto p : sub_t)
-                    if (is_fresh_var(p.j()) && t.contains(p.j()))
-                        q.push(p.j());
+                    if (is_fresh_var(p.j()))
+                        q.insert(p.j());
             }
         }
 
         bool is_fresh_var(unsigned j) const {
-            return j > lra.column_count();
+            return j >= lra.column_count();
         }
     };
 // Constructor definition
