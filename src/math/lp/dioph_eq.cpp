@@ -259,9 +259,10 @@ namespace lp {
                 Then sum((coeff_i/g)*x_i) <= floor(-new_c) or sum((coeff_i/g)*x_i) >= ceil(-new_c)
                 */
                 if (lra.settings().stats().m_dio_conflicts % lra.settings().dio_cut_from_proof_period() == 0) {
-                    bool has_fresh = std::any_of(ep.m_e.begin(), ep.m_e.end(), [this](const auto& p) {
-                        return is_fresh_var(p.j());
-                    });
+                    bool has_fresh = false;
+                    for (const auto& p : ep.m_e) 
+                        if (has_fresh = is_fresh_var(p.j()))
+                            break;
                     if (!has_fresh) { // consider remove all fresh variables in a copy of m_e and report the conflict
                         // prepare int_solver for reporting
                         lar_term& t = lia.get_term();
