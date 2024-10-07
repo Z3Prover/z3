@@ -177,7 +177,6 @@ namespace lp {
             for (unsigned i = 0; i < n_of_rows; i++) {
                 auto & row = lra.get_row(i);
                 TRACE("dioph_eq", tout << "row "<< i <<":"; lia.display_row_info(tout, i) << "\n";);
-                unsigned basic_var = lra.r_basis()[i];
                 if (!all_vars_are_int_and_small(row)) {
                     TRACE("dioph_eq", tout << "not all vars are int and small\n";);
                     continue;
@@ -768,7 +767,7 @@ namespace lp {
         }
     };
 // Constructor definition
-    dioph_eq::dioph_eq(int_solver& lia): lia(lia) {
+    dioph_eq::dioph_eq(int_solver& lia) {
         m_imp = alloc(imp, lia, lia.lra);
     }
     dioph_eq::~dioph_eq() {
