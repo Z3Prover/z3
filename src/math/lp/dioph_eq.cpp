@@ -261,7 +261,7 @@ namespace lp {
                 if (lra.settings().stats().m_dio_conflicts % lra.settings().dio_cut_from_proof_period() == 0) {
                     bool has_fresh = false;
                     for (const auto& p : ep.m_e) 
-                        if (has_fresh = is_fresh_var(p.j()))
+                        if ((has_fresh = is_fresh_var(p.j())))
                             break;
                     if (!has_fresh) { // consider remove all fresh variables in a copy of m_e and report the conflict
                         // prepare int_solver for reporting
