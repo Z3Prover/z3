@@ -24,7 +24,6 @@ namespace lp {
     class int_solver;
     class dioph_eq {
         class imp;
-        int_solver& lia;
         imp*        m_imp;
     public:
         dioph_eq(int_solver& lia);
