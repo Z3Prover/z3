@@ -218,7 +218,7 @@ public:
     unsigned         column_number_threshold_for_using_lu_in_lar_solver = 4000;
     unsigned         m_int_gomory_cut_period = 4;
     unsigned         m_int_find_cube_period = 4;
-    unsigned         m_dioph_eq_period = 1;
+    unsigned         m_dioph_eq_period = 4;
 private:
     unsigned         m_hnf_cut_period = 4;
     bool             m_int_run_gcd_test = true;
@@ -232,7 +232,7 @@ private:
     bool             m_propagate_eqs = false;
     bool             m_dio_eqs = false;
     bool             m_dio_cuts = false;
-    unsigned         m_dio_cut_from_proof_period = 3;
+    unsigned         m_dio_cut_from_proof_period = 2;
 
 public:
     bool print_external_var_name() const { return m_print_external_var_name; }

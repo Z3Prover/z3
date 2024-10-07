@@ -80,7 +80,7 @@ public:
     
 
     void subst_by_term(const lar_term& t, unsigned term_column) {
-        auto it = this->m_coeffs.find_core(term_column);
+        const auto* it = this->m_coeffs.find_core(term_column);
         if (it == nullptr) return;
         mpq a = it->get_data().m_value;
         this->m_coeffs.erase(term_column);
@@ -127,7 +127,7 @@ public:
 
     // j is the basic variable to substitute
     void subst_in_row(unsigned j, indexed_vector<mpq> & li) {
-        auto* it = m_coeffs.find_core(j);
+        const auto* it = m_coeffs.find_core(j);
         if (it == nullptr) return;
         const mpq & b = it->get_data().m_value;
         for (unsigned it_j :li.m_index) {
@@ -138,7 +138,7 @@ public:
 
     
     const mpq & get_coeff(unsigned j) const {
-        auto* it = m_coeffs.find_core(j);
+        const auto* it = m_coeffs.find_core(j);
         SASSERT(it != nullptr);
         return it->get_data().m_value;        
     }
