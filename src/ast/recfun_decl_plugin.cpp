@@ -240,23 +240,18 @@ namespace recfun {
     {
         VERIFY(m_cases.empty() && "cases cannot already be computed");
         SASSERT(n_vars == m_domain.size());
-
         TRACEFN("compute cases " << mk_pp(rhs, m));
-
-        unsigned case_idx = 0;
-
-        std::string name("case-");       
-        name.append(m_name.str());
-
-        m_vars.append(n_vars, vars);
-        m_rhs = rhs;
 
         if (!is_macro)
             for (expr* e : subterms::all(m_rhs))
                 if (is_lambda(e))
                     throw default_exception("recursive definitions with lambdas are not supported");
-        
+
+
+        unsigned case_idx = 0;
         expr_ref_vector conditions(m);
+        m_vars.append(n_vars, vars);
+        m_rhs = rhs;        
 
         // is the function a macro (unconditional body)?
         if (is_macro || n_vars == 0 || !contains_ite(u, rhs)) {
@@ -264,7 +259,6 @@ namespace recfun {
             add_case(0, conditions, rhs);
             return;
         }
-
 
         
         // analyze control flow of `rhs`, accumulating guards and

@@ -69,6 +69,7 @@ class skolemizer {
     typedef act_cache cache;
 
     ast_manager & m;
+    var_subst     m_subst;
     symbol        m_sk_hack;
     bool          m_sk_hack_enabled;
     cache         m_cache;
@@ -128,7 +129,6 @@ class skolemizer {
         //
         // (VAR 0) should be in the last position of substitution.
         //
-        var_subst s(m);
         SASSERT(is_well_sorted(m, q->get_expr()));
         expr_ref tmp(m);
         expr * body = q->get_expr();
@@ -146,7 +146,7 @@ class skolemizer {
                 }
             }
         }
-        r = s(body, substitution);
+        r = m_subst(body, substitution);
         p = nullptr;
         if (m_proofs_enabled) {
             if (q->get_kind() == forall_k) 
@@ -159,6 +159,7 @@ class skolemizer {
 public:
     skolemizer(ast_manager & m):
         m(m),
+        m_subst(m),
         m_sk_hack("sk_hack"),
         m_sk_hack_enabled(false),
         m_cache(m),
