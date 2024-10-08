@@ -51,6 +51,7 @@ Notes:
 #include "solver/smt_logics.h"
 #include "cmd_context/basic_cmds.h"
 #include "cmd_context/cmd_context.h"
+#include "solver/slice_solver.h"
 #include <iostream>
 
 func_decls::func_decls(ast_manager & m, func_decl * f):
@@ -2257,6 +2258,7 @@ void cmd_context::mk_solver() {
     params_ref p;
     m_params.get_solver_params(p, proofs_enabled, models_enabled, unsat_core_enabled);
     m_solver = (*m_solver_factory)(m(), p, proofs_enabled, models_enabled, unsat_core_enabled, m_logic);
+    m_solver = mk_slice_solver(m_solver.get());
 }
 
 
