@@ -59,6 +59,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
     bv_util             m_bv_util;
     der                 m_der;
     expr_safe_replace   m_rep;
+    unused_vars_eliminator m_elim_unused_vars;
     expr_ref_vector     m_pinned;
       // substitution support
     expr_dependency_ref m_used_dependencies; // set of dependencies of used substitutions
@@ -829,8 +830,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             }
         }
         SASSERT(old_q->get_sort() == q1->get_sort());
-        result = elim_unused_vars(m(), q1, params_ref());
-
+        result = m_elim_unused_vars(q1);        
 
 
         result_pr = nullptr;
@@ -887,6 +887,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         m_bv_util(m),
         m_der(m),
         m_rep(m),
+        m_elim_unused_vars(m, params_ref()),
         m_pinned(m),
         m_used_dependencies(m) {
         updt_local_params(p);
