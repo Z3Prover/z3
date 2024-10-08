@@ -4,7 +4,7 @@
 #include "math/lp/lp_utils.h"
 #include <list>
 #include <queue>
-#include <util/heap.h>
+
 namespace lp {
     // This class represents a term with an added constant number c, in form sum {x_i*a_i} + c.
     class dioph_eq::imp {
@@ -136,7 +136,7 @@ namespace lp {
         std::list<unsigned> m_f;  // F = {λ(t):t in m_f}
         // set S
         std::list<unsigned> m_s;     // S = {λ(t): t in m_s}
-        vector<std::pair<unsigned, unsigned>> m_k2s; // k is substituted by using equation in m_eprime[m_k2s[k].first] and m_k2s[k].second  
+        vector<unsigned> m_k2s; // k is substituted by using equation in m_eprime[m_k2s[k].first] and m_k2s[k].second  
         // gives the order of substitution
         
         unsigned            m_conflict_index = -1;  // m_eprime[m_conflict_index] gives the conflict
@@ -159,7 +159,7 @@ namespace lp {
             m_report_branch = false;
             unsigned n_of_rows = lra.A_r().row_count();
             m_k2s.clear();
-            m_k2s.resize(lra.column_count(), std::make_pair(-1,-1));
+            m_k2s.resize(lra.column_count(), -1);
             m_conflict_index = -1;
             m_infeas_explanation.clear();
             lia.get_term().clear();
@@ -226,69 +226,60 @@ namespace lp {
         std::string var_str(unsigned j) {
             return std::string(is_fresh_var(j)? "~":"") + std::to_string(j);
         }
+
+        bool has_fresh_var(const term_o & t) const {
+            for (const auto & p: t) {
+                if (is_fresh_var(p.j()))
+                    return true;
+            }
+            return false;
+        }
+
+        void prepare_lia_branch_report(const term_o & e, const mpq& g, const mpq new_c) {
+            /* We have ep.m_e/g = 0, or sum((coff_i/g)*x_i) + new_c = 0,
+               or sum((coeff_i/g)*x_i) = -new_c, where new_c is not an integer
+               Then sum((coeff_i/g)*x_i) <= floor(-new_c) or sum((coeff_i/g)*x_i) >= ceil(-new_c)
+            */
+            lar_term& t = lia.get_term();
+            for (const auto& p: e) {
+                t.add_monomial(p.coeff()/g, p.j());
+            }
+            lia.offset() = floor(-new_c);
+            lia.is_upper() = true;
+            m_report_branch = true;
+            TRACE("dioph_eq", tout << "prepare branch:"; print_lar_term_L(t, tout) << " <= " << lia.offset() << std::endl;);
+        }
+        
         // returns true if no conflict is found and false otherwise
-        // this function devides all cooficients, and the free constant, of the ep.m_e  by the gcd of all coefficients, 
+        // this function devides all cooficients, and the free constant, of the ep.m_e  by the gcd of all coefficients,  
         // it is needed by the next steps
+        // the conflict can be used to report "cuts from proofs"
         bool normalize_e_by_gcd(eprime_pair& ep) {
-            TRACE("dioph_eq", print_term_o(ep.m_e, tout << "m_e:") << std::endl;
-                  print_dep(tout << "m_l:", ep.m_l) << std::endl;
-                );
+            TRACE("dioph_eq", print_eprime_entry(ep, tout) << std::endl;);
             mpq g = gcd_of_coeffs(ep.m_e);
-            if (g.is_zero()) {
-                SASSERT(ep.m_e.c().is_zero());
+            if (g.is_zero() || g.is_one()) {
+                SASSERT(g.is_one() || ep.m_e.c().is_zero());
                 return true;
             }
-            if (g.is_one())
-                return true;
             TRACE("dioph_eq", tout << "g:" << g << std::endl;);
-            mpq new_c = ep.m_e.c() / g;
-            if (!new_c.is_int()) {
-                TRACE("dioph_eq",
-                      print_term_o(ep.m_e, tout << "conflict m_e:") << std::endl;
-                      tout << "g:" << g << std::endl;
-                      print_dep(tout << "m_l:", ep.m_l) << std::endl;
-                                      tout << "S:\n";
-                      for (const auto& t : m_sigma) {
-                          tout << "x" << var_str(t.m_key) << " -> ";
-                          print_term_o(t.m_value, tout) << std::endl;
-                      }
-                    );
-                /* We have ep.m_e/g = 0, or sum((coff_i/g)*x_i) + new_c = 0,
-                or sum((coeff_i/g)*x_i) = -new_c, where new_c is not an integer
-                Then sum((coeff_i/g)*x_i) <= floor(-new_c) or sum((coeff_i/g)*x_i) >= ceil(-new_c)
-                */
-                if (lra.settings().stats().m_dio_conflicts % lra.settings().dio_cut_from_proof_period() == 0) {
-                    bool has_fresh = false;
-                    for (const auto& p : ep.m_e) 
-                        if ((has_fresh = is_fresh_var(p.j())))
-                            break;
-                    if (!has_fresh) { // consider remove all fresh variables in a copy of m_e and report the conflict
-                        // prepare int_solver for reporting
-                        lar_term& t = lia.get_term();
-                        for (const auto& p: ep.m_e) {
-                            t.add_monomial(p.coeff()/g, p.j());
-                        }
-                        lia.offset() = floor(-new_c);
-                        lia.is_upper() = true;
-                        m_report_branch = true;
-                        TRACE("dioph_eq", tout << "prepare branch:"; print_lar_term_L(t, tout) << " <= " << lia.offset() << std::endl;);
-                    }
-                }
-                return false;
-            } else {
+            mpq c_g = ep.m_e.c() / g;
+            if (c_g.is_int()) {
                 for (auto& p: ep.m_e.coeffs()) {
                     p.m_value /= g;
                 }
-                ep.m_e.c() = new_c;
+                ep.m_e.c() = c_g;
                 // ep.m_l *= (1/g);
-                TRACE("dioph_eq",
-                      tout << "ep_m_e:"; print_term_o(ep.m_e, tout) << std::endl;
-                      tout << "ep.ml:";
-                      print_dep(tout, ep.m_l) << std::endl;);
-
+                TRACE("dioph_eq",  tout << "ep_m_e:"; print_eprime_entry(ep, tout) << std::endl;);
+                return true;
             }
-            return true;
+            // c_g is not integral
+            if (lra.settings().stats().m_dio_conflicts % lra.settings().dio_cut_from_proof_period() == 0 &&
+                !has_fresh_var(ep.m_e))
+                prepare_lia_branch_report(ep.m_e, g, c_g);
+            return false;
+
         }
+
         // returns true if no conflict is found and false otherwise
         bool normalize_by_gcd() {
             for (unsigned l: m_f) {
@@ -330,18 +321,18 @@ namespace lp {
                 if (is_fresh_var(p.j())) {
                     continue;
                 }
-                if (m_k2s[p.j()].first != null_lpvar)
+                if (m_k2s[p.j()] != null_lpvar)
                     q.push(p.j());
             }
 
         }
 
         const eprime_pair& k_th_entry(unsigned k) const {
-            return m_eprime[m_k2s[k].first];
+            return m_eprime[m_k2s[k]];
         }
 
         const unsigned sub_index(unsigned k) const {
-            return m_k2s[k].first;
+            return m_k2s[k];
         }
         
         void substitude_term_on_q_with_S_for_tightening(std::queue<unsigned> &q, term_o& t, u_dependency* &dep) {
@@ -387,13 +378,15 @@ namespace lp {
             }
             return lia_move::undef;
         }
-        void print_queue(std::queue<unsigned> q, std::ostream& out) {
+
+        std::ostream& print_queue(std::queue<unsigned> q, std::ostream& out) {
             out << "qu: ";
             while (!q.empty()) {
                 out << q.front() << " ";
                 q.pop();
             }   
             out<< std::endl;
+            return out;
         }   
         // j is the index of the column representing a term
         // return true if there is a change
@@ -512,7 +505,7 @@ namespace lp {
                 tout << "bound_dep:\n";print_dep(tout, dep) << std::endl;);
         }
 
-        lia_move check() {
+        lia_move check() {            
             init();
             while(m_f.size()) {
                 if (!normalize_by_gcd()) {
@@ -624,7 +617,7 @@ namespace lp {
             auto & eh = e_pair.m_e;
             // xt is the fresh variable
             unsigned xt = m_last_fresh_x_var++;
-            TRACE("dioph_eq", tout << "introduce fresh xt:" << "~x"<< fresh_index(xt) << std::endl;
+            TRACE("dioph_eq", tout << "introduce fresh xt:" << "x"<< var_str(xt) << std::endl;
                   tout << "eh:"; print_term_o(eh,tout) << std::endl;);
             /* Let eh = sum (a_i*x_i) + c
                For each i != k, let a_i = a_qi*ahk + a_ri, and let c = c_q * ahk + c_r
@@ -665,14 +658,19 @@ namespace lp {
             // the term to eliminate the fresh variable
             term_o xt_subs = xt_term.clone();
             xt_subs.add_monomial(mpq(1), xt);
-            TRACE("dioph_eq", tout << "xt_subs: x~"<< fresh_index(xt) << " -> ";  print_term_o(xt_subs, tout) << std::endl;);
+            TRACE("dioph_eq", tout << "xt_subs: x"<< var_str(xt) << " -> ";  print_term_o(xt_subs, tout) << std::endl;);
             m_sigma.insert(xt, xt_subs);
         }
 
         std::ostream& print_eprime_entry(unsigned i, std::ostream& out) {
-            out << "m_eprime[" << i << "]:{\n";
-            print_term_o(m_eprime[i].m_e, out << "\tm_e:") << "," << std::endl;
-            // print_dep(out<< "\tm_l:", m_eprime[i].m_l) << "\n"
+            out << "m_eprime[" << i << "]:";
+            return print_eprime_entry(m_eprime[i], out);
+        }
+
+        std::ostream& print_eprime_entry(const eprime_pair& e, std::ostream& out) {
+            out << "{\n";
+            print_term_o(e.m_e, out << "\tm_e:") << "," << std::endl;
+            print_dep(out<< "\tm_l:", e.m_l) << "\n";
             out << "}"<< std::endl;
             return out;
         }
@@ -680,11 +678,11 @@ namespace lp {
         // k is the index of the index of the variable with the coefficient +-1 that is being substituted
         void move_entry_from_f_to_s(unsigned k, std::list<unsigned>::iterator it) {
             if (k >= m_k2s.size()) { // k is a fresh variable
-                m_k2s.resize(k+1, std::make_pair(-1,-1));
+                m_k2s.resize(k+1, -1 );
             }
             m_s.push_back(*it);
             TRACE("dioph_eq", tout << "removed " << *it << "th entry from F" << std::endl;);
-            m_k2s[k] = std::make_pair(*it, static_cast<unsigned>(m_s.size()));            
+            m_k2s[k] = *it;
             m_f.erase(it);
          }
 
@@ -729,36 +727,6 @@ namespace lp {
                 ex.push_back(ci);
             }
             TRACE("dioph_eq", lra.print_expl(tout, ex););
-        }
-
-        unsigned fresh_index(unsigned j) const {return UINT_MAX - j;}
-        struct subs_lt {
-            const vector<std::pair<unsigned, unsigned>> & m_order;
-            subs_lt(const vector<std::pair<unsigned, unsigned>>& order) : m_order(order){}
-            bool operator()(unsigned v1, unsigned v2) const {
-                return m_order[v1].second < m_order[v2].second;
-            }
-        };
-
-        void remove_fresh_variables(term_o& t) {
-            heap<subs_lt> q(static_cast<int>(lra.column_count()), subs_lt(m_k2s));
-            for (auto p : t) {
-                if (is_fresh_var(p.j())) {
-                    q.insert(p.j());
-                }
-            }
-            CTRACE("dioph_eq_fresh", q.empty() == false, print_term_o(t, tout)<< std::endl);
-            while (!q.empty()) {
-                unsigned j = q.erase_min();
-                const term_o& sub_t = m_sigma.find(j);
-                TRACE("dioph_eq_fresh", tout << "x~" << fresh_index(j) << "; sub_t:"; print_term_o(sub_t, tout) << std::endl;);
-                t.substitute_var_with_term(sub_t, j);
-                TRACE("dioph_eq_fresh", tout << "sub_t:"; print_term_o(sub_t, tout) << std::endl;
-                      tout << "after sub:";print_term_o(t, tout) << std::endl;);
-                for (auto p : sub_t)
-                    if (is_fresh_var(p.j()))
-                        q.insert(p.j());
-            }
         }
 
         bool is_fresh_var(unsigned j) const {
