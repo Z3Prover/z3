@@ -513,7 +513,6 @@ namespace lp {
         }
 
         lia_move check() {
-            return lia_move::undef;
             init();
             while(m_f.size()) {
                 if (!normalize_by_gcd()) {
