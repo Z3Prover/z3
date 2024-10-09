@@ -259,7 +259,7 @@ class bdist_wheel(_bdist_wheel):
 
     def remove_build_machine_os_version(self, platform, os_version_tag):
         if platform in ["osx", "darwin", "sequoia"]:
-            m = internal_build_re.search(os_version_tag):
+            m = internal_build_re.search(os_version_tag)
             if m:
                 return m.group(1)
         return os_version_tag
