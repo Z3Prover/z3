@@ -253,7 +253,7 @@ class sdist(_sdist):
 # The Azure Dev Ops pipelines use internal OS version tagging that don't correspond
 # to releases.
 
-internal_build_re = re.compile("((.+)\_7")
+internal_build_re = re.compile("(.+)\_7")
 
 class bdist_wheel(_bdist_wheel):
 
