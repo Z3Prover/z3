@@ -40,7 +40,6 @@ class slice_solver : public solver {
     ptr_vector<func_decl>    m_used_funs_trail;
     unsigned_vector          m_used_funs_lim;
     bool m_has_query = false;
-    unsigned m_level = 0;
 
     ast_mark m_mark;
 
@@ -210,18 +209,17 @@ class slice_solver : public solver {
             return;
         unsigned idx = m_new_idx[0];
         auto const& f0 = m_assertions[idx];
-        if (f0.level < m_level) {
+        if (f0.level < s->get_scope_level()) {
             
             // pop to f.level
             // add m_new_idx within f.level
             // replay push and assertions above f.level
-            s->pop(m_level - f0.level);
-            m_level = f0.level;
+            s->pop(s->get_scope_level() - f0.level);
             unsigned last_idx = idx;
             for (unsigned idx : m_new_idx) {
                 // add only new assertions within lowest scope level.
                 auto const& f = m_assertions[idx];
-                if (m_level != f.level)
+                if (s->get_scope_level() != f.level)
                     break;
                 last_idx = idx;
                 assert_expr(f);
@@ -231,10 +229,9 @@ class slice_solver : public solver {
                 auto const& f = m_assertions[i];
                 if (f0.level == f.level)
                     continue;
-                while (f.level > m_level) {
+                while (f.level > s->get_scope_level()) 
                     s->push();
-                    ++m_level;
-                }
+                
                 if (f.active) 
                     assert_expr(f);                
             }
@@ -242,10 +239,8 @@ class slice_solver : public solver {
         else {
             for (unsigned idx : m_new_idx) {
                 auto const& f = m_assertions[idx];
-                while (f.level > m_level) {
+                while (f.level > s->get_scope_level()) 
                     s->push();
-                    ++m_level;
-                }
                 assert_expr(f);
             }
         }
@@ -294,10 +289,8 @@ public:
         unsigned old_sz = m_assertions_lim[m_assertions_lim.size() - n];
         for (unsigned i = m_assertions.size(); i-- > old_sz; ) {
             auto const& f = m_assertions[i];
-            if (f.level < m_level) {
-                s->pop(m_level - f.level);
-                m_level = f.level;
-            }            
+            if (f.level < s->get_scope_level()) 
+                s->pop(s->get_scope_level() - f.level);
         }
         m_assertions_lim.shrink(m_assertions_lim.size() - n);
         m_assertions.shrink(old_sz);
