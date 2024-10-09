@@ -71,6 +71,12 @@ namespace smt {
         enode_pp(enode* n, context const& ctx): ctx(ctx), n(n) {}
     };
 
+    struct replay_unit {
+        expr_ref m_unit;
+        bool     m_sign;
+        bool     m_relevant;
+    };
+
     class context {
         friend class model_generator;
         friend class lookahead;
@@ -183,8 +189,7 @@ namespace smt {
         clause_vector               m_aux_clauses;
         clause_vector               m_lemmas;
         vector<clause_vector>       m_clauses_to_reinit;
-        expr_ref_vector             m_units_to_reassert;
-        svector<char>               m_units_to_reassert_sign;
+        vector<replay_unit>         m_units_to_reassert;
         literal_vector              m_assigned_literals;
         typedef std::pair<clause*, literal_vector> tmp_clause;
         vector<tmp_clause>          m_tmp_clauses;

@@ -3940,9 +3940,11 @@ namespace {
                 }
                 return;
             }
-            for (unsigned i = 0; i < num_bindings; i++) {
-                SASSERT(bindings[i]->get_generation() <= max_generation);
-            }
+            DEBUG_CODE(
+                for (unsigned i = 0; i < num_bindings; i++) {
+                    SASSERT(bindings[i]->get_generation() <= max_generation);
+                });
+                
 #endif
             unsigned min_gen = 0, max_gen = 0;
             m_interpreter.get_min_max_top_generation(min_gen, max_gen);

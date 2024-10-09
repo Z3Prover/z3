@@ -71,7 +71,6 @@ namespace smt {
         m_l_internalized_stack(m),
         m_final_check_idx(0),
         m_cg_table(m),
-        m_units_to_reassert(m),
         m_conflict(null_b_justification),
         m_not_l(null_literal),
         m_conflict_resolution(mk_conflict_resolution(m, *this, m_dyn_ack_manager, p, m_assigned_literals, m_watches)),
@@ -2186,7 +2185,7 @@ namespace smt {
             unsigned i  = s.m_units_to_reassert_lim;
             unsigned sz = m_units_to_reassert.size();
             for (; i < sz; i++) {
-                expr * unit = m_units_to_reassert.get(i);
+                expr* unit = m_units_to_reassert[i].m_unit.get();
                 cache_generation(unit, new_scope_lvl);
             }
         }
@@ -2377,19 +2376,18 @@ namespace smt {
         unsigned i  = units_to_reassert_lim;
         unsigned sz = m_units_to_reassert.size();
         for (; i < sz; i++) {
-            expr * unit   = m_units_to_reassert.get(i);
+            auto& [unit, sign, is_relevant] = m_units_to_reassert[i];
             bool gate_ctx = true;
             internalize(unit, gate_ctx);
             bool_var v    = get_bool_var(unit);
-            bool sign     = m_units_to_reassert_sign[i] != 0;
             literal l(v, sign);
             assign(l, b_justification::mk_axiom());
+            if (is_relevant)
+                mark_as_relevant(l);
             TRACE("reassert_units", tout << "reasserting #" << unit->get_id() << " " << sign << " @ " << m_scope_lvl << "\n";);
         }
-        if (at_base_level()) {
-            m_units_to_reassert.reset();
-            m_units_to_reassert_sign.reset();
-        }
+        if (at_base_level()) 
+            m_units_to_reassert.reset();        
     }
 
     /**
@@ -4310,8 +4308,7 @@ namespace smt {
                 bool unit_sign  = lits[0].sign();
                 while (m.is_not(unit, unit))
                     unit_sign = !unit_sign;
-                m_units_to_reassert.push_back(unit);
-                m_units_to_reassert_sign.push_back(unit_sign);
+                m_units_to_reassert.push_back({ expr_ref(unit, m), unit_sign, is_relevant(unit) });
                 TRACE("reassert_units", tout << "asserting " << mk_pp(unit, m) << " #" << unit->get_id() << " " << unit_sign << " @ " << m_scope_lvl << "\n";);
             }
 
