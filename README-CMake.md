@@ -292,6 +292,9 @@ The following useful options can be passed to CMake whilst configuring.
 * ``Z3_INSTALL_JAVA_BINDINGS`` - BOOL. If set to ``TRUE`` and ``Z3_BUILD_JAVA_BINDINGS`` is ``TRUE`` then running the ``install`` target will install Z3's Java bindings.
 * ``Z3_JAVA_JAR_INSTALLDIR`` - STRING. The path to directory to install the Z3 Java ``.jar`` file. This path should be relative to ``CMAKE_INSTALL_PREFIX``.
 * ``Z3_JAVA_JNI_LIB_INSTALLDIRR`` - STRING. The path to directory to install the Z3 Java JNI bridge library. This path should be relative to ``CMAKE_INSTALL_PREFIX``.
+* ``Z3_BUILD_OCAML_BINDINGS`` - BOOL. If set to ``TRUE`` then Z3's OCaml bindings will be built.
+* ``Z3_BUILD_JULIA_BINDINGS`` - BOOL. If set to ``TRUE`` then Z3's Julia bindings will be built.
+* ``Z3_INSTALL_JULIA_BINDINGS`` - BOOL. If set to ``TRUE`` and ``Z3_BUILD_JULIA_BINDINGS`` is ``TRUE`` then running the ``install`` target will install Z3's Julia bindings.
 * ``Z3_INCLUDE_GIT_DESCRIBE`` - BOOL. If set to ``TRUE`` and the source tree of Z3 is a git repository then the output of ``git describe`` will be included in the build.
 * ``Z3_INCLUDE_GIT_HASH`` - BOOL. If set to ``TRUE`` and the source tree of Z3 is a git repository then the git hash will be included in the build.
 * ``Z3_BUILD_DOCUMENTATION`` - BOOL. If set to ``TRUE`` then documentation for the API bindings can be built by invoking the ``api_docs`` target.
