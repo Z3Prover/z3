@@ -261,7 +261,7 @@ class bdist_wheel(_bdist_wheel):
         if platform in ["osx", "darwin", "sequoia"]:
             m = internal_build_re.search(os_version_tag)
             if m:
-                return m.group(1)
+                return m.group(1) + "_0"
         return os_version_tag
             
             
