@@ -373,7 +373,7 @@ public:
 
     lbool check_sat_cc(expr_ref_vector const& cube, vector<expr_ref_vector> const& clauses) override {
         flush();
-        return check_sat_cc(cube, clauses);
+        return s->check_sat_cc(cube, clauses);
     }
 
     lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) override {
