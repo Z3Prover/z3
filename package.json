@@ -1,7 +1,7 @@
 {
   "devDependencies": {
     "@inquirer/prompts": "^5.3.8",
-    "genaiscript": "^1.52.0"
+    "genaiscript": "^1.63.0"
   },
   "scripts": {
     "gcm": "genaiscript run gcm"

@@ -108,3 +108,4 @@ CMakeSettings.json
 .DS_Store
 dbg/**
 *.wsp
+CppProperties.json
