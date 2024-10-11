@@ -59,6 +59,7 @@ template void static_matrix<mpq, numeric_pair<mpq> >::set(unsigned int, unsigned
 
 template bool lp::static_matrix<lp::mpq, lp::mpq>::pivot_row_to_row_given_cell(unsigned int, column_cell& , unsigned int);
 template bool lp::static_matrix<lp::mpq, lp::numeric_pair<lp::mpq> >::pivot_row_to_row_given_cell(unsigned int, column_cell&, unsigned int);
+template void lp::static_matrix<lp::mpq, lp::numeric_pair<lp::mpq> >::pivot_row_to_row_given_cell_with_sign(unsigned int, column_cell&, unsigned int, int);
 template void lp::static_matrix<lp::mpq, lp::numeric_pair<lp::mpq> >::remove_element(vector<lp::row_cell<lp::mpq>, true, unsigned int>&, lp::row_cell<lp::mpq>&);
 
 }
