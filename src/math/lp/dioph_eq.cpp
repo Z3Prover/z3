@@ -60,7 +60,6 @@ namespace lp {
         std::ostream& print_S(std::ostream & out) {
             out << "S:\n";
             for (unsigned i : m_s) {
-                out << "x" << m_eprime[i].m_e.j() << " ->\n";
                 print_eprime_entry(i, out);
             }
             return out;
@@ -120,7 +119,6 @@ namespace lp {
         };
         struct eprime_entry {
             unsigned m_row_index; // the index of the row in the constraint matrix that m_e corresponds to
-            term_o   m_e; // it will be used for debugging only
             // we keep the dependency of the equation in m_l
             // a more expensive alternative is to keep the history term of m_e : originally m_l is i, the index of row m_e was constructed from
             u_dependency *m_l;
@@ -156,28 +154,39 @@ namespace lp {
             return t;
         }
         private:
-        term_o create_eprime_entry_from_row(const row_strip<mpq>& row, unsigned row_index) {
+        // the row comes from lar_solver
+        void create_eprime_entry_from_row(const row_strip<mpq>& row, unsigned row_index) {
+            m_f.push_back(row_index);
+            eprime_entry& e = m_eprime[row_index];
             const auto lcm = get_denominators_lcm(row);
-            #if Z3DEBUG
-            term_o t;
-            for (const auto & p: row)
-                if (lia.is_fixed(p.var()))
-                    t.c() += p.coeff()*lia.lower_bound(p.var()).x;
-                else
-                    t.add_monomial(lcm * p.coeff(), p.var());
-            t.c() *= lcm;
-            #endif
-            // init m_e_matrix and m_c
-            mpq & c = m_eprime[row_index].m_c;
-            for (const auto & p: row)
-                if (lia.is_fixed(p.var()))
+            u_dependency*& dep = e.m_l; 
+            SASSERT(dep == nullptr);
+            mpq & c = e.m_c;
+            SASSERT(c.is_zero());
+
+            for (const auto & p: row) {
+                if (lia.is_fixed(p.var())) {
                     c += p.coeff()*lia.lower_bound(p.var()).x;
-                else 
+                    dep = lra.get_bound_constraint_witnesses_for_column(p.var());
+                }
+                else {
                     m_e_matrix.add_new_element(row_index, p.var(), lcm * p.coeff());
-            c *= lcm;
-            SASSERT(t == get_term_from_e_matrix(row_index));
-            return t;
+                }                
+            }
+            c *= lcm;            
+            e.m_entry_status = entry_status::F;
         }
+
+        bool all_vars_are_int_and_small(const row_strip<mpq>& row) const {
+            for (const auto& p : row) {
+                if (!lia.column_is_int(p.var())) 
+                    return false;
+                if (p.coeff().is_big())
+                    return false;
+            }            
+            return true;
+        }
+
 
         void init() {
             m_e_matrix = static_matrix<mpq, impq>(lra.row_count(), lra.column_count());
@@ -188,36 +197,17 @@ namespace lp {
             m_conflict_index = -1;
             m_infeas_explanation.clear();
             lia.get_term().clear();
-
-            auto all_vars_are_int_and_small = [this](const auto& row) {
-                for (const auto& p : row) {
-                    if (!lia.column_is_int(p.var())) {
-                        return false;
-                    }
-                    if (p.coeff().is_big())
-                        return false;
-                }
-                return true;
-            };
+            m_eprime.clear();
+            m_eprime.resize(n_of_rows);
             for (unsigned i = 0; i < n_of_rows; i++) {
                 auto & row = lra.get_row(i);
                 TRACE("dioph_eq", tout << "row "<< i <<":"; lia.display_row_info(tout, i) << "\n";);
                 if (!all_vars_are_int_and_small(row)) {
                     TRACE("dioph_eq", tout << "not all vars are int and small\n";);
+                    m_eprime[i].m_entry_status = entry_status::NO_S_NO_F;
                     continue;
                 }
-                term_o t = create_eprime_entry_from_row(row, i);
-                m_eprime[i].m_entry_status = entry_status::F;
-                TRACE("dioph_eq", tout << "row = "; lra.print_row(row, tout) << std::endl;);
-                if (t.size() == 0) {
-                    SASSERT(t.c().is_zero());
-                    continue;
-                }
-                // eprime_pair pair = {t, lar_term(i)}; 
-                eprime_entry pair = {i, t, get_dep_from_row(row)};
-
-                m_f.push_back(static_cast<unsigned>(i));
-                m_eprime.push_back(pair);
+                create_eprime_entry_from_row(row, i);
                 TRACE("dioph_eq", print_eprime_entry(static_cast<unsigned>(i), tout););
             }
 
@@ -254,9 +244,9 @@ namespace lp {
             return std::string(is_fresh_var(j)? "~":"") + std::to_string(j);
         }
 
-        bool has_fresh_var(const term_o & t) const {
-            for (const auto & p: t) {
-                if (is_fresh_var(p.j()))
+        bool has_fresh_var(unsigned row_index) const {
+            for (const auto & p: m_e_matrix.m_rows[row_index]) {
+                if (is_fresh_var(p.var()))
                     return true;
             }
             return false;
@@ -286,7 +276,7 @@ namespace lp {
             TRACE("dioph_eq", print_eprime_entry(ep, tout) << std::endl;);
             mpq g = gcd_of_row(row_index);
             if (g.is_zero() || g.is_one()) {
-                SASSERT(g.is_one() || ep.m_e.c().is_zero());
+                SASSERT(g.is_one() || ep.m_c.is_zero());
                 return true;
             }
             TRACE("dioph_eq", tout << "g:" << g << std::endl;);
@@ -302,7 +292,7 @@ namespace lp {
             }
             // c_g is not integral
             if (lra.settings().stats().m_dio_conflicts % lra.settings().dio_cut_from_proof_period() == 0 &&
-                !has_fresh_var(ep.m_e))
+                !has_fresh_var(ep.m_row_index))
                 prepare_lia_branch_report(ep, g, c_g);
             return false;
 
@@ -569,29 +559,29 @@ public:
             }
         }
 
-        void substitute_var_on_f(unsigned k, int k_sign, const term_o& k_subst, u_dependency * dep, unsigned index_to_avoid)  {
-            TRACE("dioph_eq", print_term_o(k_subst, tout<< "x" << k<< " -> ") << std::endl; tout << "dep:"; print_dep(tout, dep) << std::endl;);
-            for (unsigned e_index: m_f) {
-                if (e_index == index_to_avoid) continue;
-                term_o& e = m_eprime[e_index].m_e;
-                if (!e.contains(k)) continue;
+//         void substitute_var_on_f(unsigned k, int k_sign, const term_o& k_subst, u_dependency * dep, unsigned index_to_avoid)  {
+//             TRACE("dioph_eq", print_term_o(k_subst, tout<< "x" << k<< " -> ") << std::endl; tout << "dep:"; print_dep(tout, dep) << std::endl;);
+//             for (unsigned e_index: m_f) {
+//                 if (e_index == index_to_avoid) continue;
+//                 term_o& e = m_eprime[e_index].m_e;
+//                 if (!e.contains(k)) continue;
 
-                TRACE("dioph_eq", print_eprime_entry(e_index, tout << "before:") << std::endl;
-                      tout << "k_coeff:" << e.get_coeff(k) << std::endl;);
+//                 TRACE("dioph_eq", print_eprime_entry(e_index, tout << "before:") << std::endl;
+//                       tout << "k_coeff:" << e.get_coeff(k) << std::endl;);
 
-/*
-                if (!l_term.is_empty()) {
-                    if (k_sign == 1)
-                        add_operator(m_eprime[e_index].m_l, -k_coeff, l_term);
-                    else
-                        add_operator(m_eprime[e_index].m_l, k_coeff, l_term);
-                }
-*/
-                m_eprime[e_index].m_l = lra.mk_join(dep, m_eprime[e_index].m_l);
-                e.substitute_var_with_term(k_subst, k);
-                TRACE("dioph_eq", print_eprime_entry(e_index, tout << "after :") << std::endl;);
-            }
-        }
+// /*
+//                 if (!l_term.is_empty()) {
+//                     if (k_sign == 1)
+//                         add_operator(m_eprime[e_index].m_l, -k_coeff, l_term);
+//                     else
+//                         add_operator(m_eprime[e_index].m_l, k_coeff, l_term);
+//                 }
+// */
+//                 m_eprime[e_index].m_l = lra.mk_join(dep, m_eprime[e_index].m_l);
+//                 e.substitute_var_with_term(k_subst, k);
+//                 TRACE("dioph_eq", print_eprime_entry(e_index, tout << "after :") << std::endl;);
+//             }
+//         }
 
         std::tuple<mpq, unsigned, int> find_minimal_abs_coeff(unsigned row_index) const {
             bool first = true, first_fresh = true;
@@ -664,23 +654,20 @@ public:
                 m_e_matrix.m_rows[c.var()][c.offset()].offset() = pivot_col_cell_index;
             }
 
-            unsigned f_rows_in_column =0;
-            for (const auto& c: column) {
-                if (m_eprime[c.var()].m_entry_status == entry_status::F)
-                    f_rows_in_column ++;
-            }
-            TRACE("dioph_eq", tout << "f_rows_in_column:" << f_rows_in_column << std::endl;);
-            while (column.size() > 1 && f_rows_in_column > 0 ) {
-                auto & c = column.back();
-                if (m_eprime[c.var()].m_entry_status != entry_status::F)
+            unsigned cell_to_process = column.size() - 1;
+            while (cell_to_process > 0) {
+                auto & c = column[cell_to_process];
+                if (m_eprime[c.var()].m_entry_status != entry_status::F) {
+                    cell_to_process--;
                     continue;
-                f_rows_in_column--;
+                }
                 SASSERT(c.var() != piv_row_index);
                 mpq coeff = m_e_matrix.get_val(c);
                 TRACE("dioph_eq", tout << "c_row:" << c.var(); print_e_row(c.var(), tout) << std::endl;);
                 m_e_matrix.pivot_row_to_row_given_cell_with_sign(piv_row_index, c, j, j_sign);
                 m_eprime[c.var()].m_c -=  j_sign* coeff*m_eprime[piv_row_index].m_c;
                 TRACE("dioph_eq", tout << "after pivoting c_row:"; print_e_row(c.var(), tout) << std::endl;);
+                cell_to_process--;
             }
         }
 
@@ -705,7 +692,7 @@ public:
             unsigned fresh_row = m_e_matrix.row_count();
             m_e_matrix.add_row(); // for the fresh variable definition
             m_e_matrix.add_column(); // the fresh variable itself
-            m_eprime.push_back({fresh_row, term_o(), nullptr, mpq(0), entry_status::S});
+            m_eprime.push_back({fresh_row, nullptr, mpq(0), entry_status::S});
             // Add a new row for the fresh variable definition
             /* Let eh = sum(ai*xi) + c. For each i != k, let ai = qi*ahk + ri, and let c = c_q * ahk + c_r.
                eh = ahk*(x_k + sum{qi*xi|i != k} + c_q) + sum {ri*xi|i!= k} + c_r.
@@ -731,7 +718,7 @@ public:
             }
     
             // add entry to S
-            m_eprime.push_back({fresh_row, term_o(), nullptr});
+            m_eprime.push_back({fresh_row, nullptr, mpq(0), entry_status::S});
             this->m_s.push_back(fresh_row);
             TRACE("dioph_eq", tout << "changed entry:"; print_eprime_entry(e_index, tout)<< std::endl;            
             tout <<  "added to S:\n"; print_eprime_entry(m_eprime.size()-1, tout););
@@ -745,11 +732,10 @@ public:
 
         std::ostream& print_eprime_entry(const eprime_entry& e, std::ostream& out) {
             out << "{\n";
-            out << "\trow:" << e.m_row_index << "," << std::endl;
-            print_term_o(get_term_from_e_matrix(e.m_row_index), out << "\trow:");
-            
+            print_term_o(get_term_from_e_matrix(e.m_row_index), out << "\trow:") << "\n";
+            out << "\tstatus:" << (int)e.m_entry_status;
            // print_dep(out<< "\tm_l:", e.m_l) << "\n";
-            out << "}"<< std::endl;
+            out << "\n}\n";
             return out;
         }      
         
@@ -774,7 +760,6 @@ public:
             auto [ahk, k, k_sign] = find_minimal_abs_coeff(eprime_entry.m_row_index);
             TRACE("dioph_eq", tout << "ahk:" << ahk << ", k:" << k << ", k_sign:" << k_sign << std::endl;);
             if (ahk.is_one()) {
-                eprime_entry.m_e.j() = k;
                 TRACE("dioph_eq", tout << "push to S:\n"; print_eprime_entry(*eh_it, tout););
                 move_entry_from_f_to_s(k, eh_it);
                 eliminate_var_in_f(eprime_entry, k , k_sign);
