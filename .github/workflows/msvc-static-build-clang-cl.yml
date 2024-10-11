@@ -1,0 +1,23 @@
+name: MSVC Clang-CL Static Build
+  
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read # to fetch code (actions/checkout)
+
+jobs:
+  build:
+    runs-on: windows-2019
+    env:
+      BUILD_TYPE: Release
+    steps:
+    - name: Checkout Repo
+      uses: actions/checkout@v4
+  
+    - name: Build
+      run: |
+        cmake -B build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DZ3_BUILD_LIBZ3_SHARED=OFF -DZ3_BUILD_LIBZ3_MSVC_STATIC=ON -T ClangCL -DCMAKE_C_FLAGS="/EHsc" -DCMAKE_CXX_FLAGS="/EHsc"
+        cmake --build build --config ${{ env.BUILD_TYPE }} --parallel
+        

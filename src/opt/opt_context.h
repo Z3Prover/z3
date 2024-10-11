@@ -140,12 +140,14 @@ namespace opt {
             unsigned_vector  m_objectives_lim;
             unsigned_vector  m_objectives_term_trail;
             unsigned_vector  m_objectives_term_trail_lim;
+            unsigned_vector  m_values_lim;
             map_id           m_indices;
 
         public:
             expr_ref_vector   m_hard;
             expr_ref_vector   m_asms;
             vector<objective> m_objectives;
+            vector<std::pair<expr_ref, expr_ref>> m_values;
 
             scoped_state(ast_manager& m):
                 m(m),
@@ -275,6 +277,8 @@ namespace opt {
 
         void add_offset(unsigned id, rational const& o) override;
 
+        void initialize_value(expr* var, expr* value) override;
+        
         void register_on_model(on_model_t& ctx, std::function<void(on_model_t&, model_ref&)>& on_model) { 
             m_on_model_ctx = ctx; 
             m_on_model_eh  = on_model; 

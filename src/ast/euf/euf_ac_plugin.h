@@ -47,7 +47,6 @@ namespace euf {
             unsigned_vector eqs;       // equality occurrences
             
             unsigned root_id() const { return root->n->get_id(); }
-            ~node() {}
             static node* mk(region& r, enode* n);
         };
 
@@ -62,8 +61,7 @@ namespace euf {
                 node* operator*() { return m_first; }
                 iterator& operator++() { if (!m_last) m_last = m_first; m_first = m_first->next; return *this; }
                 iterator operator++(int) { iterator tmp = *this; ++*this; return tmp; }
-                bool operator==(iterator const& other) const { return m_last == other.m_last && m_first == other.m_first; }
-                bool operator!=(iterator const& other) const { return !(*this == other); }
+                bool operator!=(iterator const& other) const { return m_last != other.m_last || m_first != other.m_first; }
             };
             equiv(node& _n) :n(_n) {}
             equiv(node* _n) :n(*_n) {}
@@ -270,8 +268,6 @@ namespace euf {
         ac_plugin(egraph& g, unsigned fid, unsigned op);
 
         ac_plugin(egraph& g, func_decl* f);
-
-        ~ac_plugin() override {}
         
         theory_id get_id() const override { return m_fid; }
 

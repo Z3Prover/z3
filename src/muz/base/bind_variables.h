@@ -40,7 +40,6 @@ class bind_variables {
     expr_ref abstract(expr* fml, cache_t& cache, unsigned scope);
 public:
     bind_variables(ast_manager & m);
-    ~bind_variables();
     
     expr_ref operator()(expr* fml, bool is_forall);
 

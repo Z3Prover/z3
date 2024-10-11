@@ -375,10 +375,11 @@ def cp_into_bin(arch):
                 os.path.join(bin_dir, "libz3.lib"))
     shutil.rmtree(lib_dir)
     if JAVA_ENABLED:
-        java_dir = get_java_dist_path(arch)
-        shutil.copytree(java_dir,
-                        bin_dir,
-                        dirs_exist_ok=True)
+        java_dir = os.path.join(bin_dir, "java")
+        for file in os.listdir(java_dir):
+            src_path = os.path.join(java_dir, file)
+            dst_path = os.path.join(bin_dir, file)
+            shutil.copy2(src_path, dst_path)
         shutil.rmtree(java_dir)
                 
 def cp_pdb(arch):

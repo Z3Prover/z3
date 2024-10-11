@@ -313,7 +313,7 @@ namespace datalog {
     void context::register_finite_sort(sort * s, sort_kind k) {
         m_pinned.push_back(s);
         SASSERT(!m_sorts.contains(s));
-        sort_domain * dom;
+        sort_domain * dom = nullptr;
         switch (k) {
         case SK_SYMBOL:
             dom = alloc(symbol_sort_domain, *this, s);

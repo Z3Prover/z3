@@ -177,9 +177,6 @@ namespace smt {
         m_lazy(true) {
     }
 
-    theory::~theory() {
-    }
-
     smt_params const& theory::get_fparams() const { 
         return ctx.get_fparams();
     }

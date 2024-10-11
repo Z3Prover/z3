@@ -504,9 +504,6 @@ default_expr2polynomial::default_expr2polynomial(ast_manager & am, polynomial::m
     expr2polynomial(am, pm, nullptr) {
 }
 
-default_expr2polynomial::~default_expr2polynomial() {
-}
-
 bool default_expr2polynomial::is_int(polynomial::var x) const {
     return m_is_int[x];
 }

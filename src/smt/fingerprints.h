@@ -32,7 +32,7 @@ namespace smt {
         enode**       m_args = nullptr;
 
         friend class fingerprint_set;
-        fingerprint() {}
+        fingerprint() = default;
     public:
         fingerprint(region & r, void * d, unsigned d_hash, expr* def, unsigned n, enode * const * args);
         void * get_data() const { return m_data; }
@@ -48,15 +48,9 @@ namespace smt {
     
     class fingerprint_set {
         
-        struct fingerprint_khasher {
-            unsigned operator()(fingerprint const * f) const { return f->get_data_hash(); }
-        };
-        struct fingerprint_chasher {
-            unsigned operator()(fingerprint const * f, unsigned idx) const { return f->get_arg(idx)->hash(); }
-        };
         struct fingerprint_hash_proc {
             unsigned operator()(fingerprint const * f) const {
-                return get_composite_hash<fingerprint *, fingerprint_khasher, fingerprint_chasher>(const_cast<fingerprint*>(f), f->get_num_args());
+                return f->get_data_hash();
             }
         };
         struct fingerprint_eq_proc { bool operator()(fingerprint const * f1, fingerprint const * f2) const; };

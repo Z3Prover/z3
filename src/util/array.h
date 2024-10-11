@@ -26,7 +26,7 @@ public:
     
 private:
 #define ARRAY_SIZE_IDX     -1
-    T * m_data;
+    T * m_data = nullptr;
     void destroy_elements() {
         iterator it = begin();
         iterator e  = end();
@@ -71,7 +71,7 @@ public:
     typedef T * iterator;
     typedef const T * const_iterator;
 
-    array():m_data(nullptr) {}
+    array() = default;
 
     /**
        \brief Store the array in the given chunk of memory (mem).
@@ -193,7 +193,7 @@ public:
 template<typename T>
 class ptr_array : public array<T *, false> {
 public:
-    ptr_array() {}
+    ptr_array() = default;
     ptr_array(void * mem, unsigned sz, T * const * vs):array<T*, false>(mem, sz, vs) {}
     template<typename Allocator>
     ptr_array(Allocator & a, unsigned sz, T * const * vs):array<T*, false>(a, sz, vs) {}
@@ -205,7 +205,7 @@ public:
 template<typename T>
 class sarray : public array<T, false> {
 public:
-    sarray() {}
+    sarray() = default;
     sarray(void * mem, unsigned sz, T const * vs):array<T, false>(mem, sz, vs) {}
     template<typename Allocator>
     sarray(Allocator & a, unsigned sz, T const * vs):array<T, false>(a, sz, vs) {}

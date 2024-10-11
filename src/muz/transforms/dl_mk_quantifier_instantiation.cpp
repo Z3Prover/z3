@@ -41,9 +41,6 @@ namespace datalog {
         m_cnst2var(m) {        
     }
 
-    mk_quantifier_instantiation::~mk_quantifier_instantiation() {        
-    }
-
     void mk_quantifier_instantiation::extract_quantifiers(rule& r, expr_ref_vector& conjs, quantifier_ref_vector& qs) {
         conjs.reset();
         qs.reset();

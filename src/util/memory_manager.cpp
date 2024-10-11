@@ -322,7 +322,7 @@ void* memory::reallocate(void *p, size_t s) {
     if (sz >= s)
         return p;
 #else
-    size_t *sz_p = reinterpret_cast<size_t*>(p)-1;
+    size_t *sz_p = reinterpret_cast<size_t*>(p) - SIZE_T_ALIGN;
     size_t sz = *sz_p;
     void *real_p = reinterpret_cast<void*>(sz_p);
     s = s + SIZE_T_ALIGN * sizeof(size_t); // we allocate an extra field!

@@ -662,6 +662,7 @@ namespace smt {
         
         void restart_eh() override;
         void init_search_eh() override;
+        void initialize_value(expr* var, expr* value) override;
         /**
            \brief True if the assignment may be changed during final
            check.  assume_eqs, check_int_feasibility,
@@ -1053,7 +1054,6 @@ namespace smt {
         // -----------------------------------
     public:
         theory_arith(context& ctx);
-        ~theory_arith() override;
         
         theory * mk_fresh(context * new_ctx) override;
 

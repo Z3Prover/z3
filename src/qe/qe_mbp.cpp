@@ -45,84 +45,89 @@ using namespace qe;
 namespace  {
 // rewrite select(store(a, i, k), j) into k if m \models i = j and select(a, j) if m \models i != j
     struct rd_over_wr_rewriter : public default_rewriter_cfg {
-            ast_manager &m;
-            array_util m_arr;
-            model_evaluator m_eval;
-            expr_ref_vector m_sc;
-
-            rd_over_wr_rewriter(ast_manager& man, model& mdl): m(man), m_arr(m), m_eval(mdl), m_sc(m) {
-                m_eval.set_model_completion(false);
-            }
-
-            br_status reduce_app(func_decl *f, unsigned num, expr *const *args,
-                                 expr_ref &result, proof_ref &result_pr) {
-                if (m_arr.is_select(f) && m_arr.is_store(args[0])) {
-                    expr_ref ind1(m), ind2(m);
-                    ind1 = m_eval(args[1]);
-                    ind2 = m_eval(to_app(args[0])->get_arg(1));
-                    if (ind1 == ind2) {
-                        result = to_app(args[0])->get_arg(2);
-                        m_sc.push_back(m.mk_eq(args[1], to_app(args[0])->get_arg(1)));
-                        return BR_DONE;
-                    }
-                    m_sc.push_back(m.mk_not(m.mk_eq(args[1], to_app(args[0])->get_arg(1))));
-                    expr_ref_vector new_args(m);
-                    new_args.push_back(to_app(args[0])->get_arg(0));
-                    new_args.push_back(args[1]);
-                    result = m_arr.mk_select(new_args);
-                    return BR_REWRITE1;
+        ast_manager &m;
+        array_util m_arr;
+        model_evaluator m_eval;
+        expr_ref_vector m_sc;
+        
+        rd_over_wr_rewriter(ast_manager& man, model& mdl): m(man), m_arr(m), m_eval(mdl), m_sc(m) {
+            m_eval.set_model_completion(false);
+        }
+        
+        br_status reduce_app(func_decl *f, unsigned num, expr *const *args,
+                             expr_ref &result, proof_ref &result_pr) {
+            if (m_arr.is_select(f) && m_arr.is_store(args[0])) {
+                expr_ref ind1(m), ind2(m);
+                ind1 = m_eval(args[1]);
+                ind2 = m_eval(to_app(args[0])->get_arg(1));
+                if (ind1 == ind2) {
+                    result = to_app(args[0])->get_arg(2);
+                    m_sc.push_back(m.mk_eq(args[1], to_app(args[0])->get_arg(1)));
+                    return BR_DONE;
                 }
-                return BR_FAILED;
+                m_sc.push_back(m.mk_not(m.mk_eq(args[1], to_app(args[0])->get_arg(1))));
+                expr_ref_vector new_args(m);
+                new_args.push_back(to_app(args[0])->get_arg(0));
+                new_args.push_back(args[1]);
+                result = m_arr.mk_select(new_args);
+                return BR_REWRITE1;
             }
+            return BR_FAILED;
+        }
     };
 // rewrite all occurrences of (as const arr c) to (as const arr v) where v = m_eval(c)
     struct app_const_arr_rewriter : public default_rewriter_cfg {
-            ast_manager &m;
-            array_util m_arr;
-            datatype_util m_dt_util;
-            model_evaluator m_eval;
-            expr_ref val;
-
-            app_const_arr_rewriter(ast_manager& man, model& mdl): m(man), m_arr(m), m_dt_util(m), m_eval(mdl), val(m) {
-                m_eval.set_model_completion(false);
+        ast_manager &m;
+        array_util m_arr;
+        datatype_util m_dt_util;
+        model_evaluator m_eval;
+        expr_ref val;
+        
+        app_const_arr_rewriter(ast_manager& man, model& mdl): m(man), m_arr(m), m_dt_util(m), m_eval(mdl), val(m) {
+            m_eval.set_model_completion(false);
+        }
+        br_status reduce_app(func_decl *f, unsigned num, expr *const *args,
+                             expr_ref &result, proof_ref &result_pr) {
+            if (m_arr.is_const(f) && !m.is_value(args[0])) {
+                val = m_eval(args[0]);
+                SASSERT(m.is_value(val));
+                result = m_arr.mk_const_array(f->get_range(), val);
+                return BR_DONE;
             }
-            br_status reduce_app(func_decl *f, unsigned num, expr *const *args,
-                                 expr_ref &result, proof_ref &result_pr) {
-                if (m_arr.is_const(f) && !m.is_value(args[0])) {
-                    val = m_eval(args[0]);
-                    SASSERT(m.is_value(val));
-                    result = m_arr.mk_const_array(f->get_range(), val);
-                    return BR_DONE;
+            if (m_dt_util.is_constructor(f)) {
+                // cons(head(x), tail(x)) --> x
+                ptr_vector<func_decl> const *accessors =
+                    m_dt_util.get_constructor_accessors(f);
+                
+                SASSERT(num == accessors->size());
+                // -- all accessors must have exactly one argument
+                if (any_of(*accessors, [&](const func_decl* acc) { return acc->get_arity() != 1; })) {
+                    return BR_FAILED;
                 }
-                if (m_dt_util.is_constructor(f)) {
-                    // cons(head(x), tail(x)) --> x
-                    ptr_vector<func_decl> const *accessors =
-                        m_dt_util.get_constructor_accessors(f);
-
-                    SASSERT(num == accessors->size());
-                    // -- all accessors must have exactly one argument
-                    if (any_of(*accessors, [&](const func_decl* acc) { return acc->get_arity() != 1; })) {
-                        return BR_FAILED;
+                
+                if (num >= 1 && is_app(args[0]) && to_app(args[0])->get_decl() == accessors->get(0)) {
+                    bool is_all = true;
+                    expr* t = to_app(args[0])->get_arg(0);
+                    for(unsigned i = 1; i < num && is_all; ++i) {
+                        is_all &= (is_app(args[i]) &&
+                                   to_app(args[i])->get_decl() == accessors->get(i) &&
+                                   to_app(args[i])->get_arg(0) == t);
                     }
-
-                    if (num >= 1 && is_app(args[0]) && to_app(args[0])->get_decl() == accessors->get(0)) {
-                        bool is_all = true;
-                        expr* t = to_app(args[0])->get_arg(0);
-                        for(unsigned i = 1; i < num && is_all; ++i) {
-                            is_all &= (is_app(args[i]) &&
-                                       to_app(args[i])->get_decl() == accessors->get(i) &&
-                                       to_app(args[i])->get_arg(0) == t);
-                        }
-                        if (is_all) {
-                            result = t;
-                            return BR_DONE;
-                        }
+                    if (is_all) {
+                        result = t;
+                        return BR_DONE;
                     }
                 }
-                return BR_FAILED;
             }
+            return BR_FAILED;
+        }
     };
 }
+
+template class rewriter_tpl<app_const_arr_rewriter>;
+template class rewriter_tpl<rd_over_wr_rewriter>;
+
+
 void rewrite_as_const_arr(expr* in, model& mdl, expr_ref& out) {
     app_const_arr_rewriter cfg(out.m(), mdl);
     rewriter_tpl<app_const_arr_rewriter> rw(out.m(), false, cfg);
@@ -452,7 +457,7 @@ public:
                 var = vars.back();
                 vars.pop_back();
                 mbp::project_plugin* p = get_plugin(var);
-                if (p && (*p)(model, var, vars, fmls)) {
+                if (p && p->project1(model, var, vars, fmls)) {
                     progress = true;
                 }
                 else {
@@ -675,6 +680,8 @@ public:
         vars.reset();
         vars.append(other_vars);
     }
+
+
 };
 
 mbproj::mbproj(ast_manager& m, params_ref const& p) {
@@ -715,5 +722,4 @@ opt::inf_eps mbproj::maximize(expr_ref_vector const& fmls, model& mdl, app* t, e
     scoped_no_proof _sp(fmls.get_manager());
     return m_impl->maximize(fmls, mdl, t, ge, gt);
 }
-template class rewriter_tpl<app_const_arr_rewriter>;
-template class rewriter_tpl<rd_over_wr_rewriter>;
+

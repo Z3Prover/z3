@@ -122,7 +122,7 @@ namespace datalog {
             m_end(t.m_data.end()), m_row_obj(*this) {}
 
         bool is_finished() const override {
-            return m_inner==m_end;
+            return !(m_inner != m_end);
         }
 
         row_interface & operator*() override {

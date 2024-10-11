@@ -404,7 +404,7 @@ class pred_transformer {
         }
         pt_rule &mk_rule(const pt_rule &v);
         void set_tag(expr *tag, pt_rule &v) {
-            pt_rule *p;
+            pt_rule *p = nullptr;
             VERIFY(find_by_rule(v.rule(), p));
             p->set_tag(tag);
             m_tags.insert(tag, p);
@@ -569,7 +569,7 @@ class pred_transformer {
     expr *transition() const { return m_transition; }
     expr *init() const { return m_init; }
     expr *rule2tag(datalog::rule const *r) {
-        pt_rule *p;
+        pt_rule *p = nullptr;
         return m_pt_rules.find_by_rule(*r, p) ? p->tag() : nullptr;
     }
     unsigned get_num_levels() const { return m_frames.size(); }
@@ -600,7 +600,7 @@ class pred_transformer {
                                    bool_vector &reach_pred_used,
                                    unsigned &num_reuse_reach);
     expr *get_transition(datalog::rule const &r) {
-        pt_rule *p;
+        pt_rule *p = nullptr;
         return m_pt_rules.find_by_rule(r, p) ? p->trans() : nullptr;
     }
     ptr_vector<app> &get_aux_vars(datalog::rule const &r) {

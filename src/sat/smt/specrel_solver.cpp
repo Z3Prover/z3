@@ -32,9 +32,6 @@ namespace specrel {
         ctx.get_egraph().add_plugin(alloc(euf::specrel_plugin, ctx.get_egraph()));
     }
 
-    solver::~solver() {
-    }
-
     void solver::asserted(sat::literal l) {
 
     }

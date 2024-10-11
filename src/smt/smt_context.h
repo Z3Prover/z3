@@ -71,6 +71,12 @@ namespace smt {
         enode_pp(enode* n, context const& ctx): ctx(ctx), n(n) {}
     };
 
+    struct replay_unit {
+        expr_ref m_unit;
+        bool     m_sign;
+        bool     m_relevant;
+    };
+
     class context {
         friend class model_generator;
         friend class lookahead;
@@ -122,6 +128,7 @@ namespace smt {
         class parallel*             m_par = nullptr;
         unsigned                    m_par_index = 0;
         bool                        m_internalizing_assertions = false;
+
 
         // -----------------------------------
         //
@@ -182,8 +189,7 @@ namespace smt {
         clause_vector               m_aux_clauses;
         clause_vector               m_lemmas;
         vector<clause_vector>       m_clauses_to_reinit;
-        expr_ref_vector             m_units_to_reassert;
-        svector<char>               m_units_to_reassert_sign;
+        vector<replay_unit>         m_units_to_reassert;
         literal_vector              m_assigned_literals;
         typedef std::pair<clause*, literal_vector> tmp_clause;
         vector<tmp_clause>          m_tmp_clauses;
@@ -245,6 +251,16 @@ namespace smt {
         uint_set m_all_th_case_split_literals;
         vector<literal_vector> m_th_case_split_sets;
         u_map< vector<literal_vector> > m_literal2casesplitsets; // returns the case split literal sets that a literal participates in
+
+
+        // ----------------------------------
+        //
+        // Value initialization
+        //
+        // ----------------------------------
+        vector<std::pair<expr_ref, expr_ref>> m_values;
+        void initialize_value(expr* var, expr* value);
+
 
         // -----------------------------------
         //
@@ -1155,6 +1171,7 @@ namespace smt {
         bool guess(bool_var var, lbool phase);
 
     protected:
+        bool m_has_case_split = true;
         bool decide();
 
         void update_phase_cache_counter();
@@ -1775,6 +1792,8 @@ namespace smt {
                 throw default_exception("user propagator must be initialized");
             m_user_propagator->register_decide(r);
         }
+
+        void user_propagate_initialize_value(expr* var, expr* value);
 
         bool watches_fixed(enode* n) const;
 

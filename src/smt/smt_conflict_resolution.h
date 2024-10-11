@@ -208,7 +208,7 @@ namespace smt {
                             vector<watch_list> & watches
                             );
 
-        virtual ~conflict_resolution();
+        virtual ~conflict_resolution() = default;
 
         virtual bool resolve(b_justification conflict, literal not_l);
 

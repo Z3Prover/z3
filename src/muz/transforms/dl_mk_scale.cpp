@@ -110,9 +110,6 @@ namespace datalog {
         m_eqs(m) {
     }
 
-    mk_scale::~mk_scale() {
-    }
-
     rule_set * mk_scale::operator()(rule_set const & source) {
         if (!m_ctx.scale()) {
             return nullptr;

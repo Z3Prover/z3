@@ -41,9 +41,6 @@ macro_manager::macro_manager(ast_manager & m):
     m_util.set_forbidden_set(&m_forbidden_set);
 }
 
-macro_manager::~macro_manager() {
-}
-
 void macro_manager::push_scope() {
     m_scopes.push_back(scope());
     scope & s              = m_scopes.back();

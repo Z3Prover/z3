@@ -63,8 +63,6 @@ namespace datalog {
         m(ctx.get_manager()),
         m_ctx(ctx) {        
     }
-
-    mk_magic_symbolic::~mk_magic_symbolic() { }
         
     rule_set * mk_magic_symbolic::operator()(rule_set const & source) {
         if (!m_ctx.magic()) {

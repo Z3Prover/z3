@@ -38,7 +38,6 @@ class simplifier_solver : public solver {
         model_reconstruction_trail m_reconstruction_trail;
         bool m_updated = false;
         dep_expr_state(simplifier_solver& s) :dependent_expr_state(s.m), s(s), m_reconstruction_trail(s.m, m_trail) {}
-        ~dep_expr_state() override {}
         unsigned qtail() const override { return s.m_fmls.size(); }
         dependent_expr const& operator[](unsigned i) override { return s.m_fmls[i]; }
         void update(unsigned i, dependent_expr const& j) override { 
@@ -391,6 +390,8 @@ public:
     void user_propagate_register_expr(expr* e) override { m_preprocess_state.freeze(e);  s->user_propagate_register_expr(e); }
     void user_propagate_register_created(user_propagator::created_eh_t& r) override { s->user_propagate_register_created(r); }
     void user_propagate_register_decide(user_propagator::decide_eh_t& r) override { s->user_propagate_register_decide(r); }
+    void user_propagate_initialize_value(expr* var, expr* value) override { m_preprocess_state.freeze(var); s->user_propagate_initialize_value(var, value); }
+
 
 
 };

@@ -459,6 +459,21 @@ extern "C" {
         Z3_CATCH;
     }
 
-
+    void Z3_API Z3_optimize_set_initial_value(Z3_context c, Z3_optimize o, Z3_ast var, Z3_ast value) {
+        Z3_TRY;
+        LOG_Z3_optimize_set_initial_value(c, o, var, value);
+        RESET_ERROR_CODE();
+        if (to_expr(var)->get_sort() != to_expr(value)->get_sort()) {
+            SET_ERROR_CODE(Z3_INVALID_USAGE, "variable and value should have same sort");
+            return;
+        }
+        ast_manager& m = mk_c(c)->m();
+        if (!m.is_value(to_expr(value))) {
+            SET_ERROR_CODE(Z3_INVALID_USAGE, "a proper value was not supplied");
+            return;
+        }
+        to_optimize_ptr(o)->initialize_value(to_expr(var), to_expr(value));
+        Z3_CATCH;        
+    }
 
 };

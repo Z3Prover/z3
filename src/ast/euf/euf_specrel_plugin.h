@@ -34,8 +34,6 @@ namespace euf {
     public:
 
         specrel_plugin(egraph& g);
-
-        ~specrel_plugin() override {}
         
         theory_id get_id() const override { return sp.get_family_id(); }
 

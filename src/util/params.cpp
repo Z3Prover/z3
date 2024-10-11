@@ -366,12 +366,11 @@ class params {
     };
     typedef std::pair<symbol, value> entry;
     svector<entry>        m_entries;
-    std::atomic<unsigned> m_ref_count;
+    std::atomic<unsigned> m_ref_count = 0;
     void del_value(entry & e);
     void del_values();
 
 public:
-    params():m_ref_count(0) {}
     ~params() {
         reset();
     }
@@ -391,7 +390,6 @@ public:
     void reset(char const * k);
 
     void validate(param_descrs const & p) {        
-        symbol suffix, prefix;
         for (params::entry& e : m_entries) {
             param_kind expected = p.get_kind_in_module(e.first);
             if (expected == CPK_INVALID) {

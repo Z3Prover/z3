@@ -119,7 +119,7 @@ namespace sat {
         literal_set(literal_vector const& v) {
             for (unsigned i = 0; i < v.size(); ++i) insert(v[i]);
         }
-        literal_set() {}
+        literal_set() = default;
         literal_vector to_vector() const {
             literal_vector result;
             for (literal lit : *this) result.push_back(lit);
@@ -146,7 +146,6 @@ namespace sat {
             literal operator*() const { return to_literal(*m_it); }
             iterator& operator++() { ++m_it; return *this; }
             iterator operator++(int) { iterator tmp = *this; ++m_it; return tmp; }
-            bool operator==(iterator const& it) const { return m_it == it.m_it; }
             bool operator!=(iterator const& it) const { return m_it != it.m_it; }
         };
         iterator begin() const { return iterator(m_set.begin()); }

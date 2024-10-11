@@ -58,7 +58,6 @@ namespace sat {
                 m_stack(std::move(stack)) {
                 m_counter = ++counter;
             }
-            ~elim_stack() { }
             void inc_ref() { ++m_refcount; }
             void dec_ref() { if (0 == --m_refcount) { dealloc(this); } }
             elim_stackv const& stack() const { return m_stack; }
@@ -80,9 +79,9 @@ namespace sat {
         };
     private:
         vector<entry>          m_entries;           // entries accumulated during SAT search
-        unsigned               m_exposed_lim;       // last entry that was exposed to model converter.
+        unsigned               m_exposed_lim = 0;   // last entry that was exposed to model converter.
         bool_vector            m_mark;              // literals that are used in asserted clauses.
-        solver const*          m_solver;
+        solver const*          m_solver = nullptr;
         elim_stackv            m_elim_stack;
 
         void process_stack(model & m, literal_vector const& clause, elim_stackv const& stack) const;
@@ -96,8 +95,6 @@ namespace sat {
         void add_elim_stack(entry & e);
 
     public:
-        model_converter();
-        ~model_converter();
         void set_solver(solver const* s) { m_solver = s; }
         void operator()(model & m) const;
         model_converter& operator=(model_converter const& other);

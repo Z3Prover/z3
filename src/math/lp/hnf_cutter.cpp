@@ -19,8 +19,7 @@ namespace lp  {
         lia(lia), 
         lra(lia.lra),
         m_settings(lia.settings()),
-        m_abs_max(zero_of_type<mpq>()),
-        m_var_register() {}
+        m_abs_max(zero_of_type<mpq>()) {}
     
     bool hnf_cutter::is_full() const {
         return

@@ -91,7 +91,7 @@ namespace intblast {
 
     void solver::eq_internalized(euf::enode* n) {
         expr* e = n->get_expr();
-        expr* x, * y;
+        expr* x = nullptr, * y = nullptr;
         VERIFY(m.is_eq(n->get_expr(), x, y));
         SASSERT(bv.is_bv(x));
         if (!is_translated(e)) {
@@ -482,7 +482,7 @@ namespace intblast {
             return r >= 0;
         if (is_bounded(e, N))
             return true;
-        expr* x, * y;
+        expr* x = nullptr, * y = nullptr;
         if (a.is_mul(e, x, y)) 
             return is_non_negative(bv_expr, x) && is_non_negative(bv_expr, y);
         if (a.is_add(e, x, y))
@@ -544,7 +544,7 @@ namespace intblast {
     */
     expr* solver::amod(expr* bv_expr, expr* x, rational const& N) {
         rational v;
-        expr* r, *c, * t, * e;
+        expr* r = nullptr, *c = nullptr, * t = nullptr, * e = nullptr;
         if (m.is_ite(x, c, t, e))
             r = m.mk_ite(c, amod(bv_expr, t, N), amod(bv_expr, e, N));
         else if (a.is_idiv(x, t, e) && a.is_numeral(t, v) && 0 <= v && v < N && is_non_negative(bv_expr, e))
@@ -880,7 +880,7 @@ namespace intblast {
             r = umod(bv_expr, 0);
             SASSERT(bv.get_bv_size(e) >= bv.get_bv_size(bv_expr));
             unsigned arg_sz = bv.get_bv_size(bv_expr);
-            unsigned sz = bv.get_bv_size(e);
+            //unsigned sz = bv.get_bv_size(e);
             // rational N = rational::power_of_two(sz);
             rational M = rational::power_of_two(arg_sz);
             expr* signbit = a.mk_ge(r, a.mk_int(M / 2));

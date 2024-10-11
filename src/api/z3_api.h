@@ -7241,6 +7241,18 @@ extern "C" {
 
     bool Z3_API Z3_solver_propagate_consequence(Z3_context c, Z3_solver_callback cb, unsigned num_fixed, Z3_ast const* fixed, unsigned num_eqs, Z3_ast const* eq_lhs, Z3_ast const* eq_rhs, Z3_ast conseq);
 
+
+    /**
+       \brief provide an initialization hint to the solver. The initialization hint is used to calibrate an initial value of the expression that
+       represents a variable. If the variable is Boolean, the initial phase is set according to \c value. If the variable is an integer or real,
+       the initial Simplex tableau is recalibrated to attempt to follow the value assignment.
+
+       def_API('Z3_solver_set_initial_value', VOID, (_in(CONTEXT), _in(SOLVER), _in(AST), _in(AST)))
+     */
+
+    void Z3_API Z3_solver_set_initial_value(Z3_context c, Z3_solver s, Z3_ast v, Z3_ast val);
+
+
     /**
        \brief Check whether the assertions in a given solver are consistent or not.
 

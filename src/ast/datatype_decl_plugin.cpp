@@ -220,17 +220,33 @@ namespace datatype {
     }
 
     namespace decl {
-
+        
         plugin::~plugin() {
             finalize();
         }
 
         void plugin::finalize() {
-            for (auto& kv : m_defs) {
-                dealloc(kv.m_value);
-            }
+            for (auto& kv : m_defs) 
+                dealloc(kv.m_value);            
             m_defs.reset();
             m_util = nullptr; // force deletion
+            reset();
+        }
+
+        void plugin::reset() {
+            m_datatype2constructors.reset();
+            m_datatype2nonrec_constructor.reset();
+            m_constructor2accessors.reset();
+            m_constructor2recognizer.reset();
+            m_recognizer2constructor.reset();
+            m_accessor2constructor.reset();
+            m_is_recursive.reset();
+            m_is_enum.reset();
+            std::for_each(m_vectors.begin(), m_vectors.end(), delete_proc<ptr_vector<func_decl> >());
+            m_vectors.reset();
+            dealloc(m_asts);
+            m_asts = nullptr;
+            ++m_start;
         }
 
         util & plugin::u() const {
@@ -578,6 +594,7 @@ namespace datatype {
             if (m_defs.find(s, d)) 
                 dealloc(d);
             m_defs.remove(s);
+            reset();
         }
 
         bool plugin::is_value_visit(bool unique, expr * arg, ptr_buffer<app> & todo) const {
@@ -799,7 +816,7 @@ namespace datatype {
             for (unsigned i = 0; i < n; ++i) {
                 sort* ps = get_datatype_parameter_sort(s, i);
                 sz = get_sort_size(params, ps);
-                m_refs.push_back(sz);
+                plugin().m_refs.push_back(sz);
                 S.insert(d.params().get(i), sz); 
             }            
             auto ss = d.sort_size();
@@ -896,7 +913,7 @@ namespace datatype {
             }
             TRACE("datatype", tout << "set sort size " << s << "\n";);
             d.set_sort_size(param_size::size::mk_plus(s_add));
-            m_refs.reset();
+            plugin().m_refs.reset();
         }
     }
     
@@ -1008,9 +1025,7 @@ namespace datatype {
     util::util(ast_manager & m):
         m(m),
         m_family_id(null_family_id),
-        m_plugin(nullptr),
-        m_asts(m),
-        m_start(0) {
+        m_plugin(nullptr) {
     }
 
 
@@ -1025,26 +1040,21 @@ namespace datatype {
         return m_family_id;
     }
 
-
-    util::~util() {
-        std::for_each(m_vectors.begin(), m_vectors.end(), delete_proc<ptr_vector<func_decl> >());
-    }
-
     ptr_vector<func_decl> const * util::get_datatype_constructors(sort * ty) {
         SASSERT(is_datatype(ty));
         ptr_vector<func_decl> * r = nullptr;
-        if (m_datatype2constructors.find(ty, r))
+        if (plugin().m_datatype2constructors.find(ty, r))
             return r;
         r = alloc(ptr_vector<func_decl>);
-        m_asts.push_back(ty);
-        m_vectors.push_back(r);
-        m_datatype2constructors.insert(ty, r);
+        plugin().add_ast(ty);
+        plugin().m_vectors.push_back(r);
+        plugin().m_datatype2constructors.insert(ty, r);
         if (!is_declared(ty)) 
             m.raise_exception("datatype constructors have not been created");
         def const& d = get_def(ty);
         for (constructor const* c : d) {
             func_decl_ref f = c->instantiate(ty);
-            m_asts.push_back(f);
+            plugin().add_ast(f);
             r->push_back(f);
         }
         return r;
@@ -1053,13 +1063,13 @@ namespace datatype {
     ptr_vector<func_decl> const * util::get_constructor_accessors(func_decl * con) {
         SASSERT(is_constructor(con));
         ptr_vector<func_decl> * res = nullptr;
-        if (m_constructor2accessors.find(con, res)) {
+        if (plugin().m_constructor2accessors.find(con, res)) {
             return res;
         }
         res = alloc(ptr_vector<func_decl>);
-        m_asts.push_back(con);
-        m_vectors.push_back(res);
-        m_constructor2accessors.insert(con, res);
+        plugin().add_ast(con);
+        plugin().m_vectors.push_back(res);
+        plugin().m_constructor2accessors.insert(con, res);
         sort * datatype = con->get_range();
         def const& d = get_def(datatype);
         for (constructor const* c : d) {
@@ -1067,7 +1077,7 @@ namespace datatype {
                 for (accessor const* a : *c) {
                     func_decl_ref fn = a->instantiate(datatype);
                     res->push_back(fn);
-                    m_asts.push_back(fn);
+                    plugin().add_ast(fn);
                 }
                 break;
             }
@@ -1086,7 +1096,7 @@ namespace datatype {
     func_decl * util::get_constructor_recognizer(func_decl * con) {
         SASSERT(is_constructor(con));
         func_decl * d = nullptr;
-        if (m_constructor2recognizer.find(con, d))
+        if (plugin().m_constructor2recognizer.find(con, d))
             return d;
         sort * datatype = con->get_range();
         def const& dd = get_def(datatype);
@@ -1097,9 +1107,9 @@ namespace datatype {
         parameter ps[2] = { parameter(con), parameter(r) };
         d  = m.mk_func_decl(fid(), OP_DT_RECOGNISER, 2, ps, 1, &datatype);
         SASSERT(d);
-        m_asts.push_back(con);
-        m_asts.push_back(d);
-        m_constructor2recognizer.insert(con, d);
+        plugin().add_ast(con);
+        plugin().add_ast(d);
+        plugin().m_constructor2recognizer.insert(con, d);
         return d;
     }
 
@@ -1120,10 +1130,10 @@ namespace datatype {
     bool util::is_recursive(sort * ty) {
         SASSERT(is_datatype(ty));
         bool r = false;
-        if (!m_is_recursive.find(ty, r)) {
+        if (!plugin().m_is_recursive.find(ty, r)) {
             r = is_recursive_core(ty);
-            m_is_recursive.insert(ty, r);
-            m_asts.push_back(ty);
+            plugin().m_is_recursive.insert(ty, r);
+            plugin().add_ast(ty);
         }
         return r;
     }
@@ -1147,21 +1157,21 @@ namespace datatype {
         if (!is_datatype(s)) 
             return false;        
         bool r = false;
-        if (m_is_enum.find(s, r))
+        if (plugin().m_is_enum.find(s, r))
             return r;
         ptr_vector<func_decl> const& cnstrs = *get_datatype_constructors(s);
         r = true;
         for (unsigned i = 0; r && i < cnstrs.size(); ++i) 
             r = cnstrs[i]->get_arity() == 0;        
-        m_is_enum.insert(s, r);
-        m_asts.push_back(s);
+        plugin().m_is_enum.insert(s, r);
+        plugin().add_ast(s);
         return r;
     }
 
     func_decl * util::get_accessor_constructor(func_decl * accessor) { 
         SASSERT(is_accessor(accessor));
         func_decl * r = nullptr;
-        if (m_accessor2constructor.find(accessor, r))
+        if (plugin().m_accessor2constructor.find(accessor, r))
             return r;
         sort * datatype = accessor->get_domain(0);
         symbol c_id   = accessor->get_parameter(1).get_symbol();
@@ -1174,26 +1184,15 @@ namespace datatype {
             }
         }
         r = fn;
-        m_accessor2constructor.insert(accessor, r);
-        m_asts.push_back(accessor);
-        m_asts.push_back(r);
+        plugin().m_accessor2constructor.insert(accessor, r);
+        plugin().add_ast(accessor);
+        plugin().add_ast(r);
         return r;
     }
 
 
     void util::reset() {
-        m_datatype2constructors.reset();
-        m_datatype2nonrec_constructor.reset();
-        m_constructor2accessors.reset();
-        m_constructor2recognizer.reset();
-        m_recognizer2constructor.reset();
-        m_accessor2constructor.reset();
-        m_is_recursive.reset();
-        m_is_enum.reset();
-        std::for_each(m_vectors.begin(), m_vectors.end(), delete_proc<ptr_vector<func_decl> >());
-        m_vectors.reset();
-        m_asts.reset();
-        ++m_start;
+        plugin().reset();
     }
 
 
@@ -1205,7 +1204,7 @@ namespace datatype {
     func_decl * util::get_non_rec_constructor(sort * ty) {
         SASSERT(is_datatype(ty));
         cnstr_depth cd;
-        if (m_datatype2nonrec_constructor.find(ty, cd))
+        if (plugin().m_datatype2nonrec_constructor.find(ty, cd))
             return cd.first;
         ptr_vector<sort> forbidden_set;
         forbidden_set.push_back(ty);
@@ -1222,7 +1221,7 @@ namespace datatype {
        each T_i is not a datatype or it is a datatype t not in forbidden_set,
        and get_non_rec_constructor_core(T_i, forbidden_set union { T_i })
     */
-    util::cnstr_depth util::get_non_rec_constructor_core(sort * ty, ptr_vector<sort> & forbidden_set) {
+    cnstr_depth util::get_non_rec_constructor_core(sort * ty, ptr_vector<sort> & forbidden_set) {
         // We must select a constructor c(T_1, ..., T_n):T such that
         //   1) T_i's are not recursive
         // If there is no such constructor, then we select one that 
@@ -1231,7 +1230,7 @@ namespace datatype {
         ptr_vector<func_decl> const& constructors = *get_datatype_constructors(ty);
         array_util autil(m);
         cnstr_depth result(nullptr, 0);
-        if (m_datatype2nonrec_constructor.find(ty, result))
+        if (plugin().m_datatype2nonrec_constructor.find(ty, result))
             return result;
         TRACE("util_bug", tout << "get-non-rec constructor: " << sort_ref(ty, m) << "\n";
               tout << "forbidden: ";
@@ -1273,9 +1272,9 @@ namespace datatype {
             }
         }
         if (result.first) {
-            m_asts.push_back(result.first);
-            m_asts.push_back(ty);
-            m_datatype2nonrec_constructor.insert(ty, result);
+            plugin().add_ast(result.first);
+            plugin().add_ast(ty);
+            plugin().m_datatype2nonrec_constructor.insert(ty, result);
         }
         return result;
     }
@@ -1291,6 +1290,7 @@ namespace datatype {
         IF_VERBOSE(0, verbose_stream() << f->get_name() << "\n");
         for (constructor* c : d)
             IF_VERBOSE(0, verbose_stream() << "!= " << c->name() << "\n");
+        return UINT_MAX;
         SASSERT(false);
         UNREACHABLE();
         return 0;

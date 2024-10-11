@@ -45,7 +45,6 @@ namespace euf {
         void add_plugin(theory_checker_plugin* p);
     public:
         theory_checker(ast_manager& m);
-        ~theory_checker();
         void register_plugin(symbol const& rule, theory_checker_plugin*);
         bool check(expr* jst);
         expr_ref_vector clause(expr* jst);

@@ -31,7 +31,7 @@ protected:
 public:
     value_factory(ast_manager & m, family_id fid);
 
-    virtual ~value_factory();
+    virtual ~value_factory() = default;
 
     /**
        \brief Return some value of the given sort. The result is always different from zero.

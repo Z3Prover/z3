@@ -45,8 +45,6 @@ bool spacer_arith_kernel::compute_kernel() {
 namespace {
 class simplex_arith_kernel_plugin : public spacer_arith_kernel::plugin {
   public:
-    simplex_arith_kernel_plugin() {}
-
     bool compute_kernel(const spacer_matrix &in, spacer_matrix &out,
                         vector<unsigned> &basics) override {
         using qmatrix = simplex::sparse_matrix<simplex::mpq_ext>;

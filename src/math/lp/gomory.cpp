@@ -527,7 +527,7 @@ public:
             has_small_cut = true;
             add_cut(cc.m_t, cc.m_k, cc.m_dep);
             if (lia.settings().get_cancel_flag())
-                return lia_move::undef;
+                return lia_move::cancelled;
         }
 
         if (big_cuts.size()) {
@@ -544,6 +544,9 @@ public:
         
         if (!_check_feasible())
             return lia_move::conflict;
+
+        if (lra.get_status() == lp_status::CANCELLED)
+            return lia_move::cancelled;        
         
         if (!lia.has_inf_int())
             return lia_move::sat;

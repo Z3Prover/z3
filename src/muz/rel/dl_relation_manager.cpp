@@ -1043,7 +1043,6 @@ namespace datalog {
     class relation_manager::null_signature_table_project_fn : public table_transformer_fn {
         const table_signature m_empty_sig;
     public:
-        null_signature_table_project_fn() : m_empty_sig() {}
         table_base * operator()(const table_base & t) override {
             relation_manager & m = t.get_plugin().get_manager();
             table_base * res = m.mk_empty_table(m_empty_sig);

@@ -31,7 +31,7 @@ namespace sls {
         unsigned nw = 0;
         unsigned mask = 0;
 
-        bvect() {}
+        bvect() = default;
         bvect(unsigned sz) : svector(sz, (unsigned)0) {}
         void set_bw(unsigned bw);
 

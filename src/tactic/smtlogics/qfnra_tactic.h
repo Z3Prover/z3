@@ -12,7 +12,7 @@ Abstract:
 Author:
 
     Leonardo (leonardo) 2012-02-28
-
+    Mengyu Zhao (Linxi) and Shaowei Cai, ported from https://github.com/hybridSMT/hybridSMT.git
 Notes:
 
 --*/

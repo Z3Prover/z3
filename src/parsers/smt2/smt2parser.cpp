@@ -116,6 +116,7 @@ namespace smt2 {
         symbol               m_match;
         symbol               m_case;
         symbol               m_underscore;
+        contains_vars        m_has_free_vars;
 
         typedef std::pair<symbol, expr*> named_expr;
         named_expr           m_last_named_expr;
@@ -942,7 +943,6 @@ namespace smt2 {
             }
             for (unsigned i = 0; i < sz; i++) {
                 pdatatype_decl * d = new_dt_decls[i];
-                symbol duplicated;
                 check_duplicate(d, line, pos);
                 if (!is_smt2_6) {
                     // datatypes are inserted up front in SMT2.6 mode, so no need to re-insert them.
@@ -1032,7 +1032,7 @@ namespace smt2 {
 
         void name_expr(expr * n, symbol const & s) {
             TRACE("name_expr", tout << "naming: " << s << " ->\n" << mk_pp(n, m()) << "\n";);
-            if (!is_ground(n) && has_free_vars(n))
+            if (!is_ground(n) && m_has_free_vars(n))
                 throw parser_exception("invalid named expression, expression contains free variables");
             m_ctx.insert(s, 0, nullptr, n);
             m_last_named_expr.first  = s;

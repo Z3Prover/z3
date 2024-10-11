@@ -440,8 +440,9 @@ namespace euf {
             TRACE("plugin", tout << "propagate " << eq_id << ": " << eq_pp(*this, m_eqs[eq_id]) << "\n");
 
             // simplify eq using processed
-            for (auto other_eq : backward_iterator(eq_id))
-                TRACE("plugin", tout << "backward iterator " << eq_id << " vs " << other_eq << " " << is_processed(other_eq) << "\n");
+            TRACE("plugin", 
+                  for (auto other_eq : backward_iterator(eq_id))
+                      tout << "backward iterator " << eq_id << " vs " << other_eq << " " << is_processed(other_eq) << "\n");
             for (auto other_eq : backward_iterator(eq_id))
                 if (is_processed(other_eq) && backward_simplify(eq_id, other_eq))
                     goto loop_start;
@@ -907,7 +908,6 @@ namespace euf {
         m_dst_r.reset();
         m_dst_r.append(monomial(dst.r).m_nodes);
         unsigned src_r_size = m_src_r.size();
-        unsigned dst_r_size = m_dst_r.size();
         SASSERT(src_r_size == monomial(src.r).size());
         // dst_r contains C
         // src_r contains E

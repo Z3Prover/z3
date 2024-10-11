@@ -93,7 +93,7 @@ namespace datalog {
         */
         class signature_base : public signature_base_base {
         public:
-            bool operator==(const signature & o) const {
+            bool operator==(const signature_base & o) const {
                 unsigned n=signature_base_base::size();
                 if (n!=o.size()) {
                     return false;
@@ -1113,7 +1113,7 @@ namespace datalog {
 
             virtual row_interface & operator*() = 0;
             virtual void operator++() = 0;
-            virtual bool operator==(const iterator_core & it) {
+            virtual bool operator==(const iterator_core & it) const {
                 //we worry about the equality operator only because of checking
                 //the equality with the end() iterator
                 return is_finished() && it.is_finished();
@@ -1142,7 +1142,7 @@ namespace datalog {
 
             virtual table_element operator*() = 0;
             virtual void operator++() = 0;
-            virtual bool operator==(const row_iterator_core & it) {
+            virtual bool operator==(const row_iterator_core & it) const {
                 //we worry about the equality operator only because of checking
                 //the equality with the end() iterator
                 return is_finished() && it.is_finished();
@@ -1169,10 +1169,8 @@ namespace datalog {
             { return &(*(*m_core)); }
             iterator & operator++()
             { ++(*m_core); return *this; }
-            bool operator==(const iterator & it)
-            { return (*m_core)==(*it.m_core); }
-            bool operator!=(const iterator & it)
-            { return !operator==(it); }
+            bool operator==(const iterator & it) const  { return (*m_core)==(*it.m_core); }
+            bool operator!=(const iterator & it) const  { return !operator==(it); }
         };
 
         class row_iterator {
@@ -1187,10 +1185,8 @@ namespace datalog {
             { return *(*m_core); }
             row_iterator & operator++()
             { ++(*m_core); return *this; }
-            bool operator==(const row_iterator & it)
-            { return (*m_core)==(*it.m_core); }
-            bool operator!=(const row_iterator & it)
-            { return !operator==(it); }
+            bool operator==(const row_iterator & it) const  { return (*m_core)==(*it.m_core); }
+            bool operator!=(const row_iterator & it) const  { return !operator==(it); }
         };
 
         virtual iterator begin() const = 0;

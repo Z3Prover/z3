@@ -58,7 +58,6 @@ namespace datalog {
         bool check_accessor(app* n);
     public:
         rule_properties(ast_manager & m, rule_manager& rm, context& ctx, i_expr_pred& is_predicate);
-        ~rule_properties();    
         void set_generate_proof(bool generate_proof) { m_generate_proof = generate_proof; } 
         void collect(rule_set const& r);
         void check_quantifier_free();

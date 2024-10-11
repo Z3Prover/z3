@@ -19,6 +19,7 @@ Revision History:
 #pragma once
 
 #include<cstdlib>
+#include<memory>
 #include<ostream>
 #include<iomanip>
 #include "util/z3_exception.h"
@@ -105,18 +106,14 @@ ALLOC_ATTR T * alloc_vect(unsigned sz);
 template<typename T>
 T * alloc_vect(unsigned sz) {
     T * r = static_cast<T*>(memory::allocate(sizeof(T) * sz));
-    T * curr = r;
-    for (unsigned i = 0; i < sz; i++, curr++) 
-        new (curr) T();
+    std::uninitialized_default_construct_n(r, sz);
     return r;
 }
 
 template<typename T>
 void dealloc_vect(T * ptr, unsigned sz) {
     if (ptr == nullptr) return;
-    T * curr = ptr;
-    for (unsigned i = 0; i < sz; i++, curr++)
-        curr->~T();
+    std::destroy_n(ptr, sz);
     memory::deallocate(ptr);
 }
 

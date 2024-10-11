@@ -78,8 +78,6 @@ namespace datalog {
             m_descendants(DEFAULT_HASHTABLE_INITIAL_CAPACITY, m_hash, m_eq) {
         }
 
-        ~ddnf_node() {}
-
         unsigned inc_ref() {
             return ++m_refs;
         }
@@ -429,8 +427,6 @@ namespace datalog {
     class ddnfs {
         u_map<ddnf_mgr*> m_mgrs;
     public:
-        ddnfs() {}
-
         ~ddnfs() {
             u_map<ddnf_mgr*>::iterator it = m_mgrs.begin(), end = m_mgrs.end();
             for (; it != end; ++it) {
@@ -502,8 +498,6 @@ namespace datalog {
             params.set_sym("engine", symbol("datalog"));
             m_inner_ctx.updt_params(params);
         }
-
-        ~imp() {}        
 
         lbool query(expr* query) {
             m_ctx.ensure_opened();
@@ -684,14 +678,9 @@ namespace datalog {
         }
 
         bool compile_rules1(rule_set const& rules, rule_set& new_rules) {
-            datalog::rule_set::iterator it  = rules.begin();
-            datalog::rule_set::iterator end = rules.end();
-            unsigned idx = 0;
-            for (; it != end; ++idx, ++it) {
-                if (!compile_rule1(**it, rules, new_rules)) {
+            for (auto const & r : rules) 
+                if (!compile_rule1(*r, rules, new_rules)) 
                     return false;
-                }
-            }
             return true;            
         }
 

@@ -1392,7 +1392,6 @@ namespace sat {
     void lookahead::propagate_clauses_searching(literal l) {
         // clauses where l is negative
         unsigned sz = m_nary_count[(~l).index()];
-        literal lit;
         SASSERT(m_search_mode == lookahead_mode::searching);
         for (nary* n : m_nary[(~l).index()]) {
             if (sz-- == 0) break;

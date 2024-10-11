@@ -360,7 +360,7 @@ namespace smt {
         for (unsigned i = 1; i < unsat_row.size(); ++i) {
             numeral c(unsat_row[i]);
             if (!c.is_zero()) {
-                theory_var var;
+                theory_var var = null_theory_var;
                 if (!index2var.find(i, var)) {
                     UNREACHABLE();
                 }

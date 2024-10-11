@@ -906,9 +906,9 @@ namespace {
         void linearise_core() {
             m_aux.reset();
             app *         first_app = nullptr;
-            unsigned      first_app_reg;
-            unsigned      first_app_sz;
-            unsigned      first_app_num_unbound_vars;
+            unsigned      first_app_reg = 0;
+            unsigned      first_app_sz = 0;
+            unsigned      first_app_num_unbound_vars = 0;
             // generate first the non-BIND operations
             for (unsigned reg : m_todo) {
                 expr *  p    = m_registers[reg];
@@ -1993,9 +1993,6 @@ namespace {
             m_mam(ma),
             m_use_filters(use_filters) {
             m_args.resize(INIT_ARGS_SIZE);
-        }
-
-        ~interpreter() {
         }
 
         void init(code_tree * t) {
@@ -3943,9 +3940,11 @@ namespace {
                 }
                 return;
             }
-            for (unsigned i = 0; i < num_bindings; i++) {
-                SASSERT(bindings[i]->get_generation() <= max_generation);
-            }
+            DEBUG_CODE(
+                for (unsigned i = 0; i < num_bindings; i++) {
+                    SASSERT(bindings[i]->get_generation() <= max_generation);
+                });
+                
 #endif
             unsigned min_gen = 0, max_gen = 0;
             m_interpreter.get_min_max_top_generation(min_gen, max_gen);

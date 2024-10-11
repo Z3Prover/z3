@@ -4,6 +4,12 @@ import { init, killThreads } from '../jest';
 import { Arith, Bool, Model, Quantifier, Z3AssertionError, Z3HighLevel, AstVector } from './types';
 import { expectType } from 'ts-expect';
 
+// this should not be necessary but there may be a Jest bug
+// https://github.com/jestjs/jest/issues/7874
+afterEach(() => {
+  global.gc && global.gc();
+});
+
 /**
  * Generate all possible solutions from given assumptions.
  *
@@ -355,6 +361,7 @@ describe('high-level', () => {
     });
   });
 
+  
   describe('bitvectors', () => {
     it('can do simple proofs', async () => {
       const { BitVec, Concat, Implies, isBitVecVal } = api.Context('main');
@@ -373,7 +380,7 @@ describe('high-level', () => {
       const y = BitVec.const('y', 32);
 
       await prove(Implies(Concat(x, y).eq(Concat(y, x)), x.eq(y)));
-    });
+    }, 10_000 /* timeout ms */);
 
     it('finds x and y such that: x ^ y - 103 == x * y', async () => {
       const { BitVec, isBitVecVal } = api.Context('main');
@@ -392,6 +399,7 @@ describe('high-level', () => {
       expect((xv ^ yv) - 103n === (xv * yv) % 2n ** 32n).toStrictEqual(true);
     });
   });
+
 
   describe('arrays', () => {
     it('Example 1', async () => {
@@ -447,7 +455,7 @@ describe('high-level', () => {
       await prove(Eq(arr2.select(0), FIVE_VAL));
       await prove(Not(Eq(arr2.select(0), BitVec.val(6, 256))));
       await prove(Eq(arr2.store(idx, val).select(idx), constArr.store(idx, val).select(idx)));
-    });
+    }, 10_000 /* timeout ms */);
 
     it('Finds arrays that differ but that sum to the same', async () => {
       const Z3 = api.Context('main');

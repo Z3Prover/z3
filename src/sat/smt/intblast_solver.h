@@ -103,8 +103,6 @@ namespace intblast {
 
     public:
         solver(euf::solver& ctx);
-        
-        ~solver() override {}
 
         lbool check_axiom(sat::literal_vector const& lits);
         lbool check_core(sat::literal_vector const& lits, euf::enode_pair_vector const& eqs);

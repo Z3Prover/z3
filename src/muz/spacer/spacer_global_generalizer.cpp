@@ -223,7 +223,7 @@ void lemma_global_generalizer::subsumer::setup_cvx_closure(
 
     cc.reset(n_vars);
 
-    unsigned bv_width;
+    unsigned bv_width = 0;
     if (contains_bv(m, lc.get_lemmas()[0].get_sub(), bv_width)) {
         cc.set_bv(bv_width);
     }
@@ -232,7 +232,7 @@ void lemma_global_generalizer::subsumer::setup_cvx_closure(
         cc.set_col_var(j, mk_rat_mul(m_col_lcm.get(j), m_col_names.get(j)));
 
     vector<rational> row;
-    unsigned i;
+    unsigned i = 0;
     for (const auto &lemma : lemmas) {
         row.reset();
         row.reserve(n_vars);

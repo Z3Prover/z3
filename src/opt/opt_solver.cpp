@@ -58,9 +58,6 @@ namespace opt {
     }
 
     unsigned opt_solver::m_dump_count = 0;
-    
-    opt_solver::~opt_solver() {
-    }
 
     void opt_solver::updt_params(params_ref const & _p) {
         opt_params p(_p);

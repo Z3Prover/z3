@@ -116,7 +116,7 @@ struct mbp_array_tg::impl {
     bool is_rd_wr(expr* t, expr*& wr_ind, expr*& rd_ind, expr*& b, expr*& v) {
         if (!is_rd_wr(t))
             return false;
-        expr* a;
+        expr* a = nullptr;
         VERIFY(m_array_util.is_select1(t, a, rd_ind));
         VERIFY(m_array_util.is_store1(a, b, wr_ind, v));
         return true;
@@ -185,7 +185,7 @@ struct mbp_array_tg::impl {
     // or              &&_{i \in indices} j \neq i &&
     //                        !(select(y, j) = elem)
     void elimwreq(peq p, bool is_neg) {
-        expr* a, *j, *elem;
+        expr* a = nullptr, *j = nullptr, *elem = nullptr;
         VERIFY(is_arr_write(p.lhs(), a, j, elem));
         TRACE("mbp_tg",
               tout << "applying elimwreq on " << expr_ref(p.mk_peq(), m) << " is neg: " << is_neg;);
@@ -279,7 +279,7 @@ struct mbp_array_tg::impl {
     // rewrite select(store(a, i, k), j) into either select(a, j) or k
     void elimrdwr(expr *term) {
         TRACE("mbp_tg", tout << "applying elimrdwr on " << expr_ref(term, m););
-        expr* wr_ind, *rd_ind, *b, *v;
+        expr* wr_ind = nullptr, *rd_ind = nullptr, *b = nullptr, *v = nullptr;
         VERIFY(is_rd_wr(term, wr_ind, rd_ind, b, v));
         if (m_mdl.are_equal(wr_ind, rd_ind)) 
             m_tg.add_eq(wr_ind, rd_ind);

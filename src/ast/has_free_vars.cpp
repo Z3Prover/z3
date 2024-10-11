@@ -30,7 +30,7 @@ class contains_vars::imp {
 
     void visit(expr * n, unsigned delta, bool & visited) {
         expr_delta_pair e(n, delta);
-        if (!m_cache.contains(e)) {
+        if (!is_ground(n) && !m_cache.contains(e)) {
             m_todo.push_back(e);
             visited = false;
         }
@@ -74,6 +74,7 @@ public:
         m_todo.push_back(expr_delta_pair(n, begin));
         while (!m_todo.empty()) {
             expr_delta_pair e = m_todo.back();
+            
             if (visit_children(e.m_node, e.m_delta)) {
                 m_cache.insert(e);
                 m_todo.pop_back();

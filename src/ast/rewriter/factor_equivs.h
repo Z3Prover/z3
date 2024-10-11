@@ -103,11 +103,10 @@ public:
             m_first = false;
             return *this;
         }
-        bool operator==(const iterator& o) {
+        bool operator!=(const iterator& o) const {
             SASSERT(&m_ouf == &o.m_ouf);
-            return  m_first == o.m_first && m_curr_id == o.m_curr_id;
+            return  m_first != o.m_first || m_curr_id != o.m_curr_id;
         }
-        bool operator!=(const iterator& o) {return !(*this == o);}
     };
 
     iterator begin(OBJ*o) {
@@ -152,11 +151,10 @@ public:
                     m_ouf.m_uf.is_root(m_rootnb) != true);
             return *this;
         }
-        bool operator==(const equiv_iterator& o) {
+        bool operator!=(const equiv_iterator& o) const {
             SASSERT(&m_ouf == &o.m_ouf);
-            return m_rootnb == o.m_rootnb;
+            return m_rootnb != o.m_rootnb;
         }
-        bool operator!=(const equiv_iterator& o) {return !(*this == o);}
     };
 
     equiv_iterator begin() {return equiv_iterator(*this, 0);}

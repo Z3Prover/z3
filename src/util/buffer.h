@@ -275,6 +275,6 @@ public:
 template<typename T, unsigned INITIAL_SIZE=16>
 class sbuffer : public buffer<T, false, INITIAL_SIZE> {
 public:
-    sbuffer(): buffer<T, false, INITIAL_SIZE>() {}
+    sbuffer() = default;
     sbuffer(unsigned sz, const T& elem) : buffer<T, false, INITIAL_SIZE>(sz,elem) {}
 };

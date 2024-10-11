@@ -63,6 +63,26 @@ namespace smt {
 
     
     fingerprint * fingerprint_set::insert(void * data, unsigned data_hash, unsigned num_args, enode * const * args, expr* def) {
+        
+        struct arg_data {
+            unsigned data_hash;
+            enode* const* args;
+        };
+        struct khash {
+            unsigned operator()(arg_data const& d) const {
+                return d.data_hash;
+            }
+        };
+        struct arghash {
+            unsigned operator()(arg_data const& d, unsigned i) const {
+                return d.args[i]->hash();
+            }
+        };
+        arg_data arg_data({ data_hash, args });
+        khash kh;
+        arghash ah;
+        data_hash = get_composite_hash(arg_data, num_args, kh, ah);
+
         fingerprint * d = mk_dummy(data, data_hash, num_args, args);
         if (m_set.contains(d)) 
             return nullptr;
@@ -107,8 +127,12 @@ namespace smt {
         unsigned new_lvl  = lvl - num_scopes;
         unsigned old_size = m_scopes[new_lvl];
         unsigned size     = m_fingerprints.size();
-        for (unsigned i = old_size; i < size; i++) 
-            m_set.erase(m_fingerprints[i]);
+        if (old_size == 0 && size > 0) 
+            m_set.reset();
+        else {
+            for (unsigned i = old_size; i < size; i++) 
+                m_set.erase(m_fingerprints[i]);
+        }
         m_fingerprints.shrink(old_size);
         m_defs.shrink(old_size);
         m_scopes.shrink(new_lvl);

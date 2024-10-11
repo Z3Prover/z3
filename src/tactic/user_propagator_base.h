@@ -99,6 +99,10 @@ namespace user_propagator {
             throw default_exception("clause logging is only supported on the SMT solver");
         }
 
+        virtual void user_propagate_initialize_value(expr* var, expr* value) {
+            throw default_exception("value initialization is only supported on the SMT solver");            
+        }
+
        
     };
 

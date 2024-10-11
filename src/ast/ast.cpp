@@ -58,7 +58,7 @@ parameter::parameter(parameter const& other) : m_val(other.m_val) {
 }
 
 void parameter::init_eh(ast_manager & m) {
-    if (is_ast()) {
+    if (is_ast()) { 
         m.inc_ref(get_ast());
     }
 }
@@ -1008,7 +1008,8 @@ sort* basic_decl_plugin::join(unsigned n, expr* const* es) {
 }
 
 sort* basic_decl_plugin::join(sort* s1, sort* s2) {
-    if (s1 == s2) return s1;
+    if (s1 == s2)
+        return s1;
     if (s1->get_family_id() == arith_family_id &&
         s2->get_family_id() == arith_family_id) {
         if (s1->get_decl_kind() == REAL_SORT) {
@@ -1016,6 +1017,10 @@ sort* basic_decl_plugin::join(sort* s1, sort* s2) {
         }
         return s2;
     }
+    if (s1 == m_bool_sort && s2->get_family_id() == arith_family_id)
+        return s2;
+    if (s2 == m_bool_sort && s1->get_family_id() == arith_family_id)
+        return s1;
     std::ostringstream buffer;
     buffer << "Sorts " << mk_pp(s1, *m_manager) << " and " << mk_pp(s2, *m_manager) << " are incompatible";
     throw ast_exception(buffer.str());

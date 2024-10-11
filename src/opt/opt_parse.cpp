@@ -69,7 +69,7 @@ public:
 bool opt_stream_buffer::parse_token(char const* token) {
     skip_whitespace();
     char const* t = token;
-    while (ch() == *t) {
+    while (*t && ch() && ch() == *t) {
         next();
         ++t;
     }

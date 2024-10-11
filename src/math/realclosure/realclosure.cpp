@@ -410,8 +410,6 @@ namespace realclosure {
             sbuffer<unsigned>  m_szs;        // size of each polynomial in the sequence
         public:
             scoped_polynomial_seq(imp & m):m_seq_coeffs(m) {}
-            ~scoped_polynomial_seq() {
-            }
 
             /**
                \brief Add a new polynomial to the sequence.

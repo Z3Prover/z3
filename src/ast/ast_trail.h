@@ -33,8 +33,7 @@ class ast2ast_trailmap {
 public:
     ast2ast_trailmap(ast_manager& m):
         m_domain(m),
-        m_range(m), 
-        m_map()
+        m_range(m)
     {}
 
     bool find(S* s, T*& t) {

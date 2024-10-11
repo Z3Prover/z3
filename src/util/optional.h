@@ -30,7 +30,7 @@ class optional {
     }
 
 public:
-    optional() {}
+    optional() = default;
 
     explicit optional(const T & val) {
         m_obj = alloc(T, val);
@@ -116,13 +116,13 @@ public:
  */
 template<typename T>
 class optional<T*> {
-    T * m_ptr;
+    T * m_ptr = nullptr;
 
     static optional m_undef;
 
 public:
     
-    optional():m_ptr(nullptr) {}
+    optional() = default;
 
     explicit optional(T * val):m_ptr(val) {}
 

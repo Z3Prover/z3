@@ -388,7 +388,7 @@ namespace smt {
 
     public:
         theory(context& ctx, family_id fid);
-        virtual ~theory();
+        virtual ~theory() = default;
         
         virtual void setup() {}
 
@@ -547,6 +547,10 @@ namespace smt {
             if (m.are_equal(lhs, rhs))
                 return m.mk_true();
             return get_manager().mk_eq(lhs, rhs);
+        }
+
+        virtual void initialize_value(expr* var, expr* value) {
+            IF_VERBOSE(5, verbose_stream() << "no default initialization associated with " << mk_pp(var, m) << " := " << mk_pp(value, m) << "\n");
         }
 
         literal mk_eq(expr * a, expr * b, bool gate_ctx);

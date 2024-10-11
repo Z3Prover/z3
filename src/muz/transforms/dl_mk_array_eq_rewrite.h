@@ -40,7 +40,6 @@ namespace datalog {
      public:
         mk_array_eq_rewrite(context & ctx, unsigned priority);
         rule_set * operator()(rule_set const & source) override;
-        ~mk_array_eq_rewrite() override{}
     };
 
 

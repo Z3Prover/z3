@@ -89,10 +89,6 @@ void asserted_formulas::setup() {
         m_smt_params.m_relevancy_lemma = false;
 }
 
-
-asserted_formulas::~asserted_formulas() {
-}
-
 void asserted_formulas::push_assertion(expr * e, proof * pr, vector<justified_expr>& result) {
     if (inconsistent()) {
         return;

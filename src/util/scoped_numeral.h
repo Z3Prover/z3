@@ -97,9 +97,18 @@ public:
         return a.m().eq(a, b);
     }
 
+    friend bool operator==(_scoped_numeral const & a, _scoped_numeral const & b) {
+        return a.m().eq(a.m_num, b.m_num);
+    }
+
     friend bool operator!=(_scoped_numeral const & a, numeral const & b) {
         return !a.m().eq(a, b);
     }
+
+    friend bool operator!=(_scoped_numeral const & a, _scoped_numeral const & b) {
+        return !(a == b);
+    }
+    
 
     friend bool operator<(_scoped_numeral const & a, numeral const & b) {
         return a.m().lt(a, b);

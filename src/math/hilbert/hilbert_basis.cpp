@@ -455,7 +455,6 @@ public:
         offset_t operator*() const { return p.m_passive[m_idx]; }
         iterator& operator++() { ++m_idx; fwd(); return *this; }
         iterator operator++(int) { iterator tmp = *this; ++*this; return tmp; }
-        bool operator==(iterator const& it) const {return m_idx == it.m_idx; }
         bool operator!=(iterator const& it) const {return m_idx != it.m_idx; }
     };
 
@@ -614,7 +613,6 @@ public:
         offset_t sos() const { return (p.hb.vec(pas()).weight().is_pos()?p.m_neg_sos:p.m_pos_sos)[p.m_psos[m_idx]]; }
         iterator& operator++() { ++m_idx; fwd(); return *this; }
         iterator operator++(int) { iterator tmp = *this; ++*this; return tmp; }
-        bool operator==(iterator const& it) const {return m_idx == it.m_idx; }
         bool operator!=(iterator const& it) const {return m_idx != it.m_idx; }
     };
 

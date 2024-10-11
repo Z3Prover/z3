@@ -54,8 +54,6 @@ namespace datalog {
             var_idx_set m_all_nonlocal_vars;
             rule_vector m_rules;
 
-            pair_info() {}
-
             pair_info & operator=(const pair_info &) = delete;
             bool can_be_joined() const {
                 return m_consumers > 0;

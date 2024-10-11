@@ -28,9 +28,6 @@ arith_factory::arith_factory(ast_manager & m):
     m_util(m) {
 }
 
-arith_factory::~arith_factory() {
-}
-
 app * arith_factory::mk_num_value(rational const & val, bool is_int) {
     return numeral_factory::mk_value(val, is_int ? m_util.mk_int() : m_util.mk_real());
 }
@@ -38,9 +35,6 @@ app * arith_factory::mk_num_value(rational const & val, bool is_int) {
 bv_factory::bv_factory(ast_manager & m):
     numeral_factory(m, m.mk_family_id("bv")),
     m_util(m) {
-}
-
-bv_factory::~bv_factory() {
 }
 
 app * bv_factory::mk_value_core(rational const & val, sort * s) {

@@ -88,8 +88,6 @@ namespace array {
         m_constraint->initialize(m_constraint.get(), this);
     }
 
-    solver::~solver() {}
-
     sat::check_result solver::check() {
         force_push();
         // flet<bool> _is_redundant(m_is_redundant, true);

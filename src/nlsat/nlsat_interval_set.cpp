@@ -112,9 +112,6 @@ namespace nlsat {
         m_am(m),
         m_allocator(a) {
     }
-     
-    interval_set_manager::~interval_set_manager() {
-    }
     
     void interval_set_manager::del(interval_set * s) {
         if (s == nullptr)
@@ -684,34 +681,51 @@ namespace nlsat {
         return new_set;
     }
 
-    void interval_set_manager::peek_in_complement(interval_set const * s, bool is_int, anum & w, bool randomize) {
+    int compare_interval_with_zero(const interval &now, const scoped_anum &zero, anum_manager & m) {
+        if (!now.m_upper_inf) {
+            int sgn = m.compare(now.m_upper, zero);
+            if (sgn < 0)
+                return -1;
+            if (sgn == 0 && now.m_upper_open)
+                return -1;
+        }
+        if (!now.m_lower_inf) {
+            int sgn = m.compare(now.m_lower, zero);
+            if (sgn > 0)
+                return 1;
+            if (sgn == 0 && now.m_lower_open)
+                return 1;
+        }
+        return 0;
+    }
+
+
+    void interval_set_manager::pick_in_complement(interval_set const * s, bool is_int, anum & w, bool randomize) {
         SASSERT(!is_full(s));
         if (s == nullptr) {
-            if (randomize) {
-                int num = m_rand() % 2 == 0 ? 1 : -1;
-#define MAX_RANDOM_DEN_K 4
-                int den_k = (m_rand() % MAX_RANDOM_DEN_K);
-                int den   = is_int ? 1 : (1 << den_k);
-                scoped_mpq _w(m_am.qm());
-                m_am.qm().set(_w, num, den);
-                m_am.set(w, _w);
-            }
-            else {
-                m_am.set(w, 0);
-            }
+            m_am.set(w, 0);
             return;
         }
-        
         unsigned n = 0;
-        
         unsigned num = num_intervals(s);
-        if (!s->m_intervals[0].m_lower_inf) {
-            // lower is not -oo
-            n++;
-            m_am.int_lt(s->m_intervals[0].m_lower, w);
-            if (!randomize)
-                return;
+        // try to assign w to zero first to simplify the polynomials
+        scoped_anum zero(m_am);
+        m_am.set(zero, 0);
+        bool available = true;
+        for (unsigned i = 0; i < num; ++i) {
+            int sgn = compare_interval_with_zero(s->m_intervals[i], zero, m_am);
+            if (sgn == 0) {
+                available = false;
+                break;
+            }
+            if (sgn > 0)
+                break;
         }
+        if (available) {
+            m_am.set(w, 0);
+            return ;
+        }
+        // cannot assign w to zero
         if (!s->m_intervals[num-1].m_upper_inf) {
             // upper is not oo
             n++;
@@ -720,6 +734,16 @@ namespace nlsat {
             if (!randomize)
                 return;
         }
+
+        if (!s->m_intervals[0].m_lower_inf) {
+            // lower is not -oo
+            n++;
+            m_am.int_lt(s->m_intervals[0].m_lower, w);
+            if (!randomize)
+                return;
+        }
+        
+        
         
         // Try to find a gap that is not an unit.
         for (unsigned i = 1; i < num; i++) {
@@ -770,5 +794,4 @@ namespace nlsat {
             out << "*";
         return out;
     }
-
 };

@@ -26,8 +26,6 @@ label_rewriter::label_rewriter(ast_manager & m) :
     m_label_fid(m.get_label_family_id()),
     m_rwr(m, false, *this) {}
 
-label_rewriter::~label_rewriter() {}
-
 br_status label_rewriter::reduce_app(
     func_decl * f, unsigned num, expr * const * args, expr_ref & result, 
     proof_ref & result_pr) {

@@ -22,6 +22,7 @@ Notes:
 #include "util/mutex.h"
 #include "util/region.h"
 #include "util/map.h"
+#include "util/rational.h"
 
 static DECLARE_MUTEX(gparams_mux);
 
@@ -351,8 +352,8 @@ public:
             ps.set_uint(param_name, static_cast<unsigned>(val));
         }
         else if (k == CPK_DOUBLE) {
-            char * aux;
-            double val = strtod(value, &aux);
+            rational r(value);
+            double val = r.get_double();
             ps.set_double(param_name, val);
         }
         else if (k == CPK_BOOL) {

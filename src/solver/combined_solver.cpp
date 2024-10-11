@@ -394,6 +394,12 @@ public:
     void user_propagate_clear() override {
         m_solver2->user_propagate_clear();
     }
+
+    void user_propagate_initialize_value(expr* var, expr* value) override {
+        m_solver1->user_propagate_initialize_value(var, value);
+        m_solver2->user_propagate_initialize_value(var, value);
+    }
+
     
 };
 

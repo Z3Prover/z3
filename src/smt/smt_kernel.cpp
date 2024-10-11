@@ -305,5 +305,9 @@ namespace smt {
     void kernel::user_propagate_register_decide(user_propagator::decide_eh_t& r) {
         m_imp->m_kernel.user_propagate_register_decide(r);
     }
+    
+    void kernel::user_propagate_initialize_value(expr* var, expr* value) {
+        m_imp->m_kernel.user_propagate_initialize_value(var, value);
+    }
 
 };

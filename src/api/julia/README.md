@@ -1,6 +1,8 @@
 # Julia bindings
 
-The Julia package [Z3.jl](https://github.com/ahumenberger/Z3.jl) provides and interface to Z3 by exposing its C++ API via [CxxWrap.jl](https://github.com/JuliaInterop/CxxWrap.jl). The bindings therefore consist of a [C++ part](z3jl.cpp) and a [Julia part](https://github.com/ahumenberger/Z3.jl). The C++ part defines the Z3 types/methods which are exposed. The resulting library is loaded in the Julia part via CxxWrap.jl which creates the corresponding Julia types/methods.
+The Julia package [Z3.jl](https://github.com/ahumenberger/Z3.jl) provides and interface to Z3 by exposing its C API.
+
+A previous version exposed the C++ API via [CxxWrap.jl](https://github.com/JuliaInterop/CxxWrap.jl). The bindings therefore consisted of a [C++ part](z3jl.cpp) and a [Julia part](https://github.com/ahumenberger/Z3.jl). The C++ part defines the Z3 types/methods which are exposed. The resulting library is loaded in the Julia part via CxxWrap.jl which creates the corresponding Julia types/methods.
 
 ## Building the C++ part 
 

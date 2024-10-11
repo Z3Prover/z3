@@ -35,7 +35,6 @@ namespace datalog {
         expr_ref ground(expr* e);
     public:
         mk_elim_term_ite(context &ctx, unsigned priority);
-        ~mk_elim_term_ite() override;
         rule_set * operator()(const rule_set &source) override;
     };
 }

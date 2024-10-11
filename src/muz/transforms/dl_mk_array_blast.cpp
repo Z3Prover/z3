@@ -38,9 +38,6 @@ namespace datalog {
         m_rewriter.updt_params(m_params);
     }
 
-    mk_array_blast::~mk_array_blast() {
-    }
-
     bool mk_array_blast::is_store_def(expr* e, expr*& x, expr*& y) {
         if (m.is_eq(e, x, y)) {
             if (!a.is_store(y)) {

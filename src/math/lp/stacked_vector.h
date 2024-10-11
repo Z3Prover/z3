@@ -51,13 +51,21 @@ public:
         operator const B&() const {
             return m_vec.m_vector[m_i];
         }
-        
+
         bool operator==(B const& other) const {
             return m_vec.m_vector[m_i] == other;
         }
         bool operator!=(B const& other) const {
             return m_vec.m_vector[m_i] != other;
         }
+        bool operator==(ref const& other) const {
+            return m_vec.m_vector[m_i] == other.m_vec.m_vector[other.m_i];
+        }
+        bool operator!=(ref  const& other) const {
+            return m_vec.m_vector[m_i] != other.m_vec.m_vector[other.m_i];
+        }
+
+
         B& operator+=(B const &delta) {
             // not tracking the change here!
             return m_vec.m_vector[m_i] += delta;
@@ -74,12 +82,16 @@ public:
     public:
         ref_const(const stacked_vector<B> &m, unsigned key) :m_vec(m), m_i(key) {
             lp_assert(key < m.size());
-        }
- 
+        } 
         operator const B&() const {
             return m_vec.m_vector[m_i];
         }
-
+        bool operator==(ref_const const& other) const {
+            return m_vec.m_vector[m_i] == other.m_vec.m_vector[other.m_i];
+        }
+        bool operator!=(ref_const const& other) const {
+            return m_vec.m_vector[m_i] != other.m_vec.m_vector[other.m_i];
+        }
     };
 
 private:
@@ -98,9 +110,6 @@ private:
         }
     }
 public:
-
-    stacked_vector() { }
-
     ref operator[] (unsigned a) {
         return ref(*this, a);
     }

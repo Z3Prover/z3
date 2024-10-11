@@ -30,6 +30,7 @@ class binary_tactical : public tactic {
 protected:
     tactic_ref      m_t1;
     tactic_ref      m_t2;
+    bool            m_clean = true;
     
 public:
 
@@ -61,8 +62,11 @@ public:
     }
         
     void cleanup() override {
+        if (m_clean)
+            return;
         m_t1->cleanup();
         m_t2->cleanup();
+        m_clean = true;
     }
     
     void reset() override {
@@ -103,7 +107,8 @@ public:
 
     char const* name() const override { return "and_then"; }
 
-    void operator()(goal_ref const & in, goal_ref_buffer& result) override { 
+    void operator()(goal_ref const & in, goal_ref_buffer& result) override {
+        m_clean = false;
 
         bool proofs_enabled = in->proofs_enabled();
         bool cores_enabled  = in->unsat_core_enabled();
@@ -211,6 +216,10 @@ public:
 
     void user_propagate_register_decide(user_propagator::decide_eh_t& decide_eh) override {
         m_t2->user_propagate_register_decide(decide_eh);
+    }
+
+    void user_propagate_initialize_value(expr* var, expr* value) override {
+        m_t2->user_propagate_initialize_value(var, value);
     }
 
 };
@@ -378,6 +387,12 @@ public:
     }
 
     tactic * translate(ast_manager & m) override { return translate_core<or_else_tactical>(m); }
+
+    void user_propagate_initialize_value(expr* var, expr* value) override {
+        for (auto t : m_ts)
+            t->user_propagate_initialize_value(var, value);
+    }
+
 };
 
 tactic * or_else(unsigned num, tactic * const * ts) {
@@ -862,6 +877,7 @@ tactic * par_and_then(unsigned num, tactic * const * ts) {
 class unary_tactical : public tactic {
 protected:
     tactic_ref m_t;
+    bool m_clean = true;
 
 
 public:
@@ -870,11 +886,12 @@ public:
         SASSERT(t);  
     }
 
-    void operator()(goal_ref const & in, goal_ref_buffer& result) override { 
+    void operator()(goal_ref const & in, goal_ref_buffer& result) override {
+        m_clean = false;
         m_t->operator()(in, result);
     }
    
-    void cleanup(void) override { m_t->cleanup(); }
+    void cleanup(void) override { if (!m_clean) m_t->cleanup(); m_clean = true; }
     void collect_statistics(statistics & st) const override { m_t->collect_statistics(st); }
     void reset_statistics() override { m_t->reset_statistics(); }    
     void updt_params(params_ref const & p) override { m_t->updt_params(p); }
@@ -884,6 +901,7 @@ public:
     void set_progress_callback(progress_callback * callback) override { m_t->set_progress_callback(callback); }
     void user_propagate_register_expr(expr* e) override { m_t->user_propagate_register_expr(e); }
     void user_propagate_clear() override { m_t->user_propagate_clear(); }
+    void user_propagate_initialize_value(expr* var, expr* value) override { m_t->user_propagate_initialize_value(var, value); }
 
 protected:
 
@@ -1147,6 +1165,7 @@ public:
     char const* name() const override { return "cond"; }
     
     void operator()(goal_ref const & in, goal_ref_buffer & result) override {
+        m_clean = false;
         if (m_p->operator()(*(in.get())).is_true()) 
             m_t1->operator()(in, result);
         else
@@ -1157,6 +1176,11 @@ public:
         tactic * new_t1 = m_t1->translate(m);
         tactic * new_t2 = m_t2->translate(m);
         return alloc(cond_tactical, m_p.get(), new_t1, new_t2);
+    }
+
+    void user_propagate_initialize_value(expr* var, expr* value) override {
+        m_t1->user_propagate_initialize_value(var, value);
+        m_t2->user_propagate_initialize_value(var, value);
     }
 };
 

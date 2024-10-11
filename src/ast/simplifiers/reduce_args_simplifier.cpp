@@ -375,8 +375,6 @@ public:
         m_bv(m)
     {}
 
-    ~reduce_args_simplifier() override {}
-
     char const* name() const override { return "reduce-args"; }
 
     void collect_statistics(statistics& st) const override {

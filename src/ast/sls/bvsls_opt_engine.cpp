@@ -28,10 +28,6 @@ bvsls_opt_engine::bvsls_opt_engine(ast_manager & m, params_ref const & p) :
     m_best_model = alloc(model, m);
 }
 
-bvsls_opt_engine::~bvsls_opt_engine()
-{    
-}
-
 bvsls_opt_engine::optimization_result bvsls_opt_engine::optimize(
     expr_ref const & objective, 
     model_ref initial_model, 

@@ -33,6 +33,7 @@ Notes:
 #include "ast/datatype_decl_plugin.h"
 #include "ast/recfun_decl_plugin.h"
 #include "ast/rewriter/seq_rewriter.h"
+#include "ast/rewriter/var_subst.h"
 #include "ast/converters/generic_model_converter.h"
 #include "solver/solver.h"
 #include "solver/check_logic.h"
@@ -47,7 +48,7 @@ class func_decls {
     bool signatures_collide(func_decl* f, func_decl* g) const;
     bool signatures_collide(unsigned n, sort*const* domain, sort* range, func_decl* g) const;
 public:
-    func_decls() {}
+    func_decls() = default;
     func_decls(ast_manager & m, func_decl * f);
     void finalize(ast_manager & m);
     bool contains(func_decl * f) const;
@@ -173,6 +174,8 @@ public:
     virtual void set_logic(symbol const& s) = 0;
     virtual void get_box_model(model_ref& mdl, unsigned index) = 0;
     virtual void updt_params(params_ref const& p) = 0;
+    virtual void initialize_value(expr* var, expr* value) = 0;
+
 };
 
 class ast_context_params : public context_params { 
@@ -260,6 +263,7 @@ protected:
     scoped_ptr_vector<builtin_decl> m_extra_builtin_decls; // make sure that dynamically allocated builtin_decls are deleted
     dictionary<object_ref*>      m_object_refs; // anything that can be named.
     dictionary<sexpr*>           m_user_tactic_decls;
+    vector<std::pair<expr_ref, expr_ref>> m_var2values;
 
     dictionary<func_decls>       m_func_decls;
     obj_map<func_decl, symbol>   m_func_decl2alias;
@@ -277,6 +281,7 @@ protected:
     ptr_vector<expr>             m_assertions;
     std::vector<std::string>     m_assertion_strings;
     ptr_vector<expr>             m_assertion_names; // named assertions are represented using boolean variables.
+    scoped_ptr<var_subst>        m_std_subst, m_rev_subst;
 
     struct scope {
         unsigned m_func_decls_stack_lim;
@@ -302,7 +307,6 @@ protected:
     public:
         void reset() { m_dt_util.reset(); }
         dt_eh(cmd_context & owner);
-        ~dt_eh() override;
         void operator()(sort * dt, pdecl* pd) override;
     };
 
@@ -314,6 +318,9 @@ protected:
 
     scoped_ptr<pp_env>            m_pp_env;
     pp_env & get_pp_env() const;
+
+    var_subst& std_subst() { if (!m_std_subst) m_std_subst = alloc(var_subst, m(), true); return *m_std_subst; }
+    var_subst& rev_subst() { if (!m_rev_subst) m_rev_subst = alloc(var_subst, m(), false); return *m_rev_subst; }
 
     void register_builtin_sorts(decl_plugin * p);
     void register_builtin_ops(decl_plugin * p);
@@ -419,6 +426,7 @@ public:
     solver* get_solver() { return m_solver.get(); }
     void set_solver(solver* s) { m_solver = s; }
     void set_proof_cmds(proof_cmds* pc) { m_proof_cmds = pc; }
+    void set_initial_value(expr* var, expr* value);
 
     void set_solver_factory(solver_factory * s);
     void set_check_sat_result(check_sat_result * r) { m_check_sat_result = r; }

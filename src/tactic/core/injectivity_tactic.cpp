@@ -162,9 +162,6 @@ class injectivity_tactic : public tactic {
         rewriter_eq_cfg(ast_manager & m, InjHelper & map, params_ref const & p) : m_manager(m), inj_map(map) {
         }
 
-        ~rewriter_eq_cfg() {
-        }
-
         void cleanup_buffers() {
         }
 

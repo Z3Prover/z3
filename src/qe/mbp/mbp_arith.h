@@ -26,7 +26,7 @@ namespace mbp {
         arith_project_plugin(ast_manager& m);
         ~arith_project_plugin() override;
         
-        bool operator()(model& model, app* var, app_ref_vector& vars, expr_ref_vector& lits) override;
+        bool project1(model& model, app* var, app_ref_vector& vars, expr_ref_vector& lits) override;
         bool solve(model& model, app_ref_vector& vars, expr_ref_vector& lits) override { return false; }
         family_id get_family_id() override;
         bool operator()(model& model, app_ref_vector& vars, expr_ref_vector& lits) override;

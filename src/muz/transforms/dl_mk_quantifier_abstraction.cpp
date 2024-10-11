@@ -149,9 +149,6 @@ namespace datalog {
         m_mc(nullptr) {
     }
 
-    mk_quantifier_abstraction::~mk_quantifier_abstraction() {
-    }
-
     func_decl* mk_quantifier_abstraction::declare_pred(rule_set const& rules, rule_set& dst, func_decl* old_p) {
 
         if (rules.is_output_predicate(old_p)) {

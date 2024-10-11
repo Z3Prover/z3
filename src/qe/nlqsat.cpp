@@ -558,7 +558,6 @@ namespace qe {
             vector<div>   m_divs;
         public:
             div_rewriter_cfg(nlqsat& s): m(s.m), a(s.m), m_zero(a.mk_real(0), m) {}
-            ~div_rewriter_cfg() {}
             br_status reduce_app(func_decl* f, unsigned sz, expr* const* args, expr_ref& result, proof_ref& pr) {
                 rational r1, r(1);
                 if (a.is_div(f) && sz == 2 && a.is_numeral(args[0], r1) && a.is_numeral(args[1], r) && !r.is_zero()) {
@@ -848,6 +847,8 @@ namespace qe {
         
         void collect_param_descrs(param_descrs & r) override {
         }
+
+        void user_propagate_initialize_value(expr* var, expr* value) override { }
 
         
         void operator()(/* in */  goal_ref const & in, 

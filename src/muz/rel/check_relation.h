@@ -89,7 +89,6 @@ namespace datalog {
             unsigned_vector const& cols1, unsigned_vector const& cols2);
     public:
         check_relation_plugin(relation_manager& rm);
-        ~check_relation_plugin() override;
         void set_plugin(relation_plugin* p) { m_base = p; }
 
         bool can_handle_signature(const relation_signature & s) override;

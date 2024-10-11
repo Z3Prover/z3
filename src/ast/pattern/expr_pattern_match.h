@@ -116,7 +116,6 @@ class expr_pattern_match {
 
  public:
     expr_pattern_match(ast_manager & manager);
-    ~expr_pattern_match();
     bool match_quantifier(quantifier * qf, app_ref_vector & patterns, unsigned & weight);
     bool match_quantifier_index(quantifier* qf, app_ref_vector & patterns, unsigned& index);
     unsigned initialize(quantifier* qf);

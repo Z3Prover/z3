@@ -631,9 +631,6 @@ namespace datalog {
         );
     }
 
-    mk_explanations::~mk_explanations() {
-    }
-
     func_decl * mk_explanations::get_union_decl(context & ctx) {
         ast_manager & m = ctx.get_manager();
         sort_ref s(ctx.get_decl_util().mk_rule_sort(), m);

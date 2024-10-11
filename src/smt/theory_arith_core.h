@@ -1738,10 +1738,6 @@ namespace smt {
     }
 
     template<typename Ext>
-    theory_arith<Ext>::~theory_arith() {
-    }
-
-    template<typename Ext>
     theory* theory_arith<Ext>::mk_fresh(context* new_ctx) {
         return alloc(theory_arith<Ext>, *new_ctx);
     }
@@ -3030,7 +3026,7 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::propagate_bounds() {
         TRACE("propagate_bounds_detail", display(tout););
-        unsigned num_prop = 0, count = 0;
+        unsigned count = 0;
         for (unsigned r_idx : m_to_check) {
             row & r = m_rows[r_idx];
             if (r.get_base_var() != null_theory_var) {
@@ -3039,34 +3035,19 @@ namespace smt {
                     int upper_idx;
                     is_row_useful_for_bound_prop(r, lower_idx, upper_idx);
 
-                    ++num_prop;
                     if (lower_idx >= 0) 
                         count += imply_bound_for_monomial(r, lower_idx, true);
                     else if (lower_idx == -1) 
                         count += imply_bound_for_all_monomials(r, true);
-                    else
-                        --num_prop;
                     
-                    ++num_prop;
                     if (upper_idx >= 0) 
                         count += imply_bound_for_monomial(r, upper_idx, false);
                     else if (upper_idx == -1) 
                         count += imply_bound_for_all_monomials(r, false);
-                    else
-                        --num_prop;
 
                     // sneaking cheap eq detection in this loop
                     propagate_cheap_eq(r_idx);
                 }
-
-#if 0
-                theory_var v = r.get_base_var();
-                if (!is_int(v) || get_value(v).is_int()) {
-                    // If an integer value is not assigned to an integer value, then
-                    // bound propagation can diverge.
-                    m_in_to_check.remove(v);
-                }
-#endif
             }
         }
 

@@ -230,7 +230,7 @@ public:
                    << "New pf: " << mk_pp(newp, m) << "\n";);
         }
 
-        proof *r;
+        proof *r = nullptr;
         VERIFY(cache.find(pr, r));
 
         DEBUG_CODE(

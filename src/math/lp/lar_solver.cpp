@@ -1930,9 +1930,10 @@ namespace lp {
             default:
                 UNREACHABLE();
         }
-        if (m_mpq_lar_core_solver.m_r_upper_bounds[j] == m_mpq_lar_core_solver.m_r_lower_bounds[j]) {
+        numeric_pair<mpq> const& lo = m_mpq_lar_core_solver.m_r_lower_bounds[j];
+        numeric_pair<mpq> const& hi = m_mpq_lar_core_solver.m_r_upper_bounds[j];
+        if (lo == hi)
             m_mpq_lar_core_solver.m_column_types[j] = column_type::fixed;
-        }
     }
     
     void lar_solver::update_bound_with_no_ub_lb(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep) {
@@ -2081,6 +2082,24 @@ namespace lp {
     lpvar lar_solver::to_column(unsigned ext_j) const {
         return m_var_register.external_to_local(ext_j);
     }
+    
+    bool lar_solver::move_lpvar_to_value(lpvar j, mpq const& value) {
+        if (is_base(j))
+            return false;
+
+        impq ivalue(value);
+        auto& lcs = m_mpq_lar_core_solver;
+        auto& slv = m_mpq_lar_core_solver.m_r_solver;
+
+        if (slv.column_has_upper_bound(j) && lcs.m_r_upper_bounds()[j] < ivalue)
+            return false;
+        if (slv.column_has_lower_bound(j) && lcs.m_r_lower_bounds()[j] > ivalue)
+            return false;
+        
+        set_value_for_nbasic_column(j, ivalue);
+        return true;
+    }
+
 
     bool lar_solver::tighten_term_bounds_by_delta(lpvar j, const impq& delta) {
         SASSERT(column_has_term(j));

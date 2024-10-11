@@ -21,7 +21,7 @@ Revision History:
 #include "util/rational.h"
 
 class s_integer {
-    int m_val;
+    int m_val = 0;
     static s_integer m_zero;
     static s_integer m_one;
     static s_integer m_minus_one;
@@ -41,7 +41,7 @@ public:
     std::string to_string() const;
 
 public:
-    s_integer(): m_val(0) {}
+    s_integer() = default;
     explicit s_integer(int n):m_val(n) {}
     struct i64 {};
     explicit s_integer(int64_t i, i64):m_val(static_cast<int>(i)) {}

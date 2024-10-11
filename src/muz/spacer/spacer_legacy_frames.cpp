@@ -90,10 +90,10 @@ bool pred_transformer::legacy_frames::propagate_to_next_level(unsigned src_level
     for (unsigned i = 0; i < m_levels[src_level].size();) {
         expr_ref_vector &src = m_levels[src_level];
         expr * curr = src[i].get();
-        unsigned stored_lvl;
+        unsigned stored_lvl = 0;
         VERIFY(m_prop2level.find(curr, stored_lvl));
         SASSERT(stored_lvl >= src_level);
-        unsigned solver_level;
+        unsigned solver_level = 0;
         if (stored_lvl > src_level) {
             TRACE("spacer", tout << "at level: " << stored_lvl << " " << mk_pp(curr, m) << "\n";);
             src[i] = src.back();

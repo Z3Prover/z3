@@ -43,8 +43,6 @@ namespace mbp {
         imp(ast_manager& m) :
             m(m), a(m) {}
 
-        ~imp() {}
-
         void insert_mul(expr* x, rational const& v, obj_map<expr, rational>& ts) {
             rational w;
             if (ts.find(x, w))
@@ -306,7 +304,7 @@ namespace mbp {
             return rational(b.is_pos() ? -1 : 1);
         }
 
-        bool operator()(model& model, app* v, app_ref_vector& vars, expr_ref_vector& lits) {
+        bool project1(model& model, app* v, app_ref_vector& vars, expr_ref_vector& lits) {
             app_ref_vector vs(m);
             vs.push_back(v);
             vector<def> defs;
@@ -712,8 +710,8 @@ namespace mbp {
         dealloc(m_imp);
     }
 
-    bool arith_project_plugin::operator()(model& model, app* var, app_ref_vector& vars, expr_ref_vector& lits) {
-        return (*m_imp)(model, var, vars, lits);
+    bool arith_project_plugin::project1(model& model, app* var, app_ref_vector& vars, expr_ref_vector& lits) {
+        return m_imp->project1(model, var, vars, lits);
     }
 
     bool arith_project_plugin::operator()(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
@@ -745,6 +743,6 @@ namespace mbp {
         ast_manager& m = lits.get_manager();
         arith_project_plugin ap(m);
         app_ref_vector vars(m);
-        return ap(model, var, vars, lits);
+        return ap.project1(model, var, vars, lits);
     }
 }

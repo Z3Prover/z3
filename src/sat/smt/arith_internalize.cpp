@@ -51,6 +51,16 @@ namespace arith {
         }
     }
 
+    void solver::initialize_value(expr* var, expr* value) {
+        rational r;
+        if (!a.is_numeral(value, r)) {
+            IF_VERBOSE(5, verbose_stream() << "numeric constant expected in initialization " << mk_pp(var, m) << " := " << mk_pp(value, m) << "\n");
+            return;
+        }
+        lp().move_lpvar_to_value(get_lpvar(mk_evar(var)), r);
+    }
+
+
     lpvar solver::get_one(bool is_int) {
         return add_const(1, is_int ? m_one_var : m_rone_var, is_int);
     }

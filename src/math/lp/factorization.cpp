@@ -97,14 +97,12 @@ const_iterator_mon::const_iterator_mon(const bool_vector& mask, const factorizat
     m_ff(f) ,
     m_full_factorization_returned(false)
 {}
-            
-bool const_iterator_mon::operator==(const const_iterator_mon::self_type &other) const {
-    return
-        m_full_factorization_returned == other.m_full_factorization_returned &&
-        m_mask == other.m_mask;
-}
 
-bool const_iterator_mon::operator!=(const const_iterator_mon::self_type &other) const { return !(*this == other); }
+bool const_iterator_mon::operator!=(const const_iterator_mon::self_type &other) const {
+    return
+        m_full_factorization_returned != other.m_full_factorization_returned ||
+        m_mask != other.m_mask;
+}
             
 factorization const_iterator_mon::create_binary_factorization(factor j, factor k) const {
     factorization f(nullptr);

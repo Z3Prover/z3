@@ -29,7 +29,7 @@ public:
     // m_other is the offset of the corresponding element in its vector : for a row element it points to the column element offset,
     // for a column element it points to the row element offset
     unsigned m_other;
-    indexed_value() {}
+    indexed_value() = default;
 
     indexed_value(T v, unsigned i, unsigned other) :
         m_value(v), m_index(i), m_other(other) {

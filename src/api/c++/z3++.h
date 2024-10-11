@@ -1603,10 +1603,10 @@ namespace z3 {
             unsigned i;
         public:
             iterator(expr& e, unsigned i): e(e), i(i) {}
-            bool operator==(iterator const& other) noexcept {
+            bool operator==(iterator const& other) const noexcept {
                 return i == other.i;
             }
-            bool operator!=(iterator const& other) noexcept {
+            bool operator!=(iterator const& other) const noexcept {
                 return i != other.i;
             }
             expr operator*() const { return e.arg(i); }
@@ -2865,6 +2865,17 @@ namespace z3 {
             check_error(); 
             return result; 
         }
+        void set_initial_value(expr const& var, expr const& value) {
+            Z3_solver_set_initial_value(ctx(), m_solver, var, value);
+            check_error();
+        }
+        void set_initial_value(expr const& var, int i) {
+            set_initial_value(var, ctx().num_val(i, var.get_sort()));
+        }
+        void set_initial_value(expr const& var, bool b) {
+            set_initial_value(var, ctx().bool_val(b));            
+        }
+
         expr proof() const { Z3_ast r = Z3_solver_get_proof(ctx(), m_solver); check_error(); return expr(ctx(), r); }
         friend std::ostream & operator<<(std::ostream & out, solver const & s);
 
@@ -2946,10 +2957,10 @@ namespace z3 {
             expr_vector const * operator->() const { return &(operator*()); }
             expr_vector const& operator*() const noexcept { return m_cube; }
 
-            bool operator==(cube_iterator const& other) noexcept {
+            bool operator==(cube_iterator const& other) const noexcept {
                 return other.m_end == m_end;
             };
-            bool operator!=(cube_iterator const& other) noexcept {
+            bool operator!=(cube_iterator const& other) const noexcept {
                 return other.m_end != m_end;
             };
 
@@ -3330,6 +3341,17 @@ namespace z3 {
         handle add(expr const& e, unsigned weight) {
             return add_soft(e, weight);
         }
+        void set_initial_value(expr const& var, expr const& value) {
+            Z3_optimize_set_initial_value(ctx(), m_opt, var, value);
+            check_error();
+        }
+        void set_initial_value(expr const& var, int i) {
+            set_initial_value(var, ctx().num_val(i, var.get_sort()));
+        }
+        void set_initial_value(expr const& var, bool b) {
+            set_initial_value(var, ctx().bool_val(b));            
+        }
+
         handle maximize(expr const& e) {
             return handle(Z3_optimize_maximize(ctx(), m_opt, e));
         }

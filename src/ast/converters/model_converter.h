@@ -71,9 +71,6 @@ protected:
     void display_del(std::ostream& out, func_decl* f) const;
     void display_add(std::ostream& out, ast_manager& m);
 public:
-
-    model_converter() {}
-
     void set_completion(bool f) { m_completion = f; }
 
     virtual void operator()(model_ref & m) = 0;
@@ -85,6 +82,8 @@ public:
     virtual model_converter * translate(ast_translation & translator) = 0;
     
     virtual void set_env(ast_pp_util* visitor);
+
+    virtual void convert_initialize_value(vector<std::pair<expr_ref, expr_ref>> & var2value) { }
 
     /**
        \brief we are adding a formula to the context of the model converter.

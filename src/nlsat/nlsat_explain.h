@@ -8,7 +8,8 @@ Module Name:
 Abstract:
 
     Functor that implements the "explain" procedure defined in Dejan and Leo's paper.
-
+    Uses paper Haokun Li and Bican Xia, "Solving Satisfiability of Polynomial Formulas By Sample - Cell Projection",https://arxiv.org/abs/2003.00409, 
+    and code from https://github.com/hybridSMT/hybridSMT.git 
 Author:
 
     Leonardo de Moura (leonardo) 2012-01-13.
@@ -34,7 +35,8 @@ namespace nlsat {
         imp * m_imp;
     public:
         explain(solver & s, assignment const & x2v, polynomial::cache & u, 
-                atom_vector const& atoms, atom_vector const& x2eq, evaluator & ev);
+                atom_vector const& atoms, atom_vector const& x2eq, evaluator & ev, bool use_cell_sample_proj);
+
         ~explain();
 
         void reset();

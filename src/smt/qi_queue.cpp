@@ -43,9 +43,6 @@ namespace smt {
         m_vals.resize(15, 0.0f);
     }
 
-    qi_queue::~qi_queue() {
-    }
-
     void qi_queue::setup() {
         TRACE("qi_cost", tout << "qi_cost: " << m_params.m_qi_cost << "\n";);
         if (!m_parser.parse_string(m_params.m_qi_cost.c_str(), m_cost_function)) {

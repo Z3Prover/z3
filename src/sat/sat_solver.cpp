@@ -1012,7 +1012,7 @@ namespace sat {
     }
 
     bool solver::propagate_literal(literal l, bool update) {
-        literal l1, l2;
+        literal l1;
 
         bool keep;
         unsigned curr_level = lvl(l);
@@ -4733,7 +4733,7 @@ namespace sat {
                 num_lits += c.size();
             }
         }
-        unsigned total_cls = num_cls + num_ter + num_bin;
+        unsigned total_cls = num_cls + num_ter + num_bin + num_ext;
         double mem = static_cast<double>(memory::get_allocation_size())/static_cast<double>(1024*1024);
         out << "(sat-status\n";
         out << "  :inconsistent    " << (m_inconsistent ? "true" : "false") << "\n";

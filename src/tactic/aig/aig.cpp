@@ -50,7 +50,6 @@ struct aig {
     unsigned m_ref_count;
     aig_lit  m_children[2];
     unsigned m_mark:1;
-    aig() {}
 };
 
 #if Z3DEBUG

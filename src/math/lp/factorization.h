@@ -24,7 +24,7 @@ class factor {
     factor_type  m_type = factor_type::VAR;
     bool         m_sign = false;
 public:
-    factor() { }
+    factor() = default;
     explicit factor(lpvar v, factor_type t) : m_var(v), m_type(t) {}
     unsigned var() const { return m_var; }
     factor_type type() const { return m_type; }
@@ -88,8 +88,7 @@ struct const_iterator_mon {
     self_type operator++(int);
 
     const_iterator_mon(const bool_vector& mask, const factorization_factory *f);
-    
-    bool operator==(const self_type &other) const;
+
     bool operator!=(const self_type &other) const;
             
     factorization create_binary_factorization(factor j, factor k) const;

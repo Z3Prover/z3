@@ -174,7 +174,6 @@ namespace opt {
     void lns::relax_cores() {
         if (!m_cores.empty() && m_cores_are_valid) {
             std::sort(m_cores.begin(), m_cores.end(), [&](expr_ref_vector const& a, expr_ref_vector const& b) { return a.size() < b.size(); });
-            unsigned num_disjoint = 0;
             vector<expr_ref_vector> new_cores;
             for (auto const& c : m_cores) {
                 bool in_core = false;
@@ -185,7 +184,6 @@ namespace opt {
                 for (auto* e : c)
                     m_in_core.mark(e);
                 new_cores.push_back(c);
-                ++num_disjoint;
             }
             IF_VERBOSE(2, verbose_stream() << "num cores: " << m_cores.size() << " new cores: " << new_cores.size() << "\n");
             ctx.relax_cores(new_cores);

@@ -280,8 +280,7 @@ namespace euf {
             enode* operator*() { return m_first; }
             iterator& operator++() { if (!m_last) m_last = m_first; m_first = m_first->m_next; return *this; }
             iterator operator++(int) { iterator tmp = *this; ++*this; return tmp; }
-            bool operator==(iterator const& other) const { return m_last == other.m_last && m_first == other.m_first; }
-            bool operator!=(iterator const& other) const { return !(*this == other); }            
+            bool operator!=(iterator const& other) const { return m_last != other.m_last || m_first != other.m_first; }            
         };
         enode_class(enode & _n):n(_n) {}
         enode_class(enode * _n):n(*_n) {}
@@ -300,8 +299,7 @@ namespace euf {
             th_var_list const& operator*() { return *m_th_vars; }
             iterator& operator++() { m_th_vars = m_th_vars->get_next(); return *this; }
             iterator operator++(int) { iterator tmp = *this; ++* this; return tmp; }
-            bool operator==(iterator const& other) const { return m_th_vars == other.m_th_vars; }
-            bool operator!=(iterator const& other) const { return !(*this == other); }
+            bool operator!=(iterator const& other) const { return m_th_vars != other.m_th_vars; }
         };
         enode_th_vars(enode& _n) :n(_n) {}
         enode_th_vars(enode* _n) :n(*_n) {}

@@ -47,9 +47,6 @@ void fpa_decl_plugin::set_manager(ast_manager * m, family_id id) {
     m_bv_plugin = static_cast<bv_decl_plugin*>(m_manager->get_plugin(m_bv_fid));
 }
 
-fpa_decl_plugin::~fpa_decl_plugin() {
-}
-
 unsigned fpa_decl_plugin::mk_id(mpf const & v) {
     unsigned new_id = m_id_gen.mk();
     m_values.reserve(new_id+1);
@@ -959,9 +956,6 @@ fpa_util::fpa_util(ast_manager & m):
     m_a_util(m),
     m_bv_util(m) {
     m_plugin = static_cast<fpa_decl_plugin*>(m.get_plugin(m_fid));
-}
-
-fpa_util::~fpa_util() {
 }
 
 sort * fpa_util::mk_float_sort(unsigned ebits, unsigned sbits) {

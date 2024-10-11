@@ -25,7 +25,7 @@ Author:
 #include "ast/ast_pp.h"
 
 class pb_preprocess_tactic : public tactic {
-    struct rec { unsigned_vector pos, neg; rec() { } };
+    struct rec { unsigned_vector pos, neg; };
     typedef obj_map<app, rec> var_map;
     ast_manager&     m;
     expr_ref_vector  m_trail;

@@ -1354,8 +1354,6 @@ namespace datalog {
             m_fparams.m_mbqi = false;
         }
 
-        ~imp() {}
-
         lbool query(expr* query) {
             m_ctx.ensure_opened();
             m_index.reset();

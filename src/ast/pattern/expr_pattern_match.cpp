@@ -41,9 +41,6 @@ expr_pattern_match::expr_pattern_match(ast_manager & manager):
     m_manager(manager), m_precompiled(manager) {        
 }
 
-expr_pattern_match::~expr_pattern_match() {
-}
-
 bool 
 expr_pattern_match::match_quantifier(quantifier* qf, app_ref_vector& patterns, unsigned& weight) {
     if (m_regs.empty()) {

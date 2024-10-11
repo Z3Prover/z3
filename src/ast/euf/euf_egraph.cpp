@@ -107,8 +107,8 @@ namespace euf {
     void egraph::update_children(enode* n) {
         for (enode* child : enode_args(n)) 
             child->get_root()->add_parent(n);
-        for (enode* child : enode_args(n))  
-            SASSERT(child->get_root()->m_parents.back() == n);
+        DEBUG_CODE(for (enode* child : enode_args(n))  
+                       SASSERT(child->get_root()->m_parents.back() == n););
         m_updates.push_back(update_record(n, update_record::update_children()));
     }
 

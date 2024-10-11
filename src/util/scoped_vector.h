@@ -106,8 +106,7 @@ public:
         unsigned m_index;
     public:
         iterator(scoped_vector const& v, unsigned idx): m_vec(v), m_index(idx) {}
-        
-        bool operator==(iterator const& other) const { return &other.m_vec == &m_vec && other.m_index == m_index; }
+
         bool operator!=(iterator const& other) const { return &other.m_vec != &m_vec || other.m_index != m_index; }
         T const& operator*() { return m_vec[m_index]; }
 
@@ -176,8 +175,46 @@ private:
     }
 
     bool invariant() const {
-        return 
-            m_size <= m_elems.size() &&
-            m_elems_start <= m_elems.size();
+
+
+        if (!(m_size <= m_elems.size() && m_elems_start <= m_elems.size()))
+            return false;
+            
+        // Check that source and destination trails have the same length.
+        if (m_src.size() != m_dst.size())
+            return false;
+        // The size of m_src, m_dst, and m_src_lim should be consistent with the scope stack.
+        if (m_src_lim.size() != m_sizes.size() || m_src.size() != m_dst.size())
+            return false;
+
+        // // m_elems_lim stores the past sizes of m_elems for each scope. Each element in m_elems_lim should be
+        // // within bounds and in non-decreasing order.
+        // for (unsigned i = 1; i < m_elems_lim.size(); ++i) {
+        //     if (m_elems_lim[i - 1] > m_elems_lim[i]) return false;
+        // }
+
+
+        // // m_sizes tracks the size of the vector at each scope level.
+        // // Each element in m_sizes should be non-decreasing and within the size of m_elems.
+        // for (unsigned i = 1; i < m_sizes.size(); ++i) {
+        //     if (m_sizes[i - 1] > m_sizes[i])
+        //         return false;
+        // }
+
+        // // The m_src and m_dst vectors should have the same size and should contain valid indices.
+        // if (m_src.size() != m_dst.size()) return false;
+        // for (unsigned i = 0; i < m_src.size(); ++i) {
+        //     if (m_src[i] >= m_index.size() || m_dst[i] >= m_elems.size()) return false;
+        // }
+        
+
+        // // The size of m_src_lim should be less than or equal to the size of m_sizes and store valid indices.
+        // if (m_src_lim.size() > m_sizes.size()) return false;
+        // for (unsigned elem : m_src_lim) {
+        //     if (elem > m_src.size()) return false;
+        // }
+
+        return true;
+        
     }
 };

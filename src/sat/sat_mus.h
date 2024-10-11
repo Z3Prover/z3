@@ -30,7 +30,6 @@ namespace sat {
 
     public:
         mus(solver& s);
-        ~mus();        
         lbool operator()();
         bool is_active() const { return m_is_active; }
         model const& get_model() const { return m_model; }

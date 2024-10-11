@@ -69,6 +69,7 @@ There are several options to control its behavior.
 #include "tactic/tactical.h"
 
 class simplify_tactic : public tactic {
+    bool       m_clean = true;
     struct     imp;
     imp *      m_imp;
     params_ref m_params;

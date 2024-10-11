@@ -2692,7 +2692,7 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
         SASSERT(tmp_rat.is_int32());
         SASSERT(sz == 3);
 
-        mpf_rounding_mode mrm;
+        mpf_rounding_mode mrm = MPF_ROUND_TOWARD_ZERO;
         switch ((BV_RM_VAL)tmp_rat.get_unsigned()) {
         case BV_RM_TIES_TO_AWAY: mrm = MPF_ROUND_NEAREST_TAWAY; break;
         case BV_RM_TIES_TO_EVEN: mrm = MPF_ROUND_NEAREST_TEVEN; break;

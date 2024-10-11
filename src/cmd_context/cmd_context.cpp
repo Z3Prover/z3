@@ -33,7 +33,6 @@ Notes:
 #include "ast/fpa_decl_plugin.h"
 #include "ast/special_relations_decl_plugin.h"
 #include "ast/ast_pp.h"
-#include "ast/rewriter/var_subst.h"
 #include "ast/pp.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/ast_ll_pp.h"
@@ -52,6 +51,7 @@ Notes:
 #include "solver/smt_logics.h"
 #include "cmd_context/basic_cmds.h"
 #include "cmd_context/cmd_context.h"
+#include "solver/slice_solver.h"
 #include <iostream>
 
 func_decls::func_decls(ast_manager & m, func_decl * f):
@@ -406,8 +406,7 @@ void cmd_context::insert_macro(symbol const& s, unsigned arity, sort*const* doma
     recfun::promise_def d = p.ensure_def(s, arity, domain, t->get_sort(), false);
 
     // recursive functions have opposite calling convention from macros!
-    var_subst sub(m(), true);
-    expr_ref tt = sub(t, rvars);
+    expr_ref tt = std_subst()(t, rvars);
     p.set_definition(replace, d, true, vars.size(), vars.data(), tt);
     register_fun(s, d.get_def()->get_decl());
 }
@@ -461,7 +460,6 @@ bool cmd_context::macros_find(symbol const& s, unsigned n, expr*const* args, exp
         if (eq) {
             t = d.m_body;
             t = sub(t);
-            verbose_stream() << "macro " << t << "\n";
             ptr_buffer<sort> domain;
             for (unsigned i = 0; i < n; ++i)
                 domain.push_back(args[i]->get_sort());
@@ -629,6 +627,7 @@ cmd_context::~cmd_context() {
     finalize_cmds();
     finalize_tactic_manager();
     m_proof_cmds = nullptr;
+    m_var2values.reset();
     reset(true);
     m_mcs.reset();
     m_solver = nullptr;
@@ -654,6 +653,8 @@ void cmd_context::set_opt(opt_wrapper* opt) {
     m_opt = opt;
     for (unsigned i = 0; i < m_scopes.size(); ++i) 
         m_opt->push();
+    for (auto const& [var, value] : m_var2values)
+        m_opt->initialize_value(var, value);
     m_opt->set_logic(m_logic);
 }
 
@@ -1254,9 +1255,8 @@ bool cmd_context::try_mk_macro_app(symbol const & s, unsigned num_args, expr * c
               tout << "s: " << s << "\n";
               tout << "body:\n" << mk_ismt2_pp(_t, m()) << "\n";
               tout << "args:\n"; for (unsigned i = 0; i < num_args; i++) tout << mk_ismt2_pp(args[i], m()) << "\n" << mk_pp(args[i]->get_sort(), m()) << "\n";);
-        var_subst subst(m(), false);
         scoped_rlimit no_limit(m().limit(), 0);
-        result = subst(_t, coerced_args);
+        result = rev_subst()(_t, coerced_args);
         if (well_sorted_check_enabled() && !is_well_sorted(m(), result))
             throw cmd_exception("invalid macro application, sort mismatch ", s);
         return true;
@@ -1515,12 +1515,15 @@ void cmd_context::reset(bool finalize) {
     m_opt = nullptr;
     m_pp_env = nullptr;
     m_dt_eh  = nullptr;
+    m_std_subst = nullptr;
+    m_rev_subst = nullptr;
     if (m_manager) {
         dealloc(m_pmanager);
         m_pmanager = nullptr;
         if (m_own_manager) {
             dealloc(m_manager);
             m_manager = nullptr;
+
             m_manager_initialized = false;
         }
         else {
@@ -1873,6 +1876,17 @@ void cmd_context::display_dimacs() {
         m_solver->updt_params(p);
     }
 }
+
+void cmd_context::set_initial_value(expr* var, expr* value) {
+    if (get_opt()) {
+        get_opt()->initialize_value(var, value);
+        return;
+    }
+    if (get_solver()) 
+        get_solver()->user_propagate_initialize_value(var, value);
+    m_var2values.push_back({expr_ref(var, m()), expr_ref(value, m())});    
+}
+
 
 void cmd_context::display_model(model_ref& mdl) {
     if (mdl) {
@@ -2244,6 +2258,7 @@ void cmd_context::mk_solver() {
     params_ref p;
     m_params.get_solver_params(p, proofs_enabled, models_enabled, unsat_core_enabled);
     m_solver = (*m_solver_factory)(m(), p, proofs_enabled, models_enabled, unsat_core_enabled, m_logic);
+    m_solver = mk_slice_solver(m_solver.get());
 }
 
 
@@ -2448,9 +2463,6 @@ void cmd_context::fast_progress_sample() {
 cmd_context::dt_eh::dt_eh(cmd_context & owner):
     m_owner(owner),
     m_dt_util(owner.m()) {
-}
-
-cmd_context::dt_eh::~dt_eh() {
 }
 
 void cmd_context::dt_eh::operator()(sort * dt, pdecl* pd) {

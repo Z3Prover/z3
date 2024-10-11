@@ -32,10 +32,8 @@ class progress_callback;
 typedef ptr_buffer<goal> goal_buffer;
 
 class tactic : public user_propagator::core {
-    unsigned m_ref_count;
+    unsigned m_ref_count = 0;
 public:
-    tactic():m_ref_count(0) {}
-
     void inc_ref() { m_ref_count++; }
     void dec_ref() { SASSERT(m_ref_count > 0); m_ref_count--; if (m_ref_count == 0) dealloc(this); }
 
@@ -131,11 +129,13 @@ public:
     tactic * translate(ast_manager & m) override { return this; } 
     char const* name() const override { return "skip"; }
     void collect_statistics(statistics& st) const override {}
+    void user_propagate_initialize_value(expr* var, expr* value) override { }
 };
 
 tactic * mk_skip_tactic();
 tactic * mk_fail_tactic();
 tactic * mk_fail_if_undecided_tactic();
+tactic*  mk_lazy_tactic(ast_manager& m, params_ref const& p, std::function<tactic*(ast_manager& m, params_ref const& p)>);
 
 /*
   ADD_TACTIC("skip", "do nothing tactic.", "mk_skip_tactic()")

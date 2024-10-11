@@ -187,8 +187,8 @@ expr_ref dominator_simplifier::simplify_and_or(bool is_and, app * e) {
 }
 
 expr_ref dominator_simplifier::simplify_not(app * e) {
-    expr *ee;
-    ENSURE(m.is_not(e, ee));
+    expr *ee = nullptr;
+    VERIFY(m.is_not(e, ee));
     unsigned old_lvl = scope_level();
     expr_ref t = simplify_rec(ee);
     local_pop(scope_level() - old_lvl);

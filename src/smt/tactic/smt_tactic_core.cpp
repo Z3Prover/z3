@@ -41,6 +41,7 @@ class smt_tactic : public tactic {
     smt_params                   m_params;
     params_ref                   m_params_ref;
     expr_ref_vector              m_vars;
+    vector<std::pair<expr_ref, expr_ref>> m_values;
     statistics                   m_stats;
     smt::kernel*                 m_ctx = nullptr;
     symbol                       m_logic;
@@ -344,6 +345,8 @@ public:
 
         for (expr* v : m_vars) 
             m_ctx->user_propagate_register_expr(v);
+        for (auto& [var, value] : m_values)
+            m_ctx->user_propagate_initialize_value(var, value);
     }
 
     void user_propagate_clear() override {
@@ -402,6 +405,10 @@ public:
     
     void user_propagate_register_decide(user_propagator::decide_eh_t& decide_eh) override {
         m_decide_eh = decide_eh;
+    }
+
+    void user_propagate_initialize_value(expr* var, expr* value) override {
+        m_values.push_back({expr_ref(var, m), expr_ref(value, m)});
     }
 };
 

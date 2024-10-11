@@ -66,7 +66,6 @@ public:
 
     void init_costs();
 
-    ~core_solver_pretty_printer();
     void init_rs_width();
 
     T current_column_norm();

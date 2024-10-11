@@ -222,6 +222,34 @@ struct bit_blaster_model_converter : public model_converter {
         // no-op
     }
 
+    void convert_initialize_value(vector<std::pair<expr_ref, expr_ref>>& var2value) override {
+        if (m_vars.empty() || var2value.empty())
+            return;
+        rational r;
+        bv_util util(m());
+        for (unsigned j = 0; j < var2value.size(); ++j) {
+            auto& [var, value] = var2value[j];
+            if (!is_uninterp_const(var))
+                continue;
+            if (!util.is_numeral(value, r))
+                continue;
+            unsigned sz = m_vars.size();
+            for (unsigned i = 0; i < sz; i++) {
+                if (m_vars.get(i) != to_app(var)->get_decl())
+                    continue;
+                unsigned k = 0;
+                expr_ref bit_k(m());
+                for (auto arg : *to_app(m_bits.get(i))) {
+                    bit_k = m().mk_bool_val(r.get_bit(k));
+                    var2value.push_back({ expr_ref(arg, m()), bit_k });
+                    ++k;
+                }
+                var2value[i] = var2value.back();
+                var2value.pop_back();                
+            }
+        }
+    }
+
 protected:
     bit_blaster_model_converter(ast_manager & m):m_vars(m), m_bits(m), m_newbits(m) { }
 public:

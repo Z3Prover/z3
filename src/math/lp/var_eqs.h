@@ -81,7 +81,7 @@ class var_eqs {
         
     mutable stats m_stats;
 public:    
-    var_eqs(): m_merge_handler(nullptr), m_uf(*this), m_stack() {}    
+    var_eqs(): m_merge_handler(nullptr), m_uf(*this) {}    
     /**
        \brief push a scope    */
     void push() {
@@ -302,7 +302,6 @@ public:
             return signed_var(m_idx);
         }
         iterator& operator++() { m_idx = m_ve.m_uf.next(m_idx); m_touched = true; return *this; }
-        bool operator==(iterator const& other) const { return m_idx == other.m_idx && m_touched == other.m_touched; }
         bool operator!=(iterator const& other) const { return m_idx != other.m_idx || m_touched != other.m_touched; }
     };
 

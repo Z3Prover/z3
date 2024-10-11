@@ -432,8 +432,8 @@ namespace spacer {
 
                 ptr_buffer<expr> args;
                 for (unsigned i = 0, sz = m.get_num_parents(p); i < sz; ++i) {
-                    proof *pp, *tmp;
-                    pp = m.get_parent(p, i);
+                    proof *tmp = nullptr;
+                    proof* pp = m.get_parent(p, i);
                     VERIFY(m_cache.find(pp, tmp));
                     args.push_back(tmp);
                     dirty |= (pp != tmp);
@@ -455,8 +455,8 @@ namespace spacer {
             }
         }
 
-        proof* res;
-        VERIFY(m_cache.find(pr,res));
+        proof* res = nullptr;
+        VERIFY(m_cache.find(pr, res));
         DEBUG_CODE(
             proof_checker pc(m);
             expr_ref_vector side(m);

@@ -6,7 +6,7 @@
 trigger: none
 
 variables:
-  ReleaseVersion: '4.13.1'
+  ReleaseVersion: '4.13.3'
 
 stages:
 
@@ -15,9 +15,9 @@ stages:
   jobs:
 
   - job: MacBuild
-    displayName: "macOS Build"
+    displayName: "Mac Build"
     pool:
-      vmImage: "macOS-11"
+      vmImage: "macOS-latest"
     steps:
     - task: PythonScript@0
       displayName: Build
@@ -40,13 +40,13 @@ stages:
         targetFolder: $(Build.ArtifactStagingDirectory)
     - task: PublishPipelineArtifact@0
       inputs:
-        artifactName: 'macOSBuild'
+        artifactName: 'macOsBuild'
         targetPath: $(Build.ArtifactStagingDirectory)
 
   - job: MacBuildArm64
-    displayName: "macOS ARM64 Build"
+    displayName: "Mac ARM64 Build"
     pool:
-      vmImage: "macOS-11"
+      vmImage: "macOS-latest"
     steps:
     - script: python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk --arch=arm64 --os=osx-11.0
     - script: git clone https://github.com/z3prover/z3test z3test
@@ -85,41 +85,13 @@ stages:
         artifactName: 'UbuntuBuild'
         targetPath: $(Build.ArtifactStagingDirectory)
 
-  - job: UbuntuBuild20
-    displayName: "Ubuntu build 20"
-    pool:
-      vmImage: "ubuntu-20.04"
-    steps:
-    - task: PythonScript@0
-      displayName: Build
-      inputs:
-        scriptSource: 'filepath'
-        scriptPath: scripts/mk_unix_dist.py
-        arguments: --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
-    - script: git clone https://github.com/z3prover/z3test z3test
-      displayName: 'Clone z3test'
-    - task: PythonScript@0
-      displayName: Test
-      inputs:
-        scriptSource: 'filepath'
-        scriptPath: z3test/scripts/test_benchmarks.py
-        arguments: build-dist/z3 z3test/regressions/smt2
-    - task: CopyFiles@2
-      inputs:
-        sourceFolder: dist
-        contents: '*.zip'
-        targetFolder: $(Build.ArtifactStagingDirectory)
-    - task: PublishPipelineArtifact@0
-      inputs:
-        artifactName: 'UbuntuBuild20'
-        targetPath: $(Build.ArtifactStagingDirectory)
 
   - job: UbuntuArm64
     displayName: "Ubuntu ARM64 build"
     pool:
       vmImage: "ubuntu-latest"
     steps:
-     - script: curl -L -o /tmp/arm-toolchain.tar.xz 'https://developer.arm.com/-/media/Files/downloads/gnu/11.2-2022.02/binrel/gcc-arm-11.2-2022.02-x86_64-aarch64-none-linux-gnu.tar.xz?rev=33c6e30e5ac64e6dba8f0431f2c35f1b&hash=9918A05BF47621B632C7A5C8D2BB438FB80A4480'
+    - script: curl -L -o /tmp/arm-toolchain.tar.xz 'https://developer.arm.com/-/media/Files/downloads/gnu/11.2-2022.02/binrel/gcc-arm-11.2-2022.02-x86_64-aarch64-none-linux-gnu.tar.xz?rev=33c6e30e5ac64e6dba8f0431f2c35f1b&hash=9918A05BF47621B632C7A5C8D2BB438FB80A4480'
     - script: mkdir -p /tmp/arm-toolchain/
     - script: tar xf /tmp/arm-toolchain.tar.xz -C /tmp/arm-toolchain/ --strip-components=1
     - script: echo '##vso[task.prependpath]/tmp/arm-toolchain/bin'
@@ -173,43 +145,29 @@ stages:
         artifactName: 'UbuntuDoc'
         targetPath: $(Build.ArtifactStagingDirectory)
 
-  - job: LinuxBuilds
-    displayName: "ManyLinux build"
-    variables:
-      name: ManyLinux
-      python: "/opt/python/cp37-cp37m/bin/python"
+  - job: "ManylinuxPythonBuildAmd64"
+    displayName: "Python bindings (manylinux Centos AMD64) build"
     pool:
       vmImage: "ubuntu-latest"
     container: "quay.io/pypa/manylinux2014_x86_64:latest"
     steps:
-    - task: PythonScript@0
-      displayName: Build
-      inputs:
-        scriptSource: 'filepath'
-        scriptPath: scripts/mk_unix_dist.py
-        arguments: --nodotnet --nojava
-        pythonInterpreter: $(python)
-    - script: git clone https://github.com/z3prover/z3test z3test
-      displayName: 'Clone z3test'
-    - task: PythonScript@0
-      displayName: Test
-      inputs:
-        scriptSource: 'filepath'
-        scriptPath: z3test/scripts/test_benchmarks.py
-        arguments: build-dist/z3 z3test/regressions/smt2
-        pythonInterpreter: $(python)
+    - script: "/opt/python/cp38-cp38/bin/python -m venv $PWD/env"
+    - script: 'echo "##vso[task.prependpath]$PWD/env/bin"'
+    - script: "pip install build git+https://github.com/rhelmot/auditwheel"  # @TODO remove when patches make it upstream
+    - script: "cd src/api/python && python -m build && AUDITWHEEL_PLAT= auditwheel repair --best-plat dist/*.whl && cd ../../.."
+    - script: "pip install ./src/api/python/wheelhouse/*.whl && python - <src/api/python/z3test.py z3 && python - <src/api/python/z3test.py z3num"
     - task: CopyFiles@2
       inputs:
-        sourceFolder: dist
-        contents: '*.zip'
+        sourceFolder: src/api/python/wheelhouse
+        contents: '*.whl'
         targetFolder: $(Build.ArtifactStagingDirectory)
     - task: PublishPipelineArtifact@0
       inputs:
-        artifactName: 'ManyLinuxBuild'
-        targetPath: $(Build.ArtifactStagingDirectory)
-  
-  - job: LinuxBuildsArm64
-    displayName: "ManyLinux ARM64 build"
+        artifactName: 'ManyLinuxPythonBuildAMD64'
+        targetPath: $(Build.ArtifactStagingDirectory)   
+
+  - job: ManyLinuxPythonBuildArm64
+    displayName: "Python bindings (manylinux Centos ARM64 cross) build"
     variables:
       name: ManyLinux
       python: "/opt/python/cp37-cp37m/bin/python"
@@ -220,26 +178,24 @@ stages:
     - script: curl -L -o /tmp/arm-toolchain.tar.xz 'https://developer.arm.com/-/media/Files/downloads/gnu/11.2-2022.02/binrel/gcc-arm-11.2-2022.02-x86_64-aarch64-none-linux-gnu.tar.xz?rev=33c6e30e5ac64e6dba8f0431f2c35f1b&hash=9918A05BF47621B632C7A5C8D2BB438FB80A4480'
     - script: mkdir -p /tmp/arm-toolchain/
     - script: tar xf /tmp/arm-toolchain.tar.xz -C /tmp/arm-toolchain/ --strip-components=1
+    - script: "/opt/python/cp38-cp38/bin/python -m venv $PWD/env"
+    - script: 'echo "##vso[task.prependpath]$PWD/env/bin"'
     - script: echo '##vso[task.prependpath]/tmp/arm-toolchain/bin'
     - script: echo '##vso[task.prependpath]/tmp/arm-toolchain/aarch64-none-linux-gnu/libc/usr/bin'
     - script: echo $PATH
-    - script: stat /tmp/arm-toolchain/bin/aarch64-none-linux-gnu-gcc
-    - task: PythonScript@0
-      displayName: Build
-      inputs:
-        scriptSource: 'filepath'
-        scriptPath: scripts/mk_unix_dist.py
-        arguments: --nodotnet --nojava --arch=arm64
-        pythonInterpreter: $(python)
+    - script: "stat `which aarch64-none-linux-gnu-gcc`"
+    - script: "pip install build git+https://github.com/rhelmot/auditwheel"
+    - script: "cd src/api/python && CC=aarch64-none-linux-gnu-gcc CXX=aarch64-none-linux-gnu-g++ AR=aarch64-none-linux-gnu-ar LD=aarch64-none-linux-gnu-ld Z3_CROSS_COMPILING=aarch64 python -m build && AUDITWHEEL_PLAT= auditwheel repair --best-plat dist/*.whl && cd ../../.."
     - task: CopyFiles@2
       inputs:
-        sourceFolder: dist
-        contents: '*.zip'
+        sourceFolder: src/api/python/wheelhouse
+        contents: '*.whl'
         targetFolder: $(Build.ArtifactStagingDirectory)
     - task: PublishPipelineArtifact@0
       inputs:
-        artifactName: 'ManyLinuxBuildArm64'
-        targetPath: $(Build.ArtifactStagingDirectory)
+        artifactName: 'ManyLinuxPythonBuildArm64'
+        targetPath: $(Build.ArtifactStagingDirectory)    
+
 
   - template: build-win-signed.yml
     parameters:
@@ -284,11 +240,6 @@ stages:
         artifact: 'UbuntuBuild'
         path: $(Agent.TempDirectory)\package
     - task: DownloadPipelineArtifact@2
-      displayName: 'Download Ubuntu20 Build'
-      inputs:
-        artifact: 'UbuntuBuild20'
-        path: $(Agent.TempDirectory)\package
-    - task: DownloadPipelineArtifact@2
       displayName: 'Download Ubuntu ARM64 Build'
       inputs:
         artifact: 'UbuntuArm64'
@@ -296,8 +247,14 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: 'Download macOS Build'
       inputs:
-        artifact: 'macOSBuild'
+        artifact: 'macOsBuild'
         path: $(Agent.TempDirectory)\package
+    - task: DownloadPipelineArtifact@2
+      displayName: 'Download macOS Arm64 Build'
+      inputs:
+        artifact: 'MacArm64'
+        path: $(Agent.TempDirectory)\package
+
     - task: NuGetToolInstaller@0
       inputs:
         versionSpec: 5.x
@@ -322,6 +279,8 @@ stages:
         command: custom
         arguments: 'pack $(Agent.TempDirectory)\package\out\Microsoft.Z3.sym.nuspec -OutputDirectory $(Build.ArtifactStagingDirectory) -Verbosity detailed -Symbols -SymbolPackageFormat snupkg -BasePath $(Agent.TempDirectory)\package\out' 
     - task: EsrpCodeSigning@2
+      condition: eq(1,0)
+      continueOnError: true
       displayName: 'Sign Package'
       inputs:
         ConnectedServiceName: 'z3-esrp-signing-2'
@@ -350,6 +309,8 @@ stages:
         MaxRetryAttempts: '5'
     - task: EsrpCodeSigning@2
       displayName: 'Sign Symbol Package'
+      condition: eq(1,0)
+      continueOnError: true
       inputs:
         ConnectedServiceName: 'z3-esrp-signing-2'
         FolderPath: $(Build.ArtifactStagingDirectory)
@@ -421,6 +382,8 @@ stages:
         command: custom
         arguments: 'pack $(Agent.TempDirectory)\package\out\Microsoft.Z3.x86.sym.nuspec -OutputDirectory $(Build.ArtifactStagingDirectory) -Verbosity detailed -Symbols -SymbolPackageFormat snupkg -BasePath $(Agent.TempDirectory)\package\out' 
     - task: EsrpCodeSigning@2
+      condition: eq(1,0)
+      continueOnError: true
       displayName: 'Sign Package'
       inputs:
         ConnectedServiceName: 'z3-esrp-signing-2'
@@ -448,6 +411,8 @@ stages:
         MaxConcurrency: '50'
         MaxRetryAttempts: '5'
     - task: EsrpCodeSigning@2
+      condition: eq(1,0)
+      continueOnError: true
       displayName: 'Sign Symbol Package'
       inputs:
         ConnectedServiceName: 'z3-esrp-signing-2'
@@ -480,7 +445,7 @@ stages:
         artifactName: 'NuGet32'
 
 
-  - job: PythonPackage
+  - job: Python
     displayName: "Python packaging"
     pool:
       vmImage: "ubuntu-latest"
@@ -488,22 +453,12 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: 'Download macOS Build'
       inputs:
-        artifact: 'macOSBuild'
+        artifact: 'macOsBuild'
         path: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
       displayName: 'Download macOS Arm64 Build'
       inputs:
         artifact: 'MacArm64'
-        path: $(Agent.TempDirectory)		
-    - task: DownloadPipelineArtifact@2
-      displayName: 'Download ManyLinux Build'
-      inputs:
-        artifact: 'ManyLinuxBuild'
-        path: $(Agent.TempDirectory)
-    - task: DownloadPipelineArtifact@2
-      displayName: 'Download ManyLinux Arm64 Build'
-      inputs:
-        artifact: 'ManyLinuxBuildArm64'
         path: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
       displayName: 'Download Win32 Build'
@@ -514,22 +469,31 @@ stages:
       displayName: 'Download Win64 Build'
       inputs:
         artifact: 'WindowsBuild-x64'
-        path: $(Agent.TempDirectory)
+        path: $(Agent.TempDirectory)	
+    - task: DownloadPipelineArtifact@2
+      displayName: 'Download ManyLinux Build'
+      inputs:
+        artifactName: 'ManyLinuxPythonBuildAMD64'
+        targetPath: $(Agent.TempDirectory)
+    - task: DownloadPipelineArtifact@2
+      displayName: 'Download ManyLinux Arm64 Build'
+      inputs:
+        artifactName: 'ManyLinuxPythonBuildArm64'
+        targetPath: $(Agent.TempDirectory)
     - script: cd $(Agent.TempDirectory); mkdir osx-x64-bin; cd osx-x64-bin; unzip ../*x64-osx*.zip
     - script: cd $(Agent.TempDirectory); mkdir osx-arm64-bin; cd osx-arm64-bin; unzip ../*arm64-osx*.zip
-    - script: cd $(Agent.TempDirectory); mkdir libc-x64-bin; cd libc-x64-bin; unzip ../*x64-glibc*.zip
-    - script: cd $(Agent.TempDirectory); mkdir libc-arm64-bin; cd libc-arm64-bin; unzip ../*arm64-glibc*.zip
+#    - script: cd $(Agent.TempDirectory); mkdir musl-bin; cd musl-bin; unzip ../*-linux.zip
     - script: cd $(Agent.TempDirectory); mkdir win32-bin; cd win32-bin; unzip ../*x86-win*.zip
     - script: cd $(Agent.TempDirectory); mkdir win64-bin; cd win64-bin; unzip ../*x64-win*.zip
-    - script: python3 -m pip install --user -U setuptools wheel
+    - script: python3 -m pip install --user -U setuptools
     - script: cd src/api/python; python3 setup.py sdist
     # take a look at this PREMIUM HACK I came up with to get around the fact that the azure variable syntax overloads the bash syntax for subshells
-    - script: cd src/api/python; echo $(Agent.TempDirectory)/osx-x64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
-    - script: cd src/api/python; echo $(Agent.TempDirectory)/osx-arm64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
-    - script: cd src/api/python; echo $(Agent.TempDirectory)/libc-x64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
-    - script: cd src/api/python; echo $(Agent.TempDirectory)/libc-arm64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
+#   - script: cd src/api/python; echo $(Agent.TempDirectory)/musl-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
     - script: cd src/api/python; echo $(Agent.TempDirectory)/win32-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
     - script: cd src/api/python; echo $(Agent.TempDirectory)/win64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
+    - script: cd src/api/python; echo $(Agent.TempDirectory)/osx-x64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
+    - script: cd src/api/python; echo $(Agent.TempDirectory)/osx-arm64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
+    - script: cp $(Agent.TempDirectory)/*.whl src/api/python/dist
     - task: PublishPipelineArtifact@0
       inputs:
         artifactName: 'PythonPackage'
@@ -548,11 +512,6 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: 'Download Ubuntu Build'
       inputs:
-        artifact: 'UbuntuBuild20'
-        path: $(Agent.TempDirectory)
-    - task: DownloadPipelineArtifact@2
-      displayName: 'Download Ubuntu Build'
-      inputs:
         artifact: 'UbuntuBuild'
         path: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
@@ -568,7 +527,7 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: 'Download macOS Build'
       inputs:
-        artifact: 'macOSBuild'
+        artifact: 'macOsBuild'
         path: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
       displayName: 'Download macOSArm64 Build'

@@ -41,8 +41,6 @@ struct theory_array_params {
     unsigned        m_array_lazy_ieq_delay = 10;
     bool            m_array_fake_support = false;       // fake support for all array operations to pretend they are satisfiable.
 
-    theory_array_params() {}
-
     void updt_params(params_ref const & _p);
 
     void display(std::ostream & out) const;

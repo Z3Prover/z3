@@ -97,7 +97,6 @@ namespace spacer {
         // XXX this assertion should be true so there is no need to check for it
         SASSERT (!m_ctx.is_closed (step));
         func_decl* d = step->get_decl();
-        symbol sym;
         TRACE("spacer.farkas",
               tout << "looking at: " << mk_pp(step, m) << "\n";);
         if (!m_ctx.is_closed(step) && is_farkas_lemma(m, step)) {
@@ -239,9 +238,8 @@ namespace spacer {
         SASSERT(m_ctx.is_b(step));
 
         func_decl* d = step->get_decl();
-        symbol sym;
         if (!m_ctx.is_closed(step) && // if step is not already interpolated
-           is_farkas_lemma(m, step)) {
+            is_farkas_lemma(m, step)) {
             SASSERT(d->get_num_parameters() == m.get_num_parents(step) + 2);
             SASSERT(m.has_fact(step));
 

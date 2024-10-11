@@ -99,7 +99,6 @@ namespace smt {
                 if (m.is_bool(s)) {
                     CTRACE("model", m_context->get_assignment(r) == l_undef, 
                            tout << mk_pp(r->get_expr(), m) << "\n";);
-                    SASSERT(m_context->get_assignment(r) != l_undef);
                     if (m_context->get_assignment(r) == l_true)
                         proc = alloc(expr_wrapper_proc, m.mk_true());
                     else

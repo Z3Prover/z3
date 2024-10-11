@@ -53,13 +53,15 @@ namespace opt {
     void context::scoped_state::push() {
         m_asms_lim.push_back(m_asms.size());
         m_hard_lim.push_back(m_hard.size());
+        m_values_lim.push_back(m_values.size());
         m_objectives_lim.push_back(m_objectives.size());        
         m_objectives_term_trail_lim.push_back(m_objectives_term_trail.size());
     }
 
     void context::scoped_state::pop() {
-        m_hard.resize(m_hard_lim.back());
-        m_asms.resize(m_asms_lim.back());
+        m_hard.shrink(m_hard_lim.back());
+        m_asms.shrink(m_asms_lim.back());
+        m_values.shrink(m_values_lim.back());
         unsigned k = m_objectives_term_trail_lim.back();
         while (m_objectives_term_trail.size() > k) {
             unsigned idx = m_objectives_term_trail.back();
@@ -79,6 +81,7 @@ namespace opt {
         m_objectives_lim.pop_back();            
         m_hard_lim.pop_back();   
         m_asms_lim.pop_back();
+        m_values_lim.pop_back();
     }
     
     void context::scoped_state::add(expr* hard) {
@@ -306,13 +309,12 @@ namespace opt {
         if (contains_quantifiers()) {
             warning_msg("optimization with quantified constraints is not supported");
         }
-#if 0
-        if (is_qsat_opt()) {
-            return run_qsat_opt();
-        }
-#endif
         solver& s = get_solver();
         s.assert_expr(m_hard_constraints);
+        if (m_model_converter)
+            m_model_converter->convert_initialize_value(m_scoped_state.m_values);
+        for (auto & [var, value] : m_scoped_state.m_values) 
+            s.user_propagate_initialize_value(var, value);
         
         opt_params optp(m_params);
         symbol pri = optp.priority();
@@ -399,9 +401,24 @@ namespace opt {
     void context::set_model(model_ref& m) { 
         m_model = m;
         opt_params optp(m_params);
-        if (optp.dump_models() && m) {
+        symbol prefix = optp.solution_prefix();
+        bool model2console = optp.dump_models();
+        bool model2file = prefix != symbol::null && prefix != symbol("");
+    
+        if ((model2console || model2file) && m) {
             model_ref md = m->copy();
             fix_model(md);
+            if (model2file) {
+                std::ostringstream buffer;
+                buffer << prefix << (m_model_counter++) << ".smt2";
+                std::ofstream out(buffer.str());        
+                if (out) {
+                    out << *md;
+                    out.close();
+                }
+            }
+            if (model2console)
+                std::cout << *md;
         }
         if (m_on_model_eh && m) {
             model_ref md = m->copy();
@@ -696,6 +713,11 @@ namespace opt {
             gparams::set("smt.arith.solver", str.c_str());
         }
     }
+
+    void context::initialize_value(expr* var, expr* value) {
+        m_scoped_state.m_values.push_back({expr_ref(var, m), expr_ref(value, m)});
+    }
+
 
     /**
      * Set the solver to the SAT core.
@@ -1161,20 +1183,6 @@ namespace opt {
     void context::model_updated(model* md) {
         model_ref mdl = md;
         set_model(mdl);
-#if 0
-        opt_params optp(m_params);
-        symbol prefix = optp.solution_prefix();
-        if (prefix == symbol::null || prefix == symbol("")) return;        
-        model_ref mdl = md->copy();
-        fix_model(mdl);
-        std::ostringstream buffer;
-        buffer << prefix << (m_model_counter++) << ".smt2";
-        std::ofstream out(buffer.str());        
-        if (out) {
-            out << *mdl;
-            out.close();
-        }
-#endif
     }
 
     rational context::adjust(unsigned id, rational const& v) {

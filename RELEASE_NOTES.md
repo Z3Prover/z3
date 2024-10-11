@@ -10,6 +10,31 @@ Version 4.next
     - native word level bit-vector solving.
   - introduction of simple induction lemmas to handle a limited repertoire of induction proofs.
 
+Version 4.13.2
+==============
+- Performance regression fix. #7404
+
+Version 4.13.1
+==============
+- single-sample cell projection in nlsat was designed by Haokun Li and Bican Xia. 
+- using simple-checker together with and variable ordering supported by qfnra_tactic was developed by Mengyu Zhao (Linxi) and Shaowei Cai.
+
+   The projection is described in paper by Haokun Li and Bican Xia,   [Solving Satisfiability of Polynomial Formulas By Sample - Cell Projection](https://arxiv.org/abs/2003.00409). The code ported from https://github.com/hybridSMT/hybridSMT.git
+
+- Add API for providing hints for the solver/optimize contexts for which initial values to attempt to use for variables.
+ The new API function are Z3_solver_set_initial_value and Z3_optimize_set_initial_value, respectively. Supply these functions with a Boolean or numeric variable, and a value. The solver will then attempt to use these values in the initial phase of search. The feature is aimed at resolving nearly similar problems, or problems with a predicted model and the intent is that restarting the solver based on a near solution can avoid prune the space of constraints that are initially infeasible.
+ The SMTLIB front-end contains the new command (set-initial-value var value). For example,
+ (declare-const x Int)
+ (set-initial-value x 10)
+ (push)
+ (assert (> x 0))
+ (check-sat)
+ (get-model)
+ produces a model where x = 10. We use (push) to ensure that z3 doesn't run a
+ specialized pre-processor that eliminates x, which renders the initialization
+ without effect.
+ 
+
 Version 4.13.0
 ==============
 - add ARM64 wheels for Python, thanks to Steven Moy, smoy

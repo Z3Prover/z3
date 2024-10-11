@@ -107,6 +107,12 @@ public:
         m_c2->get_units(fmls);
         m_c1->get_units(fmls);
     }
+
+    void convert_initialize_value(vector<std::pair<expr_ref, expr_ref>>& var2value) override {
+        m_c2->convert_initialize_value(var2value);
+        m_c1->convert_initialize_value(var2value);
+    }
+
   
     char const * get_name() const override { return "concat-model-converter"; }
 

@@ -31,8 +31,7 @@ class symbol_table {
         symbol   m_key;
         T        m_data;
      
-        key_data() {
-        }
+        key_data() = default;
 
         explicit key_data(symbol k):
             m_key(k) {
@@ -59,10 +58,12 @@ class symbol_table {
     struct hash_entry {
         typedef key_data data;
         key_data m_data;
-     
+
+#if 0
         hash_entry() {
             SASSERT(m_data.m_key == symbol::null);
         }
+#endif
 
         unsigned get_hash() const { 
             return m_data.m_key.hash();

@@ -35,7 +35,6 @@ namespace datalog {
         app_ref del_arg(app* fn);        
     public:
         mk_loop_counter(context & ctx, unsigned priority = 33000);
-        ~mk_loop_counter() override;
         
         rule_set * operator()(rule_set const & source) override;
 

@@ -122,7 +122,6 @@ namespace datalog {
         void mk_accessor(decl_kind k, func_decl_ref& fn, const relation_fact& f, bool destructive, expr_ref& res) const;
 
         external_relation(external_relation_plugin & p, const relation_signature & s, expr* r);
-        ~external_relation() override;
 
     public:
         external_relation_plugin & get_plugin() const;

@@ -1030,6 +1030,7 @@ namespace datalog {
             }
             new_rels.push_back(irel);
         }
+        (void)old_remain;
         SASSERT(old_remain==0); //the new specification must be a superset of the old one
         m_relations = new_rels;
 

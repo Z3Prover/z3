@@ -198,6 +198,8 @@ namespace datatype {
         def* translate(ast_translation& tr, util& u);
     };
 
+    typedef std::pair<func_decl*, unsigned> cnstr_depth;
+
     namespace decl {
 
         class plugin : public decl_plugin {
@@ -212,6 +214,7 @@ namespace datatype {
             void inherit(decl_plugin* other_p, ast_translation& tr) override;
 
             void log_axiom_definitions(symbol const& s, sort * new_sort);
+
 
         public:
             plugin(): m_id_counter(0), m_class_id(0), m_has_nested_rec(false) {}
@@ -259,6 +262,25 @@ namespace datatype {
 
             bool has_nested_rec() const { return m_has_nested_rec; }
 
+            void reset();
+
+
+            obj_map<sort, ptr_vector<func_decl>*>       m_datatype2constructors;
+            obj_map<sort, cnstr_depth>                  m_datatype2nonrec_constructor;
+            obj_map<func_decl, ptr_vector<func_decl>*>  m_constructor2accessors;
+            obj_map<func_decl, func_decl*>              m_constructor2recognizer;
+            obj_map<func_decl, func_decl*>              m_recognizer2constructor;
+            obj_map<func_decl, func_decl*>              m_accessor2constructor;
+            obj_map<sort, bool>                         m_is_recursive;
+            obj_map<sort, bool>                         m_is_enum;
+            mutable obj_map<sort, bool>                 m_is_fully_interp;
+            mutable ast_ref_vector* m_asts = nullptr;
+            sref_vector<param_size::size>               m_refs;
+            ptr_vector<ptr_vector<func_decl> >          m_vectors;
+            unsigned                                    m_start = 0;
+            mutable ptr_vector<sort>                    m_fully_interp_trail;
+            void add_ast(ast* a) const { if (!m_asts) m_asts = alloc(ast_ref_vector, *m_manager);  m_asts->push_back(a); }
+
         private:
             bool is_value_visit(bool unique, expr * arg, ptr_buffer<app> & todo) const;
             bool is_value_aux(bool unique, app * arg) const;
@@ -295,25 +317,10 @@ namespace datatype {
         ast_manager & m;
         mutable family_id     m_family_id;
         mutable decl::plugin* m_plugin;
-        typedef std::pair<func_decl*, unsigned> cnstr_depth;
+
 
         family_id fid() const;
-                
-        obj_map<sort, ptr_vector<func_decl> *>      m_datatype2constructors;
-        obj_map<sort, cnstr_depth>                  m_datatype2nonrec_constructor;
-        obj_map<func_decl, ptr_vector<func_decl> *> m_constructor2accessors;
-        obj_map<func_decl, func_decl *>             m_constructor2recognizer;
-        obj_map<func_decl, func_decl *>             m_recognizer2constructor;
-        obj_map<func_decl, func_decl *>             m_accessor2constructor;
-        obj_map<sort, bool>                         m_is_recursive;
-        obj_map<sort, bool>                         m_is_enum;
-        mutable obj_map<sort, bool>                 m_is_fully_interp;
-        mutable ast_ref_vector                      m_asts;
-        sref_vector<param_size::size>               m_refs;
-        ptr_vector<ptr_vector<func_decl> >          m_vectors;
-        unsigned                                    m_start;
-        mutable ptr_vector<sort>                    m_fully_interp_trail;
-        
+                    
         cnstr_depth get_non_rec_constructor_core(sort * ty, ptr_vector<sort> & forbidden_set);
 
         friend class decl::plugin;
@@ -331,7 +338,6 @@ namespace datatype {
 
     public:
         util(ast_manager & m);
-        ~util();
         ast_manager & get_manager() const { return m; }
         // sort * mk_datatype_sort(symbol const& name, unsigned n, sort* const* params); 
         bool is_datatype(sort const* s) const { return is_sort_of(s, fid(), DATATYPE_SORT); }

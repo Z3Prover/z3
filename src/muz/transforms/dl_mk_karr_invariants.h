@@ -62,8 +62,6 @@ namespace datalog {
         rule_set* update_rules(rule_set const& src);
     public:
         mk_karr_invariants(context & ctx, unsigned priority);
-
-        ~mk_karr_invariants() override;
         
         rule_set * operator()(rule_set const & source) override;
 

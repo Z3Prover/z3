@@ -48,8 +48,6 @@ namespace {
             r.insert("propagate-eq", CPK_BOOL, "propagate equalities from inequalities", "false");
         }
 
-        ~bv_bounds_simplifier() override {}
-
         bool assert_expr(expr * t, bool sign) override {
             return assert_expr_core(t, sign);
         }

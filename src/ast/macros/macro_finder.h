@@ -43,7 +43,6 @@ class macro_finder {
 
 public:
     macro_finder(ast_manager & m, macro_manager & mm);
-    ~macro_finder();
     void operator()(expr_ref_vector const& exprs, proof_ref_vector const& prs, expr_dependency_ref_vector const& deps, expr_ref_vector & new_exprs, proof_ref_vector & new_prs, expr_dependency_ref_vector & new_deps);
     void operator()(unsigned n, justified_expr const* fmls, vector<justified_expr>& new_fmls);
 };

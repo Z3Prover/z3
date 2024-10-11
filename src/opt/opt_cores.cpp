@@ -256,12 +256,11 @@ namespace opt {
     void cores::rotate_cores() {
         expr_ref_vector soft(m);
         soft.append(ctx.soft());
-        unsigned num_sat = 0, num_unsat = 0, num_undef = 0;        
+        unsigned num_sat = 0, num_undef = 0;        
         lbool is_sat = l_false;
         while (m.inc() && m_cores.size() < m_max_num_cores) {
             switch (is_sat) {
             case l_false: {
-                ++num_unsat;
                 auto core = unsat_core();
                 add_core(core);
                 if (core.empty())

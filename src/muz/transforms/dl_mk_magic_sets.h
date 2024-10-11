@@ -65,7 +65,7 @@ namespace datalog {
             func_decl * m_pred;
             adornment m_adornment;
 
-            adornment_desc() {}
+            adornment_desc() = default;
             adornment_desc(func_decl * pred) : m_pred(pred) {}
             adornment_desc(func_decl * pred, const adornment & a) 
                 : m_pred(pred), m_adornment(a) {}

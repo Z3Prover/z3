@@ -1678,7 +1678,7 @@ bool core::is_nl_var(lpvar j) const {
 
 
 unsigned core::get_var_weight(lpvar j) const {
-    unsigned k;
+    unsigned k = 0;
     switch (lra.get_column_type(j)) {
 
     case lp::column_type::fixed:

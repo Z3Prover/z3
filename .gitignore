@@ -8,6 +8,11 @@ callgrind.out.*
 *.hpp
 .env
 .z3-trace
+.env
+.genaiscript
+package-lock.json
+package.json
+node_modules
 # OCaml generated files
 *.a
 *.o

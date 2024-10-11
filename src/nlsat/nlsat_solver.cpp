@@ -34,6 +34,8 @@ Revision History:
 #include "nlsat/nlsat_explain.h"
 #include "nlsat/nlsat_params.hpp"
 #include "nlsat/nlsat_simplify.h"
+#include "nlsat/nlsat_simple_checker.h"
+#include "nlsat/nlsat_variable_ordering_strategy.h"
 
 #define NLSAT_EXTRA_VERBOSE
 
@@ -220,6 +222,10 @@ namespace nlsat {
         bool                   m_check_lemmas;
         unsigned               m_max_conflicts;
         unsigned               m_lemma_count;
+        bool m_simple_check =  false;
+        unsigned m_variable_ordering_strategy;
+        bool m_set_0_more;
+        bool m_cell_sample;
 
         struct stats {
             unsigned               m_simplifications;
@@ -253,7 +259,7 @@ namespace nlsat {
             m_simplify(s, m_atoms, m_clauses, m_learned, m_pm),
             m_display_var(m_perm),
             m_display_assumption(nullptr),
-            m_explain(s, m_assignment, m_cache, m_atoms, m_var2eq, m_evaluator),
+            m_explain(s, m_assignment, m_cache, m_atoms, m_var2eq, m_evaluator, nlsat_params(c.m_params).cell_sample()),
             m_scope_lvl(0),
             m_lemma(s),
             m_lazy_clause(s),
@@ -289,6 +295,12 @@ namespace nlsat {
             m_inline_vars    = p.inline_vars();
             m_log_lemmas     = p.log_lemmas();
             m_check_lemmas   = p.check_lemmas();
+            m_variable_ordering_strategy = p.variable_ordering_strategy();
+    
+
+            m_cell_sample = p.cell_sample();
+
+  
             m_ism.set_seed(m_random_seed);
             m_explain.set_simplify_cores(m_simplify_cores);
             m_explain.set_minimize_cores(min_cores);
@@ -451,7 +463,7 @@ namespace nlsat {
                 return max;
             }
             else {
-                return m_pm.degree(to_root_atom(a)->p(), a->max_var());
+                return m_pm.degree(to_root_atom(a)->p(), a->max_var());
             }
         }
 
@@ -622,7 +634,7 @@ namespace nlsat {
                     if (sign < 0)
                         k = atom::flip(k);
                     sign = 1;
-                    polynomial::manager::ineq_type t;
+                    polynomial::manager::ineq_type t = polynomial::manager::ineq_type::EQ;
                     switch (k) {
                     case atom::EQ: t = polynomial::manager::ineq_type::EQ; break;
                     case atom::LT: t = polynomial::manager::ineq_type::LT; break;
@@ -1518,7 +1530,7 @@ namespace nlsat {
         void select_witness() {
             scoped_anum w(m_am);
             SASSERT(!m_ism.is_full(m_infeasible[m_xk]));
-            m_ism.peek_in_complement(m_infeasible[m_xk], is_int(m_xk), w, m_randomize);
+            m_ism.pick_in_complement(m_infeasible[m_xk], is_int(m_xk), w, m_randomize);
             TRACE("nlsat", 
                   tout << "infeasible intervals: "; m_ism.display(tout, m_infeasible[m_xk]); tout << "\n";
                   tout << "assigning "; m_display_var(tout, m_xk) << "(x" << m_xk << ") -> " << w << "\n";);
@@ -1767,6 +1779,33 @@ namespace nlsat {
         }
 
         bool m_reordered = false;
+        bool simple_check() {
+            literal_vector learned_unit;
+            simple_checker checker(m_pm, m_am, m_clauses, learned_unit, m_atoms, m_is_int.size());
+            if (!checker())
+                return false;
+            for (unsigned i = 0, sz = learned_unit.size(); i < sz; ++i) {
+                clause *cla = mk_clause(1, &learned_unit[i], true, nullptr);
+                if (m_atoms[learned_unit[i].var()] == nullptr) {
+                    assign(learned_unit[i], mk_clause_jst(cla));
+                }
+            }
+            return true;
+        }
+
+
+        void run_variable_ordering_strategy() {
+            TRACE("reorder", tout << "runing vos: " << m_variable_ordering_strategy << '\n';);
+
+            unsigned num = num_vars();
+            vos_var_info_collector vos_collector(m_pm, m_atoms, num, m_variable_ordering_strategy);
+            vos_collector.collect(m_clauses);
+            vos_collector.collect(m_learned);
+            
+            var_vector perm;
+            vos_collector(perm);
+            reorder(perm.size(), perm.data());
+        }
 
         void apply_reorder() {
             m_reordered = false;
@@ -1783,25 +1822,45 @@ namespace nlsat {
         }
 
         lbool check() {
+            
+            if (m_simple_check) {
+                if (!simple_check()) {
+                    TRACE("simple_check", tout << "real unsat\n";);
+                    return l_false;
+                }
+                TRACE("simple_checker_learned",
+                    tout << "simple check done\n";
+                );
+            }
+
             TRACE("nlsat_smt2", display_smt2(tout););
             TRACE("nlsat_fd", tout << "is_full_dimensional: " << is_full_dimensional() << "\n";);
             init_search();
             m_explain.set_full_dimensional(is_full_dimensional());
+            bool reordered = false;
 
-            apply_reorder();
+           
+            if (!can_reorder()) {
 
-#if 0
-            if (!m_incremental && m_inline_vars) {
-                if (!m_simplify())
-                    return l_false;
             }
-#endif
-            IF_VERBOSE(3, verbose_stream() << "search\n");
+            else if (m_variable_ordering_strategy > 0) {
+                run_variable_ordering_strategy();
+                reordered = true;
+            }
+            else if (m_random_order) {
+                shuffle_vars();
+                reordered = true;
+            }
+            else if (m_reorder) {
+                heuristic_reorder();
+                reordered = true;
+            }
             sort_watched_clauses();
             lbool r = search_check();
             CTRACE("nlsat_model", r == l_true, tout << "model before restore order\n"; display_assignment(tout););
-            if (m_reordered) 
-                restore_order();            
+            if (reordered) {
+                restore_order();
+            }
             CTRACE("nlsat_model", r == l_true, tout << "model\n"; display_assignment(tout););
             CTRACE("nlsat", r == l_false, display(tout << "unsat\n"););
             SASSERT(r != l_true || check_satisfied(m_clauses));
@@ -2772,11 +2831,59 @@ namespace nlsat {
             TRACE("nlsat_reorder_clauses", tout << "after:\n"; for (unsigned i = 0; i < sz; i++) { display(tout, *(cs[i])); tout << "\n"; });
         }
 
+        
+        struct degree_lit_num_lt {
+            unsigned_vector & m_degrees;
+            unsigned_vector & m_lit_num;
+            degree_lit_num_lt(unsigned_vector & ds, unsigned_vector & ln) :
+            m_degrees(ds),
+            m_lit_num(ln) {
+            }
+            bool operator()(unsigned i1, unsigned i2) const {
+                if (m_lit_num[i1] == 1 && m_lit_num[i2] > 1)
+                    return true;
+                if (m_lit_num[i1] > 1 && m_lit_num[i2] == 1)
+                    return false;
+                if (m_degrees[i1] != m_degrees[i2])
+                    return m_degrees[i1] < m_degrees[i2];
+                if (m_lit_num[i1] != m_lit_num[i2])
+                    return m_lit_num[i1] < m_lit_num[i2];
+                return i1 < i2;
+            }
+        };
+
+        unsigned_vector m_dl_degrees;
+        unsigned_vector m_dl_lit_num;
+        unsigned_vector m_dl_p;
+        void sort_clauses_by_degree_lit_num(unsigned sz, clause ** cs) {
+            if (sz <= 1)
+                return;
+            TRACE("nlsat_reorder_clauses", tout << "before:\n"; for (unsigned i = 0; i < sz; i++) { display(tout, *(cs[i])); tout << "\n"; });
+            m_dl_degrees.reset();
+            m_dl_lit_num.reset();
+            m_dl_p.reset();
+            for (unsigned i = 0; i < sz; i++) {
+                m_dl_degrees.push_back(degree(*(cs[i])));
+                m_dl_lit_num.push_back(cs[i]->size());
+                m_dl_p.push_back(i);
+            }
+            std::sort(m_dl_p.begin(), m_dl_p.end(), degree_lit_num_lt(m_dl_degrees, m_dl_lit_num));
+            TRACE("nlsat_reorder_clauses", tout << "permutation: "; ::display(tout, m_dl_p.begin(), m_dl_p.end()); tout << "\n";);
+            apply_permutation(sz, cs, m_dl_p.data());
+            TRACE("nlsat_reorder_clauses", tout << "after:\n"; for (unsigned i = 0; i < sz; i++) { display(tout, *(cs[i])); tout << "\n"; });
+        }
+
         void sort_watched_clauses() {
             unsigned num = num_vars();
             for (unsigned i = 0; i < num; i++) {
                 clause_vector & ws = m_watches[i];
-                sort_clauses_by_degree(ws.size(), ws.data());
+                // sort_clauses_by_degree(ws.size(), ws.data());
+                if (m_simple_check) {
+                    sort_clauses_by_degree_lit_num(ws.size(), ws.data());
+                }
+                else {
+                    sort_clauses_by_degree(ws.size(), ws.data());
+                }
             }
         }
 

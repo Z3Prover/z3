@@ -21,7 +21,7 @@ Revision History:
 #include "nlsat/nlsat_types.h"
 
 namespace nlsat {
-
+      
     class interval_set;
 
     class interval_set_manager {
@@ -29,10 +29,10 @@ namespace nlsat {
         small_object_allocator & m_allocator;
         svector<char>            m_already_visited;
         random_gen               m_rand;
+
         void del(interval_set * s);
     public:
         interval_set_manager(anum_manager & m, small_object_allocator & a);
-        ~interval_set_manager();
         
         void set_seed(unsigned s) { m_rand.set_seed(s); }
 
@@ -107,7 +107,7 @@ namespace nlsat {
            
            \pre !is_full(s)
         */
-        void peek_in_complement(interval_set const * s, bool is_int, anum & w, bool randomize);
+        void pick_in_complement(interval_set const * s, bool is_int, anum & w, bool randomize);
     };
 
     typedef obj_ref<interval_set, interval_set_manager> interval_set_ref;

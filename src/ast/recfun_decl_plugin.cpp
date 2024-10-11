@@ -170,8 +170,6 @@ namespace recfun {
         vector<branch>      m_branches;
 
     public:
-        case_state() : m_reg(), m_branches() {}
-        
         bool empty() const { return m_branches.empty(); }
 
         branch pop_branch() {
@@ -242,23 +240,18 @@ namespace recfun {
     {
         VERIFY(m_cases.empty() && "cases cannot already be computed");
         SASSERT(n_vars == m_domain.size());
-
         TRACEFN("compute cases " << mk_pp(rhs, m));
-
-        unsigned case_idx = 0;
-
-        std::string name("case-");       
-        name.append(m_name.str());
-
-        m_vars.append(n_vars, vars);
-        m_rhs = rhs;
 
         if (!is_macro)
             for (expr* e : subterms::all(m_rhs))
                 if (is_lambda(e))
                     throw default_exception("recursive definitions with lambdas are not supported");
-        
+
+
+        unsigned case_idx = 0;
         expr_ref_vector conditions(m);
+        m_vars.append(n_vars, vars);
+        m_rhs = rhs;        
 
         // is the function a macro (unconditional body)?
         if (is_macro || n_vars == 0 || !contains_ite(u, rhs)) {
@@ -266,7 +259,6 @@ namespace recfun {
             add_case(0, conditions, rhs);
             return;
         }
-
 
         
         // analyze control flow of `rhs`, accumulating guards and
@@ -368,9 +360,6 @@ namespace recfun {
           m_plugin(dynamic_cast<decl::plugin*>(m.get_plugin(m_fid))) {
     }
 
-    util::~util() {
-    }
-
     def * util::decl_fun(symbol const& name, unsigned n, sort *const * domain, sort * range, bool is_generated) {
         return alloc(def, m(), m_fid, name, n, domain, range, is_generated);
     }
@@ -419,7 +408,6 @@ namespace recfun {
     }
 
     namespace decl {
-        plugin::plugin() : decl_plugin(), m_defs(), m_case_defs() {}
         plugin::~plugin() { finalize(); }
 
         void plugin::finalize() {

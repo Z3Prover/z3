@@ -296,9 +296,6 @@ namespace euf {
         add_plugin(alloc(bv::theory_checker, m));
     }
 
-    theory_checker::~theory_checker() {
-    }
-
     void theory_checker::add_plugin(theory_checker_plugin* p) {
         m_plugins.push_back(p);
         p->register_plugins(*this);

@@ -52,9 +52,8 @@ public:
 
 protected:
     struct cell {
-        cell *  m_next;
+        cell *  m_next = (cell*)1;
         T       m_data;
-        cell():m_next(reinterpret_cast<cell*>(1)) {}
         bool is_free() const { return GET_TAG(m_next) == 1; }
         void mark_free() { m_next = TAG(cell*, m_next, 1); }
         void unmark_free() { m_next = UNTAG(cell*, m_next); }
@@ -552,7 +551,6 @@ public:
             return *this;
         }
         iterator operator++(int) { iterator tmp = *this; ++*this; return tmp; }
-        bool operator==(iterator const & it) const { return m_list_it == it.m_list_it; }
         bool operator!=(iterator const & it) const { return m_list_it != it.m_list_it; }
     };
     
@@ -610,7 +608,7 @@ public:
     struct key_value {
         Key    m_key;
         Value  m_value;
-        key_value() {}
+        key_value() = default;
         key_value(Key const & k):m_key(k) {}
         key_value(Key const & k, Value const & v):m_key(k), m_value(v) {}
     };

@@ -203,7 +203,6 @@ public:
             lar_base_constraint const* operator->() const { return &cs[m_index]; }
             iterator& operator++() { next(); return *this; }
             iterator operator++(int) { auto tmp = *this; next(); return tmp; }
-            bool operator==(iterator const& other) const { return m_index == other.m_index; }
             bool operator!=(iterator const& other) const { return m_index != other.m_index; }
         };
         iterator begin() const { return iterator(cs, 0); }
@@ -229,7 +228,6 @@ public:
             constraint_index const* operator->() const { return &m_index; }
             iterator& operator++() { next(); return *this; }
             iterator operator++(int) { auto tmp = *this; next(); return tmp; }
-            bool operator==(iterator const& other) const { return m_index == other.m_index; }
             bool operator!=(iterator const& other) const { return m_index != other.m_index; }
         };
         iterator begin() const { return iterator(cs, 0); }

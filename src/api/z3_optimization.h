@@ -140,6 +140,18 @@ extern "C" {
     void Z3_API Z3_optimize_pop(Z3_context c, Z3_optimize d);
 
     /**
+       \brief provide an initialization hint to the solver.
+       The initialization hint is used to calibrate an initial value of the expression that
+       represents a variable. If the variable is Boolean, the initial phase is set
+       according to \c value. If the variable is an integer or real,
+       the initial Simplex tableau is recalibrated to attempt to follow the value assignment.
+
+       def_API('Z3_optimize_set_initial_value', VOID, (_in(CONTEXT), _in(OPTIMIZE), _in(AST), _in(AST)))
+     */
+
+    void Z3_API Z3_optimize_set_initial_value(Z3_context c, Z3_optimize o, Z3_ast v, Z3_ast val);
+    
+    /**
        \brief Check consistency and produce optimal values.
        \param c - context
        \param o - optimization context

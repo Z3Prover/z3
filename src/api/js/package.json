@@ -29,7 +29,7 @@
     "clean": "rimraf build 'src/**/*.__GENERATED__.*'",
     "lint": "prettier -c '{./,src/,scripts/,examples/}**/*.{js,ts}'",
     "format": "prettier --write '{./,src/,scripts/}**/*.{js,ts}'",
-    "test": "jest",
+    "test": "node --expose-gc ./node_modules/.bin/jest",
     "docs": "typedoc",
     "check-engine": "check-engine"
   },

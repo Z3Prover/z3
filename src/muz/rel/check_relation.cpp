@@ -150,8 +150,6 @@ namespace datalog {
         m(rm.get_context().get_manager()),
         m_base(nullptr) {
     }
-    check_relation_plugin::~check_relation_plugin() {
-    }
     check_relation& check_relation_plugin::get(relation_base& r) {
         return dynamic_cast<check_relation&>(r);
     }

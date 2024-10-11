@@ -46,7 +46,6 @@ class hwf_manager {
 public:
     typedef hwf numeral;
     hwf_manager();
-    ~hwf_manager();
 
     void reset(hwf & o) { set(o, 0); }
     void set(hwf & o, int value);

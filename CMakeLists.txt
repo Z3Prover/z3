@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 set(CMAKE_USER_MAKE_RULES_OVERRIDE_CXX "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cxx_compiler_flags_overrides.cmake")
-project(Z3 VERSION 4.13.1.0 LANGUAGES CXX)
+project(Z3 VERSION 4.13.3.0 LANGUAGES CXX)
 
 ################################################################################
 # Project version
@@ -178,7 +178,7 @@ include(${PROJECT_SOURCE_DIR}/cmake/z3_add_cxx_flag.cmake)
 ################################################################################
 # C++ language version
 ################################################################################
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 ################################################################################

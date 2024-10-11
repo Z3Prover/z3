@@ -31,7 +31,6 @@ class bvsls_opt_engine : public sls_engine {
 
 public:
     bvsls_opt_engine(ast_manager & m, params_ref const & p);
-    ~bvsls_opt_engine();
 
     class optimization_result {
     public:

@@ -51,9 +51,8 @@ class emonics {
         unsigned     m_index;
     };
     struct head_tail {
-        head_tail(): m_head(nullptr), m_tail(nullptr) {}
-        cell* m_head;
-        cell* m_tail;
+        cell* m_head = nullptr;
+        cell* m_tail = nullptr;
     };
     struct hash_canonical {
         emonics& em;
@@ -205,7 +204,6 @@ public:
         monic & operator*() { return m.m_monics[m_cell->m_index]; }
         iterator& operator++() { m_touched = true; m_cell = m_cell->m_next; return *this; }
         iterator operator++(int) { iterator tmp = *this; ++*this; return tmp; }
-        bool operator==(iterator const& other) const { return m_cell == other.m_cell && m_touched == other.m_touched; }
         bool operator!=(iterator const& other) const { return m_cell != other.m_cell || m_touched != other.m_touched; }
     };
         
@@ -239,7 +237,6 @@ public:
         }
         pf_iterator& operator++() { ++m_it; fast_forward(); return *this; }
         pf_iterator operator++(int) { pf_iterator tmp = *this; ++*this; return tmp; }
-        bool operator==(pf_iterator const& other) const { return m_it == other.m_it; }
         bool operator!=(pf_iterator const& other) const { return m_it != other.m_it; }
     };
 

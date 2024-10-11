@@ -56,12 +56,11 @@ template<typename Key, typename Value>
 class obj_map {
 public:
     struct key_data {
-        Key *  m_key;
+        Key *  m_key = nullptr;
         Value  m_value;
-        key_data():m_key(nullptr), m_value() {
-        }
+        key_data() = default;
         key_data(Key * k):
-            m_key(k), m_value() {
+            m_key(k) {
         }
         key_data(Key * k, Value const & v):
             m_key(k),

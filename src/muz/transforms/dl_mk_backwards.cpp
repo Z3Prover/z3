@@ -27,8 +27,6 @@ namespace datalog {
         m(ctx.get_manager()),
         m_ctx(ctx) {        
     }
-
-    mk_backwards::~mk_backwards() { }
         
     rule_set * mk_backwards::operator()(rule_set const & source) {
         context& ctx = source.get_context();

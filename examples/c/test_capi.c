@@ -166,6 +166,15 @@ Z3_ast mk_int_var(Z3_context ctx, const char * name)
 }
 
 /**
+   \brief Create a string variable using the given name.
+*/
+Z3_ast mk_string_var(Z3_context ctx, const char * name)
+{
+    Z3_sort ty = Z3_mk_string_sort(ctx);
+    return mk_var(ctx, name, ty);
+}
+
+/**
    \brief Create a Z3 integer node using a C int.
 */
 Z3_ast mk_int(Z3_context ctx, int v)
@@ -1615,7 +1624,7 @@ void error_code_example2() {
         Z3_del_config(cfg);
 
         x   = mk_int_var(ctx, "x");
-        y   = mk_bool_var(ctx, "y");
+        y   = mk_string_var(ctx, "y");
         printf("before Z3_mk_iff\n");
         /* the next call will produce an error */
         app = Z3_mk_iff(ctx, x, y);

@@ -146,20 +146,16 @@ subterms::iterator& subterms::iterator::operator++() {
     return *this;
 }
 
-bool subterms::iterator::operator==(iterator const& other) const {
+bool subterms::iterator::operator!=(iterator const& other) const {
     // ignore state of visited
     if (other.m_esp->size() != m_esp->size()) {
-        return false;
+        return true;
     }
     for (unsigned i = m_esp->size(); i-- > 0; ) {
         if (m_esp->get(i) != other.m_esp->get(i))
-            return false;
+            return true;
     }
-    return true;
-}
-
-bool subterms::iterator::operator!=(iterator const& other) const {
-    return !(*this == other);
+    return false;
 }
 
 
@@ -216,18 +212,14 @@ subterms_postorder::iterator& subterms_postorder::iterator::operator++() {
     return *this;
 }
 
-bool subterms_postorder::iterator::operator==(iterator const& other) const {
+bool subterms_postorder::iterator::operator!=(iterator const& other) const {
     // ignore state of visited
     if (other.m_es.size() != m_es.size()) {
-        return false;
+        return true;
     }
     for (unsigned i = m_es.size(); i-- > 0; ) {
         if (m_es.get(i) != other.m_es.get(i))
-            return false;
+            return true;
     }
-    return true;
-}
-
-bool subterms_postorder::iterator::operator!=(iterator const& other) const {
-    return !(*this == other);
+    return false;
 }
