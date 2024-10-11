@@ -23,6 +23,7 @@ Revision History:
 #include <utility>
 #include <set>
 #include "math/lp/static_matrix.h"
+#include "static_matrix.h"
 namespace lp {
 // each assignment for this matrix should be issued only once!!!
 
@@ -31,7 +32,7 @@ inline void addmul(mpq& r, mpq const& a, mpq const& b) { r.addmul(a, b); }
 
 template <typename T, typename X>
 void  static_matrix<T, X>::init_row_columns(unsigned m, unsigned n) {
-    lp_assert(m_rows.size() == 0 && m_columns.size() == 0);
+    SASSERT(m_rows.size() == 0 && m_columns.size() == 0);
     for (unsigned i = 0; i < m; i++) {
         m_rows.push_back(row_strip<T>());
     }
@@ -43,15 +44,16 @@ void  static_matrix<T, X>::init_row_columns(unsigned m, unsigned n) {
 
 template <typename T, typename X> void static_matrix<T, X>::scan_row_ii_to_offset_vector(const row_strip<T> & rvals) {
     for (unsigned j = 0; j < rvals.size(); j++)
-        m_vector_of_row_offsets[rvals[j].var()] = j;
+        m_work_vector_of_row_offsets[rvals[j].var()] = j;
 }
 
 
-template <typename T, typename X> bool static_matrix<T, X>::pivot_row_to_row_given_cell(unsigned i, column_cell & c, unsigned pivot_col) {
+template <typename T, typename X> bool static_matrix<T, X>::pivot_row_to_row_given_cell(unsigned i, 
+column_cell & c, unsigned pivot_col) {
     unsigned ii = c.var();
-    lp_assert(i < row_count() && ii < column_count() && i != ii);
+    SASSERT(i < row_count() && ii < column_count() && i != ii);
     T alpha = -get_val(c);
-    lp_assert(!is_zero(alpha));
+    SASSERT(!is_zero(alpha));
     auto & rowii = m_rows[ii];
     remove_element(rowii, rowii[c.offset()]);
     scan_row_ii_to_offset_vector(rowii);
@@ -60,8 +62,8 @@ template <typename T, typename X> bool static_matrix<T, X>::pivot_row_to_row_giv
     for (const auto & iv : m_rows[i]) {
         unsigned j = iv.var();
         if (j == pivot_col) continue;
-        lp_assert(!is_zero(iv.coeff()));
-        int j_offs = m_vector_of_row_offsets[j];
+        SASSERT(!is_zero(iv.coeff()));
+        int j_offs = m_work_vector_of_row_offsets[j];
         if (j_offs == -1) { // it is a new element
             T alv = alpha * iv.coeff();
             add_new_element(ii, j, alv);
@@ -72,7 +74,7 @@ template <typename T, typename X> bool static_matrix<T, X>::pivot_row_to_row_giv
     }
     // clean the work vector
     for (unsigned k = 0; k < prev_size_ii; k++) {
-        m_vector_of_row_offsets[rowii[k].var()] = -1;
+        m_work_vector_of_row_offsets[rowii[k].var()] = -1;
     }
 
     // remove zeroes
@@ -83,11 +85,47 @@ template <typename T, typename X> bool static_matrix<T, X>::pivot_row_to_row_giv
     return !rowii.empty();
 }
 
+template <typename T, typename X>
+inline void static_matrix<T, X>::pivot_row_to_row_given_cell_with_sign(unsigned piv_row_index, 
+column_cell& c, unsigned pivot_col, int pivot_sign) {
+    unsigned ii = c.var();
+    SASSERT(ii != piv_row_index);
+    T alpha = get_val(c) * pivot_sign;
+    SASSERT(!is_zero(alpha));
+    auto & rowii = m_rows[ii];
+    remove_element(rowii, rowii[c.offset()]);
+    scan_row_ii_to_offset_vector(rowii);
+    unsigned prev_size_ii = rowii.size();
+    // run over the pivot row and update row ii
+    for (const auto & iv : m_rows[piv_row_index]) {
+        unsigned j = iv.var();
+        if (j == pivot_col) continue;
+        SASSERT(!is_zero(iv.coeff()));
+        int j_offs = m_work_vector_of_row_offsets[j];
+        if (j_offs == -1) { // it is a new element
+            T alv = alpha * iv.coeff();
+            add_new_element(ii, j, alv);
+        }
+        else {
+            addmul(rowii[j_offs].coeff(), iv.coeff(), alpha);
+        }
+    }
+    // clean the work vector
+    for (unsigned k = 0; k < prev_size_ii; k++) {
+        m_work_vector_of_row_offsets[rowii[k].var()] = -1;
+    }
+
+    // remove zeroes
+    for (unsigned k = rowii.size(); k-- > 0;  ) {
+        if (is_zero(rowii[k].coeff()))
+            remove_element(rowii, rowii[k]);
+    }
+}
 
 // constructor that copies columns of the basis from A
 template <typename T, typename X>
 static_matrix<T, X>::static_matrix(static_matrix const &A, unsigned * /* basis */) :
-    m_vector_of_row_offsets(A.column_count(), numeric_traits<T>::zero()) {
+    m_work_vector_of_row_offsets(A.column_count(), numeric_traits<T>::zero()) {
     unsigned m = A.row_count();
     init_row_columns(m, m);
     for (; m-- > 0; ) 
@@ -96,14 +134,14 @@ static_matrix<T, X>::static_matrix(static_matrix const &A, unsigned * /* basis *
 }
 
 template <typename T, typename X> void static_matrix<T, X>::clear() {
-    m_vector_of_row_offsets.clear();
+    m_work_vector_of_row_offsets.clear();
     m_rows.clear();
     m_columns.clear();
 }
 
 template <typename T, typename X> void static_matrix<T, X>::init_vector_of_row_offsets() {
-    m_vector_of_row_offsets.clear();
-    m_vector_of_row_offsets.resize(column_count(), -1);
+    m_work_vector_of_row_offsets.clear();
+    m_work_vector_of_row_offsets.resize(column_count(), -1);
 }
 
 template <typename T, typename X> void static_matrix<T, X>::init_empty_matrix(unsigned m, unsigned n) {
@@ -112,9 +150,9 @@ template <typename T, typename X> void static_matrix<T, X>::init_empty_matrix(un
 }
 
 template <typename T, typename X> unsigned static_matrix<T, X>::lowest_row_in_column(unsigned col) {
-    lp_assert(col < column_count());
+    SASSERT(col < column_count());
     column_strip & colstrip = m_columns[col];
-    lp_assert(colstrip.size() > 0);
+    SASSERT(colstrip.size() > 0);
     unsigned ret = 0;
     for (auto & t : colstrip) {
         if (t.var() > ret) {
@@ -125,7 +163,7 @@ template <typename T, typename X> unsigned static_matrix<T, X>::lowest_row_in_co
 }
 
 template <typename T, typename X> void static_matrix<T, X>::forget_last_columns(unsigned how_many_to_forget) {
-    lp_assert(m_columns.size() >= how_many_to_forget);
+    SASSERT(m_columns.size() >= how_many_to_forget);
     unsigned j = column_count() - 1;
     for (; how_many_to_forget-- > 0; ) {
         remove_last_column(j --);
@@ -146,12 +184,12 @@ template <typename T, typename X> void static_matrix<T, X>::remove_last_column(u
         }
     }
     m_columns.pop_back();
-    m_vector_of_row_offsets.pop_back();
+    m_work_vector_of_row_offsets.pop_back();
 }
 
 template <typename T, typename X> void static_matrix<T, X>::set(unsigned row, unsigned col, T const & val) {
     if (numeric_traits<T>::is_zero(val)) return;
-    lp_assert(row < row_count() && col < column_count());
+    SASSERT(row < row_count() && col < column_count());
     auto & r = m_rows[row];
     unsigned offs_in_cols = m_columns[col].size();
     m_columns[col].push_back(make_column_cell(row, r.size()));
@@ -229,7 +267,7 @@ template <typename T, typename X> void static_matrix<T, X>::check_consistency() 
     for (unsigned i = 0; i < m_rows.size(); i++) {
         for (auto & t : m_rows[i]) {
             std::pair<unsigned, unsigned> p(i, t.var());
-            lp_assert(by_rows.find(p) == by_rows.end());
+            SASSERT(by_rows.find(p) == by_rows.end());
             by_rows[p] = t.coeff();
         }
     }
@@ -237,16 +275,16 @@ template <typename T, typename X> void static_matrix<T, X>::check_consistency() 
     for (unsigned i = 0; i < m_columns.size(); i++) {
         for (auto & t : m_columns[i]) {
             std::pair<unsigned, unsigned> p(t.var(), i);
-            lp_assert(by_cols.find(p) == by_cols.end());
+            SASSERT(by_cols.find(p) == by_cols.end());
             by_cols[p] = get_val(t);
         }
     }
-    lp_assert(by_rows.size() == by_cols.size());
+    SASSERT(by_rows.size() == by_cols.size());
 
     for (auto & t : by_rows) {
         auto ic = by_cols.find(t.first);
-        lp_assert(ic != by_cols.end());
-        lp_assert(t.second == ic->second);
+        SASSERT(ic != by_cols.end());
+        SASSERT(t.second == ic->second);
     }
 }
 #endif

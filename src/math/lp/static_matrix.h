@@ -68,7 +68,8 @@ class static_matrix
     };
     std::stack<dim> m_stack;
 public:
-    vector<int> m_vector_of_row_offsets;
+    
+    vector<int> m_work_vector_of_row_offsets;
     indexed_vector<T> m_work_vector;
     vector<row_strip<T>> m_rows;
     vector<column_strip> m_columns;
@@ -110,7 +111,7 @@ public:
     static_matrix() = default;
 
     // constructor
-    static_matrix(unsigned m, unsigned n): m_vector_of_row_offsets(n, -1)  {
+    static_matrix(unsigned m, unsigned n): m_work_vector_of_row_offsets(n, -1)  {
         init_row_columns(m, n);
     }
     // constructor that copies columns of the basis from A
@@ -133,7 +134,7 @@ public:
     void add_row() {m_rows.push_back(row_strip<T>());}
     void add_column() {
         m_columns.push_back(column_strip());
-        m_vector_of_row_offsets.push_back(-1);
+        m_work_vector_of_row_offsets.push_back(-1);
     }
 
     void forget_last_columns(unsigned how_many_to_forget);
@@ -289,7 +290,8 @@ public:
     }
 
     // pivot row i to row ii
-    bool pivot_row_to_row_given_cell(unsigned i, column_cell& c, unsigned);
+    bool pivot_row_to_row_given_cell(unsigned i, column_cell& c, unsigned j);
+    void pivot_row_to_row_given_cell_with_sign(unsigned piv_row_index, column_cell& c, unsigned j, int j_sign);
     void scan_row_ii_to_offset_vector(const row_strip<T> & rvals);
 
     void transpose_rows(unsigned i, unsigned ii) {
