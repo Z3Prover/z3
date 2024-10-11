@@ -152,7 +152,6 @@ namespace sls {
                     if (!g.find(eq)) {
                         euf::enode* args[2] = { g.find(a), g.find(b) };
                         c = g.mk(eq, 0, 2, args);
-                        xx
                     }                    
                     g.merge(c, g.find(m.mk_false()), to_ptr(lit));
                 }
