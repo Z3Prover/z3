@@ -86,6 +86,7 @@ namespace sls {
         if (!g.inconsistent())
             return;
 
+        ++m_stats.m_num_conflicts;
         unsigned n = 1;
         sat::literal_vector lits;
         sat::literal flit = sat::null_literal, slit;
@@ -111,7 +112,7 @@ namespace sls {
         }
         while (slit != flit);
         // flip the last literal on the replay stack
-        IF_VERBOSE(2, verbose_stream() << "sls.euf - flip " << flit << "\n");
+        IF_VERBOSE(10, verbose_stream() << "sls.euf - flip " << flit << "\n");
         ctx.flip(flit.var());
         m_replay_stack.back().neg();
     }
@@ -142,6 +143,7 @@ namespace sls {
             auto a = g.find(x);
             auto b = g.find(y);
             g.merge(a, b, to_ptr(lit));
+            g.merge(g.find(e), g.find(m.mk_true()), to_ptr(lit));
         }
         else if (!lit.sign() && m.is_distinct(e)) {
             auto n = to_app(e)->get_num_args();
@@ -206,6 +208,7 @@ namespace sls {
                     flit = l;
             }
             ctx.add_clause(lits);
+            ++m_stats.m_num_conflicts;
             if (flit != sat::null_literal)
                 ctx.flip(flit.var());
         };   
@@ -405,5 +408,13 @@ namespace sls {
                 m_values.insert(t);
             }
         }
+    }
+
+    void euf_plugin::collect_statistics(statistics& st) const {
+        st.update("sls.euf-conflict", m_stats.m_num_conflicts);
+    }
+
+    void euf_plugin::reset_statistics() {
+        m_stats.reset();
     }
 }

@@ -23,6 +23,10 @@ Author:
 namespace sls {
     
     class euf_plugin : public plugin {
+        struct stats {
+            unsigned m_num_conflicts = 0;
+            void reset() { memset(this, 0, sizeof(*this)); }
+        };
         obj_map<func_decl, ptr_vector<app>> m_app;
         struct value_hash {
             euf_plugin& cc;
@@ -36,7 +40,10 @@ namespace sls {
         };
         hashtable<app*, value_hash, value_eq> m_values;
 
+
+
         bool m_incremental = false;
+        stats m_stats;
 
         scoped_ptr<euf::egraph> m_g;
         scoped_ptr<obj_map<sort, unsigned>> m_num_elems;
@@ -75,8 +82,8 @@ namespace sls {
         bool repair_down(app* e) override { return false; }
         void repair_literal(sat::literal lit) override {}
 
-        void collect_statistics(statistics& st) const override {}
-        void reset_statistics() override {}
+        void collect_statistics(statistics& st) const override;
+        void reset_statistics() override;
     };
     
 }
