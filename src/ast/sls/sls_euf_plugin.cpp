@@ -24,6 +24,7 @@ Todo:
 #include "ast/sls/sls_euf_plugin.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_pp.h"
+#include "params/sls_params.hpp"
 
 
 namespace sls {
@@ -37,7 +38,8 @@ namespace sls {
     euf_plugin::~euf_plugin() {}
 
     void euf_plugin::initialize() {
-        m_incremental = ctx.get_params().get_bool("euf_incremental", m_incremental);
+        sls_params sp(ctx.get_params());
+        m_incremental = sp.euf_incremental();
         IF_VERBOSE(2, verbose_stream() << "sls.euf: incremental " << m_incremental << "\n");
     }
 

@@ -52,8 +52,7 @@ namespace sls {
         m_plugins.set(p->fid(), p);
     }
 
-    void context::ensure_plugin(expr* e) {
-        auto fid = get_fid(e);
+    void context::ensure_plugin(family_id fid) {
         if (m_plugins.get(fid, nullptr))
             return;
         else if (fid == arith_family_id)
@@ -67,9 +66,14 @@ namespace sls {
         else if (fid == array_util(m).get_family_id())
             register_plugin(alloc(array_plugin, *this));
         else
-            verbose_stream() << "did not find plugin for " << mk_bounded_pp(e, m) << "\n";
-            
-        // add arrays and bv dynamically too.
+            verbose_stream() << "did not find plugin for " << fid << "\n";
+    }
+
+    void context::ensure_plugin(expr* e) {
+        auto fid = get_fid(e);
+        ensure_plugin(fid);
+        fid = e->get_sort()->get_family_id();
+        ensure_plugin(fid);           
     }
 
 

@@ -136,6 +136,7 @@ namespace sls {
         void repair_literals();
 
         void ensure_plugin(expr* e);
+        void ensure_plugin(family_id fid);
         family_id get_fid(expr* e) const;
 
 
