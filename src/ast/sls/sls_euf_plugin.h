@@ -36,12 +36,21 @@ namespace sls {
         };
         hashtable<app*, value_hash, value_eq> m_values;
 
+        bool m_incremental = false;
+
         scoped_ptr<euf::egraph> m_g;
         scoped_ptr<obj_map<sort, unsigned>> m_num_elems;
         scoped_ptr<obj_map<euf::enode, expr*>> m_root2value;
         scoped_ptr<expr_ref_vector> m_pinned;
 
-        void init_egraph(euf::egraph& g);
+        void init_egraph(euf::egraph& g, bool merge_eqs);
+        sat::literal_vector m_stack, m_replay_stack;
+        void propagate_literal_incremental(sat::literal lit);
+        void propagate_literal_incremental_step(sat::literal lit);
+        void resolve();
+        void replay();
+
+        void propagate_literal_non_incremental(sat::literal lit);
         bool is_user_sort(sort* s) { return s->get_family_id() == user_sort_family_id; }
 
         size_t* to_ptr(sat::literal l) { return reinterpret_cast<size_t*>((size_t)(l.index() << 4)); };
@@ -52,7 +61,7 @@ namespace sls {
         ~euf_plugin() override;
         family_id fid() { return m_fid; }
         expr_ref get_value(expr* e) override;
-        void initialize() override {}
+        void initialize() override;
         void start_propagation() override;
         void propagate_literal(sat::literal lit) override;
         bool propagate() override;       
