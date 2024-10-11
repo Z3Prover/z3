@@ -44,6 +44,7 @@ namespace sls {
     void context::updt_params(params_ref const& p) {
         smt_params_helper smtp(p);
         m_rand.set_seed(smtp.random_seed());
+        m_params.append(p);
     }
 
     void context::register_plugin(plugin* p) {

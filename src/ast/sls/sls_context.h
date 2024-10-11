@@ -108,6 +108,7 @@ namespace sls {
         indexed_uint_set m_relevant, m_visited;
         expr_ref_vector m_atoms;
         unsigned_vector m_atom2bool_var;
+        params_ref      m_params;
         vector<ptr_vector<expr>> m_parents;
         sat::literal_vector m_root_literals, m_unit_literals;
         indexed_uint_set m_unit_indices;
@@ -149,6 +150,7 @@ namespace sls {
 
         void on_restart();
         void updt_params(params_ref const& p);
+        params_ref const& get_params() const { return m_params;  }
 
         // expose sat_solver to plugins
         vector<sat::clause_info> const& clauses() const { return s.clauses(); }

@@ -1,10 +1,12 @@
 script({
     tools: ["agent_fs", "agent_git", "agent_github"],
+    model: "azure:gpt-4o",
+    maxTokens: 20000
 })
 
 const {
-    workflow = "latest failed",
-    failure_run_id = "latest",
+    workflow = "RISC V and PowerPC 64",
+    failure_run_id = "11296730058",
     branch = await git.defaultBranch(),
 } = env.vars
 

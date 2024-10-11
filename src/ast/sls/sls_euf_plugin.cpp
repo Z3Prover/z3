@@ -38,7 +38,7 @@ namespace sls {
 
     void euf_plugin::initialize() {
         m_incremental = ctx.get_params().get_bool("euf_incremental", m_incremental);
-        IF_VERBOSE(2, verbose_stream() << "sls.euf: incremental " << m_incremental << < "\n");
+        IF_VERBOSE(2, verbose_stream() << "sls.euf: incremental " << m_incremental << "\n");
     }
 
     void euf_plugin::start_propagation() {
@@ -80,6 +80,7 @@ namespace sls {
         replay();
     }
     void euf_plugin::resolve() {
+        auto& g = *m_g;
         if (!g.inconsistent())
             return;
 
@@ -118,7 +119,7 @@ namespace sls {
             auto l = m_replay_stack.back();
             m_replay_stack.pop_back();
             propagate_literal_incremental_step(l);
-            if (g.inconsistent())
+            if (m_g->inconsistent())
                 resolve();
         }
     }
@@ -149,8 +150,8 @@ namespace sls {
                     expr_ref eq(m.mk_eq(a, b), m);
                     auto c = g.find(eq);
                     if (!g.find(eq)) {
-                        enode* args[2] = { g.find(a), g.find(b) };
-                        c = g.mk(eq, 2, args, nullptr);
+                        euf::enode* args[2] = { g.find(a), g.find(b) };
+                        c = g.mk(eq, 0, 2, args);
                     }                    
                     g.merge(c, g.find(m.mk_false()), to_ptr(lit));
                 }

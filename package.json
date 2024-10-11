@@ -4,6 +4,7 @@
     "genaiscript": "^1.63.0"
   },
   "scripts": {
-    "gcm": "genaiscript run gcm"
+      "gcm": "genaiscript run gcm",
+      "gai": "genaiscript run gai"
   }
 }
