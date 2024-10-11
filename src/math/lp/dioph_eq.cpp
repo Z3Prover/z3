@@ -113,23 +113,23 @@ namespace lp {
           e is an equation and ℓ is a linear combination of variables from L
         */
        //
+        enum class entry_status {
+            F,
+            S,
+            NO_S_NO_F
+        };
         struct eprime_entry {
             unsigned m_row_index; // the index of the row in the constraint matrix that m_e corresponds to
             term_o   m_e; // it will be used for debugging only
             // we keep the dependency of the equation in m_l
             // a more expensive alternative is to keep the history term of m_e : originally m_l is i, the index of row m_e was constructed from
             u_dependency *m_l;
-        };
-        enum class row_status {
-            F,
-            S,
-            NO_S_NO_F
+            mpq m_c; // the constant of the term
+            entry_status m_entry_status;
         };
         vector<eprime_entry> m_eprime;    
     // the terms are stored in m_A and m_c
         static_matrix<mpq, numeric_pair<mpq>> m_e_matrix;  // the rows of the matrix are the terms, without the constant part
-        vector<row_status> m_row_status;
-        vector<mpq> m_c; // to keep the constants of the terms
         int_solver& lia;
         lar_solver& lra;
         explanation m_infeas_explanation;
@@ -152,7 +152,7 @@ namespace lp {
             for (const auto & p: m_e_matrix.m_rows[i]) {
                 t.add_monomial(p.coeff(), p.var());
             }
-            t.c() = m_c[i];
+            t.c() = m_eprime[i].m_c;
             return t;
         }
         private:
@@ -168,7 +168,7 @@ namespace lp {
             t.c() *= lcm;
             #endif
             // init m_e_matrix and m_c
-            mpq & c = m_c[row_index];
+            mpq & c = m_eprime[row_index].m_c;
             for (const auto & p: row)
                 if (lia.is_fixed(p.var()))
                     c += p.coeff()*lia.lower_bound(p.var()).x;
@@ -181,8 +181,6 @@ namespace lp {
 
         void init() {
             m_e_matrix = static_matrix<mpq, impq>(lra.row_count(), lra.column_count());
-            m_row_status.resize(lra.row_count(), row_status::NO_S_NO_F);
-            m_c.resize(lra.row_count(), mpq(0));
             m_report_branch = false;
             unsigned n_of_rows = lra.A_r().row_count();
             m_k2s.clear();
@@ -209,7 +207,7 @@ namespace lp {
                     continue;
                 }
                 term_o t = create_eprime_entry_from_row(row, i);
-                m_row_status[i] = row_status::F;
+                m_eprime[i].m_entry_status = entry_status::F;
                 TRACE("dioph_eq", tout << "row = "; lra.print_row(row, tout) << std::endl;);
                 if (t.size() == 0) {
                     SASSERT(t.c().is_zero());
@@ -292,12 +290,12 @@ namespace lp {
                 return true;
             }
             TRACE("dioph_eq", tout << "g:" << g << std::endl;);
-            mpq c_g = m_c[row_index] / g;
+            mpq c_g = m_eprime[row_index].m_c / g;
             if (c_g.is_int()) {
                 for (auto& p: m_e_matrix.m_rows[row_index]) {
                     p.coeff() /= g;
                 }
-                m_c[row_index] = c_g;
+                m_eprime[row_index].m_c = c_g;
                 // ep.m_l *= (1/g);
                 TRACE("dioph_eq",  tout << "ep_m_e:"; print_eprime_entry(ep, tout) << std::endl;);
                 return true;
@@ -453,6 +451,7 @@ namespace lp {
             // } 
             
             // return tighten_bounds_for_term(t, g, j, dep);
+            return false;
         }
         void handle_constant_term(term_o& t, unsigned j, u_dependency* dep) {
             if (t.c().is_zero()) {
@@ -514,6 +513,7 @@ namespace lp {
             //     }
             // }
             // return change;
+            return false;
         }
 
         void tighten_bound_for_term_for_bound_kind(term_o& t,
@@ -666,20 +666,20 @@ public:
 
             unsigned f_rows_in_column =0;
             for (const auto& c: column) {
-                if (m_row_status[c.var()] == row_status::F)
+                if (m_eprime[c.var()].m_entry_status == entry_status::F)
                     f_rows_in_column ++;
             }
             TRACE("dioph_eq", tout << "f_rows_in_column:" << f_rows_in_column << std::endl;);
             while (column.size() > 1 && f_rows_in_column > 0 ) {
                 auto & c = column.back();
-                if (m_row_status[c.var()] != row_status::F)
+                if (m_eprime[c.var()].m_entry_status != entry_status::F)
                     continue;
                 f_rows_in_column--;
                 SASSERT(c.var() != piv_row_index);
                 mpq coeff = m_e_matrix.get_val(c);
                 TRACE("dioph_eq", tout << "c_row:" << c.var(); print_e_row(c.var(), tout) << std::endl;);
                 m_e_matrix.pivot_row_to_row_given_cell_with_sign(piv_row_index, c, j, j_sign);
-                m_c[c.var()] -=  j_sign* coeff*m_c[piv_row_index];
+                m_eprime[c.var()].m_c -=  j_sign* coeff*m_eprime[piv_row_index].m_c;
                 TRACE("dioph_eq", tout << "after pivoting c_row:"; print_e_row(c.var(), tout) << std::endl;);
             }
         }
@@ -705,7 +705,7 @@ public:
             unsigned fresh_row = m_e_matrix.row_count();
             m_e_matrix.add_row(); // for the fresh variable definition
             m_e_matrix.add_column(); // the fresh variable itself
-            m_row_status.push_back(row_status::S); // adding a new row to S
+            m_eprime.push_back({fresh_row, term_o(), nullptr, mpq(0), entry_status::S});
             // Add a new row for the fresh variable definition
             /* Let eh = sum(ai*xi) + c. For each i != k, let ai = qi*ahk + ri, and let c = c_q * ahk + c_r.
                eh = ahk*(x_k + sum{qi*xi|i != k} + c_q) + sum {ri*xi|i!= k} + c_r.
@@ -713,9 +713,9 @@ public:
                eh = ahk*xt +  sum {ri*x_i | i != k} + c_r  is the row m_e_matrix[e.m_row_index]
             */            
             mpq q, r;
-            q = machine_div_rem(m_c[h], ahk, r);
-            m_c[h] = r;
-            m_c.push_back(q);
+            q = machine_div_rem(e.m_c, ahk, r);
+            e.m_c = r;
+            m_eprime.back().m_c = q;
             m_e_matrix.add_new_element(h, xt, ahk);
             m_e_matrix.add_new_element(fresh_row, xt, -mpq(1));
             m_e_matrix.add_new_element(fresh_row, k, mpq(1));
@@ -755,8 +755,8 @@ public:
         
         // k is the index of the index of the variable with the coefficient +-1 that is being substituted
         void move_entry_from_f_to_s(unsigned k, std::list<unsigned>::iterator it) {
-            SASSERT(m_row_status[*it] == row_status::F);
-            m_row_status[*it] = row_status::S;
+            SASSERT(m_eprime[*it].m_entry_status == entry_status::F);
+            m_eprime[*it].m_entry_status = entry_status::S;
             if (k >= m_k2s.size()) { // k is a fresh variable
                 m_k2s.resize(k+1, -1 );
             }
