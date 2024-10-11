@@ -671,22 +671,22 @@ public:
             }
         }
 
-// k is the variable to substitute
-        void fresh_var_step(unsigned e_index, unsigned k, const mpq& ahk) {
-            eprime_entry & e = m_eprime[e_index];
-            unsigned h = e.m_row_index; 
+        void move_row_to_work_vector(unsigned e_index) {
+            unsigned h = m_eprime[e_index].m_row_index; 
             // backup the term at h
-            m_indexed_work_vector.clear();
-            m_indexed_work_vector.resize(lra.column_count());
-            auto hrow = m_e_matrix.m_rows[h];
+            m_indexed_work_vector.resize(m_e_matrix.column_count());
+            auto &hrow = m_e_matrix.m_rows[h];
             for (const auto& cell : hrow)
                 m_indexed_work_vector.set_value(cell.coeff(), cell.var());
             while (hrow.size() > 0) {
                 auto & c = hrow.back();
                 m_e_matrix.remove_element(hrow, c);
             }
-            
-      // step 7 from the paper
+        }
+// k is the variable to substitute
+        void fresh_var_step(unsigned e_index, unsigned k, const mpq& ahk) {
+            move_row_to_work_vector(e_index);
+          // step 7 from the paper
             // xt is the fresh variable
             unsigned xt = m_e_matrix.column_count();
             unsigned fresh_row = m_e_matrix.row_count();
@@ -698,11 +698,13 @@ public:
                eh = ahk*(x_k + sum{qi*xi|i != k} + c_q) + sum {ri*xi|i!= k} + c_r.
                Then -xt + x_k + sum {qi*x_i)| i != k} + c_q will be the fresh row
                eh = ahk*xt +  sum {ri*x_i | i != k} + c_r  is the row m_e_matrix[e.m_row_index]
-            */            
+            */  
+            auto & e = m_eprime[e_index];
             mpq q, r;
             q = machine_div_rem(e.m_c, ahk, r);
             e.m_c = r;
             m_eprime.back().m_c = q;
+            unsigned h = e.m_row_index;
             m_e_matrix.add_new_element(h, xt, ahk);
             m_e_matrix.add_new_element(fresh_row, xt, -mpq(1));
             m_e_matrix.add_new_element(fresh_row, k, mpq(1));
