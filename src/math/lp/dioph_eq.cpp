@@ -155,19 +155,18 @@ namespace lp {
         }
         private:
         // the row comes from lar_solver
-        void create_eprime_entry_from_row(const row_strip<mpq>& row, unsigned row_index) {
+        void fill_eprime_entry(const row_strip<mpq>& row, unsigned row_index) {
             m_f.push_back(row_index);
             eprime_entry& e = m_eprime[row_index];
+            e.m_row_index = row_index;
             const auto lcm = get_denominators_lcm(row);
-            u_dependency*& dep = e.m_l; 
-            SASSERT(dep == nullptr);
             mpq & c = e.m_c;
             SASSERT(c.is_zero());
 
             for (const auto & p: row) {
                 if (lia.is_fixed(p.var())) {
                     c += p.coeff()*lia.lower_bound(p.var()).x;
-                    dep = lra.get_bound_constraint_witnesses_for_column(p.var());
+                    e.m_l = lra.mk_join(lra.get_bound_constraint_witnesses_for_column(p.var()), e.m_l);
                 }
                 else {
                     m_e_matrix.add_new_element(row_index, p.var(), lcm * p.coeff());
@@ -201,13 +200,16 @@ namespace lp {
             m_eprime.resize(n_of_rows);
             for (unsigned i = 0; i < n_of_rows; i++) {
                 auto & row = lra.get_row(i);
-                TRACE("dioph_eq", tout << "row "<< i <<":"; lia.display_row_info(tout, i) << "\n";);
+                TRACE("dioph_eq", tout << "row "<< i <<":"; lra.print_row(row, tout) << "\n";
+                for(auto & p: row) {
+                    lra.print_column_info(p.var(), tout);
+                });
                 if (!all_vars_are_int_and_small(row)) {
                     TRACE("dioph_eq", tout << "not all vars are int and small\n";);
                     m_eprime[i].m_entry_status = entry_status::NO_S_NO_F;
                     continue;
                 }
-                create_eprime_entry_from_row(row, i);
+                fill_eprime_entry(row, i);
                 TRACE("dioph_eq", print_eprime_entry(static_cast<unsigned>(i), tout););
             }
 
@@ -302,6 +304,7 @@ namespace lp {
         bool normalize_by_gcd() {
             for (unsigned l: m_f) {
                 if (!normalize_e_by_gcd(l)) {
+                    std::cout << "dioconflict\n";
                     m_conflict_index = l;
                     return false;
                 }
@@ -666,7 +669,8 @@ public:
                 TRACE("dioph_eq", tout << "c_row:" << c.var(); print_e_row(c.var(), tout) << std::endl;);
                 m_e_matrix.pivot_row_to_row_given_cell_with_sign(piv_row_index, c, j, j_sign);
                 m_eprime[c.var()].m_c -=  j_sign* coeff*m_eprime[piv_row_index].m_c;
-                TRACE("dioph_eq", tout << "after pivoting c_row:"; print_e_row(c.var(), tout) << std::endl;);
+                m_eprime[c.var()].m_l = lra.mk_join(m_eprime[c.var()].m_l, m_eprime[piv_row_index].m_l);
+                TRACE("dioph_eq", tout << "after pivoting c_row:"; print_eprime_entry(c.var(), tout););
                 cell_to_process--;
             }
         }
@@ -727,17 +731,18 @@ public:
             eliminate_var_in_f(m_eprime.back(), k, 1);
         }
 
-        std::ostream& print_eprime_entry(unsigned i, std::ostream& out) {
+        std::ostream& print_eprime_entry(unsigned i, std::ostream& out, bool print_dep = true) {
             out << "m_eprime[" << i << "]:";
-            return print_eprime_entry(m_eprime[i], out);
+            return print_eprime_entry(m_eprime[i], out, print_dep);
         }
 
-        std::ostream& print_eprime_entry(const eprime_entry& e, std::ostream& out) {
+        std::ostream& print_eprime_entry(const eprime_entry& e, std::ostream& out, bool print_dep = true) {
             out << "{\n";
             print_term_o(get_term_from_e_matrix(e.m_row_index), out << "\trow:") << "\n";
             out << "\tstatus:" << (int)e.m_entry_status;
-           // print_dep(out<< "\tm_l:", e.m_l) << "\n";
-            out << "\n}\n";
+            if (print_dep)
+                this->print_dep(out<< "\n\tdep:", e.m_l);   
+            out << "\n}";
             return out;
         }      
         
@@ -779,7 +784,7 @@ public:
                 return;
             }
             SASSERT(ex.empty());
-            TRACE("dioph_eq", tout << "conflict:"; print_eprime_entry(m_conflict_index, tout) << std::endl;);
+            TRACE("dioph_eq", tout << "conflict:"; print_eprime_entry(m_conflict_index, tout, true) << std::endl;);
             auto & ep = m_eprime[m_conflict_index];
             /*
               for (const auto & pl : ep.m_l) {
