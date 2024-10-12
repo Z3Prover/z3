@@ -141,11 +141,16 @@ namespace sls {
 
         m_stack.push_back(lit);
         g.push();
-        if (!lit.sign() && m.is_eq(e, x, y)) {
-            auto a = g.find(x);
-            auto b = g.find(y);
-            g.merge(a, b, to_ptr(lit));
-            g.merge(g.find(e), g.find(m.mk_true()), to_ptr(lit));
+        if (m.is_eq(e, x, y)) {
+            if (lit.sign()) 
+                g.new_diseq(g.find(e), to_ptr(lit));
+            else {
+                auto a = g.find(x);
+                auto b = g.find(y);
+                g.merge(a, b, to_ptr(lit));
+            }
+            
+            // g.merge(g.find(e), g.find(!lit.sign()), to_ptr(lit));
         }
         else if (!lit.sign() && m.is_distinct(e)) {
             auto n = to_app(e)->get_num_args();
@@ -158,8 +163,8 @@ namespace sls {
                     if (!g.find(eq)) {
                         euf::enode* args[2] = { g.find(a), g.find(b) };
                         c = g.mk(eq, 0, 2, args);
-                    }                    
-                    g.merge(c, g.find(m.mk_false()), to_ptr(lit));
+                    }                                  
+                    g.new_diseq(c, to_ptr(lit));
                 }
             }
         }
