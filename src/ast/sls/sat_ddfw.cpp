@@ -256,8 +256,9 @@ namespace sat {
         m_use_list_index.push_back(m_flat_use_list.size());
     }
 
-    void ddfw::flip(bool_var v) {
+    bool ddfw::flip(bool_var v) {
         ++m_flips;
+        bool new_unsat = false;
         literal lit = literal(v, !value(v));
         literal nlit = ~lit;
         SASSERT(is_true(lit));
@@ -273,6 +274,7 @@ namespace sat {
                     verbose_stream() << "flipping unit clause " << ci << "\n";
 #endif
                 m_unsat.insert_fresh(cls_idx);
+                new_unsat = true;
                 auto const& c = get_clause(cls_idx);
                 for (literal l : c) {
                     inc_reward(l, w);
@@ -314,6 +316,7 @@ namespace sat {
         }
         value(v) = !value(v);
         update_reward_avg(v);
+        return new_unsat;
     }
 
     bool ddfw::should_reinit_weights() {

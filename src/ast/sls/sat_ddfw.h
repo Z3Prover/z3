@@ -252,7 +252,7 @@ namespace sat {
 
         void remove_assumptions();
 
-        void flip(bool_var v);
+        bool flip(bool_var v);
 
         inline double get_reward(bool_var v) const { return m_vars[v].m_reward; }
 

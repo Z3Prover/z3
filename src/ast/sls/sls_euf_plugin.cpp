@@ -44,6 +44,7 @@ namespace sls {
     }
 
     void euf_plugin::start_propagation() {
+        m_incremental = !m_incremental;
         m_g = alloc(euf::egraph, m);
         std::function<void(std::ostream&, void*)> dj = [&](std::ostream& out, void* j) {
             out << "lit " << to_literal(reinterpret_cast<size_t*>(j));
@@ -111,16 +112,18 @@ namespace sls {
 
             if (ctx.is_unit(l))
                 continue;
-            lits.push_back(~l);
-            //verbose_stream() << "reward " << l << " " << ctx.reward(l.var()) << "\n";
-            
+            if (!lits.contains(~l))
+                lits.push_back(~l);
+
             if (ctx.reward(l.var()) > reward)
                 n = 0, reward = ctx.reward(l.var());
+
             if (ctx.rand(++n) == 0)
                 flit = l;
         }
-        //verbose_stream() << "conflict: " << lits << " flip " << flit << "\n";
+
         ctx.add_clause(lits);
+
         if (flit == sat::null_literal)
             return;
         do {
@@ -132,7 +135,7 @@ namespace sls {
         while (slit != flit);
         // flip the last literal on the replay stack
         IF_VERBOSE(10, verbose_stream() << "sls.euf - flip " << flit << "\n");
-        ctx.flip(flit.var());
+        ctx.flip(flit.var());        
         m_replay_stack.back().neg();
     }
 
