@@ -45,6 +45,10 @@ namespace sls {
 
     void euf_plugin::start_propagation() {
         m_g = alloc(euf::egraph, m);
+        std::function<void(std::ostream&, void*)> dj = [&](std::ostream& out, void* j) {
+            out << "lit " << to_literal(reinterpret_cast<size_t*>(j));
+        };
+        m_g->set_display_justification(dj);
         init_egraph(*m_g, !m_incremental);
     }
     
@@ -87,22 +91,30 @@ namespace sls {
             return;
 
         ++m_stats.m_num_conflicts;
-        unsigned n = 1;
+        unsigned n = 0;
         sat::literal_vector lits;
         sat::literal flit = sat::null_literal, slit;
         ptr_vector<size_t> explain;
         g.begin_explain();
         g.explain<size_t>(explain, nullptr);
         g.end_explain();
+        TRACE("enf",
+            for (auto p : explain) {
+                sat::literal l = to_literal(p);
+                tout << l << " " << mk_pp(ctx.atom(l.var()), m) << " " << ctx.is_unit(l) << "\n";
+            });
         for (auto p : explain) {
             sat::literal l = to_literal(p);
+            CTRACE("euf", !ctx.is_true(l), tout << "not true " << l << "\n"; ctx.display(tout););            
             SASSERT(ctx.is_true(l));
-            lits.push_back(~l);
+
             if (ctx.is_unit(l))
                 continue;
+            lits.push_back(~l);
             if (ctx.rand(++n) == 0)
                 flit = l;
         }
+        //verbose_stream() << "conflict: " << lits << " flip " << flit << "\n";
         ctx.add_clause(lits);
         if (flit == sat::null_literal)
             return;
@@ -139,16 +151,14 @@ namespace sls {
         if (!e)
             return;
 
+        TRACE("euf", tout << "propagate " << lit << "\n");
         m_stack.push_back(lit);
         g.push();
         if (m.is_eq(e, x, y)) {
             if (lit.sign()) 
                 g.new_diseq(g.find(e), to_ptr(lit));
-            else {
-                auto a = g.find(x);
-                auto b = g.find(y);
-                g.merge(a, b, to_ptr(lit));
-            }
+            else 
+                g.merge(g.find(x), g.find(y), to_ptr(lit));           
             
             // g.merge(g.find(e), g.find(!lit.sign()), to_ptr(lit));
         }
@@ -160,7 +170,7 @@ namespace sls {
                     auto b = to_app(e)->get_arg(j);
                     expr_ref eq(m.mk_eq(a, b), m);
                     auto c = g.find(eq);
-                    if (!g.find(eq)) {
+                    if (!c) {
                         euf::enode* args[2] = { g.find(a), g.find(b) };
                         c = g.mk(eq, 0, 2, args);
                     }                                  

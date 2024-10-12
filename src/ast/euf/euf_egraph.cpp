@@ -205,6 +205,7 @@ namespace euf {
     }
 
     void egraph::new_diseq(enode* n, void* reason) {
+        force_push();
         SASSERT(m.is_eq(n->get_expr()));
         auto j = justification::external(reason);
         auto a = n->get_arg(0), b = n->get_arg(1);
