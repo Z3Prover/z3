@@ -98,6 +98,8 @@ namespace sls {
             sat::literal l = to_literal(p);
             SASSERT(ctx.is_true(l));
             lits.push_back(~l);
+            if (ctx.is_unit(l))
+                continue;
             if (ctx.rand(++n) == 0)
                 flit = l;
         }
