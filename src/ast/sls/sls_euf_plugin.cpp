@@ -98,6 +98,7 @@ namespace sls {
         g.begin_explain();
         g.explain<size_t>(explain, nullptr);
         g.end_explain();
+        double reward = -1;
         TRACE("enf",
             for (auto p : explain) {
                 sat::literal l = to_literal(p);
@@ -111,6 +112,10 @@ namespace sls {
             if (ctx.is_unit(l))
                 continue;
             lits.push_back(~l);
+            //verbose_stream() << "reward " << l << " " << ctx.reward(l.var()) << "\n";
+            
+            if (ctx.reward(l.var()) > reward)
+                n = 0, reward = ctx.reward(l.var());
             if (ctx.rand(++n) == 0)
                 flit = l;
         }

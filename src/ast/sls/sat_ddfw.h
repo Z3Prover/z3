@@ -271,6 +271,8 @@ namespace sat {
 
         inline unsigned num_vars() const { return m_vars.size(); }
 
+        void simplify();
+
 
         ptr_iterator<unsigned> use_list(literal lit) { 
             unsigned i = lit.index();

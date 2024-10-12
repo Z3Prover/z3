@@ -35,9 +35,11 @@ namespace sls {
         solver_ctx(ast_manager& m, sat::ddfw& d) :
             m(m), m_ddfw(d), m_context(m, *this) {
             m_ddfw.set_plugin(this);
+            m.limit().push_child(&m_ddfw.rlimit());
         }
 
         ~solver_ctx() override {
+            m.limit().pop_child();
         }
 
         void init_search() override {}
@@ -61,6 +63,7 @@ namespace sls {
                 if (!m_new_constraint)
                     break;
                 TRACE("sls", display(tout));
+                //m_ddfw.simplify();
                 m_ddfw.reinit();
                 m_new_constraint = false;
             }

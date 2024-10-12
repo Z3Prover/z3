@@ -62,7 +62,7 @@ namespace sat {
         unsigned steps = 0;
         save_best_values();
         try {
-            while (m_min_sz != 0 && m_steps_since_progress++ <= 1500000) {
+            while (m_min_sz != 0 && m_steps_since_progress++ <= 1500000 && m_limit.inc()) {
                 if (should_reinit_weights()) do_reinit_weights();
                 else if (steps % 5000 == 0) shift_weights(), m_plugin->on_rescale();
                 else if (should_restart()) do_restart(), m_plugin->on_restart();
@@ -268,6 +268,10 @@ namespace sat {
             // cls becomes false: flip any variable in clause to receive reward w
             switch (ci.m_num_trues) {
             case 0: {
+#if 0
+                if (ci.m_clause.size() == 1)
+                    verbose_stream() << "flipping unit clause " << ci << "\n";
+#endif
                 m_unsat.insert_fresh(cls_idx);
                 auto const& c = get_clause(cls_idx);
                 for (literal l : c) {
@@ -512,15 +516,20 @@ namespace sat {
     }
 
     unsigned ddfw::select_random_true_clause() {
-        unsigned num_clauses = m_clauses.size();
-        unsigned rounds = 100 * num_clauses;
-        for (unsigned i = 0; i < rounds; ++i) {
+        unsigned num_clauses = m_clauses.size();        
+        for (unsigned i = 0; i < num_clauses; ++i) {
             unsigned idx = (m_rand() * m_rand()) % num_clauses;
             auto & cn = m_clauses[idx];
             if (cn.is_true() && cn.m_weight >= m_init_weight) 
                 return idx;
         }
-        return UINT_MAX;
+        unsigned n = 0, idx = UINT_MAX;
+        for (unsigned i = 0; i < num_clauses; ++i) {
+            auto& cn = m_clauses[i];
+            if (cn.is_true() && cn.m_weight >= m_init_weight && (m_rand() % (++n)) == 0)
+                idx = i;            
+        }
+        return idx;
     }
 
     // 1% chance to disregard neighbor
@@ -534,6 +543,7 @@ namespace sat {
 
     void ddfw::shift_weights() {
         ++m_shifts;
+        bool shifted = false;
         for (unsigned to_idx : m_unsat) {
             SASSERT(!m_clauses[to_idx].is_true());
             unsigned from_idx = select_max_same_sign(to_idx);
@@ -541,12 +551,60 @@ namespace sat {
                 from_idx = select_random_true_clause();
             if (from_idx == UINT_MAX)
                 continue;
+            shifted = true;
             auto & cn = m_clauses[from_idx];
             SASSERT(cn.is_true());
             double w = calculate_transfer_weight(cn.m_weight);
             transfer_weight(from_idx, to_idx, w);
         }
+        if (!shifted)
+            m_reinit_next = m_flips;
         // DEBUG_CODE(invariant(););
+    }
+
+    // apply unit propagation.
+    void ddfw::simplify() {
+        verbose_stream() << "simplify\n";
+        sat::literal_vector units;
+        uint_set unit_set;
+        for (unsigned i = 0; i < m_clauses.size(); ++i) {
+            auto& ci = m_clauses[i];
+            if (ci.m_clause.size() != 1)
+                continue;
+            auto lit = ci.m_clause[0];
+            units.push_back(lit);
+            unit_set.insert(lit.index());
+            m_use_list[lit.index()].reset();
+            m_use_list[lit.index()].push_back(i);
+        }
+        auto is_unit = [&](sat::literal lit) {
+            return unit_set.contains(lit.index());
+        };
+
+        sat::literal_vector new_clause;
+        for (unsigned i = 0; i < units.size(); ++i) {
+            auto lit = units[i];
+            for (auto cidx : m_use_list[(~lit).index()]) {
+                auto& ci = m_clauses[cidx];
+                if (ci.m_clause.size() == 1)
+                    continue;
+                new_clause.reset();
+                for (auto l : ci) {
+                    if (!is_unit(~l))
+                        new_clause.push_back(l);
+                }
+                if (new_clause.size() == 1) {
+                    verbose_stream() << "new unit " << lit << " " << ci << " -> " << new_clause << "\n";
+                }
+                m_clauses[cidx] = sat::clause_info(new_clause.size(), new_clause.data(), m_config.m_init_clause_weight);
+                if (new_clause.size() == 1) {
+                    units.push_back(new_clause[0]);
+                    unit_set.insert(new_clause[0].index());
+                }
+            }
+        }
+        for (auto unit : units) 
+            m_use_list[(~unit).index()].reset();        
     }
 
     std::ostream& ddfw::display(std::ostream& out) const {
