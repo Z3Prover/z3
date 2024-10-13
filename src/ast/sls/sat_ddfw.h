@@ -103,6 +103,7 @@ namespace sat {
         unsigned         m_min_sz = 0, m_steps_since_progress = 0;
         u_map<unsigned>  m_models;
         stopwatch        m_stopwatch;
+        unsigned_vector  m_num_models;
 
         scoped_ptr<local_search_plugin> m_plugin = nullptr;
         std::function<bool(void)> m_parallel_sync;

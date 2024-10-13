@@ -415,7 +415,7 @@ namespace sat {
         for (unsigned i = 0; i < num_vars(); ++i) 
             m_model[i] = to_lbool(value(i));
         save_priorities();
-        if (m_plugin)
+        if (m_plugin && m_unsat.empty())
             m_plugin->on_save_model();
     }
 
@@ -431,15 +431,19 @@ namespace sat {
             verbose_stream() << "unsat " << m_clauses[m_unsat[0]] << "\n";
         }
 #endif
-        if (m_unsat.size() < m_min_sz) {
-            m_models.reset();
-            // skip saving the first model.
-            for (unsigned v = 0; v < num_vars(); ++v) {
-                int& b = bias(v);
-                if (abs(b) > 3) {
-                    b = b > 0 ? 3 : -3;
-                }
-            }
+
+        m_num_models.reserve(m_unsat.size() + 1);
+        if (m_unsat.size() < m_min_sz) 
+            m_models.reset();        
+        
+        m_min_sz = m_unsat.size();
+        m_num_models.reserve(m_min_sz + 1);
+        m_num_models[m_min_sz]++;
+
+        if (m_num_models[m_min_sz] >= 10) {
+            if (m_num_models[m_min_sz] >= 200)
+                m_num_models[m_min_sz] = 10, m_restart_next = m_flips;
+            return;
         }
 
         unsigned h = value_hash();
@@ -456,7 +460,7 @@ namespace sat {
             m_restart_next = m_flips;            
             m_models.erase(h);
         }
-        m_min_sz = m_unsat.size();
+        
     }
 
     unsigned ddfw::value_hash() const {
