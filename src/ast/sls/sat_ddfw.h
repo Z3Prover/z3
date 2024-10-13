@@ -88,7 +88,6 @@ namespace sat {
         svector<double>      m_scores;      // reward -> score
         svector<lbool>       m_model;       // var -> best assignment
         unsigned             m_init_weight = 2; 
-        
         vector<unsigned_vector> m_use_list;
         unsigned_vector  m_flat_use_list;
         unsigned_vector  m_use_list_index;
@@ -96,6 +95,7 @@ namespace sat {
         indexed_uint_set m_unsat;
         indexed_uint_set m_unsat_vars;  // set of variables that are in unsat clauses
         random_gen       m_rand;
+        uint64_t         m_last_flips_for_shift = 0;
         unsigned         m_num_non_binary_clauses = 0;
         unsigned         m_restart_count = 0, m_reinit_count = 0;
         uint64_t         m_restart_next = 0, m_reinit_next = 0;

@@ -43,6 +43,7 @@ namespace sls {
 
 
         bool m_incremental = false;
+        unsigned m_incremental_mode = 0;
         stats m_stats;
 
         scoped_ptr<euf::egraph> m_g;

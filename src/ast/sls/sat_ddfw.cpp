@@ -564,6 +564,7 @@ namespace sat {
             double w = calculate_transfer_weight(cn.m_weight);
             transfer_weight(from_idx, to_idx, w);
         }
+        //verbose_stream() << m_shifts << " " << m_flips << " " << shifted << "\n";
         if (!shifted)
             m_reinit_next = m_flips;
         // DEBUG_CODE(invariant(););

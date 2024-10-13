@@ -39,12 +39,14 @@ namespace sls {
 
     void euf_plugin::initialize() {
         sls_params sp(ctx.get_params());
-        m_incremental = sp.euf_incremental();
+        m_incremental_mode = sp.euf_incremental();
+        m_incremental = 1 == m_incremental_mode;
         IF_VERBOSE(2, verbose_stream() << "sls.euf: incremental " << m_incremental << "\n");
     }
 
     void euf_plugin::start_propagation() {
-        m_incremental = !m_incremental;
+        if (m_incremental_mode == 2)
+            m_incremental = !m_incremental;
         m_g = alloc(euf::egraph, m);
         std::function<void(std::ostream&, void*)> dj = [&](std::ostream& out, void* j) {
             out << "lit " << to_literal(reinterpret_cast<size_t*>(j));
@@ -100,6 +102,7 @@ namespace sls {
         g.explain<size_t>(explain, nullptr);
         g.end_explain();
         double reward = -1;
+        bool has_flipped = false;
         TRACE("enf",
             for (auto p : explain) {
                 sat::literal l = to_literal(p);
@@ -115,6 +118,7 @@ namespace sls {
             if (!lits.contains(~l))
                 lits.push_back(~l);
 
+
             if (ctx.reward(l.var()) > reward)
                 n = 0, reward = ctx.reward(l.var());
 
@@ -122,7 +126,6 @@ namespace sls {
                 flit = l;
         }
 
-        ctx.add_clause(lits);
 
         if (flit == sat::null_literal)
             return;
@@ -166,9 +169,7 @@ namespace sls {
             if (lit.sign()) 
                 g.new_diseq(g.find(e), to_ptr(lit));
             else 
-                g.merge(g.find(x), g.find(y), to_ptr(lit));           
-            
-            // g.merge(g.find(e), g.find(!lit.sign()), to_ptr(lit));
+                g.merge(g.find(x), g.find(y), to_ptr(lit));                      
         }
         else if (!lit.sign() && m.is_distinct(e)) {
             auto n = to_app(e)->get_num_args();
