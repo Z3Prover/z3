@@ -137,8 +137,10 @@ namespace sls {
         while (slit != flit);
         // flip the last literal on the replay stack
         IF_VERBOSE(10, verbose_stream() << "sls.euf - flip " << flit << "\n");
+        ctx.add_clause(lits);
         ctx.flip(flit.var());        
         m_replay_stack.back().neg();
+
     }
 
     void euf_plugin::replay() {
@@ -342,7 +344,7 @@ namespace sls {
                     m_values.insert(t);
             }
         }
-        //validate_model();
+        // validate_model();
         return true;
     }
 
@@ -483,7 +485,7 @@ namespace sls {
     }
 
     void euf_plugin::collect_statistics(statistics& st) const {
-        st.update("sls.euf-conflict", m_stats.m_num_conflicts);
+        st.update("sls-euf-conflict", m_stats.m_num_conflicts);
     }
 
     void euf_plugin::reset_statistics() {

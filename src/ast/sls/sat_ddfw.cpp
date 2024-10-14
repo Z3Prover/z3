@@ -432,19 +432,26 @@ namespace sat {
         }
 #endif
 
-        m_num_models.reserve(m_unsat.size() + 1);
         if (m_unsat.size() < m_min_sz) 
             m_models.reset();        
         
         m_min_sz = m_unsat.size();
-        m_num_models.reserve(m_min_sz + 1);
-        m_num_models[m_min_sz]++;
 
-        if (m_num_models[m_min_sz] >= 10) {
-            if (m_num_models[m_min_sz] >= 200)
+#if 0
+        m_num_models.reserve(m_min_sz + 1);
+        unsigned nm = m_num_models[m_min_sz]++;
+        
+
+        if (nm >= 10) {
+            if (nm >= 200)
                 m_num_models[m_min_sz] = 10, m_restart_next = m_flips;
+            if (nm % 1 == 0) {
+                for (unsigned v = 0; v < num_vars(); ++v)
+                    bias(v) += value(v) ? 1 : -1;
+            }
             return;
         }
+#endif
 
         unsigned h = value_hash();
         unsigned occs = 0;
