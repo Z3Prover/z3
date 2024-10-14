@@ -6,6 +6,7 @@
 #include <queue>
 
 namespace lp {
+    int glb = 0;
     // This class represents a term with an added constant number c, in form sum {x_i*a_i} + c.
     class dioph_eq::imp {
         class term_o:public lar_term {
@@ -64,6 +65,13 @@ namespace lp {
             }
             return out;
         }
+        std::ostream& print_F(std::ostream & out) {
+            out << "F:\n";
+            for (unsigned i : m_f) {
+                print_eprime_entry(i, out);
+            }
+            return out;
+        }
 
         std::ostream& print_lar_term_L(const lar_term & t, std::ostream & out) const {
             return print_linear_combination_customized(t.coeffs_as_vector(), 
@@ -76,8 +84,17 @@ namespace lp {
                 return out;
             }
             bool first = true;
-            for (const auto p : term) {
-                mpq val = p.coeff();
+            // Copy term to a vector and sort by p.j()
+            std::vector<std::pair<mpq, unsigned>> sorted_term;
+            sorted_term.reserve(term.size());
+            for (const auto& p : term) {
+                sorted_term.emplace_back(p.coeff(), p.j());
+            }
+            std::sort(sorted_term.begin(), sorted_term.end(), 
+                      [](const auto& a, const auto& b) { return a.second < b.second; });
+
+            // Print the sorted term
+            for (auto& [val, j] : sorted_term) {                
                 if (first) {
                     first = false;
                 }
@@ -93,19 +110,24 @@ namespace lp {
                 else if (val != numeric_traits<mpq>::one())
                     out << T_to_string(val);
                 out << "x";
-                if (is_fresh_var(p.j())) out << "~";
-                out << p.j();
+                if (is_fresh_var(j)) out << "~";
+                out << j;
             }
 
+            // Handle the constant term separately
             if (!term.c().is_zero()) {
-                if (term.c().is_pos())
-                    out << " + " << term.c();
-                else
-                    out << " - " << -term.c();
+                if (!first) {
+                    if (term.c().is_pos())
+                        out << " + ";
+                    else
+                        out << " - ";
+                }
+                out << abs(term.c());
             }
 
             return out;
         }
+
 
         /*
           An annotated state is a triple ⟨E′, λ, σ⟩, where E′ is a set of pairs ⟨e, ℓ⟩ in which
@@ -166,7 +188,7 @@ namespace lp {
             for (const auto & p: row) {
                 if (lia.is_fixed(p.var())) {
                     c += p.coeff()*lia.lower_bound(p.var()).x;
-                    e.m_l = lra.mk_join(lra.get_bound_constraint_witnesses_for_column(p.var()), e.m_l);
+                    e.m_l = lra.mk_join(e.m_l, lra.get_bound_constraint_witnesses_for_column(p.var()));
                 }
                 else {
                     m_e_matrix.add_new_element(row_index, p.var(), lcm * p.coeff());
@@ -211,6 +233,7 @@ namespace lp {
                 }
                 fill_eprime_entry(row, i);
                 TRACE("dioph_eq", print_eprime_entry(static_cast<unsigned>(i), tout););
+//                print_eprime_entry(static_cast<unsigned>(i), std::cout);
             }
 
         }
@@ -297,14 +320,12 @@ namespace lp {
                 !has_fresh_var(ep.m_row_index))
                 prepare_lia_branch_report(ep, g, c_g);
             return false;
-
         }
 
         // returns true if no conflict is found and false otherwise
         bool normalize_by_gcd() {
             for (unsigned l: m_f) {
                 if (!normalize_e_by_gcd(l)) {
-                    std::cout << "dioconflict\n";
                     m_conflict_index = l;
                     return false;
                 }
@@ -530,7 +551,9 @@ namespace lp {
             //     tout << "bound_dep:\n";print_dep(tout, dep) << std::endl;);
         }
 public:
-        lia_move check() {            
+        lia_move check() {
+            if (++glb > 10) exit(0);
+            std::cout << "check\n";
             init();
             while(m_f.size()) {
                 if (!normalize_by_gcd()) {
@@ -586,38 +609,27 @@ public:
 //             }
 //         }
 
+
         std::tuple<mpq, unsigned, int> find_minimal_abs_coeff(unsigned row_index) const {
-            bool first = true, first_fresh = true;
-            mpq ahk, ahk_fresh;
-            unsigned k, k_fresh;
-            int k_sign, k_sign_fresh;
+            bool first = true;
+            mpq ahk;
+            unsigned k;
+            int k_sign;
             mpq t;
             for (const auto& p : m_e_matrix.m_rows[row_index]) {
                 t = abs(p.coeff());
-                if (first_fresh || t < ahk_fresh) {
-                    ahk_fresh = t;
-                    k_sign_fresh = p.coeff().is_pos() ? 1 : -1;
-                    k_fresh = p.var();
-                    first_fresh = false;
-                } else if (first || t < ahk) { 
+                if (first || t < ahk || (t == ahk && p.var() < k)) { // tre last condition is for debug
                     ahk = t;
                     k_sign = p.coeff().is_pos() ? 1 : -1;
                     k = p.var();
                     first = false;
-                    if (ahk.is_one())
-                        break;
-                    
+//                if (ahk.is_one()) // uncomment later
+                //                  break;                    
                 }
             }
-            if (first_fresh) // did not find any fresh variables
-                return std::make_tuple(ahk, k, k_sign);
-            if (first) // only fresh vars
-                return std::make_tuple(ahk_fresh, k_fresh, k_sign_fresh);
-            SASSERT(!first && !first_fresh);
-            if (ahk <= ahk_fresh) {
-                return std::make_tuple(ahk, k, k_sign);
-            }
-            return std::make_tuple(ahk_fresh, k_fresh, k_sign_fresh);
+            
+            std::cout << "find_minimal_abs_coeff:" << " ahk:" << ahk <<", k:" << k << ", k_sign:" << k_sign <<  std::endl;
+            return std::make_tuple(ahk, k, k_sign);
         }
 
         term_o get_term_to_subst(const term_o& eh, unsigned k, int k_sign) {
@@ -666,9 +678,9 @@ public:
                 }
                 SASSERT(c.var() != piv_row_index);
                 mpq coeff = m_e_matrix.get_val(c);
-                TRACE("dioph_eq", tout << "c_row:" << c.var(); print_e_row(c.var(), tout) << std::endl;);
-                m_e_matrix.pivot_row_to_row_given_cell_with_sign(piv_row_index, c, j, j_sign);
-                m_eprime[c.var()].m_c -=  j_sign* coeff*m_eprime[piv_row_index].m_c;
+                TRACE("dioph_eq", tout << "m_e:" << c.var(); print_e_row(c.var(), tout) << std::endl;);
+                m_eprime[c.var()].m_c -=  j_sign * coeff*m_eprime[piv_row_index].m_c;
+                m_e_matrix.pivot_row_to_row_given_cell_with_sign(piv_row_index, c, j, -j_sign);
                 m_eprime[c.var()].m_l = lra.mk_join(m_eprime[c.var()].m_l, m_eprime[piv_row_index].m_l);
                 TRACE("dioph_eq", tout << "after pivoting c_row:"; print_eprime_entry(c.var(), tout););
                 cell_to_process--;
@@ -689,6 +701,7 @@ public:
         }
 // k is the variable to substitute
         void fresh_var_step(unsigned e_index, unsigned k, const mpq& ahk) {
+            std::cout << "fresh_var_step:" << "e_index:" << e_index << " k:" << k << std::endl;            
             move_row_to_work_vector(e_index);
           // step 7 from the paper
             // xt is the fresh variable
@@ -696,7 +709,6 @@ public:
             unsigned fresh_row = m_e_matrix.row_count();
             m_e_matrix.add_row(); // for the fresh variable definition
             m_e_matrix.add_column(); // the fresh variable itself
-            m_eprime.push_back({fresh_row, nullptr, mpq(0), entry_status::S});
             // Add a new row for the fresh variable definition
             /* Let eh = sum(ai*xi) + c. For each i != k, let ai = qi*ahk + ri, and let c = c_q * ahk + c_r.
                eh = ahk*(x_k + sum{qi*xi|i != k} + c_q) + sum {ri*xi|i!= k} + c_r.
@@ -707,7 +719,8 @@ public:
             mpq q, r;
             q = machine_div_rem(e.m_c, ahk, r);
             e.m_c = r;
-            m_eprime.back().m_c = q;
+            m_eprime.push_back({fresh_row, nullptr, q, entry_status::S});
+
             unsigned h = e.m_row_index;
             m_e_matrix.add_new_element(h, xt, ahk);
             m_e_matrix.add_new_element(fresh_row, xt, -mpq(1));
@@ -724,10 +737,13 @@ public:
             }
     
             // add entry to S
-            m_eprime.push_back({fresh_row, nullptr, mpq(0), entry_status::S});
-            this->m_s.push_back(fresh_row);
+            unsigned last_in_s = m_eprime.size() - 1;
+            m_s.push_back(last_in_s);
+            m_k2s[k] = last_in_s;
             TRACE("dioph_eq", tout << "changed entry:"; print_eprime_entry(e_index, tout)<< std::endl;            
-            tout <<  "added to S:\n"; print_eprime_entry(m_eprime.size()-1, tout););
+            tout <<  "added to S:\n"; print_eprime_entry(last_in_s, tout););
+            std::cout << "changed entry:"; print_eprime_entry(e_index, std::cout)<< std::endl;            
+            std::cout <<  "added to S:\n"; print_eprime_entry(last_in_s, std::cout);
             eliminate_var_in_f(m_eprime.back(), k, 1);
         }
 
@@ -738,11 +754,11 @@ public:
 
         std::ostream& print_eprime_entry(const eprime_entry& e, std::ostream& out, bool print_dep = true) {
             out << "{\n";
-            print_term_o(get_term_from_e_matrix(e.m_row_index), out << "\trow:") << "\n";
-            out << "\tstatus:" << (int)e.m_entry_status;
+            print_term_o(get_term_from_e_matrix(e.m_row_index), out << "\tm_e:") << ",\n";
+            //out << "\tstatus:" << (int)e.m_entry_status;
             if (print_dep)
-                this->print_dep(out<< "\n\tdep:", e.m_l);   
-            out << "\n}";
+                this->print_dep(out<< "\tm_l:", e.m_l) << "\n";   
+            out << "}\n";
             return out;
         }      
         
@@ -764,14 +780,19 @@ public:
             auto eh_it = pick_eh();
             auto& eprime_entry = m_eprime[*eh_it];
             TRACE("dioph_eq", print_eprime_entry(*eh_it, tout););
+            std::cout << "rewrite_eqs\n"; print_eprime_entry(*eh_it, std::cout);
             auto [ahk, k, k_sign] = find_minimal_abs_coeff(eprime_entry.m_row_index);
             TRACE("dioph_eq", tout << "ahk:" << ahk << ", k:" << k << ", k_sign:" << k_sign << std::endl;);
             if (ahk.is_one()) {
                 TRACE("dioph_eq", tout << "push to S:\n"; print_eprime_entry(*eh_it, tout););
                 move_entry_from_f_to_s(k, eh_it);
                 eliminate_var_in_f(eprime_entry, k , k_sign);
+                print_F(std::cout);
+                print_S(std::cout);
             } else {
-                fresh_var_step(*eh_it, k, ahk);
+                fresh_var_step(*eh_it, k, ahk*mpq(k_sign));
+                print_F(std::cout);
+                print_S(std::cout);
             }
         }
 public:
