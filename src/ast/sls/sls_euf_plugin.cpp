@@ -186,6 +186,7 @@ namespace sls {
                         c = g.mk(eq, 0, 2, args);
                     }
                     g.new_diseq(c, to_ptr(lit));
+                    g.merge(c, g.find(m.mk_false()), to_ptr(lit));
                 }
             }
         }
@@ -350,19 +351,18 @@ namespace sls {
 
     void euf_plugin::validate_model() {
         auto& g = *m_g;
-        for (auto const& c : ctx.clauses()) {
-            for (auto lit : c) {
+        for (auto lit : ctx.root_literals()) {
                 euf::enode* a, * b;
+                if (!ctx.is_true(lit))
+                    continue;
                 auto e = ctx.atom(lit.var());
                 if (!e)
                     continue;
                 if (!ctx.is_relevant(e))
                     continue;
-                if (!ctx.is_true(lit))
-                    continue;
                 if (m.is_distinct(e))
                     continue;
-                auto r = g.find(e)->get_root();
+
                 if (m.is_eq(e)) {
                     a = g.find(to_app(e)->get_arg(0));
                     b = g.find(to_app(e)->get_arg(1));
@@ -380,15 +380,15 @@ namespace sls {
                         //UNREACHABLE();
                     }
                 }
-                else if (to_app(e)->get_family_id() != basic_family_id && lit.sign() && r != g.find(m.mk_false())->get_root()) {
+                else if (to_app(e)->get_family_id() != basic_family_id && lit.sign() && g.find(e)->get_root() != g.find(m.mk_false())->get_root()) {
                     IF_VERBOSE(0, verbose_stream() << "not alse " << lit << " " << mk_pp(e, m) << "\n");
                     //UNREACHABLE();
                 }
-                else if (to_app(e)->get_family_id() != basic_family_id && !lit.sign() && r != g.find(m.mk_true())->get_root()) {
+                else if (to_app(e)->get_family_id() != basic_family_id && !lit.sign() && g.find(e)->get_root() != g.find(m.mk_true())->get_root()) {
                     IF_VERBOSE(0, verbose_stream() << "not true " << lit << " " << mk_pp(e, m) << "\n");
                     //UNREACHABLE();
                 }
-            }
+            
         }
     }
 
