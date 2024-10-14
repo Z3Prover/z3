@@ -92,6 +92,19 @@ void reslimit::pop_child() {
     m_children.pop_back();    
 }
 
+void reslimit::pop_child(reslimit* r) {
+    lock_guard lock(*g_rlimit_mux);
+    for (unsigned i = 0; i < m_children.size(); ++i) {
+        if (m_children[i] == r) {
+            m_count += r->m_count;
+            r->m_count = 0;
+            m_children.erase(m_children.begin() + i);
+            return;
+        }
+    }
+}
+
+
 void reslimit::cancel() {
     lock_guard lock(*g_rlimit_mux);
     set_cancel(m_cancel+1);    

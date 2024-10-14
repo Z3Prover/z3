@@ -39,7 +39,7 @@ namespace sls {
         }
 
         ~solver_ctx() override {
-            m.limit().pop_child();
+            m.limit().pop_child(&m_ddfw.rlimit());
         }
 
         void init_search() override {}

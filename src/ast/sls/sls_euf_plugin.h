@@ -64,6 +64,8 @@ namespace sls {
         size_t* to_ptr(sat::literal l) { return reinterpret_cast<size_t*>((size_t)(l.index() << 4)); };
         sat::literal to_literal(size_t* p) { return sat::to_literal(static_cast<unsigned>(reinterpret_cast<size_t>(p) >> 4)); };
 
+        void validate_model();
+
     public:
         euf_plugin(context& c);
         ~euf_plugin() override;

@@ -45,6 +45,7 @@ public:
     void pop();
     void push_child(reslimit* r);
     void pop_child();
+    void pop_child(reslimit* r);
 
     bool inc();
     bool inc(unsigned offset);

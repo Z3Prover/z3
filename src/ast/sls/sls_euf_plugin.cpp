@@ -41,7 +41,7 @@ namespace sls {
         sls_params sp(ctx.get_params());
         m_incremental_mode = sp.euf_incremental();
         m_incremental = 1 == m_incremental_mode;
-        IF_VERBOSE(2, verbose_stream() << "sls.euf: incremental " << m_incremental << "\n");
+        IF_VERBOSE(2, verbose_stream() << "sls.euf: incremental " << m_incremental_mode << "\n");
     }
 
     void euf_plugin::start_propagation() {
@@ -126,7 +126,6 @@ namespace sls {
                 flit = l;
         }
 
-
         if (flit == sat::null_literal)
             return;
         do {
@@ -166,10 +165,11 @@ namespace sls {
         m_stack.push_back(lit);
         g.push();
         if (m.is_eq(e, x, y)) {
-            if (lit.sign()) 
+            if (lit.sign())
                 g.new_diseq(g.find(e), to_ptr(lit));
-            else 
-                g.merge(g.find(x), g.find(y), to_ptr(lit));                      
+            else
+                g.merge(g.find(x), g.find(y), to_ptr(lit));
+            g.merge(g.find(e), g.find(m.mk_bool_val(!lit.sign())), to_ptr(lit));
         }
         else if (!lit.sign() && m.is_distinct(e)) {
             auto n = to_app(e)->get_num_args();
@@ -182,11 +182,13 @@ namespace sls {
                     if (!c) {
                         euf::enode* args[2] = { g.find(a), g.find(b) };
                         c = g.mk(eq, 0, 2, args);
-                    }                                  
+                    }
                     g.new_diseq(c, to_ptr(lit));
                 }
             }
         }
+//        else if (m.is_bool(e) && is_app(e) && to_app(e)->get_family_id() == basic_family_id)
+//            ;
         else {
             auto a = g.find(e);
             auto b = g.find(m.mk_bool_val(!lit.sign()));
@@ -340,7 +342,52 @@ namespace sls {
                     m_values.insert(t);
             }
         }
+        //validate_model();
         return true;
+    }
+
+    void euf_plugin::validate_model() {
+        auto& g = *m_g;
+        for (auto const& c : ctx.clauses()) {
+            for (auto lit : c) {
+                euf::enode* a, * b;
+                auto e = ctx.atom(lit.var());
+                if (!e)
+                    continue;
+                if (!ctx.is_relevant(e))
+                    continue;
+                if (!ctx.is_true(lit))
+                    continue;
+                if (m.is_distinct(e))
+                    continue;
+                auto r = g.find(e)->get_root();
+                if (m.is_eq(e)) {
+                    a = g.find(to_app(e)->get_arg(0));
+                    b = g.find(to_app(e)->get_arg(1));
+                }
+                if (lit.sign() && m.is_eq(e)) {
+                    if (a->get_root() == b->get_root()) {
+                        IF_VERBOSE(0, verbose_stream() << "not disequal " << lit << " " << mk_pp(e, m) << "\n");
+                        ctx.display(verbose_stream());
+                        UNREACHABLE();
+                    }
+                }
+                else if (!lit.sign() && m.is_eq(e)) {
+                    if (a->get_root() != b->get_root()) {
+                        IF_VERBOSE(0, verbose_stream() << "not equal " << lit << " " << mk_pp(e, m) << "\n");
+                        //UNREACHABLE();
+                    }
+                }
+                else if (to_app(e)->get_family_id() != basic_family_id && lit.sign() && r != g.find(m.mk_false())->get_root()) {
+                    IF_VERBOSE(0, verbose_stream() << "not alse " << lit << " " << mk_pp(e, m) << "\n");
+                    //UNREACHABLE();
+                }
+                else if (to_app(e)->get_family_id() != basic_family_id && !lit.sign() && r != g.find(m.mk_true())->get_root()) {
+                    IF_VERBOSE(0, verbose_stream() << "not true " << lit << " " << mk_pp(e, m) << "\n");
+                    //UNREACHABLE();
+                }
+            }
+        }
     }
 
     bool euf_plugin::propagate() {  
@@ -400,7 +447,6 @@ namespace sls {
                 ;
             }
         }
-
         
         return new_constraint;
     }
