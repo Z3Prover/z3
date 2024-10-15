@@ -26,11 +26,20 @@ namespace sls {
             unsigned m_num_axioms = 0;
             void reset() { memset(this, 0, sizeof(*this)); }
         };
+        struct parent_t {
+            expr*        parent;
+            sat::literal lit;
+        };
         obj_map<sort, ptr_vector<expr>> m_dts;
+        obj_map<expr, svector<parent_t>> m_parents;
 
-        datatype_util m_dt;
+        datatype_util dt;
         stats m_stats;
 
+        void collect_path_axioms();
+        void add_edge(expr* child, expr* parent, sat::literal lit);
+        void add_path_axioms();
+        void add_path_axioms(ptr_vector<expr>& children, sat::literal_vector& lits, svector<parent_t> const& parents);
         void add_axioms();
 
     public:
