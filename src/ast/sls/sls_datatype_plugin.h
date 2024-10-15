@@ -37,6 +37,7 @@ namespace sls {
         
         datatype_util dt;
         expr_ref_vector m_axioms, m_values;
+        model_ref m_model;
         stats m_stats;
 
         void collect_path_axioms();

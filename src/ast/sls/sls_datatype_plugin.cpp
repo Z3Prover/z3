@@ -15,7 +15,7 @@ Author:
 
 Notes:
 
-Axioms:
+Eager reduction to EUF:
    is-c(c(t))                for each c(t) in T
    f_i(c(t_i)) = t_i         for each c(..t_i..) in T
    is-c(t) => t = c(...acc_j(t)..) for each acc_j(t) in T
@@ -46,7 +46,24 @@ Axioms:
    triggers equation acc(t) = s, but the equation is implicit, so acc(t) and s are not directly
    connected.
    Even, the axioms extracted from P don't consider transitivity of =.
-   So the can-be-equal alias approximation is currently too strong.
+   So the can-be-equal alias approximation is too strong.
+   We therefore add an occurs check during propagation and lazily add missed axioms.
+
+
+Model-repair based:
+
+1. Initialize uninterpreted datatype nodes to hold arbitrary values.
+2. Initialize datatype nodes by induced evaluation.
+3. Atomic constraints are of the form for datatype terms
+   x = y, x = t, x != y, x != t; s = t, s != t
+
+   violated x = y:  x <- eval(y), y <- eval(x) or x, y <- fresh
+   violated x = t:  x <- eval(t), repair t using the shape of x
+   violated x != y: x <- fresh, y <- fresh
+   violated x != t: x <- fresh, subterm y of t: y <- fresh
+
+   model::get_fresh_value(s)
+   model::get_some_value(s)
 
 --*/
 
@@ -107,6 +124,7 @@ namespace sls {
     }
 
     void datatype_plugin::add_edge(expr* child, expr* parent, sat::literal lit) {
+        TRACE("dt", tout << mk_bounded_pp(child, m) << " <- " << mk_bounded_pp(parent, m) << " " << lit << "\n");
         m_parents.insert_if_not_there(child, svector<parent_t>()).push_back({parent, lit});
     }
 
@@ -135,6 +153,7 @@ namespace sls {
             }
             if (children[0]->get_sort() == parent->get_sort()) {
                 lits.push_back(~ctx.mk_literal(m.mk_eq(children[0], parent)));
+                TRACE("dt", tout << lits << "\n");
                 ctx.add_clause(lits);
                 lits.pop_back();
             }
@@ -164,7 +183,7 @@ namespace sls {
             auto f = ta->get_decl();
             
             if (dt.is_constructor(t)) {
-                auto r = dt.get_constructor_recognizer(f);
+                auto r = dt.get_constructor_is(f);
                 m_axioms.push_back(m.mk_app(r, t));
                 auto& acc = *dt.get_constructor_accessors(f);
                 for (unsigned i = 0; i < ta->get_num_args(); ++i) {
@@ -174,42 +193,41 @@ namespace sls {
                 auto& cns = *dt.get_datatype_constructors(s);
                 for (auto c : cns) {
                     if (c != f) {
-                        auto r2 = dt.get_constructor_recognizer(c);
+                        auto r2 = dt.get_constructor_is(c);
                         m_axioms.push_back(m.mk_not(m.mk_app(r2, t)));
                     }
                 }
                 continue;
             }
-            if (dt.is_accessor(t, u) && !dt.is_constructor(u)) {
-                auto c = dt.get_accessor_constructor(f);
-                auto r = dt.get_constructor_recognizer(c);
-                auto& acc = *dt.get_constructor_accessors(f);
-                expr_ref_vector args(m);
-                for (auto a : acc)
-                    args.push_back(m.mk_app(a, u));
-                m_axioms.push_back(m.mk_implies(m.mk_app(r, u), m.mk_eq(u, m.mk_app(c, args))));                
+
+            if (dt.is_recognizer0(f)) {
+                auto u = ta->get_arg(0);
+                auto c = dt.get_recognizer_constructor(f);
+                m_axioms.push_back(m.mk_iff(t, m.mk_app(dt.get_constructor_is(c), u)));
             }
 
             if (dt.is_datatype(s)) {
                 auto& cns = *dt.get_datatype_constructors(s);
                 expr_ref_vector ors(m);
                 for (auto c : cns) {
-                    auto r = dt.get_constructor_recognizer(c);
+                    auto r = dt.get_constructor_is(c);
                     ors.push_back(m.mk_app(r, t));
                 }
                 m_axioms.push_back(m.mk_or(ors));
                 for (unsigned i = 0; i < cns.size(); ++i) {
-                    auto r1 = dt.get_constructor_recognizer(cns[i]);
+                    auto r1 = dt.get_constructor_is(cns[i]);
                     for (unsigned j = i + 1; j < cns.size(); ++j) {
-                        auto r2 = dt.get_constructor_recognizer(cns[j]);
+                        auto r2 = dt.get_constructor_is(cns[j]);
                         m_axioms.push_back(m.mk_or(m.mk_not(m.mk_app(r1, t)), m.mk_not(m.mk_app(r2, t))));
                     }
                 }
                 for (auto c : cns) {
-                    if (c->get_arity() == 0) {
-                        auto r = dt.get_constructor_recognizer(c);
-                        m_axioms.push_back(m.mk_iff(m.mk_app(r, t), m.mk_eq(t, m.mk_const(c))));
-                    }
+                    auto r = dt.get_constructor_is(c);
+                    auto& acc = *dt.get_constructor_accessors(c);
+                    expr_ref_vector args(m);
+                    for (auto a : acc)
+                        args.push_back(m.mk_app(a, t));
+                    m_axioms.push_back(m.mk_implies(m.mk_app(r, t), m.mk_eq(t, m.mk_app(c, args))));
                 }
 
                 //
@@ -222,6 +240,11 @@ namespace sls {
             }
         }
         collect_path_axioms();
+
+        TRACE("dt", for (auto a : m_axioms) tout << mk_pp(a, m) << "\n";);
+
+        for (auto a : m_axioms)
+            ctx.add_constraint(a);
     }
 
     void datatype_plugin::initialize() {
@@ -238,6 +261,8 @@ namespace sls {
     void datatype_plugin::init_values() {
         if (!m_values.empty())
             return;
+        TRACE("dt", g->display(tout));
+        m_model = alloc(model, m);
         // retrieve e-graph from sls_euf_solver: add bridge in sls_context to share e-graph
         SASSERT(g);
         // build top_sort<euf::enode> similar to dt_solver.cpp
@@ -259,39 +284,94 @@ namespace sls {
             if (!dt.is_datatype(e))
                 continue;
             euf::enode* con = get_constructor(n);
-            if (con) {
-                auto f = con->get_decl();
-                args.reset();
-                for (auto arg : euf::enode_args(con)) {
-                    if (dt.is_datatype(arg->get_sort()))
-                        args.push_back(m_values.get(arg->get_root_id()));
-                    else
-                        args.push_back(ctx.get_value(arg->get_expr()));
+            if (!con)
+                continue;
+            auto f = con->get_decl();
+            args.reset();
+            bool has_null = false;
+            for (auto arg : euf::enode_args(con)) {
+                if (dt.is_datatype(arg->get_sort())) {
+                    auto val_arg = m_values.get(arg->get_root_id());
+                    if (!val_arg)
+                        has_null = true;
+                    args.push_back(val_arg);
                 }
-                m_values.setx(n->get_id(), m.mk_app(f, args));
+                else
+                    args.push_back(ctx.get_value(arg->get_expr()));
             }
-            else {
-                NOT_IMPLEMENTED_YET();
-            }                
-        }        
+            if (!has_null) {                
+                m_values.setx(id, m.mk_app(f, args));
+                m_model->register_value(m_values.get(id));
+                TRACE("dt", tout << "Set interpretation " << g->bpp(n) << " <- " << mk_bounded_pp(m_values.get(id), m) << "\n");
+            }
+        }
+
+        // assign fresh values to uninterpeted nodes
+        for (euf::enode* n : deps.top_sorted()) {
+            SASSERT(n->is_root());
+            unsigned id = n->get_id();
+            if (m_values.get(id, nullptr))
+                continue;
+            expr* e = n->get_expr();
+            m_values.reserve(id + 1);
+            if (!dt.is_datatype(e))
+                continue;
+            auto con = get_constructor(n);
+            if (con)
+                continue;
+            m_values.setx(id, m_model->get_fresh_value(e->get_sort()));
+            TRACE("dt", tout << "Fresh interpretation " << g->bpp(n) << " <- " << mk_bounded_pp(m_values.get(id), m) << "\n");
+        }
+
+        // finally populate values to other nodes.
+        for (euf::enode* n : deps.top_sorted()) {
+            SASSERT(n->is_root());
+            unsigned id = n->get_id();
+            if (m_values.get(id, nullptr))
+                continue;
+            expr* e = n->get_expr();
+            m_values.reserve(id + 1);
+            if (!dt.is_datatype(e))
+                continue;
+            if (m_values.get(id, nullptr))
+                continue;
+            euf::enode* con = get_constructor(n);
+            if (!con)
+                continue;
+            auto f = con->get_decl();
+            args.reset();
+            for (auto arg : euf::enode_args(con)) {
+                if (dt.is_datatype(arg->get_sort())) {
+                    auto val_arg = m_values.get(arg->get_root_id());
+                    SASSERT(val_arg);
+                    args.push_back(val_arg);
+                }
+                else
+                    args.push_back(ctx.get_value(arg->get_expr()));
+            }
+            m_values.setx(id, m.mk_app(f, args));
+            TRACE("dt", tout << "Patched interpretation " << g->bpp(n) << " <- " << mk_bounded_pp(m_values.get(id), m) << "\n");
+        }
     }
     
     void datatype_plugin::add_dep(euf::enode* n, top_sort<euf::enode>& dep) {
         if (!dt.is_datatype(n->get_expr()))
             return;
         euf::enode* con = get_constructor(n);
-        TRACE("dt", display(tout) << g->bpp(n) << " con: " << g->bpp(con) << "\n";);
+        TRACE("dt", tout << g->bpp(n) << " con: " << g->bpp(con) << "\n";);
         if (!con)
             dep.insert(n, nullptr);
         else if (con->num_args() == 0)
             dep.insert(n, nullptr);
-        for (euf::enode* arg : euf::enode_args(con))
-            dep.add(n, arg->get_root());       
+        else 
+            for (euf::enode* arg : euf::enode_args(con))
+                dep.add(n, arg->get_root());       
     }
 
     
     void datatype_plugin::start_propagation() {
         m_values.reset();
+        m_model = nullptr;
     }
 
     euf::enode* datatype_plugin::get_constructor(euf::enode* n) {
@@ -330,7 +410,7 @@ namespace sls {
             while (!todo.empty()) {
                 auto [depth, n, parent_idx] = todo.back();
                 unsigned id = n->get_root_id();
-                c = color[id];
+                c = color.get(id, white);
                 euf::enode* con;
                 unsigned idx; 
 
@@ -355,14 +435,14 @@ namespace sls {
                         verbose_stream() << "cycle\n";
                         for (auto e : diseqs)
                             verbose_stream() << mk_pp(e, m) << "\n";
-                        ctx.add_clause(m.mk_or(diseqs));
+                        ctx.add_constraint(m.mk_or(diseqs));
                         return true;                       
                     }
                     color[id] = black;
                     todo.pop_back();
                     break;
                 case white:
-                    color[id] = grey;
+                    color.setx(id, grey, white);
                     dfsnum.setx(id, depth, UINT_MAX);
                     con = get_constructor(n);
                     idx = todo.size() - 1;

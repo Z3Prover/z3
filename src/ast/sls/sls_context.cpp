@@ -21,6 +21,7 @@ Author:
 #include "ast/sls/sls_array_plugin.h"
 #include "ast/sls/sls_bv_plugin.h"
 #include "ast/sls/sls_basic_plugin.h"
+#include "ast/sls/sls_datatype_plugin.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_pp.h"
 #include "smt/params/smt_params_helper.hpp"
@@ -65,6 +66,8 @@ namespace sls {
             register_plugin(alloc(bv_plugin, *this));
         else if (fid == array_util(m).get_family_id())
             register_plugin(alloc(array_plugin, *this));
+        else if (fid == datatype_util(m).get_family_id())
+            register_plugin(alloc(datatype_plugin, *this));
         else
             verbose_stream() << "did not find plugin for " << fid << "\n";
     }
@@ -306,9 +309,20 @@ namespace sls {
         }
         else if (sign && m.is_or(f)) {
             for (auto arg : *to_app(f)) {
-                expr_ref fml(m.mk_not(arg), m);;
+                expr_ref fml(m.mk_not(arg), m);
                 add_clause(fml);
             }
+        }
+        else if (!sign && m.is_implies(f, g, h)) {
+            clause.reset();
+            clause.push_back(~mk_literal(g));
+            clause.push_back(mk_literal(h));
+            s.add_clause(clause.size(), clause.data());
+        }
+        else if (sign && m.is_implies(f, g, h)) {
+            expr_ref fml(m.mk_not(h), m);
+            add_clause(fml);
+            add_clause(g);
         }
         else if (sign && m.is_and(f)) {
             clause.reset();
