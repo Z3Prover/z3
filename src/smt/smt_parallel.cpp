@@ -149,7 +149,7 @@ namespace smt {
                 expr_ref c(pm);
 
                 pctx.get_fparams().m_max_conflicts = std::min(thread_max_conflicts, max_conflicts);
-                if (num_rounds > 0 && (pctx.get_fparams().m_threads_cube_frequency % num_rounds) == 0) 
+                if (num_rounds > 0 && (num_rounds % pctx.get_fparams().m_threads_cube_frequency) == 0) 
                     cube(pctx, lasms, c);
                 IF_VERBOSE(1, verbose_stream() << "(smt.thread " << i; 
                            if (num_rounds > 0) verbose_stream() << " :round " << num_rounds;
