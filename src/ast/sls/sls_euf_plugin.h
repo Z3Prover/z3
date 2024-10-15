@@ -87,6 +87,8 @@ namespace sls {
 
         void collect_statistics(statistics& st) const override;
         void reset_statistics() override;
+
+        scoped_ptr<euf::egraph>& egraph() { return m_g; }
     };
     
 }

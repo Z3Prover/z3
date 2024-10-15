@@ -18,6 +18,7 @@ Author:
 
 #include "ast/sls/sls_context.h"
 #include "ast/datatype_decl_plugin.h"
+#include "util/top_sort.h"
 
 namespace sls {
     
@@ -30,10 +31,12 @@ namespace sls {
             expr*        parent;
             sat::literal lit;
         };
+        scoped_ptr<euf::egraph>& g;
         obj_map<sort, ptr_vector<expr>> m_dts;
         obj_map<expr, svector<parent_t>> m_parents;
-
+        
         datatype_util dt;
+        expr_ref_vector m_axioms, m_values;
         stats m_stats;
 
         void collect_path_axioms();
@@ -41,6 +44,9 @@ namespace sls {
         void add_path_axioms();
         void add_path_axioms(ptr_vector<expr>& children, sat::literal_vector& lits, svector<parent_t> const& parents);
         void add_axioms();
+        
+        void init_values();
+        void add_dep(euf::enode* n, top_sort<euf::enode>& dep);
 
     public:
         datatype_plugin(context& c);

@@ -20,6 +20,7 @@ Author:
 #include "util/sat_sls.h"
 #include "util/statistics.h"
 #include "ast/ast.h"
+#include "ast/euf/euf_egraph.h"
 #include "model/model.h"
 #include "util/scoped_ptr_vector.h"
 #include "util/obj_hashtable.h"
@@ -195,6 +196,7 @@ namespace sls {
         ast_manager& get_manager() { return m; }
         std::ostream& display(std::ostream& out) const;
         std::ostream& display_all(std::ostream& out) const { return s.display(out); }
+        scoped_ptr<euf::egraph>& ensure_euf();
 
         void collect_statistics(statistics& st) const;
         void reset_statistics();
