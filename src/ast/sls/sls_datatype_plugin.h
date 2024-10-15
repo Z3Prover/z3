@@ -48,6 +48,8 @@ namespace sls {
         void init_values();
         void add_dep(euf::enode* n, top_sort<euf::enode>& dep);
 
+        euf::enode* get_constructor(euf::enode* n);
+
     public:
         datatype_plugin(context& c);
         ~datatype_plugin() override;
