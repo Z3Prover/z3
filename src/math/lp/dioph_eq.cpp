@@ -148,7 +148,7 @@ namespace lp {
         };
         vector<eprime_entry> m_eprime;    
     // the terms are stored in m_A and m_c
-        static_matrix<mpq, numeric_pair<mpq>> m_e_matrix;  // the rows of the matrix are the terms, without the constant part
+        static_matrix<mpq, mpq> m_e_matrix;  // the rows of the matrix are the terms, without the constant part
         int_solver& lia;
         lar_solver& lra;
         explanation m_infeas_explanation;
@@ -209,7 +209,7 @@ namespace lp {
 
 
         void init() {
-            m_e_matrix = static_matrix<mpq, impq>(lra.row_count(), lra.column_count());
+            m_e_matrix = static_matrix<mpq, mpq>(lra.row_count(), lra.column_count());
             m_report_branch = false;
             unsigned n_of_rows = lra.A_r().row_count();
             m_k2s.clear();
