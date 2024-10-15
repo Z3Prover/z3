@@ -561,6 +561,10 @@ public:
                     return lia_move::conflict;
                 }
                 rewrite_eqs();
+                if (m_conflict_index != -1) {
+                    lra.settings().stats().m_dio_conflicts++;
+                    return lia_move::conflict;
+                }
             }
             TRACE("dioph_eq", print_S(tout););
             // lia_move ret = tighten_with_S();
@@ -756,31 +760,45 @@ public:
         }      
         
         // k is the index of the index of the variable with the coefficient +-1 that is being substituted
-        void move_entry_from_f_to_s(unsigned k, std::list<unsigned>::iterator it) {
-            SASSERT(m_eprime[*it].m_entry_status == entry_status::F);
-            m_eprime[*it].m_entry_status = entry_status::S;
+        void move_entry_from_f_to_s(unsigned k, unsigned h) {
+            SASSERT(m_eprime[h].m_entry_status == entry_status::F);
+            m_eprime[h].m_entry_status = entry_status::S;
             if (k >= m_k2s.size()) { // k is a fresh variable
                 m_k2s.resize(k+1, -1 );
             }
-            m_s.push_back(*it);
-            TRACE("dioph_eq", tout << "removed " << *it << "th entry from F" << std::endl;);
-            m_k2s[k] = *it;
-            m_f.erase(it);
+            m_s.push_back(h);
+            TRACE("dioph_eq", tout << "removed " << h << "th entry from F" << std::endl;);
+            m_k2s[k] = h;
+            m_f.remove(h);
          }
 
         // this is the step 6 or 7 of the algorithm
         void rewrite_eqs() {
-            auto eh_it = pick_eh();
-            auto& eprime_entry = m_eprime[*eh_it];
-            TRACE("dioph_eq", print_eprime_entry(*eh_it, tout););
+            unsigned h = -1;
+            auto it = m_f.begin(); 
+            while (it != m_f.end()) {
+                if (m_e_matrix.m_rows[m_eprime[*it].m_row_index].size() == 0) 
+                    if (m_eprime[*it].m_c.is_zero()) {
+                        it = m_f.erase(it);
+                        continue;
+                    } else {
+                        m_conflict_index = *it;
+                        return;
+                    }
+                h = *it;
+                break;
+            }
+            if (h == -1) return; 
+            auto& eprime_entry = m_eprime[h];
+            TRACE("dioph_eq", print_eprime_entry(h, tout););
             auto [ahk, k, k_sign] = find_minimal_abs_coeff(eprime_entry.m_row_index);
             TRACE("dioph_eq", tout << "ahk:" << ahk << ", k:" << k << ", k_sign:" << k_sign << std::endl;);
             if (ahk.is_one()) {
-                TRACE("dioph_eq", tout << "push to S:\n"; print_eprime_entry(*eh_it, tout););
-                move_entry_from_f_to_s(k, eh_it);
+                TRACE("dioph_eq", tout << "push to S:\n"; print_eprime_entry(h, tout););
+                move_entry_from_f_to_s(k, h);
                 eliminate_var_in_f(eprime_entry, k , k_sign);
             } else {
-                fresh_var_step(*eh_it, k, ahk*mpq(k_sign));
+                fresh_var_step(h, k, ahk*mpq(k_sign));
             }
         }
 public:
