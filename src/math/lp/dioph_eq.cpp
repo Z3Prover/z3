@@ -561,7 +561,7 @@ public:
                     return lia_move::conflict;
                 }
                 rewrite_eqs();
-                if (m_conflict_index != -1) {
+                if (m_conflict_index != UINT_MAX) {
                     lra.settings().stats().m_dio_conflicts++;
                     return lia_move::conflict;
                 }
@@ -777,7 +777,7 @@ public:
             unsigned h = -1;
             auto it = m_f.begin(); 
             while (it != m_f.end()) {
-                if (m_e_matrix.m_rows[m_eprime[*it].m_row_index].size() == 0) 
+                if (m_e_matrix.m_rows[m_eprime[*it].m_row_index].size() == 0) {
                     if (m_eprime[*it].m_c.is_zero()) {
                         it = m_f.erase(it);
                         continue;
@@ -785,10 +785,11 @@ public:
                         m_conflict_index = *it;
                         return;
                     }
+                }
                 h = *it;
                 break;
             }
-            if (h == -1) return; 
+            if (h == UINT_MAX) return; 
             auto& eprime_entry = m_eprime[h];
             TRACE("dioph_eq", print_eprime_entry(h, tout););
             auto [ahk, k, k_sign] = find_minimal_abs_coeff(eprime_entry.m_row_index);
