@@ -21,6 +21,8 @@ Author:
 #include "util/top_sort.h"
 
 namespace sls {
+
+    class euf_plugin;
     
     class datatype_plugin : public plugin {
         struct stats {
@@ -31,6 +33,7 @@ namespace sls {
             expr*        parent;
             sat::literal lit;
         };
+        euf_plugin& euf;
         scoped_ptr<euf::egraph>& g;
         obj_map<sort, ptr_vector<expr>> m_dts;
         obj_map<expr, svector<parent_t>> m_parents;

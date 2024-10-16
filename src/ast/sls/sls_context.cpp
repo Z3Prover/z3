@@ -72,14 +72,18 @@ namespace sls {
             verbose_stream() << "did not find plugin for " << fid << "\n";
     }
 
-    scoped_ptr<euf::egraph>& context::ensure_euf() {
+    scoped_ptr<euf::egraph>& context::egraph() {
+        return euf().egraph();
+    }
+
+    euf_plugin& context::euf() {
         auto fid = user_sort_family_id;
         auto p = m_plugins.get(fid, nullptr);
         if (!p) {
             p = alloc(euf_plugin, *this);
             register_plugin(p);
         }
-        return dynamic_cast<euf_plugin*>(p)->egraph();
+        return *dynamic_cast<euf_plugin*>(p);
     }
 
     void context::ensure_plugin(expr* e) {

@@ -62,19 +62,26 @@ Model-repair based:
    violated x != y: x <- fresh, y <- fresh
    violated x != t: x <- fresh, subterm y of t: y <- fresh
 
-   model::get_fresh_value(s)
-   model::get_some_value(s)
+   acc(x) = t: eval(x) = c(u, v) acc(c(u,v)) = u -> repair(u = t)
+   acc(x) = t: eval(x) does not match acc        -> acc(x) 
+   has a fixed interpretation, so repair over t instead, or update interpretation of x
+
+   uses:
+    model::get_fresh_value(s)
+    model::get_some_value(s)
 
 --*/
 
 #include "ast/sls/sls_datatype_plugin.h"
+#include "ast/sls/sls_euf_plugin.h"
 #include "ast/ast_pp.h"
 
 namespace sls {
     
     datatype_plugin::datatype_plugin(context& c):
         plugin(c),
-        g(c.ensure_euf()),
+        euf(c.euf()),
+        g(c.egraph()),
         dt(m),
         m_axioms(m),
         m_values(m) {
@@ -205,6 +212,10 @@ namespace sls {
                 auto c = dt.get_recognizer_constructor(f);
                 m_axioms.push_back(m.mk_iff(t, m.mk_app(dt.get_constructor_is(c), u)));
             }
+            
+            if (dt.is_update_field(t)) {
+                NOT_IMPLEMENTED_YET();
+            }
 
             if (dt.is_datatype(s)) {
                 auto& cns = *dt.get_datatype_constructors(s);
@@ -309,12 +320,11 @@ namespace sls {
         // assign fresh values to uninterpeted nodes
         for (euf::enode* n : deps.top_sorted()) {
             SASSERT(n->is_root());
+            expr* e = n->get_expr();
+            if (!dt.is_datatype(e))
+                continue;
             unsigned id = n->get_id();
             if (m_values.get(id, nullptr))
-                continue;
-            expr* e = n->get_expr();
-            m_values.reserve(id + 1);
-            if (!dt.is_datatype(e))
                 continue;
             auto con = get_constructor(n);
             if (con)
@@ -327,13 +337,10 @@ namespace sls {
         for (euf::enode* n : deps.top_sorted()) {
             SASSERT(n->is_root());
             unsigned id = n->get_id();
-            if (m_values.get(id, nullptr))
-                continue;
             expr* e = n->get_expr();
-            m_values.reserve(id + 1);
             if (!dt.is_datatype(e))
                 continue;
-            if (m_values.get(id, nullptr))
+            if (m_values.get(id))
                 continue;
             euf::enode* con = get_constructor(n);
             if (!con)
@@ -432,9 +439,10 @@ namespace sls {
                                 break;
                             }
                         }
-                        verbose_stream() << "cycle\n";
-                        for (auto e : diseqs)
-                            verbose_stream() << mk_pp(e, m) << "\n";
+                        IF_VERBOSE(1,
+                            verbose_stream() << "cycle\n";
+                            for (auto e : diseqs)
+                                verbose_stream() << mk_pp(e, m) << "\n";);
                         ctx.add_constraint(m.mk_or(diseqs));
                         return true;                       
                     }
@@ -463,7 +471,9 @@ namespace sls {
         return out;
     }
     
-    void datatype_plugin::propagate_literal(sat::literal lit) {}
+    void datatype_plugin::propagate_literal(sat::literal lit) {
+        euf.propagate_literal(lit);
+    }
    
     bool datatype_plugin::is_sat() { return true; }
     void datatype_plugin::register_term(expr* e) {}

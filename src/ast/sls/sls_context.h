@@ -29,6 +29,7 @@ Author:
 namespace sls {
 
     class context;
+    class euf_plugin;
     
     class plugin {
     protected:
@@ -196,7 +197,8 @@ namespace sls {
         ast_manager& get_manager() { return m; }
         std::ostream& display(std::ostream& out) const;
         std::ostream& display_all(std::ostream& out) const { return s.display(out); }
-        scoped_ptr<euf::egraph>& ensure_euf();
+        scoped_ptr<euf::egraph>& egraph();
+        euf_plugin& euf();
 
         void collect_statistics(statistics& st) const;
         void reset_statistics();

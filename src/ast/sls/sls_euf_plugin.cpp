@@ -216,6 +216,7 @@ namespace sls {
             return;
 
         auto block = [&](euf::enode* a, euf::enode* b) {
+            TRACE("euf", tout << "block " << m_g->bpp(a) << " != " << m_g->bpp(b) << "\n");
             if (a->get_root() != b->get_root())
                 return;
             ptr_vector<size_t> explain;
@@ -281,6 +282,7 @@ namespace sls {
         // merge all equalities
         // check for conflict with disequalities during propagation
         if (merge_eqs) {
+            TRACE("euf", tout << "root literals " << ctx.root_literals() << "\n");
             for (auto lit : ctx.root_literals()) {
                 if (!ctx.is_true(lit))
                     lit.neg();
