@@ -134,7 +134,7 @@ namespace smt {
                     dst = tr(unit_trail.get(j));
                     pctx.assert_expr(dst);
                 }
-                unit_lim[i] = sz;
+                unit_lim[i] = pctx.assigned_literals().size();
             }
             IF_VERBOSE(1, verbose_stream() << "(smt.thread :units " << sz << ")\n");
         };
