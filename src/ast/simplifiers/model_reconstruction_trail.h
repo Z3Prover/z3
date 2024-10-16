@@ -101,7 +101,6 @@ class model_reconstruction_trail {
     */
     void add_model_var(func_decl* f) {
         if (!m_model_vars.is_marked(f)) {
-            verbose_stream() << "add model var " << f->get_name() << "\n";
             m_model_vars_trail.push_back(f);
             m_model_vars.mark(f, true);
             m_trail_stack.push(undo_model_var(*this));

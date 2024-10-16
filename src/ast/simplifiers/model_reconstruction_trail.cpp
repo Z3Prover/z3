@@ -61,7 +61,7 @@ void model_reconstruction_trail::replay(unsigned qhead, expr_ref_vector& assumpt
         return;
 
     for (auto& t : m_trail) {
-        TRACE("simplifier", tout << " active " << t->m_active << " hide " << t->is_hide() << " intersects " << t->intersects(free_vars) << "\n");
+        TRACE("simplifier", tout << " active " << t->m_active << " hide " << t->is_hide() << " intersects " << t->intersects(free_vars) << " loose " << t->is_loose() << "\n");
         if (!t->m_active)
             continue;
 
@@ -74,9 +74,22 @@ void model_reconstruction_trail::replay(unsigned qhead, expr_ref_vector& assumpt
 
         // loose entries that intersect with free vars are deleted from the trail
         // and their removed formulas are added to the resulting constraints.
-        if (t->is_loose()) {
+
+        if (t->is_loose() && !t->is_def() && t->is_subst()) {
+            for (auto const& [k, v] : t->m_subst->sub())
+                st.add(dependent_expr(m, m.mk_eq(k, v), nullptr, nullptr));
+            t->m_active = false;
+            continue;
+        }
+
+        bool all_const = true;
+        for (auto const& [d, def, dep] : t->m_defs) 
+            all_const &= d->get_arity() == 0;
+
+        if (t->is_loose() && (!t->is_def() || !all_const || t->is_subst())) {
             for (auto r : t->m_removed) {
                 add_vars(r, free_vars);
+                TRACE("simplifier", tout << "replay removed " << r << "\n");
                 st.add(r);
             }
             m_trail_stack.push(value_trail(t->m_active));
@@ -115,6 +128,12 @@ void model_reconstruction_trail::replay(unsigned qhead, expr_ref_vector& assumpt
                 if (a != g)
                     assumptions[i] = g;
                 // ignore dep.
+            }
+            if (t->is_loose()) {
+                SASSERT(all_const);
+                SASSERT(!t->is_subst());
+                for (auto const& [d, def, dep] : t->m_defs) 
+                    st.add(dependent_expr(m, m.mk_eq(m.mk_const(d), def), nullptr, nullptr));
             }
             continue;
         }
@@ -156,6 +175,8 @@ void model_reconstruction_trail::replay(unsigned qhead, expr_ref_vector& assumpt
             // ignore dep.
         }        
     }
+
+    TRACE("simplifier", st.display(tout));
 }
 
 /**

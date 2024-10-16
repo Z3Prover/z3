@@ -80,7 +80,7 @@ void elim_unconstrained::eliminate() {
             continue;
         }
         expr* e = get_parent(v);
-        TRACE("elim_unconstrained", for (expr* p : n.m_parents) verbose_stream() << "parent " << mk_bounded_pp(p, m) << " @ " << get_node(p).m_refcount << "\n";);
+        TRACE("elim_unconstrained", for (expr* p : n.m_parents) tout << "parent " << mk_bounded_pp(p, m) << " @ " << get_node(p).m_refcount << "\n";);
         if (!e || !is_app(e) || !is_ground(e)) {
             n.m_refcount = 0;
             continue;
