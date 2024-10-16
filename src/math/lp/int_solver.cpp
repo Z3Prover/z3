@@ -41,13 +41,17 @@ namespace lp {
         mpq                 m_k;               // the right side of the cut
         hnf_cutter          m_hnf_cutter;
         unsigned            m_hnf_cut_period;
+        unsigned            m_dioph_eq_period;
         int_gcd_test        m_gcd;
 
         bool column_is_int_inf(unsigned j) const {
             return lra.column_is_int(j) && (!lia.value_is_int(j));
         }
 
-        imp(int_solver& lia): lia(lia), lra(lia.lra), lrac(lia.lrac), m_hnf_cutter(lia), m_gcd(lia)  {} 
+        imp(int_solver& lia): lia(lia), lra(lia.lra), lrac(lia.lrac), m_hnf_cutter(lia), m_gcd(lia)  {
+            m_hnf_cut_period = settings().hnf_cut_period();
+            m_dioph_eq_period = settings().m_dioph_eq_period;
+        } 
 
         bool has_lower(unsigned j) const {
             switch (lrac.m_column_types()[j]) {
@@ -170,11 +174,14 @@ namespace lp {
 
             if (r == lia_move::conflict) {
                 de.explain(*this->m_ex);
+                m_dioph_eq_period = settings().m_dioph_eq_period;
                 return lia_move::conflict;
             } else if (r == lia_move::branch)  {
+                m_dioph_eq_period = settings().m_dioph_eq_period;
                 return lia_move::branch;
             }
 
+            m_dioph_eq_period *= 2; // the overflow is fine, maybe to try again
             return lia_move::undef;
         }
 
@@ -190,7 +197,7 @@ namespace lp {
         }
 
         bool should_solve_dioph_eq() {
-            return lia.settings().dio_eqs() && m_number_of_calls % settings().m_dioph_eq_period == 0;
+            return lia.settings().dio_eqs() && m_number_of_calls % m_dioph_eq_period == 0;
         }
 
         bool should_hnf_cut() {
