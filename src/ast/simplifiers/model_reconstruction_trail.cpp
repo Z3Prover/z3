@@ -20,12 +20,27 @@ Author:
 #include "ast/converters/generic_model_converter.h"
 
 
+void model_reconstruction_trail::add_vars(expr* e, ast_mark& free_vars) {
+    for (expr* t : subterms::all(expr_ref(e, m))) {
+        if (is_app(t) && is_uninterp(t)) {            
+            func_decl* f = to_app(t)->get_decl();
+            TRACE("simplifier", tout << "add var " << f->get_name() << "\n");
+            free_vars.mark(f, true);
+            if (m_model_vars.is_marked(f))
+                m_intersects_with_model = true;
+        }
+    }
+}
+
+
 // accumulate a set of dependent exprs, updating m_trail to exclude loose 
 // substitutions that use variables from the dependent expressions.
 
 void model_reconstruction_trail::replay(unsigned qhead, expr_ref_vector& assumptions, dependent_expr_state& st) {
 
     if (m_trail.empty())
+        return;
+    if (qhead == st.qtail())
         return;
 
     ast_mark free_vars;

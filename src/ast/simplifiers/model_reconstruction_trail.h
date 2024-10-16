@@ -101,6 +101,7 @@ class model_reconstruction_trail {
     */
     void add_model_var(func_decl* f) {
         if (!m_model_vars.is_marked(f)) {
+            verbose_stream() << "add model var " << f->get_name() << "\n";
             m_model_vars_trail.push_back(f);
             m_model_vars.mark(f, true);
             m_trail_stack.push(undo_model_var(*this));
@@ -112,16 +113,7 @@ class model_reconstruction_trail {
     * record if there is an intersection with the model_vars that are
     * registered when updates are added to the trail.
     */
-    void add_vars(expr* e, ast_mark& free_vars) {
-        for (expr* t : subterms::all(expr_ref(e, m)))
-            if (is_app(t) && is_uninterp(t)) {
-                func_decl* f = to_app(t)->get_decl();
-                TRACE("simplifier", tout << "add var " << f->get_name() << "\n");
-                free_vars.mark(f, true);
-                if (m_model_vars.is_marked(f))
-                    m_intersects_with_model = true;
-            }
-    }
+    void add_vars(expr* e, ast_mark& free_vars);
     
     void add_vars(dependent_expr const& d, ast_mark& free_vars) {
         add_vars(d.fml(), free_vars);

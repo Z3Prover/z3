@@ -80,7 +80,7 @@ void elim_unconstrained::eliminate() {
             continue;
         }
         expr* e = get_parent(v);
-        IF_VERBOSE(11, for (expr* p : n.m_parents) verbose_stream() << "parent " << mk_bounded_pp(p, m) << " @ " << get_node(p).m_refcount << "\n";);
+        TRACE("elim_unconstrained", for (expr* p : n.m_parents) verbose_stream() << "parent " << mk_bounded_pp(p, m) << " @ " << get_node(p).m_refcount << "\n";);
         if (!e || !is_app(e) || !is_ground(e)) {
             n.m_refcount = 0;
             continue;
@@ -107,13 +107,13 @@ void elim_unconstrained::eliminate() {
         n.m_refcount = 0;
         m_args.shrink(sz);
         if (!inverted) {
-            IF_VERBOSE(11, verbose_stream() << "not inverted " << mk_bounded_pp(e, m) << "\n");
+            TRACE("elim_unconstrained", tout << "not inverted " << mk_bounded_pp(e, m) << "\n");
             continue;
         }
 
-        IF_VERBOSE(11, verbose_stream() << "replace " << mk_pp(t, m) << " / " << rr << " -> " << r << "\n");
+        IF_VERBOSE(11, verbose_stream() << "replace " << mk_pp(t, m) << " : " << rr << " -> " << r << "\n");
         
-        TRACE("elim_unconstrained", tout << mk_pp(t, m) << " / " << rr << " -> " << r << "\n");
+        TRACE("elim_unconstrained", tout << mk_pp(t, m) << " : " << rr << " -> " << r << "\n");
         SASSERT(r->get_sort() == t->get_sort());
         m_stats.m_num_eliminated++;
         m_trail.push_back(r);
