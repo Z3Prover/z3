@@ -323,21 +323,23 @@ namespace sls {
                 continue;
             auto con = get_constructor(n);
             if (!con) {
-                m_values.setx(id, m_model->get_fresh_value(e->get_sort()));
+                auto v = m_model->get_fresh_value(e->get_sort());
+                if (!v)
+                    v = m_model->get_some_value(e->get_sort());
+                SASSERT(v);
+                m_values.setx(id, v);
                 TRACE("dt", tout << "Fresh interpretation " << g->bpp(n) << " <- " << mk_bounded_pp(m_values.get(id), m) << "\n");
                 continue;
             }
             auto f = con->get_decl();
             args.reset();
             for (auto arg : euf::enode_args(con)) {
-                if (dt.is_datatype(arg->get_sort())) {
-                    auto val_arg = m_values.get(arg->get_root_id());
-                    SASSERT(val_arg);
-                    args.push_back(val_arg);
-                }
+                if (dt.is_datatype(arg->get_sort())) 
+                    args.push_back(m_values.get(arg->get_root_id()));                
                 else
                     args.push_back(ctx.get_value(arg->get_expr()));
             }
+            SASSERT(all_of(args, [&](expr* e) { return e != nullptr; }));
             m_values.setx(id, m.mk_app(f, args));
             TRACE("dt", tout << "Patched interpretation " << g->bpp(n) << " <- " << mk_bounded_pp(m_values.get(id), m) << "\n");
         }
