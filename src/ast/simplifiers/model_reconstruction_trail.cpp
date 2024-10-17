@@ -76,8 +76,10 @@ void model_reconstruction_trail::replay(unsigned qhead, expr_ref_vector& assumpt
         // and their removed formulas are added to the resulting constraints.
 
         if (t->is_loose() && !t->is_def() && t->is_subst()) {
-            for (auto const& [k, v] : t->m_subst->sub())
+            for (auto const& [k, v] : t->m_subst->sub()) {
+                add_vars(v, free_vars);
                 st.add(dependent_expr(m, m.mk_eq(k, v), nullptr, nullptr));
+            }
             t->m_active = false;
             continue;
         }
