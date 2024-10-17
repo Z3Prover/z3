@@ -311,9 +311,22 @@ namespace sls {
             }
         }
 
+        TRACE("dt",
+            for (euf::enode* n : deps.top_sorted()) {
+                tout << g->bpp(n) << ": ";
+                auto s = deps.get_dep(n);
+                if (s) {
+                    tout << " -> ";
+                    for (auto t : *s)
+                        tout << g->bpp(t) << " ";
+                }
+                tout << "\n";
+            }
+        );
+
         // assign fresh values to uninterpeted nodes
         for (euf::enode* n : deps.top_sorted()) {
-            TRACE("dt", tout << g->bpp(n) << "\n");
+            
             SASSERT(n->is_root());
             expr* e = n->get_expr();
             if (!dt.is_datatype(e))
@@ -331,11 +344,17 @@ namespace sls {
                 TRACE("dt", tout << "Fresh interpretation " << g->bpp(n) << " <- " << mk_bounded_pp(m_values.get(id), m) << "\n");
                 continue;
             }
+            TRACE("dt", tout << g->bpp(con) << " = " << g->bpp(n) << "\n");
             auto f = con->get_decl();
             args.reset();
             for (auto arg : euf::enode_args(con)) {
-                if (dt.is_datatype(arg->get_sort())) 
-                    args.push_back(m_values.get(arg->get_root_id()));                
+                if (dt.is_datatype(arg->get_sort())) {
+                    auto* arg_val = m_values.get(arg->get_root_id());
+                    CTRACE("dt", !arg_val, tout << "Missing value for " << g->bpp(arg) << " " << g->bpp(arg->get_root()) << "\n");
+                    if (!arg_val)
+                        arg_val = m_model->get_some_value(arg->get_expr()->get_sort());
+                    args.push_back(arg_val);
+                }
                 else
                     args.push_back(ctx.get_value(arg->get_expr()));
             }
@@ -376,9 +395,27 @@ namespace sls {
     bool datatype_plugin::propagate() {       
         enum color_t { white, grey, black };
         svector<color_t> color;
-        unsigned_vector dfsnum;
-        svector<std::tuple<unsigned, euf::enode*, unsigned>> todo;
+        svector<std::tuple<euf::enode*, unsigned>> todo;
         obj_map<sort, ptr_vector<expr>> sorts;
+
+        auto set_conflict = [&](euf::enode* n, unsigned parent_idx) {
+            expr_ref_vector diseqs(m);
+            while (true) {
+                auto [n2, parent_idx2] = todo[parent_idx];
+                auto con2 = get_constructor(n2);
+                if (n2 != con2)
+                    diseqs.push_back(m.mk_not(m.mk_eq(n2->get_expr(), con2->get_expr())));
+                parent_idx = parent_idx2;
+                if (n2->get_root() == n->get_root()) {
+                    if (n != n2)
+                        diseqs.push_back(m.mk_not(m.mk_eq(n->get_expr(), n2->get_expr())));
+                    break;
+                }
+            }
+            IF_VERBOSE(1, verbose_stream() << "cycle\n"; for (auto e : diseqs) verbose_stream() << mk_pp(e, m) << "\n";);
+            ctx.add_constraint(m.mk_or(diseqs));
+        };
+
         for (auto n : g->nodes()) {
             if (!n->is_root())
                 continue;
@@ -395,16 +432,14 @@ namespace sls {
             if (c == black)
                 continue;
 
-            dfsnum.setx(e->get_id(), 0, UINT_MAX);
-
             // dfs traversal of enodes, starting with n, 
             // with outgoing edges the arguments of con, where con
             // is a node in the same congruence class as n that is a constructor.
             // For every cycle accumulate a conflict.
 
-            todo.push_back({ 0, n, 0 });
+            todo.push_back({ n, 0});
             while (!todo.empty()) {
-                auto [depth, n, parent_idx] = todo.back();
+                auto [n, parent_idx] = todo.back();
                 unsigned id = n->get_root_id();
                 c = color.get(id, white);
                 euf::enode* con;
@@ -415,39 +450,33 @@ namespace sls {
                     todo.pop_back();
                     break;
                 case grey:
-                    if (dfsnum.get(id, UINT_MAX) < depth) {
-                        expr_ref_vector diseqs(m);
-                        while (true) {
-                            auto [depth2, n2, parent_idx2] = todo[parent_idx];
-                            auto con2 = get_constructor(n2);
-                            if (n2 != con2)
-                                diseqs.push_back(m.mk_not(m.mk_eq(n2->get_expr(), con2->get_expr())));
-                            parent_idx = parent_idx2;
-                            if (n2->get_root() == n->get_root()) {
-                                diseqs.push_back(m.mk_not(m.mk_eq(n->get_expr(), n2->get_expr())));
-                                break;
-                            }
-                        }
-                        IF_VERBOSE(1,
-                            verbose_stream() << "cycle\n";
-                            for (auto e : diseqs)
-                                verbose_stream() << mk_pp(e, m) << "\n";);
-                        ctx.add_constraint(m.mk_or(diseqs));
-                        return true;                       
-                    }
-                    color[id] = black;
-                    todo.pop_back();
-                    break;
-                case white:
+                case white: {
+                    bool new_child = false;
                     color.setx(id, grey, white);
-                    dfsnum.setx(id, depth, UINT_MAX);
                     con = get_constructor(n);
                     idx = todo.size() - 1;
-                    if (con)
-                        for (auto child : euf::enode_args(con))
-                            if (color.get(child->get_root_id(), black) != black && dt.is_datatype(child->get_expr()))
-                                todo.push_back({ depth + 1, child, idx });
+                    if (con) {
+                        for (auto child : euf::enode_args(con)) {
+                            auto c2 = color.get(child->get_root_id(), white);
+                            switch (c2) {
+                                case black:
+                                    break;
+                                case grey:
+                                    set_conflict(child, idx);
+                                    return true;
+                                case white:
+                                    todo.push_back({ child, idx });
+                                    new_child = true;
+                                    break;
+                            }
+                        }
+                    }                    
+                    if (!new_child) {
+                        color[id] = black;
+                        todo.pop_back();
+                    }
                     break;
+                }
                 }
             }                    
         }
