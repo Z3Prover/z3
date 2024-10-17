@@ -123,7 +123,9 @@ namespace sls {
         greater_depth m_gd;
         less_depth m_ld;
         heap<greater_depth> m_repair_down;
-        heap<less_depth> m_repair_up;        
+        heap<less_depth> m_repair_up;  
+        uint_set m_constraint_ids;
+        expr_ref_vector m_constraint_trail;
         stats m_stats;
 
         void register_plugin(plugin* p);

@@ -56,6 +56,7 @@ namespace sls {
         void propagate_literal_incremental(sat::literal lit);
         void propagate_literal_incremental_step(sat::literal lit);
         void resolve();
+        sat::literal resolve_conflict();
         void replay();
 
         void propagate_literal_non_incremental(sat::literal lit);

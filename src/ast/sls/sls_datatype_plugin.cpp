@@ -385,6 +385,8 @@ namespace sls {
             expr* e = n->get_expr();
             if (!dt.is_datatype(e))
                 continue;
+            if (!ctx.is_relevant(e))
+                continue;
             sort* s = e->get_sort();
             sorts.insert_if_not_there(s, ptr_vector<expr>()).push_back(e);
 

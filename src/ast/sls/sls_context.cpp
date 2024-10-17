@@ -39,7 +39,8 @@ namespace sls {
         m_ld(*this),
         m_repair_down(m.get_num_asts(), m_gd),
         m_repair_up(m.get_num_asts(), m_ld),
-        m_todo(m) {
+        m_todo(m),
+        m_constraint_trail(m) {
     }
 
     void context::updt_params(params_ref const& p) {
@@ -232,8 +233,9 @@ namespace sls {
         auto p = m_plugins.get(fid, nullptr);
         if (p)
             p->propagate_literal(lit);
-        if (!is_true(lit))
+        if (!is_true(lit)) {
             m_new_constraint = true;
+        }
     }
 
     bool context::is_true(expr* e) {
@@ -287,7 +289,11 @@ namespace sls {
     }
 
     void context::add_constraint(expr* e) {        
-        add_clause(e);        
+        if (m_constraint_ids.contains(e->get_id()))
+            return;
+        m_constraint_ids.insert(e->get_id());
+        m_constraint_trail.push_back(e);
+        add_clause(e);     
         m_new_constraint = true;
         ++m_stats.m_num_constraints;
     }
@@ -363,7 +369,6 @@ namespace sls {
     }
 
     void context::add_clause(sat::literal_vector const& lits) {
-        //verbose_stream() << lits << "\n";
         s.add_clause(lits.size(), lits.data());
         m_new_constraint = true;
         ++m_stats.m_num_constraints;
@@ -563,6 +568,7 @@ namespace sls {
         m_relevant.reset();
         m_visited.reset();
         m_root_literals.reset();
+
 
         for (auto const& clause : s.clauses()) {
             bool has_relevant = false;

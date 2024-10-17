@@ -88,15 +88,14 @@ namespace sls {
         m_replay_stack.push_back(lit);
         replay();
     }
-    void euf_plugin::resolve() {
-        auto& g = *m_g;
-        if (!g.inconsistent())
-            return;
 
+    sat::literal euf_plugin::resolve_conflict() {
+        auto& g = *m_g;
+        SASSERT(g.inconsistent());
         ++m_stats.m_num_conflicts;
         unsigned n = 0;
         sat::literal_vector lits;
-        sat::literal flit = sat::null_literal, slit;
+        sat::literal flit = sat::null_literal;
         ptr_vector<size_t> explain;
         g.begin_explain();
         g.explain<size_t>(explain, nullptr);
@@ -110,7 +109,7 @@ namespace sls {
             });
         for (auto p : explain) {
             sat::literal l = to_literal(p);
-            CTRACE("euf", !ctx.is_true(l), tout << "not true " << l << "\n"; ctx.display(tout););            
+            CTRACE("euf", !ctx.is_true(l), tout << "not true " << l << "\n"; ctx.display(tout););
             SASSERT(ctx.is_true(l));
 
             if (ctx.is_unit(l))
@@ -118,14 +117,25 @@ namespace sls {
             if (!lits.contains(~l))
                 lits.push_back(~l);
 
-
             if (ctx.reward(l.var()) > reward)
                 n = 0, reward = ctx.reward(l.var());
 
             if (ctx.rand(++n) == 0)
                 flit = l;
         }
+        // flip the last literal on the replay stack
+        IF_VERBOSE(10, verbose_stream() << "sls.euf - flip " << flit << "\n");
+        ctx.add_clause(lits);
+        return flit;
+    }
 
+    void euf_plugin::resolve() {
+        auto& g = *m_g;
+        if (!g.inconsistent())
+            return;
+
+        auto flit = resolve_conflict();
+        sat::literal slit;
         if (flit == sat::null_literal)
             return;
         do {
@@ -135,9 +145,6 @@ namespace sls {
             m_stack.pop_back();
         }
         while (slit != flit);
-        // flip the last literal on the replay stack
-        IF_VERBOSE(10, verbose_stream() << "sls.euf - flip " << flit << "\n");
-        ctx.add_clause(lits);
         ctx.flip(flit.var());        
         m_replay_stack.back().neg();
 
@@ -294,6 +301,9 @@ namespace sls {
                     g.merge(g.find(e), g.find(m.mk_true()), to_ptr(lit));
             }
             g.propagate();
+
+            if (g.inconsistent()) 
+                resolve_conflict();
         }
 
         typedef obj_map<sort, unsigned> map1;
@@ -417,8 +427,10 @@ namespace sls {
                     for (unsigned i = t->get_num_args(); i-- > 0; )
                         verbose_stream() << ctx.get_value(t->get_arg(i)) << " == " << ctx.get_value(u->get_arg(i)) << "\n";
 #endif
-                    ctx.add_constraint(m.mk_or(ors));
+                    expr_ref fml(m.mk_or(ors), m);
+                    ctx.add_constraint(fml);
                     new_constraint = true;
+                    
                 }
                 else
                     m_values.insert(t);
@@ -427,7 +439,7 @@ namespace sls {
 
         for (auto lit : ctx.root_literals()) {
             if (!ctx.is_true(lit))
-                lit.neg();
+                continue;
             auto e = ctx.atom(lit.var());
             if (lit.sign() && e && m.is_distinct(e)) {
                 auto n = to_app(e)->get_num_args();
