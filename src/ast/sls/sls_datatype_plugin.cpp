@@ -242,14 +242,6 @@ namespace sls {
                         args.push_back(m.mk_app(a, t));
                     m_axioms.push_back(m.mk_iff(m.mk_app(r, t), m.mk_eq(t, m.mk_app(c, args))));
                 }
-
-                //
-                // sort_size sz = dt.et_datatype_size(s);
-                // if (sz.is_finite()) {
-                //     - sz.size()
-                //     - enumerate instances and set t to be one of instances?
-                // }
-                // 
             }
         }
         collect_path_axioms();
@@ -464,6 +456,15 @@ namespace sls {
                 }
             }                    
         }
+
+
+        //
+        // sort_size sz = dt.et_datatype_size(s);
+        // if (sz.is_finite()) 
+        //     - sz.size() < |T of sort s|
+        //     - ensure that there are at most sz.size() distinct elements.
+        //     - not distinct(t1, ..., tn) where n = sz.size() + 1        
+        // 
         return false;
     }
 

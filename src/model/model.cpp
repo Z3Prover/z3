@@ -39,6 +39,7 @@ Revision History:
 #include "model/datatype_factory.h"
 #include "model/numeral_factory.h"
 #include "model/fpa_factory.h"
+#include "model/char_factory.h"
 
 
 model::model(ast_manager & m):
@@ -103,12 +104,14 @@ value_factory* model::get_factory(sort* s) {
     if (m_factories.plugins().empty()) {
         seq_util su(m);
         fpa_util fu(m);
+        m_factories.register_plugin(alloc(basic_factory, m, 0));
         m_factories.register_plugin(alloc(array_factory, m, *this));
         m_factories.register_plugin(alloc(datatype_factory, m, *this));
         m_factories.register_plugin(alloc(bv_factory, m));
         m_factories.register_plugin(alloc(arith_factory, m));
         m_factories.register_plugin(alloc(seq_factory, m, su.get_family_id(), *this));
         m_factories.register_plugin(alloc(fpa_value_factory, m, fu.get_family_id()));
+        //m_factories.register_plugin(alloc(char_factory, m, char_decl_plugin(m).get_family_id());
     }
     family_id fid = s->get_family_id();
     return m_factories.get_plugin(fid);
