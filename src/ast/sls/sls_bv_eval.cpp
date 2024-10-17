@@ -735,6 +735,7 @@ namespace sls {
                     a.set_mul(out, out, c.bits());
                 };
                 fold_oper(m_mul_tmp, e, i, f);
+                m_mul_tmp.set_bw(a.bw);
                 return try_repair_mul(assign_value(e), wval(e, i), m_mul_tmp);
             }
         case OP_BNOT:
@@ -907,7 +908,7 @@ namespace sls {
             auto& v = wval(e);
             v.get_variant(m_tmp, m_rand);
             auto d = lookahead(e, m_tmp);
-            verbose_stream() << mk_bounded_pp(e, m) << " " << d << "\n";
+            //verbose_stream() << mk_bounded_pp(e, m) << " " << d << "\n";
         }
         return false;
     }
@@ -1105,7 +1106,7 @@ namespace sls {
     * 8*e = a*(2b), then a = 4e*b^-1
     */
     bool bv_eval::try_repair_mul(bvect const& e, bvval& a, bvect const& b) {
-        //verbose_stream() << e << " := " << a << " * " << b << "\n";
+        // verbose_stream() << e << " := " << a << " * " << b << "\n";
         unsigned parity_e = a.parity(e);
         unsigned parity_b = a.parity(b);
 

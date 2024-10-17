@@ -17,11 +17,13 @@ Notes:
 
 Eager reduction to EUF:
    is-c(c(t))                for each c(t) in T
-   f_i(c(t_i)) = t_i         for each c(..t_i..) in T
+   acc_i(c(t_i)) = t_i       for each c(..t_i..) in T
    is-c(t) => t = c(...acc_j(t)..) for each acc_j(t) in T
 
    sum_i is-c_i(t) = 1
    is-c(t) <=> c = t         for each 0-ary constructor c
+
+   is-c(t) <=> t = c(acc_1(t)..acc_n(t))
 
    s = acc(...(acc(t)) => s != t   if t is recursive
 
@@ -238,7 +240,7 @@ namespace sls {
                     expr_ref_vector args(m);
                     for (auto a : acc)
                         args.push_back(m.mk_app(a, t));
-                    m_axioms.push_back(m.mk_implies(m.mk_app(r, t), m.mk_eq(t, m.mk_app(c, args))));
+                    m_axioms.push_back(m.mk_iff(m.mk_app(r, t), m.mk_eq(t, m.mk_app(c, args))));
                 }
 
                 //
@@ -456,7 +458,7 @@ namespace sls {
                     idx = todo.size() - 1;
                     if (con)
                         for (auto child : euf::enode_args(con))
-                            if (color.get(child->get_root_id(), white) == white && dt.is_datatype(child->get_expr()))
+                            if (color.get(child->get_root_id(), black) != black && dt.is_datatype(child->get_expr()))
                                 todo.push_back({ depth + 1, child, idx });
                     break;
                 }
