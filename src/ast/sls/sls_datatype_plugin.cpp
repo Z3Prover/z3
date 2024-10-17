@@ -313,6 +313,7 @@ namespace sls {
 
         // assign fresh values to uninterpeted nodes
         for (euf::enode* n : deps.top_sorted()) {
+            TRACE("dt", tout << g->bpp(n) << "\n");
             SASSERT(n->is_root());
             expr* e = n->get_expr();
             if (!dt.is_datatype(e))
@@ -321,24 +322,11 @@ namespace sls {
             if (m_values.get(id, nullptr))
                 continue;
             auto con = get_constructor(n);
-            if (con)
+            if (!con) {
+                m_values.setx(id, m_model->get_fresh_value(e->get_sort()));
+                TRACE("dt", tout << "Fresh interpretation " << g->bpp(n) << " <- " << mk_bounded_pp(m_values.get(id), m) << "\n");
                 continue;
-            m_values.setx(id, m_model->get_fresh_value(e->get_sort()));
-            TRACE("dt", tout << "Fresh interpretation " << g->bpp(n) << " <- " << mk_bounded_pp(m_values.get(id), m) << "\n");
-        }
-
-        // finally populate values to other nodes.
-        for (euf::enode* n : deps.top_sorted()) {
-            SASSERT(n->is_root());
-            unsigned id = n->get_id();
-            expr* e = n->get_expr();
-            if (!dt.is_datatype(e))
-                continue;
-            if (m_values.get(id))
-                continue;
-            euf::enode* con = get_constructor(n);
-            if (!con)
-                continue;
+            }
             auto f = con->get_decl();
             args.reset();
             for (auto arg : euf::enode_args(con)) {
@@ -388,12 +376,15 @@ namespace sls {
         svector<color_t> color;
         unsigned_vector dfsnum;
         svector<std::tuple<unsigned, euf::enode*, unsigned>> todo;
+        obj_map<sort, ptr_vector<expr>> sorts;
         for (auto n : g->nodes()) {
             if (!n->is_root())
                 continue;
             expr* e = n->get_expr();
             if (!dt.is_datatype(e))
                 continue;
+            sort* s = e->get_sort();
+            sorts.insert_if_not_there(s, ptr_vector<expr>()).push_back(e);
 
             auto c = color.get(e->get_id(), white);
             SASSERT(c != grey);
@@ -458,13 +449,14 @@ namespace sls {
         }
 
 
-        //
-        // sort_size sz = dt.et_datatype_size(s);
-        // if (sz.is_finite()) 
-        //     - sz.size() < |T of sort s|
-        //     - ensure that there are at most sz.size() distinct elements.
-        //     - not distinct(t1, ..., tn) where n = sz.size() + 1        
-        // 
+        for (auto const& [s, elems] : sorts) {
+            auto sz = s->get_num_elements();
+
+            if (!sz.is_finite() || sz.size() >= elems.size())
+                continue;
+            ctx.add_constraint(m.mk_not(m.mk_distinct((unsigned)sz.size() + 1, elems.data())));                       
+        }
+
         return false;
     }
 

@@ -433,14 +433,12 @@ namespace sls {
                 auto n = to_app(e)->get_num_args();
                 expr_ref_vector eqs(m);
                 for (unsigned i = 0; i < n; ++i) {
-                    auto arg = to_app(e)->get_arg(i);
-                    auto a = ctx.get_value(arg);
+                    auto a = m_g->find(to_app(e)->get_arg(i));
                     for (unsigned j = i + 1; j < n; ++j) {
-                        auto argb = to_app(e)->get_arg(j);
-                        auto b = ctx.get_value(argb);
-                        if (a == b)
+                        auto b = m_g->find(to_app(e)->get_arg(j));
+                        if (a->get_root() == b->get_root())
                             goto done_distinct;
-                        eqs.push_back(m.mk_eq(arg, argb));
+                        eqs.push_back(m.mk_eq(a->get_expr(), b->get_expr()));
                     }
                 }
                 // distinct(a, b, c) or a = b or a = c or b = c
