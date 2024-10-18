@@ -39,7 +39,7 @@ namespace sls {
         obj_map<expr, vector<parent_t>> m_parents;
         
         mutable datatype_util dt;
-        expr_ref_vector m_axioms, m_values;
+        expr_ref_vector m_axioms, m_values, m_eval;
         model_ref m_model;
         stats m_stats;
 
@@ -54,6 +54,11 @@ namespace sls {
 
         euf::enode* get_constructor(euf::enode* n) const;
 
+        expr_ref eval1(expr* e);
+        expr_ref eval0(euf::enode* n);
+        expr_ref eval0(expr* n);
+
+
     public:
         datatype_plugin(context& c);
         ~datatype_plugin() override;
@@ -65,17 +70,17 @@ namespace sls {
         bool propagate() override;       
         bool is_sat() override;
         void register_term(expr* e) override;
-        std::ostream& display(std::ostream& out) const override;
+
         bool set_value(expr* e, expr* v) override { return false; }
-
-        void repair_up(app* e) override {}
-        bool repair_down(app* e) override { return false; }
         void repair_literal(sat::literal lit) override {}
+        bool include_func_interp(func_decl* f) const override;
 
+        bool repair_down(app* e) override;
+        void repair_up(app* e) override;
+
+        std::ostream& display(std::ostream& out) const override;
         void collect_statistics(statistics& st) const override;
         void reset_statistics() override;
-
-        bool include_func_interp(func_decl* f) const override;
         
     };
     

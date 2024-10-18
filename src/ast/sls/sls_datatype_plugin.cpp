@@ -86,7 +86,8 @@ namespace sls {
         g(c.egraph()),
         dt(m),
         m_axioms(m),
-        m_values(m) {
+        m_values(m),
+        m_eval(m) {
         m_fid = dt.get_family_id();
     }
     
@@ -227,6 +228,9 @@ namespace sls {
                     ors.push_back(m.mk_app(r, t));
                 }
                 m_axioms.push_back(m.mk_or(ors));
+#if 0
+                // expanded lazily
+                // EUF already handles enumeration datatype case.
                 for (unsigned i = 0; i < cns.size(); ++i) {
                     auto r1 = dt.get_constructor_is(cns[i]);
                     for (unsigned j = i + 1; j < cns.size(); ++j) {
@@ -234,6 +238,7 @@ namespace sls {
                         m_axioms.push_back(m.mk_or(m.mk_not(m.mk_app(r1, t)), m.mk_not(m.mk_app(r2, t))));
                     }
                 }
+#endif
                 for (auto c : cns) {
                     auto r = dt.get_constructor_is(c);
                     auto& acc = *dt.get_constructor_accessors(c);
@@ -244,7 +249,7 @@ namespace sls {
                 }
             }
         }
-        collect_path_axioms();
+        //collect_path_axioms();
 
         TRACE("dt", for (auto a : m_axioms) tout << mk_pp(a, m) << "\n";);
 
@@ -454,6 +459,22 @@ namespace sls {
         for (auto n : g->nodes()) {
             if (!n->is_root())
                 continue;
+            euf::enode* con = nullptr;
+            for (auto sib : euf::enode_class(n)) {
+                if (dt.is_constructor(sib->get_expr())) {
+                    if (!con) 
+                        con = sib;                    
+                    if (con && con->get_decl() != sib->get_decl()) {
+                        ctx.add_constraint(m.mk_not(m.mk_eq(con->get_expr(), sib->get_expr())));
+                        ++m_stats.m_num_occurs;                        
+                    }
+                }
+            }
+        }
+
+        for (auto n : g->nodes()) {
+            if (!n->is_root())
+                continue;
             expr* e = n->get_expr();
             if (!dt.is_datatype(e))
                 continue;
@@ -548,6 +569,43 @@ namespace sls {
     bool datatype_plugin::is_sat() { return true; }
     
     void datatype_plugin::register_term(expr* e) {}
+
+
+    bool datatype_plugin::repair_down(app* e) {
+        verbose_stream() << "repair-down " << mk_bounded_pp(e, m) << "\n";
+        return false;
+    }
+
+    void datatype_plugin::repair_up(app* e) {
+        verbose_stream() << "repair-up " << mk_bounded_pp(e, m) << "\n";
+    }
+
+    expr_ref datatype_plugin::eval1(expr* e) {
+        auto n = g->find(e)->get_root();
+        e = n->get_expr();
+        if (!dt.is_datatype(e))
+            return ctx.get_value(e);
+        auto con = get_constructor(n);
+        if (con) {
+            expr_ref_vector args(m);
+            for (auto arg : euf::enode_args(con)) 
+                args.push_back(eval0(arg));
+            return expr_ref(m.mk_app(con->get_decl(), args), m);
+        }
+        return eval0(n);
+    }
+
+    expr_ref datatype_plugin::eval0(expr* n) {
+        if (!dt.is_datatype(n->get_sort()))
+            return ctx.get_value(n);
+        if (!m_eval.get(n->get_id(), nullptr))
+            m_eval[n->get_id()] = m_model->get_some_value(n->get_sort());
+        return expr_ref(m_eval.get(n->get_id()), m);
+    }
+
+    expr_ref datatype_plugin::eval0(euf::enode* n) {
+        return eval0(n->get_root()->get_expr());
+    }
         
     void datatype_plugin::collect_statistics(statistics& st) const {
         st.update("sls-dt-axioms", m_axioms.size());
