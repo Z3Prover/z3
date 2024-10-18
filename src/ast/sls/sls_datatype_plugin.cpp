@@ -276,10 +276,10 @@ namespace sls {
             if (n->is_root())
                 add_dep(n, deps);
 
-        auto trace_assignment = [&](euf::enode* n) {
+        auto trace_assignment = [&](std::ostream& out, euf::enode* n) {
             for (auto sib : euf::enode_class(n))
-                tout << g->bpp(sib) << " ";
-            tout << " <- " << mk_bounded_pp(m_values.get(n->get_id()), m) << "\n";
+                out << g->bpp(sib) << " ";
+            out << " <- " << mk_bounded_pp(m_values.get(n->get_id()), m) << "\n";
         };
         deps.topological_sort();
         expr_ref_vector args(m);
@@ -317,7 +317,7 @@ namespace sls {
             if (!has_null) {                
                 m_values.setx(id, m.mk_app(f, args));
                 m_model->register_value(m_values.get(id));
-                TRACE("dt", tout << "Set interpretation "; trace_assignment(n););
+                TRACE("dt", tout << "Set interpretation "; trace_assignment(tout, n););
             }
         }
 
@@ -335,9 +335,52 @@ namespace sls {
             }
         );
 
+        auto process_workitem = [&](euf::enode* n) {
+            if (!leaf2root.contains(n))
+                return true;
+            bool all_processed = true;
+            for (auto p : leaf2root[n]) {
+                if (m_values.get(p->get_id(), nullptr))
+                    continue;
+                auto con = get_constructor(p);
+                SASSERT(con);
+                auto f = con->get_decl();
+                args.reset();
+                bool has_missing = false;
+                for (auto arg : euf::enode_args(con)) {
+                    if (dt.is_datatype(arg->get_sort())) {
+                        auto arg_val = m_values.get(arg->get_root_id());
+                        if (!arg_val)
+                            has_missing = true;
+                        args.push_back(arg_val);
+                    }
+                    else
+                        args.push_back(ctx.get_value(arg->get_expr()));
+                }
+                if (has_missing) {
+                    all_processed = false;
+                    continue;
+                }
+                worklist.push_back(p);
+                SASSERT(all_of(args, [&](expr* e) { return e != nullptr; }));
+                m_values.setx(p->get_id(), m.mk_app(f, args));
+                TRACE("dt", tout << "Patched interpretation "; trace_assignment(tout, p););
+                m_model->register_value(m_values.get(p->get_id()));
+            }
+            return all_processed;
+         };
+
+        auto process_worklist = [&](euf::enode_vector& worklist) {
+            unsigned j = 0, sz = worklist.size();
+            for (unsigned i = 0; i < worklist.size(); ++i) 
+                if (!process_workitem(worklist[i]))
+                    worklist[j++] = worklist[i];
+            worklist.shrink(j);
+            return j < sz;
+        };
+
         // attach fresh values to each leaf, walk up parents to assign them values.
         while (!leaves.empty()) {
-            SASSERT(worklist.empty());
             auto n = leaves.back();            
             leaves.pop_back();
             SASSERT(!get_constructor(n));
@@ -347,39 +390,11 @@ namespace sls {
             SASSERT(v);
             unsigned id = n->get_id();
             m_values.setx(id, v);
-            TRACE("dt", tout << "Fresh interpretation "; trace_assignment(n););
+            TRACE("dt", tout << "Fresh interpretation "; trace_assignment(tout, n););
+            worklist.reset();
             worklist.push_back(n);
-
-            while (!worklist.empty()) {
-                n = worklist.back();
-                worklist.pop_back();
-                if (!leaf2root.contains(n))
-                    continue;
-                for (auto p : leaf2root[n]) {
-                    auto con = get_constructor(p);
-                    SASSERT(con);
-                    auto f = con->get_decl();
-                    args.reset();
-                    bool has_missing = false;
-                    for (auto arg : euf::enode_args(con)) {
-                        if (dt.is_datatype(arg->get_sort())) {
-                            auto arg_val = m_values.get(arg->get_root_id());
-                            if (!arg_val)
-                                has_missing = true;
-                            args.push_back(arg_val);
-                        }
-                        else
-                            args.push_back(ctx.get_value(arg->get_expr()));
-                    }
-                    if (has_missing)
-                        continue;
-                    worklist.push_back(p);
-                    SASSERT(all_of(args, [&](expr* e) { return e != nullptr; }));
-                    m_values.setx(p->get_id(), m.mk_app(f, args));
-                    TRACE("dt", tout << "Patched interpretation "; trace_assignment(p););
-                    m_model->register_value(m_values.get(p->get_id()));
-                }
-            }
+            while (process_worklist(worklist))
+                ;
         }
     }
     
