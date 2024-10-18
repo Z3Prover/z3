@@ -26,17 +26,17 @@ namespace sls {
     
     class datatype_plugin : public plugin {
         struct stats {
-            unsigned m_num_axioms = 0;
+            unsigned m_num_occurs = 0;
             void reset() { memset(this, 0, sizeof(*this)); }
         };
         struct parent_t {
             expr*        parent;
-            sat::literal lit;
+            expr_ref     condition; 
         };
         euf_plugin& euf;
         scoped_ptr<euf::egraph>& g;
         obj_map<sort, ptr_vector<expr>> m_dts;
-        obj_map<expr, svector<parent_t>> m_parents;
+        obj_map<expr, vector<parent_t>> m_parents;
         
         mutable datatype_util dt;
         expr_ref_vector m_axioms, m_values;
@@ -44,9 +44,9 @@ namespace sls {
         stats m_stats;
 
         void collect_path_axioms();
-        void add_edge(expr* child, expr* parent, sat::literal lit);
+        void add_edge(expr* child, expr* parent, expr* cond);
         void add_path_axioms();
-        void add_path_axioms(ptr_vector<expr>& children, sat::literal_vector& lits, svector<parent_t> const& parents);
+        void add_path_axioms(ptr_vector<expr>& children, sat::literal_vector& lits, vector<parent_t> const& parents);
         void add_axioms();
         
         void init_values();

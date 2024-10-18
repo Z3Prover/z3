@@ -96,10 +96,10 @@ namespace sls {
         expr* t = nullptr, *z = nullptr;
         for (auto s : ctx.subterms()) {
             if (dt.is_accessor(s, t) && dt.is_recursive(t) && dt.is_recursive(s))
-                add_edge(s, t, sat::null_literal);
+                add_edge(s, t, m.mk_app(dt.get_constructor_is(dt.get_accessor_constructor(to_app(s)->get_decl())), t));
             if (dt.is_constructor(s) && dt.is_recursive(s)) {
                 for (auto arg : *to_app(s))
-                    add_edge(arg, s, sat::null_literal);
+                    add_edge(arg, s, nullptr);
             }
         }
         expr* x = nullptr, *y = nullptr;
@@ -114,27 +114,27 @@ namespace sls {
             sat::literal lp(v, false), ln(v, true);
             if (dt.is_accessor(x, z) && dt.is_recursive(z)) {
                 if (ctx.is_unit(lp))
-                    add_edge(y, z, sat::null_literal);
+                    add_edge(y, z, nullptr);
                 else if (ctx.is_unit(ln))
                     ;
                 else
-                    add_edge(y, z, lp);                    
+                    add_edge(y, z, e);                    
             }
             if (dt.is_accessor(y, z) && dt.is_recursive(z)) {
                 if (ctx.is_unit(lp))
-                    add_edge(x, z, sat::null_literal);
+                    add_edge(x, z, m.mk_app(dt.get_constructor_is(dt.get_accessor_constructor(to_app(y)->get_decl())), z));
                 else if (ctx.is_unit(ln))
                     ;
                 else
-                    add_edge(x, z, lp);                    
+                    add_edge(x, z, e);                    
             }            
         }
         add_path_axioms();
     }
 
-    void datatype_plugin::add_edge(expr* child, expr* parent, sat::literal lit) {
-        TRACE("dt", tout << mk_bounded_pp(child, m) << " <- " << mk_bounded_pp(parent, m) << " " << lit << "\n");
-        m_parents.insert_if_not_there(child, svector<parent_t>()).push_back({parent, lit});
+    void datatype_plugin::add_edge(expr* child, expr* parent, expr* cond) {
+        m_parents.insert_if_not_there(child, vector<parent_t>()).push_back({parent, expr_ref(cond, m)});
+        TRACE("dt", tout << mk_bounded_pp(child, m) << " <- " << mk_bounded_pp(parent, m) << " " << mk_bounded_pp(cond, m) << "\n");
     }
 
     void datatype_plugin::add_path_axioms() {
@@ -148,21 +148,21 @@ namespace sls {
         }
     }
 
-    void datatype_plugin::add_path_axioms(ptr_vector<expr>& children, sat::literal_vector& lits, svector<parent_t> const& parents) {
-        for (auto const& [parent, lit] : parents) {
-            if (lit != sat::null_literal)                    
-                lits.push_back(~lit);
+    void datatype_plugin::add_path_axioms(ptr_vector<expr>& children, sat::literal_vector& lits, vector<parent_t> const& parents) {
+        for (auto const& [parent, cond] : parents) {
+            if (cond)                    
+                lits.push_back(~ctx.mk_literal(cond));
             if (children.contains(parent)) {
                 // only assert loop clauses for proper loops
                 if (parent == children[0])
                     ctx.add_clause(lits);
-                if (lit != sat::null_literal)                    
+                if (cond)                    
                     lits.pop_back();
                 continue;
             }
             if (children[0]->get_sort() == parent->get_sort()) {
                 lits.push_back(~ctx.mk_literal(m.mk_eq(children[0], parent)));
-                TRACE("dt", tout << lits << "\n");
+                TRACE("dt", for (auto lit : lits) tout << (lit.sign() ? "~": "") << mk_pp(ctx.atom(lit.var()), m) << "\n";);
                 ctx.add_clause(lits);
                 lits.pop_back();
             }
@@ -173,7 +173,7 @@ namespace sls {
                 add_path_axioms(children, lits, parents2);
                 children.pop_back();                
             }
-            if (lit != sat::null_literal)                    
+            if (cond)                    
                 lits.pop_back();
         }
     }
@@ -414,6 +414,7 @@ namespace sls {
             }
             IF_VERBOSE(1, verbose_stream() << "cycle\n"; for (auto e : diseqs) verbose_stream() << mk_pp(e, m) << "\n";);
             ctx.add_constraint(m.mk_or(diseqs));
+            ++m_stats.m_num_occurs;
         };
 
         for (auto n : g->nodes()) {
@@ -516,6 +517,7 @@ namespace sls {
         
     void datatype_plugin::collect_statistics(statistics& st) const {
         st.update("sls-dt-axioms", m_axioms.size());
+        st.update("sls-dt-occurs-conflicts", m_stats.m_num_occurs);
     }
     
     void datatype_plugin::reset_statistics() {}

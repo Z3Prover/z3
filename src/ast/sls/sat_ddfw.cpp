@@ -572,8 +572,8 @@ namespace sat {
             transfer_weight(from_idx, to_idx, w);
         }
         //verbose_stream() << m_shifts << " " << m_flips << " " << shifted << "\n";
-        if (!shifted)
-            m_reinit_next = m_flips;
+        if (!shifted && m_restart_next > m_flips)
+            m_restart_next =  m_flips + (m_restart_next - m_flips) / 2;
         // DEBUG_CODE(invariant(););
     }
 
