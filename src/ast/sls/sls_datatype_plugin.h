@@ -38,7 +38,7 @@ namespace sls {
         obj_map<sort, ptr_vector<expr>> m_dts;
         obj_map<expr, svector<parent_t>> m_parents;
         
-        datatype_util dt;
+        mutable datatype_util dt;
         expr_ref_vector m_axioms, m_values;
         model_ref m_model;
         stats m_stats;
@@ -52,7 +52,7 @@ namespace sls {
         void init_values();
         void add_dep(euf::enode* n, top_sort<euf::enode>& dep);
 
-        euf::enode* get_constructor(euf::enode* n);
+        euf::enode* get_constructor(euf::enode* n) const;
 
     public:
         datatype_plugin(context& c);
@@ -66,7 +66,6 @@ namespace sls {
         bool is_sat() override;
         void register_term(expr* e) override;
         std::ostream& display(std::ostream& out) const override;
-        void mk_model(model& mdl) override;
         bool set_value(expr* e, expr* v) override { return false; }
 
         void repair_up(app* e) override {}
@@ -75,6 +74,9 @@ namespace sls {
 
         void collect_statistics(statistics& st) const override;
         void reset_statistics() override;
+
+        bool include_func_interp(func_decl* f) const override;
+        
     };
     
 }

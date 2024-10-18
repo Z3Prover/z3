@@ -99,10 +99,6 @@ namespace sls {
             return m_arith->display(out);                
     }
 
-    void arith_plugin::mk_model(model& mdl) {
-        WITH_FALLBACK(mk_model(mdl));        
-    }
-
     bool arith_plugin::repair_down(app* e) {
         WITH_FALLBACK(repair_down(e));
     }

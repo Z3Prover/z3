@@ -384,7 +384,7 @@ namespace sls {
         m_model = nullptr;
     }
 
-    euf::enode* datatype_plugin::get_constructor(euf::enode* n) {
+    euf::enode* datatype_plugin::get_constructor(euf::enode* n) const {
         euf::enode* con = nullptr;
         for (auto sib : euf::enode_class(n))
             if (dt.is_constructor(sib->get_expr()))
@@ -395,22 +395,22 @@ namespace sls {
     bool datatype_plugin::propagate() {       
         enum color_t { white, grey, black };
         svector<color_t> color;
-        svector<std::tuple<euf::enode*, unsigned>> todo;
+        ptr_vector<euf::enode> stack;
         obj_map<sort, ptr_vector<expr>> sorts;
 
-        auto set_conflict = [&](euf::enode* n, unsigned parent_idx) {
+        auto set_conflict = [&](euf::enode* n) {
             expr_ref_vector diseqs(m);
             while (true) {
-                auto [n2, parent_idx2] = todo[parent_idx];
+                auto n2 = stack.back();
                 auto con2 = get_constructor(n2);
                 if (n2 != con2)
                     diseqs.push_back(m.mk_not(m.mk_eq(n2->get_expr(), con2->get_expr())));
-                parent_idx = parent_idx2;
                 if (n2->get_root() == n->get_root()) {
                     if (n != n2)
                         diseqs.push_back(m.mk_not(m.mk_eq(n->get_expr(), n2->get_expr())));
                     break;
                 }
+                stack.pop_back();
             }
             IF_VERBOSE(1, verbose_stream() << "cycle\n"; for (auto e : diseqs) verbose_stream() << mk_pp(e, m) << "\n";);
             ctx.add_constraint(m.mk_or(diseqs));
@@ -437,46 +437,41 @@ namespace sls {
             // is a node in the same congruence class as n that is a constructor.
             // For every cycle accumulate a conflict.
 
-            todo.push_back({ n, 0});
-            while (!todo.empty()) {
-                auto [n, parent_idx] = todo.back();
+            stack.push_back(n);
+            while (!stack.empty()) {
+                n = stack.back();
                 unsigned id = n->get_root_id();
                 c = color.get(id, white);
                 euf::enode* con;
-                unsigned idx; 
 
                 switch (c) {
                 case black:
-                    todo.pop_back();
+                    stack.pop_back();
                     break;
                 case grey:
-                case white: {
-                    bool new_child = false;
+                case white: 
                     color.setx(id, grey, white);
                     con = get_constructor(n);
-                    idx = todo.size() - 1;
-                    if (con) {
-                        for (auto child : euf::enode_args(con)) {
-                            auto c2 = color.get(child->get_root_id(), white);
-                            switch (c2) {
-                                case black:
-                                    break;
-                                case grey:
-                                    set_conflict(child, idx);
-                                    return true;
-                                case white:
-                                    todo.push_back({ child, idx });
-                                    new_child = true;
-                                    break;
-                            }
+                    if (!con)
+                        goto done_with_node;
+                    for (auto child : euf::enode_args(con)) {
+                        auto c2 = color.get(child->get_root_id(), white);
+                        switch (c2) {
+                        case black:
+                            break;
+                        case grey:
+                            set_conflict(child);
+                            return true;
+                        case white:
+                            stack.push_back(child);
+                            goto node_pushed;
                         }
-                    }                    
-                    if (!new_child) {
-                        color[id] = black;
-                        todo.pop_back();
                     }
-                    break;
-                }
+                done_with_node:
+                    color[id] = black;
+                    stack.pop_back();
+                node_pushed:
+                    break;                
                 }
             }                    
         }
@@ -493,6 +488,18 @@ namespace sls {
         return false;
     }
 
+    bool datatype_plugin::include_func_interp(func_decl* f) const {
+        if (!dt.is_accessor(f))
+            return false;
+        func_decl* con_decl = dt.get_accessor_constructor(f);
+        for (euf::enode* app : g->enodes_of(f)) {   
+            euf::enode* con = get_constructor(app->get_arg(0));
+            if (con && con->get_decl() != con_decl) 
+                return true;
+        }
+        return false; 
+    }
+
     std::ostream& datatype_plugin::display(std::ostream& out) const {
         for (auto a : m_axioms)
             out << mk_bounded_pp(a, m, 3) << "\n";
@@ -504,10 +511,8 @@ namespace sls {
     }
    
     bool datatype_plugin::is_sat() { return true; }
+    
     void datatype_plugin::register_term(expr* e) {}
-
-    void datatype_plugin::mk_model(model& mdl) {
-    }
         
     void datatype_plugin::collect_statistics(statistics& st) const {
         st.update("sls-dt-axioms", m_axioms.size());

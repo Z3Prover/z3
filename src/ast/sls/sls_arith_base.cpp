@@ -2310,9 +2310,6 @@ namespace sls {
         SASSERT(val == i.m_args_value);
     }
 
-    template<typename num_t>
-    void arith_base<num_t>::mk_model(model& mdl) {
-    }
 
     template<typename num_t>
     void arith_base<num_t>::collect_statistics(statistics& st) const {

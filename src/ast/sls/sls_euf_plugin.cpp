@@ -339,6 +339,9 @@ namespace sls {
         return expr_ref(e, m);
     }
 
+    bool euf_plugin::include_func_interp(func_decl* f) const {
+        return is_uninterp(f) && f->get_arity() > 0;
+    }
 
     bool euf_plugin::is_sat() {
         for (auto& [f, ts] : m_app) {
@@ -475,25 +478,6 @@ namespace sls {
             out << "\n";
         }
         return out;
-    }
-
-    void euf_plugin::mk_model(model& mdl) {
-        expr_ref_vector args(m);
-        for (auto& [f, ts] : m_app) {
-            func_interp* fi = alloc(func_interp, m, f->get_arity());
-            mdl.register_decl(f, fi);
-            m_values.reset();
-            for (auto* t : ts) {
-                if (m_values.contains(t))
-                    continue;
-                args.reset();
-                expr_ref val = ctx.get_value(t);
-                for (auto arg : *t) 
-                    args.push_back(ctx.get_value(arg));
-                fi->insert_new_entry(args.data(), val);
-                m_values.insert(t);
-            }
-        }
     }
 
     void euf_plugin::collect_statistics(statistics& st) const {

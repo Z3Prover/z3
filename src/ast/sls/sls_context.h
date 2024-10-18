@@ -53,10 +53,10 @@ namespace sls {
         virtual void on_rescale() {};
         virtual void on_restart() {};
         virtual std::ostream& display(std::ostream& out) const = 0;
-        virtual void mk_model(model& mdl) = 0;
         virtual bool set_value(expr* e, expr* v) = 0;
         virtual void collect_statistics(statistics& st) const = 0;
         virtual void reset_statistics() = 0;
+        virtual bool include_func_interp(func_decl* f) const { return false; }
     };
 
     using clause = ptr_iterator<sat::literal>;
@@ -139,6 +139,8 @@ namespace sls {
         void propagate_literal(sat::literal lit);
         void repair_literals();
 
+        void values2model();
+
         void ensure_plugin(expr* e);
         void ensure_plugin(family_id fid);
         family_id get_fid(expr* e) const;
@@ -181,6 +183,7 @@ namespace sls {
         bool is_unit(sat::literal lit) const { return m_unit_indices.contains(lit.index()); }
         void reinit_relevant();
         void force_restart() { s.force_restart(); }
+        bool include_func_interp(func_decl* f) const { return any_of(m_plugins, [&](plugin* p) { return p && p->include_func_interp(f); }); }
 
         ptr_vector<expr> const& parents(expr* e) { 
             m_parents.reserve(e->get_id() + 1); 

@@ -82,7 +82,6 @@ namespace sls {
         void on_rescale() override {}
         void on_restart() override {}
         std::ostream& display(std::ostream& out) const override;
-        void mk_model(model& mdl) override {}
         bool set_value(expr* e, expr* v) override { return false; }
         void collect_statistics(statistics& st) const override {}
         void reset_statistics() override {}

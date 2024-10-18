@@ -129,20 +129,45 @@ namespace sls {
                 return l_undef;
 
             if (all_of(m_plugins, [&](auto* p) { return !p || p->is_sat(); })) {
-                model_ref mdl = alloc(model, m);
-                for (expr* e : subterms()) 
-                    if (is_uninterp_const(e))
-                        mdl->register_decl(to_app(e)->get_decl(), get_value(e));                
-                for (auto p : m_plugins)
-                    if (p)
-                        p->mk_model(*mdl);
-                s.on_model(mdl);
-                // verbose_stream() << *mdl << "\n";
-                TRACE("sls", display(tout));
+                values2model();
                 return l_true;
             }
         }
         return l_undef;
+    }
+
+    void context::values2model() {
+        model_ref mdl = alloc(model, m);
+        expr_ref_vector args(m);
+        for (expr* e : subterms()) 
+            if (is_uninterp_const(e))
+                mdl->register_decl(to_app(e)->get_decl(), get_value(e));
+        
+        for (expr* e : subterms()) {
+            if (!is_app(e))
+                continue;
+            auto f = to_app(e)->get_decl();
+            if (!include_func_interp(f))
+                continue;
+            auto v = get_value(e);
+            auto fi = mdl->get_func_interp(f);
+            if (!fi) {
+                fi = alloc(func_interp, m, f->get_arity());
+                mdl->register_decl(f, fi);
+            }
+            args.reset();                
+            for (expr* arg : *to_app(e)) {
+                args.push_back(get_value(arg));
+                SASSERT(args.back());
+            }
+            SASSERT(f->get_arity() == args.size());
+            if (!fi->get_entry(args.data()))
+                fi->insert_new_entry(args.data(), v);
+        }
+                
+        s.on_model(mdl);
+        // verbose_stream() << *mdl << "\n";
+        TRACE("sls", display(tout));
     }
     
     void context::propagate_boolean_assignment() {
@@ -156,8 +181,7 @@ namespace sls {
             propagate_literal(lit);
 
         if (m_new_constraint)
-            return;
-        
+            return;        
 
         while (!m_new_constraint && m.inc() && (!m_repair_up.empty() || !m_repair_down.empty())) {
             while (!m_repair_down.empty() && !m_new_constraint && m.inc()) {
@@ -264,10 +288,7 @@ namespace sls {
     }
 
     bool context::set_value(expr * e, expr * v) {
-        for (auto p : m_plugins)
-            if (p && p->set_value(e, v))
-                return true;
-        return false;
+        return any_of(m_plugins, [&](auto p) { return p && p->set_value(e, v); });
     }
     
     bool context::is_relevant(expr* e) {
