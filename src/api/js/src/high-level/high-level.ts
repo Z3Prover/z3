@@ -957,6 +957,48 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
     }
 
+    function PbEq(args: [Bool<Name>, ...Bool<Name>[]], coeffs: [number, ...number[]], k: number): Bool<Name> {
+      _assertContext(...args);
+      return new BoolImpl(
+        check(
+          Z3.mk_pbeq(
+            contextPtr,
+            args.map(arg => arg.ast),
+            coeffs,
+            k,
+          ),
+        ),
+      );
+    }
+
+    function PbGe(args: [Bool<Name>, ...Bool<Name>[]], coeffs: [number, ...number[]], k: number): Bool<Name> {
+      _assertContext(...args);
+      return new BoolImpl(
+        check(
+          Z3.mk_pbge(
+            contextPtr,
+            args.map(arg => arg.ast),
+            coeffs,
+            k,
+          ),
+        ),
+      );
+    }
+
+    function PbLe(args: [Bool<Name>, ...Bool<Name>[]], coeffs: [number, ...number[]], k: number): Bool<Name> {
+      _assertContext(...args);
+      return new BoolImpl(
+        check(
+          Z3.mk_pble(
+            contextPtr,
+            args.map(arg => arg.ast),
+            coeffs,
+            k,
+          ),
+        ),
+      );
+    }
+
     function ForAll<QVarSorts extends NonEmptySortArray<Name>>(
       quantifiers: ArrayIndexType<Name, QVarSorts>,
       body: Bool<Name>,
@@ -2849,6 +2891,9 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       Not,
       And,
       Or,
+      PbEq,
+      PbGe,
+      PbLe,
       ForAll,
       Exists,
       Lambda,

@@ -161,6 +161,19 @@ describe('high-level', () => {
   });
 
   describe('booleans', () => {
+    it('can use pseudo-boolean constraints', async () => {
+      const { Bool, PbEq, Solver } = api.Context('main');
+      const x = Bool.const('x');
+      const y = Bool.const('y');
+
+      const solver = new Solver();
+      solver.add(PbEq([x, y], [1, 1], 1));
+      expect(await solver.check()).toStrictEqual('sat');
+
+      solver.add(x.eq(y));
+      expect(await solver.check()).toStrictEqual('unsat');
+    });
+
     it("proves De Morgan's Law", async () => {
       const { Bool, Not, And, Eq, Or } = api.Context('main');
       const [x, y] = [Bool.const('x'), Bool.const('y')];
