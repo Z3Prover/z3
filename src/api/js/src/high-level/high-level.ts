@@ -1235,6 +1235,11 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       toString() {
         return this.sexpr();
       }
+
+      release() {
+        Z3.dec_ref(contextPtr, this.ast);
+        cleanup.unregister(this);
+      }
     }
 
     class SolverImpl implements Solver<Name> {
@@ -1326,6 +1331,11 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       fromString(s: string) {
         Z3.solver_from_string(contextPtr, this.ptr, s);
         throwIfError();
+      }
+
+      release() {
+        Z3.solver_dec_ref(contextPtr, this.ptr);
+        cleanup.unregister(this);
       }
     }
 
@@ -1422,8 +1432,12 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         Z3.optimize_from_string(contextPtr, this.ptr, s);
         throwIfError();
       }
-    }
 
+      release() {
+        Z3.optimize_dec_ref(contextPtr, this.ptr);
+        cleanup.unregister(this);
+      }
+    }
 
     class ModelImpl implements Model<Name> {
       declare readonly __typename: Model['__typename'];
@@ -1594,6 +1608,11 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         _assertContext(sort);
         return new AstVectorImpl(check(Z3.model_get_sort_universe(contextPtr, this.ptr, sort.ptr)));
       }
+
+      release() {
+        Z3.model_dec_ref(contextPtr, this.ptr);
+        cleanup.unregister(this);
+      }
     }
 
     class FuncEntryImpl implements FuncEntry<Name> {
@@ -1655,6 +1674,11 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         _assertContext(value);
         assert(this.arity() === argsVec.length(), "Number of arguments in entry doesn't match function arity");
         check(Z3.func_interp_add_entry(contextPtr, this.ptr, argsVec.ptr, value.ptr as Z3_ast));
+      }
+
+      release() {
+        Z3.func_interp_dec_ref(contextPtr, this.ptr);
+        cleanup.unregister(this);
       }
     }
 
@@ -1923,6 +1947,11 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
         Z3.tactic_inc_ref(contextPtr, myPtr);
         cleanup.register(this, () => Z3.tactic_dec_ref(contextPtr, myPtr));
+      }
+
+      release() {
+        Z3.tactic_dec_ref(contextPtr, this.ptr);
+        cleanup.unregister(this);
       }
     }
 
@@ -2675,6 +2704,11 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       sexpr(): string {
         return check(Z3.ast_vector_to_string(contextPtr, this.ptr));
       }
+
+      release() {
+        Z3.ast_vector_dec_ref(contextPtr, this.ptr);
+        cleanup.unregister(this);
+      }
     }
 
     class AstMapImpl<Key extends AnyAst<Name>, Value extends AnyAst<Name>> implements AstMap<Name, Key, Value> {
@@ -2733,6 +2767,11 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       sexpr(): string {
         return check(Z3.ast_map_to_string(contextPtr, this.ptr));
+      }
+
+      release() {
+        Z3.ast_map_dec_ref(contextPtr, this.ptr);
+        cleanup.unregister(this);
       }
     }
 
