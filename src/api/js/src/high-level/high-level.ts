@@ -959,6 +959,9 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
     function PbEq(args: [Bool<Name>, ...Bool<Name>[]], coeffs: [number, ...number[]], k: number): Bool<Name> {
       _assertContext(...args);
+      if (args.length !== coeffs.length) {
+        throw new Error('Number of arguments and coefficients must match');
+      }
       return new BoolImpl(
         check(
           Z3.mk_pbeq(
@@ -973,6 +976,9 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
     function PbGe(args: [Bool<Name>, ...Bool<Name>[]], coeffs: [number, ...number[]], k: number): Bool<Name> {
       _assertContext(...args);
+      if (args.length !== coeffs.length) {
+        throw new Error('Number of arguments and coefficients must match');
+      }
       return new BoolImpl(
         check(
           Z3.mk_pbge(
@@ -987,6 +993,9 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
     function PbLe(args: [Bool<Name>, ...Bool<Name>[]], coeffs: [number, ...number[]], k: number): Bool<Name> {
       _assertContext(...args);
+      if (args.length !== coeffs.length) {
+        throw new Error('Number of arguments and coefficients must match');
+      }
       return new BoolImpl(
         check(
           Z3.mk_pble(
