@@ -213,6 +213,7 @@ namespace sat {
     }
 
     void ddfw::add(solver const& s) {
+        set_seed(s.get_config().m_random_seed);
         for (auto& ci : m_clauses) 
             m_alloc.del_clause(ci.m_clause);
         m_clauses.reset(); 
