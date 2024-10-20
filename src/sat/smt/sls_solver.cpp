@@ -58,29 +58,40 @@ namespace sls {
         // export from SAT to SLS:
         // - unit literals
         // - phase
-        // - values
+
+        bool export_units_to_sls() {
+            if (!s.m_has_units)
+                return false;
+            std::lock_guard<std::mutex> lock(s.m_mutex);
+            IF_VERBOSE(1, verbose_stream() << "SMT -> SLS units " << s.m_units << "\n");
+            for (auto lit : s.m_units)
+                if (lit.var() < m_num_shared_vars)
+                    m_ddfw->add(1, &lit);
+            s.m_has_units = false;
+            s.m_units.reset();
+            return true;
+        }
+
+        bool export_phase_to_sls() {
+            if (!m_has_new_sat_phase)
+                return false;
+            std::lock_guard<std::mutex> lock(s.m_mutex);
+            IF_VERBOSE(1, verbose_stream() << "SMT -> SLS phase\n");
+            for (unsigned i = 0; i < m_sat_phase.size(); ++i) {
+                if (m_sat_phase[i] != is_true(sat::literal(i, false))) 
+                    flip(i);
+                m_ddfw->bias(i) = m_sat_phase[i] ? 1 : -1;
+            }
+            m_has_new_sat_phase = false;
+            return true;
+        }
+
         bool export_to_sls() {
             bool updated = false;
-            if (s.m_has_units) {
-                std::lock_guard<std::mutex> lock(s.m_mutex);
-                IF_VERBOSE(1, verbose_stream() << "SAT->SLS units " << s.m_units << "\n");
-                for (auto lit : s.m_units)
-                    if (lit.var() < m_num_shared_vars)
-                        m_ddfw->add(1, &lit);
-                s.m_has_units = false;
-                s.m_units.reset();
+            if (export_units_to_sls())
                 updated = true;
-            }
-            if (m_has_new_sat_phase) {
-                std::lock_guard<std::mutex> lock(s.m_mutex);
-                IF_VERBOSE(1, verbose_stream() << "SAT->SLS phase\n");
-                for (unsigned i = 0; i < m_sat_phase.size(); ++i) {
-                    if (m_sat_phase[i] != is_true(sat::literal(i, false))) 
-                        flip(i);
-                    m_ddfw->bias(i) = m_sat_phase[i] ? 1 : -1;
-                }
-                m_has_new_sat_phase = false;                
-            }
+            if (export_phase_to_sls())
+                updated = true;
             return updated;
         }
         
@@ -195,21 +206,20 @@ namespace sls {
         void export_values_to_smt() {
             if (!m_has_new_sls_values)
                 return;
-            IF_VERBOSE(1, verbose_stream() << "export values to smt\n");
+            IF_VERBOSE(1, verbose_stream() << "SLS -> SMT values\n");
             std::lock_guard<std::mutex> lock(s.m_mutex);
             ast_translation tr(m_sync_manager, s.ctx.get_manager());
             for (auto const& [t, t_sync] : m_smt2sync_uninterp) {
                 expr* sync_val = m_sync_values.get(t_sync->get_id(), nullptr);
-                if (sync_val) {
+                if (sync_val) 
                     s.ctx.user_propagate_initialize_value(t, tr(sync_val));
-                }
             }
             m_has_new_sls_values = false;
         }
 
         void export_phase_to_smt() {
             if (m_has_new_sls_phase) {
-                IF_VERBOSE(1, verbose_stream() << "new SLS->SAT phase\n");
+                IF_VERBOSE(1, verbose_stream() << "new SLS -> SMT phase\n");
                 std::lock_guard<std::mutex> lock(s.m_mutex);
                 for (unsigned i = 0; i < m_sls_phase.size(); ++i)
                     s.s().set_phase(sat::literal(i, !m_sls_phase[i]));
@@ -218,7 +228,7 @@ namespace sls {
         }
 
         void import_phase_from_smt() {
-            IF_VERBOSE(1, verbose_stream() << "new SAT->SLS phase\n");
+            IF_VERBOSE(1, verbose_stream() << "new SMT -> SLS phase\n");
             m_has_new_sat_phase = true;
             s.s().set_has_new_best_phase(false);
             std::lock_guard<std::mutex> lock(s.m_mutex);
