@@ -81,11 +81,5 @@ namespace sat {
         }
         for (clause* c : s.m_clauses) 
             m_ddfw.add(c->size(), c->begin());        
-        
-    }
-
-
-
-    
+    }    
 }
-
