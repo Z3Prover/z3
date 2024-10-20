@@ -100,7 +100,7 @@ namespace sat {
         unsigned         m_restart_count = 0, m_reinit_count = 0;
         uint64_t         m_restart_next = 0, m_reinit_next = 0;
         uint64_t         m_flips = 0, m_last_flips = 0, m_shifts = 0;
-        unsigned         m_min_sz = 0, m_steps_since_progress = 0;
+        unsigned         m_min_sz = UINT_MAX;
         u_map<unsigned>  m_models;
         stopwatch        m_stopwatch;
         unsigned_vector  m_num_models;

@@ -561,10 +561,11 @@ namespace sls {
         if (!m_repair_down.contains(e->get_id()))
             m_repair_down.insert(e->get_id());
         for (auto p : parents(e)) {
-            m_repair_up.reserve(p->get_id() + 1);
-            m_repair_down.reserve(p->get_id() + 1);
-            if (!m_repair_up.contains(p->get_id()))
-                m_repair_up.insert(p->get_id());
+            auto pid = p->get_id();
+            m_repair_up.reserve(pid + 1);
+            m_repair_down.reserve(pid + 1);
+            if (!m_repair_up.contains(pid))
+                m_repair_up.insert(pid);
         }
     }
 

@@ -77,6 +77,7 @@ Model-repair based:
 #include "ast/sls/sls_datatype_plugin.h"
 #include "ast/sls/sls_euf_plugin.h"
 #include "ast/ast_pp.h"
+#include "params/sls_params.hpp"
 
 namespace sls {
     
@@ -258,14 +259,20 @@ namespace sls {
     }
 
     void datatype_plugin::initialize() {
-        add_axioms();
+        sls_params sp(ctx.get_params());
+        m_axiomatic_mode = sp.dt_axiomatic();
+        if (m_axiomatic_mode)
+            add_axioms();
     }
 
     expr_ref datatype_plugin::get_value(expr* e) {
         if (!dt.is_datatype(e))
             return expr_ref(m);
-        init_values();
-        return expr_ref(m_values.get(g->find(e)->get_root_id()), m);
+        if (m_axiomatic_mode) {
+            init_values();
+            return expr_ref(m_values.get(g->find(e)->get_root_id()), m);
+        }
+        return expr_ref(m_eval.get(e->get_id()), m);
     }
 
     void datatype_plugin::init_values() {
@@ -563,44 +570,378 @@ namespace sls {
     }
     
     void datatype_plugin::propagate_literal(sat::literal lit) {
-        euf.propagate_literal(lit);
+        if (m_axiomatic_mode)
+            euf.propagate_literal(lit);
+        else
+            propagate_literal_model_building(lit);
+    }
+
+    void datatype_plugin::propagate_literal_model_building(sat::literal lit) {
+        if (!ctx.is_true(lit))
+            return;
+        auto a = ctx.atom(lit.var());
+        if (!a || !is_app(a))
+            return;
+        repair_down(to_app(a));
     }
    
     bool datatype_plugin::is_sat() { return true; }
     
-    void datatype_plugin::register_term(expr* e) {}
+    void datatype_plugin::register_term(expr* e) {    
+        expr* t = nullptr;
+        if (dt.is_accessor(e, t)) {
+            auto f = to_app(e)->get_decl();
+            m_occurs.insert_if_not_there(f, expr_set()).insert(e);
+            m_eval_accessor.insert_if_not_there(f, obj_map<expr, expr*>());
+        }
+    }
 
 
     bool datatype_plugin::repair_down(app* e) {
-        verbose_stream() << "repair-down " << mk_bounded_pp(e, m) << "\n";
+        expr* t, * s;
+        auto v0 = eval0(e);
+        auto v1 = eval1(e);
+        if (v0 == v1)
+            return true;
+        IF_VERBOSE(2, verbose_stream() << "dt-repair-down " << mk_bounded_pp(e, m) << " " << v0 << " <- " << v1 << "\n");
+        if (dt.is_constructor(e))
+            repair_down_constructor(e, v0, v1);
+        else if (dt.is_accessor(e, t))
+            repair_down_accessor(e, t, v0);
+        else if (dt.is_recognizer(e, t))
+            repair_down_recognizer(e, t);
+        else if (m.is_eq(e, s, t))
+            repair_down_eq(e, s, t);
+        else if (m.is_distinct(e))
+            repair_down_distinct(e);        
+        else {
+            UNREACHABLE();
+        }
         return false;
     }
 
+    //
+    // C(t) <- C(s) then repair t <- s
+    // C(t) <- D(s) then fail the repair.
+    //
+    void datatype_plugin::repair_down_constructor(app* e, expr* v0, expr* v1) {
+        SASSERT(dt.is_constructor(v0));
+        SASSERT(dt.is_constructor(v1));
+        SASSERT(e->get_decl() == to_app(v1)->get_decl());
+        if (e->get_decl() == to_app(v0)->get_decl()) {
+            for (unsigned i = 0; i < e->get_num_args(); ++i) {
+                auto w0 = to_app(v0)->get_arg(i);
+                auto w1 = to_app(v1)->get_arg(i);
+                if (w0 == w1)
+                    continue;
+                expr* arg = e->get_arg(i);
+                set_eval0(arg, w0);
+                ctx.new_value_eh(arg);
+            }
+        }
+    }
+
+    //
+    // A_D(t) <- s, val(t) = D(..s'..)      then update val(t) to agree with s
+    // A_D(t) <- s, val(t) = C(..)          then set t to D(...s...)
+    //            , eval(val(A_D(t))) = s'  then update eval(val(A_D,(t))) to s'
+    void datatype_plugin::repair_down_accessor(app* e, expr* t, expr* v0) {
+        auto f = e->get_decl();
+        auto c = dt.get_accessor_constructor(f);       
+        auto val_t = eval0(t);
+        SASSERT(dt.is_constructor(val_t));
+        expr_ref_vector args(m);
+        auto const& accs = *dt.get_constructor_accessors(c);
+        unsigned i;
+        for (i = 0; i < accs.size(); ++i) {
+            if (accs[i] == f)
+                break;
+        }
+        SASSERT(i < accs.size());
+        if (to_app(val_t)->get_decl() == c) {
+            if (to_app(val_t)->get_arg(i) == v0)
+                return;
+            args.append(accs.size(), to_app(val_t)->get_args());
+            args[i] = v0;
+            expr* new_val_t = m.mk_app(c, args);
+            set_eval0(t, new_val_t);
+            ctx.new_value_eh(t);
+            return;
+        }
+        if (ctx.rand(5) != 0) {
+            update_eval_accessor(e, val_t, v0);              
+            return;
+        }
+        for (unsigned j = 0; j < accs.size(); ++j) {
+            if (i == j)
+                args[i] = v0;
+            else
+                args[j] = m_model->get_some_value(accs[j]->get_range());
+        }
+        expr* new_val_t = m.mk_app(c, args);
+        set_eval0(t, new_val_t);
+        ctx.new_value_eh(t);
+    }
+
+    void datatype_plugin::repair_down_recognizer(app* e, expr* t) {
+        auto bv = ctx.atom2bool_var(e);
+        auto is_true = ctx.is_true(bv);
+        auto c = dt.get_recognizer_constructor(e->get_decl());
+        auto val_t = eval0(t);
+        auto const& cons = *dt.get_datatype_constructors(t->get_sort());
+
+        auto set_to_instance = [&](func_decl* c) {
+            auto const& accs = *dt.get_constructor_accessors(c);
+            expr_ref_vector args(m);
+            for (auto a : accs)
+                args.push_back(m_model->get_some_value(a->get_range()));
+            set_eval0(t, m.mk_app(c, args));
+            ctx.new_value_eh(t);
+        };
+        auto different_constructor = [&](func_decl* c) {
+            unsigned i = 0;
+            func_decl* c_new = nullptr;
+            for (auto c2 : cons)
+                if (c2 != c && ctx.rand(++i) == 0)
+                    c_new = c2;
+            return c_new;
+        };
+
+        SASSERT(dt.is_constructor(val_t));
+        if (c == to_app(val_t)->get_decl() && is_true)
+            return;
+        if (c != to_app(val_t)->get_decl() && !is_true)
+            return;
+        if (ctx.rand(10) == 0) 
+            ctx.flip(bv);
+        else if (is_true) 
+            set_to_instance(c);
+        else if (cons.size() == 1) 
+            ctx.flip(bv);
+        else 
+            set_to_instance(different_constructor(c));
+    }
+
+    void datatype_plugin::repair_down_eq(app* e, expr* s, expr* t) {
+        auto bv = ctx.atom2bool_var(e);
+        auto is_true = ctx.is_true(bv);
+        auto vs = eval0(s);
+        auto vt = eval0(t);
+        if (is_true && vs == vt)
+            return;
+        if (!is_true && vs != vt)
+            return;
+
+        if (is_true) {
+            auto coin = ctx.rand(5);
+            if (coin <= 1) {
+                set_eval0(s, vt);
+                ctx.new_value_eh(s);
+                return;
+            }
+            if (coin <= 3) {
+                set_eval0(t, vs);
+                ctx.new_value_eh(t);
+            }
+            if (true) {
+                auto new_v = m_model->get_some_value(s->get_sort());
+                set_eval0(s, new_v);
+                set_eval0(t, new_v);
+                ctx.new_value_eh(s);
+                ctx.new_value_eh(t);
+                return;
+            }
+        }
+        auto coin = ctx.rand(10);
+        if (coin <= 4) {
+            auto new_v = m_model->get_some_value(s->get_sort());
+            set_eval0(s, new_v);
+            ctx.new_value_eh(s);
+            return;
+        }
+        if (coin <= 9) {
+            auto new_v = m_model->get_some_value(s->get_sort());
+            set_eval0(t, new_v);
+            ctx.new_value_eh(t);
+            return;
+        }
+    }
+
+    void datatype_plugin::repair_down_distinct(app* e) {
+        auto bv = ctx.atom2bool_var(e);
+        auto is_true = ctx.is_true(bv);
+        unsigned sz = e->get_num_args();
+        for (unsigned i = 0; i < sz; ++i) {
+            auto val1 = eval0(e->get_arg(i));
+            for (unsigned j = i + 1; j < sz; ++j) {
+                auto val2 = eval0(e->get_arg(j));
+                if (val1 != val2)
+                    continue;
+                if (!is_true)
+                    return;
+                if (ctx.rand(2) == 0)
+                    std::swap(i, j);
+                auto new_v = m_model->get_some_value(e->get_arg(i)->get_sort());
+                set_eval0(e->get_arg(i), new_v);
+                ctx.new_value_eh(e->get_arg(i));
+                return;
+            }
+        }
+        if (is_true)
+            return;
+        if (sz == 1) {
+            ctx.flip(bv);
+            return;
+        }
+        unsigned i = ctx.rand(sz);
+        unsigned j = ctx.rand(sz-1);
+        if (j == i)
+            ++j;
+        if (ctx.rand(2) == 0)
+            std::swap(i, j);
+        set_eval0(e->get_arg(i), eval0(e->get_arg(j)));
+    }
+
     void datatype_plugin::repair_up(app* e) {
-        verbose_stream() << "repair-up " << mk_bounded_pp(e, m) << "\n";
+        IF_VERBOSE(2, verbose_stream() << "dt-repair-up " << mk_bounded_pp(e, m) << "\n");
+        expr* t;
+        auto v0 = eval0(e);
+        auto v1 = eval1(e);
+        if (v0 == v1)
+            return;
+        if (dt.is_constructor(e)) 
+            set_eval0(e, v1);                 
+        else if (m.is_bool(e)) 
+            ctx.flip(ctx.atom2bool_var(e));
+        else if (dt.is_accessor(e, t))
+            repair_up_accessor(e, t, v1);
+        else {
+            UNREACHABLE();
+        }
+    }
+
+    void datatype_plugin::repair_up_accessor(app* e, expr* t, expr* v1) {
+        auto v_t = eval0(t);
+        auto f = e->get_decl();
+        SASSERT(dt.is_constructor(v_t));
+        auto c = dt.get_accessor_constructor(f);
+        if (to_app(v_t)->get_decl() != c) 
+            update_eval_accessor(e, v_t, v1);
+        
+        set_eval0(e, v1);       
     }
 
     expr_ref datatype_plugin::eval1(expr* e) {
-        auto n = g->find(e)->get_root();
-        e = n->get_expr();
-        if (!dt.is_datatype(e))
-            return ctx.get_value(e);
-        auto con = get_constructor(n);
-        if (con) {
+        expr* s = nullptr, * t = nullptr;
+        if (m.is_eq(e, s, t))
+            return expr_ref(m.mk_bool_val(eval0rec(s) == eval0rec(t)), m);
+        if (m.is_distinct(e)) {
             expr_ref_vector args(m);
-            for (auto arg : euf::enode_args(con)) 
+            for (auto arg : *to_app(e))
                 args.push_back(eval0(arg));
-            return expr_ref(m.mk_app(con->get_decl(), args), m);
+            bool d = true;
+            for (unsigned i = 0; i < args.size(); ++i)
+                for (unsigned j = i + 1; i < args.size(); ++j)
+                    d &= args.get(i) != args.get(j);
+            return expr_ref(m.mk_bool_val(d), m);
         }
-        return eval0(n);
+        if (dt.is_accessor(e, t)) {
+            auto f = to_app(e)->get_decl();
+            auto v = eval0rec(t);
+            return eval_accessor(f, v);
+        }
+        if (dt.is_constructor(e)) {
+            expr_ref_vector args(m);
+            for (auto arg : *to_app(e))
+                args.push_back(eval0rec(arg));
+            return expr_ref(m.mk_app(to_app(e)->get_decl(), args), m);
+        }
+        if (dt.is_recognizer(e, t)) {
+            auto v = eval0rec(t);
+            SASSERT(dt.is_constructor(v));
+            auto c = dt.get_recognizer_constructor(to_app(e)->get_decl());
+            return expr_ref(m.mk_bool_val(c == to_app(v)->get_decl()), m);
+        }
+        return eval0(e);
+    }
+
+    expr_ref datatype_plugin::eval0rec(expr* e) {
+        auto v = m_eval.get(e->get_id(), nullptr);
+        if (v)
+            return expr_ref(v, m);
+        if (!is_app(e) || to_app(e)->get_family_id() != m_fid)
+            return ctx.get_value(e);
+        auto w = eval1(e);
+        m_eval.set(e->get_id(), w);
+        return w;
+    }
+
+    expr_ref datatype_plugin::eval_accessor(func_decl* f, expr* t) {
+        auto& t2val = m_eval_accessor[f];
+        if (!t2val.contains(t)) {
+            auto val = m_model->get_some_value(f->get_range());
+            m.inc_ref(t);
+            m.inc_ref(val);
+        }
+        return expr_ref(t2val[t], m);
+    }
+
+    void datatype_plugin::update_eval_accessor(app* e, expr* t, expr* value) {
+        func_decl* f = e->get_decl();
+        
+        auto& t2val = m_eval_accessor[f];
+        expr* old_value = nullptr;
+        t2val.find(t, old_value);
+        if (old_value == value)
+            ;
+        else if (old_value) {
+            t2val[t] = value;
+            m.inc_ref(value);
+            m.dec_ref(old_value);
+        }
+        else {
+            m.inc_ref(t);
+            m.inc_ref(value);
+            t2val.insert(t, value);
+        }        
+
+        for (expr* b : m_occurs[f]) {
+            if (b == e)
+                continue;
+            expr* a;
+            VERIFY(dt.is_accessor(b, a));
+            auto v_a = eval0(a);
+            if (v_a.get() == t) {
+                set_eval0(b, value);
+                ctx.new_value_eh(b);
+            }
+        }
+    }
+
+    void datatype_plugin::del_eval_accessor() {
+        ptr_vector<expr> kv;
+        for (auto& [f, t2val] : m_eval_accessor)
+            for (auto& [k, val] : t2val)
+                kv.push_back(k), kv.push_back(val);
+        for (auto k : kv)
+            m.dec_ref(k);
     }
 
     expr_ref datatype_plugin::eval0(expr* n) {
         if (!dt.is_datatype(n->get_sort()))
             return ctx.get_value(n);
-        if (!m_eval.get(n->get_id(), nullptr))
-            m_eval[n->get_id()] = m_model->get_some_value(n->get_sort());
+        auto v = m_eval.get(n->get_id(), nullptr);
+        if (v)
+            return expr_ref(v, m);
+        set_eval0(n, m_model->get_some_value(n->get_sort()));
         return expr_ref(m_eval.get(n->get_id()), m);
+    }
+
+    void datatype_plugin::set_eval0(expr* e, expr* value) {
+        if (dt.is_datatype(e->get_sort()))
+            m_eval[e->get_id()] = value;
+        else
+            ctx.set_value(e, value);
     }
 
     expr_ref datatype_plugin::eval0(euf::enode* n) {

@@ -36,7 +36,7 @@ namespace sat {
     }
 
     lbool ddfw::check(unsigned sz, literal const* assumptions) {
-        init(sz, assumptions);        
+        init(sz, assumptions);   
         if (m_plugin)
             check_with_plugin();
         else
@@ -58,11 +58,12 @@ namespace sat {
 
     void ddfw::check_with_plugin() {
         m_plugin->init_search();
-        m_steps_since_progress = 0;
         unsigned steps = 0;
-        save_best_values();
+        if (m_min_sz <= m_unsat.size())
+            save_best_values();
+        
         try {
-            while (m_min_sz != 0 && m_steps_since_progress++ <= 1500000 && m_limit.inc()) {
+            while (m_min_sz > 0 && m_limit.inc()) {
                 if (should_reinit_weights()) do_reinit_weights();
                 else if (steps % 5000 == 0) shift_weights(), m_plugin->on_rescale();
                 else if (should_restart()) do_restart(), m_plugin->on_restart();
@@ -105,6 +106,7 @@ namespace sat {
     bool ddfw::do_flip() {
         double reward = 0;
         bool_var v = pick_var<uses_plugin>(reward);
+        //verbose_stream() << "flip " << v << " " << reward << "\n";
         return apply_flip<uses_plugin>(v, reward);
     }
 
@@ -125,46 +127,32 @@ namespace sat {
     template<bool uses_plugin>
     bool_var ddfw::pick_var(double& r) {
         double sum_pos = 0;
-        unsigned n = 1, m = 1;
+        unsigned n = 1;
         bool_var v0 = null_bool_var;
-        bool_var v1 = null_bool_var;
-        if (m_unsat_vars.empty())
-            return null_bool_var;
         for (bool_var v : m_unsat_vars) {
             r = reward(v);
             if (r > 0.0)    
                 sum_pos += score(r);            
             else if (r == 0.0 && sum_pos == 0 && (m_rand() % (n++)) == 0) 
                 v0 = v;            
-            else if (m_rand(m++) == 0) 
-                v1 = v;
         }
-        
-
-        if (v0 != null_bool_var && m_rand(20) == 0) 
-            return v0;        
-
-        if (v1 != null_bool_var && m_rand(20) == 0) 
-            return v1;        
-
         if (sum_pos > 0) {
-            double lim_pos = ((double) m_rand() / (1.0 + m_rand.max_value())) * sum_pos;  
+            double lim_pos = ((double) m_rand() / (1.0 + m_rand.max_value())) * sum_pos;                
             for (bool_var v : m_unsat_vars) {
                 r = reward(v);
                 if (r > 0) {
                     lim_pos -= score(r);
-                    if (lim_pos <= 0) {
-                        return v;
-                    }
+                    if (lim_pos <= 0) 
+                        return v;                    
                 }
             }
         }
         r = 0;
-        
-        if (v0 == null_bool_var)           
-            v0 = m_unsat_vars.elem_at(m_rand(m_unsat_vars.size()));
-        
-        return v0;
+        if (v0 != null_bool_var) 
+            return v0;
+        if (m_unsat_vars.empty())
+            return null_bool_var;
+        return m_unsat_vars.elem_at(m_rand(m_unsat_vars.size()));
     }
 
     void ddfw::add(unsigned n, literal const* c) {        
@@ -216,7 +204,6 @@ namespace sat {
         m_assumptions.append(sz, assumptions);
         add_assumptions();
         for (unsigned v = 0; v < num_vars(); ++v) {
-            literal lit(v, false), nlit(v, true);
             value(v) = (m_rand() % 2) == 0; // m_use_list[lit.index()].size() >= m_use_list[nlit.index()].size();
         }
         init_clause_data();
@@ -238,6 +225,7 @@ namespace sat {
         m_last_flips = 0;
         m_shifts = 0;
         m_stopwatch.start();
+        verbose_stream() << "unsat " << m_min_sz << "\n";
     }
 
     void ddfw::reinit() {
@@ -373,7 +361,8 @@ namespace sat {
                 break;
             }
         }
-        save_best_values();
+        if (m_unsat.size() < m_min_sz)
+            save_best_values();
     }
 
     bool ddfw::should_restart() {
@@ -422,15 +411,9 @@ namespace sat {
 
     void ddfw::save_best_values() {
         if (m_unsat.size() < m_min_sz || m_unsat.empty()) {
-            m_steps_since_progress = 0;
             if (m_unsat.size() < 50 || m_min_sz * 10 > m_unsat.size() * 11)
                 save_model();
         }
-#if 0
-        if (m_unsat.size() <= m_min_sz) {
-            verbose_stream() << "unsat " << m_clauses[m_unsat[0]] << "\n";
-        }
-#endif
 
         if (m_unsat.size() < m_min_sz) 
             m_models.reset();        

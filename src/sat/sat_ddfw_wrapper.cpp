@@ -56,6 +56,7 @@ namespace sat {
     }
 
     void ddfw_wrapper::add(solver const& s) {
+        m_ddfw.set_seed(s.get_config().m_random_seed);
         m_ddfw.m_clauses.reset(); 
         m_ddfw.m_use_list.reset();
         m_ddfw.m_num_non_binary_clauses = 0;

@@ -38,6 +38,7 @@ namespace sls {
         obj_map<sort, ptr_vector<expr>> m_dts;
         obj_map<expr, vector<parent_t>> m_parents;
         
+        bool m_axiomatic_mode = true;
         mutable datatype_util dt;
         expr_ref_vector m_axioms, m_values, m_eval;
         model_ref m_model;
@@ -54,10 +55,29 @@ namespace sls {
 
         euf::enode* get_constructor(euf::enode* n) const;
 
+        // f -> v_t -> val 
+        // e = A(t)
+        // val(t) <- val
+        // 
+        typedef obj_hashtable<expr> expr_set;
+        obj_map<func_decl, obj_map<expr, expr*>> m_eval_accessor;
+        obj_map<func_decl, expr_set> m_occurs;
         expr_ref eval1(expr* e);
         expr_ref eval0(euf::enode* n);
         expr_ref eval0(expr* n);
+        expr_ref eval0rec(expr* n);
+        expr_ref eval_accessor(func_decl* f, expr* t);
+        void update_eval_accessor(app* e, expr* t, expr* value);
+        void del_eval_accessor();
+        void set_eval0(expr* e, expr* val);
 
+        void repair_down_constructor(app* e, expr* v0, expr* v1);
+        void repair_down_accessor(app* e, expr* t, expr* v1);
+        void repair_down_recognizer(app* e, expr* t);
+        void repair_down_eq(app* e, expr* s, expr* t);
+        void repair_down_distinct(app* e);
+        void repair_up_accessor(app* e, expr* t, expr* v0);
+        void propagate_literal_model_building(sat::literal lit);
 
     public:
         datatype_plugin(context& c);
