@@ -1203,7 +1203,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         const myAst = this.ast;
 
         Z3.inc_ref(contextPtr, myAst);
-        cleanup.register(this, () => Z3.dec_ref(contextPtr, myAst));
+        cleanup.register(this, () => Z3.dec_ref(contextPtr, myAst), this);
       }
 
       get ast(): Z3_ast {
@@ -1258,7 +1258,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         }
         this.ptr = myPtr;
         Z3.solver_inc_ref(contextPtr, myPtr);
-        cleanup.register(this, () => Z3.solver_dec_ref(contextPtr, myPtr));
+        cleanup.register(this, () => Z3.solver_dec_ref(contextPtr, myPtr), this);
       }
 
       set(key: string, value: any): void {
@@ -1351,7 +1351,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         myPtr = ptr;
         this.ptr = myPtr;
         Z3.optimize_inc_ref(contextPtr, myPtr);
-        cleanup.register(this, () => Z3.optimize_dec_ref(contextPtr, myPtr));
+        cleanup.register(this, () => Z3.optimize_dec_ref(contextPtr, myPtr), this);
       }
 
       set(key: string, value: any): void {
@@ -1446,7 +1446,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       constructor(readonly ptr: Z3_model = Z3.mk_model(contextPtr)) {
         this.ctx = ctx;
         Z3.model_inc_ref(contextPtr, ptr);
-        cleanup.register(this, () => Z3.model_dec_ref(contextPtr, ptr));
+        cleanup.register(this, () => Z3.model_dec_ref(contextPtr, ptr), this);
       }
 
       length() {
@@ -1623,7 +1623,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       constructor(readonly ptr: Z3_func_entry) {
         this.ctx = ctx;
         Z3.func_entry_inc_ref(contextPtr, ptr);
-        cleanup.register(this, () => Z3.func_entry_dec_ref(contextPtr, ptr));
+        cleanup.register(this, () => Z3.func_entry_dec_ref(contextPtr, ptr), this);
       }
 
       numArgs() {
@@ -1646,7 +1646,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       constructor(readonly ptr: Z3_func_interp) {
         this.ctx = ctx;
         Z3.func_interp_inc_ref(contextPtr, ptr);
-        cleanup.register(this, () => Z3.func_interp_dec_ref(contextPtr, ptr));
+        cleanup.register(this, () => Z3.func_interp_dec_ref(contextPtr, ptr), this);
       }
 
       elseValue(): Expr<Name> {
@@ -1946,7 +1946,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         this.ptr = myPtr;
 
         Z3.tactic_inc_ref(contextPtr, myPtr);
-        cleanup.register(this, () => Z3.tactic_dec_ref(contextPtr, myPtr));
+        cleanup.register(this, () => Z3.tactic_dec_ref(contextPtr, myPtr), this);
       }
 
       release() {
@@ -2615,7 +2615,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       constructor(readonly ptr: Z3_ast_vector = Z3.mk_ast_vector(contextPtr)) {
         this.ctx = ctx;
         Z3.ast_vector_inc_ref(contextPtr, ptr);
-        cleanup.register(this, () => Z3.ast_vector_dec_ref(contextPtr, ptr));
+        cleanup.register(this, () => Z3.ast_vector_dec_ref(contextPtr, ptr), this);
       }
 
       length(): number {
@@ -2718,7 +2718,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       constructor(readonly ptr: Z3_ast_map = Z3.mk_ast_map(contextPtr)) {
         this.ctx = ctx;
         Z3.ast_map_inc_ref(contextPtr, ptr);
-        cleanup.register(this, () => Z3.ast_map_dec_ref(contextPtr, ptr));
+        cleanup.register(this, () => Z3.ast_map_dec_ref(contextPtr, ptr), this);
       }
 
       [Symbol.iterator](): Iterator<[Key, Value]> {
