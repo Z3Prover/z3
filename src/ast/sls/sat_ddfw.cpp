@@ -49,7 +49,7 @@ namespace sat {
     void ddfw::check_without_plugin() {
         while (m_limit.inc() && m_min_sz > 0) {
             if (should_reinit_weights()) do_reinit_weights();
-            else if (do_flip<false>());
+            else if (do_flip());
             else if (should_restart()) do_restart();
             else if (m_parallel_sync && m_parallel_sync());
             else shift_weights();
@@ -67,7 +67,7 @@ namespace sat {
                 if (should_reinit_weights()) do_reinit_weights();
                 else if (steps % 5000 == 0) shift_weights(), m_plugin->on_rescale();
                 else if (should_restart()) do_restart(), m_plugin->on_restart();
-                else if (do_flip<true>());
+                else if (do_flip());
                 else shift_weights(), m_plugin->on_rescale();
                 //verbose_stream() << "steps: " << steps << " min_sz: " << m_min_sz << " unsat: " << m_unsat.size() << "\n";
                 ++steps;
@@ -102,15 +102,13 @@ namespace sat {
         m_last_flips = m_flips;
     }
 
-    template<bool uses_plugin>
     bool ddfw::do_flip() {
         double reward = 0;
-        bool_var v = pick_var<uses_plugin>(reward);
+        bool_var v = pick_var(reward);
         //verbose_stream() << "flip " << v << " " << reward << "\n";
-        return apply_flip<uses_plugin>(v, reward);
+        return apply_flip(v, reward);
     }
 
-    template<bool uses_plugin>
     bool ddfw::apply_flip(bool_var v, double reward) {
         if (v == null_bool_var) 
             return false;
@@ -124,7 +122,6 @@ namespace sat {
         return false;
     }
 
-    template<bool uses_plugin>
     bool_var ddfw::pick_var(double& r) {
         double sum_pos = 0;
         unsigned n = 1;
@@ -167,12 +164,16 @@ namespace sat {
         }
     }
 
-    sat::bool_var ddfw::add_var(bool is_internal) {
+    sat::bool_var ddfw::add_var() {
         auto v = m_vars.size();
         m_vars.reserve(v + 1);
-        m_vars[v].m_internal = is_internal;
         return v;
     }
+
+    void ddfw::reserve_vars(unsigned n) {
+        m_vars.reserve(n);
+    }
+
 
     /**
      * Remove the last clause that was added
@@ -215,11 +216,6 @@ namespace sat {
         m_restart_count = 0;
         m_restart_next = m_config.m_restart_base*2;
 
-#if 0
-        m_parsync_count = 0;
-        m_parsync_next = m_config.m_parsync_base;
-#endif
-
         m_min_sz = m_unsat.size();
         m_flips = 0;
         m_last_flips = 0;
@@ -244,9 +240,8 @@ namespace sat {
         m_use_list_index.push_back(m_flat_use_list.size());
     }
 
-    bool ddfw::flip(bool_var v) {
+    void ddfw::flip(bool_var v) {
         ++m_flips;
-        bool new_unsat = false;
         literal lit = literal(v, !value(v));
         literal nlit = ~lit;
         SASSERT(is_true(lit));
@@ -262,7 +257,6 @@ namespace sat {
                     verbose_stream() << "flipping unit clause " << ci << "\n";
 #endif
                 m_unsat.insert_fresh(cls_idx);
-                new_unsat = true;
                 auto const& c = get_clause(cls_idx);
                 for (literal l : c) {
                     inc_reward(l, w);
@@ -304,7 +298,6 @@ namespace sat {
         }
         value(v) = !value(v);
         update_reward_avg(v);
-        return new_unsat;
     }
 
     bool ddfw::should_reinit_weights() {
@@ -404,38 +397,20 @@ namespace sat {
         for (unsigned i = 0; i < num_vars(); ++i) 
             m_model[i] = to_lbool(value(i));
         save_priorities();
-        if (m_plugin && m_unsat.empty())
-            m_plugin->on_save_model();
+        if (m_plugin)
+            m_plugin->on_save_model();        
     }
 
-
     void ddfw::save_best_values() {
-        if (m_unsat.size() < m_min_sz || m_unsat.empty()) {
-            if (m_unsat.size() < 50 || m_min_sz * 10 > m_unsat.size() * 11)
-                save_model();
+        if ((m_unsat.size() < m_min_sz || m_unsat.empty()) && 
+            ((m_unsat.size() < 50 || m_min_sz * 10 > m_unsat.size() * 11)))
+            save_model();
+            
+        if (m_unsat.size() < m_min_sz) {
+            m_models.reset();
+            m_min_sz = m_unsat.size();
         }
-
-        if (m_unsat.size() < m_min_sz) 
-            m_models.reset();        
         
-        m_min_sz = m_unsat.size();
-
-#if 0
-        m_num_models.reserve(m_min_sz + 1);
-        unsigned nm = m_num_models[m_min_sz]++;
-        
-
-        if (nm >= 10) {
-            if (nm >= 200)
-                m_num_models[m_min_sz] = 10, m_restart_next = m_flips;
-            if (nm % 1 == 0) {
-                for (unsigned v = 0; v < num_vars(); ++v)
-                    bias(v) += value(v) ? 1 : -1;
-            }
-            return;
-        }
-#endif
-
         unsigned h = value_hash();
         unsigned occs = 0;
         bool contains = m_models.find(h, occs);
@@ -449,8 +424,7 @@ namespace sat {
         if (occs > 100) {
             m_restart_next = m_flips;            
             m_models.erase(h);
-        }
-        
+        }        
     }
 
     unsigned ddfw::value_hash() const {

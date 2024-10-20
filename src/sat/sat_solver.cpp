@@ -2932,6 +2932,7 @@ namespace sat {
                 bool_var v = m_trail[i].var();
                 m_best_phase[v] = m_phase[v];
             }
+            set_has_new_best_phase(true);
         }
     }
 

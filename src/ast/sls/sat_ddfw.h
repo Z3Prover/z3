@@ -69,13 +69,11 @@ namespace sat {
 
         struct var_info {
             var_info() {}
-            bool     m_internal = false;
             bool     m_value = false;
             double   m_reward = 0;
             double   m_last_reward = 0;
             unsigned m_make_count = 0;
             int      m_bias = 0;
-            bool     m_external = false;
             ema      m_reward_avg = 1e-5;
         };
         
@@ -124,11 +122,6 @@ namespace sat {
 
         inline double& reward(bool_var v) { return m_vars[v].m_reward; }        
 
-        void set_external(bool_var v) { m_vars[v].m_external = true; }
-
-        inline bool is_external(bool_var v) const { return m_vars[v].m_external; }
-
-        inline int& bias(bool_var v) { return m_vars[v].m_bias; }
 
         unsigned value_hash() const;
 
@@ -162,13 +155,10 @@ namespace sat {
         void check_without_plugin();
 
         // flip activity
-        template<bool uses_plugin>
         bool do_flip();
 
-        template<bool uses_plugin>
         bool_var pick_var(double& reward);     
 
-        template<bool uses_plugin>
         bool apply_flip(bool_var v, double reward);
 
 
@@ -253,18 +243,19 @@ namespace sat {
 
         void remove_assumptions();
 
-        bool flip(bool_var v);
+        void flip(bool_var v);
 
         inline double get_reward(bool_var v) const { return m_vars[v].m_reward; }
 
+        double get_reward_avg(bool_var v) const { return m_vars[v].m_reward_avg; }
+
+        inline int& bias(bool_var v) { return m_vars[v].m_bias; }
+
+        void reserve_vars(unsigned n);
+        
         void add(unsigned sz, literal const* c);
 
-        sat::bool_var add_var(bool is_internal = true);
-
-        // is this a variable that was added during initialization?
-        bool is_initial_var(sat::bool_var v) const {
-            return m_vars.size() > v && !m_vars[v].m_internal;
-        }
+        sat::bool_var add_var();
 
         void reinit();
 
