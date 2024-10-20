@@ -46,7 +46,7 @@ cd build
 nmake
 ```
 
-Z3 uses C++17. The recommended version of Visual Studio is therefore VS2019. 
+Z3 uses C++20. The recommended version of Visual Studio is therefore VS2019. 
 
 ## Building Z3 using make and GCC/Clang
 
