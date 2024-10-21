@@ -71,7 +71,6 @@ namespace sat {
                 else shift_weights(), m_plugin->on_rescale();
                 //verbose_stream() << "steps: " << steps << " min_sz: " << m_min_sz << " unsat: " << m_unsat.size() << "\n";
                 ++steps;
-                SASSERT(m_unsat.size() >= m_min_sz);
             }
         }
         catch (z3_exception& ex) {
@@ -152,7 +151,7 @@ namespace sat {
         return m_unsat_vars.elem_at(m_rand(m_unsat_vars.size()));
     }
 
-    void ddfw::add(unsigned n, literal const* c) {        
+    void ddfw::add(unsigned n, literal const* c) {    
         unsigned idx = m_clauses.size();
         m_clauses.push_back(clause_info(n, c, m_config.m_init_clause_weight));
         if (n > 2)
@@ -207,8 +206,9 @@ namespace sat {
         for (unsigned v = 0; v < num_vars(); ++v) {
             value(v) = (m_rand() % 2) == 0; // m_use_list[lit.index()].size() >= m_use_list[nlit.index()].size();
         }
-        init_clause_data();
-        flatten_use_list();
+
+        if (!flatten_use_list())
+            init_clause_data();
 
         m_reinit_count = 0;
         m_reinit_next = m_config.m_reinit_base;
@@ -216,21 +216,23 @@ namespace sat {
         m_restart_count = 0;
         m_restart_next = m_config.m_restart_base*2;
 
-        m_min_sz = m_unsat.size();
+        m_min_sz = m_clauses.size();
         m_flips = 0;
         m_last_flips = 0;
         m_shifts = 0;
         m_stopwatch.start();
-        verbose_stream() << "unsat " << m_min_sz << "\n";
     }
 
     void ddfw::reinit() {
         add_assumptions();
-        init_clause_data();
         flatten_use_list();
     }
 
-    void ddfw::flatten_use_list() {
+    bool ddfw::flatten_use_list() {
+        if (num_vars() == m_use_list_vars && m_clauses.size() == m_use_list_clauses)
+            return false;
+        m_use_list_vars = num_vars();
+        m_use_list_clauses = m_clauses.size();
         m_use_list_index.reset();
         m_flat_use_list.reset();
         for (auto const& ul : m_use_list) {
@@ -238,6 +240,8 @@ namespace sat {
             m_flat_use_list.append(ul);
         }
         m_use_list_index.push_back(m_flat_use_list.size());
+        init_clause_data();
+        return true;
     }
 
     void ddfw::flip(bool_var v) {
@@ -246,7 +250,7 @@ namespace sat {
         literal nlit = ~lit;
         SASSERT(is_true(lit));
         for (unsigned cls_idx : use_list(lit)) {
-            clause_info& ci = m_clauses[cls_idx];
+            clause_info& ci = m_clauses[cls_idx];            
             ci.del(lit);
             double w = ci.m_weight;
             // cls becomes false: flip any variable in clause to receive reward w
@@ -402,8 +406,16 @@ namespace sat {
     }
 
     void ddfw::save_best_values() {
-        if ((m_unsat.size() < m_min_sz || m_unsat.empty()) && 
-            ((m_unsat.size() < 50 || m_min_sz * 10 > m_unsat.size() * 11)))
+        if (m_save_best_values)
+            return;
+        if (m_plugin && !m_unsat.empty())
+            return;
+        flet<bool> _save_best_values(m_save_best_values, true);
+
+        bool do_save_model = ((m_unsat.size() < m_min_sz || m_unsat.empty()) &&
+            ((m_unsat.size() < 50 || m_min_sz * 10 > m_unsat.size() * 11)));
+
+        if (do_save_model)
             save_model();
             
         if (m_unsat.size() < m_min_sz) {

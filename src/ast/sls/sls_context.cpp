@@ -116,16 +116,12 @@ namespace sls {
         // Use timestamps to make it incremental.
         // 
         init();
-        //verbose_stream() << "check " << unsat().size() << "\n";
         while (unsat().empty() && m.inc()) {
 
             propagate_boolean_assignment();
 
 
             // verbose_stream() << "propagate " << unsat().size() << " " << m_new_constraint << "\n";
-
-
-            // display(verbose_stream());
 
             if (m_new_constraint || !unsat().empty())
                 return l_undef;

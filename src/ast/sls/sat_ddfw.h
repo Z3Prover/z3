@@ -89,6 +89,7 @@ namespace sat {
         vector<unsigned_vector> m_use_list;
         unsigned_vector  m_flat_use_list;
         unsigned_vector  m_use_list_index;
+        unsigned m_use_list_vars = 0, m_use_list_clauses = 0;
 
         indexed_uint_set m_unsat;
         indexed_uint_set m_unsat_vars;  // set of variables that are in unsat clauses
@@ -102,11 +103,12 @@ namespace sat {
         u_map<unsigned>  m_models;
         stopwatch        m_stopwatch;
         unsigned_vector  m_num_models;
+        bool             m_save_best_values = false;
 
         scoped_ptr<local_search_plugin> m_plugin = nullptr;
         std::function<bool(void)> m_parallel_sync;
 
-        void flatten_use_list(); 
+        bool flatten_use_list(); 
 
         /**
          * TBD: map reward value to a score, possibly through an exponential function, such as
@@ -267,6 +269,7 @@ namespace sat {
 
 
         ptr_iterator<unsigned> use_list(literal lit) { 
+            flatten_use_list();
             unsigned i = lit.index();
             auto const* b = m_flat_use_list.data() + m_use_list_index[i];
             auto const* e = m_flat_use_list.data() + m_use_list_index[i + 1];

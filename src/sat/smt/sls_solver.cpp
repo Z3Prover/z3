@@ -49,10 +49,10 @@ namespace sls {
         ast_manager m_sync_manager;
         obj_map<expr, expr*> m_sls2sync_uninterp; // hashtable from sls-uninterp to sync uninterp
         obj_map<expr, expr*> m_smt2sync_uninterp; // hashtable from external uninterp to sync uninterp
+        ast_translation m_smt2sync_tr, m_smt2sls_tr;
         expr_ref_vector m_sync_uninterp; 
         expr_ref_vector m_sync_values;
-        std::atomic<bool> m_has_new_sls_values = false;
-        
+        std::atomic<bool> m_has_new_sls_values = false;     
         
         // export from SAT to SLS:
         // - unit literals
@@ -64,8 +64,10 @@ namespace sls {
             std::lock_guard<std::mutex> lock(s.m_mutex);
             IF_VERBOSE(1, verbose_stream() << "SMT -> SLS units " << s.m_units << "\n");
             for (auto lit : s.m_units)
-                if (m_shared_vars.contains(lit.var()))
+                if (m_shared_vars.contains(lit.var())) {
+                    IF_VERBOSE(1, verbose_stream() << "unit " << lit << "\n");                        
                     m_ddfw->add(1, &lit);
+                }
             s.m_has_units = false;
             s.m_units.reset();
             return true;
@@ -87,7 +89,7 @@ namespace sls {
 
         bool export_to_sls() {
             bool updated = false;
-            if (false && export_units_to_sls())
+            if (export_units_to_sls())
                 updated = true;
             if (export_phase_to_sls())
                 updated = true;
@@ -127,7 +129,10 @@ namespace sls {
         smt_plugin(ast_manager& m, solver& s, sat::ddfw* d) : 
 	    m(m), s(s), m_ddfw(d), m_context(m, *this),
             m_sync_uninterp(m_sync_manager),
-            m_sync_values(m_sync_manager) {            
+            m_sync_values(m_sync_manager),
+            m_smt2sync_tr(s.ctx.get_manager(), m_sync_manager),
+            m_smt2sls_tr(s.ctx.get_manager(), m)
+        {            
         }
 
         uint_set m_shared_vars;
@@ -140,10 +145,8 @@ namespace sls {
         svector<double> m_rewards;
 
         void add_uninterp(expr* smt_t) {
-            ast_translation tr1(s.ctx.get_manager(), m_sync_manager);
-            ast_translation tr2(s.ctx.get_manager(), m);
-            auto sync_t = tr1(smt_t);
-            auto sls_t = tr2(smt_t);
+            auto sync_t = m_smt2sync_tr(smt_t);
+            auto sls_t = m_smt2sls_tr(smt_t);
             m_sync_uninterp.push_back(sync_t);
             m_smt2sync_uninterp.insert(smt_t, sync_t);
             m_sls2sync_uninterp.insert(sls_t, sync_t);
@@ -151,6 +154,7 @@ namespace sls {
 
         void add_shared_var(sat::bool_var v) {
             m_sls_phase.reserve(v + 1);
+            m_sat_phase.reserve(v + 1);
             m_rewards.reserve(v + 1);
             m_shared_vars.insert(v);
         }
@@ -175,11 +179,11 @@ namespace sls {
                 m_ddfw->reinit();
                 m_new_clause_added = false;
             }
-            import_from_sls();
+            //import_from_sls();
         }
 
         void on_model(model_ref& mdl) override {
-            IF_VERBOSE(1, verbose_stream() << "on-model " << "\n");
+            IF_VERBOSE(3, verbose_stream() << "on-model " << "\n");
             s.m_sls_model = mdl;
         }
 
@@ -196,13 +200,19 @@ namespace sls {
         vector<sat::clause_info> const& clauses() const override { return m_ddfw->clauses(); }
         sat::clause_info const& get_clause(unsigned idx) const override { return m_ddfw->get_clause_info(idx); }
         ptr_iterator<unsigned> get_use_list(sat::literal lit) override { return m_ddfw->use_list(lit); }
-        void flip(sat::bool_var v) override { m_ddfw->flip(v); }
+        void flip(sat::bool_var v) override { 
+            m_ddfw->flip(v);
+        }
         double reward(sat::bool_var v) override { return m_ddfw->get_reward(v); }
         double get_weigth(unsigned clause_idx) override { return m_ddfw->get_clause_info(clause_idx).m_weight; }
-        bool is_true(sat::literal lit) override { return m_ddfw->get_value(lit.var()) != lit.sign(); }
+        bool is_true(sat::literal lit) override { 
+                return m_ddfw->get_value(lit.var()) != lit.sign(); 
+        }
         unsigned num_vars() const override { return m_ddfw->num_vars(); }
         indexed_uint_set const& unsat() const override { return m_ddfw->unsat_set(); }
-        sat::bool_var add_var() override { return m_ddfw->add_var(); }
+        sat::bool_var add_var() override { 
+            return m_ddfw->add_var(); 
+        }
         void add_clause(unsigned n, sat::literal const* lits) override { 
             m_ddfw->add(n, lits);
             m_new_clause_added = true;
@@ -238,8 +248,8 @@ namespace sls {
             m_has_new_sat_phase = true;
             s.s().set_has_new_best_phase(false);
             std::lock_guard<std::mutex> lock(s.m_mutex);
-            for (unsigned i = 0; i < m_sat_phase.size(); ++i)
-                m_sat_phase[i] = s.s().get_best_phase(i);
+            for (auto v : m_shared_vars) 
+                m_sat_phase[v] = s.s().get_best_phase(v);            
         }
 
         void export_activity_to_smt() {
@@ -271,13 +281,18 @@ namespace sls {
     }
 
     void solver::pop_core(unsigned n) {
+        if (!m_smt_plugin)
+            return;
         for (; m_trail_lim < s().init_trail_size(); ++m_trail_lim) {
             auto lit = s().trail_literal(m_trail_lim);
+            if (!m_smt_plugin->m_shared_vars.contains(lit.var()))
+                continue;
+            IF_VERBOSE(10, verbose_stream() << "push unit " << lit << " " << mk_bounded_pp(ctx.literal2expr(lit), m) << "\n");
             std::lock_guard<std::mutex> lock(m_mutex);
             m_units.push_back(lit);
             m_has_units = true;
-        }
-        if (s().at_base_lvl() && s().has_new_best_phase())
+        }        
+        if (s().has_new_best_phase())
             m_smt_plugin->import_phase_from_smt();
         
         m_smt_plugin->export_phase_to_smt();
@@ -334,6 +349,7 @@ namespace sls {
     }
 
     void solver::local_search_done() {
+        IF_VERBOSE(1, verbose_stream() << "local-search-done\n");
         m_completed = false;
 
         CTRACE("sls", m_smt_plugin, m_smt_plugin->display(tout));
@@ -356,6 +372,7 @@ namespace sls {
     void solver::run_local_search_async() {
         if (m_ddfw) {
             m_result = m_ddfw->check(0, nullptr);
+            IF_VERBOSE(1, verbose_stream() << "sls-result " << m_result << "\n");
             m_completed = true;
         }
     }
