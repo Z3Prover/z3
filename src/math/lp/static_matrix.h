@@ -47,7 +47,7 @@ template <typename T>
 using row_strip = vector<row_cell<T>>; 
 template <typename K> mpq get_denominators_lcm(const K & row) {
     mpq r = mpq(1);
-    for (auto & c : row) 
+    for (const auto & c : row) 
         r = lcm(r, denominator(c.coeff()));
     return r;
 }
