@@ -178,6 +178,10 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       ctxs.forEach(other => assert('ctx' in other ? ctx === other.ctx : ctx === other, 'Context mismatch'));
     }
 
+    function _assertPtr<T extends Number>(ptr: T | null): asserts ptr is T {
+      if (ptr == null) throw new TypeError('Expected non-null pointer');
+    }
+
     // call this after every nontrivial call to the underlying API
     function throwIfError() {
       if (Z3.get_error_code(contextPtr) !== Z3_error_code.Z3_OK) {
@@ -1235,18 +1239,17 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       toString() {
         return this.sexpr();
       }
-
-      release() {
-        Z3.dec_ref(contextPtr, this.ast);
-        cleanup.unregister(this);
-      }
     }
 
     class SolverImpl implements Solver<Name> {
       declare readonly __typename: Solver['__typename'];
 
-      readonly ptr: Z3_solver;
       readonly ctx: Context<Name>;
+      private _ptr: Z3_solver | null;
+      get ptr(): Z3_solver {
+        _assertPtr(this._ptr);
+        return this._ptr;
+      }
 
       constructor(ptr: Z3_solver | string = Z3.mk_solver(contextPtr)) {
         this.ctx = ctx;
@@ -1256,7 +1259,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         } else {
           myPtr = ptr;
         }
-        this.ptr = myPtr;
+        this._ptr = myPtr;
         Z3.solver_inc_ref(contextPtr, myPtr);
         cleanup.register(this, () => Z3.solver_dec_ref(contextPtr, myPtr), this);
       }
@@ -1335,6 +1338,8 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       release() {
         Z3.solver_dec_ref(contextPtr, this.ptr);
+        // Mark the ptr as null to prevent double free
+        this._ptr = null;
         cleanup.unregister(this);
       }
     }
@@ -1342,14 +1347,18 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     class OptimizeImpl implements Optimize<Name> {
       declare readonly __typename: Optimize['__typename'];
 
-      readonly ptr: Z3_optimize;
       readonly ctx: Context<Name>;
+      private _ptr: Z3_optimize | null;
+      get ptr(): Z3_optimize {
+        _assertPtr(this._ptr);
+        return this._ptr;
+      }
 
       constructor(ptr: Z3_optimize = Z3.mk_optimize(contextPtr)) {
         this.ctx = ctx;
         let myPtr: Z3_optimize;
         myPtr = ptr;
-        this.ptr = myPtr;
+        this._ptr = myPtr;
         Z3.optimize_inc_ref(contextPtr, myPtr);
         cleanup.register(this, () => Z3.optimize_dec_ref(contextPtr, myPtr), this);
       }
@@ -1373,11 +1382,11 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         });
       }
 
-      addSoft(expr: Bool<Name>, weight: number | bigint | string | CoercibleRational, id: number | string = "") {
+      addSoft(expr: Bool<Name>, weight: number | bigint | string | CoercibleRational, id: number | string = '') {
         if (isCoercibleRational(weight)) {
           weight = `${weight.numerator}/${weight.denominator}`;
         }
-        check(Z3.optimize_assert_soft(contextPtr, this.ptr, expr.ast, weight.toString(), _toSymbol(id)))
+        check(Z3.optimize_assert_soft(contextPtr, this.ptr, expr.ast, weight.toString(), _toSymbol(id)));
       }
 
       addAndTrack(expr: Bool<Name>, constant: Bool<Name> | string) {
@@ -1405,9 +1414,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
           _assertContext(expr);
           return expr.ast;
         });
-        const result = await asyncMutex.runExclusive(() =>
-          check(Z3.optimize_check(contextPtr, this.ptr, assumptions)),
-        );
+        const result = await asyncMutex.runExclusive(() => check(Z3.optimize_check(contextPtr, this.ptr, assumptions)));
         switch (result) {
           case Z3_lbool.Z3_L_FALSE:
             return 'unsat';
@@ -1442,9 +1449,15 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     class ModelImpl implements Model<Name> {
       declare readonly __typename: Model['__typename'];
       readonly ctx: Context<Name>;
+      private _ptr: Z3_model | null;
+      get ptr(): Z3_model {
+        _assertPtr(this._ptr);
+        return this._ptr;
+      }
 
-      constructor(readonly ptr: Z3_model = Z3.mk_model(contextPtr)) {
+      constructor(ptr: Z3_model = Z3.mk_model(contextPtr)) {
         this.ctx = ctx;
+        this._ptr = ptr;
         Z3.model_inc_ref(contextPtr, ptr);
         cleanup.register(this, () => Z3.model_dec_ref(contextPtr, ptr), this);
       }
@@ -1611,6 +1624,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       release() {
         Z3.model_dec_ref(contextPtr, this.ptr);
+        this._ptr = null;
         cleanup.unregister(this);
       }
     }
@@ -1674,11 +1688,6 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         _assertContext(value);
         assert(this.arity() === argsVec.length(), "Number of arguments in entry doesn't match function arity");
         check(Z3.func_interp_add_entry(contextPtr, this.ptr, argsVec.ptr, value.ptr as Z3_ast));
-      }
-
-      release() {
-        Z3.func_interp_dec_ref(contextPtr, this.ptr);
-        cleanup.unregister(this);
       }
     }
 
@@ -1947,11 +1956,6 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
         Z3.tactic_inc_ref(contextPtr, myPtr);
         cleanup.register(this, () => Z3.tactic_dec_ref(contextPtr, myPtr), this);
-      }
-
-      release() {
-        Z3.tactic_dec_ref(contextPtr, this.ptr);
-        cleanup.unregister(this);
       }
     }
 
@@ -2704,11 +2708,6 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       sexpr(): string {
         return check(Z3.ast_vector_to_string(contextPtr, this.ptr));
       }
-
-      release() {
-        Z3.ast_vector_dec_ref(contextPtr, this.ptr);
-        cleanup.unregister(this);
-      }
     }
 
     class AstMapImpl<Key extends AnyAst<Name>, Value extends AnyAst<Name>> implements AstMap<Name, Key, Value> {
@@ -2767,11 +2766,6 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       sexpr(): string {
         return check(Z3.ast_map_to_string(contextPtr, this.ptr));
-      }
-
-      release() {
-        Z3.ast_map_dec_ref(contextPtr, this.ptr);
-        cleanup.unregister(this);
       }
     }
 

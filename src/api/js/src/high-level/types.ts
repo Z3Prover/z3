@@ -703,6 +703,11 @@ export interface Optimize<Name extends string = 'main'> {
 
   model(): Model<Name>;
 
+  /**
+   * Manually decrease the reference count of the optimize
+   * This is automatically done when the optimize is garbage collected,
+   * but calling this eagerly can help release memory sooner.
+   */
   release(): void;
 }
 
@@ -839,13 +844,6 @@ export interface FuncInterp<Name extends string = 'main'> {
   entry(i: number): FuncEntry<Name>;
 
   addEntry(args: Expr<Name>[], value: Expr<Name>): void;
-
-  /**
-   * Manually decrease the reference count of the func interp
-   * This is automatically done when the func interp is garbage collected,
-   * but calling this eagerly can help release memory sooner.
-   */
-  release(): void;
 }
 
 /** @hidden */
@@ -1630,13 +1628,6 @@ export interface Tactic<Name extends string = 'main'> {
 
   readonly ctx: Context<Name>;
   readonly ptr: Z3_tactic;
-
-  /**
-   * Manually decrease the reference count of the tactic
-   * This is automatically done when the tactic is garbage collected,
-   * but calling this eagerly can help release memory sooner.
-   */
-  release(): void;
 }
 
 /** @hidden */
@@ -1688,12 +1679,6 @@ export interface AstVector<Name extends string = 'main', Item extends Ast<Name> 
   has(v: Item): boolean;
 
   sexpr(): string;
-  /**
-   * Manually decrease the reference count of the ast vector
-   * This is automatically done when the ast vector is garbage collected,
-   * but calling this eagerly can help release memory sooner.
-   */
-  release(): void;
 }
 
 /** @hidden */
@@ -1752,13 +1737,6 @@ export interface AstMap<
   has(key: Key): boolean;
 
   sexpr(): string;
-
-  /**
-   * Manually decrease the reference count of the ast map
-   * This is automatically done when the ast map is garbage collected,
-   * but calling this eagerly can help release memory sooner.
-   */
-  release(): void;
 }
 
 /**
