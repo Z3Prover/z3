@@ -219,7 +219,6 @@ namespace lp {
         void init() {
             m_e_matrix = static_matrix<mpq, mpq>(lra.row_count(), lra.column_count());
             m_report_branch = false;
-            unsigned n_of_rows = lra.A_r().row_count();
             m_k2s.clear();
             m_k2s.resize(lra.column_count(), -1);
             m_conflict_index = -1;
@@ -230,7 +229,7 @@ namespace lp {
             for (unsigned i = 0; i < lra.terms().size(); i++) {
                 const lar_term* t = lra.terms()[i];
                 TRACE("dioph_eq",  tout << "term "<< i <<":"; lra.print_term(*t, tout) << "\n";
-                    for(auto & p: *t) {
+                    for(const auto & p: *t) {
                         lra.print_column_info(p.var(), tout);
                     }
                 );
