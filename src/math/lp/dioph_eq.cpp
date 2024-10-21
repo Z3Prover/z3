@@ -176,29 +176,37 @@ namespace lp {
         }
         private:
         // the row comes from lar_solver
-        void fill_eprime_entry(const row_strip<mpq>& row, unsigned row_index) {
-            m_f.push_back(row_index);
-            eprime_entry& e = m_eprime[row_index];
-            e.m_row_index = row_index;
-            const auto lcm = get_denominators_lcm(row);
+        void fill_eprime_entry(const lar_term& t, unsigned term_index) {
+            m_f.push_back(term_index);
+            eprime_entry& e = m_eprime[term_index];
+            e.m_row_index = term_index;
+            const auto lcm = get_denominators_lcm(t);
             mpq & c = e.m_c;
             SASSERT(c.is_zero());
 
-            for (const auto & p: row) {
+            for (const auto & p: t) {
                 if (lia.is_fixed(p.var())) {
                     c += p.coeff()*lia.lower_bound(p.var()).x;
                     e.m_l = lra.mk_join(e.m_l, lra.get_bound_constraint_witnesses_for_column(p.var()));
                 }
                 else {
-                    m_e_matrix.add_new_element(row_index, p.var(), lcm * p.coeff());
+                    m_e_matrix.add_new_element(term_index, p.var(), lcm * p.coeff());
                 }                
             }
+            unsigned j = t.j();
+            if (lia.is_fixed(j)) {
+                c -= lia.lower_bound(j).x;
+                e.m_l = lra.mk_join(e.m_l, lra.get_bound_constraint_witnesses_for_column(j));
+            }
+            else {
+                m_e_matrix.add_new_element(term_index, j, - lcm);
+            }                
             c *= lcm;            
             e.m_entry_status = entry_status::F;
         }
 
-        bool all_vars_are_int_and_small(const row_strip<mpq>& row) const {
-            for (const auto& p : row) {
+        bool all_vars_are_int_and_small(const lar_term& term) const {
+            for (const auto& p : term) {
                 if (!lia.column_is_int(p.var())) 
                     return false;
                 if (p.coeff().is_big())
@@ -218,19 +226,20 @@ namespace lp {
             m_infeas_explanation.clear();
             lia.get_term().clear();
             m_eprime.clear();
-            m_eprime.resize(n_of_rows);
-            for (unsigned i = 0; i < n_of_rows; i++) {
-                auto & row = lra.get_row(i);
-                TRACE("dioph_eq", tout << "row "<< i <<":"; lra.print_row(row, tout) << "\n";
-                for(auto & p: row) {
-                    lra.print_column_info(p.var(), tout);
-                });
-                if (!all_vars_are_int_and_small(row)) {
+            m_eprime.resize(lra.terms().size());
+            for (unsigned i = 0; i < lra.terms().size(); i++) {
+                const lar_term* t = lra.terms()[i];
+                TRACE("dioph_eq",  tout << "term "<< i <<":"; lra.print_term(*t, tout) << "\n";
+                    for(auto & p: *t) {
+                        lra.print_column_info(p.var(), tout);
+                    }
+                );
+                if (t->j() == UINT_MAX || !all_vars_are_int_and_small(*t)) {
                     TRACE("dioph_eq", tout << "not all vars are int and small\n";);
                     m_eprime[i].m_entry_status = entry_status::NO_S_NO_F;
                     continue;
                 }
-                fill_eprime_entry(row, i);
+                fill_eprime_entry(*t, i);
                 TRACE("dioph_eq", print_eprime_entry(static_cast<unsigned>(i), tout););
             }
 

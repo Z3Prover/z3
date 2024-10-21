@@ -26,12 +26,6 @@ Revision History:
 #include "math/lp/lp_primal_core_solver.h"
 #include "math/lp/lar_solver.h"
 namespace lp {
-mpq get_denominators_lcm(const row_strip<mpq> & row) {
-    mpq r(1);
-    for (auto & c : row) 
-        r = lcm(r, denominator(c.coeff()));
-    return r;
-}
     
 template std::set<std::pair<unsigned, unsigned>> lp::static_matrix<lp::mpq, lp::mpq>::get_domain();
 template std::set<std::pair<unsigned, unsigned>> lp::static_matrix<lp::mpq, lp::numeric_pair<lp::mpq> >::get_domain();

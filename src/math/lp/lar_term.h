@@ -237,6 +237,7 @@ public:
     public:
         ival(lpvar var, const mpq & val) : m_var(var), m_coeff(val) { }
         lpvar j() const { return m_var; }
+        lpvar var() const { return m_var; }
         const mpq & coeff() const { return m_coeff; }
     };
     
