@@ -1442,6 +1442,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       release() {
         Z3.optimize_dec_ref(contextPtr, this.ptr);
+        this._ptr = null;
         cleanup.unregister(this);
       }
     }
