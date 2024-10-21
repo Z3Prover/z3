@@ -69,6 +69,8 @@ namespace sls {
             register_plugin(alloc(array_plugin, *this));
         else if (fid == datatype_util(m).get_family_id())
             register_plugin(alloc(datatype_plugin, *this));
+        else if (fid == null_family_id)
+            ;
         else
             verbose_stream() << "did not find plugin for " << fid << "\n";
     }
@@ -242,7 +244,7 @@ namespace sls {
             fid = to_app(e)->get_arg(0)->get_sort()->get_family_id();   
         if (m.is_distinct(e))
             fid = to_app(e)->get_arg(0)->get_sort()->get_family_id();
-        if (fid == null_family_id || fid == model_value_family_id)
+        if ((fid == null_family_id && to_app(e)->get_num_args() > 0) || fid == model_value_family_id)
             fid = user_sort_family_id;
         return fid;
     }
@@ -489,9 +491,9 @@ namespace sls {
             m_unit_indices.insert(lit.index());
             
         verbose_stream() << "UNITS " << m_unit_literals << "\n";
-        for (auto a : m_atoms)
-            if (a)
-                register_terms(a);
+        for (unsigned i = 0; i < m_atoms.size(); ++i)
+            if (m_atoms.get(i))
+                register_terms(m_atoms.get(i));
         for (auto p : m_plugins)
             if (p)
                 p->initialize();
