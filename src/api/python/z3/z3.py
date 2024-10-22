@@ -1400,7 +1400,7 @@ def is_app_of(a, k):
     >>> is_app_of(n, Z3_OP_MUL)
     False
     """
-    return is_app(a) and a.decl().kind() == k
+    return is_app(a) and a.kind() == k
 
 
 def If(a, b, c, ctx=None):
@@ -9454,7 +9454,7 @@ _ROUNDING_MODES = frozenset({
 def set_default_rounding_mode(rm, ctx=None):
     global _dflt_rounding_mode
     if is_fprm_value(rm):
-        _dflt_rounding_mode = rm.decl().kind()
+        _dflt_rounding_mode = rm.kind()
     else:
         _z3_assert(_dflt_rounding_mode in _ROUNDING_MODES, "illegal rounding mode")
         _dflt_rounding_mode = rm
