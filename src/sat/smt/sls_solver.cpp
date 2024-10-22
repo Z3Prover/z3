@@ -234,18 +234,20 @@ namespace sls {
         }
 
         void export_phase_to_smt() {
-            if (m_has_new_sls_phase) {
-                IF_VERBOSE(1, verbose_stream() << "new SLS -> SMT phase\n");
-                std::lock_guard<std::mutex> lock(s.m_mutex);
-                for (unsigned i = 0; i < m_sls_phase.size(); ++i)
-                    s.s().set_phase(sat::literal(i, !m_sls_phase[i]));
-                m_has_new_sls_phase = false;
-            }
+            if (!m_has_new_sls_phase)
+                return;
+            IF_VERBOSE(1, verbose_stream() << "new SLS -> SMT phase\n");
+            std::lock_guard<std::mutex> lock(s.m_mutex);
+            for (unsigned i = 0; i < m_sls_phase.size(); ++i)
+                s.s().set_phase(sat::literal(i, !m_sls_phase[i]));
+            m_has_new_sls_phase = false;
         }
 
         void import_phase_from_smt() {
-            IF_VERBOSE(1, verbose_stream() << "new SMT -> SLS phase\n");
+            if (m_has_new_sat_phase)
+                return;
             m_has_new_sat_phase = true;
+            IF_VERBOSE(1, verbose_stream() << "new SMT -> SLS phase\n");
             s.s().set_has_new_best_phase(false);
             std::lock_guard<std::mutex> lock(s.m_mutex);
             for (auto v : m_shared_vars) 

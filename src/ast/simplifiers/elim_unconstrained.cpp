@@ -80,13 +80,13 @@ void elim_unconstrained::eliminate() {
             continue;
         }
         expr* e = get_parent(v);
-        IF_VERBOSE(11, for (expr* p : n.m_parents) verbose_stream() << "parent " << mk_bounded_pp(p, m) << " @ " << get_node(p).m_refcount << "\n";);
+        TRACE("elim_unconstrained", for (expr* p : n.m_parents) tout << "parent " << mk_bounded_pp(p, m) << " @ " << get_node(p).m_refcount << "\n";);
         if (!e || !is_app(e) || !is_ground(e)) {
             n.m_refcount = 0;
             continue;
         }
         if (m_heap.contains(root(e))) {
-            IF_VERBOSE(11, verbose_stream() << "already in heap " << mk_bounded_pp(e, m) << "\n");
+            TRACE("elim_unconstrained", tout << "already in heap " << mk_bounded_pp(e, m) << "\n");
             continue;
         }
         app* t = to_app(e);
@@ -107,7 +107,7 @@ void elim_unconstrained::eliminate() {
         n.m_refcount = 0;
         m_args.shrink(sz);
         if (!inverted) {
-            IF_VERBOSE(11, verbose_stream() << "not inverted " << mk_bounded_pp(e, m) << "\n");
+            TRACE("elim_unconstrained", tout << "not inverted " << mk_bounded_pp(e, m) << "\n");
             continue;
         }
 
@@ -147,10 +147,10 @@ expr* elim_unconstrained::get_parent(unsigned n) const {
 }
 
 void elim_unconstrained::invalidate_parents(expr* e) {
-    ptr_vector<expr> todo;
+    ptr_buffer<expr> todo;
     do {
         node& n = get_node(e);
-        if (!n.m_dirty) {
+        if (!n.m_dirty && e == n.m_term) {
             n.m_dirty = true;
             for (expr* e : n.m_parents)
                 todo.push_back(e);            
@@ -299,7 +299,7 @@ expr_ref elim_unconstrained::reconstruct_term(node& n0) {
         return expr_ref(t, m);
     if (!is_node(t))
         return expr_ref(t, m);
-    ptr_vector<expr> todo;
+    ptr_buffer<expr> todo;
     todo.push_back(t);
     while (!todo.empty()) {
         t = todo.back();
@@ -310,6 +310,7 @@ expr_ref elim_unconstrained::reconstruct_term(node& n0) {
         unsigned sz0 = todo.size();
         if (is_app(t)) {     
             if (n.m_term != t) {
+                n.m_dirty = false;
                 todo.pop_back();
                 continue;
             }

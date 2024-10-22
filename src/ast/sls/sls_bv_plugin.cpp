@@ -57,8 +57,10 @@ namespace sls {
             return;
         auto a = to_app(e);
 
-        if (!m_eval.eval_is_correct(a))
+        if (!m_eval.eval_is_correct(a)) {
+            IF_VERBOSE(20, verbose_stream() << "repair " << lit << " " << mk_bounded_pp(e, m) << "\n");
             ctx.new_value_eh(e);
+        }
     }
 
     bool bv_plugin::propagate() {
