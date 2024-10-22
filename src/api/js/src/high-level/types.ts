@@ -429,6 +429,15 @@ export interface Context<Name extends string = 'main'> {
   /** @category Operations */
   Or(...args: Probe<Name>[]): Probe<Name>;
 
+  /** @category Operations */
+  PbEq(args: [Bool<Name>, ...Bool<Name>[]], coeffs: [number, ...number[]], k: number): Bool<Name>;
+
+  /** @category Operations */
+  PbGe(args: [Bool<Name>, ...Bool<Name>[]], coeffs: [number, ...number[]], k: number): Bool<Name>;
+
+  /** @category Operations */
+  PbLe(args: [Bool<Name>, ...Bool<Name>[]], coeffs: [number, ...number[]], k: number): Bool<Name>;
+
   // Quantifiers
 
   /** @category Operations */
