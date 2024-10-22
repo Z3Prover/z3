@@ -62,10 +62,10 @@ namespace sls {
             if (!s.m_has_units)
                 return false;
             std::lock_guard<std::mutex> lock(s.m_mutex);
-            IF_VERBOSE(1, verbose_stream() << "SMT -> SLS units " << s.m_units << "\n");
+            IF_VERBOSE(3, verbose_stream() << "SMT -> SLS units " << s.m_units << "\n");
             for (auto lit : s.m_units)
                 if (m_shared_vars.contains(lit.var())) {
-                    IF_VERBOSE(1, verbose_stream() << "unit " << lit << "\n");                        
+                    IF_VERBOSE(10, verbose_stream() << "unit " << lit << "\n");                        
                     m_ddfw->add(1, &lit);
                 }
             s.m_has_units = false;
@@ -77,7 +77,7 @@ namespace sls {
             if (!m_has_new_sat_phase)
                 return false;
             std::lock_guard<std::mutex> lock(s.m_mutex);
-            IF_VERBOSE(1, verbose_stream() << "SMT -> SLS phase\n");
+            IF_VERBOSE(3, verbose_stream() << "SMT -> SLS phase\n");
             for (auto i : m_shared_vars) {
                 if (m_sat_phase[i] != is_true(sat::literal(i, false))) 
                     flip(i);
@@ -114,7 +114,7 @@ namespace sls {
         }
 
         void import_values_from_sls() {
-            IF_VERBOSE(1, verbose_stream() << "import values from sls\n");
+            IF_VERBOSE(3, verbose_stream() << "import values from sls\n");
             std::lock_guard<std::mutex> lock(s.m_mutex);
             ast_translation tr(m, m_sync_manager);
             for (auto const& [t, t_sync] : m_sls2sync_uninterp) {
@@ -222,7 +222,7 @@ namespace sls {
         void export_values_to_smt() {
             if (!m_has_new_sls_values)
                 return;
-            IF_VERBOSE(1, verbose_stream() << "SLS -> SMT values\n");
+            IF_VERBOSE(3, verbose_stream() << "SLS -> SMT values\n");
             std::lock_guard<std::mutex> lock(s.m_mutex);
             ast_translation tr(m_sync_manager, s.ctx.get_manager());
             for (auto const& [t, t_sync] : m_smt2sync_uninterp) {
@@ -236,7 +236,7 @@ namespace sls {
         void export_phase_to_smt() {
             if (!m_has_new_sls_phase)
                 return;
-            IF_VERBOSE(1, verbose_stream() << "new SLS -> SMT phase\n");
+            IF_VERBOSE(3, verbose_stream() << "new SLS -> SMT phase\n");
             std::lock_guard<std::mutex> lock(s.m_mutex);
             for (unsigned i = 0; i < m_sls_phase.size(); ++i)
                 s.s().set_phase(sat::literal(i, !m_sls_phase[i]));
@@ -247,7 +247,7 @@ namespace sls {
             if (m_has_new_sat_phase)
                 return;
             m_has_new_sat_phase = true;
-            IF_VERBOSE(1, verbose_stream() << "new SMT -> SLS phase\n");
+            IF_VERBOSE(3, verbose_stream() << "new SMT -> SLS phase\n");
             s.s().set_has_new_best_phase(false);
             std::lock_guard<std::mutex> lock(s.m_mutex);
             for (auto v : m_shared_vars) 
