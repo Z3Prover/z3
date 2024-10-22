@@ -86,7 +86,7 @@ void elim_unconstrained::eliminate() {
             continue;
         }
         if (m_heap.contains(root(e))) {
-            IF_VERBOSE(11, verbose_stream() << "already in heap " << mk_bounded_pp(e, m) << "\n");
+            TRACE("elim_unconstrained", tout << "already in heap " << mk_bounded_pp(e, m) << "\n");
             continue;
         }
         app* t = to_app(e);
@@ -111,9 +111,9 @@ void elim_unconstrained::eliminate() {
             continue;
         }
 
-        IF_VERBOSE(11, verbose_stream() << "replace " << mk_pp(t, m) << " : " << rr << " -> " << r << "\n");
+        IF_VERBOSE(11, verbose_stream() << "replace " << mk_pp(t, m) << " / " << rr << " -> " << r << "\n");
         
-        TRACE("elim_unconstrained", tout << mk_pp(t, m) << " : " << rr << " -> " << r << "\n");
+        TRACE("elim_unconstrained", tout << mk_pp(t, m) << " / " << rr << " -> " << r << "\n");
         SASSERT(r->get_sort() == t->get_sort());
         m_stats.m_num_eliminated++;
         m_trail.push_back(r);
@@ -147,10 +147,10 @@ expr* elim_unconstrained::get_parent(unsigned n) const {
 }
 
 void elim_unconstrained::invalidate_parents(expr* e) {
-    ptr_vector<expr> todo;
+    ptr_buffer<expr> todo;
     do {
         node& n = get_node(e);
-        if (!n.m_dirty) {
+        if (!n.m_dirty && e == n.m_term) {
             n.m_dirty = true;
             for (expr* e : n.m_parents)
                 todo.push_back(e);            
@@ -299,7 +299,7 @@ expr_ref elim_unconstrained::reconstruct_term(node& n0) {
         return expr_ref(t, m);
     if (!is_node(t))
         return expr_ref(t, m);
-    ptr_vector<expr> todo;
+    ptr_buffer<expr> todo;
     todo.push_back(t);
     while (!todo.empty()) {
         t = todo.back();
@@ -310,6 +310,7 @@ expr_ref elim_unconstrained::reconstruct_term(node& n0) {
         unsigned sz0 = todo.size();
         if (is_app(t)) {     
             if (n.m_term != t) {
+                n.m_dirty = false;
                 todo.pop_back();
                 continue;
             }

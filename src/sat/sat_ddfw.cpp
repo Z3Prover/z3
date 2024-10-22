@@ -262,7 +262,6 @@ namespace sat {
         m_assumptions.append(sz, assumptions);
         add_assumptions();
         for (unsigned v = 0; v < num_vars(); ++v) {
-            literal lit(v, false), nlit(v, true);
             value(v) = (m_rand() % 2) == 0; // m_use_list[lit.index()].size() >= m_use_list[nlit.index()].size();
         }
         init_clause_data();
