@@ -1073,7 +1073,12 @@ class ExprRef(AstRef):
             _z3_assert(is_app(self), "Z3 application expected")
         return FuncDeclRef(Z3_get_app_decl(self.ctx_ref(), self.as_ast()), self.ctx)
 
-    
+    def kind(self):
+        """Return the Z3 internal kind of a function application."""
+        if z3_debug():
+            _z3_assert(is_app(self), "Z3 application expected")
+        return Z3_get_decl_kind(self.ctx_ref(), Z3_get_app_decl(self.ctx_ref(), self.ast))
+        
 
     def num_args(self):
         """Return the number of arguments of a Z3 application.
