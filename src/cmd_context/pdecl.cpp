@@ -773,7 +773,6 @@ bool pdatatypes_decl::commit(pdecl_manager& m) {
         for (unsigned i = 0; i < d->get_num_params(); ++i) {
             ps.push_back(m.m().mk_uninterpreted_sort(symbol(i), 0, nullptr));
         }        
-        verbose_stream() << ps.size() << " " << ps << "\n";
 
         dts.m_buffer.push_back(d->instantiate_decl(m, ps.size(), ps.data()));
     }

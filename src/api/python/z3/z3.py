@@ -1073,6 +1073,8 @@ class ExprRef(AstRef):
             _z3_assert(is_app(self), "Z3 application expected")
         return FuncDeclRef(Z3_get_app_decl(self.ctx_ref(), self.as_ast()), self.ctx)
 
+    
+
     def num_args(self):
         """Return the number of arguments of a Z3 application.
 
