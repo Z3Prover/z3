@@ -115,6 +115,8 @@ public:
         }
     }
 
+    void erase(unsigned j);
+
     struct ival {
         unsigned m_var;
         const T & m_coeff;

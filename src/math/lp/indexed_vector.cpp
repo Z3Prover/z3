@@ -28,8 +28,10 @@ template void indexed_vector<mpq>::resize(unsigned int);
 template void indexed_vector<unsigned>::resize(unsigned int);
 template void indexed_vector<mpq>::set_value(const mpq&, unsigned int);
 template void indexed_vector<unsigned>::set_value(const unsigned&, unsigned int);
-template void lp::indexed_vector< lp::mpq>::print(std::basic_ostream<char,struct std::char_traits<char> > &);
-template void lp::indexed_vector<lp::numeric_pair<lp::mpq> >::print(std::ostream&);
+template void indexed_vector<mpq>::print(std::basic_ostream<char,struct std::char_traits<char> > &);
+template void indexed_vector<numeric_pair<lp::mpq> >::print(std::ostream&);
+template void indexed_vector<mpq>::erase(unsigned int);
 }
 template void lp::indexed_vector<lp::numeric_pair<lp::mpq> >::erase_from_index(unsigned int);
+
 
