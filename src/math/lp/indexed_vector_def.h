@@ -65,6 +65,16 @@ void indexed_vector<T>::erase_from_index(unsigned j) {
 }
 
 template <typename T>
+void indexed_vector<T>::erase(unsigned j) {
+    auto it = std::find(m_index.begin(), m_index.end(), j);
+    if (it != m_index.end()) {
+        m_data[j] = 0;
+        m_index.erase(it);
+    }
+}
+
+
+template <typename T>
 void indexed_vector<T>::print(std::ostream & out) {
     out << "m_index " << std::endl;
     for (unsigned i = 0; i < m_index.size(); i++) {

@@ -83,8 +83,8 @@ namespace lp {
                 return out;
             }
             bool first = true;
-            // Copy term to a vector and sort by p.j()
-            std::vector<std::pair<mpq, unsigned>> sorted_term;
+            // Copy term to a std_vector and sort by p.j()
+            std_vector<std::pair<mpq, unsigned>> sorted_term;
             sorted_term.reserve(term.size());
             for (const auto& p : term) {
                 sorted_term.emplace_back(p.coeff(), p.j());
@@ -146,7 +146,7 @@ namespace lp {
             mpq m_c; // the constant of the term
             entry_status m_entry_status;
         };
-        vector<eprime_entry> m_eprime;    
+        std_vector<eprime_entry> m_eprime;    
     // the terms are stored in m_A and m_c
         static_matrix<mpq, mpq> m_e_matrix;  // the rows of the matrix are the terms, without the constant part
         int_solver& lia;
@@ -160,7 +160,9 @@ namespace lp {
         std::list<unsigned> m_f;  // F = {λ(t):t in m_f}
         // set S
         std::list<unsigned> m_s;     // S = {λ(t): t in m_s}
-        vector<unsigned> m_k2s; // k is substituted by using equation in m_eprime[m_k2s[k].first] and m_k2s[k].second  
+        mpq m_c; // the constant of the equation
+        u_dependency * m_dep = nullptr; // the dependency of the equation
+        std_vector<unsigned> m_k2s; // k is substituted by using equation in m_eprime[m_k2s[k].first] and m_k2s[k].second  
         // gives the order of substitution
         
         unsigned            m_conflict_index = -1;  // m_eprime[m_conflict_index] gives the conflict
@@ -255,9 +257,9 @@ namespace lp {
             return dep;
         }
 
-        mpq gcd_of_row(unsigned row_index) {
+        template <typename K> mpq gcd_of_coeffs(const K & k) {
             mpq g(0);
-            for (const auto & p : m_e_matrix.m_rows[row_index]) {
+            for (const auto & p : k) {
                 if (g.is_zero())
                     g = abs(p.coeff());
                 else
@@ -266,6 +268,7 @@ namespace lp {
             }
             return g;
         }
+
         std::ostream & print_dep(std::ostream& out, u_dependency* dep) {
             explanation ex(lra.flatten(dep));
             return lra.print_expl(out, ex);
@@ -305,7 +308,7 @@ namespace lp {
         bool normalize_e_by_gcd(unsigned row_index) {
             eprime_entry& ep = m_eprime[row_index];
             TRACE("dioph_eq", print_eprime_entry(ep, tout) << std::endl;);
-            mpq g = gcd_of_row(row_index);
+            mpq g = gcd_of_coeffs(m_e_matrix.m_rows[row_index]);
             if (g.is_zero() || g.is_one()) {
                 SASSERT(g.is_one() || ep.m_c.is_zero());
                 return true;
@@ -350,30 +353,31 @@ namespace lp {
         // We substitute x_k in t by (+-)coeff*(sum {a_i*x_i} + c), where coeff is the coefficient of x_k in t.
 
         void substitute_k_with_S_entry_for_tigthening(const eprime_entry& e, unsigned k, std::queue<unsigned> & q) {
-            // SASSERT ( e.m_e.contains(k));
-            // mpq coeff = m_indexed_work_vector[k]; // need to copy it because the pointer value can be changed during the next loop
-            // const mpq& k_coeff_in_e = e.m_e.get_coeff(k); // get it from m_e_matrix instead of e.m_e
+            mpq coeff = m_indexed_work_vector[k]; // need to copy it because the pointer value can be changed during the next loop
+            const auto& e_row = m_e_matrix.m_rows[e.m_row_index];
+            auto it = std::find_if(e_row.begin(), e_row.end(), [k](const auto & c){ return c.var() == k;});
+            const mpq& k_coeff_in_e = it->coeff();
 
-            // bool is_one = k_coeff_in_e.is_one();
-            // SASSERT(is_one || k_coeff_in_e.is_minus_one());
-            // t.erase_var(k);
-            // if (is_one) {
-            //     coeff = -coeff;
-            // }
-            // for (const auto& p: e.m_e) {
-            //     if (p.j() == k) continue;
-            //     t.add_monomial(coeff*p.coeff(), p.j());
-            // }
-            // t.c() += coeff*e.m_e.c();
-            // TRACE("dioph_eq", tout << "after subs_k\n"; print_term_o(t, tout) << std::endl;);
-            // for (const auto& p: t) {
-            //     if (is_fresh_var(p.j())) {
-            //         continue;
-            //     }
-            //     if (m_k2s[p.j()] != null_lpvar)
-            //         q.push(p.j());
-            // }
-
+            bool is_one = k_coeff_in_e.is_one();
+            SASSERT(is_one || k_coeff_in_e.is_minus_one());
+            m_indexed_work_vector.erase(k);            
+            if (is_one) {
+                coeff = -coeff;
+            }
+            for (const auto& p: e_row) {
+                if (p.var() == k) continue;
+                SASSERT(!this->lia.is_fixed(p.var()));
+                m_indexed_work_vector.add_value_at_index(p.var(), p.coeff()*coeff);                
+            }
+            m_c += coeff * e.m_c;
+            TRACE("dioph_eq", tout << "after subs k:"<< k<< "\n"; print_term_o(create_term_from_ind_c(), tout) << std::endl;);
+            for (unsigned j: m_indexed_work_vector.m_index) {
+                if (is_fresh_var(j)) {
+                    continue;
+                }
+                if (m_k2s[j] != null_lpvar)
+                    q.push(j);
+            }
         }
 
         const eprime_entry& k_th_entry(unsigned k) const {
@@ -384,40 +388,39 @@ namespace lp {
             return m_k2s[k];
         }
         // works on m_indexed_work_vector
-        void substitude_term_on_q_with_S_for_tightening(std::queue<unsigned> &q, u_dependency* &dep) {
-        //    TRACE("dioph_eq_dep", tout << "dep:"; print_dep(tout, dep) << std::endl;);
-        //     while (!q.empty()) {
-        //         unsigned k = q.front();
-        //         q.pop();
-        //         const eprime_entry& e = k_th_entry(k);
-        //         if (m_indexed_work_vector[k].is_zero()) {
-        //             continue;
-        //         }
-        //         TRACE("dioph_eq", tout << "k:" << k << " in: "; print_eprime_entry(sub_index(k), tout) << std::endl;);
-        //         substitute_k_with_S_entry_for_tigthening(e, k, q);
+        void substitude_term_on_q_with_S_for_tightening(std::queue<unsigned> &q) {
+           TRACE("dioph_eq_dep", tout << "dep:"; print_dep(tout, m_dep) << std::endl;);
+            while (!q.empty()) {
+                unsigned k = q.front();
+                q.pop();
+                const eprime_entry& e = k_th_entry(k);
+                if (m_indexed_work_vector[k].is_zero()) {
+                    continue;
+                }
+                TRACE("dioph_eq", tout << "k:" << k << " in: "; print_eprime_entry(sub_index(k), tout) << std::endl;);
+                substitute_k_with_S_entry_for_tigthening(e, k, q);
                 
-        //         TRACE("dioph_eq", print_queue(q, tout););
+                TRACE("dioph_eq", print_queue(q, tout););
                 
-        //         dep = lra.mk_join(dep, e.m_l);
-        //         TRACE("dioph_eq", tout << "substituted t:"; print_term_o(t, tout) << std::endl;
-        //         tout << "\ndep:"; print_dep(tout, dep) << std::endl;);
-        //     }
+                m_dep = lra.mk_join(m_dep, e.m_l);
+                TRACE("dioph_eq", tout << "substituted t:"; print_term_o(create_term_from_ind_c(), tout) << std::endl;
+                /*tout << "\ndep:"; print_dep(tout, m_dep) << std::endl;*/);
+            }
         }
 
 
         lia_move tighten_with_S() {
-             // Following the pattern of int_cube, but do not push/pop the state. Instead, we keep the new bounds.
+            std::cout << ".";
             int change = 0;
             for (unsigned j = 0; j < lra.column_count(); j++) {
                 if (!lra.column_has_term(j) || lra.column_is_free(j) ||
                     lra.column_is_fixed(j) || !lia.column_is_int(j)) continue;
-                if (tighten_bounds_for_column(j)) {
+                if (tighten_bounds_for_term_column(j)) {
                     change++;
                 }
                 if (!m_infeas_explanation.empty()) {
                     return lia_move::conflict;
                 }   
-
             }
             if (!change)
                 return lia_move::undef;
@@ -438,51 +441,72 @@ namespace lp {
             out<< std::endl;
             return out;
         }   
+
+        term_o create_term_from_ind_c() {
+            term_o t;
+            for (const auto& p: m_indexed_work_vector) {
+                t.add_monomial(p.coeff(), p.var());
+            }
+            t.c() = m_c;
+            return t;
+        }
         // j is the index of the column representing a term
         // return true if a new tighter bound was set on j
-        bool tighten_bounds_for_column(unsigned j) {
-            // TRACE("dioph_eq", tout << "j:"; tout << j << std::endl;);
-            // const lar_term& lar_t = lra.get_term(j);
-            // TRACE("dioph_eq", tout << "tighten_term_for_S: "; print_lar_term_L(lar_t, tout) << std::endl;);
-            // // create a copy: t is a copy of lar_t
-            // std::queue<unsigned> q;
-            // m_indexed_work_vector.clear();
-            // for (const auto& p: lar_t) {
-            //     if (sub_index(p.j()) != null_lpvar)
-            //         q.push(p.j());
-            //     m_indexed_work_vector.set_value(p.coeff(), p.j());
-            // }
-            // u_dependency * dep = nullptr;
+        bool tighten_bounds_for_term_column(unsigned j) {
+            TRACE("dioph_eq", tout << "j:"; tout << j << std::endl;);
+            const lar_term& lar_t = lra.get_term(j);
+            TRACE("dioph_eq", tout << "t: "; print_lar_term_L(lar_t, tout) << std::endl;);
+            std::queue<unsigned> q;
+            for (const auto& p: lar_t) {
+                if (m_k2s[p.j()] != -1)
+                    q.push(p.j());
+            }
+            if (q.empty()) {
+                return false;
+            }
+            m_indexed_work_vector.clear();
+            m_indexed_work_vector.resize(m_e_matrix.column_count());
+            m_c = 0;
+            m_dep = nullptr;
+            for (const auto& p: lar_t) {
+                 if (lia.is_fixed(p.var())) {
+                    m_c += p.coeff()*lia.lower_bound(p.var()).x;
+                    m_dep = lra.mk_join(m_dep, lra.get_bound_constraint_witnesses_for_column(p.var()));
+                }
+                else {
+                    m_indexed_work_vector.set_value(p.coeff(), p.j());
+                }                
+            }
+
+            TRACE("dioph_eq", tout << "t:"; print_term_o(create_term_from_ind_c(), tout) << std::endl;
+             /*tout << "dep:"; print_dep(tout, dep) << std::endl;*/);
+            substitude_term_on_q_with_S_for_tightening(q);
+            TRACE("dioph_eq", tout << "after process_q_with_S\n t:"; print_term_o(create_term_from_ind_c(), tout) << std::endl;
+                   /*tout << "dep:"; print_dep(tout, m_dep) << std::endl;*/);
+            mpq g = gcd_of_coeffs(m_indexed_work_vector);
         
-            // TRACE("dioph_eq", tout << "t:"; print_term_o(t, tout) << std::endl;
-            // /*tout << "dep:"; print_dep(tout, dep) << std::endl;*/);
-            // substitude_term_on_q_with_S_for_tightening(q, dep);
-            // TRACE("dioph_eq", tout << "after process_q_with_S\n t:"; print_term_o(t, tout) << std::endl;
-            //       tout << "dep:"; print_dep(tout, dep) << std::endl;);
-            // mpq g = gcd_of_row(t);
-            // if (g.is_one()) {
-            //     TRACE("dioph_eq", tout << "g is one" << std::endl;);
-            //     return false;
-            // } else if (g.is_zero()) {
-            //     handle_constant_term(t, j, dep);
-            //     if (!m_infeas_explanation.empty())
-            //          return true;
-            //     return false;
-            // } 
-            
-            // return tighten_bounds_for_term(t, g, j, dep);
-            return false;
+            if (g.is_one()) {
+                TRACE("dioph_eq", tout << "g is one" << std::endl;);
+                return false;
+            } else if (g.is_zero()) {
+                handle_constant_term(j);
+                if (!m_infeas_explanation.empty())
+                     return true;
+                return false;
+            } 
+            // g is not trivial, trying to tighten the bounds
+            return tighten_bounds_for_term(g, j);            
         }
-        void handle_constant_term(term_o& t, unsigned j, u_dependency* dep) {
-            if (t.c().is_zero()) {
+        void handle_constant_term(unsigned j) {
+            if (m_c.is_zero()) {
                 return;
             }
             mpq rs;
             bool is_strict;
             u_dependency *b_dep = nullptr;
             if (lra.has_upper_bound(j, b_dep, rs, is_strict)) {
-                if (t.c() > rs || (is_strict && t.c() == rs)) {
-                    for (const auto& p: lra.flatten(dep)) {
+                if (m_c > rs || (is_strict && m_c == rs)) {
+                    for (const auto& p: lra.flatten(m_dep)) {
                         m_infeas_explanation.push_back(p);
                     }
                     for (const auto& p: lra.flatten(b_dep)) {
@@ -492,8 +516,8 @@ namespace lp {
                 }
             }
             if (lra.has_lower_bound(j, b_dep, rs, is_strict)) {
-                if (t.c() < rs || (is_strict && t.c() == rs)) {
-                    for (const auto& p: lra.flatten(dep)) {
+                if (m_c < rs || (is_strict && m_c == rs)) {
+                    for (const auto& p: lra.flatten(m_dep)) {
                         m_infeas_explanation.push_back(p);
                     }
                     for (const auto& p: lra.flatten(b_dep)) {
@@ -502,59 +526,60 @@ namespace lp {
                 }
             }
         }
-        // returns true if there is a change
-        // dep comes from the substitution with S
-        bool tighten_bounds_for_term(term_o& t, const mpq& g, unsigned j, u_dependency* dep) {
-            // mpq rs;
-            // bool is_strict;
-            // bool change = false;
-            // u_dependency *b_dep = nullptr;
-            // SASSERT(!g.is_zero());
+        // returns true if there is a change in the bounds
+        // m_indexed_work_vector contains the coefficients of the term
+        // m_c contains the constant term
+        // m_dep contains the dependencies of the fixed vars
+        bool tighten_bounds_for_term(const mpq& g, unsigned j) {
+            mpq rs;
+            bool is_strict;
+            bool change = false;
+            u_dependency *b_dep = nullptr;
+            SASSERT(!g.is_zero());
 
-            // if (lra.has_upper_bound(j, b_dep, rs, is_strict)) {
-            //     TRACE("dioph_eq", tout << "tighten upper bound for x" << j << " with rs:" << rs << std::endl;);
-            //     rs = (rs - t.c()) / g;
-            //     TRACE("dioph_eq", tout << "tighten upper bound for x" << j << " with rs:" << rs << std::endl;);
+            if (lra.has_upper_bound(j, b_dep, rs, is_strict)) {
+                TRACE("dioph_eq", tout << "ub:" <<  rs << std::endl;);
+                rs = (rs - m_c) / g;
+                TRACE("dioph_eq", tout << "(rs - m_c) / g:" << rs << std::endl;);
 
-            //     if (!rs.is_int()) {
-            //         tighten_bound_for_term_for_bound_kind(t, g, j, lra.mk_join(dep, b_dep), rs, true);
-            //         change = true;
-            //     }
-            // }
-            // if (lra.has_lower_bound(j, b_dep, rs, is_strict)) {
-            //     TRACE("dioph_eq", tout << "tighten lower bound for x" << j << " with rs:" << rs << std::endl;);
-            //     rs = (rs - t.c()) / g;
+                if (!rs.is_int()) {
+                    tighten_bound_for_term_for_bound_kind(g, j, lra.mk_join(m_dep, b_dep), rs, true);
+                    change = true;
+                }
+            }
+            if (lra.has_lower_bound(j, b_dep, rs, is_strict)) {
+                TRACE("dioph_eq", tout << "tighten lower bound for x" << j << " with rs:" << rs << std::endl;);
+                rs = (rs - m_c) / g;
 
-            //     TRACE("dioph_eq", tout << "tighten lower bound for x" << j << " with rs:" << rs << std::endl;);
+                TRACE("dioph_eq", tout << "tighten lower bound for x" << j << " with rs:" << rs << std::endl;);
 
-            //     if (!rs.is_int()) {
-            //         tighten_bound_for_term_for_bound_kind(t, g, j, lra.mk_join(b_dep, dep), rs, false);
-            //         change = true;
-            //     }
-            // }
-            // return change;
-            return false;
+                if (!rs.is_int()) {
+                    tighten_bound_for_term_for_bound_kind(g, j, lra.mk_join(m_dep, b_dep), rs, false);
+                    change = true;
+                }
+            }
+            return change;
+            
         }
 
-        void tighten_bound_for_term_for_bound_kind(term_o& t,
-                                         const mpq& g, unsigned j, u_dependency* dep, const mpq & ub, bool upper) {
-            // // ub = (upper_bound(j) - t.c())/g.
-            // // we have x[j] = t = g*t_+ t.c() <= upper_bound(j), then
-            // // t_ <= floor((upper_bound(j) - t.c())/g) = floor(ub)
-            // //
-            // // so xj = g*t_+t.c() <= g*floor(ub) + t.c() is new upper bound
-            // // <= can be replaced with >= for lower bounds, with ceil instead of floor
-            // mpq bound = g * (upper?floor(ub):ceil(ub))+t.c();
-            // TRACE("dioph_eq", tout << "upper:" << upper << std::endl;
-            //       tout << "new " << (upper? "upper":"lower" ) <<  "bound:" << bound << std::endl;);
+        void tighten_bound_for_term_for_bound_kind( const mpq& g, unsigned j, u_dependency* dep, const mpq & ub, bool upper) {
+            // ub = (upper_bound(j) - m_c)/g.
+            // we have x[j] = t = g*t_+ m_c <= upper_bound(j), then
+            // t_ <= floor((upper_bound(j) - m_c)/g) = floor(ub)
+            //
+            // so xj = g*t_+m_c <= g*floor(ub) + m_c is new upper bound
+            // <= can be replaced with >= for lower bounds, with ceil instead of floor
+            mpq bound = g * (upper?floor(ub):ceil(ub))+m_c;
+            TRACE("dioph_eq", tout << "upper:" << upper << std::endl;
+                  tout << "new " << (upper? "upper":"lower" ) <<  "bound:" << bound << std::endl;);
             
-            // dep = lra.mk_join(dep, upper? lra.get_column_upper_bound_witness(j): lra.get_column_lower_bound_witness(j) );
-            // SASSERT(upper && bound <= lra.get_upper_bound(j).x || !upper && bound >= lra.get_lower_bound(j).x);
-            // lconstraint_kind kind = upper? lconstraint_kind::LE: lconstraint_kind::GE;
-            // lra.update_column_type_and_bound(j, kind, bound, dep);
-            // TRACE("dioph_eq",
-            //     tout << "new " << (upper? "upper":"lower" ) <<  "bound:" << bound << std::endl;
-            //     tout << "bound_dep:\n";print_dep(tout, dep) << std::endl;);
+            dep = lra.mk_join(dep, upper? lra.get_column_upper_bound_witness(j): lra.get_column_lower_bound_witness(j) );
+            SASSERT(upper && bound <= lra.get_upper_bound(j).x || !upper && bound >= lra.get_lower_bound(j).x);
+            lconstraint_kind kind = upper? lconstraint_kind::LE: lconstraint_kind::GE;
+            lra.update_column_type_and_bound(j, kind, bound, dep);
+            TRACE("dioph_eq",
+                tout << "new " << (upper? "upper":"lower" ) <<  "bound:" << bound << std::endl;
+               /* tout << "bound_dep:\n";print_dep(tout, dep) << std::endl;*/);
         }
 public:
         lia_move check() {
@@ -575,11 +600,11 @@ public:
                 }
             }
             TRACE("dioph_eq", print_S(tout););
-            // lia_move ret = tighten_with_S();
-            // if (ret == lia_move::conflict) {
-            //     lra.settings().stats().m_dio_conflicts++;
-            //     return lia_move::conflict;
-            // }
+            lia_move ret = tighten_with_S();
+            if (ret == lia_move::conflict) {
+                lra.settings().stats().m_dio_conflicts++;
+                return lia_move::conflict;
+             }
             return lia_move::undef;
         }
        private: 
