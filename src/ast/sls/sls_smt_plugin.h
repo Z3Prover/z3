@@ -80,8 +80,8 @@ namespace sls {
         bool is_shared(sat::literal lit);
         void run();
         void add_shared_term(expr* t);
-
         void add_uninterp(expr* smt_t);
+        void add_shared_var(sat::bool_var v, sat::bool_var w);
 
         void import_phase_from_smt();
         void import_values_from_sls();
@@ -93,7 +93,6 @@ namespace sls {
         void export_activity_to_smt();
         void export_phase_to_smt();
 
-
         void export_from_sls();
 
         friend class sat::ddfw;
@@ -103,7 +102,7 @@ namespace sls {
         smt_plugin(smt_context& ctx);
 
         // interface to calling solver:
-        void check(expr_ref_vector const& fmls);
+        void check(expr_ref_vector const& fmls, vector <sat::literal_vector> const& clauses);
         void finalize(model_ref& md, ::statistics& st);
         void updt_params(params_ref& p) {}
         std::ostream& display(std::ostream& out) override;

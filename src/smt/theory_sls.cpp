@@ -79,7 +79,8 @@ namespace smt {
             for (unsigned i = 0; i < ctx.get_num_asserted_formulas(); ++i)
                 fmls.push_back(ctx.get_asserted_formula(i));
             m_checking = true;
-            m_smt_plugin->check(fmls);
+            vector<sat::literal_vector> clauses;
+            m_smt_plugin->check(fmls, clauses);
             return;
         }
         if (!m_smt_plugin)

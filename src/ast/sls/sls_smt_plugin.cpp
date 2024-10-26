@@ -39,9 +39,8 @@ namespace sls {
     smt_plugin::~smt_plugin() {
         SASSERT(!m_ddfw);
     }
-
     
-    void smt_plugin::check(expr_ref_vector const& fmls) {
+    void smt_plugin::check(expr_ref_vector const& fmls, vector <sat::literal_vector> const& clauses) {
         SASSERT(!m_ddfw);
         // set up state for local search theory_sls here
         m_result = l_undef;
@@ -53,29 +52,37 @@ namespace sls {
         m_ddfw->set_plugin(this);
         m_ddfw->updt_params(ctx.get_params());
 
+        for (auto const& clause : clauses) {
+            m_ddfw->add(clause.size(), clause.data());
+            for (auto lit : clause) 
+                add_shared_var(lit.var(), lit.var());
+        }
+
+        for (auto v : m_shared_bool_vars) {
+            expr* e = ctx.bool_var2expr(v);
+            if (!e)
+                continue;
+            m_context.register_atom(v, m_smt2sls_tr(e));
+            for (auto t : subterms::all(expr_ref(e, m)))
+                add_shared_term(e);
+        }
+
         for (auto fml : fmls) 
             m_context.add_constraint(m_smt2sls_tr(fml));     
-
-        // m_context.display(verbose_stream());
 
         for (unsigned v = 0; v < ctx.get_num_bool_vars(); ++v) {
             expr* e = ctx.bool_var2expr(v);
             if (!e)
                 continue;
-            for (auto t : subterms::all(expr_ref(e, m))) 
-                add_shared_term(e);            
 
             expr_ref sls_e(m_sls);
             sls_e = m_smt2sls_tr(e);
             auto w = m_context.atom2bool_var(sls_e);            
-            if (w != sat::null_bool_var) {
-                m_smt_bool_var2sls_bool_var.setx(v, w, sat::null_bool_var);
-                m_sls_bool_var2smt_bool_var.setx(w, v, sat::null_bool_var);
-                m_sls_phase.reserve(v + 1);
-                m_sat_phase.reserve(v + 1);
-                m_rewards.reserve(v + 1);
-                m_shared_bool_vars.insert(v);
-            }
+            if (w == sat::null_bool_var)
+                continue;
+            add_shared_var(v, w); 
+            for (auto t : subterms::all(expr_ref(e, m)))
+                add_shared_term(e);
         }
 
         m_thread = std::thread([this]() { run(); });
@@ -139,6 +146,14 @@ namespace sls {
         return false;
     }
 
+    void smt_plugin::add_shared_var(sat::bool_var v, sat::bool_var w) {
+        m_smt_bool_var2sls_bool_var.setx(v, w, sat::null_bool_var);
+        m_sls_bool_var2smt_bool_var.setx(w, v, sat::null_bool_var);
+        m_sls_phase.reserve(v + 1);
+        m_sat_phase.reserve(v + 1);
+        m_rewards.reserve(v + 1);
+        m_shared_bool_vars.insert(v);
+    }
 
     void smt_plugin::add_unit(sat::literal lit) {
         if (!is_shared(lit))

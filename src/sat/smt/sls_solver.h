@@ -54,6 +54,7 @@ namespace sls {
 
 #include <thread>
 #include <mutex>
+#include "ast/sls/sls_smt_plugin.h"
 
 namespace euf {
     class solver;
@@ -61,29 +62,12 @@ namespace euf {
 
 namespace sls {
 
-    class solver : public euf::th_euf_solver {
-        class smt_plugin;
-
-        std::atomic<lbool> m_result;
-        std::atomic<bool> m_completed, m_has_units;
-        std::thread m_thread;
-        std::mutex  m_mutex;
-        // m is accessed by the main thread
-        // m_slsm is accessed by the sls thread
-        scoped_ptr<ast_manager> m_slsm;
-        scoped_ptr<sat::ddfw> m_ddfw;
-        sat::literal_vector m_units;
-        smt_plugin* m_smt_plugin = nullptr;
-        model_ref m_model, m_sls_model;
+    class solver : public euf::th_euf_solver, public sls::smt_context {
+        model_ref m_model;
+        sls::smt_plugin* m_smt_plugin = nullptr;
         unsigned m_trail_lim = 0;
-        statistics m_st;
-
-
-
-        void run_local_search_async();
-        void run_local_search_sync();
-        void sample_local_search();
-        void local_search_done();
+        bool m_checking = false;
+        ::statistics m_st;
 
     public:
         solver(euf::solver& ctx);
@@ -102,10 +86,21 @@ namespace sls {
         sat::literal internalize(expr* e, bool sign, bool root) override { UNREACHABLE();  return sat::null_literal; }
         void internalize(expr* e) override { UNREACHABLE(); }
         void get_antecedents(sat::literal l, sat::ext_justification_idx idx, sat::literal_vector & r, bool probing) override { UNREACHABLE(); }
-        sat::check_result check() override;
+        sat::check_result check() override { return sat::check_result::CR_DONE; }
         std::ostream& display(std::ostream& out) const override;
         std::ostream & display_justification(std::ostream & out, sat::ext_justification_idx idx) const override { UNREACHABLE(); return out; }
         std::ostream & display_constraint(std::ostream & out, sat::ext_constraint_idx idx) const override { UNREACHABLE(); return out; }
+
+
+        ast_manager& get_manager() override { return m; }
+        params_ref get_params() override;
+        void initialize_value(expr* t, expr* v) override;
+        void force_phase(sat::literal lit) override;
+        void set_has_new_best_phase(bool b) override;
+        bool get_best_phase(sat::bool_var v) override;
+        expr* bool_var2expr(sat::bool_var v) override;
+        void set_finished() override;
+        unsigned get_num_bool_vars() const override;
         
     };
 
