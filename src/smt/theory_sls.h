@@ -48,7 +48,6 @@ namespace sls {
 
 
 namespace smt {
-    class context;
 
     class theory_sls : public smt::theory, public sls::smt_context {
         model_ref m_model;
@@ -63,6 +62,8 @@ namespace smt {
         theory_sls(context& ctx);
         ~theory_sls() override;
         model_ref get_model() { return m_model; }
+
+        // smt::theory interface
         char const* get_name() const override { return "sls"; }
         void init() override;
         void pop_scope_eh(unsigned n) override;
@@ -75,6 +76,7 @@ namespace smt {
         void new_eq_eh(theory_var v1, theory_var v2) override {}
         void new_diseq_eh(theory_var v1, theory_var v2) override {}
 
+        // sls::smt_context interface
         ast_manager& get_manager() override { return m; }
         params_ref get_params() override;
         void initialize_value(expr* t, expr* v) override;
@@ -84,7 +86,6 @@ namespace smt {
         expr* bool_var2expr(sat::bool_var v) override;
         void set_finished() override;
         unsigned get_num_bool_vars() const override;
-
     };
 
 }

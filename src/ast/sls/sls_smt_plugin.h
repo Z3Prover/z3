@@ -74,8 +74,6 @@ namespace sls {
         svector<bool> m_sls_phase;
         svector<double> m_rewards;
         svector<sat::bool_var> m_smt_bool_var2sls_bool_var, m_sls_bool_var2smt_bool_var;
-
-
         
         bool is_shared(sat::literal lit);
         void run();
@@ -155,7 +153,5 @@ namespace sls {
             m_new_clause_added = true;
         }
         void force_restart() override { m_ddfw->force_restart(); }
-
-
     };
 }
