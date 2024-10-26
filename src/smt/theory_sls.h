@@ -11,7 +11,7 @@ Abstract:
     
 Author:
 
-    Nikolaj Bjorner (nbjorner) 2024-02-21
+    Nikolaj Bjorner (nbjorner) 2024-10-24
 
 --*/
 #pragma once
@@ -25,10 +25,21 @@ Author:
 
 #ifdef SINGLE_THREAD
 
-
 namespace sls {
-
-
+    class theory_sls : public smt::theory {
+        model_ref m_model;
+    public:
+        theory_sls(context& ctx);
+        ~theory_sls() override {}
+        model_ref get_model() { return m_model; }
+        char const* get_name() const override { return "sls"; }
+        smt::theory* mk_fresh(context* new_ctx) override { return alloc(theory_sls, *new_ctx); }
+        void display(std::ostream& out) const override {}
+        bool internalize_atom(app* atom, bool gate_ctx) override { return false; }
+        bool internalize_term(app* term) override { return false; }
+        void new_eq_eh(theory_var v1, theory_var v2) override {}
+        void new_diseq_eh(theory_var v1, theory_var v2) override {}
+    };
 }
 
 #else

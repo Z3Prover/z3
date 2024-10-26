@@ -11,8 +11,7 @@ Abstract:
     
 Author:
 
-    Nikolaj Bjorner (nbjorner) 2024-02-21
-
+    Nikolaj Bjorner (nbjorner) 2024-10-24
 
 --*/
 
@@ -23,13 +22,11 @@ Author:
 
 namespace smt {
 
-#ifdef SINGLE_THREAD
-
-
-#else
-    theory_sls::theory_sls(smt::context& ctx):
+    theory_sls::theory_sls(smt::context& ctx) :
         theory(ctx, ctx.get_manager().mk_family_id("sls"))
     {}
+
+#ifndef SINGLE_THREAD
 
     theory_sls::~theory_sls() {
         finalize();
@@ -100,10 +97,8 @@ namespace smt {
         unsigned scope_lvl = ctx.get_scope_level();
         if (ctx.get_search_level() == scope_lvl - n) {
             auto& lits = ctx.assigned_literals();
-            for (; m_trail_lim < lits.size() && ctx.get_assign_level(lits[m_trail_lim]) == scope_lvl; ++m_trail_lim) {
-                auto lit = lits[m_trail_lim];
-                m_smt_plugin->add_unit(lit);                
-            }
+            for (; m_trail_lim < lits.size() && ctx.get_assign_level(lits[m_trail_lim]) == scope_lvl; ++m_trail_lim) 
+                m_smt_plugin->add_unit(lits[m_trail_lim]);            
         }
 #if 0
         if (ctx.has_new_best_phase())
@@ -113,7 +108,6 @@ namespace smt {
         
         m_smt_plugin->import_from_sls();        
     }       
-
 
     void theory_sls::init() {
         if (m_smt_plugin) 

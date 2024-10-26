@@ -3593,11 +3593,8 @@ namespace smt {
         auto p = m_theories.get_plugin(tid);
         if (!p)
             return false;
-        auto mdl = dynamic_cast<theory_sls*>(p)->get_model();
-        if (!mdl)
-            return false;
-        m_model = mdl;        
-        return true;
+        m_model = dynamic_cast<theory_sls*>(p)->get_model();      
+        return m_model.get() != nullptr;
     }
 
     /**

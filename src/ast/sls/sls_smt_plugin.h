@@ -38,6 +38,12 @@ namespace sls {
         virtual unsigned get_num_bool_vars() const = 0;
     };
 
+
+    //
+    // m is accessed by the main thread
+    // m_sls  is accessed by the sls thread
+    // m_sync is accessed by both
+    //
     class smt_plugin : public sat::local_search_plugin, public sat_solver_context {
         smt_context& ctx;
         ast_manager& m;
@@ -52,25 +58,20 @@ namespace sls {
         std::atomic<bool> m_completed, m_has_units;
         std::thread m_thread;
         std::mutex  m_mutex;
-        // m is accessed by the main thread
-        // m_slsm is accessed by the sls thread
+
         sat::literal_vector m_units;
-        model_ref m_model, m_sls_model;
-        unsigned m_trail_lim = 0;
+        model_ref m_sls_model;
         ::statistics m_st;
         bool m_new_clause_added = false; 
         unsigned m_min_unsat_size = UINT_MAX;
         obj_map<expr, expr*> m_sls2sync_uninterp; // hashtable from sls-uninterp to sync uninterp
         obj_map<expr, expr*> m_smt2sync_uninterp; // hashtable from external uninterp to sync uninterp
         std::atomic<bool> m_has_new_sls_values = false;
-
         uint_set m_shared_bool_vars, m_shared_terms;
         svector<bool> m_sat_phase;
         std::atomic<bool> m_has_new_sat_phase = false;
-
         std::atomic<bool> m_has_new_sls_phase = false;
         svector<bool> m_sls_phase;
-
         svector<double> m_rewards;
         svector<sat::bool_var> m_smt_bool_var2sls_bool_var, m_sls_bool_var2smt_bool_var;
 
@@ -84,11 +85,16 @@ namespace sls {
 
         void import_phase_from_smt();
         void import_values_from_sls();
+        void export_values_from_sls();
+        void import_activity_from_sls();
         bool export_phase_to_sls();
         bool export_units_to_sls();
-        void export_activity_to_smt();
         void export_values_to_smt();
+        void export_activity_to_smt();
+        void export_phase_to_smt();
 
+
+        void export_from_sls();
 
         friend class sat::ddfw;
         ~smt_plugin();
@@ -100,13 +106,12 @@ namespace sls {
         void check(expr_ref_vector const& fmls);
         void finalize(model_ref& md, ::statistics& st);
         void updt_params(params_ref& p) {}
-        void collect_statistics(statistics& st);
         std::ostream& display(std::ostream& out) override;
-        void import_from_sls();
+
         bool export_to_sls();
+        void import_from_sls();
         bool completed() { return m_completed; }
         void add_unit(sat::literal lit);
-
 
         // local_search_plugin:
         void on_restart() override {
@@ -114,17 +119,7 @@ namespace sls {
                 m_ddfw->reinit();
         }
 
-        void on_save_model() override {
-            TRACE("sls", display(tout));
-            while (unsat().empty()) {
-                m_context.check();
-                if (!m_new_clause_added)
-                    break;
-                m_ddfw->reinit();
-                m_new_clause_added = false;
-            }
-            //import_from_sls();
-        }
+        void on_save_model() override;
 
         void on_model(model_ref& mdl) override {
             IF_VERBOSE(3, verbose_stream() << "on-model " << "\n");

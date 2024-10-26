@@ -488,7 +488,7 @@ namespace sls {
         for (sat::literal lit : m_unit_literals)
             m_unit_indices.insert(lit.index());
             
-        IF_VERBOSE(0, verbose_stream() << "UNITS " << m_unit_literals << "\n");
+        IF_VERBOSE(3, verbose_stream() << "UNITS " << m_unit_literals << "\n");
         for (unsigned i = 0; i < m_atoms.size(); ++i)
             if (m_atoms.get(i))
                 register_terms(m_atoms.get(i));
