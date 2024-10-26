@@ -25,8 +25,8 @@ Author:
 
 #ifdef SINGLE_THREAD
 
-namespace sls {
-    class theory_sls : public smt::theory {
+namespace smt {
+    class theory_sls : public theory {
         model_ref m_model;
     public:
         theory_sls(context& ctx);
@@ -49,7 +49,7 @@ namespace sls {
 
 namespace smt {
 
-    class theory_sls : public smt::theory, public sls::smt_context {
+    class theory_sls : public theory, public sls::smt_context {
         model_ref m_model;
         sls::smt_plugin* m_smt_plugin = nullptr;
         unsigned m_trail_lim = 0;
