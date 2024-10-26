@@ -62,12 +62,17 @@ namespace sls {
             if (!s.m_has_units)
                 return false;
             std::lock_guard<std::mutex> lock(s.m_mutex);
-            IF_VERBOSE(3, verbose_stream() << "SMT -> SLS units " << s.m_units << "\n");
-            for (auto lit : s.m_units)
-                if (m_shared_vars.contains(lit.var())) {
-                    IF_VERBOSE(10, verbose_stream() << "unit " << lit << "\n");                        
+            IF_VERBOSE(2, verbose_stream() << "SMT -> SLS units " << s.m_units << "\n");
+            for (auto lit : s.m_units) {
+                if (m_shared_bool_vars.contains(lit.var())) {
+                    IF_VERBOSE(10, verbose_stream() << "unit " << lit << "\n");
                     m_ddfw->add(1, &lit);
                 }
+                else {
+                    IF_VERBOSE(0, verbose_stream() << "value restriction " << lit << " " << mk_bounded_pp(s.ctx.bool_var2expr(lit.var()), s.ctx.get_manager()) << "\n");
+                }
+            }
+            
             s.m_has_units = false;
             s.m_units.reset();
             return true;
@@ -78,7 +83,7 @@ namespace sls {
                 return false;
             std::lock_guard<std::mutex> lock(s.m_mutex);
             IF_VERBOSE(3, verbose_stream() << "SMT -> SLS phase\n");
-            for (auto i : m_shared_vars) {
+            for (auto i : m_shared_bool_vars) {
                 if (m_sat_phase[i] != is_true(sat::literal(i, false))) 
                     flip(i);
                 m_ddfw->bias(i) = m_sat_phase[i] ? 1 : -1;
@@ -105,7 +110,7 @@ namespace sls {
                 return;
             m_min_unsat_size = unsat().size();
             std::lock_guard<std::mutex> lock(s.m_mutex);            
-            for (auto v : m_shared_vars) {
+            for (auto v : m_shared_bool_vars) {
                 m_rewards[v] = m_ddfw->get_reward_avg(v);
                 m_sls_phase[v] = l_true == m_ddfw->get_model()[v];
                 m_has_new_sls_phase = true;
@@ -123,7 +128,16 @@ namespace sls {
             }
             m_has_new_sls_values = true;
         }        
+
+
         
+        void add_uninterp(expr* smt_t) {
+            auto sync_t = m_smt2sync_tr(smt_t);
+            auto sls_t = m_smt2sls_tr(smt_t);
+            m_sync_uninterp.push_back(sync_t);
+            m_smt2sync_uninterp.insert(smt_t, sync_t);
+            m_sls2sync_uninterp.insert(sls_t, sync_t);
+        }
 
     public:
         smt_plugin(ast_manager& m, solver& s, sat::ddfw* d) : 
@@ -135,7 +149,7 @@ namespace sls {
         {            
         }
 
-        uint_set m_shared_vars;
+        uint_set m_shared_bool_vars, m_shared_terms;
         svector<bool> m_sat_phase;
         std::atomic<bool> m_has_new_sat_phase = false;
 
@@ -144,19 +158,19 @@ namespace sls {
 
         svector<double> m_rewards;
 
-        void add_uninterp(expr* smt_t) {
-            auto sync_t = m_smt2sync_tr(smt_t);
-            auto sls_t = m_smt2sls_tr(smt_t);
-            m_sync_uninterp.push_back(sync_t);
-            m_smt2sync_uninterp.insert(smt_t, sync_t);
-            m_sls2sync_uninterp.insert(sls_t, sync_t);
+
+
+        void add_shared_term(expr* t) {
+            m_shared_terms.insert(t->get_id());
+            if (is_uninterp(t))
+                add_uninterp(t);
         }
 
         void add_shared_var(sat::bool_var v) {
             m_sls_phase.reserve(v + 1);
             m_sat_phase.reserve(v + 1);
             m_rewards.reserve(v + 1);
-            m_shared_vars.insert(v);
+            m_shared_bool_vars.insert(v);
         }
         
         void init_search() override {}
@@ -250,12 +264,28 @@ namespace sls {
             IF_VERBOSE(3, verbose_stream() << "new SMT -> SLS phase\n");
             s.s().set_has_new_best_phase(false);
             std::lock_guard<std::mutex> lock(s.m_mutex);
-            for (auto v : m_shared_vars) 
+            for (auto v : m_shared_bool_vars) 
                 m_sat_phase[v] = s.s().get_best_phase(v);            
         }
 
         void export_activity_to_smt() {
             // TODO
+        }
+
+        // determine if unit literal restricts values of shared subterms.
+        bool is_value_restriction(sat::literal lit) {
+            auto e = s.ctx.bool_var2expr(lit.var());
+            expr* t = nullptr;
+            if (!e)
+                return false;
+            bv_util bv(s.ctx.get_manager());
+            if (bv.is_bit2bool(e, t) && m_shared_terms.contains(t->get_id())) {
+                verbose_stream() << "shared bit2bool " << mk_bounded_pp(e, s.ctx.get_manager()) << "\n";
+                return true;
+            }
+
+            // if arith.is_le(e, s, t) && t is a numeral, s is shared-term....
+            return false;
         }
 
     };
@@ -287,12 +317,12 @@ namespace sls {
             return;
         for (; m_trail_lim < s().init_trail_size(); ++m_trail_lim) {
             auto lit = s().trail_literal(m_trail_lim);
-            if (!m_smt_plugin->m_shared_vars.contains(lit.var()))
-                continue;
-            IF_VERBOSE(10, verbose_stream() << "push unit " << lit << " " << mk_bounded_pp(ctx.literal2expr(lit), m) << "\n");
-            std::lock_guard<std::mutex> lock(m_mutex);
-            m_units.push_back(lit);
-            m_has_units = true;
+            if (m_smt_plugin->is_value_restriction(lit) ||
+                m_smt_plugin->m_shared_bool_vars.contains(lit.var())) {
+                std::lock_guard<std::mutex> lock(m_mutex);
+                m_units.push_back(lit);
+                m_has_units = true;
+            }
         }        
         if (s().has_new_best_phase())
             m_smt_plugin->import_phase_from_smt();
@@ -329,15 +359,14 @@ namespace sls {
             for (auto lit : clause)
                 m_smt_plugin->add_shared_var(lit.var());
         }
-        for (auto v : m_smt_plugin->m_shared_vars) {
+        for (auto v : m_smt_plugin->m_shared_bool_vars) {
             expr* e = ctx.bool_var2expr(v);
             if (!e)
                 continue;
             m_smt_plugin->register_atom(v, tr(e));
-            for (auto t : subterms::all(expr_ref(e, m))) {
-                if (is_uninterp(t))                    
-                    m_smt_plugin->add_uninterp(t);                
-            }
+            for (auto t : subterms::all(expr_ref(e, m))) 
+                m_smt_plugin->add_shared_term(e);            
+            
         }
 
         m_thread = std::thread([this]() { run_local_search_async(); });        

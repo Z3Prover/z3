@@ -35,6 +35,7 @@ Revision History:
 #include "smt/theory_seq.h"
 #include "smt/theory_char.h"
 #include "smt/theory_special_relations.h"
+#include "smt/theory_sls.h"
 #include "smt/theory_pb.h"
 #include "smt/theory_fpa.h"
 #include "smt/theory_str.h"
@@ -67,6 +68,7 @@ namespace smt {
         case CFG_AUTO:  setup_auto_config(); break;
         }
         setup_card();
+        setup_sls();
     }
 
     void setup::setup_default() {
@@ -764,6 +766,11 @@ namespace smt {
 
     void setup::setup_card() {
         m_context.register_plugin(alloc(theory_pb, m_context));
+    }
+
+    void setup::setup_sls() {
+        if (m_params.m_sls_enable)
+            m_context.register_plugin(alloc(theory_sls, m_context));
     }
 
     void setup::setup_fpa() {

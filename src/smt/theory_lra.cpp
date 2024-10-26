@@ -3254,7 +3254,7 @@ public:
               tout << "@" << ctx().get_scope_level() << (is_conflict ? " conflict":" lemma");
               for (auto const& p : m_params) tout << " " << p;
               tout << "\n";
-              display_evidence(tout, m_explanation););
+              display_evidence(tout << core << " ", m_explanation););
         for (auto ev : m_explanation) 
             set_evidence(ev.ci(), m_core, m_eqs);
 

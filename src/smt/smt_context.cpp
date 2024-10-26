@@ -37,6 +37,7 @@ Revision History:
 #include "smt/uses_theory.h"
 #include "smt/theory_special_relations.h"
 #include "smt/theory_polymorphism.h"
+#include "smt/theory_sls.h"
 #include "smt/smt_for_each_relevant_expr.h"
 #include "smt/smt_model_generator.h"
 #include "smt/smt_model_checker.h"
@@ -3506,6 +3507,10 @@ namespace smt {
         if (r == l_true && get_cancel_flag()) {
             r = l_undef;
         }
+        if (r == l_undef && get_cancel_flag() && has_sls_model()) {
+            m.limit().reset_cancel();
+            r = l_true;
+        }
         if (r == l_true && gparams::get_value("model_validate") == "true") {
             recfun::util u(m);
             if (u.get_rec_funs().empty() && m_proto_model) {
@@ -3579,6 +3584,20 @@ namespace smt {
 #endif
         }
         return r;
+    }
+
+    bool context::has_sls_model() {
+        if (!m_fparams.m_sls_enable)
+            return false;
+        auto tid = m.get_family_id("sls");
+        auto p = m_theories.get_plugin(tid);
+        if (!p)
+            return false;
+        auto mdl = dynamic_cast<theory_sls*>(p)->get_model();
+        if (!mdl)
+            return false;
+        m_model = mdl;        
+        return true;
     }
 
     /**

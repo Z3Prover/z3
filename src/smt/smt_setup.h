@@ -103,6 +103,7 @@ namespace smt {
         void setup_seq();
         void setup_char();
         void setup_card();
+        void setup_sls();
         void setup_i_arith();
         void setup_mi_arith();
         void setup_lra_arith();

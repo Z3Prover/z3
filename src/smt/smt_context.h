@@ -619,6 +619,9 @@ namespace smt {
         friend class set_var_theory_trail;
         void set_var_theory(bool_var v, theory_id tid);
 
+
+        bool has_sls_model();
+
         // -----------------------------------
         //
         // Backtracking support

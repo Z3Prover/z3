@@ -321,6 +321,8 @@ namespace sls {
         expr_ref _e(f, m);
         expr* g, * h, * k;
         sat::literal_vector clause;
+        if (m.is_true(f))
+            return;
         if (m.is_not(f, g) && m.is_not(g, g)) {
             add_clause(g);
             return;
@@ -486,7 +488,7 @@ namespace sls {
         for (sat::literal lit : m_unit_literals)
             m_unit_indices.insert(lit.index());
             
-        verbose_stream() << "UNITS " << m_unit_literals << "\n";
+        IF_VERBOSE(0, verbose_stream() << "UNITS " << m_unit_literals << "\n");
         for (unsigned i = 0; i < m_atoms.size(); ++i)
             if (m_atoms.get(i))
                 register_terms(m_atoms.get(i));

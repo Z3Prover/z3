@@ -1248,7 +1248,7 @@ namespace arith {
         for (auto ev : m_explanation)
             set_evidence(ev.ci());
         
-        TRACE("arith",
+        TRACE("arith_conflict",
             tout << "Lemma - " << (is_conflict ? "conflict" : "propagation") << "\n";
             for (literal c : m_core) tout << c << ": " << literal2expr(c) << "\n";
             for (auto p : m_eqs) tout << ctx.bpp(p.first) << " == " << ctx.bpp(p.second) << "\n";);
@@ -1270,6 +1270,7 @@ namespace arith {
                 m_core.push_back(ctx.mk_literal(m.mk_eq(eq.first->get_expr(), eq.second->get_expr())));
             for (literal& c : m_core)
                 c.neg();
+            DEBUG_CODE(for (literal c : m_core) { SASSERT(s().value(c) != l_true); });
             
             add_redundant(m_core, explain(ty));
         }
@@ -1520,10 +1521,13 @@ namespace arith {
         }
         for (auto const& ineq : m_nla->literals()) {
             auto lit = mk_ineq_literal(ineq);
+            if (s().value(lit) == l_true)
+                continue;
             ctx.mark_relevant(lit);
             s().set_phase(lit);
+            verbose_stream() << lit << ":= " << s().value(lit) << "\n";
             // force trichotomy axiom for equality literals
-            if (ineq.cmp() == lp::EQ) {
+            if (ineq.cmp() == lp::EQ && false) {
                 nla::lemma l;
                 l.push_back(ineq);
                 l.push_back(nla::ineq(lp::LT, ineq.term(), ineq.rs()));
