@@ -104,8 +104,10 @@ namespace smt {
     */
 
     bool context::get_cancel_flag() {
-        if (l_true == m_sls_completed)
+        if (l_true == m_sls_completed && !m.limit().suspended()) {
+            m_last_search_failure = CANCELED;
             return true;
+        }
         if (m.limit().inc())
             return false;
         m_last_search_failure = CANCELED;
@@ -3506,11 +3508,10 @@ namespace smt {
               m_case_split_queue->display(tout << "case splits\n");
               );
         display_profile(verbose_stream());
-        if (r == l_true && get_cancel_flag()) {
+        if (r == l_true && get_cancel_flag()) 
             r = l_undef;
-        }
         if (r == l_undef && m_sls_completed == l_true && has_sls_model()) {
-            m.limit().reset_cancel();
+            m_last_search_failure = OK;
             r = l_true;
         }
         m_sls_completed = l_false;

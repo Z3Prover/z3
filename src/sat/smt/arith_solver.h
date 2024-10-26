@@ -230,6 +230,7 @@ namespace arith {
 
         // non-linear arithmetic
         scoped_ptr<nla::solver>  m_nla;
+        bool m_use_nra_model = false;
 
         // integer arithmetic
         scoped_ptr<lp::int_solver>   m_lia;

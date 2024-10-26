@@ -987,10 +987,10 @@ namespace arith {
     }
 
     bool solver::use_nra_model() {
-        return m_nla && m_nla->use_nra_model();
+        return m_nla && m_use_nra_model && m_nla->use_nra_model();
     }
 
-    bool solver::is_eq(theory_var v1, theory_var v2) {
+    bool solver::is_eq(theory_var v1, theory_var v2) {        
         if (use_nra_model()) {
             return m_nla->am().eq(nl_value(v1, m_nla->tmp1()), nl_value(v2, m_nla->tmp2()));
         }
@@ -1004,6 +1004,8 @@ namespace arith {
         m_model_is_initialized = false;
         IF_VERBOSE(12, verbose_stream() << "final-check " << lp().get_status() << "\n");
         SASSERT(lp().ax_is_correct());
+
+        m_use_nra_model = false;
 
         if (!lp().is_feasible() || lp().has_changed_columns()) {
             switch (make_feasible()) {
@@ -1042,6 +1044,7 @@ namespace arith {
 
         switch (check_nla()) {
         case l_true:
+            m_use_nra_model = true;
             break;
         case l_false:
             return sat::check_result::CR_CONTINUE;
@@ -1055,6 +1058,9 @@ namespace arith {
             ++m_stats.m_assume_eqs;
             return sat::check_result::CR_CONTINUE;
         }
+
+        if (!check_delayed_eqs())
+            return sat::check_result::CR_CONTINUE;
 
         if (!int_undef && !check_bv_terms())
             return sat::check_result::CR_CONTINUE;
@@ -1141,6 +1147,7 @@ namespace arith {
                 new_eq_eh(e);
             else if (is_eq(e.v1(), e.v2())) {
                 mk_diseq_axiom(e.v1(), e.v2());
+                TRACE("arith", tout << mk_bounded_pp(e.eq(), m) << " " << use_nra_model() << "\n");
                 found_diseq = true;
                 break;
             }
@@ -1271,9 +1278,10 @@ namespace arith {
                 m_core.push_back(ctx.mk_literal(m.mk_eq(eq.first->get_expr(), eq.second->get_expr())));
             for (literal& c : m_core)
                 c.neg();
-            DEBUG_CODE(for (literal c : m_core) { SASSERT(s().value(c) != l_true); });
 
-            for (literal c : m_core) { VERIFY(s().value(c) != l_true); }
+            // it is possible if multiple lemmas are added at the same time.
+            if (any_of(m_core, [&](literal c) { return s().value(c) == l_true; }))
+                return;
             
             add_redundant(m_core, explain(ty));
         }
@@ -1511,6 +1519,7 @@ namespace arith {
         case l_undef:
             break;
         }
+        TRACE("arith", tout << "nla " << r << "\n");
         return r;
     }
 

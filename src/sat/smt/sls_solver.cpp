@@ -61,7 +61,7 @@ namespace sls {
     }
 
     void solver::set_finished() {
-        m.limit().cancel();
+        ctx.s().set_canceled();
     }
 
     unsigned solver::get_num_bool_vars() const {

@@ -38,11 +38,12 @@ namespace smt {
     }
     
     void theory_sls::initialize_value(expr* t, expr* v) {
-        ctx.user_propagate_initialize_value(t, v);
+        //ctx.user_propagate_initialize_value(t, v);
     }
     
     void theory_sls::force_phase(sat::literal lit) {
-        ctx.force_phase(lit);
+        //
+        //        ctx.force_phase(lit);
     }
     
     void theory_sls::set_has_new_best_phase(bool b) {
@@ -108,7 +109,7 @@ namespace smt {
 
 #endif
         
-        m_smt_plugin->import_from_sls();        
+        //        m_smt_plugin->import_from_sls();        
     }       
 
     void theory_sls::init() {
