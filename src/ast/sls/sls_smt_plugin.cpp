@@ -70,11 +70,13 @@ namespace sls {
             sls_e = m_smt2sls_tr(e);
             auto w = m_context.atom2bool_var(sls_e);            
             if (w != sat::null_bool_var) {
-                verbose_stream() << mk_bounded_pp(e, m) << ": " << v << " -> " << w << "\n";
+                IF_VERBOSE(0, verbose_stream() << mk_bounded_pp(e, m) << ": " << v << " -> " << w << "\n");
                 m_smt_bool_var2sls_bool_var.setx(v, w, sat::null_bool_var);
                 m_sls_bool_var2smt_bool_var.setx(w, v, sat::null_bool_var);
-                
-                add_shared_var(w);            
+                m_sls_phase.reserve(v + 1);
+                m_sat_phase.reserve(v + 1);
+                m_rewards.reserve(v + 1);
+                m_shared_bool_vars.insert(v);
             }
         }
 
@@ -174,11 +176,11 @@ namespace sls {
             return false;
         std::lock_guard<std::mutex> lock(m_mutex);
         IF_VERBOSE(3, verbose_stream() << "SMT -> SLS phase\n");
-        for (auto i : m_shared_bool_vars) {
-            auto v = m_smt_bool_var2sls_bool_var[i];
-            if (m_sat_phase[v] != is_true(sat::literal(v, false))) 
-                flip(v);
-            m_ddfw->bias(v) = m_sat_phase[v] ? 1 : -1;
+        for (auto v : m_shared_bool_vars) {
+            auto w = m_smt_bool_var2sls_bool_var[v];
+            if (m_sat_phase[v] != is_true(sat::literal(w, false))) 
+                flip(w);
+            m_ddfw->bias(w) = m_sat_phase[v] ? 1 : -1;
         }
         m_has_new_sat_phase = false;
         return true;
@@ -190,8 +192,10 @@ namespace sls {
         std::lock_guard<std::mutex> lock(m_mutex);
         IF_VERBOSE(2, verbose_stream() << "SMT -> SLS units " << m_units << "\n");
         for (auto lit : m_units) {
-            if (m_shared_bool_vars.contains(lit.var())) {
-                sat::literal sls_lit(m_smt_bool_var2sls_bool_var[lit.var()], false);
+            auto v = lit.var();
+            if (m_shared_bool_vars.contains(v)) {
+                auto w = m_smt_bool_var2sls_bool_var[v];
+                sat::literal sls_lit(w, lit.sign());
                 IF_VERBOSE(10, verbose_stream() << "unit " << sls_lit << "\n");
                 m_ddfw->add(1, &sls_lit);
             }
@@ -211,8 +215,9 @@ namespace sls {
         m_min_unsat_size = unsat().size();
         std::lock_guard<std::mutex> lock(m_mutex);            
         for (auto v : m_shared_bool_vars) {
-            m_rewards[v] = m_ddfw->get_reward_avg(v);
-            m_sls_phase[v] = l_true == m_ddfw->get_model()[v];
+            auto w = m_smt_bool_var2sls_bool_var[v];
+            m_rewards[v] = m_ddfw->get_reward_avg(w);
+            m_sls_phase[v] = l_true == m_ddfw->get_model()[w];
             m_has_new_sls_phase = true;
         }
         // import_values_from_sls();
@@ -222,13 +227,11 @@ namespace sls {
         IF_VERBOSE(3, verbose_stream() << "import values from sls\n");
         std::lock_guard<std::mutex> lock(m_mutex);
         for (auto const& [t, t_sync] : m_sls2sync_uninterp) {
-            expr_ref val_t = m_context.get_value(t);
-            m_sync_values.set(t_sync->get_id(), m_smt2sync_tr(val_t.get()));
+            expr_ref val_t = m_context.get_value(t_sync);
+            m_sync_values.set(t_sync->get_id(), val_t.get());
         }
         m_has_new_sls_values = true;
     }        
-
-
     
     void smt_plugin::export_activity_to_smt() {
 
@@ -253,11 +256,5 @@ namespace sls {
         m_sls2sync_uninterp.insert(sls_t, sync_t);
     }
 
-    void smt_plugin::add_shared_var(sat::bool_var v) {
-        m_sls_phase.reserve(v + 1);
-        m_sat_phase.reserve(v + 1);
-        m_rewards.reserve(v + 1);
-        m_shared_bool_vars.insert(v);
-    }
 
 }

@@ -81,7 +81,6 @@ namespace sls {
         void add_shared_term(expr* t);
 
         void add_uninterp(expr* smt_t);
-        void add_shared_var(sat::bool_var v);
 
         void import_phase_from_smt();
         void import_values_from_sls();
