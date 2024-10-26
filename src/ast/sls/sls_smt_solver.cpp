@@ -78,7 +78,7 @@ namespace sls {
             m_context.register_atom(v, e);
         }
 
-        std::ostream& display(std::ostream& out) {
+        std::ostream& display(std::ostream& out) override {
             m_ddfw.display(out);
             m_context.display(out);
             return out;

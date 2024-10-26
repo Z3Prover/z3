@@ -39,8 +39,8 @@ namespace sls {
         m_ld(*this),
         m_repair_down(m.get_num_asts(), m_gd),
         m_repair_up(m.get_num_asts(), m_ld),
-        m_todo(m),
-        m_constraint_trail(m) {
+        m_constraint_trail(m),
+        m_todo(m) {
     }
 
     void context::updt_params(params_ref const& p) {

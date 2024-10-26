@@ -182,7 +182,6 @@ namespace sls {
 
     void datatype_plugin::add_axioms() {
         expr_ref_vector axioms(m);
-        expr* u = nullptr;
         for (auto t : ctx.subterms()) {
             auto s = t->get_sort();
             if (dt.is_datatype(s)) 
