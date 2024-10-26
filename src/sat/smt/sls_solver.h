@@ -52,8 +52,6 @@ namespace sls {
 
 #else
 
-#include <thread>
-#include <mutex>
 #include "ast/sls/sls_smt_plugin.h"
 
 namespace euf {

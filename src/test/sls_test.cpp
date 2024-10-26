@@ -16,7 +16,7 @@ namespace bv {
         vector<sat::clause_info> const& clauses() const override { return m_clauses; }
         sat::clause_info const& get_clause(unsigned idx) const override { return m_clauses[idx]; }
         ptr_iterator<unsigned> get_use_list(sat::literal lit) override { return ptr_iterator<unsigned>(nullptr, nullptr); }
-        bool flip(sat::bool_var v) override { return true; }
+        void flip(sat::bool_var v) override {  }
         double reward(sat::bool_var v) override { return 0; }
         double get_weigth(unsigned clause_idx) override { return 0; }
         bool is_true(sat::literal lit) override { return true; }

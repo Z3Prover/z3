@@ -106,6 +106,7 @@ static void test_insert_before() {
     std::cout << "test_insert_before passed." << std::endl;
 }
 
+#if 0
 // Test the remove_from() method
 static void test_remove_from() {
     TestNode* list = nullptr;
@@ -119,6 +120,7 @@ static void test_remove_from() {
     SASSERT(node2.prev() == &node2);
     std::cout << "test_remove_from passed." << std::endl;
 }
+#endif
 
 // Test the push_to_front() method
 static void test_push_to_front() {
@@ -179,6 +181,6 @@ void tst_dlist() {
     test_detach();
     test_invariant();
     test_contains();
-    (void)test_remove_from;
+    //test_remove_from;
     std::cout << "All tests passed." << std::endl;
 }
