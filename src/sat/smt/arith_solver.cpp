@@ -1272,6 +1272,8 @@ namespace arith {
             for (literal& c : m_core)
                 c.neg();
             DEBUG_CODE(for (literal c : m_core) { SASSERT(s().value(c) != l_true); });
+
+            for (literal c : m_core) { VERIFY(s().value(c) != l_true); }
             
             add_redundant(m_core, explain(ty));
         }
