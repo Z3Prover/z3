@@ -1037,6 +1037,9 @@ namespace arith {
             break;
         }
 
+        if (!check_delayed_eqs())
+            return sat::check_result::CR_CONTINUE;
+
         switch (check_nla()) {
         case l_true:
             break;
@@ -1052,8 +1055,6 @@ namespace arith {
             ++m_stats.m_assume_eqs;
             return sat::check_result::CR_CONTINUE;
         }
-        if (!check_delayed_eqs()) 
-            return sat::check_result::CR_CONTINUE;
 
         if (!int_undef && !check_bv_terms())
             return sat::check_result::CR_CONTINUE;
@@ -1250,7 +1251,7 @@ namespace arith {
         
         TRACE("arith_conflict",
             tout << "Lemma - " << (is_conflict ? "conflict" : "propagation") << "\n";
-            for (literal c : m_core) tout << c << ": " << literal2expr(c) << "\n";
+            for (literal c : m_core) tout << c << ": " << literal2expr(c) << " := " << s().value(c) << "\n";
             for (auto p : m_eqs) tout << ctx.bpp(p.first) << " == " << ctx.bpp(p.second) << "\n";);
 
         if (ctx.get_config().m_arith_validate)
@@ -1525,7 +1526,7 @@ namespace arith {
                 continue;
             ctx.mark_relevant(lit);
             s().set_phase(lit);
-            verbose_stream() << lit << ":= " << s().value(lit) << "\n";
+            // verbose_stream() << lit << ":= " << s().value(lit) << "\n";
             // force trichotomy axiom for equality literals
             if (ineq.cmp() == lp::EQ && false) {
                 nla::lemma l;
