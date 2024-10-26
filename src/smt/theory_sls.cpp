@@ -15,10 +15,11 @@ Author:
 
 --*/
 
-#include "smt/theory_sls.h"
+
 #include "smt/smt_context.h"
 #include "ast/sls/sls_context.h"
 #include "ast/for_each_expr.h"
+#include "smt/theory_sls.h"
 
 namespace smt {
 
