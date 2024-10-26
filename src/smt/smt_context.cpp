@@ -104,6 +104,8 @@ namespace smt {
     */
 
     bool context::get_cancel_flag() {
+        if (l_true == m_sls_completed)
+            return true;
         if (m.limit().inc())
             return false;
         m_last_search_failure = CANCELED;
@@ -3507,10 +3509,11 @@ namespace smt {
         if (r == l_true && get_cancel_flag()) {
             r = l_undef;
         }
-        if (r == l_undef && get_cancel_flag() && has_sls_model()) {
+        if (r == l_undef && m_sls_completed == l_true && has_sls_model()) {
             m.limit().reset_cancel();
             r = l_true;
         }
+        m_sls_completed = l_false;
         if (r == l_true && gparams::get_value("model_validate") == "true") {
             recfun::util u(m);
             if (u.get_rec_funs().empty() && m_proto_model) {
@@ -3750,6 +3753,7 @@ namespace smt {
         m_phase_default                = false;
         m_case_split_queue             ->init_search_eh();
         m_next_progress_sample         = 0;
+        m_sls_completed                = l_undef;
         if (m.has_type_vars() && !m_theories.get_plugin(poly_family_id))
             register_plugin(alloc(theory_polymorphism, *this));
         TRACE("literal_occ", display_literal_num_occs(tout););

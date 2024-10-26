@@ -58,7 +58,7 @@ namespace smt {
     }
     
     void theory_sls::set_finished() {
-        m.limit().cancel();
+        ctx.set_sls_completed();     
     }
     
     unsigned theory_sls::get_num_bool_vars() const {

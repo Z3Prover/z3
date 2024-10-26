@@ -128,6 +128,7 @@ namespace smt {
         class parallel*             m_par = nullptr;
         unsigned                    m_par_index = 0;
         bool                        m_internalizing_assertions = false;
+        lbool                       m_sls_completed = l_undef;
 
 
         // -----------------------------------
@@ -287,6 +288,11 @@ namespace smt {
         void updt_params(params_ref const& p);
 
         bool get_cancel_flag();
+
+        void set_sls_completed() {
+            if (m_sls_completed == l_undef)
+                m_sls_completed = l_true;
+        }
 
         region & get_region() {
             return m_region;
