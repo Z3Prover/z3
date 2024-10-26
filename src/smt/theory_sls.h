@@ -45,9 +45,11 @@ namespace sls {
 #else
 
 #include "ast/sls/sls_smt_plugin.h"
-class context;
+
 
 namespace smt {
+    class context;
+
     class theory_sls : public smt::theory, public sls::smt_context {
         model_ref m_model;
         sls::smt_plugin* m_smt_plugin = nullptr;
