@@ -4,6 +4,7 @@ z3_add_component(rewriter
     array_rewriter.cpp
     ast_counter.cpp
     bit2int.cpp
+    bv2int_translator.cpp
     bool_rewriter.cpp
     bv_bounds.cpp
     bv_elim.cpp

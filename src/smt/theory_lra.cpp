@@ -3276,6 +3276,8 @@ public:
             for (literal & c : m_core) {
                 c.neg();
                 ctx().mark_as_relevant(c);
+                if (ctx().get_assignment(c) == l_true)
+                    return;
             }
             TRACE("arith", ctx().display_literals_verbose(tout, m_core) << "\n";);
             ctx().mk_th_axiom(get_id(), m_core.size(), m_core.data());
