@@ -21,6 +21,7 @@ Author:
 #include "ast/sls/sat_ddfw.h"
 #include "smt/smt_theory.h"
 #include "model/model.h"
+#include "model/numeral_factory.h"
 #include "ast/rewriter/bv2int_translator.h"
 
 
@@ -42,6 +43,7 @@ namespace smt {
         bv_util           bv;
         arith_util        a;
         unsigned m_vars_qhead = 0, m_preds_qhead = 0;
+        bv_factory *    m_factory = nullptr;
 
         bool add_bound_axioms();
         bool add_predicate_axioms();
@@ -60,6 +62,9 @@ namespace smt {
         bool internalize_atom(app * atom, bool gate_ctx) override;
         bool internalize_term(app* term) override;
         void internalize_eq_eh(app * atom, bool_var v) override;
+        void apply_sort_cnstr(enode* n, sort* s) override;
+        void init_model(model_generator& m) override;
+        model_value_proc* mk_value(enode* n, model_generator& m) override;
         void new_eq_eh(theory_var v1, theory_var v2) override {}
         void new_diseq_eh(theory_var v1, theory_var v2) override {}
 

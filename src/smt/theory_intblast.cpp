@@ -13,6 +13,7 @@ Author:
 
 #include "smt/smt_context.h"
 #include "smt/theory_intblast.h"
+#include "smt/smt_model_generator.h"
 
 namespace smt {
 
@@ -134,14 +135,58 @@ namespace smt {
     bool theory_intblast::internalize_atom(app * atom, bool gate_ctx) {
         return internalize_term(atom);
     }
+
+    void theory_intblast::apply_sort_cnstr(enode* n, sort* s) {
+        SASSERT(bv.is_bv_sort(s));
+        if (!is_attached_to_var(n)) {
+            m_translator.internalize_bv(n->get_expr());
+            auto v = mk_var(n);
+            ctx.attach_th_var(n, this, v);
+        }
+    }
     
     bool theory_intblast::internalize_term(app* term) {
+        
+        ctx.internalize(term->get_args(), term->get_num_args(), false);
         m_translator.internalize_bv(term);
+        enode* n;
+        if (!ctx.e_internalized(term)) 
+            n = ctx.mk_enode(term, false, false, false);
+        else
+            n = ctx.get_enode(term);
+
+        if (!is_attached_to_var(n)) {
+            auto v = mk_var(n);
+            ctx.attach_th_var(n, this, v);
+        }
+        if (m.is_bool(term)) {
+            literal l(ctx.mk_bool_var(term));
+            ctx.set_var_theory(l.var(), get_id());
+        }
         return true;
     }
     
     void theory_intblast::internalize_eq_eh(app * atom, bool_var v) {
         m_translator.translate_eq(atom);
+    }
+
+    void theory_intblast::init_model(model_generator& mg) {
+        m_factory = alloc(bv_factory, m);
+        mg.register_factory(m_factory);
+    }
+    model_value_proc* theory_intblast::mk_value(enode* n, model_generator& mg) {
+        expr* e = n->get_expr();
+        SASSERT(bv.is_bv(e));
+        auto ie = m_translator.translated(e);
+        expr_ref val(m);
+        rational r;
+        if (bv.is_numeral(e, r))
+            ;
+        else {
+            VERIFY(ctx.get_value(ctx.get_enode(ie), val));
+            VERIFY(a.is_numeral(val, r));
+        }
+        return alloc(expr_wrapper_proc, m_factory->mk_num_value(r, bv.get_bv_size(e)));
     }
 
 

@@ -699,6 +699,7 @@ namespace smt {
         switch (m_params.m_bv_solver) {
         case 2:
             m_context.register_plugin(alloc(smt::theory_intblast, m_context));
+            setup_lra_arith();
             return;
         default:
             break;
