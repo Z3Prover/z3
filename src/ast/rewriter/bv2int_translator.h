@@ -47,6 +47,11 @@ class bv2int_translator {
     expr_ref if_eq(expr* n, unsigned k, expr* th, expr* el);
     expr* amod(expr* bv_expr, expr* x, rational const& N);
     rational bv_size(expr* bv_expr);
+    expr_ref mk_le(expr* a, expr* b);
+    expr_ref mk_lt(expr* a, expr* b);
+    expr_ref mk_ge(expr* a, expr* b) { return mk_le(b, a); }
+    expr_ref mk_gt(expr* a, expr* b) { return mk_lt(b, a); }
+    
     
     void translate_bv(app* e);
     void translate_basic(app* e);

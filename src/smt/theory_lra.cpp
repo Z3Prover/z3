@@ -2573,6 +2573,14 @@ public:
         return true;
     }
 
+    expr_ref mk_le(expr* x, expr* y) {
+        if (a.is_numeral(y))
+            return expr_ref(a.mk_le(x, y), m);
+        if (a.is_numeral(x))
+            return expr_ref(a.mk_ge(y, x), m);
+        return expr_ref(a.mk_le(a.mk_sub(x, y), a.mk_numeral(rational(0), x->get_sort())), m);
+    }
+
     void mk_bv_axiom(app* n) {
         unsigned sz = 0;
         expr* _x = nullptr, * _y = nullptr;
@@ -2592,8 +2600,8 @@ public:
             // x&y <= y
             // TODO? x = y => x&y = x
 
-            ctx().mk_th_axiom(get_id(), mk_literal(a.mk_le(n, x)));
-            ctx().mk_th_axiom(get_id(), mk_literal(a.mk_le(n, y)));
+            ctx().mk_th_axiom(get_id(), mk_literal(mk_le(n, x)));
+            ctx().mk_th_axiom(get_id(), mk_literal(mk_le(n, y)));
         }
         else if (a.is_shl(n)) {
             // y >= sz => n = 0

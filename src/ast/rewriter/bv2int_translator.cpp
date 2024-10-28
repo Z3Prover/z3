@@ -183,6 +183,20 @@ void bv2int_translator::translate_app(app* e) {
     set_translated(e, m.mk_app(f, m_args));
 }
 
+expr_ref bv2int_translator::mk_le(expr* x, expr* y) {
+    if (a.is_numeral(y))
+        return expr_ref(a.mk_le(x, y), m);
+    if (a.is_numeral(x))
+        return expr_ref(a.mk_ge(y, x), m);
+    return expr_ref(a.mk_le(a.mk_sub(x, y), a.mk_numeral(rational(0), x->get_sort())), m);
+}
+
+expr_ref bv2int_translator::mk_lt(expr* x, expr* y) {
+    return expr_ref(m.mk_not(mk_le(y, x)), m);
+}
+
+
+
 void bv2int_translator::translate_bv(app* e) {
 
     auto bnot = [&](expr* e) {
@@ -229,35 +243,35 @@ void bv2int_translator::translate_bv(app* e) {
         break;
     case OP_ULEQ:
         bv_expr = e->get_arg(0);
-        r = a.mk_le(umod(bv_expr, 0), umod(bv_expr, 1));
+        r = mk_le(umod(bv_expr, 0), umod(bv_expr, 1));
         break;
     case OP_UGEQ:
         bv_expr = e->get_arg(0);
-        r = a.mk_ge(umod(bv_expr, 0), umod(bv_expr, 1));
+        r = mk_ge(umod(bv_expr, 0), umod(bv_expr, 1));
         break;
     case OP_ULT:
         bv_expr = e->get_arg(0);
-        r = a.mk_lt(umod(bv_expr, 0), umod(bv_expr, 1));
+        r = mk_lt(umod(bv_expr, 0), umod(bv_expr, 1));
         break;
     case OP_UGT:
         bv_expr = e->get_arg(0);
-        r = a.mk_gt(umod(bv_expr, 0), umod(bv_expr, 1));
+        r = mk_gt(umod(bv_expr, 0), umod(bv_expr, 1));
         break;
     case OP_SLEQ:
         bv_expr = e->get_arg(0);
-        r = a.mk_le(smod(bv_expr, 0), smod(bv_expr, 1));
+        r = mk_le(smod(bv_expr, 0), smod(bv_expr, 1));
         break;
     case OP_SGEQ:
         bv_expr = e->get_arg(0);
-        r = a.mk_ge(smod(bv_expr, 0), smod(bv_expr, 1));
+        r = mk_ge(smod(bv_expr, 0), smod(bv_expr, 1));
         break;
     case OP_SLT:
         bv_expr = e->get_arg(0);
-        r = a.mk_lt(smod(bv_expr, 0), smod(bv_expr, 1));
+        r = mk_lt(smod(bv_expr, 0), smod(bv_expr, 1));
         break;
     case OP_SGT:
         bv_expr = e->get_arg(0);
-        r = a.mk_gt(smod(bv_expr, 0), smod(bv_expr, 1));
+        r = mk_gt(smod(bv_expr, 0), smod(bv_expr, 1));
         break;
     case OP_BNEG:
         r = a.mk_uminus(arg(0));
@@ -308,7 +322,7 @@ void bv2int_translator::translate_bv(app* e) {
     }
     case OP_BUMUL_NO_OVFL: {
         bv_expr = e->get_arg(0);
-        r = a.mk_lt(mul(umod(bv_expr, 0), umod(bv_expr, 1)), a.mk_int(bv_size(bv_expr)));
+        r = mk_lt(mul(umod(bv_expr, 0), umod(bv_expr, 1)), a.mk_int(bv_size(bv_expr)));
         break;
     }
     case OP_BSHL: {
