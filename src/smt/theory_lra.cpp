@@ -1619,6 +1619,7 @@ public:
         if (!lp().is_feasible() || lp().has_changed_columns()) 
             is_sat = make_feasible();
         final_check_status st = FC_DONE;
+        bool int_undef = false;
         switch (is_sat) {
         case l_true:
             TRACE("arith", display(tout));            
@@ -1629,6 +1630,7 @@ public:
             case FC_CONTINUE:
                 return FC_CONTINUE;
             case FC_GIVEUP:
+                int_undef = true;
                 TRACE("arith", tout << "check-lia giveup\n";);
                 if (ctx().get_fparams().m_arith_ignore_int)
                     st = FC_CONTINUE;
@@ -1650,6 +1652,9 @@ public:
                 ++m_stats.m_assume_eqs;
                 return FC_CONTINUE;
             }
+
+            if (!int_undef && !check_bv_terms())
+                return FC_CONTINUE;
             
             for (expr* e : m_not_handled) {
                 if (!ctx().is_relevant(e))
@@ -2448,6 +2453,124 @@ public:
         }
 
         return null_literal;
+    }
+
+    bool check_bv_terms() {
+        for (app* n : m_bv_terms) {
+            if (!check_bv_term(n)) {
+                ++m_stats.m_bv_axioms;
+                return false;
+            }
+        }
+        return true;
+    }
+
+
+    bool check_bv_term(app* n) {
+        unsigned sz = 0;
+        expr* _x = nullptr, * _y = nullptr;
+        if (!ctx().is_relevant(ctx().get_enode(n)))
+            return true;
+        expr_ref vx(m), vy(m),vn(m);
+        rational valn, valx, valy;
+        bool is_int;
+        VERIFY(a.is_band(n, sz, _x, _y) || a.is_shl(n, sz, _x, _y) || a.is_ashr(n, sz, _x, _y) || a.is_lshr(n, sz, _x, _y));
+        if (!get_value(ctx().get_enode(_x), vx) || !get_value(ctx().get_enode(_y), vy) || !get_value(ctx().get_enode(n), vn)) {
+            IF_VERBOSE(2, verbose_stream() << "could not get value of " << mk_pp(n, m) << "\n");
+            found_unsupported(n);
+            return true;
+        }
+        if (!a.is_numeral(vn, valn, is_int) || !is_int || !a.is_numeral(vx, valx, is_int) || !is_int || !a.is_numeral(vy, valy, is_int) || !is_int) {
+            IF_VERBOSE(2, verbose_stream() << "could not get value of " << mk_pp(n, m) << "\n");
+            found_unsupported(n);
+            return true;
+        }
+        rational N = rational::power_of_two(sz);
+        valx = mod(valx, N);
+        valy = mod(valy, N);
+        expr_ref x(a.mk_mod(_x, a.mk_int(N)), m);
+        expr_ref y(a.mk_mod(_y, a.mk_int(N)), m);
+        SASSERT(0 <= valn && valn < N);
+        
+        // x mod 2^{i + 1} >= 2^i means the i'th bit is 1.
+        auto bitof = [&](expr* x, unsigned i) { 
+            expr_ref r(m);
+            r = a.mk_ge(a.mk_mod(x, a.mk_int(rational::power_of_two(i+1))), a.mk_int(rational::power_of_two(i)));
+            return mk_literal(r);
+        };
+
+        if (a.is_band(n)) {
+            IF_VERBOSE(2, verbose_stream() << "band: " << mk_bounded_pp(n, m) << " " << valn << " := " << valx << "&" << valy << "\n");
+            for (unsigned i = 0; i < sz; ++i) {
+                bool xb = valx.get_bit(i);
+                bool yb = valy.get_bit(i);
+                bool nb = valn.get_bit(i);
+                if (xb && yb && !nb)
+                    ctx().mk_th_axiom(get_id(), ~bitof(x, i), ~bitof(y, i), bitof(n, i));
+                else if (nb && !xb)
+                    ctx().mk_th_axiom(get_id(), ~bitof(n, i), bitof(x, i));
+                else if (nb && !yb)
+                    ctx().mk_th_axiom(get_id(), ~bitof(n, i), bitof(y, i));
+                else
+                    continue;
+                return false;
+            }
+        }
+        if (a.is_shl(n)) {
+            SASSERT(valy >= 0);
+            if (valy >= sz || valy == 0)
+                return true;
+            unsigned k = valy.get_unsigned();
+            sat::literal eq = th.mk_eq(n, a.mk_mod(a.mk_mul(_x, a.mk_int(rational::power_of_two(k))), a.mk_int(N)), false);
+            if (ctx().get_assignment(eq) == l_true)
+                return true;            
+            ctx().mk_th_axiom(get_id(), ~th.mk_eq(y, a.mk_int(k), false), eq);
+            IF_VERBOSE(2, verbose_stream() << "shl: " << mk_bounded_pp(n, m) << " " << valn << " := " << valx << " << " << valy << "\n");
+            return false;
+        }
+        if (a.is_lshr(n)) {
+            SASSERT(valy >= 0);
+            if (valy >= sz || valy == 0)
+                return true;
+            unsigned k = valy.get_unsigned();
+            sat::literal eq = th.mk_eq(n, a.mk_idiv(x, a.mk_int(rational::power_of_two(k))), false);
+            if (ctx().get_assignment(eq) == l_true)
+                return true;            
+            ctx().mk_th_axiom(get_id(), ~th.mk_eq(y, a.mk_int(k), false), eq);
+            IF_VERBOSE(2, verbose_stream() << "lshr: " << mk_bounded_pp(n, m) << " " << valn << " := " << valx << " >>l " << valy << "\n");
+            return false;
+        }
+        if (a.is_ashr(n)) {
+            SASSERT(valy >= 0);
+            if (valy >= sz || valy == 0)
+                return true;
+            unsigned k = valy.get_unsigned();
+            sat::literal signx = mk_literal(a.mk_ge(x, a.mk_int(N/2)));
+            sat::literal eq;
+            expr* xdiv2k;
+            switch (ctx().get_assignment(signx)) {
+            case l_true:
+                // x < 0 & y = k -> n = (x div 2^k - 2^{N-k}) mod 2^N
+                xdiv2k = a.mk_idiv(x, a.mk_int(rational::power_of_two(k)));
+                eq = th.mk_eq(n, a.mk_mod(a.mk_add(xdiv2k, a.mk_int(-rational::power_of_two(sz - k))), a.mk_int(N)), false);
+                if (ctx().get_assignment(eq) == l_true)
+                    return true;
+                break;
+            case l_false:
+                // x >= 0 & y = k -> n = x div 2^k
+                xdiv2k = a.mk_idiv(x, a.mk_int(rational::power_of_two(k)));
+                eq = th.mk_eq(n, xdiv2k, false);
+                if (ctx().get_assignment(eq) == l_true)
+                    return true;
+                break;
+            case l_undef:
+                ctx().mark_as_relevant(signx);
+                return false;
+            }
+            ctx().mk_th_axiom(get_id(), ~th.mk_eq(y, a.mk_int(k), false), ~signx, eq); 
+            return false;
+        }
+        return true;
     }
 
     void mk_bv_axiom(app* n) {

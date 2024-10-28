@@ -111,6 +111,7 @@ namespace smt {
             ctx.get_rewriter()(r);
             auto a = mk_literal(e);
             auto b = mk_literal(r);
+            ctx.mark_as_relevant(a);
             ctx.mark_as_relevant(b);
             ctx.mk_th_axiom(m_id, ~a, b);
             ctx.mk_th_axiom(m_id, a, ~b);
