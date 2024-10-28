@@ -37,11 +37,7 @@ namespace smt {
     {}
     
     theory_intblast::~theory_intblast() {}
-    
-    void theory_intblast::init() {
         
-    }    
-    
     final_check_status theory_intblast::final_check_eh() {
         for (auto e : m_translator.bv2int()) {
             auto* n = ctx.get_enode(e);
@@ -59,7 +55,7 @@ namespace smt {
                 auto b = mk_eq(sib->get_arg(0)->get_expr(), n->get_arg(0)->get_expr(), false);
                 ctx.mark_as_relevant(a);
                 ctx.mark_as_relevant(b);
-                ctx.mk_clause(~a, b, nullptr);
+                ctx.mk_th_axiom(m_id, ~a, b);
                 return final_check_status::FC_CONTINUE;
             }
         }
@@ -78,7 +74,7 @@ namespace smt {
             if (nBv2int->get_root() != nxModN->get_root()) {
                 auto a = mk_eq(nBv2int->get_expr(), nxModN->get_expr(), false);
                 ctx.mark_as_relevant(a);
-                ctx.mk_clause(1, &a, nullptr);
+                ctx.mk_th_axiom(m_id, 1, &a);
                 return final_check_status::FC_CONTINUE;
             }
         }
@@ -98,8 +94,8 @@ namespace smt {
             auto hi = mk_literal(a.mk_le(w, a.mk_int(sz - 1)));
             ctx.mark_as_relevant(lo);
             ctx.mark_as_relevant(hi);
-            ctx.mk_clause(1, &lo, nullptr);
-            ctx.mk_clause(1, &hi, nullptr);
+            ctx.mk_th_axiom(m_id, 1, &lo);
+            ctx.mk_th_axiom(m_id, 1, &hi);
         }
         return true;
     }
@@ -116,9 +112,8 @@ namespace smt {
             auto a = mk_literal(e);
             auto b = mk_literal(r);
             ctx.mark_as_relevant(b);
-//            verbose_stream() << "add-predicate-axiom: " << mk_pp(e, m) << " == " << r << "\n";
-            ctx.mk_clause(~a, b, nullptr);
-            ctx.mk_clause(a, ~b, nullptr);
+            ctx.mk_th_axiom(m_id, ~a, b);
+            ctx.mk_th_axiom(m_id, a, ~b);
         }
         return true;
     }
@@ -174,6 +169,7 @@ namespace smt {
         m_factory = alloc(bv_factory, m);
         mg.register_factory(m_factory);
     }
+    
     model_value_proc* theory_intblast::mk_value(enode* n, model_generator& mg) {
         expr* e = n->get_expr();
         SASSERT(bv.is_bv(e));

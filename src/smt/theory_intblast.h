@@ -53,7 +53,6 @@ namespace smt {
         ~theory_intblast() override;
 
         char const* get_name() const override { return "bv-intblast"; }
-        void init() override;
         smt::theory* mk_fresh(context* new_ctx) override { return alloc(theory_intblast, *new_ctx); }
         final_check_status final_check_eh() override;
         void display(std::ostream& out) const override {}
