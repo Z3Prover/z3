@@ -179,13 +179,12 @@ namespace smt {
         SASSERT(bv.is_bv(e));
         auto ie = m_translator.translated(e);
         rational r;
+        expr_ref val(m);
         if (bv.is_numeral(e, r))
             ;
         else if (!ctx.e_internalized(ie))
             ; // it is a compound expression, we don't have to evaluate it.
-        else {
-            expr_ref val(m);
-            VERIFY(ctx.get_value(ctx.get_enode(ie), val));
+        else if (ctx.get_value(ctx.get_enode(ie), val)) {
             VERIFY(a.is_numeral(val, r));
         }
         return alloc(expr_wrapper_proc, m_factory->mk_num_value(r, bv.get_bv_size(e)));
