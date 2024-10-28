@@ -948,6 +948,8 @@ namespace smt {
             mk_th_clause(tid, num_lits, lits, num_params, params, CLS_TH_AXIOM);
         }
 
+        void mk_th_axiom(theory_id tid, literal l1, unsigned num_params = 0, parameter * params = nullptr);
+
         void mk_th_axiom(theory_id tid, literal l1, literal l2, unsigned num_params = 0, parameter * params = nullptr);
 
         void mk_th_axiom(theory_id tid, literal l1, literal l2, literal l3, unsigned num_params = 0, parameter * params = nullptr);

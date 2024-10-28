@@ -154,6 +154,7 @@ class theory_lra::imp {
     svector<delayed_atom>  m_asserted_atoms;        
     ptr_vector<expr>       m_not_handled;
     ptr_vector<app>        m_underspecified;
+    ptr_vector<app>        m_bv_terms;
     vector<ptr_vector<api_bound> > m_use_list;        // bounds where variables are used.
 
     // attributes for incremental version:
@@ -469,6 +470,13 @@ class theory_lra::imp {
                     if (!ctx().relevancy()) mk_power_axiom(n, n1, n2);
                     st.to_ensure_var().push_back(n1);
                     st.to_ensure_var().push_back(n2);
+                }
+                else if (a.is_band(n) || a.is_shl(n) || a.is_ashr(n) || a.is_lshr(n)) {
+                    m_bv_terms.push_back(to_app(n));
+                    ctx().push_trail(push_back_vector(m_bv_terms));
+                    mk_bv_axiom(to_app(n));
+                    for (expr* arg : *to_app(n))
+                        st.to_ensure_var().push_back(arg);                    
                 }
                 else if (!a.is_div0(n)) {
                     found_unsupported(n);
@@ -2441,6 +2449,54 @@ public:
 
         return null_literal;
     }
+
+    void mk_bv_axiom(app* n) {
+        unsigned sz = 0;
+        expr* _x = nullptr, * _y = nullptr;
+        VERIFY(a.is_band(n, sz, _x, _y) || a.is_shl(n, sz, _x, _y) || a.is_ashr(n, sz, _x, _y) || a.is_lshr(n, sz, _x, _y));
+        rational N = rational::power_of_two(sz);
+        expr_ref x(a.mk_mod(_x, a.mk_int(N)), m);
+        expr_ref y(a.mk_mod(_y, a.mk_int(N)), m);
+
+        // 0 <= n < 2^sz
+        
+        ctx().mk_th_axiom(get_id(), mk_literal(a.mk_ge(n, a.mk_int(0))));
+        ctx().mk_th_axiom(get_id(), mk_literal(a.mk_le(n, a.mk_int(N - 1))));
+
+        if (a.is_band(n)) {
+                       
+            // x&y <= x
+            // x&y <= y
+            // TODO? x = y => x&y = x
+
+            ctx().mk_th_axiom(get_id(), mk_literal(a.mk_le(n, x)));
+            ctx().mk_th_axiom(get_id(), mk_literal(a.mk_le(n, y)));
+        }
+        else if (a.is_shl(n)) {
+            // y >= sz => n = 0
+            // y = 0 => n = x
+            ctx().mk_th_axiom(get_id(), ~mk_literal(a.mk_ge(y, a.mk_int(sz))), mk_literal(m.mk_eq(n, a.mk_int(0))));
+            ctx().mk_th_axiom(get_id(), ~mk_literal(a.mk_eq(y, a.mk_int(0))), mk_literal(m.mk_eq(n, x)));
+        }
+        else if (a.is_lshr(n)) {
+            // y >= sz => n = 0
+            // y = 0 => n = x
+            ctx().mk_th_axiom(get_id(), ~mk_literal(a.mk_ge(y, a.mk_int(sz))), mk_literal(m.mk_eq(n, a.mk_int(0))));
+            ctx().mk_th_axiom(get_id(), ~mk_literal(a.mk_eq(y, a.mk_int(0))), mk_literal(m.mk_eq(n, x)));
+        }
+        else if (a.is_ashr(n)) {
+            // y >= sz & x < 2^{sz-1} => n = 0
+            // y >= sz & x >= 2^{sz-1} => n = -1
+            // y = 0 => n = x
+            auto signx = mk_literal(a.mk_ge(x, a.mk_int(N/2)));
+            ctx().mk_th_axiom(get_id(), ~mk_literal(a.mk_ge(a.mk_mod(y, a.mk_int(N)), a.mk_int(sz))), signx, mk_literal(m.mk_eq(n, a.mk_int(0))));
+            ctx().mk_th_axiom(get_id(), ~mk_literal(a.mk_ge(a.mk_mod(y, a.mk_int(N)), a.mk_int(sz))), ~signx, mk_literal(m.mk_eq(n, a.mk_int(N-1))));
+            ctx().mk_th_axiom(get_id(), ~mk_literal(a.mk_eq(a.mk_mod(y, a.mk_int(N)), a.mk_int(0))), mk_literal(m.mk_eq(n, x)));            
+        }
+        else
+            UNREACHABLE();
+    }
+
 
     void mk_bound_axioms(api_bound& b) {
         if (!ctx().is_searching()) {
