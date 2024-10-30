@@ -90,7 +90,7 @@ inline void static_matrix<T, X>::pivot_row_to_row_given_cell_with_sign(unsigned 
 column_cell& c, unsigned pivot_col, int pivot_sign) {
     unsigned ii = c.var();
     SASSERT(ii != piv_row_index);
-    T alpha = get_val(c) * pivot_sign;
+    T alpha = - get_val(c) * pivot_sign;
     SASSERT(!is_zero(alpha));
     auto & rowii = m_rows[ii];
     remove_element(rowii, rowii[c.offset()]);

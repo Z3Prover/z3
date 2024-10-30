@@ -1950,7 +1950,8 @@ namespace lp {
         // SASSERT(validate_bound(j, kind, right_side, dep));
         TRACE(
             "lar_solver_feas",
-            tout << "j" << j << " " << lconstraint_kind_string(kind) << " " << right_side << std::endl;            
+            tout << "j" << j << " " << lconstraint_kind_string(kind) << " " << right_side << std::endl;   
+            print_column_info(j, tout) << "\n";
             if (dep) {
                 tout << "dep:\n";
                 auto cs = flatten(dep);

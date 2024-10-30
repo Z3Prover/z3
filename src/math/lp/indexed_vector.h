@@ -113,6 +113,8 @@ public:
             if (was_zero)
                 m_index.push_back(j);
         }
+        SASSERT(v.is_zero() == 
+        ( std::find(m_index.begin(), m_index.end(), j) == m_index.end()));
     }
 
     void erase(unsigned j);

@@ -181,7 +181,7 @@ namespace lp {
                 return lia_move::branch;
             }
 
-            m_dioph_eq_period *= 2; // the overflow is fine, maybe to try again
+            // m_dioph_eq_period *= 2;
             return lia_move::undef;
         }
 
