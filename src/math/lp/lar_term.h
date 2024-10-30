@@ -51,7 +51,7 @@ public:
             return;
         auto *e = m_coeffs.find_core(j);        
         if (e == nullptr) {
-            m_coeffs.insert(j, c);
+            m_coeffs.insert(j, -c);
         } else {
             e->get_data().m_value -= c;
             if (e->get_data().m_value.is_zero())
@@ -90,6 +90,21 @@ public:
     }
     // constructors
     lar_term() = default;
+<<<<<<< HEAD
+=======
+    lar_term(lar_term&& other) noexcept = default;
+    // copy assignment operator
+    lar_term& operator=(const lar_term& other) = default;
+    // move assignment operator
+    lar_term& operator=(lar_term&& other) noexcept = default;
+    ~lar_term() = default;
+    lar_term(const lar_term& a) {
+        for (auto const& p : a) {
+            add_monomial(p.coeff(), p.var());
+        }
+    }
+    
+>>>>>>> 956229fb6 (test that pivoting is correct in dioph_eq.cpp)
     lar_term(const vector<std::pair<mpq, unsigned>>& coeffs) {
         for (auto const& p : coeffs) {
             add_monomial(p.first, p.second);
@@ -205,7 +220,16 @@ public:
         }
         return r;
     }
-   
+
+    friend lar_term operator-(const lar_term& a, const lar_term& b) {
+        lar_term r(a);
+        for (const auto& p : b) {
+            r.sub_monomial(p.coeff(), p.j());
+        }
+        return r;
+    }
+
+
     lar_term& operator+=(const lar_term& a) {
         for (const auto& p : a) {
             add_monomial(p.coeff(), p.j());

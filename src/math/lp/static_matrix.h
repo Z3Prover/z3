@@ -46,6 +46,7 @@ typedef vector<column_cell> column_strip;
 template <typename T>
 using row_strip = vector<row_cell<T>>; 
 template <typename K> mpq get_denominators_lcm(const K & row) {
+    SASSERT(row.size() > 0);
     mpq r = mpq(1);
     for (const auto & c : row) 
         r = lcm(r, denominator(c.coeff()));

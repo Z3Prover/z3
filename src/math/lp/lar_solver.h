@@ -653,6 +653,7 @@ public:
     inline int_solver* get_int_solver() { return m_int_solver; }
     inline const int_solver* get_int_solver() const { return m_int_solver; }
     inline const lar_term& get_term(lpvar j) const {
+        SASSERT(column_has_term(j));
         return *m_columns[j].term();
     }
     lp_status find_feasible_solution();
