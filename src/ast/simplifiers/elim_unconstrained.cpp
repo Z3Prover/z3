@@ -42,6 +42,73 @@ proof production is work in progress.
 reconstruct_term should assign proof objects with nodes by applying
 monotonicity or reflexivity rules. 
 
+Maintain term nodes.
+Each term node has a root. The root of the root is itself.
+The root of a term node can be updated.
+The parents of terms with same roots are combined.
+The depth of a parent is always greater than the depth of a child.
+The effective term of a node is reconstructed by taking the root and canonizing the children based on roots.
+The reference count of a term is the number of parents it has.
+
+node:  term -> node
+dirty: node -> bool
+root:  node -> node
+top:   node -> bool
+term:  node -> term
+
+invariant:
+- root(root(n)) = root(n)
+- term(node(t)) = t
+
+parents: node -> node* 
+parents(root(node)) = union of parents of n : root(n) = root(node).
+is_child(n, p) = term(root(n)) in args(term(root(p)))
+
+set_root: node -> node -> void
+set_root(n, r) = 
+   r = root(r)
+   n = root(n)
+   if r = n then return
+   parents(r) = parents(r) union parents(n)
+   root(n) := r,
+   top(r) := top(r) or top(n)
+   set all parents of class(r) to dirty, recursively
+
+reconstruct_term: node -> term
+reconstruct_term(n) =
+  r = root(n)
+  if dirty(r) then
+    args = [reconstruct_term(c) | c in args(term(r))]
+    term(r) := term(r).f(args)
+    dirty(r) := false
+  return term(r)
+
+live : term -> bool
+live(t) = 
+   n = node(t)
+   is_root(n) & (top(n) or p in parents(n) : live(p))
+
+Only live nodes require updates.
+
+eliminate:
+  while heap is not empty:
+     v = heap.erase_min()
+     n = node(v)
+     if n.parents.size() > 1 then
+        return
+     if !is_root(n) or !live(n) or n.parents.size() != 1 then 
+        continue
+     p = n.parents[0]
+     if !is_child(n, p) or !is_root(p) then 
+        continue
+     t = p.term
+     args = [reconstruct_term(node(arg)) | arg in t]
+     r = inverter(t.f, args)
+     if r then        
+        set_root(n, r)
+
+
+
 --*/
 
 
@@ -54,15 +121,17 @@ monotonicity or reflexivity rules.
 elim_unconstrained::elim_unconstrained(ast_manager& m, dependent_expr_state& fmls) :
     dependent_expr_simplifier(m, fmls), m_inverter(m), m_lt(*this), m_heap(1024, m_lt), m_trail(m), m_args(m) {
     std::function<bool(expr*)> is_var = [&](expr* e) {
-        return is_uninterp_const(e) && !m_fmls.frozen(e) && is_node(e) && get_node(e).m_refcount <= 1;
+        return is_uninterp_const(e) && !m_fmls.frozen(e) && get_node(e).is_root() && get_node(e).num_parents() <= 1;
     };
     m_inverter.set_is_var(is_var);
 }
 
-bool elim_unconstrained::is_var_lt(int v1, int v2) const {
-    node const& n1 = get_node(v1);
-    node const& n2 = get_node(v2);
-    return n1.m_refcount < n2.m_refcount;
+elim_unconstrained::~elim_unconstrained() {
+    reset_nodes();
+}
+
+bool elim_unconstrained::is_var_lt(int v1, int v2) const {   
+    return get_node(v1).num_parents() < get_node(v2).num_parents();
 }
 
 void elim_unconstrained::eliminate() {
@@ -70,30 +139,29 @@ void elim_unconstrained::eliminate() {
         expr_ref r(m);
         int v = m_heap.erase_min();
         node& n = get_node(v);
-        if (n.m_refcount == 0)
+        if (!n.is_root() || n.is_top())
             continue;
-        if (n.m_refcount > 1) 
+        unsigned num_parents = n.num_parents();
+        if (num_parents == 0)
+            continue;
+        if (num_parents > 1)
             return;
 
-        if (n.m_parents.empty()) {
-            n.m_refcount = 0;
+        node& p = n.parent();
+        if (!is_child(n, p) || !p.is_root())
             continue;
-        }
-        expr* e = get_parent(v);
-        TRACE("elim_unconstrained", for (expr* p : n.m_parents) tout << "parent " << mk_bounded_pp(p, m) << " @ " << get_node(p).m_refcount << "\n";);
-        if (!e || !is_app(e) || !is_ground(e)) {
-            n.m_refcount = 0;
+        expr* e = p.term();
+        if (!e || !is_app(e) || !is_ground(e)) 
             continue;
-        }
-        if (m_heap.contains(root(e))) {
-            TRACE("elim_unconstrained", tout << "already in heap " << mk_bounded_pp(e, m) << "\n");
-            continue;
-        }
+
+        SASSERT(!m_heap.contains(p.term()->get_id()));
+        
         app* t = to_app(e);
-        TRACE("elim_unconstrained", tout << "eliminating " << mk_pp(t, m) << "\n";);
+        TRACE("elim_unconstrained", tout << "eliminating " << mk_bounded_pp(t, m) << "\n";);
         unsigned sz = m_args.size();
         for (expr* arg : *to_app(t))
-            m_args.push_back(reconstruct_term(get_node(arg)));
+            m_args.push_back(reconstruct_term(root(arg)));
+        expr_ref rr(m.mk_app(t->get_decl(), t->get_num_args(), m_args.data() + sz), m);
         bool inverted = m_inverter(t->get_decl(), t->get_num_args(), m_args.data() + sz, r);
         proof_ref pr(m);
         if (inverted && m_enable_proofs) {
@@ -103,67 +171,91 @@ void elim_unconstrained::eliminate() {
             proof * pr  = m.mk_apply_def(s, r, pr1);
             m_trail.push_back(pr);
         }
-        expr_ref rr(m.mk_app(t->get_decl(), t->get_num_args(), m_args.data() + sz), m);
-        n.m_refcount = 0;
         m_args.shrink(sz);
-        if (!inverted) {
-            TRACE("elim_unconstrained", tout << "not inverted " << mk_bounded_pp(e, m) << "\n");
+        if (!inverted)
             continue;
-        }
 
-        IF_VERBOSE(11, verbose_stream() << "replace " << mk_pp(t, m) << " / " << rr << " -> " << r << "\n");
+        IF_VERBOSE(1, verbose_stream() << "replace " << mk_bounded_pp(t, m) << " / " << mk_bounded_pp(rr, m) << " -> " << mk_bounded_pp(r, m) << "\n");
+
         
-        TRACE("elim_unconstrained", tout << mk_pp(t, m) << " / " << rr << " -> " << r << "\n");
+        TRACE("elim_unconstrained", tout << mk_bounded_pp(t, m) << " / " << mk_bounded_pp(rr, m) << " -> " << mk_bounded_pp(r, m) << "\n");
         SASSERT(r->get_sort() == t->get_sort());
         m_stats.m_num_eliminated++;
-        m_trail.push_back(r);
-        SASSERT(r);
-        gc(e);
-        invalidate_parents(e);
-        freeze_rec(r);
-        
-        m_root.setx(r->get_id(), e->get_id(), UINT_MAX);
-        get_node(e).m_term = r;
-        get_node(e).m_proof = pr;
-        get_node(e).m_refcount++;
-        get_node(e).m_dirty = false;
-        IF_VERBOSE(11, verbose_stream() << "set " << &get_node(e) << " " << root(e) << " " << mk_bounded_pp(e, m) << " := " << mk_bounded_pp(r, m) << "\n");
-        SASSERT(!m_heap.contains(root(e)));
-        if (is_uninterp_const(r))
-            m_heap.insert(root(e));
+        node& rn = root(r);
+        set_root(p, rn);
+        expr* rt = rn.term();
+        SASSERT(!m_heap.contains(rt->get_id()));
+        if (is_uninterp_const(rt))
+            m_heap.insert(rt->get_id());
         else
             m_created_compound = true;
-
-        IF_VERBOSE(11, verbose_stream() << mk_bounded_pp(get_node(v).m_orig, m) << " " << mk_bounded_pp(t, m) << " -> " << r << " " << get_node(e).m_refcount << "\n";);
-
     }
 }
 
-expr* elim_unconstrained::get_parent(unsigned n) const {
-    for (expr* p : get_node(n).m_parents)
-        if (get_node(p).m_refcount > 0 && get_node(p).m_term == get_node(p).m_orig)
-            return p;
-    return nullptr;
+void elim_unconstrained::set_root(node& n, node& r) {
+    SASSERT(n.is_root());
+    SASSERT(r.is_root());
+    if (&n == &r)
+        return;
+    r.add_parents(n.parents());    
+    n.set_root(r);
+    for (auto p : n.parents())
+        invalidate_parents(*p);
 }
 
-void elim_unconstrained::invalidate_parents(expr* e) {
-    ptr_buffer<expr> todo;
+void elim_unconstrained::invalidate_parents(node& n) {
+    ptr_buffer<node> todo;
+    node* np = &n;
     do {
-        node& n = get_node(e);
-        if (!n.m_dirty && e == n.m_term) {
-            n.m_dirty = true;
-            for (expr* e : n.m_parents)
-                todo.push_back(e);            
+        node& n = *np;
+        if (!n.is_dirty()) {
+            n.set_dirty();
+            for (auto* p : n.parents())
+                todo.push_back(p);            
         }
-        e = nullptr;
+        np = nullptr;
         if (!todo.empty()) {
-            e = todo.back();
+            np = todo.back();
             todo.pop_back();
         }
     }
-    while (e);    
+    while (np);    
 }
 
+bool elim_unconstrained::is_child(node const& ch, node const& p) {
+    SASSERT(ch.is_root());
+    return is_app(p.term()) && any_of(*to_app(p.term()), [&](expr* arg) { return &root(arg) == &ch; });
+}
+
+elim_unconstrained::node& elim_unconstrained::get_node(expr* t) {
+    unsigned id = t->get_id();
+    if (m_nodes.size() <= id)
+        m_nodes.resize(id + 1, nullptr);
+    node* n = m_nodes[id];
+    if (!n) {
+        n = alloc(node, m, t);               
+        m_nodes[id] = n;
+        if (is_app(t)) {
+            for (auto arg : *to_app(t)) {
+                node& ch = get_node(arg);
+                SASSERT(ch.is_root());
+                ch.add_parent(*n);
+            }
+        }
+        else if (is_quantifier(t)) {            
+            node& ch = get_node(to_quantifier(t)->get_expr());
+            SASSERT(ch.is_root());
+            ch.add_parent(*n);
+        }
+    }
+    return *n;
+}
+
+void elim_unconstrained::reset_nodes() {
+    for (node* n : m_nodes)
+        dealloc(n);
+    m_nodes.reset();
+}
 
 /**
  * initialize node structure
@@ -182,201 +274,93 @@ void elim_unconstrained::init_nodes() {
             m_enable_proofs = true;
     }
 
-    m_trail.append(terms);
     m_heap.reset();
-    m_root.reset();
-    m_nodes.reset();
+    reset_nodes();
 
     // initialize nodes for terms in the original goal
-    init_terms(terms);
-
-    // top-level terms have reference count > 0
-    for (expr* e : terms)
-        inc_ref(e);
-
-    m_inverter.set_produce_proofs(m_enable_proofs);
-        
-}
-
-/**
-* Create nodes for all terms in the goal
-*/
-void elim_unconstrained::init_terms(expr_ref_vector const& terms) {
     unsigned max_id = 0;
     for (expr* e : subterms::all(terms))
         max_id = std::max(max_id, e->get_id());
 
     m_nodes.reserve(max_id + 1);
     m_heap.reserve(max_id + 1);
-    m_root.reserve(max_id + 1, UINT_MAX);
 
     for (expr* e : subterms_postorder::all(terms)) {
-        m_root.setx(e->get_id(), e->get_id(), UINT_MAX);
         node& n = get_node(e);
-        if (n.m_term)
-            continue;        
-        n.m_orig = e;
-        n.m_term = e;
-        n.m_refcount = 0;
-        
+        SASSERT(n.is_root());
         if (is_uninterp_const(e))
-            m_heap.insert(root(e));
-        if (is_quantifier(e)) {
-            expr* body = to_quantifier(e)->get_expr();
-            get_node(body).m_parents.push_back(e);
-            inc_ref(body);
-        }
-        else if (is_app(e)) {
-            for (expr* arg : *to_app(e)) {
-                get_node(arg).m_parents.push_back(e);
-                inc_ref(arg);
-            }
-        }
+            m_heap.insert(e->get_id());
     }
-}
 
-void elim_unconstrained::freeze_rec(expr* r) {
-    expr_ref_vector children(m);
-    if (is_quantifier(r))
-        children.push_back(to_quantifier(r)->get_expr());
-    else if (is_app(r))
-        children.append(to_app(r)->get_num_args(), to_app(r)->get_args());
-    else
-        return;
-    if (children.empty())
-        return;
-    for (expr* t : subterms::all(children))
-        freeze(t);
-}
+    // mark top level terms
+    for (expr* e : terms)
+        get_node(e).set_top();      
 
-void elim_unconstrained::freeze(expr* t) {
-    if (!is_uninterp_const(t))
-        return;
-    if (m_nodes.size() <= t->get_id())
-        return;
-    if (m_nodes.size() <= root(t))
-        return;
-    node& n = get_node(t);
-    if (!n.m_term)
-        return;    
-    if (m_heap.contains(root(t))) {
-        n.m_refcount = UINT_MAX / 2;
-        m_heap.increased(root(t));
-    }
-}
-
-void elim_unconstrained::gc(expr* t) {
-    ptr_vector<expr> todo;
-    todo.push_back(t);
-    while (!todo.empty()) {
-        t = todo.back();
-        todo.pop_back();
+    m_inverter.set_produce_proofs(m_enable_proofs);
         
-        node& n = get_node(t);  
-        if (n.m_refcount == 0)
-            continue;
-        if (n.m_term && !is_node(n.m_term))
-            continue;
-
-        dec_ref(t);
-        if (n.m_refcount != 0)
-            continue;
-        if (n.m_term)
-            t = n.m_term;
-        if (is_app(t)) {
-            for (expr* arg : *to_app(t))
-                todo.push_back(arg);
-        }
-        else if (is_quantifier(t)) 
-            todo.push_back(to_quantifier(t)->get_expr());        
-    }
 }
 
-
-expr_ref elim_unconstrained::reconstruct_term(node& n0) {
-    expr* t = n0.m_term;
-    if (!n0.m_dirty)
-        return expr_ref(t, m);
-    if (!is_node(t))
-        return expr_ref(t, m);
-    ptr_buffer<expr> todo;
-    todo.push_back(t);
+expr* elim_unconstrained::reconstruct_term(node& n) {
+    SASSERT(n.is_root());
+    if (!n.is_dirty())
+        return n.term();
+    ptr_buffer<node> todo;
+    todo.push_back(&n);
+    expr_ref new_t(m);
     while (!todo.empty()) {
-        t = todo.back();
-        if (!is_node(t)) {
-            UNREACHABLE();
-        }
-        node& n = get_node(t);
+        node* np = todo.back();
+        if (!np->is_dirty())
+            continue;
+        SASSERT(np->is_root());
+        auto t = np->term();
         unsigned sz0 = todo.size();
-        if (is_app(t)) {     
-            if (n.m_term != t) {
-                n.m_dirty = false;
-                todo.pop_back();
-                continue;
+        if (is_app(t)) {
+            for (expr* arg : *to_app(t)) {
+                node& r = root(arg);
+                if (r.is_dirty())
+                    todo.push_back(&r);
             }
-            for (expr* arg : *to_app(t)) 
-                if (get_node(arg).m_dirty || !get_node(arg).m_term)
-                    todo.push_back(arg);
             if (todo.size() != sz0)
                 continue;
 
             unsigned sz = m_args.size();
-            for (expr* arg : *to_app(t)) 
-                m_args.push_back(get_node(arg).m_term);            
-            n.m_term = m.mk_app(to_app(t)->get_decl(), to_app(t)->get_num_args(), m_args.data() + sz);
+            for (expr* arg : *to_app(t))
+                m_args.push_back(root(arg).term());
+            new_t = m.mk_app(to_app(t)->get_decl(), to_app(t)->get_num_args(), m_args.data() + sz);
             m_args.shrink(sz);
         }
         else if (is_quantifier(t)) {
             expr* body = to_quantifier(t)->get_expr();
-            node& n2 = get_node(body);
-            if (n2.m_dirty || !n2.m_term) {
-                todo.push_back(body);
+            node& n2 = root(body);
+            if (n2.is_dirty()) {
+                todo.push_back(&n2);
                 continue;
             }
-            n.m_term = m.update_quantifier(to_quantifier(t), n2.m_term);            
+            new_t = m.update_quantifier(to_quantifier(t), n2.term());
         }
-        m_trail.push_back(n.m_term);
-        m_root.setx(n.m_term->get_id(), n.m_term->get_id(), UINT_MAX);
+        else
+            new_t = t;
+        node& new_n = get_node(new_t);
+        set_root(*np, new_n);
+        np->set_clean();
         todo.pop_back();
-        n.m_dirty = false;
     }
-    return expr_ref(n0.m_term, m);
+    return n.root().term();
 }
 
 /**
  * walk nodes starting from lowest depth and reconstruct their normalized forms.
  */
 void elim_unconstrained::reconstruct_terms() {
-    expr_ref_vector terms(m);
-    for (unsigned i : indices())
-        terms.push_back(m_fmls[i].fml());    
+    ptr_vector<node> nodes;
+    for (node* n : m_nodes)
+        if (n && n->is_root())
+            nodes.push_back(n);
 
-    for (expr* e : subterms_postorder::all(terms)) {
-        node& n = get_node(e);
-        expr* t = n.m_term;
-        if (t != n.m_orig)
-            continue;
-        if (is_app(t)) {
-            bool change = false;
-            m_args.reset();
-            for (expr* arg : *to_app(t)) {
-                node& n2 = get_node(arg);
-                m_args.push_back(n2.m_term);
-                change |= n2.m_term != n2.m_orig;
-            }
-            if (change) {
-                n.m_term = m.mk_app(to_app(t)->get_decl(), m_args);
-                m_trail.push_back(n.m_term);
-            }            
-        }
-        else if (is_quantifier(t)) {
-            node& n2 = get_node(to_quantifier(t)->get_expr());
-            if (n2.m_term != n2.m_orig) {
-                n.m_term = m.update_quantifier(to_quantifier(t), n2.m_term);
-                m_trail.push_back(n.m_term);
-            }
-        }
-    }
+    std::stable_sort(nodes.begin(), nodes.end(), [&](node* a, node* b) { return get_depth(a->term()) < get_depth(b->term()); });
+
+    for (node* n : nodes) 
+        reconstruct_term(*n);    
 }
 
 
@@ -384,12 +368,11 @@ void elim_unconstrained::assert_normalized(vector<dependent_expr>& old_fmls) {
 
     for (unsigned i : indices()) {
         auto [f, p, d] = m_fmls[i]();
-        node& n = get_node(f);
-        expr* g = n.m_term;
+        node& n = root(f);
+        expr* g = n.term();
         if (f == g)
             continue;
         old_fmls.push_back(m_fmls[i]);
-        IF_VERBOSE(11, verbose_stream() << mk_bounded_pp(f, m, 3) << " -> " << mk_bounded_pp(g, m, 3) << "\n");
         TRACE("elim_unconstrained", tout << mk_bounded_pp(f, m) << " -> " << mk_bounded_pp(g, m) << "\n");
         m_fmls.update(i, dependent_expr(m, g, nullptr, d));
     }
@@ -441,6 +424,6 @@ void elim_unconstrained::reduce() {
         vector<dependent_expr> old_fmls;
         assert_normalized(old_fmls);
         update_model_trail(*mc, old_fmls);
-        mc->reset();
+        mc->reset();        
     }
 }
