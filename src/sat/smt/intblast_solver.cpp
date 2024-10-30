@@ -492,14 +492,12 @@ namespace intblast {
         else {
             expr_ref bv2int(bv.mk_bv2int(n->get_expr()), m);
             euf::enode* b2i = ctx.get_enode(bv2int);
-            if (!b2i) verbose_stream() << bv2int << "\n";
             SASSERT(b2i);
             VERIFY(b2i);
             arith::arith_value av(ctx);
             rational r;
             VERIFY(av.get_value(b2i->get_expr(), r));
             value = bv.mk_numeral(r, bv.get_bv_size(n->get_expr()));
-            verbose_stream() << ctx.bpp(n) << " := " << value << "\n";
         }
         values.set(n->get_root_id(), value);
         TRACE("model", tout << "add_value " << ctx.bpp(n) << " := " << value << "\n");

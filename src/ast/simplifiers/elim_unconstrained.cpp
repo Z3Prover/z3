@@ -175,7 +175,7 @@ void elim_unconstrained::eliminate() {
         if (!inverted)
             continue;
 
-        IF_VERBOSE(1, verbose_stream() << "replace " << mk_bounded_pp(t, m) << " / " << mk_bounded_pp(rr, m) << " -> " << mk_bounded_pp(r, m) << "\n");
+        IF_VERBOSE(4, verbose_stream() << "replace " << mk_bounded_pp(t, m) << " / " << mk_bounded_pp(rr, m) << " -> " << mk_bounded_pp(r, m) << "\n");
 
         
         TRACE("elim_unconstrained", tout << mk_bounded_pp(t, m) << " / " << mk_bounded_pp(rr, m) << " -> " << mk_bounded_pp(r, m) << "\n");
@@ -309,8 +309,10 @@ expr* elim_unconstrained::reconstruct_term(node& n) {
     expr_ref new_t(m);
     while (!todo.empty()) {
         node* np = todo.back();
-        if (!np->is_dirty())
+        if (!np->is_dirty()) {
+            todo.pop_back();
             continue;
+        }
         SASSERT(np->is_root());
         auto t = np->term();
         unsigned sz0 = todo.size();
