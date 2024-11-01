@@ -174,15 +174,18 @@ namespace smt {
     model_value_proc* theory_intblast::mk_value(enode* n, model_generator& mg) {
         expr* e = n->get_expr();
         SASSERT(bv.is_bv(e));
-        auto ie = m_translator.translated(e);
         rational r;
+        expr* ie = nullptr;
         expr_ref val(m);
-        if (bv.is_numeral(e, r))
-            ;
-        else if (!ctx.e_internalized(ie))
-            ; // it is a compound expression, we don't have to evaluate it.
-        else if (ctx.get_value(ctx.get_enode(ie), val)) {
-            VERIFY(a.is_numeral(val, r));
+        if (!bv.is_numeral(e, r)) {
+            for (enode* sib : *n) {
+                ie = m_translator.translated(sib->get_expr());
+                if (ctx.e_internalized(ie)) {
+                    ctx.get_value(ctx.get_enode(ie), val);
+                    VERIFY(a.is_numeral(val, r));
+                    break;
+                }
+            }
         }
         return alloc(expr_wrapper_proc, m_factory->mk_num_value(r, bv.get_bv_size(e)));
     }
