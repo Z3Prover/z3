@@ -418,7 +418,7 @@ namespace lp {
 
         template <typename T> term_o fix_vars(const T& t) const {
             term_o ret;
-            for (auto& p: t) {
+            for (const auto& p: t) {
                 if (is_fixed(p.var())) {
                     ret.c() += p.coeff() * this->lra.get_lower_bound(p.var()).x;
                 } else {
@@ -444,20 +444,6 @@ namespace lp {
         void subs_indexed_vector_with_S(std::queue<unsigned> &q) {
             while (!q.empty())
                 subs_front_in_indexed_vector(q);            
-        }
-
-        void debug_remove_fresh_vars(term_o& t) {
-            std::queue<unsigned> q;
-            for (const auto& p: t) {
-                if (is_fresh_var(p.j())) {
-                    q.push(p.j());
-                }
-            }
-            while (!q.empty()) {
-                unsigned j = pop_front(q);
-                    
-            }
-            
         }
 
         lia_move tighten_with_S() {
@@ -1001,7 +987,7 @@ public:
             return j >= lra.column_count();
         }
         bool can_substitute(unsigned k) {
-            return k < m_k2s.size() && m_k2s[k] != -1;
+            return k < m_k2s.size() && m_k2s[k] != UINT_MAX;
         }
         u_dependency * eq_deps(const lar_term& t) {
             NOT_IMPLEMENTED_YET();
