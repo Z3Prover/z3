@@ -372,6 +372,7 @@ namespace lp {
 
         void subs_front_in_indexed_vector(std::queue<unsigned> & q) {
             unsigned k = pop_front(q);
+            if (m_indexed_work_vector[k].is_zero()) return;
             const eprime_entry& e = entry_for_subs(k);
             TRACE("dioph_eq", tout << "k:" << k << ", in ";  print_term_o(create_term_from_ind_c(), tout) << std::endl;
             tout << "subs with e:"; print_eprime_entry(e, tout) << std::endl;);
@@ -557,7 +558,15 @@ namespace lp {
                 return false;
             } 
             // g is not trivial, trying to tighten the bounds
-            return tighten_bounds_for_term(g, j);            
+            // by using bitwise to explore both bounds
+            return tighten_bounds_for_term(g, j, true) | tighten_bounds_for_term(g, j, false);
+        }
+
+        void get_expl_from_meta_term(const lar_term& t, explanation& ex) {
+            for (const auto& p: t) {
+                const auto& l = lra.get_term(p.j());
+                get_expl_from_lar_term(l, ex);                
+            }
         }
 
         void get_expl_from_lar_term(const lar_term & l, explanation& ex) {
@@ -580,13 +589,13 @@ namespace lp {
             u_dependency *b_dep = nullptr;
             if (lra.has_upper_bound(j, b_dep, rs, is_strict)) {
                 if (m_c > rs || (is_strict && m_c == rs)) {
-                    get_expl_from_lar_term(m_tmp_l, m_infeas_explanation);
+                    get_expl_from_meta_term(m_tmp_l, m_infeas_explanation);
                     return;
                 }
             }
             if (lra.has_lower_bound(j, b_dep, rs, is_strict)) {
                 if (m_c < rs || (is_strict && m_c == rs)) {
-                    get_expl_from_lar_term(m_tmp_l, m_infeas_explanation);
+                    get_expl_from_meta_term(m_tmp_l, m_infeas_explanation);
                 }
             }
         }
@@ -595,36 +604,25 @@ namespace lp {
         // m_indexed_work_vector contains the coefficients of the term
         // m_c contains the constant term
         // m_tmp_l is the linear combination of the equations that removs the substituted variablse
-        bool tighten_bounds_for_term(const mpq& g, unsigned j) {
+        bool tighten_bounds_for_term(const mpq& g, unsigned j, bool is_upper) {
             mpq rs;
             bool is_strict;
-            bool change = false;
             u_dependency *b_dep = nullptr;
             SASSERT(!g.is_zero());
 
-            if (lra.has_upper_bound(j, b_dep, rs, is_strict)) {
+            if (lra.has_bound_of_type(j, b_dep, rs, is_strict, is_upper)) {
                 TRACE("dioph_eq", tout << "current upper bound for x:" << j << ":" << rs << std::endl;);
                 rs = (rs - m_c) / g;
                 TRACE("dioph_eq", tout << "(rs - m_c) / g:" << rs << std::endl;);
                 if (!rs.is_int()) {
-                    tighten_bound_for_term_for_bound_kind(g, j, rs, true);
-                    change = true;
+                    tighten_bound_for_term_for_bound_kind(g, j, rs, is_upper, b_dep);
+                    return true;
                 }
             }
-            if (lra.has_lower_bound(j, b_dep, rs, is_strict)) {
-                TRACE("dioph_eq", tout << "current lower bound for x" << j << ":" << rs << std::endl;);
-                rs = (rs - m_c) / g;
-                TRACE("dioph_eq", tout << "(rs - m_c) / g:" << rs << std::endl;);
-                if (!rs.is_int()) {
-                    tighten_bound_for_term_for_bound_kind(g, j, rs, false);
-                    change = true;
-                }
-            }
-            return change;
-            
+            return false;
         }
 
-        void tighten_bound_for_term_for_bound_kind( const mpq& g, unsigned j, const mpq & ub, bool upper) {
+        void tighten_bound_for_term_for_bound_kind( const mpq& g, unsigned j, const mpq & ub, bool upper, u_dependency* prev_dep) {
             // ub = (upper_bound(j) - m_c)/g.
             // we have x[j] = t = g*t_+ m_c <= upper_bound(j), then
             // t_ <= floor((upper_bound(j) - m_c)/g) = floor(ub)
@@ -638,12 +636,27 @@ namespace lp {
             
             SASSERT(upper && bound < lra.get_upper_bound(j).x || !upper && bound > lra.get_lower_bound(j).x);
             lconstraint_kind kind = upper? lconstraint_kind::LE: lconstraint_kind::GE;
-            u_dependency* dep = collect_explanation_from_indexed_vector(upper);
-            dep = lra.mk_join(dep, explain_fixed(m_tmp_l));
+            u_dependency* dep = prev_dep;
+            dep = lra.mk_join(dep, explain_fixed_in_meta_term(m_tmp_l));
             u_dependency* j_bound_dep = upper? lra.get_column_upper_bound_witness(j): lra.get_column_lower_bound_witness(j);
             dep = lra.mk_join(dep, j_bound_dep);
             TRACE("dioph_eq", tout << "jterm:"; print_lar_term_L(lra.get_term(j), tout) << "\ndep:"; print_dep(tout, dep) << std::endl;);            
             lra.update_column_type_and_bound(j, kind, bound, dep);            
+        }
+
+        u_dependency* explain_fixed_in_meta_term(const lar_term& t) {
+            u_dependency* dep = nullptr;
+
+            for (const auto& p: t) {
+                lar_term const& term = lra.get_term(p.j());
+                for (const auto& q: term) {
+                    if (is_fixed(q.j())) {
+                        u_dependency* bound_dep = lra.get_bound_constraint_witnesses_for_column(q.j());
+                        dep = lra.mk_join(dep, bound_dep);
+                    }
+                }
+            }
+            return dep;
         }
 
         u_dependency* explain_fixed(const lar_term& t) {
@@ -657,23 +670,6 @@ namespace lp {
             return dep;
         }
 
-        u_dependency* collect_explanation_from_indexed_vector(bool upper) {
-            TRACE("dioph_eq",
-                tout << (upper?"upper":"lower")  << std::endl;
-                tout << "indexed_vec:"; print_term_o(create_term_from_ind_c(), tout);
-            );
-
-            term_o t = remove_fresh_vars(create_term_from_ind_c());    
-
-            u_dependency* dep = nullptr;
-            int bound_sign = upper? 1: -1;
-            for (const auto& p: t) {
-                int var_bound_sign = p.coeff().is_pos()? bound_sign: -bound_sign;
-                u_dependency* bound_dep = (var_bound_sign == 1? lra.get_column_upper_bound_witness(p.var()): lra.get_column_lower_bound_witness(p.var()));
-                dep = lra.mk_join(dep, bound_dep);
-            }
-            return dep;
-        }
 public:
         lia_move check() {
             init();
@@ -916,7 +912,17 @@ public:
                 out << "\tm_l:{"; print_lar_term_L(e.m_l, out) << "}, ";
                 print_ml(e.m_l, out<< " \topened m_l:") << "\n";   
             }
-            out << "}\n";
+            switch (e.m_entry_status)
+            {
+            case entry_status::F:
+                out << "\tF\n";
+                break;
+            case entry_status::S:
+                out << "\tS\n";
+                break;
+                default:
+                out << "\tNOSF\n";
+            } 
             return out;
         }      
         

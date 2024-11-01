@@ -1060,7 +1060,13 @@ namespace lp {
         }
         return ret;
     }
-
+    bool lar_solver::has_bound_of_type(lpvar var, u_dependency*& ci, mpq& value, bool& is_strict, bool is_upper) const {
+        if (is_upper) {
+            return has_upper_bound(var, ci, value, is_strict);
+        } else {
+            return has_lower_bound(var, ci, value, is_strict);
+        }
+    }
     bool lar_solver::has_lower_bound(lpvar var, u_dependency*& dep, mpq& value, bool& is_strict) const {
 
         if (var >= m_columns.size()) {
