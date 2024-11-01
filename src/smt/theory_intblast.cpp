@@ -180,11 +180,8 @@ namespace smt {
         if (!bv.is_numeral(e, r)) {
             for (enode* sib : *n) {
                 ie = m_translator.translated(sib->get_expr());
-                if (ctx.e_internalized(ie)) {
-                    ctx.get_value(ctx.get_enode(ie), val);
-                    VERIFY(a.is_numeral(val, r));
+                if (ctx.e_internalized(ie) && ctx.get_value(ctx.get_enode(ie), val) && a.is_numeral(val, r))
                     break;
-                }
             }
         }
         return alloc(expr_wrapper_proc, m_factory->mk_num_value(r, bv.get_bv_size(e)));
