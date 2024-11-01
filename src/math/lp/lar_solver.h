@@ -510,7 +510,7 @@ public:
     u_dependency_manager& dep_manager() { return m_dependencies; }
 
     inline u_dependency* get_column_upper_bound_witness(unsigned j) const {
-         return m_columns[j].upper_bound_witness();
+        return m_columns[j].upper_bound_witness();
     }
 
     inline const impq& get_upper_bound(lpvar j) const {
@@ -527,6 +527,8 @@ public:
     
     bool has_lower_bound(lpvar var, u_dependency*& ci, mpq& value, bool& is_strict) const;
     bool has_upper_bound(lpvar var, u_dependency*& ci, mpq& value, bool& is_strict) const;
+    bool has_bound_of_type(lpvar var, u_dependency*& ci, mpq& value, bool& is_strict, bool is_upper) const;
+  
     bool has_value(lpvar var, mpq& value) const;
     bool fetch_normalized_term_column(const lar_term& t, std::pair<mpq, lpvar>&) const;
     bool column_is_fixed(unsigned j) const;
