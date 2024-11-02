@@ -508,7 +508,7 @@ namespace lp {
             term_o term_to_tighten = lra.get_term(j); // copy the term aside
             std::queue<unsigned> q;
             for (const auto& p: term_to_tighten) {
-                if (can_substitute(p.j())) 
+                if (can_substitute(p.j()) && !lra.column_is_fixed(p.j())) 
                     q.push(p.j());
             }
             if (q.empty()) {
@@ -549,23 +549,11 @@ namespace lp {
         }
 
         void get_expl_from_meta_term(const lar_term& t, explanation& ex) {
-            for (const auto& p: t) {
-                const auto& l = lra.get_term(p.j());
-                get_expl_from_lar_term(l, ex);                
-            }
+            u_dependency *dep = explain_fixed_in_meta_term(t);
+            for (constraint_index ci : lra.flatten(dep))
+                ex.push_back(ci);
         }
 
-        void get_expl_from_lar_term(const lar_term & l, explanation& ex) {
-            for (const auto& p: l) {
-                if (lra.column_is_fixed(p.j())) {
-                    u_dependency* u = lra.get_bound_constraint_witnesses_for_column(p.j());
-                    for (const auto& ci: lra.flatten(u)) {
-                        ex.push_back(ci);
-                    }
-                }
-            }
-        }
-        
         void handle_constant_term(unsigned j) {
             if (m_c.is_zero()) {
                 return;
@@ -575,13 +563,21 @@ namespace lp {
             u_dependency *b_dep = nullptr;
             if (lra.has_upper_bound(j, b_dep, rs, is_strict)) {
                 if (m_c > rs || (is_strict && m_c == rs)) {
-                    get_expl_from_meta_term(m_tmp_l, m_infeas_explanation);
+                    u_dependency* dep = lra.mk_join(explain_fixed(lra.get_term(j)), explain_fixed_in_meta_term(m_tmp_l));
+                    dep = lra.mk_join(dep, lra.get_bound_constraint_witnesses_for_column(j));
+                    for (constraint_index ci : lra.flatten(dep)) {
+                        m_infeas_explanation.push_back(ci);
+                    }
                     return;
                 }
             }
             if (lra.has_lower_bound(j, b_dep, rs, is_strict)) {
                 if (m_c < rs || (is_strict && m_c == rs)) {
-                    get_expl_from_meta_term(m_tmp_l, m_infeas_explanation);
+                    u_dependency* dep = lra.mk_join(explain_fixed(lra.get_term(j)), explain_fixed_in_meta_term(m_tmp_l));
+                    dep = lra.mk_join(dep, lra.get_bound_constraint_witnesses_for_column(j));
+                    for (constraint_index ci : lra.flatten(dep)) {
+                        m_infeas_explanation.push_back(ci);
+                    }
                 }
             }
         }
@@ -626,7 +622,10 @@ namespace lp {
             dep = lra.mk_join(dep, explain_fixed_in_meta_term(m_tmp_l));
             u_dependency* j_bound_dep = upper? lra.get_column_upper_bound_witness(j): lra.get_column_lower_bound_witness(j);
             dep = lra.mk_join(dep, j_bound_dep);
-            TRACE("dioph_eq", tout << "jterm:"; print_lar_term_L(lra.get_term(j), tout) << "\ndep:"; print_dep(tout, dep) << std::endl;);            
+            dep = lra.mk_join(dep, explain_fixed(lra.get_term(j)));
+            dep = lra.mk_join(dep, lra.get_bound_constraint_witnesses_for_column(j));
+            TRACE("dioph_eq", tout << "jterm:"; print_lar_term_L(lra.get_term(j), tout) << "\ndep:"; print_dep(tout, dep) << std::endl;
+            );            
             lra.update_column_type_and_bound(j, kind, bound, dep);            
         }
 
@@ -636,11 +635,11 @@ namespace lp {
             for (const auto& p: t) {
                 lar_term const& term = lra.get_term(p.j());
                 for (const auto& q: term) {
-                    if (is_fixed(q.j())) {
-                        u_dependency* bound_dep = lra.get_bound_constraint_witnesses_for_column(q.j());
-                        dep = lra.mk_join(dep, bound_dep);
-                    }
+                    if (is_fixed(q.j()))
+                        dep = lra.mk_join(dep, lra.get_bound_constraint_witnesses_for_column(q.j()));
                 }
+                if (is_fixed(p.j()))
+                    dep = lra.mk_join(dep, lra.get_bound_constraint_witnesses_for_column(p.j()));                
             }
             return dep;
         }
@@ -890,25 +889,27 @@ public:
             return print_eprime_entry(m_eprime[i], out, print_dep);
         }
 
-        std::ostream& print_eprime_entry(const eprime_entry& e, std::ostream& out, bool print_dep = true) {
+        std::ostream& print_eprime_entry(const eprime_entry& e, std::ostream& out, bool need_print_dep = true) {
             out << "{\n";
             print_term_o(get_term_from_e_matrix(e.m_row_index), out << "\tm_e:") << ",\n";
             //out << "\tstatus:" << (int)e.m_entry_status;
-            if (print_dep) {
+            if (need_print_dep) {
                 out << "\tm_l:{"; print_lar_term_L(e.m_l, out) << "}, ";
-                print_ml(e.m_l, out<< " \topened m_l:") << "\n";   
+                print_ml(e.m_l, out<< " \tfixed expl of m_l:") << "\n";   
+                print_dep(out, explain_fixed_in_meta_term(e.m_l)) << std::endl;
             }
             switch (e.m_entry_status)
             {
             case entry_status::F:
-                out << "\tF\n";
+                out << "\tin F\n";
                 break;
             case entry_status::S:
-                out << "\tS\n";
+                out << "\tin S\n";
                 break;
                 default:
                 out << "\tNOSF\n";
             } 
+            out << "}\n";
             return out;
         }      
         
@@ -969,14 +970,6 @@ public:
             SASSERT(ex.empty());
             TRACE("dioph_eq", tout << "conflict:"; print_eprime_entry(m_conflict_index, tout, true) << std::endl;);
             auto & ep = m_eprime[m_conflict_index];
-            /*
-              for (const auto & pl : ep.m_l) {
-              unsigned row_index = pl.j();
-              for (const auto & p : lra.get_row(row_index))
-              if (lra.column_is_fixed(p.var()))
-              lra.explain_fixed_column(p.var(), ex);
-              }
-            */
             for (auto ci: lra.flatten(eq_deps(ep.m_l))) {
                 ex.push_back(ci);
             }
