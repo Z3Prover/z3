@@ -447,26 +447,13 @@ namespace lp {
         }
 
         lia_move tighten_with_S() {
-            int change = 0;
             for (unsigned j = 0; j < lra.column_count(); j++) {
                 if (!lra.column_has_term(j) || lra.column_is_free(j) ||
                     lra.column_is_fixed(j) || !lia.column_is_int(j)) continue;
-                if (tighten_bounds_for_term_column(j)) {
-                    change++;
-                }
-                if (!m_infeas_explanation.empty()) {
+                if (tighten_bounds_for_term_column(j))
                     return lia_move::conflict;
-                }   
-            }
-            TRACE("dioph_eq", tout << "change:" << change << "\n";);
-            if (!change)
-                return lia_move::undef;
-            
-            auto st = lra.find_feasible_solution();
-            if (st != lp::lp_status::FEASIBLE && st != lp::lp_status::OPTIMAL && st != lp::lp_status::CANCELLED) {
-                lra.get_infeasibility_explanation(m_infeas_explanation);
-                return lia_move::conflict;
-            }
+            }                  
+
             return lia_move::undef;
         }
 
@@ -503,7 +490,7 @@ namespace lp {
             
         }
         // j is the index of the column representing a term
-        // return true if a new tighter bound was set on j
+        // return true if a conflict was found
         bool tighten_bounds_for_term_column(unsigned j) {
             term_o term_to_tighten = lra.get_term(j); // copy the term aside
             std::queue<unsigned> q;
@@ -534,18 +521,15 @@ namespace lp {
             TRACE("dioph_eq", tout << "after process_q_with_S\nt:"; print_term_o(create_term_from_ind_c(), tout) << std::endl;
                   tout << "g:" << g << std::endl; /*tout << "dep:"; print_dep(tout, m_tmp_l) << std::endl;*/);
             
-            if (g.is_one()) {
-                TRACE("dioph_eq", tout << "g is one" << std::endl;);
-                return false;
-            } else if (g.is_zero()) {
+            if (g.is_one()) return false;
+            if (g.is_zero()) {
                 handle_constant_term(j);
-                if (!m_infeas_explanation.empty())
-                     return true;
-                return false;
+                return !m_infeas_explanation.empty();
             } 
             // g is not trivial, trying to tighten the bounds
-            // by using bitwise to explore both bounds
-            return tighten_bounds_for_term(g, j, true) | tighten_bounds_for_term(g, j, false);
+            return tighten_bounds_for_non_trivial_gcd(g, j, true) 
+                   || 
+                   tighten_bounds_for_non_trivial_gcd(g, j, false);
         }
 
         void get_expl_from_meta_term(const lar_term& t, explanation& ex) {
@@ -586,7 +570,8 @@ namespace lp {
         // m_indexed_work_vector contains the coefficients of the term
         // m_c contains the constant term
         // m_tmp_l is the linear combination of the equations that removs the substituted variablse
-        bool tighten_bounds_for_term(const mpq& g, unsigned j, bool is_upper) {
+        // returns true iff the conflict is found
+        bool tighten_bounds_for_non_trivial_gcd(const mpq& g, unsigned j, bool is_upper) {
             mpq rs;
             bool is_strict;
             u_dependency *b_dep = nullptr;
@@ -597,14 +582,14 @@ namespace lp {
                 rs = (rs - m_c) / g;
                 TRACE("dioph_eq", tout << "(rs - m_c) / g:" << rs << std::endl;);
                 if (!rs.is_int()) {
-                    tighten_bound_for_term_for_bound_kind(g, j, rs, is_upper, b_dep);
-                    return true;
+                    if (tighten_bound_kind(g, j, rs, is_upper, b_dep))
+                        return true;    
                 }
             }
             return false;
         }
 
-        void tighten_bound_for_term_for_bound_kind( const mpq& g, unsigned j, const mpq & ub, bool upper, u_dependency* prev_dep) {
+        bool tighten_bound_kind( const mpq& g, unsigned j, const mpq & ub, bool upper, u_dependency* prev_dep) {
             // ub = (upper_bound(j) - m_c)/g.
             // we have x[j] = t = g*t_+ m_c <= upper_bound(j), then
             // t_ <= floor((upper_bound(j) - m_c)/g) = floor(ub)
@@ -627,6 +612,12 @@ namespace lp {
             TRACE("dioph_eq", tout << "jterm:"; print_lar_term_L(lra.get_term(j), tout) << "\ndep:"; print_dep(tout, dep) << std::endl;
             );            
             lra.update_column_type_and_bound(j, kind, bound, dep);            
+            auto st = lra.find_feasible_solution();
+            if (st != lp::lp_status::FEASIBLE && st != lp::lp_status::OPTIMAL && st != lp::lp_status::CANCELLED) {
+                lra.get_infeasibility_explanation(m_infeas_explanation);
+                return true;
+            }
+            return false;
         }
 
         u_dependency* explain_fixed_in_meta_term(const lar_term& t) {
