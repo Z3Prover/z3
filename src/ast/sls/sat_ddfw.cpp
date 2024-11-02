@@ -186,38 +186,6 @@ namespace sat {
             m_unsat.remove(m_clauses.size());
     }
 
-    void ddfw::add(solver const& s) {
-        set_seed(s.get_config().m_random_seed);
-        for (auto& ci : m_clauses) 
-            m_alloc.del_clause(ci.m_clause);
-        m_clauses.reset(); 
-        m_use_list.reset();
-        m_num_non_binary_clauses = 0;
-
-        unsigned trail_sz = s.init_trail_size();
-        for (unsigned i = 0; i < trail_sz; ++i) {
-            add(1, s.m_trail.data() + i);
-        }
-        unsigned sz = s.m_watches.size();
-        for (unsigned l_idx = 0; l_idx < sz; ++l_idx) {
-            literal l1 = ~to_literal(l_idx);
-            watch_list const & wlist = s.m_watches[l_idx];
-            for (watched const& w : wlist) {
-                if (!w.is_binary_non_learned_clause())
-                    continue;
-                literal l2 = w.get_literal();
-                if (l1.index() > l2.index()) 
-                    continue;
-                literal ls[2] = { l1, l2 };
-                add(2, ls);
-            }
-        }
-        for (clause* c : s.m_clauses) {
-            add(c->size(), c->begin());            
-        }        
-        m_num_non_binary_clauses = s.m_clauses.size();
-    }
-
     void ddfw::add_assumptions() {
         for (unsigned i = 0; i < m_assumptions.size(); ++i) 
             add(1, m_assumptions.data() + i);        
