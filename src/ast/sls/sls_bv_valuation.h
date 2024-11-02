@@ -3,7 +3,7 @@ Copyright (c) 2024 Microsoft Corporation
 
 Module Name:
 
-    sls_valuation.h
+    sls_bv_valuation.h
 
 Abstract:
 
@@ -20,12 +20,10 @@ Author:
 #include "util/params.h"
 #include "util/scoped_ptr_vector.h"
 #include "util/uint_set.h"
-#include "ast/ast.h"
-#include "ast/sls/sls_stats.h"
-#include "ast/sls/sls_powers.h"
-#include "ast/bv_decl_plugin.h"
+#include "util/mpz.h"
+#include "util/rational.h"
 
-namespace bv {
+namespace sls {
 
     class bvect : public svector<digit_t> {
     public:
@@ -106,7 +104,7 @@ namespace bv {
     inline bool operator!=(bvect const& a, bvect const& b) { return !(a == b); }
     std::ostream& operator<<(std::ostream& out, bvect const& v);
 
-    class sls_valuation {
+    class bv_valuation {
     protected:
         bvect m_bits;
         bvect m_lo, m_hi;        // range assignment to bit-vector, as wrap-around interval
@@ -124,8 +122,8 @@ namespace bv {
         bvect fixed;                     // bit assignment and don't care bit
         bvect eval;                      // current evaluation
 
-
-        sls_valuation(unsigned bw);
+        
+        bv_valuation(unsigned bw);
 
         void set_bw(unsigned bw);
         void set_signed(unsigned prefix) { m_signed_prefix = prefix; }
@@ -134,7 +132,9 @@ namespace bv {
 
         digit_t bits(unsigned i) const { return m_bits[i]; }
         bvect const& bits() const { return m_bits; }
+        bvect const& tmp_bits(bool use_current) const { return use_current ? m_bits : m_tmp; }
         bool commit_eval();
+        bool is_fixed() const { for (unsigned i = bw; i-- > 0; ) if (!fixed.get(i)) return false; return true; }
 
         bool get_bit(unsigned i) const { return m_bits.get(i); }
         bool try_set_bit(unsigned i, bool b) {
@@ -166,6 +166,9 @@ namespace bv {
         bool has_range() const { return m_lo != m_hi; }
         void tighten_range();
 
+        void save_value() { m_bits.copy_to(nw, m_tmp); }
+        void restore_value() { m_tmp.copy_to(nw, m_bits); }
+
         void clear_overflow_bits(bvect& bits) const {
             SASSERT(nw > 0);
             bits[nw - 1] &= mask;
@@ -175,7 +178,7 @@ namespace bv {
         bool in_range(bvect const& bits) const;
         bool can_set(bvect const& bits) const;
 
-        bool eq(sls_valuation const& other) const { return eq(other.m_bits); }
+        bool eq(bv_valuation const& other) const { return eq(other.m_bits); }
         bool eq(bvect const& other) const { return other == m_bits; }
 
         bool is_zero() const { return is_zero(m_bits); }
@@ -342,6 +345,6 @@ namespace bv {
 
     };
 
-    inline std::ostream& operator<<(std::ostream& out, sls_valuation const& v) { return v.display(out); }
+    inline std::ostream& operator<<(std::ostream& out, bv_valuation const& v) { return v.display(out); }
 
 }

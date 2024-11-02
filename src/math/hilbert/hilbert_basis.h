@@ -43,7 +43,7 @@ class hilbert_basis {
     typedef vector<numeral> num_vector;
     static checked_int64<check> to_numeral(rational const& r) {
         if (!r.is_int64()) {
-            throw checked_int64<check>::overflow_exception();
+            throw overflow_exception();
         }
         return checked_int64<check>(r.get_int64());
     }

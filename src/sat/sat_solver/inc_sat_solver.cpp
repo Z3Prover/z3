@@ -39,7 +39,7 @@ Notes:
 #include "model/model_v2_pp.h"
 #include "model/model_evaluator.h"
 #include "sat/sat_solver.h"
-#include "sat/sat_params.hpp"
+#include "params/sat_params.hpp"
 #include "sat/smt/euf_solver.h"
 #include "sat/tactic/goal2sat.h"
 #include "sat/tactic/sat2goal.h"

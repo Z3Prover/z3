@@ -547,6 +547,7 @@ namespace arith {
     }
 
     void solver::new_diseq_eh(euf::th_eq const& e) {
+        TRACE("artih", tout << mk_bounded_pp(e.eq(), m) << "\n");
         ensure_column(e.v1());
         ensure_column(e.v2());
         m_delayed_eqs.push_back(std::make_pair(e, false));

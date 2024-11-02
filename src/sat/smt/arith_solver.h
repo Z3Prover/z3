@@ -28,8 +28,6 @@ Author:
 #include "math/polynomial/algebraic_numbers.h"
 #include "math/polynomial/polynomial.h"
 #include "sat/smt/sat_th.h"
-#include "sat/smt/arith_sls.h"
-#include "sat/sat_ddfw.h"
 
 namespace euf {
     class solver;
@@ -186,8 +184,6 @@ namespace arith {
                 coeffs().pop_back();
             }
         };
-   
-        sls m_local_search;
 
         typedef vector<std::pair<rational, lpvar>> var_coeffs;
         vector<rational>         m_columns;
@@ -234,6 +230,7 @@ namespace arith {
 
         // non-linear arithmetic
         scoped_ptr<nla::solver>  m_nla;
+        bool m_use_nra_model = false;
 
         // integer arithmetic
         scoped_ptr<lp::int_solver>   m_lia;
@@ -512,8 +509,6 @@ namespace arith {
         bool include_func_interp(func_decl* f) const override;
         bool enable_ackerman_axioms(euf::enode* n) const override { return !a.is_add(n->get_expr()); }
         bool has_unhandled() const override { return m_not_handled != nullptr; }
-
-        void set_bool_search(sat::ddfw* ddfw) override { m_local_search.set(ddfw); }
 
         // bounds and equality propagation callbacks
         lp::lar_solver& lp() { return *m_solver; }

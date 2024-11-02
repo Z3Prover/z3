@@ -42,7 +42,8 @@ Revision History:
 
 using namespace qe;
 
-namespace  {
+namespace  qembp {
+
 // rewrite select(store(a, i, k), j) into k if m \models i = j and select(a, j) if m \models i != j
     struct rd_over_wr_rewriter : public default_rewriter_cfg {
         ast_manager &m;
@@ -124,19 +125,19 @@ namespace  {
     };
 }
 
-template class rewriter_tpl<app_const_arr_rewriter>;
-template class rewriter_tpl<rd_over_wr_rewriter>;
+template class rewriter_tpl<qembp::app_const_arr_rewriter>;
+template class rewriter_tpl<qembp::rd_over_wr_rewriter>;
 
 
 void rewrite_as_const_arr(expr* in, model& mdl, expr_ref& out) {
-    app_const_arr_rewriter cfg(out.m(), mdl);
-    rewriter_tpl<app_const_arr_rewriter> rw(out.m(), false, cfg);
+    qembp::app_const_arr_rewriter cfg(out.m(), mdl);
+    rewriter_tpl<qembp::app_const_arr_rewriter> rw(out.m(), false, cfg);
     rw(in, out);
 }
 
 void rewrite_read_over_write(expr *in, model &mdl, expr_ref &out) {
-    rd_over_wr_rewriter cfg(out.m(), mdl);
-    rewriter_tpl<rd_over_wr_rewriter> rw(out.m(), false, cfg);
+    qembp::rd_over_wr_rewriter cfg(out.m(), mdl);
+    rewriter_tpl<qembp::rd_over_wr_rewriter> rw(out.m(), false, cfg);
     rw(in, out);
     if (cfg.m_sc.empty()) return;
     expr_ref_vector sc(out.m());

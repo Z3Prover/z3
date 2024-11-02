@@ -278,10 +278,11 @@ namespace euf {
          */
         void merge(enode* n1, enode* n2, void* reason) { merge(n1, n2, justification::external(reason)); }        
         void new_diseq(enode* n);
+        void new_diseq(enode* n, void* reason);
 
 
         /**
-           \brief propagate set of merges. 
+           \brief propagate set of merges.           
            This call may detect an inconsistency. Then inconsistent() is true.
            Use then explain() to extract an explanation for the conflict.
 

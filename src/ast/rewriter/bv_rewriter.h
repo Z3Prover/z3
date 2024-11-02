@@ -223,7 +223,7 @@ public:
 
 #define MK_BV_BINARY(OP)                         \
     expr_ref OP(expr* a, expr* b) {              \
-        expr_ref result(m);                    \
+        expr_ref result(m), _a(a, m), _b(b, m);  \
         if (BR_FAILED == OP(a, b, result))       \
             result = m_util.OP(a, b);            \
         return result;                           \
@@ -238,6 +238,7 @@ public:
 
     MK_BV_BINARY(mk_bv_urem);
     MK_BV_BINARY(mk_ule);
+    MK_BV_BINARY(mk_sle);
     MK_BV_BINARY(mk_bv_add);
     MK_BV_BINARY(mk_bv_mul);
     MK_BV_BINARY(mk_bv_sub);
@@ -248,6 +249,13 @@ public:
         if (BR_FAILED == mk_bv2int(a, result)) 
             result = m_util.mk_bv2int(a);
         return result;        
+    }
+
+    expr_ref mk_bv_neg(expr* a) {
+        expr_ref result(a, m);
+        if (BR_FAILED == mk_uminus(a, result))
+            result = m_util.mk_bv_neg(a);
+        return result;
     }
 
 

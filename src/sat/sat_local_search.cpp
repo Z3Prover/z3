@@ -19,7 +19,7 @@ Notes:
 
 #include "sat/sat_local_search.h"
 #include "sat/sat_solver.h"
-#include "sat/sat_params.hpp"
+#include "params/sat_params.hpp"
 #include "util/timer.h"
 
 namespace sat {

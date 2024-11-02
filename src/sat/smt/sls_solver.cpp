@@ -13,154 +13,118 @@ Author:
 
     Nikolaj Bjorner (nbjorner) 2024-02-21
 
+
 --*/
 
 #include "sat/smt/sls_solver.h"
 #include "sat/smt/euf_solver.h"
-
-
+#include "ast/sls/sls_context.h"
+#include "ast/for_each_expr.h"
 
 namespace sls {
 
-#ifdef SINGLE_THREAD
 
     solver::solver(euf::solver& ctx) :
         th_euf_solver(ctx, symbol("sls"), ctx.get_manager().mk_family_id("sls"))
-        {}
+    {}
+
+#ifdef SINGLE_THREAD
 
 #else
-    solver::solver(euf::solver& ctx):
-        th_euf_solver(ctx, symbol("sls"), ctx.get_manager().mk_family_id("sls"))
-        {}
 
     solver::~solver() {
         finalize();
     }
 
-    void solver::finalize() {
-        if (!m_completed && m_sls) {
-            m_sls->cancel();
-            m_thread.join();
-            m_sls->collect_statistics(m_st);
-            m_sls = nullptr;
-            m_shared = nullptr;
-            m_slsm = nullptr;
-            m_units = nullptr;
-        }
+    params_ref solver::get_params() {
+        return s().params();
     }
 
-    sat::check_result solver::check() { 
-        return sat::check_result::CR_DONE; 
+    void solver::initialize_value(expr* t, expr* v) {
+        ctx.user_propagate_initialize_value(t, v);
+    }
+
+    void solver::force_phase(sat::literal lit) {
+        ctx.s().set_phase(lit);
+    }
+
+    void solver::set_has_new_best_phase(bool b) {
+
+    }
+
+    bool solver::get_best_phase(sat::bool_var v) {
+        return false;
+    }
+
+    expr* solver::bool_var2expr(sat::bool_var v) {
+        return ctx.bool_var2expr(v);
+    }
+
+    void solver::set_finished() {
+        ctx.s().set_canceled();
+    }
+
+    unsigned solver::get_num_bool_vars() const {
+        return s().num_vars();
+    }
+
+    void solver::finalize() {
+        if (!m_smt_plugin)
+            return;
+        
+        m_smt_plugin->finalize(m_model, m_st);
+        m_model = nullptr;
+        m_smt_plugin = nullptr;
     }
 
     bool solver::unit_propagate() {
         force_push();
-        sample_local_search();
-        return false;
-    }
-
-    bool solver::is_unit(expr* e) {
-        if (!e)
-            return false;
-        m.is_not(e, e);
-        if (is_uninterp_const(e))
+        if (m_smt_plugin && !m_checking) {
+            expr_ref_vector fmls(m);
+            m_checking = true;
+            m_smt_plugin->check(fmls, ctx.top_level_clauses());
             return true;
-        bv_util bu(m);
-        expr* s;
-        if (bu.is_bit2bool(e, s))
-            return is_uninterp_const(s);
-        return false;
+        }
+        if (!m_smt_plugin)
+            return false;
+        if (!m_smt_plugin->completed())
+            return false;
+        m_smt_plugin->finalize(m_model, m_st);
+        m_smt_plugin = nullptr;
+        return true;
     }
 
     void solver::pop_core(unsigned n) {
-        for (; m_trail_lim < s().init_trail_size(); ++m_trail_lim) {
-            auto lit = s().trail_literal(m_trail_lim);
-            auto e = ctx.literal2expr(lit);
-            if (is_unit(e)) {
-                // IF_VERBOSE(1, verbose_stream() << "add unit " << mk_pp(e, m) << "\n");
-                std::lock_guard<std::mutex> lock(m_mutex);
-                ast_translation tr(m, *m_shared);
-                m_units->push_back(tr(e.get()));
-                m_has_units = true;
+        if (!m_smt_plugin)
+            return;
+
+        unsigned scope_lvl = s().scope_lvl();
+        if (s().search_lvl() == scope_lvl - n) {
+            for (; m_trail_lim < s().init_trail_size(); ++m_trail_lim) {
+                auto lit = s().trail_literal(m_trail_lim);
+                m_smt_plugin->add_unit(lit);
             }
         }
-    }       
+#if 0
+        if (ctx.has_new_best_phase())
+            m_smt_plugin->import_phase_from_smt();
+
+#endif
+
+        m_smt_plugin->import_from_sls();
+    }
 
     void solver::init_search() {
-        if (m_sls) {
-            m_sls->cancel();
-            m_thread.join();
-            m_result = l_undef;
-            m_completed = false;
-            m_has_units = false;
-            m_model = nullptr;
-            m_units = nullptr;
-        }
-        // set up state for local search solver here
-
-        m_shared = alloc(ast_manager);
-        m_slsm = alloc(ast_manager);
-        m_units = alloc(expr_ref_vector, *m_shared);
-        ast_translation tr(m, *m_slsm);
-        
-        m_completed = false;
-        m_result = l_undef;
-        m_model = nullptr;
-        m_sls = alloc(bv::sls, *m_slsm, s().params());
-        
-        for (expr* a : ctx.get_assertions())
-            m_sls->assert_expr(tr(a));
-
-        std::function<bool(expr*, unsigned)> eval = [&](expr* e, unsigned r) {
-            return false;
-        };
-
-        m_sls->init();
-        m_sls->init_eval(eval);
-        m_sls->updt_params(s().params());
-        m_sls->init_unit([&]() { 
-            if (!m_has_units)
-                return expr_ref(*m_slsm);
-            expr_ref e(*m_slsm);
-            {
-                std::lock_guard<std::mutex> lock(m_mutex);
-                if (m_units->empty())
-                    return expr_ref(*m_slsm);
-                ast_translation tr(*m_shared, *m_slsm);
-                e = tr(m_units->back());
-                m_units->pop_back();
-            }
-            return e;
-        });
-        m_sls->set_model([&](model& mdl) {
-            std::lock_guard<std::mutex> lock(m_mutex);
-            ast_translation tr(*m_shared, m);
-            m_model = mdl.translate(tr);
-        });
-                                     
-        m_thread = std::thread([this]() { run_local_search(); });        
+        if (m_smt_plugin)
+            finalize();
+        m_smt_plugin = alloc(sls::smt_plugin, *this);
+        m_checking = false;
     }
 
-    void solver::sample_local_search() {
-        if (!m_completed)
-            return;        
-        m_thread.join();
-        m_completed = false;
-        m_sls->collect_statistics(m_st);
-        if (m_result == l_true) {
-            IF_VERBOSE(2, verbose_stream() << "(sat.sls :model-completed)\n";);
-            auto mdl = m_sls->get_model();
-            ast_translation tr(*m_slsm, m);
-            m_model = mdl->translate(tr);
-            s().set_canceled();
-        }
-        m_sls = nullptr;
+    std::ostream& solver::display(std::ostream& out) const {
+        return out << "theory-sls\n";
     }
-
-    void solver::run_local_search() {
-        m_result = (*m_sls)();
-        m_completed = true;
-    }
+     
 
 #endif
 }

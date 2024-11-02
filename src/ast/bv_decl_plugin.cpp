@@ -932,13 +932,13 @@ unsigned bv_util::get_int2bv_size(parameter const& p) {
     return static_cast<unsigned>(sz);
 }
 
-app * bv_util::mk_bv2int(expr* e) {
+app * bv_util::mk_bv2int(expr* e) const {
     sort* s = m_manager.mk_sort(m_manager.mk_family_id("arith"), INT_SORT);
     parameter p(s);
     return m_manager.mk_app(get_fid(), OP_BV2INT, 1, &p, 1, &e);
 }
 
-app* bv_util::mk_int2bv(unsigned sz, expr* e) {
+app* bv_util::mk_int2bv(unsigned sz, expr* e) const {
     parameter p(sz);
     return m_manager.mk_app(get_fid(), OP_INT2BV, 1, &p, 1, &e);
 }

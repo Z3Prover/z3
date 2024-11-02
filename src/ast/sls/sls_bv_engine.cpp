@@ -26,7 +26,7 @@ Notes:
 #include "util/luby.h"
 
 #include "params/sls_params.hpp"
-#include "ast/sls/sls_engine.h"
+#include "ast/sls/sls_bv_engine.h"
 
 
 sls_engine::sls_engine(ast_manager & m, params_ref const & p) :

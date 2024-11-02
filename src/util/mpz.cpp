@@ -615,6 +615,7 @@ void mpz_manager<SYNCH>::div_gcd(mpz const& a, mpz const& b, mpz & c) {
 template<bool SYNCH>
 void mpz_manager<SYNCH>::div(mpz const & a, mpz const & b, mpz & c) {
     STRACE("mpz", tout << "[mpz-ext] div(" << to_string(a) << ",  " << to_string(b) << ") == ";); 
+    SASSERT(!is_zero(b));
     if (is_one(b)) {
         set(c, a);
     }

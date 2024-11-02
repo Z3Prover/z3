@@ -44,7 +44,7 @@ Notes:
 #include "sat/smt/pb_solver.h"
 #include "sat/smt/euf_solver.h"
 #include "sat/smt/sat_th.h"
-#include "sat/sat_params.hpp"
+#include "params/sat_params.hpp"
 #include<sstream>
 
 struct goal2sat::imp : public sat::sat_internalizer {
@@ -139,10 +139,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
         return m_euf && ensure_euf()->relevancy_enabled();
     }
 
-    bool top_level_relevant() {
-        return m_top_level && relevancy_enabled();
-    }   
-
     void mk_clause(sat::literal l1, sat::literal l2, euf::th_proof_hint* ph) {
         sat::literal lits[2] = { l1, l2 };
         mk_clause(2, lits, ph);
@@ -158,6 +154,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         if (relevancy_enabled())
             ensure_euf()->add_aux(n, lits);
         m_solver.add_clause(n, lits, mk_status(ph));
+        add_top_level_clause(n, lits);            
     }
 
     void mk_root_clause(sat::literal l) {
@@ -179,6 +176,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         if (relevancy_enabled())
             ensure_euf()->add_root(n, lits);
         m_solver.add_clause(n, lits, ph ? mk_status(ph) : sat::status::input());
+        add_top_level_clause(n, lits);
     }
 
     sat::bool_var add_var(bool is_ext, expr* n) {
@@ -895,7 +893,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
         process(n, true);
         CTRACE("goal2sat", !m_result_stack.empty(), tout << m_result_stack << "\n";);
         SASSERT(m_result_stack.empty());
-        add_assertion(n);
     }
 
     void insert_dep(expr* dep0, expr* dep, bool sign) {
@@ -990,10 +987,12 @@ struct goal2sat::imp : public sat::sat_internalizer {
         }
     }
 
-    void add_assertion(expr* f) {
+    void add_top_level_clause(unsigned n, sat::literal const* lits) {
+        if (!m_top_level)
+            return;
         auto* ext = dynamic_cast<euf::solver*>(m_solver.get_extension());
         if (ext)
-            ext->add_assertion(f);
+            ext->add_clause(n, lits);
     }
 
     void update_model(model_ref& mdl) {

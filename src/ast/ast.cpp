@@ -1714,7 +1714,7 @@ ast * ast_manager::register_node_core(ast * n) {
 
     n->m_id = is_decl(n) ? m_decl_id_gen.mk() : m_expr_id_gen.mk();        
 
-//    track_id(*this, n, 77);
+  //  track_id(*this, n, 9213);
     
 //    TRACE("ast", tout << (s_count++) << " Object " << n->m_id << " was created.\n";);
     TRACE("mk_var_bug", tout << "mk_ast: " << n->m_id << "\n";);

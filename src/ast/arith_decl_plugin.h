@@ -365,6 +365,7 @@ public:
     MATCH_BINARY(is_div0);
     MATCH_BINARY(is_idiv0);
     MATCH_BINARY(is_power);
+    MATCH_BINARY(is_power0);
 
     MATCH_UNARY(is_sin);
     MATCH_UNARY(is_asin);

@@ -14,6 +14,7 @@ z3_add_component(params
     pattern_inference_params_helper.pyg
     poly_rewriter_params.pyg
     rewriter_params.pyg
+    sat_params.pyg
     seq_rewriter_params.pyg
     sls_params.pyg
     solver_params.pyg

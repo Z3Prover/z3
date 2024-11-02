@@ -20,7 +20,7 @@ Author:
 #include "ast/pb_decl_plugin.h"
 #include "opt/maxsmt.h"
 #include "opt/opt_lns.h"
-#include "sat/sat_params.hpp"
+#include "params/sat_params.hpp"
 #include <algorithm>
 
 namespace opt {

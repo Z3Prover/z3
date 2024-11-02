@@ -27,6 +27,7 @@ Revision History:
 #include "smt/theory_array.h"
 #include "smt/theory_array_full.h"
 #include "smt/theory_bv.h"
+#include "smt/theory_intblast.h"
 #include "smt/theory_datatype.h"
 #include "smt/theory_recfun.h"
 #include "smt/theory_dummy.h"
@@ -35,6 +36,7 @@ Revision History:
 #include "smt/theory_seq.h"
 #include "smt/theory_char.h"
 #include "smt/theory_special_relations.h"
+#include "smt/theory_sls.h"
 #include "smt/theory_pb.h"
 #include "smt/theory_fpa.h"
 #include "smt/theory_str.h"
@@ -67,6 +69,7 @@ namespace smt {
         case CFG_AUTO:  setup_auto_config(); break;
         }
         setup_card();
+        setup_sls();
     }
 
     void setup::setup_default() {
@@ -471,12 +474,12 @@ namespace smt {
     void setup::setup_QF_BV() {
         TRACE("setup", tout << "qf-bv\n";);
         m_params.setup_QF_BV();
-        m_context.register_plugin(alloc(smt::theory_bv, m_context));
+        setup_bv();
     }
 
     void setup::setup_QF_AUFBV() {
         m_params.setup_QF_AUFBV();
-        m_context.register_plugin(alloc(smt::theory_bv, m_context));
+        setup_bv();
         setup_arrays();
     }
 
@@ -693,7 +696,15 @@ namespace smt {
         family_id bv_fid = m_manager.mk_family_id("bv");
         if (m_context.get_theory(bv_fid))
             return;
-        switch(m_params.m_bv_mode) {
+        switch (m_params.m_bv_solver) {
+        case 2:
+            m_context.register_plugin(alloc(smt::theory_intblast, m_context));
+            setup_lra_arith();
+            return;
+        default:
+            break;
+        }
+        switch (m_params.m_bv_mode) {
         case BS_NO_BV:
             m_context.register_plugin(alloc(smt::theory_dummy, m_context, bv_fid, "no bit-vector"));
             break;
@@ -764,6 +775,11 @@ namespace smt {
 
     void setup::setup_card() {
         m_context.register_plugin(alloc(theory_pb, m_context));
+    }
+
+    void setup::setup_sls() {
+        if (m_params.m_sls_enable)
+            m_context.register_plugin(alloc(theory_sls, m_context));
     }
 
     void setup::setup_fpa() {

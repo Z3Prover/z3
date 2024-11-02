@@ -515,6 +515,129 @@ br_status arith_rewriter::reduce_power(expr * arg1, expr * arg2, op_kind kind, e
     }
 }
 
+bool arith_rewriter::is_mul_factor(expr* s, expr* t) {
+    if (m_util.is_mul(t))
+        return any_of(*to_app(t), [&](expr* m) { return is_mul_factor(s, m); });
+    return s == t;
+}
+
+bool arith_rewriter::is_add_factor(expr* s, expr* t) {
+    if (m_util.is_add(t))
+        return all_of(*to_app(t), [&](expr* f) { return is_add_factor(s, f); });
+    return is_mul_factor(s, t);
+}
+
+expr_ref arith_rewriter::remove_factor(expr* s, expr* t) {
+
+    if (m_util.is_mul(t)) {
+        ptr_buffer<expr> r;
+        r.push_back(t);
+        for (unsigned i = 0; i < r.size(); ++i) {
+            expr* arg = r[i];
+            if (m_util.is_mul(arg)) {
+                r.append(to_app(arg)->get_num_args(), to_app(arg)->get_args());
+                r[i] = r.back();
+                r.pop_back();
+                --i;
+                continue;
+            }
+            if (s == arg) {
+                r[i] = r.back();
+                r.pop_back();
+                break;
+            }
+        }
+        switch (r.size()) {
+        case 0:
+            return expr_ref(m_util.mk_numeral(rational(1), m_util.is_int(t)), m);
+        case 1:
+            return expr_ref(r[0], m);
+        default:
+            return expr_ref(m_util.mk_mul(r.size(), r.data()), m);
+        }
+    }
+    if (m_util.is_add(t)) {
+        expr_ref_vector sum(m);
+        sum.push_back(t);
+        for (unsigned i = 0; i < sum.size(); ++i) {
+            expr* arg = sum.get(i);
+            if (m_util.is_add(arg)) {
+                sum.append(to_app(arg)->get_num_args(), to_app(arg)->get_args());
+                sum[i] = sum.back();
+                sum.pop_back();
+                --i;
+                continue;
+            }
+            sum[i] = remove_factor(s, arg);
+        }
+        if (sum.size() == 1)
+            return expr_ref(sum.get(0), m);
+        else
+            return expr_ref(m_util.mk_add(sum.size(), sum.data()), m);
+    }
+    else {
+        SASSERT(s == t);
+        return expr_ref(m_util.mk_numeral(rational(1), m_util.is_int(t)), m);
+    }
+}
+
+
+void arith_rewriter::get_nl_muls(expr* t, ptr_buffer<expr>& muls) {
+    if (m_util.is_mul(t)) {
+        for (expr* arg : *to_app(t))
+            get_nl_muls(arg, muls);
+    }
+    else if (!m_util.is_numeral(t))
+        muls.push_back(t);    
+}
+
+expr* arith_rewriter::find_nl_factor(expr* t) {
+    ptr_buffer<expr> sum, muls;
+    sum.push_back(t);
+
+    for (unsigned i = 0; i < sum.size(); ++i) {
+        expr* arg = sum[i];
+        if (m_util.is_add(arg)) 
+            sum.append(to_app(arg)->get_num_args(), to_app(arg)->get_args());        
+        else if (m_util.is_mul(arg)) {
+            muls.reset();
+            get_nl_muls(arg, muls);
+            if (muls.size() <= 1)
+                continue;
+            for (auto m : muls) {
+                if (is_add_factor(m, t))
+                    return m;
+            }
+            return nullptr;
+        }
+    }
+    return nullptr;
+}
+
+br_status arith_rewriter::factor_le_ge_eq(expr * arg1, expr * arg2, op_kind kind, expr_ref & result) {
+    
+    if (is_zero(arg2)) {
+        expr* f = find_nl_factor(arg1);
+        if (!f)
+            return BR_FAILED;
+        expr_ref f2 = remove_factor(f, arg1);
+        expr* z = m_util.mk_numeral(rational(0), m_util.is_int(arg1));
+        result = m.mk_or(m_util.mk_eq(f, z), m_util.mk_eq(f2, z));
+        switch (kind) {
+        case EQ: 
+            break;
+        case GE:
+            result = m.mk_or(m.mk_iff(m_util.mk_ge(f, z), m_util.mk_ge(f2, z)), result);
+            break;
+        case LE:
+            result = m.mk_or(m.mk_not(m.mk_iff(m_util.mk_ge(f, z), m_util.mk_ge(f2, z))), result);
+            break;            
+        }
+        return BR_REWRITE3;                    
+    }
+    return BR_FAILED;
+}
+
 br_status arith_rewriter::mk_le_ge_eq_core(expr * arg1, expr * arg2, op_kind kind, expr_ref & result) {
     expr *orig_arg1 = arg1, *orig_arg2 = arg2;
     expr_ref new_arg1(m);
@@ -655,7 +778,7 @@ br_status arith_rewriter::mk_le_ge_eq_core(expr * arg1, expr * arg2, op_kind kin
         default: result = m.mk_eq(arg1, arg2); return BR_DONE;
         }
     }
-    return BR_FAILED;
+    return factor_le_ge_eq(arg1, arg2, kind, result);
 }
 
 

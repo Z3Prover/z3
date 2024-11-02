@@ -82,8 +82,11 @@ namespace euf {
 
     void egraph::reinsert_equality(enode* p) {
         SASSERT(p->is_equality());        
-        if (p->value() != l_true && p->get_arg(0)->get_root() == p->get_arg(1)->get_root()) 
+        if (p->value() != l_true && p->get_arg(0)->get_root() == p->get_arg(1)->get_root()) {
             queue_literal(p, nullptr);
+            if (p->value() == l_false && !m_on_propagate_literal) 
+                set_conflict(p->get_arg(0), p->get_arg(1), p->m_lit_justification);
+        }
     }
 
     void egraph::queue_literal(enode* p, enode* ante) {        
@@ -199,6 +202,18 @@ namespace euf {
                     m_on_propagate_literal(k, ante);                
             }
         }
+    }
+
+    void egraph::new_diseq(enode* n, void* reason) {
+        force_push();
+        SASSERT(m.is_eq(n->get_expr()));
+        auto j = justification::external(reason);
+        auto a = n->get_arg(0), b = n->get_arg(1);
+        auto r1 = a->get_root(), r2 = b->get_root();
+        if (r1 == r2)
+            set_conflict(a, b, j);
+        else 
+            set_value(n, l_false, j);                
     }
 
     void egraph::new_diseq(enode* n) {

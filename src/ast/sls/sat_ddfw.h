@@ -24,54 +24,27 @@
 #include "util/rlimit.h"
 #include "util/params.h"
 #include "util/ema.h"
-#include "sat/sat_clause.h"
-#include "sat/sat_types.h"
+#include "util/sat_sls.h"
+#include "util/map.h"
+#include "util/sat_literal.h"
+#include "util/statistics.h"
+#include "util/stopwatch.h"
 
-namespace arith {
-    class sls;
-}
 
 namespace sat {
-    class solver;
-    class parallel;
 
     class local_search_plugin {
     public:
         virtual ~local_search_plugin() {}
         virtual void init_search() = 0;
         virtual void finish_search() = 0;
-        virtual void flip(bool_var v) = 0;
-        virtual double reward(bool_var v) = 0;
         virtual void on_rescale() = 0;
         virtual void on_save_model() = 0;
         virtual void on_restart() = 0;
     };
-
-    class ddfw : public i_local_search {
-        friend class arith::sls;
-    public:
-        struct clause_info {
-            clause_info(clause* cl, double init_weight): m_weight(init_weight), m_clause(cl) {}
-            double   m_weight;           // weight of clause
-            unsigned m_trues = 0;        // set of literals that are true
-            unsigned m_num_trues = 0;    // size of true set
-            clause*  m_clause;
-            bool is_true() const { return m_num_trues > 0; }
-            void add(literal lit) { ++m_num_trues; m_trues += lit.index(); }
-            void del(literal lit) { SASSERT(m_num_trues > 0); --m_num_trues; m_trues -= lit.index(); }
-        };
-
-        class use_list {
-            ddfw& p;
-            unsigned i;
-        public:
-            use_list(ddfw& p, literal lit) :
-                p(p), i(lit.index()) {}
-            unsigned const* begin() { return p.m_flat_use_list.data() + p.m_use_list_index[i]; }
-            unsigned const* end() { return p.m_flat_use_list.data() + p.m_use_list_index[i + 1]; }
-            unsigned size() const { return p.m_use_list_index[i + 1] - p.m_use_list_index[i]; }
-        };
-
+    
+    class ddfw {
+        friend class ddfw_wrapper;
     protected:
 
         struct config {
@@ -95,45 +68,47 @@ namespace sat {
         };
 
         struct var_info {
+            var_info() {}
             bool     m_value = false;
             double   m_reward = 0;
             double   m_last_reward = 0;
             unsigned m_make_count = 0;
             int      m_bias = 0;
-            bool     m_external = false;
             ema      m_reward_avg = 1e-5;
         };
         
         config               m_config;
         reslimit             m_limit;
-        clause_allocator     m_alloc;
-        svector<clause_info> m_clauses;
+        vector<clause_info>  m_clauses;
         literal_vector       m_assumptions;        
         svector<var_info>    m_vars;        // var -> info
         svector<double>      m_probs;       // var -> probability of flipping
         svector<double>      m_scores;      // reward -> score
-        model                m_model;       // var -> best assignment
+        svector<lbool>       m_model;       // var -> best assignment
         unsigned             m_init_weight = 2; 
-        
         vector<unsigned_vector> m_use_list;
         unsigned_vector  m_flat_use_list;
         unsigned_vector  m_use_list_index;
+        unsigned m_use_list_vars = 0, m_use_list_clauses = 0;
 
         indexed_uint_set m_unsat;
         indexed_uint_set m_unsat_vars;  // set of variables that are in unsat clauses
         random_gen       m_rand;
+        uint64_t         m_last_flips_for_shift = 0;
         unsigned         m_num_non_binary_clauses = 0;
-        unsigned         m_restart_count = 0, m_reinit_count = 0, m_parsync_count = 0;
-        uint64_t         m_restart_next = 0, m_reinit_next = 0, m_parsync_next = 0;
+        unsigned         m_restart_count = 0, m_reinit_count = 0;
+        uint64_t         m_restart_next = 0, m_reinit_next = 0;
         uint64_t         m_flips = 0, m_last_flips = 0, m_shifts = 0;
-        unsigned         m_min_sz = 0, m_steps_since_progress = 0;
+        unsigned         m_min_sz = UINT_MAX;
         u_map<unsigned>  m_models;
         stopwatch        m_stopwatch;
+        unsigned_vector  m_num_models;
+        bool             m_save_best_values = false;
 
-        parallel*        m_par;
-        local_search_plugin* m_plugin = nullptr;
+        scoped_ptr<local_search_plugin> m_plugin = nullptr;
+        std::function<bool(void)> m_parallel_sync;
 
-        void flatten_use_list(); 
+        bool flatten_use_list(); 
 
         /**
          * TBD: map reward value to a score, possibly through an exponential function, such as
@@ -141,31 +116,20 @@ namespace sat {
          */
         inline double score(double r) { return r; } 
 
-        inline unsigned num_vars() const { return m_vars.size(); }
-
         inline unsigned& make_count(bool_var v) { return m_vars[v].m_make_count; }
 
         inline bool& value(bool_var v) { return m_vars[v].m_value; }
 
         inline bool value(bool_var v) const { return m_vars[v].m_value; }
 
-        inline double& reward(bool_var v) { return m_vars[v].m_reward; }
+        inline double& reward(bool_var v) { return m_vars[v].m_reward; }        
 
-        inline double reward(bool_var v) const { return m_vars[v].m_reward; }
-
-        inline double plugin_reward(bool_var v) { return is_external(v) ? (m_vars[v].m_last_reward = m_plugin->reward(v)) : reward(v); }
-
-        void set_external(bool_var v) { m_vars[v].m_external = true; }
-
-        inline bool is_external(bool_var v) const { return m_vars[v].m_external; }
-
-        inline int& bias(bool_var v) { return m_vars[v].m_bias; }
 
         unsigned value_hash() const;
 
         inline bool is_true(literal lit) const { return value(lit.var()) != lit.sign(); }
 
-        inline clause const& get_clause(unsigned idx) const { return *m_clauses[idx].m_clause; }
+        inline sat::literal_vector const& get_clause(unsigned idx) const { return m_clauses[idx].m_clause; }
 
         inline double get_weight(unsigned idx) const { return m_clauses[idx].m_weight; }
 
@@ -193,20 +157,12 @@ namespace sat {
         void check_without_plugin();
 
         // flip activity
-        template<bool uses_plugin>
         bool do_flip();
 
-        template<bool uses_plugin>
         bool_var pick_var(double& reward);     
 
-        template<bool uses_plugin>
         bool apply_flip(bool_var v, double reward);
 
-        template<bool uses_plugin>
-        bool do_literal_flip();
-
-        template<bool uses_plugin>
-        bool_var pick_literal_var();
 
         void save_best_values();
         void save_model();
@@ -226,11 +182,7 @@ namespace sat {
         void do_restart();
         void reinit_values();
 
-        unsigned select_random_true_clause();
-
-        // parallel integration
-        bool should_parallel_sync();
-        void do_parallel_sync();
+        unsigned select_random_true_clause();        
 
         void log();
 
@@ -239,8 +191,6 @@ namespace sat {
         void init_clause_data();
 
         void invariant();
-
-        void add(unsigned sz, literal const* c);
 
         void del();
 
@@ -252,48 +202,79 @@ namespace sat {
 
     public:
 
-        ddfw(): m_par(nullptr) {}
+        ddfw() {}
 
-        ~ddfw() override;
+        ~ddfw();
 
-        void set(local_search_plugin* p) { m_plugin = p; }
+        void set_plugin(local_search_plugin* p) { m_plugin = p; }
 
-        lbool check(unsigned sz, literal const* assumptions, parallel* p) override;
+        lbool check(unsigned sz, literal const* assumptions);
 
-        void updt_params(params_ref const& p) override;
+        void updt_params(params_ref const& p);
 
-        model const& get_model() const override { return m_model; }
+        svector<lbool> const& get_model() const { return m_model; }
 
-        reslimit& rlimit() override { return m_limit; }
+        reslimit& rlimit() { return m_limit; }
 
-        void set_seed(unsigned n) override { m_rand.set_seed(n); }
+        void set_seed(unsigned n) { m_rand.set_seed(n); }
 
-        void add(solver const& s) override;
 
-        bool get_value(bool_var v) const override { return value(v); }
+        bool get_value(bool_var v) const { return value(v); }
        
         std::ostream& display(std::ostream& out) const;
 
         // for parallel integration
-        unsigned num_non_binary_clauses() const override { return m_num_non_binary_clauses; }
-        void reinit(solver& s, bool_vector const& phase) override;
+        unsigned num_non_binary_clauses() const { return m_num_non_binary_clauses; }
 
-        void collect_statistics(statistics& st) const override {} 
+        void collect_statistics(statistics& st) const;
 
-        double get_priority(bool_var v) const override { return m_probs[v]; }
+        void reset_statistics();
+
+        double get_priority(bool_var v) const { return m_probs[v]; }
 
         // access clause information and state of Boolean search
         indexed_uint_set& unsat_set() { return m_unsat; }
 
-        unsigned num_clauses() const { return m_clauses.size(); }
+        indexed_uint_set const& unsat_set() const { return m_unsat; }
+
+        vector<clause_info> const& clauses() const { return m_clauses; }
 
         clause_info& get_clause_info(unsigned idx) { return m_clauses[idx]; }
+
+        clause_info const& get_clause_info(unsigned idx) const { return m_clauses[idx]; }
 
         void remove_assumptions();
 
         void flip(bool_var v);
 
-        use_list get_use_list(literal lit) { return use_list(*this, lit); }
+        inline double get_reward(bool_var v) const { return m_vars[v].m_reward; }
+
+        double get_reward_avg(bool_var v) const { return m_vars[v].m_reward_avg; }
+
+        inline int& bias(bool_var v) { return m_vars[v].m_bias; }
+
+        void reserve_vars(unsigned n);
+        
+        void add(unsigned sz, literal const* c);
+
+        sat::bool_var add_var();
+
+        void reinit();
+
+        void force_restart() { m_restart_next = m_flips; }
+
+        inline unsigned num_vars() const { return m_vars.size(); }
+
+        void simplify();
+
+
+        ptr_iterator<unsigned> use_list(literal lit) { 
+            flatten_use_list();
+            unsigned i = lit.index();
+            auto const* b = m_flat_use_list.data() + m_use_list_index[i];
+            auto const* e = m_flat_use_list.data() + m_use_list_index[i + 1];
+            return { b, e };            
+        }
 
     };
 }

@@ -6,6 +6,7 @@ rebase.cmd
 callgrind.out.*
 # .hpp files are automatically generated
 *.hpp
+.env
 .z3-trace
 .env
 .genaiscript
@@ -28,6 +29,8 @@ ocamlz3
 # Emacs temp files
 \#*\#
 # Directories with generated code and documentation
+node_modules/*
+.genaiscript/*
 release/*
 build/*
 trace/*
@@ -105,3 +108,4 @@ CMakeSettings.json
 .DS_Store
 dbg/**
 *.wsp
+CppProperties.json

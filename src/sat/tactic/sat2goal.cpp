@@ -44,7 +44,7 @@ Notes:
 #include "sat/smt/pb_solver.h"
 #include "sat/smt/euf_solver.h"
 #include "sat/smt/sat_th.h"
-#include "sat/sat_params.hpp"
+#include "params/sat_params.hpp"
 #include<sstream>
 
 sat2goal::mc::mc(ast_manager& m): m(m), m_var2expr(m) {}

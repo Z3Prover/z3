@@ -47,7 +47,7 @@ Notes:
 #include "solver/parallel_params.hpp"
 #include "params/tactic_params.hpp"
 #include "parsers/smt2/smt2parser.h"
-#include "sat/sat_params.hpp"
+#include "params/sat_params.hpp"
 
 tactic* mk_tactic_for_logic(ast_manager& m, params_ref const& p, symbol const& logic);
 

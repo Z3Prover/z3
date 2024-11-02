@@ -18,9 +18,9 @@ Author:
     
 --*/
 
-#include "ast/sls/sls_valuation.h"
+#include "ast/sls/sls_bv_valuation.h"
 
-namespace bv {
+namespace sls {
 
     void bvect::set_bw(unsigned bw) {
         this->bw = bw;
@@ -138,6 +138,7 @@ namespace bv {
         set_bw(a.bw);
         SASSERT(a.bw == b.bw);
         unsigned shift = b.to_nat(b.bw);
+
         if (shift == 0)
             a.copy_to(a.nw, *this);
         else if (shift >= a.bw)
@@ -148,7 +149,7 @@ namespace bv {
         return *this;
     }
 
-    sls_valuation::sls_valuation(unsigned bw) {
+    bv_valuation::bv_valuation(unsigned bw) {
         set_bw(bw);
         m_lo.set_bw(bw);
         m_hi.set_bw(bw);
@@ -162,7 +163,7 @@ namespace bv {
         fixed[nw - 1] = ~mask;
     }
 
-    void sls_valuation::set_bw(unsigned b) {
+    void bv_valuation::set_bw(unsigned b) {
         bw = b;
         nw = (bw + sizeof(digit_t) * 8 - 1) / (8 * sizeof(digit_t));
         mask = (1 << (bw % (8 * sizeof(digit_t)))) - 1;
@@ -170,7 +171,7 @@ namespace bv {
             mask = ~(digit_t)0;
     }
 
-    bool sls_valuation::commit_eval() { 
+    bool bv_valuation::commit_eval() { 
         for (unsigned i = 0; i < nw; ++i)
             if (0 != (fixed[i] & (m_bits[i] ^ eval[i])))                 
                 return false;
@@ -180,11 +181,12 @@ namespace bv {
         
         for (unsigned i = 0; i < nw; ++i) 
             m_bits[i] = eval[i]; 
+
         SASSERT(well_formed()); 
         return true;
     }
 
-    bool sls_valuation::in_range(bvect const& bits) const {
+    bool bv_valuation::in_range(bvect const& bits) const {
         mpn_manager m;
         auto c = m.compare(m_lo.data(), nw, m_hi.data(), nw);
         SASSERT(!has_overflow(bits));
@@ -207,7 +209,7 @@ namespace bv {
     // largest dst <= src and dst is feasible
     //
 
-    bool sls_valuation::get_at_most(bvect const& src, bvect& dst) const {
+    bool bv_valuation::get_at_most(bvect const& src, bvect& dst) const {
         SASSERT(!has_overflow(src));
         src.copy_to(nw, dst);
         sup_feasible(dst);
@@ -227,7 +229,7 @@ namespace bv {
 
     //
     // smallest dst >= src and dst is feasible with respect to this.
-    bool sls_valuation::get_at_least(bvect const& src, bvect& dst) const {
+    bool bv_valuation::get_at_least(bvect const& src, bvect& dst) const {
         SASSERT(!has_overflow(src));
         src.copy_to(nw, dst);
         dst.set_bw(bw);
@@ -244,34 +246,38 @@ namespace bv {
         return true;
     }
 
-    bool sls_valuation::set_random_at_most(bvect const& src, random_gen& r) {
+    bool bv_valuation::set_random_at_most(bvect const& src, random_gen& r) {
         m_tmp.set_bw(bw);
+        //verbose_stream() << "set_random_at_most " << src << "\n";
         if (!get_at_most(src, m_tmp))
             return false;
 
-        if (is_zero(m_tmp) || (0 != r(10)))
-            return try_set(m_tmp);
+        if (is_zero(m_tmp) && (0 != r(2)))
+            return try_set(m_tmp) && m_tmp <= src;
 
         // random value below tmp
         set_random_below(m_tmp, r);
+
+        //verbose_stream() << "can set " << m_tmp << " " << can_set(m_tmp) << "\n";
         
-        return (can_set(m_tmp) || get_at_most(src, m_tmp)) && try_set(m_tmp);
+        return (can_set(m_tmp) || get_at_most(src, m_tmp)) && m_tmp <= src && try_set(m_tmp);
     }
 
-    bool sls_valuation::set_random_at_least(bvect const& src, random_gen& r) {
+    bool bv_valuation::set_random_at_least(bvect const& src, random_gen& r) {
+        m_tmp.set_bw(bw);
         if (!get_at_least(src, m_tmp))
             return false;
 
-        if (is_ones(m_tmp) || (0 != r(10)))
+        if (is_ones(m_tmp) && (0 != r(10)))
             return try_set(m_tmp);
 
         // random value at least tmp
         set_random_above(m_tmp, r);
 
-        return (can_set(m_tmp) || get_at_least(src, m_tmp)) && try_set(m_tmp);
+        return (can_set(m_tmp) || get_at_least(src, m_tmp)) && src <= m_tmp && try_set(m_tmp);
     }
 
-    bool sls_valuation::set_random_in_range(bvect const& lo, bvect const& hi, random_gen& r) {
+    bool bv_valuation::set_random_in_range(bvect const& lo, bvect const& hi, random_gen& r) {
         bvect& tmp = m_tmp;
         if (0 == r(2)) {
             if (!get_at_least(lo, tmp))
@@ -279,14 +285,10 @@ namespace bv {
             SASSERT(in_range(tmp));
             if (hi < tmp)
                 return false;
-
-            if (is_ones(tmp) || (0 == r() % 2))
-                return try_set(tmp);
             set_random_above(tmp, r);
             round_down(tmp, [&](bvect const& t) { return hi >= t && in_range(t); });
-            if (in_range(tmp) && lo <= tmp && hi >= tmp)
-                return try_set(tmp);
-            return get_at_least(lo, tmp) && hi >= tmp && try_set(tmp);
+            if (in_range(tmp) || get_at_least(lo, tmp))
+                return lo <= tmp && tmp <= hi && try_set(tmp);
         }
         else {
             if (!get_at_most(hi, tmp))
@@ -294,37 +296,35 @@ namespace bv {
             SASSERT(in_range(tmp));
             if (lo > tmp)
                 return false;
-            if (is_zero(tmp) || (0 == r() % 2))
-                return try_set(tmp);
             set_random_below(tmp, r);
             round_up(tmp, [&](bvect const& t) { return lo <= t && in_range(t); });
-            if (in_range(tmp) && lo <= tmp && hi >= tmp)
-                return try_set(tmp);
-            return get_at_most(hi, tmp) && lo <= tmp && try_set(tmp);
+            if (in_range(tmp) || get_at_most(hi, tmp))
+                return lo <= tmp && tmp <= hi && try_set(tmp);
         }
+        return false;
     }
 
-    void sls_valuation::round_down(bvect& dst, std::function<bool(bvect const&)> const& is_feasible) {      
+    void bv_valuation::round_down(bvect& dst, std::function<bool(bvect const&)> const& is_feasible) {      
         for (unsigned i = bw; !is_feasible(dst) && i-- > 0; )
             if (!fixed.get(i) && dst.get(i))
                 dst.set(i, false);      
         repair_sign_bits(dst);
     }
 
-    void sls_valuation::round_up(bvect& dst, std::function<bool(bvect const&)> const& is_feasible) {
+    void bv_valuation::round_up(bvect& dst, std::function<bool(bvect const&)> const& is_feasible) {
         for (unsigned i = 0; !is_feasible(dst) && i < bw; ++i)
             if (!fixed.get(i) && !dst.get(i))
                 dst.set(i, true);
         repair_sign_bits(dst);
     }
 
-    void sls_valuation::set_random_above(bvect& dst, random_gen& r) {
+    void bv_valuation::set_random_above(bvect& dst, random_gen& r) {
         for (unsigned i = 0; i < nw; ++i)
             dst[i] = dst[i] | (random_bits(r) & ~fixed[i]);
         repair_sign_bits(dst);
     }
 
-    void sls_valuation::set_random_below(bvect& dst, random_gen& r) {
+    void bv_valuation::set_random_below(bvect& dst, random_gen& r) {
         if (is_zero(dst))
             return;
         unsigned n = 0, idx = UINT_MAX;
@@ -341,7 +341,7 @@ namespace bv {
         repair_sign_bits(dst);
     }
 
-    bool sls_valuation::set_repair(bool try_down, bvect& dst) {
+    bool bv_valuation::set_repair(bool try_down, bvect& dst) {
         for (unsigned i = 0; i < nw; ++i)
             dst[i] = (~fixed[i] & dst[i]) | (fixed[i] & m_bits[i]);
         clear_overflow_bits(dst);
@@ -358,7 +358,7 @@ namespace bv {
                     dst.set(i, false);
             for (unsigned i = 0; i < bw && dst < m_lo && !in_range(dst); ++i)
                 if (!fixed.get(i) && !dst.get(i))
-                    dst.set(i, true);        
+                    dst.set(i, true);
         }
         else {
             for (unsigned i = 0; !in_range(dst) && i < bw; ++i)
@@ -377,7 +377,7 @@ namespace bv {
         return repaired;
     }
 
-    void sls_valuation::min_feasible(bvect& out) const {
+    void bv_valuation::min_feasible(bvect& out) const {
         if (m_lo < m_hi) 
             m_lo.copy_to(nw, out);        
         else {
@@ -388,7 +388,7 @@ namespace bv {
         SASSERT(!has_overflow(out));
     }
 
-    void sls_valuation::max_feasible(bvect& out) const {
+    void bv_valuation::max_feasible(bvect& out) const {
         if (m_lo < m_hi) {
             m_hi.copy_to(nw, out);
             sub1(out);
@@ -401,7 +401,7 @@ namespace bv {
         SASSERT(!has_overflow(out));
     }
 
-    unsigned sls_valuation::msb(bvect const& src) const {
+    unsigned bv_valuation::msb(bvect const& src) const {
         SASSERT(!has_overflow(src));
         for (unsigned i = nw; i-- > 0; )
             if (src[i] != 0)
@@ -409,7 +409,7 @@ namespace bv {
         return bw;
     }
 
-    unsigned sls_valuation::clz(bvect const& src) const {
+    unsigned bv_valuation::clz(bvect const& src) const {
         SASSERT(!has_overflow(src));
         unsigned i = bw;
         for (; i-- > 0; )
@@ -419,36 +419,64 @@ namespace bv {
     }
 
 
-    void sls_valuation::set_value(bvect& bits, rational const& n) {
+    void bv_valuation::set_value(bvect& bits, rational const& n) {
         for (unsigned i = 0; i < bw; ++i)
             bits.set(i, n.get_bit(i));
         clear_overflow_bits(bits);
     }
 
-    void sls_valuation::get(bvect& dst) const {
+    void bv_valuation::get(bvect& dst) const {
         m_bits.copy_to(nw, dst);
     }
 
-    digit_t sls_valuation::random_bits(random_gen& rand) {
+    digit_t bv_valuation::random_bits(random_gen& rand) {
         digit_t r = 0;
         for (digit_t i = 0; i < sizeof(digit_t); ++i)
             r ^= rand() << (8 * i);
         return r;
     }
 
-    void sls_valuation::get_variant(bvect& dst, random_gen& r) const {
+    void bv_valuation::get_variant(bvect& dst, random_gen& r) const {
         for (unsigned i = 0; i < nw; ++i)
             dst[i] = (random_bits(r) & ~fixed[i]) | (fixed[i] & m_bits[i]);
         repair_sign_bits(dst);
         clear_overflow_bits(dst);
     }
 
-    bool sls_valuation::set_random(random_gen& r) {
+    bool bv_valuation::set_random(random_gen& r) {
         get_variant(m_tmp, r);
-        return set_repair(r(2) == 0, m_tmp);
+        repair_sign_bits(m_tmp);
+        if (in_range(m_tmp)) {
+            set(eval, m_tmp);
+            return true;
+        }
+        for (unsigned i = 0; i < nw; ++i)
+            m_tmp[i] = random_bits(r);
+        clear_overflow_bits(m_tmp);
+        // find a random offset within [lo, hi[
+        SASSERT(m_lo != m_hi);
+        set_sub(eval, m_hi, m_lo);        
+        for (unsigned i = bw; i-- > 0 && m_tmp >= eval; ) 
+            m_tmp.set(i, false);
+        
+        // set eval back to m_bits. It was garbage.
+        set(eval, m_bits);
+
+        // tmp := lo + tmp is within [lo, hi[
+        set_add(m_tmp, m_tmp, m_lo);
+        // respect fixed bits
+        for (unsigned i = 0; i < bw; ++i)
+            if (fixed.get(i))
+                m_tmp.set(i, m_bits.get(i));                
+        // decrease tmp until it is in range again
+        for (unsigned i = bw; i-- > 0 && !in_range(m_tmp); )
+            if (!fixed.get(i))
+                m_tmp.set(i, false);
+        repair_sign_bits(m_tmp);
+        return try_set(m_tmp);      
     }
 
-    void sls_valuation::repair_sign_bits(bvect& dst) const {
+    void bv_valuation::repair_sign_bits(bvect& dst) const {
         if (m_signed_prefix == 0)
             return;
         bool sign = m_signed_prefix == bw ? dst.get(bw - 1) : dst.get(bw - m_signed_prefix - 1);
@@ -474,7 +502,7 @@ namespace bv {
     // 0 = (new_bits ^ bits) & fixedf
     // also check that new_bits are in range
     //
-    bool sls_valuation::can_set(bvect const& new_bits) const {
+    bool bv_valuation::can_set(bvect const& new_bits) const {
         SASSERT(!has_overflow(new_bits));
         for (unsigned i = 0; i < nw; ++i)
             if (0 != ((new_bits[i] ^ m_bits[i]) & fixed[i]))
@@ -482,28 +510,28 @@ namespace bv {
         return in_range(new_bits);
     }
 
-    unsigned sls_valuation::to_nat(unsigned max_n) const {
+    unsigned bv_valuation::to_nat(unsigned max_n) const {
 
         bvect const& d = m_bits;
         SASSERT(!has_overflow(d));
         return d.to_nat(max_n);
     }
 
-    void sls_valuation::shift_right(bvect& out, unsigned shift) const {
+    void bv_valuation::shift_right(bvect& out, unsigned shift) const {
         SASSERT(shift < bw);
         for (unsigned i = 0; i < bw; ++i)
-            out.set(i, i + shift < bw ? m_bits.get(i + shift) : false);
+            out.set(i, i + shift < bw ? out.get(i + shift) : false);
         SASSERT(well_formed());
     }
 
-    void sls_valuation::add_range(rational l, rational h) {   
+    void bv_valuation::add_range(rational l, rational h) {   
 
         l = mod(l, rational::power_of_two(bw));
         h = mod(h, rational::power_of_two(bw));
         if (h == l)
             return;
 
-//        verbose_stream() << *this << " " << l << " " << h << " --> ";
+        //verbose_stream() << *this << " lo " << l << " hi " << h << " --> ";
 
         if (m_lo == m_hi) {
             set_value(m_lo, l);
@@ -555,7 +583,7 @@ namespace bv {
     // update bits based on ranges
     //
 
-    unsigned sls_valuation::diff_index(bvect const& a) const {
+    unsigned bv_valuation::diff_index(bvect const& a) const {
         unsigned index = 0;
         for (unsigned i = nw; i-- > 0; ) {
             auto diff = fixed[i] & (m_bits[i] ^ a[i]);
@@ -565,55 +593,87 @@ namespace bv {
         return index;
     }
 
-    void sls_valuation::inf_feasible(bvect& a) const {
+    // The least a' >= a, such that the fixed bits in bits agree with a'.
+    // 0 if there is no such a'.
+    void bv_valuation::inf_feasible(bvect& a) const {
         unsigned lo_index = diff_index(a);
         
-        if (lo_index != 0) {
-            lo_index--;
-            SASSERT(a.get(lo_index) != m_bits.get(lo_index));
-            SASSERT(fixed.get(lo_index));
-            for (unsigned i = 0; i <= lo_index; ++i) {
-                if (!fixed.get(i))
-                    a.set(i, false);
-                else if (fixed.get(i))
-                    a.set(i, m_bits.get(i));
-            }
-            if (!a.get(lo_index)) {
-                for (unsigned i = lo_index + 1; i < bw; ++i)
-                    if (!fixed.get(i) && !a.get(i)) {
-                        a.set(i, true);
-                        break;
-                    }
-            }
-        }
-    }
-
-    void sls_valuation::sup_feasible(bvect& a) const {
-        unsigned hi_index = diff_index(a);
-        if (hi_index != 0) {
-            hi_index--;
-            SASSERT(a.get(hi_index) != m_bits.get(hi_index));
-            SASSERT(fixed.get(hi_index));
-            for (unsigned i = 0; i <= hi_index; ++i) {
-                if (!fixed.get(i))
-                    a.set(i, true);
-                else if (fixed.get(i))
-                    a.set(i, m_bits.get(i));
-            }
-            if (a.get(hi_index)) {
-                for (unsigned i = hi_index + 1; i < bw; ++i)
-                    if (!fixed.get(i) && a.get(i)) {
-                        a.set(i, false);
-                        break;
-                    }
-            }
-        }
-    }
-
-    void sls_valuation::tighten_range() {
-        
-        if (m_lo == m_hi)
+        if (lo_index == 0)
             return;
+        --lo_index;
+
+        // decrement a[lo_index:0] maximally
+        SASSERT(a.get(lo_index) != m_bits.get(lo_index));
+        SASSERT(fixed.get(lo_index));
+        for (unsigned i = 0; i <= lo_index; ++i) {
+            if (!fixed.get(i))
+                a.set(i, false);
+            else if (fixed.get(i))
+                a.set(i, m_bits.get(i));
+        }
+
+        // the previous value of a[lo_index] was 0.
+        // a[lo_index:0] was incremented, so no need to adjust bits a[:lo_index+1]
+        if (a.get(lo_index))
+            return;
+
+        // find the minimal increment within a[:lo_index+1]
+        for (unsigned i = lo_index + 1; i < bw; ++i) {
+            if (!fixed.get(i) && !a.get(i)) {
+                a.set(i, true);
+                return;
+            }
+        }
+        // there is no feasiable value a' >= a, so find the least
+        // feasiable value a' >= 0.
+        for (unsigned i = 0; i < bw; ++i)
+            if (!fixed.get(i))
+                a.set(i, false);
+    }
+
+    // The greatest a' <= a, such that the fixed bits in bits agree with a'.
+    // the greatest a' <= -1 if there is no such a'.
+
+    void bv_valuation::sup_feasible(bvect& a) const {
+        unsigned hi_index = diff_index(a);
+        if (hi_index == 0)
+            return;
+        --hi_index;
+        SASSERT(a.get(hi_index) != m_bits.get(hi_index));
+        SASSERT(fixed.get(hi_index));
+
+        // increment a[hi_index:0] maximally
+        for (unsigned i = 0; i <= hi_index; ++i) {
+            if (!fixed.get(i))
+                a.set(i, true);
+            else if (fixed.get(i))
+                a.set(i, m_bits.get(i));
+        }
+
+        // If a[hi_index:0] was decremented, then no need to adjust bits a[:hi_index+1]
+        if (!a.get(hi_index))
+            return;
+
+        // find the minimal decrement within a[:hi_index+1]
+        for (unsigned i = hi_index + 1; i < bw; ++i) {
+            if (!fixed.get(i) && a.get(i)) {
+                a.set(i, false);
+                return;
+            }
+        }
+
+        // a[hi_index:0] was incremented, but a[:hi_index+1] cannot be decremented.
+        // maximize a[:hi_index+1] to model wrap around behavior.
+        for (unsigned i = hi_index + 1; i < bw; ++i) 
+            if (!fixed.get(i)) 
+                a.set(i, true);       
+    }
+
+    void bv_valuation::tighten_range() {
+        
+        // verbose_stream() << "tighten " << m_lo << " " << m_hi << " " << m_bits << "\n";
+        if (m_lo == m_hi)
+            return;     
 
         inf_feasible(m_lo);
 
@@ -625,59 +685,8 @@ namespace bv {
         add1(hi1);
         hi1.copy_to(nw, m_hi);
 
-        /*
-        unsigned lo_index = 0, hi_index = 0;        
-        for (unsigned i = nw; i-- > 0; ) {
-            auto lo_diff = (fixed[i] & (m_bits[i] ^ m_lo[i]));
-            if (lo_diff != 0 && lo_index == 0)
-                lo_index = 1 + i * 8 * sizeof(digit_t) + log2(lo_diff);
-            auto hi_diff = (fixed[i] & (m_bits[i] ^ hi1[i]));
-            if (hi_diff != 0 && hi_index == 0)
-                hi_index = 1 + i * 8 * sizeof(digit_t) + log2(hi_diff);
-        }
-
-        if (lo_index != 0) {
-            lo_index--;
-            SASSERT(m_lo.get(lo_index) != m_bits.get(lo_index));
-            SASSERT(fixed.get(lo_index));
-            for (unsigned i = 0; i <= lo_index; ++i) {
-                if (!fixed.get(i))
-                    m_lo.set(i, false);
-                else if (fixed.get(i))
-                    m_lo.set(i, m_bits.get(i));
-            }
-            if (!m_bits.get(lo_index)) {
-                for (unsigned i = lo_index + 1; i < bw; ++i)
-                    if (!fixed.get(i) && !m_lo.get(i)) {
-                        m_lo.set(i, true);
-                        break;
-                    }
-            }
-        }
-        if (hi_index != 0) {
-            hi_index--;
-            SASSERT(hi1.get(hi_index) != m_bits.get(hi_index));
-            SASSERT(fixed.get(hi_index));
-            for (unsigned i = 0; i <= hi_index; ++i) {
-                if (!fixed.get(i))
-                    hi1.set(i, true);
-                else if (fixed.get(i))
-                    hi1.set(i, m_bits.get(i));
-            }
-            if (m_bits.get(hi_index)) {
-                for (unsigned i = hi_index + 1; i < bw; ++i)
-                    if (!fixed.get(i) && hi1.get(i)) {
-                        hi1.set(i, false);
-                        break;
-                    }
-            }
-            add1(hi1);
-            hi1.copy_to(nw, m_hi);
-        }
-        */
-
         if (has_range() && !in_range(m_bits)) 
-            m_bits = m_lo;
+            m_lo.copy_to(nw, m_bits);
 
         if (mod(lo() + 1, rational::power_of_two(bw)) == hi())
             for (unsigned i = 0; i < nw; ++i)
@@ -687,16 +696,17 @@ namespace bv {
                 if (hi() < rational::power_of_two(i))
                     fixed.set(i, true);
         
+        // verbose_stream() << "post tighten " << m_lo << " " << m_hi << " " << m_bits << "\n";
         SASSERT(well_formed());
     }
 
-    void sls_valuation::set_sub(bvect& out, bvect const& a, bvect const& b) const {
+    void bv_valuation::set_sub(bvect& out, bvect const& a, bvect const& b) const {
         digit_t c;
         mpn_manager().sub(a.data(), nw, b.data(), nw, out.data(), &c);
         clear_overflow_bits(out);
     }
 
-    bool sls_valuation::set_add(bvect& out, bvect const& a, bvect const& b) const {
+    bool bv_valuation::set_add(bvect& out, bvect const& a, bvect const& b) const {
         digit_t c;
         mpn_manager().add(a.data(), nw, b.data(), nw, out.data(), nw + 1, &c);
         bool ovfl = out[nw] != 0 || has_overflow(out);
@@ -704,7 +714,9 @@ namespace bv {
         return ovfl;
     }
 
-    bool sls_valuation::set_mul(bvect& out, bvect const& a, bvect const& b, bool check_overflow) const {
+    bool bv_valuation::set_mul(bvect& out, bvect const& a, bvect const& b, bool check_overflow) const {
+        out.reserve(2 * nw);
+        SASSERT(out.size() >= 2 * nw);
         mpn_manager().mul(a.data(), nw, b.data(), nw, out.data());
         bool ovfl = false;
         if (check_overflow) {
@@ -716,7 +728,7 @@ namespace bv {
         return ovfl;
     }
 
-    bool sls_valuation::is_power_of2(bvect const& src) const {
+    bool bv_valuation::is_power_of2(bvect const& src) const {
         unsigned c = 0;
         for (unsigned i = 0; i < nw; ++i)
             c += get_num_1bits(src[i]);

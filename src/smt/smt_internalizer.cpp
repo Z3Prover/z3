@@ -1562,6 +1562,10 @@ namespace smt {
         mk_clause(num_lits, lits, js, k);
     }
     
+    void context::mk_th_axiom(theory_id tid, literal l1, unsigned num_params, parameter * params) {
+        mk_th_axiom(tid, 1, &l1, num_params, params);
+    }
+    
     void context::mk_th_axiom(theory_id tid, literal l1, literal l2, unsigned num_params, parameter * params) {
         literal ls[2] = { l1, l2 };
         mk_th_axiom(tid, 2, ls, num_params, params);

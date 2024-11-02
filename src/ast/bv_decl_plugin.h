@@ -549,8 +549,8 @@ public:
     app * mk_bv_ashr(expr* arg1, expr* arg2) { return m_manager.mk_app(get_fid(), OP_BASHR, arg1, arg2); }
     app * mk_bv_lshr(expr* arg1, expr* arg2) { return m_manager.mk_app(get_fid(), OP_BLSHR, arg1, arg2); }
 
-    app * mk_bv2int(expr* e);
-    app * mk_int2bv(unsigned sz, expr* e);
+    app * mk_bv2int(expr* e) const;
+    app * mk_int2bv(unsigned sz, expr* e) const;
 
     app* mk_bv_rotate_left(expr* arg1, expr* arg2) { return m_manager.mk_app(get_fid(), OP_EXT_ROTATE_LEFT, arg1, arg2); }
     app* mk_bv_rotate_right(expr* arg1, expr* arg2) { return m_manager.mk_app(get_fid(), OP_EXT_ROTATE_RIGHT, arg1, arg2); }

@@ -1,10 +1,36 @@
 
-#include "ast/sls/bv_sls_eval.h"
+#include "ast/sls/sls_bv_eval.h"
+#include "ast/sls/sls_bv_terms.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/ast_pp.h"
 
 namespace bv {
+
+    class my_sat_solver_context : public sls::sat_solver_context {
+        vector<sat::clause_info> m_clauses;
+        indexed_uint_set s;
+    public:
+        my_sat_solver_context() {}
+
+        vector<sat::clause_info> const& clauses() const override { return m_clauses; }
+        sat::clause_info const& get_clause(unsigned idx) const override { return m_clauses[idx]; }
+        ptr_iterator<unsigned> get_use_list(sat::literal lit) override { return ptr_iterator<unsigned>(nullptr, nullptr); }
+        void flip(sat::bool_var v) override {  }
+        double reward(sat::bool_var v) override { return 0; }
+        double get_weigth(unsigned clause_idx) override { return 0; }
+        bool is_true(sat::literal lit) override { return true; }
+        unsigned num_vars() const override { return 0; }
+        indexed_uint_set const& unsat() const override { return s; }
+        void on_model(model_ref& mdl) override {}
+        sat::bool_var add_var() override { return sat::null_bool_var;}
+        void add_clause(unsigned n, sat::literal const* lits) override {}
+        //        void collect_statistics(statistics& st) const override {}
+        // void reset_statistics() override {}
+        void force_restart() override {}
+        std::ostream& display(std::ostream& out)  override { return out; }
+    };
+
     class sls_test {
         ast_manager& m;
         bv_util bv;
@@ -28,9 +54,14 @@ namespace bv {
             expr_ref_vector es(m);
             bv_util bv(m);
             es.push_back(e);
-            sls_eval ev(m);
-            ev.init_eval(es, value);
-            ev.tighten_range(es);
+
+            my_sat_solver_context solver;
+            sls::context ctx(m, solver);
+            sls::bv_terms terms(ctx);
+            sls::bv_eval ev(terms, ctx);
+            for (auto e : es)
+                ev.register_term(e);
+            ev.init();
             th_rewriter rw(m);
             expr_ref r(e, m);
             rw(r);
@@ -142,9 +173,14 @@ namespace bv {
             rw(r);
             es.push_back(m.is_false(r) ? m.mk_not(e1) : e1);
             es.push_back(m.is_false(r) ? m.mk_not(e2) : e2);
-            sls_eval ev(m);
-            ev.init_eval(es, value);
-            ev.tighten_range(es);
+
+            my_sat_solver_context solver;
+            sls::context ctx(m, solver);
+            sls::bv_terms terms(ctx);
+            sls::bv_eval ev(terms, ctx);
+            for (auto e : es)
+                ev.register_term(e);
+            ev.init();
 
             if (m.is_bool(e1)) {
                 SASSERT(m.is_true(r) || m.is_false(r));
@@ -152,14 +188,14 @@ namespace bv {
                 auto val2 = ev.bval0(e2);
                 if (val != val2) {
                     ev.set(e2, val);
-                    auto rep1 = ev.try_repair(to_app(e2), idx);
+                    auto rep1 = ev.repair_down(to_app(e2), idx);
                     if (!rep1) {
                         verbose_stream() << "Not repaired " << mk_pp(e1, m) << " " << mk_pp(e2, m) << " r: " << r << "\n";
                     }
                     auto val3 = ev.bval0(e2);
                     if (val3 != val) {
                         verbose_stream() << "Repaired but not corrected " << mk_pp(e2, m) << "\n";
-                        ev.display(std::cout, es);
+                        ev.display(std::cout);
                         exit(0);
                     }
                     //SASSERT(rep1);
@@ -170,7 +206,7 @@ namespace bv {
                 auto& val2 = ev.wval(e2);
                 if (!val1.eq(val2)) {
                     val2.set(val1.bits());
-                    auto rep2 = ev.try_repair(to_app(e2), idx);
+                    auto rep2 = ev.repair_down(to_app(e2), idx);
                     if (!rep2) {
                         verbose_stream() << "Not repaired " << mk_pp(e2, m) << "\n";
                     }                    

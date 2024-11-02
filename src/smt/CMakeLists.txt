@@ -61,11 +61,13 @@ z3_add_component(smt
     theory_dl.cpp
     theory_dummy.cpp
     theory_fpa.cpp
+    theory_intblast.cpp
     theory_lra.cpp
     theory_opt.cpp
     theory_pb.cpp
     theory_recfun.cpp
     theory_seq.cpp
+    theory_sls.cpp
     theory_special_relations.cpp
     theory_str.cpp
     theory_str_mc.cpp

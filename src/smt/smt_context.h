@@ -128,6 +128,7 @@ namespace smt {
         class parallel*             m_par = nullptr;
         unsigned                    m_par_index = 0;
         bool                        m_internalizing_assertions = false;
+        lbool                       m_sls_completed = l_undef;
 
 
         // -----------------------------------
@@ -287,6 +288,11 @@ namespace smt {
         void updt_params(params_ref const& p);
 
         bool get_cancel_flag();
+
+        void set_sls_completed() {
+            if (m_sls_completed == l_undef)
+                m_sls_completed = l_true;
+        }
 
         region & get_region() {
             return m_region;
@@ -619,6 +625,9 @@ namespace smt {
         friend class set_var_theory_trail;
         void set_var_theory(bool_var v, theory_id tid);
 
+
+        bool has_sls_model();
+
         // -----------------------------------
         //
         // Backtracking support
@@ -938,6 +947,8 @@ namespace smt {
         void mk_th_axiom(theory_id tid, unsigned num_lits, literal * lits, unsigned num_params = 0, parameter * params = nullptr) {
             mk_th_clause(tid, num_lits, lits, num_params, params, CLS_TH_AXIOM);
         }
+
+        void mk_th_axiom(theory_id tid, literal l1, unsigned num_params = 0, parameter * params = nullptr);
 
         void mk_th_axiom(theory_id tid, literal l1, literal l2, unsigned num_params = 0, parameter * params = nullptr);
 

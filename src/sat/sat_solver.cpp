@@ -29,7 +29,7 @@ Revision History:
 #include "sat/sat_solver.h"
 #include "sat/sat_integrity_checker.h"
 #include "sat/sat_lookahead.h"
-#include "sat/sat_ddfw.h"
+#include "sat/sat_ddfw_wrapper.h"
 #include "sat/sat_prob.h"
 #include "sat/sat_anf_simplifier.h"
 #include "sat/sat_cut_simplifier.h"
@@ -1365,7 +1365,7 @@ namespace sat {
         }
         literal_vector _lits;
         scoped_limits scoped_rl(rlimit());
-        m_local_search = alloc(ddfw);
+        m_local_search = alloc(ddfw_wrapper);
         scoped_ls _ls(*this);
         SASSERT(m_local_search);
         m_local_search->add(*this);
@@ -1442,7 +1442,7 @@ namespace sat {
     lbool solver::do_ddfw_search(unsigned num_lits, literal const* lits) {
         if (m_ext) return l_undef;
         SASSERT(!m_local_search);
-        m_local_search = alloc(ddfw);
+        m_local_search = alloc(ddfw_wrapper);
         return invoke_local_search(num_lits, lits);
     }
 
@@ -1485,7 +1485,7 @@ namespace sat {
            
         // set up ddfw search
         for (int i = 0; i < num_ddfw; ++i) {
-            ddfw* d = alloc(ddfw);
+            ddfw_wrapper* d = alloc(ddfw_wrapper);
             d->updt_params(m_params);
             d->set_seed(m_config.m_random_seed + i);
             d->add(*this);
@@ -2932,6 +2932,7 @@ namespace sat {
                 bool_var v = m_trail[i].var();
                 m_best_phase[v] = m_phase[v];
             }
+            set_has_new_best_phase(true);
         }
     }
 

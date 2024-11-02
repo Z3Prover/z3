@@ -118,8 +118,8 @@ namespace bv {
             }
         }
         
-        if (glue < max_glue) 
-            v.m_glue = (sz > 6 && 2*glue <= sz) ? 0 : glue;
+        if (glue < max_glue)
+            v.m_glue = glue; // (sz > 6 && 2 * glue <= sz) ? 0 : glue;
     }
 
     void ackerman::remove(vv* p) {

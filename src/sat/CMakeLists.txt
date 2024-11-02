@@ -15,7 +15,7 @@ z3_add_component(sat
     sat_config.cpp
     sat_cut_simplifier.cpp
     sat_cutset.cpp
-    sat_ddfw.cpp
+    sat_ddfw_wrapper.cpp    
     sat_drat.cpp
     sat_elim_eqs.cpp
     sat_elim_vars.cpp
@@ -43,7 +43,6 @@ z3_add_component(sat
     params
   PYG_FILES
     sat_asymm_branch_params.pyg
-    sat_params.pyg
     sat_scc_params.pyg
     sat_simplifier_params.pyg
 )

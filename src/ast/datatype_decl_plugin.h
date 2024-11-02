@@ -341,8 +341,10 @@ namespace datatype {
         ast_manager & get_manager() const { return m; }
         // sort * mk_datatype_sort(symbol const& name, unsigned n, sort* const* params); 
         bool is_datatype(sort const* s) const { return is_sort_of(s, fid(), DATATYPE_SORT); }
+        bool is_datatype(expr* e) const { return is_datatype(e->get_sort()); }
         bool is_enum_sort(sort* s);
         bool is_recursive(sort * ty);
+        bool is_recursive(expr* e) { return is_recursive(e->get_sort()); }
         bool is_recursive_nested(sort * ty);
         bool is_constructor(func_decl * f) const { return is_decl_of(f, fid(), OP_DT_CONSTRUCTOR); }
         bool is_recognizer(func_decl * f) const { return is_recognizer0(f) || is_is(f); }

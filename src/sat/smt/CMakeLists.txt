@@ -3,7 +3,6 @@ z3_add_component(sat_smt
     arith_axioms.cpp
     arith_diagnostics.cpp
     arith_internalize.cpp
-    arith_sls.cpp
     arith_solver.cpp
     arith_value.cpp
     array_axioms.cpp
@@ -22,7 +21,6 @@ z3_add_component(sat_smt
     euf_ackerman.cpp
     euf_internalize.cpp
     euf_invariant.cpp
-    euf_local_search.cpp
     euf_model.cpp
     euf_proof.cpp
     euf_proof_checker.cpp

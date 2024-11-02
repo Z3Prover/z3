@@ -21,7 +21,7 @@ Author:
 #include "ast/ast_ll_pp.h"
 #include "ast/arith_decl_plugin.h"
 #include "smt/smt_solver.h"
-#include "sat/sat_params.hpp"
+#include "params/sat_params.hpp"
 #include "sat/smt/euf_proof_checker.h"
 #include "sat/smt/arith_theory_checker.h"
 #include "sat/smt/q_theory_checker.h"

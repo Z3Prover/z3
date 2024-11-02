@@ -23,7 +23,7 @@ Revision History:
 #include "util/rlimit.h"
 #include "util/gparams.h"
 #include "sat/dimacs.h"
-#include "sat/sat_params.hpp"
+#include "params/sat_params.hpp"
 #include "sat/sat_solver.h"
 #include "sat/tactic/goal2sat.h"
 #include "sat/tactic/sat2goal.h"

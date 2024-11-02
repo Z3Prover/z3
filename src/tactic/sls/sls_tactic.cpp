@@ -28,8 +28,112 @@ Notes:
 #include "util/stopwatch.h"
 #include "tactic/sls/sls_tactic.h"
 #include "params/sls_params.hpp"
-#include "ast/sls/sls_engine.h"
-#include "ast/sls/bv_sls.h"
+#include "ast/sls/sls_bv_engine.h"
+#include "ast/sls/sls_smt_solver.h"
+
+class sls_smt_tactic : public tactic {
+    ast_manager& m;
+    params_ref   m_params;
+    sls::smt_solver*     m_sls;
+    statistics   m_st;
+
+public:
+    sls_smt_tactic(ast_manager& _m, params_ref const& p) :
+        m(_m),
+        m_params(p) {
+        m_sls = alloc(sls::smt_solver, m, p);
+    }
+
+    tactic* translate(ast_manager& m) override {
+        return alloc(sls_smt_tactic, m, m_params);
+    }
+
+    ~sls_smt_tactic() override {
+        dealloc(m_sls);
+    }
+
+    char const* name() const override { return "sls-smt"; }
+
+    void updt_params(params_ref const& p) override {
+        m_params.append(p);
+        m_sls->updt_params(m_params);
+    }
+
+    void collect_param_descrs(param_descrs& r) override {
+        sls_params::collect_param_descrs(r);
+    }
+
+    void run(goal_ref const& g, model_converter_ref& mc) {
+        if (g->inconsistent()) {
+            mc = nullptr;
+            return;
+        }
+
+        for (unsigned i = 0; i < g->size(); i++)
+            m_sls->assert_expr(g->form(i));
+
+
+        m_st.reset();
+        lbool res = l_undef;
+        try {
+            res = m_sls->check();
+        }
+        catch (z3_exception&) {
+            m_sls->collect_statistics(m_st);
+            throw;
+        }
+        m_sls->collect_statistics(m_st);
+
+//        report_tactic_progress("Number of flips:", m_sls->get_num_moves());
+        IF_VERBOSE(10, verbose_stream() << res << "\n");
+        IF_VERBOSE(10, m_sls->display(verbose_stream()));
+
+        if (res == l_true) {            
+            if (g->models_enabled()) {
+                model_ref mdl = m_sls->get_model();
+                mc = model2model_converter(mdl.get());
+                TRACE("sls_model", mc->display(tout););
+            }
+            g->reset();
+        }
+        else
+            mc = nullptr;
+
+    }
+
+    void operator()(goal_ref const& g,
+        goal_ref_buffer& result) override {
+        result.reset();
+
+        TRACE("sls", g->display(tout););
+        tactic_report report("sls", *g);
+
+        model_converter_ref mc;
+        run(g, mc);
+        g->add(mc.get());
+        g->inc_depth();
+        result.push_back(g.get());
+    }
+
+    void cleanup() override {
+        auto* d = alloc(sls::smt_solver, m, m_params);
+        std::swap(d, m_sls);
+        dealloc(d);
+    }
+
+    void collect_statistics(statistics& st) const override {
+        st.copy(m_st);
+    }
+
+    void reset_statistics() override {
+        m_sls->reset_statistics();
+        m_st.reset();
+    }
+};
+
+tactic* mk_sls_smt_tactic(ast_manager& m, params_ref const& p) {
+    return alloc(sls_smt_tactic, m, p);
+}
 
 class sls_tactic : public tactic {    
     ast_manager    & m;
@@ -124,115 +228,10 @@ public:
 
 };
 
-class bv_sls_tactic : public tactic {
-    ast_manager& m;
-    params_ref   m_params;
-    bv::sls*     m_sls;
-    statistics   m_st;
-
-public:
-    bv_sls_tactic(ast_manager& _m, params_ref const& p) :
-        m(_m),
-        m_params(p) {
-        m_sls = alloc(bv::sls, m, p);
-    }
-
-    tactic* translate(ast_manager& m) override {
-        return alloc(bv_sls_tactic, m, m_params);
-    }
-
-    ~bv_sls_tactic() override {
-        dealloc(m_sls);
-    }
-
-    char const* name() const override { return "bv-sls"; }
-
-    void updt_params(params_ref const& p) override {
-        m_params.append(p);
-        m_sls->updt_params(m_params);
-    }
-
-    void collect_param_descrs(param_descrs& r) override {
-        sls_params::collect_param_descrs(r);
-    }
-
-    void run(goal_ref const& g, model_converter_ref& mc) {
-        if (g->inconsistent()) {
-            mc = nullptr;
-            return;
-        }
-
-        for (unsigned i = 0; i < g->size(); i++)
-            m_sls->assert_expr(g->form(i));
-
-        m_sls->init();
-        std::function<bool(expr*, unsigned)> false_eval = [&](expr* e, unsigned idx) {
-            return false;
-        };
-        m_sls->init_eval(false_eval);
-
-        lbool res = m_sls->operator()();
-        m_st.reset();
-        m_sls->collect_statistics(m_st);
-        report_tactic_progress("Number of flips:", m_sls->get_num_moves());
-        IF_VERBOSE(10, verbose_stream() << res << "\n");
-        IF_VERBOSE(10, m_sls->display(verbose_stream()));
-
-        if (res == l_true) {            
-            if (g->models_enabled()) {
-                model_ref mdl = m_sls->get_model();
-                mc = model2model_converter(mdl.get());
-                TRACE("sls_model", mc->display(tout););
-            }
-            g->reset();
-        }
-        else
-            mc = nullptr;
-
-    }
-
-    void operator()(goal_ref const& g,
-        goal_ref_buffer& result) override {
-        result.reset();
-
-        TRACE("sls", g->display(tout););
-        tactic_report report("sls", *g);
-
-        model_converter_ref mc;
-        run(g, mc);
-        g->add(mc.get());
-        g->inc_depth();
-        result.push_back(g.get());
-    }
-
-    void cleanup() override {
-
-        auto* d = alloc(bv::sls, m, m_params);
-        std::swap(d, m_sls);
-        dealloc(d);
-    }
-
-    void collect_statistics(statistics& st) const override {
-        st.copy(m_st);
-    }
-
-    void reset_statistics() override {
-        m_sls->reset_statistics();
-        m_st.reset();
-    }
-
-};
-
 static tactic * mk_sls_tactic(ast_manager & m, params_ref const & p) {
     return and_then(fail_if_not(mk_is_qfbv_probe()), // Currently only QF_BV is supported.
                     clean(alloc(sls_tactic, m, p)));
 }
-
-tactic* mk_bv_sls_tactic(ast_manager& m, params_ref const& p) {
-    return and_then(fail_if_not(mk_is_qfbv_probe()), // Currently only QF_BV is supported.
-        clean(alloc(bv_sls_tactic, m, p)));
-}
-
 
 static tactic * mk_preamble(ast_manager & m, params_ref const & p) {
 
@@ -268,10 +267,3 @@ tactic * mk_qfbv_sls_tactic(ast_manager & m, params_ref const & p) {
     return t;
 }
 
-tactic* mk_qfbv_new_sls_tactic(ast_manager& m, params_ref const& p) {
-    params_ref q = p;
-    q.set_bool("elim_sign_ext", false);
-    tactic* t = and_then(mk_preamble(m, q), mk_bv_sls_tactic(m, q));
-    t->updt_params(q);
-    return t;
-}

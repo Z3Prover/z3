@@ -24,7 +24,6 @@ namespace arith {
     solver::solver(euf::solver& ctx, theory_id id) :
         th_euf_solver(ctx, symbol("arith"), id),
         m_model_eqs(DEFAULT_HASHTABLE_INITIAL_CAPACITY, var_value_hash(*this), var_value_eq(*this)),
-        m_local_search(*this),
         m_resource_limit(*this),
         m_bp(*this, m_implied_bounds),
         a(m),
@@ -988,10 +987,10 @@ namespace arith {
     }
 
     bool solver::use_nra_model() {
-        return m_nla && m_nla->use_nra_model();
+        return m_nla && m_use_nra_model && m_nla->use_nra_model();
     }
 
-    bool solver::is_eq(theory_var v1, theory_var v2) {
+    bool solver::is_eq(theory_var v1, theory_var v2) {        
         if (use_nra_model()) {
             return m_nla->am().eq(nl_value(v1, m_nla->tmp1()), nl_value(v2, m_nla->tmp2()));
         }
@@ -1005,6 +1004,8 @@ namespace arith {
         m_model_is_initialized = false;
         IF_VERBOSE(12, verbose_stream() << "final-check " << lp().get_status() << "\n");
         SASSERT(lp().ax_is_correct());
+
+        m_use_nra_model = false;
 
         if (!lp().is_feasible() || lp().has_changed_columns()) {
             switch (make_feasible()) {
@@ -1038,8 +1039,12 @@ namespace arith {
             break;
         }
 
+        if (!check_delayed_eqs())
+            return sat::check_result::CR_CONTINUE;
+
         switch (check_nla()) {
         case l_true:
+            m_use_nra_model = true;
             break;
         case l_false:
             return sat::check_result::CR_CONTINUE;
@@ -1053,7 +1058,8 @@ namespace arith {
             ++m_stats.m_assume_eqs;
             return sat::check_result::CR_CONTINUE;
         }
-        if (!check_delayed_eqs()) 
+
+        if (!check_delayed_eqs())
             return sat::check_result::CR_CONTINUE;
 
         if (!int_undef && !check_bv_terms())
@@ -1141,6 +1147,7 @@ namespace arith {
                 new_eq_eh(e);
             else if (is_eq(e.v1(), e.v2())) {
                 mk_diseq_axiom(e.v1(), e.v2());
+                TRACE("arith", tout << mk_bounded_pp(e.eq(), m) << " " << use_nra_model() << "\n");
                 found_diseq = true;
                 break;
             }
@@ -1249,9 +1256,9 @@ namespace arith {
         for (auto ev : m_explanation)
             set_evidence(ev.ci());
         
-        TRACE("arith",
+        TRACE("arith_conflict",
             tout << "Lemma - " << (is_conflict ? "conflict" : "propagation") << "\n";
-            for (literal c : m_core) tout << c << ": " << literal2expr(c) << "\n";
+            for (literal c : m_core) tout << c << ": " << literal2expr(c) << " := " << s().value(c) << "\n";
             for (auto p : m_eqs) tout << ctx.bpp(p.first) << " == " << ctx.bpp(p.second) << "\n";);
 
         if (ctx.get_config().m_arith_validate)
@@ -1271,6 +1278,10 @@ namespace arith {
                 m_core.push_back(ctx.mk_literal(m.mk_eq(eq.first->get_expr(), eq.second->get_expr())));
             for (literal& c : m_core)
                 c.neg();
+
+            // it is possible if multiple lemmas are added at the same time.
+            if (any_of(m_core, [&](literal c) { return s().value(c) == l_true; }))
+                return;
             
             add_redundant(m_core, explain(ty));
         }
@@ -1508,6 +1519,7 @@ namespace arith {
         case l_undef:
             break;
         }
+        TRACE("arith", tout << "nla " << r << "\n");
         return r;
     }
 
@@ -1521,10 +1533,13 @@ namespace arith {
         }
         for (auto const& ineq : m_nla->literals()) {
             auto lit = mk_ineq_literal(ineq);
+            if (s().value(lit) == l_true)
+                continue;
             ctx.mark_relevant(lit);
             s().set_phase(lit);
+            // verbose_stream() << lit << ":= " << s().value(lit) << "\n";
             // force trichotomy axiom for equality literals
-            if (ineq.cmp() == lp::EQ) {
+            if (ineq.cmp() == lp::EQ && false) {
                 nla::lemma l;
                 l.push_back(ineq);
                 l.push_back(nla::ineq(lp::LT, ineq.term(), ineq.rs()));
