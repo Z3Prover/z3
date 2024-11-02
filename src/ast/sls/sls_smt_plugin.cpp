@@ -64,7 +64,7 @@ namespace sls {
                 continue;
             m_context.register_atom(v, m_smt2sls_tr(e));
             for (auto t : subterms::all(expr_ref(e, m)))
-                add_shared_term(e);
+                add_shared_term(t);
         }
 
         for (auto fml : fmls) 
@@ -82,7 +82,7 @@ namespace sls {
                 continue;
             add_shared_var(v, w); 
             for (auto t : subterms::all(expr_ref(e, m)))
-                add_shared_term(e);
+                add_shared_term(t);
         }
 
         m_thread = std::thread([this]() { run(); });

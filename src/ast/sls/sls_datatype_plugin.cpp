@@ -430,7 +430,6 @@ namespace sls {
     }
 
     euf::enode* datatype_plugin::get_constructor(euf::enode* n) const {
-        euf::enode* con = nullptr;
         for (auto sib : euf::enode_class(n))
             if (dt.is_constructor(sib->get_expr()))
                 return sib;

@@ -70,7 +70,6 @@ namespace sls {
     public:
         euf_plugin(context& c);
         ~euf_plugin() override;
-        family_id fid() { return m_fid; }
         expr_ref get_value(expr* e) override;
         void initialize() override;
         void start_propagation() override;

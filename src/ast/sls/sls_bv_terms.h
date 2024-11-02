@@ -29,7 +29,6 @@ Author:
 namespace sls {
 
     class bv_terms {
-        sls::context&       ctx;
         ast_manager&        m;
         bv_util             bv;
         expr_ref_vector     m_axioms;

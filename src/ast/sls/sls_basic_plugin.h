@@ -17,7 +17,6 @@ Author:
 namespace sls {
 
     class basic_plugin : public plugin {
-        bool               m_initialized = false;
         expr_mark          m_axiomatized;
         
         bool is_basic(expr* e) const;

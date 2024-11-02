@@ -101,7 +101,6 @@ namespace sls {
         g.explain<size_t>(explain, nullptr);
         g.end_explain();
         double reward = -1;
-        bool has_flipped = false;
         TRACE("enf",
             for (auto p : explain) {
                 sat::literal l = to_literal(p);

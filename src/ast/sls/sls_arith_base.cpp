@@ -2240,12 +2240,12 @@ namespace sls {
             return value(v) == abs(value(od.m_arg1));
         }
         case arith_op_kind::OP_TO_INT: {
-            auto od = m_ops[vi.m_def_idx];
+            // auto od = m_ops[vi.m_def_idx];
             NOT_IMPLEMENTED_YET();
             break;
         }
         case arith_op_kind::OP_TO_REAL: {
-            auto od = m_ops[vi.m_def_idx];
+            // auto od = m_ops[vi.m_def_idx];
             NOT_IMPLEMENTED_YET();
             break;
         }
