@@ -970,7 +970,7 @@ public:
             SASSERT(ex.empty());
             TRACE("dioph_eq", tout << "conflict:"; print_eprime_entry(m_conflict_index, tout, true) << std::endl;);
             auto & ep = m_eprime[m_conflict_index];
-            for (auto ci: lra.flatten(eq_deps(ep.m_l))) {
+            for (auto ci: lra.flatten(explain_fixed_in_meta_term(ep.m_l))) {
                 ex.push_back(ci);
             }
             TRACE("dioph_eq", lra.print_expl(tout, ex););
@@ -981,11 +981,7 @@ public:
         }
         bool can_substitute(unsigned k) {
             return k < m_k2s.size() && m_k2s[k] != UINT_MAX;
-        }
-        u_dependency * eq_deps(const lar_term& t) {
-            NOT_IMPLEMENTED_YET();
-            return nullptr;
-        }
+        }        
     };
 // Constructor definition
     dioph_eq::dioph_eq(int_solver& lia) {
