@@ -250,10 +250,25 @@ class sdist(_sdist):
         self.execute(_copy_sources, (), msg="Copying source files")
         _sdist.run(self)
 
+# The Azure Dev Ops pipelines use internal OS version tagging that don't correspond
+# to releases.
+
+internal_build_re = re.compile("(.+)\_7")
+
 class bdist_wheel(_bdist_wheel):
+
+    def remove_build_machine_os_version(self, platform, os_version_tag):
+        if platform in ["osx", "darwin", "sequoia"]:
+            m = internal_build_re.search(os_version_tag)
+            if m:
+                return m.group(1) + "_0"
+        return os_version_tag
+            
+            
     def finalize_options(self):
         if BUILD_ARCH is not None and BUILD_PLATFORM is not None:
             os_version_tag = '_'.join(BUILD_OS_VERSION[:2]) if BUILD_OS_VERSION is not None else 'xxxxxx'
+            os_version_tag = self.remove_build_machine_os_version(BUILD_PLATFORM, os_version_tag)
             TAGS = {
                 # linux tags cannot be deployed - they must be auditwheel'd to pick the right compatibility tag based on imported libc symbol versions
                 ("linux", "x86_64"): "linux_x86_64",

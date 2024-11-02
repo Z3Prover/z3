@@ -130,6 +130,10 @@ class simplifier_solver : public solver {
         unsigned qhead = m_preprocess_state.qhead();
         expr_ref_vector orig_assumptions(assumptions);
         m_core_replace.reset();
+        m_preprocess_state.replay(qhead, assumptions);   
+        for (unsigned i = 0; i < assumptions.size(); ++i) 
+            m_core_replace.insert(assumptions.get(i), orig_assumptions.get(i));                    
+
         if (qhead < m_fmls.size()) {
             m_preprocess.reduce();
             if (!m.inc())
@@ -138,11 +142,7 @@ class simplifier_solver : public solver {
                   m_preprocess_state.display(tout));
             m_preprocess_state.advance_qhead();
         }
-        if (!assumptions.empty()) {
-            m_preprocess_state.replay(m_preprocess_state.qhead(), assumptions);   
-            for (unsigned i = 0; i < assumptions.size(); ++i) 
-                m_core_replace.insert(assumptions.get(i), orig_assumptions.get(i));            
-        }
+
         m_mc = m_preprocess_state.model_trail().get_model_converter(); 
         m_cached_mc = nullptr;
         for (; qhead < m_fmls.size(); ++qhead)

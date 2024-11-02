@@ -663,6 +663,13 @@ export interface Solver<Name extends string = 'main'> {
   check(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): Promise<CheckSatResult>;
 
   model(): Model<Name>;
+
+  /**
+   * Manually decrease the reference count of the solver
+   * This is automatically done when the solver is garbage collected,
+   * but calling this eagerly can help release memory sooner.
+   */
+  release(): void;
 }
 
 export interface Optimize<Name extends string = 'main'> {
@@ -695,8 +702,14 @@ export interface Optimize<Name extends string = 'main'> {
   check(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): Promise<CheckSatResult>;
 
   model(): Model<Name>;
-}
 
+  /**
+   * Manually decrease the reference count of the optimize
+   * This is automatically done when the optimize is garbage collected,
+   * but calling this eagerly can help release memory sooner.
+   */
+  release(): void;
+}
 
 /** @hidden */
 export interface ModelCtor<Name extends string> {
@@ -746,6 +759,13 @@ export interface Model<Name extends string = 'main'> extends Iterable<FuncDecl<N
     decl: FuncDecl<Name, DomainSort, RangeSort>,
     defaultValue: CoercibleToMap<SortToExprMap<RangeSort, Name>, Name>,
   ): FuncInterp<Name>;
+
+  /**
+   * Manually decrease the reference count of the model
+   * This is automatically done when the model is garbage collected,
+   * but calling this eagerly can help release memory sooner.
+   */
+  release(): void;
 }
 
 /**

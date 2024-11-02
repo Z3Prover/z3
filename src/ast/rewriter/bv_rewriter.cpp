@@ -2785,9 +2785,16 @@ br_status bv_rewriter::mk_eq_bv2int(expr* lhs, expr* rhs, expr_ref& result) {
             result = m.mk_false();        
         return BR_REWRITE1;
     }
-    if (m_util.is_bv2int(lhs, x) && m_util.is_bv2int(rhs, y)) {
+    if (m_util.is_bv2int(lhs, x) &&
+        m_util.is_bv2int(rhs, y)) {
+        auto szx = m_util.get_bv_size(x);
+        auto szy = m_util.get_bv_size(y);
+        if (szx < szy)
+            x = m_util.mk_zero_extend(szy - szx, x);
+        else if (szx > szy)
+            y = m_util.mk_zero_extend(szx - szy, y);
         result = m.mk_eq(x, y);
-        return BR_REWRITE1;
+        return BR_REWRITE2;
     }
     return BR_FAILED;
 }

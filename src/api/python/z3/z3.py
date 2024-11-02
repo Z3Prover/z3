@@ -1073,6 +1073,13 @@ class ExprRef(AstRef):
             _z3_assert(is_app(self), "Z3 application expected")
         return FuncDeclRef(Z3_get_app_decl(self.ctx_ref(), self.as_ast()), self.ctx)
 
+    def kind(self):
+        """Return the Z3 internal kind of a function application."""
+        if z3_debug():
+            _z3_assert(is_app(self), "Z3 application expected")
+        return Z3_get_decl_kind(self.ctx_ref(), Z3_get_app_decl(self.ctx_ref(), self.ast))
+        
+
     def num_args(self):
         """Return the number of arguments of a Z3 application.
 
@@ -1393,7 +1400,7 @@ def is_app_of(a, k):
     >>> is_app_of(n, Z3_OP_MUL)
     False
     """
-    return is_app(a) and a.decl().kind() == k
+    return is_app(a) and a.kind() == k
 
 
 def If(a, b, c, ctx=None):
@@ -9447,7 +9454,7 @@ _ROUNDING_MODES = frozenset({
 def set_default_rounding_mode(rm, ctx=None):
     global _dflt_rounding_mode
     if is_fprm_value(rm):
-        _dflt_rounding_mode = rm.decl().kind()
+        _dflt_rounding_mode = rm.kind()
     else:
         _z3_assert(_dflt_rounding_mode in _ROUNDING_MODES, "illegal rounding mode")
         _dflt_rounding_mode = rm

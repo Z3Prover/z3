@@ -202,7 +202,7 @@ bool context_params::is_shell_only_parameter(char const* _p) const {
     std::string p(_p);
     lower_case(p);
     if (p == "dump_models" || p == "well_sorted_check" ||
-        p == "model_validate" || p == "smtlib2_compliant" ||
+        p == "model_validate" || 
         p == "stats")
         return true;
 

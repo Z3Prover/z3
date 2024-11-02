@@ -1,7 +1,7 @@
 variables:
   Major: '4'
   Minor: '13'
-  Patch: '3'
+  Patch: '4'
   ReleaseVersion: $(Major).$(Minor).$(Patch)
   AssemblyVersion: $(Major).$(Minor).$(Patch).$(Build.BuildId)
   NightlyVersion: $(AssemblyVersion)-$(Build.buildId)
@@ -12,7 +12,7 @@ stages:
   - job: MacBuild
     displayName: "Mac Build"
     pool:
-      vmImage: "macOS-latest"
+      vmImage: "macOS-13"
     steps:
     - task: PythonScript@0
       displayName: Build
@@ -41,9 +41,9 @@ stages:
   - job: MacBuildArm64
     displayName: "Mac ARM64 Build"
     pool:
-      vmImage: "macOS-latest"
+      vmImage: "macOS-13"
     steps:
-    - script: python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk --arch=arm64 --os=osx-11.0
+    - script: python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk --arch=arm64
     - script: git clone https://github.com/z3prover/z3test z3test
     - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
     - task: PublishPipelineArtifact@1

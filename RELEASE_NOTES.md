@@ -10,6 +10,12 @@ Version 4.next
     - native word level bit-vector solving.
   - introduction of simple induction lemmas to handle a limited repertoire of induction proofs.
 
+Version 4.13.3
+==============
+- Fixes, including #7363
+- Fix paths to Java binaries in release
+- Remove internal build names from pypi wheels
+
 Version 4.13.2
 ==============
 - Performance regression fix. #7404

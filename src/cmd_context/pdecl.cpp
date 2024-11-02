@@ -225,7 +225,9 @@ class psort_app : public psort {
             sort * a = m_args[i]->instantiate(m, n, s);
             args_i.push_back(a);
         }
-        r = m_decl->instantiate(m, args_i.size(), args_i.data());        
+        r = m_decl->instantiate(m, args_i.size(), args_i.data());  
+        if (m_num_params != n)
+            throw default_exception("mismatch between number of declared and supplied sort parameters");
         cache(m, s, r);
         return r;
     }
@@ -771,6 +773,7 @@ bool pdatatypes_decl::commit(pdecl_manager& m) {
         for (unsigned i = 0; i < d->get_num_params(); ++i) {
             ps.push_back(m.m().mk_uninterpreted_sort(symbol(i), 0, nullptr));
         }        
+
         dts.m_buffer.push_back(d->instantiate_decl(m, ps.size(), ps.data()));
     }
     sort_ref_vector sorts(m.m());
