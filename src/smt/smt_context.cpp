@@ -4077,7 +4077,11 @@ namespace smt {
                 IF_VERBOSE(100, verbose_stream() << "(smt.final-check \"" << th->get_name() << "\")\n";);
                 ok = th->final_check_eh();
                 TRACE("final_check_step", tout << "final check '" << th->get_name() << " ok: " << ok << " inconsistent " << inconsistent() << "\n";);
-                if (ok == FC_GIVEUP) {
+                if (get_cancel_flag()) {
+                    f = CANCELED;
+                    ok = FC_GIVEUP;
+                }
+                else if (ok == FC_GIVEUP) {
                     f  = THEORY;
                     m_incomplete_theories.push_back(th);
                 }
