@@ -26,7 +26,7 @@ protected:
     std::string m_msg;
 public:
     tactic_exception(std::string && msg) : m_msg(std::move(msg)) {}
-    char const * what() const override { return m_msg.c_str(); }
+    char const * what() const noexcept override { return m_msg.c_str(); }
 };
 
 #define TACTIC_CANCELED_MSG      Z3_CANCELED_MSG

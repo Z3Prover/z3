@@ -29,7 +29,7 @@ Revision History:
 
 
 class overflow_exception : public z3_exception {
-    char const* what() const override { return "checked_int64 overflow/underflow"; }
+    char const* what() const noexcept override { return "checked_int64 overflow/underflow"; }
 };
 
 template<bool CHECK>

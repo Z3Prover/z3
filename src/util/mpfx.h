@@ -129,15 +129,15 @@ public:
     static bool field() { return true; }
 
     class exception : public z3_exception {
-        char const * what() const override { return "multi-precision fixed point (mpfx) exception"; }
+        char const * what() const noexcept override { return "multi-precision fixed point (mpfx) exception"; }
     };
     
     class overflow_exception : public exception {
-        char const * what() const override { return "multi-precision fixed point (mpfx) overflow"; }
+        char const * what() const noexcept override { return "multi-precision fixed point (mpfx) overflow"; }
     };
     
     class div0_exception : public exception {
-        char const * what() const override { return "multi-precision fixed point (mpfx) division by zero"; }
+        char const * what() const noexcept override { return "multi-precision fixed point (mpfx) division by zero"; }
     };
 
     mpfx_manager(unsigned int_sz = 2, unsigned frac_sz = 1, unsigned initial_capacity = 1024);
