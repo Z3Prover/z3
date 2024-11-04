@@ -25,15 +25,22 @@ SRC_DIR_LOCAL = os.path.join(ROOT_DIR, 'core')
 SRC_DIR_REPO = os.path.join(ROOT_DIR, '..', '..', '..')
 SRC_DIR = SRC_DIR_LOCAL if os.path.exists(SRC_DIR_LOCAL) else SRC_DIR_REPO
 
+IS_PYODIDE = 'PYODIDE_ROOT' in os.environ and os.environ.get('_PYTHON_HOST_PLATFORM', '').startswith('emscripten')
+
 # determine where binaries are
 RELEASE_DIR = os.environ.get('PACKAGE_FROM_RELEASE', None)
 if RELEASE_DIR is None:
     BUILD_DIR = os.path.join(SRC_DIR, 'build') # implicit in configure script
     HEADER_DIRS = [os.path.join(SRC_DIR, 'src', 'api'), os.path.join(SRC_DIR, 'src', 'api', 'c++')]
     RELEASE_METADATA = None
-    BUILD_PLATFORM = sys.platform
-    BUILD_ARCH = os.environ.get("Z3_CROSS_COMPILING", platform.machine())
-    BUILD_OS_VERSION = platform.mac_ver()[0].split(".")
+    if IS_PYODIDE:
+        BUILD_PLATFORM = "emscripten"
+        BUILD_ARCH = "wasm32"
+        BUILD_OS_VERSION = os.environ['_PYTHON_HOST_PLATFORM'].split('_')[1:-1]
+    else:
+        BUILD_PLATFORM = sys.platform
+        BUILD_ARCH = os.environ.get("Z3_CROSS_COMPILING", platform.machine())
+        BUILD_OS_VERSION = platform.mac_ver()[0].split(".")[:2]
 else:
     if not os.path.isdir(RELEASE_DIR):
         raise Exception("RELEASE_DIR (%s) is not a directory!" % RELEASE_DIR)
@@ -56,12 +63,16 @@ HEADERS_DIR = os.path.join(ROOT_DIR, 'z3', 'include')
 BINS_DIR = os.path.join(ROOT_DIR, 'bin')
 
 # determine platform-specific filenames
+
 if BUILD_PLATFORM in ('sequoia','darwin', 'osx'):
     LIBRARY_FILE = "libz3.dylib"
     EXECUTABLE_FILE = "z3"
 elif BUILD_PLATFORM in ('win32', 'cygwin', 'win'):
     LIBRARY_FILE = "libz3.dll"
     EXECUTABLE_FILE = "z3.exe"
+elif BUILD_PLATFORM in ('emscripten',):
+    LIBRARY_FILE = "libz3.so"
+    EXECUTABLE_FILE = "z3.wasm"
 else:
     LIBRARY_FILE = "libz3.so"
     EXECUTABLE_FILE = "z3"
@@ -267,7 +278,7 @@ class bdist_wheel(_bdist_wheel):
             
     def finalize_options(self):
         if BUILD_ARCH is not None and BUILD_PLATFORM is not None:
-            os_version_tag = '_'.join(BUILD_OS_VERSION[:2]) if BUILD_OS_VERSION is not None else 'xxxxxx'
+            os_version_tag = '_'.join(BUILD_OS_VERSION) if BUILD_OS_VERSION is not None else 'xxxxxx'
             os_version_tag = self.remove_build_machine_os_version(BUILD_PLATFORM, os_version_tag)
             TAGS = {
                 # linux tags cannot be deployed - they must be auditwheel'd to pick the right compatibility tag based on imported libc symbol versions
@@ -284,6 +295,7 @@ class bdist_wheel(_bdist_wheel):
                 ("sequoia", "x64"): f"macosx_{os_version_tag}_x86_64",
                 ("sequoia", "x86_64"): f"macosx_{os_version_tag}_x86_64",
                 ("sequoia", "arm64"): f"macosx_{os_version_tag}_arm64",
+                ("emscripten", "wasm32"): f"emscripten_{os_version_tag}_wasm32",
             }  # type: dict[tuple[str, str], str]
             self.plat_name = TAGS[(BUILD_PLATFORM, BUILD_ARCH)]
         return super().finalize_options()
