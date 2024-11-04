@@ -215,7 +215,7 @@ struct check_logic::imp {
         m_logic = logic;
     }
 
-    struct failed {};
+    struct failed : public std::exception {};
     std::string m_last_error;
 
     void fail(std::string &&msg) {

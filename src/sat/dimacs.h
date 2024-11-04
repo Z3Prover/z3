@@ -26,7 +26,7 @@ Revision History:
 bool parse_dimacs(std::istream & s, std::ostream& err, sat::solver & solver);
 
 namespace dimacs {
-    struct lex_error {};
+    struct lex_error : public std::exception {};
 
     class stream_buffer {
         std::istream & m_stream;

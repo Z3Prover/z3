@@ -338,7 +338,7 @@ class bv1_blaster_tactic : public tactic {
             m_rw(m, p) {
         }
 
-        struct not_target {};
+        struct not_target : public std::exception {};
         
         struct visitor {
             family_id m_bv_fid;

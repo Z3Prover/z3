@@ -277,7 +277,7 @@ namespace datatype {
         }
 
 
-        struct invalid_datatype {};
+        struct invalid_datatype : public std::exception {};
 
         sort * plugin::mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) {
             try {

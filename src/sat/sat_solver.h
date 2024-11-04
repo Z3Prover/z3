@@ -90,7 +90,7 @@ namespace sat {
     
     class solver : public solver_core {
     public:
-        struct abort_solver {};
+        struct abort_solver : public std::exception {};
     protected:
         enum search_state { s_sat, s_unsat };
 

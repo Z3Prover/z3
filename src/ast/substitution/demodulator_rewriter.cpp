@@ -828,7 +828,7 @@ bool demodulator_match_subst::can_rewrite(expr* n, expr* lhs) {
 */
 struct match_args_aux_proc {
     substitution &                               m_subst;
-    struct no_match {};
+    struct no_match : public std::exception {};
 
     match_args_aux_proc(substitution & s):m_subst(s) {}
 

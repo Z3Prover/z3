@@ -2456,7 +2456,7 @@ namespace qe {
     }
 
     bool has_quantified_uninterpreted(ast_manager& m, expr* fml) {
-        struct found {};
+        struct found : public std::exception {};
         struct proc {
             ast_manager& m;
             proc(ast_manager& m):m(m) {}

@@ -147,7 +147,7 @@ namespace smt {
                 return m_inv;
             }
 
-            struct is_model_value {};
+            struct is_model_value : public std::exception {};
             void operator()(expr* n) {
                 if (m.is_model_value(n)) {
                     throw is_model_value();
@@ -540,7 +540,7 @@ namespace smt {
                 return !contains_array(e);
             }
 
-            struct found_array {};
+            struct found_array : public std::exception {};
             expr_mark m_visited;
             void operator()(expr* n) {
                 if (m_array.is_array(n))

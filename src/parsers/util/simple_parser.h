@@ -29,7 +29,7 @@ class scanner;
 */
 class simple_parser {
 protected:
-    struct parser_error {};
+    struct parser_error : public std::exception {};
     struct builtin_op {
         family_id m_family_id;
         decl_kind m_kind;
