@@ -624,12 +624,7 @@ namespace lp {
         u_dependency* explain_fixed_in_meta_term(const lar_term& t) {
             u_dependency* dep = nullptr;
 
-            for (const auto& p: t) {
-                lar_term const& term = lra.get_term(p.j());
-                for (const auto& q: term) {
-                    if (is_fixed(q.j()))
-                        dep = lra.mk_join(dep, lra.get_bound_constraint_witnesses_for_column(q.j()));
-                }
+            for (const auto& p: open_ml(t)) {
                 if (is_fixed(p.j()))
                     dep = lra.mk_join(dep, lra.get_bound_constraint_witnesses_for_column(p.j()));                
             }
@@ -692,13 +687,13 @@ public:
             mpq t;
             for (const auto& p : m_e_matrix.m_rows[row_index]) {
                 t = abs(p.coeff());
-                if (first || t < ahk || (t == ahk && p.var() < k)) { // tre last condition is for debug
+                if (first || t < ahk || (t == ahk && p.var() < k)) { // the last condition is for debug
                     ahk = t;
                     k_sign = p.coeff().is_pos() ? 1 : -1;
                     k = p.var();
                     first = false;
-//                if (ahk.is_one()) // uncomment later
-                //                  break;                    
+                    if (ahk.is_one())
+                        break;                    
                 }
             }
             
