@@ -32,7 +32,7 @@ class z3_error : public z3_exception {
     unsigned m_error_code;
 public:
     z3_error(unsigned error_code);
-    char const * what() const override;
+    char const * what() const noexcept override;
     unsigned error_code() const override;
 };
 
@@ -42,6 +42,6 @@ public:
     struct fmt {};
     default_exception(std::string && msg) : m_msg(std::move(msg)) {}
     default_exception(fmt, char const* msg, ...);
-    char const * what() const override;
+    char const * what() const noexcept override;
 };
 
