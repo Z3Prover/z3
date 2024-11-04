@@ -959,7 +959,7 @@ namespace smt {
             return internalize_term_core(term);
         }
         catch (z3_exception& ex) {
-            IF_VERBOSE(1, verbose_stream() << "internalize_term: " << ex.msg() << "\n";);
+            IF_VERBOSE(1, verbose_stream() << "internalize_term: " << ex.what() << "\n";);
             throw;
         }
     }

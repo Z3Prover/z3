@@ -19,11 +19,11 @@ Notes:
 #pragma once
 
 #include<string>
+#include<exception>
 
-class z3_exception {
+class z3_exception : public std::exception {
 public:
     virtual ~z3_exception() = default;
-    virtual char const * msg() const = 0;
     virtual unsigned error_code() const;
     bool has_error_code() const;
 };
@@ -32,7 +32,7 @@ class z3_error : public z3_exception {
     unsigned m_error_code;
 public:
     z3_error(unsigned error_code);
-    char const * msg() const override;
+    char const * what() const override;
     unsigned error_code() const override;
 };
 
@@ -42,6 +42,6 @@ public:
     struct fmt {};
     default_exception(std::string && msg) : m_msg(std::move(msg)) {}
     default_exception(fmt, char const* msg, ...);
-    char const * msg() const override;
+    char const * what() const override;
 };
 

@@ -533,7 +533,7 @@ struct z3_replayer::imp {
                     throw;
                 }
                 catch (z3_exception & ex) {
-                    std::cout << "[z3 exception]: " << ex.msg() << std::endl;
+                    std::cout << "[z3 exception]: " << ex.what() << std::endl;
                 }
                 break;
             }

@@ -202,7 +202,7 @@ public:
                 throw;
             }
             else {
-                set_reason_unknown(ex.msg());
+                set_reason_unknown(ex.what());
             }
         }
         return l_undef;

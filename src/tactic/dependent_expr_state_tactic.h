@@ -129,7 +129,7 @@ public:
                 m_simp->reduce();
         }
         catch (rewriter_exception& ex) {
-            throw tactic_exception(ex.msg());
+            throw tactic_exception(ex.what());
         }
         m_goal->elim_true();
         m_goal->elim_redundancies();

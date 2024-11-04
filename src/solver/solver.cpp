@@ -95,7 +95,7 @@ lbool solver::get_consequences(expr_ref_vector const& asms, expr_ref_vector cons
             return l_undef;
         }
         else {
-            set_reason_unknown(ex.msg());
+            set_reason_unknown(ex.what());
         }
         throw;
     }

@@ -31,7 +31,7 @@ static void solve(char const * stream_name, std::istream & in) {
         r.parse();
     }
     catch (z3_exception & ex) {
-        std::cerr << "Error at line " << r.get_line() << ": " << ex.msg() << std::endl;
+        std::cerr << "Error at line " << r.get_line() << ": " << ex.what() << std::endl;
     }
     clock_t end_time = clock();
     memory::display_max_usage(std::cout);

@@ -183,9 +183,9 @@ public:
             r = m_solver.check(m_dep.m_literals);
         }
         catch (z3_exception& ex) {
-            IF_VERBOSE(1, verbose_stream() << "exception: " << ex.msg() << "\n";);
+            IF_VERBOSE(1, verbose_stream() << "exception: " << ex.what() << "\n";);
             if (m.inc()) {
-                set_reason_unknown(std::string("(sat.giveup ") + ex.msg() + ')');
+                set_reason_unknown(std::string("(sat.giveup ") + ex.what() + ')');
                 return l_undef;
             }
             r = l_undef;            

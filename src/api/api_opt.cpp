@@ -168,7 +168,7 @@ extern "C" {
                 }
                 r = l_undef;
                 if (!mk_c(c)->m().inc()) {
-                    to_optimize_ptr(o)->set_reason_unknown(ex.msg());
+                    to_optimize_ptr(o)->set_reason_unknown(ex.what());
                 }
                 else {
                     mk_c(c)->handle_exception(ex);
@@ -364,7 +364,7 @@ extern "C" {
             }        
         }
         catch (z3_exception& e) {
-            errstrm << e.msg();
+            errstrm << e.what();
             ctx = nullptr;
             SET_ERROR_CODE(Z3_PARSER_ERROR, errstrm.str());
             return;

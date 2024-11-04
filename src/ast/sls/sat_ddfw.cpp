@@ -74,7 +74,7 @@ namespace sat {
             }
         }
         catch (z3_exception& ex) {
-            IF_VERBOSE(0, verbose_stream() << "Exception: " << ex.msg() << "\n");
+            IF_VERBOSE(0, verbose_stream() << "Exception: " << ex.what() << "\n");
             throw;
         }
         m_plugin->finish_search();

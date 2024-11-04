@@ -362,7 +362,7 @@ public:
                     throw;
                 }
                 catch (z3_exception& ex) {
-                    IF_VERBOSE(10, verbose_stream() << ex.msg() << " in or-else\n");
+                    IF_VERBOSE(10, verbose_stream() << ex.what() << " in or-else\n");
                     throw;
                 }
                 catch (const std::exception &ex) {
@@ -546,7 +546,7 @@ public:
             catch (tactic_exception & ex) {
                 if (i == 0) {
                     ex_kind = TACTIC_EX;
-                    ex_msg = ex.msg();
+                    ex_msg = ex.what();
                 }
             }
             catch (z3_error & err) {
@@ -558,7 +558,7 @@ public:
             catch (z3_exception & z3_ex) {
                 if (i == 0) {
                     ex_kind = DEFAULT_EX;
-                    ex_msg = z3_ex.msg();
+                    ex_msg = z3_ex.what();
                 }
             }
         };
@@ -703,7 +703,7 @@ public:
                             curr_failed = true;
                             failed      = true;
                             ex_kind     = TACTIC_EX;
-                            ex_msg      = ex.msg();
+                            ex_msg      = ex.what();
                         }
                     }
                 }
@@ -725,7 +725,7 @@ public:
                             curr_failed = true;
                             failed      = true;
                             ex_kind     = DEFAULT_EX;
-                            ex_msg      = z3_ex.msg();
+                            ex_msg      = z3_ex.what();
                         }
                     }
                 }

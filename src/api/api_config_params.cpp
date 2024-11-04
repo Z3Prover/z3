@@ -36,7 +36,7 @@ extern "C" {
         catch (z3_exception & ex) {
             // The error handler is only available for contexts
             // Just throw a warning.
-            warning_msg("%s", ex.msg());
+            warning_msg("%s", ex.what());
         }
     }
 
@@ -59,7 +59,7 @@ extern "C" {
         catch (z3_exception & ex) {
             // The error handler is only available for contexts
             // Just throw a warning.
-            warning_msg("%s", ex.msg());
+            warning_msg("%s", ex.what());
             return false;
         }
     }
@@ -84,7 +84,7 @@ extern "C" {
         } catch (z3_exception & ex) {
             // The error handler is only available for contexts
             // Just throw a warning.
-            warning_msg("%s", ex.msg());
+            warning_msg("%s", ex.what());
             return nullptr;
         }
     }
@@ -106,7 +106,7 @@ extern "C" {
         catch (z3_exception & ex) {
             // The error handler is only available for contexts
             // Just throw a warning.
-            warning_msg("%s", ex.msg());
+            warning_msg("%s", ex.what());
         }
     }
 

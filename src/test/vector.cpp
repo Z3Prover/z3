@@ -50,7 +50,7 @@ static void tst1() {
             v1.resize(i);
         }
         catch (z3_exception& e) {
-            std::cout << e.msg() << "\n";
+            std::cout << e.what() << "\n";
             break;
         }
         i *= 2;

@@ -375,7 +375,7 @@ namespace smt2 {
                 }
                 catch (scanner_exception & ex) {
                     if (ex.has_pos())
-                        error(ex.line(), ex.pos(), ex.msg());
+                        error(ex.line(), ex.pos(), ex.what());
                     ++num_errors;
                 }
             }
@@ -3146,7 +3146,7 @@ namespace smt2 {
                 }
             }
             catch (z3_exception & ex) {
-                error(ex.msg());
+                error(ex.what());
             }
             return sexpr_ref(nullptr, sm());
         }
@@ -3162,7 +3162,7 @@ namespace smt2 {
                     return sort_ref(sort_stack().back(), m());
             }
             catch (z3_exception & ex) {
-                error(ex.msg());
+                error(ex.what());
             }
             return sort_ref(nullptr, m());
         }
@@ -3176,7 +3176,7 @@ namespace smt2 {
                 scan_core();
             }
             catch (scanner_exception & ex) {
-                error(ex.msg());
+                error(ex.what());
                 if (!sync_after_error())
                     return false;
                 found_errors++;
@@ -3202,7 +3202,7 @@ namespace smt2 {
                     // Can't invoke error(...) when out of memory.
                     // Reason: escaped() string builder needs memory
                     m_ctx.regular_stream() << "(error \"line " << m_scanner.get_line() << " column " << m_scanner.get_pos()
-                                           << ": " << ex.msg() << "\")" << std::endl;
+                                           << ": " << ex.what() << "\")" << std::endl;
                     exit(ex.error_code());
                 }
                 catch (const stop_parser_exception &) {
@@ -3211,15 +3211,15 @@ namespace smt2 {
                 }
                 catch (parser_exception & ex) {
                     if (ex.has_pos())
-                        error(ex.line(), ex.pos(), ex.msg());
+                        error(ex.line(), ex.pos(), ex.what());
                     else
-                        error(ex.msg());
+                        error(ex.what());
                 }
                 catch (ast_exception & ex) {
-                    error(ex.msg());
+                    error(ex.what());
                 }
                 catch (z3_exception & ex) {
-                    error(ex.msg());
+                    error(ex.what());
                 }
                 m_scanner.stop_caching();
                 if (m_curr_cmd)

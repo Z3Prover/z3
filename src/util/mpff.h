@@ -182,15 +182,15 @@ public:
     static bool field() { return true; }
 
     class exception : public z3_exception {
-        char const * msg() const override { return "multi-precision floating point (mpff) exception"; }
+        char const * what() const override { return "multi-precision floating point (mpff) exception"; }
     };
     
     class overflow_exception : public exception {
-        char const * msg() const override { return "multi-precision floating point (mpff) overflow"; }
+        char const * what() const override { return "multi-precision floating point (mpff) overflow"; }
     };
 
     class div0_exception : public exception {
-        char const * msg() const override { return "multi-precision floating point (mpff) division by zero"; }
+        char const * what() const override { return "multi-precision floating point (mpff) division by zero"; }
     };
     
     mpff_manager(unsigned prec = 2, unsigned initial_capacity = 1024);

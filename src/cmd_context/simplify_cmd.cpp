@@ -89,7 +89,7 @@ public:
                 throw ex;
             }
             catch (z3_exception & ex) {
-                ctx.regular_stream() << "(error \"simplifier failed: " << ex.msg() << "\")" << std::endl;
+                ctx.regular_stream() << "(error \"simplifier failed: " << ex.what() << "\")" << std::endl;
                 failed = true;
                 r = m_target;
             }

@@ -198,7 +198,7 @@ namespace smt {
             }
             catch (z3_exception & ex) {
                 if (finished_id == UINT_MAX) {
-                    ex_msg = ex.msg();
+                    ex_msg = ex.what();
                     ex_kind = DEFAULT_EX;
                     done = true;
                 }

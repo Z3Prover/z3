@@ -214,7 +214,7 @@ namespace opt {
                 is_sat = (*m_msolver)();
             }
             catch (z3_exception& ex) {
-                IF_VERBOSE(1, verbose_stream() << ex.msg() << "\n");
+                IF_VERBOSE(1, verbose_stream() << ex.what() << "\n");
                 is_sat = l_undef;
             }
             if (is_sat != l_false) {

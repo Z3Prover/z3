@@ -306,7 +306,7 @@ namespace api {
                 set_error_code(Z3_MEMOUT_FAIL, nullptr);
             break;
             case ERR_PARSER: 
-                set_error_code(Z3_PARSER_ERROR, ex.msg());
+                set_error_code(Z3_PARSER_ERROR, ex.what());
                 break;
             case ERR_INI_FILE: 
                 set_error_code(Z3_INVALID_ARG, nullptr);
@@ -320,7 +320,7 @@ namespace api {
             }
         }
         else {
-            set_error_code(Z3_EXCEPTION, ex.msg()); 
+            set_error_code(Z3_EXCEPTION, ex.what()); 
         }
     }
     

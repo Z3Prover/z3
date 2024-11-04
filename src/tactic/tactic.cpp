@@ -196,7 +196,7 @@ void exec(tactic & t, goal_ref const & in, goal_ref_buffer & result) {
         t.cleanup();
     }
     catch (tactic_exception & ex) {
-        IF_VERBOSE(TACTIC_VERBOSITY_LVL, verbose_stream() << "(tactic-exception \"" << escaped(ex.msg()) << "\")\n");
+        IF_VERBOSE(TACTIC_VERBOSITY_LVL, verbose_stream() << "(tactic-exception \"" << escaped(ex.what()) << "\")\n");
         t.cleanup();
         throw ex;
     }
@@ -215,7 +215,7 @@ lbool check_sat(tactic & t, goal_ref & g, model_ref & md, labels_vec & labels, p
         exec(t, g, r);
     }
     catch (z3_exception & ex) {
-        reason_unknown = ex.msg();
+        reason_unknown = ex.what();
         if (r.size() > 0) pr = r[0]->pr(0);
         return l_undef;
     }

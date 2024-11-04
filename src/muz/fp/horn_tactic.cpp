@@ -255,7 +255,7 @@ class horn_tactic : public tactic {
                 is_reachable = m_ctx.query(q);
             }
             catch (default_exception& ex) {
-                IF_VERBOSE(1, verbose_stream() << ex.msg() << "\n";);
+                IF_VERBOSE(1, verbose_stream() << ex.what() << "\n";);
                 throw ex;
             }
             g->inc_depth();

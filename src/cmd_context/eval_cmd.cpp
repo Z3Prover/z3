@@ -86,7 +86,7 @@ public:
                 ev(m_target, r);
             }
             catch (model_evaluator_exception & ex) {
-                ctx.regular_stream() << "(error \"evaluator failed: " << ex.msg() << "\")" << std::endl;
+                ctx.regular_stream() << "(error \"evaluator failed: " << ex.what() << "\")" << std::endl;
                 return;
             }
         }

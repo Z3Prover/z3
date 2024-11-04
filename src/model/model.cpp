@@ -95,7 +95,7 @@ bool model::eval_expr(expr * e, expr_ref & result, bool model_completion) {
     }
     catch (model_evaluator_exception & ex) {
         (void)ex;
-        TRACE("model_evaluator", tout << ex.msg() << "\n";);
+        TRACE("model_evaluator", tout << ex.what() << "\n";);
         return false;
     }
 }

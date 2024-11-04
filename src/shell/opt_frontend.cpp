@@ -134,7 +134,7 @@ static unsigned parse_opt(std::istream& in, opt_format f) {
         }
     }
     catch (z3_exception & ex) {
-        std::cerr << ex.msg() << "\n";
+        std::cerr << ex.what() << "\n";
     }
     display_statistics();
     display_model();

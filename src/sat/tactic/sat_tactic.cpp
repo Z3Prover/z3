@@ -243,12 +243,12 @@ public:
         }
         catch (sat::solver_exception & ex) {
             proc.m_solver->collect_statistics(m_stats);
-            throw tactic_exception(ex.msg());
+            throw tactic_exception(ex.what());
         }
         catch (z3_exception& ex) {
             (void)ex;
             proc.m_solver->collect_statistics(m_stats);
-            TRACE("sat", tout << ex.msg() << "\n";);            
+            TRACE("sat", tout << ex.what() << "\n";);            
             throw;
         }
         TRACE("sat_stats", m_stats.display_smt2(tout););

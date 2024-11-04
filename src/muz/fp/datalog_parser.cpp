@@ -545,7 +545,7 @@ protected:
             result = tok == TK_EOS && m_error == false;
         }
         catch (z3_exception& ex) {
-            std::cerr << ex.msg() << std::endl;
+            std::cerr << ex.what() << std::endl;
             result = false;
         }
         return result;
@@ -1225,7 +1225,7 @@ public:
             result = parse_directory_core(path);
         }
         catch (z3_exception& ex) {
-            std::cerr << ex.msg() << std::endl;
+            std::cerr << ex.what() << std::endl;
             return false;
         }
         return result;

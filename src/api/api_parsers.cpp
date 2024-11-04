@@ -144,7 +144,7 @@ extern "C" {
         catch (z3_exception& e) {
             if (owned)
                 ctx = nullptr;
-            errstrm << e.msg();
+            errstrm << e.what();
             SET_ERROR_CODE(Z3_PARSER_ERROR, errstrm.str());
             return of_ast_vector(v);
         }
@@ -257,7 +257,7 @@ extern "C" {
             }
         }
         catch (z3_exception& e) {
-            if (ous.str().empty()) ous << e.msg();
+            if (ous.str().empty()) ous << e.what();
             SET_ERROR_CODE(Z3_PARSER_ERROR, ous.str());
             RETURN_Z3(mk_c(c)->mk_external_string(ous.str()));
         }

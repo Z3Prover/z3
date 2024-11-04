@@ -710,7 +710,7 @@ private:
             }
         }
         catch (z3_exception& ex) {   
-            IF_VERBOSE(1, verbose_stream() << ex.msg() << "\n";);
+            IF_VERBOSE(1, verbose_stream() << ex.what() << "\n";);
             if (m_queue.in_shutdown()) return;
             m_queue.shutdown();
             std::lock_guard<std::mutex> lock(m_mutex);
@@ -718,7 +718,7 @@ private:
                 m_exn_code = ex.error_code();
             }
             else {
-                m_exn_msg = ex.msg();
+                m_exn_msg = ex.what();
                 m_exn_code = -1;
             }
         }

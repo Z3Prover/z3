@@ -926,6 +926,6 @@ void tst_udoc_relation() {
         tester.test1();
     }
     catch (z3_exception& ex) {
-        std::cout << ex.msg() << "\n";
+        std::cout << ex.what() << "\n";
     }
 }

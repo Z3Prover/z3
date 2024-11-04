@@ -1564,7 +1564,7 @@ namespace sat {
                 ex_kind = ERROR_EX;                
             }
             catch (z3_exception & ex) {
-                ex_msg = ex.msg();
+                ex_msg = ex.what();
                 ex_kind = DEFAULT_EX;    
             }
         };

@@ -2080,7 +2080,7 @@ bool ast_manager::check_sorts(ast const * n) const {
         return true;
     }
     catch (ast_exception & ex) {
-        warning_msg("%s", ex.msg());
+        warning_msg("%s", ex.what());
         return false;
     }
 }

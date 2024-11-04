@@ -416,7 +416,7 @@ int STD_CALL main(int argc, char ** argv) {
     }
     catch (z3_exception & ex) {
         // unhandled exception
-        std::cerr << "ERROR: " << ex.msg() << "\n";
+        std::cerr << "ERROR: " << ex.what() << "\n";
         if (ex.has_error_code())
             return ex.error_code();
         else

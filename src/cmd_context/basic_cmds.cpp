@@ -439,7 +439,7 @@ class set_option_cmd : public set_get_option_cmd {
             ctx.global_params_updated();
         }
         catch (const gparams::exception & ex) {
-            throw cmd_exception(ex.msg());
+            throw cmd_exception(ex.what());
         }
     }
 

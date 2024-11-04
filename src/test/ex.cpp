@@ -19,24 +19,23 @@ Revision History:
 #include<iostream>
 #include "util/z3_exception.h"
 
-class ex {
+class ex : public std::exception {
 public:
     virtual ~ex() = default;
-    virtual char const * msg() const = 0;
 };
 
 class ex1 : public ex {
     char const * m_msg;
 public:
     ex1(char const * m):m_msg(m) {}
-    char const * msg() const override { return m_msg; }
+    char const * what() const override { return m_msg; }
 };
 
 class ex2 : public ex {
     std::string m_msg;
 public:
     ex2(char const * m):m_msg(m) {}
-    char const * msg() const override { return m_msg.c_str(); }
+    char const * what() const override { return m_msg.c_str(); }
 };
 
 static void th() {
@@ -48,7 +47,7 @@ static void tst1() {
         th();
     }
     catch (ex & e) {
-        std::cerr << e.msg() << "\n";
+        std::cerr << e.what() << "\n";
     }
 }
 
@@ -57,7 +56,7 @@ static void tst2() {
         throw default_exception(default_exception::fmt(), "Format %d %s", 12, "twelve");
     }
     catch (z3_exception& ex) {
-        std::cerr << ex.msg() << "\n";
+        std::cerr << ex.what() << "\n";
     }
 }
 

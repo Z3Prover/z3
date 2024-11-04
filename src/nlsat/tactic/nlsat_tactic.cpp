@@ -249,7 +249,7 @@ public:
         }
         catch (z3_exception & ex) {
             // convert all Z3 exceptions into tactic exceptions.
-            throw tactic_exception(ex.msg());
+            throw tactic_exception(ex.what());
         }
     }
     

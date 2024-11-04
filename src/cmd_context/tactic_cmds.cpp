@@ -227,8 +227,8 @@ public:
                 }
                 catch (z3_exception & ex) {
                     result->set_status(l_undef);
-                    result->m_unknown = ex.msg();
-                    ctx.regular_stream() << "(error \"tactic failed: " << ex.msg() << "\")" << std::endl;
+                    result->m_unknown = ex.what();
+                    ctx.regular_stream() << "(error \"tactic failed: " << ex.what() << "\")" << std::endl;
                 }
                 ctx.validate_check_sat_result(r);
             }
@@ -321,7 +321,7 @@ public:
                     exec(t, g, result_goals);
                 }
                 catch (tactic_exception & ex) {
-                    ctx.regular_stream() << "(error \"tactic failed: " << ex.msg() << "\")" << std::endl;
+                    ctx.regular_stream() << "(error \"tactic failed: " << ex.what() << "\")" << std::endl;
                     failed = true;
                 }
             }

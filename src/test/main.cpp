@@ -134,7 +134,7 @@ void parse_cmd_line_args(int argc, char ** argv, bool& do_display_usage, bool& t
                 gparams::set(key, value);
             }
             catch (z3_exception& ex) {
-                std::cerr << ex.msg() << "\n";
+                std::cerr << ex.what() << "\n";
             }
         }
         i++;

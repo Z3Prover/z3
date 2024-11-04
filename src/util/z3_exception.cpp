@@ -35,7 +35,7 @@ z3_error::z3_error(unsigned error_code):m_error_code(error_code) {
     SASSERT(error_code != 0); 
 }
 
-char const * z3_error::msg() const {
+char const * z3_error::what() const {
     switch (m_error_code) {
     case ERR_MEMOUT: return "out of memory";
     case ERR_TIMEOUT: return "timeout";
@@ -67,6 +67,6 @@ default_exception::default_exception(fmt, char const* msg, ...) {
     m_msg = out.str();
 }
 
-char const * default_exception::msg() const { 
+char const * default_exception::what() const { 
     return m_msg.c_str(); 
 }

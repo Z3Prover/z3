@@ -38,7 +38,7 @@ static void tst1() {
         }
     }
     catch (const z3_exception & ex) {
-        std::cout << ex.msg() << "\n";
+        std::cout << ex.what() << "\n";
     }
 }
 

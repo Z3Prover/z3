@@ -316,7 +316,7 @@ public:
             throw ex;
         }
         catch (z3_exception & ex) {
-            throw tactic_exception(ex.msg());
+            throw tactic_exception(ex.what());
         }
     }
 
