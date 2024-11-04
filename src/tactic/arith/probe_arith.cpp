@@ -130,7 +130,7 @@ public:
 };
 
 struct has_nlmul {
-    struct found {};
+    struct found : public std::exception {};
     ast_manager& m;
     arith_util   a;
     has_nlmul(ast_manager& m):m(m), a(m) {}
@@ -185,7 +185,7 @@ probe * mk_arith_max_bw_probe() {
 
 namespace {
 struct is_non_qflira_functor {
-    struct found {};
+    struct found : public std::exception {};
     ast_manager & m;
     arith_util    u;
     bool          m_int;
@@ -240,7 +240,7 @@ struct is_non_qflira_functor {
 };
 
 struct is_non_qfauflira_functor {
-    struct found {};
+    struct found : public std::exception {};
     ast_manager & m;
     arith_util    m_arith_util;
     array_util    m_array_util;
@@ -427,7 +427,7 @@ probe * mk_is_mip_probe() {
 namespace {
 
 struct is_non_nira_functor {
-    struct found {};
+    struct found : public std::exception {};
     ast_manager & m;
     arith_util    u;
     bool          m_int;
@@ -572,7 +572,7 @@ static bool is_lira(goal const & g) {
 
 
 struct is_non_qfufnra_functor {
-    struct found {};
+    struct found : public std::exception {};
     ast_manager & m;
     arith_util    u;
     bool          m_has_nonlinear;

@@ -248,7 +248,7 @@ probe * mk_div(probe * p1, probe * p2) {
 }
 
 struct is_non_propositional_predicate {
-    struct found {};
+    struct found : public std::exception {};
     ast_manager & m;
 
     is_non_propositional_predicate(ast_manager & _m):m(_m) {}
@@ -270,7 +270,7 @@ struct is_non_propositional_predicate {
 };
 
 struct is_non_qfbv_predicate {
-    struct found {};
+    struct found : public std::exception {};
     ast_manager & m;
     bv_util       u;
 
@@ -325,7 +325,7 @@ probe * mk_is_qfbv_probe() {
 }
 
 struct is_non_qfaufbv_predicate {
-    struct found {};
+    struct found : public std::exception {};
     ast_manager & m;
     bv_util       m_bv_util;
     array_util    m_array_util;
@@ -364,7 +364,7 @@ probe * mk_is_qfaufbv_probe() {
 
 
 struct is_non_qfufbv_predicate {
-    struct found {};
+    struct found : public std::exception {};
     ast_manager & m;
     bv_util       m_bv_util;
 
@@ -503,7 +503,7 @@ probe * mk_produce_unsat_cores_probe() {
 }
 
 struct has_pattern_probe : public probe {
-    struct found {};
+    struct found : public std::exception {};
 
     struct proc {
         void operator()(var * n) {}
@@ -536,7 +536,7 @@ probe * mk_has_pattern_probe() {
 
 
 struct has_quantifier_probe : public probe {
-    struct found {};
+    struct found : public std::exception {};
 
     struct proc {
         void operator()(var * n) {}

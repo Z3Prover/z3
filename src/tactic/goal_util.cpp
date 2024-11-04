@@ -20,7 +20,7 @@ Revision History:
 #include "tactic/goal.h"
 
 struct has_term_ite_functor {
-    struct found {};
+    struct found : public std::exception {};
     ast_manager & m;
     has_term_ite_functor(ast_manager & _m):m(_m) {}
     void operator()(var *) {}

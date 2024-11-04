@@ -32,7 +32,7 @@ Notes:
 
 
 struct is_non_fp_qfnra_predicate {
-    struct found {};
+    struct found : public std::exception {};
     ast_manager & m;
     bv_util       bu;
     fpa_util      fu;

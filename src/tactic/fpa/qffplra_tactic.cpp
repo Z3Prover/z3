@@ -27,7 +27,7 @@ tactic * mk_qffplra_tactic(ast_manager & m, params_ref const & p) {
 }
 
 struct is_fpa_function {
-    struct found {};
+    struct found : public std::exception {};
     ast_manager & m;
     fpa_util      fu;
     

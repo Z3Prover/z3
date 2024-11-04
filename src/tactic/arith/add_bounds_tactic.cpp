@@ -22,7 +22,7 @@ Revision History:
 #include "ast/simplifiers/bound_manager.h"
 
 struct is_unbounded_proc {
-    struct found {};
+    struct found : public std::exception {};
     arith_util      m_util;
     bound_manager & m_bm;
     

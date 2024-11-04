@@ -35,7 +35,7 @@ Notes:
 
 class pb2bv_tactic : public tactic {
 public:
-    struct non_pb { expr* e; non_pb(expr* e) : e(e) {}};
+    struct non_pb : public std::exception { expr* e; non_pb(expr* e) : e(e) {}};
 
     struct only_01_visitor {
         typedef rational numeral;
@@ -167,7 +167,7 @@ private:
 
         enum constraint_kind { EQ, GE, LE };
 
-        struct failed {};
+        struct failed : public std::exception {};
 
         struct visitor {
             imp & m_owner;
