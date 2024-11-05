@@ -4,7 +4,6 @@
 #include "math/lp/lp_utils.h"
 #include <list>
 #include <queue>
-unsigned glb=0;
 namespace lp {
     // This class represents a term with an added constant number c, in form sum {x_i*a_i} + c.
     class dioph_eq::imp {
