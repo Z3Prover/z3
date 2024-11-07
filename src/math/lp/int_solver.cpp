@@ -290,7 +290,9 @@ namespace lp {
             for (unsigned j : lra.r_basis()) {
                 if (!column_is_int_inf(j))
                     continue;
-
+                if (settings().get_cancel_flag()){
+                    return -1;
+                }
                 SASSERT(!lia.is_fixed(j));
 
                 unsigned usage = lra.usage_in_terms(j);
