@@ -74,7 +74,7 @@ public:
         return ret;
     }
 
-    // returns UINT_MAX if 
+    // returns UINT_MAX if local_var is greater than or equal than the number of local variables  
     unsigned local_to_external(unsigned local_var) const {
         unsigned k = local_var;
         if (k >= m_local_to_external.size())
