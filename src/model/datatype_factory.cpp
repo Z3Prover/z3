@@ -217,7 +217,7 @@ expr * datatype_factory::get_fresh_value(sort * s) {
                         expr * maybe_new_arg = nullptr;
                         if (!m_util.is_datatype(s_arg))
                             maybe_new_arg = m_model.get_fresh_value(s_arg);
-                        else if (num_iterations <= 1 || m_util.is_recursive(s_arg))
+                        else if (num_iterations <= 10 && (num_iterations <= 1 || m_util.is_recursive(s_arg)))
                             maybe_new_arg = get_almost_fresh_value(s_arg);                        
                         else 
                             maybe_new_arg = get_fresh_value(s_arg);
