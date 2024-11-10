@@ -467,7 +467,7 @@ class set_option_cmd : public set_get_option_cmd {
             ctx.set_produce_unsat_cores(to_bool(value));
         }
         else if (m_option == m_produce_unsat_assumptions) {
-            check_not_initialized(ctx, m_produce_unsat_assumptions);
+            check_no_assertions(ctx, m_produce_unsat_assumptions);
             ctx.set_produce_unsat_assumptions(to_bool(value));
         }
         else if (m_option == m_produce_models) {
@@ -625,6 +625,9 @@ public:
         }
         else if (opt == m_produce_assignments) {
             print_bool(ctx, ctx.produce_assignments());
+        }
+        else if (opt == m_produce_unsat_assumptions) {
+            print_bool(ctx, ctx.produce_unsat_assumptions());
         }
         else if (opt == m_global_decls || opt == m_global_declarations) {
             print_bool(ctx, ctx.global_decls());
