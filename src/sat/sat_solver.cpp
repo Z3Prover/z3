@@ -518,12 +518,12 @@ namespace sat {
     }
 
     bool solver::propagate_bin_clause(literal l1, literal l2) {
-        if (value(l2) == l_false) {
+        if (value(l2) == l_false && value(l1) != l_true) {
             m_stats.m_bin_propagate++;
             assign(l1, justification(lvl(l2), l2));            
             return true;
         }
-        if (value(l1) == l_false) {
+        if (value(l1) == l_false && value(l2) != l_true) {
             m_stats.m_bin_propagate++;
             assign(l2, justification(lvl(l1), l1));
             return true;
@@ -4579,7 +4579,6 @@ namespace sat {
     void solver::extract_fixed_consequences(literal_set const& unfixed_lits, literal_set const& assumptions, bool_var_set& unfixed_vars, vector<literal_vector>& conseq) {
         for (literal lit: unfixed_lits) {
             TRACE("sat", tout << "extract: " << lit << " " << value(lit) << " " << lvl(lit) << "\n";);
-
             if (lvl(lit) <= 1 && value(lit) == l_true) {
                 extract_fixed_consequences(lit, assumptions, unfixed_vars, conseq);
             }
@@ -4606,7 +4605,8 @@ namespace sat {
         case justification::NONE:
             break;
         case justification::BINARY:
-            if (!check_domain(lit, ~js.get_literal())) return false;
+            if (!check_domain(lit, ~js.get_literal())) 
+                return false;
             s |= m_antecedents.find(js.get_literal().var());
             break;
         case justification::CLAUSE: {
@@ -4680,9 +4680,9 @@ namespace sat {
         SASSERT(m_todo_antecedents.empty());
         m_todo_antecedents.push_back(lit);
         while (!m_todo_antecedents.empty()) {
-            if (extract_fixed_consequences1(m_todo_antecedents.back(), assumptions, unfixed, conseq)) {
+            auto lit = m_todo_antecedents.back();
+            if (extract_fixed_consequences1(lit, assumptions, unfixed, conseq)) 
                 m_todo_antecedents.pop_back();
-            }
         }
     }
 
