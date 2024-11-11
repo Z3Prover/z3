@@ -370,9 +370,14 @@ extern "C" {
             return;
         }
 
-        for (expr * e : ctx->assertions()) {
-            to_optimize_ptr(opt)->add_hard_constraint(e);
-        }
+        auto o = to_optimize_ptr(opt);
+
+        for (auto const& [asr, an] : ctx->tracked_assertions())
+            if (an)
+                o->add_hard_constraint(asr, an);
+            else
+                o->add_hard_constraint(asr);
+
     }
 
 
