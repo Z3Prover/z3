@@ -2467,6 +2467,10 @@ br_status seq_rewriter::mk_str_le(expr* a, expr* b, expr_ref& result) {
 
 br_status seq_rewriter::mk_str_lt(expr* a, expr* b, expr_ref& result) {
     zstring as, bs;
+    if (str().is_empty(b)) {
+        result = m().mk_false();
+        return BR_DONE;
+    }
     if (str().is_string(a, as) && str().is_string(b, bs)) {
         unsigned sz = std::min(as.length(), bs.length());
         for (unsigned i = 0; i < sz; ++i) {
