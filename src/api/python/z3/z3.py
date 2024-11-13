@@ -11661,7 +11661,7 @@ def user_prop_diseq(ctx, cb, x, y):
     prop.diseq(x, y)
     prop.cb = old_cb
 
-def user_prop_decide(ctx, cb, t, idx, phase):
+def user_prop_decide(ctx, cb, t_ref, idx, phase):
     prop = _prop_closures.get(ctx)
     old_cb = prop.cb
     prop.cb = cb
@@ -11725,6 +11725,7 @@ class UserPropagateBase:
         self.final = None
         self.eq = None
         self.diseq = None
+        self.decide = None
         self.created = None
         if ctx:
             self.fresh_ctx = ctx
