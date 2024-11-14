@@ -76,6 +76,21 @@ jobs:
   - script: "pip install build git+https://github.com/rhelmot/auditwheel"
   - script: "cd src/api/python && CC=aarch64-none-linux-gnu-gcc CXX=aarch64-none-linux-gnu-g++ AR=aarch64-none-linux-gnu-ar LD=aarch64-none-linux-gnu-ld python -m build && AUDITWHEEL_PLAT= auditwheel repair --best-plat dist/*.whl && cd ../../.."
 
+- job: "PyodidePythonBuildWasm"
+  displayName: "Python bindings (Pyodide WASM) build"
+  pool:
+    vmImage: "ubuntu-latest"
+  steps:
+  - script: "sudo apt-get update && sudo apt-get install -y python3-dev python3-pip python3-venv"
+  - script: "python3 -m venv ~/env"
+  - script: "~/env/bin/pip install pyodide-build"
+  - script: "git clone https://github.com/emscripten-core/emsdk.git ~/emsdk && cd ~/emsdk && PYODIDE_EMSCRIPTEN_VERSION=$(~/env/bin/pyodide config get emscripten_version) && ./emsdk install ${PYODIDE_EMSCRIPTEN_VERSION} && ./emsdk activate ${PYODIDE_EMSCRIPTEN_VERSION}"
+    # https://github.com/pyodide/pyodide/issues/4416#issuecomment-1908133712
+  - script: "source ~/emsdk/emsdk_env.sh && cd src/api/python && ~/env/bin/pyodide build --exports whole_archive"
+  - script: "source ~/emsdk/emsdk_emv.sh && ~/env/bin/pyodide venv ~/env-pyodide"
+  - script: "~/env-pyodide/bin/pip install src/api/python/dist/*.whl"
+  - script: "~/env-pyodide/bin/python - <src/api/python/z3test.py z3 && ~/env-pyodide/bin/python - <src/api/python/z3test.py z3num"
+
 - job: "UbuntuOCaml"
   displayName: "Ubuntu with OCaml"
   pool:
