@@ -1,0 +1,33 @@
+name: Pyodide Build
+
+on:
+  push:
+    branches: [ master ]
+
+env:
+  BUILD_TYPE: Release
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure CMake and build
+      run:  |
+         sudo apt-get update && sudo apt-get install -y python3-dev python3-pip python3-venv
+         python3 -m venv ~/env
+         ~/env/bin/pip install pyodide-build
+         git clone https://github.com/emscripten-core/emsdk.git ~/emsdk && cd ~/emsdk && PYODIDE_EMSCRIPTEN_VERSION=$(~/env/bin/pyodide config get emscripten_version) && ./emsdk install ${PYODIDE_EMSCRIPTEN_VERSION} && ./emsdk activate ${PYODIDE_EMSCRIPTEN_VERSION}
+         source ~/emsdk/emsdk_env.sh && cd src/api/python && ~/env/bin/pyodide build --exports whole_archive
+         source ~/emsdk/emsdk_emv.sh && ~/env/bin/pyodide venv ~/env-pyodide
+         ~/env-pyodide/bin/pip install src/api/python/dist/*.whl
+         ~/env-pyodide/bin/python - <src/api/python/z3test.py z3 && ~/env-pyodide/bin/python - <src/api/python/z3test.py z3num
