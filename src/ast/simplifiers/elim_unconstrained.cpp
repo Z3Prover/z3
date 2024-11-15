@@ -286,8 +286,7 @@ void elim_unconstrained::init_nodes() {
     m_heap.reserve(max_id + 1);
 
     for (expr* e : subterms_postorder::all(terms)) {
-        node& n = get_node(e);
-        SASSERT(n.is_root());
+        SASSERT(get_node(e).is_root());
         if (is_uninterp_const(e))
             m_heap.insert(e->get_id());
     }

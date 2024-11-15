@@ -780,13 +780,37 @@ public:
             }            
             return true;
         }
+        case OP_SEQ_CONTAINS:
+            if (uncnstr(args[0])) {
+                // x contains y -> r or y is empty
+                mk_fresh_uncnstr_var_for(f, r);
+                expr_ref emp(seq.str.mk_is_empty(args[0]), m);
+                if (m_mc)
+                    add_def(args[0], m.mk_ite(r, args[1], seq.str.mk_empty(args[0]->get_sort())));
+                r = m.mk_or(r, emp);
+                return true;
+            }
+            if (uncnstr(args[1])) {
+                // x contains y -> r
+                // y -> if r then x else x + x
+                mk_fresh_uncnstr_var_for(f, r);
+                if (m_mc)
+                    add_def(args[1], m.mk_ite(r, args[0], seq.str.mk_concat(args[0], args[0])));
+                return true;
+            }
+            return false;
         default:
+            verbose_stream() << f->get_name() << "\n";
             return false;                
             
         }
     }
     
     bool mk_diff(expr* t, expr_ref& r) override {
+        if (seq.is_string(t->get_sort())) {
+            r = seq.str.mk_concat(t, seq.str.mk_string(zstring("a")));
+            return true;
+        }
         return false;
     }
     
