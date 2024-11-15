@@ -29,5 +29,5 @@ jobs:
          git clone https://github.com/emscripten-core/emsdk.git ~/emsdk && cd ~/emsdk && PYODIDE_EMSCRIPTEN_VERSION=$(~/env/bin/pyodide config get emscripten_version) && ./emsdk install ${PYODIDE_EMSCRIPTEN_VERSION} && ./emsdk activate ${PYODIDE_EMSCRIPTEN_VERSION}
          source ~/emsdk/emsdk_env.sh && cd src/api/python && ~/env/bin/pyodide build --exports whole_archive
          source ~/emsdk/emsdk_emv.sh && ~/env/bin/pyodide venv ~/env-pyodide
-         ~/env-pyodide/bin/pip install src/api/python/dist/*.whl
-         ~/env-pyodide/bin/python - <src/api/python/z3test.py z3 && ~/env-pyodide/bin/python - <src/api/python/z3test.py z3num
+         ~/env-pyodide/bin/pip install z3/src/api/python/dist/*.whl
+         ~/env-pyodide/bin/python - <z3/src/api/python/z3test.py z3 && ~/env-pyodide/bin/python - <z3/src/api/python/z3test.py z3num
