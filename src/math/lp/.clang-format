@@ -2,4 +2,4 @@ BasedOnStyle: Google
 IndentWidth: 4
 ColumnLimit: 0
 NamespaceIndentation: All
-BreakBeforeBraces: Stroustrup
+BreakBeforeBraces: Attach

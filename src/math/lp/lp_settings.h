@@ -66,12 +66,12 @@ enum class lp_status {
     UNBOUNDED,
     TENTATIVE_DUAL_UNBOUNDED,
     DUAL_UNBOUNDED,
-    OPTIMAL,
-    FEASIBLE,
     TIME_EXHAUSTED,
     EMPTY,
     UNSTABLE,
-    CANCELLED
+    CANCELLED,
+    FEASIBLE,
+    OPTIMAL
 };
 
 // when the ratio of the vector length to domain size to is greater than the return value we switch to solve_By_for_T_indexed_only
