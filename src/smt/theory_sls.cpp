@@ -61,7 +61,7 @@ namespace smt {
         ctx.set_sls_completed();     
     }
 
-    bool theory_sls::get_value(expr* v, expr_ref& value) {
+    bool theory_sls::get_smt_value(expr* v, expr_ref& value) {
         auto* n = ctx.get_enode(v);
         return n && ctx.get_value(n, value);
     }
