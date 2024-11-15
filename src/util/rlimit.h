@@ -50,6 +50,7 @@ public:
     bool inc();
     bool inc(unsigned offset);
     uint64_t count() const;
+    void reset_count() { m_count = 0; }
 
     bool suspended() const { return m_suspend;  }
     inline bool not_canceled() const { return (m_cancel == 0 && m_count <= m_limit) || m_suspend; }
