@@ -106,6 +106,7 @@ namespace sls {
             m_rewards[v] = m_ddfw->get_reward_avg(w);
         }
         m_completed = true;   
+        m_min_unsat_size = UINT_MAX;
     }
 
     void smt_plugin::bounded_run(unsigned max_iterations) {
@@ -174,6 +175,7 @@ namespace sls {
     }
 
     void smt_plugin::add_unit(sat::literal lit) {
+        verbose_stream() << "add unit " << lit << " " << is_shared(lit) << "\n";
         if (!is_shared(lit))
             return;
         std::lock_guard<std::mutex> lock(m_mutex);
@@ -194,27 +196,29 @@ namespace sls {
 
     bool smt_plugin::export_to_sls() {
         bool updated = false;
-        if (export_units_to_sls())
+        if (m_has_units) {            
+            std::lock_guard<std::mutex> lock(m_mutex);
+            smt_units_to_sls();
+            m_has_units = false;
             updated = true;
-        if (export_phase_to_sls())
+        }
+        if (m_has_new_sat_phase) {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            export_phase_to_sls();
+            m_has_new_sat_phase = false;
             updated = true;
+        }
         return updated;
     }
     
-    bool smt_plugin::export_phase_to_sls() {
-        if (!m_has_new_sat_phase)
-            return false;
-        std::lock_guard<std::mutex> lock(m_mutex);
-        IF_VERBOSE(3, verbose_stream() << "SMT -> SLS phase\n");
+    void smt_plugin::export_phase_to_sls() {
+        IF_VERBOSE(2, verbose_stream() << "SMT -> SLS phase\n");
         for (auto v : m_shared_bool_vars) {
             auto w = m_smt_bool_var2sls_bool_var[v];
             if (m_sat_phase[v] != is_true(sat::literal(w, false))) 
                 flip(w);            
             m_ddfw->bias(w) = m_sat_phase[v] ? 1 : -1;
         }
-        smt_phase_to_sls();
-        m_has_new_sat_phase = false;
-        return true;
     }
 
     void smt_plugin::smt_phase_to_sls() {
@@ -250,27 +254,22 @@ namespace sls {
             ctx.inc_activity(v, 200 * m_rewards[v]);        
     }
 
-    bool smt_plugin::export_units_to_sls() {
-        if (!m_has_units)
-            return false;
-        std::lock_guard<std::mutex> lock(m_mutex);
-        IF_VERBOSE(2, verbose_stream() << "SMT -> SLS units " << m_units << "\n");
+    void smt_plugin::smt_units_to_sls() {
+        IF_VERBOSE(2, if (!m_units.empty()) verbose_stream() << "SMT -> SLS units " << m_units << "\n");
         for (auto lit : m_units) {
             auto v = lit.var();
             if (m_shared_bool_vars.contains(v)) {
                 auto w = m_smt_bool_var2sls_bool_var[v];
                 sat::literal sls_lit(w, lit.sign());
-                IF_VERBOSE(10, verbose_stream() << "unit " << sls_lit << "\n");
+                IF_VERBOSE(2, verbose_stream() << "unit " << sls_lit << "\n");
                 m_ddfw->add(1, &sls_lit);
             }
             else {
                 IF_VERBOSE(0, verbose_stream() << "value restriction " << lit << " "
                            << mk_bounded_pp(ctx.bool_var2expr(lit.var()), m) << "\n");
             }
-        }        
-        m_has_units = false;
+        }                
         m_units.reset();
-        return true;
     }
 
     void smt_plugin::export_from_sls() {

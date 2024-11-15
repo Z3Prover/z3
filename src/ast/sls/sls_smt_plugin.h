@@ -92,8 +92,7 @@ namespace sls {
         void export_values_from_sls();
         void export_phase_from_sls();
         void import_activity_from_sls();
-        bool export_phase_to_sls();
-        bool export_units_to_sls();
+        void export_phase_to_sls();
         void export_values_to_smt();
         void export_activity_to_smt();
 
@@ -136,6 +135,7 @@ namespace sls {
 
         void smt_phase_to_sls();
         void smt_values_to_sls();
+        void smt_units_to_sls();
         void sls_phase_to_smt();
         void sls_values_to_smt();
         void sls_activity_to_smt();

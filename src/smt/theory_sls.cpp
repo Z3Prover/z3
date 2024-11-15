@@ -139,6 +139,7 @@ namespace smt {
 
         if (ctx.m_stats.m_num_restarts >= m_threshold + 5) {                      
             m_threshold *= 2;
+            m_smt_plugin->smt_units_to_sls();
             bounded_run(m_restart_ls_steps);
             m_smt_plugin->sls_activity_to_smt();
         }
@@ -165,6 +166,7 @@ namespace smt {
         ++m_num_guided_sls;
 
         m_smt_plugin->smt_phase_to_sls();
+        m_smt_plugin->smt_units_to_sls();
         m_smt_plugin->smt_values_to_sls();
         bounded_run(m_final_check_ls_steps);
         dec_final_check_ls_steps();
