@@ -230,7 +230,7 @@ namespace sls {
     void smt_plugin::smt_values_to_sls() {
         for (auto const& [t, t_sync] : m_smt2sync_uninterp) {
             expr_ref val_t(m);
-            if (!ctx.get_value(t, val_t))
+            if (!ctx.get_smt_value(t, val_t))
                 continue;
             expr* t_sls = m_smt2sls_tr(t);
             auto val_sls = expr_ref(m_smt2sls_tr(val_t.get()), m_sls);            
