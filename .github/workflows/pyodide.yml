@@ -21,20 +21,23 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Setup packages
+      run: sudo apt-get update && sudo apt-get install -y python3-dev python3-pip python3-venv
+
+    - name: Create venv
+      run: python3 -m venv ~/env
+
+    - name: Install pyodide
+      run:  ~/env/bin/pip install pyodide-build
+      
     - name: Configure CMake and build
-      run: |
-         sudo apt-get update && sudo apt-get install -y python3-dev python3-pip python3-venv
-         python3 -m venv ~/env
-         ~/env/bin/pip install pyodide-build
-         git clone https://github.com/emscripten-core/emsdk.git ~/emsdk && cd ~/emsdk && PYODIDE_EMSCRIPTEN_VERSION=$(~/env/bin/pyodide config get emscripten_version) && ./emsdk install ${PYODIDE_EMSCRIPTEN_VERSION} && ./emsdk activate ${PYODIDE_EMSCRIPTEN_VERSION}
+      run:  git clone https://github.com/emscripten-core/emsdk.git ~/emsdk && cd ~/emsdk && PYODIDE_EMSCRIPTEN_VERSION=$(~/env/bin/pyodide config get emscripten_version) && ./emsdk install ${PYODIDE_EMSCRIPTEN_VERSION} && ./emsdk activate ${PYODIDE_EMSCRIPTEN_VERSION}
          
     - name: Build Z3
-      run: |
-         source ~/emsdk/emsdk_env.sh && cd src/api/python && ~/env/bin/pyodide build --exports whole_archive
+      run: source ~/emsdk/emsdk_env.sh && cd src/api/python && ~/env/bin/pyodide build --exports whole_archive
          
     - name: Setup env-pyodide
-      run: |
-         source ~/emsdk/emsdk_emv.sh && ~/env/bin/pyodide venv ~/env-pyodide
+      run: source ~/emsdk/emsdk_env.sh && ~/env/bin/pyodide venv ~/env-pyodide
          
     - name: Setup z3 wheel
       run: |
