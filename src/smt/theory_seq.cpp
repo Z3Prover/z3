@@ -1494,7 +1494,7 @@ bool theory_seq::internalize_term(app* term) {
         bool_var bv = ctx.mk_bool_var(term);
         ctx.set_var_theory(bv, get_id());
         ctx.mark_as_relevant(bv);
-#if 1
+#if 0
         // experiment
         if (m_util.str.is_contains(term))
             init_length_limit_for_contains(term);
