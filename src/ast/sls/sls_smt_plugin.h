@@ -33,7 +33,7 @@ namespace sls {
         virtual void set_value(expr* t, expr* v) = 0;
         virtual void force_phase(sat::literal lit) = 0;
         virtual void set_has_new_best_phase(bool b) = 0;
-        virtual bool get_value(expr* v, expr_ref& val) = 0;
+        virtual bool get_smt_value(expr* v, expr_ref& val) = 0;
         virtual bool get_best_phase(sat::bool_var v) = 0;
         virtual expr* bool_var2expr(sat::bool_var v) = 0;
         virtual void inc_activity(sat::bool_var v, double inc) = 0;

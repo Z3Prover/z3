@@ -101,7 +101,7 @@ namespace sls {
         void inc_activity(sat::bool_var v, double inc) override {}
         unsigned get_num_bool_vars() const override;
         bool parallel_mode() const override { return false; }
-        bool get_value(expr* v, expr_ref& value) override { return false; }
+        bool get_smt_value(expr* v, expr_ref& value) override { return false; }
         
     };
 

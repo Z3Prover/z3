@@ -790,17 +790,16 @@ public:
                 r = m.mk_or(r, emp);
                 return true;
             }
-            if (uncnstr(args[1])) {
+            if (uncnstr(args[1]) && seq.is_string(args[0]->get_sort())) {
                 // x contains y -> r
-                // y -> if r then x else x + x
+                // y -> if r then x else x + x + a
                 mk_fresh_uncnstr_var_for(f, r);
                 if (m_mc)
-                    add_def(args[1], m.mk_ite(r, args[0], seq.str.mk_concat(args[0], args[0])));
+                    add_def(args[1], m.mk_ite(r, args[0], seq.str.mk_concat(args[0], args[0], seq.str.mk_string(zstring("a")))));
                 return true;
             }
             return false;
         default:
-            verbose_stream() << f->get_name() << "\n";
             return false;                
             
         }

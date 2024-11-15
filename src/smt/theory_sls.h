@@ -110,8 +110,9 @@ namespace smt {
         void set_finished() override;
         unsigned get_num_bool_vars() const override;
         void inc_activity(sat::bool_var v, double inc) override;
-        bool parallel_mode() const { return m_parallel_mode; }
-        bool get_value(expr* v, expr_ref& value) override;
+        bool parallel_mode() const override { return m_parallel_mode; }
+        bool get_smt_value(expr* v, expr_ref& value) override;
+
     };
 
 }
