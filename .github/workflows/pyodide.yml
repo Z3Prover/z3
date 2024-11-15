@@ -28,9 +28,12 @@ jobs:
          ~/env/bin/pip install pyodide-build
          git clone https://github.com/emscripten-core/emsdk.git ~/emsdk && cd ~/emsdk && PYODIDE_EMSCRIPTEN_VERSION=$(~/env/bin/pyodide config get emscripten_version) && ./emsdk install ${PYODIDE_EMSCRIPTEN_VERSION} && ./emsdk activate ${PYODIDE_EMSCRIPTEN_VERSION}
          
-    - name: Setup EMSDK
+    - name: Build Z3
       run: |
          source ~/emsdk/emsdk_env.sh && cd src/api/python && ~/env/bin/pyodide build --exports whole_archive
+         
+    - name: Setup env-pyodide
+      run: |
          source ~/emsdk/emsdk_emv.sh && ~/env/bin/pyodide venv ~/env-pyodide
          
     - name: Setup z3 wheel
