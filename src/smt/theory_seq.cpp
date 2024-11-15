@@ -1494,6 +1494,11 @@ bool theory_seq::internalize_term(app* term) {
         bool_var bv = ctx.mk_bool_var(term);
         ctx.set_var_theory(bv, get_id());
         ctx.mark_as_relevant(bv);
+#if 1
+        // experiment
+        if (m_util.str.is_contains(term))
+            init_length_limit_for_contains(term);
+#endif
     }
 
     enode* e = nullptr;
@@ -1531,6 +1536,20 @@ void theory_seq::add_length(expr* l) {
     m_has_length.insert(e);
     m_trail_stack.push(push_back_vector<expr_ref_vector>(m_length));
     m_trail_stack.push(insert_obj_trail<expr>(m_has_length, e));
+}
+
+
+void theory_seq::init_length_limit_for_contains(expr* c) {
+    if (ctx.is_searching())
+        return;
+    expr* x, *y;
+    VERIFY(m_util.str.is_contains(c, x, y));
+    unsigned min_y = m_util.str.min_length(y);
+    if (min_y > 0) {
+        unsigned old_min_y = 0;
+        m_length_limit_map.find(x, old_min_y);
+        add_length_limit(x, old_min_y + min_y, false);
+    }
 }
 
 /**

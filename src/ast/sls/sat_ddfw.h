@@ -36,8 +36,8 @@ namespace sat {
     class local_search_plugin {
     public:
         virtual ~local_search_plugin() {}
-        virtual void init_search() = 0;
-        virtual void finish_search() = 0;
+        //virtual void init_search() = 0;
+        //virtual void finish_search() = 0;
         virtual void on_rescale() = 0;
         virtual void on_save_model() = 0;
         virtual void on_restart() = 0;

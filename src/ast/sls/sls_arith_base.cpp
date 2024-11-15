@@ -2016,9 +2016,13 @@ namespace sls {
             w = mk_term(e);
 
         num_t n;
-        if (!is_num(v, n))
+        try {
+            if (!is_num(v, n))
+                return false;
+        }
+        catch (overflow_exception const&) {
             return false;
-        // verbose_stream() << "set value " << w << " " << mk_bounded_pp(e, m) << " " << n << " " << value(w) << "\n";
+        }
         if (n == value(w))
             return true;
         return update(w, n);        

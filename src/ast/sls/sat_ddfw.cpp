@@ -57,7 +57,6 @@ namespace sat {
     }
 
     void ddfw::check_with_plugin() {
-        m_plugin->init_search();
         unsigned steps = 0;
         if (m_min_sz <= m_unsat.size())
             save_best_values();
@@ -77,7 +76,6 @@ namespace sat {
             IF_VERBOSE(0, verbose_stream() << "Exception: " << ex.what() << "\n");
             throw;
         }
-        m_plugin->finish_search();
     }
 
     void ddfw::log() {
@@ -246,6 +244,7 @@ namespace sat {
 
     void ddfw::flip(bool_var v) {
         ++m_flips;
+        m_limit.inc();
         literal lit = literal(v, !value(v));
         literal nlit = ~lit;
         SASSERT(is_true(lit));

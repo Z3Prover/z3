@@ -92,13 +92,16 @@ namespace sls {
 
         ast_manager& get_manager() override { return m; }
         params_ref get_params() override;
-        void initialize_value(expr* t, expr* v) override;
+        void set_value(expr* t, expr* v) override;
         void force_phase(sat::literal lit) override;
         void set_has_new_best_phase(bool b) override;
         bool get_best_phase(sat::bool_var v) override;
         expr* bool_var2expr(sat::bool_var v) override;
         void set_finished() override;
+        void inc_activity(sat::bool_var v, double inc) override {}
         unsigned get_num_bool_vars() const override;
+        bool parallel_mode() const override { return false; }
+        bool get_value(expr* v, expr_ref& value) override { return false; }
         
     };
 

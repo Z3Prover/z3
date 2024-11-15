@@ -562,6 +562,7 @@ namespace smt {
         void enforce_length_coherence(enode* n1, enode* n2);
 
         void add_length_limit(expr* s, unsigned k, bool is_searching);
+        void init_length_limit_for_contains(expr* c);
 
         // model-check the functions that convert integers to strings and the other way.
         void add_int_string(expr* e);

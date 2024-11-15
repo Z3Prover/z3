@@ -42,10 +42,6 @@ namespace sls {
             m.limit().pop_child(&m_ddfw.rlimit());
         }
 
-        void init_search() override {}
-
-        void finish_search() override {}
-
         void on_rescale() override {}
 
         void on_restart() override {

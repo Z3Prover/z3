@@ -40,7 +40,7 @@ namespace sls {
         return s().params();
     }
 
-    void solver::initialize_value(expr* t, expr* v) {
+    void solver::set_value(expr* t, expr* v) {
         ctx.user_propagate_initialize_value(t, v);
     }
 

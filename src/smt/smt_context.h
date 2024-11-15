@@ -1193,9 +1193,9 @@ namespace smt {
         void rescale_bool_var_activity();
 
     public:
-        void inc_bvar_activity(bool_var v) {
+        void inc_bvar_activity(bool_var v, double inc = 1.0) {
             double & act = m_activity[v];
-            act += m_bvar_inc;
+            act += m_bvar_inc * inc;
             if (act > ACTIVITY_LIMIT)
                 rescale_bool_var_activity();
             m_case_split_queue->activity_increased_eh(v);

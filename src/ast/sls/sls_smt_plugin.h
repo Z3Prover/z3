@@ -30,13 +30,16 @@ namespace sls {
         virtual ~smt_context() {}
         virtual ast_manager& get_manager() = 0;
         virtual params_ref get_params() = 0;
-        virtual void initialize_value(expr* t, expr* v) = 0;
+        virtual void set_value(expr* t, expr* v) = 0;
         virtual void force_phase(sat::literal lit) = 0;
         virtual void set_has_new_best_phase(bool b) = 0;
+        virtual bool get_value(expr* v, expr_ref& val) = 0;
         virtual bool get_best_phase(sat::bool_var v) = 0;
         virtual expr* bool_var2expr(sat::bool_var v) = 0;
+        virtual void inc_activity(sat::bool_var v, double inc) = 0;
         virtual void set_finished() = 0;
         virtual unsigned get_num_bool_vars() const = 0;
+        virtual bool parallel_mode() const = 0;
     };
 
 
@@ -50,7 +53,7 @@ namespace sls {
         ast_manager& m;
         ast_manager  m_sls;
         ast_manager  m_sync;
-        ast_translation m_smt2sync_tr, m_smt2sls_tr;
+        ast_translation m_smt2sync_tr, m_smt2sls_tr, m_sls2sync_tr, m_sls2smt_tr;
         expr_ref_vector m_sync_uninterp, m_sls_uninterp; 
         expr_ref_vector m_sync_values;
         sat::ddfw* m_ddfw = nullptr;
@@ -63,6 +66,7 @@ namespace sls {
         sat::literal_vector m_units;
         model_ref m_sls_model;
         ::statistics m_st;
+
         bool m_new_clause_added = false; 
         unsigned m_min_unsat_size = UINT_MAX;
         obj_map<expr, expr*> m_sls2sync_uninterp; // hashtable from sls-uninterp to sync uninterp
@@ -78,6 +82,7 @@ namespace sls {
         
         bool is_shared(sat::literal lit);
         void run();
+
         void add_shared_term(expr* t);
         void add_uninterp(expr* smt_t);
         void add_shared_var(sat::bool_var v, sat::bool_var w);
@@ -85,12 +90,12 @@ namespace sls {
         void import_phase_from_smt();
         void import_values_from_sls();
         void export_values_from_sls();
+        void export_phase_from_sls();
         void import_activity_from_sls();
         bool export_phase_to_sls();
         bool export_units_to_sls();
         void export_values_to_smt();
         void export_activity_to_smt();
-        void export_phase_to_smt();
 
         void export_from_sls();
 
@@ -106,9 +111,12 @@ namespace sls {
         void updt_params(params_ref& p) {}
         std::ostream& display(std::ostream& out) override;
 
+        void bounded_run(unsigned max_iterations);
+
         bool export_to_sls();
         void import_from_sls();
         bool completed() { return m_completed; }
+        lbool result() { return m_result; }
         void add_unit(sat::literal lit);
 
         // local_search_plugin:
@@ -124,12 +132,13 @@ namespace sls {
             m_sls_model = mdl;
         }
 
-        void init_search() override {}
-
-        void finish_search() override {}
-
         void on_rescale() override {}
 
+        void smt_phase_to_sls();
+        void smt_values_to_sls();
+        void sls_phase_to_smt();
+        void sls_values_to_smt();
+        void sls_activity_to_smt();
 
         
         // sat_solver_context:

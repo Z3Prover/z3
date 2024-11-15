@@ -19,6 +19,8 @@ Author:
 #include "ast/sls/sls_smt_plugin.h"
 #include "ast/for_each_expr.h"
 #include "ast/bv_decl_plugin.h"
+#include "ast/ast_pp.h"
+#include "smt/params/smt_params_helper.hpp"
 
 namespace sls {
 
@@ -29,6 +31,8 @@ namespace sls {
         m_sync(),
         m_smt2sync_tr(m, m_sync),
         m_smt2sls_tr(m, m_sls),
+        m_sls2sync_tr(m_sls, m_sync),
+        m_sls2smt_tr(m_sls, m),
         m_sync_uninterp(m_sync),
         m_sls_uninterp(m_sls),
         m_sync_values(m_sync),
@@ -85,7 +89,10 @@ namespace sls {
                 add_shared_term(t);
         }
 
-        m_thread = std::thread([this]() { run(); });
+        if (ctx.parallel_mode())
+            m_thread = std::thread([this]() { run(); });
+        else
+            m_completed = true;
     }
 
     void smt_plugin::run() {
@@ -94,7 +101,18 @@ namespace sls {
         m_result = m_ddfw->check(0, nullptr);
         m_ddfw->collect_statistics(m_st);
         IF_VERBOSE(1, verbose_stream() << "sls-result " << m_result << "\n");
+        for (auto v : m_shared_bool_vars) {
+            auto w = m_smt_bool_var2sls_bool_var[v];
+            m_rewards[v] = m_ddfw->get_reward_avg(w);
+        }
         m_completed = true;   
+    }
+
+    void smt_plugin::bounded_run(unsigned max_iterations) {
+        m_ddfw->rlimit().reset_count();
+        m_ddfw->rlimit().push(max_iterations);
+        run();
+        m_ddfw->rlimit().pop();
     }
     
     void smt_plugin::finalize(model_ref& mdl, ::statistics& st) {
@@ -191,11 +209,45 @@ namespace sls {
         for (auto v : m_shared_bool_vars) {
             auto w = m_smt_bool_var2sls_bool_var[v];
             if (m_sat_phase[v] != is_true(sat::literal(w, false))) 
-                flip(w);
+                flip(w);            
             m_ddfw->bias(w) = m_sat_phase[v] ? 1 : -1;
         }
+        smt_phase_to_sls();
         m_has_new_sat_phase = false;
         return true;
+    }
+
+    void smt_plugin::smt_phase_to_sls() {
+        for (auto v : m_shared_bool_vars) {
+            auto w = m_smt_bool_var2sls_bool_var[v];
+            auto phase = ctx.get_best_phase(v);
+            if (phase != is_true(sat::literal(w, false))) 
+                flip(w);            
+            m_ddfw->bias(w) = phase ? 1 : -1;
+        }
+    }
+
+    void smt_plugin::smt_values_to_sls() {
+        for (auto const& [t, t_sync] : m_smt2sync_uninterp) {
+            expr_ref val_t(m);
+            if (!ctx.get_value(t, val_t))
+                continue;
+            expr* t_sls = m_smt2sls_tr(t);
+            auto val_sls = expr_ref(m_smt2sls_tr(val_t.get()), m_sls);            
+            m_context.set_value(t_sls, val_sls);
+        }
+    }
+
+    void smt_plugin::sls_phase_to_smt() {
+        IF_VERBOSE(2, verbose_stream() << "SLS -> SMT phase\n");
+        for (auto v : m_shared_bool_vars) 
+            ctx.force_phase(sat::literal(v, !m_sls_phase[v]));        
+    }
+
+    void smt_plugin::sls_activity_to_smt() {
+        IF_VERBOSE(2, verbose_stream() << "SLS -> SMT activity\n");
+        for (auto v : m_shared_bool_vars) 
+            ctx.inc_activity(v, 200 * m_rewards[v]);        
     }
 
     bool smt_plugin::export_units_to_sls() {
@@ -225,65 +277,63 @@ namespace sls {
         if (unsat().size() > m_min_unsat_size)
             return;
         m_min_unsat_size = unsat().size();
-        std::lock_guard<std::mutex> lock(m_mutex);            
+        export_phase_from_sls();
+        export_values_from_sls();
+    }
+
+    void smt_plugin::export_phase_from_sls() {
+        std::lock_guard<std::mutex> lock(m_mutex);
         for (auto v : m_shared_bool_vars) {
             auto w = m_smt_bool_var2sls_bool_var[v];
             m_rewards[v] = m_ddfw->get_reward_avg(w);
-            //verbose_stream() << v << " " << w << "\n";
             VERIFY(m_ddfw->get_model().size() > w);
             VERIFY(m_sls_phase.size() > v);
-            m_sls_phase[v] = l_true == m_ddfw->get_model()[w];            
-            m_has_new_sls_phase = true;
+            m_sls_phase[v] = l_true == m_ddfw->get_model()[w];
         }
-        // export_values_from_sls();
+        m_has_new_sls_phase = true;
     }
 
     void smt_plugin::export_values_from_sls() {
-        IF_VERBOSE(3, verbose_stream() << "import values from sls\n");
+        IF_VERBOSE(3, verbose_stream() << "export values from sls\n");
         std::lock_guard<std::mutex> lock(m_mutex);
         for (auto const& [t, t_sync] : m_sls2sync_uninterp) {
-            expr_ref val_t = m_context.get_value(t_sync);
-            m_sync_values.set(t_sync->get_id(), val_t.get());
+            expr_ref val_t = m_context.get_value(t);
+            auto sync_val = m_sls2sync_tr(val_t.get());
+            m_sync_values.setx(t_sync->get_id(), sync_val);
         }
         m_has_new_sls_values = true;
     }        
 
     void smt_plugin::import_from_sls() {
         export_activity_to_smt();
-        export_values_to_smt();
-        export_phase_to_smt();
+        if (m_has_new_sls_values) {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            sls_values_to_smt();
+            m_has_new_sls_values = false;
+        }
+        if (m_has_new_sls_phase) {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            sls_phase_to_smt();
+            m_has_new_sls_phase = false;
+        }
     }
     
     void smt_plugin::export_activity_to_smt() {
 
     }
     
-    void smt_plugin::export_values_to_smt() {
+    void smt_plugin::sls_values_to_smt() {
         if (!m_has_new_sls_values)
             return;
-        IF_VERBOSE(3, verbose_stream() << "SLS -> SMT values\n");
-        std::lock_guard<std::mutex> lock(m_mutex);
+        IF_VERBOSE(2, verbose_stream() << "SLS -> SMT values\n");
         ast_translation tr(m_sync, m);
         for (auto const& [t, t_sync] : m_smt2sync_uninterp) {
             expr* sync_val = m_sync_values.get(t_sync->get_id(), nullptr);
             if (!sync_val)
                 continue;
             expr_ref val(tr(sync_val), m);
-            ctx.initialize_value(t, val);
+            ctx.set_value(t, val);
         }
-        m_has_new_sls_values = false;
-    }
-
-    void smt_plugin::export_phase_to_smt() {
-        if (!m_has_new_sls_phase)
-            return;
-        std::lock_guard<std::mutex> lock(m_mutex);
-        IF_VERBOSE(3, verbose_stream() << "SLS -> SMT phase\n");
-        for (auto v : m_shared_bool_vars) {
-            auto w = m_smt_bool_var2sls_bool_var[v];
-            ctx.force_phase(sat::literal(w, m_sls_phase[v]));
-        }
-        m_has_new_sls_phase = false;
     }
 
     void smt_plugin::add_shared_term(expr* t) {
@@ -310,6 +360,6 @@ namespace sls {
             m_ddfw->reinit();
             m_new_clause_added = false;
         }
-        // export_from_sls();
+        export_from_sls();
     }
 }
