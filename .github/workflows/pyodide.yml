@@ -34,16 +34,14 @@ jobs:
       run:  |
          git clone https://github.com/emscripten-core/emsdk.git ~/emsdk 
          cd ~/emsdk && PYODIDE_EMSCRIPTEN_VERSION=$(~/env/bin/pyodide config get emscripten_version) 
-         ./emsdk install ${PYODIDE_EMSCRIPTEN_VERSION} && ./emsdk activate ${PYODIDE_EMSCRIPTEN_VERSION}
+         ./emsdk install ${PYODIDE_EMSCRIPTEN_VERSION} 
+         ./emsdk activate ${PYODIDE_EMSCRIPTEN_VERSION}
          
     - name: Build Z3
       run: |
          source ~/emsdk/emsdk_env.sh 
          cd src/api/python 
-         CFLAGS="${CFLAGS}" LDFLAGS="${LDFLAGS}" ~/env/bin/pyodide build --exports whole_archive
-      env:
-         CFLAGS: "-fexceptions -s DISABLE_EXCEPTION_CATCHING=0"
-         LDFLAGS: "-fexceptions"
+         ~/env/bin/pyodide build --exports whole_archive
          
     - name: Setup env-pyodide
       run: |
@@ -54,4 +52,5 @@ jobs:
     - name: Setup z3 wheel
       run: |
          ~/env-pyodide/bin/pip install src/api/python/dist/*.whl
-         ~/env-pyodide/bin/python - <src/api/python/z3test.py z3 && ~/env-pyodide/bin/python - <src/api/python/z3test.py z3num
+         ~/env-pyodide/bin/python - <src/api/python/z3test.py z3
+         ~/env-pyodide/bin/python - <src/api/python/z3test.py z3num
