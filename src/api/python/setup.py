@@ -25,6 +25,8 @@ SRC_DIR_LOCAL = os.path.join(ROOT_DIR, 'core')
 SRC_DIR_REPO = os.path.join(ROOT_DIR, '..', '..', '..')
 SRC_DIR = SRC_DIR_LOCAL if os.path.exists(SRC_DIR_LOCAL) else SRC_DIR_REPO
 
+IS_SINGLE_THREADED = False
+
 IS_PYODIDE = 'PYODIDE_ROOT' in os.environ and os.environ.get('_PYTHON_HOST_PLATFORM', '').startswith('emscripten')
 
 # determine where binaries are
@@ -37,10 +39,12 @@ if RELEASE_DIR is None:
         BUILD_PLATFORM = "emscripten"
         BUILD_ARCH = "wasm32"
         BUILD_OS_VERSION = os.environ['_PYTHON_HOST_PLATFORM'].split('_')[1:-1]
-        build_env['CFLAGS'] = build_env.get('CFLAGS', '') + " -fexceptions -pthread"
-        build_env['CXXFLAGS'] = build_env.get('CXXFLAGS', '') + " -fexceptions -pthread"
-        build_env['LDFLAGS'] = build_env.get('LDFLAGS', '') + " -fexceptions -pthread"
-
+        build_env['CFLAGS'] = build_env.get('CFLAGS', '') + " -fexceptions"
+        build_env['CXXFLAGS'] = build_env.get('CXXFLAGS', '') + " -fexceptions"
+        build_env['LDFLAGS'] = build_env.get('LDFLAGS', '') + " -fexceptions"
+        IS_SINGLE_THREADED = True
+        # build with pthread doesn't work. The WASM bindings are also single threaded.
+        
     else:
         BUILD_PLATFORM = sys.platform
         BUILD_ARCH = os.environ.get("Z3_CROSS_COMPILING", platform.machine())
@@ -117,6 +121,7 @@ def _z3_version():
         return version + post
 
 def _configure_z3():
+    global IS_SINGLE_THREADED
     # bail out early if we don't need to do this - it forces a rebuild every time otherwise
     if os.path.exists(BUILD_DIR):
         return
@@ -125,7 +130,7 @@ def _configure_z3():
     # Config options
     cmake_options = {
         # Config Options
-        'Z3_SINGLE_THREADED' : False,
+        'Z3_SINGLE_THREADED' : IS_SINGLE_THREADED,
         'Z3_BUILD_PYTHON_BINDINGS' : True,
         # Build Options
         'CMAKE_BUILD_TYPE' : 'Release',
