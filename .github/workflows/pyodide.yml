@@ -53,4 +53,11 @@ jobs:
       run: |
          ~/env-pyodide/bin/pip install src/api/python/dist/*.whl
          ~/env-pyodide/bin/python - <src/api/python/z3test.py z3
-         ~/env-pyodide/bin/python - <src/api/python/z3test.py z3num
+
+    - name: Package wheel
+      uses: actions/upload-artifact@master
+      with:
+          name: pyodide-wheel
+          path: src/api/python/dist/*.whl
+          retention-days: 1         
+
