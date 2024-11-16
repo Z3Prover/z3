@@ -41,6 +41,9 @@ if RELEASE_DIR is None:
         BUILD_PLATFORM = sys.platform
         BUILD_ARCH = os.environ.get("Z3_CROSS_COMPILING", platform.machine())
         BUILD_OS_VERSION = platform.mac_ver()[0].split(".")[:2]
+        build_env['CFLAGS'] = build_env.get('CFLAGS', '') + " -fexceptions -pthread"
+        build_env['CXXFLAGS'] = build_env.get('CXXFLAGS', '') + " -fexceptions -pthread"
+        build_env['LDFLAGS'] = build_env.get('LDFLAGS', '') + " -fexceptions -pthread"
 else:
     if not os.path.isdir(RELEASE_DIR):
         raise Exception("RELEASE_DIR (%s) is not a directory!" % RELEASE_DIR)
