@@ -256,9 +256,6 @@ namespace sls {
         num_t eps(1);
         if (!is_int(x) &&  abs(rh - lh) <= eps)
             eps = abs(rh - lh) / num_t(2);
-//        verbose_stream() << a << " " << b << " " << c << "\n";
-//        verbose_stream() << (-b - root) << " " << (2 * a) << " " << ll << " " << lh << "\n";
-//        verbose_stream() << (-b + root) << " " << (2 * a) << " " << rl << " " << rh << "\n";
         SASSERT(ll <= lh && ll + 1 >= lh);
         SASSERT(rl <= rh && rl + 1 >= rh);
         SASSERT(!is_square || ll != lh || a * ll * ll + b * ll + c == 0);
@@ -571,8 +568,6 @@ namespace sls {
     template<typename num_t>
     bool arith_base<num_t>::repair(sat::literal lit) {
         
-        //verbose_stream() << "repair " << lit << " " << (ctx.is_unit(lit)?"unit":"") << " " << mk_bounded_pp(ctx.atom(lit.var()), m) << "\n";
-        //verbose_stream() << *atom(lit.var()) << "\n";
         m_last_literal = lit;
         if (find_nl_moves(lit))
             return true;
@@ -673,8 +668,6 @@ namespace sls {
             return false;
         }
 
-        // IF_VERBOSE(0, display(verbose_stream(), v) << " := " << new_value << "\n");
-
 
 
 #if 0      
@@ -690,7 +683,6 @@ namespace sls {
             SASSERT(ctx.is_true(lit));
             ineq.m_args_value += coeff * (new_value - old_value);
             num_t dtt_new = dtt(old_sign, ineq);
-            // verbose_stream() << "dtt " << lit << " " << ineq << " " << dtt_new << "\n";
             if (dtt_new != 0)
                 ctx.flip(bv);
             SASSERT(dtt(sign(bv), ineq) == 0);
@@ -800,7 +792,6 @@ namespace sls {
                 SASSERT(ctx.is_true(lit));
                 ineq.m_args_value += coeff * (new_value - old_value);
                 num_t dtt_new = dtt(old_sign, ineq);
-                // verbose_stream() << "dtt " << lit << " " << ineq << " " << dtt_new << "\n";
                 if (dtt_new != 0)
                     ctx.flip(bv);
                 SASSERT(dtt(sign(bv), ineq) == 0);
@@ -1006,7 +997,6 @@ namespace sls {
     typename arith_base<num_t>::var_t arith_base<num_t>::mk_var(expr* e) {
         var_t v = m_expr2var.get(e->get_id(), UINT_MAX);
         if (v == UINT_MAX) {
-            // verbose_stream() << "mk-var " << mk_bounded_pp(e, m) << "\n";
             v = m_vars.size();
             m_expr2var.setx(e->get_id(), v, UINT_MAX);
             m_vars.push_back(var_info(e, a.is_int(e) ? var_sort::INT : var_sort::REAL));     
@@ -1245,7 +1235,6 @@ namespace sls {
             return false;
         flet<bool> _tabu(m_use_tabu, false);
         TRACE("sls", tout << "repair def " << mk_bounded_pp(vi.m_expr, m) << "\n");
-        // verbose_stream() << "repair down " << mk_bounded_pp(e, m) << "\n";
         switch (vi.m_op) {
         case arith_op_kind::LAST_ARITH_OP:
             break;
@@ -1522,11 +1511,8 @@ namespace sls {
         if (old_value == sum)
             return true;
 
-        //display(verbose_stream() << "repair add v" << v << " ", ad) << " " << old_value << " sum " << sum << "\n";
 
         m_updates.reset();
-//        display(verbose_stream(), v) << " ";
-//        verbose_stream() << mk_bounded_pp(m_vars[v].m_expr, m) << " := " << old_value << " " << sum << "\n";
 
         for (auto const& [coeff, w] : coeffs) {
             auto delta = divide(w, sum - old_value, coeff);
@@ -1589,8 +1575,6 @@ namespace sls {
                     add_update(x, -r - value(x));
             }
         }
-
-        // verbose_stream() << "repair product v" << v << "\n";
 
         if (apply_update())
             return eval_is_correct(v);
@@ -1957,7 +1941,6 @@ namespace sls {
                 }
                 else
                     new_value = val;
-                //verbose_stream() << v << " " << vi.m_value << " -> " << new_value << "\n";
                 vi.m_value = new_value;
             }
             else {
@@ -2308,7 +2291,6 @@ namespace sls {
         num_t val = i.m_coeff;
         for (auto const& [c, v] : i.m_args)
             val += c * value(v);
-        //verbose_stream() << "invariant " << i << "\n";
         if (val != i.m_args_value)
             verbose_stream() << i << "\n";
         SASSERT(val == i.m_args_value);

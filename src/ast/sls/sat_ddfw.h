@@ -39,7 +39,7 @@ namespace sat {
         //virtual void init_search() = 0;
         //virtual void finish_search() = 0;
         virtual void on_rescale() = 0;
-        virtual void on_save_model() = 0;
+        virtual lbool on_save_model() = 0;
         virtual void on_restart() = 0;
     };
     
@@ -90,6 +90,7 @@ namespace sat {
         unsigned_vector  m_flat_use_list;
         unsigned_vector  m_use_list_index;
         unsigned m_use_list_vars = 0, m_use_list_clauses = 0;
+        lbool                m_last_result = l_true;
 
         indexed_uint_set m_unsat;
         indexed_uint_set m_unsat_vars;  // set of variables that are in unsat clauses

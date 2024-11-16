@@ -43,7 +43,7 @@ namespace sat {
             check_without_plugin();
         remove_assumptions();
         log();
-        return m_min_sz == 0 ? l_true : l_undef;
+        return m_min_sz == 0 && m_limit.inc()  ? m_last_result : l_undef;
     }
 
     void ddfw::check_without_plugin() {
@@ -401,7 +401,7 @@ namespace sat {
             m_model[i] = to_lbool(value(i));
         save_priorities();
         if (m_plugin)
-            m_plugin->on_save_model();        
+            m_last_result = m_plugin->on_save_model();   
     }
 
     void ddfw::save_best_values() {

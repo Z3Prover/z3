@@ -156,10 +156,8 @@ namespace sls {
         if (!e)
             return false;
         bv_util bv(m);
-        if (bv.is_bit2bool(e, t) && m_shared_terms.contains(t->get_id())) {
-            verbose_stream() << "shared bit2bool " << mk_bounded_pp(e, ctx.get_manager()) << "\n";
-            return true;
-        }
+        if (bv.is_bit2bool(e, t) && m_shared_terms.contains(t->get_id())) 
+            return true;        
         
         // if arith.is_le(e, s, t) && t is a numeral, s is shared-term....
         return false;
@@ -175,7 +173,6 @@ namespace sls {
     }
 
     void smt_plugin::add_unit(sat::literal lit) {
-        verbose_stream() << "add unit " << lit << " " << is_shared(lit) << "\n";
         if (!is_shared(lit))
             return;
         std::lock_guard<std::mutex> lock(m_mutex);
@@ -222,6 +219,7 @@ namespace sls {
     }
 
     void smt_plugin::smt_phase_to_sls() {
+        IF_VERBOSE(2, verbose_stream() << "SMT -> SLS phase\n");
         for (auto v : m_shared_bool_vars) {
             auto w = m_smt_bool_var2sls_bool_var[v];
             auto phase = ctx.get_best_phase(v);
@@ -232,6 +230,7 @@ namespace sls {
     }
 
     void smt_plugin::smt_values_to_sls() {
+        IF_VERBOSE(2, verbose_stream() << "SMT -> SLS values\n");
         for (auto const& [t, t_sync] : m_smt2sync_uninterp) {
             expr_ref val_t(m);
             if (!ctx.get_smt_value(t, val_t))
@@ -261,7 +260,9 @@ namespace sls {
             if (m_shared_bool_vars.contains(v)) {
                 auto w = m_smt_bool_var2sls_bool_var[v];
                 sat::literal sls_lit(w, lit.sign());
-                IF_VERBOSE(2, verbose_stream() << "unit " << sls_lit << "\n");
+                if (m_context.is_unit(sls_lit))
+                    continue;
+                IF_VERBOSE(3, verbose_stream() << "unit " << sls_lit << "\n");
                 m_ddfw->add(1, &sls_lit);
             }
             else {
@@ -350,15 +351,17 @@ namespace sls {
         m_sls2sync_uninterp.insert(sls_t, sync_t);
     }
 
-    void smt_plugin::on_save_model()  {
+    lbool smt_plugin::on_save_model()  {
         TRACE("sls", display(tout));
+        lbool r = l_true;
         while (unsat().empty()) {
-            m_context.check();
+            r = m_context.check();
             if (!m_new_clause_added)
                 break;
             m_ddfw->reinit();
             m_new_clause_added = false;
         }
         export_from_sls();
+        return r;
     }
 }

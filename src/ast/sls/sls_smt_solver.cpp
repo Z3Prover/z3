@@ -49,13 +49,14 @@ namespace sls {
         }
 
         bool m_on_save_model = false;
-        void on_save_model() override {
+        lbool on_save_model() override {
+            lbool r = l_true;
             if (m_on_save_model)
-                return;
+                return r;
             flet<bool> _on_save_model(m_on_save_model, true);
             CTRACE("sls", unsat().empty(), display(tout));
             while (unsat().empty()) {
-                m_context.check();
+                r = m_context.check();
                 if (!m_new_constraint)
                     break;
                 TRACE("sls", display(tout));
@@ -63,10 +64,10 @@ namespace sls {
                 m_ddfw.reinit();
                 m_new_constraint = false;
             }
+            return r;
         }
 
-        void on_model(model_ref& mdl) override {
-            IF_VERBOSE(1, verbose_stream() << "on-model " << "\n");
+        void on_model(model_ref& mdl) override {           
             m_model = mdl;
         }
 

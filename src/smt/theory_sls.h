@@ -56,7 +56,6 @@ namespace smt {
         bool m_checking = false;
         bool m_parallel_mode = true;
         unsigned m_threshold = 1;
-        unsigned m_restart_sls_count = 0;
         unsigned m_difference_score = 0;
         unsigned m_difference_score_threshold = 0;
         unsigned m_num_guided_sls = 0;

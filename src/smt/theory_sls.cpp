@@ -105,10 +105,9 @@ namespace smt {
         if (!m_smt_plugin)
             return;
         
-        unsigned scope_lvl = ctx.get_scope_level();
-        if (ctx.get_search_level() == scope_lvl - n) {
+        if (ctx.get_search_level() == ctx.get_scope_level() - n) {
             auto& lits = ctx.assigned_literals();
-            for (; m_trail_lim < lits.size() && ctx.get_assign_level(lits[m_trail_lim]) == scope_lvl; ++m_trail_lim) 
+            for (; m_trail_lim < lits.size() && ctx.get_assign_level(lits[m_trail_lim]) == ctx.get_search_level(); ++m_trail_lim) 
                 m_smt_plugin->add_unit(lits[m_trail_lim]);            
         }
 
@@ -141,7 +140,8 @@ namespace smt {
             m_threshold *= 2;
             m_smt_plugin->smt_units_to_sls();
             bounded_run(m_restart_ls_steps);
-            m_smt_plugin->sls_activity_to_smt();
+            if (m_smt_plugin)
+                m_smt_plugin->sls_activity_to_smt();
         }
         m_difference_score = 0;
         m_difference_score_threshold = 1;
@@ -170,11 +170,12 @@ namespace smt {
         m_smt_plugin->smt_values_to_sls();
         bounded_run(m_final_check_ls_steps);
         dec_final_check_ls_steps();
-        m_smt_plugin->sls_phase_to_smt();
-        m_smt_plugin->sls_values_to_smt();
-        if (m_num_guided_sls % 20 == 0) 
-            m_smt_plugin->sls_activity_to_smt();
-
+        if (m_smt_plugin) {
+            m_smt_plugin->sls_phase_to_smt();
+            m_smt_plugin->sls_values_to_smt();
+            if (m_num_guided_sls % 20 == 0)
+                m_smt_plugin->sls_activity_to_smt();
+        }
         return FC_DONE;
     }
 

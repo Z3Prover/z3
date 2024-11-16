@@ -124,10 +124,10 @@ namespace sls {
                 m_ddfw->reinit();
         }
 
-        void on_save_model() override;
+        lbool on_save_model() override;
 
         void on_model(model_ref& mdl) override {
-            IF_VERBOSE(3, verbose_stream() << "on-model " << "\n");
+            IF_VERBOSE(2, verbose_stream() << "on-model " << "\n");
             m_sls_model = mdl;
         }
 
