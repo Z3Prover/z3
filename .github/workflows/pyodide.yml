@@ -31,13 +31,25 @@ jobs:
       run:  ~/env/bin/pip install pyodide-build pyodide-cli
       
     - name: Configure CMake and build
-      run:  git clone https://github.com/emscripten-core/emsdk.git ~/emsdk && cd ~/emsdk && PYODIDE_EMSCRIPTEN_VERSION=$(~/env/bin/pyodide config get emscripten_version) && ./emsdk install ${PYODIDE_EMSCRIPTEN_VERSION} && ./emsdk activate ${PYODIDE_EMSCRIPTEN_VERSION}
+      run:  |
+         git clone https://github.com/emscripten-core/emsdk.git ~/emsdk 
+         cd ~/emsdk && PYODIDE_EMSCRIPTEN_VERSION=$(~/env/bin/pyodide config get emscripten_version) 
+         ./emsdk install ${PYODIDE_EMSCRIPTEN_VERSION} && ./emsdk activate ${PYODIDE_EMSCRIPTEN_VERSION}
          
     - name: Build Z3
-      run: source ~/emsdk/emsdk_env.sh && cd src/api/python && CFLAGS="-fexceptions -pthread -s USE_PTHREADS=1 -s DISABLE_EXCEPTION_CATCHING=0" LDFLAGS="-fexceptions -pthread" ~/env/bin/pyodide build --exports whole_archive
+      run: |
+         source ~/emsdk/emsdk_env.sh 
+         cd src/api/python 
+         CFLAGS="${CFLAGS}" LDFLAGS="${LDFLAGS}" ~/env/bin/pyodide build --exports whole_archive
+      env:
+         CFLAGS: "-fexceptions -pthread -s USE_PTHREADS=1 -s DISABLE_EXCEPTION_CATCHING=0"
+         LDFLAGS: "-fexceptions -pthread -latomic"
          
     - name: Setup env-pyodide
-      run: source ~/env/bin/activate && source ~/emsdk/emsdk_env.sh && pyodide venv ~/env-pyodide
+      run: |
+         source ~/env/bin/activate 
+         source ~/emsdk/emsdk_env.sh 
+         pyodide venv ~/env-pyodide
          
     - name: Setup z3 wheel
       run: |
