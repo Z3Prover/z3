@@ -65,7 +65,13 @@ namespace smt {
         unsigned m_final_check_ls_steps = 30000;
         unsigned m_final_check_ls_steps_dec = 10000;
         unsigned m_final_check_ls_steps_min = 10000;
+        bool     m_has_unassigned_clause_after_resolve = false;
+        unsigned m_after_resolve_decide_gap = 4;
+        unsigned m_after_resolve_decide_count = 0;
+        unsigned m_resolve_count = 0;
+        unsigned m_resolve_gap = 0;
         ::statistics m_st;
+        vector<sat::literal_vector> m_shared_clauses;
 
         void finalize();
         void bounded_run(unsigned num_steps);
@@ -77,6 +83,12 @@ namespace smt {
             if (m_final_check_ls_steps > m_final_check_ls_steps_min)
                 m_final_check_ls_steps -= m_final_check_ls_steps_dec;
         }
+
+        bool shared_clauses_are_true() const;
+        void check_for_unassigned_clause_after_resolve();
+        void propagate_local_search();
+
+        void run_guided_sls();
 
     public:
         theory_sls(context& ctx);

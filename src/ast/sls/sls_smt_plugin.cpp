@@ -106,7 +106,6 @@ namespace sls {
             m_rewards[v] = m_ddfw->get_reward_avg(w);
         }
         m_completed = true;   
-        m_min_unsat_size = UINT_MAX;
     }
 
     void smt_plugin::bounded_run(unsigned max_iterations) {
@@ -139,6 +138,20 @@ namespace sls {
         m_ddfw = nullptr;
         // m_ddfw owns the pointer to smt_plugin and destructs it.
         dealloc(d); 
+    }
+
+    void smt_plugin::get_shared_clauses(vector<sat::literal_vector>& _clauses) {
+        _clauses.reset();
+        for (auto const& clause : clauses()) {
+            if (!all_of(clause.m_clause, [&](sat::literal lit) { 
+                return m_sls_bool_var2smt_bool_var.get(lit.var(), sat::null_bool_var) != sat::null_bool_var; 
+                }))
+                continue;
+            sat::literal_vector cl;
+            for (auto lit : clause) 
+                cl.push_back(sat::literal(m_sls_bool_var2smt_bool_var[lit.var()], lit.sign()));           
+            _clauses.push_back(cl);
+        }
     }
         
     std::ostream& smt_plugin::display(std::ostream& out) {

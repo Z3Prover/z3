@@ -84,21 +84,23 @@ namespace smt {
     }
 
     void theory_sls::propagate() {
-        if (m_smt_plugin && !m_checking) {
+        if (!m_smt_plugin)
+            return;
+        if (!m_checking) {
             expr_ref_vector fmls(m);
             for (unsigned i = 0; i < ctx.get_num_asserted_formulas(); ++i)
                 fmls.push_back(ctx.get_asserted_formula(i));
             m_checking = true;
             vector<sat::literal_vector> clauses;
             m_smt_plugin->check(fmls, clauses);
-            return;
+            m_smt_plugin->get_shared_clauses(m_shared_clauses);
         }
-        if (!m_smt_plugin || !m_parallel_mode)
-            return;
-        if (!m_smt_plugin->completed())
-            return;
-        m_smt_plugin->finalize(m_model, m_st);
-        m_smt_plugin = nullptr;
+        else if (!m_parallel_mode) 
+            propagate_local_search();
+        else if (m_smt_plugin->completed()) {
+            m_smt_plugin->finalize(m_model, m_st);
+            m_smt_plugin = nullptr;
+        }
     }    
 
     void theory_sls::pop_scope_eh(unsigned n) {
@@ -111,13 +113,66 @@ namespace smt {
                 m_smt_plugin->add_unit(lits[m_trail_lim]);            
         }
 
-        ++m_difference_score; // blindly assume we backtrack over initial clauses.
+        check_for_unassigned_clause_after_resolve();
 #if 0
         if (ctx.has_new_best_phase())
             m_smt_plugin->import_phase_from_smt();
 
-#endif        
+#endif            
     }       
+
+    //
+    // hybrid-smt uses a heuristic to determine when to restart local search.
+    // it is based on when the assignment to shared clauses has a change in literal assignment.
+    //
+    void theory_sls::check_for_unassigned_clause_after_resolve() {
+        if (m_has_unassigned_clause_after_resolve) {
+            m_after_resolve_decide_count = 0;
+            if (m_after_resolve_decide_gap >= 16)
+                m_after_resolve_decide_gap /= 4;
+        }
+        else if (!shared_clauses_are_true()) {
+            m_resolve_count++;
+            if (m_resolve_count > m_resolve_gap) {
+                m_resolve_gap++;
+                m_has_unassigned_clause_after_resolve = true;
+                m_resolve_count = 0;
+                m_after_resolve_decide_count = 0;
+                m_after_resolve_decide_gap = 4;
+            }
+        }    
+    }
+
+    void theory_sls::propagate_local_search() {
+        if (!m_has_unassigned_clause_after_resolve)
+            return;
+        if (m_parallel_mode || !m_smt_plugin)
+            return;
+        ++m_after_resolve_decide_count;
+        if (100 + m_after_resolve_decide_gap > m_after_resolve_decide_count)
+            return;
+        m_after_resolve_decide_gap *= 2;
+        if (!shared_clauses_are_true())
+            return;
+        m_resolve_count = 0;
+        m_has_unassigned_clause_after_resolve = false;
+        run_guided_sls();
+    }
+
+    void theory_sls::run_guided_sls() {
+        ++m_num_guided_sls;
+        m_smt_plugin->smt_phase_to_sls();
+        m_smt_plugin->smt_units_to_sls();
+        m_smt_plugin->smt_values_to_sls();
+        bounded_run(m_final_check_ls_steps);
+        dec_final_check_ls_steps();
+        if (m_smt_plugin) {
+            m_smt_plugin->sls_phase_to_smt();
+            m_smt_plugin->sls_values_to_smt();
+            if (m_num_guided_sls % 20 == 0)
+                m_smt_plugin->sls_activity_to_smt();
+        }
+    }
 
     void theory_sls::init() {
         if (m_smt_plugin) 
@@ -158,25 +213,19 @@ namespace smt {
     final_check_status theory_sls::final_check_eh() {
         if (m_parallel_mode || !m_smt_plugin)
             return FC_DONE;
-        if (m_difference_score < m_difference_score_threshold + 100)
+        ++m_after_resolve_decide_count;
+        if (m_after_resolve_decide_gap > m_after_resolve_decide_count)
             return FC_DONE;
-
-        ++m_difference_score_threshold;
-        m_difference_score = 0;
-        ++m_num_guided_sls;
-
-        m_smt_plugin->smt_phase_to_sls();
-        m_smt_plugin->smt_units_to_sls();
-        m_smt_plugin->smt_values_to_sls();
-        bounded_run(m_final_check_ls_steps);
-        dec_final_check_ls_steps();
-        if (m_smt_plugin) {
-            m_smt_plugin->sls_phase_to_smt();
-            m_smt_plugin->sls_values_to_smt();
-            if (m_num_guided_sls % 20 == 0)
-                m_smt_plugin->sls_activity_to_smt();
-        }
+        m_after_resolve_decide_gap *= 2;
+        run_guided_sls();
         return FC_DONE;
+    }
+
+    bool theory_sls::shared_clauses_are_true() const {
+        for (auto const& cl : m_shared_clauses)
+            if (all_of(cl, [this](sat::literal lit) { return ctx.get_assignment(lit) != l_true; }))
+                return false;
+        return true;
     }
 
     void theory_sls::display(std::ostream& out) const {
