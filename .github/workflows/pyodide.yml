@@ -41,7 +41,10 @@ jobs:
       run: |
          source ~/emsdk/emsdk_env.sh 
          cd src/api/python 
-         ~/env/bin/pyodide build --exports whole_archive
+         CFLAGS="${CFLAGS}" LDFLAGS="${LDFLAGS}" ~/env/bin/pyodide build --exports whole_archive
+      env:
+         CFLAGS: "-fexceptions -s DISABLE_EXCEPTION_CATCHING=0"
+         LDFLAGS: "-fexceptions"         
          
     - name: Setup env-pyodide
       run: |
