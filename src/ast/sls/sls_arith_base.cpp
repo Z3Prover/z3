@@ -668,14 +668,13 @@ namespace sls {
             return false;
         }
 
-
-
 #if 0      
         if (!check_update(v, new_value))
             return false;
         apply_checked_update();
 #else
 
+        buffer<sat::bool_var> to_flip;
         for (auto const& [coeff, bv] : vi.m_bool_vars) {
             auto& ineq = *atom(bv);
             bool old_sign = sign(bv);
@@ -684,13 +683,18 @@ namespace sls {
             ineq.m_args_value += coeff * (new_value - old_value);
             num_t dtt_new = dtt(old_sign, ineq);
             if (dtt_new != 0)
-                ctx.flip(bv);
-            SASSERT(dtt(sign(bv), ineq) == 0);
+                to_flip.push_back(bv);
+            
         }
         IF_VERBOSE(5, verbose_stream() << "repair: v" << v << " := " << old_value << " -> " << new_value << "\n");
         vi.m_value = new_value;
         ctx.new_value_eh(e);
         m_last_var = v;
+
+        for (auto bv : to_flip) {
+            ctx.flip(bv);
+            SASSERT(dtt(sign(bv), *atom(bv)) == 0);
+        }
 
         IF_VERBOSE(10, verbose_stream() << "new value eh " << mk_bounded_pp(e, m) << "\n");
 
@@ -2008,7 +2012,7 @@ namespace sls {
         }
         if (n == value(w))
             return true;
-        return update(w, n);        
+         return update(w, n);        
     }
 
     template<typename num_t>
@@ -2292,8 +2296,9 @@ namespace sls {
         for (auto const& [c, v] : i.m_args)
             val += c * value(v);
         if (val != i.m_args_value)
-            verbose_stream() << i << "\n";
+            verbose_stream() << val << ": " << i << "\n";
         SASSERT(val == i.m_args_value);
+        VERIFY(val == i.m_args_value);
     }
 
 
