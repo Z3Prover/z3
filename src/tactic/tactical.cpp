@@ -444,20 +444,10 @@ tactic * or_else(tactic * t1, tactic * t2, tactic * t3, tactic * t4, tactic * t5
     return or_else(10, ts);
 }
 
-class no_par_tactical : public tactic {
-public:
-    char const* name() const override { return "par"; }
-    void operator()(goal_ref const & in, goal_ref_buffer& result) override {
-        throw default_exception("par_tactical is unavailable in single threaded mode");
-    }
-    tactic * translate(ast_manager & m) override { return nullptr; }
-    void cleanup() override {}
-};
-
 #ifdef SINGLE_THREAD
 
-tactic * par(unsigned num, tactic * const * ts) {
-    return alloc(no_par_tactical);
+tactic* par(unsigned num, tactic* const* ts) {
+    return alloc(or_else_tactical, num, ts);
 }
 
 #else
@@ -606,21 +596,11 @@ tactic * par(tactic * t1, tactic * t2, tactic * t3, tactic * t4) {
     return par(4, ts);
 }
 
-class no_par_and_then_tactical : public tactic {
-public:
-    char const* name() const override { return "par_then"; }
-    void operator()(goal_ref const & in, goal_ref_buffer& result) override {
-        throw default_exception("par_and_then is not available in single threaded mode");
-    }
-    tactic * translate(ast_manager & m) override { return nullptr; }
-    void cleanup() override {}
-};
-
 
 #ifdef SINGLE_THREAD
 
 tactic * par_and_then(tactic * t1, tactic * t2) {
-    return alloc(no_par_and_then_tactical);
+    return alloc(and_then_tactical, t1, t2);
 }
 
 #else
