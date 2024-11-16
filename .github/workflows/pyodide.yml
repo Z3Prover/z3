@@ -43,7 +43,7 @@ jobs:
          CFLAGS="${CFLAGS}" LDFLAGS="${LDFLAGS}" ~/env/bin/pyodide build --exports whole_archive
       env:
          CFLAGS: "-fexceptions -pthread -s USE_PTHREADS=1 -s DISABLE_EXCEPTION_CATCHING=0"
-         LDFLAGS: "-fexceptions -pthread -latomic"
+         LDFLAGS: "-fexceptions -pthread"
          
     - name: Setup env-pyodide
       run: |
