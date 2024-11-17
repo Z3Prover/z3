@@ -115,7 +115,7 @@ namespace sls {
         m_ddfw->rlimit().pop();
     }
     
-    void smt_plugin::finalize(model_ref& mdl, ::statistics& st) {
+    void smt_plugin::finalize(model_ref& mdl) {
         auto* d = m_ddfw;
         if (!d)
             return;
@@ -126,7 +126,6 @@ namespace sls {
         if (m_thread.joinable())
             m_thread.join();
         SASSERT(m_completed);
-        st.copy(m_st); 
         mdl = nullptr;
         if (m_result == l_true && m_sls_model) {
             ast_translation tr(m_sls, m);
@@ -138,6 +137,10 @@ namespace sls {
         m_ddfw = nullptr;
         // m_ddfw owns the pointer to smt_plugin and destructs it.
         dealloc(d); 
+    }
+
+    void smt_plugin::collect_statistics(::statistics& st) const {
+        st.copy(m_st);
     }
 
     void smt_plugin::get_shared_clauses(vector<sat::literal_vector>& _clauses) {
@@ -257,7 +260,7 @@ namespace sls {
     void smt_plugin::sls_phase_to_smt() {
         if (!m_has_new_sls_phase)
             return;
-        IF_VERBOSE(2, verbose_stream() << "SLS -> SMT phase\n");
+        IF_VERBOSE(2, verbose_stream() << "SLS -> SMT phase " << m_min_unsat_size << "\n");
         for (auto v : m_shared_bool_vars) 
             ctx.force_phase(sat::literal(v, !m_sls_phase[v]));
         m_has_new_sls_phase = false;
@@ -290,7 +293,7 @@ namespace sls {
     }
 
     void smt_plugin::export_from_sls() {
-        if (unsat().size() > m_min_unsat_size)
+        if (unsat().size() >= m_min_unsat_size)
             return;
         m_min_unsat_size = unsat().size();
         export_phase_from_sls();

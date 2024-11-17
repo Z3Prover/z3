@@ -27,7 +27,7 @@ namespace sls {
             return m_arith64->_fn_;\
         }\
         catch (overflow_exception&) {\
-            throw;\
+            IF_VERBOSE(1, verbose_stream() << "revert to bignum solver " << #_fn_ << "\n");\
             init_backup();\
         }\
     }\
@@ -39,7 +39,7 @@ namespace sls {
             m_arith64->_fn_;\
         }\
         catch (overflow_exception&) {\
-            throw;\
+            IF_VERBOSE(1, verbose_stream() << "revert to bignum solver " << #_fn_ << "\n");\
             init_backup();\
         }\
     }\
@@ -49,11 +49,7 @@ namespace sls {
         plugin(ctx), m_shared(ctx.get_manager()) {
         m_arith64 = alloc(arith_base<checked_int64<true>>, ctx);
         m_arith = alloc(arith_base<rational>, ctx);
-        m_arith64 = nullptr;
-        if (m_arith)
-            m_fid = m_arith->fid();
-        else
-            m_fid = m_arith64->fid();
+        m_fid = m_arith->fid();
     }
 
     void arith_plugin::init_backup() {

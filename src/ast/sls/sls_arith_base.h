@@ -76,13 +76,14 @@ namespace sls {
 
         class var_info {
             num_t        m_range{ 100000000 };
-            num_t        m_update_value{ 0 };
-            unsigned     m_update_timestamp = 0;
+            unsigned     m_num_out_of_range = 0;
+            unsigned     m_num_in_range = 0;
+            num_t        m_value{ 0 };
+            num_t        m_best_value{ 0 };
         public:
             var_info(expr* e, var_sort k): m_expr(e), m_sort(k) {}
             expr*        m_expr;
-            num_t        m_value{ 0 };
-            num_t        m_best_value{ 0 };
+
             var_sort     m_sort;
             arith_op_kind m_op = arith_op_kind::LAST_ARITH_OP;
             unsigned     m_def_idx = UINT_MAX;
@@ -91,23 +92,27 @@ namespace sls {
             unsigned_vector m_adds;
             optional<bound> m_lo, m_hi;
 
-            // retrieve temporary value during an update.
-            void set_update_value(num_t const& v, unsigned timestamp) {
-                m_update_value = v;
-                m_update_timestamp = timestamp;
-            }
-            num_t const& get_update_value(unsigned ts) const { 
-                return ts == m_update_timestamp ? m_update_value : m_value; 
-            }
+            num_t const& value() const { return m_value; }
+            void set_value(num_t const& v) { m_value = v; }
 
-            bool in_range(num_t const& n) const {
+            num_t const& best_value() const { return m_best_value; }
+            void set_best_value(num_t const& v) { m_best_value = v; }
+
+            bool in_range(num_t const& n) {
                 if (-m_range < n && n < m_range)
                     return true;
+                bool result = false;
                 if (m_lo && !m_hi)
-                    return n < m_lo->value + m_range;
-                if (!m_lo && m_hi)
-                    return n > m_hi->value - m_range;
-                return false;                
+                    result = n < m_lo->value + m_range;
+                else if (!m_lo && m_hi)
+                    result = n > m_hi->value - m_range;
+#if 0
+                if (!result) 
+                    out_of_range();
+                else 
+                    ++m_num_in_range;
+#endif
+                return result;                
             }
             unsigned m_tabu_pos = 0, m_tabu_neg = 0;
             unsigned m_last_pos = 0, m_last_neg = 0;
@@ -119,6 +124,15 @@ namespace sls {
                     m_tabu_pos = tabu_step, m_last_pos = step;
                 else
                     m_tabu_neg = tabu_step, m_last_neg = step;
+            }
+            void out_of_range() {
+                ++m_num_out_of_range;
+                if (m_num_out_of_range < 1000 * (1 + m_num_in_range))
+                    return;
+                IF_VERBOSE(2, verbose_stream() << "increase range " << m_range << "\n");
+                m_range *= 2;
+                m_num_out_of_range = 0;
+                m_num_in_range = 0;
             }
         };
 
@@ -187,10 +201,7 @@ namespace sls {
 
         void add_update(var_t v, num_t delta);
         bool is_permitted_update(var_t v, num_t const& delta, num_t& delta_out);
-        unsigned m_update_timestamp = 0;
-        svector<var_t> m_update_trail;
-        bool check_update(var_t v, num_t new_value);
-        void apply_checked_update();
+
 
         num_t value1(var_t v);
 
@@ -247,8 +258,7 @@ namespace sls {
 
         bool is_int(var_t v) const { return m_vars[v].m_sort == var_sort::INT; }
 
-        num_t value(var_t v) const { return m_vars[v].m_value; }
-        num_t const& get_update_value(var_t v) const { return m_vars[v].get_update_value(m_update_timestamp); }
+        num_t value(var_t v) const { return m_vars[v].value(); }
         bool is_num(expr* e, num_t& i);
         expr_ref from_num(sort* s, num_t const& n);
         void check_ineqs();

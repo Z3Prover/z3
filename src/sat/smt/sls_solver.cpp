@@ -72,7 +72,8 @@ namespace sls {
         if (!m_smt_plugin)
             return;
         
-        m_smt_plugin->finalize(m_model, m_st);
+        m_smt_plugin->collect_statistics(m_st);
+        m_smt_plugin->finalize(m_model);
         m_model = nullptr;
         m_smt_plugin = nullptr;
     }
@@ -89,7 +90,8 @@ namespace sls {
             return false;
         if (!m_smt_plugin->completed())
             return false;
-        m_smt_plugin->finalize(m_model, m_st);
+        m_smt_plugin->collect_statistics(m_st);
+        m_smt_plugin->finalize(m_model);
         m_smt_plugin = nullptr;
         return true;
     }

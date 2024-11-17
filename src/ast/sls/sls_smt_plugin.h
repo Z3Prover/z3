@@ -106,7 +106,8 @@ namespace sls {
 
         // interface to calling solver:
         void check(expr_ref_vector const& fmls, vector <sat::literal_vector> const& clauses);
-        void finalize(model_ref& md, ::statistics& st);
+        void collect_statistics(::statistics& st) const;
+        void finalize(model_ref& md);
         void get_shared_clauses(vector<sat::literal_vector>& clauses);
         void updt_params(params_ref& p) {}
         std::ostream& display(std::ostream& out) override;

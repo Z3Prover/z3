@@ -62,6 +62,8 @@ namespace smt {
     }
 
     bool theory_sls::get_smt_value(expr* v, expr_ref& value) {
+        if (!ctx.e_internalized(v))
+            return false;
         auto* n = ctx.get_enode(v);
         return n && ctx.get_value(n, value);
     }
@@ -78,7 +80,8 @@ namespace smt {
         if (!m_smt_plugin)
             return;
 
-        m_smt_plugin->finalize(m_model, m_st);
+        m_smt_plugin->collect_statistics(m_st);
+        m_smt_plugin->finalize(m_model);
         m_model = nullptr;
         m_smt_plugin = nullptr;        
     }
@@ -98,7 +101,8 @@ namespace smt {
         else if (!m_parallel_mode) 
             propagate_local_search();
         else if (m_smt_plugin->completed()) {
-            m_smt_plugin->finalize(m_model, m_st);
+            m_smt_plugin->collect_statistics(m_st);
+            m_smt_plugin->finalize(m_model);
             m_smt_plugin = nullptr;
         }
     }    
@@ -184,7 +188,10 @@ namespace smt {
     }
 
     void theory_sls::collect_statistics(::statistics& st) const {
-        st.copy(m_st);
+        if (m_smt_plugin)
+            m_smt_plugin->collect_statistics(st);
+        else
+            st.copy(m_st);
     }
 
     void theory_sls::restart_eh() {
@@ -205,7 +212,8 @@ namespace smt {
     void theory_sls::bounded_run(unsigned num_steps) {       
         m_smt_plugin->bounded_run(num_steps);
         if (m_smt_plugin->result() == l_true) {
-            m_smt_plugin->finalize(m_model, m_st);
+            m_smt_plugin->collect_statistics(m_st);
+            m_smt_plugin->finalize(m_model);
             m_smt_plugin = nullptr;
         }
     }

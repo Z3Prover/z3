@@ -59,8 +59,6 @@ namespace sls {
         }
     }
 
-
-
     template<typename num_t>
     std::ostream& arith_base<num_t>::ineq::display(std::ostream& out) const {
         bool first = true;
@@ -118,7 +116,7 @@ namespace sls {
     template<typename num_t>
     void arith_base<num_t>::save_best_values() {
         for (auto& v : m_vars)
-            v.m_best_value = v.m_value;
+            v.set_best_value(v.value());
         check_ineqs();
     }
 
@@ -168,8 +166,8 @@ namespace sls {
     template<typename num_t>
     num_t arith_base<num_t>::dtt(bool sign, ineq const& ineq, var_t v, num_t const& new_value) const {
         for (auto const& [coeff, w] : ineq.m_args)
-            if (w == v)
-                return dtt(sign, ineq.m_args_value + coeff * (new_value - m_vars[v].m_value), ineq);
+            if (w == v) 
+                return dtt(sign, ineq.m_args_value + coeff * (new_value - m_vars[v].value()), ineq);            
         return num_t(1);
     }
 
@@ -444,16 +442,18 @@ namespace sls {
 
         delta_out = delta;
 
-        if (m_last_var == v && m_last_delta == -delta)
-            return false;
+        if (m_last_var == v && m_last_delta == -delta) 
+            return false;        
 
-        if (m_use_tabu && vi.is_tabu(m_stats.m_num_steps, delta))
+        if (m_use_tabu && vi.is_tabu(m_stats.m_num_steps, delta)) 
             return false;
+        
 
         auto old_value = value(v);
         auto new_value = old_value + delta;
         if (!vi.in_range(new_value)) 
             return false;        
+
 
         if (m_use_tabu && !in_bounds(v, new_value) && in_bounds(v, old_value)) {
             auto const& lo = m_vars[v].m_lo;
@@ -490,9 +490,7 @@ namespace sls {
     void arith_base<num_t>::add_update(var_t v, num_t delta) { 
         num_t delta_out;
         if (!is_permitted_update(v, delta, delta_out)) 
-            return;
-
-        
+            return;        
         m_updates.push_back({ v, delta_out, 0 }); 
     }
 
@@ -647,7 +645,7 @@ namespace sls {
     bool arith_base<num_t>::update(var_t v, num_t const& new_value) {
         auto& vi = m_vars[v];
         expr* e = vi.m_expr;
-        auto old_value = vi.m_value;
+        auto old_value = vi.value();
         if (old_value == new_value)
             return true;                   
         if (!vi.in_range(new_value))
@@ -665,14 +663,9 @@ namespace sls {
             }
         }
         catch (overflow_exception const&) {
+            verbose_stream() << "overflow1\n";
             return false;
         }
-
-#if 0      
-        if (!check_update(v, new_value))
-            return false;
-        apply_checked_update();
-#else
 
         buffer<sat::bool_var> to_flip;
         for (auto const& [coeff, bv] : vi.m_bool_vars) {
@@ -687,12 +680,13 @@ namespace sls {
             
         }
         IF_VERBOSE(5, verbose_stream() << "repair: v" << v << " := " << old_value << " -> " << new_value << "\n");
-        vi.m_value = new_value;
+        vi.set_value(new_value);
         ctx.new_value_eh(e);
         m_last_var = v;
 
         for (auto bv : to_flip) {
-            ctx.flip(bv);
+            if (dtt(sign(bv), *atom(bv)) != 0)
+                ctx.flip(bv);
             SASSERT(dtt(sign(bv), *atom(bv)) == 0);
         }
 
@@ -711,6 +705,7 @@ namespace sls {
                     prod *= power_of(value(w), p);
             }
             catch (overflow_exception const&) {
+                verbose_stream() << "overflow\n";
                 return false;
             }
             if (value(w) != prod && !update(w, prod))
@@ -727,82 +722,10 @@ namespace sls {
             if (!update(ad.m_var, sum)) 
                 return false;
         }
-#endif
 
         return true;
     }
-
-    template<typename num_t>
-    bool arith_base<num_t>::check_update(var_t v, num_t new_value) {
-
-        ++m_update_timestamp;
-        if (m_update_timestamp == 0) {
-            for (auto& vi : m_vars)
-                vi.set_update_value(num_t(0), 0);
-            ++m_update_timestamp;
-        }
-        auto& vi = m_vars[v];
-        m_update_trail.reset();
-        m_update_trail.push_back(v);
-        vi.set_update_value(new_value, m_update_timestamp);
-
-        num_t delta;
-        for (unsigned i = 0; i < m_update_trail.size(); ++i) {
-            auto v = m_update_trail[i];
-            auto& vi = m_vars[v];
-            for (auto idx : vi.m_muls) {
-                auto const& [w, monomial] = m_muls[idx];
-                num_t prod(1);
-                try {
-                    for (auto [w, p] : monomial)
-                        prod *= power_of(get_update_value(w), p);
-                }
-                catch (overflow_exception const&) {
-                    return false;
-                }
-                if (get_update_value(w) != prod && (!is_permitted_update(w, prod - value(w), delta) || prod - value(w) != delta))
-                    return false;
-                m_update_trail.push_back(w);
-                m_vars[w].set_update_value(prod, m_update_timestamp);
-            }
-
-            for (auto idx : vi.m_adds) {
-                auto const& ad = m_adds[idx];
-                auto w = ad.m_var;
-                num_t sum(ad.m_coeff);
-                for (auto const& [coeff, w] : ad.m_args)
-                    sum += coeff * get_update_value(w);
-                if (get_update_value(v) != sum && !(is_permitted_update(w, sum - value(w), delta) || sum - value(w) != delta))
-                    return false;
-                m_update_trail.push_back(w);
-                m_vars[w].set_update_value(sum, m_update_timestamp);
-            }
-        }
-        return true;
-    }
-
-    template<typename num_t>
-    void arith_base<num_t>::apply_checked_update() {
-        for (auto v : m_update_trail) {
-            auto & vi = m_vars[v];
-            auto old_value = vi.m_value;
-            vi.m_value = vi.get_update_value(m_update_timestamp);
-            auto new_value = vi.m_value;
-            ctx.new_value_eh(vi.m_expr);
-            for (auto const& [coeff, bv] : vi.m_bool_vars) {
-                auto& ineq = *atom(bv);
-                bool old_sign = sign(bv);
-                sat::literal lit(bv, old_sign);
-                SASSERT(ctx.is_true(lit));
-                ineq.m_args_value += coeff * (new_value - old_value);
-                num_t dtt_new = dtt(old_sign, ineq);
-                if (dtt_new != 0)
-                    ctx.flip(bv);
-                SASSERT(dtt(sign(bv), ineq) == 0);
-            }
-        }            
-    }
-
+  
     template<typename num_t>
     typename arith_base<num_t>::ineq& arith_base<num_t>::new_ineq(ineq_kind op, num_t const& coeff) {
         auto* i = alloc(ineq);
@@ -906,7 +829,7 @@ namespace sls {
                     m_vars[w].m_muls.push_back(idx), prod *= power_of(value(w), p);
                 m_vars[v].m_def_idx = idx;
                 m_vars[v].m_op = arith_op_kind::OP_MUL;
-                m_vars[v].m_value = prod;
+                m_vars[v].set_value(prod);
                 add_arg(term, coeff, v);
                 break;
             }
@@ -972,7 +895,7 @@ namespace sls {
         m_ops.push_back({v, k, v, w});
         m_vars[v].m_def_idx = idx;
         m_vars[v].m_op = k;
-        m_vars[v].m_value = val;
+        m_vars[v].set_value(val);
         return v;
     }
 
@@ -993,7 +916,7 @@ namespace sls {
             m_vars[w].m_adds.push_back(idx), sum += c * value(w);
         m_vars[v].m_def_idx = idx;
         m_vars[v].m_op = arith_op_kind::OP_ADD;
-        m_vars[v].m_value = sum;
+        m_vars[v].set_value(sum);
         return v;
     }
 
@@ -1055,6 +978,7 @@ namespace sls {
         else {
             SASSERT(!a.is_arith_expr(e));
         }
+        
     }
 
     template<typename num_t>
@@ -1345,6 +1269,7 @@ namespace sls {
                             hi_valid = false;
                     }
                     catch (overflow_exception&) {
+                        verbose_stream() << "overflow3\n";
                         hi_valid = false;
                     }
                 }
@@ -2021,7 +1946,7 @@ namespace sls {
         if (is_num(e, n))
             return expr_ref(a.mk_numeral(n.to_rational(), a.is_int(e)), m);
         auto v = mk_term(e);
-        return expr_ref(a.mk_numeral(m_vars[v].m_value.to_rational(), a.is_int(e)), m);
+        return expr_ref(a.mk_numeral(m_vars[v].value().to_rational(), a.is_int(e)), m);
     }
 
     template<typename num_t>
@@ -2112,7 +2037,7 @@ namespace sls {
         auto const& vi = m_vars[v];
         auto const& lo = vi.m_lo;
         auto const& hi = vi.m_hi;
-        out << "v" << v << " := " << vi.m_value << " ";
+        out << "v" << v << " := " << vi.value() << " ";
         if (lo || hi) {
             if (lo)
                 out << (lo->is_strict ? "(": "[") << lo->value;
