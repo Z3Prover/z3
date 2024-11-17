@@ -255,9 +255,12 @@ namespace sls {
     }
 
     void smt_plugin::sls_phase_to_smt() {
+        if (!m_has_new_sls_phase)
+            return;
         IF_VERBOSE(2, verbose_stream() << "SLS -> SMT phase\n");
         for (auto v : m_shared_bool_vars) 
-            ctx.force_phase(sat::literal(v, !m_sls_phase[v]));        
+            ctx.force_phase(sat::literal(v, !m_sls_phase[v]));
+        m_has_new_sls_phase = false;
     }
 
     void smt_plugin::sls_activity_to_smt() {
@@ -347,6 +350,7 @@ namespace sls {
             expr_ref val(tr(sync_val), m);
             ctx.set_value(t, val);
         }
+        m_has_new_sls_values = false;
     }
 
     void smt_plugin::add_shared_term(expr* t) {

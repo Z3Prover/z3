@@ -150,6 +150,8 @@ void bv_decl_plugin::finalize() {
 }
 
 void bv_decl_plugin::mk_bv_sort(unsigned bv_size) {
+    if (bv_size + 1 == 0)
+        throw default_exception("bit-vector of size 2^32-1 are not supported");
     force_ptr_array_size(m_bv_sorts, bv_size + 1);
     if (!m_bv_sorts[bv_size]) {
         parameter p(bv_size);
