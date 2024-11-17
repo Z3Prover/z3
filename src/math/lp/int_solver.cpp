@@ -179,10 +179,8 @@ namespace lp {
             } else if (r == lia_move::branch)  {
                 m_dioph_eq_period = settings().m_dioph_eq_period;
                 return lia_move::branch;
-            }
-
-            // m_dioph_eq_period *= 2;
-            return lia_move::undef;
+            } 
+			return r;
         }
 
         lp_settings& settings() { return lra.settings(); }

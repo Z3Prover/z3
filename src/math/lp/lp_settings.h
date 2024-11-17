@@ -129,6 +129,7 @@ struct statistics {
     unsigned m_offset_eqs = 0;
     unsigned m_fixed_eqs = 0;
     unsigned m_dio_conflicts = 0;
+    unsigned m_dio_calls = 0;
     ::statistics m_st = {};
 
     void reset() {
@@ -161,7 +162,8 @@ struct statistics {
         st.update("arith-nla-lemmas", m_nla_lemmas);
         st.update("arith-nra-calls", m_nra_calls);   
         st.update("arith-bounds-improvements", m_nla_bounds_improvements);
-        st.update("arith-lp-dio-conflicts", m_dio_conflicts);
+        st.update("arith-dio-calls", m_dio_calls);
+        st.update("arith-dio-conflicts", m_dio_conflicts);
         st.copy(m_st);
     }
 };
