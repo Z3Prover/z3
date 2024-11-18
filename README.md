@@ -12,6 +12,9 @@ Z3 can be built using [Visual Studio][1], a [Makefile][2] or using [CMake][3]. I
 
 See the [release notes](RELEASE_NOTES.md) for notes on various stable releases of Z3.
 
+[Try it online](https://microsoft.github.io/z3guide/)
+
+
 ## Build status
 
 | Azure Pipelines | Code Coverage | Open Bugs | Android Build | WASM Build | Windows Build | Pyodide Build |
