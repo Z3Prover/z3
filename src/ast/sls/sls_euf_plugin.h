@@ -56,6 +56,7 @@ namespace sls {
         sat::literal to_literal(size_t* p) { return sat::to_literal(static_cast<unsigned>(reinterpret_cast<size_t>(p) >> 4)); };
 
         void validate_model();
+        void log_clause(sat::literal_vector const& lits);
 
     public:
         euf_plugin(context& c);

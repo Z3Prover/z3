@@ -293,7 +293,7 @@ namespace sls {
     }
 
     void smt_plugin::export_from_sls() {
-        if (unsat().size() >= m_min_unsat_size)
+        if (unsat().size() > m_min_unsat_size)
             return;
         m_min_unsat_size = unsat().size();
         export_phase_from_sls();

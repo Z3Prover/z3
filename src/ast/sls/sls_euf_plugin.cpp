@@ -114,8 +114,17 @@ namespace sls {
         }
         // flip the last literal on the replay stack
         IF_VERBOSE(10, verbose_stream() << "sls.euf - flip " << flit << "\n");
+        log_clause(lits);
         ctx.add_clause(lits);
         return flit;
+    }
+
+    void euf_plugin::log_clause(sat::literal_vector const& lits) {
+        IF_VERBOSE(3, verbose_stream() << "block " << lits << "\n";
+        for (auto lit : lits)
+            verbose_stream() << (lit.sign() ? "~" : "") << mk_bounded_pp(ctx.atom(lit.var()), m) << "\n";
+        verbose_stream() << "\n";
+            );
     }
 
     void euf_plugin::propagate_literal(sat::literal lit) {
@@ -154,6 +163,7 @@ namespace sls {
             ++m_stats.m_num_conflicts;
             if (flit != sat::null_literal)
                 ctx.flip(flit.var());
+            log_clause(lits);
         };   
 
         if (lit.sign() && m.is_eq(e, x, y))

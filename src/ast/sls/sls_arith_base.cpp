@@ -123,38 +123,37 @@ namespace sls {
     // distance to true
     template<typename num_t>
     num_t arith_base<num_t>::dtt(bool sign, num_t const& args, ineq const& ineq) const {
-        num_t zero{ 0 };
         switch (ineq.m_op) {
         case ineq_kind::LE:
             if (sign) {
                 if (args + ineq.m_coeff <= 0)
                     return -ineq.m_coeff - args + 1;
-                return zero;
+                return num_t(0);
             }
             if (args + ineq.m_coeff <= 0)
-                return zero;
+                return num_t(0);
             return args + ineq.m_coeff;
         case ineq_kind::EQ:
             if (sign) {
                 if (args + ineq.m_coeff == 0)
                     return num_t(1);
-                return zero;
+                return num_t(0);
             }
             if (args + ineq.m_coeff == 0)
-                return zero;
+                return num_t(0);
             return num_t(1);
         case ineq_kind::LT:
             if (sign) {
                 if (args + ineq.m_coeff < 0)
                     return -ineq.m_coeff - args;
-                return zero;
+                return num_t(0);
             }
             if (args + ineq.m_coeff < 0)
-                return zero;
+                return num_t(0);
             return args + ineq.m_coeff + 1;
         default:
             UNREACHABLE();
-            return zero;
+            return num_t(0);
         }
     }
 
@@ -863,36 +862,36 @@ namespace sls {
     template<typename num_t>
     typename arith_base<num_t>::var_t arith_base<num_t>::mk_op(arith_op_kind k, expr* e, expr* x, expr* y) {
         auto v = mk_var(e);
-        auto w = mk_term(x);
+        auto vx = mk_term(x);
+        auto vy = mk_term(y);
         unsigned idx = m_ops.size();
         num_t val;
         switch (k) {
         case arith_op_kind::OP_MOD:
-            val = value(v) == 0 ? num_t(0) : mod(value(w), value(v));
+            val = value(vy) == 0 ? num_t(0) : mod(value(v), value(vy));
             break;
         case arith_op_kind::OP_REM:
-            if (value(v) == 0)
+            if (value(vy) == 0)
                 val = 0;
             else {
-                val = value(w);
-                val %= value(v);
+                val = value(vx);
+                val %= value(vy);
             }
             break;
         case arith_op_kind::OP_IDIV:
-            val = value(v) == 0 ? num_t(0): div(value(w), value(v));
+            val = value(vy) == 0 ? num_t(0): div(value(vx), value(vy));
             break;
         case arith_op_kind::OP_DIV:
-            val = value(v) == 0? num_t(0) : value(w) / value(v);
+            val = value(vy) == 0? num_t(0) : value(vx) / value(vy);
             break;
         case arith_op_kind::OP_ABS:
-            val = abs(value(w));
+            val = abs(value(vx));
             break;
         default:
             NOT_IMPLEMENTED_YET();
             break;
         }
-        verbose_stream() << "mk-op " << mk_bounded_pp(e, m) << "\n";
-        m_ops.push_back({v, k, v, w});
+        m_ops.push_back({v, k, vx, vy});
         m_vars[v].m_def_idx = idx;
         m_vars[v].m_op = k;
         m_vars[v].set_value(val);
@@ -1606,7 +1605,7 @@ namespace sls {
     bool arith_base<num_t>::repair_idiv(op_def const& od) {
         auto v1 = value(od.m_arg1);
         auto v2 = value(od.m_arg2);
-        IF_VERBOSE(0, verbose_stream() << "todo repair div");
+        IF_VERBOSE(0, verbose_stream() << "TODO repair div");
         // bail
         return update(od.m_var, v2 == 0 ? num_t(0) : div(v1, v2));
     }
@@ -1615,7 +1614,7 @@ namespace sls {
     bool arith_base<num_t>::repair_div(op_def const& od) {
         auto v1 = value(od.m_arg1);
         auto v2 = value(od.m_arg2);
-        IF_VERBOSE(0, verbose_stream() << "todo repair /");
+        IF_VERBOSE(0, verbose_stream() << "TODO repair /");
         // bail
         return update(od.m_var, v2 == 0 ? num_t(0) : v1 / v2);
     }
@@ -2112,6 +2111,7 @@ namespace sls {
         auto const& vi = m_vars[v];
         if (vi.m_def_idx == UINT_MAX)
             return true;
+        verbose_stream() << " repair def " << mk_bounded_pp(vi.m_expr, m) << "\n";
         TRACE("sls", tout << "repair def " << mk_bounded_pp(vi.m_expr, m) << "\n");
         switch (vi.m_op) {
         case arith_op_kind::LAST_ARITH_OP:
