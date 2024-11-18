@@ -102,9 +102,9 @@ namespace sls {
                 if (-m_range < n && n < m_range)
                     return true;
                 bool result = false;
-                if (m_lo && !m_hi)
+                if (m_lo)
                     result = n < m_lo->value + m_range;
-                else if (!m_lo && m_hi)
+                if (!result && m_hi)
                     result = n > m_hi->value - m_range;
 #if 0
                 if (!result) 

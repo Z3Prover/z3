@@ -38,21 +38,16 @@ namespace sls {
     euf_plugin::~euf_plugin() {}
 
     void euf_plugin::initialize() {
-        sls_params sp(ctx.get_params());
-        m_incremental_mode = sp.euf_incremental();
-        m_incremental = 1 == m_incremental_mode;
-        IF_VERBOSE(2, verbose_stream() << "sls.euf: incremental " << m_incremental_mode << "\n");
     }
 
     void euf_plugin::start_propagation() {
-        if (m_incremental_mode == 2)
-            m_incremental = !m_incremental;
+
         m_g = alloc(euf::egraph, m);
         std::function<void(std::ostream&, void*)> dj = [&](std::ostream& out, void* j) {
             out << "lit " << to_literal(reinterpret_cast<size_t*>(j));
         };
         m_g->set_display_justification(dj);
-        init_egraph(*m_g, !m_incremental);
+        init_egraph(*m_g, true);
     }
     
     void euf_plugin::register_term(expr* e) {
@@ -82,11 +77,6 @@ namespace sls {
             if (cc.ctx.get_value(a->get_arg(i)) != cc.ctx.get_value(b->get_arg(i)))
                 return false;
         return true;
-    }
-
-    void euf_plugin::propagate_literal_incremental(sat::literal lit) {
-        m_replay_stack.push_back(lit);
-        replay();
     }
 
     sat::literal euf_plugin::resolve_conflict() {
@@ -128,92 +118,7 @@ namespace sls {
         return flit;
     }
 
-    void euf_plugin::resolve() {
-        auto& g = *m_g;
-        if (!g.inconsistent())
-            return;
-
-        auto flit = resolve_conflict();
-        sat::literal slit;
-        if (flit == sat::null_literal)
-            return;
-        do {
-            slit = m_stack.back();
-            g.pop(1);
-            m_replay_stack.push_back(slit);
-            m_stack.pop_back();
-        }
-        while (slit != flit);
-        ctx.flip(flit.var());        
-        m_replay_stack.back().neg();
-
-    }
-
-    void euf_plugin::replay() {
-        while (!m_replay_stack.empty()) {
-            auto l = m_replay_stack.back();
-            m_replay_stack.pop_back();
-            propagate_literal_incremental_step(l);
-            if (m_g->inconsistent())
-                resolve();
-        }
-    }
-
-
-    void euf_plugin::propagate_literal_incremental_step(sat::literal lit) {
-        SASSERT(ctx.is_true(lit));
-        auto e = ctx.atom(lit.var());
-        expr* x, * y;
-        auto& g = *m_g;
-
-        if (!e)
-            return;
-
-        TRACE("euf", tout << "propagate " << lit << "\n");
-        m_stack.push_back(lit);
-        g.push();
-        if (m.is_eq(e, x, y)) {
-            if (lit.sign())
-                g.new_diseq(g.find(e), to_ptr(lit));
-            else
-                g.merge(g.find(x), g.find(y), to_ptr(lit));
-            g.merge(g.find(e), g.find(m.mk_bool_val(!lit.sign())), to_ptr(lit));
-        }
-        else if (!lit.sign() && m.is_distinct(e)) {
-            auto n = to_app(e)->get_num_args();
-            for (unsigned i = 0; i < n; ++i) {
-                expr* a = to_app(e)->get_arg(i);
-                for (unsigned j = i + 1; j < n; ++j) {
-                    auto b = to_app(e)->get_arg(j);
-                    expr_ref eq(m.mk_eq(a, b), m);
-                    auto c = g.find(eq);
-                    if (!c) {
-                        euf::enode* args[2] = { g.find(a), g.find(b) };
-                        c = g.mk(eq, 0, 2, args);
-                    }
-                    g.new_diseq(c, to_ptr(lit));
-                    g.merge(c, g.find(m.mk_false()), to_ptr(lit));
-                }
-            }
-        }
-//        else if (m.is_bool(e) && is_app(e) && to_app(e)->get_family_id() == basic_family_id)
-//            ;
-        else {
-            auto a = g.find(e);
-            auto b = g.find(m.mk_bool_val(!lit.sign()));
-            g.merge(a, b, to_ptr(lit));
-        }
-        g.propagate();
-    }
-
     void euf_plugin::propagate_literal(sat::literal lit) {
-        if (m_incremental)
-            propagate_literal_incremental(lit);
-        else
-            propagate_literal_non_incremental(lit);
-    }
-
-    void euf_plugin::propagate_literal_non_incremental(sat::literal lit) {
         SASSERT(ctx.is_true(lit));
         auto e = ctx.atom(lit.var());
         expr* x, * y;
@@ -272,7 +177,6 @@ namespace sls {
 
     void euf_plugin::init_egraph(euf::egraph& g, bool merge_eqs) {
         ptr_vector<euf::enode> args;
-        m_stack.reset();
         for (auto t : ctx.subterms()) {
             args.reset();
             if (is_app(t)) 

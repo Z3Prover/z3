@@ -22,7 +22,6 @@ def_module_params('sls',
                         ('early_prune', BOOL, 1, 'use early pruning for score prediction'),
                         ('random_offset', BOOL, 1, 'use random offset for candidate evaluation'),
                         ('rescore', BOOL, 1, 'rescore/normalize top-level score every base restart interval'),
-                        ('euf_incremental', UINT, 0, '0 non-incremental, 1 incremental, 2 alternating EUF resolver'), 
                         ('dt_axiomatic', BOOL, True, 'use axiomatic mode or model reduction for datatype solver'),
                         ('track_unsat', BOOL, 0, 'keep a list of unsat assertions as done in SAT - currently disabled internally'),
                         ('random_seed', UINT, 0, 'random seed')

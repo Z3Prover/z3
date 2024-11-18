@@ -164,7 +164,7 @@ namespace smt {
     }
 
     void theory_sls::run_guided_sls() {
-        ++m_num_guided_sls;
+        ++m_stats.m_num_guided_sls;
         m_smt_plugin->smt_phase_to_sls();
         m_smt_plugin->smt_units_to_sls();
         m_smt_plugin->smt_values_to_sls();
@@ -173,7 +173,7 @@ namespace smt {
         if (m_smt_plugin) {
             m_smt_plugin->sls_phase_to_smt();
             m_smt_plugin->sls_values_to_smt();
-            if (m_num_guided_sls % 20 == 0)
+            if (m_stats.m_num_guided_sls % 20 == 0)
                 m_smt_plugin->sls_activity_to_smt();
         }
     }
@@ -192,21 +192,22 @@ namespace smt {
             m_smt_plugin->collect_statistics(st);
         else
             st.copy(m_st);
+        st.update("sls-num-guided-search", m_stats.m_num_guided_sls);
+        st.update("sls-num-restart-search", m_stats.m_num_restart_sls);
     }
 
     void theory_sls::restart_eh() {
         if (m_parallel_mode || !m_smt_plugin)
             return;
 
-        if (ctx.m_stats.m_num_restarts >= m_threshold + 5) {                      
-            m_threshold *= 2;
+        if (ctx.m_stats.m_num_restarts >= m_restart_gap + 5) {                      
+            m_restart_gap *= 2;
             m_smt_plugin->smt_units_to_sls();
+            ++m_stats.m_num_restart_sls;
             bounded_run(m_restart_ls_steps);
             if (m_smt_plugin)
                 m_smt_plugin->sls_activity_to_smt();
         }
-        m_difference_score = 0;
-        m_difference_score_threshold = 1;
     }
 
     void theory_sls::bounded_run(unsigned num_steps) {       

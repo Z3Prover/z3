@@ -40,10 +40,6 @@ namespace sls {
         };
         hashtable<app*, value_hash, value_eq> m_values;
 
-
-
-        bool m_incremental = false;
-        unsigned m_incremental_mode = 0;
         stats m_stats;
 
         scoped_ptr<euf::egraph> m_g;
@@ -52,14 +48,8 @@ namespace sls {
         scoped_ptr<expr_ref_vector> m_pinned;
 
         void init_egraph(euf::egraph& g, bool merge_eqs);
-        sat::literal_vector m_stack, m_replay_stack;
-        void propagate_literal_incremental(sat::literal lit);
-        void propagate_literal_incremental_step(sat::literal lit);
-        void resolve();
         sat::literal resolve_conflict();
-        void replay();
 
-        void propagate_literal_non_incremental(sat::literal lit);
         bool is_user_sort(sort* s) { return s->get_family_id() == user_sort_family_id; }
 
         size_t* to_ptr(sat::literal l) { return reinterpret_cast<size_t*>((size_t)(l.index() << 4)); };
@@ -87,8 +77,6 @@ namespace sls {
 
         void collect_statistics(statistics& st) const override;
         void reset_statistics() override;
-
-
 
         scoped_ptr<euf::egraph>& egraph() { return m_g; }
     };

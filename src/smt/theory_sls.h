@@ -50,15 +50,17 @@ namespace smt {
 namespace smt {
 
     class theory_sls : public theory, public sls::smt_context {
+        struct stats {
+            unsigned m_num_guided_sls = 0;
+            unsigned m_num_restart_sls = 0;
+        };
+        stats m_stats;
         model_ref m_model;
         sls::smt_plugin* m_smt_plugin = nullptr;
         unsigned m_trail_lim = 0;
         bool m_checking = false;
         bool m_parallel_mode = true;
-        unsigned m_threshold = 1;
-        unsigned m_difference_score = 0;
-        unsigned m_difference_score_threshold = 0;
-        unsigned m_num_guided_sls = 0;
+        unsigned m_restart_gap = 1;
         unsigned m_restart_ls_steps = 100000;
         unsigned m_restart_ls_steps_inc = 10000;
         unsigned m_restart_ls_steps_max = 300000;
