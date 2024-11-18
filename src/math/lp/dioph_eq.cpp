@@ -817,17 +817,6 @@ namespace lp {
             return lia_move::undef;
         }
 
-        void process_branch() {
-            NOT_IMPLEMENTED_YET();
-        }
-        void process_conflict() {
-            NOT_IMPLEMENTED_YET();
-        }
-        bool decide_on_conflict() {
-            NOT_IMPLEMENTED_YET();
-            return true;
-        }
-
         struct undo_fixed : public trail {
             lar_solver& m_lra;
             unsigned m_j;  // the variable that became fixed
