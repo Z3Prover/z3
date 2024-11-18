@@ -771,6 +771,7 @@ namespace lp {
             if ((int)st >= (int)lp::lp_status::FEASIBLE) {
                 return false;
             }
+            if (st == lp_status::CANCELLED) return false;
             lra.get_infeasibility_explanation(m_infeas_explanation);
             return true;            
         }
@@ -846,7 +847,6 @@ namespace lp {
         
         // returns true if the left and the right branches were explored
         bool undo_last_branch() {
-            unsigned h = m_branch_stack.size() - 1;
             if (m_branch_stack.back().m_fully_explored) {
                 TRACE("dio_br", tout << "pop fully explored, m_branch_stack.size():" << m_branch_stack.size() <<  std::endl;);
                 m_branch_stack.pop_back();
@@ -905,7 +905,7 @@ namespace lp {
                 lra.pop();
             }
             lra.find_feasible_solution();
-            SASSERT(lra.is_feasible());
+            SASSERT(lra.get_status() == lp_status::CANCELLED || lra.is_feasible());
         }
         // Returns true if a branch is created, and false if not.
         // The latter case can happen if we have a sat.
@@ -940,7 +940,7 @@ namespace lp {
             m_lra_level--;
             lra.pop();
             lra.find_feasible_solution();            
-            SASSERT(lra.is_feasible());
+            SASSERT(lra.get_status() == lp_status::CANCELLED || lra.is_feasible());
         }
 
         lia_move process_undef() {
@@ -970,8 +970,8 @@ namespace lp {
                     lra_pop();
                     continue;                    
                 }
-                int st = static_cast<int>(lra.find_feasible_solution());
-                if (st >= static_cast<int>(lp_status::FEASIBLE)) {
+                auto st = lra.find_feasible_solution();
+                if ((int)st >= (int)(lp_status::FEASIBLE)) {
                     // have a feasible solution
                     unsigned n_of_ii = get_number_of_int_inf();
                     TRACE("dio_br", tout << "n_of_ii:" << n_of_ii << "\n";);
@@ -982,7 +982,8 @@ namespace lp {
                     // got to create a new branch
                     update_branch_stats(*b, n_of_ii);
                     need_create_branch = true;
-                } else {  // got a conflict
+                } else {  
+                    if (st == lp_status::CANCELLED) return lia_move::undef;
                     collect_evidence();
                     if (m_branch_stack.size() == 0)
                         return lia_move::conflict;
@@ -1023,6 +1024,7 @@ namespace lp {
                 m_branch_stats[b.m_j].m_ii_after_right.push_back(n_of_ii);
             }
         }
+                
 
         branch create_branch() {
             unsigned bj = UINT_MAX;
@@ -1040,17 +1042,18 @@ namespace lp {
                 }
             }
             branch br;
-            if (bj == UINT_MAX) { // it a the case when we cannot create a branch
-                SASSERT(lra.is_feasible() && 
-                [&]() {
-                for (unsigned j = 0; j < lra.column_count(); ++j) {
-                    if (lia.column_is_int_inf(j)) {
-                        return false;
-                    }
-                }
-                return true;
-            }());
-               return br; // to signal that we have no ii variables 
+            if (bj == UINT_MAX) { // it the case when we cannot create a branch
+                SASSERT(
+                    lra.settings().get_cancel_flag() ||
+                    (lra.is_feasible() && [&]() {
+                        for (unsigned j = 0; j < lra.column_count(); ++j) {
+                            if (lia.column_is_int_inf(j)) {
+                                return false;
+                            }
+                        }
+                        return true;
+                    }()));
+                return br; // to signal that we have no ii variables 
             }
             
             br.m_j = bj;
