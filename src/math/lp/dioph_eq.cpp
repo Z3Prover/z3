@@ -653,9 +653,7 @@ namespace lp {
                   tout << "term_to_tighten + open_ml:";
                   print_term_o(term_to_tighten + open_ml(m_tmp_l), tout)
                   << std::endl;
-                  print_lar_term_L(
-                      remove_fresh_vars(term_to_tighten + open_ml(m_tmp_l)), tout)
-                  << std::endl;);
+                 );
             SASSERT(
                 fix_vars(term_to_tighten + open_ml(m_tmp_l)) ==
                 term_to_lar_solver(remove_fresh_vars(create_term_from_ind_c())));
@@ -925,10 +923,10 @@ namespace lp {
             } else {
                 lra.add_var_bound(b->m_j, lconstraint_kind::GE, b->m_rs + mpq(1));
             }
-            // if (lra.column_is_fixed(b->m_j)) {
-            //     if (fix_var(lar_solver_to_local(b->m_j)) == lia_move::conflict)
-            //        return lia_move::conflict;
-            // }
+            if (lra.column_is_fixed(b->m_j)) {
+                if (fix_var(lar_solver_to_local(b->m_j)) == lia_move::conflict)
+                   return lia_move::conflict;
+            }
             return lia_move::undef;
         }
 
