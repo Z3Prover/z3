@@ -1092,7 +1092,6 @@ namespace lp {
 
        public:
         lia_move check() {
-            TRACE("dioph_eq", tout << "glb:" << glb << std::endl; );
             lra.stats().m_dio_calls++;
             init();
             lia_move ret = process_f_and_tighten_terms();
