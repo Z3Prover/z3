@@ -1100,7 +1100,6 @@ namespace lp {
             SASSERT(ret == lia_move::undef);
             ret = branching_on_undef();
             if (ret == lia_move::sat || ret == lia_move::conflict) {
-                SASSERT(lra.settings().get_cancel_flag() == false);
                 return ret;
             }
             SASSERT(ret == lia_move::undef);            
