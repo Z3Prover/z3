@@ -23,10 +23,13 @@
     -- lia: point to int_solver.
     -- m_entries: it keeps all "entry" objects.
     -- m_e_matrix: i-th row of this matrix keeps the term corresponding to
-   m_entries[i]. The actual term is the sum of the matrix row and the constant
-   m_c of the entry. The column j of the matrix corresponds to j column of
-   lar_solver if j < lra.column_count(). Otherwise, j is a fresh column. It has
-   to change in the interactive version. Implementation remarks:
+   m_entries[i]. The actual term corresponding to m_entry[i] is the sum of the 
+   matrix i-th row and the constant m_entry[].m_c. 
+   The mapping between the columns of lar_solver and m_e_matrix is controlled by m_var_register. 
+   local_to_lar_solver(lar_solver_to_local(j)) == j. If local_to_lar_solver(j) == -1 
+   then j is a fresh variable, that is such that got introduced when normalizing a term like 3x-6y + 5z +11 = 0,
+   when no variable has a coefficient +-1.
+   
     -- get_term_from_entry(unsigned i) return a term corresponding i-th entry.
    If t = get_term_from_entry(i) then we have equality t = 0. Initially
    get_term_from_entry(i) is set to initt(j) = lra.get_term(j) - j, for some
@@ -246,6 +249,7 @@ namespace lp {
             bool m_left;
             bool m_fully_explored = false;
             void flip() {
+                SASSERT(m_fully_explored == false);
                 m_left = !m_left;
                 m_fully_explored = true;
             }
@@ -415,6 +419,8 @@ namespace lp {
 
         // A conflict is reported when the gcd of the monomial coefficients does not divide the free coefficent.
         // If there is no conflict the entry is divided, normalized, by gcd.
+        // The function returns true if and only if there is no conflict. In the case of a conflict a branch 
+        // can be returned as well.
         bool normalize_e_by_gcd(unsigned ei) {
             entry& e = m_entries[ei];
             TRACE("dioph_eq", print_entry(ei, tout) << std::endl;);
@@ -437,7 +443,7 @@ namespace lp {
                 return true;
             }
             // c_g is not integral
-            if (lra.settings().stats().m_dio_conflicts %
+            if (lra.stats().m_dio_calls %
                         lra.settings().dio_cut_from_proof_period() ==
                     0 &&
                 !has_fresh_var(ei))
@@ -563,7 +569,7 @@ namespace lp {
                 subs_front_in_indexed_vector(q);
         }
 
-        lia_move tighten_with_S() {
+        lia_move tighten_terms_with_S() {
             for (unsigned j = 0; j < lra.column_count(); j++) {
                 if (!lra.column_has_term(j) || lra.column_is_free(j) ||
                     is_fixed(j) || !lia.column_is_int(j))
@@ -792,26 +798,35 @@ namespace lp {
             return dep;
         }
 
-        lia_move iterate() {
+        lia_move process_f() {
             while (m_f.size()) {
                 if (!normalize_by_gcd()) {
-                    lra.settings().stats().m_dio_conflicts++;
                     if (m_report_branch) {
+                        lra.stats().m_dio_cut_from_proofs++;
                         m_report_branch = false;
                         return lia_move::branch;
+                    } else {
+                        lra.stats().m_dio_normalize_conflicts++;
                     }
                     return lia_move::conflict;
                 }
                 rewrite_eqs();
                 if (m_conflict_index != UINT_MAX) {
-                    lra.settings().stats().m_dio_conflicts++;
+                    lra.stats().m_dio_rewrite_conflicts++;
                     return lia_move::conflict;
                 }
             }
+            return lia_move::undef;
+        }
+
+        lia_move process_f_and_tighten_terms() {
+            lia_move ret = process_f();
+            if (ret != lia_move::undef) 
+                return ret;
             TRACE("dioph_eq", print_S(tout););
-            lia_move ret = tighten_with_S();
+            ret = tighten_terms_with_S();
             if (ret == lia_move::conflict) {
-                lra.settings().stats().m_dio_conflicts++;
+                lra.stats().m_dio_tighten_conflicts++;
                 return lia_move::conflict;
             }
             return lia_move::undef;
@@ -835,16 +850,13 @@ namespace lp {
         }
         
         // returns true if the left and the right branches were explored
-        bool undo_last_branch() {
-            if (m_branch_stack.back().m_fully_explored) {
-                TRACE("dio_br", tout << "pop fully explored, m_branch_stack.size():" << m_branch_stack.size() <<  std::endl;);
+        void undo_explored_branches() {
+            TRACE("dio_br", tout << "m_branch_stack.size():" << m_branch_stack.size() <<  std::endl;);            
+            while (m_branch_stack.size() && m_branch_stack.back().m_fully_explored) {
                 m_branch_stack.pop_back();
-                return true;
+                lra_pop();
             } 
-            // exploring the other side of the branch
-            TRACE("dio_br", tout << "flipped branch" << std::endl;);
-            m_branch_stack.back().flip();
-            return false;            
+            TRACE("dio_br", tout << "after pop:m_branch_stack.size():" << m_branch_stack.size() <<  std::endl;);                        
         }
 
         lia_move check_fixing(unsigned j) const {
@@ -903,6 +915,7 @@ namespace lp {
             if (br.m_j == UINT_MAX) 
                 return false;
             m_branch_stack.push_back(br);
+            lra.stats().m_dio_branching_depth = std::max(lra.stats().m_dio_branching_depth, (unsigned)m_branch_stack.size());
             return true;
         }
 
@@ -912,10 +925,10 @@ namespace lp {
             } else {
                 lra.add_var_bound(b->m_j, lconstraint_kind::GE, b->m_rs + mpq(1));
             }
-            if (lra.column_is_fixed(b->m_j)) {
-                if (fix_var(lar_solver_to_local(b->m_j)) == lia_move::conflict)
-                   return lia_move::conflict;
-            }
+            // if (lra.column_is_fixed(b->m_j)) {
+            //     if (fix_var(lar_solver_to_local(b->m_j)) == lia_move::conflict)
+            //        return lia_move::conflict;
+            // }
             return lia_move::undef;
         }
 
@@ -927,20 +940,32 @@ namespace lp {
         }
         void lra_pop() {
             m_lra_level--;
+            SASSERT(m_lra_level != UINT_MAX);
             lra.pop();
             lra.find_feasible_solution();            
             SASSERT(lra.get_status() == lp_status::CANCELLED || lra.is_feasible());
         }
 
-        lia_move process_undef() {
+        void transfer_explanations_from_closed_branches() {
+            m_infeas_explanation.clear();
+            for (auto ci : m_explanation_of_branches) {
+                if (this->lra.constraints().valid_index(ci))
+                    m_infeas_explanation.push_back(ci);
+            }
+            
+        }
+
+        lia_move branching_on_undef() {
             m_explanation_of_branches.clear();
             branch* b;
             bool need_create_branch = true;
             m_number_of_iterations = 0;
             while (++m_number_of_iterations < m_max_number_of_iterations) {
+                lra.stats().m_dio_branch_iterations++;
                 if (need_create_branch) {
                     if (!push_branch()) {
                         undo_branching();
+                        lra.stats().m_dio_branching_sats++;
                         return lia_move::sat;
                     }
                     need_create_branch = false;
@@ -950,13 +975,16 @@ namespace lp {
 
                 if (add_var_bound_for_branch(b) == lia_move::conflict) {
                     collect_evidence();
-                    if (m_branch_stack.size() == 0)
+                    undo_explored_branches();
+                    if (m_branch_stack.size() == 0) {
+                        lra.stats().m_dio_branching_infeasibles++;
+                        transfer_explanations_from_closed_branches();
                         return lia_move::conflict;
+                    }
                     TRACE("dio_br", tout << lp_status_to_string(lra.get_status()) << std::endl;
                           tout << "explanation:\n"; lra.print_expl(tout, m_infeas_explanation););
-                    if (undo_last_branch()) 
-                       need_create_branch = true;
-                    lra_pop();
+                    need_create_branch = false;
+                    m_branch_stack.back().flip();
                     continue;                    
                 }
                 auto st = lra.find_feasible_solution();
@@ -966,6 +994,7 @@ namespace lp {
                     TRACE("dio_br", tout << "n_of_ii:" << n_of_ii << "\n";);
                     if (n_of_ii == 0) {
                         undo_branching();
+                        lra.stats().m_dio_branching_sats++;                        
                         return lia_move::sat;
                     }
                     // got to create a new branch
@@ -974,13 +1003,19 @@ namespace lp {
                 } else {  
                     if (st == lp_status::CANCELLED) return lia_move::undef;
                     collect_evidence();
-                    if (m_branch_stack.size() == 0)
-                        return lia_move::conflict;
+                    undo_explored_branches();
+                    if (m_branch_stack.size() == 0) {
+                           lra.stats().m_dio_branching_infeasibles++;
+                           transfer_explanations_from_closed_branches();
+                           enable_trace("dioph_eq");
+                           return lia_move::conflict;
+                    }
                     TRACE("dio_br", tout << lp_status_to_string(lra.get_status()) << std::endl;
                           tout << "explanation:\n"; lra.print_expl(tout, m_infeas_explanation););
-                    if (undo_last_branch()) 
-                       need_create_branch = true;
+                    
+                    need_create_branch = false;
                     lra_pop();
+                    m_branch_stack.back().flip();
                 }
             }
             undo_branching();
@@ -1049,20 +1084,20 @@ namespace lp {
             br.m_left = (lra.settings().random_next() % 2 == 0);
             br.m_rs = floor(lra.get_column_value(bj).x);
 
-            TRACE("dio_br", tout << " br.m_j:" << br.m_j << ","
+            TRACE("dio_br", tout << "score:" << score << "; br.m_j:" << br.m_j << ","
                                  << (br.m_left ? "left" : "right") << ", br.m_rs:" << br.m_rs << std::endl;);
             return br;
         }
 
        public:
         lia_move check() {
-            lra.settings().stats().m_dio_calls++;
+            lra.stats().m_dio_calls++;
             init();
-            lia_move ret = iterate();
+            lia_move ret = process_f_and_tighten_terms();
             if (ret == lia_move::branch || ret == lia_move::conflict)
                 return ret;
             SASSERT(ret == lia_move::undef);
-            ret = process_undef();
+            ret = branching_on_undef();
             if (ret == lia_move::sat || ret == lia_move::conflict)
                return ret;
             SASSERT(ret == lia_move::undef);            
@@ -1382,8 +1417,6 @@ namespace lp {
        public:
         void explain(explanation& ex) {
             if (m_conflict_index == UINT_MAX) {
-                SASSERT(!(lra.get_status() == lp_status::FEASIBLE ||
-                          lra.get_status() == lp_status::OPTIMAL));
                 for (auto ci : m_infeas_explanation) {
                     ex.push_back(ci.ci());
                 }

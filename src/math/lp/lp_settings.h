@@ -128,8 +128,15 @@ struct statistics {
     unsigned m_grobner_conflicts = 0;
     unsigned m_offset_eqs = 0;
     unsigned m_fixed_eqs = 0;
-    unsigned m_dio_conflicts = 0;
     unsigned m_dio_calls = 0;
+    unsigned m_dio_normalize_conflicts = 0;
+    unsigned m_dio_tighten_conflicts = 0;
+    unsigned m_dio_branch_iterations= 0;
+    unsigned m_dio_branching_depth = 0;
+    unsigned m_dio_cut_from_proofs = 0;
+    unsigned m_dio_branching_infeasibles = 0;
+    unsigned m_dio_rewrite_conflicts = 0;
+    unsigned m_dio_branching_sats = 0;
     ::statistics m_st = {};
 
     void reset() {
@@ -163,7 +170,15 @@ struct statistics {
         st.update("arith-nra-calls", m_nra_calls);   
         st.update("arith-bounds-improvements", m_nla_bounds_improvements);
         st.update("arith-dio-calls", m_dio_calls);
-        st.update("arith-dio-conflicts", m_dio_conflicts);
+        st.update("arith-dio-normalize-conflicts", m_dio_normalize_conflicts);
+        st.update("arith-dio-tighten-conflicts", m_dio_tighten_conflicts);
+        st.update("arith-dio-branch-iterations", m_dio_branch_iterations);
+        st.update("arith-dio-branch-depths", m_dio_branching_depth);
+        st.update("arith-dio-cut-from-proofs", m_dio_cut_from_proofs);
+        st.update("arith-dio-branching-infeasibles", m_dio_branching_infeasibles);
+        st.update("arith-dio-rewrite-conflicts", m_dio_rewrite_conflicts);
+        st.update("arith-dio-branching-sats", m_dio_branching_sats);
+        st.update("arith-dio-branching-depth", m_dio_branching_depth);
         st.copy(m_st);
     }
 };
