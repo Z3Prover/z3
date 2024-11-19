@@ -655,7 +655,7 @@ extern "C" {
                 result = to_solver_ref(s)->check_sat(num_assumptions, _assumptions);
             }
             catch (z3_exception & ex) {
-                to_solver_ref(s)->set_reason_unknown(eh);
+                to_solver_ref(s)->set_reason_unknown(eh, ex);
                 to_solver(s)->set_eh(nullptr);
                 if (mk_c(c)->m().inc()) {
                     mk_c(c)->handle_exception(ex);
@@ -751,8 +751,8 @@ extern "C" {
             try {
                 to_solver_ref(s)->get_unsat_core(core);
             }
-            catch (...) {
-                to_solver_ref(s)->set_reason_unknown(eh);
+            catch (std::exception& ex) {
+                to_solver_ref(s)->set_reason_unknown(eh, ex);
                 to_solver(s)->set_eh(nullptr);
                 if (core.empty())
                     throw;
@@ -877,7 +877,7 @@ extern "C" {
             }
             catch (z3_exception & ex) {
                 to_solver(s)->set_eh(nullptr);
-                to_solver_ref(s)->set_reason_unknown(eh);
+                to_solver_ref(s)->set_reason_unknown(eh, ex);
                 _assumptions.finalize(); _consequences.finalize(); _variables.finalize();
                 mk_c(c)->handle_exception(ex);
                 return Z3_L_UNDEF;

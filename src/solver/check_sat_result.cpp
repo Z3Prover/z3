@@ -39,6 +39,18 @@ void check_sat_result::set_reason_unknown(event_handler& eh) {
     }
 }
 
+void check_sat_result::set_reason_unknown(event_handler& eh, std::exception& ex) {
+    switch (eh.caller_id()) {
+    case UNSET_EH_CALLER: 
+        if (reason_unknown() == "")
+            set_reason_unknown(ex.what());
+        break;
+    default:
+        set_reason_unknown(eh);
+        break;
+    }
+}
+
 proof* check_sat_result::get_proof() {
     if (!m_log.empty() && !m_proof) {
         SASSERT(is_app(m_log.back()));
