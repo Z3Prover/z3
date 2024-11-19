@@ -892,7 +892,10 @@ namespace lp {
                 TRACE("dio_br",
                       tout << "fixed j:" << j <<", was substited by "; print_entry(m_k2s[j], tout););
                 if (check_fixing(j) == lia_move::conflict) {
-                    m_conflict_index = m_k2s[j];
+                    auto& ep = m_entries[m_k2s[j]];
+                    for (auto ci : lra.flatten(explain_fixed_in_meta_term(ep.m_l))) {
+                        m_explanation_of_branches.push_back(ci);
+                    }
                     return lia_move::conflict;
                 }
             } 
@@ -917,15 +920,18 @@ namespace lp {
             return true;
         }
 
-        lia_move add_var_bound_for_branch(const branch* b) {
-            if (b->m_left) {
-                lra.add_var_bound(b->m_j, lconstraint_kind::LE, b->m_rs);
-            } else {
-                lra.add_var_bound(b->m_j, lconstraint_kind::GE, b->m_rs + mpq(1));
+        lia_move add_var_bound_for_branch(const branch& b) {            
+            if (b.m_left) {
+                lra.add_var_bound(b.m_j, lconstraint_kind::LE, b.m_rs);
+             } else {
+                lra.add_var_bound(b.m_j, lconstraint_kind::GE, b.m_rs + mpq(1));
             }
-            if (lra.column_is_fixed(b->m_j)) {
-                if (fix_var(lar_solver_to_local(b->m_j)) == lia_move::conflict)
+            TRACE("dio_br", lra.print_column_info(b.m_j, tout) <<"add bound" << std::endl;);
+            if (lra.column_is_fixed(b.m_j)) {
+                if (fix_var(lar_solver_to_local(b.m_j)) == lia_move::conflict) {
+                   TRACE("dio_br", tout << "conflict in fix_var" << std::endl;) ;
                    return lia_move::conflict;
+                }
             }
             return lia_move::undef;
         }
@@ -955,7 +961,6 @@ namespace lp {
 
         lia_move branching_on_undef() {
             m_explanation_of_branches.clear();
-            branch* b;
             bool need_create_branch = true;
             m_number_of_iterations = 0;
             while (++m_number_of_iterations < m_max_number_of_iterations) {
@@ -967,25 +972,23 @@ namespace lp {
                         return lia_move::sat;
                     }
                     need_create_branch = false;
-                    b = &m_branch_stack.back();
                 }
                 lra_push();  // exploring a new branch
 
-                if (add_var_bound_for_branch(b) == lia_move::conflict) {
-                    collect_evidence();
+                if (add_var_bound_for_branch(m_branch_stack.back()) == lia_move::conflict) {
                     undo_explored_branches();
                     if (m_branch_stack.size() == 0) {
                         lra.stats().m_dio_branching_infeasibles++;
                         transfer_explanations_from_closed_branches();
                         return lia_move::conflict;
                     }
-                    TRACE("dio_br", tout << lp_status_to_string(lra.get_status()) << std::endl;
-                          tout << "explanation:\n"; lra.print_expl(tout, m_infeas_explanation););
                     need_create_branch = false;
                     m_branch_stack.back().flip();
+                    lra_pop();
                     continue;                    
                 }
                 auto st = lra.find_feasible_solution();
+                TRACE("dio_br", tout << "st:" << lp_status_to_string(st) << std::endl;);
                 if ((int)st >= (int)(lp_status::FEASIBLE)) {
                     // have a feasible solution
                     unsigned n_of_ii = get_number_of_int_inf();
@@ -996,7 +999,7 @@ namespace lp {
                         return lia_move::sat;
                     }
                     // got to create a new branch
-                    update_branch_stats(*b, n_of_ii);
+                    update_branch_stats(m_branch_stack.back(), n_of_ii);
                     need_create_branch = true;
                 } else {  
                     if (st == lp_status::CANCELLED) return lia_move::undef;
@@ -1089,6 +1092,8 @@ namespace lp {
 
        public:
         lia_move check() {
+            ++glb;
+            TRACE("dioph_eq", tout << "glb:" << glb << std::endl; );
             lra.stats().m_dio_calls++;
             init();
             lia_move ret = process_f_and_tighten_terms();
@@ -1096,8 +1101,10 @@ namespace lp {
                 return ret;
             SASSERT(ret == lia_move::undef);
             ret = branching_on_undef();
-            if (ret == lia_move::sat || ret == lia_move::conflict)
-               return ret;
+            if (ret == lia_move::sat || ret == lia_move::conflict) {
+                SASSERT(lra.settings().get_cancel_flag() == false);
+                return ret;
+            }
             SASSERT(ret == lia_move::undef);            
             return lia_move::undef;
         }
