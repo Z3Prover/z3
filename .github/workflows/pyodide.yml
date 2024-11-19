@@ -41,10 +41,11 @@ jobs:
       run: |
          source ~/emsdk/emsdk_env.sh 
          cd src/api/python 
-         CFLAGS="${CFLAGS}" LDFLAGS="${LDFLAGS}" ~/env/bin/pyodide build --exports whole_archive
+         CFLAGS="${CFLAGS}" LDFLAGS="${LDFLAGS}" CXXFLAG="${CXXFLAGS}" ~/env/bin/pyodide build --exports whole_archive
       env:
-         CFLAGS: "-fexceptions -s DISABLE_EXCEPTION_CATCHING=0"
-         LDFLAGS: "-fexceptions"         
+         CFLAGS: "-fexceptions -s DISABLE_EXCEPTION_CATCHING=0 -pthread -s USE_PTHREADS=1 -g2 -s SAFE_HEAP=0 -s PTHREAD_POOL_SIZE=0 -s PTHREAD_POOL_SIZE_STRICT=0"
+         LDFLAGS: "-fexceptions -s WASM_BIGINT -s -pthread -s USE_PTHREADS=1"     
+         CXXFLAGS: "-fexceptions -pthread -s USE_PTHREADS=1 -s DISABLE_EXCEPTION_CATCHING=0"
          
     - name: Setup env-pyodide
       run: |
