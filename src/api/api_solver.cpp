@@ -628,6 +628,9 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
+#define STRINGIFY(x) #x
+#define TOSTRING(x) STRINGIFY(x)    
+
     static Z3_lbool _solver_check(Z3_context c, Z3_solver s, unsigned num_assumptions, Z3_ast const assumptions[]) {
         for (unsigned i = 0; i < num_assumptions; i++) {
             if (!is_expr(to_ast(assumptions[i]))) {
@@ -662,15 +665,15 @@ extern "C" {
                 }
                 return Z3_L_UNDEF;
             }
-            catch (...) {
-                to_solver_ref(s)->set_reason_unknown(eh);
+            catch (std::exception& ex) {
+                to_solver_ref(s)->set_reason_unknown(eh, ex);
                 to_solver(s)->set_eh(nullptr);
                 return Z3_L_UNDEF;
             }
         }
         to_solver(s)->set_eh(nullptr);
         if (result == l_undef) {
-            to_solver_ref(s)->set_reason_unknown(eh);
+            to_solver_ref(s)->set_reason_unknown(eh, __FILE__ ":" TOSTRING(__LINE__));
         }
         return static_cast<Z3_lbool>(result);
     }
@@ -887,7 +890,7 @@ extern "C" {
         }
         to_solver(s)->set_eh(nullptr);
         if (result == l_undef) {
-            to_solver_ref(s)->set_reason_unknown(eh);
+            to_solver_ref(s)->set_reason_unknown(eh, __FILE__ ":" TOSTRING(__LINE__));
         }
         for (expr* e : _consequences) {
             to_ast_vector_ref(consequences).push_back(e);

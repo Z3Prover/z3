@@ -18,11 +18,11 @@ Notes:
 --*/
 #include "solver/check_sat_result.h"
 
-void check_sat_result::set_reason_unknown(event_handler& eh) {
+void check_sat_result::set_reason_unknown(event_handler& eh, char const* what) {
     switch (eh.caller_id()) {
     case UNSET_EH_CALLER: 
         if (reason_unknown() == "")
-            set_reason_unknown("unclassified exception");
+            set_reason_unknown(what);
         break;
     case CTRL_C_EH_CALLER:
         set_reason_unknown("interrupted from keyboard");
@@ -46,7 +46,7 @@ void check_sat_result::set_reason_unknown(event_handler& eh, std::exception& ex)
             set_reason_unknown(ex.what());
         break;
     default:
-        set_reason_unknown(eh);
+        set_reason_unknown(eh, ex.what());
         break;
     }
 }

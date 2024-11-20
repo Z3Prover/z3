@@ -1782,19 +1782,15 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
         try {
             r = m_solver->check_sat(num_assumptions, assumptions);
             if (r == l_undef && !m().inc()) {
-                m_solver->set_reason_unknown(eh);
+                m_solver->set_reason_unknown(eh, "canceled");
             }
         }
         catch (z3_error & ex) {
+            m_solver->set_reason_unknown(eh, ex);
             throw ex;
         }
         catch (z3_exception & ex) {
-            if (!m().inc()) {
-                m_solver->set_reason_unknown(eh);
-            }
-            else {
-                m_solver->set_reason_unknown(ex.what());
-            }
+            m_solver->set_reason_unknown(eh, ex);
             r = l_undef;
         }
         m_solver->set_status(r);
