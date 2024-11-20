@@ -139,7 +139,7 @@ def _configure_z3():
         'CMAKE_BUILD_TYPE' : 'Release',
         'Z3_BUILD_EXECUTABLE' : True,
         'Z3_BUILD_LIBZ3_SHARED' : True,
-        'Z3_LINK_TIME_OPTIMIZATION' : ENABLELTO,
+        'Z3_LINK_TIME_OPTIMIZATION' : ENABLE_LTO,
         'WARNINGS_AS_ERRORS' : 'SERIOUS_ONLY',
         # Disable Unwanted Options
         'Z3_USE_LIB_GMP' : False, # Is default false in python build
