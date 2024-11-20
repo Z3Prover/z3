@@ -26,6 +26,7 @@ SRC_DIR_REPO = os.path.join(ROOT_DIR, '..', '..', '..')
 SRC_DIR = SRC_DIR_LOCAL if os.path.exists(SRC_DIR_LOCAL) else SRC_DIR_REPO
 
 IS_SINGLE_THREADED = False
+ENABLE_LTO = True
 
 IS_PYODIDE = 'PYODIDE_ROOT' in os.environ and os.environ.get('_PYTHON_HOST_PLATFORM', '').startswith('emscripten')
 
@@ -43,6 +44,7 @@ if RELEASE_DIR is None:
         build_env['CXXFLAGS'] = build_env.get('CXXFLAGS', '') + " -fexceptions"
         build_env['LDFLAGS'] = build_env.get('LDFLAGS', '') + " -fexceptions"
         IS_SINGLE_THREADED = True
+        ENABLE_LTO = False
         # build with pthread doesn't work. The WASM bindings are also single threaded.
         
     else:
@@ -122,6 +124,7 @@ def _z3_version():
 
 def _configure_z3():
     global IS_SINGLE_THREADED
+    global ENABLE_LTO
     # bail out early if we don't need to do this - it forces a rebuild every time otherwise
     if os.path.exists(BUILD_DIR):
         return
@@ -136,7 +139,7 @@ def _configure_z3():
         'CMAKE_BUILD_TYPE' : 'Release',
         'Z3_BUILD_EXECUTABLE' : True,
         'Z3_BUILD_LIBZ3_SHARED' : True,
-        'Z3_LINK_TIME_OPTIMIZATION' : True,
+        'Z3_LINK_TIME_OPTIMIZATION' : ENABLELTO,
         'WARNINGS_AS_ERRORS' : 'SERIOUS_ONLY',
         # Disable Unwanted Options
         'Z3_USE_LIB_GMP' : False, # Is default false in python build
