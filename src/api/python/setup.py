@@ -30,6 +30,7 @@ ENABLE_LTO = True
 
 IS_PYODIDE = 'PYODIDE_ROOT' in os.environ and os.environ.get('_PYTHON_HOST_PLATFORM', '').startswith('emscripten')
 
+
 # determine where binaries are
 RELEASE_DIR = os.environ.get('PACKAGE_FROM_RELEASE', None)
 if RELEASE_DIR is None:
@@ -133,7 +134,8 @@ def _configure_z3():
     # Config options
     cmake_options = {
         # Config Options
-        'Z3_SINGLE_THREADED' : IS_SINGLE_THREADED,
+        'Z3_SINGLE_THREADED' : IS_SINGLE_THREADED,      # avoid solving features that use threads
+        'Z3_POLING_TIMER' : IS_SINGLE_THREADED,         # avoid using timer threads
         'Z3_BUILD_PYTHON_BINDINGS' : True,
         # Build Options
         'CMAKE_BUILD_TYPE' : 'Release',

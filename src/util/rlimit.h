@@ -19,6 +19,7 @@ Revision History:
 #pragma once
 
 #include "util/vector.h"
+#include "util/timer.h"
 #include <atomic>
 
 void initialize_rlimit();
@@ -29,15 +30,37 @@ void finalize_rlimit();
 */
 
 class reslimit {
-    std::atomic<unsigned> m_cancel;
-    bool            m_suspend;
-    uint64_t        m_count;
-    uint64_t        m_limit;
-    svector<uint64_t> m_limits;
-    ptr_vector<reslimit> m_children;
+    std::atomic<unsigned> m_cancel = 0;
+    bool                  m_suspend = false;
+    uint64_t              m_count = 0;
+    uint64_t              m_limit = std::numeric_limits<uint64_t>::max();
+#ifdef POLLING_TIMER
+    timer                 m_timer;
+    unsigned              m_timeout_ms = 0;
+    unsigned              m_num_timers = 0;
+#endif
+    svector<uint64_t>     m_limits;
+    ptr_vector<reslimit>  m_children;
+    
 
     void set_cancel(unsigned f);
     friend class scoped_suspend_rlimit;
+
+#ifdef POLLING_TIMER
+    bool is_timeout() { return m_timer.ms_timeout(m_timeout_ms) && (inc_cancel(m_num_timers), pop_timeout(), true); }  
+    void inc_cancel(unsigned k);
+#else
+    inline bool is_timeout() { return false; }
+#endif
+
+#ifdef POLLING_TIMER
+
+    void pop_timeout() {
+        m_timeout_ms = 0;
+    }
+
+    void push_timeout(unsigned ms);
+#endif
 
 public:
     reslimit();
@@ -52,15 +75,21 @@ public:
     uint64_t count() const;
     void reset_count() { m_count = 0; }
 
-    bool suspended() const { return m_suspend;  }
-    inline bool not_canceled() const { return (m_cancel == 0 && m_count <= m_limit) || m_suspend; }
-    inline bool is_canceled() const { return !not_canceled(); }
+#ifdef POLLING_TIMER
+    void set_timeout(unsigned ms) { push_timeout(ms);  }
+#endif
+    bool suspended() const { return m_suspend; }
+    inline bool not_canceled() { 
+        return m_suspend || (m_cancel == 0 && m_count <= m_limit && !is_timeout()); 
+    }
+    inline bool is_canceled()  { return !not_canceled(); }
     char const* get_cancel_msg() const;
     void cancel();
     void reset_cancel();
 
     void inc_cancel();
     void dec_cancel();
+    void auto_cancel();
 };
 
 class scoped_rlimit {

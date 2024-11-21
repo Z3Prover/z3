@@ -254,6 +254,21 @@ else()
   message(STATUS "Thread-safe build")
 endif()
 
+
+################################################################################
+# Use polling based timeout. This avoids spawning threads for timer tasks
+################################################################################
+option(Z3_POLLING_TIMER
+  "Use polling based timeout checks"
+  OFF
+)
+if (Z3_POLLING_TIMER)
+  list(APPEND Z3_COMPONENT_CXX_DEFINES "-DPOLLING_TIMER")
+  message(STATUS "Polling based timer")
+endif()
+
+
+
 ################################################################################
 # FP math
 ################################################################################

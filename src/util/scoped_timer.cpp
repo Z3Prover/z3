@@ -22,6 +22,8 @@ Revision History:
 #include "util/scoped_timer.h"
 #include "util/mutex.h"
 #include "util/util.h"
+#include "util/cancel_eh.h"
+#include "util/rlimit.h"
 #include <atomic>
 #include <chrono>
 #include <climits>
@@ -79,6 +81,14 @@ scoped_timer::scoped_timer(unsigned ms, event_handler * eh) {
     if (ms == 0 || ms == UINT_MAX)
         return;
 
+#ifdef POLLING_TIMER
+    auto* r = dynamic_cast<cancel_eh<reslimit>*>(eh);
+    if (r) {
+        r->t().set_timeout(ms);
+        r->set_auto_cancel();
+        return;
+    }
+#endif
     workers.lock();
     if (available_workers.empty()) {
         // start new thead

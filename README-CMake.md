@@ -310,6 +310,7 @@ The following useful options can be passed to CMake whilst configuring.
 * ``Z3_BUILD_TEST_EXECUTABLES`` - BOOL. If set to ``TRUE`` build the z3 test executables. Defaults to ``TRUE`` unless z3 is being built as a submodule in which case it defaults to ``FALSE``.
 * ``Z3_SAVE_CLANG_OPTIMIZATION_RECORDS`` - BOOL. If set to ``TRUE`` saves Clang optimization records by setting the compiler flag ``-fsave-optimization-record``.
 * ``Z3_SINGLE_THREADED`` - BOOL. If set to ``TRUE`` compiles Z3 for single threaded mode.
+* ``Z3_POLLING_TIMER`` - BOOL. If set to ``TRUE`` compiles Z3 to use polling based timer instead of requiring a thread. This is useful for wasm builds and avoids spawning threads that interfere with how WASM is run.
 
 
 On the command line these can be passed to ``cmake`` using the ``-D`` option. In ``ccmake`` and ``cmake-gui`` these can be set in the user interface.
