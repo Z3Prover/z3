@@ -135,7 +135,7 @@ def _configure_z3():
     cmake_options = {
         # Config Options
         'Z3_SINGLE_THREADED' : IS_SINGLE_THREADED,      # avoid solving features that use threads
-        'Z3_POLING_TIMER' : IS_SINGLE_THREADED,         # avoid using timer threads
+        'Z3_POLLING_TIMER' : IS_SINGLE_THREADED,         # avoid using timer threads
         'Z3_BUILD_PYTHON_BINDINGS' : True,
         # Build Options
         'CMAKE_BUILD_TYPE' : 'Release',
