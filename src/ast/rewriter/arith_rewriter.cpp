@@ -830,7 +830,7 @@ br_status arith_rewriter::mk_ite_core(expr* c, expr* t, expr* e, expr_ref & resu
         if (v1 > v2)
             result = m_util.mk_add(e, m.mk_ite(c, m_util.mk_numeral(v1 - v2, is_int), m_util.mk_numeral(rational::zero(), is_int)));
         else
-            result = m_util.mk_add(e, m.mk_ite(c, m_util.mk_numeral(rational::zero(), is_int), m_util.mk_numeral(v2 - v1, is_int)));
+            result = m_util.mk_add(t, m.mk_ite(c, m_util.mk_numeral(rational::zero(), is_int), m_util.mk_numeral(v2 - v1, is_int)));
         return BR_DONE;        
     }
     expr* x, *y;
