@@ -137,6 +137,7 @@ public:
     br_status mk_lt_core(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_ge_core(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_gt_core(expr * arg1, expr * arg2, expr_ref & result);
+    br_status mk_ite_core(expr* c, expr* t, expr* e, expr_ref & result);
 
     br_status mk_add_core(unsigned num_args, expr * const * args, expr_ref & result);
     br_status mk_mul_core(unsigned num_args, expr * const * args, expr_ref & result);

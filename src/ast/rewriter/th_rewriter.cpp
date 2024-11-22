@@ -172,6 +172,9 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                 family_id s_fid = args[1]->get_sort()->get_family_id();
                 if (s_fid == m_bv_rw.get_fid())
                     st = m_bv_rw.mk_ite_core(args[0], args[1], args[2], result);
+                if (st == BR_FAILED && s_fid == m_a_rw.get_fid())
+                    st = m_a_rw.mk_ite_core(args[0], args[1], args[2], result);
+                CTRACE("th_rewriter_step", st != BR_FAILED, tout << result << "\n");
                 if (st != BR_FAILED)
                     return st;
             }
@@ -197,7 +200,9 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                     return st;
             }
 
-            return m_b_rw.mk_app_core(f, num, args, result);
+            st = m_b_rw.mk_app_core(f, num, args, result);
+            CTRACE("th_rewriter_step", st != BR_FAILED, tout << result << "\n");
+            return st;
         }
         if (fid == m_a_rw.get_fid() && OP_LE == f->get_decl_kind() && m_seq_rw.u().has_seq()) {
             st = m_seq_rw.mk_le_core(args[0], args[1], result);
@@ -315,7 +320,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                 return pull_ite_core<true>(f, to_app(args[1]), to_app(args[0]), result);
         }
         family_id fid = f->get_family_id();
-        if (num == 2 && (fid == m().get_basic_family_id() || fid == m_a_rw.get_fid() || fid == m_bv_rw.get_fid())) {
+        if (num == 2 && (fid == m().get_basic_family_id() || fid == m_bv_rw.get_fid())) {
             // (f v3 (ite c v1 v2)) --> (ite v (f v3 v1) (f v3 v2))
             if (m().is_value(args[0]) && is_ite_value_tree(args[1])) 
                 return pull_ite_core<true>(f, to_app(args[1]), to_app(args[0]), result);
@@ -554,6 +559,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                 result = m().mk_app(f_prime, common, m().mk_ite(c, new_t, new_e));
             else
                 result = m().mk_app(f_prime, m().mk_ite(c, new_t, new_e), common);
+            TRACE("push_ite", tout << result << "\n";);
             return BR_DONE;
         }
         TRACE("push_ite", tout << "failed\n";);

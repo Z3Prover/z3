@@ -804,6 +804,72 @@ bool arith_rewriter::is_arith_term(expr * n) const {
     return n->get_kind() == AST_APP && to_app(n)->get_family_id() == get_fid();
 }
 
+br_status arith_rewriter::mk_ite_core(expr* c, expr* t, expr* e, expr_ref & result) {
+    numeral v1, v2;
+    bool is_int;
+    bool is_num1 = m_util.is_numeral(t, v1, is_int);
+    bool is_num2 = m_util.is_numeral(e, v2, is_int);
+    if (is_num1 && is_num2 && v1 == 0 && v2 != 1) {
+        result = m_util.mk_mul(e, m.mk_ite(c, t, m_util.mk_numeral(rational(1), is_int)));
+        return BR_DONE;
+    }
+    if (is_num1 && is_num2 && v2 == 0 && v1 != 1) {
+        result = m_util.mk_mul(t, m.mk_ite(c, m_util.mk_numeral(rational(1), is_int), e));
+        return BR_DONE;
+    }
+    if (is_num1 && is_num2 && is_int && gcd(v1, v2) != 1) {
+        auto g = gcd(v1, v2);
+        if (g > 0 && v1 < 0 && v2 < 0)
+            g = -g;
+        
+        result = m_util.mk_numeral(g, is_int);
+        result = m_util.mk_mul(result, m.mk_ite(c, m_util.mk_numeral(v1/g, true), m_util.mk_numeral(v2/g, true)));
+        return BR_REWRITE2;
+    }
+    if (is_num1 && is_num2 && v1 != 0 && v2 != 0 && v1 != v2) {
+        if (v1 > v2)
+            result = m_util.mk_add(e, m.mk_ite(c, m_util.mk_numeral(v1 - v2, is_int), m_util.mk_numeral(rational::zero(), is_int)));
+        else
+            result = m_util.mk_add(e, m.mk_ite(c, m_util.mk_numeral(rational::zero(), is_int), m_util.mk_numeral(v2 - v1, is_int)));
+        return BR_DONE;        
+    }
+    expr* x, *y;
+    if (is_num1 && m_util.is_mul(e, x, y) && m_util.is_numeral(x, v2, is_int) && v2 != 0) {
+        if (v1 == 0) {
+            result = m_util.mk_mul(x, m.mk_ite(c, t, y));
+            return BR_DONE;
+        }
+        if (is_int && divides(v2, v1)) {
+            result = m_util.mk_mul(x, m.mk_ite(c, m_util.mk_numeral(v1/v2, true), y));
+            return BR_DONE;
+        }
+                
+    }
+    if (is_num2 && m_util.is_mul(t, x, y) && m_util.is_numeral(x, v1, is_int) && v1 != 0) {
+        if (v2 == 0) {
+            result = m_util.mk_mul(x, m.mk_ite(c, y, e));
+            return BR_DONE;
+        }
+        if (is_int && divides(v1, v2)) {
+            result = m_util.mk_mul(x, m.mk_ite(c, y, m_util.mk_numeral(v2/v1, true)));
+            return BR_DONE;
+        }
+
+    }
+    if (is_num1 && m_util.is_add(e, x, y) && m_util.is_numeral(x, v2, is_int)) {
+        result = m_util.mk_add(x, m.mk_ite(c, m_util.mk_numeral(v1 - v2, is_int), y));
+        return BR_REWRITE2;
+    }
+    if (is_num2 && m_util.is_add(t, x, y) && m_util.is_numeral(x, v1, is_int)) {
+        result = m_util.mk_add(x, m.mk_ite(c, y, m_util.mk_numeral(v2 - v1, is_int)));
+        return BR_REWRITE2;
+    }
+
+    
+    
+    return BR_FAILED;
+}
+
 br_status arith_rewriter::mk_eq_core(expr * arg1, expr * arg2, expr_ref & result) {
     br_status st = BR_FAILED;
     if (m_eq2ineq) {
