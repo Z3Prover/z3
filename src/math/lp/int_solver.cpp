@@ -186,7 +186,7 @@ namespace lp {
         lp_settings& settings() { return lra.settings(); }
         
         bool should_find_cube() {
-            return false && m_number_of_calls % settings().m_int_find_cube_period == 0;
+            return m_number_of_calls % settings().m_int_find_cube_period == 0;
         }
 
         bool should_gomory_cut() {
@@ -199,7 +199,7 @@ namespace lp {
         }
 
         bool should_hnf_cut() {
-            return false && settings().enable_hnf() && m_number_of_calls % settings().hnf_cut_period() == 0;
+            return !settings().dio_cuts() && settings().enable_hnf() && m_number_of_calls % settings().hnf_cut_period() == 0;
         }
         
         lia_move hnf_cut() {
