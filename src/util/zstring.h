@@ -79,7 +79,7 @@ public:
     bool contains(zstring const& other) const;
     int  indexofu(zstring const& other, unsigned offset) const;
     int  last_indexof(zstring const& other) const;
-    zstring extract(unsigned lo, unsigned hi) const;
+    zstring extract(unsigned offset, unsigned length) const;
     zstring operator+(zstring const& other) const;
     bool operator==(const zstring& other) const;
     bool operator!=(const zstring& other) const;
