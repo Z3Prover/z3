@@ -320,7 +320,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                 return pull_ite_core<true>(f, to_app(args[1]), to_app(args[0]), result);
         }
         family_id fid = f->get_family_id();
-        if (num == 2 && (fid == m().get_basic_family_id() || fid == m_bv_rw.get_fid())) {
+        if (num == 2 && (fid == m().get_basic_family_id())) {
             // (f v3 (ite c v1 v2)) --> (ite v (f v3 v1) (f v3 v2))
             if (m().is_value(args[0]) && is_ite_value_tree(args[1])) 
                 return pull_ite_core<true>(f, to_app(args[1]), to_app(args[0]), result);

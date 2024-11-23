@@ -740,6 +740,20 @@ br_status arith_rewriter::mk_le_ge_eq_core(expr * arg1, expr * arg2, op_kind kin
         case EQ: result = m.mk_ite(c, m.mk_eq(t, arg2), m.mk_eq(e, arg2)); return BR_REWRITE2;
         }
     }
+    if (m.is_ite(arg2, c, t, e) && is_numeral(t, a2) && is_numeral(arg1, a1)) {
+        switch (kind) {
+        case LE: result = a1 <= a2 ? m.mk_or(c, m_util.mk_le(arg1, e)) : m.mk_and(m.mk_not(c), m_util.mk_le(arg1, e)); return BR_REWRITE2;
+        case GE: result = a1 >= a2 ? m.mk_or(c, m_util.mk_ge(arg1, e)) : m.mk_and(m.mk_not(c), m_util.mk_ge(arg1, e)); return BR_REWRITE2;
+        case EQ: result = a1 == a2 ? m.mk_or(c, m.mk_eq(e, arg1)) : m.mk_and(m.mk_not(c), m_util.mk_eq(e, arg1)); return BR_REWRITE2;
+        }
+    }
+    if (m.is_ite(arg2, c, t, e) && is_numeral(e, a2) && is_numeral(arg1, a1)) {
+        switch (kind) {
+        case LE: result = a1 <= a2 ? m.mk_or(m.mk_not(c), m_util.mk_le(arg1, t)) : m.mk_and(c, m_util.mk_le(arg1, t)); return BR_REWRITE2;
+        case GE: result = a1 >= a2 ? m.mk_or(m.mk_not(c), m_util.mk_ge(arg1, e)) : m.mk_and(c, m_util.mk_ge(arg1, t)); return BR_REWRITE2;
+        case EQ: result = a1 == a2 ? m.mk_or(m.mk_not(c), m.mk_eq(t, arg1)) : m.mk_and(c, m_util.mk_eq(t, arg1)); return BR_REWRITE2;
+        }
+    }
     if (m_util.is_to_int(arg2) && is_numeral(arg1)) {        
         kind = inv(kind);
         std::swap(arg1, arg2);
