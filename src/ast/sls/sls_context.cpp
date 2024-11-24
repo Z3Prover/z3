@@ -16,12 +16,13 @@ Author:
 --*/
 
 #include "ast/sls/sls_context.h"
-#include "ast/sls/sls_euf_plugin.h"
 #include "ast/sls/sls_arith_plugin.h"
 #include "ast/sls/sls_array_plugin.h"
-#include "ast/sls/sls_bv_plugin.h"
 #include "ast/sls/sls_basic_plugin.h"
+#include "ast/sls/sls_bv_plugin.h"
+#include "ast/sls/sls_euf_plugin.h"
 #include "ast/sls/sls_datatype_plugin.h"
+#include "ast/sls/sls_seq_plugin.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_pp.h"
 #include "smt/params/smt_params_helper.hpp"
@@ -57,6 +58,8 @@ namespace sls {
     void context::ensure_plugin(family_id fid) {
         if (m_plugins.get(fid, nullptr))
             return;
+        else if (fid == null_family_id)
+            ;
         else if (fid == arith_family_id)
             register_plugin(alloc(arith_plugin, *this));
         else if (fid == user_sort_family_id)
@@ -69,8 +72,8 @@ namespace sls {
             register_plugin(alloc(array_plugin, *this));
         else if (fid == datatype_util(m).get_family_id())
             register_plugin(alloc(datatype_plugin, *this));
-        else if (fid == null_family_id)
-            ;
+        else if (fid == seq_util(m).get_family_id())
+            register_plugin(alloc(seq_plugin, *this));
         else
             verbose_stream() << "did not find plugin for " << fid << "\n";
     }
