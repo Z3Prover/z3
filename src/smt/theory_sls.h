@@ -72,6 +72,7 @@ namespace smt {
         unsigned m_after_resolve_decide_count = 0;
         unsigned m_resolve_count = 0;
         unsigned m_resolve_gap = 0;
+        bool     m_init_search = false;
         ::statistics m_st;
         vector<sat::literal_vector> m_shared_clauses;
 
@@ -125,6 +126,7 @@ namespace smt {
         void inc_activity(sat::bool_var v, double inc) override;
         bool parallel_mode() const override { return m_parallel_mode; }
         bool get_smt_value(expr* v, expr_ref& value) override;
+        void init_search_eh() override;
 
     };
 

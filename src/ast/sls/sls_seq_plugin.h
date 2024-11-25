@@ -79,9 +79,13 @@ namespace sls {
         bool repair_down_str_replace(app* e);
         bool repair_down_str_prefixof(app* e);
         bool repair_down_str_suffixof(app* e);
+        bool repair_down_str_itos(app* e);
+        bool repair_down_str_stoi(app* e);
 
         void repair_up_str_length(app* e);
         void repair_up_str_indexof(app* e);
+        void repair_up_str_itos(app* e);
+        void repair_up_str_stoi(app* e);
 
 
         bool is_seq_predicate(expr* e);

@@ -72,6 +72,19 @@ Alternate to lookahead strategy:
 Revert bias on long strings:
 - give preference to reset leaves that are assigned to long strings
 - bake in bias for shorter strings into equation solving?
+
+Equality solving using stochastic Nelson.
+- Given equality where current assignment does not satisfy it:
+  - Xw = v:
+     - let X' range over prefixes of X that matches v.
+     - non-deterministic set X <- strval0(X')
+     - non-deterministic set X <- strval0(X') + 'a' where strval0(X') + 'a' matches prefix of strval0(v), and X' is longest prefix of X that matches v.
+  - If X fully matches a prefix of v, then, in addition to the rules above:
+    - consume constant character from strval0(X)w = v
+    - reveal the next variable to solve for.
+
+  - What scores make sense to use for partial solutions?
+
 --*/
 
 #include "ast/sls/sls_seq_plugin.h"
@@ -411,21 +424,27 @@ namespace sls {
         if (m.is_bool(e))
             return;
 
+        if (seq.str.is_itos(e)) {
+            repair_up_str_itos(e);
+            return;
+        }
+        if (seq.str.is_stoi(e)) {
+            repair_up_str_stoi(e);
+            return;
+        }
+        if (seq.str.is_length(e)) {
+            repair_up_str_length(e);
+            return;
+        }
+        if (seq.str.is_index(e)) {
+            repair_up_str_indexof(e);
+            return;
+        }
         if (seq.is_string(e->get_sort())) {
             if (is_value(e))
                 return;
             strval0(e) = strval1(e);
             ctx.new_value_eh(e);
-            return;
-        }
-
-        if (seq.str.is_length(e)) {
-            repair_up_str_length(e);
-            return;
-        }
-
-        if (seq.str.is_index(e)) {
-            repair_up_str_indexof(e);
             return;
         }
 
@@ -469,6 +488,35 @@ namespace sls {
             m_str_updates.push_back({ x, ch + val_x, 1 });            
         }
         return apply_update();
+    }
+
+    void seq_plugin::repair_up_str_stoi(app* e) {
+        expr* x;
+        VERIFY(seq.str.is_stoi(e, x));
+
+        rational val_e;
+        rational val_x(strval0(x).encode().c_str());
+        VERIFY(a.is_numeral(ctx.get_value(e), val_e));
+        if (val_e.is_unsigned() && val_e == val_x)
+            return;
+        if (val_x < 0)
+            update(e, rational(0));
+        else
+            update(e, val_x);
+    }
+
+    void seq_plugin::repair_up_str_itos(app* e) {
+        expr* x;
+        VERIFY(seq.str.is_itos(e, x));
+        rational val_x;
+        VERIFY(a.is_numeral(ctx.get_value(x), val_x));
+        rational val_e(strval0(e).encode().c_str());        
+        if (val_x.is_unsigned() && val_x == val_e)
+            return;
+        if (val_x < 0)
+            update(e, zstring());
+        else
+            update(e, zstring(val_x.to_string()));
     }
 
     void seq_plugin::repair_up_str_length(app* e) {
@@ -566,21 +614,33 @@ namespace sls {
             if (seq.is_string(to_app(e)->get_arg(0)->get_sort()))
                 return repair_down_str_indexof(e);
             break;
+        case OP_STRING_CONST:
+            UNREACHABLE();
+            break;
+        case OP_STRING_ITOS:
+            return repair_down_str_itos(e);
+        case OP_STRING_STOI:
+            return repair_down_str_stoi(e);
+        case OP_STRING_UBVTOS:
+        case OP_STRING_SBVTOS:
+        case OP_STRING_TO_CODE:
+        case OP_STRING_FROM_CODE:
         case OP_SEQ_UNIT:
-        case OP_SEQ_REPLACE:
         case OP_SEQ_NTH:
         case OP_SEQ_NTH_I:
         case OP_SEQ_NTH_U:
-        case OP_SEQ_LAST_INDEX:
-        case OP_SEQ_TO_RE:
-        case OP_SEQ_IN_RE:
+        case OP_SEQ_REPLACE:
         case OP_SEQ_REPLACE_RE_ALL:
         case OP_SEQ_REPLACE_RE:
         case OP_SEQ_REPLACE_ALL:
         case OP_SEQ_MAP:
         case OP_SEQ_MAPI:
         case OP_SEQ_FOLDL:
-        case OP_SEQ_FOLDLI:           
+        case OP_SEQ_FOLDLI:
+
+        case OP_SEQ_TO_RE:
+        case OP_SEQ_IN_RE:
+
         case OP_RE_PLUS:            
         case OP_RE_STAR:
         case OP_RE_OPTION:
@@ -598,21 +658,41 @@ namespace sls {
         case OP_RE_OF_PRED:
         case OP_RE_REVERSE:
         case OP_RE_DERIVATIVE:
-        case OP_STRING_CONST:
-        case OP_STRING_ITOS:
-        case OP_STRING_STOI:
-        case OP_STRING_UBVTOS:
-        case OP_STRING_SBVTOS:
         case OP_STRING_LT:
         case OP_STRING_LE:
-        case OP_STRING_IS_DIGIT:
-        case OP_STRING_TO_CODE:
-        case OP_STRING_FROM_CODE:
-        default:            
-            break;                      
+        case OP_STRING_IS_DIGIT:            
+            break;
+        default:    
+            verbose_stream() << "unexpected repair down " << mk_bounded_pp(e, m) << "\n";
+            UNREACHABLE();
         }
         verbose_stream() << "nyi repair down " << mk_bounded_pp(e, m) << "\n";
         return false;
+    }
+
+    bool seq_plugin::repair_down_str_itos(app* e) {
+        expr* x;
+        VERIFY(seq.str.is_itos(e, x));
+        zstring se = strval0(e);
+        rational r(se.encode().c_str());
+        if (r.is_int())
+            m_int_updates.push_back({ x, r, 1 });
+        else
+            m_int_updates.push_back({ x, rational(-1 - ctx.rand(10)), 1 });
+
+        return apply_update();
+    }
+
+    bool seq_plugin::repair_down_str_stoi(app* e) {
+        expr* x;
+        rational r;
+        VERIFY(seq.str.is_stoi(e, x));
+        VERIFY(a.is_numeral(ctx.get_value(e), r) && r.is_int());
+        if (r < 0)
+            return false;
+        zstring r_val(r.to_string());
+        m_str_updates.push_back({ x, r_val, 1 });
+        return apply_update();        
     }
 
     bool seq_plugin::repair_down_str_at(app* e) {

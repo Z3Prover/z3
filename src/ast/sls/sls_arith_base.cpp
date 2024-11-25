@@ -1952,6 +1952,8 @@ namespace sls {
             for (unsigned j = i + 1; j < args.get_num_args(); ++j) {
                 auto v1 = mk_term(args.get_arg(i));
                 auto v2 = mk_term(args.get_arg(j));
+                verbose_stream() << "repair " << v1 << " " << v2 << " " 
+                    << value(v1) << " " << value(v2) << "\n";
                 if (value(v1) == value(v2)) {
                     auto new_value = value(v1) + num_t(1);
                     if (new_value == value(v2))

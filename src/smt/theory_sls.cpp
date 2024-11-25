@@ -76,6 +76,10 @@ namespace smt {
         return ctx.get_num_bool_vars();
     }
 
+    void theory_sls::init_search_eh() {
+        m_init_search = true;
+    }
+
     void theory_sls::finalize() {
         if (!m_smt_plugin)
             return;
@@ -84,11 +88,14 @@ namespace smt {
         m_smt_plugin->finalize(m_model);
         m_model = nullptr;
         m_smt_plugin = nullptr;        
+        m_init_search = false;
     }
 
     void theory_sls::propagate() {
-        if (!m_smt_plugin)
+        if (!m_init_search)
             return;
+        if (!m_smt_plugin)
+            m_smt_plugin = alloc(sls::smt_plugin, * this);
         if (!m_checking) {
             expr_ref_vector fmls(m);
             for (unsigned i = 0; i < ctx.get_num_asserted_formulas(); ++i)
@@ -104,6 +111,7 @@ namespace smt {
             m_smt_plugin->collect_statistics(m_st);
             m_smt_plugin->finalize(m_model);
             m_smt_plugin = nullptr;
+            m_init_search = false;
         }
     }    
 
@@ -183,8 +191,9 @@ namespace smt {
             finalize();
         smt_params p(ctx.get_fparams());
         m_parallel_mode = p.m_sls_parallel;
-        m_smt_plugin = alloc(sls::smt_plugin, *this);    
+        m_smt_plugin = nullptr;
         m_checking = false;
+        m_init_search = false;
     }
 
     void theory_sls::collect_statistics(::statistics& st) const {
@@ -216,6 +225,7 @@ namespace smt {
             m_smt_plugin->collect_statistics(m_st);
             m_smt_plugin->finalize(m_model);
             m_smt_plugin = nullptr;
+            m_init_search = false;
         }
     }
 
