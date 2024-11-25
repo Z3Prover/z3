@@ -15,7 +15,7 @@ Author:
 
 Notes:
 
-- regex
+Regex
   Assume regexes are ground and for zstring.
   to repair: 
      x in R
@@ -28,11 +28,29 @@ Notes:
        - sample extension of x that is not in R
        - sample prefix of x in R, with extension not in R
 
-- sequences
+     next_tokens(R) = { a | exists s: as in R }
+     delta(a, R) = derivative of R with respect to a.
+     delta(s, R) = delta(s[n-1], delta(s[0..n-2], R))
+     nullable(R) = epsilon in R
+     empty(R) = R is empty
 
-- use length constraints as tabu for updates.
+     samples(x, R): 
+        yield choose(R)
+        for i in 0..|x|-1 & delta(x[0..i], R) != empty:
+           yield x[0..i]choose(delta(x[0..i], R))
+         
+     choose(R):
+       if nullable(R):
+          return epsilon
+       T = next_tokens(R)
+       a = choose(T)  use a bias on characters that make progress (skip *).
+       return choose(delta(a, R))
 
-- alternate to lookahead strategy:
+Sequences
+
+Use length constraints as tabu for updates.
+
+Alternate to lookahead strategy:
   Lookahead repair based of changing leaves:
   With each predicate, track the leaves of non-value arguments.
   Suppose x is a leaf string used in a violated predicate.
@@ -51,6 +69,9 @@ Notes:
     - label each eval subterm by a timestamp that gets set.
     - strval0 evaluates to strval1 if timestamp matches global timestamp.
     
+Revert bias on long strings:
+- give preference to reset leaves that are assigned to long strings
+- bake in bias for shorter strings into equation solving?
 --*/
 
 #include "ast/sls/sls_seq_plugin.h"
