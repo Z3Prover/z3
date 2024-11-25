@@ -87,7 +87,7 @@ namespace sls {
             var_sort     m_sort;
             arith_op_kind m_op = arith_op_kind::LAST_ARITH_OP;
             unsigned     m_def_idx = UINT_MAX;
-            vector<std::pair<num_t, sat::bool_var>> m_bool_vars;
+            vector<std::pair<num_t, sat::bool_var>> m_ineqs;
             unsigned_vector m_muls;
             unsigned_vector m_adds;
             optional<bound> m_lo, m_hi;
@@ -159,7 +159,7 @@ namespace sls {
        
         stats                        m_stats;
         config                       m_config;
-        scoped_ptr_vector<ineq>      m_bool_vars;
+        scoped_ptr_vector<ineq>      m_ineqs;
         vector<var_info>             m_vars;
         vector<mul_def>              m_muls;
         vector<add_def>              m_adds;
@@ -181,6 +181,9 @@ namespace sls {
 
         unsigned get_num_vars() const { return m_vars.size(); }
 
+        bool is_distinct(expr* e);
+        bool eval_distinct(expr* e);
+        void repair_distinct(expr* e);
         bool eval_is_correct(var_t v);      
         bool repair_mul(mul_def const& md);
         bool repair_add(add_def const& ad);
@@ -219,7 +222,7 @@ namespace sls {
         // double reward(sat::literal lit);
 
         bool sign(sat::bool_var v) const { return !ctx.is_true(sat::literal(v, false)); }
-        ineq* atom(sat::bool_var bv) const { return m_bool_vars.get(bv, nullptr); }        
+        ineq* get_ineq(sat::bool_var bv) const { return m_ineqs.get(bv, nullptr); }        
         num_t dtt(bool sign, ineq const& ineq) const { return dtt(sign, ineq.m_args_value, ineq); }
         num_t dtt(bool sign, num_t const& args_value, ineq const& ineq) const;
         num_t dtt(bool sign, ineq const& ineq, var_t v, num_t const& new_value) const;

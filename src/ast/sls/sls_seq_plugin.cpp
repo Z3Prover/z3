@@ -12,6 +12,44 @@ Abstract:
 Author:
 
     Nikolaj Bjorner (nbjorner) 2024-11-22
+
+Notes:
+
+- regex
+  Assume regexes are ground and for zstring.
+  to repair: 
+     x in R
+     - get prefix of x that can be in R
+     - extend prefix by sampled string y, such that prefix(x)y in R
+
+     x not in R:
+     - assume x is in R, then 
+       - sample prefix of x that is not in R
+       - sample extension of x that is not in R
+       - sample prefix of x in R, with extension not in R
+
+- sequences
+
+- use length constraints as tabu for updates.
+
+- alternate to lookahead strategy:
+  Lookahead repair based of changing leaves:
+  With each predicate, track the leaves of non-value arguments.
+  Suppose x is a leaf string used in a violated predicate.
+    then we can repair x by taking sub-string, or adding a character, 
+    or adding x with an existing constant within the domain of known constants.
+    or truncating x to the empty string.
+  Suppose z is a leaf integer.
+    we can increment, decrement z, set z to -1, 0, or a known bound.
+  Lookahead works by updating strval1 starting from the leaf.
+  - create a priority buffer array of vector<ptr_vector<expr>> based on depth.
+  - walk from lowest depth up. Reset each inner buffer when processed. Parents always 
+    have higher depth.
+  - calculate repair/break score when hitting a predicate based on bval1.
+  - strval1 and bval1 are modified by 
+    - use a global timestamp.
+    - label each eval subterm by a timestamp that gets set.
+    - strval0 evaluates to strval1 if timestamp matches global timestamp.
     
 --*/
 
@@ -55,6 +93,42 @@ namespace sls {
     }
     
     bool seq_plugin::is_sat() {
+
+        for (expr* e : ctx.subterms()) {
+            expr* x, * y, * z = nullptr;
+            rational r;
+            // coherence between string / integer functions is delayed
+            // so we check and enforce it here.
+            if (seq.str.is_length(e, x) && seq.is_string(x->get_sort())) {
+                auto sx = strval0(x);
+                auto ve = ctx.get_value(e);
+                if (a.is_numeral(ve, r) && r == sx.length())
+                    continue;
+                update(e, rational(sx.length()));
+                return false;
+            }
+            if ((seq.str.is_index(e, x, y, z) || seq.str.is_index(e, x, y)) && seq.is_string(x->get_sort())) {
+                auto sx = strval0(x);
+                auto sy = strval0(y);
+                rational val_z, val_e;
+                if (z) {
+                    VERIFY(a.is_numeral(ctx.get_value(z), val_z));
+                }
+                VERIFY(a.is_numeral(ctx.get_value(e), val_e));
+                // case: x is empty, val_z = 0 
+                if (val_e < 0 && (val_z < 0 || (val_z >= sx.length() && sx.length() > 0)))
+                    continue;
+                if (val_z.is_unsigned() && rational(sx.indexofu(sy, val_z.get_unsigned())) == val_e)
+                    continue;
+                if (val_z < 0 || (val_z >= sx.length() && sx.length() > 0)) 
+                    update(e, rational(-1));                    
+                else                 
+                    update(e, rational(sx.indexofu(sy, val_z.get_unsigned())));
+                return false;
+            }
+            // last-index-of
+            // str-to-int
+        }
         return true;
     }
     
@@ -66,9 +140,8 @@ namespace sls {
 
             if (is_app(e) && to_app(e)->get_family_id() == m_fid &&
                 all_of(*to_app(e), [&](expr* arg) { return is_value(arg); })) 
-                get_eval(e).is_value = true;
-            return;
-        }        
+                get_eval(e).is_value = true;            
+        }   
     }
     
     std::ostream& seq_plugin::display(std::ostream& out) const {
@@ -82,7 +155,7 @@ namespace sls {
             auto* ev = get_eval(t);
             if (!ev)
                 continue;
-            out << mk_pp(t, m) << " -> " << ev->val0.svalue;
+            out << mk_pp(t, m) << " -> \"" << ev->val0.svalue << "\"";
             if (ev->min_length > 0)
                 out << " min-length: " << ev->min_length;
             if (ev->max_length < UINT_MAX)
@@ -145,6 +218,7 @@ namespace sls {
 
     bool seq_plugin::bval1_seq(app* e) {
         expr* a, *b;
+        SASSERT(e->get_family_id() == seq.get_family_id());
         switch (e->get_decl_kind()) {
         case OP_SEQ_CONTAINS: 
             VERIFY(seq.str.is_contains(e, a, b));
@@ -177,6 +251,7 @@ namespace sls {
             NOT_IMPLEMENTED_YET();
             break;
         default:
+            UNREACHABLE();
             break;
         }
         return false;
@@ -267,6 +342,8 @@ namespace sls {
             case OP_RE_DERIVATIVE:
             case OP_STRING_ITOS:
             case OP_STRING_FROM_CODE:
+            case OP_STRING_UBVTOS:
+            case OP_STRING_SBVTOS:
                 verbose_stream() << "strval1 " << mk_bounded_pp(e, m) << "\n";
                 NOT_IMPLEMENTED_YET();
                 break;
@@ -291,8 +368,6 @@ namespace sls {
             case OP_SEQ_INDEX:
             case OP_SEQ_LAST_INDEX:
             case OP_STRING_STOI:
-            case OP_STRING_UBVTOS:
-            case OP_STRING_SBVTOS:
             case OP_STRING_LT:
             case OP_STRING_LE:
             case OP_STRING_IS_DIGIT:
@@ -411,6 +486,7 @@ namespace sls {
         bool is_true = ctx.is_true(e);
         expr* x, * y;
         VERIFY(m.is_eq(e, x, y));
+        verbose_stream() << is_true << ": " << mk_bounded_pp(e, m, 3) << "\n";
         if (ctx.is_true(e)) {
             if (!is_value(x))
                 m_str_updates.push_back({ x, strval1(y), 1 });
@@ -768,14 +844,40 @@ namespace sls {
     bool seq_plugin::repair_down_str_concat(app* e) {
         zstring val_e = strval0(e);
         unsigned len_e = val_e.length();
-        // sample a ranom partition.
+        // sample a random partition.
+        // the current sample algorithm isn't uniformly sampling 
+        // each possible partition, but favors what would be a 
+        // normal distribution
         sbuffer<unsigned> lengths(e->get_num_args(), 0);
-        for (unsigned i = 0; i < len_e; ++i)
-            lengths[ctx.rand(lengths.size())]++;
-        unsigned i = 0, len_prefix = 0;
+        sbuffer<unsigned> non_values;
+        unsigned i = 0;
+        //verbose_stream() << "repair concat " << mk_bounded_pp(e, m) << "\n";
+        for (expr* arg : *e) {
+            ++i;
+            if (!is_value(arg)) {
+                non_values.push_back(i - 1);
+                continue;
+            }
+            auto const& arg_val = strval0(arg);
+            if (arg_val.length() > len_e)
+                return false;
+            lengths[i - 1] = arg_val.length();
+            len_e -= arg_val.length();
+        }
+        // TODO: take duplications into account
+        while (len_e > 0 && !non_values.empty()) {
+            lengths[non_values[ctx.rand(non_values.size())]]++;
+            --len_e;
+        }
+        if (len_e > 0 && non_values.empty())
+            return false;
+        i = 0;
+        //verbose_stream() << "repair concat2 " << mk_bounded_pp(e, m) << "\n";
+        unsigned len_prefix = 0;
         for (expr* arg : *e) {
             auto len = lengths[i];
             auto val_arg = val_e.extract(len_prefix, len);
+            //verbose_stream() << "repair concat3 " << mk_bounded_pp(arg, m) << " " << val_arg << "\n";
             if (!update(arg, val_arg))
                 return false;
             ++i;
@@ -783,6 +885,7 @@ namespace sls {
         }
         return true;
     }
+
 
 
     bool seq_plugin::apply_update() {
@@ -813,9 +916,8 @@ namespace sls {
             if (is_str_update) {
                 auto [e, value, score] = m_str_updates[i];
 
-                verbose_stream() << "set value " << mk_bounded_pp(e, m) << " := \"" << value << "\"\n";
-
                 if (update(e, value)) {
+                    verbose_stream() << "set value " << mk_bounded_pp(e, m) << " := \"" << value << "\"\n";
                     m_str_updates.reset();
                     m_int_updates.reset();
                     return true;
@@ -845,10 +947,12 @@ namespace sls {
     }
 
     bool seq_plugin::update(expr* e, zstring const& value) {
-        if (is_value(e))
-            return false;
         if (value == strval0(e))
             return true;
+        if (is_value(e))
+            return false;
+        if (get_eval(e).min_length > value.length() || get_eval(e).max_length < value.length())
+            return false;
         strval0(e) = value;
         ctx.new_value_eh(e);
         return true;
@@ -878,6 +982,34 @@ namespace sls {
                 }
             }
         }
+        for (auto t : ctx.subterms()) {
+            if (seq.str.is_string(t)) {
+                auto& ev = get_eval(t);
+                ev.min_length = strval0(t).length();
+                ev.max_length = strval0(t).length();
+            }
+            if (seq.str.is_concat(t)) {
+                unsigned min_length = 0;
+                unsigned max_length = 0;
+                for (expr* arg : *to_app(t)) {
+                    auto& ev = get_eval(arg);
+                    min_length += ev.min_length;
+                    if (ev.max_length < UINT_MAX && max_length != UINT_MAX)
+                        max_length += ev.max_length;
+                    else 
+                        max_length = UINT_MAX;
+                }
+                auto& ev = get_eval(t);
+                ev.min_length = std::max(min_length, ev.min_length);
+                ev.max_length = std::min(max_length, ev.max_length);
+            }
+            if (seq.str.is_at(t)) {
+                auto& ev = get_eval(t);
+                ev.max_length = 1;
+            }
+            // extract with constant length.
+
+        }
     }
     
     void seq_plugin::repair_literal(sat::literal lit) {
@@ -894,7 +1026,5 @@ namespace sls {
         if (seq.is_seq(e))
             return get_eval(e).is_value;
         return m.is_value(e);
-    }
-
-    
+    }    
 }
