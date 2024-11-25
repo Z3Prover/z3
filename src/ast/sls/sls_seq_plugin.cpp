@@ -394,6 +394,7 @@ namespace sls {
             if (is_value(e))
                 return;
             strval0(e) = strval1(e);
+            ctx.new_value_eh(e);
             return;
         }
 
@@ -1007,8 +1008,15 @@ namespace sls {
                 auto& ev = get_eval(t);
                 ev.max_length = 1;
             }
-            // extract with constant length.
-
+            expr* x, * offset, * len;
+            rational len_r;
+            if (seq.str.is_extract(t, x, offset, len) && a.is_numeral(len, len_r)) {
+                auto& ev = get_eval(t);
+                if (len_r < 0)
+                    ev.max_length = 0;
+                if (len_r.is_unsigned())
+                    ev.max_length = std::min(ev.max_length, len_r.get_unsigned());
+            }
         }
     }
     
@@ -1018,6 +1026,7 @@ namespace sls {
         if (!is_seq_predicate(e))
             return;
         auto a = to_app(e);
+        // verbose_stream() << "repair " << lit << " " << mk_pp(e, m) << " " << bval1(e) << "\n";
         if (bval1(e) == lit.sign())
             ctx.flip(lit.var());
     }
