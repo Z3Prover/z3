@@ -44,7 +44,7 @@ namespace sls {
         arith_util a;
         scoped_ptr_vector<eval> m_values;
         indexed_uint_set m_chars;
-        bool m_initialized = false;
+        bool m_initialized = false;        
 
         struct str_update {
             expr* e;
@@ -81,13 +81,24 @@ namespace sls {
         bool repair_down_str_suffixof(app* e);
         bool repair_down_str_itos(app* e);
         bool repair_down_str_stoi(app* e);
+        bool repair_down_in_re(app* e);
 
         void repair_up_str_length(app* e);
         void repair_up_str_indexof(app* e);
         void repair_up_str_itos(app* e);
         void repair_up_str_stoi(app* e);
 
+        // regex functionality
+        
+        // enumerate set of strings that can match a prefix of regex r.
+        void choose(expr* r, unsigned k, zstring& prefix, vector<zstring>& result);
 
+        // enumerate set of possible next chars, including possibly sampling from m_chars for whild-cards.
+        void next_char(expr* r, unsigned_vector& chars);
+
+        bool is_in_re(zstring const& s, expr* r);
+
+        // access evaluation
         bool is_seq_predicate(expr* e);
 
         eval& get_eval(expr* e);

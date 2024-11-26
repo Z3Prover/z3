@@ -74,11 +74,16 @@ Revert bias on long strings:
 - bake in bias for shorter strings into equation solving?
 
 Equality solving using stochastic Nelson.
+- When solving for an equality w = v, first convert them into two vectors by removing concatenations.
+  The updates are then performed on the arguments to concatenations and not the concatenations themselves.
+  This saves some amount of spurious work when pushing assignments down over concatenations, which is 
+  what the current first version of the solver does.
 - Given equality where current assignment does not satisfy it:
   - Xw = v:
      - let X' range over prefixes of X that matches v.
      - non-deterministic set X <- strval0(X')
-     - non-deterministic set X <- strval0(X') + 'a' where strval0(X') + 'a' matches prefix of strval0(v), and X' is longest prefix of X that matches v.
+     - non-deterministic set X <- strval0(X') + 'a' where strval0(X') + 'a' 
+       matches prefix of strval0(v), and X' is longest prefix of X that matches v.
   - If X fully matches a prefix of v, then, in addition to the rules above:
     - consume constant character from strval0(X)w = v
     - reveal the next variable to solve for.
@@ -90,6 +95,8 @@ Equality solving using stochastic Nelson.
 #include "ast/sls/sls_seq_plugin.h"
 #include "ast/sls/sls_context.h"
 #include "ast/ast_pp.h"
+#include "ast/rewriter/seq_rewriter.h"
+#include "ast/rewriter/th_rewriter.h"
 
 
 namespace sls {
@@ -258,7 +265,6 @@ namespace sls {
             VERIFY(seq.str.is_contains(e, a, b));
             if (seq.is_string(a->get_sort())) 
                 return strval0(a).contains(strval0(b));
-
             NOT_IMPLEMENTED_YET();
             break;
         case OP_SEQ_PREFIX:
@@ -274,6 +280,11 @@ namespace sls {
             NOT_IMPLEMENTED_YET();
             break;
         case OP_SEQ_IN_RE:
+            VERIFY(seq.str.is_in_re(e, a, b));
+            if (seq.is_string(a->get_sort()))
+                return is_in_re(strval0(a), b);
+            NOT_IMPLEMENTED_YET();
+            break;
         case OP_SEQ_NTH:
         case OP_SEQ_NTH_I:
         case OP_SEQ_NTH_U:
@@ -420,35 +431,24 @@ namespace sls {
     }
     
     void seq_plugin::repair_up(app* e) {
-
         if (m.is_bool(e))
             return;
-
-        if (seq.str.is_itos(e)) {
+        if (is_value(e))
+            return;
+        if (seq.str.is_itos(e))
             repair_up_str_itos(e);
-            return;
-        }
-        if (seq.str.is_stoi(e)) {
+        else if (seq.str.is_stoi(e))
             repair_up_str_stoi(e);
-            return;
-        }
-        if (seq.str.is_length(e)) {
+        else if (seq.str.is_length(e))
             repair_up_str_length(e);
-            return;
-        }
-        if (seq.str.is_index(e)) {
+        else if (seq.str.is_index(e))
             repair_up_str_indexof(e);
-            return;
-        }
-        if (seq.is_string(e->get_sort())) {
-            if (is_value(e))
-                return;
+        else if (seq.is_string(e->get_sort())) {
             strval0(e) = strval1(e);
             ctx.new_value_eh(e);
-            return;
         }
-
-        verbose_stream() << "repair up nyi: " << mk_bounded_pp(e, m) << "\n";
+        else 
+            verbose_stream() << "repair up nyi: " << mk_bounded_pp(e, m) << "\n";
     }
     
     bool seq_plugin::repair_down(app* e) {
@@ -460,6 +460,7 @@ namespace sls {
             return repair_down_seq(e);
         if (m.is_eq(e))
             return repair_down_eq(e);
+
 
         NOT_IMPLEMENTED_YET();
         return false;
@@ -621,6 +622,10 @@ namespace sls {
             return repair_down_str_itos(e);
         case OP_STRING_STOI:
             return repair_down_str_stoi(e);
+        case OP_SEQ_IN_RE:
+            if (seq.is_string(to_app(e)->get_arg(0)->get_sort()))
+                return repair_down_in_re(e);
+            break;
         case OP_STRING_UBVTOS:
         case OP_STRING_SBVTOS:
         case OP_STRING_TO_CODE:
@@ -639,8 +644,6 @@ namespace sls {
         case OP_SEQ_FOLDLI:
 
         case OP_SEQ_TO_RE:
-        case OP_SEQ_IN_RE:
-
         case OP_RE_PLUS:            
         case OP_RE_STAR:
         case OP_RE_OPTION:
@@ -679,7 +682,6 @@ namespace sls {
             m_int_updates.push_back({ x, r, 1 });
         else
             m_int_updates.push_back({ x, rational(-1 - ctx.rand(10)), 1 });
-
         return apply_update();
     }
 
@@ -1137,4 +1139,132 @@ namespace sls {
             return get_eval(e).is_value;
         return m.is_value(e);
     }    
+
+    // Regular expressions
+
+    bool seq_plugin::is_in_re(zstring const& s, expr* r) {
+        expr_ref sval(seq.str.mk_string(s), m);
+        th_rewriter rw(m);
+        expr_ref in_re(seq.re.mk_in_re(sval, r), m);
+        rw(in_re);
+        SASSERT(m.limit().is_canceled() || m.is_true(in_re) || m.is_false(in_re));
+        return m.is_true(in_re);
+    }
+
+    bool seq_plugin::repair_down_in_re(app* e) {
+        expr* x, * y;
+        VERIFY(seq.str.is_in_re(e, x, y));
+        auto info = seq.re.get_info(y);
+        if (!info.interpreted)
+            return false;
+        auto s = strval0(x);
+        expr_ref xval(seq.str.mk_string(s), m);
+        expr_ref in_re(seq.re.mk_in_re(xval, y), m);
+        th_rewriter rw(m);
+        rw(in_re);
+        SASSERT(m.limit().is_canceled() || m.is_true(in_re) || m.is_false(in_re));
+        if (m.is_true(in_re) == ctx.is_true(e))
+            return true;
+
+        if (is_value(x))
+            return false;
+
+        vector<zstring> conts;
+        expr_ref d_r(y, m);
+        seq_rewriter seqrw(m);
+        for (unsigned i = 0; i < s.length(); ++i) {
+            verbose_stream() << "Derivative " << s.extract(0, i) << ": " << d_r << "\n";
+            if (seq.re.is_empty(d_r))
+                break;
+            zstring prefix = s.extract(0, i);
+            choose(d_r, 2, prefix, conts);
+            expr_ref ch(seq.str.mk_char(s[i]), m);
+            d_r = seqrw.mk_derivative(ch, d_r);            
+        }
+        if (!seq.re.is_empty(d_r)) 
+            choose(d_r, 2, s, conts);        
+
+        verbose_stream() << "repair in_re " << mk_pp(e, m) << " " << s << "\n";
+        for (auto& str : conts) 
+            verbose_stream() << "prefix " << str << "\n";
+        
+        // TODO: do some length analysis to prune out short candidates when there are longer ones.
+        // TODO: when matching .*"bcd" with string ab, the extension abc is more interesting than aba.
+        if (ctx.is_true(e)) {
+            for (auto& str : conts)
+                m_str_updates.push_back({ x, str, 1 });
+        }
+        else {
+            for (auto& str : conts)
+                m_str_updates.push_back({ x, str + m_chars[ctx.rand(m_chars.size())], 1});
+        }
+        return apply_update();
+    }
+
+    void seq_plugin::next_char(expr* r, unsigned_vector& chars) {
+        SASSERT(seq.is_re(r));
+        expr* x, * y;
+        zstring s;
+        if (seq.re.is_concat(r, x, y)) {
+            auto info = seq.re.get_info(x);
+            next_char(x, chars);
+            if (info.nullable == l_true)
+                next_char(y, chars);
+        }
+        else if (seq.re.is_to_re(r, x)) {
+            if (seq.str.is_string(x, s) && !s.empty())
+                chars.push_back(s[0]);            
+        }
+        else if (seq.re.is_union(r, x, y)) {
+            next_char(x, chars);
+            next_char(y, chars);
+        }
+        else if (seq.re.is_range(r, x, y)) {
+            zstring s1, s2;
+            seq.str.is_string(x, s1);
+            seq.str.is_string(y, s2);
+            if (s1.length() == 1 && s2.length() == 1 && s1[0] <= s2[0]) {
+                chars.push_back(s1[0] + ctx.rand(s2[0] - s1[0] + 1));
+                chars.push_back(s1[0]);
+                chars.push_back(s2[0]);
+            }
+        }
+        else if (seq.re.is_star(r, x) || seq.re.is_plus(r, x)) {
+            next_char(x, chars);
+        }
+        else if (seq.re.is_empty(r)) {
+            ;
+        }
+        else if (seq.re.is_full_seq(r)) {
+            if (!m_chars.empty())
+                chars.push_back(m_chars[ctx.rand(m_chars.size())]);
+        }
+        else if (seq.re.is_full_char(r)) {
+            if (!m_chars.empty())
+                chars.push_back(m_chars[ctx.rand(m_chars.size())]);
+        }
+        else {
+            verbose_stream() << "regex nyi " << mk_bounded_pp(r, m) << "\n";
+            NOT_IMPLEMENTED_YET();
+        }
+    }
+
+    void seq_plugin::choose(expr* r, unsigned k, zstring& prefix, vector<zstring>& result) {
+        auto info = seq.re.get_info(r);
+        result.push_back(prefix);
+        if (k == 0)
+            return;
+        unsigned_vector chars;
+        next_char(r, chars);
+        std::stable_sort(chars.begin(), chars.end());
+        auto it = std::unique(chars.begin(), chars.end());
+        chars.shrink((unsigned)(it - chars.begin()));
+        for (auto ch : chars) {
+            expr_ref c(seq.str.mk_char(ch), m);
+            seq_rewriter rw(m);
+            expr_ref r2 = rw.mk_derivative(c, r);
+            zstring prefix2 = prefix + zstring(ch);
+            choose(r2, k - 1, prefix2, result);
+        }        
+    }
 }
