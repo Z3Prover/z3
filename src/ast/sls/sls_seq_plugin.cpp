@@ -1196,7 +1196,7 @@ namespace sls {
         }
         else {
             for (auto& str : conts)
-                m_str_updates.push_back({ x, str + m_chars[ctx.rand(m_chars.size())], 1});
+                m_str_updates.push_back({ x, str + zstring(m_chars[ctx.rand(m_chars.size())]), 1});
         }
         return apply_update();
     }
