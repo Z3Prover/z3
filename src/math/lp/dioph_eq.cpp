@@ -236,9 +236,8 @@ namespace lp {
         std_vector<unsigned> m_fresh_definitions;  // seems only needed in the debug
         // version in remove_fresh_vars
 
-        unsigned m_conflict_index =
-            -1;  // m_entries[m_conflict_index] gives the conflict
-        unsigned m_max_number_of_iterations = 1000;
+        unsigned m_conflict_index = -1;  // m_entries[m_conflict_index] gives the conflict
+        unsigned m_max_number_of_iterations = 100;
         unsigned m_number_of_iterations;
         struct branch {
             unsigned m_j = UINT_MAX;
@@ -355,6 +354,8 @@ namespace lp {
             m_entries.clear();
             m_var_register.clear();
             m_number_of_iterations = 0;
+            m_branch_stack.clear();
+            m_lra_level = 0;
             for (unsigned j = 0; j < lra.column_count(); j++) {
                 if (!lra.column_is_int(j) || !lra.column_has_term(j))
                     continue;
@@ -1102,7 +1103,9 @@ namespace lp {
             if (ret == lia_move::sat || ret == lia_move::conflict) {
                 return ret;
             }
-            SASSERT(ret == lia_move::undef);            
+            SASSERT(ret == lia_move::undef);
+            m_max_number_of_iterations = std::max((unsigned)5, (unsigned)m_max_number_of_iterations/2);
+            
             return lia_move::undef;
         }
 
