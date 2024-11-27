@@ -1169,7 +1169,7 @@ namespace sls {
         if (is_value(x))
             return false;
 
-        vector<zstring> conts;
+        vector<lookahead> lookaheads;
         expr_ref d_r(y, m);
         seq_rewriter seqrw(m);
         for (unsigned i = 0; i < s.length(); ++i) {
@@ -1177,25 +1177,45 @@ namespace sls {
             if (seq.re.is_empty(d_r))
                 break;
             zstring prefix = s.extract(0, i);
-            choose(d_r, 2, prefix, conts);
+            choose(d_r, 2, prefix, lookaheads);
             expr_ref ch(seq.str.mk_char(s[i]), m);
             d_r = seqrw.mk_derivative(ch, d_r);            
         }
-        if (!seq.re.is_empty(d_r)) 
-            choose(d_r, 2, s, conts);        
+        unsigned current_min_length = UINT_MAX;
+        if (!seq.re.is_empty(d_r)) {
+            choose(d_r, 2, s, lookaheads);
+            current_min_length = info.min_length;
+        }
 
-        verbose_stream() << "repair in_re " << mk_pp(e, m) << " " << s << "\n";
-        for (auto& str : conts) 
-            verbose_stream() << "prefix " << str << "\n";
+        unsigned global_min_length = UINT_MAX;
+        for (auto& [str, min_length] : lookaheads)
+            global_min_length = std::max(min_length, global_min_length);
+
+        verbose_stream() << "repair in_re " << current_min_length << " " 
+            << global_min_length << " " << mk_pp(e, m) << " " << s << "\n";
+
         
         // TODO: do some length analysis to prune out short candidates when there are longer ones.
         // TODO: when matching .*"bcd" with string ab, the extension abc is more interesting than aba.
         if (ctx.is_true(e)) {
-            for (auto& str : conts)
-                m_str_updates.push_back({ x, str, 1 });
+            for (auto& [str, min_length] : lookaheads) {
+                if (min_length == UINT_MAX && current_min_length < UINT_MAX)
+                    continue;
+                if (global_min_length < min_length)
+                    continue;
+                double score = 0.001;
+                if (min_length < UINT_MAX && s.length() < str.length()) {
+                    // reward small lengths
+                    // penalize size differences (unless min_length decreases)
+                    score = 1 << (current_min_length - min_length);
+                    score /= ((double)abs((int)s.length() - (int)str.length()) + 1);
+                }
+                verbose_stream() << "prefix " << score << " " << min_length << ": " << str << "\n";
+                m_str_updates.push_back({ x, str, score });
+            }
         }
         else {
-            for (auto& str : conts)
+            for (auto& [str, min_length] : lookaheads)
                 m_str_updates.push_back({ x, str + zstring(m_chars[ctx.rand(m_chars.size())]), 1});
         }
         return apply_update();
@@ -1249,9 +1269,9 @@ namespace sls {
         }
     }
 
-    void seq_plugin::choose(expr* r, unsigned k, zstring& prefix, vector<zstring>& result) {
+    void seq_plugin::choose(expr* r, unsigned k, zstring& prefix, vector<lookahead>& result) {
         auto info = seq.re.get_info(r);
-        result.push_back(prefix);
+        result.push_back({ prefix, info.min_length });
         if (k == 0)
             return;
         unsigned_vector chars;

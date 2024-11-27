@@ -63,7 +63,9 @@ namespace smt {
     class model_generator;
     class context;
 
-    struct cancel_exception {};
+    struct cancel_exception : public std::exception {
+        char const * what() const noexcept override { return "smt-canceled"; }
+    };
 
     struct enode_pp {
         context const& ctx;

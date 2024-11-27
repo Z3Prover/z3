@@ -49,12 +49,12 @@ namespace sls {
         struct str_update {
             expr* e;
             zstring value;
-            unsigned m_score;
+            double m_score;
         };
         struct int_update {
             expr* e;
             rational value;
-            unsigned m_score;
+            double m_score;
         };
         vector<str_update> m_str_updates;
         vector<int_update> m_int_updates;
@@ -91,7 +91,11 @@ namespace sls {
         // regex functionality
         
         // enumerate set of strings that can match a prefix of regex r.
-        void choose(expr* r, unsigned k, zstring& prefix, vector<zstring>& result);
+        struct lookahead {
+            zstring s;
+            unsigned min_depth;
+        };
+        void choose(expr* r, unsigned k, zstring& prefix, vector<lookahead>& result);
 
         // enumerate set of possible next chars, including possibly sampling from m_chars for whild-cards.
         void next_char(expr* r, unsigned_vector& chars);
