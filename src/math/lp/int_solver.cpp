@@ -34,6 +34,7 @@ namespace lp {
         int_solver&         lia;
         lar_solver&         lra;
         lar_core_solver&    lrac;
+        dioph_eq            m_dio;  
         unsigned            m_number_of_calls = 0;
         lar_term            m_t;  // the term to return in the cut
         bool                m_upper;           // cut is an upper bound
@@ -48,7 +49,7 @@ namespace lp {
             return lra.column_is_int(j) && (!lia.value_is_int(j));
         }
 
-        imp(int_solver& lia): lia(lia), lra(lia.lra), lrac(lia.lrac), m_hnf_cutter(lia), m_gcd(lia)  {
+        imp(int_solver& lia): lia(lia), lra(lia.lra), lrac(lia.lrac), m_hnf_cutter(lia), m_gcd(lia), m_dio(lia) {
             m_hnf_cut_period = settings().hnf_cut_period();
             m_dioph_eq_period = settings().m_dioph_eq_period;
         } 
@@ -169,18 +170,17 @@ namespace lp {
         }
 
         lia_move solve_dioph_eq() {
-            dioph_eq de(lia);
-            lia_move r = de.check();
+            lia_move r = m_dio.check();
 
             if (r == lia_move::conflict) {
-                de.explain(*this->m_ex);
+                m_dio.explain(*this->m_ex);
                 m_dioph_eq_period = settings().m_dioph_eq_period;
                 return lia_move::conflict;
             } else if (r == lia_move::branch)  {
                 m_dioph_eq_period = settings().m_dioph_eq_period;
                 return lia_move::branch;
             } 
-			return r;
+            return r;
         }
 
         lp_settings& settings() { return lra.settings(); }
