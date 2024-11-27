@@ -2477,7 +2477,6 @@ namespace smt {
         catch (...) {
             // throwing inside pop is just not cool.
             UNREACHABLE();
-            throw;
         }
 
         // an exception can happen when axioms are reinitialized (because they are rewritten).
