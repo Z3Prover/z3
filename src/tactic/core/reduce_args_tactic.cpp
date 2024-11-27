@@ -62,44 +62,13 @@ Notes:
    where f_1_2, f_1_3 and f_2_3 are new function symbols.
    Using the new map, we can replace the occurrences of f.
 */
+namespace {
+
 class reduce_args_tactic : public tactic {
-    struct     imp;
-    imp *      m_imp;
-
-public:
-    reduce_args_tactic(ast_manager & m);
-
-    tactic * translate(ast_manager & m) override {
-        return alloc(reduce_args_tactic, m);
-    }
-
-    ~reduce_args_tactic() override;
-
-    char const* name() const override { return "reduce_args"; }
-    
-    void operator()(goal_ref const & g, goal_ref_buffer & result) override;
-    void cleanup() override;
-    void user_propagate_register_expr(expr* e) override;
-    void user_propagate_clear() override;
-};
-
-tactic * mk_reduce_args_tactic(ast_manager & m, params_ref const & p) {
-    return clean(alloc(reduce_args_tactic, m));
-}
-
-struct reduce_args_tactic::imp {
-    expr_ref_vector m_vars;
+    expr_ref_vector          m_vars;
     ast_manager &            m;
     bv_util                  m_bv;
     array_util               m_ar;
-
-    
-    imp(ast_manager & m):
-        m_vars(m),
-        m(m),
-        m_bv(m),
-        m_ar(m) {
-    }
 
     static bool is_var_plus_offset(ast_manager& m, bv_util& bv, expr* e, expr*& base) {
         expr *lhs, *rhs;
@@ -325,14 +294,17 @@ struct reduce_args_tactic::imp {
             }
         }
     };
+
+    friend struct reduce_args_rw_cfg;
+    friend struct reduce_args_rw;
     
     struct reduce_args_rw_cfg : public default_rewriter_cfg {
         ast_manager &                    m;
-        imp &                            m_owner;
+        reduce_args_tactic &             m_owner;
         obj_map<func_decl, bit_vector> & m_decl2args;
         decl2arg2func_map &              m_decl2arg2funcs;
         
-        reduce_args_rw_cfg(imp & owner, obj_map<func_decl, bit_vector> & decl2args, decl2arg2func_map & decl2arg2funcs):
+        reduce_args_rw_cfg(reduce_args_tactic & owner, obj_map<func_decl, bit_vector> & decl2args, decl2arg2func_map & decl2arg2funcs):
             m(owner.m),
             m_owner(owner),
             m_decl2args(decl2args),
@@ -388,7 +360,7 @@ struct reduce_args_tactic::imp {
     struct reduce_args_rw : rewriter_tpl<reduce_args_rw_cfg> {
         reduce_args_rw_cfg m_cfg;
     public:
-        reduce_args_rw(imp & owner, obj_map<func_decl, bit_vector> & decl2args, decl2arg2func_map & decl2arg2funcs):
+        reduce_args_rw(reduce_args_tactic & owner, obj_map<func_decl, bit_vector> & decl2args, decl2arg2func_map & decl2arg2funcs):
             rewriter_tpl<reduce_args_rw_cfg>(owner.m, false, m_cfg),
             m_cfg(owner, decl2args, decl2arg2funcs) {
         }
@@ -470,43 +442,43 @@ struct reduce_args_tactic::imp {
 
         TRACE("reduce_args", g.display(tout); if (g.mc()) g.mc()->display(tout););
     }
-};
 
-reduce_args_tactic::reduce_args_tactic(ast_manager & m) {
-    expr_ref_vector vars(m);
-    m_imp = alloc(imp, m);
-}
-
-reduce_args_tactic::~reduce_args_tactic() {
-    dealloc(m_imp);
-}
-
-void reduce_args_tactic::operator()(goal_ref const & g, 
-                                    goal_ref_buffer & result) {
-    fail_if_unsat_core_generation("reduce-args", g);
-    result.reset();
-    if (!m_imp->m.proofs_enabled()) {
-        m_imp->operator()(*(g.get()));
+public:
+    reduce_args_tactic(ast_manager & m) :
+        m_vars(m),
+        m(m),
+        m_bv(m),
+        m_ar(m) {
     }
-    g->inc_depth();
-    result.push_back(g.get());
+
+    tactic * translate(ast_manager & m) override {
+        return alloc(reduce_args_tactic, m);
+    }
+
+    char const* name() const override { return "reduce_args"; }
+
+    void operator()(goal_ref const & g, goal_ref_buffer & result) override {
+        fail_if_unsat_core_generation("reduce-args", g);
+        result.reset();
+        if (!m.proofs_enabled()) {
+            operator()(*(g.get()));
+        }
+        g->inc_depth();
+        result.push_back(g.get());
+    }
+
+    void cleanup() override {}
+
+    void user_propagate_register_expr(expr* e) override {
+        m_vars.push_back(e);
+    }
+
+    void user_propagate_clear() override {
+        m_vars.reset();
+    }
+};
 }
 
-void reduce_args_tactic::cleanup() {
-    ast_manager & m   = m_imp->m;
-    expr_ref_vector vars = m_imp->m_vars;
-    m_imp->~imp();
-    m_imp = new (m_imp) imp(m);
-    m_imp->m_vars.append(vars);
+tactic * mk_reduce_args_tactic(ast_manager & m, params_ref const & p) {
+    return clean(alloc(reduce_args_tactic, m));
 }
-
-void reduce_args_tactic::user_propagate_register_expr(expr* e) {
-    m_imp->m_vars.push_back(e);
-}
-
-void reduce_args_tactic::user_propagate_clear() {
-    m_imp->m_vars.reset();
-}
-
-
-
