@@ -6732,6 +6732,30 @@ class ModelRef(Z3PPObject):
         model = Z3_model_translate(self.ctx.ref(), self.model, target.ref())
         return ModelRef(model, target)
 
+    def project(self, vars, fml):
+        """Perform model-based projection on fml with respect to vars.
+        Assume that the model satisfies fml. Then compute a projection fml_p, such
+        that vars do not occur free in fml_p, fml_p is true in the model and
+        fml_p => exists vars . fml
+        """
+        ctx = self.ctx.ref()
+        _vars = (Ast * len(vars))()
+        for i in range(len(vars)):
+            _vars[i] = vars[i].as_ast()
+        return _to_expr_ref(Z3_qe_model_project(ctx, self.model, len(vars), _vars, fml.ast), self.ctx)
+
+    def project_with_witness(self, vars, fml):
+        """Perform model-based projection, but also include realizer terms for the projected variables"""
+        ctx = self.ctx.ref()
+        _vars = (Ast * len(vars))()
+        for i in range(len(vars)):
+            _vars[i] = vars[i].as_ast()
+        defs = AstMap()
+        result = Z3_qe_model_project_with_witness(ctx, self.model, len(vars), _vars, fml.ast, defs.map)
+        result = _to_expr_ref(result, self.ctx)
+        return result, defs
+
+
     def __copy__(self):
         return self.translate(self.ctx)
 
@@ -6739,9 +6763,12 @@ class ModelRef(Z3PPObject):
         return self.translate(self.ctx)
 
 
-def Model(ctx=None):
+def Model(ctx=None, eval = {}):
     ctx = _get_ctx(ctx)
-    return ModelRef(Z3_mk_model(ctx.ref()), ctx)
+    mdl = ModelRef(Z3_mk_model(ctx.ref()), ctx)
+    for k, v in eval.items():
+        mdl.update_value(k, v)
+    return mdl
 
 
 def is_as_array(n):

@@ -418,12 +418,12 @@ public:
         e = mk_and(fmls);
         return any_of(subterms::all(e), [&](expr* c) { return seq.is_char(c) || seq.is_seq(c); });
     }
-    void operator()(bool force_elim, app_ref_vector& vars, model& model, expr_ref_vector& fmls) {
+    void operator()(bool force_elim, app_ref_vector& vars, model& model, expr_ref_vector& fmls, vector<mbp::def>* defs = nullptr) {
             //don't use mbp_qel on some theories where model evaluation is
             //incomplete This is not a limitation of qel. Fix this either by
             //making mbp choices less dependent on the model evaluation methods
             //or fix theory rewriters to make terms evaluation complete
-            if (m_use_qel && !has_unsupported_th(fmls)) {
+            if (m_use_qel && !has_unsupported_th(fmls) && !defs) {
                 bool dsub = m_dont_sub;
                 m_dont_sub = !force_elim;
                 expr_ref fml(m);
@@ -434,11 +434,11 @@ public:
                 m_dont_sub = dsub;
             }
             else {
-                mbp(force_elim, vars, model, fmls);
+                mbp(force_elim, vars, model, fmls, defs);
             }
         }
 
-    void mbp(bool force_elim, app_ref_vector& vars, model& model, expr_ref_vector& fmls) {
+    void mbp(bool force_elim, app_ref_vector& vars, model& model, expr_ref_vector& fmls, vector<mbp::def>* defs) {
         SASSERT(validate_model(model, fmls));
         expr_ref val(m), tmp(m);
         app_ref var(m);
@@ -451,10 +451,15 @@ public:
             app_ref_vector new_vars(m);
             progress = false;
             for (mbp::project_plugin* p : m_plugins) {
-                if (p)
+                if (defs && p) {
+                    unsigned sz = defs->size();
+                    p->project(model, vars, fmls, *defs);
+                    progress |= sz < defs->size();
+                }
+                else if (p)
                     (*p)(model, vars, fmls);
             }
-            while (!vars.empty() && !fmls.empty() && m.limit().inc()) {
+            while (!vars.empty() && !fmls.empty() && !defs && m.limit().inc()) {
                 var = vars.back();
                 vars.pop_back();
                 mbp::project_plugin* p = get_plugin(var);
@@ -471,6 +476,8 @@ public:
                 expr_safe_replace sub(m);
                 val = model(var);
                 sub.insert(var, val);
+                if (defs)
+                    defs->push_back(mbp::def(expr_ref(var, m), val));
                 unsigned j = 0;
                 for (expr* f : fmls) {
                     sub(f, tmp);
@@ -562,7 +569,7 @@ public:
             expr_ref_vector fmls(m);
             flatten_and(fml, fmls);
 
-            mbp(false, other_vars, mdl, fmls);
+            mbp(false, other_vars, mdl, fmls, nullptr);
             fml = mk_and(fmls);
             m_rw(fml);
 
@@ -704,9 +711,9 @@ void mbproj::get_param_descrs(param_descrs& r) {
     r.insert("use_qel", CPK_BOOL, "(default: true) use egraph based QEL");
 }
 
-void mbproj::operator()(bool force_elim, app_ref_vector& vars, model& mdl, expr_ref_vector& fmls) {
+void mbproj::operator()(bool force_elim, app_ref_vector& vars, model& mdl, expr_ref_vector& fmls, vector<mbp::def>* defs) {
     scoped_no_proof _sp(fmls.get_manager());
-    (*m_impl)(force_elim, vars, mdl, fmls);
+    (*m_impl)(force_elim, vars, mdl, fmls, defs);
 }
 
 void mbproj::spacer(app_ref_vector& vars, model& mdl, expr_ref& fml) {

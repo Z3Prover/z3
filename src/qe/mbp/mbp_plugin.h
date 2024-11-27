@@ -28,7 +28,7 @@ Revision History:
 
 namespace mbp {
 
-    struct cant_project {};
+    struct cant_project : public std::exception {};
 
     struct def {
         expr_ref var, term;

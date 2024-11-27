@@ -113,6 +113,22 @@ extern "C" {
        Z3_ast_map map);
 
     /**
+       \brief Project with witness extraction.
+
+       The returned map contains a binding of variables to terms that such that when the binding
+       is used for the formula, it remains true within the model.
+
+       def_API('Z3_qe_model_project_with_witness', AST, (_in(CONTEXT), _in(MODEL), _in(UINT), _in_array(2, APP), _in(AST), _in(AST_MAP)))
+    */
+    Z3_ast Z3_API Z3_qe_model_project_with_witness
+      (Z3_context c,
+       Z3_model m,
+       unsigned num_bounds,
+       Z3_app const bound[],
+       Z3_ast body,
+       Z3_ast_map map);
+
+    /**
        \brief Extrapolates a model of a formula
 
        def_API('Z3_model_extrapolate', AST, (_in(CONTEXT), _in(MODEL), _in(AST)))

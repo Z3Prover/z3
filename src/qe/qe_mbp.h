@@ -24,6 +24,7 @@ Revision History:
 #include "util/params.h"
 #include "model/model.h"
 #include "math/simplex/model_based_opt.h"
+#include "qe/mbp/mbp_plugin.h"
 
 
 namespace qe {
@@ -45,7 +46,7 @@ namespace qe {
            Apply model-based qe on constants provided as vector of variables.
            Return the updated formula and updated set of variables that were not eliminated.
         */
-        void operator()(bool force_elim, app_ref_vector& vars, model& mdl, expr_ref_vector& fmls);
+        void operator()(bool force_elim, app_ref_vector& vars, model& mdl, expr_ref_vector& fmls, vector<mbp::def>* defs = nullptr);
 
         /**
            \brief
@@ -69,4 +70,5 @@ namespace qe {
         void spacer(app_ref_vector& vars, model& mdl, expr_ref& fml);
     };
 }
+
 

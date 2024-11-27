@@ -26,6 +26,7 @@ Notes:
 #include "api/api_ast_map.h"
 #include "api/api_ast_vector.h"
 #include "qe/lite/qe_lite_tactic.h"
+#include "qe/qe_mbp.h"
 #include "muz/spacer/spacer_util.h"
 
 extern "C"
@@ -98,6 +99,46 @@ extern "C"
             m.inc_ref(kv.m_key);
             m.inc_ref(kv.m_value);
             map_z3.insert(kv.m_key, kv.m_value);
+        }
+
+        return of_expr (result);
+        Z3_CATCH_RETURN(nullptr);
+    }
+
+    Z3_ast Z3_API Z3_qe_model_project_with_witness (Z3_context c,
+                                              Z3_model mdl,
+                                              unsigned num_bounds,
+                                              Z3_app const bound[],
+                                              Z3_ast body,
+                                              Z3_ast_map map)
+    {
+        Z3_TRY;
+        LOG_Z3_qe_model_project_with_witness (c, mdl, num_bounds, bound, body, map);
+        RESET_ERROR_CODE();
+
+        ast_manager& m = mk_c(c)->m();
+        app_ref_vector vars(m);
+        if (!to_apps(num_bounds, bound, vars)) {
+            RETURN_Z3(nullptr);
+        }
+
+        expr_ref_vector fmls(m);
+        fmls.push_back(to_expr(body));
+        model_ref model (to_model_ref (mdl));
+        vector<mbp::def> defs;
+        qe::mbproj proj(m);
+
+        proj(true, vars, *model, fmls, &defs);
+        expr_ref result (m);
+        result = m.mk_and(fmls);
+        mk_c(c)->save_ast_trail(result);
+
+        obj_map<ast, ast*> &map_z3 = to_ast_map_ref(map);
+
+        for (auto& [v, t] : defs) {
+            m.inc_ref(v);
+            m.inc_ref(t);
+            map_z3.insert(v, t);            
         }
 
         return of_expr (result);
