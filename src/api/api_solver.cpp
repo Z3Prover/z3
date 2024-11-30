@@ -967,6 +967,20 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
+    Z3_ast Z3_API Z3_solver_solve_for(Z3_context c, Z3_solver s, Z3_ast a) {
+        Z3_TRY;
+        LOG_Z3_solver_solve_for(c, s, a);
+        RESET_ERROR_CODE();
+        init_solver(c, s);
+        ast_manager& m = mk_c(c)->m();        
+        expr_ref term(m);
+        if (!to_solver_ref(s)->solve_for(to_expr(a), term)) 
+            term = to_expr(a);
+        mk_c(c)->save_ast_trail(term.get());
+        RETURN_Z3(of_expr(term.get()));
+        Z3_CATCH_RETURN(nullptr);
+    }
+
     class api_context_obj : public user_propagator::context_obj {
         api::context* c;
     public:

@@ -246,6 +246,7 @@ namespace smt {
 
         expr* congruence_root(expr* e);
 
+        bool solve_for(expr* e, expr_ref& term);
 
         /**
            \brief retrieve depth of variables from decision stack.

@@ -7351,6 +7351,12 @@ class Solver(Z3PPObject):
         """
         return _to_expr_ref(Z3_solver_congruence_next(self.ctx.ref(), self.solver, t.ast), self.ctx)
 
+    def solve_for(self, t):
+        t = _py2expr(t, self.ctx)
+        """Retrieve a solution for t relative to linear equations maintained in the current state.
+        The function primarily works for SimpleSolver and when there is a solution using linear arithmetic."""
+        return _to_expr_ref(Z3_solver_solve_for(self.ctx.ref(), self.solver, t.ast), self.ctx)
+
     def proof(self):
         """Return a proof for the last `check()`. Proof construction must be enabled."""
         return _to_expr_ref(Z3_solver_get_proof(self.ctx.ref(), self.solver), self.ctx)

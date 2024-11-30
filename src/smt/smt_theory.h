@@ -605,6 +605,8 @@ namespace smt {
 
         virtual char const * get_name() const { return "unknown"; }
 
+        virtual bool solve_for(enode* n, expr_ref& r) { return false; }
+
         // -----------------------------------
         //
         // Return a fresh new instance of the given theory.

@@ -249,6 +249,11 @@ public:
     virtual expr* congruence_next(expr* e) = 0;
 
     /**
+       \brief try to solve for term e (when e is arithmetical).
+    */
+    virtual bool solve_for(expr* e, expr_ref& term) { return false; }
+
+    /**
        \brief Display the content of this solver.
     */
     virtual std::ostream& display(std::ostream & out, unsigned n = 0, expr* const* assumptions = nullptr) const;

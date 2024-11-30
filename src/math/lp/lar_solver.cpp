@@ -617,6 +617,34 @@ namespace lp {
             m_touched_rows.insert(rid);
     }
 
+    bool lar_solver::solve_for(unsigned j, lar_term& t, mpq& coeff) {
+        t.clear();        
+        if (column_is_fixed(j)) {
+            coeff = get_value(j);
+            return true;
+        }
+        if (!is_base(j)) {
+            for (const auto & c : A_r().m_columns[j]) {
+                lpvar basic_in_row = r_basis()[c.var()];
+                pivot(j, basic_in_row);
+                break;
+            }
+        }
+        if (!is_base(j))
+            return false;
+        auto const& r = basic2row(j);
+        for (auto const& c : r) {
+            if (c.var() == j)
+                continue;
+            if (column_is_fixed(c.var()))
+                coeff -= get_value(c.var());
+            else
+                t.add_monomial(-c.coeff(), c.var());
+        }
+        return true;
+    }
+
+
     void lar_solver::remove_fixed_vars_from_base() {
         // this will allow to disable and restore the tracking of the touched rows
         flet<indexed_uint_set*> f(m_mpq_lar_core_solver.m_r_solver.m_touched_rows, nullptr);

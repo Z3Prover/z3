@@ -4654,6 +4654,15 @@ namespace smt {
             return false;
         return th->get_value(n, value);
     }
+    
+    bool context::solve_for(enode * n, expr_ref & term) {
+        sort * s      = n->get_sort();
+        family_id fid = s->get_family_id();
+        theory * th   = get_theory(fid);
+        if (th == nullptr)
+            return false;
+        return th->solve_for(n, term);
+    }    
 
     bool context::update_model(bool refinalize) {
         final_check_status fcs = FC_DONE;

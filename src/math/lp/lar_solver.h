@@ -346,6 +346,12 @@ public:
     void set_value_for_nbasic_column(unsigned j, const impq& new_val);
 
     void remove_fixed_vars_from_base();
+    /**
+     * \brief set j to basic (if not already basic)
+     * return the rest of the row as t comprising of non-fixed variables and coeff as sum of fixed variables.
+     * return false if j has no rows.
+     */
+    bool solve_for(unsigned j, lar_term& t, mpq& coeff);
 
     inline unsigned get_base_column_in_row(unsigned row_index) const {
         return m_mpq_lar_core_solver.m_r_solver.get_base_column_in_row(row_index);

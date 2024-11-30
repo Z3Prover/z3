@@ -1375,11 +1375,6 @@ namespace smt {
         bool can_propagate() const;
 
 
-        // Retrieve arithmetic values. 
-        bool get_arith_lo(expr* e, rational& lo, bool& strict);
-        bool get_arith_up(expr* e, rational& up, bool& strict);
-        bool get_arith_value(expr* e, rational& value);
-
         // -----------------------------------
         //
         // Model checking... (must be improved)
@@ -1387,6 +1382,8 @@ namespace smt {
         // -----------------------------------
     public:
         bool get_value(enode * n, expr_ref & value);
+
+        bool solve_for(enode* n, expr_ref& term);
 
         // -----------------------------------
         //

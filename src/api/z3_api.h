@@ -7078,6 +7078,14 @@ extern "C" {
 
 
     /**
+       \brief retrieve a 'solution' for \c t as defined by equalities in maintained by solvers.
+       At this point, only linear solution are supported.
+
+       def_API('Z3_solver_solve_for', AST, (_in(CONTEXT), _in(SOLVER), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_solver_solve_for(Z3_context c, Z3_solver s, Z3_ast t);
+    
+    /**
        \brief register a callback to that retrieves assumed, inferred and deleted clauses during search.
        
        \param c - context.

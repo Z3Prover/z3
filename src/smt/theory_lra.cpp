@@ -3627,7 +3627,21 @@ public:
         lpvar vi = get_lpvar(v);
         u_dependency* dep = nullptr;
         return lp().has_upper_bound(vi, dep, val, is_strict);
+    }
 
+    bool solve_for(enode* n, expr_ref& term) {
+        theory_var v = n->get_th_var(get_id());
+        if (!is_registered_var(v))
+            return false;
+        lpvar vi = get_lpvar(v);
+        lp::lar_term t;
+        rational coeff;
+        if (!lp().solve_for(vi, t, coeff))
+            return false;
+        term = mk_term(t, is_int(v));
+        if (coeff != 0)
+            term = a.mk_add(a.mk_numeral(coeff, is_int(v)), term);
+        return true;
     }
 
     bool get_upper(enode* n, expr_ref& r) {
@@ -4140,6 +4154,10 @@ bool theory_lra::get_lower(enode* n, rational& r, bool& is_strict) {
 bool theory_lra::get_upper(enode* n, rational& r, bool& is_strict) {
     return m_imp->get_upper(n, r, is_strict);
 }
+bool theory_lra::solve_for(enode* n, expr_ref& r) {
+    return m_imp->solve_for(n, r);
+}
+
 void theory_lra::display(std::ostream & out) const {
     m_imp->display(out);
 }
