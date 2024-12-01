@@ -224,6 +224,23 @@ namespace sls {
         return m_values.get(id, nullptr);
     }
 
+    ptr_vector<expr> const& seq_plugin::lhs(expr* eq) {
+        auto& ev = get_eval(eq);
+        if (ev.lhs.empty()) {
+            expr* x, * y;
+            VERIFY(m.is_eq(eq, x, y));
+            seq.str.get_concat(x, ev.lhs);
+            seq.str.get_concat(y, ev.rhs);
+        }
+        return ev.lhs;
+    }
+
+    ptr_vector<expr> const& seq_plugin::rhs(expr* eq) {
+        lhs(eq);
+        auto& e = get_eval(eq);
+        return e.rhs;
+    }
+
     zstring& seq_plugin::strval0(expr* e) {
         SASSERT(seq.is_string(e->get_sort()));
         return get_eval(e).val0.svalue;
@@ -557,8 +574,10 @@ namespace sls {
         bool is_true = ctx.is_true(e);
         expr* x, * y;
         VERIFY(m.is_eq(e, x, y));
-        verbose_stream() << is_true << ": " << mk_bounded_pp(e, m, 3) << "\n";
+        IF_VERBOSE(3, verbose_stream() << is_true << ": " << mk_bounded_pp(e, m, 3) << "\n");
         if (ctx.is_true(e)) {
+            if (ctx.rand(10) != 0)
+                return repair_down_str_eq_unify(e);
             if (!is_value(x))
                 m_str_updates.push_back({ x, strval1(y), 1 });
             if (!is_value(y))
@@ -576,6 +595,81 @@ namespace sls {
                 m_str_updates.push_back({ y, ch + strval1(x), 1 });
             }
         }
+        return apply_update();
+    }
+
+    bool seq_plugin::repair_down_str_eq_unify(app* eq) {
+        auto const& L = lhs(eq);
+        auto const& R = rhs(eq);
+        unsigned i = 0, j = 0;    // position into current string
+        unsigned ni = 0, nj = 0;  // current string in concatenation
+        double depth = 1.0;       // priority of update. Doubled when depth of equal strings are increased.
+        while (ni < L.size() && nj < R.size()) {
+            auto const& xi = L[ni];
+            auto const& yj = R[nj];
+            auto const& vi = strval0(xi);
+            auto const& vj = strval0(yj);
+            IF_VERBOSE(4, 
+                verbose_stream() << "unify: \"" << vi << "\" = \"" << vj << "\" incides " << i << " " << j << "\n";
+                verbose_stream() << vi.length() << " " << vj.length() << "\n");
+            if (vi.length() == i && vj.length() == j) {
+                depth *= 2;
+                if (nj + 1 < R.size() && !strval0(R[nj + 1]).empty())
+                    m_str_updates.push_back({ xi, vi + zstring(strval0(R[nj + 1])[0]), depth });
+                if (ni + 1 < L.size() && !strval0(L[ni + 1]).empty())
+                    m_str_updates.push_back({ yj, vj + zstring(strval0(L[ni + 1])[0]), depth });
+                i = 0;
+                j = 0;
+                ++ni;
+                ++nj;
+                continue;
+            }
+            if (vi.length() == i) {
+                // xi -> vi + vj[j]
+                SASSERT(j < vj.length());
+                m_str_updates.push_back({ xi, vi + zstring(vj[j]), depth});
+                depth *= 2;
+                i = 0;
+                ++ni;
+                continue;
+            }
+            if (vj.length() == j) {
+                // yj -> vj + vi[i]
+                SASSERT(i < vi.length());
+                m_str_updates.push_back({ yj, vj + zstring(vi[i]), depth });
+                depth *= 2;
+                j = 0;
+                ++nj;
+                continue;
+            }
+            SASSERT(i < vi.length());
+            SASSERT(j < vj.length());
+            if (is_value(xi) && is_value(yj)) {
+                ++i, ++j;
+                continue;
+            }
+            if (vi[i] == vj[j]) {
+                ++i, ++j;
+                continue;
+            }
+            if (!is_value(xi)) {
+                m_str_updates.push_back({ xi, vi.extract(0, i), depth });
+                m_str_updates.push_back({ xi, vi.extract(0, i) + zstring(vj[j]), depth});                
+            }
+            if (!is_value(yj)) {
+                m_str_updates.push_back({ yj, vj.extract(0, j), depth });
+                m_str_updates.push_back({ yj, vj.extract(0, j) + zstring(vi[i]), depth });
+            }
+            break;
+        }
+        for (; ni < L.size(); ++ni) 
+            if (!is_value(L[ni]))
+                m_str_updates.push_back({ L[ni], zstring(), depth });
+        
+        for (; nj < R.size(); ++nj)
+            if (!is_value(R[nj]))
+                m_str_updates.push_back({ R[nj], zstring(), depth });
+
         return apply_update();
     }
 
@@ -1021,7 +1115,7 @@ namespace sls {
                 auto [e, value, score] = m_str_updates[i];
 
                 if (update(e, value)) {
-                    verbose_stream() << "set value " << mk_bounded_pp(e, m) << " := \"" << value << "\"\n";
+                    IF_VERBOSE(3, verbose_stream() << "set value " << mk_bounded_pp(e, m) << " := \"" << value << "\"\n");
                     m_str_updates.reset();
                     m_int_updates.reset();
                     return true;
@@ -1034,7 +1128,7 @@ namespace sls {
             else {
                 auto [e, value, score] = m_int_updates[i];
 
-                verbose_stream() << "set value " << mk_bounded_pp(e, m) << " := " << value << "\n";
+                IF_VERBOSE(3, verbose_stream() << "set value " << mk_bounded_pp(e, m) << " := " << value << "\n");
 
                 if (update(e, value)) {
                     m_int_updates.reset();

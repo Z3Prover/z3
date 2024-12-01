@@ -945,6 +945,17 @@ void seq_util::str::get_concat(expr* e, expr_ref_vector& es) const {
     }
 }
 
+void seq_util::str::get_concat(expr* e, ptr_vector<expr>& es) const {
+    expr* e1, * e2;
+    while (is_concat(e, e1, e2)) {
+        get_concat(e1, es);
+        e = e2;
+    }
+    if (!is_empty(e)) {
+        es.push_back(e);
+    }
+}
+
 /*
 Returns true if s is an expression of the form (l = |u|) |u|-k or (-k)+|u| or |u|+(-k).
 Also returns true and assigns k=0 and l=s if s is |u|.

@@ -38,6 +38,7 @@ namespace sls {
             bool is_value = false;
             unsigned min_length = 0;
             unsigned max_length = UINT_MAX;
+            ptr_vector<expr> lhs, rhs;
         };
 
         seq_util seq;
@@ -69,6 +70,7 @@ namespace sls {
         
         bool repair_down_seq(app* e);
         bool repair_down_eq(app* e);
+        bool repair_down_str_eq_unify(app* e);
         bool repair_down_str_eq(app* e);
         bool repair_down_str_extract(app* e);
         bool repair_down_str_contains(expr* e);
@@ -107,6 +109,8 @@ namespace sls {
 
         eval& get_eval(expr* e);
         eval* get_eval(expr* e) const;
+        ptr_vector<expr> const& lhs(expr* eq);
+        ptr_vector<expr> const& rhs(expr* eq);
 
         bool is_value(expr* e);
     public:

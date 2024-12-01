@@ -424,6 +424,7 @@ public:
         MATCH_UNARY(is_unit);
 
         void get_concat(expr* e, expr_ref_vector& es) const;
+        void get_concat(expr* e, ptr_vector<expr>& es) const;
         void get_concat_units(expr* e, expr_ref_vector& es) const;
         expr* get_leftmost_concat(expr* e) const { expr* e1, *e2; while (is_concat(e, e1, e2)) e = e1; return e; }
         expr* get_rightmost_concat(expr* e) const { expr* e1, *e2; while (is_concat(e, e1, e2)) e = e2; return e; }
