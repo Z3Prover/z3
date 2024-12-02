@@ -1968,6 +1968,7 @@ namespace sls {
 
     template<typename num_t>
     bool arith_base<num_t>::set_value(expr* e, expr* v) {
+
         if (!a.is_int_real(e))
             return false;
         var_t w = m_expr2var.get(e->get_id(), UINT_MAX);
@@ -1984,7 +1985,14 @@ namespace sls {
         }
         if (n == value(w))
             return true;
-         return update(w, n);        
+         bool r = update(w, n);   
+
+         if (!r) {
+             IF_VERBOSE(2,
+                 verbose_stream() << "set value failed " << mk_pp(e, m) << " := " << mk_pp(v, m) << "\n";
+                display(verbose_stream(), w) << " := " << value(w) << "\n");
+         }
+         return r;
     }
 
     template<typename num_t>
@@ -1994,6 +2002,23 @@ namespace sls {
             return expr_ref(a.mk_numeral(n.to_rational(), a.is_int(e)), m);
         auto v = mk_term(e);
         return expr_ref(a.mk_numeral(m_vars[v].value().to_rational(), a.is_int(e)), m);
+    }
+
+    template<typename num_t>
+    bool arith_base<num_t>::is_fixed(expr* e, expr_ref& value) {
+        if (!a.is_int_real(e))
+            return false;
+        num_t n;
+        if (is_num(e, n)) {
+            value = expr_ref(a.mk_numeral(n.to_rational(), a.is_int(e)), m);
+            return true;
+        }
+        auto v = mk_term(e);
+        if (is_fixed(v)) {
+            value = expr_ref(a.mk_numeral(m_vars[v].value().to_rational(), a.is_int(e)), m);
+            return true;
+        }
+        return false;
     }
 
     template<typename num_t>

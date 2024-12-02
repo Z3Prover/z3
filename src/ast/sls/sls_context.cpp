@@ -172,6 +172,7 @@ namespace sls {
     }
     
     void context::propagate_boolean_assignment() {
+    start_propagation:
         reinit_relevant();
 
         for (auto p : m_plugins)
@@ -180,9 +181,12 @@ namespace sls {
 
         for (sat::literal lit : root_literals()) 
             propagate_literal(lit);
-
-        if (m_new_constraint)
-            return;        
+        
+        if (any_of(root_literals(), [&](sat::literal lit) { return !is_true(lit); })) {
+            if (unsat().empty())
+                goto start_propagation;
+            return;
+        }
 
         while (!m_new_constraint && m.inc() && (!m_repair_up.empty() || !m_repair_down.empty())) {
             while (!m_repair_down.empty() && !m_new_constraint && m.inc()) {
@@ -258,9 +262,6 @@ namespace sls {
         auto p = m_plugins.get(fid, nullptr);
         if (p)
             p->propagate_literal(lit);
-        if (!is_true(lit)) {
-            m_new_constraint = true;
-        }
     }
 
     bool context::is_true(expr* e) {
@@ -291,6 +292,14 @@ namespace sls {
     bool context::set_value(expr * e, expr * v) {
         return any_of(m_plugins, [&](auto p) { return p && p->set_value(e, v); });
     }
+
+    bool context::is_fixed(expr* e, expr_ref& value) {
+        if (m.is_value(e)) {
+            value = e;
+            return true;
+        }
+        return any_of(m_plugins, [&](auto p) { return p && p->is_fixed(e, value); });
+    }
     
     bool context::is_relevant(expr* e) {
         unsigned id = e->get_id();
@@ -317,6 +326,7 @@ namespace sls {
         m_constraint_trail.push_back(e);
         add_clause(e);     
         m_new_constraint = true;
+        verbose_stream() << "add constraint\n";
         ++m_stats.m_num_constraints;
     }
 

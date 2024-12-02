@@ -42,6 +42,7 @@ namespace sls {
         virtual family_id fid() { return m_fid; }
         virtual void register_term(expr* e) = 0;
         virtual expr_ref get_value(expr* e) = 0;
+        virtual bool is_fixed(expr* e, expr_ref& value) { return false; }
         virtual void initialize() = 0;
         virtual void start_propagation() {};
         virtual bool propagate() = 0;
@@ -192,6 +193,7 @@ namespace sls {
 
         // Between plugin solvers
         expr_ref get_value(expr* e);
+        bool is_fixed(expr* v, expr_ref& value);
         bool set_value(expr* e, expr* v);
         void new_value_eh(expr* e);
         bool is_true(expr* e);

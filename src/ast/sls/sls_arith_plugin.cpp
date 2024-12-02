@@ -64,6 +64,10 @@ namespace sls {
         WITH_FALLBACK(get_value(e));
     }
 
+    bool arith_plugin::is_fixed(expr* e, expr_ref& value) {
+        WITH_FALLBACK(is_fixed(e, value));
+    }
+
     void arith_plugin::initialize() {
         APPLY_BOTH(initialize());
     }

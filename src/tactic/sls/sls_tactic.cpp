@@ -78,7 +78,8 @@ public:
         try {
             res = m_sls->check();
         }
-        catch (z3_exception&) {
+        catch (z3_exception& ex) {
+            IF_VERBOSE(1, verbose_stream() << "SLS threw an exception: " << ex.what() << "\n");
             m_sls->collect_statistics(m_st);
             throw;
         }
@@ -98,7 +99,6 @@ public:
         }
         else
             mc = nullptr;
-
     }
 
     void operator()(goal_ref const& g,

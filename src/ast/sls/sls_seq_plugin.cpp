@@ -63,7 +63,7 @@ Alternate to lookahead strategy:
   - create a priority buffer array of vector<ptr_vector<expr>> based on depth.
   - walk from lowest depth up. Reset each inner buffer when processed. Parents always 
     have higher depth.
-  - calculate repair/break score when hitting a predicate based on bval1.
+  - calculate repair/break depth when hitting a predicate based on bval1.
   - strval1 and bval1 are modified by 
     - use a global timestamp.
     - label each eval subterm by a timestamp that gets set.
@@ -145,9 +145,26 @@ namespace sls {
                 auto ve = ctx.get_value(e);
                 if (a.is_numeral(ve, r) && r == sx.length())
                     continue;
-                update(e, rational(sx.length()));
+                // set e to length of x or
+                // set x to a string of length e
+
+                if (r == 0 || sx.length() == 0) {
+                    verbose_stream() << "todo-create lemma: len(x) = 0 <=> x = \"\"\n";
+                    // create a lemma: len(x) = 0 => x = ""
+                }
+                if (ctx.rand(2) == 0 && update(e, rational(sx.length())))
+                    return false;
+                if (r < sx.length() && update(x, sx.extract(0, r.get_unsigned())))
+                    return false;
+                if (update(e, rational(sx.length())))
+                    return false;
+                if (r > sx.length() && update(x, sx + zstring(m_chars[ctx.rand(m_chars.size())])))
+                    return false;
+                verbose_stream() << mk_pp(x, m) << " = " << sx << " " << ve << "\n";
+                NOT_IMPLEMENTED_YET();
                 return false;
             }
+
             if ((seq.str.is_index(e, x, y, z) || seq.str.is_index(e, x, y)) && seq.is_string(x->get_sort())) {
                 auto sx = strval0(x);
                 auto sy = strval0(y);
@@ -603,21 +620,32 @@ namespace sls {
         auto const& R = rhs(eq);
         unsigned i = 0, j = 0;    // position into current string
         unsigned ni = 0, nj = 0;  // current string in concatenation
-        double depth = 1.0;       // priority of update. Doubled when depth of equal strings are increased.
+        double score = 1.0;       // priority of update. Doubled when score of equal strings are increased.
+
+        IF_VERBOSE(4,
+            verbose_stream() << "unify: \"" << strval0(eq->get_arg(0)) << "\" == \"" << strval0(eq->get_arg(1)) << "\"\n";
+            for (auto x : L) verbose_stream() << mk_pp(x, m) << " ";
+            verbose_stream() << " == ";
+            for (auto x : R) verbose_stream() << mk_pp(x, m) << " ";
+            verbose_stream() << "\n";
+            for (auto x : L) verbose_stream() << "\"" << strval0(x) << "\" ";
+            verbose_stream() << " == ";
+            for (auto x : R) verbose_stream() << "\"" << strval0(x) << "\" ";
+            verbose_stream() << "\n";
+            );
+
         while (ni < L.size() && nj < R.size()) {
             auto const& xi = L[ni];
             auto const& yj = R[nj];
             auto const& vi = strval0(xi);
             auto const& vj = strval0(yj);
-            IF_VERBOSE(4, 
-                verbose_stream() << "unify: \"" << vi << "\" = \"" << vj << "\" incides " << i << " " << j << "\n";
-                verbose_stream() << vi.length() << " " << vj.length() << "\n");
+
             if (vi.length() == i && vj.length() == j) {
-                depth *= 2;
+                score *= 2;
                 if (nj + 1 < R.size() && !strval0(R[nj + 1]).empty())
-                    m_str_updates.push_back({ xi, vi + zstring(strval0(R[nj + 1])[0]), depth });
+                    m_str_updates.push_back({ xi, vi + zstring(strval0(R[nj + 1])[0]), score });
                 if (ni + 1 < L.size() && !strval0(L[ni + 1]).empty())
-                    m_str_updates.push_back({ yj, vj + zstring(strval0(L[ni + 1])[0]), depth });
+                    m_str_updates.push_back({ yj, vj + zstring(strval0(L[ni + 1])[0]), score });
                 i = 0;
                 j = 0;
                 ++ni;
@@ -627,8 +655,8 @@ namespace sls {
             if (vi.length() == i) {
                 // xi -> vi + vj[j]
                 SASSERT(j < vj.length());
-                m_str_updates.push_back({ xi, vi + zstring(vj[j]), depth});
-                depth *= 2;
+                m_str_updates.push_back({ xi, vi + zstring(vj[j]), score});
+                score *= 2;
                 i = 0;
                 ++ni;
                 continue;
@@ -636,8 +664,8 @@ namespace sls {
             if (vj.length() == j) {
                 // yj -> vj + vi[i]
                 SASSERT(i < vi.length());
-                m_str_updates.push_back({ yj, vj + zstring(vi[i]), depth });
-                depth *= 2;
+                m_str_updates.push_back({ yj, vj + zstring(vi[i]), score });
+                score *= 2;
                 j = 0;
                 ++nj;
                 continue;
@@ -645,30 +673,33 @@ namespace sls {
             SASSERT(i < vi.length());
             SASSERT(j < vj.length());
             if (is_value(xi) && is_value(yj)) {
+                if (vi[i] != vj[j])
+                    score = 1;
                 ++i, ++j;
                 continue;
             }
+
             if (vi[i] == vj[j]) {
                 ++i, ++j;
                 continue;
             }
             if (!is_value(xi)) {
-                m_str_updates.push_back({ xi, vi.extract(0, i), depth });
-                m_str_updates.push_back({ xi, vi.extract(0, i) + zstring(vj[j]), depth});                
+                m_str_updates.push_back({ xi, vi.extract(0, i), score });
+                m_str_updates.push_back({ xi, vi.extract(0, i) + zstring(vj[j]), score});                
             }
             if (!is_value(yj)) {
-                m_str_updates.push_back({ yj, vj.extract(0, j), depth });
-                m_str_updates.push_back({ yj, vj.extract(0, j) + zstring(vi[i]), depth });
+                m_str_updates.push_back({ yj, vj.extract(0, j), score });
+                m_str_updates.push_back({ yj, vj.extract(0, j) + zstring(vi[i]), score });
             }
             break;
         }
         for (; ni < L.size(); ++ni) 
-            if (!is_value(L[ni]))
-                m_str_updates.push_back({ L[ni], zstring(), depth });
+            if (!is_value(L[ni]) && !strval0(L[ni]).empty())
+                m_str_updates.push_back({ L[ni], zstring(), 1 });
         
         for (; nj < R.size(); ++nj)
-            if (!is_value(R[nj]))
-                m_str_updates.push_back({ R[nj], zstring(), depth });
+            if (!is_value(R[nj]) && !strval0(R[nj]).empty())
+                m_str_updates.push_back({ R[nj], zstring(), 1 });
 
         return apply_update();
     }
@@ -1092,6 +1123,13 @@ namespace sls {
             sum_scores += score;
         for (auto const& [e, val, score] : m_int_updates)
             sum_scores += score;
+
+        IF_VERBOSE(4,
+            for (auto const& [e, val, score] : m_str_updates)
+                verbose_stream() << mk_pp(e, m) << " := \"" << val << "\" score: " << score << "\n";
+        for (auto const& [e, val, score] : m_int_updates)
+            verbose_stream() << mk_pp(e, m) << " := " << val << " score: " << score << "\n";
+            );
         
         while (!m_str_updates.empty() || !m_int_updates.empty()) {
             bool is_str_update = false;
@@ -1165,6 +1203,7 @@ namespace sls {
         if (m_initialized)
             return;
         m_initialized = true;
+        expr_ref val(m);
         for (auto lit : ctx.unit_literals()) {
             auto e = ctx.atom(lit.var());
             expr* x, * y, * z;
@@ -1213,6 +1252,12 @@ namespace sls {
                     ev.max_length = 0;
                 if (len_r.is_unsigned())
                     ev.max_length = std::min(ev.max_length, len_r.get_unsigned());
+            }
+            // TBD: assumes arithmetic is already initialized
+            if (seq.str.is_length(t, x) && ctx.is_fixed(t, val) && 
+                a.is_numeral(val, len_r) && len_r.is_unsigned()) {
+                auto& ev = get_eval(x);
+                ev.min_length = ev.max_length = len_r.get_unsigned();                
             }
         }
     }

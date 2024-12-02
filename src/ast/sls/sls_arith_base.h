@@ -280,6 +280,7 @@ namespace sls {
         void register_term(expr* e) override;
         bool set_value(expr* e, expr* v) override;
         expr_ref get_value(expr* e) override;
+        bool is_fixed(expr* e, expr_ref& value) override;
         void initialize() override;
         void propagate_literal(sat::literal lit) override;
         bool propagate() override;
