@@ -605,11 +605,15 @@ namespace sls {
                 zstring ch(m_chars[ctx.rand(m_chars.size())]);
                 m_str_updates.push_back({ x, strval1(y) + ch, 1 });
                 m_str_updates.push_back({ x, ch + strval1(y), 1 });
+                m_str_updates.push_back({ x, ch, 1 });
+                m_str_updates.push_back({ x, zstring(), 1 });
             }
             if (!is_value(y) && !m_chars.empty()) {
                 zstring ch(m_chars[ctx.rand(m_chars.size())]);
                 m_str_updates.push_back({ y, strval1(x) + ch, 1 });
                 m_str_updates.push_back({ y, ch + strval1(x), 1 });
+                m_str_updates.push_back({ x, ch, 1 });
+                m_str_updates.push_back({ x, zstring(), 1});
             }
         }
         return apply_update();
@@ -826,6 +830,7 @@ namespace sls {
         expr* x, * y;
         VERIFY(seq.str.is_at(e, x, y));
         zstring se = strval0(e);
+        verbose_stream() << "repair down at " << mk_pp(e, m) << " " << se << "\n";
         if (se.length() > 1)
             return false;
         zstring sx = strval0(x);
@@ -886,6 +891,12 @@ namespace sls {
         if (offset_r.is_unsigned())
             offset_u = offset_r.get_unsigned();
 
+        // set to not a member:
+        if (value == -1) {
+            m_str_updates.push_back({ y, zstring(m_chars[ctx.rand(m_chars.size())]), 1 });
+            if (lenx > 0)
+                m_str_updates.push_back({ x, zstring(), 1 }); 
+        }
         // change x:
         // insert y into x at offset
         if (offset_r.is_unsigned() && 0 <= value && offset_u + value <= lenx && leny > 0) {
