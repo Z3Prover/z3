@@ -2381,7 +2381,7 @@ namespace smt {
         unsigned i  = units_to_reassert_lim;
         unsigned sz = m_units_to_reassert.size();
         for (; i < sz; i++) {
-            auto& [unit, sign, is_relevant] = m_units_to_reassert[i];
+            auto [unit, sign, is_relevant] = m_units_to_reassert[i];
             bool gate_ctx = true;
             internalize(unit, gate_ctx);
             bool_var v    = get_bool_var(unit);
@@ -2389,7 +2389,7 @@ namespace smt {
             assign(l, b_justification::mk_axiom());
             if (is_relevant)
                 mark_as_relevant(l);
-            TRACE("reassert_units", tout << "reasserting #" << unit->get_id() << " " << sign << " @ " << m_scope_lvl << "\n";);
+            TRACE("reassert_units", tout << "reasserting #" << unit->get_id() << " " << sign << " @ " << m_scope_lvl << "\n";);            
         }
         if (at_base_level()) 
             m_units_to_reassert.reset();        

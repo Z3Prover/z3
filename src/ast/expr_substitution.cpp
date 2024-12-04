@@ -19,6 +19,7 @@ Notes:
 #include "util/ref_util.h"
 #include "ast/expr_substitution.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 
 typedef obj_map<expr, proof*> expr2proof;
 typedef obj_map<expr, expr_dependency*> expr2expr_dependency;
@@ -58,8 +59,8 @@ expr_substitution::~expr_substitution() {
 }
 
 std::ostream& expr_substitution::display(std::ostream& out) {
-    for (auto & kv : m_subst) {
-        out << mk_pp(kv.m_key, m()) << " |-> " << mk_pp(kv.m_value, m()) << "\n";
+    for (auto & [k, v] : m_subst) {
+        out << mk_bounded_pp(k, m()) << " |-> " << mk_bounded_pp(v, m()) << "\n";
     }
     return out;
 }

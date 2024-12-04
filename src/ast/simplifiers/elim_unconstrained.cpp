@@ -131,7 +131,9 @@ elim_unconstrained::~elim_unconstrained() {
 }
 
 bool elim_unconstrained::is_var_lt(int v1, int v2) const {   
-    return get_node(v1).num_parents() < get_node(v2).num_parents();
+    auto p1 = get_node(v1).num_parents();
+    auto p2 = get_node(v2).num_parents();
+    return  p1 < p2;
 }
 
 void elim_unconstrained::eliminate() {
@@ -287,8 +289,11 @@ void elim_unconstrained::init_nodes() {
 
     for (expr* e : subterms_postorder::all(terms)) {
         SASSERT(get_node(e).is_root());
-        if (is_uninterp_const(e))
+        
+        if (is_uninterp_const(e)) {
+            get_node(e); // ensure the node exists
             m_heap.insert(e->get_id());
+        }
     }
 
     // mark top level terms
@@ -390,7 +395,6 @@ void elim_unconstrained::update_model_trail(generic_model_converter& mc, vector<
             trail.hide(entry.m_f);
             break;
         case generic_model_converter::instruction::ADD:
-            // trail.push(entry.m_f, entry.m_def, nullptr, old_fmls);
             break;
         }
     }
