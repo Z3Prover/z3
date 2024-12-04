@@ -521,6 +521,133 @@ describe('high-level', () => {
     });
   });
 
+  describe('sets', () => {
+    it('Example 1', async () => {
+      const Z3 = api.Context('main');
+
+      const set = Z3.Set.const('set', Z3.Int.sort());
+      const [a, b] = Z3.Int.consts('a b');
+
+      const conjecture = set.contains(a).and(set.contains(b)).implies(Z3.EmptySet(Z3.Int.sort()).neq(set));
+      await prove(conjecture);
+    });
+
+    it('Example 2', async () => {
+      const Z3 = api.Context('main');
+
+      const set = Z3.Set.const('set', Z3.Int.sort());
+      const [a, b] = Z3.Int.consts('a b');
+
+      const conjecture = set.contains(a).and(set.contains(b)).implies(Z3.Set.val([a, b], Z3.Int.sort()).subsetOf(set));
+      await prove(conjecture);
+    });
+
+    it('Example 3', async () => {
+      const Z3 = api.Context('main');
+
+      const set = Z3.Set.const('set', Z3.Int.sort());
+      const [a, b] = Z3.Int.consts('a b');
+
+      const conjecture = set.contains(a).and(set.contains(b)).and(Z3.Set.val([a, b], Z3.Int.sort()).eq(set));
+      await solve(conjecture);
+    });
+
+    it('Intersection 1', async () => {
+      const Z3 = api.Context('main');
+
+      const set = Z3.Set.const('set', Z3.Int.sort());
+      const [a, b] = Z3.Int.consts('a b');
+      const abset = Z3.Set.val([a, b], Z3.Int.sort());
+
+      const conjecture = set.intersect(abset).subsetOf(abset);
+      await prove(conjecture);
+    });
+    
+    it('Intersection 2', async () => {
+      const Z3 = api.Context('main');
+
+      const set = Z3.Set.const('set', Z3.Int.sort());
+      const [a, b] = Z3.Int.consts('a b');
+      const abset = Z3.Set.val([a, b], Z3.Int.sort());
+
+      const conjecture = set.subsetOf(set.intersect(abset));
+      await solve(conjecture);
+    });
+
+    it('Union 1', async () => {
+      const Z3 = api.Context('main');
+
+      const set = Z3.Set.const('set', Z3.Int.sort());
+      const [a, b] = Z3.Int.consts('a b');
+      const abset = Z3.Set.val([a, b], Z3.Int.sort());
+
+      const conjecture = set.subsetOf(set.union(abset));
+      await prove(conjecture);
+    });
+    
+    it('Union 2', async () => {
+      const Z3 = api.Context('main');
+
+      const set = Z3.Set.const('set', Z3.Int.sort());
+      const [a, b] = Z3.Int.consts('a b');
+      const abset = Z3.Set.val([a, b], Z3.Int.sort());
+
+      const conjecture = set.union(abset).subsetOf(abset);
+      await solve(conjecture);
+    });
+    
+    it('Complement 1', async () => {
+      const Z3 = api.Context('main');
+
+      const set = Z3.Set.const('set', Z3.Int.sort());
+      const a = Z3.Int.const('a');
+
+      const conjecture = set.complement().complement().eq(set)
+      await prove(conjecture);
+    });
+    it('Complement 2', async () => {
+      const Z3 = api.Context('main');
+
+      const set = Z3.Set.const('set', Z3.Int.sort());
+      const a = Z3.Int.const('a');
+
+      const conjecture = set.contains(a).implies(Z3.Not(set.complement().contains(a)))
+      await prove(conjecture);
+    });
+    
+    it('Difference', async () => {
+      const Z3 = api.Context('main');
+
+      const [set1, set2] = Z3.Set.consts('set1 set2', Z3.Int.sort());
+      const a = Z3.Int.const('a');
+
+      const conjecture = set1.contains(a).implies(Z3.Not(set2.diff(set1).contains(a)))
+      
+      await prove(conjecture);
+    });
+    
+    it('FullSet', async () => {
+      const Z3 = api.Context('main');
+
+      const set = Z3.Set.const('set', Z3.Int.sort());
+
+      const conjecture = set.complement().eq(Z3.FullSet(Z3.Int.sort()).diff(set));
+      
+      await prove(conjecture);
+    });
+
+    it('SetDel', async () => {
+      const Z3 = api.Context('main');
+
+      const empty = Z3.Set.empty(Z3.Int.sort());
+      const [a, b] = Z3.Int.consts('a b');
+
+      const conjecture = empty.add(a).add(b).del(a).del(b).eq(empty);
+      
+      await prove(conjecture);
+    });
+  });
+
   describe('quantifiers', () => {
     it('Basic Universal', async () => {
       const Z3 = api.Context('main');
