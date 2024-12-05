@@ -71,6 +71,7 @@ namespace sls {
         bool repair_down_seq(app* e);
         bool repair_down_eq(app* e);
         bool repair_down_str_eq_unify(app* e);
+        bool repair_down_str_eq_edit_distance(app* e);
         bool repair_down_str_eq(app* e);
         bool repair_down_str_extract(app* e);
         bool repair_down_str_contains(expr* e);
@@ -89,6 +90,9 @@ namespace sls {
         void repair_up_str_indexof(app* e);
         void repair_up_str_itos(app* e);
         void repair_up_str_stoi(app* e);
+
+        unsigned edit_distance(zstring const& a, zstring const& b);
+        void add_edit_updates(ptr_vector<expr> const& w, uint_set const& chars);
 
         // regex functionality
         
@@ -111,6 +115,7 @@ namespace sls {
         eval* get_eval(expr* e) const;
         ptr_vector<expr> const& lhs(expr* eq);
         ptr_vector<expr> const& rhs(expr* eq);
+        ptr_vector<expr> const& concats(expr* eq);
 
         bool is_value(expr* e);
     public:
