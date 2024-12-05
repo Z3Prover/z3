@@ -357,6 +357,8 @@ export interface Context<Name extends string = 'main'> {
   readonly BitVec: BitVecCreation<Name>;
   /** @category Expressions */
   readonly Array: SMTArrayCreation<Name>;
+  /** @category Expressions */
+  readonly Set: SMTSetCreation<Name>;
 
   ////////////////
   // Operations //
@@ -611,6 +613,39 @@ export interface Context<Name extends string = 'main'> {
   substitute(t: Expr<Name>, ...substitutions: [Expr<Name>, Expr<Name>][]): Expr<Name>;
 
   simplify(expr: Expr<Name>): Promise<Expr<Name>>;
+  
+  /** @category Operations */
+  SetUnion<ElemSort extends AnySort<Name>>(...args: SMTSet<Name, ElemSort>[]): SMTSet<Name, ElemSort>;
+  
+  /** @category Operations */
+  SetIntersect<ElemSort extends AnySort<Name>>(...args: SMTSet<Name, ElemSort>[]): SMTSet<Name, ElemSort>;
+  
+  /** @category Operations */
+  SetDifference<ElemSort extends AnySort<Name>>(a: SMTSet<Name, ElemSort>, b: SMTSet<Name, ElemSort>): SMTSet<Name, ElemSort>;
+  
+  /** @category Operations */
+  SetHasSize<ElemSort extends AnySort<Name>>(set: SMTSet<Name, ElemSort>, size: bigint | number | string | IntNum<Name>): Bool<Name>;
+
+  /** @category Operations */
+  SetAdd<ElemSort extends AnySort<Name>>(set: SMTSet<Name, ElemSort>, elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>): SMTSet<Name, ElemSort>;
+
+  /** @category Operations */
+  SetDel<ElemSort extends AnySort<Name>>(set: SMTSet<Name, ElemSort>, elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>): SMTSet<Name, ElemSort>;
+
+  /** @category Operations */
+  SetComplement<ElemSort extends AnySort<Name>>(set: SMTSet<Name, ElemSort>): SMTSet<Name, ElemSort>;
+  
+  /** @category Operations */
+  EmptySet<ElemSort extends AnySort<Name>>(sort: ElemSort): SMTSet<Name, ElemSort>;
+
+  /** @category Operations */
+  FullSet<ElemSort extends AnySort<Name>>(sort: ElemSort): SMTSet<Name, ElemSort>;
+  
+  /** @category Operations */
+  isMember<ElemSort extends AnySort<Name>>(elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>, set: SMTSet<Name, ElemSort>): Bool<Name>;
+
+  /** @category Operations */
+  isSubset<ElemSort extends AnySort<Name>>(a: SMTSet<Name, ElemSort>, b: SMTSet<Name, ElemSort>): Bool<Name>;
 }
 
 export interface Ast<Name extends string = 'main', Ptr = unknown> {
@@ -1566,6 +1601,54 @@ export interface SMTArray<
       CoercibleToMap<SortToExprMap<RangeSort, Name>, Name>,
     ]
   ): SMTArray<Name, DomainSort, RangeSort>;
+}
+
+/**
+ * Set Implemented using Arrays
+ * 
+ * @typeParam ElemSort The sort of the element of the set
+ * @category Sets
+ */
+export type SMTSetSort<Name extends string = 'main', ElemSort extends AnySort<Name> = Sort<Name>> = SMTArraySort<Name, [ElemSort], BoolSort<Name>>;
+
+
+/** @category Sets*/
+export interface SMTSetCreation<Name extends string> {
+  sort<ElemSort extends AnySort<Name>>(elemSort: ElemSort): SMTSetSort<Name, ElemSort>;
+
+  const<ElemSort extends AnySort<Name>>(name: string, elemSort: ElemSort): SMTSet<Name, ElemSort>;
+
+  consts<ElemSort extends AnySort<Name>>(names: string | string[], elemSort: ElemSort): SMTSet<Name, ElemSort>[];
+  
+  empty<ElemSort extends AnySort<Name>>(sort: ElemSort): SMTSet<Name, ElemSort>;
+  
+  val<ElemSort extends AnySort<Name>>(values: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>[], sort: ElemSort): SMTSet<Name, ElemSort>;
+}
+
+/**
+ * Represents Set expression
+ *
+ * @typeParam ElemSort The sort of the element of the set
+ * @category Arrays
+ */
+export interface SMTSet<Name extends string = 'main', ElemSort extends AnySort<Name> = Sort<Name>>  extends Expr<Name, SMTSetSort<Name, ElemSort>, Z3_ast> {
+  readonly __typename: 'Array';
+  
+  elemSort(): ElemSort;
+
+  union(...args: SMTSet<Name, ElemSort>[]): SMTSet<Name, ElemSort>;
+  intersect(...args: SMTSet<Name, ElemSort>[]): SMTSet<Name, ElemSort>;
+  diff(b: SMTSet<Name, ElemSort>): SMTSet<Name, ElemSort>;
+  
+  hasSize(size: bigint | number | string | IntNum<Name>): Bool<Name>;
+
+  add(elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>): SMTSet<Name, ElemSort>;
+  del(elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>): SMTSet<Name, ElemSort>;
+  complement(): SMTSet<Name, ElemSort>;
+  
+  contains(elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>): Bool<Name>;
+  subsetOf(b: SMTSet<Name, ElemSort>): Bool<Name>;
+
 }
 
 /**

@@ -86,6 +86,8 @@ import {
   CoercibleToArith,
   NonEmptySortArray,
   FuncEntry,
+  SMTSetSort,
+  SMTSet,
 } from './types';
 import { allSatisfy, assert, assertExhaustive } from './utils';
 
@@ -795,6 +797,33 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return new ArrayImpl<[DomainSort], RangeSort>(check(Z3.mk_const_array(contextPtr, domain.ptr, value.ptr)));
       },
     };
+    const Set = {
+      // reference: https://z3prover.github.io/api/html/namespacez3py.html#a545f894afeb24caa1b88b7f2a324ee7e
+      sort<ElemSort extends AnySort<Name>>(sort: ElemSort): SMTSetSort<Name, ElemSort> {
+        return Array.sort(sort, Bool.sort());
+      },
+      const<ElemSort extends AnySort<Name>>(name: string, sort: ElemSort) : SMTSet<Name, ElemSort> {
+        return new SetImpl<ElemSort>(
+          check(Z3.mk_const(contextPtr, _toSymbol(name), Array.sort(sort, Bool.sort()).ptr)),
+        );
+      },
+      consts<ElemSort extends AnySort<Name>>(names: string | string[], sort: ElemSort) : SMTSet<Name, ElemSort>[] {
+        if (typeof names === 'string') {
+          names = names.split(' ');
+        }
+        return names.map(name => Set.const(name, sort));
+      },
+      empty<ElemSort extends AnySort<Name>>(sort: ElemSort): SMTSet<Name, ElemSort> {
+        return EmptySet(sort);
+      },
+      val<ElemSort extends AnySort<Name>>(values: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>[], sort: ElemSort): SMTSet<Name, ElemSort> {
+        var result = EmptySet(sort);
+        for (const value of values) {
+          result = SetAdd(result, value);
+        }
+        return result;
+      }
+    }
 
     ////////////////
     // Operations //
@@ -1247,6 +1276,49 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         DomainSort,
         RangeSort
       >;
+    }
+
+    function SetUnion<ElemSort extends AnySort<Name>>(...args: SMTSet<Name, ElemSort>[]): SMTSet<Name, ElemSort> {
+      return new SetImpl<ElemSort>(check(Z3.mk_set_union(contextPtr, args.map(arg => arg.ast))));
+    }
+    
+    function SetIntersect<ElemSort extends AnySort<Name>>(...args: SMTSet<Name, ElemSort>[]): SMTSet<Name, ElemSort> {
+      return new SetImpl<ElemSort>(check(Z3.mk_set_intersect(contextPtr, args.map(arg => arg.ast))));
+    }
+    
+    function SetDifference<ElemSort extends AnySort<Name>>(a: SMTSet<Name, ElemSort>, b: SMTSet<Name, ElemSort>): SMTSet<Name, ElemSort> {
+      return new SetImpl<ElemSort>(check(Z3.mk_set_difference(contextPtr, a.ast, b.ast)));
+    }
+    
+    function SetHasSize<ElemSort extends AnySort<Name>>(set: SMTSet<Name, ElemSort>, size: bigint | number | string | IntNum<Name>): Bool<Name> {
+      const a = typeof size === 'object'? Int.sort().cast(size) : Int.sort().cast(size);
+      return new BoolImpl(check(Z3.mk_set_has_size(contextPtr, set.ast, a.ast)));
+    }
+
+    function SetAdd<ElemSort extends AnySort<Name>>(set: SMTSet<Name, ElemSort>, elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>): SMTSet<Name, ElemSort> {
+      const arg = set.elemSort().cast(elem as any);
+      return new SetImpl<ElemSort>(check(Z3.mk_set_add(contextPtr, set.ast, arg.ast)));
+    }
+    function SetDel<ElemSort extends AnySort<Name>>(set: SMTSet<Name, ElemSort>, elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>): SMTSet<Name, ElemSort> {
+      const arg = set.elemSort().cast(elem as any);
+      return new SetImpl<ElemSort>(check(Z3.mk_set_del(contextPtr, set.ast, arg.ast)));
+    }
+    function SetComplement<ElemSort extends AnySort<Name>>(set: SMTSet<Name, ElemSort>): SMTSet<Name, ElemSort> {
+      return new SetImpl<ElemSort>(check(Z3.mk_set_complement(contextPtr, set.ast)));
+    }
+    
+    function EmptySet<ElemSort extends AnySort<Name>>(sort: ElemSort): SMTSet<Name, ElemSort> {
+      return new SetImpl<ElemSort>(check(Z3.mk_empty_set(contextPtr, sort.ptr)));
+    }
+    function FullSet<ElemSort extends AnySort<Name>>(sort: ElemSort): SMTSet<Name, ElemSort> {
+      return new SetImpl<ElemSort>(check(Z3.mk_full_set(contextPtr, sort.ptr)));
+    }
+    function isMember<ElemSort extends AnySort<Name>>(elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>, set: SMTSet<Name, ElemSort>): Bool<Name> {
+      const arg = set.elemSort().cast(elem as any);
+      return new BoolImpl(check(Z3.mk_set_member(contextPtr, arg.ast, set.ast)));
+    }
+    function isSubset<ElemSort extends AnySort<Name>>(a: SMTSet<Name, ElemSort>, b: SMTSet<Name, ElemSort>): Bool<Name> {
+      return new BoolImpl(check(Z3.mk_set_subset(contextPtr, a.ast, b.ast)));
     }
 
     class AstImpl<Ptr extends Z3_ast> implements Ast<Name, Ptr> {
@@ -2536,6 +2608,41 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
     }
 
+    class SetImpl<ElemSort extends Sort<Name>> extends ExprImpl<Z3_ast, ArraySortImpl<[ElemSort], BoolSort<Name>>> implements SMTSet<Name, ElemSort> {
+      declare readonly __typename: 'Array';
+
+      elemSort(): ElemSort {
+        return this.sort.domain();
+      }
+      union(...args: SMTSet<Name, ElemSort>[]): SMTSet<Name, ElemSort> {
+        return SetUnion(this, ...args);
+      }
+      intersect(...args: SMTSet<Name, ElemSort>[]): SMTSet<Name, ElemSort> {
+        return SetIntersect(this, ...args);
+      }
+      diff(b: SMTSet<Name, ElemSort>): SMTSet<Name, ElemSort> {
+        return SetDifference(this, b);
+      }
+      hasSize(size: string | number | bigint | IntNum<Name>): Bool<Name> {
+        return SetHasSize(this, size);
+      }
+      add(elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>): SMTSet<Name, ElemSort> {
+        return SetAdd(this, elem);
+      }
+      del(elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>): SMTSet<Name, ElemSort> {
+        return SetDel(this, elem);
+      }
+      complement(): SMTSet<Name, ElemSort> {
+        return SetComplement(this);
+      }
+      contains(elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>): Bool<Name> {
+        return isMember(elem, this);
+      }
+      subsetOf(b: SMTSet<Name, ElemSort>): Bool<Name> {
+        return isSubset(this, b);
+      }
+    }
+
     class QuantifierImpl<
         QVarSorts extends NonEmptySortArray<Name>,
         QSort extends BoolSort<Name> | SMTArraySort<Name, QVarSorts>,
@@ -2917,6 +3024,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       Real,
       BitVec,
       Array,
+      Set,
 
       ////////////////
       // Operations //
@@ -2979,6 +3087,18 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       // Loading //
       /////////////
       ast_from_string,
+
+      SetUnion,
+      SetIntersect,
+      SetDifference,
+      SetHasSize,
+      SetAdd,
+      SetDel,
+      SetComplement,
+      EmptySet,
+      FullSet,
+      isMember,
+      isSubset,
     };
     cleanup.register(ctx, () => Z3.del_context(contextPtr));
     return ctx;
