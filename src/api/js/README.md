@@ -17,4 +17,4 @@ Consult the file [build-wasm.ts](https://github.com/Z3Prover/z3/blob/master/src/
 
 ## Tests
 
-Current tests are very minimal: [`test-ts-api.ts`](./test-ts-api.ts) contains a couple real cases translated very mechanically from [this file](https://github.com/Z3Prover/z3/blob/90fd3d82fce20d45ed2eececdf65545bab769503/examples/c/test_capi.c).
+Run `npm test` after building to run tests.
