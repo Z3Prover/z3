@@ -339,8 +339,10 @@ function makeTsWrapper() {
       `.trim();
     }
 
+    // async functions are invocations of the wrapper from make-ts-wrapper.ts
+    // the wrapper spawns a thread and returns void, so we need to use void as the return type here
     // prettier-ignore
-    let invocation = `Mod.ccall('${isAsync ? "async_" : ""}${fn.name}', '${cReturnType}', ${JSON.stringify(ctypes)}, [${args.map(toEm).join(", ")}])`;
+    let invocation = `Mod.ccall('${isAsync ? "async_" : ""}${fn.name}', '${isAsync ? 'void' : cReturnType}', ${JSON.stringify(ctypes)}, [${args.map(toEm).join(", ")}])`;
 
     if (isAsync) {
       invocation = `await Mod.async_call(() => ${invocation})`;
