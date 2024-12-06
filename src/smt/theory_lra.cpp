@@ -3638,9 +3638,21 @@ public:
         rational coeff;
         if (!lp().solve_for(vi, t, coeff))
             return false;
+        rational lc(1);
+        if (is_int(v)) {
+            lc = denominator(coeff);
+            for (auto const& cv : t)
+                lc = lcm(denominator(cv.coeff()), lc);
+            if (lc != 1) {
+                coeff *= lc;
+                t *= lc;
+            }
+        }
         term = mk_term(t, is_int(v));
         if (coeff != 0)
             term = a.mk_add(a.mk_numeral(coeff, is_int(v)), term);
+        if (lc != 1)
+            term = a.mk_idiv(term, a.mk_numeral(lc, true));
         return true;
     }
 

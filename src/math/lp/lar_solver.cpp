@@ -619,6 +619,7 @@ namespace lp {
 
     bool lar_solver::solve_for(unsigned j, lar_term& t, mpq& coeff) {
         t.clear();        
+        IF_VERBOSE(10, verbose_stream() << column_is_fixed(j) << " " << is_base(j) << "\n");
         if (column_is_fixed(j)) {
             coeff = get_value(j);
             return true;
@@ -626,6 +627,7 @@ namespace lp {
         if (!is_base(j)) {
             for (const auto & c : A_r().m_columns[j]) {
                 lpvar basic_in_row = r_basis()[c.var()];
+                IF_VERBOSE(10, verbose_stream() << "c.var() = " << c.var() << " basic_in_row = " << basic_in_row << "\n");
                 pivot(j, basic_in_row);
                 break;
             }
