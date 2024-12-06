@@ -92,7 +92,7 @@ namespace sls {
         void repair_up_str_stoi(app* e);
 
         unsigned edit_distance(zstring const& a, zstring const& b);
-        void add_edit_updates(ptr_vector<expr> const& w, uint_set const& chars);
+        void add_edit_updates(ptr_vector<expr> const& w, zstring const& val, zstring const& val_other, uint_set const& chars);
 
         // regex functionality
         

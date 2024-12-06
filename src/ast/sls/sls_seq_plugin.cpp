@@ -600,7 +600,7 @@ namespace sls {
         VERIFY(m.is_eq(e, x, y));
         IF_VERBOSE(3, verbose_stream() << is_true << ": " << mk_bounded_pp(e, m, 3) << "\n");
         if (ctx.is_true(e)) {
-            //return repair_down_str_eq_edit_distance(e);
+            return repair_down_str_eq_edit_distance(e);
             if (ctx.rand(2) != 0)
                 return repair_down_str_eq_unify(e);
             if (!is_value(x))
@@ -651,7 +651,7 @@ namespace sls {
         return d[n][m];
     }
 
-    void seq_plugin::add_edit_updates(ptr_vector<expr> const& w, uint_set const& chars) {
+    void seq_plugin::add_edit_updates(ptr_vector<expr> const& w, zstring const& val, zstring const& val_other, uint_set const& chars) {
         for (auto x : w) {
             if (is_value(x))
                 continue;
@@ -669,6 +669,50 @@ namespace sls {
                 m_str_updates.push_back({ x, b, 1 }); // truncate a
                 for (auto ch : chars)
                     m_str_updates.push_back({ x, zstring(ch) + b, 1 }); // replace first character in a by ch
+            }
+        }
+        unsigned first_diff = UINT_MAX;
+        for (unsigned i = 0; i < val.length() && i < val_other.length(); ++i) {
+            if (val[i] != val_other[i]) {
+                first_diff = i;
+                break;
+            }
+        }
+        if (first_diff != UINT_MAX) {
+            unsigned index = first_diff;
+            for (auto x : w) {
+                auto const & val_x = strval0(x);
+                auto len_x = val_x.length();
+                if (index < len_x) {
+                    if (is_value(x))
+                        break;
+                    auto new_val = val_x.extract(0, first_diff) + zstring(val_other[first_diff]) + val_x.extract(first_diff + 1, val_x.length());
+                    m_str_updates.push_back({ x, new_val, 1 });
+                    break;
+                }
+                index -= len_x;
+            }
+        }
+        unsigned last_diff = 0;
+        for (unsigned i = 1; i <= val.length() && i <= val_other.length(); ++i) {
+            if (val[val.length() - i] != val_other[val_other.length() - i]) {
+                last_diff = i;
+                break;
+            }
+        }
+        if (last_diff != 0) {
+            unsigned index = last_diff;
+            for (auto x : w) {
+                auto const& val_x = strval0(x);
+                auto len_x = val_x.length();
+                if (index < len_x) {
+                    if (is_value(x))
+                        break;
+                    auto new_val = val_x.extract(0, len_x - last_diff) + zstring(val_other[val_other.length() - last_diff]) + val_x.extract(len_x - last_diff + 1, len_x);
+                    m_str_updates.push_back({ x, new_val, 1 });
+                    break;
+                }
+                index -= len_x;
             }
         }
     }
@@ -692,10 +736,12 @@ namespace sls {
         if (a == b)
             return update(eq->get_arg(0), a) && update(eq->get_arg(1), b);     
 
-        unsigned diff = a.length() + b.length() + L.size() + R.size();            
+        unsigned diff = edit_distance(a, b);     
 
-        add_edit_updates(L, b_chars);
-        add_edit_updates(R, a_chars);
+        //verbose_stream() << "solve: " << diff << " " << a << " " << b << "\n";
+
+        add_edit_updates(L, a, b, b_chars);
+        add_edit_updates(R, b, a, a_chars);
 
         for (auto& [x, s, score] : m_str_updates) {
             a.reset();
@@ -713,10 +759,14 @@ namespace sls {
                     b += strval0(z);
             }
             unsigned local_diff = edit_distance(a, b);
-            if (local_diff >= diff)
+
+            //verbose_stream() << local_diff << " " << a << " " << b << "\n";
+            if (local_diff > diff)
+                score = 0.01;
+            else if (local_diff == diff)
                 score = 0.1;
             else 
-                score = (diff - local_diff) * (diff - local_diff);            
+                score = 2 * (diff - local_diff) * (diff - local_diff);            
         }
         return apply_update();
     }
@@ -1197,7 +1247,7 @@ namespace sls {
         for (auto ch : value0) 
             chars.insert(ch);            
 
-        add_edit_updates(es, chars);
+        add_edit_updates(es, value, value0, chars);
 
         unsigned diff = edit_distance(value, value0);
         for (auto& [x, s, score] : m_str_updates) {
@@ -1462,7 +1512,7 @@ namespace sls {
         expr_ref d_r(y, m);
         seq_rewriter seqrw(m);
         for (unsigned i = 0; i < s.length(); ++i) {
-            verbose_stream() << "Derivative " << s.extract(0, i) << ": " << d_r << "\n";
+            IF_VERBOSE(3, verbose_stream() << "Derivative " << s.extract(0, i) << ": " << d_r << "\n");
             if (seq.re.is_empty(d_r))
                 break;
             zstring prefix = s.extract(0, i);
@@ -1478,10 +1528,10 @@ namespace sls {
 
         unsigned global_min_length = UINT_MAX;
         for (auto& [str, min_length] : lookaheads)
-            global_min_length = std::max(min_length, global_min_length);
+            global_min_length = std::min(min_length, global_min_length);
 
-        verbose_stream() << "repair in_re " << current_min_length << " " 
-            << global_min_length << " " << mk_pp(e, m) << " " << s << "\n";
+        IF_VERBOSE(3, verbose_stream() << "repair in_re " << current_min_length << " " 
+            << global_min_length << " " << mk_pp(e, m) << " " << s << "\n");
 
         
         // TODO: do some length analysis to prune out short candidates when there are longer ones.
@@ -1499,7 +1549,7 @@ namespace sls {
                     score = 1 << (current_min_length - min_length);
                     score /= ((double)abs((int)s.length() - (int)str.length()) + 1);
                 }
-                verbose_stream() << "prefix " << score << " " << min_length << ": " << str << "\n";
+                IF_VERBOSE(3, verbose_stream() << "prefix " << score << " " << min_length << ": " << str << "\n");
                 m_str_updates.push_back({ x, str, score });
             }
         }
