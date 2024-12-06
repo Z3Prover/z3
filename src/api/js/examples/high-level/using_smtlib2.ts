@@ -25,11 +25,10 @@ import assert from 'assert';
   const model = solver.model();
   let modelStr = model.sexpr();
   modelStr = modelStr.replace(/\n/g, ' ');
-  console.log("Model: ", modelStr);
+  console.log('Model: ', modelStr);
 
   const exprs = z3.ast_from_string(modelStr);
   console.log(exprs);
-
 })().catch(e => {
   console.error('error', e);
   process.exit(1);

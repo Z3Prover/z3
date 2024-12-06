@@ -10,7 +10,7 @@ assert(process.argv.length === 4, `Usage: ${process.argv[0]} ${process.argv[1]} 
 const wrapperFilePath = process.argv[2];
 const typesFilePath = process.argv[3];
 
-function makeTsWrapper() {
+async function makeTsWrapper() {
   const subtypes = {
     __proto__: null,
     Z3_sort: 'Z3_ast',
@@ -464,13 +464,18 @@ export async function init(initModule: any) {
 `;
 
   return {
-    wrapperDocument: prettier.format(wrapperDocument, { singleQuote: true, parser: 'typescript' }),
-    typesDocument: prettier.format(typesDocument, { singleQuote: true, parser: 'typescript' }),
+    wrapperDocument: await prettier.format(wrapperDocument, { singleQuote: true, parser: 'typescript' }),
+    typesDocument: await prettier.format(typesDocument, { singleQuote: true, parser: 'typescript' }),
   };
 }
 
-const { wrapperDocument, typesDocument } = makeTsWrapper();
-fs.mkdirSync(path.dirname(wrapperFilePath), { recursive: true });
-fs.writeFileSync(wrapperFilePath, wrapperDocument);
-fs.mkdirSync(path.dirname(typesFilePath), { recursive: true });
-fs.writeFileSync(typesFilePath, typesDocument);
+(async () => {
+  const { wrapperDocument, typesDocument } = await makeTsWrapper();
+  fs.mkdirSync(path.dirname(wrapperFilePath), { recursive: true });
+  fs.writeFileSync(wrapperFilePath, wrapperDocument);
+  fs.mkdirSync(path.dirname(typesFilePath), { recursive: true });
+  fs.writeFileSync(typesFilePath, typesDocument);
+})().catch(e => {
+  console.error(e);
+  process.exit(1);
+});

@@ -37,6 +37,7 @@ export type AnyExpr<Name extends string = 'main'> =
 export type AnyAst<Name extends string = 'main'> = AnyExpr<Name> | AnySort<Name> | FuncDecl<Name>;
 
 /** @hidden */
+// prettier-ignore
 export type SortToExprMap<S extends AnySort<Name>, Name extends string = 'main'> = S extends BoolSort
   ? Bool<Name>
   : S extends ArithSort<Name>
@@ -50,6 +51,7 @@ export type SortToExprMap<S extends AnySort<Name>, Name extends string = 'main'>
   : never;
 
 /** @hidden */
+// prettier-ignore
 export type CoercibleFromMap<S extends CoercibleToExpr<Name>, Name extends string = 'main'> = S extends bigint
   ? Arith<Name>
   : S extends number | CoercibleRational
@@ -75,6 +77,7 @@ export type CoercibleToExpr<Name extends string = 'main'> = number | bigint | bo
 export type CoercibleToArith<Name extends string = 'main'> = number | string | bigint | CoercibleRational | Arith<Name>;
 
 /** @hidden */
+// prettier-ignore
 export type CoercibleToMap<T extends AnyExpr<Name>, Name extends string = 'main'> = T extends Bool<Name>
   ? boolean | Bool<Name>
   : T extends IntNum<Name>
@@ -1656,6 +1659,7 @@ export interface SMTSet<Name extends string = 'main', ElemSort extends AnySort<N
  *
  * @category Quantifiers
  */
+// prettier-ignore
 export type BodyT<
   Name extends string = 'main',
   QVarSorts extends NonEmptySortArray<Name> = [Sort<Name>, ...Sort<Name>[]],

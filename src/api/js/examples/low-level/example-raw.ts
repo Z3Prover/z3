@@ -59,7 +59,9 @@ import { init, Z3_error_code } from '../../build/node.js';
   console.log('confirming error messages work:', Z3.get_error_msg(ctx, Z3.get_error_code(ctx)));
 
   Z3.global_param_set('verbose', '0');
-  let result = await Z3.eval_smtlib2_string(ctx, `
+  let result = await Z3.eval_smtlib2_string(
+    ctx,
+    `
     (declare-const p Bool)
     (declare-const q Bool)
     (declare-const r Bool)
@@ -68,7 +70,8 @@ import { init, Z3_error_code } from '../../build/node.js';
     (assert ((_ pbeq 5 2 1 3 3 2) p q r s t))
     (check-sat)
     (get-model)
-  `);
+  `,
+  );
   console.log('checking string evaluation', result);
 
   Z3.dec_ref(ctx, strAst);
