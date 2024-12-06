@@ -1,4 +1,4 @@
-import { init } from '../../build/node';
+import { init } from '../../build/node.js';
 
 import type { Solver, Arith } from '../../build/node';
 
@@ -198,8 +198,6 @@ function parseSudoku(str: string) {
 .........
 .........
 `);
-
-  em.PThread.terminateAllThreads();
 })().catch(e => {
   console.error('error', e);
   process.exit(1);
