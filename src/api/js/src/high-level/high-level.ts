@@ -741,7 +741,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       },
 
       val<Bits extends number>(
-        value: bigint | number | boolean,
+        value: bigint | number | boolean | string,
         bits: Bits | BitVecSort<Bits, Name>,
       ): BitVecNum<Bits, Name> {
         if (value === true) {

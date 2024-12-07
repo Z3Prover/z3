@@ -40,7 +40,13 @@ function spawnSync(command: string, opts: SpawnOptions = {}) {
 }
 
 function exportedFuncs(): string[] {
-  const extras = ['_malloc', '_set_throwy_error_handler', '_set_noop_error_handler', ...asyncFuncs.map(f => '_async_' + f)];
+  const extras = [
+    '_malloc',
+    '_free',
+    '_set_throwy_error_handler',
+    '_set_noop_error_handler',
+    ...asyncFuncs.map(f => '_async_' + f),
+  ];
 
   // TODO(ritave): This variable is unused in original script, find out if it's important
   const fns: any[] = (functions as any[]).filter(f => !asyncFuncs.includes(f.name));
@@ -66,10 +72,10 @@ fs.mkdirSync(path.dirname(ccWrapperPath), { recursive: true });
 fs.writeFileSync(ccWrapperPath, makeCCWrapper());
 
 const fns = JSON.stringify(exportedFuncs());
-const methods = '["ccall","FS","allocate","UTF8ToString","intArrayFromString","ALLOC_NORMAL"]';
+const methods = '["PThread","ccall","FS","UTF8ToString","intArrayFromString"]';
 const libz3a = path.normalize('../../../build/libz3.a');
 spawnSync(
-  `emcc build/async-fns.cc ${libz3a} --std=c++20 --pre-js src/low-level/async-wrapper.js -g2 -pthread -fexceptions -s WASM_BIGINT -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=0 -s PTHREAD_POOL_SIZE_STRICT=0 -s MODULARIZE=1 -s 'EXPORT_NAME="initZ3"' -s EXPORTED_RUNTIME_METHODS=${methods} -s EXPORTED_FUNCTIONS=${fns} -s DISABLE_EXCEPTION_CATCHING=0 -s SAFE_HEAP=0 -s DEMANGLE_SUPPORT=1 -s TOTAL_MEMORY=2GB -s TOTAL_STACK=20MB -I z3/src/api/ -o build/z3-built.js`,
+  `emcc build/async-fns.cc ${libz3a} --std=c++20 --pre-js src/low-level/async-wrapper.js -g2 -pthread -fexceptions -s WASM_BIGINT -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=0 -s PTHREAD_POOL_SIZE_STRICT=0 -s MODULARIZE=1 -s 'EXPORT_NAME="initZ3"' -s EXPORTED_RUNTIME_METHODS=${methods} -s EXPORTED_FUNCTIONS=${fns} -s DISABLE_EXCEPTION_CATCHING=0 -s SAFE_HEAP=0 -s TOTAL_MEMORY=2GB -s TOTAL_STACK=20MB -I z3/src/api/ -o build/z3-built.js`,
 );
 
 fs.rmSync(ccWrapperPath);

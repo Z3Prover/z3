@@ -7,7 +7,7 @@ The readme for the bindings themselves is located in [`PUBLISHED_README.md`](./P
 
 ## Building
 
-You'll need to have emscripten set up, along with all of its dependencies. The easiest way to do that is with [emsdk](https://github.com/emscripten-core/emsdk).
+You'll need to have emscripten set up, along with all of its dependencies. The easiest way to do that is with [emsdk](https://github.com/emscripten-core/emsdk). Newer versions of emscripten may break the build; you can find the version used in CI in [this file](https://github.com/Z3Prover/z3/blob/master/.github/workflows/wasm.yml#L13).
 
 Then run `npm i` to install dependencies, `npm run build:ts` to build the TypeScript wrapper, and `npm run build:wasm` to build the wasm artifact.
 
@@ -17,4 +17,4 @@ Consult the file [build-wasm.ts](https://github.com/Z3Prover/z3/blob/master/src/
 
 ## Tests
 
-Current tests are very minimal: [`test-ts-api.ts`](./test-ts-api.ts) contains a couple real cases translated very mechanically from [this file](https://github.com/Z3Prover/z3/blob/90fd3d82fce20d45ed2eececdf65545bab769503/examples/c/test_capi.c).
+Run `npm test` after building to run tests.

@@ -374,7 +374,6 @@ describe('high-level', () => {
     });
   });
 
-  
   describe('bitvectors', () => {
     it('can do simple proofs', async () => {
       const { BitVec, Concat, Implies, isBitVecVal } = api.Context('main');
@@ -412,7 +411,6 @@ describe('high-level', () => {
       expect((xv ^ yv) - 103n === (xv * yv) % 2n ** 32n).toStrictEqual(true);
     });
   });
-
 
   describe('arrays', () => {
     it('Example 1', async () => {
@@ -848,7 +846,7 @@ describe('high-level', () => {
   });
 
   describe('optimize', () => {
-    it("maximization problem over reals", async () => {
+    it('maximization problem over reals', async () => {
       const { Real, Optimize } = api.Context('main');
 
       const opt = new Optimize();
@@ -858,9 +856,9 @@ describe('high-level', () => {
 
       opt.add(x.ge(0), y.ge(0), z.ge(0));
       opt.add(x.le(1), y.le(1), z.le(1));
-      opt.maximize(x.mul(7).add(y.mul(9)).sub(z.mul(3)))
+      opt.maximize(x.mul(7).add(y.mul(9)).sub(z.mul(3)));
 
-      const result = await opt.check()
+      const result = await opt.check();
       expect(result).toStrictEqual('sat');
       const model = opt.model();
       expect(model.eval(x).eqIdentity(Real.val(1))).toBeTruthy();
@@ -868,7 +866,7 @@ describe('high-level', () => {
       expect(model.eval(z).eqIdentity(Real.val(0))).toBeTruthy();
     });
 
-    it("minimization problem over integers using addSoft", async () => {
+    it('minimization problem over integers using addSoft', async () => {
       const { Int, Optimize } = api.Context('main');
 
       const opt = new Optimize();
@@ -884,7 +882,7 @@ describe('high-level', () => {
       opt.add(z.le(5));
       opt.minimize(z);
 
-      const result = await opt.check()
+      const result = await opt.check();
       expect(result).toStrictEqual('sat');
       const model = opt.model();
       expect(model.eval(x).eqIdentity(Int.val(1))).toBeTruthy();
@@ -892,5 +890,4 @@ describe('high-level', () => {
       expect(model.eval(z).eqIdentity(Int.val(5))).toBeTruthy();
     });
   });
-
 });

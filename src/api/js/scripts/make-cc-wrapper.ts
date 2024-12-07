@@ -58,8 +58,24 @@ void wrapper(Args&&... args) {
         reject_async('failed with unknown exception');
       });
     }
+    MAIN_THREAD_ASYNC_EM_ASM({
+      // this clears the earliest timeout
+      // not necessarily the one corresponding to this thread
+      // but that's ok
+      clearTimeout(threadTimeouts.shift());
+    });
   });
   t.detach();
+  EM_ASM({
+    // https://github.com/emscripten-core/emscripten/issues/23092
+    // in Node.js, the process will die if there is no active work
+    // which can happen while the thread is spawning
+    // or while it is running
+    // so we set a timeout here so it stays alive
+    // this needs to be longer than it could conceivably take to call the one function
+    // it gets cleared as soon as the thread actually finishes
+    threadTimeouts.push(setTimeout(() => {}, 600000));
+  });
 }
 
 template<typename Fn, Fn fn, typename... Args>
@@ -79,8 +95,24 @@ void wrapper_str(Args&&... args) {
         reject_async(new Error('failed with unknown exception'));
       });
     }
+    MAIN_THREAD_ASYNC_EM_ASM({
+      // this clears the earliest timeout
+      // not necessarily the one corresponding to this thread
+      // but that's ok
+      clearTimeout(threadTimeouts.shift());
+    });
   });
   t.detach();
+  EM_ASM({
+    // https://github.com/emscripten-core/emscripten/issues/23092
+    // in Node.js, the process will die if there is no active work
+    // which can happen while the thread is spawning
+    // or while it is running
+    // so we set a timeout here so it stays alive
+    // this needs to be longer than it could conceivably take to call the one function
+    // it gets cleared as soon as the thread actually finishes
+    threadTimeouts.push(setTimeout(() => {}, 600000));
+  });
 }
 
 

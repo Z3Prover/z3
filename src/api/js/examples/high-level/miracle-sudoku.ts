@@ -1,4 +1,4 @@
-import { init } from '../../build/node';
+import { init } from '../../build/node.js';
 
 import type { Solver, Arith } from '../../build/node';
 
@@ -157,7 +157,9 @@ function parseSudoku(str: string) {
 
   async function solve(str: string) {
     let solver = new Z3.Solver();
-    let cells = Array.from({ length: 9 }, (_, col) => Array.from({ length: 9 }, (_, row) => Z3.Int.const(`c_${row}_${col}`)));
+    let cells = Array.from({ length: 9 }, (_, col) =>
+      Array.from({ length: 9 }, (_, row) => Z3.Int.const(`c_${row}_${col}`)),
+    );
     for (let { row, col, value } of parseSudoku(str)) {
       solver.add(cells[row][col].eq(value));
     }
@@ -198,8 +200,6 @@ function parseSudoku(str: string) {
 .........
 .........
 `);
-
-  em.PThread.terminateAllThreads();
 })().catch(e => {
   console.error('error', e);
   process.exit(1);

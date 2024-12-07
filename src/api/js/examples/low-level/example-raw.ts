@@ -1,6 +1,6 @@
 // @ts-ignore we're not going to bother with types for this
 import process from 'process';
-import { init, Z3_error_code } from '../../build/node';
+import { init, Z3_error_code } from '../../build/node.js';
 
 // demonstrates use of the raw API
 
@@ -58,10 +58,24 @@ import { init, Z3_error_code } from '../../build/node';
   }
   console.log('confirming error messages work:', Z3.get_error_msg(ctx, Z3.get_error_code(ctx)));
 
+  Z3.global_param_set('verbose', '0');
+  let result = await Z3.eval_smtlib2_string(
+    ctx,
+    `
+    (declare-const p Bool)
+    (declare-const q Bool)
+    (declare-const r Bool)
+    (declare-const s Bool)
+    (declare-const t Bool)
+    (assert ((_ pbeq 5 2 1 3 3 2) p q r s t))
+    (check-sat)
+    (get-model)
+  `,
+  );
+  console.log('checking string evaluation', result);
+
   Z3.dec_ref(ctx, strAst);
   Z3.del_context(ctx);
-
-  em.PThread.terminateAllThreads();
 })().catch(e => {
   console.error('error', e);
   process.exit(1);

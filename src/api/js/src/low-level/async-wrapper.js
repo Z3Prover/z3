@@ -1,6 +1,8 @@
 // this wrapper works with async-fns to provide promise-based off-thread versions of some functions
 // It's prepended directly by emscripten to the resulting z3-built.js
 
+let threadTimeouts = [];
+
 let capability = null;
 function resolve_async(val) {
   // setTimeout is a workaround for https://github.com/emscripten-core/emscripten/issues/15900
