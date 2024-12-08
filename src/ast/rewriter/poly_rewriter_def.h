@@ -1017,7 +1017,9 @@ bool poly_rewriter<Config>::hoist_ite(expr_ref& e) {
         ++i;
     }
     if (!pinned.empty()) {
+        TRACE("poly_rewriter", tout << e << "\n");
         e = mk_add_app(adds.size(), adds.data());
+        TRACE("poly_rewriter", tout << e << "\n");
         return true;
     }
     return false;
