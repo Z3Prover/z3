@@ -15,7 +15,6 @@ Author:
 
 Todo:
 
-- try incremental CC with backtracking for changing assignments
 - try determining plateau moves.
 - try generally a model rotation move.
     

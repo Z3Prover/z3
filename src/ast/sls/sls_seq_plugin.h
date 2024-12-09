@@ -72,6 +72,7 @@ namespace sls {
         bool repair_down_eq(app* e);
         bool repair_down_str_eq_unify(app* e);
         bool repair_down_str_eq_edit_distance(app* e);
+        bool repair_down_str_eq_edit_distance_incremental(app* e);
         bool repair_down_str_eq(app* e);
         bool repair_down_str_extract(app* e);
         bool repair_down_str_contains(expr* e);
@@ -91,6 +92,20 @@ namespace sls {
         void repair_up_str_itos(app* e);
         void repair_up_str_stoi(app* e);
 
+        enum op {
+            add, del, copy
+        };
+        enum side {
+            left, right
+        };
+        struct string_update {
+            side side;
+            op op;
+            unsigned i, j;
+        };
+        svector<string_update> m_string_updates;
+        void add_string_update(side side, op op, unsigned i, unsigned j) { m_string_updates.push_back({ side, op, i, j }); }
+        unsigned edit_distance_with_updates(zstring const& a, bool_vector const& a_is_value, zstring const& b, bool_vector const& b_is_value);
         unsigned edit_distance(zstring const& a, zstring const& b);
         void add_edit_updates(ptr_vector<expr> const& w, zstring const& val, zstring const& val_other, uint_set const& chars);
 

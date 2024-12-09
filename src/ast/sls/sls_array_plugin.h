@@ -56,10 +56,15 @@ namespace sls {
 
         void init_egraph(euf::egraph& g);
         void init_kv(euf::egraph& g, kv& kv);
-        void saturate_store(euf::egraph& g);
+        void saturate(euf::egraph& g);
+        void saturate_store(euf::egraph& g, euf::enode* n);
+        void saturate_const(euf::egraph& g, euf::enode* n);
+        void saturate_map(euf::egraph& g, euf::enode* n);
         void force_store_axiom1(euf::egraph& g, euf::enode* n);
         void force_store_axiom2_down(euf::egraph& g, euf::enode* sto, euf::enode* sel);
         void force_store_axiom2_up(euf::egraph& g, euf::enode* sto, euf::enode* sel);
+        void force_const_axiom(euf::egraph& g, euf::enode* cn, euf::enode* sel);
+        void add_map_axiom(euf::egraph& g, euf::enode* n, euf::enode* sel);
         void add_store_axiom1(app* sto);
         void add_store_axiom2(app* sto, app* sel);
         bool are_distinct(euf::enode* a, euf::enode* b);

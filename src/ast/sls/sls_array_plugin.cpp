@@ -35,7 +35,7 @@ namespace sls {
         m_g = alloc(euf::egraph, m);
         m_kv = nullptr;
         init_egraph(*m_g);
-        saturate_store(*m_g);
+        saturate(*m_g);
         return true;
     }
 
@@ -43,28 +43,73 @@ namespace sls {
     // ensure b[i] ~ v
     // ensure b[j] ~ a[j] for j != i
 
-    void array_plugin::saturate_store(euf::egraph& g) {
+    void array_plugin::saturate(euf::egraph& g) {
         unsigned sz = 0;
         while (sz < g.nodes().size()) {
             sz = g.nodes().size();
             for (unsigned i = 0; i < sz; ++i) {
                 auto n = g.nodes()[i];
-                if (!a.is_store(n->get_expr()))
-                    continue;
-
-                force_store_axiom1(g, n);
-
-                for (auto p : euf::enode_parents(n->get_root())) 
-                    if (a.is_select(p->get_expr()))
-                        force_store_axiom2_down(g, n, p);
+                if (a.is_store(n->get_expr()))
+                    saturate_store(g, n);
+                else if (a.is_const(n->get_expr()))
+                    saturate_const(g, n);
+                else if (a.is_map(n->get_expr()))
+                    saturate_map(g, n);
                 
-                auto arr = n->get_arg(0);
-                for (auto p : euf::enode_parents(arr->get_root())) 
-                    if (a.is_select(p->get_expr()))
-                        force_store_axiom2_up(g, n, p);                
             }
         }
-        display(verbose_stream() << "saturated\n");
+        IF_VERBOSE(2, display(verbose_stream() << "saturated\n"));
+    }
+
+    void array_plugin::saturate_store(euf::egraph& g, euf::enode* n) {
+        force_store_axiom1(g, n);
+        for (auto p : euf::enode_parents(n->get_root()))
+            if (a.is_select(p->get_expr()))
+                force_store_axiom2_down(g, n, p);
+        auto arr = n->get_arg(0);
+        for (auto p : euf::enode_parents(arr->get_root()))
+            if (a.is_select(p->get_expr()))
+                force_store_axiom2_up(g, n, p);
+    }
+
+    void array_plugin::saturate_const(euf::egraph& g, euf::enode* n) {
+        for (auto p : euf::enode_parents(n->get_root()))
+            if (a.is_select(p->get_expr()))
+                force_const_axiom(g, n, p);
+    }
+
+    void array_plugin::saturate_map(euf::egraph& g, euf::enode* n) {
+        for (auto p : euf::enode_parents(n->get_root()))
+            if (a.is_select(p->get_expr()))
+                add_map_axiom(g, n, p);       
+    }
+
+    void array_plugin::add_map_axiom(euf::egraph& g, euf::enode * n, euf::enode* sel) {
+        func_decl* f = nullptr;
+        VERIFY(sel->get_arg(0)->get_root() == n->get_root());
+        SASSERT(a.is_map(n->get_expr()));
+        VERIFY(a.is_map(n->get_decl(), f));
+        expr_ref apply_map(m);
+        expr_ref_vector args(m);
+        euf::enode_vector eargs;
+        for (auto arg : euf::enode_args(n)) {
+            auto nsel = mk_select(g, arg, sel);
+            eargs.push_back(nsel);
+            args.push_back(nsel->get_expr());
+        }
+        expr_ref f_map(m.mk_app(f, args), m);
+        auto nsel = mk_select(g, n, sel);
+        auto nmap = g.find(f_map);
+        if (!nmap) 
+            nmap = g.mk(f_map, 0, eargs.size(), eargs.data());        
+        if (are_distinct(nsel, nmap)) {
+            expr_ref eq(m.mk_eq(nmap->get_expr(), nsel->get_expr()), m);
+            ctx.add_clause(eq);
+        }
+        else {
+            g.merge(nmap, nsel, nullptr);
+            VERIFY(g.propagate());
+        }
     }
 
     euf::enode* array_plugin::mk_select(euf::egraph& g, euf::enode* b, euf::enode* sel) {
@@ -130,6 +175,24 @@ namespace sls {
         }
     }
 
+    // const(v) ~ b, b[j] occurs -> v = (const v)[j]
+    void array_plugin::force_const_axiom(euf::egraph& g, euf::enode* cn, euf::enode* sel) {
+        SASSERT(a.is_const(cn->get_expr()));
+        SASSERT(a.is_select(sel->get_expr()));
+        if (sel->get_arg(0)->get_root() != cn->get_root())
+            return;
+        auto val = cn->get_arg(0);
+        auto nsel = mk_select(g, cn, sel);
+        if (are_distinct(nsel, sel)) {
+            expr_ref eq(m.mk_eq(val->get_expr(), nsel->get_expr()), m);
+            ctx.add_clause(eq);
+        }
+        else {
+            g.merge(nsel, sel, nullptr);
+            VERIFY(g.propagate());
+        }
+    }
+
     bool array_plugin::are_distinct(euf::enode* a, euf::enode* b) {
         a = a->get_root();
         b = b->get_root();
@@ -156,7 +219,7 @@ namespace sls {
             args.push_back(sto->get_arg(i));
         expr_ref sel(a.mk_select(args), m);
         expr_ref eq(m.mk_eq(sel, to_app(sto)->get_arg(sto->get_num_args() - 1)), m);
-        verbose_stream() << "add store axiom 1 " << mk_bounded_pp(sto, m) << "\n";
+        IF_VERBOSE(3, verbose_stream() << "add store axiom 1 " << mk_bounded_pp(sto, m) << "\n");
         ctx.add_clause(eq);
     }
     
@@ -177,7 +240,7 @@ namespace sls {
         ors.push_back(eq);
         for (unsigned i = 1; i < sel->get_num_args() - 1; ++i) 
             ors.push_back(m.mk_eq(sel->get_arg(i), sto->get_arg(i)));     
-        verbose_stream() << "add store axiom 2 " << mk_bounded_pp(sto, m) << " " << mk_bounded_pp(sel, m) << "\n";
+        IF_VERBOSE(3, verbose_stream() << "add store axiom 2 " << mk_bounded_pp(sto, m) << " " << mk_bounded_pp(sel, m) << "\n");
         ctx.add_clause(m.mk_or(ors));
     }
 
@@ -195,7 +258,7 @@ namespace sls {
             if (a.is_array(t))
                 continue;
             auto v = ctx.get_value(t);
-            verbose_stream() << "init " << mk_bounded_pp(t, m) << " := " << mk_bounded_pp(v, m) << "\n";
+            IF_VERBOSE(3, verbose_stream() << "init " << mk_bounded_pp(t, m) << " := " << mk_bounded_pp(v, m) << "\n");
             n2 = g.find(v);
             n2 = n2 ? n2: g.mk(v, 0, 0, nullptr);
             g.merge(n1, n2, nullptr);
@@ -209,7 +272,7 @@ namespace sls {
                 g.merge(g.find(x), g.find(y), nullptr);
         }
 
-        display(verbose_stream());
+        IF_VERBOSE(3, display(verbose_stream()));
         
     }
 
@@ -236,12 +299,13 @@ namespace sls {
             m_g = alloc(euf::egraph, m);
             init_egraph(*m_g);
             flet<bool> _strong(m_add_conflicts, false);
-            saturate_store(*m_g);
+            saturate(*m_g);
         }
         if (!m_kv) {
             m_kv = alloc(kv);
             init_kv(*m_g, *m_kv);
         }
+        // TODO: adapt to handle "const" arrays and multi-dimensional arrays.
         auto& kv = *m_kv;
         auto n = m_g->find(e)->get_root();
         expr_ref r(n->get_expr(), m);

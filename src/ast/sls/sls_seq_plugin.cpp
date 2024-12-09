@@ -600,9 +600,12 @@ namespace sls {
         VERIFY(m.is_eq(e, x, y));
         IF_VERBOSE(3, verbose_stream() << is_true << ": " << mk_bounded_pp(e, m, 3) << "\n");
         if (ctx.is_true(e)) {
-            return repair_down_str_eq_edit_distance(e);
-            if (ctx.rand(2) != 0)
-                return repair_down_str_eq_unify(e);
+            if (false && ctx.rand(2) != 0 && repair_down_str_eq_edit_distance_incremental(e))
+                return true;
+            if (ctx.rand(2) != 0 && repair_down_str_eq_edit_distance(e))
+                return true;
+            if (ctx.rand(2) != 0 && repair_down_str_eq_unify(e))
+                return true;
             if (!is_value(x))
                 m_str_updates.push_back({ x, strval1(y), 1 });
             if (!is_value(y))
@@ -645,10 +648,72 @@ namespace sls {
                 if (a[i - 1] == b[j - 1])
                     d[i][j] = d[i - 1][j - 1];
                 else
-                    d[i][j] = std::min(std::min(d[i - 1][j] + 1, d[i][j - 1] + 1), d[i - 1][j - 1] + 1);
+                    d[i][j] = 1 + std::min(std::min(d[i - 1][j], d[i][j - 1]), d[i - 1][j - 1]);
             }
         }
         return d[n][m];
+    }
+
+    /**
+    * \brief edit distance with update calculation
+    */
+    unsigned seq_plugin::edit_distance_with_updates(zstring const& a, bool_vector const& a_is_value, zstring const& b, bool_vector const& b_is_value) {
+        unsigned n = a.length();
+        unsigned m = b.length();
+        vector<unsigned_vector> d(n + 1); // edit distance
+        vector<unsigned_vector> u(n + 1); // edit distance with updates.
+        m_string_updates.reset();
+        for (unsigned i = 0; i <= n; ++i) {
+            d[i].resize(m + 1, 0);
+            u[i].resize(m + 1, 0);
+        }
+        for (unsigned i = 0; i <= n; ++i)
+            d[i][0] = i, u[i][0] = i;
+        for (unsigned j = 0; j <= m; ++j)
+            d[0][j] = j, u[0][j] = j;
+        for (unsigned j = 1; j <= m; ++j) {
+            for (unsigned i = 1; i <= n; ++i) {
+                if (a[i - 1] == b[j - 1]) {
+                    d[i][j] = d[i - 1][j - 1];
+                    u[i][j] = u[i - 1][j - 1];
+                }
+                else {
+                    u[i][j] = 1 + std::min(u[i - 1][j], std::min(u[i][j - 1], u[i - 1][j - 1]));
+                    d[i][j] = 1 + std::min(d[i - 1][j], std::min(d[i][j - 1], d[i - 1][j - 1]));
+
+                    // TODO: take into account for a_is_value[i - 1] and b_is_value[j - 1]
+                    // and whether index i-1, j-1 is at the boundary of an empty string variable.
+
+                    if (d[i - 1][j] < u[i][j] && !a_is_value[i - 1]) {
+                        m_string_updates.reset();
+                        u[i][j] = d[i - 1][j];
+                    }
+                    if (d[i][j - 1] < u[i][j] && !b_is_value[i - 1]) {
+                        m_string_updates.reset();
+                        u[i][j] = d[i][j - 1];
+                    }
+                    if (d[i - 1][j - 1] < u[i][j] && (!a_is_value[i - 1] || !b_is_value[j - 1])) {
+                        m_string_updates.reset();
+                        u[i][j] = d[i - 1][j - 1];
+                    }
+                    if (d[i - 1][j] == u[i][j] && !a_is_value[i - 1]) {
+                        add_string_update(side::left, op::del, i - 1, 0);
+                        add_string_update(side::left, op::add, j - 1, i - 1);
+                    }
+                    if (d[i][j - 1] == u[i][j] && !b_is_value[j - 1]) {
+                        add_string_update(side::right, op::del, j - 1, 0);
+                        add_string_update(side::right, op::add, i - 1, j - 1);
+                    }
+                    if (d[i - 1][j - 1] == u[i][j] && !a_is_value[i - 1]) 
+                        add_string_update(side::left, op::copy, j - 1, i - 1);
+                                            
+                    if (d[i - 1][j - 1] == u[i][j] && !b_is_value[j - 1]) 
+                        add_string_update(side::right, op::copy, i - 1, j - 1);
+                    
+                }
+            }
+        }
+        return u[n][m];
     }
 
     void seq_plugin::add_edit_updates(ptr_vector<expr> const& w, zstring const& val, zstring const& val_other, uint_set const& chars) {
@@ -700,6 +765,8 @@ namespace sls {
                 break;
             }
         }
+
+#if 0
         if (last_diff != 0) {
             unsigned index = last_diff;
             for (auto x : w) {
@@ -715,6 +782,162 @@ namespace sls {
                 index -= len_x;
             }
         }
+#endif
+    }
+
+
+    bool seq_plugin::repair_down_str_eq_edit_distance_incremental(app* eq) {        
+        auto const& L = lhs(eq);
+        auto const& R = rhs(eq);
+        zstring a, b;
+        bool_vector a_is_value, b_is_value;
+        
+        for (auto x : L) {
+            auto const& val = strval0(x);
+            auto len = val.length();
+            auto is_val = is_value(x);
+            a += val;
+            for (unsigned i = 0; i < len; ++i)
+                a_is_value.push_back(is_val);
+            if (!is_val && len == 0 && !a_is_value.empty())
+                a_is_value.back() = false;
+        }
+        
+        for (auto y : R) {
+            auto const& val = strval0(y);
+            auto len = val.length();
+            auto is_val = is_value(y);
+            b += val;
+            for (unsigned i = 0; i < len; ++i)
+                b_is_value.push_back(is_val);
+            if (!is_val && len == 0 && !b_is_value.empty())
+                b_is_value.back() = false;
+        }
+        
+        if (a == b)
+            return update(eq->get_arg(0), a) && update(eq->get_arg(1), b);
+
+        unsigned diff = edit_distance_with_updates(a, a_is_value, b, b_is_value);
+        if (a.length() == 0) {
+            m_str_updates.push_back({ eq->get_arg(1), zstring(), 1 });
+            m_str_updates.push_back({ eq->get_arg(0), zstring(b[0]), 1});
+            m_str_updates.push_back({ eq->get_arg(0), zstring(b[b.length() - 1]), 1});
+        }
+        if (b.length() == 0) {
+            m_str_updates.push_back({ eq->get_arg(0), zstring(), 1 });
+            m_str_updates.push_back({ eq->get_arg(1), zstring(a[0]), 1 });
+            m_str_updates.push_back({ eq->get_arg(1), zstring(a[a.length() - 1]), 1 });
+        }
+
+        verbose_stream() << "diff \"" << a << "\" \"" << b << "\" diff " << diff << " updates " << m_string_updates.size() << "\n";
+#if 1
+        for (auto const& [side, op, i, j] : m_string_updates) {
+            switch (op) {
+            case op::del:
+                if (side == side::left)
+                    verbose_stream() << "del " << a[i] << " @ " << i << " left\n";
+                else
+                    verbose_stream() << "del " << b[i] << " @ " << i << " right\n";
+                break;
+            case op::add:
+                if (side == side::left)
+                    verbose_stream() << "add " << b[i] << " @ " << j << " left\n";
+                else
+                    verbose_stream() << "add " << a[i] << " @ " << j << " right\n";
+                break;
+            case op::copy:
+                if (side == side::left)
+                    verbose_stream() << "copy " << b[i] << " @ " << j << " left\n";
+                else
+                    verbose_stream() << "copy " << a[i] << " @ " << j << " right\n";
+                break;
+            }
+        }
+#endif
+        for (auto& [side, op, i, j] : m_string_updates) {
+            if (op == op::del && side == side::left) {
+                for (auto x : L) {
+                    
+                    auto const& value = strval0(x);
+                    if (i >= value.length())
+                        i -= value.length();
+                    else {
+                        if (!is_value(x))
+                            m_str_updates.push_back({ x, value.extract(0, i) + value.extract(i + 1, value.length()), 1 });
+                        break;
+                    }
+                }
+            }
+            else if (op == op::del && side == side::right) {
+                for (auto x : R) {
+                    auto const& value = strval0(x);
+                    if (i >= value.length())
+                        i -= value.length();
+                    else {
+                        if (!is_value(x))
+                            m_str_updates.push_back({ x, value.extract(0, i) + value.extract(i + 1, value.length()), 1 });
+                        break;
+                    }
+                }
+            }
+            else if (op == op::add && side == side::left) {
+                for (auto x : L) {
+                    auto const& value = strval0(x);
+                    //verbose_stream() << "add " << j << " " << value << " " << value.length() << " " << is_value(x) << "\n";
+                    if (j > value.length() || (j == value.length() && j > 0)) {
+                        j -= value.length();
+                        continue;
+                    }
+                    if (!is_value(x))
+                        m_str_updates.push_back({ x, value.extract(0, j) + zstring(b[i]) + value.extract(j, value.length()), 1 });
+                    if (j < value.length())
+                        break;                    
+                }
+            }
+            else if (op == op::add && side == side::right) {
+                for (auto x : R) {
+                    auto const& value = strval0(x);
+                    //verbose_stream() << "add " << j << " " << value << " " << value.length() << " " << is_value(x) << "\n";
+                    if (j > value.length() || (j == value.length() && j > 0)) {
+                        j -= value.length();
+                        continue;
+                    }
+                    if (!is_value(x))
+                        m_str_updates.push_back({ x, value.extract(0, j) + zstring(a[i]) + value.extract(j, value.length()), 1 });
+                    if (j < value.length())
+                        break;
+                }
+            }
+            else if (op == op::copy && side == side::left) {
+                for (auto x : L) {
+                    auto const& value = strval0(x);
+                    if (j >= value.length())
+                        j -= value.length();
+                    else {
+                        if (!is_value(x))
+                            m_str_updates.push_back({ x, value.extract(0, j) + zstring(b[i]) + value.extract(j + 1, value.length()), 1 });
+                        break;
+                    }
+                }
+            }
+            else if (op == op::copy && side == side::right) {
+                for (auto x : R) {
+                    auto const& value = strval0(x);
+                    if (j >= value.length())
+                        j -= value.length();
+                    else {
+                        if (!is_value(x))
+                            m_str_updates.push_back({ x, value.extract(0, j) + zstring(a[i]) + value.extract(j + 1, value.length()), 1 });
+                        break;
+                    }
+                }
+            }
+        }
+        verbose_stream() << "num updates " << m_str_updates.size() << "\n";
+        bool r = apply_update();
+        verbose_stream() << "apply update " << r << "\n";
+        //VERIFY(r);
+        return r;
     }
 
     bool seq_plugin::repair_down_str_eq_edit_distance(app* eq) {
@@ -734,7 +957,10 @@ namespace sls {
             b += strval0(y);
         }
         if (a == b)
-            return update(eq->get_arg(0), a) && update(eq->get_arg(1), b);     
+            return update(eq->get_arg(0), a) && update(eq->get_arg(1), b);    
+
+
+
 
         unsigned diff = edit_distance(a, b);     
 
