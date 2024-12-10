@@ -697,18 +697,18 @@ namespace sls {
                         u[i][j] = d[i - 1][j - 1];
                     }
                     if (d[i - 1][j] == u[i][j] && !a_is_value[i - 1]) {
-                        add_string_update(side::left, op::del, i - 1, 0);
-                        add_string_update(side::left, op::add, j - 1, i - 1);
+                        add_string_update(side_t::left, op_t::del, i - 1, 0);
+                        add_string_update(side_t::left, op_t::add, j - 1, i - 1);
                     }
                     if (d[i][j - 1] == u[i][j] && !b_is_value[j - 1]) {
-                        add_string_update(side::right, op::del, j - 1, 0);
-                        add_string_update(side::right, op::add, i - 1, j - 1);
+                        add_string_update(side_t::right, op_t::del, j - 1, 0);
+                        add_string_update(side_t::right, op_t::add, i - 1, j - 1);
                     }
                     if (d[i - 1][j - 1] == u[i][j] && !a_is_value[i - 1]) 
-                        add_string_update(side::left, op::copy, j - 1, i - 1);
+                        add_string_update(side_t::left, op_t::copy, j - 1, i - 1);
                                             
                     if (d[i - 1][j - 1] == u[i][j] && !b_is_value[j - 1]) 
-                        add_string_update(side::right, op::copy, i - 1, j - 1);
+                        add_string_update(side_t::right, op_t::copy, i - 1, j - 1);
                     
                 }
             }
@@ -833,20 +833,20 @@ namespace sls {
 #if 1
         for (auto const& [side, op, i, j] : m_string_updates) {
             switch (op) {
-            case op::del:
-                if (side == side::left)
+            case op_t::del:
+                if (side == side_t::left)
                     verbose_stream() << "del " << a[i] << " @ " << i << " left\n";
                 else
                     verbose_stream() << "del " << b[i] << " @ " << i << " right\n";
                 break;
-            case op::add:
-                if (side == side::left)
+            case op_t::add:
+                if (side == side_t::left)
                     verbose_stream() << "add " << b[i] << " @ " << j << " left\n";
                 else
                     verbose_stream() << "add " << a[i] << " @ " << j << " right\n";
                 break;
-            case op::copy:
-                if (side == side::left)
+            case op_t::copy:
+                if (side == side_t::left)
                     verbose_stream() << "copy " << b[i] << " @ " << j << " left\n";
                 else
                     verbose_stream() << "copy " << a[i] << " @ " << j << " right\n";
@@ -855,7 +855,7 @@ namespace sls {
         }
 #endif
         for (auto& [side, op, i, j] : m_string_updates) {
-            if (op == op::del && side == side::left) {
+            if (op == op_t::del && side == side_t::left) {
                 for (auto x : L) {
                     
                     auto const& value = strval0(x);
@@ -868,7 +868,7 @@ namespace sls {
                     }
                 }
             }
-            else if (op == op::del && side == side::right) {
+            else if (op == op_t::del && side == side_t::right) {
                 for (auto x : R) {
                     auto const& value = strval0(x);
                     if (i >= value.length())
@@ -880,7 +880,7 @@ namespace sls {
                     }
                 }
             }
-            else if (op == op::add && side == side::left) {
+            else if (op == op_t::add && side == side_t::left) {
                 for (auto x : L) {
                     auto const& value = strval0(x);
                     //verbose_stream() << "add " << j << " " << value << " " << value.length() << " " << is_value(x) << "\n";
@@ -894,7 +894,7 @@ namespace sls {
                         break;                    
                 }
             }
-            else if (op == op::add && side == side::right) {
+            else if (op == op_t::add && side == side_t::right) {
                 for (auto x : R) {
                     auto const& value = strval0(x);
                     //verbose_stream() << "add " << j << " " << value << " " << value.length() << " " << is_value(x) << "\n";
@@ -908,7 +908,7 @@ namespace sls {
                         break;
                 }
             }
-            else if (op == op::copy && side == side::left) {
+            else if (op == op_t::copy && side == side_t::left) {
                 for (auto x : L) {
                     auto const& value = strval0(x);
                     if (j >= value.length())
@@ -920,7 +920,7 @@ namespace sls {
                     }
                 }
             }
-            else if (op == op::copy && side == side::right) {
+            else if (op == op_t::copy && side == side_t::right) {
                 for (auto x : R) {
                     auto const& value = strval0(x);
                     if (j >= value.length())

@@ -92,19 +92,19 @@ namespace sls {
         void repair_up_str_itos(app* e);
         void repair_up_str_stoi(app* e);
 
-        enum op {
+        enum op_t {
             add, del, copy
         };
-        enum side {
+        enum side_t {
             left, right
         };
         struct string_update {
-            side side;
-            op op;
+            side_t side;
+            op_t op;
             unsigned i, j;
         };
         svector<string_update> m_string_updates;
-        void add_string_update(side side, op op, unsigned i, unsigned j) { m_string_updates.push_back({ side, op, i, j }); }
+        void add_string_update(side_t side, op_t op, unsigned i, unsigned j) { m_string_updates.push_back({ side, op, i, j }); }
         unsigned edit_distance_with_updates(zstring const& a, bool_vector const& a_is_value, zstring const& b, bool_vector const& b_is_value);
         unsigned edit_distance(zstring const& a, zstring const& b);
         void add_edit_updates(ptr_vector<expr> const& w, zstring const& val, zstring const& val_other, uint_set const& chars);
