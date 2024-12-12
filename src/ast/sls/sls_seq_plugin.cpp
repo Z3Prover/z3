@@ -414,7 +414,15 @@ namespace sls {
                     return ev.val1.svalue;
                 }
             }
-            case OP_SEQ_REPLACE:
+            case OP_SEQ_REPLACE: {
+                expr* x, * y, * z;
+                VERIFY(seq.str.is_replace(e, x, y, z));
+                zstring r = strval0(x);
+                zstring s = strval0(y);
+                zstring t = strval0(z);
+                ev.val1.svalue = r.replace(s, t);
+                return ev.val1.svalue;
+            }
             case OP_SEQ_NTH:
             case OP_SEQ_NTH_I:
             case OP_SEQ_NTH_U:
@@ -1133,6 +1141,10 @@ namespace sls {
             if (seq.is_string(to_app(e)->get_arg(0)->get_sort()))
                 return repair_down_in_re(e);
             break;
+        case OP_SEQ_REPLACE:
+            if (seq.is_string(e->get_sort()))
+                return repair_down_str_replace(e);
+            break;
         case OP_STRING_UBVTOS:
         case OP_STRING_SBVTOS:
         case OP_STRING_TO_CODE:
@@ -1141,7 +1153,7 @@ namespace sls {
         case OP_SEQ_NTH:
         case OP_SEQ_NTH_I:
         case OP_SEQ_NTH_U:
-        case OP_SEQ_REPLACE:
+
         case OP_SEQ_REPLACE_RE_ALL:
         case OP_SEQ_REPLACE_RE:
         case OP_SEQ_REPLACE_ALL:
@@ -1178,6 +1190,18 @@ namespace sls {
         }
         verbose_stream() << "nyi repair down " << mk_bounded_pp(e, m) << "\n";
         return false;
+    }
+
+    bool seq_plugin::repair_down_str_replace(app* e) {
+        expr* x, * y, * z;
+        VERIFY(seq.str.is_replace(e, x, y, z));
+        zstring r = strval0(e);
+        if (r == strval1(e))
+            return true;
+        if (!is_value(x))
+            m_str_updates.push_back({ x, r, 1 });
+        // TODO some more possible ways, also deal with y, z if they are not values.
+        return apply_update();
     }
 
     bool seq_plugin::repair_down_str_itos(app* e) {
