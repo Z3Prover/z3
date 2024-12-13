@@ -7991,6 +7991,13 @@ class Optimize(Z3PPObject):
         if self._on_models_id is not None:
             del _on_models[self._on_models_id]
 
+    def __enter__(self):
+        self.push()
+        return self
+
+    def __exit__(self, *exc_info):
+        self.pop()
+
     def set(self, *args, **keys):
         """Set a configuration option.
         The method `help()` return a string containing all available options.
