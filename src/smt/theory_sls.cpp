@@ -80,12 +80,10 @@ namespace smt {
         m_init_search = true;
     }
 
-    void theory_sls::finalize() {
+    void theory_sls::finalize() const {
         if (!m_smt_plugin)
             return;
-
-        m_smt_plugin->collect_statistics(m_st);
-        m_smt_plugin->finalize(m_model);
+        m_smt_plugin->finalize(m_model, m_st);
         m_model = nullptr;
         m_smt_plugin = nullptr;        
         m_init_search = false;
@@ -108,8 +106,7 @@ namespace smt {
         else if (!m_parallel_mode) 
             propagate_local_search();
         else if (m_smt_plugin->completed()) {
-            m_smt_plugin->collect_statistics(m_st);
-            m_smt_plugin->finalize(m_model);
+            m_smt_plugin->finalize(m_model, m_st);
             m_smt_plugin = nullptr;
             m_init_search = false;
         }
@@ -197,10 +194,8 @@ namespace smt {
     }
 
     void theory_sls::collect_statistics(::statistics& st) const {
-        if (m_smt_plugin)
-            m_smt_plugin->collect_statistics(st);
-        else
-            st.copy(m_st);
+        finalize();
+        st.copy(m_st);
         st.update("sls-num-guided-search", m_stats.m_num_guided_sls);
         st.update("sls-num-restart-search", m_stats.m_num_restart_sls);
     }
@@ -222,8 +217,7 @@ namespace smt {
     void theory_sls::bounded_run(unsigned num_steps) {       
         m_smt_plugin->bounded_run(num_steps);
         if (m_smt_plugin->result() == l_true) {
-            m_smt_plugin->collect_statistics(m_st);
-            m_smt_plugin->finalize(m_model);
+            m_smt_plugin->finalize(m_model, m_st);
             m_smt_plugin = nullptr;
             m_init_search = false;
         }

@@ -99,7 +99,6 @@ namespace sls {
         if (!m_ddfw)
             return;
         m_result = m_ddfw->check(0, nullptr);
-        m_ddfw->collect_statistics(m_st);
         IF_VERBOSE(1, verbose_stream() << "sls-result " << m_result << "\n");
         for (auto v : m_shared_bool_vars) {
             auto w = m_smt_bool_var2sls_bool_var[v];
@@ -115,7 +114,7 @@ namespace sls {
         m_ddfw->rlimit().pop();
     }
     
-    void smt_plugin::finalize(model_ref& mdl) {
+    void smt_plugin::finalize(model_ref& mdl, ::statistics& st) {
         auto* d = m_ddfw;
         if (!d)
             return;
@@ -127,6 +126,7 @@ namespace sls {
             m_thread.join();
         SASSERT(m_completed);
         mdl = nullptr;
+        m_ddfw->collect_statistics(st);
         if (m_result == l_true && m_sls_model) {
             ast_translation tr(m_sls, m);
             mdl = m_sls_model->translate(tr);
@@ -137,10 +137,6 @@ namespace sls {
         m_ddfw = nullptr;
         // m_ddfw owns the pointer to smt_plugin and destructs it.
         dealloc(d); 
-    }
-
-    void smt_plugin::collect_statistics(::statistics& st) const {
-        st.copy(m_st);
     }
 
     void smt_plugin::get_shared_clauses(vector<sat::literal_vector>& _clauses) {

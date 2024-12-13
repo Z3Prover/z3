@@ -65,7 +65,6 @@ namespace sls {
 
         sat::literal_vector m_units;
         model_ref m_sls_model;
-        ::statistics m_st;
 
         bool m_new_clause_added = false; 
         unsigned m_min_unsat_size = UINT_MAX;
@@ -106,8 +105,7 @@ namespace sls {
 
         // interface to calling solver:
         void check(expr_ref_vector const& fmls, vector <sat::literal_vector> const& clauses);
-        void collect_statistics(::statistics& st) const;
-        void finalize(model_ref& md);
+        void finalize(model_ref& md, ::statistics& st);
         void get_shared_clauses(vector<sat::literal_vector>& clauses);
         void updt_params(params_ref& p) {}
         std::ostream& display(std::ostream& out) override;
