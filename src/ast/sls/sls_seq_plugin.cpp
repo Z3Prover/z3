@@ -807,8 +807,6 @@ namespace sls {
             a += val;
             for (unsigned i = 0; i < len; ++i)
                 a_is_value.push_back(is_val);
-            if (!is_val && len == 0 && !a_is_value.empty())
-                a_is_value.back() = false;
         }
         
         for (auto y : R) {
@@ -818,8 +816,6 @@ namespace sls {
             b += val;
             for (unsigned i = 0; i < len; ++i)
                 b_is_value.push_back(is_val);
-            if (!is_val && len == 0 && !b_is_value.empty())
-                b_is_value.back() = false;
         }
         
         if (a == b)
@@ -862,84 +858,60 @@ namespace sls {
             }
         }
 #endif
+        auto delete_char = [&](auto const& es, unsigned i) {
+            for (auto x : es) {
+                auto const& value = strval0(x);
+                if (i >= value.length())
+                    i -= value.length();
+                else {
+                    if (!is_value(x))
+                        m_str_updates.push_back({ x, value.extract(0, i) + value.extract(i + 1, value.length()), 1 });
+                    break;
+                }
+            }
+        };
+
+        auto add_char = [&](auto const& es, unsigned j, uint32_t ch) {
+            for (auto x : es) {
+                auto const& value = strval0(x);
+                //verbose_stream() << "add " << j << " " << value << " " << value.length() << " " << is_value(x) << "\n";
+                if (j > value.length() || (j == value.length() && j > 0)) {
+                    j -= value.length();
+                    continue;
+                }
+                if (!is_value(x))
+                    m_str_updates.push_back({ x, value.extract(0, j) + zstring(ch) + value.extract(j, value.length()), 1 });
+                if (j < value.length())
+                    break;
+            }
+        };
+
+        auto copy_char = [&](auto const& es, unsigned j, uint32_t ch) {
+            for (auto x : es) {
+                auto const& value = strval0(x);
+                if (j >= value.length())
+                    j -= value.length();
+                else {
+                    if (!is_value(x))
+                        m_str_updates.push_back({ x, value.extract(0, j) + zstring(ch) + value.extract(j + 1, value.length()), 1 });
+                    break;
+                }
+            }
+        };
+
         for (auto& [side, op, i, j] : m_string_updates) {
-            if (op == op_t::del && side == side_t::left) {
-                for (auto x : L) {
-                    
-                    auto const& value = strval0(x);
-                    if (i >= value.length())
-                        i -= value.length();
-                    else {
-                        if (!is_value(x))
-                            m_str_updates.push_back({ x, value.extract(0, i) + value.extract(i + 1, value.length()), 1 });
-                        break;
-                    }
-                }
-            }
-            else if (op == op_t::del && side == side_t::right) {
-                for (auto x : R) {
-                    auto const& value = strval0(x);
-                    if (i >= value.length())
-                        i -= value.length();
-                    else {
-                        if (!is_value(x))
-                            m_str_updates.push_back({ x, value.extract(0, i) + value.extract(i + 1, value.length()), 1 });
-                        break;
-                    }
-                }
-            }
-            else if (op == op_t::add && side == side_t::left) {
-                for (auto x : L) {
-                    auto const& value = strval0(x);
-                    //verbose_stream() << "add " << j << " " << value << " " << value.length() << " " << is_value(x) << "\n";
-                    if (j > value.length() || (j == value.length() && j > 0)) {
-                        j -= value.length();
-                        continue;
-                    }
-                    if (!is_value(x))
-                        m_str_updates.push_back({ x, value.extract(0, j) + zstring(b[i]) + value.extract(j, value.length()), 1 });
-                    if (j < value.length())
-                        break;                    
-                }
-            }
-            else if (op == op_t::add && side == side_t::right) {
-                for (auto x : R) {
-                    auto const& value = strval0(x);
-                    //verbose_stream() << "add " << j << " " << value << " " << value.length() << " " << is_value(x) << "\n";
-                    if (j > value.length() || (j == value.length() && j > 0)) {
-                        j -= value.length();
-                        continue;
-                    }
-                    if (!is_value(x))
-                        m_str_updates.push_back({ x, value.extract(0, j) + zstring(a[i]) + value.extract(j, value.length()), 1 });
-                    if (j < value.length())
-                        break;
-                }
-            }
-            else if (op == op_t::copy && side == side_t::left) {
-                for (auto x : L) {
-                    auto const& value = strval0(x);
-                    if (j >= value.length())
-                        j -= value.length();
-                    else {
-                        if (!is_value(x))
-                            m_str_updates.push_back({ x, value.extract(0, j) + zstring(b[i]) + value.extract(j + 1, value.length()), 1 });
-                        break;
-                    }
-                }
-            }
-            else if (op == op_t::copy && side == side_t::right) {
-                for (auto x : R) {
-                    auto const& value = strval0(x);
-                    if (j >= value.length())
-                        j -= value.length();
-                    else {
-                        if (!is_value(x))
-                            m_str_updates.push_back({ x, value.extract(0, j) + zstring(a[i]) + value.extract(j + 1, value.length()), 1 });
-                        break;
-                    }
-                }
-            }
+            if (op == op_t::del && side == side_t::left)
+                delete_char(L, i);
+            else if (op == op_t::del && side == side_t::right)
+                delete_char(R, i);
+            else if (op == op_t::add && side == side_t::left)
+                add_char(L, j, b[i]);
+            else if (op == op_t::add && side == side_t::right)
+                add_char(R, j, a[i]);
+            else if (op == op_t::copy && side == side_t::left)
+                copy_char(L, j, b[i]);
+            else if (op == op_t::copy && side == side_t::right)
+                copy_char(R, j, a[i]);
         }
         verbose_stream() << "num updates " << m_str_updates.size() << "\n";
         bool r = apply_update();
@@ -1200,7 +1172,15 @@ namespace sls {
             return true;
         if (!is_value(x))
             m_str_updates.push_back({ x, r, 1 });
+        if (!is_value(y))
+            m_str_updates.push_back({ y, zstring(), 1});
+        if (!is_value(z))
+            m_str_updates.push_back({ z, zstring(), 1 });
+
         // TODO some more possible ways, also deal with y, z if they are not values.
+        // apply reverse substitution of r to replace z by y, update x to this value
+        // update x using an edit distance reducing update based on the reverse substitution.
+        // reverse substitution isn't unique, so take into account different possibilities (randomly).
         return apply_update();
     }
 
