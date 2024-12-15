@@ -103,9 +103,20 @@ namespace sls {
             op_t op;
             unsigned i, j;
         };
+        struct string_instance {
+            zstring s;
+            bool_vector is_value;
+            bool_vector prev_is_var;
+            bool_vector next_is_var;
+
+            bool can_add(unsigned i) const {
+                return !is_value[i] || prev_is_var[i];
+            }
+        };
         svector<string_update> m_string_updates;
         void add_string_update(side_t side, op_t op, unsigned i, unsigned j) { m_string_updates.push_back({ side, op, i, j }); }
-        unsigned edit_distance_with_updates(zstring const& a, bool_vector const& a_is_value, zstring const& b, bool_vector const& b_is_value);
+        void init_string_instance(ptr_vector<expr> const& es, string_instance& a);
+        unsigned edit_distance_with_updates(string_instance const& a, string_instance const& b);
         unsigned edit_distance(zstring const& a, zstring const& b);
         void add_edit_updates(ptr_vector<expr> const& w, zstring const& val, zstring const& val_other, uint_set const& chars);
 

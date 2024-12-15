@@ -270,4 +270,5 @@ int main(int argc, char ** argv) {
     TST(euf_arith_plugin);
     TST(sls_test);
     TST(scoped_vector);
+    TST(sls_seq_plugin);
 }

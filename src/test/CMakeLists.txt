@@ -111,6 +111,7 @@ add_executable(test-z3
   simplex.cpp
   simplifier.cpp
   sls_test.cpp
+  sls_seq_plugin.cpp
   small_object_allocator.cpp
   smt2print_parse.cpp
   smt_context.cpp
