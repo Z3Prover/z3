@@ -10,6 +10,13 @@ Version 4.next
     - native word level bit-vector solving.
   - introduction of simple induction lemmas to handle a limited repertoire of induction proofs.
 
+Version 4.13.4
+==============
+- several updates to emscripten including #7473
+- add preliminary pyodie build
+- address issues with Java bindings
+- Include start of sls-smt functionality SLS modulo theories as co-processor to SMT core and stand-alone tactic.
+
 Version 4.13.3
 ==============
 - Fixes, including #7363
