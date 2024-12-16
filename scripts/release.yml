@@ -581,7 +581,7 @@ stages:
 
      
   - job: NuGetPublish
-    condition: eq(1,1)
+    condition: eq(0,1)
     displayName: "Publish to NuGet.org"
     steps:
     - task: DownloadPipelineArtifact@2
@@ -602,7 +602,7 @@ stages:
 
   # Enable on release:
   - job: PyPIPublish
-    condition: eq(0,1)
+    condition: eq(1,1)
     displayName: "Publish to PyPI"
     pool:
       vmImage: "ubuntu-latest"
