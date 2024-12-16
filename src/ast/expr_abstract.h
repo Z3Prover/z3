@@ -39,6 +39,3 @@ expr_ref mk_forall(ast_manager& m, unsigned num_bound, app* const* bound, expr* 
 expr_ref mk_exists(ast_manager& m, unsigned num_bound, app* const* bound, expr* n);
 inline expr_ref mk_forall(ast_manager& m, app* b, expr* n) { return mk_forall(m, 1, &b, n); }
 inline expr_ref mk_forall(ast_manager& m, expr* b, expr* n) { return mk_forall(m, to_app(b), n); }
-
-
-

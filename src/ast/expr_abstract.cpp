@@ -41,13 +41,14 @@ void expr_abstractor::operator()(unsigned base, unsigned num_bound, expr* const*
 
     while(!m_stack.empty()) {
         curr = m_stack.back();
-        if (m_map.contains(curr)) {
+        auto &val = m_map.insert_if_not_there(curr, nullptr);
+        if (val) {
             m_stack.pop_back();
             continue;
         }
         switch(curr->get_kind()) {
         case AST_VAR: {
-            m_map.insert(curr, curr);
+            val = curr;
             m_stack.pop_back();
             break;
         }
@@ -56,7 +57,7 @@ void expr_abstractor::operator()(unsigned base, unsigned num_bound, expr* const*
             bool all_visited = true;
             bool changed = false;
             m_args.reset();
-            for (unsigned i = 0; i < a->get_num_args(); ++i) {
+            for (unsigned i = 0, e = a->get_num_args(); i < e; ++i) {
                 if (!m_map.find(a->get_arg(i), b)) {
                     m_stack.push_back(a->get_arg(i));
                     all_visited = false;
@@ -73,7 +74,7 @@ void expr_abstractor::operator()(unsigned base, unsigned num_bound, expr* const*
                 } else {
                     b = curr;
                 }
-                m_map.insert(curr, b);
+                val = b;
                 m_stack.pop_back();
             }
             break;
@@ -84,14 +85,14 @@ void expr_abstractor::operator()(unsigned base, unsigned num_bound, expr* const*
             expr_ref result1(m);
             unsigned new_base = base + q->get_num_decls();
         
-            for (unsigned i = 0; i < q->get_num_patterns(); ++i) {
+            for (unsigned i = 0, e = q->get_num_patterns(); i < e; ++i) {
                 result1 = expr_abstract(m, new_base, num_bound, bound, q->get_pattern(i));
                 patterns.push_back(result1.get());
             }
             result1 = expr_abstract(m, new_base, num_bound, bound, q->get_expr());
             b = m.update_quantifier(q, patterns.size(), patterns.data(), result1.get());
             m_pinned.push_back(b);            
-            m_map.insert(curr, b);
+            val = b;
             m_stack.pop_back();            
             break;
         }
@@ -115,7 +116,7 @@ void expr_abstract(ast_manager& m, unsigned base, unsigned num_bound, expr* cons
           tout << result << "\n";);
 }
 
-expr_ref mk_quantifier(quantifier_kind k, ast_manager& m, unsigned num_bound, app* const* bound, expr* n) {
+static expr_ref mk_quantifier(quantifier_kind k, ast_manager& m, unsigned num_bound, app* const* bound, expr* n) {
     expr_ref result(m);
     expr_abstract(m, 0, num_bound, (expr* const*)bound, n, result);    
     if (num_bound > 0) {
