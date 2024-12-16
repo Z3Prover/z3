@@ -301,7 +301,6 @@ namespace lp {
         }
 
         // the term has form sum(a_i*x_i) - t.j() = 0,
-        // i is the index of the term in the lra.m_terms
         void fill_entry(const lar_term& t) {
             TRACE("dioph_eq", print_lar_term_L(t, tout) << std::endl;);
             entry te = {lar_term(t.j()), mpq(0), entry_status::F};
@@ -323,9 +322,9 @@ namespace lp {
                     m_e_matrix.add_new_element(entry_index, lj, p.coeff());
                 }
             }
-            if (is_fixed(t.j()))
+            if (is_fixed(t.j())) {
                 e.m_c -= lia.lower_bound(t.j()).x;
-            else {
+            } else {
                 unsigned lj = add_var(t.j());
                 while (lj >= m_e_matrix.column_count())
                     m_e_matrix.add_column();
