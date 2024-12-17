@@ -102,7 +102,7 @@ namespace  qembp {
                 
                 SASSERT(num == accessors->size());
                 // -- all accessors must have exactly one argument
-                if (any_of(*accessors, [&](const func_decl* acc) { return acc->get_arity() != 1; })) {
+                if (any_of(*accessors, [](const func_decl* acc) { return acc->get_arity() != 1; })) {
                     return BR_FAILED;
                 }
                 

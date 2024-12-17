@@ -52,7 +52,7 @@ expr_ref var_subst::operator()(expr * n, unsigned num_args, expr * const * args)
         rep(n, result);
         return result;
     }
-    if (is_app(n) && all_of(*to_app(n), [&](expr* arg) { return is_ground(arg) || is_var(arg); })) {
+    if (is_app(n) && all_of(*to_app(n), [](expr* arg) { return is_ground(arg) || is_var(arg); })) {
         ptr_buffer<expr> new_args;
         for (auto arg : *to_app(n)) {
             if (is_ground(arg))
