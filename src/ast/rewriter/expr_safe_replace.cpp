@@ -160,7 +160,26 @@ void expr_safe_replace::operator()(expr* e, expr_ref& res) {
                     replace(q->get_no_pattern(i), tmp);
                     nopats.push_back(tmp);
                 }
-                replace(q->get_expr(), new_body);
+
+                bool all_vars = true;
+                unsigned max_idx = 0;
+                for (unsigned i = 0, e = m_src.size(); i < e; ++i) {
+                    auto *s = m_src.get(i);
+                    if (!(all_vars = is_var(s)))
+                        break;
+                    max_idx = std::max(max_idx, to_var(s)->get_idx());
+                }
+                if (all_vars) {
+                    m_args.reset();
+                    m_args.resize(max_idx + num_decls);
+                    for (unsigned i = 0, e = m_src.size(); i < e; ++i) {
+                        m_args[to_var(m_src.get(i))->get_idx() + num_decls] = m_dst.get(i);
+                    }
+                    var_subst subst(m);
+                    new_body = subst(q->get_expr(), m_args);
+                } else {
+                    replace(q->get_expr(), new_body);
+                }
             }
             b = m.update_quantifier(q, pats.size(), pats.data(), nopats.size(), nopats.data(), new_body);
             m_refs.push_back(b);
