@@ -175,7 +175,7 @@ void expr_safe_replace::operator()(expr* e, expr_ref& res) {
                     for (unsigned i = 0, e = m_src.size(); i < e; ++i) {
                         m_args[to_var(replace.m_src.get(i))->get_idx()] = replace.m_dst.get(i);
                     }
-                    var_subst subst(m);
+                    var_subst subst(m, false);
                     new_body = subst(q->get_expr(), m_args);
                 } else {
                     replace(q->get_expr(), new_body);
