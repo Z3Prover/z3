@@ -58,7 +58,7 @@ void expr_abstractor::operator()(unsigned base, unsigned num_bound, expr* const*
             bool changed = false;
             m_args.reset();
             for (unsigned i = 0, e = a->get_num_args(); i < e; ++i) {
-                if (!m_map.find(a->get_arg(i), b)) {
+                if (!all_visited || !m_map.find(a->get_arg(i), b)) {
                     m_stack.push_back(a->get_arg(i));
                     all_visited = false;
                 }
