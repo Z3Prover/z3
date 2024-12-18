@@ -4993,6 +4993,16 @@ extern "C" {
     bool Z3_API Z3_is_app(Z3_context c, Z3_ast a);
 
     /**
+      def_API('Z3_is_ground', BOOL, (_in(CONTEXT), _in(AST)))
+    */
+    bool Z3_API Z3_is_ground(Z3_context c, Z3_ast a);
+
+    /**
+      def_API('Z3_get_depth', UINT, (_in(CONTEXT), _in(AST)))
+    */
+    unsigned Z3_API Z3_get_depth(Z3_context c, Z3_ast a);
+
+    /**
       def_API('Z3_is_numeral_ast', BOOL, (_in(CONTEXT), _in(AST)))
     */
     bool Z3_API Z3_is_numeral_ast(Z3_context c, Z3_ast a);

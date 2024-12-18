@@ -425,6 +425,20 @@ extern "C" {
         RETURN_Z3(of_app(reinterpret_cast<app*>(a)));
     }
 
+    bool Z3_API Z3_is_ground(Z3_context c, Z3_ast a) {
+        LOG_Z3_is_ground(c, a);
+        RESET_ERROR_CODE();
+        CHECK_IS_EXPR(a, 0);
+        return is_ground(to_expr(a));
+    }
+
+    unsigned Z3_API Z3_get_depth(Z3_context c, Z3_ast a) {
+        LOG_Z3_get_depth(c, a);
+        RESET_ERROR_CODE();
+        CHECK_IS_EXPR(a, 0);
+        return get_depth(to_expr(a));
+    }
+
     Z3_func_decl Z3_API Z3_to_func_decl(Z3_context c, Z3_ast a) {
         LOG_Z3_to_func_decl(c, a);
         RESET_ERROR_CODE();
