@@ -145,7 +145,7 @@ void expr_safe_replace::operator()(expr* e, expr_ref& res) {
                 var_shifter shift(m);
                 expr_ref src(m), dst(m), tmp(m);
                 unsigned num_decls = q->get_num_decls();
-                for (unsigned i = 0; i < m_src.size(); ++i) {
+                for (unsigned i = 0, e = m_src.size(); i < e; ++i) {
                     shift(m_src.get(i), num_decls, src);
                     shift(m_dst.get(i), num_decls, dst);
                     replace.insert(src, dst);
@@ -160,7 +160,26 @@ void expr_safe_replace::operator()(expr* e, expr_ref& res) {
                     replace(q->get_no_pattern(i), tmp);
                     nopats.push_back(tmp);
                 }
-                replace(q->get_expr(), new_body);
+
+                bool all_vars = true;
+                unsigned max_idx = 0;
+                for (unsigned i = 0, e = m_src.size(); i < e; ++i) {
+                    auto *s = replace.m_src.get(i);
+                    if (!(all_vars = is_var(s)))
+                        break;
+                    max_idx = std::max(max_idx, to_var(s)->get_idx());
+                }
+                if (all_vars) {
+                    m_args.reset();
+                    m_args.resize(max_idx + 1);
+                    for (unsigned i = 0, e = m_src.size(); i < e; ++i) {
+                        m_args[to_var(replace.m_src.get(i))->get_idx()] = replace.m_dst.get(i);
+                    }
+                    var_subst subst(m, false);
+                    new_body = subst(q->get_expr(), m_args);
+                } else {
+                    replace(q->get_expr(), new_body);
+                }
             }
             b = m.update_quantifier(q, pats.size(), pats.data(), nopats.size(), nopats.data(), new_body);
             m_refs.push_back(b);
