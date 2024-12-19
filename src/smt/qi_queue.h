@@ -51,7 +51,7 @@ namespace smt {
         cost_evaluator                m_evaluator;
         cached_var_subst              m_subst;
         svector<float>                m_vals;
-        double                        m_eager_cost_threshold;
+        double                        m_eager_cost_threshold = 0;
         struct entry {
             fingerprint * m_qb;
             float         m_cost;

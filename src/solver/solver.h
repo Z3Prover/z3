@@ -27,6 +27,7 @@ class solver;
 class model_converter;
 
 
+
 class solver_factory {
 public:
     virtual ~solver_factory() = default;
@@ -249,9 +250,17 @@ public:
     virtual expr* congruence_next(expr* e) = 0;
 
     /**
-       \brief try to solve for term e (when e is arithmetical).
+       \brief expose explanation for congruence.
     */
-    virtual bool solve_for(expr* e, expr_ref& term) { return false; }
+    virtual expr_ref congruence_explain(expr* a, expr* b) = 0;
+
+    struct solution {
+        expr* var;
+        expr_ref term;
+        expr_ref guard;
+    };
+
+    virtual void solve_for(vector<solution>& s) {}
 
     /**
        \brief Display the content of this solver.

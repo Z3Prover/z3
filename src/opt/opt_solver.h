@@ -111,6 +111,7 @@ namespace opt {
         expr_ref_vector cube(expr_ref_vector&, unsigned) override { return expr_ref_vector(m); }
         expr* congruence_root(expr* e) override { return e; }
         expr* congruence_next(expr* e) override { return e; }
+        expr_ref congruence_explain(expr* a, expr* b) override { return expr_ref(m.mk_eq(a, b), m); }
         void set_phase(expr* e) override { m_context.set_phase(e); }
         phase* get_phase() override { return m_context.get_phase(); }
         void set_phase(phase* p) override { m_context.set_phase(p); }

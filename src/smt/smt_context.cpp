@@ -104,7 +104,7 @@ namespace smt {
     */
 
     bool context::get_cancel_flag() {
-        if (l_true == m_sls_completed && !m.limit().suspended()) {
+        if (l_true == m_internal_completed && !m.limit().suspended()) {
             m_last_search_failure = CANCELED;
             return true;
         }
@@ -3509,11 +3509,11 @@ namespace smt {
         display_profile(verbose_stream());
         if (r == l_true && get_cancel_flag()) 
             r = l_undef;
-        if (r == l_undef && m_sls_completed == l_true && has_sls_model()) {
+        if (r == l_undef && m_internal_completed == l_true && has_sls_model()) {
             m_last_search_failure = OK;
             r = l_true;
         }
-        m_sls_completed = l_false;
+        m_internal_completed = l_false;
         if (r == l_true && gparams::get_value("model_validate") == "true") {
             recfun::util u(m);
             if (u.get_rec_funs().empty() && m_proto_model) {
@@ -3753,7 +3753,7 @@ namespace smt {
         m_phase_default                = false;
         m_case_split_queue             ->init_search_eh();
         m_next_progress_sample         = 0;
-        m_sls_completed                = l_undef;
+        m_internal_completed                = l_undef;
         if (m.has_type_vars() && !m_theories.get_plugin(poly_family_id))
             register_plugin(alloc(theory_polymorphism, *this));
         TRACE("literal_occ", display_literal_num_occs(tout););
@@ -4653,16 +4653,13 @@ namespace smt {
         if (th == nullptr)
             return false;
         return th->get_value(n, value);
+    }   
+
+    void context::solve_for(vector<solution>& sol) {
+        for (auto th : m_theories)
+            if (th)
+                th->solve_for(sol);
     }
-    
-    bool context::solve_for(enode * n, expr_ref & term) {
-        sort * s      = n->get_sort();
-        family_id fid = s->get_family_id();
-        theory * th   = get_theory(fid);
-        if (th == nullptr)
-            return false;
-        return th->solve_for(n, term);
-    }    
 
     bool context::update_model(bool refinalize) {
         final_check_status fcs = FC_DONE;

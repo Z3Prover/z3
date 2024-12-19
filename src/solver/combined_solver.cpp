@@ -277,6 +277,7 @@ public:
 
     expr* congruence_next(expr* e) override { switch_inc_mode(); return m_solver2->congruence_next(e); }
     expr* congruence_root(expr* e) override { switch_inc_mode(); return m_solver2->congruence_root(e); }
+    expr_ref congruence_explain(expr* a, expr* b) override { switch_inc_mode(); return m_solver2->congruence_explain(a, b); }
 
 
     expr * get_assumption(unsigned idx) const override {

@@ -3169,7 +3169,7 @@ public:
     typedef std::pair<lp::constraint_index, rational> constraint_bound;
     vector<constraint_bound>        m_lower_terms;
     vector<constraint_bound>        m_upper_terms;
-
+    
     void propagate_eqs(lp::lpvar t, lp::constraint_index ci1, lp::lconstraint_kind k, api_bound& b, rational const& value) {
         u_dependency* ci2 = nullptr;
         auto pair = [&]() { return lp().dep_manager().mk_join(lp().dep_manager().mk_leaf(ci1), ci2);  };
@@ -3392,9 +3392,8 @@ public:
     }
 
     void set_evidence(lp::constraint_index idx, literal_vector& core, svector<enode_pair>& eqs) {
-        if (idx == UINT_MAX) {
-            return;
-        }
+        if (idx == UINT_MAX) 
+            return;        
         switch (m_constraint_sources[idx]) {
         case inequality_source: {
             literal lit = m_inequalities[idx];
@@ -3629,33 +3628,116 @@ public:
         return lp().has_upper_bound(vi, dep, val, is_strict);
     }
 
-    bool solve_for(enode* n, expr_ref& term) {
-        theory_var v = n->get_th_var(get_id());
-        if (!is_registered_var(v))
-            return false;
-        lpvar vi = get_lpvar(v);
-        lp::lar_term t;
-        rational coeff;
-        if (!lp().solve_for(vi, t, coeff))
-            return false;
-        rational lc(1);
-        if (is_int(v)) {
-            lc = denominator(coeff);
-            for (auto const& cv : t)
-                lc = lcm(denominator(cv.coeff()), lc);
-            if (lc != 1) {
-                coeff *= lc;
-                t *= lc;
-            }
-        }
-        term = mk_term(t, is_int(v));
-        if (coeff != 0)
-            term = a.mk_add(a.mk_numeral(coeff, is_int(v)), term);
-        if (lc != 1)
-            term = a.mk_idiv(term, a.mk_numeral(lc, true));
-        return true;
+    void solve_fixed(enode* n, lpvar j, expr_ref& term, expr_ref& guard) {
+        term = a.mk_numeral(lp().get_value(j), a.is_int(n->get_expr()));
+        reset_evidence();
+        add_explain(j);
+        guard = extract_explain();
     }
 
+    void add_explain(unsigned j) {
+        auto d = lp().get_bound_constraint_witnesses_for_column(j);
+        set_evidence(d, m_core, m_eqs);
+    }
+
+    expr_ref extract_explain() {
+        expr_ref_vector es(m);
+        for (auto [l, r] : m_eqs)
+            es.push_back(a.mk_eq(l->get_expr(), r->get_expr()));
+        for (auto l : m_core)
+            es.push_back(ctx().literal2expr(l));
+        // remove duplicats from es:        
+        std::stable_sort(es.data(), es.data() + es.size());
+        unsigned j = 0;
+        for (unsigned i = 0; i < es.size(); ++i) {
+            if (i > 0 && es.get(i) == es.get(i - 1))
+                continue;
+            es[j++] = es.get(i);
+        }
+        es.shrink(j);
+        return mk_and(es);
+    }
+
+    void solve_term(enode* n, lp::lar_term & lt, expr_ref& term, expr_ref& guard) {
+        bool is_int = a.is_int(n->get_expr());
+        bool all_int = is_int;
+        lp::lar_term t;
+        rational coeff(0);
+        expr_ref_vector guards(m);
+        reset_evidence();
+        for (auto const& cv : lt) {
+            if (lp().column_is_fixed(cv.j())) {
+                coeff += lp().get_value(cv.j()) * cv.coeff();
+                add_explain(cv.j());
+            }
+            else
+                t.add_monomial(cv.coeff(), cv.j());
+        }
+        guards.push_back(extract_explain());
+        rational lc = denominator(coeff);
+        for (auto const& cv : t) {
+            lc = lcm(denominator(cv.coeff()), lc);
+            all_int &= lp().column_is_int(cv.j());
+        }
+        if (lc != 1)
+            t *= lc, coeff *= lc;        
+        term = mk_term(t, is_int);
+        if (coeff != 0)
+            term = a.mk_add(term, a.mk_numeral(coeff, is_int));
+
+        if (lc == 1) {
+            guard = mk_and(guards);
+            return;
+        }
+        expr_ref lce(a.mk_numeral(lc, true), m);
+        if (all_int) 
+            guards.push_back(m.mk_eq(a.mk_mod(term, lce), a.mk_int(0)));
+        else if (is_int) 
+            guards.push_back(a.mk_is_int(a.mk_div(term, lce)));
+        term = a.mk_idiv(term, lce);   
+        guard = mk_and(guards);
+    }
+
+    void solve_for(vector<solution>& solutions) {
+        unsigned_vector vars;
+        unsigned j = 0;
+        for (auto [e, t, g] : solutions) {
+            auto n = get_enode(e);
+            if (!n) {
+                solutions[j++] = { e, t, g };
+                continue;
+            }
+
+            theory_var v = n->get_th_var(get_id());
+            if (!is_registered_var(v))
+                solutions[j++] = { e, t, g };
+            else
+                vars.push_back(get_lpvar(v));
+        }
+        solutions.shrink(j);
+
+        expr_ref term(m), guard(m);
+        vector<lp::lar_solver::solution> sols;
+        lp().solve_for(vars, sols);
+        uint_set seen;
+        for (auto& s : sols) {
+            auto n = get_enode(lp().local_to_external(s.j));
+            if (lp().column_is_fixed(s.j)) 
+                solve_fixed(n, s.j, term, guard);            
+            else 
+                solve_term(n, s.t, term, guard);
+            solutions.push_back({ n->get_expr(), term, guard});
+            seen.insert(s.j);
+        }
+        for (auto j : vars) {
+            if (seen.contains(j) || !lp().column_is_fixed(j))
+                continue;
+            auto n = get_enode(lp().local_to_external(j));
+            solve_fixed(n, j, term, guard);
+            solutions.push_back({ n->get_expr(), term, guard });
+        }
+    }    
+    
     bool get_upper(enode* n, expr_ref& r) {
         bool is_strict;
         rational val;
@@ -4166,8 +4248,9 @@ bool theory_lra::get_lower(enode* n, rational& r, bool& is_strict) {
 bool theory_lra::get_upper(enode* n, rational& r, bool& is_strict) {
     return m_imp->get_upper(n, r, is_strict);
 }
-bool theory_lra::solve_for(enode* n, expr_ref& r) {
-    return m_imp->solve_for(n, r);
+
+void theory_lra::solve_for(vector<solution>& sol) {
+    m_imp->solve_for(sol);
 }
 
 void theory_lra::display(std::ostream & out) const {

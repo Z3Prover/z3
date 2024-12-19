@@ -153,6 +153,11 @@ namespace smt {
             if (m_context.get_cancel_flag()) {
                 break;
             }
+            if (m_stats.m_num_instances > m_params.m_qi_max_instances) {
+                m_context.set_reason_unknown("maximum number of quantifier instances was reached");
+                m_context.set_internal_completed();
+                break;
+            }
             fingerprint * f    = curr.m_qb;
             quantifier * qa    = static_cast<quantifier*>(f->get_data());
 

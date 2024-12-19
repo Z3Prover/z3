@@ -967,18 +967,39 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-    Z3_ast Z3_API Z3_solver_solve_for(Z3_context c, Z3_solver s, Z3_ast a) {
+    Z3_ast Z3_API Z3_solver_congruence_explain(Z3_context c, Z3_solver s, Z3_ast a, Z3_ast b) {
         Z3_TRY;
-        LOG_Z3_solver_solve_for(c, s, a);
+        LOG_Z3_solver_congruence_explain(c, s, a, b);
         RESET_ERROR_CODE();
         init_solver(c, s);
-        ast_manager& m = mk_c(c)->m();        
-        expr_ref term(m);
-        if (!to_solver_ref(s)->solve_for(to_expr(a), term)) 
-            term = to_expr(a);
-        mk_c(c)->save_ast_trail(term.get());
-        RETURN_Z3(of_expr(term.get()));
+        auto exp = to_solver_ref(s)->congruence_explain(to_expr(a), to_expr(b));
+        mk_c(c)->save_ast_trail(exp.get());
+        RETURN_Z3(of_expr(exp));
         Z3_CATCH_RETURN(nullptr);
+    }
+
+    void Z3_API Z3_solver_solve_for(Z3_context c, Z3_solver s, Z3_ast_vector vars, Z3_ast_vector terms, Z3_ast_vector guards) {
+        Z3_TRY;
+        LOG_Z3_solver_solve_for(c, s, vars, terms, guards);
+        RESET_ERROR_CODE();
+        init_solver(c, s);
+        ast_manager& m = mk_c(c)->m();
+        auto& _vars = to_ast_vector_ref(vars);
+        auto& _terms = to_ast_vector_ref(terms);
+        auto& _guards = to_ast_vector_ref(guards);
+        vector<solver::solution> solutions;
+        for (auto t : _vars) 
+            solutions.push_back({ to_expr(t), expr_ref(m), expr_ref(m) });        
+        to_solver_ref(s)->solve_for(solutions);
+        _vars.reset();
+        _terms.reset();
+        _guards.reset();
+        for (solver::solution const& s : solutions) {
+            _vars.push_back(s.var);
+            _terms.push_back(s.term);
+            _guards.push_back(s.guard);
+        }
+        Z3_CATCH;
     }
 
     class api_context_obj : public user_propagator::context_obj {

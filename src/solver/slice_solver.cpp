@@ -393,6 +393,7 @@ public:
 
     expr* congruence_root(expr* e) override { return s->congruence_root(e); }
     expr* congruence_next(expr* e) override { return s->congruence_next(e); }
+    expr_ref congruence_explain(expr* a, expr* b) override { return s->congruence_explain(a, b); }
     std::ostream& display(std::ostream& out, unsigned n, expr* const* assumptions) const override {
         return s->display(out, n, assumptions);
     }

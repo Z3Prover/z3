@@ -7336,26 +7336,44 @@ class Solver(Z3PPObject):
         return self.cube_vs
 
     def root(self, t):
-        t = _py2expr(t, self.ctx)
         """Retrieve congruence closure root of the term t relative to the current search state
         The function primarily works for SimpleSolver. Terms and variables that are
         eliminated during pre-processing are not visible to the congruence closure.
         """
+        t = _py2expr(t, self.ctx)
         return _to_expr_ref(Z3_solver_congruence_root(self.ctx.ref(), self.solver, t.ast), self.ctx)
 
     def next(self, t):
-        t = _py2expr(t, self.ctx)
         """Retrieve congruence closure sibling of the term t relative to the current search state
         The function primarily works for SimpleSolver. Terms and variables that are
         eliminated during pre-processing are not visible to the congruence closure.
         """
+        t = _py2expr(t, self.ctx)
         return _to_expr_ref(Z3_solver_congruence_next(self.ctx.ref(), self.solver, t.ast), self.ctx)
 
-    def solve_for(self, t):
-        t = _py2expr(t, self.ctx)
+    def explain_congruent(self, a, b):
+        """Explain congruence of a and b relative to the current search state"""
+        a = _py2expr(a, self.ctx)
+        b = _py2expr(b, self.ctx)
+        return _to_expr_ref(Z3_solver_congruence_explain(self.ctx.ref(), self.solver, a.ast, b.ast), self.ctx)
+
+    def solve_for1(self, t):
         """Retrieve a solution for t relative to linear equations maintained in the current state.
         The function primarily works for SimpleSolver and when there is a solution using linear arithmetic."""
-        return _to_expr_ref(Z3_solver_solve_for(self.ctx.ref(), self.solver, t.ast), self.ctx)
+        t = _py2expr(t, self.ctx)
+        return _to_expr_ref(Z3_solver_solve_for1(self.ctx.ref(), self.solver, t.ast), self.ctx)
+
+    def solve_for(self, ts):
+        """Retrieve a solution for t relative to linear equations maintained in the current state."""
+        vars = AstVector(ctx=self.ctx);
+        terms = AstVector(ctx=self.ctx);
+        guards = AstVector(ctx=self.ctx);
+        for t in ts:
+            t = _py2expr(t, self.ctx)                
+            vars.push(t)
+        Z3_solver_solve_for(self.ctx.ref(), self.solver, vars.vector, terms.vector, guards.vector)
+        return [(vars[i], terms[i], guards[i]) for i in range(len(vars))]
+
 
     def proof(self):
         """Return a proof for the last `check()`. Proof construction must be enabled."""

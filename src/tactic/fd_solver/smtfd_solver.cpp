@@ -2070,6 +2070,8 @@ namespace smtfd {
         expr* congruence_root(expr* e) override { return e; }
 
         expr* congruence_next(expr* e) override { return e; }
+
+        expr_ref congruence_explain(expr* a, expr* b) override { return expr_ref(m.mk_eq(a, b), m); }
         
         lbool get_consequences_core(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences) override {
             return l_undef;

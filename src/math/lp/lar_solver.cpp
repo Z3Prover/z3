@@ -570,8 +570,6 @@ namespace lp {
         A_r().pop(k);
     }
 
-
-
     void lar_solver::set_upper_bound_witness(lpvar j, u_dependency* dep) {
         m_trail.push(vector_value_trail(m_columns, j));
         m_columns[j].upper_bound_witness() = dep;
@@ -617,35 +615,148 @@ namespace lp {
             m_touched_rows.insert(rid);
     }
 
-    bool lar_solver::solve_for(unsigned j, lar_term& t, mpq& coeff) {
-        t.clear();        
-        IF_VERBOSE(10, verbose_stream() << "j " << j << " is fixed " << column_is_fixed(j) << " is-base " << is_base(j) << "\n");
-        if (column_is_fixed(j)) {
-            coeff = get_value(j);
-            return true;
+    void lar_solver::check_fixed(unsigned j) {
+        if (column_is_fixed(j))
+            return;
+
+        auto explain = [&](constraint_index ci, lp::explanation const& exp) {
+            u_dependency* d = nullptr;
+            for (auto const& e : exp)
+                if (e.ci() != ci) 
+                    d = join_deps(d, m_dependencies.mk_leaf(e.ci()));                
+            return d;
+        };
+
+        if (!column_has_lower_bound(j) || column_lower_bound(j) != get_value(j)) {
+            push();
+            mpq val = get_value(j);
+            auto ci = add_var_bound(j, lconstraint_kind::LT, val);
+            auto r = solve();
+            lp::explanation exp;
+            if (r == lp_status::INFEASIBLE) 
+                get_infeasibility_explanation(exp);            
+            pop();
+            if (r == lp_status::INFEASIBLE) {
+                auto d = explain(ci, exp);
+                update_column_type_and_bound(j, lconstraint_kind::GE, val, d);
+            }
+            solve();
         }
+
+        if (!column_has_upper_bound(j) || column_upper_bound(j) != get_value(j)) {
+            push();
+            auto val = get_value(j);
+            auto ci = add_var_bound(j, lconstraint_kind::GT, val);
+            auto r = solve();
+            lp::explanation exp;
+            if (r == lp_status::INFEASIBLE) 
+                get_infeasibility_explanation(exp);
+            pop();
+            if (r == lp_status::INFEASIBLE) {
+                auto d = explain(ci, exp);
+                update_column_type_and_bound(j, lconstraint_kind::LE, val, d);
+            }
+            solve();
+        }
+    }
+
+    void lar_solver::solve_for(unsigned_vector const& js, vector<solution>& sols) {
+        uint_set tabu, fixed_checked;
+        for (auto j : js)
+            solve_for(j, tabu, sols);
+        solve();  // clear updated columns.
+        auto check = [&](unsigned j) {
+            if (fixed_checked.contains(j))
+                return;
+            fixed_checked.insert(j);
+            check_fixed(j);
+        };
+        for (auto const& [j, t] : sols) {
+            check(j);
+            for (auto const& v : t) 
+                check(v.j());            
+        }
+    }
+
+    void lar_solver::solve_for(unsigned j, uint_set& tabu, vector<solution>& sols) {
+        if (tabu.contains(j))
+            return;
+        tabu.insert(j);
+        IF_VERBOSE(10, verbose_stream() << "solve for " << j << " base " << is_base(j) << " " << column_is_fixed(j) << "\n");
+        if (column_is_fixed(j)) 
+            return;
+        
         if (!is_base(j)) {
-            for (const auto & c : A_r().m_columns[j]) {
+            for (const auto& c : A_r().m_columns[j]) {
                 lpvar basic_in_row = r_basis()[c.var()];
+                if (tabu.contains(basic_in_row))
+                    continue;
                 pivot(j, basic_in_row);
-                IF_VERBOSE(10, verbose_stream() << "is base " << is_base(j) << " c.var() = " << c.var() << " basic_in_row = " << basic_in_row << "\n");                
                 break;
             }
         }
-        if (!is_base(j))
-            return false;
+        if (!is_base(j)) 
+            return;
+        
+        lar_term t;
+        auto const& col = m_columns[j];
         auto const& r = basic2row(j);
         for (auto const& c : r) {
-            if (c.var() == j)
-                continue;
-            if (column_is_fixed(c.var()))
-                coeff -= get_value(c.var());
-            else
-                t.add_monomial(-c.coeff(), c.var());
+            if (c.var() != j)       
+                t.add_monomial(-c.coeff(), c.var());            
+        }            
+        for (auto const& v : t) 
+            solve_for(v.j(), tabu, sols); 
+        lp::impq lo, hi;
+        bool lo_valid = true, hi_valid = true;
+        for (auto const& v : t) {
+
+            if (v.coeff().is_pos()) {
+                if (lo_valid && column_has_lower_bound(v.j()))
+                    lo += column_lower_bound(v.j()) * v.coeff();
+                else
+                    lo_valid = false;
+                if (hi_valid && column_has_upper_bound(v.j()))
+                    hi += column_upper_bound(v.j()) * v.coeff();
+                else
+                    hi_valid = false;
+            }
+            else {
+                if (lo_valid && column_has_upper_bound(v.j()))
+                    lo += column_upper_bound(v.j()) * v.coeff();
+                else
+                    lo_valid = false;
+                if (hi_valid && column_has_lower_bound(v.j()))
+                    hi += column_lower_bound(v.j()) * v.coeff();
+                else
+                    hi_valid = false;
+            }
+        }        
+
+        if (lo_valid && (!column_has_lower_bound(j) || lo > column_lower_bound(j).x)) {
+            u_dependency* dep = nullptr;
+            for (auto const& v : t) {
+                if (v.coeff().is_pos())
+                    dep = join_deps(dep, m_columns[v.j()].lower_bound_witness());
+                else
+                    dep = join_deps(dep, m_columns[v.j()].upper_bound_witness());
+            }
+            update_column_type_and_bound(j, lo.y == 0 ? lconstraint_kind::GE : lconstraint_kind::GT, lo.x, dep);
         }
-        IF_VERBOSE(10, verbose_stream() << "j = " << j << " t = "; 
-                        print_term(t, verbose_stream()) << " coeff = " << coeff << "\n");
-        return true;
+
+        if (hi_valid && (!column_has_upper_bound(j) || hi < column_upper_bound(j).x)) {
+            u_dependency* dep = nullptr;
+            for (auto const& v : t) {
+                if (v.coeff().is_pos())
+                    dep = join_deps(dep, m_columns[v.j()].upper_bound_witness());
+                else
+                    dep = join_deps(dep, m_columns[v.j()].lower_bound_witness());
+            }
+            update_column_type_and_bound(j, hi.y == 0 ? lconstraint_kind::LE : lconstraint_kind::LT, hi.x, dep);
+        }
+
+        if (!column_is_fixed(j)) 
+            sols.push_back({j, t});
     }
 
 

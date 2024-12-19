@@ -133,7 +133,7 @@ namespace smt {
         q::quantifier_stat_gen                    m_qstat_gen;
         ptr_vector<quantifier>                 m_quantifiers;
         scoped_ptr<quantifier_manager_plugin>  m_plugin;
-        unsigned                               m_num_instances;
+        unsigned                               m_num_instances = 0;
 
         imp(quantifier_manager & wrapper, context & ctx, smt_params & p, quantifier_manager_plugin * plugin):
             m_wrapper(wrapper),
@@ -142,7 +142,6 @@ namespace smt {
             m_qi_queue(m_wrapper, ctx, p),
             m_qstat_gen(ctx.get_manager(), ctx.get_region()),
             m_plugin(plugin) {
-            m_num_instances = 0;
             m_qi_queue.setup();
         }
 
@@ -297,9 +296,7 @@ namespace smt {
                           vector<std::tuple<enode *, enode *>> & used_enodes) {
 
             max_generation = std::max(max_generation, get_generation(q));
-            if (m_num_instances > m_params.m_qi_max_instances) {
-                return false;
-            }
+            
             get_stat(q)->update_max_generation(max_generation);
             fingerprint * f = m_context.add_fingerprint(q, q->get_id(), num_bindings, bindings, def);
             if (f) {

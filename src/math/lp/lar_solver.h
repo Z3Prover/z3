@@ -351,7 +351,15 @@ public:
      * return the rest of the row as t comprising of non-fixed variables and coeff as sum of fixed variables.
      * return false if j has no rows.
      */
-    bool solve_for(unsigned j, lar_term& t, mpq& coeff);
+
+    struct solution {
+        unsigned j;
+        lar_term t;
+    };
+
+    void solve_for(unsigned_vector const& js, vector<solution>& sol);
+    void check_fixed(unsigned j);
+    void solve_for(unsigned j, uint_set& tabu, vector<solution>& sol);
 
     inline unsigned get_base_column_in_row(unsigned row_index) const {
         return m_mpq_lar_core_solver.m_r_solver.get_base_column_in_row(row_index);
@@ -591,21 +599,32 @@ public:
         return m_columns[j].lower_bound_witness();
     }
     inline bool column_has_term(lpvar j) const { return m_columns[j].term() != nullptr; }
-    inline std::ostream& print_column_info(unsigned j, std::ostream& out) const {
-        m_mpq_lar_core_solver.m_r_solver.print_column_info(j, out);
-        if (column_has_term(j)) {
-            print_term_as_indices(get_term(j), out) << "\n";
 
-        } else if (column_has_term(j)) {
-            const lar_term& t = get_term(m_var_register.local_to_external(j));
-            print_term_as_indices(t, out) << "\n";
-        }
+    std::ostream& print_column_info(unsigned j, std::ostream& out) const {
+        m_mpq_lar_core_solver.m_r_solver.print_column_info(j, out);
+        if (column_has_term(j)) 
+            print_term_as_indices(get_term(j), out) << "\n";       
+        display_column_explanation(out, j);
+        return out;
+    }
+
+    std::ostream& display_column_explanation(std::ostream& out, unsigned j) const {
+        const column& ul = m_columns[j];
+        svector<unsigned> vs1, vs2;
+        m_dependencies.linearize(ul.lower_bound_witness(), vs1);
+        m_dependencies.linearize(ul.upper_bound_witness(), vs2);
+        if (!vs1.empty())
+            out << "lo: " << vs1;
+        if (!vs2.empty())
+            out << "hi: " << vs2;
+        if (!vs1.empty() || !vs2.empty())
+            out << "\n";
         return out;
     }
 
     void subst_known_terms(lar_term*);
 
-    inline std::ostream& print_column_bound_info(unsigned j, std::ostream& out) const {
+    std::ostream& print_column_bound_info(unsigned j, std::ostream& out) const {
         return m_mpq_lar_core_solver.m_r_solver.print_column_bound_info(j, out);
     }
 

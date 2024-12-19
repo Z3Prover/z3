@@ -246,7 +246,9 @@ namespace smt {
 
         expr* congruence_root(expr* e);
 
-        bool solve_for(expr* e, expr_ref& term);
+        expr_ref congruence_explain(expr* a, expr* b);
+
+        void solve_for(vector<solver::solution>& s);
 
         /**
            \brief retrieve depth of variables from decision stack.

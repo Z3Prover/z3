@@ -133,6 +133,7 @@ public:
     }
     expr* congruence_next(expr* e) override { return m_solver->congruence_next(e); }
     expr* congruence_root(expr* e) override { return m_solver->congruence_root(e); }
+    expr_ref congruence_explain(expr* a, expr* b) override { return m_solver->congruence_explain(a, b); }
 
     
     lbool get_consequences_core(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences) override {

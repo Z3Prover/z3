@@ -58,7 +58,7 @@ namespace smt {
     }
     
     void theory_sls::set_finished() {
-        ctx.set_sls_completed();     
+        ctx.set_internal_completed();     
     }
 
     bool theory_sls::get_smt_value(expr* v, expr_ref& value) {

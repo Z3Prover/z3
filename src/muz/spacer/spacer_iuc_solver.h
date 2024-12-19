@@ -124,6 +124,7 @@ public:
     expr_ref_vector cube(expr_ref_vector&, unsigned) override { return expr_ref_vector(m); }
     expr* congruence_root(expr* e) override { return e; }
     expr* congruence_next(expr* e) override { return e; }
+    expr_ref congruence_explain(expr *a, expr *b) override { return expr_ref(m.mk_eq(a, b), m); }
     void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) override { m_solver.get_levels(vars, depth); }
     expr_ref_vector get_trail(unsigned max_level) override { return m_solver.get_trail(max_level); }
 

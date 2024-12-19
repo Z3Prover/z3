@@ -81,7 +81,7 @@ public:
     }
     void push_params() override {m_base->push_params();}
     void pop_params() override {m_base->pop_params();}
-
+    
     void collect_param_descrs(param_descrs & r) override { m_base->collect_param_descrs(r); }
     void collect_statistics(statistics & st) const override { m_base->collect_statistics(st); }
     unsigned get_num_assertions() const override { return m_base->get_num_assertions(); }
@@ -264,6 +264,7 @@ public:
 
     expr* congruence_next(expr* e) override { return e; }
     expr* congruence_root(expr* e) override { return e; }
+    expr_ref congruence_explain(expr* a, expr* b) override { return expr_ref(m.mk_eq(a, b), m); }
 
     ast_manager& get_manager() const override { return m_base->get_manager(); }
 

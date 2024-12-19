@@ -145,6 +145,7 @@ public:
 
     expr* congruence_next(expr* e) override { return e; }
     expr* congruence_root(expr* e) override { return e; }
+    expr_ref congruence_explain(expr* a, expr* b) override { return expr_ref(get_manager().mk_eq(a, b), get_manager()); }
 
     model_converter_ref get_model_converter() const override { return m_mc; }
 

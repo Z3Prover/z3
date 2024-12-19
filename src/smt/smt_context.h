@@ -130,7 +130,7 @@ namespace smt {
         class parallel*             m_par = nullptr;
         unsigned                    m_par_index = 0;
         bool                        m_internalizing_assertions = false;
-        lbool                       m_sls_completed = l_undef;
+        lbool                       m_internal_completed = l_undef;
 
 
         // -----------------------------------
@@ -291,9 +291,9 @@ namespace smt {
 
         bool get_cancel_flag();
 
-        void set_sls_completed() {
-            if (m_sls_completed == l_undef)
-                m_sls_completed = l_true;
+        void set_internal_completed() {
+            if (m_internal_completed == l_undef)
+                m_internal_completed = l_true;
         }
 
         region & get_region() {
@@ -1377,13 +1377,13 @@ namespace smt {
 
         // -----------------------------------
         //
-        // Model checking... (must be improved)
+        // Value extraction and solving
         //
         // -----------------------------------
     public:
         bool get_value(enode * n, expr_ref & value);
 
-        bool solve_for(enode* n, expr_ref& term);
+        void solve_for(vector<solution>& sol);
 
         // -----------------------------------
         //

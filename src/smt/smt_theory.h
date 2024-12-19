@@ -29,6 +29,12 @@ namespace smt {
     class model_generator;
     class model_value_proc;
 
+    struct solution {
+        expr* var;
+        expr_ref term;
+        expr_ref guard;
+    };
+
     class theory {
     protected:
         theory_id       m_id;
@@ -605,7 +611,7 @@ namespace smt {
 
         virtual char const * get_name() const { return "unknown"; }
 
-        virtual bool solve_for(enode* n, expr_ref& r) { return false; }
+        virtual void solve_for(vector<solution>& s) {}
 
         // -----------------------------------
         //

@@ -7076,14 +7076,23 @@ extern "C" {
     */
     Z3_ast Z3_API Z3_solver_congruence_next(Z3_context c, Z3_solver s, Z3_ast a);
 
+    /**
+      \brief retrieve explanation for congruence.
+      \pre root(a) = root(b)
+
+      def_API('Z3_solver_congruence_explain', AST, (_in(CONTEXT), _in(SOLVER), _in(AST), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_solver_congruence_explain(Z3_context c, Z3_solver s, Z3_ast a, Z3_ast b);
 
     /**
-       \brief retrieve a 'solution' for \c t as defined by equalities in maintained by solvers.
-       At this point, only linear solution are supported.
+      \brief retrieve a 'solution' for \c variables as defined by equalities in maintained by solvers.
+        At this point, only linear solution are supported.
+        The solution to \c variables may be presented in triangular form, such that
+        variables used in solutions themselves have solutions.
 
-       def_API('Z3_solver_solve_for', AST, (_in(CONTEXT), _in(SOLVER), _in(AST)))
+        def_API('Z3_solver_solve_for', VOID, (_in(CONTEXT), _in(SOLVER), _in(AST_VECTOR), _in(AST_VECTOR), _in(AST_VECTOR)))
     */
-    Z3_ast Z3_API Z3_solver_solve_for(Z3_context c, Z3_solver s, Z3_ast t);
+    void Z3_API Z3_solver_solve_for(Z3_context c, Z3_solver s, Z3_ast_vector variables, Z3_ast_vector terms, Z3_ast_vector guards);
     
     /**
        \brief register a callback to that retrieves assumed, inferred and deleted clauses during search.
