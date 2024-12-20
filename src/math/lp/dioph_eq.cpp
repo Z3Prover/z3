@@ -11,7 +11,8 @@
 #include "math/lp/lp_utils.h"
 /*
     Following paper: "A Practical Approach to Satisfiability  Modulo Linear
-   Integer Arithmetic" by Alberto Griggio(griggio@fbk.eu) Data structures are:
+   Integer Arithmetic" by Alberto Griggio(griggio@fbk.eu).
+    Data structures are:
     -- term_o: inherits lar_term and differs from it by having a constant, while
    lar_term is just a sum of monomials
     -- entry : has a dependency lar_term, keeping the history of the entry
