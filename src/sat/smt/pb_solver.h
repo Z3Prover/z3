@@ -332,7 +332,6 @@ namespace pb {
         constraint* active2card();
         void active2wlits();
         void active2wlits(svector<wliteral>& wlits);
-        void justification2pb(sat::justification const& j, literal lit, unsigned offset, ineq& p);
         void constraint2pb(constraint& cnstr, literal lit, unsigned offset, ineq& p);
         bool validate_resolvent();
         unsigned get_coeff(ineq const& pb, literal lit);

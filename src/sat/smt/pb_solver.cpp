@@ -669,8 +669,6 @@ namespace pb {
             DEBUG_CODE(TRACE("sat_verbose", display(tout, m_A);););
             TRACE("pb", tout << "process consequent: " << consequent << " : "; s().display_justification(tout, js) << "\n";);
             SASSERT(offset > 0);
-
-            DEBUG_CODE(justification2pb(js, consequent, offset, m_B););
             
             if (_debug_conflict) {
                 IF_VERBOSE(0, 
@@ -713,12 +711,9 @@ namespace pb {
             case sat::justification::EXT_JUSTIFICATION: {
                 auto cindex = js.get_ext_justification_idx();
                 auto* ext = sat::constraint_base::to_extension(cindex);
-                if (ext != this) {
-                    m_lemma.reset();
-                    ext->get_antecedents(consequent, idx, m_lemma, false);
-                    for (literal l : m_lemma) process_antecedent(~l, offset);
-                    break;
-                }
+                if (ext != this) 
+                    return l_undef;
+                
                 constraint& cnstr = index2constraint(cindex);
                 ++m_stats.m_num_resolves;
                 switch (cnstr.tag()) {
@@ -3440,39 +3435,6 @@ namespace pb {
             c->set_glue(glue);
         }
         return c;
-    }
-
-
-    void solver::justification2pb(sat::justification const& js, literal lit, unsigned offset, ineq& ineq) {
-        switch (js.get_kind()) {
-        case sat::justification::NONE:
-            SASSERT(lit != sat::null_literal);
-            ineq.reset(offset);
-            ineq.push(lit, offset);
-            break;
-        case sat::justification::BINARY:
-            SASSERT(lit != sat::null_literal);
-            ineq.reset(offset);
-            ineq.push(lit, offset);
-            ineq.push(js.get_literal(), offset);
-            break;
-        case sat::justification::CLAUSE: {
-            ineq.reset(offset);
-            sat::clause & c = s().get_clause(js);
-            for (literal l : c) ineq.push(l, offset);
-            break;
-        }
-        case sat::justification::EXT_JUSTIFICATION: {
-            sat::ext_justification_idx index = js.get_ext_justification_idx();
-            VERIFY(this == sat::constraint_base::to_extension(index));
-            constraint& cnstr = index2constraint(index);
-            constraint2pb(cnstr, lit, offset, ineq);
-            break;
-        }
-        default:
-            UNREACHABLE();
-            break;
-        }
     }
 
     void solver::constraint2pb(constraint& cnstr, literal lit, unsigned offset, ineq& ineq) {
