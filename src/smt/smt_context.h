@@ -1566,7 +1566,7 @@ namespace smt {
         void init();
         void flush();
         config_mode get_config_mode(bool use_static_features) const;
-        virtual void setup_context(bool use_static_features);
+        virtual void setup_context(bool use_static_features, bool has_assumptions);
         void setup_components();
         void pop_to_base_lvl();
         void pop_to_search_lvl();

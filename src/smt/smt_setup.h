@@ -109,6 +109,7 @@ namespace smt {
         void setup_lra_arith();
         void setup_fpa();
         void setup_str();
+        void setup_relevancy(static_features& st);
 
     public:
         setup(context & c, smt_params & params);

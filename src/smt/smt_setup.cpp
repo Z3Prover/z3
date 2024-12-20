@@ -826,6 +826,16 @@ namespace smt {
         setup_fpa();
         setup_special_relations();
         setup_polymorphism();
+        setup_relevancy(st);
+    }
+
+    //
+    // quantifier free problems with bit-vectors should always use relevancy = 0
+    // there are some other cases where relevancy propagation is harmful.
+    //
+    void setup::setup_relevancy(static_features& st) {
+        if (st.m_has_bv && st.m_num_quantifiers == 0)
+             m_params.m_relevancy_lvl = 0;           
     }
 
     void setup::setup_unknown(static_features & st) {
