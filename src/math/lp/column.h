@@ -40,7 +40,6 @@ class lar_term; // forward definition
 class column {
     u_dependency* m_lower_bound_witness = nullptr;
     u_dependency* m_upper_bound_witness = nullptr;
-    bool          m_associated_with_row = false;  
     lar_term*     m_term = nullptr;
 public:
     lar_term*  term() const { return m_term; }
@@ -50,13 +49,11 @@ public:
     u_dependency*& upper_bound_witness() { return m_upper_bound_witness; }
     u_dependency* upper_bound_witness() const { return m_upper_bound_witness; }
 
-    column()  = delete;
-    column(bool) = delete;
+    column() {}
 
-    column(bool associated_with_row, lar_term* term) :
-        m_associated_with_row(associated_with_row), m_term(term) {}
+    column(lar_term* term) : m_term(term) {}
 
-    bool associated_with_row() const { return m_associated_with_row; }
+    bool associated_with_row() const { return m_term != nullptr; }
 };
 
 }
