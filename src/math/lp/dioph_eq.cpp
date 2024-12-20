@@ -233,9 +233,7 @@ namespace lp {
         // {coeff*lar.get_term(k)})
 
         std_vector<unsigned> m_k2s;
-        std_vector<unsigned> m_fresh_definitions;  // seems only needed in the debug
-        // version in remove_fresh_vars
-
+        std_vector<unsigned> m_fresh_definitions;
         unsigned m_conflict_index = -1;  // m_entries[m_conflict_index] gives the conflict
         unsigned m_max_number_of_iterations = 100;
         unsigned m_number_of_iterations;
@@ -304,7 +302,7 @@ namespace lp {
         void fill_entry(const lar_term& t) {
             TRACE("dioph_eq", print_lar_term_L(t, tout) << std::endl;);
             entry te = {lar_term(t.j()), mpq(0), entry_status::F};
-            unsigned entry_index = m_entries.size();
+            unsigned entry_index = (unsigned)m_entries.size();
             m_f.push_back(entry_index);
             m_entries.push_back(te);
             entry& e = m_entries.back();
@@ -928,7 +926,10 @@ namespace lp {
             }
             TRACE("dio_br", lra.print_column_info(b.m_j, tout) <<"add bound" << std::endl;);
             if (lra.column_is_fixed(b.m_j)) {
-                if (fix_var(lar_solver_to_local(b.m_j)) == lia_move::conflict) {
+                unsigned local_b_mj;
+                if (!m_var_register.external_is_used(b.m_j, local_b_mj)) 
+                    return lia_move::undef;
+                if (fix_var(local_b_mj) == lia_move::conflict) {
                    TRACE("dio_br", tout << "conflict in fix_var" << std::endl;) ;
                    return lia_move::conflict;
                 }
@@ -1024,7 +1025,7 @@ namespace lp {
         }
 
         unsigned get_number_of_int_inf() const {
-            return std::count_if(
+            return (unsigned)std::count_if(
                 lra.r_basis().begin(), lra.r_basis().end(),
                 [this](unsigned j) {
                     return lia.column_is_int_inf(j);
@@ -1165,7 +1166,7 @@ namespace lp {
                              [ei](const auto& cell) {
                                  return cell.var() == ei;
                              });
-            unsigned pivot_col_cell_index = std::distance(column.begin(), it);
+            unsigned pivot_col_cell_index = (unsigned) std::distance(column.begin(), it);
             if (pivot_col_cell_index != 0) {
                 // swap the pivot column cell with the head cell
                 auto c = column[0];
@@ -1328,7 +1329,7 @@ namespace lp {
                     m_e_matrix.add_new_element(fresh_row, i, q);
             }
 
-            m_k2s.resize(std::max(k + 1, xt + 1), -1);
+            m_k2s.resize(k + 1, -1);
             m_k2s[k] = fresh_row;
             m_fresh_definitions.resize(xt + 1, -1);
             m_fresh_definitions[xt] = fresh_row;
