@@ -305,7 +305,7 @@ namespace lp {
         void fill_entry(const lar_term& t) {
             TRACE("dioph_eq", print_lar_term_L(t, tout) << std::endl;);
             entry te = {lar_term(t.j()), mpq(0), entry_status::F};
-            unsigned entry_index = m_entries.size();
+            unsigned entry_index = (unsigned) m_entries.size();
             m_f.push_back(entry_index);
             m_entries.push_back(te);
             entry& e = m_entries.back();
@@ -1029,7 +1029,7 @@ namespace lp {
         }
 
         unsigned get_number_of_int_inf() const {
-            return std::count_if(
+            return (unsigned) std::count_if(
                 lra.r_basis().begin(), lra.r_basis().end(),
                 [this](unsigned j) {
                     return lia.column_is_int_inf(j);
@@ -1170,7 +1170,7 @@ namespace lp {
                              [ei](const auto& cell) {
                                  return cell.var() == ei;
                              });
-            unsigned pivot_col_cell_index = std::distance(column.begin(), it);
+            unsigned pivot_col_cell_index = (unsigned) std::distance(column.begin(), it);
             if (pivot_col_cell_index != 0) {
                 // swap the pivot column cell with the head cell
                 auto c = column[0];
