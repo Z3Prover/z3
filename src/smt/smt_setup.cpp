@@ -834,7 +834,7 @@ namespace smt {
     // there are some other cases where relevancy propagation is harmful.
     //
     void setup::setup_relevancy(static_features& st) {
-        if (st.m_has_bv && st.m_num_quantifiers == 0)
+        if (st.m_has_bv && !st.m_has_fpa && st.m_num_quantifiers == 0)
              m_params.m_relevancy_lvl = 0;           
     }
 
