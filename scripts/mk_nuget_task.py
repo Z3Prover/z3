@@ -75,9 +75,7 @@ def unpack(packages, symbols, arch):
                 if symbols:
                     zip_ref.extract(f"{package_dir}/bin/libz3.pdb", f"{tmp}")
                     replace(f"{tmp}/{package_dir}/bin/libz3.pdb", f"out/runtimes/{dst}/native/libz3.pdb") 
-                files = ["Microsoft.Z3.dll"]                
-                if symbols:
-                    files += ["Microsoft.Z3.pdb", "Microsoft.Z3.xml"]
+                files = ["Microsoft.Z3.dll", "Microsoft.Z3.pdb", "Microsoft.Z3.xml"]                
                 for b in files:
                     file = f"{package_dir}/bin/{b}"
                     if os.path.exists(file):
