@@ -177,7 +177,7 @@ namespace smt {
             dst_ctx.assert_expr(fml1);
         }
 
-        dst_ctx.setup_context(dst_ctx.m_fparams.m_auto_config, true);
+        dst_ctx.setup_context(dst_ctx.m_fparams.m_auto_config);
         dst_ctx.internalize_assertions();
         
         dst_ctx.copy_user_propagator(src_ctx, true);
@@ -2908,7 +2908,7 @@ namespace smt {
         user_propagator::push_eh_t&       push_eh,
         user_propagator::pop_eh_t&        pop_eh,
         user_propagator::fresh_eh_t&      fresh_eh) {
-        setup_context(false, true);
+        setup_context(false);
         m_user_propagator = alloc(theory_user_propagator, *this);
         m_user_propagator->add(ctx, push_eh, pop_eh, fresh_eh);
         for (unsigned i = m_scopes.size(); i-- > 0; ) 
@@ -3004,7 +3004,7 @@ namespace smt {
 
     void context::push() {       
         pop_to_base_lvl();
-        setup_context(false, false);
+        setup_context(false);
         bool was_consistent = !inconsistent();
         try {
             internalize_assertions(); // internalize assertions before invoking m_asserted_formulas.push_scope
@@ -3611,7 +3611,7 @@ namespace smt {
         if (!check_preamble(reset_cancel)) return l_undef;
         SASSERT(m_scope_lvl == 0);
         SASSERT(!m_setup.already_configured());
-        setup_context(m_fparams.m_auto_config, false);
+        setup_context(m_fparams.m_auto_config);
 
         if (m_fparams.m_threads > 1 && !m.has_trace_stream()) {
             parallel p(*this);
@@ -3644,10 +3644,7 @@ namespace smt {
         return CFG_LOGIC;
     }
 
-    void context::setup_context(bool use_static_features, bool has_assumptions) {
-        unsigned nf = m_asserted_formulas.get_num_formulas();
-        if (nf == 0 && !has_assumptions)
-           return;
+    void context::setup_context(bool use_static_features) {
         if (m_setup.already_configured() || inconsistent()) {
             m_relevancy_lvl = std::min(m_fparams.m_relevancy_lvl, m_relevancy_lvl);
             return;
@@ -3680,7 +3677,7 @@ namespace smt {
     lbool context::check(unsigned num_assumptions, expr * const * assumptions, bool reset_cancel) {
         if (!check_preamble(reset_cancel)) return l_undef;
         SASSERT(at_base_level());
-        setup_context(false, num_assumptions > 0);
+        setup_context(false);
         if (m_fparams.m_threads > 1 && !m.has_trace_stream()) {            
             expr_ref_vector asms(m, num_assumptions, assumptions);
             parallel p(*this);
@@ -3710,7 +3707,7 @@ namespace smt {
     lbool context::check(expr_ref_vector const& cube, vector<expr_ref_vector> const& clauses) {
         if (!check_preamble(true)) return l_undef;
         TRACE("before_search", display(tout););
-        setup_context(false, !cube.empty() || !clauses.empty());
+        setup_context(false);
         lbool r = l_undef;
         do {
             pop_to_base_lvl();
