@@ -1055,8 +1055,6 @@ br_status bv_rewriter::mk_bv_ashr(expr * arg1, expr * arg2, expr_ref & result) {
         return BR_REWRITE1; // not really needed at this time.
     }
 
-    verbose_stream() << "ashr : " << mk_pp(arg1, m) << " " << mk_pp(arg2, m) << "\n";
-
     if (num_leading_zero_bits(arg1) > 0 && is_num2) {
         SASSERT(r2 > 0);
         if (r2 >= bv_size) {
