@@ -1055,6 +1055,21 @@ br_status bv_rewriter::mk_bv_ashr(expr * arg1, expr * arg2, expr_ref & result) {
         return BR_REWRITE1; // not really needed at this time.
     }
 
+    verbose_stream() << "ashr : " << mk_pp(arg1, m) << " " << mk_pp(arg2, m) << "\n";
+
+    if (num_leading_zero_bits(arg1) > 0 && is_num2) {
+        SASSERT(r2 > 0);
+        if (r2 >= bv_size) {
+            result = mk_zero(bv_size);
+            return BR_DONE;
+        }
+        SASSERT(r2.is_unsigned());
+        // (bvlshr x k) -> (concat bv0:k (extract [n-1:k] x))
+
+        unsigned k = r2.get_unsigned();
+        result = m_util.mk_concat(mk_zero(k), m_mk_extract(bv_size - 1, k, arg1));
+        return BR_REWRITE2;
+    }
 #if 0
     // (bvashr x k) --> (concat extract[sz-1:sz-1](x) ... extract[sz-1:sz-1](x) extract[sz-1:k](x))
     if (is_num2) {
