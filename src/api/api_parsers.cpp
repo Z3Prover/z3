@@ -128,6 +128,7 @@ extern "C" {
 
     static Z3_ast_vector Z3_parser_context_parse_stream(Z3_context c, scoped_ptr<cmd_context>& ctx, bool owned, std::istream& is) {
         Z3_TRY;
+        RESET_ERROR_CODE();
         ast_manager& m = mk_c(c)->m();
         Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), m);        
         mk_c(c)->save_object(v);        
@@ -177,6 +178,7 @@ extern "C" {
                                        Z3_symbol const decl_names[],
                                        Z3_func_decl const decls[]) {
         Z3_TRY;
+        RESET_ERROR_CODE();
         ast_manager& m = mk_c(c)->m();
         scoped_ptr<cmd_context> ctx = alloc(cmd_context, false, &(m));
         install_dl_cmds(*ctx.get());
@@ -219,6 +221,7 @@ extern "C" {
                                         Z3_symbol const decl_names[],
                                         Z3_func_decl const decls[]) {
         Z3_TRY;
+        RESET_ERROR_CODE();
         LOG_Z3_parse_smtlib2_string(c, file_name, num_sorts, sort_names, sorts, num_decls, decl_names, decls);
         std::ifstream is(file_name);
         if (!is) {
@@ -233,6 +236,7 @@ extern "C" {
     Z3_string Z3_API Z3_eval_smtlib2_string(Z3_context c, Z3_string str) {
         std::stringstream ous;
         Z3_TRY;
+        RESET_ERROR_CODE();
         LOG_Z3_eval_smtlib2_string(c, str);
         if (!mk_c(c)->cmd()) {
             auto* ctx = alloc(cmd_context, false, &(mk_c(c)->m()));
