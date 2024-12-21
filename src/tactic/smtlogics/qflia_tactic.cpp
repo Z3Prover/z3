@@ -26,6 +26,7 @@ Notes:
 #include "tactic/arith/add_bounds_tactic.h"
 #include "tactic/arith/pb2bv_tactic.h"
 #include "tactic/arith/lia2pb_tactic.h"
+#include "tactic/arith/lia2card_tactic.h"
 #include "tactic/core/ctx_simplify_tactic.h"
 #include "tactic/bv/bit_blaster_tactic.h"
 #include "tactic/bv/max_bv_sharing_tactic.h"
@@ -198,6 +199,7 @@ tactic * mk_preamble_tactic(ast_manager& m) {
             using_params(mk_ctx_simplify_tactic(m), ctx_simp_p),
             using_params(mk_simplify_tactic(m), pull_ite_p),
             mk_solve_eqs_tactic(m),
+            mk_lia2card_tactic(m),
             mk_elim_uncnstr_tactic(m));
 }
 
