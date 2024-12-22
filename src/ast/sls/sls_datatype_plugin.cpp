@@ -180,6 +180,15 @@ namespace sls {
         }
     }
 
+    // collect datatypes sorts
+    // for each constructor term c(t) add axioms:
+    //  is-c(c(t))
+    //  sel_i(c(..t_i..)) = t_i
+    //  not is-c'(c(t)) for c' != c
+    // for each term t of datatype sort
+    //  or_i is-c_i(t)
+    //  is_c_i(t) <=> t = c_i(acc_1(t)..acc_n(t))
+
     void datatype_plugin::add_axioms() {
         expr_ref_vector axioms(m);
         for (auto t : ctx.subterms()) {
@@ -740,6 +749,7 @@ namespace sls {
             if (coin <= 3) {
                 set_eval0(t, vs);
                 ctx.new_value_eh(t);
+                return;
             }
             if (true) {
                 auto new_v = m_model->get_some_value(s->get_sort());

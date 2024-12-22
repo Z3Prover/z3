@@ -1785,6 +1785,29 @@ namespace sls {
 
     void seq_plugin::next_char(expr* r, unsigned_vector& chars) {
         SASSERT(seq.is_re(r));
+#if 0
+        // TODO you can just walk the derivative directly
+        // it is an ite expression of the form
+        // if var = char then r1 else r2
+        // or
+        // if char1 <= var && var << char2 then r1 else r2 (from range expressions)
+        // check if r1 is non-empty.
+        // if r1 is empty, pick some variable other than char, char1, char2
+        // if r1 is non-empty pick char, [char1, char2]
+        seq_rewriter rw(m);
+        expr_ref dr(m);
+        dr = rw.mk_derivative(r);
+        ptr_buffer<expr> todo;
+        todo.push_back(dr);
+        while (!todo.empty()) {
+            expr* x, * y, * z;
+            expr* e = todo.back();
+            todo.pop_back();
+            if (!m.is_ite(e, x, y, z))
+                continue;
+            if (m.is_eq(x, ))
+        }
+#endif
         expr* x, * y;
         zstring s;
         if (seq.re.is_concat(r, x, y)) {
@@ -1800,6 +1823,13 @@ namespace sls {
         else if (seq.re.is_union(r, x, y)) {
             next_char(x, chars);
             next_char(y, chars);
+        }
+        else if (seq.re.is_intersection(r, x, y)) {
+            next_char(x, chars);
+            next_char(y, chars);
+        }
+        else if (seq.re.is_complement(r, x)) {
+
         }
         else if (seq.re.is_range(r, x, y)) {
             zstring s1, s2;
@@ -1825,6 +1855,8 @@ namespace sls {
             if (!m_chars.empty())
                 chars.push_back(m_chars[ctx.rand(m_chars.size())]);
         }
+        else if (seq.re.is_loop(r))             
+            next_char(to_app(r)->get_arg(0), chars);       
         else {
             verbose_stream() << "regex nyi " << mk_bounded_pp(r, m) << "\n";
             NOT_IMPLEMENTED_YET();
@@ -1837,13 +1869,13 @@ namespace sls {
         if (k == 0)
             return;
         unsigned_vector chars;
+        seq_rewriter rw(m);
         next_char(r, chars);
         std::stable_sort(chars.begin(), chars.end());
         auto it = std::unique(chars.begin(), chars.end());
         chars.shrink((unsigned)(it - chars.begin()));
         for (auto ch : chars) {
             expr_ref c(seq.str.mk_char(ch), m);
-            seq_rewriter rw(m);
             expr_ref r2 = rw.mk_derivative(c, r);
             zstring prefix2 = prefix + zstring(ch);
             choose(r2, k - 1, prefix2, result);
