@@ -23,7 +23,7 @@ Revision History:
 
 namespace smt {
 
-    class theory_array_full : public theory_array {
+    class theory_array_full final : public theory_array {
         struct var_data_full {
             ptr_vector<enode>  m_maps;
             ptr_vector<enode>  m_consts;

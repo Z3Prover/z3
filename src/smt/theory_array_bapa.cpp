@@ -98,10 +98,9 @@ namespace smt {
     
     class theory_array_bapa::imp {
         struct sz_info {
-            bool                  m_is_leaf;   // has it been split into disjoint subsets already?
-            rational              m_size;      // set to >= integer if fixed in final check, otherwise -1
+            bool                  m_is_leaf = true;               // has it been split into disjoint subsets already?
+            rational              m_size = rational::minus_one(); // set to >= integer if fixed in final check, otherwise -1
             obj_map<enode, expr*> m_selects;
-            sz_info(): m_is_leaf(true), m_size(rational::minus_one()) {}
         };
 
         typedef std::pair<func_decl*, func_decl*> func_decls;

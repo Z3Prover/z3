@@ -34,7 +34,6 @@ namespace smt {
 
     theory_array_full::~theory_array_full() {
         std::for_each(m_var_data_full.begin(), m_var_data_full.end(), delete_proc<var_data_full>());
-        m_var_data_full.reset();
     }
 
     theory* theory_array_full::mk_fresh(context* new_ctx) { 

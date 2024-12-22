@@ -27,14 +27,11 @@ namespace smt {
     theory_array::theory_array(context& ctx):
         theory_array_base(ctx), 
         m_params(ctx.get_fparams()),
-        m_find(*this),
-        m_trail_stack(),
-        m_final_check_idx(0) {
+        m_find(*this) {
     }
 
     theory_array::~theory_array() {
         std::for_each(m_var_data.begin(), m_var_data.end(), delete_proc<var_data>());
-        m_var_data.reset();
     }
 
     void theory_array::init_search_eh() {
