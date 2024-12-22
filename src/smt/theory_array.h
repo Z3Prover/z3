@@ -34,6 +34,7 @@ namespace smt {
     };
 
     class theory_array : public theory_array_base {
+        unsigned laziness() const { return ctx.relevancy()?m_params.m_array_laziness:0; }
     protected:
         typedef union_find<theory_array>  th_union_find;
 
@@ -64,7 +65,7 @@ namespace smt {
         void pop_scope_eh(unsigned num_scopes) override;
         final_check_status final_check_eh() override;
         void reset_eh() override;
-        void init_search_eh() override { m_final_check_idx = 0; }
+        void init_search_eh() override;
 
         void set_prop_upward(theory_var v) override;
         virtual void set_prop_upward(enode* n);

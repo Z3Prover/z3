@@ -30,13 +30,15 @@ namespace smt {
         m_find(*this),
         m_trail_stack(),
         m_final_check_idx(0) {
-        if (!ctx.relevancy())
-            m_params.m_array_laziness = 0;
     }
 
     theory_array::~theory_array() {
         std::for_each(m_var_data.begin(), m_var_data.end(), delete_proc<var_data>());
         m_var_data.reset();
+    }
+
+    void theory_array::init_search_eh() {
+        m_final_check_idx = 0;         
     }
 
     void theory_array::merge_eh(theory_var v1, theory_var v2, theory_var, theory_var) {
@@ -77,7 +79,7 @@ namespace smt {
         if (is_store(n))
             d->m_stores.push_back(n);
         ctx.attach_th_var(n, this, r);
-        if (m_params.m_array_laziness <= 1 && is_store(n))
+        if (laziness() <= 1 && is_store(n))
             instantiate_axiom1(n);
         return r;
     }
@@ -238,6 +240,7 @@ namespace smt {
     // Internalize the term. If it has already been internalized, return false.
     // 
     bool theory_array::internalize_term_core(app * n) {
+       
         TRACE("array_bug", tout << mk_bounded_pp(n, m) << "\n";);
         for (expr* arg : *n)
             ctx.internalize(arg, false);
@@ -275,7 +278,7 @@ namespace smt {
             mk_var(arg0);
 
 
-        if (m_params.m_array_laziness == 0) {
+        if (laziness() == 0) {
             theory_var v_arg = arg0->get_th_var(get_id());
             
             SASSERT(v_arg != null_theory_var);
@@ -320,7 +323,7 @@ namespace smt {
     }
 
     void theory_array::relevant_eh(app * n) {
-        if (m_params.m_array_laziness == 0)
+        if (laziness() == 0)
             return;
         if (m.is_ite(n)) {
             TRACE("array", tout << "relevant ite " << mk_pp(n, m) << "\n";);
@@ -338,7 +341,7 @@ namespace smt {
         }
         else {
             SASSERT(is_store(n));
-            if (m_params.m_array_laziness > 1)
+            if (laziness() > 1)
                 instantiate_axiom1(e);
             add_parent_store(v_arg, e);
         }
