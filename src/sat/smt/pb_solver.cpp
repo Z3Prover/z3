@@ -712,7 +712,7 @@ namespace pb {
                 auto cindex = js.get_ext_justification_idx();
                 auto* ext = sat::constraint_base::to_extension(cindex);
                 if (ext != this) 
-                    return l_undef;
+                    goto bail_out;
                 
                 constraint& cnstr = index2constraint(cindex);
                 ++m_stats.m_num_resolves;
