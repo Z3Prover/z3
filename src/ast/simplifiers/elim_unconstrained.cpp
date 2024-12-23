@@ -187,7 +187,8 @@ void elim_unconstrained::eliminate() {
         set_root(p, rn);
         expr* rt = rn.term();
         SASSERT(!m_heap.contains(rt->get_id()));
-        if (is_uninterp_const(rt))
+        m_heap.reserve(rt->get_id() + 1);
+        if (is_uninterp_const(rt)) 
             m_heap.insert(rt->get_id());
         else
             m_created_compound = true;
