@@ -1524,11 +1524,11 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return new AstVectorImpl(check(Z3.optimize_get_assertions(contextPtr, this.ptr)));
       }
 
-      maximize(expr: Arith<Name>) {
+      maximize(expr: Arith<Name> | BitVec<number, Name>) {
         check(Z3.optimize_maximize(contextPtr, this.ptr, expr.ast));
       }
 
-      minimize(expr: Arith<Name>) {
+      minimize(expr: Arith<Name> | BitVec<number, Name>) {
         check(Z3.optimize_minimize(contextPtr, this.ptr, expr.ast));
       }
 
