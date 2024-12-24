@@ -139,6 +139,8 @@ public:
 
     void add_new_element(unsigned i, unsigned j, const T & v);
 
+    // adds row i muliplied by coeff to row k
+    void add_rows(const mpq& coeff, unsigned i, unsigned k);
     void add_row() {m_rows.push_back(row_strip<T>());}
     void add_column() {
         m_columns.push_back(column_strip());
@@ -218,8 +220,7 @@ public:
         return ret;
     }
     
-    void scan_row_to_work_vector(unsigned i);
-
+    void scan_row_strip_to_work_vector(const row_strip<T> & rvals);
     void clean_row_work_vector(unsigned i);
 
 
@@ -300,8 +301,6 @@ public:
     // pivot row i to row ii
     bool pivot_row_to_row_given_cell(unsigned i, column_cell& c, unsigned j);
     void pivot_row_to_row_given_cell_with_sign(unsigned piv_row_index, column_cell& c, unsigned j, int j_sign);
-    void scan_row_ii_to_offset_vector(const row_strip<T> & rvals);
-
     void transpose_rows(unsigned i, unsigned ii) {
         auto t = m_rows[i];
         m_rows[i] = m_rows[ii];
