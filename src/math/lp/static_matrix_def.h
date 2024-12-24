@@ -42,7 +42,7 @@ void  static_matrix<T, X>::init_row_columns(unsigned m, unsigned n) {
 }
 
 
-template <typename T, typename X> void static_matrix<T, X>::scan_row_ii_to_offset_vector(const row_strip<T> & rvals) {
+template <typename T, typename X> void static_matrix<T, X>:: scan_row_strip_to_work_vector(const row_strip<T> & rvals) {
     for (unsigned j = 0; j < rvals.size(); j++)
         m_work_vector_of_row_offsets[rvals[j].var()] = j;
 }
@@ -56,7 +56,7 @@ column_cell & c, unsigned pivot_col) {
     SASSERT(!is_zero(alpha));
     auto & rowii = m_rows[ii];
     remove_element(rowii, rowii[c.offset()]);
-    scan_row_ii_to_offset_vector(rowii);
+    scan_row_strip_to_work_vector(rowii);
     unsigned prev_size_ii = rowii.size();
     // run over the pivot row and update row ii
     for (const auto & iv : m_rows[i]) {
@@ -85,6 +85,37 @@ column_cell & c, unsigned pivot_col) {
     return !rowii.empty();
 }
 
+    
+    template <typename T, typename X> void static_matrix<T, X>::add_rows(const mpq& alpha, unsigned i, unsigned k) {
+    lp_assert(i < row_count() && k < column_count() && i != k);
+    auto & rowk = m_rows[k];
+    scan_row_strip_to_work_vector(rowk);
+    unsigned prev_size_k = rowk.size();
+    // run over the pivot row and update row k
+    for (const auto & iv : m_rows[i]) {
+        unsigned j = iv.var();
+        int j_offs = m_work_vector_of_row_offsets[j];
+        if (j_offs == -1) { // it is a new element
+            T alv = alpha * iv.coeff();
+            add_new_element(k, j, alv);
+        }
+        else {
+            addmul(rowk[j_offs].coeff(), iv.coeff(), alpha);
+        }
+    }
+    // clean the work vector
+    for (unsigned k = 0; k < prev_size_k; k++) {
+        m_work_vector_of_row_offsets[rowk[k].var()] = -1;
+    }
+
+    // remove zeroes
+    for (unsigned k = rowk.size(); k-- > 0;  ) {
+        if (is_zero(rowk[k].coeff()))
+            remove_element(rowk, rowk[k]);
+    }
+}
+
+
 template <typename T, typename X>
 inline void static_matrix<T, X>::pivot_row_to_row_given_cell_with_sign(unsigned piv_row_index, 
 column_cell& c, unsigned pivot_col, int pivot_sign) {
@@ -94,7 +125,7 @@ column_cell& c, unsigned pivot_col, int pivot_sign) {
     SASSERT(!is_zero(alpha));
     auto & rowii = m_rows[ii];
     remove_element(rowii, rowii[c.offset()]);
-    scan_row_ii_to_offset_vector(rowii);
+    scan_row_strip_to_work_vector(rowii);
     unsigned prev_size_ii = rowii.size();
     // run over the pivot row and update row ii
     for (const auto & iv : m_rows[piv_row_index]) {
@@ -145,8 +176,8 @@ template <typename T, typename X> void static_matrix<T, X>::init_vector_of_row_o
 }
 
 template <typename T, typename X> void static_matrix<T, X>::init_empty_matrix(unsigned m, unsigned n) {
-    init_vector_of_row_offsets();
     init_row_columns(m, n);
+    init_vector_of_row_offsets();
 }
 
 template <typename T, typename X> unsigned static_matrix<T, X>::lowest_row_in_column(unsigned col) {
