@@ -30,7 +30,7 @@ template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::init
 template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::init_basis_heading_and_non_basic_columns_vector();
 template lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::lp_core_solver_base(lp::static_matrix<lp::mpq, lp::numeric_pair<lp::mpq> >&, 
     // vector<lp::numeric_pair<lp::mpq> >&, 
-    vector<unsigned int >&, vector<unsigned> &, vector<int> &, vector<lp::numeric_pair<lp::mpq> >&, vector<lp::mpq>&, lp::lp_settings&, const column_namer&, const vector<lp::column_type >&,
+    vector<unsigned int >&, vector<unsigned> &, std_vector<int> &, vector<lp::numeric_pair<lp::mpq> >&, vector<lp::mpq>&, lp::lp_settings&, const column_namer&, const vector<lp::column_type >&,
                                                                                                    const vector<lp::numeric_pair<lp::mpq> >&,
                                                                                                    const vector<lp::numeric_pair<lp::mpq> >&);
 
@@ -39,7 +39,8 @@ template lp::lp_core_solver_base<lp::mpq, lp::mpq>::lp_core_solver_base(
                                                                               lp::static_matrix<lp::mpq, lp::mpq>&,
                                                                               //vector<lp::mpq>&,
                                                                               vector<unsigned int >&,
-                                                                              vector<unsigned> &, vector<int> &,
+                                                                              vector<unsigned> &,
+                                                                              std_vector<int> &,
                                                                               vector<lp::mpq>&,
                                                                               vector<lp::mpq>&,
                                                                               lp::lp_settings&,

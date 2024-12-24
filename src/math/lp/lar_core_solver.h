@@ -34,7 +34,7 @@ public:
     stacked_vector<unsigned> m_r_pushed_basis;
     vector<unsigned>         m_r_basis;
     vector<unsigned>         m_r_nbasis;
-    vector<int>              m_r_heading;
+    std_vector<int>              m_r_heading;
     
 
     lp_primal_core_solver<mpq, numeric_pair<mpq>> m_r_solver; // solver in rational numbers

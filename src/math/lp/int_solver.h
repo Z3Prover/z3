@@ -89,7 +89,7 @@ public:
 
     bool shift_var(unsigned j, unsigned range);
     std::ostream&  display_row_info(std::ostream & out, unsigned row_index) const;
-    std::ostream & display_row(std::ostream & out, vector<row_cell<rational>> const & row) const;
+    std::ostream & display_row(std::ostream & out, std_vector<row_cell<rational>> const & row) const;
     bool is_term(unsigned j) const;
     unsigned column_count() const;
     int select_int_infeasible_var();
