@@ -528,7 +528,6 @@ void asserted_formulas::commit() {
 
 void asserted_formulas::commit(unsigned new_qhead) {
     m_macro_manager.mark_forbidden(new_qhead - m_qhead, m_formulas.data() + m_qhead);
-    m_expr2depth.reset();
     for (unsigned i = m_qhead; i < new_qhead; ++i) {
         justified_expr const& j = m_formulas[i];
         update_substitution(j.get_fml(), j.get_proof());
@@ -545,7 +544,6 @@ void asserted_formulas::propagate_values() {
     unsigned sz = m_formulas.size();
     unsigned delta_prop = sz;
     while (!inconsistent() && sz/20 < delta_prop) {
-        m_expr2depth.reset();
         m_scoped_substitution.push();
         unsigned prop = num_prop;
         TRACE("propagate_values", display(tout << "before:\n"););
@@ -555,7 +553,6 @@ void asserted_formulas::propagate_values() {
         }
         flush_cache();
         m_scoped_substitution.pop(1);
-        m_expr2depth.reset();
         m_scoped_substitution.push();
         TRACE("propagate_values", tout << "middle:\n"; display(tout););
         i = sz;
@@ -599,8 +596,6 @@ bool asserted_formulas::update_substitution(expr* n, proof* pr) {
     expr* lhs, *rhs, *n1;
     proof_ref pr1(m);
     if (is_ground(n) && m.is_eq(n, lhs, rhs)) {
-        compute_depth(lhs);
-        compute_depth(rhs);
         if (is_gt(lhs, rhs)) {
             TRACE("propagate_values", tout << "insert " << mk_pp(lhs, m) << " -> " << mk_pp(rhs, m) << "\n";);
             m_scoped_substitution.insert(lhs, rhs, pr);
@@ -665,38 +660,6 @@ bool asserted_formulas::is_gt(expr* lhs, expr* rhs) {
     }
 
     return false;
-}
-
-void asserted_formulas::compute_depth(expr* e) {
-    ptr_vector<expr> todo;
-    todo.push_back(e);
-    while (!todo.empty()) {
-        e = todo.back();
-        unsigned d = 0;
-        if (m_expr2depth.contains(e)) {
-            todo.pop_back();
-            continue;
-        }
-        if (is_app(e)) {
-            app* a = to_app(e);
-            bool visited = true;
-            for (expr* arg : *a) {
-                unsigned d1 = 0;
-                if (m_expr2depth.find(arg, d1)) {
-                    d = std::max(d, d1);
-                }
-                else {
-                    visited = false;
-                    todo.push_back(arg);
-                }
-            }
-            if (!visited) {
-                continue;
-            }
-        }
-        todo.pop_back();
-        m_expr2depth.insert(e, d + 1);
-    }
 }
 
 proof * asserted_formulas::get_inconsistency_proof() const {

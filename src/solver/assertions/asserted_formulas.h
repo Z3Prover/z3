@@ -64,7 +64,6 @@ class asserted_formulas {
         bool                    m_inconsistent_old;
     };
     svector<scope>              m_scopes;
-    obj_map<expr, unsigned>     m_expr2depth;
 
     class simplify_fmls {
     protected:
@@ -247,8 +246,7 @@ class asserted_formulas {
     unsigned propagate_values(unsigned i);
     bool update_substitution(expr* n, proof* p);
     bool is_gt(expr* lhs, expr* rhs);
-    void compute_depth(expr* e);
-    unsigned depth(expr* e) { return m_expr2depth[e]; }
+    unsigned depth(expr* e) { return get_depth(e); }
 
     void init(unsigned num_formulas, expr * const * formulas, proof * const * prs);
 
