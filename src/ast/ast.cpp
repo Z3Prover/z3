@@ -2167,16 +2167,14 @@ app * ast_manager::mk_app_core(func_decl * decl, unsigned num_args, expr * const
                 if (decl == mk_func_decl(basic_family_id, PR_UNDEF, 0, nullptr, 0, static_cast<expr * const *>(nullptr)))
                     return r;
                 *m_trace_stream << "[mk-proof] #";
-            } else {
-                *m_trace_stream << "[mk-app] #";
-            }
+            } 
+            else 
+                *m_trace_stream << "[mk-app] #";            
             *m_trace_stream << r->get_id() << " ";
-            if (r->get_num_args() == 0 && r->get_decl()->get_name() == "int") {
-                ast_ll_pp(*m_trace_stream, *this, r);
-            }
-            else if (is_label_lit(r)) {
-                ast_ll_pp(*m_trace_stream, *this, r);
-            }
+            if (r->get_num_args() == 0 && r->get_decl()->get_name() == "int") 
+                ast_ll_pp(*m_trace_stream, *this, r);            
+            else if (is_label_lit(r)) 
+                ast_ll_pp(*m_trace_stream, *this, r);            
             else {
                 *m_trace_stream << r->get_decl()->get_name();
                 for (unsigned i = 0; i < r->get_num_args(); i++)
