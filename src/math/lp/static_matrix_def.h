@@ -421,7 +421,7 @@ template <typename T, typename X> bool static_matrix<T, X>::is_correct() const {
 }
 
 template <typename T, typename X>
-void static_matrix<T, X>::remove_element(vector<row_cell<T>> & row_vals, row_cell<T> & row_el_iv) {
+void static_matrix<T, X>::remove_element(std_vector<row_cell<T>> & row_vals, row_cell<T> & row_el_iv) {
     unsigned column_offset = row_el_iv.offset();
     auto & column_vals = m_columns[row_el_iv.var()];
     column_cell& cs = m_columns[row_el_iv.var()][column_offset];

@@ -41,10 +41,10 @@ std::ostream& operator<<(std::ostream& out, const row_cell<T>& rc) {
 }
 struct empty_struct {};
 typedef row_cell<empty_struct> column_cell;
-typedef vector<column_cell> column_strip;
+typedef std_vector<column_cell> column_strip;
 
 template <typename T>
-using row_strip = vector<row_cell<T>>; 
+using row_strip = std_vector<row_cell<T>>; 
 template <typename K> mpq get_denominators_lcm(const K & row) {
     SASSERT(row.size() > 0);
     mpq r = mpq(1);
@@ -79,8 +79,8 @@ public:
     
     vector<int> m_work_vector_of_row_offsets;
     indexed_vector<T> m_work_vector;
-    vector<row_strip<T>> m_rows;
-    vector<column_strip> m_columns;
+    std_vector<row_strip<T>> m_rows;
+    std_vector<column_strip> m_columns;
     // starting inner classes
     class ref {
         static_matrix & m_matrix;
@@ -153,7 +153,7 @@ public:
 
     void remove_last_column(unsigned j);
 
-    void remove_element(vector<row_cell<T>> & row, row_cell<T> & elem_to_remove);
+    void remove_element(std_vector<row_cell<T>> & row, row_cell<T> & elem_to_remove);
     
     void multiply_column(unsigned column, T const & alpha) {
         for (auto & t : m_columns[column]) {
@@ -245,7 +245,7 @@ public:
         m_stack.push(d);
     }
 
-    void pop_row_columns(const vector<row_cell<T>> & row) {
+    void pop_row_columns(const std_vector<row_cell<T>> & row) {
         for (auto & c : row) {
             unsigned j = c.var();
             auto & col = m_columns[j];
@@ -291,7 +291,7 @@ public:
         }
     }
     
-    T dot_product_with_column(const vector<T> & y, unsigned j) const {
+    T dot_product_with_column(const std_vector<T> & y, unsigned j) const {
         lp_assert(j < column_count());
         T ret = numeric_traits<T>::zero();
         for (auto & it : m_columns[j]) {
@@ -320,7 +320,7 @@ public:
         }
     
     }
-    void fill_last_row_with_pivoting_loop_block(unsigned j, const vector<int> & basis_heading) {
+    void fill_last_row_with_pivoting_loop_block(unsigned j, const std_vector<int> & basis_heading) {
         int row_index = basis_heading[j];
         if (row_index < 0)
             return;
@@ -352,7 +352,7 @@ public:
     template <typename term>
     void fill_last_row_with_pivoting(const term& row,
                                      unsigned bj, // the index of the basis column
-                                     const vector<int> & basis_heading) {
+                                     const std_vector<int> & basis_heading) {
         lp_assert(row_count() > 0);
         m_work_vector.resize(column_count());
         T a;
@@ -377,7 +377,7 @@ public:
         set(last_row, column_count() - 1, one_of_type<T>());
     }
 
-    void copy_column_to_vector (unsigned j, vector<T> & v) const {
+    void copy_column_to_vector (unsigned j, std_vector<T> & v) const {
         v.resize(row_count(), numeric_traits<T>::zero());
         for (auto & it : m_columns[j]) {
             const T& val = get_val(it);
@@ -387,7 +387,7 @@ public:
     }
     
     template <typename L>
-    L dot_product_with_row(unsigned row, const vector<L> & w) const {
+    L dot_product_with_row(unsigned row, const std_vector<L> & w) const {
         L ret = zero_of_type<L>();
         lp_assert(row < m_rows.size());
         for (auto & it : m_rows[row]) {
@@ -444,11 +444,12 @@ public:
         };
 
         const_iterator begin() const {
-            return const_iterator(m_A.m_columns[m_j].begin(), m_A);
+            return const_iterator(m_A.m_columns[m_j].data(), m_A);
         }
         
         const_iterator end() const {
-            return const_iterator(m_A.m_columns[m_j].end(), m_A);
+            const auto & column = m_A.m_columns[m_j];
+            return const_iterator(column.data() + column.size(), m_A);
         }
     };
 

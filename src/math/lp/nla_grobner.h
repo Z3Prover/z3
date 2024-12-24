@@ -60,7 +60,7 @@ namespace nla {
         void find_nl_cluster();
         void prepare_rows_and_active_vars();
         void add_var_and_its_factors_to_q_and_collect_new_rows(lpvar j, svector<lpvar>& q);           
-        void add_row(const vector<lp::row_cell<rational>>& row);
+        void add_row(const std_vector<lp::row_cell<rational>>& row);
         void add_fixed_monic(unsigned j);
         bool is_solved(dd::pdd const& p, unsigned& v, dd::pdd& r);
         void add_eq(dd::pdd& p, u_dependency* dep);        

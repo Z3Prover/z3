@@ -640,7 +640,7 @@ namespace lp {
         vector<X> &b,  // the right side vector
         vector<X> &x,  // the number of elements in x needs to be at least as large
                        // as the number of columns in A
-        vector<unsigned> &basis, vector<unsigned> &nbasis, vector<int> &heading,
+        vector<unsigned> &basis, vector<unsigned> &nbasis, std_vector<int> &heading,
         vector<T> &costs, const vector<column_type> &column_type_array,
         const vector<X> &lower_bound_values, const vector<X> &upper_bound_values,
         lp_settings &settings, const column_namer &column_names)

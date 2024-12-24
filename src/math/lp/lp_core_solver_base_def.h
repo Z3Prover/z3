@@ -31,7 +31,7 @@ lp_core_solver_base(static_matrix<T, X> & A,
                     // vector<X> & b, // the right side vector
                     vector<unsigned> & basis,
                     vector<unsigned> & nbasis,
-                    vector<int> & heading,
+                    std_vector<int> & heading,
                     vector<X> & x,
                     vector<T> & costs,
                     lp_settings & settings,

@@ -558,7 +558,7 @@ namespace nla {
         add_eq(r, dep);
     }
 
-    void grobner::add_row(const vector<lp::row_cell<rational>> & row) {
+    void grobner::add_row(const std_vector<lp::row_cell<rational>> & row) {
         u_dependency *dep = nullptr;
         rational val;
         dd::pdd sum = m_pdd_manager.mk_val(rational(0));
