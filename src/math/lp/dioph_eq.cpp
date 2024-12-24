@@ -328,6 +328,7 @@ namespace lp {
        public:
         imp(int_solver& lia, lar_solver& lra) : lia(lia), lra(lra) {
             lra.register_add_term_delegate([this](const lar_term*t){add_term_delegate(t);});
+            lra.register_add_column_bound_delegate([this](unsigned j) {add_column_bound_delegate(j);});
         }
         term_o get_term_from_entry(unsigned i) const {
             term_o t;
@@ -395,15 +396,10 @@ namespace lp {
         }
 
         void init() {
-            m_e_matrix = static_matrix<mpq, mpq>();
             m_report_branch = false;
-            m_k2s.clear();
-            m_fresh_definitions.clear();
             m_conflict_index = -1;
             m_infeas_explanation.clear();
             lia.get_term().clear();
-            m_entries.clear();
-            m_var_register.clear();
             m_number_of_iterations = 0;
             m_branch_stack.clear();
             m_lra_level = 0;
@@ -1071,7 +1067,6 @@ namespace lp {
                     if (m_branch_stack.size() == 0) {
                            lra.stats().m_dio_branching_infeasibles++;
                            transfer_explanations_from_closed_branches();
-                           enable_trace("dioph_eq");
                            return lia_move::conflict;
                     }
                     TRACE("dio_br", tout << lp_status_to_string(lra.get_status()) << std::endl;
@@ -1393,7 +1388,7 @@ namespace lp {
                     m_e_matrix.add_new_element(fresh_row, i, q);
             }
 
-            m_k2s.resize(std::max(k + 1, xt + 1), -1);
+            m_k2s.resize(k + 1, -1);
             m_k2s[k] = fresh_row;
             m_fresh_definitions.resize(xt + 1, -1);
             m_fresh_definitions[xt] = fresh_row;

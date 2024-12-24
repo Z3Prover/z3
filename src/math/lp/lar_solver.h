@@ -684,7 +684,7 @@ public:
     bool ax_is_correct() const;
     bool get_equality_and_right_side_for_term_on_current_x(lpvar j, mpq& rs, u_dependency*& ci, bool& upper_bound) const;
     bool var_is_int(lpvar v) const;
-    inline const vector<int>& r_heading() const { return m_mpq_lar_core_solver.m_r_heading; }
+    inline const std_vector<int>& r_heading() const { return m_mpq_lar_core_solver.m_r_heading; }
     inline const vector<unsigned>& r_basis() const { return m_mpq_lar_core_solver.r_basis(); }
     inline const vector<unsigned>& r_nbasis() const { return m_mpq_lar_core_solver.r_nbasis(); }
     inline bool column_is_real(unsigned j) const { return !column_is_int(j); }

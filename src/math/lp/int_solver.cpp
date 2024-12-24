@@ -668,7 +668,7 @@ namespace lp {
         return display_row(out, row);
     }
 
-    std::ostream & int_solver::display_row(std::ostream & out, vector<row_cell<rational>> const & row) const {
+    std::ostream & int_solver::display_row(std::ostream & out, std_vector<row_cell<rational>> const & row) const {
         return m_imp->display_row(out, row);
 }
     
