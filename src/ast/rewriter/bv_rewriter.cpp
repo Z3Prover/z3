@@ -619,9 +619,12 @@ br_status bv_rewriter::mk_leq_core(bool is_signed, expr * a, expr * b, expr_ref 
         }
         else if (lnz < bv_sz - 1 && m_le2extract) {
             // a[sz-1:lnz+1] = 0 & a[lnz:0] <= b[lnz:0]
-            result = m.mk_and(m.mk_eq(m_mk_extract(bv_sz - 1, lnz + 1, a), mk_zero(bv_sz - lnz - 1)),
-                              m_util.mk_ule(m_mk_extract(lnz, 0, a), m_mk_extract(lnz, 0, b)));
-
+            expr_ref e1(m_mk_extract(bv_sz - 1, lnz + 1, a), m);
+            expr_ref e2(mk_zero(bv_sz - lnz - 1), m);
+            expr_ref e3(m_mk_extract(lnz, 0, a), m);
+            expr_ref e4(m_mk_extract(lnz, 0, b), m);
+            expr_ref e5(m_util.mk_ule(e3, e4), m);
+            result = m.mk_and(m.mk_eq(e1, e2), e5);
             return BR_REWRITE3;
         }
 
