@@ -4,6 +4,7 @@
 */
 #include "math/lp/lar_solver.h"
 #include "smt/params/smt_params_helper.hpp"
+#include "lar_solver.h"
 
 
 namespace lp {
@@ -1598,6 +1599,12 @@ namespace lp {
     bool lar_solver::external_is_used(unsigned v) const {
         return m_var_register.external_is_used(v);
     }
+    void lar_solver::register_add_term_delegate(const std::function<void(const lar_term*)>& f) {
+        this->m_add_term_delegates.push_back(f);
+    }
+    void lar_solver::register_add_column_bound_delegate(const std::function<void(unsigned)>& f) {
+        this->m_add_column_bound_delegates.push_back(f);
+    }
 
     void lar_solver::add_non_basic_var_to_core_fields(unsigned ext_j, bool is_int) {
         register_new_external_var(ext_j, is_int);
@@ -1695,6 +1702,8 @@ namespace lp {
         lp_assert(m_var_register.size() == A_r().column_count());
         if (m_need_register_terms) 
             register_normalized_term(*t, A_r().column_count() - 1);
+        for (const auto & f: m_add_term_delegates)
+            f(t);    
         return ret;
     }
 
@@ -1742,6 +1751,8 @@ namespace lp {
     constraint_index lar_solver::add_var_bound(lpvar j, lconstraint_kind kind, const mpq& right_side) {
         constraint_index ci = mk_var_bound(j, kind, right_side);
         activate(ci);
+        for (const auto & f: m_add_column_bound_delegates)
+            f(j);   
         return ci;
     }
 

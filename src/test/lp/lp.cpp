@@ -468,6 +468,7 @@ bool contains(std::string const &s, char const *pattern) {
 }
 
 void setup_args_parser(argument_parser &parser) {
+    parser.add_option_with_help_string("-add_rows", "test add_rows of static matrix");
     parser.add_option_with_help_string("-monics", "test emonics");
     parser.add_option_with_help_string("-nex_order", "test nex order");
     parser.add_option_with_help_string("-nla_cn", "test cross nornmal form");
@@ -1728,6 +1729,33 @@ void test_gomory_cut() {
     test_gomory_cut_1();
 }
 
+    void test_add_rows() {
+// Create a static_matrix object
+        lp::static_matrix<mpq, impq> matrix;
+        matrix.init_empty_matrix(3, 3);
+
+        // Populate the matrix with initial values
+        matrix.set(0, 0, mpq(1));
+        matrix.set(0, 1, mpq(2));
+        matrix.set(1, 0, mpq(3));
+        matrix.set(1, 2, mpq(4));
+        matrix.set(2, 1, mpq(5));
+        matrix.set(2, 2, mpq(6));
+
+        // Perform add_rows operation
+        matrix.add_rows(mpq(2), 0, 1); // row 1 = row 1 + 2 * row 0
+
+        // Verify the results
+        SASSERT(matrix.get_elem(1, 0) == 5); // 3 + 2*1
+        SASSERT(matrix.get_elem(1, 1) == 4); // 0 + 2*2
+        SASSERT(matrix.get_elem(1, 2) == 4); // unchanged
+
+        matrix.add_rows(mpq(-2), 0, 1);
+        SASSERT(matrix.get_elem(1, 0) == 3); // 5 - 2*1
+        SASSERT(matrix.get_elem(1, 1) == 0); // 4 - 2*2
+        SASSERT(matrix.get_elem(1, 2) == 4); // unchanged
+    }
+    
 void test_nla_order_lemma() { nla::test_order_lemma(); }
 
 void test_lp_local(int argn, char **argv) {
@@ -1744,6 +1772,10 @@ void test_lp_local(int argn, char **argv) {
     }
 
     args_parser.print();
+    if (args_parser.option_is_used("-add_rows")) {
+        test_add_rows();
+        return finalize(0);
+    }
     if (args_parser.option_is_used("-monics")) {
         nla::test_monics();
         return finalize(0);
@@ -1841,12 +1873,6 @@ void test_lp_local(int argn, char **argv) {
 #endif
         return finalize(0);
     }
-
-    if (args_parser.option_is_used("-dio")) {
-        test_dio();
-        return finalize(0);
-    }
-
 
     if (args_parser.option_is_used("-gomory")) {
         test_gomory_cut();
