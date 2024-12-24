@@ -952,7 +952,6 @@ namespace lp {
                 TRACE("dio_br",
                       tout << "fixed j:" << j <<", was substited by "; print_entry(m_k2s[j], tout););
                 if (check_fixing(j) == lia_move::conflict) {
-                    auto& ep = m_entries[m_k2s[j]];
                     for (auto ci : lra.flatten(explain_fixed_in_meta_term(m_l_matrix.m_rows[m_k2s[j]]))) {
                         m_explanation_of_branches.push_back(ci);
                     }
@@ -1496,7 +1495,6 @@ namespace lp {
             SASSERT(ex.empty());
             TRACE("dioph_eq", tout << "conflict:";
                   print_entry(m_conflict_index, tout, true) << std::endl;);
-            auto& ep = m_entries[m_conflict_index];
             for (auto ci : lra.flatten(explain_fixed_in_meta_term(m_l_matrix.m_rows[m_conflict_index]))) {
                 ex.push_back(ci);
             }
