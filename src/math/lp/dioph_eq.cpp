@@ -358,6 +358,8 @@ namespace lp {
             SASSERT(m_l_matrix.row_count() == m_e_matrix.row_count());
 // fill m_l_matrix row
             m_l_matrix.add_row();
+            // todo: consider to compress variables t.j() by using a devoted var_register for term columns
+            m_l_matrix.add_columns_up_to(t.j());
             m_l_matrix.add_new_element(entry_index, t.j(), mpq(1));
 // fill E-entry
             m_e_matrix.add_row();
@@ -369,8 +371,7 @@ namespace lp {
                     e.m_c += p.coeff() * lia.lower_bound(p.var()).x;
                 else {
                     unsigned lj = add_var(p.var());
-                    while (lj >= m_e_matrix.column_count())
-                        m_e_matrix.add_column();
+                    m_e_matrix.add_columns_up_to(lj);
                     m_e_matrix.add_new_element(entry_index, lj, p.coeff());
                 }
             }
@@ -378,8 +379,7 @@ namespace lp {
                 e.m_c -= lia.lower_bound(t.j()).x;
             } else {
                 unsigned lj = add_var(t.j());
-                while (lj >= m_e_matrix.column_count())
-                    m_e_matrix.add_column();
+                m_e_matrix.add_columns_up_to(lj);
                 m_e_matrix.add_new_element(entry_index, lj, -mpq(1));
             }
             TRACE("dioph_eq", print_entry(entry_index, tout););
@@ -572,7 +572,7 @@ namespace lp {
             }
             m_c += coeff * e.m_c;
             
-            m_tmp_l += coeff * l_term_from_row(k); // improve later
+            m_tmp_l += coeff * l_term_from_row(sub_index(k)); // improve later
             TRACE("dioph_eq", tout << "after subs k:" << k << "\n";
                   print_term_o(create_term_from_ind_c(), tout) << std::endl;
                   tout << "m_tmp_l:{"; print_lar_term_L(m_tmp_l, tout);
