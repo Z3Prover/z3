@@ -147,6 +147,8 @@ public:
         m_work_vector_of_row_offsets.push_back(-1);
     }
 
+    void add_columns_up_to(unsigned j) { while (j >= column_count()) add_column(); }
+
     void forget_last_columns(unsigned how_many_to_forget);
 
     void remove_last_column(unsigned j);
