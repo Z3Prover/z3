@@ -211,7 +211,7 @@ namespace smt {
         symbol const & family_name = m.get_family_name(get_family_id());
 
         if (pattern_id == UINT_MAX) {
-            out << "[inst-discovered] theory-solving " << static_cast<void *>(nullptr) << " " << family_name << "#";
+            out << "[inst-discovered] theory-solving " << " " << family_name << "#";
             if (axiom_id != UINT_MAX)
                 out << axiom_id;
             for (unsigned i = 0; i < num_bindings; ++i) {

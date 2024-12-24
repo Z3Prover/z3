@@ -240,7 +240,7 @@ namespace smt {
              vector<std::tuple<enode *, enode *>> & used_enodes) {
 
             if (pat == nullptr) {
-                trace_stream() << "[inst-discovered] MBQI " << static_cast<void*>(f) << " #" << q->get_id();
+                trace_stream() << "[inst-discovered] MBQI " << " #" << q->get_id();
                 for (unsigned i = 0; i < num_bindings; ++i) {
                     trace_stream() << " #" << bindings[num_bindings - i - 1]->get_owner_id();
                 }
