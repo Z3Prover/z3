@@ -188,8 +188,7 @@ namespace smt {
 
     void qi_queue::display_instance_profile(fingerprint * f, quantifier * q, unsigned num_bindings, enode * const * bindings, unsigned proof_id, unsigned generation) {
         if (m.has_trace_stream()) {
-            m.trace_stream() << "[instance] ";
-            m.trace_stream() << static_cast<void*>(f);
+            m.trace_stream() << "[instance] 0x0";
             if (m.proofs_enabled())
                 m.trace_stream() << " #" << proof_id;
             m.trace_stream() << " ; " << generation;

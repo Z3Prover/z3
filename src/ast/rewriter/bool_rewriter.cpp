@@ -272,7 +272,7 @@ br_status bool_rewriter::mk_nflat_or_core(unsigned num_args, expr * const * args
         if (s) {
             if (m_sort_disjunctions) {
                 ast_lt lt;
-                std::sort(buffer.begin(), buffer.end(), lt);
+                std::stable_sort(buffer.begin(), buffer.end(), lt);
             }
             result = m().mk_or(sz, buffer.data());
             return BR_DONE;
@@ -311,7 +311,7 @@ br_status bool_rewriter::mk_flat_or_core(unsigned num_args, expr * const * args,
         if (mk_nflat_or_core(flat_args.size(), flat_args.data(), result) == BR_FAILED) {
             if (m_sort_disjunctions && !ordered) {
                 ast_lt lt;
-                std::sort(flat_args.begin(), flat_args.end(), lt);
+                std::stable_sort(flat_args.begin(), flat_args.end(), lt);
             }
             result = mk_or_app(flat_args.size(), flat_args.data());
         }

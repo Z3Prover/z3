@@ -598,9 +598,9 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         }
         app_ref tmp(m());
         tmp = m().mk_app(f, num, args);
-        m().trace_stream() << "[inst-discovered] theory-solving " << static_cast<void *>(nullptr) << " " << m().get_family_name(fid) << "# ; #" << tmp->get_id() << "\n";
+        m().trace_stream() << "[inst-discovered] theory-solving 0x0 " << m().get_family_name(fid) << "# ; #" << tmp->get_id() << "\n";
         tmp = m().mk_eq(tmp, result);
-        m().trace_stream() << "[instance] " << static_cast<void *>(nullptr) << " #" << tmp->get_id() << "\n";
+        m().trace_stream() << "[instance] 0x0 #" << tmp->get_id() << "\n";
 
         // Make sure that both the result term and equality were newly introduced.
         if (tmp->get_ref_count() == 1) {
