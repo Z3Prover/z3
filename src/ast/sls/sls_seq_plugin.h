@@ -19,6 +19,7 @@ Author:
 #include "ast/sls/sls_context.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
+#include "ast/rewriter/seq_rewriter.h"
 
 
 namespace sls {
@@ -43,6 +44,7 @@ namespace sls {
 
         seq_util seq;
         arith_util a;
+        seq_rewriter rw;
         scoped_ptr_vector<eval> m_values;
         indexed_uint_set m_chars;
         bool m_initialized = false;        
@@ -133,6 +135,8 @@ namespace sls {
         void next_char(expr* r, unsigned_vector& chars);
 
         bool is_in_re(zstring const& s, expr* r);
+        bool some_string_in_re(expr* r, zstring& s);
+        bool append_char(expr* r0, expr_ref& r, zstring& s);
 
         // access evaluation
         bool is_seq_predicate(expr* e);

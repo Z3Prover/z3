@@ -95,7 +95,7 @@ Equality solving using stochastic Nelson.
 #include "ast/sls/sls_seq_plugin.h"
 #include "ast/sls/sls_context.h"
 #include "ast/ast_pp.h"
-#include "ast/rewriter/seq_rewriter.h"
+
 #include "ast/rewriter/th_rewriter.h"
 
 
@@ -104,7 +104,8 @@ namespace sls {
     seq_plugin::seq_plugin(context& c):
         plugin(c),
         seq(c.get_manager()),
-        a(c.get_manager()) 
+        a(c.get_manager()),
+        rw(c.get_manager())
     {
         m_fid = seq.get_family_id();
     }
@@ -1722,8 +1723,8 @@ namespace sls {
         auto s = strval0(x);
         expr_ref xval(seq.str.mk_string(s), m);
         expr_ref in_re(seq.re.mk_in_re(xval, y), m);
-        th_rewriter rw(m);
-        rw(in_re);
+        th_rewriter thrw(m);
+        thrw(in_re);
         SASSERT(m.limit().is_canceled() || m.is_true(in_re) || m.is_false(in_re));
         if (m.is_true(in_re) == ctx.is_true(e))
             return true;
@@ -1731,9 +1732,17 @@ namespace sls {
         if (is_value(x))
             return false;
 
+        {
+            zstring s1;
+            if (ctx.is_true(e) && some_string_in_re(y, s1)) {
+                verbose_stream() << "some string in re " << " " << s1.length() << "\n";
+                m_str_updates.push_back({ x, s1, 1 });
+                return apply_update();
+            }
+        }
+
         vector<lookahead> lookaheads;
         expr_ref d_r(y, m);
-        seq_rewriter seqrw(m);
         for (unsigned i = 0; i < s.length(); ++i) {
             IF_VERBOSE(3, verbose_stream() << "Derivative " << s.extract(0, i) << ": " << d_r << "\n");
             if (seq.re.is_empty(d_r))
@@ -1741,7 +1750,7 @@ namespace sls {
             zstring prefix = s.extract(0, i);
             choose(d_r, 2, prefix, lookaheads);
             expr_ref ch(seq.str.mk_char(s[i]), m);
-            d_r = seqrw.mk_derivative(ch, d_r);            
+            d_r = rw.mk_derivative(ch, d_r);            
         }
         unsigned current_min_length = UINT_MAX;
         if (!seq.re.is_empty(d_r)) {
@@ -1869,7 +1878,6 @@ namespace sls {
         if (k == 0)
             return;
         unsigned_vector chars;
-        seq_rewriter rw(m);
         next_char(r, chars);
         std::stable_sort(chars.begin(), chars.end());
         auto it = std::unique(chars.begin(), chars.end());
@@ -1880,5 +1888,65 @@ namespace sls {
             zstring prefix2 = prefix + zstring(ch);
             choose(r2, k - 1, prefix2, result);
         }        
+    }
+
+    //
+    // Find some string that is a member of regex
+    //
+    bool seq_plugin::some_string_in_re(expr* _r, zstring& s) {
+        expr_ref r(_r, m);
+        seq_rewriter rw(m);
+        while (true) {
+            if (seq.re.is_empty(r))
+                return false;
+            auto info = seq.re.get_info(r);
+            if (info.nullable == l_true)
+                return true;
+            expr_ref r2 = rw.mk_derivative(r);
+            if (!append_char(r, r2, s))
+                return false;
+            r = r2;
+        }
+    }
+
+    bool seq_plugin::append_char(expr* r0, expr_ref& r, zstring& s) {
+        expr* c, * th, * el, * x, * y;
+        unsigned ch;
+        if (seq.re.is_union(r)) {
+            auto info0 = seq.re.get_info(r0);
+            for (expr* r1 : *to_app(r)) {
+                auto info1 = seq.re.get_info(r1);
+                if (r0 == r1)
+                    continue;
+                if (info1.min_length < info0.min_length) {
+                    r = r1;
+                    return append_char(r0, r, s);
+                }
+            }
+            NOT_IMPLEMENTED_YET();
+        }
+        if (m.is_ite(r, c, th, el)) {
+            if (m.is_eq(c, x, y)) {
+                
+                if (is_var(x) && seq.is_const_char(y, ch)) {
+                    s += zstring(ch);
+                    r = th;
+                    return true;
+                }
+                if (is_var(y) && seq.is_const_char(x, ch)) {
+                    s += zstring(ch);
+                    r = th;
+                    return true;
+                }
+                verbose_stream() << "nyi append_char " << mk_bounded_pp(r, m) << "\n";
+                NOT_IMPLEMENTED_YET();
+                return false;
+            }
+            verbose_stream() << "nyi append_char " << mk_bounded_pp(r, m) << "\n";
+            NOT_IMPLEMENTED_YET();
+            return false;
+        }
+        s += zstring(m_chars[ctx.rand(m_chars.size())]);
+        return true;
     }
 }
