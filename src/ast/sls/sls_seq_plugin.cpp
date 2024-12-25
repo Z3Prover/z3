@@ -1734,7 +1734,6 @@ namespace sls {
         {
             zstring s1;
             if (ctx.is_true(e) && some_string_in_re(y, s1)) {
-                verbose_stream() << "some string in re " << " " << s1.length() << "\n";
                 m_str_updates.push_back({ x, s1, 1 });
                 return apply_update();
             }
