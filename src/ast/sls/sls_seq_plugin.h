@@ -20,7 +20,7 @@ Author:
 #include "ast/seq_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/rewriter/seq_rewriter.h"
-
+#include "ast/rewriter/th_rewriter.h"
 
 namespace sls {
     
@@ -45,6 +45,7 @@ namespace sls {
         seq_util seq;
         arith_util a;
         seq_rewriter rw;
+        th_rewriter thrw;
         scoped_ptr_vector<eval> m_values;
         indexed_uint_set m_chars;
         bool m_initialized = false;        

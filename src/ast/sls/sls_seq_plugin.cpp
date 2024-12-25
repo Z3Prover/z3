@@ -96,8 +96,6 @@ Equality solving using stochastic Nelson.
 #include "ast/sls/sls_context.h"
 #include "ast/ast_pp.h"
 
-#include "ast/rewriter/th_rewriter.h"
-
 
 namespace sls {
     
@@ -105,7 +103,8 @@ namespace sls {
         plugin(c),
         seq(c.get_manager()),
         a(c.get_manager()),
-        rw(c.get_manager())
+        rw(c.get_manager()),
+        thrw(c.get_manager())
     {
         m_fid = seq.get_family_id();
     }
@@ -1705,13 +1704,17 @@ namespace sls {
 
     // Regular expressions
 
-    bool seq_plugin::is_in_re(zstring const& s, expr* r) {
-        expr_ref sval(seq.str.mk_string(s), m);
-        th_rewriter rw(m);
-        expr_ref in_re(seq.re.mk_in_re(sval, r), m);
-        rw(in_re);
-        SASSERT(m.limit().is_canceled() || m.is_true(in_re) || m.is_false(in_re));
-        return m.is_true(in_re);
+    bool seq_plugin::is_in_re(zstring const& s, expr* _r) {
+        expr_ref r(_r, m);
+        for (unsigned i = 0; i < s.length(); ++i) {
+            expr_ref ch(seq.str.mk_char(s[i]), m);
+            expr_ref r1 = rw.mk_derivative(ch, r);
+            if (seq.re.is_empty(r1))
+                return false;   
+            r = r1;
+        }
+        auto info = seq.re.get_info(r);
+        return info.nullable == l_true;
     }
 
     bool seq_plugin::repair_down_in_re(app* e) {
@@ -1721,12 +1724,8 @@ namespace sls {
         if (!info.interpreted)
             return false;
         auto s = strval0(x);
-        expr_ref xval(seq.str.mk_string(s), m);
-        expr_ref in_re(seq.re.mk_in_re(xval, y), m);
-        th_rewriter thrw(m);
-        thrw(in_re);
-        SASSERT(m.limit().is_canceled() || m.is_true(in_re) || m.is_false(in_re));
-        if (m.is_true(in_re) == ctx.is_true(e))
+        bool in_re = is_in_re(s, y);
+        if (in_re == ctx.is_true(e))
             return true;
 
         if (is_value(x))

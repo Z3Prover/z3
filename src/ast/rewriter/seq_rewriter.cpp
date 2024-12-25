@@ -3790,6 +3790,7 @@ expr_ref  seq_rewriter::simplify_path(expr* elem, expr* path) {
 
 
 expr_ref seq_rewriter::mk_der_antimirov_union(expr* r1, expr* r2) {
+    verbose_stream() << "union " << r1->get_id() << " " << r2->get_id() << "\n";
     return mk_der_op(_OP_RE_ANTIMIROV_UNION, r1, r2);
 }
 
@@ -4584,7 +4585,7 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         result = mk_in_antimirov(tl, mk_antimirov_deriv(hd, b, m().mk_true()));
         return BR_REWRITE_FULL;
     }
-
+    
     if (get_head_tail_reversed(a, hd, tl)) {
         result = re().mk_reverse(re().mk_derivative(tl, re().mk_reverse(b)));
         result = re().mk_in_re(hd, result);
