@@ -81,18 +81,6 @@ namespace sls {
         }
     }
 
-    void bv_plugin::init_bool_var_assignment(sat::bool_var v) {
-        auto a = ctx.atom(v);
-        if (!a || !is_app(a))
-            return;
-        if (to_app(a)->get_family_id() != bv.get_family_id())
-            return;
-        bool is_true = m_eval.bval1(to_app(a));
-
-        if (is_true != ctx.is_true(v))
-            ctx.flip(v);        
-    }
-
     bool bv_plugin::is_sat() {
         bool is_sat = true;
         for (auto t : ctx.subterms())

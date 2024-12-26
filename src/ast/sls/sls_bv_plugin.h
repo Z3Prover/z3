@@ -30,10 +30,8 @@ namespace sls {
         bv::sls_stats       m_stats;
         bool                m_initialized = false;
 
-        void init_bool_var_assignment(sat::bool_var v);
         std::ostream& trace_repair(bool down, expr* e);
         void trace();
-        bool can_propagate();
         bool is_bv_predicate(expr* e);
 
         void log(expr* e, bool up_down, bool success); 
