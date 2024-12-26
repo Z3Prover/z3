@@ -20,7 +20,9 @@ Author:
 #include "ast/sls/sls_bv_valuation.h"
 #include "ast/sls/sls_bv_fixed.h"
 #include "ast/sls/sls_context.h"
+#include "ast/sls/sls_bv_lookahead.h"
 #include "ast/bv_decl_plugin.h"
+
 
  
 namespace sls {
@@ -31,6 +33,8 @@ namespace sls {
     using bvect = sls::bvect;
 
     class bv_eval {
+        friend class bv_lookahead;
+
         struct config {
             unsigned m_prob_randomize_extract = 50;
         };
@@ -40,6 +44,7 @@ namespace sls {
         ast_manager&        m;
         sls::context&       ctx;
         sls::bv_terms&      terms;
+        sls::bv_lookahead   m_lookahead;
         bv_util             bv;
         sls::bv_fixed       m_fix;
         mutable mpn_manager mpn;
@@ -58,13 +63,6 @@ namespace sls {
 
         void init_eval_bv(app* e);
 
-        ptr_vector<expr> m_restore;
-        vector<ptr_vector<expr>> m_update_stack;
-        expr_mark m_on_restore;
-        void insert_update_stack(expr* e);
-        bool insert_update(expr* e);
-        double lookahead(expr* e, bvect const& new_value);
-        void restore_lookahead();
        
         /**
         * Register e as a bit-vector. 

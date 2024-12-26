@@ -153,9 +153,10 @@ namespace sls {
 
     void bv_plugin::repair_up(app* e) {
         if (m_eval.repair_up(e)) {
-            if (!m_eval.eval_is_correct(e)) {
-                verbose_stream() << "Incorrect eval #" << e->get_id() << " " << mk_bounded_pp(e, m) << "\n";
-            }
+            IF_VERBOSE(0,
+                if (!m_eval.eval_is_correct(e))
+                    verbose_stream() << "Incorrect eval #" << e->get_id() << " " << mk_bounded_pp(e, m) << "\n";
+                    );
             log(e, true, true);
             SASSERT(m_eval.eval_is_correct(e));
             if (m.is_bool(e)) {
@@ -163,14 +164,7 @@ namespace sls {
                     ctx.flip(ctx.atom2bool_var(e));
             }
         }
-        else if (bv.is_bv(e)) {
-            log(e, true, false);
-            IF_VERBOSE(5, verbose_stream() << "repair-up "; trace_repair(true, e)); 
-            auto& v = m_eval.wval(e);
-            m_eval.set_random(e);
-            ctx.new_value_eh(e);
-        }
-        else
+        else 
             log(e, true, false);
 
     }

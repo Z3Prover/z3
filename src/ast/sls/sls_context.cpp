@@ -198,6 +198,7 @@ namespace sls {
                     ++m_stats.m_num_repair_down;
                     if (p && !p->repair_down(to_app(e)) && !m_repair_up.contains(e->get_id())) {
                         IF_VERBOSE(3, verbose_stream() << "revert repair: " << mk_bounded_pp(e, m) << "\n");
+                        TRACE("sls", tout << "revert repair: " << mk_bounded_pp(e, m) << "\n");
                         m_repair_up.insert(e->get_id());
                     }
                 }
