@@ -114,10 +114,10 @@ namespace sls {
         auto e = ctx.atom(lit.var());
         if (!is_seq_predicate(e))
             return;
-        auto a = to_app(e);
         if (bval1(e) != lit.sign())
             return;
-        ctx.new_value_eh(e);        
+        // Literal not currently satisfied => report back to context
+        ctx.new_value_eh(e);
     }
     
     expr_ref seq_plugin::get_value(expr* e) {
@@ -265,6 +265,7 @@ namespace sls {
         return e.rhs;
     }
 
+    // Gets the currently assumed value for e
     zstring& seq_plugin::strval0(expr* e) {
         SASSERT(seq.is_string(e->get_sort()));
         return get_eval(e).val0.svalue;
@@ -343,8 +344,8 @@ namespace sls {
         return false;
     }
 
+    // Evaluate e using the assumed values of its arguments and cache + return the result
     zstring const& seq_plugin::strval1(expr* e) {
-        SASSERT(is_app(e));
         SASSERT(seq.is_string(e->get_sort()));
         auto & ev = get_eval(e);
         if (ev.is_value)
@@ -608,6 +609,7 @@ namespace sls {
         VERIFY(m.is_eq(e, x, y));
         IF_VERBOSE(3, verbose_stream() << is_true << ": " << mk_bounded_pp(e, m, 3) << "\n");
         if (ctx.is_true(e)) {
+            // equality
             if (false && ctx.rand(2) != 0 && repair_down_str_eq_edit_distance_incremental(e))
                 return true;
             if (ctx.rand(2) != 0 && repair_down_str_eq_edit_distance(e))
@@ -620,6 +622,7 @@ namespace sls {
                 m_str_updates.push_back({ y, strval1(x), 1 });            
         }
         else {
+            // disequality
             if (!is_value(x) && !m_chars.empty()) {
                 zstring ch(m_chars[ctx.rand(m_chars.size())]);
                 m_str_updates.push_back({ x, strval1(y) + ch, 1 });
@@ -672,15 +675,28 @@ namespace sls {
                 m_str_updates.push_back({ x, a + zstring(ch), 1 });
             for (auto ch : chars)
                 m_str_updates.push_back({ x, zstring(ch) + a, 1 });
-            if (a.length() > 0) {
+            if (!a.empty()) {
                 zstring b = a.extract(0, a.length() - 1);
+                unsigned remC = a[a.length() - 1];
                 m_str_updates.push_back({ x, b, 1 }); // truncate a
-                for (auto ch : chars)
+                for (auto ch : chars) {
+                    if (ch == remC)
+                        // We would end up with the initial string
+                        // => this "no-op" could be spuriously considered a solution (also it does not help)
+                        continue;
                     m_str_updates.push_back({ x, b + zstring(ch), 1 }); // replace last character in a by ch
-                b = a.extract(1, a.length() - 1);
-                m_str_updates.push_back({ x, b, 1 }); // truncate a
-                for (auto ch : chars)
-                    m_str_updates.push_back({ x, zstring(ch) + b, 1 }); // replace first character in a by ch
+                }
+                if (a.length() > 1) {
+                    // Otw. we just get the same set of candidates another time
+                    b = a.extract(1, a.length() - 1);
+                    remC = a[0];
+                    m_str_updates.push_back({ x, b, 1 }); // truncate a
+                    for (auto ch : chars) {
+                        if (ch == remC)
+                            continue;
+                        m_str_updates.push_back({ x, zstring(ch) + b, 1 }); // replace first character in a by ch
+                    }
+                }
             }
         }
         unsigned first_diff = UINT_MAX;
@@ -699,7 +715,8 @@ namespace sls {
                     if (is_value(x))
                         break;
                     auto new_val = val_x.extract(0, first_diff) + zstring(val_other[first_diff]) + val_x.extract(first_diff + 1, val_x.length());
-                    m_str_updates.push_back({ x, new_val, 1 });
+                    if (val_x != new_val)
+                        m_str_updates.push_back({ x, new_val, 1 });
                     break;
                 }
                 index -= len_x;
@@ -1468,7 +1485,7 @@ namespace sls {
         uint_set chars;
 
         for (auto ch : value0) 
-            chars.insert(ch);            
+            chars.insert(ch);
 
         add_edit_updates(es, value, value0, chars);
 
@@ -1606,8 +1623,9 @@ namespace sls {
     }
 
     bool seq_plugin::update(expr* e, zstring const& value) {
-        if (value == strval0(e))
-            return true;
+        SASSERT(value != strval0(e));
+        // if (value == strval0(e))
+        //     return true;
         if (is_value(e))
             return false;
         if (get_eval(e).min_length > value.length() || get_eval(e).max_length < value.length())

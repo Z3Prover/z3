@@ -47,7 +47,7 @@ namespace sls {
         seq_rewriter rw;
         th_rewriter thrw;
         scoped_ptr_vector<eval> m_values;
-        indexed_uint_set m_chars;
+        indexed_uint_set m_chars; // set of characters in the problem
         bool m_initialized = false;        
 
         struct str_update {
