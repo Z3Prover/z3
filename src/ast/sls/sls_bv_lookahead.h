@@ -18,36 +18,60 @@ Author:
 
 #include "ast/bv_decl_plugin.h"
 #include "ast/sls/sls_context.h"
+#include "ast/sls/sls_bv_valuation.h"
 
 namespace sls {
     class bv_eval;
-    class bv_valuation;
-    class bvect;
 
     class bv_lookahead {
         bv_util bv;
         bv_eval& m_ev;
         context& ctx;
         ast_manager& m;
+        bvect m_v_saved, m_v_updated;
 
         ptr_vector<expr> m_restore;
         vector<ptr_vector<expr>> m_update_stack;
-        expr_mark m_on_restore;
+        expr_mark m_on_restore, m_in_update_stack;
+        struct update {
+            expr* e;
+            double score;
+            bvect value;            
+        };
+        vector<update> m_updates;
+        unsigned m_num_updates = 0;
+        void reset_updates() { m_num_updates = 0; }
+        void add_update(double score, expr* e, bvect const& value) { 
+            if (m_num_updates == m_updates.size())
+                m_updates.push_back({ e, score, value });
+            else {
+                auto& u = m_updates[m_num_updates];
+                u.e = e;
+                u.score = score;
+                u.value = value;
+            }
+            m_num_updates++;
+        }
+        
 
         bv_valuation& wval(expr* e) const;
 
         void insert_update_stack(expr* e);
-        bool insert_update(expr* e);
-        
+        bool insert_update(expr* e);        
         void restore_lookahead();
-
         double lookahead(expr* e, bvect const& new_value);
+
+        void try_set(expr* e, bvect const& new_value);
+        void add_updates(expr* e);
+        void apply_update(expr* e, bvect const& new_value);
+        bool apply_update();
+
 
     public:
         bv_lookahead(bv_eval& ev);
         bool on_restore(expr* e) const;
 
-        bool try_repair_down(expr* e);
+        bool try_repair_down(app* e);
 
     };
 }

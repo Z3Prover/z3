@@ -213,9 +213,6 @@ public:
     }
 
     void cleanup() override {
-        sls_engine * d = alloc(sls_engine, m, m_params);
-        std::swap(d, m_engine);            
-        dealloc(d);
     }
     
     void collect_statistics(statistics & st) const override {

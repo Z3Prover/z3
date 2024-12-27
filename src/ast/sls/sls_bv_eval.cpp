@@ -88,7 +88,6 @@ namespace sls {
         return r;
     }
 
-
     void bv_eval::init_eval_bv(app* e) {
         if (bv.is_bv(e)) 
             eval(e).commit_eval();               
@@ -99,7 +98,7 @@ namespace sls {
         if (m.is_eq(e, x, y))
             return bv.is_bv(x);
         if (m.is_ite(e))
-            return bv.is_bv(e->get_arg(0));
+            return bv.is_bv(e->get_arg(1));
         if (e->get_family_id() == bv.get_fid()) {
             switch (e->get_decl_kind()) {
             case OP_BNEG_OVFL:
@@ -680,6 +679,8 @@ namespace sls {
         expr* arg = e->get_arg(i);
         if (m.is_value(arg))
             return false;
+        if (m.is_bool(e) && false && m_rand(10) == 0 && m_lookahead.try_repair_down(e))
+            return true;
         if (e->get_family_id() == bv.get_family_id() && try_repair_bv(e, i)) {
             commit_eval(e, to_app(arg));
             IF_VERBOSE(11, verbose_stream() << "repair " << mk_bounded_pp(e, m) << " : " << mk_bounded_pp(arg, m) << " := " << wval(arg) << "\n";);
@@ -692,9 +693,9 @@ namespace sls {
             ctx.new_value_eh(arg);
             return true;
         }
-        if (m.is_eq(e) && bv.is_bv(arg)) {
-            return try_repair_eq_lookahead(e);
-        }
+        if (m.is_bool(e) && m_lookahead.try_repair_down(e))
+            return true;
+        
         return false;
     }
 
@@ -882,37 +883,9 @@ namespace sls {
         return false;
     }
 
-    bool bv_eval::try_repair_eq_lookahead(app* e) {
-        return m_lookahead.try_repair_down(e);
-
-    }
-
     bool bv_eval::try_repair_eq(bool is_true, bvval& a, bvval const& b) {
         if (is_true) {
-#if 0
-            if (bv.is_bv_add(t)) {
-                bvval tmp(b);
-                unsigned start = m_rand();
-                unsigned sz = to_app(t)->get_num_args();
-                for (unsigned i = 0; i < sz; ++i) {
-                    unsigned j = (start + i) % sz;
-                    for (unsigned k = 0; k < sz; ++k) {
-                        if (k == j)
-                            continue;
-                        auto& c = wval(to_app(t)->get_arg(k));
-                        set_sub(tmp, tmp, c.bits());
-                    }
-                    
-                    auto& c = wval(to_app(t)->get_arg(j));
-                    verbose_stream() << "TRY " << c << " := " << tmp << "\n";
-                    
-
-                }
-            }
-#endif
-            if (m_rand(20) != 0 && a.try_set(b.bits()))
-                return true;
-            return a.set_random(m_rand);
+            return (m_rand(20) != 0 && a.try_set(b.bits())) || a.set_random(m_rand);
         }
         else {
             bool try_above = m_rand(2) == 0;

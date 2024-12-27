@@ -127,6 +127,7 @@ namespace sls {
         ptr_vector<expr> todo;
         todo.append(to_app(e)->get_num_args(), to_app(e)->get_args());
         expr_mark marked;
+        expr* c, * th, * el;
         for (unsigned i = 0; i < todo.size(); ++i) {
             e = todo[i];
             if (marked.is_marked(e))
@@ -135,6 +136,10 @@ namespace sls {
             if (is_app(e) && to_app(e)->get_family_id() == bv.get_fid()) {
                 for (expr* arg : *to_app(e))
                     todo.push_back(arg);
+            }
+            else if (m.is_ite(e, c, th, el)) {
+                todo.push_back(th);
+                todo.push_back(el);
             }
             else if (bv.is_bv(e))
                 occs.push_back(e);

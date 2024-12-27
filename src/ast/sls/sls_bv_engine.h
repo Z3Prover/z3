@@ -21,7 +21,6 @@ Notes:
 #include "util/stopwatch.h"
 #include "util/lbool.h"
 #include "ast/converters/model_converter.h"
-
 #include "ast/sls/sls_stats.h"
 #include "ast/sls/sls_bv_tracker.h"
 #include "ast/sls/sls_bv_evaluator.h"
@@ -78,8 +77,6 @@ public:
     void mk_dec(unsigned bv_sz, const mpz & old_value, mpz & decremented);
     void mk_inv(unsigned bv_sz, const mpz & old_value, mpz & inverted);
     void mk_flip(sort * s, const mpz & old_value, unsigned bit, mpz & flipped);            
-
-
 
     lbool search();  
 

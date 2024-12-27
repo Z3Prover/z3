@@ -121,7 +121,6 @@ namespace sls {
         bool try_repair_comp(bvect const& e, bvval& a, bvval& b, unsigned i);
         bool try_repair_eq(bool is_true, bvval& a, bvval const& b);
         bool try_repair_eq(app* e, unsigned i);
-        bool try_repair_eq_lookahead(app* e);
         bool try_repair_int2bv(bvect const& e, expr* arg);
         void add_p2_1(bvval const& a, bool use_current, bvect& t) const;
 

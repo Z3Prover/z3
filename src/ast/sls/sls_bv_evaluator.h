@@ -451,25 +451,34 @@ public:
             case OP_BLSHR: {
                 SASSERT(n_args == 2);
                 m_mpz_manager.set(result, m_tracker.get_value(args[0]));
-                mpz shift; m_mpz_manager.set(shift, m_tracker.get_value(args[1]));
-                while (!m_mpz_manager.is_zero(shift)) {
-                    m_mpz_manager.machine_div(result, m_two, result);
-                    m_mpz_manager.dec(shift);
+                auto const& shift = m_tracker.get_value(args[1]);
+                if (m_mpz_manager.is_small(shift)) {
+                    int s = m_mpz_manager.get_int(shift);
+                    SASSERT(s >= 0);
+                    m_mpz_manager.machine_div2k(result, s);
                 }
-                m_mpz_manager.del(shift);
+                else 
+                    m_mpz_manager.set(result, m_zero);                
                 break;
             }
             case OP_BSHL: {
                 SASSERT(n_args == 2);
-                m_mpz_manager.set(result, m_tracker.get_value(args[0]));                
-                mpz shift; m_mpz_manager.set(shift, m_tracker.get_value(args[1]));
-                while (!m_mpz_manager.is_zero(shift)) {
-                    m_mpz_manager.mul(result, m_two, result);
-                    m_mpz_manager.dec(shift);
+                m_mpz_manager.set(result, m_tracker.get_value(args[0]));  
+                auto const& shift = m_tracker.get_value(args[1]);
+                if (m_mpz_manager.is_small(shift)) {
+                    int s = m_mpz_manager.get_int(shift);
+                    SASSERT(s >= 0);
+                    int sz = m_bv_util.get_bv_size(n);
+                    if (s >= sz) 
+                        m_mpz_manager.set(result, m_zero);                    
+                    else {
+                        m_mpz_manager.mul2k(result, s);
+                        const mpz& p = m_powers(sz);
+                        m_mpz_manager.rem(result, p, result);
+                    }
                 }
-                const mpz & p = m_powers(m_bv_util.get_bv_size(n));
-                m_mpz_manager.rem(result, p, result);
-                m_mpz_manager.del(shift);                    
+                else 
+                    m_mpz_manager.set(result, m_zero);                               
                 break;
             }
             case OP_SIGN_EXT: {
