@@ -674,12 +674,21 @@ namespace sls {
             return false;
         }
     }
+
+    bool bv_eval::is_lookahead_phase() {
+        ++m_lookahead_steps;
+        if (m_lookahead_steps < m_lookahead_phase_size)
+            return true;
+        if (m_lookahead_steps > 2 * m_lookahead_phase_size)
+            m_lookahead_steps = 0;
+        return false;
+    }
     
     bool bv_eval::repair_down(app* e, unsigned i) {  
         expr* arg = e->get_arg(i);
         if (m.is_value(arg))
             return false;
-        if (false && m.is_bool(e) && ctx.rand(10) == 0 && m_lookahead.try_repair_down(e))
+        if (m.is_bool(e) && is_lookahead_phase() && m_lookahead.try_repair_down(e))
             return true;
         if (e->get_family_id() == bv.get_family_id() && try_repair_bv(e, i)) {
             commit_eval(e, to_app(arg));

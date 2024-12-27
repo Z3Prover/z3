@@ -52,6 +52,8 @@ namespace sls {
         random_gen          m_rand;
         config              m_config;
         bool_vector         m_fixed;
+        unsigned            m_lookahead_steps = 0;
+        unsigned            m_lookahead_phase_size = 100;
         
 
         scoped_ptr_vector<sls::bv_valuation> m_values; // expr-id -> bv valuation
@@ -146,6 +148,8 @@ namespace sls {
         bool can_eval1(app* e) const;
 
         void commit_eval(expr* p, app* e);
+
+        bool is_lookahead_phase();
 
     public:
         bv_eval(sls::bv_terms& terms, sls::context& ctx);
