@@ -98,6 +98,13 @@ Equality solving using stochastic Nelson.
 
 
 namespace sls {
+
+    struct zstring_hash_proc {
+        unsigned operator()(zstring const & s) const {
+            auto str = s.encode();
+            return string_hash(str.c_str(), static_cast<unsigned>(s.length()), 17);
+        }
+    };
     
     seq_plugin::seq_plugin(context& c):
         plugin(c),
@@ -665,6 +672,34 @@ namespace sls {
         return d[n][m];
     }
 
+
+    void seq_plugin::add_edit_updates2(ptr_vector<expr> const& w, zstring const& val, zstring const& val_other, uint_set const& chars) {
+        // all consecutive subsequences of val_other
+        map<zstring, bool, zstring_hash_proc, default_eq<zstring>> map;
+        vector<zstring> subseqs;
+        map.insert(zstring(""), true);
+        subseqs.push_back(zstring(""));
+        for (unsigned i = 0; i < val_other.length(); ++i) {
+            for (unsigned j = val_other.length(); j > 0; ++j) {
+                zstring sub = val_other.extract(i, j);
+                if (map.contains(sub))
+                    break;
+                map.insert(sub, true);
+                subseqs.push_back(sub);
+            }
+        }
+
+        for (auto x : w) {
+            if (is_value(x))
+                continue;
+            zstring const& a = strval0(x);
+            for (auto& seq : subseqs) {
+                if (seq == a)
+                    continue;
+                m_str_updates.push_back({ x, seq, 1 });
+            }
+        }
+    }
 
     void seq_plugin::add_edit_updates(ptr_vector<expr> const& w, zstring const& val, zstring const& val_other, uint_set const& chars) {
         for (auto x : w) {
@@ -1487,7 +1522,8 @@ namespace sls {
         for (auto ch : value0) 
             chars.insert(ch);
 
-        add_edit_updates(es, value, value0, chars);
+        // add_edit_updates(es, value, value0, chars);
+        add_edit_updates2(es, value, value0, chars);
 
         unsigned diff = edit_distance(value, value0);
         for (auto& [x, s, score] : m_str_updates) {
