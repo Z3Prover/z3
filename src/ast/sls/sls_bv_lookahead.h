@@ -24,23 +24,38 @@ namespace sls {
     class bv_eval;
 
     class bv_lookahead {
+        struct config {
+            double cb = 2.85;
+        };
+
+        struct update {
+            expr* e;
+            double score;
+            bvect value;
+        };
+
+        struct stats {
+            unsigned m_num_lookahead = 0;
+            unsigned m_num_updates = 0;
+        };
+
+
         bv_util bv;
         bv_eval& m_ev;
         context& ctx;
         ast_manager& m;
+        config m_config;
+        stats m_stats;
         bvect m_v_saved, m_v_updated;
-
+        svector<double> m_prob_break;
         ptr_vector<expr> m_restore;
-        vector<ptr_vector<expr>> m_update_stack;
+        vector<ptr_vector<app>> m_update_stack;
         expr_mark m_on_restore, m_in_update_stack;
-        struct update {
-            expr* e;
-            double score;
-            bvect value;            
-        };
         vector<update> m_updates;
         unsigned m_num_updates = 0;
+
         void reset_updates() { m_num_updates = 0; }
+
         void add_update(double score, expr* e, bvect const& value) { 
             if (m_num_updates == m_updates.size())
                 m_updates.push_back({ e, score, value });
@@ -65,13 +80,18 @@ namespace sls {
         void add_updates(expr* e);
         void apply_update(expr* e, bvect const& new_value);
         bool apply_update();
+        bool apply_random_update(ptr_vector<expr> const& vars);
 
+        void display_updates(std::ostream& out);
 
     public:
         bv_lookahead(bv_eval& ev);
+
         bool on_restore(expr* e) const;
 
         bool try_repair_down(app* e);
+
+        void collect_statistics(statistics& st) const;
 
     };
 }

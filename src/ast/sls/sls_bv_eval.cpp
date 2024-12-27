@@ -679,7 +679,7 @@ namespace sls {
         expr* arg = e->get_arg(i);
         if (m.is_value(arg))
             return false;
-        if (m.is_bool(e) && false && m_rand(10) == 0 && m_lookahead.try_repair_down(e))
+        if (false && m.is_bool(e) && ctx.rand(10) == 0 && m_lookahead.try_repair_down(e))
             return true;
         if (e->get_family_id() == bv.get_family_id() && try_repair_bv(e, i)) {
             commit_eval(e, to_app(arg));
@@ -2022,6 +2022,10 @@ namespace sls {
             return expr_ref(bv.mk_numeral(n, v.bw), m);
         }
         return expr_ref(m);
+    }
+
+    void bv_eval::collect_statistics(statistics& st) const {
+        m_lookahead.collect_statistics(st);
     }
 
     std::ostream& bv_eval::display(std::ostream& out) const {

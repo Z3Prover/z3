@@ -167,6 +167,10 @@ namespace sls {
             ctx.flip(lit.var());
     }
 
+    void bv_plugin::collect_statistics(statistics& st) const {
+        m_eval.collect_statistics(st);
+    }
+
     std::ostream& bv_plugin::trace_repair(bool down, expr* e) {
         verbose_stream() << (down ? "d #" : "u #")
             << e->get_id() << ": "

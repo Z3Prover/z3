@@ -565,8 +565,8 @@ namespace sls {
                     SASSERT(m.is_true(get_value(e)) == is_true(v));
                 }                    
             }
-        );
-
+        );        
+          
         m_repair_down.reserve(e->get_id() + 1);
         m_repair_up.reserve(e->get_id() + 1);
         if (!term(e->get_id()))

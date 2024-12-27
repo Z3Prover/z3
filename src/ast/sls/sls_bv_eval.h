@@ -190,6 +190,7 @@ namespace sls {
         */
         bool repair_up(expr* e);
 
+        void collect_statistics(statistics& st) const;
 
         std::ostream& display(std::ostream& out) const;
 
