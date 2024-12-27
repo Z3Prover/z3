@@ -715,7 +715,8 @@ namespace sls {
                     if (is_value(x))
                         break;
                     auto new_val = val_x.extract(0, first_diff) + zstring(val_other[first_diff]) + val_x.extract(first_diff + 1, val_x.length());
-                    m_str_updates.push_back({ x, new_val, 1 });
+                    if (val_x != new_val)
+                        m_str_updates.push_back({ x, new_val, 1 });
                     break;
                 }
                 index -= len_x;
@@ -1622,8 +1623,9 @@ namespace sls {
     }
 
     bool seq_plugin::update(expr* e, zstring const& value) {
-        if (value == strval0(e))
-            return true;
+        SASSERT(value != strval0(e));
+        // if (value == strval0(e))
+        //     return true;
         if (is_value(e))
             return false;
         if (get_eval(e).min_length > value.length() || get_eval(e).max_length < value.length())
