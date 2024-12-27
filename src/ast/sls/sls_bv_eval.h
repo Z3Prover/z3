@@ -53,7 +53,7 @@ namespace sls {
         config              m_config;
         bool_vector         m_fixed;
         unsigned            m_lookahead_steps = 0;
-        unsigned            m_lookahead_phase_size = 100;
+        unsigned            m_lookahead_phase_size = 10;
         
 
         scoped_ptr_vector<sls::bv_valuation> m_values; // expr-id -> bv valuation

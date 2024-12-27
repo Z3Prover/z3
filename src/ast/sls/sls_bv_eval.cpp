@@ -679,7 +679,7 @@ namespace sls {
         ++m_lookahead_steps;
         if (m_lookahead_steps < m_lookahead_phase_size)
             return true;
-        if (m_lookahead_steps > 2 * m_lookahead_phase_size)
+        if (m_lookahead_steps > 10 * m_lookahead_phase_size)
             m_lookahead_steps = 0;
         return false;
     }
