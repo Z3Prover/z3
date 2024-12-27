@@ -70,11 +70,17 @@ namespace sls {
     }
 
     bool bv_lookahead::apply_random_update(ptr_vector<expr> const& vars) {
-        expr* e = vars[ctx.rand(vars.size())];
-        auto& v = wval(e);
-        m_v_updated.set_bw(v.bw);
-        v.get_variant(m_v_updated, m_ev.m_rand);
-        apply_update(e, m_v_updated);
+        while (true) {
+            expr* e = vars[ctx.rand(vars.size())];
+            auto& v = wval(e);
+            m_v_updated.set_bw(v.bw);
+            v.get_variant(m_v_updated, m_ev.m_rand);
+            v.eval = m_v_updated;
+            if (!v.commit_eval()) 
+                continue;            
+            apply_update(e, m_v_updated);
+            break;
+        }
         return true;
     }
 
@@ -221,6 +227,7 @@ namespace sls {
         SASSERT(is_uninterp(e));
         SASSERT(m_restore.empty());
         wval(e).eval = new_value;
+
         VERIFY(wval(e).commit_eval());
         insert_update_stack(e);
         unsigned max_depth = get_depth(e);
