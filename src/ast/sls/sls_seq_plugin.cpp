@@ -114,7 +114,6 @@ namespace sls {
         auto e = ctx.atom(lit.var());
         if (!is_seq_predicate(e))
             return;
-        std::cout << "propagate_literal: " << mk_pp(e, m) << std::endl;
         if (bval1(e) != lit.sign())
             return;
         // Literal not currently satisfied => report back to context
@@ -190,13 +189,10 @@ namespace sls {
         }
         return true;
     }
-
+    
     void seq_plugin::register_term(expr* e) {
-        std::cout << "register_term: " << mk_pp(e, m) << std::endl;
         if (seq.is_string(e->get_sort())) {
-            // assign the terms assumed value based on the evaluation of its arguments
             strval0(e) = strval1(e);
-            // store all characters introduced in the term
             for (unsigned i = 0; i < strval0(e).length(); ++i)
                 m_chars.insert(strval0(e)[i]);
 
@@ -253,10 +249,6 @@ namespace sls {
             seq.str.get_concat(x, ev.lhs);
             seq.str.get_concat(y, ev.rhs);
         }
-        // std::cout << "lhs(" << mk_pp(eq, m) << ") = ";
-        // for (int i = 0; i < ev.lhs.size(); i++)
-        //     std::cout << mk_pp(ev.lhs[i], m) << " ";
-        // std::cout << std::endl;
         return ev.lhs;
     }
 
@@ -270,17 +262,11 @@ namespace sls {
     ptr_vector<expr> const& seq_plugin::rhs(expr* eq) {
         lhs(eq);
         auto& e = get_eval(eq);
-        // std::cout << "rhs(" << mk_pp(eq, m) << ") = ";
-        // for (int i = 0; i < e.rhs.size(); i++)
-        //     std::cout << mk_pp(e.rhs[i], m) << " ";
-        // std::cout << std::endl;
         return e.rhs;
     }
 
-    // Gets the assumed value for e
+    // Gets the currently assumed value for e
     zstring& seq_plugin::strval0(expr* e) {
-        if (!get_eval(e).is_value)
-            std::cout << "strval0(" << mk_pp(e, m) << ") = " << get_eval(e).val0.svalue << std::endl;
         SASSERT(seq.is_string(e->get_sort()));
         return get_eval(e).val0.svalue;
     }
@@ -300,7 +286,6 @@ namespace sls {
 
 
     bool seq_plugin::bval1(expr* e) {
-        // std::cout << "bval1(" << mk_pp(e, m) << ")" << std::endl;
         SASSERT(is_app(e));
         if (to_app(e)->get_family_id() == seq.get_family_id())
             return bval1_seq(to_app(e));
@@ -315,7 +300,6 @@ namespace sls {
     }
 
     bool seq_plugin::bval1_seq(app* e) {
-        std::cout << "bval1_seq(" << mk_pp(e, m) << ")" << std::endl;
         expr* a, *b;
         SASSERT(e->get_family_id() == seq.get_family_id());
         switch (e->get_decl_kind()) {
@@ -364,7 +348,6 @@ namespace sls {
     zstring const& seq_plugin::strval1(expr* e) {
         SASSERT(seq.is_string(e->get_sort()));
         auto & ev = get_eval(e);
-        std::cout << "strval1(" << mk_pp(e, m) << ")" << std::endl;
         if (ev.is_value)
             return ev.val0.svalue;
         
@@ -395,7 +378,6 @@ namespace sls {
                 for (auto arg : *to_app(e))
                     r = r + strval0(arg);
                 ev.val1.svalue = r;
-                std::cout << "strval1(" << mk_pp(e, m) << ") = " << ev.val1.svalue << std::endl;
                 return ev.val1.svalue;
             }
             case OP_SEQ_EXTRACT: {
@@ -499,7 +481,6 @@ namespace sls {
     }
     
     void seq_plugin::repair_up(app* e) {
-        std::cout << "repair_up(" << mk_pp(e, m) << ")" << std::endl;
         if (m.is_bool(e))
             return;
         if (is_value(e))
@@ -521,7 +502,6 @@ namespace sls {
     }
     
     bool seq_plugin::repair_down(app* e) {
-        std::cout << "repair_down(" << mk_pp(e, m) << ")" << std::endl;
         if (m.is_bool(e) && bval1(e) == ctx.is_true(e))
             return true;
         if (seq.is_string(e->get_sort()) && strval0(e) == strval1(e))
@@ -691,38 +671,30 @@ namespace sls {
             if (is_value(x))
                 continue;
             zstring const & a = strval0(x);
-            for (auto ch : chars) {
+            for (auto ch : chars)
                 m_str_updates.push_back({ x, a + zstring(ch), 1 });
-                std::cout << "edit candidate: " << mk_pp(x, m) << " -> " << a + zstring(ch) << std::endl;
-            }
-            for (auto ch : chars) {
+            for (auto ch : chars)
                 m_str_updates.push_back({ x, zstring(ch) + a, 1 });
-                std::cout << "edit candidate: " << mk_pp(x, m) << " -> " << zstring(ch) + a << std::endl;
-            }
             if (!a.empty()) {
                 zstring b = a.extract(0, a.length() - 1);
                 unsigned remC = a[a.length() - 1];
                 m_str_updates.push_back({ x, b, 1 }); // truncate a
-                std::cout << "edit candidate: " << mk_pp(x, m) << " -> " << b << std::endl;
                 for (auto ch : chars) {
                     if (ch == remC)
                         // We would end up with the initial string
                         // => this "no-op" could be spuriously considered a solution (also it does not help)
                         continue;
                     m_str_updates.push_back({ x, b + zstring(ch), 1 }); // replace last character in a by ch
-                    std::cout << "edit candidate: " << mk_pp(x, m) << " -> " << b + zstring(ch) << std::endl;
                 }
                 if (a.length() > 1) {
                     // Otw. we just get the same set of candidates another time
                     b = a.extract(1, a.length() - 1);
                     remC = a[0];
                     m_str_updates.push_back({ x, b, 1 }); // truncate a
-                    std::cout << "edit candidate: " << mk_pp(x, m) << " -> " << b << std::endl;
                     for (auto ch : chars) {
                         if (ch == remC)
                             continue;
                         m_str_updates.push_back({ x, zstring(ch) + b, 1 }); // replace first character in a by ch
-                        std::cout << "edit candidate: " << mk_pp(x, m) << " -> " << zstring(ch) + b << std::endl;
                     }
                 }
             }
@@ -744,7 +716,6 @@ namespace sls {
                         break;
                     auto new_val = val_x.extract(0, first_diff) + zstring(val_other[first_diff]) + val_x.extract(first_diff + 1, val_x.length());
                     m_str_updates.push_back({ x, new_val, 1 });
-                    std::cout << "edit candidate: " << mk_pp(x, m) << " -> " << new_val << std::endl;
                     break;
                 }
                 index -= len_x;
@@ -977,8 +948,6 @@ namespace sls {
                 b_chars.insert(ch);
             b += strval0(y);
         }
-        std::cout << "L: " << mk_pp_vec(L.size(), (ast**)L.data(), m) << " = " << "R: " << mk_pp_vec(R.size(), (ast**)R.data(), m) << std::endl;
-        std::cout << "a: " << a << " = " << "b: " << b << std::endl;
         if (a == b)
             return update(eq->get_arg(0), a) && update(eq->get_arg(1), b);    
 
@@ -1517,8 +1486,6 @@ namespace sls {
         for (auto ch : value0) 
             chars.insert(ch);
 
-        std::cout << "repair concat " << mk_pp(e, m) << " " << value << " " << value0 << std::endl;
-
         add_edit_updates(es, value, value0, chars);
 
         unsigned diff = edit_distance(value, value0);
@@ -1655,7 +1622,6 @@ namespace sls {
     }
 
     bool seq_plugin::update(expr* e, zstring const& value) {
-        std::cout << "Update: " << mk_pp(e, m) << " := " << value << std::endl;
         if (value == strval0(e))
             return true;
         if (is_value(e))

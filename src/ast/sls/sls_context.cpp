@@ -196,9 +196,7 @@ namespace sls {
                 if (is_app(e)) {
                     auto p = m_plugins.get(get_fid(e), nullptr);
                     ++m_stats.m_num_repair_down;
-                    std::cout << "enforcing repair down: " << mk_pp(e, m) << std::endl;
                     if (p && !p->repair_down(to_app(e)) && !m_repair_up.contains(e->get_id())) {
-                        std::cout << "revert repair down: " << mk_pp(e, m) << std::endl;
                         IF_VERBOSE(3, verbose_stream() << "revert repair: " << mk_bounded_pp(e, m) << "\n");
                         TRACE("sls", tout << "revert repair: " << mk_bounded_pp(e, m) << "\n");
                         m_repair_up.insert(e->get_id());
@@ -212,10 +210,8 @@ namespace sls {
                 TRACE("sls", tout << "repair up " << mk_bounded_pp(e, m) << "\n");
                 if (is_app(e)) {
                     auto p = m_plugins.get(get_fid(e), nullptr);
-                    if (p) {
-                        std::cout << "enforcing repair up: " << mk_pp(e, m) << std::endl;
+                    if (p)
                         p->repair_up(to_app(e));
-                    }
                 }
             }
         }
@@ -265,7 +261,6 @@ namespace sls {
             return;
         family_id fid = get_fid(a);
         auto p = m_plugins.get(fid, nullptr);
-        std::cout << "Propagating literal: " << mk_pp(a, m) << std::endl;
         if (p)
             p->propagate_literal(lit);
     }
@@ -563,7 +558,6 @@ namespace sls {
     }
 
     void context::new_value_eh(expr* e) {
-        std::cout << "new_value: " << mk_pp(e, m) << std::endl;
         DEBUG_CODE(
             if (m.is_bool(e)) {
                 auto v = m_atom2bool_var.get(e->get_id(), sat::null_bool_var);

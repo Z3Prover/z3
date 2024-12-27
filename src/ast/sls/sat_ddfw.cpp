@@ -419,7 +419,7 @@ namespace sat {
             
         if (m_unsat.size() < m_min_sz) {
             m_models.reset();
-            m_min_sz = m_unsat.size(); // decrease the number of unsatisfied clauses found so far
+            m_min_sz = m_unsat.size();
         }
         
         unsigned h = value_hash();
