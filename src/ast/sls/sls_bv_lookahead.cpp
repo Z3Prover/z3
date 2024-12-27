@@ -19,6 +19,7 @@ Author:
 #include "ast/sls/sls_bv_eval.h"
 #include "ast/sls/sls_bv_terms.h"
 #include "ast/ast_pp.h"
+#include <cmath>
 
 namespace sls {
 
