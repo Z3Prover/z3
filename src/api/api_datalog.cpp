@@ -559,7 +559,7 @@ extern "C" {
         param_descrs descrs;
         to_fixedpoint_ref(d)->collect_param_descrs(descrs);
         descrs.display(buffer);
-        return mk_c(c)->mk_external_string(buffer.str());
+        return mk_c(c)->mk_external_string(std::move(buffer).str());
         Z3_CATCH_RETURN("");
     }
 

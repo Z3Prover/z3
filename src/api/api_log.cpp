@@ -34,7 +34,7 @@ static mutex g_log_mux;
 #endif
 
 // functions called from api_log_macros.*
-void SetR(void * obj) {
+void SetR(const void * obj) {
     *g_z3_log << "= " << obj << '\n';
 }
 

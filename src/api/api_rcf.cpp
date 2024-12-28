@@ -274,7 +274,7 @@ extern "C" {
         reset_rcf_cancel(c);
         std::ostringstream buffer;
         rcfm(c).display(buffer, to_rcnumeral(a), compact, html);
-        return mk_c(c)->mk_external_string(buffer.str());
+        return mk_c(c)->mk_external_string(std::move(buffer).str());
         Z3_CATCH_RETURN("");
     }
 
@@ -285,7 +285,7 @@ extern "C" {
         reset_rcf_cancel(c);
         std::ostringstream buffer;
         rcfm(c).display_decimal(buffer, to_rcnumeral(a), prec);
-        return mk_c(c)->mk_external_string(buffer.str());
+        return mk_c(c)->mk_external_string(std::move(buffer).str());
         Z3_CATCH_RETURN("");
     }
 
