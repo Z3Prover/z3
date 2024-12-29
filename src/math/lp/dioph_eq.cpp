@@ -1291,7 +1291,6 @@ namespace lp {
                       print_entry(i, tout););
                 CTRACE(
                     "dioph_eq", !entry_invariant(i), tout << "invariant delta:"; {
-                        const auto& e = m_entries[i];
                         print_term_o(get_term_from_entry(ei) -
                                      fix_vars(open_ml(m_l_matrix.m_rows[ei])),
                                      tout)
@@ -1312,7 +1311,6 @@ namespace lp {
         }
 
         bool entry_invariant(unsigned ei) const {
-            const auto& e = m_entries[ei];
             bool ret =
                 term_to_lar_solver(remove_fresh_vars(get_term_from_entry(ei))) ==
                 fix_vars(open_ml(m_l_matrix.m_rows[ei]));
