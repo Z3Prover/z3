@@ -689,10 +689,6 @@ app* bool_rewriter::mk_eq_plain(expr* lhs, expr* rhs) {
         return m().mk_true();
     if (m().are_distinct(lhs, rhs))
         return m().mk_false();
-    if (m().is_false(rhs)) {
-        verbose_stream() << "here\n";
-    }
-    VERIFY(!m().is_false(rhs));
     return m().mk_eq(lhs, rhs);
 }
 
