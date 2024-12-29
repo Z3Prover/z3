@@ -516,8 +516,8 @@ public:
     }
 
     
-    template <typename T>
-    void swap(T &v, unsigned i, unsigned j) noexcept {
+    template <typename R>
+    void swap(R &v, unsigned i, unsigned j) noexcept {
         auto t = v[i];
         v[i] = v[j];
         v[j] = t;
