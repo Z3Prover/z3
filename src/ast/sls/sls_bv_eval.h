@@ -156,6 +156,8 @@ namespace sls {
 
         void init() { m_fix.init(); }
 
+        void start_propagation();
+
         void register_term(expr* e);
 
         /**

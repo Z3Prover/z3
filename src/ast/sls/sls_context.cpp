@@ -327,7 +327,7 @@ namespace sls {
         m_constraint_trail.push_back(e);
         add_clause(e);     
         m_new_constraint = true;
-        verbose_stream() << "add constraint\n";
+        IF_VERBOSE(3, verbose_stream() << "add constraint " << mk_bounded_pp(e, m) << "\n");
         ++m_stats.m_num_constraints;
     }
 

@@ -23,6 +23,7 @@ Notes:
 #include "ast/for_each_expr.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/bv_decl_plugin.h"
+#include "ast/ast_ll_pp.h"
 #include "model/model.h"
 
 #include "params/sls_params.hpp"
@@ -34,23 +35,23 @@ class sls_tracker {
     bv_util             & m_bv_util;
     powers              & m_powers;
     random_gen            m_rng;
-    unsigned              m_random_bits;
-    unsigned              m_random_bits_cnt;
+    unsigned              m_random_bits = 0;
+    unsigned              m_random_bits_cnt = 0;
     mpz                   m_zero, m_one, m_two;
 
     struct value_score {
-    value_score() : m(nullptr), value(unsynch_mpz_manager::mk_z(0)), score(0.0), score_prune(0.0), has_pos_occ(0), has_neg_occ(0), distance(0), touched(1) {};
+        value_score() : value(unsynch_mpz_manager::mk_z(0)) {};
         value_score(value_score&&) noexcept = default;
         ~value_score() { if (m) m->del(value); }
         value_score& operator=(value_score&&) = default;
-        unsynch_mpz_manager * m;
+        unsynch_mpz_manager * m = nullptr;
         mpz value;
-        double score;
-        double score_prune;
-        unsigned has_pos_occ;
-        unsigned has_neg_occ;
-        unsigned distance; // max distance from any root
-        unsigned touched;
+        double score = 0.0;
+        double score_prune = 0.0;
+        unsigned has_pos_occ = 0;
+        unsigned has_neg_occ = 0;
+        unsigned distance = 0; // max distance from any root
+        unsigned touched = 1;
     };
 
 public:
@@ -67,21 +68,21 @@ private:
     ptr_vector<func_decl> m_constants;
     ptr_vector<func_decl> m_temp_constants;
     occ_type              m_constants_occ;
-    unsigned              m_last_pos;
-    unsigned              m_walksat;
-    unsigned              m_ucb;
-    double                m_ucb_constant;
-    unsigned              m_ucb_init;
-    double                m_ucb_forget;
-    double                m_ucb_noise;
-    unsigned              m_touched;
-    double                m_scale_unsat;
-    unsigned              m_paws_init;
+    unsigned              m_last_pos = 0;
+    unsigned              m_walksat = 0;
+    unsigned              m_ucb = 0;
+    double                m_ucb_constant = 0;
+    unsigned              m_ucb_init = 0;
+    double                m_ucb_forget = 0;
+    double                m_ucb_noise = 0;
+    unsigned              m_touched = 0;
+    double                m_scale_unsat = 0;
+    unsigned              m_paws_init = 0;
     obj_map<expr, unsigned>    m_where_false;
-    expr**                    m_list_false;
-    unsigned              m_track_unsat;
+    expr**                    m_list_false = nullptr;
+    unsigned              m_track_unsat = 0;
     obj_map<expr, unsigned> m_weights;
-    double                  m_top_sum;
+    double                  m_top_sum = 0;
     obj_hashtable<expr>   m_temp_seen;
 
 public:    
@@ -89,8 +90,7 @@ public:
         m_manager(m),
         m_mpz_manager(mm),
         m_bv_util(bvu),
-        m_powers(p),
-        m_random_bits_cnt(0),        
+        m_powers(p),      
         m_zero(m_mpz_manager.mk_z(0)),
         m_one(m_mpz_manager.mk_z(1)),
         m_two(m_mpz_manager.mk_z(2)) {
@@ -144,7 +144,7 @@ public:
     }*/
 
     inline void adapt_top_sum(expr * e, double add, double sub) {
-        m_top_sum += m_weights.find(e) * (add - sub);
+        m_top_sum += get_weight(e) * (add - sub);
     }
 
     inline void set_top_sum(double new_score) {
@@ -160,12 +160,7 @@ public:
     }
 
     inline bool is_sat() {
-        for (obj_hashtable<expr>::iterator it = m_top_expr.begin();
-             it != m_top_expr.end();
-             it++)
-            if (!m_mpz_manager.is_one(get_value(*it)))
-                return false;
-        return true;
+        return all_of(m_top_expr, [this](expr* e) { return m_mpz_manager.is_one(get_value(e)); });
     }
 
     inline void set_value(expr * n, const mpz & r) {
@@ -290,12 +285,9 @@ public:
         }
 
         // Update uplinks
-        unsigned na = n->get_num_args();
-        for (unsigned i = 0; i < na; i++) {
-            expr * c = n->get_arg(i); 
+        for (auto c : *n) 
             m_uplinks.insert_if_not_there(c, ptr_vector<expr>()).push_back(n);
-        }
-
+        
         func_decl * d = n->get_decl();
 
         if (n->get_num_args() == 0) {
@@ -414,8 +406,7 @@ public:
         init_proc proc(m_manager, *this);
         expr_mark visited;
         unsigned sz = as.size();
-        for (unsigned i = 0; i < sz; i++) {
-            expr * e = as[i];
+        for (auto e : as) {
             if (!m_top_expr.contains(e))
                 m_top_expr.insert(e);
             for_each_expr(proc, visited, e);
@@ -423,8 +414,7 @@ public:
 
         visited.reset();
 
-        for (unsigned i = 0; i < sz; i++) {
-            expr * e = as[i];
+        for (auto e : as) {
             ptr_vector<func_decl> t;
             m_constants_occ.insert_if_not_there(e, t);
             find_func_decls_proc ffd_proc(m_manager, m_constants_occ.find(e));
@@ -447,16 +437,14 @@ public:
         }
 
         m_temp_seen.reset();
-        for (unsigned i = 0; i < sz; i++)
-        {
-            expr * e = as[i];
+        for (auto e : as) {
 
             // initialize weights
             if (!m_weights.contains(e))
                 m_weights.insert(e, m_paws_init);
 
             // positive/negative occurrences used for early pruning
-            setup_occs(as[i]);
+            setup_occs(e);
         }
 
         // initialize ucb total touched value (individual ones are always initialized to 1)
@@ -629,7 +617,7 @@ public:
     }    
 
     void randomize(ptr_vector<expr> const & as) {
-        TRACE("sls", tout << "Abandoned model:" << std::endl; show_model(tout); );
+        TRACE("sls_verbose", tout << "Abandoned model:" << std::endl; show_model(tout); );
 
         for (entry_point_type::iterator it = m_entry_points.begin(); it != m_entry_points.end(); it++) {
             func_decl * fd = it->m_key;
@@ -643,7 +631,7 @@ public:
     }              
 
     void reset(ptr_vector<expr> const & as) {
-        TRACE("sls", tout << "Abandoned model:" << std::endl; show_model(tout); );
+        TRACE("sls_verbose", tout << "Abandoned model:" << std::endl; show_model(tout); );
 
         for (entry_point_type::iterator it = m_entry_points.begin(); it != m_entry_points.end(); it++) {
             set_value(it->m_value, m_zero);
@@ -656,11 +644,7 @@ public:
             if (m_manager.is_and(n) || m_manager.is_or(n))
             {
                 SASSERT(!negated);
-                app * a = to_app(n);
-                expr * const * args = a->get_args();
-                for (unsigned i = 0; i < a->get_num_args(); i++)
-                {
-                    expr * child = args[i];
+                for (auto child : *to_app(n)) {
                     if (!m_temp_seen.contains(child))
                     {
                         setup_occs(child, false);
@@ -706,29 +690,22 @@ public:
         }            
         else if (m_manager.is_and(n)) {
             SASSERT(!negated);
-            app * a = to_app(n);
-            expr * const * args = a->get_args();
             /* Andreas: Seems to have no effect. But maybe you want to try it again at some point.
             double sum = 0.0;
             for (unsigned i = 0; i < a->get_num_args(); i++)
                 sum += get_score(args[i]);
             res = sum / (double) a->get_num_args(); */
             double min = 1.0;
-            for (unsigned i = 0; i < a->get_num_args(); i++) {
-                double cur = get_score(args[i]);
-                if (cur < min) min = cur;
-            }
+            for (auto arg : *to_app(n)) 
+                min = std::min(get_score(arg), min);
+            
             res = min;
         }
         else if (m_manager.is_or(n)) {
             SASSERT(!negated);
-            app * a = to_app(n);
-            expr * const * args = a->get_args();
             double max = 0.0;
-            for (unsigned i = 0; i < a->get_num_args(); i++) {
-                double cur = get_score(args[i]);
-                if (cur > max) max = cur;
-            }
+            for (auto arg : *to_app(n))
+                max = std::max(get_score(arg), max);
             res = max;
         }
         else if (m_manager.is_ite(n)) {
@@ -776,6 +753,7 @@ public:
                                         " ; SZ = " << bv_sz << std::endl; );                    
                 m_mpz_manager.del(diff);
                 m_mpz_manager.del(diff_m1);
+                //verbose_stream() << "hamming distance: " << mk_bounded_pp(n, m_manager) << " := " << res << "\n";
             }
             else
                 NOT_IMPLEMENTED_YET();
@@ -967,39 +945,35 @@ public:
 
     ptr_vector<func_decl> & get_unsat_constants_gsat(ptr_vector<expr> const & as) {
         unsigned sz = as.size();
-        if (sz == 1) {
-            if (m_mpz_manager.neq(get_value(as[0]), m_one))
-                return get_constants();
-        }
+        if (sz == 1 && m_mpz_manager.neq(get_value(as[0]), m_one))
+            return get_constants();        
 
         m_temp_constants.reset();
 
-        for (unsigned i = 0; i < sz; i++) {
-            expr * q = as[i];
+        for (auto q : as) {
             if (m_mpz_manager.eq(get_value(q), m_one))
                 continue;
             ptr_vector<func_decl> const & this_decls = m_constants_occ.find(q);
-            unsigned sz2 = this_decls.size();
-            for (unsigned j = 0; j < sz2; j++) {
-                func_decl * fd = this_decls[j];
+            for (auto fd : this_decls) 
                 if (!m_temp_constants.contains(fd))
-                    m_temp_constants.push_back(fd);
-            }
+                    m_temp_constants.push_back(fd);            
         }
+        TRACE("sls", tout << "candidates ";  for (auto f : m_temp_constants) tout << f->get_name() << " "; tout << std::endl;);
         return m_temp_constants;
     }
 
-    ptr_vector<func_decl> & get_unsat_constants_walksat(expr * e) {
-            if (!e || !m_temp_constants.empty())
-                return m_temp_constants;
-            ptr_vector<func_decl> const & this_decls = m_constants_occ.find(e);
-            unsigned sz = this_decls.size();
-            for (unsigned j = 0; j < sz; j++) {
-                func_decl * fd = this_decls[j];
-                if (!m_temp_constants.contains(fd))
-                    m_temp_constants.push_back(fd);
-            }
+    ptr_vector<func_decl>& get_unsat_constants_walksat(expr* e) {
+        if (!e || !m_temp_constants.empty())
             return m_temp_constants;
+        ptr_vector<func_decl> const& this_decls = m_constants_occ.find(e);
+        for (auto fd : this_decls) 
+            if (!m_temp_constants.contains(fd))
+                m_temp_constants.push_back(fd);
+        
+        TRACE("sls", tout << "candidates " << mk_bounded_pp(e, m_manager) << " ";
+        for (auto f : m_temp_constants) tout << f->get_name() << " "; tout << std::endl;);
+
+        return m_temp_constants;
     }
 
     ptr_vector<func_decl> & get_unsat_constants(ptr_vector<expr> const & as) {

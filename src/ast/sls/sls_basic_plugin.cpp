@@ -29,7 +29,7 @@ namespace sls {
     bool basic_plugin::is_basic(expr* e) const {
         if (!e || !is_app(e))
             return false;
-        if (m.is_ite(e) && !m.is_bool(e) && false)
+        if (m.is_ite(e) && !m.is_bool(e))
             return true;
         if (m.is_xor(e) && to_app(e)->get_num_args() != 2)
             return true;
@@ -149,7 +149,6 @@ namespace sls {
         if (m.is_value(child))
             return false;
         bool r = ctx.set_value(child, ctx.get_value(e));
-        verbose_stream() << "repair-ite-down " << mk_bounded_pp(e, m) << " @ " << mk_bounded_pp(child, m) << " := " << ctx.get_value(e) << " success " << r << "\n";
         return r;
     }
 
@@ -166,7 +165,6 @@ namespace sls {
             val = eval_distinct(e);           
         else
             return;
-        verbose_stream() << "repair-up " << mk_bounded_pp(e, m) << " " << val << "\n";
         if (!ctx.set_value(e, val))
             ctx.new_value_eh(e);
     }
@@ -176,14 +174,14 @@ namespace sls {
 
     bool basic_plugin::repair_down(app* e) {    
         if (!is_basic(e))
-            return true;        
+            return true;     
+
         if (m.is_xor(e) && eval_xor(e) == ctx.get_value(e))
             return true;
         if (m.is_ite(e) && eval_ite(e) == ctx.get_value(e))
             return true;
         if (m.is_distinct(e) && eval_distinct(e) == ctx.get_value(e))
             return true;
-        verbose_stream() << "basic repair down " << mk_bounded_pp(e, m) << "\n";
         unsigned n = e->get_num_args();
         unsigned s = ctx.rand(n);
         for (unsigned i = 0; i < n; ++i) {

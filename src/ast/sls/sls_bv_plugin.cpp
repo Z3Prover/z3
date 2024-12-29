@@ -50,6 +50,10 @@ namespace sls {
         return false;
     }
 
+    void bv_plugin::start_propagation() {
+        m_eval.start_propagation();
+    }
+
     void bv_plugin::propagate_literal(sat::literal lit) {       
         SASSERT(ctx.is_true(lit));
         auto e = ctx.atom(lit.var());

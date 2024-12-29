@@ -41,6 +41,7 @@ namespace sls {
         ~bv_plugin() override {}
         void register_term(expr* e) override;
         expr_ref get_value(expr* e) override;
+        void start_propagation() override;
         void initialize() override;
         void propagate_literal(sat::literal lit) override;
         bool propagate() override;

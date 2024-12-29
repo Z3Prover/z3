@@ -48,6 +48,10 @@ namespace sls {
         }
     }
 
+    void bv_eval::start_propagation() {
+        m_lookahead.start_propagation();
+    }
+
     void bv_eval::add_bit_vector(app* e) {
         if (!bv.is_bv(e))
             return;
@@ -688,8 +692,6 @@ namespace sls {
         expr* arg = e->get_arg(i);
         if (m.is_value(arg))
             return false;
-        if (m.is_bool(e) && is_lookahead_phase() && m_lookahead.try_repair_down(e))
-            return true;
         if (e->get_family_id() == bv.get_family_id() && try_repair_bv(e, i)) {
             commit_eval(e, to_app(arg));
             IF_VERBOSE(11, verbose_stream() << "repair " << mk_bounded_pp(e, m) << " : " << mk_bounded_pp(arg, m) << " := " << wval(arg) << "\n";);
@@ -702,8 +704,6 @@ namespace sls {
             ctx.new_value_eh(arg);
             return true;
         }
-        if (m.is_bool(e) && m_lookahead.try_repair_down(e))
-            return true;
         
         return false;
     }

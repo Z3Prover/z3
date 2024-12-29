@@ -658,6 +658,7 @@ public:
     }
 
     void serious_update(func_decl * fd, const mpz & new_value) {
+        TRACE("sls", tout << "set: " << fd->get_name() << " to " << m_mpz_manager.to_string(new_value) << std::endl;);
         m_tracker.set_value(fd, new_value);
         expr * ep = m_tracker.get_entry_point(fd);
         unsigned cur_depth = m_tracker.get_distance(ep);

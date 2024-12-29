@@ -477,9 +477,7 @@ lbool sls_engine::search() {
             // update assertion weights if a weighting is enabled (sp < 1024)
             if (m_paws)
             {
-                for (unsigned i = 0; i < sz; i++)
-                {
-                    expr * q = m_assertions[i];
+                for (auto q : m_assertions) {
                     // smooth weights with probability sp / 1024
                     if (m_tracker.get_random_uint(10) < m_paws_sp)
                     {

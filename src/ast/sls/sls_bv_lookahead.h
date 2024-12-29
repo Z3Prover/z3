@@ -24,21 +24,34 @@ namespace sls {
     class bv_eval;
 
     class bv_lookahead {
+
         struct config {
             double cb = 2.85;
-        };
-
-        struct update {
-            expr* e;
-            double score;
-            bvect value;
+            unsigned paws_init = 40;
+            unsigned paws_sp = 52;
+            bool paws = true;
+            bool walksat = true;
+            bool walksat_repick = false;
+            unsigned wp = 100;
+            unsigned restart_base = 1000;
+            unsigned restart_next = 1000;
+            unsigned restart_init = 1000;
+            bool early_prune = true;
+            unsigned max_moves = 0;
+            unsigned max_moves_base = 200;
         };
 
         struct stats {
             unsigned m_num_lookahead = 0;
             unsigned m_num_updates = 0;
+            unsigned m_moves = 0;
+            unsigned m_restarts = 0;
         };
 
+        struct bool_info {
+            unsigned weight = 0;
+            double score = 0;
+        };
 
         bv_util bv;
         bv_eval& m_ev;
@@ -47,49 +60,56 @@ namespace sls {
         config m_config;
         stats m_stats;
         bvect m_v_saved, m_v_updated;
-        svector<double> m_prob_break;
         ptr_vector<expr> m_restore;
         vector<ptr_vector<app>> m_update_stack;
         expr_mark m_on_restore, m_in_update_stack;
-        vector<update> m_updates;
-        unsigned m_num_updates = 0;
+        double m_best_score = 0, m_top_score = 0;
+        bvect m_best_value;
+        expr* m_best_expr = nullptr;
+        bool  m_rescore = true;
+        ptr_vector<expr> m_vars;
 
-        void reset_updates() { m_num_updates = 0; }
-
-        void add_update(double score, expr* e, bvect const& value) { 
-            if (m_num_updates == m_updates.size())
-                m_updates.push_back({ e, score, value });
-            else {
-                auto& u = m_updates[m_num_updates];
-                u.e = e;
-                u.score = score;
-                u.value = value;
-            }
-            m_num_updates++;
-        }
-        
+        void init_updates();
 
         bv_valuation& wval(expr* e) const;
 
         void insert_update_stack(expr* e);
         bool insert_update(expr* e);        
         void restore_lookahead();
-        double lookahead(expr* e, bvect const& new_value);
+        double lookahead(expr* u, bvect const& new_value);
+        double old_score(app* c);
+        double new_score(app* c);
+        void   set_score(app* c, double d);
+        void   rescore(app* c);
 
-        void try_set(expr* e, bvect const& new_value);
-        void add_updates(expr* e);
+        void rescore();
+
+        obj_map<expr, bool_info> m_bool_info;
+        unsigned get_weight(expr* e);
+        void     inc_weight(expr* e);
+        void     dec_weight(expr* e);
+        void     recalibrate_weights();
+
+        void try_set(expr* u, bvect const& new_value);
+        void add_updates(expr* u);
         void apply_update(expr* e, bvect const& new_value);
         bool apply_update();
         bool apply_random_update(ptr_vector<expr> const& vars);
+        bool apply_guided_update(ptr_vector<expr> const& vars);
+        ptr_vector<expr> const& get_candidate_uninterp();
 
-        void display_updates(std::ostream& out);
+        void check_restart();
 
     public:
         bv_lookahead(bv_eval& ev);
 
-        bool on_restore(expr* e) const;
+        void updt_params(params_ref const& p);
 
-        bool try_repair_down(app* e);
+        lbool search();
+
+        void start_propagation() { m_rescore = true; }
+
+        bool on_restore(expr* e) const;
 
         void collect_statistics(statistics& st) const;
 

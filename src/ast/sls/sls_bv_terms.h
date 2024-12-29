@@ -29,10 +29,12 @@ Author:
 namespace sls {
 
     class bv_terms {
+        context&            ctx;
         ast_manager&        m;
         bv_util             bv;
         expr_ref_vector     m_axioms;
         vector<ptr_vector<expr>> m_uninterp_occurs;
+        vector<ptr_vector<expr>> m_condition_occurs;
 
         expr_ref ensure_binary(expr* e);
 
@@ -43,12 +45,16 @@ namespace sls {
         void register_uninterp(expr* e);
 
     public:
-        bv_terms(sls::context& ctx);       
+        bv_terms(context& ctx);       
 
         void register_term(expr* e);
 
         expr_ref_vector& axioms() { return m_axioms; }
 
-        ptr_vector<expr> const& uninterp_occurs(expr* e) { m_uninterp_occurs.reserve(e->get_id() + 1); return m_uninterp_occurs[e->get_id()]; }
+        ptr_vector<expr> const& uninterp_occurs(expr* e);
+
+        ptr_vector<expr> const& condition_occurs(expr* e);
+
+
     };
 }
