@@ -240,7 +240,7 @@ namespace lp {
         unsigned m_conflict_index = -1;  // m_entries[m_conflict_index] gives the conflict
         unsigned m_max_number_of_iterations = 100;
         unsigned m_number_of_iterations;
-        std_vector<std::unordered_set<unsigned>> m_columns_to_entries; // m_columnn_to_terms[j] is the set of of all k such that m_entry[k].m_l depends on j
+        std::unordered_map<unsigned, std::unordered_set<unsigned>> m_columns_to_term_columns; // m_columnn_to_term_columns[j] is the set of of all k such that lra.get_term(k) depends on j
         struct branch {
             unsigned m_j = UINT_MAX;
             mpq m_rs;
@@ -290,16 +290,19 @@ namespace lp {
         };
 
 
-        struct undo_add_column_bound : public trail {
+        struct undo_change_column_bound : public trail {
             imp& m_s;
             unsigned m_j;  // the column that has been added
-            undo_add_column_bound(imp& s, unsigned j) : m_s(s), m_j(j) {}
+            undo_change_column_bound(imp& s, unsigned j) : m_s(s), m_j(j) {}
 
             void undo() override {
-                NOT_IMPLEMENTED_YET();
+                m_s.add_changed_column(m_j);
             }
         };
 
+        uint_set m_changed_columns; // the columns are given as lar_solver columns
+        friend undo_change_column_bound;
+        void add_changed_column(unsigned j) { m_changed_columns.insert(j);}
         std_vector<const lar_term*> m_added_terms;
 
         std_vector<variable_branch_stats> m_branch_stats;
@@ -318,17 +321,17 @@ namespace lp {
             lra.trail().push(undo);
         }
 
-        void add_column_bound_delegate(unsigned j) {
+        void update_column_bound_delegate(unsigned j) {
             if (!lra.column_is_int(j))
                return;
-            auto undo = undo_add_column_bound(*this, j);
+            auto undo = undo_change_column_bound(*this, j);
             lra.trail().push(undo) ;
         }
 
        public:
         imp(int_solver& lia, lar_solver& lra) : lia(lia), lra(lra) {
             lra.register_add_term_delegate([this](const lar_term*t){add_term_delegate(t);});
-            lra.register_add_column_bound_delegate([this](unsigned j) {add_column_bound_delegate(j);});
+            lra.register_update_column_bound_delegate([this](unsigned j) {update_column_bound_delegate(j);});
         }
         term_o get_term_from_entry(unsigned i) const {
             term_o t;
@@ -348,6 +351,22 @@ namespace lp {
             return m_var_register.local_to_external(j);
         }
 
+        void register_term_columns(const lar_term & t) {
+            for (const auto & p : t) {
+                register_term_column(p.j(), t);
+            }
+        }
+        void register_term_column(unsigned j, const lar_term& t) {
+            auto it = m_columns_to_term_columns.find(j);
+            if (it != m_columns_to_term_columns.end())
+                it->second.insert(t.j());
+            else {
+                auto s = std::unordered_set<unsigned>();
+                s.insert(t.j());
+                m_columns_to_term_columns[j] = s;
+            }
+            
+        }
         // the term has form sum(a_i*x_i) - t.j() = 0,
         void fill_entry(const lar_term& t) {
             TRACE("dioph_eq", print_lar_term_L(t, tout) << std::endl;);
@@ -383,7 +402,7 @@ namespace lp {
                 m_e_matrix.add_columns_up_to(lj);
                 m_e_matrix.add_new_element(entry_index, lj, -mpq(1));
             }
-            TRACE("dioph_eq", print_entry(entry_index, tout););
+            register_term_columns(t);
             SASSERT(entry_invariant(entry_index));
         }
 
@@ -394,6 +413,21 @@ namespace lp {
             }
             return true;
         }
+        void process_changed_columns() {
+            std::unordered_set<unsigned> entries_to_recalculate;
+            for (unsigned j : m_changed_columns) {
+                for (unsigned k : m_columns_to_term_columns[j]) {
+                    for (const auto& p : m_l_matrix.column(k)) {
+                        entries_to_recalculate.insert(p.var());
+                    }
+                }
+            }
+            
+            if (entries_to_recalculate.size() > 0)
+                NOT_IMPLEMENTED_YET();
+
+            m_changed_columns.reset();
+        }
 
         void init() {
             m_report_branch = false;
@@ -403,6 +437,7 @@ namespace lp {
             m_number_of_iterations = 0;
             m_branch_stack.clear();
             m_lra_level = 0;
+            process_changed_columns();
             for (const lar_term* t: m_added_terms) {
                 fill_entry(*t);
             }
