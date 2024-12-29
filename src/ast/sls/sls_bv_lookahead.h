@@ -67,7 +67,9 @@ namespace sls {
         bvect m_best_value;
         expr* m_best_expr = nullptr;
         bool  m_rescore = true;
-        ptr_vector<expr> m_vars;
+        ptr_vector<expr> m_empty_vars;
+        obj_map<expr, bool_info> m_bool_info;
+        expr_mark m_is_root;
 
         void init_updates();
 
@@ -84,11 +86,12 @@ namespace sls {
 
         void rescore();
 
-        obj_map<expr, bool_info> m_bool_info;
+
         unsigned get_weight(expr* e);
         void     inc_weight(expr* e);
         void     dec_weight(expr* e);
         void     recalibrate_weights();
+        bool     is_root(expr* e) { return m_is_root.is_marked(e); }
 
         void try_set(expr* u, bvect const& new_value);
         void add_updates(expr* u);

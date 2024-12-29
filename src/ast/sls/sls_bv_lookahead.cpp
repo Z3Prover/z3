@@ -91,12 +91,11 @@ namespace sls {
             auto const& vars = m_ev.terms.uninterp_occurs(a);
             VERIFY(!vars.empty());
             TRACE("bv", tout << "candidates " << mk_bounded_pp(e, m) << ": ";
-            for (auto e : vars)
-                tout << mk_bounded_pp(e, m) << " ";
-            tout << "\n";);
+                        for (auto e : vars) tout << mk_bounded_pp(e, m) << " ";
+                        tout << "\n";);
             return vars;
         }
-        return m_vars;
+        return m_empty_vars;
     }
 
 
@@ -258,10 +257,10 @@ namespace sls {
                     else
                         has_tabu = true;
                 }
-                else if (m.is_bool(a) && m_ev.can_eval1(a)) {
-
+                else if (is_root(a))
                     rescore(a);
-                }
+                else if (m.is_bool(a))
+                    continue;
                 else {
                     IF_VERBOSE(1, verbose_stream() << "skipping " << mk_bounded_pp(a, m) << "\n");
                     has_tabu = true;
@@ -379,9 +378,11 @@ namespace sls {
                         max_depth = std::max(max_depth, get_depth(p));
                     }
                 }
-                else if (m.is_bool(e) && m_ev.can_eval1(e)) {
+                else if (is_root(e)) {
                     rescore(e);
                 }
+                else if (m.is_bool(e))
+                    continue;
                 else {
                     UNREACHABLE();
                 }
@@ -450,6 +451,7 @@ namespace sls {
     void bv_lookahead::rescore() {
         m_top_score = 0;
         m_rescore = false;
+        m_is_root.reset();
         for (auto lit : ctx.root_literals()) {
             auto e = ctx.atom(lit.var());
             if (!e || !is_app(e))
@@ -461,6 +463,7 @@ namespace sls {
             double score = new_score(a);
             set_score(a, score);
             m_top_score += score;
+            m_is_root.mark(a);
         }
         verbose_stream() << "top score " << m_top_score << "\n";
 
