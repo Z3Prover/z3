@@ -33,10 +33,22 @@ namespace sls {
         m(ev.m) {
     }
 
+    /**
+    * Main entry point. The lookahead solver is invoked periodically
+    * before any other propagation with the main BV solver. 
+    */
     void bv_lookahead::start_propagation() {
         if (m_stats.m_num_propagations++ % m_config.propagation_base == 0) 
             search();        
     }
+
+    /**
+    * Main search loop. 
+    * - Selects candidate variables
+    * - Applies random moves with a small probability
+    * - Applies guided moves to reduce cost of false literals
+    * - Applies random updates if no progress is made
+    */
 
     void bv_lookahead::search() {
         updt_params(ctx.get_params());
@@ -53,36 +65,87 @@ namespace sls {
             if (vars.empty())
                 return;
 
-            // random walk with probability 1024/wp 
+            // random walk  
             if (ctx.rand(2047) < m_config.wp && apply_random_move(vars))
                 continue;
 
+            // guided moves, greedily reducing cost of false literals
             if (apply_guided_move(vars))
                 continue;
 
+            // bail out if no progress, and try random update
             if (apply_random_update(get_candidate_uninterp()))
                 recalibrate_weights();
         }
         m_config.max_moves_base += 100;
     }
 
+    /**
+    * guided move: apply lookahead search for the selected variables
+    * and possible moves
+    */
     bool bv_lookahead::apply_guided_move(ptr_vector<expr> const& vars) {
         m_best_expr = nullptr;
         m_best_score = m_top_score;
         unsigned sz = vars.size();
-        unsigned start = ctx.rand(sz);
+        unsigned start = ctx.rand();
         for (unsigned i = 0; i < sz; ++i)
             add_updates(vars[(start + i) % sz]);
-        TRACE("bv", tout << "guided update " << m_best_score << " " << (m_best_expr?"no update":"") << "\n";);
+        CTRACE("bv", !m_best_expr, tout << "no guided move\n";);
         if (!m_best_expr)
             return false;
 
-        apply_update(m_best_expr, m_best_value);
-        //verbose_stream() << "increasing move " << mk_bounded_pp(m_best_expr, m) 
-        //    << " := " << m_best_value << " score: " << m_top_score << "\n";
+        apply_update(m_best_expr, m_best_value, "increasing move");
         return true;
     }
 
+    /**
+    * random update: select a variable at random and set bits to random values
+    */
+    bool bv_lookahead::apply_random_update(ptr_vector<expr> const& vars) {  
+        expr* e = vars[ctx.rand(vars.size())];
+        auto& v = wval(e);
+        m_v_updated.set_bw(v.bw);
+        v.get_variant(m_v_updated, m_ev.m_rand);
+        if (!v.can_set(m_v_updated))
+            return false;
+        apply_update(e, m_v_updated, "random update");
+        return true;
+    }
+
+    /**
+    * random move: select a variable at random and use one of the moves: flip, add1, sub1
+    */
+    bool bv_lookahead::apply_random_move(ptr_vector<expr> const& vars) {
+        expr* e = vars[ctx.rand(vars.size())];
+        auto& v = wval(e);
+        m_v_updated.set_bw(v.bw);
+        v.bits().copy_to(v.nw, m_v_updated);
+        switch (ctx.rand(3)) {
+        case 0: {
+            // flip a random bit
+            auto bit = ctx.rand(v.bw);
+            m_v_updated.set(bit, !m_v_updated.get(bit));
+            break;
+        }
+        case 1:
+            v.add1(m_v_updated);
+            break;
+        default:
+            v.sub1(m_v_updated);
+            break;
+        }
+
+        if (!v.can_set(m_v_updated))
+            return false;
+        apply_update(e, m_v_updated, "random move");
+        return true;
+    }
+
+    /**
+    * Retrieve a candidate top-level predicate that is false, give preference to
+    * those with high score, but back off if they are frequently chosen.
+    */
     ptr_vector<expr> const& bv_lookahead::get_candidate_uninterp() {
         auto const& lits = ctx.root_literals();
         app* e = nullptr;
@@ -93,8 +156,8 @@ namespace sls {
                     continue;
                 auto a = to_app(ctx.atom(lit.var()));
                 auto score = old_score(a);
-                auto q = score 
-                    + m_config.ucb_constant * sqrt(log((double)m_touched) / get_touched(a)) 
+                auto q = score
+                    + m_config.ucb_constant * sqrt(log((double)m_touched) / get_touched(a))
                     + m_config.ucb_noise * ctx.rand(512);
                 if (q > max)
                     max = q, e = a;
@@ -121,47 +184,6 @@ namespace sls {
         return vars;
     }
 
-    bool bv_lookahead::apply_random_update(ptr_vector<expr> const& vars) {  
-        expr* e = vars[ctx.rand(vars.size())];
-        auto& v = wval(e);
-        m_v_updated.set_bw(v.bw);
-        v.get_variant(m_v_updated, m_ev.m_rand);
-        if (!v.can_set(m_v_updated))
-            return false;
-        apply_update(e, m_v_updated);
-
-        //verbose_stream() << "random update " << mk_bounded_pp(e, m) << " := " << m_v_updated << " score " << m_top_score << "\n";
-        return true;
-    }
-
-    bool bv_lookahead::apply_random_move(ptr_vector<expr> const& vars) {
-        expr* e = vars[ctx.rand(vars.size())];
-        auto& v = wval(e);
-        m_v_updated.set_bw(v.bw);
-        v.bits().copy_to(v.nw, m_v_updated);
-        switch (ctx.rand(3)) {
-        case 0: {
-            // flip a random bit
-            auto bit = ctx.rand(v.bw);
-            m_v_updated.set(bit, !m_v_updated.get(bit));
-            break;
-        }
-        case 1:
-            v.add1(m_v_updated);
-            break;
-        default:
-            v.sub1(m_v_updated);
-            break;
-        }
-
-        if (!v.can_set(m_v_updated))
-            return false;
-        apply_update(e, m_v_updated);
-        TRACE("bv", tout << "random move " << mk_bounded_pp(e, m) << " := " << m_v_updated << "\n";);
-        // verbose_stream() << "random move " << mk_bounded_pp(e, m) << " := " << m_v_updated << " score " << m_top_score << "\n";
-        return true;
-    }
-
     void bv_lookahead::check_restart() {
         
         if (m_stats.m_moves % m_config.restart_base == 0) {
@@ -183,6 +205,9 @@ namespace sls {
         rescore();
     }
 
+    /**
+    * Reset variables that occur in false literals.
+    */
     void bv_lookahead::reset_uninterp_in_false_literals() {
         auto const& lits = ctx.root_literals();
         expr_mark marked;
@@ -199,7 +224,7 @@ namespace sls {
                 m_v_updated.set_bw(v.bw);
                 m_v_updated.set_zero();
                 if (v.can_set(m_v_updated)) {
-                    apply_update(e, m_v_updated);
+                    apply_update(e, m_v_updated, "reset");
                 }
             }
         }
@@ -225,7 +250,6 @@ namespace sls {
    
     void bv_lookahead::updt_params(params_ref const& _p) {
         sls_params p(_p);
-
         m_config.walksat = p.walksat();
         m_config.walksat_repick = p.walksat_repick();
         m_config.paws_sp = p.paws_sp();
@@ -236,18 +260,21 @@ namespace sls {
         m_config.restart_init = p.restart_init();
         m_config.early_prune = p.early_prune();
         m_config.ucb = p.walksat_ucb();
-
         m_config.ucb_constant = p.walksat_ucb_constant();
         m_config.ucb_forget = p.walksat_ucb_forget();
         m_config.ucb_init = p.walksat_ucb_init();
         m_config.ucb_noise = p.walksat_ucb_noise();
     }
 
+    /**
+    * Score of a predicate based on how close the current
+    * solution is to satisfying it. The proximity measure is
+    * based on hamming distance for equalities, and differences
+    * for inequalities.
+    */
     double bv_lookahead::new_score(app* a) {
         bool is_true = ctx.is_true(a);
         bool is_true_new = m_ev.bval1(a);
-        if (!ctx.is_relevant(a))
-            return 0;
         if (is_true == is_true_new)
             return 1;
         expr* x, * y;
@@ -327,6 +354,10 @@ namespace sls {
         return 0;
     }
 
+    /**
+    * Rehearse an update. The update is revered while a score is computed and returned.
+    * Walk all parents, until hitting predicates where their scores are computed.
+    */
     double bv_lookahead::lookahead_update(expr* e, bvect const& new_value) {
         SASSERT(bv.is_bv(e));
         SASSERT(is_uninterp(e));
@@ -441,15 +472,17 @@ namespace sls {
         try_set(u, m_v_updated);
     }
 
-    void bv_lookahead::apply_update(expr* e, bvect const& new_value) {
-        TRACE("bv", tout << "apply " << mk_bounded_pp(e, m) << " new value " << new_value << "\n");
+    /**
+    * Apply an update to a variable.
+    * The update is committed.
+    */
+
+    void bv_lookahead::apply_update(expr* e, bvect const& new_value, char const* reason) {
         SASSERT(bv.is_bv(e));
         SASSERT(is_uninterp(e));
         SASSERT(m_restore.empty());
         wval(e).eval = new_value;
         double old_top_score = m_top_score;
-
-        //verbose_stream() << mk_bounded_pp(e, m) << " := " << new_value << "\n";
 
         VERIFY(wval(e).commit_eval());
         insert_update_stack(e);
@@ -461,7 +494,7 @@ namespace sls {
                     m_ev.eval(e); // updates wval(e).eval
                     if (!wval(e).commit_eval()) {
                         TRACE("bv", tout << "failed to commit " << mk_bounded_pp(e, m) << " " << wval(e) << "\n");
-                        IF_VERBOSE(0, verbose_stream() << "failed to commit " << mk_bounded_pp(e, m) << " " << wval(e) << "\n");
+                        IF_VERBOSE(2, verbose_stream() << "failed to commit " << mk_bounded_pp(e, m) << " " << wval(e) << "\n");
                         // bv_plugin::is_sat picks up discrepancies
                         continue;
                     }
@@ -484,8 +517,9 @@ namespace sls {
             m_update_stack[depth].reset();
         }
         m_in_update_stack.reset();
-        TRACE("bv", tout << mk_bounded_pp(e, m) << " := " 
-            << new_value << " " << m_top_score << " (" << old_top_score << ")\n");
+        TRACE("bv", tout << reason << " " << mk_bounded_pp(m_best_expr, m)
+            << " := " << new_value
+            << " score " << m_top_score << "\n";);
     }
 
     bool bv_lookahead::insert_update(expr* e) {

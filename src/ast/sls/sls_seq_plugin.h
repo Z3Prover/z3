@@ -42,13 +42,19 @@ namespace sls {
             ptr_vector<expr> lhs, rhs;
         };
 
+        enum edit_distance_strategy {
+            EDIT_CHAR,
+            EDIT_SUBSTR,
+        };
+
         seq_util seq;
         arith_util a;
         seq_rewriter rw;
         th_rewriter thrw;
         scoped_ptr_vector<eval> m_values;
         indexed_uint_set m_chars; // set of characters in the problem
-        bool m_initialized = false;        
+        bool m_initialized = false;
+        edit_distance_strategy m_str_update_strategy;
 
         struct str_update {
             expr* e;
@@ -122,6 +128,8 @@ namespace sls {
         unsigned edit_distance_with_updates(string_instance const& a, string_instance const& b);
         unsigned edit_distance(zstring const& a, zstring const& b);
         void add_edit_updates(ptr_vector<expr> const& w, zstring const& val, zstring const& val_other, uint_set const& chars);
+        void add_char_edit_updates(ptr_vector<expr> const& w, zstring const& val, zstring const& val_other, uint_set const& chars);
+        void add_substr_edit_updates(ptr_vector<expr> const& w, zstring const& val, zstring const& val_other, uint_set const& chars);
 
         zstring trunc_pad_to_fit(unsigned min_length, unsigned max_length, zstring const& s);
 
