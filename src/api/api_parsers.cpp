@@ -235,9 +235,9 @@ extern "C" {
 
     Z3_string Z3_API Z3_eval_smtlib2_string(Z3_context c, Z3_string str) {
         std::stringstream ous;
-        Z3_TRY;
         RESET_ERROR_CODE();
         LOG_Z3_eval_smtlib2_string(c, str);
+        Z3_TRY;
         if (!mk_c(c)->cmd()) {
             auto* ctx = alloc(cmd_context, false, &(mk_c(c)->m()));
             mk_c(c)->cmd() = ctx;
@@ -257,15 +257,13 @@ extern "C" {
             // See api::context::m_parser for a motivation about the reuse of the parser
             if (!parse_smt2_commands_with_parser(mk_c(c)->m_parser, *ctx.get(), is)) {
                 SET_ERROR_CODE(Z3_PARSER_ERROR, ous.str());
-                RETURN_Z3(mk_c(c)->mk_external_string(ous.str()));
             }
         }
         catch (z3_exception& e) {
             if (ous.str().empty()) ous << e.what();
             SET_ERROR_CODE(Z3_PARSER_ERROR, ous.str());
-            RETURN_Z3(mk_c(c)->mk_external_string(ous.str()));
         }
-        RETURN_Z3(mk_c(c)->mk_external_string(ous.str()));
-        Z3_CATCH_RETURN(mk_c(c)->mk_external_string(ous.str()));
+        Z3_CATCH_CORE();
+        RETURN_Z3(mk_c(c)->mk_external_string(std::move(ous).str()));
     }
 }

@@ -191,7 +191,7 @@ extern "C" {
             SET_ERROR_CODE(Z3_IOB, nullptr);
             RETURN_Z3(nullptr);
         }
-        return mk_c(c)->mk_external_string(result);
+        return result;
         Z3_CATCH_RETURN(nullptr);
     }
 

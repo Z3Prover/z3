@@ -671,12 +671,12 @@ br_status bool_rewriter::try_ite_value(app * ite, app * val, expr_ref & result) 
     expr* cond2 = nullptr, *t2 = nullptr, *e2 = nullptr;
     if (m().is_ite(t, cond2, t2, e2) && m().is_value(t2) && m().is_value(e2) &&
         BR_FAILED != try_ite_value(to_app(t), val, result)) {
-        result = m().mk_ite(cond, result, mk_eq(e, val));
+        result = m().mk_ite(cond, result, mk_eq_plain(e, val));
         return BR_REWRITE2;
     }
     if (m().is_ite(e, cond2, t2, e2) && m().is_value(t2) && m().is_value(e2) && 
         BR_FAILED != try_ite_value(to_app(e), val, result)) {
-        result = m().mk_ite(cond, mk_eq(t, val), result);
+        result = m().mk_ite(cond, mk_eq_plain(t, val), result);
         return BR_REWRITE2;
     }
 
@@ -684,7 +684,7 @@ br_status bool_rewriter::try_ite_value(app * ite, app * val, expr_ref & result) 
 }
 
 
-app* bool_rewriter::mk_eq(expr* lhs, expr* rhs) {
+app* bool_rewriter::mk_eq_plain(expr* lhs, expr* rhs) {
     if (m().are_equal(lhs, rhs))
         return m().mk_true();
     if (m().are_distinct(lhs, rhs))

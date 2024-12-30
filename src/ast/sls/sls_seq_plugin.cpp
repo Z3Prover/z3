@@ -684,17 +684,14 @@ namespace sls {
 
     void seq_plugin::add_substr_edit_updates(ptr_vector<expr> const& w, zstring const& val, zstring const& val_other, uint_set const& chars) {
         // all consecutive subsequences of val_other
-        map<zstring, bool, zstring_hash_proc, default_eq<zstring>> map;
-        vector<zstring> subseqs;
-        map.insert(zstring(""), true);
-        subseqs.push_back(zstring(""));
+        hashtable<zstring, zstring_hash_proc, default_eq<zstring>> set;
+        set.insert(zstring(""));
         for (unsigned i = 0; i < val_other.length(); ++i) {
             for (unsigned j = val_other.length(); j > 0; ++j) {
                 zstring sub = val_other.extract(i, j);
-                if (map.contains(sub))
+                if (set.contains(sub))
                     break;
-                map.insert(sub, true);
-                subseqs.push_back(sub);
+                set.insert(sub);
             }
         }
 
@@ -702,7 +699,7 @@ namespace sls {
             if (is_value(x))
                 continue;
             zstring const& a = strval0(x);
-            for (auto& seq : subseqs) {
+            for (auto& seq : set) {
                 if (seq == a)
                     continue;
                 m_str_updates.push_back({ x, seq, 1 });

@@ -327,7 +327,7 @@ namespace sls {
         m_constraint_trail.push_back(e);
         add_clause(e);     
         m_new_constraint = true;
-        verbose_stream() << "add constraint\n";
+        IF_VERBOSE(3, verbose_stream() << "add constraint " << mk_bounded_pp(e, m) << "\n");
         ++m_stats.m_num_constraints;
     }
 
@@ -565,8 +565,8 @@ namespace sls {
                     SASSERT(m.is_true(get_value(e)) == is_true(v));
                 }                    
             }
-        );
-
+        );        
+          
         m_repair_down.reserve(e->get_id() + 1);
         m_repair_up.reserve(e->get_id() + 1);
         if (!term(e->get_id()))

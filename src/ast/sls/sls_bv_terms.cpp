@@ -16,6 +16,7 @@ Author:
 --*/
 
 #include "ast/ast_ll_pp.h"
+#include "ast/ast_pp.h"
 #include "ast/sls/sls_bv_terms.h"
 #include "ast/rewriter/bool_rewriter.h"
 #include "ast/rewriter/bv_rewriter.h"
@@ -23,15 +24,17 @@ Author:
 namespace sls {
 
     bv_terms::bv_terms(sls::context& ctx):
+        ctx(ctx),
         m(ctx.get_manager()), 
         bv(m),
         m_axioms(m) {}
 
     void bv_terms::register_term(expr* e) {
         auto r = ensure_binary(e);
-        if (r != e)
-            m_axioms.push_back(m.mk_eq(e, r));
-        register_uninterp(e);
+        if (r != e) {
+            bool_rewriter br(m);
+            m_axioms.push_back(br.mk_eq_rw(e, r));
+        }
     }
 
     expr_ref bv_terms::ensure_binary(expr* e) {
@@ -69,10 +72,10 @@ namespace sls {
         expr_ref absx = br.mk_ite(signx, bvr.mk_bv_neg(x), x);
         expr_ref absy = br.mk_ite(signy, bvr.mk_bv_neg(y), y);
         expr_ref d = expr_ref(bv.mk_bv_udiv(absx, absy), m);
-        expr_ref r = br.mk_ite(br.mk_eq(signx, signy), d, bvr.mk_bv_neg(d));
-        r = br.mk_ite(br.mk_eq(z, y),
+        expr_ref r = br.mk_ite(br.mk_eq_rw(signx, signy), d, bvr.mk_bv_neg(d));
+        r = br.mk_ite(br.mk_eq_rw(z, y),
                 br.mk_ite(signx, o, n1),
-                     br.mk_ite(br.mk_eq(x, z), z, r));
+                     br.mk_ite(br.mk_eq_rw(x, z), z, r));
         return r;
     }
 
@@ -92,8 +95,8 @@ namespace sls {
         expr_ref abs_y = br.mk_ite(bvr.mk_sle(z, y), y, bvr.mk_bv_neg(y));
         expr_ref u = bvr.mk_bv_urem(abs_x, abs_y);
         expr_ref r(m);
-        r = br.mk_ite(br.mk_eq(u, z), z,
-                br.mk_ite(br.mk_eq(y, z), x,
+        r = br.mk_ite(br.mk_eq_rw(u, z), z,
+                br.mk_ite(br.mk_eq_rw(y, z), x,
                     br.mk_ite(br.mk_and(bvr.mk_sle(z, x), bvr.mk_sle(z, x)), u,
                         br.mk_ite(bvr.mk_sle(z, x), bvr.mk_bv_add(y, u),
                             br.mk_ite(bv.mk_sle(z, y), bvr.mk_bv_sub(y, u), bvr.mk_bv_neg(u))))));
@@ -107,8 +110,26 @@ namespace sls {
         bool_rewriter br(m);
         bv_rewriter bvr(m);
         expr_ref z(bv.mk_zero(bv.get_bv_size(x)), m);
-        r = br.mk_ite(br.mk_eq(y, z), x, bvr.mk_bv_sub(x, bvr.mk_bv_mul(y, mk_sdiv(x, y))));
+        r = br.mk_ite(br.mk_eq_rw(y, z), x, bvr.mk_bv_sub(x, bvr.mk_bv_mul(y, mk_sdiv(x, y)))); 
         return r;
+    }
+
+    ptr_vector<expr> const& bv_terms::uninterp_occurs(expr* e) {
+        unsigned id = e->get_id();
+        m_uninterp_occurs.reserve(id + 1);
+        if (!m_uninterp_occurs[id].empty())
+            return m_uninterp_occurs[id];
+        register_uninterp(e);
+        return m_uninterp_occurs[id];
+    }
+
+    ptr_vector<expr> const& bv_terms::condition_occurs(expr* e) {
+        unsigned id = e->get_id();
+        m_condition_occurs.reserve(id + 1);
+        if (!m_condition_occurs[id].empty())
+            return m_condition_occurs[id];
+        register_uninterp(e);
+        return m_condition_occurs[id];
     }
 
     void bv_terms::register_uninterp(expr* e) {
@@ -123,7 +144,9 @@ namespace sls {
         else
             return;
         m_uninterp_occurs.reserve(e->get_id() + 1);
+        m_condition_occurs.reserve(e->get_id() + 1);
         auto& occs = m_uninterp_occurs[e->get_id()];
+        auto& cond_occs = m_condition_occurs[e->get_id()];
         ptr_vector<expr> todo;
         todo.append(to_app(e)->get_num_args(), to_app(e)->get_args());
         expr_mark marked;
@@ -138,8 +161,11 @@ namespace sls {
                     todo.push_back(arg);
             }
             else if (m.is_ite(e, c, th, el)) {
-                todo.push_back(th);
-                todo.push_back(el);
+                cond_occs.push_back(c);
+                if (ctx.is_true(c))
+                    todo.push_back(th);
+                else
+                    todo.push_back(el);
             }
             else if (bv.is_bv(e))
                 occs.push_back(e);

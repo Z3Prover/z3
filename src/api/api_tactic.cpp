@@ -339,7 +339,7 @@ extern "C" {
             SET_ERROR_CODE(Z3_IOB, nullptr);
             return "";
         }        
-        return mk_c(c)->mk_external_string(mk_c(c)->get_tactic(idx)->get_name().str().c_str());
+        return mk_c(c)->mk_external_string(mk_c(c)->get_tactic(idx)->get_name().str());
         Z3_CATCH_RETURN("");
     }
 
@@ -359,7 +359,7 @@ extern "C" {
             SET_ERROR_CODE(Z3_IOB, nullptr);
             return "";
         }
-        return mk_c(c)->mk_external_string(mk_c(c)->get_probe(idx)->get_name().str().c_str());
+        return mk_c(c)->mk_external_string(mk_c(c)->get_probe(idx)->get_name().str());
         Z3_CATCH_RETURN("");
     }
 
@@ -371,7 +371,7 @@ extern "C" {
         param_descrs descrs;
         to_tactic_ref(t)->collect_param_descrs(descrs);
         descrs.display(buffer);
-        return mk_c(c)->mk_external_string(buffer.str());
+        return mk_c(c)->mk_external_string(std::move(buffer).str());
         Z3_CATCH_RETURN("");
     }
 
@@ -499,8 +499,8 @@ extern "C" {
         for (unsigned i = 0; i < sz; i++) {
             to_apply_result(r)->m_subgoals[i]->display(buffer);
         }
-        buffer << ")";
-        return mk_c(c)->mk_external_string(buffer.str());
+        buffer << ')';
+        return mk_c(c)->mk_external_string(std::move(buffer).str());
         Z3_CATCH_RETURN("");
     }
     
@@ -578,7 +578,7 @@ extern "C" {
             SET_ERROR_CODE(Z3_IOB, nullptr);
             return "";
         }        
-        return mk_c(c)->mk_external_string(mk_c(c)->get_simplifier(idx)->get_name().str().c_str());
+        return mk_c(c)->mk_external_string(mk_c(c)->get_simplifier(idx)->get_name().str());
         Z3_CATCH_RETURN("");
     }
 
@@ -634,7 +634,7 @@ extern "C" {
         scoped_ptr<dependent_expr_simplifier> simp = (*to_simplifier_ref(t))(m, p, st);
         simp->collect_param_descrs(descrs);
         descrs.display(buffer);
-        return mk_c(c)->mk_external_string(buffer.str());
+        return mk_c(c)->mk_external_string(std::move(buffer).str());
         Z3_CATCH_RETURN("");
     }
 

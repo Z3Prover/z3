@@ -33,7 +33,7 @@ namespace sls {
 
     bool operator==(bvect const& a, bvect const& b) {
         SASSERT(a.nw > 0);
-        return 0 == mpn_manager().compare(a.data(), a.nw, b.data(), a.nw);
+        return 0 == memcmp(a.data(), b.data(), a.nw * sizeof(digit_t));
     }
 
     bool operator<(bvect const& a, bvect const& b) {

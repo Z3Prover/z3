@@ -50,6 +50,10 @@ namespace sls {
         return false;
     }
 
+    void bv_plugin::start_propagation() {
+        m_eval.start_propagation();
+    }
+
     void bv_plugin::propagate_literal(sat::literal lit) {       
         SASSERT(ctx.is_true(lit));
         auto e = ctx.atom(lit.var());
@@ -165,6 +169,10 @@ namespace sls {
         auto a = to_app(e);
         if (!m_eval.eval_is_correct(a))
             ctx.flip(lit.var());
+    }
+
+    void bv_plugin::collect_statistics(statistics& st) const {
+        m_eval.collect_statistics(st);
     }
 
     std::ostream& bv_plugin::trace_repair(bool down, expr* e) {
