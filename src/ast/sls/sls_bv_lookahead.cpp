@@ -99,6 +99,8 @@ namespace sls {
     * random update: select a variable at random and set bits to random values
     */
     bool bv_lookahead::apply_random_update(ptr_vector<expr> const& vars) {  
+        if (vars.empty())
+            return false;
         expr* e = vars[ctx.rand(vars.size())];
         auto& v = wval(e);
         m_v_updated.set_bw(v.bw);
@@ -136,7 +138,6 @@ namespace sls {
     * those with high score, but back off if they are frequently chosen.
     */
     ptr_vector<expr> const& bv_lookahead::get_candidate_uninterp() {
-        auto const& lits = ctx.root_literals();
         app* e = nullptr;
         if (m_config.ucb) {
             double max = -1.0;
@@ -166,10 +167,11 @@ namespace sls {
             return m_empty_vars;
 
         auto const& vars = m_ev.terms.uninterp_occurs(e);
-        VERIFY(!vars.empty());
+
         TRACE("bv", tout << "candidates " << mk_bounded_pp(e, m) << ": ";
         for (auto e : vars) tout << mk_bounded_pp(e, m) << " ";
         tout << "\n";);
+        //VERIFY(!vars.empty());
         return vars;
     }
 
