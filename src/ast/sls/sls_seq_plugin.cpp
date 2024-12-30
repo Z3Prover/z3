@@ -673,7 +673,7 @@ namespace sls {
     }
 
 
-    void seq_plugin::add_edit_updates2(ptr_vector<expr> const& w, zstring const& val, zstring const& val_other, uint_set const& chars) {
+    void seq_plugin::add_substr_edit_updates(ptr_vector<expr> const& w, zstring const& val, zstring const& val_other, uint_set const& chars) {
         // all consecutive subsequences of val_other
         map<zstring, bool, zstring_hash_proc, default_eq<zstring>> map;
         vector<zstring> subseqs;
@@ -701,7 +701,7 @@ namespace sls {
         }
     }
 
-    void seq_plugin::add_edit_updates(ptr_vector<expr> const& w, zstring const& val, zstring const& val_other, uint_set const& chars) {
+    void seq_plugin::add_step_edit_updates(ptr_vector<expr> const& w, zstring const& val, zstring const& val_other, uint_set const& chars) {
         for (auto x : w) {
             if (is_value(x))
                 continue;
@@ -991,8 +991,11 @@ namespace sls {
 
         //verbose_stream() << "solve: " << diff << " " << a << " " << b << "\n";
 
-        add_edit_updates(L, a, b, b_chars);
-        add_edit_updates(R, b, a, a_chars);
+        // add_step_edit_updates(L, a, b, b_chars);
+        // add_step_edit_updates(R, b, a, a_chars);
+
+        add_substr_edit_updates(L, a, b, b_chars);
+        add_substr_edit_updates(R, b, a, a_chars);
 
         for (auto& [x, s, score] : m_str_updates) {
             a.reset();
@@ -1522,8 +1525,8 @@ namespace sls {
         for (auto ch : value0) 
             chars.insert(ch);
 
-        // add_edit_updates(es, value, value0, chars);
-        add_edit_updates2(es, value, value0, chars);
+        // add_step_edit_updates(es, value, value0, chars);
+        add_substr_edit_updates(es, value, value0, chars);
 
         unsigned diff = edit_distance(value, value0);
         for (auto& [x, s, score] : m_str_updates) {

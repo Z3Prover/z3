@@ -121,8 +121,8 @@ namespace sls {
         void init_string_instance(ptr_vector<expr> const& es, string_instance& a);
         unsigned edit_distance_with_updates(string_instance const& a, string_instance const& b);
         unsigned edit_distance(zstring const& a, zstring const& b);
-        void add_edit_updates(ptr_vector<expr> const& w, zstring const& val, zstring const& val_other, uint_set const& chars);
-        void add_edit_updates2(ptr_vector<expr> const& w, zstring const& val, zstring const& val_other, uint_set const& chars);
+        void add_step_edit_updates(ptr_vector<expr> const& w, zstring const& val, zstring const& val_other, uint_set const& chars);
+        void add_substr_edit_updates(ptr_vector<expr> const& w, zstring const& val, zstring const& val_other, uint_set const& chars);
 
         // regex functionality
         
