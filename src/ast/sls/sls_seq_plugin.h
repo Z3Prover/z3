@@ -137,6 +137,7 @@ namespace sls {
 
         bool is_in_re(zstring const& s, expr* r);
         bool some_string_in_re(expr* r, zstring& s);
+        bool get_bounds(expr* e, unsigned& low, unsigned& high);
         bool append_char(expr* r0, expr_ref& r, zstring& s);
 
         // access evaluation

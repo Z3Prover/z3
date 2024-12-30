@@ -1925,9 +1925,40 @@ namespace sls {
         }
     }
 
+    bool seq_plugin::get_bounds(expr* e, unsigned& low, unsigned& high) {
+        // TODO: remove recursion (though it is probably not deep anyway)
+        expr* x, * y;
+        unsigned ch = 0;
+        if (m.is_and(e, x, y)) {
+            if (!get_bounds(x, low, high))
+                return false;
+            return get_bounds(y, low, high);
+        }
+        if (m.is_eq(e, x, y)) {
+            if ((is_var(x) && seq.is_const_char(y, ch)) || (is_var(y) && seq.is_const_char(x, ch))) {
+                if (ch < low || ch > high)
+                    return false;
+                low = high = ch;
+                return true;
+            }
+            return false;
+        }
+        if (seq.is_char_le(e, x, y)) {
+            if (seq.is_const_char(x, ch)) {
+                low = std::max(ch, low);
+                return high >= low;
+            }
+            if (seq.is_const_char(y, ch)) {
+                high = std::min(ch, high);
+                return high >= low;
+            }
+            return false;
+        }
+        return false;
+    }
+
     bool seq_plugin::append_char(expr* r0, expr_ref& r, zstring& s) {
-        expr* c, * th, * el, * x, * y;
-        unsigned ch;
+        expr* c, * th, * el;
         if (seq.re.is_union(r)) {
             auto info0 = seq.re.get_info(r0);
             for (expr* r1 : *to_app(r)) {
@@ -1942,21 +1973,12 @@ namespace sls {
             NOT_IMPLEMENTED_YET();
         }
         if (m.is_ite(r, c, th, el)) {
-            if (m.is_eq(c, x, y)) {
-                
-                if (is_var(x) && seq.is_const_char(y, ch)) {
-                    s += zstring(ch);
-                    r = th;
-                    return true;
-                }
-                if (is_var(y) && seq.is_const_char(x, ch)) {
-                    s += zstring(ch);
-                    r = th;
-                    return true;
-                }
-                verbose_stream() << "nyi append_char " << mk_bounded_pp(r, m) << "\n";
-                NOT_IMPLEMENTED_YET();
-                return false;
+            unsigned low = 0, high = UINT_MAX;
+            if (get_bounds(c, low, high)) {
+                SASSERT(low <= high);
+                s += zstring(low);
+                r = th;
+                return true;
             }
             verbose_stream() << "nyi append_char " << mk_bounded_pp(r, m) << "\n";
             NOT_IMPLEMENTED_YET();
