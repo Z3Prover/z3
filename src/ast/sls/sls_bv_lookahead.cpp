@@ -465,11 +465,12 @@ namespace sls {
     */
 
     bool bv_lookahead::apply_update(expr* e, bvect const& new_value, char const* reason) {
+        if (!e || !wval(e).can_set(new_value))
+            return false;
         SASSERT(bv.is_bv(e));
         SASSERT(is_uninterp(e));
         SASSERT(m_restore.empty());
-        if (!e || !wval(e).can_set(new_value))
-            return false;
+
         wval(e).eval = new_value;
         double old_top_score = m_top_score;
 
