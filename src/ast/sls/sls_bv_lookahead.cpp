@@ -374,7 +374,7 @@ namespace sls {
                         }
                     }
                     else {
-                        IF_VERBOSE(1, verbose_stream() << "tabu " << mk_bounded_pp(a, m) << "\n");
+                        IF_VERBOSE(3, verbose_stream() << "tabu " << mk_bounded_pp(a, m) << " " << wval(a) << "\n");
                         has_tabu = true;
                     }
                 }
@@ -486,7 +486,7 @@ namespace sls {
                     m_ev.eval(e); // updates wval(e).eval
                     if (!wval(e).commit_eval()) {
                         TRACE("bv", tout << "failed to commit " << mk_bounded_pp(e, m) << " " << wval(e) << "\n");
-                        IF_VERBOSE(2, verbose_stream() << "failed to commit " << mk_bounded_pp(e, m) << " " << wval(e) << "\n");
+                        IF_VERBOSE(3, verbose_stream() << "failed to commit " << mk_bounded_pp(e, m) << " " << wval(e) << "\n");
                         // bv_plugin::is_sat picks up discrepancies
                         continue;
                     }
