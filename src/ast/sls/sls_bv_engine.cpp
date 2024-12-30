@@ -96,7 +96,6 @@ double sls_engine::top_score() {
     for (expr* e : m_assertions) {
         top_sum += m_tracker.get_score(e);
     }
-
     TRACE("sls_top", tout << "Score distribution:";
           for (expr* e : m_assertions) 
               tout << " " << m_tracker.get_score(e);
@@ -466,7 +465,6 @@ lbool sls_engine::search() {
 
         // randomize if no increasing move was found
         if (new_const == static_cast<unsigned>(-1)) {
-            score = old_score;
             if (m_walksat_repick)
                 m_evaluator.randomize_local(m_assertions);
             else
@@ -481,16 +479,16 @@ lbool sls_engine::search() {
                     // smooth weights with probability sp / 1024
                     if (m_tracker.get_random_uint(10) < m_paws_sp)
                     {
-                        if (m_mpz_manager.eq(m_tracker.get_value(q),m_one))
+                        if (m_mpz_manager.eq(m_tracker.get_value(q), m_one))
                             m_tracker.decrease_weight(q);
                     }
                     // increase weights otherwise
                     else
                     {
-                        if (m_mpz_manager.eq(m_tracker.get_value(q),m_zero))
+                        if (m_mpz_manager.eq(m_tracker.get_value(q), m_zero))
                             m_tracker.increase_weight(q);
                     }
-                }
+                }                  
             }
         }
         // otherwise, apply most increasing move

@@ -27,9 +27,7 @@ namespace sls {
         ctx(ctx)
     {}
 
-    void bv_fixed::init() {
-
-        return;
+    void bv_fixed::init() {  
 
         for (auto e : ctx.subterms())
             set_fixed(e);
