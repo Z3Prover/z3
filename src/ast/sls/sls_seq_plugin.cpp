@@ -1222,14 +1222,16 @@ namespace sls {
         expr* x, * y;
         VERIFY(seq.str.is_at(e, x, y));
         zstring se = strval0(e);
-        verbose_stream() << "repair down at " << mk_pp(e, m) << " " << se << "\n";
+        std::cout << "repair down at " << mk_pp(e, m) << " = " << se << std::endl;
         if (se.length() > 1)
             return false;
         zstring sx = strval0(x);
+        std::cout << mk_pp(x, m) << " = " << sx << std::endl;
         unsigned lenx = sx.length();
         expr_ref idx = ctx.get_value(y);
         rational r;
         VERIFY(a.is_numeral(idx, r));
+        std::cout << mk_pp(y, m) << " = " << r << std::endl;
 
         if (se.length() == 0) {
             // index should be out of bounds of a.
@@ -1252,8 +1254,11 @@ namespace sls {
                     zstring new_x = sx.extract(0, r.get_unsigned()) + se + sx.extract(r.get_unsigned() + 1, lenx);
                     m_str_updates.push_back({ x, new_x, 1 });
                 }
-                if (lenx <= r) {
-                    zstring new_x = sx + se;
+                else {
+                    zstring new_x = sx;
+                    while (new_x.length() < r)
+                        new_x += zstring(m_chars[ctx.rand(m_chars.size())]);
+                    new_x += se;
                     m_str_updates.push_back({ x, new_x, 1 });
                 }
             }
