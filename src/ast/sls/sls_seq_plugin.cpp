@@ -1222,16 +1222,13 @@ namespace sls {
         expr* x, * y;
         VERIFY(seq.str.is_at(e, x, y));
         zstring se = strval0(e);
-        std::cout << "repair down at " << mk_pp(e, m) << " = " << se << std::endl;
         if (se.length() > 1)
             return false;
         zstring sx = strval0(x);
-        std::cout << mk_pp(x, m) << " = " << sx << std::endl;
         unsigned lenx = sx.length();
         expr_ref idx = ctx.get_value(y);
         rational r;
         VERIFY(a.is_numeral(idx, r));
-        std::cout << mk_pp(y, m) << " = " << r << std::endl;
 
         if (se.length() == 0) {
             // index should be out of bounds of a.
@@ -1251,7 +1248,11 @@ namespace sls {
             // index should be in bounds of a.
             if (!is_value(x)) {
                 if (lenx > r && r >= 0) {
-                    zstring new_x = sx.extract(0, r.get_unsigned()) + se + sx.extract(r.get_unsigned() + 1, lenx);
+                    // insert or replace the desired character
+                    zstring p = sx.extract(0, r.get_unsigned()) + se;
+                    zstring new_x = p + sx.extract(r.get_unsigned() + 1, lenx - (r.get_unsigned() + 1));
+                    m_str_updates.push_back({ x, new_x, 1 });
+                    new_x = p + sx.extract(r.get_unsigned(), lenx - r.get_unsigned());
                     m_str_updates.push_back({ x, new_x, 1 });
                 }
                 else {
@@ -1563,6 +1564,7 @@ namespace sls {
 
 
     bool seq_plugin::apply_update() {
+        SASSERT(!m_str_updates.empty() || !m_int_updates.empty());
         double sum_scores = 0;
         for (auto const& [e, val, score] : m_str_updates)
             sum_scores += score;
