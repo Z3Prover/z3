@@ -1480,6 +1480,19 @@ namespace sls {
         VERIFY(a.is_numeral(len_e, len_val));
         if (v.empty() && (offset_val.is_neg() || !len_val.is_pos()))
             return true;
+        if (offset_val.is_neg() || offset_val.get_unsigned() >= r.length()) {
+            m_str_updates.push_back({ e, zstring(), 1 });
+            for (unsigned i = 0; i < r.length(); i++)
+                m_int_updates.push_back({ offset, rational(i), 1 });
+            return apply_update();
+        }
+
+        if (!len_val.is_pos()) {
+            m_str_updates.push_back({ e, zstring(), 1 });
+            for (unsigned i = 0; i < r.length() - offset_val.get_unsigned(); i++)
+                m_int_updates.push_back({ len, rational(i), 1 });
+            return apply_update();
+        }
         if (v == r.extract(offset_val.get_unsigned(), len_val.get_unsigned()))
             return true;
 
