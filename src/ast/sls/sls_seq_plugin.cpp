@@ -1484,16 +1484,14 @@ namespace sls {
             m_str_updates.push_back({ e, zstring(), 1 });
             for (unsigned i = 0; i < r.length(); i++)
                 m_int_updates.push_back({ offset, rational(i), 1 });
-            return apply_update();
         }
 
         if (!len_val.is_pos()) {
             m_str_updates.push_back({ e, zstring(), 1 });
-            for (unsigned i = 0; i < r.length() - offset_val.get_unsigned(); i++)
+            for (unsigned i = 1; i < r.length() - offset_val.get_unsigned(); i++)
                 m_int_updates.push_back({ len, rational(i), 1 });
-            return apply_update();
         }
-        if (v == r.extract(offset_val.get_unsigned(), len_val.get_unsigned()))
+        if (offset_val.is_unsigned() && len_val.is_unsigned() && v == r.extract(offset_val.get_unsigned(), len_val.get_unsigned()))
             return true;
 
         SASSERT(offset_val.is_unsigned());
@@ -1504,14 +1502,12 @@ namespace sls {
         zstring prefix = r.extract(0, offset_u);
         zstring suffix = r.extract(offset_u + len_u, r.length());
         zstring new_r = prefix + v + suffix;
-
-        std::cout << "repair extract " << mk_bounded_pp(e, m) << " \"" << v << "\"" << std::endl;
-        std::cout << "\"" << r << "\" " << offset_val << " " << len_val << std::endl;
-
+        
         new_r = trunc_pad_to_fit(get_eval(x).min_length, get_eval(x).max_length, new_r);
 
-        std::cout << new_r << std::endl;
-        m_str_updates.push_back({ x, new_r, 1 });
+        if (new_r == r)
+            m_str_updates.push_back({ x, new_r, 1 });
+
         return apply_update();
     }
 
@@ -1667,6 +1663,7 @@ namespace sls {
 
     bool seq_plugin::update(expr* e, zstring const& value) {
         SASSERT(value != strval0(e));
+        std::cout << "update " << mk_pp(e, m) << " := \"" << value << "\" [\"" << strval0(e) << "\"]" << std::endl;
         // if (value == strval0(e))
         //     return true;
         if (is_value(e))
