@@ -95,6 +95,7 @@ Equality solving using stochastic Nelson.
 #include "ast/sls/sls_seq_plugin.h"
 #include "ast/sls/sls_context.h"
 #include "ast/ast_pp.h"
+#include "params/sls_params.hpp"
 
 
 namespace sls {
@@ -114,6 +115,8 @@ namespace sls {
         thrw(c.get_manager())
     {
         m_fid = seq.get_family_id();
+        sls_params p(c.get_params());
+        m_str_update_strategy = p.str_update_strategy() == 0 ? EDIT_CHAR : EDIT_SUBSTR;
     }
     
     void seq_plugin::propagate_literal(sat::literal lit) {
@@ -538,12 +541,12 @@ namespace sls {
             return true;
         if (len_u < val_x.length()) {
             for (unsigned i = 0; i + len_u < val_x.length(); ++i) 
-                m_str_updates.push_back({ x, val_x.extract(i, len_u), 1 });            
+                m_str_updates.push_back({ x, val_x.extract(i, len_u), 1 });
         }
         if (!m_chars.empty()) {
             zstring ch(m_chars[ctx.rand(m_chars.size())]);
             m_str_updates.push_back({ x, val_x + ch, 1 });
-            m_str_updates.push_back({ x, ch + val_x, 1 });            
+            m_str_updates.push_back({ x, ch + val_x, 1 });
         }
         return apply_update();
     }
@@ -626,7 +629,7 @@ namespace sls {
             if (!is_value(x))
                 m_str_updates.push_back({ x, strval1(y), 1 });
             if (!is_value(y))
-                m_str_updates.push_back({ y, strval1(x), 1 });            
+                m_str_updates.push_back({ y, strval1(x), 1 });
         }
         else {
             // disequality
@@ -672,6 +675,12 @@ namespace sls {
         return d[n][m];
     }
 
+    void seq_plugin::add_edit_updates(ptr_vector<expr> const& w, zstring const& val, zstring const& val_other, uint_set const& chars) {
+        if (m_str_update_strategy == EDIT_CHAR)
+            add_char_edit_updates(w, val, val_other, chars);
+        else
+            add_substr_edit_updates(w, val, val_other, chars);
+    }
 
     void seq_plugin::add_substr_edit_updates(ptr_vector<expr> const& w, zstring const& val, zstring const& val_other, uint_set const& chars) {
         // all consecutive subsequences of val_other
@@ -701,7 +710,7 @@ namespace sls {
         }
     }
 
-    void seq_plugin::add_step_edit_updates(ptr_vector<expr> const& w, zstring const& val, zstring const& val_other, uint_set const& chars) {
+    void seq_plugin::add_char_edit_updates(ptr_vector<expr> const& w, zstring const& val, zstring const& val_other, uint_set const& chars) {
         for (auto x : w) {
             if (is_value(x))
                 continue;
@@ -991,11 +1000,8 @@ namespace sls {
 
         //verbose_stream() << "solve: " << diff << " " << a << " " << b << "\n";
 
-        // add_step_edit_updates(L, a, b, b_chars);
-        // add_step_edit_updates(R, b, a, a_chars);
-
-        add_substr_edit_updates(L, a, b, b_chars);
-        add_substr_edit_updates(R, b, a, a_chars);
+        add_edit_updates(L, a, b, b_chars);
+        add_edit_updates(R, b, a, a_chars);
 
         for (auto& [x, s, score] : m_str_updates) {
             a.reset();
@@ -1095,7 +1101,7 @@ namespace sls {
             }
             if (!is_value(xi)) {
                 m_str_updates.push_back({ xi, vi.extract(0, i), score });
-                m_str_updates.push_back({ xi, vi.extract(0, i) + zstring(vj[j]), score});                
+                m_str_updates.push_back({ xi, vi.extract(0, i) + zstring(vj[j]), score});
             }
             if (!is_value(yj)) {
                 m_str_updates.push_back({ yj, vj.extract(0, j), score });
@@ -1274,7 +1280,7 @@ namespace sls {
             if (!is_value(x)) {
                 m_str_updates.push_back({ x, zstring(), 1 });
                 if (lenx > r && r >= 0) 
-                    m_str_updates.push_back({ x, sx.extract(0, r.get_unsigned()), 1 });                
+                    m_str_updates.push_back({ x, sx.extract(0, r.get_unsigned()), 1 });
             }
             if (!m.is_value(y)) {
                 m_int_updates.push_back({ y, rational(lenx), 1 });
@@ -1325,7 +1331,7 @@ namespace sls {
         if (value == -1) {
             m_str_updates.push_back({ y, zstring(m_chars[ctx.rand(m_chars.size())]), 1 });
             if (lenx > 0)
-                m_str_updates.push_back({ x, zstring(), 1 }); 
+                m_str_updates.push_back({ x, zstring(), 1 });
         }
         // change x:
         // insert y into x at offset
@@ -1343,7 +1349,7 @@ namespace sls {
         if (offset_r.is_unsigned() && 0 <= value && offset_u + value < lenx) {
             unsigned offs = offset_u + value.get_unsigned();
             for (unsigned i = offs; i < lenx; ++i) 
-                m_str_updates.push_back({ y, sx.extract(offs, i - offs + 1), 1 });            
+                m_str_updates.push_back({ y, sx.extract(offs, i - offs + 1), 1 });
         }
 
         // change offset:
@@ -1474,13 +1480,13 @@ namespace sls {
                 if (idx > 0)
                     su = sa.extract(0, idx);
                 su = su + sa.extract(idx + sb.length(), sa.length() - idx - sb.length());            
-                m_str_updates.push_back({a, su, 1});
+                m_str_updates.push_back({ a, su, 1});
             }
             if (!m_chars.empty() && !is_value(b)) {
                 zstring sb1 = sb + zstring(m_chars[ctx.rand(m_chars.size())]);
                 zstring sb2 = zstring(m_chars[ctx.rand(m_chars.size())]) + sb;
-                m_str_updates.push_back({b, sb1, 1});
-                m_str_updates.push_back({b, sb2, 1});
+                m_str_updates.push_back({ b, sb1, 1});
+                m_str_updates.push_back({ b, sb2, 1});
             }
         }
         return apply_update();
@@ -1525,8 +1531,7 @@ namespace sls {
         for (auto ch : value0) 
             chars.insert(ch);
 
-        // add_step_edit_updates(es, value, value0, chars);
-        add_substr_edit_updates(es, value, value0, chars);
+        add_edit_updates(es, value, value0, chars);
 
         unsigned diff = edit_distance(value, value0);
         for (auto& [x, s, score] : m_str_updates) {
