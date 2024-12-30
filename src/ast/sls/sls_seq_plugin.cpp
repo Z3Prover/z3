@@ -879,6 +879,12 @@ namespace sls {
         return u[n][m];
     }
 
+    int seq_plugin::add_str_update(expr* e, zstring const& val, double score) {
+        zstring new_v = trunc_pad_to_fit(get_eval(e).min_length, get_eval(e).max_length, val);
+        m_str_updates.push_back({ e, new_v, score });
+        return new_v.length() == val.length() ? 0 : (new_v.length() > val.length() ? 1 : -1);
+    }
+
     zstring seq_plugin::trunc_pad_to_fit(unsigned min_length, unsigned max_length, zstring const& s) {
         if (s.length() > max_length)
             return s.extract(0, max_length);
@@ -1708,7 +1714,7 @@ namespace sls {
             }
         }
 
-        std::cout << "No candidate found" << std::endl;
+        // std::cout << "No candidate found" << std::endl;
         return false;
     }
 
