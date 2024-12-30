@@ -108,7 +108,7 @@ namespace sls {
 
         void try_set(expr* u, bvect const& new_value);
         void add_updates(expr* u);
-        void apply_update(expr* e, bvect const& new_value, char const* reason);
+        bool apply_update(expr* e, bvect const& new_value, char const* reason);
         bool apply_random_move(ptr_vector<expr> const& vars);
         bool apply_guided_move(ptr_vector<expr> const& vars);
         bool apply_random_update(ptr_vector<expr> const& vars);

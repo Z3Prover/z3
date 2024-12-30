@@ -92,11 +92,7 @@ namespace sls {
         for (unsigned i = 0; i < sz; ++i)
             add_updates(vars[(start + i) % sz]);
         CTRACE("bv", !m_best_expr, tout << "no guided move\n";);
-        if (!m_best_expr)
-            return false;
-
-        apply_update(m_best_expr, m_best_value, "increasing move");
-        return true;
+        return apply_update(m_best_expr, m_best_value, "increasing move");
     }
 
     /**
@@ -107,10 +103,7 @@ namespace sls {
         auto& v = wval(e);
         m_v_updated.set_bw(v.bw);
         v.get_variant(m_v_updated, m_ev.m_rand);
-        if (!v.can_set(m_v_updated))
-            return false;
-        apply_update(e, m_v_updated, "random update");
-        return true;
+        return apply_update(e, m_v_updated, "random update");
     }
 
     /**
@@ -135,11 +128,7 @@ namespace sls {
             v.sub1(m_v_updated);
             break;
         }
-
-        if (!v.can_set(m_v_updated))
-            return false;
-        apply_update(e, m_v_updated, "random move");
-        return true;
+        return apply_update(e, m_v_updated, "random move");
     }
 
     /**
@@ -223,9 +212,7 @@ namespace sls {
                 auto& v = wval(e);
                 m_v_updated.set_bw(v.bw);
                 m_v_updated.set_zero();
-                if (v.can_set(m_v_updated)) {
-                    apply_update(e, m_v_updated, "reset");
-                }
+                apply_update(e, m_v_updated, "reset");                
             }
         }
     }
@@ -477,10 +464,12 @@ namespace sls {
     * The update is committed.
     */
 
-    void bv_lookahead::apply_update(expr* e, bvect const& new_value, char const* reason) {
+    bool bv_lookahead::apply_update(expr* e, bvect const& new_value, char const* reason) {
         SASSERT(bv.is_bv(e));
         SASSERT(is_uninterp(e));
         SASSERT(m_restore.empty());
+        if (!e || !wval(e).can_set(new_value))
+            return false;
         wval(e).eval = new_value;
         double old_top_score = m_top_score;
 
@@ -520,6 +509,7 @@ namespace sls {
         TRACE("bv", tout << reason << " " << mk_bounded_pp(m_best_expr, m)
             << " := " << new_value
             << " score " << m_top_score << "\n";);
+        return true;
     }
 
     bool bv_lookahead::insert_update(expr* e) {
