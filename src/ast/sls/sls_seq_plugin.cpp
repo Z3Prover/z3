@@ -164,14 +164,16 @@ namespace sls {
                 }
                 if (ctx.rand(2) == 0 && update(e, rational(sx.length())))
                     return false;
+                // TODO: Why from the beginning? We can take any subsequence of given length
                 if (r < sx.length() && update(x, sx.extract(0, r.get_unsigned())))
                     return false;
                 if (update(e, rational(sx.length())))
                     return false;
-                if (r > sx.length() && update(x, sx + zstring(m_chars[ctx.rand(m_chars.size())])))
+                if (r > sx.length() && update(x, sx + (!m_chars.empty() ? m_chars[ctx.rand(m_chars.size())] : zstring("a"))))
                     return false;
-                verbose_stream() << mk_pp(x, m) << " = " << sx << " " << ve << "\n";
-                NOT_IMPLEMENTED_YET();
+                // This case seems to imply unsat
+                verbose_stream() << "The input might be unsat\n"; // example to trigger: (assert (and (>= (str.len X) 2) (= (str.substr X 0 1) "")))
+                VERIFY(false);
                 return false;
             }
 
@@ -516,6 +518,8 @@ namespace sls {
             return true;
         if (seq.is_string(e->get_sort()) && strval0(e) == strval1(e))
             return true;
+        SASSERT(!seq.is_string(e->get_sort()) || strval0(e).length() >= get_eval(e).min_length);
+        SASSERT(!seq.is_string(e->get_sort()) || strval0(e).length() <= get_eval(e).max_length);
         if (e->get_family_id() == m_fid)
             return repair_down_seq(e);
         if (m.is_eq(e))
@@ -539,15 +543,17 @@ namespace sls {
         len_u = r.get_unsigned();
         if (len_u == val_x.length())
             return true;
-        if (len_u < val_x.length()) {
-            for (unsigned i = 0; i + len_u < val_x.length(); ++i) 
+        if (len_u < val_x.length()) {       
+            for (unsigned i = 0; i + len_u < val_x.length(); ++i)
                 m_str_updates.push_back({ x, val_x.extract(i, len_u), 1 });
         }
-        if (!m_chars.empty()) {
-            zstring ch(m_chars[ctx.rand(m_chars.size())]);
-            m_str_updates.push_back({ x, val_x + ch, 1 });
-            m_str_updates.push_back({ x, ch + val_x, 1 });
-        }
+        zstring ch = !m_chars.empty() ? m_chars[ctx.rand(m_chars.size())] : zstring("a");
+        zstring val_x_new = val_x + ch;
+        m_str_updates.push_back({ x, val_x_new, 1 });
+        zstring val_x_new2 = ch + val_x;
+        if (val_x_new != val_x_new2)
+            m_str_updates.push_back({ x, val_x_new2, 1 });
+
         return apply_update();
     }
 
@@ -873,6 +879,22 @@ namespace sls {
         return u[n][m];
     }
 
+    int seq_plugin::add_str_update(expr* e, zstring const& val, double score) {
+        zstring new_v = trunc_pad_to_fit(get_eval(e).min_length, get_eval(e).max_length, val);
+        m_str_updates.push_back({ e, new_v, score });
+        return new_v.length() == val.length() ? 0 : (new_v.length() > val.length() ? 1 : -1);
+    }
+
+    zstring seq_plugin::trunc_pad_to_fit(unsigned min_length, unsigned max_length, zstring const& s) {
+        if (s.length() > max_length)
+            return s.extract(0, max_length);
+        if (s.length() >= min_length)
+            return s;
+        zstring r = s;
+        while (r.length() < min_length)
+            r += !m_chars.empty() ? m_chars[ctx.rand(m_chars.size())] : zstring("a");
+        return r;
+    }
 
     bool seq_plugin::repair_down_str_eq_edit_distance_incremental(app* eq) {        
         auto const& L = lhs(eq);
@@ -1263,7 +1285,6 @@ namespace sls {
         expr* x, * y;
         VERIFY(seq.str.is_at(e, x, y));
         zstring se = strval0(e);
-        verbose_stream() << "repair down at " << mk_pp(e, m) << " " << se << "\n";
         if (se.length() > 1)
             return false;
         zstring sx = strval0(x);
@@ -1290,11 +1311,18 @@ namespace sls {
             // index should be in bounds of a.
             if (!is_value(x)) {
                 if (lenx > r && r >= 0) {
-                    zstring new_x = sx.extract(0, r.get_unsigned()) + se + sx.extract(r.get_unsigned() + 1, lenx);
+                    // insert or replace the desired character
+                    zstring p = sx.extract(0, r.get_unsigned()) + se;
+                    zstring new_x = p + sx.extract(r.get_unsigned() + 1, lenx - (r.get_unsigned() + 1));
+                    m_str_updates.push_back({ x, new_x, 1 });
+                    new_x = p + sx.extract(r.get_unsigned(), lenx - r.get_unsigned());
                     m_str_updates.push_back({ x, new_x, 1 });
                 }
-                if (lenx <= r) {
-                    zstring new_x = sx + se;
+                else {
+                    zstring new_x = sx;
+                    while (new_x.length() < r)
+                        new_x += zstring(!m_chars.empty() ? m_chars[ctx.rand(m_chars.size())] : zstring("a"));
+                    new_x = trunc_pad_to_fit(get_eval(x).min_length, get_eval(x).max_length, new_x + se);
                     m_str_updates.push_back({ x, new_x, 1 });
                 }
             }
@@ -1492,6 +1520,7 @@ namespace sls {
     bool seq_plugin::repair_down_str_extract(app* e) {
         expr* x, * offset, * len;
         VERIFY(seq.str.is_extract(e, x, offset, len));
+        SASSERT(strval0(e) != strval1(e));
         zstring v = strval0(e);
         zstring r = strval0(x);
         expr_ref offset_e = ctx.get_value(offset);
@@ -1499,18 +1528,38 @@ namespace sls {
         rational offset_val, len_val;
         VERIFY(a.is_numeral(offset_e, offset_val));
         VERIFY(a.is_numeral(len_e, len_val));
-        if (offset_val < 0)
-            return false;
-        if (len_val < 0)
-            return false;
-        SASSERT(offset_val.is_unsigned());
-        SASSERT(len_val.is_unsigned());
-        unsigned offset_u = offset_val.get_unsigned();
-        unsigned len_u = len_val.get_unsigned();
+
+        // std::cout << "repair extract " << mk_bounded_pp(e, m) << " := \"" << v << "\"" << std::endl;
+        // std::cout << "Args: \"" << r << "\" " << offset_val << " " << len_val << std::endl;
+
+        unsigned offset_u = offset_val.is_unsigned() ? offset_val.get_unsigned() : 0;
+        unsigned len_u = len_val.is_unsigned() ? len_val.get_unsigned() : 0;
+        bool has_empty = false;
+
+        if (offset_val.is_neg() || offset_val.get_unsigned() >= r.length()) {
+            has_empty = true;
+            for (unsigned i = 0; i < r.length(); i++)
+                m_int_updates.push_back({ offset, rational(i), 1 });
+        }
+
+        if (!len_val.is_pos()) {
+            has_empty = true;
+            for (unsigned i = 1; i + offset_u < r.length(); i++)
+                m_int_updates.push_back({ len, rational(i), 1 });
+        }
+
+        if (has_empty)
+            m_str_updates.push_back({ e, zstring(), 1 });
+
         zstring prefix = r.extract(0, offset_u);
         zstring suffix = r.extract(offset_u + len_u, r.length());
         zstring new_r = prefix + v + suffix;
-        m_str_updates.push_back({ x, new_r, 1 });
+
+        new_r = trunc_pad_to_fit(get_eval(x).min_length, get_eval(x).max_length, new_r);
+
+        if (new_r != r)
+            m_str_updates.push_back({ x, new_r, 1 });
+
         return apply_update();
     }
 
@@ -1522,7 +1571,7 @@ namespace sls {
         for (auto const& e : es)
             value += strval0(e);
         if (value == value0)
-            return true;     
+            return true;
         uint_set chars;
 
         for (auto ch : value0) 
@@ -1599,6 +1648,7 @@ namespace sls {
 
 
     bool seq_plugin::apply_update() {
+        SASSERT(!m_str_updates.empty() || !m_int_updates.empty());
         double sum_scores = 0;
         for (auto const& [e, val, score] : m_str_updates)
             sum_scores += score;
@@ -1633,7 +1683,9 @@ namespace sls {
             if (is_str_update) {
                 auto [e, value, score] = m_str_updates[i];
 
+                // std::cout << "Trying str-update: " <<  mk_pp(e, m) << " := \"" << value << "\"" << std::endl;
                 if (update(e, value)) {
+                    // std::cout << "Success" << std::endl;
                     IF_VERBOSE(3, verbose_stream() << "set value " << mk_bounded_pp(e, m) << " := \"" << value << "\"\n");
                     m_str_updates.reset();
                     m_int_updates.reset();
@@ -1649,7 +1701,9 @@ namespace sls {
 
                 IF_VERBOSE(3, verbose_stream() << "set value " << mk_bounded_pp(e, m) << " := " << value << "\n");
 
+                // std::cout << "Trying int-update: " <<  mk_pp(e, m) << " := " << value << std::endl;
                 if (update(e, value)) {
+                    // std::cout << "Success" << std::endl;
                     m_int_updates.reset();
                     m_str_updates.reset();
                     return true;
@@ -1660,11 +1714,13 @@ namespace sls {
             }
         }
 
+        // std::cout << "No candidate found" << std::endl;
         return false;
     }
 
     bool seq_plugin::update(expr* e, zstring const& value) {
         SASSERT(value != strval0(e));
+        // std::cout << "str-update " << mk_pp(e, m) << " := \"" << value << "\" [\"" << strval0(e) << "\"]" << std::endl;
         // if (value == strval0(e))
         //     return true;
         if (is_value(e))
@@ -1750,7 +1806,6 @@ namespace sls {
         if (!is_seq_predicate(e))
             return;
         auto a = to_app(e);
-        // verbose_stream() << "repair " << lit << " " << mk_pp(e, m) << " " << bval1(e) << "\n";
         if (bval1(e) == lit.sign())
             ctx.flip(lit.var());
     }

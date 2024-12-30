@@ -131,6 +131,9 @@ namespace sls {
         void add_char_edit_updates(ptr_vector<expr> const& w, zstring const& val, zstring const& val_other, uint_set const& chars);
         void add_substr_edit_updates(ptr_vector<expr> const& w, zstring const& val, zstring const& val_other, uint_set const& chars);
 
+        int add_str_update(expr* e, zstring const& val, double score);
+        zstring trunc_pad_to_fit(unsigned min_length, unsigned max_length, zstring const& s);
+
         // regex functionality
         
         // enumerate set of strings that can match a prefix of regex r.
