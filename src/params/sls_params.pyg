@@ -3,7 +3,7 @@ def_module_params('sls',
                   description='Experimental Stochastic Local Search Solver (for QFBV only).',
                   params=(max_memory_param(),
                         ('max_restarts', UINT, UINT_MAX, 'maximum number of restarts'),
-			('max_repairs', UINT, 1000, 'maximum number of repairs before restart'),
+                        ('max_repairs', UINT, 1000, 'maximum number of repairs before restart'),
                         ('walksat', BOOL, 1, 'use walksat assertion selection (instead of gsat)'),
                         ('walksat_ucb', BOOL, 1, 'use bandit heuristic for walksat assertion selection (instead of random)'),
                         ('walksat_ucb_constant', DOUBLE, 20.0, 'the ucb constant c in the term score + c * f(touched)'),
@@ -24,5 +24,6 @@ def_module_params('sls',
                         ('rescore', BOOL, 1, 'rescore/normalize top-level score every base restart interval'),
                         ('dt_axiomatic', BOOL, True, 'use axiomatic mode or model reduction for datatype solver'),
                         ('track_unsat', BOOL, 0, 'keep a list of unsat assertions as done in SAT - currently disabled internally'),
-                        ('random_seed', UINT, 0, 'random seed')
+                        ('random_seed', UINT, 0, 'random seed'),
+                        ('str_update_strategy', UINT, 1, 'string update candidate selection: 0 - single character based update, 1 - subsequence based update')
               ))
