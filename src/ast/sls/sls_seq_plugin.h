@@ -123,6 +123,8 @@ namespace sls {
         unsigned edit_distance(zstring const& a, zstring const& b);
         void add_edit_updates(ptr_vector<expr> const& w, zstring const& val, zstring const& val_other, uint_set const& chars);
 
+        zstring trunc_pad_to_fit(unsigned min_length, unsigned max_length, zstring const& s);
+
         // regex functionality
         
         // enumerate set of strings that can match a prefix of regex r.

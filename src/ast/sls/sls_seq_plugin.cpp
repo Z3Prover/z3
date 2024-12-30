@@ -154,14 +154,16 @@ namespace sls {
                 }
                 if (ctx.rand(2) == 0 && update(e, rational(sx.length())))
                     return false;
+                // TODO: Why from the beginning? We can take any subsequence of given length
                 if (r < sx.length() && update(x, sx.extract(0, r.get_unsigned())))
                     return false;
                 if (update(e, rational(sx.length())))
                     return false;
-                if (r > sx.length() && update(x, sx + zstring(m_chars[ctx.rand(m_chars.size())])))
+                if (r > sx.length() && update(x, sx + (!m_chars.empty() ? m_chars[ctx.rand(m_chars.size())] : zstring("a"))))
                     return false;
-                verbose_stream() << mk_pp(x, m) << " = " << sx << " " << ve << "\n";
-                NOT_IMPLEMENTED_YET();
+                // This case seems to imply unsat
+                verbose_stream() << "The input might be unsat\n"; // example to trigger: (assert (and (>= (str.len X) 2) (= (str.substr X 0 1) "")))
+                VERIFY(false);
                 return false;
             }
 
@@ -530,14 +532,16 @@ namespace sls {
         if (len_u == val_x.length())
             return true;
         if (len_u < val_x.length()) {
-            for (unsigned i = 0; i + len_u < val_x.length(); ++i) 
-                m_str_updates.push_back({ x, val_x.extract(i, len_u), 1 });            
+            for (unsigned i = 0; i + len_u < val_x.length(); ++i)
+                m_str_updates.push_back({ x, val_x.extract(i, len_u), 1 });
         }
-        if (!m_chars.empty()) {
-            zstring ch(m_chars[ctx.rand(m_chars.size())]);
-            m_str_updates.push_back({ x, val_x + ch, 1 });
-            m_str_updates.push_back({ x, ch + val_x, 1 });            
-        }
+        zstring ch = !m_chars.empty() ? m_chars[ctx.rand(m_chars.size())] : zstring("a");
+        zstring val_x_new = val_x + ch;
+        m_str_updates.push_back({ x, val_x_new, 1 });
+        zstring val_x_new2 = ch + val_x;
+        if (val_x_new != val_x_new2)
+            m_str_updates.push_back({ x, val_x_new2, 1 });
+
         return apply_update();
     }
 
@@ -832,6 +836,16 @@ namespace sls {
         return u[n][m];
     }
 
+    zstring seq_plugin::trunc_pad_to_fit(unsigned min_length, unsigned max_length, zstring const& s) {
+        if (s.length() > max_length)
+            return s.extract(0, max_length);
+        if (s.length() >= min_length)
+            return s;
+        zstring r = s;
+        while (r.length() < min_length)
+            r += !m_chars.empty() ? m_chars[ctx.rand(m_chars.size())] : zstring("a");
+        return r;
+    }
 
     bool seq_plugin::repair_down_str_eq_edit_distance_incremental(app* eq) {        
         auto const& L = lhs(eq);
@@ -1258,7 +1272,7 @@ namespace sls {
                 else {
                     zstring new_x = sx;
                     while (new_x.length() < r)
-                        new_x += zstring(m_chars[ctx.rand(m_chars.size())]);
+                        new_x += zstring(!m_chars.empty() ? m_chars[ctx.rand(m_chars.size())] : zstring("a"));
                     new_x += se;
                     m_str_updates.push_back({ x, new_x, 1 });
                 }
@@ -1464,17 +1478,26 @@ namespace sls {
         rational offset_val, len_val;
         VERIFY(a.is_numeral(offset_e, offset_val));
         VERIFY(a.is_numeral(len_e, len_val));
-        if (offset_val < 0)
-            return false;
-        if (len_val < 0)
-            return false;
+        if (v.empty() && (offset_val.is_neg() || !len_val.is_pos()))
+            return true;
+        if (v == r.extract(offset_val.get_unsigned(), len_val.get_unsigned()))
+            return true;
+
         SASSERT(offset_val.is_unsigned());
         SASSERT(len_val.is_unsigned());
         unsigned offset_u = offset_val.get_unsigned();
         unsigned len_u = len_val.get_unsigned();
+
         zstring prefix = r.extract(0, offset_u);
         zstring suffix = r.extract(offset_u + len_u, r.length());
         zstring new_r = prefix + v + suffix;
+
+        std::cout << "repair extract " << mk_bounded_pp(e, m) << " \"" << v << "\"" << std::endl;
+        std::cout << "\"" << r << "\" " << offset_val << " " << len_val << std::endl;
+
+        new_r = trunc_pad_to_fit(get_eval(x).min_length, get_eval(x).max_length, new_r);
+
+        std::cout << new_r << std::endl;
         m_str_updates.push_back({ x, new_r, 1 });
         return apply_update();
     }
@@ -1487,7 +1510,7 @@ namespace sls {
         for (auto const& e : es)
             value += strval0(e);
         if (value == value0)
-            return true;     
+            return true;
         uint_set chars;
 
         for (auto ch : value0) 
@@ -1716,7 +1739,6 @@ namespace sls {
         if (!is_seq_predicate(e))
             return;
         auto a = to_app(e);
-        // verbose_stream() << "repair " << lit << " " << mk_pp(e, m) << " " << bval1(e) << "\n";
         if (bval1(e) == lit.sign())
             ctx.flip(lit.var());
     }
