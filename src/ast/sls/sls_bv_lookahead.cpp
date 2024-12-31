@@ -38,6 +38,7 @@ namespace sls {
     * before any other propagation with the main BV solver. 
     */
     void bv_lookahead::start_propagation() {
+        //verbose_stream() << "start_propagation " << m_stats.m_num_propagations << "\n";
         if (m_stats.m_num_propagations++ % m_config.propagation_base == 0) 
             search();        
     }
@@ -54,6 +55,8 @@ namespace sls {
         updt_params(ctx.get_params());
         rescore();
         m_config.max_moves = m_stats.m_moves + m_config.max_moves_base;
+        TRACE("bv", tout << "search " << m_stats.m_moves << " " << m_config.max_moves << "\n";);
+        IF_VERBOSE(3, verbose_stream() << "lookahead-search moves:" << m_stats.m_moves << " max-moves:" << m_config.max_moves << "\n");
 
         while (m.inc() && m_stats.m_moves < m_config.max_moves) {
             m_stats.m_moves++;
@@ -62,8 +65,8 @@ namespace sls {
             // get candidate variables
             auto& vars = get_candidate_uninterp();
 
-            if (vars.empty())
-                return;
+            if (vars.empty()) 
+                return;            
 
             // random walk  
             if (ctx.rand(2047) < m_config.wp && apply_random_move(vars))
@@ -72,6 +75,9 @@ namespace sls {
             // guided moves, greedily reducing cost of false literals
             if (apply_guided_move(vars))
                 continue;
+
+            if (apply_flip())
+                return;
 
             // bail out if no progress, and try random update
             if (apply_random_update(get_candidate_uninterp()))
@@ -133,6 +139,17 @@ namespace sls {
         return apply_update(e, m_v_updated, "random move");
     }
 
+    bool bv_lookahead::apply_flip() {
+        if (!m_last_atom)
+            return false;
+        auto const& cond = m_ev.terms.condition_occurs(m_last_atom);
+        if (cond.empty())
+            return false;         
+        expr* e = cond[ctx.rand(cond.size())];
+        ctx.flip(ctx.atom2bool_var(e));
+        return true;        
+    }
+
     /**
     * Retrieve a candidate top-level predicate that is false, give preference to
     * those with high score, but back off if they are frequently chosen.
@@ -163,12 +180,14 @@ namespace sls {
                 if (is_false_bv_literal(lit) && ctx.rand() % ++n == 0)
                     e = to_app(ctx.atom(lit.var()));
         }
-        CTRACE("bv", !e, tout << "no candidate\n";
-        ctx.display(tout);
-        display_weights(tout););
+        CTRACE("bv", !e, ; display_weights(ctx.display(tout << "no candidate\n")););
+
+        m_last_atom = e;
 
         if (!e)
             return m_empty_vars;
+
+
 
         auto const& vars = m_ev.terms.uninterp_occurs(e);
 

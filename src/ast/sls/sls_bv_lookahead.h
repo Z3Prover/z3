@@ -39,7 +39,7 @@ namespace sls {
             bool early_prune = true;
             unsigned max_moves = 0;
             unsigned max_moves_base = 800;
-            unsigned propagation_base = 10000;
+            unsigned propagation_base = 1000;
             bool ucb = true;
             double ucb_constant = 1.0;
             double ucb_forget = 0.1;
@@ -74,6 +74,7 @@ namespace sls {
         double m_best_score = 0, m_top_score = 0;
         bvect m_best_value;
         expr* m_best_expr = nullptr;
+        expr* m_last_atom = nullptr;
         ptr_vector<expr> m_empty_vars;
         obj_map<expr, bool_info> m_bool_info;
         expr_mark m_is_root;
@@ -112,6 +113,7 @@ namespace sls {
         bool apply_random_move(ptr_vector<expr> const& vars);
         bool apply_guided_move(ptr_vector<expr> const& vars);
         bool apply_random_update(ptr_vector<expr> const& vars);
+        bool apply_flip();
         ptr_vector<expr> const& get_candidate_uninterp();
 
         void check_restart();

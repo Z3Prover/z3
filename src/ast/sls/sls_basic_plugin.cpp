@@ -44,8 +44,17 @@ namespace sls {
     void basic_plugin::register_term(expr* e) {
         expr* c, * th, * el;
         if (m.is_ite(e, c, th, el) && !m.is_bool(e)) {
-            ctx.add_clause(m.mk_or(mk_not(m, c), m.mk_eq(e, th)));
-            ctx.add_clause(m.mk_or(c, m.mk_eq(e, el)));
+            auto eq_th = expr_ref(m.mk_eq(e, th), m);
+            auto eq_el = expr_ref(m.mk_eq(e, el), m);
+
+            ctx.add_clause(m.mk_or(mk_not(m, c), eq_th));
+            ctx.add_clause(m.mk_or(c, eq_el));
+#if 0
+            auto eq_th_el = expr_ref(m.mk_eq(th, el), m);
+            verbose_stream() << mk_bounded_pp(eq_th_el, m) << "\n";
+            ctx.add_clause(m.mk_or(eq_th_el, c, m.mk_not(eq_th)));
+            ctx.add_clause(m.mk_or(eq_th_el, m.mk_not(c), m.mk_not(eq_el)));
+#endif
         }
     }
 
@@ -178,8 +187,16 @@ namespace sls {
 
         if (m.is_xor(e) && eval_xor(e) == ctx.get_value(e))
             return true;
-        if (m.is_ite(e) && eval_ite(e) == ctx.get_value(e))
+        if (m.is_ite(e) && !m.is_bool(e)) {
+            if (eval_ite(e) == ctx.get_value(e))
+                return true;
+            if (try_repair(e, 1))
+                return true;
+            if (try_repair(e, 2))
+                return true;
+            ctx.flip(ctx.atom2bool_var(e->get_arg(0)));
             return true;
+        }
         if (m.is_distinct(e) && eval_distinct(e) == ctx.get_value(e))
             return true;
         unsigned n = e->get_num_args();

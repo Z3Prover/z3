@@ -49,6 +49,8 @@ namespace sls {
 
         void register_term(expr* e);
 
+        bool is_bv_predicate(expr* e) const;
+
         expr_ref_vector& axioms() { return m_axioms; }
 
         ptr_vector<expr> const& uninterp_occurs(expr* e);

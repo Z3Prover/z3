@@ -114,6 +114,17 @@ namespace sls {
         return r;
     }
 
+    bool bv_terms::is_bv_predicate(expr* e) const {
+        if (!e || !is_app(e) || !m.is_bool(e))
+            return false;
+        auto a = to_app(e);
+        if (a->get_family_id() == bv.get_family_id())
+            return true;
+        if (m.is_eq(e) && bv.is_bv(a->get_arg(0)))
+            return true;
+        return false;
+    }
+
     ptr_vector<expr> const& bv_terms::uninterp_occurs(expr* e) {
         unsigned id = e->get_id();
         m_uninterp_occurs.reserve(id + 1);
@@ -133,21 +144,13 @@ namespace sls {
     }
 
     void bv_terms::register_uninterp(expr* e) {
-        if (!m.is_bool(e))
-            return;
-        expr* x, *y;
-
-        if (m.is_eq(e, x, y) && bv.is_bv(x))
-            ;
-        else if (is_app(e) && to_app(e)->get_family_id() == bv.get_fid())
-            ;
-        else
+        if (!is_bv_predicate(e))
             return;
         m_uninterp_occurs.reserve(e->get_id() + 1);
         m_condition_occurs.reserve(e->get_id() + 1);
         auto& occs = m_uninterp_occurs[e->get_id()];
         auto& cond_occs = m_condition_occurs[e->get_id()];
-        ptr_vector<expr> todo;
+        ptr_vector<expr> todo, cond_todo;
         todo.append(to_app(e)->get_num_args(), to_app(e)->get_args());
         expr_mark marked;
         expr* c, * th, * el;
@@ -156,7 +159,13 @@ namespace sls {
             if (marked.is_marked(e))
                 continue;
             marked.mark(e);
-            if (is_app(e) && to_app(e)->get_family_id() == bv.get_fid()) {
+            if (is_bv_predicate(e))
+                cond_occs.push_back(e);
+            else if (is_app(e) && to_app(e)->get_family_id() == bv.get_fid()) {
+                for (expr* arg : *to_app(e))
+                    todo.push_back(arg);
+            }
+            else if (m.is_bool(e) && to_app(e)->get_family_id() == basic_family_id) {
                 for (expr* arg : *to_app(e))
                     todo.push_back(arg);
             }

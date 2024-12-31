@@ -40,14 +40,7 @@ namespace sls {
     }
 
     bool bv_plugin::is_bv_predicate(expr* e) {
-        if (!e || !is_app(e))
-            return false;
-        auto a = to_app(e);
-        if (a->get_family_id() == bv.get_family_id())
-            return true;
-        if (m.is_eq(e) && bv.is_bv(a->get_arg(0)))
-            return true;
-        return false;
+        return m_terms.is_bv_predicate(e);
     }
 
     void bv_plugin::start_propagation() {

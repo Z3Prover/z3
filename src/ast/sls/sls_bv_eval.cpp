@@ -1977,13 +1977,7 @@ namespace sls {
         if (v.eval == v.bits())
             return true;
 
-        for (unsigned i = 0; i < v.nw; ++i) 
-            if (0 != (v.fixed(i) & (v.bits(i) ^ v.eval[i]))) 
-                return false;
-
-        if (!v.commit_eval_check_tabu())
-            return false;
-
+        v.commit_eval_ignore_tabu();
         ctx.new_value_eh(e);
         return true;
     }
