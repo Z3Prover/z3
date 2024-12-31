@@ -241,7 +241,7 @@ br_status bv_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
         return BR_FAILED;
     }
 
-    CTRACE("bv", st != BR_FAILED, tout << mk_pp(f, m) << "\n";
+    CTRACE("bv_verbose", st != BR_FAILED, tout << mk_pp(f, m) << "\n";
            for (unsigned i = 0; i < num_args; ++i)
                tout << " " << mk_bounded_pp(args[i], m) << "\n";
            tout << mk_bounded_pp(result, m, 3) << "\n");

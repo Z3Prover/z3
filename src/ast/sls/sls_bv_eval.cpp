@@ -94,7 +94,7 @@ namespace sls {
 
     void bv_eval::init_eval_bv(app* e) {
         if (bv.is_bv(e)) 
-            eval(e).commit_eval();               
+            eval(e).commit_eval_check_tabu();               
     }
     
     bool bv_eval::can_eval1(app* e) const {
@@ -938,7 +938,7 @@ namespace sls {
 
     bool bv_eval::try_repair_band(bvect const& e, bvval& a, bvval const& b) {
         for (unsigned i = 0; i < a.nw; ++i)
-            m_tmp[i] = ~a.fixed[i] & (e[i] | (~b.bits()[i] & random_bits()));
+            m_tmp[i] = ~a.fixed(i) & (e[i] | (~b.bits()[i] & random_bits()));
         return a.set_repair(random_bool(), m_tmp);
     }
 
@@ -952,7 +952,7 @@ namespace sls {
 
         bvval& a = wval(t, i);
         for (unsigned j = 0; j < a.nw; ++j) 
-            m_tmp[j] = ~a.fixed[j] & (e[j] | (~m_tmp2[j] & random_bits()));
+            m_tmp[j] = ~a.fixed(j) & (e[j] | (~m_tmp2[j] & random_bits()));
 
         return a.set_repair(random_bool(), m_tmp);
     }
@@ -1453,13 +1453,13 @@ namespace sls {
         if (msb > a.msb(t)) {
             unsigned num_flex = 0;
             for (unsigned i = e.bw; i-- >= msb;) 
-                if (!a.fixed.get(i))
+                if (!a.fixed().get(i))
                     ++num_flex;
             if (num_flex == 0)
                 return false;
             unsigned n = m_rand(num_flex);
             for (unsigned i = e.bw; i-- >= msb;) {
-                if (!a.fixed.get(i)) {
+                if (!a.fixed().get(i)) {
                     if (n == 0) {
                         t.set(i, true);
                         break;
@@ -1519,7 +1519,7 @@ namespace sls {
         else {
             for (unsigned i = 0; i < 4; ++i) {
                 for (unsigned i = a.bw; !(t <= clze) && i-- > 0; )
-                    if (!b.fixed.get(i))
+                    if (!b.fixed().get(i))
                         t.set(i, false);
                 if (t <= clze && b.set_repair(random_bool(), t))
                     return true;                
@@ -1654,13 +1654,13 @@ namespace sls {
 
     bool bv_eval::try_repair_udiv(bvect const& e, bvval& a, bvval& b, unsigned i) {
         if (i == 0) {
-            if (a.is_zero(e) && a.is_ones(a.fixed) && a.is_ones())
+            if (a.is_zero(e) && a.is_ones(a.fixed()) && a.is_ones())
                 return false;            
             if (b.is_zero()) 
                 return false;            
             if (!a.is_ones(e)) {
                 for (unsigned i = 0; i < a.nw; ++i)
-                    m_tmp[i] = ~a.fixed[i] | a.bits()[i];
+                    m_tmp[i] = ~a.fixed()[i] | a.bits()[i];
                 a.clear_overflow_bits(m_tmp);
                 if (e > m_tmp)
                     return false;
@@ -1765,14 +1765,14 @@ namespace sls {
     bool bv_eval::add_overflow_on_fixed(bvval const& a, bvect const& t) {
         a.set(m_tmp3, m_zero);
         for (unsigned i = 0; i < a.nw; ++i)
-            m_tmp3[i] = a.fixed[i] & a.bits()[i];
+            m_tmp3[i] = a.fixed(i) & a.bits(i);
         return a.set_add(m_tmp4, t, m_tmp3);
     }
 
     bool bv_eval::mul_overflow_on_fixed(bvval const& a, bvect const& t) {
         a.set(m_tmp3, m_zero);
         for (unsigned i = 0; i < a.nw; ++i)
-            m_tmp3[i] = a.fixed[i] & a.bits()[i];
+            m_tmp3[i] = a.fixed(i) & a.bits(i);
         return a.set_mul(m_tmp4, m_tmp3, t);
     }
 
@@ -1976,10 +1976,10 @@ namespace sls {
             return true;
 
         for (unsigned i = 0; i < v.nw; ++i) 
-            if (0 != (v.fixed[i] & (v.bits()[i] ^ v.eval[i]))) 
+            if (0 != (v.fixed(i) & (v.bits(i) ^ v.eval[i]))) 
                 return false;
 
-        if (!v.commit_eval())
+        if (!v.commit_eval_check_tabu())
             return false;
 
         ctx.new_value_eh(e);
@@ -1995,15 +1995,14 @@ namespace sls {
     void bv_eval::commit_eval(expr* p, app* e) {
         if (!bv.is_bv(e))
             return;
-        SASSERT(wval(e).commit_eval());
-        VERIFY(wval(e).commit_eval());
+        VERIFY(wval(e).commit_eval_check_tabu());
     }
 
     void bv_eval::set_random(app* e) {
         if (bv.is_bv(e)) {
             auto& v = wval(e);
             if (v.set_random(m_rand))
-                VERIFY(v.commit_eval());
+                VERIFY(v.commit_eval_check_tabu());
         }
     }
 

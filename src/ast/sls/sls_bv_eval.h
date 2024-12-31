@@ -51,7 +51,7 @@ namespace sls {
         ptr_vector<expr>    m_todo;
         random_gen          m_rand;
         config              m_config;
-        bool_vector         m_fixed;
+        bool_vector         m_is_fixed;
         unsigned            m_lookahead_steps = 0;
         unsigned            m_lookahead_phase_size = 10;
         
@@ -170,7 +170,7 @@ namespace sls {
 
         void set(expr* e, sls::bv_valuation const& val);
 
-        bool is_fixed0(expr* e) const { return m_fixed.get(e->get_id(), false); }
+        bool is_fixed0(expr* e) const { return m_is_fixed.get(e->get_id(), false); }
         
         sls::bv_valuation& eval(app* e) const;
 

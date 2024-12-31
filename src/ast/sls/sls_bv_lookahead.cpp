@@ -163,6 +163,10 @@ namespace sls {
                 if (is_false_bv_literal(lit) && ctx.rand() % ++n == 0)
                     e = to_app(ctx.atom(lit.var()));
         }
+        CTRACE("bv", !e, tout << "no candidate\n";
+        ctx.display(tout);
+        display_weights(tout););
+
         if (!e)
             return m_empty_vars;
 
@@ -347,45 +351,38 @@ namespace sls {
     * Rehearse an update. The update is revered while a score is computed and returned.
     * Walk all parents, until hitting predicates where their scores are computed.
     */
-    double bv_lookahead::lookahead_update(expr* e, bvect const& new_value) {
-        SASSERT(bv.is_bv(e));
-        SASSERT(is_uninterp(e));
+    double bv_lookahead::lookahead_update(expr* t, bvect const& new_value) {
+        SASSERT(bv.is_bv(t));
+        SASSERT(is_uninterp(t));
         SASSERT(m_restore.empty());
-
-        bool has_tabu = false;
         double score = m_top_score;
 
-        wval(e).eval = new_value;
-        if (!insert_update(e)) {
-            restore_lookahead();
-            m_in_update_stack.reset();
+        if (!wval(t).can_set(new_value))
             return -1000000;
-        }
-        insert_update_stack(e);
-        unsigned max_depth = get_depth(e);
+
+        wval(t).eval = new_value;
+        insert_update(t);
+        insert_update_stack(t);
+        unsigned max_depth = get_depth(t);
         for (unsigned depth = max_depth; depth <= max_depth; ++depth) {
-            for (unsigned i = 0; !has_tabu && i < m_update_stack[depth].size(); ++i) {
+            for (unsigned i = 0; i < m_update_stack[depth].size(); ++i) {
                 auto a = m_update_stack[depth][i];
                 if (bv.is_bv(a)) {
-                    if (a == e || (m_ev.eval(a), insert_update(a))) { // do not insert e twice
-                        for (auto p : ctx.parents(a)) {
-                            insert_update_stack(p);
-                            max_depth = std::max(max_depth, get_depth(p));
-                        }
+                    if (a != t) {
+                        m_ev.eval(a);
+                        insert_update(a);
                     }
-                    else {
-                        IF_VERBOSE(3, verbose_stream() << "tabu " << mk_bounded_pp(a, m) << " " << wval(a) << "\n");
-                        has_tabu = true;
+                    for (auto p : ctx.parents(a)) {
+                        insert_update_stack(p);
+                        max_depth = std::max(max_depth, get_depth(p));
                     }
                 }
-                else if (is_root(a)) {
-                     score += get_weight(a) * (new_score(a) - old_score(a));
-                }
+                else if (is_root(a)) 
+                    score += get_weight(a) * (new_score(a) - old_score(a));                
                 else if (m.is_bool(a))
                     continue;
                 else {
                     IF_VERBOSE(1, verbose_stream() << "skipping " << mk_bounded_pp(a, m) << "\n");
-                    has_tabu = true;
                 }
             }
             m_update_stack[depth].reset();
@@ -393,10 +390,8 @@ namespace sls {
         m_in_update_stack.reset();
         restore_lookahead();
 
-        TRACE("sls_verbose", tout << mk_bounded_pp(e, m) << " := " << new_value << " score: " << m_top_score << "\n");
+        TRACE("sls_verbose", tout << mk_bounded_pp(t, m) << " := " << new_value << " score: " << m_top_score << "\n");
 
-        if (has_tabu)
-            return -10000;
         return score;
     }
 
@@ -476,7 +471,7 @@ namespace sls {
         wval(e).eval = new_value;
         double old_top_score = m_top_score;
 
-        VERIFY(wval(e).commit_eval());
+        VERIFY(wval(e).commit_eval_check_tabu());
         insert_update_stack(e);
         unsigned max_depth = get_depth(e);
         for (unsigned depth = max_depth; depth <= max_depth; ++depth) {
@@ -484,12 +479,7 @@ namespace sls {
                 auto e = m_update_stack[depth][i];
                 if (bv.is_bv(e)) {
                     m_ev.eval(e); // updates wval(e).eval
-                    if (!wval(e).commit_eval()) {
-                        TRACE("bv", tout << "failed to commit " << mk_bounded_pp(e, m) << " " << wval(e) << "\n");
-                        IF_VERBOSE(3, verbose_stream() << "failed to commit " << mk_bounded_pp(e, m) << " " << wval(e) << "\n");
-                        // bv_plugin::is_sat picks up discrepancies
-                        continue;
-                    }
+                    wval(e).commit_eval_ignore_tabu();
                     for (auto p : ctx.parents(e)) {
                         insert_update_stack(p);
                         max_depth = std::max(max_depth, get_depth(p));
@@ -515,13 +505,13 @@ namespace sls {
         return true;
     }
 
-    bool bv_lookahead::insert_update(expr* e) {
+    void bv_lookahead::insert_update(expr* e) {
         auto& v = wval(e);
         m_restore.push_back(e);
         m_on_restore.mark(e);
         TRACE("sls_verbose", tout << "insert update " << mk_bounded_pp(e, m) << " " << v << "\n");
         v.save_value();
-        return v.commit_eval();
+        v.commit_eval_ignore_tabu();
     }
 
     void bv_lookahead::insert_update_stack(expr* e) {
@@ -597,10 +587,11 @@ namespace sls {
             if (!is_bv_literal(lit))
                 continue;
             auto a = to_app(ctx.atom(lit.var()));
-            out
+            out << lit << ": "
                 << get_weight(a) << " "
                 << mk_bounded_pp(a, m) << " "
-                << old_score(a) << "\n";
+                << old_score(a) << " " 
+                << new_score(a) << "\n";
         }
         return out;
     }

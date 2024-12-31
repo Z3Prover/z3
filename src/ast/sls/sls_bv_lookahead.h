@@ -84,7 +84,7 @@ namespace sls {
         bv_valuation& wval(expr* e) const;
 
         void insert_update_stack(expr* e);
-        bool insert_update(expr* e);        
+        void insert_update(expr* e);        
         void restore_lookahead();
 
         bool_info& get_bool_info(expr* e);

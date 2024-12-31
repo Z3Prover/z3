@@ -107,7 +107,8 @@ namespace sls {
     class bv_valuation {
     protected:
         bvect m_bits;
-        bvect m_lo, m_hi;        // range assignment to bit-vector, as wrap-around interval
+        bvect m_lo, m_hi;                   // range assignment to bit-vector, as wrap-around interval
+        bvect m_is_fixed, m_fixed_values;   // fixed values
         bvect m_tmp;
         unsigned m_signed_prefix = 0;
 
@@ -119,7 +120,6 @@ namespace sls {
     public:
         unsigned bw;                     // bit-width
         unsigned nw;                     // num words
-        bvect fixed;                     // bit assignment and don't care bit
         bvect eval;                      // current evaluation
 
         
@@ -133,13 +133,18 @@ namespace sls {
         digit_t bits(unsigned i) const { return m_bits[i]; }
         bvect const& bits() const { return m_bits; }
         bvect const& tmp_bits(bool use_current) const { return use_current ? m_bits : m_tmp; }
-        bool commit_eval();
-        bool is_fixed() const { for (unsigned i = bw; i-- > 0; ) if (!fixed.get(i)) return false; return true; }
+        bvect const& fixed() const { return m_is_fixed; }
+        digit_t fixed(unsigned i) const { return m_is_fixed[i]; }
+        void set_fixed_bit(unsigned i, bool bit) { m_is_fixed.set(i, true); m_fixed_values.set(i, bit); }
+        void set_fixed_word(unsigned i, digit_t mask, digit_t value) { m_is_fixed[i] = mask; m_fixed_values[i] = value; }
+        bool commit_eval_check_tabu();
+        void commit_eval_ignore_tabu();
+        bool is_fixed() const { for (unsigned i = bw; i-- > 0; ) if (!m_is_fixed.get(i)) return false; return true; }
 
         bool get_bit(unsigned i) const { return m_bits.get(i); }
         bool try_set_bit(unsigned i, bool b) {
             SASSERT(in_range(m_bits));
-            if (fixed.get(i) && get_bit(i) != b)
+            if (m_is_fixed.get(i) && m_fixed_values.get(i) != b)
                 return false;
             m_bits.set(i, b);   
             eval.set(i, b);
@@ -307,7 +312,7 @@ namespace sls {
 
         bool try_set_range(bvect& dst, unsigned lo, unsigned hi, bool b) {
             for (unsigned i = lo; i < hi; ++i)
-                if (fixed.get(i) && get_bit(i) != b)
+                if (m_is_fixed.get(i) && get_bit(i) != b)
                     return false;
             for (unsigned i = lo; i < hi; ++i)
                 dst.set(i, b);
@@ -330,17 +335,15 @@ namespace sls {
         std::ostream& display(std::ostream& out) const {
             out << m_bits;
             out << " ev: " << eval;
-            if (!is_zero(fixed)) {
-                out << " fix:";
-                out << fixed;
-            }
+            if (!is_zero(m_is_fixed)) 
+                out << " fix:" << m_is_fixed << " " << m_fixed_values;            
             if (m_lo != m_hi) 
                 out << " [" << m_lo << ", " << m_hi << "[";            
             return out;
         }
 
         bool well_formed() const {
-            return !has_overflow(m_bits) && (!has_range() || in_range(m_bits));
+            return !has_overflow(m_bits) && (!has_range() || in_range(m_fixed_values));
         }
 
     };

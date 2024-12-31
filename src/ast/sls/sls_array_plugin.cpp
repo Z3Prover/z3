@@ -82,11 +82,16 @@ namespace sls {
         for (auto p : euf::enode_parents(n->get_root()))
             if (a.is_select(p->get_expr()))
                 add_map_axiom(g, n, p);       
+        for (auto arg : euf::enode_args(n)) {
+            SASSERT(a.is_array(arg->get_expr()));
+            for (auto p : euf::enode_parents(arg->get_root()))
+                if (a.is_select(p->get_expr()))
+                    add_map_axiom(g, n, p);
+        }
     }
 
     void array_plugin::add_map_axiom(euf::egraph& g, euf::enode * n, euf::enode* sel) {
         func_decl* f = nullptr;
-        VERIFY(sel->get_arg(0)->get_root() == n->get_root());
         SASSERT(a.is_map(n->get_expr()));
         VERIFY(a.is_map(n->get_decl(), f));
         expr_ref apply_map(m);
@@ -101,7 +106,9 @@ namespace sls {
         auto nsel = mk_select(g, n, sel);
         auto nmap = g.find(f_map);
         if (!nmap) 
-            nmap = g.mk(f_map, 0, eargs.size(), eargs.data());        
+            nmap = g.mk(f_map, 0, eargs.size(), eargs.data()); 
+        if (nmap->get_root() == nsel->get_root())
+            return;
         if (are_distinct(nsel, nmap)) {
             expr_ref eq(m.mk_eq(nmap->get_expr(), nsel->get_expr()), m);
             ctx.add_clause(eq);
