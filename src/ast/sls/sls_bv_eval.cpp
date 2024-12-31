@@ -227,6 +227,8 @@ namespace sls {
     // unsigned ddt_orig(expr* e);
 
     sls::bv_valuation& bv_eval::eval(app* e) const {
+        SASSERT(m_values.size() > e->get_id());
+        SASSERT(m_values[e->get_id()]);
         auto& val = *m_values[e->get_id()];        
         eval(e, val);
         return val;        
