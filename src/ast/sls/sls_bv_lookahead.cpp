@@ -76,7 +76,7 @@ namespace sls {
             if (apply_guided_move(vars))
                 continue;
 
-            if (apply_flip())
+            if (false && apply_flip())
                 return;
 
             // bail out if no progress, and try random update
