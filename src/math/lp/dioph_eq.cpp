@@ -464,9 +464,9 @@ namespace lp {
             std_vector<unsigned> fresh_entries_to_remove;
             for (unsigned j = 0; j < m_fresh_definitions.size(); j++) {
                 unsigned k = m_fresh_definitions[j];
-                if (k == -1) continue;
+                if (k == UINT_MAX) continue;
                 for (const auto & p: m_e_matrix.m_rows[k]) {
-                    if (contains(m_changed_columns, p.var()) || contains(m_changed_columns,p.var())) {
+                    if (contains(m_changed_columns, p.var())) {
                        fresh_entries_to_remove.push_back(k);
                        continue;
                     }
@@ -484,7 +484,6 @@ namespace lp {
                 NOT_IMPLEMENTED_YET();
             }
             for (unsigned j : m_changed_columns) {
-                if (!m_var_register.external_is_used(j)) continue;
                 for (unsigned k : m_columns_to_terms[j]) {
                     changed_terms.insert(k);
                 }
@@ -493,11 +492,6 @@ namespace lp {
                     tout << "p.coeff:" << p.coeff() << std::endl;
                     );                    
                     entries_to_recalculate.insert(p.var());
-                }
-            }
-            for (unsigned j : m_changed_columns) {
-                for (unsigned k : m_columns_to_terms[j]) {
-                    changed_terms.insert(k);
                 }
             }
             for (unsigned j : changed_terms) {
@@ -524,7 +518,7 @@ namespace lp {
                 else it++;
             }
             for (unsigned k = 0; k < m_k2s.size(); k++) {
-                if (m_k2s[k] != -1 && contains(entries_to_recalculate, m_k2s[k])) {
+                if (m_k2s[k] != UINT_MAX && contains(entries_to_recalculate, m_k2s[k])) {
                     m_k2s[k] = -1;
                 }
             }
