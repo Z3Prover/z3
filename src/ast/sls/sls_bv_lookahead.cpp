@@ -190,7 +190,6 @@ namespace sls {
         TRACE("bv", tout << "candidates " << mk_bounded_pp(e, m) << ": ";
         for (auto e : vars) tout << mk_bounded_pp(e, m) << " ";
         tout << "\n";);
-        //VERIFY(!vars.empty());
         return vars;
     }
 
@@ -227,6 +226,8 @@ namespace sls {
             app* a = to_app(ctx.atom(lit.var()));
             auto const& occs = m_ev.terms.uninterp_occurs(a);
             for (auto e : occs) {
+                if (!bv.is_bv(e))
+                    continue;
                 if (marked.is_marked(e))
                     continue;
                 marked.mark(e);
@@ -432,7 +433,7 @@ namespace sls {
         if (v == sat::null_bool_var)
             return;
         auto score = lookahead_flip(v);
-        verbose_stream() << "lookahead flip " << mk_bounded_pp(u, m) << " score: " << score << "\n";
+        //verbose_stream() << "lookahead flip " << mk_bounded_pp(u, m) << " score: " << score << "\n";
         ++m_stats.m_num_lookaheads;
         if (score > m_best_score) {
             m_best_score = score;
@@ -497,23 +498,23 @@ namespace sls {
     */
 
     bool bv_lookahead::apply_update(expr* e, bvect const& new_value, char const* reason) {
-        if (!e || !wval(e).can_set(new_value))
+        if (!e || m.is_bool(e) || !wval(e).can_set(new_value))
             return false;
 
         SASSERT(is_uninterp(e));
         SASSERT(m_restore.empty());
-        SASSERT(bv.is_bv(e));
 
-        wval(e).eval = new_value;
-        double old_top_score = m_top_score;
-        VERIFY(wval(e).commit_eval_check_tabu());
+        if (bv.is_bv(e)) {
+            wval(e).eval = new_value;
+            VERIFY(wval(e).commit_eval_check_tabu());
+        }
 
         insert_update_stack(e);
         unsigned max_depth = get_depth(e);
         for (unsigned depth = max_depth; depth <= max_depth; ++depth) {
             for (unsigned i = 0; i < m_update_stack[depth].size(); ++i) {
                 auto e = m_update_stack[depth][i];
-                TRACE("bv", tout << "update " << mk_bounded_pp(e, m) << "\n";);
+                TRACE("bv_verbose", tout << "update " << mk_bounded_pp(e, m) << "\n";);
                 if (is_root(e)) {
                     double score = new_score(e);
                     m_top_score += get_weight(e) * (score - old_score(e));
@@ -534,6 +535,8 @@ namespace sls {
                     if (v != sat::null_bool_var)
                         ctx.flip(v);
                 }
+                else
+                    continue;
                 for (auto p : ctx.parents(e)) {
                     insert_update_stack(p);
                     max_depth = std::max(max_depth, get_depth(p));
