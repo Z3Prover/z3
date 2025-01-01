@@ -34,7 +34,6 @@ namespace sls {
         bv_util             bv;
         expr_ref_vector     m_axioms;
         vector<ptr_vector<expr>> m_uninterp_occurs;
-        vector<ptr_vector<expr>> m_condition_occurs;
 
         expr_ref ensure_binary(expr* e);
 
@@ -54,9 +53,5 @@ namespace sls {
         expr_ref_vector& axioms() { return m_axioms; }
 
         ptr_vector<expr> const& uninterp_occurs(expr* e);
-
-        ptr_vector<expr> const& condition_occurs(expr* e);
-
-
     };
 }

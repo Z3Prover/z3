@@ -48,8 +48,7 @@ namespace sls {
         };
 
         struct stats {
-            unsigned m_num_lookahead = 0;
-            unsigned m_num_updates = 0;
+            unsigned m_num_lookaheads = 0;
             unsigned m_moves = 0;
             unsigned m_restarts = 0;
             unsigned m_num_propagations = 0;
@@ -70,7 +69,7 @@ namespace sls {
         bvect m_v_saved, m_v_updated;
         ptr_vector<expr> m_restore;
         vector<ptr_vector<app>> m_update_stack;
-        expr_mark m_on_restore, m_in_update_stack;
+        expr_mark m_in_update_stack;
         double m_best_score = 0, m_top_score = 0;
         bvect m_best_value;
         expr* m_best_expr = nullptr;
@@ -94,6 +93,8 @@ namespace sls {
         void   set_score(app* c, double d) { get_bool_info(c).score = d; }
         double new_score(app* c);
 
+        double lookahead_flip(sat::bool_var v);
+
         void rescore();
 
         unsigned get_weight(expr* e) { return get_bool_info(e).weight; }
@@ -108,12 +109,12 @@ namespace sls {
         void inc_touched(app* e) { ++get_bool_info(e).touched; }
 
         void try_set(expr* u, bvect const& new_value);
+        void try_flip(expr* u);
         void add_updates(expr* u);
         bool apply_update(expr* e, bvect const& new_value, char const* reason);
         bool apply_random_move(ptr_vector<expr> const& vars);
         bool apply_guided_move(ptr_vector<expr> const& vars);
         bool apply_random_update(ptr_vector<expr> const& vars);
-        bool apply_flip();
         ptr_vector<expr> const& get_candidate_uninterp();
 
         void check_restart();
@@ -123,16 +124,12 @@ namespace sls {
 
         void search();
 
-
-
     public:
         bv_lookahead(bv_eval& ev);
 
         void updt_params(params_ref const& p);
 
         void start_propagation();
-
-        bool on_restore(expr* e) const;
 
         void collect_statistics(statistics& st) const;
 

@@ -134,23 +134,12 @@ namespace sls {
         return m_uninterp_occurs[id];
     }
 
-    ptr_vector<expr> const& bv_terms::condition_occurs(expr* e) {
-        unsigned id = e->get_id();
-        m_condition_occurs.reserve(id + 1);
-        if (!m_condition_occurs[id].empty())
-            return m_condition_occurs[id];
-        register_uninterp(e);
-        return m_condition_occurs[id];
-    }
-
     void bv_terms::register_uninterp(expr* e) {
         if (!is_bv_predicate(e))
             return;
         m_uninterp_occurs.reserve(e->get_id() + 1);
-        m_condition_occurs.reserve(e->get_id() + 1);
         auto& occs = m_uninterp_occurs[e->get_id()];
-        auto& cond_occs = m_condition_occurs[e->get_id()];
-        ptr_vector<expr> todo, cond_todo;
+        ptr_vector<expr> todo;
         todo.append(to_app(e)->get_num_args(), to_app(e)->get_args());
         expr_mark marked;
         expr* c, * th, * el;
@@ -159,9 +148,7 @@ namespace sls {
             if (marked.is_marked(e))
                 continue;
             marked.mark(e);
-            if (is_bv_predicate(e))
-                cond_occs.push_back(e);
-            else if (is_app(e) && to_app(e)->get_family_id() == bv.get_fid()) {
+            if (is_app(e) && to_app(e)->get_family_id() == bv.get_fid()) {
                 for (expr* arg : *to_app(e))
                     todo.push_back(arg);
             }
@@ -170,14 +157,14 @@ namespace sls {
                     todo.push_back(arg);
             }
             else if (m.is_ite(e, c, th, el)) {
-                cond_occs.push_back(c);
+                todo.push_back(c);
                 if (ctx.is_true(c))
                     todo.push_back(th);
                 else
                     todo.push_back(el);
             }
-            else if (bv.is_bv(e))
-                occs.push_back(e);
+            else if (is_uninterp(e) && (m.is_bool(e) || bv.is_bv(e))) 
+                occs.push_back(e);            
         }
     }
 }

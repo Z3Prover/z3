@@ -633,16 +633,14 @@ public:
     void update_all() {
         unsigned max_depth = 0;
 
-        sls_tracker::entry_point_type::iterator start = m_tracker.get_entry_points().begin();
-        sls_tracker::entry_point_type::iterator end = m_tracker.get_entry_points().end();
-        for (sls_tracker::entry_point_type::iterator it = start; it != end; it++) {
-            expr * ep = m_tracker.get_entry_point(it->m_key);
+        for (auto const& [key, value] : m_tracker.get_entry_points()) {
+            expr* ep = m_tracker.get_entry_point(key);
             unsigned cur_depth = m_tracker.get_distance(ep);
-            if (m_traversal_stack.size() <= cur_depth) 
-                m_traversal_stack.resize(cur_depth+1);
+            m_traversal_stack.reserve(cur_depth + 1);
             m_traversal_stack[cur_depth].push_back(ep);
-            if (cur_depth > max_depth) max_depth = cur_depth;
+            max_depth = std::max(max_depth, cur_depth);
         }
+
         run_serious_update(max_depth);
     }
 
@@ -650,10 +648,8 @@ public:
         m_tracker.set_value(fd, new_value);
         expr * ep = m_tracker.get_entry_point(fd);
         unsigned cur_depth = m_tracker.get_distance(ep);
-        if (m_traversal_stack.size() <= cur_depth) 
-            m_traversal_stack.resize(cur_depth+1);
+        m_traversal_stack.reserve(cur_depth + 1);
         m_traversal_stack[cur_depth].push_back(ep);
-
         run_update(cur_depth);
     }
 
@@ -662,10 +658,8 @@ public:
         m_tracker.set_value(fd, new_value);
         expr * ep = m_tracker.get_entry_point(fd);
         unsigned cur_depth = m_tracker.get_distance(ep);
-        if (m_traversal_stack.size() <= cur_depth) 
-            m_traversal_stack.resize(cur_depth+1);
+        m_traversal_stack.reserve(cur_depth+1);
         m_traversal_stack[cur_depth].push_back(ep);
-
         run_serious_update(cur_depth);
     }
 

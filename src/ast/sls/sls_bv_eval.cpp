@@ -121,24 +121,22 @@ namespace sls {
         return false;
     }
 
-    bool bv_eval::bval1_bv(app* e, bool use_current) const {
+    bool bv_eval::bval1_bv(app* e) const {
         SASSERT(m.is_bool(e));
         SASSERT(e->get_family_id() == bv.get_fid());
 
-        bool use_current1 = use_current || (e->get_num_args() > 0 && !m_lookahead.on_restore(e->get_arg(0)));
-        bool use_current2 = use_current || (e->get_num_args() > 1 && !m_lookahead.on_restore(e->get_arg(1)));
         auto ucompare = [&](std::function<bool(int)> const& f) {
             auto& a = wval(e->get_arg(0)); 
             auto& b = wval(e->get_arg(1)); 
-            return f(mpn.compare(a.tmp_bits(use_current1).data(), a.nw, b.tmp_bits(use_current2).data(), b.nw));
+            return f(mpn.compare(a.bits().data(), a.nw, b.bits().data(), b.nw));
         };
 
         // x <s y <=> x + 2^{bw-1} <u y + 2^{bw-1}
         auto scompare = [&](std::function<bool(int)> const& f) {
             auto& a = wval(e->get_arg(0));
             auto& b = wval(e->get_arg(1));
-            add_p2_1(a, use_current1, m_tmp);
-            add_p2_1(b, use_current2, m_tmp2);
+            add_p2_1(a, m_tmp);
+            add_p2_1(b, m_tmp2);
             return f(mpn.compare(m_tmp.data(), a.nw, m_tmp2.data(), b.nw));
         };
 
@@ -146,7 +144,7 @@ namespace sls {
             SASSERT(e->get_num_args() == 2);
             auto const& a = wval(e->get_arg(0));
             auto const& b = wval(e->get_arg(1));
-            return a.set_mul(m_tmp2, a.tmp_bits(use_current1), b.tmp_bits(use_current2));
+            return a.set_mul(m_tmp2, a.bits(), b.bits());
         };
 
         switch (e->get_decl_kind()) {
@@ -171,7 +169,7 @@ namespace sls {
             unsigned idx;
             VERIFY(bv.is_bit2bool(e, child, idx));
             auto& a = wval(child);
-            return a.tmp_bits(use_current1).get(idx);
+            return a.bits().get(idx);
         }
         case OP_BUMUL_NO_OVFL: 
             return !umul_overflow();
@@ -181,7 +179,7 @@ namespace sls {
             SASSERT(e->get_num_args() == 2);
             auto const& a = wval(e->get_arg(0));
             auto const& b = wval(e->get_arg(1));
-            return a.set_add(m_tmp, a.tmp_bits(use_current1), b.tmp_bits(use_current1));
+            return a.set_add(m_tmp, a.bits(), b.bits());
         }
         case OP_BNEG_OVFL:
         case OP_BSADD_OVFL:         
@@ -198,27 +196,81 @@ namespace sls {
         return false;
     }
 
+    void bv_eval::set_bool_value(expr* e, bool val) {
+        m_tmp_bool_values.setx(e->get_id(), to_lbool(val), l_undef);
+        m_tmp_bool_value_indices.push_back(e->get_id());
+    }
+
+    bool bv_eval::get_bool_value(expr* e) const {
+        auto val = m_tmp_bool_values.get(e->get_id(), l_undef);
+        if (val != l_undef)
+            return val == l_true;
+        auto v = ctx.atom2bool_var(e);
+        if (v != sat::null_bool_var)
+            return ctx.is_true(v);
+        auto b = bval1_bool(to_app(e));
+        m_tmp_bool_values.setx(e->get_id(), to_lbool(val), l_undef);
+        m_tmp_bool_value_indices.push_back(e->get_id());
+        return b;
+    }
+
+    void bv_eval::clear_bool_values() { 
+        for (auto i : m_tmp_bool_value_indices)
+            m_tmp_bool_values[i] = l_undef;
+        m_tmp_bool_value_indices.reset(); 
+    }
+
+    bool bv_eval::bval1_bool(app* e) const {
+        SASSERT(e->get_family_id() == basic_family_id);
+        switch (e->get_decl_kind()) {
+        case OP_AND: {
+            return all_of(*e, [&](expr* arg) { return get_bool_value(arg); });
+        case OP_OR:
+            return any_of(*e, [&](expr* arg) { return get_bool_value(arg); });
+        case OP_NOT:
+            return !get_bool_value(e->get_arg(0));
+        case OP_EQ:
+            if (m.is_iff(e))
+                return get_bool_value(e->get_arg(0)) == get_bool_value(e->get_arg(1));
+            return ctx.get_value(e->get_arg(0)) == ctx.get_value(e->get_arg(1));
+        case OP_IMPLIES:
+            return !get_bool_value(e->get_arg(0)) || get_bool_value(e->get_arg(1));
+        case OP_ITE:
+            return get_bool_value(e->get_arg(0)) ? get_bool_value(e->get_arg(1)) : get_bool_value(e->get_arg(2));
+        case OP_XOR: {
+            bool r = false;
+            for (expr* arg : *e)
+                r ^= get_bool_value(arg);
+            return r;
+        }
+        case OP_TRUE:
+            return true;
+        case OP_FALSE:
+            return false;
+        case OP_DISTINCT:
+            for (unsigned i = 0; i < e->get_num_args(); ++i)
+                for (unsigned j = i + 1; j < e->get_num_args(); ++j)
+                    if (ctx.get_value(e->get_arg(i)) == ctx.get_value(e->get_arg(j)))
+                        return false;
+            return true;
+        default:
+            UNREACHABLE();
+            break;
+        }
+        }
+        return false;
+    }
+
     bool bv_eval::bval1(app* e) const {
         if (e->get_family_id() == bv.get_fid())
-            return bval1_bv(e, true);
+            return bval1_bv(e);
         expr* x, * y;
         if (m.is_eq(e, x, y) && bv.is_bv(x)) {
             return wval(x).bits() == wval(y).bits();
         }
-        verbose_stream() << mk_bounded_pp(e, m) << "\n";
-        UNREACHABLE();
-        return false;
-    }
-
-    bool bv_eval::bval1_tmp(app* e) const {
-        if (e->get_family_id() == bv.get_fid())
-            return bval1_bv(e, false);
-        expr* x, * y;
-        if (m.is_eq(e, x, y) && bv.is_bv(x)) {
-            bool use_current1 = !m_lookahead.on_restore(x);
-            bool use_current2 = !m_lookahead.on_restore(y);
-            return wval(x).tmp_bits(use_current1) == wval(y).tmp_bits(use_current2);
-        }
+        if (e->get_family_id() == basic_family_id)
+            return bval1_bool(e);
+                   
         verbose_stream() << mk_bounded_pp(e, m) << "\n";
         UNREACHABLE();
         return false;
@@ -1296,9 +1348,9 @@ namespace sls {
         return r;
     }
 
-    void bv_eval::add_p2_1(bvval const& a, bool use_current, bvect& t) const {
+    void bv_eval::add_p2_1(bvval const& a, bvect& t) const {
         m_zero.set(a.bw - 1, true);
-        a.set_add(t, a.tmp_bits(use_current), m_zero);
+        a.set_add(t, a.bits(), m_zero);
         m_zero.set(a.bw - 1, false);
         a.clear_overflow_bits(t);
     }

@@ -76,9 +76,6 @@ namespace sls {
             if (apply_guided_move(vars))
                 continue;
 
-            if (false && apply_flip())
-                return;
-
             // bail out if no progress, and try random update
             if (apply_random_update(get_candidate_uninterp()))
                 recalibrate_weights();
@@ -108,6 +105,11 @@ namespace sls {
         if (vars.empty())
             return false;
         expr* e = vars[ctx.rand(vars.size())];
+        if (m.is_bool(e)) {
+            ctx.flip(ctx.atom2bool_var(e));
+            return true;
+        }
+        SASSERT(bv.is_bv(e));
         auto& v = wval(e);
         m_v_updated.set_bw(v.bw);
         v.get_variant(m_v_updated, m_ev.m_rand);
@@ -118,7 +120,14 @@ namespace sls {
     * random move: select a variable at random and use one of the moves: flip, add1, sub1
     */
     bool bv_lookahead::apply_random_move(ptr_vector<expr> const& vars) {
+        if (vars.empty())
+            return false;
         expr* e = vars[ctx.rand(vars.size())];
+        if (m.is_bool(e)) {
+            ctx.flip(ctx.atom2bool_var(e));
+            return true;
+        }
+        SASSERT(bv.is_bv(e));
         auto& v = wval(e);
         m_v_updated.set_bw(v.bw);
         v.bits().copy_to(v.nw, m_v_updated);
@@ -137,17 +146,6 @@ namespace sls {
             break;
         }
         return apply_update(e, m_v_updated, "random move");
-    }
-
-    bool bv_lookahead::apply_flip() {
-        if (!m_last_atom)
-            return false;
-        auto const& cond = m_ev.terms.condition_occurs(m_last_atom);
-        if (cond.empty())
-            return false;         
-        expr* e = cond[ctx.rand(cond.size())];
-        ctx.flip(ctx.atom2bool_var(e));
-        return true;        
     }
 
     /**
@@ -186,8 +184,6 @@ namespace sls {
 
         if (!e)
             return m_empty_vars;
-
-
 
         auto const& vars = m_ev.terms.uninterp_occurs(e);
 
@@ -256,7 +252,7 @@ namespace sls {
         if (!is_bv_literal(lit))
             return false;
         app* a = to_app(ctx.atom(lit.var()));
-        return (m_ev.bval0(a) != m_ev.bval1(a));
+        return m_ev.bval0(a) != m_ev.bval1(a);
     }
 
    
@@ -285,7 +281,7 @@ namespace sls {
     * for inequalities.
     */
     double bv_lookahead::new_score(app* a) {
-        bool is_true = ctx.is_true(a);
+        bool is_true = m_ev.get_bool_value(a);
         bool is_true_new = m_ev.bval1(a);
         if (is_true == is_true_new)
             return 1;
@@ -366,6 +362,11 @@ namespace sls {
         return 0;
     }
 
+    double bv_lookahead::lookahead_flip(sat::bool_var v) {
+        auto a = ctx.atom(v);
+        return -1000;
+    }
+
     /**
     * Rehearse an update. The update is revered while a score is computed and returned.
     * Walk all parents, until hitting predicates where their scores are computed.
@@ -386,28 +387,26 @@ namespace sls {
         for (unsigned depth = max_depth; depth <= max_depth; ++depth) {
             for (unsigned i = 0; i < m_update_stack[depth].size(); ++i) {
                 auto a = m_update_stack[depth][i];
-                if (bv.is_bv(a)) {
-                    if (a != t) {
-                        m_ev.eval(a);
-                        insert_update(a);
-                    }
-                    for (auto p : ctx.parents(a)) {
-                        insert_update_stack(p);
-                        max_depth = std::max(max_depth, get_depth(p));
-                    }
+                TRACE("bv_verbose", tout << "update " << mk_bounded_pp(a, m) << " " << depth << " " << i << "\n";);
+                for (auto p : ctx.parents(a)) {
+                    insert_update_stack(p);
+                    max_depth = std::max(max_depth, get_depth(p));
                 }
-                else if (is_root(a)) 
+                if (is_root(a)) 
                     score += get_weight(a) * (new_score(a) - old_score(a));                
-                else if (m.is_bool(a))
+
+                if (a == t)
                     continue;
-                else {
-                    IF_VERBOSE(1, verbose_stream() << "skipping " << mk_bounded_pp(a, m) << "\n");
-                }
+                else if (bv.is_bv(a)) 
+                    m_ev.eval(a);
+
+                insert_update(a);
             }
             m_update_stack[depth].reset();
         }
         m_in_update_stack.reset();
         restore_lookahead();
+        m_ev.clear_bool_values();
 
         TRACE("sls_verbose", tout << mk_bounded_pp(t, m) << " := " << new_value << " score: " << m_top_score << "\n");
 
@@ -418,7 +417,7 @@ namespace sls {
         if (!wval(u).can_set(new_value))
             return;
         auto score = lookahead_update(u, new_value);
-        ++m_stats.m_num_updates;
+        ++m_stats.m_num_lookaheads;
         //verbose_stream() << mk_bounded_pp(u, m) << " := " << new_value << " score: " << score << "\n";
         if (score > m_best_score) {
             m_best_score = score;
@@ -428,7 +427,24 @@ namespace sls {
         }
     }
 
+    void bv_lookahead::try_flip(expr* u) {
+        auto v = ctx.atom2bool_var(u);
+        if (v == sat::null_bool_var)
+            return;
+        auto score = lookahead_flip(v);
+        verbose_stream() << "lookahead flip " << mk_bounded_pp(u, m) << " score: " << score << "\n";
+        ++m_stats.m_num_lookaheads;
+        if (score > m_best_score) {
+            m_best_score = score;
+            m_best_expr = u;
+        }
+    }
+
     void bv_lookahead::add_updates(expr* u) {
+        if (m.is_bool(u)) {
+            try_flip(u);
+            return;
+        }
         SASSERT(bv.is_bv(u));
         auto& v = wval(u);
         while (m_v_saved.size() < v.bits().size()) {
@@ -483,41 +499,51 @@ namespace sls {
     bool bv_lookahead::apply_update(expr* e, bvect const& new_value, char const* reason) {
         if (!e || !wval(e).can_set(new_value))
             return false;
-        SASSERT(bv.is_bv(e));
+
         SASSERT(is_uninterp(e));
         SASSERT(m_restore.empty());
+        SASSERT(bv.is_bv(e));
 
         wval(e).eval = new_value;
         double old_top_score = m_top_score;
-
         VERIFY(wval(e).commit_eval_check_tabu());
+
         insert_update_stack(e);
         unsigned max_depth = get_depth(e);
         for (unsigned depth = max_depth; depth <= max_depth; ++depth) {
             for (unsigned i = 0; i < m_update_stack[depth].size(); ++i) {
                 auto e = m_update_stack[depth][i];
-                if (bv.is_bv(e)) {
-                    m_ev.eval(e); // updates wval(e).eval
-                    wval(e).commit_eval_ignore_tabu();
-                    for (auto p : ctx.parents(e)) {
-                        insert_update_stack(p);
-                        max_depth = std::max(max_depth, get_depth(p));
-                    }
-                }
-                else if (is_root(e)) {
+                TRACE("bv", tout << "update " << mk_bounded_pp(e, m) << "\n";);
+                if (is_root(e)) {
                     double score = new_score(e);
                     m_top_score += get_weight(e) * (score - old_score(e));
                     set_score(e, score);
                 }
-                else if (m.is_bool(e))
-                    continue;
-                else {
-                    UNREACHABLE();
+
+                if (bv.is_bv(e)) {
+                    m_ev.eval(e); // updates wval(e).eval
+                    wval(e).commit_eval_ignore_tabu();
                 }
+                else if (m.is_bool(e)) {
+                    auto v0 = m_ev.get_bool_value(to_app(e));
+                    auto v1 = m_ev.bval1(to_app(e));
+                    if (v0 == v1)
+                        continue;
+                    m_ev.set_bool_value(to_app(e), v1);
+                    auto v = ctx.atom2bool_var(e);
+                    if (v != sat::null_bool_var)
+                        ctx.flip(v);
+                }
+                for (auto p : ctx.parents(e)) {
+                    insert_update_stack(p);
+                    max_depth = std::max(max_depth, get_depth(p));
+                }                
+                VERIFY(m.is_bool(e) || bv.is_bv(e));
             }
             m_update_stack[depth].reset();
         }
         m_in_update_stack.reset();
+        m_ev.clear_bool_values();
         TRACE("bv", tout << reason << " " << mk_bounded_pp(m_best_expr, m)
             << " := " << new_value
             << " score " << m_top_score << "\n";);
@@ -525,12 +551,20 @@ namespace sls {
     }
 
     void bv_lookahead::insert_update(expr* e) {
-        auto& v = wval(e);
-        m_restore.push_back(e);
-        m_on_restore.mark(e);
-        TRACE("sls_verbose", tout << "insert update " << mk_bounded_pp(e, m) << " " << v << "\n");
-        v.save_value();
-        v.commit_eval_ignore_tabu();
+
+        TRACE("sls_verbose", tout << "insert update " << mk_bounded_pp(e, m) << "\n");
+        if (bv.is_bv(e)) {
+            auto& v = wval(e);
+            v.save_value();
+            v.commit_eval_ignore_tabu();
+            SASSERT(!m_restore.contains(e));
+            m_restore.push_back(e);
+        }
+        else if (m.is_bool(e)) {
+            auto v1 = m_ev.bval1(to_app(e));
+            m_ev.set_bool_value(to_app(e), v1);
+        }
+
     }
 
     void bv_lookahead::insert_update_stack(expr* e) {
@@ -545,18 +579,13 @@ namespace sls {
     void bv_lookahead::restore_lookahead() {
         for (auto e : m_restore) {
             wval(e).restore_value();
-            TRACE("sls_verbose", tout << "restore value " << mk_bounded_pp(e, m) << " " << wval(e) << "\n");
+            TRACE("sls_verbose", tout << "restore value " << mk_bounded_pp(e, m) << " " << wval(e) << "\n");            
         }
         m_restore.reset();
-        m_on_restore.reset();
     }
 
     sls::bv_valuation& bv_lookahead::wval(expr* e) const {
         return m_ev.wval(e);
-    }
-
-    bool bv_lookahead::on_restore(expr* e) const {
-        return m_on_restore.is_marked(e);
     }
 
     bv_lookahead::bool_info& bv_lookahead::get_bool_info(expr* e) {
@@ -630,8 +659,7 @@ namespace sls {
     }
 
     void bv_lookahead::collect_statistics(statistics& st) const {
-        st.update("sls-bv-lookahead", m_stats.m_num_lookahead);
-        st.update("sls-bv-updates", m_stats.m_num_updates);
+        st.update("sls-bv-lookaheads", m_stats.m_num_lookaheads);
         st.update("sls-bv-moves", m_stats.m_moves);
         st.update("sls-bv-restarts", m_stats.m_restarts);
     }

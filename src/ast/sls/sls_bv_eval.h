@@ -54,6 +54,8 @@ namespace sls {
         bool_vector         m_is_fixed;
         unsigned            m_lookahead_steps = 0;
         unsigned            m_lookahead_phase_size = 10;
+        mutable svector<lbool>      m_tmp_bool_values;
+        mutable unsigned_vector     m_tmp_bool_value_indices;
         
 
         scoped_ptr_vector<sls::bv_valuation> m_values; // expr-id -> bv valuation
@@ -73,8 +75,9 @@ namespace sls {
         void add_bit_vector(app* e);
         sls::bv_valuation* alloc_valuation(app* e);
 
-        bool bval1_bv(app* e, bool use_current) const;  
-        bool bval1_tmp(app* e) const;
+        bool bval1_bv(app* e) const;  
+        bool bval1_bool(app* e) const;
+
 
 
         void fold_oper(bvect& out, app* e, unsigned i, std::function<void(bvect&, bvval const&)> const& f);
@@ -124,7 +127,7 @@ namespace sls {
         bool try_repair_eq(bool is_true, bvval& a, bvval const& b);
         bool try_repair_eq(app* e, unsigned i);
         bool try_repair_int2bv(bvect const& e, expr* arg);
-        void add_p2_1(bvval const& a, bool use_current, bvect& t) const;
+        void add_p2_1(bvval const& a, bvect& t) const;
 
         bool add_overflow_on_fixed(bvval const& a, bvect const& t);
         bool mul_overflow_on_fixed(bvval const& a, bvect const& t);
@@ -184,6 +187,10 @@ namespace sls {
 
         bool bval0(expr* e) const { return ctx.is_true(e); }
         bool bval1(app* e) const;
+
+        void set_bool_value(expr* e, bool val);
+        void clear_bool_values();
+        bool get_bool_value(expr* e)const;
       
         /*
          * Try to invert value of child to repair value assignment of parent.
