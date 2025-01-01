@@ -354,6 +354,7 @@ public:
                                      unsigned bj, // the index of the basis column
                                      const std_vector<int> & basis_heading) {
         lp_assert(row_count() > 0);
+        m_work_vector.clear();
         m_work_vector.resize(column_count());
         T a;
          // we use the form -it + 1 = 0
