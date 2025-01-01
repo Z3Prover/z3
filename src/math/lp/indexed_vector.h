@@ -35,8 +35,8 @@ template <typename T>
 class indexed_vector {
 public:
     // m_index points to non-zero elements of m_data
-    vector<T> m_data;
-    vector<unsigned> m_index;
+    std_vector<T> m_data;
+    std_vector<unsigned> m_index;
     indexed_vector(unsigned data_size) {
         m_data.resize(data_size, numeric_traits<T>::zero());
     }
@@ -161,11 +161,11 @@ public:
     };
 
     const_iterator begin() const {
-        return const_iterator(m_index.begin(), *this);
+        return const_iterator(m_index.data(), *this);
     }
         
     const_iterator end() const {
-        return const_iterator(m_index.end(), *this);
+        return const_iterator(m_index.data() + m_index.size(), *this);
     }
 
     

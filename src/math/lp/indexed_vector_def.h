@@ -33,9 +33,7 @@ void print_vector_as_doubles(const vector<mpq> & t, std::ostream & out) {
 
 template <typename T>
 void indexed_vector<T>::resize(unsigned data_size) {
-    clear();
     m_data.resize(data_size, numeric_traits<T>::zero());
-
 }
 
 template <typename T>
