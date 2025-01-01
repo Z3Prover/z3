@@ -26,6 +26,7 @@ namespace sls {
     class bv_lookahead {
 
         struct config {
+            bool   updated = false;
             double cb = 2.85;
             unsigned paws_init = 40;
             unsigned paws_sp = 52;

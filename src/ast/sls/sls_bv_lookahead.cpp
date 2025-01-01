@@ -56,7 +56,7 @@ namespace sls {
         rescore();
         m_config.max_moves = m_stats.m_moves + m_config.max_moves_base;
         TRACE("bv", tout << "search " << m_stats.m_moves << " " << m_config.max_moves << "\n";);
-        IF_VERBOSE(3, verbose_stream() << "lookahead-search moves:" << m_stats.m_moves << " max-moves:" << m_config.max_moves << "\n");
+        IF_VERBOSE(1, verbose_stream() << "lookahead-search moves:" << m_stats.m_moves << " max-moves:" << m_config.max_moves << "\n");
 
         while (m.inc() && m_stats.m_moves < m_config.max_moves) {
             m_stats.m_moves++;
@@ -106,6 +106,7 @@ namespace sls {
             return false;
         expr* e = vars[ctx.rand(vars.size())];
         if (m.is_bool(e)) {
+            TRACE("bv", tout << "random flip " << mk_bounded_pp(e, m) << "\n";);
             ctx.flip(ctx.atom2bool_var(e));
             return true;
         }
@@ -124,6 +125,7 @@ namespace sls {
             return false;
         expr* e = vars[ctx.rand(vars.size())];
         if (m.is_bool(e)) {
+            TRACE("bv", tout << "random move flip " << mk_bounded_pp(e, m) << "\n";);
             ctx.flip(ctx.atom2bool_var(e));
             return true;
         }
@@ -204,6 +206,7 @@ namespace sls {
             return;
 
         ++m_stats.m_restarts;
+        m_config.restart_next = std::max(m_config.restart_next, m_stats.m_moves);
 
         if (0x1 == (m_stats.m_restarts & 0x1))
             m_config.restart_next += m_config.restart_base;
@@ -259,6 +262,9 @@ namespace sls {
    
     void bv_lookahead::updt_params(params_ref const& _p) {
         sls_params p(_p);
+        if (m_config.updated)
+            return;
+        m_config.updated = true;
         m_config.walksat = p.walksat();
         m_config.walksat_repick = p.walksat_repick();
         m_config.paws_sp = p.paws_sp();
@@ -365,7 +371,7 @@ namespace sls {
 
     double bv_lookahead::lookahead_flip(sat::bool_var v) {
         auto a = ctx.atom(v);
-        return -1000;
+        return lookahead_update(a, m_v_updated);
     }
 
     /**
@@ -373,16 +379,21 @@ namespace sls {
     * Walk all parents, until hitting predicates where their scores are computed.
     */
     double bv_lookahead::lookahead_update(expr* t, bvect const& new_value) {
-        SASSERT(bv.is_bv(t));
+        SASSERT(bv.is_bv(t) || m.is_bool(t));
         SASSERT(is_uninterp(t));
         SASSERT(m_restore.empty());
         double score = m_top_score;
 
-        if (!wval(t).can_set(new_value))
-            return -1000000;
+        if (bv.is_bv(t)) {
+            if (!wval(t).can_set(new_value))
+                return -1000000;
+            wval(t).eval = new_value;
+            insert_update(t);
+        }
+        else if (m.is_bool(t)) {
+            m_ev.set_bool_value(t, !m_ev.bval0(t));
+        }
 
-        wval(t).eval = new_value;
-        insert_update(t);
         insert_update_stack(t);
         unsigned max_depth = get_depth(t);
         for (unsigned depth = max_depth; depth <= max_depth; ++depth) {
@@ -430,6 +441,7 @@ namespace sls {
 
     void bv_lookahead::try_flip(expr* u) {
         auto v = ctx.atom2bool_var(u);
+        //verbose_stream() << mk_bounded_pp(u, m) << " flip " << v << "\n";
         if (v == sat::null_bool_var)
             return;
         auto score = lookahead_flip(v);
@@ -526,14 +538,15 @@ namespace sls {
                     wval(e).commit_eval_ignore_tabu();
                 }
                 else if (m.is_bool(e)) {
-                    auto v0 = m_ev.get_bool_value(to_app(e));
-                    auto v1 = m_ev.bval1(to_app(e));
-                    if (v0 == v1)
-                        continue;
-                    m_ev.set_bool_value(to_app(e), v1);
                     auto v = ctx.atom2bool_var(e);
-                    if (v != sat::null_bool_var)
+                    auto v1 = m_ev.bval1(to_app(e));
+                    if (v != sat::null_bool_var) {
+                        if (ctx.is_true(v) == v1)
+                            continue;
+                        TRACE("bv", tout << "update flip " << mk_bounded_pp(e, m) << "\n";);
                         ctx.flip(v);
+                    }
+                    m_ev.set_bool_value(to_app(e), v1);
                 }
                 else
                     continue;
@@ -547,7 +560,7 @@ namespace sls {
         }
         m_in_update_stack.reset();
         m_ev.clear_bool_values();
-        TRACE("bv", tout << reason << " " << mk_bounded_pp(m_best_expr, m)
+        TRACE("bv", tout << reason << " " << mk_bounded_pp(e, m)
             << " := " << new_value
             << " score " << m_top_score << "\n";);
         return true;

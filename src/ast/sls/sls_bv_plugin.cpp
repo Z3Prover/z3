@@ -47,8 +47,9 @@ namespace sls {
         m_eval.start_propagation();
     }
 
-    void bv_plugin::propagate_literal(sat::literal lit) {       
-        SASSERT(ctx.is_true(lit));
+    void bv_plugin::propagate_literal(sat::literal lit) {   
+        if (!ctx.is_true(lit))
+            return;
         auto e = ctx.atom(lit.var());
         if (!is_bv_predicate(e))
             return;
@@ -157,7 +158,8 @@ namespace sls {
     }
 
     void bv_plugin::repair_literal(sat::literal lit) {
-        SASSERT(ctx.is_true(lit));
+        if (!ctx.is_true(lit))
+            return;
         auto e = ctx.atom(lit.var());
         if (!is_bv_predicate(e))
             return;
