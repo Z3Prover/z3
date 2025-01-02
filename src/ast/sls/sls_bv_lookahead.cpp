@@ -106,8 +106,11 @@ namespace sls {
             return false;
         expr* e = vars[ctx.rand(vars.size())];
         if (m.is_bool(e)) {
+            auto v = ctx.atom2bool_var(e);
+            if (ctx.is_unit(v))
+                return false    ;
             TRACE("bv", tout << "random flip " << mk_bounded_pp(e, m) << "\n";);
-            ctx.flip(ctx.atom2bool_var(e));
+            ctx.flip(v);
             return true;
         }
         SASSERT(bv.is_bv(e));
@@ -126,7 +129,10 @@ namespace sls {
         expr* e = vars[ctx.rand(vars.size())];
         if (m.is_bool(e)) {
             TRACE("bv", tout << "random move flip " << mk_bounded_pp(e, m) << "\n";);
-            ctx.flip(ctx.atom2bool_var(e));
+            auto v = ctx.atom2bool_var(e);
+            if (ctx.is_unit(v))
+                return false;
+            ctx.flip(v);
             return true;
         }
         SASSERT(bv.is_bv(e));
@@ -370,6 +376,8 @@ namespace sls {
     }
 
     double bv_lookahead::lookahead_flip(sat::bool_var v) {
+        if (ctx.is_unit(v))
+            return -100;
         auto a = ctx.atom(v);
         return lookahead_update(a, m_v_updated);
     }
@@ -541,6 +549,8 @@ namespace sls {
                     auto v = ctx.atom2bool_var(e);
                     auto v1 = m_ev.bval1(to_app(e));
                     if (v != sat::null_bool_var) {
+                        if (ctx.is_unit(v))
+                            continue;
                         if (ctx.is_true(v) == v1)
                             continue;
                         TRACE("bv", tout << "update flip " << mk_bounded_pp(e, m) << "\n";);

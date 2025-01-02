@@ -181,7 +181,8 @@ namespace sls {
         unsigned rand(unsigned n) { return m_rand(n); }
         sat::literal_vector const& root_literals() const { return m_root_literals; }
         sat::literal_vector const& unit_literals() const { return m_unit_literals; }
-        bool is_unit(sat::literal lit) const { return m_unit_indices.contains(lit.index()); }
+        bool is_unit(sat::literal lit) const { return is_unit(lit.var()); }
+        bool is_unit(sat::bool_var v) const { return m_unit_indices.contains(v); }
         void reinit_relevant();
         void force_restart() { s.force_restart(); }
         bool include_func_interp(func_decl* f) const { return any_of(m_plugins, [&](plugin* p) { return p && p->include_func_interp(f); }); }

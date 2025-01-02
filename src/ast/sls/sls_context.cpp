@@ -505,7 +505,7 @@ namespace sls {
             if (clause.m_clause.size() == 1) 
                 m_unit_literals.push_back(clause.m_clause[0]);
         for (sat::literal lit : m_unit_literals)
-            m_unit_indices.insert(lit.index());
+            m_unit_indices.insert(lit.var());
             
         IF_VERBOSE(3, verbose_stream() << "UNITS " << m_unit_literals << "\n");
         for (unsigned i = 0; i < m_atoms.size(); ++i)
