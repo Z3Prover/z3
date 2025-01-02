@@ -329,7 +329,7 @@ namespace sat {
     void ddfw::init_clause_data() {
         for (unsigned v = 0; v < num_vars(); ++v) {
             make_count(v) = 0;
-            reward(v) = 0;
+            m_vars[v].m_reward = 0;
         }        
         m_unsat_vars.reset();
         m_unsat.reset();
@@ -590,6 +590,44 @@ namespace sat {
             m_use_list[(~unit).index()].reset();        
     }
 
+    bool ddfw::try_rotate(bool_var v, bool_var_set& rotated, unsigned& budget) {
+        if (m_rotate_tabu.contains(v))
+            return false;
+        if (budget == 0)
+            return false;
+        --budget;
+        rotated.insert(v);
+        m_rotate_tabu.insert(v);
+        flip(v);
+        switch (m_unsat.size()) {
+        case 0:
+            m_rotate_tabu.reset();
+            m_new_tabu_vars.reset();
+            return true;
+        case 1: 
+            for (unsigned cl : m_unsat) {
+                unsigned sz = m_new_tabu_vars.size();
+                for (literal lit : get_clause(cl)) {
+                    if (m_rotate_tabu.contains(lit.var()))
+                        continue;
+                    if (try_rotate(lit.var(), rotated, budget))
+                        return true;
+                    m_rotate_tabu.insert(lit.var());
+                    m_new_tabu_vars.push_back(lit.var());
+                }
+                while (m_new_tabu_vars.size() > sz)
+                    m_rotate_tabu.remove(m_new_tabu_vars.back()), m_new_tabu_vars.pop_back();
+            }
+            break;
+        default:
+            break;
+        }
+        rotated.remove(v); 
+        m_rotate_tabu.remove(v);
+        flip(v);
+        return false;
+    }
+
     std::ostream& ddfw::display(std::ostream& out) const {
         unsigned num_cls = m_clauses.size();
         for (unsigned i = 0; i < num_cls; ++i) {
@@ -598,7 +636,7 @@ namespace sat {
             out << ci.m_num_trues << " w: " << ci.m_weight << "\n";
         }
         for (unsigned v = 0; v < num_vars(); ++v) 
-            out << (is_true(literal(v, false)) ? "" : "-") << v << " rw: " << get_reward(v) << "\n";        
+            out << (is_true(literal(v, false)) ? "" : "-") << v << " rw: " << reward(v) << "\n";        
         out << "unsat vars: ";
         for (bool_var v : m_unsat_vars) 
             out << v << " ";        

@@ -48,7 +48,7 @@ namespace sat {
         m_ddfw.add_assumptions();
         for (unsigned v = 0; v < phase.size(); ++v) {
             m_ddfw.value(v) = phase[v];
-            m_ddfw.reward(v) = 0;
+            m_ddfw.set_reward(v, 0);
             m_ddfw.make_count(v) = 0;
         }
         m_ddfw.init_clause_data();

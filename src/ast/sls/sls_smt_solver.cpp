@@ -85,7 +85,7 @@ namespace sls {
         sat::clause_info const& get_clause(unsigned idx) const override { return m_ddfw.get_clause_info(idx); }
         ptr_iterator<unsigned> get_use_list(sat::literal lit) override { return m_ddfw.use_list(lit); }
         void flip(sat::bool_var v) override { if (m_dirty) m_ddfw.reinit(), m_dirty = false;  m_ddfw.flip(v); }
-        double reward(sat::bool_var v) override { return m_ddfw.get_reward(v); }
+        double reward(sat::bool_var v) override { return m_ddfw.reward(v); }
         double get_weigth(unsigned clause_idx) override { return m_ddfw.get_clause_info(clause_idx).m_weight; }
         bool is_true(sat::literal lit) override { return m_ddfw.get_value(lit.var()) != lit.sign(); }
         unsigned num_vars() const override { return m_ddfw.num_vars(); }

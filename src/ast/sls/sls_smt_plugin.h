@@ -148,7 +148,7 @@ namespace sls {
         void flip(sat::bool_var v) override { 
             m_ddfw->flip(v);
         }
-        double reward(sat::bool_var v) override { return m_ddfw->get_reward(v); }
+        double reward(sat::bool_var v) override { return m_ddfw->reward(v); }
         double get_weigth(unsigned clause_idx) override { return m_ddfw->get_clause_info(clause_idx).m_weight; }
         bool is_true(sat::literal lit) override { 
             return m_ddfw->get_value(lit.var()) != lit.sign(); 

@@ -95,7 +95,7 @@ namespace sls {
         for (unsigned i = 0; i < sz; ++i)
             add_updates(vars[(start + i) % sz]);
         CTRACE("bv", !m_best_expr, tout << "no guided move\n";);
-        return apply_update(m_best_expr, m_best_value, "increasing move");
+        return apply_update(m_last_atom, m_best_expr, m_best_value, "increasing move");
     }
 
     /**
@@ -117,7 +117,7 @@ namespace sls {
         auto& v = wval(e);
         m_v_updated.set_bw(v.bw);
         v.get_variant(m_v_updated, m_ev.m_rand);
-        return apply_update(e, m_v_updated, "random update");
+        return apply_update(nullptr, e, m_v_updated, "random update");
     }
 
     /**
@@ -153,7 +153,7 @@ namespace sls {
             v.sub1(m_v_updated);
             break;
         }
-        return apply_update(e, m_v_updated, "random move");
+        return apply_update(nullptr, e, m_v_updated, "random move");
     }
 
     /**
@@ -243,7 +243,7 @@ namespace sls {
                 auto& v = wval(e);
                 m_v_updated.set_bw(v.bw);
                 m_v_updated.set_zero();
-                apply_update(e, m_v_updated, "reset");                
+                apply_update(nullptr, e, m_v_updated, "reset");                
             }
         }
     }
@@ -517,20 +517,20 @@ namespace sls {
     * The update is committed.
     */
 
-    bool bv_lookahead::apply_update(expr* e, bvect const& new_value, char const* reason) {
-        if (!e || m.is_bool(e) || !wval(e).can_set(new_value))
+    bool bv_lookahead::apply_update(expr* p, expr* t, bvect const& new_value, char const* reason) {
+        if (!t || m.is_bool(t) || !wval(t).can_set(new_value))
             return false;
 
-        SASSERT(is_uninterp(e));
+        SASSERT(is_uninterp(t));
         SASSERT(m_restore.empty());
 
-        if (bv.is_bv(e)) {
-            wval(e).eval = new_value;
-            VERIFY(wval(e).commit_eval_check_tabu());
+        if (bv.is_bv(t)) {
+            wval(t).eval = new_value;
+            VERIFY(wval(t).commit_eval_check_tabu());
         }
 
-        insert_update_stack(e);
-        unsigned max_depth = get_depth(e);
+        insert_update_stack(t);
+        unsigned max_depth = get_depth(t);
         for (unsigned depth = max_depth; depth <= max_depth; ++depth) {
             for (unsigned i = 0; i < m_update_stack[depth].size(); ++i) {
                 auto e = m_update_stack[depth][i];
@@ -553,11 +553,27 @@ namespace sls {
                             continue;
                         if (ctx.is_true(v) == v1)
                             continue;
+                        if (!p || e == p)
+                            continue;
+                        TRACE("bv", tout << "updated truth value " << v << ": " << mk_bounded_pp(e, m) << "\n";);
+#if 0
                         unsigned num_unsat = ctx.unsat().size();
                         TRACE("bv", tout << "update flip " << mk_bounded_pp(e, m) << "\n";);
+                        auto r = ctx.reward(v);
+                        auto lit = sat::literal(v, !ctx.is_true(v));
+                        bool is_bv_lit = is_bv_literal(lit);
+                        verbose_stream() << "flip " << is_bv_literal(lit) << " " << mk_bounded_pp(e, m) << " " << lit << " " << r << " num unsat " << ctx.unsat().size() << "\n";
+                        
+
                         ctx.flip(v);
-                        if (num_unsat < ctx.unsat().size())
+
+                        verbose_stream() << "new unsat " << ctx.unsat().size() << "\n";
+
+                        if (num_unsat < ctx.unsat().size()) {
+                            verbose_stream() << "flip back\n";
                             ctx.flip(v);
+                        }
+#endif
                     }
                     m_ev.set_bool_value(to_app(e), v1);
                 }
@@ -573,7 +589,7 @@ namespace sls {
         }
         m_in_update_stack.reset();
         m_ev.clear_bool_values();
-        TRACE("bv", tout << reason << " " << mk_bounded_pp(e, m)
+        TRACE("bv", tout << reason << " " << mk_bounded_pp(t, m)
             << " := " << new_value
             << " score " << m_top_score << "\n";);
         return true;

@@ -123,7 +123,7 @@ namespace sat {
 
         inline bool value(bool_var v) const { return m_vars[v].m_value; }
 
-        inline double& reward(bool_var v) { return m_vars[v].m_reward; }        
+        // inline double reward(bool_var v) { return m_vars[v].m_reward; }        
 
 
         unsigned value_hash() const;
@@ -150,9 +150,9 @@ namespace sat {
             if (--make_count(v) == 0) m_unsat_vars.remove(v); 
         }
 
-        inline void inc_reward(literal lit, double w) { reward(lit.var()) += w; }
+        inline void inc_reward(literal lit, double w) { m_vars[lit.var()].m_reward += w; }
 
-        inline void dec_reward(literal lit, double w) { reward(lit.var()) -= w; }
+        inline void dec_reward(literal lit, double w) { m_vars[lit.var()].m_reward -= w; }
 
         void check_with_plugin();
         void check_without_plugin();
@@ -201,6 +201,9 @@ namespace sat {
 
         inline bool disregard_neighbor();
 
+        bool_var_set m_rotate_tabu;
+        bool_var_vector m_new_tabu_vars;
+
     public:
 
         ddfw() {}
@@ -248,7 +251,9 @@ namespace sat {
 
         void flip(bool_var v);
 
-        inline double get_reward(bool_var v) const { return m_vars[v].m_reward; }
+        inline double reward(bool_var v) const { return m_vars[v].m_reward; }
+
+        void set_reward(bool_var v, double r) { m_vars[v].m_reward = r; }
 
         double get_reward_avg(bool_var v) const { return m_vars[v].m_reward_avg; }
 
@@ -268,6 +273,7 @@ namespace sat {
 
         void simplify();
 
+        bool try_rotate(bool_var v, bool_var_set& rotated, unsigned& budget);
 
         ptr_iterator<unsigned> use_list(literal lit) { 
             flatten_use_list();

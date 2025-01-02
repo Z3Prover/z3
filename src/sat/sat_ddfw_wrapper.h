@@ -77,7 +77,7 @@ namespace sat {
 
         void flip(bool_var v) { m_ddfw.flip(v); }
 
-        inline double get_reward(bool_var v) const { return m_ddfw.get_reward(v); }
+        inline double get_reward(bool_var v) const { return m_ddfw.reward(v); }
 
         void add(unsigned sz, literal const* c) { m_ddfw.add(sz, c); }
 
