@@ -729,6 +729,8 @@ br_status bool_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
         return BR_REWRITE1;
     
     if (m_ite_extra_rules) {
+        expr* c1, * t1, * e1;
+        expr* c2, * t2, * e2;
         if (m().is_ite(lhs) && m().is_value(rhs)) {
             r = try_ite_value(to_app(lhs), to_app(rhs), result);
             CTRACE("try_ite_value", r != BR_FAILED,
@@ -738,6 +740,16 @@ br_status bool_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
             r = try_ite_value(to_app(rhs), to_app(lhs), result);
             CTRACE("try_ite_value", r != BR_FAILED,
                    tout << mk_bounded_pp(lhs, m()) << "\n" << mk_bounded_pp(rhs, m()) << "\n--->\n" << mk_bounded_pp(result, m()) << "\n";);
+        }
+        else if (m().is_ite(lhs, c1, t1, e1) && m().is_ite(rhs, c2, t2, e2) &&
+            m().is_value(t1) && m().is_value(e1) && m().is_value(t2) && m().is_value(e2)) {
+            expr_ref_vector args(m());
+            args.push_back(m().mk_or(c1, c2, m().mk_eq(e1, e2)));
+            args.push_back(m().mk_or(m().mk_not(c1), m().mk_not(c2), m().mk_eq(t1, t2)));
+            args.push_back(m().mk_or(m().mk_not(c1), c2, m().mk_eq(t1, e2)));
+            args.push_back(m().mk_or(c1, m().mk_not(c2), m().mk_eq(e1, t2)));
+            result = m().mk_and(args);
+            return BR_REWRITE_FULL;
         }
         if (r != BR_FAILED)
             return r;

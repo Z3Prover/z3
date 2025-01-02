@@ -553,8 +553,11 @@ namespace sls {
                             continue;
                         if (ctx.is_true(v) == v1)
                             continue;
+                        unsigned num_unsat = ctx.unsat().size();
                         TRACE("bv", tout << "update flip " << mk_bounded_pp(e, m) << "\n";);
                         ctx.flip(v);
+                        if (num_unsat < ctx.unsat().size())
+                            ctx.flip(v);
                     }
                     m_ev.set_bool_value(to_app(e), v1);
                 }

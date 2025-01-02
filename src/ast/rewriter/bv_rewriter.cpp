@@ -2934,6 +2934,7 @@ br_status bv_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
         return BR_DONE;
     }
 
+
     return BR_FAILED;
 }
 
