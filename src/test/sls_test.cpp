@@ -21,6 +21,7 @@ namespace bv {
         double reward(sat::bool_var v) override { return 0; }
         double get_weigth(unsigned clause_idx) override { return 0; }
         bool is_true(sat::literal lit) override { return true; }
+        bool try_rotate(sat::bool_var v, sat::bool_var_vector& rotated, unsigned& bound) { return false; }
         unsigned num_vars() const override { return 0; }
         indexed_uint_set const& unsat() const override { return s; }
         void on_model(model_ref& mdl) override {}
