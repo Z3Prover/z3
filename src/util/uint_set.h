@@ -369,3 +369,8 @@ inline std::ostream& operator<<(std::ostream& out, indexed_uint_set const& s) {
     for (unsigned i : s) out << i << " ";
     return out;
 }
+
+inline std::ostream& operator<<(std::ostream& out, tracked_uint_set const& s) {
+    for (unsigned i : s) out << i << " ";
+    return out;
+}

@@ -587,8 +587,16 @@ namespace sls {
 #endif
                         
 #if 1
-                        if (allow_costly_flips(mt)) 
+                        if (allow_costly_flips(mt))
                             ctx.flip(v);                        
+                        else if (false) {
+                            sat::bool_var_set rotated;
+                            unsigned budget = 100;
+                            bool rot = ctx.try_rotate(v, rotated, budget);
+                            (void)rot;
+                            TRACE("bv", tout << "rotate " << v << " " << rot << " " << rotated << "\n";);
+                            verbose_stream() << "rotate " << v << " " << rot << " " << rotated << "\n";
+                        }
 #endif
                         
                     }

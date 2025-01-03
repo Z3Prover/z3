@@ -40,7 +40,7 @@ namespace sls {
     expr_ref bv_terms::ensure_binary(expr* e) {
         expr* x, * y;
         expr_ref r(m);
-        if (bv.is_bv_sdiv(e, x, y) || bv.is_bv_sdiv0(e, x, y) || bv.is_bv_sdivi(e, x, y))
+        if (false && (bv.is_bv_sdiv(e, x, y) || bv.is_bv_sdiv0(e, x, y) || bv.is_bv_sdivi(e, x, y)))
             r = mk_sdiv(x, y);
         else if (bv.is_bv_smod(e, x, y) || bv.is_bv_smod0(e, x, y) || bv.is_bv_smodi(e, x, y))
             r = mk_smod(x, y);

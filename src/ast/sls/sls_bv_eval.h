@@ -110,6 +110,7 @@ namespace sls {
         bool try_repair_lshr1(bvect const& e, bvval const& a, bvval& b);
         bool try_repair_ashr0(bvect const& e, bvval& a, bvval const& b);
         bool try_repair_ashr1(bvect const& e, bvval const& a, bvval& b);
+        bool try_repair_sdiv(bvect const& e, bvval& a, bvval& b, unsigned i);
         bool try_repair_bit2bool(bvval& a, unsigned idx);
         bool try_repair_udiv(bvect const& e, bvval& a, bvval& b, unsigned i);
         bool try_repair_urem(bvect const& e, bvval& a, bvval& b, unsigned i);
@@ -126,6 +127,7 @@ namespace sls {
         bool try_repair_comp(bvect const& e, bvval& a, bvval& b, unsigned i);
         bool try_repair_eq(bool is_true, bvval& a, bvval const& b);
         bool try_repair_eq(app* e, unsigned i);
+
         bool try_repair_int2bv(bvect const& e, expr* arg);
         void add_p2_1(bvval const& a, bvect& t) const;
 

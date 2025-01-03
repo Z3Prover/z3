@@ -724,11 +724,11 @@ namespace sls {
         case OP_BSMOD:
         case OP_BSMOD_I:
         case OP_BSMOD0:
+            return true;
+        default:
         case OP_BSDIV:
         case OP_BSDIV_I:
         case OP_BSDIV0:
-            return true;
-        default:
             return false;
         }
     }
@@ -916,15 +916,17 @@ namespace sls {
         case OP_BSMUL_OVFL:
             verbose_stream() << mk_pp(e, m) << "\n";
             return false;
+        case OP_BSDIV:
+        case OP_BSDIV_I:
+        case OP_BSDIV0:
+            return try_repair_sdiv(assign_value(e), wval(e, 0), wval(e, 1), i);
         case OP_BSREM:
         case OP_BSREM_I:
         case OP_BSREM0:
         case OP_BSMOD:
         case OP_BSMOD_I:
         case OP_BSMOD0:
-        case OP_BSDIV:
-        case OP_BSDIV_I:
-        case OP_BSDIV0:
+
             UNREACHABLE();
             // these are currently compiled to udiv and urem.
             // there is an equation that enforces equality between the semantics
@@ -1221,6 +1223,51 @@ namespace sls {
             return true;
         
         return a.set_random(m_rand);
+    }
+
+
+    bool bv_eval::try_repair_sdiv(bvect const& e, bvval& a, bvval& b, unsigned i) {
+
+        bool sign_a = a.sign();
+        bool sign_b = b.sign();
+        bool sign_e = e.get(a.bw - 1);
+
+        // y = 0, x >= 0 -> -1
+        if (i == 0 && b.is_zero() && a.is_ones(e) && a.try_set(m_zero))
+            return true;
+        if (i == 0 && b.is_zero() && a.is_ones(e) && a.try_set_bit(a.bw - 1, false))
+            return true;
+
+        if (i == 1 && !sign_a && a.is_ones(e) && b.try_set(m_zero))
+            return true;
+            
+        // y = 0, x < 0 -> 1
+        if (i == 0 && b.is_zero() && a.is_one(e) && a.try_set(m_minus_one))
+            return true;
+
+        if (i == 1 && sign_a && a.is_one(e) && b.try_set(m_zero))
+            return true;
+
+        // x = 0, y != 0 -> 0
+        if (i == 0 && a.is_zero(e) && !b.is_zero() && a.try_set(m_zero))
+            return true;
+        if (i == 1 && a.is_zero(e) && a.is_zero() && b.try_set_bit(ctx.rand(a.bw), true))
+            return true;
+
+        // e = x udiv y
+        // e = 0 => x != ones
+        // y = 0 => e = -1        // nothing to repair on a
+        // e != -1 => max(y) >=u e
+
+        //IF_VERBOSE(0, verbose_stream() << "sdiv " << e << " " << a << " " << b << "\n";);
+
+        // e = udiv(abs(x), abs(y))
+        // x > 0, y < 0 -> -e
+        // x < 0, y > 0 -> -e
+        // x > 0, y > 0 -> e
+        // x < 0, y < 0 -> e
+
+        return try_repair_udiv(e, a, b, i);
     }
 
     bool bv_eval::try_repair_bnot(bvect const& e, bvval& a) {
