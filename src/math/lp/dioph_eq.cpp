@@ -56,7 +56,7 @@ namespace lp {
                     ret.add_monomial(p.coeff(), p.j());
                 }
                 ret.c() = c();
-                ret.j() = j();
+                ret.set_j(j());
                 return ret;
             }
             term_o(const lar_term& t) : lar_term(t), m_c(0) {
@@ -233,7 +233,12 @@ namespace lp {
         // {coeff*lar.get_term(k)})
 
         std_vector<unsigned> m_k2s;
-        std_vector<unsigned> m_fresh_definitions;
+        struct fresh_definition {
+            unsigned m_ei;
+            unsigned m_origin;
+            fresh_definition(unsigned i, unsigned o) : m_ei(i), m_origin(o) {}
+        };
+        std_vector<fresh_definition> m_fresh_definitions;
 
         unsigned m_conflict_index = -1;  // m_entries[m_conflict_index] gives the conflict
         unsigned m_max_number_of_iterations = 100;
@@ -281,9 +286,14 @@ namespace lp {
             undo_add_term(imp& s, const lar_term &t): m_s(s), m_t(t) {                
             }
             void undo () {
+                TRACE("dioph_eq", m_s.lra.print_term(m_t, tout););
                 for (const auto & p: m_t) {
                     auto it = m_s.m_columns_to_terms.find(p.var());
                     it->second.erase(m_t.j());
+                    if (it->second.size() == 0) {
+                        m_s.m_columns_to_terms.erase(it);
+                    }
+                        
                 }
             }
         };
@@ -303,7 +313,7 @@ namespace lp {
         };
 
         std::unordered_set<unsigned> m_changed_columns;
-        // m_column_to_terms[j] is the set of k such lra.get_term(k) depends on j
+        // m_column_to_terms[j] is the set of all k such lra.get_term(k) depends on j
         std::unordered_map<unsigned, std::unordered_set<unsigned>> m_columns_to_terms;  
         friend undo_fixed_column;
         void add_changed_column(unsigned j) {
@@ -326,7 +336,6 @@ namespace lp {
                 TRACE("dioph_eq", tout << "not all vars are integrall\n";);
                 return;
             }
-            TRACE("dioph_eq", tout << "inserted" << std::endl;);
             m_added_terms.push_back(t);
             auto undo = undo_add_term(*this, *t);
             lra.trail().push(undo);
@@ -364,6 +373,7 @@ namespace lp {
         }
 
         void register_columns_to_term(const lar_term& t) {
+            TRACE("dioph_eq", tout << "register term:"; lra.print_term(t, tout););
             for (const auto &p: t) {
                 auto it = m_columns_to_terms.find(p.var());
                 if (it != m_columns_to_terms.end()) {
@@ -373,12 +383,12 @@ namespace lp {
                     std::unordered_set<unsigned> s;
                     s.insert(t.j());
                     m_columns_to_terms[p.var()] = s;
+                    TRACE("dioph_eq", tout << "insert " << p.var(););
                 }                
             }
         }
         // the term has form sum(a_i*x_i) - t.j() = 0,
-        void fill_entry(const lar_term& t) {
-            register_columns_to_term(t);
+        void fill_entry(const lar_term& t) {         
             TRACE("dioph_eq", print_lar_term_L(t, tout) << std::endl;);
             entry te = { mpq(0), entry_status::F};
             unsigned entry_index = (unsigned) m_entries.size();
@@ -462,45 +472,54 @@ namespace lp {
             std::unordered_set<unsigned> entries_to_recalculate;
             std::unordered_set<unsigned> changed_terms; // a term is signified by the term column, like j in lra.get_term(j)
             std_vector<unsigned> fresh_entries_to_remove;
-            for (unsigned j = 0; j < m_fresh_definitions.size(); j++) {
-                unsigned k = m_fresh_definitions[j];
-                if (k == UINT_MAX) continue;
-                for (const auto & p: m_e_matrix.m_rows[k]) {
-                    if (contains(m_changed_columns, p.var())) {
-                       fresh_entries_to_remove.push_back(k);
-                       continue;
+            
+            for (unsigned j : m_changed_columns) {  
+                const auto it = m_columns_to_terms.find(j);
+                if (it != m_columns_to_terms.end())                
+                    for (unsigned k : it->second) {
+                        changed_terms.insert(k);
                     }
-                    
-                }
-            }
-            TRACE("dioph_eq", tout << "found " << fresh_entries_to_remove.size() << " fresh entries to remove\n";
-                  tout << "m_changed_columns:\n";
-                  for (unsigned j : m_changed_columns) {
-                      tout << j << " ";
-                  }
-                  tout << std::endl;
-                );
-            if (fresh_entries_to_remove.size()) {
-                NOT_IMPLEMENTED_YET();
-            }
-            for (unsigned j : m_changed_columns) {
-                for (unsigned k : m_columns_to_terms[j]) {
-                    changed_terms.insert(k);
-                }
+                if (!m_var_register.external_is_used(j)) 
+                    continue;
                 for (const auto& p : m_e_matrix.column(this->lar_solver_to_local(j))) {
-                    TRACE("dioph_eq", tout << "insert into entries_to_recalculate " << p.var() << " for changed_column j=" << j<< std::endl;
-                    tout << "p.coeff:" << p.coeff() << std::endl;
-                    );                    
                     entries_to_recalculate.insert(p.var());
                 }
             }
             for (unsigned j : changed_terms) {
                 for (const auto & cs: m_l_matrix.column(j)) {
-                    TRACE("dioph_eq", tout << "insert into entries_to_recalculate " << cs.var() << " for changed_term j=" << j<< std::endl;);                    
                     entries_to_recalculate.insert(cs.var());
                 }
             }
-            for(unsigned k : entries_to_recalculate) {
+
+            for (const lar_term* t : m_added_terms) {
+                register_columns_to_term(*t);
+            }
+            
+            SASSERT(is_in_sync());
+            TRACE("dioph_eq", tout << "entries_to_recalculate:"; for (unsigned j : entries_to_recalculate) {tout << " " << j;});
+            for (unsigned j = 0; j < m_fresh_definitions.size(); j++) {
+                const fresh_definition& fd  = m_fresh_definitions[j];
+                if (fd.m_ei == UINT_MAX) continue;
+                if (contains(entries_to_recalculate, fd.m_origin)) {
+                    fresh_entries_to_remove.push_back(j);
+                    continue;
+                }
+             }
+
+            TRACE("dioph_eq", tout << "found " << fresh_entries_to_remove.size() << " fresh entries to remove\n";
+                  tout << "m_changed_columns:\n";
+                  std::vector<unsigned> v(m_changed_columns.begin(), m_changed_columns.end());
+                  std::sort(v.begin(), v.end());
+                  for (unsigned j : v) {
+                     tout << j << " ";
+                  }
+                 tout << std::endl;
+             ); 
+             if (fresh_entries_to_remove.size()) {
+                 NOT_IMPLEMENTED_YET();
+             }
+             
+             for(unsigned k : entries_to_recalculate) {
                 recalculate_entry(k);
             }
             move_recalculated_to_F(entries_to_recalculate);
@@ -528,6 +547,16 @@ namespace lp {
             }
         }
 
+        bool entries_are_ok() {
+            for (unsigned ei = 0; ei < m_entries.size();  ei++) {
+                if (entry_invariant(ei) == false) {
+                    TRACE("dioph_eq", tout << "bad entry:"; print_entry(ei, tout););
+                    return false;
+                }
+            }
+            return true;
+         }
+        
         void init() {
             m_report_branch = false;
             m_conflict_index = -1;
@@ -541,18 +570,8 @@ namespace lp {
                 fill_entry(*t);
             }
             m_added_terms.clear();
-            /*
-            for (unsigned j = 0; j < lra.column_count(); j++) {
-                if (!lra.column_is_int(j) || !lra.column_has_term(j))
-                    continue;
-                const lar_term& t = lra.get_term(j);
-                if (!all_vars_are_int(t)) {
-                    TRACE("dioph_eq", tout << "not all vars are integrall\n";);
-                    continue;
-                }
-                fill_entry(t);
-            }*/
-        }
+            SASSERT(entries_are_ok());
+         }
 
         template <typename K>
         mpq gcd_of_coeffs(const K& k) {
@@ -571,10 +590,6 @@ namespace lp {
         std::ostream& print_dep(std::ostream& out, u_dependency* dep) {
             explanation ex(lra.flatten(dep));
             return lra.print_expl(out, ex);
-        }
-
-        std::string var_str(unsigned j) {
-            return std::string(is_fresh_var(j) ? "~" : "") + std::to_string(j);
         }
 
         bool has_fresh_var(unsigned row_index) const {
@@ -671,6 +686,7 @@ namespace lp {
             if (m_indexed_work_vector[k].is_zero())
                 return;
             const entry& e = entry_for_subs(k);
+            SASSERT(e.m_entry_status == entry_status::S);
             TRACE("dioph_eq", tout << "k:" << k << ", in ";
                   print_term_o(create_term_from_ind_c(), tout) << std::endl;
                   tout << "subs with e:";
@@ -854,7 +870,10 @@ namespace lp {
                   tout << "term_to_tighten + open_ml:";
                   print_term_o(term_to_tighten + open_ml(m_tmp_l), tout)
                   << std::endl;
-                 );
+                  tout << "ls:"; print_term_o(fix_vars(term_to_tighten + open_ml(m_tmp_l)),tout) << std::endl;
+                  tout << "rs:"; print_term_o(term_to_lar_solver(remove_fresh_vars(create_term_from_ind_c())), tout ) << std::endl;
+
+                );
             SASSERT(
                 fix_vars(term_to_tighten + open_ml(m_tmp_l)) ==
                 term_to_lar_solver(remove_fresh_vars(create_term_from_ind_c())));
@@ -1283,6 +1302,69 @@ namespace lp {
             return br;
         }
 
+        bool columns_to_terms_is_correct() const {
+            std::unordered_map<unsigned, std::unordered_set<unsigned>> c2t;
+            for (unsigned k = 0; k < lra.terms().size(); k ++ ) {
+                const lar_term* t = lra.terms()[k];
+                if (!all_vars_are_int(*t)) continue;
+                for (const auto& p: *t) {
+                    unsigned j = p.var();
+                    auto it = c2t.find(j);
+                    if (it == c2t.end()) {
+                        std::unordered_set<unsigned> s;
+                        s.insert(t->j());
+                        c2t[j] = s;
+                    } else {
+                        it->second.insert(t->j());                        
+                    }
+                
+                }
+            }
+            for (const auto & p : c2t) {
+                unsigned j = p.first;
+                const auto it = m_columns_to_terms.find(j);
+                if (it == m_columns_to_terms.end()) {
+                    TRACE("dioph_eq", tout << "column j" << j  << " is not registered" << std::endl;
+                          tout << "the column belongs to the the following terms:";
+                          for (unsigned tj : p.second) {
+                              tout << " " << tj;
+                          }
+                          tout << std::endl;
+                        );
+                    
+                    return false;
+                } 
+                if (it->second != p.second) {                    
+                    return false;
+                }
+            }
+            // reverse inclusion
+            for (const auto & p : m_columns_to_terms) {
+                unsigned j = p.first;
+                const auto it = c2t.find(j);
+                if (it == c2t.end()) {
+                    TRACE("dioph_eq", tout << "should not be registered j " << j << std::endl;
+                    lra.print_terms(tout););
+                    return false;
+                } 
+                if (it->second != p.second) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        bool is_in_sync() const {
+            unsigned n_local_columns = m_e_matrix.column_count();
+            for (unsigned j = 0; j < n_local_columns; j++) {
+                unsigned external_j = m_var_register.local_to_external(j);
+                if (external_j == UINT_MAX) continue;
+                if (external_j >=  lra.column_count())
+                    return false;
+            }
+            
+            return columns_to_terms_is_correct();
+        }
+
        public:
         lia_move check() {
             lra.stats().m_dio_calls++;
@@ -1443,9 +1525,7 @@ namespace lp {
             }
             while (!q.empty()) {
                 unsigned xt = pop_front(q);
-                term_o fresh_t = get_term_from_entry(m_fresh_definitions[xt]);
-                if (fresh_t.get_coeff(xt).is_minus_one() == false)
-                    std::cout << "coeff:" << fresh_t.get_coeff(xt) << std::endl;
+                term_o fresh_t = get_term_from_entry(m_fresh_definitions[xt].m_ei);
                 SASSERT(fresh_t.get_coeff(xt).is_minus_one());
                 fresh_t.erase_var(xt);
                 if (!t.contains(xt))
@@ -1551,8 +1631,10 @@ namespace lp {
 
             m_k2s.resize(k + 1, -1);
             m_k2s[k] = fresh_row;
-            m_fresh_definitions.resize(xt + 1, -1);
-            m_fresh_definitions[xt] = fresh_row;
+            fresh_definition fd(-1, -1);
+                
+            m_fresh_definitions.resize(xt + 1, fd);
+            m_fresh_definitions[xt] = fresh_definition(fresh_row, h);
             TRACE("dioph_eq", tout << "changed entry:";
                   print_entry(h, tout) << std::endl;
                   tout << "added entry for fresh var:\n";
@@ -1576,8 +1658,10 @@ namespace lp {
             if (need_print_dep) {
                 out << "\tm_l:{";
                 print_lar_term_L(l_term_from_row(ei), out) << "}, ";
-                print_ml(l_term_from_row(ei), out << "\n\texpl of fixed in m_l:\n") << "\n";
+                print_ml(l_term_from_row(ei), out) << std::endl;
+                out << "expl of fixed in m_l:{\n";
                 print_dep(out, explain_fixed_in_meta_term(l_term_from_row(ei)));
+                out << "}\n";
             }
             switch (e.m_entry_status) {
                 case entry_status::F:
