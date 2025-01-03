@@ -32,7 +32,9 @@ protected:
 public:
     // the column index related to the term
     lpvar j() const { return m_j; }
-    lpvar& j() { return m_j; }
+    void set_j(unsigned j) { 
+        m_j = j;
+    }
     void add_monomial(const mpq& c, unsigned j) {
         if (c.is_zero())
             return;
