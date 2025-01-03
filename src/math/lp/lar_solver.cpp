@@ -1714,7 +1714,7 @@ namespace lp {
         unsigned j = A_r().column_count();
         SASSERT(ext_index == null_lpvar || external_to_local(ext_index) == j);
         column ul(term);
-        term->j() = j; // point from the term to the column
+        term->set_j(j); // point from the term to the column
         m_columns.push_back(ul);
         m_trail.push(undo_add_column(*this));
         add_basic_var_to_core_fields();
