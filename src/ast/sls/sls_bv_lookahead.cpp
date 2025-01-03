@@ -39,7 +39,7 @@ namespace sls {
     */
     void bv_lookahead::start_propagation() {
         //verbose_stream() << "start_propagation " << m_stats.m_num_propagations << "\n";
-        if (m_stats.m_num_propagations++ % m_config.propagation_base == 0) 
+        if (m_stats.m_propagations++ % m_config.propagation_base == 0) 
             search();        
     }
 
@@ -117,7 +117,7 @@ namespace sls {
         auto& v = wval(e);
         m_v_updated.set_bw(v.bw);
         v.get_variant(m_v_updated, m_ev.m_rand);
-        ++m_stats.random_flip_count;
+        ++m_stats.m_random_flips;
         return apply_update(m_last_atom, e, m_v_updated, move_type::random_t);
     }
 
@@ -438,7 +438,7 @@ namespace sls {
         if (!wval(u).can_set(new_value))
             return;
         auto score = lookahead_update(u, new_value);
-        ++m_stats.m_num_lookaheads;
+        ++m_stats.m_lookaheads;
         //verbose_stream() << mk_bounded_pp(u, m) << " := " << new_value << " score: " << score << "\n";
         if (score > m_best_score) {
             m_best_score = score;
@@ -455,7 +455,7 @@ namespace sls {
             return;
         auto score = lookahead_flip(v);
         //verbose_stream() << "lookahead flip " << mk_bounded_pp(u, m) << " score: " << score << "\n";
-        ++m_stats.m_num_lookaheads;
+        ++m_stats.m_lookaheads;
         if (score > m_best_score) {
             m_best_score = score;
             m_best_expr = u;
@@ -589,13 +589,15 @@ namespace sls {
 #if 1
                         if (allow_costly_flips(mt))
                             ctx.flip(v);                        
-                        else if (false) {
+                        else if (true) {
                             sat::bool_var_set rotated;
                             unsigned budget = 100;
                             bool rot = ctx.try_rotate(v, rotated, budget);
+                            if (rot)
+                                ++m_stats.m_rotations;
                             (void)rot;
                             TRACE("bv", tout << "rotate " << v << " " << rot << " " << rotated << "\n";);
-                            verbose_stream() << "rotate " << v << " " << rot << " " << rotated << "\n";
+                            //verbose_stream() << "rotate " << v << " " << rot << " " << rotated << "\n";
                         }
 #endif
                         
@@ -625,7 +627,7 @@ namespace sls {
             return true;
         if (mt != move_type::random_t)
             return false;
-        return m_stats.random_flip_count % 100 == 0;
+        return m_stats.m_random_flips % 100 == 0;
     }
 
     void bv_lookahead::insert_update(expr* e) {
@@ -737,8 +739,9 @@ namespace sls {
     }
 
     void bv_lookahead::collect_statistics(statistics& st) const {
-        st.update("sls-bv-lookaheads", m_stats.m_num_lookaheads);
+        st.update("sls-bv-lookaheads", m_stats.m_lookaheads);
         st.update("sls-bv-moves", m_stats.m_moves);
         st.update("sls-bv-restarts", m_stats.m_restarts);
+        st.update("sls-bv-rotations", m_stats.m_rotations);
     }
 }

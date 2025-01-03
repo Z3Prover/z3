@@ -49,11 +49,12 @@ namespace sls {
         };
 
         struct stats {
-            unsigned m_num_lookaheads = 0;
+            unsigned m_lookaheads = 0;
             unsigned m_moves = 0;
             unsigned m_restarts = 0;
-            unsigned m_num_propagations = 0;
-            unsigned random_flip_count = 0;
+            unsigned m_propagations = 0;
+            unsigned m_random_flips = 0;
+            unsigned m_rotations = 0;
         };
 
         struct bool_info {
