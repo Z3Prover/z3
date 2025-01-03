@@ -69,6 +69,7 @@ namespace sls {
         virtual sat::clause_info const& get_clause(unsigned idx) const = 0;
         virtual ptr_iterator<unsigned> get_use_list(sat::literal lit) = 0;
         virtual void flip(sat::bool_var v) = 0;
+        virtual bool try_rotate(sat::bool_var v, sat::bool_var_set& rotated, unsigned& budget) = 0;
         virtual double reward(sat::bool_var v) = 0;
         virtual double get_weigth(unsigned clause_idx) = 0;
         virtual bool is_true(sat::literal lit) = 0;
@@ -175,6 +176,7 @@ namespace sls {
         void add_clause(expr* f);
         void add_clause(sat::literal_vector const& lits);
         void flip(sat::bool_var v) { s.flip(v); }
+        bool try_rotate(sat::bool_var v, sat::bool_var_set& rotated, unsigned& budget) { return s.try_rotate(v, rotated, budget); }
         double reward(sat::bool_var v) { return s.reward(v); }
         indexed_uint_set const& unsat() const { return s.unsat(); }
         unsigned rand() { return m_rand(); }

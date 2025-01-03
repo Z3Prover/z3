@@ -53,6 +53,7 @@ namespace sls {
             unsigned m_moves = 0;
             unsigned m_restarts = 0;
             unsigned m_num_propagations = 0;
+            unsigned random_flip_count = 0;
         };
 
         struct bool_info {
@@ -109,10 +110,15 @@ namespace sls {
         void set_touched(app* e, unsigned t) { get_bool_info(e).touched = t; }
         void inc_touched(app* e) { ++get_bool_info(e).touched; }
 
+        enum class move_type { random_t, guided_t, move_t, reset_t };
+        friend std::ostream& operator<<(std::ostream& out, move_type mt);
+
+
+        bool allow_costly_flips(move_type mt);
         void try_set(expr* u, bvect const& new_value);
         void try_flip(expr* u);
         void add_updates(expr* u);
-        bool apply_update(expr* p, expr* t, bvect const& new_value, char const* reason);
+        bool apply_update(expr* p, expr* t, bvect const& new_value, move_type mt);
         bool apply_random_move(ptr_vector<expr> const& vars);
         bool apply_guided_move(ptr_vector<expr> const& vars);
         bool apply_random_update(ptr_vector<expr> const& vars);

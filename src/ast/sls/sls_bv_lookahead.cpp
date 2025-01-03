@@ -95,7 +95,7 @@ namespace sls {
         for (unsigned i = 0; i < sz; ++i)
             add_updates(vars[(start + i) % sz]);
         CTRACE("bv", !m_best_expr, tout << "no guided move\n";);
-        return apply_update(m_last_atom, m_best_expr, m_best_value, "increasing move");
+        return apply_update(m_last_atom, m_best_expr, m_best_value, move_type::guided_t);
     }
 
     /**
@@ -117,7 +117,8 @@ namespace sls {
         auto& v = wval(e);
         m_v_updated.set_bw(v.bw);
         v.get_variant(m_v_updated, m_ev.m_rand);
-        return apply_update(nullptr, e, m_v_updated, "random update");
+        ++m_stats.random_flip_count;
+        return apply_update(m_last_atom, e, m_v_updated, move_type::random_t);
     }
 
     /**
@@ -153,7 +154,7 @@ namespace sls {
             v.sub1(m_v_updated);
             break;
         }
-        return apply_update(nullptr, e, m_v_updated, "random move");
+        return apply_update(m_last_atom, e, m_v_updated, move_type::move_t);
     }
 
     /**
@@ -243,7 +244,7 @@ namespace sls {
                 auto& v = wval(e);
                 m_v_updated.set_bw(v.bw);
                 m_v_updated.set_zero();
-                apply_update(nullptr, e, m_v_updated, "reset");                
+                apply_update(nullptr, e, m_v_updated, move_type::reset_t);                
             }
         }
     }
@@ -517,7 +518,18 @@ namespace sls {
     * The update is committed.
     */
 
-    bool bv_lookahead::apply_update(expr* p, expr* t, bvect const& new_value, char const* reason) {
+    std::ostream& operator<<(std::ostream& out, bv_lookahead::move_type t) {
+        switch (t) {
+        case bv_lookahead::move_type::guided_t: return out << "guided";
+        case bv_lookahead::move_type::random_t: return out << "random";
+        case bv_lookahead::move_type::move_t:   return out << "move";
+        case bv_lookahead::move_type::reset_t:  return out << "reset";
+        default:
+            return out;
+        }
+    }
+
+    bool bv_lookahead::apply_update(expr* p, expr* t, bvect const& new_value, move_type mt) {
         if (!t || m.is_bool(t) || !wval(t).can_set(new_value))
             return false;
 
@@ -553,27 +565,32 @@ namespace sls {
                             continue;
                         if (ctx.is_true(v) == v1)
                             continue;
-                        if (!p || e == p)
+
+                        if (e == p)
                             continue;
                         TRACE("bv", tout << "updated truth value " << v << ": " << mk_bounded_pp(e, m) << "\n";);
-#if 0
                         unsigned num_unsat = ctx.unsat().size();
+#if 0
+                        
                         TRACE("bv", tout << "update flip " << mk_bounded_pp(e, m) << "\n";);
                         auto r = ctx.reward(v);
                         auto lit = sat::literal(v, !ctx.is_true(v));
                         bool is_bv_lit = is_bv_literal(lit);
-                        verbose_stream() << "flip " << is_bv_literal(lit) << " " << mk_bounded_pp(e, m) << " " << lit << " " << r << " num unsat " << ctx.unsat().size() << "\n";
                         
-
-                        ctx.flip(v);
-
+                        sat::bool_var_set rotated;
+                        unsigned budget = 100;
+                        bool rot = ctx.try_rotate(v, rotated, budget);
+                        verbose_stream() << "try-rotate " << rot << " " << rotated.size() << "\n";
+                        verbose_stream() << "flip " << ((!p || e == p) ? "top " : "not top ") << is_bv_literal(lit) << " " << mk_bounded_pp(e, m) << " " << lit << " " << r << " num unsat " << num_unsat << " -> " << ctx.unsat().size() << "\n";
                         verbose_stream() << "new unsat " << ctx.unsat().size() << "\n";
 
-                        if (num_unsat < ctx.unsat().size()) {
-                            verbose_stream() << "flip back\n";
-                            ctx.flip(v);
-                        }
 #endif
+                        
+#if 1
+                        if (allow_costly_flips(mt)) 
+                            ctx.flip(v);                        
+#endif
+                        
                     }
                     m_ev.set_bool_value(to_app(e), v1);
                 }
@@ -589,10 +606,18 @@ namespace sls {
         }
         m_in_update_stack.reset();
         m_ev.clear_bool_values();
-        TRACE("bv", tout << reason << " " << mk_bounded_pp(t, m)
+        TRACE("bv", tout << mt << " " << mk_bounded_pp(t, m)
             << " := " << new_value
             << " score " << m_top_score << "\n";);
         return true;
+    }
+
+    bool bv_lookahead::allow_costly_flips(move_type mt) {
+        if (mt == move_type::reset_t)
+            return true;
+        if (mt != move_type::random_t)
+            return false;
+        return m_stats.random_flip_count % 100 == 0;
     }
 
     void bv_lookahead::insert_update(expr* e) {
