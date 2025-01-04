@@ -30,6 +30,8 @@ protected:
     // the column index related to the term
     lpvar m_j = -1; 
 public:
+
+
     // the column index related to the term
     lpvar j() const { return m_j; }
     void set_j(unsigned j) { 
@@ -92,8 +94,6 @@ public:
     }
     // constructors
     lar_term() = default;
-<<<<<<< HEAD
-=======
     lar_term(lar_term&& other) noexcept = default;
     // copy assignment operator
     lar_term& operator=(const lar_term& other) = default;
@@ -106,7 +106,6 @@ public:
         }
     }
     
->>>>>>> 956229fb6 (test that pivoting is correct in dioph_eq.cpp)
     lar_term(const vector<std::pair<mpq, unsigned>>& coeffs) {
         for (auto const& p : coeffs) {
             add_monomial(p.first, p.second);
@@ -257,10 +256,9 @@ public:
         m_coeffs.reset();
     }
 
-    class ival {
+    struct ival {
         lpvar m_var;
         const mpq & m_coeff;
-    public:
         ival(lpvar var, const mpq & val) : m_var(var), m_coeff(val) { }
         lpvar j() const { return m_var; }
         lpvar var() const { return m_var; }
@@ -274,7 +272,12 @@ public:
         const_iterator operator++() { const_iterator i = *this; m_it++; return i;  }
         const_iterator operator++(int) { m_it++; return *this; }
         const_iterator(u_map<mpq>::iterator it) : m_it(it) {}
-        bool operator!=(const const_iterator &other) const { return m_it != other.m_it; }
+        bool operator==(const const_iterator &other) const { return m_it == other.m_it; }
+        bool operator!=(const const_iterator &other) const { return !(*this == other); }
+          // Return a pointer to the same object returned by operator*.
+        const ival* operator->() const {
+            return &(**this); 
+        }
     };
    
     bool is_normalized() const {
@@ -316,5 +319,101 @@ public:
     }
     const_iterator begin() const { return m_coeffs.begin();}
     const_iterator end() const { return m_coeffs.end(); }
+    // This iterator yields all (coefficient, variable) pairs
+    // plus one final pair: (mpq(-1), j()).
+    class ext_const_iterator {
+        // We'll store a reference to the lar_term, and an
+        // iterator into m_coeffs. Once we reach end of m_coeffs,
+        // we'll yield exactly one extra pair, then we are done.
+        const lar_term&           m_term;
+        lar_term::const_iterator  m_it;
+        bool                      m_done; // Have we gone past m_coeffs?
+
+    public:
+        // Construct either a "begin" iterator (end=false) or "end" iterator (end=true).
+        ext_const_iterator(const lar_term& t, bool is_end)
+            : m_term(t)
+            , m_it(is_end ? t.end() : t.begin())
+            , m_done(false)
+        {
+            // If it is_end == true, we represent a genuine end-iterator.
+            if (is_end) {
+                m_done = true;
+            }
+        }
+
+        // Compare iterators. Two iterators are equal if both are "done" or hold the same internal iterator.
+        bool operator==(ext_const_iterator const &other) const {
+            // They are equal if they are both at the special extra pair or both at the same spot in m_coeffs.
+            if (m_done && other.m_done) {
+                return true; 
+            }
+            return (!m_done && !other.m_done && m_it == other.m_it);
+        }
+
+        bool operator!=(ext_const_iterator const &other) const {
+            return !(*this == other);
+        }
+
+        // Return the element we point to:
+        //   1) If we haven't finished m_coeffs, yield (coefficient, var).
+        //   2) If we've iterated past m_coeffs exactly once, return (mpq(-1), j()).
+        auto operator*() const {
+            if (!m_done && m_it != m_term.end()) {
+                // Normal monomial from m_coeffs
+                // Each entry is of type { m_value, m_key } in this context
+                return *m_it; 
+            }
+            else {
+                // We've gone past normal entries, so return the extra pair
+                // (mpq(-1), j()).
+                return ival(m_term.j(), rational::minus_one());
+            }
+        }
+
+        // Pre-increment
+        ext_const_iterator& operator++() {
+            if (!m_done && m_it != m_term.end()) {
+                ++m_it;
+            }
+            else {
+                // We were about to return that extra pair:
+                // after we move once more, we are done.
+                m_done = true;
+            }
+            return *this;
+        }
+
+        // Post-increment
+        ext_const_iterator operator++(int) {
+            ext_const_iterator temp(*this);
+            ++(*this);
+            return temp;
+        }
+    };
+
+    // Return the begin/end of our extended iteration.
+    //    begin: starts at first real monomial
+    //    end:   marks a finalized end of iteration
+    ext_const_iterator ext_coeffs_begin() const {
+        return ext_const_iterator(*this, /*is_end=*/false);
+    }
+    ext_const_iterator ext_coeffs_end() const {
+        return ext_const_iterator(*this, /*is_end=*/true);
+    }
+
+    // Provide a small helper for "range-based for":
+    // for (auto & [coef, var] : myTerm.ext_coeffs()) { ... }
+    struct ext_range {
+        ext_const_iterator b, e;
+        ext_const_iterator begin() const { return b; }
+        ext_const_iterator end() const { return e; }
+    };
+
+    // return an object that can be used in range-based for loops
+    ext_range ext_coeffs() const {
+        return { ext_coeffs_begin(), ext_coeffs_end() };
+    }
+
 };
 }
