@@ -52,6 +52,8 @@ namespace sls {
 
     void bv_lookahead::search() {
         updt_params(ctx.get_params());
+        if (!m_config.use_lookahead_bv)
+            return;
         initialize_bool_values();
         rescore();
         m_config.max_moves = m_stats.m_moves + m_config.max_moves_base;
@@ -263,7 +265,7 @@ namespace sls {
         if (0x1 == (m_stats.m_restarts & 0x1))
             m_config.restart_next += m_config.restart_base;
         else
-            m_config.restart_next += (2 << (m_stats.m_restarts >> 1)) * m_config.restart_base;
+            m_config.restart_next += (2 * (m_stats.m_restarts >> 1)) * m_config.restart_base;
 
         reset_uninterp_in_false_literals(); 
         rescore();
@@ -328,6 +330,7 @@ namespace sls {
         m_config.ucb_init = p.walksat_ucb_init();
         m_config.ucb_noise = p.walksat_ucb_noise();
         m_config.use_top_level_assertions = p.use_top_level_assertions_bv();
+        m_config.use_lookahead_bv = p.use_lookahead_bv();
     }
 
     /**

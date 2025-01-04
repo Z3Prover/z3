@@ -47,6 +47,7 @@ namespace sls {
             bool ucb_init = false;
             double ucb_noise = 0.1;
             bool   use_top_level_assertions = true;
+            bool   use_lookahead_bv = true;
         };
 
         struct stats {
