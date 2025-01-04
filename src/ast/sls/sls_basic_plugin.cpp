@@ -47,13 +47,13 @@ namespace sls {
             auto eq_th = expr_ref(m.mk_eq(e, th), m);
             auto eq_el = expr_ref(m.mk_eq(e, el), m);
 
-            ctx.add_clause(m.mk_or(mk_not(m, c), eq_th));
-            ctx.add_clause(m.mk_or(c, eq_el));
+            ctx.add_theory_axiom(m.mk_or(mk_not(m, c), eq_th));
+            ctx.add_theory_axiom(m.mk_or(c, eq_el));
 #if 0
             auto eq_th_el = expr_ref(m.mk_eq(th, el), m);
             verbose_stream() << mk_bounded_pp(eq_th_el, m) << "\n";
-            ctx.add_clause(m.mk_or(eq_th_el, c, m.mk_not(eq_th)));
-            ctx.add_clause(m.mk_or(eq_th_el, m.mk_not(c), m.mk_not(eq_el)));
+            ctx.add_theory_axiom(m.mk_or(eq_th_el, c, m.mk_not(eq_th)));
+            ctx.add_theory_axiom(m.mk_or(eq_th_el, m.mk_not(c), m.mk_not(eq_el)));
 #endif
         }
     }

@@ -81,7 +81,7 @@ namespace datatype {
         symbol           m_name;
         symbol           m_recognizer;
         ptr_vector<accessor> m_accessors;
-        def*             m_def;
+        def*             m_def = nullptr;
     public:
         constructor(symbol n, symbol const& r): m_name(n), m_recognizer(r) {}
         ~constructor();

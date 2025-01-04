@@ -263,7 +263,7 @@ extern "C" {
             if (ous.str().empty()) ous << e.what();
             SET_ERROR_CODE(Z3_PARSER_ERROR, ous.str());
         }
-        Z3_CATCH_CORE();
+        Z3_CATCH_CORE({});
         RETURN_Z3(mk_c(c)->mk_external_string(std::move(ous).str()));
     }
 }

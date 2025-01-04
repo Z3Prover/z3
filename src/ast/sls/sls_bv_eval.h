@@ -55,7 +55,7 @@ namespace sls {
         unsigned            m_lookahead_steps = 0;
         unsigned            m_lookahead_phase_size = 10;
         mutable svector<lbool>      m_tmp_bool_values;
-        mutable unsigned_vector     m_tmp_bool_value_indices;
+        mutable svector<std::pair<unsigned, lbool>>  m_tmp_bool_value_updates;
         
 
         scoped_ptr_vector<sls::bv_valuation> m_values; // expr-id -> bv valuation
@@ -141,7 +141,7 @@ namespace sls {
 
         sls::bv_valuation& wval(app* e, unsigned i) { return wval(e->get_arg(i)); }
 
-        void eval(app* e, sls::bv_valuation& val) const;
+        void eval(expr* e, sls::bv_valuation& val) const;
 
         bvect const& assign_value(app* e) const { return wval(e).bits(); }
 
@@ -150,7 +150,7 @@ namespace sls {
          * Retrieve evaluation based on immediate children.
          */
 
-        bool can_eval1(app* e) const;
+        bool can_eval1(expr* e) const;
 
         void commit_eval(expr* p, app* e);
 
@@ -188,11 +188,13 @@ namespace sls {
         expr_ref get_value(app* e);
 
         bool bval0(expr* e) const { return ctx.is_true(e); }
-        bool bval1(app* e) const;
+        bool bval1(expr* e) const;
 
+        unsigned bool_value_restore_point() const { return m_tmp_bool_value_updates.size(); }
         void set_bool_value(expr* e, bool val);
-        void clear_bool_values();
-        bool get_bool_value(expr* e)const;
+        void restore_bool_values(unsigned restore_point);
+        void commit_bool_values() { m_tmp_bool_value_updates.reset(); }
+        bool get_bool_value(expr* e) const;
       
         /*
          * Try to invert value of child to repair value assignment of parent.

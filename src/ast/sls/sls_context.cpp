@@ -35,7 +35,7 @@ namespace sls {
     }
 
     context::context(ast_manager& m, sat_solver_context& s) : 
-        m(m), s(s), m_atoms(m), m_allterms(m),
+        m(m), s(s), m_atoms(m), m_input_assertions(m), m_allterms(m),
         m_gd(*this),
         m_ld(*this),
         m_repair_down(m.get_num_asts(), m_gd),
@@ -330,20 +330,20 @@ namespace sls {
             return;
         m_constraint_ids.insert(e->get_id());
         m_constraint_trail.push_back(e);
-        add_clause(e);     
+        add_assertion(e, false);     
         m_new_constraint = true;
         IF_VERBOSE(3, verbose_stream() << "add constraint " << mk_bounded_pp(e, m) << "\n");
         ++m_stats.m_num_constraints;
     }
 
-    void context::add_clause(expr* f)  {
+    void context::add_assertion(expr* f, bool is_input)  {
         expr_ref _e(f, m);
         expr* g, * h, * k;
         sat::literal_vector clause;
         if (m.is_true(f))
             return;
         if (m.is_not(f, g) && m.is_not(g, g)) {
-            add_clause(g);
+            add_assertion(g, is_input);
             return;
         }
         bool sign = m.is_not(f, f);
@@ -352,15 +352,17 @@ namespace sls {
             for (auto arg : *to_app(f))
                 clause.push_back(mk_literal(arg));
             s.add_clause(clause.size(), clause.data());
+            if (is_input)
+                save_input_assertion(f, sign);
         }
         else if (!sign && m.is_and(f)) {
             for (auto arg : *to_app(f))
-                add_clause(arg);
+                add_assertion(arg, is_input);
         }
         else if (sign && m.is_or(f)) {
             for (auto arg : *to_app(f)) {
                 expr_ref fml(m.mk_not(arg), m);
-                add_clause(fml);
+                add_assertion(fml, is_input);
             }
         }
         else if (!sign && m.is_implies(f, g, h)) {
@@ -368,17 +370,21 @@ namespace sls {
             clause.push_back(~mk_literal(g));
             clause.push_back(mk_literal(h));
             s.add_clause(clause.size(), clause.data());
+            if (is_input)
+                save_input_assertion(f, sign);
         }
         else if (sign && m.is_implies(f, g, h)) {
             expr_ref fml(m.mk_not(h), m);
-            add_clause(fml);
-            add_clause(g);
+            add_assertion(fml, is_input);
+            add_assertion(g, is_input);
         }
         else if (sign && m.is_and(f)) {
             clause.reset();
             for (auto arg : *to_app(f))
                 clause.push_back(~mk_literal(arg));
             s.add_clause(clause.size(), clause.data());
+            if (is_input)
+                save_input_assertion(f, sign);
         }
         else if (m.is_iff(f, g, h)) {
             auto lit1 = mk_literal(g);
@@ -387,6 +393,8 @@ namespace sls {
             sat::literal cls2[2] = { sign ? ~lit1 : lit1, ~lit2 };
             s.add_clause(2, cls1);
             s.add_clause(2, cls2);
+            if (is_input)
+                save_input_assertion(f, sign);
         }
         else if (m.is_ite(f, g, h, k)) {
             auto lit1 = mk_literal(g);
@@ -399,13 +407,21 @@ namespace sls {
             sat::literal cls2[2] = { lit1, sign ? ~lit3 : lit3 };
             s.add_clause(2, cls1);
             s.add_clause(2, cls2);
+            if (is_input)
+                save_input_assertion(f, sign);
         }
         else {
             sat::literal lit = mk_literal(f);
             if (sign)
                 lit.neg();
             s.add_clause(1, &lit);
+            if (is_input)
+                save_input_assertion(f, sign);
         }
+    }
+
+    void context::save_input_assertion(expr* f, bool sign) {
+        m_input_assertions.push_back(sign ? m.mk_not(f) : f);
     }
 
     void context::add_clause(sat::literal_vector const& lits) {
@@ -511,6 +527,8 @@ namespace sls {
         for (unsigned i = 0; i < m_atoms.size(); ++i)
             if (m_atoms.get(i))
                 register_terms(m_atoms.get(i));
+        for (auto e : m_input_assertions)
+            register_terms(e);
         for (auto p : m_plugins)
             if (p)
                 p->initialize();

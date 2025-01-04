@@ -150,7 +150,7 @@ public:
 
     ~parameter();
 
-    parameter& operator=(parameter && other) {
+    parameter& operator=(parameter && other) noexcept {
         std::swap(other.m_val, m_val);
         return *this;
     }
@@ -460,7 +460,7 @@ class ast {
 protected:
     friend class ast_manager;
 
-    unsigned m_id;
+    unsigned m_id = UINT_MAX;
     unsigned m_kind:16;
     // Warning: the marks should be used carefully, since they are shared.
     unsigned m_mark1:1;
@@ -479,8 +479,8 @@ protected:
     void mark_so(bool flag) { m_mark_shared_occs = flag; }
     void reset_mark_so() { m_mark_shared_occs = false; }
     bool is_marked_so() const { return m_mark_shared_occs; }
-    unsigned m_ref_count;
-    unsigned m_hash;
+    unsigned m_ref_count = 0;
+    unsigned m_hash = 0;
 #ifdef Z3DEBUG
     // In debug mode, we store who is the owner of the mark.
     void *   m_mark1_owner;
@@ -497,7 +497,7 @@ protected:
         --m_ref_count;
     }
 
-    ast(ast_kind k):m_id(UINT_MAX), m_kind(k), m_mark1(false), m_mark2(false), m_mark_shared_occs(false), m_ref_count(0) {
+    ast(ast_kind k): m_kind(k), m_mark1(false), m_mark2(false), m_mark_shared_occs(false) {
         DEBUG_CODE({
             m_mark1_owner = 0;
             m_mark2_owner = 0;

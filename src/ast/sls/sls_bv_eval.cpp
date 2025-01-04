@@ -97,8 +97,11 @@ namespace sls {
             eval(e).commit_eval_check_tabu();               
     }
     
-    bool bv_eval::can_eval1(app* e) const {
+    bool bv_eval::can_eval1(expr* t) const {
         expr* x, * y;
+        if (!is_app(t))
+            return false;
+        app* e = to_app(t);
         if (m.is_eq(e, x, y))
             return bv.is_bv(x);
         if (m.is_ite(e))
@@ -197,27 +200,35 @@ namespace sls {
     }
 
     void bv_eval::set_bool_value(expr* e, bool val) {
-        m_tmp_bool_values.setx(e->get_id(), to_lbool(val), l_undef);
-        m_tmp_bool_value_indices.push_back(e->get_id());
+        auto id = e->get_id();
+        auto old_val = m_tmp_bool_values.get(id, l_undef);
+        m_tmp_bool_values.setx(id, to_lbool(val), l_undef);
+        m_tmp_bool_value_updates.push_back({ id, old_val });
     }
 
     bool bv_eval::get_bool_value(expr* e) const {
-        auto val = m_tmp_bool_values.get(e->get_id(), l_undef);
+        SASSERT(m.is_bool(e));
+        auto id = e->get_id();
+        auto val = m_tmp_bool_values.get(id, l_undef);
         if (val != l_undef)
-            return val == l_true;
+            return val == l_true;     
+        bool b;
         auto v = ctx.atom2bool_var(e);
         if (v != sat::null_bool_var)
-            return ctx.is_true(v);
-        auto b = bval1_bool(to_app(e));
-        m_tmp_bool_values.setx(e->get_id(), to_lbool(val), l_undef);
-        m_tmp_bool_value_indices.push_back(e->get_id());
+            b = ctx.is_true(v);
+        else
+            b = bval1(e);
+        m_tmp_bool_values.setx(id, to_lbool(b), l_undef);
+        m_tmp_bool_value_updates.push_back({ id, l_undef });
         return b;
     }
 
-    void bv_eval::clear_bool_values() { 
-        for (auto i : m_tmp_bool_value_indices)
-            m_tmp_bool_values[i] = l_undef;
-        m_tmp_bool_value_indices.reset(); 
+    void bv_eval::restore_bool_values(unsigned r) { 
+        for (auto i = m_tmp_bool_value_updates.size(); i-- > r; ) {
+            auto& [id, val] = m_tmp_bool_value_updates[i];
+            m_tmp_bool_values.set(id, val);
+        }
+        m_tmp_bool_value_updates.shrink(r);
     }
 
     bool bv_eval::bval1_bool(app* e) const {
@@ -261,22 +272,17 @@ namespace sls {
         return false;
     }
 
-    bool bv_eval::bval1(app* e) const {
+    bool bv_eval::bval1(expr* t) const {
+        app* e = to_app(t);
         if (e->get_family_id() == bv.get_fid())
             return bval1_bv(e);
         expr* x, * y;
-        if (m.is_eq(e, x, y) && bv.is_bv(x)) {
-            return wval(x).bits() == wval(y).bits();
-        }
+        if (m.is_eq(e, x, y) && bv.is_bv(x)) 
+            return wval(x).bits() == wval(y).bits();        
         if (e->get_family_id() == basic_family_id)
             return bval1_bool(e);
-                   
-        verbose_stream() << mk_bounded_pp(e, m) << "\n";
-        UNREACHABLE();
-        return false;
+        return ctx.is_true(e);
     }
-
-    // unsigned ddt_orig(expr* e);
 
     sls::bv_valuation& bv_eval::eval(app* e) const {
         SASSERT(m_values.size() > e->get_id());
@@ -290,7 +296,8 @@ namespace sls {
         m_values[e->get_id()]->set(val.bits());
     }
 
-    void bv_eval::eval(app* e, sls::bv_valuation& val) const {
+    void bv_eval::eval(expr* t, sls::bv_valuation& val) const {
+        app* e = to_app(t);
         SASSERT(bv.is_bv(e));
         if (m.is_ite(e)) {
             SASSERT(bv.is_bv(e->get_arg(1)));
@@ -2056,11 +2063,11 @@ namespace sls {
     }
 
     bool bv_eval::repair_up(expr* e) {
-        if (!is_app(e) || !can_eval1(to_app(e)))
+        if (!can_eval1(e))
             return false;
 
         if (m.is_bool(e)) {
-            bool b = bval1(to_app(e));
+            bool b = bval1(e);
             auto v = ctx.atom2bool_var(e);
             if (v == sat::null_bool_var)
                 ctx.set_value(e, b ? m.mk_true() : m.mk_false());

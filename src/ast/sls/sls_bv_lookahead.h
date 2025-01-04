@@ -46,6 +46,7 @@ namespace sls {
             double ucb_forget = 0.1;
             bool ucb_init = false;
             double ucb_noise = 0.1;
+            bool   use_top_level_assertions = true;
         };
 
         struct stats {
@@ -78,7 +79,7 @@ namespace sls {
         expr* m_best_expr = nullptr;
         expr* m_last_atom = nullptr;
         ptr_vector<expr> m_empty_vars;
-        obj_map<expr, bool_info> m_bool_info;
+        vector<bool_info> m_bool_info;
         expr_mark m_is_root;
         unsigned m_touched = 1;
 
@@ -92,9 +93,10 @@ namespace sls {
 
         bool_info& get_bool_info(expr* e);
         double lookahead_update(expr* u, bvect const& new_value);
-        double old_score(app* c) { return get_bool_info(c).score; }
-        void   set_score(app* c, double d) { get_bool_info(c).score = d; }
-        double new_score(app* c);
+        double old_score(expr* c) { return get_bool_info(c).score; }
+        void   set_score(expr* c, double d) { get_bool_info(c).score = d; }
+        double new_score(expr* c, bool is_true);
+        double new_score(expr* c);
 
         double lookahead_flip(sat::bool_var v);
 
@@ -107,9 +109,9 @@ namespace sls {
         bool     is_root(expr* e) { return m_is_root.is_marked(e); }
 
         void ucb_forget();
-        unsigned get_touched(app* e) { return get_bool_info(e).touched; }
-        void set_touched(app* e, unsigned t) { get_bool_info(e).touched = t; }
-        void inc_touched(app* e) { ++get_bool_info(e).touched; }
+        unsigned get_touched(expr* e) { return get_bool_info(e).touched; }
+        void set_touched(expr* e, unsigned t) { get_bool_info(e).touched = t; }
+        void inc_touched(expr* e) { ++get_bool_info(e).touched; }
 
         enum class move_type { random_t, guided_t, move_t, reset_t };
         friend std::ostream& operator<<(std::ostream& out, move_type mt);
@@ -128,9 +130,50 @@ namespace sls {
         void check_restart();
         void reset_uninterp_in_false_literals();
         bool is_bv_literal(sat::literal lit);
-        bool is_false_bv_literal(sat::literal lit);
 
         void search();
+
+        class root_assertions {
+            bv_lookahead& m_la;
+            unsigned idx = 0;
+            void next();
+        public:
+            root_assertions(bv_lookahead& la, bool start);
+
+            expr* operator*() const;
+
+            root_assertions& operator++() {
+                ++idx;
+                next();
+                return *this;
+            }
+
+            bool operator!=(root_assertions const& other) const {
+                return idx != other.idx;
+            }
+
+            bool operator==(root_assertions const& other) const {
+                return idx == other.idx;
+            }
+        };
+        class root_assertion_iterator {
+            bv_lookahead& m_la;
+
+        public:
+            root_assertion_iterator(bv_lookahead& la) : m_la(la) {}
+            root_assertions begin() { return root_assertions(m_la, true); }
+            root_assertions end() { return root_assertions(m_la, false); }
+        };
+
+        root_assertion_iterator get_root_assertions() {
+            return root_assertion_iterator(*this);
+        }
+
+        bool assertion_is_true(expr* a);
+
+        void initialize_bool_values();
+
+        void finalize_bool_values();
 
     public:
         bv_lookahead(bv_eval& ev);

@@ -447,6 +447,10 @@ class AstRef(Z3PPObject):
         """
         return Z3_get_ast_hash(self.ctx_ref(), self.as_ast())
 
+    def py_value(self):
+        """Return a Python value that is equivalent to `self`."""
+        return None
+
 
 def is_ast(a):
     """Return `True` if `a` is an AST node.
@@ -1611,6 +1615,13 @@ class BoolRef(ExprRef):
     
     def __invert__(self):
         return Not(self)
+
+    def py_value(self):
+        if is_true(self):
+            return True
+        if is_false(self):
+            return False
+        return None
     
     
 
@@ -3045,6 +3056,9 @@ class IntNumRef(ArithRef):
         """
         return Z3_get_numeral_binary_string(self.ctx_ref(), self.as_ast())
 
+    def py_value(self):
+        return Z3_get_numeral_double(self.ctx_ref(), self.as_ast())
+
 
 class RatNumRef(ArithRef):
     """Rational values."""
@@ -3141,6 +3155,9 @@ class RatNumRef(ArithRef):
         Fraction(1, 5)
         """
         return Fraction(self.numerator_as_long(), self.denominator_as_long())
+
+    def py_value(self):
+        return Z3_get_numeral_double(self.ctx_ref(), self.as_ast())
 
 
 class AlgebraicNumRef(ArithRef):
@@ -11004,6 +11021,9 @@ class SeqRef(ExprRef):
             chars = Z3_get_lstring(self.ctx_ref(), self.as_ast(), byref(string_length))
             return string_at(chars, size=string_length.value).decode("latin-1")
         return Z3_ast_to_string(self.ctx_ref(), self.as_ast())
+
+    def py_value(self):
+        return self.as_string()
 
     def __le__(self, other):
         return _to_expr_ref(Z3_mk_str_le(self.ctx_ref(), self.as_ast(), other.as_ast()), self.ctx)

@@ -32,6 +32,8 @@ namespace sls {
     }
 
     bool operator==(bvect const& a, bvect const& b) {
+        if (a.nw == 1)
+            return a[0] == b[0];
         SASSERT(a.nw > 0);
         return 0 == memcmp(a.data(), b.data(), a.nw * sizeof(digit_t));
     }

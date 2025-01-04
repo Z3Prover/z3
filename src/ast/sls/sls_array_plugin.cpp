@@ -111,7 +111,7 @@ namespace sls {
             return;
         if (are_distinct(nsel, nmap)) {
             expr_ref eq(m.mk_eq(nmap->get_expr(), nsel->get_expr()), m);
-            ctx.add_clause(eq);
+            ctx.add_theory_axiom(eq);
         }
         else {
             g.merge(nmap, nsel, nullptr);
@@ -192,7 +192,7 @@ namespace sls {
         auto nsel = mk_select(g, cn, sel);
         if (are_distinct(nsel, sel)) {
             expr_ref eq(m.mk_eq(val->get_expr(), nsel->get_expr()), m);
-            ctx.add_clause(eq);
+            ctx.add_theory_axiom(eq);
         }
         else {
             g.merge(nsel, sel, nullptr);
@@ -227,7 +227,7 @@ namespace sls {
         expr_ref sel(a.mk_select(args), m);
         expr_ref eq(m.mk_eq(sel, to_app(sto)->get_arg(sto->get_num_args() - 1)), m);
         IF_VERBOSE(3, verbose_stream() << "add store axiom 1 " << mk_bounded_pp(sto, m) << "\n");
-        ctx.add_clause(eq);
+        ctx.add_theory_axiom(eq);
     }
     
     void array_plugin::add_store_axiom2(app* sto, app* sel) {
@@ -248,7 +248,7 @@ namespace sls {
         for (unsigned i = 1; i < sel->get_num_args() - 1; ++i) 
             ors.push_back(m.mk_eq(sel->get_arg(i), sto->get_arg(i)));     
         IF_VERBOSE(3, verbose_stream() << "add store axiom 2 " << mk_bounded_pp(sto, m) << " " << mk_bounded_pp(sel, m) << "\n");
-        ctx.add_clause(m.mk_or(ors));
+        ctx.add_theory_axiom(m.mk_or(ors));
     }
 
     void array_plugin::init_egraph(euf::egraph& g) {

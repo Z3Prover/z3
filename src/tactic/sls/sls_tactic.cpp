@@ -131,9 +131,6 @@ public:
     }
 };
 
-tactic* mk_sls_smt_tactic(ast_manager& m, params_ref const& p) {
-    return alloc(sls_smt_tactic, m, p);
-}
 
 class sls_tactic : public tactic {    
     ast_manager    & m;
@@ -264,3 +261,9 @@ tactic * mk_qfbv_sls_tactic(ast_manager & m, params_ref const & p) {
     return t;
 }
 
+
+tactic* mk_sls_smt_tactic(ast_manager& m, params_ref const& p) {
+    tactic* t = and_then(mk_preamble(m, p), alloc(sls_smt_tactic, m, p));
+    t->updt_params(p);
+    return t;
+}

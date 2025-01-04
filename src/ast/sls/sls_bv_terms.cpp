@@ -135,8 +135,6 @@ namespace sls {
     }
 
     void bv_terms::register_uninterp(expr* e) {
-        if (!is_bv_predicate(e))
-            return;
         m_uninterp_occurs.reserve(e->get_id() + 1);
         auto& occs = m_uninterp_occurs[e->get_id()];
         ptr_vector<expr> todo;

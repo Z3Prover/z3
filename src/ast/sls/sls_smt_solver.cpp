@@ -92,7 +92,7 @@ namespace sls {
         unsigned num_vars() const override { return m_ddfw.num_vars(); }
         indexed_uint_set const& unsat() const override { return m_ddfw.unsat_set(); }
         sat::bool_var add_var() override { m_dirty = true;  return m_ddfw.add_var(); }  
-        void add_clause(expr* f) { m_context.add_clause(f); }
+        void add_input_assertion(expr* f) { m_context.add_input_assertion(f); }
 
         void force_restart() override { m_ddfw.force_restart(); }
 
@@ -146,7 +146,7 @@ namespace sls {
     
     lbool smt_solver::check() {        
         for (auto f : m_assertions) 
-            m_solver_ctx->add_clause(f);        
+            m_solver_ctx->add_input_assertion(f);        
         IF_VERBOSE(10, m_solver_ctx->display(verbose_stream()));
         return m_ddfw.check(0, nullptr);
     }

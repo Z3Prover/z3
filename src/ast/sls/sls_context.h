@@ -120,6 +120,7 @@ namespace sls {
         bool m_initialized = false;
         bool m_new_constraint = false;
         bool m_dirty = false;
+        expr_ref_vector m_input_assertions;
         expr_ref_vector m_allterms;
         ptr_vector<expr> m_subterms;
         greater_depth m_gd;
@@ -136,6 +137,9 @@ namespace sls {
         expr_ref_vector m_todo;
         void register_terms(expr* e);
         void register_term(expr* e);
+
+        void add_assertion(expr* f, bool is_input);        
+        void save_input_assertion(expr* f, bool sign);
 
         void propagate_boolean_assignment();
         void propagate_literal(sat::literal lit);
@@ -173,7 +177,8 @@ namespace sls {
         expr* term(unsigned id) const { return m_allterms.get(id); }
         sat::bool_var atom2bool_var(expr* e) const { return m_atom2bool_var.get(e->get_id(), sat::null_bool_var); }
         sat::literal mk_literal(expr* e);
-        void add_clause(expr* f);
+        void add_input_assertion(expr* f) { add_assertion(f, true); }
+        void add_theory_axiom(expr* f) { add_assertion(f, false); }
         void add_clause(sat::literal_vector const& lits);
         void flip(sat::bool_var v) { s.flip(v); }
         bool try_rotate(sat::bool_var v, sat::bool_var_set& rotated, unsigned& budget) { return s.try_rotate(v, rotated, budget); }
@@ -183,6 +188,7 @@ namespace sls {
         unsigned rand(unsigned n) { return m_rand(n); }
         sat::literal_vector const& root_literals() const { return m_root_literals; }
         sat::literal_vector const& unit_literals() const { return m_unit_literals; }
+        expr_ref_vector const& input_assertions() const { return m_input_assertions; }
         bool is_unit(sat::literal lit) const { return is_unit(lit.var()); }
         bool is_unit(sat::bool_var v) const { return m_unit_indices.contains(v); }
         void reinit_relevant();
