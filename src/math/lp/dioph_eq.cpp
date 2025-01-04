@@ -174,8 +174,6 @@ namespace lp {
                 else if (val != numeric_traits<mpq>::one())
                     out << T_to_string(val);
                 out << "x";
-                if (is_fresh_var(j))
-                    out << "~";
                 out << j;
             }
 
@@ -374,7 +372,7 @@ namespace lp {
 
         void register_columns_to_term(const lar_term& t) {
             TRACE("dioph_eq", tout << "register term:"; lra.print_term(t, tout););
-            for (const auto &p: t) {
+            for (const auto &p: t.ext_coeffs()) {
                 auto it = m_columns_to_terms.find(p.var());
                 if (it != m_columns_to_terms.end()) {
                     it->second.insert(t.j());
@@ -405,7 +403,7 @@ namespace lp {
             m_e_matrix.add_row();
             SASSERT(m_e_matrix.row_count() == m_entries.size());
 
-            for (const auto& p : t) {
+            for (const auto& p : t.ext_coeffs()) {
                 SASSERT(p.coeff().is_int());
                 if (is_fixed(p.var()))
                     e.m_c += p.coeff() * lia.lower_bound(p.var()).x;
@@ -414,13 +412,6 @@ namespace lp {
                     m_e_matrix.add_columns_up_to(lj);
                     m_e_matrix.add_new_element(entry_index, lj, p.coeff());
                 }
-            }
-            if (is_fixed(t.j())) {
-                e.m_c -= lia.lower_bound(t.j()).x;
-            } else {
-                unsigned lj = add_var(t.j());
-                m_e_matrix.add_columns_up_to(lj);
-                m_e_matrix.add_new_element(entry_index, lj, -mpq(1));
             }
             SASSERT(entry_invariant(entry_index));
         }
@@ -866,7 +857,7 @@ namespace lp {
                   print_lar_term_L(term_to_tighten, tout) << std::endl;
                   tout << "m_tmp_l:"; print_lar_term_L(m_tmp_l, tout) << std::endl;
                   tout << "open_ml:";
-                  print_term_o(open_ml(m_tmp_l), tout) << std::endl;
+                  print_lar_term_L(open_ml(m_tmp_l), tout) << std::endl;
                   tout << "term_to_tighten + open_ml:";
                   print_term_o(term_to_tighten + open_ml(m_tmp_l), tout)
                   << std::endl;
@@ -1307,7 +1298,7 @@ namespace lp {
             for (unsigned k = 0; k < lra.terms().size(); k ++ ) {
                 const lar_term* t = lra.terms()[k];
                 if (!all_vars_are_int(*t)) continue;
-                for (const auto& p: *t) {
+                for (const auto& p: (*t).ext_coeffs()) {
                     unsigned j = p.var();
                     auto it = c2t.find(j);
                     if (it == c2t.end()) {
@@ -1317,7 +1308,8 @@ namespace lp {
                     } else {
                         it->second.insert(t->j());                        
                     }
-                
+
+                    
                 }
             }
             for (const auto & p : c2t) {
@@ -1502,14 +1494,14 @@ namespace lp {
                     {
                         tout << "get_term_from_entry(" << ei << "):";
                         print_term_o(get_term_from_entry(ei), tout) << std::endl;
-                        tout << "remove_fresh_vars:";
+                        tout << "ls:";
                         print_term_o(remove_fresh_vars(get_term_from_entry(ei)), tout)
                             << std::endl;
                         tout << "e.m_l:"; print_lar_term_L(l_term_from_row(ei), tout) << std::endl;
                         tout << "open_ml(e.m_l):";
-                        print_term_o(open_ml(l_term_from_row(ei)), tout) << std::endl;
-                        tout << "fix_vars(open_ml(e.m_l)):";
-                        print_term_o(fix_vars(open_ml(l_term_from_row(ei))), tout) << std::endl;
+                        print_lar_term_L(open_ml(l_term_from_row(ei)), tout) << std::endl;
+                        tout << "rs:";
+                        print_term_o(fix_vars(open_ml(m_l_matrix.m_rows[ei])), tout) << std::endl;
                     }
                 );
             return ret;
@@ -1544,7 +1536,7 @@ namespace lp {
 
         std::ostream& print_ml(const lar_term& ml, std::ostream& out) {
             term_o opened_ml = open_ml(ml);
-            return print_term_o(opened_ml, out);
+            return print_lar_term_L(opened_ml, out);
         }
 
         template <typename T> term_o open_ml(const T& ml) const {
@@ -1564,20 +1556,13 @@ namespace lp {
             m_indexed_work_vector.clear();
             for (const auto & p: m_l_matrix.m_rows[ei]) {
                 const lar_term& t = lra.get_term(p.var());
-                for (const auto & q: t) {
+                for (const auto & q: t.ext_coeffs()) {
                     if (is_fixed(q.var())) {
                         c += p.coeff()*q.coeff()*lia.lower_bound(q.var()).x;
                     } else { 
                         make_space_in_work_vector(q.var());
                         m_indexed_work_vector.add_value_at_index(q.var(), p.coeff() * q.coeff());
                     }
-                }
-                if (is_fixed(t.j())) {
-                    c -= lia.lower_bound(t.j()).x;
-                }
-                else {
-                      make_space_in_work_vector(t.j());
-                      m_indexed_work_vector.add_value_at_index(t.j(), -p.coeff());
                 }
             } 
         }
