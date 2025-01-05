@@ -3057,7 +3057,7 @@ class IntNumRef(ArithRef):
         return Z3_get_numeral_binary_string(self.ctx_ref(), self.as_ast())
 
     def py_value(self):
-        return Z3_get_numeral_double(self.ctx_ref(), self.as_ast())
+        return self.as_long()
 
 
 class RatNumRef(ArithRef):
@@ -4011,6 +4011,11 @@ class BitVecNumRef(BitVecRef):
 
     def as_binary_string(self):
         return Z3_get_numeral_binary_string(self.ctx_ref(), self.as_ast())
+
+    def py_value(self):
+        """Return the Python value of a Z3 bit-vector numeral."""
+        return self.as_long()
+
 
 
 def is_bv(a):
@@ -10084,6 +10089,16 @@ class FPNumRef(FPRef):
     def as_string(self):
         s = Z3_get_numeral_string(self.ctx.ref(), self.as_ast())
         return ("FPVal(%s, %s)" % (s, self.sort()))
+
+    def py_value(self):
+        bv = simplify(fpToIEEEBV(self))
+        binary = bv.py_value()
+        if not isinstance(binary, int):
+            return None
+        # Decode the IEEE 754 binary representation
+        import struct
+        bytes_rep = binary.to_bytes(8, byteorder='big')
+        return struct.unpack('>d', bytes_rep)[0]
 
 
 def is_fp(a):
