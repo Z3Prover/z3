@@ -48,6 +48,7 @@ namespace sls {
             double ucb_noise = 0.1;
             bool   use_top_level_assertions = true;
             bool   use_lookahead_bv = true;
+            bool   allow_rotation = true;
         };
 
         struct stats {
@@ -83,6 +84,7 @@ namespace sls {
         vector<bool_info> m_bool_info;
         expr_mark m_is_root;
         unsigned m_touched = 1;
+        sat::bool_var_set m_rotated;            
 
         std::ostream& display_weights(std::ostream& out);
 

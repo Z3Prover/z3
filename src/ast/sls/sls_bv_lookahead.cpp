@@ -318,8 +318,9 @@ namespace sls {
         m_config.ucb_forget = p.walksat_ucb_forget();
         m_config.ucb_init = p.walksat_ucb_init();
         m_config.ucb_noise = p.walksat_ucb_noise();
-        m_config.use_top_level_assertions = p.use_top_level_assertions_bv();
-        m_config.use_lookahead_bv = p.use_lookahead_bv();
+        m_config.use_top_level_assertions = p.bv_use_top_level_assertions();
+        m_config.use_lookahead_bv = p.bv_use_lookahead();
+        m_config.allow_rotation = p.bv_allow_rotation();
     }
 
     /**
@@ -659,13 +660,13 @@ namespace sls {
                                 ;
                             else if (allow_costly_flips(mt))
                                 ctx.flip(v);
-                            else if (true) {
-                                sat::bool_var_set rotated;
+                            else if (m_config.allow_rotation) {
+                                m_rotated.reset();
                                 unsigned budget = 100;
-                                bool rot = ctx.try_rotate(v, rotated, budget);
+                                bool rot = ctx.try_rotate(v, m_rotated, budget);
                                 if (rot)
                                     ++m_stats.m_rotations;
-                                CTRACE("bv", rot, tout << "rotated: " << rotated << "\n";);
+                                CTRACE("bv", rot, tout << "rotated: " << m_rotated << "\n";);
                             }
                         }
                     }
