@@ -3437,9 +3437,11 @@ def ToReal(a):
     >>> n.sort()
     Real
     """
+    ctx = a.ctx
+    if isinstance(a, BoolRef):
+        return If(a, RealVal(1, ctx), RealVal(0, ctx))
     if z3_debug():
         _z3_assert(a.is_int(), "Z3 integer expression expected.")
-    ctx = a.ctx
     return ArithRef(Z3_mk_int2real(ctx.ref(), a.as_ast()), ctx)
 
 
