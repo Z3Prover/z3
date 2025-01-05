@@ -630,10 +630,6 @@ namespace sls {
                 TRACE("bv_verbose", tout << "update " << mk_bounded_pp(e, m) << "\n";);
                 VERIFY(m.is_bool(e) || bv.is_bv(e));
 
-                for (auto p : ctx.parents(e)) {
-                    insert_update_stack(p);
-                    max_depth = std::max(max_depth, get_depth(p));
-                }
 
                 if (t == e)
                     ;
@@ -645,6 +641,8 @@ namespace sls {
 
                     auto v1 = m_ev.bval1(e);
 
+                    CTRACE("bv", m_ev.get_bool_value(e) != v1, tout << "updated truth value " << mk_bounded_pp(e, m) << " := " << v1 << "\n";);
+
                     if (m_config.use_top_level_assertions) {
                         if (m_ev.get_bool_value(e) == v1)
                             continue;
@@ -654,20 +652,12 @@ namespace sls {
                             continue;
 
                         auto v = ctx.atom2bool_var(e);
-
+                        
                         if (v != sat::null_bool_var) {
 
-                            if (ctx.is_unit(v))
-                                continue;
-                            if (ctx.is_true(e) == v1)
-                                continue;
-
-
-                            TRACE("bv", tout << "updated truth value " << v << ": " << mk_bounded_pp(e, m) << "\n";);
-                            unsigned num_unsat = ctx.unsat().size();
-
-#if 1
-                            if (allow_costly_flips(mt))
+                            if (ctx.is_unit(v) || ctx.is_true(e) == v1)
+                                ;
+                            else if (allow_costly_flips(mt))
                                 ctx.flip(v);
                             else if (true) {
                                 sat::bool_var_set rotated;
@@ -675,12 +665,16 @@ namespace sls {
                                 bool rot = ctx.try_rotate(v, rotated, budget);
                                 if (rot)
                                     ++m_stats.m_rotations;
-                                TRACE("bv", tout << "rotate " << v << " " << rot << " " << rotated << "\n";);
+                                CTRACE("bv", rot, tout << "rotated: " << rotated << "\n";);
                             }
-#endif
                         }
                     }
                     m_ev.set_bool_value(e, v1);
+                }
+
+                for (auto p : ctx.parents(e)) {
+                    insert_update_stack(p);
+                    max_depth = std::max(max_depth, get_depth(p));
                 }
         
                 if (is_root(e)) {
@@ -768,10 +762,7 @@ namespace sls {
             double score = new_score(a);
             set_score(a, score);
             m_top_score += score;
-
-            //verbose_stream() << mk_bounded_pp(a, m) << " score: " << score << " assignment: " << m_ev.get_bool_value(a) << "\n";
         }
-        //exit(0);
     }
 
     void bv_lookahead::recalibrate_weights() {
