@@ -336,7 +336,7 @@ namespace sls {
             out << m_bits;
             out << " ev: " << eval;
             if (!is_zero(m_is_fixed)) 
-                out << " fix:" << m_is_fixed << " " << m_fixed_values;            
+                out << " fixed bits: " << m_is_fixed << " fixed value: " << m_fixed_values;            
             if (m_lo != m_hi) 
                 out << " [" << m_lo << ", " << m_hi << "[";            
             return out;

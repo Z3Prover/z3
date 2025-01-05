@@ -217,10 +217,9 @@ namespace sls {
         SASSERT(!has_overflow(src));
         src.copy_to(nw, dst);
         sup_feasible(dst);
-        if (in_range(dst)) {
-            SASSERT(can_set(dst));
+        if (can_set(dst)) 
             return true;
-        }        
+        
         if (dst < m_lo && m_lo < m_hi) // dst < lo < hi 
             return false;
         if (is_zero(m_hi))
@@ -238,10 +237,8 @@ namespace sls {
         src.copy_to(nw, dst);
         dst.set_bw(bw);
         inf_feasible(dst);
-        if (in_range(dst)) {
-            SASSERT(can_set(dst));
-            return true;
-        }
+        if (can_set(dst))
+            return true;        
 
         if (dst > m_lo)
             return false;
@@ -350,10 +347,8 @@ namespace sls {
             dst[i] = (~m_is_fixed[i] & dst[i]) | (m_is_fixed[i] & m_bits[i]);
         clear_overflow_bits(dst);
         repair_sign_bits(dst);
-        if (in_range(dst)) {
-            set(eval, dst);
+        if (try_set(dst))
             return true;
-        }
         bool repaired = false;
         dst.set_bw(bw);
         if (m_lo < m_hi) {
@@ -373,10 +368,7 @@ namespace sls {
                     dst.set(i, false);
         }
         repair_sign_bits(dst);
-        if (in_range(dst)) {
-            set(eval, dst);
-            repaired = true;
-        }
+        repaired = try_set(dst);
         dst.set_bw(0);
         return repaired;
     }
@@ -450,10 +442,9 @@ namespace sls {
     bool bv_valuation::set_random(random_gen& r) {
         get_variant(m_tmp, r);
         repair_sign_bits(m_tmp);
-        if (in_range(m_tmp)) {
-            set(eval, m_tmp);
+        if (try_set(m_tmp))
             return true;
-        }
+
         for (unsigned i = 0; i < nw; ++i)
             m_tmp[i] = random_bits(r);
         clear_overflow_bits(m_tmp);
