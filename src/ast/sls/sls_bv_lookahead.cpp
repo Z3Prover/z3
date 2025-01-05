@@ -142,18 +142,13 @@ namespace sls {
         if (m.is_bool(e)) {
             if (is_root(e))
                 return false;
-            m_ev.set_bool_value(e, !m_ev.get_bool_value(e));
-            if (!m_config.use_top_level_assertions) {
-                auto v = ctx.atom2bool_var(e);
-                TRACE("bv", tout << "random flip " << mk_bounded_pp(e, m) << "\n";);
-                ctx.flip(v);
-            }
-            return true;
         }
-        SASSERT(bv.is_bv(e));
-        auto& v = wval(e);
-        m_v_updated.set_bw(v.bw);
-        v.get_variant(m_v_updated, m_ev.m_rand);
+        else {
+            SASSERT(bv.is_bv(e));
+            auto& v = wval(e);
+            m_v_updated.set_bw(v.bw);
+            v.get_variant(m_v_updated, m_ev.m_rand);
+        }
         ++m_stats.m_random_flips;
         return apply_update(m_last_atom, e, m_v_updated, move_type::random_t);
     }
@@ -166,36 +161,30 @@ namespace sls {
         if (vars.empty())
             return false;
         expr* e = vars[ctx.rand(vars.size())];
+        TRACE("bv", tout << "random move " << mk_bounded_pp(e, m) << "\n";);
         if (m.is_bool(e)) {
             if (is_root(e))
                 return false;
-            m_ev.set_bool_value(e, !m_ev.get_bool_value(e));
-            if (!m_config.use_top_level_assertions) {
-                TRACE("bv", tout << "random move flip " << mk_bounded_pp(e, m) << "\n";);
-                auto v = ctx.atom2bool_var(e);
-                if (ctx.is_unit(v))
-                    return false;
-                ctx.flip(v);
+        }
+        else {
+            SASSERT(bv.is_bv(e));
+            auto& v = wval(e);
+            m_v_updated.set_bw(v.bw);
+            v.bits().copy_to(v.nw, m_v_updated);
+            switch (ctx.rand(3)) {
+            case 0: {
+                // flip a random bit
+                auto bit = ctx.rand(v.bw);
+                m_v_updated.set(bit, !m_v_updated.get(bit));
+                break;
             }
-            return true;
-        }
-        SASSERT(bv.is_bv(e));
-        auto& v = wval(e);
-        m_v_updated.set_bw(v.bw);
-        v.bits().copy_to(v.nw, m_v_updated);
-        switch (ctx.rand(3)) {
-        case 0: {
-            // flip a random bit
-            auto bit = ctx.rand(v.bw);
-            m_v_updated.set(bit, !m_v_updated.get(bit));
-            break;
-        }
-        case 1:
-            v.add1(m_v_updated);
-            break;
-        default:
-            v.sub1(m_v_updated);
-            break;
+            case 1:
+                v.add1(m_v_updated);
+                break;
+            default:
+                v.sub1(m_v_updated);
+                break;
+            }
         }
         return apply_update(m_last_atom, e, m_v_updated, move_type::move_t);
     }
@@ -466,20 +455,23 @@ namespace sls {
         SASSERT(m_restore.empty());
         double score = m_top_score;
 
+        unsigned restore_point = m_ev.bool_value_restore_point();
+
+        //verbose_stream() << "lookahead update " << mk_bounded_pp(t, m) << " := " << new_value << "\n";
+
         if (bv.is_bv(t)) {
             if (!wval(t).can_set(new_value))
                 return -1000000;
             wval(t).eval = new_value;
             insert_update(t);
         }
-        else if (m.is_bool(t)) {
-            m_ev.set_bool_value(t, !m_ev.bval0(t));
-        }
+        else if (m.is_bool(t)) 
+            m_ev.set_bool_value(t, !m_ev.get_bool_value(t));        
 
-        TRACE("bv_verbose", tout << "lookahead update " << mk_bounded_pp(t, m) << " := " << new_value << "\n";);
+        // TRACE("bv_verbose", tout << "lookahead update " << mk_bounded_pp(t, m) << " := " << new_value << "\n";);
 
         insert_update_stack(t);
-        unsigned restore_point = m_ev.bool_value_restore_point();
+
         unsigned max_depth = get_depth(t);
         for (unsigned depth = max_depth; depth <= max_depth; ++depth) {
             for (unsigned i = 0; i < m_update_stack[depth].size(); ++i) {
@@ -496,7 +488,7 @@ namespace sls {
                     insert_update(a);
                 }
                 if (is_root(a)) {
-                    TRACE("bv_verbose", tout << "scores " << mk_bounded_pp(a, m) << " old: " << old_score(a) << " new: " << new_score(a) << "\n";);
+                    //verbose_stream() << "scores " << mk_bounded_pp(a, m) << " old: " << old_score(a) << " new: " << new_score(a) << "\n";
                     score += get_weight(a) * (new_score(a) - old_score(a));
                 }
             }
@@ -506,7 +498,7 @@ namespace sls {
         restore_lookahead();
         m_ev.restore_bool_values(restore_point);
 
-        TRACE("sls_verbose", tout << mk_bounded_pp(t, m) << " := " << new_value << " score: " << m_top_score << "\n");
+        TRACE("bv_verbose", tout << "lookahead update " << mk_bounded_pp(t, m) << " := " << new_value << " score: " << score << " " << m_best_score << "\n");
 
         return score;
     }
@@ -516,6 +508,7 @@ namespace sls {
             return;
         auto score = lookahead_update(u, new_value);
         ++m_stats.m_lookaheads;
+        //verbose_stream() << "lookahead set " << mk_bounded_pp(u, m) << " := " << new_value << " score: " << score << " best score: " << m_best_score << "\n";
         //verbose_stream() << mk_bounded_pp(u, m) << " := " << new_value << " score: " << score << "\n";
         if (score > m_best_score) {
             m_best_score = score;
@@ -527,11 +520,9 @@ namespace sls {
 
     void bv_lookahead::try_flip(expr* u) {
         auto v = ctx.atom2bool_var(u);
-        //verbose_stream() << mk_bounded_pp(u, m) << " flip " << v << "\n";
         if (v == sat::null_bool_var)
             return;
         auto score = lookahead_flip(v);
-        //verbose_stream() << "lookahead flip " << mk_bounded_pp(u, m) << " score: " << score << "\n";
         ++m_stats.m_lookaheads;
         if (score > m_best_score) {
             m_best_score = score;
@@ -607,7 +598,11 @@ namespace sls {
     }
 
     bool bv_lookahead::apply_update(expr* p, expr* t, bvect const& new_value, move_type mt) {
-        if (!t || m.is_bool(t) || !wval(t).can_set(new_value))
+        if (!t)
+            return false;
+        if (!m.is_bool(t) && !bv.is_bv(t))
+            return false;
+        if (bv.is_bv(t) && !wval(t).can_set(new_value))
             return false;
 
         SASSERT(is_uninterp(t));
@@ -617,6 +612,14 @@ namespace sls {
             wval(t).eval = new_value;
             VERIFY(wval(t).commit_eval_check_tabu());
         }
+        else {
+            m_ev.set_bool_value(t, !m_ev.get_bool_value(t));
+            if (!m_config.use_top_level_assertions) {
+                auto v = ctx.atom2bool_var(t);
+                if (v != sat::null_bool_var)
+                    ctx.flip(v);
+            }
+        }
 
         insert_update_stack(t);
         unsigned max_depth = get_depth(t);
@@ -625,13 +628,16 @@ namespace sls {
             for (unsigned i = 0; i < m_update_stack[depth].size(); ++i) {
                 auto e = m_update_stack[depth][i];
                 TRACE("bv_verbose", tout << "update " << mk_bounded_pp(e, m) << "\n";);
-                if (is_root(e)) {
-                    double score = new_score(e);
-                    m_top_score += get_weight(e) * (score - old_score(e));
-                    set_score(e, score);
+                VERIFY(m.is_bool(e) || bv.is_bv(e));
+
+                for (auto p : ctx.parents(e)) {
+                    insert_update_stack(p);
+                    max_depth = std::max(max_depth, get_depth(p));
                 }
 
-                if (bv.is_bv(e)) {
+                if (t == e)
+                    ;
+                else if (bv.is_bv(e)) {
                     m_ev.eval(e); // updates wval(e).eval
                     wval(e).commit_eval_ignore_tabu();
                 }
@@ -674,15 +680,15 @@ namespace sls {
 #endif
                         }
                     }
-                    m_ev.set_bool_value(to_app(e), v1);
+                    m_ev.set_bool_value(e, v1);
                 }
-                else
-                    continue;
-                for (auto p : ctx.parents(e)) {
-                    insert_update_stack(p);
-                    max_depth = std::max(max_depth, get_depth(p));
-                }                
-                VERIFY(m.is_bool(e) || bv.is_bv(e));
+        
+                if (is_root(e)) {
+                    double score = new_score(e);
+                    m_top_score += get_weight(e) * (score - old_score(e));
+                    //verbose_stream() << "set score " << mk_bounded_pp(e, m) << " := " << score << "\n";
+                    set_score(e, score);
+                }
             }
             m_update_stack[depth].reset();
         }
@@ -691,9 +697,9 @@ namespace sls {
             m_ev.commit_bool_values();
         else
             m_ev.restore_bool_values(restore_point);
-        TRACE("bv", tout << mt << " " << mk_bounded_pp(t, m)
-            << " := " << new_value
-            << " score " << m_top_score << "\n";);
+        TRACE("bv", tout << mt << " " << mk_bounded_pp(t, m);
+        if (bv.is_bv(t)) tout << " := " << new_value; else tout << " " << m_ev.get_bool_value(t);
+            tout << " score " << m_top_score << "\n";);
         return true;
     }
 
@@ -722,6 +728,8 @@ namespace sls {
     }
 
     void bv_lookahead::insert_update_stack(expr* e) {
+        if (!bv.is_bv(e) && !m.is_bool(e))
+            return;
         unsigned depth = get_depth(e);
         m_update_stack.reserve(depth + 1);
         if (!m_in_update_stack.is_marked(e) && is_app(e)) {
