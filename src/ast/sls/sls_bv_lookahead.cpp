@@ -490,18 +490,10 @@ namespace sls {
 
         // TRACE("bv_verbose", tout << "lookahead update " << mk_bounded_pp(t, m) << " := " << new_value << "\n";);
 
-        insert_update_stack(t);
-
-        unsigned max_depth = get_depth(t);
-        for (unsigned depth = max_depth; depth <= max_depth; ++depth) {
+        for (unsigned depth = m_min_depth; depth <= m_max_depth; ++depth) {
             for (unsigned i = 0; i < m_update_stack[depth].size(); ++i) {
                 auto a = m_update_stack[depth][i];
                 TRACE("bv_verbose", tout << "update " << mk_bounded_pp(a, m) << " depth: " << depth  << "\n";);
-                for (auto p : ctx.parents(a)) {
-                    insert_update_stack(p);
-                    max_depth = std::max(max_depth, get_depth(p));
-                }
-               
                 if (t != a) {
                     if (bv.is_bv(a))
                         m_ev.eval(a);
@@ -512,15 +504,33 @@ namespace sls {
                     score += get_weight(a) * (new_score(a) - old_score(a));
                 }
             }
-            m_update_stack[depth].reset();
         }
-        m_in_update_stack.reset();
         restore_lookahead();
         m_ev.restore_bool_values(restore_point);
 
         TRACE("bv_verbose", tout << "lookahead update " << mk_bounded_pp(t, m) << " := " << new_value << " score: " << score << " " << m_best_score << "\n");
 
         return score;
+    }
+
+    void bv_lookahead::populate_update_stack(expr* t) {
+        insert_update_stack(t);
+        m_min_depth = m_max_depth = get_depth(t);
+        for (unsigned depth = m_max_depth; depth <= m_max_depth; ++depth) {
+            for (unsigned i = 0; i < m_update_stack[depth].size(); ++i) {
+                auto a = m_update_stack[depth][i];
+                for (auto p : ctx.parents(a)) {
+                    insert_update_stack(p);
+                    m_max_depth = std::max(m_max_depth, get_depth(p));
+                }
+            }
+        }
+    }
+
+    void bv_lookahead::clear_update_stack() {
+        for (unsigned i = m_min_depth; i <= m_max_depth; ++i)
+            m_update_stack[i].reset();
+        m_in_update_stack.reset();
     }
 
     void bv_lookahead::try_set(expr* u, bvect const& new_value) {
@@ -551,7 +561,9 @@ namespace sls {
 
     void bv_lookahead::add_updates(expr* u) {
         if (m.is_bool(u)) {
+            populate_update_stack(u);
             try_flip(u);
+            clear_update_stack();
             return;
         }
         SASSERT(bv.is_bv(u));
@@ -567,6 +579,7 @@ namespace sls {
         v.bits().copy_to(v.nw, m_v_saved);
         m_v_saved.copy_to(v.nw, m_v_updated);
 
+        populate_update_stack(u);
         // flip a single bit
         for (unsigned i = 0; i < v.bw && i < 32 ; ++i) {
             m_v_updated.set(i, !m_v_updated.get(i));
@@ -579,25 +592,26 @@ namespace sls {
             try_set(u, m_v_updated);
             m_v_updated.set(j, !m_v_updated.get(j));
         }
-        if (v.bw <= 1)
-            return;
+        if (v.bw > 1) {
 
-        // increment
-        m_v_saved.copy_to(v.nw, m_v_updated);
-        v.add1(m_v_updated);
-        try_set(u, m_v_updated);
+            // increment
+            m_v_saved.copy_to(v.nw, m_v_updated);
+            v.add1(m_v_updated);
+            try_set(u, m_v_updated);
 
-        // decrement
-        m_v_saved.copy_to(v.nw, m_v_updated);
-        v.sub1(m_v_updated);
-        try_set(u, m_v_updated);
+            // decrement
+            m_v_saved.copy_to(v.nw, m_v_updated);
+            v.sub1(m_v_updated);
+            try_set(u, m_v_updated);
 
-        // invert
-        m_v_saved.copy_to(v.nw, m_v_updated);
-        for (unsigned i = 0; i < v.nw; ++i)
-            m_v_updated[i] = ~m_v_updated[i];
-        v.clear_overflow_bits(m_v_updated);
-        try_set(u, m_v_updated);
+            // invert
+            m_v_saved.copy_to(v.nw, m_v_updated);
+            for (unsigned i = 0; i < v.nw; ++i)
+                m_v_updated[i] = ~m_v_updated[i];
+            v.clear_overflow_bits(m_v_updated);
+            try_set(u, m_v_updated);
+        }
+        clear_update_stack();
     }
 
     /**

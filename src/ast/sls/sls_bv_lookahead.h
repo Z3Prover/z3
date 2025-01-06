@@ -90,6 +90,9 @@ namespace sls {
 
         bv_valuation& wval(expr* e) const;
 
+        unsigned m_max_depth = 0, m_min_depth = 0;
+        void populate_update_stack(expr* e);
+        void clear_update_stack();
         void insert_update_stack(expr* e);
         void insert_update(expr* e);        
         void restore_lookahead();
