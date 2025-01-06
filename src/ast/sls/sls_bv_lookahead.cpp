@@ -344,7 +344,13 @@ namespace sls {
         //verbose_stream() << "compute score " << mk_bounded_pp(a, m) << " is-true " << is_true << " is-true-new " << is_true_new << "\n";
         if (is_true == is_true_new)
             return 1;
-        expr* x, * y;
+        if (is_uninterp(a))
+            return 0;
+        if (m.is_true(a))
+            return is_true ? 1 : 0;
+        if (m.is_false(a))
+            return is_true ? 0 : 1;
+        expr* x, * y, * z;
         if (m.is_not(a, x))
             return new_score(x, !is_true);
         if ((m.is_and(a) && is_true) || (m.is_or(a) && !is_true)) {
@@ -364,6 +370,10 @@ namespace sls {
             auto v1 = m_ev.get_bool_value(y);
             return (is_true == (v0 == v1)) ? 1 : 0;
         }
+        if (m.is_ite(a, x, y, z)) {
+            auto v0 = m_ev.get_bool_value(x);
+            return v0 ? new_score(y, is_true) : new_score(z, is_true);
+        }
 
         if (is_true && m.is_eq(a, x, y) && bv.is_bv(x)) {
             auto const& vx = wval(x);
@@ -376,6 +386,9 @@ namespace sls {
             auto d = 1.0 - (delta / (double)vx.bw);
             //verbose_stream() << "hamming distance " << mk_bounded_pp(a, m) << " " << d << "\n";
             return d;
+        }
+        else if (!is_true && m.is_eq(a, x, y) && bv.is_bv(x)) {
+            return 0;
         }
         else if (bv.is_ule(a, x, y)) {
             auto const& vx = wval(x);
@@ -430,7 +443,6 @@ namespace sls {
             rational n = m_ev.m_tmp3.get_value(vx.nw);
             n /= rational(rational::power_of_two(vx.bw));
             double dbl = n.get_double();
-            verbose_stream() << mk_bounded_pp(a, m) << " x:" <<vx << " y:" << vy << " " << dbl << "\n";
             return (dbl > 1.0) ? 0.0 : (dbl < 0.0) ? 1.0 : 1.0 - dbl;
         }
         else if (is_true && m.is_distinct(a) && bv.is_bv(to_app(a)->get_arg(0))) {
@@ -445,10 +457,6 @@ namespace sls {
                 }
             }
             return nd / np;
-        }
-        else {
-            verbose_stream() << "new score not implemented for " << mk_bounded_pp(a, m) << "\n";
-            NOT_IMPLEMENTED_YET();
         }
 
         return 0;
