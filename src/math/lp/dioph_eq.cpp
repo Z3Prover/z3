@@ -43,6 +43,10 @@
    the i-th entry.
  */
 namespace lp {
+    template <typename T, typename K> bool contains(const T& t, K j) {
+        return t.find(j) != t.end();
+    }
+
     class dioph_eq::imp {
         // This class represents a term with an added constant number c, in form sum
         // {x_i*a_i} + c.
@@ -280,20 +284,32 @@ namespace lp {
 
         struct undo_add_term : public trail {
             imp& m_s;
-            lar_term m_t;
-            undo_add_term(imp& s, const lar_term &t): m_s(s), m_t(t) {                
+            const lar_term* m_t;
+            undo_add_term(imp& s, const lar_term *t): m_s(s), m_t(t) {   
+                TRACE("dioph_eq", m_s.print_lar_term_L(*t, tout); tout << "t->j()=" << t->j() << std::endl;);
             }
             void undo () {
-                TRACE("dioph_eq", m_s.lra.print_term(m_t, tout););
-                for (const auto & p: m_t) {
+                TRACE("dioph_eq", m_s.lra.print_term(*m_t, tout); tout << ", m_t->j() =" << m_t->j() << std::endl;);
+                if (!contains(m_s.m_active_terms, m_t)) {
+                    for (int i = m_s.m_added_terms.size() - 1; i >= 0; --i) {
+                        if (m_s.m_added_terms[i] == m_t) // the address is the same
+                            if (i != m_s.m_added_terms.size() -1) m_s.m_added_terms[i] = m_s.m_added_terms.back();
+                            m_s.m_added_terms.pop_back();
+                            break;
+                    }
+                    return;
+                }
+                NOT_IMPLEMENTED_YET();
+                for (const auto & p: m_t->ext_coeffs()) {                    
                     auto it = m_s.m_columns_to_terms.find(p.var());
-                    it->second.erase(m_t.j());
+                    SASSERT(it != m_s.m_columns_to_terms.end());
+                    it->second.erase(m_t->j());
                     if (it->second.size() == 0) {
                         m_s.m_columns_to_terms.erase(it);
                     }
                         
                 }
-            }
+             }
         };
 
 
@@ -319,23 +335,26 @@ namespace lp {
             m_changed_columns.insert(j);
         }
         std_vector<const lar_term*> m_added_terms;
-
+        std::unordered_set<const lar_term*> m_active_terms;
         std_vector<variable_branch_stats> m_branch_stats;
         std_vector<branch> m_branch_stack;
         std_vector<constraint_index> m_explanation_of_branches;
         void add_term_delegate(const lar_term* t) {
             unsigned j = t->j();
             TRACE("dioph_eq", tout << "term column t->j():" << j << std::endl; lra.print_term(*t, tout) << std::endl; );
-            if (!lra.column_is_int(j) || !lra.column_has_term(j)) {
-               TRACE("dioph_eq", tout << "ignored" << std::endl;);
+            if (!lra.column_is_int(j)) {
+               TRACE("dioph_eq", tout << "ignored a non-integral column" << std::endl;);
                return;
             }
+
+            CTRACE("dioph_eq", !lra.column_has_term(j), tout << "added term that is not associated with a column yet" << std::endl;);
+
             if (!all_vars_are_int(*t)) {
                 TRACE("dioph_eq", tout << "not all vars are integrall\n";);
                 return;
             }
             m_added_terms.push_back(t);
-            auto undo = undo_add_term(*this, *t);
+            auto undo = undo_add_term(*this, t);
             lra.trail().push(undo);
         }
 
@@ -371,7 +390,7 @@ namespace lp {
         }
 
         void register_columns_to_term(const lar_term& t) {
-            TRACE("dioph_eq", tout << "register term:"; lra.print_term(t, tout););
+            TRACE("dioph_eq", tout << "register term:"; lra.print_term(t, tout); tout << ", t.j()=" << t.j() << std::endl;);
             for (const auto &p: t.ext_coeffs()) {
                 auto it = m_columns_to_terms.find(p.var());
                 if (it != m_columns_to_terms.end()) {
@@ -380,8 +399,7 @@ namespace lp {
                 else {
                     std::unordered_set<unsigned> s;
                     s.insert(t.j());
-                    m_columns_to_terms[p.var()] = s;
-                    TRACE("dioph_eq", tout << "insert " << p.var(););
+                    m_columns_to_terms[p.var()] = s;                    
                 }                
             }
         }
@@ -450,9 +468,6 @@ namespace lp {
             SASSERT(entry_invariant(ei));
         }
 
-        template <typename T> bool contains(const T& t, unsigned j) {
-            return t.find(j) != t.end();
-        }
         
         void process_changed_columns() {
             for (unsigned j : m_changed_columns) {
@@ -482,11 +497,6 @@ namespace lp {
                 }
             }
 
-            for (const lar_term* t : m_added_terms) {
-                register_columns_to_term(*t);
-            }
-            
-            SASSERT(is_in_sync());
             TRACE("dioph_eq", tout << "entries_to_recalculate:"; for (unsigned j : entries_to_recalculate) {tout << " " << j;});
             for (unsigned j = 0; j < m_fresh_definitions.size(); j++) {
                 const fresh_definition& fd  = m_fresh_definitions[j];
@@ -558,8 +568,13 @@ namespace lp {
             m_lra_level = 0;
             process_changed_columns();
             for (const lar_term* t: m_added_terms) {
+                m_active_terms.insert(t);
                 fill_entry(*t);
+                register_columns_to_term(*t);
             }
+            
+            SASSERT(is_in_sync());            
+            
             m_added_terms.clear();
             SASSERT(entries_are_ok());
          }
@@ -1298,6 +1313,7 @@ namespace lp {
             for (unsigned k = 0; k < lra.terms().size(); k ++ ) {
                 const lar_term* t = lra.terms()[k];
                 if (!all_vars_are_int(*t)) continue;
+                SASSERT(t->j() != UINT_MAX);
                 for (const auto& p: (*t).ext_coeffs()) {
                     unsigned j = p.var();
                     auto it = c2t.find(j);
