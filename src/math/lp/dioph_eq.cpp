@@ -292,14 +292,14 @@ namespace lp {
                 TRACE("dioph_eq", m_s.lra.print_term(*m_t, tout); tout << ", m_t->j() =" << m_t->j() << std::endl;);
                 if (!contains(m_s.m_active_terms, m_t)) {
                     for (int i = m_s.m_added_terms.size() - 1; i >= 0; --i) {
-                        if (m_s.m_added_terms[i] == m_t) // the address is the same
-                            if (i != m_s.m_added_terms.size() -1) m_s.m_added_terms[i] = m_s.m_added_terms.back();
-                            m_s.m_added_terms.pop_back();
-                            break;
+                        if (m_s.m_added_terms[i] != m_t) continue;
+                        // the address is the same
+                        if (i != m_s.m_added_terms.size() -1) m_s.m_added_terms[i] = m_s.m_added_terms.back();
+                        m_s.m_added_terms.pop_back();
+                        return; // all is done since the term has not made it to entries, etc
                     }
-                    return;
                 }
-                NOT_IMPLEMENTED_YET();
+                // deregister the term that has been activated
                 for (const auto & p: m_t->ext_coeffs()) {                    
                     auto it = m_s.m_columns_to_terms.find(p.var());
                     SASSERT(it != m_s.m_columns_to_terms.end());
@@ -309,6 +309,15 @@ namespace lp {
                     }
                         
                 }
+                TRACE("dioph_eq", 
+                      tout << "the deleted term column in m_l_matrix" << std::endl;
+                      for  (auto p: m_s.m_l_matrix.column(m_t->j())) {
+                          tout << p.coeff()<< ", row " << p.var() << std::endl;
+                      }
+                      tout << "m_l_matrix has " << m_s.m_l_matrix.column_count() << std::endl;
+                      tout << "and" << m_s.m_l_matrix.row_count() << " rows" << std::endl;
+                    );
+                NOT_IMPLEMENTED_YET();
              }
         };
 
