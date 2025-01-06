@@ -446,6 +446,10 @@ namespace sls {
             }
             return nd / np;
         }
+        else {
+            verbose_stream() << "new score not implemented for " << mk_bounded_pp(a, m) << "\n";
+            NOT_IMPLEMENTED_YET();
+        }
 
         return 0;
     }
