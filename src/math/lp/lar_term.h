@@ -104,6 +104,7 @@ public:
         for (auto const& p : a) {
             add_monomial(p.coeff(), p.var());
         }
+        m_j = a.j();
     }
     
     lar_term(const vector<std::pair<mpq, unsigned>>& coeffs) {
